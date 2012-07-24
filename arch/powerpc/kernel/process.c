@@ -38,6 +38,7 @@
 #include <linux/uaccess.h>
 #include <linux/pkeys.h>
 #include <linux/seq_buf.h>
+#include <generated/package.h>
 
 #include <asm/interrupt.h>
 #include <asm/io.h>
@@ -1555,8 +1556,9 @@ static void __show_regs(struct pt_regs *regs)
 
 	printk("NIP:  "REG" LR: "REG" CTR: "REG"\n",
 	       regs->nip, regs->link, regs->ctr);
-	printk("REGS: %px TRAP: %04lx   %s  (%s)\n",
-	       regs, regs->trap, print_tainted(), init_utsname()->release);
+	printk("REGS: %px TRAP: %04lx   %s  (%s%s)\n",
+	       regs, regs->trap, print_tainted(), init_utsname()->release,
+	       LINUX_PACKAGE_ID);
 	printk("MSR:  "REG" ", regs->msr);
 	print_msr_bits(regs->msr);
 	pr_cont("  CR: %08lx  XER: %08lx\n", regs->ccr, regs->xer);
