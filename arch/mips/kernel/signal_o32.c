@@ -8,6 +8,7 @@
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  * Copyright (C) 2016, Imagination Technologies Ltd.
  */
+#include <linux/audit.h>
 #include <linux/compiler.h>
 #include <linux/errno.h>
 #include <linux/signal.h>
@@ -250,6 +251,13 @@ struct mips_abi mips_abi_32 = {
 	.off_sc_used_math = offsetof(struct sigcontext32, sc_used_math),
 
 	.vdso		= &vdso_image_o32,
+#ifdef __BIG_ENDIAN
+	.audit_arch	= AUDIT_ARCH_MIPS,
+#elif defined(__LITTLE_ENDIAN)
+	.audit_arch	= AUDIT_ARCH_MIPSEL,
+#else
+# error "Neither big nor little endian ???"
+#endif
 };
 
 

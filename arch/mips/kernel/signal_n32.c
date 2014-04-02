@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2003 Broadcom Corporation
  */
+#include <linux/audit.h>
 #include <linux/cache.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
@@ -145,4 +146,11 @@ struct mips_abi mips_abi_n32 = {
 	.off_sc_used_math = offsetof(struct sigcontext, sc_used_math),
 
 	.vdso		= &vdso_image_n32,
+#ifdef __BIG_ENDIAN
+	.audit_arch	= AUDIT_ARCH_MIPS64N32,
+#elif defined(__LITTLE_ENDIAN)
+	.audit_arch	= AUDIT_ARCH_MIPSEL64N32,
+#else
+# error "Neither big nor little endian ???"
+#endif
 };

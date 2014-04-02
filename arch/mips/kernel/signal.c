@@ -8,6 +8,7 @@
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  * Copyright (C) 2014, Imagination Technologies Ltd.
  */
+#include <linux/audit.h>
 #include <linux/cache.h>
 #include <linux/context_tracking.h>
 #include <linux/irqflags.h>
@@ -810,6 +811,23 @@ struct mips_abi mips_abi = {
 	.off_sc_used_math = offsetof(struct sigcontext, sc_used_math),
 
 	.vdso		= &vdso_image,
+#ifdef CONFIG_64BIT
+# ifdef __BIG_ENDIAN
+	.audit_arch	= AUDIT_ARCH_MIPS64,
+# elif defined(__LITTLE_ENDIAN)
+	.audit_arch	= AUDIT_ARCH_MIPSEL64,
+# else
+#  error "Neither big nor little endian ???"
+# endif
+#else
+# ifdef __BIG_ENDIAN
+	.audit_arch	= AUDIT_ARCH_MIPS,
+# elif defined(__LITTLE_ENDIAN)
+	.audit_arch	= AUDIT_ARCH_MIPSEL,
+# else
+#  error "Neither big nor little endian ???"
+# endif
+#endif
 };
 
 static void handle_signal(struct ksignal *ksig, struct pt_regs *regs)

@@ -31,6 +31,7 @@
 #include <linux/seccomp.h>
 #include <linux/ftrace.h>
 
+#include <asm/abi.h>
 #include <asm/branch.h>
 #include <asm/byteorder.h>
 #include <asm/cpu.h>
@@ -48,6 +49,12 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
+
+/*
+ * The standard AUDITSC_RESULT() assumes errno values < 0 indicate error
+ * but MIPS passes an error flag instead.
+ */
+#define MIPS_AUDITSC_RESULT(x)	((x) ? AUDITSC_FAILURE : AUDITSC_SUCCESS)
 
 unsigned long exception_ip(struct pt_regs *regs)
 {
