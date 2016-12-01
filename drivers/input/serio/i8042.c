@@ -131,7 +131,9 @@ MODULE_PARM_DESC(unmask_kbd_data, "Unconditional enable (may reveal sensitive da
 #endif
 
 static bool i8042_present;
-static bool i8042_bypass_aux_irq_test;
+static bool i8042_bypass_aux_irq_test = true;
+module_param_named(bypass_aux_test, i8042_bypass_aux_irq_test, bool, 0600);
+MODULE_PARM_DESC(debug, "Turn i8042 aux irq test off");
 static char i8042_kbd_firmware_id[128];
 static char i8042_aux_firmware_id[128];
 static struct fwnode_handle *i8042_kbd_fwnode;
