@@ -49,6 +49,7 @@ config LEMOTE3A_LAPTOP
 	select INPUT_SPARSEKMAP
 	select INPUT_EVDEV
 	depends on INPUT
+	select LEDS_CLASS
 	default y
 	help
 	  Lemote Loongson-3A/2Gq family laptops driver.
