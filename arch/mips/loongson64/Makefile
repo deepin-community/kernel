@@ -5,7 +5,7 @@
 obj-$(CONFIG_MACH_LOONGSON64) += cop2-ex.o dma.o \
 				setup.o init.o env.o time.o reset.o \
 				clock.o constant_timer.o ec_wpce775l.o \
-				platform.o \
+				platform.o loongson3-memset.o \
 
 obj-$(CONFIG_SMP)	+= smp.o
 obj-$(CONFIG_NUMA)	+= numa.o
