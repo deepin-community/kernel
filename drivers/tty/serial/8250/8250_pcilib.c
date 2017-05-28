@@ -18,6 +18,12 @@ int serial8250_pci_setup_port(struct pci_dev *dev, struct uart_8250_port *port,
 	if (bar >= PCI_STD_NUM_BARS)
 		return -EINVAL;
 
+	if ((dev->vendor == PCI_VENDOR_ID_PLX) &&
+	    (dev->device == PCI_DEVICE_ID_PLX_9050) &&
+	    (dev->subsystem_vendor == PCI_VENDOR_ID_PLX) &&
+	    (dev->subsystem_device == PCI_DEVICE_ID_PLX_9050))
+		offset += 0x80;
+
 	if (pci_resource_flags(dev, bar) & IORESOURCE_MEM) {
 		if (!pcim_iomap(dev, bar, 0) && !pcim_iomap_table(dev))
 			return -ENOMEM;
