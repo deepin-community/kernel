@@ -263,4 +263,9 @@ extern u64 loongson_freqctrl[MAX_PACKAGES];
 #define LOONGSON_PCIMAP_WIN(WIN, ADDR)	\
 	((((ADDR)>>26) & LOONGSON_PCIMAP_PCIMAP_LO0) << ((WIN)*6))
 
+#ifdef CONFIG_CPU_SUPPORTS_CPUFREQ
+#include <linux/cpufreq.h>
+extern struct cpufreq_frequency_table gs464_clockmod_table[];
+#endif
+
 #endif /* __ASM_MACH_LOONGSON64_LOONGSON_H */

@@ -271,6 +271,18 @@ config LOONGSON2_CPUFREQ
 	  Loongson2F and its successors support this feature.
 
 	  If in doubt, say N.
+
+config GS464_CPUFREQ
+        bool "GS464 (MIPS-based Loongson-3) CPUFreq Driver"
+        depends on CPU_LOONGSON64 && MIPS
+        help
+          This option adds a CPUFreq driver for GS464 (MIPS-based
+          Loongson-3) processors which support software configurable CPU
+          frequency.
+
+          For details, take a look at <file:Documentation/cpu-freq/>.
+
+          If in doubt, say N.
 endif
 
 if LOONGARCH

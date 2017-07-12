@@ -494,6 +494,7 @@ config MACH_LOONGSON64
 	select CSRC_R4K
 	select CEVT_R4K
 	select FORCE_PCI
+	select HAVE_CLK
 	select ISA
 	select I8259
 	select IRQ_MIPS_CPU
@@ -517,6 +518,8 @@ config MACH_LOONGSON64
 	select BUILTIN_DTB
 	select PCI_HOST_GENERIC
 	select HAVE_ARCH_NODEDATA_EXTENSION if NUMA
+	select CPU_SUPPORTS_CPUFREQ
+	select MIPS_EXTERNAL_TIMER
 	help
 	  This enables the support of Loongson-2/3 family of machines.
 
