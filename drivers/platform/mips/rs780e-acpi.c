@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/io.h>
 #include <linux/init.h>
+#include <linux/pci.h>
+#include <linux/input.h>
 #include <linux/ioport.h>
 #include <linux/export.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 
 static unsigned long acpi_iobase;
 
@@ -19,6 +22,9 @@ static unsigned long acpi_iobase;
 #define PM_DATA         0xCD7
 #define PM2_INDEX       0xCD0
 #define PM2_DATA        0xCD1
+
+static int acpi_irq;
+static struct input_dev *button;
 
 static void pmio_write_index(u16 index, u8 reg, u8 value)
 {
@@ -68,6 +74,68 @@ static void acpi_hw_clear_status(void)
 	/* GPEStatus: Clear all generated events */
 	outl(inl(ACPI_GPE0_BLK), ACPI_GPE0_BLK);
 }
+
+static irqreturn_t acpi_int_routine(int irq, void *dev_id)
+{
+	u16 value;
+
+	/* PMStatus: Check PwrBtnStatus */
+	value = inw(ACPI_PM_EVT_BLK);
+	if (value & (1 << 8)) {
+		outw(1 << 8, ACPI_PM_EVT_BLK);
+		pr_info("Power Button pressed...\n");
+		input_report_key(button, KEY_POWER, 1);
+		input_sync(button);
+		input_report_key(button, KEY_POWER, 0);
+		input_sync(button);
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
+}
+
+static int __init power_button_init(void)
+{
+	int ret;
+	struct pci_dev *dev;
+
+	dev = pci_get_bus_and_slot(0, 0);
+	switch (dev->vendor) {
+	case PCI_VENDOR_ID_AMD:
+	case PCI_VENDOR_ID_ATI:
+		acpi_irq = 7;
+		break;
+	default:
+		return -ENODEV;
+	}
+
+	button = input_allocate_device();
+	if (!button)
+		return -ENOMEM;
+
+	button->name = "ACPI Power Button";
+	button->phys = "acpi/button/input0";
+	button->id.bustype = BUS_HOST;
+	button->dev.parent = NULL;
+	input_set_capability(button, EV_KEY, KEY_POWER);
+
+	ret = request_irq(acpi_irq, acpi_int_routine, IRQF_SHARED, "acpi", acpi_int_routine);
+	if (ret) {
+		pr_err("ACPI Power Button Driver: Request irq %d failed!\n", acpi_irq);
+		return -EFAULT;
+	}
+
+	ret = input_register_device(button);
+	if (ret) {
+		input_free_device(button);
+		return ret;
+	}
+
+	pr_info("ACPI Power Button Driver: Init successful!\n");
+
+	return 0;
+}
+device_initcall(power_button_init);
 
 static void acpi_registers_setup(void)
 {
@@ -130,6 +198,11 @@ static void acpi_registers_setup(void)
 	value = pm2_ioread(0xf8);
 	value |= ((1 << 5) | (1 << 1));
 	pm2_iowrite(0xf8, value);
+
+	/* PMEnable: Enable PwrBtn */
+	value = inw(ACPI_PM_EVT_BLK + 2);
+	value |= 1 << 8;
+	outw(value, ACPI_PM_EVT_BLK + 2);
 }
 
 static int rs780e_acpi_probe(struct platform_device *pdev)
