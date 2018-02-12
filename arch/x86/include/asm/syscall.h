@@ -13,6 +13,7 @@
 #include <uapi/linux/audit.h>
 #include <linux/sched.h>
 #include <linux/err.h>
+#include <linux/jump_label.h>
 #include <asm/thread_info.h>	/* for TS_COMPAT */
 #include <asm/unistd.h>
 
@@ -27,6 +28,18 @@ extern const sys_call_ptr_t sys_call_table[];
 extern long ia32_sys_call(const struct pt_regs *, unsigned int nr);
 extern long x32_sys_call(const struct pt_regs *, unsigned int nr);
 extern long x64_sys_call(const struct pt_regs *, unsigned int nr);
+
+#if defined(CONFIG_X86_X32_ABI)
+#if defined(CONFIG_X86_X32_DISABLED)
+DECLARE_STATIC_KEY_FALSE(x32_enabled_skey);
+#define x32_enabled static_branch_unlikely(&x32_enabled_skey)
+#else
+DECLARE_STATIC_KEY_TRUE(x32_enabled_skey);
+#define x32_enabled static_branch_likely(&x32_enabled_skey)
+#endif
+#else
+#define x32_enabled 0
+#endif
 
 /*
  * Only the low 32 bits of orig_ax are meaningful, so we return int.

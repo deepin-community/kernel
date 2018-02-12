@@ -11,6 +11,9 @@
 #include <asm/user.h>
 #include <asm/auxvec.h>
 #include <asm/fsgsbase.h>
+#ifndef COMPILE_OFFSETS /* avoid a circular dependency on asm-offsets.h */
+#include <asm/syscall.h>
+#endif
 
 typedef unsigned long elf_greg_t;
 
@@ -150,7 +153,8 @@ do {						\
 
 #define compat_elf_check_arch(x)					\
 	(elf_check_arch_ia32(x) ||					\
-	 (IS_ENABLED(CONFIG_X86_X32_ABI) && (x)->e_machine == EM_X86_64))
+		 (IS_ENABLED(CONFIG_X86_X32_ABI) && x32_enabled &&		\
+		  (x)->e_machine == EM_X86_64))
 
 static inline void elf_common_init(struct thread_struct *t,
 				   struct pt_regs *regs, const u16 ds)

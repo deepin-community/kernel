@@ -6379,6 +6379,10 @@
 			later by a loaded module cannot be set this way.
 			Example: sysctl.vm.swappiness=40
 
+	syscall.x32=	[KNL,x86_64] Enable/disable use of x32 syscalls on
+			an x86_64 kernel where CONFIG_X86_X32 is enabled.
+			Default depends on CONFIG_X86_X32_DISABLED.
+
 	sysrq_always_enabled
 			[KNL]
 			Ignore sysrq setting - this boot parameter will

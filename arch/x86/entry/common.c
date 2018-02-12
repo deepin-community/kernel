@@ -63,7 +63,7 @@ static __always_inline bool do_syscall_x32(struct pt_regs *regs, int nr)
 	 */
 	unsigned int xnr = nr - __X32_SYSCALL_BIT;
 
-	if (IS_ENABLED(CONFIG_X86_X32_ABI) && likely(xnr < X32_NR_syscalls)) {
+	if (IS_ENABLED(CONFIG_X86_X32_ABI) && unlikely(x32_enabled) && likely(xnr < X32_NR_syscalls)) {
 		xnr = array_index_nospec(xnr, X32_NR_syscalls);
 		regs->ax = x32_sys_call(regs, xnr);
 		return true;

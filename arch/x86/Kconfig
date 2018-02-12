@@ -3013,6 +3013,14 @@ config COMPAT_32
 	select HAVE_UID16
 	select OLD_SIGSUSPEND3
 
+config X86_X32_DISABLED
+	bool "x32 ABI disabled by default"
+	depends on X86_X32_ABI
+	default n
+	help
+	  Disable the x32 ABI unless explicitly enabled using the
+	  kernel paramter "syscall.x32=y".
+
 config COMPAT
 	def_bool y
 	depends on IA32_EMULATION || X86_X32_ABI
