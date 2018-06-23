@@ -1961,6 +1961,7 @@ pci_moxa_setup(struct serial_private *priv,
 #define PCIE_VENDOR_ID_WCH		0x1c00
 #define PCIE_DEVICE_ID_WCH_CH382_2S1P	0x3250
 #define PCIE_DEVICE_ID_WCH_CH384_4S	0x3470
+#define PCIE_DEVICE_ID_WCH_CH384_4S1P	0x3450
 #define PCIE_DEVICE_ID_WCH_CH384_8S	0x3853
 #define PCIE_DEVICE_ID_WCH_CH382_2S	0x3253
 
@@ -2753,6 +2754,14 @@ static struct pci_serial_quirk pci_serial_quirks[] = {
 		.subdevice      = PCI_ANY_ID,
 		.init           = pci_wch_ch38x_init,
 		.exit		= pci_wch_ch38x_exit,
+		.setup		= pci_wch_ch38x_setup,
+	},
+	/* WCH CH384 4S1P card (16850 clone) */
+	{
+		.vendor         = PCIE_VENDOR_ID_WCH,
+		.device         = PCIE_DEVICE_ID_WCH_CH384_4S1P,
+		.subvendor      = PCI_ANY_ID,
+		.subdevice      = PCI_ANY_ID,
 		.setup          = pci_wch_ch38x_setup,
 	},
 	/*
@@ -3829,6 +3838,7 @@ static const struct pci_device_id blacklist[] = {
 	{ PCI_DEVICE(0x4348, 0x5053), 0, 0, REPORT_CONFIG(PARPORT_SERIAL), },
 	/* WCH CH382 2S1P */
 	{ PCI_DEVICE(0x1c00, 0x3250), 0, 0, REPORT_CONFIG(PARPORT_SERIAL), },
+	{ PCI_DEVICE(0x1c00, 0x3450), }, /* WCH CH384 4S1P */
 
 	/* Intel platforms with MID UART */
 	{ PCI_VDEVICE(INTEL, 0x081b), REPORT_8250_CONFIG(MID), },
