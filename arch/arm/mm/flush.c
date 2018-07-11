@@ -310,6 +310,7 @@ void __sync_icache_dcache(pte_t pteval)
 	if (pte_exec(pteval))
 		__flush_icache_all();
 }
+EXPORT_SYMBOL_GPL(__sync_icache_dcache);
 #endif
 
 /*
