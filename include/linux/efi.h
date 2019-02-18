@@ -848,6 +848,14 @@ extern int __init parse_efi_signature_list(
 #define EFI_MEM_ATTR		9	/* Did firmware publish an EFI_MEMORY_ATTRIBUTES table? */
 #define EFI_MEM_NO_SOFT_RESERVE	10	/* Is the kernel configured to ignore soft reservations? */
 #define EFI_PRESERVE_BS_REGIONS	11	/* Are EFI boot-services memory segments available? */
+#define EFI_SECURE_BOOT		13	/* Are we in Secure Boot mode? */
+
+enum efi_secureboot_mode {
+	efi_secureboot_mode_unset,
+	efi_secureboot_mode_unknown,
+	efi_secureboot_mode_disabled,
+	efi_secureboot_mode_enabled,
+};
 
 #ifdef CONFIG_EFI
 /*
@@ -872,6 +880,7 @@ static inline bool efi_rt_services_supported(unsigned int mask)
 	return (efi.runtime_supported_mask & mask) == mask;
 }
 extern void efi_find_mirror(void);
+extern void __init efi_set_secure_boot(enum efi_secureboot_mode mode);
 #else
 static inline bool efi_enabled(int feature)
 {
@@ -891,6 +900,7 @@ static inline bool efi_rt_services_supported(unsigned int mask)
 }
 
 static inline void efi_find_mirror(void) {}
+static inline void efi_set_secure_boot(enum efi_secureboot_mode mode) {}
 #endif
 
 extern int efi_status_to_err(efi_status_t status);
@@ -1110,13 +1120,6 @@ extern void efi_call_virt_check_flags(unsigned long flags, const void *caller);
 extern unsigned long efi_call_virt_save_flags(void);
 
 void efi_runtime_assert_lock_held(void);
-
-enum efi_secureboot_mode {
-	efi_secureboot_mode_unset,
-	efi_secureboot_mode_unknown,
-	efi_secureboot_mode_disabled,
-	efi_secureboot_mode_enabled,
-};
 
 static inline
 enum efi_secureboot_mode efi_get_secureboot_mode(efi_get_variable_t *get_var)
