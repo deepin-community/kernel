@@ -364,7 +364,11 @@ static int phram_param_call(const char *val, const struct kernel_param *kp)
 #endif
 }
 
-module_param_call(phram, phram_param_call, NULL, NULL, 0200);
+static const struct kernel_param_ops phram_param_ops = {
+	.set = phram_param_call
+};
+__module_param_call(MODULE_PARAM_PREFIX, phram, &phram_param_ops, NULL,
+		    0200, -1, KERNEL_PARAM_FL_HWPARAM | hwparam_iomem);
 MODULE_PARM_DESC(phram, "Memory region to map. \"phram=<name>,<start>,<length>[,<erasesize>]\"");
 
 #ifdef CONFIG_OF
