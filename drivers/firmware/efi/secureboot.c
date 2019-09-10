@@ -15,6 +15,7 @@
 #include <linux/efi.h>
 #include <linux/kernel.h>
 #include <linux/printk.h>
+#include <linux/security.h>
 
 /*
  * Decide what to do when UEFI secure boot mode is enabled.
@@ -28,6 +29,10 @@ void __init efi_set_secure_boot(enum efi_secureboot_mode mode)
 			break;
 		case efi_secureboot_mode_enabled:
 			set_bit(EFI_SECURE_BOOT, &efi.flags);
+#ifdef CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT
+			lock_kernel_down("EFI Secure Boot",
+					 LOCKDOWN_INTEGRITY_MAX);
+#endif
 			pr_info("Secure boot enabled\n");
 			break;
 		default:
