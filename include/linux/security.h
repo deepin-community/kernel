@@ -522,6 +522,7 @@ int security_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen);
 int security_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen);
 int security_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen);
 int security_locked_down(enum lockdown_reason what);
+int lock_kernel_down(const char *where, enum lockdown_reason level);
 int lsm_fill_user_ctx(struct lsm_ctx __user *uctx, u32 *uctx_len,
 		      void *val, size_t val_len, u64 id, u64 flags);
 int security_bdev_alloc(struct block_device *bdev);
@@ -1503,6 +1504,11 @@ static inline int security_inode_getsecctx(struct inode *inode, void **ctx, u32 
 static inline int security_locked_down(enum lockdown_reason what)
 {
 	return 0;
+}
+static inline int
+lock_kernel_down(const char *where, enum lockdown_reason level)
+{
+	return -EOPNOTSUPP;
 }
 static inline int lsm_fill_user_ctx(struct lsm_ctx __user *uctx,
 				    u32 *uctx_len, void *val, size_t val_len,
