@@ -456,7 +456,9 @@ static void loongson3_smp_finish(void)
 {
 	int cpu = smp_processor_id();
 
-	write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
+	if (!cpu_has_constant_timer)
+		write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
+
 	local_irq_enable();
 	ipi_clear_buf(cpu);
 

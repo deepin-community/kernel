@@ -183,6 +183,22 @@ static __always_inline u64 read_gic_count(const struct vdso_data *data)
 
 #endif
 
+#ifdef CONFIG_CPU_LOONGSON64
+static __always_inline u64 read_const_count(void)
+{
+	unsigned long count;
+
+	__asm__ __volatile__(
+	"	.set push\n"
+	"	.set mips32r2\n"
+	"	rdhwr	%0, $30\n"
+	"	.set pop\n"
+	: "=r" (count));
+
+	return count;
+}
+#endif
+
 static __always_inline u64 __arch_get_hw_counter(s32 clock_mode,
 						 const struct vdso_data *vd)
 {
@@ -193,6 +209,10 @@ static __always_inline u64 __arch_get_hw_counter(s32 clock_mode,
 #ifdef CONFIG_CLKSRC_MIPS_GIC
 	if (clock_mode == VDSO_CLOCKMODE_GIC)
 		return read_gic_count(vd);
+#endif
+#ifdef CONFIG_CPU_LOONGSON64
+	if (clock_mode == VDSO_CLOCKMODE_CONST)
+		return read_const_count();
 #endif
 	/*
 	 * Core checks mode already. So this raced against a concurrent

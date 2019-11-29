@@ -693,6 +693,7 @@
 #define MTI_CONF6_SYND		(_ULCAST_(1) << 13)
 /* Sleep state performance counter disable */
 #define MTI_CONF6_SPCD		(_ULCAST_(1) << 14)
+
 /* proAptiv FTLB on/off bit */
 #define MTI_CONF6_FTLBEN	(_ULCAST_(1) << 15)
 /* Disable load/store bonding */

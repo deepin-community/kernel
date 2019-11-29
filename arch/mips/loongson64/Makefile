@@ -4,6 +4,7 @@
 #
 obj-$(CONFIG_MACH_LOONGSON64) += cop2-ex.o dma.o \
 				setup.o init.o env.o time.o reset.o \
+				constant_timer.o \
 
 obj-$(CONFIG_SMP)	+= smp.o
 obj-$(CONFIG_NUMA)	+= numa.o
