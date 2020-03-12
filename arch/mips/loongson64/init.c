@@ -22,6 +22,16 @@
 
 u32 node_id_offset;
 
+static void __init mips_ebase_setup(void)
+{
+	ebase = CKSEG0;
+
+	if (cpu_has_ebase_wg)
+		write_c0_ebase(ebase | MIPS_EBASE_WG);
+
+	write_c0_ebase(ebase);
+}
+
 static void __init mips_nmi_setup(void)
 {
 	void *base;
@@ -143,6 +153,7 @@ void __init prom_init(void)
 		setup_8250_early_printk_port(TO_UNCAC(LOONGSON_REG_BASE + 0x1e0), 0, 1024);
 
 	register_smp_ops(&loongson3_smp_ops);
+	board_ebase_setup = mips_ebase_setup;
 	board_nmi_handler_setup = mips_nmi_setup;
 }
 
