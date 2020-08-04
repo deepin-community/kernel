@@ -35,7 +35,7 @@ htmldir  = $(docdir)/html
 exdir    = $(docdir)/examples
 
 ASCIIDOC        = asciidoc
-ASCIIDOC_EXTRA  = --unsafe -f asciidoc.conf
+ASCIIDOC_EXTRA  =
 ASCIIDOC_HTML   = xhtml11
 MANPAGE_XSL     = manpage-normal.xsl
 XMLTO_EXTRA     =
