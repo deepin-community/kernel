@@ -16,6 +16,14 @@ menuconfig LOONGARCH_PLATFORM_DEVICES
 
 if LOONGARCH_PLATFORM_DEVICES
 
+config CPU_HWMON
+	bool "Loongson CPU HWMon Driver"
+	depends on MACH_LOONGSON64
+	select HWMON
+	default y
+	help
+	  Loongson-3A/3B/3C CPU HWMon (temperature sensor) driver.
+
 config LOONGSON_LAPTOP
 	tristate "Generic Loongson-3 Laptop Driver"
 	depends on ACPI
