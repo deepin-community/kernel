@@ -284,6 +284,12 @@ static int sev_asid_new(struct kvm_sev_info *sev, unsigned long vm_type)
 		min_asid = min_sev_asid;
 		max_asid = max_sev_asid;
 	}
+	/*
+	 * No matter what the min_sev_asid is, all asids in range
+	 * [1, max_sev_asid] can be used for CSV2 guest on Hygon CPUs.
+	 */
+	if (is_x86_vendor_hygon())
+		max_asid = max_sev_asid;
 
 	/*
 	 * The min ASID can end up larger than the max if basic SEV support is
@@ -3186,14 +3192,23 @@ void __init sev_hardware_setup(void)
 		goto out;
 	}
 
-	/* Has the system been allocated ASIDs for SEV-ES? */
-	if (min_sev_asid == 1)
-		goto out;
-
 	min_sev_es_asid = min_snp_asid = 1;
 	max_sev_es_asid = max_snp_asid = min_sev_asid - 1;
 
-	sev_es_asid_count = min_sev_asid - 1;
+
+	if (is_x86_vendor_hygon()) {
+		/*
+		 * Ths ASIDs from 1 to max_sev_asid are available for hygon
+		 * CSV2 guest.
+		 */
+		sev_es_asid_count = max_sev_asid;
+	} else {
+		/* Has the system been allocated ASIDs for SEV-ES? */
+		if (min_sev_asid == 1)
+			goto out;
+
+		sev_es_asid_count = min_sev_asid - 1;
+	}
 	WARN_ON_ONCE(misc_cg_set_capacity(MISC_CG_RES_SEV_ES, sev_es_asid_count));
 	sev_es_supported = true;
 	sev_snp_supported = sev_snp_enabled && cc_platform_has(CC_ATTR_HOST_SEV_SNP);
@@ -3243,16 +3258,16 @@ out:
 	kvm_caps.supported_vm_types |= vm_types;
 
 	if (boot_cpu_has(X86_FEATURE_SEV))
-pr_info("%s %s (ASIDs %u - %u)\n",
-	is_x86_vendor_hygon() ? "CSV" : "SEV",
-	sev_str_feature_state(sev_supported, vm_types & BIT(KVM_X86_SEV_VM)),
-	min_sev_asid, max_sev_asid);
-if (boot_cpu_has(X86_FEATURE_SEV_ES))
-pr_info("%s %s (ASIDs %u - %u)\n",
-	is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
-	sev_str_feature_state(sev_es_supported, vm_types & BIT(KVM_X86_SEV_ES_VM)),
-
-			min_sev_es_asid, max_sev_es_asid);
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV",
+			sev_str_feature_state(sev_supported, vm_types & BIT(KVM_X86_SEV_VM)),
+			min_sev_asid, max_sev_asid);
+	if (boot_cpu_has(X86_FEATURE_SEV_ES))
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
+			sev_str_feature_state(sev_es_supported, vm_types & BIT(KVM_X86_SEV_ES_VM)),
+			is_x86_vendor_hygon() ? 1 : min_sev_es_asid,
+			is_x86_vendor_hygon() ? max_sev_asid : max_sev_es_asid);
 	if (boot_cpu_has(X86_FEATURE_SEV_SNP))
 		pr_info("SEV-SNP %s (ASIDs %u - %u)\n",
 			sev_str_feature_state(sev_snp_supported, vm_types & BIT(KVM_X86_SNP_VM)),
