@@ -159,6 +159,13 @@ static int sev_asid_new(struct kvm_sev_info *sev)
 	bool retry = true;
 	int ret;
 
+	/*
+	 * No matter what the min_sev_asid is, all asids in range
+	 * [1, max_sev_asid] can be used for CSV2 guest on Hygon CPUs.
+	 */
+	if (is_x86_vendor_hygon())
+		max_asid = max_sev_asid;
+
 	if (min_asid > max_asid)
 		return -ENOTTY;
 
@@ -2308,11 +2315,19 @@ void __init sev_hardware_setup(void)
 		goto out;
 	}
 
-	/* Has the system been allocated ASIDs for SEV-ES? */
-	if (min_sev_asid == 1)
-		goto out;
+	if (is_x86_vendor_hygon()) {
+		/*
+		 * Ths ASIDs from 1 to max_sev_asid are available for hygon
+		 * CSV2 guest.
+		 */
+		sev_es_asid_count = max_sev_asid;
+	} else {
+		/* Has the system been allocated ASIDs for SEV-ES? */
+		if (min_sev_asid == 1)
+			goto out;
 
-	sev_es_asid_count = min_sev_asid - 1;
+		sev_es_asid_count = min_sev_asid - 1;
+	}
 	WARN_ON_ONCE(misc_cg_set_capacity(MISC_CG_RES_SEV_ES, sev_es_asid_count));
 	sev_es_supported = true;
 
@@ -2328,7 +2343,8 @@ out:
 		pr_info("%s %s (ASIDs %u - %u)\n",
 			is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
 			sev_es_supported ? "enabled" : "disabled",
-			min_sev_asid > 1 ? 1 : 0, min_sev_asid - 1);
+			is_x86_vendor_hygon() ? 1 : (min_sev_asid > 1 ? 1 : 0),
+			is_x86_vendor_hygon() ? max_sev_asid : min_sev_asid - 1);
 
 	sev_enabled = sev_supported;
 	sev_es_enabled = sev_es_supported;
