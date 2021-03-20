@@ -179,6 +179,11 @@ enum hns3_nic_state {
 #define HNS3_TXD_DECTTL_S			12
 #define HNS3_TXD_DECTTL_M			(0xf << HNS3_TXD_DECTTL_S)
 
+#define HNS3_TXD_FD_ADD_B			1
+#define HNS3_TXD_FD_DEL_B			0
+#define HNS3_TXD_FD_OP_M			GENMASK(21, 20)
+#define HNS3_TXD_FD_OP_S			20
+
 #define HNS3_TXD_OL4CS_B			22
 
 #define HNS3_TXD_MSS_S				0
@@ -213,6 +218,8 @@ enum hns3_nic_state {
 #define HNS3_GL2_CQ_MODE_REG			0x20d08
 #define HNS3_CQ_MODE_EQE			1U
 #define HNS3_CQ_MODE_CQE			0U
+
+#define HNS3_FD_QB_FORCE_CNT_MAX		20
 
 #define HNS3_RESCHED_BD_NUM			1024
 
@@ -287,7 +294,7 @@ struct __packed hns3_desc {
 			};
 		};
 
-			__le32 paylen_ol4cs;
+			__le32 paylen_fdop_ol4cs;
 			__le16 bdtp_fe_sc_vld_ra_ri;
 			__le16 mss_hw_csum;
 		} tx;
@@ -399,6 +406,9 @@ enum hns3_pkt_ol4type {
 	HNS3_OL4_TYPE_NVGRE,
 	HNS3_OL4_TYPE_UNKNOWN
 };
+
+#define IP_VERSION_IPV4		0x4
+#define IP_VERSION_IPV6		0x6
 
 struct hns3_rx_ptype {
 	u32 ptype : 8;

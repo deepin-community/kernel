@@ -481,8 +481,19 @@ static void hns3_update_limit_promisc_mode(struct net_device *netdev,
 	hns3_request_update_promisc_mode(handle);
 }
 
+static void hns3_update_fd_qb_state(struct net_device *netdev, bool enable)
+{
+	struct hnae3_handle *handle = hns3_get_handle(netdev);
+
+	if (!handle->ae_algo->ops->request_flush_qb_config)
+		return;
+
+	handle->ae_algo->ops->request_flush_qb_config(handle);
+}
+
 static const struct hns3_pflag_desc hns3_priv_flags[HNAE3_PFLAG_MAX] = {
-	{ "limit_promisc",	hns3_update_limit_promisc_mode }
+	{ "limit_promisc",	hns3_update_limit_promisc_mode },
+	{ "qb_enable",		hns3_update_fd_qb_state },
 };
 
 static int hns3_get_sset_count(struct net_device *netdev, int stringset)

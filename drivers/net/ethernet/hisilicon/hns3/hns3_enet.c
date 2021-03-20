@@ -1542,6 +1542,73 @@ static int hns3_handle_vtags(struct hns3_enet_ring *tx_ring,
 	return 0;
 }
 
+static bool hns3_query_fd_qb_state(struct hnae3_handle *handle)
+{
+	const struct hnae3_ae_ops *ops = handle->ae_algo->ops;
+
+	if (!test_bit(HNAE3_PFLAG_FD_QB_ENABLE, &handle->priv_flags))
+		return false;
+
+	if (!ops->query_fd_qb_state)
+		return false;
+
+	return ops->query_fd_qb_state(handle);
+}
+
+/* fd_op is the field of tx bd indicates hw whether to add or delete
+ * a qb rule or do nothing.
+ */
+static u8 hns3_fd_qb_handle(struct hns3_enet_ring *ring, struct sk_buff *skb)
+{
+	struct hnae3_handle *handle = ring->tqp->handle;
+	union l4_hdr_info l4;
+	union l3_hdr_info l3;
+	u8 l4_proto_tmp = 0;
+	__be16 frag_off;
+	u8 ip_version;
+	u8 fd_op = 0;
+
+	if (!hns3_query_fd_qb_state(handle))
+		return 0;
+
+	if (skb->encapsulation) {
+		ip_version = inner_ip_hdr(skb)->version;
+		l3.hdr = skb_inner_network_header(skb);
+		l4.hdr = skb_inner_transport_header(skb);
+	} else {
+		ip_version = ip_hdr(skb)->version;
+		l3.hdr = skb_network_header(skb);
+		l4.hdr = skb_transport_header(skb);
+	}
+
+	if (ip_version == IP_VERSION_IPV6) {
+		unsigned char *exthdr;
+
+		exthdr = l3.hdr + sizeof(*l3.v6);
+		l4_proto_tmp = l3.v6->nexthdr;
+		if (l4.hdr != exthdr)
+			ipv6_skip_exthdr(skb, exthdr - skb->data,
+					 &l4_proto_tmp, &frag_off);
+	} else if (ip_version == IP_VERSION_IPV4) {
+		l4_proto_tmp = l3.v4->protocol;
+	}
+
+	if (l4_proto_tmp != IPPROTO_TCP)
+		return 0;
+
+	ring->fd_qb_tx_sample++;
+	if (l4.tcp->fin || l4.tcp->rst) {
+		hnae3_set_bit(fd_op, HNS3_TXD_FD_DEL_B, 1);
+		ring->fd_qb_tx_sample = 0;
+	} else if (l4.tcp->syn ||
+		   ring->fd_qb_tx_sample >= HNS3_FD_QB_FORCE_CNT_MAX) {
+		hnae3_set_bit(fd_op, HNS3_TXD_FD_ADD_B, 1);
+		ring->fd_qb_tx_sample = 0;
+	}
+
+	return fd_op;
+}
+
 /* check if the hardware is capable of checksum offloading */
 static bool hns3_check_hw_tx_csum(struct sk_buff *skb)
 {
@@ -1559,7 +1626,7 @@ static bool hns3_check_hw_tx_csum(struct sk_buff *skb)
 }
 
 struct hns3_desc_param {
-	u32 paylen_ol4cs;
+	u32 paylen_fdop_ol4cs;
 	u32 ol_type_vlan_len_msec;
 	u32 type_cs_vlan_tso;
 	u16 mss_hw_csum;
@@ -1569,7 +1636,7 @@ struct hns3_desc_param {
 
 static void hns3_init_desc_data(struct sk_buff *skb, struct hns3_desc_param *pa)
 {
-	pa->paylen_ol4cs = skb->len;
+	pa->paylen_fdop_ol4cs = skb->len;
 	pa->ol_type_vlan_len_msec = 0;
 	pa->type_cs_vlan_tso = 0;
 	pa->mss_hw_csum = 0;
@@ -1637,7 +1704,7 @@ static int hns3_handle_csum_partial(struct hns3_enet_ring *ring,
 		return ret;
 	}
 
-	ret = hns3_set_tso(skb, &param->paylen_ol4cs, &param->mss_hw_csum,
+	ret = hns3_set_tso(skb, &param->paylen_fdop_ol4cs, &param->mss_hw_csum,
 			   &param->type_cs_vlan_tso, &desc_cb->send_bytes);
 	if (unlikely(ret < 0)) {
 		hns3_ring_stats_update(ring, tx_tso_err);
@@ -1651,6 +1718,7 @@ static int hns3_fill_skb_desc(struct hns3_enet_ring *ring,
 			      struct hns3_desc_cb *desc_cb)
 {
 	struct hns3_desc_param param;
+	u8 fd_op;
 	int ret;
 
 	hns3_init_desc_data(skb, &param);
@@ -1666,11 +1734,15 @@ static int hns3_fill_skb_desc(struct hns3_enet_ring *ring,
 			return ret;
 	}
 
+	fd_op = hns3_fd_qb_handle(ring, skb);
+	hnae3_set_field(param.paylen_fdop_ol4cs, HNS3_TXD_FD_OP_M,
+			HNS3_TXD_FD_OP_S, fd_op);
+
 	/* Set txbd */
 	desc->tx.ol_type_vlan_len_msec =
 		cpu_to_le32(param.ol_type_vlan_len_msec);
 	desc->tx.type_cs_vlan_tso_len = cpu_to_le32(param.type_cs_vlan_tso);
-	desc->tx.paylen_ol4cs = cpu_to_le32(param.paylen_ol4cs);
+	desc->tx.paylen_fdop_ol4cs = cpu_to_le32(param.paylen_fdop_ol4cs);
 	desc->tx.mss_hw_csum = cpu_to_le16(param.mss_hw_csum);
 	desc->tx.vlan_tag = cpu_to_le16(param.inner_vtag);
 	desc->tx.outer_vlan_tag = cpu_to_le16(param.out_vtag);
@@ -5394,6 +5466,9 @@ static int hns3_client_init(struct hnae3_handle *handle)
 	netdev->max_mtu = HNS3_MAX_MTU(ae_dev->dev_specs.max_frm_size);
 
 	hns3_state_init(handle);
+
+	if (test_bit(HNAE3_DEV_SUPPORT_QB_B, ae_dev->caps))
+		set_bit(HNAE3_PFLAG_FD_QB_ENABLE, &handle->supported_pflags);
 
 	ret = register_netdev(netdev);
 	if (ret) {
