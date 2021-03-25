@@ -25,6 +25,8 @@
 #include "ccp-dev.h"
 #include "psp-dev.h"
 
+#include "hygon/sp-dev.h"
+
 /* used for version string AA.BB.CC.DD */
 #define AA				GENMASK(31, 24)
 #define BB				GENMASK(23, 16)
@@ -576,6 +578,8 @@ static const struct pci_device_id sp_pci_table[] = {
 	{ PCI_VDEVICE(AMD, 0x1649), (kernel_ulong_t)&dev_vdata[6] },
 	{ PCI_VDEVICE(AMD, 0x17E0), (kernel_ulong_t)&dev_vdata[7] },
 	{ PCI_VDEVICE(AMD, 0x156E), (kernel_ulong_t)&dev_vdata[8] },
+	{ PCI_VDEVICE(HYGON, 0x1456), (kernel_ulong_t)&hygon_dev_vdata[0] },
+	{ PCI_VDEVICE(HYGON, 0x1468), (kernel_ulong_t)&hygon_dev_vdata[1] },
 	/* Last entry must be zero */
 	{ 0, }
 };
