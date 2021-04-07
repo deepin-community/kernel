@@ -12410,8 +12410,16 @@ static int __set_sregs_common(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs,
 	if (kvm_apic_set_base(vcpu, sregs->apic_base, true))
 		return -EINVAL;
 
-	if (vcpu->arch.guest_state_protected)
+	if (vcpu->arch.guest_state_protected) {
+		/*
+		 * For HYGON CSV2 guest, we need update some regs to support
+		 * live migration.
+		 */
+		if (is_x86_vendor_hygon())
+			goto skip_dt_cr2_cr3;
+
 		return 0;
+	}
 
 	dt.size = sregs->idt.limit;
 	dt.address = sregs->idt.base;
@@ -12435,6 +12443,9 @@ static int __set_sregs_common(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs,
 	*mmu_reset_needed |= kvm_read_cr4(vcpu) != sregs->cr4;
 	kvm_x86_call(set_cr4)(vcpu, sregs->cr4);
 
+	if (vcpu->arch.guest_state_protected)
+		return 0;
+
 	if (update_pdptrs) {
 		idx = srcu_read_lock(&vcpu->kvm->srcu);
 		if (is_pae_paging(vcpu)) {
@@ -12454,6 +12465,7 @@ static int __set_sregs_common(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs,
 	kvm_set_segment(vcpu, &sregs->tr, VCPU_SREG_TR);
 	kvm_set_segment(vcpu, &sregs->ldt, VCPU_SREG_LDTR);
 
+skip_dt_cr2_cr3:
 	kvm_set_cr8(vcpu, sregs->cr8);
 
 	/* Older userspace won't unhalt the vcpu on reset. */
