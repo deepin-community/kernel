@@ -2291,4 +2291,12 @@ struct kvm_csv_send_update_vmsa {
 	__u32 trans_len;
 };
 
+struct kvm_csv_receive_update_vmsa {
+	__u32 vcpu_id;
+	__u64 hdr_uaddr;
+	__u32 hdr_len;
+	__u64 trans_uaddr;
+	__u32 trans_len;
+};
+
 #endif /* __LINUX_KVM_H */
