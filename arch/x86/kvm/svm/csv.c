@@ -718,6 +718,83 @@ e_free_hdr:
 	return ret;
 }
 
+static int csv_receive_update_vmsa(struct kvm *kvm, struct kvm_sev_cmd *argp)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct kvm_csv_receive_update_vmsa params;
+	struct sev_data_receive_update_vmsa *vmsa;
+	struct kvm_vcpu *vcpu;
+	void *hdr = NULL, *trans = NULL;
+	int ret;
+
+	if (!sev_es_guest(kvm))
+		return -ENOTTY;
+
+	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
+			   sizeof(struct kvm_csv_receive_update_vmsa)))
+		return -EFAULT;
+
+	if (!params.hdr_uaddr || !params.hdr_len ||
+	    !params.trans_uaddr || !params.trans_len)
+		return -EINVAL;
+
+	/* Get the target vcpu */
+	vcpu = kvm_get_vcpu_by_id(kvm, params.vcpu_id);
+	if (!vcpu) {
+		pr_err("%s: invalid vcpu\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: vcpu (%d)\n", __func__, vcpu->vcpu_id);
+
+	hdr = psp_copy_user_blob(params.hdr_uaddr, params.hdr_len);
+	if (IS_ERR(hdr))
+		return PTR_ERR(hdr);
+
+	trans = psp_copy_user_blob(params.trans_uaddr, params.trans_len);
+	if (IS_ERR(trans)) {
+		ret = PTR_ERR(trans);
+		goto e_free_hdr;
+	}
+
+	ret = -ENOMEM;
+	vmsa = kzalloc(sizeof(*vmsa), GFP_KERNEL_ACCOUNT);
+	if (!vmsa)
+		goto e_free_trans;
+
+	vmsa->hdr_address = __psp_pa(hdr);
+	vmsa->hdr_len = params.hdr_len;
+	vmsa->trans_address = __psp_pa(trans);
+	vmsa->trans_len = params.trans_len;
+
+	/*
+	 * Flush before RECEIVE_UPDATE_VMSA, the PSP encrypts the
+	 * written VMSA memory content with the guest's key), and
+	 * the cache may contain dirty, unencrypted data.
+	 */
+	clflush_cache_range(to_svm(vcpu)->sev_es.vmsa, PAGE_SIZE);
+
+	/* The RECEIVE_UPDATE_VMSA command requires C-bit to be always set. */
+	vmsa->guest_address = __pa(to_svm(vcpu)->sev_es.vmsa) |
+			      *hygon_kvm_hooks.sev_me_mask;
+	vmsa->guest_len = PAGE_SIZE;
+	vmsa->handle = sev->handle;
+
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, SEV_CMD_RECEIVE_UPDATE_VMSA,
+					    vmsa, &argp->error);
+
+	if (!ret)
+		vcpu->arch.guest_state_protected = true;
+
+	kfree(vmsa);
+e_free_trans:
+	kfree(trans);
+e_free_hdr:
+	kfree(hdr);
+
+	return ret;
+}
+
 static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 {
 	struct kvm_sev_cmd sev_cmd;
@@ -749,6 +826,15 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 		 * by CSV and SEV, we'll use this structure in the code.
 		 */
 		r = csv_send_update_vmsa(kvm, &sev_cmd);
+		break;
+	case KVM_SEV_RECEIVE_UPDATE_VMSA:
+		/*
+		 * Hygon implement the specific interface, although
+		 * KVM_SEV_RECEIVE_UPDATE_VMSA is the command shared by CSV and
+		 * SEV. The struct sev_data_receive_update_vmsa is also shared
+		 * by CSV and SEV, we'll use this structure in the code.
+		 */
+		r = csv_receive_update_vmsa(kvm, &sev_cmd);
 		break;
 	default:
 		/*
