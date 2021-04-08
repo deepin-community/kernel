@@ -606,6 +606,118 @@ err_free_ring_buffer:
 	return ret;
 }
 
+/* Userspace wants to query either header or trans length. */
+static int
+__csv_send_update_vmsa_query_lengths(struct kvm *kvm, struct kvm_sev_cmd *argp,
+				     struct kvm_csv_send_update_vmsa *params)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct sev_data_send_update_vmsa *vmsa;
+	int ret;
+
+	vmsa = kzalloc(sizeof(*vmsa), GFP_KERNEL_ACCOUNT);
+	if (!vmsa)
+		return -ENOMEM;
+
+	vmsa->handle = sev->handle;
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, SEV_CMD_SEND_UPDATE_VMSA,
+					    vmsa, &argp->error);
+
+	params->hdr_len = vmsa->hdr_len;
+	params->trans_len = vmsa->trans_len;
+
+	if (copy_to_user((void __user *)argp->data, params,
+			 sizeof(struct kvm_csv_send_update_vmsa)))
+		ret = -EFAULT;
+
+	kfree(vmsa);
+	return ret;
+}
+
+static int csv_send_update_vmsa(struct kvm *kvm, struct kvm_sev_cmd *argp)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct sev_data_send_update_vmsa *vmsa;
+	struct kvm_csv_send_update_vmsa params;
+	struct kvm_vcpu *vcpu;
+	void *hdr, *trans_data;
+	int ret;
+
+	if (!sev_es_guest(kvm))
+		return -ENOTTY;
+
+	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
+			   sizeof(struct kvm_csv_send_update_vmsa)))
+		return -EFAULT;
+
+	/* userspace wants to query either header or trans length */
+	if (!params.trans_len || !params.hdr_len)
+		return __csv_send_update_vmsa_query_lengths(kvm, argp, &params);
+
+	if (!params.trans_uaddr || !params.hdr_uaddr)
+		return -EINVAL;
+
+	/* Get the target vcpu */
+	vcpu = kvm_get_vcpu_by_id(kvm, params.vcpu_id);
+	if (!vcpu) {
+		pr_err("%s: invalid vcpu\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: vcpu (%d)\n", __func__, vcpu->vcpu_id);
+
+	/* allocate memory for header and transport buffer */
+	ret = -ENOMEM;
+	hdr = kzalloc(params.hdr_len, GFP_KERNEL_ACCOUNT);
+	if (!hdr)
+		return ret;
+
+	trans_data = kzalloc(params.trans_len, GFP_KERNEL_ACCOUNT);
+	if (!trans_data)
+		goto e_free_hdr;
+
+	vmsa = kzalloc(sizeof(*vmsa), GFP_KERNEL_ACCOUNT);
+	if (!vmsa)
+		goto e_free_trans_data;
+
+	vmsa->hdr_address = __psp_pa(hdr);
+	vmsa->hdr_len = params.hdr_len;
+	vmsa->trans_address = __psp_pa(trans_data);
+	vmsa->trans_len = params.trans_len;
+
+	/* The SEND_UPDATE_VMSA command requires C-bit to be always set. */
+	vmsa->guest_address = __pa(to_svm(vcpu)->sev_es.vmsa) |
+			      *hygon_kvm_hooks.sev_me_mask;
+	vmsa->guest_len = PAGE_SIZE;
+	vmsa->handle = sev->handle;
+
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, SEV_CMD_SEND_UPDATE_VMSA,
+					    vmsa, &argp->error);
+
+	if (ret)
+		goto e_free;
+
+	/* copy transport buffer to user space */
+	if (copy_to_user((void __user *)(uintptr_t)params.trans_uaddr,
+			 trans_data, params.trans_len)) {
+		ret = -EFAULT;
+		goto e_free;
+	}
+
+	/* Copy packet header to userspace. */
+	ret = copy_to_user((void __user *)(uintptr_t)params.hdr_uaddr, hdr,
+			   params.hdr_len);
+
+e_free:
+	kfree(vmsa);
+e_free_trans_data:
+	kfree(trans_data);
+e_free_hdr:
+	kfree(hdr);
+
+	return ret;
+}
+
 static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 {
 	struct kvm_sev_cmd sev_cmd;
@@ -628,6 +740,15 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 		mutex_lock(&csv_cmd_batch_mutex);
 		r = csv_command_batch(kvm, &sev_cmd);
 		mutex_unlock(&csv_cmd_batch_mutex);
+		break;
+	case KVM_SEV_SEND_UPDATE_VMSA:
+		/*
+		 * Hygon implement the specific interface, although
+		 * KVM_SEV_SEND_UPDATE_VMSA is the command shared by CSV and
+		 * SEV. The struct sev_data_send_update_vmsa is also shared
+		 * by CSV and SEV, we'll use this structure in the code.
+		 */
+		r = csv_send_update_vmsa(kvm, &sev_cmd);
 		break;
 	default:
 		/*
