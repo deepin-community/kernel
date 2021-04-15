@@ -62,12 +62,14 @@ void csv_free_trans_mempool(void);
 int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
 int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
 bool csv_has_emulated_ghcb_msr(struct kvm *kvm);
+void csv2_sync_reset_vmsa(struct vcpu_svm *svm);
+void csv2_free_reset_vmsa(struct vcpu_svm *svm);
+int csv2_setup_reset_vmsa(struct vcpu_svm *svm);
 
 static inline bool csv2_state_unstable(struct vcpu_svm *svm)
 {
 	return svm->sev_es.receiver_ghcb_map_fail;
 }
-
 
 #else	/* !CONFIG_HYGON_CSV */
 
@@ -82,6 +84,9 @@ static inline
 int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info) { return 1; }
 static inline bool csv_has_emulated_ghcb_msr(struct kvm *kvm) { return false; }
 static inline bool csv2_state_unstable(struct vcpu_svm *svm) { return false; }
+static inline void csv2_sync_reset_vmsa(struct vcpu_svm *svm) { }
+static inline void csv2_free_reset_vmsa(struct vcpu_svm *svm) { }
+static inline int csv2_setup_reset_vmsa(struct vcpu_svm *svm) { return 0; }
 
 #endif	/* CONFIG_HYGON_CSV */
 

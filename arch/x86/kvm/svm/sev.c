@@ -1110,6 +1110,17 @@ static int __sev_launch_update_vmsa(struct kvm *kvm, struct kvm_vcpu *vcpu,
 	vcpu->arch.guest_state_protected = true;
 
 	/*
+	 * Backup encrypted vmsa to support rebooting CSV2 guest. The
+	 * clflush_cache_range() is necessary to invalidate prefetched
+	 * memory area pointed by svm->sev_es.vmsa so that we can read
+	 * fresh memory updated by PSP.
+	 */
+	if (is_x86_vendor_hygon()) {
+		clflush_cache_range(svm->sev_es.vmsa, PAGE_SIZE);
+		csv2_sync_reset_vmsa(svm);
+	}
+
+	/*
 	 * SEV-ES guest mandates LBR Virtualization to be _always_ ON. Enable it
 	 * only after setting guest_state_protected because KVM_SET_MSRS allows
 	 * dynamic toggling of LBRV (for performance reason) on write access to
@@ -3593,6 +3604,9 @@ void sev_free_vcpu(struct kvm_vcpu *vcpu)
 
 skip_vmsa_free:
 	__sev_es_unmap_ghcb(svm);
+
+	if (is_x86_vendor_hygon())
+		csv2_free_reset_vmsa(svm);
 }
 
 int pre_sev_run(struct vcpu_svm *svm, int cpu)
@@ -4853,6 +4867,11 @@ int sev_vcpu_create(struct kvm_vcpu *vcpu)
 	vmsa_page = snp_safe_alloc_page();
 	if (!vmsa_page)
 		return -ENOMEM;
+
+	if (is_x86_vendor_hygon()) {
+		if (csv2_setup_reset_vmsa(svm))
+			return -ENOMEM;
+	}
 
 	svm->sev_es.vmsa = page_address(vmsa_page);
 
