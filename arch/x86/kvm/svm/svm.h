@@ -207,6 +207,8 @@ struct vcpu_sev_es_state {
 #ifdef CONFIG_HYGON_CSV
 	/* migrated ghcb mapping state for HYGON CSV2 */
 	bool receiver_ghcb_map_fail;
+	/* CSV2 reboot vmsa */
+	struct vmcb_save_area *reset_vmsa;
 #endif
 };
 
