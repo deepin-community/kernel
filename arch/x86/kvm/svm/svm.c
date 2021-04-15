@@ -1462,6 +1462,11 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 		if (!vmsa_page)
 			goto error_free_vmcb_page;
 
+		if (is_x86_vendor_hygon()) {
+			if (csv2_setup_reset_vmsa(svm))
+				goto error_free_vmsa_page;
+		}
+
 		/*
 		 * SEV-ES guests maintain an encrypted version of their FPU
 		 * state which is restored and saved on VMRUN and VMEXIT.
@@ -1497,6 +1502,9 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 error_free_vmsa_page:
 	if (vmsa_page)
 		__free_page(vmsa_page);
+
+	if (is_x86_vendor_hygon())
+		csv2_free_reset_vmsa(svm);
 error_free_vmcb_page:
 	__free_page(vmcb01_page);
 out:
