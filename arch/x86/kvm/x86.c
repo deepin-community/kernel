@@ -85,6 +85,8 @@
 #include <asm/sgx.h>
 #include <clocksource/hyperv_timer.h>
 
+#include <asm/processor-hygon.h>
+
 #define CREATE_TRACE_POINTS
 #include "trace.h"
 
@@ -10367,7 +10369,8 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 		a3 &= 0xFFFFFFFF;
 	}
 
-	if (cpl) {
+	if (cpl &&
+	    !(is_x86_vendor_hygon() && nr == KVM_HC_VM_ATTESTATION)) {
 		ret = -KVM_EPERM;
 		goto out;
 	}
@@ -10437,6 +10440,11 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 		vcpu->arch.complete_userspace_io = complete_hypercall;
 		return 0;
 	}
+	case KVM_HC_VM_ATTESTATION:
+		ret = -KVM_ENOSYS;
+		if (is_x86_vendor_hygon() && kvm_x86_ops.vm_attestation)
+			ret = static_call(kvm_x86_vm_attestation)(vcpu->kvm, a0, a1);
+		break;
 	default:
 		ret = -KVM_ENOSYS;
 		break;
