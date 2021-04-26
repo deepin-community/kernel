@@ -1739,6 +1739,10 @@ struct kvm_x86_ops {
 	void (*gmem_invalidate_range)(struct kvm *kvm, struct kvm_gfn_range *range);
 #endif
 	int (*gmem_max_mapping_level)(struct kvm *kvm, kvm_pfn_t pfn, bool is_private);
+	/*
+	 * Attestation interface for HYGON CSV guest
+	 */
+	int (*vm_attestation)(struct kvm *kvm, unsigned long gpa, unsigned long len);
 };
 
 struct kvm_x86_nested_ops {

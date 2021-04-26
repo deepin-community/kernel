@@ -32,7 +32,10 @@ kvm-intel-y		+= vmx/vmx_onhyperv.o vmx/hyperv_evmcs.o
 kvm-amd-y		+= svm/svm_onhyperv.o
 endif
 
+kvm-amd-$(CONFIG_HYGON_CSV)	+= svm/csv.o
+
 obj-$(CONFIG_KVM_X86)	+= kvm.o
+
 obj-$(CONFIG_KVM_INTEL)	+= kvm-intel.o
 obj-$(CONFIG_KVM_AMD)	+= kvm-amd.o
 
