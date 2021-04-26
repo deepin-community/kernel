@@ -38,6 +38,8 @@
 #include "cpuid.h"
 #include "trace.h"
 
+#include "csv.h"
+
 #define GHCB_VERSION_MAX	2ULL
 #define GHCB_VERSION_MIN	1ULL
 
@@ -3062,6 +3064,19 @@ static const char * __init sev_str_feature_state(bool is_supported, bool is_usab
 	return is_supported ? is_usable ? "enabled" : "unusable" : "disabled";
 }
 
+#ifdef CONFIG_HYGON_CSV
+/* Code to set all of the function and vaiable pointers */
+void sev_install_hooks(void)
+{
+	hygon_kvm_hooks.sev_issue_cmd = sev_issue_cmd;
+	hygon_kvm_hooks.get_num_contig_pages = get_num_contig_pages;
+	hygon_kvm_hooks.sev_pin_memory = sev_pin_memory;
+	hygon_kvm_hooks.sev_unpin_memory = sev_unpin_memory;
+
+	hygon_kvm_hooks.sev_hooks_installed = true;
+}
+#endif
+
 void __init sev_hardware_setup(void)
 {
 	unsigned int eax, ebx, ecx, edx, sev_asid_count, sev_es_asid_count;
@@ -3241,6 +3256,15 @@ pr_info("%s %s (ASIDs %u - %u)\n",
 
 	if (sev_snp_enabled && tsc_khz && cpu_feature_enabled(X86_FEATURE_SNP_SECURE_TSC))
 		sev_supported_vmsa_features |= SVM_SEV_FEAT_SECURE_TSC;
+
+#ifdef CONFIG_HYGON_CSV
+	/*
+	 * Install sev related function and variable pointers hooks only for
+	 * Hygon CPUs.
+	 */
+	if (is_x86_vendor_hygon())
+		sev_install_hooks();
+#endif
 }
 
 void sev_hardware_unsetup(void)
