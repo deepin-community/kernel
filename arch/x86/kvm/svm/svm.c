@@ -53,6 +53,8 @@
 #include "kvm_onhyperv.h"
 #include "svm_onhyperv.h"
 
+#include "csv.h"
+
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
 
@@ -5353,6 +5355,10 @@ static struct kvm_x86_init_ops svm_init_ops __initdata = {
 
 static void __svm_exit(void)
 {
+	/* Unregister CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_exit();
+
 	kvm_x86_vendor_exit();
 
 	cpu_emergency_unregister_virt_callback(svm_emergency_disable);
@@ -5367,9 +5373,21 @@ static int __init svm_init(void)
 	if (!kvm_is_svm_supported())
 		return -EOPNOTSUPP;
 
+	/* Register CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_init(&svm_x86_ops);
+
 	r = kvm_x86_vendor_init(&svm_init_ops);
-	if (r)
+	if (r) {
+		/*
+		 * Unregister CSV specific interface for Hygon CPUs
+		 * if error occurs.
+		 */
+		if (is_x86_vendor_hygon())
+			csv_exit();
+
 		return r;
+	}
 
 	cpu_emergency_register_virt_callback(svm_emergency_disable);
 
