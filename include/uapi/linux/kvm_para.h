@@ -30,6 +30,7 @@
 #define KVM_HC_SEND_IPI		10
 #define KVM_HC_SCHED_YIELD		11
 #define KVM_HC_MAP_GPA_RANGE		12
+#define KVM_HC_VM_ATTESTATION		100	/* Specific to Hygon CPU */
 
 /*
  * hypercalls use architecture specific
