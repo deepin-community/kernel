@@ -33,6 +33,8 @@ ifdef CONFIG_HYPERV
 kvm-amd-y		+= svm/svm_onhyperv.o
 endif
 
+kvm-amd-$(CONFIG_HYGON_CSV)	+= svm/csv.o
+
 obj-$(CONFIG_KVM)	+= kvm.o
 obj-$(CONFIG_KVM_INTEL)	+= kvm-intel.o
 obj-$(CONFIG_KVM_AMD)	+= kvm-amd.o
