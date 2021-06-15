@@ -317,6 +317,8 @@ static const u32 emulated_msrs_all[] = {
 
 	MSR_K7_HWCR,
 	MSR_KVM_POLL_CONTROL,
+
+	MSR_AMD64_SEV_ES_GHCB,
 };
 
 static u32 emulated_msrs[ARRAY_SIZE(emulated_msrs_all)];

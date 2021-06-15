@@ -1000,6 +1000,8 @@ struct kvm_enable_cap {
 #define KVM_CAP_PPC_COMPAT_CAPS 250
 #define KVM_CAP_ARM_PMU_V3_STRICT 251
 
+#define KVM_CAP_SEV_ES_GHCB 500
+
 struct kvm_irq_routing_irqchip {
 	__u32 irqchip;
 	__u32 pin;
