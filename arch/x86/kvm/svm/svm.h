@@ -275,6 +275,10 @@ struct vcpu_sev_es_state {
 	gpa_t snp_vmsa_gpa;
 	bool snp_ap_waiting_for_reset;
 	bool snp_has_guest_vmsa;
+#ifdef CONFIG_HYGON_CSV
+	/* migrated ghcb mapping state for HYGON CSV2 */
+	bool receiver_ghcb_map_fail;
+#endif
 };
 
 struct vcpu_svm {
