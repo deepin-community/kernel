@@ -59,6 +59,15 @@ void csv_exit(void);
 
 int csv_alloc_trans_mempool(void);
 void csv_free_trans_mempool(void);
+int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
+int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
+bool csv_has_emulated_ghcb_msr(struct kvm *kvm);
+
+static inline bool csv2_state_unstable(struct vcpu_svm *svm)
+{
+	return svm->sev_es.receiver_ghcb_map_fail;
+}
+
 
 #else	/* !CONFIG_HYGON_CSV */
 
@@ -67,7 +76,48 @@ static inline void csv_exit(void) { }
 
 static inline int csv_alloc_trans_mempool(void) { return 0; }
 static inline void csv_free_trans_mempool(void) { }
+static inline
+int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info) { return 1; }
+static inline
+int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info) { return 1; }
+static inline bool csv_has_emulated_ghcb_msr(struct kvm *kvm) { return false; }
+static inline bool csv2_state_unstable(struct vcpu_svm *svm) { return false; }
 
 #endif	/* CONFIG_HYGON_CSV */
+
+#include <asm/sev-common.h>
+
+/*
+ * CSV2 live migration support:
+ *     If MSR_AMD64_SEV_ES_GHCB in migration didn't apply GHCB MSR protocol,
+ *     reuse bits [52-63] to indicate vcpu status. The following status are
+ *     currently included:
+ *         * ghcb_map: indicate whether GHCB page was mapped. The mapped GHCB
+ *                     page may be filled with GPRs before VMRUN, so we must
+ *                     remap GHCB page on the recipient's side.
+ *         * received_first_sipi: indicate AP's INIT-SIPI-SIPI stage. Reuse
+ *                     these bits for received_first_sipi is acceptable cause
+ *                     runtime stage of guest's linux only applies GHCB page
+ *                     protocol.
+ *                     It's unlikely that the migration encounter other stages
+ *                     of guest's linux. Once encountered, AP bringup may fail
+ *                     which will not impact user payload.
+ *     Otherbits keep their's original meaning. (See GHCB Spec 2.3.1 for detail)
+ */
+#define GHCB_MSR_KVM_STATUS_POS		52
+#define GHCB_MSR_KVM_STATUS_BITS	12
+#define GHCB_MSR_KVM_STATUS_MASK				\
+	((BIT_ULL(GHCB_MSR_KVM_STATUS_BITS) - 1)		\
+			<< GHCB_MSR_KVM_STATUS_POS)
+#define GHCB_MSR_MAPPED_POS		63
+#define GHCB_MSR_MAPPED_BITS		1
+#define GHCB_MSR_MAPPED_MASK					\
+	((BIT_ULL(GHCB_MSR_MAPPED_BITS) - 1)			\
+			 << GHCB_MSR_MAPPED_POS)
+#define GHCB_MSR_RECEIVED_FIRST_SIPI_POS	62
+#define GHCB_MSR_RECEIVED_FIRST_SIPI_BITS	1
+#define GHCB_MSR_RECEIVED_FIRST_SIPI_MASK			\
+	((BIT_ULL(GHCB_MSR_RECEIVED_FIRST_SIPI_BITS) - 1)	\
+			 << GHCB_MSR_RECEIVED_FIRST_SIPI_POS)
 
 #endif	/* __SVM_CSV_H */

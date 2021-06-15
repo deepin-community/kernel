@@ -855,6 +855,124 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 	return r;
 }
 
+static int csv2_map_ghcb_gpa(struct vcpu_svm *svm, u64 ghcb_gpa)
+{
+	if (kvm_vcpu_map(&svm->vcpu, ghcb_gpa >> PAGE_SHIFT, &svm->sev_es.ghcb_map)) {
+		/* Unable to map GHCB from guest */
+		vcpu_unimpl(&svm->vcpu, "Missing GHCB [%#llx] from guest\n",
+			    ghcb_gpa);
+
+		svm->sev_es.receiver_ghcb_map_fail = true;
+		return -EINVAL;
+	}
+
+	svm->sev_es.ghcb = svm->sev_es.ghcb_map.hva;
+	svm->sev_es.receiver_ghcb_map_fail = false;
+
+	pr_info("Mapping GHCB [%#llx] from guest at recipient\n", ghcb_gpa);
+
+	return 0;
+}
+
+static bool is_ghcb_msr_protocol(u64 ghcb_val)
+{
+	return !!(ghcb_val & GHCB_MSR_INFO_MASK);
+}
+
+/*
+ * csv_get_msr return msr data to the userspace.
+ *
+ * Return 0 if get msr success.
+ */
+int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	struct vcpu_svm *svm = to_svm(vcpu);
+
+	switch (msr_info->index) {
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* Only support userspace get from vmcb.control.ghcb_gpa */
+		if (!msr_info->host_initiated || !sev_es_guest(vcpu->kvm))
+			return 1;
+
+		msr_info->data = svm->vmcb->control.ghcb_gpa;
+
+		/* Only set status bits when using GHCB page protocol */
+		if (msr_info->data &&
+		    !is_ghcb_msr_protocol(msr_info->data)) {
+			if (svm->sev_es.ghcb)
+				msr_info->data |= GHCB_MSR_MAPPED_MASK;
+
+			if (svm->sev_es.received_first_sipi)
+				msr_info->data |=
+					GHCB_MSR_RECEIVED_FIRST_SIPI_MASK;
+		}
+		break;
+	default:
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * csv_set_msr set msr data from the userspace.
+ *
+ * Return 0 if set msr success.
+ */
+int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	struct vcpu_svm *svm = to_svm(vcpu);
+	u32 ecx = msr_info->index;
+	u64 data = msr_info->data;
+
+	switch (ecx) {
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* Only support userspace set to vmcb.control.ghcb_gpa */
+		if (!msr_info->host_initiated || !sev_es_guest(vcpu->kvm))
+			return 1;
+
+		/*
+		 * Value 0 means uninitialized userspace MSR data, userspace
+		 * need get the initial MSR data afterwards.
+		 */
+		if (!data)
+			return 0;
+
+		/* Extract status info when using GHCB page protocol */
+		if (!is_ghcb_msr_protocol(data)) {
+			if (!svm->sev_es.ghcb && (data & GHCB_MSR_MAPPED_MASK)) {
+				/*
+				 * This happened on the recipient of migration,
+				 * should return error if cannot map the ghcb
+				 * page.
+				 */
+				if (csv2_map_ghcb_gpa(to_svm(vcpu),
+						data & ~GHCB_MSR_KVM_STATUS_MASK))
+					return 1;
+			}
+
+			if (data & GHCB_MSR_RECEIVED_FIRST_SIPI_MASK)
+				svm->sev_es.received_first_sipi = true;
+
+			data &= ~GHCB_MSR_KVM_STATUS_MASK;
+		}
+
+		svm->vmcb->control.ghcb_gpa = data;
+		break;
+	default:
+		return 1;
+	}
+	return 0;
+}
+
+bool csv_has_emulated_ghcb_msr(struct kvm *kvm)
+{
+	/* this should be determined after KVM_CREATE_VM. */
+	if (kvm && !sev_es_guest(kvm))
+		return false;
+
+	return true;
+}
+
 void csv_exit(void)
 {
 }

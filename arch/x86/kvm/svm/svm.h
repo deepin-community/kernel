@@ -203,6 +203,11 @@ struct vcpu_sev_es_state {
 	u32 ghcb_sa_len;
 	bool ghcb_sa_sync;
 	bool ghcb_sa_free;
+
+#ifdef CONFIG_HYGON_CSV
+	/* migrated ghcb mapping state for HYGON CSV2 */
+	bool receiver_ghcb_map_fail;
+#endif
 };
 
 struct vcpu_svm {
