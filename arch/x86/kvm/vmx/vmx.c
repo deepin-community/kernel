@@ -7069,6 +7069,7 @@ static bool vmx_has_emulated_msr(struct kvm *kvm, u32 index)
 		return nested;
 	case MSR_AMD64_VIRT_SPEC_CTRL:
 	case MSR_AMD64_TSC_RATIO:
+	case MSR_AMD64_SEV_ES_GHCB:
 		/* This is AMD only.  */
 		return false;
 	default:
