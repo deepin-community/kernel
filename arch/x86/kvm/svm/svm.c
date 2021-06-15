@@ -2779,6 +2779,12 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_AMD64_DE_CFG:
 		msr_info->data = svm->msr_decfg;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support export this MSR to userspace */
+		if (is_x86_vendor_hygon())
+			return csv_get_msr(vcpu, msr_info);
+		else
+			return 1;
 	default:
 		return kvm_get_msr_common(vcpu, msr_info);
 	}
@@ -3038,6 +3044,12 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->msr_decfg = data;
 		break;
 	}
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support update this MSR from userspace */
+		if (is_x86_vendor_hygon())
+			return csv_set_msr(vcpu, msr);
+		else
+			return 1;
 	default:
 		return kvm_set_msr_common(vcpu, msr);
 	}
@@ -4207,6 +4219,19 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 
 	trace_kvm_entry(vcpu, force_immediate_exit);
 
+	/*
+	 * For receipient side of CSV2 guest, fake the exit code as SVM_EXIT_ERR
+	 * and return directly if failed to mapping the necessary GHCB page.
+	 * When handling the exit code afterwards, it can exit to userspace and
+	 * stop the guest.
+	 */
+	if (is_x86_vendor_hygon() && sev_es_guest(vcpu->kvm)) {
+		if (csv2_state_unstable(svm)) {
+			svm->vmcb->control.exit_code = SVM_EXIT_ERR;
+			return EXIT_FASTPATH_NONE;
+		}
+	}
+
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
 	svm->vmcb->save.rip = vcpu->arch.regs[VCPU_REGS_RIP];
@@ -4401,6 +4426,12 @@ static bool svm_has_emulated_msr(struct kvm *kvm, u32 index)
 		if (kvm && sev_es_guest(kvm))
 			return false;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support emulate this MSR */
+		if (is_x86_vendor_hygon())
+			return csv_has_emulated_ghcb_msr(kvm);
+		else
+			return false;
 	default:
 		break;
 	}
