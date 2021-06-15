@@ -964,6 +964,8 @@ struct kvm_enable_cap {
 #define KVM_CAP_ARM_CACHEABLE_PFNMAP_SUPPORTED 243
 #define KVM_CAP_GUEST_MEMFD_FLAGS 244
 
+#define KVM_CAP_SEV_ES_GHCB 500
+
 struct kvm_irq_routing_irqchip {
 	__u32 irqchip;
 	__u32 pin;
