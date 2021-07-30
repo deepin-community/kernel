@@ -58,6 +58,13 @@ struct csv_data_hgsc_cert_import {
 #define CSV_COMMAND_PRIORITY_LOW	1
 #define CSV_COMMAND_PRIORITY_NUM	2
 
+struct csv_cmdptr_entry {
+	u16 cmd_id;
+	u16 cmd_flags;
+	u32 sw_data;
+	u64 cmd_buf_ptr;
+} __packed;
+
 struct csv_queue {
 	u32 head;
 	u32 tail;
@@ -76,11 +83,14 @@ struct csv_ringbuffer_queue {
 
 int csv_ring_buffer_queue_init(void);
 int csv_ring_buffer_queue_free(void);
+int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags);
 
 #else	/* !CONFIG_CRYPTO_DEV_SP_PSP */
 
 static inline int csv_ring_buffer_queue_init(void) { return -ENODEV; }
 static inline int csv_ring_buffer_queue_free(void) { return -ENODEV; }
+static inline
+int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags) { return -ENODEV; }
 
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
 
