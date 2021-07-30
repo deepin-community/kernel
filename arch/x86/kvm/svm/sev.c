@@ -3259,12 +3259,22 @@ pr_info("%s %s (ASIDs %u - %u)\n",
 		sev_supported_vmsa_features |= SVM_SEV_FEAT_SECURE_TSC;
 
 #ifdef CONFIG_HYGON_CSV
-	/*
-	 * Install sev related function and variable pointers hooks only for
-	 * Hygon CPUs.
-	 */
-	if (is_x86_vendor_hygon())
+	/* Setup resources which are necessary for HYGON CSV */
+	if (is_x86_vendor_hygon()) {
+		/*
+		 * Install sev related function and variable pointers hooks
+		 * no matter @sev_enabled is false.
+		 */
 		sev_install_hooks();
+
+		/*
+		 * Allocate a memory pool to speed up live migration of
+		 * the CSV/CSV2 guests. If the allocation fails, no
+		 * acceleration is performed at live migration.
+		 */
+		if (sev_enabled)
+			csv_alloc_trans_mempool();
+	}
 #endif
 }
 
@@ -3272,6 +3282,10 @@ void sev_hardware_unsetup(void)
 {
 	if (!sev_enabled)
 		return;
+
+	/* Free the memory pool that allocated in sev_hardware_setup(). */
+	if (is_x86_vendor_hygon())
+		csv_free_trans_mempool();
 
 	/* No need to take sev_bitmap_lock, all VMs have been destroyed. */
 	sev_flush_asids(1, max_sev_asid);
