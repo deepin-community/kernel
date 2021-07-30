@@ -107,7 +107,8 @@ static void sev_irq_handler(int irq, void *data, unsigned int status)
 
 	/* Check if it is SEV command completion: */
 	reg = ioread32(sev->io_regs + sev->vdata->cmdresp_reg);
-	if (FIELD_GET(PSP_CMDRESP_RESP, reg)) {
+	if (FIELD_GET(PSP_CMDRESP_RESP, reg) ||
+	    (is_vendor_hygon() && csv_in_ring_buffer_mode())) {
 		sev->int_rcvd = 1;
 		wake_up(&sev->int_queue);
 	}
@@ -1266,6 +1267,8 @@ static int sev_misc_init(struct sev_device *sev)
 static void sev_dev_install_hooks(void)
 {
 	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
+	hygon_psp_hooks.psp_dead = &psp_dead;
+	hygon_psp_hooks.psp_timeout = &psp_timeout;
 	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
 	hygon_psp_hooks.__sev_platform_init_locked = __sev_platform_init_locked;
 	hygon_psp_hooks.__sev_platform_shutdown_locked = __sev_platform_shutdown_locked;
