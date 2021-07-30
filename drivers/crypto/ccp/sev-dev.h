@@ -25,6 +25,8 @@
 #include <linux/miscdevice.h>
 #include <linux/capability.h>
 
+#include "hygon/ring-buffer.h"
+
 #define SEV_CMDRESP_CMD			GENMASK(26, 16)
 #define SEV_CMD_COMPLETE		BIT(1)
 #define SEV_CMDRESP_IOC			BIT(0)
@@ -52,6 +54,9 @@ struct sev_device {
 	u8 build;
 
 	void *cmd_buf;
+
+	/* Management of the Hygon RING BUFFER mode */
+	struct csv_ringbuffer_queue ring_buffer[CSV_COMMAND_PRIORITY_NUM];
 };
 
 int sev_dev_init(struct psp_device *psp);

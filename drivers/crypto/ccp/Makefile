@@ -15,7 +15,8 @@ ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += psp-dev.o \
                                    platform-access.o \
                                    dbc.o \
                                    hygon/psp-dev.o \
-                                   hygon/csv-dev.o
+                                   hygon/csv-dev.o \
+                                   hygon/ring-buffer.o
 
 obj-$(CONFIG_CRYPTO_DEV_CCP_CRYPTO) += ccp-crypto.o
 ccp-crypto-objs := ccp-crypto-main.o \

@@ -15,8 +15,9 @@
 #include <linux/psp-hygon.h>
 #include <uapi/linux/psp-hygon.h>
 
-#include "csv-dev.h"
 #include "psp-dev.h"
+#include "csv-dev.h"
+#include "ring-buffer.h"
 
 /*
  * Hygon CSV build info:
@@ -218,3 +219,103 @@ const struct file_operations csv_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = csv_ioctl,
 };
+
+/*
+ * __csv_ring_buffer_queue_init will allocate memory for command queue
+ * and status queue. If error occurs, this function will return directly,
+ * the caller must free the memories allocated for queues.
+ *
+ * Function csv_ring_buffer_queue_free() can be used to handling error
+ * return by this function and cleanup ring buffer queues when exiting
+ * from RING BUFFER mode.
+ *
+ * Return -ENOMEM if fail to allocate memory for queues, otherwise 0
+ */
+static int __csv_ring_buffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
+{
+	void *cmd_ptr_buffer = NULL;
+	void *stat_val_buffer = NULL;
+
+	/* If reach here, the command and status queues must be NULL */
+	WARN_ON(ring_buffer->cmd_ptr.data ||
+		ring_buffer->stat_val.data);
+
+	cmd_ptr_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!cmd_ptr_buffer)
+		return -ENOMEM;
+
+	/* the command queue will points to @cmd_ptr_buffer */
+	csv_queue_init(&ring_buffer->cmd_ptr, cmd_ptr_buffer,
+		       CSV_RING_BUFFER_LEN, CSV_RING_BUFFER_ESIZE);
+
+	stat_val_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!stat_val_buffer)
+		return -ENOMEM;
+
+	/* the status queue will points to @stat_val_buffer */
+	csv_queue_init(&ring_buffer->stat_val, stat_val_buffer,
+		       CSV_RING_BUFFER_LEN, CSV_RING_BUFFER_ESIZE);
+	return 0;
+}
+
+int csv_ring_buffer_queue_init(void)
+{
+	struct psp_device *psp = psp_master;
+	struct sev_device *sev;
+	int i, ret = 0;
+
+	if (!psp || !psp->sev_data)
+		return -ENODEV;
+
+	sev = psp->sev_data;
+
+	for (i = CSV_COMMAND_PRIORITY_HIGH; i < CSV_COMMAND_PRIORITY_NUM; i++) {
+		ret = __csv_ring_buffer_queue_init(&sev->ring_buffer[i]);
+		if (ret)
+			goto e_free;
+	}
+
+	return 0;
+
+e_free:
+	csv_ring_buffer_queue_free();
+	return ret;
+}
+EXPORT_SYMBOL_GPL(csv_ring_buffer_queue_init);
+
+int csv_ring_buffer_queue_free(void)
+{
+	struct psp_device *psp = psp_master;
+	struct sev_device *sev;
+	struct csv_ringbuffer_queue *ring_buffer;
+	int i;
+
+	if (!psp || !psp->sev_data)
+		return -ENODEV;
+
+	sev = psp->sev_data;
+
+	for (i = 0; i < CSV_COMMAND_PRIORITY_NUM; i++) {
+		ring_buffer = &sev->ring_buffer[i];
+
+		/*
+		 * If command queue is not NULL, it must points to memory
+		 * that allocated in __csv_ring_buffer_queue_init().
+		 */
+		if (ring_buffer->cmd_ptr.data) {
+			kfree((void *)ring_buffer->cmd_ptr.data);
+			csv_queue_cleanup(&ring_buffer->cmd_ptr);
+		}
+
+		/*
+		 * If status queue is not NULL, it must points to memory
+		 * that allocated in __csv_ring_buffer_queue_init().
+		 */
+		if (ring_buffer->stat_val.data) {
+			kfree((void *)ring_buffer->stat_val.data);
+			csv_queue_cleanup(&ring_buffer->stat_val);
+		}
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(csv_ring_buffer_queue_free);
