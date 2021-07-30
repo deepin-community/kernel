@@ -1719,6 +1719,10 @@ static int __sev_platform_shutdown_locked(int *error)
 		return ret;
 	}
 
+	/* RING BUFFER mode exits if a SHUTDOWN command is executed */
+	if (is_vendor_hygon() && csv_in_ring_buffer_mode())
+		csv_restore_mailbox_mode_postprocess();
+
 	sev->sev_plat_status.state = SEV_STATE_UNINIT;
 	dev_dbg(sev->dev, "SEV firmware shutdown\n");
 
