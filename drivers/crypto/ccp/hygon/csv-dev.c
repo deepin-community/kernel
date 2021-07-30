@@ -341,3 +341,35 @@ int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(csv_fill_cmd_queue);
+
+int csv_check_stat_queue_status(int *psp_ret)
+{
+	struct psp_device *psp = psp_master;
+	struct sev_device *sev;
+	unsigned int len;
+	int prio;
+
+	if (!psp || !psp->sev_data)
+		return -ENODEV;
+
+	sev = psp->sev_data;
+
+	for (prio = CSV_COMMAND_PRIORITY_HIGH;
+	     prio < CSV_COMMAND_PRIORITY_NUM; prio++) {
+		do {
+			struct csv_statval_entry statval;
+
+			len = csv_dequeue_stat(&sev->ring_buffer[prio].stat_val,
+					       &statval, 1);
+			if (len) {
+				if (statval.status != 0) {
+					*psp_ret = statval.status;
+					return -EFAULT;
+				}
+			}
+		} while (len);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(csv_check_stat_queue_status);
