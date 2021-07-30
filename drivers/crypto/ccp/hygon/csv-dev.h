@@ -12,8 +12,22 @@
 
 #include <linux/fs.h>
 #include <linux/psp-sev.h>
+#include <linux/bits.h>
 
 #define CSV_FW_FILE		"hygon/csv.fw"
+
+#define PSP_RBCTL_X86_WRITES		BIT(31)
+#define PSP_RBCTL_RBMODE_ACT		BIT(30)
+#define PSP_RBCTL_CLR_INTSTAT		BIT(29)
+#define PSP_RBTAIL_QHI_TAIL_SHIFT	16
+#define PSP_RBTAIL_QHI_TAIL_MASK	0x7FF0000
+#define PSP_RBTAIL_QLO_TAIL_MASK	0x7FF
+
+#define PSP_RBHEAD_QHI_HEAD_SHIFT	16
+#define PSP_RBHEAD_QHI_HEAD_MASK	0x7FF0000
+#define PSP_RBHEAD_QLO_HEAD_MASK	0x7FF
+
+#define PSP_RBHEAD_QPAUSE_INT_STAT	BIT(30)
 
 extern u32 hygon_csv_build;
 extern int csv_comm_mode;
