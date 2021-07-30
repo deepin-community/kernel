@@ -15,5 +15,7 @@
 int csv_queue_init(struct csv_queue *queue,
 		   void *buffer, unsigned int size, size_t esize);
 void csv_queue_cleanup(struct csv_queue *queue);
+unsigned int csv_enqueue_cmd(struct csv_queue *queue,
+			     const void *buf, unsigned int len);
 
 #endif /* __CCP_HYGON_RINGBUF_H__ */
