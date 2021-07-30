@@ -2265,4 +2265,22 @@ struct kvm_s390_zpci_op {
 /* flags for kvm_s390_zpci_op->u.reg_aen.flags */
 #define KVM_S390_ZPCIOP_REGAEN_HOST    (1 << 0)
 
+enum csv_cmd_id {
+	/* HYGON CSV batch command */
+	KVM_CSV_COMMAND_BATCH = 0x18,
+
+	KVM_CSV_NR_MAX,
+};
+
+struct kvm_csv_batch_list_node {
+	__u64 cmd_data_addr;
+	__u64 addr;
+	__u64 next_cmd_addr;
+};
+
+struct kvm_csv_command_batch {
+	__u32 command_id;
+	__u64 csv_batch_list_uaddr;
+};
+
 #endif /* __LINUX_KVM_H */
