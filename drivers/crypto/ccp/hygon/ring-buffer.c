@@ -46,6 +46,31 @@ static void enqueue_data(struct csv_queue *queue,
 	smp_wmb();
 }
 
+static void dequeue_data(struct csv_queue *queue,
+			 void *dst, unsigned int len, unsigned int off)
+{
+	unsigned int size = queue->mask + 1;
+	unsigned int esize = queue->esize;
+	unsigned int l;
+
+	off &= queue->mask;
+	if (esize != 1) {
+		off *= esize;
+		size *= esize;
+		len *= esize;
+	}
+	l = min(len, size - off);
+
+	memcpy(dst, (void *)(queue->data + off), l);
+	memcpy((void *)((uintptr_t)dst + l), (void *)queue->data, len - l);
+
+	/*
+	 * Make sure that the data is copied before incrementing the
+	 * queue->tail index counter.
+	 */
+	smp_wmb();
+}
+
 static unsigned int queue_avail_size(struct csv_queue *queue)
 {
 	/*
@@ -87,5 +112,19 @@ unsigned int csv_enqueue_cmd(struct csv_queue *queue,
 
 	enqueue_data(queue, buf, len, queue->tail);
 	queue->tail += len;
+	return len;
+}
+
+unsigned int csv_dequeue_stat(struct csv_queue *queue,
+			      void *buf, unsigned int len)
+{
+	unsigned int size;
+
+	size = queue->tail - queue->head;
+	if (len > size)
+		len = size;
+
+	dequeue_data(queue, buf, len, queue->head);
+	queue->head += len;
 	return len;
 }
