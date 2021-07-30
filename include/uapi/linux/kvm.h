@@ -1670,4 +1670,22 @@ struct kvm_pre_fault_memory {
 	__u64 padding[5];
 };
 
+enum csv_cmd_id {
+	/* HYGON CSV batch command */
+	KVM_CSV_COMMAND_BATCH = 0x18,
+
+	KVM_CSV_NR_MAX,
+};
+
+struct kvm_csv_batch_list_node {
+	__u64 cmd_data_addr;
+	__u64 addr;
+	__u64 next_cmd_addr;
+};
+
+struct kvm_csv_command_batch {
+	__u32 command_id;
+	__u64 csv_batch_list_uaddr;
+};
+
 #endif /* __LINUX_KVM_H */
