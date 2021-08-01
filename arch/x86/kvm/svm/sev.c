@@ -2211,6 +2211,7 @@ void sev_install_hooks(void)
 	hygon_kvm_hooks.get_num_contig_pages = get_num_contig_pages;
 	hygon_kvm_hooks.sev_pin_memory = sev_pin_memory;
 	hygon_kvm_hooks.sev_unpin_memory = sev_unpin_memory;
+	hygon_kvm_hooks.sev_clflush_pages = sev_clflush_pages;
 
 	hygon_kvm_hooks.sev_hooks_installed = true;
 }
