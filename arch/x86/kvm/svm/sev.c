@@ -2206,6 +2206,7 @@ void __init sev_set_cpu_caps(void)
 void sev_install_hooks(void)
 {
 	hygon_kvm_hooks.sev_enabled = &sev_enabled;
+	hygon_kvm_hooks.sev_me_mask = &sev_me_mask;
 	hygon_kvm_hooks.sev_issue_cmd = sev_issue_cmd;
 	hygon_kvm_hooks.get_num_contig_pages = get_num_contig_pages;
 	hygon_kvm_hooks.sev_pin_memory = sev_pin_memory;
