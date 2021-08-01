@@ -51,6 +51,7 @@ extern struct hygon_kvm_hooks_table {
 					int write);
 	void (*sev_unpin_memory)(struct kvm *kvm, struct page **pages,
 				 unsigned long npages);
+	void (*sev_clflush_pages)(struct page *pages[], unsigned long npages);
 } hygon_kvm_hooks;
 
 void __init csv_init(struct kvm_x86_ops *ops);
