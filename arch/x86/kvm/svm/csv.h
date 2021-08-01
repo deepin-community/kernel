@@ -41,6 +41,7 @@ struct csv_ringbuf_infos {
 extern struct hygon_kvm_hooks_table {
 	bool sev_hooks_installed;
 	bool *sev_enabled;
+	unsigned long *sev_me_mask;
 	int (*sev_issue_cmd)(struct kvm *kvm, int id, void *data, int *error);
 	unsigned long (*get_num_contig_pages)(unsigned long idx,
 					      struct page **inpages,
