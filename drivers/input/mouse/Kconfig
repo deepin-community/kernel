@@ -196,6 +196,11 @@ config MOUSE_PS2_VMMOUSE
 
 	  If unsure, say N.
 
+config MOUSE_PS2_PIXART
+	bool "PixArt PS/2 touchpad protocol extension" if EXPERT
+	default y
+	depends on MOUSE_PS2
+
 config MOUSE_PS2_SMBUS
 	bool
 	depends on MOUSE_PS2
@@ -450,5 +455,4 @@ config MOUSE_NAVPOINT_PXA27x
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called navpoint.
-
 endif
