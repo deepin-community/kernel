@@ -1263,6 +1263,7 @@ static void sev_dev_install_hooks(void)
 {
 	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
 	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
+	hygon_psp_hooks.__sev_platform_init_locked = __sev_platform_init_locked;
 	hygon_psp_hooks.sev_ioctl = sev_ioctl;
 
 	hygon_psp_hooks.sev_dev_hooks_installed = true;
