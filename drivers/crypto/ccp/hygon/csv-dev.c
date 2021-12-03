@@ -91,6 +91,74 @@ e_free:
 	return ret;
 }
 
+static int csv_ioctl_do_download_firmware(struct sev_issue_cmd *argp)
+{
+	struct sev_data_download_firmware *data = NULL;
+	struct csv_user_data_download_firmware input;
+	int ret, order;
+	struct page *p;
+	u64 data_size;
+
+	/* Only support DOWNLOAD_FIRMWARE if build greater or equal 1667 */
+	if (!csv_version_greater_or_equal(1667)) {
+		pr_err("DOWNLOAD_FIRMWARE not supported\n");
+		return -EIO;
+	}
+
+	if (copy_from_user(&input, (void __user *)argp->data, sizeof(input)))
+		return -EFAULT;
+
+	if (!input.address) {
+		argp->error = SEV_RET_INVALID_ADDRESS;
+		return -EINVAL;
+	}
+
+	if (!input.length || input.length > CSV_FW_MAX_SIZE) {
+		argp->error = SEV_RET_INVALID_LEN;
+		return -EINVAL;
+	}
+
+	/*
+	 * CSV FW expects the physical address given to it to be 32
+	 * byte aligned. Memory allocated has structure placed at the
+	 * beginning followed by the firmware being passed to the CSV
+	 * FW. Allocate enough memory for data structure + alignment
+	 * padding + CSV FW.
+	 */
+	data_size = ALIGN(sizeof(struct sev_data_download_firmware), 32);
+
+	order = get_order(input.length + data_size);
+	p = alloc_pages(GFP_KERNEL, order);
+	if (!p)
+		return -ENOMEM;
+
+	/*
+	 * Copy firmware data to a kernel allocated contiguous
+	 * memory region.
+	 */
+	data = page_address(p);
+	if (copy_from_user((void *)(page_address(p) + data_size),
+			   (void *)input.address, input.length)) {
+		ret = -EFAULT;
+		goto err_free_page;
+	}
+
+	data->address = __psp_pa(page_address(p) + data_size);
+	data->len = input.length;
+
+	ret = hygon_psp_hooks.__sev_do_cmd_locked(SEV_CMD_DOWNLOAD_FIRMWARE,
+						  data, &argp->error);
+	if (ret)
+		pr_err("Failed to update CSV firmware: %#x\n", argp->error);
+	else
+		pr_info("CSV firmware update successful\n");
+
+err_free_page:
+	__free_pages(p, order);
+
+	return ret;
+}
+
 static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
@@ -123,6 +191,9 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 		break;
 	case CSV_PLATFORM_SHUTDOWN:
 		ret = hygon_psp_hooks.__sev_platform_shutdown_locked(&input.error);
+		break;
+	case CSV_DOWNLOAD_FIRMWARE:
+		ret = csv_ioctl_do_download_firmware(&input);
 		break;
 	default:
 		/*
