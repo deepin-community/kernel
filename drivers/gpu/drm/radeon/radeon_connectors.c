@@ -984,11 +984,24 @@ static enum drm_mode_status radeon_vga_mode_valid(struct drm_connector *connecto
 {
 	struct drm_device *dev = connector->dev;
 	struct radeon_device *rdev = dev->dev_private;
+	struct edid *edid = radeon_connector_edid(connector);
 
 	/* XXX check mode bandwidth */
 
 	if ((mode->clock / 10) > rdev->clock.max_pixel_clock)
 		return MODE_CLOCK_HIGH;
+
+	/* Monitor ViewSonic include resolution 1600x1200 which is buggly,
+	 * GPU scaling with "Full" and "Full aspect" will cause screen flicker,
+	 * GPU scaling with "Center" will cause screen black,
+	 * FIXME: block it directly is ugly, is there a new way to fix it?
+	 */
+	if(edid != NULL && edid->mfg_id[0] == 0x5a && edid->mfg_id[1] == 0x63)
+	{
+		if (ASIC_IS_DCE64(rdev) && mode->hdisplay == 1600 && mode->vdisplay == 1200){
+			return MODE_BAD_WIDTH;
+		}
+	}
 
 	return MODE_OK;
 }
@@ -1464,6 +1477,7 @@ static enum drm_mode_status radeon_dvi_mode_valid(struct drm_connector *connecto
 	struct drm_device *dev = connector->dev;
 	struct radeon_device *rdev = dev->dev_private;
 	struct radeon_connector *radeon_connector = to_radeon_connector(connector);
+	struct edid *edid = radeon_connector_edid(connector);
 
 	/* XXX check mode bandwidth */
 
@@ -1492,6 +1506,18 @@ static enum drm_mode_status radeon_dvi_mode_valid(struct drm_connector *connecto
 	/* check against the max pixel clock */
 	if ((mode->clock / 10) > rdev->clock.max_pixel_clock)
 		return MODE_CLOCK_HIGH;
+
+	/* Monitor ViewSonic include resolution 1600x1200 which is buggly,
+	 * GPU scaling with "Full" and "Full aspect" will cause screen flicker,
+	 * GPU scaling with "Center" will cause screen black,
+	 * FIXME: block it directly is ugly, is there a new way to fix it?
+	 */
+	if(edid != NULL && edid->mfg_id[0] == 0x5a && edid->mfg_id[1] == 0x63)
+	{
+		if (ASIC_IS_DCE64(rdev) && mode->hdisplay == 1600 && mode->vdisplay == 1200){
+			return MODE_BAD_WIDTH;
+		}
+	}
 
 	return MODE_OK;
 }
