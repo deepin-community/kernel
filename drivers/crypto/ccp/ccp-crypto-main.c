@@ -336,6 +336,10 @@ static int ccp_register_algs(void)
 		if (ret)
 			return ret;
 
+		ret = ccp_register_sm4_hygon_algs(&skcipher_algs);
+		if (ret)
+			return ret;
+
 		/* Return on hygon platform */
 		return 0;
 	}

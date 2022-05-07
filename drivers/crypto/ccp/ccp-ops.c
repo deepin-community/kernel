@@ -2708,6 +2708,230 @@ e_ctx:
 	return ret;
 }
 
+static int ccp_run_sm4_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm4_engine *sm4 = &cmd->u.sm4;
+	struct ccp_dm_workarea iv_key;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	bool in_place = false;
+	int ret;
+
+	if (sm4->src == NULL || sm4->dst == NULL)
+		return -EINVAL;
+
+	if (sm4->key == NULL || sm4->key_len != SM4_KEY_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4->key, SM4_KEY_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm4->mode != CCP_SM4_MODE_ECB) {
+		if (sm4->iv == NULL || sm4->iv_len != SM4_BLOCK_SIZE)
+			return -EINVAL;
+
+		if (sg_nents_for_len(sm4->iv, SM4_BLOCK_SIZE) < 0)
+			return -EINVAL;
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.u.sm4.action = sm4->action;
+	op.u.sm4.mode = sm4->mode;
+	op.u.sm4.select = sm4->select;
+
+	/* Prepare the input and output data workareas. For in-place
+	 * operations we need to set the dma direction to BIDIRECTIONAL
+	 * and copy the src workarea to the dst workarea.
+	 */
+	if (sg_virt(sm4->src) == sg_virt(sm4->dst))
+		in_place = true;
+
+	ret = ccp_init_data(&src, cmd_q, sm4->src, sm4->src_len,
+		SM4_BLOCK_SIZE, in_place ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	if (in_place) {
+		dst = src;
+	} else {
+		ret = ccp_init_data(&dst, cmd_q, sm4->dst, sm4->src_len,
+				SM4_BLOCK_SIZE, DMA_FROM_DEVICE);
+		if (ret)
+			goto e_src;
+	}
+
+	/* load iv and key */
+	ret = ccp_init_dm_workarea(&iv_key, cmd_q,
+		SM4_BLOCK_SIZE + SM4_KEY_SIZE, DMA_BIDIRECTIONAL);
+	if (ret)
+		goto e_dst;
+
+	if (sm4->mode != CCP_SM4_MODE_ECB)
+		ccp_set_dm_area(&iv_key, 0, sm4->iv, 0, SM4_BLOCK_SIZE);
+
+	ccp_set_dm_area(&iv_key, SM4_BLOCK_SIZE, sm4->key, 0, SM4_KEY_SIZE);
+
+	ret = ccp_copy_to_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	/* send data to the CCP SM4 engine */
+	while (src.sg_wa.bytes_left) {
+		ccp_prepare_data(&src, &dst, &op, SM4_BLOCK_SIZE, true);
+		if (!src.sg_wa.bytes_left)
+			op.eom = 1;
+
+		ret = cmd_q->ccp->vdata->perform->sm4(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		ccp_process_data(&src, &dst, &op);
+	}
+
+	if (sm4->mode != CCP_SM4_MODE_ECB) {
+		/* retrieve the SM4 iv */
+		ret = ccp_copy_from_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+				CCP_PASSTHRU_BYTESWAP_NOOP);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		ccp_get_dm_area(&iv_key, 0, sm4->iv, 0, SM4_BLOCK_SIZE);
+	}
+
+e_iv_key:
+	memset(iv_key.address, 0, SM4_BLOCK_SIZE + SM4_KEY_SIZE);
+	ccp_dm_free(&iv_key);
+
+e_dst:
+	if (!in_place)
+		ccp_free_data(&dst, cmd_q);
+
+e_src:
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
+static int ccp_run_sm4_ctr_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm4_ctr_engine *sm4_ctr = &cmd->u.sm4_ctr;
+	struct ccp_dm_workarea iv_key;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	bool in_place = false;
+	int ret;
+
+	if (sm4_ctr->src == NULL || sm4_ctr->dst == NULL)
+		return -EINVAL;
+
+	if (sm4_ctr->key == NULL || sm4_ctr->key_len != SM4_KEY_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4_ctr->key, SM4_KEY_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm4_ctr->iv == NULL || sm4_ctr->iv_len != SM4_BLOCK_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4_ctr->iv, SM4_BLOCK_SIZE) < 0)
+		return -EINVAL;
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.u.sm4_ctr.size = sm4_ctr->size;
+	op.u.sm4_ctr.action = sm4_ctr->action;
+	op.u.sm4_ctr.step = sm4_ctr->step;
+
+	/* Prepare the input and output data workareas. For in-place
+	 * operations we need to set the dma direction to BIDIRECTIONAL
+	 * and copy the src workarea to the dst workarea.
+	 */
+	if (sg_virt(sm4_ctr->src) == sg_virt(sm4_ctr->dst))
+		in_place = true;
+
+	ret = ccp_init_data(&src, cmd_q, sm4_ctr->src, sm4_ctr->src_len,
+		SM4_BLOCK_SIZE, in_place ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	if (in_place) {
+		dst = src;
+	} else {
+		ret = ccp_init_data(&dst, cmd_q, sm4_ctr->dst,
+			sm4_ctr->src_len, SM4_BLOCK_SIZE, DMA_FROM_DEVICE);
+		if (ret)
+			goto e_src;
+	}
+
+	/* load iv and key */
+	ret = ccp_init_dm_workarea(&iv_key, cmd_q,
+		SM4_BLOCK_SIZE + SM4_KEY_SIZE, DMA_BIDIRECTIONAL);
+	if (ret)
+		goto e_dst;
+
+	ccp_set_dm_area(&iv_key, 0, sm4_ctr->iv, 0, SM4_BLOCK_SIZE);
+	ccp_set_dm_area(&iv_key, SM4_BLOCK_SIZE, sm4_ctr->key, 0, SM4_KEY_SIZE);
+
+	ret = ccp_copy_to_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	/* send data to the CCP SM4_CTR engine */
+	while (src.sg_wa.bytes_left) {
+		ccp_prepare_data(&src, &dst, &op, SM4_BLOCK_SIZE, false);
+		if (!src.sg_wa.bytes_left)
+			op.eom = 1;
+
+		ret = cmd_q->ccp->vdata->perform->sm4_ctr(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		ccp_process_data(&src, &dst, &op);
+	}
+
+	/* retrieve the SM4_CTR iv */
+	ret = ccp_copy_from_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	ccp_get_dm_area(&iv_key, 0, sm4_ctr->iv, 0, SM4_BLOCK_SIZE);
+
+e_iv_key:
+	memset(iv_key.address, 0, SM4_BLOCK_SIZE + SM4_KEY_SIZE);
+	ccp_dm_free(&iv_key);
+
+e_dst:
+	if (!in_place)
+		ccp_free_data(&dst, cmd_q);
+
+e_src:
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
 int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 {
 	int ret;
@@ -2757,6 +2981,12 @@ int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		break;
 	case CCP_ENGINE_SM3:
 		ret = ccp_run_sm3_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM4:
+		ret = ccp_run_sm4_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM4_CTR:
+		ret = ccp_run_sm4_ctr_cmd(cmd_q, cmd);
 		break;
 	default:
 		ret = -EINVAL;
