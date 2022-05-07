@@ -342,6 +342,21 @@ struct ccp_sm3_exp_ctx {
 	u8 buf[SM3_BLOCK_SIZE];
 };
 
+/***** SM4 related defines *****/
+struct ccp_sm4_ctx {
+	struct scatterlist key_sg;
+	u8 key[SM4_KEY_SIZE];
+	u32 key_len;
+	u32 mode;
+};
+
+struct ccp_sm4_req_ctx {
+	struct scatterlist iv_sg;
+	u8 iv[SM4_BLOCK_SIZE];
+
+	struct ccp_cmd cmd;
+};
+
 /***** Common Context Structure *****/
 struct ccp_ctx {
 	int (*complete)(struct crypto_async_request *req, int ret);
@@ -353,6 +368,7 @@ struct ccp_ctx {
 		struct ccp_des3_ctx des3;
 		struct ccp_sm2_ctx sm2;
 		struct ccp_sm3_ctx sm3;
+		struct ccp_sm4_ctx sm4;
 	} u;
 };
 
@@ -370,5 +386,6 @@ int ccp_register_des3_algs(struct list_head *head);
 int ccp_register_rsa_algs(struct list_head *head);
 int ccp_register_sm2_hygon_algs(struct list_head *head);
 int ccp_register_sm3_hygon_algs(struct list_head *head);
+int ccp_register_sm4_hygon_algs(struct list_head *head);
 
 #endif
