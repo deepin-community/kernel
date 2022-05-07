@@ -295,6 +295,53 @@ struct ccp_sm2_req_ctx {
 	struct ccp_cmd cmd;
 };
 
+/***** SM3 related defines *****/
+struct ccp_sm3_ctx {
+	u32 key_len;
+	u8 key[SM3_BLOCK_SIZE];
+
+	u8 ipad[SM3_BLOCK_SIZE];
+
+	u8 opad[SM3_BLOCK_SIZE];
+	struct scatterlist opad_sg;
+
+	struct crypto_shash *hmac_tfm;
+};
+
+struct ccp_sm3_req_ctx {
+	u64 msg_bits;
+
+	unsigned int first;
+	unsigned int final;
+
+	struct scatterlist *src;
+	u32 nbytes;
+
+	u64 hash_cnt;
+	u32 hash_rem;
+
+	struct sg_table data_sg;
+	struct scatterlist *src_sg;
+
+	struct scatterlist ctx_sg;
+	u8 ctx[SM3_DIGEST_SIZE];
+
+	struct scatterlist buf_sg;
+	u32 buf_count;
+	u8 buf[SM3_BLOCK_SIZE];
+
+	struct ccp_cmd cmd;
+};
+
+struct ccp_sm3_exp_ctx {
+	u64 msg_bits;
+
+	u8 ctx[SM3_DIGEST_SIZE];
+
+	u32 buf_count;
+	u8 buf[SM3_BLOCK_SIZE];
+};
+
 /***** Common Context Structure *****/
 struct ccp_ctx {
 	int (*complete)(struct crypto_async_request *req, int ret);
@@ -305,6 +352,7 @@ struct ccp_ctx {
 		struct ccp_sha_ctx sha;
 		struct ccp_des3_ctx des3;
 		struct ccp_sm2_ctx sm2;
+		struct ccp_sm3_ctx sm3;
 	} u;
 };
 
@@ -321,5 +369,6 @@ int ccp_register_sha_algs(struct list_head *head);
 int ccp_register_des3_algs(struct list_head *head);
 int ccp_register_rsa_algs(struct list_head *head);
 int ccp_register_sm2_hygon_algs(struct list_head *head);
+int ccp_register_sm3_hygon_algs(struct list_head *head);
 
 #endif

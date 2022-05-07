@@ -335,6 +335,7 @@ struct ccp_cmd_queue {
 	unsigned long total_pt_ops;
 	unsigned long total_ecc_ops;
 	unsigned long total_sm2_ops;
+	unsigned long total_sm3_ops;
 } ____cacheline_aligned;
 
 struct ccp_device {
@@ -534,6 +535,11 @@ struct ccp_sm2_op {
 	enum ccp_sm2_mode mode;
 };
 
+struct ccp_sm3_op {
+	enum ccp_sm3_type type;
+	u64 msg_bits;
+};
+
 struct ccp_op {
 	struct ccp_cmd_queue *cmd_q;
 
@@ -558,6 +564,7 @@ struct ccp_op {
 		struct ccp_passthru_op passthru;
 		struct ccp_ecc_op ecc;
 		struct ccp_sm2_op sm2;
+		struct ccp_sm3_op sm3;
 	} u;
 };
 
@@ -606,6 +613,7 @@ struct dword3 {
 union dword4 {
 	u32 dst_lo;		/* NON-SHA	*/
 	u32 sha_len_lo;		/* SHA		*/
+	__le32 sm3_len_lo;	/* SM3		*/
 };
 
 union dword5 {
@@ -616,6 +624,7 @@ union dword5 {
 		unsigned int  fixed:1;
 	} fields;
 	u32 sha_len_hi;
+	__le32 sm3_len_hi;
 };
 
 struct dword7 {
@@ -665,6 +674,7 @@ struct ccp_actions {
 	int (*passthru)(struct ccp_op *);
 	int (*ecc)(struct ccp_op *);
 	int (*sm2)(struct ccp_op *op);
+	int (*sm3)(struct ccp_op *op);
 	u32 (*sballoc)(struct ccp_cmd_queue *, unsigned int);
 	void (*sbfree)(struct ccp_cmd_queue *, unsigned int, unsigned int);
 	unsigned int (*get_free_slots)(struct ccp_cmd_queue *);
