@@ -32,4 +32,5 @@ ccp-crypto-objs := ccp-crypto-main.o \
 
 obj-$(CONFIG_TDM_KERNEL_GUARD) += hygon/tdm-kernel-guard.o
 
-ccp-crypto-$(CONFIG_HYGON_GM) += ccp-crypto-sm2-hygon.o
+ccp-crypto-$(CONFIG_HYGON_GM) += ccp-crypto-sm2-hygon.o \
+		   ccp-crypto-sm3-hygon.o

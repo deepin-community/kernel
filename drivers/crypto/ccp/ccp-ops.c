@@ -2554,6 +2554,160 @@ e_src:
 	return ret;
 }
 
+static int ccp_run_sm3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm3_engine *sm3 = &cmd->u.sm3;
+	struct ccp_dm_workarea ctx;
+	struct ccp_data src;
+	struct ccp_op op;
+	int ret;
+
+	u8 sm3_zero_message_hash[SM3_DIGEST_SIZE] = {
+		0x1A, 0xB2, 0x1D, 0x83, 0x55, 0xCF, 0xA1, 0x7F,
+		0x8e, 0x61, 0x19, 0x48, 0x31, 0xE8, 0x1A, 0x8F,
+		0x22, 0xBE, 0xC8, 0xC7, 0x28, 0xFE, 0xFB, 0x74,
+		0x7E, 0xD0, 0x35, 0xEB, 0x50, 0x82, 0xAA, 0x2B,
+	};
+
+	if ((sm3->ctx == NULL) || (sm3->ctx_len != SM3_DIGEST_SIZE))
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm3->ctx, SM3_DIGEST_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm3->final && sm3->first) {
+		if (!sm3->src_len) {
+			scatterwalk_map_and_copy(
+					(void *)sm3_zero_message_hash,
+					sm3->ctx, 0, SM3_DIGEST_SIZE, 1);
+			return 0;
+		}
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.init = sm3->first & 0x1;
+	op.u.sm3.type = sm3->type;
+	op.u.sm3.msg_bits = sm3->msg_bits;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ret = ccp_init_dm_workarea(&ctx, cmd_q, SM3_DIGEST_SIZE,
+			DMA_BIDIRECTIONAL);
+	if (ret)
+		return ret;
+
+	if (!sm3->first) {
+		/* load iv */
+		ccp_set_dm_area(&ctx, 0, sm3->ctx, 0, SM3_DIGEST_SIZE);
+
+		ret = ccp_copy_to_sb(cmd_q, &ctx, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_ctx;
+		}
+	}
+
+	ret = ccp_init_data(&src, cmd_q, sm3->src, sm3->src_len,
+			SM3_BLOCK_SIZE, DMA_TO_DEVICE);
+	if (ret)
+		goto e_ctx;
+
+	/* send data to the CCP SM3 engine */
+	if (sm3->src_len) {
+		while (src.sg_wa.bytes_left) {
+			ccp_prepare_data(&src, NULL, &op, SM3_BLOCK_SIZE,
+					false);
+			if (!src.sg_wa.bytes_left && sm3->final)
+				op.eom = 1;
+
+			ret = cmd_q->ccp->vdata->perform->sm3(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_data;
+			}
+
+			ccp_process_data(&src, NULL, &op);
+		}
+	} else {
+		/* do sm3 padding */
+		src.dm_wa.address[0] = 0x80;
+		*(__be64 *)&src.dm_wa.address[56] = cpu_to_be64(sm3->msg_bits);
+
+		op.soc = 0;
+		op.ioc = 1;
+		op.eom = 0;
+		op.src.u.dma.address = src.dm_wa.dma.address;
+		op.src.u.dma.offset = 0;
+		op.src.u.dma.length = SM3_BLOCK_SIZE;
+
+		ret = cmd_q->ccp->vdata->perform->sm3(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_data;
+		}
+	}
+
+	ret = ccp_copy_from_sb(cmd_q, &ctx, 0, op.sb_ctx,
+		CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_data;
+	}
+
+	if (sm3->final && sm3->opad) {
+		/* HMAC operation, recursively perform final SM3 */
+		struct ccp_cmd hmac_cmd;
+		struct scatterlist sg;
+		u8 *hmac_buf = NULL;
+
+		hmac_buf = kmalloc(
+			SM3_BLOCK_SIZE + SM3_DIGEST_SIZE, GFP_KERNEL);
+		if (!hmac_buf) {
+			ret = -ENOMEM;
+			goto e_data;
+		}
+		scatterwalk_map_and_copy(hmac_buf, sm3->opad,
+			0, SM3_BLOCK_SIZE, 0);
+		memcpy(hmac_buf + SM3_BLOCK_SIZE, ctx.address,
+			SM3_DIGEST_SIZE);
+		sg_init_one(&sg, hmac_buf, SM3_BLOCK_SIZE + SM3_DIGEST_SIZE);
+
+		memset(&hmac_cmd, 0, sizeof(hmac_cmd));
+		hmac_cmd.engine = CCP_ENGINE_SM3;
+		hmac_cmd.u.sm3.type = sm3->type;
+		hmac_cmd.u.sm3.ctx = sm3->ctx;
+		hmac_cmd.u.sm3.ctx_len = sm3->ctx_len;
+		hmac_cmd.u.sm3.src = &sg;
+		hmac_cmd.u.sm3.src_len = SM3_BLOCK_SIZE + SM3_DIGEST_SIZE;
+		hmac_cmd.u.sm3.opad = NULL;
+		hmac_cmd.u.sm3.opad_len = 0;
+		hmac_cmd.u.sm3.first = 1;
+		hmac_cmd.u.sm3.final = 1;
+		hmac_cmd.u.sm3.msg_bits =
+			(SM3_BLOCK_SIZE + SM3_DIGEST_SIZE) << 3;
+
+		ret = ccp_run_sm3_cmd(cmd_q, &hmac_cmd);
+		if (ret)
+			cmd->engine_error = hmac_cmd.engine_error;
+
+		kfree(hmac_buf);
+	} else {
+		ccp_get_dm_area(&ctx, 0, sm3->ctx, 0, SM3_DIGEST_SIZE);
+	}
+
+e_data:
+	ccp_free_data(&src, cmd_q);
+
+e_ctx:
+	ccp_dm_free(&ctx);
+
+	return ret;
+}
+
 int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 {
 	int ret;
@@ -2600,6 +2754,9 @@ int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		break;
 	case CCP_ENGINE_SM2:
 		ret = ccp_run_sm2_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM3:
+		ret = ccp_run_sm3_cmd(cmd_q, cmd);
 		break;
 	default:
 		ret = -EINVAL;
