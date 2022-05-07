@@ -131,6 +131,11 @@ union ccp_function {
 		u16 type:2;
 		u16 mode:3;
 	} ecc;
+	struct {
+		u16 rand:1;
+		u16 rsvd:11;
+		u16 mode:3;
+	} sm2;
 	u16 raw;
 };
 
@@ -151,6 +156,8 @@ union ccp_function {
 #define	CCP_PT_BITWISE(p)	((p)->pt.bitwise)
 #define	CCP_ECC_MODE(p)		((p)->ecc.mode)
 #define	CCP_ECC_AFFINE(p)	((p)->ecc.one)
+#define	CCP_SM2_RAND(p)		((p)->sm2.rand)
+#define	CCP_SM2_MODE(p)		((p)->sm2.mode)
 
 /* Word 0 */
 #define CCP5_CMD_DW0(p)		((p)->dw0)
@@ -579,6 +586,43 @@ static int ccp5_perform_ecc(struct ccp_op *op)
 
 	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
 	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
+	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+
+	return ccp5_do_cmd(&desc, op->cmd_q);
+}
+
+static int ccp5_perform_sm2(struct ccp_op *op)
+{
+	struct ccp5_desc desc;
+	union ccp_function function;
+	struct ccp_dma_info *saddr = &op->src.u.dma;
+	struct ccp_dma_info *daddr = &op->dst.u.dma;
+
+	op->cmd_q->total_sm2_ops++;
+
+	memset(&desc, 0, Q_DESC_SIZE);
+
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM2;
+
+	CCP5_CMD_SOC(&desc) = 0;
+	CCP5_CMD_IOC(&desc) = 1;
+	CCP5_CMD_INIT(&desc) = 1;
+	CCP5_CMD_EOM(&desc) = 1;
+	CCP5_CMD_PROT(&desc) = 0;
+
+	function.raw = 0;
+	CCP_SM2_RAND(&function) = op->u.sm2.rand;
+	CCP_SM2_MODE(&function) = op->u.sm2.mode;
+	CCP5_CMD_FUNCTION(&desc) = function.raw;
+
+	/* Length of source data must match with mode */
+	CCP5_CMD_LEN(&desc) = saddr->length;
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(saddr);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(saddr);
+	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+
+	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(daddr);
+	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(daddr);
 	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
 
 	return ccp5_do_cmd(&desc, op->cmd_q);
@@ -1103,6 +1147,7 @@ static const struct ccp_actions ccp5_actions = {
 	.rsa = ccp5_perform_rsa,
 	.passthru = ccp5_perform_passthru,
 	.ecc = ccp5_perform_ecc,
+	.sm2 = ccp5_perform_sm2,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,
