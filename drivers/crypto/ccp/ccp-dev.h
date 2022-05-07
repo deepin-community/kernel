@@ -336,6 +336,8 @@ struct ccp_cmd_queue {
 	unsigned long total_ecc_ops;
 	unsigned long total_sm2_ops;
 	unsigned long total_sm3_ops;
+	unsigned long total_sm4_ops;
+	unsigned long total_sm4_ctr_ops;
 } ____cacheline_aligned;
 
 struct ccp_device {
@@ -540,6 +542,18 @@ struct ccp_sm3_op {
 	u64 msg_bits;
 };
 
+struct ccp_sm4_op {
+	enum ccp_sm4_action action;
+	enum ccp_sm4_mode mode;
+	u32 select;
+};
+
+struct ccp_sm4_ctr_op {
+	u32 size;
+	enum ccp_sm4_action action;
+	u32 step;
+};
+
 struct ccp_op {
 	struct ccp_cmd_queue *cmd_q;
 
@@ -565,6 +579,8 @@ struct ccp_op {
 		struct ccp_ecc_op ecc;
 		struct ccp_sm2_op sm2;
 		struct ccp_sm3_op sm3;
+		struct ccp_sm4_op sm4;
+		struct ccp_sm4_ctr_op sm4_ctr;
 	} u;
 };
 
@@ -675,6 +691,8 @@ struct ccp_actions {
 	int (*ecc)(struct ccp_op *);
 	int (*sm2)(struct ccp_op *op);
 	int (*sm3)(struct ccp_op *op);
+	int (*sm4)(struct ccp_op *op);
+	int (*sm4_ctr)(struct ccp_op *op);
 	u32 (*sballoc)(struct ccp_cmd_queue *, unsigned int);
 	void (*sbfree)(struct ccp_cmd_queue *, unsigned int, unsigned int);
 	unsigned int (*get_free_slots)(struct ccp_cmd_queue *);

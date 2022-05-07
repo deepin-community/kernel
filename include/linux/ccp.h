@@ -675,6 +675,116 @@ struct ccp_sm3_engine {
 	u64 msg_bits;
 };
 
+/***** SM4 engine *****/
+#define SM4_BLOCK_SIZE          16
+#define SM4_KEY_SIZE            16
+#define CCP_SM4_MODE_MASK       0x0F
+#define CCP_SM4_MODE_HS_SEL     0x10
+
+/**
+ * ccp_sm4_mode - SM4 operation mode
+ *
+ * @CCP_SM4_MODE_ECB: ECB mode
+ * @CCP_SM4_MODE_CBC: CBC mode
+ * @CCP_SM4_MODE_OFB: OFB mode
+ * @CCP_SM4_MODE_CFB: CFB mode
+ * @CCP_SM4_MODE_CTR: CTR mode
+ */
+enum ccp_sm4_mode {
+	CCP_SM4_MODE_ECB = 0,
+	CCP_SM4_MODE_CBC,
+	CCP_SM4_MODE_OFB,
+	CCP_SM4_MODE_CFB,
+	CCP_SM4_MODE_CTR,
+	CCP_SM4_MODE__LAST,
+};
+
+/**
+ * ccp_sm4_action - SM4 operation
+ *
+ * @CCP_SM4_ACTION_DECRYPT: SM4 decrypt operation
+ * @CCP_SM4_ACTION_ENCRYPT: SM4 encrypt operation
+ */
+enum ccp_sm4_action {
+	CCP_SM4_ACTION_DECRYPT = 0,
+	CCP_SM4_ACTION_ENCRYPT,
+	CCP_SM4_ACTION__LAST,
+};
+
+/**
+ * struct ccp_sm4_engine - CCP SM4 operation
+ * @mode: SM4 operation mode
+ * @action: SM4 operation (decrypt/encrypt)
+ * @select: Indicating that high-secure engine is selected
+ * @key: key to be used for this SM4 operation
+ * @key_len: length in bytes of key
+ * @iv: IV to be used for this SM4 operation
+ * @iv_len: length in bytes of iv
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ *
+ * Variables required to be set when calling ccp_enqueue_cmd():
+ *   - mode, action, select, key, key_len, src, dst, src_len
+ *   - iv, iv_len for any mode other than ECB
+ *   - key_len and iv_len must be 16B
+ *   - src_len must be multiple of 16B
+ *   - high-secure engine only for ECB and CBC mode
+ *
+ * The iv variable is used as both input and output. On completion of the
+ * SM4 operation the new IV overwrites the old IV.
+ */
+struct ccp_sm4_engine {
+	enum ccp_sm4_mode mode;
+	enum ccp_sm4_action action;
+	u32 select;	/* Indicating that high-secure engine is selected */
+
+	struct scatterlist *key;
+	u32 key_len;	/* In bytes */
+
+	struct scatterlist *iv;
+	u32 iv_len;	/* In bytes */
+
+	struct scatterlist *src, *dst;
+	u64 src_len;	/* In bytes */
+};
+
+/***** SM4_CTR engine *****/
+/**
+ * struct ccp_sm4_ctr_engine - CCP SM4_CTR operation
+ * @action: SM4_CTR operation (decrypt/encrypt)
+ * @size: counter bit size
+ * @step: counter increase step
+ * @key: key to be used for this SM4 operation
+ * @key_len: length in bytes of key
+ * @iv: IV to be used for this SM4 operation
+ * @iv_len: length in bytes of iv
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ *
+ * Variables required to be set when calling ccp_enqueue_cmd():
+ *   - action, size, step, key, key_len, iv, iv_len, src, dst, src_len
+ *   - key_len and iv_len must be 16B
+ *
+ * The iv variable is used as both input and output. On completion of the
+ * SM4_CTR operation the new IV overwrites the old IV.
+ */
+struct ccp_sm4_ctr_engine {
+	enum ccp_sm4_action action;
+	u32 size;
+	u32 step;
+
+	struct scatterlist *key;
+	u32 key_len;		/* In bytes */
+
+	struct scatterlist *iv;
+	u32 iv_len;		/* In bytes */
+
+	struct scatterlist *src, *dst;
+	u64 src_len;		/* In bytes */
+};
+
 /**
  * ccp_engine - CCP operation identifiers
  *
@@ -700,6 +810,8 @@ enum ccp_engine {
 	CCP_ENGINE_ECC,
 	CCP_ENGINE_SM2 = 8, /* fixed value */
 	CCP_ENGINE_SM3,
+	CCP_ENGINE_SM4,
+	CCP_ENGINE_SM4_CTR,
 	CCP_ENGINE__LAST,
 };
 
@@ -750,6 +862,8 @@ struct ccp_cmd {
 		struct ccp_ecc_engine ecc;
 		struct ccp_sm2_engine sm2;
 		struct ccp_sm3_engine sm3;
+		struct ccp_sm4_engine sm4;
+		struct ccp_sm4_ctr_engine sm4_ctr;
 	} u;
 
 	/* Completion callback support */
