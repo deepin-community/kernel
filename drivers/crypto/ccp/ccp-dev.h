@@ -334,6 +334,7 @@ struct ccp_cmd_queue {
 	unsigned long total_rsa_ops;
 	unsigned long total_pt_ops;
 	unsigned long total_ecc_ops;
+	unsigned long total_sm2_ops;
 } ____cacheline_aligned;
 
 struct ccp_device {
@@ -528,6 +529,11 @@ struct ccp_ecc_op {
 	enum ccp_ecc_function function;
 };
 
+struct ccp_sm2_op {
+	u32 rand;
+	enum ccp_sm2_mode mode;
+};
+
 struct ccp_op {
 	struct ccp_cmd_queue *cmd_q;
 
@@ -551,6 +557,7 @@ struct ccp_op {
 		struct ccp_rsa_op rsa;
 		struct ccp_passthru_op passthru;
 		struct ccp_ecc_op ecc;
+		struct ccp_sm2_op sm2;
 	} u;
 };
 
@@ -657,6 +664,7 @@ struct ccp_actions {
 	int (*rsa)(struct ccp_op *);
 	int (*passthru)(struct ccp_op *);
 	int (*ecc)(struct ccp_op *);
+	int (*sm2)(struct ccp_op *op);
 	u32 (*sballoc)(struct ccp_cmd_queue *, unsigned int);
 	void (*sbfree)(struct ccp_cmd_queue *, unsigned int, unsigned int);
 	unsigned int (*get_free_slots)(struct ccp_cmd_queue *);
