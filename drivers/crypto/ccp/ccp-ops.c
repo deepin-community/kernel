@@ -2463,6 +2463,97 @@ ccp_run_ecc_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 	}
 }
 
+static int ccp_run_sm2_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm2_engine *sm2 = &cmd->u.sm2;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	int ret;
+
+	if (!sm2->src || !sm2->dst)
+		return -EINVAL;
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.init = 1;
+	op.eom = 1;
+	op.u.sm2.rand = sm2->rand & 0x1;
+	op.u.sm2.mode = sm2->mode;
+
+	memset(&src, 0, sizeof(src));
+	ret = ccp_init_sg_workarea(&src.sg_wa, cmd_q->ccp->dev,
+		sm2->src, sm2->src_len, DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	/* if src isn't contiguous, should copy to a contiguous buffer */
+	if (src.sg_wa.dma_count == 1) {
+		op.src.u.dma.address = sg_dma_address(src.sg_wa.sg);
+	} else {
+		ccp_sg_free(&src.sg_wa);
+		ret = ccp_init_dm_workarea(&src.dm_wa, cmd_q, sm2->src_len,
+			DMA_TO_DEVICE);
+		if (ret)
+			goto e_src;
+
+		ccp_set_dm_area(&src.dm_wa, 0, sm2->src, 0, sm2->src_len);
+		op.src.u.dma.address = src.dm_wa.dma.address;
+	}
+
+	op.src.type = CCP_MEMTYPE_SYSTEM;
+	op.src.u.dma.offset = 0;
+	op.src.u.dma.length = sm2->src_len;
+	op.src.u.dma.dir = DMA_TO_DEVICE;
+
+	memset(&dst, 0, sizeof(dst));
+	ret = ccp_init_sg_workarea(&dst.sg_wa, cmd_q->ccp->dev,
+		sm2->dst, sm2->dst_len, DMA_FROM_DEVICE);
+	if (ret)
+		goto e_src;
+
+	/* if dst isn't contiguous, should copy to a contiguous buffer */
+	if (dst.sg_wa.dma_count == 1) {
+		op.dst.u.dma.address = sg_dma_address(dst.sg_wa.sg);
+	} else {
+		ccp_sg_free(&dst.sg_wa);
+		ret = ccp_init_dm_workarea(&dst.dm_wa, cmd_q, sm2->dst_len,
+			DMA_FROM_DEVICE);
+		if (ret)
+			goto e_dst;
+
+		op.dst.u.dma.address = dst.dm_wa.dma.address;
+	}
+
+	op.dst.type = CCP_MEMTYPE_SYSTEM;
+	op.dst.u.dma.offset = 0;
+	op.dst.u.dma.length = sm2->dst_len;
+	op.dst.u.dma.dir = DMA_FROM_DEVICE;
+
+	ret = cmd_q->ccp->vdata->perform->sm2(&op);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_dst;
+	}
+
+	if (dst.dm_wa.address) {
+		ccp_get_dm_area(&dst.dm_wa, 0, sm2->dst, 0, sm2->dst_len);
+		memset(dst.dm_wa.address, 0, sm2->dst_len);
+	}
+
+e_dst:
+	ccp_free_data(&dst, cmd_q);
+
+e_src:
+	if (src.dm_wa.address)
+		memset(src.dm_wa.address, 0, sm2->src_len);
+
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
 int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 {
 	int ret;
@@ -2506,6 +2597,9 @@ int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		break;
 	case CCP_ENGINE_ECC:
 		ret = ccp_run_ecc_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM2:
+		ret = ccp_run_sm2_cmd(cmd_q, cmd);
 		break;
 	default:
 		ret = -EINVAL;
