@@ -935,7 +935,7 @@ static void ccp5_irq_bh(unsigned long data)
 
 		status = ioread32(cmd_q->reg_interrupt_status);
 
-		if (status) {
+		if (status & SUPPORTED_INTERRUPTS) {
 			cmd_q->int_status = status;
 			cmd_q->q_status = ioread32(cmd_q->reg_status);
 			cmd_q->q_int_status = ioread32(cmd_q->reg_int_status);
