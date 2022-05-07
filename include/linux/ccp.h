@@ -634,6 +634,47 @@ struct ccp_sm2_engine {
 	u32 dst_len;
 };
 
+/***** SM3 engine *****/
+/**
+ * ccp_sm3_type - type of SM3 operation
+ *
+ * @CCP_SM3_TYPE_256: SM3 operation
+ */
+enum ccp_sm3_type {
+	CCP_SM3_TYPE_256 = 2,
+	CCP_SM3_TYPE__LAST,
+};
+
+/**
+ * struct ccp_sm3_engine - CCP SM3 operation
+ * @type: Type of SM3 operation
+ * @ctx: current hash value
+ * @ctx_len: length in bytes of hash value
+ * @src: data to be used for this operation
+ * @src_len: length in bytes of data used for this operation
+ * @opad: data to be used for final HMAC operation
+ * @opad_len: length in bytes of data used for final HMAC operation
+ * @first: indicates first SM3 operation
+ * @final: indicates final SM3 operation
+ * @msg_bits: total length of the message in bits used in final SM3 operation
+ */
+struct ccp_sm3_engine {
+	enum ccp_sm3_type type;
+
+	struct scatterlist *ctx;
+	u32 ctx_len;
+
+	struct scatterlist *src;
+	u64 src_len;
+
+	struct scatterlist *opad;
+	u32 opad_len;
+
+	u32 first;
+	u32 final;
+	u64 msg_bits;
+};
+
 /**
  * ccp_engine - CCP operation identifiers
  *
@@ -646,6 +687,7 @@ struct ccp_sm2_engine {
  * @CCP_ENGINE_ZLIB_DECOMPRESS: unused
  * @CCP_ENGINE_ECC: ECC operation
  * @CCP_ENGINE_SM2: SM2 operation
+ * @CCP_ENGINE_SM3: SM3 operation
  */
 enum ccp_engine {
 	CCP_ENGINE_AES = 0,
@@ -657,6 +699,7 @@ enum ccp_engine {
 	CCP_ENGINE_ZLIB_DECOMPRESS,
 	CCP_ENGINE_ECC,
 	CCP_ENGINE_SM2 = 8, /* fixed value */
+	CCP_ENGINE_SM3,
 	CCP_ENGINE__LAST,
 };
 
@@ -706,6 +749,7 @@ struct ccp_cmd {
 		struct ccp_passthru_nomap_engine passthru_nomap;
 		struct ccp_ecc_engine ecc;
 		struct ccp_sm2_engine sm2;
+		struct ccp_sm3_engine sm3;
 	} u;
 
 	/* Completion callback support */

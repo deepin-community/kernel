@@ -136,6 +136,11 @@ union ccp_function {
 		u16 rsvd:11;
 		u16 mode:3;
 	} sm2;
+	struct {
+		u16 rsvd:10;
+		u16 type:4;
+		u16 rsvd2:1;
+	} sm3;
 	u16 raw;
 };
 
@@ -158,6 +163,7 @@ union ccp_function {
 #define	CCP_ECC_AFFINE(p)	((p)->ecc.one)
 #define	CCP_SM2_RAND(p)		((p)->sm2.rand)
 #define	CCP_SM2_MODE(p)		((p)->sm2.mode)
+#define	CCP_SM3_TYPE(p)		((p)->sm3.type)
 
 /* Word 0 */
 #define CCP5_CMD_DW0(p)		((p)->dw0)
@@ -193,6 +199,8 @@ union ccp_function {
 #define CCP5_CMD_FIX_DST(p)	((p)->dw5.fields.fixed)
 #define CCP5_CMD_SHA_LO(p)	((p)->dw4.sha_len_lo)
 #define CCP5_CMD_SHA_HI(p)	((p)->dw5.sha_len_hi)
+#define CCP5_CMD_SM3_LO(p)	((p)->dw4.sm3_len_lo)
+#define CCP5_CMD_SM3_HI(p)	((p)->dw5.sm3_len_hi)
 
 /* Word 6/7 */
 #define CCP5_CMD_DW6(p)		((p)->key_lo)
@@ -624,6 +632,42 @@ static int ccp5_perform_sm2(struct ccp_op *op)
 	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(daddr);
 	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(daddr);
 	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+
+	return ccp5_do_cmd(&desc, op->cmd_q);
+}
+
+static int ccp5_perform_sm3(struct ccp_op *op)
+{
+	struct ccp5_desc desc;
+	union ccp_function function;
+
+	op->cmd_q->total_sm3_ops++;
+
+	memset(&desc, 0, Q_DESC_SIZE);
+
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM3;
+
+	CCP5_CMD_SOC(&desc) = op->soc;
+	CCP5_CMD_IOC(&desc) = op->ioc;
+	CCP5_CMD_INIT(&desc) = op->init;
+	CCP5_CMD_EOM(&desc) = op->eom;
+	CCP5_CMD_PROT(&desc) = 0;
+
+	function.raw = 0;
+	CCP_SM3_TYPE(&function) = op->u.sm3.type;
+	CCP5_CMD_FUNCTION(&desc) = function.raw;
+
+	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
+
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
+	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
+
+	if (op->eom) {
+		CCP5_CMD_SM3_LO(&desc) = lower_32_bits(op->u.sm3.msg_bits);
+		CCP5_CMD_SM3_HI(&desc) = upper_32_bits(op->u.sm3.msg_bits);
+	}
 
 	return ccp5_do_cmd(&desc, op->cmd_q);
 }
@@ -1148,6 +1192,7 @@ static const struct ccp_actions ccp5_actions = {
 	.passthru = ccp5_perform_passthru,
 	.ecc = ccp5_perform_ecc,
 	.sm2 = ccp5_perform_sm2,
+	.sm3 = ccp5_perform_sm3,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,
