@@ -783,6 +783,7 @@ static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
 	/* Build a bit mask to know which LSBs this queue has access to.
 	 * Don't bother with segment 0 as it has special privileges.
 	 */
+	status >>= LSB_REGION_WIDTH;
 	for (j = 1; j < MAX_LSB_CNT; j++) {
 		if (status & q_mask)
 			bitmap_set(cmd_q->lsbmask, j, 1);
