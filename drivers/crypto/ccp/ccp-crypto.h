@@ -258,6 +258,43 @@ struct ccp_rsa_req_ctx {
 #define	CCP_RSA_MAXMOD	(4 * 1024 / 8)
 #define	CCP5_RSA_MAXMOD	(16 * 1024 / 8)
 
+/***** SM2 related defines *****/
+#define CCP_SM2_OPERAND_LEN     32
+#define CCP_SM2_PRIVATE_KEY_LEN CCP_SM2_OPERAND_LEN
+#define CCP_SM2_PUBLIC_KEY_LEN  (CCP_SM2_OPERAND_LEN * 2)
+#define CCP_SM2_ENCRYPT_EXT_LEN (CCP_SM2_PUBLIC_KEY_LEN + SM3_DIGEST_SIZE)
+#define CCP_SM2_MMUL_LEN        (CCP_SM2_OPERAND_LEN * 2)
+
+struct ccp_sm2_ctx {
+	u32 pri_key_len;
+	u32 pub_key_len;
+	u8 pri_key[CCP_SM2_PRIVATE_KEY_LEN];
+	u8 pub_key[CCP_SM2_PUBLIC_KEY_LEN];
+};
+
+enum ccp_sm2_op_phase {
+	CCP_SM2_SIGN_PH_SIGN,
+	CCP_SM2_VERIFY_PH_VERIFY,
+	CCP_SM2_ENC_PH_KG,
+	CCP_SM2_ENC_PH_LP,
+	CCP_SM2_DEC_PH_LP
+};
+
+struct ccp_sm2_req_ctx {
+	enum ccp_sm2_op_phase phase;
+	struct akcipher_request *req;
+
+	u8 src[CCP_SM2_VERIFY_SRC_SIZE];
+	u8 dst[CCP_SM2_DST_SIZE];
+
+	struct scatterlist src_sg;
+	struct scatterlist dst_sg;
+
+	struct work_struct work;
+
+	struct ccp_cmd cmd;
+};
+
 /***** Common Context Structure *****/
 struct ccp_ctx {
 	int (*complete)(struct crypto_async_request *req, int ret);
@@ -267,6 +304,7 @@ struct ccp_ctx {
 		struct ccp_rsa_ctx rsa;
 		struct ccp_sha_ctx sha;
 		struct ccp_des3_ctx des3;
+		struct ccp_sm2_ctx sm2;
 	} u;
 };
 
@@ -282,5 +320,6 @@ int ccp_register_aes_aeads(struct list_head *head);
 int ccp_register_sha_algs(struct list_head *head);
 int ccp_register_des3_algs(struct list_head *head);
 int ccp_register_rsa_algs(struct list_head *head);
+int ccp_register_sm2_hygon_algs(struct list_head *head);
 
 #endif

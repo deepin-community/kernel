@@ -17,6 +17,7 @@
 #include <crypto/aes.h>
 #include <crypto/sha1.h>
 #include <crypto/sha2.h>
+#include <crypto/sm3.h>
 
 struct ccp_device;
 struct ccp_cmd;
@@ -587,6 +588,51 @@ struct ccp_ecc_engine {
 	u16 ecc_result;
 };
 
+/***** SM2 engine *****/
+#define CCP_SM2_VERIFY_SRC_SIZE     160
+#define CCP_SM2_LP_SRC_SIZE         96
+#define CCP_SM2_KG_SRC_SIZE         32
+#define CCP_SM2_SIGN_SRC_SIZE       96
+#define CCP_SM2_MMUL_SRC_SIZE       64
+#define CCP_SM2_DST_SIZE            128
+
+/**
+ * ccp_sm2_mode - SM2 operation mode
+ *
+ * @CCP_SM2_MODE_VERIFY: Verify mode
+ * @CCP_SM2_MODE_LP:     LP     mode
+ * @CCP_SM2_MODE_KG:     KG     mode
+ * @CCP_SM2_MODE_SIGN:   SIGN   mode
+ * @CCP_SM2_MODE_MMUL:   MMUL   mode
+ */
+enum ccp_sm2_mode {
+	CCP_SM2_MODE_VERIFY,
+	CCP_SM2_MODE_LP,
+	CCP_SM2_MODE_KG,
+	CCP_SM2_MODE_SIGN,
+	CCP_SM2_MODE_MMUL,
+	CCP_SM2_MODE__LAST,
+};
+
+/**
+ * struct ccp_sm2_engine - CCP SM2 operation
+ * @mode: SM2 operation mode
+ * @rand: indicateing that operand_k is from TRNG or not
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ * @dst_len: length in bytes of data produced by this operation
+ */
+struct ccp_sm2_engine {
+	enum ccp_sm2_mode mode;
+	u32 rand;
+
+	struct scatterlist  *src;
+	u32 src_len;
+
+	struct scatterlist  *dst;
+	u32 dst_len;
+};
 
 /**
  * ccp_engine - CCP operation identifiers
@@ -599,6 +645,7 @@ struct ccp_ecc_engine {
  * @CCP_ENGINE_PASSTHRU: pass-through operation
  * @CCP_ENGINE_ZLIB_DECOMPRESS: unused
  * @CCP_ENGINE_ECC: ECC operation
+ * @CCP_ENGINE_SM2: SM2 operation
  */
 enum ccp_engine {
 	CCP_ENGINE_AES = 0,
@@ -609,6 +656,7 @@ enum ccp_engine {
 	CCP_ENGINE_PASSTHRU,
 	CCP_ENGINE_ZLIB_DECOMPRESS,
 	CCP_ENGINE_ECC,
+	CCP_ENGINE_SM2 = 8, /* fixed value */
 	CCP_ENGINE__LAST,
 };
 
@@ -657,6 +705,7 @@ struct ccp_cmd {
 		struct ccp_passthru_engine passthru;
 		struct ccp_passthru_nomap_engine passthru_nomap;
 		struct ccp_ecc_engine ecc;
+		struct ccp_sm2_engine sm2;
 	} u;
 
 	/* Completion callback support */
