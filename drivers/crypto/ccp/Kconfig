@@ -46,6 +46,13 @@ config CRYPTO_DEV_SP_PSP
 	 along with software-based Trusted Execution Environment (TEE) to
 	 enable third-party trusted applications.
 
+config HYGON_GM
+	bool "Hygon GM (sm2/sm3/sm4) Interface"
+	default y
+	depends on CRYPTO_DEV_CCP_CRYPTO && X86_64
+	help
+	  Hygon GM ccp driver
+
 config CRYPTO_DEV_CCP_DEBUGFS
 	bool "Enable CCP Internals in DebugFS"
 	default n
