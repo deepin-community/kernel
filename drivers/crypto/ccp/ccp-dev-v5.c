@@ -141,6 +141,18 @@ union ccp_function {
 		u16 type:4;
 		u16 rsvd2:1;
 	} sm3;
+	struct {
+		u16 rsvd:7;
+		u16 encrypt:1;
+		u16 mode:4;
+		u16 select:1;
+		u16 rsvd2:2;
+	} sm4;
+	struct {
+		u16 size:7;
+		u16 encrypt:1;
+		u16 step:7;
+	} sm4_ctr;
 	u16 raw;
 };
 
@@ -164,6 +176,12 @@ union ccp_function {
 #define	CCP_SM2_RAND(p)		((p)->sm2.rand)
 #define	CCP_SM2_MODE(p)		((p)->sm2.mode)
 #define	CCP_SM3_TYPE(p)		((p)->sm3.type)
+#define	CCP_SM4_ENCRYPT(p)	((p)->sm4.encrypt)
+#define	CCP_SM4_MODE(p)		((p)->sm4.mode)
+#define	CCP_SM4_SELECT(p)	((p)->sm4.select)
+#define	CCP_SM4_CTR_ENCRYPT(p)	((p)->sm4_ctr.encrypt)
+#define	CCP_SM4_CTR_STEP(p)	((p)->sm4_ctr.step)
+#define	CCP_SM4_CTR_SIZE(p)	((p)->sm4_ctr.size)
 
 /* Word 0 */
 #define CCP5_CMD_DW0(p)		((p)->dw0)
@@ -672,6 +690,90 @@ static int ccp5_perform_sm3(struct ccp_op *op)
 	return ccp5_do_cmd(&desc, op->cmd_q);
 }
 
+static int ccp5_perform_sm4(struct ccp_op *op)
+{
+	struct ccp5_desc desc;
+	union ccp_function function;
+	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
+
+	op->cmd_q->total_sm4_ops++;
+
+	memset(&desc, 0, Q_DESC_SIZE);
+
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4;
+
+	CCP5_CMD_SOC(&desc) = op->soc;
+	CCP5_CMD_IOC(&desc) = op->ioc;
+	CCP5_CMD_INIT(&desc) = op->init;
+	CCP5_CMD_EOM(&desc) = op->eom;
+	CCP5_CMD_PROT(&desc) = 0;
+
+	function.raw = 0;
+	CCP_SM4_ENCRYPT(&function) = op->u.sm4.action;
+	CCP_SM4_MODE(&function) = op->u.sm4.mode;
+	CCP_SM4_SELECT(&function) = op->u.sm4.select;
+	CCP5_CMD_FUNCTION(&desc) = function.raw;
+
+	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
+
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
+	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
+
+	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
+	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
+	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+
+	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
+	CCP5_CMD_KEY_HI(&desc) = 0;
+	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
+
+	return ccp5_do_cmd(&desc, op->cmd_q);
+}
+
+static int ccp5_perform_sm4_ctr(struct ccp_op *op)
+{
+	struct ccp5_desc desc;
+	union ccp_function function;
+	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
+
+	op->cmd_q->total_sm4_ctr_ops++;
+
+	memset(&desc, 0, Q_DESC_SIZE);
+
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4_CTR;
+
+	CCP5_CMD_SOC(&desc) = op->soc;
+	CCP5_CMD_IOC(&desc) = op->ioc;
+	CCP5_CMD_INIT(&desc) = op->init;
+	CCP5_CMD_EOM(&desc) = op->eom;
+	CCP5_CMD_PROT(&desc) = 0;
+
+	function.raw = 0;
+	CCP_SM4_CTR_SIZE(&function) = op->u.sm4_ctr.size;
+	CCP_SM4_CTR_ENCRYPT(&function) = op->u.sm4_ctr.action;
+	CCP_SM4_CTR_STEP(&function) = op->u.sm4_ctr.step;
+	CCP5_CMD_FUNCTION(&desc) = function.raw;
+
+	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
+
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
+	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
+
+	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
+	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
+	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+
+	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
+	CCP5_CMD_KEY_HI(&desc) = 0;
+	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
+
+	return ccp5_do_cmd(&desc, op->cmd_q);
+}
+
 static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
 {
 	int q_mask = 1 << cmd_q->id;
@@ -1150,6 +1252,26 @@ static void ccp5_destroy(struct ccp_device *ccp)
 	}
 }
 
+static int ccp5_get_trng_mask_param(void)
+{
+	/* According to spec description for SM4 high secure module,
+	 * which need 64 bytes data, so the initialize times of writing
+	 * mask register must be 16 or a multiple of 16.
+	 *
+	 * The AES algorithem need 48 bytes, so the initialize times will
+	 * be 12 or a multiple of 12.
+	 */
+
+#ifdef CONFIG_HYGON_GM
+	/* for sm4 HS */
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		return 16;
+#endif
+
+	/* for AES HS */
+	return 12;
+}
+
 static void ccp5_config(struct ccp_device *ccp)
 {
 	/* Public side */
@@ -1160,12 +1282,13 @@ static void ccp5other_config(struct ccp_device *ccp)
 {
 	int i;
 	u32 rnd;
+	int len = ccp5_get_trng_mask_param();
 
 	/* We own all of the queues on the NTB CCP */
 
 	iowrite32(0x00012D57, ccp->io_regs + CMD5_TRNG_CTL_OFFSET);
 	iowrite32(0x00000003, ccp->io_regs + CMD5_CONFIG_0_OFFSET);
-	for (i = 0; i < 12; i++) {
+	for (i = 0; i < len; i++) {
 		rnd = ioread32(ccp->io_regs + TRNG_OUT_REG);
 		iowrite32(rnd, ccp->io_regs + CMD5_AES_MASK_OFFSET);
 	}
@@ -1193,6 +1316,8 @@ static const struct ccp_actions ccp5_actions = {
 	.ecc = ccp5_perform_ecc,
 	.sm2 = ccp5_perform_sm2,
 	.sm3 = ccp5_perform_sm3,
+	.sm4 = ccp5_perform_sm4,
+	.sm4_ctr = ccp5_perform_sm4_ctr,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,
