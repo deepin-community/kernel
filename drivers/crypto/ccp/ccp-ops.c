@@ -2624,10 +2624,23 @@ static int ccp_run_sm3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 			if (!src.sg_wa.bytes_left && sm3->final)
 				op.eom = 1;
 
+			if (!src.sg_wa.bytes_left || op.soc)
+				op.ioc = 1;
+			else
+				op.ioc = 0;
+
 			ret = cmd_q->ccp->vdata->perform->sm3(&op);
 			if (ret) {
 				cmd->engine_error = cmd_q->cmd_error;
 				goto e_data;
+			}
+
+			if (!src.sg_wa.bytes_left || op.soc) {
+				ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+				if (ret) {
+					cmd->engine_error = cmd_q->cmd_error;
+					goto e_data;
+				}
 			}
 
 			ccp_process_data(&src, NULL, &op);
@@ -2645,6 +2658,12 @@ static int ccp_run_sm3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		op.src.u.dma.length = SM3_BLOCK_SIZE;
 
 		ret = cmd_q->ccp->vdata->perform->sm3(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_data;
+		}
+
+		ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
 		if (ret) {
 			cmd->engine_error = cmd_q->cmd_error;
 			goto e_data;
