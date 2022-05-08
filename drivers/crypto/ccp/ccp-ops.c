@@ -2807,10 +2807,23 @@ static int ccp_run_sm4_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		if (!src.sg_wa.bytes_left)
 			op.eom = 1;
 
+		if (!src.sg_wa.bytes_left || op.soc)
+			op.ioc = 1;
+		else
+			op.ioc = 0;
+
 		ret = cmd_q->ccp->vdata->perform->sm4(&op);
 		if (ret) {
 			cmd->engine_error = cmd_q->cmd_error;
 			goto e_iv_key;
+		}
+
+		if (!src.sg_wa.bytes_left || op.soc) {
+			ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_iv_key;
+			}
 		}
 
 		ccp_process_data(&src, &dst, &op);
@@ -2918,10 +2931,23 @@ static int ccp_run_sm4_ctr_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		if (!src.sg_wa.bytes_left)
 			op.eom = 1;
 
+		if (!src.sg_wa.bytes_left || op.soc)
+			op.ioc = 1;
+		else
+			op.ioc = 0;
+
 		ret = cmd_q->ccp->vdata->perform->sm4_ctr(&op);
 		if (ret) {
 			cmd->engine_error = cmd_q->cmd_error;
 			goto e_iv_key;
+		}
+
+		if (!src.sg_wa.bytes_left || op.soc) {
+			ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_iv_key;
+			}
 		}
 
 		ccp_process_data(&src, &dst, &op);
