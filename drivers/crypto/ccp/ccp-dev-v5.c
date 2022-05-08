@@ -812,7 +812,7 @@ static int ccp5_perform_sm4(struct ccp_op *op)
 	CCP5_CMD_KEY_HI(&desc) = 0;
 	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
 
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
 }
 
 static int ccp5_perform_sm4_ctr(struct ccp_op *op)
@@ -854,7 +854,7 @@ static int ccp5_perform_sm4_ctr(struct ccp_op *op)
 	CCP5_CMD_KEY_HI(&desc) = 0;
 	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
 
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
 }
 
 static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
