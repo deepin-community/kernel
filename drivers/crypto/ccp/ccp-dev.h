@@ -99,12 +99,15 @@
 #define CMD5_Q_MEM_LOCATION		0x4
 #define CMD5_Q_SIZE			0x1F
 #define CMD5_Q_SHIFT			3
+
 #define COMMANDS_PER_QUEUE		16
-#define QUEUE_SIZE_VAL			((ffs(COMMANDS_PER_QUEUE) - 2) & \
-					  CMD5_Q_SIZE)
-#define Q_PTR_MASK			(2 << (QUEUE_SIZE_VAL + 5) - 1)
+#define HYGON_COMMANDS_PER_QUEUE	8192
+
 #define Q_DESC_SIZE			sizeof(struct ccp5_desc)
-#define Q_SIZE(n)			(COMMANDS_PER_QUEUE*(n))
+
+#define QUEUE_SIZE_VAL(c) ((ffs((c)) - 2) & CMD5_Q_SIZE)
+#define Q_PTR_MASK(c)	(2 << (QUEUE_SIZE_VAL((c)) + 5) - 1)
+#define Q_SIZE(c, n)			((c)*(n))
 
 #define INT_COMPLETION			0x1
 #define INT_ERROR			0x2
