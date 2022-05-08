@@ -696,6 +696,7 @@ struct ccp_actions {
 	int (*sm3)(struct ccp_op *op);
 	int (*sm4)(struct ccp_op *op);
 	int (*sm4_ctr)(struct ccp_op *op);
+	int (*run_cmd)(struct ccp_op *op);
 	u32 (*sballoc)(struct ccp_cmd_queue *, unsigned int);
 	void (*sbfree)(struct ccp_cmd_queue *, unsigned int, unsigned int);
 	unsigned int (*get_free_slots)(struct ccp_cmd_queue *);
