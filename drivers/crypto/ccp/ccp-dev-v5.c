@@ -263,6 +263,76 @@ static unsigned int ccp5_get_free_slots(struct ccp_cmd_queue *cmd_q)
 	return n % command_per_q; /* Always one unused spot */
 }
 
+static int ccp5_do_multi_cmds(struct ccp5_desc *desc,
+			struct ccp_cmd_queue *cmd_q)
+{
+	u32 *mP;
+	__le32 *dP;
+	int     i;
+	u32 command_per_q;
+
+	command_per_q = command_per_queue();
+
+	cmd_q->total_ops++;
+
+	if (CCP5_CMD_SOC(desc)) {
+		CCP5_CMD_IOC(desc) = 1;
+		CCP5_CMD_SOC(desc) = 0;
+	}
+
+	mutex_lock(&cmd_q->q_mutex);
+
+	mP = (u32 *) &cmd_q->qbase[cmd_q->qidx];
+	dP = (__le32 *) desc;
+	for (i = 0; i < 8; i++)
+		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
+
+	cmd_q->qidx = (cmd_q->qidx + 1) % command_per_q;
+
+	mutex_unlock(&cmd_q->q_mutex);
+
+	return 0;
+}
+
+static int ccp5_do_run_cmd(struct ccp_op *op)
+{
+	struct ccp_cmd_queue *cmd_q = op->cmd_q;
+	u32 tail;
+	int ret = 0;
+
+	mutex_lock(&cmd_q->q_mutex);
+
+	/* The data used by this command must be flushed to memory */
+	wmb();
+
+	/* Write the new tail address back to the queue register */
+	tail = low_address(cmd_q->qdma_tail + cmd_q->qidx * Q_DESC_SIZE);
+	iowrite32(tail, cmd_q->reg_tail_lo);
+
+	/* Turn the queue back on using our cached control register */
+	iowrite32(cmd_q->qcontrol | CMD5_Q_RUN, cmd_q->reg_control);
+	mutex_unlock(&cmd_q->q_mutex);
+
+	if (op->ioc) {
+		/* Wait for the job to complete */
+		ret = wait_event_interruptible(cmd_q->int_queue,
+					       cmd_q->int_rcvd);
+		if (ret || cmd_q->cmd_error) {
+			/* Log the error and flush the queue by
+			 * moving the head pointer
+			 */
+			if (cmd_q->cmd_error)
+				ccp_log_error(cmd_q->ccp, cmd_q->cmd_error);
+			iowrite32(tail, cmd_q->reg_head_lo);
+			if (!ret)
+				ret = -EIO;
+		}
+		cmd_q->int_rcvd = 0;
+	}
+
+	return ret;
+}
+
 static int ccp5_do_cmd(struct ccp5_desc *desc,
 		       struct ccp_cmd_queue *cmd_q)
 {
@@ -700,7 +770,7 @@ static int ccp5_perform_sm3(struct ccp_op *op)
 		CCP5_CMD_SM3_HI(&desc) = upper_32_bits(op->u.sm3.msg_bits);
 	}
 
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
 }
 
 static int ccp5_perform_sm4(struct ccp_op *op)
@@ -1334,6 +1404,7 @@ static const struct ccp_actions ccp5_actions = {
 	.sm3 = ccp5_perform_sm3,
 	.sm4 = ccp5_perform_sm4,
 	.sm4_ctr = ccp5_perform_sm4_ctr,
+	.run_cmd = ccp5_do_run_cmd,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,
