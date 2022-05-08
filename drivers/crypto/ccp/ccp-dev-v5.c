@@ -227,6 +227,17 @@ union ccp_function {
 #define CCP5_CMD_KEY_HI(p)	((p)->dw7.key_hi)
 #define CCP5_CMD_KEY_MEM(p)	((p)->dw7.key_mem)
 
+static inline unsigned int command_per_queue(void)
+{
+#ifdef CONFIG_HYGON_GM
+	return boot_cpu_data.x86_vendor == X86_VENDOR_HYGON ?
+		       HYGON_COMMANDS_PER_QUEUE :
+		       COMMANDS_PER_QUEUE;
+#else
+	return COMMANDS_PER_QUEUE;
+#endif
+}
+
 static inline u32 low_address(unsigned long addr)
 {
 	return (u64)addr & 0x0ffffffff;
@@ -240,15 +251,16 @@ static inline u32 high_address(unsigned long addr)
 static unsigned int ccp5_get_free_slots(struct ccp_cmd_queue *cmd_q)
 {
 	unsigned int head_idx, n;
-	u32 head_lo, queue_start;
+	u32 head_lo, queue_start, command_per_q;
 
+	command_per_q = command_per_queue();
 	queue_start = low_address(cmd_q->qdma_tail);
 	head_lo = ioread32(cmd_q->reg_head_lo);
 	head_idx = (head_lo - queue_start) / sizeof(struct ccp5_desc);
 
-	n = head_idx + COMMANDS_PER_QUEUE - cmd_q->qidx - 1;
+	n = head_idx + command_per_q - cmd_q->qidx - 1;
 
-	return n % COMMANDS_PER_QUEUE; /* Always one unused spot */
+	return n % command_per_q; /* Always one unused spot */
 }
 
 static int ccp5_do_cmd(struct ccp5_desc *desc,
@@ -256,10 +268,11 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 {
 	__le32 *mP;
 	u32 *dP;
-	u32 tail;
+	u32 tail, command_per_q;
 	int	i;
 	int ret = 0;
 
+	command_per_q = command_per_queue();
 	cmd_q->total_ops++;
 
 	if (CCP5_CMD_SOC(desc)) {
@@ -273,7 +286,7 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 	for (i = 0; i < 8; i++)
 		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
 
-	cmd_q->qidx = (cmd_q->qidx + 1) % COMMANDS_PER_QUEUE;
+	cmd_q->qidx = (cmd_q->qidx + 1) % command_per_q;
 
 	/* The data used by this command must be flushed to memory */
 	wmb();
@@ -974,7 +987,7 @@ static int ccp5_init(struct ccp_device *ccp)
 	char dma_pool_name[MAX_DMAPOOL_NAME_LEN];
 	unsigned int qmr, i;
 	u64 status;
-	u32 status_lo, status_hi;
+	u32 status_lo, status_hi, command_per_q, queue_size_val;
 	int ret;
 
 	/* Find available queues */
@@ -990,6 +1003,9 @@ static int ccp5_init(struct ccp_device *ccp)
 		dev_notice(dev, "ccp: unable to access the device: you might be running a broken BIOS.\n");
 		return 1;
 	}
+
+	command_per_q = command_per_queue();
+	queue_size_val = QUEUE_SIZE_VAL(command_per_q);
 
 	for (i = 0; (i < MAX_HW_QUEUES) && (ccp->cmd_q_count < ccp->max_q_count); i++) {
 		if (!(qmr & (1 << i)))
@@ -1017,7 +1033,7 @@ static int ccp5_init(struct ccp_device *ccp)
 
 		/* Page alignment satisfies our needs for N <= 128 */
 		BUILD_BUG_ON(COMMANDS_PER_QUEUE > 128);
-		cmd_q->qsize = Q_SIZE(Q_DESC_SIZE);
+		cmd_q->qsize = Q_SIZE(command_per_q, Q_DESC_SIZE);
 		cmd_q->qbase = dmam_alloc_coherent(dev, cmd_q->qsize,
 						   &cmd_q->qbase_dma,
 						   GFP_KERNEL);
@@ -1104,7 +1120,7 @@ static int ccp5_init(struct ccp_device *ccp)
 		cmd_q = &ccp->cmd_q[i];
 
 		cmd_q->qcontrol &= ~(CMD5_Q_SIZE << CMD5_Q_SHIFT);
-		cmd_q->qcontrol |= QUEUE_SIZE_VAL << CMD5_Q_SHIFT;
+		cmd_q->qcontrol |= queue_size_val << CMD5_Q_SHIFT;
 
 		cmd_q->qdma_tail = cmd_q->qbase_dma;
 		dma_addr_lo = low_address(cmd_q->qdma_tail);
