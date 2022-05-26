@@ -1,0 +1,10 @@
+config SECURITY_HOOKMANAGER
+       bool "hookmanager support"
+       depends on SECURITY
+       depends on NET
+       select SECURITYFS
+       select SECURITY_PATH
+       select SECURITY_NETWORK
+       default y
+       help
+        This selects an hook manager for LSM hooks.
