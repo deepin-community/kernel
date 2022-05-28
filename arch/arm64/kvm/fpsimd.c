@@ -87,6 +87,17 @@ void kvm_arch_vcpu_load_fp(struct kvm_vcpu *vcpu)
 	 */
 	fpsimd_save_and_flush_cpu_state();
 	vcpu->arch.fp_state = FP_STATE_FREE;
+	*host_data_ptr(fpsimd_state) = NULL;
+ 
+	vcpu_clear_flag(vcpu, HOST_SVE_ENABLED);
+	if (read_sysreg(cpacr_el1) & CPACR_EL1_ZEN_EL0EN)
+		vcpu_set_flag(vcpu, HOST_SVE_ENABLED);
+	
+	if (system_supports_sme()) {
+		vcpu_clear_flag(vcpu, HOST_SME_ENABLED);
+		if (read_sysreg(cpacr_el1) & CPACR_EL1_SMEN_EL0EN)
+			vcpu_set_flag(vcpu, HOST_SME_ENABLED);
+	}	
 }
 
 /*
@@ -150,6 +161,22 @@ void kvm_arch_vcpu_put_fp(struct kvm_vcpu *vcpu)
 	unsigned long flags;
 
 	local_irq_save(flags);
+
+	/*
+	 * If we have VHE then the Hyp code will reset CPACR_EL1 to
+	 * CPACR_EL1_DEFAULT and we need to reenable SME.
+	 */
+	if (has_vhe() && system_supports_sme()) {
+		/* Also restore EL0 state seen on entry */
+		if (vcpu_get_flag(vcpu, HOST_SME_ENABLED))
+			sysreg_clear_set(CPACR_EL1, 0,
+					 CPACR_EL1_SMEN_EL0EN |
+					 CPACR_EL1_SMEN_EL1EN);
+		else
+			sysreg_clear_set(CPACR_EL1,
+					 CPACR_EL1_SMEN_EL0EN,
+					 CPACR_EL1_SMEN_EL1EN);
+	}
 
 	if (vcpu->arch.fp_state == FP_STATE_GUEST_OWNED) {
 		/*
