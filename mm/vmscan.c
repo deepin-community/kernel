@@ -5068,10 +5068,13 @@ static void lru_gen_change_state(bool enable)
 	if (enable == lru_gen_enabled())
 		goto unlock;
 
-	if (enable)
+	if (enable){
 		static_branch_enable_cpuslocked(&lru_gen_caps[LRU_GEN_CORE]);
-	else
+		mglru_off = 0;
+	} else {
 		static_branch_disable_cpuslocked(&lru_gen_caps[LRU_GEN_CORE]);
+		mglru_off = 1;
+	}
 
 	memcg = mem_cgroup_iter(NULL, NULL, NULL);
 	do {

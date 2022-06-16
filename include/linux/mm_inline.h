@@ -104,10 +104,15 @@ static __always_inline enum lru_list folio_lru_list(struct folio *folio)
 
 #ifdef CONFIG_LRU_GEN
 
+extern int mglru_off;
 static inline bool lru_gen_enabled(void)
 {
 #ifdef CONFIG_LRU_GEN_ENABLED
+	
 	DECLARE_STATIC_KEY_TRUE(lru_gen_caps[NR_LRU_GEN_CAPS]);
+
+	if(unlikely(mglru_off))
+		static_branch_disable_cpuslocked(&lru_gen_caps[LRU_GEN_CORE]);
 
 	return static_branch_likely(&lru_gen_caps[LRU_GEN_CORE]);
 #else
