@@ -36,6 +36,7 @@ enum wwan_port_type {
 	WWAN_PORT_ADB,
 	WWAN_PORT_MIPC,
 	WWAN_PORT_NMEA,
+	WWAN_PORT_SAHARA,
 
 	/* Add new port types above this line */
 
