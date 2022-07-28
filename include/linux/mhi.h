@@ -305,6 +305,18 @@ struct mhi_controller_config {
 };
 
 /**
+ * enum xfp_state - xfp flashing state
+ * @XFP_STATE_IDLE: not flashing
+ * @XFP_STATE_FLASHING: flashing
+ * @XFP_STATE_NEED_RESET: mhi stack needs to be resetted
+ */
+enum xfp_state {
+	XFP_STATE_IDLE = 0x0,
+	XFP_STATE_FLASHING = 0x1,
+	XFP_STATE_NEED_RESET = 0x2,
+};
+
+/**
  * struct mhi_controller - Master MHI controller structure
  * @name: Device name of the MHI controller
  * @cntrl_dev: Pointer to the struct device of physical bus acting as the MHI
@@ -380,6 +392,7 @@ struct mhi_controller_config {
  * @wake_set: Device wakeup set flag
  * @no_m3: Device doesn't support M3 state
  * @irq_flags: irq flags passed to request_irq (optional)
+ * @xfp: xfp state used for flashing
  * @mru: the default MRU for the MHI device
  *
  * Fields marked as (required) need to be populated by the controller driver
@@ -467,6 +480,8 @@ struct mhi_controller {
 	bool no_m3;
 	unsigned long irq_flags;
 	u32 mru;
+	/* Flag to manage flashing status  */
+	enum xfp_state xfp;
 };
 
 /**
