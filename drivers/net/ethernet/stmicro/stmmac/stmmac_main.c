@@ -63,16 +63,16 @@
 
 /* Module parameters */
 #define TX_TIMEO	5000
-static int watchdog = TX_TIMEO;
-module_param(watchdog, int, 0644);
+int stmmac_watchdog = TX_TIMEO;
+module_param_named(watchdog, stmmac_watchdog, int, 0644);
 MODULE_PARM_DESC(watchdog, "Transmit timeout in milliseconds (default 5s)");
 
-static int debug = -1;
-module_param(debug, int, 0644);
+int stmmac_debug = -1;
+module_param_named(debug, stmmac_debug, int, 0644);
 MODULE_PARM_DESC(debug, "Message Level (-1: default, 0: no output, 16: all)");
 
-static int phyaddr = -1;
-module_param(phyaddr, int, 0444);
+int stmmac_phyaddr = -1;
+module_param_named(phyaddr, stmmac_phyaddr, int, 0444);
 MODULE_PARM_DESC(phyaddr, "Physical device address");
 
 #define STMMAC_TX_THRESH(x)	((x)->dma_conf.dma_tx_size / 4)
@@ -88,22 +88,22 @@ MODULE_PARM_DESC(phyaddr, "Physical device address");
 #define STMMAC_XDP_TX		BIT(1)
 #define STMMAC_XDP_REDIRECT	BIT(2)
 
-static int flow_ctrl = FLOW_AUTO;
-module_param(flow_ctrl, int, 0644);
+int stmmac_flow_ctrl = FLOW_AUTO;
+module_param_named(flow_ctrl, stmmac_flow_ctrl, int, 0644);
 MODULE_PARM_DESC(flow_ctrl, "Flow control ability [on/off]");
 
-static int pause = PAUSE_TIME;
-module_param(pause, int, 0644);
+int stmmac_pause = PAUSE_TIME;
+module_param_named(pause, stmmac_pause, int, 0644);
 MODULE_PARM_DESC(pause, "Flow Control Pause Time");
 
 #define TC_DEFAULT 64
-static int tc = TC_DEFAULT;
-module_param(tc, int, 0644);
+int stmmac_tc = TC_DEFAULT;
+module_param_named(tc, stmmac_tc, int, 0644);
 MODULE_PARM_DESC(tc, "DMA threshold control value");
 
 #define	DEFAULT_BUFSIZE	1536
-static int buf_sz = DEFAULT_BUFSIZE;
-module_param(buf_sz, int, 0644);
+int stmmac_buf_sz = DEFAULT_BUFSIZE;
+module_param_named(buf_sz, stmmac_buf_sz, int, 0644);
 MODULE_PARM_DESC(buf_sz, "DMA buffer size");
 
 #define	STMMAC_RX_COPYBREAK	256
@@ -113,16 +113,16 @@ static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
 				      NETIF_MSG_IFDOWN | NETIF_MSG_TIMER);
 
 #define STMMAC_DEFAULT_LPI_TIMER	1000
-static int eee_timer = STMMAC_DEFAULT_LPI_TIMER;
-module_param(eee_timer, int, 0644);
+int stmmac_eee_timer = STMMAC_DEFAULT_LPI_TIMER;
+module_param_named(eee_timer, stmmac_eee_timer, int, 0644);
 MODULE_PARM_DESC(eee_timer, "LPI tx expiration time in msec");
 #define STMMAC_LPI_T(x) (jiffies + usecs_to_jiffies(x))
 
 /* By default the driver will use the ring mode to manage tx and rx descriptors,
  * but allow user to force to use the chain instead of the ring
  */
-static unsigned int chain_mode;
-module_param(chain_mode, int, 0444);
+unsigned int stmmac_chain_mode;
+module_param_named(chain_mode, stmmac_chain_mode, int, 0444);
 MODULE_PARM_DESC(chain_mode, "To use chain instead of ring mode");
 
 static irqreturn_t stmmac_interrupt(int irq, void *dev_id);
@@ -186,18 +186,19 @@ EXPORT_SYMBOL_GPL(stmmac_bus_clks_config);
  */
 static void stmmac_verify_args(void)
 {
-	if (unlikely(watchdog < 0))
-		watchdog = TX_TIMEO;
-	if (unlikely((buf_sz < DEFAULT_BUFSIZE) || (buf_sz > BUF_SIZE_16KiB)))
-		buf_sz = DEFAULT_BUFSIZE;
-	if (unlikely(flow_ctrl > 1))
-		flow_ctrl = FLOW_AUTO;
-	else if (likely(flow_ctrl < 0))
-		flow_ctrl = FLOW_OFF;
-	if (unlikely((pause < 0) || (pause > 0xffff)))
-		pause = PAUSE_TIME;
-	if (eee_timer < 0)
-		eee_timer = STMMAC_DEFAULT_LPI_TIMER;
+	if (unlikely(stmmac_watchdog < 0))
+		stmmac_watchdog = TX_TIMEO;
+	if (unlikely((stmmac_buf_sz < DEFAULT_BUFSIZE) ||
+	    (stmmac_buf_sz > BUF_SIZE_16KiB)))
+		stmmac_buf_sz = DEFAULT_BUFSIZE;
+	if (unlikely(stmmac_flow_ctrl > 1))
+		stmmac_flow_ctrl = FLOW_AUTO;
+	else if (likely(stmmac_flow_ctrl < 0))
+		stmmac_flow_ctrl = FLOW_OFF;
+	if (unlikely((stmmac_pause < 0) || (stmmac_pause > 0xffff)))
+		stmmac_pause = PAUSE_TIME;
+	if (stmmac_eee_timer < 0)
+		stmmac_eee_timer = STMMAC_DEFAULT_LPI_TIMER;
 }
 
 static void __stmmac_disable_all_queues(struct stmmac_priv *priv)
@@ -2383,8 +2384,8 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 	txfifosz /= tx_channels_count;
 
 	if (priv->plat->force_thresh_dma_mode) {
-		txmode = tc;
-		rxmode = tc;
+		txmode = stmmac_tc;
+		rxmode = stmmac_tc;
 	} else if (priv->plat->force_sf_dma_mode || priv->plat->tx_coe) {
 		/*
 		 * In case of GMAC, SF mode can be enabled
@@ -2397,7 +2398,7 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 		rxmode = SF_DMA_MODE;
 		priv->xstats.threshold = SF_DMA_MODE;
 	} else {
-		txmode = tc;
+		txmode = stmmac_tc;
 		rxmode = SF_DMA_MODE;
 	}
 
@@ -2584,16 +2585,16 @@ static bool stmmac_xdp_xmit_zc(struct stmmac_priv *priv, u32 queue, u32 budget)
 
 static void stmmac_bump_dma_threshold(struct stmmac_priv *priv, u32 chan)
 {
-	if (unlikely(priv->xstats.threshold != SF_DMA_MODE) && tc <= 256) {
-		tc += 64;
+	if (unlikely(priv->xstats.threshold != SF_DMA_MODE) && stmmac_tc <= 256) {
+		stmmac_tc += 64;
 
 		if (priv->plat->force_thresh_dma_mode)
-			stmmac_set_dma_operation_mode(priv, tc, tc, chan);
+			stmmac_set_dma_operation_mode(priv, stmmac_tc, stmmac_tc, chan);
 		else
-			stmmac_set_dma_operation_mode(priv, tc, SF_DMA_MODE,
+			stmmac_set_dma_operation_mode(priv, stmmac_tc, SF_DMA_MODE,
 						      chan);
 
-		priv->xstats.threshold = tc;
+		priv->xstats.threshold = stmmac_tc;
 	}
 }
 
@@ -3472,7 +3473,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 
 	/* Convert the timer from msec to usec */
 	if (!priv->tx_lpi_timer)
-		priv->tx_lpi_timer = eee_timer * 1000;
+		priv->tx_lpi_timer = stmmac_eee_timer * 1000;
 
 	if (priv->use_riwt) {
 		u32 queue;
@@ -3930,7 +3931,7 @@ static int __stmmac_open(struct net_device *dev,
 
 	priv->rx_copybreak = STMMAC_RX_COPYBREAK;
 
-	buf_sz = dma_conf->dma_buf_sz;
+	stmmac_buf_sz = dma_conf->dma_buf_sz;
 	for (int i = 0; i < MTL_MAX_TX_QUEUES; i++)
 		if (priv->dma_conf.tx_queue[i].tbs & STMMAC_TBS_EN)
 			dma_conf->tx_queue[i].tbs = priv->dma_conf.tx_queue[i].tbs;
@@ -7142,8 +7143,8 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 
 	/* dwmac-sun8i only work in chain mode */
 	if (priv->plat->flags & STMMAC_FLAG_HAS_SUN8I)
-		chain_mode = 1;
-	priv->chain_mode = chain_mode;
+		stmmac_chain_mode = 1;
+	priv->chain_mode = stmmac_chain_mode;
 
 	/* Initialize HW Interface */
 	ret = stmmac_hwif_init(priv);
@@ -7464,7 +7465,7 @@ int stmmac_dvr_probe(struct device *device,
 		return -ENOMEM;
 
 	stmmac_set_ethtool_ops(ndev);
-	priv->pause = pause;
+	priv->pause = stmmac_pause;
 	priv->plat = plat_dat;
 	priv->ioaddr = res->addr;
 	priv->dev->base_addr = (unsigned long)res->addr;
@@ -7509,8 +7510,8 @@ int stmmac_dvr_probe(struct device *device,
 	/* Override with kernel parameters if supplied XXX CRS XXX
 	 * this needs to have multiple instances
 	 */
-	if ((phyaddr >= 0) && (phyaddr <= 31))
-		priv->plat->phy_addr = phyaddr;
+	if ((stmmac_phyaddr >= 0) && (stmmac_phyaddr <= 31))
+		priv->plat->phy_addr = stmmac_phyaddr;
 
 	if (priv->plat->stmmac_rst) {
 		ret = reset_control_assert(priv->plat->stmmac_rst);
@@ -7608,7 +7609,7 @@ int stmmac_dvr_probe(struct device *device,
 	}
 
 	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
-	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
+	ndev->watchdog_timeo = msecs_to_jiffies(stmmac_watchdog);
 #ifdef STMMAC_VLAN_TAG_USED
 	/* Both mac100 and gmac support receive VLAN tag detection */
 	ndev->features |= NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_HW_VLAN_STAG_RX;
@@ -7625,9 +7626,9 @@ int stmmac_dvr_probe(struct device *device,
 			ndev->features |= NETIF_F_HW_VLAN_STAG_TX;
 	}
 #endif
-	priv->msg_enable = netif_msg_init(debug, default_msg_level);
+	priv->msg_enable = netif_msg_init(stmmac_debug, default_msg_level);
 
-	priv->xstats.threshold = tc;
+	priv->xstats.threshold = stmmac_tc;
 
 	/* Initialize RSS */
 	rxq = priv->plat->rx_queues_to_use;
@@ -7661,7 +7662,7 @@ int stmmac_dvr_probe(struct device *device,
 			 "%s: warning: maxmtu having invalid value (%d)\n",
 			 __func__, priv->plat->maxmtu);
 
-	if (flow_ctrl)
+	if (stmmac_flow_ctrl)
 		priv->flow_ctrl = FLOW_AUTO;	/* RX/TX pause on */
 
 	ndev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
@@ -7990,31 +7991,31 @@ static int __init stmmac_cmdline_opt(char *str)
 		return 1;
 	while ((opt = strsep(&str, ",")) != NULL) {
 		if (!strncmp(opt, "debug:", 6)) {
-			if (kstrtoint(opt + 6, 0, &debug))
+			if (kstrtoint(opt + 6, 0, &stmmac_debug))
 				goto err;
 		} else if (!strncmp(opt, "phyaddr:", 8)) {
-			if (kstrtoint(opt + 8, 0, &phyaddr))
+			if (kstrtoint(opt + 8, 0, &stmmac_phyaddr))
 				goto err;
 		} else if (!strncmp(opt, "buf_sz:", 7)) {
-			if (kstrtoint(opt + 7, 0, &buf_sz))
+			if (kstrtoint(opt + 7, 0, &stmmac_buf_sz))
 				goto err;
 		} else if (!strncmp(opt, "tc:", 3)) {
-			if (kstrtoint(opt + 3, 0, &tc))
+			if (kstrtoint(opt + 3, 0, &stmmac_tc))
 				goto err;
 		} else if (!strncmp(opt, "watchdog:", 9)) {
-			if (kstrtoint(opt + 9, 0, &watchdog))
+			if (kstrtoint(opt + 9, 0, &stmmac_watchdog))
 				goto err;
 		} else if (!strncmp(opt, "flow_ctrl:", 10)) {
-			if (kstrtoint(opt + 10, 0, &flow_ctrl))
+			if (kstrtoint(opt + 10, 0, &stmmac_flow_ctrl))
 				goto err;
 		} else if (!strncmp(opt, "pause:", 6)) {
-			if (kstrtoint(opt + 6, 0, &pause))
+			if (kstrtoint(opt + 6, 0, &stmmac_pause))
 				goto err;
 		} else if (!strncmp(opt, "eee_timer:", 10)) {
-			if (kstrtoint(opt + 10, 0, &eee_timer))
+			if (kstrtoint(opt + 10, 0, &stmmac_eee_timer))
 				goto err;
 		} else if (!strncmp(opt, "chain_mode:", 11)) {
-			if (kstrtoint(opt + 11, 0, &chain_mode))
+			if (kstrtoint(opt + 11, 0, &stmmac_chain_mode))
 				goto err;
 		}
 	}

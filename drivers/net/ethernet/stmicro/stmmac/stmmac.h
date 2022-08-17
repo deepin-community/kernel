@@ -353,6 +353,17 @@ enum stmmac_state {
 	STMMAC_SERVICE_SCHED,
 };
 
+/* Module parameters */
+extern int stmmac_watchdog;
+extern int stmmac_debug;
+extern int stmmac_phyaddr;
+extern int stmmac_flow_ctrl;
+extern int stmmac_pause;
+extern int stmmac_tc;
+extern int stmmac_buf_sz;
+extern int stmmac_eee_timer;
+extern unsigned int stmmac_chain_mode;
+
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
 int stmmac_mdio_reset(struct mii_bus *mii);
