@@ -944,10 +944,9 @@ static void ccp5_irq_bh(unsigned long data)
 			if ((status & INT_ERROR) && !cmd_q->cmd_error)
 				cmd_q->cmd_error = CMD_Q_ERROR(cmd_q->q_status);
 
-			cmd_q->int_rcvd = 1;
-
 			/* Acknowledge the interrupt and wake the kthread */
 			iowrite32(status, cmd_q->reg_interrupt_status);
+			cmd_q->int_rcvd = 1;
 			wake_up_interruptible(&cmd_q->int_queue);
 		}
 	}
