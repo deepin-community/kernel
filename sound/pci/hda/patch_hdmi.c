@@ -2574,6 +2574,10 @@ static int patch_generic_hdmi(struct hda_codec *codec)
 	}
 
 	generic_hdmi_init_per_pins(codec);
+
+	if ((codec->core.vendor_id >> 16) == 0x6766) {
+		codec->no_sticky_stream = 1;
+	}
 	return 0;
 }
 
@@ -4256,6 +4260,21 @@ static int patch_via_hdmi(struct hda_codec *codec)
 	return patch_simple_hdmi(codec, VIAHDMI_CVT_NID, VIAHDMI_PIN_NID);
 }
 
+/* ZHAOXIN HDMI Implementation */
+static int patch_zx_hdmi(struct hda_codec *codec)
+{
+	int err;
+
+	codec_info(codec, "hda patch version %03d \n", ZXHDA_PATCH_VERSION);
+	err = patch_generic_hdmi(codec);
+	codec->no_sticky_stream = 1;
+
+	if (err)
+		return err;
+
+	return 0;
+}
+
 /*
  * patch entries
  */
@@ -4377,6 +4396,12 @@ HDA_CODEC_ENTRY(0x80862880, "CedarTrail HDMI",	patch_generic_hdmi),
 HDA_CODEC_ENTRY(0x80862882, "Valleyview2 HDMI",	patch_i915_byt_hdmi),
 HDA_CODEC_ENTRY(0x80862883, "Braswell HDMI",	patch_i915_byt_hdmi),
 HDA_CODEC_ENTRY(0x808629fb, "Crestline HDMI",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x1d179f86, "CND001 HDMI/DP",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x1d179f87, "CND001 HDMI/DP",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x1d179f88, "CHX001 HDMI/DP",	patch_zx_hdmi),
+HDA_CODEC_ENTRY(0x1d179f89, "CHX001 HDMI/DP",	patch_zx_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8a, "CHX002 HDMI/DP",	patch_zx_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8b, "CHX002 HDMI/DP",	patch_zx_hdmi),
 /* special ID for generic HDMI */
 HDA_CODEC_ENTRY(HDA_CODEC_ID_GENERIC_HDMI, "Generic HDMI", patch_generic_hdmi),
 {} /* terminator */

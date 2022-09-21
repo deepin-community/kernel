@@ -17,6 +17,9 @@
 #define AZX_MAX_CODECS		HDA_MAX_CODECS
 #define AZX_DEFAULT_CODECS	4
 
+#define GF_HDA_PATCH_VERSION 1
+#define GF_HDA_FB_STREAM_SIZE  7*1024*1024
+
 /* driver quirks (capabilities) */
 /* bits 0-7 are used for indicating driver type */
 #define AZX_DCAPS_NO_TCSEL	(1 << 8)	/* No Intel TCSEL bit */
@@ -33,6 +36,7 @@
 #define AZX_DCAPS_POSFIX_LPIB	(1 << 16)	/* Use LPIB as default */
 #define AZX_DCAPS_AMD_WORKAROUND (1 << 17)	/* AMD-specific workaround */
 #define AZX_DCAPS_NO_64BIT	(1 << 18)	/* No 64bit address */
+#define AZX_DCAPS_SYNC_WRITE (1 << 19)
 /* 19 unused */
 #define AZX_DCAPS_OLD_SSYNC	(1 << 20)	/* Old SSYNC reg for ICH */
 #define AZX_DCAPS_NO_ALIGN_BUFSIZE (1 << 21)	/* no buffer size alignment */
@@ -45,6 +49,7 @@
 #define AZX_DCAPS_CORBRP_SELF_CLEAR (1 << 28)	/* CORBRP clears itself after reset */
 #define AZX_DCAPS_NO_MSI64      (1 << 29)	/* Stick to 32-bit MSIs */
 #define AZX_DCAPS_SEPARATE_STREAM_TAG	(1 << 30) /* capture and playback use separate stream tag */
+#define AZX_DCAPS_RIRB_PRE_DELAY  (1 << 31)
 
 enum {
 	AZX_SNOOP_TYPE_NONE,
@@ -147,6 +152,7 @@ struct azx {
 
 	/* GTS present */
 	unsigned int gts_present:1;
+	void __iomem *remap_diu_addr;
 
 #ifdef CONFIG_SND_HDA_DSP_LOADER
 	struct azx_dev saved_azx_dev;
@@ -212,5 +218,15 @@ int azx_probe_codecs(struct azx *chip, unsigned int max_slots);
 int azx_codec_configure(struct azx *chip);
 int azx_init_streams(struct azx *chip);
 void azx_free_streams(struct azx *chip);
+
+struct gf_private{
+	phys_addr_t diu_fb_stream_ofs[2];
+	void __iomem *diu_fb_stream_vaddr[2];
+	unsigned int diu_fb_stream_pos[2];
+
+	phys_addr_t diu_fb_bdl_ofs[2];
+	void __iomem *diu_fb_bdl_vaddr[2];
+};
+extern struct gf_private *gf_chip;
 
 #endif /* __SOUND_HDA_CONTROLLER_H */

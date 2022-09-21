@@ -1464,6 +1464,9 @@ void usb_enable_endpoint(struct usb_device *dev, struct usb_host_endpoint *ep,
 	ep->enabled = 1;
 }
 
+#ifdef  CONFIG_UOS_USB_FORBID_RULE
+extern bool notice_mtp_ro(struct usb_device *dev, struct usb_host_interface *alt);
+#endif
 /**
  * usb_enable_interface - Enable all the endpoints for an interface
  * @dev: the device whose interface is being enabled
@@ -1478,6 +1481,9 @@ void usb_enable_interface(struct usb_device *dev,
 	struct usb_host_interface *alt = intf->cur_altsetting;
 	int i;
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+	notice_mtp_ro(dev, alt);
+#endif
 	for (i = 0; i < alt->desc.bNumEndpoints; ++i)
 		usb_enable_endpoint(dev, &alt->endpoint[i], reset_eps);
 }

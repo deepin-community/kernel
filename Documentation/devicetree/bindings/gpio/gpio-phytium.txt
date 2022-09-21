@@ -1,0 +1,47 @@
+* Phytium GPIO controller
+
+Required properties:
+- compatible : Should contain "phytium,gpio"
+- reg : Address and length of the register set for the device.
+- interrupts: Interrupt mapping for GPIO IRQ.
+- gpio-controller : Marks the device node as a gpio controller.
+- #gpio-cells : Should be 2. The first cell is the pin number and
+  the second cell is used to specify the gpio polarity:
+      0 = active high
+      1 = active low
+- #address-cells : should be 1 (for addressing port subnodes).
+- #size-cells : should be 0 (port subnodes).
+
+The GPIO controller has two ports, each of which are represented as child
+nodes with the following properties:
+
+Required properties:
+- compatible : "phytium,gpio-port"
+- reg : The integer port index of the port, a single cell.
+
+Optional properties:
+- nr-gpios : The number of pins in the port, a single cell.
+
+Example:
+
+gpio: gpio@28004000 {
+	compatible = "phytium,gpio";
+	reg = <0x0 0x28004000 0x0 0x1000>;
+	interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+	gpio-controller;
+	#gpio-cells = <2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	porta {
+		compatible = "phytium,gpio-port";
+		reg = <0>;
+		nr-gpios = <8>;
+	};
+
+	portb {
+		compatible = "phytium,gpio-port";
+		reg = <1>;
+		nr-gpios = <8>;
+	};
+};

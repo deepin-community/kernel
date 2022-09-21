@@ -91,6 +91,7 @@ struct at24_data {
 	struct nvmem_device *nvmem;
 	struct regulator *vcc_reg;
 	void (*read_post)(unsigned int off, char *buf, size_t count);
+	struct gpio_desc *wp_gpio;
 
 	/*
 	 * Some chips tie up multiple I2C addresses; dummy devices reserve
@@ -200,6 +201,7 @@ AT24_CHIP_DATA(at24_data_24c1024, 1048576 / 8, AT24_FLAG_ADDR16);
 AT24_CHIP_DATA(at24_data_24c2048, 2097152 / 8, AT24_FLAG_ADDR16);
 /* identical to 24c08 ? */
 AT24_CHIP_DATA(at24_data_INT3499, 8192 / 8, 0);
+AT24_CHIP_DATA(at24_data_INT0002, 8192 / 8, 0);
 
 static const struct i2c_device_id at24_ids[] = {
 	{ "24c00",	(kernel_ulong_t)&at24_data_24c00 },
@@ -262,6 +264,7 @@ MODULE_DEVICE_TABLE(of, at24_of_match);
 static const struct acpi_device_id __maybe_unused at24_acpi_ids[] = {
 	{ "INT3499",	(kernel_ulong_t)&at24_data_INT3499 },
 	{ "TPF0001",	(kernel_ulong_t)&at24_data_24c1024 },
+	{ "INT0002",	(kernel_ulong_t)&at24_data_INT0002 },
 	{ /* END OF LIST */ }
 };
 MODULE_DEVICE_TABLE(acpi, at24_acpi_ids);
@@ -491,10 +494,12 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 	 * from this host, but not from other I2C masters.
 	 */
 	mutex_lock(&at24->lock);
+	gpiod_set_value_cansleep(at24->wp_gpio, 0);
 
 	while (count) {
 		ret = at24_regmap_write(at24, buf, off, count);
 		if (ret < 0) {
+			gpiod_set_value_cansleep(at24->wp_gpio, 1);
 			mutex_unlock(&at24->lock);
 			pm_runtime_put(dev);
 			return ret;
@@ -504,6 +509,7 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 		count -= ret;
 	}
 
+	gpiod_set_value_cansleep(at24->wp_gpio, 1);
 	mutex_unlock(&at24->lock);
 
 	pm_runtime_put(dev);
@@ -585,6 +591,11 @@ static unsigned int at24_get_offset_adj(u8 flags, unsigned int byte_len)
 	}
 }
 
+#ifdef CONFIG_STMMAC_ETH
+extern unsigned char * get_phytium_mac_buf(void);
+extern bool cpu_is_phytium(void);
+#endif
+
 static int at24_probe(struct i2c_client *client)
 {
 	struct regmap_config regmap_config = { };
@@ -598,6 +609,7 @@ static int at24_probe(struct i2c_client *client)
 	struct regmap *regmap;
 	bool writable;
 	u8 test_byte;
+	u8 *mac_buf;
 	int err;
 
 	i2c_fn_i2c = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
@@ -694,6 +706,9 @@ static int at24_probe(struct i2c_client *client)
 	at24->client[0].client = client;
 	at24->client[0].regmap = regmap;
 
+	at24->wp_gpio = devm_gpiod_get_optional(dev, "wp", GPIOD_OUT_HIGH);
+	if (IS_ERR(at24->wp_gpio))
+		return PTR_ERR(at24->wp_gpio);
 	at24->vcc_reg = devm_regulator_get(dev, "vcc");
 	if (IS_ERR(at24->vcc_reg))
 		return PTR_ERR(at24->vcc_reg);
@@ -776,6 +791,13 @@ static int at24_probe(struct i2c_client *client)
 			regulator_disable(at24->vcc_reg);
 		return -ENODEV;
 	}
+
+#ifdef CONFIG_STMMAC_ETH
+	mac_buf = get_phytium_mac_buf();
+	if (cpu_is_phytium() && mac_buf) {
+		err = at24_read(at24, 0xa0, mac_buf, 12);
+	}
+#endif
 
 	pm_runtime_idle(dev);
 

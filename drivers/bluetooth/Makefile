@@ -46,3 +46,6 @@ hci_uart-$(CONFIG_BT_HCIUART_QCA)	+= hci_qca.o
 hci_uart-$(CONFIG_BT_HCIUART_AG6XX)	+= hci_ag6xx.o
 hci_uart-$(CONFIG_BT_HCIUART_MRVL)	+= hci_mrvl.o
 hci_uart-objs				:= $(hci_uart-y)
+
+obj-$(CONFIG_BT_RTK_BTUSB)	+= rtk_btusb/
+obj-$(CONFIG_BT_MTK_BTUSB)	+= mtk_btusb/

@@ -27,6 +27,7 @@
 #include <linux/scpi_protocol.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/cputypes.h>
 
 struct scpi_data {
 	struct clk *clk;
@@ -95,6 +96,7 @@ static int scpi_cpufreq_init(struct cpufreq_policy *policy)
 	struct device *cpu_dev;
 	struct scpi_data *priv;
 	struct cpufreq_frequency_table *freq_table;
+	char const * cpu_clockname;
 
 	cpu_dev = get_cpu_device(policy->cpu);
 	if (!cpu_dev) {
@@ -141,12 +143,32 @@ static int scpi_cpufreq_init(struct cpufreq_policy *policy)
 	}
 
 	priv->cpu_dev = cpu_dev;
-	priv->clk = clk_get(cpu_dev, NULL);
-	if (IS_ERR(priv->clk)) {
-		dev_err(cpu_dev, "%s: Failed to get clk for cpu: %d\n",
-			__func__, cpu_dev->id);
-		ret = PTR_ERR(priv->clk);
-		goto out_free_cpufreq_table;
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+	if (cpu_is_phytium()) {
+//		pr_err("-----: set scpi-cpufreq clk for cpu %d ------",cpu_dev->id);
+		ret = device_property_read_string(cpu_dev,"clock-name",&cpu_clockname);
+		if(ret) {
+//			dev_err(cpu_dev,"---get cpu scpi clk name failed");
+			goto out_free_cpufreq_table;
+		}
+		priv->clk = clk_get(NULL,cpu_clockname);
+		if (IS_ERR(priv->clk)) {
+			dev_err(cpu_dev, "%s: Failed to get clk for cpu: %d\n",
+				__func__, cpu_dev->id);
+			ret = PTR_ERR(priv->clk);
+			goto out_free_cpufreq_table;
+		}
+//		pr_err("-----get clock:%s for cpu %d----\n",cpu_clockname,cpu_dev->id);
+	}else
+#endif
+	{
+		priv->clk = clk_get(cpu_dev, NULL);
+		if (IS_ERR(priv->clk)) {
+			dev_err(cpu_dev, "%s: Failed to get clk for cpu: %d\n",
+				__func__, cpu_dev->id);
+			ret = PTR_ERR(priv->clk);
+			goto out_free_cpufreq_table;
+		}
 	}
 
 	policy->driver_data = priv;

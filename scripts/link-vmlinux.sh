@@ -267,14 +267,14 @@ fi
 . include/config/auto.conf
 
 # Update version
-info GEN .version
-if [ -r .version ]; then
-	VERSION=$(expr 0$(cat .version) + 1)
-	echo $VERSION > .version
-else
-	rm -f .version
-	echo 1 > .version
-fi;
+#info GEN .version
+#if [ -r .version ]; then
+#	VERSION=$(expr 0$(cat .version) + 1)
+#	echo $VERSION > .version
+#else
+#	rm -f .version
+#	echo 1 > .version
+#fi;
 
 # final build of init/
 ${MAKE} -f "${srctree}/scripts/Makefile.build" obj=init need-builtin=1

@@ -286,6 +286,8 @@
 #define AUDIT_EXE	112
 #define AUDIT_SADDR_FAM	113
 
+#define AUDIT_NAMETYPE  198
+
 #define AUDIT_ARG0      200
 #define AUDIT_ARG1      (AUDIT_ARG0+1)
 #define AUDIT_ARG2      (AUDIT_ARG0+2)

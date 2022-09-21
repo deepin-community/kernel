@@ -6,7 +6,7 @@ menuconfig RTL_CARDS
 	help
 	  This option will enable support for the Realtek mac80211-based
 	  wireless drivers. Drivers rtl8192ce, rtl8192cu, rtl8192se, rtl8192de,
-	  rtl8723ae, rtl8723be, rtl8188ee, rtl8192ee, and rtl8821ae share
+	  rtl8723ae, rtl8723be, rtl8188ee, rtl8192ee, rtl8821ae and rtl8821au  share
 	  some common code.
 
 if RTL_CARDS
@@ -105,6 +105,30 @@ config RTL8821AE
 	wireless network adapters.
 
 	If you choose to build it as a module, it will be called rtl8821ae
+
+config RTL8821AU
+	tristate "Realtek RTL8821AU/RTL8812AU Wireless Network Adapter"
+	depends on PCI
+	select RTLWIFI
+	select RTLWIFI_PCI
+	select RTLBTCOEXIST
+	help
+	This is the driver for Realtek RTL8821AU/RTL8812AU 802.11ac PCIe
+	wireless network adapters.
+
+	If you choose to build it as a module, it will be called rtl8821au
+
+config RTL8821CU
+	tristate "Realtek RTL8821CU/RTL8812CU Wireless Network Adapter"
+	depends on PCI
+	select RTLWIFI
+	select RTLWIFI_PCI
+	select RTLBTCOEXIST
+	help
+	This is the driver for Realtek RTL8821CU/RTL8812CU 802.11ac PCIe
+	wireless network adapters.
+
+	If you choose to build it as a module, it will be called rtl8821cu
 
 config RTL8192CU
 	tristate "Realtek RTL8192CU/RTL8188CU USB Wireless Network Adapter"

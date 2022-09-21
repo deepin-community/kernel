@@ -1,0 +1,21 @@
+* Phytium PCIe endpoint controller
+
+Required properties:
+- compatible: Should contain "phytium,phytium-pcie-ep" to identify the IP used.
+- reg: Should contain the controller register base address, AXI interface
+  region base address and hpb register base address respectively.
+- reg-names: Must be "reg", "mem" and "hpb" respectively.
+- max-outbound-regions: Set to maximum number of outbound regions.
+- max-functions: Maximum number of functions that can be configured (default 1).
+
+Example:
+
+ep0: ep@0x29030000 {
+	compatible = "phytium,d2000-pcie-ep";
+	reg = <0x0 0x29030000 0x0 0x10000>,
+	      <0x11 0x00000000 0x1 0x00000000>,
+	      <0x0 0x29101000 0x0 0x1000>;
+	reg-names = "reg", "mem", "hpb";
+	max-outbound-regions = <3>;
+	max-functions = /bits/ 8 <1>;
+};

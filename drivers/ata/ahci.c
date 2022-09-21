@@ -869,6 +869,19 @@ static int ahci_pci_device_runtime_resume(struct device *dev)
 	if (rc)
 		return rc;
 	ahci_pci_init_controller(host);
+
+	/* controller delay for 10ms when being reusmed &&
+	 * port resume for Zx platform
+	 */
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN) {
+		ata_msleep(NULL, 10);
+		for (rc = 0; rc < host->n_ports; rc++) {
+			struct ata_port *ap = host->ports[rc];
+
+			pm_request_resume(&ap->tdev);
+		}
+	}
+
 	return 0;
 }
 
@@ -1696,6 +1709,9 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		dev_info(&pdev->dev,
 			 "PDC42819 can only drive SATA devices with this driver\n");
 
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN)
+		dev_info(&pdev->dev, "With AHCI RTD3 patch v1.0.0");
+
 	/* Some devices use non-standard BARs */
 	if (pdev->vendor == PCI_VENDOR_ID_STMICRO && pdev->device == 0xCC06)
 		ahci_pci_bar = AHCI_PCI_BAR_STA2X11;
@@ -1867,6 +1883,17 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		host->flags |= ATA_HOST_PARALLEL_SCAN;
 	else
 		dev_info(&pdev->dev, "SSS flag set, parallel bus scan disabled\n");
+
+	dev_info(&pdev->dev, "With Sata LPM patch v1.0.0");
+
+	if (hpriv->cap & HOST_CAP_PART)
+		host->flags |= ATA_HOST_PART;
+
+	if (hpriv->cap & HOST_CAP_SSC)
+		host->flags |= ATA_HOST_SSC;
+
+	if (hpriv->cap2 & HOST_CAP2_SDS)
+		host->flags |= ATA_HOST_DEVSLP;
 
 	if (pi.flags & ATA_FLAG_EM)
 		ahci_reset_em(host);

@@ -6,7 +6,7 @@
  *  All Rights Reserved
  */
 
-#define pr_fmt(fmt) 	"arch_timer: " fmt
+#define pr_fmt(fmt)	"arm_arch_timer: " fmt
 
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -29,6 +29,11 @@
 #include <asm/virt.h>
 
 #include <clocksource/arm_arch_timer.h>
+
+#include <linux/cputypes.h>
+
+#undef pr_fmt
+#define pr_fmt(fmt) "arch_timer: " fmt
 
 #define CNTTIDR		0x08
 #define CNTTIDR_VIRT(n)	(BIT(1) << ((n) * 4))
@@ -382,6 +387,9 @@ static u32 notrace sun50i_a64_read_cntv_tval_el0(void)
 #ifdef CONFIG_ARM_ARCH_TIMER_OOL_WORKAROUND
 DEFINE_PER_CPU(const struct arch_timer_erratum_workaround *, timer_unstable_counter_workaround);
 EXPORT_SYMBOL_GPL(timer_unstable_counter_workaround);
+
+DEFINE_STATIC_KEY_FALSE(arch_timer_read_ool_enabled);
+EXPORT_SYMBOL_GPL(arch_timer_read_ool_enabled);
 
 static atomic_t timer_unstable_counter_workaround_in_use = ATOMIC_INIT(0);
 
@@ -1019,7 +1027,7 @@ static void __init arch_counter_register(unsigned type)
 		arch_timer_read_counter = arch_counter_get_cntvct_mem;
 	}
 
-	if (!arch_counter_suspend_stop)
+	if ((!arch_counter_suspend_stop) && !(cpu_is_phytium()) && !(cpu_is_kunpeng_920l()))
 		clocksource_counter.flags |= CLOCK_SOURCE_SUSPEND_NONSTOP;
 	start_count = arch_timer_read_counter();
 	clocksource_register_hz(&clocksource_counter, arch_timer_rate);

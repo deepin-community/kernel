@@ -10,6 +10,7 @@
 #include <sound/jack.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
+#include <sound/jack.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
 #include <sound/pcm_drm_eld.h>

@@ -192,6 +192,7 @@ static void tsc_check_state(int state)
 	case X86_VENDOR_INTEL:
 	case X86_VENDOR_CENTAUR:
 	case X86_VENDOR_ZHAOXIN:
+		pr_info_once("With TSC patchV1.0.0\n");
 		/*
 		 * AMD Fam10h TSC will tick in all
 		 * C/P/S0/S1 states when this bit is set.

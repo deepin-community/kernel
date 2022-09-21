@@ -61,8 +61,10 @@ void acpi_processor_power_init_bm_check(struct acpi_processor_flags *flags,
 	 */
 	if (c->x86_vendor == X86_VENDOR_CENTAUR) {
 		if (c->x86 > 6 || (c->x86 == 6 && c->x86_model == 0x0f &&
-		    c->x86_stepping >= 0x0e))
+		    c->x86_stepping >= 0x0e)) {
 			flags->bm_check = 1;
+			pr_info("Disable WBINVD operation when entering C3 or above patchV1.0.0\n");
+		}
 	}
 
 	if (c->x86_vendor == X86_VENDOR_ZHAOXIN) {
@@ -78,6 +80,7 @@ void acpi_processor_power_init_bm_check(struct acpi_processor_flags *flags,
 		 * is not required while entering C3 type state.
 		 */
 		flags->bm_control = 0;
+		pr_info("Disable WBINVD operation when entering C3 or above patchV1.0.0\n");
 	}
 }
 EXPORT_SYMBOL(acpi_processor_power_init_bm_check);

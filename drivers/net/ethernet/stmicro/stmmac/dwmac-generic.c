@@ -9,9 +9,11 @@
  * warranty of any kind, whether express or implied.
  */
 
+#include <linux/acpi.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/cputypes.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -32,7 +34,15 @@ static int dwmac_generic_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "dt configuration failed\n");
 			return PTR_ERR(plat_dat);
 		}
-	} else {
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+	} else if ((cpu_is_phytium()) && (has_acpi_companion(&pdev->dev))) {
+		plat_dat = stmmac_probe_config_acpi(pdev, &stmmac_res.mac);
+		if (!plat_dat) {
+			dev_err(&pdev->dev, "acpi configuration failed\n");
+			return  -EINVAL;
+		}
+#endif
+    } else {
 		plat_dat = dev_get_platdata(&pdev->dev);
 		if (!plat_dat) {
 			dev_err(&pdev->dev, "no platform data provided\n");
@@ -85,6 +95,18 @@ static const struct of_device_id dwmac_generic_match[] = {
 };
 MODULE_DEVICE_TABLE(of, dwmac_generic_match);
 
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+static const struct acpi_device_id dwmac_acpi_ids[] = {
+	{ .id = "FTGM0001" },
+	{ .id = "PHYT0004" }, /*FT-2500*/
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, dwmac_acpi_ids);
+#else
+#define dwmac_acpi_ids NULL
+#endif
+
 static struct platform_driver dwmac_generic_driver = {
 	.probe  = dwmac_generic_probe,
 	.remove = stmmac_pltfr_remove,
@@ -92,6 +114,9 @@ static struct platform_driver dwmac_generic_driver = {
 		.name           = STMMAC_RESOURCE_NAME,
 		.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table = of_match_ptr(dwmac_generic_match),
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+		.acpi_match_table = ACPI_PTR(dwmac_acpi_ids),
+#endif
 	},
 };
 module_platform_driver(dwmac_generic_driver);

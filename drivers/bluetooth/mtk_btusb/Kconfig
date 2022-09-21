@@ -1,0 +1,5 @@
+config BT_MTK_BTUSB
+	tristate
+	help
+	  MediaTek BT driver.
+

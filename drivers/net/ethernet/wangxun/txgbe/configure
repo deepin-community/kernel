@@ -1,0 +1,103 @@
+################################################################################
+#
+# WangXun 10GbE PCI Express Linux Network Driver
+# Copyright(c) 2015 - 2017 Beijing WangXun Technology Co., Ltd.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# The full GNU General Public License is included in this distribution in
+# the file called "COPYING".
+#
+#
+################################################################################
+
+# common Makefile rules useful for out-of-tree Linux driver builds
+#
+# Usage: include configure
+#
+# After including, you probably want to add a minimum_kver_check call
+#
+# Required Variables:
+# DRIVER
+#   -- Set to the lowercase driver name
+
+#####################
+# Helpful functions #
+#####################
+DEFAULT_FCPAUSE	:= 0xFFFF	# 0x3800
+MAX_REQUST_SIZE := 256		# 256/512
+TXGBE_DEFAULT_TXD := 512	# deepinsw 1024
+DEFAULT_TX_WORK	  := 256	# deepinsw 512
+CL72_KRTR_PRBS_MODE_EN:=0xFFFF #0xffff to close
+ 
+SFI_MAIN		:= 24
+SFI_PRE			:= 4
+SFI_POST		:= 16
+SFI_TXRX_PIN 	:= 0		#rx : 0xf  tx : 0xf0 
+
+KR_MODE			:= 0		# 1 to open log
+KR_AN73_PRESET	:= 0		#default to preset ; init : 1
+KR_POLLING 		:= 0
+KR_NORESET		:= 0
+KR_NOREINITED	:= 0
+KR_CL72_TRAINING:= 1
+KR_MAIN			:= 27
+KR_PRE			:= 8
+KR_POST			:= 44
+KR_TXRX_PIN 	:= 0		#rx : 0xf  tx : 0xf0 
+
+KX4_MAIN		:= 40
+KX4_PRE			:= 0
+KX4_POST		:= 0
+KX4_TXRX_PIN 	:= 0		#rx : 0xf  tx : 0xf0 
+
+KX_MAIN			:= 24
+KX_PRE			:= 4
+KX_POST			:= 16 
+
+KX_SGMII		:= 0		# 1   0x18090 :0xcf00
+BOND_CHECK_LINK_MODE :=0    # default 0 use int to check link up/down
+
+TXGBE_STATIC_ITR := 1   # Maximum interrupts per second, per vector, (0,1,980-500000), default 1
+
+####################################
+EXTRA_CFLAGS += -DMAX_REQUST_SIZE=$(MAX_REQUST_SIZE)
+EXTRA_CFLAGS += -DDEFAULT_FCPAUSE=$(DEFAULT_FCPAUSE)
+EXTRA_CFLAGS += -DCL72_KRTR_PRBS_MODE_EN=$(CL72_KRTR_PRBS_MODE_EN)
+
+EXTRA_CFLAGS += -DSFI_MAIN=$(SFI_MAIN)
+EXTRA_CFLAGS += -DSFI_PRE=$(SFI_PRE)
+EXTRA_CFLAGS += -DSFI_POST=$(SFI_POST)
+EXTRA_CFLAGS += -DSFI_TXRX_PIN=$(SFI_TXRX_PIN)
+
+EXTRA_CFLAGS += -DKR_MODE=$(KR_MODE)
+EXTRA_CFLAGS += -DKR_AN73_PRESET=$(KR_AN73_PRESET)
+EXTRA_CFLAGS += -DKR_POLLING=$(KR_POLLING)
+EXTRA_CFLAGS += -DKR_NORESET=$(KR_NORESET)
+EXTRA_CFLAGS += -DKR_NOREINITED=$(KR_NOREINITED)
+EXTRA_CFLAGS += -DKR_CL72_TRAINING=$(KR_CL72_TRAINING)
+EXTRA_CFLAGS += -DKR_MAIN=$(KR_MAIN)
+EXTRA_CFLAGS += -DKR_PRE=$(KR_PRE)
+EXTRA_CFLAGS += -DKR_POST=$(KR_POST)
+EXTRA_CFLAGS += -DKR_TXRX_PIN=$(KR_TXRX_PIN)
+
+EXTRA_CFLAGS += -DKX4_MAIN=$(KX4_MAIN)
+EXTRA_CFLAGS += -DKX4_PRE=$(KX4_PRE)
+EXTRA_CFLAGS += -DKX4_POST=$(KX4_POST)
+EXTRA_CFLAGS += -DKX4_TXRX_PIN=$(KX4_TXRX_PIN)
+
+EXTRA_CFLAGS += -DKX_MAIN=$(KX_MAIN)
+EXTRA_CFLAGS += -DKX_PRE=$(KX_PRE)
+EXTRA_CFLAGS += -DKX_POST=$(KX_POST)
+
+EXTRA_CFLAGS += -DKX_SGMII=$(KX_SGMII)
+EXTRA_CFLAGS += -DBOND_CHECK_LINK_MODE=$(BOND_CHECK_LINK_MODE)
+#EXTRA_CFLAGS += -DPOLL_LINK_STATUS=$(POLL_LINK_STATUS)
+EXTRA_CFLAGS += -DTXGBE_STATIC_ITR=$(TXGBE_STATIC_ITR)

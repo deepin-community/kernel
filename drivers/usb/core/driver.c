@@ -314,6 +314,9 @@ static int usb_unbind_device(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern bool uos_usb_rule_match(char *bus_name, char *dev_path, struct usb_interface_descriptor *desc);
+#endif
 /* called from driver core with dev locked */
 static int usb_probe_interface(struct device *dev)
 {
@@ -393,6 +396,14 @@ static int usb_probe_interface(struct device *dev)
 		intf->needs_altsetting0 = 0;
 	}
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+	/* allow 1 , forbid 0 */
+	if(!uos_usb_rule_match(udev->bus->bus_name, udev->devpath, &(intf->cur_altsetting->desc))) {
+		dev_info(&intf->dev, "%s The usb forbid rule is matched, so the driver will not be probed! \n", __func__);
+		error = -ENODEV;
+		goto err;
+	}
+#endif
 	error = driver->probe(intf, id);
 	if (error)
 		goto err;

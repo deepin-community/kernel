@@ -111,6 +111,9 @@ tmpdir=debian/linux-image
 dbg_dir=debian/linux-image-dbg
 packagename=linux-image-$version
 dbg_packagename=$packagename-dbg
+uos_uefi_ca_x86=UEFI-CA-CERT/UOS-UEFI-RSA-X86.pem
+uos_uefi_ca_arm=UEFI-CA-CERT/UOS-UEFI-RSA-ARM.pem
+deepin_uefi_ca=UEFI-CA-CERT/DEEPIN-UEFI-RSA.pem
 
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux-$version
@@ -149,6 +152,23 @@ else
 fi
 cp "$($MAKE -s -f $srctree/Makefile image_name)" "$tmpdir/$installed_image_path"
 
+if [ $(arch) = "x86_64" ]; then
+	if [ -f auto_deepin_sign_kernel ]; then
+		sbsign --swkey --ip 10.0.32.114 --port 9090 --cert "$deepin_uefi_ca" --output "$tmpdir/$installed_image_path" "$tmpdir/$installed_image_path"
+	fi
+	if [ -f auto_sign_kernel ]; then
+		sbsign --hwkey 1 --ip 10.0.32.114 --port 8080 --cert "$uos_uefi_ca_x86" --output "$tmpdir/$installed_image_path" "$tmpdir/$installed_image_path"
+	fi
+elif [ $(arch) = "aarch64" ]; then
+	cp "$($MAKE -s -f $srctree/Makefile image_name)" "$tmpdir/$installed_image_path"
+	if [ -f auto_sign_kernel ];then
+		mv $tmpdir/$installed_image_path{,.gz}
+		gzip -d $tmpdir/$installed_image_path.gz
+		sbsign --hwkey 1 --cert "$uos_uefi_ca_arm" --output "$tmpdir/$installed_image_path" "$tmpdir/$installed_image_path"
+		gzip -9n $tmpdir/$installed_image_path
+		mv $tmpdir/$installed_image_path.gz $tmpdir/$installed_image_path
+	fi
+fi
 if is_enabled CONFIG_OF_EARLY_FLATTREE; then
 	# Only some architectures with OF support have this target
 	if [ -d "${srctree}/arch/$SRCARCH/boot/dts" ]; then

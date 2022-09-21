@@ -15,6 +15,7 @@
 #include <linux/phylink.h>
 #include <linux/net_tstamp.h>
 #include <asm/io.h>
+#include <linux/cputypes.h>
 
 #include "stmmac.h"
 #include "dwmac_dma.h"
@@ -283,6 +284,13 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 					     struct ethtool_link_ksettings *cmd)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
+	if(cpu_is_phytium()){
+        if(test_bit(__LINK_STATE_NOCARRIER, &dev->state)){
+            cmd->base.speed = SPEED_UNKNOWN;
+            cmd->base.duplex = DUPLEX_UNKNOWN;
+            return 0;
+        }
+    }
 
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {

@@ -420,9 +420,44 @@ void snd_hdac_aligned_write(unsigned int val, void __iomem *addr,
 #define snd_hdac_aligned_write(val, addr, mask) do {} while (0)
 #endif
 
+#include <linux/cputypes.h>
+#define DWORD_BYTE_WIDTH 4
+#define BYTE_BIT_WIDTH   8
+
+static void phytium_azx_writew(u16 value, u16 __iomem *addr)
+{
+    u32 data;
+    u32 offset;
+
+    offset = (u64)addr & 0x03;
+    addr  = (u16 __iomem *)((u64)addr & 0xFFFFFFFFFFFFFFFC);
+    data = readl(addr);
+    data &= ~(0xFFFF << offset * BYTE_BIT_WIDTH);
+    data |= (value << offset * BYTE_BIT_WIDTH);
+    writel(data, addr);
+}
+
+static void phytium_azx_writeb(u8 value, u8 __iomem *addr)
+{
+    u32 data;
+    u32 offset;
+
+    offset = (u64)addr & 0x03;
+    addr  = (u8 __iomem *)((u64)addr & 0xFFFFFFFFFFFFFFFC);
+    data = readl(addr);
+    data &= ~(0xFF << offset * BYTE_BIT_WIDTH);
+    data |= (value << offset * BYTE_BIT_WIDTH);
+    writel(data, addr);
+}
+
+
 static inline void snd_hdac_reg_writeb(struct hdac_bus *bus, void __iomem *addr,
 				       u8 val)
 {
+	if (cpu_is_phytium()) {
+		return phytium_azx_writeb(val, addr);
+	}
+
 	if (snd_hdac_aligned_mmio(bus))
 		snd_hdac_aligned_write(val, addr, 0xff);
 	else
@@ -432,6 +467,10 @@ static inline void snd_hdac_reg_writeb(struct hdac_bus *bus, void __iomem *addr,
 static inline void snd_hdac_reg_writew(struct hdac_bus *bus, void __iomem *addr,
 				       u16 val)
 {
+	if (cpu_is_phytium()) {
+		return phytium_azx_writew(val, addr);
+	}
+
 	if (snd_hdac_aligned_mmio(bus))
 		snd_hdac_aligned_write(val, addr, 0xffff);
 	else

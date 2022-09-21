@@ -34,6 +34,7 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
+#include <linux/cputypes.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/mdio.h>
@@ -543,7 +544,10 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 
 	err = device_register(&bus->dev);
 	if (err) {
-		pr_err("mii_bus %s failed to register\n", bus->id);
+		if (cpu_is_phytium())
+			pr_info("mii_bus %s failed to register\n", bus->id);
+		else
+			pr_err("mii_bus %s failed to register\n", bus->id);
 		return -EINVAL;
 	}
 

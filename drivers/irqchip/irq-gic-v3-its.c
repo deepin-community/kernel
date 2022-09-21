@@ -37,6 +37,10 @@
 #include <asm/cputype.h>
 #include <asm/exception.h>
 
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/machine_types.h>
+#endif
+
 #include "irq-gic-common.h"
 
 #define ITS_FLAGS_CMDQ_NEEDS_FLUSHING		(1ULL << 0)
@@ -1691,7 +1695,13 @@ static void its_irq_compose_msi_msg(struct irq_data *d, struct msi_msg *msg)
 	msg->address_hi		= upper_32_bits(addr);
 	msg->data		= its_get_event_id(d);
 
-	iommu_dma_compose_msi_msg(irq_data_get_msi_desc(d), msg);
+	#ifdef CONFIG_ARCH_PHYTIUM
+        if (typeof_ft2000plus())
+                return ;
+	#endif
+
+	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) != MIDR_PHYTIUM_FT2000PLUS)
+		iommu_dma_compose_msi_msg(irq_data_get_msi_desc(d), msg);
 }
 
 static int its_irq_set_irqchip_state(struct irq_data *d,
@@ -4770,7 +4780,7 @@ err:
 static void its_restore_enable(void)
 {
 	struct its_node *its;
-	int ret;
+	int ret, cpu;
 
 	raw_spin_lock(&its_lock);
 	list_for_each_entry(its, &its_nodes, entry) {
@@ -4823,6 +4833,22 @@ static void its_restore_enable(void)
 		if (its->collections[smp_processor_id()].col_id <
 		    GITS_TYPER_HCC(gic_read_typer(base + GITS_TYPER)))
 			its_cpu_init_collection(its);
+	}
+	/*
+	 * Enable LPIs: firmware just restore GICR_CTLR.Enable_LPIs
+	 * of boot cpu, the other CPUs also should be restore.
+	 */
+	for_each_possible_cpu(cpu) {
+		void __iomem *rbase = gic_data_rdist_cpu(cpu)->rd_base;
+		u32 val;
+
+		/* Enable LPIs */
+		val = readl_relaxed(rbase + GICR_CTLR);
+		if (val & GICR_CTLR_ENABLE_LPIS)
+			continue;
+
+		val |= GICR_CTLR_ENABLE_LPIS;
+		writel_relaxed(val, rbase + GICR_CTLR);
 	}
 	raw_spin_unlock(&its_lock);
 }

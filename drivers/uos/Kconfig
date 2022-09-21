@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0
+menu "UOS Driver config"
+
+
+config UOS_INVENTION
+    tristate "UOS new inventions"
+	default y
+	help
+	Enable uos inventions.
+
+config UOS_USB_FORBID_RULE
+	tristate "UOS usb forbid rules"
+	depends on UOS_INVENTION
+	default y
+	help
+	Enable support for usb functions forbid rules
+
+endmenu

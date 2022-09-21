@@ -20,6 +20,7 @@
 
 #include "gpiolib.h"
 #include "gpiolib-acpi.h"
+#include <linux/cputypes.h>
 
 static int run_edge_events_on_boot = -1;
 module_param(run_edge_events_on_boot, int, 0444);
@@ -1232,7 +1233,10 @@ void acpi_gpiochip_add(struct gpio_chip *chip)
 
 	status = acpi_attach_data(handle, acpi_gpio_chip_dh, acpi_gpio);
 	if (ACPI_FAILURE(status)) {
-		dev_err(chip->parent, "Failed to attach ACPI GPIO chip\n");
+		if (cpu_is_phytium())
+			dev_info(chip->parent, "Failed to attach ACPI GPIO chip\n");
+		else
+			dev_err(chip->parent, "Failed to attach ACPI GPIO chip\n");
 		kfree(acpi_gpio);
 		return;
 	}

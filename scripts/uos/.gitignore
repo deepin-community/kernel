@@ -1,0 +1,4 @@
+abicheck/new.abi
+abicheck/new.abi.*
+abicheck/*.report
+abicheck/*.report.*

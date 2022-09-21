@@ -12,6 +12,7 @@
  * heartbeat requests after the watchdog device has been closed.
  */
 
+#include <linux/acpi.h>
 #include <linux/bitops.h>
 #include <linux/limits.h>
 #include <linux/kernel.h>
@@ -697,6 +698,12 @@ static int dw_wdt_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct acpi_device_id dw_wdt_acpi_match[] = {
+	{ "PHYT0014", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, dw_wdt_acpi_match);
+
 #ifdef CONFIG_OF
 static const struct of_device_id dw_wdt_of_match[] = {
 	{ .compatible = "snps,dw-wdt", },
@@ -711,6 +718,7 @@ static struct platform_driver dw_wdt_driver = {
 	.driver		= {
 		.name	= "dw_wdt",
 		.of_match_table = of_match_ptr(dw_wdt_of_match),
+		.acpi_match_table = ACPI_PTR(dw_wdt_acpi_match),
 		.pm	= &dw_wdt_pm_ops,
 	},
 };

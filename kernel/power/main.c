@@ -18,6 +18,8 @@
 #include <linux/pm_runtime.h>
 
 #include "power.h"
+#include <linux/cputypes.h>
+#include <linux/classtypes.h>
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -191,6 +193,107 @@ static ssize_t mem_sleep_store(struct kobject *kobj, struct kobj_attribute *attr
 
 power_attr(mem_sleep);
 
+#ifdef CONFIG_PHYTIUM_S3_TIMEOUT
+extern bool s3_to_s4_enable_flag;
+extern unsigned short s3_timeout_counter;
+static ssize_t s3_to_s4_enable_show(struct kobject *kobj, struct kobj_attribute *attr,
+				char *buf)
+{
+	if (cpu_is_ft2004() && chassis_types_is_laptop()) {
+		if (s3_to_s4_enable_flag)
+			return sprintf(buf, "1\n");
+		else
+			return sprintf(buf, "0\n");
+	} else {
+		return sprintf(buf, "2\n");
+	}
+
+}
+
+static ssize_t s3_to_s4_enable_store(struct kobject *kobj, struct kobj_attribute *attr,
+			       const char *buf, size_t n)
+{
+	unsigned long val, len;
+	unsigned char string[6];
+	unsigned char *p;
+
+
+	if (!cpu_is_ft2004() || !chassis_types_is_laptop()) {
+		s3_to_s4_enable_flag = false;
+		return -EINVAL;
+	}
+
+	p = memchr(buf, '\n', n);
+	len = p ? ((unsigned long)p - (unsigned long)buf) : n;
+	len = (len<5)?len:5;
+
+	memset(string, 0, 6);
+	memcpy(string, buf, len);
+
+	if (kstrtoul(string, 10, &val)) {
+		s3_to_s4_enable_flag = false;
+		return -EINVAL;
+	}
+
+	if (val) {
+		s3_to_s4_enable_flag = true;
+	} else {
+		s3_to_s4_enable_flag = false;
+	}
+
+	return n;
+}
+
+power_attr(s3_to_s4_enable);
+
+static ssize_t s3_timeout_show(struct kobject *kobj, struct kobj_attribute *attr,
+			      char *buf)
+{
+	return sprintf(buf, "%d \n", s3_timeout_counter);
+}
+
+static ssize_t s3_timeout_store(struct kobject *kobj, struct kobj_attribute *attr,
+			       const char *buf, size_t n)
+{
+	unsigned long val, len;
+	unsigned char string[6];
+	unsigned char *p;
+
+	p = memchr(buf, '\n', n);
+	len = p ? ((unsigned long)p - (unsigned long)buf) : n;
+	len = (len<5)?len:5;
+
+	memset(string, 0, 6);
+	memcpy(string, buf, len);
+
+
+	if (kstrtoul(string, 10, &val)) {
+		s3_timeout_counter = 0;
+		return -EINVAL;
+    }
+
+    s3_timeout_counter = (unsigned short )(val & 0xFFFF);
+    return n;
+}
+power_attr(s3_timeout);
+
+int phytium_s3_to_s4_enter(void)
+{
+	int error;
+
+	error = pm_autosleep_lock();
+	if (error)
+		return error;
+
+	error = hibernate();
+	pm_autosleep_unlock();
+
+	return error;
+}
+EXPORT_SYMBOL(phytium_s3_to_s4_enter);
+
+
+#endif
 /*
  * sync_on_suspend: invoke ksys_sync_helper() before suspend.
  *
@@ -654,9 +757,18 @@ static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 	}
 
 	state = decode_state(buf, n);
+
+		/* For Pangu S3 special route */
+	if (cpu_is_pangu())
+		pg_set_suspend_state(state);
+
 	if (state < PM_SUSPEND_MAX) {
 		if (state == PM_SUSPEND_MEM)
 			state = mem_sleep_current;
+
+		/* For Kunpeng 920S run S1 special route */
+		if (cpu_is_kunpeng_920s() && (state == PM_SUSPEND_MEM))
+			state = PM_SUSPEND_TO_IDLE;
 
 		error = pm_suspend(state);
 	} else if (state == PM_SUSPEND_MAX) {
@@ -898,6 +1010,10 @@ static struct attribute * g[] = {
 #ifdef CONFIG_SUSPEND
 	&mem_sleep_attr.attr,
 	&sync_on_suspend_attr.attr,
+#ifdef CONFIG_PHYTIUM_S3_TIMEOUT
+	&s3_timeout_attr.attr,
+	&s3_to_s4_enable_attr.attr,
+#endif
 #endif
 #ifdef CONFIG_PM_AUTOSLEEP
 	&autosleep_attr.attr,

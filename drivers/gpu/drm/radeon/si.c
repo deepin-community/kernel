@@ -6211,9 +6211,15 @@ static inline u32 si_get_ih_wptr(struct radeon_device *rdev)
 {
 	u32 wptr, tmp;
 
-	if (rdev->wb.enabled)
+	if (rdev->wb.enabled){
+#ifdef X86
+		if (X86_VENDOR_CENTAUR==boot_cpu_data.x86_vendor){
+			mdelay(1);
+			DRM_DEBUG("boot_cpu_data.x86_vendor: %d\n", boot_cpu_data.x86_vendor);
+		}
+#endif
 		wptr = le32_to_cpu(rdev->wb.wb[R600_WB_IH_WPTR_OFFSET/4]);
-	else
+	}else
 		wptr = RREG32(IH_RB_WPTR);
 
 	if (wptr & RB_OVERFLOW) {

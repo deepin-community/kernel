@@ -3245,6 +3245,10 @@ static int ata_eh_set_lpm(struct ata_link *link, enum ata_lpm_policy policy,
 	unsigned int err_mask;
 	int rc;
 
+	/* if Host does not support lpm, then sets no LPM flags*/
+	if (!(ap->host->flags & (ATA_HOST_PART | ATA_HOST_SSC | ATA_HOST_DEVSLP)))
+		link->flags |= ATA_LFLAG_NO_LPM;
+
 	/* if the link or host doesn't do LPM, noop */
 	if (!IS_ENABLED(CONFIG_SATA_HOST) ||
 	    (link->flags & ATA_LFLAG_NO_LPM) || (ap && !ap->ops->set_lpm))

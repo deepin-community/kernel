@@ -33,6 +33,7 @@
 #include <linux/security.h>
 
 #include <asm/early_ioremap.h>
+#include <linux/cputypes.h>
 
 struct efi __read_mostly efi = {
 	.runtime_supported_mask = EFI_RT_SUPPORTED_ALL,
@@ -613,7 +614,7 @@ int __init efi_config_parse_tables(const efi_config_table_t *config_tables,
 
 	efi_tpm_eventlog_init();
 
-	if (mem_reserve != EFI_INVALID_TABLE_ADDR) {
+	if (cpu_is_phytium() && mem_reserve != EFI_INVALID_TABLE_ADDR) {
 		unsigned long prsv = mem_reserve;
 
 		while (prsv) {
@@ -991,6 +992,9 @@ int __ref efi_mem_reserve_persistent(phys_addr_t addr, u64 size)
 
 static int __init efi_memreserve_root_init(void)
 {
+	if (!cpu_is_phytium())
+		return 0;
+
 	if (efi_memreserve_root)
 		return 0;
 	if (efi_memreserve_map_root())

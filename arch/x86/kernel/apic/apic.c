@@ -1257,8 +1257,14 @@ void lapic_shutdown(void)
 		clear_local_APIC();
 	else
 #endif
-		disable_local_APIC();
 
+	/*
+	 * Mask IOAPIC before disabling the local APIC to prevent stale IRR
+	 * entries on some implementations.
+	 */
+	mask_ioapic_entries();
+
+	disable_local_APIC();
 
 	local_irq_restore(flags);
 }

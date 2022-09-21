@@ -586,6 +586,36 @@ config SPI_ORION
 	  This enables using the SPI master controller on the Orion
 	  and MVEBU chips.
 
+config SPI_PHYTIUM
+	tristate "Phytium SPI controller core support"
+	depends on ARM64
+	help
+	  This selects a driver for Phytium SPI controller.
+
+	  If you say yes to this option, support will be included for
+	  FT-2000/4 SoC SPI controller.
+
+config SPI_PHYTIUM_PLAT
+        tristate "Phytium SPI controller platform support"
+        select SPI_PHYTIUM
+        help
+          This selects a platform driver for Phytium SPI controller.
+
+          If you say yes to this option, support will be included for
+          FT-2000/4 and D2000 families of SPI controller.
+
+config SPI_PHYTIUM_PCI
+        tristate "Phytium SPI controller PCI support"
+        depends on PCI
+        select SPI_PHYTIUM
+        help
+          This selects a PCI driver for Phytium SPI controller.
+
+          If you say yes to this option, support will be included for
+          Phytium X100 chipset of SPI controller.
+
+          If unsure, say N.
+
 config SPI_PIC32
 	tristate "Microchip PIC32 series SPI"
 	depends on MACH_PIC32 || COMPILE_TEST

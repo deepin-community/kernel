@@ -260,6 +260,10 @@ enum {
 	ATA_HOST_PARALLEL_SCAN	= (1 << 2),	/* Ports on this host can be scanned in parallel */
 	ATA_HOST_IGNORE_ATA	= (1 << 3),	/* Ignore ATA devices on this host. */
 
+	ATA_HOST_PART		= (1 << 4), /* Host support partial.*/
+	ATA_HOST_SSC		= (1 << 5), /* Host support slumber.*/
+	ATA_HOST_DEVSLP		= (1 << 6), /* Host support devslp.*/
+
 	/* bits 24:31 of host->flags are reserved for LLD specific flags */
 
 	/* various lengths of time */

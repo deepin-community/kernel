@@ -90,6 +90,18 @@ bool acpi_scan_is_offline(struct acpi_device *adev, bool uevent);
 acpi_status acpi_sysfs_table_handler(u32 event, void *table, void *context);
 void acpi_scan_table_handler(u32 event, void *table, void *context);
 
+#ifdef CONFIG_ACPI_GENERIC_GSI
+int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
+		      int polarity, struct fwnode_handle *fwnode);
+#else
+static inline
+int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
+		      int polarity, struct fwnode_handle *fwnode)
+{
+	return acpi_register_gsi(dev, hwirq, trigger, polarity);
+}
+#endif
+
 /* --------------------------------------------------------------------------
                      Device Node Initialization / Removal
    -------------------------------------------------------------------------- */

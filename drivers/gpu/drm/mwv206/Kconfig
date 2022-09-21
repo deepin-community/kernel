@@ -1,0 +1,6 @@
+config DRM_MWV206
+	tristate "Support for MWV206"
+	help
+	  Choose this option if you want to enable mwv206 support
+	  for Jingjia.
+

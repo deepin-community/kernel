@@ -327,4 +327,95 @@ config ARCH_ZYNQMP
 	help
 	  This enables support for Xilinx ZynqMP Family
 
+config ARCH_PHYTIUM
+	bool "Phytium SoC Family"
+	help
+	  This enables support for Phytium ARMv8 SoC family.
+	select ARM_GIC_PHYTIUM_2500
+
+config ARCH_PHYTIUM_PLD
+	bool "Phytium pld support"
+	default n
+	help
+	  This enables support for Phytium pld
+
+config ARCH_PHYTIUM_MHU
+       bool "phytium mhu support"
+       select ARCH_MHU
+       help
+         this enables support for phytium mhu
+
+config ARCH_PHYTIUM_RTC
+       bool "phytium rtc support"
+       help
+         this enables support for phytium rtc
+
+config ARCH_PHYTIUM_GPIO
+       bool "phytium gpio support"
+       help
+         this enables support for phytium gpio
+
+config ARCH_PHYTIUM_AT8035_PHY
+       bool "phytium at8035 support"
+       help
+         this enables support for phytium at8035 phy
+
+config USB_VIDEO_CLASS_CONFIG_PHYTIUM
+       bool "PHYTIUM USB Video config"
+       depends on ARCH_PHYTIUM
+       default y
+       help
+       This option is to fix create two video dev node bug
+
+config ARCH_PHYTIUM_CLOCK
+       bool "phytium clock support"
+       depends on ARCH_PHYTIUM
+       default y
+       help
+         this  enable support phyitum clock
+
+config ARCH_PHYTIUM_LPC
+       bool "phytium lpc support"
+       depends on ARCH_PHYTIUM
+       default y
+       help
+         only used for phytium notebook
+
+config PHYTIUM_RAS
+       bool "phytium ras support"
+       depends on ARCH_PHYTIUM && ARM_SDE_INTERFACE
+       help
+          this enable support phytium ras
+
+config ARCH_PHYTIUM_SCTO
+       bool "phytium scto support"
+       depends on ARCH_PHYTIUM
+       help
+         only used for phytium device
+
+config FT_CAN
+        bool "phytium can"
+        depends on ARCH_PHYTIUM
+        help
+        Phytium CAN driver. This driver supports support for the Phytium FT4CCAN Controller
+
+config ARCH_PHYTIUM_EC
+       tristate "phytium ec support"
+       depends on ARCH_PHYTIUM_LPC
+	select 	INPUT_SPARSEKMAP
+       help
+         only used for phytium notebook
+
+config ARCH_PHYTIUM_UART_INIT
+       bool "phytium uart init"
+       depends on ARCH_PHYTIUM
+       default y
+       help
+         only used for phytium uart
+
+config PHYTIUM_S3_TIMEOUT
+       tristate "phytium ec s3 timeout support"
+       depends on ARCH_PHYTIUM_EC && SUSPEND
+       help
+         only used for phytium notebook
 endmenu

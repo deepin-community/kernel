@@ -23,6 +23,7 @@
 #include "hda_jack.h"
 #include <sound/hda_hwdep.h>
 #include <sound/hda_component.h>
+#include <linux/cputypes.h>
 
 #define codec_in_pm(codec)		snd_hdac_is_in_pm(&codec->core)
 #define hda_codec_is_power_on(codec)	snd_hdac_is_power_on(&codec->core)
@@ -30,7 +31,9 @@
 	((codec)->core.power_caps & AC_PWRST_EPSS)
 #define codec_has_clkstop(codec) \
 	((codec)->core.power_caps & AC_PWRST_CLKSTOP)
-
+#ifdef CONFIG_SND_HDA_PHYTIUM
+extern void get_phytium_codec_pin(struct hda_codec *codec);
+#endif
 /*
  * Send and receive a verb - passed to exec_verb override for hdac_device
  */
@@ -1000,6 +1003,11 @@ int snd_hda_codec_device_new(struct hda_bus *bus, struct snd_card *card,
 	err = snd_device_new(card, SNDRV_DEV_CODEC, codec, &dev_ops);
 	if (err < 0)
 		goto error;
+
+	#ifdef CONFIG_SND_HDA_PHYTIUM
+	if (cpu_is_phytium())
+		get_phytium_codec_pin(codec);
+	#endif
 
 	/* PM runtime needs to be enabled later after binding codec */
 	pm_runtime_forbid(&codec->core.dev);

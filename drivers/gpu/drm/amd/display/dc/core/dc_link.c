@@ -153,7 +153,7 @@ static bool program_hpd_filter(const struct dc_link *link)
 	case SIGNAL_TYPE_HDMI_TYPE_A:
 		/* Program hpd filter */
 		delay_on_connect_in_ms = 500;
-		delay_on_disconnect_in_ms = 100;
+		delay_on_disconnect_in_ms = 700;
 		break;
 	case SIGNAL_TYPE_DISPLAY_PORT:
 	case SIGNAL_TYPE_DISPLAY_PORT_MST:

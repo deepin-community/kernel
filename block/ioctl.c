@@ -392,6 +392,9 @@ static int blkdev_flushbuf(struct block_device *bdev, fmode_t mode,
 	return 0;
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern int get_usb_disk_ro(struct block_device *disk);
+#endif
 static int blkdev_roset(struct block_device *bdev, fmode_t mode,
 		unsigned cmd, unsigned long arg)
 {
@@ -405,6 +408,11 @@ static int blkdev_roset(struct block_device *bdev, fmode_t mode,
 		return ret;
 	if (get_user(n, (int __user *)arg))
 		return -EFAULT;
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+	if (!(get_usb_disk_ro(bdev) & 0x2)) {
+		return -EACCES;
+	}
+#endif
 	set_device_ro(bdev, n);
 	return 0;
 }

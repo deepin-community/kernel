@@ -279,4 +279,7 @@
 /* Freescale LINFlexD UART */
 #define PORT_LINFLEXUART	122
 
+/* Phytium PCI UART */
+#define PORT_PHYTIUM	118
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */

@@ -25,7 +25,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-
+#include <linux/suspend.h>
 #include "amdgpu.h"
 #include "amdgpu_atombios.h"
 #include "amdgpu_ih.h"
@@ -2649,7 +2649,8 @@ int si_set_ip_blocks(struct amdgpu_device *adev)
 #endif
 		else
 			amdgpu_device_ip_block_add(adev, &dce_v6_0_ip_block);
-		amdgpu_device_ip_block_add(adev, &uvd_v3_1_ip_block);
+		if (!pm_suspend_default_s2idle())
+			amdgpu_device_ip_block_add(adev, &uvd_v3_1_ip_block);
 		/* amdgpu_device_ip_block_add(adev, &vce_v1_0_ip_block); */
 		break;
 	case CHIP_OLAND:
@@ -2667,7 +2668,8 @@ int si_set_ip_blocks(struct amdgpu_device *adev)
 #endif
 		else
 			amdgpu_device_ip_block_add(adev, &dce_v6_4_ip_block);
-		amdgpu_device_ip_block_add(adev, &uvd_v3_1_ip_block);
+		if (!pm_suspend_default_s2idle())
+			amdgpu_device_ip_block_add(adev, &uvd_v3_1_ip_block);
 		/* amdgpu_device_ip_block_add(adev, &vce_v1_0_ip_block); */
 		break;
 	case CHIP_HAINAN:

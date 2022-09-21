@@ -10,6 +10,15 @@ menuconfig MTD_SPI_NOR
 
 if MTD_SPI_NOR
 
+config SPI_PHYTIUM_QUADSPI
+       tristate "Phytium Quad SPI Controller"
+       depends on ARCH_PHYTIUM || ARM
+       depends on OF && HAS_IOMEM
+       help
+         This enables support for the Quad SPI controller in master mode.
+         This driver does not support generic SPI. The implementation only
+         supports SPI NOR.
+
 config MTD_SPI_NOR_USE_4K_SECTORS
 	bool "Use small 4096 B erase sectors"
 	default y

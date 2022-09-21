@@ -34,6 +34,7 @@
 #include <linux/suspend.h>
 
 #include "i2c-designware-core.h"
+#include <linux/cputypes.h>
 
 static u32 i2c_dw_get_clk_rate_khz(struct dw_i2c_dev *dev)
 {
@@ -54,6 +55,8 @@ static const struct acpi_device_id dw_i2c_acpi_match[] = {
 	{ "APMC0D0F", 0 },
 	{ "HISI02A1", 0 },
 	{ "HISI02A2", 0 },
+	{ "PHYT0003", 0 },
+	{ "FTI20001", 0 },
 	{ "HISI02A3", 0 },
 	{ "HYGO0010", ACCESS_INTR_MASK },
 	{ }
@@ -212,6 +215,10 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 	struct i2c_timings *t;
 	int irq, ret;
 
+	acpi_handle clock_handle;
+	const char *clock_string;
+	struct acpi_device *clock_adev;
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
@@ -266,10 +273,30 @@ static int dw_i2c_plat_probe(struct platform_device *pdev)
 		goto exit_reset;
 	}
 
-	dev->clk = devm_clk_get_optional(&pdev->dev, NULL);
-	if (IS_ERR(dev->clk)) {
-		ret = PTR_ERR(dev->clk);
-		goto exit_reset;
+#ifdef CONFIG_ARCH_PHYTIUM_CLOCK
+	if (cpu_is_phytium()) {
+		if( device_property_read_string(&pdev->dev, "clocks", &clock_string) ){
+			goto exit_reset;
+		}
+		if( ACPI_FAILURE(acpi_get_handle(NULL, clock_string, &clock_handle))){
+			goto exit_reset;
+		}
+		if( acpi_bus_get_device(clock_handle, &clock_adev) < 0){
+			goto exit_reset;
+		}
+		dev->clk = devm_clk_get(&clock_adev->dev, NULL);
+		if (IS_ERR(dev->clk)) {
+			ret = PTR_ERR(dev->clk);
+			goto exit_reset;
+		}
+	} else
+#endif
+	{
+		dev->clk = devm_clk_get_optional(&pdev->dev, NULL);
+		if (IS_ERR(dev->clk)) {
+			ret = PTR_ERR(dev->clk);
+			goto exit_reset;
+		}
 	}
 
 	ret = i2c_dw_prepare_clk(dev, true);

@@ -826,6 +826,12 @@ static void ahci_power_down(struct ata_port *ap)
 	void __iomem *port_mmio = ahci_port_base(ap);
 	u32 cmd, scontrol;
 
+	/* port suspended enable Plugin intr for Zx platform */
+	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
+
+	if ((pdev->vendor == PCI_VENDOR_ID_ZHAOXIN) && (!ap->link.device->sdev))
+		writel(PORT_IRQ_CONNECT, port_mmio + PORT_IRQ_MASK);
+
 	if (!(hpriv->cap & HOST_CAP_SSS))
 		return;
 
@@ -1703,6 +1709,7 @@ static void ahci_error_intr(struct ata_port *ap, u32 irq_stat)
 	struct ata_eh_info *active_ehi;
 	bool fbs_need_dec = false;
 	u32 serror;
+	struct pci_dev *pdev;
 
 	/* determine active link with error */
 	if (pp->fbs_enabled) {
@@ -1791,6 +1798,13 @@ static void ahci_error_intr(struct ata_port *ap, u32 irq_stat)
 		ata_ehi_push_desc(host_ehi, "%s",
 			irq_stat & PORT_IRQ_CONNECT ?
 			"connection status changed" : "PHY RDY changed");
+		/* when plugin intr happen,now resume suspended port for Zx platform */
+		pdev = to_pci_dev(ap->host->dev);
+		if ((pdev->vendor == PCI_VENDOR_ID_ZHAOXIN) &&
+			(ap->pflags & ATA_PFLAG_SUSPENDED)) {
+			pm_request_resume(&ap->tdev);
+			return;
+		}
 	}
 
 	/* okay, let's hand over to EH */

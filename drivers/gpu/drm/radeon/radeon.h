@@ -231,6 +231,9 @@ extern int radeon_cik_support;
 #define CIK_CURSOR_WIDTH 128
 #define CIK_CURSOR_HEIGHT 128
 
+/*To avoid HDMI jitter, add latency*/
+#define RADEON_DT 120
+
 /*
  * Errata workarounds.
  */

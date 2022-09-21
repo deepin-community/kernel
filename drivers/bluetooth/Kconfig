@@ -425,4 +425,26 @@ config BT_HCIRSI
 	  Say Y here to compile support for HCI over Redpine into the
 	  kernel or say M to compile as a module.
 
+config BT_RTK_BTUSB
+	tristate "Realtek  bluetooth USB driver"
+	depends on USB
+	help
+	  Bluetooth Bitland USB driver.
+	  This driver is required if you want to use Bluetooth devices with
+	  USB interface.
+
+	  Say Y here to compile support for Bluetooth USB devices into the
+	  kernel or say M to compile it as module.
+
+config BT_MTK_BTUSB
+	tristate "Mediatek bluetooth USB driver"
+	depends on USB
+	help
+	  Bluetooth Bitland USB driver.
+	  This driver is required if you want to use Bluetooth devices with
+	  USB interface.
+
+	  Say Y here to compile support for Bluetooth USB devices into the
+	  kernel or say M to compile it as module.
+
 endmenu

@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/hardirq.h>
 #include <linux/topology.h>
+#include <linux/cputypes.h>
 
 #define define_id_show_func(name)					\
 static ssize_t name##_show(struct device *dev,				\
@@ -40,7 +41,17 @@ static ssize_t name##_list_show(struct device *dev,			\
 	define_siblings_show_map(name, mask);	\
 	define_siblings_show_list(name, mask)
 
+#ifndef CONFIG_ARM64
 define_id_show_func(physical_package_id);
+#else
+static ssize_t physical_package_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	if(cpu_is_ft_d2000() || cpu_is_ft2004()){
+		return sprintf(buf, "0\n");
+	}
+	return sprintf(buf, "%d\n", topology_physical_package_id(dev->id));
+}
+#endif
 static DEVICE_ATTR_RO(physical_package_id);
 
 define_id_show_func(die_id);
@@ -57,7 +68,31 @@ define_siblings_show_func(core_cpus, sibling_cpumask);
 static DEVICE_ATTR_RO(core_cpus);
 static DEVICE_ATTR_RO(core_cpus_list);
 
+#ifndef CONFIG_ARM64
 define_siblings_show_func(core_siblings, core_cpumask);
+#else
+static ssize_t core_siblings_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	if(cpu_is_ft_d2000()){
+		return sprintf(buf, "ff\n");
+	}
+	else if(cpu_is_ft2004()){
+		return sprintf(buf, "f\n");
+	}
+	return cpumap_print_to_pagebuf(false, buf, topology_core_cpumask(dev->id));
+}
+
+static ssize_t core_siblings_list_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	if(cpu_is_ft_d2000()){
+		return sprintf(buf, "0-7\n");
+	}
+	else if(cpu_is_ft2004()){
+		return sprintf(buf, "0-3\n");
+	}
+	return cpumap_print_to_pagebuf(true, buf, topology_core_cpumask(dev->id));
+}
+#endif
 static DEVICE_ATTR_RO(core_siblings);
 static DEVICE_ATTR_RO(core_siblings_list);
 

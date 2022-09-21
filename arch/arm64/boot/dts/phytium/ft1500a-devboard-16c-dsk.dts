@@ -1,0 +1,51 @@
+/*
+ * DTS file for Phytium FT1500A Generic board
+ *
+ * Copyright (C) 2015, Phytium Technology Co., Ltd.
+ *
+ * This file is licensed under a dual GPLv2 or BSD license.
+ */
+
+/dts-v1/;
+/memreserve/ 0x80000000 0x80000;
+
+#include "ft1500a-16c-generic-psci-soc.dtsi"
+
+/ {
+	model = "FT1500A-16CORE-DSK Development Board";
+	compatible = "phytium,ft-1500a";
+
+	chosen {
+		linux,pci-probe-only = <1>;
+		stdout-path = "uart1:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;	/* Updated by bootloader */
+	};
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&i2c0 {
+	status = "ok";
+};
+
+&i2c1 {
+	status = "ok";
+};
+
+&wdt0 {
+	status = "ok";
+};
+
+&gmac0 {
+	phy-mode = "gmii";
+};
+
+&gmac1 {
+	phy-mode = "gmii";
+};

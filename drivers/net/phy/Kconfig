@@ -314,6 +314,16 @@ config XILINX_GMII2RGMII
 	  the Reduced Gigabit Media Independent Interface(RGMII) between
 	  Ethernet physical media devices and the Gigabit Ethernet controller.
 
+config CTC_PHY
+	tristate "Centec PHYs"
+	help
+	 	Supports the Centec PHY.
+
+config MOTORCOMM_PHY
+	tristate "Motorcomm PHYs"
+	help
+	  Supports the YT8010, YT8510, YT8511, YT8512 PHYs.
+
 endif # PHYLIB
 
 config MICREL_KS8995MA

@@ -104,6 +104,8 @@
 #include <linux/nmi.h>
 #endif
 
+#include "uosversion.h"
+
 #if defined(CONFIG_SYSCTL)
 
 /* Constants used for minimum and  maximum */
@@ -143,6 +145,7 @@ static const int cap_last_cap = CAP_LAST_CAP;
  */
 #ifdef CONFIG_DETECT_HUNG_TASK
 static unsigned long hung_task_timeout_max = (LONG_MAX/HZ);
+
 #endif
 
 #ifdef CONFIG_INOTIFY_USER
@@ -2690,6 +2693,13 @@ static struct ctl_table kern_table[] = {
 		.extra2		= SYSCTL_ONE,
 	},
 #endif
+	{
+		.procname   = "uosversion",
+		.data       = &UOS_VERSION,
+		.maxlen     = UOS_VERSION_LEN,
+		.mode       = 0644,
+		.proc_handler   = proc_dostring,
+	},
 	{ }
 };
 

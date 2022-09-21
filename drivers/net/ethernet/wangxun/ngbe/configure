@@ -1,0 +1,46 @@
+################################################################################
+#
+# WangXun 10GbE PCI Express Linux Network Driver
+# Copyright(c) 2015 - 2017 Beijing WangXun Technology Co., Ltd.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU General Public License,
+# version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+#
+# The full GNU General Public License is included in this distribution in
+# the file called "COPYING".
+#
+#
+################################################################################
+
+# common Makefile rules useful for out-of-tree Linux driver builds
+#
+# Usage: include configure
+#
+# After including, you probably want to add a minimum_kver_check call
+#
+# Required Variables:
+# DRIVER
+#   -- Set to the lowercase driver name
+
+#####################
+# Helpful functions #
+#####################
+
+# default to high level effective 
+# high level effective :  1
+# low level effective  : -1
+HIGH_LV_EFFECT_GPHY_RGMII    := 1
+HIGH_LV_EFFECT_88E1512_SFP      := 1
+
+NGBE_STATIC_ITR := 1   # Maximum interrupts per second, per vector, (0,1,980-500000), default 1
+
+EXTRA_CFLAGS += -DHIGH_LV_EFFECT_GPHY_RGMII=$(HIGH_LV_EFFECT_GPHY_RGMII)    
+EXTRA_CFLAGS += -DHIGH_LV_EFFECT_88E1512_SFP=$(HIGH_LV_EFFECT_88E1512_SFP)  
+#EXTRA_CFLAGS += -DPOLL_LINK_STATUS
+EXTRA_CFLAGS += -DNGBE_STATIC_ITR=$(NGBE_STATIC_ITR)

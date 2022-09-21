@@ -1,0 +1,312 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for FT-2000A/2 SoC
+ *
+ * Copyright (C) 2019, Phytium Technology Co., Ltd.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	compatible = "phytium,ft2000ahke";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
+	};
+	psci {
+		compatible = "arm,psci-1.0", "arm,psci-0.2", "arm,psci";
+		method = "smc";
+		cpu_suspend = <0xc4000001>;
+		cpu_off = <0x84000002>;
+		cpu_on = <0xc4000003>;
+		sys_poweroff = <0x84000008>;
+		sys_reset = <0x84000009>;
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x1>;
+			enable-method = "psci";
+		};
+	};
+
+	gic: interrupt-controller@71800000 {
+		compatible = "arm,gic-400";
+		#interrupt-cells = <3>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		interrupt-controller;
+		reg = <0x0 0x71801000 0x0 0x1000>,
+		      <0x0 0x71802000 0x0 0x2000>,
+		      <0x0 0x71804000 0x0 0x1000>,
+		      <0x0 0x71805000 0x0 0x1000>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+		clock-frequency = <50000000>;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-affinity = <&cpu0 &cpu1>;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		dma-coherent;
+		ranges;
+
+		clocks {
+			refclk: refclk {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <50000000>;
+			};
+
+			clk250mhz: clk250mhz {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <250000000>;
+			};
+
+			clk500mhz: clk500mhz {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <500000000>;
+			};
+
+			sysclk_48mhz: clk48mhz {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <48000000>;
+			};
+
+			sysclk_600mhz: clk600mhz {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <600000000>;
+			};
+		};
+
+		uart0: uart@70000000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70000000 0x0 0x1000>;
+			clock-frequency = <50000000>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart1: uart@70001000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70001000 0x0 0x1000>;
+			clock-frequency = <50000000>;
+			interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart2: uart@70007000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70007000 0x0 0x1000>;
+			clock-frequency = <50000000>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		uart3: uart@70008000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0x0 0x70008000 0x0 0x1000>;
+			clock-frequency = <50000000>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "disabled";
+		};
+
+		i2c0: i2c@70002000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0x0 0x70002000 0x0 0x1000>;
+			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			clocks = <&refclk>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@70003000 {
+			#address-cells = <01>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0x0 0x70003000 0x0 0x1000>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			clock-frequency = <100000>;
+			clocks = <&refclk>;
+			status = "disabled";
+		};
+
+		gpio: gpio@70006000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x0 0x70006000 0x0 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			porta: gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <0>;
+			};
+
+			portb: gpio-controller@1 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <1>;
+			};
+
+			portc: gpio-controller@2 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <2>;
+			};
+
+			portd: gpio-controller@3 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <3>;
+			};
+		};
+
+		gmac0: eth@70c00000 {
+			compatible = "snps,dwmac";
+			reg = <0x0 0x70c00000 0x0 0x2000>;
+			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			clocks = <&clk500mhz>;
+			clock-names = "stmmaceth";
+			status = "disabled";
+
+			snps,pbl = <16>;
+			snps,fixed-burst;
+			snps,burst_len = <14>;
+			snps,force_sf_dma_mode;
+			snps,multicast-filter-bins = <64>;
+			snps,perfect-filter-entries = <128>;
+			tx-fifo-depth = <4096>;
+			rx-fifo-depth = <4096>;
+			max-frame-size = <9000>;
+		};
+
+		gmac1: eth@70c10000 {
+			compatible = "snps,dwmac";
+			reg = <0x0 0x70c10000 0x0 0x2000>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			clocks = <&clk500mhz>;
+			clock-names = "stmmaceth";
+			status = "disabled";
+
+			snps,pbl = <16>;
+			snps,fixed-burst;
+			snps,burst_len = <14>;
+			snps,force_sf_dma_mode;
+			snps,multicast-filter-bins = <64>;
+			snps,perfect-filter-entries = <128>;
+			tx-fifo-depth = <4096>;
+			rx-fifo-depth = <4096>;
+			max-frame-size = <9000>;
+		};
+
+		spi0: spi@70009000 {
+			compatible = "phytium,spi";
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x70009000 0x0 0x1000>;
+			clocks = <&sysclk_48mhz>;
+			num-cs = <4>;
+		};
+
+		spi1: spi@7000a000 {
+			compatible = "phytium,spi";
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x7000a000 0x0 0x1000>;
+			clocks = <&sysclk_48mhz>;
+			num-cs = <4>;
+		};
+
+		can0: can@70014000 {
+			compatible = "phytium,can";
+			reg = <0x0 0x70014000 0x0 0x1000>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "phytium_can_clk";
+			tx-fifo-depth = <0x40>;
+			rx-fifo-depth = <0x40>;
+		};
+
+		can1: can@70015000 {
+			compatible = "phytium,can";
+			reg = <0x0 0x70015000 0x0 0x1000>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "phytium_can_clk";
+			tx-fifo-depth = <0x40>;
+			rx-fifo-depth = <0x40>;
+		};
+
+		pcie: pcie {
+			compatible = "pci-host-ecam-generic";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+			reg = <0x0 0x40000000 0x0 0x4000000>;
+			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
+			interrupt-map = <0x00 0x0 0x0 0x1 &gic 0x00 0x00 GIC_SPI 0x17 IRQ_TYPE_LEVEL_HIGH>,
+					<0x00 0x0 0x0 0x2 &gic 0x00 0x00 GIC_SPI 0x16 IRQ_TYPE_LEVEL_HIGH>,
+					<0x00 0x0 0x0 0x3 &gic 0x00 0x00 GIC_SPI 0x15 IRQ_TYPE_LEVEL_HIGH>,
+					<0x00 0x0 0x0 0x4 &gic 0x00 0x00 GIC_SPI 0x14 IRQ_TYPE_LEVEL_HIGH>;
+			ranges = <0x01000000 0x0 0x00000000 0x0 0x44000000 0x0 0x01000000>,
+				 <0x02000000 0x0 0x48000000 0x0 0x48000000 0x0 0x18000000>,
+				 <0x03000000 0x1 0x00000000 0x1 0x00000000 0x1 0x00000000>;
+		};
+	};
+};

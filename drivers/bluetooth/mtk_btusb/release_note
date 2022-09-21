@@ -1,0 +1,19 @@
+Checking list:
+    1. BT/WIFI FW/Driver MUST be updated at the same time. Please notify wifi owner for updating
+    2. bt.cfg and woble_setting.bin should updated according to the each project. Sync from SQC release first and then updated are recommended
+    3. If bin mode is enabled for the project, BT_ADDR/tx_power will be set by EEPROM.bin
+    4. wifi.cfg will enable bin mode or not, and set coex mode(hybrid, legacy, TDD). Please confirm with wifi owner
+
+20220117    CL: 5522888     Fix uart wait event timeout, kfree_skb twice cause kernel crash
+
+20210927    CL: 5035663     Release for Buzzard SQC1_2_1(USB).
+                            Support BMS
+20210714    CL: 4750446     Release for Buzzard SQC1_2(USB).
+                            Rename bt.cfg file.
+20210204    CL: 4212974     Release for Buzzard SQC1_1(USB).
+                            Support GDMA for USB HIF.
+20210111    CL: 4130224     Use __symbol_get to replace kallsyms_lookup_name for kernel 2.6/3.18/4.4/4.9/4.14/4.19
+20201224    CL: 4079154     Refine set drv/fw own flow for SDIO HIF
+                            FW version must be later than 2020-12-12_16-29-09_7e862410
+20201028    CL: 3880045     Release for Buzzard SQC1_0(USB/SDIO).
+                            Support single SKU

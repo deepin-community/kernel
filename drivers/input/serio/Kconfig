@@ -40,6 +40,18 @@ config SERIO_I8042
 	  To compile this driver as a module, choose M here: the
 	  module will be called i8042.
 
+config SERIO_PHYTIUM_PS2
+	depends on SERIO
+	tristate "PHYTIUM PS/2 (keyboard and mouse)"
+	default y if ARCH_PHYTIUM
+	depends on PCI
+	help
+	  This selects support for the PS/2 Host Controller on
+	  Phytium SoCs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called phytium-ps2.
+
 config SERIO_SERPORT
 	tristate "Serial port line discipline"
 	default y

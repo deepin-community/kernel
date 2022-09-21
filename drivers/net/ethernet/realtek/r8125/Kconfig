@@ -1,0 +1,4 @@
+config R8125
+	tristate "RealTek RTL8125 2.5Gigabit Ethernet controllers"
+	help
+	  RealTek RTL8125 2.5Gigabit Ethernet controllers with PCI-Express interface.

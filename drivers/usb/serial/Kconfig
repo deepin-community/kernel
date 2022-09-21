@@ -452,6 +452,16 @@ config USB_SERIAL_PL2303
 	  To compile this driver as a module, choose M here: the
 	  module will be called pl2303.
 
+config USB_SERIAL_XR2X
+	tristate "USB Prolific XR21X/22X Multi-Port Serial Driver"
+	help
+	  Say Y here if you want to use the Exar XR2xx Multi-ports
+	  USB to serial adapter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called xr21v1410/1412/1414 xr21b1411/1420/1422/1424
+	  xr22801/802/804.
+
 config USB_SERIAL_OTI6858
 	tristate "USB Ours Technology Inc. OTi-6858 USB To RS232 Bridge Controller"
 	help

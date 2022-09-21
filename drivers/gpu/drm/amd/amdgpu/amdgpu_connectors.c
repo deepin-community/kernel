@@ -29,6 +29,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/amdgpu_drm.h>
+#include <linux/delay.h>
 #include "amdgpu.h"
 #include "atom.h"
 #include "atombios_encoders.h"
@@ -843,11 +844,24 @@ static enum drm_mode_status amdgpu_connector_vga_mode_valid(struct drm_connector
 {
 	struct drm_device *dev = connector->dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
+	struct edid *edid = amdgpu_connector_edid(connector);
 
 	/* XXX check mode bandwidth */
 
 	if ((mode->clock / 10) > adev->clock.max_pixel_clock)
 		return MODE_CLOCK_HIGH;
+
+	/* Monitor ViewSonic include resolution 1600x1200 which is buggly,
+	 * GPU scaling with "Full" and "Full aspect" will cause screen flicker,
+	 * GPU scaling with "Center" will cause screen black,
+	 * FIXME: block it directly is ugly, is there a new way to fix it?
+	 */
+	if(edid != NULL && edid->mfg_id[0] == 0x5a && edid->mfg_id[1] == 0x63)
+	{
+		if (adev->asic_type == CHIP_OLAND && mode->hdisplay == 1600 && mode->vdisplay == 1200){
+			return MODE_BAD_WIDTH;
+		}
+	}
 
 	return MODE_OK;
 }
@@ -874,8 +888,10 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
 	if (!encoder)
 		ret = connector_status_disconnected;
 
-	if (amdgpu_connector->ddc_bus)
+	if (amdgpu_connector->ddc_bus){
+		msleep(AMDGPU_DT);
 		dret = amdgpu_display_ddc_probe(amdgpu_connector, false);
+	}
 	if (dret) {
 		amdgpu_connector->detected_by_load = false;
 		amdgpu_connector_free_edid(connector);
@@ -985,7 +1001,7 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
 	const struct drm_encoder_helper_funcs *encoder_funcs;
 	int r;
 	enum drm_connector_status ret = connector_status_disconnected;
-	bool dret = false, broken_edid = false;
+	bool dret = false, broken_edid = false, connected_hpd = true;
 
 	if (!drm_kms_helper_is_poll_worker()) {
 		r = pm_runtime_get_sync(connector->dev->dev);
@@ -1000,9 +1016,14 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
 		goto exit;
 	}
 
-	if (amdgpu_connector->ddc_bus)
+	if (amdgpu_connector->ddc_bus) {
 		dret = amdgpu_display_ddc_probe(amdgpu_connector, false);
-	if (dret) {
+		/*for some oland cards, check the hdmi hpd pin status.*/
+		if (dret)
+			connected_hpd = amdgpu_display_hpd_sense(adev,amdgpu_connector->hpd.hpd);
+    }
+
+	if (dret && connected_hpd) {
 		amdgpu_connector->detected_by_load = false;
 		amdgpu_connector_free_edid(connector);
 		amdgpu_connector_get_edid(connector);
@@ -1169,6 +1190,7 @@ static enum drm_mode_status amdgpu_connector_dvi_mode_valid(struct drm_connector
 	struct drm_device *dev = connector->dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+	struct edid *edid = amdgpu_connector_edid(connector);
 
 	/* XXX check mode bandwidth */
 
@@ -1185,6 +1207,18 @@ static enum drm_mode_status amdgpu_connector_dvi_mode_valid(struct drm_connector
 				return MODE_OK;
 		} else {
 			return MODE_CLOCK_HIGH;
+		}
+	}
+
+	/* Monitor ViewSonic include resolution 1600x1200 which is buggly,
+	 * GPU scaling with "Full" and "Full aspect" will cause screen flicker,
+	 * GPU scaling with "Center" will cause screen black,
+	 * FIXME: block it directly is ugly, is there a new way to fix it?
+	 */
+	if(edid != NULL && edid->mfg_id[0] == 0x5a && edid->mfg_id[1] == 0x63)
+	{
+		if (adev->asic_type == CHIP_OLAND && mode->hdisplay == 1600 && mode->vdisplay == 1200){
+			return MODE_BAD_WIDTH;
 		}
 	}
 

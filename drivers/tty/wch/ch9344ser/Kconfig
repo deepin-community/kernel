@@ -1,0 +1,6 @@
+config CH9344SER
+	tristate "WCH ch9344 serial driver"
+	default m
+	help
+		Support for WCH ch9344 serial drivers.
+

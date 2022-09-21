@@ -3736,6 +3736,24 @@ void xhci_free_device_endpoint_resources(struct xhci_hcd *xhci,
 				xhci->num_active_eps);
 }
 
+static void xhci_free_dev(struct usb_hcd *hcd, struct usb_device *udev);
+
+static int xhci_reset_device_quirk(struct usb_hcd *hcd, struct usb_device *udev)
+{
+	int ret;
+
+	xhci_free_dev(hcd, udev);
+
+	/* Wait the Disable Slot command finish. */
+	msleep(20);
+
+	ret = xhci_alloc_dev(hcd, udev);
+	if (ret == 1)
+		return 0;
+	else
+		return -EINVAL;
+}
+
 /*
  * This submits a Reset Device Command, which will set the device state to 0,
  * set the device address to 0, and disable all the endpoints except the default
@@ -3805,6 +3823,9 @@ static int xhci_discover_or_reset_device(struct usb_hcd *hcd,
 	if (GET_SLOT_STATE(le32_to_cpu(slot_ctx->dev_state)) ==
 						SLOT_STATE_DISABLED)
 		return 0;
+
+	if (xhci->quirks & XHCI_ETRON_HOST)
+		return xhci_reset_device_quirk(hcd, udev);
 
 	trace_xhci_discover_or_reset_device(slot_ctx);
 
@@ -4713,7 +4734,7 @@ static u16 xhci_calculate_u1_timeout(struct xhci_hcd *xhci,
 		}
 	}
 
-	if (xhci->quirks & XHCI_INTEL_HOST)
+	if (xhci->quirks & (XHCI_INTEL_HOST | XHCI_ZHAOXIN_HOST))
 		timeout_ns = xhci_calculate_intel_u1_timeout(udev, desc);
 	else
 		timeout_ns = udev->u1_params.sel;
@@ -4777,7 +4798,7 @@ static u16 xhci_calculate_u2_timeout(struct xhci_hcd *xhci,
 		}
 	}
 
-	if (xhci->quirks & XHCI_INTEL_HOST)
+	if (xhci->quirks & (XHCI_INTEL_HOST | XHCI_ZHAOXIN_HOST))
 		timeout_ns = xhci_calculate_intel_u2_timeout(udev, desc);
 	else
 		timeout_ns = udev->u2_params.sel;
@@ -4874,12 +4895,42 @@ static int xhci_check_intel_tier_policy(struct usb_device *udev,
 	return -E2BIG;
 }
 
+static int xhci_check_zhaoxin_tier_policy(struct usb_device *udev,
+							enum usb3_link_state state)
+{
+	struct usb_device *parent;
+	unsigned int num_hubs;
+	char *state_name;
+
+	if (state == USB3_LPM_U1)
+		state_name = "U1";
+	else if (state == USB3_LPM_U2)
+		state_name = "U2";
+	else
+		state_name = "Unknown";
+	/* Don't enable U1/U2 if the device is on an external hub*/
+	for (parent = udev->parent, num_hubs = 0; parent->parent;
+			parent = parent->parent)
+			num_hubs++;
+
+	if (num_hubs < 1)
+		return 0;
+
+	dev_dbg(&udev->dev, "Disabling %s link state for device" \
+							" below external hub.\n", state_name);
+	dev_dbg(&udev->dev, "Plug device into root port " \
+							"to decrease power consumption.\n");
+	return -E2BIG;
+}
+
 static int xhci_check_tier_policy(struct xhci_hcd *xhci,
 		struct usb_device *udev,
 		enum usb3_link_state state)
 {
 	if (xhci->quirks & XHCI_INTEL_HOST)
 		return xhci_check_intel_tier_policy(udev, state);
+	else if (xhci->quirks & XHCI_ZHAOXIN_HOST)
+		return xhci_check_zhaoxin_tier_policy(udev, state);
 	else
 		return 0;
 }
@@ -5195,6 +5246,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	 */
 	struct device		*dev = hcd->self.sysdev;
 	unsigned int		minor_rev;
+	u8			i, j;
 	int			retval;
 
 	/* Accept arbitrarily long scatter-gather lists */
@@ -5249,6 +5301,25 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 			hcd->self.root_hub->speed = USB_SPEED_SUPER_PLUS;
 			break;
 		}
+
+		/* usb3.1 has gen1 and gen2, Some zx's xHCI controller that follow usb3.1 spec
+		 * but only support gen1
+		 */
+		if (xhci->quirks & XHCI_ZHAOXIN_HOST) {
+			printk("With xHCI root hub speed patch V1.0.0.\n");
+			minor_rev = 0;
+			for (j = 0; j < xhci->num_port_caps; j++) {
+				for (i = 0; i < xhci->port_caps[j].psi_count; i++) {
+					if (XHCI_EXT_PORT_PSIV(xhci->port_caps[j].psi[i]) >= 5)
+						minor_rev = 1;
+				}
+				if (minor_rev != 1) {
+					hcd->speed = HCD_USB3;
+					hcd->self.root_hub->speed = USB_SPEED_SUPER;
+				}
+			}
+		}
+
 		xhci_info(xhci, "Host supports USB 3.%x %sSuperSpeed\n",
 			  minor_rev,
 			  minor_rev ? "Enhanced " : "");

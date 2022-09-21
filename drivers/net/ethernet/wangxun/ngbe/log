@@ -1,0 +1,6 @@
+make[1]: Entering directory '/usr/src/linux-headers-4.4.15-deepin-aere'
+  CC [M]  /home/netswift/txgbe/src/txgbe_main.o
+scripts/Makefile.build:270: recipe for target '/home/netswift/txgbe/src/txgbe_main.o' failed
+Makefile:1445: recipe for target '_module_/home/netswift/txgbe/src' failed
+make[1]: Leaving directory '/usr/src/linux-headers-4.4.15-deepin-aere'
+Makefile:96: recipe for target 'default' failed

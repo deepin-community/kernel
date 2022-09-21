@@ -1510,6 +1510,9 @@ find_memory_area(struct usb_dev_state *ps, const struct usbdevfs_urb *uurb)
 	return usbm;
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern bool check_mtp_read_access(struct usb_device *dev, int ifnum, void __user *buffer);
+#endif
 static int proc_do_submiturb(struct usb_dev_state *ps, struct usbdevfs_urb *uurb,
 			struct usbdevfs_iso_packet_desc __user *iso_frame_desc,
 			void __user *arg, sigval_t userurb_sigval)
@@ -1859,7 +1862,17 @@ static int proc_do_submiturb(struct usb_dev_state *ps, struct usbdevfs_urb *uurb
 		if (ps->disabled_bulk_eps & (1 << as->bulk_addr))
 			ret = -EREMOTEIO;
 		else
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+		{
+			if (!check_mtp_read_access(ps->dev, ifnum, uurb->buffer))
+				ret = -EACCES;
+			else {
 			ret = usb_submit_urb(as->urb, GFP_ATOMIC);
+			}
+		}
+#else
+		ret = usb_submit_urb(as->urb, GFP_ATOMIC);
+#endif
 		spin_unlock_irq(&ps->lock);
 	} else {
 		ret = usb_submit_urb(as->urb, GFP_KERNEL);

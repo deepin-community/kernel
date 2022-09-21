@@ -31,6 +31,7 @@
 #include <asm/cpu_ops.h>
 #include <asm/daifflags.h>
 #include <asm/smp_plat.h>
+#include <linux/cputypes.h>
 
 int acpi_noirq = 1;		/* skip ACPI IRQ initialization */
 int acpi_disabled = 1;
@@ -292,8 +293,11 @@ void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size)
 	prot = __pgprot(PROT_DEVICE_nGnRnE);
 	if (region) {
 		switch (region->type) {
-		case EFI_LOADER_CODE:
 		case EFI_LOADER_DATA:
+			if (cpu_is_kunpeng920_series())
+				break;
+			fallthrough;
+		case EFI_LOADER_CODE:
 		case EFI_BOOT_SERVICES_CODE:
 		case EFI_BOOT_SERVICES_DATA:
 		case EFI_CONVENTIONAL_MEMORY:

@@ -1,0 +1,985 @@
+[33mcommit 28127bb8f2d5db34f406a350aa54ecefecc1cfe8[m[33m ([m[1;36mHEAD -> [m[1;32mlinux_usb[m[33m)[m
+Merge: 6748009 ba9455b
+Author: Max Chou <max.chou@realtek.com>
+Date:   Tue Mar 3 14:38:38 2020 +0800
+
+    Merge branch 'master' of ssh://btsw5.sdlc.rd.realtek.com:29418/code/btdriver/linux/usb into linux_usb
+    
+    Change-Id: I6f0d6fb64a3156cd447fd4d01de9635a65f31b94
+
+[33mcommit ba9455bb1f88b4ec4f69ceabbbf0e99ca623a7dc[m[33m ([m[1;31mm/master[m[33m, [m[1;31mbtsw5/master[m[33m)[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Mar 2 17:56:26 2020 +0800
+
+    misc: Refine config loader and parser
+    
+    Change-Id: Ie18667688abb2d1d7902da60e3af327fa152fa8b
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 599f6fdf0035cac2188448045d418cab2fb5ee33[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Sun Mar 1 00:42:31 2020 +0800
+
+    coex: Ignore more hci le events
+    
+    Change-Id: I639050409c5f58ed3cc31a0cc82a88cc4dcc87b0
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 674800971516d14254f2aa53050f15c30f36aa39[m
+Merge: 800e330 42dfbfd
+Author: Max Chou <max.chou@realtek.com>
+Date:   Mon Feb 24 13:44:49 2020 +0800
+
+    Merge branch 'master' of ssh://btsw5.sdlc.rd.realtek.com:29418/code/btdriver/linux/usb into linux_usb
+    
+    Change-Id: Ie746fca204dead11b87fec5da877da790a1de0a8
+
+[33mcommit 42dfbfd1d0c1311bdd8653e460e34165909cbde5[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Feb 17 18:13:13 2020 +0800
+
+    misc: Fix max patch size for 8821cu
+    
+    Change-Id: I19f649af50854fef63e0788ffcbcfa22e281b822
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 3e555c995f3d5c35f472fd0c3387892509e94d88[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Feb 14 17:44:55 2020 +0800
+
+    misc: Add max patch size check for different chips
+    
+    Change-Id: I4d677fd9baa69a4b165b7907550d3079976ee294
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 72ba42b4cd224ef996c33fbc7cddc2bd09dcec4c[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Feb 14 16:54:42 2020 +0800
+
+    coex: Add support for le enhanced connection
+    
+    Change-Id: Ib55b5f38c7ac05fc4892e22bde1b54220ca29933
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 800e33009d52f61ee9843a293759fc3ed026644a[m
+Author: Max Chou <max.chou@realtek.com>
+Date:   Tue Dec 10 10:50:24 2019 +0800
+
+    misc: Add new pid for 8725au
+    
+    Change-Id: Ie0c7a7213a8a19351d3d973454a15ba44ef8c5ca
+    Signed-off-by: Max Chou <max.chou@realtek.com>
+
+[33mcommit 446181f0b1289bdfe05a9fe9c88e0823e95a59c6[m
+Author: Max Chou <max.chou@realtek.com>
+Date:   Tue Nov 19 19:44:03 2019 +0800
+
+    coex: Add GPL license declaration
+    
+    Change-Id: Ia945efc5daa5515687c7a2057548b7eae58b594e
+    Signed-off-by: Max Chou <max.chou@realtek.com>
+
+[33mcommit 57e6cccb7dcc1a38953ebb948d6019b78af410ec[m
+Author: Max Chou <max.chou@realtek.com>
+Date:   Mon Nov 18 19:33:18 2019 +0800
+
+    misc: Add new vid and pid for 8822ce
+    
+    Change-Id: I3d076987016e565a4e790f42ab0ea4bd24cc3a02
+
+[33mcommit 0fcdcfdc0ae11913f8920411adfcadf48ccec490[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Oct 23 13:25:07 2019 +0800
+
+    misc: Fix config update issue
+    
+    Change-Id: I9fd98854dbc42f1333547268c5d4f317e7d4bf3c
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 4b324fcd9029f16e60fdfc446b1f112910d90433[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Aug 9 15:36:34 2019 +0800
+
+    rtk: Fix intf->pm_usage_cnt issue
+    
+    Change-Id: If3ded932e5ce6588064ea055d9801e9d08f735f5
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 8e65867d7e4af619b778c8b9e193780f734a3279[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Jul 22 13:49:08 2019 +0800
+
+    coex: Refine connection and disconn related log
+    
+    Change-Id: I57b380b2b66bea229d09df0d0accb2f8dd3a0319
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit c9bfeef08537fadcc98e42dfe5cd7687a4d34536[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Jul 22 13:31:33 2019 +0800
+
+    Fix hci dev close issue
+    
+    Change-Id: I1f7aa3cbd4a43cfaac451a780a79b8fa5b57517e
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 44da47b37a0114cead873f216370c5e1b34b98c5[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 17 10:28:48 2019 +0800
+
+    rtk: Open needs binding default
+    
+    Change-Id: I501dec765c5390d6e8f6484e3d2826f698d16aa8
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 7a0492d5fbf35a3e98add11a999f8cad111faa6f[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Jul 5 10:29:40 2019 +0800
+
+    rtk: Add new vid and pid for 8822ce
+    
+    Change-Id: Ica3672181af40798779673fd7c400c335486ccce
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a908430d8f2e46f1157f7b3b29f917ac2b440b61[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Jul 4 09:28:40 2019 +0800
+
+    misc: Add support for 8822ce with new pid
+    
+    Change-Id: Ib5849dd79f6e920306f3a66ac05e95f0afe7f1e9
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 7629e8cf8e4deac1763592621adfc29129b000c9[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jun 25 11:53:35 2019 +0800
+
+    coex: Fix variable-length arrary compiling issue
+    
+    Change-Id: Ia51ffe48cfb03226ea1e0178837fff9520f463be
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 2015d74d5f50cffe52f26a9d703d269b7300ce17[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jun 25 11:49:57 2019 +0800
+
+    coex: Add soft mailbox isolated macro
+    
+    Change-Id: I77e88a98ba1cfcb3aa8487165070e8907c799f3c
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a2fd2579b8f9879e56cda11dbcf6d896008bda99[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Apr 30 09:25:49 2019 +0800
+
+    btcoex: Fix sink profile state issue
+    
+    Change-Id: I067d1f5ac44c5db1dddf94650fcd7c08cd33720b
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a6d070dfaad180c508f38ba56a58ced1daf392c9[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Apr 29 18:59:47 2019 +0800
+
+    misc: Fix returning wrong error code issue
+    
+    We should return minus value if load fw failed or the file length
+    exceeded
+    
+    Change-Id: I903f7266d32f075642c03236a7b2b7f74515900c
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 9fee2bf65d1d8162cb796d84101528ac30ee2c6f[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Apr 29 15:53:23 2019 +0800
+
+    misc: Add support for 8761buv
+    
+    Change-Id: Iaea0881c6e9ab41c6f9fa039d5881b98e07d057d
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 156b32ffb616bb7c44ff5b03ae2298bf81757d36[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Apr 29 10:17:39 2019 +0800
+
+    misc: Refine extra config parsing
+    
+    Change-Id: I4988c1300d2e26ca5cbf917d49dca3001df68882
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 3ee570fb546928ec70a956a6bfa20a080fb4c964[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Sun Apr 28 10:38:44 2019 +0800
+
+    btcoex: Fix wrong profile state issue if disconn abnormally
+    
+    Change-Id: I087fbe638c132aba5f798faf1541223083963cc9
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a7fdf17f39201ad51cbfdc064921dbbf219f7cfb[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Dec 20 13:35:59 2018 +0000
+
+    rtk misc: Add support for 8822ce and 8761au+8814ae
+    
+    Change-Id: I71775c201f13358c0c8795ff6417dca8f78b5259
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 1d788adc3feee8b76a20356899cba1f61defb3f2[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Dec 18 13:52:09 2018 +0000
+
+    rtk misc: Refine line process
+    
+    Change-Id: I2adb7f5a340839340d079c93b62b95e34fdf0f27
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 60b0d1e64d84446606df15f577f755f2167ec25d[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Dec 11 13:56:41 2018 +0000
+
+    rtk misc: Fix an issue failing to download 32k+ patch
+    
+    Change-Id: I21c8dd9ef885dd295ed0af1c33a915de8156e45a
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit abb7701e23da0b0f8b14e68a9f7cb5fcd198d1e7[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Oct 12 11:19:37 2018 +0000
+
+    rtk misc: Handle different newlines in extra config
+    
+    Change-Id: Ib7ca6c8262692c5b989adb90e8706e8857e8caba
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 1df4a31c63ffcfbf159a5c63cee1738d55534e1d[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Sep 17 17:01:08 2018 +0000
+
+    rtk coex: Add a distinction between SBC and others
+    
+    Change-Id: I3f851843178631b9e9987b94d3aa310c2d9497a3
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 56676107af8aa2d47f7298c7d1ca1566eb4e3aaa[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Sep 6 13:54:06 2018 +0000
+
+    rtk bt: Issue scan cmd for wake up function
+    
+    Change-Id: Ia8b400c4a8ba1d84edf3a9f1826ece063adbe4fc
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit e2144fb59400fc17b1308933803fcb642f617a95[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 4 15:48:49 2018 +0000
+
+    rtk coex: Output more info when disconnection
+    
+    Change-Id: I88e5f5a3fc9c48992f44fc6e79211697dfd538ba
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit fd7d480d9c347c88c27eec8f7b4d9c15f5fb15ba[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 4 14:22:34 2018 +0000
+
+    rtk misc: Fix 8822CU mac offset issue
+    
+    Change-Id: I0ed6eedd26e01a5e7c6cfc34a791a10bcdfc7bc8
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit e9912511c27d6e6281fda074e404818dd1a90674[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 4 13:27:13 2018 +0000
+
+    rtk misc: Add external config for 8822CU
+    
+    Change-Id: I491b71f091d12e2589ba3f066cceffd2445c2e35
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 6938642ccdb0f31039059f59c7b7a2e01abbf9b9[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 4 11:41:21 2018 +0000
+
+    rtk misc: Refine Bluetooth external config
+    
+    Change-Id: I0153973edda78527a20e63a558ff6fd15b7c60ab
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 7cbd1d6273796c4c746fd22caa1e7e2b6e9941b0[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Sep 3 19:39:12 2018 +0000
+
+    rtk misc: Add support 8822CU
+    
+    Change-Id: I8fb388baa9fb94bcb5e66d296bbcab3a7df650fc
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0be0f5b48359c6e8943f8c154575c35112651aab[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Aug 28 19:04:28 2018 +0000
+
+    rtk_bt: Add waiting for hdev off while suspending
+    
+    Change-Id: I61f9cd306eaf1ff36c69ff669222703b7b602155
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 449503b8ae3e673c520ec6100e34c85067857572[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 25 13:00:47 2018 +0000
+
+    rtk coex: Set UDP as default software coex channel
+    
+    Change-Id: I4a40edf7cfe51a6fad6335c311230713f99229c6
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 9ebb4461f5db77eb627e836e4b58811a5b9ea287[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 25 11:00:39 2018 +0000
+
+    rtk bt: Add simultaneous discovery quirk
+    
+    Change-Id: Ib03df46967a48758b39761c77941efc5a2295aa8
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 9eff0022f8a682c92ee81e54a4c05db4d80ea7bd[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 25 10:07:58 2018 +0000
+
+    rtk coex: Delete error log when symbol is not found
+    
+    Change-Id: I74771c3c1f9df59c1429e1db5e7cfe480e7d0d15
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 4592e47511edb65223d5a448741b508367dc4abe[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jul 24 14:58:55 2018 +0000
+
+    rtk misc: Disable re-binding by default
+    
+    Change-Id: Ica9922a376ae682cd6c989df4acfb3fdb36f0ded
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 2c2281af72013c517602b8df84fa8f5704f2db7d[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Jul 20 10:09:34 2018 +0000
+
+    rtk coex: Skip rtw coex packets before queue init
+    
+    It would cause kernel crash if driver receives rtw packets from WiFi
+    before queue initialization.
+    
+    Change-Id: I337b81af086cf8700a710f9db23fbd60c51e8083
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 993784d75ce03d5e281d8e50940f19b9f3489716[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 18 17:58:29 2018 +0000
+
+    rtk coex: Add kernel 4.15 support
+    
+    Change timer related code
+    
+    Change-Id: I8b541b367b285988a475122c74ddf3457ecbe6f9
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit c0460d61c33d951f7d76e6c3fec8393216921041[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jul 17 16:38:07 2018 +0000
+
+    rtk coex: Add coex over symbol
+    
+    Update from rtk btuart driver
+    
+    Change-Id: I0440bcba5994188e9c58240bf7635bdff85f58e1
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0801c5c91d539daaede77a63e293971dc32f259c[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Jun 28 15:41:37 2018 +0000
+
+    rtk misc: Support kernel read in kernel 4.14
+    
+    Change-Id: I5773377c3bf8c07296d5a8655f91a5b6991cc715
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a35bf8cff0961abfcbe25827378ffcdc2f6cb693[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Jun 8 16:43:56 2018 +0000
+
+    rtk misc: Fix compile warning
+    
+    Change-Id: Ib2b1f31fef2f8a715d801b9e83c258a138f18f87
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit f83e040a13ee8d29d8bb116bf3361fb542a71716[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Jun 7 15:48:03 2018 +0000
+
+    rtk bt: Add patch switch when host susp and resume
+    
+    Change-Id: I68cc4cc083c3b8a5059994e65e5acb9c9d2ff057
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 5f6dd210c53035c704150a433bbbc0ccfa1ba3de[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon May 21 15:34:12 2018 +0000
+
+    rtk bt: Add extra config support
+    
+    Change-Id: I95bb1d794d710f73e2d4c9ee02af371f54cb1fc9
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 7c962d541c7b4589c7ffe247e6530e4ba2a97c80[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon May 21 11:38:58 2018 +0000
+
+    rtk bt: Move download patch to rtk misc
+    
+    Change-Id: Ia1a048453b7e409a65e182ba7a19d4d9da9a5945
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 870a8f34916fadfb4a84ab621c1ef5158f72d474[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed May 9 14:03:30 2018 +0000
+
+    rtk coex: Reduce packet count log
+    
+    Change-Id: Ib276ac0bcd54d3ab41bb3298730cda63a4d35819
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit f1ec83b9da056b63d35bfa010cebeece5a3b76a1[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed May 9 14:02:32 2018 +0000
+
+    rtk coex: Delete timer sync when profile disc
+    
+    Change-Id: I921dd0304274fc4b7698215b89166e43eff338db
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 24426e9a2343a7b92ce7e0d099113aabc54a26c3[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Nov 8 16:53:13 2017 +0000
+
+    rtk bt: Fix no inode issue
+    
+    Before kernel 3.9, there is no f_inode and file_inode()
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit b3465911797b32567824393cea5dbe21b8bf53ac[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Aug 16 14:17:49 2017 +0000
+
+    rtk bt: Add customer bdaddr support
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 16c968b338523cee6cc97adb8012276d2aedd867[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Aug 2 12:59:16 2017 +0000
+
+    rtk bt: Add big patch download support
+    
+    Patch size can be bigger than 32256 (252 * 128)
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 73d4ed07601693a588179efa27873a915e043659[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Aug 1 16:54:41 2017 +0000
+
+    rtk coex: Add a2dp sink info
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 5db8aebc0114eb60ab6272138084b528c1861582[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Mar 14 13:49:02 2017 +0000
+
+    rtk coex: Fix del time sync crash issue
+    
+    Timers should initialized in rtk_btcoex_open
+    
+    Add high kernel version (4.5-4.8) support
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit d22507140c23f6ee8ec3efa35a3975478aaaeb12[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Dec 2 11:51:12 2016 +0000
+
+    rtk bt: Send hci reset cmd before check fw version
+    
+    Make the hci reset cmd the first cmd after system resume or system
+    reboot
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 9f89952c299eeeabacee9b06e0f1c1c4da191917[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Dec 2 11:48:57 2016 +0000
+
+    rtk bt: Change PATCH_LENGTH_MAX to 4kiB
+    
+    Because new maximum firmware size is enlarged to 40kiB
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 2d61243b75d684edf17ba8fba45ccd2346756798[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Nov 22 19:37:53 2016 +0000
+
+    rtk bt: Fix the version check error between 3.18 and 3.19
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 2754bddd1552893865a20834d9746eacff5bee39[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Nov 14 16:13:28 2016 +0000
+
+    rtk coex: Update driver from btuart
+    
+    For fixing crash issue from rx complete evt after btcoex close
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 6aa6da7183b8c291cfe15918a08b6c54e4f4f59f[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Oct 19 14:16:20 2016 +0000
+
+    rtk bt: Add 8821cu b-cut support
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 4bea0a05797e8330c30d395545802c33103977a3[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 20 17:28:14 2016 +0000
+
+    rtk bt: set needs binding as default
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 9645041284a68d5c0684ec5b593d46b67161e844[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 20 16:17:41 2016 +0000
+
+    rtk bt: refine log and mark busy after post suspend notify
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 17ce0824bf41f709103e8c41b2701b79da499da3[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 20 11:35:17 2016 +0000
+
+    rtk bt: remove reset resume macro and refine download code
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit d48908418cbbdf6580914c3320ea5449630e2701[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 20 10:31:39 2016 +0000
+
+    rtk bt: remove load firmware when suspend
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 441611308c4032fce188b9cebe5e957379827828[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 13 13:45:47 2016 +0000
+
+    rtk coex: use an array instead of skb alloc when recv event
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0f57da5f5b7f44c6df75aa99468a4144110c5891[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Jul 13 10:53:09 2016 +0000
+
+    rtk bt: add 8821cu support
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit f922693d9fe87786de355948487d0364b8be81db[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jun 28 16:00:36 2016 +0000
+
+    rtk coex: print more sbc info
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 52b70d4334efac23f043cf80c3d8a8a31e63dfe3[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Jun 28 14:48:52 2016 +0000
+
+    rtk coex: open the code for bitpool for big endian
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 81665668c7ad0445b27a915412f24fae97258fe2[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue May 10 11:26:23 2016 +0000
+
+    rtk bt: add rtl8723du support
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0fc1a9b4572841222fdc38818d10ac0743717597[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Mar 28 09:41:43 2016 +0000
+
+    rtl btusb: add support for 8822bu
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit c00b6b419244fddb16def92d1dc9a11421102220[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 20:08:56 2016 +0000
+
+    rtl btusb: add svn version and btcoex version
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 83d1229a44c5bbed52477ec3b9307d0198ef50e5[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 18:02:07 2016 +0000
+
+    rtl coex: refine log about handl, psm ,scid, dcid
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 83e917d60c7ddc664ffa160bfd62c673c94c2be6[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 17:48:08 2016 +0000
+
+    rtl coex: add version.h for kernel version check in btuart
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit d5a58e61c2e448f21e8d1dbf037151cc28b767ed[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 17:28:28 2016 +0000
+
+    rtl bt: add new vendor/project id for foxconn laptop
+    
+    vendor/project: 0489:e09e
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 14d1c7d17e2114dd0369635f223f09f271351c3f[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 16:50:43 2016 +0000
+
+    rtl coex: change log and add some code isolating btcoex
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 6a7b870ad516cb2eea5755ba6b9b9059a93eeb56[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 14:01:29 2016 +0000
+
+    rtl coex: re-arch coex function names and arguments
+    
+    So it can be used for both btusb and btuart
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit cfcf7a14e3d4dd876a32c8df8dfc6c05ab00ab76[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 13:35:28 2016 +0000
+
+    rtl coex: remove rtk_usb_coexistence_info and replace usb_coex_info
+    
+    Only rename coexistence global variable
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit ece500ac549a157957b97d0601ee5585a64279e8[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 13:09:14 2016 +0000
+
+    rtl coex: rename btcoex interface function names
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit f74fcd84a37e7ea37292084e0c9c7c6403647dfe[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Mar 2 11:35:59 2016 +0000
+
+    rtl coex: rename rtl_usb_l2_data and delete cmd_q in coex
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit ad25d2b58bd236f8433150529fb4f4aa4113529e[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Feb 17 14:50:59 2016 +0000
+
+    rtl coex: add comments for bit field affected by endian
+    
+    SBC bitpool related.
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0fad286440eaef0d226156abe541a834a924e0f0[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Jan 28 13:03:33 2016 +0000
+
+    rtl bt: fix a compiling issue about hci_recv_fragment()
+    
+    The kernel version in which hci_recv_fragment() is removed is 3.18.0
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0418301dd32e7e107e293c368a5b36f13bd73f5a[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Jan 25 13:07:44 2016 +0000
+
+    rtl coex: fix an issue about expect in bt sk cb
+    
+    In kernel 2.6.34, there is no expect in cb of skb
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 0c522c8c0dfebf0fa3182bc190452cb177d389f8[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Jan 11 17:11:58 2016 +0000
+
+    rtl bt: add more debug log when getting rom version
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a3302344d36d468f8298d04837b66d3f9cbe0107[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Dec 18 15:47:05 2015 +0000
+
+    rtk bt: add some debug log for sco
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 2c291b2c832b0d94ed366fc17db21d2354e6210c[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Dec 10 17:05:20 2015 +0000
+
+    rtl bt: fix a variable definition error for reassembly
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 7850c484d2042b0ec9025bf9bf556a05929d0a4e[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 9 16:15:05 2015 +0000
+
+    rtl bt: support 4.4.0-rcX
+    
+    change the place calling HCI reset method.
+    
+    When in kernel 4.4.0 and greater, the HCI_RUNNING bit is cleared
+    in hci_dev_do_close().
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit dfedfab042df44ee97381df44d8499c92b9cf519[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 9 16:14:11 2015 +0000
+
+    coex: add RTL_COEX_RUNNING to avoid multiple open/close BTCOEX
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a12b2b2a7d82af4c7300ed2096e82c47e47d100b[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 9 13:52:46 2015 +0000
+
+    coex; add macro control for support 4.4.0 on hci command
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 1feaa9f1c0eba32775c9c85ff22c14eb3a96ebe4[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Mon Dec 7 19:46:16 2015 +0000
+
+    coex: add macro control for opcode in bt_cb(skb)
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 6acad14d529271c8e77811af566ae5ed28623869[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 2 17:44:19 2015 +0000
+
+    rtl bt/coex: add macro control for hdev reassembly and sock_sendmsg
+    
+    Judge if the version is less than kernel ver 4.1.0
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit d5695629d5822064d540da48e34e9f00b936697c[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 2 16:53:52 2015 +0000
+
+    rtl bt/coex: add comments for skb->dev and hdev for hci transfer
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a61a551e1c8af7b87ae47def9d3775661130732b[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 2 16:41:42 2015 +0000
+
+    rtl bt: add error log in btusb_send_frame()
+    
+    If the HCI_VERSION_CODE is set wrong, the parameter for btusb_send_frame()
+    will be bad. Then the hdev is not the expected one and no HCI commands
+    will be sent to USB host.
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit ba8e37913db39d7fae9a9d1903c9a28d23cac401[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 2 15:45:23 2015 +0000
+
+    coex: fix compile warnings for kernel 2.6.36
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 45bcaa7e5b0bde80b2d74ddc9731080d19681332[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Wed Dec 2 14:41:04 2015 +0000
+
+    coex: add macro control for cmd req in rtk_vendor_cmd_to_fw()
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit a69a5865454061210bad28abe2a925b1dab08df1[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Dec 1 20:51:15 2015 +0000
+
+    coex: refine l2 process
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 4c61c209b3601e3762a131d763717e35e31d8670[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Dec 1 17:08:18 2015 +0000
+
+    coex: use default hci workqueue instead of tasklet
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 732ce9be61c0954ed6015a26c93623735b1deed8[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Nov 19 15:17:24 2015 +0000
+
+    rtl coex: parse bitpool to transfer to fw
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit bc9ac97f0799106e397db54b445603bc92f5aeee[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Nov 10 10:15:24 2015 +0000
+
+    rtl coex: change the version comparison for udpsocket_recv()
+    
+    The version code to compare is changed from 3.14.0 to 3.15.0
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 11c6b509b0e14ebb928f9444edbf654493a29626[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Oct 27 15:06:42 2015 +0000
+
+    rtl bt: fix the issue bt can't work when change chip with different ECO
+    
+    It is related to gEVersion which is not set to 0xff when entering btusb_probe()
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit acd317215660deb7e0514ff5657f5810cec8646f[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Fri Sep 25 13:32:07 2015 +0000
+
+    rtl bt: set HCI_VERSION_CODE to LINUX_VERSION_CODE as default
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 795adf615625f4124f332672df4e3a2af39af0bf[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Sep 24 20:18:58 2015 +0000
+
+    rtl bt: fix the crash if not setting skb->dev
+    
+    in btusb_send_frame()
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 79972dfff95b026fde8a11716ad2da0bae8f6c0a[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Sep 24 17:39:26 2015 +0000
+
+    rtl bt: add HCI_VERSION_CODE
+    
+    Sometimes we only update net/bluetooth. At this time, LINUX_VERSION_CODE
+    is old but the net/bluetooth is new, so we need adding HCI_VERSION_CODE
+    which represents the net/bluetooth version.
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 3ba80046c55340a20d7d8b1e0c5e8736bb9b4715[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Thu Sep 24 17:08:49 2015 +0000
+
+    rtl bt: send reset command before check firmware version
+    
+    Sometimes after host platform resets and BT power is not lost,
+    the host sends HCI Read Local Version Information Command but there is
+    no event returned.
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 045aa1bd30784d33a21ea4cd987bac62b1b9a7c4[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 15 15:17:27 2015 +0000
+
+    rtl coex: add recv fragment function
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 45a5d40bfd7c299549d38ca59ee2c20ed2c65ff7[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 1 09:22:51 2015 +0800
+
+    rtl coex: add ev filter out
+    
+    Otherwise too many ev needs to be added to workq ev list sometimes.
+    And there is no enough memory to save all the ev.
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit de0346b95c642a00c3dc6f027c6c0a458b90946b[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 1 09:20:03 2015 +0800
+
+    rtl coex: fix the issue accessing urb transfer buffer
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit 72bdca2f09e6942680e70b1b7b2f7a4f5f200ce6[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 1 09:12:04 2015 +0800
+
+    rtl bt/coex: unix format and indent for source code
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit e87a9b554ebf48945fdd38ceed9e51ce3c3d5cb5[m
+Author: Alex Lu <alex_lu@realsil.com.cn>
+Date:   Tue Sep 1 09:08:37 2015 +0800
+
+    rtk bt: init project
+    
+    BT_USB_3.1.20150526_8761AU_BTCOEX_20150317-4038
+    
+    Signed-off-by: Alex Lu <alex_lu@realsil.com.cn>
+
+[33mcommit aad04cf6a00e17244fdadbf18333e7102c911272[m
+Author: jason_mao <jason_mao@realsil.com.cn>
+Date:   Mon Dec 18 21:12:32 2017 -0500
+
+    Initial empty repository

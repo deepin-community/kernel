@@ -1,0 +1,23 @@
+config DRM_SMI
+        tristate "SiliconMotion SM750/SM768 DRM driver"
+        depends on DRM && PCI
+        select DRM_VRAM_HELPER
+        select DRM_KMS_HELPER
+        help
+         Say yes for SiliconMotion SM750/SM768 DRM driver.
+         
+
+config DRM_SMI_HDMI
+        bool "Enable SM750 HDMI output"
+        depends on DRM_SMI
+        help
+          Compile in support for SM750 HDMI output(Using Sil9022).
+
+
+config DRM_SMI_PRIME
+        bool "enable SMI PRIME"
+        depends on DRM_SMI
+        help
+          Compile in support for PRIME(Mulit-card).
+
+

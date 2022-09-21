@@ -1,0 +1,5 @@
+config CH36X
+	tristate "WCH ch36x driver"
+	default m
+	help
+		Support for WCH ch36x drivers.

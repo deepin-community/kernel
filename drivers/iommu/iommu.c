@@ -24,6 +24,9 @@
 #include <linux/fsl/mc.h>
 #include <linux/module.h>
 #include <trace/events/iommu.h>
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/cputype.h>
+#endif
 
 static struct kset *iommu_group_kset;
 static DEFINE_IDA(iommu_group_ida);
@@ -319,11 +322,19 @@ static int __init iommu_set_def_domain_type(char *str)
 	if (ret)
 		return ret;
 
-	if (pt)
-		iommu_set_default_passthrough(true);
-	else
-		iommu_set_default_translated(true);
-
+#ifdef CONFIG_ARCH_PHYTIUM
+       /*
+        * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
+        * on Phytium FT-2000+ SoC to avoid unnecessary troubles
+        * introduced by the SMMU workaround.
+        */
+       if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_FT2000PLUS)
+               iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
+       else
+               iommu_def_domain_type = pt ? IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
+#else
+        iommu_def_domain_type = pt ? IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
+#endif
 	return 0;
 }
 early_param("iommu.passthrough", iommu_set_def_domain_type);
@@ -785,6 +796,12 @@ static bool iommu_is_attach_deferred(struct iommu_domain *domain,
 
 	return false;
 }
+
+void  __acpi_device_create_direct_mappings(struct iommu_group *group, struct device *acpi_device)
+{
+	iommu_create_device_direct_mappings(group, acpi_device);
+}
+EXPORT_SYMBOL_GPL(__acpi_device_create_direct_mappings);
 
 /**
  * iommu_group_add_device - add a device to an iommu group
@@ -1849,6 +1866,16 @@ int bus_set_iommu(struct bus_type *bus, const struct iommu_ops *ops)
 		return -EBUSY;
 
 	bus->iommu_ops = ops;
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	/*
+	 * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
+	 * on Phytium FT-2000+ SoC to avoid unnecessary troubles
+	 * introduced by the SMMU workaround.
+	 */
+	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_FT2000PLUS)
+		iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
+#endif
 
 	/* Do IOMMU specific setup for this bus-type */
 	err = iommu_bus_init(bus, ops);

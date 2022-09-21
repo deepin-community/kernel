@@ -242,7 +242,7 @@ typedef efi_status_t efi_get_variable_t (efi_char16_t *name, efi_guid_t *vendor,
 					 unsigned long *data_size, void *data);
 typedef efi_status_t efi_get_next_variable_t (unsigned long *name_size, efi_char16_t *name,
 					      efi_guid_t *vendor);
-typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor, 
+typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor,
 					 u32 attr, unsigned long data_size,
 					 void *data);
 typedef efi_status_t efi_get_next_high_mono_count_t (u32 *count);
@@ -551,6 +551,7 @@ extern struct efi {
 	unsigned long			smbios3;		/* SMBIOS table (64 bit entry point) */
 	unsigned long			esrt;			/* ESRT table */
 	unsigned long			tpm_log;		/* TPM2 Event Log table */
+	unsigned long 			mem_reserve;      	/* Linux EFI memreserve table */
 	unsigned long			tpm_final_log;		/* TPM2 Final Events Log table */
 	unsigned long			mokvar_table;		/* MOK variable config table */
 
@@ -1231,19 +1232,6 @@ extern struct efi_runtime_work efi_rts_work;
 /* Workqueue to queue EFI Runtime Services */
 extern struct workqueue_struct *efi_rts_wq;
 
-struct linux_efi_memreserve {
-	int		size;			// allocated size of the array
-	atomic_t	count;			// number of entries used
-	phys_addr_t	next;			// pa of next struct instance
-	struct {
-		phys_addr_t	base;
-		phys_addr_t	size;
-	} entry[];
-};
-
-#define EFI_MEMRESERVE_COUNT(size) (((size) - sizeof(struct linux_efi_memreserve)) \
-	/ sizeof_field(struct linux_efi_memreserve, entry[0]))
-
 void __init efi_arch_mem_reserve(phys_addr_t addr, u64 size);
 
 char *efi_systab_show_arch(char *str);
@@ -1279,5 +1267,21 @@ static inline struct efi_mokvar_table_entry *efi_mokvar_entry_find(
 	return NULL;
 }
 #endif
+
+struct linux_efi_memreserve {
+	int		size;			// allocated size of the array
+	atomic_t	count;			// number of entries used
+	phys_addr_t	next;			// pa of next struct instance
+	struct {
+		phys_addr_t	base;
+		phys_addr_t	size;
+	} entry[0];
+};
+
+#define EFI_MEMRESERVE_SIZE(count) (sizeof(struct linux_efi_memreserve) + \
+	(count) * sizeof(((struct linux_efi_memreserve *)0)->entry[0]))
+
+#define EFI_MEMRESERVE_COUNT(size) (((size) - sizeof(struct linux_efi_memreserve)) \
+	/ sizeof(((struct linux_efi_memreserve *)0)->entry[0]))
 
 #endif /* _LINUX_EFI_H */

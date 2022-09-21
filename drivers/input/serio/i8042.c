@@ -22,8 +22,16 @@
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/property.h>
-
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/acpi.h>
+#include <linux/kobject.h>
+#include <linux/device.h>
+#include <asm/dmi.h>
+#endif
 #include <asm/io.h>
+#include <linux/cputypes.h>
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("i8042 keyboard and mouse controller driver");
@@ -48,6 +56,44 @@ MODULE_PARM_DESC(unlock, "Ignore keyboard lock.");
 static bool i8042_probe_defer;
 module_param_named(probe_defer, i8042_probe_defer, bool, 0);
 MODULE_PARM_DESC(probe_defer, "Allow deferred probing.");
+
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+static struct kobject *debug_kobj;
+static int debug_value;
+
+extern void get_lpc_iobase(void __iomem **iobase);
+extern void get_lpc_reg_base(void __iomem **iobase);
+extern int get_lpc_irq(void);
+extern void ec_int_init_set(void);
+extern void kbd_int_init_set(void);
+extern int is_lpc_int_init_done(void);
+extern int lpc_int_disable(void);
+extern int lpc_int_enable(void);
+static bool phytium_aux_enable = true;
+
+static ssize_t status_show(struct device *kobj, struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", READ_ONCE(debug_value));
+}
+
+static ssize_t status_store(struct device *kobj, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if (kstrtoint(buf, 0, &debug_value))
+            return -EINVAL;
+    return count;
+}
+
+static DEVICE_ATTR(status, S_IWUSR|S_IRUGO, status_show, status_store);
+
+static struct attribute *debug_attrs[] = {
+             &dev_attr_status.attr,
+             NULL
+};
+
+static const struct attribute_group sysfs_debug_attr_group = {
+        .attrs = debug_attrs,
+};
+#endif
 
 enum i8042_controller_reset_mode {
 	I8042_RESET_NEVER,
@@ -138,7 +184,8 @@ static struct fwnode_handle *i8042_kbd_fwnode;
  * i8042_lock protects serialization between i8042_command and
  * the interrupt handler.
  */
-static DEFINE_SPINLOCK(i8042_lock);
+DEFINE_SPINLOCK(i8042_lock);
+EXPORT_SYMBOL(i8042_lock);
 
 /*
  * Writers to AUX and KBD ports as well as users issuing i8042_command
@@ -162,6 +209,9 @@ struct i8042_port {
 #define I8042_AUX_PORT_NO	1
 #define I8042_MUX_PORT_NO	2
 #define I8042_NUM_PORTS		(I8042_NUM_MUX_PORTS + 2)
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+#define I8042_LPC_OFFSET        0x7FF0000
+#endif
 
 static struct i8042_port i8042_ports[I8042_NUM_PORTS];
 
@@ -348,8 +398,10 @@ int i8042_command(unsigned char *param, int command)
 	unsigned long flags;
 	int retval;
 
-	if (!i8042_present)
+	if (!i8042_present) {
+		pr_err("i8042_present: %d\n", i8042_present);
 		return -1;
+	}
 
 	spin_lock_irqsave(&i8042_lock, flags);
 	retval = __i8042_command(param, command);
@@ -609,6 +661,117 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 	return IRQ_RETVAL(ret);
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+static irqreturn_t i8042_interrupt_new(int irq, void *dev_id)
+{
+	struct i8042_port *port;
+	struct serio *serio;
+	unsigned long flags;
+	unsigned char str, data;
+	unsigned int dfl;
+	unsigned int port_no;
+	bool filtered;
+    int ret = 1;
+	u32 lpc_data;
+	static int count;
+
+	spin_lock_irqsave(&i8042_lock, flags);
+
+	if (cpu_is_phytium()) {
+		/* No KBD & touch interrupt, return */
+		if (i8042_write_lpc_interrupt_clear()) {
+			spin_unlock_irqrestore(&i8042_lock, flags);
+			dbg(" No KBD & touch interrupt, return lpc_data = %d\r\n", lpc_data);
+			ret = 0;
+			goto out;
+		}
+	}
+
+	str = i8042_read_status();
+	if (unlikely(~str & I8042_STR_OBF)) {
+		spin_unlock_irqrestore(&i8042_lock, flags);
+		if (irq)
+			dbg("Interrupt %d, without any data\n", irq);
+		ret = 0;
+		goto out;
+	}
+
+	data = i8042_read_data();
+
+	if (i8042_mux_present && (str & I8042_STR_AUXDATA)) {
+		static unsigned long last_transmit;
+		static unsigned char last_str;
+
+		dfl = 0;
+		if (str & I8042_STR_MUXERR) {
+			dbg("MUX error, status is %02x, data is %02x\n",
+			    str, data);
+/*
+ * When MUXERR condition is signalled the data register can only contain
+ * 0xfd, 0xfe or 0xff if implementation follows the spec. Unfortunately
+ * it is not always the case. Some KBCs also report 0xfc when there is
+ * nothing connected to the port while others sometimes get confused which
+ * port the data came from and signal error leaving the data intact. They
+ * _do not_ revert to legacy mode (actually I've never seen KBC reverting
+ * to legacy mode yet, when we see one we'll add proper handling).
+ * Anyway, we process 0xfc, 0xfd, 0xfe and 0xff as timeouts, and for the
+ * rest assume that the data came from the same serio last byte
+ * was transmitted (if transmission happened not too long ago).
+ */
+
+			switch (data) {
+				default:
+					if (time_before(jiffies, last_transmit + HZ/10)) {
+						str = last_str;
+						break;
+					}
+					/* fall through - report timeout */
+				case 0xfc:
+				case 0xfd:
+				case 0xfe: dfl = SERIO_TIMEOUT; data = 0xfe; break;
+				case 0xff: dfl = SERIO_PARITY;  data = 0xfe; break;
+			}
+		}
+
+		port_no = I8042_MUX_PORT_NO + ((str >> 6) & 3);
+		last_str = str;
+		last_transmit = jiffies;
+	} else {
+
+		dfl = ((str & I8042_STR_PARITY) ? SERIO_PARITY : 0) |
+		      ((str & I8042_STR_TIMEOUT && !i8042_notimeout) ? SERIO_TIMEOUT : 0);
+
+		port_no = (str & I8042_STR_AUXDATA) ?
+				I8042_AUX_PORT_NO : I8042_KBD_PORT_NO;
+	}
+
+	if ((port_no == I8042_AUX_PORT_NO) && !phytium_aux_enable) {
+		spin_unlock_irqrestore(&i8042_lock, flags);
+		return IRQ_RETVAL(ret);
+	}
+	port = &i8042_ports[port_no];
+	serio = port->exists ? port->serio : NULL;
+
+	if (irq && serio)
+		pm_wakeup_event(&serio->dev, 0);
+
+	filter_dbg(port->driver_bound, data, "<- i8042 (interrupt, %d, %d%s%s)\n",
+		   port_no, irq,
+		   dfl & SERIO_PARITY ? ", bad parity" : "",
+		   dfl & SERIO_TIMEOUT ? ", timeout" : "");
+
+	filtered = i8042_filter(data, str, serio);
+
+	spin_unlock_irqrestore(&i8042_lock, flags);
+
+	if (likely(serio && !filtered))
+		serio_interrupt(serio, data, dfl);
+
+ out:
+	return IRQ_RETVAL(ret);
+}
+#endif
+
 /*
  * i8042_enable_kbd_port enables keyboard port on chip
  */
@@ -797,6 +960,16 @@ static int i8042_toggle_aux(bool on)
 	return -1;
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+int phytium_laptop_toggle_aux(bool on)
+{
+	if (cpu_is_phytium()) {
+		phytium_aux_enable = on;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(phytium_laptop_toggle_aux);
+#endif
 /*
  * i8042_check_aux() applies as much paranoia as it can at detecting
  * the presence of an AUX interface.
@@ -927,8 +1100,13 @@ static int i8042_check_aux(void)
 	if (i8042_command(&i8042_ctr, I8042_CMD_CTL_WCTR))
 		retval = -1;
 
-	if (irq_registered)
-		free_irq(I8042_AUX_IRQ, i8042_platform_device);
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (!cpu_is_phytium())
+#endif
+	{
+		if (irq_registered)
+			free_irq(I8042_AUX_IRQ, i8042_platform_device);
+	}
 
 	return retval;
 }
@@ -1232,6 +1410,10 @@ static int i8042_pm_suspend(struct device *dev)
 {
 	int i;
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (cpu_is_phytium)
+		phytium_laptop_toggle_aux(true);
+#endif
 	if (pm_suspend_via_firmware())
 		i8042_controller_reset(true);
 
@@ -1418,6 +1600,13 @@ static void i8042_register_ports(void)
 
 		printk(KERN_INFO "serio: %s at %#lx,%#lx irq %d\n",
 			serio->name,
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+			(unsigned long) i8042_data_reg,
+			(unsigned long) i8042_command_reg,
+#else
+			(unsigned long) I8042_DATA_REG,
+			(unsigned long) I8042_COMMAND_REG,
+#endif
 			(unsigned long) I8042_DATA_REG,
 			(unsigned long) I8042_COMMAND_REG,
 			i8042_ports[i].irq);
@@ -1439,6 +1628,12 @@ static void i8042_unregister_ports(void)
 
 static void i8042_free_irqs(void)
 {
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (cpu_is_phytium()) {
+			return ;
+	}
+#endif
+
 	if (i8042_aux_irq_registered)
 		free_irq(I8042_AUX_IRQ, i8042_platform_device);
 	if (i8042_kbd_irq_registered)
@@ -1470,6 +1665,13 @@ static int i8042_setup_aux(void)
 		aux_enable = i8042_enable_mux_ports;
 	}
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (cpu_is_phytium()) {
+		if (aux_enable())
+			goto err_free_ports;
+	} else
+#endif
+	{
 	error = request_irq(I8042_AUX_IRQ, i8042_interrupt, IRQF_SHARED,
 			    "i8042", i8042_platform_device);
 	if (error)
@@ -1478,6 +1680,7 @@ static int i8042_setup_aux(void)
 	error = aux_enable();
 	if (error)
 		goto err_free_irq;
+	}
 
 	i8042_aux_irq_registered = true;
 	return 0;
@@ -1489,6 +1692,9 @@ static int i8042_setup_aux(void)
 	return error;
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM_EC
+extern int ft_hotkey_init(void);
+#endif
 static int i8042_setup_kbd(void)
 {
 	int error;
@@ -1497,19 +1703,63 @@ static int i8042_setup_kbd(void)
 	if (error)
 		return error;
 
-	error = request_irq(I8042_KBD_IRQ, i8042_interrupt, IRQF_SHARED,
-			    "i8042", i8042_platform_device);
-	if (error)
-		goto err_free_port;
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	int irq;
+	if (cpu_is_phytium()) {
+#ifdef CONFIG_ARCH_PHYTIUM_EC
+        lpc_int_disable();
+#endif
+	    i8042_write_lpc_interrupt_clear_all();
+
+		irq = get_lpc_irq();
+		if (irq < 0) {
+			dev_warn(&i8042_platform_device->dev, "unable to get ws0 interrupt.\n");
+		} else {
+			/*
+			 * In case there is a pending ws0 interrupt, just ping
+			 * the watchdog before registering the interrupt routine
+			 */
+			if (devm_request_irq(&i8042_platform_device->dev, irq, i8042_interrupt_new, IRQF_SHARED,
+					     "i8042,bitland_kbd", i8042_platform_device)) {
+				dev_warn(&i8042_platform_device->dev, "unable to request IRQ %d.\n",
+					 irq);
+			goto err_free_port;
+			}
+
+#ifdef CONFIG_ARCH_PHYTIUM_EC
+			kbd_int_init_set();
+
+			if (is_lpc_int_init_done()) {
+				lpc_int_enable();
+			}
+
+			if (!chassis_types_is_laptop()) {
+				lpc_int_enable();
+				ft_hotkey_init();
+			}
+#endif
+		}
+	} else
+#endif
+	{
+		error = request_irq(I8042_KBD_IRQ, i8042_interrupt, IRQF_SHARED,
+					"i8042", i8042_platform_device);
+		if (error)
+			goto err_free_port;
+	}
 
 	error = i8042_enable_kbd_port();
 	if (error)
 		goto err_free_irq;
 
 	i8042_kbd_irq_registered = true;
+
 	return 0;
 
  err_free_irq:
+ #ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (!cpu_is_phytium())
+ #endif
 	free_irq(I8042_KBD_IRQ, i8042_platform_device);
  err_free_port:
 	i8042_free_kbd_port();
@@ -1545,11 +1795,34 @@ static int i8042_probe(struct platform_device *dev)
 
 	i8042_platform_device = dev;
 
-	if (i8042_reset == I8042_RESET_ALWAYS) {
-		error = i8042_controller_selftest();
-		if (error)
-			return error;
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	int err;
+
+	if (cpu_is_phytium()) {
+	    	get_lpc_iobase(&I8042_iobase);
+		if(!I8042_iobase)
+			return ENXIO;
+		get_lpc_reg_base(&I8042_reg_base);
+
+		err = i8042_platform_init(&dev->dev);
+		if (err)
+			return err;
+
+		err = i8042_controller_check();
+		if (err) {
+			return err;
+		}
+	} else
+#endif
+	{
+		if (i8042_reset == I8042_RESET_ALWAYS) {
+			error = i8042_controller_selftest();
+			if (error)
+				return error;
+		}
 	}
+
+	i8042_present = true;
 
 	error = i8042_controller_init();
 	if (error)
@@ -1580,11 +1853,26 @@ static int i8042_probe(struct platform_device *dev)
 
  out_fail:
 	i8042_free_aux_ports();	/* in case KBD failed but AUX not */
-	i8042_free_irqs();
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+	if (cpu_is_phytium()) {
+		i8042_unregister_ports();
+	} else
+#endif
+ 	{
+		i8042_free_irqs();
+ 	}
 	i8042_controller_reset(false);
 	i8042_platform_device = NULL;
 
-	return error;
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+err_iomap:
+	if(cpu_is_phytium() && ( I8042_iobase )) {
+		iounmap(I8042_iobase);
+		I8042_iobase = NULL;
+	}
+#endif
+
+        return error;
 }
 
 static int i8042_remove(struct platform_device *dev)
@@ -1597,9 +1885,27 @@ static int i8042_remove(struct platform_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+static const struct of_device_id i8042_of_match[] = {
+	{ .compatible = "phytium,i8042"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, i8042_of_match);
+
+static const struct acpi_device_id i8042_acpi_match[] = {
+        { "KBCI8042", 0 },
+        {}
+};
+MODULE_DEVICE_TABLE(acpi, i8042_acpi_match);
+#endif
+
 static struct platform_driver i8042_driver = {
 	.driver		= {
 		.name	= "i8042",
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+		.of_match_table = of_match_ptr(i8042_of_match),
+		.acpi_match_table = ACPI_PTR(i8042_acpi_match),
+#endif
 #ifdef CONFIG_PM
 		.pm	= &i8042_pm_ops,
 #endif
@@ -1619,6 +1925,24 @@ static int __init i8042_init(void)
 
 	dbg_init();
 
+#ifdef CONFIG_ARCH_PHYTIUM_LPC
+    int ret;
+	if (cpu_is_phytium()) {
+        debug_value = 0;
+        if ((debug_kobj=kobject_create_and_add("sysfs_debug", NULL)) != NULL) {
+            if(sysfs_create_group(debug_kobj, &sysfs_debug_attr_group))
+                    printk("create group failed");
+       }
+
+       ret = platform_driver_register(&i8042_driver);
+       if (ret) {
+			pr_info("platform_driver_register fail\n");
+			return 0;
+       }
+	} else {
+		return 0;
+	}
+#else
 	err = i8042_platform_init();
 	if (err)
 		return (err == -ENODEV) ? 0 : err;
@@ -1643,7 +1967,7 @@ static int __init i8042_init(void)
 	err = platform_device_add(i8042_platform_device);
 	if (err)
 		goto err_free_device;
-
+#endif
 	bus_register_notifier(&serio_bus, &i8042_kbd_bind_notifier_block);
 	panic_blink = i8042_panic_blink;
 

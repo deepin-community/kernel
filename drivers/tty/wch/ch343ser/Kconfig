@@ -1,0 +1,5 @@
+config CH343SER
+	tristate "WCH ch343 serial driver"
+	default m
+	help
+		Support for WCH ch343 serial drivers.

@@ -41,8 +41,17 @@
 #include <linux/sizes.h>
 #include <linux/io.h>
 #include <linux/acpi.h>
+#include <linux/cputypes.h>
 
 #include "amba-pl011.h"
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
+
+#ifdef CONFIG_ARCH_PHYTIUM_UART_INIT
+//extern void phytium_uart_suspend(void);
+//extern void phytium_uart_resume(void);
+extern int phytium_uart_port_init(void);
+#endif
 
 #define UART_NR			14
 
@@ -1663,6 +1672,11 @@ static int pl011_hwinit(struct uart_port *port)
 	/*
 	 * Try to enable the clock producer.
 	 */
+    if (cpu_is_phytium()) {
+		uap->port.uartclk = 48000000;
+		return 0;
+	}
+
 	retval = clk_prepare_enable(uap->clk);
 	if (retval)
 		return retval;
@@ -1767,6 +1781,13 @@ static int pl011_startup(struct uart_port *port)
 	    container_of(port, struct uart_amba_port, port);
 	unsigned int cr;
 	int retval;
+
+#ifdef CONFIG_ARCH_PHYTIUM
+    if (cpu_is_phytium()) {
+		uap->port.uartclk = 48000000;
+		return 0;
+	}
+#endif
 
 	retval = pl011_hwinit(port);
 	if (retval)
@@ -1879,6 +1900,10 @@ static void pl011_shutdown(struct uart_port *port)
 	struct uart_amba_port *uap =
 		container_of(port, struct uart_amba_port, port);
 
+    if (cpu_is_phytium()) {
+		return;
+	}
+
 	pl011_disable_interrupts(uap);
 
 	pl011_dma_shutdown(uap);
@@ -1960,6 +1985,10 @@ pl011_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned int lcr_h, old_cr;
 	unsigned long flags;
 	unsigned int baud, quot, clkdiv;
+
+	if (cpu_is_phytium()) {
+		port->uartclk = 48000000;
+	}
 
 	if (uap->vendor->oversampling)
 		clkdiv = 8;
@@ -2079,6 +2108,11 @@ sbsa_uart_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct uart_amba_port *uap =
 	    container_of(port, struct uart_amba_port, port);
 	unsigned long flags;
+
+	if (cpu_is_phytium()) {
+		pl011_set_termios(port, termios, old);
+		return;
+	}
 
 	tty_termios_encode_baud_rate(termios, uap->fixed_baud, uap->fixed_baud);
 
@@ -2716,6 +2750,11 @@ static int sbsa_uart_probe(struct platform_device *pdev)
 	int portnr, ret;
 	int baudrate;
 
+#ifdef CONFIG_ARCH_PHYTIUM_UART_INIT
+    if (cpu_is_phytium()) {
+		phytium_uart_port_init();
+    }
+#endif
 	/*
 	 * Check the mandatory baud rate parameter in the DT node early
 	 * so that we can easily exit with the error.
@@ -2771,6 +2810,90 @@ static int sbsa_uart_probe(struct platform_device *pdev)
 	return pl011_register_port(uap);
 }
 
+static int sbsa_uart_probe_phytium(struct platform_device *pdev)
+{
+	struct uart_amba_port *uap;
+	struct resource *r;
+	int portnr, ret;
+	int baudrate;
+
+#ifdef CONFIG_ARCH_PHYTIUM_UART_INIT
+	if (cpu_is_phytium()) {
+		phytium_uart_port_init();
+	}
+#endif
+	/*
+
+
+
+	 * Check the mandatory baud rate parameter in the DT node early
+	 * so that we can easily exit with the error.
+	 */
+	if (pdev->dev.of_node) {
+		struct device_node *np = pdev->dev.of_node;
+
+		ret = of_property_read_u32(np, "current-speed", &baudrate);
+		if (ret)
+			return ret;
+	} else {
+		baudrate = 115200;
+	}
+
+	portnr = pl011_find_free_port();
+	if (portnr < 0)
+		return portnr;
+
+	uap = devm_kzalloc(&pdev->dev, sizeof(struct uart_amba_port),
+			   GFP_KERNEL);
+	if (!uap)
+		return -ENOMEM;
+
+	ret = platform_get_irq(pdev, 0);
+	if (ret < 0) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "cannot obtain irq\n");
+		return ret;
+	}
+	uap->port.irq	= ret;
+
+#if defined(CONFIG_ARCH_PHYTIUM) && defined(CONFIG_ACPI)
+	uap->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(uap->clk)) {
+		struct clk *clk= ERR_PTR(-ENODEV);
+//		pr_info("registering phytium clk: sysclk_48mhz\n");
+		clk = clk_register_fixed_rate(&pdev->dev,"sysclk_48mhz",NULL,0,48000000);
+		clk_register_clkdev(clk,"sysclk_48mhz",dev_name(&pdev->dev));
+//		pr_info("registered phytium clk: sysclk_48mhz\n");
+		uap->clk = clk;
+    }
+#endif
+
+//	uap->vendor = &vendor_sbsa;
+	uap->vendor = &vendor_arm;
+
+	uap->reg_offset	= uap->vendor->reg_offset;
+	uap->fifosize	= 32;
+	uap->port.iotype = uap->vendor->access_32b ? UPIO_MEM32 : UPIO_MEM;
+//	uap->port.ops	= &sbsa_uart_pops;
+	uap->port.ops = &amba_pl011_pops;
+	uap->fixed_baud = baudrate;
+
+//	snprintf(uap->type, sizeof(uap->type), "SBSA");
+	snprintf(uap->type, sizeof(uap->type), "PL011 rev3");
+
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	ret = pl011_setup_port(&pdev->dev, uap, r, portnr);
+	if (ret) {
+		return ret;
+    }
+
+	platform_set_drvdata(pdev, uap);
+
+	ret = pl011_register_port(uap);
+
+	return ret;
+}
+
 static int sbsa_uart_remove(struct platform_device *pdev)
 {
 	struct uart_amba_port *uap = platform_get_drvdata(pdev);
@@ -2804,6 +2927,23 @@ static struct platform_driver arm_sbsa_uart_platform_driver = {
 		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
 	},
 };
+
+#ifdef CONFIG_ARCH_PHYTIUM
+static struct platform_driver arm_sbsa_uart_platform_driver_phytium = {
+	.probe		= sbsa_uart_probe_phytium,
+	.remove		= sbsa_uart_remove,
+#if 0
+    .suspend    = phytium_uart_ops_suspend,
+    .resume     = phytium_uart_ops_resume,
+#endif
+	.driver	= {
+		.name	= "sbsa-uart",
+		.of_match_table = of_match_ptr(sbsa_uart_of_match),
+		.acpi_match_table = ACPI_PTR(sbsa_uart_acpi_match),
+		.suppress_bind_attrs = IS_BUILTIN(CONFIG_SERIAL_AMBA_PL011),
+	},
+};
+#endif
 
 static const struct amba_id pl011_ids[] = {
 	{

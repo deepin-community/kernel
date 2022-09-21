@@ -1077,6 +1077,12 @@ config MMC_SDHCI_OMAP
 
 	  If unsure, say N.
 
+config MMC_PHYTIUM_SDCI
+        tristate "Phytium FT SD Host Controller support"
+        depends on ARM64
+        help
+            This selects support for the Phytium FT4C SD Host Controller
+
 config MMC_SDHCI_AM654
 	tristate "Support for the SDHCI Controller in TI's AM654 SOCs"
 	depends on MMC_SDHCI_PLTFM && OF && REGMAP_MMIO

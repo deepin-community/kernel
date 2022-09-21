@@ -26,6 +26,7 @@
 #include <linux/irq.h>
 
 #include "internal.h"
+#include <linux/cputypes.h>
 
 #define _COMPONENT			ACPI_PCI_COMPONENT
 ACPI_MODULE_NAME("pci_link");
@@ -59,6 +60,7 @@ struct acpi_pci_link_irq {
 	u8 resource_type;
 	u8 possible_count;
 	u32 possible[ACPI_PCI_LINK_MAX_POSSIBLE];
+	struct acpi_resource_source resource_source;
 	u8 initialized:1;
 	u8 reserved:7;
 };
@@ -120,6 +122,8 @@ static acpi_status acpi_pci_link_check_possible(struct acpi_resource *resource,
 		{
 			struct acpi_resource_extended_irq *p =
 			    &resource->data.extended_irq;
+			struct acpi_resource_source *rs =
+			    &link->irq.resource_source;
 			if (!p || !p->interrupt_count) {
 				printk(KERN_WARNING PREFIX
 					      "Blank _PRS EXT IRQ resource\n");
@@ -140,6 +144,12 @@ static acpi_status acpi_pci_link_check_possible(struct acpi_resource *resource,
 			link->irq.triggering = p->triggering;
 			link->irq.polarity = p->polarity;
 			link->irq.resource_type = ACPI_RESOURCE_TYPE_EXTENDED_IRQ;
+			if (p->resource_source.string_length) {
+				rs->index = p->resource_source.index;
+				rs->string_length = p->resource_source.string_length;
+				rs->string_ptr = kstrdup(p->resource_source.string_ptr,
+							 GFP_KERNEL);
+			}
 			break;
 		}
 	default:
@@ -326,7 +336,8 @@ static int acpi_pci_link_set(struct acpi_pci_link *link, int irq)
 			resource->res.data.extended_irq.shareable = ACPI_SHARED;
 		resource->res.data.extended_irq.interrupt_count = 1;
 		resource->res.data.extended_irq.interrupts[0] = irq;
-		/* ignore resource_source, it's optional */
+		resource->res.data.extended_irq.resource_source =
+			link->irq.resource_source;
 		break;
 	default:
 		printk(KERN_ERR PREFIX "Invalid Resource_type %d\n", link->irq.resource_type);
@@ -612,7 +623,7 @@ static int acpi_pci_link_allocate(struct acpi_pci_link *link)
  * failure: return -1
  */
 int acpi_pci_link_allocate_irq(acpi_handle handle, int index, int *triggering,
-			       int *polarity, char **name)
+			       int *polarity, char **name, struct fwnode_handle **rs_fwnode)
 {
 	int result;
 	struct acpi_device *device;
@@ -656,6 +667,12 @@ int acpi_pci_link_allocate_irq(acpi_handle handle, int index, int *triggering,
 		*polarity = link->irq.polarity;
 	if (name)
 		*name = acpi_device_bid(link->device);
+	if (rs_fwnode){
+		if (cpu_is_phytium()) {
+			*rs_fwnode = acpi_get_irq_source_fwhandle(&link->irq.resource_source);
+		}
+	}
+
 	ACPI_DEBUG_PRINT((ACPI_DB_INFO,
 			  "Link %s is referenced\n",
 			  acpi_device_bid(link->device)));

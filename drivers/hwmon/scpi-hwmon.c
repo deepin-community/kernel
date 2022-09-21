@@ -14,6 +14,8 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/thermal.h>
+#include <linux/cputypes.h>
+#include <linux/acpi.h>
 
 struct sensor_data {
 	unsigned int scale;
@@ -125,6 +127,14 @@ static const struct thermal_zone_of_device_ops scpi_sensor_ops = {
 	.get_temp = scpi_read_temp,
 };
 
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+static const struct acpi_device_id scpi_acpi_match[] = {
+	{ "FTSS0001", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, scpi_acpi_match);
+#endif
+
 static const struct of_device_id scpi_of_match[] = {
 	{.compatible = "arm,scpi-sensors", .data = &scpi_scale},
 	{.compatible = "amlogic,meson-gxbb-scpi-sensors", .data = &gxbb_scpi_scale},
@@ -142,6 +152,9 @@ static int scpi_hwmon_probe(struct platform_device *pdev)
 	struct device *hwdev, *dev = &pdev->dev;
 	struct scpi_sensors *scpi_sensors;
 	const struct of_device_id *of_id;
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+	const struct acpi_device_id *acpi_id;
+#endif
 	int idx, ret;
 
 	scpi_ops = get_scpi_ops();
@@ -171,12 +184,25 @@ static int scpi_hwmon_probe(struct platform_device *pdev)
 
 	scpi_sensors->scpi_ops = scpi_ops;
 
-	of_id = of_match_device(scpi_of_match, &pdev->dev);
-	if (!of_id) {
-		dev_err(&pdev->dev, "Unable to initialize scpi-hwmon data\n");
-		return -ENODEV;
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
+	if (cpu_is_phytium()) {
+		acpi_id = acpi_match_device(scpi_acpi_match,&pdev->dev);
+		if (!acpi_id) {
+			dev_err(&pdev->dev, "----acpi:Unable to initialize scpi-hwmon data\n");
+			return -ENODEV;
+		}
+		//scale = &scpi_scale;
+		scale = scpi_scale;
+	} else
+#endif
+	{
+		of_id = of_match_device(scpi_of_match, &pdev->dev);
+		if (!of_id) {
+			dev_err(&pdev->dev, "Unable to initialize scpi-hwmon data\n");
+			return -ENODEV;
+		}
+		scale = of_id->data;
 	}
-	scale = of_id->data;
 
 	for (i = 0, idx = 0; i < nr_sensors; i++) {
 		struct sensor_data *sensor = &scpi_sensors->data[idx];
@@ -298,6 +324,9 @@ static struct platform_driver scpi_hwmon_platdrv = {
 	.driver = {
 		.name	= "scpi-hwmon",
 		.of_match_table = scpi_of_match,
+#ifdef CONFIG_ARCH_PHYTIUM
+		.acpi_match_table = ACPI_PTR(scpi_acpi_match),
+#endif
 	},
 	.probe		= scpi_hwmon_probe,
 };

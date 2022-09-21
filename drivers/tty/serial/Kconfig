@@ -73,6 +73,17 @@ config SERIAL_AMBA_PL011_CONSOLE
 	  your boot loader (lilo or loadlin) about how to pass options to the
 	  kernel at boot time.)
 
+config SERIAL_PHYTIUM_PCI
+	tristate "Phytium PCI serial port support"
+	depends on PCI
+	select SERIAL_CORE
+	help
+	  This driver supports the Phytium UART controller on PCI/PCIe adapters.
+	  If you want to compile this driver into the kernel, say Y here.  To
+	  compile this driver as a module, choose M here.
+
+	  If unsure, say N.
+
 config SERIAL_EARLYCON_ARM_SEMIHOST
 	bool "Early console using ARM semihosting"
 	depends on ARM64 || ARM

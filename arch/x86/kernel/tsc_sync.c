@@ -231,6 +231,8 @@ bool tsc_store_and_check_tsc_adjust(bool bootcpu)
 	if (bootval != ref->adjusted) {
 		cur->adjusted = ref->adjusted;
 		wrmsrl(MSR_IA32_TSC_ADJUST, ref->adjusted);
+	} else if (cur->adjusted != bootval) {
+		cur->adjusted = bootval;
 	}
 	/*
 	 * We have the TSCs forced to be in sync on this package. Skip sync

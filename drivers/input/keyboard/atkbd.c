@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/dmi.h>
 #include <linux/property.h>
+#include <linux/cputypes.h>
 
 #define DRIVER_DESC	"AT and PS/2 keyboard driver"
 
@@ -84,6 +85,28 @@ static const unsigned short atkbd_set2_keycode[ATKBD_KEYMAP_SIZE] = {
 
 #include "hpps2atkbd.h"	/* include the keyboard scancodes */
 
+
+
+#elif defined(CONFIG_ARCH_PHYTIUM_EC)
+	  0, 67, 65, 63, 61, 59, 60, 88,  0, 68, 66, 64, 62, 15, 41,117,
+	  0, 56, 42, 93, 29, 16,  2,  0,  0,  0, 44, 31, 30, 17,  3,  0,
+	  0, 46, 45, 32, 18,  5,  4, 95,  0, 57, 47, 33, 20, 19,  6,183,
+	  0, 49, 48, 35, 34, 21,  7,184,  0,  0, 50, 36, 22,  8,  9,185,
+	  0, 51, 37, 23, 24, 11, 10,  0,  0, 52, 53, 38, 39, 25, 12,  0,
+	  0, 89, 40,  0, 26, 13,  0,  0, 58, 54, 28, 27,  0, 43,  0, 85,
+	  0, 86, 91, 90, 92,  0, 14, 94,  0, 79,124, 75, 71,121,  0,  0,
+	 82, 83, 80, 76, 77, 72,  1, 69, 87, 78, 81, 74, 55, 73, 70, 99,
+
+	  0,255,255,255,255,  0,  0,255,255,  0,255,  0,  0,  0,  0,  0,
+	217,100,255,  0, 97,165,  0,  0,156,  0,  0,  0,  0,  0,  0,125,
+	173,114,  0,113,  0,  0,  0,126,128,  0,  0,140,  0,  0,  0,127,
+	159,  0,115,  0,164,  0,  0,116,158,  0,172,166,  0,  0,  0,142,
+	157,  0,  0,  0,  0,  0,  0,  0,155,  0, 98,  0,  0,163,  0,  0,
+	226,  0,  0,  0,  0,  0,  0,  0,  0,255, 96,  0,  0,  0,143,  0,
+	  0,  0,  0,  0,  0,  0,  0,  0,  0,107,  0,105,102,  0,  0,112,
+	110,111,108,112,106,103,  0,119,  0,118,109,  0, 99,104,119,  0,
+
+	  0,  0,  0, 65, 99,
 #else
 	  0, 67, 65, 63, 61, 59, 60, 88,  0, 68, 66, 64, 62, 15, 41,117,
 	  0, 56, 42, 93, 29, 16,  2,  0,  0,  0, 44, 31, 30, 17,  3,  0,
@@ -401,6 +424,19 @@ static unsigned int atkbd_compat_scancode(struct atkbd *atkbd, unsigned int code
 	return code;
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM_EC
+extern void ft_ec_bl_dn_event(void);
+extern void ft_ec_bl_up_event(void);
+extern void ft_ec_display_event(void);
+extern void ft_ec_display_off(void);
+extern void ft_ec_wifi_event(void);
+extern void ft_ec_tp_event(void);
+extern void ft_ec_screenlock_event(void);
+extern void ft_ec_micmute_event(void);
+extern void ft_ec_airplane_event(void);
+extern void ft_ec_screen_lock_event(void);
+#endif
+
 /*
  * atkbd_interrupt(). Here takes place processing of data received from
  * the keyboard into events.
@@ -489,6 +525,53 @@ static irqreturn_t atkbd_interrupt(struct serio *serio, unsigned char data,
 	}
 
 	code = atkbd_compat_scancode(atkbd, code);
+
+#ifdef CONFIG_ARCH_PHYTIUM_EC
+	if (cpu_is_phytium()) {
+//	dev_warn(&serio->dev," laptop hotkey code = 0x%x, event is %s \n", code,
+//			 atkbd->release ? "released" : "pressed");
+
+	if (!atkbd->release) {
+		switch (code) {
+		case 0xc3:
+//			dev_warn(&serio->dev,"laptop hotkey Fn +F1 .\n");
+			ft_ec_bl_dn_event();
+			break;
+		case 0xc1:
+//			dev_warn(&serio->dev,"laptop hotkey Fn +F2 .\n");
+			ft_ec_bl_up_event();
+			break;
+		case 0xc2:
+//			dev_warn(&serio->dev,"laptop hotkey Fn +F6(1) .\n");
+			ft_ec_micmute_event();
+			break;
+		case 0xbd:
+//			dev_warn(&serio->dev,"laptop hotkey left switch .\n");
+			ft_ec_airplane_event();
+			break;
+		case 0xe4:
+			ft_ec_display_event();
+			break;
+		case 0xd4:
+			ft_ec_screen_lock_event();
+			break;
+		case 0xd8:
+//			dev_warn(&serio->dev,"laptop hotkey Fn +F7 .\n");
+			ft_ec_display_off();
+			break;
+        case 0xbf:
+//          dev_warn(&serio->dev,"laptop hotkey Fn +F7 .\n");
+            ft_ec_tp_event();
+            break;
+		default:
+			break;
+		}
+	}
+
+	if (code == 0x53) // czc laptop DEl
+		code = 0xd3;
+	}
+#endif
 
 	if (atkbd->emul && --atkbd->emul)
 		goto out;

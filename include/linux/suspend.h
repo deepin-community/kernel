@@ -192,6 +192,7 @@ struct platform_s2idle_ops {
 	int (*prepare)(void);
 	int (*prepare_late)(void);
 	bool (*wake)(void);
+	void (*sync)(void);
 	void (*restore_early)(void);
 	void (*restore)(void);
 	void (*end)(void);
@@ -209,6 +210,8 @@ extern void suspend_set_ops(const struct platform_suspend_ops *ops);
 extern int suspend_valid_only_mem(suspend_state_t state);
 
 extern unsigned int pm_suspend_global_flags;
+
+extern suspend_state_t g_pm_suspend_state;
 
 #define PM_SUSPEND_FLAG_FW_SUSPEND	BIT(0)
 #define PM_SUSPEND_FLAG_FW_RESUME	BIT(1)
@@ -257,6 +260,17 @@ static inline void pm_set_suspend_no_platform(void)
 static inline bool pm_suspend_via_firmware(void)
 {
 	return !!(pm_suspend_global_flags & PM_SUSPEND_FLAG_FW_SUSPEND);
+}
+
+/* For Pangu S3 special route */
+static inline void pg_set_suspend_state(suspend_state_t state)
+{
+	g_pm_suspend_state = state;
+}
+
+static inline suspend_state_t pg_get_suspend_state(void)
+{
+	return g_pm_suspend_state;
 }
 
 /**
@@ -340,6 +354,10 @@ static inline bool pm_suspend_via_firmware(void) { return false; }
 static inline bool pm_resume_via_firmware(void) { return false; }
 static inline bool pm_suspend_no_platform(void) { return false; }
 static inline bool pm_suspend_default_s2idle(void) { return false; }
+
+/* For Pangu S3 special route */
+static inline void pg_set_suspend_state(suspend_state_t state) {}
+static inline suspend_state_t pg_get_suspend_state(void) { return PM_SUSPEND_MAX; }
 
 static inline void suspend_set_ops(const struct platform_suspend_ops *ops) {}
 static inline int pm_suspend(suspend_state_t state) { return -ENOSYS; }

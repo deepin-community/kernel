@@ -13,10 +13,13 @@
 #include <linux/module.h>
 #include <linux/acpi.h>
 #include <linux/reset.h>
+#include <linux/suspend.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
 #include "xhci-pci.h"
+
+#include <linux/cputypes.h>
 
 #define SSIC_PORT_NUM		2
 #define SSIC_PORT_CFG2		0x880c
@@ -35,6 +38,7 @@
 
 #define PCI_VENDOR_ID_ETRON		0x1b6f
 #define PCI_DEVICE_ID_EJ168		0x7023
+#define PCI_DEVICE_ID_EJ188		0x7052
 
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_XHCI	0x8c31
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_LP_XHCI	0x9c31
@@ -46,6 +50,7 @@
 #define PCI_DEVICE_ID_INTEL_BROXTON_B_XHCI		0x1aa8
 #define PCI_DEVICE_ID_INTEL_APL_XHCI			0x5aa8
 #define PCI_DEVICE_ID_INTEL_DNV_XHCI			0x19d0
+#define PCI_DEVICE_ID_PHYTIUM_XHCI                     	0xdc27
 #define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_2C_XHCI	0x15b5
 #define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_4C_XHCI	0x15b6
 #define PCI_DEVICE_ID_INTEL_ALPINE_RIDGE_LP_XHCI	0x15c1
@@ -273,10 +278,13 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 		xhci->quirks |= XHCI_DEFAULT_PM_RUNTIME_ALLOW;
 
 	if (pdev->vendor == PCI_VENDOR_ID_ETRON &&
-			pdev->device == PCI_DEVICE_ID_EJ168) {
+			(pdev->device == PCI_DEVICE_ID_EJ168 ||
+			 pdev->device == PCI_DEVICE_ID_EJ188)) {
 		xhci->quirks |= XHCI_RESET_ON_RESUME;
 		xhci->quirks |= XHCI_TRUST_TX_LENGTH;
 		xhci->quirks |= XHCI_BROKEN_STREAMS;
+		xhci->quirks |= XHCI_NO_SOFT_RETRY;
+		xhci->quirks |= XHCI_ETRON_HOST;
 	}
 	if (pdev->vendor == PCI_VENDOR_ID_RENESAS &&
 	    pdev->device == 0x0014) {
@@ -290,11 +298,28 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 	}
 	if (pdev->vendor == PCI_VENDOR_ID_VIA)
 		xhci->quirks |= XHCI_RESET_ON_RESUME;
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN) {
+		xhci->quirks |= XHCI_LPM_SUPPORT;
+		xhci->quirks |= XHCI_ZHAOXIN_HOST;
+	}
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN) {
+		dev_info(&pdev->dev,
+			"XHCI QUIRK: xHCI runtime suspend patch v1.0.0\n");
+		xhci->quirks |= XHCI_SUSPEND_DELAY;
+	}
 
+	if (pdev->vendor == PCI_VENDOR_ID_PHYTIUM ||
+	    pdev->device == PCI_DEVICE_ID_PHYTIUM_XHCI)
+		xhci->quirks |= XHCI_RESET_ON_RESUME;
 	/* See https://bugzilla.kernel.org/show_bug.cgi?id=79511 */
 	if (pdev->vendor == PCI_VENDOR_ID_VIA &&
 			pdev->device == 0x3432)
 		xhci->quirks |= XHCI_BROKEN_STREAMS;
+
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN &&
+		(pdev->device == 0x9202 ||
+		 pdev->device == 0x9203))
+		xhci->quirks |= XHCI_ZHAOXIN_TRB_FETCH;
 
 	if (pdev->vendor == PCI_VENDOR_ID_VIA && pdev->device == 0x3483) {
 		xhci->quirks |= XHCI_LPM_SUPPORT;
@@ -342,6 +367,11 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 	    pdev->device == PCI_DEVICE_ID_AMD_YELLOW_CARP_XHCI_7 ||
 	    pdev->device == PCI_DEVICE_ID_AMD_YELLOW_CARP_XHCI_8))
 		xhci->quirks |= XHCI_DEFAULT_PM_RUNTIME_ALLOW;
+
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN && pdev->device == 0x9202) {
+		dev_info(&pdev->dev, "XHCI QUIRK: Resetting on resume patch V1.0.0\n");
+ 		xhci->quirks |= XHCI_RESET_ON_RESUME;
+	}
 
 	if (xhci->quirks & XHCI_RESET_ON_RESUME)
 		xhci_dbg_trace(xhci, trace_xhci_dbg_quirks,
@@ -570,6 +600,18 @@ static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
 	int			ret;
 
+	pr_info("%s irq %d\n", __func__, pdev->irq);
+
+	/* For Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX)) {
+		pr_info("%s now is kunpeng920 3211K cpu, directly return\n",
+				__func__);
+		return 0;
+	}
+
+	pr_info("%s cpu_is_hisi, irq %d\n", __func__, pdev->irq);
+
 	/*
 	 * Systems with the TI redriver that loses port status change events
 	 * need to have the registers polled during D3, so avoid D3cold.
@@ -600,6 +642,14 @@ static int xhci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 	int			retval = 0;
 
 	reset_control_reset(xhci->reset);
+
+	/* For Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX)) {
+		pr_info("%s now is kunpeng920 3211K cpu, directly return\n",
+				__func__);
+		return 0;
+	}
 
 	/* The BIOS on systems with the Intel Panther Point chipset may or may
 	 * not support xHCI natively.  That means that during system resume, it

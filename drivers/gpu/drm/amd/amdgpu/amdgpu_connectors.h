@@ -24,6 +24,9 @@
 #ifndef __AMDGPU_CONNECTORS_H__
 #define __AMDGPU_CONNECTORS_H__
 
+/*To avoid HDMI jitter, add latency*/
+#define AMDGPU_DT 120
+
 struct edid *amdgpu_connector_edid(struct drm_connector *connector);
 void amdgpu_connector_hotplug(struct drm_connector *connector);
 int amdgpu_connector_get_monitor_bpc(struct drm_connector *connector);

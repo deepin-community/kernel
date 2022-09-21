@@ -1142,6 +1142,27 @@ int ehci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 		return -EBUSY;
 	}
 
+	/*clear wakeup signal locked in S0 state when device plug in*/
+	if (ehci->zx_wakeup_clear == 1) {
+		u32 __iomem     *reg = &ehci->regs->port_status[4];
+		u32             t1 = ehci_readl(ehci, reg);
+
+		t1 &= (u32)~0xf0000;
+		t1 |= PORT_TEST_FORCE;
+		ehci_writel(ehci, t1, reg);
+		t1 = ehci_readl(ehci, reg);
+		usleep_range(1000, 2000);
+		t1 &= (u32)~0xf0000;
+		ehci_writel(ehci, t1, reg);
+		usleep_range(1000, 2000);
+		t1 = ehci_readl(ehci, reg);
+		ehci_writel(ehci, t1 | PORT_CSC, reg);
+		udelay(500);
+		t1 = ehci_readl(ehci, &ehci->regs->status);
+		ehci_writel(ehci, t1 & STS_PCD, &ehci->regs->status);
+		ehci_readl(ehci, &ehci->regs->status);
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ehci_suspend);

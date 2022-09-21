@@ -1492,6 +1492,11 @@ void security_file_free(struct file *file)
 	}
 }
 
+void uos_file_free(struct file *file)
+{
+       call_void_hook(uos_file_close, file);
+}
+
 int security_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	return call_int_hook(file_ioctl, 0, file, cmd, arg);

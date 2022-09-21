@@ -15,3 +15,33 @@ config OPTEE_SHM_NUM_PRIV_PAGES
 	help
 	  This sets the number of private shared memory pages to be
 	  used by OP-TEE TEE driver.
+
+if OPTEE
+
+choice
+	prompt "Default conduit method"
+	default OPTEE_DEFAULT_METHOD_NONE
+	help
+	  This option sets the default conduit method for OP-TEE in case
+	  firmware misses "method" property. If in doubt, select "none"
+	  which depends on firmware to provide the value.
+
+config OPTEE_DEFAULT_METHOD_NONE
+	bool "none"
+	help
+	  There is no default conduit method used by the driver. Require
+	  firwmare to provide the method explicitly.
+
+config OPTEE_DEFAULT_METHOD_HVC
+	bool "hvc"
+	help
+	  Use the "hvc" as default conduit method.
+
+config OPTEE_DEFAULT_METHOD_SMC
+	bool "smc"
+	help
+	  Use the "hvc" as default conduit method.
+
+endchoice
+
+endif

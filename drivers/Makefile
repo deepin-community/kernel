@@ -14,6 +14,8 @@ obj-$(CONFIG_GENERIC_PHY)	+= phy/
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-$(CONFIG_PINCTRL)		+= pinctrl/
 obj-$(CONFIG_GPIOLIB)		+= gpio/
+obj-$(CONFIG_ARCH_PHYTIUM)	+= FtDriver/
+
 obj-y				+= pwm/
 
 obj-y				+= pci/
@@ -189,3 +191,4 @@ obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_INTERCONNECT)	+= interconnect/
 obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
+obj-$(CONFIG_UOS_INVENTION) 	+= uos/

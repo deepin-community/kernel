@@ -14,6 +14,7 @@
 	https://bugzilla.stlinux.com/
 *******************************************************************************/
 
+#include <linux/acpi.h>
 #include <linux/clk.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -46,6 +47,7 @@
 #include "dwmac1000.h"
 #include "dwxgmac2.h"
 #include "hwif.h"
+#include <linux/cputypes.h>
 
 /* As long as the interface is active, we keep the timestamping counter enabled
  * with fine resolution and binary rollover. This avoid non-monotonic behavior
@@ -1734,6 +1736,17 @@ static int alloc_dma_rx_desc_resources(struct stmmac_priv *priv)
 				goto err_dma;
 
 		} else {
+#ifdef CONFIG_ARCH_PHYTIUM
+			if (cpu_is_phytium()) {
+				// ----lt----configure dma ： should be moved to dev probe
+				pr_info("---configure device dma-----");
+				acpi_dma_configure(priv->device,DEV_DMA_COHERENT);
+				static u64 my_mask = 0xffffffff;
+				priv->device->dma_mask = &my_mask;
+				priv->device->coherent_dma_mask = (u32)~0;
+				// configure dma end
+			}
+#endif
 			rx_q->dma_rx = dma_alloc_coherent(priv->device,
 							  priv->dma_rx_size *
 							  sizeof(struct dma_desc),
@@ -2829,6 +2842,57 @@ static void stmmac_hw_teardown(struct net_device *dev)
 	clk_disable_unprepare(priv->plat->clk_ptp_ref);
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM
+/* The switch to override mac addr by eeprom */
+static bool addr_overrid_switch;
+
+/* Get mac addr at drivers/misc/eeprom/at24.c by get_phytium_mac_buf */
+unsigned char phytium_mac_addr[12];
+unsigned char *get_phytium_mac_buf(void)
+{
+	return &phytium_mac_addr[0];
+}
+EXPORT_SYMBOL(get_phytium_mac_buf);
+
+void override_gmac_addr_by_eeprom(struct stmmac_priv *priv)
+{
+	struct device *dev = priv->device;
+	char mac_buf[6] = { 0 };
+	int port;
+
+	if (!strncmp(dev_name(dev), "FTGM0001:00", 11) ||
+	    !strncmp(dev_name(dev), "PHYT0004:00", 11)) {
+		port = 0;
+	} else if (!strncmp(dev_name(dev), "FTGM0001:01", 11) ||
+		 !strncmp(dev_name(dev), "PHYT0004:01", 11)) {
+		port = 1;
+	} else {
+		/* Maybe not PHYT machine */
+		dev_dbg(dev, "Don't match ACPI table device name.\n");
+		goto __end;
+	}
+	dev_info(dev, "dev_name:%s, port:%d\n", dev_name(dev), port);
+
+	memcpy(mac_buf, &phytium_mac_addr[port * 6], 6);
+
+	if (is_valid_ether_addr(mac_buf)) {
+		stmmac_set_mac_addr(priv->ioaddr, mac_buf,
+				    GMAC_ADDR_HIGH(port), GMAC_ADDR_LOW(port));
+		memcpy(priv->dev->dev_addr, mac_buf, 6);
+		memcpy(priv->dev->perm_addr, mac_buf, 6);
+
+		dev_info(dev, "Override gmac addr by eeprom succeeded!\n");
+
+	} else {
+		dev_warn(dev, "Invalid eeprom mac address!\n");
+	}
+
+__end:
+	/* Turn off the switch to make it run only once */
+	addr_overrid_switch = false;
+}
+#endif
+
 /**
  *  stmmac_open - open entry point of the driver
  *  @dev : pointer to the device structure.
@@ -2912,6 +2976,11 @@ static int stmmac_open(struct net_device *dev)
 		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
 		goto init_error;
 	}
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (addr_overrid_switch)
+		override_gmac_addr_by_eeprom(priv);
+#endif
 
 	stmmac_init_coalesce(priv);
 
@@ -5158,6 +5227,11 @@ int stmmac_dvr_probe(struct device *device,
 		/* MDIO bus Registration */
 		ret = stmmac_mdio_register(ndev);
 		if (ret < 0) {
+			if (cpu_is_phytium())
+			dev_info(priv->device,
+				"%s: MDIO bus (id: %d) registration failed",
+				__func__, priv->plat->bus_id);
+			else
 			dev_err(priv->device,
 				"%s: MDIO bus (id: %d) registration failed",
 				__func__, priv->plat->bus_id);
@@ -5177,6 +5251,13 @@ int stmmac_dvr_probe(struct device *device,
 			__func__, ret);
 		goto error_netdev_register;
 	}
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	 /* Turn on the switch to override addr by eeprom,
+	  * it's used in dev open.
+	  */
+	addr_overrid_switch = true;
+#endif
 
 	if (priv->plat->serdes_powerup) {
 		ret = priv->plat->serdes_powerup(ndev,

@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Netswift network device configuration
+#
+
+config NET_VENDOR_WANGXUN
+	bool "Wangxun devices"
+	default y
+	help
+	  If you have a network (Ethernet) card belonging to this class, say Y.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about Intel cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
+
+if NET_VENDOR_WANGXUN
+
+config NGBE
+	tristate "Netswift(R) GbE PCI Express adapters support"
+	depends on PCI
+	select MDIO
+	select PHYLIB
+	imply PTP_1588_CLOCK
+	help
+	  This driver supports Netswift(R) GbE PCI Express family of
+	  adapters.  For more information on how to identify your adapter, go
+	  to the Adapter & Driver ID Guide that can be located at:
+config TXGBE
+	tristate "Netswift(R) 10GbE PCI Express adapters support"
+	depends on PCI
+	select MDIO
+	select PHYLIB
+	imply PTP_1588_CLOCK
+	help
+	  This driver supports Netswift(R) 10GbE PCI Express family of
+	  adapters.  For more information on how to identify your adapter, go
+	  to the Adapter & Driver ID Guide that can be located at:
+
+config NGBEVF
+	tristate "Netswift(R) GbE PCI Express Virtual Function Ethernet support"
+	help
+	  This driver supports Netswift(R) PCI Express virtual functions for the
+	  Netswift(R) ngbevf driver.  For more information on how to identify your
+	  adapter, go to the Adapter & Driver ID Guide that can be located at:
+
+config TXGBEVF
+	tristate "Netswift(R) 10GbE PCI Express Virtual Function Ethernet support"
+	help
+	  This driver supports Netswift(R) PCI Express virtual functions for the
+	  Netswift(R) txgbevf driver.  For more information on how to identify your
+	  adapter, go to the Adapter & Driver ID Guide that can be located at:
+endif # NET_VENDOR_WANGXUN
+

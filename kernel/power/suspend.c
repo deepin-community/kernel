@@ -30,6 +30,7 @@
 #include <trace/events/power.h>
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
+#include <linux/cputypes.h>
 
 #include "power.h"
 
@@ -54,12 +55,36 @@ EXPORT_SYMBOL_GPL(pm_suspend_target_state);
 unsigned int pm_suspend_global_flags;
 EXPORT_SYMBOL_GPL(pm_suspend_global_flags);
 
+suspend_state_t g_pm_suspend_state = PM_SUSPEND_MAX;
+EXPORT_SYMBOL_GPL(g_pm_suspend_state);
 static const struct platform_suspend_ops *suspend_ops;
 static const struct platform_s2idle_ops *s2idle_ops;
 static DECLARE_SWAIT_QUEUE_HEAD(s2idle_wait_head);
 
 enum s2idle_states __read_mostly s2idle_state;
 static DEFINE_RAW_SPINLOCK(s2idle_lock);
+
+/* for HUAWEI pangu S3 */
+struct platform_firmware_handler {
+	void (*firmware_suspend)(void);
+	void (*firmware_resume)(void);
+};
+
+static struct platform_firmware_handler g_firmware_ops = {NULL, NULL};
+
+void platform_firmware_handler_register(void (*suspend)(void),
+					void (*resume)(void))
+{
+	g_firmware_ops.firmware_suspend = suspend;
+	g_firmware_ops.firmware_resume = resume;
+}
+EXPORT_SYMBOL_GPL(platform_firmware_handler_register);
+
+bool pm_suspend_via_s2idle(void)
+{
+	return mem_sleep_current == PM_SUSPEND_TO_IDLE;
+}
+EXPORT_SYMBOL_GPL(pm_suspend_via_s2idle);
 
 /**
  * pm_suspend_default_s2idle - Check if suspend-to-idle is the default suspend.
@@ -156,6 +181,37 @@ void s2idle_wake(void)
 	raw_spin_unlock_irqrestore(&s2idle_lock, flags);
 }
 EXPORT_SYMBOL_GPL(s2idle_wake);
+
+static void pangu_s32idle_loop(void)
+{
+	pm_pr_dbg("suspend-to-idle\n");
+
+	for (;;) {
+		/*
+		 * Suspend-to-idle equals
+		 * frozen processes + suspended devices + idle processors.
+		 * Thus s2idle_enter() should be called right after
+		 * all devices have been suspended.
+		 *
+		 * Wakeups during the noirq suspend of devices may be spurious,
+		 * so prevent them from terminating the loop right away.
+		 */
+		s2idle_enter();
+
+		if (s2idle_ops && s2idle_ops->wake)
+			s2idle_ops->wake();
+
+		if (s2idle_ops && s2idle_ops->sync)
+			s2idle_ops->sync();
+
+		if (pm_wakeup_pending())
+			break;
+
+		pm_wakeup_clear(false);
+	}
+
+	pm_pr_dbg("resume from suspend-to-idle\n");
+}
 
 static bool valid_state(suspend_state_t state)
 {
@@ -425,7 +481,23 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
 
-	system_state = SYSTEM_SUSPEND;
+	/* Pangu special route for suspend */
+	if (cpu_is_kunpeng_3211k()) {
+		if (g_firmware_ops.firmware_suspend)
+			g_firmware_ops.firmware_suspend();
+		else
+			pr_err("firmware_suspend not registered\n");
+
+		system_state = SYSTEM_SUSPEND;
+
+		/* pangu s3 */
+		if (state == PM_SUSPEND_MEM && pm_test_level != TEST_CORE) {
+			pangu_s32idle_loop();
+			goto S3_resume;
+		}
+	} else {
+		system_state = SYSTEM_SUSPEND;
+	}
 
 	error = syscore_suspend();
 	if (!error) {
@@ -442,7 +514,15 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		syscore_resume();
 	}
 
+S3_resume:
 	system_state = SYSTEM_RUNNING;
+
+	if (cpu_is_kunpeng_3211k()) {
+		if (g_firmware_ops.firmware_resume)
+			g_firmware_ops.firmware_resume();
+		else
+			pr_err("firmware_resume not registered\n");
+	}
 
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());

@@ -1,0 +1,4 @@
+config DRM_ARISE
+	tristate "Support for glenfly card"
+	help
+	Choose this option if you want to enable glenfly card  support.

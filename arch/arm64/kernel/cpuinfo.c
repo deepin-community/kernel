@@ -10,6 +10,7 @@
 #include <asm/cputype.h>
 #include <asm/cpufeature.h>
 #include <asm/fpsimd.h>
+#include <asm/dmi.h>
 
 #include <linux/bitops.h>
 #include <linux/bug.h>
@@ -24,6 +25,11 @@
 #include <linux/sched.h>
 #include <linux/smp.h>
 #include <linux/delay.h>
+#include <linux/dmi.h>
+#include <linux/string.h>
+#include <linux/kernel.h>
+#include <linux/cputypes.h>
+#include <linux/classtypes.h>
 
 /*
  * In case the boot CPU is hotpluggable, we record its initial state and
@@ -136,6 +142,41 @@ static const char *const compat_hwcap2_str[] = {
 };
 #endif /* CONFIG_COMPAT */
 
+typedef struct cpu_mode_desc {
+	char *model_name;
+	u32 midr;
+} cpu_mode_desc;
+
+static cpu_mode_desc arm64_model_desc[] = {
+	{
+		.model_name = "HUAWEI Kunpeng 920",
+		.midr = MIDR_HISI_TSV110,
+	},
+	{
+		.model_name = "PHYTIUM FTC662",
+		.midr = MIDR_PHYTIUM_FT2000PLUS,
+	},
+	{
+		.model_name = "PHYTIUM FTC663",
+		.midr = MIDR_FT_2500,
+	},
+	{}
+};
+
+char *midr_to_desc(u32 midr)
+{
+	int i;
+	u32 model = midr & MIDR_CPU_MODEL_MASK;
+
+	for (i = 0; arm64_model_desc[i].model_name; i++) {
+		if (arm64_model_desc[i].midr == model)
+			return arm64_model_desc[i].model_name;
+	}
+
+	return "Arm";
+}
+EXPORT_SYMBOL(midr_to_desc);
+
 static int c_show(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -152,9 +193,18 @@ static int c_show(struct seq_file *m, void *v)
 		 */
 		seq_printf(m, "processor\t: %d\n", i);
 		if (compat)
+#ifndef CONFIG_ARCH_HISI
 			seq_printf(m, "model name\t: ARMv8 Processor rev %d (%s)\n",
 				   MIDR_REVISION(midr), COMPAT_ELF_PLATFORM);
-
+#else
+		{
+			if(!os_run_evn_is_virt()) {
+				seq_printf(m, "model name\t: %s \n",get_cpu_name());
+			} else {
+				seq_printf(m, "model name\t: %s\n", midr_to_desc(midr));
+			}
+		}
+#endif
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
 			   loops_per_jiffy / (500000UL/HZ),
 			   loops_per_jiffy / (5000UL/HZ) % 100);

@@ -565,6 +565,9 @@ static void sr_block_release(struct gendisk *disk, fmode_t mode)
 	scsi_cd_put(cd);
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern void check_sr_read_access(struct scsi_cd *cd, fmode_t *mode, unsigned cmd, void __user *argp);
+#endif
 static int sr_block_ioctl(struct block_device *bdev, fmode_t mode, unsigned cmd,
 			  unsigned long arg)
 {
@@ -593,6 +596,9 @@ static int sr_block_ioctl(struct block_device *bdev, fmode_t mode, unsigned cmd,
 		goto put;
 	}
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+	check_sr_read_access(cd, &mode, cmd, argp);
+#endif
 	ret = cdrom_ioctl(&cd->cdi, bdev, mode, cmd, arg);
 	if (ret != -ENOSYS)
 		goto put;
@@ -895,6 +901,9 @@ static void get_sectorsize(struct scsi_cd *cd)
 	return;
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern void set_sr_ro(struct scsi_cd *cd);
+#endif
 static void get_capabilities(struct scsi_cd *cd)
 {
 	unsigned char *buffer;
@@ -996,6 +1005,9 @@ static void get_capabilities(struct scsi_cd *cd)
 	if ((cd->cdi.mask & (CDC_DVD_RAM | CDC_MRW_W | CDC_RAM | CDC_CD_RW)) !=
 			(CDC_DVD_RAM | CDC_MRW_W | CDC_RAM | CDC_CD_RW)) {
 		cd->writeable = 1;
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+		set_sr_ro(cd);
+#endif
 	}
 
 	kfree(buffer);

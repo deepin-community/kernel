@@ -15,6 +15,7 @@
 #include "hda_local.h"
 #include "hda_auto_parser.h"
 #include "hda_jack.h"
+#include <linux/dmi.h>
 
 /**
  * is_jack_detectable - Check whether the given pin is jack-detectable
@@ -180,15 +181,39 @@ void snd_hda_jack_tbl_clear(struct hda_codec *codec)
 
 #define get_jack_plug_state(sense) !!(sense & AC_PINSENSE_PRESENCE)
 
+static int is_B460M_board(void)
+{
+	const char *board_name;
+	static int ret = -1;
+	if(ret != -1)
+		return ret;
+	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	ret = strstr(board_name, "B460M-K PRO");
+	return ret;
+}
+
 /* update the cached value and notification flag if needed */
 static void jack_detect_update(struct hda_codec *codec,
 			       struct hda_jack_tbl *jack)
 {
+	int i, sum = 0;
+
 	if (!jack->jack_dirty)
 		return;
 
 	if (jack->phantom_jack)
 		jack->pin_sense = AC_PINSENSE_PRESENCE;
+	else if(is_B460M_board()){
+		for(i = 0; i < 10; i++){
+			jack->pin_sense = read_pin_sense(codec, jack->nid, jack->dev_id);
+			if(!jack->pin_sense)
+				break;
+			sum += jack->pin_sense >> 31;
+			msleep(1);
+		}
+		if(sum < 10)
+			jack->pin_sense = 0;
+	}
 	else
 		jack->pin_sense = read_pin_sense(codec, jack->nid,
 						 jack->dev_id);

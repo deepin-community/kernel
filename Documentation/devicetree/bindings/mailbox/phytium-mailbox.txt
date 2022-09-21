@@ -1,0 +1,32 @@
+Phytium Mailbox Driver
+======================
+
+The Phytium mailbox controller that has a channel/link to communicate
+with the remote end. A link raises interrupt for any received data. However,
+there is no specified way of knowing if the sent data has been read by the
+remote. This driver assumes the sender polls STAT register and the remote
+clears it after having read the data.
+
+Mailbox Device Node:
+====================
+
+Required properties:
+--------------------
+- compatible:		Shall be "phytium,mbox"
+- reg:			Contains the mailbox register address range (base
+			address and length)
+- #mbox-cells		Shall be 1 - the index of the channel needed.
+- interrupts:		Contains the interrupt information corresponding to
+			the link.
+
+Example:
+--------
+
+mbox: mailbox@2a000000 {
+	compatible = "phytium,mbox";
+	reg = <0x0 0x2a000000 0x0 0x1000>;
+	#mbox-cells = <1>;
+	interrupts = <0 48 4>;
+	clocks = <&sycclk>;
+	clock-names = "apb_pclk";
+};

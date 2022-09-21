@@ -8,6 +8,7 @@
 #include <linux/pci.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#include <linux/suspend.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -19,7 +20,7 @@
 #endif
 
 #include "usb.h"
-
+#include <linux/cputypes.h>
 
 /* PCI-based HCs are common, but plenty of non-PCI HCs are used too */
 
@@ -49,6 +50,7 @@ static void for_each_companion(struct pci_dev *pdev, struct usb_hcd *hcd,
 	struct pci_dev		*companion;
 	struct usb_hcd		*companion_hcd;
 	unsigned int		slot = PCI_SLOT(pdev->devfn);
+	struct pci_driver	*drv;
 
 	/*
 	 * Iterate through other PCI functions in the same slot.
@@ -59,6 +61,15 @@ static void for_each_companion(struct pci_dev *pdev, struct usb_hcd *hcd,
 	for_each_pci_dev(companion) {
 		if (companion->bus != pdev->bus ||
 				PCI_SLOT(companion->devfn) != slot)
+			continue;
+
+		drv = companion->driver;
+		if (!drv)
+			continue;
+
+		if (strncmp(drv->name, "uhci_hcd", sizeof("uhci_hcd") - 1) &&
+			strncmp(drv->name, "ohci-pci", sizeof("ohci-pci") - 1) &&
+			strncmp(drv->name, "ehci-pci", sizeof("ehci-pci") - 1))
 			continue;
 
 		/*
@@ -465,6 +476,14 @@ static int suspend_common(struct device *dev, bool do_wakeup)
 	if (!hcd->msix_enabled)
 		synchronize_irq(pci_irq_vector(pci_dev, 0));
 
+	/* For Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX)) {
+		pr_info("%s: state %d, so directly return\n",
+			__func__, pg_get_suspend_state());
+		return retval;
+	}
+
 	/* Downstream ports from this root hub should already be quiesced, so
 	 * there will be no DMA activity.  Now we can shut down the upstream
 	 * link (except maybe for PME# resume signaling).  We'll enter a
@@ -487,13 +506,20 @@ static int resume_common(struct device *dev, int event)
 		return 0;
 	}
 
-	retval = pci_enable_device(pci_dev);
-	if (retval < 0) {
-		dev_err(dev, "can't re-enable after resume, %d!\n", retval);
-		return retval;
-	}
+	/* For Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX)) {
+		pr_info("%s: state %d, so directly skip pci configuration\n",
+			__func__, pg_get_suspend_state());
+	} else {
+		retval = pci_enable_device(pci_dev);
+		if (retval < 0) {
+			dev_err(dev, "can't re-enable after resume, %d!\n", retval);
+			return retval;
+		}
 
-	pci_set_master(pci_dev);
+		pci_set_master(pci_dev);
+	}
 
 	if (hcd->driver->pci_resume && !HCD_DEAD(hcd)) {
 

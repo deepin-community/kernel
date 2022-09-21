@@ -17,6 +17,8 @@
 #include "internal.h"
 #include <asm/dma.h>
 
+#include <linux/memblock.h>
+
 /*
  * Permanent SPARSEMEM data:
  *

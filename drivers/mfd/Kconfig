@@ -1035,6 +1035,19 @@ config UCB1400_CORE
 	  To compile this driver as a module, choose M here: the
 	  module will be called ucb1400_core.
 
+config MFD_PHYTIUM_I2S_LSD
+	bool "PHYTIUM X100 I2S LSD MFD driver"
+	depends on (PCI && ARCH_PHYTIUM)
+	help
+	  This enables support for the Phytium X100 LSD I2S controller.
+
+config MFD_PHYTIUM_I2S_MMD
+	bool "PHYTIUM X100 I2S MMD MFD driver"
+	depends on (PCI && ARCH_PHYTIUM)
+	help
+	  This enables support for the Phytium X100 MMD I2S controllers
+	  for Display Port.
+
 config MFD_PM8XXX
 	tristate "Qualcomm PM8xxx PMIC chips driver"
 	depends on (ARM || HEXAGON || COMPILE_TEST)

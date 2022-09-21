@@ -21,6 +21,13 @@ static void rtw8821ce_efuse_parsing(struct rtw_efuse *efuse,
 	ether_addr_copy(efuse->addr, map->e.mac_addr);
 }
 
+enum rtw8821ce_rf_set {
+	SWITCH_TO_BTG,
+	SWITCH_TO_WLG,
+	SWITCH_TO_WLA,
+	SWITCH_TO_BT,
+};
+
 static int rtw8821c_read_efuse(struct rtw_dev *rtwdev, u8 *log_map)
 {
 	struct rtw_efuse *efuse = &rtwdev->efuse;
@@ -224,6 +231,40 @@ static void rtw8821c_cfg_ldo25(struct rtw_dev *rtwdev, bool enable)
 	rtw_write8(rtwdev, REG_LDO_EFUSE_CTRL + 3, ldo_pwr);
 }
 
+static void rtw8821c_switch_rf_set(struct rtw_dev *rtwdev, u8 rf_set)
+{
+	u32 reg;
+
+	rtw_write32_set(rtwdev, REG_DMEM_CTRL, BIT_WL_RST);
+	rtw_write32_set(rtwdev, REG_SYS_CTRL, BIT_FEN_EN);
+
+	reg = rtw_read32(rtwdev, REG_RFECTL);
+	switch (rf_set) {
+	case SWITCH_TO_BTG:
+		reg |= B_BTG_SWITCH;
+		reg &= ~(B_CTRL_SWITCH | B_WL_SWITCH | B_WLG_SWITCH |
+			 B_WLA_SWITCH);
+		rtw_write32_mask(rtwdev, REG_ENRXCCA, MASKBYTE2, BTG_CCA);
+		rtw_write32_mask(rtwdev, REG_ENTXCCK, MASKLWORD, BTG_LNA);
+		break;
+	case SWITCH_TO_WLG:
+		reg |= B_WL_SWITCH | B_WLG_SWITCH;
+		reg &= ~(B_BTG_SWITCH | B_CTRL_SWITCH | B_WLA_SWITCH);
+		rtw_write32_mask(rtwdev, REG_ENRXCCA, MASKBYTE2, WLG_CCA);
+		rtw_write32_mask(rtwdev, REG_ENTXCCK, MASKLWORD, WLG_LNA);
+		break;
+	case SWITCH_TO_WLA:
+		reg |= B_WL_SWITCH | B_WLA_SWITCH;
+		reg &= ~(B_BTG_SWITCH | B_CTRL_SWITCH | B_WLG_SWITCH);
+		break;
+	case SWITCH_TO_BT:
+	default:
+		break;
+	}
+
+	rtw_write32(rtwdev, REG_RFECTL, reg);
+}
+
 static void rtw8821c_set_channel_rf(struct rtw_dev *rtwdev, u8 channel, u8 bw)
 {
 	u32 rf_reg18;
@@ -257,9 +298,15 @@ static void rtw8821c_set_channel_rf(struct rtw_dev *rtwdev, u8 channel, u8 bw)
 	}
 
 	if (channel <= 14) {
+		if (rtwdev->efuse.rfe_option == 0)
+			rtw8821c_switch_rf_set(rtwdev, SWITCH_TO_WLG);
+		else if (rtwdev->efuse.rfe_option == 2 ||
+			 rtwdev->efuse.rfe_option == 4)
+			rtw8821c_switch_rf_set(rtwdev, SWITCH_TO_BTG);
 		rtw_write_rf(rtwdev, RF_PATH_A, RF_LUTDBG, BIT(6), 0x1);
 		rtw_write_rf(rtwdev, RF_PATH_A, 0x64, 0xf, 0xf);
 	} else {
+		rtw8821c_switch_rf_set(rtwdev, SWITCH_TO_WLA);
 		rtw_write_rf(rtwdev, RF_PATH_A, RF_LUTDBG, BIT(6), 0x0);
 	}
 
@@ -671,7 +718,7 @@ static void rtw8821c_coex_cfg_init(struct rtw_dev *rtwdev)
 	/* wl tx signal to PTA not case EDCCA */
 	rtw_write8_clr(rtwdev, REG_QUEUE_CTRL, BIT_PTA_EDCCA_EN);
 	/* GNT_BT=1 while select both */
-	rtw_write16_set(rtwdev, REG_BT_COEX_V2, BIT_GNT_BT_POLARITY);
+	rtw_write8_set(rtwdev, REG_BT_COEX_V2, BIT_GNT_BT_POLARITY);
 
 	/* beacon queue always hi-pri  */
 	rtw_write8_mask(rtwdev, REG_BT_COEX_TABLE_H + 3, BIT_BCN_QUEUE,
@@ -690,6 +737,15 @@ static void rtw8821c_coex_cfg_ant_switch(struct rtw_dev *rtwdev, u8 ctrl_type,
 
 	if (switch_status == coex_dm->cur_switch_status)
 		return;
+
+	if (coex_rfe->wlg_at_btg) {
+		ctrl_type = COEX_SWITCH_CTRL_BY_BBSW;
+
+		if (coex_rfe->ant_switch_polarity)
+			pos_type = COEX_SWITCH_TO_WLA;
+		else
+			pos_type = COEX_SWITCH_TO_WLG_BT;
+	}
 
 	coex_dm->cur_switch_status = switch_status;
 
@@ -1410,6 +1466,9 @@ static const struct rtw_intf_phy_para_table phy_para_table_8821c = {
 
 static const struct rtw_rfe_def rtw8821c_rfe_defs[] = {
 	[0] = RTW_DEF_RFE(8821c, 0, 0),
+	[2] = RTW_DEF_RFE_EXT(8821c, 0, 0, 2),
+	[4] = RTW_DEF_RFE_EXT(8821c, 0, 0, 2),
+	[6] = RTW_DEF_RFE(8821c, 0, 0),
 };
 
 static struct rtw_hw_reg rtw8821c_dig[] = {

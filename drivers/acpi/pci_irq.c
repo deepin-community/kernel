@@ -22,6 +22,9 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 
+#include "internal.h"
+#include <linux/cputypes.h>
+
 #define PREFIX "ACPI: "
 
 #define _COMPONENT		ACPI_PCI_COMPONENT
@@ -410,6 +413,7 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
 	char *link = NULL;
 	char link_desc[16];
 	int rc;
+	struct fwnode_handle *rs_fwnode;
 
 	pin = dev->pin;
 	if (!pin) {
@@ -438,7 +442,8 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
 			gsi = acpi_pci_link_allocate_irq(entry->link,
 							 entry->index,
 							 &triggering, &polarity,
-							 &link);
+							 &link,
+							 &rs_fwnode);
 		else
 			gsi = entry->index;
 	} else
@@ -462,7 +467,12 @@ int acpi_pci_irq_enable(struct pci_dev *dev)
 		return 0;
 	}
 
-	rc = acpi_register_gsi(&dev->dev, gsi, triggering, polarity);
+	if (cpu_is_phytium()) {
+		rc = acpi_register_irq(&dev->dev, gsi, triggering, polarity, rs_fwnode);
+	} else {
+		rc = acpi_register_gsi(&dev->dev, gsi, triggering, polarity);
+	}
+
 	if (rc < 0) {
 		dev_warn(&dev->dev, "PCI INT %c: failed to register GSI\n",
 			 pin_name(pin));

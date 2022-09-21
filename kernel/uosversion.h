@@ -1,0 +1,4 @@
+
+#define UOS_VERSION_LEN 0x20
+
+char UOS_VERSION[UOS_VERSION_LEN] = "1051";

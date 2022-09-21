@@ -120,6 +120,13 @@ config CAN_JANZ_ICAN3
 	  This driver can also be built as a module. If so, the module will be
 	  called janz-ican3.ko.
 
+config CAN_PHYTIUM
+	tristate "Phytium CAN"
+	depends on ARCH_PHYTIUM
+	help
+	  Phytium CAN driver. This driver supports support for the Phytium
+          CAN Controller
+
 config CAN_KVASER_PCIEFD
 	depends on PCI
 	tristate "Kvaser PCIe FD cards"

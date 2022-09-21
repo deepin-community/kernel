@@ -10,6 +10,7 @@
 #include <sound/hdaudio.h>
 #include <sound/hda_register.h>
 #include "local.h"
+#include <linux/cputypes.h>
 
 /* clear CORB read pointer properly */
 static void azx_clear_corbrp(struct hdac_bus *bus)
@@ -143,6 +144,11 @@ int snd_hdac_bus_send_cmd(struct hdac_bus *bus, unsigned int val)
 {
 	unsigned int addr = azx_command_addr(val);
 	unsigned int wp, rp;
+#ifdef CONFIG_SND_HDA_PHYTIUM
+	unsigned long timeout;
+	unsigned int rirb_wp;
+	int i = 0;
+#endif
 
 	spin_lock_irq(&bus->reg_lock);
 
@@ -169,6 +175,43 @@ int snd_hdac_bus_send_cmd(struct hdac_bus *bus, unsigned int val)
 	bus->corb.buf[wp] = cpu_to_le32(val);
 	snd_hdac_chip_writew(bus, CORBWP, wp);
 
+#ifdef CONFIG_SND_HDA_PHYTIUM
+	if (cpu_is_phytium()) {
+		timeout = jiffies + msecs_to_jiffies(1000);
+		udelay(80);
+		rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
+		while (rirb_wp == bus->rirb.wp) {
+			udelay(80);
+			rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
+			if (rirb_wp != bus->rirb.wp)
+				break;
+			if (i > 5)
+				break;
+			if (time_after(jiffies, timeout))
+				break;
+
+			/* add command to corb */
+			wp = snd_hdac_chip_readw(bus, CORBWP);
+			if (wp == 0xffff) {
+				/* something wrong, controller likely turned to D3 */
+				spin_unlock_irq(&bus->reg_lock);
+				return -EIO;
+			}
+			wp++;
+			wp %= AZX_MAX_CORB_ENTRIES;
+
+			rp = snd_hdac_chip_readw(bus, CORBRP);
+			if (wp == rp) {
+				/* oops, it's full */
+				spin_unlock_irq(&bus->reg_lock);
+				return -EAGAIN;
+			}
+			bus->corb.buf[wp] = cpu_to_le32(val);
+			snd_hdac_chip_writew(bus, CORBWP, wp);
+			i++;
+		}
+	}
+#endif
 	spin_unlock_irq(&bus->reg_lock);
 
 	return 0;

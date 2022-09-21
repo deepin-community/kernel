@@ -177,6 +177,17 @@ config MTD_NAND_ORION
 	  No board specific support is done by this driver, each board
 	  must advertise a platform_device for the driver to attach.
 
+config MTD_NAND_PHYTIUM
+	tristate
+
+config MTD_NAND_PHYTIUM_PCI
+	tristate "Support Phytium NAND controller as a PCI device"
+	select MTD_NAND_PHYTIUM
+	depends on PCI
+	help
+	  Enable the driver for NAND flash controller on Phytium X100 chipset,
+	  using the Phytium NAND controller core.
+
 config MTD_NAND_MARVELL
 	tristate "Marvell EBU NAND controller"
 	depends on PXA3xx || ARCH_MMP || PLAT_ORION || ARCH_MVEBU || \

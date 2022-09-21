@@ -340,6 +340,16 @@ struct irq_domain *acpi_irq_create_hierarchy(unsigned int flags,
 					     const struct irq_domain_ops *ops,
 					     void *host_data);
 
+#ifdef CONFIG_ACPI_GENERIC_GSI
+struct fwnode_handle *acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source);
+#else
+static inline
+struct fwnode_handle *acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source)
+{
+	return NULL;
+}
+#endif
+
 #ifdef CONFIG_X86_IO_APIC
 extern int acpi_get_override_irq(u32 gsi, int *trigger, int *polarity);
 #else

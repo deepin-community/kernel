@@ -28,6 +28,8 @@ static u64 zx_pmon_event_map[PERF_COUNT_HW_MAX] __read_mostly = {
 	[PERF_COUNT_HW_CACHE_REFERENCES]  = 0x0515,
 	[PERF_COUNT_HW_CACHE_MISSES]      = 0x051a,
 	[PERF_COUNT_HW_BUS_CYCLES]        = 0x0083,
+	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = 0x0028,
+	[PERF_COUNT_HW_BRANCH_MISSES] = 0x0029,
 };
 
 static struct event_constraint zxc_event_constraints[] __read_mostly = {
@@ -511,7 +513,7 @@ __init int zhaoxin_pmu_init(void)
 	unsigned int unused;
 	int version;
 
-	pr_info("Welcome to zhaoxin pmu!\n");
+	pr_info("Welcome to pmu!\n");
 
 	/*
 	 * Check whether the Architectural PerfMon supports
@@ -553,6 +555,8 @@ __init int zhaoxin_pmu_init(void)
 			zx_pmon_event_map[PERF_COUNT_HW_CACHE_REFERENCES] = 0;
 			zx_pmon_event_map[PERF_COUNT_HW_CACHE_MISSES] = 0;
 			zx_pmon_event_map[PERF_COUNT_HW_BUS_CYCLES] = 0;
+			zx_pmon_event_map[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = 0;
+			zx_pmon_event_map[PERF_COUNT_HW_BRANCH_MISSES] = 0;
 
 			pr_cont("ZXC events, ");
 			break;
@@ -569,7 +573,7 @@ __init int zhaoxin_pmu_init(void)
 		switch (boot_cpu_data.x86_model) {
 		case 0x1b:
 			memcpy(hw_cache_event_ids, zxd_hw_cache_event_ids,
-			       sizeof(hw_cache_event_ids));
+					sizeof(hw_cache_event_ids));
 
 			x86_pmu.event_constraints = zxd_event_constraints;
 
@@ -580,14 +584,25 @@ __init int zhaoxin_pmu_init(void)
 			break;
 		case 0x3b:
 			memcpy(hw_cache_event_ids, zxe_hw_cache_event_ids,
-			       sizeof(hw_cache_event_ids));
+					sizeof(hw_cache_event_ids));
 
 			x86_pmu.event_constraints = zxd_event_constraints;
 
-			zx_pmon_event_map[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = 0x0028;
-			zx_pmon_event_map[PERF_COUNT_HW_BRANCH_MISSES] = 0x0029;
-
 			pr_cont("ZXE events, ");
+			break;
+		case 0x5b:
+
+			zx_pmon_event_map[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] =
+			X86_CONFIG(.event = 0x02, .umask = 0x01, .inv = 0x01, .cmask = 0x01);
+
+			memcpy(hw_cache_event_ids, zxe_hw_cache_event_ids,
+					sizeof(hw_cache_event_ids));
+
+			x86_pmu.event_constraints = zxd_event_constraints;
+			zx_pmon_event_map[PERF_COUNT_HW_CACHE_REFERENCES]  = 0x051a;
+			zx_pmon_event_map[PERF_COUNT_HW_CACHE_MISSES]      = 0;
+
+			pr_cont("CNX events, ");
 			break;
 		default:
 			return -ENODEV;

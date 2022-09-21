@@ -191,12 +191,17 @@ static struct hwrng via_rng = {
 	.data_read	= via_rng_data_read,
 };
 
+static struct x86_cpu_id via_rng_ids[] = {
+	{ X86_VENDOR_CENTAUR, 6, X86_MODEL_ANY, X86_FEATURE_XSTORE },
+	{}
+};
+MODULE_DEVICE_TABLE(x86cpu, via_rng_ids);
 
 static int __init mod_init(void)
 {
 	int err;
 
-	if (!boot_cpu_has(X86_FEATURE_XSTORE))
+	if (!x86_match_cpu(via_rng_ids))
 		return -ENODEV;
 
 	pr_info("VIA RNG detected\n");

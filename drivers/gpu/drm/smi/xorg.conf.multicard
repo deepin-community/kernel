@@ -1,0 +1,18 @@
+Section "Monitor"
+    Identifier  "HDMI-2"        # The primary output of Intel iGPU
+    Option      "Primary"   "TRUE"
+EndSection
+
+# Make sure Intel Graphics is the primary GPU.
+Section "Device"
+    Identifier  "Intel"
+    Driver      "modesetting"
+    Option      "kmsdev"    "/dev/dri/card0"
+EndSection
+
+Section "Device"
+    Identifier  "SM768"
+    Driver      "modesetting"
+    Option      "kmsdev"    "/dev/dri/card1"
+    Option      "PageFlip"  "FALSE"
+EndSection

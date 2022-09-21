@@ -33,6 +33,7 @@
 
 #include <linux/uaccess.h>
 #include <asm/byteorder.h>
+#include <linux/cputypes.h>
 
 #include "hub.h"
 #include "otg_productlist.h"
@@ -5513,6 +5514,8 @@ static void port_event(struct usb_hub *hub, int port1)
 		msleep(100);	/* Cool down */
 		hub_power_on(hub, true);
 		hub_port_status(hub, port1, &status, &unused);
+		if(cpu_is_hisi())
+			status |= unused;
 		if (status & USB_PORT_STAT_OVERCURRENT)
 			dev_err(&port_dev->dev, "over-current condition\n");
 	}

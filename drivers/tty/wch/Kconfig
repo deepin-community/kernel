@@ -1,0 +1,15 @@
+config WCH_SER
+	bool "WCH serial drivers"
+	default y
+	help
+	  Allows you to remove WCH serial support which can save space.
+
+if WCH_SER
+
+source "drivers/tty/wch/ch35_38x/Kconfig"
+source "drivers/tty/wch/ch36x/Kconfig"
+source "drivers/tty/wch/ch341ser/Kconfig"
+source "drivers/tty/wch/ch343ser/Kconfig"
+source "drivers/tty/wch/ch9344ser/Kconfig"
+
+endif #WCH_SER

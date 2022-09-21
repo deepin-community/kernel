@@ -22,6 +22,7 @@
 
 #include "dwxgmac2.h"
 #include "stmmac.h"
+#include <linux/cputypes.h>
 
 #define MII_BUSY 0x00000001
 #define MII_WRITE 0x00000002
@@ -460,7 +461,10 @@ int stmmac_mdio_register(struct net_device *ndev)
 
 	err = of_mdiobus_register(new_bus, mdio_node);
 	if (err != 0) {
-		dev_err(dev, "Cannot register the MDIO bus\n");
+		if (cpu_is_phytium())
+			dev_info(dev, "Cannot register the MDIO bus\n");
+		else
+			dev_err(dev, "Cannot register the MDIO bus\n");
 		goto bus_register_fail;
 	}
 

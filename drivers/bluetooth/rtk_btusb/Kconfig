@@ -1,0 +1,5 @@
+config BT_RTK_BTUSB
+	tristate
+	help
+	  Reaktek BT driver.
+

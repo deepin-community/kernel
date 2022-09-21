@@ -4939,6 +4939,10 @@ static const struct pci_dev_acs_enabled {
 	{ PCI_VENDOR_ID_NXP, 0x8d9b, pci_quirk_nxp_rp_acs },
 	/* Zhaoxin Root/Downstream Ports */
 	{ PCI_VENDOR_ID_ZHAOXIN, PCI_ANY_ID, pci_quirk_zhaoxin_pcie_ports_acs },
+        /* because PLX switch Vendor id is 0x10b5 on phytium cpu */
+        { 0x10b5, PCI_ANY_ID, pci_quirk_xgene_acs },
+        /* because rootcomplex Vendor id is 0x17cd on phytium cpu */
+        { 0x17cd, PCI_ANY_ID, pci_quirk_xgene_acs },	
 	{ 0 }
 };
 

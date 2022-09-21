@@ -1,0 +1,5 @@
+config CH35_38X
+	tristate "WCH ch35_38x driver"
+	default m
+	help
+		Support for WCH ch35_38x drivers.

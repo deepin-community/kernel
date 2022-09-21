@@ -353,6 +353,7 @@ static int audit_field_valid(struct audit_entry *entry, struct audit_field *f)
 	case AUDIT_ARG3:
 	case AUDIT_PERS: /* <uapi/linux/personality.h> */
 	case AUDIT_DEVMINOR:
+    case AUDIT_NAMETYPE:
 		/* all ops are valid */
 		break;
 	case AUDIT_UID:

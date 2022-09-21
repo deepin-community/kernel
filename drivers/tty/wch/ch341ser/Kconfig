@@ -1,0 +1,5 @@
+config CH341SER
+	tristate "WCH ch341 serial driver"
+	default m
+	help
+		Support for WCH ch341 serial drivers.

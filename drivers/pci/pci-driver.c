@@ -23,6 +23,8 @@
 #include "pci.h"
 #include "pcie/portdrv.h"
 
+#include <linux/cputypes.h>
+
 struct pci_dynid {
 	struct list_head node;
 	struct pci_device_id id;
@@ -518,7 +520,11 @@ static int pci_restore_standard_config(struct pci_dev *pci_dev)
 	}
 
 	pci_restore_state(pci_dev);
-	pci_pme_restore(pci_dev);
+	if (!((pci_dev->vendor == PCI_VENDOR_ID_ZHAOXIN) &&
+		  (pci_dev->device == 0x3104) &&
+		  ((pci_dev->revision & 0xf0) == 0x90)) ||
+		!(pci_dev->class == PCI_CLASS_SERIAL_USB_EHCI))
+		pci_pme_restore(pci_dev);
 	return 0;
 }
 
@@ -795,6 +801,16 @@ static int pci_pm_suspend_noirq(struct device *dev)
 
 	if (dev_pm_skip_suspend(dev))
 		return 0;
+	/* Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX) &&
+	    ((pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa23b) ||
+	     (pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa239) ||
+	     (pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa238) ||
+	     (pci_dev->vendor == 0x1912 && pci_dev->device == 0x0015))) {
+		pr_info("[%s]directly return\n", __func__);
+		return 0;
+	}
 
 	if (pci_has_legacy_pm_support(pci_dev))
 		return pci_legacy_suspend_late(dev, PMSG_SUSPEND);
@@ -894,6 +910,17 @@ static int pci_pm_resume_noirq(struct device *dev)
 	const struct dev_pm_ops *pm = dev->driver ? dev->driver->pm : NULL;
 	pci_power_t prev_state = pci_dev->current_state;
 	bool skip_bus_pm = pci_dev->skip_bus_pm;
+
+	/* Pangu S3 special route */
+	if (cpu_is_kunpeng_3211k() &&
+	    (pg_get_suspend_state() < PM_SUSPEND_MAX) &&
+	    ((pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa23b) ||
+	     (pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa239) ||
+	     (pci_dev->vendor == 0x19e5 && pci_dev->device == 0xa238) ||
+	     (pci_dev->vendor == 0x1912 && pci_dev->device == 0x0015))) {
+		pr_info("[%s]directly return\n", __func__);
+		return 0;
+	}
 
 	if (dev_pm_skip_resume(dev))
 		return 0;

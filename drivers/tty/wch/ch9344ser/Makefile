@@ -1,0 +1,1 @@
+obj-$(CONFIG_CH9344SER) += ch9344.o

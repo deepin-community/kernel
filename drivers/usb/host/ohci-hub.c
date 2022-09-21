@@ -40,6 +40,8 @@
 #define OHCI_SCHED_ENABLES \
 	(OHCI_CTRL_CLE|OHCI_CTRL_BLE|OHCI_CTRL_PLE|OHCI_CTRL_IE)
 
+#include <linux/cputypes.h>
+
 static void update_done_list(struct ohci_hcd *);
 static void ohci_work(struct ohci_hcd *);
 
@@ -302,6 +304,7 @@ static int ohci_bus_suspend (struct usb_hcd *hcd)
 {
 	struct ohci_hcd		*ohci = hcd_to_ohci (hcd);
 	int			rc;
+	unsigned long           flags;
 
 	spin_lock_irq (&ohci->lock);
 
@@ -315,6 +318,15 @@ static int ohci_bus_suspend (struct usb_hcd *hcd)
 		del_timer_sync(&ohci->io_watchdog);
 		ohci->prev_frame_no = IO_WATCHDOG_OFF;
 	}
+
+	if (cpu_is_hisi()) {
+		spin_lock_irqsave(&ohci->lock, flags);
+		ohci_writel(ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
+		(void)ohci_readl(ohci, &ohci->regs->intrdisable);
+
+		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		spin_unlock_irqrestore(&ohci->lock, flags);
+	}
 	return rc;
 }
 
@@ -327,6 +339,11 @@ static int ohci_bus_resume (struct usb_hcd *hcd)
 		msleep(5);
 
 	spin_lock_irq (&ohci->lock);
+	if (cpu_is_hisi()) {
+		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+		ohci_writel(ohci, OHCI_INTR_MIE, &ohci->regs->intrenable);
+		ohci_readl(ohci, &ohci->regs->intrenable);
+	}
 
 	if (unlikely(!HCD_HW_ACCESSIBLE(hcd)))
 		rc = -ESHUTDOWN;

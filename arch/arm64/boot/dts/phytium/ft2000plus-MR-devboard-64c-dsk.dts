@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium FT-2000plus devboard.
+ *
+ * Copyright (C) 2019, Phytium Technology Co., Ltd.
+ */
+
+/dts-v1/;
+/memreserve/ 0x0000000080000000 0x0000000000010000;
+
+#include "ft2000plus-MR-psci-soc.dtsi"
+
+/ {
+	model = "FT-2000plus Development Board";
+	compatible = "phytium,ft-2000plus";
+
+	chosen {
+		linux,pci-probe-only = <1>;
+	};
+
+	/* NUMA Node-0 */
+        memory@00 {
+                device_type = "memory";
+		/* 0 - 512MiB (512MiB)*/
+                reg = <0x00000000 0x00000000 0x0 0x20000000>;
+                numa-node-id = <0>;
+        };
+        memory@01 {
+                device_type = "memory";
+		/* 2GiB - 4GiB (2GiB) */
+                reg = <0x00000000 0x80000000 0x0 0x80000000>;
+                numa-node-id = <0>;
+        };
+        memory@02 {
+                device_type = "memory";
+		/* 512GiB - 516GiB (4GiB) */
+                reg = <0x00000080 0x00000000 0x1 0x00000000>;
+                numa-node-id = <0>;
+        };
+	/* NUMA Node-1 */
+        memory@10 {
+                device_type = "memory";
+		/* 1024GiB - 1028GiB (4GiB) */
+                reg = <0x00000100 0x00000000 0x1 0x00000000>;
+                numa-node-id = <1>;
+        };
+        memory@11 {
+                device_type = "memory";
+		/* 1536GiB - 1540GiB (4GiB) */
+                reg = <0x00000180 0x00000000 0x1 0x00000000>;
+                numa-node-id = <1>;
+        };
+	/* NUMA Node-2 */
+        memory@20 {
+                device_type = "memory";
+		/* 2048GiB - 2052GiB (4GiB) */
+                reg = <0x00000200 0x00000000 0x1 0x00000000>;
+                numa-node-id = <2>;
+        };
+        memory@21 {
+                device_type = "memory";
+		/* 2560GiB - 2564GiB (4GiB) */
+                reg = <0x00000280 0x00000000 0x1 0x00000000>;
+                numa-node-id = <2>;
+        };
+	/* NUMA Node-3 */
+        memory@30 {
+                device_type = "memory";
+		/* 3072GiB - 3076GiB (4GiB) */
+                reg = <0x00000300 0x00000000 0x1 0x00000000>;
+                numa-node-id = <3>;
+        };
+        memory@31 {
+                device_type = "memory";
+		/* 3584GiB - 3588GiB (4GiB) */
+                reg = <0x00000380 0x00000000 0x1 0x00000000>;
+                numa-node-id = <3>;
+        };
+	/* NUMA Node-4 */
+        memory@40 {
+                device_type = "memory";
+		/* 4096GiB - 4100GiB (4GiB) */
+                reg = <0x00000400 0x00000000 0x1 0x00000000>;
+                numa-node-id = <4>;
+        };
+        memory@41 {
+                device_type = "memory";
+		/* 4608GiB - 4612GiB (4GiB) */
+                reg = <0x00000480 0x00000000 0x1 0x00000000>;
+                numa-node-id = <4>;
+        };
+	/* NUMA Node-5 */
+        memory@50 {
+                device_type = "memory";
+		/* 5120GiB - 5124GiB (4GiB) */
+                reg = <0x00000500 0x00000000 0x1 0x00000000>;
+                numa-node-id = <5>;
+        };
+        memory@51 {
+                device_type = "memory";
+		/* 5632GiB - 5636GiB (4GiB) */
+                reg = <0x00000580 0x00000000 0x1 0x00000000>;
+                numa-node-id = <5>;
+        };
+	/* NUMA Node-6 */
+        memory@60 {
+                device_type = "memory";
+		/* 6144GiB - 6148GiB (4GiB) */
+                reg = <0x00000600 0x00000000 0x1 0x00000000>;
+                numa-node-id = <6>;
+        };
+        memory@61 {
+                device_type = "memory";
+		/* 6656GiB - 6660GiB (4GiB) */
+                reg = <0x00000680 0x00000000 0x1 0x00000000>;
+                numa-node-id = <6>;
+        };
+	/* NUMA Node-7 */
+        memory@70 {
+                device_type = "memory";
+		/* 7168GiB - 7172GiB (4GiB) */
+                reg = <0x00000700 0x00000000 0x1 0x00000000>;
+                numa-node-id = <7>;
+        };
+        memory@71 {
+                device_type = "memory";
+		/* 7680GiB - 7684GiB (4GiB) */
+                reg = <0x00000780 0x00000000 0x1 0x00000000>;
+                numa-node-id = <7>;
+        };
+
+};
+
+&uart1 {
+	status = "ok";
+};

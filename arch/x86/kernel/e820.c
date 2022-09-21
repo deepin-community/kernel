@@ -880,6 +880,22 @@ static void __init early_panic(char *msg)
 
 static int userdef __initdata;
 
+int mglru_off = 0;
+static int __init parse_mem_mglru(char *p)
+{
+	bool enabled;
+
+	int ret = strtobool(p, &enabled);
+
+	if(ret)
+		return ret;
+
+	mglru_off = enabled ? 0 : 1;
+
+	return 0;
+}
+early_param("mem_mglru", parse_mem_mglru);
+
 /* The "mem=nopentium" boot option disables 4MB page tables on 32-bit kernels: */
 static int __init parse_memopt(char *p)
 {

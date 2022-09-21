@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium FT-2000A/2 devboard (FT-2000A-HK-DSK series)
+ *
+ * Copyright (C) 2019, Phytium Techonlogy Co., Ltd.
+ */
+
+/dts-v1/;
+
+#include "ft2000ahk-generic-spintable-soc.dtsi"
+
+/ {
+	model = "FT-2000A-HK-DSK Development Board";
+	compatible = "phytium,ft-2000ahk";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		linux,pci-probe-only = <1>;
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};
+
+&i2c0 {
+	status = "ok";
+	rtc@68 {
+		compatible = "dallas,ds1339";
+		reg = <0x68>;
+	};
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&gmac0 {
+	status = "ok";
+	phy-mode = "rgmii";
+};
+
+&gmac1 {
+	status = "ok";
+	phy-mode = "rgmii";
+};
+
+&gpio {
+	status = "ok";
+};

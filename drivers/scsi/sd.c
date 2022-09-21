@@ -2653,6 +2653,9 @@ sd_do_mode_sense(struct scsi_disk *sdkp, int dbd, int modepage,
 			       sshdr);
 }
 
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+extern void set_sd_ro(struct scsi_disk *sdkp);
+#endif
 /*
  * read write protect setting, if possible - called only in sd_revalidate_disk()
  * called with buffer of length SD_BUF_SIZE
@@ -2703,6 +2706,9 @@ sd_read_write_protect_flag(struct scsi_disk *sdkp, unsigned char *buffer)
 			  "Test WP failed, assume Write Enabled\n");
 	} else {
 		sdkp->write_prot = ((data.device_specific & 0x80) != 0);
+#ifdef CONFIG_UOS_USB_FORBID_RULE
+		set_sd_ro(sdkp);
+#endif
 		set_disk_ro(sdkp->disk, sdkp->write_prot);
 		if (sdkp->first_scan || old_wp != sdkp->write_prot) {
 			sd_printk(KERN_NOTICE, sdkp, "Write Protect is %s\n",

@@ -20,6 +20,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <dt-bindings/net/qca-ar803x.h>
+#include <linux/cputypes.h>
 
 #define AT803X_SPECIFIC_FUNCTION_CONTROL	0x10
 #define AT803X_SFC_ASSERT_CRS			BIT(11)
@@ -91,6 +92,12 @@
 
 #define AT803X_DEBUG_REG_5			0x05
 #define AT803X_DEBUG_TX_CLK_DLY_EN		BIT(8)
+
+#ifdef CONFIG_ARCH_PHYTIUM_AT8035_PHY
+#define AT803X_DEBUG_REG_B                      0x0B
+#define AT803X_DEBUG_REG_B_HIBERNATION_ENABLE	        0x1
+#define AT803X_DEBUG_REG_B_HIBERNATION_OFFSET	        15
+#endif
 
 #define AT803X_DEBUG_REG_1F			0x1F
 #define AT803X_DEBUG_PLL_ON			BIT(2)
@@ -195,6 +202,22 @@ static int at803x_enable_rx_delay(struct phy_device *phydev)
 	return at803x_debug_reg_mask(phydev, AT803X_DEBUG_REG_0, 0,
 				     AT803X_DEBUG_RX_CLK_DLY_EN);
 }
+
+#ifdef CONFIG_ARCH_PHYTIUM_AT8035_PHY
+static inline int at803x_disable_hibernate(struct phy_device *phydev)
+{
+        int ret = 0;
+        u16 val = 0;
+
+	ret = at803x_debug_reg_read(phydev, AT803X_DEBUG_REG_B);
+	if (ret < 0)
+		return ret;
+
+	val = ret & 0xffff;
+	val &= (~(AT803X_DEBUG_REG_B_HIBERNATION_ENABLE << AT803X_DEBUG_REG_B_HIBERNATION_OFFSET));
+	return phy_write(phydev, AT803X_DEBUG_DATA, val);
+}
+#endif
 
 static int at803x_enable_tx_delay(struct phy_device *phydev)
 {
@@ -576,6 +599,13 @@ static int at803x_config_init(struct phy_device *phydev)
 	if (ret < 0)
 		return ret;
 
+#ifdef CONFIG_ARCH_PHYTIUM_AT8035_PHY
+	if (cpu_is_phytium()) {
+		ret = at803x_disable_hibernate(phydev);
+		if(ret < 0)
+		return ret;
+	}
+#endif
 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
 	    phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
 		ret = at803x_enable_tx_delay(phydev);

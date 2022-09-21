@@ -593,6 +593,16 @@ static int audit_filter_rules(struct task_struct *tsk,
 				}
 			}
 			break;
+		case AUDIT_NAMETYPE:
+			if (ctx) {
+				list_for_each_entry(n, &ctx->names_list, list) {
+					if (audit_comparator(n->type, f->op, f->val)) {
+						++result;
+						break;
+					}
+				}
+			}
+			break;
 		case AUDIT_INODE:
 			if (name)
 				result = audit_comparator(name->ino, f->op, f->val);
