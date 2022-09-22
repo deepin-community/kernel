@@ -16,7 +16,8 @@ ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += psp-dev.o \
                                    dbc.o \
                                    hsti.o \
                                    sfs.o \
-                                   hygon/psp-dev.o
+                                   hygon/psp-dev.o \
+                                   hygon/csv-dev.o
 
 ifeq ($(CONFIG_PCI_TSM),y)
 ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += sev-dev-tsm.o sev-dev-tio.o
