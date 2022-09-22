@@ -34,6 +34,7 @@
 #include "sev-dev.h"
 
 #include "hygon/psp-dev.h"
+#include "hygon/csv-dev.h"
 
 #define DEVICE_NAME		"sev"
 #define SEV_FW_FILE		"amd/sev.fw"
@@ -129,6 +130,18 @@ static int sev_wait_cmd_ioc(struct sev_device *sev,
 
 static int sev_cmd_buffer_len(int cmd)
 {
+	/*
+	 * The Hygon CSV command may conflict with AMD SEV command, so it's
+	 * preferred to check whether it's a CSV-specific command for Hygon
+	 * psp.
+	 */
+	if (is_vendor_hygon()) {
+		int r = csv_cmd_buffer_len(cmd);
+
+		if (r)
+			return r;
+	}
+
 	switch (cmd) {
 	case SEV_CMD_INIT:			return sizeof(struct sev_data_init);
 	case SEV_CMD_INIT_EX:                   return sizeof(struct sev_data_init_ex);
@@ -1200,7 +1213,11 @@ static int sev_misc_init(struct sev_device *sev)
 		misc = &misc_dev->misc;
 		misc->minor = MISC_DYNAMIC_MINOR;
 		misc->name = DEVICE_NAME;
-		misc->fops = &sev_fops;
+
+		if (is_vendor_hygon())
+			misc->fops = &csv_fops;
+		else
+			misc->fops = &sev_fops;
 
 		ret = misc_register(misc);
 		if (ret)
@@ -1223,6 +1240,7 @@ static void sev_dev_install_hooks(void)
 {
 	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
 	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
+	hygon_psp_hooks.sev_ioctl = sev_ioctl;
 
 	hygon_psp_hooks.sev_dev_hooks_installed = true;
 }
@@ -1330,7 +1348,8 @@ void sev_dev_destroy(struct psp_device *psp)
 int sev_issue_cmd_external_user(struct file *filep, unsigned int cmd,
 				void *data, int *error)
 {
-	if (!filep || filep->f_op != &sev_fops)
+	if (!filep || filep->f_op != (is_vendor_hygon()
+				      ? &csv_fops : &sev_fops))
 		return -EBADF;
 
 	return sev_do_cmd(cmd, data, error);
