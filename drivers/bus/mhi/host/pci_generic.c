@@ -874,8 +874,8 @@ static const struct mhi_pci_dev_info mhi_telit_fn980_hw_v2_info = {
 static const struct mhi_channel_config mhi_telit_fn990_channels[] = {
 	MHI_CHANNEL_CONFIG_UL_SBL(2, "SAHARA", 32, 0),
 	MHI_CHANNEL_CONFIG_DL_SBL(3, "SAHARA", 32, 0),
-	MHI_CHANNEL_CONFIG_UL(4, "DIAG", 64, 1),
-	MHI_CHANNEL_CONFIG_DL(5, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_UL(4, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_DL(5, "DIAG", 64, 1),
 	MHI_CHANNEL_CONFIG_UL(12, "MBIM", 32, 0),
 	MHI_CHANNEL_CONFIG_DL(13, "MBIM", 32, 0),
 	MHI_CHANNEL_CONFIG_UL(32, "DUN", 32, 0),
