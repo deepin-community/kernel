@@ -9549,6 +9549,11 @@ S:	Maintained
 F:	Documentation/ABI/testing/debugfs-hisi-zip
 F:	drivers/crypto/hisilicon/zip/
 
+HISILICON HNS3 PTP SYNC DRIVER
+M:	Yonglong Liu <liuyonglong@huawei.com>
+S:	Supported
+F:	drivers/ptp/ptp_hisi.c
+
 HMM - Heterogeneous Memory Management
 M:	Jérôme Glisse <jglisse@redhat.com>
 L:	linux-mm@kvack.org
