@@ -12,7 +12,66 @@ In order to build the documentation, use ``make htmldocs`` or
 
 There are various text files in the Documentation/ subdirectory,
 several of them using the Restructured Text markup notation.
+See Documentation/00-INDEX for a list of what is contained in each file.
 
 Please read the Documentation/process/changes.rst file, as it contains the
 requirements for building and running the kernel, and information about
 the problems which may result by upgrading your kernel.
+
+
+
+# deepin kernel
+
+## 背景简介
+deepin kernel 是深度开源社区维护的Linux内核，其源于上游 Linux Kernel 社区，并在此基础上，合入众多高版本新特性、新硬件架构支持、性能优化、安全增强等补丁。希望在deepin kernel社区的共同努力下，让内核kernel具备更丰富、更稳定、更安全、更兼容的特性，为deepin以及国产OS发行版提供安全、稳定、兼容的内核基座。
+
+## 提交介绍
+
+pull request提交：
+
+- 将deepin kernel开源项目fork到自己的项目下面
+- 更新自己的工程代码到最新 （非必要）
+- 提交遵守linux内核标准规范格式风格，要求通过scripts/checkpatch.pl检查
+- 申请pull request
+- 社区维护者审核通过后合入
+
+
+
+邮件提交:
+
+- 制作符合linux内核标准规范格式风格的补丁，要求通过scripts/checkpatch.pl检查
+- 通过邮件发给[deepin-kernel@freelists.org](mailto:deepin-kernel@freelists.org)
+- 邮件讨论通过后合入
+
+
+
+
+## 分支介绍
+
+UOS-K5.10-LTS
+
+- 当前此分支已经兼容信创ARM平台、X86平台（兆芯、海光）
+
+- 飞腾&华为鲲鹏推荐配置文件：  
+
+  arch/arm64/configs/armdesktop_defconfig
+
+- 信创X86平台推荐配置文件：
+
+  arch/x86/configs/x86_desktop_professional_defconfig
+
+  
+
+
+### 交流渠道
+
+如果你想要展示一下自己的移植成果或者进度，可以在官方论坛发帖或者通过邮件列表的方式来展示
+
+- [官方论坛](https://bbs.deepin.org)
+- [官方邮件列表](https://www.freelists.org/archive/deepin-devel)
+
+## 
+
+## 相关链接
+
+- [GitHub 上的小组团队](https://github.com/orgs/deepin-community/teams/sig-deepin-kernel)
