@@ -142,19 +142,47 @@ static void veiointc_set_irq_route(unsigned int vector, unsigned int cpu)
 
 static DEFINE_RAW_SPINLOCK(affinity_lock);
 
+static inline void cpumask_complement(struct cpumask *dstp, const struct cpumask *srcp)
+{
+	bitmap_complement(cpumask_bits(dstp), cpumask_bits(srcp), nr_cpumask_bits);
+}
+
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
 {
 	unsigned int cpu;
 	unsigned long flags;
 	uint32_t vector, regaddr;
+	struct cpumask online_affinity;
 	struct eiointc_priv *priv = d->domain->host_data;
 
 	raw_spin_lock_irqsave(&affinity_lock, flags);
 
-	cpu = cpumask_first_and_and(&priv->cpuspan_map, affinity, cpu_online_mask);
-	if (cpu >= nr_cpu_ids) {
+	cpumask_and(&online_affinity, affinity, cpu_online_mask);
+	if (cpumask_empty(&online_affinity)) {
 		raw_spin_unlock_irqrestore(&affinity_lock, flags);
 		return -EINVAL;
+	}
+
+	cpu = cpumask_first_and(&priv->cpuspan_map, &online_affinity);
+
+	if (cpu >= nr_cpu_ids) {
+		int c, idx = 0;
+		struct cpumask complement_map;
+		struct cpumask cpuspan_online_map;
+
+		cpu = cpumask_first(&online_affinity);
+		cpumask_complement(&complement_map, &priv->cpuspan_map);
+		cpumask_and(&cpuspan_online_map, &priv->cpuspan_map, cpu_online_mask);
+
+		for_each_cpu(c, &complement_map) {
+			if (c == cpu) {
+				break;
+			}
+			idx++;
+		}
+
+		idx = idx % cpumask_weight(&cpuspan_online_map);
+		cpu = cpumask_nth(idx, &cpuspan_online_map);
 	}
 
 	vector = d->hwirq;
