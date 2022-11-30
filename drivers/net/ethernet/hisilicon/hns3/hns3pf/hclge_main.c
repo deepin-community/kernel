@@ -4605,6 +4605,40 @@ static void hclge_update_vport_alive(struct hclge_dev *hdev)
 	}
 }
 
+static int hclge_set_fd_qb_counter(struct hclge_dev *hdev, u8 vf_id)
+{
+	struct hclge_fd_qb_ad_cmd *req;
+	struct hclge_desc desc;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_FD_QB_AD_OP, false);
+	req = (struct hclge_fd_qb_ad_cmd *)desc.data;
+	req->vf_id = vf_id;
+	hnae3_set_bit(req->ad_sel, HCLGE_FD_QB_AD_COUNTER_VLD_B, 1);
+	req->counter_id = vf_id % hdev->fd_cfg.cnt_num[HCLGE_FD_STAGE_1];
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_warn(&hdev->pdev->dev,
+			 "failed to set qb counter for vport %u, ret = %d.\n",
+			 vf_id, ret);
+	return ret;
+}
+
+static void hclge_init_fd_qb_counter(struct hclge_dev *hdev)
+{
+	int ret;
+	u16 i;
+
+	if (!test_bit(HNAE3_DEV_SUPPORT_QB_B, hdev->ae_dev->caps))
+		return;
+
+	for (i = 0; i < hdev->num_alloc_vport; i++) {
+		ret = hclge_set_fd_qb_counter(hdev, i);
+		if (ret)
+			return;
+	}
+}
+
 static int hclge_set_fd_qb(struct hclge_dev *hdev, u8 vf_id, bool enable)
 {
 	struct hclge_fd_qb_cfg_cmd *req;
@@ -5719,6 +5753,11 @@ static int hclge_init_fd_config(struct hclge_dev *hdev)
 				      &hdev->fd_cfg.cnt_num[HCLGE_FD_STAGE_2]);
 	if (ret)
 		return ret;
+
+	if (!hdev->fd_cfg.cnt_num[HCLGE_FD_STAGE_1])
+		hdev->fd_cfg.cnt_num[HCLGE_FD_STAGE_1] = 1;
+
+	hclge_init_fd_qb_counter(hdev);
 
 	return hclge_set_fd_key_config(hdev, HCLGE_FD_STAGE_1);
 }
