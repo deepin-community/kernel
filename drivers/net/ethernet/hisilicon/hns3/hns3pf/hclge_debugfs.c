@@ -1510,8 +1510,7 @@ static int hclge_dbg_dump_mng_table(struct hclge_dev *hdev, char *buf, int len)
 #define HCLGE_DBG_TCAM_BUF_SIZE 256
 
 static int hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, bool sel_x,
-				  char *tcam_buf,
-				  struct hclge_dbg_tcam_msg tcam_msg)
+				  char *tcam_buf, u8 stage, u32 loc)
 {
 	struct hclge_fd_tcam_config_1_cmd *req1;
 	struct hclge_fd_tcam_config_2_cmd *req2;
@@ -1531,9 +1530,9 @@ static int hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, bool sel_x,
 	req2 = (struct hclge_fd_tcam_config_2_cmd *)desc[1].data;
 	req3 = (struct hclge_fd_tcam_config_3_cmd *)desc[2].data;
 
-	req1->stage  = tcam_msg.stage;
+	req1->stage  = stage;
 	req1->xy_sel = sel_x ? 1 : 0;
-	req1->index  = cpu_to_le32(tcam_msg.loc);
+	req1->index  = cpu_to_le32(loc);
 
 	ret = hclge_cmd_send(&hdev->hw, desc, 3);
 	if (ret)
@@ -1541,7 +1540,7 @@ static int hclge_dbg_fd_tcam_read(struct hclge_dev *hdev, bool sel_x,
 
 	pos += scnprintf(tcam_buf + pos, HCLGE_DBG_TCAM_BUF_SIZE - pos,
 			 "read result tcam key %s(%u):\n", sel_x ? "x" : "y",
-			 tcam_msg.loc);
+			 loc);
 
 	/* tcam_data0 ~ tcam_data1 */
 	req = (__le32 *)req1->tcam_data;
@@ -1586,7 +1585,6 @@ static int hclge_dbg_get_rules_location(struct hclge_dev *hdev, u16 *rule_locs)
 static int hclge_dbg_dump_fd_tcam(struct hclge_dev *hdev, char *buf, int len)
 {
 	u32 rule_num = hdev->fd_cfg.rule_num[HCLGE_FD_STAGE_1];
-	struct hclge_dbg_tcam_msg tcam_msg;
 	int i, ret, rule_cnt;
 	u16 *rule_locs;
 	char *tcam_buf;
@@ -1621,10 +1619,7 @@ static int hclge_dbg_dump_fd_tcam(struct hclge_dev *hdev, char *buf, int len)
 
 	ret = 0;
 	for (i = 0; i < rule_cnt; i++) {
-		tcam_msg.stage = HCLGE_FD_STAGE_1;
-		tcam_msg.loc = rule_locs[i];
-
-		ret = hclge_dbg_fd_tcam_read(hdev, true, tcam_buf, tcam_msg);
+		ret = hclge_dbg_fd_tcam_read(hdev, true, tcam_buf, HCLGE_FD_STAGE_1, rule_locs[i]);
 		if (ret) {
 			dev_err(&hdev->pdev->dev,
 				"failed to get fd tcam key x, ret = %d\n", ret);
@@ -1633,7 +1628,7 @@ static int hclge_dbg_dump_fd_tcam(struct hclge_dev *hdev, char *buf, int len)
 
 		pos += scnprintf(buf + pos, len - pos, "%s", tcam_buf);
 
-		ret = hclge_dbg_fd_tcam_read(hdev, false, tcam_buf, tcam_msg);
+		ret = hclge_dbg_fd_tcam_read(hdev, false, tcam_buf, HCLGE_FD_STAGE_1, rule_locs[i]);
 		if (ret) {
 			dev_err(&hdev->pdev->dev,
 				"failed to get fd tcam key y, ret = %d\n", ret);
@@ -1646,6 +1641,86 @@ static int hclge_dbg_dump_fd_tcam(struct hclge_dev *hdev, char *buf, int len)
 out:
 	kfree(tcam_buf);
 	kfree(rule_locs);
+	return ret;
+}
+
+static int hclge_query_rules_valid(struct hclge_dev *hdev, u8 stage, u32 loc)
+{
+#define HCLGE_TCAM_SELECTION_X	1
+	struct hclge_fd_tcam_config_1_cmd *req1;
+	struct hclge_fd_tcam_config_2_cmd *req2;
+	struct hclge_fd_tcam_config_3_cmd *req3;
+	struct hclge_desc desc[3];
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc[0], HCLGE_OPC_FD_TCAM_OP, true);
+	desc[0].flag |= cpu_to_le16(HCLGE_COMM_CMD_FLAG_NEXT);
+	hclge_cmd_setup_basic_desc(&desc[1], HCLGE_OPC_FD_TCAM_OP, true);
+	desc[1].flag |= cpu_to_le16(HCLGE_COMM_CMD_FLAG_NEXT);
+	hclge_cmd_setup_basic_desc(&desc[2], HCLGE_OPC_FD_TCAM_OP, true);
+
+	req1 = (struct hclge_fd_tcam_config_1_cmd *)desc[0].data;
+	req2 = (struct hclge_fd_tcam_config_2_cmd *)desc[1].data;
+	req3 = (struct hclge_fd_tcam_config_3_cmd *)desc[2].data;
+
+	req1->stage = stage;
+	req1->xy_sel = HCLGE_TCAM_SELECTION_X;
+	req1->index = cpu_to_le32(loc);
+
+	ret = hclge_cmd_send(&hdev->hw, desc, 3);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to read tcam status, ret = %d\n", ret);
+		return ret;
+	}
+
+	return req1->entry_vld;
+}
+
+static int hclge_dbg_dump_qb_tcam(struct hclge_dev *hdev, char *buf, int len)
+{
+	char *tcam_buf;
+	int pos = 0;
+	int ret = 0;
+	u32 i;
+
+	if (!hnae3_ae_dev_fd_supported(hdev->ae_dev)) {
+		dev_err(&hdev->pdev->dev,
+			"Only FD-supported dev supports dump fd tcam\n");
+		return -EOPNOTSUPP;
+	}
+
+	tcam_buf = kzalloc(HCLGE_DBG_TCAM_BUF_SIZE, GFP_KERNEL);
+	if (!tcam_buf)
+		return -ENOMEM;
+
+	for (i = 0; i < hdev->fd_cfg.rule_num[HCLGE_FD_STAGE_1]; i++) {
+		if (hclge_query_rules_valid(hdev, HCLGE_FD_STAGE_1, i) <= 0)
+			continue;
+
+		ret = hclge_dbg_fd_tcam_read(hdev, true, tcam_buf,
+					     HCLGE_FD_STAGE_1, i);
+		if (ret) {
+			dev_err(&hdev->pdev->dev,
+				"failed to get qb tcam key x, ret = %d\n", ret);
+			goto out;
+		}
+
+		pos += scnprintf(buf + pos, len - pos, "%s", tcam_buf);
+
+		ret = hclge_dbg_fd_tcam_read(hdev, false, tcam_buf,
+					     HCLGE_FD_STAGE_1, i);
+		if (ret) {
+			dev_err(&hdev->pdev->dev,
+				"failed to get qb tcam key y, ret = %d\n", ret);
+			goto out;
+		}
+
+		pos += scnprintf(buf + pos, len - pos, "%s", tcam_buf);
+	}
+
+out:
+	kfree(tcam_buf);
 	return ret;
 }
 
@@ -2400,6 +2475,14 @@ static int hclge_dbg_dump_ptp_info(struct hclge_dev *hdev, char *buf, int len)
 	return 0;
 }
 
+static int hclge_dbg_dump_tcam(struct hclge_dev *hdev, char *buf, int len)
+{
+	if (test_bit(HCLGE_STATE_HW_QB_ENABLE, &hdev->state))
+		return hclge_dbg_dump_qb_tcam(hdev, buf, len);
+	else
+		return hclge_dbg_dump_fd_tcam(hdev, buf, len);
+};
+
 static int hclge_dbg_dump_mac_uc(struct hclge_dev *hdev, char *buf, int len)
 {
 	hclge_dbg_dump_mac_list(hdev, buf, len, true);
@@ -2540,12 +2623,12 @@ static const struct hclge_dbg_func hclge_dbg_cmd_func[] = {
 		.dbg_dump = hclge_dbg_dump_dcb,
 	},
 	{
-		.cmd = HNAE3_DBG_CMD_FD_TCAM,
-		.dbg_dump = hclge_dbg_dump_fd_tcam,
-	},
-	{
 		.cmd = HNAE3_DBG_CMD_MAC_TNL_STATUS,
 		.dbg_dump = hclge_dbg_dump_mac_tnl_status,
+	},
+	{
+		.cmd = HNAE3_DBG_CMD_FD_TCAM,
+		.dbg_dump = hclge_dbg_dump_tcam,
 	},
 	{
 		.cmd = HNAE3_DBG_CMD_SERV_INFO,
