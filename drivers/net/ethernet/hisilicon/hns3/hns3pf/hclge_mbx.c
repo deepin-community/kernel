@@ -831,6 +831,36 @@ static void hclge_handle_vf_tbl(struct hclge_vport *vport,
 	}
 }
 
+static void hclge_handle_vf_qb(struct hclge_vport *vport,
+			       struct hclge_mbx_vf_to_pf_cmd *mbx_req,
+			       struct hclge_respond_to_vf_msg *resp_msg)
+{
+	struct hclge_dev *hdev = vport->back;
+
+	if (mbx_req->msg.subcode == HCLGE_MBX_QB_CHECK_CAPS) {
+		struct hnae3_handle *handle = &hdev->vport[0].nic;
+
+		resp_msg->data[0] = test_bit(HNAE3_PFLAG_FD_QB_ENABLE,
+					     &handle->supported_pflags);
+		resp_msg->len = sizeof(u8);
+	} else if (mbx_req->msg.subcode == HCLGE_MBX_QB_ENABLE) {
+		vport->vf_info.request_qb_en = mbx_req->msg.data[0];
+		set_bit(HCLGE_VPORT_STATE_QB_CHANGE, &vport->state);
+	} else if (mbx_req->msg.subcode == HCLGE_MBX_QB_GET_STATE) {
+		u16 msg_data = vport->vf_info.qb_en;
+		int ret;
+
+		ret = hclge_send_mbx_msg(vport, (u8 *)&msg_data,
+					 sizeof(msg_data),
+					 HCLGE_MBX_PUSH_QB_STATE,
+					 vport->vport_id);
+		if (ret)
+			dev_err(&hdev->pdev->dev,
+				"failed to inform qb state to vport %u, ret = %d\n",
+				vport->vport_id, ret);
+	}
+}
+
 static int
 hclge_mbx_map_ring_to_vector_handler(struct hclge_mbx_ops_param *param)
 {
@@ -1040,6 +1070,12 @@ static int hclge_mbx_handle_vf_tbl_handler(struct hclge_mbx_ops_param *param)
 	return 0;
 }
 
+static int hclge_mbx_handle_vf_qb_handler(struct hclge_mbx_ops_param *param)
+{
+	hclge_handle_vf_qb(param->vport, param->req, param->resp_msg);
+	return 0;
+}
+
 static const hclge_mbx_ops_fn hclge_mbx_ops_list[HCLGE_MBX_OPCODE_MAX] = {
 	[HCLGE_MBX_RESET]   = hclge_mbx_reset_handler,
 	[HCLGE_MBX_SET_UNICAST] = hclge_mbx_set_unicast_handler,
@@ -1064,6 +1100,7 @@ static const hclge_mbx_ops_fn hclge_mbx_ops_list[HCLGE_MBX_OPCODE_MAX] = {
 	[HCLGE_MBX_VF_UNINIT] = hclge_mbx_vf_uninit_handler,
 	[HCLGE_MBX_HANDLE_VF_TBL] = hclge_mbx_handle_vf_tbl_handler,
 	[HCLGE_MBX_GET_RING_VECTOR_MAP] = hclge_mbx_get_ring_vector_map_handler,
+	[HCLGE_MBX_SET_QB] = hclge_mbx_handle_vf_qb_handler,
 	[HCLGE_MBX_GET_VF_FLR_STATUS] = hclge_mbx_get_vf_flr_status_handler,
 	[HCLGE_MBX_PUSH_LINK_STATUS] = hclge_mbx_push_link_status_handler,
 	[HCLGE_MBX_NCSI_ERROR] = hclge_mbx_ncsi_error_handler,

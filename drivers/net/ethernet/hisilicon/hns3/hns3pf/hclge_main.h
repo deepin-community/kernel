@@ -1051,6 +1051,8 @@ struct hclge_vf_info {
 	u32 spoofchk;
 	u32 max_tx_rate;
 	u32 trusted;
+	u8 request_qb_en;
+	u8 qb_en;
 	u8 request_uc_en;
 	u8 request_mc_en;
 	u8 request_bc_en;

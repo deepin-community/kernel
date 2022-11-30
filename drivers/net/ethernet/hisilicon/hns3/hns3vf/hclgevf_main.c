@@ -354,6 +354,74 @@ static int hclgevf_knic_setup(struct hclgevf_dev *hdev)
 	return 0;
 }
 
+static void hclgevf_update_fd_qb_state(struct hclgevf_dev *hdev)
+{
+	struct hnae3_handle *handle = &hdev->nic;
+	struct hclge_vf_to_pf_msg send_msg;
+	int ret;
+
+	if (!hdev->qb_cfg.pf_support_qb ||
+	    !test_bit(HNAE3_PFLAG_FD_QB_ENABLE, &handle->priv_flags))
+		return;
+
+	hclgevf_build_send_msg(&send_msg, HCLGE_MBX_SET_QB,
+			       HCLGE_MBX_QB_GET_STATE);
+	ret = hclgevf_send_mbx_msg(hdev, &send_msg, false, NULL, 0);
+	if (ret)
+		dev_err(&hdev->pdev->dev, "failed to get qb state, ret = %d",
+			ret);
+}
+
+static void hclgevf_get_pf_qb_caps(struct hclgevf_dev *hdev)
+{
+	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(hdev->pdev);
+	struct hclge_vf_to_pf_msg send_msg;
+	u8 resp_msg;
+	int ret;
+
+	if (!test_bit(HNAE3_DEV_SUPPORT_QB_B, ae_dev->caps))
+		return;
+
+	hclgevf_build_send_msg(&send_msg, HCLGE_MBX_SET_QB,
+			       HCLGE_MBX_QB_CHECK_CAPS);
+	ret = hclgevf_send_mbx_msg(hdev, &send_msg, true, &resp_msg,
+				   sizeof(resp_msg));
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get qb caps from PF, ret = %d", ret);
+		return;
+	}
+
+	hdev->qb_cfg.pf_support_qb = resp_msg > 0;
+}
+
+static void hclgevf_set_fd_qb(struct hnae3_handle *handle)
+{
+#define HCLGEVF_QB_MBX_STATE_OFFSET	0
+
+	struct hclgevf_dev *hdev = hclgevf_ae_get_hdev(handle);
+	struct hclge_vf_to_pf_msg send_msg;
+	u8 resp_msg;
+	int ret;
+
+	hclgevf_build_send_msg(&send_msg, HCLGE_MBX_SET_QB,
+			       HCLGE_MBX_QB_ENABLE);
+	send_msg.data[HCLGEVF_QB_MBX_STATE_OFFSET] =
+		test_bit(HNAE3_PFLAG_FD_QB_ENABLE, &handle->priv_flags) ? 1 : 0;
+	ret = hclgevf_send_mbx_msg(hdev, &send_msg, true, &resp_msg,
+				   sizeof(resp_msg));
+	if (ret)
+		dev_err(&hdev->pdev->dev, "failed to set qb state, ret = %d",
+			ret);
+}
+
+static bool hclgevf_query_fd_qb_state(struct hnae3_handle *handle)
+{
+	struct hclgevf_dev *hdev = hclgevf_ae_get_hdev(handle);
+
+	return hdev->qb_cfg.hw_qb_en;
+}
+
 static void hclgevf_request_link_info(struct hclgevf_dev *hdev)
 {
 	struct hclge_vf_to_pf_msg send_msg;
@@ -1902,6 +1970,8 @@ static void hclgevf_periodic_service_task(struct hclgevf_dev *hdev)
 
 	hclgevf_sync_promisc_mode(hdev);
 
+	hclgevf_update_fd_qb_state(hdev);
+
 	hdev->last_serv_processed = jiffies;
 
 out:
@@ -2935,6 +3005,8 @@ static int hclgevf_init_hdev(struct hclgevf_dev *hdev)
 		goto err_config;
 	}
 
+	hclgevf_get_pf_qb_caps(hdev);
+
 	hclgevf_init_rxd_adv_layout(hdev);
 
 	ret = hclgevf_devlink_init(hdev);
@@ -3321,6 +3393,8 @@ static const struct hnae3_ae_ops hclgevf_ops = {
 	.set_promisc_mode = hclgevf_set_promisc_mode,
 	.request_update_promisc_mode = hclgevf_request_update_promisc_mode,
 	.get_cmdq_stat = hclgevf_get_cmdq_stat,
+	.request_flush_qb_config = hclgevf_set_fd_qb,
+	.query_fd_qb_state = hclgevf_query_fd_qb_state,
 };
 
 static struct hnae3_ae_algo ae_algovf = {
