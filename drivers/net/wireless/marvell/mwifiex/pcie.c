@@ -238,6 +238,12 @@ static int mwifiex_write_reg(struct mwifiex_adapter *adapter, int reg, u32 data)
 
 	iowrite32(data, card->pci_mmap1 + reg);
 
+	/* Do a read-back, which makes the write non-posted, ensuring the
+	 * completion before returning.
+	 * The firmware of the 88W8897 card is buggy and this avoids crashes.
+	 */
+	ioread32(card->pci_mmap1 + reg);
+
 	return 0;
 }
 
@@ -380,6 +386,7 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
 					const struct pci_device_id *ent)
 {
 	struct pcie_service_card *card;
+	struct pci_dev *parent_pdev = pci_upstream_bridge(pdev);
 	int ret;
 
 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X rev=%d\n",
@@ -420,6 +427,12 @@ static int mwifiex_pcie_probe(struct pci_dev *pdev,
 		pr_err("%s failed\n", __func__);
 		return -1;
 	}
+
+	/* disable bridge_d3 for Surface gen4+ devices to fix fw crashing
+	 * after suspend
+	 */
+	if (card->quirks & QUIRK_NO_BRIDGE_D3)
+		parent_pdev->bridge_d3 = false;
 
 	return 0;
 }
@@ -1774,8 +1787,20 @@ mwifiex_pcie_send_boot_cmd(struct mwifiex_adapter *adapter, struct sk_buff *skb)
 static int mwifiex_pcie_init_fw_port(struct mwifiex_adapter *adapter)
 {
 	struct pcie_service_card *card = adapter->card;
+	struct pci_dev *pdev = card->dev;
+	struct pci_dev *parent_pdev = pci_upstream_bridge(pdev);
 	const struct mwifiex_pcie_card_reg *reg = card->pcie.reg;
 	int tx_wrap = card->txbd_wrptr & reg->tx_wrap_mask;
+
+	/* Trigger a function level reset of the PCI bridge device, this makes
+	 * the firmware of PCIe 88W8897 cards stop reporting a fixed LTR value
+	 * that prevents the system from entering package C10 and S0ix powersaving
+	 * states.
+	 * We need to do it here because it must happen after firmware
+	 * initialization and this function is called after that is done.
+	 */
+	if (card->quirks & QUIRK_DO_FLR_ON_BRIDGE)
+		pci_reset_function(parent_pdev);
 
 	/* Write the RX ring read pointer in to reg->rx_rdptr */
 	if (mwifiex_write_reg(adapter, reg->rx_rdptr, card->rxbd_rdptr |
@@ -2992,6 +3017,16 @@ static void mwifiex_pcie_device_dump_work(struct mwifiex_adapter *adapter)
 static void mwifiex_pcie_card_reset_work(struct mwifiex_adapter *adapter)
 {
 	struct pcie_service_card *card = adapter->card;
+
+	/* On Surface 3, reset_wsid method removes then re-probes card by
+	 * itself. So, need to place it here and skip performing any other
+	 * reset-related works.
+	 */
+	if (card->quirks & QUIRK_FW_RST_WSID_S3) {
+		mwifiex_pcie_reset_wsid_quirk(card->dev);
+		/* skip performing any other reset-related works */
+		return;
+	}
 
 	/* We can't afford to wait here; remove() might be waiting on us. If we
 	 * can't grab the device lock, maybe we'll get another chance later.

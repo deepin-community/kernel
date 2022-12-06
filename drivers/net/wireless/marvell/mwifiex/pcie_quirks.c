@@ -15,9 +15,20 @@
  * this warranty disclaimer.
  */
 
+#include <linux/acpi.h>
 #include <linux/dmi.h>
 
 #include "pcie_quirks.h"
+
+/* For reset_wsid quirk */
+#define ACPI_WSID_PATH		"\\_SB.WSID"
+#define WSID_REV		0x0
+#define WSID_FUNC_WIFI_PWR_OFF	0x1
+#define WSID_FUNC_WIFI_PWR_ON	0x2
+/* WSID _DSM UUID: "534ea3bf-fcc2-4e7a-908f-a13978f0c7ef" */
+static const guid_t wsid_dsm_guid =
+	GUID_INIT(0x534ea3bf, 0xfcc2, 0x4e7a,
+		  0x90, 0x8f, 0xa1, 0x39, 0x78, 0xf0, 0xc7, 0xef);
 
 /* quirk table based on DMI matching */
 static const struct dmi_system_id mwifiex_quirk_table[] = {
@@ -27,7 +38,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 4"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Pro 5",
@@ -36,7 +49,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1796"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Pro 5 (LTE)",
@@ -45,7 +60,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "Surface_Pro_1807"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Pro 6",
@@ -53,7 +70,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Pro 6"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Book 1",
@@ -61,7 +80,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Book 2",
@@ -69,7 +90,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Book 2"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Laptop 1",
@@ -77,7 +100,9 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
 	},
 	{
 		.ident = "Surface Laptop 2",
@@ -85,7 +110,26 @@ static const struct dmi_system_id mwifiex_quirk_table[] = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
 			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface Laptop 2"),
 		},
-		.driver_data = (void *)QUIRK_FW_RST_D3COLD,
+		.driver_data = (void *)(QUIRK_FW_RST_D3COLD |
+					QUIRK_NO_BRIDGE_D3 |
+					QUIRK_DO_FLR_ON_BRIDGE),
+	},
+	{
+		.ident = "Surface 3",
+		.matches = {
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Microsoft Corporation"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "Surface 3"),
+		},
+		.driver_data = (void *)QUIRK_FW_RST_WSID_S3,
+	},
+	{
+		.ident = "Surface 3",
+		.matches = {
+			DMI_EXACT_MATCH(DMI_BIOS_VENDOR, "American Megatrends Inc."),
+			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "OEMB"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_NAME, "OEMB"),
+		},
+		.driver_data = (void *)QUIRK_FW_RST_WSID_S3,
 	},
 	{}
 };
@@ -103,6 +147,14 @@ void mwifiex_initialize_quirks(struct pcie_service_card *card)
 		dev_info(&pdev->dev, "no quirks enabled\n");
 	if (card->quirks & QUIRK_FW_RST_D3COLD)
 		dev_info(&pdev->dev, "quirk reset_d3cold enabled\n");
+	if (card->quirks & QUIRK_FW_RST_WSID_S3)
+		dev_info(&pdev->dev,
+			 "quirk reset_wsid for Surface 3 enabled\n");
+	if (card->quirks & QUIRK_NO_BRIDGE_D3)
+		dev_info(&pdev->dev,
+			 "quirk no_brigde_d3 enabled\n");
+	if (card->quirks & QUIRK_DO_FLR_ON_BRIDGE)
+		dev_info(&pdev->dev, "quirk do_flr_on_bridge enabled\n");
 }
 
 static void mwifiex_pcie_set_power_d3cold(struct pci_dev *pdev)
@@ -156,6 +208,67 @@ int mwifiex_pcie_reset_d3cold_quirk(struct pci_dev *pdev)
 	ret = mwifiex_pcie_set_power_d0(pdev);
 	if (ret)
 		return ret;
+
+	return 0;
+}
+
+int mwifiex_pcie_reset_wsid_quirk(struct pci_dev *pdev)
+{
+	acpi_handle handle;
+	union acpi_object *obj;
+	acpi_status status;
+
+	dev_info(&pdev->dev, "Using reset_wsid quirk to perform FW reset\n");
+
+	status = acpi_get_handle(NULL, ACPI_WSID_PATH, &handle);
+	if (ACPI_FAILURE(status)) {
+		dev_err(&pdev->dev, "No ACPI handle for path %s\n",
+			ACPI_WSID_PATH);
+		return -ENODEV;
+	}
+
+	if (!acpi_has_method(handle, "_DSM")) {
+		dev_err(&pdev->dev, "_DSM method not found\n");
+		return -ENODEV;
+	}
+
+	if (!acpi_check_dsm(handle, &wsid_dsm_guid,
+			    WSID_REV, WSID_FUNC_WIFI_PWR_OFF)) {
+		dev_err(&pdev->dev,
+			"_DSM method doesn't support wifi power off func\n");
+		return -ENODEV;
+	}
+
+	if (!acpi_check_dsm(handle, &wsid_dsm_guid,
+			    WSID_REV, WSID_FUNC_WIFI_PWR_ON)) {
+		dev_err(&pdev->dev,
+			"_DSM method doesn't support wifi power on func\n");
+		return -ENODEV;
+	}
+
+	/* card will be removed immediately after this call on Surface 3 */
+	dev_info(&pdev->dev, "turning wifi off...\n");
+	obj = acpi_evaluate_dsm(handle, &wsid_dsm_guid,
+				WSID_REV, WSID_FUNC_WIFI_PWR_OFF,
+				NULL);
+	if (!obj) {
+		dev_err(&pdev->dev,
+			"device _DSM execution failed for turning wifi off\n");
+		return -EIO;
+	}
+	ACPI_FREE(obj);
+
+	/* card will be re-probed immediately after this call on Surface 3 */
+	dev_info(&pdev->dev, "turning wifi on...\n");
+	obj = acpi_evaluate_dsm(handle, &wsid_dsm_guid,
+				WSID_REV, WSID_FUNC_WIFI_PWR_ON,
+				NULL);
+	if (!obj) {
+		dev_err(&pdev->dev,
+			"device _DSM execution failed for turning wifi on\n");
+		return -EIO;
+	}
+	ACPI_FREE(obj);
 
 	return 0;
 }
