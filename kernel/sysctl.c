@@ -106,6 +106,13 @@ static const unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
 static const int ngroups_max = NGROUPS_MAX;
 static const int cap_last_cap = CAP_LAST_CAP;
 
+#ifdef CONFIG_TT_SCHED
+static int neg_twenty  = -20;
+static int nineteen    = 19;
+static unsigned long three = 3;
+static unsigned long zero_ul = 0;
+#endif
+
 #ifdef CONFIG_PROC_SYSCTL
 
 /**
@@ -1669,6 +1676,40 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+#ifdef CONFIG_TT_SCHED
+	{
+		.procname	= "sched_tt_balancer_opt",
+		.data		= &tt_balancer_opt,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero_ul,
+		.extra2		= &three,
+	},
+	{
+		.procname	= "sched_tt_grq_balance_ms",
+		.data		= &tt_grq_balance_ms,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_tt_max_lifetime",
+		.data		= &tt_max_lifetime,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_tt_rt_prio",
+		.data		= &tt_rt_prio,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &neg_twenty,
+		.extra2		= &nineteen,
+	},
+#endif
 #ifdef CONFIG_SCHEDSTATS
 	{
 		.procname	= "sched_schedstats",
