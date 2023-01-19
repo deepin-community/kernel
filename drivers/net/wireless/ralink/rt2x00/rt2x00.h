@@ -1174,23 +1174,27 @@ static inline bool rt2x00_intf(struct rt2x00_dev *rt2x00dev,
 
 static inline bool rt2x00_is_pci(struct rt2x00_dev *rt2x00dev)
 {
-	return rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCI) ||
-	       rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCIE);
+	return IS_ENABLED(CONFIG_RT2X00_LIB_PCI) &&
+		(rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCI) ||
+		rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCIE));
 }
 
 static inline bool rt2x00_is_pcie(struct rt2x00_dev *rt2x00dev)
 {
-	return rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCIE);
+	return IS_ENABLED(CONFIG_RT2X00_LIB_PCI) &&
+		rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_PCIE);
 }
 
 static inline bool rt2x00_is_usb(struct rt2x00_dev *rt2x00dev)
 {
-	return rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_USB);
+	return IS_ENABLED(CONFIG_RT2X00_LIB_USB) &&
+		rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_USB);
 }
 
 static inline bool rt2x00_is_soc(struct rt2x00_dev *rt2x00dev)
 {
-	return rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_SOC);
+	return IS_ENABLED(CONFIG_RT2X00_LIB_SOC) &&
+		rt2x00_intf(rt2x00dev, RT2X00_CHIP_INTF_SOC);
 }
 
 /* Helpers for capability flags */
