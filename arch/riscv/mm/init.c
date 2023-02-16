@@ -1279,7 +1279,7 @@ static void __init create_linear_mapping_page_table(void)
 		    __pa(PAGE_OFFSET) < end)
 			start = __pa(PAGE_OFFSET);
 
-		create_linear_mapping_range(start, end, 0);
+		create_linear_mapping_range(start, end, PMD_SIZE);
 	}
 
 #ifdef CONFIG_STRICT_KERNEL_RWX
