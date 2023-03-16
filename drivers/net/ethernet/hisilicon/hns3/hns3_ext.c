@@ -143,3 +143,17 @@ int nic_get_pfc_storm_para(struct net_device *ndev, u32 dir, u32 *enable,
 	return 0;
 }
 EXPORT_SYMBOL(nic_get_pfc_storm_para);
+
+int nic_set_notify_pkt_param(struct net_device *ndev,
+			     struct hnae3_notify_pkt_param *param)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_NOTIFY_PARAM,
+				  param, sizeof(*param));
+}
+EXPORT_SYMBOL(nic_set_notify_pkt_param);
+
+int nic_set_notify_pkt_start(struct net_device *ndev)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_NOTIFY_START, NULL, 0);
+}
+EXPORT_SYMBOL(nic_set_notify_pkt_start);

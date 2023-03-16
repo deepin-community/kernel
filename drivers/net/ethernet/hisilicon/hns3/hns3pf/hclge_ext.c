@@ -73,6 +73,101 @@ static int hclge_get_pfc_storm_para(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_notify_packet_para_cmd_send(struct hclge_dev *hdev,
+					     struct hclge_notify_pkt_param_cmd *param_cmd)
+{
+#define HCLGE_NOTIFY_PKT_DESC_NUM 4
+
+	struct hclge_desc desc[HCLGE_NOTIFY_PKT_DESC_NUM];
+	u32 i, desc_data_len;
+
+	desc_data_len = ARRAY_SIZE(desc[0].data);
+	for (i = 0; i < HCLGE_NOTIFY_PKT_DESC_NUM; i++) {
+		hclge_cmd_setup_basic_desc(&desc[i], HCLGE_OPC_SET_NOTIFY_PKT,
+					   false);
+		if (i != HCLGE_NOTIFY_PKT_DESC_NUM - 1)
+			desc[i].flag |= cpu_to_le16(HCLGE_COMM_CMD_FLAG_NEXT);
+	}
+
+	for (i = 0; i < HCLGE_NOTIFY_PKT_DESC_NUM * desc_data_len; i++)
+		desc[i / desc_data_len].data[i % desc_data_len] =
+						     *((__le32 *)param_cmd + i);
+
+	return hclge_cmd_send(&hdev->hw, desc, HCLGE_NOTIFY_PKT_DESC_NUM);
+}
+
+static int hclge_set_notify_packet_para(struct hclge_dev *hdev,
+					void *data, size_t length)
+{
+	struct hnae3_notify_pkt_param *param = (struct hnae3_notify_pkt_param *)data;
+	struct hclge_notify_pkt_param_cmd param_cmd;
+	u32 i, pkt_cfg = 0;
+	int ret;
+
+	if (length != sizeof(struct hnae3_notify_pkt_param))
+		return -EINVAL;
+
+	if (!hnae3_ae_dev_notify_pkt_supported(hdev->ae_dev))
+		return -EOPNOTSUPP;
+
+	if (param->enable)
+		pkt_cfg = HCLGE_NOTIFY_PARA_CFG_PKT_EN;
+	hnae3_set_field(pkt_cfg, HCLGE_NOTIFY_PARA_CFG_PKT_NUM_M,
+			HCLGE_NOTIFY_PARA_CFG_PKT_NUM_S, param->num);
+
+	param_cmd.cfg = cpu_to_le32(pkt_cfg);
+	param_cmd.ipg = cpu_to_le32(param->ipg);
+	for (i = 0; i < ARRAY_SIZE(param_cmd.data); i++)
+		param_cmd.data[i] = cpu_to_le32(*((u32 *)param->data + i));
+
+	hnae3_set_bit(param_cmd.vld_cfg, 0, 1);
+	hnae3_set_bit(param_cmd.vld_ipg, 0, 1);
+	hnae3_set_bit(param_cmd.vld_data, 0, 1);
+
+	ret = hclge_notify_packet_para_cmd_send(hdev, &param_cmd);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to set notify packet content, ret = %d\n", ret);
+		return ret;
+	}
+
+	param->init = 1;
+	memcpy(&hdev->notify_param, param, sizeof(*param));
+	return 0;
+}
+
+static int hclge_set_notify_packet_start(struct hclge_dev *hdev,
+					 void *data, size_t length)
+{
+	u32 pkt_cfg = HCLGE_NOTIFY_PARA_CFG_START_EN;
+	struct hclge_notify_pkt_param_cmd param_cmd;
+	int ret;
+
+	if (!hnae3_ae_dev_notify_pkt_supported(hdev->ae_dev))
+		return -EOPNOTSUPP;
+
+	memset(&param_cmd, 0, sizeof(param_cmd));
+	param_cmd.cfg = cpu_to_le32(pkt_cfg);
+	hnae3_set_bit(param_cmd.vld_cfg, 0, 1);
+
+	ret = hclge_notify_packet_para_cmd_send(hdev, &param_cmd);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to send notify packet, ret = %d\n", ret);
+	return ret;
+}
+
+static void hclge_ext_resotre_config(struct hclge_dev *hdev)
+{
+	if (hdev->reset_type != HNAE3_IMP_RESET &&
+	    hdev->reset_type != HNAE3_GLOBAL_RESET)
+		return;
+
+	if (hdev->notify_param.init)
+		hclge_set_notify_packet_para(hdev, &hdev->notify_param,
+					     sizeof(hdev->notify_param));
+}
+
 static int hclge_set_reset_task(struct hclge_dev *hdev, void *data,
 				size_t length)
 {
@@ -203,6 +298,7 @@ void hclge_ext_reset_end(struct hclge_dev *hdev, bool done)
 		return;
 	}
 
+	hclge_ext_resotre_config(hdev);
 	hclge_ext_call_event(hdev, HNAE3_RESET_DONE_CUSTOM);
 	dev_info(&hdev->pdev->dev, "report reset done!\n");
 }
@@ -212,6 +308,8 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_EVENT_CALLBACK] = hclge_nic_call_event,
 	[HNAE3_EXT_OPC_GET_PFC_STORM_PARA] = hclge_get_pfc_storm_para,
 	[HNAE3_EXT_OPC_SET_PFC_STORM_PARA] = hclge_set_pfc_storm_para,
+	[HNAE3_EXT_OPC_SET_NOTIFY_PARAM] = hclge_set_notify_packet_para,
+	[HNAE3_EXT_OPC_SET_NOTIFY_START] = hclge_set_notify_packet_start,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

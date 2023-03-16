@@ -31,6 +31,8 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_EVENT_CALLBACK,
 	HNAE3_EXT_OPC_GET_PFC_STORM_PARA,
 	HNAE3_EXT_OPC_SET_PFC_STORM_PARA,
+	HNAE3_EXT_OPC_SET_NOTIFY_PARAM,
+	HNAE3_EXT_OPC_SET_NOTIFY_START,
 };
 
 struct hnae3_pfc_storm_para {
@@ -39,5 +41,13 @@ struct hnae3_pfc_storm_para {
 	u32 period_ms;
 	u32 times;
 	u32 recovery_period_ms;
+};
+
+struct hnae3_notify_pkt_param {
+	u32 ipg;     /* inter-packet gap of sending, the unit is one cycle of clock */
+	u16 num;     /* packet number of sending */
+	u8 enable;   /* send enable, 0=Disable, 1=Enable */
+	u8 init;     /* initialization flag, product does not need to set value */
+	u8 data[64]; /* note packet data */
 };
 #endif
