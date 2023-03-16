@@ -214,3 +214,66 @@ end_unlock:
 	return ret;
 }
 EXPORT_SYMBOL(nic_clean_stats64);
+
+int nic_set_cpu_affinity(struct net_device *ndev, cpumask_t *affinity_mask)
+{
+	struct hns3_enet_tqp_vector *tqp_vector;
+	struct hns3_nic_priv *priv;
+	int ret = 0;
+	u16 i;
+
+	if (!ndev || !affinity_mask) {
+		netdev_err(ndev,
+			   "Invalid input param when set ethernet cpu affinity\n");
+		return -EINVAL;
+	}
+
+	if (nic_netdev_match_check(ndev))
+		return -ENODEV;
+
+	priv = netdev_priv(ndev);
+	rtnl_lock();
+	if (!test_bit(HNS3_NIC_STATE_INITED, &priv->state) ||
+	    test_bit(HNS3_NIC_STATE_RESETTING, &priv->state)) {
+		ret = -EBUSY;
+		goto err_unlock;
+	}
+
+	if (test_bit(HNS3_NIC_STATE_DOWN, &priv->state)) {
+		netdev_err(ndev,
+			   "ethernet is down, not support cpu affinity set\n");
+		ret = -ENETDOWN;
+		goto err_unlock;
+	}
+
+	for (i = 0; i < priv->vector_num; i++) {
+		tqp_vector = &priv->tqp_vector[i];
+		if (tqp_vector->irq_init_flag != HNS3_VECTOR_INITED)
+			continue;
+
+		tqp_vector->affinity_mask = *affinity_mask;
+
+		ret = irq_set_affinity_hint(tqp_vector->vector_irq, NULL);
+		if (ret) {
+			netdev_err(ndev,
+				   "failed to reset affinity hint, ret = %d\n", ret);
+			goto err_unlock;
+		}
+
+		ret = irq_set_affinity_hint(tqp_vector->vector_irq,
+					    &tqp_vector->affinity_mask);
+		if (ret) {
+			netdev_err(ndev,
+				   "failed to set affinity hint, ret = %d\n", ret);
+			goto err_unlock;
+		}
+	}
+
+	netdev_info(ndev, "set nic cpu affinity %*pb succeed\n",
+		    cpumask_pr_args(affinity_mask));
+
+err_unlock:
+	rtnl_unlock();
+	return ret;
+}
+EXPORT_SYMBOL(nic_set_cpu_affinity);

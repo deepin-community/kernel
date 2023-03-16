@@ -27,4 +27,5 @@ int nic_set_notify_pkt_start(struct net_device *ndev);
 int nic_set_torus_param(struct net_device *ndev, struct hnae3_torus_param *param);
 int nic_get_torus_param(struct net_device *ndev, struct hnae3_torus_param *param);
 int nic_clean_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats);
+int nic_set_cpu_affinity(struct net_device *ndev, cpumask_t *affinity_mask);
 #endif
