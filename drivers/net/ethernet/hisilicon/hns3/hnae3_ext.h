@@ -29,5 +29,15 @@ enum hnae3_event_type_custom {
 enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_RESET,
 	HNAE3_EXT_OPC_EVENT_CALLBACK,
+	HNAE3_EXT_OPC_GET_PFC_STORM_PARA,
+	HNAE3_EXT_OPC_SET_PFC_STORM_PARA,
+};
+
+struct hnae3_pfc_storm_para {
+	u32 dir;
+	u32 enable;
+	u32 period_ms;
+	u32 times;
+	u32 recovery_period_ms;
 };
 #endif

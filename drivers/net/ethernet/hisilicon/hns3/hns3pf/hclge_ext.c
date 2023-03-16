@@ -15,6 +15,64 @@ static nic_event_fn_t nic_event_call;
  */
 static DEFINE_MUTEX(hclge_nic_event_lock);
 
+static int hclge_set_pfc_storm_para(struct hclge_dev *hdev, void *data,
+				    size_t length)
+{
+	struct hclge_pfc_storm_para_cmd *para_cmd;
+	struct hnae3_pfc_storm_para *para;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_pfc_storm_para))
+		return -EINVAL;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CFG_PAUSE_STORM_PARA,
+				   false);
+	para = (struct hnae3_pfc_storm_para *)data;
+	para_cmd = (struct hclge_pfc_storm_para_cmd *)desc.data;
+	para_cmd->dir = cpu_to_le32(para->dir);
+	para_cmd->enable = cpu_to_le32(para->enable);
+	para_cmd->period_ms = cpu_to_le32(para->period_ms);
+	para_cmd->times = cpu_to_le32(para->times);
+	para_cmd->recovery_period_ms = cpu_to_le32(para->recovery_period_ms);
+
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to set pfc storm para, ret = %d\n", ret);
+	return ret;
+}
+
+static int hclge_get_pfc_storm_para(struct hclge_dev *hdev, void *data,
+				    size_t length)
+{
+	struct hclge_pfc_storm_para_cmd *para_cmd;
+	struct hnae3_pfc_storm_para *para;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_pfc_storm_para))
+		return -EINVAL;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CFG_PAUSE_STORM_PARA, true);
+	para = (struct hnae3_pfc_storm_para *)data;
+	para_cmd = (struct hclge_pfc_storm_para_cmd *)desc.data;
+	para_cmd->dir = cpu_to_le32(para->dir);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get pfc storm para, ret = %d\n", ret);
+		return ret;
+	}
+
+	para->enable = le32_to_cpu(para_cmd->enable);
+	para->period_ms = le32_to_cpu(para_cmd->period_ms);
+	para->times = le32_to_cpu(para_cmd->times);
+	para->recovery_period_ms = le32_to_cpu(para_cmd->recovery_period_ms);
+
+	return 0;
+}
+
 static int hclge_set_reset_task(struct hclge_dev *hdev, void *data,
 				size_t length)
 {
@@ -152,6 +210,8 @@ void hclge_ext_reset_end(struct hclge_dev *hdev, bool done)
 static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_RESET] = hclge_set_reset_task,
 	[HNAE3_EXT_OPC_EVENT_CALLBACK] = hclge_nic_call_event,
+	[HNAE3_EXT_OPC_GET_PFC_STORM_PARA] = hclge_get_pfc_storm_para,
+	[HNAE3_EXT_OPC_SET_PFC_STORM_PARA] = hclge_set_pfc_storm_para,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,
