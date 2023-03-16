@@ -157,6 +157,191 @@ static int hclge_set_notify_packet_start(struct hclge_dev *hdev,
 	return ret;
 }
 
+static int hclge_torus_cfg_switch(struct hclge_dev *hdev, bool is_rocee,
+				  bool enabled)
+{
+	struct hclge_mac_vlan_switch_cmd *req;
+	struct hclge_desc desc;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_SWITCH_PARAM, true);
+	req = (struct hclge_mac_vlan_switch_cmd *)desc.data;
+	req->roce_sel = is_rocee ? 1 : 0;
+	/* set 0 to let firmware choose current function */
+	req->func_id = 0;
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get switch param, ret = %d\n", ret);
+		return ret;
+	}
+
+	hnae3_set_bit(req->switch_param, HCLGE_SWITCH_ALW_LPBK_B, 1);
+	hnae3_set_bit(req->switch_param, HCLGE_SWITCH_ALW_LCL_LPBK_B, 0);
+	hnae3_set_bit(req->switch_param, HCLGE_SWITCH_ANTI_SPOOF_B, enabled);
+	if (!is_rocee)
+		hnae3_set_bit(req->switch_param, HCLGE_SWITCH_ALW_DST_OVRD_B,
+			      enabled);
+
+	hclge_comm_cmd_reuse_desc(&desc, false);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to set switch param, ret = %d\n", ret);
+
+	return ret;
+}
+
+static int hclge_torus_cfg_vlan_filter(struct hclge_dev *hdev,
+				       bool enabled)
+{
+	struct hclge_vlan_filter_ctrl_cmd *req;
+	struct hclge_desc desc;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_VLAN_FILTER, true);
+	req = (struct hclge_vlan_filter_ctrl_cmd *)desc.data;
+	req->vlan_type = HCLGE_FILTER_TYPE_PORT;
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get torus vlan filter, ret = %d\n", ret);
+		return ret;
+	}
+
+	hnae3_set_bit(req->vlan_fe, HCLGE_VLAN_FE_NIC_INGRESS, !enabled);
+	hnae3_set_bit(req->vlan_fe, HCLGE_VLAN_FE_ROCEE_INGRESS, !enabled);
+	req->vlan_type = HCLGE_FILTER_TYPE_PORT;
+
+	hclge_comm_cmd_reuse_desc(&desc, false);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to set torus vlan filter, ret = %d\n", ret);
+
+	return ret;
+}
+
+static int hclge_torus_cfg(struct hclge_dev *hdev,
+			   struct hnae3_torus_param *param)
+{
+	struct hclge_torus_cfg_cmd *req;
+	struct hclge_desc desc;
+	u32 lan_fwd_tc_cfg = 0;
+	u32 lan_port_pair = 0;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_1D_TORUS, true);
+	req = (struct hclge_torus_cfg_cmd *)desc.data;
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get torus config, ret = %d\n", ret);
+		return ret;
+	}
+
+	req->lan_port_pair = cpu_to_le32(param->mac_id &
+					 HCLGE_TORUS_MAC_ID_MASK);
+	hnae3_set_bit(lan_port_pair, HCLGE_UC_LAN_PAIR_EN, 1);
+	hnae3_set_bit(lan_port_pair, HCLGE_MC_BC_LAN_PAIR_EN, 1);
+	hnae3_set_bit(lan_port_pair, HCLGE_LLDP_LAN_PAIR_EN, 1);
+	hnae3_set_bit(lan_port_pair, HCLGE_TC2VLANPRI_MAPPING_EN, 1);
+	hnae3_set_bit(lan_port_pair, HCLGE_TORUS_LPBK_DROP_EN, 1);
+	if (param->enable)
+		req->lan_port_pair |= cpu_to_le32(lan_port_pair);
+
+	if (!param->is_node0) {
+		req->lan_fwd_tc_cfg &= cpu_to_le32(~HCLGE_TORUS_TC1_DROP_EN);
+		lan_fwd_tc_cfg &= ~HCLGE_TOURS_TCX_MAP_TCY_MASK;
+		lan_fwd_tc_cfg |= HCLGE_TOURS_TCX_MAP_TCY_INIT &
+				  HCLGE_TOURS_TCX_MAP_TCY_MASK;
+		req->lan_fwd_tc_cfg |= cpu_to_le32(lan_fwd_tc_cfg);
+	} else {
+		req->lan_fwd_tc_cfg |= cpu_to_le32(HCLGE_TORUS_TC1_DROP_EN);
+		lan_fwd_tc_cfg &= ~HCLGE_TOURS_TCX_MAP_TCY_MASK;
+		lan_fwd_tc_cfg |= HCLGE_TOURS_TCX_MAP_TCY_NODE0_INIT &
+				  HCLGE_TOURS_TCX_MAP_TCY_MASK;
+		req->lan_fwd_tc_cfg |= cpu_to_le32(lan_fwd_tc_cfg);
+	}
+
+	req->torus_en = cpu_to_le32(param->enable);
+	hclge_comm_cmd_reuse_desc(&desc, false);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev, "failed to set torus, ret = %d\n",
+			ret);
+
+	return ret;
+}
+
+static int hclge_set_torus_param(struct hclge_dev *hdev, void *data,
+				 size_t length)
+{
+	struct hnae3_torus_param *param = (struct hnae3_torus_param *)data;
+	int ret;
+
+	if (hdev->ae_dev->dev_version == HNAE3_DEVICE_VERSION_V4)
+		return -EOPNOTSUPP;
+
+	if (length != sizeof(struct hnae3_torus_param))
+		return -EINVAL;
+
+	ret = hclge_torus_cfg_switch(hdev, false, !!param->enable);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to config nic switch param, ret = %d\n", ret);
+		return ret;
+	}
+
+	ret = hclge_torus_cfg_switch(hdev, true, !!param->enable);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to config roce switch param, ret = %d\n", ret);
+		return ret;
+	}
+
+	ret = hclge_torus_cfg_vlan_filter(hdev, !!param->enable);
+	if (ret)
+		return ret;
+
+	ret = hclge_torus_cfg(hdev, param);
+	if (ret)
+		return ret;
+
+	hdev->torus_param = *param;
+	return 0;
+}
+
+static int hclge_get_torus_param(struct hclge_dev *hdev, void *data,
+				 size_t length)
+{
+	struct hnae3_torus_param *param = (struct hnae3_torus_param *)data;
+	struct hclge_torus_cfg_cmd *req;
+	struct hclge_desc desc;
+	int ret;
+
+	if (hdev->ae_dev->dev_version == HNAE3_DEVICE_VERSION_V4)
+		return -EOPNOTSUPP;
+
+	if (length != sizeof(struct hnae3_torus_param))
+		return -EINVAL;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_1D_TORUS, true);
+	req = (struct hclge_torus_cfg_cmd *)desc.data;
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get torus param, ret = %d\n", ret);
+		return ret;
+	}
+
+	param->mac_id =
+		le32_to_cpu(req->lan_port_pair) & HCLGE_TORUS_MAC_ID_MASK;
+	param->enable = le32_to_cpu(req->torus_en);
+
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -166,6 +351,9 @@ static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 	if (hdev->notify_param.init)
 		hclge_set_notify_packet_para(hdev, &hdev->notify_param,
 					     sizeof(hdev->notify_param));
+
+	hclge_set_torus_param(hdev, &hdev->torus_param,
+			      sizeof(hdev->torus_param));
 }
 
 static int hclge_set_reset_task(struct hclge_dev *hdev, void *data,
@@ -310,6 +498,8 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_SET_PFC_STORM_PARA] = hclge_set_pfc_storm_para,
 	[HNAE3_EXT_OPC_SET_NOTIFY_PARAM] = hclge_set_notify_packet_para,
 	[HNAE3_EXT_OPC_SET_NOTIFY_START] = hclge_set_notify_packet_start,
+	[HNAE3_EXT_OPC_SET_TORUS_PARAM] = hclge_set_torus_param,
+	[HNAE3_EXT_OPC_GET_TORUS_PARAM] = hclge_get_torus_param,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

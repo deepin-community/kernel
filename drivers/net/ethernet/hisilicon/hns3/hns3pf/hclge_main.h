@@ -978,6 +978,7 @@ struct hclge_dev {
 	struct devlink *devlink;
 	struct hclge_comm_rss_cfg rss_cfg;
 	struct hnae3_notify_pkt_param notify_param;
+	struct hnae3_torus_param torus_param;
 };
 
 /* VPort level vlan tag configuration for TX direction */
