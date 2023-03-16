@@ -174,3 +174,43 @@ int nic_get_torus_param(struct net_device *ndev, struct hnae3_torus_param *param
 				  param, sizeof(*param));
 }
 EXPORT_SYMBOL(nic_get_torus_param);
+
+int nic_clean_stats64(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+{
+	struct hnae3_knic_private_info *kinfo;
+	struct hns3_enet_ring *ring;
+	struct hns3_nic_priv *priv;
+	struct hnae3_handle *h;
+	int i, ret;
+
+	priv = netdev_priv(ndev);
+	h = hns3_get_handle(ndev);
+	kinfo = &h->kinfo;
+
+	rtnl_lock();
+	if (!test_bit(HNS3_NIC_STATE_INITED, &priv->state) ||
+	    test_bit(HNS3_NIC_STATE_RESETTING, &priv->state)) {
+		ret = -EBUSY;
+		goto end_unlock;
+	}
+
+	ret = nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_CLEAN_STATS64,
+				 NULL, 0);
+	if (ret)
+		goto end_unlock;
+
+	for (i = 0; i < kinfo->num_tqps; i++) {
+		ring = &priv->ring[i];
+		memset(&ring->stats, 0, sizeof(struct ring_stats));
+		ring = &priv->ring[i + kinfo->num_tqps];
+		memset(&ring->stats, 0, sizeof(struct ring_stats));
+	}
+
+	memset(&ndev->stats, 0, sizeof(struct net_device_stats));
+	netdev_info(ndev, "clean stats succ\n");
+
+end_unlock:
+	rtnl_unlock();
+	return ret;
+}
+EXPORT_SYMBOL(nic_clean_stats64);

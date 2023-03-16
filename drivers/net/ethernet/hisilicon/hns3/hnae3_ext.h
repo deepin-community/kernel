@@ -35,6 +35,7 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_SET_NOTIFY_START,
 	HNAE3_EXT_OPC_SET_TORUS_PARAM,
 	HNAE3_EXT_OPC_GET_TORUS_PARAM,
+	HNAE3_EXT_OPC_CLEAN_STATS64,
 };
 
 struct hnae3_pfc_storm_para {

@@ -342,6 +342,22 @@ static int hclge_get_torus_param(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_clean_stats64(struct hclge_dev *hdev, void *data,
+			       size_t length)
+{
+	struct hnae3_knic_private_info *kinfo;
+	struct hclge_comm_tqp *tqp;
+	int i;
+
+	kinfo = &hdev->vport[0].nic.kinfo;
+	for (i = 0; i < kinfo->num_tqps; i++) {
+		tqp = container_of(kinfo->tqp[i], struct hclge_comm_tqp, q);
+		memset(&tqp->tqp_stats, 0, sizeof(struct hclge_comm_tqp_stats));
+	}
+	memset(&hdev->mac_stats, 0, sizeof(struct hclge_mac_stats));
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -500,6 +516,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_SET_NOTIFY_START] = hclge_set_notify_packet_start,
 	[HNAE3_EXT_OPC_SET_TORUS_PARAM] = hclge_set_torus_param,
 	[HNAE3_EXT_OPC_GET_TORUS_PARAM] = hclge_get_torus_param,
+	[HNAE3_EXT_OPC_CLEAN_STATS64] = hclge_clean_stats64,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,
