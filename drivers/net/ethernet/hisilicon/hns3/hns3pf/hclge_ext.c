@@ -358,6 +358,94 @@ static int hclge_clean_stats64(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_get_info_from_cmd(struct hclge_dev *hdev,
+				   struct hclge_desc *desc, u32 num, int opcode)
+{
+	u32 i;
+
+	for (i = 0; i < num; i++) {
+		hclge_cmd_setup_basic_desc(desc + i, opcode, true);
+		if (i != num - 1)
+			desc[i].flag |= cpu_to_le16(HCLGE_COMM_CMD_FLAG_NEXT);
+	}
+
+	return hclge_cmd_send(&hdev->hw, desc, num);
+}
+
+static int hclge_get_extend_port_id_info(struct hclge_dev *hdev,
+					 void *data, size_t length)
+{
+	struct hane3_port_ext_id_info *info;
+	struct hclge_id_info_cmd *info_cmd;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hane3_port_ext_id_info))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_CHIP_ID_GET);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get extend port id info, ret = %d\n",
+			ret);
+		return ret;
+	}
+
+	info_cmd = (struct hclge_id_info_cmd *)desc.data;
+	info = (struct hane3_port_ext_id_info *)data;
+	info->chip_id = le32_to_cpu(info_cmd->chip_id);
+	info->mac_id = le32_to_cpu(info_cmd->mac_id);
+	info->io_die_id = le32_to_cpu(info_cmd->io_die_id);
+	return 0;
+}
+
+static int hclge_get_extend_port_num_info(struct hclge_dev *hdev,
+					  void *data, size_t length)
+{
+	struct hane3_port_ext_num_info *num_info;
+	struct hclge_num_info_cmd *resp;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hane3_port_ext_num_info))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_GET_CHIP_NUM);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get extend port number info, ret = %d\n", ret);
+		return ret;
+	}
+
+	resp = (struct hclge_num_info_cmd *)(desc.data);
+	num_info = (struct hane3_port_ext_num_info *)data;
+	num_info->chip_num = le32_to_cpu(resp->chip_num);
+	num_info->io_die_num = le32_to_cpu(resp->io_die_num);
+	return 0;
+}
+
+static int hclge_get_port_num(struct hclge_dev *hdev, void *data,
+			      size_t length)
+{
+	struct hclge_port_num_info_cmd *resp;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(u32))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_GET_PORT_NUM);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get port number, ret = %d\n", ret);
+		return ret;
+	}
+
+	resp = (struct hclge_port_num_info_cmd *)(desc.data);
+	*(u32 *)data = le32_to_cpu(resp->port_num);
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -517,6 +605,9 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_SET_TORUS_PARAM] = hclge_set_torus_param,
 	[HNAE3_EXT_OPC_GET_TORUS_PARAM] = hclge_get_torus_param,
 	[HNAE3_EXT_OPC_CLEAN_STATS64] = hclge_clean_stats64,
+	[HNAE3_EXT_OPC_GET_PORT_EXT_ID_INFO] = hclge_get_extend_port_id_info,
+	[HNAE3_EXT_OPC_GET_PORT_EXT_NUM_INFO] = hclge_get_extend_port_num_info,
+	[HNAE3_EXT_OPC_GET_PORT_NUM] = hclge_get_port_num,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

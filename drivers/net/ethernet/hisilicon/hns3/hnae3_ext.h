@@ -36,6 +36,9 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_SET_TORUS_PARAM,
 	HNAE3_EXT_OPC_GET_TORUS_PARAM,
 	HNAE3_EXT_OPC_CLEAN_STATS64,
+	HNAE3_EXT_OPC_GET_PORT_EXT_ID_INFO,
+	HNAE3_EXT_OPC_GET_PORT_EXT_NUM_INFO,
+	HNAE3_EXT_OPC_GET_PORT_NUM,
 };
 
 struct hnae3_pfc_storm_para {
@@ -58,5 +61,16 @@ struct hnae3_torus_param {
 	u32 enable;       /* 1d torus mode enable */
 	u32 mac_id;       /* export mac id of port */
 	u8 is_node0;      /* if current node is node0 */
+};
+
+struct hane3_port_ext_id_info {
+	u32 chip_id;
+	u32 mac_id;
+	u32 io_die_id;
+};
+
+struct hane3_port_ext_num_info {
+	u32 chip_num;
+	u32 io_die_num;
 };
 #endif

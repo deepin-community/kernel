@@ -277,3 +277,115 @@ err_unlock:
 	return ret;
 }
 EXPORT_SYMBOL(nic_set_cpu_affinity);
+
+static int nic_get_ext_id_info(struct net_device *ndev,
+			       struct hane3_port_ext_id_info *id_info)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PORT_EXT_ID_INFO,
+				  id_info, sizeof(*id_info));
+}
+
+int nic_get_chipid(struct net_device *ndev, u32 *chip_id)
+{
+	struct hane3_port_ext_id_info info;
+	int ret;
+
+	if (!chip_id)
+		return -EINVAL;
+
+	ret = nic_get_ext_id_info(ndev, &info);
+	if (ret)
+		return ret;
+
+	*chip_id = info.chip_id;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_chipid);
+
+int nic_get_mac_id(struct net_device *ndev, u32 *mac_id)
+{
+	struct hane3_port_ext_id_info info;
+	int ret;
+
+	if (!mac_id)
+		return -EINVAL;
+
+	ret = nic_get_ext_id_info(ndev, &info);
+	if (ret)
+		return ret;
+
+	*mac_id = info.mac_id;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_mac_id);
+
+int nic_get_io_die_id(struct net_device *ndev, u32 *io_die_id)
+{
+	struct hane3_port_ext_id_info info;
+	int ret;
+
+	if (!io_die_id)
+		return -EINVAL;
+
+	ret = nic_get_ext_id_info(ndev, &info);
+	if (ret)
+		return ret;
+
+	*io_die_id = info.io_die_id;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_io_die_id);
+
+static int nic_get_ext_num_info(struct net_device *ndev,
+				struct hane3_port_ext_num_info *num_info)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PORT_EXT_NUM_INFO,
+				  num_info, sizeof(*num_info));
+}
+
+int nic_get_chip_num(struct net_device *ndev, u32 *chip_num)
+{
+	struct hane3_port_ext_num_info info;
+	int ret;
+
+	if (!chip_num)
+		return -EINVAL;
+
+	ret = nic_get_ext_num_info(ndev, &info);
+	if (ret)
+		return ret;
+
+	*chip_num = info.chip_num;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_chip_num);
+
+int nic_get_io_die_num(struct net_device *ndev, u32 *io_die_num)
+{
+	struct hane3_port_ext_num_info info;
+	int ret;
+
+	if (!io_die_num)
+		return -EINVAL;
+
+	ret = nic_get_ext_num_info(ndev, &info);
+	if (ret)
+		return ret;
+
+	*io_die_num = info.io_die_num;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_io_die_num);
+
+int nic_get_port_num_of_die(struct net_device *ndev, u32 *port_num)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PORT_NUM,
+				  port_num, sizeof(*port_num));
+}
+EXPORT_SYMBOL(nic_get_port_num_of_die);
+
+int nic_get_port_num_per_chip(struct net_device *ndev, u32 *port_num)
+{
+	return nic_get_port_num_of_die(ndev, port_num);
+}
+EXPORT_SYMBOL(nic_get_port_num_per_chip);

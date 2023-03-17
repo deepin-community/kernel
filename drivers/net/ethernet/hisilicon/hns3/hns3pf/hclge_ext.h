@@ -27,6 +27,24 @@
 
 #define HCLGE_TOURS_TCX_MAP_TCY_MASK 0x1c71c7
 
+struct hclge_id_info_cmd {
+	__le32 chip_id;
+	__le32 mac_id;
+	__le32 io_die_id;
+	u8 rsv[12];
+};
+
+struct hclge_num_info_cmd {
+	__le32 chip_num;
+	__le32 io_die_num;
+	u8 rsv[16];
+};
+
+struct hclge_port_num_info_cmd {
+	__le32 port_num;
+	u8 rsv[20];
+};
+
 struct hclge_pfc_storm_para_cmd {
 	__le32 dir;
 	__le32 enable;
