@@ -44,6 +44,7 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_DISABLE_LANE,
 	HNAE3_EXT_OPC_GET_LANE_STATUS,
 	HNAE3_EXT_OPC_DISABLE_CLOCK,
+	HNAE3_EXT_OPC_SET_PFC_TIME,
 };
 
 struct hnae3_pfc_storm_para {

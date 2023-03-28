@@ -439,3 +439,10 @@ int nic_disable_clock(struct net_device *ndev)
 				  NULL, 0);
 }
 EXPORT_SYMBOL(nic_disable_clock);
+
+int nic_set_pfc_time_cfg(struct net_device *ndev, u16 time)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_PFC_TIME,
+				  &time, sizeof(time));
+}
+EXPORT_SYMBOL(nic_set_pfc_time_cfg);
