@@ -13,6 +13,7 @@
 #define HNS3_PFC_STORM_PARA_ENABLE 1
 #define HNS3_PFC_STORM_PARA_PERIOD_MIN 5
 #define HNS3_PFC_STORM_PARA_PERIOD_MAX 2000
+#define HNS3_MAX_TX_TIMEOUT 600
 
 int nic_netdev_match_check(struct net_device *netdev);
 void nic_chip_recover_handler(struct net_device *ndev,
@@ -35,4 +36,5 @@ int nic_get_chip_num(struct net_device *ndev, u32 *chip_num);
 int nic_get_io_die_num(struct net_device *ndev, u32 *io_die_num);
 int nic_get_port_num_of_die(struct net_device *ndev, u32 *port_num);
 int nic_get_port_num_per_chip(struct net_device *ndev, u32 *port_num);
+int nic_set_tx_timeout(struct net_device *ndev, int tx_timeout);
 #endif
