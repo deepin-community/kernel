@@ -446,6 +446,27 @@ static int hclge_get_port_num(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_get_sfp_present(struct hclge_dev *hdev, void *data,
+				 size_t length)
+{
+	struct hclge_sfp_present_cmd *resp;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(u32))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_SFP_GET_PRESENT);
+	if (ret) {
+		dev_err(&hdev->pdev->dev, "failed to get sfp present, ret = %d\n", ret);
+		return ret;
+	}
+
+	resp = (struct hclge_sfp_present_cmd *)desc.data;
+	*(u32 *)data = le32_to_cpu(resp->sfp_present);
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -608,6 +629,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_PORT_EXT_ID_INFO] = hclge_get_extend_port_id_info,
 	[HNAE3_EXT_OPC_GET_PORT_EXT_NUM_INFO] = hclge_get_extend_port_num_info,
 	[HNAE3_EXT_OPC_GET_PORT_NUM] = hclge_get_port_num,
+	[HNAE3_EXT_OPC_GET_PRESENT] = hclge_get_sfp_present,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

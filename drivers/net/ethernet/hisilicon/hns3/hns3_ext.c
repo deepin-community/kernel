@@ -403,3 +403,10 @@ int nic_set_tx_timeout(struct net_device *ndev, int tx_timeout)
 	return 0;
 }
 EXPORT_SYMBOL(nic_set_tx_timeout);
+
+int nic_get_sfp_present(struct net_device *ndev, int *present)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PRESENT,
+				  present, sizeof(*present));
+}
+EXPORT_SYMBOL(nic_get_sfp_present);
