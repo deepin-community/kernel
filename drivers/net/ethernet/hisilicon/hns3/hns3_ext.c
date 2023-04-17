@@ -410,3 +410,12 @@ int nic_get_sfp_present(struct net_device *ndev, int *present)
 				  present, sizeof(*present));
 }
 EXPORT_SYMBOL(nic_get_sfp_present);
+
+int nic_set_sfp_state(struct net_device *ndev, bool en)
+{
+	u32 state = en ? 1 : 0;
+
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_SFP_STATE,
+				  &state, sizeof(state));
+}
+EXPORT_SYMBOL(nic_set_sfp_state);

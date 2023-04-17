@@ -467,6 +467,30 @@ static int hclge_get_sfp_present(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_set_sfp_state(struct hclge_dev *hdev, void *data,
+			       size_t length)
+{
+	struct hclge_sfp_enable_cmd *req;
+	struct hclge_desc desc;
+	u32 state;
+	int ret;
+
+	if (length != sizeof(u32))
+		return -EINVAL;
+
+	state = *(u32 *)data;
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_SFP_SET_STATUS, false);
+	req = (struct hclge_sfp_enable_cmd *)desc.data;
+	req->sfp_enable = cpu_to_le32(state);
+
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to set sfp state, ret = %d\n", ret);
+
+	return ret;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -630,6 +654,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_PORT_EXT_NUM_INFO] = hclge_get_extend_port_num_info,
 	[HNAE3_EXT_OPC_GET_PORT_NUM] = hclge_get_port_num,
 	[HNAE3_EXT_OPC_GET_PRESENT] = hclge_get_sfp_present,
+	[HNAE3_EXT_OPC_SET_SFP_STATE] = hclge_set_sfp_state,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

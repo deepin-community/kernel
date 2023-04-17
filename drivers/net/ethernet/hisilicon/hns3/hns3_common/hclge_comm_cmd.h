@@ -321,6 +321,7 @@ enum hclge_opcode_type {
 	HCLGE_OPC_GET_PORT_NUM = 0x7006,
 	HCLGE_OPC_CFG_PAUSE_STORM_PARA = 0x7019,
 	HCLGE_OPC_SFP_GET_PRESENT = 0x7101,
+	HCLGE_OPC_SFP_SET_STATUS = 0x7102,
 };
 
 enum hclge_comm_cmd_return_status {
