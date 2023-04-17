@@ -432,3 +432,10 @@ int nic_get_net_lane_status(struct net_device *ndev, u32 *status)
 				  status, sizeof(*status));
 }
 EXPORT_SYMBOL(nic_get_net_lane_status);
+
+int nic_disable_clock(struct net_device *ndev)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_DISABLE_CLOCK,
+				  NULL, 0);
+}
+EXPORT_SYMBOL(nic_disable_clock);

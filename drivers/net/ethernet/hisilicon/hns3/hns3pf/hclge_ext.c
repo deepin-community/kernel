@@ -534,6 +534,22 @@ static int hclge_get_net_lane_status(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_disable_nic_clock(struct hclge_dev *hdev, void *data,
+				   size_t length)
+{
+	struct hclge_desc desc;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_CONFIG_NIC_CLOCK, false);
+	desc.data[0] = 0;
+
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to disable nic clock, ret = %d\n", ret);
+	return ret;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -700,6 +716,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_SET_SFP_STATE] = hclge_set_sfp_state,
 	[HNAE3_EXT_OPC_DISABLE_LANE] = hclge_disable_net_lane,
 	[HNAE3_EXT_OPC_GET_LANE_STATUS] = hclge_get_net_lane_status,
+	[HNAE3_EXT_OPC_DISABLE_CLOCK] = hclge_disable_nic_clock,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

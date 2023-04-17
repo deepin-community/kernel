@@ -41,4 +41,5 @@ int nic_get_sfp_present(struct net_device *ndev, int *present);
 int nic_set_sfp_state(struct net_device *ndev, bool en);
 int nic_disable_net_lane(struct net_device *ndev);
 int nic_get_net_lane_status(struct net_device *ndev, u32 *status);
+int nic_disable_clock(struct net_device *ndev);
 #endif
