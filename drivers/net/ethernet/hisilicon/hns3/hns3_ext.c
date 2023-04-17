@@ -419,3 +419,16 @@ int nic_set_sfp_state(struct net_device *ndev, bool en)
 				  &state, sizeof(state));
 }
 EXPORT_SYMBOL(nic_set_sfp_state);
+
+int nic_disable_net_lane(struct net_device *ndev)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_DISABLE_LANE, NULL, 0);
+}
+EXPORT_SYMBOL(nic_disable_net_lane);
+
+int nic_get_net_lane_status(struct net_device *ndev, u32 *status)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_LANE_STATUS,
+				  status, sizeof(*status));
+}
+EXPORT_SYMBOL(nic_get_net_lane_status);

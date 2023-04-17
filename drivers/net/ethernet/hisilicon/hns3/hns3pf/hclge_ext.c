@@ -491,6 +491,49 @@ static int hclge_set_sfp_state(struct hclge_dev *hdev, void *data,
 	return ret;
 }
 
+static int hclge_set_net_lane_status(struct hclge_dev *hdev,
+				     u32 enable)
+{
+	struct hclge_desc desc;
+	int ret;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_DISABLE_NET_LANE, false);
+	desc.data[0] = cpu_to_le32(enable);
+
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev,
+			"failed to set net lane status, ret = %d\n", ret);
+
+	return ret;
+}
+
+static int hclge_disable_net_lane(struct hclge_dev *hdev, void *data,
+				  size_t length)
+{
+	return hclge_set_net_lane_status(hdev, 0);
+}
+
+static int hclge_get_net_lane_status(struct hclge_dev *hdev, void *data,
+				     size_t length)
+{
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(u32))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_DISABLE_NET_LANE);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get net lane status, ret = %d\n", ret);
+		return ret;
+	}
+
+	*(u32 *)data = le32_to_cpu(desc.data[0]);
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -655,6 +698,8 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_PORT_NUM] = hclge_get_port_num,
 	[HNAE3_EXT_OPC_GET_PRESENT] = hclge_get_sfp_present,
 	[HNAE3_EXT_OPC_SET_SFP_STATE] = hclge_set_sfp_state,
+	[HNAE3_EXT_OPC_DISABLE_LANE] = hclge_disable_net_lane,
+	[HNAE3_EXT_OPC_GET_LANE_STATUS] = hclge_get_net_lane_status,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,
