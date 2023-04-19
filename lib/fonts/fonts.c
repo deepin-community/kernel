@@ -60,6 +60,9 @@ static const struct font_desc *fonts[] = {
 #ifdef CONFIG_FONT_6x8
 	&font_6x8,
 #endif
+#ifdef CONFIG_FONT_UTF8x16
+	&font_utf8_8x16,
+#endif
 };
 
 #define num_fonts ARRAY_SIZE(fonts)
