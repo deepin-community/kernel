@@ -650,6 +650,38 @@ static int hclge_get_port_wire_type(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static void hclge_set_phy_state(struct hclge_dev *hdev, bool enable)
+{
+	struct phy_device *phydev = hdev->hw.mac.phydev;
+
+	if (!phydev)
+		return;
+
+	if (enable && (phydev->state == PHY_READY || phydev->state == PHY_HALTED))
+		phy_start(phydev);
+	else if (!enable && (phy_is_started(phydev) || phydev->state == PHY_DOWN ||
+			     phydev->state == PHY_ERROR))
+		phy_stop(phydev);
+}
+
+static int hclge_set_mac_state(struct hclge_dev *hdev, void *data,
+			       size_t length)
+{
+	bool enable;
+	int ret;
+
+	if (length != sizeof(int))
+		return -EINVAL;
+
+	enable = !!*(int *)data;
+	ret = hclge_cfg_mac_mode(hdev, enable);
+
+	if (!ret && !hclge_comm_dev_phy_imp_supported(hdev->ae_dev))
+		hclge_set_phy_state(hdev, enable);
+
+	return ret;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -821,6 +853,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_HILINK_REF_LOS] = hclge_get_hilink_ref_los,
 	[HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS] = hclge_get_port_fault_status,
 	[HNAE3_EXT_OPC_GET_PORT_TYPE] = hclge_get_port_wire_type,
+	[HNAE3_EXT_OPC_SET_MAC_STATE] = hclge_set_mac_state,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

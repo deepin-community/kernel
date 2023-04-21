@@ -1172,4 +1172,5 @@ void hclge_reset_task_schedule(struct hclge_dev *hdev);
 void hclge_reset_event(struct pci_dev *pdev, struct hnae3_handle *handle);
 void hclge_get_media_type(struct hnae3_handle *handle, u8 *media_type,
 			  u8 *module_type);
+int hclge_cfg_mac_mode(struct hclge_dev *hdev, bool enable);
 #endif

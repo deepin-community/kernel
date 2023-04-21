@@ -475,3 +475,10 @@ int nic_get_port_wire_type(struct net_device *ndev, u32 *wire_type)
 				  wire_type, sizeof(*wire_type));
 }
 EXPORT_SYMBOL(nic_get_port_wire_type);
+
+int nic_set_mac_state(struct net_device *ndev, int enable)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_MAC_STATE,
+				  &enable, sizeof(enable));
+}
+EXPORT_SYMBOL(nic_set_mac_state);
