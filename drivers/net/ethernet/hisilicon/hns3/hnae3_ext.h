@@ -47,6 +47,7 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_SET_PFC_TIME,
 	HNAE3_EXT_OPC_GET_HILINK_REF_LOS,
 	HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS,
+	HNAE3_EXT_OPC_GET_PORT_TYPE,
 };
 
 struct hnae3_pfc_storm_para {

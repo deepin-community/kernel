@@ -468,3 +468,10 @@ int nic_get_port_fault_status(struct net_device *ndev, u32 fault_type, u32 *stat
 	return 0;
 }
 EXPORT_SYMBOL(nic_get_port_fault_status);
+
+int nic_get_port_wire_type(struct net_device *ndev, u32 *wire_type)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PORT_TYPE,
+				  wire_type, sizeof(*wire_type));
+}
+EXPORT_SYMBOL(nic_get_port_wire_type);

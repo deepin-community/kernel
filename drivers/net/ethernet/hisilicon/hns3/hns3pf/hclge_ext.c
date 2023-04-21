@@ -637,6 +637,19 @@ static int hclge_get_port_fault_status(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_get_port_wire_type(struct hclge_dev *hdev, void *data,
+				    size_t length)
+{
+	u8 module_type;
+
+	if (length != sizeof(u32))
+		return -EINVAL;
+
+	hclge_get_media_type(&hdev->vport[0].nic, NULL, &module_type);
+	*(u32 *)data = module_type;
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -807,6 +820,7 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_SET_PFC_TIME] = hclge_set_pause_trans_time,
 	[HNAE3_EXT_OPC_GET_HILINK_REF_LOS] = hclge_get_hilink_ref_los,
 	[HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS] = hclge_get_port_fault_status,
+	[HNAE3_EXT_OPC_GET_PORT_TYPE] = hclge_get_port_wire_type,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,
