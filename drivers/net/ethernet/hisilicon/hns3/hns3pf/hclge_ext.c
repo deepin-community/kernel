@@ -587,6 +587,56 @@ static int hclge_set_pause_trans_time(struct hclge_dev *hdev, void *data,
 	return 0;
 }
 
+static int hclge_get_hilink_ref_los(struct hclge_dev *hdev, void *data,
+				    size_t length)
+{
+	struct hclge_port_fault_cmd *fault_cmd;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_port_fault))
+		return -EINVAL;
+
+	fault_cmd = (struct hclge_port_fault_cmd *)desc.data;
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_CFG_GET_HILINK_REF_LOS);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get hilink ref los, ret = %d\n", ret);
+		return ret;
+	}
+
+	*(u32 *)data = le32_to_cpu(fault_cmd->fault_status);
+	return 0;
+}
+
+static int hclge_get_port_fault_status(struct hclge_dev *hdev, void *data,
+				       size_t length)
+{
+	struct hclge_port_fault_cmd *fault_cmd;
+	struct hnae3_port_fault *para;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_port_fault))
+		return -EINVAL;
+
+	para = (struct hnae3_port_fault *)data;
+	fault_cmd = (struct hclge_port_fault_cmd *)desc.data;
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_GET_PORT_FAULT_STATUS, true);
+	fault_cmd->port_type = cpu_to_le32(para->fault_type);
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get port fault status, type = %u, ret = %d\n",
+			para->fault_type, ret);
+		return ret;
+	}
+
+	para->fault_status = le32_to_cpu(fault_cmd->fault_status);
+
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -755,6 +805,8 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_LANE_STATUS] = hclge_get_net_lane_status,
 	[HNAE3_EXT_OPC_DISABLE_CLOCK] = hclge_disable_nic_clock,
 	[HNAE3_EXT_OPC_SET_PFC_TIME] = hclge_set_pause_trans_time,
+	[HNAE3_EXT_OPC_GET_HILINK_REF_LOS] = hclge_get_hilink_ref_los,
+	[HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS] = hclge_get_port_fault_status,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,

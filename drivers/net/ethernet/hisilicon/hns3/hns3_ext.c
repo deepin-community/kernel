@@ -446,3 +446,25 @@ int nic_set_pfc_time_cfg(struct net_device *ndev, u16 time)
 				  &time, sizeof(time));
 }
 EXPORT_SYMBOL(nic_set_pfc_time_cfg);
+
+int nic_get_port_fault_status(struct net_device *ndev, u32 fault_type, u32 *status)
+{
+	int opcode = HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS;
+	struct hnae3_port_fault fault_para;
+	int ret;
+
+	if (!status)
+		return -EINVAL;
+
+	if (fault_type == HNAE3_FAULT_TYPE_HILINK_REF_LOS)
+		opcode = HNAE3_EXT_OPC_GET_HILINK_REF_LOS;
+
+	fault_para.fault_type = fault_type;
+	ret = nic_invoke_pri_ops(ndev, opcode, &fault_para, sizeof(fault_para));
+	if (ret)
+		return ret;
+
+	*status = fault_para.fault_status;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_port_fault_status);

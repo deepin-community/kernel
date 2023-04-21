@@ -45,6 +45,8 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_GET_LANE_STATUS,
 	HNAE3_EXT_OPC_DISABLE_CLOCK,
 	HNAE3_EXT_OPC_SET_PFC_TIME,
+	HNAE3_EXT_OPC_GET_HILINK_REF_LOS,
+	HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS,
 };
 
 struct hnae3_pfc_storm_para {
@@ -53,6 +55,19 @@ struct hnae3_pfc_storm_para {
 	u32 period_ms;
 	u32 times;
 	u32 recovery_period_ms;
+};
+
+enum hnae3_port_fault_type {
+	HNAE3_FAULT_TYPE_CDR_FLASH,
+	HNAE3_FAULT_TYPE_9545_ERR,
+	HNAE3_FAULT_TYPE_CDR_CORE,
+	HNAE3_FAULT_TYPE_HILINK_REF_LOS,
+	HNAE3_FAULT_TYPE_INVALID
+};
+
+struct hnae3_port_fault {
+	u32 fault_type;
+	u32 fault_status;
 };
 
 struct hnae3_notify_pkt_param {

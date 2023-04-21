@@ -354,6 +354,12 @@ struct hclge_sfp_info_cmd {
 	u8 rsv[6];
 };
 
+struct hclge_port_fault_cmd {
+	__le32 fault_status;
+	__le32 port_type;
+	u8 rsv[16];
+};
+
 #define HCLGE_MAC_CFG_FEC_AUTO_EN_B	0
 #define HCLGE_MAC_CFG_FEC_MODE_S	1
 #define HCLGE_MAC_CFG_FEC_MODE_M	GENMASK(3, 1)
