@@ -51,11 +51,20 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_SET_MAC_STATE,
 	HNAE3_EXT_OPC_SET_LED,
 	HNAE3_EXT_OPC_GET_LED_SIGNAL,
+	HNAE3_EXT_OPC_GET_PHY_REG,
+	HNAE3_EXT_OPC_SET_PHY_REG,
 };
 
 struct hnae3_led_state_para {
 	u32 type;
 	u32 status;
+};
+
+struct hnae3_phy_para {
+	u32 page_select_addr;
+	u32 reg_addr;
+	u16 page;
+	u16 data;
 };
 
 struct hnae3_lamp_signal {

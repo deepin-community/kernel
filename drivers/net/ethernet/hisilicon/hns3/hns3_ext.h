@@ -15,6 +15,13 @@
 #define HNS3_PFC_STORM_PARA_PERIOD_MAX 2000
 #define HNS3_MAX_TX_TIMEOUT 600
 
+#define nic_set_8211_phy_reg nic_set_phy_reg
+#define nic_get_8211_phy_reg nic_get_phy_reg
+#define nic_set_8521_phy_reg(ndev, page, reg_addr, data) \
+	nic_set_phy_reg(ndev, 0, page, reg_addr, data)
+#define nic_get_8521_phy_reg(ndev, page, reg_addr, data) \
+	nic_get_phy_reg(ndev, 0, page, reg_addr, data)
+
 #define nic_get_cdr_flash_status(ndev, status)	\
 	nic_get_port_fault_status(ndev, HNAE3_FAULT_TYPE_CDR_FLASH, status)
 #define nic_get_hilink_ref_los(ndev, status)	\
@@ -53,4 +60,8 @@ int nic_get_port_wire_type(struct net_device *ndev, u32 *wire_type);
 int nic_set_mac_state(struct net_device *ndev, int enable);
 int nic_set_led(struct net_device *ndev, u32 type, u32 status);
 int nic_get_led_signal(struct net_device *ndev, struct hnae3_lamp_signal *signal);
+int nic_get_phy_reg(struct net_device *ndev, u32 page_select_addr,
+		    u16 page, u32 reg_addr, u16 *data);
+int nic_set_phy_reg(struct net_device *ndev, u32 page_select_addr,
+		    u16 page, u32 reg_addr, u16 data);
 #endif

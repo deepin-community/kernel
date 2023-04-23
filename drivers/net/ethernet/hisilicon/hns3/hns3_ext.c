@@ -501,3 +501,39 @@ int nic_get_led_signal(struct net_device *ndev, struct hnae3_lamp_signal *signal
 				  signal, sizeof(*signal));
 }
 EXPORT_SYMBOL(nic_get_led_signal);
+
+int nic_get_phy_reg(struct net_device *ndev, u32 page_select_addr,
+		    u16 page, u32 reg_addr, u16 *data)
+{
+	struct hnae3_phy_para para;
+	int ret;
+
+	if (!data)
+		return -EINVAL;
+
+	para.page_select_addr = page_select_addr;
+	para.page = page;
+	para.reg_addr = reg_addr;
+	ret = nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_PHY_REG,
+				 &para, sizeof(para));
+	if (ret)
+		return ret;
+
+	*data = para.data;
+	return 0;
+}
+EXPORT_SYMBOL(nic_get_phy_reg);
+
+int nic_set_phy_reg(struct net_device *ndev, u32 page_select_addr,
+		    u16 page, u32 reg_addr, u16 data)
+{
+	struct hnae3_phy_para para;
+
+	para.page_select_addr = page_select_addr;
+	para.page = page;
+	para.reg_addr = reg_addr;
+	para.data = data;
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_PHY_REG,
+				  &para, sizeof(para));
+}
+EXPORT_SYMBOL(nic_set_phy_reg);
