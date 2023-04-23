@@ -83,6 +83,15 @@ struct hclge_sfp_enable_cmd {
 	__le32 rsv[5];
 };
 
+struct hclge_lamp_signal_cmd {
+	__le32 type;
+	__le32 status;
+	u8 error;
+	u8 locate;
+	u8 activity;
+	u8 rsv[13];
+};
+
 struct hclge_reset_fail_type_map {
 	enum hnae3_reset_type reset_type;
 	enum hnae3_event_type_custom custom_type;

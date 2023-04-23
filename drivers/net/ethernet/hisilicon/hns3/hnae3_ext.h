@@ -49,6 +49,19 @@ enum hnae3_ext_opcode {
 	HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS,
 	HNAE3_EXT_OPC_GET_PORT_TYPE,
 	HNAE3_EXT_OPC_SET_MAC_STATE,
+	HNAE3_EXT_OPC_SET_LED,
+	HNAE3_EXT_OPC_GET_LED_SIGNAL,
+};
+
+struct hnae3_led_state_para {
+	u32 type;
+	u32 status;
+};
+
+struct hnae3_lamp_signal {
+	u8 error;
+	u8 locate;
+	u8 activity;
 };
 
 struct hnae3_pfc_storm_para {

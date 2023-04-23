@@ -482,3 +482,22 @@ int nic_set_mac_state(struct net_device *ndev, int enable)
 				  &enable, sizeof(enable));
 }
 EXPORT_SYMBOL(nic_set_mac_state);
+
+int nic_set_led(struct net_device *ndev, u32 type, u32 status)
+{
+	struct hnae3_led_state_para para;
+
+	para.status = status;
+	para.type = type;
+
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_SET_LED,
+				  &para, sizeof(para));
+}
+EXPORT_SYMBOL(nic_set_led);
+
+int nic_get_led_signal(struct net_device *ndev, struct hnae3_lamp_signal *signal)
+{
+	return nic_invoke_pri_ops(ndev, HNAE3_EXT_OPC_GET_LED_SIGNAL,
+				  signal, sizeof(*signal));
+}
+EXPORT_SYMBOL(nic_get_led_signal);

@@ -682,6 +682,56 @@ static int hclge_set_mac_state(struct hclge_dev *hdev, void *data,
 	return ret;
 }
 
+static int hclge_set_led(struct hclge_dev *hdev, void *data,
+			 size_t length)
+{
+	struct hclge_lamp_signal_cmd *para_cmd;
+	struct hnae3_led_state_para *para;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_led_state_para))
+		return -EINVAL;
+
+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_SET_LED, false);
+	para = (struct hnae3_led_state_para *)data;
+	para_cmd = (struct hclge_lamp_signal_cmd *)desc.data;
+	para_cmd->type = cpu_to_le32(para->type);
+	para_cmd->status = cpu_to_le32(para->status);
+
+	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+	if (ret)
+		dev_err(&hdev->pdev->dev, "failed to set led, ret = %d\n", ret);
+
+	return ret;
+}
+
+static int hclge_get_led_signal(struct hclge_dev *hdev, void *data,
+				size_t length)
+{
+	struct hclge_lamp_signal_cmd *signal_cmd;
+	struct hnae3_lamp_signal *signal;
+	struct hclge_desc desc;
+	int ret;
+
+	if (length != sizeof(struct hnae3_lamp_signal))
+		return -EINVAL;
+
+	ret = hclge_get_info_from_cmd(hdev, &desc, 1, HCLGE_OPC_SET_LED);
+	if (ret) {
+		dev_err(&hdev->pdev->dev,
+			"failed to get led signal, ret = %d\n", ret);
+		return ret;
+	}
+
+	signal = (struct hnae3_lamp_signal *)data;
+	signal_cmd = (struct hclge_lamp_signal_cmd *)desc.data;
+	signal->error = signal_cmd->error;
+	signal->locate = signal_cmd->locate;
+	signal->activity = signal_cmd->activity;
+	return 0;
+}
+
 static void hclge_ext_resotre_config(struct hclge_dev *hdev)
 {
 	if (hdev->reset_type != HNAE3_IMP_RESET &&
@@ -854,6 +904,8 @@ static const hclge_priv_ops_fn hclge_ext_func_arr[] = {
 	[HNAE3_EXT_OPC_GET_PORT_FAULT_STATUS] = hclge_get_port_fault_status,
 	[HNAE3_EXT_OPC_GET_PORT_TYPE] = hclge_get_port_wire_type,
 	[HNAE3_EXT_OPC_SET_MAC_STATE] = hclge_set_mac_state,
+	[HNAE3_EXT_OPC_SET_LED] = hclge_set_led,
+	[HNAE3_EXT_OPC_GET_LED_SIGNAL] = hclge_get_led_signal,
 };
 
 int hclge_ext_ops_handle(struct hnae3_handle *handle, int opcode,
