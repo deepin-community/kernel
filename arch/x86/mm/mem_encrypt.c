@@ -16,6 +16,8 @@
 
 #include <asm/sev.h>
 
+#include <asm/processor-hygon.h>
+
 /* Override for DMA direct allocation check - ARCH_HAS_FORCE_DMA_UNENCRYPTED */
 bool force_dma_unencrypted(struct device *dev)
 {
@@ -46,6 +48,11 @@ static void print_mem_encrypt_feature_info(void)
 {
 	pr_info("Memory Encryption Features active: ");
 
+	if (is_x86_vendor_hygon()) {
+		print_hygon_cc_feature_info();
+		return;
+	}
+
 	switch (cc_vendor) {
 	case CC_VENDOR_INTEL:
 		pr_cont("Intel TDX\n");
@@ -55,6 +62,7 @@ static void print_mem_encrypt_feature_info(void)
 
 		/* Secure Memory Encryption */
 		if (cc_platform_has(CC_ATTR_HOST_MEM_ENCRYPT)) {
+
 		/*
 		 * SME is mutually exclusive with any of the SEV
 		 * features below.
