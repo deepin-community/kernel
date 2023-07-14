@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/usb/phytium,usb2.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium USBHS-DRD controller bindings
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com>
+
+properties:
+  compatible:
+    const: phytium,usb2
+
+  reg:
+    items:
+      - description: USB controller registers
+      - description: PHY registers
+
+  interrupts:
+    maxItems: 1
+
+  dr_mode:
+    enum: [host, otg, peripheral]
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    usb2_0: usb2@31800000 {
+      compatible = "phytium,usb2";
+      reg = <0x0 0x31800000 0x0 0x80000>,
+            <0x0 0x31990000 0x0 0x10000>;
+      interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+    };
