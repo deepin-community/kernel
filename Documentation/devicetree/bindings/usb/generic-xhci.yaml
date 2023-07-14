@@ -29,6 +29,11 @@ properties:
         enum:
           - brcm,xhci-brcm-v2
           - brcm,bcm7445-xhci
+      - description: Phytium Pe220x SoC with xHCI
+        items:
+          - enum:
+              - phytium,pe220x-xhci
+          - const: generic-xhci
       - description: Generic xHCI device
         const: xhci-platform
         deprecated: true
