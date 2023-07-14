@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium Pe2204 demo board
+ *
+ * Copyright (C) 2022-2023, Phytium Technology Co., Ltd.
+ */
+
+/dts-v1/;
+/memreserve/ 0x80000000 0x10000;
+
+#include "pe2204.dtsi"
+
+/{
+	model = "Pe2204 DEMO DDR4";
+	compatible = "phytium,pe2204";
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	sound_card: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "phytium,pe220x-i2s-audio";
+		simple-audio-card,pin-switches = "mic-in";
+		simple-audio-card,widgets = "Microphone", "mic-in";
+		simple-audio-card,routing = "MIC2", "mic-in";
+		simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&codec0>;
+		};
+	};
+};
+
+&soc {
+	mio9: i2c@28026000 {
+		compatible = "phytium,i2c";
+		reg = <0x0 0x28026000 0x0 0x1000>;
+		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk_50mhz>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		rtc@68 {
+			compatible = "dallas,ds1339";
+			reg = <0x68>;
+		};
+
+	};
+
+	mio14: i2c@28030000 {
+		compatible = "phytium,i2c";
+		reg = <0x0 0x28030000 0x0 0x1000>;
+		interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk_50mhz>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		codec0: es8336@10 {
+			#sound-dai-cells = <0x0>;
+			compatible = "everest,es8336";
+			reg = <0x10>;
+		};
+	};
+};
+
+&pcie {
+	status = "okay";
+};
+
+&usb3_0 {
+	status = "okay";
+};
+
+&usb3_1 {
+	status = "okay";
+};
+
+&usb2_0 {
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&usb2_1 {
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&usb2_2 {
+	dr_mode = "peripheral";
+	status = "okay";
+};
+
+&macb0 {
+	phy-mode = "sgmii";
+	use-mii;
+	status = "okay";
+};
+
+&sata1 {
+	status = "okay";
+};
+
+&spi2 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart2 {
+	status = "okay";
+};
+
+&can0 {
+	status = "okay";
+};
+
+&can1 {
+	status = "okay";
+};
+
+&mmc0 {
+	bus-width = <0x00000008>;
+	max-frequency = <50000000>;
+	cap-mmc-hw-reset;
+	cap-mmc-highspeed;
+	no-sdio;
+	no-sd;
+	non-removable;
+	status = "okay";
+};
+
+&mmc1 {
+	bus-width = <0x00000004>;
+	max-frequency = <50000000>;
+	cap-sdio-irq;
+	cap-sd-highspeed;
+	sd-uhs-sdr25;
+	no-mmc;
+	status = "okay";
+};
+
+&i2s0 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
+&dc0 {
+	pipe_mask = /bits/ 8 <0x3>;
+	edp_mask = /bits/ 8 <0x0>;
+	status = "okay";
+};
