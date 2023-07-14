@@ -1079,6 +1079,8 @@ patternProperties:
     description: PHICOMM Co., Ltd.
   "^phytec,.*":
     description: PHYTEC Messtechnik GmbH
+  "^phytium,.*":
+    description: Phytium Technology Co., Ltd.
   "^picochip,.*":
     description: Picochip Ltd
   "^pine64,.*":
