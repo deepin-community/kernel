@@ -256,6 +256,14 @@ config ARCH_PENSANDO
 	  cores for a minimal latency/jitter datapath, and network
 	  interfaces up to 200 Gb/s.
 
+config ARCH_PHYTIUM
+	bool "Phytium SoC Family"
+	help
+	  This enables support for Phytium ARMv8 SoC family, including:
+	   - Phytium Server SoC Family
+	   - Phytium Desktop SoC Family
+	   - Phytium Embedded SoC Family
+
 config ARCH_QCOM
 	bool "Qualcomm Platforms"
 	select GPIOLIB
