@@ -29,6 +29,7 @@
 #include <asm/debugreg.h>
 #include <asm/msr.h>
 #include <asm/sev.h>
+#include <asm/processor-hygon.h>
 
 #include "mmu.h"
 #include "x86.h"
@@ -3213,12 +3214,15 @@ out:
 	kvm_caps.supported_vm_types |= vm_types;
 
 	if (boot_cpu_has(X86_FEATURE_SEV))
-		pr_info("SEV %s (ASIDs %u - %u)\n",
-			sev_str_feature_state(sev_supported, vm_types & BIT(KVM_X86_SEV_VM)),
-			min_sev_asid, max_sev_asid);
-	if (boot_cpu_has(X86_FEATURE_SEV_ES))
-		pr_info("SEV-ES %s (ASIDs %u - %u)\n",
-			sev_str_feature_state(sev_es_supported, vm_types & BIT(KVM_X86_SEV_ES_VM)),
+pr_info("%s %s (ASIDs %u - %u)\n",
+	is_x86_vendor_hygon() ? "CSV" : "SEV",
+	sev_str_feature_state(sev_supported, vm_types & BIT(KVM_X86_SEV_VM)),
+	min_sev_asid, max_sev_asid);
+if (boot_cpu_has(X86_FEATURE_SEV_ES))
+pr_info("%s %s (ASIDs %u - %u)\n",
+	is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
+	sev_str_feature_state(sev_es_supported, vm_types & BIT(KVM_X86_SEV_ES_VM)),
+
 			min_sev_es_asid, max_sev_es_asid);
 	if (boot_cpu_has(X86_FEATURE_SEV_SNP))
 		pr_info("SEV-SNP %s (ASIDs %u - %u)\n",
