@@ -28,6 +28,7 @@
 #include <asm/debugreg.h>
 #include <asm/msr.h>
 #include <asm/sev.h>
+#include <asm/processor-hygon.h>
 
 #include "mmu.h"
 #include "x86.h"
@@ -3119,13 +3120,15 @@ out:
 	}
 
 	if (boot_cpu_has(X86_FEATURE_SEV))
-		pr_info("SEV %s (ASIDs %u - %u)\n",
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV",
 			sev_supported ? min_sev_asid <= max_sev_asid ? "enabled" :
 								       "unusable" :
 								       "disabled",
 			min_sev_asid, max_sev_asid);
 	if (boot_cpu_has(X86_FEATURE_SEV_ES))
-		pr_info("SEV-ES %s (ASIDs %u - %u)\n",
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
 			sev_es_supported ? min_sev_es_asid <= max_sev_es_asid ? "enabled" :
 										"unusable" :
 										"disabled",
