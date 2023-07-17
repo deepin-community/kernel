@@ -45,6 +45,7 @@
 #include <asm/reboot.h>
 #include <asm/fpu/api.h>
 #include <asm/virt.h>
+#include <asm/processor-hygon.h>
 
 #include <trace/events/ipi.h>
 
@@ -502,7 +503,8 @@ static bool __kvm_is_svm_supported(void)
 	}
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
-		pr_info("KVM is unsupported when running as an SEV guest\n");
+		pr_info("KVM is unsupported when running as an %s guest\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV");
 		return false;
 	}
 
