@@ -17,6 +17,26 @@
 
 #include "psp-dev.h"
 
+/*
+ * Hygon CSV build info:
+ *    Hygon CSV build info is 32-bit in length other than 8-bit as that
+ *    in AMD SEV.
+ */
+u32 hygon_csv_build;
+
+/*
+ * csv_update_api_version used to update the api version of HYGON CSV
+ * firmwareat driver side.
+ * Currently, we only need to update @hygon_csv_build.
+ */
+void csv_update_api_version(struct sev_user_data_status *status)
+{
+	if (status) {
+		hygon_csv_build = (status->flags >> 9) |
+				   ((u32)status->build << 23);
+	}
+}
+
 int csv_cmd_buffer_len(int cmd)
 {
 	switch (cmd) {
