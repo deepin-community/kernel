@@ -246,6 +246,50 @@ static void bsp_init_hygon(struct cpuinfo_x86 *c)
 	resctrl_cpu_detect(c);
 }
 
+static void early_detect_mem_encrypt(struct cpuinfo_x86 *c)
+{
+	u64 msr;
+	u32 eax;
+
+	eax = cpuid_eax(0x8000001f);
+
+	/* Check whether SME or CSV is supported */
+	if (!(eax & (BIT(0) | BIT(1))))
+		return;
+
+	/* If BIOS has not enabled SME then don't advertise the SME feature. */
+	rdmsrl(MSR_AMD64_SYSCFG, msr);
+	if (!(msr & MSR_AMD64_SYSCFG_MEM_ENCRYPT))
+		goto clear_all;
+
+	/*
+	 * Always adjust physical address bits. Even though this will be a
+	 * value above 32-bits this is still done for CONFIG_X86_32 so that
+	 * accurate values are reported.
+	 */
+	c->x86_phys_bits -= (cpuid_ebx(0x8000001f) >> 6) & 0x3f;
+
+	/* Don't advertise SME and CSV features under CONFIG_X86_32. */
+	if (IS_ENABLED(CONFIG_X86_32))
+		goto clear_all;
+
+	/*
+	 * If BIOS has not enabled CSV then don't advertise the CSV and CSV2
+	 * feature.
+	 */
+	rdmsrl(MSR_K7_HWCR, msr);
+	if (!(msr & MSR_K7_HWCR_SMMLOCK))
+		goto clear_csv;
+
+	return;
+
+clear_all:
+	setup_clear_cpu_cap(X86_FEATURE_SME);
+clear_csv:
+	setup_clear_cpu_cap(X86_FEATURE_SEV);
+	setup_clear_cpu_cap(X86_FEATURE_SEV_ES);
+}
+
 static void early_init_hygon(struct cpuinfo_x86 *c)
 {
 	u32 dummy;
@@ -294,6 +338,8 @@ static void early_init_hygon(struct cpuinfo_x86 *c)
 	set_cpu_cap(c, X86_FEATURE_VMMCALL);
 
 	hygon_get_topology_early(c);
+
+	early_detect_mem_encrypt(c);
 }
 
 static void init_hygon(struct cpuinfo_x86 *c)
