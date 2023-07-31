@@ -100,8 +100,14 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_puts(m, "flags\t\t:");
 	for (i = 0; i < 32*NCAPINTS; i++)
-		if (cpu_has(c, i) && x86_cap_flags[i] != NULL)
-			seq_printf(m, " %s", x86_cap_flags[i]);
+		if (cpu_has(c, i) && x86_cap_flags[i] != NULL) {
+			if (c->x86_vendor == X86_VENDOR_HYGON)
+				seq_printf(m, " %s", i == X86_FEATURE_SEV ? "csv" :
+					   (i == X86_FEATURE_SEV_ES ? "csv2" :
+					    x86_cap_flags[i]));
+			else
+				seq_printf(m, " %s", x86_cap_flags[i]);
+		}
 
 #ifdef CONFIG_X86_VMX_FEATURE_NAMES
 	if (cpu_has(c, X86_FEATURE_VMX) && c->vmx_capability[0]) {
