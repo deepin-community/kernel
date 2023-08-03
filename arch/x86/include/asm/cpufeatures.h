@@ -5,7 +5,7 @@
 /*
  * Defines x86 CPU feature bits
  */
-#define NCAPINTS			22	   /* N 32-bit words worth of info */
+#define NCAPINTS			24	   /* N 32-bit words worth of info */
 #define NBUGINTS			2	   /* N 32-bit bug flags */
 
 /*
@@ -518,6 +518,10 @@
 #define X86_FEATURE_IBPB_EXIT_TO_USER	(21*32+14) /* Use IBPB on exit-to-userspace, see VMSCAPE bug */
 #define X86_FEATURE_ABMC		(21*32+15) /* Assignable Bandwidth Monitoring Counters */
 #define X86_FEATURE_MSR_IMM		(21*32+16) /* MSR immediate form instructions */
+
+/* HYGON-defined CPU features, CPUID level 0x8c860000:0 (EDX), word 23 */
+#define X86_FEATURE_SM3			(23*32 + 1) /* SM3 instructions */
+#define X86_FEATURE_SM4			(23*32 + 2) /* SM4 instructions */
 
 /*
  * BUG word(s)
