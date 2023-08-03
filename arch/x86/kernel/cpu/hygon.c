@@ -300,6 +300,7 @@ clear_all:
 clear_csv:
 	setup_clear_cpu_cap(X86_FEATURE_SEV);
 	setup_clear_cpu_cap(X86_FEATURE_SEV_ES);
+	setup_clear_cpu_cap(X86_FEATURE_CSV3);
 }
 
 static void early_init_hygon(struct cpuinfo_x86 *c)
