@@ -9,6 +9,7 @@
 #include <linux/wait.h>
 #include <linux/writeback.h>
 #include <linux/iversion.h>
+#include <linux/filelock.h>
 
 #include "super.h"
 #include "mds_client.h"
@@ -430,7 +431,7 @@ void ceph_reservation_status(struct ceph_fs_client *fsc,
  *
  * Called with i_ceph_lock held.
  */
-static struct ceph_cap *__get_cap_for_mds(struct ceph_inode_info *ci, int mds)
+struct ceph_cap *__get_cap_for_mds(struct ceph_inode_info *ci, int mds)
 {
 	struct ceph_cap *cap;
 	struct rb_node *n = ci->i_caps.rb_node;
@@ -1626,6 +1627,7 @@ void ceph_flush_snaps(struct ceph_inode_info *ci,
 	struct inode *inode = &ci->netfs.inode;
 	struct ceph_mds_client *mdsc = ceph_inode_to_client(inode)->mdsc;
 	struct ceph_mds_session *session = NULL;
+	bool need_put = false;
 	int mds;
 
 	dout("ceph_flush_snaps %p\n", inode);
@@ -1670,8 +1672,13 @@ out:
 		ceph_put_mds_session(session);
 	/* we flushed them all; remove this inode from the queue */
 	spin_lock(&mdsc->snap_flush_lock);
+	if (!list_empty(&ci->i_snap_flush_item))
+		need_put = true;
 	list_del_init(&ci->i_snap_flush_item);
 	spin_unlock(&mdsc->snap_flush_lock);
+
+	if (need_put)
+		iput(inode);
 }
 
 /*
@@ -1898,8 +1905,7 @@ bool __ceph_should_report_size(struct ceph_inode_info *ci)
  *  CHECK_CAPS_FLUSH - we should flush any dirty caps immediately, without
  *    further delay.
  */
-void ceph_check_caps(struct ceph_inode_info *ci, int flags,
-		     struct ceph_mds_session *session)
+void ceph_check_caps(struct ceph_inode_info *ci, int flags)
 {
 	struct inode *inode = &ci->netfs.inode;
 	struct ceph_mds_client *mdsc = ceph_sb_to_mdsc(inode->i_sb);
@@ -1913,15 +1919,14 @@ void ceph_check_caps(struct ceph_inode_info *ci, int flags,
 	bool queue_invalidate = false;
 	bool tried_invalidate = false;
 	bool queue_writeback = false;
-
-	if (session)
-		ceph_get_mds_session(session);
+	struct ceph_mds_session *session = NULL;
 
 	spin_lock(&ci->i_ceph_lock);
 	if (ci->i_ceph_flags & CEPH_I_ASYNC_CREATE) {
+		ci->i_ceph_flags |= CEPH_I_ASYNC_CHECK_CAPS;
+
 		/* Don't send messages until we get async create reply */
 		spin_unlock(&ci->i_ceph_lock);
-		ceph_put_mds_session(session);
 		return;
 	}
 
@@ -2851,7 +2856,7 @@ static void check_max_size(struct inode *inode, loff_t endoff)
 		check = 1;
 	spin_unlock(&ci->i_ceph_lock);
 	if (check)
-		ceph_check_caps(ci, CHECK_CAPS_AUTHONLY, NULL);
+		ceph_check_caps(ci, CHECK_CAPS_AUTHONLY);
 }
 
 static inline int get_used_fmode(int caps)
@@ -3104,6 +3109,12 @@ static void __ceph_put_cap_refs(struct ceph_inode_info *ci, int had,
 	}
 	if (had & CEPH_CAP_FILE_WR) {
 		if (--ci->i_wr_ref == 0) {
+			/*
+			 * The Fb caps will always be took and released
+			 * together with the Fw caps.
+			 */
+			WARN_ON_ONCE(ci->i_wb_ref);
+
 			last++;
 			check_flushsnaps = true;
 			if (ci->i_wrbuffer_ref_head == 0 &&
@@ -3140,7 +3151,7 @@ static void __ceph_put_cap_refs(struct ceph_inode_info *ci, int had,
 	switch (mode) {
 	case PUT_CAP_REFS_SYNC:
 		if (last)
-			ceph_check_caps(ci, 0, NULL);
+			ceph_check_caps(ci, 0);
 		else if (flushsnaps)
 			ceph_flush_snaps(ci, NULL);
 		break;
@@ -3255,7 +3266,7 @@ unlock:
 	spin_unlock(&ci->i_ceph_lock);
 
 	if (last) {
-		ceph_check_caps(ci, 0, NULL);
+		ceph_check_caps(ci, 0);
 	} else if (flush_snaps) {
 		ceph_flush_snaps(ci, NULL);
 	}
@@ -3555,6 +3566,15 @@ static void handle_cap_grant(struct inode *inode,
 	}
 	BUG_ON(cap->issued & ~cap->implemented);
 
+	/* don't let check_caps skip sending a response to MDS for revoke msgs */
+	if (le32_to_cpu(grant->op) == CEPH_CAP_OP_REVOKE) {
+		cap->mds_wanted = 0;
+		if (cap == ci->i_auth_cap)
+			check_caps = 1; /* check auth cap only */
+		else
+			check_caps = 2; /* check all caps */
+	}
+
 	if (extra_info->inline_version > 0 &&
 	    extra_info->inline_version >= ci->i_inline_version) {
 		ci->i_inline_version = extra_info->inline_version;
@@ -3604,10 +3624,9 @@ static void handle_cap_grant(struct inode *inode,
 
 	mutex_unlock(&session->s_mutex);
 	if (check_caps == 1)
-		ceph_check_caps(ci, CHECK_CAPS_AUTHONLY | CHECK_CAPS_NOINVAL,
-				session);
+		ceph_check_caps(ci, CHECK_CAPS_AUTHONLY | CHECK_CAPS_NOINVAL);
 	else if (check_caps == 2)
-		ceph_check_caps(ci, CHECK_CAPS_NOINVAL, session);
+		ceph_check_caps(ci, CHECK_CAPS_NOINVAL);
 }
 
 /*
@@ -4082,6 +4101,7 @@ void ceph_handle_caps(struct ceph_mds_session *session,
 	struct cap_extra_info extra_info = {};
 	bool queue_trunc;
 	bool close_sessions = false;
+	bool do_cap_release = false;
 
 	dout("handle_caps from mds%d\n", session->s_mds);
 
@@ -4188,17 +4208,14 @@ void ceph_handle_caps(struct ceph_mds_session *session,
 	if (!inode) {
 		dout(" i don't have ino %llx\n", vino.ino);
 
-		if (op == CEPH_CAP_OP_IMPORT) {
-			cap = ceph_get_cap(mdsc, NULL);
-			cap->cap_ino = vino.ino;
-			cap->queue_release = 1;
-			cap->cap_id = le64_to_cpu(h->cap_id);
-			cap->mseq = mseq;
-			cap->seq = seq;
-			cap->issue_seq = seq;
-			spin_lock(&session->s_cap_lock);
-			__ceph_queue_cap_release(session, cap);
-			spin_unlock(&session->s_cap_lock);
+		switch (op) {
+		case CEPH_CAP_OP_IMPORT:
+		case CEPH_CAP_OP_REVOKE:
+		case CEPH_CAP_OP_GRANT:
+			do_cap_release = true;
+			break;
+		default:
+			break;
 		}
 		goto flush_cap_releases;
 	}
@@ -4248,6 +4265,14 @@ void ceph_handle_caps(struct ceph_mds_session *session,
 		     inode, ceph_ino(inode), ceph_snap(inode),
 		     session->s_mds);
 		spin_unlock(&ci->i_ceph_lock);
+		switch (op) {
+		case CEPH_CAP_OP_REVOKE:
+		case CEPH_CAP_OP_GRANT:
+			do_cap_release = true;
+			break;
+		default:
+			break;
+		}
 		goto flush_cap_releases;
 	}
 
@@ -4298,6 +4323,18 @@ flush_cap_releases:
 	 * along for the mds (who clearly thinks we still have this
 	 * cap).
 	 */
+	if (do_cap_release) {
+		cap = ceph_get_cap(mdsc, NULL);
+		cap->cap_ino = vino.ino;
+		cap->queue_release = 1;
+		cap->cap_id = le64_to_cpu(h->cap_id);
+		cap->mseq = mseq;
+		cap->seq = seq;
+		cap->issue_seq = seq;
+		spin_lock(&session->s_cap_lock);
+		__ceph_queue_cap_release(session, cap);
+		spin_unlock(&session->s_cap_lock);
+	}
 	ceph_flush_cap_releases(mdsc, session);
 	goto done;
 
@@ -4343,7 +4380,7 @@ unsigned long ceph_check_delayed_caps(struct ceph_mds_client *mdsc)
 		if (inode) {
 			spin_unlock(&mdsc->cap_delay_lock);
 			dout("check_delayed_caps on %p\n", inode);
-			ceph_check_caps(ci, 0, NULL);
+			ceph_check_caps(ci, 0);
 			iput(inode);
 			spin_lock(&mdsc->cap_delay_lock);
 		}
@@ -4372,7 +4409,7 @@ static void flush_dirty_session_caps(struct ceph_mds_session *s)
 		dout("flush_dirty_caps %llx.%llx\n", ceph_vinop(inode));
 		spin_unlock(&mdsc->cap_dirty_lock);
 		ceph_wait_on_async_create(inode);
-		ceph_check_caps(ci, CHECK_CAPS_FLUSH, NULL);
+		ceph_check_caps(ci, CHECK_CAPS_FLUSH);
 		iput(inode);
 		spin_lock(&mdsc->cap_dirty_lock);
 	}

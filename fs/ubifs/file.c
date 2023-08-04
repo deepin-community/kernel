@@ -1264,7 +1264,7 @@ static int do_setattr(struct ubifs_info *c, struct inode *inode,
 	return err;
 }
 
-int ubifs_setattr(struct user_namespace *mnt_userns, struct dentry *dentry,
+int ubifs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 		  struct iattr *attr)
 {
 	int err;
@@ -1273,7 +1273,7 @@ int ubifs_setattr(struct user_namespace *mnt_userns, struct dentry *dentry,
 
 	dbg_gen("ino %lu, mode %#x, ia_valid %#x",
 		inode->i_ino, inode->i_mode, attr->ia_valid);
-	err = setattr_prepare(&init_user_ns, dentry, attr);
+	err = setattr_prepare(&nop_mnt_idmap, dentry, attr);
 	if (err)
 		return err;
 
@@ -1623,11 +1623,11 @@ static const char *ubifs_get_link(struct dentry *dentry,
 	return fscrypt_get_symlink(inode, ui->data, ui->data_len, done);
 }
 
-static int ubifs_symlink_getattr(struct user_namespace *mnt_userns,
+static int ubifs_symlink_getattr(struct mnt_idmap *idmap,
 				 const struct path *path, struct kstat *stat,
 				 u32 request_mask, unsigned int query_flags)
 {
-	ubifs_getattr(mnt_userns, path, stat, request_mask, query_flags);
+	ubifs_getattr(idmap, path, stat, request_mask, query_flags);
 
 	if (IS_ENCRYPTED(d_inode(path->dentry)))
 		return fscrypt_symlink_getattr(path, stat);
@@ -1669,7 +1669,7 @@ const struct file_operations ubifs_file_operations = {
 	.mmap           = ubifs_file_mmap,
 	.fsync          = ubifs_fsync,
 	.unlocked_ioctl = ubifs_ioctl,
-	.splice_read	= generic_file_splice_read,
+	.splice_read	= filemap_splice_read,
 	.splice_write	= iter_file_splice_write,
 	.open		= fscrypt_file_open,
 #ifdef CONFIG_COMPAT

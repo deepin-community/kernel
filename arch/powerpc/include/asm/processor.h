@@ -264,6 +264,7 @@ struct thread_struct {
 	unsigned long   mmcr3;
 	unsigned long   sier2;
 	unsigned long   sier3;
+	unsigned long	hashkeyr;
 
 #endif
 };
@@ -374,9 +375,18 @@ static inline unsigned long __pack_fe01(unsigned int fpmode)
 
 #endif
 
-/* Check that a certain kernel stack pointer is valid in task_struct p */
-int validate_sp(unsigned long sp, struct task_struct *p,
-                       unsigned long nbytes);
+/*
+ * Check that a certain kernel stack pointer is a valid (minimum sized)
+ * stack frame in task_struct p.
+ */
+int validate_sp(unsigned long sp, struct task_struct *p);
+
+/*
+ * validate the stack frame of a particular minimum size, used for when we are
+ * looking at a certain object in the stack beyond the minimum.
+ */
+int validate_sp_size(unsigned long sp, struct task_struct *p,
+		     unsigned long nbytes);
 
 /*
  * Prefetch macros.

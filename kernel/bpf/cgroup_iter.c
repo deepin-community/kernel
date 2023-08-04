@@ -58,7 +58,7 @@ static void *cgroup_iter_seq_start(struct seq_file *seq, loff_t *pos)
 {
 	struct cgroup_iter_priv *p = seq->private;
 
-	mutex_lock(&cgroup_mutex);
+	cgroup_lock();
 
 	/* cgroup_iter doesn't support read across multiple sessions. */
 	if (*pos > 0) {
@@ -89,7 +89,7 @@ static void cgroup_iter_seq_stop(struct seq_file *seq, void *v)
 {
 	struct cgroup_iter_priv *p = seq->private;
 
-	mutex_unlock(&cgroup_mutex);
+	cgroup_unlock();
 
 	/* pass NULL to the prog for post-processing */
 	if (!v) {
@@ -157,7 +157,7 @@ static const struct seq_operations cgroup_iter_seq_ops = {
 	.show   = cgroup_iter_seq_show,
 };
 
-BTF_ID_LIST_SINGLE(bpf_cgroup_btf_id, struct, cgroup)
+BTF_ID_LIST_GLOBAL_SINGLE(bpf_cgroup_btf_id, struct, cgroup)
 
 static int cgroup_iter_seq_init(void *priv, struct bpf_iter_aux_info *aux)
 {

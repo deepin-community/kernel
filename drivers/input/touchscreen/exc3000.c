@@ -111,7 +111,7 @@ static inline void exc3000_schedule_timer(struct exc3000_data *data)
 
 static void exc3000_shutdown_timer(void *timer)
 {
-	del_timer_sync(timer);
+	timer_shutdown_sync(timer);
 }
 
 static int exc3000_read_frame(struct exc3000_data *data, u8 *buf)
@@ -460,7 +460,7 @@ static struct i2c_driver exc3000_driver = {
 		.of_match_table = of_match_ptr(exc3000_of_match),
 	},
 	.id_table	= exc3000_id,
-	.probe_new	= exc3000_probe,
+	.probe		= exc3000_probe,
 };
 
 module_i2c_driver(exc3000_driver);

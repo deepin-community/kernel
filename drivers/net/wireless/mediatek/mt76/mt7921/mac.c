@@ -6,8 +6,19 @@
 #include <linux/timekeeping.h>
 #include "mt7921.h"
 #include "../dma.h"
-#include "mac.h"
+#include "../mt76_connac2_mac.h"
 #include "mcu.h"
+
+#define MT_WTBL_TXRX_CAP_RATE_OFFSET	7
+#define MT_WTBL_TXRX_RATE_G2_HE		24
+#define MT_WTBL_TXRX_RATE_G2		12
+
+#define MT_WTBL_AC0_CTT_OFFSET		20
+
+static u32 mt7921_mac_wtbl_lmac_addr(int idx, u8 offset)
+{
+	return MT_WTBL_LMAC_OFFS(idx, 0) + offset * 4;
+}
 
 static struct mt76_wcid *mt7921_rx_get_wcid(struct mt7921_dev *dev,
 					    u16 idx, bool unicast)
@@ -32,11 +43,6 @@ static struct mt76_wcid *mt7921_rx_get_wcid(struct mt7921_dev *dev,
 	return &sta->vif->sta.wcid;
 }
 
-void mt7921_sta_ps(struct mt76_dev *mdev, struct ieee80211_sta *sta, bool ps)
-{
-}
-EXPORT_SYMBOL_GPL(mt7921_sta_ps);
-
 bool mt7921_mac_wtbl_update(struct mt7921_dev *dev, int idx, u32 mask)
 {
 	mt76_rmw(dev, MT_WTBL_UPDATE, MT_WTBL_UPDATE_WLAN_IDX,
@@ -59,6 +65,7 @@ void mt7921_mac_sta_poll(struct mt7921_dev *dev)
 	u32 tx_time[IEEE80211_NUM_ACS], rx_time[IEEE80211_NUM_ACS];
 	LIST_HEAD(sta_poll_list);
 	struct rate_info *rate;
+	s8 rssi[4];
 	int i;
 
 	spin_lock_bh(&dev->sta_poll_lock);
@@ -160,6 +167,20 @@ void mt7921_mac_sta_poll(struct mt7921_dev *dev)
 			else
 				rate->flags &= ~RATE_INFO_FLAGS_SHORT_GI;
 		}
+
+		/* get signal strength of resp frames (CTS/BA/ACK) */
+		addr = mt7921_mac_wtbl_lmac_addr(idx, 30);
+		val = mt76_rr(dev, addr);
+
+		rssi[0] = to_rssi(GENMASK(7, 0), val);
+		rssi[1] = to_rssi(GENMASK(15, 8), val);
+		rssi[2] = to_rssi(GENMASK(23, 16), val);
+		rssi[3] = to_rssi(GENMASK(31, 14), val);
+
+		msta->ack_signal =
+			mt76_rx_signal(msta->vif->phy->mt76->antenna_mask, rssi);
+
+		ewma_avg_signal_add(&msta->avg_ack_signal, -msta->ack_signal);
 	}
 }
 EXPORT_SYMBOL_GPL(mt7921_mac_sta_poll);
@@ -168,14 +189,6 @@ static void
 mt7921_get_status_freq_info(struct mt7921_dev *dev, struct mt76_phy *mphy,
 			    struct mt76_rx_status *status, u8 chfreq)
 {
-	if (!test_bit(MT76_HW_SCANNING, &mphy->state) &&
-	    !test_bit(MT76_HW_SCHED_SCANNING, &mphy->state) &&
-	    !test_bit(MT76_STATE_ROC, &mphy->state)) {
-		status->freq = mphy->chandef.chan->center_freq;
-		status->band = mphy->chandef.chan->band;
-		return;
-	}
-
 	if (chfreq > 180) {
 		status->band = NL80211_BAND_6GHZ;
 		chfreq = (chfreq - 181) * 4 + 1;
@@ -692,7 +705,7 @@ bool mt7921_rx_check(struct mt76_dev *mdev, void *data, int len)
 EXPORT_SYMBOL_GPL(mt7921_rx_check);
 
 void mt7921_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
-			 struct sk_buff *skb)
+			 struct sk_buff *skb, u32 *info)
 {
 	struct mt7921_dev *dev = container_of(mdev, struct mt7921_dev, mt76);
 	__le32 *rxd = (__le32 *)skb->data;
@@ -745,7 +758,7 @@ void mt7921_mac_reset_counters(struct mt7921_phy *phy)
 	}
 
 	dev->mt76.phy.survey_time = ktime_get_boottime();
-	memset(&dev->mt76.aggr_stats[0], 0, sizeof(dev->mt76.aggr_stats) / 2);
+	memset(phy->mt76->aggr_stats, 0, sizeof(phy->mt76->aggr_stats));
 
 	/* reset airtime counters */
 	mt76_rr(dev, MT_MIB_SDR9(0));
@@ -866,7 +879,7 @@ mt7921_vif_connect_iter(void *priv, u8 *mac,
 
 	if (vif->type == NL80211_IFTYPE_AP) {
 		mt76_connac_mcu_uni_add_bss(dev->phy.mt76, vif, &mvif->sta.wcid,
-					    true);
+					    true, NULL);
 		mt7921_mcu_sta_update(dev, NULL, vif, true,
 				      MT76_STA_INFO_STATE_NONE);
 		mt7921_mcu_uni_add_beacon_offload(dev, hw, vif, true);
@@ -990,10 +1003,10 @@ void mt7921_mac_update_mib_stats(struct mt7921_phy *phy)
 		val = mt76_rr(dev, MT_TX_AGG_CNT(0, i));
 		val2 = mt76_rr(dev, MT_TX_AGG_CNT2(0, i));
 
-		dev->mt76.aggr_stats[aggr0++] += val & 0xffff;
-		dev->mt76.aggr_stats[aggr0++] += val >> 16;
-		dev->mt76.aggr_stats[aggr1++] += val2 & 0xffff;
-		dev->mt76.aggr_stats[aggr1++] += val2 >> 16;
+		phy->mt76->aggr_stats[aggr0++] += val & 0xffff;
+		phy->mt76->aggr_stats[aggr0++] += val >> 16;
+		phy->mt76->aggr_stats[aggr1++] += val2 & 0xffff;
+		phy->mt76->aggr_stats[aggr1++] += val2 >> 16;
 	}
 }
 

@@ -24,14 +24,13 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/platform_device.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/fb.h>
 #include <linux/init.h>
 #include <linux/dma-mapping.h>
-#include <linux/of_device.h>
-#include <linux/of_platform.h>
-#include <linux/of_address.h>
+#include <linux/of.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 
@@ -273,8 +272,7 @@ static int xilinxfb_assign(struct platform_device *pdev,
 	if (drvdata->flags & BUS_ACCESS_FLAG) {
 		struct resource *res;
 
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		drvdata->regs = devm_ioremap_resource(&pdev->dev, res);
+		drvdata->regs = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 		if (IS_ERR(drvdata->regs))
 			return PTR_ERR(drvdata->regs);
 
@@ -469,18 +467,15 @@ static int xilinxfb_of_probe(struct platform_device *pdev)
 		pdata.yvirt = prop[1];
 	}
 
-	if (of_find_property(pdev->dev.of_node, "rotate-display", NULL))
-		pdata.rotate_screen = 1;
+	pdata.rotate_screen = of_property_read_bool(pdev->dev.of_node, "rotate-display");
 
 	platform_set_drvdata(pdev, drvdata);
 	return xilinxfb_assign(pdev, drvdata, &pdata);
 }
 
-static int xilinxfb_of_remove(struct platform_device *op)
+static void xilinxfb_of_remove(struct platform_device *op)
 {
 	xilinxfb_release(&op->dev);
-
-	return 0;
 }
 
 /* Match table for of_platform binding */
@@ -496,7 +491,7 @@ MODULE_DEVICE_TABLE(of, xilinxfb_of_match);
 
 static struct platform_driver xilinxfb_of_driver = {
 	.probe = xilinxfb_of_probe,
-	.remove = xilinxfb_of_remove,
+	.remove_new = xilinxfb_of_remove,
 	.driver = {
 		.name = DRIVER_NAME,
 		.of_match_table = xilinxfb_of_match,

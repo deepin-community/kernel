@@ -366,7 +366,7 @@ static void establish_demotion_targets(void)
 
 	lockdep_assert_held_once(&memory_tier_lock);
 
-	if (!node_demotion || !IS_ENABLED(CONFIG_MIGRATION))
+	if (!node_demotion)
 		return;
 
 	disable_all_demotion_targets();
@@ -451,7 +451,6 @@ static void establish_demotion_targets(void)
 }
 
 #else
-static inline void disable_all_demotion_targets(void) {}
 static inline void establish_demotion_targets(void) {}
 #endif /* CONFIG_MIGRATION */
 
@@ -645,7 +644,7 @@ static int __init memory_tier_init(void)
 	 * than default DRAM tier.
 	 */
 	default_dram_type = alloc_memory_type(MEMTIER_ADISTANCE_DRAM);
-	if (!default_dram_type)
+	if (IS_ERR(default_dram_type))
 		panic("%s() failed to allocate default DRAM tier\n", __func__);
 
 	/*
@@ -664,7 +663,7 @@ static int __init memory_tier_init(void)
 	establish_demotion_targets();
 	mutex_unlock(&memory_tier_lock);
 
-	hotplug_memory_notifier(memtier_hotplug_callback, MEMTIER_HOTPLUG_PRIO);
+	hotplug_memory_notifier(memtier_hotplug_callback, MEMTIER_HOTPLUG_PRI);
 	return 0;
 }
 subsys_initcall(memory_tier_init);

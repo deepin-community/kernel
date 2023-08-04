@@ -27,6 +27,9 @@
 #include <linux/vgaarb.h>
 #include <linux/nospec.h>
 #include <linux/sched/mm.h>
+#if IS_ENABLED(CONFIG_EEH)
+#include <asm/eeh.h>
+#endif
 
 #include "vfio_pci_priv.h"
 
@@ -141,7 +144,8 @@ static void vfio_pci_probe_mmaps(struct vfio_pci_core_device *vdev)
 			 * of the exclusive page in case that hot-add
 			 * device's bar is assigned into it.
 			 */
-			dummy_res = kzalloc(sizeof(*dummy_res), GFP_KERNEL);
+			dummy_res =
+				kzalloc(sizeof(*dummy_res), GFP_KERNEL_ACCOUNT);
 			if (dummy_res == NULL)
 				goto no_mmap;
 
@@ -526,8 +530,11 @@ int vfio_pci_core_enable(struct vfio_pci_core_device *vdev)
 		vdev->msix_bar = table & PCI_MSIX_TABLE_BIR;
 		vdev->msix_offset = table & PCI_MSIX_TABLE_OFFSET;
 		vdev->msix_size = ((flags & PCI_MSIX_FLAGS_QSIZE) + 1) * 16;
-	} else
+		vdev->has_dyn_msix = pci_msix_can_alloc_dyn(pdev);
+	} else {
 		vdev->msix_bar = 0xFF;
+		vdev->has_dyn_msix = false;
+	}
 
 	if (!vfio_vga_disabled() && vfio_pci_is_vga(pdev))
 		vdev->has_vga = true;
@@ -686,7 +693,9 @@ void vfio_pci_core_close_device(struct vfio_device *core_vdev)
 		vdev->sriov_pf_core_dev->vf_token->users--;
 		mutex_unlock(&vdev->sriov_pf_core_dev->vf_token->lock);
 	}
-	vfio_spapr_pci_eeh_release(vdev->pdev);
+#if IS_ENABLED(CONFIG_EEH)
+	eeh_dev_release(vdev->pdev);
+#endif
 	vfio_pci_core_disable(vdev);
 
 	mutex_lock(&vdev->igate);
@@ -705,7 +714,9 @@ EXPORT_SYMBOL_GPL(vfio_pci_core_close_device);
 void vfio_pci_core_finish_enable(struct vfio_pci_core_device *vdev)
 {
 	vfio_pci_probe_mmaps(vdev);
-	vfio_spapr_pci_eeh_open(vdev->pdev);
+#if IS_ENABLED(CONFIG_EEH)
+	eeh_dev_open(vdev->pdev);
+#endif
 
 	if (vdev->sriov_pf_core_dev) {
 		mutex_lock(&vdev->sriov_pf_core_dev->vf_token->lock);
@@ -856,7 +867,7 @@ int vfio_pci_core_register_dev_region(struct vfio_pci_core_device *vdev,
 
 	region = krealloc(vdev->region,
 			  (vdev->num_regions + 1) * sizeof(*region),
-			  GFP_KERNEL);
+			  GFP_KERNEL_ACCOUNT);
 	if (!region)
 		return -ENOMEM;
 
@@ -873,6 +884,37 @@ int vfio_pci_core_register_dev_region(struct vfio_pci_core_device *vdev,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vfio_pci_core_register_dev_region);
+
+static int vfio_pci_info_atomic_cap(struct vfio_pci_core_device *vdev,
+				    struct vfio_info_cap *caps)
+{
+	struct vfio_device_info_cap_pci_atomic_comp cap = {
+		.header.id = VFIO_DEVICE_INFO_CAP_PCI_ATOMIC_COMP,
+		.header.version = 1
+	};
+	struct pci_dev *pdev = pci_physfn(vdev->pdev);
+	u32 devcap2;
+
+	pcie_capability_read_dword(pdev, PCI_EXP_DEVCAP2, &devcap2);
+
+	if ((devcap2 & PCI_EXP_DEVCAP2_ATOMIC_COMP32) &&
+	    !pci_enable_atomic_ops_to_root(pdev, PCI_EXP_DEVCAP2_ATOMIC_COMP32))
+		cap.flags |= VFIO_PCI_ATOMIC_COMP32;
+
+	if ((devcap2 & PCI_EXP_DEVCAP2_ATOMIC_COMP64) &&
+	    !pci_enable_atomic_ops_to_root(pdev, PCI_EXP_DEVCAP2_ATOMIC_COMP64))
+		cap.flags |= VFIO_PCI_ATOMIC_COMP64;
+
+	if ((devcap2 & PCI_EXP_DEVCAP2_ATOMIC_COMP128) &&
+	    !pci_enable_atomic_ops_to_root(pdev,
+					   PCI_EXP_DEVCAP2_ATOMIC_COMP128))
+		cap.flags |= VFIO_PCI_ATOMIC_COMP128;
+
+	if (!cap.flags)
+		return -ENODEV;
+
+	return vfio_info_add_capability(caps, &cap.header, sizeof(cap));
+}
 
 static int vfio_pci_ioctl_get_info(struct vfio_pci_core_device *vdev,
 				   struct vfio_device_info __user *arg)
@@ -909,6 +951,13 @@ static int vfio_pci_ioctl_get_info(struct vfio_pci_core_device *vdev,
 	if (ret && ret != -ENODEV) {
 		pci_warn(vdev->pdev,
 			 "Failed to setup zPCI info capabilities\n");
+		return ret;
+	}
+
+	ret = vfio_pci_info_atomic_cap(vdev, &caps);
+	if (ret && ret != -ENODEV) {
+		pci_warn(vdev->pdev,
+			 "Failed to setup AtomicOps info capability\n");
 		return ret;
 	}
 
@@ -1103,7 +1152,7 @@ static int vfio_pci_ioctl_get_irq_info(struct vfio_pci_core_device *vdev,
 	if (info.index == VFIO_PCI_INTX_IRQ_INDEX)
 		info.flags |=
 			(VFIO_IRQ_INFO_MASKABLE | VFIO_IRQ_INFO_AUTOMASKED);
-	else
+	else if (info.index != VFIO_PCI_MSIX_IRQ_INDEX || !vdev->has_dyn_msix)
 		info.flags |= VFIO_IRQ_INFO_NORESIZE;
 
 	return copy_to_user(arg, &info, minsz) ? -EFAULT : 0;
@@ -1637,7 +1686,7 @@ static int __vfio_pci_add_vma(struct vfio_pci_core_device *vdev,
 {
 	struct vfio_pci_mmap_vma *mmap_vma;
 
-	mmap_vma = kmalloc(sizeof(*mmap_vma), GFP_KERNEL);
+	mmap_vma = kmalloc(sizeof(*mmap_vma), GFP_KERNEL_ACCOUNT);
 	if (!mmap_vma)
 		return -ENOMEM;
 
@@ -1792,7 +1841,7 @@ int vfio_pci_core_mmap(struct vfio_device *core_vdev, struct vm_area_struct *vma
 	 * See remap_pfn_range(), called from vfio_pci_fault() but we can't
 	 * change vm_flags within the fault handler.  Set them now.
 	 */
-	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
+	vm_flags_set(vma, VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP);
 	vma->vm_ops = &vfio_pci_mmap_ops;
 
 	return 0;
@@ -2094,6 +2143,7 @@ int vfio_pci_core_init_dev(struct vfio_device *core_vdev)
 	INIT_LIST_HEAD(&vdev->vma_list);
 	INIT_LIST_HEAD(&vdev->sriov_pfs_item);
 	init_rwsem(&vdev->memory_lock);
+	xa_init(&vdev->ctx);
 
 	return 0;
 }
@@ -2109,7 +2159,6 @@ void vfio_pci_core_release_dev(struct vfio_device *core_vdev)
 	mutex_destroy(&vdev->vma_lock);
 	kfree(vdev->region);
 	kfree(vdev->pm_save);
-	vfio_free_device(core_vdev);
 }
 EXPORT_SYMBOL_GPL(vfio_pci_core_release_dev);
 
@@ -2128,7 +2177,8 @@ int vfio_pci_core_register_device(struct vfio_pci_core_device *vdev)
 
 	if (vdev->vdev.mig_ops) {
 		if (!(vdev->vdev.mig_ops->migration_get_state &&
-		      vdev->vdev.mig_ops->migration_set_state) ||
+		      vdev->vdev.mig_ops->migration_set_state &&
+		      vdev->vdev.mig_ops->migration_get_data_size) ||
 		    !(vdev->vdev.migration_flags & VFIO_MIGRATION_STOP_COPY))
 			return -EINVAL;
 	}

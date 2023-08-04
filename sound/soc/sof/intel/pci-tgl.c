@@ -30,9 +30,13 @@ static const struct sof_dev_desc tgl_desc = {
 	.chip_info = &tgl_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/tgl",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/tgl",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -59,9 +63,13 @@ static const struct sof_dev_desc tglh_desc = {
 	.chip_info = &tglh_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/tgl-h",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/tgl-h",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -87,9 +95,13 @@ static const struct sof_dev_desc ehl_desc = {
 	.chip_info = &ehl_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/ehl",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/ehl",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -116,9 +128,13 @@ static const struct sof_dev_desc adls_desc = {
 	.chip_info = &adls_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/adl-s",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/adl-s",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -145,9 +161,13 @@ static const struct sof_dev_desc adl_desc = {
 	.chip_info = &tgl_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/adl",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/adl",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -174,9 +194,13 @@ static const struct sof_dev_desc adl_n_desc = {
 	.chip_info = &tgl_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/adl-n",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/adl-n",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -203,9 +227,13 @@ static const struct sof_dev_desc rpls_desc = {
 	.chip_info = &adls_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/rpl-s",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/rpl-s",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",
@@ -232,9 +260,13 @@ static const struct sof_dev_desc rpl_desc = {
 	.chip_info = &tgl_chip_info,
 	.ipc_supported_mask	= BIT(SOF_IPC) | BIT(SOF_INTEL_IPC4),
 	.ipc_default		= SOF_IPC,
+	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
 	.default_fw_path = {
 		[SOF_IPC] = "intel/sof",
 		[SOF_INTEL_IPC4] = "intel/avs/rpl",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/avs-lib/rpl",
 	},
 	.default_tplg_path = {
 		[SOF_IPC] = "intel/sof-tplg",

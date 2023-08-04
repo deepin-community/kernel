@@ -136,6 +136,14 @@ int tpm_tis_spi_transfer(struct tpm_tis_data *data, u32 addr, u16 len,
 	}
 
 exit:
+	if (ret < 0) {
+		/* Deactivate chip select */
+		memset(&spi_xfer, 0, sizeof(spi_xfer));
+		spi_message_init(&m);
+		spi_message_add_tail(&spi_xfer, &m);
+		spi_sync_locked(phy->spi_device, &m);
+	}
+
 	spi_bus_unlock(phy->spi_device->master);
 	return ret;
 }
@@ -231,7 +239,7 @@ static const struct spi_device_id tpm_tis_spi_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, tpm_tis_spi_id);
 
-static const struct of_device_id of_tis_spi_match[] = {
+static const struct of_device_id of_tis_spi_match[] __maybe_unused = {
 	{ .compatible = "st,st33htpm-spi", .data = tpm_tis_spi_probe },
 	{ .compatible = "infineon,slb9670", .data = tpm_tis_spi_probe },
 	{ .compatible = "tcg,tpm_tis-spi", .data = tpm_tis_spi_probe },
@@ -240,7 +248,7 @@ static const struct of_device_id of_tis_spi_match[] = {
 };
 MODULE_DEVICE_TABLE(of, of_tis_spi_match);
 
-static const struct acpi_device_id acpi_tis_spi_match[] = {
+static const struct acpi_device_id acpi_tis_spi_match[] __maybe_unused = {
 	{"SMO0768", 0},
 	{}
 };

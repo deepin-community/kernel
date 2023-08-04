@@ -6,11 +6,13 @@
  *
  * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  */
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/kvm_types.h>
 #include <linux/kvm_host.h>
 #include <linux/kernel.h>
 #include <linux/highmem.h>
+#include <linux/psp.h>
 #include <linux/psp-sev.h>
 #include <linux/pagemap.h>
 #include <linux/swap.h>
@@ -465,9 +467,9 @@ static void sev_clflush_pages(struct page *pages[], unsigned long npages)
 		return;
 
 	for (i = 0; i < npages; i++) {
-		page_virtual = kmap_atomic(pages[i]);
+		page_virtual = kmap_local_page(pages[i]);
 		clflush_cache_range(page_virtual, PAGE_SIZE);
-		kunmap_atomic(page_virtual);
+		kunmap_local(page_virtual);
 		cond_resched();
 	}
 }
@@ -812,7 +814,7 @@ static int __sev_dbg_decrypt_user(struct kvm *kvm, unsigned long paddr,
 	if (!IS_ALIGNED(dst_paddr, 16) ||
 	    !IS_ALIGNED(paddr,     16) ||
 	    !IS_ALIGNED(size,      16)) {
-		tpage = (void *)alloc_page(GFP_KERNEL | __GFP_ZERO);
+		tpage = (void *)alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
 		if (!tpage)
 			return -ENOMEM;
 
@@ -1766,18 +1768,20 @@ int sev_vm_move_enc_context_from(struct kvm *kvm, unsigned int source_fd)
 {
 	struct kvm_sev_info *dst_sev = &to_kvm_svm(kvm)->sev_info;
 	struct kvm_sev_info *src_sev, *cg_cleanup_sev;
-	struct file *source_kvm_file;
+	struct fd f = fdget(source_fd);
 	struct kvm *source_kvm;
 	bool charged = false;
 	int ret;
 
-	source_kvm_file = fget(source_fd);
-	if (!file_is_kvm(source_kvm_file)) {
+	if (!f.file)
+		return -EBADF;
+
+	if (!file_is_kvm(f.file)) {
 		ret = -EBADF;
 		goto out_fput;
 	}
 
-	source_kvm = source_kvm_file->private_data;
+	source_kvm = f.file->private_data;
 	ret = sev_lock_two_vms(kvm, source_kvm);
 	if (ret)
 		goto out_fput;
@@ -1827,8 +1831,7 @@ out_dst_cgroup:
 out_unlock:
 	sev_unlock_two_vms(kvm, source_kvm);
 out_fput:
-	if (source_kvm_file)
-		fput(source_kvm_file);
+	fdput(f);
 	return ret;
 }
 
@@ -2045,18 +2048,20 @@ failed:
 
 int sev_vm_copy_enc_context_from(struct kvm *kvm, unsigned int source_fd)
 {
-	struct file *source_kvm_file;
+	struct fd f = fdget(source_fd);
 	struct kvm *source_kvm;
 	struct kvm_sev_info *source_sev, *mirror_sev;
 	int ret;
 
-	source_kvm_file = fget(source_fd);
-	if (!file_is_kvm(source_kvm_file)) {
+	if (!f.file)
+		return -EBADF;
+
+	if (!file_is_kvm(f.file)) {
 		ret = -EBADF;
 		goto e_source_fput;
 	}
 
-	source_kvm = source_kvm_file->private_data;
+	source_kvm = f.file->private_data;
 	ret = sev_lock_two_vms(kvm, source_kvm);
 	if (ret)
 		goto e_source_fput;
@@ -2102,8 +2107,7 @@ int sev_vm_copy_enc_context_from(struct kvm *kvm, unsigned int source_fd)
 e_unlock:
 	sev_unlock_two_vms(kvm, source_kvm);
 e_source_fput:
-	if (source_kvm_file)
-		fput(source_kvm_file);
+	fdput(f);
 	return ret;
 }
 
@@ -2212,10 +2216,7 @@ void __init sev_hardware_setup(void)
 	}
 
 	sev_asid_count = max_sev_asid - min_sev_asid + 1;
-	if (misc_cg_set_capacity(MISC_CG_RES_SEV, sev_asid_count))
-		goto out;
-
-	pr_info("SEV supported: %u ASIDs\n", sev_asid_count);
+	WARN_ON_ONCE(misc_cg_set_capacity(MISC_CG_RES_SEV, sev_asid_count));
 	sev_supported = true;
 
 	/* SEV-ES support requested? */
@@ -2240,13 +2241,19 @@ void __init sev_hardware_setup(void)
 		goto out;
 
 	sev_es_asid_count = min_sev_asid - 1;
-	if (misc_cg_set_capacity(MISC_CG_RES_SEV_ES, sev_es_asid_count))
-		goto out;
-
-	pr_info("SEV-ES supported: %u ASIDs\n", sev_es_asid_count);
+	WARN_ON_ONCE(misc_cg_set_capacity(MISC_CG_RES_SEV_ES, sev_es_asid_count));
 	sev_es_supported = true;
 
 out:
+	if (boot_cpu_has(X86_FEATURE_SEV))
+		pr_info("SEV %s (ASIDs %u - %u)\n",
+			sev_supported ? "enabled" : "disabled",
+			min_sev_asid, max_sev_asid);
+	if (boot_cpu_has(X86_FEATURE_SEV_ES))
+		pr_info("SEV-ES %s (ASIDs %u - %u)\n",
+			sev_es_supported ? "enabled" : "disabled",
+			min_sev_asid > 1 ? 1 : 0, min_sev_asid - 1);
+
 	sev_enabled = sev_supported;
 	sev_es_enabled = sev_es_supported;
 #endif
@@ -2648,7 +2655,7 @@ static int setup_vmgexit_scratch(struct vcpu_svm *svm, bool sync, u64 len)
 		ghcb_scratch_beg = control->ghcb_gpa +
 				   offsetof(struct ghcb, shared_buffer);
 		ghcb_scratch_end = control->ghcb_gpa +
-				   offsetof(struct ghcb, reserved_1);
+				   offsetof(struct ghcb, reserved_0xff0);
 
 		/*
 		 * If the scratch area begins within the GHCB, it must be

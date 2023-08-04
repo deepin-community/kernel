@@ -56,7 +56,7 @@ const struct file_operations jffs2_file_operations =
 	.unlocked_ioctl=jffs2_ioctl,
 	.mmap =		generic_file_readonly_mmap,
 	.fsync =	jffs2_fsync,
-	.splice_read =	generic_file_splice_read,
+	.splice_read =	filemap_splice_read,
 	.splice_write = iter_file_splice_write,
 };
 
@@ -64,7 +64,7 @@ const struct file_operations jffs2_file_operations =
 
 const struct inode_operations jffs2_file_inode_operations =
 {
-	.get_acl =	jffs2_get_acl,
+	.get_inode_acl =	jffs2_get_acl,
 	.set_acl =	jffs2_set_acl,
 	.setattr =	jffs2_setattr,
 	.listxattr =	jffs2_listxattr,

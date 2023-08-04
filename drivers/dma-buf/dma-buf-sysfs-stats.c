@@ -112,7 +112,7 @@ static void dma_buf_sysfs_release(struct kobject *kobj)
 	kfree(sysfs_entry);
 }
 
-static struct kobj_type dma_buf_ktype = {
+static const struct kobj_type dma_buf_ktype = {
 	.sysfs_ops = &dma_buf_stats_sysfs_ops,
 	.release = dma_buf_sysfs_release,
 	.default_groups = dma_buf_stats_default_groups,
@@ -132,7 +132,7 @@ void dma_buf_stats_teardown(struct dma_buf *dmabuf)
 
 
 /* Statistics files do not need to send uevents. */
-static int dmabuf_sysfs_uevent_filter(struct kobject *kobj)
+static int dmabuf_sysfs_uevent_filter(const struct kobject *kobj)
 {
 	return 0;
 }

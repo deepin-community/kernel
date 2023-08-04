@@ -335,7 +335,7 @@ static int sst_calc_pll(const int freq, int *freq_out, struct pll_timing *t)
 static void sstfb_clear_screen(struct fb_info *info)
 {
 	/* clear screen */
-	fb_memset(info->screen_base, 0, info->fix.smem_len);
+	fb_memset_io(info->screen_base, 0, info->fix.smem_len);
 }
 
 
@@ -1502,6 +1502,9 @@ static struct pci_driver sstfb_driver = {
 static int sstfb_init(void)
 {
 	char *option = NULL;
+
+	if (fb_modesetting_disabled("sstfb"))
+		return -ENODEV;
 
 	if (fb_get_options("sstfb", &option))
 		return -ENODEV;

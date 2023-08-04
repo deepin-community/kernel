@@ -289,6 +289,58 @@ static void damon_test_set_regions(struct kunit *test)
 	damon_destroy_target(t);
 }
 
+static void damon_test_update_monitoring_result(struct kunit *test)
+{
+	struct damon_attrs old_attrs = {
+		.sample_interval = 10, .aggr_interval = 1000,};
+	struct damon_attrs new_attrs;
+	struct damon_region *r = damon_new_region(3, 7);
+
+	r->nr_accesses = 15;
+	r->age = 20;
+
+	new_attrs = (struct damon_attrs){
+		.sample_interval = 100, .aggr_interval = 10000,};
+	damon_update_monitoring_result(r, &old_attrs, &new_attrs);
+	KUNIT_EXPECT_EQ(test, r->nr_accesses, 15);
+	KUNIT_EXPECT_EQ(test, r->age, 2);
+
+	new_attrs = (struct damon_attrs){
+		.sample_interval = 1, .aggr_interval = 1000};
+	damon_update_monitoring_result(r, &old_attrs, &new_attrs);
+	KUNIT_EXPECT_EQ(test, r->nr_accesses, 150);
+	KUNIT_EXPECT_EQ(test, r->age, 2);
+
+	new_attrs = (struct damon_attrs){
+		.sample_interval = 1, .aggr_interval = 100};
+	damon_update_monitoring_result(r, &old_attrs, &new_attrs);
+	KUNIT_EXPECT_EQ(test, r->nr_accesses, 150);
+	KUNIT_EXPECT_EQ(test, r->age, 20);
+}
+
+static void damon_test_set_attrs(struct kunit *test)
+{
+	struct damon_ctx *c = damon_new_ctx();
+	struct damon_attrs valid_attrs = {
+		.min_nr_regions = 10, .max_nr_regions = 1000,
+		.sample_interval = 5000, .aggr_interval = 100000,};
+	struct damon_attrs invalid_attrs;
+
+	KUNIT_EXPECT_EQ(test, damon_set_attrs(c, &valid_attrs), 0);
+
+	invalid_attrs = valid_attrs;
+	invalid_attrs.min_nr_regions = 1;
+	KUNIT_EXPECT_EQ(test, damon_set_attrs(c, &invalid_attrs), -EINVAL);
+
+	invalid_attrs = valid_attrs;
+	invalid_attrs.max_nr_regions = 9;
+	KUNIT_EXPECT_EQ(test, damon_set_attrs(c, &invalid_attrs), -EINVAL);
+
+	invalid_attrs = valid_attrs;
+	invalid_attrs.aggr_interval = 4999;
+	KUNIT_EXPECT_EQ(test, damon_set_attrs(c, &invalid_attrs), -EINVAL);
+}
+
 static struct kunit_case damon_test_cases[] = {
 	KUNIT_CASE(damon_test_target),
 	KUNIT_CASE(damon_test_regions),
@@ -299,6 +351,8 @@ static struct kunit_case damon_test_cases[] = {
 	KUNIT_CASE(damon_test_split_regions_of),
 	KUNIT_CASE(damon_test_ops_registration),
 	KUNIT_CASE(damon_test_set_regions),
+	KUNIT_CASE(damon_test_update_monitoring_result),
+	KUNIT_CASE(damon_test_set_attrs),
 	{},
 };
 

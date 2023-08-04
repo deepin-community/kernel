@@ -170,10 +170,10 @@
  * @pwm_refclk_freq: Cache for the reference clock input to the PWM.
  */
 struct ti_sn65dsi86 {
-	struct auxiliary_device		bridge_aux;
-	struct auxiliary_device		gpio_aux;
-	struct auxiliary_device		aux_aux;
-	struct auxiliary_device		pwm_aux;
+	struct auxiliary_device		*bridge_aux;
+	struct auxiliary_device		*gpio_aux;
+	struct auxiliary_device		*aux_aux;
+	struct auxiliary_device		*pwm_aux;
 
 	struct device			*dev;
 	struct regmap			*regmap;
@@ -298,6 +298,10 @@ static void ti_sn_bridge_set_refclk_freq(struct ti_sn65dsi86 *pdata)
 		if (refclk_lut[i] == refclk_rate)
 			break;
 
+	/* avoid buffer overflow and "1" is the default rate in the datasheet. */
+	if (i >= refclk_lut_size)
+		i = 1;
+
 	regmap_update_bits(pdata->regmap, SN_DPPLL_SRC_REG, REFCLK_FREQ_MASK,
 			   REFCLK_FREQ(i));
 
@@ -363,7 +367,7 @@ static int __maybe_unused ti_sn65dsi86_resume(struct device *dev)
 	/* td2: min 100 us after regulators before enabling the GPIO */
 	usleep_range(100, 110);
 
-	gpiod_set_value(pdata->enable_gpio, 1);
+	gpiod_set_value_cansleep(pdata->enable_gpio, 1);
 
 	/*
 	 * If we have a reference clock we can enable communication w/ the
@@ -386,7 +390,7 @@ static int __maybe_unused ti_sn65dsi86_suspend(struct device *dev)
 	if (pdata->refclk)
 		ti_sn65dsi86_disable_comms(pdata);
 
-	gpiod_set_value(pdata->enable_gpio, 0);
+	gpiod_set_value_cansleep(pdata->enable_gpio, 0);
 
 	ret = regulator_bulk_disable(SN_REGULATOR_SUPPLY_NUM, pdata->supplies);
 	if (ret)
@@ -464,27 +468,34 @@ static void ti_sn65dsi86_delete_aux(void *data)
 	auxiliary_device_delete(data);
 }
 
-/*
- * AUX bus docs say that a non-NULL release is mandatory, but it makes no
- * sense for the model used here where all of the aux devices are allocated
- * in the single shared structure. We'll use this noop as a workaround.
- */
-static void ti_sn65dsi86_noop(struct device *dev) {}
+static void ti_sn65dsi86_aux_device_release(struct device *dev)
+{
+	struct auxiliary_device *aux = container_of(dev, struct auxiliary_device, dev);
+
+	kfree(aux);
+}
 
 static int ti_sn65dsi86_add_aux_device(struct ti_sn65dsi86 *pdata,
-				       struct auxiliary_device *aux,
+				       struct auxiliary_device **aux_out,
 				       const char *name)
 {
 	struct device *dev = pdata->dev;
+	struct auxiliary_device *aux;
 	int ret;
+
+	aux = kzalloc(sizeof(*aux), GFP_KERNEL);
+	if (!aux)
+		return -ENOMEM;
 
 	aux->name = name;
 	aux->dev.parent = dev;
-	aux->dev.release = ti_sn65dsi86_noop;
+	aux->dev.release = ti_sn65dsi86_aux_device_release;
 	device_set_of_node_from_dev(&aux->dev, dev);
 	ret = auxiliary_device_init(aux);
-	if (ret)
+	if (ret) {
+		kfree(aux);
 		return ret;
+	}
 	ret = devm_add_action_or_reset(dev, ti_sn65dsi86_uninit_aux, aux);
 	if (ret)
 		return ret;
@@ -493,6 +504,8 @@ static int ti_sn65dsi86_add_aux_device(struct ti_sn65dsi86 *pdata,
 	if (ret)
 		return ret;
 	ret = devm_add_action_or_reset(dev, ti_sn65dsi86_delete_aux, aux);
+	if (!ret)
+		*aux_out = aux;
 
 	return ret;
 }
@@ -618,6 +631,24 @@ exit:
 	return len;
 }
 
+static int ti_sn_aux_wait_hpd_asserted(struct drm_dp_aux *aux, unsigned long wait_us)
+{
+	/*
+	 * The HPD in this chip is a bit useless (See comment in
+	 * ti_sn65dsi86_enable_comms) so if our driver is expected to wait
+	 * for HPD, we just assume it's asserted after the wait_us delay.
+	 *
+	 * In case we are asked to wait forever (wait_us=0) take conservative
+	 * 500ms delay.
+	 */
+	if (wait_us == 0)
+		wait_us = 500000;
+
+	usleep_range(wait_us, wait_us + 1000);
+
+	return 0;
+}
+
 static int ti_sn_aux_probe(struct auxiliary_device *adev,
 			   const struct auxiliary_device_id *id)
 {
@@ -627,6 +658,7 @@ static int ti_sn_aux_probe(struct auxiliary_device *adev,
 	pdata->aux.name = "ti-sn65dsi86-aux";
 	pdata->aux.dev = &adev->dev;
 	pdata->aux.transfer = ti_sn_aux_transfer;
+	pdata->aux.wait_hpd_asserted = ti_sn_aux_wait_hpd_asserted;
 	drm_dp_aux_init(&pdata->aux);
 
 	ret = devm_of_dp_aux_populate_ep_devices(&pdata->aux);
@@ -1500,8 +1532,8 @@ out:
 	return ret;
 }
 
-static void ti_sn_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
-				struct pwm_state *state)
+static int ti_sn_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+			       struct pwm_state *state)
 {
 	struct ti_sn65dsi86 *pdata = pwm_chip_to_ti_sn_bridge(chip);
 	unsigned int pwm_en_inv;
@@ -1512,19 +1544,19 @@ static void ti_sn_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	ret = regmap_read(pdata->regmap, SN_PWM_EN_INV_REG, &pwm_en_inv);
 	if (ret)
-		return;
+		return ret;
 
 	ret = ti_sn65dsi86_read_u16(pdata, SN_BACKLIGHT_SCALE_REG, &scale);
 	if (ret)
-		return;
+		return ret;
 
 	ret = ti_sn65dsi86_read_u16(pdata, SN_BACKLIGHT_REG, &backlight);
 	if (ret)
-		return;
+		return ret;
 
 	ret = regmap_read(pdata->regmap, SN_PWM_PRE_DIV_REG, &pre_div);
 	if (ret)
-		return;
+		return ret;
 
 	state->enabled = FIELD_GET(SN_PWM_EN_MASK, pwm_en_inv);
 	if (FIELD_GET(SN_PWM_INV_MASK, pwm_en_inv))
@@ -1539,6 +1571,8 @@ static void ti_sn_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	if (state->duty_cycle > state->period)
 		state->duty_cycle = state->period;
+
+	return 0;
 }
 
 static const struct pwm_ops ti_sn_pwm_ops = {
@@ -1850,8 +1884,7 @@ static int ti_sn65dsi86_parse_regulators(struct ti_sn65dsi86 *pdata)
 				       pdata->supplies);
 }
 
-static int ti_sn65dsi86_probe(struct i2c_client *client,
-			      const struct i2c_device_id *id)
+static int ti_sn65dsi86_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct ti_sn65dsi86 *pdata;

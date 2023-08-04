@@ -16,8 +16,9 @@
 #include <linux/init.h>
 #include <linux/fb.h>
 #include <linux/mm.h>
-#include <linux/of_device.h>
 #include <linux/io.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 
 #include <asm/fbio.h>
 
@@ -637,7 +638,7 @@ out_err:
 	return err;
 }
 
-static int leo_remove(struct platform_device *op)
+static void leo_remove(struct platform_device *op)
 {
 	struct fb_info *info = dev_get_drvdata(&op->dev);
 	struct leo_par *par = info->par;
@@ -648,8 +649,6 @@ static int leo_remove(struct platform_device *op)
 	leo_unmap_regs(op, info, par);
 
 	framebuffer_release(info);
-
-	return 0;
 }
 
 static const struct of_device_id leo_match[] = {
@@ -666,7 +665,7 @@ static struct platform_driver leo_driver = {
 		.of_match_table = leo_match,
 	},
 	.probe		= leo_probe,
-	.remove		= leo_remove,
+	.remove_new	= leo_remove,
 };
 
 static int __init leo_init(void)

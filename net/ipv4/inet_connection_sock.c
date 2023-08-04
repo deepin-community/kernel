@@ -117,7 +117,7 @@ bool inet_rcv_saddr_any(const struct sock *sk)
 	return !sk->sk_rcv_saddr;
 }
 
-void inet_get_local_port_range(struct net *net, int *low, int *high)
+void inet_get_local_port_range(const struct net *net, int *low, int *high)
 {
 	unsigned int seq;
 
@@ -129,6 +129,27 @@ void inet_get_local_port_range(struct net *net, int *low, int *high)
 	} while (read_seqretry(&net->ipv4.ip_local_ports.lock, seq));
 }
 EXPORT_SYMBOL(inet_get_local_port_range);
+
+void inet_sk_get_local_port_range(const struct sock *sk, int *low, int *high)
+{
+	const struct inet_sock *inet = inet_sk(sk);
+	const struct net *net = sock_net(sk);
+	int lo, hi, sk_lo, sk_hi;
+
+	inet_get_local_port_range(net, &lo, &hi);
+
+	sk_lo = inet->local_port_range.lo;
+	sk_hi = inet->local_port_range.hi;
+
+	if (unlikely(lo <= sk_lo && sk_lo <= hi))
+		lo = sk_lo;
+	if (unlikely(lo <= sk_hi && sk_hi <= hi))
+		hi = sk_hi;
+
+	*low = lo;
+	*high = hi;
+}
+EXPORT_SYMBOL(inet_sk_get_local_port_range);
 
 static bool inet_use_bhash2_on_bind(const struct sock *sk)
 {
@@ -316,7 +337,7 @@ inet_csk_find_open_port(const struct sock *sk, struct inet_bind_bucket **tb_ret,
 ports_exhausted:
 	attempt_half = (sk->sk_reuse == SK_CAN_REUSE) ? 1 : 0;
 other_half_scan:
-	inet_get_local_port_range(net, &low, &high);
+	inet_sk_get_local_port_range(sk, &low, &high);
 	high++; /* [32768, 60999] -> [32768, 61000[ */
 	if (high - low < 4)
 		attempt_half = 0;
@@ -332,7 +353,7 @@ other_half_scan:
 	if (likely(remaining > 1))
 		remaining &= ~1U;
 
-	offset = prandom_u32_max(remaining);
+	offset = get_random_u32_below(remaining);
 	/* __inet_hash_connect() favors ports having @low parity
 	 * We do the opposite to not pollute connect() users.
 	 */
@@ -685,20 +706,23 @@ struct sock *inet_csk_accept(struct sock *sk, int flags, int *err, bool kern)
 out:
 	release_sock(sk);
 	if (newsk && mem_cgroup_sockets_enabled) {
-		int amt;
+		int amt = 0;
 
 		/* atomically get the memory usage, set and charge the
 		 * newsk->sk_memcg.
 		 */
 		lock_sock(newsk);
 
-		/* The socket has not been accepted yet, no need to look at
-		 * newsk->sk_wmem_queued.
-		 */
-		amt = sk_mem_pages(newsk->sk_forward_alloc +
-				   atomic_read(&newsk->sk_rmem_alloc));
 		mem_cgroup_sk_alloc(newsk);
-		if (newsk->sk_memcg && amt)
+		if (newsk->sk_memcg) {
+			/* The socket has not been accepted yet, no need
+			 * to look at newsk->sk_wmem_queued.
+			 */
+			amt = sk_mem_pages(newsk->sk_forward_alloc +
+					   atomic_read(&newsk->sk_rmem_alloc));
+		}
+
+		if (amt)
 			mem_cgroup_charge_skmem(newsk->sk_memcg, amt,
 						GFP_KERNEL | __GFP_NOFAIL);
 
@@ -771,7 +795,7 @@ struct dst_entry *inet_csk_route_req(const struct sock *sk,
 	opt = rcu_dereference(ireq->ireq_opt);
 
 	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
-			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+			   ip_sock_rt_tos(sk), ip_sock_rt_scope(sk),
 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
 			   ireq->ir_loc_addr, ireq->ir_rmt_port,
@@ -809,7 +833,7 @@ struct dst_entry *inet_csk_route_child_sock(const struct sock *sk,
 	fl4 = &newinet->cork.fl.u.ip4;
 
 	flowi4_init_output(fl4, ireq->ir_iif, ireq->ir_mark,
-			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
+			   ip_sock_rt_tos(sk), ip_sock_rt_scope(sk),
 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
 			   ireq->ir_loc_addr, ireq->ir_rmt_port,
@@ -995,7 +1019,7 @@ static void reqsk_timer_handler(struct timer_list *t)
 
 	icsk = inet_csk(sk_listener);
 	net = sock_net(sk_listener);
-	max_syn_ack_retries = icsk->icsk_syn_retries ? :
+	max_syn_ack_retries = READ_ONCE(icsk->icsk_syn_retries) ? :
 		READ_ONCE(net->ipv4.sysctl_tcp_synack_retries);
 	/* Normally all the openreqs are young and become mature
 	 * (i.e. converted to established socket) for first timeout.
@@ -1101,8 +1125,7 @@ static void inet_clone_ulp(const struct request_sock *req, struct sock *newsk,
 	if (!icsk->icsk_ulp_ops)
 		return;
 
-	if (icsk->icsk_ulp_ops->clone)
-		icsk->icsk_ulp_ops->clone(req, newsk, priority);
+	icsk->icsk_ulp_ops->clone(req, newsk, priority);
 }
 
 /**
@@ -1122,6 +1145,7 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
 	if (newsk) {
 		struct inet_connection_sock *newicsk = inet_csk(newsk);
 
+		newsk->sk_wait_pending = 0;
 		inet_sk_set_state(newsk, TCP_SYN_RECV);
 		newicsk->icsk_bind_hash = NULL;
 		newicsk->icsk_bind2_hash = NULL;
@@ -1177,8 +1201,6 @@ void inet_csk_destroy_sock(struct sock *sk)
 	sk_stream_kill_queues(sk);
 
 	xfrm_sk_free_policy(sk);
-
-	sk_refcnt_debug_release(sk);
 
 	this_cpu_dec(*sk->sk_prot->orphan_count);
 

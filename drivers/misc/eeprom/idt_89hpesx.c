@@ -1366,7 +1366,7 @@ static void idt_remove_dbgfs_files(struct idt_89hpesx_dev *pdev)
 /*
  * idt_probe() - IDT 89HPESx driver probe() callback method
  */
-static int idt_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int idt_probe(struct i2c_client *client)
 {
 	struct idt_89hpesx_dev *pdev;
 	int ret;

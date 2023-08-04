@@ -5,6 +5,7 @@
 #include <asm/cpu.h>
 #include <linux/earlycpio.h>
 #include <linux/initrd.h>
+#include <asm/microcode_amd.h>
 
 struct ucode_patch {
 	struct list_head plist;
@@ -33,8 +34,7 @@ enum ucode_state {
 };
 
 struct microcode_ops {
-	enum ucode_state (*request_microcode_fw) (int cpu, struct device *,
-						  bool refresh_fw);
+	enum ucode_state (*request_microcode_fw) (int cpu, struct device *);
 
 	void (*microcode_fini_cpu) (int cpu);
 
@@ -50,7 +50,6 @@ struct microcode_ops {
 
 struct ucode_cpu_info {
 	struct cpu_signature	cpu_sig;
-	int			valid;
 	void			*mc;
 };
 extern struct ucode_cpu_info ucode_cpu_info[];

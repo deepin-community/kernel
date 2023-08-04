@@ -14,9 +14,26 @@
  */
 
 #define UFS_CDB_SIZE	16
-#define UPIU_TRANSACTION_UIC_CMD 0x1F
 /* uic commands are 4DW long, per UFSHCI V2.1 paragraph 5.6.1 */
 #define UIC_CMD_SIZE (sizeof(__u32) * 4)
+
+enum ufs_bsg_msg_code {
+	UPIU_TRANSACTION_UIC_CMD = 0x1F,
+	UPIU_TRANSACTION_ARPMB_CMD,
+};
+
+/* UFS RPMB Request Message Types */
+enum ufs_rpmb_op_type {
+	UFS_RPMB_WRITE_KEY		= 0x01,
+	UFS_RPMB_READ_CNT		= 0x02,
+	UFS_RPMB_WRITE			= 0x03,
+	UFS_RPMB_READ			= 0x04,
+	UFS_RPMB_READ_RESP		= 0x05,
+	UFS_RPMB_SEC_CONF_WRITE		= 0x06,
+	UFS_RPMB_SEC_CONF_READ		= 0x07,
+	UFS_RPMB_PURGE_ENABLE		= 0x08,
+	UFS_RPMB_PURGE_STATUS_READ	= 0x09,
+};
 
 /**
  * struct utp_upiu_header - UPIU header structure
@@ -54,6 +71,31 @@ struct utp_upiu_query {
 };
 
 /**
+ * struct utp_upiu_query_v4_0 - upiu request buffer structure for
+ * query request >= UFS 4.0 spec.
+ * @opcode: command to perform B-0
+ * @idn: a value that indicates the particular type of data B-1
+ * @index: Index to further identify data B-2
+ * @selector: Index to further identify data B-3
+ * @osf4: spec field B-5
+ * @osf5: spec field B 6,7
+ * @osf6: spec field DW 8,9
+ * @osf7: spec field DW 10,11
+ */
+struct utp_upiu_query_v4_0 {
+	__u8 opcode;
+	__u8 idn;
+	__u8 index;
+	__u8 selector;
+	__u8 osf3;
+	__u8 osf4;
+	__be16 osf5;
+	__be32 osf6;
+	__be32 osf7;
+	__be32 reserved;
+};
+
+/**
  * struct utp_upiu_cmd - Command UPIU structure
  * @data_transfer_len: Data Transfer Length DW-3
  * @cdb: Command Descriptor Block CDB DW-4 to DW-7
@@ -79,6 +121,23 @@ struct utp_upiu_req {
 	};
 };
 
+struct ufs_arpmb_meta {
+	__be16	req_resp_type;
+	__u8	nonce[16];
+	__be32	write_counter;
+	__be16	addr_lun;
+	__be16	block_count;
+	__be16	result;
+} __attribute__((__packed__));
+
+struct ufs_ehs {
+	__u8	length;
+	__u8	ehs_type;
+	__be16	ehssub_type;
+	struct ufs_arpmb_meta meta;
+	__u8	mac_key[32];
+} __attribute__((__packed__));
+
 /* request (CDB) structure of the sg_io_v4 */
 struct ufs_bsg_request {
 	__u32 msgcode;
@@ -95,11 +154,21 @@ struct ufs_bsg_reply {
 	 * msg and status fields. The per-msgcode reply structure
 	 * will contain valid data.
 	 */
-	__u32 result;
+	int result;
 
 	/* If there was reply_payload, how much was received? */
 	__u32 reply_payload_rcv_len;
 
 	struct utp_upiu_req upiu_rsp;
+};
+
+struct ufs_rpmb_request {
+	struct ufs_bsg_request bsg_request;
+	struct ufs_ehs ehs_req;
+};
+
+struct ufs_rpmb_reply {
+	struct ufs_bsg_reply bsg_reply;
+	struct ufs_ehs ehs_rsp;
 };
 #endif /* UFS_BSG_H */

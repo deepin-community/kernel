@@ -10,7 +10,7 @@
 #include <linux/fb.h>
 #include <linux/pci.h>
 #include <linux/init.h>
-#include <linux/of_device.h>
+#include <linux/of.h>
 
 #include <asm/io.h>
 
@@ -247,6 +247,9 @@ static struct pci_driver s3d_driver = {
 
 static int __init s3d_init(void)
 {
+	if (fb_modesetting_disabled("s3d"))
+		return -ENODEV;
+
 	if (fb_get_options("s3d", NULL))
 		return -ENODEV;
 
