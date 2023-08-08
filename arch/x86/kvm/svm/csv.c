@@ -973,6 +973,16 @@ bool csv_has_emulated_ghcb_msr(struct kvm *kvm)
 	return true;
 }
 
+static int csv_control_pre_system_reset(struct kvm *kvm)
+{
+	return 0;
+}
+
+static int csv_control_post_system_reset(struct kvm *kvm)
+{
+	return 0;
+}
+
 void csv_exit(void)
 {
 }
@@ -990,4 +1000,6 @@ void __init csv_init(struct kvm_x86_ops *ops)
 
 	ops->mem_enc_ioctl = csv_mem_enc_ioctl;
 	ops->vm_attestation = csv_vm_attestation;
+	ops->control_pre_system_reset = csv_control_pre_system_reset;
+	ops->control_post_system_reset = csv_control_post_system_reset;
 }
