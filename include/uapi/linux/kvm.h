@@ -2301,4 +2301,8 @@ struct kvm_csv_receive_update_vmsa {
 	__u32 trans_len;
 };
 
+/* ioctls for control vm during system reset, currently only for CSV */
+#define KVM_CONTROL_PRE_SYSTEM_RESET	 _IO(KVMIO, 0xe8)
+#define KVM_CONTROL_POST_SYSTEM_RESET	 _IO(KVMIO, 0xe9)
+
 #endif /* __LINUX_KVM_H */
