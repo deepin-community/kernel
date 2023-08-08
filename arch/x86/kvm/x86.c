@@ -7121,6 +7121,18 @@ set_pit2_out:
 		r = kvm_vm_ioctl_set_msr_filter(kvm, &filter);
 		break;
 	}
+	case KVM_CONTROL_PRE_SYSTEM_RESET:
+		if (kvm_x86_ops.control_pre_system_reset)
+			r = static_call(kvm_x86_control_pre_system_reset)(kvm);
+		else
+			r = -ENOTTY;
+		break;
+	case KVM_CONTROL_POST_SYSTEM_RESET:
+		if (kvm_x86_ops.control_post_system_reset)
+			r = static_call(kvm_x86_control_post_system_reset)(kvm);
+		else
+			r = -ENOTTY;
+		break;
 	default:
 		r = -ENOTTY;
 	}

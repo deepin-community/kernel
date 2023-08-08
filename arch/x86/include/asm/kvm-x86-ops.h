@@ -136,6 +136,8 @@ KVM_X86_OP(complete_emulated_msr)
 KVM_X86_OP(vcpu_deliver_sipi_vector)
 KVM_X86_OP_OPTIONAL_RET0(vcpu_get_apicv_inhibit_reasons);
 KVM_X86_OP_OPTIONAL(vm_attestation)
+KVM_X86_OP_OPTIONAL(control_pre_system_reset)
+KVM_X86_OP_OPTIONAL(control_post_system_reset)
 
 #undef KVM_X86_OP
 #undef KVM_X86_OP_OPTIONAL
