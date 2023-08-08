@@ -2011,9 +2011,11 @@ struct kvm_x86_ops {
 	void (*gmem_invalidate)(kvm_pfn_t start, kvm_pfn_t end);
 	int (*gmem_max_mapping_level)(struct kvm *kvm, kvm_pfn_t pfn, bool is_private);
 	/*
-	 * Attestation interface for HYGON CSV guest
+	 * Interfaces for HYGON CSV guest
 	 */
 	int (*vm_attestation)(struct kvm *kvm, unsigned long gpa, unsigned long len);
+	int (*control_pre_system_reset)(struct kvm *kvm);
+	int (*control_post_system_reset)(struct kvm *kvm);
 };
 
 struct kvm_x86_nested_ops {
