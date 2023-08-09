@@ -1315,7 +1315,6 @@ SEQ_RAWDATA_FOPS(compressed_size);
 
 static int decompress_zstd(char *src, size_t slen, char *dst, size_t dlen)
 {
-#ifdef CONFIG_SECURITY_APPARMOR_EXPORT_BINARY
 	if (slen < dlen) {
 		const size_t wksp_len = zstd_dctx_workspace_bound();
 		zstd_dctx *ctx;
@@ -1342,7 +1341,6 @@ cleanup:
 		kvfree(wksp);
 		return ret;
 	}
-#endif
 
 	if (dlen < slen)
 		return -EINVAL;
