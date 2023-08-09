@@ -60,11 +60,6 @@
 			reg = <0x0 0x05000000 0x0 0x1a00000>;
 			no-map;
 		};
-
-		reserved@6c00000 {
-			reg = <0x0 0x06c00000 0x0 0x400000>;
-			no-map;
-		};
 	};
 };
 
@@ -73,7 +68,7 @@
 };
 
 &rpm_requests {
-	pm8994_regulators: pm8994-regulators {
+	pm8994_regulators: regulators-0 {
 		compatible = "qcom,rpm-pm8994-regulators";
 
 		vdd_l1-supply = <&pm8994_s1>;
@@ -286,7 +281,7 @@
 		};
 	};
 
-	pmi8994_regulators: pmi8994-regulators {
+	pmi8994_regulators: regulators-1 {
 		compatible = "qcom,rpm-pmi8994-regulators";
 
 		vdd_s1-supply = <&vph_pwr>;

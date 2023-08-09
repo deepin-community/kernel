@@ -87,7 +87,11 @@ struct dvb_frontend;
  * @device:		pointer to struct device
  * @module:		pointer to struct module
  * @mfe_shared:		indicates mutually exclusive frontends.
- *			Use of this flag is currently deprecated.
+ *			1 = legacy exclusion behavior: blocking any open() call
+ *			2 = enhanced exclusion behavior, emulating the standard
+ *			behavior of busy frontends: allowing read-only sharing
+ *			and otherwise returning immediately with -EBUSY when any
+ *			of the frontends is already opened with write access.
  * @mfe_dvbdev:		Frontend device in use, in the case of MFE
  * @mfe_lock:		Lock to prevent using the other frontends when MFE is
  *			used.
@@ -187,6 +191,21 @@ struct dvb_device {
 #endif
 
 	void *priv;
+};
+
+/**
+ * struct dvbdevfops_node - fops nodes registered in dvbdevfops_list
+ *
+ * @fops:		Dynamically allocated fops for ->owner registration
+ * @type:		type of dvb_device
+ * @template:		dvb_device used for registration
+ * @list_head:		list_head for dvbdevfops_list
+ */
+struct dvbdevfops_node {
+	struct file_operations *fops;
+	enum dvb_device_type type;
+	const struct dvb_device *template;
+	struct list_head list_head;
 };
 
 /**

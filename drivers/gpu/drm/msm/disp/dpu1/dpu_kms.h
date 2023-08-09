@@ -68,7 +68,6 @@
 struct dpu_kms {
 	struct msm_kms base;
 	struct drm_device *dev;
-	int core_rev;
 	const struct dpu_mdss_cfg *catalog;
 
 	/* io/register spaces: */
@@ -118,6 +117,10 @@ struct vsync_info {
 	u32 frame_count;
 	u32 line_count;
 };
+
+#define DPU_ENC_WR_PTR_START_TIMEOUT_US 20000
+
+#define DPU_ENC_MAX_POLL_TIMEOUT_US	2000
 
 #define to_dpu_kms(x) container_of(x, struct dpu_kms, base)
 

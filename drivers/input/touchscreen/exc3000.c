@@ -111,7 +111,7 @@ static inline void exc3000_schedule_timer(struct exc3000_data *data)
 
 static void exc3000_shutdown_timer(void *timer)
 {
-	del_timer_sync(timer);
+	timer_shutdown_sync(timer);
 }
 
 static int exc3000_read_frame(struct exc3000_data *data, u8 *buf)

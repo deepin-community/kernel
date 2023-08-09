@@ -326,8 +326,7 @@ static struct dentry *ovl_obtain_alias(struct super_block *sb,
 	if (upper_alias)
 		ovl_dentry_set_upper_alias(dentry);
 
-	ovl_dentry_update_reval(dentry, upper,
-			DCACHE_OP_REVALIDATE | DCACHE_OP_WEAK_REVALIDATE);
+	ovl_dentry_init_reval(dentry, upper);
 
 	return d_instantiate_anon(dentry, inode);
 
@@ -339,7 +338,7 @@ out_iput:
 	return dentry;
 }
 
-/* Get the upper or lower dentry in stach whose on layer @idx */
+/* Get the upper or lower dentry in stack whose on layer @idx */
 static struct dentry *ovl_dentry_real_at(struct dentry *dentry, int idx)
 {
 	struct ovl_entry *oe = dentry->d_fsdata;
@@ -392,8 +391,8 @@ static struct dentry *ovl_lookup_real_one(struct dentry *connected,
 	 */
 	take_dentry_name_snapshot(&name, real);
 	/*
-	 * No mnt_userns handling here: it's an internal lookup.  Could skip
-	 * permission checking altogether, but for now just use non-mnt_userns
+	 * No idmap handling here: it's an internal lookup.  Could skip
+	 * permission checking altogether, but for now just use non-idmap
 	 * transformed ids.
 	 */
 	this = lookup_one_len(name.name.name, connected, name.name.len);
@@ -463,7 +462,7 @@ static struct dentry *ovl_lookup_real_inode(struct super_block *sb,
 
 	/* Get connected upper overlay dir from index */
 	if (index) {
-		struct dentry *upper = ovl_index_upper(ofs, index);
+		struct dentry *upper = ovl_index_upper(ofs, index, true);
 
 		dput(index);
 		if (IS_ERR_OR_NULL(upper))
@@ -739,7 +738,7 @@ static struct dentry *ovl_lower_fh_to_d(struct super_block *sb,
 
 	/* Then try to get a connected upper dir by index */
 	if (index && d_is_dir(index)) {
-		struct dentry *upper = ovl_index_upper(ofs, index);
+		struct dentry *upper = ovl_index_upper(ofs, index, true);
 
 		err = PTR_ERR(upper);
 		if (IS_ERR_OR_NULL(upper))

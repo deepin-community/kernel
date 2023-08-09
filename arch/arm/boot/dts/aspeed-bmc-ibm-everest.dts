@@ -162,6 +162,11 @@
 		#size-cells = <1>;
 		ranges;
 
+		event_log: tcg_event_log@b3d00000 {
+			no-map;
+			reg = <0xb3d00000 0x100000>;
+		};
+
 		ramoops@b3e00000 {
 			compatible = "ramoops";
 			reg = <0xb3e00000 0x200000>; /* 16 * (4 * 0x8000) */
@@ -244,7 +249,7 @@
 		};
 	};
 
-	iio-hwmon-battery {
+	iio-hwmon {
 		compatible = "iio-hwmon";
 		io-channels = <&adc1 7>;
 	};
@@ -1887,6 +1892,7 @@
 	tpm@2e {
 		compatible = "nuvoton,npct75x", "tcg,tpm-tis-i2c";
 		reg = <0x2e>;
+		memory-region = <&event_log>;
 	};
 };
 
@@ -2550,6 +2556,11 @@
 
 			fsi_occ0: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -2694,6 +2705,11 @@
 
 			fsi_occ1: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -2838,6 +2854,11 @@
 
 			fsi_occ2: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -2982,6 +3003,11 @@
 
 			fsi_occ3: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -3126,6 +3152,11 @@
 
 			fsi_occ4: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -3270,6 +3301,11 @@
 
 			fsi_occ5: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -3414,6 +3450,11 @@
 
 			fsi_occ6: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -3558,6 +3599,11 @@
 
 			fsi_occ7: occ {
 				compatible = "ibm,p10-occ";
+
+				occ-hwmon {
+					compatible = "ibm,p10-occ-hwmon";
+					ibm,no-poll-on-init;
+				};
 			};
 		};
 
@@ -3606,6 +3652,10 @@
 };
 
 &ibt {
+	status = "okay";
+};
+
+&uart2 {
 	status = "okay";
 };
 

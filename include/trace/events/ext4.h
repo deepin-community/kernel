@@ -584,13 +584,6 @@ DECLARE_EVENT_CLASS(ext4__page_op,
 		  (unsigned long) __entry->index)
 );
 
-DEFINE_EVENT(ext4__page_op, ext4_writepage,
-
-	TP_PROTO(struct page *page),
-
-	TP_ARGS(page)
-);
-
 DEFINE_EVENT(ext4__page_op, ext4_readpage,
 
 	TP_PROTO(struct page *page),
@@ -1746,18 +1739,19 @@ TRACE_EVENT(ext4_load_inode,
 		  (unsigned long) __entry->ino)
 );
 
-TRACE_EVENT(ext4_journal_start,
+TRACE_EVENT(ext4_journal_start_sb,
 	TP_PROTO(struct super_block *sb, int blocks, int rsv_blocks,
-		 int revoke_creds, unsigned long IP),
+		 int revoke_creds, int type, unsigned long IP),
 
-	TP_ARGS(sb, blocks, rsv_blocks, revoke_creds, IP),
+	TP_ARGS(sb, blocks, rsv_blocks, revoke_creds, type, IP),
 
 	TP_STRUCT__entry(
-		__field(	dev_t,	dev			)
-		__field(unsigned long,	ip			)
-		__field(	  int,	blocks			)
-		__field(	  int,	rsv_blocks		)
-		__field(	  int,	revoke_creds		)
+		__field(	dev_t,		dev		)
+		__field(	unsigned long,	ip		)
+		__field(	int,		blocks		)
+		__field(	int,		rsv_blocks	)
+		__field(	int,		revoke_creds	)
+		__field(	int,		type		)
 	),
 
 	TP_fast_assign(
@@ -1766,11 +1760,45 @@ TRACE_EVENT(ext4_journal_start,
 		__entry->blocks		 = blocks;
 		__entry->rsv_blocks	 = rsv_blocks;
 		__entry->revoke_creds	 = revoke_creds;
+		__entry->type		 = type;
 	),
 
-	TP_printk("dev %d,%d blocks %d, rsv_blocks %d, revoke_creds %d, "
-		  "caller %pS", MAJOR(__entry->dev), MINOR(__entry->dev),
-		  __entry->blocks, __entry->rsv_blocks, __entry->revoke_creds,
+	TP_printk("dev %d,%d blocks %d, rsv_blocks %d, revoke_creds %d,"
+		  " type %d, caller %pS", MAJOR(__entry->dev),
+		  MINOR(__entry->dev), __entry->blocks, __entry->rsv_blocks,
+		  __entry->revoke_creds, __entry->type, (void *)__entry->ip)
+);
+
+TRACE_EVENT(ext4_journal_start_inode,
+	TP_PROTO(struct inode *inode, int blocks, int rsv_blocks,
+		 int revoke_creds, int type, unsigned long IP),
+
+	TP_ARGS(inode, blocks, rsv_blocks, revoke_creds, type, IP),
+
+	TP_STRUCT__entry(
+		__field(	unsigned long,	ino		)
+		__field(	dev_t,		dev		)
+		__field(	unsigned long,	ip		)
+		__field(	int,		blocks		)
+		__field(	int,		rsv_blocks	)
+		__field(	int,		revoke_creds	)
+		__field(	int,		type		)
+	),
+
+	TP_fast_assign(
+		__entry->dev		 = inode->i_sb->s_dev;
+		__entry->ip		 = IP;
+		__entry->blocks		 = blocks;
+		__entry->rsv_blocks	 = rsv_blocks;
+		__entry->revoke_creds	 = revoke_creds;
+		__entry->type		 = type;
+		__entry->ino		 = inode->i_ino;
+	),
+
+	TP_printk("dev %d,%d blocks %d, rsv_blocks %d, revoke_creds %d,"
+		  " type %d, ino %lu, caller %pS", MAJOR(__entry->dev),
+		  MINOR(__entry->dev), __entry->blocks, __entry->rsv_blocks,
+		  __entry->revoke_creds, __entry->type, __entry->ino,
 		  (void *)__entry->ip)
 );
 
