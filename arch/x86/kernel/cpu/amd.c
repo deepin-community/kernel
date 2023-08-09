@@ -1014,7 +1014,6 @@ static bool cpu_has_zenbleed_microcode(void)
 
 	default:
 		return false;
-		break;
 	}
 
 	if (boot_cpu_data.microcode < good_rev)
