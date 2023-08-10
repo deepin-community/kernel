@@ -305,6 +305,46 @@ struct csv3_data_dbg_read_mem {
 	u32 size;			/* In */
 } __packed;
 
+/*
+ * enum VPSP_CMD_STATUS - virtual psp command status
+ *
+ * @VPSP_INIT: the initial command from guest
+ * @VPSP_RUNNING: the middle command to check and run ringbuffer command
+ * @VPSP_FINISH: inform the guest that the command ran successfully
+ */
+enum VPSP_CMD_STATUS {
+	VPSP_INIT = 0,
+	VPSP_RUNNING,
+	VPSP_FINISH,
+	VPSP_MAX
+};
+
+/**
+ * struct vpsp_cmd - virtual psp command
+ *
+ * @cmd_id: the command id is used to distinguish different commands
+ * @is_high_rb: indicates the ringbuffer level in which the command is placed
+ */
+struct vpsp_cmd {
+	u32 cmd_id	:	31;
+	u32 is_high_rb	:	1;
+};
+
+/**
+ * struct vpsp_ret - virtual psp return result
+ *
+ * @pret: the return code from device
+ * @resv: reserved bits
+ * @index: used to distinguish the position of command in the ringbuffer
+ * @status: indicates the current status of the related command
+ */
+struct vpsp_ret {
+	u32 pret	:	16;
+	u32 resv	:	2;
+	u32 index	:	12;
+	u32 status	:	2;
+};
+
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
 
 int psp_do_cmd(int cmd, void *data, int *psp_ret);
@@ -320,6 +360,10 @@ int csv_check_stat_queue_status(int *psp_ret);
  */
 int csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret);
 
+int vpsp_try_get_result(uint8_t prio, uint32_t index, void *data, struct vpsp_ret *psp_ret);
+
+int vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret);
+
 #else	/* !CONFIG_CRYPTO_DEV_SP_PSP */
 
 static inline int psp_do_cmd(int cmd, void *data, int *psp_ret) { return -ENODEV; }
@@ -331,6 +375,13 @@ int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags) { return -
 static inline int csv_check_stat_queue_status(int *psp_ret) { return -ENODEV; }
 static inline int
 csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret) { return -ENODEV; }
+
+static inline int
+vpsp_try_get_result(uint8_t prio, uint32_t index, void *data,
+		    struct vpsp_ret *psp_ret) { return -ENODEV; }
+
+static inline int
+vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
 
