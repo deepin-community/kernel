@@ -28,6 +28,7 @@ static void enqueue_data(struct csv_queue *queue,
 	unsigned int l;
 	void *data;
 
+	off &= queue->mask;
 	if (esize != 1) {
 		off *= esize;
 		size *= esize;
@@ -127,4 +128,26 @@ unsigned int csv_dequeue_stat(struct csv_queue *queue,
 	dequeue_data(queue, buf, len, queue->head);
 	queue->head += len;
 	return len;
+}
+
+unsigned int csv_dequeue_cmd(struct csv_queue *ring_buf,
+	void *buf, unsigned int len)
+{
+	unsigned int size;
+
+	size = ring_buf->tail - ring_buf->head;
+	if (len > size)
+		len = size;
+
+	dequeue_data(ring_buf, buf, len, ring_buf->head);
+	ring_buf->head += len;
+	return len;
+}
+
+unsigned int csv_cmd_queue_size(struct csv_queue *ring_buf)
+{
+	unsigned int free_size;
+
+	free_size = queue_avail_size(ring_buf);
+	return ring_buf->mask - free_size;
 }
