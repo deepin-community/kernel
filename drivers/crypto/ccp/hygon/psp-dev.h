@@ -61,6 +61,8 @@ struct psp_misc_dev {
 	struct miscdevice misc;
 };
 
+extern int psp_mutex_trylock(struct psp_mutex *mutex);
+
 int hygon_psp_additional_setup(struct sp_device *sp);
 void hygon_psp_exit(struct kref *ref);
 int psp_mutex_lock_timeout(struct psp_mutex *mutex, uint64_t ms);
