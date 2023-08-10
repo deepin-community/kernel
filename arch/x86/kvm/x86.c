@@ -10448,7 +10448,7 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 	trace_kvm_hypercall(nr, a0, a1, a2, a3);
 
 	if (cpl &&
-	    !(is_x86_vendor_hygon() && nr == KVM_HC_VM_ATTESTATION)) {
+	    !(is_x86_vendor_hygon() && (nr == KVM_HC_VM_ATTESTATION || nr == KVM_HC_PSP_OP))) {
 		ret = -KVM_EPERM;
 		goto out;
 	}
@@ -10484,6 +10484,9 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 
 		kvm_sched_yield(vcpu, a0);
 		ret = 0;
+		break;
+	case KVM_HC_PSP_OP:
+		ret = kvm_pv_psp_op(vcpu->kvm, a0, a1, a2, a3);
 		break;
 	case KVM_HC_MAP_GPA_RANGE: {
 		u64 gpa = a0, npages = a1, attrs = a2;
