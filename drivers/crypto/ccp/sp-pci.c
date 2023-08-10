@@ -569,6 +569,9 @@ static const struct pci_device_id sp_pci_table[] = {
 	{ PCI_VDEVICE(AMD, 0x115A), .driver_data = (kernel_ulong_t)&dev_vdata[9] },
 	{ PCI_VDEVICE(HYGON, 0x1456), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[0] },
 	{ PCI_VDEVICE(HYGON, 0x1468), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[1] },
+	{ PCI_VDEVICE(HYGON, 0x1486), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[2] },
+	{ PCI_VDEVICE(HYGON, 0x14b8), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[1] },
+	{ PCI_VDEVICE(HYGON, 0x14a6), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[2] },
 	/* Last entry must be zero */
 	{ }
 };
