@@ -2150,6 +2150,8 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event);
 int kvm_pv_send_ipi(struct kvm *kvm, unsigned long ipi_bitmap_low,
 		    unsigned long ipi_bitmap_high, u32 min,
 		    unsigned long icr, int op_64_bit);
+int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa,
+		gpa_t psp_ret_gpa, gpa_t table_gpa);
 
 int kvm_add_user_return_msr(u32 msr);
 int kvm_find_user_return_msr(u32 msr);

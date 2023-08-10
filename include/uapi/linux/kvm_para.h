@@ -31,6 +31,7 @@
 #define KVM_HC_SCHED_YIELD		11
 #define KVM_HC_MAP_GPA_RANGE		12
 #define KVM_HC_VM_ATTESTATION		100	/* Specific to Hygon CPU */
+#define KVM_HC_PSP_OP			101	/* Specific to Hygon platform */
 
 /*
  * hypercalls use architecture specific
