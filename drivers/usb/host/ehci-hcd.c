@@ -1110,8 +1110,8 @@ static void ehci_remove_device(struct usb_hcd *hcd, struct usb_device *udev)
 /* Clear wakeup signal locked in zhaoxin platform when device plug in. */
 static void ehci_zx_wakeup_clear(struct ehci_hcd *ehci)
 {
-	u32 __iomem	*reg = &ehci->regs->port_status[4];
-	u32 		t1 = ehci_readl(ehci, reg);
+	u32 __iomem     *reg = &ehci->regs->port_status[4];
+	u32             t1 = ehci_readl(ehci, reg);
 
 	t1 &= (u32)~0xf0000;
 	t1 |= PORT_TEST_FORCE;
