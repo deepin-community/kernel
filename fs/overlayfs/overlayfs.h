@@ -406,6 +406,10 @@ static inline int ovl_do_getattr(const struct path *path, struct kstat *stat,
 }
 
 /* util.c */
+int ovl_get_write_access(struct dentry *dentry);
+void ovl_put_write_access(struct dentry *dentry);
+void ovl_start_write(struct dentry *dentry);
+void ovl_end_write(struct dentry *dentry);
 int ovl_want_write(struct dentry *dentry);
 void ovl_drop_write(struct dentry *dentry);
 struct dentry *ovl_workdir(struct dentry *dentry);
