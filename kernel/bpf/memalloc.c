@@ -501,6 +501,9 @@ int bpf_mem_alloc_init(struct bpf_mem_alloc *ma, int size, bool percpu)
 	struct obj_cgroup *objcg = NULL;
 	int cpu, i, unit_size, percpu_size = 0;
 
+	/* room for llist_node and per-cpu pointer */
+	if (percpu)
+		percpu_size = LLIST_NODE_SZ + sizeof(void *);
 	ma->percpu = percpu;
 
 	if (size) {
@@ -508,10 +511,7 @@ int bpf_mem_alloc_init(struct bpf_mem_alloc *ma, int size, bool percpu)
 		if (!pc)
 			return -ENOMEM;
 
-		if (percpu)
-			/* room for llist_node and per-cpu pointer */
-			percpu_size = LLIST_NODE_SZ + sizeof(void *);
-		else
+		if (!percpu)
 			size += LLIST_NODE_SZ; /* room for llist_node */
 		unit_size = size;
 
@@ -532,10 +532,6 @@ int bpf_mem_alloc_init(struct bpf_mem_alloc *ma, int size, bool percpu)
 		return 0;
 	}
 
-	/* size == 0 && percpu is an invalid combination */
-	if (WARN_ON_ONCE(percpu))
-		return -EINVAL;
-
 	pcc = __alloc_percpu_gfp(sizeof(*cc), 8, GFP_KERNEL);
 	if (!pcc)
 		return -ENOMEM;
@@ -548,6 +544,7 @@ int bpf_mem_alloc_init(struct bpf_mem_alloc *ma, int size, bool percpu)
 			c = &cc->cache[i];
 			c->unit_size = sizes[i];
 			c->objcg = objcg;
+			c->percpu_size = percpu_size;
 			c->tgt = c;
 
 			init_refill_work(c);
