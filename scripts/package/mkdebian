@@ -89,7 +89,7 @@ gen_source ()
 {
 	mkdir -p debian/source
 
-	echo "3.0 (quilt)" > debian/source/format
+	echo "1.0" > debian/source/format
 
 	{
 		echo "diff-ignore"
@@ -175,7 +175,7 @@ else
         echo >&2 "Install lsb-release or set \$KDEB_CHANGELOG_DIST explicitly"
 fi
 
-echo $debarch > debian/arch
+#echo $debarch > debian/arch
 extra_build_depends=", $(if_enabled_echo CONFIG_UNWINDER_ORC libelf-dev:native)"
 extra_build_depends="$extra_build_depends, $(if_enabled_echo CONFIG_SYSTEM_TRUSTED_KEYRING libssl-dev:native)"
 
@@ -215,11 +215,11 @@ Section: kernel
 Priority: optional
 Maintainer: $maintainer
 Rules-Requires-Root: no
-Build-Depends: bc, debhelper, rsync, kmod, cpio, bison, flex $extra_build_depends
+Build-Depends: zstd, bc, debhelper, rsync, kmod, cpio, bison, flex, libelf-dev:native, libssl-dev:native 
 Homepage: https://www.kernel.org/
 
 Package: $packagename-$version
-Architecture: $debarch
+Architecture: amd64 arm64
 Description: Linux kernel, version $version
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
@@ -231,7 +231,7 @@ cat <<EOF >> debian/control
 Package: linux-libc-dev
 Section: devel
 Provides: linux-kernel-headers
-Architecture: $debarch
+Architecture:  amd64 arm64
 Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU glibc and other system libraries.
@@ -242,7 +242,7 @@ if is_enabled CONFIG_MODULES; then
 cat <<EOF >> debian/control
 
 Package: linux-headers-$version
-Architecture: $debarch
+Architecture: amd64 arm64
 Description: Linux kernel headers for $version on $debarch
  This package provides kernel header files for $version on $debarch
  .
@@ -256,7 +256,7 @@ cat <<EOF >> debian/control
 
 Package: linux-image-$version-dbg
 Section: debug
-Architecture: $debarch
+Architecture: amd64 arm64
 Description: Linux kernel debugging symbols for $version
  This package will come in handy if you need to debug the kernel. It provides
  all the necessary debug symbols for the kernel and its modules.
@@ -268,26 +268,39 @@ cat <<EOF > debian/rules
 
 srctree ?= .
 KERNELRELEASE = ${KERNELRELEASE}
+DEB_HOST_ARCH ?= \$(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
+ifneq (,\$(filter amd64,\$(DEB_HOST_ARCH)))
+BUILD_ARCH = x86
+else
+BUILD_ARCH = \${DEB_HOST_ARCH}
+endif
 
 .PHONY: clean build build-arch build-indep binary binary-arch binary-indep
 
 build-indep:
 build-arch:
-	\$(MAKE) -f \$(srctree)/Makefile ARCH=${ARCH} \
+ifneq (,\$(filter amd64,\$(DEB_HOST_ARCH)))
+	\$(MAKE) -f \$(srctree)/Makefile ARCH=\${BUILD_ARCH} \
 	KERNELRELEASE=\$(KERNELRELEASE) \
 	\$(shell \$(srctree)/scripts/package/deb-build-option) \
-	olddefconfig all
+	deepin_desktop_common_defconfig all  -j\$(shell nproc)
+else ifneq (,\$(filter arm64,\$(DEB_HOST_ARCH)))
+	\$(MAKE) -f \$(srctree)/Makefile ARCH=\${BUILD_ARCH} \
+	KERNELRELEASE=\$(KERNELRELEASE) \
+	\$(shell \$(srctree)/scripts/package/deb-build-option) \
+	deepin_arm_desktop_defconfig  all  -j\$(shell nproc)
+endif 
 
 build: build-arch
 
 binary-indep:
 binary-arch: build-arch
-	\$(MAKE) -f \$(srctree)/Makefile ARCH=${ARCH} \
+	\$(MAKE) -f \$(srctree)/Makefile ARCH=\${BUILD_ARCH} \
 	KERNELRELEASE=\$(KERNELRELEASE) intdeb-pkg
 
 clean:
 	rm -rf debian/files debian/linux-*
-	\$(MAKE) -f \$(srctree)/Makefile ARCH=${ARCH} clean
+	\$(MAKE) -f \$(srctree)/Makefile ARCH=\${BUILD_ARCH} clean
 
 binary: binary-arch
 EOF
