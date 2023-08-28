@@ -144,7 +144,7 @@ static int vmem_mmap(struct file *flip, struct vm_area_struct *vma)
 	/*to do if size bigger than vm_mem_size*/
 	pr_info("sw64_vmem: vm_start=%#lx, size= %#lx\n", vma->vm_start, size);
 
-	vmem_vm_insert_page(vma);
+	ret = vmem_vm_insert_page(vma);
 	if (ret < 0)
 		return ret;
 
