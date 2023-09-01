@@ -3,7 +3,7 @@ test_build:
     - link_package:
         source_project: deepin:Develop:main
         source_package: %{SCM_REPOSITORY_NAME} 
-        target_project: deepin:CI
+        target_project: deepin:CI:kernel
 
     - configure_repositories:
         project: deepin:CI
