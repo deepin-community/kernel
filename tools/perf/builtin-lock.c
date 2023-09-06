@@ -60,6 +60,7 @@ static bool combine_locks;
 static bool show_thread_stats;
 static bool show_lock_addrs;
 static bool show_lock_owner;
+static bool show_lock_cgroups;
 static bool use_bpf;
 static unsigned long bpf_map_entries = MAX_ENTRIES;
 static int max_stack_depth = CONTENTION_STACK_DEPTH;
@@ -634,6 +635,7 @@ static int get_key_by_aggr_mode_simple(u64 *key, u64 addr, u32 tid)
 		*key = tid;
 		break;
 	case LOCK_AGGR_CALLER:
+	case LOCK_AGGR_CGROUP:
 	default:
 		pr_err("Invalid aggregation mode: %d\n", aggr_mode);
 		return -EINVAL;
@@ -1118,6 +1120,7 @@ static int report_lock_contention_begin_event(struct evsel *evsel,
 			if (lock_contention_caller(evsel, sample, buf, sizeof(buf)) < 0)
 				name = "Unknown";
 			break;
+		case LOCK_AGGR_CGROUP:
 		case LOCK_AGGR_TASK:
 		default:
 			break;
@@ -1668,6 +1671,9 @@ static void print_header_stdio(void)
 	case LOCK_AGGR_ADDR:
 		fprintf(lock_output, "  %16s   %s\n\n", "address", "symbol");
 		break;
+	case LOCK_AGGR_CGROUP:
+		fprintf(lock_output, "  %s\n\n", "cgroup");
+		break;
 	default:
 		break;
 	}
@@ -1694,6 +1700,9 @@ static void print_header_csv(const char *sep)
 		break;
 	case LOCK_AGGR_ADDR:
 		fprintf(lock_output, "%s%s %s%s %s\n", "address", sep, "symbol", sep, "type");
+		break;
+	case LOCK_AGGR_CGROUP:
+		fprintf(lock_output, "%s\n", "cgroup");
 		break;
 	default:
 		break;
@@ -1734,6 +1743,9 @@ static void print_lock_stat_stdio(struct lock_contention *con, struct lock_stat 
 	case LOCK_AGGR_ADDR:
 		fprintf(lock_output, "  %016llx   %s (%s)\n", (unsigned long long)st->addr,
 			st->name, get_type_name(st->flags));
+		break;
+	case LOCK_AGGR_CGROUP:
+		fprintf(lock_output, "  %s\n", st->name);
 		break;
 	default:
 		break;
@@ -1784,6 +1796,9 @@ static void print_lock_stat_csv(struct lock_contention *con, struct lock_stat *s
 	case LOCK_AGGR_ADDR:
 		fprintf(lock_output, "%llx%s %s%s %s\n", (unsigned long long)st->addr, sep,
 			st->name, sep, get_type_name(st->flags));
+		break;
+	case LOCK_AGGR_CGROUP:
+		fprintf(lock_output, "%s\n",st->name);
 		break;
 	default:
 		break;
@@ -2014,6 +2029,27 @@ static int check_lock_contention_options(const struct option *options,
 		return -1;
 	}
 
+	if (show_lock_cgroups && !use_bpf) {
+		pr_err("Cgroups are available only with BPF\n");
+		parse_options_usage(usage, options, "lock-cgroup", 0);
+		parse_options_usage(NULL, options, "use-bpf", 0);
+		return -1;
+	}
+
+	if (show_lock_cgroups && show_lock_addrs) {
+		pr_err("Cannot use cgroup and addr mode together\n");
+		parse_options_usage(usage, options, "lock-cgroup", 0);
+		parse_options_usage(NULL, options, "lock-addr", 0);
+		return -1;
+	}
+
+	if (show_lock_cgroups && show_thread_stats) {
+		pr_err("Cannot use cgroup and thread mode together\n");
+		parse_options_usage(usage, options, "lock-cgroup", 0);
+		parse_options_usage(NULL, options, "threads", 0);
+		return -1;
+	}
+
 	if (symbol_conf.field_sep) {
 		if (strstr(symbol_conf.field_sep, ":") || /* part of type flags */
 		    strstr(symbol_conf.field_sep, "+") || /* part of caller offset */
@@ -2075,7 +2111,8 @@ static int __cmd_contention(int argc, const char **argv)
 	con.machine = &session->machines.host;
 
 	con.aggr_mode = aggr_mode = show_thread_stats ? LOCK_AGGR_TASK :
-		show_lock_addrs ? LOCK_AGGR_ADDR : LOCK_AGGR_CALLER;
+		show_lock_addrs ? LOCK_AGGR_ADDR :
+		show_lock_cgroups ? LOCK_AGGR_CGROUP : LOCK_AGGR_CALLER;
 
 	if (con.aggr_mode == LOCK_AGGR_CALLER)
 		con.save_callstack = true;
@@ -2539,6 +2576,7 @@ int cmd_lock(int argc, const char **argv)
 	OPT_BOOLEAN('o', "lock-owner", &show_lock_owner, "show lock owners instead of waiters"),
 	OPT_STRING_NOEMPTY('x', "field-separator", &symbol_conf.field_sep, "separator",
 		   "print result in CSV format with custom separator"),
+	OPT_BOOLEAN(0, "lock-cgroup", &show_lock_cgroups, "show lock stats by cgroup"),
 	OPT_PARENT(lock_options)
 	};
 
