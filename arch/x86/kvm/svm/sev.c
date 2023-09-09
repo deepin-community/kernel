@@ -190,7 +190,11 @@ static void sev_misc_cg_uncharge(struct kvm_sev_info *sev)
 	misc_cg_uncharge(type, sev->misc_cg, 1);
 }
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+static int sev_asid_new(struct kvm_sev_info *sev, unsigned long vm_type, const char *userid, u32 userid_len)
+#else
 static int sev_asid_new(struct kvm_sev_info *sev, unsigned long vm_type)
+#endif
 {
 	/*
 	 * SEV-enabled guests must use asid from min_sev_asid to max_sev_asid.
@@ -238,6 +242,34 @@ static int sev_asid_new(struct kvm_sev_info *sev, unsigned long vm_type)
 
 	mutex_lock(&sev_bitmap_lock);
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+	/* For Hygon CPU, check whether the userid exists */
+	if (is_x86_vendor_hygon() && userid && userid_len &&
+	    !WARN_ON_ONCE(!csv_asid_userid_array)) {
+		int i = !min_sev_asid ? 1 : min_sev_asid;
+
+		for (; i <= max_sev_asid; i++) {
+			/* skip ASIDs without correspond userid */
+			if (!csv_asid_userid_array[i].userid_len)
+				continue;
+
+			/* skip if length of userid is different */
+			if (csv_asid_userid_array[i].userid_len != userid_len)
+				continue;
+
+			if (!memcmp(csv_asid_userid_array[i].userid,
+				    userid, userid_len)) {
+				pr_debug("Found reusable asid %d\n", i);
+				/* Increase reference count if userid exists */
+				csv_asid_userid_array[i].refcnt++;
+
+				mutex_unlock(&sev_bitmap_lock);
+				return i;
+			}
+		}
+	}
+#endif
+
 again:
 	asid = find_next_zero_bit(sev_asid_bitmap, max_asid + 1, min_asid);
 	if (asid > max_asid) {
@@ -251,6 +283,16 @@ again:
 	}
 
 	__set_bit(asid, sev_asid_bitmap);
+
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+	/* For Hygon CPU, initialize the new userid */
+	if (is_x86_vendor_hygon() && userid && userid_len &&
+	    !WARN_ON_ONCE(!csv_asid_userid_array)) {
+		memcpy(csv_asid_userid_array[asid].userid, userid, userid_len);
+		csv_asid_userid_array[asid].userid_len = userid_len;
+		csv_asid_userid_array[asid].refcnt = 1;
+	}
+#endif
 
 	mutex_unlock(&sev_bitmap_lock);
 
@@ -275,7 +317,25 @@ static void sev_asid_free(struct kvm_sev_info *sev)
 
 	mutex_lock(&sev_bitmap_lock);
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+	/* For Hygon CPU, decrease the reference count if userid exist */
+	if (!is_x86_vendor_hygon() || !csv_asid_userid_array ||
+	    !csv_asid_userid_array[sev->asid].userid_len) {
+		__set_bit(sev->asid, sev_reclaim_asid_bitmap);
+	} else {
+		/* If reach here, reference count should large than 0. */
+		WARN_ON(csv_asid_userid_array[sev->asid].refcnt <= 0);
+
+		if (--csv_asid_userid_array[sev->asid].refcnt == 0) {
+			__set_bit(sev->asid, sev_reclaim_asid_bitmap);
+
+			memset(&csv_asid_userid_array[sev->asid], 0,
+			       sizeof(struct csv_asid_userid));
+		}
+	}
+#else
 	__set_bit(sev->asid, sev_reclaim_asid_bitmap);
+#endif
 
 	for_each_possible_cpu(cpu) {
 		sd = per_cpu_ptr(&svm_data, cpu);
@@ -484,7 +544,44 @@ static int __sev_guest_init(struct kvm *kvm, struct kvm_sev_cmd *argp,
 	if (snp_active)
 		sev->vmsa_features |= SVM_SEV_FEAT_SNP_ACTIVE;
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+	/* Try reuse ASID iff userid array is available for HYGON CSV guests */
+	if (is_x86_vendor_hygon() && csv_asid_userid_array) {
+		struct kvm_csv_init params;
+		void *csv_blob = NULL;
+
+		memset(&params, 0, sizeof(params));
+
+		if (argp->data &&
+		    copy_from_user(&params,
+				(void __user *)(uintptr_t)argp->data, sizeof(params)))
+			return -EFAULT;
+
+		if (params.userid_addr) {
+			if (params.len >= ASID_USERID_LENGTH) {
+				pr_err("Invalid length of userid %d > %d\n",
+				       params.len, ASID_USERID_LENGTH);
+				return -EINVAL;
+			}
+
+			csv_blob = psp_copy_user_blob(params.userid_addr, params.len);
+			if (IS_ERR(csv_blob)) {
+				pr_err("Copy userid failed, %llx (%u)\n",
+				       params.userid_addr, params.len);
+				return PTR_ERR(csv_blob);
+			}
+		}
+
+		ret = sev_asid_new(sev, vm_type, (const char *)csv_blob, params.len);
+
+		/* The buffer @csv_blob is no longer used, free it. */
+		kfree(csv_blob);
+	} else {
+		ret = sev_asid_new(sev, vm_type, NULL, 0);
+	}
+#else
 	ret = sev_asid_new(sev, vm_type);
+#endif
 	if (ret)
 		goto e_no_asid;
 
@@ -3207,13 +3304,19 @@ out:
 		 */
 		sev_install_hooks();
 
-		/*
-		 * Allocate a memory pool to speed up live migration of
-		 * the CSV/CSV2 guests. If the allocation fails, no
-		 * acceleration is performed at live migration.
-		 */
-		if (sev_enabled)
+		if (sev_enabled) {
+			/*
+			 * Allocate a memory pool to speed up live migration of
+			 * the CSV/CSV2 guests. If the allocation fails, no
+			 * acceleration is performed at live migration.
+			 */
 			csv_alloc_trans_mempool();
+			/*
+			 * Allocate a buffer to support reuse ASID, reuse ASID
+			 * will not work if the allocation fails.
+			 */
+			csv_alloc_asid_userid_array(nr_asids);
+		}
 	}
 #endif
 }
@@ -3223,9 +3326,11 @@ void sev_hardware_unsetup(void)
 	if (!sev_enabled)
 		return;
 
-	/* Free the memory pool that allocated in sev_hardware_setup(). */
-	if (is_x86_vendor_hygon())
+	/* Free the memory that allocated in sev_hardware_setup(). */
+	if (is_x86_vendor_hygon()) {
 		csv_free_trans_mempool();
+		csv_free_asid_userid_array();
+	}
 
 	/* No need to take sev_bitmap_lock, all VMs have been destroyed. */
 	sev_flush_asids(1, max_sev_asid);
@@ -3652,6 +3757,13 @@ int pre_sev_run(struct vcpu_svm *svm, int cpu)
 
 	/* Assign the asid allocated with this SEV guest */
 	svm->asid = asid;
+
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+	/* If ASID is shared with other guests, then flush TLB before VMRUN */
+	if (is_x86_vendor_hygon() && csv_asid_userid_array &&
+	    csv_asid_userid_array[asid].userid_len)
+		svm->vmcb->control.tlb_ctl = TLB_CONTROL_FLUSH_ASID;
+#endif
 
 	/*
 	 * Flush guest TLB:

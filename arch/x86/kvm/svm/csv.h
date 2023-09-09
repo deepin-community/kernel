@@ -32,6 +32,28 @@ struct csv_ringbuf_infos {
 	int num;
 };
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+
+#define ASID_USERID_LENGTH 20
+
+struct csv_asid_userid {
+	int refcnt; // reference count of the ASID
+	u32 userid_len;
+	char userid[ASID_USERID_LENGTH];
+};
+
+extern struct csv_asid_userid *csv_asid_userid_array;
+
+int csv_alloc_asid_userid_array(unsigned int nr_asids);
+void csv_free_asid_userid_array(void);
+
+#else
+
+static inline int csv_alloc_asid_userid_array(unsigned int nr_asids) { return -ENOMEM; }
+static inline void csv_free_asid_userid_array(void) { }
+
+#endif	/* CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID */
+
 #ifdef CONFIG_HYGON_CSV
 
 /*
