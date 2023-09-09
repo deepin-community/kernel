@@ -67,6 +67,9 @@ extern unsigned long __boot_phys_addr(unsigned long addr);
 #define VM_DATA_DEFAULT_FLAGS	VM_DATA_FLAGS_NON_EXEC
 #include <asm-generic/memory_model.h>
 #include <asm-generic/getorder.h>
+
+#define HAVE_ARCH_HUGETLB_UNMAPPED_AREA
+
 #endif
 
 #endif /* _ASM_SW64_PAGE_H */

@@ -830,7 +830,7 @@ static inline pte_t pte_swp_clear_exclusive(pte_t pte)
 	pr_err("%s: %d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
 extern void paging_init(void);
 
-/* We have our own get_unmapped_area to cope with ADDR_LIMIT_32BIT.  */
 #define HAVE_ARCH_UNMAPPED_AREA
+#define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
 
 #endif /* _ASM_SW64_PGTABLE_H */

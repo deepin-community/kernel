@@ -1,0 +1,41 @@
+choice
+	prompt "Virtual address space size"
+	default SW64_VA_BITS_47
+	help
+	 Allows choosing one of multiple possible userspace virtual address space size.
+
+config SW64_VA_BITS_47
+	bool "47-bit"
+	help
+	  Limit the userspace VAs to 47-bit size.
+
+	  It may waste some userspace VA range, but is safe and enough for current
+	  userland to works wells.
+
+config SW64_VA_BITS_52
+	bool "52-bit"
+	help
+	  Use the full 52-bit size userspace VAs.
+
+	  The kernel will attempt to maintain compatibility with older software by
+	  providing 47-bit VAs unless a hint is supplied to mmap.
+
+endchoice
+
+config SW64_VA_BITS
+	int
+	default 47 if SW64_VA_BITS_47
+	default 52 if SW64_VA_BITS_52
+	default 47
+	help
+	  The size of userspace VA.
+
+config SW64_FORCE_52BIT
+	bool "Force 52-bit virtual address for userspace"
+	depends on SW64_VA_BITS_52 && EXPERT
+	help
+	  This configuration option disable the 47-bit compatibility logic, and forces
+	  all userspace address to be 52-bit if possible.
+
+	  Note, it is not 100% safe for software that unable to handle VA bigger than
+	  47-bit to works well with this option enabled. Do not enable it for now.

@@ -91,7 +91,11 @@ typedef struct user_fpsimd_state elf_fpregset_t;
  * that it will "exec", and that there is sufficient room for the brk.
  */
 
-#define ELF_ET_DYN_BASE		(TASK_UNMAPPED_BASE + 0x1000000)
+#ifdef CONFIG_SW64_FORCE_52BIT
+#define ELF_ET_DYN_BASE		(2 * TASK_SIZE / 3)
+#else
+#define ELF_ET_DYN_BASE		(2 * DEFAULT_MAP_WINDOW / 3)
+#endif
 
 /*
  * $0 is set by ld.so to a pointer to a function which might be
