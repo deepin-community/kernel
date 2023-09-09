@@ -1068,6 +1068,33 @@ static int csv_control_post_system_reset(struct kvm *kvm)
 	return 0;
 }
 
+#ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
+
+struct csv_asid_userid *csv_asid_userid_array;
+
+int csv_alloc_asid_userid_array(unsigned int nr_asids)
+{
+	int ret = 0;
+
+	csv_asid_userid_array = kcalloc(nr_asids, sizeof(struct csv_asid_userid),
+					GFP_KERNEL_ACCOUNT);
+	if (!csv_asid_userid_array)
+		ret = -ENOMEM;
+
+	if (ret)
+		pr_warn("Fail to allocate array, reuse ASID is unavailable\n");
+
+	return ret;
+}
+
+void csv_free_asid_userid_array(void)
+{
+	kfree(csv_asid_userid_array);
+	csv_asid_userid_array = NULL;
+}
+
+#endif	/* CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID */
+
 void csv_exit(void)
 {
 }
