@@ -154,4 +154,14 @@ config KVM_PROVE_MMU
 config KVM_EXTERNAL_WRITE_TRACKING
 	bool
 
+config KVM_SUPPORTS_CSV_REUSE_ASID
+	def_bool y
+	bool "Reuse the same ASID for different HYGON CSV guests"
+	depends on KVM_AMD_SEV && CPU_SUP_HYGON && HYGON_CSV
+	depends on !CGROUP_MISC
+	help
+	  Provide support for reuse the same ASID for difference HYGON
+	  CSV guests, this allow the user to create more CSV guests on
+	  HYGON CPUs with limited ASIDs.
+
 endif # VIRTUALIZATION
