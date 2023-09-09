@@ -8,7 +8,6 @@
 #ifndef _ASM_SW64_PROCESSOR_H
 #define _ASM_SW64_PROCESSOR_H
 
-#include <linux/personality.h>	/* for ADDR_LIMIT_32BIT */
 #include <asm/ptrace.h>
 
 #define task_pt_regs(task) \
@@ -27,19 +26,47 @@
 
 /*
  * We have a 52-bit user address space: 4PB user VM...
+ * 20230728(mcw):
+ * To make sure that arch_get_unmapped_area_topdown and old
+ * software, e.g. golang runtime and v8 jit, works well at
+ * the same time, just providing 47-bit VAs unless a hint is
+ * supplied to mmap.
  */
-#define TASK_SIZE (0x10000000000000UL)
-#define UNMAPPED_BASE (TASK_SIZE >> 6)
-#define STACK_TOP \
-	(current->personality & ADDR_LIMIT_32BIT ? 0x80000000 : 0x00120000000UL)
 
-#define STACK_TOP_MAX	0x00120000000UL
+#define VA_BITS		(CONFIG_SW64_VA_BITS)
+#if VA_BITS > 47
+#define VA_BITS_MIN	(47)
+#else
+#define VA_BITS_MIN	(VA_BITS)
+#endif
 
-/* This decides where the kernel will search for a free chunk of vm
- * space during mmap's.
- */
-#define TASK_UNMAPPED_BASE \
-	((current->personality & ADDR_LIMIT_32BIT) ? 0x40000000 : UNMAPPED_BASE)
+#define	DEFAULT_MAP_WINDOW_64	(1UL << VA_BITS_MIN)
+#define	TASK_SIZE_64		(1UL << VA_BITS)
+
+#define TASK_SIZE_MAX		TASK_SIZE_64
+#define TASK_SIZE		TASK_SIZE_64
+#define DEFAULT_MAP_WINDOW	DEFAULT_MAP_WINDOW_64
+
+#ifdef CONFIG_SW64_FORCE_52BIT
+#define STACK_TOP_MAX		TASK_SIZE
+#define TASK_UNMAPPED_BASE	(PAGE_ALIGN(TASK_SIZE / 4))
+#else
+#define STACK_TOP_MAX		DEFAULT_MAP_WINDOW
+#define TASK_UNMAPPED_BASE	(PAGE_ALIGN(DEFAULT_MAP_WINDOW / 4))
+#endif
+
+#define STACK_TOP	STACK_TOP_MAX
+
+#ifndef CONFIG_SW64_FORCE_52BIT
+#define arch_get_mmap_end(addr, len, flags) \
+	(((addr) > DEFAULT_MAP_WINDOW) ? TASK_SIZE : DEFAULT_MAP_WINDOW)
+#define arch_get_mmap_base(addr, base)	((addr > DEFAULT_MAP_WINDOW) ? \
+		base + TASK_SIZE - DEFAULT_MAP_WINDOW : \
+		base)
+#else
+#define arch_get_mmap_end(addr, len, flags)	(TASK_SIZE)
+#define arch_get_mmap_base(addr, base)	(base)
+#endif
 
 struct thread_struct {
 	struct user_fpsimd_state fpstate;

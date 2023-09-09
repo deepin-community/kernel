@@ -685,3 +685,5 @@ source "drivers/idle/Kconfig"
 endmenu
 
 source "arch/sw_64/kvm/Kconfig"
+
+source "arch/sw_64/mm/Kconfig"
