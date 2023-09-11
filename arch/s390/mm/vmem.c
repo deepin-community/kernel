@@ -15,7 +15,7 @@
 #include <asm/page-states.h>
 #include <asm/cacheflush.h>
 #include <asm/nospec-branch.h>
-#include <asm/ctl_reg.h>
+#include <asm/ctlreg.h>
 #include <asm/pgalloc.h>
 #include <asm/setup.h>
 #include <asm/tlbflush.h>
