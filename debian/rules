@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 srctree ?= .
-KERNELRELEASE = 6.4.9
+KERNELRELEASE = 6.4.14
 DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
 ifneq (,$(filter amd64,$(DEB_HOST_ARCH)))
 BUILD_ARCH = x86

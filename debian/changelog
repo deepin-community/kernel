@@ -1,5 +1,5 @@
-linux-upstream (6.4.9-g9e5249bf7de3-8) apricot; urgency=low
+linux-upstream (6.4.14-54052-g3675f89fb6ca-1) beige; urgency=low
 
   * Custom built Linux kernel.
 
- -- LiChengGang <lichenggang@uniontech.com>  Sun, 27 Aug 2023 00:22:56 +0800
+ -- deepin23 <deepin23@deepin23-PC>  Tue, 12 Sep 2023 10:59:20 +0800

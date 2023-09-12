@@ -1,16 +1,16 @@
 Source: linux-upstream
 Section: kernel
 Priority: optional
-Maintainer: LiChengGang <lichenggang@uniontech.com>
+Maintainer: deepin23 <deepin23@deepin23-PC>
 Rules-Requires-Root: no
-Build-Depends: zstd, bc, debhelper, rsync, kmod, cpio, bison, flex, libelf-dev:native, libssl-dev:native
+Build-Depends: zstd, bc, debhelper, rsync, kmod, cpio, bison, flex, libelf-dev:native, libssl-dev:native 
 Homepage: https://www.kernel.org/
 
-Package: linux-image-6.4.9
+Package: linux-image-6.4.14
 Architecture: amd64 arm64
-Description: Linux kernel, version 6.4.9
+Description: Linux kernel, version 6.4.14
  This package contains the Linux kernel, modules and corresponding other
- files, version: 6.4.9.
+ files, version: 6.4.14.
 
 Package: linux-libc-dev
 Section: devel
@@ -21,16 +21,16 @@ Description: Linux support headers for userspace development
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
 
-Package: linux-headers-6.4.9
+Package: linux-headers-6.4.14
 Architecture: amd64 arm64
-Description: Linux kernel headers for 6.4.9 on amd64
- This package provides kernel header files for 6.4.9 on amd64
+Description: Linux kernel headers for 6.4.14 on amd64
+ This package provides kernel header files for 6.4.14 on amd64
  .
  This is useful for people who need to build external modules
 
-Package: linux-image-6.4.9-dbg
+Package: linux-image-6.4.14-dbg
 Section: debug
 Architecture: amd64 arm64
-Description: Linux kernel debugging symbols for 6.4.9
+Description: Linux kernel debugging symbols for 6.4.14
  This package will come in handy if you need to debug the kernel. It provides
  all the necessary debug symbols for the kernel and its modules.
