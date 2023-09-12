@@ -11510,6 +11510,8 @@ static int fetch_kfunc_meta(struct bpf_verifier_env *env,
 	return 0;
 }
 
+static int check_return_code(struct bpf_verifier_env *env, int regno);
+
 static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 			    int *insn_idx_p)
 {
@@ -11638,6 +11640,15 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 			return -ENOTSUPP;
 		}
 		env->seen_exception = true;
+
+		/* In the case of the default callback, the cookie value passed
+		 * to bpf_throw becomes the return value of the program.
+		 */
+		if (!env->exception_callback_subprog) {
+			err = check_return_code(env, BPF_REG_1);
+			if (err < 0)
+				return err;
+		}
 	}
 
 	for (i = 0; i < CALLER_SAVED_REGS; i++)
@@ -14738,7 +14749,7 @@ static int check_ld_abs(struct bpf_verifier_env *env, struct bpf_insn *insn)
 	return 0;
 }
 
-static int check_return_code(struct bpf_verifier_env *env)
+static int check_return_code(struct bpf_verifier_env *env, int regno)
 {
 	struct tnum enforce_attach_type_range = tnum_unknown;
 	const struct bpf_prog *prog = env->prog;
@@ -14772,22 +14783,22 @@ static int check_return_code(struct bpf_verifier_env *env)
 	 * of bpf_exit, which means that program wrote
 	 * something into it earlier
 	 */
-	err = check_reg_arg(env, BPF_REG_0, SRC_OP);
+	err = check_reg_arg(env, regno, SRC_OP);
 	if (err)
 		return err;
 
-	if (is_pointer_value(env, BPF_REG_0)) {
-		verbose(env, "R0 leaks addr as return value\n");
+	if (is_pointer_value(env, regno)) {
+		verbose(env, "R%d leaks addr as return value\n", regno);
 		return -EACCES;
 	}
 
-	reg = cur_regs(env) + BPF_REG_0;
+	reg = cur_regs(env) + regno;
 
 	if (frame->in_async_callback_fn) {
 		/* enforce return zero from async callbacks like timer */
 		if (reg->type != SCALAR_VALUE) {
-			verbose(env, "In async callback the register R0 is not a known value (%s)\n",
-				reg_type_str(env, reg->type));
+			verbose(env, "In async callback the register R%d is not a known value (%s)\n",
+				regno, reg_type_str(env, reg->type));
 			return -EINVAL;
 		}
 
@@ -14800,8 +14811,8 @@ static int check_return_code(struct bpf_verifier_env *env)
 
 	if (is_subprog && !frame->in_exception_callback_fn) {
 		if (reg->type != SCALAR_VALUE) {
-			verbose(env, "At subprogram exit the register R0 is not a scalar value (%s)\n",
-				reg_type_str(env, reg->type));
+			verbose(env, "At subprogram exit the register R%d is not a scalar value (%s)\n",
+				regno, reg_type_str(env, reg->type));
 			return -EINVAL;
 		}
 		return 0;
@@ -14883,8 +14894,8 @@ static int check_return_code(struct bpf_verifier_env *env)
 	}
 
 	if (reg->type != SCALAR_VALUE) {
-		verbose(env, "At program exit the register R0 is not a known value (%s)\n",
-			reg_type_str(env, reg->type));
+		verbose(env, "At program exit the register R%d is not a known value (%s)\n",
+			regno, reg_type_str(env, reg->type));
 		return -EINVAL;
 	}
 
@@ -17088,7 +17099,7 @@ process_bpf_exit_full:
 					continue;
 				}
 
-				err = check_return_code(env);
+				err = check_return_code(env, BPF_REG_0);
 				if (err)
 					return err;
 process_bpf_exit:
@@ -18757,7 +18768,7 @@ static int do_misc_fixups(struct bpf_verifier_env *env)
 	if (env->seen_exception && !env->exception_callback_subprog) {
 		struct bpf_insn patch[] = {
 			env->prog->insnsi[insn_cnt - 1],
-			BPF_MOV64_IMM(BPF_REG_0, 0),
+			BPF_MOV64_REG(BPF_REG_0, BPF_REG_1),
 			BPF_EXIT_INSN(),
 		};
 
