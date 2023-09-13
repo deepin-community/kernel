@@ -5606,7 +5606,10 @@ void process_cpuid()
 
 	BIC_PRESENT(BIC_IRQ);
 	BIC_PRESENT(BIC_TSC_MHz);
+}
 
+void probe_pm_features(void)
+{
 	probe_pstates();
 
 	probe_cstates();
@@ -5626,8 +5629,6 @@ void process_cpuid()
 
 	if (!quiet)
 		decode_misc_feature_control();
-
-	return;
 }
 
 /*
@@ -5908,6 +5909,7 @@ void turbostat_init()
 	check_dev_msr();
 	check_permissions();
 	process_cpuid();
+	probe_pm_features();
 	linux_perf_init();
 
 	for_all_cpus(get_cpu_type, ODD_COUNTERS);
