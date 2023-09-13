@@ -616,12 +616,6 @@ static const struct arm64_ftr_bits ftr_id_dfr1[] = {
 	ARM64_FTR_END,
 };
 
-static const struct arm64_ftr_bits ftr_zcr[] = {
-	ARM64_FTR_BITS(FTR_HIDDEN, FTR_NONSTRICT, FTR_LOWER_SAFE,
-		ZCR_ELx_LEN_SHIFT, ZCR_ELx_LEN_WIDTH, 0),	/* LEN */
-	ARM64_FTR_END,
-};
-
 static const struct arm64_ftr_bits ftr_smcr[] = {
 	ARM64_FTR_BITS(FTR_HIDDEN, FTR_NONSTRICT, FTR_LOWER_SAFE,
 		SMCR_ELx_LEN_SHIFT, SMCR_ELx_LEN_WIDTH, 0),	/* LEN */
@@ -741,7 +735,6 @@ static const struct __ftr_reg_entry {
 	ARM64_FTR_REG(SYS_ID_AA64MMFR3_EL1, ftr_id_aa64mmfr3),
 
 	/* Op1 = 0, CRn = 1, CRm = 2 */
-	ARM64_FTR_REG(SYS_ZCR_EL1, ftr_zcr),
 	ARM64_FTR_REG(SYS_SMCR_EL1, ftr_smcr),
 
 	/* Op1 = 1, CRn = 0, CRm = 0 */
@@ -1047,8 +1040,6 @@ void __init init_cpu_features(struct cpuinfo_arm64 *info)
 	    id_aa64pfr0_sve(read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1))) {
 		unsigned long cpacr = cpacr_save_enable_kernel_sve();
 
-		info->reg_zcr = read_zcr_features();
-		init_cpu_ftr_reg(SYS_ZCR_EL1, info->reg_zcr);
 		vec_init_vq_map(ARM64_VEC_SVE);
 
 		cpacr_restore(cpacr);
@@ -1302,19 +1293,14 @@ void update_cpu_features(int cpu,
 	taint |= check_update_ftr_reg(SYS_ID_AA64SMFR0_EL1, cpu,
 				      info->reg_id_aa64smfr0, boot->reg_id_aa64smfr0);
 
+	/* Probe vector lengths */
 	if (IS_ENABLED(CONFIG_ARM64_SVE) &&
 	    id_aa64pfr0_sve(read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1))) {
-		unsigned long cpacr = cpacr_save_enable_kernel_sve();
-
-		info->reg_zcr = read_zcr_features();
-		taint |= check_update_ftr_reg(SYS_ZCR_EL1, cpu,
-					info->reg_zcr, boot->reg_zcr);
-
-		/* Probe vector lengths */
-		if (!system_capabilities_finalized())
+		if (!system_capabilities_finalized()) {
+			unsigned long cpacr = cpacr_save_enable_kernel_sve();
 			vec_update_vq_map(ARM64_VEC_SVE);
-
-		cpacr_restore(cpacr);
+			cpacr_restore(cpacr);
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_ARM64_SME) &&
@@ -3421,13 +3407,7 @@ static void verify_sve_features(void)
 {
 	unsigned long cpacr = cpacr_save_enable_kernel_sve();
 
-	u64 safe_zcr = read_sanitised_ftr_reg(SYS_ZCR_EL1);
-	u64 zcr = read_zcr_features();
-
-	unsigned int safe_len = safe_zcr & ZCR_ELx_LEN_MASK;
-	unsigned int len = zcr & ZCR_ELx_LEN_MASK;
-
-	if (len < safe_len || vec_verify_vq_map(ARM64_VEC_SVE)) {
+	if (vec_verify_vq_map(ARM64_VEC_SVE)) {
 		pr_crit("CPU%d: SVE: vector length support mismatch\n",
 			smp_processor_id());
 		cpu_die_early();
