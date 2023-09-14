@@ -40,8 +40,8 @@ static const struct regmap_config adxl31x_i2c_regmap_config[] = {
 
 static const struct i2c_device_id adxl313_i2c_id[] = {
 	{ .name = "adxl312", .driver_data = (kernel_ulong_t)&adxl31x_chip_info[ADXL312] },
-	{ .name = "adxl313", .driver_data = (kernel_ulong_t)&adxl31x_chip_info[ADXL312] },
-	{ .name = "adxl314", .driver_data = (kernel_ulong_t)&adxl31x_chip_info[ADXL312] },
+	{ .name = "adxl313", .driver_data = (kernel_ulong_t)&adxl31x_chip_info[ADXL313] },
+	{ .name = "adxl314", .driver_data = (kernel_ulong_t)&adxl31x_chip_info[ADXL314] },
 	{ }
 };
 
@@ -85,7 +85,7 @@ static struct i2c_driver adxl313_i2c_driver = {
 		.name	= "adxl313_i2c",
 		.of_match_table = adxl313_of_match,
 	},
-	.probe_new	= adxl313_i2c_probe,
+	.probe		= adxl313_i2c_probe,
 	.id_table	= adxl313_i2c_id,
 };
 
