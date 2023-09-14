@@ -1,5 +1,5 @@
-linux-upstream (6.4.14-54052-g3675f89fb6ca-1) beige; urgency=low
+linux-upstream (6.5.3-g6129bf1e6849-1) apricot; urgency=low
 
   * Custom built Linux kernel.
 
- -- deepin23 <deepin23@deepin23-PC>  Tue, 12 Sep 2023 10:59:20 +0800
+ -- matrix <matrix@matrix-PC>  Thu, 14 Sep 2023 13:47:45 +0800
