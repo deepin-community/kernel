@@ -326,6 +326,9 @@ HWCAP3_LS64
 HWCAP3_LS64_V
     Functionality implied by ID_AA64ISAR1_EL1.LS64 == 0b0010.
 
+HWCAP2_SVE_B16B16
+    Functionality implied by ID_AA64ZFR0_EL1.B16B16 == 0b0001.
+
 4. Unused AT_HWCAP bits
 -----------------------
 
