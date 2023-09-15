@@ -706,7 +706,7 @@ struct afs_permits {
 	refcount_t		usage;
 	unsigned short		nr_permits;	/* Number of records */
 	bool			invalidated;	/* Invalidated due to key change */
-	struct afs_permit	permits[];	/* List of permits sorted by key pointer */
+	struct afs_permit	permits[] __counted_by(nr_permits);	/* List of permits sorted by key pointer */
 };
 
 /*
