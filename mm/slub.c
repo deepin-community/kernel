@@ -4884,6 +4884,9 @@ static int __init setup_slub_min_order(char *str)
 {
 	get_option(&str, (int *)&slub_min_order);
 
+	if (slub_min_order > slub_max_order)
+		slub_max_order = slub_min_order;
+
 	return 1;
 }
 
@@ -4893,6 +4896,9 @@ static int __init setup_slub_max_order(char *str)
 {
 	get_option(&str, (int *)&slub_max_order);
 	slub_max_order = min_t(unsigned int, slub_max_order, MAX_ORDER);
+
+	if (slub_min_order > slub_max_order)
+		slub_min_order = slub_max_order;
 
 	return 1;
 }
