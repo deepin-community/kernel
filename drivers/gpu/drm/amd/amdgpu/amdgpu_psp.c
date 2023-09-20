@@ -1386,7 +1386,7 @@ int psp_xgmi_get_topology_info(struct psp_context *psp,
 
 	/* Fill in the shared memory with topology information as input */
 	topology_info_input = &xgmi_cmd->xgmi_in_message.get_topology_info;
-	xgmi_cmd->cmd_id = TA_COMMAND_XGMI__GET_GET_TOPOLOGY_INFO;
+	xgmi_cmd->cmd_id = TA_COMMAND_XGMI__GET_TOPOLOGY_INFO;
 	topology_info_input->num_nodes = number_devices;
 
 	for (i = 0; i < topology_info_input->num_nodes; i++) {
@@ -1397,7 +1397,7 @@ int psp_xgmi_get_topology_info(struct psp_context *psp,
 	}
 
 	/* Invoke xgmi ta to get the topology information */
-	ret = psp_xgmi_invoke(psp, TA_COMMAND_XGMI__GET_GET_TOPOLOGY_INFO);
+	ret = psp_xgmi_invoke(psp, TA_COMMAND_XGMI__GET_TOPOLOGY_INFO);
 	if (ret)
 		return ret;
 
@@ -1422,7 +1422,7 @@ int psp_xgmi_get_topology_info(struct psp_context *psp,
 
 	/* Invoke xgmi ta again to get the link information */
 	if (psp_xgmi_peer_link_info_supported(psp)) {
-		struct ta_xgmi_cmd_get_peer_link_info_output *link_info_output;
+		struct ta_xgmi_cmd_get_peer_link_info *link_info_output;
 		bool requires_reflection =
 			(psp->xgmi_context.supports_extended_data && get_extended_data) ||
 				psp->adev->ip_versions[MP0_HWIP][0] == IP_VERSION(13, 0, 6);
