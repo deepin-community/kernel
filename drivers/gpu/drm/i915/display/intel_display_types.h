@@ -2160,4 +2160,14 @@ to_intel_frontbuffer(struct drm_framebuffer *fb)
 		 __assoc(intel_encoder, p),		\
 		 __assoc(intel_hdmi, p))
 
+static inline int to_bpp_int(int bpp_x16)
+{
+	return bpp_x16 >> 4;
+}
+
+static inline int to_bpp_x16(int bpp)
+{
+	return bpp << 4;
+}
+
 #endif /*  __INTEL_DISPLAY_TYPES_H__ */
