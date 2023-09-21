@@ -440,6 +440,36 @@
 			status = "disabled";
 		};
 
+		i2c0: i2c@ffe7f20000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xe7f20000 0x0 0x1000>;
+			clocks = <&clk CLK_I2C0>;
+			interrupts = <44 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@ffe7f24000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xe7f24000 0x0 0x1000>;
+			clocks = <&clk CLK_I2C1>;
+			interrupts = <45 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@ffe7f28000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xe7f28000 0x0 0x1000>;
+			clocks = <&clk CLK_I2C4>;
+			interrupts = <48 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		gpio@ffe7f34000 {
 			compatible = "snps,dw-apb-gpio";
 			reg = <0xff 0xe7f34000 0x0 0x1000>;
@@ -536,6 +566,16 @@
 			reg = <0xff 0xec007000 0x0 0x1000>;
 			clocks = <&clk CLK_PADCTRL0>;
 			thead,pad-group = <3>;
+		};
+
+		i2c2: i2c@ffec00c000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xec00c000 0x0 0x1000>;
+			clocks = <&clk CLK_I2C2>;
+			interrupts = <46 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
 		};
 
 		uart2: serial@ffec010000 {
@@ -654,6 +694,16 @@
 					};
 				};
 			};
+		};
+
+		i2c3: i2c@ffec014000 {
+			compatible = "snps,designware-i2c";
+			reg = <0xff 0xec014000 0x0 0x1000>;
+			clocks = <&clk CLK_I2C3>;
+			interrupts = <47 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
 		};
 
 		misc_sysreg: misc_sysreg@ffec02c000 {
