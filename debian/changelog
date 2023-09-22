@@ -1,5 +1,5 @@
-linux-upstream (6.5.3-g4a647e741f06-1) apricot; urgency=low
+linux-upstream (6.5.4-g0026e9876fcb-2) apricot; urgency=low
 
   * Custom built Linux kernel.
 
- -- matrix <matrix@matrix-PC>  Tue, 19 Sep 2023 14:21:25 +0800
+ -- matrix <matrix@matrix-PC>  Wed, 20 Sep 2023 11:30:50 +0800
