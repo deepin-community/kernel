@@ -1,0 +1,8 @@
+
+GSGPUPATH = $(RELATIVE_GSGPU_BRIDGE_PATH)
+
+BRIDGE_FILES = bridge_phy.o lt6711_drv.o lt9721_drv.o lt8619_drv.o ncs8805_drv.o
+
+GSGPU_BRIDGE = $(addprefix $(GSGPUPATH)/,$(BRIDGE_FILES))
+
+GSGPU_BRIDGE_FILES += $(GSGPU_BRIDGE)

@@ -281,6 +281,26 @@ source "drivers/gpu/drm/xe/Kconfig"
 
 source "drivers/gpu/drm/kmb/Kconfig"
 
+config DRM_GSGPU
+	tristate "Loongosn Godson GPU"
+	depends on DRM && PCI && MMU
+	select FW_LOADER
+        select DRM_KMS_HELPER
+	select DRM_SCHED
+        select DRM_TTM
+	select POWER_SUPPLY
+	select HWMON
+	select BACKLIGHT_CLASS_DEVICE
+	select BACKLIGHT_LCD_SUPPORT
+	select INTERVAL_TREE
+	select CHASH
+	help
+	  Choose this option if you have a recent Godson graphics card.
+
+	  If M is selected, the module will be called gsgpu.
+
+source "drivers/gpu/drm/gsgpu/gpu/Kconfig"
+
 config DRM_VGEM
 	tristate "Virtual GEM provider"
 	depends on DRM && MMU
