@@ -8,10 +8,7 @@
 #define GSGPU_GTT_NUM_TRANSFER_WINDOWS	2
 
 struct gsgpu_mman {
-	struct ttm_bo_global_ref        bo_global_ref;
-	struct drm_global_reference	mem_global_ref;
 	struct ttm_device		bdev;
-	bool				mem_global_referenced;
 	bool				initialized;
 	void __iomem			*aper_base_kaddr;
 

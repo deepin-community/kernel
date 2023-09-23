@@ -33,100 +33,6 @@ static int gsgpu_map_buffer(struct ttm_buffer_object *bo,
 static int gsgpu_ttm_debugfs_init(struct gsgpu_device *adev);
 static void gsgpu_ttm_debugfs_fini(struct gsgpu_device *adev);
 
-/*
- * Global memory.
- */
-
-/**
- * gsgpu_ttm_mem_global_init - Initialize and acquire reference to
- * memory object
- *
- * @ref: Object for initialization.
- *
- * This is called by drm_global_item_ref() when an object is being
- * initialized.
- */
-static int gsgpu_ttm_mem_global_init(struct drm_global_reference *ref)
-{
-	return ttm_mem_global_init(ref->object);
-}
-
-/**
- * gsgpu_ttm_mem_global_release - Drop reference to a memory object
- *
- * @ref: Object being removed
- *
- * This is called by drm_global_item_unref() when an object is being
- * released.
- */
-static void gsgpu_ttm_mem_global_release(struct drm_global_reference *ref)
-{
-	ttm_mem_global_release(ref->object);
-}
-
-/**
- * gsgpu_ttm_global_init - Initialize global TTM memory reference structures.
- *
- * @adev: GSGPU device for which the global structures need to be registered.
- *
- * This is called as part of the GSGPU ttm init from gsgpu_ttm_init()
- * during bring up.
- */
-static int gsgpu_ttm_global_init(struct gsgpu_device *adev)
-{
-	struct drm_global_reference *global_ref;
-	int r;
-
-	/* ensure reference is false in case init fails */
-	adev->mman.mem_global_referenced = false;
-
-	global_ref = &adev->mman.mem_global_ref;
-	global_ref->global_type = DRM_GLOBAL_TTM_MEM;
-	global_ref->size = sizeof(struct ttm_mem_global);
-	global_ref->init = &gsgpu_ttm_mem_global_init;
-	global_ref->release = &gsgpu_ttm_mem_global_release;
-	r = drm_global_item_ref(global_ref);
-	if (r) {
-		DRM_ERROR("Failed setting up TTM memory accounting "
-			  "subsystem.\n");
-		goto error_mem;
-	}
-
-	adev->mman.bo_global_ref.mem_glob =
-		adev->mman.mem_global_ref.object;
-	global_ref = &adev->mman.bo_global_ref.ref;
-	global_ref->global_type = DRM_GLOBAL_TTM_BO;
-	global_ref->size = sizeof(struct ttm_global);
-	global_ref->init = &ttm_global_init;
-	global_ref->release = &ttm_global_release;
-	r = drm_global_item_ref(global_ref);
-	if (r) {
-		DRM_ERROR("Failed setting up TTM BO subsystem.\n");
-		goto error_bo;
-	}
-
-	mutex_init(&adev->mman.gtt_window_lock);
-
-	adev->mman.mem_global_referenced = true;
-
-	return 0;
-
-error_bo:
-	drm_global_item_unref(&adev->mman.mem_global_ref);
-error_mem:
-	return r;
-}
-
-static void gsgpu_ttm_global_fini(struct gsgpu_device *adev)
-{
-	if (adev->mman.mem_global_referenced) {
-		mutex_destroy(&adev->mman.gtt_window_lock);
-		drm_global_item_unref(&adev->mman.bo_global_ref.ref);
-		drm_global_item_unref(&adev->mman.mem_global_ref);
-		adev->mman.mem_global_referenced = false;
-	}
-}
-
 static int gsgpu_invalidate_caches(struct ttm_device *bdev, uint32_t flags)
 {
 	return 0;
@@ -1625,21 +1531,14 @@ error_create:
 int gsgpu_ttm_init(struct gsgpu_device *adev)
 {
 	uint64_t gtt_size;
-	int r;
 	u64 vis_vram_limit;
 
-	/* initialize global references for vram/gtt */
-	r = gsgpu_ttm_global_init(adev);
-	if (r) {
-		return r;
-	}
 	/* No others user of address space so set it to 0 */
-	r = ttm_device_init(&adev->mman.bdev,
-			    adev->mman.bo_global_ref.ref.object,
-			    &gsgpu_device_funcs,
-			    adev->ddev->anon_inode->i_mapping,
-			    DRM_FILE_PAGE_OFFSET,
-			    adev->need_dma32);
+	int r = ttm_device_init(&adev->mman.bdev,
+				&gsgpu_device_funcs,
+				adev->ddev->anon_inode->i_mapping,
+				DRM_FILE_PAGE_OFFSET,
+				adev->need_dma32);
 	if (r) {
 		DRM_ERROR("failed initializing buffer object driver(%d).\n", r);
 		return r;
@@ -1750,7 +1649,6 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
 	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_VRAM);
 	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_TT);
 	ttm_device_release(&adev->mman.bdev);
-	gsgpu_ttm_global_fini(adev);
 	adev->mman.initialized = false;
 	DRM_INFO("gsgpu: ttm finalized\n");
 }
