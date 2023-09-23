@@ -16,7 +16,7 @@ struct gsgpu_vram_mgr {
  *
  * Allocate and initialize the VRAM manager.
  */
-static int gsgpu_vram_mgr_init(struct ttm_mem_type_manager *man,
+static int gsgpu_vram_mgr_init(struct ttm_resource_manager *man,
 				unsigned long p_size)
 {
 	struct gsgpu_vram_mgr *mgr;
@@ -39,7 +39,7 @@ static int gsgpu_vram_mgr_init(struct ttm_mem_type_manager *man,
  * Destroy and free the VRAM manager, returns -EBUSY if ranges are still
  * allocated inside it.
  */
-static int gsgpu_vram_mgr_fini(struct ttm_mem_type_manager *man)
+static int gsgpu_vram_mgr_fini(struct ttm_resource_manager *man)
 {
 	struct gsgpu_vram_mgr *mgr = man->priv;
 
@@ -110,7 +110,7 @@ u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo)
  *
  * Allocate VRAM for the given BO.
  */
-static int gsgpu_vram_mgr_new(struct ttm_mem_type_manager *man,
+static int gsgpu_vram_mgr_new(struct ttm_resource_manager *man,
 			       struct ttm_buffer_object *tbo,
 			       const struct ttm_place *place,
 			       struct ttm_mem_reg *mem)
@@ -209,7 +209,7 @@ error:
  *
  * Free the allocated VRAM again.
  */
-static void gsgpu_vram_mgr_del(struct ttm_mem_type_manager *man,
+static void gsgpu_vram_mgr_del(struct ttm_resource_manager *man,
 				struct ttm_mem_reg *mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
@@ -245,7 +245,7 @@ static void gsgpu_vram_mgr_del(struct ttm_mem_type_manager *man,
  *
  * Returns how many bytes are used in this domain.
  */
-uint64_t gsgpu_vram_mgr_usage(struct ttm_mem_type_manager *man)
+uint64_t gsgpu_vram_mgr_usage(struct ttm_resource_manager *man)
 {
 	struct gsgpu_vram_mgr *mgr = man->priv;
 
@@ -259,7 +259,7 @@ uint64_t gsgpu_vram_mgr_usage(struct ttm_mem_type_manager *man)
  *
  * Returns how many bytes are used in the visible part of VRAM
  */
-uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_mem_type_manager *man)
+uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_resource_manager *man)
 {
 	struct gsgpu_vram_mgr *mgr = man->priv;
 
@@ -274,7 +274,7 @@ uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_mem_type_manager *man)
  *
  * Dump the table content using printk.
  */
-static void gsgpu_vram_mgr_debug(struct ttm_mem_type_manager *man,
+static void gsgpu_vram_mgr_debug(struct ttm_resource_manager *man,
 				  struct drm_printer *printer)
 {
 	struct gsgpu_vram_mgr *mgr = man->priv;
@@ -288,7 +288,7 @@ static void gsgpu_vram_mgr_debug(struct ttm_mem_type_manager *man,
 		   gsgpu_vram_mgr_vis_usage(man) >> 20);
 }
 
-const struct ttm_mem_type_manager_func gsgpu_vram_mgr_func = {
+const struct ttm_resource_manager_func gsgpu_vram_mgr_func = {
 	.init		= gsgpu_vram_mgr_init,
 	.takedown	= gsgpu_vram_mgr_fini,
 	.get_node	= gsgpu_vram_mgr_new,

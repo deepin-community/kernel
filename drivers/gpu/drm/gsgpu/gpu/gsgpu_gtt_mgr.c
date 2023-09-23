@@ -20,7 +20,7 @@ struct gsgpu_gtt_node {
  *
  * Allocate and initialize the GTT manager.
  */
-static int gsgpu_gtt_mgr_init(struct ttm_mem_type_manager *man,
+static int gsgpu_gtt_mgr_init(struct ttm_resource_manager *man,
 			       unsigned long p_size)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
@@ -48,7 +48,7 @@ static int gsgpu_gtt_mgr_init(struct ttm_mem_type_manager *man,
  * Destroy and free the GTT manager, returns -EBUSY if ranges are still
  * allocated inside it.
  */
-static int gsgpu_gtt_mgr_fini(struct ttm_mem_type_manager *man)
+static int gsgpu_gtt_mgr_fini(struct ttm_resource_manager *man)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
 	spin_lock(&mgr->lock);
@@ -83,7 +83,7 @@ bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem)
  *
  * Allocate the address space for a node.
  */
-static int gsgpu_gtt_mgr_alloc(struct ttm_mem_type_manager *man,
+static int gsgpu_gtt_mgr_alloc(struct ttm_resource_manager *man,
 				struct ttm_buffer_object *tbo,
 				const struct ttm_place *place,
 				struct ttm_mem_reg *mem)
@@ -134,7 +134,7 @@ static int gsgpu_gtt_mgr_alloc(struct ttm_mem_type_manager *man,
  *
  * Dummy, allocate the node but no space for it yet.
  */
-static int gsgpu_gtt_mgr_new(struct ttm_mem_type_manager *man,
+static int gsgpu_gtt_mgr_new(struct ttm_resource_manager *man,
 			      struct ttm_buffer_object *tbo,
 			      const struct ttm_place *place,
 			      struct ttm_mem_reg *mem)
@@ -192,7 +192,7 @@ err_out:
  *
  * Free the allocated GTT again.
  */
-static void gsgpu_gtt_mgr_del(struct ttm_mem_type_manager *man,
+static void gsgpu_gtt_mgr_del(struct ttm_resource_manager *man,
 			       struct ttm_mem_reg *mem)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
@@ -218,7 +218,7 @@ static void gsgpu_gtt_mgr_del(struct ttm_mem_type_manager *man,
  *
  * Return how many bytes are used in the GTT domain
  */
-uint64_t gsgpu_gtt_mgr_usage(struct ttm_mem_type_manager *man)
+uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
 	s64 result = man->size - atomic64_read(&mgr->available);
@@ -226,7 +226,7 @@ uint64_t gsgpu_gtt_mgr_usage(struct ttm_mem_type_manager *man)
 	return (result > 0 ? result : 0) * PAGE_SIZE;
 }
 
-int gsgpu_gtt_mgr_recover(struct ttm_mem_type_manager *man)
+int gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
 	struct gsgpu_gtt_node *node;
@@ -253,7 +253,7 @@ int gsgpu_gtt_mgr_recover(struct ttm_mem_type_manager *man)
  *
  * Dump the table content using printk.
  */
-static void gsgpu_gtt_mgr_debug(struct ttm_mem_type_manager *man,
+static void gsgpu_gtt_mgr_debug(struct ttm_resource_manager *man,
 				 struct drm_printer *printer)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
@@ -267,7 +267,7 @@ static void gsgpu_gtt_mgr_debug(struct ttm_mem_type_manager *man,
 		   gsgpu_gtt_mgr_usage(man) >> 20);
 }
 
-const struct ttm_mem_type_manager_func gsgpu_gtt_mgr_func = {
+const struct ttm_resource_manager_func gsgpu_gtt_mgr_func = {
 	.init = gsgpu_gtt_mgr_init,
 	.takedown = gsgpu_gtt_mgr_fini,
 	.get_node = gsgpu_gtt_mgr_new,

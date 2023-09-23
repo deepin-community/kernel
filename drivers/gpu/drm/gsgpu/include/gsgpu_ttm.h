@@ -32,16 +32,16 @@ struct gsgpu_copy_mem {
 	unsigned long			offset;
 };
 
-extern const struct ttm_mem_type_manager_func gsgpu_gtt_mgr_func;
-extern const struct ttm_mem_type_manager_func gsgpu_vram_mgr_func;
+extern const struct ttm_resource_manager_func gsgpu_gtt_mgr_func;
+extern const struct ttm_resource_manager_func gsgpu_vram_mgr_func;
 
 bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem);
-uint64_t gsgpu_gtt_mgr_usage(struct ttm_mem_type_manager *man);
-int gsgpu_gtt_mgr_recover(struct ttm_mem_type_manager *man);
+uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man);
+int gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
 
 u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo);
-uint64_t gsgpu_vram_mgr_usage(struct ttm_mem_type_manager *man);
-uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_mem_type_manager *man);
+uint64_t gsgpu_vram_mgr_usage(struct ttm_resource_manager *man);
+uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_resource_manager *man);
 
 int gsgpu_ttm_init(struct gsgpu_device *adev);
 void gsgpu_ttm_late_init(struct gsgpu_device *adev);

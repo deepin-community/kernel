@@ -50,7 +50,7 @@ static int gsgpu_invalidate_caches(struct ttm_device *bdev, uint32_t flags)
  * initialized.
  */
 static int gsgpu_init_mem_type(struct ttm_device *bdev, uint32_t type,
-				struct ttm_mem_type_manager *man)
+				struct ttm_resource_manager *man)
 {
 	struct gsgpu_device *adev;
 
@@ -582,7 +582,7 @@ memcpy:
  */
 static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_mem_reg *mem)
 {
-	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
+	struct ttm_resource_manager *man = &bdev->man[mem->mem_type];
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct drm_mm_node *mm_node = mem->mm_node;
 
@@ -1664,7 +1664,7 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
  */
 void gsgpu_ttm_set_buffer_funcs_status(struct gsgpu_device *adev, bool enable)
 {
-	struct ttm_mem_type_manager *man = &adev->mman.bdev.man[TTM_PL_VRAM];
+	struct ttm_resource_manager *man = &adev->mman.bdev.man[TTM_PL_VRAM];
 	uint64_t size;
 	int r;
 
@@ -1951,7 +1951,7 @@ static int gsgpu_mm_dump_table(struct seq_file *m, void *data)
 	unsigned ttm_pl = *(int *)node->info_ent->data;
 	struct drm_device *dev = node->minor->dev;
 	struct gsgpu_device *adev = dev->dev_private;
-	struct ttm_mem_type_manager *man = &adev->mman.bdev.man[ttm_pl];
+	struct ttm_resource_manager *man = &adev->mman.bdev.man[ttm_pl];
 	struct drm_printer p = drm_seq_file_printer(m);
 
 	man->func->debug(man, &p);
