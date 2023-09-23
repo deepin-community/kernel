@@ -166,7 +166,7 @@ struct gsgpu_ring {
 	unsigned		vm_inv_eng;
 	struct dma_fence	*vmid_wait;
 
-	atomic_t		num_jobs[DRM_SCHED_PRIORITY_MAX];
+	atomic_t		num_jobs[DRM_SCHED_PRIORITY_COUNT];
 	struct mutex		priority_mutex;
 	/* protected by priority_mutex */
 	int			priority;
