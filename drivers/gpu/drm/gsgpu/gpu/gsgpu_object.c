@@ -1,6 +1,5 @@
 #include <linux/list.h>
 #include <linux/slab.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include <drm/drm_cache.h>
 #include <asm/dma.h>
@@ -10,14 +9,14 @@
 /**
  * DOC: gsgpu_object
  *
- * This defines the interfaces to operate on an &gsgpu_bo buffer object which
- * represents memory used by driver (VRAM, system memory, etc.). The driver
+ * This defines the interfaces to operate on a &gsgpu_bo buffer object which
+ * represents memory used by the driver (VRAM, system memory, etc.). The driver
  * provides DRM/GEM APIs to userspace. DRM/GEM APIs then use these interfaces
- * to create/destroy/set buffer object which are then managed by the kernel TTM
+ * to create/destroy/set buffer objects which are then managed by the kernel TTM
  * memory manager.
+ *
  * The interfaces are also used internally by kernel clients, including gfx,
  * uvd, etc. for kernel managed allocations used by the GPU.
- *
  */
 
 static bool gsgpu_bo_need_backup(struct gsgpu_device *adev)

@@ -1,4 +1,3 @@
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include <drm/drm_gem.h>
 #include "gsgpu_drv.h"
@@ -113,7 +112,7 @@ module_param_named(msi, gsgpu_msi, int, 0444);
 
 /**
  * DOC: lockup_timeout (int)
- * Set GPU scheduler timeout value in ms. Value 0 is invalidated, will be adjusted to 10000.
+ * Set GPU scheduler timeout value in ms. Value 0 is invalidated and will be adjusted to 10000.
  * Negative values mean 'infinite timeout' (MAX_JIFFY_OFFSET). The default is 10000.
  */
 MODULE_PARM_DESC(lockup_timeout, "GPU lockup timeout in ms > 0 (default 10000)");
@@ -573,8 +572,8 @@ static int __init gsgpu_init(void)
 	struct file *fw_file = NULL;
 	int r;
 
-	if (vgacon_text_force()) {
-		DRM_ERROR("VGACON disables gsgpu kernel modesetting.\n");
+	if (video_firmware_drivers_only()) {
+		DRM_ERROR("nomodeset disables gsgpu kernel modesetting.\n");
 		return -EINVAL;
 	}
 
@@ -595,7 +594,7 @@ static int __init gsgpu_init(void)
 	}
 
 	if (!check_vbios_info()) {
-		DRM_INFO("gsgpu can not support this board!!!\n");
+		DRM_INFO("gsgpu does not support this board!!!\n");
 		return -EINVAL;
 	}
 

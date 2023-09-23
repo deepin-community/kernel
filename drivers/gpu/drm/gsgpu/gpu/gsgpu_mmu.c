@@ -368,7 +368,7 @@ static int mmu_sw_init(void *handle)
 
 	mmu_vram_gtt_location(adev, &adev->gmc);
 
-	/* Memory manager via ttm*/
+	/* Initialize the TTM memory manager */
 	r = gsgpu_bo_init(adev);
 	if (r)
 		return r;

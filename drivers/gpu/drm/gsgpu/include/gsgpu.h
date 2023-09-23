@@ -8,17 +8,18 @@
 #include <linux/rbtree.h>
 #include <linux/hashtable.h>
 #include <linux/dma-fence.h>
+#include <linux/pci.h>
 
-#include <drm/ttm/ttm_bo_api.h>
-#include <drm/ttm/ttm_bo_driver.h>
+#include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_placement.h>
-#include <drm/ttm/ttm_module.h>
 #include <drm/ttm/ttm_execbuf_util.h>
 
-#include <drm/drmP.h>
 #include <drm/drm_gem.h>
 #include <drm/gsgpu_drm.h>
 #include <drm/gpu_scheduler.h>
+#include <drm/drm_framebuffer.h>
+#include <drm/drm_ioctl.h>
+#include <drm/drm_drv.h>
 
 #include "gsgpu_shared.h"
 #include "gsgpu_mode.h"
@@ -121,9 +122,9 @@ enum gsgpu_xdma_irq {
 };
 
 int gsgpu_device_ip_wait_for_idle(struct gsgpu_device *adev,
-				   enum gsgpu_ip_block_type block_type);
+				  enum gsgpu_ip_block_type block_type);
 bool gsgpu_device_ip_is_idle(struct gsgpu_device *adev,
-			      enum gsgpu_ip_block_type block_type);
+			     enum gsgpu_ip_block_type block_type);
 
 #define GSGPU_MAX_IP_NUM 16
 
@@ -149,15 +150,15 @@ struct gsgpu_ip_block {
 };
 
 int gsgpu_device_ip_block_version_cmp(struct gsgpu_device *adev,
-				       enum gsgpu_ip_block_type type,
-				       u32 major, u32 minor);
+				      enum gsgpu_ip_block_type type,
+				      u32 major, u32 minor);
 
 struct gsgpu_ip_block *
 gsgpu_device_ip_get_ip_block(struct gsgpu_device *adev,
-			      enum gsgpu_ip_block_type type);
+			     enum gsgpu_ip_block_type type);
 
 int gsgpu_device_ip_block_add(struct gsgpu_device *adev,
-			       const struct gsgpu_ip_block_version *ip_block_version);
+			      const struct gsgpu_ip_block_version *ip_block_version);
 
 /* provided by hw blocks that can move/clear data.  e.g., gfx or xdma */
 struct gsgpu_buffer_funcs {
@@ -257,20 +258,20 @@ struct gsgpu_clock {
 
 void gsgpu_gem_object_free(struct drm_gem_object *obj);
 int gsgpu_gem_object_open(struct drm_gem_object *obj,
-				struct drm_file *file_priv);
+			  struct drm_file *file_priv);
 void gsgpu_gem_object_close(struct drm_gem_object *obj,
-				struct drm_file *file_priv);
+			    struct drm_file *file_priv);
 unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
 struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj);
 struct drm_gem_object *
 gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
-				 struct dma_buf_attachment *attach,
-				 struct sg_table *sg);
+				struct dma_buf_attachment *attach,
+				struct sg_table *sg);
 struct dma_buf *gsgpu_gem_prime_export(struct drm_device *dev,
-					struct drm_gem_object *gobj,
-					int flags);
+				       struct drm_gem_object *gobj,
+				       int flags);
 struct drm_gem_object *gsgpu_gem_prime_import(struct drm_device *dev,
-					    struct dma_buf *dma_buf);
+					      struct dma_buf *dma_buf);
 struct reservation_object *gsgpu_gem_prime_res_obj(struct drm_gem_object *);
 void *gsgpu_gem_prime_vmap(struct drm_gem_object *obj);
 void gsgpu_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
@@ -330,17 +331,17 @@ struct gsgpu_sa_bo {
  */
 void gsgpu_gem_force_release(struct gsgpu_device *adev);
 int gsgpu_gem_object_create(struct gsgpu_device *adev, unsigned long size,
-			     int alignment, u32 initial_domain,
-			     u64 flags, enum ttm_bo_type type,
-			     struct reservation_object *resv,
-			     struct drm_gem_object **obj);
+			    int alignment, u32 initial_domain,
+			    u64 flags, enum ttm_bo_type type,
+			    struct reservation_object *resv,
+			    struct drm_gem_object **obj);
 
 int gsgpu_mode_dumb_create(struct drm_file *file_priv,
-			    struct drm_device *dev,
-			    struct drm_mode_create_dumb *args);
+			   struct drm_device *dev,
+			   struct drm_mode_create_dumb *args);
 int gsgpu_mode_dumb_mmap(struct drm_file *filp,
-			  struct drm_device *dev,
-			  uint32_t handle, uint64_t *offset_p);
+			 struct drm_device *dev,
+			 uint32_t handle, uint64_t *offset_p);
 int gsgpu_fence_slab_init(void);
 void gsgpu_fence_slab_fini(void);
 
@@ -497,13 +498,13 @@ struct gsgpu_queue_mgr {
 };
 
 int gsgpu_queue_mgr_init(struct gsgpu_device *adev,
-			  struct gsgpu_queue_mgr *mgr);
+			 struct gsgpu_queue_mgr *mgr);
 int gsgpu_queue_mgr_fini(struct gsgpu_device *adev,
-			  struct gsgpu_queue_mgr *mgr);
+			 struct gsgpu_queue_mgr *mgr);
 int gsgpu_queue_mgr_map(struct gsgpu_device *adev,
-			 struct gsgpu_queue_mgr *mgr,
-			 u32 hw_ip, u32 instance, u32 ring,
-			 struct gsgpu_ring **out_ring);
+			struct gsgpu_queue_mgr *mgr,
+			u32 hw_ip, u32 instance, u32 ring,
+			struct gsgpu_ring **out_ring);
 
 /*
  * context related structures
@@ -543,14 +544,14 @@ struct gsgpu_ctx *gsgpu_ctx_get(struct gsgpu_fpriv *fpriv, uint32_t id);
 int gsgpu_ctx_put(struct gsgpu_ctx *ctx);
 
 int gsgpu_ctx_add_fence(struct gsgpu_ctx *ctx, struct gsgpu_ring *ring,
-			      struct dma_fence *fence, uint64_t *seq);
+			struct dma_fence *fence, uint64_t *seq);
 struct dma_fence *gsgpu_ctx_get_fence(struct gsgpu_ctx *ctx,
-				   struct gsgpu_ring *ring, uint64_t seq);
+				      struct gsgpu_ring *ring, uint64_t seq);
 void gsgpu_ctx_priority_override(struct gsgpu_ctx *ctx,
-				  enum drm_sched_priority priority);
+				 enum drm_sched_priority priority);
 
 int gsgpu_ctx_ioctl(struct drm_device *dev, void *data,
-		     struct drm_file *filp);
+		    struct drm_file *filp);
 
 int gsgpu_ctx_wait_prev_fence(struct gsgpu_ctx *ctx, unsigned ring_id);
 
@@ -1141,7 +1142,7 @@ struct gsgpu_device {
 	bool inited;
 };
 
-static inline struct gsgpu_device *gsgpu_ttm_adev(struct ttm_bo_device *bdev)
+static inline struct gsgpu_device *gsgpu_ttm_adev(struct ttm_device *bdev)
 {
 	return container_of(bdev, struct gsgpu_device, mman.bdev);
 }
@@ -1302,21 +1303,21 @@ gsgpu_get_xdma_instance(struct gsgpu_ring *ring)
 
 /* Common functions */
 int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
-			      struct gsgpu_job *job, bool force);
+			     struct gsgpu_job *job, bool force);
 void gsgpu_device_pci_config_reset(struct gsgpu_device *adev);
 bool gsgpu_device_need_post(struct gsgpu_device *adev);
 void gsgpu_display_update_priority(struct gsgpu_device *adev);
 
 void gsgpu_cs_report_moved_bytes(struct gsgpu_device *adev, u64 num_bytes,
-				  u64 num_vis_bytes);
+				 u64 num_vis_bytes);
 void gsgpu_device_vram_location(struct gsgpu_device *adev,
-				 struct gsgpu_gmc *mc, u64 base);
+				struct gsgpu_gmc *mc, u64 base);
 void gsgpu_device_gart_location(struct gsgpu_device *adev,
-				 struct gsgpu_gmc *mc);
+				struct gsgpu_gmc *mc);
 int gsgpu_device_resize_fb_bar(struct gsgpu_device *adev);
 void gsgpu_device_program_register_sequence(struct gsgpu_device *adev,
-					     const u32 *registers,
-					     const u32 array_size);
+					    const u32 *registers,
+					    const u32 array_size);
 
 /*
  * KMS
@@ -1329,13 +1330,13 @@ void gsgpu_driver_unload_kms(struct drm_device *dev);
 void gsgpu_driver_lastclose_kms(struct drm_device *dev);
 int gsgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv);
 void gsgpu_driver_postclose_kms(struct drm_device *dev,
-				 struct drm_file *file_priv);
+				struct drm_file *file_priv);
 int gsgpu_device_ip_suspend(struct gsgpu_device *adev);
 int gsgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon);
 int gsgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon);
 u32 gsgpu_get_vblank_counter_kms(struct drm_device *dev, unsigned int pipe);
 long gsgpu_kms_compat_ioctl(struct file *filp, unsigned int cmd,
-			     unsigned long arg);
+			    unsigned long arg);
 
 /*
  * functions used by gsgpu_encoder.c
@@ -1362,7 +1363,7 @@ int gsgpu_acpi_init(struct gsgpu_device *adev);
 void gsgpu_acpi_fini(struct gsgpu_device *adev);
 bool gsgpu_acpi_is_pcie_performance_request_supported(struct gsgpu_device *adev);
 int gsgpu_acpi_pcie_performance_request(struct gsgpu_device *adev,
-						u8 perf_req, bool advertise);
+					u8 perf_req, bool advertise);
 int gsgpu_acpi_pcie_notify_device_ready(struct gsgpu_device *adev);
 #else
 static inline int gsgpu_acpi_init(struct gsgpu_device *adev) { return 0; }
@@ -1370,8 +1371,8 @@ static inline void gsgpu_acpi_fini(struct gsgpu_device *adev) { }
 #endif
 
 int gsgpu_cs_find_mapping(struct gsgpu_cs_parser *parser,
-			   uint64_t addr, struct gsgpu_bo **bo,
-			   struct gsgpu_bo_va_mapping **mapping);
+			  uint64_t addr, struct gsgpu_bo **bo,
+			  struct gsgpu_bo_va_mapping **mapping);
 
 #include "gsgpu_object.h"
 #endif

@@ -1,9 +1,7 @@
-#include <drm/ttm/ttm_bo_api.h>
-#include <drm/ttm/ttm_bo_driver.h>
+#include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_module.h>
 #include <drm/ttm/ttm_page_alloc.h>
-#include <drm/drmP.h>
 #include <drm/drm_cache.h>
 #include <drm/gsgpu_drm.h>
 #include <linux/seq_file.h>
@@ -98,9 +96,9 @@ static int gsgpu_ttm_global_init(struct gsgpu_device *adev)
 		adev->mman.mem_global_ref.object;
 	global_ref = &adev->mman.bo_global_ref.ref;
 	global_ref->global_type = DRM_GLOBAL_TTM_BO;
-	global_ref->size = sizeof(struct ttm_bo_global);
-	global_ref->init = &ttm_bo_global_init;
-	global_ref->release = &ttm_bo_global_release;
+	global_ref->size = sizeof(struct ttm_global);
+	global_ref->init = &ttm_global_init;
+	global_ref->release = &ttm_global_release;
 	r = drm_global_item_ref(global_ref);
 	if (r) {
 		DRM_ERROR("Failed setting up TTM BO subsystem.\n");
@@ -129,7 +127,7 @@ static void gsgpu_ttm_global_fini(struct gsgpu_device *adev)
 	}
 }
 
-static int gsgpu_invalidate_caches(struct ttm_bo_device *bdev, uint32_t flags)
+static int gsgpu_invalidate_caches(struct ttm_device *bdev, uint32_t flags)
 {
 	return 0;
 }
@@ -145,7 +143,7 @@ static int gsgpu_invalidate_caches(struct ttm_bo_device *bdev, uint32_t flags)
  * This is called by ttm_bo_init_mm() when a buffer object is being
  * initialized.
  */
-static int gsgpu_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
+static int gsgpu_init_mem_type(struct ttm_device *bdev, uint32_t type,
 				struct ttm_mem_type_manager *man)
 {
 	struct gsgpu_device *adev;
@@ -676,7 +674,7 @@ memcpy:
  *
  * Called by ttm_mem_io_reserve() ultimately via ttm_bo_vm_fault()
  */
-static int gsgpu_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
+static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_mem_reg *mem)
 {
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
@@ -718,7 +716,7 @@ static int gsgpu_ttm_io_mem_reserve(struct ttm_bo_device *bdev, struct ttm_mem_r
 	return 0;
 }
 
-static void gsgpu_ttm_io_mem_free(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
+static void gsgpu_ttm_io_mem_free(struct ttm_device *bdev, struct ttm_mem_reg *mem)
 {
 }
 
@@ -1497,7 +1495,7 @@ static int gsgpu_ttm_access_memory(struct ttm_buffer_object *bo,
 	return ret;
 }
 
-static struct ttm_bo_driver gsgpu_bo_driver = {
+static struct ttm_device_funcs gsgpu_device_funcs = {
 	.ttm_tt_create = &gsgpu_ttm_tt_create,
 	.ttm_tt_populate = &gsgpu_ttm_tt_populate,
 	.ttm_tt_unpopulate = &gsgpu_ttm_tt_unpopulate,
@@ -1636,12 +1634,12 @@ int gsgpu_ttm_init(struct gsgpu_device *adev)
 		return r;
 	}
 	/* No others user of address space so set it to 0 */
-	r = ttm_bo_device_init(&adev->mman.bdev,
-			       adev->mman.bo_global_ref.ref.object,
-			       &gsgpu_bo_driver,
-			       adev->ddev->anon_inode->i_mapping,
-			       DRM_FILE_PAGE_OFFSET,
-			       adev->need_dma32);
+	r = ttm_device_init(&adev->mman.bdev,
+			    adev->mman.bo_global_ref.ref.object,
+			    &gsgpu_device_funcs,
+			    adev->ddev->anon_inode->i_mapping,
+			    DRM_FILE_PAGE_OFFSET,
+			    adev->need_dma32);
 	if (r) {
 		DRM_ERROR("failed initializing buffer object driver(%d).\n", r);
 		return r;
@@ -1751,7 +1749,7 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
 
 	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_VRAM);
 	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_TT);
-	ttm_bo_device_release(&adev->mman.bdev);
+	ttm_device_release(&adev->mman.bdev);
 	gsgpu_ttm_global_fini(adev);
 	adev->mman.initialized = false;
 	DRM_INFO("gsgpu: ttm finalized\n");

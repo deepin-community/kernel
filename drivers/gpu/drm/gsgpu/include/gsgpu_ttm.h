@@ -10,7 +10,7 @@
 struct gsgpu_mman {
 	struct ttm_bo_global_ref        bo_global_ref;
 	struct drm_global_reference	mem_global_ref;
-	struct ttm_bo_device		bdev;
+	struct ttm_device		bdev;
 	bool				mem_global_referenced;
 	bool				initialized;
 	void __iomem			*aper_base_kaddr;
@@ -50,23 +50,23 @@ int gsgpu_ttm_init(struct gsgpu_device *adev);
 void gsgpu_ttm_late_init(struct gsgpu_device *adev);
 void gsgpu_ttm_fini(struct gsgpu_device *adev);
 void gsgpu_ttm_set_buffer_funcs_status(struct gsgpu_device *adev,
-					bool enable);
+				       bool enable);
 
 int gsgpu_copy_buffer(struct gsgpu_ring *ring, uint64_t src_offset,
-		       uint64_t dst_offset, uint32_t byte_count,
-		       struct reservation_object *resv,
-		       struct dma_fence **fence, bool direct_submit,
-		       bool vm_needs_flush);
+		      uint64_t dst_offset, uint32_t byte_count,
+		      struct reservation_object *resv,
+		      struct dma_fence **fence, bool direct_submit,
+		      bool vm_needs_flush);
 int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
-			       struct gsgpu_copy_mem *src,
-			       struct gsgpu_copy_mem *dst,
-			       uint64_t size,
-			       struct reservation_object *resv,
-			       struct dma_fence **f);
+			      struct gsgpu_copy_mem *src,
+			      struct gsgpu_copy_mem *dst,
+			      uint64_t size,
+			      struct reservation_object *resv,
+			      struct dma_fence **f);
 int gsgpu_fill_buffer(struct gsgpu_bo *bo,
-			uint32_t src_data,
-			struct reservation_object *resv,
-			struct dma_fence **fence);
+		      uint32_t src_data,
+		      struct reservation_object *resv,
+		      struct dma_fence **fence);
 
 int gsgpu_mmap(struct file *filp, struct vm_area_struct *vma);
 int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo);
@@ -76,16 +76,16 @@ int gsgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages);
 void gsgpu_ttm_tt_set_user_pages(struct ttm_tt *ttm, struct page **pages);
 void gsgpu_ttm_tt_mark_user_pages(struct ttm_tt *ttm);
 int gsgpu_ttm_tt_set_userptr(struct ttm_tt *ttm, uint64_t addr,
-				     uint32_t flags);
+			     uint32_t flags);
 bool gsgpu_ttm_tt_has_userptr(struct ttm_tt *ttm);
 struct mm_struct *gsgpu_ttm_tt_get_usermm(struct ttm_tt *ttm);
 bool gsgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
-				  unsigned long end);
+				 unsigned long end);
 bool gsgpu_ttm_tt_userptr_invalidated(struct ttm_tt *ttm,
-				       int *last_invalidated);
+				      int *last_invalidated);
 bool gsgpu_ttm_tt_userptr_needs_pages(struct ttm_tt *ttm);
 bool gsgpu_ttm_tt_is_readonly(struct ttm_tt *ttm);
 uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
-				 struct ttm_mem_reg *mem);
+				struct ttm_mem_reg *mem);
 
 #endif /* __GSGPU_TTM_H__ */
