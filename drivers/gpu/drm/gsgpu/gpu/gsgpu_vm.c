@@ -349,7 +349,7 @@ static int gsgpu_vm_clear_bo(struct gsgpu_device *ldev,
 
 	ring = container_of(vm->entity.rq->sched, struct gsgpu_ring, sched);
 
-	r = reservation_object_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.resv);
 	if (r)
 		return r;
 
@@ -452,7 +452,7 @@ static int gsgpu_vm_alloc_levels(struct gsgpu_device *ldev,
 	 * walk over the address space and allocate the page tables
 	 */
 	for (pt_idx = from; pt_idx <= to; ++pt_idx) {
-		struct reservation_object *resv = vm->root.base.bo->tbo.resv;
+		struct dma_resv *resv = vm->root.base.bo->tbo.resv;
 		struct gsgpu_vm_pt *entry = &parent->entries[pt_idx];
 		struct gsgpu_bo *pt;
 
@@ -1300,7 +1300,7 @@ static int gsgpu_vm_bo_update_mapping(struct gsgpu_device *ldev,
 	if (r)
 		goto error_free;
 
-	r = reservation_object_reserve_shared(vm->root.base.bo->tbo.resv);
+	r = dma_resv_reserve_shared(vm->root.base.bo->tbo.resv);
 	if (r)
 		goto error_free;
 
@@ -1448,7 +1448,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 			pages_addr = ttm->dma_address;
 		}
 
-		exclusive = reservation_object_get_excl(bo->tbo.resv);
+		exclusive = dma_resv_get_excl(bo->tbo.resv);
 	}
 
 	if (bo)
@@ -1606,13 +1606,13 @@ int gsgpu_vm_handle_moved(struct gsgpu_device *ldev,
 	spin_unlock(&vm->moved_lock);
 
 	list_for_each_entry_safe(bo_va, tmp, &moved, base.vm_status) {
-		struct reservation_object *resv = bo_va->base.bo->tbo.resv;
+		struct dma_resv *resv = bo_va->base.bo->tbo.resv;
 
 		/* Per VM BOs never need to bo cleared in the page tables */
 		if (resv == vm->root.base.bo->tbo.resv)
 			clear = false;
 		/* Try to reserve the BO to avoid clearing its ptes */
-		else if (!gsgpu_vm_debug && reservation_object_trylock(resv))
+		else if (!gsgpu_vm_debug && dma_resv_trylock(resv))
 			clear = false;
 		/* Somebody else is using the BO right now */
 		else
@@ -1627,7 +1627,7 @@ int gsgpu_vm_handle_moved(struct gsgpu_device *ldev,
 		}
 
 		if (!clear && resv != vm->root.base.bo->tbo.resv)
-			reservation_object_unlock(resv);
+			dma_resv_unlock(resv);
 
 	}
 

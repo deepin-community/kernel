@@ -122,7 +122,7 @@ gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 				 struct dma_buf_attachment *attach,
 				 struct sg_table *sg)
 {
-	struct reservation_object *resv = attach->dmabuf->resv;
+	struct dma_resv *resv = attach->dmabuf->resv;
 	struct gsgpu_device *adev = dev->dev_private;
 	struct gsgpu_bo *bo;
 	struct gsgpu_bo_param bp;
@@ -156,23 +156,23 @@ error:
 }
 
 static int
-__reservation_object_make_exclusive(struct reservation_object *obj)
+__dma_resv_make_exclusive(struct dma_resv *obj)
 {
 	struct dma_fence **fences;
 	unsigned int count;
 	int r;
 
-	if (!reservation_object_get_list(obj)) /* no shared fences to convert */
+	if (!dma_resv_get_list(obj)) /* no shared fences to convert */
 		return 0;
 
-	r = reservation_object_get_fences_rcu(obj, NULL, &count, &fences);
+	r = dma_resv_get_fences_rcu(obj, NULL, &count, &fences);
 	if (r)
 		return r;
 
 	if (count == 0) {
 		/* Now that was unexpected. */
 	} else if (count == 1) {
-		reservation_object_add_excl_fence(obj, fences[0]);
+		dma_resv_add_excl_fence(obj, fences[0]);
 		dma_fence_put(fences[0]);
 		kfree(fences);
 	} else {
@@ -184,7 +184,7 @@ __reservation_object_make_exclusive(struct reservation_object *obj)
 		if (!array)
 			goto err_fences_put;
 
-		reservation_object_add_excl_fence(obj, &array->base);
+		dma_resv_add_excl_fence(obj, &array->base);
 		dma_fence_put(&array->base);
 	}
 
@@ -235,7 +235,7 @@ static int gsgpu_gem_map_attach(struct dma_buf *dma_buf,
 		 * fences on the reservation object into a single exclusive
 		 * fence.
 		 */
-		r = __reservation_object_make_exclusive(bo->tbo.resv);
+		r = __dma_resv_make_exclusive(bo->tbo.resv);
 		if (r)
 			goto error_unreserve;
 	}
@@ -293,7 +293,7 @@ error:
  * Returns:
  * The buffer object's reservation object.
  */
-struct reservation_object *gsgpu_gem_prime_res_obj(struct drm_gem_object *obj)
+struct dma_resv *gsgpu_gem_prime_res_obj(struct drm_gem_object *obj)
 {
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
 

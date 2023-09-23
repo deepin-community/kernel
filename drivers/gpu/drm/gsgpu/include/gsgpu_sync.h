@@ -4,7 +4,7 @@
 #include <linux/hashtable.h>
 
 struct dma_fence;
-struct reservation_object;
+struct dma_resv;
 struct gsgpu_device;
 struct gsgpu_ring;
 
@@ -21,7 +21,7 @@ int gsgpu_sync_fence(struct gsgpu_device *adev, struct gsgpu_sync *sync,
 		      struct dma_fence *f, bool explicit);
 int gsgpu_sync_resv(struct gsgpu_device *adev,
 		     struct gsgpu_sync *sync,
-		     struct reservation_object *resv,
+		     struct dma_resv *resv,
 		     void *owner,
 		     bool explicit_sync);
 struct dma_fence *gsgpu_sync_peek_fence(struct gsgpu_sync *sync,

@@ -82,7 +82,7 @@ static void gsgpu_pasid_free_cb(struct dma_fence *fence,
  *
  * Free the pasid only after all the fences in resv are signaled.
  */
-void gsgpu_pasid_free_delayed(struct reservation_object *resv,
+void gsgpu_pasid_free_delayed(struct dma_resv *resv,
 			       unsigned int pasid)
 {
 	struct dma_fence *fence, **fences;
@@ -90,7 +90,7 @@ void gsgpu_pasid_free_delayed(struct reservation_object *resv,
 	unsigned count;
 	int r;
 
-	r = reservation_object_get_fences_rcu(resv, NULL, &count, &fences);
+	r = dma_resv_get_fences_rcu(resv, NULL, &count, &fences);
 	if (r)
 		goto fallback;
 
@@ -134,7 +134,7 @@ fallback:
 	/* Not enough memory for the delayed delete, as last resort
 	 * block for all the fences to complete.
 	 */
-	reservation_object_wait_timeout_rcu(resv, true, false,
+	dma_resv_wait_timeout_rcu(resv, true, false,
 					    MAX_SCHEDULE_TIMEOUT);
 	gsgpu_pasid_free(pasid);
 }

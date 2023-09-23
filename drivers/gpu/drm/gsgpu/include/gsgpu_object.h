@@ -14,7 +14,7 @@ struct gsgpu_bo_param {
 	u32				preferred_domain;
 	u64				flags;
 	enum ttm_bo_type		type;
-	struct reservation_object	*resv;
+	struct dma_resv			*resv;
 };
 
 /* User space allocated BO in a VM */
@@ -237,13 +237,13 @@ u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo);
 int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
 			       struct gsgpu_ring *ring,
 			       struct gsgpu_bo *bo,
-			       struct reservation_object *resv,
+			       struct dma_resv *resv,
 			       struct dma_fence **fence, bool direct);
 int gsgpu_bo_validate(struct gsgpu_bo *bo);
 int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 				  struct gsgpu_ring *ring,
 				  struct gsgpu_bo *bo,
-				  struct reservation_object *resv,
+				  struct dma_resv *resv,
 				  struct dma_fence **fence,
 				  bool direct);
 uint32_t gsgpu_bo_get_preferred_pin_domain(struct gsgpu_device *adev,

@@ -155,10 +155,10 @@ int gsgpu_sync_fence(struct gsgpu_device *adev, struct gsgpu_sync *sync,
  */
 int gsgpu_sync_resv(struct gsgpu_device *adev,
 		     struct gsgpu_sync *sync,
-		     struct reservation_object *resv,
+		     struct dma_resv *resv,
 		     void *owner, bool explicit_sync)
 {
-	struct reservation_object_list *flist;
+	struct dma_resv_list *flist;
 	struct dma_fence *f;
 	void *fence_owner;
 	unsigned i;
@@ -168,16 +168,16 @@ int gsgpu_sync_resv(struct gsgpu_device *adev,
 		return -EINVAL;
 
 	/* always sync to the exclusive fence */
-	f = reservation_object_get_excl(resv);
+	f = dma_resv_get_excl(resv);
 	r = gsgpu_sync_fence(adev, sync, f, false);
 
-	flist = reservation_object_get_list(resv);
+	flist = dma_resv_get_list(resv);
 	if (!flist || r)
 		return r;
 
 	for (i = 0; i < flist->shared_count; ++i) {
 		f = rcu_dereference_protected(flist->shared[i],
-					      reservation_object_held(resv));
+					      dma_resv_held(resv));
 		/* We only want to trigger KFD eviction fences on
 		 * evict or move jobs. Skip KFD fences otherwise.
 		 */

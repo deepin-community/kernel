@@ -717,7 +717,7 @@ static int gsgpu_cs_sync_rings(struct gsgpu_cs_parser *p)
 	int r;
 
 	list_for_each_entry(e, &p->validated, tv.head) {
-		struct reservation_object *resv = e->robj->tbo.resv;
+		struct dma_resv *resv = e->robj->tbo.resv;
 		r = gsgpu_sync_resv(p->adev, &p->job->sync, resv, p->filp,
 				     gsgpu_bo_explicit_sync(e->robj));
 
@@ -850,7 +850,7 @@ static int gsgpu_cs_ib_vm_chunk(struct gsgpu_device *adev,
 		if (r)
 			return r;
 
-		r = reservation_object_reserve_shared(vm->root.base.bo->tbo.resv);
+		r = dma_resv_reserve_shared(vm->root.base.bo->tbo.resv);
 		if (r)
 			return r;
 	}

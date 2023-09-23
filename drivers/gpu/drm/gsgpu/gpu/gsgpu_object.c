@@ -529,13 +529,13 @@ int gsgpu_bo_create(struct gsgpu_device *adev,
 
 	if ((flags & GSGPU_GEM_CREATE_SHADOW) && gsgpu_bo_need_backup(adev)) {
 		if (!bp->resv)
-			WARN_ON(reservation_object_lock((*bo_ptr)->tbo.resv,
+			WARN_ON(dma_resv_lock((*bo_ptr)->tbo.resv,
 							NULL));
 
 		r = gsgpu_bo_create_shadow(adev, bp->size, bp->byte_align, (*bo_ptr));
 
 		if (!bp->resv)
-			reservation_object_unlock((*bo_ptr)->tbo.resv);
+			dma_resv_unlock((*bo_ptr)->tbo.resv);
 
 		if (r)
 			gsgpu_bo_unref(bo_ptr);
@@ -562,7 +562,7 @@ int gsgpu_bo_create(struct gsgpu_device *adev,
 int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
 			       struct gsgpu_ring *ring,
 			       struct gsgpu_bo *bo,
-			       struct reservation_object *resv,
+			       struct dma_resv *resv,
 			       struct dma_fence **fence,
 			       bool direct)
 
@@ -577,7 +577,7 @@ int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
 	bo_addr = gsgpu_bo_gpu_offset(bo);
 	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
 
-	r = reservation_object_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.resv);
 	if (r)
 		goto err;
 
@@ -644,7 +644,7 @@ retry:
 int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 				  struct gsgpu_ring *ring,
 				  struct gsgpu_bo *bo,
-				  struct reservation_object *resv,
+				  struct dma_resv *resv,
 				  struct dma_fence **fence,
 				  bool direct)
 
@@ -659,7 +659,7 @@ int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 	bo_addr = gsgpu_bo_gpu_offset(bo);
 	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
 
-	r = reservation_object_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.resv);
 	if (r)
 		goto err;
 
@@ -699,7 +699,7 @@ int gsgpu_bo_kmap(struct gsgpu_bo *bo, void **ptr)
 		return 0;
 	}
 
-	r = reservation_object_wait_timeout_rcu(bo->tbo.resv, false, false,
+	r = dma_resv_wait_timeout_rcu(bo->tbo.resv, false, false,
 						MAX_SCHEDULE_TIMEOUT);
 	if (r < 0)
 		return r;
@@ -1270,12 +1270,12 @@ int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
 		     bool shared)
 {
-	struct reservation_object *resv = bo->tbo.resv;
+	struct dma_resv *resv = bo->tbo.resv;
 
 	if (shared)
-		reservation_object_add_shared_fence(resv, fence);
+		dma_resv_add_shared_fence(resv, fence);
 	else
-		reservation_object_add_excl_fence(resv, fence);
+		dma_resv_add_excl_fence(resv, fence);
 }
 
 /**

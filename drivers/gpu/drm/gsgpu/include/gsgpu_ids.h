@@ -43,7 +43,7 @@ struct gsgpu_vmid_mgr {
 
 int gsgpu_pasid_alloc(unsigned int bits);
 void gsgpu_pasid_free(unsigned int pasid);
-void gsgpu_pasid_free_delayed(struct reservation_object *resv,
+void gsgpu_pasid_free_delayed(struct dma_resv *resv,
 			       unsigned int pasid);
 
 bool gsgpu_vmid_had_gpu_reset(struct gsgpu_device *adev,
