@@ -105,9 +105,7 @@ static inline unsigned gsgpu_mem_type_to_domain(u32 mem_type)
 static inline int gsgpu_bo_reserve(struct gsgpu_bo *bo, bool no_intr)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
-	int r;
-
-	r = ttm_bo_reserve(&bo->tbo, !no_intr, false, NULL);
+	int r = ttm_bo_reserve(&bo->tbo, !no_intr, false, NULL);
 	if (unlikely(r != 0)) {
 		if (r != -ERESTARTSYS)
 			dev_err(adev->dev, "%p reserve failed\n", bo);
@@ -123,17 +121,17 @@ static inline void gsgpu_bo_unreserve(struct gsgpu_bo *bo)
 
 static inline unsigned long gsgpu_bo_size(struct gsgpu_bo *bo)
 {
-	return bo->tbo.num_pages << PAGE_SHIFT;
+	return bo->tbo.ttm->num_pages << PAGE_SHIFT;
 }
 
 static inline unsigned gsgpu_bo_ngpu_pages(struct gsgpu_bo *bo)
 {
-	return (bo->tbo.num_pages << PAGE_SHIFT) / GSGPU_GPU_PAGE_SIZE;
+	return (bo->tbo.ttm->num_pages << PAGE_SHIFT) / GSGPU_GPU_PAGE_SIZE;
 }
 
 static inline unsigned gsgpu_bo_gpu_page_alignment(struct gsgpu_bo *bo)
 {
-	return (bo->tbo.mem.page_alignment << PAGE_SHIFT) / GSGPU_GPU_PAGE_SIZE;
+	return (bo->tbo.page_alignment << PAGE_SHIFT) / GSGPU_GPU_PAGE_SIZE;
 }
 
 /**
@@ -144,7 +142,7 @@ static inline unsigned gsgpu_bo_gpu_page_alignment(struct gsgpu_bo *bo)
  */
 static inline u64 gsgpu_bo_mmap_offset(struct gsgpu_bo *bo)
 {
-	return drm_vma_node_offset_addr(&bo->tbo.vma_node);
+	return drm_vma_node_offset_addr(&bo->tbo.base.vma_node);
 }
 
 /**
@@ -153,8 +151,8 @@ static inline u64 gsgpu_bo_mmap_offset(struct gsgpu_bo *bo)
  */
 static inline bool gsgpu_bo_gpu_accessible(struct gsgpu_bo *bo)
 {
-	switch (bo->tbo.mem.mem_type) {
-	case TTM_PL_TT: return gsgpu_gtt_mgr_has_gart_addr(&bo->tbo.mem);
+	switch (bo->tbo.resource->mem_type) {
+	case TTM_PL_TT: return gsgpu_gtt_mgr_has_gart_addr(bo->tbo.resource);
 	case TTM_PL_VRAM: return true;
 	default: return false;
 	}
@@ -167,13 +165,13 @@ static inline bool gsgpu_bo_in_cpu_visible_vram(struct gsgpu_bo *bo)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
 	unsigned fpfn = adev->gmc.visible_vram_size >> PAGE_SHIFT;
-	struct drm_mm_node *node = bo->tbo.mem.mm_node;
+	struct drm_mm_node *node = bo->tbo.resource->mm_node;
 	unsigned long pages_left;
 
-	if (bo->tbo.mem.mem_type != TTM_PL_VRAM)
+	if (bo->tbo.resource->mem_type != TTM_PL_VRAM)
 		return false;
 
-	for (pages_left = bo->tbo.mem.num_pages; pages_left;
+	for (pages_left = bo->tbo.ttm->num_pages; pages_left;
 	     pages_left -= node->size, node++)
 		if (node->start < fpfn)
 			return true;
@@ -229,7 +227,7 @@ int gsgpu_bo_get_metadata(struct gsgpu_bo *bo, void *buffer,
 			   uint64_t *flags);
 void gsgpu_bo_move_notify(struct ttm_buffer_object *bo,
 			   bool evict,
-			   struct ttm_mem_reg *new_mem);
+			   struct ttm_resource *new_mem);
 int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo);
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
 		     bool shared);

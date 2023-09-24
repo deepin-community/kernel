@@ -83,7 +83,7 @@ static u64 gsgpu_vram_mgr_vis_size(struct gsgpu_device *adev,
 u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
-	struct ttm_mem_reg *mem = &bo->tbo.mem;
+	struct ttm_resource *mem = &bo->tbo.mem;
 	struct drm_mm_node *nodes = mem->mm_node;
 	unsigned pages = mem->num_pages;
 	u64 usage;
@@ -113,7 +113,7 @@ u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo)
 static int gsgpu_vram_mgr_new(struct ttm_resource_manager *man,
 			       struct ttm_buffer_object *tbo,
 			       const struct ttm_place *place,
-			       struct ttm_mem_reg *mem)
+			       struct ttm_resource *mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
 	struct gsgpu_vram_mgr *mgr = man->priv;
@@ -210,7 +210,7 @@ error:
  * Free the allocated VRAM again.
  */
 static void gsgpu_vram_mgr_del(struct ttm_resource_manager *man,
-				struct ttm_mem_reg *mem)
+				struct ttm_resource *mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
 	struct gsgpu_vram_mgr *mgr = man->priv;

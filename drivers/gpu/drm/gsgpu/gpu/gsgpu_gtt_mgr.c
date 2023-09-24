@@ -66,7 +66,7 @@ static int gsgpu_gtt_mgr_fini(struct ttm_resource_manager *man)
  *
  * Check if a mem object has already address space allocated.
  */
-bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem)
+bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_resource *mem)
 {
 	struct gsgpu_gtt_node *node = mem->mm_node;
 
@@ -86,7 +86,7 @@ bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem)
 static int gsgpu_gtt_mgr_alloc(struct ttm_resource_manager *man,
 				struct ttm_buffer_object *tbo,
 				const struct ttm_place *place,
-				struct ttm_mem_reg *mem)
+				struct ttm_resource *mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
 	struct gsgpu_gtt_mgr *mgr = man->priv;
@@ -137,7 +137,7 @@ static int gsgpu_gtt_mgr_alloc(struct ttm_resource_manager *man,
 static int gsgpu_gtt_mgr_new(struct ttm_resource_manager *man,
 			      struct ttm_buffer_object *tbo,
 			      const struct ttm_place *place,
-			      struct ttm_mem_reg *mem)
+			      struct ttm_resource *mem)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
 	struct gsgpu_gtt_node *node;
@@ -193,7 +193,7 @@ err_out:
  * Free the allocated GTT again.
  */
 static void gsgpu_gtt_mgr_del(struct ttm_resource_manager *man,
-			       struct ttm_mem_reg *mem)
+			       struct ttm_resource *mem)
 {
 	struct gsgpu_gtt_mgr *mgr = man->priv;
 	struct gsgpu_gtt_node *node = mem->mm_node;

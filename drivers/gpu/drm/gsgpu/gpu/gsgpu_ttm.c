@@ -25,7 +25,7 @@
 #define DRM_FILE_PAGE_OFFSET (0x100000000ULL >> PAGE_SHIFT)
 
 static int gsgpu_map_buffer(struct ttm_buffer_object *bo,
-			     struct ttm_mem_reg *mem, unsigned num_pages,
+			     struct ttm_resource *mem, unsigned num_pages,
 			     uint64_t offset, unsigned window,
 			     struct gsgpu_ring *ring,
 			     uint64_t *addr);
@@ -183,9 +183,9 @@ static int gsgpu_verify_access(struct ttm_buffer_object *bo, struct file *filp)
  * Assign the memory from new_mem to the memory of the buffer object bo.
  */
 static void gsgpu_move_null(struct ttm_buffer_object *bo,
-			     struct ttm_mem_reg *new_mem)
+			     struct ttm_resource *new_mem)
 {
-	struct ttm_mem_reg *old_mem = &bo->mem;
+	struct ttm_resource *old_mem = &bo->mem;
 
 	BUG_ON(old_mem->mm_node != NULL);
 	*old_mem = *new_mem;
@@ -201,8 +201,8 @@ static void gsgpu_move_null(struct ttm_buffer_object *bo,
  *
  */
 static uint64_t gsgpu_mm_node_addr(struct ttm_buffer_object *bo,
-				    struct drm_mm_node *mm_node,
-				    struct ttm_mem_reg *mem)
+				   struct drm_mm_node *mm_node,
+				   struct ttm_resource *mem)
 {
 	uint64_t addr = 0;
 
@@ -221,7 +221,7 @@ static uint64_t gsgpu_mm_node_addr(struct ttm_buffer_object *bo,
  * @offset: The offset that drm_mm_node is used for finding.
  *
  */
-static struct drm_mm_node *gsgpu_find_mm_node(struct ttm_mem_reg *mem,
+static struct drm_mm_node *gsgpu_find_mm_node(struct ttm_resource *mem,
 					       unsigned long *offset)
 {
 	struct drm_mm_node *mm_node = mem->mm_node;
@@ -366,8 +366,8 @@ error:
  */
 static int gsgpu_move_blit(struct ttm_buffer_object *bo,
 			    bool evict, bool no_wait_gpu,
-			    struct ttm_mem_reg *new_mem,
-			    struct ttm_mem_reg *old_mem)
+			    struct ttm_resource *new_mem,
+			    struct ttm_resource *old_mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct gsgpu_copy_mem src, dst;
@@ -405,11 +405,11 @@ error:
  */
 static int gsgpu_move_vram_ram(struct ttm_buffer_object *bo, bool evict,
 				struct ttm_operation_ctx *ctx,
-				struct ttm_mem_reg *new_mem)
+				struct ttm_resource *new_mem)
 {
 	struct gsgpu_device *adev;
-	struct ttm_mem_reg *old_mem = &bo->mem;
-	struct ttm_mem_reg tmp_mem;
+	struct ttm_resource *old_mem = &bo->mem;
+	struct ttm_resource tmp_mem;
 	struct ttm_place placements;
 	struct ttm_placement placement;
 	int r;
@@ -463,11 +463,11 @@ out_cleanup:
  */
 static int gsgpu_move_ram_vram(struct ttm_buffer_object *bo, bool evict,
 				struct ttm_operation_ctx *ctx,
-				struct ttm_mem_reg *new_mem)
+				struct ttm_resource *new_mem)
 {
 	struct gsgpu_device *adev;
-	struct ttm_mem_reg *old_mem = &bo->mem;
-	struct ttm_mem_reg tmp_mem;
+	struct ttm_resource *old_mem = &bo->mem;
+	struct ttm_resource tmp_mem;
 	struct ttm_placement placement;
 	struct ttm_place placements;
 	int r;
@@ -512,11 +512,11 @@ out_cleanup:
  */
 static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 			  struct ttm_operation_ctx *ctx,
-			  struct ttm_mem_reg *new_mem)
+			  struct ttm_resource *new_mem)
 {
 	struct gsgpu_device *adev;
 	struct gsgpu_bo *abo;
-	struct ttm_mem_reg *old_mem = &bo->mem;
+	struct ttm_resource *old_mem = &bo->mem;
 	int r;
 
 	/* Can't move a pinned BO */
@@ -580,7 +580,7 @@ memcpy:
  *
  * Called by ttm_mem_io_reserve() ultimately via ttm_bo_vm_fault()
  */
-static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_mem_reg *mem)
+static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_resource *mem)
 {
 	struct ttm_resource_manager *man = &bdev->man[mem->mem_type];
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
@@ -606,7 +606,7 @@ static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_mem_reg 
 			return -EINVAL;
 		/* Only physically contiguous buffers apply. In a contiguous
 		 * buffer, size of the first mm_node would match the number of
-		 * pages in ttm_mem_reg.
+		 * pages in ttm_resource.
 		 */
 		if (adev->mman.aper_base_kaddr &&
 		    (mm_node->size == mem->num_pages))
@@ -622,7 +622,7 @@ static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_mem_reg 
 	return 0;
 }
 
-static void gsgpu_ttm_io_mem_free(struct ttm_device *bdev, struct ttm_mem_reg *mem)
+static void gsgpu_ttm_io_mem_free(struct ttm_device *bdev, struct ttm_resource *mem)
 {
 }
 
@@ -868,7 +868,7 @@ int gsgpu_ttm_gart_bind(struct gsgpu_device *adev,
  * This handles binding GTT memory to the device address space.
  */
 static int gsgpu_ttm_backend_bind(struct ttm_tt *ttm,
-				   struct ttm_mem_reg *bo_mem)
+				   struct ttm_resource *bo_mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
@@ -914,7 +914,7 @@ int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo)
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct ttm_operation_ctx ctx = { false, false };
 	struct gsgpu_ttm_tt *gtt = (void *)bo->ttm;
-	struct ttm_mem_reg tmp;
+	struct ttm_resource tmp;
 	struct ttm_placement placement;
 	struct ttm_place placements;
 	uint64_t flags;
@@ -1268,7 +1268,7 @@ bool gsgpu_ttm_tt_is_readonly(struct ttm_tt *ttm)
  * @mem: The memory registry backing this ttm_tt object
  */
 uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
-				 struct ttm_mem_reg *mem)
+				 struct ttm_resource *mem)
 {
 	uint64_t flags = 0;
 
@@ -1716,7 +1716,7 @@ int gsgpu_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 static int gsgpu_map_buffer(struct ttm_buffer_object *bo,
-			     struct ttm_mem_reg *mem, unsigned num_pages,
+			     struct ttm_resource *mem, unsigned num_pages,
 			     uint64_t offset, unsigned window,
 			     struct gsgpu_ring *ring,
 			     uint64_t *addr)

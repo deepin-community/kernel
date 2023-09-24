@@ -11,6 +11,7 @@
 #include <linux/pci.h>
 
 #include <drm/ttm/ttm_bo.h>
+#include <drm/ttm/ttm_tt.h>
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_execbuf_util.h>
 

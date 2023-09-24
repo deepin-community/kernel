@@ -28,14 +28,14 @@ struct gsgpu_mman {
 
 struct gsgpu_copy_mem {
 	struct ttm_buffer_object	*bo;
-	struct ttm_mem_reg		*mem;
+	struct ttm_resource		*mem;
 	unsigned long			offset;
 };
 
 extern const struct ttm_resource_manager_func gsgpu_gtt_mgr_func;
 extern const struct ttm_resource_manager_func gsgpu_vram_mgr_func;
 
-bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_mem_reg *mem);
+bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_resource *mem);
 uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man);
 int gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
 
@@ -83,6 +83,6 @@ bool gsgpu_ttm_tt_userptr_invalidated(struct ttm_tt *ttm,
 bool gsgpu_ttm_tt_userptr_needs_pages(struct ttm_tt *ttm);
 bool gsgpu_ttm_tt_is_readonly(struct ttm_tt *ttm);
 uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
-				struct ttm_mem_reg *mem);
+				struct ttm_resource *mem);
 
 #endif /* __GSGPU_TTM_H__ */

@@ -237,7 +237,7 @@ static int gsgpu_kick_out_firmware_fb(struct pci_dev *pdev)
 }
 
 static int gsgpu_pci_probe(struct pci_dev *pdev,
-			    const struct pci_device_id *ent)
+			   const struct pci_device_id *ent)
 {
 	struct drm_device *dev;
 	unsigned long flags = ent->driver_data;
@@ -270,7 +270,7 @@ retry_init:
 	ret = drm_dev_register(dev, ent->driver_data);
 	if (ret == -EAGAIN && ++retry <= 3) {
 		DRM_INFO("retry init %d\n", retry);
-		/* Don't request EX mode too frequently which is attacking */
+		/* Don't request EX mode too frequently */
 		msleep(5000);
 		goto retry_init;
 	} else if (ret)
@@ -285,8 +285,7 @@ err_free:
 	return ret;
 }
 
-static void
-gsgpu_pci_remove(struct pci_dev *pdev)
+static void gsgpu_pci_remove(struct pci_dev *pdev)
 {
 	struct drm_device *dev = pci_get_drvdata(pdev);
 
@@ -296,17 +295,14 @@ gsgpu_pci_remove(struct pci_dev *pdev)
 	pci_set_drvdata(pdev, NULL);
 }
 
-static void
-gsgpu_pci_shutdown(struct pci_dev *pdev)
+static void gsgpu_pci_shutdown(struct pci_dev *pdev)
 {
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct gsgpu_device *adev = dev->dev_private;
 
-	/* if we are running in a VM, make sure the device
-	 * torn down properly on reboot/shutdown.
-	 * unfortunately we can't detect certain
-	 * hypervisors so just do this all the time.
-	 */
+	/* If we are running in a VM, we need to make sure the device
+	 * tears down properly on reboot/shutdown. Unfortunately we
+	 * can't detect certain hypervisors so just do this all the time. */
 	gsgpu_device_ip_suspend(adev);
 }
 
@@ -396,7 +392,7 @@ long gsgpu_drm_ioctl(struct file *filp,
 /**
  * loongson_vga_pci_devices  -- pci device id info
  *
- * __u32 vendor, device            Vendor and device ID or PCI_ANY_ID
+ * __u32 vendor, device           Vendor and device ID or PCI_ANY_ID
  * __u32 subvendor, subdevice     Subsystem ID's or PCI_ANY_ID
  * __u32 class, class_mask        (class,subclass,prog-if) triplet
  * kernel_ulong_t driver_data     Data private to the driver

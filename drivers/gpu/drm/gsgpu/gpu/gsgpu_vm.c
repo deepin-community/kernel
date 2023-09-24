@@ -1428,7 +1428,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 	struct gsgpu_vm *vm = bo_va->base.vm;
 	struct gsgpu_bo_va_mapping *mapping;
 	dma_addr_t *pages_addr = NULL;
-	struct ttm_mem_reg *mem;
+	struct ttm_resource *mem;
 	struct drm_mm_node *nodes;
 	struct dma_fence *exclusive, **last_update;
 	u64 flags;
