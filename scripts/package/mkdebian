@@ -215,7 +215,7 @@ Section: kernel
 Priority: optional
 Maintainer: $maintainer
 Rules-Requires-Root: no
-Build-Depends: zstd, bc, debhelper, rsync, kmod, cpio, bison, flex, libelf-dev:native, libssl-dev:native 
+Build-Depends: zstd, bc, debhelper, rsync, kmod, cpio, bison, flex, libelf-dev:native, libssl-dev:native, openssl
 Homepage: https://www.kernel.org/
 
 Package: $packagename-$version
