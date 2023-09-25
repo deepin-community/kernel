@@ -257,26 +257,11 @@ struct gsgpu_clock {
 #define GSGPU_GEM_DOMAIN_MAX		0x3
 #define gem_to_gsgpu_bo(gobj) container_of((gobj), struct gsgpu_bo, gem_base)
 
-void gsgpu_gem_object_free(struct drm_gem_object *obj);
-int gsgpu_gem_object_open(struct drm_gem_object *obj,
-			  struct drm_file *file_priv);
-void gsgpu_gem_object_close(struct drm_gem_object *obj,
-			    struct drm_file *file_priv);
 unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
-struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj);
 struct drm_gem_object *
 gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 				struct dma_buf_attachment *attach,
 				struct sg_table *sg);
-struct dma_buf *gsgpu_gem_prime_export(struct drm_device *dev,
-				       struct drm_gem_object *gobj,
-				       int flags);
-struct drm_gem_object *gsgpu_gem_prime_import(struct drm_device *dev,
-					      struct dma_buf *dma_buf);
-struct dma_resv *gsgpu_gem_prime_res_obj(struct drm_gem_object *);
-void *gsgpu_gem_prime_vmap(struct drm_gem_object *obj);
-void gsgpu_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
-int gsgpu_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
 
 /* sub-allocation manager, it has to be protected by another lock.
  * By conception this is an helper for other part of the driver

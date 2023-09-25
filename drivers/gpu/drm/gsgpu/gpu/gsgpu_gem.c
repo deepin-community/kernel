@@ -5,7 +5,47 @@
 #include "gsgpu.h"
 #include "gsgpu_display.h"
 
-void gsgpu_gem_object_free(struct drm_gem_object *gobj)
+static vm_fault_t gsgpu_gem_fault(struct vm_fault *vmf)
+{
+	struct ttm_buffer_object *bo = vmf->vma->vm_private_data;
+	struct drm_device *ddev = bo->base.dev;
+	vm_fault_t ret;
+	int idx;
+
+	ret = ttm_bo_vm_reserve(bo, vmf);
+	if (ret)
+		return ret;
+
+	if (drm_dev_enter(ddev, &idx)) {
+		ret = gsgpu_bo_fault_reserve_notify(bo);
+		if (ret) {
+			drm_dev_exit(idx);
+			goto unlock;
+		}
+
+		ret = ttm_bo_vm_fault_reserved(vmf, vmf->vma->vm_page_prot,
+					       TTM_BO_VM_NUM_PREFAULT);
+
+		drm_dev_exit(idx);
+	} else {
+		ret = ttm_bo_vm_dummy_page(vmf, vmf->vma->vm_page_prot);
+	}
+	if (ret == VM_FAULT_RETRY && !(vmf->flags & FAULT_FLAG_RETRY_NOWAIT))
+		return ret;
+
+unlock:
+	dma_resv_unlock(bo->base.resv);
+	return ret;
+}
+
+static const struct vm_operations_struct gsgpu_gem_vm_ops = {
+	.fault = gsgpu_gem_fault,
+	.open = ttm_bo_vm_open,
+	.close = ttm_bo_vm_close,
+	.access = ttm_bo_vm_access
+};
+
+static void gsgpu_gem_object_free(struct drm_gem_object *gobj)
 {
 	struct gsgpu_bo *robj = gem_to_gsgpu_bo(gobj);
 
@@ -16,10 +56,10 @@ void gsgpu_gem_object_free(struct drm_gem_object *gobj)
 }
 
 int gsgpu_gem_object_create(struct gsgpu_device *adev, unsigned long size,
-			     int alignment, u32 initial_domain,
-			     u64 flags, enum ttm_bo_type type,
-			     struct dma_resv *resv,
-			     struct drm_gem_object **obj)
+			    int alignment, u32 initial_domain,
+			    u64 flags, enum ttm_bo_type type,
+			    struct dma_resv *resv,
+			    struct drm_gem_object **obj)
 {
 	struct gsgpu_bo *bo;
 	struct gsgpu_bo_param bp;
@@ -91,8 +131,8 @@ void gsgpu_gem_force_release(struct gsgpu_device *adev)
  * Call from drm_gem_handle_create which appear in both new and open ioctl
  * case.
  */
-int gsgpu_gem_object_open(struct drm_gem_object *obj,
-			   struct drm_file *file_priv)
+static int gsgpu_gem_object_open(struct drm_gem_object *obj,
+				 struct drm_file *file_priv)
 {
 	struct gsgpu_bo *abo = gem_to_gsgpu_bo(obj);
 	struct gsgpu_device *adev = gsgpu_ttm_adev(abo->tbo.bdev);
@@ -124,8 +164,8 @@ int gsgpu_gem_object_open(struct drm_gem_object *obj,
 	return 0;
 }
 
-void gsgpu_gem_object_close(struct drm_gem_object *obj,
-			     struct drm_file *file_priv)
+static void gsgpu_gem_object_close(struct drm_gem_object *obj,
+				   struct drm_file *file_priv)
 {
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
@@ -175,6 +215,43 @@ void gsgpu_gem_object_close(struct drm_gem_object *obj,
 	}
 	ttm_eu_backoff_reservation(&ticket, &list);
 }
+
+static int gsgpu_gem_object_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
+{
+	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
+
+	if (gsgpu_ttm_tt_get_usermm(bo->tbo.ttm))
+		return -EPERM;
+	if (bo->flags & GSGPU_GEM_CREATE_NO_CPU_ACCESS)
+		return -EPERM;
+
+#if 0
+	/* TODO: I'm not sure if this is needed for 7A2000. The hw seems to be
+	 * based on an early version of AMD graphics and may or may not need the
+	 * same workaround (https://patchwork.freedesktop.org/patch/444189). */
+	/* Workaround for Thunk bug creating PROT_NONE,MAP_PRIVATE mappings
+	 * for debugger access to invisible VRAM. Should have used MAP_SHARED
+	 * instead. Clearing VM_MAYWRITE prevents the mapping from ever
+	 * becoming writable and makes is_cow_mapping(vm_flags) false.
+	 */
+	if (is_cow_mapping(vma->vm_flags) && !(vma->vm_flags & VM_ACCESS_FLAGS))
+		vm_flags_clear(vma, VM_MAYWRITE);
+#endif
+
+	return drm_gem_ttm_mmap(obj, vma);
+}
+
+static const struct drm_gem_object_funcs gsgpu_gem_object_funcs = {
+	.free = gsgpu_gem_object_free,
+	.open = gsgpu_gem_object_open,
+	.close = gsgpu_gem_object_close,
+	.get_sg_table = gsgpu_gem_prime_get_sg_table,
+	.export = gsgpu_gem_prime_export,
+	.vmap = gsgpu_gem_prime_vmap,
+	.vunmap = gsgpu_gem_prime_vunmap,
+	.mmap = gsgpu_gem_object_mmap,
+	.vm_ops = &gsgpu_gem_vm_ops,
+};
 
 /*
  * GEM ioctls.

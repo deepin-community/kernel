@@ -60,51 +60,6 @@ void gsgpu_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr)
 }
 
 /**
- * gsgpu_gem_prime_mmap - &drm_driver.gem_prime_mmap implementation
- * @obj: GEM buffer object
- * @vma: virtual memory area
- *
- * Sets up a userspace mapping of the buffer object's memory in the given
- * virtual memory area.
- *
- * Returns:
- * 0 on success or negative error code.
- */
-int gsgpu_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
-{
-	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
-	unsigned asize = gsgpu_bo_size(bo);
-	int ret;
-
-	if (!vma->vm_file)
-		return -ENODEV;
-
-	if (adev == NULL)
-		return -ENODEV;
-
-	/* Check for valid size. */
-	if (asize < vma->vm_end - vma->vm_start)
-		return -EINVAL;
-
-	if (gsgpu_ttm_tt_get_usermm(bo->tbo.ttm) ||
-	    (bo->flags & GSGPU_GEM_CREATE_NO_CPU_ACCESS)) {
-		return -EPERM;
-	}
-	vma->vm_pgoff += gsgpu_bo_mmap_offset(bo) >> PAGE_SHIFT;
-
-	/* prime mmap does not need to check access, so allow here */
-	ret = drm_vma_node_allow(&obj->vma_node, vma->vm_file->private_data);
-	if (ret)
-		return ret;
-
-	ret = ttm_bo_mmap(vma->vm_file, vma, &adev->mman.bdev);
-	drm_vma_node_revoke(&obj->vma_node, vma->vm_file->private_data);
-
-	return ret;
-}
-
-/**
  * gsgpu_gem_prime_import_sg_table - &drm_driver.gem_prime_import_sg_table
  * implementation
  * @dev: DRM device
@@ -287,20 +242,6 @@ error:
 }
 
 /**
- * gsgpu_gem_prime_res_obj - &drm_driver.gem_prime_res_obj implementation
- * @obj: GEM buffer object
- *
- * Returns:
- * The buffer object's reservation object.
- */
-struct dma_resv *gsgpu_gem_prime_res_obj(struct drm_gem_object *obj)
-{
-	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-
-	return bo->tbo.resv;
-}
-
-/**
  * gsgpu_gem_begin_cpu_access - &dma_buf_ops.begin_cpu_access implementation
  * @dma_buf: shared DMA buffer
  * @direction: direction of DMA transfer
@@ -355,8 +296,7 @@ static const struct dma_buf_ops gsgpu_dmabuf_ops = {
 };
 
 /**
- * gsgpu_gem_prime_export - &drm_driver.gem_prime_export implementation
- * @dev: DRM device
+ * gsgpu_gem_prime_export - &drm_gem_object_funcs.gem_prime_export implementation
  * @gobj: GEM buffer object
  * @flags: flags like DRM_CLOEXEC and DRM_RDWR
  *
@@ -366,9 +306,8 @@ static const struct dma_buf_ops gsgpu_dmabuf_ops = {
  * Returns:
  * Shared DMA buffer representing the GEM buffer object from the given device.
  */
-struct dma_buf *gsgpu_gem_prime_export(struct drm_device *dev,
-					struct drm_gem_object *gobj,
-					int flags)
+struct dma_buf *gsgpu_gem_prime_export(struct drm_gem_object *gobj,
+				       int flags)
 {
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(gobj);
 	struct dma_buf *buf;
@@ -377,42 +316,11 @@ struct dma_buf *gsgpu_gem_prime_export(struct drm_device *dev,
 	    bo->flags & GSGPU_GEM_CREATE_VM_ALWAYS_VALID)
 		return ERR_PTR(-EPERM);
 
-	buf = drm_gem_prime_export(dev, gobj, flags);
+	buf = drm_gem_prime_export(gobj, flags);
 	if (!IS_ERR(buf)) {
-		buf->file->f_mapping = dev->anon_inode->i_mapping;
+		buf->file->f_mapping = gobj->dev->anon_inode->i_mapping;
 		buf->ops = &gsgpu_dmabuf_ops;
 	}
 
 	return buf;
-}
-
-/**
- * gsgpu_gem_prime_import - &drm_driver.gem_prime_import implementation
- * @dev: DRM device
- * @dma_buf: Shared DMA buffer
- *
- * The main work is done by the &drm_gem_prime_import helper, which in turn
- * uses &gsgpu_gem_prime_import_sg_table.
- *
- * Returns:
- * GEM buffer object representing the shared DMA buffer for the given device.
- */
-struct drm_gem_object *gsgpu_gem_prime_import(struct drm_device *dev,
-					    struct dma_buf *dma_buf)
-{
-	struct drm_gem_object *obj;
-
-	if (dma_buf->ops == &gsgpu_dmabuf_ops) {
-		obj = dma_buf->priv;
-		if (obj->dev == dev) {
-			/*
-			 * Importing dmabuf exported from out own gem increases
-			 * refcount on gem itself instead of f_count of dmabuf.
-			 */
-			drm_gem_object_get(obj);
-			return obj;
-		}
-	}
-
-	return drm_gem_prime_import(dev, dma_buf);
 }

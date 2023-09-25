@@ -65,7 +65,6 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 		      struct dma_resv *resv,
 		      struct dma_fence **fence);
 
-int gsgpu_mmap(struct file *filp, struct vm_area_struct *vma);
 int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo);
 int gsgpu_ttm_recover_gart(struct ttm_buffer_object *tbo);
 

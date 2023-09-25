@@ -22,8 +22,6 @@
 #define mmMM_INDEX_HI      0x6
 #define mmMM_DATA          0x1
 
-#define DRM_FILE_PAGE_OFFSET (0x100000000ULL >> PAGE_SHIFT)
-
 static int gsgpu_map_buffer(struct ttm_buffer_object *bo,
 			     struct ttm_resource *mem, unsigned num_pages,
 			     uint64_t offset, unsigned window,
@@ -156,25 +154,6 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
 }
 
 /**
- * gsgpu_verify_access - Verify access for a mmap call
- *
- * @bo:	The buffer object to map
- * @filp: The file pointer from the process performing the mmap
- *
- * This is called by ttm_bo_mmap() to verify whether a process
- * has the right to mmap a BO to their process space.
- */
-static int gsgpu_verify_access(struct ttm_buffer_object *bo, struct file *filp)
-{
-	struct gsgpu_bo *abo = ttm_to_gsgpu_bo(bo);
-
-	if (gsgpu_ttm_tt_get_usermm(bo->ttm))
-		return -EPERM;
-	return drm_vma_node_verify_access(&abo->gem_base.vma_node,
-					  filp->private_data);
-}
-
-/**
  * gsgpu_move_null - Register memory for a buffer object
  *
  * @bo: The bo to assign the memory to
@@ -297,9 +276,9 @@ int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
 		if (src->mem->mem_type == TTM_PL_TT &&
 		    !gsgpu_gtt_mgr_has_gart_addr(src->mem)) {
 			r = gsgpu_map_buffer(src->bo, src->mem,
-					PFN_UP(cur_size + src_page_offset),
-					src_node_start, 0, ring,
-					&from);
+					     PFN_UP(cur_size + src_page_offset),
+					     src_node_start, 0, ring,
+					     &from);
 			if (r)
 				goto error;
 			/* Adjust the offset because gsgpu_map_buffer returns
@@ -1410,9 +1389,7 @@ static struct ttm_device_funcs gsgpu_device_funcs = {
 	.eviction_valuable = gsgpu_ttm_bo_eviction_valuable,
 	.evict_flags = &gsgpu_evict_flags,
 	.move = &gsgpu_bo_move,
-	.verify_access = &gsgpu_verify_access,
 	.move_notify = &gsgpu_bo_move_notify,
-	.fault_reserve_notify = &gsgpu_bo_fault_reserve_notify,
 	.io_mem_reserve = &gsgpu_ttm_io_mem_reserve,
 	.io_mem_free = &gsgpu_ttm_io_mem_free,
 	.io_mem_pfn = gsgpu_ttm_io_mem_pfn,
@@ -1697,22 +1674,6 @@ void gsgpu_ttm_set_buffer_funcs_status(struct gsgpu_device *adev, bool enable)
 		size = adev->gmc.visible_vram_size;
 	man->size = size >> PAGE_SHIFT;
 	adev->mman.buffer_funcs_enabled = enable;
-}
-
-int gsgpu_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-	struct drm_file *file_priv;
-	struct gsgpu_device *adev;
-
-	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET))
-		return -EINVAL;
-
-	file_priv = filp->private_data;
-	adev = file_priv->minor->dev->dev_private;
-	if (adev == NULL)
-		return -EINVAL;
-
-	return ttm_bo_mmap(filp, vma, &adev->mman.bdev);
 }
 
 static int gsgpu_map_buffer(struct ttm_buffer_object *bo,

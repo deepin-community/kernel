@@ -430,6 +430,8 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	if (unlikely(r != 0))
 		return r;
 
+	bo->gem_base.resv = bo->tbo.resv;
+
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
 	    bo->tbo.mem.mem_type == TTM_PL_VRAM &&
 	    bo->tbo.mem.start < adev->gmc.visible_vram_size >> PAGE_SHIFT)
@@ -1209,18 +1211,13 @@ void gsgpu_bo_move_notify(struct ttm_buffer_object *bo,
  * Returns:
  * 0 for success or a negative error code on failure.
  */
-int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
+vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct ttm_operation_ctx ctx = { false, false };
-	struct gsgpu_bo *abo;
+	struct gsgpu_bo *abo = ttm_to_gsgpu_bo(bo);
 	unsigned long offset, size;
 	int r;
-
-	if (!gsgpu_bo_is_gsgpu_bo(bo))
-		return 0;
-
-	abo = ttm_to_gsgpu_bo(bo);
 
 	/* Remember that this BO was accessed by the CPU */
 	abo->flags |= GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
@@ -1235,7 +1232,7 @@ int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 
 	/* Can't move a pinned BO to visible VRAM */
 	if (abo->pin_count > 0)
-		return -EINVAL;
+		return VM_FAULT_SIGBUS;
 
 	/* hurrah the memory is not visible ! */
 	atomic64_inc(&adev->num_vram_cpu_page_faults);
@@ -1247,15 +1244,18 @@ int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	abo->placement.busy_placement = &abo->placements[1];
 
 	r = ttm_bo_validate(bo, &abo->placement, &ctx);
-	if (unlikely(r != 0))
-		return r;
+	if (unlikely(r == -EBUSY || r == -ERESTARTSYS))
+		return VM_FAULT_NOPAGE;
+	else if (unlikely(r))
+		return VM_FAULT_SIGBUS;
 
 	offset = bo->mem.start << PAGE_SHIFT;
 	/* this should never happen */
 	if (bo->mem.mem_type == TTM_PL_VRAM &&
 	    (offset + size) > adev->gmc.visible_vram_size)
-		return -EINVAL;
+		return VM_FAULT_SIGBUS;
 
+	ttm_bo_move_to_lru_tail_unlocked(bo);
 	return 0;
 }
 

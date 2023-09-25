@@ -228,7 +228,7 @@ int gsgpu_bo_get_metadata(struct gsgpu_bo *bo, void *buffer,
 void gsgpu_bo_move_notify(struct ttm_buffer_object *bo,
 			   bool evict,
 			   struct ttm_resource *new_mem);
-int gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo);
+vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo);
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
 		     bool shared);
 u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo);
