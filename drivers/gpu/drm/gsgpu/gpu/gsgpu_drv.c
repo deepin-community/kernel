@@ -3,6 +3,7 @@
 #include "gsgpu_drv.h"
 
 #include <drm/drm_pciids.h>
+#include <drm/drm_aperture.h>
 #include <linux/console.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
@@ -218,24 +219,6 @@ MODULE_DEVICE_TABLE(pci, pciidlist);
 
 static struct drm_driver kms_driver;
 
-static int gsgpu_kick_out_firmware_fb(struct pci_dev *pdev)
-{
-	struct apertures_struct *ap;
-	bool primary = false;
-
-	ap = alloc_apertures(1);
-	if (!ap)
-		return -ENOMEM;
-
-	ap->ranges[0].base = 0;
-	ap->ranges[0].size = ~0;
-
-	drm_fb_helper_remove_conflicting_framebuffers(ap, "gsgpudrmfb", primary);
-	kfree(ap);
-
-	return 0;
-}
-
 static int gsgpu_pci_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *ent)
 {
@@ -250,7 +233,7 @@ static int gsgpu_pci_probe(struct pci_dev *pdev,
 	}
 
 	/* Get rid of things like offb */
-	ret = gsgpu_kick_out_firmware_fb(pdev);
+	ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, &kms_driver);
 	if (ret)
 		return ret;
 
