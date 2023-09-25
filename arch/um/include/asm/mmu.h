@@ -12,7 +12,6 @@
 typedef struct mm_context {
 	struct mm_id id;
 	struct uml_arch_mm_context arch;
-	struct page *stub_pages[2];
 } mm_context_t;
 
 /* Avoid tangled inclusion with asm/ldt.h */
