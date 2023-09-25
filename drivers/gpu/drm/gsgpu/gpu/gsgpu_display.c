@@ -11,7 +11,7 @@
 #include "gsgpu_display.h"
 
 static void gsgpu_display_flip_callback(struct dma_fence *f,
-					 struct dma_fence_cb *cb)
+					struct dma_fence_cb *cb)
 {
 	struct gsgpu_flip_work *work =
 		container_of(cb, struct gsgpu_flip_work, cb);
@@ -21,7 +21,7 @@ static void gsgpu_display_flip_callback(struct dma_fence *f,
 }
 
 static bool gsgpu_display_flip_handle_fence(struct gsgpu_flip_work *work,
-					     struct dma_fence **f)
+					    struct dma_fence **f)
 {
 	struct dma_fence *fence = *f;
 
@@ -68,8 +68,7 @@ static void gsgpu_display_flip_work_func(struct work_struct *__work)
 						&crtc->hwmode)
 	     & (DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK)) ==
 	    (DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK) &&
-	    (int)(work->target_vblank -
-		  gsgpu_get_vblank_counter_kms(adev->ddev, gsgpu_crtc->crtc_id)) > 0) {
+	    (int)(work->target_vblank - gsgpu_get_vblank_counter_kms(crtc)) > 0) {
 		schedule_delayed_work(&work->flip_work, usecs_to_jiffies(1000));
 		return;
 	}
@@ -84,9 +83,8 @@ static void gsgpu_display_flip_work_func(struct work_struct *__work)
 	gsgpu_crtc->pflip_status = GSGPU_FLIP_SUBMITTED;
 	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
 
-
 	DRM_DEBUG_DRIVER("crtc:%d[%p], pflip_stat:GSGPU_FLIP_SUBMITTED, work: %p,\n",
-					 gsgpu_crtc->crtc_id, gsgpu_crtc, work);
+			 gsgpu_crtc->crtc_id, gsgpu_crtc, work);
 
 }
 
@@ -116,10 +114,10 @@ static void gsgpu_display_unpin_work_func(struct work_struct *__work)
 }
 
 int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
-				struct drm_framebuffer *fb,
-				struct drm_pending_vblank_event *event,
-				uint32_t page_flip_flags, uint32_t target,
-				struct drm_modeset_acquire_ctx *ctx)
+					struct drm_framebuffer *fb,
+					struct drm_pending_vblank_event *event,
+					uint32_t page_flip_flags, uint32_t target,
+					struct drm_modeset_acquire_ctx *ctx)
 {
 	struct drm_device *dev = crtc->dev;
 	struct gsgpu_device *adev = dev->dev_private;
@@ -196,7 +194,7 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 	gsgpu_bo_unreserve(new_abo);
 
 	work->target_vblank = target - (uint32_t)drm_crtc_vblank_count(crtc) +
-		gsgpu_get_vblank_counter_kms(dev, work->crtc_id);
+		gsgpu_get_vblank_counter_kms(crtc);
 
 	/* we borrow the event spin lock for protecting flip_wrok */
 	spin_lock_irqsave(&crtc->dev->event_lock, flags);

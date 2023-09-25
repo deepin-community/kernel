@@ -388,7 +388,7 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 
 	/* Prepare wait for target vblank early - before the fence-waits */
 	target_vblank = target - (uint32_t)drm_crtc_vblank_count(crtc) +
-			gsgpu_get_vblank_counter_kms(crtc->dev, acrtc->crtc_id);
+			gsgpu_get_vblank_counter_kms(crtc);
 
 	/* TODO This might fail and hence better not used, wait
 	 * explicitly on fences instead
@@ -403,7 +403,7 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 
 	/* Wait for all fences on this FB */
 	WARN_ON(dma_resv_wait_timeout_rcu(abo->tbo.resv, true, false,
-								    MAX_SCHEDULE_TIMEOUT) < 0);
+					  MAX_SCHEDULE_TIMEOUT) < 0);
 
 	gsgpu_bo_unreserve(abo);
 
@@ -416,8 +416,7 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 						    NULL, &crtc->hwmode)
 		 & (DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK)) ==
 		(DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK) &&
-		(int)(target_vblank -
-		  gsgpu_get_vblank_counter_kms(adev->ddev, acrtc->crtc_id)) > 0)) {
+		(int)(target_vblank - gsgpu_get_vblank_counter_kms(crtc)) > 0)) {
 		usleep_range(1000, 1100);
 	}
 

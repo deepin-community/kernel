@@ -643,8 +643,10 @@ void gsgpu_driver_postclose_kms(struct drm_device *dev,
  * Gets the frame count on the requested crtc (all asics).
  * Returns frame count on success, -EINVAL on failure.
  */
-u32 gsgpu_get_vblank_counter_kms(struct drm_device *dev, unsigned int pipe)
+u32 gsgpu_get_vblank_counter_kms(struct drm_crtc *crtc)
 {
+	struct drm_device *dev = crtc->dev;
+	unsigned int pipe = crtc->index;
 	struct gsgpu_device *adev = dev->dev_private;
 	int vpos, hpos, stat;
 	u32 count;

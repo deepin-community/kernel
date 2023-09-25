@@ -542,6 +542,8 @@ static const struct drm_crtc_funcs gsgpu_dc_crtc_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
 	.enable_vblank = dc_enable_vblank,
 	.disable_vblank = dc_disable_vblank,
+	.get_vblank_counter = gsgpu_get_vblank_counter_kms,
+	.get_vblank_timestamp = drm_crtc_vblank_helper_get_vblank_timestamp,
 };
 
 int gsgpu_dc_crtc_init(struct gsgpu_device *adev,

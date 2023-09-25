@@ -1335,7 +1335,7 @@ void gsgpu_driver_postclose_kms(struct drm_device *dev,
 int gsgpu_device_ip_suspend(struct gsgpu_device *adev);
 int gsgpu_device_suspend(struct drm_device *dev, bool suspend, bool fbcon);
 int gsgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon);
-u32 gsgpu_get_vblank_counter_kms(struct drm_device *dev, unsigned int pipe);
+u32 gsgpu_get_vblank_counter_kms(struct drm_crtc *crtc);
 long gsgpu_kms_compat_ioctl(struct file *filp, unsigned int cmd,
 			    unsigned long arg);
 
