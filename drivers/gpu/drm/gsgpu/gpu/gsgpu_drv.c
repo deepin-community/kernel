@@ -6,6 +6,7 @@
 #include <drm/drm_aperture.h>
 #include <linux/console.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/pm_runtime.h>
 #include <linux/vga_switcheroo.h>
 #include <drm/drm_crtc_helper.h>
@@ -477,9 +478,8 @@ gsgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
 }
 
 static struct drm_driver kms_driver = {
-	.driver_features = DRIVER_HAVE_IRQ | DRIVER_IRQ_SHARED | DRIVER_GEM |
-		DRIVER_PRIME |  DRIVER_MODESET | DRIVER_SYNCOBJ
-		|DRIVER_RENDER | DRIVER_ATOMIC,
+	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET
+		| DRIVER_SYNCOBJ | DRIVER_RENDER | DRIVER_ATOMIC,
 	.load = gsgpu_driver_load_kms,
 	.open = gsgpu_driver_open_kms,
 	.postclose = gsgpu_driver_postclose_kms,
