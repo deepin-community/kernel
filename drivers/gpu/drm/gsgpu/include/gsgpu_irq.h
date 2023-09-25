@@ -61,7 +61,6 @@ struct gsgpu_irq {
 };
 
 void gsgpu_irq_disable_all(struct gsgpu_device *adev);
-irqreturn_t gsgpu_irq_handler(int irq, void *arg);
 
 int gsgpu_irq_init(struct gsgpu_device *adev);
 void gsgpu_irq_fini(struct gsgpu_device *adev);

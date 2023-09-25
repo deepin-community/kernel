@@ -473,7 +473,6 @@ static struct drm_driver kms_driver = {
 	.postclose = gsgpu_driver_postclose_kms,
 	.lastclose = gsgpu_driver_lastclose_kms,
 	.unload = gsgpu_driver_unload_kms,
-	.irq_handler = gsgpu_irq_handler,
 	.ioctls = gsgpu_ioctls_kms,
 	.gem_free_object_unlocked = gsgpu_gem_object_free,
 	.gem_open_object = gsgpu_gem_object_open,

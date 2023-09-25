@@ -78,7 +78,7 @@ void gsgpu_irq_disable_all(struct gsgpu_device *adev)
  * Returns:
  * result of handling the IRQ, as defined by &irqreturn_t
  */
-irqreturn_t gsgpu_irq_handler(int irq, void *arg)
+static irqreturn_t gsgpu_irq_handler(int irq, void *arg)
 {
 	struct drm_device *dev = (struct drm_device *) arg;
 	struct gsgpu_device *adev = dev->dev_private;
@@ -120,6 +120,31 @@ static irqreturn_t gsgpu_dc_irq_handler(int irq, void *arg)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static int gsgpu_irq_install(struct gsgpu_device *adev, int irq)
+{
+	struct drm_device *dev = adev->ddev;
+	int ret;
+
+	if (irq == IRQ_NOTCONNECTED)
+		return -ENOTCONN;
+
+	/* PCI devices require shared interrupts. */
+	ret = request_irq(irq, gsgpu_irq_handler,
+			  IRQF_SHARED, dev->driver->name, dev);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static void gsgpu_irq_uninstall(struct gsgpu_device *adev)
+{
+	struct drm_device *dev = adev->ddev;
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
+
+	free_irq(pdev->irq, dev);
 }
 
 /**
@@ -175,7 +200,7 @@ int gsgpu_irq_init(struct gsgpu_device *adev)
 	INIT_WORK(&adev->reset_work, gsgpu_irq_reset_work_func);
 
 	adev->irq.installed = true;
-	r = drm_irq_install(adev->ddev, adev->ddev->pdev->irq);
+	r = gsgpu_irq_install(adev, adev->ddev->pdev->irq);
 	if (r) {
 		adev->irq.installed = false;
 		cancel_work_sync(&adev->reset_work);
@@ -215,7 +240,7 @@ void gsgpu_irq_fini(struct gsgpu_device *adev)
 	unsigned i, j;
 
 	if (adev->irq.installed) {
-		drm_irq_uninstall(adev->ddev);
+		gsgpu_irq_uninstall(adev);
 		adev->irq.installed = false;
 		if (adev->irq.msi_enabled)
 			pci_disable_msi(adev->pdev);
