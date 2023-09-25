@@ -465,16 +465,6 @@ static const struct file_operations gsgpu_driver_kms_fops = {
 #endif
 };
 
-static bool
-gsgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
-				 bool in_vblank_irq, int *vpos, int *hpos,
-				 ktime_t *stime, ktime_t *etime,
-				 const struct drm_display_mode *mode)
-{
-	return gsgpu_display_get_crtc_scanoutpos(dev, pipe, 0, vpos, hpos,
-						  stime, etime, mode);
-}
-
 static struct drm_driver kms_driver = {
 	.driver_features = DRIVER_HAVE_IRQ | DRIVER_GEM | DRIVER_MODESET
 		| DRIVER_SYNCOBJ | DRIVER_RENDER | DRIVER_ATOMIC,
@@ -483,7 +473,6 @@ static struct drm_driver kms_driver = {
 	.postclose = gsgpu_driver_postclose_kms,
 	.lastclose = gsgpu_driver_lastclose_kms,
 	.unload = gsgpu_driver_unload_kms,
-	.get_scanout_position = gsgpu_get_crtc_scanout_position,
 	.irq_handler = gsgpu_irq_handler,
 	.ioctls = gsgpu_ioctls_kms,
 	.gem_free_object_unlocked = gsgpu_gem_object_free,

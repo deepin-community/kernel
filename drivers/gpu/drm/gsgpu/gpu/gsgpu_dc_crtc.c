@@ -508,9 +508,20 @@ static enum drm_mode_status gsgpu_dc_mode_valid(struct drm_crtc *crtc,
 	return MODE_OK;
 }
 
+static bool
+gsgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
+				bool in_vblank_irq, int *vpos, int *hpos,
+				ktime_t *stime, ktime_t *etime,
+				const struct drm_display_mode *mode)
+{
+	return gsgpu_display_get_crtc_scanoutpos(dev, pipe, 0, vpos, hpos,
+						 stime, etime, mode);
+}
+
 static const struct drm_crtc_helper_funcs gsgpu_dc_crtc_helper_funcs = {
 	.atomic_check = crtc_helper_atomic_check,
 	.mode_valid = gsgpu_dc_mode_valid,
+	.get_scanout_position = gsgpu_get_crtc_scanout_position
 };
 
 static inline int dc_set_vblank(struct drm_crtc *crtc, bool enable)
