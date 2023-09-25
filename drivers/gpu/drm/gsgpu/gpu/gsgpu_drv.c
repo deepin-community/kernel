@@ -246,8 +246,6 @@ static int gsgpu_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		goto err_free;
 
-	dev->pdev = pdev;
-
 	pci_set_drvdata(pdev, dev);
 
 retry_init:
