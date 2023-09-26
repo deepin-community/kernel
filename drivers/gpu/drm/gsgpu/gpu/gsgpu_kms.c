@@ -1,4 +1,3 @@
-#include <drm/drmP.h>
 #include "gsgpu.h"
 #include <drm/gsgpu_drm.h>
 #include "gsgpu_sched.h"
@@ -64,9 +63,14 @@ int gsgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	 * properly initialize the GPU MC controller and permit
 	 * VRAM allocation
 	 */
-	r = gsgpu_device_init(adev, dev, dev->pdev, flags);
+	struct pci_dev *pdev = to_pci_dev(dev->dev);
+	if (pdev == NULL) {
+		BUG();
+		return -ENODEV;
+	}
+	r = gsgpu_device_init(adev, dev, pdev, flags);
 	if (r) {
-		dev_err(&dev->pdev->dev, "Fatal error during GPU init\n");
+		dev_err(&pdev->dev, "Fatal error during GPU init\n");
 		goto out;
 	}
 
@@ -392,8 +396,8 @@ static int gsgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file 
 		struct drm_gsgpu_info_device dev_info = {};
 		uint64_t vm_size;
 
-		dev_info.device_id = dev->pdev->device;
-		dev_info.pci_rev = dev->pdev->revision;
+		dev_info.device_id = adev->pdev->device;
+		dev_info.pci_rev = adev->pdev->revision;
 		dev_info.family = adev->family;
 		dev_info.num_shader_engines = adev->gfx.config.max_shader_engines;
 		dev_info.num_shader_arrays_per_engine = adev->gfx.config.max_sh_per_se;
