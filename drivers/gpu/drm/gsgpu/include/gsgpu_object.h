@@ -3,6 +3,7 @@
 
 #include <drm/gsgpu_drm.h>
 #include "gsgpu.h"
+#include "gsgpu_res_cursor.h"
 
 #define GSGPU_BO_INVALID_OFFSET	LONG_MAX
 #define GSGPU_BO_MAX_PLACEMENTS	3
@@ -164,17 +165,18 @@ static inline bool gsgpu_bo_gpu_accessible(struct gsgpu_bo *bo)
 static inline bool gsgpu_bo_in_cpu_visible_vram(struct gsgpu_bo *bo)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
-	unsigned fpfn = adev->gmc.visible_vram_size >> PAGE_SHIFT;
-	struct drm_mm_node *node = bo->tbo.resource->mm_node;
-	unsigned long pages_left;
+	struct gsgpu_res_cursor cursor;
 
 	if (bo->tbo.resource->mem_type != TTM_PL_VRAM)
 		return false;
 
-	for (pages_left = bo->tbo.ttm->num_pages; pages_left;
-	     pages_left -= node->size, node++)
-		if (node->start < fpfn)
+	gsgpu_res_first(bo->tbo.resource, 0, gsgpu_bo_size(bo), &cursor);
+	while (cursor.remaining) {
+		if (cursor.start < adev->gmc.visible_vram_size)
 			return true;
+
+		gsgpu_res_next(&cursor, cursor.size);
+	}
 
 	return false;
 }
