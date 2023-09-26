@@ -1,6 +1,8 @@
 #ifndef __GSGPU_CP_H__
 #define __GSGPU_CP_H__
 
+#include <linux/delay.h>
+
 int gsgpu_cp_init(struct gsgpu_device *adev);
 
 int gsgpu_cp_gfx_load_microcode(struct gsgpu_device *adev);

@@ -5,8 +5,6 @@
 #include <linux/types.h>
 #include <linux/tracepoint.h>
 
-#include <drm/drmP.h>
-
 #include "gsgpu_vm_it.h"
 
 #undef TRACE_SYSTEM

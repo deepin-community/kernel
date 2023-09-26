@@ -2,14 +2,14 @@
 #include <linux/kthread.h>
 #include <linux/console.h>
 #include <linux/slab.h>
-#include <drm/drmP.h>
+#include <drm/drm_probe_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/gsgpu_drm.h>
 #include <linux/vgaarb.h>
 #include <linux/vga_switcheroo.h>
 #include <linux/efi.h>
-#include <loongson-pch.h>
+#include <asm/loongson.h>
 #include "gsgpu.h"
 #include "gsgpu_trace.h"
 #include "gsgpu_cp.h"
@@ -650,7 +650,7 @@ static bool gsgpu_switcheroo_can_switch(struct pci_dev *pdev)
 	* locking inversion with the driver load path. And the access here is
 	* completely racy anyway. So don't bother with locking for now.
 	*/
-	return dev->open_count == 0;
+	return atomic_read(&dev->open_count) == 0;
 }
 
 static const struct vga_switcheroo_client_ops gsgpu_switcheroo_ops = {
