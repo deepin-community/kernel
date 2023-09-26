@@ -1,5 +1,4 @@
 #include <linux/slab.h>
-#include <drm/drmP.h>
 #include "gsgpu.h"
 #include "gsgpu_ih.h"
 #include "gsgpu_common.h"

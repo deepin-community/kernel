@@ -1,7 +1,6 @@
 #include <linux/irq.h>
 #include <linux/pm_runtime.h>
 
-#include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/gsgpu_drm.h>
 

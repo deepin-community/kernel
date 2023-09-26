@@ -2,7 +2,6 @@
 
 #include <linux/idr.h>
 #include <linux/dma-fence-array.h>
-#include <drm/drmP.h>
 
 #include "gsgpu.h"
 #include "gsgpu_trace.h"

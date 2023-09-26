@@ -1,4 +1,3 @@
-#include <drm/drmP.h>
 #include <drm/drm_auth.h>
 #include "gsgpu.h"
 #include "gsgpu_sched.h"

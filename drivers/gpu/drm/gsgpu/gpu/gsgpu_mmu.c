@@ -1,5 +1,4 @@
 #include <linux/firmware.h>
-#include <drm/drmP.h>
 #include <drm/drm_cache.h>
 #include "gsgpu.h"
 #include "gsgpu_mmu.h"

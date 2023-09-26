@@ -1,5 +1,4 @@
 #include <linux/kernel.h>
-#include <drm/drmP.h>
 #include "gsgpu.h"
 #include "gsgpu_common.h"
 #include "gsgpu_cp.h"

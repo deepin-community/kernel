@@ -1,4 +1,3 @@
-#include <drm/drmP.h>
 #include "gsgpu.h"
 
 static void gsgpu_sa_bo_remove_locked(struct gsgpu_sa_bo *sa_bo);

@@ -1,7 +1,6 @@
 #include <linux/dma-fence-array.h>
 #include <linux/interval_tree_generic.h>
 #include <linux/idr.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include "gsgpu.h"
 #include "gsgpu_trace.h"

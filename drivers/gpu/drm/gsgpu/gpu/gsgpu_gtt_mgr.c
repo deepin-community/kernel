@@ -1,4 +1,3 @@
-#include <drm/drmP.h>
 #include "gsgpu.h"
 
 struct gsgpu_gtt_mgr {

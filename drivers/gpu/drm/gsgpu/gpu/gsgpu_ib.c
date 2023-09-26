@@ -1,6 +1,5 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include "gsgpu.h"
 
