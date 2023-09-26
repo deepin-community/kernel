@@ -1,7 +1,5 @@
 #include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_placement.h>
-#include <drm/ttm/ttm_module.h>
-#include <drm/ttm/ttm_page_alloc.h>
 #include <drm/drm_cache.h>
 #include <drm/gsgpu_drm.h>
 #include <linux/seq_file.h>
@@ -121,7 +119,7 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
 	}
 
 	abo = ttm_to_gsgpu_bo(bo);
-	switch (bo->mem.mem_type) {
+	switch (bo->resource->mem_type) {
 	case TTM_PL_VRAM:
 		if (!adev->mman.buffer_funcs_enabled) {
 			/* Move to system memory */
@@ -151,24 +149,6 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
 		gsgpu_bo_placement_from_domain(abo, GSGPU_GEM_DOMAIN_CPU);
 	}
 	*placement = abo->placement;
-}
-
-/**
- * gsgpu_move_null - Register memory for a buffer object
- *
- * @bo: The bo to assign the memory to
- * @new_mem: The memory to be assigned.
- *
- * Assign the memory from new_mem to the memory of the buffer object bo.
- */
-static void gsgpu_move_null(struct ttm_buffer_object *bo,
-			     struct ttm_resource *new_mem)
-{
-	struct ttm_resource *old_mem = &bo->mem;
-
-	BUG_ON(old_mem->mm_node != NULL);
-	*old_mem = *new_mem;
-	new_mem->mm_node = NULL;
 }
 
 /**
@@ -506,7 +486,7 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 	adev = gsgpu_ttm_adev(bo->bdev);
 
 	if (old_mem->mem_type == TTM_PL_SYSTEM && bo->ttm == NULL) {
-		gsgpu_move_null(bo, new_mem);
+		ttm_bo_move_null(bo, new_mem);
 		return 0;
 	}
 	if ((old_mem->mem_type == TTM_PL_TT &&
@@ -514,7 +494,7 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 	    (old_mem->mem_type == TTM_PL_SYSTEM &&
 	     new_mem->mem_type == TTM_PL_TT)) {
 		/* bind is enough */
-		gsgpu_move_null(bo, new_mem);
+		ttm_bo_move_null(bo, new_mem);
 		return 0;
 	}
 

@@ -21,6 +21,7 @@
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_debugfs.h>
 
 #include "gsgpu_shared.h"
 #include "gsgpu_mode.h"

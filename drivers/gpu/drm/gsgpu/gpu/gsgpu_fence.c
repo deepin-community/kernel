@@ -4,7 +4,7 @@
 #include <linux/kref.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
-#include <drm/drmP.h>
+#include <linux/delay.h>
 #include "gsgpu.h"
 #include "gsgpu_trace.h"
 
@@ -233,9 +233,7 @@ void gsgpu_fence_process(struct gsgpu_ring *ring)
 			continue;
 
 		r = dma_fence_signal(fence);
-		if (!r)
-			DMA_FENCE_TRACE(fence, "signaled from irq context\n");
-		else
+		if (r)
 			BUG();
 
 		dma_fence_put(fence);
@@ -409,7 +407,7 @@ int gsgpu_fence_driver_init_ring(struct gsgpu_ring *ring,
 
 	r = drm_sched_init(&ring->sched, &gsgpu_sched_ops,
 			   num_hw_submission, gsgpu_job_hang_limit,
-			   timeout, ring->name);
+			   timeout, NULL, NULL, ring->name, ring->adev->dev);
 	if (r) {
 		DRM_ERROR("Failed to create scheduler on ring %s.\n",
 			  ring->name);
@@ -573,8 +571,6 @@ static bool gsgpu_fence_enable_signaling(struct dma_fence *f)
 
 	if (!timer_pending(&ring->fence_drv.fallback_timer))
 		gsgpu_fence_schedule_fallback(ring);
-
-	DMA_FENCE_TRACE(&fence->base, "armed on ring %i!\n", ring->idx);
 
 	return true;
 }
