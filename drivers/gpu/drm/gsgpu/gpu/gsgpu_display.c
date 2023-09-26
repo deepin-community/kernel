@@ -1,6 +1,5 @@
 #include <linux/pm_runtime.h>
 
-#include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_gem_framebuffer_helper.h>

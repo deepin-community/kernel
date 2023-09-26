@@ -1,6 +1,5 @@
 #include <linux/ktime.h>
 #include <linux/pagemap.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include "gsgpu.h"
 #include "gsgpu_display.h"

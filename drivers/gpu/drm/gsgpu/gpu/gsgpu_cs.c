@@ -1,6 +1,5 @@
 #include <linux/pagemap.h>
 #include <linux/sync_file.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include <drm/drm_syncobj.h>
 #include "gsgpu.h"

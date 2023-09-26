@@ -42,11 +42,11 @@ static void gsgpu_bo_subtract_pin_size(struct gsgpu_bo *bo)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
 
-	if (bo->tbo.mem.mem_type == TTM_PL_VRAM) {
+	if (bo->tbo.resource->mem_type == TTM_PL_VRAM) {
 		atomic64_sub(gsgpu_bo_size(bo), &adev->vram_pin_size);
 		atomic64_sub(gsgpu_vram_mgr_bo_visible_size(bo),
 			     &adev->visible_pin_size);
-	} else if (bo->tbo.mem.mem_type == TTM_PL_TT) {
+	} else if (bo->tbo.resource->mem_type == TTM_PL_TT) {
 		atomic64_sub(gsgpu_bo_size(bo), &adev->gart_pin_size);
 	}
 }
@@ -434,7 +434,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	bo->gem_base.resv = bo->tbo.base.resv;
 
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
-	    bo->tbo.mem.mem_type == TTM_PL_VRAM &&
+	    bo->tbo.resource->mem_type == TTM_PL_VRAM &&
 	    bo->tbo.mem.start < adev->gmc.visible_vram_size >> PAGE_SHIFT)
 		gsgpu_cs_report_moved_bytes(adev, ctx.bytes_moved,
 					     ctx.bytes_moved);
@@ -830,7 +830,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 	domain = gsgpu_bo_get_preferred_pin_domain(adev, domain);
 
 	if (bo->tbo.pin_count) {
-		uint32_t mem_type = bo->tbo.mem.mem_type;
+		uint32_t mem_type = bo->tbo.resource->mem_type;
 
 		if (!(domain & gsgpu_mem_type_to_domain(mem_type)))
 			return -EINVAL;
@@ -872,7 +872,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 
 	ttm_bo_pin(&bo->tbo);
 
-	domain = gsgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
+	domain = gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type);
 	if (domain == GSGPU_GEM_DOMAIN_VRAM) {
 		atomic64_add(gsgpu_bo_size(bo), &adev->vram_pin_size);
 		atomic64_add(gsgpu_vram_mgr_bo_visible_size(bo),
@@ -1269,13 +1269,13 @@ void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
  */
 u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo)
 {
-	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_SYSTEM);
-	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_TT &&
+	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_SYSTEM);
+	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_TT &&
 		     !gsgpu_gtt_mgr_has_gart_addr(&bo->tbo.mem));
 	WARN_ON_ONCE(!ww_mutex_is_locked(&bo->tbo.base.resv->lock) &&
 		     !bo->tbo.pin_count);
 	WARN_ON_ONCE(bo->tbo.mem.start == GSGPU_BO_INVALID_OFFSET);
-	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_VRAM &&
+	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_VRAM &&
 		     !(bo->flags & GSGPU_GEM_CREATE_VRAM_CONTIGUOUS));
 
 	return bo->tbo.offset;

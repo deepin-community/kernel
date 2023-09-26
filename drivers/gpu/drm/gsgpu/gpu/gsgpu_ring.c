@@ -1,7 +1,6 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/debugfs.h>
-#include <drm/drmP.h>
 #include <drm/gsgpu_drm.h>
 #include "gsgpu.h"
 
@@ -284,7 +283,7 @@ int gsgpu_ring_init(struct gsgpu_device *adev, struct gsgpu_ring *ring,
 	INIT_LIST_HEAD(&ring->lru_list);
 	gsgpu_ring_lru_touch(adev, ring);
 
-	for (i = 0; i < DRM_SCHED_PRIORITY_MAX; ++i)
+	for (i = 0; i < DRM_SCHED_PRIORITY_COUNT; ++i)
 		atomic_set(&ring->num_jobs[i], 0);
 
 	if (gsgpu_debugfs_ring_init(adev, ring)) {

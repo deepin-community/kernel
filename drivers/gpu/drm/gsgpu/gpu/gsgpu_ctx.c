@@ -27,7 +27,7 @@ static int gsgpu_ctx_init(struct gsgpu_device *adev,
 	unsigned i, j;
 	int r;
 
-	if (priority < 0 || priority >= DRM_SCHED_PRIORITY_MAX)
+	if (priority < 0 || priority >= DRM_SCHED_PRIORITY_COUNT)
 		return -EINVAL;
 
 	r = gsgpu_ctx_priority_permit(filp, priority);
