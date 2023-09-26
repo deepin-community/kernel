@@ -1009,6 +1009,9 @@ void psi_account_irqtime(struct rq *rq, struct task_struct *curr, struct task_st
 	s64 delta;
 	u64 irq;
 
+	if (static_branch_likely(&psi_disabled))
+		return;
+
 	if (!curr->pid)
 		return;
 
