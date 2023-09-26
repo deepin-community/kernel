@@ -2106,7 +2106,7 @@ out:
 int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 			      struct gsgpu_job *job, bool force)
 {
-	int i, r, resched;
+	int i, r;
 
 	if (!force && !gsgpu_device_ip_check_soft_reset(adev)) {
 		DRM_INFO("No hardware hang detected. Did some blocks stall?\n");
@@ -2123,9 +2123,6 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 	mutex_lock(&adev->lock_reset);
 	atomic_inc(&adev->gpu_reset_counter);
 	adev->in_gpu_reset = 1;
-
-	/* block TTM */
-	resched = ttm_bo_lock_delayed_workqueue(&adev->mman.bdev);
 
 	/* block all schedulers and reset given job's ring */
 	for (i = 0; i < GSGPU_MAX_RINGS; ++i) {
@@ -2167,8 +2164,6 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 
 		kthread_unpark(ring->sched.thread);
 	}
-
-	ttm_bo_unlock_delayed_workqueue(&adev->mman.bdev, resched);
 
 	if (r) {
 		/* bad news, how to tell it to userspace ? */
