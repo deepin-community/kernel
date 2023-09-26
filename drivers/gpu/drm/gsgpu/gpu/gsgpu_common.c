@@ -1,4 +1,5 @@
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include "gsgpu.h"
 #include "gsgpu_ih.h"
 #include "gsgpu_common.h"

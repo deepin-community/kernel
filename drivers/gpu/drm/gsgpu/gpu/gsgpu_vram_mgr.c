@@ -209,7 +209,7 @@ error:
  * Free the allocated VRAM again.
  */
 static void gsgpu_vram_mgr_del(struct ttm_resource_manager *man,
-				struct ttm_resource *mem)
+			       struct ttm_resource *mem)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(man->bdev);
 	struct gsgpu_vram_mgr *mgr = man->priv;

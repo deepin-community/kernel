@@ -199,7 +199,7 @@ int gsgpu_irq_init(struct gsgpu_device *adev)
 	INIT_WORK(&adev->reset_work, gsgpu_irq_reset_work_func);
 
 	adev->irq.installed = true;
-	r = gsgpu_irq_install(adev, adev->ddev->pdev->irq);
+	r = gsgpu_irq_install(adev, adev->pdev->irq);
 	if (r) {
 		adev->irq.installed = false;
 		cancel_work_sync(&adev->reset_work);
@@ -439,9 +439,6 @@ void gsgpu_irq_gpu_reset_resume_helper(struct gsgpu_device *adev)
 int gsgpu_irq_get(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
 		   unsigned type)
 {
-	if (!adev->ddev->irq_enabled)
-		return -ENOENT;
-
 	if (type >= src->num_types)
 		return -EINVAL;
 
@@ -469,9 +466,6 @@ int gsgpu_irq_get(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
 int gsgpu_irq_put(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
 		   unsigned type)
 {
-	if (!adev->ddev->irq_enabled)
-		return -ENOENT;
-
 	if (type >= src->num_types)
 		return -EINVAL;
 
@@ -500,9 +494,6 @@ int gsgpu_irq_put(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
 bool gsgpu_irq_enabled(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
 			unsigned type)
 {
-	if (!adev->ddev->irq_enabled)
-		return false;
-
 	if (type >= src->num_types)
 		return false;
 
