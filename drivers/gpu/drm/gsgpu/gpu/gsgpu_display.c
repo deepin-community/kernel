@@ -100,10 +100,7 @@ static void gsgpu_display_unpin_work_func(struct work_struct *__work)
 	/* unpin of the old buffer */
 	r = gsgpu_bo_reserve(work->old_abo, true);
 	if (likely(r == 0)) {
-		r = gsgpu_bo_unpin(work->old_abo);
-		if (unlikely(r != 0)) {
-			DRM_ERROR("failed to unpin buffer after flip\n");
-		}
+		gsgpu_bo_unpin(work->old_abo);
 		gsgpu_bo_unreserve(work->old_abo);
 	} else
 		DRM_ERROR("failed to reserve buffer after flip\n");
@@ -223,9 +220,7 @@ pflip_cleanup:
 		goto cleanup;
 	}
 unpin:
-	if (unlikely(gsgpu_bo_unpin(new_abo) != 0)) {
-		DRM_ERROR("failed to unpin new abo in error path\n");
-	}
+	gsgpu_bo_unpin(new_abo);
 unreserve:
 	gsgpu_bo_unreserve(new_abo);
 

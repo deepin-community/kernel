@@ -213,7 +213,7 @@ void gsgpu_bo_unref(struct gsgpu_bo **bo);
 int gsgpu_bo_pin(struct gsgpu_bo *bo, u32 domain);
 int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 			     u64 min_offset, u64 max_offset);
-int gsgpu_bo_unpin(struct gsgpu_bo *bo);
+void gsgpu_bo_unpin(struct gsgpu_bo *bo);
 int gsgpu_bo_evict_vram(struct gsgpu_device *adev);
 int gsgpu_bo_init(struct gsgpu_device *adev);
 int gsgpu_bo_late_init(struct gsgpu_device *adev);

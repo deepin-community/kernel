@@ -1494,6 +1494,11 @@ void gsgpu_device_fini(struct gsgpu_device *adev)
 	gsgpu_debugfs_regs_cleanup(adev);
 }
 
+/* TODO: We need to understand what this does.
+ * This is called during device suspension and resumption, presumably to validate
+ * buffer objects. Since in the latest AMD driver this has been replaced with
+ * generic TTM calls we need port those changes over.
+ */
 static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 {
 	struct drm_gem_object *gobj = ptr;
@@ -1529,7 +1534,6 @@ static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 			if (!bo->placements[i].lpfn ||
 				(lpfn && lpfn < bo->placements[i].lpfn))
 				bo->placements[i].lpfn = lpfn;
-			bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 		}
 
 		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
@@ -1565,7 +1569,6 @@ static int gsgpu_zip_gem_bo_evict(int id, void *ptr, void *data)
 
 		for (i = 0; i < bo->placement.num_placement; i++) {
 			bo->placements[i].lpfn = 0;
-			bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
 		}
 
 		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
@@ -2059,8 +2062,7 @@ retry:
 				atomic_inc(&adev->vram_lost_counter);
 			}
 
-			r = gsgpu_gtt_mgr_recover(
-				&adev->mman.bdev.man[TTM_PL_TT]);
+			r = gsgpu_gtt_mgr_recover(adev->mman.bdev.man_drv[TTM_PL_TT]);
 			if (r)
 				goto out;
 

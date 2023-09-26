@@ -187,7 +187,7 @@ static uint64_t gsgpu_mm_node_addr(struct ttm_buffer_object *bo,
 
 	if (mem->mem_type != TTM_PL_TT || gsgpu_gtt_mgr_has_gart_addr(mem)) {
 		addr = mm_node->start << PAGE_SHIFT;
-		addr += bo->bdev->man[mem->mem_type].gpu_offset;
+		addr += bo->bdev->man_drv[mem->mem_type]->gpu_offset;
 	}
 	return addr;
 }
@@ -561,7 +561,7 @@ memcpy:
  */
 static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_resource *mem)
 {
-	struct ttm_resource_manager *man = &bdev->man[mem->mem_type];
+	struct ttm_resource_manager *man = bdev->man_drv[mem->mem_type];
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct drm_mm_node *mm_node = mem->mm_node;
 
@@ -933,7 +933,7 @@ int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo)
 	ttm_bo_mem_put(bo, &bo->mem);
 	bo->mem = tmp;
 	bo->offset = (bo->mem.start << PAGE_SHIFT) +
-		bo->bdev->man[bo->mem.mem_type].gpu_offset;
+		bo->bdev->man_drv[bo->mem.mem_type]->gpu_offset;
 
 	return 0;
 }
@@ -1641,7 +1641,7 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
  */
 void gsgpu_ttm_set_buffer_funcs_status(struct gsgpu_device *adev, bool enable)
 {
-	struct ttm_resource_manager *man = &adev->mman.bdev.man[TTM_PL_VRAM];
+	struct ttm_resource_manager *man = adev->mman.bdev.man_drv[TTM_PL_VRAM];
 	uint64_t size;
 	int r;
 
@@ -1912,7 +1912,7 @@ static int gsgpu_mm_dump_table(struct seq_file *m, void *data)
 	unsigned ttm_pl = *(int *)node->info_ent->data;
 	struct drm_device *dev = node->minor->dev;
 	struct gsgpu_device *adev = dev->dev_private;
-	struct ttm_resource_manager *man = &adev->mman.bdev.man[ttm_pl];
+	struct ttm_resource_manager *man = adev->mman.bdev.man_drv[ttm_pl];
 	struct drm_printer p = drm_seq_file_printer(m);
 
 	man->func->debug(man, &p);

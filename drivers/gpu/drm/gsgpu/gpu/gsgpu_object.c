@@ -56,7 +56,7 @@ static void gsgpu_bo_destroy(struct ttm_buffer_object *tbo)
 	struct gsgpu_device *adev = gsgpu_ttm_adev(tbo->bdev);
 	struct gsgpu_bo *bo = ttm_to_gsgpu_bo(tbo);
 
-	if (bo->pin_count > 0)
+	if (bo->tbo.pin_count > 0)
 		gsgpu_bo_subtract_pin_size(bo);
 
 	gsgpu_bo_kunmap(bo);
@@ -114,8 +114,9 @@ void gsgpu_bo_placement_from_domain(struct gsgpu_bo *abo, u32 domain)
 		places[c].lpfn = 0;
 		places[c].flags = TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_VRAM | TTM_PL_FLAG_WC;
 
-		if (flags & GSGPU_GEM_CREATE_COMPRESSED_MASK)
-			places[c].flags |= TTM_PL_FLAG_NO_EVICT;
+		/* TODO: We need to understand how compressed buffer works */
+		/* if (flags & GSGPU_GEM_CREATE_COMPRESSED_MASK) */
+		/* 	places[c].flags |= TTM_PL_FLAG_NO_EVICT; */
 
 		if (flags & GSGPU_GEM_CREATE_CPU_GTT_USWC)
 			places[c].flags |= TTM_PL_FLAG_WC;
@@ -348,7 +349,7 @@ static bool gsgpu_bo_validate_size(struct gsgpu_device *adev,
 	 * allow fall back to GTT
 	 */
 	if (domain & GSGPU_GEM_DOMAIN_GTT) {
-		man = &adev->mman.bdev.man[TTM_PL_TT];
+		man = adev->mman.bdev.man_drv[TTM_PL_TT];
 
 		if (size < (man->size << PAGE_SHIFT))
 			return true;
@@ -357,7 +358,7 @@ static bool gsgpu_bo_validate_size(struct gsgpu_device *adev,
 	}
 
 	if (domain & GSGPU_GEM_DOMAIN_VRAM) {
-		man = &adev->mman.bdev.man[TTM_PL_VRAM];
+		man = adev->mman.bdev.man_drv[TTM_PL_VRAM];
 
 		if (size < (man->size << PAGE_SHIFT))
 			return true;
@@ -611,7 +612,7 @@ int gsgpu_bo_validate(struct gsgpu_bo *bo)
 	uint32_t domain;
 	int r;
 
-	if (bo->pin_count)
+	if (bo->tbo.pin_count)
 		return 0;
 
 	domain = bo->preferred_domains;
@@ -828,13 +829,13 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 	 */
 	domain = gsgpu_bo_get_preferred_pin_domain(adev, domain);
 
-	if (bo->pin_count) {
+	if (bo->tbo.pin_count) {
 		uint32_t mem_type = bo->tbo.mem.mem_type;
 
 		if (!(domain & gsgpu_mem_type_to_domain(mem_type)))
 			return -EINVAL;
 
-		bo->pin_count++;
+		ttm_bo_pin(&bo->tbo);
 
 		if (max_offset != 0) {
 			u64 domain_start = bo->tbo.bdev->man[mem_type].gpu_offset;
@@ -861,7 +862,6 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 		if (!bo->placements[i].lpfn ||
 		    (lpfn && lpfn < bo->placements[i].lpfn))
 			bo->placements[i].lpfn = lpfn;
-		bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 	}
 
 	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
@@ -870,7 +870,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 		goto error;
 	}
 
-	bo->pin_count = 1;
+	ttm_bo_pin(&bo->tbo);
 
 	domain = gsgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
 	if (domain == GSGPU_GEM_DOMAIN_VRAM) {
@@ -908,35 +908,14 @@ int gsgpu_bo_pin(struct gsgpu_bo *bo, u32 domain)
  *
  * Decreases the pin_count, and clears the flags if pin_count reaches 0.
  * Changes placement and pin size accordingly.
- *
- * Returns:
- * 0 for success or a negative error code on failure.
  */
-int gsgpu_bo_unpin(struct gsgpu_bo *bo)
+void gsgpu_bo_unpin(struct gsgpu_bo *bo)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
-	struct ttm_operation_ctx ctx = { false, false };
-	int r, i;
-
-	if (!bo->pin_count) {
-		dev_warn(adev->dev, "%p unpin not necessary\n", bo);
-		return 0;
-	}
-	bo->pin_count--;
-	if (bo->pin_count)
-		return 0;
+	ttm_bo_unpin(&bo->tbo);
+	if (bo->tbo.pin_count)
+		return;
 
 	gsgpu_bo_subtract_pin_size(bo);
-
-	for (i = 0; i < bo->placement.num_placement; i++) {
-		bo->placements[i].lpfn = 0;
-		bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
-	}
-	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
-	if (unlikely(r))
-		dev_err(adev->dev, "%p validate failed for unpin\n", bo);
-
-	return r;
 }
 
 /**
@@ -1294,7 +1273,7 @@ u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo)
 	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_TT &&
 		     !gsgpu_gtt_mgr_has_gart_addr(&bo->tbo.mem));
 	WARN_ON_ONCE(!ww_mutex_is_locked(&bo->tbo.resv->lock) &&
-		     !bo->pin_count);
+		     !bo->tbo.pin_count);
 	WARN_ON_ONCE(bo->tbo.mem.start == GSGPU_BO_INVALID_OFFSET);
 	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_VRAM &&
 		     !(bo->flags & GSGPU_GEM_CREATE_VRAM_CONTIGUOUS));
