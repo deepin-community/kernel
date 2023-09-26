@@ -402,7 +402,7 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 	}
 
 	/* Wait for all fences on this FB */
-	WARN_ON(dma_resv_wait_timeout_rcu(abo->tbo.resv, true, false,
+	WARN_ON(dma_resv_wait_timeout_rcu(abo->tbo.base.resv, true, false,
 					  MAX_SCHEDULE_TIMEOUT) < 0);
 
 	gsgpu_bo_unreserve(abo);

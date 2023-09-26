@@ -124,7 +124,7 @@ static void gsgpu_vm_bo_base_init(struct gsgpu_vm_bo_base *base,
 	if (bo->tbo.type == ttm_bo_type_kernel)
 		list_move(&base->vm_status, &vm->relocated);
 
-	if (bo->tbo.resv != vm->root.base.bo->tbo.resv)
+	if (bo->tbo.base.resv != vm->root.base.bo->tbo.base.resv)
 		return;
 
 	if (bo->preferred_domains &
@@ -349,7 +349,7 @@ static int gsgpu_vm_clear_bo(struct gsgpu_device *ldev,
 
 	ring = container_of(vm->entity.rq->sched, struct gsgpu_ring, sched);
 
-	r = dma_resv_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.base.resv);
 	if (r)
 		return r;
 
@@ -370,7 +370,7 @@ static int gsgpu_vm_clear_bo(struct gsgpu_device *ldev,
 	gsgpu_ring_pad_ib(ring, &job->ibs[0]);
 
 	WARN_ON(job->ibs[0].length_dw > 64);
-	r = gsgpu_sync_resv(ldev, &job->sync, bo->tbo.resv,
+	r = gsgpu_sync_resv(ldev, &job->sync, bo->tbo.base.resv,
 			     GSGPU_FENCE_OWNER_UNDEFINED, false);
 	if (r)
 		goto error_free;
@@ -452,7 +452,7 @@ static int gsgpu_vm_alloc_levels(struct gsgpu_device *ldev,
 	 * walk over the address space and allocate the page tables
 	 */
 	for (pt_idx = from; pt_idx <= to; ++pt_idx) {
-		struct dma_resv *resv = vm->root.base.bo->tbo.resv;
+		struct dma_resv *resv = vm->root.base.bo->tbo.base.resv;
 		struct gsgpu_vm_pt *entry = &parent->entries[pt_idx];
 		struct gsgpu_bo *pt;
 
@@ -827,7 +827,7 @@ static int gsgpu_vm_wait_pd(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 	int r;
 
 	gsgpu_sync_create(&sync);
-	gsgpu_sync_resv(ldev, &sync, vm->root.base.bo->tbo.resv, owner, false);
+	gsgpu_sync_resv(ldev, &sync, vm->root.base.bo->tbo.base.resv, owner, false);
 	r = gsgpu_sync_wait(&sync, true);
 	gsgpu_sync_free(&sync);
 
@@ -996,7 +996,7 @@ restart:
 				    sched);
 
 		gsgpu_ring_pad_ib(ring, params.ib);
-		gsgpu_sync_resv(ldev, &job->sync, root->tbo.resv,
+		gsgpu_sync_resv(ldev, &job->sync, root->tbo.base.resv,
 				 GSGPU_FENCE_OWNER_VM, false);
 		WARN_ON(params.ib->length_dw > ndw);
 		r = gsgpu_job_submit(job, &vm->entity, GSGPU_FENCE_OWNER_VM, &fence);
@@ -1295,12 +1295,12 @@ static int gsgpu_vm_bo_update_mapping(struct gsgpu_device *ldev,
 	if (r)
 		goto error_free;
 
-	r = gsgpu_sync_resv(ldev, &job->sync, vm->root.base.bo->tbo.resv,
+	r = gsgpu_sync_resv(ldev, &job->sync, vm->root.base.bo->tbo.base.resv,
 			     owner, false);
 	if (r)
 		goto error_free;
 
-	r = dma_resv_reserve_shared(vm->root.base.bo->tbo.resv);
+	r = dma_resv_reserve_shared(vm->root.base.bo->tbo.base.resv);
 	if (r)
 		goto error_free;
 
@@ -1448,7 +1448,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 			pages_addr = ttm->dma_address;
 		}
 
-		exclusive = dma_resv_get_excl(bo->tbo.resv);
+		exclusive = dma_resv_get_excl(bo->tbo.base.resv);
 	}
 
 	if (bo)
@@ -1460,7 +1460,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 		flags |= (bo->flags & GSGPU_GEM_CREATE_COMPRESSED_MASK)
 				  >> GSGPU_PTE_COMPRESSED_SHIFT;
 
-	if (clear || (bo && bo->tbo.resv == vm->root.base.bo->tbo.resv))
+	if (clear || (bo && bo->tbo.base.resv == vm->root.base.bo->tbo.base.resv))
 		last_update = &vm->last_update;
 	else
 		last_update = &bo_va->last_pt_update;
@@ -1491,7 +1491,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 	 * the evicted list so that it gets validated again on the
 	 * next command submission.
 	 */
-	if (bo && bo->tbo.resv == vm->root.base.bo->tbo.resv) {
+	if (bo && bo->tbo.base.resv == vm->root.base.bo->tbo.base.resv) {
 		u32 mem_type = bo->tbo.mem.mem_type;
 
 		if (!(bo->preferred_domains & gsgpu_mem_type_to_domain(mem_type)))
@@ -1606,10 +1606,10 @@ int gsgpu_vm_handle_moved(struct gsgpu_device *ldev,
 	spin_unlock(&vm->moved_lock);
 
 	list_for_each_entry_safe(bo_va, tmp, &moved, base.vm_status) {
-		struct dma_resv *resv = bo_va->base.bo->tbo.resv;
+		struct dma_resv *resv = bo_va->base.bo->tbo.base.resv;
 
 		/* Per VM BOs never need to bo cleared in the page tables */
-		if (resv == vm->root.base.bo->tbo.resv)
+		if (resv == vm->root.base.bo->tbo.base.resv)
 			clear = false;
 		/* Try to reserve the BO to avoid clearing its ptes */
 		else if (!gsgpu_vm_debug && dma_resv_trylock(resv))
@@ -1626,7 +1626,7 @@ int gsgpu_vm_handle_moved(struct gsgpu_device *ldev,
 			return r;
 		}
 
-		if (!clear && resv != vm->root.base.bo->tbo.resv)
+		if (!clear && resv != vm->root.base.bo->tbo.base.resv)
 			dma_resv_unlock(resv);
 
 	}
@@ -1689,7 +1689,7 @@ static void gsgpu_vm_bo_insert_map(struct gsgpu_device *ldev,
 	list_add(&mapping->list, &bo_va->invalids);
 	gsgpu_vm_it_insert(mapping, &vm->va);
 
-	if (bo && bo->tbo.resv == vm->root.base.bo->tbo.resv &&
+	if (bo && bo->tbo.base.resv == vm->root.base.bo->tbo.base.resv &&
 	    !bo_va->base.moved) {
 		spin_lock(&vm->moved_lock);
 		list_move(&bo_va->base.vm_status, &vm->moved);
@@ -2019,7 +2019,7 @@ void gsgpu_vm_bo_trace_cs(struct gsgpu_vm *vm, struct ww_acquire_ctx *ticket)
 			struct gsgpu_bo *bo;
 
 			bo = mapping->bo_va->base.bo;
-			if (READ_ONCE(bo->tbo.resv->lock.ctx) != ticket)
+			if (READ_ONCE(bo->tbo.base.resv->lock.ctx) != ticket)
 				continue;
 		}
 
@@ -2090,7 +2090,7 @@ void gsgpu_vm_bo_invalidate(struct gsgpu_device *ldev,
 		bool was_moved = bo_base->moved;
 
 		bo_base->moved = true;
-		if (evicted && bo->tbo.resv == vm->root.base.bo->tbo.resv) {
+		if (evicted && bo->tbo.base.resv == vm->root.base.bo->tbo.base.resv) {
 			if (bo->tbo.type == ttm_bo_type_kernel)
 				list_move(&bo_base->vm_status, &vm->evicted);
 			else

@@ -370,7 +370,7 @@ static int gsgpu_cs_bo_validate(struct gsgpu_cs_parser *p,
 	struct ttm_operation_ctx ctx = {
 		.interruptible = true,
 		.no_wait_gpu = false,
-		.resv = bo->tbo.resv,
+		.resv = bo->tbo.base.resv,
 		.flags = 0
 	};
 	uint32_t domain;
@@ -717,7 +717,7 @@ static int gsgpu_cs_sync_rings(struct gsgpu_cs_parser *p)
 	int r;
 
 	list_for_each_entry(e, &p->validated, tv.head) {
-		struct dma_resv *resv = e->robj->tbo.resv;
+		struct dma_resv *resv = e->robj->tbo.base.resv;
 		r = gsgpu_sync_resv(p->adev, &p->job->sync, resv, p->filp,
 				     gsgpu_bo_explicit_sync(e->robj));
 
@@ -850,7 +850,7 @@ static int gsgpu_cs_ib_vm_chunk(struct gsgpu_device *adev,
 		if (r)
 			return r;
 
-		r = dma_resv_reserve_shared(vm->root.base.bo->tbo.resv);
+		r = dma_resv_reserve_shared(vm->root.base.bo->tbo.base.resv);
 		if (r)
 			return r;
 	}
@@ -1514,7 +1514,7 @@ int gsgpu_cs_find_mapping(struct gsgpu_cs_parser *parser,
 	*map = mapping;
 
 	/* Double check that the BO is reserved by this CS */
-	if (READ_ONCE((*bo)->tbo.resv->lock.ctx) != &parser->ticket)
+	if (READ_ONCE((*bo)->tbo.base.resv->lock.ctx) != &parser->ticket)
 		return -EINVAL;
 
 	if (!((*bo)->flags & GSGPU_GEM_CREATE_VRAM_CONTIGUOUS)) {

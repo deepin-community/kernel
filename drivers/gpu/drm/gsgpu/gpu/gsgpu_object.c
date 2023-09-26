@@ -431,7 +431,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	if (unlikely(r != 0))
 		return r;
 
-	bo->gem_base.resv = bo->tbo.resv;
+	bo->gem_base.resv = bo->tbo.base.resv;
 
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
 	    bo->tbo.mem.mem_type == TTM_PL_VRAM &&
@@ -445,7 +445,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	    bo->tbo.mem.placement & TTM_PL_FLAG_VRAM) {
 		struct dma_fence *fence;
 
-		r = gsgpu_fill_buffer(bo, 0, bo->tbo.resv, &fence);
+		r = gsgpu_fill_buffer(bo, 0, bo->tbo.base.resv, &fence);
 		if (unlikely(r))
 			goto fail_unreserve;
 
@@ -469,7 +469,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 
 fail_unreserve:
 	if (!bp->resv)
-		ww_mutex_unlock(&bo->tbo.resv->lock);
+		ww_mutex_unlock(&bo->tbo.base.resv->lock);
 	gsgpu_bo_unref(&bo);
 	return r;
 }
@@ -491,7 +491,7 @@ static int gsgpu_bo_create_shadow(struct gsgpu_device *adev,
 	bp.flags = GSGPU_GEM_CREATE_CPU_GTT_USWC |
 		GSGPU_GEM_CREATE_SHADOW;
 	bp.type = ttm_bo_type_kernel;
-	bp.resv = bo->tbo.resv;
+	bp.resv = bo->tbo.base.resv;
 
 	r = gsgpu_bo_do_create(adev, &bp, &bo->shadow);
 	if (!r) {
@@ -532,13 +532,13 @@ int gsgpu_bo_create(struct gsgpu_device *adev,
 
 	if ((flags & GSGPU_GEM_CREATE_SHADOW) && gsgpu_bo_need_backup(adev)) {
 		if (!bp->resv)
-			WARN_ON(dma_resv_lock((*bo_ptr)->tbo.resv,
+			WARN_ON(dma_resv_lock((*bo_ptr)->tbo.base.resv,
 							NULL));
 
 		r = gsgpu_bo_create_shadow(adev, bp->size, bp->byte_align, (*bo_ptr));
 
 		if (!bp->resv)
-			dma_resv_unlock((*bo_ptr)->tbo.resv);
+			dma_resv_unlock((*bo_ptr)->tbo.base.resv);
 
 		if (r)
 			gsgpu_bo_unref(bo_ptr);
@@ -580,7 +580,7 @@ int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
 	bo_addr = gsgpu_bo_gpu_offset(bo);
 	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
 
-	r = dma_resv_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.base.resv);
 	if (r)
 		goto err;
 
@@ -662,7 +662,7 @@ int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 	bo_addr = gsgpu_bo_gpu_offset(bo);
 	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
 
-	r = dma_resv_reserve_shared(bo->tbo.resv);
+	r = dma_resv_reserve_shared(bo->tbo.base.resv);
 	if (r)
 		goto err;
 
@@ -702,7 +702,7 @@ int gsgpu_bo_kmap(struct gsgpu_bo *bo, void **ptr)
 		return 0;
 	}
 
-	r = dma_resv_wait_timeout_rcu(bo->tbo.resv, false, false,
+	r = dma_resv_wait_timeout_rcu(bo->tbo.base.resv, false, false,
 						MAX_SCHEDULE_TIMEOUT);
 	if (r < 0)
 		return r;
@@ -1055,7 +1055,7 @@ int gsgpu_bo_set_tiling_flags(struct gsgpu_bo *bo, u64 tiling_flags)
  */
 void gsgpu_bo_get_tiling_flags(struct gsgpu_bo *bo, u64 *tiling_flags)
 {
-	lockdep_assert_held(&bo->tbo.resv->lock.base);
+	lockdep_assert_held(&bo->tbo.base.resv->lock.base);
 
 	if (tiling_flags)
 		*tiling_flags = bo->tiling_flags;
@@ -1249,7 +1249,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
 		     bool shared)
 {
-	struct dma_resv *resv = bo->tbo.resv;
+	struct dma_resv *resv = bo->tbo.base.resv;
 
 	if (shared)
 		dma_resv_add_shared_fence(resv, fence);
@@ -1272,7 +1272,7 @@ u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo)
 	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_SYSTEM);
 	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_TT &&
 		     !gsgpu_gtt_mgr_has_gart_addr(&bo->tbo.mem));
-	WARN_ON_ONCE(!ww_mutex_is_locked(&bo->tbo.resv->lock) &&
+	WARN_ON_ONCE(!ww_mutex_is_locked(&bo->tbo.base.resv->lock) &&
 		     !bo->tbo.pin_count);
 	WARN_ON_ONCE(bo->tbo.mem.start == GSGPU_BO_INVALID_OFFSET);
 	WARN_ON_ONCE(bo->tbo.mem.mem_type == TTM_PL_VRAM &&

@@ -147,7 +147,7 @@ static int gsgpu_gem_object_open(struct drm_gem_object *obj,
 		return -EPERM;
 
 	if (abo->flags & GSGPU_GEM_CREATE_VM_ALWAYS_VALID &&
-	    abo->tbo.resv != vm->root.base.bo->tbo.resv)
+	    abo->tbo.base.resv != vm->root.base.bo->tbo.base.resv)
 		return -EPERM;
 
 	r = gsgpu_bo_reserve(abo, false);
@@ -298,7 +298,7 @@ int gsgpu_gem_create_ioctl(struct drm_device *dev, void *data,
 		if (r)
 			return r;
 
-		resv = vm->root.base.bo->tbo.resv;
+		resv = vm->root.base.bo->tbo.base.resv;
 	}
 
 	r = gsgpu_gem_object_create(adev, size, args->in.alignment,
@@ -482,7 +482,7 @@ int gsgpu_gem_wait_idle_ioctl(struct drm_device *dev, void *data,
 		return -ENOENT;
 	}
 	robj = gem_to_gsgpu_bo(gobj);
-	ret = dma_resv_wait_timeout_rcu(robj->tbo.resv, true, true,
+	ret = dma_resv_wait_timeout_rcu(robj->tbo.base.resv, true, true,
 						  timeout);
 
 	/* ret == 0 means not signaled,

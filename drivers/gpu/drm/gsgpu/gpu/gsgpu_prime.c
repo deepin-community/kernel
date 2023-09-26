@@ -190,7 +190,7 @@ static int gsgpu_gem_map_attach(struct dma_buf *dma_buf,
 		 * fences on the reservation object into a single exclusive
 		 * fence.
 		 */
-		r = __dma_resv_make_exclusive(bo->tbo.resv);
+		r = __dma_resv_make_exclusive(bo->tbo.base.resv);
 		if (r)
 			goto error_unreserve;
 	}

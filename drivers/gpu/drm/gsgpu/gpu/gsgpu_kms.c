@@ -619,7 +619,7 @@ void gsgpu_driver_postclose_kms(struct drm_device *dev,
 	gsgpu_ctx_mgr_fini(&fpriv->ctx_mgr);
 
 	if (pasid)
-		gsgpu_pasid_free_delayed(pd->tbo.resv, pasid);
+		gsgpu_pasid_free_delayed(pd->tbo.base.resv, pasid);
 	gsgpu_bo_unref(&pd);
 
 	idr_for_each_entry(&fpriv->bo_list_handles, list, handle)

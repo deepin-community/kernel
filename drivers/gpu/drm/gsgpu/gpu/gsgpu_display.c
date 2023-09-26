@@ -168,7 +168,7 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 		goto unpin;
 	}
 
-	r = dma_resv_get_fences_rcu(new_abo->tbo.resv, &work->excl,
+	r = dma_resv_get_fences_rcu(new_abo->tbo.base.resv, &work->excl,
 					      &work->shared_count,
 					      &work->shared);
 	if (unlikely(r != 0)) {
