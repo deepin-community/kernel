@@ -106,7 +106,7 @@ static int ls_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 }
 
 static int ls_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
-			int duty_ns, int period_ns)
+			 int duty_ns, int period_ns, bool enabled)
 {
 	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	unsigned int period, duty;
@@ -135,8 +135,8 @@ static int ls_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	return 0;
 }
 
-void ls_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
-		struct pwm_state *state)
+static int ls_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+			    struct pwm_state *state)
 {
 	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	unsigned long long val0, val1;
@@ -157,13 +157,47 @@ void ls_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	ls_pwm->low_buffer_reg = readl(ls_pwm->mmio_base + LOW_BUFFER);
 	ls_pwm->full_buffer_reg = readl(ls_pwm->mmio_base + FULL_BUFFER);
+
+	return 0;
+}
+
+static int ls_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+			const struct pwm_state *state)
+{
+	int err;
+	bool enabled = pwm->state.enabled;
+
+	if (state->polarity != pwm->state.polarity) {
+		if (enabled) {
+			ls_pwm_disable(chip, pwm);
+			enabled = false;
+		}
+
+		err = ls_pwm_set_polarity(chip, pwm, state->polarity);
+		if (err)
+			return err;
+	}
+
+	if (!state->enabled) {
+		if (enabled)
+			ls_pwm_disable(chip, pwm);
+
+		return 0;
+	}
+
+	err = ls_pwm_config(pwm->chip, pwm,
+			    state->duty_cycle, state->period, enabled);
+	if (err)
+		return err;
+
+	if (!enabled)
+		err = ls_pwm_enable(chip, pwm);
+
+	return err;
 }
 
 static const struct pwm_ops ls_pwm_ops = {
-	.config = ls_pwm_config,
-	.set_polarity = ls_pwm_set_polarity,
-	.enable = ls_pwm_enable,
-	.disable = ls_pwm_disable,
+	.apply = ls_pwm_apply,
 	.get_state = ls_pwm_get_state,
 	.owner = THIS_MODULE,
 };
@@ -220,12 +254,9 @@ static int ls_pwm_probe(struct platform_device *pdev)
 static int ls_pwm_remove(struct platform_device *pdev)
 {
 	struct ls_pwm_chip *pwm = platform_get_drvdata(pdev);
-	int err;
 	if (!pwm)
 		return -ENODEV;
-	err = pwmchip_remove(&pwm->chip);
-	if(err < 0)
-		return err;
+	pwmchip_remove(&pwm->chip);
 
 	return 0;
 }
