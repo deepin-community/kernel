@@ -344,7 +344,7 @@ void gsgpu_sa_bo_dump_debug_info(struct gsgpu_sa_manager *sa_manager,
 			   soffset, eoffset, eoffset - soffset);
 
 		if (i->fence)
-			seq_printf(m, " protected by 0x%08x on context %llu",
+			seq_printf(m, " protected by 0x%08llu on context %llu",
 				   i->fence->seqno, i->fence->context);
 
 		seq_printf(m, "\n");

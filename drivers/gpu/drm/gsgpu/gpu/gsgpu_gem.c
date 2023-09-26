@@ -603,7 +603,7 @@ int gsgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 	int r = 0;
 
 	if (args->va_address < GSGPU_VA_RESERVED_SIZE) {
-		dev_dbg(&dev->pdev->dev,
+		dev_dbg(dev->dev,
 			"va_address 0x%LX is in reserved area 0x%LX\n",
 			args->va_address, GSGPU_VA_RESERVED_SIZE);
 		return -EINVAL;
@@ -611,7 +611,7 @@ int gsgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 
 	if (args->va_address >= GSGPU_VA_HOLE_START &&
 	    args->va_address < GSGPU_VA_HOLE_END) {
-		dev_dbg(&dev->pdev->dev,
+		dev_dbg(dev->dev,
 			"va_address 0x%LX is in VA hole 0x%LX-0x%LX\n",
 			args->va_address, GSGPU_VA_HOLE_START,
 			GSGPU_VA_HOLE_END);
@@ -621,7 +621,7 @@ int gsgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 	args->va_address &= GSGPU_VA_HOLE_MASK;
 
 	if ((args->flags & ~valid_flags) && (args->flags & ~prt_flags)) {
-		dev_dbg(&dev->pdev->dev, "invalid flags combination 0x%08X\n",
+		dev_dbg(dev->dev, "invalid flags combination 0x%08X\n",
 			args->flags);
 		return -EINVAL;
 	}
@@ -633,7 +633,7 @@ int gsgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 	case GSGPU_VA_OP_REPLACE:
 		break;
 	default:
-		dev_dbg(&dev->pdev->dev, "unsupported operation %d\n",
+		dev_dbg(dev->dev, "unsupported operation %d\n",
 			args->operation);
 		return -EINVAL;
 	}
