@@ -2136,7 +2136,7 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 		if (job && job->base.sched == &ring->sched)
 			continue;
 
-		drm_sched_hw_job_reset(&ring->sched, job ? &job->base : NULL);
+		drm_sched_stop(&ring->sched, &job->base);
 
 		/* after all hw jobs are reset, hw fence is meaningless, so force_completion */
 		gsgpu_fence_driver_force_completion(ring);
