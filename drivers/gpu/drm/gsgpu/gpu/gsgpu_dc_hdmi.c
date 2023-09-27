@@ -157,7 +157,7 @@ int gsgpu_hdmi_resume(struct gsgpu_device *adev)
 
 int gsgpu_hdmi_init(struct gsgpu_device *adev)
 {
-	u32 val, val1, i;
+	u32 val;
 	u32 link = 0;
 
 	for (link = 0; link < 2; link++) {

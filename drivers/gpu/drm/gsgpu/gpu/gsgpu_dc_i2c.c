@@ -1,3 +1,4 @@
+#include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
 
@@ -309,7 +310,7 @@ static int gsgpu_dc_i2c_init(struct gsgpu_device *adev,
 		goto out_free;
 	}
 
-	ddc_client = i2c_new_device(&i2c->adapter, &ddc_info);
+	ddc_client = i2c_new_client_device(&i2c->adapter, &ddc_info);
 	if (IS_ERR(ddc_client)) {
 		ret = PTR_ERR(ddc_client);
 		DRM_ERROR("Failed to create standard ddc client\n");
@@ -381,7 +382,7 @@ static int gsgpu_dc_gpio_init(struct gsgpu_device *adev,
 	i2c_algo_data->data = i2c;
 	i2c_set_adapdata(&i2c->adapter, i2c);
 
-	ddc_client = i2c_new_device(&i2c->adapter, &ddc_info);
+	ddc_client = i2c_new_client_device(&i2c->adapter, &ddc_info);
 	if (IS_ERR(ddc_client)) {
 		ret = PTR_ERR(ddc_client);
 		DRM_ERROR("Failed to create standard ddc client\n");
