@@ -363,6 +363,8 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	struct ttm_operation_ctx ctx = {
 		.interruptible = (bp->type != ttm_bo_type_kernel),
 		.no_wait_gpu = false,
+		/* We opt to avoid OOM on system pages allocations */
+		.gfp_retry_mayfail = true,
 		.resv = bp->resv,
 		.flags = TTM_OPT_FLAG_ALLOW_RES_EVICT
 	};
