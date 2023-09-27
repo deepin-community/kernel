@@ -1452,7 +1452,7 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
 
 	gsgpu_vram_mgr_fini(adev);
 	gsgpu_gtt_mgr_fini(adev);
-	ttm_device_release(&adev->mman.bdev);
+	ttm_device_fini(&adev->mman.bdev);
 	adev->mman.initialized = false;
 	DRM_INFO("gsgpu: ttm finalized\n");
 }
@@ -1657,7 +1657,7 @@ static int gsgpu_mm_dump_table(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *)m->private;
 	unsigned ttm_pl = *(int *)node->info_ent->data;
 	struct drm_device *dev = node->minor->dev;
-	struct gsgpu_device *adev = dev->dev_private;
+	struct gsgpu_device *adev = drm_to_adev(dev);
 	struct ttm_resource_manager *man = adev->mman.bdev.man_drv[ttm_pl];
 	struct drm_printer p = drm_seq_file_printer(m);
 

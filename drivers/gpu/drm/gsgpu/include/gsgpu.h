@@ -1130,6 +1130,19 @@ struct gsgpu_device {
 	bool inited;
 };
 
+/* TODO: We need to embed drm_device into gsgpu_device. Also, these should
+ * probably be called drm_to_gsdev, but I can't be bothered to change all
+ * adev to gsdev in the code. */
+static inline struct gsgpu_device *drm_to_adev(struct drm_device *ddev)
+{
+        return ddev->dev_private;
+}
+
+static inline struct drm_device *adev_to_drm(struct gsgpu_device *adev)
+{
+        return adev->ddev;
+}
+
 static inline struct gsgpu_device *gsgpu_ttm_adev(struct ttm_device *bdev)
 {
 	return container_of(bdev, struct gsgpu_device, mman.bdev);
