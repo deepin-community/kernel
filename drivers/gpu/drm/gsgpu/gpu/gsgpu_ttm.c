@@ -20,59 +20,13 @@
 #define mmMM_INDEX_HI      0x6
 #define mmMM_DATA          0x1
 
+static int gsgpu_ttm_backend_bind(struct ttm_device *bdev,
+				  struct ttm_tt *ttm,
+				  struct ttm_resource *bo_mem);
+static int gsgpu_ttm_backend_unbind(struct ttm_device *bdev,
+				    struct ttm_tt *ttm);
 static int gsgpu_ttm_debugfs_init(struct gsgpu_device *adev);
 static void gsgpu_ttm_debugfs_fini(struct gsgpu_device *adev);
-
-static int gsgpu_invalidate_caches(struct ttm_device *bdev, uint32_t flags)
-{
-	return 0;
-}
-
-/**
- * gsgpu_init_mem_type - Initialize a memory manager for a specific type of
- * memory request.
- *
- * @bdev: The TTM BO device object (contains a reference to gsgpu_device)
- * @type: The type of memory requested
- * @man: The memory type manager for each domain
- *
- * This is called by ttm_bo_init_mm() when a buffer object is being
- * initialized.
- */
-static int gsgpu_init_mem_type(struct ttm_device *bdev, uint32_t type,
-			       struct ttm_resource_manager *man)
-{
-	struct gsgpu_device *adev;
-
-	adev = gsgpu_ttm_adev(bdev);
-
-	switch (type) {
-	case TTM_PL_SYSTEM:
-		/* System memory */
-		man->flags = TTM_MEMTYPE_FLAG_MAPPABLE;
-		man->default_caching = TTM_PL_FLAG_CACHED;
-		break;
-	case TTM_PL_TT:
-		/* GTT memory  */
-		man->func = &gsgpu_gtt_mgr_func;
-		man->gpu_offset = adev->gmc.gart_start;
-		man->default_caching = TTM_PL_FLAG_CACHED;
-		man->flags = TTM_MEMTYPE_FLAG_MAPPABLE | TTM_MEMTYPE_FLAG_CMA;
-		break;
-	case TTM_PL_VRAM:
-		/* "On-card" video ram */
-		man->func = &gsgpu_vram_mgr_func;
-		man->gpu_offset = adev->gmc.vram_start;
-		man->flags = TTM_MEMTYPE_FLAG_FIXED |
-			TTM_MEMTYPE_FLAG_MAPPABLE;
-		man->default_caching = TTM_PL_FLAG_WC;
-		break;
-	default:
-		DRM_ERROR("Unsupported memory type %u\n", (unsigned)type);
-		return -EINVAL;
-	}
-	return 0;
-}
 
 /**
  * gsgpu_evict_flags - Compute placement flags
@@ -90,7 +44,7 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
 	static const struct ttm_place placements = {
 		.fpfn = 0,
 		.lpfn = 0,
-		.flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM
+		.flags = 0
 	};
 
 	/* Don't handle scatter gather BOs */
@@ -143,6 +97,26 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
 }
 
 /**
+ * gsgpu_ttm_domain_start - Returns GPU start address
+ * @adev: gsgpu device object
+ * @type: type of the memory
+ *
+ * Returns:
+ * GPU start address of a memory domain
+ */
+static uint64_t gsgpu_ttm_domain_start(struct gsgpu_device *adev, uint32_t type)
+{
+	switch (type) {
+	case TTM_PL_TT:
+		return adev->gmc.gart_start;
+	case TTM_PL_VRAM:
+		return adev->gmc.vram_start;
+	}
+
+	return 0;
+}
+
+/**
  * gsgpu_ttm_map_buffer - Map memory into the GART windows
  * @bo: buffer object to map
  * @mem: memory object to map
@@ -150,17 +124,16 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
  * @num_pages: number of pages to map
  * @window: which GART window to use
  * @ring: DMA ring to use for the copy
- * @tmz: if we should setup a TMZ enabled mapping
  * @addr: resulting address inside the MC address space
  *
  * Setup one of the GART windows to access a specific piece of memory or return
  * the physical address for local memory.
  */
 static int gsgpu_ttm_map_buffer(struct ttm_buffer_object *bo,
-				struct ttm_mem_reg *mem,
+				struct ttm_resource *mem,
 				struct gsgpu_res_cursor *mm_cur,
 				unsigned num_pages, unsigned window,
-				struct gsgpu_ring *ring, bool tmz,
+				struct gsgpu_ring *ring,
 				uint64_t *addr)
 {
 	struct gsgpu_device *adev = ring->adev;
@@ -177,7 +150,7 @@ static int gsgpu_ttm_map_buffer(struct ttm_buffer_object *bo,
 	       GSGPU_GTT_MAX_TRANSFER_SIZE * 8);
 
 	/* Map only what can't be accessed directly */
-	if (!tmz && mem->start != GSGPU_BO_INVALID_OFFSET) {
+	if (mem->start != GSGPU_BO_INVALID_OFFSET) {
 		*addr = gsgpu_ttm_domain_start(adev, mem->mem_type) + mm_cur->start;
 		return 0;
 	}
@@ -190,25 +163,22 @@ static int gsgpu_ttm_map_buffer(struct ttm_buffer_object *bo,
 	num_dw = ALIGN(adev->mman.buffer_funcs->copy_num_dw, 8);
 	num_bytes = num_pages * 8;
 
-	r = gsgpu_job_alloc_with_ib(adev, num_dw * 4 + num_bytes,
-				    GSGPU_IB_POOL_NORMAL, &job);
+	r = gsgpu_job_alloc_with_ib(adev, num_dw * 4 + num_bytes, &job);
 	if (r)
 		return r;
 
 	src_addr = num_dw * 4;
 	src_addr += job->ibs[0].gpu_addr;
 
-	dst_addr = gsgpu_bo_gpu_offset(adev->gart.bo);
+	dst_addr = adev->gart.table_addr;
 	dst_addr += window * GSGPU_GTT_MAX_TRANSFER_SIZE * 8;
 	gsgpu_emit_copy_buffer(adev, &job->ibs[0], src_addr,
-			       dst_addr, num_bytes, false);
+			       dst_addr, num_bytes);
 
 	gsgpu_ring_pad_ib(ring, &job->ibs[0]);
 	WARN_ON(job->ibs[0].length_dw > num_dw);
 
 	flags = gsgpu_ttm_tt_pte_flags(adev, bo->ttm, mem);
-	if (tmz)
-		flags |= GSGPU_PTE_TMZ;
 
 	cpu_addr = &job->ibs[0].ptr[num_dw];
 
@@ -297,13 +267,13 @@ int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
 		/* Map src to window 0 and dst to window 1. */
 		r = gsgpu_ttm_map_buffer(src->bo, src->mem, &src_mm,
 					 PFN_UP(cur_size + src_page_offset),
-					 0, ring, tmz, &from);
+					 0, ring, &from);
 		if (r)
 			goto error;
 
 		r = gsgpu_ttm_map_buffer(dst->bo, dst->mem, &dst_mm,
 					 PFN_UP(cur_size + dst_page_offset),
-					 1, ring, tmz, &to);
+					 1, ring, &to);
 		if (r)
 			goto error;
 
@@ -350,12 +320,12 @@ static int gsgpu_move_blit(struct ttm_buffer_object *bo,
 	dst.offset = 0;
 
 	r = gsgpu_ttm_copy_mem_to_mem(adev, &src, &dst,
-				      new_mem->num_pages << PAGE_SHIFT,
-				      bo->resv, &fence);
+				      bo->ttm->num_pages << PAGE_SHIFT,
+				      bo->base.resv, &fence);
 	if (r)
 		goto error;
 
-	r = ttm_bo_pipeline_move(bo, fence, evict, new_mem);
+	r = ttm_bo_move_accel_cleanup(bo, fence, evict, true, new_mem);
 	dma_fence_put(fence);
 	return r;
 
@@ -378,8 +348,45 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 {
 	struct gsgpu_device *adev;
 	struct gsgpu_bo *abo;
-	struct ttm_resource *old_mem = &bo->mem;
+	struct ttm_resource *old_mem = bo->resource;
 	int r;
+
+	if (new_mem->mem_type == TTM_PL_TT) {
+		r = gsgpu_ttm_backend_bind(bo->bdev, bo->ttm, new_mem);
+		if (r)
+			return r;
+	}
+
+	abo = ttm_to_gsgpu_bo(bo);
+	/* Can't move a pinned BO */
+	if (WARN_ON_ONCE(abo->pin_count > 0))
+		return -EINVAL;
+
+	adev = gsgpu_ttm_adev(bo->bdev);
+
+	if (old_mem->mem_type == TTM_PL_SYSTEM && bo->ttm == NULL) {
+		ttm_bo_move_null(bo, new_mem);
+		goto out;
+	}
+	if (old_mem->mem_type == TTM_PL_SYSTEM &&
+	    new_mem->mem_type == TTM_PL_TT) {
+		ttm_bo_move_null(bo, new_mem);
+		goto out;
+	}
+	if (old_mem->mem_type == TTM_PL_TT &&
+	    new_mem->mem_type == TTM_PL_SYSTEM) {
+		r = ttm_bo_wait_ctx(bo, ctx);
+		if (r)
+			return r;
+
+		gsgpu_ttm_backend_unbind(bo->bdev, bo->ttm);
+		ttm_resource_free(bo, &bo->resource);
+		ttm_bo_assign_mem(bo, new_mem);
+		goto out;
+	}
+
+	if (!adev->mman.buffer_funcs_enabled)
+		goto memcpy;
 
 	if ((old_mem->mem_type == TTM_PL_SYSTEM &&
 	     new_mem->mem_type == TTM_PL_VRAM) ||
@@ -391,29 +398,6 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 		hop->flags = 0;
 		return -EMULTIHOP;
 	}
-
-	/* Can't move a pinned BO */
-	abo = ttm_to_gsgpu_bo(bo);
-	if (WARN_ON_ONCE(abo->pin_count > 0))
-		return -EINVAL;
-
-	adev = gsgpu_ttm_adev(bo->bdev);
-
-	if (old_mem->mem_type == TTM_PL_SYSTEM && bo->ttm == NULL) {
-		ttm_bo_move_null(bo, new_mem);
-		return 0;
-	}
-	if ((old_mem->mem_type == TTM_PL_TT &&
-	     new_mem->mem_type == TTM_PL_SYSTEM) ||
-	    (old_mem->mem_type == TTM_PL_SYSTEM &&
-	     new_mem->mem_type == TTM_PL_TT)) {
-		/* bind is enough */
-		ttm_bo_move_null(bo, new_mem);
-		return 0;
-	}
-
-	if (!adev->mman.buffer_funcs_enabled)
-		goto memcpy;
 
 	r = gsgpu_move_blit(bo, evict, ctx->no_wait_gpu, new_mem, old_mem);
 	if (r) {
@@ -433,8 +417,10 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 		abo->flags &= ~GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
 	}
 
+out:
 	/* update statistics */
-	atomic64_add((u64)bo->num_pages << PAGE_SHIFT, &adev->num_bytes_moved);
+	atomic64_add((u64)bo->ttm->num_pages << PAGE_SHIFT, &adev->num_bytes_moved);
+    	gsgpu_bo_move_notify(bo, evict, new_mem);
 	return 0;
 }
 
@@ -445,15 +431,12 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
  */
 static int gsgpu_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_resource *mem)
 {
-	struct ttm_resource_manager *man = bdev->man_drv[mem->mem_type];
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 
 	mem->bus.addr = NULL;
 	mem->bus.offset = 0;
 	mem->bus.size = mem->num_pages << PAGE_SHIFT;
 	mem->bus.is_iomem = false;
-	if (!(man->flags & TTM_MEMTYPE_FLAG_MAPPABLE))
-		return -EINVAL;
 	switch (mem->mem_type) {
 	case TTM_PL_SYSTEM:
 		/* system memory */
@@ -490,7 +473,7 @@ static unsigned long gsgpu_ttm_io_mem_pfn(struct ttm_buffer_object *bo,
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct gsgpu_res_cursor cursor;
 
-	gsgpu_res_first(&bo->mem, (u64)page_offset << PAGE_SHIFT, 0, &cursor);
+	gsgpu_res_first(bo->resource, (u64)page_offset << PAGE_SHIFT, 0, &cursor);
 	return (adev->gmc.aper_base + cursor.start) >> PAGE_SHIFT;
 }
 
@@ -503,7 +486,7 @@ struct gsgpu_ttm_gup_task_list {
 };
 
 struct gsgpu_ttm_tt {
-	struct ttm_dma_tt	ttm;
+	struct ttm_tt		ttm;
 	u64			offset;
 	uint64_t		userptr;
 	struct task_struct	*usertask;
@@ -641,9 +624,10 @@ void gsgpu_ttm_tt_mark_user_pages(struct ttm_tt *ttm)
  *
  * Called by gsgpu_ttm_backend_bind()
  **/
-static int gsgpu_ttm_tt_pin_userptr(struct ttm_tt *ttm)
+static int gsgpu_ttm_tt_pin_userptr(struct ttm_device *bdev,
+				    struct ttm_tt *ttm)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 	unsigned nents;
 	int r;
@@ -679,9 +663,10 @@ release_sg:
 /**
  * gsgpu_ttm_tt_unpin_userptr - Unpin and unmap userptr pages
  */
-static void gsgpu_ttm_tt_unpin_userptr(struct ttm_tt *ttm)
+static void gsgpu_ttm_tt_unpin_userptr(struct ttm_device *bdev,
+				       struct ttm_tt *ttm)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 
 	int write = !(gtt->userflags & GSGPU_GEM_USERPTR_READONLY);
@@ -712,7 +697,7 @@ int gsgpu_ttm_gart_bind(struct gsgpu_device *adev,
 	r = gsgpu_gart_bind(adev, gtt->offset, ttm->num_pages,
 			    ttm->pages, gtt->ttm.dma_address, flags);
 	if (r)
-		DRM_ERROR("failed to bind %lu pages at 0x%08llX\n",
+		DRM_ERROR("failed to bind %u pages at 0x%08llX\n",
 			  ttm->num_pages, gtt->offset);
 
 	return r;
@@ -724,23 +709,24 @@ int gsgpu_ttm_gart_bind(struct gsgpu_device *adev,
  * Called by ttm_tt_bind() on behalf of ttm_bo_handle_move_mem().
  * This handles binding GTT memory to the device address space.
  */
-static int gsgpu_ttm_backend_bind(struct ttm_tt *ttm,
+static int gsgpu_ttm_backend_bind(struct ttm_device *bdev,
+				  struct ttm_tt *ttm,
 				  struct ttm_resource *bo_mem)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 	uint64_t flags;
 	int r = 0;
 
 	if (gtt->userptr) {
-		r = gsgpu_ttm_tt_pin_userptr(ttm);
+		r = gsgpu_ttm_tt_pin_userptr(bdev, ttm);
 		if (r) {
 			DRM_ERROR("failed to pin userptr\n");
 			return r;
 		}
 	}
 	if (!ttm->num_pages) {
-		WARN(1, "nothing to bind %lu pages for mreg %p back %p!\n",
+		WARN(1, "nothing to bind %u pages for mreg %p back %p!\n",
 		     ttm->num_pages, bo_mem, ttm);
 	}
 
@@ -758,7 +744,7 @@ static int gsgpu_ttm_backend_bind(struct ttm_tt *ttm,
 			    ttm->pages, gtt->ttm.dma_address, flags);
 
 	if (r)
-		DRM_ERROR("failed to bind %lu pages at 0x%08llX\n",
+		DRM_ERROR("failed to bind %u pages at 0x%08llX\n",
 			  ttm->num_pages, gtt->offset);
 	return r;
 }
@@ -771,13 +757,13 @@ int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo)
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct ttm_operation_ctx ctx = { false, false };
 	struct gsgpu_ttm_tt *gtt = (void *)bo->ttm;
-	struct ttm_resource tmp;
+	struct ttm_resource *tmp;
 	struct ttm_placement placement;
 	struct ttm_place placements;
 	uint64_t flags;
 	int r;
 
-	if (bo->mem.start != GSGPU_BO_INVALID_OFFSET)
+	if (bo->resource->start != GSGPU_BO_INVALID_OFFSET)
                 return 0;
 
 	/* allocate GART space */
@@ -787,28 +773,25 @@ int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo)
 	placement.busy_placement = &placements;
 	placements.fpfn = 0;
 	placements.lpfn = adev->gmc.gart_size >> PAGE_SHIFT;
-	placements.flags = (bo->mem.placement & ~TTM_PL_MASK_MEM) |
-		TTM_PL_FLAG_TT;
+	placements.mem_type = TTM_PL_TT;
+        placements.flags = bo->resource->placement;
 
 	r = ttm_bo_mem_space(bo, &placement, &tmp, &ctx);
 	if (unlikely(r))
 		return r;
 
 	/* compute PTE flags for this buffer object */
-	flags = gsgpu_ttm_tt_pte_flags(adev, bo->ttm, &tmp);
+	flags = gsgpu_ttm_tt_pte_flags(adev, bo->ttm, tmp);
 
 	/* Bind pages */
-	gtt->offset = (u64)tmp.start << PAGE_SHIFT;
-	r = gsgpu_ttm_gart_bind(adev, bo, flags);
+	gtt->offset = (u64)tmp->start << PAGE_SHIFT;
+        r = gsgpu_ttm_gart_bind(adev, bo, flags);
 	if (unlikely(r)) {
-		ttm_bo_mem_put(bo, &tmp);
+		ttm_resource_free(bo, tmp);
 		return r;
 	}
-
-	ttm_bo_mem_put(bo, &bo->mem);
-	bo->mem = tmp;
-	bo->offset = (bo->mem.start << PAGE_SHIFT) +
-		bo->bdev->man_drv[bo->mem.mem_type]->gpu_offset;
+        ttm_resource_free(bo, &bo->resource);
+	ttm_bo_assign_mem(bo, tmp);
 
 	return 0;
 }
@@ -828,7 +811,7 @@ int gsgpu_ttm_recover_gart(struct ttm_buffer_object *tbo)
 	if (!tbo->ttm)
 		return 0;
 
-	flags = gsgpu_ttm_tt_pte_flags(adev, tbo->ttm, &tbo->mem);
+	flags = gsgpu_ttm_tt_pte_flags(adev, tbo->ttm, tbo->resource);
 	r = gsgpu_ttm_gart_bind(adev, tbo, flags);
 
 	return r;
@@ -840,15 +823,16 @@ int gsgpu_ttm_recover_gart(struct ttm_buffer_object *tbo)
  * Called by ttm_tt_unbind() on behalf of ttm_bo_move_ttm() and
  * ttm_tt_destroy().
  */
-static int gsgpu_ttm_backend_unbind(struct ttm_tt *ttm)
+static int gsgpu_ttm_backend_unbind(struct ttm_device *bdev,
+				    struct ttm_tt *ttm)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 	int r;
 
 	/* if the pages have userptr pinning then clear that first */
 	if (gtt->userptr)
-		gsgpu_ttm_tt_unpin_userptr(ttm);
+		gsgpu_ttm_tt_unpin_userptr(bdev, ttm);
 
 	if (gtt->offset == GSGPU_BO_INVALID_OFFSET)
 		return 0;
@@ -856,27 +840,22 @@ static int gsgpu_ttm_backend_unbind(struct ttm_tt *ttm)
 	/* unbind shouldn't be done for GDS/GWS/OA in ttm_bo_clean_mm */
 	r = gsgpu_gart_unbind(adev, gtt->offset, ttm->num_pages);
 	if (r)
-		DRM_ERROR("failed to unbind %lu pages at 0x%08llX\n",
-			  gtt->ttm.ttm.num_pages, gtt->offset);
+		DRM_ERROR("failed to unbind %u pages at 0x%08llX\n",
+			  gtt->ttm.num_pages, gtt->offset);
 	return r;
 }
 
-static void gsgpu_ttm_backend_destroy(struct ttm_tt *ttm)
+static void gsgpu_ttm_backend_destroy(struct ttm_device *bdev,
+				      struct ttm_tt *ttm)
 {
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 
 	if (gtt->usertask)
 		put_task_struct(gtt->usertask);
 
-	ttm_dma_tt_fini(&gtt->ttm);
+	ttm_tt_fini(&gtt->ttm);
 	kfree(gtt);
 }
-
-static struct ttm_backend_func gsgpu_backend_func = {
-	.bind = &gsgpu_ttm_backend_bind,
-	.unbind = &gsgpu_ttm_backend_unbind,
-	.destroy = &gsgpu_ttm_backend_destroy,
-};
 
 /**
  * gsgpu_ttm_tt_create - Create a ttm_tt object for a given BO
@@ -897,14 +876,13 @@ static struct ttm_tt *gsgpu_ttm_tt_create(struct ttm_buffer_object *bo,
 	if (gtt == NULL) {
 		return NULL;
 	}
-	gtt->ttm.ttm.func = &gsgpu_backend_func;
 
 	/* allocate space for the uninitialized page entries */
 	if (ttm_sg_tt_init(&gtt->ttm, bo, page_flags)) {
 		kfree(gtt);
 		return NULL;
 	}
-	return &gtt->ttm.ttm;
+	return &gtt->ttm;
 }
 
 /**
@@ -913,10 +891,11 @@ static struct ttm_tt *gsgpu_ttm_tt_create(struct ttm_buffer_object *bo,
  * Map the pages of a ttm_tt object to an address space visible
  * to the underlying device.
  */
-static int gsgpu_ttm_tt_populate(struct ttm_tt *ttm,
+static int gsgpu_ttm_tt_populate(struct ttm_device *bdev,
+				 struct ttm_tt *ttm,
 				 struct ttm_operation_ctx *ctx)
 {
-	struct gsgpu_device *adev = gsgpu_ttm_adev(ttm->bdev);
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 	bool slave = !!(ttm->page_flags & TTM_PAGE_FLAG_SG);
 
@@ -956,7 +935,8 @@ static int gsgpu_ttm_tt_populate(struct ttm_tt *ttm,
  * Unmaps pages of a ttm_tt object from the device address space and
  * unpopulates the page array backing it.
  */
-static void gsgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
+static void gsgpu_ttm_tt_unpopulate(struct ttm_device *bdev,
+				    struct ttm_tt *ttm)
 {
 	struct gsgpu_device *adev;
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
@@ -972,7 +952,7 @@ static void gsgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
 	if (slave)
 		return;
 
-	adev = gsgpu_ttm_adev(ttm->bdev);
+	adev = gsgpu_ttm_adev(bdev);
 
 #ifdef CONFIG_SWIOTLB
 	if (adev->need_swiotlb && swiotlb_nr_tbl()) {
@@ -1054,7 +1034,7 @@ bool gsgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
 	/* Return false if no part of the ttm_tt object lies within
 	 * the range
 	 */
-	size = (unsigned long)gtt->ttm.ttm.num_pages * PAGE_SIZE;
+	size = (unsigned long)gtt->ttm.num_pages * PAGE_SIZE;
 	if (gtt->userptr > end || gtt->userptr + size <= start)
 		return false;
 
@@ -1157,16 +1137,16 @@ uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
 static bool gsgpu_ttm_bo_eviction_valuable(struct ttm_buffer_object *bo,
 					   const struct ttm_place *place)
 {
-	unsigned long num_pages = bo->mem.num_pages;
+	unsigned long num_pages = bo->ttm->num_pages;
 	struct gsgpu_res_cursor cursor;
 
-	switch (bo->mem.mem_type) {
+	switch (bo->resource->mem_type) {
 	case TTM_PL_TT:
 		return true;
 
 	case TTM_PL_VRAM:
 		/* Check each drm MM node individually */
-		gsgpu_res_first(&bo->mem, 0, (u64)num_pages << PAGE_SHIFT,
+		gsgpu_res_first(bo->resource, 0, (u64)num_pages << PAGE_SHIFT,
 				&cursor);
 		while (cursor.remaining) {
 			if (place->fpfn < PFN_DOWN(cursor.start + cursor.size)
@@ -1238,10 +1218,10 @@ static int gsgpu_ttm_access_memory(struct ttm_buffer_object *bo,
 	uint32_t value = 0;
 	int ret = 0;
 
-	if (bo->mem.mem_type != TTM_PL_VRAM)
+	if (bo->resource->mem_type != TTM_PL_VRAM)
 		return -EIO;
 
-	gsgpu_res_first(&bo->mem, offset, len, &cursor);
+	gsgpu_res_first(bo->resource, offset, len, &cursor);
 	while (cursor.remaining) {
 		uint64_t aligned_pos = cursor.start & ~(uint64_t)3;
 		uint64_t bytes = 4 - (cursor.start & 3);
@@ -1283,15 +1263,20 @@ static int gsgpu_ttm_access_memory(struct ttm_buffer_object *bo,
 	return ret;
 }
 
+static void gsgpu_bo_delete_mem_notify(struct ttm_buffer_object *bo)
+{
+       gsgpu_bo_move_notify(bo, false, NULL);
+}
+
 static struct ttm_device_funcs gsgpu_device_funcs = {
 	.ttm_tt_create = &gsgpu_ttm_tt_create,
 	.ttm_tt_populate = &gsgpu_ttm_tt_populate,
 	.ttm_tt_unpopulate = &gsgpu_ttm_tt_unpopulate,
-	.invalidate_caches = &gsgpu_invalidate_caches,
+	.ttm_tt_destroy = &gsgpu_ttm_backend_destroy,
 	.eviction_valuable = gsgpu_ttm_bo_eviction_valuable,
 	.evict_flags = &gsgpu_evict_flags,
 	.move = &gsgpu_bo_move,
-	.move_notify = &gsgpu_bo_move_notify,
+       .delete_mem_notify = &gsgpu_bo_delete_mem_notify,
 	.io_mem_reserve = &gsgpu_ttm_io_mem_reserve,
 	.io_mem_free = &gsgpu_ttm_io_mem_free,
 	.io_mem_pfn = gsgpu_ttm_io_mem_pfn,
@@ -1367,7 +1352,7 @@ static int gsgpu_ttm_fw_reserve_vram_init(struct gsgpu_device *adev)
 
 		ttm_bo_mem_put(&bo->tbo, bo->tbo.resource);
 		r = ttm_bo_mem_space(&bo->tbo, &bo->placement,
-				     bo->tbo.resource, &ctx);
+				     &bo->tbo.resource, &ctx);
 		if (r)
 			goto error_pin;
 
@@ -1428,8 +1413,7 @@ int gsgpu_ttm_init(struct gsgpu_device *adev)
 	adev->mman.bdev.no_retry = true;
 
 	/* Initialize VRAM pool with all of VRAM divided into pages */
-	r = ttm_bo_init_mm(&adev->mman.bdev, TTM_PL_VRAM,
-				adev->gmc.real_vram_size >> PAGE_SHIFT);
+	r = gsgpu_vram_mgr_init(adev);
 	if (r) {
 		DRM_ERROR("Failed initializing VRAM heap.\n");
 		return r;
@@ -1485,7 +1469,7 @@ int gsgpu_ttm_init(struct gsgpu_device *adev)
 		gtt_size = (uint64_t)gsgpu_gtt_size << 20;
 
 	/* Initialize GTT memory pool */
-	r = ttm_bo_init_mm(&adev->mman.bdev, TTM_PL_TT, gtt_size >> PAGE_SHIFT);
+	r = gsgpu_gtt_mgr_init(adev);
 	if (r) {
 		DRM_ERROR("Failed initializing GTT heap.\n");
 		return r;
@@ -1676,7 +1660,7 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 			return r;
 	}
 
-	num_bytes = bo->tbo.mem.num_pages << PAGE_SHIFT;
+	num_bytes = bo->tbo.ttm->num_pages << PAGE_SHIFT;
 	num_loops = 0;
 	while (cursor.remaining) {
 		num_loops += DIV_ROUND_UP_ULL(cursor.size, max_bytes);
@@ -1700,12 +1684,12 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 		}
 	}
 
-	gsgpu_res_first(&bo->tbo.mem, 0, num_bytes, &cursor);
+	gsgpu_res_first(bo->tbo.resource, 0, num_bytes, &cursor);
 	while (cursor.remaining) {
 		uint32_t cur_size = min_t(uint64_t, cursor.size, max_bytes);
 		uint64_t dst_addr = cursor.start;
 
-		dst_addr += gsgpu_ttm_domain_start(adev, bo->tbo.mem.mem_type);
+		dst_addr += gsgpu_ttm_domain_start(adev, bo->tbo.resource->mem_type);
 		gsgpu_emit_fill_buffer(adev, &job->ibs[0], src_data, dst_addr,
 					cur_size);
 		gsgpu_res_next(&cursor, cur_size);

@@ -1438,13 +1438,10 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 		nodes = NULL;
 		exclusive = NULL;
 	} else {
-		struct ttm_dma_tt *ttm;
-
 		mem = &bo->tbo.mem;
 		nodes = mem->mm_node;
 		if (mem->mem_type == TTM_PL_TT) {
-			ttm = container_of(bo->tbo.ttm, struct ttm_dma_tt, ttm);
-			pages_addr = ttm->dma_address;
+			pages_addr = bo->tbo.ttm->dma_address;
 		}
 
 		exclusive = dma_resv_get_excl(bo->tbo.base.resv);

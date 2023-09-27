@@ -276,8 +276,8 @@ int gsgpu_gart_map(struct gsgpu_device *adev, uint64_t offset,
  * Returns 0 for success, -EINVAL for failure.
  */
 int gsgpu_gart_bind(struct gsgpu_device *adev, uint64_t offset,
-		     int pages, struct page **pagelist, dma_addr_t *dma_addr,
-		     uint64_t flags)
+		    int pages, struct page **pagelist, dma_addr_t *dma_addr,
+		    uint64_t flags)
 {
 #ifdef CONFIG_DRM_GSGPU_GART_DEBUGFS
 	unsigned i, t, p;
@@ -307,6 +307,27 @@ int gsgpu_gart_bind(struct gsgpu_device *adev, uint64_t offset,
 	mb();
 	gsgpu_gmc_flush_gpu_tlb(adev, 0);
 	return 0;
+}
+
+/**
+ * gsgpu_gart_invalidate_tlb - invalidate gart TLB
+ *
+ * @adev: gsgpu device driver pointer
+ *
+ * Invalidate gart TLB which can be use as a way to flush gart changes
+ *
+ */
+void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev)
+{
+        int i;
+
+        if (!adev->gart.ptr)
+                return;
+
+        mb();
+        gsgpu_device_flush_hdp(adev, NULL);
+        for_each_set_bit(i, adev->vmhubs_mask, GSGPU_MAX_VMHUBS)
+                gsgpu_gmc_flush_gpu_tlb(adev, 0, i, 0);
 }
 
 /**

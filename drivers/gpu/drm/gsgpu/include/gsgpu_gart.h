@@ -47,5 +47,6 @@ int gsgpu_gart_map(struct gsgpu_device *adev, uint64_t offset,
 int gsgpu_gart_bind(struct gsgpu_device *adev, uint64_t offset,
 		     int pages, struct page **pagelist,
 		     dma_addr_t *dma_addr, uint64_t flags);
+void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev);
 
 #endif /* __GSGPU_GART_H__ */

@@ -112,14 +112,8 @@ void gsgpu_bo_placement_from_domain(struct gsgpu_bo *abo, u32 domain)
 
 		places[c].fpfn = 0;
 		places[c].lpfn = 0;
-		places[c].flags = TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_VRAM | TTM_PL_FLAG_WC;
-
-		/* TODO: We need to understand how compressed buffer works */
-		/* if (flags & GSGPU_GEM_CREATE_COMPRESSED_MASK) */
-		/* 	places[c].flags |= TTM_PL_FLAG_NO_EVICT; */
-
-		if (flags & GSGPU_GEM_CREATE_CPU_GTT_USWC)
-			places[c].flags |= TTM_PL_FLAG_WC;
+		places[c].mem_type = TTM_PL_VRAM;
+		places[c].flags = 0;
 
 		if (flags & GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED)
 			places[c].lpfn = visible_pfn;
@@ -137,38 +131,24 @@ void gsgpu_bo_placement_from_domain(struct gsgpu_bo *abo, u32 domain)
 			places[c].lpfn = adev->gmc.gart_size >> PAGE_SHIFT;
 		else
 			places[c].lpfn = 0;
-		places[c].flags = TTM_PL_FLAG_TT;
-		if (flags & GSGPU_GEM_CREATE_CPU_GTT_USWC)
-			places[c].flags |= TTM_PL_FLAG_WC |
-				TTM_PL_FLAG_UNCACHED;
-		else if (dev_is_coherent(NULL))
-			places[c].flags |= TTM_PL_FLAG_CACHED;
-		else
-			places[c].flags |= TTM_PL_FLAG_UNCACHED;
+		places[c].mem_type = TTM_PL_TT;
+		places[c].flags = 0;
 		c++;
 	}
 
 	if (domain & GSGPU_GEM_DOMAIN_CPU) {
 		places[c].fpfn = 0;
 		places[c].lpfn = 0;
-		places[c].flags = TTM_PL_FLAG_SYSTEM;
-		if (flags & GSGPU_GEM_CREATE_CPU_GTT_USWC)
-			places[c].flags |= TTM_PL_FLAG_WC |
-				TTM_PL_FLAG_UNCACHED;
-		else if (dev_is_coherent(NULL))
-			places[c].flags |= TTM_PL_FLAG_CACHED;
-		else
-			places[c].flags |= TTM_PL_FLAG_UNCACHED;
+		places[c].mem_type = TTM_PL_SYSTEM;
+		places[c].flags = 0;
 		c++;
 	}
 
 	if (!c) {
 		places[c].fpfn = 0;
 		places[c].lpfn = 0;
-		if (dev_is_coherent(NULL))
-			places[c].flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM;
-		else
-			places[c].flags = TTM_PL_FLAG_WC | TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_SYSTEM;
+		places[c].mem_type = TTM_PL_SYSTEM;
+		places[c].flags = 0;
 		c++;
 	}
 
@@ -435,14 +415,14 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
 	    bo->tbo.resource->mem_type == TTM_PL_VRAM &&
-	    bo->tbo.mem.start < adev->gmc.visible_vram_size >> PAGE_SHIFT)
+	    bo->tbo.resource->start < adev->gmc.visible_vram_size >> PAGE_SHIFT)
 		gsgpu_cs_report_moved_bytes(adev, ctx.bytes_moved,
 					     ctx.bytes_moved);
 	else
 		gsgpu_cs_report_moved_bytes(adev, ctx.bytes_moved, 0);
 
 	if (bp->flags & GSGPU_GEM_CREATE_VRAM_CLEARED &&
-	    bo->tbo.mem.placement & TTM_PL_FLAG_VRAM) {
+	    bo->tbo.resource->placement & TTM_PL_FLAG_VRAM) {
 		struct dma_fence *fence;
 
 		r = gsgpu_fill_buffer(bo, 0, bo->tbo.base.resv, &fence);
@@ -838,9 +818,8 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 		ttm_bo_pin(&bo->tbo);
 
 		if (max_offset != 0) {
-			u64 domain_start = bo->tbo.bdev->man[mem_type].gpu_offset;
-			WARN_ON_ONCE(max_offset <
-				     (gsgpu_bo_gpu_offset(bo) - domain_start));
+			u64 domain_start = amdgpu_ttm_domain_start(adev, mem_type);
+			WARN_ON_ONCE(max_offset < (gsgpu_bo_gpu_offset(bo) - domain_start));
 		}
 
 		return 0;
@@ -1201,7 +1180,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	/* Remember that this BO was accessed by the CPU */
 	abo->flags |= GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
 
-	if (bo->mem.mem_type != TTM_PL_VRAM)
+	if (bo->resource->mem_type != TTM_PL_VRAM)
 		return 0;
 
 	size = bo->mem.num_pages << PAGE_SHIFT;
@@ -1230,7 +1209,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 
 	offset = bo->mem.start << PAGE_SHIFT;
 	/* this should never happen */
-	if (bo->mem.mem_type == TTM_PL_VRAM &&
+	if (bo->resource->mem_type == TTM_PL_VRAM &&
 	    (offset + size) > adev->gmc.visible_vram_size)
 		return VM_FAULT_SIGBUS;
 
@@ -1271,14 +1250,18 @@ u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo)
 {
 	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_SYSTEM);
 	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_TT &&
-		     !gsgpu_gtt_mgr_has_gart_addr(&bo->tbo.mem));
+		     !gsgpu_gtt_mgr_has_gart_addr(bo->tbo.resource));
 	WARN_ON_ONCE(!ww_mutex_is_locked(&bo->tbo.base.resv->lock) &&
 		     !bo->tbo.pin_count);
-	WARN_ON_ONCE(bo->tbo.mem.start == GSGPU_BO_INVALID_OFFSET);
+	WARN_ON_ONCE(bo->tbo.resource->start == GSGPU_BO_INVALID_OFFSET);
 	WARN_ON_ONCE(bo->tbo.resource->mem_type == TTM_PL_VRAM &&
 		     !(bo->flags & GSGPU_GEM_CREATE_VRAM_CONTIGUOUS));
 
-	return bo->tbo.offset;
+	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
+	uint64_t offset = (bo->tbo.resource->start << PAGE_SHIFT) +
+                gsgpu_ttm_domain_start(adev, bo->tbo.resource->mem_type);
+
+	return offset;
 }
 
 /**
