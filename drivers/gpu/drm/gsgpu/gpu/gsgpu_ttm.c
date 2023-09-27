@@ -1477,12 +1477,10 @@ void gsgpu_ttm_set_buffer_funcs_status(struct gsgpu_device *adev, bool enable)
 		return;
 
 	if (enable) {
-		struct gsgpu_ring *ring;
-		struct drm_sched_rq *rq;
-
-		ring = adev->mman.buffer_funcs_ring;
-		rq = &ring->sched.sched_rq[DRM_SCHED_PRIORITY_KERNEL];
-		r = drm_sched_entity_init(&adev->mman.entity, &rq, 1, NULL);
+		struct gsgpu_ring *ring = adev->mman.buffer_funcs_ring;
+		struct drm_gpu_scheduler *sched = &ring->sched;
+		r = drm_sched_entity_init(&adev->mman.entity,
+					  DRM_SCHED_PRIORITY_KERNEL, &sched, 1, NULL);
 		if (r) {
 			DRM_ERROR("Failed setting up TTM BO move entity (%d)\n",
 				  r);

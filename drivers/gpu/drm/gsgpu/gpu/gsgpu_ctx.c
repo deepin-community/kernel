@@ -58,12 +58,9 @@ static int gsgpu_ctx_init(struct gsgpu_device *adev,
 	/* create context entity for each ring */
 	for (i = 0; i < adev->num_rings; i++) {
 		struct gsgpu_ring *ring = adev->rings[i];
-		struct drm_sched_rq *rq;
-
-		rq = &ring->sched.sched_rq[priority];
-
+		struct drm_gpu_scheduler *sched = &ring->sched;
 		r = drm_sched_entity_init(&ctx->rings[i].entity,
-					  &rq, 1, &ctx->guilty);
+					  priority, &sched, 1, &ctx->guilty);
 		if (r)
 			goto failed;
 	}

@@ -2221,7 +2221,7 @@ int gsgpu_vm_init(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 		GSGPU_VM_PTE_COUNT(ldev) * gsgpu_get_pde_pte_size(ldev));
 	unsigned ring_instance;
 	struct gsgpu_ring *ring;
-	struct drm_sched_rq *rq;
+	struct drm_gpu_scheduler *rq;
 	unsigned long size;
 	u64 flags;
 	int r;
@@ -2240,8 +2240,9 @@ int gsgpu_vm_init(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 	ring_instance = atomic_inc_return(&ldev->vm_manager.vm_pte_next_ring);
 	ring_instance %= ldev->vm_manager.vm_pte_num_rings;
 	ring = ldev->vm_manager.vm_pte_rings[ring_instance];
-	rq = &ring->sched.sched_rq[DRM_SCHED_PRIORITY_KERNEL];
-	r = drm_sched_entity_init(&vm->entity, &rq, 1, NULL);
+	rq = &ring->sched;
+	r = drm_sched_entity_init(&vm->entity, DRM_SCHED_PRIORITY_KERNEL,
+				  &rq, 1, NULL);
 	if (r)
 		return r;
 
