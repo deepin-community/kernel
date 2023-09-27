@@ -55,8 +55,8 @@ int gsgpu_copy_buffer(struct gsgpu_ring *ring, uint64_t src_offset,
 		      struct dma_fence **fence, bool direct_submit,
 		      bool vm_needs_flush);
 int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
-			      struct gsgpu_copy_mem *src,
-			      struct gsgpu_copy_mem *dst,
+			      const struct gsgpu_copy_mem *src,
+			      const struct gsgpu_copy_mem *dst,
 			      uint64_t size,
 			      struct dma_resv *resv,
 			      struct dma_fence **f);

@@ -1144,7 +1144,6 @@ int gsgpu_gpu_wait_for_idle(struct gsgpu_device *adev);
 
 uint64_t gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd,
 			uint32_t arg0, uint32_t arg1);
-
 uint32_t gsgpu_mm_rreg(struct gsgpu_device *adev, uint32_t reg,
 			uint32_t acc_flags);
 void gsgpu_mm_wreg(struct gsgpu_device *adev, uint32_t reg, uint32_t v);
