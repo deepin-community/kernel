@@ -1410,7 +1410,7 @@ int gsgpu_ttm_init(struct gsgpu_device *adev)
 		gtt_size = (uint64_t)gsgpu_gtt_size << 20;
 
 	/* Initialize GTT memory pool */
-	r = gsgpu_gtt_mgr_init(adev);
+	r = gsgpu_gtt_mgr_init(adev, gtt_size);
 	if (r) {
 		DRM_ERROR("Failed initializing GTT heap.\n");
 		return r;
@@ -1450,8 +1450,8 @@ void gsgpu_ttm_fini(struct gsgpu_device *adev)
 		iounmap(adev->mman.aper_base_kaddr);
 	adev->mman.aper_base_kaddr = NULL;
 
-	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_VRAM);
-	ttm_bo_clean_mm(&adev->mman.bdev, TTM_PL_TT);
+	gsgpu_vram_mgr_fini(adev);
+	gsgpu_gtt_mgr_fini(adev);
 	ttm_device_release(&adev->mman.bdev);
 	adev->mman.initialized = false;
 	DRM_INFO("gsgpu: ttm finalized\n");
