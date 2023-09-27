@@ -15,7 +15,7 @@ struct gsgpu_bo_list_entry {
 	struct gsgpu_bo_va		*bo_va;
 	uint32_t			priority;
 	struct page			**user_pages;
-	int				user_invalidated;
+	bool				user_invalidated;
 };
 
 struct gsgpu_bo_list {

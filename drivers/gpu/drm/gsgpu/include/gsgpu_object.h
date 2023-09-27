@@ -60,7 +60,10 @@ struct gsgpu_bo {
 	struct gsgpu_bo		*shadow;
 
 	struct ttm_bo_kmap_obj		dma_buf_vmap;
-	struct gsgpu_mn		*mn;
+
+#ifdef CONFIG_MMU_NOTIFIER
+	struct mmu_interval_notifier	notifier;
+#endif
 
 	union {
 		struct list_head	mn_list;

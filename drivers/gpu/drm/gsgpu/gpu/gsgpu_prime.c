@@ -17,7 +17,7 @@ static const struct dma_buf_ops gsgpu_dmabuf_ops;
 struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	int npages = bo->tbo.num_pages;
+	int npages = bo->tbo.ttm->num_pages;
 
 	return drm_prime_pages_to_sg(bo->tbo.ttm->pages, npages);
 }
@@ -36,7 +36,7 @@ void *gsgpu_gem_prime_vmap(struct drm_gem_object *obj)
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
 	int ret;
 
-	ret = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.num_pages,
+	ret = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.ttm->num_pages,
 			  &bo->dma_buf_vmap);
 	if (ret)
 		return ERR_PTR(ret);

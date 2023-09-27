@@ -9,6 +9,7 @@
 #include <linux/hashtable.h>
 #include <linux/dma-fence.h>
 #include <linux/pci.h>
+#include <linux/hmm.h>
 
 #include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_tt.h>
@@ -33,7 +34,7 @@
 #include "gsgpu_sync.h"
 #include "gsgpu_ring.h"
 #include "gsgpu_vm.h"
-#include "gsgpu_mn.h"
+#include "gsgpu_hmm.h"
 #include "gsgpu_gmc.h"
 #include "gsgpu_dc.h"
 #include "gsgpu_gart.h"
@@ -766,7 +767,6 @@ struct gsgpu_cs_parser {
 	/* buffer objects */
 	struct ww_acquire_ctx		ticket;
 	struct gsgpu_bo_list		*bo_list;
-	struct gsgpu_mn		*mn;
 	struct gsgpu_bo_list_entry	vm_pd;
 	struct list_head		validated;
 	struct dma_fence		*fence;
@@ -1092,8 +1092,7 @@ struct gsgpu_device {
 
 	struct gsgpu_ip_block          ip_blocks[GSGPU_MAX_IP_NUM];
 	int				num_ip_blocks;
-	struct mutex	mn_lock;
-	DECLARE_HASHTABLE(mn_hash, 7);
+	struct mutex	notifier_lock;
 
 	/* tracking pinned memory */
 	atomic64_t vram_pin_size;

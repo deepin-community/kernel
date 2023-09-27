@@ -49,7 +49,7 @@ static void gsgpu_gem_object_free(struct drm_gem_object *gobj)
 	struct gsgpu_bo *robj = gem_to_gsgpu_bo(gobj);
 
 	if (robj) {
-		gsgpu_mn_unregister(robj);
+		gsgpu_hmm_unregister(robj);
 		gsgpu_bo_unref(&robj);
 	}
 }
@@ -366,7 +366,7 @@ int gsgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 		goto release_object;
 
 	if (args->flags & GSGPU_GEM_USERPTR_REGISTER) {
-		r = gsgpu_mn_register(bo, args->addr);
+		r = gsgpu_hmm_register(bo, args->addr);
 		if (r)
 			goto release_object;
 	}
@@ -379,26 +379,24 @@ int gsgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 
 		r = gsgpu_bo_reserve(bo, true);
 		if (r)
-			goto free_pages;
+			goto user_pages_done;
 
 		gsgpu_bo_placement_from_domain(bo, GSGPU_GEM_DOMAIN_GTT);
 		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
 		gsgpu_bo_unreserve(bo);
 		if (r)
-			goto free_pages;
+			goto user_pages_done;
 	}
 
 	r = drm_gem_handle_create(filp, gobj, &handle);
-	/* drop reference from allocate - handle holds it now */
-	drm_gem_object_put_unlocked(gobj);
 	if (r)
-		return r;
+		goto user_pages_done;
 
 	args->handle = handle;
-	return 0;
 
-free_pages:
-	release_pages(bo->tbo.ttm->pages, bo->tbo.ttm->num_pages);
+user_pages_done:
+	if (args->flags & GSGPU_GEM_USERPTR_VALIDATE)
+		gsgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm);
 
 release_object:
 	drm_gem_object_put_unlocked(gobj);

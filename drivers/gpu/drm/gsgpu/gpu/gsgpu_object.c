@@ -687,7 +687,7 @@ int gsgpu_bo_kmap(struct gsgpu_bo *bo, void **ptr)
 	if (r < 0)
 		return r;
 
-	r = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.num_pages, &bo->kmap);
+	r = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.ttm->num_pages, &bo->kmap);
 	if (r)
 		return r;
 
@@ -818,7 +818,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 		ttm_bo_pin(&bo->tbo);
 
 		if (max_offset != 0) {
-			u64 domain_start = amdgpu_ttm_domain_start(adev, mem_type);
+			u64 domain_start = gsgpu_ttm_domain_start(adev, mem_type);
 			WARN_ON_ONCE(max_offset < (gsgpu_bo_gpu_offset(bo) - domain_start));
 		}
 
@@ -1136,7 +1136,7 @@ void gsgpu_bo_move_notify(struct ttm_buffer_object *bo,
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->bdev);
 	struct gsgpu_bo *abo;
-	struct ttm_resource *old_mem = &bo->mem;
+	struct ttm_resource *old_mem = bo->resource;
 
 	if (!gsgpu_bo_is_gsgpu_bo(bo))
 		return;
@@ -1183,8 +1183,8 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	if (bo->resource->mem_type != TTM_PL_VRAM)
 		return 0;
 
-	size = bo->mem.num_pages << PAGE_SHIFT;
-	offset = bo->mem.start << PAGE_SHIFT;
+	size = bo->ttm->num_pages << PAGE_SHIFT;
+	offset = bo->resource->start << PAGE_SHIFT;
 	if ((offset + size) <= adev->gmc.visible_vram_size)
 		return 0;
 
@@ -1207,7 +1207,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	else if (unlikely(r))
 		return VM_FAULT_SIGBUS;
 
-	offset = bo->mem.start << PAGE_SHIFT;
+	offset = bo->resource->start << PAGE_SHIFT;
 	/* this should never happen */
 	if (bo->resource->mem_type == TTM_PL_VRAM &&
 	    (offset + size) > adev->gmc.visible_vram_size)

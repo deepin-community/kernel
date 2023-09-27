@@ -9,6 +9,7 @@
 #include <linux/pagemap.h>
 #include <linux/debugfs.h>
 #include <linux/iommu.h>
+#include <linux/hmm.h>
 #include "gsgpu.h"
 #include "gsgpu_object.h"
 #include "gsgpu_trace.h"
@@ -27,6 +28,8 @@ static int gsgpu_ttm_backend_unbind(struct ttm_device *bdev,
 				    struct ttm_tt *ttm);
 static int gsgpu_ttm_debugfs_init(struct gsgpu_device *adev);
 static void gsgpu_ttm_debugfs_fini(struct gsgpu_device *adev);
+
+#define ttm_to_gsgpu_ttm_tt(ptr)	container_of(ptr, struct gsgpu_ttm_tt, ttm)
 
 /**
  * gsgpu_evict_flags - Compute placement flags
@@ -477,99 +480,94 @@ static unsigned long gsgpu_ttm_io_mem_pfn(struct ttm_buffer_object *bo,
 /*
  * TTM backend functions.
  */
-struct gsgpu_ttm_gup_task_list {
-	struct list_head	list;
-	struct task_struct	*task;
-};
-
 struct gsgpu_ttm_tt {
 	struct ttm_tt		ttm;
 	u64			offset;
 	uint64_t		userptr;
 	struct task_struct	*usertask;
 	uint32_t		userflags;
-	spinlock_t              guptasklock;
-	struct list_head        guptasks;
-	atomic_t		mmu_invalidations;
-	uint32_t		last_set_pages;
+	struct hmm_range        *ranges;
+	int                     nr_ranges;
 };
 
+/* Support Userptr pages cross max 16 vmas */
+#define MAX_NR_VMAS    (16)
+
 /**
- * gsgpu_ttm_tt_get_user_pages - Pin pages of memory pointed to by a USERPTR
- * pointer to memory
+ * gsgpu_ttm_tt_get_user_pages - get device accessible pages that back user
+ * memory and start HMM tracking CPU page table update
  *
- * Called by gsgpu_gem_userptr_ioctl() and gsgpu_cs_parser_bos().
- * This provides a wrapper around the get_user_pages() call to provide
- * device accessible pages that back user memory.
+ * Calling function must call gsgpu_ttm_tt_userptr_range_done() once and only
+ * once afterwards to stop HMM tracking
  */
-int gsgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages)
+int gsgpu_ttm_tt_get_user_pages(struct gsgpu_bo *bo, struct page **pages,
+				struct hmm_range **range)
 {
-	struct gsgpu_ttm_tt *gtt = (void *)ttm;
-	struct mm_struct *mm = gtt->usertask->mm;
-	unsigned int flags = 0;
-	unsigned pinned = 0;
-	int r;
+	struct ttm_tt *ttm = bo->tbo.ttm;
+	struct gsgpu_ttm_tt *gtt = ttm_to_gsgpu_ttm_tt(ttm);
+	unsigned long start = gtt->userptr;
+	struct vm_area_struct *vma;
+	struct mm_struct *mm;
+	bool readonly;
+	int r = 0;
 
-	if (!mm) /* Happens during process shutdown */
-		return -ESRCH;
+	/* Make sure get_user_pages_done() can cleanup gracefully */
+	*range = NULL;
 
-	if (!(gtt->userflags & GSGPU_GEM_USERPTR_READONLY))
-		flags |= FOLL_WRITE;
-
-	mmap_read_lock(mm);
-
-	if (gtt->userflags & GSGPU_GEM_USERPTR_ANONONLY) {
-		/*
-		 * check that we only use anonymous memory to prevent problems
-		 * with writeback
-		 */
-		unsigned long end = gtt->userptr + ttm->num_pages * PAGE_SIZE;
-		struct vm_area_struct *vma;
-
-		vma = find_vma(mm, gtt->userptr);
-		if (!vma || vma->vm_file || vma->vm_end < end) {
-			mmap_read_unlock(mm);;
-			return -EPERM;
-		}
+	mm = bo->notifier.mm;
+	if (unlikely(!mm)) {
+		DRM_DEBUG_DRIVER("BO is not registered?\n");
+		return -EFAULT;
 	}
 
-	/* loop enough times using contiguous pages of memory */
-	do {
-		unsigned num_pages = ttm->num_pages - pinned;
-		uint64_t userptr = gtt->userptr + pinned * PAGE_SIZE;
-		struct page **p = pages + pinned;
-		struct gsgpu_ttm_gup_task_list guptask;
+	if (!mmget_not_zero(mm)) /* Happens during process shutdown */
+		return -ESRCH;
 
-		guptask.task = current;
-		spin_lock(&gtt->guptasklock);
-		list_add(&guptask.list, &gtt->guptasks);
-		spin_unlock(&gtt->guptasklock);
+	mmap_read_lock(mm);
+	vma = vma_lookup(mm, start);
+	if (unlikely(!vma)) {
+		r = -EFAULT;
+		goto out_unlock;
+	}
+	if (unlikely((gtt->userflags & GSGPU_GEM_USERPTR_ANONONLY) &&
+		     vma->vm_file)) {
+		r = -EPERM;
+		goto out_unlock;
+	}
 
-		if (mm == current->mm)
-			r = get_user_pages(userptr, num_pages, flags, p, NULL);
-		else
-			r = get_user_pages_remote(gtt->usertask,
-						  mm, userptr, num_pages,
-						  flags, p, NULL, NULL);
+	readonly = gsgpu_ttm_tt_is_readonly(ttm);
+	r = gsgpu_hmm_range_get_pages(&bo->notifier, start, ttm->num_pages,
+				      readonly, NULL, pages, range);
+out_unlock:
+	mmap_read_unlock(mm);
+	if (r)
+		pr_debug("failed %d to get user pages 0x%lx\n", r, start);
 
-		spin_lock(&gtt->guptasklock);
-		list_del(&guptask.list);
-		spin_unlock(&gtt->guptasklock);
+	mmput(mm);
 
-		if (r < 0)
-			goto release_pages;
-
-		pinned += r;
-
-	} while (pinned < ttm->num_pages);
-
-	mmap_read_unlock(mm);;
-	return 0;
-
-release_pages:
-	release_pages(pages, pinned);
-	mmap_read_unlock(mm);;
 	return r;
+}
+
+/**
+ * gsgpu_ttm_tt_userptr_range_done - stop HMM track the CPU page table change
+ * Check if the pages backing this ttm range have been invalidated
+ *
+ * Returns: true if pages are still valid
+ */
+bool gsgpu_ttm_tt_get_user_pages_done(struct ttm_tt *ttm,
+				      struct hmm_range *range)
+{
+	struct gsgpu_ttm_tt *gtt = ttm_to_gsgpu_ttm_tt(ttm);
+
+	if (!gtt || !gtt->userptr || !range)
+		return false;
+
+	DRM_DEBUG_DRIVER("user_pages_done 0x%llx pages 0x%x\n",
+			 gtt->userptr, ttm->num_pages);
+
+	WARN_ONCE(!range->hmm_pfns, "No user pages to check\n");
+
+	return !gsgpu_hmm_range_get_pages_done(range);
 }
 
 /**
@@ -581,16 +579,10 @@ release_pages:
  */
 void gsgpu_ttm_tt_set_user_pages(struct ttm_tt *ttm, struct page **pages)
 {
-	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 	unsigned i;
 
-	gtt->last_set_pages = atomic_read(&gtt->mmu_invalidations);
-	for (i = 0; i < ttm->num_pages; ++i) {
-		if (ttm->pages[i])
-			put_page(ttm->pages[i]);
-
+	for (i = 0; i < ttm->num_pages; ++i)
 		ttm->pages[i] = pages ? pages[i] : NULL;
-	}
 }
 
 /**
@@ -625,35 +617,33 @@ static int gsgpu_ttm_tt_pin_userptr(struct ttm_device *bdev,
 				    struct ttm_tt *ttm)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
-	struct gsgpu_ttm_tt *gtt = (void *)ttm;
-	unsigned nents;
-	int r;
-
+	struct gsgpu_ttm_tt *gtt = ttm_to_gsgpu_ttm_tt(ttm);
 	int write = !(gtt->userflags & GSGPU_GEM_USERPTR_READONLY);
 	enum dma_data_direction direction = write ?
 		DMA_BIDIRECTIONAL : DMA_TO_DEVICE;
+	int r;
 
 	/* Allocate an SG array and squash pages into it */
 	r = sg_alloc_table_from_pages(ttm->sg, ttm->pages, ttm->num_pages, 0,
-				      ttm->num_pages << PAGE_SHIFT,
+				      (u64)ttm->num_pages << PAGE_SHIFT,
 				      GFP_KERNEL);
 	if (r)
 		goto release_sg;
 
 	/* Map SG to device */
-	r = -ENOMEM;
-	nents = dma_map_sg(adev->dev, ttm->sg->sgl, ttm->sg->nents, direction);
-	if (nents != ttm->sg->nents)
+	r = dma_map_sgtable(adev->dev, ttm->sg, direction, 0);
+	if (r)
 		goto release_sg;
 
 	/* convert SG to linear array of pages and dma addresses */
-	drm_prime_sg_to_page_addr_arrays(ttm->sg, ttm->pages,
-					 gtt->ttm.dma_address, ttm->num_pages);
+	drm_prime_sg_to_dma_addr_array(ttm->sg, gtt->ttm.dma_address,
+				       ttm->num_pages);
 
 	return 0;
 
 release_sg:
 	kfree(ttm->sg);
+	ttm->sg = NULL;
 	return r;
 }
 
@@ -664,22 +654,17 @@ static void gsgpu_ttm_tt_unpin_userptr(struct ttm_device *bdev,
 				       struct ttm_tt *ttm)
 {
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bdev);
-	struct gsgpu_ttm_tt *gtt = (void *)ttm;
-
+	struct gsgpu_ttm_tt *gtt = ttm_to_gsgpu_ttm_tt(ttm);
 	int write = !(gtt->userflags & GSGPU_GEM_USERPTR_READONLY);
 	enum dma_data_direction direction = write ?
 		DMA_BIDIRECTIONAL : DMA_TO_DEVICE;
 
 	/* double check that we don't free the table twice */
-	if (!ttm->sg->sgl)
+	if (!ttm->sg || !ttm->sg->sgl)
 		return;
 
 	/* unmap the pages mapped to the device */
-	dma_unmap_sg(adev->dev, ttm->sg->sgl, ttm->sg->nents, direction);
-
-	/* mark the pages as dirty */
-	gsgpu_ttm_tt_mark_user_pages(ttm);
-
+	dma_unmap_sgtable(adev->dev, ttm->sg, direction, 0);
 	sg_free_table(ttm->sg);
 }
 
@@ -784,7 +769,7 @@ int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo)
 	gtt->offset = (u64)tmp->start << PAGE_SHIFT;
         r = gsgpu_ttm_gart_bind(adev, bo, flags);
 	if (unlikely(r)) {
-		ttm_resource_free(bo, tmp);
+		ttm_resource_free(bo, &tmp);
 		return r;
 	}
         ttm_resource_free(bo, &bo->resource);
@@ -989,11 +974,6 @@ int gsgpu_ttm_tt_set_userptr(struct ttm_tt *ttm, uint64_t addr,
 	gtt->usertask = current->group_leader;
 	get_task_struct(gtt->usertask);
 
-	spin_lock_init(&gtt->guptasklock);
-	INIT_LIST_HEAD(&gtt->guptasks);
-	atomic_set(&gtt->mmu_invalidations, 0);
-	gtt->last_set_pages = 0;
-
 	return 0;
 }
 
@@ -1022,7 +1002,6 @@ bool gsgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
 				 unsigned long end)
 {
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
-	struct gsgpu_ttm_gup_task_list *entry;
 	unsigned long size;
 
 	if (gtt == NULL || !gtt->userptr)
@@ -1035,48 +1014,20 @@ bool gsgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
 	if (gtt->userptr > end || gtt->userptr + size <= start)
 		return false;
 
-	/* Search the lists of tasks that hold this mapping and see
-	 * if current is one of them.  If it is return false.
-	 */
-	spin_lock(&gtt->guptasklock);
-	list_for_each_entry(entry, &gtt->guptasks, list) {
-		if (entry->task == current) {
-			spin_unlock(&gtt->guptasklock);
-			return false;
-		}
-	}
-	spin_unlock(&gtt->guptasklock);
-
-	atomic_inc(&gtt->mmu_invalidations);
-
 	return true;
 }
 
 /**
- * gsgpu_ttm_tt_userptr_invalidated - Has the ttm_tt object been invalidated?
+ * gsgpu_ttm_tt_is_userptr - Have the pages backing by userptr?
  */
-bool gsgpu_ttm_tt_userptr_invalidated(struct ttm_tt *ttm,
-				      int *last_invalidated)
-{
-	struct gsgpu_ttm_tt *gtt = (void *)ttm;
-	int prev_invalidated = *last_invalidated;
-
-	*last_invalidated = atomic_read(&gtt->mmu_invalidations);
-	return prev_invalidated != *last_invalidated;
-}
-
-/**
- * gsgpu_ttm_tt_userptr_needs_pages - Have the pages backing this ttm_tt object
- * been invalidated since the last time they've been set?
- */
-bool gsgpu_ttm_tt_userptr_needs_pages(struct ttm_tt *ttm)
+bool gsgpu_ttm_tt_is_userptr(struct ttm_tt *ttm)
 {
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
 
 	if (gtt == NULL || !gtt->userptr)
 		return false;
 
-	return atomic_read(&gtt->mmu_invalidations) != gtt->last_set_pages;
+	return true;
 }
 
 /**
@@ -1347,7 +1298,7 @@ static int gsgpu_ttm_fw_reserve_vram_init(struct gsgpu_device *adev)
 			bo->placements[i].lpfn = (offset + size) >> PAGE_SHIFT;
 		}
 
-		ttm_bo_mem_put(&bo->tbo, bo->tbo.resource);
+		ttm_resource_free(&bo->tbo, &bo->tbo.resource);
 		r = ttm_bo_mem_space(&bo->tbo, &bo->placement,
 				     &bo->tbo.resource, &ctx);
 		if (r)

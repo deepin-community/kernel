@@ -68,7 +68,10 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 int gsgpu_ttm_alloc_gart(struct ttm_buffer_object *bo);
 int gsgpu_ttm_recover_gart(struct ttm_buffer_object *tbo);
 
-int gsgpu_ttm_tt_get_user_pages(struct ttm_tt *ttm, struct page **pages);
+int gsgpu_ttm_tt_get_user_pages(struct gsgpu_bo *bo, struct page **pages,
+				struct hmm_range **range);
+bool gsgpu_ttm_tt_get_user_pages_done(struct ttm_tt *ttm,
+				      struct hmm_range *range);
 void gsgpu_ttm_tt_set_user_pages(struct ttm_tt *ttm, struct page **pages);
 void gsgpu_ttm_tt_mark_user_pages(struct ttm_tt *ttm);
 int gsgpu_ttm_tt_set_userptr(struct ttm_tt *ttm, uint64_t addr,
@@ -79,7 +82,7 @@ bool gsgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
 				 unsigned long end);
 bool gsgpu_ttm_tt_userptr_invalidated(struct ttm_tt *ttm,
 				      int *last_invalidated);
-bool gsgpu_ttm_tt_userptr_needs_pages(struct ttm_tt *ttm);
+bool gsgpu_ttm_tt_is_userptr(struct ttm_tt *ttm);
 bool gsgpu_ttm_tt_is_readonly(struct ttm_tt *ttm);
 uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
 				struct ttm_resource *mem);

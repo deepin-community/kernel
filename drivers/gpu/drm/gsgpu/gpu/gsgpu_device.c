@@ -1279,8 +1279,7 @@ int gsgpu_device_init(struct gsgpu_device *adev,
 	mutex_init(&adev->gfx.gpu_clock_mutex);
 	mutex_init(&adev->srbm_mutex);
 	mutex_init(&adev->grbm_idx_mutex);
-	mutex_init(&adev->mn_lock);
-	hash_init(adev->mn_hash);
+	mutex_init(&adev->notifier_lock);
 	mutex_init(&adev->lock_reset);
 	spin_lock_init(&adev->dc_mmio_lock);
 

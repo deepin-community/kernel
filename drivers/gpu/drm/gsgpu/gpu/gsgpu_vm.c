@@ -1438,7 +1438,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 		nodes = NULL;
 		exclusive = NULL;
 	} else {
-		mem = &bo->tbo.mem;
+		mem = bo->tbo.resource;
 		nodes = mem->mm_node;
 		if (mem->mem_type == TTM_PL_TT) {
 			pages_addr = bo->tbo.ttm->dma_address;
@@ -1488,7 +1488,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 	 * next command submission.
 	 */
 	if (bo && bo->tbo.base.resv == vm->root.base.bo->tbo.base.resv) {
-		u32 mem_type = bo->tbo.mem.mem_type;
+		u32 mem_type = bo->tbo.resource->mem_type;
 
 		if (!(bo->preferred_domains & gsgpu_mem_type_to_domain(mem_type)))
 			list_add_tail(&bo_va->base.vm_status, &vm->evicted);
