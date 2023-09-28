@@ -182,7 +182,7 @@ static void gsgpu_gem_object_close(struct drm_gem_object *obj,
 	INIT_LIST_HEAD(&duplicates);
 
 	tv.bo = &bo->tbo;
-	tv.shared = true;
+	tv.num_shared = 1;
 	list_add(&tv.head, &list);
 
 	gsgpu_vm_get_pd_bo(vm, &list, &vm_pd);
@@ -479,8 +479,8 @@ int gsgpu_gem_wait_idle_ioctl(struct drm_device *dev, void *data,
 		return -ENOENT;
 	}
 	robj = gem_to_gsgpu_bo(gobj);
-	ret = dma_resv_wait_timeout_rcu(robj->tbo.base.resv, true, true,
-						  timeout);
+	ret = dma_resv_wait_timeout(robj->tbo.base.resv, DMA_RESV_USAGE_READ,
+				    true, timeout);
 
 	/* ret == 0 means not signaled,
 	 * ret > 0 means signaled
@@ -645,7 +645,11 @@ int gsgpu_gem_va_ioctl(struct drm_device *dev, void *data,
 			return -ENOENT;
 		abo = gem_to_gsgpu_bo(gobj);
 		tv.bo = &abo->tbo;
-		tv.shared = !!(abo->flags & GSGPU_GEM_CREATE_VM_ALWAYS_VALID);
+		if (abo->flags & GSGPU_GEM_CREATE_VM_ALWAYS_VALID) {
+			tv.num_shared = 1;
+		} else {
+			tv.num_shared = 0;
+		}
 		list_add(&tv.head, &list);
 	} else {
 		gobj = NULL;

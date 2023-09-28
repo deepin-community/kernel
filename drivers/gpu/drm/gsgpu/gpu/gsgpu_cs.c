@@ -22,7 +22,7 @@ static int gsgpu_cs_user_fence_chunk(struct gsgpu_cs_parser *p,
 	p->uf_entry.robj = gsgpu_bo_ref(gem_to_gsgpu_bo(gobj));
 	p->uf_entry.priority = 0;
 	p->uf_entry.tv.bo = &p->uf_entry.robj->tbo;
-	p->uf_entry.tv.num_shared = 3;
+	p->uf_entry.tv.num_shared = 1;
 
 	drm_gem_object_put(gobj);
 
@@ -1014,7 +1014,6 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	struct gsgpu_job *job;
 	uint64_t seq;
 	int r;
-
 	job = p->job;
 	p->job = NULL;
 

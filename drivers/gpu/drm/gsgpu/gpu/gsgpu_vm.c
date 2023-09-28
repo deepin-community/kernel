@@ -238,7 +238,7 @@ void gsgpu_vm_get_pd_bo(struct gsgpu_vm *vm,
 	entry->robj = vm->root.base.bo;
 	entry->priority = 0;
 	entry->tv.bo = &entry->robj->tbo;
-	entry->tv.shared = true;
+	entry->tv.num_shared = 1;
 	entry->user_pages = NULL;
 	list_add(&entry->tv.head, validated);
 }

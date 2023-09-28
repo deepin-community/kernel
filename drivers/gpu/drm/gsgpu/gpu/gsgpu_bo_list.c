@@ -82,7 +82,7 @@ int gsgpu_bo_list_create(struct gsgpu_device *adev, struct drm_file *filp,
 		entry->priority = min(info[i].bo_priority,
 				      GSGPU_BO_LIST_MAX_PRIORITY);
 		entry->tv.bo = &entry->robj->tbo;
-		entry->tv.shared = !entry->robj->prime_shared_count;
+		entry->tv.num_shared = !entry->robj->prime_shared_count;
 
 		total_size += gsgpu_bo_size(entry->robj);
 		trace_gsgpu_bo_list_set(list, entry->robj);
