@@ -403,7 +403,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	if (bp->type == ttm_bo_type_kernel)
 		bo->tbo.priority = 1;
 
-	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, size, bp->type,
+	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, bp->type,
 				 &bo->placement, page_align, &ctx,
 				 NULL, bp->resv, &gsgpu_bo_destroy);
 	if (unlikely(r != 0))
