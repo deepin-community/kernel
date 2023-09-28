@@ -370,7 +370,6 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	};
 	struct gsgpu_bo *bo;
 	unsigned long page_align, size = bp->size;
-	size_t acc_size;
 	int r;
 
 	page_align = roundup(bp->byte_align, PAGE_SIZE) >> PAGE_SHIFT;
@@ -380,9 +379,6 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		return -ENOMEM;
 
 	*bo_ptr = NULL;
-
-	acc_size = ttm_bo_dma_acc_size(&adev->mman.bdev, size,
-				       sizeof(struct gsgpu_bo));
 
 	bo = kzalloc(sizeof(struct gsgpu_bo), GFP_KERNEL);
 	if (bo == NULL)
@@ -408,7 +404,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		bo->tbo.priority = 1;
 
 	r = ttm_bo_init_reserved(&adev->mman.bdev, &bo->tbo, size, bp->type,
-				 &bo->placement, page_align, &ctx, acc_size,
+				 &bo->placement, page_align, &ctx,
 				 NULL, bp->resv, &gsgpu_bo_destroy);
 	if (unlikely(r != 0))
 		return r;
