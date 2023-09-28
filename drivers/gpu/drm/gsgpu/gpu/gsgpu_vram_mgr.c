@@ -149,47 +149,6 @@ static ssize_t gsgpu_mem_info_vis_vram_used_show(struct device *dev,
 			  gsgpu_vram_mgr_vis_usage(&adev->mman.vram_mgr));
 }
 
-/**
- * DOC: mem_info_vram_vendor
- *
- * The gsgpu driver provides a sysfs API for reporting the vendor of the
- * installed VRAM
- * The file mem_info_vram_vendor is used for this and returns the name of the
- * vendor.
- */
-static ssize_t gsgpu_mem_info_vram_vendor(struct device *dev,
-					  struct device_attribute *attr,
-					  char *buf)
-{
-	struct drm_device *ddev = dev_get_drvdata(dev);
-	struct gsgpu_device *adev = drm_to_adev(ddev);
-
-	switch (adev->gmc.vram_vendor) {
-	case SAMSUNG:
-		return sysfs_emit(buf, "samsung\n");
-	case INFINEON:
-		return sysfs_emit(buf, "infineon\n");
-	case ELPIDA:
-		return sysfs_emit(buf, "elpida\n");
-	case ETRON:
-		return sysfs_emit(buf, "etron\n");
-	case NANYA:
-		return sysfs_emit(buf, "nanya\n");
-	case HYNIX:
-		return sysfs_emit(buf, "hynix\n");
-	case MOSEL:
-		return sysfs_emit(buf, "mosel\n");
-	case WINBOND:
-		return sysfs_emit(buf, "winbond\n");
-	case ESMT:
-		return sysfs_emit(buf, "esmt\n");
-	case MICRON:
-		return sysfs_emit(buf, "micron\n");
-	default:
-		return sysfs_emit(buf, "unknown\n");
-	}
-}
-
 static DEVICE_ATTR(mem_info_vram_total, S_IRUGO,
 		   gsgpu_mem_info_vram_total_show, NULL);
 static DEVICE_ATTR(mem_info_vis_vram_total, S_IRUGO,
@@ -198,8 +157,6 @@ static DEVICE_ATTR(mem_info_vram_used, S_IRUGO,
 		   gsgpu_mem_info_vram_used_show, NULL);
 static DEVICE_ATTR(mem_info_vis_vram_used, S_IRUGO,
 		   gsgpu_mem_info_vis_vram_used_show, NULL);
-static DEVICE_ATTR(mem_info_vram_vendor, S_IRUGO,
-		   gsgpu_mem_info_vram_vendor, NULL);
 
 static struct attribute *gsgpu_vram_mgr_attributes[] = {
 	&dev_attr_mem_info_vram_total.attr,

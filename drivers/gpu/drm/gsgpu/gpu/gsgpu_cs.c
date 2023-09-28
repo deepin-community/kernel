@@ -911,7 +911,7 @@ static int gsgpu_syncobj_lookup_and_add_to_sync(struct gsgpu_cs_parser *p,
 {
 	int r;
 	struct dma_fence *fence;
-	r = drm_syncobj_find_fence(p->filp, handle, &fence);
+	r = drm_syncobj_find_fence(p->filp, handle, 0, 0, &fence);
 	if (r)
 		return r;
 
@@ -1067,7 +1067,7 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	trace_gsgpu_cs_ioctl(job);
 	gsgpu_vm_bo_trace_cs(&fpriv->vm, &p->ticket);
 	priority = job->base.s_priority;
-	drm_sched_entity_push_job(&job->base, entity);
+	drm_sched_entity_push_job(&job->base);
 
 	ring = to_gsgpu_ring(entity->rq->sched);
 	gsgpu_ring_priority_get(ring, priority);

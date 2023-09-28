@@ -7,6 +7,12 @@
 #define GSGPU_GTT_MAX_TRANSFER_SIZE	512
 #define GSGPU_GTT_NUM_TRANSFER_WINDOWS	2
 
+struct gsgpu_gtt_mgr {
+        struct ttm_resource_manager manager;
+        struct drm_mm mm;
+        spinlock_t lock;
+};
+
 struct gsgpu_mman {
 	struct ttm_device		bdev;
 	bool				initialized;
@@ -18,12 +24,15 @@ struct gsgpu_mman {
 
 	/* buffer handling */
 	const struct gsgpu_buffer_funcs	*buffer_funcs;
-	struct gsgpu_ring			*buffer_funcs_ring;
-	bool					buffer_funcs_enabled;
+	struct gsgpu_ring		*buffer_funcs_ring;
+	bool				buffer_funcs_enabled;
 
-	struct mutex				gtt_window_lock;
+	struct mutex			gtt_window_lock;
 	/* Scheduler entity for buffer moves */
-	struct drm_sched_entity			entity;
+	struct drm_sched_entity		entity;
+
+	struct gsgpu_vram_mgr		vram_mgr;
+	struct gsgpu_gtt_mgr		gtt_mgr;
 };
 
 struct gsgpu_copy_mem {
@@ -32,17 +41,14 @@ struct gsgpu_copy_mem {
 	unsigned long			offset;
 };
 
-extern const struct ttm_resource_manager_func gsgpu_gtt_mgr_func;
-extern const struct ttm_resource_manager_func gsgpu_vram_mgr_func;
-
 int gsgpu_vram_mgr_init(struct gsgpu_device *adev);
 void gsgpu_vram_mgr_fini(struct gsgpu_device *adev);
 int gsgpu_gtt_mgr_init(struct gsgpu_device *adev, uint64_t gtt_size);
-int gsgpu_gtt_mgr_fini(struct gsgpu_device *adev);
+void gsgpu_gtt_mgr_fini(struct gsgpu_device *adev);
 
 bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_resource *mem);
 uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man);
-int gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
+void gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
 
 u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo);
 uint64_t gsgpu_vram_mgr_usage(struct ttm_resource_manager *man);

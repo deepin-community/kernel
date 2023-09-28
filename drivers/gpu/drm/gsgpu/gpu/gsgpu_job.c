@@ -118,7 +118,7 @@ int gsgpu_job_submit(struct gsgpu_job *job, struct drm_sched_entity *entity,
 	*f = dma_fence_get(&job->base.s_fence->finished);
 	gsgpu_job_free_resources(job);
 	priority = job->base.s_priority;
-	drm_sched_entity_push_job(&job->base, entity);
+	drm_sched_entity_push_job(&job->base);
 
 	ring = to_gsgpu_ring(entity->rq->sched);
 	gsgpu_ring_priority_get(ring, priority);
