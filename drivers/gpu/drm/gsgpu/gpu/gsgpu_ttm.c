@@ -107,7 +107,7 @@ static void gsgpu_evict_flags(struct ttm_buffer_object *bo,
  * Returns:
  * GPU start address of a memory domain
  */
-static uint64_t gsgpu_ttm_domain_start(struct gsgpu_device *adev, uint32_t type)
+uint64_t gsgpu_ttm_domain_start(struct gsgpu_device *adev, uint32_t type)
 {
 	switch (type) {
 	case TTM_PL_TT:

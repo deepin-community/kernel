@@ -35,6 +35,11 @@ struct gsgpu_copy_mem {
 extern const struct ttm_resource_manager_func gsgpu_gtt_mgr_func;
 extern const struct ttm_resource_manager_func gsgpu_vram_mgr_func;
 
+int gsgpu_vram_mgr_init(struct gsgpu_device *adev);
+void gsgpu_vram_mgr_fini(struct gsgpu_device *adev);
+int gsgpu_gtt_mgr_init(struct gsgpu_device *adev, uint64_t gtt_size);
+int gsgpu_gtt_mgr_fini(struct gsgpu_device *adev);
+
 bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_resource *mem);
 uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man);
 int gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
@@ -86,5 +91,6 @@ bool gsgpu_ttm_tt_is_userptr(struct ttm_tt *ttm);
 bool gsgpu_ttm_tt_is_readonly(struct ttm_tt *ttm);
 uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
 				struct ttm_resource *mem);
+uint64_t gsgpu_ttm_domain_start(struct gsgpu_device *adev, uint32_t type);
 
 #endif /* __GSGPU_TTM_H__ */

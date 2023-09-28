@@ -1374,10 +1374,5 @@ int gsgpu_cs_find_mapping(struct gsgpu_cs_parser *parser,
 			  uint64_t addr, struct gsgpu_bo **bo,
 			  struct gsgpu_bo_va_mapping **mapping);
 
-int gsgpu_vram_mgr_init(struct gsgpu_device *adev);
-void gsgpu_vram_mgr_fini(struct gsgpu_device *adev);
-int gsgpu_gtt_mgr_init(struct gsgpu_device *adev, uint64_t gtt_size);
-int gsgpu_gtt_mgr_fini(struct gsgpu_device *adev);
-
 #include "gsgpu_object.h"
 #endif
