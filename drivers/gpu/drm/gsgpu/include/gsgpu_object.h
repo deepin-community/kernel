@@ -237,11 +237,6 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo);
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
 		     bool shared);
 u64 gsgpu_bo_gpu_offset(struct gsgpu_bo *bo);
-int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
-			       struct gsgpu_ring *ring,
-			       struct gsgpu_bo *bo,
-			       struct dma_resv *resv,
-			       struct dma_fence **fence, bool direct);
 int gsgpu_bo_validate(struct gsgpu_bo *bo);
 int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 				  struct gsgpu_ring *ring,

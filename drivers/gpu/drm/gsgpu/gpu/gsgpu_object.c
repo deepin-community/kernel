@@ -525,53 +525,6 @@ int gsgpu_bo_create(struct gsgpu_device *adev,
 }
 
 /**
- * gsgpu_bo_backup_to_shadow - Backs up an &gsgpu_bo buffer object
- * @adev: gsgpu device object
- * @ring: gsgpu_ring for the engine handling the buffer operations
- * @bo: &gsgpu_bo buffer to be backed up
- * @resv: reservation object with embedded fence
- * @fence: dma_fence associated with the operation
- * @direct: whether to submit the job directly
- *
- * Copies an &gsgpu_bo buffer object to its shadow object.
- * Not used for now.
- *
- * Returns:
- * 0 for success or a negative error code on failure.
- */
-int gsgpu_bo_backup_to_shadow(struct gsgpu_device *adev,
-			       struct gsgpu_ring *ring,
-			       struct gsgpu_bo *bo,
-			       struct dma_resv *resv,
-			       struct dma_fence **fence,
-			       bool direct)
-
-{
-	struct gsgpu_bo *shadow = bo->shadow;
-	uint64_t bo_addr, shadow_addr;
-	int r;
-
-	if (!shadow)
-		return -EINVAL;
-
-	bo_addr = gsgpu_bo_gpu_offset(bo);
-	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
-
-	r = dma_resv_reserve_shared(bo->tbo.base.resv);
-	if (r)
-		goto err;
-
-	r = gsgpu_copy_buffer(ring, bo_addr, shadow_addr,
-			       gsgpu_bo_size(bo), resv, fence,
-			       direct, false);
-	if (!r)
-		gsgpu_bo_fence(bo, *fence, true);
-
-err:
-	return r;
-}
-
-/**
  * gsgpu_bo_validate - validate an &gsgpu_bo buffer object
  * @bo: pointer to the buffer object
  *
