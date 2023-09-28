@@ -234,21 +234,17 @@ static int gsgpu_ctx_query2(struct gsgpu_device *adev,
 int gsgpu_ctx_ioctl(struct drm_device *dev, void *data,
 		     struct drm_file *filp)
 {
-	int r;
-	uint32_t id;
-	enum drm_sched_priority priority;
-
 	union drm_gsgpu_ctx *args = data;
 	struct gsgpu_device *adev = dev->dev_private;
 	struct gsgpu_fpriv *fpriv = filp->driver_priv;
 
-	r = 0;
-	id = args->in.ctx_id;
-	priority = gsgpu_to_sched_priority(args->in.priority);
+	int r = 0;
+	uint32_t id = args->in.ctx_id;
+	enum drm_sched_priority priority = gsgpu_to_sched_priority(args->in.priority);
 
 	/* For backwards compatibility reasons, we need to accept
 	 * ioctls with garbage in the priority field */
-	if (priority == DRM_SCHED_PRIORITY_INVALID)
+	if (priority == -EINVAL)
 		priority = DRM_SCHED_PRIORITY_NORMAL;
 
 	switch (args->in.op) {

@@ -9,19 +9,19 @@ enum drm_sched_priority gsgpu_to_sched_priority(int gsgpu_priority)
 {
 	switch (gsgpu_priority) {
 	case GSGPU_CTX_PRIORITY_VERY_HIGH:
-		return DRM_SCHED_PRIORITY_HIGH_HW;
+		return DRM_SCHED_PRIORITY_HIGH;
 	case GSGPU_CTX_PRIORITY_HIGH:
-		return DRM_SCHED_PRIORITY_HIGH_SW;
+		return DRM_SCHED_PRIORITY_HIGH;
 	case GSGPU_CTX_PRIORITY_NORMAL:
 		return DRM_SCHED_PRIORITY_NORMAL;
 	case GSGPU_CTX_PRIORITY_LOW:
 	case GSGPU_CTX_PRIORITY_VERY_LOW:
-		return DRM_SCHED_PRIORITY_LOW;
+		return DRM_SCHED_PRIORITY_MIN;
 	case GSGPU_CTX_PRIORITY_UNSET:
 		return DRM_SCHED_PRIORITY_UNSET;
 	default:
 		WARN(1, "Invalid context priority %d\n", gsgpu_priority);
-		return DRM_SCHED_PRIORITY_INVALID;
+		return -EINVAL;
 	}
 }
 
@@ -57,7 +57,7 @@ int gsgpu_sched_ioctl(struct drm_device *dev, void *data,
 	int r;
 
 	priority = gsgpu_to_sched_priority(args->in.priority);
-	if (args->in.flags || priority == DRM_SCHED_PRIORITY_INVALID)
+	if (args->in.flags || priority == -EINVAL)
 		return -EINVAL;
 
 	switch (args->in.op) {
