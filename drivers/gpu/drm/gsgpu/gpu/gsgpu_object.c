@@ -592,7 +592,7 @@ int gsgpu_bo_restore_from_shadow(struct gsgpu_device *adev,
 	bo_addr = gsgpu_bo_gpu_offset(bo);
 	shadow_addr = gsgpu_bo_gpu_offset(bo->shadow);
 
-	r = dma_resv_reserve_shared(bo->tbo.base.resv);
+	r = dma_resv_reserve_fences(bo->tbo.base.resv, 1);
 	if (r)
 		goto err;
 
@@ -625,17 +625,17 @@ int gsgpu_bo_kmap(struct gsgpu_bo *bo, void **ptr)
 	if (bo->flags & GSGPU_GEM_CREATE_NO_CPU_ACCESS)
 		return -EPERM;
 
+	r = dma_resv_wait_timeout(bo->tbo.base.resv, DMA_RESV_USAGE_KERNEL,
+				  false, MAX_SCHEDULE_TIMEOUT);
+	if (r < 0)
+		return r;
+
 	kptr = gsgpu_bo_kptr(bo);
 	if (kptr) {
 		if (ptr)
 			*ptr = kptr;
 		return 0;
 	}
-
-	r = dma_resv_wait_timeout_rcu(bo->tbo.base.resv, false, false,
-						MAX_SCHEDULE_TIMEOUT);
-	if (r < 0)
-		return r;
 
 	r = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.ttm->num_pages, &bo->kmap);
 	if (r)
@@ -933,22 +933,6 @@ void gsgpu_bo_fini(struct gsgpu_device *adev)
 }
 
 /**
- * gsgpu_bo_fbdev_mmap - mmap fbdev memory
- * @bo: &gsgpu_bo buffer object
- * @vma: vma as input from the fbdev mmap method
- *
- * Calls ttm_fbdev_mmap() to mmap fbdev memory if it is backed by a bo.
- *
- * Returns:
- * 0 for success or a negative error code on failure.
- */
-int gsgpu_bo_fbdev_mmap(struct gsgpu_bo *bo,
-			     struct vm_area_struct *vma)
-{
-	return ttm_fbdev_mmap(vma, &bo->tbo);
-}
-
-/**
  * gsgpu_bo_set_tiling_flags - set tiling flags
  * @bo: &gsgpu_bo buffer object
  * @tiling_flags: new flags
@@ -1173,14 +1157,18 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
  *
  */
 void gsgpu_bo_fence(struct gsgpu_bo *bo, struct dma_fence *fence,
-		     bool shared)
+		    bool shared)
 {
 	struct dma_resv *resv = bo->tbo.base.resv;
+	int r = dma_resv_reserve_fences(resv, 1);
+	if (r) {
+		/* As last resort on OOM we block for the fence */
+		dma_fence_wait(fence, false);
+		return;
+	}
 
-	if (shared)
-		dma_resv_add_shared_fence(resv, fence);
-	else
-		dma_resv_add_excl_fence(resv, fence);
+	dma_resv_add_fence(resv, fence, shared ? DMA_RESV_USAGE_READ :
+			   DMA_RESV_USAGE_WRITE);
 }
 
 /**

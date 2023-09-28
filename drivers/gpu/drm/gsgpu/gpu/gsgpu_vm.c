@@ -348,7 +348,7 @@ static int gsgpu_vm_clear_bo(struct gsgpu_device *ldev,
 
 	ring = container_of(vm->entity.rq->sched, struct gsgpu_ring, sched);
 
-	r = dma_resv_reserve_shared(bo->tbo.base.resv);
+	r = dma_resv_reserve_fences(bo->tbo.base.resv, 1);
 	if (r)
 		return r;
 
@@ -1299,7 +1299,7 @@ static int gsgpu_vm_bo_update_mapping(struct gsgpu_device *ldev,
 	if (r)
 		goto error_free;
 
-	r = dma_resv_reserve_shared(vm->root.base.bo->tbo.base.resv);
+	r = dma_resv_reserve_fences(vm->root.base.bo->tbo.base.resv, 1);
 	if (r)
 		goto error_free;
 

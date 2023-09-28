@@ -221,8 +221,6 @@ int gsgpu_bo_evict_vram(struct gsgpu_device *adev);
 int gsgpu_bo_init(struct gsgpu_device *adev);
 int gsgpu_bo_late_init(struct gsgpu_device *adev);
 void gsgpu_bo_fini(struct gsgpu_device *adev);
-int gsgpu_bo_fbdev_mmap(struct gsgpu_bo *bo,
-				struct vm_area_struct *vma);
 int gsgpu_bo_set_tiling_flags(struct gsgpu_bo *bo, u64 tiling_flags);
 void gsgpu_bo_get_tiling_flags(struct gsgpu_bo *bo, u64 *tiling_flags);
 int gsgpu_bo_set_metadata (struct gsgpu_bo *bo, void *metadata,

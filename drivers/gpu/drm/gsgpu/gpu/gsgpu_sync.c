@@ -153,9 +153,9 @@ int gsgpu_sync_fence(struct gsgpu_device *adev, struct gsgpu_sync *sync,
  * Sync to the fence
  */
 int gsgpu_sync_resv(struct gsgpu_device *adev,
-		     struct gsgpu_sync *sync,
-		     struct dma_resv *resv,
-		     void *owner, bool explicit_sync)
+		    struct gsgpu_sync *sync,
+		    struct dma_resv *resv,
+		    void *owner, bool explicit_sync)
 {
 	struct dma_resv_list *flist;
 	struct dma_fence *f;
@@ -167,7 +167,7 @@ int gsgpu_sync_resv(struct gsgpu_device *adev,
 		return -EINVAL;
 
 	/* always sync to the exclusive fence */
-	f = dma_resv_get_excl(resv);
+	f = dma_resv_get_(resv);
 	r = gsgpu_sync_fence(adev, sync, f, false);
 
 	flist = dma_resv_get_list(resv);

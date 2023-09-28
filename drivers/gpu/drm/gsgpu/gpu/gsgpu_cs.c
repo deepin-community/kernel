@@ -22,7 +22,7 @@ static int gsgpu_cs_user_fence_chunk(struct gsgpu_cs_parser *p,
 	p->uf_entry.robj = gsgpu_bo_ref(gem_to_gsgpu_bo(gobj));
 	p->uf_entry.priority = 0;
 	p->uf_entry.tv.bo = &p->uf_entry.robj->tbo;
-	p->uf_entry.tv.shared = true;
+	p->uf_entry.tv.num_shared = 3;
 
 	drm_gem_object_put_unlocked(gobj);
 
@@ -797,7 +797,7 @@ static int gsgpu_cs_ib_vm_chunk(struct gsgpu_device *adev,
 		if (r)
 			return r;
 
-		r = dma_resv_reserve_shared(vm->root.base.bo->tbo.base.resv);
+		r = dma_resv_reserve_fences(vm->root.base.bo->tbo.base.resv, 1);
 		if (r)
 			return r;
 	}
