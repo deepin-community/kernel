@@ -366,7 +366,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		/* We opt to avoid OOM on system pages allocations */
 		.gfp_retry_mayfail = true,
 		.resv = bp->resv,
-		.flags = TTM_OPT_FLAG_ALLOW_RES_EVICT
+		.allow_res_evict = bp->type != ttm_bo_type_kernel,
 	};
 	struct gsgpu_bo *bo;
 	unsigned long page_align, size = bp->size;

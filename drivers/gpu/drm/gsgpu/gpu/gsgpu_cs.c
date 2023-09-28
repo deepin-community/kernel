@@ -369,7 +369,6 @@ static int gsgpu_cs_bo_validate(struct gsgpu_cs_parser *p,
 		.interruptible = true,
 		.no_wait_gpu = false,
 		.resv = bo->tbo.base.resv,
-		.flags = 0
 	};
 	uint32_t domain;
 	int r;
