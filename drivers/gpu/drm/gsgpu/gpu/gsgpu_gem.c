@@ -246,8 +246,8 @@ static const struct drm_gem_object_funcs gsgpu_gem_object_funcs = {
 	.close = gsgpu_gem_object_close,
 	.get_sg_table = gsgpu_gem_prime_get_sg_table,
 	.export = gsgpu_gem_prime_export,
-	.vmap = gsgpu_gem_prime_vmap,
-	.vunmap = gsgpu_gem_prime_vunmap,
+	.vmap = drm_gem_ttm_vmap,
+	.vunmap = drm_gem_ttm_vunmap,
 	.mmap = gsgpu_gem_object_mmap,
 	.vm_ops = &gsgpu_gem_vm_ops,
 };

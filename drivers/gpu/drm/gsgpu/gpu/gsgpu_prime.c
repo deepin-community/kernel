@@ -19,43 +19,7 @@ struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj)
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
 	int npages = bo->tbo.ttm->num_pages;
 
-	return drm_prime_pages_to_sg(bo->tbo.ttm->pages, npages);
-}
-
-/**
- * gsgpu_gem_prime_vmap - &dma_buf_ops.vmap implementation
- * @obj: GEM buffer object
- *
- * Sets up an in-kernel virtual mapping of the buffer object's memory.
- *
- * Returns:
- * The virtual address of the mapping or an error pointer.
- */
-void *gsgpu_gem_prime_vmap(struct drm_gem_object *obj)
-{
-	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	int ret;
-
-	ret = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.ttm->num_pages,
-			  &bo->dma_buf_vmap);
-	if (ret)
-		return ERR_PTR(ret);
-
-	return bo->dma_buf_vmap.virtual;
-}
-
-/**
- * gsgpu_gem_prime_vunmap - &dma_buf_ops.vunmap implementation
- * @obj: GEM buffer object
- * @vaddr: virtual address (unused)
- *
- * Tears down the in-kernel virtual mapping of the buffer object's memory.
- */
-void gsgpu_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr)
-{
-	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-
-	ttm_bo_kunmap(&bo->dma_buf_vmap);
+	return drm_prime_pages_to_sg(obj->dev, bo->tbo.ttm->pages, npages);
 }
 
 /**

@@ -16,6 +16,7 @@
 #include <drm/ttm/ttm_tt.h>
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_execbuf_util.h>
+#include <drm/drm_gem_ttm_helper.h>
 
 #include <drm/drm_gem.h>
 #include <drm/gsgpu_drm.h>
@@ -268,6 +269,9 @@ struct drm_gem_object *
 gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 				struct dma_buf_attachment *attach,
 				struct sg_table *sg);
+struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj);
+struct dma_buf *gsgpu_gem_prime_export(struct drm_gem_object *gobj,
+				       int flags);
 
 /* sub-allocation manager, it has to be protected by another lock.
  * By conception this is an helper for other part of the driver
