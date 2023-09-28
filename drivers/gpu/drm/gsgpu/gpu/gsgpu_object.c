@@ -906,12 +906,9 @@ void gsgpu_bo_unpin(struct gsgpu_bo *bo)
  */
 int gsgpu_bo_evict_vram(struct gsgpu_device *adev)
 {
-	/* late 2.6.33 fix IGP hibernate - we need pm ops to do this correct */
-	if (0 && (adev->flags & GSGPU_IS_APU)) {
-		/* Useless to evict on IGP chips */
-		return 0;
-	}
-	return ttm_bo_evict_mm(&adev->mman.bdev, TTM_PL_VRAM);
+	struct ttm_resource_manager *man;
+	man = ttm_manager_type(&adev->mman.bdev, TTM_PL_VRAM);
+	return ttm_resource_manager_evict_all(&adev->mman.bdev, man);
 }
 
 static const char *gsgpu_vram_names[] = {

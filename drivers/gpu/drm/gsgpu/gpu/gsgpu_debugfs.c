@@ -554,8 +554,10 @@ static int gsgpu_debugfs_evict_gtt(struct seq_file *m, void *data)
 	struct drm_info_node *node = (struct drm_info_node *)m->private;
 	struct drm_device *dev = node->minor->dev;
 	struct gsgpu_device *adev = dev->dev_private;
+	struct ttm_resource_manager *man = ttm_manager_type(&adev->mman.bdev, TTM_PL_TT);
 
-	seq_printf(m, "(%d)\n", ttm_bo_evict_mm(&adev->mman.bdev, TTM_PL_TT));
+	int r = ttm_resource_manager_evict_all(&adev->mman.bdev, man);
+	seq_printf(m, "(%d)\n", r);
 	return 0;
 }
 
