@@ -73,8 +73,7 @@ error:
 	return ERR_PTR(ret);
 }
 
-static int
-__dma_resv_make_exclusive(struct dma_resv *obj)
+static int __dma_resv_make_exclusive(struct dma_resv *obj)
 {
 	struct dma_fence **fences;
 	unsigned int count;

@@ -167,11 +167,17 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 		goto unpin;
 	}
 
-	r = dma_resv_get_fences(new_abo->tbo.base.resv, DMA_RESV_USAGE_WRITE,
+	r = dma_resv_get_fences(new_abo->tbo.base.resv, DMA_RESV_USAGE_READ,
 				&work->shared_count,
 				&work->shared);
 	if (unlikely(r != 0)) {
-		DRM_ERROR("failed to get fences for buffer\n");
+		DRM_ERROR("failed to get read fences for buffer\n");
+		goto unpin;
+	}
+
+	work->excl = gsgpu_get_excl_fence(new_abo->tbo.base.resv);
+	if (unlikely(!work->excl)) {
+		DRM_ERROR("failed to get write fences for buffer\n");
 		goto unpin;
 	}
 
@@ -225,7 +231,9 @@ unreserve:
 
 cleanup:
 	gsgpu_bo_unref(&work->old_abo);
-	dma_fence_put(work->excl);
+	if (work->excl) {
+		dma_fence_put(work->excl);
+	}
 	for (i = 0; i < work->shared_count; ++i)
 		dma_fence_put(work->shared[i]);
 	kfree(work->shared);

@@ -1439,12 +1439,15 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 		exclusive = NULL;
 	} else {
 		mem = bo->tbo.resource;
-		nodes = mem->mm_node;
+		nodes = to_ttm_range_mgr_node(mem)->mm_nodes;
 		if (mem->mem_type == TTM_PL_TT) {
 			pages_addr = bo->tbo.ttm->dma_address;
 		}
 
-		exclusive = dma_resv_get_fences(bo->tbo.base.resv, DMA_RESV_USAGE_WRITE);
+		exclusive = gsgpu_get_excl_fence(bo->tbo.base.resv);
+		if (!exclusive) {
+			return -EINVAL;
+		}
 	}
 
 	if (bo)

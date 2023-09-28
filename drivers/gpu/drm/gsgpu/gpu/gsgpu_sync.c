@@ -167,7 +167,10 @@ int gsgpu_sync_resv(struct gsgpu_device *adev,
 		return -EINVAL;
 
 	/* always sync to the exclusive fence */
-	f = dma_resv_get_fences(resv, DMA_RESV_USAGE_WRITE);
+	f = gsgpu_get_excl_fence(resv);
+	if (unlikely(!f)) {
+		return -EINVAL;
+	}
 	r = gsgpu_sync_fence(adev, sync, f, false);
 
 	flist = dma_resv_get_list(resv);
