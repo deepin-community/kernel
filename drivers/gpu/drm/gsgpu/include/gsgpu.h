@@ -20,6 +20,7 @@
 #include <drm/gsgpu_drm.h>
 #include <drm/gpu_scheduler.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_modeset_helper.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_vblank.h>

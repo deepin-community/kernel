@@ -76,7 +76,7 @@ static void gsgpufb_destroy_pinned_object(struct drm_gem_object *gobj)
 		gsgpu_bo_unpin(abo);
 		gsgpu_bo_unreserve(abo);
 	}
-	drm_gem_object_put_unlocked(gobj);
+	drm_gem_object_put(gobj);
 }
 
 static int gsgpufb_create_pinned_object(struct gsgpu_fbdev *rfbdev,
@@ -252,7 +252,7 @@ out:
 
 	}
 	if (fb && ret) {
-		drm_gem_object_put_unlocked(gobj);
+		drm_gem_object_put(gobj);
 		drm_framebuffer_unregister_private(fb);
 		drm_framebuffer_cleanup(fb);
 		kfree(fb);

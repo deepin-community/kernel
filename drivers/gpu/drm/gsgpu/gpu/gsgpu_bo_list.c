@@ -64,7 +64,7 @@ int gsgpu_bo_list_create(struct gsgpu_device *adev, struct drm_file *filp,
 		}
 
 		bo = gsgpu_bo_ref(gem_to_gsgpu_bo(gobj));
-		drm_gem_object_put_unlocked(gobj);
+		drm_gem_object_put(gobj);
 
 		usermm = gsgpu_ttm_tt_get_usermm(bo->tbo.ttm);
 		if (usermm) {

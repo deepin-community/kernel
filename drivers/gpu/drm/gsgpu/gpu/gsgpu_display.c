@@ -286,14 +286,14 @@ gsgpu_display_user_framebuffer_create(struct drm_device *dev,
 
 	gsgpu_fb = kzalloc(sizeof(*gsgpu_fb), GFP_KERNEL);
 	if (gsgpu_fb == NULL) {
-		drm_gem_object_put_unlocked(obj);
+		drm_gem_object_put(obj);
 		return ERR_PTR(-ENOMEM);
 	}
 
 	ret = gsgpu_display_framebuffer_init(dev, gsgpu_fb, mode_cmd, obj);
 	if (ret) {
 		kfree(gsgpu_fb);
-		drm_gem_object_put_unlocked(obj);
+		drm_gem_object_put(obj);
 		return ERR_PTR(ret);
 	}
 

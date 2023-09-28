@@ -24,7 +24,7 @@ static int gsgpu_cs_user_fence_chunk(struct gsgpu_cs_parser *p,
 	p->uf_entry.tv.bo = &p->uf_entry.robj->tbo;
 	p->uf_entry.tv.num_shared = 3;
 
-	drm_gem_object_put_unlocked(gobj);
+	drm_gem_object_put(gobj);
 
 	size = gsgpu_bo_size(p->uf_entry.robj);
 	if (size != PAGE_SIZE || (data->offset + 8) > size) {
