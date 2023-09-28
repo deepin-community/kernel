@@ -319,15 +319,18 @@ int gsgpu_gart_bind(struct gsgpu_device *adev, uint64_t offset,
  */
 void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev)
 {
-        int i;
-
         if (!adev->gart.ptr)
                 return;
 
         mb();
+#if 0
+	/* TODO: These are taken directly from AMDGPU. I believe the Loongson
+	 * graphics chip does not have these HW capabs so I'm commenting them out */
         gsgpu_device_flush_hdp(adev, NULL);
+        int i;
         for_each_set_bit(i, adev->vmhubs_mask, GSGPU_MAX_VMHUBS)
                 gsgpu_gmc_flush_gpu_tlb(adev, 0, i, 0);
+#endif
 }
 
 /**
