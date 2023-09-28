@@ -427,9 +427,8 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		if (unlikely(r))
 			goto fail_unreserve;
 
-		gsgpu_bo_fence(bo, fence, false);
-		dma_fence_put(bo->tbo.moving);
-		bo->tbo.moving = dma_fence_get(fence);
+		dma_resv_add_fence(bo->tbo.base.resv, fence,
+				   DMA_RESV_USAGE_KERNEL);
 		dma_fence_put(fence);
 	}
 
