@@ -4,6 +4,7 @@
 #include <linux/atomic.h>
 #include <linux/wait.h>
 #include <linux/list.h>
+#include <linux/file.h>
 #include <linux/kref.h>
 #include <linux/rbtree.h>
 #include <linux/hashtable.h>

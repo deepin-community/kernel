@@ -28,7 +28,6 @@
 #include "gsgpu.h"
 #include "gsgpu_vm.h"
 #include "gsgpu_res_cursor.h"
-#include "atom.h"
 
 struct gsgpu_vram_reservation {
 	u64 start;

@@ -119,14 +119,14 @@ __dma_resv_make_exclusive(struct dma_resv *obj)
 	if (!dma_resv_get_list(obj)) /* no shared fences to convert */
 		return 0;
 
-	r = dma_resv_get_fences_rcu(obj, NULL, &count, &fences);
+	r = dma_resv_get_fences(obj, DMA_RESV_USAGE_READ, &count, &fences);
 	if (r)
 		return r;
 
 	if (count == 0) {
 		/* Now that was unexpected. */
 	} else if (count == 1) {
-		dma_resv_add_excl_fence(obj, fences[0]);
+		dma_resv_add_fence(obj, fences[0], DMA_RESV_USAGE_WRITE);
 		dma_fence_put(fences[0]);
 		kfree(fences);
 	} else {
@@ -138,7 +138,7 @@ __dma_resv_make_exclusive(struct dma_resv *obj)
 		if (!array)
 			goto err_fences_put;
 
-		dma_resv_add_excl_fence(obj, &array->base);
+		dma_resv_add_fence(obj, &array->base, DMA_RESV_USAGE_WRITE);
 		dma_fence_put(&array->base);
 	}
 

@@ -326,12 +326,13 @@ int gsgpu_gem_create_ioctl(struct drm_device *dev, void *data,
 }
 
 int gsgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
-			     struct drm_file *filp)
+			    struct drm_file *filp)
 {
 	struct ttm_operation_ctx ctx = { true, false };
 	struct gsgpu_device *adev = dev->dev_private;
 	struct drm_gsgpu_gem_userptr *args = data;
 	struct drm_gem_object *gobj;
+	struct hmm_range *range;
 	struct gsgpu_bo *bo;
 	uint32_t handle;
 	int r;
@@ -372,8 +373,8 @@ int gsgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 	}
 
 	if (args->flags & GSGPU_GEM_USERPTR_VALIDATE) {
-		r = gsgpu_ttm_tt_get_user_pages(bo->tbo.ttm,
-						 bo->tbo.ttm->pages);
+		r = gsgpu_ttm_tt_get_user_pages(bo, bo->tbo.ttm->pages,
+						&range);
 		if (r)
 			goto release_object;
 
@@ -396,7 +397,7 @@ int gsgpu_gem_userptr_ioctl(struct drm_device *dev, void *data,
 
 user_pages_done:
 	if (args->flags & GSGPU_GEM_USERPTR_VALIDATE)
-		gsgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm);
+		gsgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm, range);
 
 release_object:
 	drm_gem_object_put(gobj);
@@ -746,7 +747,7 @@ int gsgpu_gem_op_ioctl(struct drm_device *dev, void *data,
 		void __user *out = u64_to_user_ptr(args->value);
 
 		info.bo_size = robj->gem_base.size;
-		info.alignment = robj->tbo.mem.page_alignment << PAGE_SHIFT;
+		info.alignment = robj->tbo.page_alignment << PAGE_SHIFT;
 		info.domains = robj->preferred_domains;
 		info.domain_flags = robj->flags;
 		gsgpu_bo_unreserve(robj);
@@ -841,7 +842,7 @@ static int gsgpu_debugfs_gem_bo_info(int id, void *ptr, void *data)
 	const char *placement;
 	unsigned pin_count;
 
-	domain = gsgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
+	domain = gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type);
 	switch (domain) {
 	case GSGPU_GEM_DOMAIN_VRAM:
 		placement = "VRAM";

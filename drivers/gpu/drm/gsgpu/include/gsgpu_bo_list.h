@@ -4,6 +4,8 @@
 #include <drm/ttm/ttm_execbuf_util.h>
 #include <drm/gsgpu_drm.h>
 
+struct hmm_range;
+
 struct gsgpu_device;
 struct gsgpu_bo;
 struct gsgpu_bo_va;
@@ -15,6 +17,7 @@ struct gsgpu_bo_list_entry {
 	struct gsgpu_bo_va		*bo_va;
 	uint32_t			priority;
 	struct page			**user_pages;
+	struct hmm_range		*range;
 	bool				user_invalidated;
 };
 

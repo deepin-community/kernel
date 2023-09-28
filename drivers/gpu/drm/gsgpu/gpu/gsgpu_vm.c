@@ -127,7 +127,7 @@ static void gsgpu_vm_bo_base_init(struct gsgpu_vm_bo_base *base,
 		return;
 
 	if (bo->preferred_domains &
-	    gsgpu_mem_type_to_domain(bo->tbo.mem.mem_type))
+	    gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type))
 		return;
 
 	/*
@@ -260,7 +260,7 @@ int gsgpu_vm_validate_pt_bos(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 			      int (*validate)(void *p, struct gsgpu_bo *bo),
 			      void *param)
 {
-	struct ttm_bo_global *glob = ldev->mman.bdev.glob;
+	struct ttm_device *ttm = &ldev->mman.bdev;
 	struct gsgpu_vm_bo_base *bo_base, *tmp;
 	int r = 0;
 
@@ -272,11 +272,11 @@ int gsgpu_vm_validate_pt_bos(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 			if (r)
 				break;
 
-			spin_lock(&glob->lru_lock);
+			spin_lock(&ttm->lru_lock);
 			ttm_bo_move_to_lru_tail(&bo->tbo);
 			if (bo->shadow)
 				ttm_bo_move_to_lru_tail(&bo->shadow->tbo);
-			spin_unlock(&glob->lru_lock);
+			spin_unlock(&ttm->lru_lock);
 		}
 
 		if (bo->tbo.type != ttm_bo_type_kernel) {
@@ -288,7 +288,7 @@ int gsgpu_vm_validate_pt_bos(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 		}
 	}
 
-	spin_lock(&glob->lru_lock);
+	spin_lock(&ttm->lru_lock);
 	list_for_each_entry(bo_base, &vm->idle, vm_status) {
 		struct gsgpu_bo *bo = bo_base->bo;
 
@@ -299,7 +299,7 @@ int gsgpu_vm_validate_pt_bos(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 		if (bo->shadow)
 			ttm_bo_move_to_lru_tail(&bo->shadow->tbo);
 	}
-	spin_unlock(&glob->lru_lock);
+	spin_unlock(&ttm->lru_lock);
 
 	return r;
 }
@@ -1444,7 +1444,7 @@ int gsgpu_vm_bo_update(struct gsgpu_device *ldev,
 			pages_addr = bo->tbo.ttm->dma_address;
 		}
 
-		exclusive = dma_resv_get_excl(bo->tbo.base.resv);
+		exclusive = dma_resv_get_fences(bo->tbo.base.resv, DMA_RESV_USAGE_WRITE);
 	}
 
 	if (bo)

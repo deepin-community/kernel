@@ -442,7 +442,7 @@ static bool gsgpu_cs_try_evict(struct gsgpu_cs_parser *p,
 		if (bo->pin_count)
 			continue;
 
-		other = gsgpu_mem_type_to_domain(bo->tbo.mem.mem_type);
+		other = gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type);
 
 		/* Check if this BO is in one of the domains we need space for */
 		if (!(other & domain))
@@ -541,7 +541,7 @@ static int gsgpu_cs_parser_bos(struct gsgpu_cs_parser *p,
 	struct gsgpu_vm *vm = &fpriv->vm;
 	struct gsgpu_bo_list_entry *e;
 	struct list_head duplicates;
-	unsigned tries = 10;
+	int r;
 
 	INIT_LIST_HEAD(&p->validated);
 
@@ -1032,7 +1032,7 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	 */
 	gsgpu_bo_list_for_each_userptr_entry(e, p->bo_list) {
 		struct gsgpu_bo *bo = e->robj;
-		r |= !gsgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm, &e->range);
+		r |= !gsgpu_ttm_tt_get_user_pages_done(bo->tbo.ttm, e->range);
 	}
 	if (r) {
 		r = -EAGAIN;
