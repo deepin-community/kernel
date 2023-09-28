@@ -1535,8 +1535,8 @@ int gsgpu_copy_buffer(struct gsgpu_ring *ring, uint64_t src_offset,
 	job->vm_needs_flush = vm_needs_flush;
 	if (resv) {
 		r = gsgpu_sync_resv(adev, &job->sync, resv,
-				     GSGPU_FENCE_OWNER_UNDEFINED,
-				     false);
+				    GSGPU_FENCE_OWNER_UNDEFINED,
+				    false);
 		if (r) {
 			DRM_ERROR("sync failed (%d).\n", r);
 			goto error_free;

@@ -8,6 +8,7 @@
 #include <linux/kref.h>
 #include <linux/rbtree.h>
 #include <linux/hashtable.h>
+#include <linux/dma-resv.h>
 #include <linux/dma-fence.h>
 #include <linux/pci.h>
 #include <linux/hmm.h>

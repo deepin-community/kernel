@@ -157,33 +157,18 @@ int gsgpu_sync_resv(struct gsgpu_device *adev,
 		    struct dma_resv *resv,
 		    void *owner, bool explicit_sync)
 {
-	struct dma_resv_list *flist;
+	struct dma_resv_iter cursor;
 	struct dma_fence *f;
-	void *fence_owner;
-	unsigned i;
 	int r = 0;
 
 	if (resv == NULL)
 		return -EINVAL;
 
-	/* always sync to the exclusive fence */
-	f = gsgpu_get_excl_fence(resv);
-	if (unlikely(!f)) {
-		return -EINVAL;
-	}
-	r = gsgpu_sync_fence(adev, sync, f, false);
-
-	flist = dma_resv_get_list(resv);
-	if (!flist || r)
-		return r;
-
-	for (i = 0; i < flist->shared_count; ++i) {
-		f = rcu_dereference_protected(flist->shared[i],
-					      dma_resv_held(resv));
+	dma_resv_for_each_fence(&cursor, resv, DMA_RESV_USAGE_WRITE, f) {
 		/* We only want to trigger KFD eviction fences on
 		 * evict or move jobs. Skip KFD fences otherwise.
 		 */
-		fence_owner = gsgpu_sync_get_owner(f);
+		void *fence_owner = gsgpu_sync_get_owner(f);
 		if (fence_owner == GSGPU_FENCE_OWNER_KFD &&
 		    owner != GSGPU_FENCE_OWNER_UNDEFINED)
 			continue;

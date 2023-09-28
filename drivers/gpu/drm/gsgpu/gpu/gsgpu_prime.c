@@ -73,14 +73,22 @@ error:
 	return ERR_PTR(ret);
 }
 
+/* TODO: For AMDGPU this was removed in
+ * commit 8c505bdc9c8b955223b054e34a0be9c3d841cd20
+ * Author: Christian König <christian.koenig@amd.com>
+ * Date:   Wed Jun 9 13:51:36 2021 +0200
+ *
+ *    drm/amdgpu: rework dma_resv handling v3
+ *
+ * I don't think the Loongson graphics chip is even capable of sharing
+ * memory with other GPUs through DMA-BUF so we will just do enough work
+ * to make this compile. I don't think this code path is being hit at all.
+ */
 static int __dma_resv_make_exclusive(struct dma_resv *obj)
 {
 	struct dma_fence **fences;
 	unsigned int count;
 	int r;
-
-	if (!dma_resv_get_list(obj)) /* no shared fences to convert */
-		return 0;
 
 	r = dma_resv_get_fences(obj, DMA_RESV_USAGE_READ, &count, &fences);
 	if (r)
@@ -127,7 +135,7 @@ err_fences_put:
  * 0 on success or negative error code.
  */
 static int gsgpu_gem_map_attach(struct dma_buf *dma_buf,
-				 struct dma_buf_attachment *attach)
+				struct dma_buf_attachment *attach)
 {
 	struct drm_gem_object *obj = dma_buf->priv;
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
