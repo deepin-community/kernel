@@ -1,3 +1,5 @@
+#include <linux/delay.h>
+
 #include "gsgpu.h"
 #include "gsgpu_xdma.h"
 #include "gsgpu_trace.h"
@@ -261,7 +263,7 @@ static int xdma_ring_test_ring(struct gsgpu_ring *ring)
 		tmp = le32_to_cpu(adev->wb.wb[index]);
 		if (tmp == 0xDEADBEEF)
 			break;
-		DRM_UDELAY(1);
+		udelay(1);
 	}
 
 	if (i < adev->usec_timeout) {

@@ -1,4 +1,6 @@
 #include <linux/kernel.h>
+#include <linux/delay.h>
+
 #include "gsgpu.h"
 #include "gsgpu_common.h"
 #include "gsgpu_cp.h"
@@ -47,7 +49,7 @@ static int gfx_ring_test_ring(struct gsgpu_ring *ring)
 		tmp = le32_to_cpu(adev->wb.wb[index]);
 		if (tmp == 0xDEADBEEF)
 			break;
-		DRM_UDELAY(1);
+		udelay(1);
 	}
 
 	if (i < adev->usec_timeout) {
