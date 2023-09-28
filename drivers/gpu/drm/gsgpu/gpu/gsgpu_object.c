@@ -420,7 +420,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		gsgpu_cs_report_moved_bytes(adev, ctx.bytes_moved, 0);
 
 	if (bp->flags & GSGPU_GEM_CREATE_VRAM_CLEARED &&
-	    bo->tbo.resource->placement & TTM_PL_FLAG_VRAM) {
+	    bo->tbo.resource->mem_type == TTM_PL_VRAM) {
 		struct dma_fence *fence;
 
 		r = gsgpu_fill_buffer(bo, 0, bo->tbo.base.resv, &fence);
