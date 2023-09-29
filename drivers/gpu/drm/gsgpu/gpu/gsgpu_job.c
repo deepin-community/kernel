@@ -4,7 +4,7 @@
 #include "gsgpu.h"
 #include "gsgpu_trace.h"
 
-static void gsgpu_job_timedout(struct drm_sched_job *s_job)
+static enum drm_gpu_sched_stat gsgpu_job_timedout(struct drm_sched_job *s_job)
 {
 	struct gsgpu_ring *ring = to_gsgpu_ring(s_job->sched);
 	struct gsgpu_job *job = to_gsgpu_job(s_job);
@@ -14,6 +14,7 @@ static void gsgpu_job_timedout(struct drm_sched_job *s_job)
 		  ring->fence_drv.sync_seq);
 
 	gsgpu_device_gpu_recover(ring->adev, job, false);
+	return DRM_GPU_SCHED_STAT_NOMINAL;
 }
 
 int gsgpu_job_alloc(struct gsgpu_device *adev, unsigned num_ibs,
