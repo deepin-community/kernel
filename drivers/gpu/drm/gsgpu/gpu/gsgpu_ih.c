@@ -325,9 +325,10 @@ int gsgpu_ih_ring_init(struct gsgpu_device *adev, unsigned ring_size,
 			/* add 8 bytes for the rptr/wptr shadows and
 			 * add them to the end of the ring allocation.
 			 */
-			adev->irq.ih.ring = pci_alloc_consistent(adev->pdev,
-								 adev->irq.ih.ring_size + 8,
-								 &adev->irq.ih.rb_dma_addr);
+			adev->irq.ih.ring = dma_alloc_coherent(&adev->pdev->dev,
+							       adev->irq.ih.ring_size + 8,
+							       &adev->irq.ih.rb_dma_addr,
+							       GFP_KERNEL);
 			if (adev->irq.ih.ring == NULL)
 				return -ENOMEM;
 			memset((void *)adev->irq.ih.ring, 0, adev->irq.ih.ring_size + 8);
@@ -368,9 +369,9 @@ void gsgpu_ih_ring_fini(struct gsgpu_device *adev)
 			/* add 8 bytes for the rptr/wptr shadows and
 			 * add them to the end of the ring allocation.
 			 */
-			pci_free_consistent(adev->pdev, adev->irq.ih.ring_size + 8,
-					    (void *)adev->irq.ih.ring,
-					    adev->irq.ih.rb_dma_addr);
+			dma_free_coherent(&adev->pdev->dev, adev->irq.ih.ring_size + 8,
+					  (void *)adev->irq.ih.ring,
+					  adev->irq.ih.rb_dma_addr);
 			adev->irq.ih.ring = NULL;
 		}
 	} else {
