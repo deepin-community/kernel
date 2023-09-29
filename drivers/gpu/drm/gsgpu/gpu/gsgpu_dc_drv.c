@@ -730,8 +730,6 @@ static int dc_mode_config_init(struct gsgpu_device *adev)
 	/* indicate support of immediate flip */
 	adev->ddev->mode_config.async_page_flip = true;
 
-	adev->ddev->mode_config.fb_base = adev->gmc.aper_base;
-
 	r = gsgpu_display_modeset_create_props(adev);
 	if (r)
 		return r;
