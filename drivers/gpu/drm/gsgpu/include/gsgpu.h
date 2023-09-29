@@ -18,6 +18,7 @@
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_execbuf_util.h>
 #include <drm/drm_gem_ttm_helper.h>
+#include <drm/drm_probe_helper.h>
 
 #include <drm/drm_gem.h>
 #include <drm/gsgpu_drm.h>
