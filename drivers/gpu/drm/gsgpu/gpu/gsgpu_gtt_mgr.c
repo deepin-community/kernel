@@ -33,6 +33,18 @@ to_gtt_mgr(struct ttm_resource_manager *man)
 }
 
 /**
+ * gsgpu_gtt_mgr_usage - how many bytes are used
+ *
+ * @mgr: gsgpu_gtt_mgr pointer
+ *
+ * Returns how many GTT bytes are used
+ */
+uint64_t gsgpu_gtt_mgr_usage(struct gsgpu_gtt_mgr *mgr)
+{
+	return ttm_resource_manager_usage(&mgr->manager);
+}
+
+/**
  * DOC: mem_info_gtt_total
  *
  * The gsgpu driver provides a sysfs API for reporting current total size of

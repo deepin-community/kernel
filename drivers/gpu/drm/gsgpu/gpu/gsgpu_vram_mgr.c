@@ -75,8 +75,6 @@ static inline bool gsgpu_is_vram_mgr_blocks_contiguous(struct list_head *head)
 	return true;
 }
 
-
-
 /**
  * DOC: mem_info_vram_total
  *
@@ -713,6 +711,18 @@ void gsgpu_vram_mgr_free_sgt(struct device *dev,
 uint64_t gsgpu_vram_mgr_vis_usage(struct gsgpu_vram_mgr *mgr)
 {
 	return atomic64_read(&mgr->vis_usage);
+}
+
+/**
+ * gsgpu_vram_mgr_usage - how many bytes are used
+ *
+ * @mgr: gsgpu_vram_mgr pointer
+ *
+ * Returns how many VRAM bytes are used
+ */
+uint64_t gsgpu_vram_mgr_usage(struct gsgpu_vram_mgr *mgr)
+{
+	return ttm_resource_manager_usage(&mgr->manager);
 }
 
 /**
