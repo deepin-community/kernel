@@ -469,7 +469,7 @@ void dc_crtc_destroy(struct gsgpu_dc_crtc *crtc)
 }
 
 static int crtc_helper_atomic_check(struct drm_crtc *crtc,
-				       struct drm_crtc_state *state)
+				    struct drm_atomic_state *state)
 {
 	return 0;
 }
@@ -509,11 +509,14 @@ static enum drm_mode_status gsgpu_dc_mode_valid(struct drm_crtc *crtc,
 }
 
 static bool
-gsgpu_get_crtc_scanout_position(struct drm_device *dev, unsigned int pipe,
+gsgpu_get_crtc_scanout_position(struct drm_crtc *crtc,
 				bool in_vblank_irq, int *vpos, int *hpos,
 				ktime_t *stime, ktime_t *etime,
 				const struct drm_display_mode *mode)
 {
+	struct drm_device *dev = crtc->dev;
+        unsigned int pipe = crtc->index;
+
 	return gsgpu_display_get_crtc_scanoutpos(dev, pipe, 0, vpos, hpos,
 						 stime, etime, mode);
 }
