@@ -141,7 +141,7 @@ int gsgpu_job_submit_direct(struct gsgpu_job *job, struct gsgpu_ring *ring,
 	return 0;
 }
 
-static struct dma_fence *gsgpu_job_dependency(struct drm_sched_job *sched_job,
+static struct dma_fence *gsgpu_job_prepare_job(struct drm_sched_job *sched_job,
 					       struct drm_sched_entity *s_entity)
 {
 	struct gsgpu_ring *ring = to_gsgpu_ring(s_entity->rq->sched);
@@ -208,7 +208,7 @@ static struct dma_fence *gsgpu_job_run(struct drm_sched_job *sched_job)
 }
 
 const struct drm_sched_backend_ops gsgpu_sched_ops = {
-	.dependency = gsgpu_job_dependency,
+	.prepare_job = gsgpu_job_prepare_job,
 	.run_job = gsgpu_job_run,
 	.timedout_job = gsgpu_job_timedout,
 	.free_job = gsgpu_job_free_cb
