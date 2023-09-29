@@ -272,10 +272,9 @@ struct gsgpu_bridge_phy {
 	const struct bridge_phy_hdmi_aux_funcs *hdmi_aux_funcs;
 };
 
-struct gsgpu_dc_bridge
-*dc_bridge_construct(struct gsgpu_dc *dc,
-		     struct encoder_resource *encoder_res,
-		     struct connector_resource *connector_res);
+struct gsgpu_dc_bridge *dc_bridge_construct(struct gsgpu_dc *dc,
+					    struct encoder_resource *encoder_res,
+					    struct connector_resource *connector_res);
 int gsgpu_dc_bridge_init(struct gsgpu_device *adev, int link_index);
 struct gsgpu_bridge_phy *bridge_phy_alloc(struct gsgpu_dc_bridge *dc_bridge);
 int bridge_phy_register(struct gsgpu_bridge_phy *phy,

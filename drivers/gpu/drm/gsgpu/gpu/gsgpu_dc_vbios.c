@@ -591,7 +591,7 @@ static bool vbios_create_pwm_resource(struct gsgpu_vbios *vbios, void *data, u32
 	pwm_resource->feature = vb_pwm.feature;
 	pwm_resource->pwm = vb_pwm.pwm;
 	pwm_resource->polarity = vb_pwm.polarity;
-	pwm_resource->peroid = vb_pwm.peroid;
+	pwm_resource->period = vb_pwm.period;
 
 	list_add_tail(&pwm_resource->base.node, &vbios->resource_list);
 

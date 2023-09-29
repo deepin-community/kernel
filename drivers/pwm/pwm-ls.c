@@ -210,10 +210,8 @@ static int ls_pwm_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	u32 clk;
 
-	if (pdev->id > 3)
-		dev_err(&pdev->dev, "Currently only four PWM controller is implemented,namely, 0,1,2,3.\n");
 	pwm = devm_kzalloc(&pdev->dev, sizeof(*pwm), GFP_KERNEL);
-	if(!pwm){
+	if (!pwm){
 		dev_err(&pdev->dev, "failed to allocate memory\n");
 		return -ENOMEM;
 	}
@@ -230,7 +228,7 @@ static int ls_pwm_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "pwm->clock_frequency=%llu", pwm->clock_frequency);
 
-	mem = platform_get_resource(pdev,IORESOURCE_MEM, 0);
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if(!mem){
 		dev_err(&pdev->dev, "no mem resource?\n");
 		return -ENODEV;
@@ -263,9 +261,9 @@ static int ls_pwm_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static struct of_device_id ls_pwm_id_table[] = {
-	{.compatible = "loongson,ls7a-pwm"},
-	{.compatible = "loongson,ls-pwm"},
-	{.compatible = "loongson,ls2k-pwm"},
+	{ .compatible = "loongson,ls7a-pwm" },
+	{ .compatible = "loongson,ls-pwm" },
+	{ .compatible = "loongson,ls2k-pwm" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ls_pwm_id_table);
@@ -321,6 +319,6 @@ static struct platform_driver ls_pwm_driver = {
 module_platform_driver(ls_pwm_driver);
 
 MODULE_AUTHOR("Juxin Gao <gaojuxin@loongson.com>");
-MODULE_DESCRIPTION("Loongson Pwm Driver");
+MODULE_DESCRIPTION("Loongson PWM Driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:ls-pwm");

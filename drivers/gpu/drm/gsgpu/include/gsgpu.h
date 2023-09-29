@@ -42,6 +42,7 @@
 #include "gsgpu_hmm.h"
 #include "gsgpu_gmc.h"
 #include "gsgpu_dc.h"
+#include "gsgpu_dc_resource.h"
 #include "gsgpu_gart.h"
 #include "gsgpu_zip_meta.h"
 #include "gsgpu_debugfs.h"

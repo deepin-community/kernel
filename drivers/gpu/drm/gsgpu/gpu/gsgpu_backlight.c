@@ -7,6 +7,8 @@
 #include "gsgpu_backlight.h"
 #include "bridge_phy.h"
 
+#define GSGPU_PWM_CONSUMER_ID	"Loongson_bl"
+
 static bool gsgpu_backlight_get_hw_status(struct gsgpu_backlight *ls_bl)
 {
 	return (gpio_get_value(GPIO_LCD_VDD) && gpio_get_value(GPIO_LCD_EN)
@@ -139,12 +141,13 @@ static void gsgpu_backlight_set(struct gsgpu_backlight *ls_bl,
 	pwm_config(ls_bl->pwm, duty_ns, period_ns);
 }
 
-static int gsgpu_backlight_hw_request_init(struct gsgpu_backlight *ls_bl)
+static int gsgpu_backlight_hw_request_init(struct gsgpu_device *adev,
+					   struct gsgpu_backlight *ls_bl)
 {
 	int ret = 0;
 	bool pwm_enable_default;
 
-	ls_bl->pwm = pwm_request(ls_bl->pwm_id, "Loongson_bl");
+	ls_bl->pwm = pwm_get(adev->ddev->dev, GSGPU_PWM_CONSUMER_ID);
 	if (IS_ERR(ls_bl->pwm)) {
 		DRM_ERROR("Failed to get the pwm chip\n");
 		ls_bl->pwm = NULL;
@@ -154,7 +157,6 @@ static int gsgpu_backlight_hw_request_init(struct gsgpu_backlight *ls_bl)
 	pwm_enable_default = pwm_is_enabled(ls_bl->pwm);
 	/* pwm init.*/
 	pwm_disable(ls_bl->pwm);
-	pwm_set_polarity(ls_bl->pwm, ls_bl->pwm_polarity);
 	gsgpu_backlight_set(ls_bl, ls_bl->level);
 	if (pwm_enable_default)
 		pwm_enable(ls_bl->pwm);
@@ -180,10 +182,15 @@ static int gsgpu_backlight_hw_request_init(struct gsgpu_backlight *ls_bl)
 ERROR_EN:
 	gpio_free(GPIO_LCD_VDD);
 ERROR_VDD:
-	pwm_free(ls_bl->pwm);
+	pwm_put(ls_bl->pwm);
 ERROR_PWM:
 	return -ENODEV;
 }
+
+static struct pwm_lookup gsgpu_pwm_lookup[] = {
+	PWM_LOOKUP("ls-pwm", 0, NULL, GSGPU_PWM_CONSUMER_ID, 100000,
+		   PWM_POLARITY_NORMAL),
+};
 
 static struct gsgpu_backlight
 *gsgpu_backlight_init(struct gsgpu_device *adev, int index)
@@ -215,12 +222,18 @@ static struct gsgpu_backlight
 	ls_bl->pwm_id = pwm_res->pwm;
 	/* 0:low start, 1:high start */
 	ls_bl->pwm_polarity = pwm_res->polarity;
-	ls_bl->pwm_period = pwm_res->peroid;
+	ls_bl->pwm_period = pwm_res->period;
 
 	DRM_INFO("pwm: id=%d, period=%dns, polarity=%d.\n",
 		 ls_bl->pwm_id, ls_bl->pwm_period, ls_bl->pwm_polarity);
 
-	ret = gsgpu_backlight_hw_request_init(ls_bl);
+	for (int i = 0; i < ARRAY_SIZE(gsgpu_pwm_lookup); i++) {
+		gsgpu_pwm_lookup[i].period = pwm_res->period;
+		gsgpu_pwm_lookup[i].polarity = pwm_res->polarity;
+	}
+	pwm_add_table(gsgpu_pwm_lookup, ARRAY_SIZE(gsgpu_pwm_lookup));
+
+	ret = gsgpu_backlight_hw_request_init(adev, ls_bl);
 	if (ret)
 		goto ERROR_HW;
 

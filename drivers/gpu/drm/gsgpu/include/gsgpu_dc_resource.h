@@ -54,7 +54,7 @@ struct pwm_resource {
 	u32 feature;
 	u8 pwm;
 	u8 polarity;
-	u32 peroid;
+	u32 period;
 };
 
 struct crtc_resource {
