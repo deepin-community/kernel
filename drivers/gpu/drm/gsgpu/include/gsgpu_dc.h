@@ -109,4 +109,6 @@ void handle_cursor_update(struct drm_plane *plane,
 			  struct drm_plane_state *old_plane_state);
 bool crtc_cursor_set(struct gsgpu_dc_crtc *crtc, struct dc_cursor_info *cursor);
 
+struct drm_encoder *gsgpu_dc_get_best_single_encoder(struct drm_connector *connector);
+
 #endif

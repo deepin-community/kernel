@@ -9,7 +9,7 @@
 #include "gsgpu_dc_vbios.h"
 #include "gsgpu_backlight.h"
 
-static struct drm_encoder *best_single_encoder(struct drm_connector *connector)
+struct drm_encoder *gsgpu_dc_get_best_single_encoder(struct drm_connector *connector)
 {
 	struct drm_encoder *encoder;
 
@@ -47,7 +47,7 @@ static int gsgpu_dc_connector_get_modes(struct drm_connector *connector)
 
 static const struct drm_connector_helper_funcs dc_connector_helper_funcs = {
 	.get_modes = gsgpu_dc_connector_get_modes,
-	.best_encoder = best_single_encoder
+	.best_encoder = gsgpu_dc_get_best_single_encoder
 };
 
 static bool is_connected(struct drm_connector *connector)

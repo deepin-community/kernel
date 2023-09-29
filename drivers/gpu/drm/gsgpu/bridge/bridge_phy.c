@@ -61,24 +61,10 @@ bridge_phy_connector_mode_valid(struct drm_connector *connector,
 	return MODE_OK;
 }
 
-static struct drm_encoder *
-bridge_phy_connector_best_encoder(struct drm_connector *connector)
-{
-	int enc_id;
-
-	enc_id = connector->encoder_ids[0];
-	/* pick the encoder ids */
-	if (enc_id)
-		return drm_encoder_find(connector->dev, NULL, enc_id);
-
-	DRM_ERROR("Failed to get encoder %d\n", enc_id);
-	return NULL;
-}
-
 static struct drm_connector_helper_funcs bridge_phy_connector_helper_funcs = {
 	.get_modes = bridge_phy_connector_get_modes,
 	.mode_valid = bridge_phy_connector_mode_valid,
-	.best_encoder = bridge_phy_connector_best_encoder,
+	.best_encoder = gsgpu_dc_get_best_single_encoder,
 };
 
 static enum drm_connector_status
@@ -155,7 +141,8 @@ void bridge_phy_mode_set(struct gsgpu_bridge_phy *phy,
 	__bridge_phy_mode_set(phy, mode, adj_mode);
 }
 
-static int bridge_phy_attach(struct drm_bridge *bridge)
+static int bridge_phy_attach(struct drm_bridge *bridge,
+			     enum drm_bridge_attach_flags flags)
 {
 	struct gsgpu_bridge_phy *phy = to_bridge_phy(bridge);
 	struct gsgpu_connector *lconnector;
@@ -233,7 +220,7 @@ static int bridge_phy_bind(struct gsgpu_bridge_phy *phy)
 
 	phy->bridge.funcs = &bridge_funcs;
 	drm_bridge_add(&phy->bridge);
-	ret = drm_bridge_attach(phy->encoder, &phy->bridge, NULL);
+	ret = drm_bridge_attach(phy->encoder, &phy->bridge, NULL, 0);
 	if (ret) {
 		DRM_ERROR("[Bridge_phy] %s Failed to attach phy ret %d\n",
 			  phy->res->chip_name, ret);
