@@ -1,6 +1,7 @@
 #include "gsgpu.h"
 #include "gsgpu_dc_vbios.h"
 #include "gsgpu_dc_resource.h"
+#include <asm/loongson.h>
 
 #define VBIOS_START 0x1000
 #define VBIOS_SIZE 0x40000
@@ -1042,7 +1043,10 @@ bool check_vbios_info(void)
 	bool get_vbios = false;
 
 	struct pci_dev *pdev = pci_get_device(0x0014, 0x7A25, NULL);
-	pci_enable_device(pdev);
+	int r = pci_enable_device(pdev);
+	if (r) {
+		return false;
+	}
 	resource_size_t vram_base = pci_resource_start(pdev, 2);
 	resource_size_t vram_size = pci_resource_len(pdev, 2);
 	u64 vbios_addr = vram_base + vram_size - VBIOS_OFFSET;
