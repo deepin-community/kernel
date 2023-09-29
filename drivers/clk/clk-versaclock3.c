@@ -588,7 +588,7 @@ static const struct clk_ops vc3_clk_mux_ops = {
 static const struct regmap_config vc3_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.cache_type = REGCACHE_RBTREE,
+	.cache_type = REGCACHE_MAPLE,
 	.max_register = 0x24,
 };
 
