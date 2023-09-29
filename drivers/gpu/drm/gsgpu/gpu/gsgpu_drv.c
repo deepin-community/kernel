@@ -212,7 +212,7 @@ module_param_named(gsgpu_using_ram, gsgpu_using_ram, uint, 0444);
 
 
 static const struct pci_device_id pciidlist[] = {
-	{0x0014, 0x7A25, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_LG100}, //GSGPU
+	{LG100_VENDOR_ID, LG100_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_LG100}, //GSGPU
 	{0, 0, 0}
 };
 

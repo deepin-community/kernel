@@ -15,8 +15,10 @@ enum desc_ver {
 	ver_v1,
 };
 
+#define VBIOS_HEADER_MAX_TITLE_SIZE	16
+
 struct vbios_info {
-	char title[16];
+	char title[VBIOS_HEADER_MAX_TITLE_SIZE];
 	u32 version_major;
 	u32 version_minor;
 	char information[20];
@@ -186,7 +188,7 @@ struct acpi_viat_table {
 
 typedef bool(parse_func)(struct vbios_desc *, struct gsgpu_vbios *);
 
-struct desc_func {
+struct vbios_desc_parser_table {
 	enum desc_type type;
 	u16 ver;
 	parse_func *func;

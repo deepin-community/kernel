@@ -107,6 +107,10 @@ extern int gsgpu_using_ram;
 #define GSGPU_GFX_CG_DISABLED_MODE		0x00000004L
 #define GSGPU_GFX_LBPW_DISABLED_MODE		0x00000008L
 
+/* PCI IDs for supported devices */
+#define LG100_VENDOR_ID		0x0014
+#define LG100_DEVICE_ID		0x7A25
+
 struct gsgpu_device;
 struct gsgpu_ib;
 struct gsgpu_cs_parser;
