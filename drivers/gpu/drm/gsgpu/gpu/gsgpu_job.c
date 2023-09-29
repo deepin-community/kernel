@@ -142,6 +142,31 @@ int gsgpu_job_submit_direct(struct gsgpu_job *job, struct gsgpu_ring *ring,
 	return 0;
 }
 
+/**
+ * drm_sched_dependency_optimized
+ *
+ * @fence: the dependency fence
+ * @entity: the entity which depends on the above fence
+ *
+ * Returns true if the dependency can be optimized and false otherwise
+ */
+static bool gsgpu_sched_dependency_optimized(struct dma_fence* fence,
+					     struct drm_sched_entity *entity)
+{
+        struct drm_gpu_scheduler *sched = entity->rq->sched;
+        struct drm_sched_fence *s_fence;
+
+        if (!fence || dma_fence_is_signaled(fence))
+                return false;
+        if (fence->context == entity->fence_context)
+                return true;
+        s_fence = to_drm_sched_fence(fence);
+        if (s_fence && s_fence->sched == sched)
+                return true;
+
+        return false;
+}
+
 static struct dma_fence *gsgpu_job_prepare_job(struct drm_sched_job *sched_job,
 					       struct drm_sched_entity *s_entity)
 {
@@ -154,7 +179,7 @@ static struct dma_fence *gsgpu_job_prepare_job(struct drm_sched_job *sched_job,
 
 	fence = gsgpu_sync_get_fence(&job->sync, &explicit);
 	if (fence && explicit) {
-		if (drm_sched_dependency_optimized(fence, s_entity)) {
+		if (gsgpu_sched_dependency_optimized(fence, s_entity)) {
 			r = gsgpu_sync_fence(ring->adev, &job->sched_sync,
 					      fence, false);
 			if (r)
