@@ -436,15 +436,6 @@ static void lt8619_turn_on_lvds(struct gsgpu_bridge_phy *phy)
 	regmap_write(phy->phy_regmap, 0x60C0, 0x18);
 }
 
-static void lt8619_turn_off_lvds(struct gsgpu_bridge_phy *phy)
-{
-	/* bit2= 1 => turn off LVDS C */
-	regmap_write(phy->phy_regmap, 0x60BA, 0x44);
-
-	/* bit2= 1 => turn off LVDS D */
-	regmap_write(phy->phy_regmap, 0x60C0, 0x44);
-}
-
 static void lt8619_hdmi_rx_reset(struct gsgpu_bridge_phy *phy)
 {
 	regmap_write(phy->phy_regmap, 0x600E, 0xBF);
