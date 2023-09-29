@@ -356,7 +356,7 @@ static int mmu_sw_init(void *handle)
 
 	mmu_set_dma_consistent(adev);
 
-	adev->need_swiotlb = drm_get_max_iomem() > (u64)BIT(adev->gmc.dma_bits);
+	adev->need_swiotlb = drm_need_swiotlb(adev->gmc.dma_bits);
 
 	r = mmu_mc_init(adev);
 	if (r)
