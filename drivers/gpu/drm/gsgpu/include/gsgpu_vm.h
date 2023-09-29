@@ -54,6 +54,9 @@ struct gsgpu_bo_list_entry;
  */
 #define GSGPU_VA_HOLE_MASK			0x0000ffffffffffffULL
 
+/* Reserve 1MB VRAM for page tables */
+#define GSGPU_VM_RESERVED_VRAM                (1ULL << 20)
+
 /* max vmids dedicated for process */
 #define GSGPU_VM_MAX_RESERVED_VMID	1
 

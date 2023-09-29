@@ -2061,9 +2061,7 @@ retry:
 				atomic_inc(&adev->vram_lost_counter);
 			}
 
-			r = gsgpu_gtt_mgr_recover(adev->mman.bdev.man_drv[TTM_PL_TT]);
-			if (r)
-				goto out;
+			gsgpu_gtt_mgr_recover(&adev->mman.gtt_mgr);
 
 			r = gsgpu_device_ip_resume_phase2(adev);
 			if (r)

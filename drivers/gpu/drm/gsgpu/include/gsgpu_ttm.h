@@ -47,12 +47,12 @@ int gsgpu_gtt_mgr_init(struct gsgpu_device *adev, uint64_t gtt_size);
 void gsgpu_gtt_mgr_fini(struct gsgpu_device *adev);
 
 bool gsgpu_gtt_mgr_has_gart_addr(struct ttm_resource *mem);
-uint64_t gsgpu_gtt_mgr_usage(struct ttm_resource_manager *man);
-void gsgpu_gtt_mgr_recover(struct ttm_resource_manager *man);
+uint64_t gsgpu_gtt_mgr_usage(struct gsgpu_gtt_mgr *man);
+void gsgpu_gtt_mgr_recover(struct gsgpu_gtt_mgr *man);
 
 u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo);
-uint64_t gsgpu_vram_mgr_usage(struct ttm_resource_manager *man);
-uint64_t gsgpu_vram_mgr_vis_usage(struct ttm_resource_manager *man);
+uint64_t gsgpu_vram_mgr_usage(struct gsgpu_vram_mgr *man);
+uint64_t gsgpu_vram_mgr_vis_usage(struct gsgpu_vram_mgr *man);
 
 int gsgpu_ttm_init(struct gsgpu_device *adev);
 void gsgpu_ttm_late_init(struct gsgpu_device *adev);

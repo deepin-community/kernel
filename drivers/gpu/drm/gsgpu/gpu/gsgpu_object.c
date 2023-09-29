@@ -465,8 +465,7 @@ static int gsgpu_bo_create_shadow(struct gsgpu_device *adev,
 	bp.size = size;
 	bp.byte_align = byte_align;
 	bp.domain = GSGPU_GEM_DOMAIN_GTT;
-	bp.flags = GSGPU_GEM_CREATE_CPU_GTT_USWC |
-		GSGPU_GEM_CREATE_SHADOW;
+	bp.flags = GSGPU_GEM_CREATE_CPU_GTT_USWC | GSGPU_GEM_CREATE_SHADOW;
 	bp.type = ttm_bo_type_kernel;
 	bp.resv = bo->tbo.base.resv;
 

@@ -302,13 +302,13 @@ static int gsgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file 
 		ui64 = atomic64_read(&adev->num_vram_cpu_page_faults);
 		return copy_to_user(out, &ui64, min(size, 8u)) ? -EFAULT : 0;
 	case GSGPU_INFO_VRAM_USAGE:
-		ui64 = gsgpu_vram_mgr_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+		ui64 = gsgpu_vram_mgr_usage(&adev->mman.vram_mgr);
 		return copy_to_user(out, &ui64, min(size, 8u)) ? -EFAULT : 0;
 	case GSGPU_INFO_VIS_VRAM_USAGE:
-		ui64 = gsgpu_vram_mgr_vis_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+		ui64 = gsgpu_vram_mgr_vis_usage(&adev->mman.vram_mgr);
 		return copy_to_user(out, &ui64, min(size, 8u)) ? -EFAULT : 0;
 	case GSGPU_INFO_GTT_USAGE:
-		ui64 = gsgpu_gtt_mgr_usage(adev->mman.bdev.man_drv[TTM_PL_TT]);
+		ui64 = gsgpu_gtt_mgr_usage(&adev->mman.gtt_mgr);
 		return copy_to_user(out, &ui64, min(size, 8u)) ? -EFAULT : 0;
 	case GSGPU_INFO_GDS_CONFIG:
 		return -ENODATA;
@@ -333,7 +333,7 @@ static int gsgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file 
 		mem.vram.usable_heap_size = adev->gmc.real_vram_size -
 			atomic64_read(&adev->vram_pin_size);
 		mem.vram.heap_usage =
-			gsgpu_vram_mgr_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+			gsgpu_vram_mgr_usage(&adev->mman.vram_mgr);
 		mem.vram.max_allocation = mem.vram.usable_heap_size * 3 / 4;
 
 		mem.cpu_accessible_vram.total_heap_size =
@@ -341,7 +341,7 @@ static int gsgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file 
 		mem.cpu_accessible_vram.usable_heap_size = adev->gmc.visible_vram_size -
 			atomic64_read(&adev->visible_pin_size);
 		mem.cpu_accessible_vram.heap_usage =
-			gsgpu_vram_mgr_vis_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+			gsgpu_vram_mgr_vis_usage(&adev->mman.vram_mgr);
 		mem.cpu_accessible_vram.max_allocation =
 			mem.cpu_accessible_vram.usable_heap_size * 3 / 4;
 
@@ -349,13 +349,11 @@ static int gsgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file 
 		mem.gtt.total_heap_size *= PAGE_SIZE;
 		mem.gtt.usable_heap_size = mem.gtt.total_heap_size -
 			atomic64_read(&adev->gart_pin_size);
-		mem.gtt.heap_usage =
-			gsgpu_gtt_mgr_usage(adev->mman.bdev.man_drv[TTM_PL_TT]);
+		mem.gtt.heap_usage = gsgpu_gtt_mgr_usage(&adev->mman.gtt_mgr);
 		mem.gtt.max_allocation = mem.gtt.usable_heap_size * 3 / 4;
 
 		return copy_to_user(out, &mem,
-				    min((size_t)size, sizeof(mem)))
-				    ? -EFAULT : 0;
+				    min((size_t)size, sizeof(mem))) ? -EFAULT : 0;
 	}
 	case GSGPU_INFO_READ_MMR_REG: {
 		unsigned n, alloc_size;

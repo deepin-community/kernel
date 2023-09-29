@@ -280,7 +280,7 @@ static void gsgpu_cs_get_threshold_for_moves(struct gsgpu_device *adev,
 	}
 
 	total_vram = adev->gmc.real_vram_size - atomic64_read(&adev->vram_pin_size);
-	used_vram = gsgpu_vram_mgr_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+	used_vram = gsgpu_vram_mgr_usage(&adev->mman.vram_mgr);
 	free_vram = used_vram >= total_vram ? 0 : total_vram - used_vram;
 
 	spin_lock(&adev->mm_stats.lock);
@@ -326,8 +326,7 @@ static void gsgpu_cs_get_threshold_for_moves(struct gsgpu_device *adev,
 	/* Do the same for visible VRAM if half of it is free */
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc)) {
 		u64 total_vis_vram = adev->gmc.visible_vram_size;
-		u64 used_vis_vram =
-			gsgpu_vram_mgr_vis_usage(adev->mman.bdev.man_drv[TTM_PL_VRAM]);
+		u64 used_vis_vram = gsgpu_vram_mgr_vis_usage(&adev->mman.vram_mgr);
 
 		if (used_vis_vram < total_vis_vram) {
 			u64 free_vis_vram = total_vis_vram - used_vis_vram;
