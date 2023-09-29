@@ -107,27 +107,6 @@ static bool dc_links_init(struct gsgpu_dc *dc)
 	return true;
 }
 
-static void dc_link_exit(struct gsgpu_dc *dc)
-{
-	u32 i;
-	struct gsgpu_link_info *link_info;
-
-	if (IS_ERR_OR_NULL(dc))
-		return;
-
-	link_info = dc->link_info;
-
-	for (i = 0; i < dc->links; i++) {
-		dc_crtc_destroy(link_info[i].crtc);
-
-		link_info[i].fine = false;
-	}
-
-	kfree(link_info);
-	dc->link_info = NULL;
-	dc->links = 0;
-}
-
 static struct gsgpu_dc *dc_construct(struct gsgpu_device *adev)
 {
 	struct gsgpu_dc *dc;
@@ -161,18 +140,6 @@ static struct gsgpu_dc *dc_construct(struct gsgpu_device *adev)
 	}
 
 	return dc;
-}
-
-static void dc_destruct(struct gsgpu_dc *dc)
-{
-	if (IS_ERR_OR_NULL(dc))
-		return;
-
-	dc_link_exit(dc);
-	dc_vbios_exit(dc->vbios);
-
-	kfree(dc);
-	dc = NULL;
 }
 
 bool dc_submit_timing_update(struct gsgpu_dc *dc, u32 link, struct dc_timing_info *timing)
