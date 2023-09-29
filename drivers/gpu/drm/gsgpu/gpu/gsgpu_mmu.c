@@ -307,16 +307,13 @@ static inline void mmu_set_dma_consistent(struct gsgpu_device *adev)
 	 */
 	adev->need_dma32 = false;
 	dma_bits = 40;
-	r = pci_set_dma_mask(adev->pdev, DMA_BIT_MASK(dma_bits));
+	r = dma_set_mask_and_coherent(&adev->pdev->dev, DMA_BIT_MASK(dma_bits));
 	if (r) {
+		pr_warn("gsgpu: %d-bit DMA unavailable. Falling back to 32-bit DMA.\n",
+			dma_bits);
 		adev->need_dma32 = true;
 		dma_bits = 32;
-		pr_warn("gsgpu: No suitable DMA available\n");
-	}
-	r = pci_set_consistent_dma_mask(adev->pdev, DMA_BIT_MASK(dma_bits));
-	if (r) {
-		pci_set_consistent_dma_mask(adev->pdev, DMA_BIT_MASK(32));
-		pr_warn("gsgpu: No coherent DMA available\n");
+		dma_set_mask_and_coherent(&adev->pdev->dev, DMA_BIT_MASK(32));
 	}
 
 	adev->gmc.dma_bits = dma_bits;
