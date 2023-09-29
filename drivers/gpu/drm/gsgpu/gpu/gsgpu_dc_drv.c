@@ -514,9 +514,7 @@ static void gsgpu_dc_commit_planes(struct drm_atomic_state *state,
 			 * entire can't wait for VBLANK
 			 * TODO Check if it's correct
 			 */
-			*wait_for_vblank =
-				new_pcrtc_state->pageflip_flags & DRM_MODE_PAGE_FLIP_ASYNC ?
-				false : true;
+			*wait_for_vblank = !new_pcrtc_state->async_flip;
 
 			/* TODO: Needs rework for multiplane flip */
 			if (plane->type == DRM_PLANE_TYPE_PRIMARY)
