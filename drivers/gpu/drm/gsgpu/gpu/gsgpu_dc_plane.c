@@ -101,7 +101,7 @@ static void dc_plane_helper_cleanup_fb(struct drm_plane *plane,
 }
 
 static int dc_plane_atomic_check(struct drm_plane *plane,
-				 struct drm_plane_state *state)
+				 struct drm_atomic_state *state)
 {
 	return 0;
 }

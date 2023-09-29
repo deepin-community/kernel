@@ -9,28 +9,17 @@
 #include "gsgpu_dc_vbios.h"
 #include "gsgpu_backlight.h"
 
-static struct drm_encoder *best_encoder(struct drm_connector *connector)
+static struct drm_encoder *best_single_encoder(struct drm_connector *connector)
 {
-	int enc_id = connector->encoder_ids[0];
-	struct drm_mode_object *obj;
 	struct drm_encoder *encoder;
 
-	DRM_DEBUG_DRIVER("Finding the best encoder\n");
+	DRM_DEBUG_DRIVER("Finding the best single encoder\n");
 
-	/* pick the encoder ids */
-	if (enc_id) {
-		obj = drm_mode_object_find(connector->dev, NULL, enc_id, DRM_MODE_OBJECT_ENCODER);
-		if (!obj) {
-			DRM_ERROR("Couldn't find a matching encoder for our connector\n");
-			return NULL;
-		}
-		encoder = obj_to_encoder(obj);
-		return encoder;
-	}
+        /* pick the first one */
+        drm_connector_for_each_possible_encoder(connector, encoder)
+                return encoder;
 
-	DRM_ERROR("No encoder id\n");
-
-	return NULL;
+        return NULL;
 }
 
 static int gsgpu_dc_connector_get_modes(struct drm_connector *connector)
@@ -58,7 +47,7 @@ static int gsgpu_dc_connector_get_modes(struct drm_connector *connector)
 
 static const struct drm_connector_helper_funcs dc_connector_helper_funcs = {
 	.get_modes = gsgpu_dc_connector_get_modes,
-	.best_encoder = best_encoder
+	.best_encoder = best_single_encoder
 };
 
 static bool is_connected(struct drm_connector *connector)
