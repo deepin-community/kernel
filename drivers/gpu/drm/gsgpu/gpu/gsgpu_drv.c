@@ -520,7 +520,6 @@ static struct pci_driver loongson_vga_pci_driver = {
 static int __init gsgpu_init(void)
 {
 	struct pci_dev *pdev = NULL;
-	struct file *fw_file = NULL;
 	int r;
 
 	if (video_firmware_drivers_only()) {
@@ -538,15 +537,6 @@ static int __init gsgpu_init(void)
 				  LG100_VGA_DEVICE_ID, pdev->device);
 			return -EINVAL;
 		}
-
-		fw_file = filp_open("/lib/firmware/loongson/lg100_cp.bin",
-				    O_RDONLY, 0600);
-		if (IS_ERR(fw_file)) {
-			DRM_ERROR("unable to load firmware file loongson/lg100_cp.bin\n");
-			return -EINVAL;
-		}
-
-		filp_close(fw_file, NULL);
 	}
 
 	if (!check_vbios_info()) {

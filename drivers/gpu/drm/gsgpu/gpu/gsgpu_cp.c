@@ -52,8 +52,6 @@ static int gsgpu_init_microcode(struct gsgpu_device *adev)
 	char fw_name[30];
 	int err;
 
-	DRM_DEBUG("\n");
-
 	switch (adev->family_type) {
 	case CHIP_LG100:
 		chip_name = "lg100";
@@ -64,20 +62,16 @@ static int gsgpu_init_microcode(struct gsgpu_device *adev)
 
 	snprintf(fw_name, sizeof(fw_name), "loongson/%s_cp.bin", chip_name);
 	err = request_firmware(&adev->gfx.cp_fw, fw_name, adev->dev);
-	if (err)
-		goto out;
+	if (err) {
+		dev_err(adev->dev, "failed to load firmware '%s'\n",
+			fw_name);
+		adev->gfx.cp_fw = NULL;
+		return err;
+	}
+
 	adev->gfx.cp_fw_version = 0;
 	adev->gfx.cp_feature_version = 0;
-
-out:
-	if (err) {
-		dev_err(adev->dev,
-			"gfx8: Failed to load firmware \"%s\"\n",
-			fw_name);
-		release_firmware(adev->gfx.cp_fw);
-		adev->gfx.cp_fw = NULL;
-	}
-	return err;
+	return 0;
 }
 
 int gsgpu_cp_gfx_load_microcode(struct gsgpu_device *adev)
@@ -127,7 +121,8 @@ static void gsgpu_get_version(struct gsgpu_device *adev)
 	hw_version = hw_inf;
 	adev->gfx.cp_fw_version = cp_fw_version;
 	adev->gfx.cp_feature_version = cp_feature_version;
-	DRM_INFO("GPU Family: LG%x00 series LG%x, Feature:0x%08x", (hw_inf >> FAMILY_SHIFT) & FAMILY_MASK, hw_version, cp_feature_version);
+	DRM_INFO("GPU Family: LG%x00 series LG%x, Feature:0x%08x",
+		 (hw_inf >> FAMILY_SHIFT) & FAMILY_MASK, hw_version, cp_feature_version);
 	DRM_INFO("Firmware Version: %d.%d.%d", fw_major, fw_minor, fw_revision);
 }
 
