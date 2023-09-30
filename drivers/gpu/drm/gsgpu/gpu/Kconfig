@@ -2,10 +2,11 @@ config DRM_GSGPU_USERPTR
 	bool "Always enable userptr write support"
 	depends on DRM_GSGPU
 	select MMU_NOTIFIER
+	select HMM_MIRROR
 	default y
 	help
-	  This option selects CONFIG_MMU_NOTIFIER if it isn't already
-	  selected to enabled full userptr support.
+	  This option selects CONFIG_MMU_NOTIFIER and CONFIG_HMM_MIRROR if it
+	  isn't already selected to enabled full userptr support.
 
 config DRM_GSGPU_GART_DEBUGFS
 	bool "Allow GART access through debugfs"

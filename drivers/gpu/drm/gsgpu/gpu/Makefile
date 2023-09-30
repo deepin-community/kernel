@@ -47,7 +47,7 @@ gsgpu-y += gsgpu_xdma.o
 gsgpu-y += gsgpu_job.o
 
 gsgpu-$(CONFIG_COMPAT) += gsgpu_ioc32.o
-gsgpu-$(CONFIG_MMU_NOTIFIER) += gsgpu_hmm.o
+gsgpu-$(CONFIG_HMM_MIRROR) += gsgpu_hmm.o
 
 # add DC block
 gsgpu-y += gsgpu_dc_drv.o gsgpu_dc_crtc.o gsgpu_dc_hdmi.o \
