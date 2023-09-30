@@ -212,7 +212,7 @@ module_param_named(gsgpu_using_ram, gsgpu_using_ram, uint, 0444);
 
 
 static const struct pci_device_id pciidlist[] = {
-	{LG100_VENDOR_ID, LG100_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_LG100}, //GSGPU
+	{PCI_VENDOR_ID_LOONGSON, LG100_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_LG100}, //GSGPU
 	{0, 0, 0}
 };
 
@@ -380,7 +380,7 @@ long gsgpu_drm_ioctl(struct file *filp,
  * kernel_ulong_t driver_data     Data private to the driver
  */
 static struct pci_device_id loongson_vga_pci_devices[] = {
-	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, 0x7a36)},
+	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, LG100_VGA_DEVICE_ID)},
 	{0, 0, 0, 0, 0, 0, 0},
 };
 
@@ -533,19 +533,24 @@ static int __init gsgpu_init(void)
 		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON)
 			return 0;
 
-		if (!gsgpu_lg100_support || (pdev->device != 0x7a36))
+		if (!gsgpu_lg100_support || (pdev->device != LG100_VGA_DEVICE_ID)) {
+			DRM_ERROR("expected device id 0x%04x, got device id 0x%04x\n",
+				  LG100_VGA_DEVICE_ID, pdev->device);
 			return -EINVAL;
+		}
 
 		fw_file = filp_open("/lib/firmware/loongson/lg100_cp.bin",
 				    O_RDONLY, 0600);
-		if (IS_ERR(fw_file))
+		if (IS_ERR(fw_file)) {
+			DRM_ERROR("unable to load firmware file loongson/lg100_cp.bin\n");
 			return -EINVAL;
+		}
 
 		filp_close(fw_file, NULL);
 	}
 
 	if (!check_vbios_info()) {
-		DRM_INFO("gsgpu does not support this board!!!\n");
+		DRM_ERROR("gsgpu does not support this board!\n");
 		return -EINVAL;
 	}
 

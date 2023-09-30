@@ -1053,7 +1053,7 @@ void dc_vbios_exit(struct gsgpu_vbios *vbios)
  */
 bool check_vbios_info(void)
 {
-	struct pci_dev *pdev = pci_get_device(LG100_VENDOR_ID, LG100_DEVICE_ID, NULL);
+	struct pci_dev *pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON, LG100_DEVICE_ID, NULL);
 	int r = pci_enable_device(pdev);
 	if (r) {
 		return false;
