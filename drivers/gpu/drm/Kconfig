@@ -288,6 +288,7 @@ config DRM_GSGPU
         select DRM_KMS_HELPER
 	select DRM_SCHED
         select DRM_TTM
+	select DRM_BUDDY
 	select POWER_SUPPLY
 	select HWMON
 	select BACKLIGHT_CLASS_DEVICE
