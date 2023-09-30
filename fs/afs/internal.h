@@ -1542,7 +1542,7 @@ int afs_launder_folio(struct folio *);
 /*
  * xattr.c
  */
-extern const struct xattr_handler *afs_xattr_handlers[];
+extern const struct xattr_handler * const afs_xattr_handlers[];
 
 /*
  * yfsclient.c
