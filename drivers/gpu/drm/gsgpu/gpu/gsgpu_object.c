@@ -1085,6 +1085,7 @@ void gsgpu_bo_move_notify(struct ttm_buffer_object *bo,
 		return;
 
 	/* move_notify is called before move happens */
+	BUG_ON(!old_mem);
 	trace_gsgpu_bo_move(abo, new_mem->mem_type, old_mem->mem_type);
 }
 
@@ -1110,7 +1111,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	/* Remember that this BO was accessed by the CPU */
 	abo->flags |= GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
 
-	if (bo->resource->mem_type != TTM_PL_VRAM)
+	if (!bo->resource || bo->resource->mem_type != TTM_PL_VRAM)
 		return 0;
 
 	size = bo->ttm->num_pages << PAGE_SHIFT;
