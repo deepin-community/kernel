@@ -125,12 +125,12 @@ static inline void gsgpu_bo_unreserve(struct gsgpu_bo *bo)
 
 static inline unsigned long gsgpu_bo_size(struct gsgpu_bo *bo)
 {
-	return bo->tbo.ttm->num_pages << PAGE_SHIFT;
+	return bo->tbo.base.size;
 }
 
 static inline unsigned gsgpu_bo_ngpu_pages(struct gsgpu_bo *bo)
 {
-	return (bo->tbo.ttm->num_pages << PAGE_SHIFT) / GSGPU_GPU_PAGE_SIZE;
+	return bo->tbo.base.size / GSGPU_GPU_PAGE_SIZE;
 }
 
 static inline unsigned gsgpu_bo_gpu_page_alignment(struct gsgpu_bo *bo)

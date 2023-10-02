@@ -509,7 +509,7 @@ int gsgpu_bo_create(struct gsgpu_device *adev,
 	if ((flags & GSGPU_GEM_CREATE_SHADOW) && gsgpu_bo_need_backup(adev)) {
 		if (!bp->resv)
 			WARN_ON(dma_resv_lock((*bo_ptr)->tbo.base.resv,
-							NULL));
+					      NULL));
 
 		r = gsgpu_bo_create_shadow(adev, bp->size, bp->byte_align, (*bo_ptr));
 
@@ -636,7 +636,7 @@ int gsgpu_bo_kmap(struct gsgpu_bo *bo, void **ptr)
 		return 0;
 	}
 
-	r = ttm_bo_kmap(&bo->tbo, 0, bo->tbo.ttm->num_pages, &bo->kmap);
+	r = ttm_bo_kmap(&bo->tbo, 0, PFN_UP(bo->tbo.base.size), &bo->kmap);
 	if (r)
 		return r;
 
@@ -1114,7 +1114,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 	if (!bo->resource || bo->resource->mem_type != TTM_PL_VRAM)
 		return 0;
 
-	size = bo->ttm->num_pages << PAGE_SHIFT;
+	size = bo->resource->size;
 	offset = bo->resource->start << PAGE_SHIFT;
 	if ((offset + size) <= adev->gmc.visible_vram_size)
 		return 0;

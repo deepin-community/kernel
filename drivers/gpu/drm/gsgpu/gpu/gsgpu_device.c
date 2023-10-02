@@ -1526,7 +1526,7 @@ static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 			unsigned fpfn, lpfn;
 
 			fpfn = bo->node_offset;
-			lpfn = bo->node_offset + bo->tbo.ttm->num_pages;
+			lpfn = bo->node_offset + PFN_UP(bo->tbo.base.size);
 
 			if (fpfn > bo->placements[i].fpfn)
 				bo->placements[i].fpfn = fpfn;

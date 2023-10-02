@@ -103,8 +103,8 @@ TRACE_EVENT(gsgpu_bo_create,
 
 	    TP_fast_assign(
 			   __entry->bo = bo;
-			   __entry->pages = bo->tbo.num_pages;
-			   __entry->type = bo->tbo.mem.mem_type;
+			   __entry->pages = PFN_UP(bo->tbo.resource->size);
+			   __entry->type = bo->tbo.resource->mem_type;
 			   __entry->prefer = bo->preferred_domains;
 			   __entry->allow = bo->allowed_domains;
 			   __entry->visible = bo->flags;

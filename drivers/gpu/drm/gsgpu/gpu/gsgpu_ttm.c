@@ -323,7 +323,7 @@ static int gsgpu_move_blit(struct ttm_buffer_object *bo,
 	dst.offset = 0;
 
 	r = gsgpu_ttm_copy_mem_to_mem(adev, &src, &dst,
-				      bo->ttm->num_pages << PAGE_SHIFT,
+				      new_mem->size,
 				      bo->base.resv, &fence);
 	if (r)
 		goto error;
@@ -422,7 +422,7 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 
 out:
 	/* update statistics */
-	atomic64_add((u64)bo->ttm->num_pages << PAGE_SHIFT, &adev->num_bytes_moved);
+	atomic64_add(bo->base.size, &adev->num_bytes_moved);
     	gsgpu_bo_move_notify(bo, evict, new_mem);
 	return 0;
 }
@@ -1081,7 +1081,6 @@ uint64_t gsgpu_ttm_tt_pte_flags(struct gsgpu_device *adev, struct ttm_tt *ttm,
 static bool gsgpu_ttm_bo_eviction_valuable(struct ttm_buffer_object *bo,
 					   const struct ttm_place *place)
 {
-	unsigned long num_pages = bo->ttm->num_pages;
 	struct gsgpu_res_cursor cursor;
 
 	switch (bo->resource->mem_type) {
@@ -1090,8 +1089,7 @@ static bool gsgpu_ttm_bo_eviction_valuable(struct ttm_buffer_object *bo,
 
 	case TTM_PL_VRAM:
 		/* Check each drm MM node individually */
-		gsgpu_res_first(bo->resource, 0, (u64)num_pages << PAGE_SHIFT,
-				&cursor);
+		gsgpu_res_first(bo->resource, 0, bo->resource->size, &cursor);
 		while (cursor.remaining) {
 			if (place->fpfn < PFN_DOWN(cursor.start + cursor.size)
 			    && !(place->lpfn &&
@@ -1599,7 +1597,7 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 			return r;
 	}
 
-	num_bytes = bo->tbo.ttm->num_pages << PAGE_SHIFT;
+	num_bytes = bo->tbo.base.size;
 	num_loops = 0;
 	while (cursor.remaining) {
 		num_loops += DIV_ROUND_UP_ULL(cursor.size, max_bytes);

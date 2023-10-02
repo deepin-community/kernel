@@ -17,7 +17,7 @@ static const struct dma_buf_ops gsgpu_dmabuf_ops;
 struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj)
 {
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	int npages = bo->tbo.ttm->num_pages;
+	int npages = PFN_UP(bo->tbo.base.size);
 
 	return drm_prime_pages_to_sg(obj->dev, bo->tbo.ttm->pages, npages);
 }
