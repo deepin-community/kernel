@@ -55,7 +55,6 @@ struct gsgpu_bo {
 	/* list of all virtual address to which this bo is associated to */
 	struct list_head		va;
 	/* Constant after initialization */
-	struct drm_gem_object		gem_base;
 	struct gsgpu_bo		*parent;
 	struct gsgpu_bo		*shadow;
 

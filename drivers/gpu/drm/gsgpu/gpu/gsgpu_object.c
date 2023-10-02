@@ -61,9 +61,9 @@ static void gsgpu_bo_destroy(struct ttm_buffer_object *tbo)
 
 	gsgpu_bo_kunmap(bo);
 
-	if (bo->gem_base.import_attach)
-		drm_prime_gem_destroy(&bo->gem_base, bo->tbo.sg);
-	drm_gem_object_release(&bo->gem_base);
+	if (bo->tbo.base.import_attach)
+		drm_prime_gem_destroy(&bo->tbo.base, bo->tbo.sg);
+	drm_gem_object_release(&bo->tbo.base);
 	gsgpu_bo_unref(&bo->parent);
 	if (!list_empty(&bo->shadow_list)) {
 		mutex_lock(&adev->shadow_list_lock);
@@ -383,7 +383,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	bo = kzalloc(sizeof(struct gsgpu_bo), GFP_KERNEL);
 	if (bo == NULL)
 		return -ENOMEM;
-	drm_gem_private_object_init(adev->ddev, &bo->gem_base, size);
+	drm_gem_private_object_init(adev->ddev, &bo->tbo.base, size);
 	INIT_LIST_HEAD(&bo->shadow_list);
 	INIT_LIST_HEAD(&bo->va);
 	bo->preferred_domains = bp->preferred_domain ? bp->preferred_domain :
@@ -409,7 +409,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 	if (unlikely(r != 0))
 		return r;
 
-	bo->gem_base.resv = bo->tbo.base.resv;
+	bo->tbo.base.resv = bo->tbo.base.resv;
 
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
 	    bo->tbo.resource->mem_type == TTM_PL_VRAM &&

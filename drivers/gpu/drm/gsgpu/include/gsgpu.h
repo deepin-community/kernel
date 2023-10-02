@@ -269,7 +269,7 @@ struct gsgpu_clock {
  */
 
 #define GSGPU_GEM_DOMAIN_MAX		0x3
-#define gem_to_gsgpu_bo(gobj) container_of((gobj), struct gsgpu_bo, gem_base)
+#define gem_to_gsgpu_bo(gobj) container_of((gobj), struct gsgpu_bo, tbo.base)
 
 unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
 struct drm_gem_object *

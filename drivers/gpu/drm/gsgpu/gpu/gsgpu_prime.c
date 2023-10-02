@@ -66,7 +66,7 @@ gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 		bo->prime_shared_count = 1;
 
 	ww_mutex_unlock(&resv->lock);
-	return &bo->gem_base;
+	return &bo->tbo.base;
 
 error:
 	ww_mutex_unlock(&resv->lock);
