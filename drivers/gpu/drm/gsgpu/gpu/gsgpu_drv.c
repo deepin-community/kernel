@@ -539,11 +539,6 @@ static int __init gsgpu_init(void)
 		}
 	}
 
-	if (!check_vbios_info()) {
-		DRM_ERROR("gsgpu does not support this board!\n");
-		return -EINVAL;
-	}
-
 	r = gsgpu_sync_init();
 	if (r)
 		goto error_sync;

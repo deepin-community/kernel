@@ -456,7 +456,7 @@ static struct bridge_phy_helper ncs8805_helper_funcs = {
 	.ddc_funcs = &ncs8805_ddc_funcs,
 };
 
-static bool ncs8805_resources_valid_check(struct ext_encoder_resources *encoder_res)
+static bool ncs8805_resources_valid_check(struct ext_encoder_resource *encoder_res)
 {
 	if (gsgpu_vbios_checksum(encoder_res->data, encoder_res->data_size)
 			== encoder_res->data_checksum)
@@ -467,7 +467,7 @@ static bool ncs8805_resources_valid_check(struct ext_encoder_resources *encoder_
 int bridge_phy_ncs8805_init(struct gsgpu_dc_bridge *dc_bridge)
 {
 	struct gsgpu_bridge_phy *ncs8805_phy;
-	struct ext_encoder_resources  *ext_resource;
+	struct ext_encoder_resource  *ext_resource;
 	u32 feature;
 	int ret = -1;
 

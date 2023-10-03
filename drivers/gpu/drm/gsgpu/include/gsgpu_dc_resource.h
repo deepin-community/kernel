@@ -1,6 +1,11 @@
 #ifndef __DC_RESOURCE_H__
 #define __DC_RESOURCE_H__
-#define ENCODER_DATA_MAX  (1024*8)
+
+#define EXT_ENCODER_DATA_MAX  (1023*8)
+
+#define VBIOS_OEM_VENDOR_STRING_SIZE	32
+#define VBIOS_OEM_PRODUCT_STRING_SIZE	32
+#define VBIOS_HEADER_MAX_TITLE_SIZE	16
 
 enum resource_type {
 	GSGPU_RESOURCE_DEFAULT,
@@ -26,11 +31,11 @@ struct header_resource {
 	struct resource_object base;
 	u32 links;
 	u32 max_planes;
-	u8 ver_majro;
+	u8 ver_major;
 	u8 ver_minor;
-	u8 name[16];
-	u8 oem_vendor[32];
-	u8 oem_product[32];
+	u8 name[VBIOS_HEADER_MAX_TITLE_SIZE];
+	u8 oem_vendor[VBIOS_OEM_VENDOR_STRING_SIZE];
+	u8 oem_product[VBIOS_OEM_PRODUCT_STRING_SIZE];
 };
 
 struct gpio_resource {
@@ -96,17 +101,17 @@ struct gpu_resource {
 	u32 vram_type;
 	u32 bit_width;
 	u32 cap;
-	u32 count_freq;
-	u32 freq;
+	u32 freq;	   /* VRAM Frequency */
+	u32 freq_count;	   /* Number of valid GPU clock frequencies */
 	u32 shaders_num;
 	u32 shaders_freq;
 };
 
-struct ext_encoder_resources {
+struct ext_encoder_resource {
 	struct resource_object base;
 	u32 data_checksum;
 	u32 data_size;
-	u8 data[ENCODER_DATA_MAX-8];
+	u8 data[EXT_ENCODER_DATA_MAX];
 };
 
 enum gpio_placement {

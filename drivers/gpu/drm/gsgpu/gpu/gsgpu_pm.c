@@ -45,7 +45,7 @@ static ssize_t gsgpu_get_gpu_clk(struct device *dev,
 		regular_freq_count = default_freq_count;
 		max_freq_value = default_freq_value;
 	} else {
-		regular_freq_count = gpu_res->count_freq;
+		regular_freq_count = gpu_res->freq_count;
 		max_freq_value = gpu_res->shaders_freq;
 
 	}
@@ -137,7 +137,7 @@ static ssize_t gsgpu_set_gpu_clk(struct device *dev,
 	if (NULL == gpu_res)
 		regular_freq_count = default_freq_count;
 	else
-		regular_freq_count = gpu_res->count_freq;
+		regular_freq_count = gpu_res->freq_count;
 
 	level = gsgpu_read_level(buf, count, regular_freq_count);
 
