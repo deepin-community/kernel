@@ -326,6 +326,9 @@ HWCAP2_SVE_B16B16
 HWCAP2_LRCPC3
     Functionality implied by ID_AA64ISAR1_EL1.LRCPC == 0b0011.
 
+HWCAP2_LSE128
+    Functionality implied by ID_AA64ISAR0_EL1.Atomic == 0b0011.
+
 HWCAP3_LS64
     Functionality implied by ID_AA64ISAR1_EL1.LS64 == 0b0001.
 
