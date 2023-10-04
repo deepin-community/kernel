@@ -3378,14 +3378,8 @@ decode_session4(struct sk_buff *skb, struct flowi *fl, bool reverse)
 	int ihl = iph->ihl;
 	u8 *xprth = skb_network_header(skb) + ihl * 4;
 	struct flowi4 *fl4 = &fl->u.ip4;
-	int oif = 0;
-
-	if (skb_dst(skb) && skb_dst(skb)->dev)
-		oif = skb_dst(skb)->dev->ifindex;
 
 	memset(fl4, 0, sizeof(struct flowi4));
-	fl4->flowi4_mark = skb->mark;
-	fl4->flowi4_oif = reverse ? skb->skb_iif : oif;
 
 	fl4->flowi4_proto = iph->protocol;
 	fl4->daddr = reverse ? iph->saddr : iph->daddr;
@@ -3456,7 +3450,6 @@ decode_session6(struct sk_buff *skb, struct flowi *fl, bool reverse)
 	struct ipv6_opt_hdr *exthdr;
 	const unsigned char *nh = skb_network_header(skb);
 	u16 nhoff = IP6CB(skb)->nhoff;
-	int oif = 0;
 	u8 nexthdr;
 
 	if (!nhoff)
@@ -3464,12 +3457,7 @@ decode_session6(struct sk_buff *skb, struct flowi *fl, bool reverse)
 
 	nexthdr = nh[nhoff];
 
-	if (skb_dst(skb) && skb_dst(skb)->dev)
-		oif = skb_dst(skb)->dev->ifindex;
-
 	memset(fl6, 0, sizeof(struct flowi6));
-	fl6->flowi6_mark = skb->mark;
-	fl6->flowi6_oif = reverse ? skb->skb_iif : oif;
 
 	fl6->daddr = reverse ? hdr->saddr : hdr->daddr;
 	fl6->saddr = reverse ? hdr->daddr : hdr->saddr;
@@ -3573,6 +3561,18 @@ int __xfrm_decode_session(struct net *net, struct sk_buff *skb, struct flowi *fl
 #endif
 	default:
 		return -EAFNOSUPPORT;
+	}
+
+	fl->flowi_mark = skb->mark;
+	if (reverse) {
+		fl->flowi_oif = skb->skb_iif;
+	} else {
+		int oif = 0;
+
+		if (skb_dst(skb) && skb_dst(skb)->dev)
+			oif = skb_dst(skb)->dev->ifindex;
+
+		fl->flowi_oif = oif;
 	}
 
 	return security_xfrm_decode_session(skb, &fl->flowi_secid);
