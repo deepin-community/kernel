@@ -2220,6 +2220,7 @@ static int check_dev_super(struct btrfs_device *dev)
 {
 	struct btrfs_fs_info *fs_info = dev->fs_info;
 	struct btrfs_super_block *sb;
+	u64 last_trans;
 	u16 csum_type;
 	int ret = 0;
 
@@ -2255,10 +2256,10 @@ static int check_dev_super(struct btrfs_device *dev)
 	if (ret < 0)
 		goto out;
 
-	if (btrfs_super_generation(sb) != fs_info->last_trans_committed) {
+	last_trans = btrfs_get_last_trans_committed(fs_info);
+	if (btrfs_super_generation(sb) != last_trans) {
 		btrfs_err(fs_info, "transid mismatch, has %llu expect %llu",
-			btrfs_super_generation(sb),
-			fs_info->last_trans_committed);
+			  btrfs_super_generation(sb), last_trans);
 		ret = -EUCLEAN;
 		goto out;
 	}
