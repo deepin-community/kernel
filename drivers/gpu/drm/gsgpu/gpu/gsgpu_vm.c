@@ -13,8 +13,8 @@
  * GPUVM is similar to the legacy gart on older asics, however
  * rather than there being a single global gart table
  * for the entire GPU, there are multiple VM page tables active
- * at any given time.  The VM page tables can contain a mix
- * vram pages and system memory pages and system memory pages
+ * at any given time.  The VM page tables can contain a mix of
+ * vram pages and system memory pages, and system memory pages
  * can be mapped as snooped (cached system pages) or unsnooped
  * (uncached system pages).
  * Each VM has an ID associated with it and there is a page table
@@ -139,7 +139,7 @@ static void gsgpu_vm_bo_base_init(struct gsgpu_vm_bo_base *base,
 	base->moved = true;
 }
 
-static u32 gsgpu_get_pde_pte_size (struct gsgpu_device *ldev)
+static u32 gsgpu_get_pde_pte_size(struct gsgpu_device *ldev)
 {
 	return ldev->vm_manager.pde_pte_bytes;
 }
@@ -169,7 +169,8 @@ static unsigned gsgpu_vm_level_shift(struct gsgpu_device *ldev,
 		shift = 0;
 		break;
 	default:
-		dev_err(ldev->dev, "the level%d isn't supported.\n", level);
+		dev_err(ldev->dev, "the vm level %d isn't supported.\n", level);
+		BUG();
 	}
 
 	return shift;
@@ -200,7 +201,8 @@ static unsigned gsgpu_vm_num_entries(struct gsgpu_device *ldev,
 		width = ldev->vm_manager.dir2_width;
 		break;
 	default:
-		dev_err(ldev->dev, "the level%d isn't supported.\n", level);
+		dev_err(ldev->dev, "the vm level %d isn't supported.\n", level);
+		BUG();
 	}
 
 	return 1 << width;
@@ -2207,7 +2209,7 @@ void gsgpu_vm_adjust_size(struct gsgpu_device *ldev, u32 min_vm_size,
  *
  * @ldev: gsgpu_device pointer
  * @vm: requested vm
- * @vm_context: Indicates if it GFX or Compute context
+ * @vm_context: Indicates if it is a GFX or Compute context
  * @pasid: Process address space identifier
  *
  * Init @vm fields.
@@ -2216,7 +2218,7 @@ void gsgpu_vm_adjust_size(struct gsgpu_device *ldev, u32 min_vm_size,
  * 0 for success, error for failure.
  */
 int gsgpu_vm_init(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
-		   int vm_context, unsigned int pasid)
+		  int vm_context, unsigned int pasid)
 {
 	struct gsgpu_bo_param bp;
 	struct gsgpu_bo *root;
@@ -2239,7 +2241,6 @@ int gsgpu_vm_init(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 	INIT_LIST_HEAD(&vm->freed);
 
 	/* create scheduler entity for page table updates */
-
 	ring_instance = atomic_inc_return(&ldev->vm_manager.vm_pte_next_ring);
 	ring_instance %= ldev->vm_manager.vm_pte_num_rings;
 	ring = ldev->vm_manager.vm_pte_rings[ring_instance];
@@ -2282,7 +2283,7 @@ int gsgpu_vm_init(struct gsgpu_device *ldev, struct gsgpu_vm *vm,
 		goto error_free_root;
 
 	r = gsgpu_vm_clear_bo(ldev, vm, root,
-			       ldev->vm_manager.root_level);
+			      ldev->vm_manager.root_level);
 	if (r)
 		goto error_unreserve;
 

@@ -115,6 +115,8 @@ int gsgpu_job_submit(struct gsgpu_job *job, struct drm_sched_entity *entity,
 	if (r)
 		return r;
 
+	drm_sched_job_arm(&job->base);
+
 	job->owner = owner;
 	*f = dma_fence_get(&job->base.s_fence->finished);
 	gsgpu_job_free_resources(job);

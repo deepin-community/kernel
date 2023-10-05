@@ -7,7 +7,7 @@
 
 /*
  * IB
- * IBs (Indirect Buffers) and areas of GPU accessible memory where
+ * IBs (Indirect Buffers) are areas of GPU accessible memory where
  * commands are stored.  You can put a pointer to the IB in the
  * command ring and the hw will fetch the commands from the IB
  * and execute them.  Generally userspace acceleration drivers

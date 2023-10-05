@@ -31,7 +31,7 @@ int gsgpu_sa_bo_manager_init(struct gsgpu_device *adev,
 }
 
 void gsgpu_sa_bo_manager_fini(struct gsgpu_device *adev,
-					struct gsgpu_sa_manager *sa_manager)
+			      struct gsgpu_sa_manager *sa_manager)
 {
 	struct gsgpu_sa_bo *sa_bo, *tmp;
 

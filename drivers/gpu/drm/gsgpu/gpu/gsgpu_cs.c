@@ -1020,6 +1020,8 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	if (r)
 		goto error_unlock;
 
+	drm_sched_job_arm(&job->base);
+
 	/* No memory allocation is allowed while holding the notifier lock.
 	 * The lock is held until gsgpu_cs_submit is finished and fence is
 	 * added to BOs.
