@@ -2168,12 +2168,12 @@ static inline bool bpf_allow_uninit_stack(void)
 
 static inline bool bpf_bypass_spec_v1(void)
 {
-	return perfmon_capable();
+	return perfmon_capable() || cpu_mitigations_off();
 }
 
 static inline bool bpf_bypass_spec_v4(void)
 {
-	return perfmon_capable();
+	return perfmon_capable() || cpu_mitigations_off();
 }
 
 int bpf_map_new_fd(struct bpf_map *map, int flags);
