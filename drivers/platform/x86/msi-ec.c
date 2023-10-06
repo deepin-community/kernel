@@ -58,7 +58,7 @@ static struct msi_ec_conf CONF0 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xbf,
 		.bit     = 4,
 	},
@@ -138,7 +138,7 @@ static struct msi_ec_conf CONF1 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xbf,
 		.bit     = 4,
 	},
@@ -215,7 +215,7 @@ static struct msi_ec_conf CONF2 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xe8,
 		.bit     = 4,
 	},
@@ -293,7 +293,7 @@ static struct msi_ec_conf CONF3 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xe8,
 		.bit     = 4,
 	},
@@ -371,7 +371,7 @@ static struct msi_ec_conf CONF4 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = MSI_EC_ADDR_UNKNOWN, // supported, but unknown
 		.bit     = 4,
 	},
@@ -450,7 +450,7 @@ static struct msi_ec_conf CONF5 __initdata = {
 		.block_address = 0x2f,
 		.bit           = 1,
 	},
-	.fn_super_swap = { // todo: reverse
+	.fn_win_swap = { // todo: reverse
 		.address = 0xbf,
 		.bit     = 4,
 	},
@@ -528,7 +528,7 @@ static struct msi_ec_conf CONF6 __initdata = {
 		.block_address = MSI_EC_ADDR_UNSUPP,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xbf, // todo: reverse
 		.bit     = 4,
 	},
@@ -608,7 +608,7 @@ static struct msi_ec_conf CONF7 __initdata = {
 		.block_address = MSI_EC_ADDR_UNSUPP,
 		.bit           = 1,
 	},
-	.fn_super_swap = {
+	.fn_win_swap = {
 		.address = 0xbf, // needs testing
 		.bit     = 4,
 	},
