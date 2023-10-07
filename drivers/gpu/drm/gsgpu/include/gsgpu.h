@@ -950,33 +950,6 @@ typedef void (*gsgpu_wreg_t)(struct gsgpu_device*, uint32_t, uint32_t);
 typedef uint32_t (*gsgpu_block_rreg_t)(struct gsgpu_device*, uint32_t, uint32_t);
 typedef void (*gsgpu_block_wreg_t)(struct gsgpu_device*, uint32_t, uint32_t, uint32_t);
 
-/* Define the HW IP blocks will be used in driver , add more if necessary */
-enum gsgpu_hw_ip_block_type {
-	GC_HWIP = 1,
-	HDP_HWIP,
-	SDMA0_HWIP,
-	SDMA1_HWIP,
-	MMHUB_HWIP,
-	ATHUB_HWIP,
-	NBIO_HWIP,
-	MP0_HWIP,
-	MP1_HWIP,
-	UVD_HWIP,
-	VCN_HWIP = UVD_HWIP,
-	VCE_HWIP,
-	DF_HWIP,
-	DCE_HWIP,
-	OSSSYS_HWIP,
-	SMUIO_HWIP,
-	PWR_HWIP,
-	NBIF_HWIP,
-	THM_HWIP,
-	CLK_HWIP,
-	MAX_HWIP
-};
-
-#define HWIP_MAX_INSTANCE	6
-
 #define GSGPU_RESET_MAGIC_NUM 64
 struct gsgpu_device {
 	struct device			*dev;
