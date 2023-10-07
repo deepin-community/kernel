@@ -83,9 +83,6 @@ struct gsgpu_iv_entry {
 	const uint32_t *iv_entry;
 };
 
-int gsgpu_ih_ring_init(struct gsgpu_device *adev, unsigned ring_size,
-			bool use_bus_addr);
-void gsgpu_ih_ring_fini(struct gsgpu_device *adev);
 int gsgpu_ih_process(struct gsgpu_device *adev);
 
 #endif /* __GSGPU_IH_H__ */
