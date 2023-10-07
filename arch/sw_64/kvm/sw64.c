@@ -52,19 +52,17 @@ int kvm_arch_check_processor_compat(void *opaque)
 int kvm_set_msi(struct kvm_kernel_irq_routing_entry *e, struct kvm *kvm, int irq_source_id,
 		int level, bool line_status)
 {
-	unsigned int vcid;
-	unsigned int vcpu_idx;
+	unsigned int dest_id;
 	struct kvm_vcpu *vcpu = NULL;
-	int irq = e->msi.data & 0xff;
+	int vector = e->msi.data & 0xff;
 
-	vcid = (e->msi.address_lo & VT_MSIX_ADDR_DEST_ID_MASK) >> VT_MSIX_ADDR_DEST_ID_SHIFT;
-	vcpu_idx = vcid & 0x1f;
-	vcpu = kvm_get_vcpu(kvm, vcpu_idx);
+	dest_id = (e->msi.address_lo & VT_MSIX_ADDR_DEST_ID_MASK) >> VT_MSIX_ADDR_DEST_ID_SHIFT;
+	vcpu = kvm_get_vcpu(kvm, dest_id);
 
 	if (!vcpu)
 		return -EINVAL;
 
-	return vcpu_interrupt_line(vcpu, irq, true);
+	return vcpu_interrupt_line(vcpu, vector, true);
 }
 
 void sw64_kvm_switch_vpn(struct kvm_vcpu *vcpu)
