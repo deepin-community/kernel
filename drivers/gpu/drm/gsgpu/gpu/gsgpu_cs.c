@@ -372,7 +372,7 @@ static int gsgpu_cs_bo_validate(struct gsgpu_cs_parser *p,
 	uint32_t domain;
 	int r;
 
-	if (bo->pin_count)
+	if (bo->tbo.pin_count)
 		return 0;
 
 	/* Don't move this buffer if we have depleted our allowance
@@ -438,7 +438,7 @@ static bool gsgpu_cs_try_evict(struct gsgpu_cs_parser *p,
 			break;
 
 		/* We can't move pinned BOs here */
-		if (bo->pin_count)
+		if (bo->tbo.pin_count)
 			continue;
 
 		other = gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type);

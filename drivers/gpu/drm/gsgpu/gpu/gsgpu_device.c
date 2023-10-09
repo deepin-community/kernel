@@ -1493,11 +1493,6 @@ void gsgpu_device_fini(struct gsgpu_device *adev)
 	gsgpu_debugfs_regs_cleanup(adev);
 }
 
-/* TODO: We need to understand what this does.
- * This is called during device suspension and resumption, presumably to validate
- * buffer objects. Since in the latest AMD driver this has been replaced with
- * generic TTM calls we need port those changes over.
- */
 static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 {
 	struct drm_gem_object *gobj = ptr;
@@ -1522,6 +1517,7 @@ static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 		if (!(bo->flags & GSGPU_GEM_CREATE_NO_CPU_ACCESS))
 			bo->flags |= GSGPU_GEM_CREATE_CPU_ACCESS_REQUIRED;
 		gsgpu_bo_placement_from_domain(bo, domain);
+		ttm_bo_pin(&bo->tbo);
 		for (i = 0; i < bo->placement.num_placement; i++) {
 			unsigned fpfn, lpfn;
 
@@ -1569,6 +1565,7 @@ static int gsgpu_zip_gem_bo_evict(int id, void *ptr, void *data)
 		for (i = 0; i < bo->placement.num_placement; i++) {
 			bo->placements[i].lpfn = 0;
 		}
+		ttm_bo_unpin(&bo->tbo);
 
 		r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
 		if (unlikely(r))

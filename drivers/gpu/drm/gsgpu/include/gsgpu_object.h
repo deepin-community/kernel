@@ -45,7 +45,6 @@ struct gsgpu_bo {
 	struct ttm_buffer_object	tbo;
 	struct ttm_bo_kmap_obj		kmap;
 	u64				flags;
-	unsigned			pin_count;
 	u64				tiling_flags;
 	u64				node_offset;
 	u64				metadata_flags;

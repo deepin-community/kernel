@@ -362,7 +362,7 @@ static int gsgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 
 	abo = ttm_to_gsgpu_bo(bo);
 	/* Can't move a pinned BO */
-	if (WARN_ON_ONCE(abo->pin_count > 0))
+	if (WARN_ON_ONCE(abo->tbo.pin_count > 0))
 		return -EINVAL;
 
 	adev = gsgpu_ttm_adev(bo->bdev);

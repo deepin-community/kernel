@@ -400,6 +400,7 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 
 	bo->tbo.bdev = &adev->mman.bdev;
 	gsgpu_bo_placement_from_domain(bo, bp->domain);
+
 	if (bp->type == ttm_bo_type_kernel)
 		bo->tbo.priority = 1;
 
@@ -408,6 +409,12 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 				 NULL, bp->resv, &gsgpu_bo_destroy);
 	if (unlikely(r != 0))
 		return r;
+
+	/* If we are creating a compressed buffer object in VRAM, pin it
+	 * so it won't get evicted. */
+	if (bp->flags & GSGPU_GEM_CREATE_COMPRESSED_MASK) {
+		ttm_bo_pin(&bo->tbo);
+	}
 
 	bo->tbo.base.resv = bo->tbo.base.resv;
 
@@ -1120,7 +1127,7 @@ vm_fault_t gsgpu_bo_fault_reserve_notify(struct ttm_buffer_object *bo)
 		return 0;
 
 	/* Can't move a pinned BO to visible VRAM */
-	if (abo->pin_count > 0)
+	if (abo->tbo.pin_count > 0)
 		return VM_FAULT_SIGBUS;
 
 	/* hurrah the memory is not visible ! */

@@ -242,7 +242,7 @@ static int gsgpu_gem_begin_cpu_access(struct dma_buf *dma_buf,
 	if (unlikely(ret != 0))
 		return ret;
 
-	if (!bo->pin_count && (bo->allowed_domains & GSGPU_GEM_DOMAIN_GTT)) {
+	if (!bo->tbo.pin_count && (bo->allowed_domains & GSGPU_GEM_DOMAIN_GTT)) {
 		gsgpu_bo_placement_from_domain(bo, GSGPU_GEM_DOMAIN_GTT);
 		ret = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
 	}
