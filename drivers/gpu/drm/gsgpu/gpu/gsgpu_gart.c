@@ -27,6 +27,23 @@
  */
 
 /**
+ * gsgpu_gart_invalidate_tlb - invalidate gart TLB
+ *
+ * @adev: gsgpu device driver pointer
+ *
+ * Invalidate gart TLB which can be use as a way to flush gart changes
+ *
+ */
+void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev)
+{
+        if (!adev->gart.ptr)
+                return;
+
+        mb();
+	gsgpu_gmc_flush_gpu_tlb(adev, 0);
+}
+
+/**
  * gsgpu_dummy_page_init - init dummy page used by the driver
  *
  * @adev: gsgpu_device pointer
@@ -222,8 +239,7 @@ int gsgpu_gart_unbind(struct gsgpu_device *adev, uint64_t offset,
 			page_base += GSGPU_GPU_PAGE_SIZE;
 		}
 	}
-	mb();
-	gsgpu_gmc_flush_gpu_tlb(adev, 0);
+	gsgpu_gart_invalidate_tlb(adev);
 	return 0;
 }
 
@@ -304,33 +320,8 @@ int gsgpu_gart_bind(struct gsgpu_device *adev, uint64_t offset,
 	if (r)
 		return r;
 
-	mb();
-	gsgpu_gmc_flush_gpu_tlb(adev, 0);
+	gsgpu_gart_invalidate_tlb(adev);
 	return 0;
-}
-
-/**
- * gsgpu_gart_invalidate_tlb - invalidate gart TLB
- *
- * @adev: gsgpu device driver pointer
- *
- * Invalidate gart TLB which can be use as a way to flush gart changes
- *
- */
-void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev)
-{
-        if (!adev->gart.ptr)
-                return;
-
-        mb();
-#if 0
-	/* TODO: These are taken directly from AMDGPU. I believe the Loongson
-	 * graphics chip does not have these HW capabs so I'm commenting them out */
-        gsgpu_device_flush_hdp(adev, NULL);
-        int i;
-        for_each_set_bit(i, adev->vmhubs_mask, GSGPU_MAX_VMHUBS)
-                gsgpu_gmc_flush_gpu_tlb(adev, 0, i, 0);
-#endif
 }
 
 /**
