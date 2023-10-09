@@ -222,7 +222,7 @@ int gsgpu_bo_create_reserved(struct gsgpu_device *adev,
 
 	r = gsgpu_ttm_alloc_gart(&(*bo_ptr)->tbo);
 	if (r) {
-		dev_err(adev->dev, "%p bind failed\n", *bo_ptr);
+		dev_err(adev->dev, "0x%px bind failed\n", *bo_ptr);
 		goto error_unpin;
 	}
 
@@ -794,7 +794,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 
 	r = ttm_bo_validate(&bo->tbo, &bo->placement, &ctx);
 	if (unlikely(r)) {
-		dev_err(adev->dev, "%p pin failed\n", bo);
+		dev_err(adev->dev, "0x%px pin failed\n", bo);
 		goto error;
 	}
 

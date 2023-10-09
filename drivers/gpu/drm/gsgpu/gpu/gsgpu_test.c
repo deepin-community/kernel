@@ -78,7 +78,7 @@ static void gsgpu_do_test_moves(struct gsgpu_device *adev)
 		}
 		r = gsgpu_ttm_alloc_gart(&gtt_obj[i]->tbo);
 		if (r) {
-			DRM_ERROR("%p bind failed\n", gtt_obj[i]);
+			DRM_ERROR("0x%px bind failed\n", gtt_obj[i]);
 			goto out_lclean_unpin;
 		}
 		gart_addr = gsgpu_bo_gpu_offset(gtt_obj[i]);
@@ -123,8 +123,8 @@ static void gsgpu_do_test_moves(struct gsgpu_device *adev)
 		     vram_start < vram_end;
 		     gart_start++, vram_start++) {
 			if (*vram_start != gart_start) {
-				DRM_ERROR("Incorrect GTT->VRAM copy %d: Got 0x%p, "
-					  "expected 0x%p (GTT/VRAM offset "
+				DRM_ERROR("Incorrect GTT->VRAM copy %d: Got 0x0x%px, "
+					  "expected 0x0x%px (GTT/VRAM offset "
 					  "0x%16llx/0x%16llx)\n",
 					  i, *vram_start, gart_start,
 					  (unsigned long long)
@@ -168,8 +168,8 @@ static void gsgpu_do_test_moves(struct gsgpu_device *adev)
 		     gart_start < gart_end;
 		     gart_start++, vram_start++) {
 			if (*gart_start != vram_start) {
-				DRM_ERROR("Incorrect VRAM->GTT copy %d: Got 0x%p, "
-					  "expected 0x%p (VRAM/GTT offset "
+				DRM_ERROR("Incorrect VRAM->GTT copy %d: Got 0x0x%px, "
+					  "expected 0x0x%px (VRAM/GTT offset "
 					  "0x%16llx/0x%16llx)\n",
 					  i, *gart_start, vram_start,
 					  (unsigned long long)

@@ -136,7 +136,7 @@ static int gsgpufb_create_pinned_object(struct gsgpu_fbdev *rfbdev,
 	ret = gsgpu_ttm_alloc_gart(&abo->tbo);
 	if (ret) {
 		gsgpu_bo_unreserve(abo);
-		dev_err(adev->dev, "%p bind failed\n", abo);
+		dev_err(adev->dev, "0x%px bind failed\n", abo);
 		goto out_unref;
 	}
 

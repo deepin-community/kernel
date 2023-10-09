@@ -56,7 +56,7 @@ static int dc_plane_helper_prepare_fb(struct drm_plane *plane,
 	if (unlikely(r != 0)) {
 		gsgpu_bo_unpin(rbo);
 		gsgpu_bo_unreserve(rbo);
-		DRM_ERROR("%p kmap failed\n", rbo);
+		DRM_ERROR("0x%px kmap failed\n", rbo);
 		return r;
 	}
 
@@ -69,7 +69,7 @@ static int dc_plane_helper_prepare_fb(struct drm_plane *plane,
 	}
 
 	if (plane->type == DRM_PLANE_TYPE_PRIMARY) {
-		DRM_DEBUG_DRIVER("fb kernel virtual addr: %p\n", fb_vaddr);
+		DRM_DEBUG_DRIVER("fb kernel virtual addr: 0x%px\n", fb_vaddr);
 		DRM_DEBUG_DRIVER("fb physical addr: 0x%llx\n", afb->address);
 	}
 

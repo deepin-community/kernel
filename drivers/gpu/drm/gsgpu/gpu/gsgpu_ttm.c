@@ -708,7 +708,7 @@ static int gsgpu_ttm_backend_bind(struct ttm_device *bdev,
 		}
 	}
 	if (!ttm->num_pages) {
-		WARN(1, "nothing to bind %u pages for mreg %p back %p!\n",
+		WARN(1, "nothing to bind %u pages for mreg 0x%px back 0x%px!\n",
 		     ttm->num_pages, bo_mem, ttm);
 	}
 

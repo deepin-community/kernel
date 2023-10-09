@@ -110,7 +110,7 @@ TRACE_EVENT(gsgpu_bo_create,
 			   __entry->visible = bo->flags;
 			   ),
 
-	    TP_printk("bo=%p, pages=%u, type=%d, preferred=%d, allowed=%d, visible=%d",
+	    TP_printk("bo=0x%px, pages=%u, type=%d, preferred=%d, allowed=%d, visible=%d",
 		       __entry->bo, __entry->pages, __entry->type,
 		       __entry->prefer, __entry->allow, __entry->visible)
 );
@@ -132,7 +132,7 @@ TRACE_EVENT(gsgpu_cs,
 			   __entry->fences = gsgpu_fence_count_emitted(
 				p->ring);
 			   ),
-	    TP_printk("bo_list=%p, ring=%u, dw=%u, fences=%u",
+	    TP_printk("bo_list=0x%px, ring=%u, dw=%u, fences=%u",
 		      __entry->bo_list, __entry->ring, __entry->dw,
 		      __entry->fences)
 );
@@ -234,7 +234,7 @@ TRACE_EVENT(gsgpu_vm_bo_map,
 			   __entry->offset = mapping->offset;
 			   __entry->flags = mapping->flags;
 			   ),
-	    TP_printk("bo=%p, start=%lx, last=%lx, offset=%010llx, flags=%llx",
+	    TP_printk("bo=0x%px, start=%lx, last=%lx, offset=%010llx, flags=%llx",
 		      __entry->bo, __entry->start, __entry->last,
 		      __entry->offset, __entry->flags)
 );
@@ -258,7 +258,7 @@ TRACE_EVENT(gsgpu_vm_bo_unmap,
 			   __entry->offset = mapping->offset;
 			   __entry->flags = mapping->flags;
 			   ),
-	    TP_printk("bo=%p, start=%lx, last=%lx, offset=%010llx, flags=%llx",
+	    TP_printk("bo=0x%px, start=%lx, last=%lx, offset=%010llx, flags=%llx",
 		      __entry->bo, __entry->start, __entry->last,
 		      __entry->offset, __entry->flags)
 );
@@ -396,7 +396,7 @@ TRACE_EVENT(gsgpu_bo_list_set,
 			   __entry->bo = bo;
 			   __entry->bo_size = gsgpu_bo_size(bo);
 			   ),
-	    TP_printk("list=%p, bo=%p, bo_size=%Ld",
+	    TP_printk("list=0x%px, bo=0x%px, bo_size=%Ld",
 		      __entry->list,
 		      __entry->bo,
 		      __entry->bo_size)
@@ -434,7 +434,7 @@ TRACE_EVENT(gsgpu_bo_move,
 			__entry->new_placement = new_placement;
 			__entry->old_placement = old_placement;
 			),
-	    TP_printk("bo=%p, from=%d, to=%d, size=%Ld",
+	    TP_printk("bo=0x%px, from=%d, to=%d, size=%Ld",
 			__entry->bo, __entry->old_placement,
 			__entry->new_placement, __entry->bo_size)
 );

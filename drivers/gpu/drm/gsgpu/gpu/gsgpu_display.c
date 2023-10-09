@@ -82,7 +82,7 @@ static void gsgpu_display_flip_work_func(struct work_struct *__work)
 	gsgpu_crtc->pflip_status = GSGPU_FLIP_SUBMITTED;
 	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
 
-	DRM_DEBUG_DRIVER("crtc:%d[%p], pflip_stat:GSGPU_FLIP_SUBMITTED, work: %p,\n",
+	DRM_DEBUG_DRIVER("crtc:%d[0x%px], pflip_stat:GSGPU_FLIP_SUBMITTED, work: 0x%px,\n",
 			 gsgpu_crtc->crtc_id, gsgpu_crtc, work);
 
 }
@@ -163,7 +163,7 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 
 	r = gsgpu_ttm_alloc_gart(&new_abo->tbo);
 	if (unlikely(r != 0)) {
-		DRM_ERROR("%p bind failed\n", new_abo);
+		DRM_ERROR("0x%px bind failed\n", new_abo);
 		goto unpin;
 	}
 
@@ -211,7 +211,7 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 	gsgpu_crtc->pflip_works = work;
 
 
-	DRM_DEBUG_DRIVER("crtc:%d[%p], pflip_stat:GSGPU_FLIP_PENDING, work: %p,\n",
+	DRM_DEBUG_DRIVER("crtc:%d[0x%px], pflip_stat:GSGPU_FLIP_PENDING, work: 0x%px,\n",
 					 gsgpu_crtc->crtc_id, gsgpu_crtc, work);
 	/* update crtc fb */
 	crtc->primary->fb = fb;

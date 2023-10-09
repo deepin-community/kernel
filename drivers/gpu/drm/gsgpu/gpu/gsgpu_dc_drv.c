@@ -609,7 +609,7 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 		 * aconnector as needed
 		 */
 		if (modeset_required(new_crtc_state)) {
-			DRM_DEBUG_DRIVER("Atomic commit: SET crtc id %d: [%p]\n", acrtc->crtc_id, acrtc);
+			DRM_DEBUG_DRIVER("Atomic commit: SET crtc id %d: [0x%px]\n", acrtc->crtc_id, acrtc);
 			pm_runtime_get_noresume(dev->dev);
 			acrtc->enabled = true;
 			acrtc->hw_mode = new_crtc_state->mode;

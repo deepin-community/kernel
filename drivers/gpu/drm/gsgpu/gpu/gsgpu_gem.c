@@ -866,9 +866,9 @@ static int gsgpu_debugfs_gem_bo_info(int id, void *ptr, void *data)
 	attachment = READ_ONCE(bo->tbo.base.import_attach);
 
 	if (attachment)
-		seq_printf(m, " imported from %p", dma_buf);
+		seq_printf(m, " imported from 0x%px", dma_buf);
 	else if (dma_buf)
-		seq_printf(m, " exported as %p", dma_buf);
+		seq_printf(m, " exported as 0x%px", dma_buf);
 
 	gsgpu_debugfs_gem_bo_print_flag(m, bo, CPU_ACCESS_REQUIRED);
 	gsgpu_debugfs_gem_bo_print_flag(m, bo, NO_CPU_ACCESS);

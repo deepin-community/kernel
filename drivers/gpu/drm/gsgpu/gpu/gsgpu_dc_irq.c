@@ -61,7 +61,7 @@ static void dc_handle_vsync_irq(void *interrupt_params)
 	spin_lock_irqsave(&dev->event_lock, flags);
 
 	if (gsgpu_crtc->pflip_status != GSGPU_FLIP_SUBMITTED) {
-		DRM_DEBUG_DRIVER("gsgpu_crtc->pflip_status = %d !=GSGPU_FLIP_SUBMITTED(%d) on crtc:%d[%p] \n",
+		DRM_DEBUG_DRIVER("gsgpu_crtc->pflip_status = %d !=GSGPU_FLIP_SUBMITTED(%d) on crtc:%d[0x%px] \n",
 						 gsgpu_crtc->pflip_status,
 						 GSGPU_FLIP_SUBMITTED,
 						 gsgpu_crtc->crtc_id,
@@ -84,7 +84,7 @@ static void dc_handle_vsync_irq(void *interrupt_params)
 	gsgpu_crtc->pflip_status = GSGPU_FLIP_NONE;
 	spin_unlock_irqrestore(&dev->event_lock, flags);
 
-	DRM_DEBUG_DRIVER("%s - crtc :%d[%p], pflip_stat:GSGPU_FLIP_NONE\n",
+	DRM_DEBUG_DRIVER("%s - crtc :%d[0x%px], pflip_stat:GSGPU_FLIP_NONE\n",
 					__func__, gsgpu_crtc->crtc_id, gsgpu_crtc);
 
 	drm_crtc_vblank_put(&gsgpu_crtc->base);
@@ -251,7 +251,7 @@ static void *dc_irq_register_interrupt(struct gsgpu_device *adev,
 	DM_IRQ_TABLE_UNLOCK(adev, irq_table_flags);
 
 	DRM_DEBUG_KMS(
-		"DC_IRQ: added irq handler: %p for: irq_src=%d, irq context=%d\n",
+		"DC_IRQ: added irq handler: 0x%px for: irq_src=%d, irq context=%d\n",
 		handler_data,
 		irq_source,
 		int_params->int_context);
@@ -389,7 +389,7 @@ static struct list_head *remove_irq_handler(struct gsgpu_device *adev,
 	kfree(handler);
 
 	DRM_DEBUG_KMS(
-	"DC_IRQ: removed irq handler: %p for: irq_src=%d, irq context=%d\n",
+	"DC_IRQ: removed irq handler: 0x%px for: irq_src=%d, irq context=%d\n",
 		ih, int_params->irq_source, int_params->int_context);
 
 	return hnd_list;
@@ -862,7 +862,7 @@ void gsgpu_dc_irq_unregister_interrupt(struct gsgpu_device *adev,
 		/* If we got here, it means we searched all irq contexts
 		 * for this irq source, but the handler was not found. */
 		DRM_ERROR(
-		"DM_IRQ: failed to find irq handler:%p for irq_source:%d!\n",
+		"DM_IRQ: failed to find irq handler:0x%px for irq_source:%d!\n",
 			ih, irq_source);
 	}
 }

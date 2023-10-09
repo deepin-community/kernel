@@ -1743,7 +1743,7 @@ int gsgpu_vm_bo_map(struct gsgpu_device *ldev,
 	tmp = gsgpu_vm_it_iter_first(&vm->va, saddr, eaddr);
 	if (tmp) {
 		/* bo and tmp overlap, invalid addr */
-		dev_err(ldev->dev, "bo %p va 0x%010Lx-0x%010Lx conflict with "
+		dev_err(ldev->dev, "bo 0x%px va 0x%010Lx-0x%010Lx conflict with "
 			"0x%010Lx-0x%010Lx\n", bo, saddr, eaddr,
 			tmp->start, tmp->last + 1);
 		return -EINVAL;

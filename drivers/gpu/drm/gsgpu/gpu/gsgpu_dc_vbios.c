@@ -470,7 +470,7 @@ static bool parse_vbios_resource(struct gsgpu_vbios *vbios, struct vbios_desc *d
 		}
 	}
 
-	DRM_ERROR("No parser for descriptor type %d, version %d, data %p.\n",
+	DRM_ERROR("No parser for descriptor type %d, version %d, data 0x%px.\n",
 		  desc->type, desc->ver, data);
 	return false;
 }
@@ -699,7 +699,7 @@ static u8 *read_vbios_from_mapped_io(u64 phy_addr)
 {
 	void *mapped_vbios = ioremap(phy_addr, VBIOS_SIZE);
 	if (!mapped_vbios) {
-		DRM_WARN("Unable to map VBIOS physical address %p.\n",
+		DRM_WARN("Unable to map VBIOS physical address 0x%px.\n",
 			 (void *)(phy_addr));
 		return false;
 	}

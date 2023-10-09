@@ -1984,9 +1984,9 @@ static int gsgpu_device_handle_vram_lost(struct gsgpu_device *adev)
 		if (fence) {
 			r = dma_fence_wait_timeout(fence, false, tmo);
 			if (r == 0)
-				pr_err("wait fence %p[%d] timeout\n", fence, i);
+				pr_err("wait fence 0x%px[%d] timeout\n", fence, i);
 			else if (r < 0)
-				pr_err("wait fence %p[%d] interrupted\n", fence, i);
+				pr_err("wait fence 0x%px[%d] interrupted\n", fence, i);
 			if (r < 1) {
 				dma_fence_put(fence);
 				fence = next;
@@ -2003,9 +2003,9 @@ static int gsgpu_device_handle_vram_lost(struct gsgpu_device *adev)
 	if (fence) {
 		r = dma_fence_wait_timeout(fence, false, tmo);
 		if (r == 0)
-			pr_err("wait fence %p[%d] timeout\n", fence, i);
+			pr_err("wait fence 0x%px[%d] timeout\n", fence, i);
 		else if (r < 0)
-			pr_err("wait fence %p[%d] interrupted\n", fence, i);
+			pr_err("wait fence 0x%px[%d] interrupted\n", fence, i);
 
 	}
 	dma_fence_put(fence);

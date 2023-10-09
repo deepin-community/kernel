@@ -111,7 +111,7 @@ static inline int gsgpu_bo_reserve(struct gsgpu_bo *bo, bool no_intr)
 	int r = ttm_bo_reserve(&bo->tbo, !no_intr, false, NULL);
 	if (unlikely(r != 0)) {
 		if (r != -ERESTARTSYS)
-			dev_err(adev->dev, "%p reserve failed\n", bo);
+			dev_err(adev->dev, "0x%px reserve failed\n", bo);
 		return r;
 	}
 	return 0;

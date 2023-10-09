@@ -440,7 +440,7 @@ void gsgpu_ctx_mgr_entity_fini(struct gsgpu_ctx_mgr *mgr)
 			if (kref_read(&ctx->refcount) == 1)
 				drm_sched_entity_fini(&ctx->rings[i].entity);
 			else
-				DRM_ERROR("ctx %p is still alive\n", ctx);
+				DRM_ERROR("ctx 0x%px is still alive\n", ctx);
 		}
 	}
 }
@@ -457,7 +457,7 @@ void gsgpu_ctx_mgr_fini(struct gsgpu_ctx_mgr *mgr)
 
 	idr_for_each_entry(idp, ctx, id) {
 		if (kref_put(&ctx->refcount, gsgpu_ctx_fini) != 1)
-			DRM_ERROR("ctx %p is still alive\n", ctx);
+			DRM_ERROR("ctx 0x%px is still alive\n", ctx);
 	}
 
 	idr_destroy(&mgr->ctx_handles);
