@@ -290,9 +290,33 @@ static int fpr_set(struct task_struct *target,
 				sizeof(struct user_fpsimd_state));
 }
 
+static int syscall_get(struct task_struct *target,
+		const struct user_regset *regset,
+		struct membuf to)
+{
+	return membuf_store(&to, task_pt_regs(target)->orig_r0);
+}
+
+static int syscall_set(struct task_struct *target,
+		const struct user_regset *regset,
+		unsigned int pos, unsigned int count,
+		const void *kbuf, const void __user *ubuf)
+{
+	unsigned long nr = task_pt_regs(target)->orig_r0;
+	int ret;
+
+	ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf, &nr, 0, -1);
+	if (ret)
+		return ret;
+
+	task_pt_regs(target)->orig_r0 = nr;
+	return ret;
+}
+
 enum sw64_regset {
 	REGSET_GPR,
 	REGSET_FPR,
+	REGSET_SYSCALL,
 };
 
 static const struct user_regset sw64_regsets[] = {
@@ -312,6 +336,14 @@ static const struct user_regset sw64_regsets[] = {
 		.regset_get = fpr_get,
 		.set = fpr_set
 	},
+	[REGSET_SYSCALL] = {
+		.core_note_type = NT_SW64_SYSTEM_CALL,
+		.n = 1,
+		.size = sizeof(u64),
+		.align = sizeof(u64),
+		.regset_get = syscall_get,
+		.set = syscall_set
+	}
 };
 
 static const struct user_regset_view user_sw64_view = {
