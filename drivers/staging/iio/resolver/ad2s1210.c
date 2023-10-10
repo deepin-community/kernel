@@ -264,6 +264,9 @@ static int ad2s1210_regmap_reg_read(void *context, unsigned int reg,
 static int ad2s1210_reinit_excitation_frequency(struct ad2s1210_state *st,
 						u16 fexcit)
 {
+	/* Map resolution to settle time in milliseconds. */
+	static const int track_time_ms[] = { 10, 20, 25, 60 };
+	unsigned int ignored;
 	int ret;
 	u8 fcw;
 
@@ -279,7 +282,27 @@ static int ad2s1210_reinit_excitation_frequency(struct ad2s1210_state *st,
 	 * Software reset reinitializes the excitation frequency output.
 	 * It does not reset any of the configuration registers.
 	 */
-	return regmap_write(st->regmap, AD2S1210_REG_SOFT_RESET, 0);
+	ret = regmap_write(st->regmap, AD2S1210_REG_SOFT_RESET, 0);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * Soft reset always triggers some faults due the change in the output
+	 * signal so clear the faults too. We need to delay for some time
+	 * (what datasheet calls t[track]) to allow things to settle before
+	 * clearing the faults.
+	 */
+	msleep(track_time_ms[st->resolution] * 8192000 / st->clkin_hz);
+
+	/* Reading the fault register clears the faults. */
+	ret = regmap_read(st->regmap, AD2S1210_REG_FAULT, &ignored);
+	if (ret < 0)
+		return ret;
+
+	/* Have to toggle sample line to get fault output pins to reset. */
+	ad2s1210_toggle_sample_line(st);
+
+	return 0;
 }
 
 /* read the fault register since last sample */
