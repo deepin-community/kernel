@@ -836,7 +836,7 @@ int amdgpu_dm_process_dmub_set_config_sync(struct dc_context *ctx, unsigned int 
 bool check_seamless_boot_capability(struct amdgpu_device *adev);
 
 struct dc_stream_state *
-	create_validate_stream_for_sink(struct drm_connector *connector,
+	create_validate_stream_for_sink(struct amdgpu_dm_connector *aconnector,
 					const struct drm_display_mode *drm_mode,
 					const struct dm_connector_state *dm_state,
 					const struct dc_stream_state *old_stream);
