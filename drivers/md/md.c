@@ -4012,7 +4012,7 @@ level_store(struct mddev *mddev, const char *buf, size_t len)
 	if (slen == 0 || slen >= sizeof(clevel))
 		return -EINVAL;
 
-	rv = mddev_lock(mddev);
+	rv = mddev_suspend_and_lock(mddev);
 	if (rv)
 		return rv;
 
@@ -4105,7 +4105,6 @@ level_store(struct mddev *mddev, const char *buf, size_t len)
 	}
 
 	/* Looks like we have a winner */
-	mddev_suspend(mddev);
 	mddev_detach(mddev);
 
 	spin_lock(&mddev->lock);
@@ -4191,14 +4190,13 @@ level_store(struct mddev *mddev, const char *buf, size_t len)
 	blk_set_stacking_limits(&mddev->queue->limits);
 	pers->run(mddev);
 	set_bit(MD_SB_CHANGE_DEVS, &mddev->sb_flags);
-	mddev_resume(mddev);
 	if (!mddev->thread)
 		md_update_sb(mddev, 1);
 	sysfs_notify_dirent_safe(mddev->sysfs_level);
 	md_new_event();
 	rv = len;
 out_unlock:
-	mddev_unlock(mddev);
+	mddev_unlock_and_resume(mddev);
 	return rv;
 }
 
@@ -5286,15 +5284,13 @@ suspend_lo_store(struct mddev *mddev, const char *buf, size_t len)
 	if (new != (sector_t)new)
 		return -EINVAL;
 
-	err = mddev_lock(mddev);
+	err = __mddev_suspend(mddev, true);
 	if (err)
 		return err;
 
-	mddev_suspend(mddev);
 	WRITE_ONCE(mddev->suspend_lo, new);
-	mddev_resume(mddev);
+	__mddev_resume(mddev);
 
-	mddev_unlock(mddev);
 	return len;
 }
 static struct md_sysfs_entry md_suspend_lo =
@@ -5319,15 +5315,13 @@ suspend_hi_store(struct mddev *mddev, const char *buf, size_t len)
 	if (new != (sector_t)new)
 		return -EINVAL;
 
-	err = mddev_lock(mddev);
+	err = __mddev_suspend(mddev, true);
 	if (err)
 		return err;
 
-	mddev_suspend(mddev);
 	WRITE_ONCE(mddev->suspend_hi, new);
-	mddev_resume(mddev);
+	__mddev_resume(mddev);
 
-	mddev_unlock(mddev);
 	return len;
 }
 static struct md_sysfs_entry md_suspend_hi =
@@ -5575,7 +5569,7 @@ serialize_policy_store(struct mddev *mddev, const char *buf, size_t len)
 	if (value == mddev->serialize_policy)
 		return len;
 
-	err = mddev_lock(mddev);
+	err = mddev_suspend_and_lock(mddev);
 	if (err)
 		return err;
 	if (mddev->pers == NULL || (mddev->pers->level != 1)) {
@@ -5584,15 +5578,13 @@ serialize_policy_store(struct mddev *mddev, const char *buf, size_t len)
 		goto unlock;
 	}
 
-	mddev_suspend(mddev);
 	if (value)
 		mddev_create_serial_pool(mddev, NULL, true);
 	else
 		mddev_destroy_serial_pool(mddev, NULL, true);
 	mddev->serialize_policy = value;
-	mddev_resume(mddev);
 unlock:
-	mddev_unlock(mddev);
+	mddev_unlock_and_resume(mddev);
 	return err ?: len;
 }
 
