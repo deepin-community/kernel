@@ -4738,7 +4738,6 @@ int iwl_mvm_roc_common(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			goto out_unlock;
 		}
 
-		iwl_mvm_phy_ctxt_ref(mvm, mvmvif->deflink.phy_ctxt);
 		goto link_and_start_p2p_roc;
 	}
 
@@ -4834,7 +4833,6 @@ static int __iwl_mvm_add_chanctx(struct iwl_mvm *mvm,
 		goto out;
 	}
 
-	iwl_mvm_phy_ctxt_ref(mvm, phy_ctxt);
 	*phy_ctxt_id = phy_ctxt->id;
 out:
 	return ret;
