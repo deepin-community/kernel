@@ -33,7 +33,7 @@ struct vbios_desc {
 	u8 ver;
 	u8 link;
 	u32 offset;
-	u32 size; /* Size of the resource data. Note size of the descriptor! */
+	u32 size; /* Size of the resource data. NOT size of the descriptor! */
 	u64 ext[2];
 } __packed;
 
@@ -495,7 +495,7 @@ static void parse_legacy_vbios_info(struct gsgpu_vbios *vbios)
 }
 
 /* Return the pointer to the beginning of the vbios resource descriptor table.
- * The zeroth desciptor always points to the header resource. Diagramatically,
+ * The zeroth descriptor always points to the header resource. Diagramatically,
  *
  *  |-------------------------------|------------|
  *  |vbios_desc[0]|vbios_desc[1]|...|vbios_header|
