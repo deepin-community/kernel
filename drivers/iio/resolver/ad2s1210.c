@@ -66,8 +66,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
-#define DRV_NAME "ad2s1210"
-
 /* control register flags */
 #define AD2S1210_ADDRESS_DATA		BIT(7)
 #define AD2S1210_PHASE_LOCK_RANGE_44	BIT(5)
@@ -1424,7 +1422,7 @@ MODULE_DEVICE_TABLE(spi, ad2s1210_id);
 
 static struct spi_driver ad2s1210_driver = {
 	.driver = {
-		.name = DRV_NAME,
+		.name = "ad2s1210",
 		.of_match_table = of_match_ptr(ad2s1210_of_match),
 	},
 	.probe = ad2s1210_probe,
