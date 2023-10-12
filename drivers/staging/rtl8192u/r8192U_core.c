@@ -2024,6 +2024,12 @@ static void rtl8192_init_priv_task(struct net_device *dev)
 {
 	struct r8192_priv *priv = ieee80211_priv(dev);
 
+	priv->priv_wq = alloc_workqueue("priv_wq", 0, 0);
+	if (!priv->priv_wq) {
+		pr_err("alloc_workqueue for priv->priv_wq failed\n");
+		return;
+	}
+
 	INIT_WORK(&priv->reset_wq, rtl8192_restart);
 
 	INIT_DELAYED_WORK(&priv->watch_dog_wq,
