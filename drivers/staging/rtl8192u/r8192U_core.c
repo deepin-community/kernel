@@ -1990,6 +1990,10 @@ static int rtl8192_init_priv_variable(struct net_device *dev)
 	if (!priv->pFirmware)
 		return -ENOMEM;
 
+	priv->network = kzalloc(sizeof(*priv->network), GFP_KERNEL);
+	if (!priv->network)
+		return -ENOMEM;
+
 	/* rx related queue */
 	skb_queue_head_init(&priv->rx_queue);
 	skb_queue_head_init(&priv->skb_queue);
@@ -4572,6 +4576,8 @@ fail2:
 fail:
 	kfree(priv->pFirmware);
 	priv->pFirmware = NULL;
+	kfree(priv->network);
+	priv->network = NULL;
 	rtl8192_usb_deleteendpoints(dev);
 	msleep(10);
 	free_ieee80211(dev);

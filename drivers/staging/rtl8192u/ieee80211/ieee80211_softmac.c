@@ -12,6 +12,7 @@
  * Copyright who own it's copyright.
  */
 #include "ieee80211.h"
+#include "../r8192U.h"
 
 #include <linux/random.h>
 #include <linux/delay.h>
@@ -1892,6 +1893,8 @@ ieee80211_rx_frame_softmac(struct ieee80211_device *ieee, struct sk_buff *skb,
 			   u16 stype)
 {
 	struct rtl_80211_hdr_3addr *header = (struct rtl_80211_hdr_3addr *)skb->data;
+	struct net_device *dev = ieee->dev;
+	struct r8192_priv *priv = ieee80211_priv(dev);
 	u16 errcode;
 	int aid;
 	struct ieee80211_assoc_response_frame *assoc_resp;
@@ -1917,12 +1920,7 @@ ieee80211_rx_frame_softmac(struct ieee80211_device *ieee, struct sk_buff *skb,
 		if ((ieee->softmac_features & IEEE_SOFTMAC_ASSOCIATE) &&
 		    ieee->state == IEEE80211_ASSOCIATING_AUTHENTICATED &&
 		    ieee->iw_mode == IW_MODE_INFRA) {
-			struct ieee80211_network *network;
-
-			network = kzalloc(sizeof(*network), GFP_KERNEL);
-			if (!network)
-				return -ENOMEM;
-
+			memset(priv->network, 0, sizeof(struct ieee80211_network));
 			errcode = assoc_parse(ieee, skb, &aid);
 			if (!errcode) {
 				ieee->state = IEEE80211_LINKED;
@@ -1934,15 +1932,15 @@ ieee80211_rx_frame_softmac(struct ieee80211_device *ieee, struct sk_buff *skb,
 					assoc_resp = (struct ieee80211_assoc_response_frame *)skb->data;
 					if (ieee80211_parse_info_param(ieee, assoc_resp->info_element,\
 								       rx_stats->len - sizeof(*assoc_resp), \
-								       network, rx_stats)) {
+								       priv->network, rx_stats)) {
 						return 1;
 					} else {
 						//filling the PeerHTCap. //maybe not necessary as we can get its info from current_network.
-						memcpy(ieee->pHTInfo->PeerHTCapBuf, network->bssht.bdHTCapBuf, network->bssht.bdHTCapLen);
-						memcpy(ieee->pHTInfo->PeerHTInfoBuf, network->bssht.bdHTInfoBuf, network->bssht.bdHTInfoLen);
+						memcpy(ieee->pHTInfo->PeerHTCapBuf, priv->network->bssht.bdHTCapBuf, priv->network->bssht.bdHTCapLen);
+						memcpy(ieee->pHTInfo->PeerHTInfoBuf, priv->network->bssht.bdHTInfoBuf, priv->network->bssht.bdHTInfoLen);
 					}
 					if (ieee->handle_assoc_response)
-						ieee->handle_assoc_response(ieee->dev, (struct ieee80211_assoc_response_frame *)header, network);
+						ieee->handle_assoc_response(ieee->dev, (struct ieee80211_assoc_response_frame *)header, priv->network);
 				}
 				ieee80211_associate_complete(ieee);
 			} else {
@@ -1957,7 +1955,6 @@ ieee80211_rx_frame_softmac(struct ieee80211_device *ieee, struct sk_buff *skb,
 				else
 					ieee80211_associate_abort(ieee);
 			}
-			kfree(network);
 		}
 		break;
 

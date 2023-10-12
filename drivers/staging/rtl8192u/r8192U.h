@@ -908,6 +908,7 @@ typedef struct r8192_priv {
 
 	struct	ChnlAccessSetting  ChannelAccessSetting;
 	struct work_struct reset_wq;
+	struct ieee80211_network *network;
 
 /**********************************************************/
 	/* For rtl819xUsb */
