@@ -1,3 +1,24 @@
+config DRM_GSGPU
+	tristate "Loongosn Godson GPU"
+	depends on DRM && PCI && MMU
+	select FW_LOADER
+	select DRM_KMS_HELPER
+	select DRM_SCHED
+	select DRM_TTM
+	select DRM_TTM_HELPER
+	select DRM_BUDDY
+	select POWER_SUPPLY
+	select HWMON
+	select BACKLIGHT_CLASS_DEVICE
+	select BACKLIGHT_LCD_SUPPORT
+	select INTERVAL_TREE
+	select CHASH
+	help
+	  Choose this option if your system has a Godson LG100 graphics processing
+	  unit, such as those found in the Loongson 7A2000 bridge chips.
+
+	  If M is selected, the module will be called gsgpu.
+
 config DRM_GSGPU_USERPTR
 	bool "Always enable userptr write support"
 	depends on DRM_GSGPU
