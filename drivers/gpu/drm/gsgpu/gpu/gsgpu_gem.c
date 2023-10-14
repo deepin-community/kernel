@@ -4,6 +4,8 @@
 #include "gsgpu.h"
 #include "gsgpu_display.h"
 
+static const struct drm_gem_object_funcs gsgpu_gem_object_funcs;
+
 static vm_fault_t gsgpu_gem_fault(struct vm_fault *vmf)
 {
 	struct ttm_buffer_object *bo = vmf->vma->vm_private_data;
@@ -98,6 +100,7 @@ retry:
 		return r;
 	}
 	*obj = &bo->tbo.base;
+	(*obj)->funcs = &gsgpu_gem_object_funcs;
 
 	return 0;
 }
