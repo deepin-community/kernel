@@ -1579,11 +1579,6 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 	uint32_t max_bytes = adev->mman.buffer_funcs->fill_max_bytes;
 	struct gsgpu_ring *ring = adev->mman.buffer_funcs_ring;
 
-	struct gsgpu_res_cursor cursor;
-        unsigned int num_loops, num_dw;
-	uint64_t num_bytes;
-
-	struct gsgpu_job *job;
 	int r;
 
 	if (!adev->mman.buffer_funcs_enabled) {
@@ -1597,17 +1592,19 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 			return r;
 	}
 
-	num_bytes = bo->tbo.base.size;
-	num_loops = 0;
+	struct gsgpu_res_cursor cursor;
+	gsgpu_res_first(bo->tbo.resource, 0, gsgpu_bo_size(bo), &cursor);
+	unsigned int num_loops = 0;
 	while (cursor.remaining) {
 		num_loops += DIV_ROUND_UP_ULL(cursor.size, max_bytes);
 		gsgpu_res_next(&cursor, cursor.size);
 	}
-	num_dw = num_loops * adev->mman.buffer_funcs->fill_num_dw;
+	unsigned int num_dw = num_loops * adev->mman.buffer_funcs->fill_num_dw;
 
 	/* for IB padding */
 	num_dw += 64;
 
+	struct gsgpu_job *job;
 	r = gsgpu_job_alloc_with_ib(adev, num_dw * 4, &job);
 	if (r)
 		return r;
@@ -1621,7 +1618,7 @@ int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 		}
 	}
 
-	gsgpu_res_first(bo->tbo.resource, 0, num_bytes, &cursor);
+	gsgpu_res_first(bo->tbo.resource, 0, gsgpu_bo_size(bo), &cursor);
 	while (cursor.remaining) {
 		uint32_t cur_size = min_t(uint64_t, cursor.size, max_bytes);
 		uint64_t dst_addr = cursor.start;
