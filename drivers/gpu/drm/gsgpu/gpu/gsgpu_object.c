@@ -416,8 +416,6 @@ static int gsgpu_bo_do_create(struct gsgpu_device *adev,
 		ttm_bo_pin(&bo->tbo);
 	}
 
-	bo->tbo.base.resv = bo->tbo.base.resv;
-
 	if (!gsgpu_gmc_vram_full_visible(&adev->gmc) &&
 	    bo->tbo.resource->mem_type == TTM_PL_VRAM &&
 	    bo->tbo.resource->start < adev->gmc.visible_vram_size >> PAGE_SHIFT)
