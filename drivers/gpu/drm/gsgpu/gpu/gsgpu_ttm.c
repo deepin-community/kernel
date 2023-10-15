@@ -219,6 +219,12 @@ error_free:
 	return r;
 }
 
+struct gsgpu_copy_mem {
+	struct ttm_buffer_object	*bo;
+	struct ttm_resource		*mem;
+	unsigned long			offset;
+};
+
 /**
  * gsgpu_copy_ttm_mem_to_mem - Helper function for copy
  *
@@ -228,12 +234,12 @@ error_free:
  *
  * @f: Returns the last fence if multiple jobs are submitted.
  */
-int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
-			      const struct gsgpu_copy_mem *src,
-			      const struct gsgpu_copy_mem *dst,
-			      uint64_t size,
-			      struct dma_resv *resv,
-			      struct dma_fence **f)
+static int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
+				     const struct gsgpu_copy_mem *src,
+				     const struct gsgpu_copy_mem *dst,
+				     uint64_t size,
+				     struct dma_resv *resv,
+				     struct dma_fence **f)
 {
 	const uint32_t GTT_MAX_BYTES = (GSGPU_GTT_MAX_TRANSFER_SIZE *
 					GSGPU_GPU_PAGE_SIZE);

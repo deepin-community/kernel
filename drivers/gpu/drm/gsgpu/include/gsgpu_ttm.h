@@ -35,12 +35,6 @@ struct gsgpu_mman {
 	struct gsgpu_gtt_mgr		gtt_mgr;
 };
 
-struct gsgpu_copy_mem {
-	struct ttm_buffer_object	*bo;
-	struct ttm_resource		*mem;
-	unsigned long			offset;
-};
-
 int gsgpu_vram_mgr_init(struct gsgpu_device *adev);
 void gsgpu_vram_mgr_fini(struct gsgpu_device *adev);
 int gsgpu_gtt_mgr_init(struct gsgpu_device *adev, uint64_t gtt_size);
@@ -65,12 +59,6 @@ int gsgpu_copy_buffer(struct gsgpu_ring *ring, uint64_t src_offset,
 		      struct dma_resv *resv,
 		      struct dma_fence **fence, bool direct_submit,
 		      bool vm_needs_flush);
-int gsgpu_ttm_copy_mem_to_mem(struct gsgpu_device *adev,
-			      const struct gsgpu_copy_mem *src,
-			      const struct gsgpu_copy_mem *dst,
-			      uint64_t size,
-			      struct dma_resv *resv,
-			      struct dma_fence **f);
 int gsgpu_fill_buffer(struct gsgpu_bo *bo,
 		      uint32_t src_data,
 		      struct dma_resv *resv,
