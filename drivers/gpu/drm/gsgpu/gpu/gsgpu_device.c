@@ -1499,7 +1499,6 @@ static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(gobj);
 	int r, i;
 	struct ttm_operation_ctx ctx = { false, false };
-	struct drm_mm_node *node = NULL;
 	unsigned domain;
 
 	domain = gsgpu_mem_type_to_domain(bo->tbo.resource->mem_type);
@@ -1509,8 +1508,6 @@ static int gsgpu_zip_gem_bo_validate(int id, void *ptr, void *data)
 		gsgpu_bo_reserve(bo, false);
 
 		domain = bo->preferred_domains;
-
-		node = to_ttm_range_mgr_node(bo->tbo.resource)->mm_nodes;
 
 		bo->flags |= GSGPU_GEM_CREATE_VRAM_CONTIGUOUS;
 		/* force to pin into visible video ram */
