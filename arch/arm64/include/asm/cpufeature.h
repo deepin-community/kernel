@@ -855,7 +855,7 @@ static inline bool system_supports_bti_kernel(void)
 
 static inline bool system_supports_tlb_range(void)
 {
-	return cpus_have_const_cap(ARM64_HAS_TLB_RANGE);
+	return alternative_has_cap_unlikely(ARM64_HAS_TLB_RANGE);
 }
 
 static inline bool system_supports_haft(void)
