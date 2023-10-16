@@ -40,7 +40,9 @@ void gsgpu_gart_invalidate_tlb(struct gsgpu_device *adev)
                 return;
 
         mb();
-	gsgpu_gmc_flush_gpu_tlb(adev, 0);
+	for (int i = 0; i < GSGPU_NUM_VMID; i++) {
+		gsgpu_gmc_flush_gpu_tlb(adev, i);
+	}
 }
 
 /**
