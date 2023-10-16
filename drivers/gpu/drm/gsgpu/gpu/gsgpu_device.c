@@ -947,9 +947,6 @@ static int gsgpu_device_ip_late_init(struct gsgpu_device *adev)
 		}
 	}
 
-	queue_delayed_work(system_wq, &adev->late_init_work,
-			   msecs_to_jiffies(GSGPU_RESUME_MS));
-
 	gsgpu_device_fill_reset_magic(adev);
 
 	return 0;
@@ -1013,34 +1010,6 @@ static int gsgpu_device_ip_fini(struct gsgpu_device *adev)
 	}
 
 	return 0;
-}
-
-/**
- * gsgpu_device_ip_late_init_func_handler - work handler for clockgating
- *
- * @work: work_struct
- *
- * Work handler for gsgpu_device_ip_late_set_cg_state.  We put the
- * clockgating setup into a worker thread to speed up driver init and
- * resume from suspend.
- */
-static void gsgpu_device_ip_late_init_func_handler(struct work_struct *work)
-{
-#if 1
-	return;
-#else
-	struct gsgpu_device *adev =
-		container_of(work, struct gsgpu_device, late_init_work.work);
-	int r;
-
-	r = gsgpu_ib_ring_tests(adev);
-	if (r)
-		DRM_ERROR("ib ring test failed (%d).\n", r);
-
-	r = gsgpu_ring_test_xdma(&adev->xdma.instance[0].ring, msecs_to_jiffies(5000));
-	if (r)
-		DRM_ERROR("xdma test failed (%d).\n", r);
-#endif
 }
 
 /**
@@ -1295,9 +1264,6 @@ int gsgpu_device_init(struct gsgpu_device *adev,
 	INIT_LIST_HEAD(&adev->ring_lru_list);
 	spin_lock_init(&adev->ring_lru_list_lock);
 
-	INIT_DELAYED_WORK(&adev->late_init_work,
-			  gsgpu_device_ip_late_init_func_handler);
-
 	/* pci get dc revision */
 	pci_read_config_byte(adev->loongson_dc, 0x8, &adev->dc_revision);
 	DRM_DEBUG_DRIVER("GSGPU dc revision id 0x%x\n", adev->dc_revision);
@@ -1474,7 +1440,6 @@ void gsgpu_device_fini(struct gsgpu_device *adev)
 		adev->firmware.gpu_info_fw = NULL;
 	}
 	adev->accel_working = false;
-	cancel_delayed_work_sync(&adev->late_init_work);
 
 	gsgpu_cp_fini(adev);
 
@@ -1724,9 +1689,6 @@ int gsgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
 	r = gsgpu_device_ip_late_init(adev);
 	if (r)
 		return r;
-
-	/* Make sure IB tests flushed */
-	flush_delayed_work(&adev->late_init_work);
 
 	/* blat the mode back in */
 	if (fbcon)

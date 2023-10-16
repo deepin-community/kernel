@@ -1086,9 +1086,6 @@ struct gsgpu_device {
 	atomic64_t visible_pin_size;
 	atomic64_t gart_pin_size;
 
-	/* delayed work_func for deferring clockgating during resume */
-	struct delayed_work     late_init_work;
-
 	//zl prior virt
 	uint32_t			reg_val_offs;
 	/* firmware VRAM reservation */

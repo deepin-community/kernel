@@ -531,9 +531,6 @@ int gsgpu_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 	struct gsgpu_fpriv *fpriv;
 	int r, pasid;
 
-	/* Ensure IB tests are run on ring */
-	flush_delayed_work(&adev->late_init_work);
-
 	file_priv->driver_priv = NULL;
 
 	r = pm_runtime_get_sync(dev->dev);
