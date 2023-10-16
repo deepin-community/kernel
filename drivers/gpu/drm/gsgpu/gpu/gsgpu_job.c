@@ -9,7 +9,7 @@ static enum drm_gpu_sched_stat gsgpu_job_timedout(struct drm_sched_job *s_job)
 	struct gsgpu_ring *ring = to_gsgpu_ring(s_job->sched);
 	struct gsgpu_job *job = to_gsgpu_job(s_job);
 
-	DRM_ERROR("ring %s timeout, signaled seq=%u, emitted seq=%u\n",
+	DRM_ERROR("job %px ring %s timeout, signaled seq=%u, emitted seq=%u\n", job,
 		  job->base.sched->name, atomic_read(&ring->fence_drv.last_seq),
 		  ring->fence_drv.sync_seq);
 
