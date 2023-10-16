@@ -1404,8 +1404,6 @@ int gsgpu_device_init(struct gsgpu_device *adev,
 		goto failed;
 	}
 
-	xdma_ring_test_xdma_loop(&adev->xdma.instance[0].ring, msecs_to_jiffies(5000));
-
 	return 0;
 
 failed:
