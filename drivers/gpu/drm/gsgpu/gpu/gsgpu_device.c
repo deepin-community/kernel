@@ -1284,6 +1284,7 @@ int gsgpu_device_init(struct gsgpu_device *adev,
 	}
 	DRM_INFO("register mmio base: 0x%08X\n", (uint32_t)adev->rmmio_base);
 	DRM_INFO("register mmio size: %u\n", (unsigned)adev->rmmio_size);
+	DRM_INFO("register mmio mapped to: 0x%px\n", adev->rmmio);
 
 	/* loongson dc */
 	adev->loongson_dc_rmmio_base = pci_resource_start(adev->loongson_dc, 0);
@@ -1296,6 +1297,7 @@ int gsgpu_device_init(struct gsgpu_device *adev,
 
 	DRM_INFO("gsgpu dc register mmio base: 0x%08X\n", (uint32_t)adev->loongson_dc_rmmio_base);
 	DRM_INFO("gsgpu dc register mmio size: %u\n", (unsigned)adev->loongson_dc_rmmio_size);
+	DRM_INFO("gsgpu dc register mmio mapped to: 0x%px\n", adev->loongson_dc_rmmio);
 
 	adev->io_base = ioremap(LS7A_CHIPCFG_REG_BASE, 0xf);
 	if (adev->io_base == NULL)
