@@ -833,7 +833,7 @@ static __always_inline bool system_uses_nmi(void)
 
 static inline bool system_supports_mte(void)
 {
-	return cpus_have_const_cap(ARM64_MTE);
+	return alternative_has_cap_unlikely(ARM64_MTE);
 }
 
 static inline bool system_has_prio_mask_debugging(void)
