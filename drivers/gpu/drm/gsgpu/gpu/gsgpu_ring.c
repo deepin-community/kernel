@@ -261,8 +261,7 @@ int gsgpu_ring_init(struct gsgpu_device *adev, struct gsgpu_ring *ring,
 	ring->ring_size = roundup_pow_of_two(max_dw * 4 * sched_hw_submission);
 
 	ring->buf_mask = ring->ring_size/4 - 1;
-	ring->ptr_mask = ring->funcs->support_64bit_ptrs ?
-		0xffffffffffffffff : ring->buf_mask;
+	ring->ptr_mask = ring->funcs->support_64bit_ptrs ? ~0ULL : (uint64_t)ring->buf_mask;
 	/* Allocate ring buffer */
 	if (ring->ring_obj == NULL) {
 		r = gsgpu_bo_create_kernel(adev, ring->ring_size + ring->funcs->extra_dw, PAGE_SIZE,

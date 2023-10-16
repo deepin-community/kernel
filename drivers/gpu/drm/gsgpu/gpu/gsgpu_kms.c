@@ -71,12 +71,9 @@ int gsgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	r = gsgpu_device_init(adev, dev, pdev, flags);
 	if (r) {
 		dev_err(&pdev->dev, "Fatal error during GPU init\n");
-		goto out;
+		gsgpu_driver_unload_kms(dev);
 	}
 
-out:
-	if (r)
-		gsgpu_driver_unload_kms(dev);
 
 	return r;
 }

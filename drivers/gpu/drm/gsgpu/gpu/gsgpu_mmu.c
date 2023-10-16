@@ -101,7 +101,7 @@ static int mmu_mc_init(struct gsgpu_device *adev)
  * Flush the TLB for the requested page table ().
  */
 static void mmu_flush_gpu_tlb(struct gsgpu_device *adev,
-					uint32_t vmid)
+			      uint32_t vmid)
 {
 	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_FLUSH), GSGPU_MMU_FLUSH_PKT(vmid, GSGPU_MMU_FLUSH_VMID), 0);
 }
@@ -317,7 +317,6 @@ static inline void mmu_set_dma_consistent(struct gsgpu_device *adev)
 
 static inline int mmu_vm_manager_init(struct gsgpu_device *adev)
 {
-
 	/* Adjust VM size here.
 	 * Currently set to 4GB ((1 << 20) 4k pages).
 	 * Max GPUVM size for cayman and SI is 40 bits.
