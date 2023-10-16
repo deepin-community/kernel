@@ -1198,7 +1198,7 @@ void __init sve_setup(void)
 	DECLARE_BITMAP(tmp_map, SVE_VQ_MAX);
 	unsigned long b;
 
-	if (!system_supports_sve())
+	if (!cpus_have_cap(ARM64_SVE))
 		return;
 
 	/*
@@ -1363,7 +1363,7 @@ void __init sme_setup(void)
 	u64 smcr;
 	int min_bit;
 
-	if (!system_supports_sme())
+	if (!cpus_have_cap(ARM64_SME))
 		return;
 
 	/*
