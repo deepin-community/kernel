@@ -130,15 +130,12 @@ static void xdma_ring_emit_fence(struct gsgpu_ring *ring, u64 addr, u64 seq,
  */
 static void xdma_gfx_stop(struct gsgpu_device *adev)
 {
-	struct gsgpu_ring *xdma0 = &adev->xdma.instance[0].ring;
-	struct gsgpu_ring *xdma1 = &adev->xdma.instance[1].ring;
-
-	if ((adev->mman.buffer_funcs_ring == xdma0) ||
-	    (adev->mman.buffer_funcs_ring == xdma1))
-		gsgpu_ttm_set_buffer_funcs_status(adev, false);
-
-	xdma0->ready = false;
-	xdma1->ready = false;
+	for (int i = 0; i < adev->xdma.num_instances; i++) {
+		struct gsgpu_ring *xdma = &adev->xdma.instance[i].ring;
+		if (adev->mman.buffer_funcs_ring == xdma)
+			gsgpu_ttm_set_buffer_funcs_status(adev, false);
+		xdma->ready = false;
+	}
 }
 
 /**
