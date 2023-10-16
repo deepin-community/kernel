@@ -147,27 +147,6 @@ static void gsgpu_irq_uninstall(struct gsgpu_device *adev)
 }
 
 /**
- * gsgpu_msi_ok - check whether MSI functionality is enabled
- *
- * @adev: gsgpu device pointer (unused)
- *
- * Checks whether MSI functionality has been disabled via module parameter
- * (all ASICs).
- *
- * Returns:
- * *true* if MSIs are allowed to be enabled or *false* otherwise
- */
-static bool gsgpu_msi_ok(struct gsgpu_device *adev)
-{
-	if (gsgpu_msi == 1)
-		return true;
-	else if (gsgpu_msi == 0)
-		return false;
-
-	return true;
-}
-
-/**
  * gsgpu_irq_init - initialize interrupt handling
  *
  * @adev: gsgpu device pointer
@@ -188,11 +167,14 @@ int gsgpu_irq_init(struct gsgpu_device *adev)
 	/* Enable MSI if not disabled by module parameter */
 	adev->irq.msi_enabled = false;
 
-	if (gsgpu_msi_ok(adev)) {
+	if (gsgpu_msi) {
 		int ret = pci_enable_msi(adev->pdev);
 		if (!ret) {
 			adev->irq.msi_enabled = true;
 			dev_dbg(adev->dev, "gsgpu: using MSI.\n");
+		} else {
+			dev_err(adev->dev, "gsgpu: MSI requested but pci_enable_msi "
+				"returned error (%d). Disabling MSI.\n", ret);
 		}
 	}
 

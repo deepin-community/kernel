@@ -28,7 +28,7 @@ int gsgpu_moverate = -1; /* auto */
 int gsgpu_benchmarking;
 int gsgpu_testing;
 int gsgpu_disp_priority;
-int gsgpu_msi = -1;
+int gsgpu_msi = 1;
 int gsgpu_lockup_timeout = 10000;
 int gsgpu_runtime_pm = -1;
 int gsgpu_vm_size = -1;
@@ -108,9 +108,9 @@ module_param_named(disp_priority, gsgpu_disp_priority, int, 0444);
 
 /**
  * DOC: msi (int)
- * To disable Message Signaled Interrupts (MSI) functionality (1 = enable, 0 = disable). The default is -1 (auto, enabled).
+ * Specify whether to enable Message Signaled Interrupts (MSI) functionality (1 = enable, 0 = disable). The default is 1 (enable).
  */
-MODULE_PARM_DESC(msi, "MSI support (1 = enable, 0 = disable, -1 = auto)");
+MODULE_PARM_DESC(msi, "MSI support (1 = enable, 0 = disable)");
 module_param_named(msi, gsgpu_msi, int, 0444);
 
 /**
