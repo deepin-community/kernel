@@ -43,6 +43,7 @@ int gsgpu_sched_hw_submission = 2;
 int gsgpu_job_hang_limit;
 int gsgpu_gpu_recovery = 1; /* auto */
 int gsgpu_using_ram; /* using system memory for gpu*/
+int gsgpu_enable_dma40;
 
 int gsgpu_lg100_support = 1;
 MODULE_PARM_DESC(LG100_support, "LG100 support (1 = enabled (default), 0 = disabled");
@@ -210,6 +211,13 @@ MODULE_PARM_DESC(gsgpu_using_ram, "Gpu uses memory instead vram"
 		 "0: using vram for gpu 1:use system for gpu");
 module_param_named(gsgpu_using_ram, gsgpu_using_ram, uint, 0444);
 
+/**
+ * DOC: enable_dma40 (int)
+ * If set to 1, the driver will try to set up 40-bit DMA access for the device.
+ * The default is 0 (disable), in which case 32-bit DMA will be used.
+ */
+MODULE_PARM_DESC(enable_dma40, "Enable 40-bit DMA support (1 = enable, 0 = disable)");
+module_param_named(enable_dma40, gsgpu_enable_dma40, int, 0444);
 
 static const struct pci_device_id pciidlist[] = {
 	{PCI_VENDOR_ID_LOONGSON, LG100_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_LG100}, //GSGPU
