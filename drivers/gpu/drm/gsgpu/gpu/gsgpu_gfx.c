@@ -8,6 +8,10 @@
 
 #define GFX8_NUM_GFX_RINGS     1
 
+#if GFX8_NUM_GFX_RINGS > GSGPU_MAX_GFX_RINGS
+#error "Too many GFX rings"
+#endif
+
 MODULE_FIRMWARE("loongson/lg100_cp.bin");
 
 static void gfx_set_ring_funcs(struct gsgpu_device *adev);
@@ -210,7 +214,7 @@ static int gfx_sw_init(void *handle)
 	for (i = 0; i < adev->gfx.num_gfx_rings; i++) {
 		ring = &adev->gfx.gfx_ring[i];
 		ring->ring_obj = NULL;
-		sprintf(ring->name, "gfx");
+		snprintf(ring->name, sizeof(ring->name), "gfx");
 
 		r = gsgpu_ring_init(adev, ring, 256, &adev->gfx.eop_irq,
 				     GSGPU_CP_IRQ_GFX_EOP);
