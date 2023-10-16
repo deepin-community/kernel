@@ -209,7 +209,6 @@ static inline void gsgpu_ring_write(struct gsgpu_ring *ring, uint32_t v)
 {
 	if (ring->count_dw <= 0)
 		DRM_ERROR("gsgpu: writing more dwords to the ring than expected!\n");
-	//DRM_INFO("dw[0x%x]:%x\n", ring->wptr, v);
 	ring->ring[ring->wptr++ & ring->buf_mask] = v;
 	ring->wptr &= ring->ptr_mask;
 	ring->count_dw--;
