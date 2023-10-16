@@ -3,7 +3,6 @@
 #include <linux/i2c.h>
 #include <linux/regmap.h>
 
-#include <asm/loongson.h>
 #include "gsgpu.h"
 #include "gsgpu_dc.h"
 #include "gsgpu_dc_vbios.h"

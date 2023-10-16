@@ -363,7 +363,7 @@ void gsgpu_device_vram_location(struct gsgpu_device *adev,
  * Function will place try to place GART before or after VRAM.
  *
  * If GART size is bigger than space left then we ajust GART size.
- * Thus function will never fails.
+ * Thus function will never fail.
  */
 void gsgpu_device_gart_location(struct gsgpu_device *adev,
 				 struct gsgpu_gmc *mc)
