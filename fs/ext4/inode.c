@@ -1033,7 +1033,7 @@ static int ext4_block_write_begin(struct folio *folio, loff_t pos, unsigned len,
 
 	head = folio_buffers(folio);
 	if (!head)
-		head = folio_create_empty_buffers(folio, blocksize, 0);
+		head = create_empty_buffers(folio, blocksize, 0);
 	bbits = ilog2(blocksize);
 	block = (sector_t)folio->index << (PAGE_SHIFT - bbits);
 
@@ -1163,7 +1163,7 @@ retry_grab:
 	 * starting the handle.
 	 */
 	if (!folio_buffers(folio))
-		folio_create_empty_buffers(folio, inode->i_sb->s_blocksize, 0);
+		create_empty_buffers(folio, inode->i_sb->s_blocksize, 0);
 
 	folio_unlock(folio);
 
@@ -3654,7 +3654,7 @@ static int __ext4_block_zero_page_range(handle_t *handle,
 
 	bh = folio_buffers(folio);
 	if (!bh)
-		bh = folio_create_empty_buffers(folio, blocksize, 0);
+		bh = create_empty_buffers(folio, blocksize, 0);
 
 	/* Find the buffer that contains "offset" */
 	pos = blocksize;
