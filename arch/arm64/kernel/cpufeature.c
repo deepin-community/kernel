@@ -1045,13 +1045,19 @@ void __init init_cpu_features(struct cpuinfo_arm64 *info)
 
 	if (IS_ENABLED(CONFIG_ARM64_SVE) &&
 	    id_aa64pfr0_sve(read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1))) {
+		unsigned long cpacr = cpacr_save_enable_kernel_sve();
+
 		info->reg_zcr = read_zcr_features();
 		init_cpu_ftr_reg(SYS_ZCR_EL1, info->reg_zcr);
 		vec_init_vq_map(ARM64_VEC_SVE);
+
+		cpacr_restore(cpacr);
 	}
 
 	if (IS_ENABLED(CONFIG_ARM64_SME) &&
 	    id_aa64pfr1_sme(read_sanitised_ftr_reg(SYS_ID_AA64PFR1_EL1))) {
+		unsigned long cpacr = cpacr_save_enable_kernel_sme();
+
 		info->reg_smcr = read_smcr_features();
 		/*
 		 * We mask out SMPS since even if the hardware
@@ -1061,6 +1067,8 @@ void __init init_cpu_features(struct cpuinfo_arm64 *info)
 		info->reg_smidr = read_cpuid(SMIDR_EL1) & ~SMIDR_EL1_SMPS;
 		init_cpu_ftr_reg(SYS_SMCR_EL1, info->reg_smcr);
 		vec_init_vq_map(ARM64_VEC_SME);
+
+		cpacr_restore(cpacr);
 	}
 
 	if (id_aa64pfr1_mte(info->reg_id_aa64pfr1))
@@ -1296,6 +1304,8 @@ void update_cpu_features(int cpu,
 
 	if (IS_ENABLED(CONFIG_ARM64_SVE) &&
 	    id_aa64pfr0_sve(read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1))) {
+		unsigned long cpacr = cpacr_save_enable_kernel_sve();
+
 		info->reg_zcr = read_zcr_features();
 		taint |= check_update_ftr_reg(SYS_ZCR_EL1, cpu,
 					info->reg_zcr, boot->reg_zcr);
@@ -1303,10 +1313,14 @@ void update_cpu_features(int cpu,
 		/* Probe vector lengths */
 		if (!system_capabilities_finalized())
 			vec_update_vq_map(ARM64_VEC_SVE);
+
+		cpacr_restore(cpacr);
 	}
 
 	if (IS_ENABLED(CONFIG_ARM64_SME) &&
 	    id_aa64pfr1_sme(read_sanitised_ftr_reg(SYS_ID_AA64PFR1_EL1))) {
+		unsigned long cpacr = cpacr_save_enable_kernel_sme();
+
 		info->reg_smcr = read_smcr_features();
 		/*
 		 * We mask out SMPS since even if the hardware
@@ -1320,6 +1334,8 @@ void update_cpu_features(int cpu,
 		/* Probe vector lengths */
 		if (!system_capabilities_finalized())
 			vec_update_vq_map(ARM64_VEC_SME);
+
+		cpacr_restore(cpacr);
 	}
 
 	/*
@@ -3407,6 +3423,8 @@ static void verify_local_elf_hwcaps(void)
 
 static void verify_sve_features(void)
 {
+	unsigned long cpacr = cpacr_save_enable_kernel_sve();
+
 	u64 safe_zcr = read_sanitised_ftr_reg(SYS_ZCR_EL1);
 	u64 zcr = read_zcr_features();
 
@@ -3419,11 +3437,13 @@ static void verify_sve_features(void)
 		cpu_die_early();
 	}
 
-	/* Add checks on other ZCR bits here if necessary */
+	cpacr_restore(cpacr);
 }
 
 static void verify_sme_features(void)
 {
+	unsigned long cpacr = cpacr_save_enable_kernel_sme();
+
 	u64 safe_smcr = read_sanitised_ftr_reg(SYS_SMCR_EL1);
 	u64 smcr = read_smcr_features();
 
@@ -3436,7 +3456,7 @@ static void verify_sme_features(void)
 		cpu_die_early();
 	}
 
-	/* Add checks on other SMCR bits here if necessary */
+	cpacr_restore(cpacr);
 }
 
 static void verify_hyp_capabilities(void)
