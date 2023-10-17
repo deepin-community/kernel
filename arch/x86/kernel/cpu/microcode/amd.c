@@ -891,6 +891,9 @@ static enum ucode_state request_microcode_amd(int cpu, struct device *device)
 	enum ucode_state ret = UCODE_NFOUND;
 	const struct firmware *fw;
 
+	if (force_minrev)
+		return UCODE_NFOUND;
+
 	if (x86_cpuid_vendor() == X86_VENDOR_AMD && c->x86 >= 0x15)
 		snprintf(fw_name, sizeof(fw_name),
 			"amd-ucode/microcode_amd_fam%.2xh.bin", c->x86);
