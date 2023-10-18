@@ -974,7 +974,7 @@ __diag_ignore_all("-Wmissing-prototypes",
 		  "Global functions as their definitions will be in vmlinux BTF");
 
 __bpf_kfunc int bpf_iter_task_new(struct bpf_iter_task *it,
-		struct task_struct *task, unsigned int flags)
+		struct task_struct *task__nullable, unsigned int flags)
 {
 	struct bpf_iter_task_kern *kit = (void *)it;
 
@@ -986,14 +986,17 @@ __bpf_kfunc int bpf_iter_task_new(struct bpf_iter_task *it,
 	switch (flags) {
 	case BPF_TASK_ITER_ALL_THREADS:
 	case BPF_TASK_ITER_ALL_PROCS:
+		break;
 	case BPF_TASK_ITER_PROC_THREADS:
+		if (!task__nullable)
+			return -EINVAL;
 		break;
 	default:
 		return -EINVAL;
 	}
 
 	if (flags == BPF_TASK_ITER_PROC_THREADS)
-		kit->task = task;
+		kit->task = task__nullable;
 	else
 		kit->task = &init_task;
 	kit->pos = kit->task;
