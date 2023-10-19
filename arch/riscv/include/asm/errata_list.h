@@ -132,7 +132,7 @@ asm volatile(ALTERNATIVE(						\
 #define THEAD_flush_A0	".long 0x0275000b"
 #define THEAD_SYNC_S	".long 0x0190000b"
 #define THEAD_inval_PA_A0	".long 0x02a5000b"
-#define THEAD_clean_PA_A0	".long 0x0295000b"
+#define THEAD_clean_PA_A0	".long 0x02b5000b"
 #define THEAD_flush_PA_A0	".long 0x02b5000b"
 
 #define ALT_CMO_OP(_op, _start, _size, _cachesize)			\
