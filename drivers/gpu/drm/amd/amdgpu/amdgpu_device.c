@@ -1076,6 +1076,8 @@ static int amdgpu_device_asic_init(struct amdgpu_device *adev)
 	    adev->ip_versions[GC_HWIP][0] >= IP_VERSION(11, 0, 0)) {
 		amdgpu_psp_wait_for_bootloader(adev);
 		ret = amdgpu_atomfirmware_asic_init(adev, true);
+		/* TODO: check the return val and stop device initialization if boot fails */
+		amdgpu_psp_query_boot_status(adev);
 		return ret;
 	} else {
 		return amdgpu_atom_asic_init(adev->mode_info.atom_context);
