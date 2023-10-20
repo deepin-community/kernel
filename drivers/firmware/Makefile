@@ -29,6 +29,7 @@ obj-y				+= arm_scmi/
 obj-y				+= broadcom/
 obj-y				+= cirrus/
 obj-y				+= meson/
+obj-y				+= microchip/
 obj-$(CONFIG_GOOGLE_FIRMWARE)	+= google/
 obj-y				+= efi/
 obj-y				+= imx/
