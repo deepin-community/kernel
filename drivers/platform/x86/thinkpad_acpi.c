@@ -11229,6 +11229,8 @@ invalid:
 	return '\0';
 }
 
+#define EC_FW_STRING_LEN 18
+
 static void find_new_ec_fwstr(const struct dmi_header *dm, void *private)
 {
 	char *ec_fw_string = (char *) private;
@@ -11257,7 +11259,8 @@ static void find_new_ec_fwstr(const struct dmi_header *dm, void *private)
 		return;
 
 	/* fwstr is the first 8byte string  */
-	strncpy(ec_fw_string, dmi_data + 0x0F, 8);
+	BUILD_BUG_ON(EC_FW_STRING_LEN <= 8);
+	memcpy(ec_fw_string, dmi_data + 0x0F, 8);
 }
 
 /* returns 0 - probe ok, or < 0 - probe error.
@@ -11267,7 +11270,7 @@ static int __must_check __init get_thinkpad_model_data(
 						struct thinkpad_id_data *tp)
 {
 	const struct dmi_device *dev = NULL;
-	char ec_fw_string[18] = {0};
+	char ec_fw_string[EC_FW_STRING_LEN] = {0};
 	char const *s;
 	char t;
 
