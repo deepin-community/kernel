@@ -294,6 +294,8 @@ static void enc_dec_hypercall(unsigned long vaddr, unsigned long size, bool enc)
 {
 #ifdef CONFIG_PARAVIRT
 	unsigned long vaddr_end = vaddr + size;
+	unsigned long pfn_beg = 0;
+	unsigned long size_cont = 0;
 
 	while (vaddr < vaddr_end) {
 		int psize, pmask, level;
@@ -313,10 +315,29 @@ static void enc_dec_hypercall(unsigned long vaddr, unsigned long size, bool enc)
 		psize = page_level_size(level);
 		pmask = page_level_mask(level);
 
-		notify_page_enc_status_changed(pfn, psize >> PAGE_SHIFT, enc);
-
 		vaddr = (vaddr & pmask) + psize;
+
+		if (size_cont == 0) {
+			/* Record new contiguous range */
+			pfn_beg = pfn;
+			size_cont = psize;
+		} else if ((pfn_beg + (size_cont >> PAGE_SHIFT)) == pfn) {
+			/* Merge into current contiguous range */
+			size_cont += psize;
+		} else {
+			/* Notify current contiguous range */
+			notify_page_enc_status_changed(pfn_beg,
+						size_cont >> PAGE_SHIFT, enc);
+			/* Record new contiguous range */
+			pfn_beg = pfn;
+			size_cont = psize;
+		}
 	}
+
+	/* Notify the last contiguous range */
+	if (size_cont)
+		notify_page_enc_status_changed(pfn_beg,
+					size_cont >> PAGE_SHIFT, enc);
 #endif
 }
 
