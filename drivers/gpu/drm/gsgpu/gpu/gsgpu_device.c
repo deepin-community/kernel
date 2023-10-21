@@ -26,24 +26,48 @@ static const char *gsgpu_family_name[] = {
 };
 
 /**
- * gsgpu_cmd_exec
- * XXX while block will taking kernel hang!
- * @adev
- * @cmd
- * @arg0
- * @arg1
+ * gsgpu_cmd_exec --- Execute a command on the Command Processor.
  *
- * Return:
-
+ * Note that this function blocks until the command processor has finished
+ * processing. You should NOT call this function in contexts where you are
+ * not supposed to block, for instance, when holding a spinlock.
+ *
+ * @adev GSGPU device object
+ * @cmd Command to execute
+ * @arg0 Argument 0
+ * @arg1 Argument 1
+ *
+ * Note that the original vendor code has this function that returns the
+ * 64-bit result from the command processor. Based on my experimentations
+ * the command processor does NOT in fact modify the RETURN0 and RETURN1
+ * registers at all. Therefore we have removed the function's return value.
  */
-uint64_t gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd,
-			uint32_t arg0, uint32_t arg1)
+void gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd,
+		    uint32_t arg0, uint32_t arg1)
 {
-	uint64_t ret;
+	if (!gsgpu_cp_wait_done(adev))
+		return;
 
-	if (gsgpu_cp_wait_done(adev) == false)
-		return  ~0ULL;
+	gsgpu_cmd_exec_nowait(adev, cmd, arg0, arg1);
 
+	if (!gsgpu_cp_wait_done(adev))
+		return;
+}
+
+/**
+ * gsgpu_cmd_exec_nowait --- Execute a command on the CP without blocking.
+ *
+ * This is the non-blocking version of gsgpu_cmd_exec_nowait. Call this
+ * if you need to execute a command on the CP in, for instance, IRQ context.
+ *
+ * @adev GSGPU device object
+ * @cmd Command to execute
+ * @arg0 Argument 0
+ * @arg1 Argument 1
+ */
+void gsgpu_cmd_exec_nowait(struct gsgpu_device *adev, uint32_t cmd,
+			   uint32_t arg0, uint32_t arg1)
+{
 	writel(GSCMD_STS_NULL, ((void __iomem *)adev->rmmio) + GSGPU_STATUS);
 
 	writel(cmd, ((void __iomem *)adev->rmmio) + GSGPU_COMMAND);
@@ -51,14 +75,6 @@ uint64_t gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd,
 	writel(arg1, ((void __iomem *)adev->rmmio) + GSGPU_ARGUMENT1);
 
 	writel(1, ((void __iomem *)adev->rmmio) + GSGPU_EC_INT);
-
-	if (gsgpu_cp_wait_done(adev) == false)
-		return  ~0ULL;
-
-	ret = readl(((void __iomem *)adev->rmmio) + GSGPU_RETURN0);
-	ret |= (uint64_t)readl(((void __iomem *)adev->rmmio) + GSGPU_RETURN1)<<32;
-
-	return ret;
 }
 
 /*

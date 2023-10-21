@@ -10,14 +10,15 @@ int gsgpu_cp_enable(struct gsgpu_device *adev, bool enable);
 
 int gsgpu_cp_fini(struct gsgpu_device *adev);
 
+/*
+ * Wait for the Command Processor to finish. If we timed out,
+ * return false. Otherwise return true.
+ */
 static inline bool gsgpu_cp_wait_done(struct gsgpu_device *adev)
 {
-	int i;
-	for (i = 0; i < adev->usec_timeout; i++) {
-
+	for (int i = 0; i < adev->usec_timeout; i++) {
 		if (RREG32(GSGPU_STATUS) == GSCMD_STS_DONE)
 			return true;
-
 		msleep(1);
 	}
 

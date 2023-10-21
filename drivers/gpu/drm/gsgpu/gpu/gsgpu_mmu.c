@@ -478,10 +478,10 @@ static int mmu_vm_fault_interrupt_state(struct gsgpu_device *adev,
 {
 	switch (state) {
 	case GSGPU_IRQ_STATE_DISABLE:
-		gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_SET_EXC), 0, ~1);
+		gsgpu_cmd_exec_nowait(adev, GSCMD(GSCMD_MMU, MMU_SET_EXC), 0, ~1);
 		break;
 	case GSGPU_IRQ_STATE_ENABLE:
-		gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_SET_EXC), 1, ~1);
+		gsgpu_cmd_exec_nowait(adev, GSCMD(GSCMD_MMU, MMU_SET_EXC), 1, ~1);
 		break;
 	default:
 		break;
