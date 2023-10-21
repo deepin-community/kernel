@@ -12,8 +12,7 @@ MODULE_SOFTDEP("post: pwm-ls");
 
 static bool gsgpu_backlight_get_hw_status(struct gsgpu_backlight *ls_bl)
 {
-	return (gpio_get_value(GPIO_LCD_VDD) && gpio_get_value(GPIO_LCD_EN)
-		&& pwm_is_enabled(ls_bl->pwm));
+	return pwm_is_enabled(ls_bl->pwm);
 }
 
 static void gsgpu_backlight_enable(struct gsgpu_backlight *ls_bl)
@@ -145,7 +144,6 @@ static void gsgpu_backlight_set(struct gsgpu_backlight *ls_bl,
 static int gsgpu_backlight_hw_request_init(struct gsgpu_device *adev,
 					   struct gsgpu_backlight *ls_bl)
 {
-	int ret = 0;
 	bool pwm_enable_default;
 	char pwm_consumer_name[32];
 
@@ -154,7 +152,7 @@ static int gsgpu_backlight_hw_request_init(struct gsgpu_device *adev,
 	if (IS_ERR(ls_bl->pwm)) {
 		DRM_ERROR("Failed to get the pwm chip (%s)\n", pwm_consumer_name);
 		ls_bl->pwm = NULL;
-		goto ERROR_PWM;
+		return -ENODEV;
 	}
 
 	/* Disable PWM, configure its polarity and period, and then re-enable it.*/
@@ -169,30 +167,15 @@ static int gsgpu_backlight_hw_request_init(struct gsgpu_device *adev,
 	if (pwm_enable_default)
 		pwm_enable(ls_bl->pwm);
 
-	ret = gpio_request(GPIO_LCD_VDD, "GPIO_VDD");
-	if (ret) {
-		DRM_ERROR("EN request error!\n");
-		goto ERROR_VDD;
-	}
-
-	ret = gpio_request(GPIO_LCD_EN, "GPIO_EN");
-	if (ret) {
-		DRM_ERROR("VDD request error!\n");
-		goto ERROR_EN;
-	}
-
-	/* gpio init */
+	/* Turn the LCD on, just in case the HW for some reason did not.
+	 * We don't bother to check the return values as some HW may not
+	 * expose the same LCD GPIO pins. */
+	gpio_request(GPIO_LCD_VDD, "GPIO_VDD");
+	gpio_request(GPIO_LCD_EN, "GPIO_EN");
 	gpio_direction_output(GPIO_LCD_VDD, 1);
 	gpio_direction_output(GPIO_LCD_EN, 1);
 
-	return ret;
-
-ERROR_EN:
-	gpio_free(GPIO_LCD_VDD);
-ERROR_VDD:
-	pwm_put(ls_bl->pwm);
-ERROR_PWM:
-	return -ENODEV;
+	return 0;
 }
 
 static struct gsgpu_backlight
