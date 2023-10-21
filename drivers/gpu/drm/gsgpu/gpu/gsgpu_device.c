@@ -36,7 +36,8 @@ static const char *gsgpu_family_name[] = {
  * Return:
 
  */
-uint64_t gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd, uint32_t arg0, uint32_t arg1)
+uint64_t gsgpu_cmd_exec(struct gsgpu_device *adev, uint32_t cmd,
+			uint32_t arg0, uint32_t arg1)
 {
 	uint64_t ret;
 
@@ -894,7 +895,7 @@ static int gsgpu_device_ip_init(struct gsgpu_device *adev)
  *
  * Writes a reset magic value to the gart pointer in VRAM.  The driver calls
  * this function before a GPU reset.  If the value is retained after a
- * GPU reset, VRAM has not been lost.  Some GPU resets may destry VRAM contents.
+ * GPU reset, VRAM has not been lost.  Some GPU resets may destroy VRAM contents.
  */
 static void gsgpu_device_fill_reset_magic(struct gsgpu_device *adev)
 {

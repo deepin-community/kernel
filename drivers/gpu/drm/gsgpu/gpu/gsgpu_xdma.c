@@ -87,8 +87,8 @@ static void xdma_ring_insert_nop(struct gsgpu_ring *ring, u32 count)
  * Schedule an IB in the DMA ring  .
  */
 static void xdma_ring_emit_ib(struct gsgpu_ring *ring,
-				   struct gsgpu_ib *ib,
-				   unsigned vmid, bool ctx_switch)
+			      struct gsgpu_ib *ib,
+			      unsigned vmid, bool ctx_switch)
 {
 	gsgpu_ring_write(ring, GSPKT(GSPKT_INDIRECT, 3));
 	gsgpu_ring_write(ring, lower_32_bits(ib->gpu_addr));
@@ -107,13 +107,13 @@ static void xdma_ring_emit_ib(struct gsgpu_ring *ring,
  * an interrupt if needed  .
  */
 static void xdma_ring_emit_fence(struct gsgpu_ring *ring, u64 addr, u64 seq,
-				      unsigned flags)
+				 unsigned flags)
 {
 	bool write64bit = flags & GSGPU_FENCE_FLAG_64BIT;
 	bool int_sel = flags & GSGPU_FENCE_FLAG_INT;
 
 	gsgpu_ring_write(ring, GSPKT(GSPKT_FENCE, write64bit ? 4 : 3)
-			| (write64bit ? 1 << 9 : 0) | (int_sel ? 1 << 8 : 0));
+			 | (write64bit ? 1 << 9 : 0) | (int_sel ? 1 << 8 : 0));
 	gsgpu_ring_write(ring, lower_32_bits(addr));
 	gsgpu_ring_write(ring, upper_32_bits(addr));
 	gsgpu_ring_write(ring, lower_32_bits(seq));
@@ -266,11 +266,12 @@ static int xdma_ring_test_ring(struct gsgpu_ring *ring)
 	}
 
 	if (i < adev->usec_timeout) {
-		DRM_INFO("ring %s test on %d succeeded in %d usecs\n", ring->name, ring->idx, i);
+		DRM_INFO("ring %s test on %d succeeded in %d usecs\n",
+			 ring->name, ring->idx, i);
 		r = 0;
 	} else {
-		DRM_ERROR("gsgpu: ring %s %d test failed (0x%08X)\n", ring->name,
-			  ring->idx, tmp);
+		DRM_ERROR("gsgpu: ring %s on %d test failed (0x%08X)\n",
+			  ring->name, ring->idx, tmp);
 		r = -EINVAL;
 	}
 	gsgpu_device_wb_free(adev, index);
@@ -386,8 +387,8 @@ void xdma_ring_test_xdma_loop(struct gsgpu_ring *ring, long timeout)
  * Update PTEs by copying them from the GART using xDMA.
  */
 static void xdma_vm_copy_pte(struct gsgpu_ib *ib,
-				u64 pe, u64 src,
-				unsigned count)
+			     u64 pe, u64 src,
+			     unsigned count)
 {
 	struct gsgpu_bo *bo = ib->sa_bo->manager->bo;
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
@@ -396,11 +397,11 @@ static void xdma_vm_copy_pte(struct gsgpu_ib *ib,
 	height = 1;
 	width = count;
 	dst_umap = (pe >= adev->gmc.vram_start && pe < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 	src_umap = (src >= adev->gmc.vram_start && src < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 
 	/* hardware limit 2^16 pixels per line */
 	while (width >= 0x10000) {
@@ -436,8 +437,8 @@ static void xdma_vm_copy_pte(struct gsgpu_ib *ib,
  * Update the page tables using xDMA.
  */
 static void xdma_vm_set_pte_pde(struct gsgpu_ib *ib, u64 pe,
-				     u64 addr, unsigned count,
-				     u32 incr, u64 flags)
+				u64 addr, unsigned count,
+				u32 incr, u64 flags)
 {
 	/* for physically contiguous pages (vram) */
 	struct gsgpu_bo *bo = ib->sa_bo->manager->bo;
@@ -446,11 +447,11 @@ static void xdma_vm_set_pte_pde(struct gsgpu_ib *ib, u64 pe,
 	uint32_t dst_umap, src_umap;
 
 	dst_umap = (pe >= adev->gmc.vram_start && pe < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 	src_umap = (addr >= adev->gmc.vram_start && addr < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 	height = 1;
 
 	/*RGBA16 == 8 bytes per pixles*/
@@ -467,7 +468,7 @@ static void xdma_vm_set_pte_pde(struct gsgpu_ib *ib, u64 pe,
 	 * RGBA16 : 1 << 8
 	 * 16K pf : 3 << 28
 	 * */
-	ib->ptr[ib->length_dw++] = GSPKT(GSPKT_XDMA_COPY, 8) | (0x7 << 24) | (1 << 8) | (3 << 28);
+	ib->ptr[ib->length_dw++] = GSPKT(GSPKT_XDMA_COPY, 8) | (7 << 24) | (1 << 8) | (3 << 28);
 	ib->ptr[ib->length_dw++] =  (height << 16) | width;
 	ib->ptr[ib->length_dw++] = lower_32_bits(addr | flags); /* value */
 	ib->ptr[ib->length_dw++] = upper_32_bits(addr | flags) | src_umap;;
@@ -508,8 +509,8 @@ static void xdma_ring_emit_pipeline_sync(struct gsgpu_ring *ring)
 
 	/* wait for idle */
 	gsgpu_ring_write(ring, GSPKT(GSPKT_POLL, 5) |
-				POLL_CONDITION(3) | /* equal */
-				POLL_REG_MEM(1)); /* reg/mem */
+			 POLL_CONDITION(3) | /* equal */
+			 POLL_REG_MEM(1)); /* reg/mem */
 	gsgpu_ring_write(ring, lower_32_bits(addr));
 	gsgpu_ring_write(ring, upper_32_bits(addr));
 	gsgpu_ring_write(ring, seq); /* reference */
@@ -527,13 +528,13 @@ static void xdma_ring_emit_pipeline_sync(struct gsgpu_ring *ring)
  * using xDMA.
  */
 static void xdma_ring_emit_vm_flush(struct gsgpu_ring *ring,
-					 unsigned vmid, u64 pd_addr)
+				    unsigned vmid, u64 pd_addr)
 {
 	gsgpu_gmc_emit_flush_gpu_tlb(ring, vmid, pd_addr);
 }
 
 static void xdma_ring_emit_wreg(struct gsgpu_ring *ring,
-				     u32 reg, u32 val)
+				u32 reg, u32 val)
 {
 	gsgpu_ring_write(ring, GSPKT(GSPKT_WRITE, 2) | WRITE_DST_SEL(0) | WRITE_WAIT);
 	gsgpu_ring_write(ring, reg);
@@ -560,7 +561,8 @@ static int xdma_set_pte_pde_test(struct gsgpu_ring *ring, long timeout)
 	align = GSGPU_GPU_PAGE_SIZE;
 	domain = GSGPU_GEM_DOMAIN_VRAM;
 
-	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo, &gpu_addr, (void **)&cpu_ptr);
+	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo,
+				   &gpu_addr, (void **)&cpu_ptr);
 	if (r) {
 		DRM_ERROR("xdma_set_pte_pde_test : gsgpu_bo_create_kernel error\r\n");
 		return r;
@@ -639,7 +641,8 @@ static int xdma_copy_pte_test(struct gsgpu_ring *ring, long timeout)
 	align = GSGPU_GPU_PAGE_SIZE;
 
 	domain = GSGPU_GEM_DOMAIN_GTT;
-	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo_gtt, &gpu_addr_gtt, (void **)&cpu_ptr_gtt);
+	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo_gtt,
+				   &gpu_addr_gtt, (void **)&cpu_ptr_gtt);
 	if (r) {
 		DRM_ERROR("xdma_copy_pte_test : gsgpu_bo_create_kernel gtt error\r\n");
 		goto bo_free;
@@ -652,7 +655,8 @@ static int xdma_copy_pte_test(struct gsgpu_ring *ring, long timeout)
 	}
 
 	domain = GSGPU_GEM_DOMAIN_VRAM;
-	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo, &gpu_addr, (void **)&cpu_ptr);
+	r = gsgpu_bo_create_kernel(ldev, size, align, domain, &bo,
+				   &gpu_addr, (void **)&cpu_ptr);
 	if (r) {
 		DRM_ERROR("xdma_copy_pte_test : gsgpu_bo_create_kernel vram error\r\n");
 		return r;
@@ -733,20 +737,22 @@ static int xdma_sw_init(void *handle)
 	struct gsgpu_device *adev = (struct gsgpu_device *)handle;
 
 	/* XDMA trap event */
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_XDMA_TRAP,
-			      &adev->xdma.trap_irq);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_XDMA_TRAP,
+			     &adev->xdma.trap_irq);
 	if (r)
 		return r;
 
 	/* XDMA Privileged inst */
 	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, 241,
-			      &adev->xdma.illegal_inst_irq);
+			     &adev->xdma.illegal_inst_irq);
 	if (r)
 		return r;
 
 	/* XDMA Privileged inst */
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_XDMA_SRBM_WRITE,
-			      &adev->xdma.illegal_inst_irq);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_XDMA_SRBM_WRITE,
+			     &adev->xdma.illegal_inst_irq);
 	if (r)
 		return r;
 
@@ -756,8 +762,8 @@ static int xdma_sw_init(void *handle)
 
 		snprintf(ring->name, sizeof(ring->name), "xdma%d", i);
 		r = gsgpu_ring_init(adev, ring, 256,
-				     &adev->xdma.trap_irq,
-				     (i == 0) ? GSGPU_XDMA_IRQ_TRAP0 : GSGPU_XDMA_IRQ_TRAP1);
+				    &adev->xdma.trap_irq,
+				    (i == 0) ? GSGPU_XDMA_IRQ_TRAP0 : GSGPU_XDMA_IRQ_TRAP1);
 		if (r)
 			return r;
 	}
@@ -838,16 +844,16 @@ static int xdma_wait_for_idle(void *handle)
 }
 
 static int xdma_set_trap_irq_state(struct gsgpu_device *adev,
-					struct gsgpu_irq_src *source,
-					unsigned type,
-					enum gsgpu_interrupt_state state)
+				   struct gsgpu_irq_src *source,
+				   unsigned type,
+				   enum gsgpu_interrupt_state state)
 {
 	return 0;
 }
 
 static int xdma_process_trap_irq(struct gsgpu_device *adev,
-				      struct gsgpu_irq_src *source,
-				      struct gsgpu_iv_entry *entry)
+				 struct gsgpu_irq_src *source,
+				 struct gsgpu_iv_entry *entry)
 {
 	u8 instance_id, queue_id;
 
@@ -886,8 +892,8 @@ static int xdma_process_trap_irq(struct gsgpu_device *adev,
 }
 
 static int xdma_process_illegal_inst_irq(struct gsgpu_device *adev,
-					      struct gsgpu_irq_src *source,
-					      struct gsgpu_iv_entry *entry)
+					 struct gsgpu_irq_src *source,
+					 struct gsgpu_iv_entry *entry)
 {
 	DRM_ERROR("Illegal instruction in XDMA command stream\n");
 	schedule_work(&adev->reset_work);
@@ -917,10 +923,10 @@ static const struct gsgpu_ring_funcs xdma_ring_funcs = {
 	.get_wptr = xdma_ring_get_wptr,
 	.set_wptr = xdma_ring_set_wptr,
 	.emit_frame_size =
-		3 + /* hdp invalidate */
-		6 + /* xdma_ring_emit_pipeline_sync */
-		VI_FLUSH_GPU_TLB_NUM_WREG * 3 + 6 + /* xdma_ring_emit_vm_flush */
-		5 + 5 + 5, /* xdma_ring_emit_fence x3 for user fence, vm fence */
+	3 + /* hdp invalidate */
+	6 + /* xdma_ring_emit_pipeline_sync */
+	VI_FLUSH_GPU_TLB_NUM_WREG * 3 + 6 + /* xdma_ring_emit_vm_flush */
+	5 + 5 + 5, /* xdma_ring_emit_fence x3 for user fence, vm fence */
 	.emit_ib_size = 4, /* xdma_ring_emit_ib */
 	.emit_ib = xdma_ring_emit_ib,
 	.emit_fence = xdma_ring_emit_fence,
@@ -973,9 +979,9 @@ static void xdma_set_irq_funcs(struct gsgpu_device *adev)
  * registered as the asic copy callback.
  */
 static void xdma_emit_copy_buffer(struct gsgpu_ib *ib,
-					u64 src_offset,
-					u64 dst_offset,
-					u32 byte_count)
+				  u64 src_offset,
+				  u64 dst_offset,
+				  u32 byte_count)
 {
 	struct gsgpu_bo *bo = ib->sa_bo->manager->bo;
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
@@ -985,12 +991,12 @@ static void xdma_emit_copy_buffer(struct gsgpu_ib *ib,
 
 	dst_umap = (dst_offset >= adev->gmc.vram_start &&
 		    dst_offset < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 	src_umap = (src_offset >= adev->gmc.vram_start &&
 		    src_offset < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP :
-			   0;
+		GSGPU_XDMA_FLAG_UMAP :
+		0;
 	height = 1;
 	width = byte_count / cpp;
 
@@ -1026,9 +1032,9 @@ static void xdma_emit_copy_buffer(struct gsgpu_ib *ib,
  * Fill GPU buffers using the DMA engine  .
  */
 static void xdma_emit_fill_buffer(struct gsgpu_ib *ib,
-					u32 src_data,
-					u64 dst_offset,
-					u32 byte_count)
+				  u32 src_data,
+				  u64 dst_offset,
+				  u32 byte_count)
 {
 	struct gsgpu_bo *bo = ib->sa_bo->manager->bo;
 	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
@@ -1038,7 +1044,7 @@ static void xdma_emit_fill_buffer(struct gsgpu_ib *ib,
 	height = 1;
 	dst_umap = (dst_offset >= adev->gmc.vram_start &&
 		    dst_offset < adev->gmc.vram_end) ?
-			   GSGPU_XDMA_FLAG_UMAP : 0;
+		GSGPU_XDMA_FLAG_UMAP : 0;
 
 	/*RGBA8 == 4 bytes per pixles*/
 	width = byte_count / 4;

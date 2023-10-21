@@ -16,7 +16,7 @@ static void mmu_set_irq_funcs(struct gsgpu_device *adev);
  * @mc  pionter of gsgpu_gmc
  */
 static void mmu_vram_gtt_location(struct gsgpu_device *adev,
-				       struct gsgpu_gmc *mc)
+				  struct gsgpu_gmc *mc)
 {
 	u64 base = 0;
 
@@ -63,7 +63,8 @@ static int mmu_mc_init(struct gsgpu_device *adev)
 		adev->gmc.aper_size = pci_resource_len(adev->pdev, 2);
 	}
 
-	DRM_INFO("aper_base %#llx SIZE %#llx bytes \n", adev->gmc.aper_base, adev->gmc.aper_size);
+	DRM_INFO("aper_base %#llx SIZE %#llx bytes \n",
+		 adev->gmc.aper_base, adev->gmc.aper_size);
 	/* In case the PCI BAR is larger than the actual amount of vram */
 	adev->gmc.visible_vram_size = adev->gmc.aper_size;
 	if (adev->gmc.visible_vram_size > adev->gmc.real_vram_size)
@@ -103,11 +104,12 @@ static int mmu_mc_init(struct gsgpu_device *adev)
 static void mmu_flush_gpu_tlb(struct gsgpu_device *adev,
 			      uint32_t vmid)
 {
-	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_FLUSH), GSGPU_MMU_FLUSH_PKT(vmid, GSGPU_MMU_FLUSH_VMID), 0);
+	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_FLUSH),
+		       GSGPU_MMU_FLUSH_PKT(vmid, GSGPU_MMU_FLUSH_VMID), 0);
 }
 
 static uint64_t mmu_emit_flush_gpu_tlb(struct gsgpu_ring *ring,
-					    unsigned vmid, uint64_t pd_addr)
+				       unsigned vmid, uint64_t pd_addr)
 {
 	uint32_t reg;
 	reg = GSGPU_MMU_VMID_OF_PGD(vmid);
@@ -115,7 +117,8 @@ static uint64_t mmu_emit_flush_gpu_tlb(struct gsgpu_ring *ring,
 	gsgpu_ring_emit_wreg(ring, reg, lower_32_bits(pd_addr));
 	gsgpu_ring_emit_wreg(ring, reg + 4, upper_32_bits(pd_addr));
 
-	gsgpu_ring_emit_wreg(ring, GSGPU_MMU_FLUSH_CTRL_OFFSET, GSGPU_MMU_FLUSH_PKT(vmid, GSGPU_MMU_FLUSH_VMID));
+	gsgpu_ring_emit_wreg(ring, GSGPU_MMU_FLUSH_CTRL_OFFSET,
+			     GSGPU_MMU_FLUSH_PKT(vmid, GSGPU_MMU_FLUSH_VMID));
 
 	return pd_addr;
 }
@@ -132,8 +135,8 @@ static uint64_t mmu_emit_flush_gpu_tlb(struct gsgpu_ring *ring,
  * Update the page tables using the CPU.
  */
 static int mmu_set_pte_pde(struct gsgpu_device *adev, void *cpu_pt_addr,
-				uint32_t gpu_page_idx, uint64_t addr,
-				uint64_t flags)
+			   uint32_t gpu_page_idx, uint64_t addr,
+			   uint64_t flags)
 {
 	void __iomem *ptr = (void *)cpu_pt_addr;
 	uint64_t value;
@@ -203,14 +206,16 @@ static int mmu_gart_enable(struct gsgpu_device *adev)
 		return r;
 
 	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_SET_EXC), 3, 0);
-	gsgpu_cmd_exec(adev, GSCMDi(GSCMD_MMU, MMU_SET_PGD, 0), \
-			lower_32_bits(adev->gart.table_addr), upper_32_bits(adev->gart.table_addr));
+	gsgpu_cmd_exec(adev, GSCMDi(GSCMD_MMU, MMU_SET_PGD, 0),
+		       lower_32_bits(adev->gart.table_addr),
+		       upper_32_bits(adev->gart.table_addr));
 
-	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_SET_SAFE), \
-			lower_32_bits(adev->dummy_page_addr), upper_32_bits(adev->dummy_page_addr));
+	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_SET_SAFE),
+		       lower_32_bits(adev->dummy_page_addr),
+		       upper_32_bits(adev->dummy_page_addr));
 
 	gsgpu_cmd_exec(adev, GSCMDi(GSCMD_MMU, MMU_SET_DIR, 0),
-			GSGPU_MMU_DIR_CTRL_256M_1LVL, 0);
+		       GSGPU_MMU_DIR_CTRL_256M_1LVL, 0);
 
 	for (i = 1; i < GSGPU_NUM_OF_VMIDS; i++) {
 		gsgpu_cmd_exec(adev, GSCMDi(GSCMD_MMU, MMU_SET_DIR, i),
@@ -219,7 +224,8 @@ static int mmu_gart_enable(struct gsgpu_device *adev)
 
 	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_ENABLE), MMU_ENABLE, ~1);
 
-	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_FLUSH), GSGPU_MMU_FLUSH_PKT(0, GSGPU_MMU_FLUSH_ALL), 0);
+	gsgpu_cmd_exec(adev, GSCMD(GSCMD_MMU, MMU_FLUSH),
+		       GSGPU_MMU_FLUSH_PKT(0, GSGPU_MMU_FLUSH_ALL), 0);
 
 	DRM_INFO("PCIE GART of %uM enabled (table at 0x%016llX).\n",
 		 (unsigned)(adev->gmc.gart_size >> 20),
@@ -285,11 +291,15 @@ static inline int mmu_irq_set(struct gsgpu_device *adev)
 {
 	int r;
 
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_GFX_PAGE_INV_FAULT, &adev->gmc.vm_fault);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_GFX_PAGE_INV_FAULT,
+			     &adev->gmc.vm_fault);
 	if (r)
 		return r;
 
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_GFX_MEM_PROT_FAULT, &adev->gmc.vm_fault);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_GFX_MEM_PROT_FAULT,
+			     &adev->gmc.vm_fault);
 	if (r)
 		return r;
 
@@ -462,9 +472,9 @@ static int mmu_post_soft_reset(void *handle)
 }
 
 static int mmu_vm_fault_interrupt_state(struct gsgpu_device *adev,
-					     struct gsgpu_irq_src *src,
-					     unsigned type,
-					     enum gsgpu_interrupt_state state)
+					struct gsgpu_irq_src *src,
+					unsigned type,
+					enum gsgpu_interrupt_state state)
 {
 	switch (state) {
 	case GSGPU_IRQ_STATE_DISABLE:

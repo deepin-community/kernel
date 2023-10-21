@@ -265,8 +265,8 @@ void gsgpu_irq_fini(struct gsgpu_device *adev)
  * 0 on success or error code otherwise
  */
 int gsgpu_irq_add_id(struct gsgpu_device *adev,
-		      unsigned client_id, unsigned src_id,
-		      struct gsgpu_irq_src *source)
+		     unsigned client_id, unsigned src_id,
+		     struct gsgpu_irq_src *source)
 {
 	if (client_id >= GSGPU_IH_CLIENTID_MAX)
 		return -EINVAL;
@@ -313,7 +313,7 @@ int gsgpu_irq_add_id(struct gsgpu_device *adev,
  * Dispatches IRQ to IP blocks.
  */
 void gsgpu_irq_dispatch(struct gsgpu_device *adev,
-			 struct gsgpu_iv_entry *entry)
+			struct gsgpu_iv_entry *entry)
 {
 	unsigned client_id = entry->client_id;
 	unsigned src_id = entry->src_id;
@@ -359,7 +359,7 @@ void gsgpu_irq_dispatch(struct gsgpu_device *adev,
  * Updates interrupt state for the specific source (all ASICs).
  */
 int gsgpu_irq_update(struct gsgpu_device *adev,
-			     struct gsgpu_irq_src *src, unsigned type)
+		     struct gsgpu_irq_src *src, unsigned type)
 {
 	unsigned long irqflags;
 	enum gsgpu_interrupt_state state;
@@ -419,7 +419,7 @@ void gsgpu_irq_gpu_reset_resume_helper(struct gsgpu_device *adev)
  * 0 on success or error code otherwise
  */
 int gsgpu_irq_get(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
-		   unsigned type)
+		  unsigned type)
 {
 	if (type >= src->num_types)
 		return -EINVAL;
@@ -446,7 +446,7 @@ int gsgpu_irq_get(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
  * 0 on success or error code otherwise
  */
 int gsgpu_irq_put(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
-		   unsigned type)
+		  unsigned type)
 {
 	if (type >= src->num_types)
 		return -EINVAL;
@@ -474,7 +474,7 @@ int gsgpu_irq_put(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
  * invalid parameters
  */
 bool gsgpu_irq_enabled(struct gsgpu_device *adev, struct gsgpu_irq_src *src,
-			unsigned type)
+		       unsigned type)
 {
 	if (type >= src->num_types)
 		return false;

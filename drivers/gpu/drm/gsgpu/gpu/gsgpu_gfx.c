@@ -190,19 +190,22 @@ static int gfx_sw_init(void *handle)
 	struct gsgpu_device *adev = (struct gsgpu_device *)handle;
 
 	/* EOP Event */
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_CP_END_OF_PIPE, &adev->gfx.eop_irq);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_CP_END_OF_PIPE, &adev->gfx.eop_irq);
 	if (r)
 		return r;
 
 	/* Privileged reg */
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_CP_PRIV_REG_FAULT,
-			      &adev->gfx.priv_reg_irq);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_CP_PRIV_REG_FAULT,
+			     &adev->gfx.priv_reg_irq);
 	if (r)
 		return r;
 
 	/* Privileged inst */
-	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY, GSGPU_SRCID_CP_PRIV_INSTR_FAULT,
-			      &adev->gfx.priv_inst_irq);
+	r = gsgpu_irq_add_id(adev, GSGPU_IH_CLIENTID_LEGACY,
+			     GSGPU_SRCID_CP_PRIV_INSTR_FAULT,
+			     &adev->gfx.priv_inst_irq);
 	if (r)
 		return r;
 
@@ -217,7 +220,7 @@ static int gfx_sw_init(void *handle)
 		snprintf(ring->name, sizeof(ring->name), "gfx");
 
 		r = gsgpu_ring_init(adev, ring, 256, &adev->gfx.eop_irq,
-				     GSGPU_CP_IRQ_GFX_EOP);
+				    GSGPU_CP_IRQ_GFX_EOP);
 		if (r)
 			return r;
 	}
@@ -337,7 +340,7 @@ static int gfx_wait_for_idle(void *handle)
 	struct gsgpu_device *adev = (struct gsgpu_device *)handle;
 
 	if (gsgpu_cp_wait_done(adev) == true)
-			return 0;
+		return 0;
 
 	return -ETIMEDOUT;
 }
@@ -418,8 +421,8 @@ static void gfx_ring_set_wptr_gfx(struct gsgpu_ring *ring)
 }
 
 static void gfx_ring_emit_ib_gfx(struct gsgpu_ring *ring,
-				      struct gsgpu_ib *ib,
-				      unsigned vmid, bool ctx_switch)
+				 struct gsgpu_ib *ib,
+				 unsigned vmid, bool ctx_switch)
 {
 	u32 header, control = 0;
 
@@ -434,7 +437,7 @@ static void gfx_ring_emit_ib_gfx(struct gsgpu_ring *ring,
 }
 
 static void gfx_ring_emit_fence_gfx(struct gsgpu_ring *ring, u64 addr,
-					 u64 seq, unsigned flags)
+				    u64 seq, unsigned flags)
 {
 	bool write64bit = flags & GSGPU_FENCE_FLAG_64BIT;
 	bool int_sel = flags & GSGPU_FENCE_FLAG_INT;
@@ -442,7 +445,7 @@ static void gfx_ring_emit_fence_gfx(struct gsgpu_ring *ring, u64 addr,
 
 	/* EVENT_WRITE_EOP - flush caches, send int */
 	gsgpu_ring_write(ring, GSPKT(GSPKT_FENCE, body_size)
-			| (write64bit ? 1 << 9 : 0) | (int_sel ? 1 << 8 : 0));
+			 | (write64bit ? 1 << 9 : 0) | (int_sel ? 1 << 8 : 0));
 	gsgpu_ring_write(ring, lower_32_bits(addr));
 	gsgpu_ring_write(ring, upper_32_bits(addr));
 	gsgpu_ring_write(ring, lower_32_bits(seq));
@@ -457,8 +460,8 @@ static void gfx_ring_emit_pipeline_sync(struct gsgpu_ring *ring)
 	uint64_t addr = ring->fence_drv.gpu_addr;
 
 	gsgpu_ring_write(ring, GSPKT(GSPKT_POLL, 5) |
-				POLL_CONDITION(3) | /* equal */
-				POLL_REG_MEM(1)); /* reg/mem */
+			 POLL_CONDITION(3) | /* equal */
+			 POLL_REG_MEM(1)); /* reg/mem */
 	gsgpu_ring_write(ring, lower_32_bits(addr));
 	gsgpu_ring_write(ring, upper_32_bits(addr));
 	gsgpu_ring_write(ring, seq); /* reference */
@@ -467,14 +470,14 @@ static void gfx_ring_emit_pipeline_sync(struct gsgpu_ring *ring)
 }
 
 static void gfx_ring_emit_vm_flush(struct gsgpu_ring *ring,
-					unsigned vmid, uint64_t pd_addr)
+				   unsigned vmid, uint64_t pd_addr)
 {
 	gsgpu_gmc_emit_flush_gpu_tlb(ring, vmid, pd_addr);
 }
 
 
 static void gfx_ring_emit_wreg(struct gsgpu_ring *ring, uint32_t reg,
-				  uint32_t val)
+			       uint32_t val)
 {
 	gsgpu_ring_write(ring, GSPKT(GSPKT_WRITE, 2) | WRITE_DST_SEL(0) | WRITE_WAIT);
 	gsgpu_ring_write(ring, reg);
@@ -482,32 +485,32 @@ static void gfx_ring_emit_wreg(struct gsgpu_ring *ring, uint32_t reg,
 }
 
 static void gfx_set_gfx_eop_interrupt_state(struct gsgpu_device *adev,
-						 enum gsgpu_interrupt_state state)
+					    enum gsgpu_interrupt_state state)
 {
 }
 
 static int gfx_set_priv_reg_fault_state(struct gsgpu_device *adev,
-					     struct gsgpu_irq_src *source,
-					     unsigned type,
-					     enum gsgpu_interrupt_state state)
+					struct gsgpu_irq_src *source,
+					unsigned type,
+					enum gsgpu_interrupt_state state)
 {
 
 	return 0;
 }
 
 static int gfx_set_priv_inst_fault_state(struct gsgpu_device *adev,
-					      struct gsgpu_irq_src *source,
-					      unsigned type,
-					      enum gsgpu_interrupt_state state)
+					 struct gsgpu_irq_src *source,
+					 unsigned type,
+					 enum gsgpu_interrupt_state state)
 {
 
 	return 0;
 }
 
 static int gfx_set_eop_interrupt_state(struct gsgpu_device *adev,
-					    struct gsgpu_irq_src *src,
-					    unsigned type,
-					    enum gsgpu_interrupt_state state)
+				       struct gsgpu_irq_src *src,
+				       unsigned type,
+				       enum gsgpu_interrupt_state state)
 {
 	gfx_set_gfx_eop_interrupt_state(adev, state);
 
@@ -515,8 +518,8 @@ static int gfx_set_eop_interrupt_state(struct gsgpu_device *adev,
 }
 
 static int gfx_eop_irq(struct gsgpu_device *adev,
-			    struct gsgpu_irq_src *source,
-			    struct gsgpu_iv_entry *entry)
+		       struct gsgpu_irq_src *source,
+		       struct gsgpu_iv_entry *entry)
 {
 	u8 me_id, pipe_id, queue_id;
 
@@ -537,8 +540,8 @@ static int gfx_eop_irq(struct gsgpu_device *adev,
 }
 
 static int gfx_priv_reg_irq(struct gsgpu_device *adev,
-				 struct gsgpu_irq_src *source,
-				 struct gsgpu_iv_entry *entry)
+			    struct gsgpu_irq_src *source,
+			    struct gsgpu_iv_entry *entry)
 {
 	DRM_ERROR("Illegal register access in command stream\n");
 	schedule_work(&adev->reset_work);
@@ -546,8 +549,8 @@ static int gfx_priv_reg_irq(struct gsgpu_device *adev,
 }
 
 static int gfx_priv_inst_irq(struct gsgpu_device *adev,
-				  struct gsgpu_irq_src *source,
-				  struct gsgpu_iv_entry *entry)
+			     struct gsgpu_irq_src *source,
+			     struct gsgpu_iv_entry *entry)
 {
 	DRM_ERROR("Illegal instruction in command stream\n");
 	schedule_work(&adev->reset_work);
@@ -577,12 +580,12 @@ static const struct gsgpu_ring_funcs gfx_ring_funcs_gfx = {
 	.get_wptr = gfx_ring_get_wptr_gfx,
 	.set_wptr = gfx_ring_set_wptr_gfx,
 	.emit_frame_size = /* maximum 215dw if count 16 IBs in */
-		7 +  /* COND_EXEC */
-		1 +  /* PIPELINE_SYNC */
-		VI_FLUSH_GPU_TLB_NUM_WREG * 5 + 9 + /* VM_FLUSH */
-		5 +  /* FENCE for VM_FLUSH */
-		3 + /* CNTX_CTRL */
-		5 + 5,/* FENCE x2 */
+	7 +  /* COND_EXEC */
+	1 +  /* PIPELINE_SYNC */
+	VI_FLUSH_GPU_TLB_NUM_WREG * 5 + 9 + /* VM_FLUSH */
+	5 +  /* FENCE for VM_FLUSH */
+	3 + /* CNTX_CTRL */
+	5 + 5,/* FENCE x2 */
 	.emit_ib_size =	4, /* gfx_ring_emit_ib_gfx */
 	.emit_ib = gfx_ring_emit_ib_gfx,
 	.emit_fence = gfx_ring_emit_fence_gfx,
