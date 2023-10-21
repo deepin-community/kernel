@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/acpi.h>
+#include <linux/pwm.h>
 #include <linux/backlight.h>
 #include <linux/device.h>
 #include <linux/input.h>
@@ -548,10 +549,27 @@ static struct generic_sub_driver generic_sub_drivers[] __refdata = {
 	},
 };
 
+static struct pwm_lookup ls_pwm_lookup[] = {
+	PWM_LOOKUP_WITH_MODULE("LOON0006:00", 0, NULL, "ls-pwm-00",
+			       0, PWM_POLARITY_NORMAL, "pwm-ls"),
+	PWM_LOOKUP_WITH_MODULE("LOON0006:01", 0, NULL, "ls-pwm-01",
+			       0, PWM_POLARITY_NORMAL, "pwm-ls"),
+	PWM_LOOKUP_WITH_MODULE("LOON0006:02", 0, NULL, "ls-pwm-02",
+			       0, PWM_POLARITY_NORMAL, "pwm-ls"),
+	PWM_LOOKUP_WITH_MODULE("LOON0006:03", 0, NULL, "ls-pwm-03",
+			       0, PWM_POLARITY_NORMAL, "pwm-ls"),
+};
+
 static int __init generic_acpi_laptop_init(void)
 {
 	bool ec_found;
 	int i, ret, status;
+
+	/* Some LS7A2000 hardware does not implement the proper ACPI DSDT
+	 * entries required for ACPI-based backlight control. We therefore
+	 * manually add a PWM lookup table so the GSGPU module can find
+	 * the right PWM device. */
+	pwm_add_table(ls_pwm_lookup, ARRAY_SIZE(ls_pwm_lookup));
 
 	if (acpi_disabled)
 		return -ENODEV;

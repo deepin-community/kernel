@@ -7,6 +7,9 @@
 #include "gsgpu_backlight.h"
 #include "bridge_phy.h"
 
+MODULE_SOFTDEP("post: loongson-laptop");
+MODULE_SOFTDEP("post: pwm-ls");
+
 static bool gsgpu_backlight_get_hw_status(struct gsgpu_backlight *ls_bl)
 {
 	return (gpio_get_value(GPIO_LCD_VDD) && gpio_get_value(GPIO_LCD_EN)
@@ -144,10 +147,12 @@ static int gsgpu_backlight_hw_request_init(struct gsgpu_device *adev,
 {
 	int ret = 0;
 	bool pwm_enable_default;
+	char pwm_consumer_name[32];
 
-	ls_bl->pwm = pwm_get(adev->ddev->dev, NULL);
+	snprintf(pwm_consumer_name, sizeof(pwm_consumer_name), "ls-pwm-%02d", ls_bl->pwm_id);
+	ls_bl->pwm = pwm_get(&adev->loongson_dc->dev, pwm_consumer_name);
 	if (IS_ERR(ls_bl->pwm)) {
-		DRM_ERROR("Failed to get the pwm chip\n");
+		DRM_ERROR("Failed to get the pwm chip (%s)\n", pwm_consumer_name);
 		ls_bl->pwm = NULL;
 		goto ERROR_PWM;
 	}
