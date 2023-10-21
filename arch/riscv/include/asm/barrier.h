@@ -29,12 +29,22 @@
 #define __smp_rmb()	RISCV_FENCE(r,r)
 #define __smp_wmb()	RISCV_FENCE(w,w)
 
+#ifdef CONFIG_ARCH_SOPHGO
+#define __smp_store_release(p, v)					\
+do {									\
+	compiletime_assert_atomic_type(*p);				\
+	RISCV_FENCE(rw,w);						\
+	WRITE_ONCE(*p, v);						\
+	RISCV_FENCE(w,rw);						\
+} while (0)
+#else
 #define __smp_store_release(p, v)					\
 do {									\
 	compiletime_assert_atomic_type(*p);				\
 	RISCV_FENCE(rw,w);						\
 	WRITE_ONCE(*p, v);						\
 } while (0)
+#endif
 
 #define __smp_load_acquire(p)						\
 ({									\
