@@ -10,8 +10,8 @@ test_build:
         repositories:
           - name: deepin_develop
             paths:
-              - target_project: deepin:CI
-                target_repository: deepin:CI:kernel
+              - target_project: deepin:CI:kernel
+                target_repository: deepin_develop
             architectures:
               - x86_64
               - aarch64
