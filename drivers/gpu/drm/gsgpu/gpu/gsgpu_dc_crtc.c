@@ -315,11 +315,9 @@ u32 dc_vblank_get_counter(struct gsgpu_device *adev, int crtc_num)
 }
 
 int dc_crtc_get_scanoutpos(struct gsgpu_device *adev, int crtc_num,
-				  u32 *vbl, u32 *position)
+			   int *vbl_start, int *vbl_end, int *hpos, int *vpos)
 {
 	struct gsgpu_dc *dc = adev->dc;
-	uint32_t v_blank_start, v_blank_end, h_position, v_position;
-	int reg_val = 0;
 
 	if (IS_ERR_OR_NULL(dc) || (crtc_num >= dc->links))
 		return false;
@@ -330,18 +328,13 @@ int dc_crtc_get_scanoutpos(struct gsgpu_device *adev, int crtc_num,
 	if ((crtc_num < 0) || (crtc_num >= adev->mode_info.num_crtc))
 		return -EINVAL;
 	else {
-		reg_val = dc_readl(adev, DC_CRTC_DISPLAY_POS_REG + (0x10 * crtc_num));
-//		DRM_INFO("dc_crtc_get_scanoutpos reg_val 0x%x\n", reg_val);
+		u32 vsync_reg = dc_readl(adev, DC_CRTC_VSYNC_REG + (0x10 * crtc_num));
+		u32 pos_reg = dc_readl(adev, DC_CRTC_DISPLAY_POS_REG + (0x10 * crtc_num));
 
-		v_blank_start = 0;
-		v_blank_end = 0;
-		h_position = (reg_val & 0xffff);
-		v_position = (reg_val >> 16);
-
-//		position = v_position | (h_position << 16);
-//		vbl = v_blank_start | (v_blank_end << 16);
-		position = 0;
-		vbl = 0;
+		*vbl_start = (vsync_reg >> CRTC_VSYNC_START_SHIFT) & CRTC_VSYNC_START_MASK;
+		*vbl_end = (vsync_reg >> CRTC_VSYNC_END_SHIFT) & CRTC_VSYNC_END_MASK;
+		*hpos = (pos_reg >> CRTC_DISPLAY_POS_X_SHIFT) & CRTC_DISPLAY_POS_X_MASK;
+		*vpos = (pos_reg >> CRTC_DISPLAY_POS_Y_SHIFT) & CRTC_DISPLAY_POS_Y_MASK;
 	}
 
 	return 0;

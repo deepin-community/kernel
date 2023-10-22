@@ -35,7 +35,8 @@ struct gsgpu_dc_crtc *dc_crtc_construct(struct gsgpu_dc *dc, struct crtc_resourc
 int gsgpu_dc_crtc_init(struct gsgpu_device *adev,
 		       struct drm_plane *plane, uint32_t crtc_index);
 u32 dc_vblank_get_counter(struct gsgpu_device *adev, int crtc_num);
-int dc_crtc_get_scanoutpos(struct gsgpu_device *adev, int crtc_num, u32 *vbl, u32 *position);
+int dc_crtc_get_scanoutpos(struct gsgpu_device *adev, int crtc_num,
+			   int *vbl_start, int *vbl_end, int *hpos, int *vpos);
 
 void dc_crtc_destroy(struct gsgpu_dc_crtc *crtc);
 bool dc_crtc_enable(struct gsgpu_crtc *acrtc, bool enable);

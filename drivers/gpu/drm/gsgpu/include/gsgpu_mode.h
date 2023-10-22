@@ -54,7 +54,7 @@ struct gsgpu_display_funcs {
 	void (*page_flip)(struct gsgpu_device *adev,
 			  int crtc_id, u64 crtc_base, bool async);
 	int (*page_flip_get_scanoutpos)(struct gsgpu_device *adev, int crtc,
-					u32 *vbl, u32 *position);
+					int *vbl_start, int *vbl_end, int *hpos, int *vpos);
 };
 
 struct gsgpu_framebuffer {

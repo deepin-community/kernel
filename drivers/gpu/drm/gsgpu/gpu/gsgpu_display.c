@@ -339,12 +339,11 @@ void gsgpu_display_update_priority(struct gsgpu_device *adev)
 
 }
 
-int gsgpu_display_get_crtc_scanoutpos(struct drm_device *dev,
-			unsigned int pipe, unsigned int flags, int *vpos,
-			int *hpos, ktime_t *stime, ktime_t *etime,
-			const struct drm_display_mode *mode)
+int gsgpu_display_get_crtc_scanoutpos(struct drm_device *dev, unsigned int pipe,
+				      unsigned int flags, int *vpos,
+				      int *hpos, ktime_t *stime, ktime_t *etime,
+				      const struct drm_display_mode *mode)
 {
-	u32 vbl = 0, position = 0;
 	int vbl_start, vbl_end, vtotal, ret = 0;
 	bool in_vbl = true;
 
@@ -356,7 +355,8 @@ int gsgpu_display_get_crtc_scanoutpos(struct drm_device *dev,
 	if (stime)
 		*stime = ktime_get();
 
-	if (gsgpu_display_page_flip_get_scanoutpos(adev, pipe, &vbl, &position) == 0)
+	if (gsgpu_display_page_flip_get_scanoutpos(adev, pipe, &vbl_start,
+						   &vbl_end, hpos, vpos) == 0)
 		ret |= DRM_SCANOUTPOS_VALID;
 
 	/* Get optional system timestamp after query. */
@@ -365,16 +365,10 @@ int gsgpu_display_get_crtc_scanoutpos(struct drm_device *dev,
 
 	/* preempt_enable_rt() should go right here in PREEMPT_RT patchset. */
 
-	/* Decode into vertical and horizontal scanout position. */
-	*vpos = position & 0x1fff;
-	*hpos = (position >> 16) & 0x1fff;
-
 	/* Valid vblank area boundaries from gpu retrieved? */
-	if (vbl > 0) {
-		/* Yes: Decode. */
+	if (vbl_start < 0xffff && vbl_end < 0xffff) {
+		/* Yes. */
 		ret |= DRM_SCANOUTPOS_ACCURATE;
-		vbl_start = vbl & 0x1fff;
-		vbl_end = (vbl >> 16) & 0x1fff;
 	} else {
 		/* No: Fake something reasonable which gives at least ok results. */
 		vbl_start = mode->crtc_vdisplay;
