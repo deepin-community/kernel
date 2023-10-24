@@ -23,5 +23,7 @@ bool intel_dp_mst_source_support(struct intel_dp *intel_dp);
 int intel_dp_mst_add_topology_state_for_crtc(struct intel_atomic_state *state,
 					     struct intel_crtc *crtc);
 bool intel_dp_mst_verify_dpcd_state(struct intel_dp *intel_dp);
+bool intel_dp_mst_crtc_needs_modeset(struct intel_atomic_state *state,
+				     struct intel_crtc *crtc);
 
 #endif /* __INTEL_DP_MST_H__ */
