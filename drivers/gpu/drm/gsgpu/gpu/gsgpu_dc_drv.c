@@ -624,6 +624,8 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 		}
 	} /* for_each_crtc_in_state() */
 
+	drm_atomic_helper_calc_timestamping_constants(state);
+
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		/*
 		 * loop to enable interrupts on newly arrived crtc
