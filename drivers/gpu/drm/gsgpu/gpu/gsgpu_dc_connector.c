@@ -68,10 +68,11 @@ static bool is_connected(struct drm_connector *connector)
 
 	adapter = &i2c->adapter;
 	if (i2c_transfer(adapter, &msgs, 1) != 1) {
-		DRM_DEBUG_KMS("display-%d not connect\n", connector->index);
+		DRM_DEBUG_KMS("display-%d not connected\n", connector->index);
 		return false;
 	}
 
+	DRM_DEBUG_KMS("display-%d connected\n", connector->index);
 	return true;
 }
 
