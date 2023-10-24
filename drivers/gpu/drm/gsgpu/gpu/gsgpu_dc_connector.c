@@ -68,11 +68,13 @@ static bool is_connected(struct drm_connector *connector)
 
 	adapter = &i2c->adapter;
 	if (i2c_transfer(adapter, &msgs, 1) != 1) {
-		DRM_DEBUG_KMS("display-%d not connected\n", connector->index);
+		DRM_DEBUG_KMS("display-%d not connected (type %d)\n",
+			      connector->index, connector->connector_type);
 		return false;
 	}
 
-	DRM_DEBUG_KMS("display-%d connected\n", connector->index);
+	DRM_DEBUG_KMS("display-%d connected (type %d)\n",
+		      connector->index, connector->connector_type);
 	return true;
 }
 
@@ -131,9 +133,9 @@ gsgpu_dc_connector_detect(struct drm_connector *connector, bool force)
 	struct gsgpu_device *adev = connector->dev->dev_private;
 	enum drm_connector_status status = connector_status_disconnected;
 
-	if (connector->polled == 0)
+	if (connector->polled == 0) {
 		status = connector_status_connected;
-	else if (connector->polled == (DRM_CONNECTOR_POLL_CONNECT
+	} else if (connector->polled == (DRM_CONNECTOR_POLL_CONNECT
 				      | DRM_CONNECTOR_POLL_DISCONNECT)) {
 		if (is_connected(connector))
 			status = connector_status_connected;
