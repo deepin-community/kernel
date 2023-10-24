@@ -2547,7 +2547,11 @@ static void mtl_ddi_pre_enable_dp(struct intel_atomic_state *state,
 		intel_dp_set_power(intel_dp, DP_SET_POWER_D0);
 
 	intel_dp_configure_protocol_converter(intel_dp, crtc_state);
-	intel_dp_sink_set_decompression_state(intel_dp, crtc_state, true);
+	if (!is_mst)
+		intel_dp_sink_enable_decompression(state,
+						   to_intel_connector(conn_state->connector),
+						   crtc_state);
+
 	/*
 	 * DDI FEC: "anticipates enabling FEC encoding sets the FEC_READY bit
 	 * in the FEC_CONFIGURATION register to 1 before initiating link
@@ -2698,7 +2702,10 @@ static void tgl_ddi_pre_enable_dp(struct intel_atomic_state *state,
 		intel_dp_set_power(intel_dp, DP_SET_POWER_D0);
 
 	intel_dp_configure_protocol_converter(intel_dp, crtc_state);
-	intel_dp_sink_set_decompression_state(intel_dp, crtc_state, true);
+	if (!is_mst)
+		intel_dp_sink_enable_decompression(state,
+						   to_intel_connector(conn_state->connector),
+						   crtc_state);
 	/*
 	 * DDI FEC: "anticipates enabling FEC encoding sets the FEC_READY bit
 	 * in the FEC_CONFIGURATION register to 1 before initiating link
@@ -2778,8 +2785,10 @@ static void hsw_ddi_pre_enable_dp(struct intel_atomic_state *state,
 	if (!is_mst)
 		intel_dp_set_power(intel_dp, DP_SET_POWER_D0);
 	intel_dp_configure_protocol_converter(intel_dp, crtc_state);
-	intel_dp_sink_set_decompression_state(intel_dp, crtc_state,
-					      true);
+	if (!is_mst)
+		intel_dp_sink_enable_decompression(state,
+						   to_intel_connector(conn_state->connector),
+						   crtc_state);
 	intel_dp_sink_set_fec_ready(intel_dp, crtc_state, true);
 	intel_dp_start_link_train(intel_dp, crtc_state);
 	if ((port != PORT_A || DISPLAY_VER(dev_priv) >= 9) &&
@@ -3377,6 +3386,8 @@ static void intel_disable_ddi_dp(struct intel_atomic_state *state,
 				 const struct drm_connector_state *old_conn_state)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+	struct intel_connector *connector =
+		to_intel_connector(old_conn_state->connector);
 
 	intel_dp->link_trained = false;
 
@@ -3385,8 +3396,8 @@ static void intel_disable_ddi_dp(struct intel_atomic_state *state,
 	intel_psr_disable(intel_dp, old_crtc_state);
 	intel_edp_backlight_off(old_conn_state);
 	/* Disable the decompression in DP Sink */
-	intel_dp_sink_set_decompression_state(intel_dp, old_crtc_state,
-					      false);
+	intel_dp_sink_disable_decompression(state,
+					    connector, old_crtc_state);
 	/* Disable Ignore_MSA bit in DP Sink */
 	intel_dp_sink_set_msa_timing_par_ignore_state(intel_dp, old_crtc_state,
 						      false);
