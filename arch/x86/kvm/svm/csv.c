@@ -828,6 +828,18 @@ union csv3_page_attr {
 	u64 val;
 };
 
+struct guest_paddr_block {
+	struct {
+		u64 share:	1;
+		u64 reserved:	11;
+		u64 gfn:	52;
+	} entry[512];
+};
+
+struct trans_paddr_block {
+	u64	trans_paddr[512];
+};
+
 enum csv3_pg_level {
 	CSV3_PG_LEVEL_NONE,
 	CSV3_PG_LEVEL_4K,
@@ -1255,6 +1267,164 @@ static int csv3_launch_encrypt_vmcb(struct kvm *kvm, struct kvm_sev_cmd *argp)
 
 e_free:
 	kfree(encrypt_vmcb);
+exit:
+	return ret;
+}
+
+/* Userspace wants to query either header or trans length. */
+static int
+csv3_send_encrypt_data_query_lengths(struct kvm *kvm, struct kvm_sev_cmd *argp,
+				     struct kvm_csv3_send_encrypt_data *params)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct csv3_data_send_encrypt_data data;
+	int ret;
+
+	memset(&data, 0, sizeof(data));
+	data.handle = sev->handle;
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, CSV3_CMD_SEND_ENCRYPT_DATA,
+					    &data, &argp->error);
+
+	params->hdr_len = data.hdr_len;
+	params->trans_len = data.trans_len;
+
+	if (copy_to_user((void __user *)(uintptr_t)argp->data, params, sizeof(*params)))
+		ret = -EFAULT;
+
+	return ret;
+}
+
+#define CSV3_SEND_ENCRYPT_DATA_MIGRATE_PAGE  0x00000000
+#define CSV3_SEND_ENCRYPT_DATA_SET_READONLY  0x00000001
+static int csv3_send_encrypt_data(struct kvm *kvm, struct kvm_sev_cmd *argp)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct csv3_data_send_encrypt_data data;
+	struct kvm_csv3_send_encrypt_data params;
+	void *hdr;
+	void *trans_data;
+	struct trans_paddr_block *trans_block;
+	struct guest_paddr_block *guest_block;
+	unsigned long pfn;
+	u32 offset;
+	int ret = 0;
+	int i;
+
+	if (!csv3_guest(kvm))
+		return -ENOTTY;
+
+	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
+			   sizeof(params)))
+		return -EFAULT;
+
+	/* userspace wants to query either header or trans length */
+	if (!params.trans_len || !params.hdr_len)
+		return csv3_send_encrypt_data_query_lengths(kvm, argp, &params);
+
+	if (!params.trans_uaddr || !params.guest_addr_data ||
+	    !params.guest_addr_len || !params.hdr_uaddr)
+		return -EINVAL;
+
+	if (params.guest_addr_len > sizeof(*guest_block))
+		return -EINVAL;
+
+	if (params.trans_len > ARRAY_SIZE(trans_block->trans_paddr) * PAGE_SIZE)
+		return -EINVAL;
+
+	if ((params.trans_len & PAGE_MASK) == 0 ||
+	    (params.trans_len & ~PAGE_MASK) != 0)
+		return -EINVAL;
+
+	/* allocate memory for header and transport buffer */
+	hdr = kzalloc(params.hdr_len, GFP_KERNEL_ACCOUNT);
+	if (!hdr) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	guest_block = kzalloc(sizeof(*guest_block), GFP_KERNEL_ACCOUNT);
+	if (!guest_block) {
+		ret = -ENOMEM;
+		goto e_free_hdr;
+	}
+
+	if (copy_from_user(guest_block,
+			   (void __user *)(uintptr_t)params.guest_addr_data,
+			   params.guest_addr_len)) {
+		ret = -EFAULT;
+		goto e_free_guest_block;
+	}
+
+	trans_block = kzalloc(sizeof(*trans_block), GFP_KERNEL_ACCOUNT);
+	if (!trans_block) {
+		ret = -ENOMEM;
+		goto e_free_guest_block;
+	}
+	trans_data = vzalloc(params.trans_len);
+	if (!trans_data) {
+		ret = -ENOMEM;
+		goto e_free_trans_block;
+	}
+
+	for (offset = 0, i = 0; offset < params.trans_len; offset += PAGE_SIZE) {
+		pfn = vmalloc_to_pfn(offset + trans_data);
+		trans_block->trans_paddr[i] = __sme_set(pfn_to_hpa(pfn));
+		i++;
+	}
+	memset(&data, 0, sizeof(data));
+	data.hdr_address = __psp_pa(hdr);
+	data.hdr_len = params.hdr_len;
+	data.trans_block = __psp_pa(trans_block);
+	data.trans_len = params.trans_len;
+
+	data.guest_block = __psp_pa(guest_block);
+	data.guest_len = params.guest_addr_len;
+	data.handle = sev->handle;
+
+	clflush_cache_range(hdr, params.hdr_len);
+	clflush_cache_range(trans_data, params.trans_len);
+	clflush_cache_range(trans_block, PAGE_SIZE);
+	clflush_cache_range(guest_block, PAGE_SIZE);
+
+	data.flag = CSV3_SEND_ENCRYPT_DATA_SET_READONLY;
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, CSV3_CMD_SEND_ENCRYPT_DATA,
+					    &data, &argp->error);
+	if (ret)
+		goto e_free_trans_data;
+
+	kvm_flush_remote_tlbs(kvm);
+
+	data.flag = CSV3_SEND_ENCRYPT_DATA_MIGRATE_PAGE;
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, CSV3_CMD_SEND_ENCRYPT_DATA,
+					    &data, &argp->error);
+	if (ret)
+		goto e_free_trans_data;
+
+	ret = -EFAULT;
+	/* copy transport buffer to user space */
+	if (copy_to_user((void __user *)(uintptr_t)params.trans_uaddr,
+			 trans_data, params.trans_len))
+		goto e_free_trans_data;
+
+	/* copy guest address block to user space */
+	if (copy_to_user((void __user *)(uintptr_t)params.guest_addr_data,
+			 guest_block, params.guest_addr_len))
+		goto e_free_trans_data;
+
+	/* copy packet header to userspace. */
+	if (copy_to_user((void __user *)(uintptr_t)params.hdr_uaddr, hdr,
+			 params.hdr_len))
+		goto e_free_trans_data;
+
+	ret = 0;
+e_free_trans_data:
+	vfree(trans_data);
+e_free_trans_block:
+	kfree(trans_block);
+e_free_guest_block:
+	kfree(guest_block);
+e_free_hdr:
+	kfree(hdr);
 exit:
 	return ret;
 }
@@ -1730,6 +1900,9 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 		break;
 	case KVM_CSV3_LAUNCH_ENCRYPT_VMCB:
 		r = csv3_launch_encrypt_vmcb(kvm, &sev_cmd);
+		break;
+	case KVM_CSV3_SEND_ENCRYPT_DATA:
+		r = csv3_send_encrypt_data(kvm, &sev_cmd);
 		break;
 	default:
 		/*

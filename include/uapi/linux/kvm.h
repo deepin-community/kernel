@@ -2317,6 +2317,7 @@ enum csv3_cmd_id {
 	KVM_CSV3_INIT = KVM_CSV3_NR_MIN,
 	KVM_CSV3_LAUNCH_ENCRYPT_DATA,
 	KVM_CSV3_LAUNCH_ENCRYPT_VMCB,
+	KVM_CSV3_SEND_ENCRYPT_DATA,
 
 	KVM_CSV3_NR_MAX,
 };
@@ -2329,6 +2330,15 @@ struct kvm_csv3_launch_encrypt_data {
 	__u64 gpa;
 	__u64 uaddr;
 	__u32 len;
+};
+
+struct kvm_csv3_send_encrypt_data {
+	__u64 hdr_uaddr;
+	__u32 hdr_len;
+	__u64 guest_addr_data;
+	__u32 guest_addr_len;
+	__u64 trans_uaddr;
+	__u32 trans_len;
 };
 
 #endif /* __LINUX_KVM_H */
