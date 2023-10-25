@@ -1429,6 +1429,123 @@ exit:
 	return ret;
 }
 
+/* Userspace wants to query either header or trans length. */
+static int
+csv3_send_encrypt_context_query_lengths(struct kvm *kvm, struct kvm_sev_cmd *argp,
+					struct kvm_csv3_send_encrypt_context *params)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct csv3_data_send_encrypt_context data;
+	int ret;
+
+	memset(&data, 0, sizeof(data));
+	data.handle = sev->handle;
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, CSV3_CMD_SEND_ENCRYPT_CONTEXT,
+					    &data, &argp->error);
+
+	params->hdr_len = data.hdr_len;
+	params->trans_len = data.trans_len;
+
+	if (copy_to_user((void __user *)(uintptr_t)argp->data, params, sizeof(*params)))
+		ret = -EFAULT;
+
+	return ret;
+}
+
+static int csv3_send_encrypt_context(struct kvm *kvm, struct kvm_sev_cmd *argp)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct csv3_data_send_encrypt_context data;
+	struct kvm_csv3_send_encrypt_context params;
+	void *hdr;
+	void *trans_data;
+	struct trans_paddr_block *trans_block;
+	unsigned long pfn;
+	unsigned long i;
+	u32 offset;
+	int ret = 0;
+
+	if (!csv3_guest(kvm))
+		return -ENOTTY;
+
+	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
+			   sizeof(params)))
+		return -EFAULT;
+
+	/* userspace wants to query either header or trans length */
+	if (!params.trans_len || !params.hdr_len)
+		return csv3_send_encrypt_context_query_lengths(kvm, argp, &params);
+
+	if (!params.trans_uaddr || !params.hdr_uaddr)
+		return -EINVAL;
+
+	if (params.trans_len > ARRAY_SIZE(trans_block->trans_paddr) * PAGE_SIZE)
+		return -EINVAL;
+
+	/* allocate memory for header and transport buffer */
+	hdr = kzalloc(params.hdr_len, GFP_KERNEL_ACCOUNT);
+	if (!hdr) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	trans_block = kzalloc(sizeof(*trans_block), GFP_KERNEL_ACCOUNT);
+	if (!trans_block) {
+		ret = -ENOMEM;
+		goto e_free_hdr;
+	}
+	trans_data = vzalloc(params.trans_len);
+	if (!trans_data) {
+		ret = -ENOMEM;
+		goto e_free_trans_block;
+	}
+
+	for (offset = 0, i = 0; offset < params.trans_len; offset += PAGE_SIZE) {
+		pfn = vmalloc_to_pfn(offset + trans_data);
+		trans_block->trans_paddr[i] = __sme_set(pfn_to_hpa(pfn));
+		i++;
+	}
+
+	memset(&data, 0, sizeof(data));
+	data.hdr_address = __psp_pa(hdr);
+	data.hdr_len = params.hdr_len;
+	data.trans_block = __psp_pa(trans_block);
+	data.trans_len = params.trans_len;
+	data.handle = sev->handle;
+
+	/* flush hdr, trans data, trans block, secure VMSAs */
+	wbinvd_on_all_cpus();
+
+	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, CSV3_CMD_SEND_ENCRYPT_CONTEXT,
+					    &data, &argp->error);
+
+	if (ret)
+		goto e_free_trans_data;
+
+	/* copy transport buffer to user space */
+	if (copy_to_user((void __user *)(uintptr_t)params.trans_uaddr,
+			 trans_data, params.trans_len)) {
+		ret = -EFAULT;
+		goto e_free_trans_data;
+	}
+
+	/* copy packet header to userspace. */
+	if (copy_to_user((void __user *)(uintptr_t)params.hdr_uaddr, hdr,
+			 params.hdr_len)) {
+		ret = -EFAULT;
+		goto e_free_trans_data;
+	}
+
+e_free_trans_data:
+	vfree(trans_data);
+e_free_trans_block:
+	kfree(trans_block);
+e_free_hdr:
+	kfree(hdr);
+exit:
+	return ret;
+}
+
 static void csv3_mark_page_dirty(struct kvm_vcpu *vcpu, gva_t gpa,
 				 unsigned long npages)
 {
@@ -1903,6 +2020,9 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 		break;
 	case KVM_CSV3_SEND_ENCRYPT_DATA:
 		r = csv3_send_encrypt_data(kvm, &sev_cmd);
+		break;
+	case KVM_CSV3_SEND_ENCRYPT_CONTEXT:
+		r = csv3_send_encrypt_context(kvm, &sev_cmd);
 		break;
 	default:
 		/*
