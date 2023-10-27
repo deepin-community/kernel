@@ -766,4 +766,5 @@ void hns3_cq_period_mode_init(struct hns3_nic_priv *priv,
 
 void hns3_external_lb_prepare(struct net_device *ndev, bool if_running);
 void hns3_external_lb_restore(struct net_device *ndev, bool if_running);
+bool hns3_is_page_pool_enabled(void);
 #endif

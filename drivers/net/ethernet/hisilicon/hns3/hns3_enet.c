@@ -5036,6 +5036,11 @@ static void hns3_alloc_page_pool(struct hns3_enet_ring *ring)
 	}
 }
 
+bool hns3_is_page_pool_enabled(void)
+{
+	return page_pool_enabled;
+}
+
 static int hns3_alloc_ring_memory(struct hns3_enet_ring *ring)
 {
 	int ret;
