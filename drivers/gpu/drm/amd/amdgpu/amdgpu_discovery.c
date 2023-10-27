@@ -2456,6 +2456,9 @@ int amdgpu_discovery_set_ip_blocks(struct amdgpu_device *adev)
 	if (adev->ip_versions[XGMI_HWIP][0] == IP_VERSION(4, 8, 0))
 		adev->gmc.xgmi.supported = true;
 
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3))
+		adev->ip_versions[XGMI_HWIP][0] = IP_VERSION(6, 4, 0);
+
 	/* set NBIO version */
 	switch (adev->ip_versions[NBIO_HWIP][0]) {
 	case IP_VERSION(6, 1, 0):
