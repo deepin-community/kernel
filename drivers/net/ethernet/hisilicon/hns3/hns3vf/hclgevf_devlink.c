@@ -41,8 +41,9 @@ static int hclgevf_devlink_reload_down(struct devlink *devlink,
 	struct pci_dev *pdev = hdev->pdev;
 	int ret;
 
-	if (test_bit(HCLGEVF_STATE_RST_HANDLING, &hdev->state)) {
-		dev_err(&pdev->dev, "reset is handling\n");
+	if (test_bit(HCLGEVF_STATE_RST_HANDLING, &hdev->state) ||
+	    !test_bit(HCLGEVF_STATE_NIC_REGISTERED, &hdev->state)) {
+		dev_err(&pdev->dev, "reset is handling or driver removed\n");
 		return -EBUSY;
 	}
 
