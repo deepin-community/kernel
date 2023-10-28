@@ -537,11 +537,10 @@ static int gsgpu_vram_mgr_new(struct ttm_resource_manager *man,
 	if (gsgpu_is_vram_mgr_blocks_contiguous(&vres->blocks))
 		vres->base.placement |= TTM_PL_FLAG_CONTIGUOUS;
 
-	struct gsgpu_bo *abo = ttm_to_gsgpu_bo(tbo);
-	if (abo->flags & GSGPU_GEM_CREATE_CPU_GTT_USWC)
-		vres->base.bus.caching = ttm_write_combined;
-	else
+	if (gsgpu_using_ram)
 		vres->base.bus.caching = ttm_cached;
+	else
+		vres->base.bus.caching = ttm_write_combined;
 
 	atomic64_add(vis_usage, &mgr->vis_usage);
 	*res = &vres->base;
