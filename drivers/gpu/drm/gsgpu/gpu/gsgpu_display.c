@@ -185,7 +185,7 @@ int gsgpu_display_crtc_page_flip_target(struct drm_crtc *crtc,
 
 	gsgpu_bo_kmap(new_abo, &fb_vaddr);
 
-	if (gsgpu_using_ram) {
+	if (gsgpu_use_system_ram) {
 		work->base = virt_to_phys(fb_vaddr);
 		/* 0x460000000 - 0x46fffffff to 0x20000000 - 0x2fffffff */
 		work->base = work->base & 0x3fffffff;

@@ -55,7 +55,7 @@ static int mmu_mc_init(struct gsgpu_device *adev)
 	 * 		pci_resource_len(adev->pdev, 0)
 	 * */
 
-	if (gsgpu_using_ram) {
+	if (gsgpu_use_system_ram) {
 		adev->gmc.aper_base =  0x460000000;
 		adev->gmc.aper_size = 0x10000000;
 	} else {
@@ -342,7 +342,7 @@ static inline int mmu_vm_manager_init(struct gsgpu_device *adev)
 	gsgpu_vm_manager_init(adev);
 
 	/* base offset of vram pages */
-	if (gsgpu_using_ram)
+	if (gsgpu_use_system_ram)
 		adev->vm_manager.vram_base_offset = adev->gmc.aper_base;
 	else
 		adev->vm_manager.vram_base_offset = 0x1000000000000;

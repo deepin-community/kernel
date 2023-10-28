@@ -42,7 +42,7 @@ int gsgpu_sched_jobs = 32;
 int gsgpu_sched_hw_submission = 2;
 int gsgpu_job_hang_limit;
 int gsgpu_gpu_recovery = 1; /* auto */
-int gsgpu_using_ram; /* using system memory for gpu*/
+int gsgpu_use_system_ram; /* using system memory for gpu*/
 int gsgpu_enable_dma40;
 
 int gsgpu_lg100_support = 1;
@@ -207,9 +207,13 @@ module_param_named(job_hang_limit, gsgpu_job_hang_limit, int, 0444);
 MODULE_PARM_DESC(gpu_recovery, "Enable GPU recovery mechanism, (1 = enable, 0 = disable, -1 = auto)");
 module_param_named(gpu_recovery, gsgpu_gpu_recovery, int, 0444);
 
-MODULE_PARM_DESC(gsgpu_using_ram, "Gpu uses memory instead vram"
-		 "0: using vram for gpu 1:use system for gpu");
-module_param_named(gsgpu_using_ram, gsgpu_using_ram, uint, 0444);
+/**
+ * DOC: gsgpu_use_system_ram (int)
+ * If set to 1 (enabled), will use system ram for video memory.
+ * The default is 0 (disabled), in which case the on-board VRAM will be used.
+ */
+MODULE_PARM_DESC(use_system_ram, "Use system RAM for video memory (1 = enable, 0 = disable).");
+module_param_named(use_system_ram, gsgpu_use_system_ram, uint, 0444);
 
 /**
  * DOC: enable_dma40 (int)

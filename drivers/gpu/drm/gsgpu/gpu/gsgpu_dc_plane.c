@@ -60,7 +60,7 @@ static int dc_plane_helper_prepare_fb(struct drm_plane *plane,
 		return r;
 	}
 
-	if (gsgpu_using_ram) {
+	if (gsgpu_use_system_ram) {
 		fb_addr = virt_to_phys(fb_vaddr);
 		fb_addr = (fb_addr & 0x1ffffffffffffULL);
 		afb->address = fb_addr;

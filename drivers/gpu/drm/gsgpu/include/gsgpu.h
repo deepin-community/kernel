@@ -76,7 +76,7 @@ extern int gsgpu_sched_hw_submission;
 extern int gsgpu_vram_page_split;
 extern int gsgpu_job_hang_limit;
 extern int gsgpu_gpu_recovery;
-extern int gsgpu_using_ram;
+extern int gsgpu_use_system_ram;
 extern int gsgpu_enable_dma40;
 
 #define GSGPU_BYTES_PER_DW           4
