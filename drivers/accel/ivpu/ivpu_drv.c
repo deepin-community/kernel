@@ -378,6 +378,7 @@ int ivpu_boot(struct ivpu_device *vdev)
 	enable_irq(vdev->irq);
 	ivpu_hw_irq_enable(vdev);
 	ivpu_ipc_enable(vdev);
+	ivpu_job_done_thread_enable(vdev);
 	return 0;
 }
 
@@ -394,6 +395,7 @@ int ivpu_shutdown(struct ivpu_device *vdev)
 	int ret;
 
 	ivpu_prepare_for_reset(vdev);
+	ivpu_job_done_thread_disable(vdev);
 
 	ret = ivpu_hw_power_down(vdev);
 	if (ret)
