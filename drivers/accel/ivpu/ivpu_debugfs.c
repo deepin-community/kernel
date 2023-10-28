@@ -14,6 +14,7 @@
 #include "ivpu_fw.h"
 #include "ivpu_fw_log.h"
 #include "ivpu_gem.h"
+#include "ivpu_hw.h"
 #include "ivpu_jsm_msg.h"
 #include "ivpu_pm.h"
 
@@ -173,6 +174,30 @@ static const struct file_operations fw_log_fops = {
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
+};
+
+static ssize_t
+fw_profiling_freq_fops_write(struct file *file, const char __user *user_buf,
+			     size_t size, loff_t *pos)
+{
+	struct ivpu_device *vdev = file->private_data;
+	bool enable;
+	int ret;
+
+	ret = kstrtobool_from_user(user_buf, size, &enable);
+	if (ret < 0)
+		return ret;
+
+	ivpu_hw_profiling_freq_drive(vdev, enable);
+	ivpu_pm_schedule_recovery(vdev);
+
+	return size;
+}
+
+static const struct file_operations fw_profiling_freq_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.write = fw_profiling_freq_fops_write,
 };
 
 static ssize_t
