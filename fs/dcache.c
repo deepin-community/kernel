@@ -681,7 +681,6 @@ static inline bool retain_dentry(struct dentry *dentry)
 		return false;
 
 	/* retain; LRU fodder */
-	dentry->d_lockref.count--;
 	if (unlikely(!(dentry->d_flags & DCACHE_LRU_LIST)))
 		d_lru_add(dentry);
 	else if (unlikely(!(dentry->d_flags & DCACHE_REFERENCED)))
@@ -745,6 +744,8 @@ got_locks:
 	} else if (likely(!retain_dentry(dentry))) {
 		__dentry_kill(dentry);
 		return parent;
+	} else {
+		dentry->d_lockref.count--;
 	}
 	/* we are keeping it, after all */
 	if (inode)
@@ -894,6 +895,7 @@ void dput(struct dentry *dentry)
 		rcu_read_unlock();
 
 		if (likely(retain_dentry(dentry))) {
+			dentry->d_lockref.count--;
 			spin_unlock(&dentry->d_lock);
 			return;
 		}
@@ -926,6 +928,8 @@ void dput_to_list(struct dentry *dentry, struct list_head *list)
 	if (!retain_dentry(dentry)) {
 		--dentry->d_lockref.count;
 		to_shrink_list(dentry, list);
+	} else {
+		--dentry->d_lockref.count;
 	}
 	spin_unlock(&dentry->d_lock);
 }
