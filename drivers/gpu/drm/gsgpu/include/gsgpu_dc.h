@@ -103,7 +103,6 @@ void dc_writel(struct gsgpu_device *adev, u32 reg, u32 val);
 u32 dc_readl_locked(struct gsgpu_device *adev, u32 reg);
 void dc_writel_locked(struct gsgpu_device *adev, u32 reg, u32 val);
 
-bool dc_submit_timing_update(struct gsgpu_dc *dc, u32 link, struct dc_timing_info *timing);
 int dc_register_irq_handlers(struct gsgpu_device *adev);
 void handle_cursor_update(struct drm_plane *plane,
 			  struct drm_plane_state *old_plane_state);

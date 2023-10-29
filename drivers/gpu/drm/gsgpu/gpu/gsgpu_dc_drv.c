@@ -62,7 +62,8 @@ static bool dc_links_init(struct gsgpu_dc *dc)
 	if (IS_ERR_OR_NULL(dc))
 		return false;
 
-	header_res = dc_get_vbios_resource(dc->vbios, 0, GSGPU_RESOURCE_HEADER);
+	header_res = dc_get_vbios_resource(dc->vbios, 0,
+					   GSGPU_RESOURCE_HEADER);
 	links = header_res->links;
 
 	link_info = kzalloc(sizeof(*link_info) * links, GFP_KERNEL);
@@ -72,24 +73,26 @@ static bool dc_links_init(struct gsgpu_dc *dc)
 	dc->link_info = link_info;
 
 	for (i = 0; i < links; i++) {
-		crtc_resource = dc_get_vbios_resource(dc->vbios, i, GSGPU_RESOURCE_CRTC);
+		crtc_resource = dc_get_vbios_resource(dc->vbios, i,
+						      GSGPU_RESOURCE_CRTC);
 		link_info[i].crtc = dc_crtc_construct(dc, crtc_resource);
 		if (!link_info[i].crtc) {
 			DRM_ERROR("link-%d  crtc construct failed \n", i);
 			continue;
 		}
 
-		encoder_resource = dc_get_vbios_resource(dc->vbios, i, GSGPU_RESOURCE_ENCODER);
+		encoder_resource = dc_get_vbios_resource(dc->vbios, i,
+							 GSGPU_RESOURCE_ENCODER);
 		link_info[i].encoder = dc_encoder_construct(dc, encoder_resource);
 		if (!link_info[i].encoder) {
 			DRM_ERROR("link-%d  encoder construct failed \n", i);
 			continue;
 		}
 
-		connector_resource = dc_get_vbios_resource(dc->vbios,
-						i, GSGPU_RESOURCE_CONNECTOR);
-		link_info[i].bridge = dc_bridge_construct(dc,
-					encoder_resource, connector_resource);
+		connector_resource = dc_get_vbios_resource(dc->vbios, i,
+							   GSGPU_RESOURCE_CONNECTOR);
+		link_info[i].bridge = dc_bridge_construct(dc, encoder_resource,
+							  connector_resource);
 		if (!link_info[i].bridge) {
 			DRM_ERROR("link-%d bridge construct failed\n", i);
 			continue;
@@ -142,8 +145,8 @@ static struct gsgpu_dc *dc_construct(struct gsgpu_device *adev)
 	return dc;
 }
 
-bool dc_submit_timing_update(struct gsgpu_dc *dc, u32 link,
-			     struct dc_timing_info *timing)
+static bool dc_submit_timing_update(struct gsgpu_dc *dc, u32 link,
+				    struct dc_timing_info *timing)
 {
 	if (IS_ERR_OR_NULL(dc) || (link >= dc->links))
 		return false;
@@ -205,10 +208,14 @@ static int gsgpu_dc_meta_enable(struct gsgpu_device *adev, bool clear)
 
 	meta_gpu_addr = adev->dc->meta_gpu_addr;
 	for (i = 0; i < adev->mode_info.num_crtc; i++) {
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i), (u32)meta_gpu_addr);
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i), (meta_gpu_addr >> 32));
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i), (u32)meta_gpu_addr);
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_H, i), (meta_gpu_addr >> 32));
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i),
+			  (u32)meta_gpu_addr);
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i),
+			  (meta_gpu_addr >> 32));
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i),
+			  (u32)meta_gpu_addr);
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_H, i),
+			  (meta_gpu_addr >> 32));
 	}
 
 	DRM_INFO("DC META of 2M enabled (table at 0x%016llX).\n",
@@ -219,21 +226,19 @@ static int gsgpu_dc_meta_enable(struct gsgpu_device *adev, bool clear)
 
 static int gsgpu_dc_meta_disable(struct gsgpu_device *adev)
 {
-	int r, i;
-
 	if (adev->dc->meta_bo == NULL) {
 		dev_err(adev->dev, "No VRAM object for PCIE DC_META.\n");
 		return -EINVAL;
 	}
 
-	for (i = 0; i < adev->mode_info.num_crtc; i++) {
+	for (int i = 0; i < adev->mode_info.num_crtc; i++) {
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i), 0);
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i), 0);
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i), 0);
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_H, i), 0);
 	}
 
-	r = gsgpu_bo_reserve(adev->dc->meta_bo, true);
+	int r = gsgpu_bo_reserve(adev->dc->meta_bo, true);
 	if (likely(r == 0)) {
 		gsgpu_bo_kunmap(adev->dc->meta_bo);
 		gsgpu_bo_unpin(adev->dc->meta_bo);
@@ -248,13 +253,11 @@ static void gsgpu_dc_meta_set(struct gsgpu_device *adev)
 {
 	uint64_t meta_gpu_addr;
 	int dc_meta_size = 0x200000;
-	int i;
-	int r;
 
-	r = gsgpu_bo_create_kernel(adev, dc_meta_size,
-				   GSGPU_GEM_COMPRESSED_SIZE,
-				   GSGPU_GEM_DOMAIN_VRAM, &adev->dc->meta_bo,
-				   &meta_gpu_addr, &adev->dc->meta_cpu_addr);
+	int r = gsgpu_bo_create_kernel(adev, dc_meta_size,
+				       GSGPU_GEM_COMPRESSED_SIZE,
+				       GSGPU_GEM_DOMAIN_VRAM, &adev->dc->meta_bo,
+				       &meta_gpu_addr, &adev->dc->meta_cpu_addr);
 	if (r) {
 		dev_warn(adev->dev, "(%d) create dc meta bo failed\n", r);
 		return;
@@ -262,25 +265,28 @@ static void gsgpu_dc_meta_set(struct gsgpu_device *adev)
 
 	adev->dc->meta_gpu_addr = meta_gpu_addr;
 	memset(adev->dc->meta_cpu_addr, 0x00, dc_meta_size);
-	for (i = 0; i < adev->mode_info.num_crtc; i++) {
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i), (u32)meta_gpu_addr);
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i), (meta_gpu_addr >> 32));
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i), (u32)meta_gpu_addr);
-		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_H, i), (meta_gpu_addr >> 32));
+	for (int i = 0; i < adev->mode_info.num_crtc; i++) {
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i),
+			  (u32)meta_gpu_addr);
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i),
+			  (meta_gpu_addr >> 32));
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i),
+			  (u32)meta_gpu_addr);
+		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_H, i),
+			  (meta_gpu_addr >> 32));
 	}
 
-	DRM_INFO("Config crtc number:%d meta addr 0x%llx\n", i, meta_gpu_addr);
+	DRM_INFO("gsgpu_dc_meta_set: total crtc count %d, meta addr 0x%llx\n",
+		 adev->mode_info.num_crtc, meta_gpu_addr);
 }
 
 static void gsgpu_dc_meta_free(struct gsgpu_device *adev)
 {
-	int i;
-
 	gsgpu_bo_free_kernel(&adev->dc->meta_bo,
 			     &adev->dc->meta_gpu_addr,
 			     &adev->dc->meta_cpu_addr);
 
-	for (i = 0; i < adev->mode_info.num_crtc; i++) {
+	for (int i = 0; i < adev->mode_info.num_crtc; i++) {
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_L, i), 0);
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META0_REG_H, i), 0);
 		dc_writel(adev, CURRENT_REG(DC_CRTC_META1_REG_L, i), 0);
@@ -288,21 +294,15 @@ static void gsgpu_dc_meta_free(struct gsgpu_device *adev)
 	}
 	adev->dc->meta_bo = NULL;
 
-	DRM_INFO("Free crtc number:%d meta addr\n", i);
-}
-
-static int gsgpu_dc_atomic_commit(struct drm_device *dev,
-				  struct drm_atomic_state *state,
-				  bool nonblock)
-{
-	return drm_atomic_helper_commit(dev, state, nonblock);
+	DRM_INFO("gsgpu_dc_meta_free: total crtc count %d\n",
+		 adev->mode_info.num_crtc);
 }
 
 static const struct drm_mode_config_funcs gsgpu_dc_mode_funcs = {
 	.fb_create = gsgpu_display_user_framebuffer_create,
 	.output_poll_changed = drm_fb_helper_output_poll_changed,
 	.atomic_check = drm_atomic_helper_check,
-	.atomic_commit = gsgpu_dc_atomic_commit,
+	.atomic_commit = drm_atomic_helper_commit,
 };
 
 static bool modeset_required(struct drm_crtc_state *crtc_state)
@@ -359,11 +359,10 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 	target_vblank = target - (uint32_t)drm_crtc_vblank_count(crtc) +
 			gsgpu_get_vblank_counter_kms(crtc);
 
-	/* TODO This might fail and hence better not used, wait
-	 * explicitly on fences instead
+	/* TODO This might fail and hence better not be used,
+	 * wait explicitly on fences instead
 	 * and in general should be called for
-	 * blocking commit to as per framework helpers
-	 */
+	 * blocking commit to as per framework helpers */
 	r = gsgpu_bo_reserve(abo, true);
 	if (unlikely(r != 0)) {
 		DRM_ERROR("failed to reserve buffer before flip\n");
@@ -371,18 +370,17 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 	}
 
 	/* Wait for all fences on this FB */
-	WARN_ON(dma_resv_wait_timeout(abo->tbo.base.resv, DMA_RESV_USAGE_READ, false,
-				      MAX_SCHEDULE_TIMEOUT) < 0);
+	WARN_ON(dma_resv_wait_timeout(abo->tbo.base.resv, DMA_RESV_USAGE_READ,
+				      false, MAX_SCHEDULE_TIMEOUT) < 0);
 
 	gsgpu_bo_unreserve(abo);
 
 	/* Wait until we're out of the vertical blank period before the one
-	 * targeted by the flip
-	 */
+	 * targeted by the flip */
 	while ((acrtc->enabled &&
 		(gsgpu_display_get_crtc_scanoutpos(adev->ddev, acrtc->crtc_id,
-						    0, &vpos, &hpos, NULL,
-						    NULL, &crtc->hwmode)
+						   0, &vpos, &hpos, NULL,
+						   NULL, &crtc->hwmode)
 		 & (DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK)) ==
 		(DRM_SCANOUTPOS_VALID | DRM_SCANOUTPOS_IN_VBLANK) &&
 		(int)(target_vblank - gsgpu_get_vblank_counter_kms(crtc)) > 0)) {
@@ -402,10 +400,12 @@ static void gsgpu_dc_do_flip(struct drm_crtc *crtc,
 	crtc_array_mode = GSGPU_TILING_GET(abo->tiling_flags, ARRAY_MODE);
 	switch (crtc_array_mode) {
 	case 0:
-		crtc_address = afb->address + crtc->y * afb->base.pitches[0] + ALIGN(crtc->x, 8) * 4;
+		crtc_address = afb->address + crtc->y * afb->base.pitches[0]
+			+ ALIGN(crtc->x, 8) * 4;
 		break;
 	case 2:
-		crtc_address = afb->address + crtc->y * afb->base.pitches[0] + ALIGN(crtc->x, 8) * 4 * 4;
+		crtc_address = afb->address + crtc->y * afb->base.pitches[0]
+			+ ALIGN(crtc->x, 8) * 4 * 4;
 		break;
 	}
 
@@ -481,16 +481,15 @@ static void gsgpu_dc_commit_planes(struct drm_atomic_state *state,
 		} else if (new_crtc_state->planes_changed) {
 			/* Assume even ONE crtc with immediate flip means
 			 * entire can't wait for VBLANK
-			 * TODO Check if it's correct
-			 */
+			 * TODO Check if it's correct */
 			*wait_for_vblank = !new_pcrtc_state->async_flip;
 
 			/* TODO: Needs rework for multiplane flip */
 			if (plane->type == DRM_PLANE_TYPE_PRIMARY)
 				drm_crtc_vblank_get(crtc);
 
-			gsgpu_dc_do_flip(crtc, fb,
-				(uint32_t)drm_crtc_vblank_count(crtc) + *wait_for_vblank);
+			gsgpu_dc_do_flip(crtc, fb, (uint32_t)drm_crtc_vblank_count(crtc)
+					 + *wait_for_vblank);
 		}
 	}
 
@@ -573,13 +572,10 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 	bool wait_for_vblank = true;
 	int crtc_disable_count = 0;
 
-	/*
-	 * We evade vblanks and pflips on crtc that
-	 * should be changed. We do it here to flush & disable
-	 * interrupts before drm_swap_state is called in drm_atomic_helper_commit
-	 * it will update crtc->dm_crtc_state->stream pointer which is used in
-	 * the ISRs.
-	 */
+	/* We evade vblanks and pflips on crtc that should be changed.
+	 * We do it here to flush & disable interrupts before drm_swap_state
+	 * is called in drm_atomic_helper_commit. It will update the
+	 * crtc->dm_crtc_state->stream pointer which is used in the ISRs. */
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		struct gsgpu_crtc *acrtc = to_gsgpu_crtc(crtc);
 
@@ -607,8 +603,7 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 			new_crtc_state->connectors_changed);
 
 		/* handles headless hotplug case, updating new_state and
-		 * aconnector as needed
-		 */
+		 * aconnector as needed */
 		if (modeset_required(new_crtc_state)) {
 			DRM_DEBUG_DRIVER("Atomic commit: SET crtc id %d: [0x%px]\n",
 					 acrtc->crtc_id, acrtc);
@@ -626,33 +621,26 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 
 	drm_atomic_helper_calc_timestamping_constants(state);
 
+	/* loop to enable interrupts on newly arrived crtc */
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
-		/*
-		 * loop to enable interrupts on newly arrived crtc
-		 */
 		struct gsgpu_crtc *acrtc = to_gsgpu_crtc(crtc);
-		bool modeset_needed;
 
 		if (old_crtc_state->active && !new_crtc_state->active)
 			crtc_disable_count++;
 
-		modeset_needed = modeset_required(new_crtc_state);
-
-		if (!modeset_needed)
+		if (!modeset_required(new_crtc_state))
 			continue;
 
 		manage_dc_interrupts(adev, acrtc, true);
 	}
 
-	/* update planes when needed per crtc*/
+	/* update planes when needed per crtc */
 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, j) {
 		gsgpu_dc_commit_planes(state, dev, crtc, &wait_for_vblank);
 	}
 
-	/*
-	 * send vblank event on all events not handled in flip and
-	 * mark consumed event for drm_atomic_helper_commit_hw_done
-	 */
+	/* send vblank event on all events not handled in flip and
+	 * mark consumed event for drm_atomic_helper_commit_hw_done */
 	spin_lock_irqsave(&adev->ddev->event_lock, flags);
 	for_each_new_crtc_in_state(state, crtc, new_crtc_state, i) {
 		if (new_crtc_state->event)
@@ -671,8 +659,7 @@ void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 
 	/* Finally, drop a runtime PM reference for each newly disabled CRTC,
 	 * so we can put the GPU into runtime suspend if we're not driving any
-	 * displays anymore
-	 */
+	 * displays anymore. */
 	for (i = 0; i < crtc_disable_count; i++)
 		pm_runtime_put_autosuspend(dev->dev);
 	pm_runtime_mark_last_busy(dev->dev);
@@ -684,8 +671,6 @@ static struct drm_mode_config_helper_funcs gsgpu_dc_mode_config_helper = {
 
 static int dc_mode_config_init(struct gsgpu_device *adev)
 {
-	int r;
-
 	adev->mode_info.mode_config_initialized = true;
 
 	adev->ddev->mode_config.funcs = (void *)&gsgpu_dc_mode_funcs;
@@ -699,7 +684,7 @@ static int dc_mode_config_init(struct gsgpu_device *adev)
 	/* indicate support of immediate flip */
 	adev->ddev->mode_config.async_page_flip = true;
 
-	r = gsgpu_display_modeset_create_props(adev);
+	int r = gsgpu_display_modeset_create_props(adev);
 	if (r)
 		return r;
 
@@ -710,9 +695,8 @@ static void gsgpu_attach_encoder_connector(struct gsgpu_device *adev)
 {
 	struct gsgpu_connector *lconnector;
 	struct gsgpu_encoder *lencoder;
-	int i;
 
-	for (i = 0; i < adev->mode_info.num_crtc; i++) {
+	for (int i = 0; i < adev->mode_info.num_crtc; i++) {
 		lconnector = adev->mode_info.connectors[i];
 		lencoder = adev->mode_info.encoders[i];
 		drm_connector_attach_encoder(&lconnector->base, &lencoder->base);
@@ -752,30 +736,28 @@ static void gsgpu_display_print_display_setup(struct drm_device *dev)
 static int dc_initialize_drm_device(struct gsgpu_device *adev)
 {
 	struct gsgpu_mode_info *mode_info = &adev->mode_info;
-	int32_t total_primary_planes;
-	int32_t i;
 
 	if (dc_mode_config_init(adev)) {
 		DRM_ERROR("Failed to initialize mode config\n");
 		return -1;
 	}
 
-	total_primary_planes = 2;
-	for (i = (total_primary_planes - 1); i >= 0; i--) {
+	int total_primary_planes = 2;
+	for (int i = (total_primary_planes - 1); i >= 0; i--) {
 		if (initialize_plane(adev, mode_info, i)) {
 			DRM_ERROR("KMS: Failed to initialize primary plane\n");
 			goto fail;
 		}
 	}
 
-	for (i = 0; i < 2; i++) {
+	for (int i = 0; i < 2; i++) {
 		if (gsgpu_dc_crtc_init(adev, &mode_info->planes[i]->base, i)) {
 			DRM_ERROR("KMS: Failed to initialize crtc\n");
 			goto fail;
 		}
 	}
 
-	for (i = 0; i < 2; i++) {
+	for (int i = 0; i < 2; i++) {
 		gsgpu_i2c_init(adev, i);
 		if (gsgpu_dc_encoder_init(adev, i)) {
 			DRM_ERROR("KMS: Failed to initialize encoder\n");
@@ -802,7 +784,7 @@ static int dc_initialize_drm_device(struct gsgpu_device *adev)
 	return 0;
 
 fail:
-	for (i = 0; i < 2/*max_planes*/; i++)
+	for (int i = 0; i < 2/*max_planes*/; i++)
 		kfree(mode_info->planes[i]);
 	return -1;
 }

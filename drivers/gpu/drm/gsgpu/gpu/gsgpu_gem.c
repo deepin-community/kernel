@@ -431,7 +431,7 @@ int gsgpu_mode_dumb_mmap(struct drm_file *filp,
 }
 
 int gsgpu_gem_mmap_ioctl(struct drm_device *dev, void *data,
-			  struct drm_file *filp)
+			 struct drm_file *filp)
 {
 	union drm_gsgpu_gem_mmap *args = data;
 	uint32_t handle = args->in.handle;
@@ -501,7 +501,7 @@ int gsgpu_gem_wait_idle_ioctl(struct drm_device *dev, void *data,
 }
 
 int gsgpu_gem_metadata_ioctl(struct drm_device *dev, void *data,
-				struct drm_file *filp)
+			     struct drm_file *filp)
 {
 	struct drm_gsgpu_gem_metadata *args = data;
 	struct drm_gem_object *gobj;

@@ -7,8 +7,8 @@
 #include "gsgpu_dc_hdmi.h"
 #include "gsgpu_dc_reg.h"
 
-static unsigned int
-cal_freq(unsigned int pixclock_khz, struct pixel_clock *pll_config)
+static unsigned int cal_freq(unsigned int pixclock_khz,
+			     struct pixel_clock *pll_config)
 {
 	unsigned int pstdiv, loopc, frefc;
 	unsigned long a, b, c;
@@ -51,7 +51,8 @@ static void dc_io_wreg(void *base, u32 offset, u32 val)
 	writel(val, base + offset);
 }
 
-static bool config_pll(struct gsgpu_device *adev, u32 clock, unsigned long pll_reg)
+static bool config_pll(struct gsgpu_device *adev, u32 clock,
+		       unsigned long pll_reg)
 {
 	u32 val;
 	u32 count = 0;
@@ -116,7 +117,8 @@ static bool config_pll(struct gsgpu_device *adev, u32 clock, unsigned long pll_r
 	return true;
 }
 
-bool dc_crtc_timing_set(struct gsgpu_dc_crtc *crtc, struct dc_timing_info *timing)
+bool dc_crtc_timing_set(struct gsgpu_dc_crtc *crtc,
+			struct dc_timing_info *timing)
 {
 	struct gsgpu_device *adev = crtc->dc->adev;
 	u32 depth;
@@ -129,11 +131,13 @@ bool dc_crtc_timing_set(struct gsgpu_dc_crtc *crtc, struct dc_timing_info *timin
 		return false;
 
 	DRM_DEBUG_DRIVER("crtc %d timing set: clock %d, stride %d\n",
-		crtc->resource->base.link, timing->clock, timing->stride);
+			 crtc->resource->base.link, timing->clock, timing->stride);
 	DRM_DEBUG_DRIVER("hdisplay %d, hsync_start %d, hsync_end %d, htotal %d\n",
-		timing->hdisplay, timing->hsync_start, timing->hsync_end, timing->htotal);
+			 timing->hdisplay, timing->hsync_start,
+			 timing->hsync_end, timing->htotal);
 	DRM_DEBUG_DRIVER("vdisplay %d, vsync_start %d, vsync_end %d, vtotal %d\n",
-		timing->vdisplay, timing->vsync_start, timing->vsync_end, timing->vtotal);
+			 timing->vdisplay, timing->vsync_start,
+			 timing->vsync_end, timing->vtotal);
 	DRM_DEBUG_DRIVER("depth %d, use_dma32 %d\n", timing->depth, timing->use_dma32);
 
 	link = crtc->resource->base.link;
@@ -394,7 +398,7 @@ static bool crtc_update_fb_address(struct gsgpu_dc_crtc *crtc,
 }
 
 static bool crtc_primary_plane_set(struct gsgpu_dc_crtc *crtc,
-					 struct dc_primary_plane *primary)
+				   struct dc_primary_plane *primary)
 {
 	if (IS_ERR_OR_NULL(crtc) || IS_ERR_OR_NULL(primary))
 		return false;
@@ -402,7 +406,8 @@ static bool crtc_primary_plane_set(struct gsgpu_dc_crtc *crtc,
 	return crtc_update_fb_address(crtc, primary->address);
 }
 
-bool dc_crtc_plane_update(struct gsgpu_dc_crtc *crtc, struct dc_plane_update *update)
+bool dc_crtc_plane_update(struct gsgpu_dc_crtc *crtc,
+			  struct dc_plane_update *update)
 {
 	bool ret;
 
@@ -418,7 +423,7 @@ bool dc_crtc_plane_update(struct gsgpu_dc_crtc *crtc, struct dc_plane_update *up
 		break;
 	case DC_PLANE_OVERLAY:
 	default:
-		pr_err("%s 7A1000 not support overlay \n", __func__);
+		pr_err("%s: gsgpu does not support overlay\n", __func__);
 		ret = false;
 		break;
 	}
@@ -426,7 +431,8 @@ bool dc_crtc_plane_update(struct gsgpu_dc_crtc *crtc, struct dc_plane_update *up
 	return ret;
 }
 
-struct gsgpu_dc_crtc *dc_crtc_construct(struct gsgpu_dc *dc, struct crtc_resource *resource)
+struct gsgpu_dc_crtc *dc_crtc_construct(struct gsgpu_dc *dc,
+					struct crtc_resource *resource)
 {
 	struct gsgpu_dc_crtc *crtc;
 	u32 link;
@@ -468,7 +474,7 @@ static int crtc_helper_atomic_check(struct drm_crtc *crtc,
 }
 
 static enum drm_mode_status gsgpu_dc_mode_valid(struct drm_crtc *crtc,
-				const struct drm_display_mode *mode)
+						const struct drm_display_mode *mode)
 {
 	struct gsgpu_device *adev = crtc->dev->dev_private;
 
@@ -501,11 +507,10 @@ static enum drm_mode_status gsgpu_dc_mode_valid(struct drm_crtc *crtc,
 	return MODE_OK;
 }
 
-static bool
-gsgpu_get_crtc_scanout_position(struct drm_crtc *crtc,
-				bool in_vblank_irq, int *vpos, int *hpos,
-				ktime_t *stime, ktime_t *etime,
-				const struct drm_display_mode *mode)
+static bool gsgpu_get_crtc_scanout_position(struct drm_crtc *crtc,
+					    bool in_vblank_irq, int *vpos, int *hpos,
+					    ktime_t *stime, ktime_t *etime,
+					    const struct drm_display_mode *mode)
 {
 	struct drm_device *dev = crtc->dev;
         unsigned int pipe = crtc->index;
