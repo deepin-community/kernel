@@ -445,7 +445,6 @@ static void gsgpu_dc_commit_planes(struct drm_atomic_state *state,
 		struct drm_crtc *crtc = new_plane_state->crtc;
 		struct drm_crtc_state *new_crtc_state;
 		struct drm_framebuffer *fb = new_plane_state->fb;
-		bool pflip_needed;
 
 		if (plane->type == DRM_PLANE_TYPE_CURSOR) {
 			handle_cursor_update(plane, old_plane_state);
@@ -464,7 +463,10 @@ static void gsgpu_dc_commit_planes(struct drm_atomic_state *state,
 
 		x = plane->state->crtc->x;
 		y = plane->state->crtc->y;
-		pflip_needed = !state->allow_modeset;
+		/* If the old fb address is NULL, we are simply attaching a new
+		 * framebuffer to the CRTC, in which case we do not need to do
+		 * a page flip. */
+		bool pflip_needed = old_plane_state->fb != NULL;
 
 		spin_lock_irqsave(&crtc->dev->event_lock, flags);
 		if (acrtc->pflip_status != GSGPU_FLIP_NONE) {
