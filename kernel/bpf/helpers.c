@@ -1993,9 +1993,7 @@ void bpf_rb_root_free(const struct btf_field *field, void *rb_root,
 	}
 }
 
-__diag_push();
-__diag_ignore_all("-Wmissing-prototypes",
-		  "Global functions as their definitions will be in vmlinux BTF");
+__bpf_kfunc_start_defs();
 
 __bpf_kfunc void *bpf_obj_new_impl(u64 local_type_id__k, void *meta__ign)
 {
