@@ -272,6 +272,8 @@ struct gsgpu_clock {
 #define GSGPU_GEM_DOMAIN_MAX		0x3
 #define gem_to_gsgpu_bo(gobj) container_of((gobj), struct gsgpu_bo, tbo.base)
 
+extern const struct drm_gem_object_funcs gsgpu_gem_object_funcs;
+
 unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
 struct drm_gem_object *
 gsgpu_gem_prime_import_sg_table(struct drm_device *dev,

@@ -4,8 +4,6 @@
 #include "gsgpu.h"
 #include "gsgpu_display.h"
 
-static const struct drm_gem_object_funcs gsgpu_gem_object_funcs;
-
 static vm_fault_t gsgpu_gem_fault(struct vm_fault *vmf)
 {
 	struct ttm_buffer_object *bo = vmf->vma->vm_private_data;
@@ -243,7 +241,7 @@ static int gsgpu_gem_object_mmap(struct drm_gem_object *obj, struct vm_area_stru
 	return drm_gem_ttm_mmap(obj, vma);
 }
 
-static const struct drm_gem_object_funcs gsgpu_gem_object_funcs = {
+const struct drm_gem_object_funcs gsgpu_gem_object_funcs = {
 	.free = gsgpu_gem_object_free,
 	.open = gsgpu_gem_object_open,
 	.close = gsgpu_gem_object_close,
