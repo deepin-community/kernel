@@ -18,7 +18,7 @@ gsgpu-y += gsgpu_device.o gsgpu_kms.o \
 	gsgpu_cs.o gsgpu_benchmark.o gsgpu_test.o \
 	gsgpu_trace_points.o \
 	gsgpu_sa.o gsgpu_zip_meta.o \
-	gsgpu_prime.o gsgpu_vm.o gsgpu_vm_it.o gsgpu_ib.o \
+	gsgpu_dma_buf.o gsgpu_vm.o gsgpu_vm_it.o gsgpu_ib.o \
 	gsgpu_bo_list.o gsgpu_ctx.o gsgpu_sync.o \
 	gsgpu_gtt_mgr.o gsgpu_vram_mgr.o \
 	gsgpu_queue_mgr.o gsgpu_sched.o gsgpu_debugfs.o \
