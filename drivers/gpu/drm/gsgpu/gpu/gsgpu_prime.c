@@ -62,8 +62,6 @@ gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 	bo->tbo.ttm->sg = sg;
 	bo->allowed_domains = GSGPU_GEM_DOMAIN_GTT;
 	bo->preferred_domains = GSGPU_GEM_DOMAIN_GTT;
-	if (attach->dmabuf->ops != &gsgpu_dmabuf_ops)
-		bo->prime_shared_count = 1;
 
 	ww_mutex_unlock(&resv->lock);
 	bo->tbo.base.funcs = &gsgpu_gem_object_funcs;
@@ -72,55 +70,6 @@ gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
 error:
 	ww_mutex_unlock(&resv->lock);
 	return ERR_PTR(ret);
-}
-
-/* TODO: For AMDGPU this was removed in
- * commit 8c505bdc9c8b955223b054e34a0be9c3d841cd20
- * Author: Christian König <christian.koenig@amd.com>
- * Date:   Wed Jun 9 13:51:36 2021 +0200
- *
- *    drm/amdgpu: rework dma_resv handling v3
- *
- * I don't think the Loongson graphics chip is even capable of sharing
- * memory with other GPUs through DMA-BUF so we will just do enough work
- * to make this compile. I don't think this code path is being hit at all.
- */
-static int __dma_resv_make_exclusive(struct dma_resv *obj)
-{
-	struct dma_fence **fences;
-	unsigned int count;
-	int r;
-
-	r = dma_resv_get_fences(obj, DMA_RESV_USAGE_READ, &count, &fences);
-	if (r)
-		return r;
-
-	if (count == 0) {
-		/* Now that was unexpected. */
-	} else if (count == 1) {
-		dma_resv_add_fence(obj, fences[0], DMA_RESV_USAGE_WRITE);
-		dma_fence_put(fences[0]);
-		kfree(fences);
-	} else {
-		struct dma_fence_array *array;
-
-		array = dma_fence_array_create(count, fences,
-					       dma_fence_context_alloc(1), 0,
-					       false);
-		if (!array)
-			goto err_fences_put;
-
-		dma_resv_add_fence(obj, &array->base, DMA_RESV_USAGE_WRITE);
-		dma_fence_put(&array->base);
-	}
-
-	return 0;
-
-err_fences_put:
-	while (count--)
-		dma_fence_put(fences[count]);
-	kfree(fences);
-	return -ENOMEM;
 }
 
 /**
@@ -140,44 +89,14 @@ static int gsgpu_gem_map_attach(struct dma_buf *dma_buf,
 {
 	struct drm_gem_object *obj = dma_buf->priv;
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
 	long r;
 
 	r = drm_gem_map_attach(dma_buf, attach);
 	if (r)
 		return r;
 
-	r = gsgpu_bo_reserve(bo, false);
-	if (unlikely(r != 0))
-		goto error_detach;
-
-
-	if (attach->dev->driver != adev->dev->driver) {
-		/*
-		 * We only create shared fences for internal use, but importers
-		 * of the dmabuf rely on exclusive fences for implicitly
-		 * tracking write hazards. As any of the current fences may
-		 * correspond to a write, we need to convert all existing
-		 * fences on the reservation object into a single exclusive
-		 * fence.
-		 */
-		r = __dma_resv_make_exclusive(bo->tbo.base.resv);
-		if (r)
-			goto error_unreserve;
-	}
-
 	/* pin buffer into GTT */
 	r = gsgpu_bo_pin(bo, GSGPU_GEM_DOMAIN_GTT);
-	if (r)
-		goto error_unreserve;
-
-	if (attach->dev->driver != adev->dev->driver)
-		bo->prime_shared_count++;
-
-error_unreserve:
-	gsgpu_bo_unreserve(bo);
-
-error_detach:
 	if (r)
 		drm_gem_map_detach(dma_buf, attach);
 	return r;
@@ -196,7 +115,6 @@ static void gsgpu_gem_map_detach(struct dma_buf *dma_buf,
 {
 	struct drm_gem_object *obj = dma_buf->priv;
 	struct gsgpu_bo *bo = gem_to_gsgpu_bo(obj);
-	struct gsgpu_device *adev = gsgpu_ttm_adev(bo->tbo.bdev);
 	int ret = 0;
 
 	ret = gsgpu_bo_reserve(bo, true);
@@ -204,8 +122,6 @@ static void gsgpu_gem_map_detach(struct dma_buf *dma_buf,
 		goto error;
 
 	gsgpu_bo_unpin(bo);
-	if (attach->dev->driver != adev->dev->driver && bo->prime_shared_count)
-		bo->prime_shared_count--;
 	gsgpu_bo_unreserve(bo);
 
 error:

@@ -1073,6 +1073,11 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	ring = to_gsgpu_ring(entity->rq->sched);
 	gsgpu_ring_priority_get(ring, priority);
 
+	/* Make sure all BOs are remembered as writers */
+	gsgpu_bo_list_for_each_entry(e, p->bo_list) {
+		e->tv.num_shared = 0;
+	}
+
 	ttm_eu_fence_buffer_objects(&p->ticket, &p->validated, p->fence);
 	mutex_unlock(&p->adev->notifier_lock);
 

@@ -751,7 +751,7 @@ int gsgpu_bo_pin_restricted(struct gsgpu_bo *bo, u32 domain,
 		return -EINVAL;
 
 	/* A shared bo cannot be migrated to VRAM */
-	if (bo->prime_shared_count) {
+	if (bo->tbo.base.import_attach) {
 		if (domain & GSGPU_GEM_DOMAIN_GTT)
 			domain = GSGPU_GEM_DOMAIN_GTT;
 		else
