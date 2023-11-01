@@ -1158,7 +1158,8 @@ struct vma_iterator {
 		.mas = {						\
 			.tree = &(__mm)->mm_mt,				\
 			.index = __addr,				\
-			.node = MAS_START,				\
+			.node = NULL,					\
+			.status = ma_start,				\
 		},							\
 	}
 
