@@ -59,4 +59,19 @@ to_gsgpu_vram_mgr_resource(struct ttm_resource *res)
 	return container_of(res, struct gsgpu_vram_mgr_resource, base);
 }
 
+int gsgpu_vram_mgr_init(struct gsgpu_device *adev);
+void gsgpu_vram_mgr_fini(struct gsgpu_device *adev);
+u64 gsgpu_vram_mgr_bo_visible_size(struct gsgpu_bo *bo);
+uint64_t gsgpu_vram_mgr_usage(struct gsgpu_vram_mgr *man);
+uint64_t gsgpu_vram_mgr_vis_usage(struct gsgpu_vram_mgr *man);
+int gsgpu_vram_mgr_alloc_sgt(struct gsgpu_device *adev,
+			     struct ttm_resource *res,
+			     u64 offset, u64 length,
+			     struct device *dev,
+			     enum dma_data_direction dir,
+			     struct sg_table **sgt);
+void gsgpu_vram_mgr_free_sgt(struct device *dev,
+			     enum dma_data_direction dir,
+			     struct sg_table *sgt);
+
 #endif

@@ -490,7 +490,7 @@ static struct drm_driver kms_driver = {
 	.dumb_map_offset = gsgpu_mode_dumb_mmap,
 	.fops = &gsgpu_driver_kms_fops,
 
-	.gem_prime_import_sg_table = gsgpu_gem_prime_import_sg_table,
+	.gem_prime_import = gsgpu_gem_prime_import,
 
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,

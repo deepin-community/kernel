@@ -275,11 +275,12 @@ struct gsgpu_clock {
 extern const struct drm_gem_object_funcs gsgpu_gem_object_funcs;
 
 unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
-struct drm_gem_object *
-gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
-				struct dma_buf_attachment *attach,
-				struct sg_table *sg);
-struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj);
+
+/*
+ * DMA-BUF Import and Export
+ */
+struct drm_gem_object *gsgpu_gem_prime_import(struct drm_device *dev,
+					      struct dma_buf *dma_buf);
 struct dma_buf *gsgpu_gem_prime_export(struct drm_gem_object *gobj,
 				       int flags);
 

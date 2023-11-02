@@ -287,8 +287,9 @@ gsgpu_display_user_framebuffer_create(struct drm_device *dev,
 	}
 
 	/* Handle is imported dma-buf, so cannot be migrated to VRAM for scanout */
-	if (obj->import_attach) {
-		DRM_DEBUG_KMS("Cannot create framebuffer from imported dma_buf\n");
+	uint32_t domains = gsgpu_display_supported_domains(drm_to_adev(dev));
+	if (obj->import_attach && !(domains & GSGPU_GEM_DOMAIN_GTT)) {
+		DRM_DEBUG_KMS("Cannot create framebuffer from imported dma_buf handle\n");
 		return ERR_PTR(-EINVAL);
 	}
 
