@@ -312,13 +312,13 @@ static int __t7xx_pci_pm_suspend(struct pci_dev *pdev)
 		dev_err(&pdev->dev, "[PM] MD suspend error: %d\n", ret);
 		goto abort_suspend;
 	}
-
-	ret = t7xx_send_pm_request(t7xx_dev, H2D_CH_SUSPEND_REQ_AP);
-	if (ret) {
-		t7xx_send_pm_request(t7xx_dev, H2D_CH_RESUME_REQ);
-		dev_err(&pdev->dev, "[PM] SAP suspend error: %d\n", ret);
-		goto abort_suspend;
-	}
+//https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1990700/comments/4
+	// ret = t7xx_send_pm_request(t7xx_dev, H2D_CH_SUSPEND_REQ_AP);
+	// if (ret) {
+	// 	t7xx_send_pm_request(t7xx_dev, H2D_CH_RESUME_REQ);
+	// 	dev_err(&pdev->dev, "[PM] SAP suspend error: %d\n", ret);
+	// 	goto abort_suspend;
+	// }
 
 	list_for_each_entry(entity, &t7xx_dev->md_pm_entities, entity) {
 		if (entity->suspend_late)
