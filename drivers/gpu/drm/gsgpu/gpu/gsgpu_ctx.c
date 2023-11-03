@@ -53,7 +53,7 @@ static int gsgpu_ctx_init(struct gsgpu_device *adev,
 	ctx->reset_counter_query = ctx->reset_counter;
 	ctx->vram_lost_counter = atomic_read(&adev->vram_lost_counter);
 	ctx->init_priority = priority;
-	ctx->override_priority = DRM_SCHED_PRIORITY_UNSET;
+	ctx->override_priority = GSGPU_CTX_PRIORITY_UNSET;
 
 	/* create context entity for each ring */
 	for (i = 0; i < adev->num_rings; i++) {
@@ -361,7 +361,7 @@ void gsgpu_ctx_priority_override(struct gsgpu_ctx *ctx,
 
 	ctx->override_priority = priority;
 
-	ctx_prio = (ctx->override_priority == DRM_SCHED_PRIORITY_UNSET) ?
+	ctx_prio = (ctx->override_priority == GSGPU_CTX_PRIORITY_UNSET) ?
 			ctx->init_priority : ctx->override_priority;
 
 	for (i = 0; i < adev->num_rings; i++) {

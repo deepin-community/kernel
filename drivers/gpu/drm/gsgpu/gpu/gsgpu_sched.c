@@ -18,7 +18,8 @@ enum drm_sched_priority gsgpu_to_sched_priority(int gsgpu_priority)
 	case GSGPU_CTX_PRIORITY_VERY_LOW:
 		return DRM_SCHED_PRIORITY_MIN;
 	case GSGPU_CTX_PRIORITY_UNSET:
-		return DRM_SCHED_PRIORITY_UNSET;
+		pr_warn_once("GSGPU-->DRM context priority value UNSET-->NORMAL");
+		return DRM_SCHED_PRIORITY_NORMAL;
 	default:
 		WARN(1, "Invalid context priority %d\n", gsgpu_priority);
 		return -EINVAL;
