@@ -1,5 +1,5 @@
 config DRM_GSGPU
-	tristate "Loongosn Godson GPU"
+	tristate "Loongson Godson GPU"
 	depends on DRM && PCI && MMU
 	select FW_LOADER
 	select DRM_KMS_HELPER
