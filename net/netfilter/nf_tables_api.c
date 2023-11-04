@@ -11417,4 +11417,5 @@ module_exit(nf_tables_module_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
+MODULE_DESCRIPTION("Framework for packet filtering and classification");
 MODULE_ALIAS_NFNL_SUBSYS(NFNL_SUBSYS_NFTABLES);
