@@ -45,8 +45,6 @@ int gsgpu_driver_load_kms(struct drm_device *dev, unsigned long flags)
 	struct gsgpu_device *adev;
 	int r;
 
-	*(int *)(0x80000e0010010444) |= 0x10;
-
 	adev = kzalloc(sizeof(struct gsgpu_device), GFP_KERNEL);
 	if (adev == NULL) {
 		return -ENOMEM;
