@@ -279,10 +279,10 @@ unsigned long gsgpu_gem_timeout(uint64_t timeout_ns);
 /*
  * DMA-BUF Import and Export
  */
-struct drm_gem_object *gsgpu_gem_prime_import(struct drm_device *dev,
-					      struct dma_buf *dma_buf);
-struct dma_buf *gsgpu_gem_prime_export(struct drm_gem_object *gobj,
-				       int flags);
+struct drm_gem_object *gsgpu_gem_prime_import_sg_table(struct drm_device *dev,
+						       struct dma_buf_attachment *attach,
+						       struct sg_table *table);
+struct sg_table *gsgpu_gem_prime_get_sg_table(struct drm_gem_object *obj);
 
 /* sub-allocation manager, it has to be protected by another lock.
  * By conception this is an helper for other part of the driver
