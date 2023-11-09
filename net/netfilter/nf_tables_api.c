@@ -5920,7 +5920,7 @@ static int nft_setelem_parse_flags(const struct nft_set *set,
 	return 0;
 }
 
-static int nft_setelem_parse_key(struct nft_ctx *ctx, struct nft_set *set,
+static int nft_setelem_parse_key(struct nft_ctx *ctx, const struct nft_set *set,
 				 struct nft_data *key, struct nlattr *attr)
 {
 	struct nft_data_desc desc = {
@@ -5973,7 +5973,7 @@ static void *nft_setelem_catchall_get(const struct net *net,
 	return priv;
 }
 
-static int nft_setelem_get(struct nft_ctx *ctx, struct nft_set *set,
+static int nft_setelem_get(struct nft_ctx *ctx, const struct nft_set *set,
 			   struct nft_set_elem *elem, u32 flags)
 {
 	void *priv;
@@ -5992,7 +5992,7 @@ static int nft_setelem_get(struct nft_ctx *ctx, struct nft_set *set,
 	return 0;
 }
 
-static int nft_get_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+static int nft_get_set_elem(struct nft_ctx *ctx, const struct nft_set *set,
 			    const struct nlattr *attr, bool reset)
 {
 	struct nlattr *nla[NFTA_SET_ELEM_MAX + 1];
