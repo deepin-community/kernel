@@ -3330,6 +3330,10 @@ void sev_free_vcpu(struct kvm_vcpu *vcpu)
 
 	__free_page(virt_to_page(svm->sev_es.vmsa));
 
+	if (svm->sev_es.ghcb) {
+		kvm_vcpu_unmap(vcpu, &svm->sev_es.ghcb_map);
+	}
+
 skip_vmsa_free:
 	if (svm->sev_es.ghcb_sa_free)
 		kvfree(svm->sev_es.ghcb_sa);
