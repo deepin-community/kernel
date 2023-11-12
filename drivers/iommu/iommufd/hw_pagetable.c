@@ -319,9 +319,9 @@ out_unlock:
 	if (ioas)
 		mutex_unlock(&ioas->mutex);
 out_put_pt:
-	iommufd_put_object(pt_obj);
+	iommufd_put_object(ucmd->ictx, pt_obj);
 out_put_idev:
-	iommufd_put_object(&idev->obj);
+	iommufd_put_object(ucmd->ictx, &idev->obj);
 	return rc;
 }
 
@@ -346,7 +346,7 @@ int iommufd_hwpt_set_dirty_tracking(struct iommufd_ucmd *ucmd)
 	rc = iopt_set_dirty_tracking(&ioas->iopt, hwpt_paging->common.domain,
 				     enable);
 
-	iommufd_put_object(&hwpt_paging->common.obj);
+	iommufd_put_object(ucmd->ictx, &hwpt_paging->common.obj);
 	return rc;
 }
 
@@ -369,6 +369,6 @@ int iommufd_hwpt_get_dirty_bitmap(struct iommufd_ucmd *ucmd)
 	rc = iopt_read_and_clear_dirty_data(
 		&ioas->iopt, hwpt_paging->common.domain, cmd->flags, cmd);
 
-	iommufd_put_object(&hwpt_paging->common.obj);
+	iommufd_put_object(ucmd->ictx, &hwpt_paging->common.obj);
 	return rc;
 }
