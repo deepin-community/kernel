@@ -70,8 +70,6 @@ static int __init sw64_cpufreq_init(void)
 }
 arch_initcall(sw64_cpufreq_init);
 
-char curruent_policy[CPUFREQ_NAME_LEN];
-
 static struct clk cpu_clk = {
 	.name = "cpu_clk",
 	.flags = CLK_ALWAYS_ENABLED | CLK_RATE_PROPAGATES,
