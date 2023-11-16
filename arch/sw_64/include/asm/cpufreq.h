@@ -11,8 +11,6 @@
 
 struct clk;
 
-extern char curruent_policy[CPUFREQ_NAME_LEN];
-
 struct clk_ops {
 	void (*init)(struct clk *clk);
 	void (*enable)(struct clk *clk);
