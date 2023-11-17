@@ -44,6 +44,8 @@
 #include <asm/svm.h>
 #include <asm/e820/api.h>
 
+#include <asm/csv.h>
+
 DEFINE_STATIC_KEY_FALSE(kvm_async_pf_enabled);
 
 static int kvmapf = 1;
@@ -938,6 +940,9 @@ static void __init kvm_init_platform(void)
 		pv_ops.mmu.notify_page_enc_status_changed =
 			kvm_sev_hc_page_enc_status;
 
+#ifdef CONFIG_HYGON_CSV
+		if (!csv3_active()) {
+#endif
 		/*
 		 * Reset the host's shared pages list related to kernel
 		 * specific page encryption status settings before we load a
@@ -961,6 +966,9 @@ static void __init kvm_init_platform(void)
 				       nr_pages,
 				       KVM_MAP_GPA_RANGE_ENCRYPTED | KVM_MAP_GPA_RANGE_PAGE_SZ_4K);
 		}
+#ifdef CONFIG_HYGON_CSV
+		}
+#endif
 
 		/*
 		 * Ensure that _bss_decrypted section is marked as decrypted in the
