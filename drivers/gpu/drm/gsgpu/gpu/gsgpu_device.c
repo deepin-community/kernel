@@ -1669,8 +1669,6 @@ int gsgpu_device_resume(struct drm_device *dev, bool resume, bool fbcon)
 			return r;
 	}
 
-	*(int *)(0x80000e0010010444) |= 0x10;
-
 	r = gsgpu_cp_gfx_load_microcode(adev);
 	if (r) {
 		DRM_ERROR(" gsgpu_cp_gfx_load_microcode fail\n");
