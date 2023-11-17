@@ -893,8 +893,8 @@ static void writepages_finish(struct ceph_osd_request *req)
 			dout("unlocking %p\n", page);
 
 			if (remove_page)
-				generic_error_remove_page(inode->i_mapping,
-							  page);
+				generic_error_remove_folio(inode->i_mapping,
+							  page_folio(page));
 
 			unlock_page(page);
 		}
