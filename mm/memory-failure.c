@@ -950,14 +950,13 @@ static int delete_from_lru_cache(struct folio *folio)
 	return -EIO;
 }
 
-static int truncate_error_page(struct page *p, unsigned long pfn,
+static int truncate_error_page(struct folio *folio, unsigned long pfn,
 				struct address_space *mapping)
 {
-	struct folio *folio = page_folio(p);
 	int ret = MF_FAILED;
 
 	if (mapping->a_ops->error_remove_page) {
-		int err = mapping->a_ops->error_remove_page(mapping, p);
+		int err = mapping->a_ops->error_remove_page(mapping, &folio->page);
 
 		if (err != 0)
 			pr_info("%#lx: Failed to punch page: %d\n", pfn, err);
@@ -1078,7 +1077,7 @@ static int me_pagecache_clean(struct page_state *ps, struct page *p)
 	 *
 	 * Open: to take i_rwsem or not for this? Right now we don't.
 	 */
-	ret = truncate_error_page(p, page_to_pfn(p), mapping);
+	ret = truncate_error_page(folio, page_to_pfn(p), mapping);
 	if (has_extra_refcount(ps, p, extra_pins))
 		ret = MF_FAILED;
 
@@ -1212,7 +1211,7 @@ static int me_huge_page(struct page_state *ps, struct page *p)
 
 	mapping = folio_mapping(folio);
 	if (mapping) {
-		res = truncate_error_page(&folio->page, page_to_pfn(p), mapping);
+		res = truncate_error_page(folio, page_to_pfn(p), mapping);
 		/* The page is kept in page cache. */
 		extra_pins = true;
 		folio_unlock(folio);
