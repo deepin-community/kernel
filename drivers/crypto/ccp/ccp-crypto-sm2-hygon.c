@@ -19,6 +19,7 @@
 #include <crypto/scatterwalk.h>
 
 #include "ccp-crypto.h"
+#include "ccp_sm2_sign.asn1.h"
 
 static const u8 sm2_ecc_p[CCP_SM2_OPERAND_LEN] = {
 	0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -100,6 +101,47 @@ struct ccp_sm2_dst {
 	u8 result_s[CCP_SM2_OPERAND_LEN];
 	u8 result_t[CCP_SM2_OPERAND_LEN];
 };
+
+struct sm2_signature_ctx {
+	const u8 *sig_r;
+	const u8 *sig_s;
+	size_t r_len;
+	size_t s_len;
+};
+
+int ccp_sm2_get_signature_r(void *context, size_t hdrlen, unsigned char tag,
+				const void *value, size_t vlen)
+{
+	struct sm2_signature_ctx *sig = context;
+
+	if (!value || !vlen)
+		return -EINVAL;
+
+	sig->sig_r = value;
+	sig->r_len = vlen;
+
+	if (!sig->sig_r)
+		return -ENOMEM;
+
+	return 0;
+}
+
+int ccp_sm2_get_signature_s(void *context, size_t hdrlen, unsigned char tag,
+				const void *value, size_t vlen)
+{
+	struct sm2_signature_ctx *sig = context;
+
+	if (!value || !vlen)
+		return -EINVAL;
+
+	sig->sig_s = value;
+	sig->s_len = vlen;
+
+	if (!sig->sig_s)
+		return -ENOMEM;
+
+	return 0;
+}
 
 static bool ccp_sm2_is_zero(const u64 *data, u32 count)
 {
@@ -450,10 +492,20 @@ static int ccp_sm2_setpubkey(struct crypto_akcipher *tfm,
 	struct ccp_ctx *ctx = akcipher_tfm_ctx(tfm);
 	struct ccp_sm2_ctx *sm2 = &ctx->u.sm2;
 	struct ccp_sm2_req_ctx *rctx = NULL;
+	const unsigned char *cflag = (const unsigned char *)key;
 	int ret;
 
-	if (!key || keylen != CCP_SM2_PUBLIC_KEY_LEN)
+	if (!key || keylen < CCP_SM2_PUBLIC_KEY_LEN)
 		return -EINVAL;
+
+	/*  When the length of sm2 public key is 65,
+	 *  content of key should be 04 || X || Y, from GM/T0009-2012.
+	 */
+	if (keylen > CCP_SM2_PUBLIC_KEY_LEN) {
+		if (*cflag != 0x04)
+			return -EINVAL;
+		key = key + 1;
+	}
 
 	/* check whether public key is valid */
 	rctx = kmalloc(sizeof(*rctx), GFP_KERNEL);
@@ -831,21 +883,71 @@ static int ccp_sm2_verify(struct akcipher_request *req)
 	struct ccp_ctx *ctx = akcipher_tfm_ctx(tfm);
 	struct ccp_sm2_req_ctx *rctx = akcipher_request_ctx(req);
 	struct ccp_sm2_verify_src *src = (struct ccp_sm2_verify_src *)rctx->src;
+	int siglen;
 	int nents;
 	int ret;
+	struct sm2_signature_ctx sig;
+	unsigned char *buffer;
 
 	if (!ctx->u.sm2.pub_key_len)
 		return -ENOKEY;
 
-	if (req->src_len != CCP_SM2_OPERAND_LEN * 3)
-		return -EINVAL;
+	if (req->src_len == CCP_SM2_OPERAND_LEN * 3) {
+		/* Compatible with non-encoded signature from user space */
+		nents = sg_nents_for_len(req->src, CCP_SM2_OPERAND_LEN * 3);
+		if (nents < 0)
+			return -EINVAL;
 
-	nents = sg_nents_for_len(req->src, CCP_SM2_OPERAND_LEN * 3);
-	if (nents < 0)
-		return -EINVAL;
+		scatterwalk_map_and_copy(src->operand_e, req->src, 0,
+						CCP_SM2_OPERAND_LEN * 3, 0);
+		memcpy(src->operand_px, ctx->u.sm2.pub_key, CCP_SM2_OPERAND_LEN);
+		memcpy(src->operand_py, ctx->u.sm2.pub_key + CCP_SM2_OPERAND_LEN,
+							CCP_SM2_OPERAND_LEN);
 
-	scatterwalk_map_and_copy(src->operand_e, req->src, 0,
-					CCP_SM2_OPERAND_LEN * 3, 0);
+		rctx->req = req;
+		rctx->phase = CCP_SM2_VERIFY_PH_VERIFY;
+		ret = ccp_sm2_post_cmd(rctx, CCP_SM2_VERIFY_SRC_SIZE,
+						CCP_SM2_MODE_VERIFY, 0);
+
+		return ret;
+	} else if (req->src_len < CCP_SM2_OPERAND_LEN * 3) {
+		/* Compatible with usage like sm2 test of testmgr */
+		siglen = req->src_len;
+		if (req->dst_len != CCP_SM2_OPERAND_LEN)
+			return -EINVAL;
+	} else {
+		/* deal with der encoding signature from user space */
+		siglen = req->src_len - CCP_SM2_OPERAND_LEN;
+	}
+
+	buffer = kmalloc(siglen + CCP_SM2_OPERAND_LEN, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
+
+	sg_pcopy_to_buffer(req->src,
+		sg_nents_for_len(req->src, siglen + CCP_SM2_OPERAND_LEN),
+		buffer, siglen + CCP_SM2_OPERAND_LEN, 0);
+
+	sig.sig_r = NULL;
+	sig.sig_s = NULL;
+	ret = asn1_ber_decoder(&ccp_sm2_sign_decoder, &sig,
+				buffer, siglen);
+
+	if (ret)
+		goto error;
+
+	memcpy(src->operand_e, buffer + siglen, CCP_SM2_OPERAND_LEN);
+
+	if (sig.r_len > CCP_SM2_OPERAND_LEN)
+		memcpy(src->operand_d, sig.sig_r + 1, CCP_SM2_OPERAND_LEN);
+	else
+		memcpy(src->operand_d, sig.sig_r, CCP_SM2_OPERAND_LEN);
+
+	if (sig.s_len > CCP_SM2_OPERAND_LEN)
+		memcpy(src->operand_k, sig.sig_s + 1, CCP_SM2_OPERAND_LEN);
+	else
+		memcpy(src->operand_k, sig.sig_s, CCP_SM2_OPERAND_LEN);
+
 	memcpy(src->operand_px, ctx->u.sm2.pub_key, CCP_SM2_OPERAND_LEN);
 	memcpy(src->operand_py, ctx->u.sm2.pub_key + CCP_SM2_OPERAND_LEN,
 						CCP_SM2_OPERAND_LEN);
@@ -855,6 +957,8 @@ static int ccp_sm2_verify(struct akcipher_request *req)
 	ret = ccp_sm2_post_cmd(rctx, CCP_SM2_VERIFY_SRC_SIZE,
 					CCP_SM2_MODE_VERIFY, 0);
 
+error:
+	kfree(buffer);
 	return ret;
 }
 
