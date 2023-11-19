@@ -159,6 +159,7 @@ __CALL_HMC_VOID(wrktp);
 #define save_ktp()	wrktp()
 
 __CALL_HMC_R0(rdps, unsigned long);
+__CALL_HMC_R0(rvpcr, unsigned long);
 
 __CALL_HMC_R0(rdusp, unsigned long);
 __CALL_HMC_W1(wrusp, unsigned long);
