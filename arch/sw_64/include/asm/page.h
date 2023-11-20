@@ -15,7 +15,7 @@
 #define HPAGE_MASK		(~(HPAGE_SIZE - 1))
 #define HUGETLB_PAGE_ORDER	(HPAGE_SHIFT - PAGE_SHIFT)
 
-#define HUGE_MAX_HSTATE		2
+#define HUGE_MAX_HSTATE		3
 
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
