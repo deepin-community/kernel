@@ -730,6 +730,38 @@ void perf_callchain_kernel(struct perf_callchain_entry_ctx *entry,
 }
 
 /*
+ * Init call to initialise performance events at kernel startup.
+ */
+int __init init_hw_perf_events(void)
+{
+	pr_info("Performance Events: ");
+
+	if (!supported_cpu()) {
+		pr_cont("Unsupported CPU type!\n");
+		return 0;
+	}
+
+	if (is_in_guest()) {
+		pr_cont("No PMU driver, software events only.\n");
+		return 0;
+	}
+
+	pr_cont("Supported CPU type!\n");
+
+	/* Override performance counter IRQ vector */
+
+	perf_irq = sw64_perf_event_irq_handler;
+
+	/* And set up PMU specification */
+	sw64_pmu = &core3_pmu;
+
+	perf_pmu_register(&pmu, "cpu", PERF_TYPE_RAW);
+
+	return 0;
+}
+early_initcall(init_hw_perf_events);
+
+/*
  * Gets the perf_instruction_pointer and perf_misc_flags for guest os.
  */
 
@@ -760,28 +792,3 @@ unsigned long perf_misc_flags(struct pt_regs *regs)
 
 	return misc;
 }
-
-/*
- * Init call to initialise performance events at kernel startup.
- */
-int __init init_hw_perf_events(void)
-{
-	if (!supported_cpu()) {
-		pr_info("Performance events: Unsupported CPU type!\n");
-		return 0;
-	}
-
-	pr_info("Performance events: Supported CPU type!\n");
-
-	/* Override performance counter IRQ vector */
-
-	perf_irq = sw64_perf_event_irq_handler;
-
-	/* And set up PMU specification */
-	sw64_pmu = &core3_pmu;
-
-	perf_pmu_register(&pmu, "cpu", PERF_TYPE_RAW);
-
-	return 0;
-}
-early_initcall(init_hw_perf_events);
