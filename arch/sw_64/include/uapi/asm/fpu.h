@@ -6,11 +6,7 @@
  * SW-64 floating-point control register defines:
  */
 #define FPCR_DNOD	(1UL << 47)		/* denorm INV trap disable */
-#ifdef CONFIG_SUBARCH_C3B
-#define FPCR_DNZ	(1UL << 48)		/* denorms to zero */
-#else
 #define FPCR_DNOE	(1UL << 48)		/* hardware denormal support */
-#endif
 #define FPCR_INVD	(1UL << 49)		/* invalid op disable (opt.) */
 #define FPCR_DZED	(1UL << 50)		/* division by zero disable (opt.) */
 #define FPCR_OVFD	(1UL << 51)		/* overflow disable (optional) */
@@ -34,11 +30,7 @@
 
 #define FPCR_MASK		0xffff800000000000L
 
-#ifdef CONFIG_SUBARCH_C3B
 #define FPCR_INIT		FPCR_DYN_NORMAL
-#else
-#define FPCR_INIT		(FPCR_DYN_NORMAL | FPCR_DNOE)
-#endif
 
 /* status bit coming from hardware fpcr . definde by fire3 */
 #define FPCR_STATUS_INV0	(1UL << 52)

@@ -35,7 +35,11 @@ flush_thread(void)
 	 * with respect to the FPU.  This is all exceptions disabled.
 	 */
 	current_thread_info()->ieee_state = 0;
+#ifdef	CONFIG_SUBARCH_C3B
 	wrfpcr(FPCR_INIT | ieee_swcr_to_fpcr(0));
+#else
+	wrfpcr(FPCR_INIT | FPCR_DNOE | ieee_swcr_to_fpcr(0));
+#endif
 
 	/* Clean slate for TLS.  */
 	current_thread_info()->pcb.tp = 0;
