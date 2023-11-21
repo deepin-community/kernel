@@ -169,6 +169,7 @@ secondary_start_sbi:
 	call relocate_enable_mmu
 #endif
 	call .Lsetup_trap_vector
+	scs_load_current
 	tail smp_callin
 #endif /* CONFIG_SMP */
 
