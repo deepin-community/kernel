@@ -160,10 +160,20 @@ int kgdb_arch_handle_exception(int exception_vector, int signo,
 	unsigned long address = -1;
 
 	switch (remcom_in_buffer[0]) {
+	case 'D':
+	case 'k':
 	case 'c':
 		ptr = &remcom_in_buffer[1];
 		if (kgdb_hex2long(&ptr, &address))
 			kgdb_arch_set_pc(linux_regs, address);
+		return 0;
+	case 's':
+		ptr = &remcom_in_buffer[1];
+		atomic_set(&kgdb_cpu_doing_single_step, -1);
+		if (kgdb_hex2long(&ptr, &address))
+			kgdb_arch_set_pc(linux_regs, address);
+		atomic_set(&kgdb_cpu_doing_single_step, raw_smp_processor_id());
+		kgdb_single_step = 1;
 		return 0;
 	}
 	return -1;
