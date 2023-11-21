@@ -100,6 +100,20 @@ void remove_cpu_topology(unsigned int cpuid);
 void reset_cpu_topology(void);
 int parse_acpi_topology(void);
 void freq_inv_set_max_ratio(int cpu, u64 max_rate);
+
+#ifdef CONFIG_HOTPLUG_SMT
+bool topology_is_primary_thread(unsigned int cpu);
+void topology_smt_set_num_threads(unsigned int num_threads);
+unsigned int topology_smt_get_num_threads(void);
+#else
+static inline bool topology_is_primary_thread(unsigned int cpu) { return false; }
+static inline void topology_smt_set_num_threads(unsigned int num_threads) { }
+static inline unsigned int topology_smt_get_num_threads(void)
+{
+   return 1;
+}
+#endif
+
 #endif
 
 #endif /* _LINUX_ARCH_TOPOLOGY_H_ */
