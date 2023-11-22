@@ -290,10 +290,10 @@ static void hct_cmd_queue_intr_task(unsigned long data)
 				err = ioread32(cmd_q->reg_status);
 				pr_err("Irq fail, errcode = %d.\n", MCMD_Q_ERROR(err));
 				while (kfifo_get(&cmd_q->ectx_fifo, &trigger))
-					eventfd_signal(trigger, IRQ_EVENT_SIGFAL);
+					eventfd_signal(trigger);
 			} else {
 				while (kfifo_get(&cmd_q->ectx_fifo, &trigger))
-					eventfd_signal(trigger, IRQ_EVENT_SIGNAL);
+					eventfd_signal(trigger);
 			}
 
 			iowrite32(status, cmd_q->reg_interrupt_status);
