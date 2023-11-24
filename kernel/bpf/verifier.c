@@ -335,6 +335,11 @@ struct bpf_kfunc_call_arg_meta {
 
 struct btf *btf_vmlinux;
 
+static const char *btf_type_name(const struct btf *btf, u32 id)
+{
+	return btf_name_by_offset(btf, btf_type_by_id(btf, id)->name_off);
+}
+
 static DEFINE_MUTEX(bpf_verifier_lock);
 
 static const struct bpf_line_info *
@@ -493,6 +498,17 @@ static bool subprog_is_global(const struct bpf_verifier_env *env, int subprog)
 	struct bpf_func_info_aux *aux = env->prog->aux->func_info_aux;
 
 	return aux && aux[subprog].linkage == BTF_FUNC_GLOBAL;
+}
+
+static const char *subprog_name(const struct bpf_verifier_env *env, int subprog)
+{
+	struct bpf_func_info *info;
+
+	if (!env->prog->aux->func_info)
+		return "";
+
+	info = &env->prog->aux->func_info[subprog];
+	return btf_type_name(env->prog->aux->btf, info->type_id);
 }
 
 static bool reg_may_point_to_spin_lock(const struct bpf_reg_state *reg)
@@ -738,11 +754,6 @@ static int dynptr_get_spi(struct bpf_verifier_env *env, struct bpf_reg_state *re
 static int iter_get_spi(struct bpf_verifier_env *env, struct bpf_reg_state *reg, int nr_slots)
 {
 	return stack_slot_obj_get_spi(env, reg, "iter", nr_slots);
-}
-
-static const char *btf_type_name(const struct btf *btf, u32 id)
-{
-	return btf_name_by_offset(btf, btf_type_by_id(btf, id)->name_off);
 }
 
 static const char *dynptr_type_str(enum bpf_dynptr_type type)
@@ -9399,13 +9410,17 @@ static int check_func_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	if (err == -EFAULT)
 		return err;
 	if (subprog_is_global(env, subprog)) {
+		const char *sub_name = subprog_name(env, subprog);
+
 		if (err) {
-			verbose(env, "Caller passes invalid args into func#%d\n", subprog);
+			verbose(env, "Caller passes invalid args into func#%d ('%s')\n",
++				subprog, sub_name);
 			return err;
 		}
 
 		if (env->log.level & BPF_LOG_LEVEL)
-			verbose(env, "Func#%d is global and valid. Skipping.\n", subprog);
+			verbose(env, "Func#%d ('%s') is global and assumed valid.\n",
++			subprog, sub_name);
 		if (env->subprog_info[subprog].changes_pkt_data)
 			clear_all_pkt_pointers(env);
 		clear_caller_saved_regs(env, caller->regs);
@@ -19824,9 +19839,8 @@ static int do_check_subprogs(struct bpf_verifier_env *env)
 		if (ret) {
 			return ret;
 		} else if (env->log.level & BPF_LOG_LEVEL) {
-			verbose(env,
-				"Func#%d is safe for any args that match its prototype\n",
-				i);
+			verbose(env, "Func#%d ('%s') is safe for any args that match its prototype\n",
+				i, subprog_name(env, i));
 		}
 	}
 	return 0;
