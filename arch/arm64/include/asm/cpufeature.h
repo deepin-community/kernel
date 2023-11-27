@@ -824,6 +824,11 @@ static inline bool system_supports_tlb_range(void)
 	return alternative_has_cap_unlikely(ARM64_HAS_TLB_RANGE);
 }
 
+static inline bool system_supports_lpa2(void)
+{
+	return cpus_have_final_cap(ARM64_HAS_LPA2);
+}
+
 static inline bool system_supports_haft(void)
 {
 	return IS_ENABLED(CONFIG_ARM64_HAFT) &&
