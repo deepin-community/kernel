@@ -599,6 +599,7 @@ static void graph_link_init(struct asoc_simple_priv *priv,
 	struct device_node *ep;
 	struct device_node *ports;
 	unsigned int daifmt = 0, daiclk = 0;
+	bool playback_only = 0, capture_only = 0;
 	unsigned int bit_frame = 0;
 
 	if (graph_lnk_is_multi(port)) {
@@ -636,6 +637,11 @@ static void graph_link_init(struct asoc_simple_priv *priv,
 	daiclk = snd_soc_daifmt_clock_provider_from_bitmap(bit_frame);
 	if (is_cpu_node)
 		daiclk = snd_soc_daifmt_clock_provider_flipped(daiclk);
+
+	graph_util_parse_link_direction(port, &playback_only, &capture_only);
+
+	dai_link->playback_only = playback_only;
+	dai_link->capture_only = capture_only;
 
 	dai_link->dai_fmt	= daifmt | daiclk;
 	dai_link->init		= asoc_simple_dai_init;
