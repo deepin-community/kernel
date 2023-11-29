@@ -4946,6 +4946,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 #define PIPE_CONF_CHECK_X(name) do { \
 	if (current_config->name != pipe_config->name) { \
+		BUILD_BUG_ON_MSG(__same_type(current_config->name, bool), \
+				 __stringify(name) " is bool");	\
 		pipe_config_mismatch(fastset, crtc, __stringify(name), \
 				     "(expected 0x%08x, found 0x%08x)", \
 				     current_config->name, \
@@ -4956,6 +4958,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 #define PIPE_CONF_CHECK_X_WITH_MASK(name, mask) do { \
 	if ((current_config->name & (mask)) != (pipe_config->name & (mask))) { \
+		BUILD_BUG_ON_MSG(__same_type(current_config->name, bool), \
+				 __stringify(name) " is bool");	\
 		pipe_config_mismatch(fastset, crtc, __stringify(name), \
 				     "(expected 0x%08x, found 0x%08x)", \
 				     current_config->name & (mask), \
@@ -4966,6 +4970,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 #define PIPE_CONF_CHECK_I(name) do { \
 	if (current_config->name != pipe_config->name) { \
+		BUILD_BUG_ON_MSG(__same_type(current_config->name, bool), \
+				 __stringify(name) " is bool");	\
 		pipe_config_mismatch(fastset, crtc, __stringify(name), \
 				     "(expected %i, found %i)", \
 				     current_config->name, \
@@ -4976,6 +4982,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 #define PIPE_CONF_CHECK_BOOL(name) do { \
 	if (current_config->name != pipe_config->name) { \
+		BUILD_BUG_ON_MSG(!__same_type(current_config->name, bool), \
+				 __stringify(name) " is not bool");	\
 		pipe_config_mismatch(fastset, crtc,  __stringify(name), \
 				     "(expected %s, found %s)", \
 				     str_yes_no(current_config->name), \
