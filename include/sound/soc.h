@@ -651,6 +651,7 @@ struct snd_soc_dai_link_component {
 	const char *name;
 	struct device_node *of_node;
 	const char *dai_name;
+	struct of_phandle_args *dai_args;
 };
 
 struct snd_soc_dai_link_codec_ch_map {
@@ -931,6 +932,17 @@ struct snd_soc_card {
 #ifdef CONFIG_DMI
 	char dmi_longname[80];
 #endif /* CONFIG_DMI */
+
+#ifdef CONFIG_PCI
+	/*
+	 * PCI does not define 0 as invalid, so pci_subsystem_set indicates
+	 * whether a value has been written to these fields.
+	 */
+	unsigned short pci_subsystem_vendor;
+	unsigned short pci_subsystem_device;
+	bool pci_subsystem_set;
+#endif /* CONFIG_PCI */
+
 	char topology_shortname[32];
 
 	struct device *dev;
@@ -1337,6 +1349,11 @@ int snd_soc_add_pcm_runtimes(struct snd_soc_card *card,
 void snd_soc_remove_pcm_runtime(struct snd_soc_card *card,
 				struct snd_soc_pcm_runtime *rtd);
 
+void snd_soc_dlc_use_cpu_as_platform(struct snd_soc_dai_link_component *platforms,
+				     struct snd_soc_dai_link_component *cpus);
+struct of_phandle_args *snd_soc_copy_dai_args(struct device *dev,
+					      struct of_phandle_args *args);
+struct snd_soc_dai *snd_soc_get_dai_via_args(struct of_phandle_args *dai_args);
 struct snd_soc_dai *snd_soc_register_dai(struct snd_soc_component *component,
 					 struct snd_soc_dai_driver *dai_drv,
 					 bool legacy_dai_naming);

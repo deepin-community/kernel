@@ -1260,7 +1260,8 @@ static int tcf_ct_fill_params(struct net *net,
 		}
 	}
 
-	__set_bit(IPS_CONFIRMED_BIT, &tmpl->status);
+	if (p->ct_action & TCA_CT_ACT_COMMIT)
+		__set_bit(IPS_CONFIRMED_BIT, &tmpl->status);
 	return 0;
 err:
 	nf_ct_put(p->tmpl);
@@ -1533,6 +1534,9 @@ static int tcf_ct_offload_act_setup(struct tc_action *act, void *entry_data,
 {
 	if (bind) {
 		struct flow_action_entry *entry = entry_data;
+
+		if (tcf_ct_helper(act))
+			return -EOPNOTSUPP;
 
 		entry->id = FLOW_ACTION_CT;
 		entry->ct.action = tcf_ct_action(act);

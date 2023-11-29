@@ -41,8 +41,8 @@ struct pwm_args {
 };
 
 enum {
-	PWMF_REQUESTED = 1 << 0,
-	PWMF_EXPORTED = 1 << 1,
+	PWMF_REQUESTED = 0,
+	PWMF_EXPORTED = 1,
 };
 
 /*
@@ -298,7 +298,7 @@ struct pwm_chip {
 	int base;
 	unsigned int npwm;
 
-	struct pwm_device * (*of_xlate)(struct pwm_chip *pc,
+	struct pwm_device * (*of_xlate)(struct pwm_chip *chip,
 					const struct of_phandle_args *args);
 	unsigned int of_pwm_n_cells;
 
@@ -395,9 +395,9 @@ struct pwm_device *pwm_request_from_chip(struct pwm_chip *chip,
 					 unsigned int index,
 					 const char *label);
 
-struct pwm_device *of_pwm_xlate_with_flags(struct pwm_chip *pc,
+struct pwm_device *of_pwm_xlate_with_flags(struct pwm_chip *chip,
 		const struct of_phandle_args *args);
-struct pwm_device *of_pwm_single_xlate(struct pwm_chip *pc,
+struct pwm_device *of_pwm_single_xlate(struct pwm_chip *chip,
 				       const struct of_phandle_args *args);
 
 struct pwm_device *pwm_get(struct device *dev, const char *con_id);

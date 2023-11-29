@@ -186,12 +186,22 @@ struct cifs_cred {
 };
 
 struct cifs_open_info_data {
+	bool adjust_tz;
+	union {
+		bool reparse_point;
+		bool symlink;
+	};
+	__u32 reparse_tag;
 	char *symlink_target;
 	union {
 		struct smb2_file_all_info fi;
 		struct smb311_posix_qinfo posix_fi;
 	};
 };
+
+#define cifs_open_data_reparse(d) \
+	((d)->reparse_point || \
+	 (le32_to_cpu((d)->fi.Attributes) & ATTR_REPARSE))
 
 static inline void cifs_free_open_info(struct cifs_open_info_data *data)
 {
@@ -318,16 +328,21 @@ struct smb_version_operations {
 	int (*is_path_accessible)(const unsigned int, struct cifs_tcon *,
 				  struct cifs_sb_info *, const char *);
 	/* query path data from the server */
-	int (*query_path_info)(const unsigned int xid, struct cifs_tcon *tcon,
-			       struct cifs_sb_info *cifs_sb, const char *full_path,
-			       struct cifs_open_info_data *data, bool *adjust_tz, bool *reparse);
+	int (*query_path_info)(const unsigned int xid,
+			       struct cifs_tcon *tcon,
+			       struct cifs_sb_info *cifs_sb,
+			       const char *full_path,
+			       struct cifs_open_info_data *data);
 	/* query file data from the server */
 	int (*query_file_info)(const unsigned int xid, struct cifs_tcon *tcon,
 			       struct cifsFileInfo *cfile, struct cifs_open_info_data *data);
-	/* query reparse tag from srv to determine which type of special file */
-	int (*query_reparse_tag)(const unsigned int xid, struct cifs_tcon *tcon,
-				struct cifs_sb_info *cifs_sb, const char *path,
-				__u32 *reparse_tag);
+	/* query reparse point to determine which type of special file */
+	int (*query_reparse_point)(const unsigned int xid,
+				   struct cifs_tcon *tcon,
+				   struct cifs_sb_info *cifs_sb,
+				   const char *full_path,
+				   u32 *tag, struct kvec *rsp,
+				   int *rsp_buftype);
 	/* get server index number */
 	int (*get_srv_inum)(const unsigned int xid, struct cifs_tcon *tcon,
 			    struct cifs_sb_info *cifs_sb, const char *full_path, u64 *uniqueid,
@@ -376,9 +391,12 @@ struct smb_version_operations {
 			       const char *, const char *,
 			       struct cifs_sb_info *);
 	/* query symlink target */
-	int (*query_symlink)(const unsigned int, struct cifs_tcon *,
-			     struct cifs_sb_info *, const char *,
-			     char **, bool);
+	int (*query_symlink)(const unsigned int xid,
+			     struct cifs_tcon *tcon,
+			     struct cifs_sb_info *cifs_sb,
+			     const char *full_path,
+			     char **target_path,
+			     struct kvec *rsp_iov);
 	/* open a file for non-posix mounts */
 	int (*open)(const unsigned int xid, struct cifs_open_parms *oparms, __u32 *oplock,
 		    void *buf);
@@ -727,7 +745,7 @@ struct TCP_Server_Info {
 	 * primary_server holds the ref-counted
 	 * pointer to primary channel connection for the session.
 	 */
-#define CIFS_SERVER_IS_CHAN(server)	(!!(server)->primary_server)
+#define SERVER_IS_CHAN(server)	(!!(server)->primary_server)
 	struct TCP_Server_Info *primary_server;
 	__u16 channel_sequence_num;  /* incremented on primary channel on each chan reconnect */
 
@@ -1077,7 +1095,7 @@ cap_unix(struct cifs_ses *ses)
  * inode with new info
  */
 
-#define CIFS_FATTR_DFS_REFERRAL		0x1
+#define CIFS_FATTR_JUNCTION		0x1
 #define CIFS_FATTR_DELETE_PENDING	0x2
 #define CIFS_FATTR_NEED_REVAL		0x4
 #define CIFS_FATTR_INO_COLLISION	0x8
@@ -1723,11 +1741,23 @@ struct cifs_mount_ctx {
 	struct list_head dfs_ses_list;
 };
 
+static inline void __free_dfs_info_param(struct dfs_info3_param *param)
+{
+	kfree(param->path_name);
+	kfree(param->node_name);
+}
+
 static inline void free_dfs_info_param(struct dfs_info3_param *param)
 {
+	if (param)
+		__free_dfs_info_param(param);
+}
+
+static inline void zfree_dfs_info_param(struct dfs_info3_param *param)
+{
 	if (param) {
-		kfree(param->path_name);
-		kfree(param->node_name);
+		__free_dfs_info_param(param);
+		memset(param, 0, sizeof(*param));
 	}
 }
 
@@ -2113,6 +2143,7 @@ static inline int cifs_get_num_sgs(const struct smb_rqst *rqst,
 	unsigned int len, skip;
 	unsigned int nents = 0;
 	unsigned long addr;
+	size_t data_size;
 	int i, j;
 
 	/*
@@ -2128,17 +2159,21 @@ static inline int cifs_get_num_sgs(const struct smb_rqst *rqst,
 	 * rqst[1+].rq_iov[0+] data to be encrypted/decrypted
 	 */
 	for (i = 0; i < num_rqst; i++) {
+		data_size = iov_iter_count(&rqst[i].rq_iter);
+
 		/* We really don't want a mixture of pinned and unpinned pages
 		 * in the sglist.  It's hard to keep track of which is what.
 		 * Instead, we convert to a BVEC-type iterator higher up.
 		 */
-		if (WARN_ON_ONCE(user_backed_iter(&rqst[i].rq_iter)))
+		if (data_size &&
+		    WARN_ON_ONCE(user_backed_iter(&rqst[i].rq_iter)))
 			return -EIO;
 
 		/* We also don't want to have any extra refs or pins to clean
 		 * up in the sglist.
 		 */
-		if (WARN_ON_ONCE(iov_iter_extract_will_pin(&rqst[i].rq_iter)))
+		if (data_size &&
+		    WARN_ON_ONCE(iov_iter_extract_will_pin(&rqst[i].rq_iter)))
 			return -EIO;
 
 		for (j = 0; j < rqst[i].rq_nvec; j++) {
@@ -2154,7 +2189,8 @@ static inline int cifs_get_num_sgs(const struct smb_rqst *rqst,
 			}
 			skip = 0;
 		}
-		nents += iov_iter_npages(&rqst[i].rq_iter, INT_MAX);
+		if (data_size)
+			nents += iov_iter_npages(&rqst[i].rq_iter, INT_MAX);
 	}
 	nents += DIV_ROUND_UP(offset_in_page(sig) + SMB2_SIGNATURE_SIZE, PAGE_SIZE);
 	return nents;
@@ -2187,5 +2223,18 @@ static inline void cifs_sg_set_buf(struct sg_table *sgtable,
 			    virt_to_page((void *)addr), buflen, off);
 	}
 }
+
+struct smb2_compound_vars {
+	struct cifs_open_parms oparms;
+	struct kvec rsp_iov[3];
+	struct smb_rqst rqst[3];
+	struct kvec open_iov[SMB2_CREATE_IOV_SIZE];
+	struct kvec qi_iov;
+	struct kvec io_iov[SMB2_IOCTL_IOV_SIZE];
+	struct kvec si_iov[SMB2_SET_INFO_IOV_SIZE];
+	struct kvec close_iov;
+	struct smb2_file_rename_info rename_info;
+	struct smb2_file_link_info link_info;
+};
 
 #endif	/* _CIFS_GLOB_H */

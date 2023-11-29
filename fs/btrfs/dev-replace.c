@@ -442,7 +442,7 @@ int btrfs_run_dev_replace(struct btrfs_trans_handle *trans)
 	dev_replace->item_needs_writeback = 0;
 	up_write(&dev_replace->rwsem);
 
-	btrfs_mark_buffer_dirty(eb);
+	btrfs_mark_buffer_dirty(trans, eb);
 
 out:
 	btrfs_free_path(path);
@@ -792,9 +792,9 @@ static int btrfs_set_target_alloc_state(struct btrfs_device *srcdev,
 
 	lockdep_assert_held(&srcdev->fs_info->chunk_mutex);
 
-	while (!find_first_extent_bit(&srcdev->alloc_state, start,
-				      &found_start, &found_end,
-				      CHUNK_ALLOCATED, &cached_state)) {
+	while (find_first_extent_bit(&srcdev->alloc_state, start,
+				     &found_start, &found_end,
+				     CHUNK_ALLOCATED, &cached_state)) {
 		ret = set_extent_bit(&tgtdev->alloc_state, found_start,
 				     found_end, CHUNK_ALLOCATED, NULL);
 		if (ret)

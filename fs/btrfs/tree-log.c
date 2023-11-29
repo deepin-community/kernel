@@ -504,9 +504,9 @@ insert:
 		found_size = btrfs_item_size(path->nodes[0],
 						path->slots[0]);
 		if (found_size > item_size)
-			btrfs_truncate_item(path, item_size, 1);
+			btrfs_truncate_item(trans, path, item_size, 1);
 		else if (found_size < item_size)
-			btrfs_extend_item(path, item_size - found_size);
+			btrfs_extend_item(trans, path, item_size - found_size);
 	} else if (ret) {
 		return ret;
 	}
@@ -574,7 +574,7 @@ insert:
 		}
 	}
 no_copy:
-	btrfs_mark_buffer_dirty(path->nodes[0]);
+	btrfs_mark_buffer_dirty(trans, path->nodes[0]);
 	btrfs_release_path(path);
 	return 0;
 }
@@ -3530,7 +3530,7 @@ static noinline int insert_dir_log_key(struct btrfs_trans_handle *trans,
 		last_offset = max(last_offset, curr_end);
 	}
 	btrfs_set_dir_log_end(path->nodes[0], item, last_offset);
-	btrfs_mark_buffer_dirty(path->nodes[0]);
+	btrfs_mark_buffer_dirty(trans, path->nodes[0]);
 	btrfs_release_path(path);
 	return 0;
 }
@@ -4148,9 +4148,9 @@ static void fill_inode_item(struct btrfs_trans_handle *trans,
 				      inode->i_mtime.tv_nsec);
 
 	btrfs_set_token_timespec_sec(&token, &item->ctime,
-				     inode->i_ctime.tv_sec);
+				     inode_get_ctime(inode).tv_sec);
 	btrfs_set_token_timespec_nsec(&token, &item->ctime,
-				      inode->i_ctime.tv_nsec);
+				      inode_get_ctime(inode).tv_nsec);
 
 	/*
 	 * We do not need to set the nbytes field, in fact during a fast fsync
@@ -4488,7 +4488,7 @@ copy_item:
 		dst_index++;
 	}
 
-	btrfs_mark_buffer_dirty(dst_path->nodes[0]);
+	btrfs_mark_buffer_dirty(trans, dst_path->nodes[0]);
 	btrfs_release_path(dst_path);
 out:
 	kfree(ins_data);
@@ -4693,7 +4693,7 @@ static int log_one_extent(struct btrfs_trans_handle *trans,
 	write_extent_buffer(leaf, &fi,
 			    btrfs_item_ptr_offset(leaf, path->slots[0]),
 			    sizeof(fi));
-	btrfs_mark_buffer_dirty(leaf);
+	btrfs_mark_buffer_dirty(trans, leaf);
 
 	btrfs_release_path(path);
 
@@ -4841,12 +4841,10 @@ static int btrfs_log_changed_extents(struct btrfs_trans_handle *trans,
 	struct btrfs_ordered_extent *ordered;
 	struct btrfs_ordered_extent *tmp;
 	struct extent_map *em, *n;
-	struct list_head extents;
+	LIST_HEAD(extents);
 	struct extent_map_tree *tree = &inode->extent_tree;
 	int ret = 0;
 	int num = 0;
-
-	INIT_LIST_HEAD(&extents);
 
 	write_lock(&tree->lock);
 
@@ -6794,8 +6792,8 @@ static int log_new_ancestors(struct btrfs_trans_handle *trans,
 
 	while (true) {
 		struct btrfs_fs_info *fs_info = root->fs_info;
-		struct extent_buffer *leaf = path->nodes[0];
-		int slot = path->slots[0];
+		struct extent_buffer *leaf;
+		int slot;
 		struct btrfs_key search_key;
 		struct inode *inode;
 		u64 ino;

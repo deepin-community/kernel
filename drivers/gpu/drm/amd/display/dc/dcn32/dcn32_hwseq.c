@@ -47,11 +47,9 @@
 #include "clk_mgr.h"
 #include "dsc.h"
 #include "dcn20/dcn20_optc.h"
-#include "dmub_subvp_state.h"
 #include "dce/dmub_hw_lock_mgr.h"
 #include "dcn32_resource.h"
 #include "link.h"
-#include "dmub/inc/dmub_subvp_state.h"
 
 #define DC_LOGGER_INIT(logger)
 
@@ -77,6 +75,9 @@ void dcn32_dsc_pg_control(
 	uint32_t org_ip_request_cntl = 0;
 
 	if (hws->ctx->dc->debug.disable_dsc_power_gate)
+		return;
+
+	if (!hws->ctx->dc->debug.enable_double_buffered_dsc_pg_support)
 		return;
 
 	REG_GET(DC_IP_REQUEST_CNTL, IP_REQUEST_EN, &org_ip_request_cntl);
@@ -216,7 +217,7 @@ static bool dcn32_check_no_memory_request_for_cab(struct dc *dc)
 static uint32_t dcn32_calculate_cab_allocation(struct dc *dc, struct dc_state *ctx)
 {
 	int i;
-	uint8_t num_ways = 0;
+	uint32_t num_ways = 0;
 	uint32_t mall_ss_size_bytes = 0;
 
 	mall_ss_size_bytes = ctx->bw_ctx.bw.dcn.mall_ss_size_bytes;
@@ -246,7 +247,8 @@ static uint32_t dcn32_calculate_cab_allocation(struct dc *dc, struct dc_state *c
 bool dcn32_apply_idle_power_optimizations(struct dc *dc, bool enable)
 {
 	union dmub_rb_cmd cmd;
-	uint8_t ways, i;
+	uint8_t i;
+	uint32_t ways;
 	int j;
 	bool mall_ss_unsupported = false;
 	struct dc_plane_state *plane = NULL;
@@ -306,7 +308,7 @@ bool dcn32_apply_idle_power_optimizations(struct dc *dc, bool enable)
 				cmd.cab.header.type = DMUB_CMD__CAB_FOR_SS;
 				cmd.cab.header.sub_type = DMUB_CMD__CAB_DCN_SS_FIT_IN_CAB;
 				cmd.cab.header.payload_bytes = sizeof(cmd.cab) - sizeof(cmd.cab.header);
-				cmd.cab.cab_alloc_ways = ways;
+				cmd.cab.cab_alloc_ways = (uint8_t)ways;
 
 				dm_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_NO_WAIT);
 
@@ -569,7 +571,7 @@ bool dcn32_set_output_transfer_func(struct dc *dc,
 	bool ret = false;
 
 	/* program OGAM or 3DLUT only for the top pipe*/
-	if (pipe_ctx->top_pipe == NULL) {
+	if (resource_is_pipe_type(pipe_ctx, OPP_HEAD)) {
 		/*program shaper and 3dlut in MPC*/
 		ret = dcn32_set_mpc_shaper_3dlut(pipe_ctx, stream);
 		if (ret == false && mpc->funcs->set_output_gamma && stream->out_transfer_func) {
@@ -1204,10 +1206,10 @@ void dcn32_resync_fifo_dccg_dio(struct dce_hwseq *hws, struct dc *dc, struct dc_
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
 		pipe = &dc->current_state->res_ctx.pipe_ctx[i];
 
-		if (pipe->top_pipe || pipe->prev_odm_pipe)
+		if (!resource_is_pipe_type(pipe, OTG_MASTER))
 			continue;
 
-		if (pipe->stream && (pipe->stream->dpms_off || dc_is_virtual_signal(pipe->stream->signal))
+		if ((pipe->stream->dpms_off || dc_is_virtual_signal(pipe->stream->signal))
 			&& pipe->stream->mall_stream_config.type != SUBVP_PHANTOM) {
 			pipe->stream_res.tg->funcs->disable_crtc(pipe->stream_res.tg);
 			reset_sync_context_for_pipe(dc, context, i);
@@ -1301,7 +1303,7 @@ static void apply_symclk_on_tx_off_wa(struct dc_link *link)
 	if (link->phy_state.symclk_ref_cnts.otg > 0) {
 		for (i = 0; i < MAX_PIPES; i++) {
 			pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[i];
-			if (pipe_ctx->stream && pipe_ctx->stream->link == link && pipe_ctx->top_pipe == NULL) {
+			if (resource_is_pipe_type(pipe_ctx, OPP_HEAD) && pipe_ctx->stream->link == link) {
 				pipe_ctx->clock_source->funcs->program_pix_clk(
 						pipe_ctx->clock_source,
 						&pipe_ctx->stream_res.pix_clk_params,
@@ -1384,7 +1386,7 @@ void dcn32_apply_update_flags_for_phantom(struct pipe_ctx *phantom_pipe)
 {
 	phantom_pipe->update_flags.raw = 0;
 	if (phantom_pipe->stream && phantom_pipe->stream->mall_stream_config.type == SUBVP_PHANTOM) {
-		if (phantom_pipe->stream && phantom_pipe->plane_state) {
+		if (resource_is_pipe_type(phantom_pipe, DPP_PIPE)) {
 			phantom_pipe->update_flags.bits.enable = 1;
 			phantom_pipe->update_flags.bits.mpcc = 1;
 			phantom_pipe->update_flags.bits.dppclk = 1;
@@ -1394,7 +1396,7 @@ void dcn32_apply_update_flags_for_phantom(struct pipe_ctx *phantom_pipe)
 			phantom_pipe->update_flags.bits.scaler = 1;
 			phantom_pipe->update_flags.bits.viewport = 1;
 			phantom_pipe->update_flags.bits.det_size = 1;
-			if (!phantom_pipe->top_pipe && !phantom_pipe->prev_odm_pipe) {
+			if (resource_is_pipe_type(phantom_pipe, OTG_MASTER)) {
 				phantom_pipe->update_flags.bits.odm = 1;
 				phantom_pipe->update_flags.bits.global_sync = 1;
 			}
@@ -1574,4 +1576,102 @@ void dcn32_init_blank(
 
 	if (opp)
 		hws->funcs.wait_for_blank_complete(opp);
+}
+
+void dcn32_blank_phantom(struct dc *dc,
+		struct timing_generator *tg,
+		int width,
+		int height)
+{
+	struct dce_hwseq *hws = dc->hwseq;
+	enum dc_color_space color_space;
+	struct tg_color black_color = {0};
+	struct output_pixel_processor *opp = NULL;
+	uint32_t num_opps, opp_id_src0, opp_id_src1;
+	uint32_t otg_active_width, otg_active_height;
+	uint32_t i;
+
+	/* program opp dpg blank color */
+	color_space = COLOR_SPACE_SRGB;
+	color_space_to_black_color(dc, color_space, &black_color);
+
+	otg_active_width = width;
+	otg_active_height = height;
+
+	/* get the OPTC source */
+	tg->funcs->get_optc_source(tg, &num_opps, &opp_id_src0, &opp_id_src1);
+	ASSERT(opp_id_src0 < dc->res_pool->res_cap->num_opp);
+
+	for (i = 0; i < dc->res_pool->res_cap->num_opp; i++) {
+		if (dc->res_pool->opps[i] != NULL && dc->res_pool->opps[i]->inst == opp_id_src0) {
+			opp = dc->res_pool->opps[i];
+			break;
+		}
+	}
+
+	if (opp && opp->funcs->opp_set_disp_pattern_generator)
+		opp->funcs->opp_set_disp_pattern_generator(
+				opp,
+				CONTROLLER_DP_TEST_PATTERN_SOLID_COLOR,
+				CONTROLLER_DP_COLOR_SPACE_UDEFINED,
+				COLOR_DEPTH_UNDEFINED,
+				&black_color,
+				otg_active_width,
+				otg_active_height,
+				0);
+
+	if (tg->funcs->is_tg_enabled(tg))
+		hws->funcs.wait_for_blank_complete(opp);
+}
+
+bool dcn32_is_pipe_topology_transition_seamless(struct dc *dc,
+		const struct dc_state *cur_ctx,
+		const struct dc_state *new_ctx)
+{
+	int i;
+	const struct pipe_ctx *cur_pipe, *new_pipe;
+	bool is_seamless = true;
+
+	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+		cur_pipe = &cur_ctx->res_ctx.pipe_ctx[i];
+		new_pipe = &new_ctx->res_ctx.pipe_ctx[i];
+
+		if (resource_is_pipe_type(cur_pipe, FREE_PIPE) ||
+				resource_is_pipe_type(new_pipe, FREE_PIPE))
+			/* adding or removing free pipes is always seamless */
+			continue;
+		else if (resource_is_pipe_type(cur_pipe, OTG_MASTER)) {
+			if (resource_is_pipe_type(new_pipe, OTG_MASTER))
+				if (cur_pipe->stream->stream_id == new_pipe->stream->stream_id)
+				/* OTG master with the same stream is seamless */
+					continue;
+		} else if (resource_is_pipe_type(cur_pipe, OPP_HEAD)) {
+			if (resource_is_pipe_type(new_pipe, OPP_HEAD)) {
+				if (cur_pipe->stream_res.tg == new_pipe->stream_res.tg)
+					/*
+					 * OPP heads sharing the same timing
+					 * generator is seamless
+					 */
+					continue;
+			}
+		} else if (resource_is_pipe_type(cur_pipe, DPP_PIPE)) {
+			if (resource_is_pipe_type(new_pipe, DPP_PIPE)) {
+				if (cur_pipe->stream_res.opp == new_pipe->stream_res.opp)
+					/*
+					 * DPP pipes sharing the same OPP head is
+					 * seamless
+					 */
+					continue;
+			}
+		}
+
+		/*
+		 * This pipe's transition doesn't fall under any seamless
+		 * conditions
+		 */
+		is_seamless = false;
+		break;
+	}
+
+	return is_seamless;
 }

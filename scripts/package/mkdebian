@@ -303,7 +303,11 @@ clean:
 	\$(MAKE) -f \$(srctree)/Makefile ARCH=\${BUILD_ARCH} clean
 
 binary: binary-arch
+cat <<EOF > debian/rules.vars
+ARCH := ${ARCH}
+KERNELRELEASE := ${KERNELRELEASE}
 EOF
-chmod +x debian/rules
+
+cp "${srctree}/scripts/package/debian/rules" debian/
 
 exit 0

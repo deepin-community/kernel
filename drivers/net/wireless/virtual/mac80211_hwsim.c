@@ -3170,7 +3170,7 @@ static void mac80211_hwsim_get_et_strings(struct ieee80211_hw *hw,
 					  u32 sset, u8 *data)
 {
 	if (sset == ETH_SS_STATS)
-		memcpy(data, *mac80211_hwsim_gstrings_stats,
+		memcpy(data, mac80211_hwsim_gstrings_stats,
 		       sizeof(mac80211_hwsim_gstrings_stats));
 }
 
@@ -6314,7 +6314,7 @@ static void hwsim_virtio_tx_done(struct virtqueue *vq)
 
 	spin_lock_irqsave(&hwsim_virtio_lock, flags);
 	while ((skb = virtqueue_get_buf(vq, &len)))
-		nlmsg_free(skb);
+		dev_kfree_skb_irq(skb);
 	spin_unlock_irqrestore(&hwsim_virtio_lock, flags);
 }
 
@@ -6383,14 +6383,14 @@ static void hwsim_virtio_rx_work(struct work_struct *work)
 
 	spin_lock_irqsave(&hwsim_virtio_lock, flags);
 	if (!hwsim_virtio_enabled) {
-		nlmsg_free(skb);
+		dev_kfree_skb_irq(skb);
 		goto out_unlock;
 	}
 	vq = hwsim_vqs[HWSIM_VQ_RX];
 	sg_init_one(sg, skb->head, skb_end_offset(skb));
 	err = virtqueue_add_inbuf(vq, sg, 1, skb, GFP_ATOMIC);
 	if (WARN(err, "virtqueue_add_inbuf returned %d\n", err))
-		nlmsg_free(skb);
+		dev_kfree_skb_irq(skb);
 	else
 		virtqueue_kick(vq);
 	schedule_work(&hwsim_virtio_rx);
