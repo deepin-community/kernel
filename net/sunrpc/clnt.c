@@ -3122,7 +3122,6 @@ static int rpc_xprt_probe_trunked(struct rpc_clnt *clnt,
 				  struct rpc_xprt *xprt,
 				  struct rpc_add_xprt_test *data)
 {
-	struct rpc_xprt_switch *xps;
 	struct rpc_xprt *main_xprt;
 	int status = 0;
 
@@ -3130,7 +3129,6 @@ static int rpc_xprt_probe_trunked(struct rpc_clnt *clnt,
 
 	rcu_read_lock();
 	main_xprt = xprt_get(rcu_dereference(clnt->cl_xprt));
-	xps = xprt_switch_get(rcu_dereference(clnt->cl_xpi.xpi_xpswitch));
 	status = rpc_cmp_addr_port((struct sockaddr *)&xprt->addr,
 				   (struct sockaddr *)&main_xprt->addr);
 	rcu_read_unlock();
@@ -3141,7 +3139,6 @@ static int rpc_xprt_probe_trunked(struct rpc_clnt *clnt,
 	status = rpc_clnt_add_xprt_helper(clnt, xprt, data);
 out:
 	xprt_put(xprt);
-	xprt_switch_put(xps);
 	return status;
 }
 
