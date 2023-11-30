@@ -1845,6 +1845,14 @@ static int hns3_get_module_info(struct net_device *netdev,
 		modinfo->type = ETH_MODULE_SFF_8636;
 		modinfo->eeprom_len = ETH_MODULE_SFF_8636_MAX_LEN;
 		break;
+	case SFF8024_ID_QSFP_DD:
+	case SFF8024_ID_QSFP_PLUS_CMIS:
+		modinfo->type = ETH_MODULE_SFF_8636;
+		if (sfp_type.flat_mem & HNS3_CMIS_FLAT_MEMORY)
+			modinfo->eeprom_len = ETH_MODULE_SFF_8636_LEN;
+		else
+			modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+		break;
 	default:
 		netdev_err(netdev, "Optical module unknown: %#x\n",
 			   sfp_type.type);

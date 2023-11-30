@@ -12,9 +12,11 @@ struct hns3_stats {
 	int stats_offset;
 };
 
+#define HNS3_CMIS_FLAT_MEMORY	BIT(7)
 struct hns3_sfp_type {
 	u8 type;
 	u8 ext_type;
+	u8 flat_mem;
 };
 
 struct hns3_pflag_desc {
