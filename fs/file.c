@@ -778,7 +778,7 @@ int __close_range(unsigned fd, unsigned max_fd, unsigned int flags)
 }
 
 /*
- * See close_fd_get_file() below, this variant assumes current->files->file_lock
+ * See file_close_fd() below, this variant assumes current->files->file_lock
  * is held.
  */
 struct file *__close_fd_get_file(unsigned int fd)
@@ -786,11 +786,15 @@ struct file *__close_fd_get_file(unsigned int fd)
 	return pick_file(current->files, fd);
 }
 
-/*
- * variant of close_fd that gets a ref on the file for later fput.
- * The caller must ensure that filp_close() called on the file.
+/**
+ * file_close_fd - return file associated with fd
+ * @fd: file descriptor to retrieve file for
+ *
+ * Doesn't take a separate reference count.
+ *
+ * Returns: The file associated with @fd (NULL if @fd is not open)
  */
-struct file *close_fd_get_file(unsigned int fd)
+struct file *file_close_fd(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct file *file;
@@ -801,7 +805,7 @@ struct file *close_fd_get_file(unsigned int fd)
 
 	return file;
 }
-EXPORT_SYMBOL_GPL(close_fd_get_file);
+EXPORT_SYMBOL_GPL(file_close_fd);
 
 void do_close_on_exec(struct files_struct *files)
 {
