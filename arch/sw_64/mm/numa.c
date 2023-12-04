@@ -344,10 +344,30 @@ static int __init manual_numa_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_ACPI_NUMA
+static int __init sw64_acpi_numa_init(void)
+{
+	int ret;
+
+	ret = acpi_numa_init();
+	if (ret) {
+		pr_info("Failed to initialise from firmware\n");
+		return ret;
+	}
+
+	return srat_disabled() ? -EINVAL : 0;
+}
+#else
+static int __init sw64_acpi_numa_init(void)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
 void __init sw64_numa_init(void)
 {
 	if (!numa_off) {
-		if (!acpi_disabled && !numa_init(acpi_numa_init))
+		if (!acpi_disabled && !numa_init(sw64_acpi_numa_init))
 			return;
 		if (acpi_disabled && !numa_init(of_numa_init))
 			return;
