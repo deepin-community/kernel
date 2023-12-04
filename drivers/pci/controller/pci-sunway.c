@@ -377,6 +377,7 @@ struct pci_controller *bus_num_to_pci_controller(unsigned long bus_num)
 
 	return NULL;
 }
+EXPORT_SYMBOL(bus_num_to_pci_controller);
 
 struct pci_controller *pci_bus_to_pci_controller(const struct pci_bus *bus)
 {
@@ -391,6 +392,7 @@ struct pci_controller *pci_bus_to_pci_controller(const struct pci_bus *bus)
 	cfg = (struct pci_config_window *)bus->sysdata;
 	return (struct pci_controller *)(cfg->priv);
 }
+EXPORT_SYMBOL(pci_bus_to_pci_controller);
 
 /**
  *  PCIe Root Complex read config space operations
