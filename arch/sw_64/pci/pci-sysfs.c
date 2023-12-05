@@ -200,6 +200,7 @@ static int pci_create_attr(struct pci_dev *pdev, int num)
 		return -ENOMEM;
 
 	attr_name = (char *)(attr + res_count);
+	sysfs_bin_attr_init(attr);
 	pdev->res_attr[num] = attr;
 	retval = pci_create_one_attr(pdev, num, attr_name, suffix, attr,
 				     sparse_base);
