@@ -67,6 +67,7 @@ struct jit_ctx {
 	int exentry_idx;
 	u32 *image;		// JITed instruction
 	u32 *ro_image;
+	bool far_call;		// emit the long form of call instructions only
 	u32 stack_size;
 };
 
@@ -1519,7 +1520,7 @@ static void emit_sw64_call(u64 target, struct jit_ctx *ctx)
 	unsigned long ip = (unsigned long)(ctx->ro_image + ctx->idx);
 	s64 offset = (s64)((unsigned long)target - (unsigned long)ip);
 
-	if (offset >= -0x100000 && offset <= 0xfffff) {
+	if (!ctx->far_call && offset >= -0x100000 && offset <= 0xfffff) {
 		s32 jmp_offset = (s32)offset;
 		/* we must remember br in sw is 4 * disp， and -1 is for pc will add 1 when exec */
 		jmp_offset = jmp_offset/4 - 1;
@@ -1918,6 +1919,29 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	kfree(branches);
 
 	return ctx->idx;
+}
+
+int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
+			     struct bpf_tramp_links *tlinks, void *func_addr)
+{
+	struct bpf_tramp_image im;
+	struct jit_ctx ctx = {
+		.image = NULL,
+		.ro_image = NULL,
+		.far_call = true,
+		.idx = 0,
+	};
+	int ret;
+
+	/* The length of a call is only known once its address is, so measure
+	 * with the long form of every call (far_call). That makes the result
+	 * independent of the address the real pass will run at, and it is an
+	 * upper bound since that pass picks the short form whenever it can.
+	 */
+	ret = __arch_prepare_bpf_trampoline(&ctx, &im, tlinks, func_addr,
+					    btf_func_model_nregs(m), flags);
+
+	return ret < 0 ? ret : ret * SW64_INSN_SIZE;
 }
 
 int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
