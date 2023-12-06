@@ -20,7 +20,7 @@
 
 #include "proto.h"
 
-struct smp_rcb_struct *smp_rcb;
+struct smp_rcb_struct *smp_rcb = NULL;
 
 extern struct cpuinfo_sw64 cpu_data[NR_CPUS];
 
@@ -167,9 +167,12 @@ static void __init process_nr_cpu_ids(void)
 	nr_cpu_ids = num_possible_cpus();
 }
 
-void __init smp_rcb_init(void)
+void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr)
 {
-	smp_rcb = INIT_SMP_RCB;
+	if (smp_rcb != NULL)
+		return;
+
+	smp_rcb = smp_rcb_base_addr;
 	memset(smp_rcb, 0, sizeof(struct smp_rcb_struct));
 	/* Setup SMP_RCB fields that uses to activate secondary CPU */
 	smp_rcb->restart_entry = __smp_callin;
@@ -203,7 +206,7 @@ void __init setup_smp(void)
 	pr_info("Detected %u possible CPU(s), %u CPU(s) are present\n",
 			nr_cpu_ids, num_present_cpus());
 
-	smp_rcb_init();
+	smp_rcb_init(INIT_SMP_RCB);
 }
 /*
  * Called by smp_init prepare the secondaries

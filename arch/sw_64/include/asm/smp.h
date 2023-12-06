@@ -43,7 +43,7 @@ struct smp_rcb_struct {
 };
 
 #define INIT_SMP_RCB ((struct smp_rcb_struct *) __va(0x820000UL))
-
+extern void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr);
 
 #ifdef GENERATING_ASM_OFFSETS
 #define raw_smp_processor_id() (0)
