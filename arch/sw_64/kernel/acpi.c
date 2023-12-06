@@ -4,6 +4,7 @@
 #include <linux/acpi.h>
 #include <linux/irqdomain.h>
 #include <linux/memblock.h>
+#include <linux/smp.h>
 
 #include <asm/early_ioremap.h>
 
@@ -21,9 +22,23 @@ EXPORT_SYMBOL(acpi_pci_disabled);
 static bool param_acpi_on  __initdata;
 static bool param_acpi_off __initdata;
 
+static unsigned int possible_cores = 1; /* number of possible cores(at least boot core) */
+static unsigned int present_cores = 1;  /* number of present cores(at least boot core) */
+static unsigned int disabled_cores;     /* number of disabled cores */
+
 int acpi_strict;
 u64 arch_acpi_wakeup_start;
 u64 acpi_saved_sp_s3;
+
+#define SW_CINTC_FLAG_ENABLED        ACPI_MADT_ENABLED         /* 0x1 */
+#define SW_CINTC_FLAG_ONLINE_CAPABLE 0x2                       /* hotplug capable */
+#define SW_CINTC_FLAG_HT_CAPABLE     0x4                       /* hyper thread capable */
+#define SW_CINTC_FLAG_HT_ENABLED     0x8                       /* hyper thread enabled */
+
+#define is_core_enabled(flags)        ((flags) & SW_CINTC_FLAG_ENABLED)
+#define is_core_online_capable(flags) ((flags) & SW_CINTC_FLAG_ONLINE_CAPABLE)
+#define is_core_ht_capable(flags)     ((flags) & SW_CINTC_FLAG_HT_CAPABLE)
+#define is_core_ht_enabled(flags)     ((flags) & SW_CINTC_FLAG_HT_ENABLED)
 
 #define MAX_LOCAL_APIC 256
 
@@ -271,7 +286,7 @@ int acpi_unmap_cpu(int cpu)
 	set_cpuid_to_node(cpu, NUMA_NO_NODE);
 #endif
 	set_cpu_present(cpu, false);
-	num_processors--;
+	present_cores--;
 
 	pr_info("cpu%d hot remove!\n", cpu);
 
@@ -279,6 +294,143 @@ int acpi_unmap_cpu(int cpu)
 }
 EXPORT_SYMBOL(acpi_unmap_cpu);
 #endif /* CONFIG_ACPI_HOTPLUG_CPU */
+
+static bool __init is_rcid_duplicate(int rcid)
+{
+	unsigned int i;
+
+	for (i = 0; (i < possible_cores) && (i < NR_CPUS); i++) {
+		if (cpu_to_rcid(i) == rcid)
+			return true;
+	}
+
+	return false;
+}
+
+static int __init
+setup_rcid_and_core_mask(struct acpi_madt_sw_cintc *sw_cintc)
+{
+	unsigned int logical_core_id;
+	int rcid = sw_cintc->hardware_id;
+
+	/**
+	 * The initial value of nr_cpu_ids is NR_CPUS, which
+	 * represents the maximum number of cores in the system.
+	 */
+	if (possible_cores >= nr_cpu_ids) {
+		pr_err(PREFIX "Max core num [%u] reached, core [0x%x] ignored."
+			" Please check the firmware or CONFIG_NR_CPUS!\n",
+			nr_cpu_ids, rcid);
+		return -ENODEV;
+	}
+
+	/* The rcid of each core is unique */
+	if (is_rcid_duplicate(rcid)) {
+		pr_err(PREFIX "Duplicate core [0x%x] in MADT."
+			" Please check the firmware!\n", rcid);
+		return -EINVAL;
+	}
+
+	/* We can never disable the boot core, whose rcid is 0 */
+	if ((rcid == 0) && !is_core_enabled(sw_cintc->flags)) {
+		pr_err(PREFIX "Boot core disabled in MADT."
+			" Please check the firmware!\n");
+		return -EINVAL;
+	}
+
+	/* Online capable makes core possible */
+	if (!is_core_enabled(sw_cintc->flags) && \
+			!is_core_online_capable(sw_cintc->flags)) {
+		disabled_cores++;
+		return 0;
+	}
+
+	rcid_infomation_init(sw_cintc->version);
+
+	/* The logical core ID of the boot core must be 0 */
+	if (rcid == 0)
+		logical_core_id = 0;
+	else
+		logical_core_id = possible_cores++;
+
+	set_rcid_map(logical_core_id, rcid);
+	set_cpu_possible(logical_core_id, true);
+	store_cpu_data(logical_core_id);
+
+	/**
+	 * Whether the core will finally be online
+	 * depends on two conditions:
+	 * 1. core is enabled via firmware
+	 * 2. core is not disabled by cmdline param(offline)
+	 */
+	if (is_core_enabled(sw_cintc->flags) && \
+		!cpumask_test_cpu(logical_core_id, &cpu_offline)) {
+		set_cpu_present(logical_core_id, true);
+		if (logical_core_id != 0)
+			present_cores++;
+	}
+
+	return 0;
+}
+
+static int __init acpi_parse_sw_cintc(union acpi_subtable_headers *header,
+		const unsigned long end)
+{
+	struct acpi_madt_sw_cintc *sw_cintc = NULL;
+	struct smp_rcb_struct *smp_rcb_base_addr = NULL;
+	int ret;
+
+	sw_cintc = (struct acpi_madt_sw_cintc *)header;
+	if (BAD_MADT_ENTRY(sw_cintc, end)) {
+		pr_err(PREFIX "SW CINTC entry error."
+			" Please check the firmware!\n");
+		return -EINVAL;
+	}
+
+	acpi_table_print_madt_entry(&header->common);
+
+	ret = setup_rcid_and_core_mask(sw_cintc);
+	if (ret)
+		return ret;
+
+	/**
+	 * We use smp_rcb to help SMP boot. Its base
+	 * address is hold in the MADT entry of SW CINTC.
+	 */
+	smp_rcb_base_addr = __va(sw_cintc->boot_flag_address);
+	smp_rcb_init(smp_rcb_base_addr);
+
+	return 0;
+}
+
+static int __init acpi_process_madt_sw_cintc(void)
+{
+	int logical_core, ret;
+
+	/* Clean the map from logical core ID to physical core ID */
+	for (logical_core = 0; logical_core < NR_CPUS; ++logical_core)
+		set_rcid_map(logical_core, -1);
+
+	/* Clean core mask */
+	init_cpu_possible(cpu_none_mask);
+	init_cpu_present(cpu_none_mask);
+
+	/* Parse SW CINTC entries one by one */
+	ret = acpi_table_parse_madt(ACPI_MADT_TYPE_SW_CINTC,
+			acpi_parse_sw_cintc, 0);
+	if (ret < 0)
+		return ret;
+
+#if NR_CPUS > 1
+	/* It's time to update nr_cpu_ids */
+	nr_cpu_ids = possible_cores;
+#endif
+
+	pr_info(PREFIX "Detected %u possible CPU(s), %u CPU(s) are present\n",
+			possible_cores, present_cores);
+
+	return 0;
+}
 
 void __init acpi_boot_table_init(void)
 {
@@ -293,12 +445,27 @@ void __init acpi_boot_table_init(void)
 	/*
 	 * If acpi_disabled, bail out
 	 */
-	if (!acpi_disabled) {
-		pr_warn("Currently, ACPI is an experimental feature!\n");
-		if (acpi_table_init()) {
-			pr_err("Failed to init ACPI tables\n");
-			disable_acpi();
-		} else
-			pr_info("Successfully parsed ACPI table\n");
+	if (acpi_disabled)
+		return;
+
+	pr_warn("Currently, ACPI is an experimental feature!\n");
+	if (acpi_table_init()) {
+		pr_err("Failed to init ACPI tables\n");
+		disable_acpi();
+		return;
+	} else
+		pr_info("Successfully parsed ACPI table\n");
+
+	/**
+	 * Process SW64 Core Interrupt Controller(SW CINTC) in MADT table.
+	 * No initialization of the interrupt controller here, mainly used
+	 * to establish the mapping from logical core IDs to physical core
+	 * IDs and set cpu mask.
+	 */
+	if (acpi_process_madt_sw_cintc()) {
+		/* May be fatal error in MADT table */
+		pr_err("Failed to parse SW CINTC\n");
+		disable_acpi();
+		return;
 	}
 }
