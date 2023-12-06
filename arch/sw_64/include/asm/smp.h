@@ -28,12 +28,6 @@ read_vpcr(void)
 	return __r0;
 }
 
-#ifdef CONFIG_SMP
-/* SMP initialization hook for setup_arch */
-void __init setup_smp(void);
-
-#include <asm/irq.h>
-
 /* smp reset control block */
 struct smp_rcb_struct {
 	void (*restart_entry)(unsigned long args);
@@ -41,6 +35,12 @@ struct smp_rcb_struct {
 	unsigned long ready;
 	unsigned long init_done;
 };
+
+#ifdef CONFIG_SMP
+/* SMP initialization hook for setup_arch */
+void __init setup_smp(void);
+
+#include <asm/irq.h>
 
 #define INIT_SMP_RCB ((struct smp_rcb_struct *) __va(0x820000UL))
 extern void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr);
@@ -96,6 +96,18 @@ extern int get_domain_id_from_rcid(int rcid);
 extern int __cpu_to_rcid[NR_CPUS];
 #define cpu_to_rcid(cpu)  __cpu_to_rcid[0]
 #define cpu_physical_id(cpu)    __cpu_to_rcid[0]
+
+static inline void smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr) { }
+
+static inline void set_rcid_map(unsigned int logical, int rcid)
+{
+	__cpu_to_rcid[0] = 0;
+}
+
+static inline void rcid_infomation_init(int core_version) { }
+static inline int get_core_id_from_rcid(int rcid) { return 0; }
+static inline int get_thread_id_from_rcid(int rcid) { return 0; }
+static inline int get_domain_id_from_rcid(int rcid) { return 0; }
 #endif /* CONFIG_SMP */
 
 #define NO_PROC_ID	(-1)
