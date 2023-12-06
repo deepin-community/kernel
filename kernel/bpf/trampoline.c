@@ -1037,6 +1037,13 @@ arch_prepare_bpf_trampoline(struct bpf_tramp_image *tr, void *image, void *image
 	return -ENOTSUPP;
 }
 
+int __weak
+arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
+			 struct bpf_tramp_links *tlinks, void *orig_call)
+{
+	return -ENOTSUPP;
+}
+
 static int __init init_trampolines(void)
 {
 	int i;
