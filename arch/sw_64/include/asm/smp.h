@@ -58,6 +58,11 @@ extern int __cpu_to_rcid[NR_CPUS];
 #define cpu_to_rcid(cpu)  __cpu_to_rcid[cpu]
 #define cpu_physical_id(cpu)    __cpu_to_rcid[cpu]
 
+static inline void set_rcid_map(unsigned int logical, int rcid)
+{
+	__cpu_to_rcid[logical] = rcid;
+}
+
 extern unsigned long tidle_pcb[NR_CPUS];
 extern void arch_send_call_function_single_ipi(int cpu);
 extern void arch_send_call_function_ipi_mask(const struct cpumask *mask);
@@ -66,6 +71,23 @@ extern void arch_send_call_function_ipi_mask(const struct cpumask *mask);
 int __cpu_disable(void);
 void __cpu_die(unsigned int cpu);
 #endif /* CONFIG_HOTPLUG_CPU */
+
+struct rcid_infomation {
+	unsigned long thread_bits  : 8;    /* which thread */
+	unsigned long thread_shift : 8;
+	unsigned long core_bits    : 8;    /* which core */
+	unsigned long core_shift   : 8;
+	unsigned long domain_bits  : 8;    /* which node */
+	unsigned long domain_shift : 8;
+	unsigned long initialized  : 1;
+};
+
+extern struct rcid_infomation rcid_info;
+extern void rcid_infomation_init(int core_version);
+
+extern int get_core_id_from_rcid(int rcid);
+extern int get_thread_id_from_rcid(int rcid);
+extern int get_domain_id_from_rcid(int rcid);
 
 #else /* CONFIG_SMP */
 #define hard_smp_processor_id()		0

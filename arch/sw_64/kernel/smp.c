@@ -45,8 +45,17 @@ enum ipi_message_type {
 int smp_num_cpus = 1;		/* Number that came online.  */
 EXPORT_SYMBOL(smp_num_cpus);
 
+struct rcid_infomation rcid_info = { 0 };
+
 #define send_sleep_interrupt(cpu)	send_ipi((cpu), II_SLEEP)
 #define send_wakeup_interrupt(cpu)	send_ipi((cpu), II_WAKE)
+
+enum core_version {
+	CORE_VERSION_NONE = 0,
+	CORE_VERSION_C3B  = 1,
+	CORE_VERSION_C4   = 2,
+	CORE_VERSION_RESERVED = 3 /* 3 and greater are reserved */
+};
 
 /*
  * Where secondaries begin a life of C.
@@ -208,6 +217,65 @@ void __init setup_smp(void)
 
 	smp_rcb_init(INIT_SMP_RCB);
 }
+
+void rcid_infomation_init(int core_version)
+{
+	if (rcid_info.initialized)
+		return;
+
+	switch (core_version) {
+		case CORE_VERSION_C3B:
+			rcid_info.thread_bits  = 1;
+			rcid_info.thread_shift = 31;
+			rcid_info.core_bits    = 5;
+			rcid_info.core_shift   = 0;
+			rcid_info.domain_bits  = 2;
+			rcid_info.domain_shift = 5;
+			break;
+		case CORE_VERSION_C4:
+			rcid_info.thread_bits  = 1;
+			rcid_info.thread_shift = 8;
+			rcid_info.core_bits    = 6;
+			rcid_info.core_shift   = 0;
+			rcid_info.domain_bits  = 2;
+			rcid_info.domain_shift = 12;
+			break;
+		default:
+			rcid_info.initialized = 0;
+			return;
+	}
+
+	rcid_info.initialized = 1;
+}
+
+static int get_rcid_field(int rcid, unsigned int shift, unsigned int bits)
+{
+	unsigned int h, l;
+
+	if (WARN_ON_ONCE(!rcid_info.initialized))
+		return -1;
+
+	h = shift + bits - 1;
+	l = shift;
+
+	return (rcid & GENMASK(h, l)) >> shift;
+}
+
+int get_core_id_from_rcid(int rcid)
+{
+	return get_rcid_field(rcid, rcid_info.core_shift, rcid_info.core_bits);
+}
+
+int get_thread_id_from_rcid(int rcid)
+{
+	return get_rcid_field(rcid, rcid_info.thread_shift, rcid_info.thread_bits);
+}
+
+int get_domain_id_from_rcid(int rcid)
+{
+	return get_rcid_field(rcid, rcid_info.domain_shift, rcid_info.domain_bits);
+}
+
 /*
  * Called by smp_init prepare the secondaries
  */
