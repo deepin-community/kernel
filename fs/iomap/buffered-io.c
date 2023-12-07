@@ -1851,8 +1851,10 @@ iomap_writepage_map(struct iomap_writepage_ctx *wpc,
 		if (error)
 			break;
 		trace_iomap_writepage_map(inode, &wpc->iomap);
-		if (WARN_ON_ONCE(wpc->iomap.type == IOMAP_INLINE))
-			continue;
+		if (WARN_ON_ONCE(wpc->iomap.type == IOMAP_INLINE)) {
+			error = -EIO;
+			break;
+		}
 		if (wpc->iomap.type == IOMAP_HOLE)
 			continue;
 		iomap_add_to_ioend(inode, pos, folio, ifs, wpc, wbc,
