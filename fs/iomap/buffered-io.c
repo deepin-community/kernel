@@ -1718,10 +1718,11 @@ iomap_alloc_ioend(struct inode *inode, struct iomap_writepage_ctx *wpc,
 	ioend->io_flags = wpc->iomap.flags;
 	ioend->io_inode = inode;
 	ioend->io_size = 0;
-	ioend->io_folios = 0;
 	ioend->io_offset = offset;
 	ioend->io_bio = bio;
 	ioend->io_sector = sector;
+
+	wpc->nr_folios = 0;
 	return ioend;
 }
 
@@ -1765,7 +1766,7 @@ iomap_can_add_to_ioend(struct iomap_writepage_ctx *wpc, loff_t offset,
 	 * also prevents long tight loops ending page writeback on all the
 	 * folios in the ioend.
 	 */
-	if (wpc->ioend->io_folios >= IOEND_BATCH_SIZE)
+	if (wpc->nr_folios >= IOEND_BATCH_SIZE)
 		return false;
 	return true;
 }
@@ -1862,7 +1863,7 @@ iomap_writepage_map(struct iomap_writepage_ctx *wpc,
 		count++;
 	}
 	if (count)
-		wpc->ioend->io_folios++;
+		wpc->nr_folios++;
 
 	WARN_ON_ONCE(!wpc->ioend && !list_empty(&submit_list));
 	WARN_ON_ONCE(!folio_test_locked(folio));
