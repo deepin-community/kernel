@@ -197,7 +197,7 @@ static struct mcfg_fixup mcfg_quirks[] = {
 
 #ifdef CONFIG_SW64
 #define _SW64_ECAM_QUIRK(rev, seg) \
-	{ "SUNWAY", "SUNWAY. ", rev, seg, MCFG_BUS_ANY, &sw64_pci_ecam_ops }
+	{ "SUNWAY", "MCFG", rev, seg, MCFG_BUS_ANY, &sw64_pci_ecam_ops }
 #define SW64_ECAM_QUIRK(rev, node)	_SW64_ECAM_QUIRK(rev, node * 8 + 0),\
 					_SW64_ECAM_QUIRK(rev, node * 8 + 1),\
 					_SW64_ECAM_QUIRK(rev, node * 8 + 2),\
