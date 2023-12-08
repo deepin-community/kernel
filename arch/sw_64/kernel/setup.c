@@ -839,11 +839,13 @@ setup_arch(char **cmdline_p)
 	/* Parse the ACPI tables for possible boot-time configuration */
 	acpi_boot_table_init();
 
+	if (acpi_disabled) {
 #ifdef CONFIG_SMP
-	setup_smp();
+		setup_smp();
 #else
-	store_cpu_data(0);
+		store_cpu_data(0);
 #endif
+	}
 
 	sw64_numa_init();
 
