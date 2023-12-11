@@ -11,20 +11,21 @@ config ARM_GIC
 	select IRQ_DOMAIN_HIERARCHY
 	select GENERIC_IRQ_EFFECTIVE_AFF_MASK if SMP
 
-config SW64_INTC_V2
-	bool "SW64 Interrupt Controller V2"
-	depends on UNCORE_XUELANG
+config SW64_PINTC
+	bool "SW64 Interrupt Controller"
+	depends on SW64
 	default y
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
 	help
-           This enables support for the INTC chip found in SW CHIP3 systems.
-           The INTC controls devices interrupts and connects them to each
-           core's local interrupt controller.
+	   This enables support for the pINTC chip found in SW systems.
+	   The PINTC receives all platform devices' interrupts and passes
+	   them to certain core's local interrupt controller for further
+	   interrupt handling.
 
 config SW64_LPC_INTC
 	bool "SW64 cpu builtin LPC Interrupt Controller"
-	depends on SW64_INTC_V2
+	depends on SW64_PINTC
 	help
 	   Say yes here to add support for the SW64 cpu builtin LPC
 	   IRQ controller.

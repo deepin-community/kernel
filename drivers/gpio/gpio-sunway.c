@@ -425,6 +425,7 @@ static void sunway_configure_irqs(struct sunway_gpio *gpio,
 
 	for (i = 0; i < 2; i++) {
 		ct = &irq_gc->chip_types[i];
+		ct->chip.name = "GPIO-INT";
 		ct->chip.irq_ack = irq_gc_ack_set_bit;
 		ct->chip.irq_mask = irq_gc_mask_set_bit;
 		ct->chip.irq_unmask = irq_gc_mask_clr_bit;
