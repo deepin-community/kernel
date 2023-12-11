@@ -11,9 +11,10 @@
 
 #include <asm/current.h>
 
+#include <linux/cache.h>
 #include <linux/irqflags_types.h>
 #include <linux/pid_types.h>
-#include <linux/sem.h>
+#include <linux/sem_types.h>
 #include <linux/shm.h>
 #include <linux/kmsan_types.h>
 #include <linux/mutex_types.h>
