@@ -74,6 +74,8 @@
 
 #define PIUCONFIG0_INIT_VAL	0x38056
 
+#define DEV_INT_TARGET(phy_cpu) ((((phy_cpu) >> 5) << 6) | ((phy_cpu) & 0x1f))
+
 /*-----------------------addr-----------------------*/
 /* CAB0 REG */
 enum {

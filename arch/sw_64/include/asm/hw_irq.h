@@ -9,6 +9,8 @@ DECLARE_PER_CPU(unsigned long, irq_pmi_count);
 
 #define ACTUAL_NR_IRQS	NR_IRQS
 
+extern struct irq_domain *mcu_irq_domain;
+
 #ifdef CONFIG_PCI_MSI
 typedef unsigned int vector_irq_t[PERCPU_MSI_IRQS];
 DECLARE_PER_CPU(vector_irq_t, vector_irq);

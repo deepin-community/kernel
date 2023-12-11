@@ -115,10 +115,9 @@ static void handle_dev_int(struct pt_regs *regs)
 
 	while (stat) {
 		hwirq = ffs(stat) - 1;
-		generic_handle_domain_irq(NULL, hwirq);
+		generic_handle_domain_irq(mcu_irq_domain, hwirq);
 		stat &= ~(1UL << hwirq);
 	}
-	/*do handle irq */
 
 	sw64_io_write(node, DEV_INT_CONFIG, config_val);
 }
@@ -186,9 +185,7 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 		perf_irq(PMC_PC1, regs);
 		return;
 	case INT_DEV:
-		old_regs = set_irq_regs(regs);
 		handle_dev_int(regs);
-		set_irq_regs(old_regs);
 		return;
 	case INT_FAULT:
 		old_regs = set_irq_regs(regs);
