@@ -6,6 +6,7 @@
  * SW-64 floating-point control register defines:
  */
 #define FPCR_DNOD	(1UL << 47)		/* denorm INV trap disable */
+#define FPCR_DNZ	(1UL << 48)		/* denorms to zero */
 #define FPCR_DNOE	(1UL << 48)		/* hardware denormal support */
 #define FPCR_INVD	(1UL << 49)		/* invalid op disable (opt.) */
 #define FPCR_DZED	(1UL << 50)		/* division by zero disable (opt.) */
@@ -96,6 +97,7 @@
 
 /* Denorm and Underflow flushing */
 #define IEEE_MAP_DMZ		(1UL << 12)	/* Map denorm inputs to zero */
+#define IEEE_HARD_DM		(1UL << 12)	/* Hardware denorm processing */
 #define IEEE_MAP_UMZ		(1UL << 13)	/* Map underflowed outputs to zero */
 
 #define IEEE_MAP_MASK		(IEEE_MAP_DMZ | IEEE_MAP_UMZ)
