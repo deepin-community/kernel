@@ -60,8 +60,13 @@ do {								\
 #define FP_EX_DIVZERO		IEEE_TRAP_ENABLE_DZE
 #define FP_EX_INEXACT		IEEE_TRAP_ENABLE_INE
 #define FP_EX_DENORM		IEEE_TRAP_ENABLE_DNO
+#define FP_EX_OVERINT		IEEE_TRAP_ENABLE_OVI
 
+#if defined(CONFIG_SUBARCH_C3A) || defined(CONFIG_SUBARCH_C3B)
 #define FP_DENORM_ZERO		(swcr & IEEE_MAP_DMZ)
+#elif defined(CONFIG_SUBARCH_C4)
+#define FP_DENORM_ZERO		1
+#endif
 
 /* We write the results always */
 #define FP_INHIBIT_RESULTS 0

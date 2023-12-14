@@ -143,17 +143,47 @@ EXPORT_SYMBOL_GPL(sw64_fp_emul_imprecise);
 long (*sw64_fp_emul)(unsigned long pc) = (void *)dummy_emul;
 EXPORT_SYMBOL_GPL(sw64_fp_emul);
 #else
-long sw64_fp_emul_imprecise(struct pt_regs *regs, unsigned long writemask);
-long sw64_fp_emul(unsigned long pc);
+extern long sw64_fp_emul_imprecise(struct pt_regs *regs, unsigned long writemask);
+extern long sw64_fp_emul(unsigned long pc);
 #endif
 
 asmlinkage void
-do_entArith(unsigned long summary, unsigned long write_mask,
+do_entArith(unsigned long exc_sum, unsigned long write_mask,
 		struct pt_regs *regs)
 {
 	long si_code = FPE_FLTINV;
 
-	if (summary & 1) {
+#ifndef CONFIG_SUBARCH_C3B
+	/* integer divide by zero */
+	if (exc_sum & EXC_SUM_DZE_INT)
+		si_code = FPE_INTDIV;
+	/* integer overflow */
+	else if (exc_sum & EXC_SUM_OVI)
+		si_code = FPE_INTOVF;
+	/* floating point invalid operation */
+	else if (exc_sum & EXC_SUM_INV)
+		si_code = FPE_FLTINV;
+	/* floating point divide by zero */
+	else if (exc_sum & EXC_SUM_DZE)
+		si_code = FPE_FLTDIV;
+	/* floating point overflow */
+	else if (exc_sum & EXC_SUM_OVF)
+		si_code = FPE_FLTOVF;
+	/* floating point underflow */
+	else if (exc_sum & EXC_SUM_UNF)
+		si_code = FPE_FLTUND;
+	/* floating point inexact result */
+	else if (exc_sum & EXC_SUM_INE)
+		si_code = FPE_FLTRES;
+	/* denormalized operand */
+	else if (exc_sum & EXC_SUM_DNO)
+		si_code = FPE_FLTUND;
+	/* undiagnosed floating-point exception */
+	else
+		si_code = FPE_FLTUNK;
+#endif
+
+	if ((exc_sum & EXC_SUM_FP_STATUS_ALL) && (exc_sum & EXC_SUM_SWC)) {
 		/* Software-completion summary bit is set, so try to
 		 * emulate the instruction.  If the processor supports
 		 * precise exceptions, we don't have to search.
@@ -165,10 +195,6 @@ do_entArith(unsigned long summary, unsigned long write_mask,
 
 	if (!user_mode(regs))
 		die("Arithmetic fault", regs, 0);
-
-	/*summary<39> means integer divide by zero in C4.*/
-	if ((summary >> 39) & 1)
-		si_code = FPE_INTDIV;
 
 	force_sig_fault(SIGFPE, si_code, (void __user *)regs->pc);
 }
