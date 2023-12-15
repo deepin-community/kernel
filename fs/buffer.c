@@ -372,10 +372,10 @@ static void end_buffer_async_read_io(struct buffer_head *bh, int uptodate)
 }
 
 /*
- * Completion handler for block_write_full_folio() - pages which are unlocked
- * during I/O, and which have PageWriteback cleared upon I/O completion.
+ * Completion handler for block_write_full_folio() - folios which are unlocked
+ * during I/O, and which have the writeback flag cleared upon I/O completion.
  */
-void end_buffer_async_write(struct buffer_head *bh, int uptodate)
+static void end_buffer_async_write(struct buffer_head *bh, int uptodate)
 {
 	unsigned long flags;
 	struct buffer_head *first;
@@ -415,7 +415,6 @@ still_busy:
 	spin_unlock_irqrestore(&first->b_uptodate_lock, flags);
 	return;
 }
-EXPORT_SYMBOL(end_buffer_async_write);
 
 /*
  * If a page's buffers are under async readin (end_buffer_async_read
@@ -1793,8 +1792,7 @@ static struct buffer_head *folio_create_buffers(struct folio *folio,
  * causes the writes to be flagged as synchronous writes.
  */
 int __block_write_full_folio(struct inode *inode, struct folio *folio,
-			get_block_t *get_block, struct writeback_control *wbc,
-			bh_end_io_t *handler)
+			get_block_t *get_block, struct writeback_control *wbc)
 {
 	int err;
 	sector_t block;
@@ -1873,7 +1871,8 @@ int __block_write_full_folio(struct inode *inode, struct folio *folio,
 			continue;
 		}
 		if (test_clear_buffer_dirty(bh)) {
-			mark_buffer_async_write_endio(bh, handler);
+			mark_buffer_async_write_endio(bh,
+				end_buffer_async_write);
 		} else {
 			unlock_buffer(bh);
 		}
@@ -1926,7 +1925,8 @@ recover:
 		if (buffer_mapped(bh) && buffer_dirty(bh) &&
 		    !buffer_delay(bh)) {
 			lock_buffer(bh);
-			mark_buffer_async_write_endio(bh, handler);
+			mark_buffer_async_write_endio(bh,
+				end_buffer_async_write);
 		} else {
 			/*
 			 * The buffer may have been set dirty during
@@ -2710,8 +2710,7 @@ int block_write_full_folio(struct folio *folio, struct writeback_control *wbc,
 
 	/* Is the folio fully inside i_size? */
 	if (folio_pos(folio) + folio_size(folio) <= i_size)
-		return __block_write_full_folio(inode, folio, get_block, wbc,
-					       end_buffer_async_write);
+		return __block_write_full_folio(inode, folio, get_block, wbc);
 
 	/* Is the folio fully outside i_size? (truncate in progress) */
 	if (folio_pos(folio) >= i_size) {
@@ -2728,8 +2727,7 @@ int block_write_full_folio(struct folio *folio, struct writeback_control *wbc,
 	 */
 	folio_zero_segment(folio, offset_in_folio(folio, i_size),
 			folio_size(folio));
-	return __block_write_full_folio(inode, folio, get_block, wbc,
-			end_buffer_async_write);
+	return __block_write_full_folio(inode, folio, get_block, wbc);
 }
 
 sector_t generic_block_bmap(struct address_space *mapping, sector_t block,
