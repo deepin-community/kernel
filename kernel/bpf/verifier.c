@@ -516,12 +516,6 @@ static const char *subprog_name(const struct bpf_verifier_env *env, int subprog)
 	return btf_type_name(env->prog->aux->btf, info->type_id);
 }
 
-static __maybe_unused struct bpf_func_info_aux *
-subprog_aux(const struct bpf_verifier_env *env, int subprog)
-{
-	return &env->prog->aux->func_info_aux[subprog];
-}
-
 static bool reg_may_point_to_spin_lock(const struct bpf_reg_state *reg)
 {
 	return btf_record_has_field(reg_btf_record(reg), BPF_SPIN_LOCK);
