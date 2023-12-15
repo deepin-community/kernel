@@ -12,7 +12,6 @@
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
-#include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/slab.h>
 #include <sound/soc.h>
