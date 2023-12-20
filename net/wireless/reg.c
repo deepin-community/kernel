@@ -2491,7 +2491,7 @@ static void reg_check_chans_work(struct work_struct *work)
 	rtnl_unlock();
 }
 
-static void reg_check_channels(void)
+void reg_check_channels(void)
 {
 	/*
 	 * Give usermode a chance to do something nicer (move to another
