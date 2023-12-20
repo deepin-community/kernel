@@ -27,7 +27,7 @@
 #include <linux/kvm.h>
 #include <linux/uaccess.h>
 #include <linux/hugetlb.h>
-
+#include <trace/events/kvm.h>
 #include <asm/kvm_asm.h>
 #include <asm/sw64io.h>
 
@@ -36,6 +36,7 @@
 #include <asm/kvm_emulate.h>
 #include <asm/kvm_mmu.h>
 
+#include "trace.h"
 #define KVM_APT_FLAG_LOGGING_ACTIVE	(1UL << 1)
 
 static bool memslot_is_logging(struct kvm_memory_slot *memslot)
@@ -1367,6 +1368,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 	write_fault = kvm_is_write_fault(access_type);
 
+	trace_kvm_guest_fault(vcpu->arch.regs.pc, as_info, fault_entry_addr, fault_gpa);
 	/* The memory slot for IO doesn't register in memory region
 	 * with kvm, if hva == KVM_HVA_ERR_BAD, the gpa used for MMIO
 	 * needs emulation.
@@ -1427,6 +1429,7 @@ int kvm_unmap_hva_range(struct kvm *kvm,
 	if (!kvm->arch.pgd)
 		return 0;
 
+	trace_kvm_unmap_hva_range(start, end);
 	handle_hva_to_gpa(kvm, start, end, &kvm_unmap_hva_handler, NULL);
 	return 1;
 }
@@ -1490,7 +1493,7 @@ int kvm_age_hva(struct kvm *kvm, unsigned long start, unsigned long end)
 {
 	if (!kvm->arch.pgd)
 		return 0;
-
+	trace_kvm_age_hva(start, end);
 	return handle_hva_to_gpa(kvm, start, end, kvm_age_hva_handler, NULL);
 }
 
@@ -1498,6 +1501,7 @@ int kvm_test_age_hva(struct kvm *kvm, unsigned long hva)
 {
 	if (!kvm->arch.pgd)
 		return 0;
+	trace_kvm_test_age_hva(hva);
 	return handle_hva_to_gpa(kvm, hva, hva, kvm_test_age_hva_handler, NULL);
 }
 
@@ -1518,6 +1522,8 @@ int kvm_set_spte_hva(struct kvm *kvm, unsigned long hva, pte_t pte)
 
 	if (!kvm->arch.pgd)
 		return 0;
+
+	trace_kvm_set_spte_hva(hva);
 
 	apt_pte = pte_wrprotect(pte);
 	handle_hva_to_gpa(kvm, hva, end, &kvm_set_apte_handler, &apt_pte);

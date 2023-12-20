@@ -318,6 +318,7 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
 						struct kvm_guest_debug *dbg)
 {
+	trace_kvm_set_guest_debug(vcpu, dbg->control);
 	return 0;
 }
 
@@ -549,6 +550,8 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *irq_level,
 	bool level = irq_level->level;
 
 	irq_num = irq;
+	trace_kvm_irq_line(0, irq_num, irq_level->level);
+
 	/* target core for Intx is core0 */
 	vcpu = kvm_get_vcpu(kvm, 0);
 	if (!vcpu)
