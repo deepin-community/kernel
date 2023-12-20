@@ -39,11 +39,7 @@ u64 acpi_saved_sp_s3;
 #define MAX_LOCAL_APIC 256
 
 #define PREFIX			"ACPI: "
-/*
- * The default interrupt routing model is PIC (8259).  This gets
- * overridden if IOAPICs are enumerated (below).
- */
-enum acpi_irq_model_id acpi_irq_model = ACPI_IRQ_MODEL_IOSAPIC;
+
 void __iomem *__init __acpi_map_table(unsigned long phys, unsigned long size)
 {
 	if (!phys || !size)
@@ -58,17 +54,6 @@ void __init __acpi_unmap_table(void __iomem *map, unsigned long size)
 
 	early_iounmap(map, size);
 }
-/*
- * Following __acpi_xx functions should be implemented for sepecific cpu.
- */
-int acpi_gsi_to_irq(u32 gsi, unsigned int *irqp)
-{
-	if (irqp != NULL)
-		*irqp = acpi_register_gsi(NULL, gsi, -1, -1);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(acpi_gsi_to_irq);
 
 int acpi_isa_irq_to_gsi(unsigned int isa_irq, u32 *gsi)
 {
@@ -79,56 +64,6 @@ int acpi_isa_irq_to_gsi(unsigned int isa_irq, u32 *gsi)
 }
 
 int (*acpi_suspend_lowlevel)(void);
-
-/*
- * success: return IRQ number (>=0)
- * failure: return < 0
- */
-static struct irq_domain *irq_default_domain;
-int acpi_register_gsi(struct device *dev, u32 gsi, int trigger, int polarity)
-{
-	u32 irq;
-
-	irq = irq_find_mapping(irq_default_domain, gsi);
-
-	return irq;
-}
-EXPORT_SYMBOL_GPL(acpi_register_gsi);
-
-void acpi_unregister_gsi(u32 gsi)
-{
-
-}
-EXPORT_SYMBOL_GPL(acpi_unregister_gsi);
-
-/*
- *  ACPI based hotplug support for CPU
- */
-#ifdef CONFIG_ACPI_HOTPLUG_CPU
-/* wrapper to silence section mismatch warning */
-int __ref acpi_map_lsapic(acpi_handle handle, int physid, int *pcpu)
-{
-	return 0;
-}
-EXPORT_SYMBOL(acpi_map_lsapic);
-
-int acpi_unmap_lsapic(int cpu)
-{
-	return 0;
-}
-EXPORT_SYMBOL(acpi_unmap_lsapic);
-#endif /* CONFIG_ACPI_HOTPLUG_CPU */
-
-u8 acpi_checksum(u8 *table, u32 length)
-{
-	u8 ret = 0;
-
-	while (length--) {
-		ret += *table;
-		table++;
-	}
-	return -ret;
-}
 
 static int __init parse_acpi(char *arg)
 {

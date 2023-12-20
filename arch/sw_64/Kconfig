@@ -3,6 +3,7 @@ config SW64
 	bool
 	default y
 	select ACPI
+	select ACPI_GENERIC_GSI if ACPI
 	select ACPI_MCFG if (ACPI && PCI)
 	select ACPI_REDUCED_HARDWARE_ONLY
 	select ARCH_ATOMIC
