@@ -36,7 +36,7 @@
 		};
 
 		pintc: interrupt-controller {
-			compatible = "sw64,pintc";
+			compatible = "sw64,pintc", "sw64,sw6_irq_controller";
 			interrupt-controller;
 			sw64,node = <0>;
 			sw64,irq-num = <8>;

@@ -1158,6 +1158,11 @@ static int __init acpi_bus_init_irq(void)
 	case ACPI_IRQ_MODEL_LPIC:
 		message = "LPIC";
 		break;
+#ifdef CONFIG_SW64
+	case ACPI_IRQ_MODEL_SWPIC:
+		message = "SWPIC";
+		break;
+#endif
 	default:
 		pr_info("Unknown interrupt routing model\n");
 		return -ENODEV;

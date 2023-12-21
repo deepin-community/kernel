@@ -32,13 +32,9 @@ u64 acpi_saved_sp_s3;
 
 #define SW_CINTC_FLAG_ENABLED        ACPI_MADT_ENABLED         /* 0x1 */
 #define SW_CINTC_FLAG_ONLINE_CAPABLE 0x2                       /* hotplug capable */
-#define SW_CINTC_FLAG_HT_CAPABLE     0x4                       /* hyper thread capable */
-#define SW_CINTC_FLAG_HT_ENABLED     0x8                       /* hyper thread enabled */
 
 #define is_core_enabled(flags)        ((flags) & SW_CINTC_FLAG_ENABLED)
 #define is_core_online_capable(flags) ((flags) & SW_CINTC_FLAG_ONLINE_CAPABLE)
-#define is_core_ht_capable(flags)     ((flags) & SW_CINTC_FLAG_HT_CAPABLE)
-#define is_core_ht_enabled(flags)     ((flags) & SW_CINTC_FLAG_HT_ENABLED)
 
 #define MAX_LOCAL_APIC 256
 
