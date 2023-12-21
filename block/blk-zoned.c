@@ -634,3 +634,4 @@ void disk_clear_zone_settings(struct gendisk *disk)
 
 	blk_mq_unfreeze_queue(q);
 }
+EXPORT_SYMBOL_GPL(disk_clear_zoned);
