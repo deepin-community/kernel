@@ -3,9 +3,12 @@
 #include <linux/msi.h>
 #include <linux/irqdomain.h>
 #include <linux/smp.h>
+#include <linux/acpi.h>
 
 #include <asm/irq_impl.h>
 #include <asm/kvm_emulate.h>
+
+#define PREFIX "MSIC: "
 
 static struct irq_domain *msi_default_domain;
 static DEFINE_RAW_SPINLOCK(vector_lock);
@@ -508,3 +511,35 @@ void handle_pci_msi_interrupt(unsigned long type, unsigned long vector, unsigned
 		vector = int_pci_msi[i % 3];
 	}
 }
+
+MODULE_LICENSE("GPL v2");
+
+#ifdef CONFIG_ACPI
+#define SW_MSIC_FLAG_ENABLED ACPI_MADT_ENABLED /* 0x1 */
+#define SW_MSIC_FLAG_VIRTUAL 0x2               /* virtual MSIC */
+
+#define is_msic_enabled(flags) ((flags) & SW_MSIC_FLAG_ENABLED)
+#define is_msic_virtual(flags) ((flags) & SW_MSIC_FLAG_VIRTUAL)
+
+int __init msic_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_msic *msic)
+{
+	bool enabled, virtual;
+
+	enabled = is_msic_enabled(msic->flags);
+	virtual = is_msic_virtual(msic->flags);
+
+	pr_info(PREFIX "version [%u] on node [%u] Root Complex [%u] (%s) %s\n",
+			msic->version, msic->node, msic->rc,
+			virtual ? "virtual" : "physical",
+			enabled ? "found" : "disabled");
+
+	if (!enabled)
+		return 0;
+
+	if (!msi_default_domain)
+		arch_init_msi_domain(parent);
+
+	return 0;
+}
+#endif

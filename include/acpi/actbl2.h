@@ -1367,7 +1367,8 @@ enum acpi_madt_sw_cintc_version {
 
 struct acpi_madt_sw_sub_pintc {
 	u8 type;
-	u8 reserved[3];
+	u8 status;
+	u16 reserved;
 	u32 hardware_id;
 	u64 address;
 	u32 size;
@@ -1411,7 +1412,8 @@ struct acpi_madt_sw_msic {
 	u32 node;
 	u32 rc;
 	u32 num;
-	u32 reserved1[4];
+	u64 message_address;
+	u32 reserved1[2];
 };
 
 /* Values for version field above */
