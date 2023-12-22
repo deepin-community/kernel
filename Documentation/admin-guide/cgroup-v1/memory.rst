@@ -320,9 +320,9 @@ the amount of kernel memory used by the system. Kernel memory is fundamentally
 different than user memory, since it can't be swapped out, which makes it
 possible to DoS the system by consuming too much of this precious resource.
 
-Kernel memory accounting is enabled for all memory cgroups by default. But
-it can be disabled system-wide by passing cgroup.memory=nokmem to the kernel
-at boot time. In this case, kernel memory will not be accounted at all.
+Kernel memory accounting is disabled for all memory cgroups by default. But
+it can be enabled system-wide by passing cgroup.memory=kmem to the kernel
+at boot time. In this case, kernel memory will all be accounted.
 
 Kernel memory limits are not imposed for the root cgroup. Usage for the root
 cgroup may or may not be accounted. The memory used is accumulated into
