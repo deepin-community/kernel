@@ -760,6 +760,7 @@ Kernel parameters
 			Format: <string>
 			nosocket -- Disable socket memory accounting.
 			nokmem -- Disable kernel memory accounting.
+			kmem -- Enable kernel memory accounting.
 			nobpf -- Disable BPF memory accounting.
 
 	check_pages=	[MM,EARLY] Enable sanity checking of pages after
