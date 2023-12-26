@@ -839,6 +839,8 @@ static efi_status_t efi_decompress_kernel(unsigned long *kernel_entry)
 				 cmdline_memmap_override);
 			seed[0] = 0;
 		}
+
+		boot_params_ptr->hdr.loadflags |= KASLR_FLAG;
 	}
 
 	status = efi_random_alloc(alloc_size, CONFIG_PHYSICAL_ALIGN, &addr,
