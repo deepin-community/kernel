@@ -345,7 +345,15 @@ struct vpsp_ret {
 	u32 status	:	2;
 };
 
+#define PSP_VID_MASK            0xff
+#define PSP_VID_SHIFT           56
+#define PUT_PSP_VID(hpa, vid)   ((__u64)(hpa) | ((__u64)(PSP_VID_MASK & vid) << PSP_VID_SHIFT))
+#define GET_PSP_VID(hpa)        ((__u16)((__u64)(hpa) >> PSP_VID_SHIFT) & PSP_VID_MASK)
+#define CLEAR_PSP_VID(hpa)      ((__u64)(hpa) & ~((__u64)PSP_VID_MASK << PSP_VID_SHIFT))
+
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
+
+int vpsp_do_cmd(uint32_t vid, int cmd, void *data, int *psp_ret);
 
 int psp_do_cmd(int cmd, void *data, int *psp_ret);
 
@@ -360,11 +368,16 @@ int csv_check_stat_queue_status(int *psp_ret);
  */
 int csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret);
 
-int vpsp_try_get_result(uint8_t prio, uint32_t index, void *data, struct vpsp_ret *psp_ret);
+int vpsp_try_get_result(uint32_t vid, uint8_t prio, uint32_t index,
+			void *data, struct vpsp_ret *psp_ret);
 
-int vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret);
+int vpsp_try_do_cmd(uint32_t vid, int cmd, void *data, struct vpsp_ret *psp_ret);
+
+int vpsp_get_vid(uint32_t *vid, pid_t pid);
 
 #else	/* !CONFIG_CRYPTO_DEV_SP_PSP */
+
+static inline int vpsp_do_cmd(uint32_t vid, int cmd, void *data, int *psp_ret) { return -ENODEV; }
 
 static inline int psp_do_cmd(int cmd, void *data, int *psp_ret) { return -ENODEV; }
 
@@ -377,12 +390,15 @@ static inline int
 csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret) { return -ENODEV; }
 
 static inline int
-vpsp_try_get_result(uint8_t prio, uint32_t index, void *data,
-		    struct vpsp_ret *psp_ret) { return -ENODEV; }
+vpsp_try_get_result(uint32_t vid, uint8_t prio,
+		uint32_t index, void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
 static inline int
-vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
+vpsp_try_do_cmd(uint32_t vid, int cmd,
+		void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
+static inline int
+vpsp_get_vid(uint32_t *vid, pid_t pid) { return -ENODEV; }
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
 
 typedef int (*p2c_notifier_t)(uint32_t id, uint64_t data);
