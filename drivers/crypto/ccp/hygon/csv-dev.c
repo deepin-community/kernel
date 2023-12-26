@@ -656,12 +656,12 @@ static int vpsp_dequeue_cmd(int prio, int index,
  * Populate the command from the virtual machine to the queue to
  * support execution in ringbuffer mode
  */
-static int vpsp_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags)
+static int vpsp_fill_cmd_queue(uint32_t vid, int prio, int cmd, void *data, uint16_t flags)
 {
 	struct csv_cmdptr_entry cmdptr = { };
 	int index = -1;
 
-	cmdptr.cmd_buf_ptr = __psp_pa(data);
+	cmdptr.cmd_buf_ptr = PUT_PSP_VID(__psp_pa(data), vid);
 	cmdptr.cmd_id = cmd;
 	cmdptr.cmd_flags = flags;
 
@@ -949,11 +949,12 @@ end:
 	return rb_supported;
 }
 
+int __vpsp_do_cmd_locked(uint32_t vid, int cmd, void *data, int *psp_ret);
 /*
  * Try to obtain the result again by the command index, this
  * interface is used in ringbuffer mode
  */
-int vpsp_try_get_result(uint8_t prio, uint32_t index, void *data,
+int vpsp_try_get_result(uint32_t vid, uint8_t prio, uint32_t index, void *data,
 		struct vpsp_ret *psp_ret)
 {
 	int ret = 0;
@@ -973,8 +974,8 @@ int vpsp_try_get_result(uint8_t prio, uint32_t index, void *data,
 			/* dequeue command from queue*/
 			vpsp_dequeue_cmd(prio, index, &cmd);
 
-			ret = hygon_psp_hooks.__sev_do_cmd_locked(cmd.cmd_id, data,
-								  (int *)psp_ret);
+			ret = __vpsp_do_cmd_locked(vid, cmd.cmd_id, data,
+					(int *)psp_ret);
 			psp_ret->status = VPSP_FINISH;
 			vpsp_psp_mutex_unlock();
 			if (unlikely(ret)) {
@@ -993,7 +994,8 @@ int vpsp_try_get_result(uint8_t prio, uint32_t index, void *data,
 			psp_ret->status = VPSP_FINISH;
 			vpsp_psp_mutex_unlock();
 			if (unlikely(ret)) {
-				pr_err("[%s]: vpsp_do_ringbuf_cmds_locked failed\n", __func__);
+				pr_err("[%s]: vpsp_do_ringbuf_cmds_locked failed %d\n",
+						__func__, ret);
 				goto end;
 			}
 		}
@@ -1016,7 +1018,7 @@ EXPORT_SYMBOL_GPL(vpsp_try_get_result);
  * vpsp_try_get_result interface will be used to obtain the result
  * later again
  */
-int vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret)
+int vpsp_try_do_cmd(uint32_t vid, int cmd, void *data, struct vpsp_ret *psp_ret)
 {
 	int ret = 0;
 	int rb_supported;
@@ -1028,10 +1030,10 @@ int vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret)
 			(struct vpsp_cmd *)&cmd);
 	if (rb_supported) {
 		/* fill command in ringbuffer's queue and get index */
-		index = vpsp_fill_cmd_queue(prio, cmd, data, 0);
+		index = vpsp_fill_cmd_queue(vid, prio, cmd, data, 0);
 		if (unlikely(index < 0)) {
 			/* do mailbox command if queuing failed*/
-			ret = psp_do_cmd(cmd, data, (int *)psp_ret);
+			ret = vpsp_do_cmd(vid, cmd, data, (int *)psp_ret);
 			if (unlikely(ret)) {
 				if (ret == -EIO) {
 					ret = 0;
@@ -1047,14 +1049,14 @@ int vpsp_try_do_cmd(int cmd, void *data, struct vpsp_ret *psp_ret)
 		}
 
 		/* try to get result from the ringbuffer command */
-		ret = vpsp_try_get_result(prio, index, data, psp_ret);
+		ret = vpsp_try_get_result(vid, prio, index, data, psp_ret);
 		if (unlikely(ret)) {
-			pr_err("[%s]: vpsp_try_get_result failed\n", __func__);
+			pr_err("[%s]: vpsp_try_get_result failed %d\n", __func__, ret);
 			goto end;
 		}
 	} else {
 		/* mailbox mode */
-		ret = psp_do_cmd(cmd, data, (int *)psp_ret);
+		ret = vpsp_do_cmd(vid, cmd, data, (int *)psp_ret);
 		if (unlikely(ret)) {
 			if (ret == -EIO) {
 				ret = 0;
