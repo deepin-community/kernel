@@ -25,7 +25,7 @@ static unsigned long shtclock_offset;
 void update_aptp(unsigned long pgd)
 {
 	imemb();
-	write_csr_imb(pgd, CSR_APTP);
+	sw64_write_csr_imb(pgd, CSR_APTP);
 }
 
 void kvm_sw64_update_vpn(struct kvm_vcpu *vcpu, unsigned long vpn)
@@ -69,7 +69,7 @@ long kvm_sw64_get_vcb(struct file *filp, unsigned long arg)
 	struct kvm_vcpu *vcpu = filp->private_data;
 
 	if (vcpu->arch.migration_mark)
-		vcpu->arch.shtclock = read_csr(CSR_SHTCLOCK)
+		vcpu->arch.shtclock = sw64_read_csr(CSR_SHTCLOCK)
 			+ vcpu->arch.vcb.shtclock_offset;
 	if (copy_to_user((void __user *)arg, &(vcpu->arch.vcb), sizeof(struct vcpucb)))
 		return -EINVAL;
@@ -88,7 +88,7 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 	if (vcpu->arch.migration_mark) {
 		/* synchronize the longtime of source and destination */
 		if (vcpu->arch.vcb.soft_cid == 0)
-			shtclock_offset = vcpu->arch.shtclock - read_csr(CSR_SHTCLOCK);
+			shtclock_offset = vcpu->arch.shtclock - sw64_read_csr(CSR_SHTCLOCK);
 		vcpu->arch.vcb.shtclock_offset = shtclock_offset;
 		set_timer(vcpu, 200000000);
 		vcpu->arch.migration_mark = 0;

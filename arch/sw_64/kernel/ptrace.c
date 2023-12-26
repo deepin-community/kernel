@@ -545,49 +545,49 @@ int do_match(unsigned long address, unsigned long mmcsr, long cause, struct pt_r
 		if (!(current->ptrace & PT_PTRACED)) {
 			pr_notice(" pid %d %s not be ptraced, return\n", current->pid, current->comm);
 			if (mmcsr == MMCSR__DA_MATCH) {
-				match_ctl = read_csr(CSR_DC_CTLP);
+				match_ctl = sw64_read_csr(CSR_DC_CTLP);
 				match_ctl &= ~(0x3UL << DA_MATCH_EN_S);
-				write_csr(match_ctl, CSR_DC_CTLP);
-				write_csr(0, CSR_DA_MATCH);		// clear da_match
+				sw64_write_csr(match_ctl, CSR_DC_CTLP);
+				sw64_write_csr(0, CSR_DA_MATCH);		// clear da_match
 				task_thread_info(current)->pcb.match_ctl &= ~0x1;
 				task_thread_info(current)->pcb.da_match = 0;
 			}
 			if (mmcsr == MMCSR__DV_MATCH) {
-				match_ctl = read_csr(CSR_DC_CTLP);
+				match_ctl = sw64_read_csr(CSR_DC_CTLP);
 				match_ctl &= ~(0x1UL << DV_MATCH_EN_S);
-				write_csr(match_ctl, CSR_DC_CTLP);
-				write_csr(0, CSR_DV_MATCH);		// clear dv_match
+				sw64_write_csr(match_ctl, CSR_DC_CTLP);
+				sw64_write_csr(0, CSR_DV_MATCH);		// clear dv_match
 				task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 1);
 				task_thread_info(current)->pcb.dv_match = 0;
 			}
 			if (mmcsr == MMCSR__DAV_MATCH) {
-				match_ctl = read_csr(CSR_DC_CTLP);
+				match_ctl = sw64_read_csr(CSR_DC_CTLP);
 				match_ctl &= ~((0x3UL << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
-				write_csr(match_ctl, CSR_DC_CTLP);
-				write_csr(0, CSR_DA_MATCH);		// clear da_match
-				write_csr(0, CSR_DV_MATCH);		// clear dv_match
+				sw64_write_csr(match_ctl, CSR_DC_CTLP);
+				sw64_write_csr(0, CSR_DA_MATCH);		// clear da_match
+				sw64_write_csr(0, CSR_DV_MATCH);		// clear dv_match
 				task_thread_info(current)->pcb.match_ctl &= ~(0x1 | (0x1 << 1) | (0x1 << 2));
 				task_thread_info(current)->pcb.da_match = 0;
 				task_thread_info(current)->pcb.dv_match = 0;
 			}
 			if (mmcsr == MMCSR__IA_MATCH) {
-				ia_match = read_csr(CSR_IA_MATCH);
+				ia_match = sw64_read_csr(CSR_IA_MATCH);
 				ia_match &= ~((0x1UL << IA_MATCH_EN_S) | (0x7ffffffffffffUL << 2));
-				write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
+				sw64_write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
 				task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 3);
 				task_thread_info(current)->pcb.ia_match = 0;
 			}
 			if (mmcsr == MMCSR__IV_MATCH) {
-				ia_match = read_csr(CSR_IA_MATCH);
+				ia_match = sw64_read_csr(CSR_IA_MATCH);
 				ia_match &= ~((0x1UL << IV_MATCH_EN_S) | (0x1UL << IV_PM_EN_S));
-				write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
-				write_csr(0, CSR_IV_MATCH);		// clear iv_match
+				sw64_write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
+				sw64_write_csr(0, CSR_IV_MATCH);		// clear iv_match
 				task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 4);
 				task_thread_info(current)->pcb.ia_match &= ~((0x1UL << IV_MATCH_EN_S) | (0x1UL << IV_PM_EN_S));
 				task_thread_info(current)->pcb.iv_match = 0;
 			}
 			if (mmcsr == MMCSR__IDA_MATCH) {
-				write_csr(0, CSR_IDA_MATCH);		// clear ida_match
+				sw64_write_csr(0, CSR_IDA_MATCH);		// clear ida_match
 				task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 5);
 				task_thread_info(current)->pcb.ida_match = 0;
 			}
@@ -602,54 +602,54 @@ int do_match(unsigned long address, unsigned long mmcsr, long cause, struct pt_r
 
 		if (mmcsr == MMCSR__DA_MATCH) {
 			info.si_errno = 1;
-			match_ctl = read_csr(CSR_DC_CTLP);
+			match_ctl = sw64_read_csr(CSR_DC_CTLP);
 			match_ctl &= ~(0x3UL << DA_MATCH_EN_S);
-			write_csr(match_ctl, CSR_DC_CTLP);
-			write_csr(0, CSR_DA_MATCH);		// clear da_match
+			sw64_write_csr(match_ctl, CSR_DC_CTLP);
+			sw64_write_csr(0, CSR_DA_MATCH);		// clear da_match
 			task_thread_info(current)->pcb.match_ctl &= ~0x1;
 			task_thread_info(current)->pcb.da_match = 0;
 		}
 		if (mmcsr == MMCSR__DV_MATCH) {
 			info.si_errno = 2;
-			match_ctl = read_csr(CSR_DC_CTLP);
+			match_ctl = sw64_read_csr(CSR_DC_CTLP);
 			match_ctl &= ~(0x1UL << DV_MATCH_EN_S);
-			write_csr(match_ctl, CSR_DC_CTLP);
-			write_csr(0, CSR_DV_MATCH);		// clear dv_match
+			sw64_write_csr(match_ctl, CSR_DC_CTLP);
+			sw64_write_csr(0, CSR_DV_MATCH);		// clear dv_match
 			task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 1);
 			task_thread_info(current)->pcb.dv_match = 0;
 		}
 		if (mmcsr == MMCSR__DAV_MATCH) {
 			info.si_errno = 3;
-			match_ctl = read_csr(CSR_DC_CTLP);
+			match_ctl = sw64_read_csr(CSR_DC_CTLP);
 			match_ctl &= ~((0x3UL << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
-			write_csr(match_ctl, CSR_DC_CTLP);
-			write_csr(0, CSR_DA_MATCH);		// clear da_match
-			write_csr(0, CSR_DV_MATCH);		// clear dv_match
+			sw64_write_csr(match_ctl, CSR_DC_CTLP);
+			sw64_write_csr(0, CSR_DA_MATCH);		// clear da_match
+			sw64_write_csr(0, CSR_DV_MATCH);		// clear dv_match
 			task_thread_info(current)->pcb.match_ctl &= ~(0x1 | (0x1 << 1) | (0x1 << 2));
 			task_thread_info(current)->pcb.da_match = 0;
 			task_thread_info(current)->pcb.dv_match = 0;
 		}
 		if (mmcsr == MMCSR__IA_MATCH) {
 			info.si_errno = 4;
-			ia_match = read_csr(CSR_IA_MATCH);
+			ia_match = sw64_read_csr(CSR_IA_MATCH);
 			ia_match &= ~((0x1UL << IA_MATCH_EN_S) | (0x7ffffffffffffUL << 2));
-			write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
+			sw64_write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
 			task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 3);
 			task_thread_info(current)->pcb.ia_match = 0;
 		}
 		if (mmcsr == MMCSR__IV_MATCH) {
 			info.si_errno = 5;
-			ia_match = read_csr(CSR_IA_MATCH);
+			ia_match = sw64_read_csr(CSR_IA_MATCH);
 			ia_match &= ~((0x1UL << IV_MATCH_EN_S) | (0x1UL << IV_PM_EN_S));
-			write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
-			write_csr(0, CSR_IV_MATCH);		// clear iv_match
+			sw64_write_csr(ia_match, CSR_IA_MATCH);	// clear ia_match
+			sw64_write_csr(0, CSR_IV_MATCH);		// clear iv_match
 			task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 4);
 			task_thread_info(current)->pcb.ia_match &= ~((0x1UL << IV_MATCH_EN_S) | (0x1UL << IV_PM_EN_S));
 			task_thread_info(current)->pcb.iv_match = 0;
 		}
 		if (mmcsr == MMCSR__IDA_MATCH) {
 			info.si_errno = 6;
-			write_csr(0, CSR_IDA_MATCH);		// clear ida_match
+			sw64_write_csr(0, CSR_IDA_MATCH);		// clear ida_match
 			task_thread_info(current)->pcb.match_ctl &= ~(0x1 << 5);
 			task_thread_info(current)->pcb.ida_match = 0;
 		}
@@ -691,39 +691,39 @@ void restore_da_match_after_sched(void)
 	pr_info("Restroe MATCH status, pid: %d\n", current->pid);
 
 	if (pcb->match_ctl & DA_MATCH) {
-		write_csr(pcb->da_match, CSR_DA_MATCH);
-		write_csr(pcb->da_mask, CSR_DA_MASK);
+		sw64_write_csr(pcb->da_match, CSR_DA_MATCH);
+		sw64_write_csr(pcb->da_mask, CSR_DA_MASK);
 		match_ctl_mode = (pcb->match_ctl >> 8) & 0x3;
-		match_ctl = read_csr(CSR_DC_CTLP);
+		match_ctl = sw64_read_csr(CSR_DC_CTLP);
 		match_ctl &= ~((0x1UL << 3) | (0x3UL << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
 		match_ctl |= (match_ctl_mode << DA_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S) | (0x3UL << DPM_MATCH);
-		write_csr(match_ctl, CSR_DC_CTLP);
+		sw64_write_csr(match_ctl, CSR_DC_CTLP);
 		pr_info("da_match:%#lx da_mask:%#lx match_ctl:%#lx\n", pcb->da_match, pcb->da_mask, match_ctl);
 	}
 
 	if (pcb->match_ctl & DV_MATCH) {
-		write_csr(pcb->dv_match, CSR_DV_MATCH);
-		write_csr(pcb->dv_mask, CSR_DV_MASK);
-		match_ctl = read_csr(CSR_DC_CTLP);
+		sw64_write_csr(pcb->dv_match, CSR_DV_MATCH);
+		sw64_write_csr(pcb->dv_mask, CSR_DV_MASK);
+		match_ctl = sw64_read_csr(CSR_DC_CTLP);
 		match_ctl &= ~((0x1UL << 3) | (0x3UL << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
 		match_ctl |= (0x1UL << DV_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S) | (0x3UL << DPM_MATCH);
-		write_csr(match_ctl, CSR_DC_CTLP);
+		sw64_write_csr(match_ctl, CSR_DC_CTLP);
 		pr_info("dv_match:%#lx dv_mask:%#lx match_ctl:%#lx\n", pcb->dv_match, pcb->dv_mask, match_ctl);
 	}
 
 	if (pcb->match_ctl & DAV_MATCH) {
-		write_csr(pcb->da_match, CSR_DA_MATCH);
-		write_csr(pcb->da_mask, CSR_DA_MASK);
-		write_csr(pcb->dv_match, CSR_DV_MATCH);
-		write_csr(pcb->dv_mask, CSR_DV_MASK);
-		write_csr(0xfffffffff, CSR_DA_MATCH_MODE);
+		sw64_write_csr(pcb->da_match, CSR_DA_MATCH);
+		sw64_write_csr(pcb->da_mask, CSR_DA_MASK);
+		sw64_write_csr(pcb->dv_match, CSR_DV_MATCH);
+		sw64_write_csr(pcb->dv_mask, CSR_DV_MASK);
+		sw64_write_csr(0xfffffffff, CSR_DA_MATCH_MODE);
 		match_ctl_mode = (pcb->match_ctl >> 8) & 0x3;
-		match_ctl = read_csr(CSR_DC_CTLP);
+		match_ctl = sw64_read_csr(CSR_DC_CTLP);
 		match_ctl &= ~((0x3UL << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
 		match_ctl |= (match_ctl_mode << DA_MATCH_EN_S) | (0x1UL << DV_MATCH_EN_S)
 				| (0x1UL << DAV_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S)
 				| (0x3UL << DPM_MATCH);
-		write_csr(match_ctl, CSR_DC_CTLP);
+		sw64_write_csr(match_ctl, CSR_DC_CTLP);
 		pr_info("da_match:%#lx da_mask:%#lx dv_match:%#lx dv_mask:%#lx match_ctl:%#lx\n",
 				pcb->da_match, pcb->da_mask, pcb->dv_match, pcb->dv_mask, match_ctl);
 	}
@@ -731,27 +731,27 @@ void restore_da_match_after_sched(void)
 	if (pcb->match_ctl & IA_MATCH) {
 		pcb->ia_match |= (0x1UL << IA_MATCH_EN_S) | 0x3;
 		pcb->ia_mask |= 0x3;
-		write_csr(pcb->ia_match, CSR_IA_MATCH);
-		write_csr(pcb->ia_mask, CSR_IA_MASK);
-		vpn = read_csr(CSR_VPCR) >> 44;
+		sw64_write_csr(pcb->ia_match, CSR_IA_MATCH);
+		sw64_write_csr(pcb->ia_mask, CSR_IA_MASK);
+		vpn = sw64_read_csr(CSR_VPCR) >> 44;
 		vpn &= 0x3ff;
-		upn = read_csr(CSR_UPCR);
+		upn = sw64_read_csr(CSR_UPCR);
 		upn &= 0x3ff;
-		write_csr(((0x3ff << 18) | vpn), CSR_IA_VPNMATCH);
-		write_csr(((0x3ff << 18) | upn), CSR_IA_UPNMATCH);
+		sw64_write_csr(((0x3ff << 18) | vpn), CSR_IA_VPNMATCH);
+		sw64_write_csr(((0x3ff << 18) | upn), CSR_IA_UPNMATCH);
 		pr_info("ia_match:%#lx ia_mask:%#lx\n", pcb->ia_match, pcb->ia_mask);
 	}
 	if (pcb->match_ctl & IV_MATCH) {
 		pcb->ia_match |= (0x1UL << IV_MATCH_EN_S) | (0x1UL << IV_PM_EN_S) | 0x3;
-		write_csr(pcb->ia_match, CSR_IA_MATCH);
-		write_csr(pcb->iv_match, CSR_IV_MATCH);
+		sw64_write_csr(pcb->ia_match, CSR_IA_MATCH);
+		sw64_write_csr(pcb->iv_match, CSR_IV_MATCH);
 		pr_info("ia_match:%#lx iv_match:%#lx\n", pcb->ia_match, pcb->iv_match);
 	}
 	if (pcb->match_ctl & IDA_MATCH) {
 		pcb->ida_match |= (0x1UL << IDA_MATCH_EN_S) | 0x3;
 		pcb->ida_mask |= 0x3;
-		write_csr(pcb->ida_match, CSR_IDA_MATCH);
-		write_csr(pcb->ida_mask, CSR_IDA_MASK);
+		sw64_write_csr(pcb->ida_match, CSR_IDA_MATCH);
+		sw64_write_csr(pcb->ida_mask, CSR_IDA_MASK);
 		pr_info("ida_match:%#lx ida_mask:%#lx\n", pcb->ida_match, pcb->ida_mask);
 	}
 }
