@@ -790,8 +790,8 @@ static int apt_set_pte_fast(struct kvm *kvm, struct kvm_mmu_memory_cache *cache,
 	pmd_t *pmd;
 	pte_t *pte, old_pte;
 	bool logging_active = flags & KVM_APT_FLAG_LOGGING_ACTIVE;
-	int inv_level = ((read_csr(CSR_AS_INFO)) >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
-	unsigned long inv_hpa = read_csr(CSR_AS_INFO) & AF_ENTRY_ADDR_MASK;
+	int inv_level = ((sw64_read_csr(CSR_AS_INFO)) >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
+	unsigned long inv_hpa = sw64_read_csr(CSR_AS_INFO) & AF_ENTRY_ADDR_MASK;
 
 	VM_BUG_ON(logging_active && !cache);
 
@@ -1148,7 +1148,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_gpa,
 	unsigned long as_info, access_type;
 	unsigned int vma_shift;
 
-	as_info = read_csr(CSR_AS_INFO);
+	as_info = sw64_read_csr(CSR_AS_INFO);
 	access_type = (as_info >> AF_ACCESS_TYPE_SHIFT) & AF_ACCESS_TYPE_MASK;
 	write_fault = kvm_is_write_fault(access_type);
 	exec_fault = kvm_is_exec_fault(access_type);
@@ -1352,13 +1352,13 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 	int ret, idx;
 
-	as_info = read_csr(CSR_AS_INFO);
+	as_info = sw64_read_csr(CSR_AS_INFO);
 	access_type = (as_info >> AF_ACCESS_TYPE_SHIFT) & AF_ACCESS_TYPE_MASK;
 	inv_level = (as_info >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
 	fault_status = (as_info >> AF_FAULT_STATUS_SHIFT) & AF_FAULT_STATUS_MASK;
 	fault_entry_addr = (as_info & AF_ENTRY_ADDR_MASK) >> 3;
 
-	fault_gpa = read_csr(CSR_EXC_GPA);
+	fault_gpa = sw64_read_csr(CSR_EXC_GPA);
 	idx = srcu_read_lock(&vcpu->kvm->srcu);
 
 	gfn = fault_gpa >> PAGE_SHIFT;

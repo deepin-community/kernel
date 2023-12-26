@@ -61,30 +61,36 @@
 
 
 #ifdef CONFIG_HAVE_CSRRW
-#define read_csr(x)					\
-	({ unsigned long __val;				\
-	 __asm__ __volatile__("csrr %0,%1" : "=r"(__val) : "i"(x));	\
-	 __val; })
-
-#define write_csr(x, y)					\
-	({ __asm__ __volatile__("csrw %0,%1" ::"r"(x), "i"(y)); })
-
-#define write_csr_imb(x, y)				\
-	({ __asm__ __volatile__("csrw %0,%1; imemb" ::"r"(x), "i"(y)); })
-
-
 #ifndef __ASSEMBLY__
+static inline unsigned long sw64_read_csr(unsigned long x)
+{
+	unsigned long __val;
+	__asm__ __volatile__("csrr %0,%1" : "=r"(__val) : "i"(x));
+	return __val;
+}
+
+static inline void sw64_write_csr(unsigned long x, unsigned long y)
+{
+	__asm__ __volatile__("csrw %0,%1" ::"r"(x), "i"(y));
+}
+
+static inline void sw64_write_csr_imb(unsigned long x, unsigned long y)
+{
+	__asm__ __volatile__("csrw %0,%1; imemb" ::"r"(x), "i"(y));
+}
+
 #include <asm/barrier.h>
 static inline void update_ptbr_sys(unsigned long ptbr)
 {
 	imemb();
-	write_csr_imb(ptbr, CSR_PTBR_SYS);
+	sw64_write_csr_imb(ptbr, CSR_PTBR_SYS);
 }
+
 #endif
 #else
-#define read_csr(x)			(0)
-#define write_csr(x, y)			do { } while (0)
-#define write_csr_imb(x, y)		do { } while (0)
+#define sw64_read_csr(x)                     (0)
+#define sw64_write_csr(x, y)                 do { } while (0)
+#define sw64_write_csr_imb(x, y)             do { } while (0)
 
 #ifndef __ASSEMBLY__
 static inline void update_ptbr_sys(unsigned long ptbr)

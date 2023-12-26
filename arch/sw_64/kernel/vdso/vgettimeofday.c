@@ -88,7 +88,7 @@ static __always_inline u64 read_longtime(void)
 #elif defined(CONFIG_SUBARCH_C4)
 static __always_inline u64 read_longtime(void)
 {
-	return read_csr(CSR_SHTCLOCK);
+	return sw64_read_csr(CSR_SHTCLOCK);
 }
 #endif
 

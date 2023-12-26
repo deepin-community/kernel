@@ -68,7 +68,7 @@ int io_mem_abort(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	run->mmio.phys_addr = hargs->arg1 & 0xfffffffffffffUL;
 	sw64_decode(vcpu, hargs->arg2, run);
 #elif defined(CONFIG_SUBARCH_C4)
-	run->mmio.phys_addr = read_csr(CSR_DVA) & 0xfffffffffffffUL;
+	run->mmio.phys_addr = sw64_read_csr(CSR_DVA) & 0xfffffffffffffUL;
 	sw64_decode(vcpu, 0, run);
 #endif
 	if (run->mmio.is_write)

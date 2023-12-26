@@ -97,14 +97,14 @@ write_da_match(void *i)
 {
 	unsigned long dc_ctl;
 
-	write_csr(da_match_cf1, CSR_DA_MATCH);
-	write_csr(da_match_cf2, CSR_DA_MASK);
-	dc_ctl = read_csr(CSR_DC_CTLP);
+	sw64_write_csr(da_match_cf1, CSR_DA_MATCH);
+	sw64_write_csr(da_match_cf2, CSR_DA_MASK);
+	dc_ctl = sw64_read_csr(CSR_DC_CTLP);
 	dc_ctl &= ~((0x1UL << 3) | (0x3UL << DA_MATCH_EN_S)
 			| (0x1UL << DAV_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S)
 			| (0x3UL << DPM_MATCH));
 	dc_ctl |= da_match_cf3;
-	write_csr(dc_ctl, CSR_DC_CTLP);
+	sw64_write_csr(dc_ctl, CSR_DC_CTLP);
 }
 
 static void
@@ -112,13 +112,13 @@ write_dv_match(void *i)
 {
 	unsigned long dc_ctl;
 
-	write_csr(dv_match_cf1, CSR_DV_MATCH);
-	write_csr(dv_match_cf2, CSR_DV_MASK);
-	dc_ctl = read_csr(CSR_DC_CTLP);
+	sw64_write_csr(dv_match_cf1, CSR_DV_MATCH);
+	sw64_write_csr(dv_match_cf2, CSR_DV_MASK);
+	dc_ctl = sw64_read_csr(CSR_DC_CTLP);
 	dc_ctl &= ~((0x1UL << DAV_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S)
 			| (0x3UL << DPM_MATCH));
 	dc_ctl |= ((0x1UL << DV_MATCH_EN_S) | dv_match_cf3);
-	write_csr(dc_ctl, CSR_DC_CTLP);
+	sw64_write_csr(dc_ctl, CSR_DC_CTLP);
 }
 
 static void
@@ -126,26 +126,26 @@ write_dav_match(void *i)
 {
 	unsigned long dc_ctl;
 
-	write_csr(dav_match_cf1, CSR_DA_MATCH);
-	write_csr(dav_match_cf2, CSR_DA_MASK);
-	write_csr(dav_match_cf3, CSR_DV_MATCH);
-	write_csr(dav_match_cf4, CSR_DV_MASK);
-	dc_ctl = read_csr(CSR_DC_CTLP);
+	sw64_write_csr(dav_match_cf1, CSR_DA_MATCH);
+	sw64_write_csr(dav_match_cf2, CSR_DA_MASK);
+	sw64_write_csr(dav_match_cf3, CSR_DV_MATCH);
+	sw64_write_csr(dav_match_cf4, CSR_DV_MASK);
+	dc_ctl = sw64_read_csr(CSR_DC_CTLP);
 	dc_ctl &= ~((0x1UL << 3) | (0x3UL << DA_MATCH_EN_S)
 			| (0x1UL << DPM_MATCH_EN_S) | (0x3UL << DPM_MATCH));
 	dc_ctl |= ((0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S)
 			| dav_match_cf5);
-	write_csr(dc_ctl, CSR_DC_CTLP);
+	sw64_write_csr(dc_ctl, CSR_DC_CTLP);
 }
 
 static void
 write_ia_match(void *i)
 {
 	ia_match_cf1 |= (0x1UL << IA_MATCH_EN_S);
-	write_csr_imb(ia_match_cf1, CSR_IA_MATCH);
-	write_csr_imb(ia_match_cf2, CSR_IA_MASK);
-	write_csr(((0x3ffUL << 18) | ia_match_cf3), CSR_IA_VPNMATCH);
-	write_csr(((0x3ffUL << 18) | ia_match_cf4), CSR_IA_UPNMATCH);
+	sw64_write_csr_imb(ia_match_cf1, CSR_IA_MATCH);
+	sw64_write_csr_imb(ia_match_cf2, CSR_IA_MASK);
+	sw64_write_csr(((0x3ffUL << 18) | ia_match_cf3), CSR_IA_VPNMATCH);
+	sw64_write_csr(((0x3ffUL << 18) | ia_match_cf4), CSR_IA_UPNMATCH);
 }
 
 static void
@@ -153,12 +153,12 @@ write_iv_match(void *i)
 {
 	unsigned long ia_match_tmp;
 
-	ia_match_tmp = read_csr(CSR_IA_MATCH);
+	ia_match_tmp = sw64_read_csr(CSR_IA_MATCH);
 	ia_match_tmp &= ~(0x1UL << IV_PM_EN_S);
 	ia_match_tmp |= ((((iv_match_cf2 >> IV_PM_EN_S) & 0x1) << IV_PM_EN_S)
 			| (iv_match_cf2 & 0x3) | (0x1UL << IV_MATCH_EN_S));
-	write_csr_imb(iv_match_cf1, CSR_IV_MATCH);
-	write_csr_imb(ia_match_tmp, CSR_IA_MATCH);
+	sw64_write_csr_imb(iv_match_cf1, CSR_IV_MATCH);
+	sw64_write_csr_imb(ia_match_tmp, CSR_IA_MATCH);
 }
 
 static void
@@ -166,8 +166,8 @@ write_ida_match(void *i)
 {
 
 	ida_match_cf1 |= (0x1UL << IDA_MATCH_EN_S);
-	write_csr(ida_match_cf1, CSR_IDA_MATCH);
-	write_csr(ida_match_cf2, CSR_IDA_MASK);
+	sw64_write_csr(ida_match_cf1, CSR_IDA_MATCH);
+	sw64_write_csr(ida_match_cf2, CSR_IDA_MASK);
 }
 
 static ssize_t da_match_set(struct file *file, const char __user *user_buf,
