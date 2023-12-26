@@ -50,6 +50,9 @@
  *						| -> guest_multiple_level_gpa_restore
  */
 
+#define TKM_CMD_ID_MIN  0x120
+#define TKM_CMD_ID_MAX  0x12f
+
 struct psp_cmdresp_head {
 	uint32_t buf_size;
 	uint32_t cmdresp_size;
@@ -510,6 +513,13 @@ end:
 	return ret;
 }
 
+static int cmd_type_is_tkm(int cmd)
+{
+	if (cmd >= TKM_CMD_ID_MIN && cmd <= TKM_CMD_ID_MAX)
+		return 1;
+	return 0;
+}
+
 /*
  * The primary implementation interface of virtual PSP in kernel mode
  */
@@ -522,6 +532,17 @@ int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa,
 	struct vpsp_cmd *vcmd = (struct vpsp_cmd *)&cmd;
 	uint8_t prio = CSV_COMMAND_PRIORITY_LOW;
 	uint32_t index = 0;
+	uint32_t vid = 0;
+
+	// only tkm cmd need vid
+	if (cmd_type_is_tkm(vcmd->cmd_id)) {
+		// if vm without set vid, then tkm command is not allowed
+		ret = vpsp_get_vid(&vid, kvm->userspace_pid);
+		if (ret) {
+			pr_err("[%s]: not allowed tkm command without vid\n", __func__);
+			return -EFAULT;
+		}
+	}
 
 	if (unlikely(kvm_read_guest(kvm, psp_ret_gpa, &psp_ret,
 					sizeof(psp_ret))))
@@ -540,7 +561,7 @@ int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa,
 		}
 
 		/* try to send command to the device for execution*/
-		ret = vpsp_try_do_cmd(cmd, (void *)hbuf.data,
+		ret = vpsp_try_do_cmd(vid, cmd, (void *)hbuf.data,
 				(struct vpsp_ret *)&psp_ret);
 		if (unlikely(ret)) {
 			pr_err("[%s]: vpsp_do_cmd failed\n", __func__);
@@ -578,7 +599,7 @@ int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa,
 			CSV_COMMAND_PRIORITY_LOW;
 		index = psp_ret.index;
 		/* try to get the execution result from ringbuffer*/
-		ret = vpsp_try_get_result(prio, index, g_hbuf_wrap[prio][index].data,
+		ret = vpsp_try_get_result(vid, prio, index, g_hbuf_wrap[prio][index].data,
 				(struct vpsp_ret *)&psp_ret);
 		if (unlikely(ret)) {
 			pr_err("[%s]: vpsp_try_get_result failed\n", __func__);
