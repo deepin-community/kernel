@@ -598,12 +598,12 @@ static void __iomem *sw64_pcie_map_bus(struct pci_bus *bus,
 	return cfg_iobase;
 }
 
-#ifdef CONFIG_ACPI
 int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	return map_irq(dev, slot, pin);
 }
 
+#ifdef CONFIG_ACPI
 static void setup_intx_irqs(struct pci_controller *hose)
 {
 	unsigned long int_conf, node, val_node;
