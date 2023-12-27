@@ -2056,7 +2056,8 @@ static int loop_add(int i)
 	}
 	lo->lo_queue = lo->lo_disk->queue;
 
-	blk_queue_max_hw_sectors(lo->lo_queue, BLK_DEF_MAX_SECTORS);
+	/* random number picked from the history block max_sectors cap */
+	blk_queue_max_hw_sectors(lo->lo_queue, 2560u);
 
 	/*
 	 * Disable partition scanning by default. The in-kernel partition
