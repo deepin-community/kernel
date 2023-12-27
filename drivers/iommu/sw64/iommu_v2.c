@@ -1569,7 +1569,7 @@ sunway_iommu_iova_to_phys(struct iommu_domain *dom, dma_addr_t iova)
 		return 0;
 
 	paddr &= ~PTE_FLAGS_MASK;
-	paddr += iova & PAGE_MASK;
+	paddr += iova & ~PAGE_MASK;
 	return paddr;
 }
 
