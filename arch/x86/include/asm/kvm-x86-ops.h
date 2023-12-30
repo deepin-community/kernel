@@ -142,6 +142,7 @@ KVM_X86_OP_OPTIONAL(get_hygon_coco_extension)
 KVM_X86_OP_OPTIONAL(enable_hygon_coco_extension)
 KVM_X86_OP_OPTIONAL(alloc_apic_backing_page)
 KVM_X86_OP_OPTIONAL_RET0(gmem_prepare)
+KVM_X86_OP_OPTIONAL(gmem_invalidate)
 
 #undef KVM_X86_OP
 #undef KVM_X86_OP_OPTIONAL
