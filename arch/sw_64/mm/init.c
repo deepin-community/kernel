@@ -46,10 +46,7 @@ static phys_addr_t mem_size_limit;
 #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
 unsigned long memory_block_size_bytes(void)
 {
-	if (is_in_guest())
-		return MIN_MEMORY_BLOCK_SIZE_VM_MEMHP;
-	else
-		return MIN_MEMORY_BLOCK_SIZE;
+	return MIN_MEMORY_BLOCK_SIZE;
 }
 #endif /* CONFIG_MEMORY_HOTPLUG_SPARSE */
 

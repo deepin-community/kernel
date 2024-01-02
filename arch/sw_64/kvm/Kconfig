@@ -37,13 +37,6 @@ config KVM
 
 	  If unsure, say N.
 
-config KVM_MEMHOTPLUG
-	bool "Memory hotplug support for guest"
-	depends on KVM && MEMORY_HOTPLUG && SUBARCH_C3B
-	help
-	  Provides memory hotplug support for SW64 guest.
-
-
 source "drivers/vhost/Kconfig"
 
 endif # VIRTUALIZATION
