@@ -161,8 +161,6 @@ static int sunway_memory_device_add(struct sunway_ged_device *device)
 	list_add_tail(&mem_device->list, &device->dev_list);
 	dev_dbg(device->dev, "Memory device configured\n");
 
-	hcall(HCALL_MEMHOTPLUG, mem_device->start_addr, 0, 0);
-
 	return 1;
 }
 

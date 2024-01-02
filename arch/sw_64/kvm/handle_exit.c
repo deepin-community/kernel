@@ -63,12 +63,6 @@ int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		vcpu->run->exit_reason = KVM_EXIT_DEBUG;
 		vcpu->run->debug.arch.epc = vcpu->arch.regs.pc;
 		return 0;
-#ifdef CONFIG_KVM_MEMHOTPLUG
-	case SW64_KVM_EXIT_MEMHOTPLUG:
-		vcpu->stat.memhotplug_exits++;
-		vcpu_mem_hotplug(vcpu, hargs->arg0);
-		return 1;
-#endif
 #ifdef CONFIG_SUBARCH_C4
 	case SW64_KVM_EXIT_APT_FAULT:
 		return kvm_handle_guest_abort(vcpu, run);

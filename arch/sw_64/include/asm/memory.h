@@ -6,7 +6,6 @@
 #include <linux/numa.h>
 #endif
 
-#define MIN_MEMORY_BLOCK_SIZE_VM_MEMHP    (1UL << 30)
 #define NODE0_START	(_TEXT_START - __START_KERNEL_map)
 
 #define MAX_PHYSMEM_BITS	48
