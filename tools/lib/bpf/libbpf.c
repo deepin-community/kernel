@@ -5086,7 +5086,7 @@ retry:
 			}
 		}
 
-		if (map->fd >= 0) {
+		if (map->reused) {
 			pr_debug("map '%s': skipping creation (preset fd=%d)\n",
 				 map->name, map->fd);
 		} else {
