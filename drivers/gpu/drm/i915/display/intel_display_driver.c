@@ -371,7 +371,6 @@ int intel_display_driver_probe(struct drm_i915_private *i915)
 
 	/* Only enable hotplug handling once the fbdev is fully set up. */
 	intel_hpd_init(i915);
-	intel_hpd_poll_disable(i915);
 
 	skl_watermark_ipc_init(i915);
 
@@ -409,6 +408,7 @@ void intel_display_driver_register(struct drm_i915_private *i915)
 	 * fbdev->async_cookie.
 	 */
 	drm_kms_helper_poll_init(&i915->drm);
+	intel_hpd_poll_disable(i915);
 }
 
 /* part #1: call before irq uninstall */
