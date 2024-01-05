@@ -193,6 +193,32 @@ void simd_emulate(unsigned int inst, unsigned long va)
 	}
 }
 
+static int try_fix_rd_f(unsigned int inst, struct pt_regs *regs)
+{
+	int copied;
+	unsigned int prev_inst, new_inst;
+	unsigned int ra, prev_ra;
+
+	/* not rd_f */
+	if ((inst & 0xfc00ffffU) != 0x18001000)
+		return -1;
+
+	get_user(prev_inst, (__u32 *)(regs->pc - 8));
+	if ((prev_inst & 0xfc00e000U) == 0x20008000) { /* lstw/lstl */
+		ra = (inst >> 21) & 0x1f;
+		prev_ra = (prev_inst >> 21) & 0x1f;
+		/* ldi ra, 0(prev_ra) */
+		new_inst = (0x3e << 26) | (ra << 21) | (prev_ra << 16);
+		copied = access_process_vm(current, regs->pc - 4, &new_inst,
+				sizeof(unsigned int), FOLL_FORCE | FOLL_WRITE);
+		if (copied != sizeof(unsigned int))
+			return -1;
+		regs->pc -= 4;
+		return 0;
+	}
+	return -1;
+}
+
 /*
  * BPT/GENTRAP/OPDEC make regs->pc = exc_pc + 4. debugger should
  * do something necessary to handle it correctly.
@@ -294,6 +320,8 @@ do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
 		return;
 
 	case IF_OPDEC:
+		if (try_fix_rd_f(inst, regs) == 0)
+			return;
 		switch (inst) {
 #ifdef CONFIG_KPROBES
 		case BREAK_KPROBE:
