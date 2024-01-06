@@ -375,6 +375,14 @@ SYM_INNER_LABEL(secondary_startup_64_no_verify, SYM_L_GLOBAL)
 	shrq	$32, %rdx
 	wrmsr
 
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+	/*
+	 * Ensure .bss.decrypted memory's stale caches which lived in earlier
+	 * stage to be flushed.
+	 */
+	call	early_clflush_bss_decrypted_section
+#endif
+
 	/* Setup and Load IDT */
 	call	early_setup_idt
 
@@ -511,6 +519,8 @@ SYM_CODE_END(vc_boot_ghcb)
 SYM_DATA(initial_code,	.quad x86_64_start_kernel)
 #ifdef CONFIG_AMD_MEM_ENCRYPT
 SYM_DATA(initial_vc_handler,	.quad handle_vc_boot_ghcb)
+SYM_DATA(bsp_flush_bss_decrypted_section_handled,	.byte 0x0)
+	.balign	8
 #endif
 
 SYM_DATA(trampoline_lock, .quad 0);
