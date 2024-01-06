@@ -318,6 +318,115 @@ unsigned long __head __startup_64(unsigned long physaddr,
 	return sme_postprocess_startup(bp, pmd);
 }
 
+#ifdef CONFIG_AMD_MEM_ENCRYPT
+
+extern bool bsp_flush_bss_decrypted_section_handled;
+
+/* Get CPUID data through GHCB MSR protocol */
+static int __cpuid_msr_protocol(u32 fn, int reg_idx, u32 *reg)
+{
+	unsigned int msr_idx = (unsigned int)MSR_AMD64_SEV_ES_GHCB;
+	struct msr m;
+
+	m.q = GHCB_CPUID_REQ(fn, reg_idx);
+
+	asm volatile("wrmsr" : : "c" (msr_idx), "a"(m.l), "d" (m.h) : "memory");
+	VMGEXIT();
+	asm volatile("rdmsr" : "=a" (m.l), "=d" (m.h) : "c" (msr_idx));
+
+	if (GHCB_RESP_CODE(m.q) != GHCB_MSR_CPUID_RESP)
+		return -EIO;
+
+	*reg = m.h;
+
+	return 0;
+}
+
+static bool __should_do_clflush(void)
+{
+	u32 eax, ebx, ecx, edx;
+	int ret;
+
+	/* Check if this is a Hygon CSV guest or an AMD SEV guest */
+	if (!sme_get_me_mask() ||
+	    !(RIP_REL_REF(sev_status) & MSR_AMD64_SEV_ENABLED))
+		return false;
+
+	/* Get cpuid vendor info, if cannot get vendor info, then return false */
+	eax = 0x0;
+	if (!(RIP_REL_REF(sev_status) & MSR_AMD64_SEV_ES_ENABLED)) {
+		native_cpuid(&eax, &ebx, &ecx, &edx);
+	} else {
+		/*
+		 * Hygon CSV2 guest or AMD SEV-ES guest should use GHCB MSR
+		 * protocol to get cpu vendor info.
+		 */
+		ret =         __cpuid_msr_protocol(eax, GHCB_CPUID_REQ_EBX, &ebx);
+		ret = ret ? : __cpuid_msr_protocol(eax, GHCB_CPUID_REQ_ECX, &ecx);
+		ret = ret ? : __cpuid_msr_protocol(eax, GHCB_CPUID_REQ_EDX, &edx);
+		if (ret)
+			return false;
+	}
+
+	/* Check if this is a Hygon CSV guest */
+#define STRING_Hygo 0x6f677948
+#define STRING_uine 0x656e6975
+#define STRING_nGen 0x6e65476e
+
+	if (ebx != STRING_Hygo || ecx != STRING_uine || edx != STRING_nGen)
+		return false;
+
+	return true;
+}
+
+void __ref early_clflush_bss_decrypted_section(void)
+{
+	unsigned long vaddr, vaddr_end;
+	char *cl, *start, *end;
+
+	/* Only allow bsp flush these caches and the bsp must at early boot stage */
+	if (bsp_flush_bss_decrypted_section_handled)
+		return;
+
+	if (read_cr3_pa() != __pa_nodebug(early_top_pgt))
+		return;
+
+	/* Only Hygon CSV guest should do the clflush */
+	if (!__should_do_clflush())
+		goto handled;
+
+	/*
+	 * The memory region of .bss..decrypted section maybe mapped
+	 * with encryption in earlier stage. If the correspond stale
+	 * caches lives in earlier stage were not flushed before we
+	 * access that memory region, then Linux will crash later
+	 * because the stale caches will pollute the memory. So we
+	 * need flush the caches with encrypted mapping before we
+	 * access .bss..decrypted section.
+	 *
+	 * The function __startup_64() have already filled the
+	 * encrypted mapping for .bss..decrypted section, use that
+	 * mapping here.
+	 */
+	vaddr = (unsigned long)__start_bss_decrypted -
+				__START_KERNEL_map + phys_base;
+	vaddr_end = (unsigned long)__end_bss_decrypted -
+				__START_KERNEL_map + phys_base;
+
+	/* Hardcode cl-size to 64 at this stage. */
+	start = (char *)(vaddr & ~63);
+	end   = (char *)((vaddr_end + 63) & ~63);
+
+	asm volatile("mfence" : : : "memory");
+	for (cl = start; cl != end; cl += 64)
+		clflush(cl);
+	asm volatile("mfence" : : : "memory");
+
+handled:
+	bsp_flush_bss_decrypted_section_handled = true;
+}
+#endif
+
 /* Wipe all early page tables except for the kernel symbol map */
 static void __init reset_early_page_tables(void)
 {
