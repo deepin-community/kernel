@@ -1,0 +1,528 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+#
+# system call numbers and entry vectors for sw64
+#
+# The format is:
+# <number> <abi> <name> <entry point>
+#
+# The <abi> is always "common" for this file
+#
+#0 is unused
+1	common	exit				sys_exit
+2	common	fork				sys_fork
+3	common	read				sys_read
+4	common	write				sys_write
+#5 is unused
+6	common	close				sys_close
+#7 is unused
+#8 is unused
+9	common	link				sys_link
+10	common	unlink				sys_unlink
+#11 is unused
+12	common	chdir				sys_chdir
+13	common	fchdir				sys_fchdir
+14	common	mknod				sys_mknod
+15	common	chmod				sys_chmod
+16	common	chown				sys_chown
+17	common	brk				sys_brk
+#18 is unused
+19	common	lseek				sys_lseek
+20	common	getxpid				sys_getxpid
+#21 is unused
+22	common	umount2				sys_umount
+23	common	setuid				sys_setuid
+24	common	getxuid				sys_getxuid
+#25 is unused
+26	common	ptrace				sys_ptrace
+#27 is unused
+#28 is unused
+#29 is unused
+#30 is unused
+#31 is unused
+#32 is unused
+33	common	access				sys_access
+#34 is unused
+#35 is unused
+36	common	sync				sys_sync
+37	common	kill				sys_kill
+#38 is unused
+39	common	setpgid				sys_setpgid
+#40 is unused
+41	common	dup				sys_dup
+42	common	pipe				sys_sw64_pipe
+#43 is unused
+#44 is unused
+45	common	open				sys_open
+#46 is unused
+47	common	getxgid				sys_getxgid
+48	common	odd_sigprocmask			sys_odd_sigprocmask
+#49 is unused
+#50 is unused
+51	common	acct				sys_acct
+52	common	sigpending			sys_sigpending
+#53 is unused
+54	common	ioctl				sys_ioctl
+#55 is unused
+#56 is unused
+57	common	symlink				sys_symlink
+58	common	readlink			sys_readlink
+59	common	execve				sys_execve
+60	common	umask				sys_umask
+61	common	chroot				sys_chroot
+#62 is unused
+63	common	getpgrp				sys_getpgrp
+#64 is unused
+#65 is unused
+66	common	vfork				sys_vfork
+67	common	stat				sys_newstat
+68	common	lstat				sys_newlstat
+#69 is unused
+#70 is unused
+71	common	mmap				sys_mmap
+#72 is unused
+73	common	munmap				sys_munmap
+74	common	mprotect			sys_mprotect
+75	common	madvise				sys_madvise
+76	common	vhangup				sys_vhangup
+#77 is unused
+#78 is unused
+79	common	getgroups			sys_getgroups
+80	common	setgroups			sys_setgroups
+#81 is unused
+82	common	setpgrp				sys_setpgid
+#83 is unused
+#84 is unused
+#85 is unused
+#86 is unused
+87	common	gethostname			sys_gethostname
+88	common	sethostname			sys_sethostname
+#89 is unused
+90	common	dup2				sys_dup2
+91	common	fstat				sys_newfstat
+92	common	fcntl				sys_fcntl
+#93 is unused
+94	common	poll				sys_poll
+95	common	fsync				sys_fsync
+96	common	setpriority			sys_setpriority
+97	common	socket				sys_socket
+98	common	connect				sys_connect
+99	common	accept				sys_accept
+100	common	odd_getpriority			sys_odd_getpriority
+101	common	send				sys_send
+102	common	recv				sys_recv
+103	common	sigreturn			sys_sigreturn
+104	common	bind				sys_bind
+105	common	setsockopt			sys_setsockopt
+106	common	listen				sys_listen
+#107 is unused
+#108 is unused
+#109 is unused
+#110 is unused
+111	common	sigsuspend			sys_sigsuspend
+#112 is unused
+113	common	recvmsg				sys_recvmsg
+114	common	sendmsg				sys_sendmsg
+#115 is unused
+#116 is unused
+#117 is unused
+118	common	getsockopt			sys_getsockopt
+119	common	socketcall			sys_socketcall
+120	common	readv				sys_readv
+121	common	writev				sys_writev
+#122 is unused
+123	common	fchown				sys_fchown
+124	common	fchmod				sys_fchmod
+125	common	recvfrom			sys_recvfrom
+126	common	setreuid			sys_setreuid
+127	common	setregid			sys_setregid
+128	common	rename				sys_rename
+129	common	truncate			sys_truncate
+130	common	ftruncate			sys_ftruncate
+131	common	flock				sys_flock
+132	common	setgid				sys_setgid
+133	common	sendto				sys_sendto
+134	common	shutdown			sys_shutdown
+135	common	socketpair			sys_socketpair
+136	common	mkdir				sys_mkdir
+137	common	rmdir				sys_rmdir
+#138 is unused
+#139 is unused
+#140 is unused
+141	common	getpeername			sys_getpeername
+#142 is unused
+#143 is unused
+144	common	getrlimit			sys_getrlimit
+145	common	setrlimit			sys_setrlimit
+#146 is unused
+147	common	setsid				sys_setsid
+148	common	quotactl			sys_quotactl
+#149 is unused
+150	common	getsockname			sys_getsockname
+#151 is unused
+#152 is unused
+#153 is unused
+#154 is unused
+#155 is unused
+156	common	sigaction			sys_odd_sigaction
+#157 is unused
+#158 is unused
+#159 is unused
+#160 is unused
+#161 is unused
+#162 is unused
+#163 is unused
+#164 is unused
+#165 is unused
+166	common	setdomainname			sys_setdomainname
+#167 is unused
+#168 is unused
+#169 is unused
+170	common	bpf				sys_bpf
+171	common	userfaultfd			sys_userfaultfd
+172	common	membarrier			sys_membarrier
+173	common	mlock2				sys_mlock2
+174	common	getpid				sys_getpid
+175	common	getppid				sys_getppid
+176	common	getuid				sys_getuid
+177	common	geteuid				sys_geteuid
+178	common	getgid				sys_getgid
+179	common	getegid				sys_getegid
+180	common	epoll_pwait2			sys_epoll_pwait2
+181	common	mount_setattr			sys_mount_setattr
+182	common	quotactl_fd			sys_quotactl_fd
+183	common	landlock_create_ruleset		sys_landlock_create_ruleset
+184	common	landlock_add_rule		sys_landlock_add_rule
+185	common	landlock_restrict_self		sys_landlock_restrict_self
+# 186 reserved for memfd_secret
+187	common	process_mrelease		sys_process_mrelease
+188	common	futex_waitv			sys_futex_waitv
+189	common	set_mempolicy_home_node		sys_ni_syscall
+190	common	cachestat			sys_cachestat
+191	common	fchmodat2			sys_fchmodat2
+#192 is unused
+#193 is unused
+#194 is unused
+#195 is unused
+#196 is unused
+#197 is unused
+#198 is unused
+#199 is unused
+200	common	msgctl				sys_old_msgctl
+201	common	msgget				sys_msgget
+202	common	msgrcv				sys_msgrcv
+203	common	msgsnd				sys_msgsnd
+204	common	semctl				sys_old_semctl
+205	common	semget				sys_semget
+206	common	semop				sys_semop
+#207 is unused
+208	common	lchown				sys_lchown
+209	common	shmat				sys_shmat
+210	common	shmctl				sys_old_shmctl
+211	common	shmdt				sys_shmdt
+212	common	shmget				sys_shmget
+#213 is unused
+#214 is unused
+#215 is unused
+#216 is unused
+217	common	msync				sys_msync
+#218 is unused
+#219 is unused
+#220 is unused
+#221 is unused
+#222 is unused
+#223 is unused
+#224 is unused
+#225 is unused
+#226 is unused
+#227 is unused
+#228 is unused
+229	common	statfs64			sys_statfs64
+230	common	fstatfs64			sys_fstatfs64
+#231 is unused
+#232 is unused
+233	common	getpgid				sys_getpgid
+234	common	getsid				sys_getsid
+235	common	sigaltstack			sys_sigaltstack
+#236 is unused
+#237 is unused
+#238 is unused
+#239 is unused
+#240 is unused
+#241 is unused
+#242 is unused
+#243 is unused
+#244 is unused
+#245 is unused
+#246 is unused
+#247 is unused
+#248 is unused
+#249 is unused
+#250 is unused
+#251 is unused
+#252 is unused
+#253 is unused
+254	common	sysfs				sys_sysfs
+#255 is unused
+256	common	getsysinfo			sys_getsysinfo
+257	common	setsysinfo			sys_setsysinfo
+#258 is unused
+#259 is unused
+#260 is unused
+#261 is unused
+#262 is unused
+#263 is unused
+#264 is unused
+#265 is unused
+#266 is unused
+#267 is unused
+#268 is unused
+#269 is unused
+#270 is unused
+271	common	pidfd_send_signal		sys_pidfd_send_signal
+272	common	io_uring_setup			sys_io_uring_setup
+273	common	io_uring_enter			sys_io_uring_enter
+274	common	io_uring_register		sys_io_uring_register
+275	common	open_tree			sys_open_tree
+276	common	move_mount			sys_move_mount
+277	common	fsopen				sys_fsopen
+278	common	fsconfig			sys_fsconfig
+279	common	fsmount				sys_fsmount
+280	common	fspick				sys_fspick
+281	common	pidfd_open			sys_pidfd_open
+282	common	clone3				sys_clone3
+283	common	close_range			sys_close_range
+284	common	openat2				sys_openat2
+285	common	pidfd_getfd			sys_pidfd_getfd
+286	common	faccessat2			sys_faccessat2
+287	common	process_madvise			sys_process_madvise
+288	common	pkey_mprotect			sys_pkey_mprotect
+289	common	pkey_alloc			sys_pkey_alloc
+290	common	pkey_free			sys_pkey_free
+#291 is unused
+#292 is unused
+#293 is unused
+#294 is unused
+#295 is unused
+#296 is unused
+#297 is unused
+298	common	getpriority			sys_getpriority
+299	common	sigprocmask			sys_sigprocmask
+300	common	bdflush				sys_ni_syscall
+#301 is unused
+302	common	mount				sys_mount
+#303 is unused
+304	common	swapoff				sys_swapoff
+305	common	getdents			sys_getdents
+306	common	create_module			sys_ni_syscall
+307	common	init_module			sys_init_module
+308	common	delete_module			sys_delete_module
+309	common	get_kernel_syms			sys_ni_syscall
+310	common	syslog				sys_syslog
+311	common	reboot				sys_reboot
+312	common	clone				sys_clone
+313	common	uselib				sys_uselib
+314	common	mlock				sys_mlock
+315	common	munlock				sys_munlock
+316	common	mlockall			sys_mlockall
+317	common	munlockall			sys_munlockall
+318	common	sysinfo				sys_sysinfo
+#319 is unused
+#320 is unused
+321	common	oldumount			sys_oldumount
+322	common	swapon				sys_swapon
+323	common	times				sys_times
+324	common	personality			sys_personality
+325	common	setfsuid			sys_setfsuid
+326	common	setfsgid			sys_setfsgid
+327	common	ustat				sys_ustat
+328	common	statfs				sys_statfs
+329	common	fstatfs				sys_fstatfs
+330	common	sched_setparam			sys_sched_setparam
+331	common	sched_getparam			sys_sched_getparam
+332	common	sched_setscheduler		sys_sched_setscheduler
+333	common	sched_getscheduler		sys_sched_getscheduler
+334	common	sched_yield			sys_sched_yield
+335	common	sched_get_priority_max		sys_sched_get_priority_max
+336	common	sched_get_priority_min		sys_sched_get_priority_min
+337	common	sched_rr_get_interval		sys_sched_rr_get_interval
+338	common	afs_syscall			sys_ni_syscall
+339	common	uname				sys_newuname
+340	common	nanosleep			sys_nanosleep
+341	common	mremap				sys_mremap
+342	common	nfsservctl			sys_ni_syscall
+343	common	setresuid			sys_setresuid
+344	common	getresuid			sys_getresuid
+345	common	pciconfig_read			sys_pciconfig_read
+346	common	pciconfig_write			sys_pciconfig_write
+347	common	query_module			sys_ni_syscall
+348	common	prctl				sys_prctl
+349	common	pread64				sys_pread64
+350	common	pwrite64			sys_pwrite64
+351	common	rt_sigreturn			sys_rt_sigreturn
+352	common	rt_sigaction			sys_rt_sigaction
+353	common	rt_sigprocmask			sys_rt_sigprocmask
+354	common	rt_sigpending			sys_rt_sigpending
+355	common	rt_sigtimedwait			sys_rt_sigtimedwait
+356	common	rt_sigqueueinfo			sys_rt_sigqueueinfo
+357	common	rt_sigsuspend			sys_rt_sigsuspend
+358	common	select				sys_select
+359	common	gettimeofday			sys_gettimeofday
+360	common	settimeofday			sys_settimeofday
+361	common	getitimer			sys_getitimer
+362	common	setitimer			sys_setitimer
+363	common	utimes				sys_utimes
+364	common	getrusage			sys_getrusage
+365	common	wait4				sys_wait4
+366	common	adjtimex			sys_adjtimex
+367	common	getcwd				sys_getcwd
+368	common	capget				sys_capget
+369	common	capset				sys_capset
+370	common	sendfile			sys_sendfile64
+371	common	setresgid			sys_setresgid
+372	common	getresgid			sys_getresgid
+373	common	dipc				sys_ni_syscall
+374	common	pivot_root			sys_pivot_root
+375	common	mincore				sys_mincore
+376	common	pciconfig_iobase		sys_pciconfig_iobase
+377	common	getdents64			sys_getdents64
+378	common	gettid				sys_gettid
+379	common	readahead			sys_readahead
+#380 is unused
+381	common	tkill				sys_tkill
+382	common	setxattr			sys_setxattr
+383	common	lsetxattr			sys_lsetxattr
+384	common	fsetxattr			sys_fsetxattr
+385	common	getxattr			sys_getxattr
+386	common	lgetxattr			sys_lgetxattr
+387	common	fgetxattr			sys_fgetxattr
+388	common	listxattr			sys_listxattr
+389	common	llistxattr			sys_llistxattr
+390	common	flistxattr			sys_flistxattr
+391	common	removexattr			sys_removexattr
+392	common	lremovexattr			sys_lremovexattr
+393	common	fremovexattr			sys_fremovexattr
+394	common	futex				sys_futex
+395	common	sched_setaffinity		sys_sched_setaffinity
+396	common	sched_getaffinity		sys_sched_getaffinity
+397	common	tuxcall				sys_ni_syscall
+398	common	io_setup			sys_io_setup
+399	common	io_destroy			sys_io_destroy
+400	common	io_getevents			sys_io_getevents
+401	common	io_submit			sys_io_submit
+402	common	io_cancel			sys_io_cancel
+403	common	io_pgetevents			sys_io_pgetevents
+404	common	rseq				sys_rseq
+405	common	exit_group			sys_exit_group
+406	common	lookup_dcookie			sys_lookup_dcookie
+407	common	epoll_create			sys_epoll_create
+408	common	epoll_ctl			sys_epoll_ctl
+409	common	epoll_wait			sys_epoll_wait
+410	common	remap_file_pages		sys_remap_file_pages
+411	common	set_tid_address			sys_set_tid_address
+412	common	restart_syscall			sys_restart_syscall
+413	common	fadvise64			sys_fadvise64
+414	common	timer_create			sys_timer_create
+415	common	timer_settime			sys_timer_settime
+416	common	timer_gettime			sys_timer_gettime
+417	common	timer_getoverrun		sys_timer_getoverrun
+418	common	timer_delete			sys_timer_delete
+419	common	clock_settime			sys_clock_settime
+420	common	clock_gettime			sys_clock_gettime
+421	common	clock_getres			sys_clock_getres
+422	common	clock_nanosleep			sys_clock_nanosleep
+423	common	semtimedop			sys_semtimedop
+424	common	tgkill				sys_tgkill
+425	common	stat64				sys_stat64
+426	common	lstat64				sys_lstat64
+427	common	fstat64				sys_fstat64
+428	common	vserver				sys_ni_syscall
+429	common	mbind				sys_mbind
+430	common	get_mempolicy			sys_get_mempolicy
+431	common	set_mempolicy			sys_set_mempolicy
+432	common	mq_open				sys_mq_open
+433	common	mq_unlink			sys_mq_unlink
+434	common	mq_timedsend			sys_mq_timedsend
+435	common	mq_timedreceive			sys_mq_timedreceive
+436	common	mq_notify			sys_mq_notify
+437	common	mq_getsetattr			sys_mq_getsetattr
+438	common	waitid				sys_waitid
+439	common	add_key				sys_add_key
+440	common	request_key			sys_request_key
+441	common	keyctl				sys_keyctl
+442	common	ioprio_set			sys_ioprio_set
+443	common	ioprio_get			sys_ioprio_get
+444	common	inotify_init			sys_inotify_init
+445	common	inotify_add_watch		sys_inotify_add_watch
+446	common	inotify_rm_watch		sys_inotify_rm_watch
+447	common	fdatasync			sys_fdatasync
+448	common	kexec_load			sys_kexec_load
+449	common	migrate_pages			sys_migrate_pages
+450	common	openat				sys_openat
+451	common	mkdirat				sys_mkdirat
+452	common	mknodat				sys_mknodat
+453	common	fchownat			sys_fchownat
+454	common	futimesat			sys_futimesat
+455	common	fstatat64			sys_fstatat64
+456	common	unlinkat			sys_unlinkat
+457	common	renameat			sys_renameat
+458	common	linkat				sys_linkat
+459	common	symlinkat			sys_symlinkat
+460	common	readlinkat			sys_readlinkat
+461	common	fchmodat			sys_fchmodat
+462	common	faccessat			sys_faccessat
+463	common	pselect6			sys_pselect6
+464	common	ppoll				sys_ppoll
+465	common	unshare				sys_unshare
+466	common	set_robust_list			sys_set_robust_list
+467	common	get_robust_list			sys_get_robust_list
+468	common	splice				sys_splice
+469	common	sync_file_range			sys_sync_file_range
+470	common	tee				sys_tee
+471	common	vmsplice			sys_vmsplice
+472	common	move_pages			sys_move_pages
+473	common	getcpu				sys_getcpu
+474	common	epoll_pwait			sys_epoll_pwait
+475	common	utimensat			sys_utimensat
+476	common	signalfd			sys_signalfd
+477	common	timerfd				sys_ni_syscall
+478	common	eventfd				sys_eventfd
+479	common	recvmmsg			sys_recvmmsg
+480	common	fallocate			sys_fallocate
+481	common	timerfd_create			sys_timerfd_create
+482	common	timerfd_settime			sys_timerfd_settime
+483	common	timerfd_gettime			sys_timerfd_gettime
+484	common	signalfd4			sys_signalfd4
+485	common	eventfd2			sys_eventfd2
+486	common	epoll_create1			sys_epoll_create1
+487	common	dup3				sys_dup3
+488	common	pipe2				sys_pipe2
+489	common	inotify_init1			sys_inotify_init1
+490	common	preadv				sys_preadv
+491	common	pwritev				sys_pwritev
+492	common	rt_tgsigqueueinfo		sys_rt_tgsigqueueinfo
+493	common	perf_event_open			sys_perf_event_open
+494	common	fanotify_init			sys_fanotify_init
+495	common	fanotify_mark			sys_fanotify_mark
+496	common	prlimit64			sys_prlimit64
+497	common	name_to_handle_at		sys_name_to_handle_at
+498	common	open_by_handle_at		sys_open_by_handle_at
+499	common	clock_adjtime			sys_clock_adjtime
+500	common	syncfs				sys_syncfs
+501	common	setns				sys_setns
+502	common	accept4				sys_accept4
+503	common	sendmmsg			sys_sendmmsg
+504	common	process_vm_readv		sys_process_vm_readv
+505	common	process_vm_writev		sys_process_vm_writev
+506	common	kcmp				sys_kcmp
+507	common	finit_module			sys_finit_module
+508	common	sched_setattr			sys_sched_setattr
+509	common	sched_getattr			sys_sched_getattr
+510	common	renameat2			sys_renameat2
+511	common	getrandom			sys_getrandom
+512	common	memfd_create			sys_memfd_create
+513	common	execveat			sys_execveat
+514	common	seccomp				sys_seccomp
+515	common	copy_file_range			sys_copy_file_range
+516	common	preadv2				sys_preadv2
+517	common	pwritev2			sys_pwritev2
+518	common	statx				sys_statx
