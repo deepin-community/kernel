@@ -2202,9 +2202,16 @@ int vprintk_store(int facility, int level,
 	u16 text_len;
 	int ret = 0;
 	u64 ts_nsec;
+#ifdef CONFIG_SW64_RRK
+	extern int sw64_printk(const char *fmt, va_list args);
+#endif
 
 	if (!printk_enter_irqsave(recursion_ptr, irqflags))
 		return 0;
+
+#ifdef CONFIG_SW64_RRK
+	sw64_printk(fmt, args);
+#endif
 
 	/*
 	 * Since the duration of printk() can vary depending on the message
