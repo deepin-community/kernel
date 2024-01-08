@@ -54,6 +54,7 @@ FEATURE_TESTS_BASIC :=                  \
         libtracefs                      \
         libcrypto                       \
         libunwind                       \
+        libunwind-sw_64                 \
         pthread-attr-setaffinity-np     \
         pthread-barrier     		\
         reallocarray                    \

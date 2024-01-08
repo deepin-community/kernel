@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 include ../../scripts/Makefile.include
 
+ARCH ?= $(shell uname -m)
 FILES=                                          \
          test-all.bin                           \
          test-backtrace.bin                     \
@@ -45,6 +46,7 @@ FILES=                                          \
          test-libunwind-x86_64.bin              \
          test-libunwind-arm.bin                 \
          test-libunwind-aarch64.bin             \
+         test-libunwind-sw_64.bin               \
          test-libunwind-debug-frame-arm.bin     \
          test-libunwind-debug-frame-aarch64.bin \
          test-pthread-attr-setaffinity-np.bin   \
@@ -86,7 +88,11 @@ all: $(FILES)
 
 __BUILD = $(CC) $(CFLAGS) -MD -Wall -Werror -o $@ $(patsubst %.bin,%.c,$(@F)) $(LDFLAGS)
   BUILD = $(__BUILD) > $(@:.bin=.make.output) 2>&1
+ifeq ($(ARCH),sw_64)
+  BUILD_BFD = $(BUILD) -DPACKAGE='"perf"' -lbfd -ldl -liberty -lz
+else
   BUILD_BFD = $(BUILD) -DPACKAGE='"perf"' -lbfd -ldl
+endif
   BUILD_ALL = $(BUILD) -fstack-protector-all -O2 -D_FORTIFY_SOURCE=2 -ldw -lelf -lnuma -lelf -lslang $(FLAGS_PERL_EMBED) $(FLAGS_PYTHON_EMBED) -DPACKAGE='"perf"' -lbfd -ldl -lz -llzma -lzstd -lcap
 
 __BUILDXX = $(CXX) $(CXXFLAGS) -MD -Wall -Werror -o $@ $(patsubst %.bin,%.cpp,$(@F)) $(LDFLAGS)
@@ -188,6 +194,9 @@ $(OUTPUT)test-libunwind-arm.bin:
 
 $(OUTPUT)test-libunwind-aarch64.bin:
 	$(BUILD) -lelf -lunwind-aarch64
+
+$(OUTPUT)test-libunwind-sw_64.bin:
+	$(BUILD) -lelf -lunwind-sw_64
 
 $(OUTPUT)test-libunwind-debug-frame-arm.bin:
 	$(BUILD) -lelf -lunwind-arm
