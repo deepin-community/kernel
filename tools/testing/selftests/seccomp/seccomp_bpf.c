@@ -66,6 +66,11 @@
 # define PR_SET_PTRACER 0x59616d61
 #endif
 
+#ifdef __sw_64__
+#define __NR_getpid 174
+#define __NR_getppid 175
+#endif
+
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #define PR_GET_NO_NEW_PRIVS 39
@@ -142,6 +147,8 @@ struct seccomp_data {
 #  define __NR_seccomp 372
 # elif defined(__mc68000__)
 #  define __NR_seccomp 380
+# elif defined(__sw_64__)
+#  define __NR_seccomp 514
 # else
 #  warning "seccomp syscall number unknown for this architecture"
 #  define __NR_seccomp 0xffff
@@ -1850,6 +1857,12 @@ TEST_F(TRACE_poke, getpid_runs_normally)
 # define ARCH_REGS		struct user_regs_struct
 # define SYSCALL_NUM(_regs)	(_regs).orig_d0
 # define SYSCALL_RET(_regs)	(_regs).d0
+#elif defined(__sw_64__)
+# define ARCH_REGS		struct user_pt_regs
+# define SYSCALL_NUM(_regs)	(_regs).regs[0]
+# define SYSCALL_RET(_regs)	(_regs).regs[0]
+# define SYSCALL_RET_SET(_regs, _val)			\
+		TH_LOG("Can't modify syscall return on this architecture")
 #else
 # error "Do not know how to find your architecture's registers and syscalls"
 #endif
@@ -1914,7 +1927,7 @@ const bool ptrace_entry_set_syscall_ret =
  * Use PTRACE_GETREGS and PTRACE_SETREGS when available. This is useful for
  * architectures without HAVE_ARCH_TRACEHOOK (e.g. User-mode Linux).
  */
-#if defined(__x86_64__) || defined(__i386__) || defined(__mips__) || defined(__mc68000__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__mips__) || defined(__mc68000__) || defined(__sw_64__)
 # define ARCH_GETREGS(_regs)	ptrace(PTRACE_GETREGS, tracee, 0, &(_regs))
 # define ARCH_SETREGS(_regs)	ptrace(PTRACE_SETREGS, tracee, 0, &(_regs))
 #else

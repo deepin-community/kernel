@@ -44,6 +44,10 @@ loongarch*)
   GOODREG=%r4
   BADREG=%r12
 ;;
+sw_64)
+  GOODREG=%r16
+  BADREG=%ps
+;;
 *)
   echo "Please implement other architecture here"
   exit_untested
