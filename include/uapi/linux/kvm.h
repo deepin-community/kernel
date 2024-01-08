@@ -1574,6 +1574,11 @@ struct kvm_s390_ucas_mapping {
 /* Available with KVM_CAP_COUNTER_OFFSET */
 #define KVM_ARM_SET_COUNTER_OFFSET _IOW(KVMIO,  0xb5, struct kvm_arm_counter_offset)
 
+/* ioctl for SW vcpu init*/
+#define KVM_SW64_VCPU_INIT	  _IO(KVMIO,  0xba)
+#define KVM_SW64_GET_VCB          _IO(KVMIO,  0xbc)
+#define KVM_SW64_SET_VCB          _IO(KVMIO,  0xbd)
+
 /* ioctl for vm fd */
 #define KVM_CREATE_DEVICE	  _IOWR(KVMIO,  0xe0, struct kvm_create_device)
 
