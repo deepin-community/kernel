@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Default device tree;
+ */
+
+/dts-v1/;
+/ {
+		compatible = "sunway,chip3";
+		model = "chip3";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		clocks {
+			i2cclk: i2cclk {
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>;
+			#clock-cells = <0>;
+			clock-output-names = "i2cclk_25mhz";
+			};
+			spiclk: spiclk {
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>;
+			#clock-cells = <0>;
+			clock-output-names = "spiclk_25mhz";
+			};
+
+		};
+
+		intc: interrupt-controller {
+			compatible = "sw64,sw6_irq_controller";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+
+		lpc_intc: interrupt-controller@0x8037 {
+			compatible = "sw64,lpc_intc";
+			reg = <0x8037 0x40000000 0x0 0x8000>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <2>;
+		};
+
+		uart: serial0@8033 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sw6,sunway-apb-uart";
+			reg = <0x8033 0x0 0x0 0x1000>;
+			interrupt-parent=<&intc>;
+			interrupts = <3>;
+			reg-shift = <9>;
+			reg-io-width = <4>;
+			clock-frequency = <24000000>;
+			status = "okay";
+		};
+
+		serial1@9033 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sw6,sunway-apb-uart";
+			reg = <0x9033 0x0 0x0 0x1000>;
+			reg-shift = <9>;
+			reg-io-width = <4>;
+			clock-frequency = <24000000>;
+			status = "okay";
+		};
+
+
+		i2c0@0x8031 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "snps,designware-i2c";
+			reg = <0x8031 0x0 0x0 0x8000>;
+			clock-frequency = <100000>;
+			clocks = <&i2cclk>;
+			interrupt-parent=<&intc>;
+			interrupts = <5>;
+			status = "okay";
+		};
+
+		i2c1@0x8034 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0x8034 0x0 0x0 0x8000>;
+			clock-frequency = <100000>;
+			clocks = <&i2cclk>;
+			interrupt-parent=<&intc>;
+			interrupts = <6>;
+			status = "okay";
+		};
+
+		i2c2@0x8035 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			reg = <0x8035 0x0 0x0 0x8000>;
+			clock-frequency = <100000>;
+			clocks = <&i2cclk>;
+			interrupt-parent=<&intc>;
+			interrupts = <7>;
+			status = "okay";
+
+			rtc: pcf8523@68 {
+				compatible = "nxp,pcf8523";
+				reg = <0x68>;
+			};
+
+			lm75: at30tse752a@48 {
+				compatible = "microchip,tcn75";
+				reg = <0x48>;
+			};
+		};
+
+		pvt: pvt@0x8030 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sw64,pvt-vol";
+			reg = <0x8030 0x0 0x0 0x7c00>;
+			status = "okay";
+			};
+
+		spi: spi@0x8032 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sunway,chip3-spi";
+			reg = <0x8032 0x0 0x0 0x8000>;
+			clocks = <&spiclk>;
+			interrupt-parent=<&intc>;
+			interrupts = <4>;
+			status = "okay";
+
+			flash@0 {
+				compatible = "winbond,w25q32dw", "jedec,spi-flash";
+				spi-max-frequency = <25000000>;
+				m25p,fast-read;
+				spi-cpha;
+				spi-cpol;
+				poll_mode = <1>; /* poll_mode:1  interrupt mode: 0 */
+				reg-io-width = <2>;
+				reg = <0 0 0 0 >; /* 0: flash chip selected bit */
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					partition@0 {
+						label = "spares0";
+						reg = <0 0x400000>;
+					};
+				};
+			};
+
+			flash@1 {
+				compatible = "winbond,w25q32dw", "jedec,spi-flash";
+				spi-max-frequency = <25000000>;
+				m25p,fast-read;
+				spi-cpha;
+				spi-cpol;
+				poll_mode = <1>; /* poll_mode:1  interrupt mode: 0 */
+				reg-io-width = <2>;
+				reg = <1 0 0 0 >; /* 1: flash chip selected bit */
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					partition@0 {
+						label = "spares1";
+						reg = <0 0x400000>;
+					};
+				};
+			};
+		};
+
+		lpc: lpc@0x8037 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sunway,chip3_lpc";
+			reg = <0x8037 0x40000000 0x0 0x8000>;
+			status = "okay";
+
+		};
+
+		ipmi-kcs@0x8037 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			device_type = "ipmi";
+			compatible = "ipmi-kcs";
+			reg = <0x8037 0x10000ca2 0x0 0x10>;
+			reg-size = <1>;
+			reg-spacing = <1>;
+			reg-shift = <0>;
+			status = "disabled";
+		};
+
+		ipmi-bt@0x8037 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			device_type = "ipmi";
+			compatible = "ipmi-bt";
+			reg = <0x8037 0x100000e4 0x0 0x10>;
+			interrupt-parent=<&lpc_intc>;
+			interrupts = <10>;
+			reg-size = <1>;
+			reg-spacing = <1>;
+			reg-shift = <0>;
+			status = "disabled";
+		};
+
+		gpio: gpio@8036 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "snps,sw-gpio";
+			reg = <0x8036 0x0 0x0 0x8000>;
+			status = "okay";
+
+			porta: gpio-contraller@0 {
+				compatible = "snps,dw-apb-gpio-port";
+				gpio-controller;
+				#gpio-cells = <2>;
+				snps,nr-gpios = <8>;
+				reg = <0 0 0 0>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent=<&intc>;
+				interrupts = <0>;
+				};
+			};
+
+	};
+};
