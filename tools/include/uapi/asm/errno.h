@@ -11,6 +11,8 @@
 #include "../../../arch/mips/include/uapi/asm/errno.h"
 #elif defined(__hppa__)
 #include "../../../arch/parisc/include/uapi/asm/errno.h"
+#elif defined(__sw_64__)
+#include "../../../arch/sw_64/include/uapi/asm/errno.h"
 #else
 #include <asm-generic/errno.h>
 #endif
