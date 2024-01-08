@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0
+menu "Library optimization options"
+
+config DEEP_CLEAR_PAGE
+	bool "Clear Page with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of clear page routine.
+	  Say N if you want to use the generic version.
+
+config DEEP_CLEAR_USER
+	bool "Clear User with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of clear user routine.
+	  Say N if you want to use the generic version.
+
+config DEEP_COPY_PAGE
+	bool "Copy Page with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of copy page routine.
+	  Say N if you want to use the generic version.
+
+config DEEP_COPY_USER
+	bool "Copy User with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of copy user routine.
+	  Say N if you want to use the generic version.
+
+
+config DEEP_MEMCPY
+	bool "Memory Copy with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of memory copy routine.
+	  Say N if you want to use the generic version.
+
+config DEEP_MEMSET
+	bool "Memory Set with SIMD optimization"
+	default y
+	help
+	  This option enables the use of SIMD version of memory set routine.
+	  Say N if you want to use the generic version.
+
+endmenu
