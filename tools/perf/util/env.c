@@ -436,6 +436,8 @@ static const char *normalize_arch(char *arch)
 		return "arm64";
 	if (!strncmp(arch, "arm", 3) || !strcmp(arch, "sa110"))
 		return "arm";
+	if (!strncmp(arch, "sw_64", 5))
+		return "sw_64";
 	if (!strncmp(arch, "s390", 4))
 		return "s390";
 	if (!strncmp(arch, "parisc", 6))

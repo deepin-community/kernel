@@ -199,6 +199,7 @@ perf-$(CONFIG_LOCAL_LIBUNWIND)    += unwind-libunwind-local.o
 perf-$(CONFIG_LIBUNWIND)          += unwind-libunwind.o
 perf-$(CONFIG_LIBUNWIND_X86)      += libunwind/x86_32.o
 perf-$(CONFIG_LIBUNWIND_AARCH64)  += libunwind/arm64.o
+perf-$(CONFIG_LIBUNWIND_SW64)     += libunwind/sw64.o
 
 ifeq ($(CONFIG_LIBTRACEEVENT),y)
   perf-$(CONFIG_LIBBABELTRACE) += data-convert-bt.o
