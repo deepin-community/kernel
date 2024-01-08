@@ -64,6 +64,9 @@ case "${ARCH}" in
 	alpha)
 		[ -f "${objtree}/arch/alpha/boot/vmlinux.gz" ] && cp -v -- "${objtree}/arch/alpha/boot/vmlinux.gz" "${tmpdir}/boot/vmlinuz-${KERNELRELEASE}"
 		;;
+	sw_64)
+		[ -f "${objtree}/arch/sw_64/boot/vmlinux.bin" ] && cp -v -- "${objtree}/arch/sw_64/boot/vmlinux.bin" "${tmpdir}/boot/vmlinux-bin-${KERNELRELEASE}"
+		;;
 	parisc*)
 		[ -f "${KBUILD_IMAGE}" ] && cp -v -- "${KBUILD_IMAGE}" "${tmpdir}/boot/vmlinux-${KERNELRELEASE}"
 		[ -f "${objtree}/lifimage" ] && cp -v -- "${objtree}/lifimage" "${tmpdir}/boot/lifimage-${KERNELRELEASE}"
