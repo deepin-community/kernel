@@ -31,6 +31,9 @@ mips*)
 loongarch*)
   ARG1=%r4
 ;;
+sw_64)
+  ARG1=%r16
+;;
 *)
   echo "Please implement other architecture here"
   exit_untested
