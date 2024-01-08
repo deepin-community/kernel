@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Default device tree;
+ */
+
+/dts-v1/;
+/ {
+		compatible = "sunway,chip3";
+		model = "chip3";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		intc: interrupt-controller{
+			compatible = "sw64,sw6_irq_vt_controller";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+
+		uart: serial0@8801 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "ns16550a";
+			reg = <0x8801 0x3f8 0x0 0x10>;
+			interrupt-parent=<&intc>;
+			interrupts = <12>;
+			reg-shift = <0>;
+			reg-io-width = <1>;
+			clock-frequency = <24000000>;
+			status = "okay";
+		};
+		misc: misc0@8036 {
+			#address-cells = <2>;
+			#size-cells = <2>;
+			compatible = "sw6,sunway-ged";
+			reg = <0x8036 0x0 0x0 0x20>;
+			interrupt-parent=<&intc>;
+			interrupts = <13>;
+			reg-shift = <0>;
+			reg-io-width = <8>;
+			clock-frequency = <24000000>;
+			status = "okay";
+		};
+		fw_cfg: fw_cfg@8049 {
+			dma-coherent;
+			reg = <0x8049 0x20000000 0x0 0x18>;
+			compatible = "qemu,fw-cfg-mmio";
+		};
+	};
+};
