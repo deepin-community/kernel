@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0
+# UAPI Header export list
+
+generic-y += kvm_para.h
+generated-y += unistd_64.h

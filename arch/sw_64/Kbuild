@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+obj-y			+= kernel/ mm/ platform/
+obj-$(CONFIG_NET)	+= net/
+obj-$(CONFIG_KVM)	+= kvm/
+obj-$(CONFIG_MATHEMU)	+= math-emu/
+
+obj-$(CONFIG_BUILTIN_DTB)	+= boot/dts/
