@@ -59,6 +59,7 @@
  * up with a final number.
  */
 #define EM_ALPHA	0x9026
+#define EM_SW64		0x9916
 
 /* Bogus old m32r magic number, used by old tools. */
 #define EM_CYGNUS_M32R	0x9041
