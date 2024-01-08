@@ -184,6 +184,9 @@ static struct arch architectures[] = {
 		},
 	},
 	{
+		.name = "sw_64",
+	},
+	{
 		.name = "x86",
 		.init = x86__annotate_init,
 		.instructions = x86__instructions,

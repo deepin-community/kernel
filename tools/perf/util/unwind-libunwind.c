@@ -11,6 +11,7 @@
 struct unwind_libunwind_ops __weak *local_unwind_libunwind_ops;
 struct unwind_libunwind_ops __weak *x86_32_unwind_libunwind_ops;
 struct unwind_libunwind_ops __weak *arm64_unwind_libunwind_ops;
+struct unwind_libunwind_ops __weak *sw64_unwind_libunwind_ops;
 
 static void unwind__register_ops(struct maps *maps, struct unwind_libunwind_ops *ops)
 {
@@ -53,6 +54,9 @@ int unwind__prepare_access(struct maps *maps, struct map *map, bool *initialized
 	} else if (!strcmp(arch, "arm64") || !strcmp(arch, "arm")) {
 		if (dso_type == DSO__TYPE_64BIT)
 			ops = arm64_unwind_libunwind_ops;
+	} else if (!strcmp(arch, "sw_64")) {
+		if (dso_type == DSO__TYPE_64BIT)
+			ops = sw64_unwind_libunwind_ops;
 	}
 
 	if (!ops) {
