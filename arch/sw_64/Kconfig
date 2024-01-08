@@ -1,0 +1,645 @@
+# SPDX-License-Identifier: GPL-2.0
+config SW64
+	bool
+	default y
+	select ACPI
+	select ACPI_MCFG if (ACPI && PCI)
+	select ACPI_REDUCED_HARDWARE_ONLY
+	select ARCH_ATOMIC
+	select ARCH_HAS_ACPI_TABLE_UPGRADE if ACPI
+	select ARCH_HAS_ELF_RANDOMIZE
+	select ARCH_HAS_PHYS_TO_DMA
+	select ARCH_HAS_PMEM_API
+	select ARCH_HAS_PTE_DEVMAP
+	select ARCH_HAS_PTE_SPECIAL
+	select ARCH_HAS_SG_CHAIN
+	select ARCH_HAS_UACCESS_FLUSHCACHE
+	select ARCH_HAS_VM_GET_PAGE_PROT
+	select ARCH_HAS_ZONE_DEVICE
+	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+	select ARCH_INLINE_READ_LOCK
+	select ARCH_INLINE_READ_LOCK_BH
+	select ARCH_INLINE_READ_LOCK_IRQ
+	select ARCH_INLINE_READ_LOCK_IRQSAVE
+	select ARCH_INLINE_READ_UNLOCK
+	select ARCH_INLINE_READ_UNLOCK_BH
+	select ARCH_INLINE_READ_UNLOCK_IRQ
+	select ARCH_INLINE_READ_UNLOCK_IRQRESTORE
+	select ARCH_INLINE_SPIN_LOCK
+	select ARCH_INLINE_SPIN_LOCK_BH
+	select ARCH_INLINE_SPIN_LOCK_IRQ
+	select ARCH_INLINE_SPIN_LOCK_IRQSAVE
+	select ARCH_INLINE_SPIN_TRYLOCK
+	select ARCH_INLINE_SPIN_TRYLOCK_BH
+	select ARCH_INLINE_SPIN_UNLOCK
+	select ARCH_INLINE_SPIN_UNLOCK_BH
+	select ARCH_INLINE_SPIN_UNLOCK_IRQ
+	select ARCH_INLINE_SPIN_UNLOCK_IRQRESTORE
+	select ARCH_INLINE_WRITE_LOCK
+	select ARCH_INLINE_WRITE_LOCK_BH
+	select ARCH_INLINE_WRITE_LOCK_IRQ
+	select ARCH_INLINE_WRITE_LOCK_IRQSAVE
+	select ARCH_INLINE_WRITE_UNLOCK
+	select ARCH_INLINE_WRITE_UNLOCK_BH
+	select ARCH_INLINE_WRITE_UNLOCK_IRQ
+	select ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
+	select ARCH_NO_PREEMPT
+	select ARCH_SUPPORTS_ACPI
+	select ARCH_SUPPORTS_ATOMIC_RMW
+	select ARCH_SUPPORTS_NUMA_BALANCING
+	select ARCH_SUPPORTS_UPROBES
+	select ARCH_USE_CMPXCHG_LOCKREF
+	select ARCH_USE_QUEUED_RWLOCKS
+	select ARCH_USE_QUEUED_SPINLOCKS
+	select ARCH_WANT_DEFAULT_BPF_JIT
+	select ARCH_WANT_FRAME_POINTERS
+	select ARCH_WANT_IPC_PARSE_VERSION
+	select AUDIT_ARCH
+	select COMMON_CLK
+	select DMA_OPS if PCI
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_IRQ_LEGACY
+	select GENERIC_IRQ_MIGRATION if SMP
+	select GENERIC_IRQ_PROBE
+	select GENERIC_IRQ_SHOW
+	select GENERIC_PCI_IOMAP if PCI
+	select GENERIC_SMP_IDLE_THREAD
+	select GENERIC_STRNCPY_FROM_USER
+	select GENERIC_STRNLEN_USER
+	select GENERIC_TIME_VSYSCALL
+	select HANDLE_DOMAIN_IRQ
+	select HARDIRQS_SW_RESEND
+	select HAVE_ARCH_AUDITSYSCALL
+	select HAVE_ARCH_JUMP_LABEL
+	select HAVE_ARCH_KGDB
+	select HAVE_ARCH_SECCOMP_FILTER
+	select HAVE_ARCH_TRACEHOOK
+	select HAVE_ARCH_TRANSPARENT_HUGEPAGE
+	select HAVE_ASM_MODVERSIONS
+	select HAVE_C_RECORDMCOUNT
+	select HAVE_DEBUG_BUGVERBOSE
+	select HAVE_DYNAMIC_FTRACE
+	select HAVE_DYNAMIC_FTRACE_WITH_REGS
+	select HAVE_EBPF_JIT
+	select HAVE_FAST_GUP
+	select HAVE_FTRACE_MCOUNT_RECORD
+	select HAVE_FUNCTION_GRAPH_TRACER
+	select HAVE_FUNCTION_TRACER
+	select HAVE_IDE
+	select HAVE_KPROBES
+	select HAVE_KPROBES_ON_FTRACE
+	select HAVE_KRETPROBES
+	select HAVE_LIVEPATCH if HAVE_DYNAMIC_FTRACE_WITH_REGS
+	select HAVE_MEMBLOCK
+	select HAVE_MEMBLOCK_NODE_MAP
+	select HAVE_MOD_ARCH_SPECIFIC
+	select HAVE_PCI
+	select HAVE_PCSPKR_PLATFORM
+	select HAVE_PERF_EVENTS
+	select HAVE_PERF_REGS
+	select HAVE_PERF_USER_STACK_DUMP
+	select HAVE_REGS_AND_STACK_ACCESS_API
+	select HAVE_RELIABLE_STACKTRACE if STACKTRACE
+	select HAVE_RSEQ
+	select HAVE_SYSCALL_TRACEPOINTS
+	select IRQ_FORCED_THREADING
+	select LOCK_MM_AND_FIND_VMA
+	select MEMORY_HOTPLUG_SPARSE if MEMORY_HOTPLUG
+	select MODULES_USE_ELF_RELA
+	select NO_BOOTMEM
+	select OF_EARLY_FLATTREE if OF
+	select OLD_SIGSUSPEND
+	select PCI_DOMAINS_GENERIC if PCI
+	select PCI_ECAM if (ACPI && PCI)
+	select PCI_MSI_ARCH_FALLBACKS if PCI_MSI
+	select PCI_SW64 if PCI
+	select SET_FS
+	select SPARSEMEM_EXTREME if SPARSEMEM
+	select SW64_IRQ_CPU
+	select SW64_IRQ_MSI if PCI_MSI
+	select SW64_IRQ_MSI_VT if PCI_MSI
+	select SW64_TIMER
+	select SWIOTLB
+	select THREAD_INFO_IN_TASK
+
+config LOCKDEP_SUPPORT
+	def_bool y
+
+config 64BIT
+	def_bool y
+
+config MMU
+	bool
+	default y
+
+config PGTABLE_LEVELS
+	int
+	default 4
+
+config ARCH_SUPPORTS_HUGETLBFS
+	def_bool y
+
+config ARCH_ENABLE_MEMORY_HOTPLUG
+	bool
+	default y
+
+config ARCH_ENABLE_MEMORY_HOTREMOVE
+	bool
+	default y
+
+config ARCH_HAS_ILOG2_U32
+	bool
+	default n
+
+config ARCH_HAS_ILOG2_U64
+	bool
+	default n
+
+config GENERIC_GPIO
+	bool
+
+config GENERIC_CALIBRATE_DELAY
+	bool
+	default y
+
+config ZONE_DMA32
+	bool
+	default y
+
+config NEED_DMA_MAP_STATE
+	def_bool y
+
+config NEED_SG_DMA_LENGTH
+	def_bool y
+
+config ARCH_WANT_HUGE_PMD_SHARE
+	def_bool y
+
+config GENERIC_ISA_DMA
+	bool
+	default y
+
+config NONCACHE_PAGE
+	bool
+	depends on SW64
+	default y
+
+config AUDIT_ARCH
+	bool
+
+config SYS_HAS_EARLY_PRINTK
+	bool
+
+config HAVE_CSRRW
+	bool
+
+menu "System setup"
+
+menu "Machine Configuration"
+
+choice
+	prompt "Subarchitecture Configuration"
+
+config SUBARCH_C3B
+	bool "C3B"
+
+config SUBARCH_C4
+	bool "C4"
+	select HAVE_CSRRW
+	select GENERIC_SCHED_CLOCK
+endchoice
+
+choice
+	prompt "Uncore Configuration"
+
+config UNCORE_XUELANG
+	bool "Uncore for C3B"
+	depends on SUBARCH_C3B
+	help
+	  Sunway cpu uncore for C3B
+
+config UNCORE_JUNZHANG
+	bool "Uncore for C4"
+	depends on SUBARCH_C4
+	help
+	  Sunway cpu uncore for C4
+endchoice
+
+choice
+	prompt "Platform Type"
+
+config PLATFORM_XUELANG
+	bool "Xuelang"
+	depends on UNCORE_XUELANG
+	select SPARSE_IRQ
+	select SYS_HAS_EARLY_PRINTK
+	select SW64_INTC_V2
+	select I2C_SUNWAY if I2C
+	help
+	  Sunway board chipset for C3B
+
+config PLATFORM_JUNZHANG
+	bool "JunZhang"
+	depends on UNCORE_JUNZHANG
+	select SPARSE_IRQ
+	select SYS_HAS_EARLY_PRINTK
+	help
+	  Sunway board chipset for C4
+
+endchoice
+
+config MIGHT_HAVE_PC_SERIO
+	bool "Use PC serio device i8042"
+	select ARCH_MIGHT_HAVE_PC_SERIO
+	default n
+
+endmenu
+
+menu "CPU Power Management"
+source "drivers/cpufreq/Kconfig"
+
+config SW64_CPUAUTOPLUG
+	bool "sw64 CPU Autoplug interface"
+	depends on SW64_CPUFREQ
+	default y
+	help
+	  Turns on the interface for SW64_CPU CPUAUTOPLUG.
+
+endmenu
+# clear all implied options (don't want default values for those):
+# Most of these machines have ISA slots; not exactly sure which don't,
+# and this doesn't activate hordes of code, so do it always.
+config ISA
+	bool
+	default y
+	help
+	  Find out whether you have ISA slots on your motherboard. ISA is the
+	  name of a bus system, i.e. the way the CPU talks to the other stuff
+	  inside your box. Other bus systems are PCI, EISA, MicroChannel
+	  (MCA) or VESA. ISA is an older system, now being displaced by PCI;
+	  newer boards don't support it. If you have ISA, say Y, otherwise N.
+
+config ISA_DMA_API
+	bool
+	default y
+
+config PCI_DOMAINS
+	def_bool PCI
+
+config PCI_DOMAINS_GENERIC
+	def_bool PCI
+
+config PCI_SYSCALL
+	def_bool PCI
+
+config IOMMU_HELPER
+	def_bool PCI
+
+config PHYSICAL_START
+	hex "Physical address where the kernel starts"
+	default "0x900000"
+	help
+	  This gives the physical address where the kernel starts, and it
+	  is 0x10000 before _text. If you plan to use kernel for capturing
+	  the crash dump change this value to start of the reserved region
+	  (the "X" value as specified in the "crashkernel=YM@XM" command
+	  line boot parameter passed to the panic-ed kernel).
+
+config KEXEC
+	bool "Kexec system call (EXPERIMENTAL)"
+	select KEXEC_CORE
+	help
+	  kexec is a system call that implements the ability to shutdown your
+	  current kernel, and to start another kernel. It is like a reboot
+	  but it is independent of the system firmware. And like a reboot
+	  you can start any kernel with it, not just Linux.
+
+	  The name comes from the similarity to the exec system call.
+
+	  It is an ongoing process to be certain the hardware in a machine
+	  is properly shutdown, so do not be surprised if this code does not
+	  initially work for you. As of this writing the exact hardware
+	  interface is strongly in flux, so no good recommendation can be
+	  made.
+
+config CRASH_DUMP
+	bool "Kernel crash dumps (EXPERIMENTAL)"
+	help
+	  Generate crash dump after being started by kexec.
+	  This should be normally only set in special crash dump kernels
+	  which are loaded in the main kernel with kexec-tools into
+	  a specially reserved region and then later executed after
+	  a crash by kdump/kexec. The crash dump kernel must be compiled
+	  to a memory address not used by the main kernel or firmware using
+	  PHYSICAL_START.
+
+config SECCOMP
+	def_bool y
+	prompt "Enable seccomp to safely compute untrusted bytecode"
+	help
+	  This kernel feature is useful for number crunching applications
+	  that may need to compute untrusted bytecode during their
+	  execution. By using pipes or other transports made available to
+	  the process as file descriptors supporting the read/write
+	  syscalls, it's possible to isolate those applications in
+	  their own address space using seccomp. Once seccomp is
+	  enabled via prctl(PR_SET_SECCOMP), it cannot be disabled
+	  and the task is only allowed to execute a few safe syscalls
+	  defined by each seccomp mode.
+
+	  If unsure, say Y. Only embedded should say N here.
+
+config GENERIC_HWEIGHT
+	bool
+	default y
+
+config SMP
+	bool "Symmetric multi-processing support"
+	depends on SW64
+	select USE_GENERIC_SMP_HELPERS
+	help
+	  This enables support for systems with more than one CPU. If you have
+	  a system with only one CPU, like most personal computers, say N. If
+	  you have a system with more than one CPU, say Y.
+
+	  If you say N here, the kernel will run on single and multiprocessor
+	  machines, but will use only one CPU of a multiprocessor machine. If
+	  you say Y here, the kernel will run on many, but not all,
+	  singleprocessor machines. On a singleprocessor machine, the kernel
+	  will run faster if you say N here.
+
+	  See also the SMP-HOWTO available at
+	  <http://www.tldp.org/docs.html#howto>.
+
+	  If you don't know what to do here, say N.
+
+config ARCH_PROC_KCORE_TEXT
+	def_bool y
+
+config HAVE_DEC_LOCK
+	bool "Use arch-specified dec_and_lock"
+	depends on SMP && !NUMA
+	default y
+
+config TRACE_IRQFLAGS_SUPPORT
+	def_bool y
+
+config ARCH_SUPPORTS_UPROBES
+	def_bool y
+
+config SCHED_SMT
+	bool "SMT scheduler support"
+	depends on SMP && SUBARCH_C4
+	help
+	  Improves the CPU scheduler's decision making when dealing with
+	  MultiThreading at a cost of slightly increased overhead in some
+	  places. If unsure say N here.
+
+config NR_CPUS
+	int "Maximum number of CPUs (2-256)"
+	range 2 256
+	depends on SMP
+	default "64" if UNCORE_XUELANG
+	help
+	  SW6 support can handle a maximum of 256 CPUs.
+
+config HOTPLUG_CPU
+	bool "Support for hot-pluggable CPUs"
+	depends on SMP
+	help
+	  Say Y here to allow turning CPUs off and on. CPUs can be
+	  controlled through /sys/devices/system/cpu.
+	  ( Note: power management support will enable this option
+	  automatically on SMP systems. )
+	  Say N if you want to disable CPU hotplug.
+
+config ARCH_SPARSEMEM_ENABLE
+	bool "Sparse Memory Support"
+	depends on SMP
+	select SPARSEMEM_VMEMMAP_ENABLE
+
+source "kernel/livepatch/Kconfig"
+
+config NUMA
+	bool "NUMA Support"
+	depends on SMP && !FLATMEM
+	select ACPI_NUMA if ACPI
+	help
+	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
+	  Access). This option is for configuring high-end multiprocessor
+	  server machines. If in doubt, say N.
+
+config USE_PERCPU_NUMA_NODE_ID
+	def_bool y
+	depends on NUMA
+
+config NODES_SHIFT
+	int
+	default "7"
+	depends on NUMA
+
+config RELOCATABLE
+	bool "Relocatable kernel"
+	help
+	  This builds a kernel image that retains relocation information
+	  so it can be loaded someplace besides the default 1MB.
+	  The relocations make the kernel binary about 15% larger,
+	  but are discarded at runtime
+
+config RELOCATION_TABLE_SIZE
+	hex "Relocation table size"
+	depends on RELOCATABLE
+	range 0x0 0x01000000
+	default "0x80000"
+	help
+	  A table of relocation data will be appended to the kernel binary
+	  and parsed at boot to fix up the relocated kernel.
+
+	  This option allows the amount of space reserved for the table to be
+	  adjusted, although the default of 1Mb should be ok in most cases.
+
+	  The build will fail and a valid size suggested if this is too small.
+
+	  If unsure, leave at the default value.
+
+config RANDOMIZE_BASE
+	bool "Randomize the address of the kernel image"
+	depends on RELOCATABLE
+	help
+	  Randomizes the physical and virtual address at which the
+	  kernel image is loaded, as a security feature that
+	  deters exploit attempts relying on knowledge of the location
+	  of kernel internals.
+
+	  Entropy is generated using any coprocessor 0 registers available.
+
+	  The kernel will be offset by up to RANDOMIZE_BASE_MAX_OFFSET.
+
+	  If unsure, say N.
+
+config RANDOMIZE_BASE_MAX_OFFSET
+	hex "Maximum kASLR offset" if EXPERT
+	depends on RANDOMIZE_BASE
+	range 0x0 0x20000000
+	default "0x10000000"
+	help
+	  When kASLR is active, this provides the maximum offset that will
+	  be applied to the kernel image. It should be set according to the
+	  amount of physical RAM available in the target system minus
+	  PHYSICAL_START and must be a power of 2.
+
+	  This is limited by the size of KTEXT space, 512Mb. The default is 256MB.
+
+config HZ
+	int "HZ of the short timer"
+	default 500
+
+source "drivers/eisa/Kconfig"
+
+source "drivers/pcmcia/Kconfig"
+
+source "fs/Kconfig.binfmt"
+
+source "arch/sw_64/lib/Kconfig"
+
+endmenu
+
+menu "Boot options"
+
+config USE_OF
+	bool "Flattened Device Tree support"
+	select OF
+	select IRQ_DOMAIN
+	help
+	  Include support for flattened device tree machine descriptions.
+
+config BUILTIN_DTB
+	bool "Embed DTB in kernel image"
+	depends on OF
+	default n
+	help
+	  Embeds a device tree binary in the kernel image.
+
+config BUILTIN_DTB_NAME
+	string "Built in DTB"
+	depends on BUILTIN_DTB
+	help
+	  Set the name of the DTB to embed, leave blank to pick one
+	  automatically based on kernel configuration.
+
+config EFI
+	bool "UEFI runtime support"
+	select UCS2_STRING
+	select EFI_RUNTIME_WRAPPERS
+	default y
+	help
+	  This option provides support for runtime services provided
+	  by UEFI firmware (such as non-volatile variables, realtime
+	  clock, and platform reset). A UEFI stub is also provided to
+	  allow the kernel to be booted as an EFI application. This
+	  is only useful on systems that have UEFI firmware.
+
+config DMI
+	bool "Enable support for SMBIOS (DMI) tables"
+	depends on EFI
+	default y
+	help
+	  This enables SMBIOS/DMI feature for systems.
+
+	  This option is only useful on systems that have UEFI firmware.
+	  However, even with this option, the resultant kernel should
+	  continue to boot on existing non-UEFI platforms.
+
+	  NOTE: This does *NOT* enable or encourage the use of DMI quirks,
+	  i.e., the practice of identifying the platform via DMI to
+	  decide whether certain workarounds for buggy hardware and/or
+	  firmware need to be enabled. This would require the DMI subsystem
+	  to be enabled much earlier than we do on ARM, which is non-trivial.
+
+config CMDLINE_BOOL
+	bool "Built-in kernel command line"
+	help
+	  Allow for specifying boot arguments to the kernel at
+	  build time. On some systems (e.g. embedded ones), it is
+	  necessary or convenient to provide some or all of the
+	  kernel boot arguments with the kernel itself (that is,
+	  to not rely on the boot loader to provide them.)
+
+	  To compile command line arguments into the kernel,
+	  set this option to 'Y', then fill in the
+	  boot arguments in CONFIG_CMDLINE.
+
+	  Systems with fully functional boot loaders (i.e. non-embedded)
+	  should leave this option set to 'N'.
+
+config CMDLINE
+	string "Built-in kernel command string"
+	depends on CMDLINE_BOOL
+	default ""
+	help
+	  Enter arguments here that should be compiled into the kernel
+	  image and used at boot time. If the boot loader provides a
+	  command line at boot time, it is appended to this string to
+	  form the full kernel command line, when the system boots.
+
+	  However, you can use the CONFIG_CMDLINE_OVERRIDE option to
+	  change this behavior.
+
+	  In most cases, the command line (whether built-in or provided
+	  by the boot loader) should specify the device for the root
+	  file system.
+
+config CMDLINE_OVERRIDE
+	bool "Built-in command line overrides boot loader arguments"
+	depends on CMDLINE_BOOL
+	help
+	  Set this option to 'Y' to have the kernel ignore the boot loader
+	  command line, and use ONLY the built-in command line.
+
+	  This is used to work around broken boot loaders. This should
+	  be set to 'N' under normal conditions.
+
+config FORCE_MAX_ZONEORDER
+	int
+	default "16" if (HUGETLB_PAGE)
+	default "11"
+	help
+	  The kernel memory allocator divides physically contiguous memory
+	  blocks into "zones", where each zone is a power of two number of
+	  pages. This option selects the largest power of two that the kernel
+	  keeps in the memory allocator. If you need to allocate very large
+	  blocks of physically contiguous memory, then you may need to
+	  increase this value.
+
+	  This config option is actually maximum order plus one. For example,
+	  a value of 11 means that the largest free memory block is 2^10 pages.
+
+	  We make sure that we can allocate up to a HugePage size for each configuration.
+	  Hence we have :
+		MAX_ORDER = (PMD_SHIFT - PAGE_SHIFT) + 1 => PAGE_SHIFT - 2
+
+endmenu
+
+source "drivers/firmware/Kconfig"
+
+menu "Power management options"
+
+source "kernel/power/Kconfig"
+
+source "drivers/acpi/Kconfig"
+
+config ARCH_SUSPEND_POSSIBLE
+	depends on SW64
+	def_bool y
+
+config ARCH_HIBERNATION_POSSIBLE
+	depends on SW64
+	def_bool y
+
+source "drivers/cpuidle/Kconfig"
+
+source "drivers/idle/Kconfig"
+
+endmenu
+
+source "arch/sw_64/kvm/Kconfig"
