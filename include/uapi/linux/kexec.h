@@ -45,6 +45,7 @@
 #define KEXEC_ARCH_AARCH64 (183 << 16)
 #define KEXEC_ARCH_RISCV   (243 << 16)
 #define KEXEC_ARCH_LOONGARCH	(258 << 16)
+#define KEXEC_ARCH_SW64   (0x9916UL << 16)
 
 /* The artificial cap on the number of segments passed to kexec_load. */
 #define KEXEC_SEGMENT_MAX 16
