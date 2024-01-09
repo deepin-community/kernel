@@ -369,6 +369,7 @@ static void handle_thermal_trip(struct thermal_zone_device *tz,
 		 */
 		if (tz->temperature >= trip->temperature) {
 			thermal_notify_tz_trip_up(tz, trip);
+			thermal_debug_tz_trip_up(tz, trip);
 			trip->threshold = trip->temperature - trip->hysteresis;
 		} else {
 			trip->threshold = trip->temperature;
@@ -386,6 +387,7 @@ static void handle_thermal_trip(struct thermal_zone_device *tz,
 		 */
 		if (tz->temperature < trip->temperature - trip->hysteresis) {
 			thermal_notify_tz_trip_down(tz, trip);
+			thermal_debug_tz_trip_down(tz, trip);
 			trip->threshold = trip->temperature;
 		} else {
 			trip->threshold = trip->temperature - trip->hysteresis;
@@ -417,6 +419,7 @@ static void update_temperature(struct thermal_zone_device *tz)
 	trace_thermal_temperature(tz);
 
 	thermal_genl_sampling_temp(tz->id, temp);
+	thermal_debug_update_temp(tz);
 }
 
 static void thermal_zone_device_check(struct work_struct *work)
@@ -1400,6 +1403,8 @@ thermal_zone_device_register_with_trips(const char *type, struct thermal_trip *t
 
 	thermal_notify_tz_create(tz);
 
+	thermal_debug_tz_add(tz);
+
 	return tz;
 
 unregister:
@@ -1462,6 +1467,8 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 
 	if (!tz)
 		return;
+
+	thermal_debug_tz_remove(tz);
 
 	mutex_lock(&thermal_list_lock);
 	list_for_each_entry(pos, &thermal_tz_list, node)
