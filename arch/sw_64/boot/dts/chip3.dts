@@ -127,24 +127,20 @@
 			};
 
 		spi: spi@0x8032 {
-			#address-cells = <2>;
-			#size-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			compatible = "sunway,chip3-spi";
 			reg = <0x8032 0x0 0x0 0x8000>;
 			clocks = <&spiclk>;
-			interrupt-parent=<&intc>;
-			interrupts = <4>;
+			poll_mode = <1>;    /* poll_mode:1  interrupt mode: 0 */
+			reg-io-width = <2>;
 			status = "okay";
 
 			flash@0 {
-				compatible = "winbond,w25q32dw", "jedec,spi-flash";
+				compatible = "winbond,w25q32dw", "jedec,spi-nor";
 				spi-max-frequency = <25000000>;
 				m25p,fast-read;
-				spi-cpha;
-				spi-cpol;
-				poll_mode = <1>; /* poll_mode:1  interrupt mode: 0 */
-				reg-io-width = <2>;
-				reg = <0 0 0 0 >; /* 0: flash chip selected bit */
+				reg = <0>; /* 0: flash chip selected bit */
 
 				partitions {
 					compatible = "fixed-partitions";
@@ -159,14 +155,10 @@
 			};
 
 			flash@1 {
-				compatible = "winbond,w25q32dw", "jedec,spi-flash";
+				compatible = "winbond,w25q32dw", "jedec,spi-nor";
 				spi-max-frequency = <25000000>;
 				m25p,fast-read;
-				spi-cpha;
-				spi-cpol;
-				poll_mode = <1>; /* poll_mode:1  interrupt mode: 0 */
-				reg-io-width = <2>;
-				reg = <1 0 0 0 >; /* 1: flash chip selected bit */
+				reg = <1>; /* 1: flash chip selected bit */
 
 				partitions {
 					compatible = "fixed-partitions";
