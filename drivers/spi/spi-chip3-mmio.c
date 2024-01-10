@@ -53,12 +53,6 @@ static int chip3_spi_mmio_probe(struct platform_device *pdev)
 		return PTR_ERR(dws->regs);
 	}
 
-	dws->irq = platform_get_irq(pdev, 0);
-	if (dws->irq < 0) {
-		dev_err(&pdev->dev, "no irq resource?\n");
-		return dws->irq; /* -ENXIO */
-	}
-
 	dwsmmio->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(dwsmmio->clk))
 		return PTR_ERR(dwsmmio->clk);
