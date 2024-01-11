@@ -2741,4 +2741,5 @@ void wx_set_ring(struct wx *wx, u32 new_tx_count,
 }
 EXPORT_SYMBOL(wx_set_ring);
 
+MODULE_DESCRIPTION("Common library for Wangxun(R) Ethernet drivers.");
 MODULE_LICENSE("GPL");
