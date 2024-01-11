@@ -349,15 +349,17 @@ void __init setup_chip_pci_ops(void)
 static unsigned long rc_linkup;
 static struct pci_controller *head, **tail = &head;
 
-static void pci_mark_rc_linkup(unsigned long node, unsigned long index)
+void pci_mark_rc_linkup(unsigned long node, unsigned long index)
 {
 	set_bit(node * 8 + index, &rc_linkup);
 }
+EXPORT_SYMBOL(pci_mark_rc_linkup);
 
-static int pci_get_rc_linkup(unsigned long node, unsigned long index)
+int pci_get_rc_linkup(unsigned long node, unsigned long index)
 {
 	return test_bit(node * 8 + index, &rc_linkup);
 }
+EXPORT_SYMBOL(pci_get_rc_linkup);
 
 /**
  * Link the specified pci controller to list
@@ -456,7 +458,7 @@ static int sw64_pcie_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 /**
  * PCIe Root Complex write config space operations
  */
-int sw64_pcie_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
+static int sw64_pcie_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 val)
 {
 	u32 data;
@@ -528,7 +530,7 @@ static bool sw64_pcie_valid_device(struct pci_bus *bus, unsigned int devfn)
  *
  * @return: Whether read operation success
  */
-static int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
+int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 *val)
 {
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
@@ -549,6 +551,7 @@ static int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 	}
 	return ret;
 }
+EXPORT_SYMBOL(sw64_pcie_config_read);
 
 /**
  * sw64_pcie_config_write - write val to config space of PCI
@@ -562,7 +565,7 @@ static int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
  *
  * @return: Whether write operation success
  */
-static int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
+int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 val)
 {
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
@@ -577,6 +580,7 @@ static int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
 	else
 		return pci_generic_config_write(bus, devfn, where, size, val);
 }
+EXPORT_SYMBOL(sw64_pcie_config_write);
 
 /**
  * sw64_pcie_map_bus - get configuration base address
@@ -587,7 +591,7 @@ static int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
  * @return: base address of the configuration space needed to be
  * accessed.
  */
-static void __iomem *sw64_pcie_map_bus(struct pci_bus *bus,
+void __iomem *sw64_pcie_map_bus(struct pci_bus *bus,
 		unsigned int devfn, int where)
 {
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
@@ -616,6 +620,7 @@ static void __iomem *sw64_pcie_map_bus(struct pci_bus *bus,
 				cfg_iobase, bus->number, devfn, where);
 	return cfg_iobase;
 }
+EXPORT_SYMBOL(sw64_pcie_map_bus);
 
 int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
