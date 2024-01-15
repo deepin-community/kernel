@@ -45,6 +45,9 @@
 			compatible = "sw64,lpc_intc";
 			reg = <0x8037 0x40000000 0x0 0x8000>;
 			interrupt-controller;
+			sw64,node = <0>;
+			sw64,irq-num = <16>;
+			sw64,ver = <1>;
 			#interrupt-cells = <1>;
 			interrupt-parent = <&intc>;
 			interrupts = <2>;
