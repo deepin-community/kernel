@@ -7,7 +7,8 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/interrupt.h>
 
-#define LPC_NR_IRQS 16
+#define PREFIX  "LPC-INTC: "
+
 #define	LPC_IRQ  0x4
 #define	LPC_IRQ_MASK  0x8
 
@@ -122,35 +123,55 @@ static int __init lpc_intc_of_init(struct device_node *np,
 {
 	struct irq_domain *lpc_domain;
 	int ret;
+	u32 nr_irqs, node, version;
 	void __iomem *base;
+
+	if (WARN_ON(!np || !parent))
+		return -ENODEV;
 
 	sw_lpc_intc_node = np;
 
-	if (!parent) {
-		pr_err("no parent intc found\n");
-		return -ENXIO;
+	ret = of_property_read_u32(np, "sw64,node", &node);
+	if (ret) {
+		pr_err(PREFIX "\"sw64,node\" not found\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "sw64,irq-num", &nr_irqs);
+	if (ret) {
+		pr_err(PREFIX "\"sw64,irq-num\" not found\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "sw64,ver", &version);
+	if (ret) {
+		pr_err(PREFIX "\"sw64,ver\" not found\n");
+		return -EINVAL;
 	}
 
 	base = of_iomap(np, 0);
 	if (!base) {
-		pr_err("failed to remap lpc intc registers\n");
-		ret = -ENOMEM;
-		goto out_free;
+		pr_err(PREFIX "failed to remap lpc intc registers\n");
+		return -ENXIO;
 	}
 
 	parent_irq = irq_of_parse_and_map(np, 0);
 	if (!parent_irq) {
-		pr_err("failed to find parent interrupt\n");
+		pr_err(PREFIX "failed to find parent interrupt\n");
 		ret = -EINVAL;
 		goto out_unmap;
 	}
 
-	lpc_domain = irq_domain_add_legacy(np, LPC_NR_IRQS,
+	lpc_domain = irq_domain_add_legacy(np, nr_irqs,
 					    0, 0, &sw64_lpc_domain_ops, base);
 	if (!lpc_domain) {
+		pr_err(PREFIX "failed to create irq domain\n");
 		ret = -ENOMEM;
 		goto out_unmap;
 	}
+
+	pr_info(PREFIX "version [%u] on node [%u] initialized\n",
+			version, node);
 
 	/* Set the IRQ chaining logic */
 	irq_set_chained_handler_and_data(parent_irq,
@@ -160,7 +181,6 @@ static int __init lpc_intc_of_init(struct device_node *np,
 
 out_unmap:
 	iounmap(base);
-out_free:
 	return ret;
 }
 IRQCHIP_DECLARE(sw_lpc_intc, "sw64,lpc_intc", lpc_intc_of_init);
