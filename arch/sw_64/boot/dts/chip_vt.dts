@@ -5,10 +5,13 @@
 
 /dts-v1/;
 / {
-		compatible = "sunway,chip3";
-		model = "chip3";
-		#address-cells = <2>;
-		#size-cells = <2>;
+	compatible = "sunway,chip3";
+	model = "chip3";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+	};
 
 	soc {
 		compatible = "simple-bus";
