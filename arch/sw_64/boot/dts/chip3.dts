@@ -226,10 +226,9 @@
 				reg = <0 0 0 0>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupt-parent=<&intc>;
-				interrupts = <0>;
-				};
+				interrupts-extended = <&intc 0>, <&intc 1>;
 			};
+		};
 
 	};
 };
