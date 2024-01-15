@@ -396,12 +396,13 @@ config SCHED_SMT
 	  places. If unsure say N here.
 
 config NR_CPUS
-	int "Maximum number of CPUs (2-256)"
-	range 2 256
+	int "Maximum number of CPUs (2-512)"
+	range 2 512
 	depends on SMP
 	default "64" if UNCORE_XUELANG
+	default "512" if UNCORE_JUNZHANG
 	help
-	  SW6 support can handle a maximum of 256 CPUs.
+	  SW64 support can handle a maximum of 512 CPUs.
 
 config HOTPLUG_CPU
 	bool "Support for hot-pluggable CPUs"
