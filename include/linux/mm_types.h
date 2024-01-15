@@ -22,6 +22,8 @@
 
 #include <asm/mmu.h>
 
+#include <linux/kabi.h>
+
 #ifndef AT_VECTOR_SIZE_ARCH
 #define AT_VECTOR_SIZE_ARCH 0
 #endif
@@ -660,6 +662,11 @@ struct vm_area_struct {
 	struct vma_numab_state *numab_state;	/* NUMA Balancing state */
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
+
+	KABI_RESERVE(1)
+        KABI_RESERVE(2)
+        KABI_RESERVE(3)
+        KABI_RESERVE(4)
 } __randomize_layout;
 
 #ifdef CONFIG_SCHED_MM_CID
@@ -919,6 +926,11 @@ struct mm_struct {
 #endif /* CONFIG_LRU_GEN */
 	} __randomize_layout;
 
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
 	/*
 	 * The mm_cpumask needs to be at the end of mm_struct, because it
 	 * is dynamically sized based on nr_cpu_ids.

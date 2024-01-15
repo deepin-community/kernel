@@ -1920,6 +1920,14 @@ config BINDGEN_VERSION_TEXT
 config TRACEPOINTS
 	bool
 
+config KABI_RESERVE
+        bool "Enable KABI PADDING RESERVE"
+        default y
+        help
+          This option enables KABI padding reserve.
+          For some embedded system, KABI padding reserve may be not necessary.
+          Disable it on demand.
+
 source "kernel/Kconfig.kexec"
 
 endmenu		# General setup
