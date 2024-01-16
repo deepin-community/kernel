@@ -766,4 +766,9 @@ enum btree_node_sibling {
 	btree_next_sib,
 };
 
+struct get_locks_fail {
+	unsigned	l;
+	struct btree	*b;
+};
+
 #endif /* _BCACHEFS_BTREE_TYPES_H */
