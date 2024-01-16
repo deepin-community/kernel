@@ -35,9 +35,14 @@
 
 		};
 
-		intc: interrupt-controller {
-			compatible = "sw64,sw6_irq_controller";
+		pintc: interrupt-controller {
+			compatible = "sw64,pintc";
 			interrupt-controller;
+			sw64,node = <0>;
+			sw64,irq-num = <8>;
+			sw64,ver = <1>;
+			reg = <0x802a 0x0 0x0 0x1680>,
+			      <0x8030 0x0 0x0 0x8f00>;
 			#interrupt-cells = <1>;
 		};
 
@@ -49,7 +54,7 @@
 			sw64,irq-num = <16>;
 			sw64,ver = <1>;
 			#interrupt-cells = <1>;
-			interrupt-parent = <&intc>;
+			interrupt-parent = <&pintc>;
 			interrupts = <2>;
 		};
 
@@ -58,7 +63,7 @@
 			#size-cells = <2>;
 			compatible = "sw6,sunway-apb-uart";
 			reg = <0x8033 0x0 0x0 0x1000>;
-			interrupt-parent=<&intc>;
+			interrupt-parent=<&pintc>;
 			interrupts = <3>;
 			reg-shift = <9>;
 			reg-io-width = <4>;
@@ -85,7 +90,7 @@
 			reg = <0x8031 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
-			interrupt-parent=<&intc>;
+			interrupt-parent = <&pintc>;
 			interrupts = <5>;
 			status = "okay";
 		};
@@ -97,7 +102,7 @@
 			reg = <0x8034 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
-			interrupt-parent=<&intc>;
+			interrupt-parent = <&pintc>;
 			interrupts = <6>;
 			status = "okay";
 		};
@@ -109,7 +114,7 @@
 			reg = <0x8035 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
-			interrupt-parent=<&intc>;
+			interrupt-parent = <&pintc>;
 			interrupts = <7>;
 			status = "okay";
 
@@ -229,7 +234,7 @@
 				reg = <0 0 0 0>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupts-extended = <&intc 0>, <&intc 1>;
+				interrupts-extended = <&pintc 0>, <&pintc 1>;
 			};
 		};
 

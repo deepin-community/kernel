@@ -70,8 +70,6 @@
 
 #define PIUCONFIG0_INIT_VAL	0x38016
 
-#define DEV_INT_TARGET(phy_cpu) ((((phy_cpu) >> 5) << 7) | ((phy_cpu) & 0x3f))
-
 /*-----------------------addr-----------------------*/
 /* INTPU REG */
 enum {
