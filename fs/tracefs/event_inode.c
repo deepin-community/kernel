@@ -27,6 +27,10 @@ struct eventfs_inode {
 	struct list_head	e_top_files;
 };
 
+/* Choose something "unique" ;-) */
+#define EVENTFS_FILE_INODE_INO		0x12c4e37
+#define EVENTFS_DIR_INODE_INO		0x134b2f5
+
 /*
  * struct eventfs_file - hold the properties of the eventfs files and
  *                       directories.
@@ -202,6 +206,9 @@ static struct dentry *create_file(struct eventfs_file *ef,
 	inode->i_fop = fop;
 	inode->i_private = data;
 
+	/* All files will have the same inode number */
+	inode->i_ino = EVENTFS_FILE_INODE_INO;
+
 	ti = get_tracefs(inode);
 	ti->flags |= TRACEFS_EVENT_INODE;
 	d_instantiate(dentry, inode);
@@ -246,6 +253,9 @@ static struct dentry *create_dir(struct eventfs_file *ef,
 	inode->i_op = &eventfs_root_dir_inode_operations;
 	inode->i_fop = &eventfs_file_operations;
 	inode->i_private = data;
+
+	/* All directories will have the same inode number */
+	inode->i_ino = EVENTFS_DIR_INODE_INO;
 
 	ti = get_tracefs(inode);
 	ti->flags |= TRACEFS_EVENT_INODE;
