@@ -10,6 +10,7 @@
 
 #ifdef __KERNEL__
 
+#include <linux/kabi.h>
 #include <linux/idr.h> /* inotify uses this */
 #include <linux/fs.h> /* struct inode */
 #include <linux/list.h>
@@ -165,6 +166,8 @@ struct fsnotify_ops {
 	void (*free_event)(struct fsnotify_group *group, struct fsnotify_event *event);
 	/* called on final put+free to free memory */
 	void (*free_mark)(struct fsnotify_mark *mark);
+
+	KABI_RESERVE(1)
 };
 
 /*

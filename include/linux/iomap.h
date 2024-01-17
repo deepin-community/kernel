@@ -2,6 +2,7 @@
 #ifndef LINUX_IOMAP_H
 #define LINUX_IOMAP_H 1
 
+#include <linux/kabi.h>
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
 #include <linux/blk_types.h>
@@ -197,6 +198,11 @@ struct iomap_ops {
 	 */
 	int (*iomap_end)(struct inode *inode, loff_t pos, loff_t length,
 			ssize_t written, unsigned flags, struct iomap *iomap);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 /**

@@ -5,6 +5,7 @@
 #include <linux/topology.h>
 
 #include <linux/sched/idle.h>
+#include <linux/kabi.h>
 
 /*
  * sched-domains (multiprocessor balancing) declarations:
@@ -150,6 +151,9 @@ struct sched_domain {
 		struct rcu_head rcu;	/* used during destruction */
 	};
 	struct sched_domain_shared *shared;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 
 	unsigned int span_weight;
 	/*
