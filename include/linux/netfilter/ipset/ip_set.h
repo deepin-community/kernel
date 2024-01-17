@@ -193,6 +193,7 @@ struct ip_set_type_variant {
 	bool region_lock;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct ip_set_region {
@@ -241,6 +242,7 @@ struct ip_set_type {
 	struct module *me;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /* register and unregister set type */
@@ -287,6 +289,7 @@ struct ip_set {
 	void *data;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline void
