@@ -30,6 +30,7 @@ struct rpc_message {
 	const struct cred *	rpc_cred;	/* Credentials */
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct rpc_call_ops;
