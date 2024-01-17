@@ -44,6 +44,7 @@ struct rdma_counter {
 	u32				port;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 void rdma_counter_init(struct ib_device *dev);
