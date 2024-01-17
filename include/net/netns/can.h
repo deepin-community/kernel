@@ -39,6 +39,7 @@ struct netns_can {
 	struct hlist_head cgw_list;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif /* __NETNS_CAN_H__ */
