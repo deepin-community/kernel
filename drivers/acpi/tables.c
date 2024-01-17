@@ -239,6 +239,33 @@ void acpi_table_print_madt_entry(struct acpi_subtable_header *header)
 				p->version, p->flags, p->hardware_id);
 		}
 		break;
+
+	case ACPI_MADT_TYPE_SW_PINTC:
+		{
+			struct acpi_madt_sw_pintc *p =
+				(struct acpi_madt_sw_pintc *)header;
+			pr_info("SW PINTC (version[%u] flags[0x%x] address[0x%llx])\n",
+					p->version, p->flags, p->address);
+		}
+		break;
+
+	case ACPI_MADT_TYPE_SW_MSIC:
+		{
+			struct acpi_madt_sw_msic *p =
+				(struct acpi_madt_sw_msic *)header;
+			pr_info("SW MSIC (version[%u] flags[0x%x] hardware_id[0x%x])\n",
+					p->version, p->flags, p->hardware_id);
+		}
+		break;
+
+	case ACPI_MADT_TYPE_SW_LPC_INTC:
+		{
+			struct acpi_madt_sw_lpc_intc *p =
+				(struct acpi_madt_sw_lpc_intc *)header;
+			pr_info("SW LPC INTC (version[%u] flags[0x%x] hardware_id[0x%x])\n",
+					p->version, p->flags, p->hardware_id);
+		}
+		break;
 #endif
 
 	default:
