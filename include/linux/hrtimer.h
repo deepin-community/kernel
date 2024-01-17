@@ -20,6 +20,7 @@
 #include <linux/seqlock.h>
 #include <linux/timer.h>
 #include <linux/timerqueue.h>
+#include <linux/kabi.h>
 
 struct hrtimer_clock_base;
 struct hrtimer_cpu_base;
@@ -124,6 +125,9 @@ struct hrtimer {
 	u8				is_rel;
 	u8				is_soft;
 	u8				is_hard;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /**
@@ -165,6 +169,9 @@ struct hrtimer_clock_base {
 	struct timerqueue_head	active;
 	ktime_t			(*get_time)(void);
 	ktime_t			offset;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 } __hrtimer_clock_base_align;
 
 enum  hrtimer_base_type {
@@ -235,6 +242,9 @@ struct hrtimer_cpu_base {
 	ktime_t				softirq_expires_next;
 	struct hrtimer			*softirq_next_timer;
 	struct hrtimer_clock_base	clock_base[HRTIMER_MAX_CLOCK_BASES];
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 } ____cacheline_aligned;
 
 static inline void hrtimer_set_expires(struct hrtimer *timer, ktime_t time)

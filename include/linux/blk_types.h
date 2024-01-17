@@ -6,6 +6,7 @@
 #ifndef __LINUX_BLK_TYPES_H
 #define __LINUX_BLK_TYPES_H
 
+#include <linux/kabi.h>
 #include <linux/types.h>
 #include <linux/bvec.h>
 #include <linux/device.h>
@@ -74,6 +75,12 @@ struct block_device {
 	 * path
 	 */
 	struct device		bd_device;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
 } __randomize_layout;
 
 #define bdev_whole(_bdev) \
@@ -315,6 +322,10 @@ struct bio {
 
 	struct bio_set		*bi_pool;
 
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 	/*
 	 * We can inline a number of vecs at the end of the bio, to avoid
 	 * double allocations for a small number of bio_vecs. This member

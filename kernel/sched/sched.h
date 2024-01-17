@@ -87,6 +87,7 @@
 # include <asm/paravirt.h>
 # include <asm/paravirt_api_clock.h>
 #endif
+#include <linux/kabi.h>
 
 #include "cpupri.h"
 #include "cpudeadline.h"
@@ -357,6 +358,10 @@ struct cfs_bandwidth {
 	u64			throttled_time;
 	u64			burst_time;
 #endif
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 /* Task group related information */
@@ -412,6 +417,10 @@ struct task_group {
 	struct uclamp_se	uclamp[UCLAMP_CNT];
 #endif
 
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -649,6 +658,11 @@ struct cfs_rq {
 #endif
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
+
+    KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 static inline int rt_bandwidth_enabled(void)
@@ -889,6 +903,11 @@ struct root_domain {
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 extern void init_defrootdomain(void);
@@ -1166,6 +1185,11 @@ struct rq {
 	call_single_data_t	cfsb_csd;
 	struct list_head	cfsb_csd_list;
 #endif
+    
+    KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -1908,6 +1932,9 @@ struct sched_group {
 	int			asym_prefer_cpu;	/* CPU of highest priority in group */
 	int			flags;
 
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 	/*
 	 * The CPUs this group covers.
 	 *
@@ -2290,6 +2317,8 @@ struct sched_class {
 #ifdef CONFIG_SCHED_CORE
 	int (*task_is_throttled)(struct task_struct *p, int cpu);
 #endif
+    KABI_RESERVE(1)
+    KABI_RESERVE(2)
 };
 
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)

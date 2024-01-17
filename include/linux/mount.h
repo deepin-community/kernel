@@ -10,6 +10,7 @@
 #ifndef _LINUX_MOUNT_H
 #define _LINUX_MOUNT_H
 
+#include <linux/kabi.h>
 #include <linux/types.h>
 #include <asm/barrier.h>
 
@@ -72,6 +73,9 @@ struct vfsmount {
 	struct super_block *mnt_sb;	/* pointer to superblock */
 	int mnt_flags;
 	struct mnt_idmap *mnt_idmap;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 } __randomize_layout;
 
 static inline struct mnt_idmap *mnt_idmap(const struct vfsmount *mnt)

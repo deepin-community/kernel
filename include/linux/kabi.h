@@ -49,12 +49,13 @@
 		_Static_assert(__alignof__(struct{_new;}) <= __alignof__(struct{_orig;}), \
 			       __FILE__ ":" __stringify(__LINE__) ": "  __stringify(_orig) " is not aligned the same as " __stringify(_new) KABI_ALIGN_WARNING); \
 	}
+#define DEEPIN_KABI_UNIQUE_ID __PASTE(deepin_kabi_hidden_, __LINE__)
 # define _KABI_REPLACE(_orig, _new)			  \
 	union {						  \
 		_new;					  \
 		struct {				  \
 			_orig;				  \
-		} KABI_UNIQUE_ID;			  \
+		} DEEPIN_KABI_UNIQUE_ID;			  \
 		__KABI_CHECK_SIZE_ALIGN(_orig, _new);  \
 	}
 #endif /* __GENKSYMS__ */
