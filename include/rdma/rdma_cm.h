@@ -104,6 +104,7 @@ struct rdma_cm_event {
 	struct rdma_ucm_ece ece;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct rdma_cm_id;
@@ -130,6 +131,7 @@ struct rdma_cm_id {
 	struct work_struct net_work;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct rdma_cm_id *
