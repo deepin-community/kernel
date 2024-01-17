@@ -86,6 +86,7 @@ struct netns_xfrm {
 	struct mutex xfrm_cfg_mutex;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif

@@ -122,6 +122,7 @@ struct netns_ipv6 {
 	struct ioam6_pernet_data *ioam6_data;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
