@@ -92,6 +92,7 @@ struct genl_family {
 	unsigned int		mcgrp_offset;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -118,6 +119,7 @@ struct genl_info {
 	struct netlink_ext_ack *extack;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct net *genl_info_net(const struct genl_info *info)

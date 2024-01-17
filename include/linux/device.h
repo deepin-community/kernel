@@ -32,6 +32,7 @@
 #include <linux/device/class.h>
 #include <linux/device/driver.h>
 #include <linux/cleanup.h>
+#include <linux/deepin_kabi.h>
 #include <asm/device.h>
 
 struct device;

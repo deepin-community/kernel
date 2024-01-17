@@ -286,6 +286,7 @@ struct Qdisc_class_ops {
 					struct gnet_dump *);
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /* Qdisc_class_ops flag values */
@@ -333,6 +334,7 @@ struct Qdisc_ops {
 	struct module		*owner;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct tcf_result {
