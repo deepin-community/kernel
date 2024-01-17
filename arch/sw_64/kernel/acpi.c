@@ -173,10 +173,9 @@ static int rcid_to_cpu(int physical_id)
 {
 	int i;
 
-	for (i = 0; i < NR_CPUS; ++i) {
+	for (i = 0; i < ARRAY_SIZE(__cpu_to_rcid); ++i)
 		if (__cpu_to_rcid[i] == physical_id)
 			return i;
-	}
 
 	/* physical id not found */
 	return -1;
@@ -212,21 +211,24 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
 	}
 
 	if (pa->apic_id >= CONFIG_NR_CPUS) {
-		pr_err("SRAT: PXM %u -> CPU 0x%02x -> Node %u skipped apicid that is too big\n", pxm, pa->apic_id, node);
+		pr_err("SRAT: PXM %u -> CPU 0x%02x -> Node %u skipped apicid that is too big\n",
+				pxm, pa->apic_id, node);
 		return;
 	}
 
 	/* Record the mapping from logical core id to node id */
 	cpu = rcid_to_cpu(pa->apic_id);
 	if (cpu < 0) {
-		pr_err("SRAT: Can not find the logical id for physical Core 0x%02x\n", pa->apic_id);
+		pr_err("SRAT: Can not find the logical id for physical Core 0x%02x\n",
+				pa->apic_id);
 		return;
 	}
 
 	early_map_cpu_to_node(cpu, node);
 
 	node_set(node, numa_nodes_parsed);
-	pr_info("SRAT: PXM %u -> CPU 0x%02x -> Node %u\n", pxm, pa->apic_id, node);
+	pr_info("SRAT: PXM %u -> CPU 0x%02x -> Node %u\n",
+			pxm, pa->apic_id, node);
 }
 
 #ifdef CONFIG_MEMORY_HOTPLUG
@@ -297,9 +299,9 @@ EXPORT_SYMBOL(acpi_unmap_cpu);
 
 static bool __init is_rcid_duplicate(int rcid)
 {
-	unsigned int i;
+	int i;
 
-	for (i = 0; (i < possible_cores) && (i < NR_CPUS); i++) {
+	for_each_possible_cpu(i) {
 		if (cpu_to_rcid(i) == rcid)
 			return true;
 	}
@@ -318,34 +320,31 @@ setup_rcid_and_core_mask(struct acpi_madt_sw_cintc *sw_cintc)
 	 * represents the maximum number of cores in the system.
 	 */
 	if (possible_cores >= nr_cpu_ids) {
-		pr_err(PREFIX "Max core num [%u] reached, core [0x%x] ignored."
-			" Please check the firmware or CONFIG_NR_CPUS!\n",
+		pr_err(PREFIX "Max core num [%u] reached, core [0x%x] ignored\n",
 			nr_cpu_ids, rcid);
 		return -ENODEV;
 	}
 
 	/* The rcid of each core is unique */
 	if (is_rcid_duplicate(rcid)) {
-		pr_err(PREFIX "Duplicate core [0x%x] in MADT."
-			" Please check the firmware!\n", rcid);
+		pr_err(PREFIX "Duplicate core [0x%x] in MADT\n", rcid);
 		return -EINVAL;
 	}
 
 	/* We can never disable the boot core, whose rcid is 0 */
 	if ((rcid == 0) && !is_core_enabled(sw_cintc->flags)) {
-		pr_err(PREFIX "Boot core disabled in MADT."
-			" Please check the firmware!\n");
+		pr_err(PREFIX "Boot core disabled in MADT\n");
 		return -EINVAL;
 	}
 
 	/* Online capable makes core possible */
-	if (!is_core_enabled(sw_cintc->flags) && \
+	if (!is_core_enabled(sw_cintc->flags) &&
 			!is_core_online_capable(sw_cintc->flags)) {
 		disabled_cores++;
 		return 0;
 	}
 
-	rcid_infomation_init(sw_cintc->version);
+	rcid_information_init(sw_cintc->version);
 
 	/* The logical core ID of the boot core must be 0 */
 	if (rcid == 0)
@@ -363,8 +362,8 @@ setup_rcid_and_core_mask(struct acpi_madt_sw_cintc *sw_cintc)
 	 * 1. core is enabled via firmware
 	 * 2. core is not disabled by cmdline param(offline)
 	 */
-	if (is_core_enabled(sw_cintc->flags) && \
-		!cpumask_test_cpu(logical_core_id, &cpu_offline)) {
+	if (is_core_enabled(sw_cintc->flags) &&
+			!cpumask_test_cpu(logical_core_id, &cpu_offline)) {
 		set_cpu_present(logical_core_id, true);
 		if (logical_core_id != 0)
 			present_cores++;
@@ -382,8 +381,7 @@ static int __init acpi_parse_sw_cintc(union acpi_subtable_headers *header,
 
 	sw_cintc = (struct acpi_madt_sw_cintc *)header;
 	if (BAD_MADT_ENTRY(sw_cintc, end)) {
-		pr_err(PREFIX "SW CINTC entry error."
-			" Please check the firmware!\n");
+		pr_err(PREFIX "SW CINTC entry error\n");
 		return -EINVAL;
 	}
 
@@ -405,11 +403,11 @@ static int __init acpi_parse_sw_cintc(union acpi_subtable_headers *header,
 
 static int __init acpi_process_madt_sw_cintc(void)
 {
-	int logical_core, ret;
+	int i, ret;
 
 	/* Clean the map from logical core ID to physical core ID */
-	for (logical_core = 0; logical_core < NR_CPUS; ++logical_core)
-		set_rcid_map(logical_core, -1);
+	for (i = 0; i < ARRAY_SIZE(__cpu_to_rcid); ++i)
+		set_rcid_map(i, -1);
 
 	/* Clean core mask */
 	init_cpu_possible(cpu_none_mask);
@@ -453,8 +451,9 @@ void __init acpi_boot_table_init(void)
 		pr_err("Failed to init ACPI tables\n");
 		disable_acpi();
 		return;
-	} else
-		pr_info("Successfully parsed ACPI table\n");
+	}
+
+	pr_info("Successfully parsed ACPI table\n");
 
 	/**
 	 * Process SW64 Core Interrupt Controller(SW CINTC) in MADT table.

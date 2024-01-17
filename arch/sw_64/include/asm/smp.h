@@ -72,7 +72,7 @@ int __cpu_disable(void);
 void __cpu_die(unsigned int cpu);
 #endif /* CONFIG_HOTPLUG_CPU */
 
-struct rcid_infomation {
+struct rcid_information {
 	unsigned long thread_bits  : 8;    /* which thread */
 	unsigned long thread_shift : 8;
 	unsigned long core_bits    : 8;    /* which core */
@@ -82,8 +82,8 @@ struct rcid_infomation {
 	unsigned long initialized  : 1;
 };
 
-extern struct rcid_infomation rcid_info;
-extern void rcid_infomation_init(int core_version);
+extern struct rcid_information rcid_info;
+extern void rcid_information_init(int core_version);
 
 extern int get_core_id_from_rcid(int rcid);
 extern int get_thread_id_from_rcid(int rcid);
@@ -104,7 +104,7 @@ static inline void set_rcid_map(unsigned int logical, int rcid)
 	__cpu_to_rcid[0] = 0;
 }
 
-static inline void rcid_infomation_init(int core_version) { }
+static inline void rcid_information_init(int core_version) { }
 static inline int get_core_id_from_rcid(int rcid) { return 0; }
 static inline int get_thread_id_from_rcid(int rcid) { return 0; }
 static inline int get_domain_id_from_rcid(int rcid) { return 0; }
