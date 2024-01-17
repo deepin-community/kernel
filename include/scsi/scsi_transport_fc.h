@@ -10,6 +10,7 @@
 #ifndef SCSI_TRANSPORT_FC_H
 #define SCSI_TRANSPORT_FC_H
 
+#include <linux/kabi.h>
 #include <linux/sched.h>
 #include <linux/bsg-lib.h>
 #include <asm/unaligned.h>
@@ -383,6 +384,15 @@ struct fc_rport {	/* aka fc_starget_attrs */
  	struct work_struct stgt_delete_work;
 	struct work_struct rport_delete_work;
 	struct request_queue *rqst_q;	/* bsg support */
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
+	KABI_RESERVE(6)
+	KABI_RESERVE(7)
+	KABI_RESERVE(8)
 } __attribute__((aligned(sizeof(unsigned long))));
 
 /* bit field values for struct fc_rport "flags" field: */
@@ -472,6 +482,9 @@ struct fc_host_statistics {
 	/* Host Congestion Signals */
 	u64 cn_sig_warn;
 	u64 cn_sig_alarm;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 
