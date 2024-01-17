@@ -2,6 +2,7 @@
 #include <linux/pci.h>
 #include <linux/pci-acpi.h>
 #include <linux/pci-ecam.h>
+#include <linux/acpi.h>
 
 #include <asm/sw64_init.h>
 
@@ -26,10 +27,12 @@ void set_adr_int(int node)
 void set_pcieport_service_irq(int node, int index)
 {
 	if (IS_ENABLED(CONFIG_PCIE_PME))
-		write_piu_ior0(node, index, PMEINTCONFIG, PME_ENABLE_INTD_CORE0);
+		write_piu_ior0(node, index,
+				PMEINTCONFIG, PME_ENABLE_INTD_CORE0);
 
 	if (IS_ENABLED(CONFIG_PCIEAER))
-		write_piu_ior0(node, index, AERERRINTCONFIG, AER_ENABLE_INTD_CORE0);
+		write_piu_ior0(node, index,
+				AERERRINTCONFIG, AER_ENABLE_INTD_CORE0);
 }
 
 int chip_pcie_configure(struct pci_controller *hose)
@@ -161,10 +164,12 @@ int chip_pcie_configure(struct pci_controller *hose)
 		if (pcie_caps_offset == 0)
 			continue;
 
-		pci_read_config_word(dev, pcie_caps_offset + PCI_EXP_DEVCTL, &devctl);
+		pci_read_config_word(dev,
+				pcie_caps_offset + PCI_EXP_DEVCTL, &devctl);
 		devctl &= ~(PCI_EXP_DEVCTL_PAYLOAD | PCI_EXP_DEVCTL_READRQ);
 		devctl |= new_values;
-		pci_write_config_word(dev, pcie_caps_offset + PCI_EXP_DEVCTL, devctl);
+		pci_write_config_word(dev,
+				pcie_caps_offset + PCI_EXP_DEVCTL, devctl);
 	}
 
 	return bus_max_num;
@@ -212,7 +217,8 @@ static void set_rc_piu(unsigned long node, unsigned long index)
 
 	/* set PCI-E root class code */
 	value = read_rc_conf(node, index, RC_REVISION_ID);
-	write_rc_conf(node, index, RC_REVISION_ID, (PCI_CLASS_BRIDGE_HOST << 16) | value);
+	write_rc_conf(node, index, RC_REVISION_ID,
+			(PCI_CLASS_BRIDGE_HOST << 16) | value);
 
 	/* disable DBI_RO_WR_EN */
 	write_rc_conf(node, index, RC_MISC_CONTROL_1, rc_misc_ctrl);
@@ -228,8 +234,8 @@ static void set_rc_piu(unsigned long node, unsigned long index)
 	if (IS_ENABLED(CONFIG_PCI_MSI)) {
 		write_piu_ior0(node, index, MSIADDR, MSIX_MSG_ADDR);
 #ifdef CONFIG_UNCORE_XUELANG
-			for (i = 0; i < 256; i++)
-				write_piu_ior0(node, index, MSICONFIG0 + (i << 7), 0);
+		for (i = 0; i < 256; i++)
+			write_piu_ior0(node, index, MSICONFIG0 + (i << 7), 0);
 #endif
 	}
 }
@@ -302,7 +308,8 @@ static void hose_init(struct pci_controller *hose)
 	hose->pre_mem_space->flags = IORESOURCE_MEM | IORESOURCE_PREFETCH | IORESOURCE_MEM_64;
 
 	if (request_resource(&iomem_resource, hose->pre_mem_space) < 0)
-		pr_err("Failed to request 64bit MEM on hose %ld\n", hose->index);
+		pr_err("Failed to request 64bit MEM on hose %ld\n",
+				hose->index);
 	hose->io_space->start = pci_io_base | PCI_LEGACY_IO;
 	hose->io_space->end = hose->io_space->start + PCI_LEGACY_IO_SIZE - 1;
 	hose->io_space->name = "pci io space";
@@ -406,7 +413,9 @@ static int sw64_pcie_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 
 	if (IS_ENABLED(CONFIG_PCI_DEBUG))
 		pr_debug("rc read addr:%px bus %d, devfn %#x, where %#x size=%d\t",
-				cfg_iobase + ((where & ~3) << 5), bus->number, devfn, where, size);
+				cfg_iobase + ((where & ~3) << 5),
+				bus->number,
+				devfn, where, size);
 
 	if ((uintptr_t)where & (size - 1)) {
 		*val = 0;
@@ -474,7 +483,9 @@ int sw64_pcie_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 
 	if (IS_ENABLED(CONFIG_PCI_DEBUG))
 		pr_debug("rc write addr:%px bus %d, devfn %#x, where %#x *val %#x size %d\n",
-				cfg_iobase + ((where & ~3) << 5), bus->number, devfn, where, val, size);
+				cfg_iobase + ((where & ~3) << 5),
+				bus->number,
+				devfn, where, val, size);
 
 	writel(data, cfg_iobase + ((where & ~3) << 5));
 
@@ -482,7 +493,9 @@ int sw64_pcie_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 }
 
 /**
- * sw64_pcie_valid_device - check if a valid device is present on bus
+ * sw64_pcie_valid_device - check if a valid device is present
+ *                          on bus
+ *
  * @bus  : PCI bus structure
  * @devfn: device/function
  *
@@ -502,7 +515,9 @@ static bool sw64_pcie_valid_device(struct pci_bus *bus, unsigned int devfn)
 }
 
 /**
- * sw64_pcie_config_read - read val from config space of PCI host controller or device
+ * sw64_pcie_config_read - read val from config space of
+ *                         PCI host controller or device
+ *
  * @bus  : PCI bus structure
  * @devfn: device/function
  * @where: offset from base
@@ -534,7 +549,9 @@ static int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 }
 
 /**
- * sw64_pcie_config_write - write val to config space of PCI host controller or device
+ * sw64_pcie_config_write - write val to config space of PCI
+ *                          host controller or device
+ *
  * @bus  : PCI bus structure
  * @devfn: device/function
  * @where: offset from base
@@ -666,21 +683,24 @@ static int sw64_pci_prepare_controller(struct pci_controller *hose,
 	 * pass Endpoint config space base address, and define Root Complex
 	 * config space base address("RCCB") separately in the ACPI namespace.
 	 */
-	rc = acpi_evaluate_integer(adev->handle, "RCCB", NULL, &rc_config_base_addr);
+	rc = acpi_evaluate_integer(adev->handle,
+			"RCCB", NULL, &rc_config_base_addr);
 	if (rc != AE_OK) {
 		dev_err(&adev->dev, "unable to retrieve RCCB\n");
 		return -EEXIST;
 	}
 
 	/* Get Root Complex I/O space base addr from ACPI namespace */
-	rc = acpi_evaluate_integer(adev->handle, "RCIO", NULL, &pci_io_base_addr);
+	rc = acpi_evaluate_integer(adev->handle,
+			"RCIO", NULL, &pci_io_base_addr);
 	if (rc != AE_OK) {
 		dev_err(&adev->dev, "unable to retrieve RCIO\n");
 		return -EEXIST;
 	}
 
 	/* Get Endpoint I/O space base addr from ACPI namespace */
-	rc = acpi_evaluate_integer(adev->handle, "EPIO", NULL, &ep_io_base_addr);
+	rc = acpi_evaluate_integer(adev->handle,
+			"EPIO", NULL, &ep_io_base_addr);
 	if (rc != AE_OK) {
 		dev_err(&adev->dev, "unable to retrieve EPIO\n");
 		return -EEXIST;
@@ -768,10 +788,8 @@ static int sw64_pci_ecam_init(struct pci_config_window *cfg)
 	}
 
 	hose = kzalloc(sizeof(*hose), GFP_KERNEL);
-	if (!hose) {
-		dev_err(dev, "out of memory when alloc mem for pci_controller\n");
+	if (!hose)
 		return -ENOMEM;
-	}
 
 	/* Get Endpoint config space base address from MCFG table */
 	mcfg_addr = cfg->res.start - (cfg->busr.start << cfg->ops->bus_shift);

@@ -42,6 +42,7 @@ pci_acpi_setup_ecam_mapping(struct acpi_pci_root *root)
 	struct resource *bus_res = &root->secondary;
 	struct resource cfg_res;
 	struct acpi_device *adev = NULL;
+	resource_size_t bus_res_size;
 	int ret = 0, bus_shift = 0;
 	u16 seg = root->segment;
 
@@ -53,11 +54,12 @@ pci_acpi_setup_ecam_mapping(struct acpi_pci_root *root)
 
 	/**
 	 * Do the quirk of bus shift here, since we can not
-	 * know the ECAM addr in MCFG table when fill mcfg_quirks
+	 * get the ECAM addr when fill mcfg_quirks.
 	 */
 	bus_shift     = ecam_ops->bus_shift;
 	cfg_res.start = root->mcfg_addr + (bus_res->start << bus_shift);
-	cfg_res.end   = cfg_res.start + ((resource_size(bus_res)) << bus_shift) - 1;
+	bus_res_size  = resource_size(bus_res);
+	cfg_res.end   = cfg_res.start + (bus_res_size << bus_shift) - 1;
 	cfg_res.flags = IORESOURCE_MEM;
 
 	/**
@@ -87,66 +89,66 @@ static int pci_acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 {
 	int status = 0;
 	acpi_status rc;
-	unsigned long long mem_space_base = 0;
+	unsigned long long memh = 0;
 	struct resource_entry *entry = NULL, *tmp = NULL;
 	struct acpi_device *device = ci->bridge;
+
+	/**
+	 * To distinguish between mem and pre_mem, firmware
+	 * only pass the lower 32bits of mem via acpi and
+	 * use vendor specific "MEMH" to record the upper
+	 * 32 bits of mem.
+	 *
+	 * Get the upper 32 bits here.
+	 */
+	rc = acpi_evaluate_integer(ci->bridge->handle, "MEMH", NULL, &memh);
+	if (rc != AE_OK) {
+		dev_err(&device->dev, "unable to retrieve MEMH\n");
+		return -EEXIST;
+	}
 
 	/**
 	 * Get host bridge resources via _CRS method, the return value
 	 * is the num of resource parsed.
 	 */
 	status = acpi_pci_probe_root_resources(ci);
-	if (status > 0) {
+	if (status <= 0) {
 		/**
-		 * To distinguish between mem and pre_mem, firmware only pass the
-		 * lower 32bits of mem via acpi and use vendor specific "MEMH" to
-		 * record the upper 32 bits of mem.
-		 *
-		 * Get the upper 32 bits here.
+		 * If not successfully parse resources, destroy
+		 * resources which have been parsed.
 		 */
-		rc = acpi_evaluate_integer(ci->bridge->handle,
-				"MEMH", NULL, &mem_space_base);
-		if (rc != AE_OK) {
-			dev_err(&device->dev, "unable to retrieve MEMH\n");
-			return -EEXIST;
-		}
-
 		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
-			if (entry->res->flags & IORESOURCE_MEM) {
-				if (!(entry->res->end & 0xFFFFFFFF00000000ULL)) {
-					/* Patch the mem resource with upper 32 bits */
-					entry->res->start |= (mem_space_base << 32);
-					entry->res->end   |= (mem_space_base << 32);
-				} else {
-					/**
-					 * Add PREFETCH and MEM_64 flags for pre_mem,
-					 * so that we can distinguish between mem and
-					 * pre_mem.
-					 */
-					entry->res->flags |= IORESOURCE_PREFETCH;
-					entry->res->flags |= IORESOURCE_MEM_64;
-				}
-			}
-
-			dev_dbg(&device->dev,
-				"host bridge resource: 0x%llx-0x%llx flags [0x%lx]\n",
-				entry->res->start, entry->res->end, entry->res->flags);
+			dev_info(&device->dev,
+				"host bridge resource(ignored): %pR\n",
+				entry->res);
+			resource_list_destroy_entry(entry);
 		}
-		return status;
+
+		return 0;
 	}
 
-	/**
-	 * If not successfully parse resources, destroy
-	 * resources which have been parsed.
-	 */
 	resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
-		dev_info(&device->dev,
-			"host bridge resource(ignored): 0x%llx-0x%llx flags [0x%lx]\n",
-			entry->res->start, entry->res->end, entry->res->flags);
-		resource_list_destroy_entry(entry);
+		if (entry->res->flags & IORESOURCE_MEM) {
+			if (!(entry->res->end & 0xFFFFFFFF00000000ULL)) {
+				/* Patch mem res with upper 32 bits */
+				entry->res->start |= (memh << 32);
+				entry->res->end   |= (memh << 32);
+			} else {
+				/**
+				 * Add PREFETCH and MEM_64 flags for
+				 * pre_mem, so that we can distinguish
+				 * between mem and pre_mem.
+				 */
+				entry->res->flags |= IORESOURCE_PREFETCH;
+				entry->res->flags |= IORESOURCE_MEM_64;
+			}
+		}
+
+		dev_dbg(&device->dev,
+			"host bridge resource: %pR\n", entry->res);
 	}
 
-	return 0;
+	return status;
 }
 
 /**
@@ -179,21 +181,26 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
 
 	bus = pci_find_bus(domain, busnum);
 	if (bus) {
-		memcpy(bus->sysdata, pci_ri->cfg, sizeof(struct pci_config_window));
+		memcpy(bus->sysdata, pci_ri->cfg,
+				sizeof(struct pci_config_window));
 		kfree(pci_ri->cfg);
 		kfree(pci_ri);
 		kfree(root_ops);
 	} else {
-		bus = acpi_pci_root_create(root, root_ops, &pci_ri->info, pci_ri->cfg);
+		bus = acpi_pci_root_create(root, root_ops,
+				&pci_ri->info, pci_ri->cfg);
 
 		/**
-		 * No need to do kfree here, because acpi_pci_root_create will free
-		 * mem alloced when it cannot create pci_bus.
+		 * No need to do kfree here, because acpi_pci_root_create
+		 * will free mem alloced when it cannot create pci_bus.
 		 */
 		if (!bus)
 			return NULL;
 
-		/* Some quirks for pci controller of Sunway after scanning Root Complex */
+		/**
+		 *  Some quirks for pci controller of Sunway
+		 *  after scanning Root Complex
+		 */
 		sw64_pci_root_bridge_scan_finish_up(pci_find_host_bridge(bus));
 
 		pci_bus_size_bridges(bus);
@@ -227,7 +234,10 @@ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
 		ACPI_COMPANION_SET(&bridge->dev, adev);
 		set_dev_node(bus_dev, hose->node);
 
-		/* Some quirks for pci controller of Sunway before scanning Root Complex */
+		/**
+		 * Some quirks for pci controller of Sunway
+		 * before scanning Root Complex
+		 */
 		sw64_pci_root_bridge_prepare(bridge);
 	}
 
