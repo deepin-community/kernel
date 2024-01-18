@@ -37,6 +37,8 @@ struct kernel_pkey_params {
 		__u32	in2_len;	/* 2nd input data size (verify) */
 	};
 	enum kernel_pkey_operation op : 8;
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 #endif /* __LINUX_KEYCTL_H */

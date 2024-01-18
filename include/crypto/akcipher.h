@@ -10,6 +10,7 @@
 
 #include <linux/atomic.h>
 #include <linux/crypto.h>
+#include <linux/kabi.h>
 
 /**
  * struct akcipher_request - public key request
@@ -126,6 +127,9 @@ struct akcipher_alg {
 	unsigned int (*max_size)(struct crypto_akcipher *tfm);
 	int (*init)(struct crypto_akcipher *tfm);
 	void (*exit)(struct crypto_akcipher *tfm);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 
 #ifdef CONFIG_CRYPTO_STATS
 	struct crypto_istat_akcipher stat;

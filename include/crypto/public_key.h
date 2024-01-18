@@ -12,6 +12,7 @@
 
 #include <linux/keyctl.h>
 #include <linux/oid_registry.h>
+#include <linux/kabi.h>
 
 /*
  * Cryptographic data for the public-key subtype of the asymmetric key type.
@@ -32,6 +33,10 @@ struct public_key {
 #define KEY_EFLAG_CA		0	/* set if the CA basic constraints is set */
 #define KEY_EFLAG_DIGITALSIG	1	/* set if the digitalSignature usage is set */
 #define KEY_EFLAG_KEYCERTSIGN	2	/* set if the keyCertSign usage is set */
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 extern void public_key_free(struct public_key *key);

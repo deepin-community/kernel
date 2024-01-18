@@ -10,6 +10,7 @@
 
 #include <linux/key.h>
 #include <linux/errno.h>
+#include <linux/kabi.h>
 
 #ifdef CONFIG_KEYS
 
@@ -56,6 +57,8 @@ struct key_match_data {
 	unsigned	lookup_type;	/* Type of lookup for this search. */
 #define KEYRING_SEARCH_LOOKUP_DIRECT	0x0000	/* Direct lookup by description. */
 #define KEYRING_SEARCH_LOOKUP_ITERATE	0x0001	/* Iterative search. */
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /*
