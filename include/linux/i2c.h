@@ -22,6 +22,7 @@
 #include <linux/of.h>		/* for struct device_node */
 #include <linux/swab.h>		/* for swab16 */
 #include <uapi/linux/i2c.h>
+#include <linux/kabi.h>
 
 extern struct bus_type i2c_bus_type;
 extern struct device_type i2c_adapter_type;
@@ -433,6 +434,8 @@ struct i2c_board_info {
 	const struct resource *resources;
 	unsigned int	num_resources;
 	int		irq;
+
+	KABI_RESERVE(1)
 };
 
 /**
@@ -566,6 +569,9 @@ struct i2c_algorithm {
 	int (*reg_slave)(struct i2c_client *client);
 	int (*unreg_slave)(struct i2c_client *client);
 #endif
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /**
@@ -655,6 +661,9 @@ struct i2c_bus_recovery_info {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_gpio;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 int i2c_recover_bus(struct i2c_adapter *adap);
@@ -746,6 +755,9 @@ struct i2c_adapter {
 
 	struct irq_domain *host_notify_domain;
 	struct regulator *bus_regulator;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 #define to_i2c_adapter(d) container_of(d, struct i2c_adapter, dev)
 

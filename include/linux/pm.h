@@ -16,6 +16,7 @@
 #include <linux/timer.h>
 #include <linux/hrtimer.h>
 #include <linux/completion.h>
+#include <linux/kabi.h>
 
 /*
  * Callbacks for platform drivers to implement.
@@ -640,6 +641,13 @@ struct pm_subsys_data {
 #ifdef CONFIG_PM_GENERIC_DOMAINS
 	struct pm_domain_data *domain_data;
 #endif
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
+	KABI_RESERVE(6)
 };
 
 /*
@@ -720,6 +728,9 @@ struct dev_pm_info {
 	struct pm_subsys_data	*subsys_data;  /* Owned by the subsystem. */
 	void (*set_latency_tolerance)(struct device *, s32);
 	struct dev_pm_qos	*qos;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 extern int dev_pm_get_subsys_data(struct device *dev);
@@ -746,6 +757,9 @@ struct dev_pm_domain {
 	int (*activate)(struct device *dev);
 	void (*sync)(struct device *dev);
 	void (*dismiss)(struct device *dev);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /*

@@ -8,6 +8,7 @@
 #include <linux/mmap_lock.h>
 #include <linux/srcu.h>
 #include <linux/interval_tree.h>
+#include <linux/kabi.h>
 
 struct mmu_notifier_subscriptions;
 struct mmu_notifier;
@@ -221,6 +222,11 @@ struct mmu_notifier_ops {
 	 */
 	struct mmu_notifier *(*alloc_notifier)(struct mm_struct *mm);
 	void (*free_notifier)(struct mmu_notifier *subscription);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 /*
@@ -240,6 +246,9 @@ struct mmu_notifier {
 	struct mm_struct *mm;
 	struct rcu_head rcu;
 	unsigned int users;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /**

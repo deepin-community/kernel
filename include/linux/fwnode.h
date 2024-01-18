@@ -13,6 +13,7 @@
 #include <linux/list.h>
 #include <linux/bits.h>
 #include <linux/err.h>
+#include <linux/kabi.h>
 
 struct fwnode_operations;
 struct device;
@@ -42,9 +43,13 @@ struct fwnode_handle {
 	struct fwnode_handle *secondary;
 	const struct fwnode_operations *ops;
 	struct device *dev;
+
 	struct list_head suppliers;
 	struct list_head consumers;
 	u8 flags;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /*
@@ -164,6 +169,11 @@ struct fwnode_operations {
 	void __iomem *(*iomap)(struct fwnode_handle *fwnode, int index);
 	int (*irq_get)(const struct fwnode_handle *fwnode, unsigned int index);
 	int (*add_links)(struct fwnode_handle *fwnode);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 #define fwnode_has_op(fwnode, op)					\

@@ -112,6 +112,9 @@ struct dev_pm_qos_request {
 		struct freq_qos_request freq;
 	} data;
 	struct device *dev;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 struct dev_pm_qos {
@@ -122,6 +125,9 @@ struct dev_pm_qos {
 	struct dev_pm_qos_request *resume_latency_req;
 	struct dev_pm_qos_request *latency_tolerance_req;
 	struct dev_pm_qos_request *flags_req;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /* Action requested to pm_qos_update_target */
