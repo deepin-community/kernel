@@ -38,6 +38,16 @@ config HWMON_DEBUG_CHIP
 
 comment "Native drivers"
 
+config SENSORS_PVT
+	tristate "SW64 PVT monitor"
+	depends on SW64
+	help
+	  If you say yes here you get support for the voltage
+	  sensor inside your CPU.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called PVT.
+
 config SENSORS_ABITUGURU
 	tristate "Abit uGuru (rev 1 & 2)"
 	depends on X86 && DMI
