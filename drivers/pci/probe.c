@@ -142,6 +142,7 @@ static inline unsigned long decode_bar(struct pci_dev *dev, u32 bar)
 
 	flags = bar & ~PCI_BASE_ADDRESS_MEM_MASK;
 	flags |= IORESOURCE_MEM;
+
 	if (flags & PCI_BASE_ADDRESS_MEM_PREFETCH)
 		flags |= IORESOURCE_PREFETCH;
 
