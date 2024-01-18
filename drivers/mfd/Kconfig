@@ -604,6 +604,22 @@ config LPC_SCH
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
 
+config LPC_CHIP3
+	tristate "CHIP3 LPC"
+	depends on UNCORE_XUELANG
+	select MFD_CORE
+	help
+	  LPC bridge function of the chip3 provides support for
+	  System Management Bus and General Purpose I/O.
+
+config SUNWAY_SUPERIO_AST2400
+	tristate "SUNWAY SUPERIO AST2400"
+	depends on SW64
+	select MFD_CORE
+	help
+	  Nuvoton AST2400 Super I/O chip platform driver written
+	  for SUNWAY LPC controller.
+
 config INTEL_SOC_PMIC
 	bool "Support for Crystal Cove PMIC"
 	depends on HAS_IOMEM && I2C=y && GPIOLIB && COMMON_CLK
