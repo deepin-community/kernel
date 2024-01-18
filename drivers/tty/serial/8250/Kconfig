@@ -407,6 +407,13 @@ config SERIAL_8250_DW
 	  Selecting this option will enable handling of the extra features
 	  present in the Synopsys DesignWare APB UART.
 
+config SERIAL_8250_SUNWAY
+	tristate "Support for SW6B Builtin Synopsys DesignWare 8250 quirks"
+	depends on SERIAL_8250 && SW64
+	help
+	  Selecting this option will enable handling of the extra features
+	  present in the Synopsys DesignWare APB UART of SW6.
+
 config SERIAL_8250_EM
 	tristate "Support for Emma Mobile integrated serial port"
 	depends on SERIAL_8250 && HAVE_CLK
