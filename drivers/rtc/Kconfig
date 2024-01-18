@@ -984,6 +984,13 @@ config RTC_DRV_ALPHA
 	  Direct support for the real-time clock found on every Alpha
 	  system, specifically MC146818 compatibles.  If in doubt, say Y.
 
+config RTC_DRV_SW64_VIRT
+	bool "SW64 Hypervisor based RTC"
+	depends on SW64
+	default y
+	help
+          Get support for the Hypervisor based RTC on SW64 systems.
+
 config RTC_DRV_DS1216
 	tristate "Dallas DS1216"
 	depends on SNI_RM
