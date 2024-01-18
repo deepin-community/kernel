@@ -4654,6 +4654,7 @@ DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a01, PCI_CLASS_NOT_DEFINED, 
 DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_AMD, 0x1a02, PCI_CLASS_NOT_DEFINED, 8,
 			      quirk_relaxedordering_disable);
 
+#ifndef CONFIG_SW64
 /*
  * Per PCIe r3.0, sec 2.2.9, "Completion headers must supply the same
  * values for the Attribute as were supplied in the header of the
@@ -4710,6 +4711,7 @@ static void quirk_chelsio_T5_disable_root_port_attributes(struct pci_dev *pdev)
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_CHELSIO, PCI_ANY_ID,
 			 quirk_chelsio_T5_disable_root_port_attributes);
+#endif
 
 /*
  * pci_acs_ctrl_enabled - compare desired ACS controls with those provided

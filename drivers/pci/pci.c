@@ -4846,7 +4846,11 @@ int pcie_flr(struct pci_dev *dev)
 	 * 100ms, but may silently discard requests while the FLR is in
 	 * progress.  Wait 100ms before trying to access the device.
 	 */
+#ifdef CONFIG_SW64
+	msleep(1000);
+#else
 	msleep(100);
+#endif
 
 	return pci_dev_wait(dev, "FLR", PCIE_RESET_READY_POLL_MS);
 }
