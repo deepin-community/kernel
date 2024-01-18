@@ -1219,6 +1219,12 @@ config SPI_AMD
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
+config SPI_CHIP3
+        tristate "Memory-mapped io interface driver for SUNWAY CHIP3 SPI core"
+        depends on UNCORE_XUELANG
+        help
+          general driver for SPI controller core from DesignWare
+
 
 comment "SPI Multiplexer support"
 

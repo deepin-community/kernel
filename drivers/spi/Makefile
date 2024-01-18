@@ -48,6 +48,7 @@ spi-dw-y				:= spi-dw-core.o
 spi-dw-$(CONFIG_SPI_DW_DMA)		+= spi-dw-dma.o
 obj-$(CONFIG_SPI_DW_BT1)		+= spi-dw-bt1.o
 obj-$(CONFIG_SPI_DW_MMIO)		+= spi-dw-mmio.o
+obj-$(CONFIG_SPI_CHIP3)			+= spi-chip3.o spi-chip3-mmio.o
 obj-$(CONFIG_SPI_DW_PCI)		+= spi-dw-pci.o
 obj-$(CONFIG_SPI_EP93XX)		+= spi-ep93xx.o
 obj-$(CONFIG_SPI_FALCON)		+= spi-falcon.o
