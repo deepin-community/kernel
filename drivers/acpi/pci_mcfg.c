@@ -182,6 +182,32 @@ static struct mcfg_fixup mcfg_quirks[] = {
 	LOONGSON_ECAM_MCFG("\0", 1),
 	LOONGSON_ECAM_MCFG("LOONGSON", 1),
 #endif /* LOONGARCH */
+
+#ifdef CONFIG_SW64
+#define _SW64_ECAM_QUIRK(rev, seg) \
+	{ "SUNWAY", "SUNWAY. ", rev, seg, MCFG_BUS_ANY, &sw64_pci_ecam_ops }
+#define SW64_ECAM_QUIRK(rev, node)	_SW64_ECAM_QUIRK(rev, node * 8 + 0),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 1),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 2),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 3),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 4),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 5),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 6),\
+					_SW64_ECAM_QUIRK(rev, node * 8 + 7)
+
+	/**
+	 * According to the address space of sw64, up to 8 nodes supported
+	 * with a maximum of 8 pcie controllers per node
+	 */
+	SW64_ECAM_QUIRK(1, 0x00),
+	SW64_ECAM_QUIRK(1, 0x01),
+	SW64_ECAM_QUIRK(1, 0x02),
+	SW64_ECAM_QUIRK(1, 0x03),
+	SW64_ECAM_QUIRK(1, 0x04),
+	SW64_ECAM_QUIRK(1, 0x05),
+	SW64_ECAM_QUIRK(1, 0x06),
+	SW64_ECAM_QUIRK(1, 0x07),
+#endif /* SW64 */
 };
 
 static char mcfg_oem_id[ACPI_OEM_ID_SIZE];

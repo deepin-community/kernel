@@ -211,7 +211,7 @@ __weak int __init numa_fill_memblks(u64 start, u64 end)
 	return NUMA_NO_MEMBLK;
 }
 
-#if defined(CONFIG_X86) || defined(CONFIG_ARM64) || defined(CONFIG_LOONGARCH)
+#if defined(CONFIG_X86) || defined(CONFIG_ARM64) || defined(CONFIG_LOONGARCH) || defined(CONFIG_SW64)
 /*
  * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
  * I/O localities since SRAT does not list them.  I/O localities are
