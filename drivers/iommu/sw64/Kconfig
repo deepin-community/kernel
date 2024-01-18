@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# SW64 IOMMU SUPPORT
+config SUNWAY_IOMMU
+	bool "Sunway IOMMU Support"
+	select IOMMU_API
+	select IOMMU_IOVA
+	select IOMMU_DMA
+	depends on SW64 && PCI && SUBARCH_C3B
+	help
+	  Support for IOMMU on SW64 platform. It can enable or bypass specific device by
+	  adding boot param "iommu_enable" and "iommu.passthrough".
+
+# SW64 IOMMU V2 SUPPORT
+config SUNWAY_IOMMU_V2
+	bool "Sunway IOMMU V2 Support"
+	select IOMMU_API
+	select IOMMU_IOVA
+	depends on SW64 && PCI && SUBARCH_C4
+	help
+	  Support for IOMMU V2 on SW64 platform. It can enable or bypass specific device by
+	  adding boot param "iommu_enable" and "iommu.passthrough".
