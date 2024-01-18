@@ -376,6 +376,14 @@ config HMC6352
 	  This driver provides support for the Honeywell HMC6352 compass,
 	  providing configuration and heading data via sysfs.
 
+config SUNWAY_GED
+	tristate "sunway generic device driver for memhotplug"
+	depends on SW64
+	depends on MEMORY_HOTPLUG
+	help
+	  This driver provides support for sunway generic device driver for
+	  memhotplug, providing configuration and heading data via sysfs.
+
 config DS1682
 	tristate "Dallas DS1682 Total Elapsed Time Recorder with Alarm"
 	depends on I2C
