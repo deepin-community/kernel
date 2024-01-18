@@ -1283,3 +1283,130 @@ static void quirk_usb_early_handoff(struct pci_dev *pdev)
 }
 DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
 			PCI_CLASS_SERIAL_USB, 8, quirk_usb_early_handoff);
+
+#ifdef CONFIG_SW64
+#include <asm/sw64io.h>
+#define XHCI_STS_FATAL	(1 << 2)
+#define XHCI_STS_EINT	(1 << 3)
+#define XHCI_STS_PORT	(1 << 4)
+#define XHCI_STS_SRE	(1 << 10)
+#define STS_RW1C_BITS	(XHCI_STS_FATAL | XHCI_STS_EINT | XHCI_STS_PORT | XHCI_STS_SRE)
+
+static void
+fixup_usb_xhci_reset(struct pci_dev *dev)
+{
+	void __iomem *op_reg_base;
+	int timeout;
+	u32 xhci_command;
+	u32 tmp, val;
+	void __iomem *base;
+	struct pci_controller *hose = pci_bus_to_pci_controller(dev->bus);
+	unsigned long offset;
+	int ext_cap_offset;
+	int retries = 3;
+
+	pci_read_config_dword(dev, PCI_COMMAND, &tmp);
+	tmp |= (PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+	pci_write_config_dword(dev, PCI_COMMAND, tmp);
+
+	pci_read_config_dword(dev, PCI_BASE_ADDRESS_0, &tmp);
+	if (tmp & PCI_BASE_ADDRESS_MEM_TYPE_MASK) {
+		pci_read_config_dword(dev, PCI_BASE_ADDRESS_1, &val);
+		offset = (unsigned long)(val) << 32 | (tmp & (~0xf));
+	} else
+		offset = (unsigned long)(tmp & (~0xf));
+
+	if (offset == 0)
+		return;
+
+	base = (void *)__va(SW64_PCI_IO_BASE(hose->node, hose->index) | offset);
+
+	ext_cap_offset = xhci_find_next_ext_cap(base, 0, XHCI_EXT_CAPS_LEGACY);
+	if (!ext_cap_offset)
+		goto hc_init;
+
+	val = readl(base + ext_cap_offset);
+
+	if ((dev->vendor == PCI_VENDOR_ID_TI && dev->device == 0x8241) ||
+			(dev->vendor == PCI_VENDOR_ID_RENESAS
+			 && dev->device == 0x0014)) {
+		val = (val | XHCI_HC_OS_OWNED) & ~XHCI_HC_BIOS_OWNED;
+		writel(val, base + ext_cap_offset);
+	}
+
+	if (val & XHCI_HC_BIOS_OWNED) {
+		writel(val | XHCI_HC_OS_OWNED, base + ext_cap_offset);
+
+		timeout = handshake(base + ext_cap_offset, XHCI_HC_BIOS_OWNED,
+				0, 1000000, 10);
+		if (timeout) {
+			pr_err("xHCI BIOS handoff failed (BIOS bug ?) %08x\n", val);
+			writel(val & ~XHCI_HC_BIOS_OWNED, base + ext_cap_offset);
+		}
+	}
+
+	val = readl(base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
+	val &= XHCI_LEGACY_DISABLE_SMI;
+	val |= XHCI_LEGACY_SMI_EVENTS;
+	writel(val, base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
+
+hc_init:
+	if (dev->vendor == PCI_VENDOR_ID_INTEL)
+		usb_enable_intel_xhci_ports(dev);
+
+	op_reg_base = base + XHCI_HC_LENGTH(readl(base));
+
+	timeout = handshake(op_reg_base + XHCI_STS_OFFSET, XHCI_STS_CNR, 0,
+			5000000, 10);
+	if (timeout) {
+		val = readl(op_reg_base + XHCI_STS_OFFSET);
+		pr_err("xHCI HW not ready after 5 sec (HC bug?) status = 0x%x\n", val);
+	}
+
+	xhci_command = readl(op_reg_base + XHCI_CMD_OFFSET);
+	xhci_command |= 0x2;
+	writel(xhci_command, op_reg_base + XHCI_CMD_OFFSET);
+
+	timeout = handshake(op_reg_base + XHCI_CMD_OFFSET,
+			0x2, 0, 10 * 1000 * 1000, 125);
+	if (timeout)
+		pr_err("xHCI BIOS handoff time out\n");
+
+retry:
+	val = readl(op_reg_base + XHCI_STS_OFFSET);
+	val |= STS_RW1C_BITS;
+	writel(val, op_reg_base + XHCI_STS_OFFSET);
+	val = readl(op_reg_base + XHCI_STS_OFFSET);
+
+	if ((val & STS_RW1C_BITS) && retries--) {
+		pr_err("clear USB Status Register (status = %#x) failed, retry\n", val);
+		goto retry;
+	}
+
+	val = readl(op_reg_base + XHCI_CMD_OFFSET);
+	val &= ~(XHCI_CMD_RUN | XHCI_IRQS);
+	writel(val, op_reg_base + XHCI_CMD_OFFSET);
+	timeout = handshake(op_reg_base + XHCI_STS_OFFSET, XHCI_STS_HALT, 1,
+			XHCI_MAX_HALT_USEC, 125);
+	if (timeout) {
+		val = readl(op_reg_base + XHCI_STS_OFFSET);
+		pr_err("xHCI HW did not halt within %d usec status = 0x%x\n",
+				XHCI_MAX_HALT_USEC, val);
+	}
+
+	xhci_command = readl(op_reg_base + XHCI_CMD_OFFSET);
+	xhci_command |= 0x2;
+	writel(xhci_command, op_reg_base + XHCI_CMD_OFFSET);
+
+	timeout = handshake(op_reg_base + XHCI_CMD_OFFSET,
+			0x2, 0, 10 * 1000 * 1000, 125);
+	if (timeout)
+		pr_err("xHCI BIOS handoff time out\n");
+
+	pci_read_config_dword(dev, PCI_COMMAND, &tmp);
+	tmp &= ~(PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+	pci_write_config_dword(dev, PCI_COMMAND, tmp);
+}
+DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_ANY_ID, PCI_ANY_ID,
+		PCI_CLASS_SERIAL_USB_XHCI, 0, fixup_usb_xhci_reset);
+#endif
