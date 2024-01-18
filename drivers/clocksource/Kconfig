@@ -732,4 +732,7 @@ config GOLDFISH_TIMER
 	help
 	  Support for the timer/counter of goldfish-rtc
 
+config SW64_TIMER
+	bool
+
 endmenu
