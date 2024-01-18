@@ -2484,6 +2484,7 @@ int smu_get_power_limit(void *handle,
 		case SMU_PPT_LIMIT_CURRENT:
 			switch (adev->ip_versions[MP1_HWIP][0]) {
 			case IP_VERSION(13, 0, 2):
+			case IP_VERSION(13, 0, 6):
 			case IP_VERSION(11, 0, 7):
 			case IP_VERSION(11, 0, 11):
 			case IP_VERSION(11, 0, 12):
