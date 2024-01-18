@@ -809,7 +809,7 @@ int __init efi_systab_check_header(const efi_table_hdr_t *systab_hdr)
 	return 0;
 }
 
-#ifndef CONFIG_IA64
+#if !defined(CONFIG_IA64) && !defined(CONFIG_SW64)
 static const efi_char16_t *__init map_fw_vendor(unsigned long fw_vendor,
 						size_t size)
 {
