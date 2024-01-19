@@ -7,6 +7,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <net/route.h>
+#include <linux/kabi.h>
 
 #define LWTUNNEL_HASH_BITS   7
 #define LWTUNNEL_HASH_SIZE   (1 << LWTUNNEL_HASH_BITS)
@@ -33,6 +34,12 @@ struct lwtunnel_state {
 	int		(*orig_output)(struct net *net, struct sock *sk, struct sk_buff *skb);
 	int		(*orig_input)(struct sk_buff *);
 	struct		rcu_head rcu;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+
 	__u8            data[];
 };
 

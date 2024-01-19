@@ -23,6 +23,7 @@
 #include <linux/netfilter/nf_conntrack_proto_gre.h>
 
 #include <net/netfilter/nf_conntrack_tuple.h>
+#include <linux/kabi.h>
 
 struct nf_ct_udp {
 	unsigned long	stream_ts;
@@ -123,6 +124,9 @@ struct nf_conn {
 
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 static inline struct nf_conn *

@@ -3,6 +3,7 @@
 #define _IPV6_H
 
 #include <uapi/linux/ipv6.h>
+#include <linux/kabi.h>
 
 #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
 #define ipv6_authlen(p) (((p)->hdrlen+2) << 2)
@@ -84,6 +85,11 @@ struct ipv6_devconf {
 	__u8		ndisc_evict_nocarrier;
 
 	struct ctl_table_header *sysctl_header;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 struct ipv6_params {

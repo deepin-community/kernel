@@ -9,6 +9,7 @@
 
 #include <uapi/linux/netfilter_ipv6.h>
 #include <net/tcp.h>
+#include <linux/kabi.h>
 
 /* Check for an extension */
 static inline int
@@ -65,6 +66,8 @@ struct nf_ipv6_ops {
 					 const struct nf_bridge_frag_data *data,
 					 struct sk_buff *));
 #endif
+
+	KABI_RESERVE(1)
 };
 
 #ifdef CONFIG_NETFILTER

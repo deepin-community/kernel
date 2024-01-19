@@ -9,6 +9,7 @@
 #define __NETNS_IPV6_H__
 #include <net/dst_ops.h>
 #include <uapi/linux/icmpv6.h>
+#include <linux/kabi.h>
 
 struct ctl_table_header;
 
@@ -119,6 +120,8 @@ struct netns_ipv6 {
 		u32		seq;
 	} ip6addrlbl_table;
 	struct ioam6_pernet_data *ioam6_data;
+
+	KABI_RESERVE(1)
 };
 
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)

@@ -17,6 +17,7 @@
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_mad.h>
 #include <rdma/rdmavt_mr.h>
+#include <linux/kabi.h>
 
 #define RVT_MAX_PKEY_VALUES 16
 
@@ -105,6 +106,8 @@ struct rvt_ibport {
 	 */
 	struct trap_list trap_lists[RVT_MAX_TRAP_LISTS];
 	struct timer_list trap_timer;
+
+	KABI_RESERVE(1)
 };
 
 #define RVT_CQN_MAX 16 /* maximum length of cq name */
@@ -426,6 +429,9 @@ struct rvt_dev_info {
 
 	/* Memory Working Set Size */
 	struct rvt_wss *wss;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /**

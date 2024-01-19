@@ -20,6 +20,7 @@
 #include <linux/fs.h>
 #include <linux/timer.h>
 #include <linux/mod_devicetable.h>
+#include <linux/kabi.h>
 
 struct input_dev_poller;
 
@@ -209,6 +210,8 @@ struct input_dev {
 	ktime_t timestamp[INPUT_CLK_MAX];
 
 	bool inhibited;
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 #define to_input_dev(d) container_of(d, struct input_dev, dev)
 

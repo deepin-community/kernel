@@ -21,6 +21,7 @@
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_pack.h>
 #include <net/net_namespace.h>
+#include <linux/kabi.h>
 
 /**
  * struct rdma_dev_addr - Contains resolved RDMA hardware addresses
@@ -44,6 +45,8 @@ struct rdma_dev_addr {
 	const struct ib_gid_attr *sgid_attr;
 	enum rdma_network_type network;
 	int hoplimit;
+
+	KABI_RESERVE(1)
 };
 
 /**

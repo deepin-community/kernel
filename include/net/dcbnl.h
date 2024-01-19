@@ -131,6 +131,15 @@ struct dcbnl_rtnl_ops {
 	/* rewrite */
 	int (*dcbnl_setrewr)(struct net_device *dev, struct dcb_app *app);
 	int (*dcbnl_delrewr)(struct net_device *dev, struct dcb_app *app);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
+	KABI_RESERVE(6)
+	KABI_RESERVE(7)
+	KABI_RESERVE(8)
 };
 
 #endif /* __NET_DCBNL_H__ */

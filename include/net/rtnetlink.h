@@ -4,6 +4,7 @@
 
 #include <linux/rtnetlink.h>
 #include <net/netlink.h>
+#include <linux/kabi.h>
 
 typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *,
 			      struct netlink_ext_ack *);
@@ -134,6 +135,15 @@ struct rtnl_link_ops {
 	int			(*fill_linkxstats)(struct sk_buff *skb,
 						   const struct net_device *dev,
 						   int *prividx, int attr);
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
+	KABI_RESERVE(6)
+	KABI_RESERVE(7)
+	KABI_RESERVE(8)
 };
 
 int __rtnl_link_register(struct rtnl_link_ops *ops);
