@@ -32,6 +32,8 @@
 #include <linux/if_packet.h>
 #include <linux/llist.h>
 #include <net/flow.h>
+#include <linux/kabi.h>
+
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #include <linux/netfilter/nf_conntrack_common.h>
 #endif
@@ -1048,6 +1050,10 @@ struct sk_buff {
 
 	); /* end headers group */
 
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 	/* These elements must be at the end, see alloc_skb() for details.  */
 	sk_buff_data_t		tail;
 	sk_buff_data_t		end;

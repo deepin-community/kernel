@@ -11,6 +11,7 @@
 
 #include <rdma/restrack.h>
 #include <rdma/rdma_netlink.h>
+#include <linux/kabi.h>
 
 struct ib_device;
 struct ib_qp;
@@ -41,6 +42,8 @@ struct rdma_counter {
 	struct mutex			lock;
 	struct rdma_hw_stats		*stats;
 	u32				port;
+
+	KABI_RESERVE(1)
 };
 
 void rdma_counter_init(struct ib_device *dev);

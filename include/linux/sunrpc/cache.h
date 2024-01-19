@@ -16,6 +16,7 @@
 #include <linux/atomic.h>
 #include <linux/kstrtox.h>
 #include <linux/proc_fs.h>
+#include <linux/kabi.h>
 
 /*
  * Each cache requires:
@@ -123,6 +124,9 @@ struct cache_detail {
 		struct dentry		*pipefs;
 	};
 	struct net		*net;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /* this must be embedded in any request structure that

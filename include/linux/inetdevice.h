@@ -13,6 +13,7 @@
 #include <linux/sysctl.h>
 #include <linux/rtnetlink.h>
 #include <linux/refcount.h>
+#include <linux/kabi.h>
 
 struct ipv4_devconf {
 	void	*sysctl;
@@ -50,6 +51,9 @@ struct in_device {
 	struct neigh_parms	*arp_parms;
 	struct ipv4_devconf	cnf;
 	struct rcu_head		rcu_head;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 #define IPV4_DEVCONF(cnf, attr) ((cnf).data[IPV4_DEVCONF_ ## attr - 1])

@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <linux/percpu_counter.h>
 #include <linux/cache.h>
+#include <linux/kabi.h>
 
 struct dst_entry;
 struct kmem_cachep;
@@ -41,6 +42,15 @@ struct dst_ops {
 	struct kmem_cache	*kmem_cachep;
 
 	struct percpu_counter	pcpuc_entries ____cacheline_aligned_in_smp;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
+	KABI_RESERVE(5)
+	KABI_RESERVE(6)
+	KABI_RESERVE(7)
+	KABI_RESERVE(8)
 };
 
 static inline int dst_entries_get_fast(struct dst_ops *dst)

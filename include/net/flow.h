@@ -12,6 +12,7 @@
 #include <linux/atomic.h>
 #include <linux/container_of.h>
 #include <linux/uidgid.h>
+#include <linux/kabi.h>
 
 struct flow_keys;
 
@@ -42,6 +43,9 @@ struct flowi_common {
 	kuid_t  flowic_uid;
 	__u32		flowic_multipath_hash;
 	struct flowi_tunnel flowic_tun_key;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 union flowi_uli {
@@ -88,6 +92,9 @@ struct flowi4 {
 #define fl4_icmp_code		uli.icmpt.code
 #define fl4_mh_type		uli.mht.type
 #define fl4_gre_key		uli.gre_key
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 } __attribute__((__aligned__(BITS_PER_LONG/8)));
 
 static inline void flowi4_init_output(struct flowi4 *fl4, int oif,

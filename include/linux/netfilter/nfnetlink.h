@@ -6,6 +6,7 @@
 #include <linux/capability.h>
 #include <net/netlink.h>
 #include <uapi/linux/netfilter/nfnetlink.h>
+#include <linux/kabi.h>
 
 struct nfnl_info {
 	struct net		*net;
@@ -28,6 +29,8 @@ struct nfnl_callback {
 	const struct nla_policy	*policy;
 	enum nfnl_callback_type	type;
 	__u16			attr_count;
+
+	KABI_RESERVE(1)
 };
 
 enum nfnl_abort_action {
@@ -46,6 +49,8 @@ struct nfnetlink_subsystem {
 	int (*abort)(struct net *net, struct sk_buff *skb,
 		     enum nfnl_abort_action action);
 	bool (*valid_genid)(struct net *net, u32 genid);
+
+	KABI_RESERVE(1)
 };
 
 int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);

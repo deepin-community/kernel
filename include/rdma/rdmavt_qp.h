@@ -11,6 +11,7 @@
 #include <rdma/ib_verbs.h>
 #include <rdma/rdmavt_cq.h>
 #include <rdma/rvt-abi.h>
+#include <linux/kabi.h>
 /*
  * Atomic bit definitions for r_aflags.
  */
@@ -440,6 +441,10 @@ struct rvt_qp {
 	struct hrtimer s_rnr_timer;
 
 	atomic_t local_ops_pending; /* number of fast_reg/local_inv reqs */
+
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 
 	/*
 	 * This sge list MUST be last. Do not add anything below here.

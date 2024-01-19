@@ -20,6 +20,7 @@
 
 #include <net/inet_sock.h>
 #include <net/request_sock.h>
+#include <linux/kabi.h>
 
 /* Cancel timers, when they are not required. */
 #undef INET_CSK_CLEAR_TIMERS
@@ -52,6 +53,8 @@ struct inet_connection_sock_af_ops {
 				  char __user *optval, int __user *optlen);
 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
 	void	    (*mtu_reduced)(struct sock *sk);
+
+	KABI_RESERVE(1)
 };
 
 /** inet_connection_sock - INET connection oriented sock
@@ -134,6 +137,8 @@ struct inet_connection_sock {
 	} icsk_mtup;
 	u32			  icsk_probes_tstamp;
 	u32			  icsk_user_timeout;
+
+	KABI_RESERVE(1)
 
 	u64			  icsk_ca_priv[104 / sizeof(u64)];
 #define ICSK_CA_PRIV_SIZE	  sizeof_field(struct inet_connection_sock, icsk_ca_priv)

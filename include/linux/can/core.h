@@ -17,6 +17,7 @@
 #include <linux/can.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
+#include <linux/kabi.h>
 
 #define DNAME(dev) ((dev) ? (dev)->name : "any")
 
@@ -32,6 +33,9 @@ struct can_proto {
 	int protocol;
 	const struct proto_ops *ops;
 	struct proto *prot;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 /* required_size

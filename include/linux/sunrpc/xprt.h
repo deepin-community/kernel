@@ -18,6 +18,7 @@
 #include <linux/sunrpc/sched.h>
 #include <linux/sunrpc/xdr.h>
 #include <linux/sunrpc/msg_prot.h>
+#include <linux/kabi.h>
 
 #define RPC_MIN_SLOT_TABLE	(2U)
 #define RPC_DEF_SLOT_TABLE	(16U)
@@ -39,6 +40,9 @@ struct rpc_timeout {
 				to_increment;		/* if !exponential */
 	unsigned int		to_retries;		/* max # of retries */
 	unsigned char		to_exponential;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 enum rpc_display_format_t {
@@ -125,6 +129,11 @@ struct rpc_rqst {
 	unsigned long		rq_bc_pa_state;	/* Backchannel prealloc state */
 	struct list_head	rq_bc_pa_list;	/* Backchannel prealloc list */
 #endif /* CONFIG_SUNRPC_BACKCHANEL */
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 #define rq_svec			rq_snd_buf.head
 #define rq_slen			rq_snd_buf.len
@@ -315,6 +324,11 @@ struct rpc_xprt {
 	const struct xprt_class	*xprt_class;
 	struct rpc_sysfs_xprt	*xprt_sysfs;
 	bool			main; /*mark if this is the 1st transport */
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
+	KABI_RESERVE(3)
+	KABI_RESERVE(4)
 };
 
 #if defined(CONFIG_SUNRPC_BACKCHANNEL)
@@ -353,6 +367,9 @@ struct xprt_create {
 	struct xprtsec_parms	xprtsec;
 	unsigned long		connect_timeout;
 	unsigned long		reconnect_timeout;
+
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 struct xprt_class {
