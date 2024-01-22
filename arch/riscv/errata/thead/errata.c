@@ -67,7 +67,7 @@ static bool errata_probe_mae(unsigned int stage,
  *   0000000    11001     00000      000      00000  0001011
  */
 #define THEAD_INVAL_A0	".long 0x02a5000b"
-#define THEAD_CLEAN_A0	".long 0x0295000b"
+#define THEAD_CLEAN_A0	".long 0x02b5000b"
 #define THEAD_FLUSH_A0	".long 0x02b5000b"
 #define THEAD_SYNC_S	".long 0x0190000b"
 
