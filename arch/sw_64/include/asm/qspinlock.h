@@ -5,6 +5,10 @@
 #include <asm-generic/qspinlock_types.h>
 #include <asm/paravirt.h>
 
+#ifdef CONFIG_NUMA_AWARE_SPINLOCKS
+extern void cna_configure_spin_lock_slowpath(void);
+#endif
+
 #ifdef CONFIG_PARAVIRT_SPINLOCKS
 /* keep the same as x86 */
 #define _Q_PENDING_LOOPS	(1 << 9)
