@@ -101,7 +101,7 @@ static int reset_pending_show(struct seq_file *s, void *v)
 	struct drm_info_node *node = (struct drm_info_node *)s->private;
 	struct ivpu_device *vdev = to_ivpu_device(node->minor->dev);
 
-	seq_printf(s, "%d\n", atomic_read(&vdev->pm->in_reset));
+	seq_printf(s, "%d\n", atomic_read(&vdev->pm->reset_pending));
 	return 0;
 }
 
@@ -129,7 +129,9 @@ dvfs_mode_fops_write(struct file *file, const char __user *user_buf, size_t size
 
 	fw->dvfs_mode = dvfs_mode;
 
-	ivpu_pm_schedule_recovery(vdev);
+	ret = pci_try_reset_function(to_pci_dev(vdev->drm.dev));
+	if (ret)
+		return ret;
 
 	return size;
 }
@@ -189,7 +191,10 @@ fw_profiling_freq_fops_write(struct file *file, const char __user *user_buf,
 		return ret;
 
 	ivpu_hw_profiling_freq_drive(vdev, enable);
-	ivpu_pm_schedule_recovery(vdev);
+
+	ret = pci_try_reset_function(to_pci_dev(vdev->drm.dev));
+	if (ret)
+		return ret;
 
 	return size;
 }
@@ -300,11 +305,18 @@ static ssize_t
 ivpu_force_recovery_fn(struct file *file, const char __user *user_buf, size_t size, loff_t *pos)
 {
 	struct ivpu_device *vdev = file->private_data;
+	int ret;
 
 	if (!size)
 		return -EINVAL;
 
-	ivpu_pm_schedule_recovery(vdev);
+	ret = ivpu_rpm_get(vdev);
+	if (ret)
+		return ret;
+
+	ivpu_pm_trigger_recovery(vdev, "debugfs");
+	flush_work(&vdev->pm->recovery_work);
+	ivpu_rpm_put(vdev);
 	return size;
 }
 
