@@ -424,6 +424,27 @@ config NUMA
 	  Access). This option is for configuring high-end multiprocessor
 	  server machines. If in doubt, say N.
 
+config PARAVIRT_SPINLOCKS
+	bool "Paravirtualization layer for spinlocks"
+	depends on PARAVIRT && SMP
+	help
+	  Paravirtualized spinlocks allow a pvops backend to replace the
+	  spinlock implementation with something virtualization-friendly
+	  (for example, block the virtual CPU rather than spinning).
+
+	  It has a minimal impact on native kernels and gives a nice performance
+	  benefit on paravirtualized KVM kernels.
+
+	  If you are unsure how to answer this question, answer Y.
+
+config PARAVIRT
+	bool "Enable paravirtualization code"
+	select PARAVIRT_SPINLOCKS
+	help
+	  This changes the kernel so it can modify itself when it is run
+	  under a hypervisor, potentially improving performance significantly
+	  over full virtualization.
+
 config USE_PERCPU_NUMA_NODE_ID
 	def_bool y
 	depends on NUMA

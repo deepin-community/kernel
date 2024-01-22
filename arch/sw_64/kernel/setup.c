@@ -756,6 +756,10 @@ setup_arch(char **cmdline_p)
 
 	/* Default root filesystem to sda2.  */
 	ROOT_DEV = MKDEV(SCSI_DISK0_MAJOR, 2);
+
+#ifdef CONFIG_PARAVIRT_SPINLOCKS
+	pv_qspinlock_init();
+#endif
 }
 
 static int

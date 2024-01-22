@@ -66,3 +66,4 @@ obj-$(CONFIG_UPROBES)           += uprobes.o
 obj-$(CONFIG_EARLY_PRINTK)      += early_printk.o
 obj-$(CONFIG_KGDB)     += kgdb.o
 obj-$(CONFIG_HAVE_PERF_REGS)   += perf_regs.o
+obj-$(CONFIG_PARAVIRT)		+= paravirt.o paravirt-spinlocks.o
