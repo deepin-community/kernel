@@ -502,6 +502,9 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 	for_each_possible_cpu(cpu) {
 		numa_store_cpu_info(cpu);
 	}
+#ifdef CONFIG_NUMA_AWARE_SPINLOCKS
+	cna_configure_spin_lock_slowpath();
+#endif
 
 	/* Nothing to do on a UP box, or when told not to.  */
 	if (nr_cpu_ids == 1 || max_cpus == 0) {
