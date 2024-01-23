@@ -64,18 +64,11 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 	if (!plat->axi)
 		return -ENOMEM;
 
-	plat->phy_interface = device_get_phy_mode(&pdev->dev);
-	if (plat->phy_interface < 0)
-		return plat->phy_interface;
-
-	plat->mac_interface = phytium_get_mac_mode(fwnode);
-	if (plat->mac_interface < 0)
-		plat->mac_interface = plat->phy_interface;
+	plat->phy_interface = phytium_get_mac_mode(fwnode);
 
 	/* Configure PHY if using device-tree */
 	if (pdev->dev.of_node) {
 		plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
-		plat->phy_node = np;
 	}
 
 	if (pdev->dev.of_node) {
@@ -174,10 +167,10 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 	}
 	stmmac_res.wol_irq = stmmac_res.irq;
 
-	return  stmmac_dvr_probe(&pdev->dev, plat, &stmmac_res);
+	return stmmac_dvr_probe(&pdev->dev, plat, &stmmac_res);
 }
 
-int phytium_dwmac_remove(struct platform_device *pdev)
+static void phytium_dwmac_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
@@ -185,8 +178,6 @@ int phytium_dwmac_remove(struct platform_device *pdev)
 
 	stmmac_pltfr_remove(pdev);
 	clk_unregister_fixed_rate(plat->stmmac_clk);
-
-	return 0;
 }
 
 #ifdef CONFIG_OF
