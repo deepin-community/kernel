@@ -14,6 +14,7 @@
 #include <linux/hash.h>
 #include <linux/types.h>
 #include <linux/bpf_mem_alloc.h>
+#include <linux/deepin_kabi.h>
 #include <uapi/linux/btf.h>
 
 #define BPF_LOCAL_STORAGE_CACHE_SIZE	16
@@ -59,6 +60,11 @@ struct bpf_local_storage_map {
 	struct bpf_mem_alloc selem_ma;
 	struct bpf_mem_alloc storage_ma;
 	bool bpf_ma;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct bpf_local_storage_data {
@@ -94,6 +100,11 @@ struct bpf_local_storage {
 				 */
 	struct rcu_head rcu;
 	raw_spinlock_t lock;	/* Protect adding/removing from the "list" */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /* U16_MAX is much more than enough for sk local storage
