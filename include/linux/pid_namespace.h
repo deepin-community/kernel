@@ -10,6 +10,7 @@
 #include <linux/nsproxy.h>
 #include <linux/ns_common.h>
 #include <linux/idr.h>
+#include <linux/deepin_kabi.h>
 
 /* MAX_PID_NS_LEVEL is needed for limiting size of 'struct pid' */
 #define MAX_PID_NS_LEVEL 32
@@ -41,6 +42,9 @@ struct pid_namespace {
 #if defined(CONFIG_SYSCTL) && defined(CONFIG_MEMFD_CREATE)
 	int memfd_noexec_scope;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 } __randomize_layout;
 
 extern struct pid_namespace init_pid_ns;
