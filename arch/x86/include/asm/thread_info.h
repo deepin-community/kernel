@@ -12,6 +12,7 @@
 #include <asm/page.h>
 #include <asm/percpu.h>
 #include <asm/types.h>
+#include <linux/kabi.h>
 
 /*
  * TOP_OF_KERNEL_STACK_PADDING is a number of unused bytes that we
@@ -60,6 +61,8 @@ struct thread_info {
 #ifdef CONFIG_SMP
 	u32			cpu;		/* current CPU */
 #endif
+	KABI_RESERVE(1)
+	KABI_RESERVE(2)
 };
 
 #define INIT_THREAD_INFO(tsk)			\
