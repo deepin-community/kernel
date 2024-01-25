@@ -60,6 +60,8 @@ Storage interfaces
    scsi/index
    target/index
 
+Other subsystems
+----------------
 **Fixme**: much more organizational work is needed here.
 
 .. toctree::
