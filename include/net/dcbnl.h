@@ -9,6 +9,7 @@
 #define __NET_DCBNL_H__
 
 #include <linux/dcbnl.h>
+#include <linux/kabi.h>
 
 struct net_device;
 
