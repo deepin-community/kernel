@@ -217,7 +217,7 @@ static int ls_pwm_probe(struct platform_device *pdev)
 
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &ls_pwm_ops;
-	pwm->chip.base = -1;
+	pwm->chip.id = -1;
 	pwm->chip.npwm = 1;
 
 	if (!(of_property_read_u32(np, "clock-frequency", &clk)))
