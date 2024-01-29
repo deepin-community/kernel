@@ -1,4 +1,5 @@
 #include "gsgpu.h"
+#include "gsgpu_pm.h"
 #include "gsgpu_dc_resource.h"
 #include "gsgpu_dc_vbios.h"
 

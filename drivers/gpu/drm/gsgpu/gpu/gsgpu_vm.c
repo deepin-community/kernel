@@ -1031,9 +1031,9 @@ error:
  *
  * Find the vm_pt entry and it's parent for the given address.
  */
-void gsgpu_vm_get_entry(struct gsgpu_pte_update_params *p, u64 addr,
-			 struct gsgpu_vm_pt **entry,
-			 struct gsgpu_vm_pt **parent)
+static void gsgpu_vm_get_entry(struct gsgpu_pte_update_params *p, u64 addr,
+			       struct gsgpu_vm_pt **entry,
+			       struct gsgpu_vm_pt **parent)
 {
 	unsigned level = p->ldev->vm_manager.root_level;
 

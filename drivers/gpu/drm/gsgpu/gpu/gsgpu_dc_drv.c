@@ -563,7 +563,7 @@ static void gsgpu_dc_commit_planes(struct drm_atomic_state *state,
 	}
 }
 
-void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
+static void gsgpu_dc_atomic_commit_tail(struct drm_atomic_state *state)
 {
 	struct drm_device *dev = state->dev;
 	struct gsgpu_device *adev = dev->dev_private;

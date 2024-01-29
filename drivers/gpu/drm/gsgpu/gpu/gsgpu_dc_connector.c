@@ -180,7 +180,7 @@ static void gsgpu_dc_connector_destroy(struct drm_connector *connector)
 	kfree(connector);
 }
 
-struct drm_connector_state *
+static struct drm_connector_state *
 gsgpu_dc_connector_atomic_duplicate_state(struct drm_connector *connector)
 {
 	struct dc_connector_state *state =
