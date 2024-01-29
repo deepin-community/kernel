@@ -68,6 +68,7 @@
 #include <linux/wait_api.h>
 #include <linux/wait_bit.h>
 #include <linux/workqueue_api.h>
+#include <linux/deepin_kabi.h>
 
 #include <trace/events/power.h>
 #include <trace/events/sched.h>
@@ -422,6 +423,14 @@ struct task_group {
 	struct uclamp_se	uclamp[UCLAMP_CNT];
 #endif
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
