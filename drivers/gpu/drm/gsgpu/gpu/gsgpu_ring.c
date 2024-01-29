@@ -153,7 +153,7 @@ void gsgpu_ring_priority_put(struct gsgpu_ring *ring,
 		goto out_unlock;
 
 	/* decay priority to the next level with a job available */
-	for (i = priority; i >= DRM_SCHED_PRIORITY_MIN; i--) {
+	for (i = priority; i >= DRM_SCHED_PRIORITY_LOW; i--) {
 		if (i == DRM_SCHED_PRIORITY_NORMAL
 				|| atomic_read(&ring->num_jobs[i])) {
 			ring->priority = i;
