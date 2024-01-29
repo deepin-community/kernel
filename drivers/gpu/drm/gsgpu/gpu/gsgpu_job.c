@@ -111,7 +111,7 @@ int gsgpu_job_submit(struct gsgpu_job *job, struct drm_sched_entity *entity,
 	if (!f)
 		return -EINVAL;
 
-	r = drm_sched_job_init(&job->base, entity, owner);
+	r = drm_sched_job_init(&job->base, entity, 1, owner);
 	if (r)
 		return r;
 

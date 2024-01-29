@@ -1016,7 +1016,7 @@ static int gsgpu_cs_submit(struct gsgpu_cs_parser *p,
 	job = p->job;
 	p->job = NULL;
 
-	r = drm_sched_job_init(&job->base, entity, p->filp);
+	r = drm_sched_job_init(&job->base, entity, 1, p->filp);
 	if (r)
 		goto error_unlock;
 
