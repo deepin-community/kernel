@@ -2329,7 +2329,7 @@ struct sk_buff *ieee80211_build_probe_req(struct ieee80211_sub_if_data *sdata,
 	 * in order to maximize the chance that we get a response.  Some
 	 * badly-behaved APs don't respond when this parameter is included.
 	 */
-	chandef.width = sdata->vif.bss_conf.chandef.width;
+	chandef.width = sdata->vif.bss_conf.chanreq.oper.width;
 	if (flags & IEEE80211_PROBE_FLAG_DIRECTED)
 		chandef.chan = NULL;
 	else
@@ -2371,7 +2371,8 @@ u32 ieee80211_sta_get_rates(struct ieee80211_sub_if_data *sdata,
 	if (WARN_ON(!sband))
 		return 1;
 
-	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chandef);
+	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chanreq.oper);
+
 	shift = ieee80211_vif_get_shift(&sdata->vif);
 
 	num_rates = sband->n_bitrates;
@@ -4131,7 +4132,8 @@ int ieee80211_add_srates_ie(struct ieee80211_sub_if_data *sdata,
 	u32 rate_flags;
 
 	shift = ieee80211_vif_get_shift(&sdata->vif);
-	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chandef);
+	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chanreq.oper);
+
 	sband = local->hw.wiphy->bands[band];
 	rates = 0;
 	for (i = 0; i < sband->n_bitrates; i++) {
@@ -4174,7 +4176,8 @@ int ieee80211_add_ext_srates_ie(struct ieee80211_sub_if_data *sdata,
 	u32 basic_rates = sdata->vif.bss_conf.basic_rates;
 	u32 rate_flags;
 
-	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chandef);
+	rate_flags = ieee80211_chandef_rate_flags(&sdata->vif.bss_conf.chanreq.oper);
+
 	shift = ieee80211_vif_get_shift(&sdata->vif);
 
 	sband = local->hw.wiphy->bands[band];
@@ -4427,7 +4430,7 @@ void ieee80211_dfs_cac_cancel(struct ieee80211_local *local)
 		cancel_delayed_work(&sdata->deflink.dfs_cac_timer_work);
 
 		if (sdata->wdev.cac_started) {
-			chandef = sdata->vif.bss_conf.chandef;
+			chandef = sdata->vif.bss_conf.chanreq.oper;
 			ieee80211_link_release_channel(&sdata->deflink);
 			cfg80211_cac_event(sdata->dev,
 					   &chandef,
@@ -4872,7 +4875,7 @@ static u8 ieee80211_chanctx_radar_detect(struct ieee80211_local *local,
 
 	list_for_each_entry(link, &ctx->reserved_links, reserved_chanctx_list)
 		if (link->reserved_radar_required)
-			radar_detect |= BIT(link->reserved_chandef.width);
+			radar_detect |= BIT(link->reserved.oper.width);
 
 	/*
 	 * An in-place reservation context should not have any assigned vifs
@@ -4886,7 +4889,7 @@ static u8 ieee80211_chanctx_radar_detect(struct ieee80211_local *local,
 			continue;
 
 		radar_detect |=
-			BIT(link->conf->chandef.width);
+			BIT(link->conf->chanreq.oper.width);
 	}
 
 	return radar_detect;

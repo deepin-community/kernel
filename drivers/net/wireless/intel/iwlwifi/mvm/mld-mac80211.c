@@ -661,7 +661,7 @@ void iwl_mvm_mld_select_links(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 			continue;
 
 		data[n_data].link_id = link_id;
-		data[n_data].band = link_conf->chandef.chan->band;
+		data[n_data].band = link_conf->chanreq.oper.chan->band;
 		data[n_data].active = vif->active_links & BIT(link_id);
 		n_data++;
 	}
