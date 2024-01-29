@@ -268,7 +268,6 @@ static int gsgpu_dc_i2c_init(struct gsgpu_device *adev,
 	const struct i2c_board_info ddc_info = {
 		.type = "ddc-dev",
 		.addr = i2c_addr,
-		.flags = I2C_CLASS_DDC,
 	};
 
 	i2c = kzalloc(sizeof(struct gsgpu_dc_i2c), GFP_KERNEL);
@@ -276,7 +275,6 @@ static int gsgpu_dc_i2c_init(struct gsgpu_device *adev,
 		return -ENOMEM;
 
 	i2c->adapter.owner = THIS_MODULE;
-	i2c->adapter.class = I2C_CLASS_DDC;
 	i2c->adapter.algo = &gsgpu_dc_i2c_algo;
 	i2c->adapter.dev.parent = adev->ddev->dev;
 	i2c->adapter.nr = -1;
@@ -340,7 +338,6 @@ static int gsgpu_dc_gpio_init(struct gsgpu_device *adev,
 	const struct i2c_board_info ddc_info = {
 		.type = "ddc-dev",
 		.addr = i2c_addr,
-		.flags = I2C_CLASS_DDC,
 	};
 
 	i2c = kzalloc(sizeof(struct gsgpu_dc_i2c), GFP_KERNEL);
@@ -354,7 +351,6 @@ static int gsgpu_dc_gpio_init(struct gsgpu_device *adev,
 	}
 
 	i2c->adapter.owner = THIS_MODULE;
-	i2c->adapter.class = I2C_CLASS_DDC;
 	i2c->adapter.algo_data = i2c_algo_data;
 	i2c->adapter.dev.parent = adev->ddev->dev;
 	i2c->adapter.nr = -1;
