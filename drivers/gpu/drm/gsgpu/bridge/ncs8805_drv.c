@@ -395,7 +395,7 @@ static int ncs8805_bl_ctrl(struct gsgpu_bridge_phy *phy, int mode)
 }
 
 
-void ncs8805_prepare(struct gsgpu_bridge_phy *phy)
+static void ncs8805_prepare(struct gsgpu_bridge_phy *phy)
 {
 	ncs8805_working_ctrl(phy, NCS8805_WORKING_DISABLE);
 }
@@ -417,7 +417,7 @@ static int ncs8805_mode_set(struct gsgpu_bridge_phy *phy,
 	return 0;
 }
 
-void ncs8805_commit(struct gsgpu_bridge_phy *phy)
+static void ncs8805_commit(struct gsgpu_bridge_phy *phy)
 {
 	ncs8805_working_ctrl(phy, NCS8805_WORKING_ENABLE);
 }
@@ -492,9 +492,4 @@ int bridge_phy_ncs8805_init(struct gsgpu_dc_bridge *dc_bridge)
 			&ncs8805_helper_funcs);
 
 	return ret;
-}
-
-int bridge_phy_ncs8805_remove(struct gsgpu_dc_bridge *phy)
-{
-	return 0;
 }
