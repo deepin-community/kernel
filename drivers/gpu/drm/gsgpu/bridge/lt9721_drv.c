@@ -127,14 +127,14 @@ static const struct regmap_config lt9721_regmap_config = {
 	.wr_table = &lt9721_write_table,
 };
 
-int lt9721_hdmi_rx_cdr(struct gsgpu_bridge_phy *phy)
+static int lt9721_hdmi_rx_cdr(struct gsgpu_bridge_phy *phy)
 {
 	regmap_multi_reg_write(phy->phy_regmap, lt9721_HDMIRxCDR,
 			ARRAY_SIZE(lt9721_HDMIRxCDR));
 	return 0;
 }
 
-int lt9721_rx_pll(struct gsgpu_bridge_phy *phy)
+static int lt9721_rx_pll(struct gsgpu_bridge_phy *phy)
 {
 	regmap_multi_reg_write(phy->phy_regmap, lt9711_rx_pll_cfg,
 				ARRAY_SIZE(lt9711_rx_pll_cfg));
@@ -156,7 +156,7 @@ static int lt9721_tx_pll_cfg(struct gsgpu_bridge_phy *phy)
 	return 0;
 }
 
-int lt9721_hdmi_format(struct gsgpu_bridge_phy *phy)
+static int lt9721_hdmi_format(struct gsgpu_bridge_phy *phy)
 {
 	regmap_write(phy->phy_regmap, 0x8817, 0x08);
 	regmap_write(phy->phy_regmap, 0x8818, 0x20);
