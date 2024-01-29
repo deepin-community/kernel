@@ -405,7 +405,7 @@ int gsgpu_fence_driver_init_ring(struct gsgpu_ring *ring,
 
 	timeout = msecs_to_jiffies(gsgpu_lockup_timeout);
 
-	r = drm_sched_init(&ring->sched, &gsgpu_sched_ops,
+	r = drm_sched_init(&ring->sched, &gsgpu_sched_ops, NULL,
 			   DRM_SCHED_PRIORITY_COUNT,
 			   num_hw_submission, gsgpu_job_hang_limit,
 			   timeout, NULL, NULL, ring->name, ring->adev->dev);
