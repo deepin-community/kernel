@@ -4,6 +4,7 @@
 #include "gsgpu.h"
 
 #include "gsgpu_vm.h"
+#include "gsgpu_sched.h"
 
 enum drm_sched_priority gsgpu_to_sched_priority(int gsgpu_priority)
 {
