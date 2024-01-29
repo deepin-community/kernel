@@ -674,9 +674,9 @@ static void gsgpu_ttm_tt_unpin_userptr(struct ttm_device *bdev,
 	sg_free_table(ttm->sg);
 }
 
-int gsgpu_ttm_gart_bind(struct gsgpu_device *adev,
-			struct ttm_buffer_object *tbo,
-			uint64_t flags)
+static int gsgpu_ttm_gart_bind(struct gsgpu_device *adev,
+			       struct ttm_buffer_object *tbo,
+			       uint64_t flags)
 {
 	struct ttm_tt *ttm = tbo->ttm;
 	struct gsgpu_ttm_tt *gtt = (void *)ttm;
