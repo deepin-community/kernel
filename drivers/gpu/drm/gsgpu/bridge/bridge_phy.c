@@ -233,50 +233,6 @@ static int bridge_phy_bind(struct gsgpu_bridge_phy *phy)
 	return 0;
 }
 
-/**
- * @section Bridge-phy helper functions
- */
-void bridge_phy_reg_mask_seq(struct gsgpu_bridge_phy *phy,
-			     const struct reg_mask_seq *seq, size_t seq_size)
-{
-	unsigned int i;
-	struct regmap *regmap;
-
-	regmap = phy->phy_regmap;
-	for (i = 0; i < seq_size; i++)
-		regmap_update_bits(regmap, seq[i].reg, seq[i].mask, seq[i].val);
-}
-
-void bridge_phy_reg_update_bits(struct gsgpu_bridge_phy *phy, unsigned int reg,
-				unsigned int mask, unsigned int val)
-{
-	unsigned int reg_val;
-
-	regmap_read(phy->phy_regmap, reg, &reg_val);
-	val ? (reg_val |= (mask)) : (reg_val &= ~(mask));
-	regmap_write(phy->phy_regmap, reg, reg_val);
-}
-
-int bridge_phy_reg_dump(struct gsgpu_bridge_phy *phy, size_t start,
-			size_t count)
-{
-	u8 *buf;
-	int ret;
-	unsigned int i;
-
-	buf = kzalloc(count, GFP_KERNEL);
-	if (IS_ERR(buf)) {
-		ret = PTR_ERR(buf);
-		return -ENOMEM;
-	}
-	ret = regmap_raw_read(phy->phy_regmap, start, buf, count);
-	for (i = 0; i < count; i++)
-		pr_info("[%lx]=%02x", start + i, buf[i]);
-
-	kfree(buf);
-	return ret;
-}
-
 static char *get_encoder_chip_name(int encoder_obj)
 {
 	switch (encoder_obj) {
@@ -712,39 +668,4 @@ int gsgpu_dc_bridge_init(struct gsgpu_device *adev, int link_index)
 		return ret;
 
 	return ret;
-}
-
-void gsgpu_bridge_suspend(struct gsgpu_device *adev)
-{
-	struct gsgpu_bridge_phy *phy;
-	int i;
-
-	for (i = 0; i < 2; i++) {
-		phy = adev->mode_info.encoders[i]->bridge;
-		if (phy && phy->cfg_funcs && phy->cfg_funcs->suspend) {
-			phy->cfg_funcs->suspend(phy);
-			DRM_INFO("[Bridge_phy] %s suspend completed.\n",
-					phy->res->chip_name);
-		}
-	}
-}
-
-void gsgpu_bridge_resume(struct gsgpu_device *adev)
-{
-	struct gsgpu_bridge_phy *phy = NULL;
-	int i;
-
-	for (i = 0; i < 2; i++) {
-		phy = adev->mode_info.encoders[i]->bridge;
-		if (phy) {
-			if (phy->cfg_funcs &&  phy->cfg_funcs->resume)
-				phy->cfg_funcs->resume(phy);
-			else {
-				bridge_phy_hw_reset(phy);
-				bridge_phy_sw_init(phy);
-			}
-			DRM_INFO("[Bridge_phy] %s resume completed.\n",
-					phy->res->chip_name);
-		}
-	}
 }
