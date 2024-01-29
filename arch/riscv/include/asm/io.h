@@ -140,4 +140,8 @@ __io_writes_outs(outs, u64, q, __io_pbr(), __io_paw())
 	((__force void *)ioremap_prot((addr), (size), _PAGE_KERNEL))
 #endif
 
+#undef ioremap_wc
+#define ioremap_wc(addr, size)		\
+	ioremap_prot((addr), (size), _PAGE_IOREMAP_WC)
+
 #endif /* _ASM_RISCV_IO_H */
