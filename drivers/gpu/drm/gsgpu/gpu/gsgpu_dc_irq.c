@@ -836,37 +836,6 @@ int dc_register_irq_handlers(struct gsgpu_device *adev)
 	return 0;
 }
 
-void gsgpu_dc_irq_unregister_interrupt(struct gsgpu_device *adev,
-					enum dc_irq_source irq_source,
-					void *ih)
-{
-	struct list_head *handler_list;
-	struct dc_interrupt_params int_params;
-	int i;
-
-	if (false == validate_irq_unregistration_params(irq_source, ih))
-		return;
-
-	memset(&int_params, 0, sizeof(int_params));
-
-	int_params.irq_source = irq_source;
-
-	for (i = 0; i < INTERRUPT_CONTEXT_NUMBER; i++) {
-		int_params.int_context = i;
-		handler_list = remove_irq_handler(adev, ih, &int_params);
-		if (handler_list != NULL)
-			break;
-	}
-
-	if (handler_list == NULL) {
-		/* If we got here, it means we searched all irq contexts
-		 * for this irq source, but the handler was not found. */
-		DRM_ERROR(
-		"DM_IRQ: failed to find irq handler:0x%px for irq_source:%d!\n",
-			ih, irq_source);
-	}
-}
-
 int gsgpu_dc_irq_init(struct gsgpu_device *adev)
 {
 	int src;
