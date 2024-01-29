@@ -68,8 +68,3 @@ int bridge_phy_lt6711_init(struct gsgpu_dc_bridge *dc_bridge)
 				  &lt6711_helper_funcs);
 	return ret;
 }
-
-int bridge_phy_lt6711_remove(struct gsgpu_dc_bridge *phy)
-{
-	return 0;
-}
