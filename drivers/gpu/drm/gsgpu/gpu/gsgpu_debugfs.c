@@ -417,9 +417,9 @@ static int gsgpu_debugfs_test_ib(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_park(ring->sched.thread);
+		drm_sched_wqueue_stop(&ring->sched);
 	}
 
 	seq_printf(m, "run ib test:\n");
@@ -433,9 +433,9 @@ static int gsgpu_debugfs_test_ib(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_unpark(ring->sched.thread);
+		drm_sched_wqueue_start(&ring->sched);
 	}
 
 	return 0;
@@ -454,9 +454,9 @@ static int gsgpu_debugfs_test_ring(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_park(ring->sched.thread);
+		drm_sched_wqueue_stop(&ring->sched);
 	}
 
 	seq_printf(m, "run ring test:\n");
@@ -481,9 +481,9 @@ static int gsgpu_debugfs_test_ring(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_unpark(ring->sched.thread);
+		drm_sched_wqueue_start(&ring->sched);
 	}
 
 	return 0;
@@ -502,9 +502,9 @@ static int gsgpu_debugfs_test_xdma(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_park(ring->sched.thread);
+		drm_sched_wqueue_stop(&ring->sched);
 	}
 
 	seq_printf(m, "run xdma test:\n");
@@ -521,9 +521,9 @@ static int gsgpu_debugfs_test_xdma(struct seq_file *m, void *data)
 	for (i = 0; i < GSGPU_MAX_RINGS; i++) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
-		kthread_unpark(ring->sched.thread);
+		drm_sched_wqueue_start(&ring->sched);
 	}
 
 	return 0;

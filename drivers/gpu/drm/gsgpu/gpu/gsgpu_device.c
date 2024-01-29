@@ -2096,10 +2096,10 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 	for (i = 0; i < GSGPU_MAX_RINGS; ++i) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
 
-		kthread_park(ring->sched.thread);
+		drm_sched_wqueue_stop(&ring->sched);
 
 		if (job && job->base.sched == &ring->sched)
 			continue;
@@ -2115,7 +2115,7 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 	for (i = 0; i < GSGPU_MAX_RINGS; ++i) {
 		struct gsgpu_ring *ring = adev->rings[i];
 
-		if (!ring || !ring->sched.thread)
+		if (!ring || !drm_sched_wqueue_ready(&ring->sched))
 			continue;
 
 		/* only need recovery sched of the given job's ring
@@ -2130,7 +2130,7 @@ int gsgpu_device_gpu_recover(struct gsgpu_device *adev,
 			drm_sched_job_recovery(&ring->sched);
 #endif
 
-		kthread_unpark(ring->sched.thread);
+		drm_sched_wqueue_start(&ring->sched);
 	}
 
 	if (r) {
