@@ -3841,7 +3841,7 @@ static void rtw89_core_ba_work(struct work_struct *work)
 			goto skip_ba_work;
 		}
 
-		if (!vif->bss_conf.chandef.chan) {
+		if (!vif->bss_conf.chanreq.oper.chan) {
 			/* ieee80211_start_tx_ba_session() dereferences chan->band from
 			 * `vif->bss_conf` directly. But in MLD connection, link_conf[]
 			 * won't point to vif->bss_conf. So, the chan under vif->bss_conf
@@ -4578,7 +4578,7 @@ select:
 		if (unlikely(!link_conf))
 			continue;
 
-		channel = link_conf->chandef.chan;
+		channel = link_conf->chanreq.oper.chan;
 		if (unlikely(!channel))
 			continue;
 
