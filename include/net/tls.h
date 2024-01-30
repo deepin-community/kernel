@@ -117,6 +117,9 @@ struct tls_strparser {
 
 	struct sk_buff *anchor;
 	struct work_struct work;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct tls_sw_context_rx {
