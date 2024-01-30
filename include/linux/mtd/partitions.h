@@ -10,7 +10,7 @@
 #define MTD_PARTITIONS_H
 
 #include <linux/types.h>
-
+#include <linux/deepin_kabi.h>
 
 /*
  * Partition definition structure:
@@ -71,6 +71,9 @@ struct hwnode_handle;
  */
 struct mtd_part_parser_data {
 	unsigned long origin;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 
