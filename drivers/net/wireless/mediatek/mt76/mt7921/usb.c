@@ -342,5 +342,6 @@ static struct usb_driver mt7921u_driver = {
 };
 module_usb_driver(mt7921u_driver);
 
+MODULE_DESCRIPTION("MediaTek MT7921U (USB) wireless driver");
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
 MODULE_LICENSE("Dual BSD/GPL");
