@@ -14,6 +14,7 @@
 #include <linux/scatterlist.h>
 #include <linux/types.h>
 #include <linux/atomic.h>
+#include <linux/deepin_kabi.h>
 #include <net/sock.h>
 
 #include <crypto/aead.h>
@@ -32,6 +33,8 @@ struct alg_sock {
 
 	const struct af_alg_type *type;
 	void *private;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct af_alg_control {
@@ -59,6 +62,9 @@ struct af_alg_sgl {
 	struct sg_table sgt;
 	struct scatterlist sgl[ALG_MAX_PAGES + 1];
 	bool need_unpin;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /* TX SGL entry */
@@ -157,6 +163,10 @@ struct af_alg_ctx {
 	unsigned int len;
 
 	unsigned int inflight;
+	
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 int af_alg_register_type(const struct af_alg_type *type);
