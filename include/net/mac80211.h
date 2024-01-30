@@ -341,6 +341,7 @@ struct ieee80211_vif_chanctx_switch {
  * @BSS_CHANGED_UNSOL_BCAST_PROBE_RESP: Unsolicited broadcast probe response
  *	status changed.
  * @BSS_CHANGED_EHT_PUNCTURING: The channel puncturing bitmap changed.
+ * @BSS_CHANGED_MLD_VALID_LINKS: MLD valid links status changed.
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
@@ -376,6 +377,7 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_FILS_DISCOVERY      = 1<<30,
 	BSS_CHANGED_UNSOL_BCAST_PROBE_RESP = 1<<31,
 	BSS_CHANGED_EHT_PUNCTURING	= BIT_ULL(32),
+	BSS_CHANGED_MLD_VALID_LINKS	= BIT_ULL(33),
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -1172,7 +1174,11 @@ struct ieee80211_tx_info {
 					u8 use_cts_prot:1;
 					u8 short_preamble:1;
 					u8 skip_table:1;
-					/* 2 bytes free */
+
+					/* for injection only (bitmap) */
+					u8 antennas:2;
+
+					/* 14 bits free */
 				};
 				/* only needed before rate control */
 				unsigned long jiffies;
@@ -1757,15 +1763,15 @@ struct ieee80211_channel_switch {
  * @IEEE80211_VIF_GET_NOA_UPDATE: request to handle NOA attributes
  *	and send P2P_PS notification to the driver if NOA changed, even
  *	this is not pure P2P vif.
- * @IEEE80211_VIF_DISABLE_SMPS_OVERRIDE: disable user configuration of
- *	SMPS mode via debugfs.
+ * @IEEE80211_VIF_EML_ACTIVE: The driver indicates that EML operation is
+ *      enabled for the interface.
  */
 enum ieee80211_vif_flags {
 	IEEE80211_VIF_BEACON_FILTER		= BIT(0),
 	IEEE80211_VIF_SUPPORTS_CQM_RSSI		= BIT(1),
 	IEEE80211_VIF_SUPPORTS_UAPSD		= BIT(2),
 	IEEE80211_VIF_GET_NOA_UPDATE		= BIT(3),
-	IEEE80211_VIF_DISABLE_SMPS_OVERRIDE	= BIT(4),
+	IEEE80211_VIF_EML_ACTIVE	        = BIT(4),
 };
 
 
@@ -3635,11 +3641,14 @@ enum ieee80211_reconfig_type {
  * @success: whether the frame exchange was successful, only
  *	used with the mgd_complete_tx() method, and then only
  *	valid for auth and (re)assoc.
+ * @link_id: the link id on which the frame will be TX'ed.
+ *	Only used with the mgd_prepare_tx() method.
  */
 struct ieee80211_prep_tx_info {
 	u16 duration;
 	u16 subtype;
 	u8 success:1;
+	int link_id;
 };
 
 /**
@@ -3862,6 +3871,10 @@ struct ieee80211_prep_tx_info {
  *	no RCU grace period is guaranteed between returning here and freeing
  *	the station. See @sta_pre_rcu_remove if needed.
  *	This callback can sleep.
+ *
+ * @vif_add_debugfs: Drivers can use this callback to add a debugfs vif
+ *	directory with its files. This callback should be within a
+ *	CONFIG_MAC80211_DEBUGFS conditional. This callback can sleep.
  *
  * @link_add_debugfs: Drivers can use this callback to add debugfs files
  *	when a link is added to a mac80211 vif. This callback should be within
@@ -4358,6 +4371,8 @@ struct ieee80211_ops {
 	int (*sta_remove)(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			  struct ieee80211_sta *sta);
 #ifdef CONFIG_MAC80211_DEBUGFS
+	void (*vif_add_debugfs)(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif);
 	void (*link_add_debugfs)(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif,
 				 struct ieee80211_bss_conf *link_conf,
@@ -4506,7 +4521,8 @@ struct ieee80211_ops {
 				   struct ieee80211_prep_tx_info *info);
 
 	void	(*mgd_protect_tdls_discover)(struct ieee80211_hw *hw,
-					     struct ieee80211_vif *vif);
+					     struct ieee80211_vif *vif,
+					     unsigned int link_id);
 
 	int (*add_chanctx)(struct ieee80211_hw *hw,
 			   struct ieee80211_chanctx_conf *ctx);
@@ -4544,7 +4560,8 @@ struct ieee80211_ops {
 				  struct ieee80211_channel_switch *ch_switch);
 
 	int (*post_channel_switch)(struct ieee80211_hw *hw,
-				   struct ieee80211_vif *vif);
+				   struct ieee80211_vif *vif,
+				   struct ieee80211_bss_conf *link_conf);
 	void (*abort_channel_switch)(struct ieee80211_hw *hw,
 				     struct ieee80211_vif *vif);
 	void (*channel_switch_rx_beacon)(struct ieee80211_hw *hw,
@@ -4890,7 +4907,7 @@ void ieee80211_restart_hw(struct ieee80211_hw *hw);
  * for a single hardware must be synchronized against each other. Calls to
  * this function, ieee80211_rx_ni() and ieee80211_rx_irqsafe() may not be
  * mixed for a single hardware. Must not run concurrently with
- * ieee80211_tx_status() or ieee80211_tx_status_ni().
+ * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
  * This function must be called with BHs disabled and RCU read lock
  *
@@ -4915,7 +4932,7 @@ void ieee80211_rx_list(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
  * for a single hardware must be synchronized against each other. Calls to
  * this function, ieee80211_rx_ni() and ieee80211_rx_irqsafe() may not be
  * mixed for a single hardware. Must not run concurrently with
- * ieee80211_tx_status() or ieee80211_tx_status_ni().
+ * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
  * This function must be called with BHs disabled.
  *
@@ -4940,7 +4957,7 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
  * for a single hardware must be synchronized against each other. Calls to
  * this function, ieee80211_rx_ni() and ieee80211_rx_irqsafe() may not be
  * mixed for a single hardware. Must not run concurrently with
- * ieee80211_tx_status() or ieee80211_tx_status_ni().
+ * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
  * In process context use instead ieee80211_rx_ni().
  *
@@ -4960,7 +4977,7 @@ static inline void ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb)
  *
  * Calls to this function, ieee80211_rx() or ieee80211_rx_ni() may not
  * be mixed for a single hardware.Must not run concurrently with
- * ieee80211_tx_status() or ieee80211_tx_status_ni().
+ * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
  * @hw: the hardware this frame came in on
  * @skb: the buffer to receive, owned by mac80211 after this call
@@ -4975,7 +4992,7 @@ void ieee80211_rx_irqsafe(struct ieee80211_hw *hw, struct sk_buff *skb);
  *
  * Calls to this function, ieee80211_rx() and ieee80211_rx_irqsafe() may
  * not be mixed for a single hardware. Must not run concurrently with
- * ieee80211_tx_status() or ieee80211_tx_status_ni().
+ * ieee80211_tx_status_skb() or ieee80211_tx_status_ni().
  *
  * @hw: the hardware this frame came in on
  * @skb: the buffer to receive, owned by mac80211 after this call
@@ -5151,7 +5168,7 @@ void ieee80211_tx_rate_update(struct ieee80211_hw *hw,
 			      struct ieee80211_tx_info *info);
 
 /**
- * ieee80211_tx_status - transmit status callback
+ * ieee80211_tx_status_skb - transmit status callback
  *
  * Call this function for all transmitted frames after they have been
  * transmitted. It is permissible to not call this function for
@@ -5166,13 +5183,13 @@ void ieee80211_tx_rate_update(struct ieee80211_hw *hw,
  * @hw: the hardware the frame was transmitted by
  * @skb: the frame that was transmitted, owned by mac80211 after this call
  */
-void ieee80211_tx_status(struct ieee80211_hw *hw,
-			 struct sk_buff *skb);
+void ieee80211_tx_status_skb(struct ieee80211_hw *hw,
+			     struct sk_buff *skb);
 
 /**
  * ieee80211_tx_status_ext - extended transmit status callback
  *
- * This function can be used as a replacement for ieee80211_tx_status
+ * This function can be used as a replacement for ieee80211_tx_status_skb()
  * in drivers that may want to provide extra information that does not
  * fit into &struct ieee80211_tx_info.
  *
@@ -5189,7 +5206,7 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 /**
  * ieee80211_tx_status_noskb - transmit status callback without skb
  *
- * This function can be used as a replacement for ieee80211_tx_status
+ * This function can be used as a replacement for ieee80211_tx_status_skb()
  * in drivers that cannot reliably map tx status information back to
  * specific skbs.
  *
@@ -5217,9 +5234,9 @@ static inline void ieee80211_tx_status_noskb(struct ieee80211_hw *hw,
 /**
  * ieee80211_tx_status_ni - transmit status callback (in process context)
  *
- * Like ieee80211_tx_status() but can be called in process context.
+ * Like ieee80211_tx_status_skb() but can be called in process context.
  *
- * Calls to this function, ieee80211_tx_status() and
+ * Calls to this function, ieee80211_tx_status_skb() and
  * ieee80211_tx_status_irqsafe() may not be mixed
  * for a single hardware.
  *
@@ -5230,17 +5247,17 @@ static inline void ieee80211_tx_status_ni(struct ieee80211_hw *hw,
 					  struct sk_buff *skb)
 {
 	local_bh_disable();
-	ieee80211_tx_status(hw, skb);
+	ieee80211_tx_status_skb(hw, skb);
 	local_bh_enable();
 }
 
 /**
  * ieee80211_tx_status_irqsafe - IRQ-safe transmit status callback
  *
- * Like ieee80211_tx_status() but can be called in IRQ context
+ * Like ieee80211_tx_status_skb() but can be called in IRQ context
  * (internally defers to a tasklet.)
  *
- * Calls to this function, ieee80211_tx_status() and
+ * Calls to this function, ieee80211_tx_status_skb() and
  * ieee80211_tx_status_ni() may not be mixed for a single hardware.
  *
  * @hw: the hardware the frame was transmitted by
@@ -6542,11 +6559,14 @@ void ieee80211_radar_detected(struct ieee80211_hw *hw);
  * ieee80211_chswitch_done - Complete channel switch process
  * @vif: &struct ieee80211_vif pointer from the add_interface callback.
  * @success: make the channel switch successful or not
+ * @link_id: the link_id on which the switch was done. Ignored if success is
+ *	false.
  *
  * Complete the channel switch post-process: set the new operational channel
  * and wake up the suspended queues.
  */
-void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success);
+void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success,
+			     unsigned int link_id);
 
 /**
  * ieee80211_channel_switch_disconnect - disconnect due to channel switch error

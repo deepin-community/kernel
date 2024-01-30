@@ -1586,6 +1586,7 @@ static int ieee80211_send_assoc(struct ieee80211_sub_if_data *sdata)
 
 	ifmgd->assoc_req_ies_len = pos - ie_start;
 
+	info.link_id = assoc_data->assoc_link_id;
 	drv_mgd_prepare_tx(local, sdata, &info);
 
 	IEEE80211_SKB_CB(skb)->flags |= IEEE80211_TX_INTFL_DONT_ENCRYPT;
@@ -1773,7 +1774,7 @@ static void ieee80211_chswitch_post_beacon(struct ieee80211_link_data *link)
 	 */
 	link->u.mgd.beacon_crc_valid = false;
 
-	ret = drv_post_channel_switch(sdata);
+	ret = drv_post_channel_switch(link);
 	if (ret) {
 		sdata_info(sdata,
 			   "driver post channel switch failed, disconnecting\n");
@@ -1785,25 +1786,34 @@ static void ieee80211_chswitch_post_beacon(struct ieee80211_link_data *link)
 	cfg80211_ch_switch_notify(sdata->dev, &link->reserved_chandef, 0, 0);
 }
 
-void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success)
+void ieee80211_chswitch_done(struct ieee80211_vif *vif, bool success,
+			     unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
-	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 
-	if (WARN_ON(ieee80211_vif_is_mld(&sdata->vif)))
-		success = false;
+	trace_api_chswitch_done(sdata, success, link_id);
 
-	trace_api_chswitch_done(sdata, success);
+	rcu_read_lock();
+
 	if (!success) {
 		sdata_info(sdata,
 			   "driver channel switch failed, disconnecting\n");
 		wiphy_work_queue(sdata->local->hw.wiphy,
-				 &ifmgd->csa_connection_drop_work);
+				 &sdata->u.mgd.csa_connection_drop_work);
 	} else {
+		struct ieee80211_link_data *link =
+			rcu_dereference(sdata->link[link_id]);
+
+		if (WARN_ON(!link)) {
+			rcu_read_unlock();
+			return;
+		}
+
 		wiphy_delayed_work_queue(sdata->local->hw.wiphy,
-					 &sdata->deflink.u.mgd.chswitch_work,
-					 0);
+					 &link->u.mgd.chswitch_work, 0);
 	}
+
+	rcu_read_unlock();
 }
 EXPORT_SYMBOL(ieee80211_chswitch_done);
 
@@ -2945,9 +2955,22 @@ static void ieee80211_set_disassoc(struct ieee80211_sub_if_data *sdata,
 		 * deauthentication frame by calling mgd_prepare_tx, if the
 		 * driver requested so.
 		 */
-		if (ieee80211_hw_check(&local->hw, DEAUTH_NEED_MGD_TX_PREP) &&
-		    !sdata->deflink.u.mgd.have_beacon) {
-			drv_mgd_prepare_tx(sdata->local, sdata, &info);
+		if (ieee80211_hw_check(&local->hw, DEAUTH_NEED_MGD_TX_PREP)) {
+			for (link_id = 0; link_id < ARRAY_SIZE(sdata->link);
+			     link_id++) {
+				struct ieee80211_link_data *link;
+
+				link = sdata_dereference(sdata->link[link_id],
+							 sdata);
+				if (!link)
+					continue;
+				if (link->u.mgd.have_beacon)
+					break;
+			}
+			if (link_id == IEEE80211_MLD_MAX_NUM_LINKS) {
+				info.link_id = ffs(sdata->vif.active_links) - 1;
+				drv_mgd_prepare_tx(sdata->local, sdata, &info);
+			}
 		}
 
 		ieee80211_send_deauth_disassoc(sdata, sdata->vif.cfg.ap_addr,
@@ -3597,6 +3620,7 @@ static void ieee80211_auth_challenge(struct ieee80211_sub_if_data *sdata,
 	u32 tx_flags = 0;
 	struct ieee80211_prep_tx_info info = {
 		.subtype = IEEE80211_STYPE_AUTH,
+		.link_id = auth_data->link_id,
 	};
 
 	pos = mgmt->u.auth.variable;
@@ -5789,6 +5813,8 @@ static void ieee80211_ml_reconf_work(struct wiphy *wiphy,
 	if (ret)
 		sdata_info(sdata, "Failed setting valid links\n");
 
+	ieee80211_vif_cfg_change_notify(sdata, BSS_CHANGED_MLD_VALID_LINKS);
+
 out:
 	if (!ret)
 		cfg80211_links_removed(sdata->dev, sdata->u.mgd.removed_links);
@@ -6417,6 +6443,7 @@ static int ieee80211_auth(struct ieee80211_sub_if_data *sdata)
 	if (auth_data->algorithm == WLAN_AUTH_SAE)
 		info.duration = jiffies_to_msecs(IEEE80211_AUTH_TIMEOUT_SAE);
 
+	info.link_id = auth_data->link_id;
 	drv_mgd_prepare_tx(local, sdata, &info);
 
 	sdata_info(sdata, "send auth to %pM (try %d/%d)\n",
@@ -7772,6 +7799,7 @@ int ieee80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 			   req->bssid, req->reason_code,
 			   ieee80211_get_reason_code_string(req->reason_code));
 
+		info.link_id = ifmgd->auth_data->link_id;
 		drv_mgd_prepare_tx(sdata->local, sdata, &info);
 		ieee80211_send_deauth_disassoc(sdata, req->bssid, req->bssid,
 					       IEEE80211_STYPE_DEAUTH,
@@ -7792,6 +7820,7 @@ int ieee80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 			   req->bssid, req->reason_code,
 			   ieee80211_get_reason_code_string(req->reason_code));
 
+		info.link_id = ifmgd->assoc_data->assoc_link_id;
 		drv_mgd_prepare_tx(sdata->local, sdata, &info);
 		ieee80211_send_deauth_disassoc(sdata, req->bssid, req->bssid,
 					       IEEE80211_STYPE_DEAUTH,

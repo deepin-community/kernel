@@ -2315,7 +2315,8 @@ void iwl_mvm_teardown_tdls_peers(struct iwl_mvm *mvm);
 void iwl_mvm_recalc_tdls_state(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 			       bool sta_added);
 void iwl_mvm_mac_mgd_protect_tdls_discover(struct ieee80211_hw *hw,
-					   struct ieee80211_vif *vif);
+					   struct ieee80211_vif *vif,
+					   unsigned int link_id);
 int iwl_mvm_tdls_channel_switch(struct ieee80211_hw *hw,
 				struct ieee80211_vif *vif,
 				struct ieee80211_sta *sta, u8 oper_class,
@@ -2426,7 +2427,8 @@ static inline u8 iwl_mvm_phy_band_from_nl80211(enum nl80211_band band)
 /* Channel Switch */
 void iwl_mvm_channel_switch_disconnect_wk(struct work_struct *wk);
 int iwl_mvm_post_channel_switch(struct ieee80211_hw *hw,
-				struct ieee80211_vif *vif);
+				struct ieee80211_vif *vif,
+				struct ieee80211_bss_conf *link);
 
 /* Channel Context */
 /**
