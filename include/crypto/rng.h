@@ -76,6 +76,8 @@ struct rng_alg {
 };
 
 struct crypto_rng {
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	struct crypto_tfm base;
 };
 
