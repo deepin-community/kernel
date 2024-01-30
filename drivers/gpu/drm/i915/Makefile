@@ -248,6 +248,7 @@ i915-y += \
 	display/intel_display_power_well.o \
 	display/intel_display_reset.o \
 	display/intel_display_rps.o \
+	display/intel_display_wa.o \
 	display/intel_dmc.o \
 	display/intel_dpio_phy.o \
 	display/intel_dpll.o \
@@ -294,7 +295,8 @@ i915-$(CONFIG_ACPI) += \
 	display/intel_acpi.o \
 	display/intel_opregion.o
 i915-$(CONFIG_DRM_FBDEV_EMULATION) += \
-	display/intel_fbdev.o
+	display/intel_fbdev.o \
+	display/intel_fbdev_fb.o
 
 # modesetting output/encoder code
 i915-y += \

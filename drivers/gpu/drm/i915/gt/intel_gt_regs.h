@@ -26,7 +26,7 @@
 #define   MTL_CAGF_MASK				REG_GENMASK(8, 0)
 #define   MTL_CC0				0x0
 #define   MTL_CC6				0x3
-#define   MTL_CC_MASK				REG_GENMASK(12, 9)
+#define   MTL_CC_MASK				REG_GENMASK(10, 9)
 
 /* RPM unit config (Gen8+) */
 #define RPM_CONFIG0				_MMIO(0xd00)
@@ -537,6 +537,9 @@
 
 #define XEHP_SQCM				MCR_REG(0x8724)
 #define   EN_32B_ACCESS				REG_BIT(30)
+
+#define MTL_GSCPSMI_BASEADDR_LSB		_MMIO(0x880c)
+#define MTL_GSCPSMI_BASEADDR_MSB		_MMIO(0x8810)
 
 #define HSW_IDICR				_MMIO(0x9008)
 #define   IDIHASHMSK(x)				(((x) & 0x3f) << 16)
@@ -1085,6 +1088,7 @@
 
 #define GEN12_RING_FAULT_REG			_MMIO(0xcec4)
 #define XEHP_RING_FAULT_REG			MCR_REG(0xcec4)
+#define XELPMP_RING_FAULT_REG			_MMIO(0xcec4)
 #define   GEN8_RING_FAULT_ENGINE_ID(x)		(((x) >> 12) & 0x7)
 #define   RING_FAULT_GTTSEL_MASK		(1 << 11)
 #define   RING_FAULT_SRCID(x)			(((x) >> 3) & 0xff)

@@ -395,7 +395,6 @@ void intel_enable_transcoder(const struct intel_crtc_state *new_crtc_state)
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder cpu_transcoder = new_crtc_state->cpu_transcoder;
 	enum pipe pipe = crtc->pipe;
-	i915_reg_t reg;
 	u32 val;
 
 	drm_dbg_kms(&dev_priv->drm, "enabling pipe %c\n", pipe_name(pipe));
@@ -428,16 +427,16 @@ void intel_enable_transcoder(const struct intel_crtc_state *new_crtc_state)
 		intel_de_rmw(dev_priv, PIPE_ARB_CTL(pipe),
 			     0, PIPE_ARB_USE_PROG_SLOTS);
 
-	reg = TRANSCONF(cpu_transcoder);
-	val = intel_de_read(dev_priv, reg);
+	val = intel_de_read(dev_priv, TRANSCONF(cpu_transcoder));
 	if (val & TRANSCONF_ENABLE) {
 		/* we keep both pipes enabled on 830 */
 		drm_WARN_ON(&dev_priv->drm, !IS_I830(dev_priv));
 		return;
 	}
 
-	intel_de_write(dev_priv, reg, val | TRANSCONF_ENABLE);
-	intel_de_posting_read(dev_priv, reg);
+	intel_de_write(dev_priv, TRANSCONF(cpu_transcoder),
+		       val | TRANSCONF_ENABLE);
+	intel_de_posting_read(dev_priv, TRANSCONF(cpu_transcoder));
 
 	/*
 	 * Until the pipe starts PIPEDSL reads will return a stale value,
@@ -456,7 +455,6 @@ void intel_disable_transcoder(const struct intel_crtc_state *old_crtc_state)
 	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
 	enum transcoder cpu_transcoder = old_crtc_state->cpu_transcoder;
 	enum pipe pipe = crtc->pipe;
-	i915_reg_t reg;
 	u32 val;
 
 	drm_dbg_kms(&dev_priv->drm, "disabling pipe %c\n", pipe_name(pipe));
@@ -467,8 +465,7 @@ void intel_disable_transcoder(const struct intel_crtc_state *old_crtc_state)
 	 */
 	assert_planes_disabled(crtc);
 
-	reg = TRANSCONF(cpu_transcoder);
-	val = intel_de_read(dev_priv, reg);
+	val = intel_de_read(dev_priv, TRANSCONF(cpu_transcoder));
 	if ((val & TRANSCONF_ENABLE) == 0)
 		return;
 
@@ -483,14 +480,12 @@ void intel_disable_transcoder(const struct intel_crtc_state *old_crtc_state)
 	if (!IS_I830(dev_priv))
 		val &= ~TRANSCONF_ENABLE;
 
-	if (DISPLAY_VER(dev_priv) >= 14)
-		intel_de_rmw(dev_priv, MTL_CHICKEN_TRANS(cpu_transcoder),
-			     FECSTALL_DIS_DPTSTREAM_DPTTG, 0);
-	else if (DISPLAY_VER(dev_priv) >= 12)
-		intel_de_rmw(dev_priv, CHICKEN_TRANS(cpu_transcoder),
+	intel_de_write(dev_priv, TRANSCONF(cpu_transcoder), val);
+
+	if (DISPLAY_VER(dev_priv) >= 12)
+		intel_de_rmw(dev_priv, hsw_chicken_trans_reg(dev_priv, cpu_transcoder),
 			     FECSTALL_DIS_DPTSTREAM_DPTTG, 0);
 
-	intel_de_write(dev_priv, reg, val);
 	if ((val & TRANSCONF_ENABLE) == 0)
 		intel_wait_for_pipe_off(old_crtc_state);
 }
@@ -1481,12 +1476,9 @@ static void hsw_set_linetime_wm(const struct intel_crtc_state *crtc_state)
 static void hsw_set_frame_start_delay(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	struct drm_i915_private *dev_priv = to_i915(crtc->base.dev);
-	enum transcoder transcoder = crtc_state->cpu_transcoder;
-	i915_reg_t reg = DISPLAY_VER(dev_priv) >= 14 ? MTL_CHICKEN_TRANS(transcoder) :
-			 CHICKEN_TRANS(transcoder);
+	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
 
-	intel_de_rmw(dev_priv, reg,
+	intel_de_rmw(i915, hsw_chicken_trans_reg(i915, crtc_state->cpu_transcoder),
 		     HSW_FRAME_START_DELAY_MASK,
 		     HSW_FRAME_START_DELAY(crtc_state->framestart_delay - 1));
 }
@@ -1764,31 +1756,31 @@ bool intel_phy_is_combo(struct drm_i915_private *dev_priv, enum phy phy)
 
 bool intel_phy_is_tc(struct drm_i915_private *dev_priv, enum phy phy)
 {
+	/*
+	 * DG2's "TC1", although TC-capable output, doesn't share the same flow
+	 * as other platforms on the display engine side and rather rely on the
+	 * SNPS PHY, that is programmed separately
+	 */
 	if (IS_DG2(dev_priv))
-		/* DG2's "TC1" output uses a SNPS PHY */
 		return false;
-	else if (IS_ALDERLAKE_P(dev_priv) || IS_METEORLAKE(dev_priv))
+
+	if (DISPLAY_VER(dev_priv) >= 13)
 		return phy >= PHY_F && phy <= PHY_I;
 	else if (IS_TIGERLAKE(dev_priv))
 		return phy >= PHY_D && phy <= PHY_I;
 	else if (IS_ICELAKE(dev_priv))
 		return phy >= PHY_C && phy <= PHY_F;
-	else
-		return false;
+
+	return false;
 }
 
 bool intel_phy_is_snps(struct drm_i915_private *dev_priv, enum phy phy)
 {
-	if (phy == PHY_NONE)
-		return false;
-	else if (IS_DG2(dev_priv))
-		/*
-		 * All four "combo" ports and the TC1 port (PHY E) use
-		 * Synopsis PHYs.
-		 */
-		return phy <= PHY_E;
-
-	return false;
+	/*
+	 * For DG2, and for DG2 only, all four "combo" ports and the TC1 port
+	 * (PHY E) use Synopsis PHYs. See intel_phy_is_tc().
+	 */
+	return IS_DG2(dev_priv) && phy > PHY_NONE && phy <= PHY_E;
 }
 
 enum phy intel_port_to_phy(struct drm_i915_private *i915, enum port port)
@@ -3784,9 +3776,7 @@ static bool hsw_get_pipe_config(struct intel_crtc *crtc,
 	}
 
 	if (!transcoder_is_dsi(pipe_config->cpu_transcoder)) {
-		tmp = intel_de_read(dev_priv, DISPLAY_VER(dev_priv) >= 14 ?
-				    MTL_CHICKEN_TRANS(pipe_config->cpu_transcoder) :
-				    CHICKEN_TRANS(pipe_config->cpu_transcoder));
+		tmp = intel_de_read(dev_priv, hsw_chicken_trans_reg(dev_priv, pipe_config->cpu_transcoder));
 
 		pipe_config->framestart_delay = REG_FIELD_GET(HSW_FRAME_START_DELAY_MASK, tmp) + 1;
 	} else {
@@ -5377,6 +5367,37 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 	PIPE_CONF_CHECK_X(sync_mode_slaves_mask);
 	PIPE_CONF_CHECK_I(master_transcoder);
 	PIPE_CONF_CHECK_X(bigjoiner_pipes);
+
+	PIPE_CONF_CHECK_BOOL(dsc.config.block_pred_enable);
+	PIPE_CONF_CHECK_BOOL(dsc.config.convert_rgb);
+	PIPE_CONF_CHECK_BOOL(dsc.config.simple_422);
+	PIPE_CONF_CHECK_BOOL(dsc.config.native_422);
+	PIPE_CONF_CHECK_BOOL(dsc.config.native_420);
+	PIPE_CONF_CHECK_BOOL(dsc.config.vbr_enable);
+	PIPE_CONF_CHECK_I(dsc.config.line_buf_depth);
+	PIPE_CONF_CHECK_I(dsc.config.bits_per_component);
+	PIPE_CONF_CHECK_I(dsc.config.pic_width);
+	PIPE_CONF_CHECK_I(dsc.config.pic_height);
+	PIPE_CONF_CHECK_I(dsc.config.slice_width);
+	PIPE_CONF_CHECK_I(dsc.config.slice_height);
+	PIPE_CONF_CHECK_I(dsc.config.initial_dec_delay);
+	PIPE_CONF_CHECK_I(dsc.config.initial_xmit_delay);
+	PIPE_CONF_CHECK_I(dsc.config.scale_decrement_interval);
+	PIPE_CONF_CHECK_I(dsc.config.scale_increment_interval);
+	PIPE_CONF_CHECK_I(dsc.config.initial_scale_value);
+	PIPE_CONF_CHECK_I(dsc.config.first_line_bpg_offset);
+	PIPE_CONF_CHECK_I(dsc.config.flatness_min_qp);
+	PIPE_CONF_CHECK_I(dsc.config.flatness_max_qp);
+	PIPE_CONF_CHECK_I(dsc.config.slice_bpg_offset);
+	PIPE_CONF_CHECK_I(dsc.config.nfl_bpg_offset);
+	PIPE_CONF_CHECK_I(dsc.config.initial_offset);
+	PIPE_CONF_CHECK_I(dsc.config.final_offset);
+	PIPE_CONF_CHECK_I(dsc.config.rc_model_size);
+	PIPE_CONF_CHECK_I(dsc.config.rc_quant_incr_limit0);
+	PIPE_CONF_CHECK_I(dsc.config.rc_quant_incr_limit1);
+	PIPE_CONF_CHECK_I(dsc.config.slice_chunk_size);
+	PIPE_CONF_CHECK_I(dsc.config.second_line_bpg_offset);
+	PIPE_CONF_CHECK_I(dsc.config.nsl_bpg_offset);
 
 	PIPE_CONF_CHECK_I(dsc.compression_enable);
 	PIPE_CONF_CHECK_I(dsc.dsc_split);

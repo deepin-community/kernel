@@ -3115,6 +3115,15 @@ static void intel_enable_ddi_dp(struct intel_atomic_state *state,
 	trans_port_sync_stop_link_train(state, encoder, crtc_state);
 }
 
+/* FIXME bad home for this function */
+i915_reg_t hsw_chicken_trans_reg(struct drm_i915_private *i915,
+				 enum transcoder cpu_transcoder)
+{
+	return DISPLAY_VER(i915) >= 14 ?
+		MTL_CHICKEN_TRANS(cpu_transcoder) :
+		CHICKEN_TRANS(cpu_transcoder);
+}
+
 static i915_reg_t
 gen9_chicken_trans_reg_by_port(struct drm_i915_private *dev_priv,
 			       enum port port)
@@ -3578,16 +3587,41 @@ static bool intel_ddi_is_audio_enabled(struct drm_i915_private *dev_priv,
 		AUDIO_OUTPUT_ENABLE(cpu_transcoder);
 }
 
+static int tgl_ddi_min_voltage_level(const struct intel_crtc_state *crtc_state)
+{
+	if (crtc_state->port_clock > 594000)
+		return 2;
+	else
+		return 0;
+}
+
+static int jsl_ddi_min_voltage_level(const struct intel_crtc_state *crtc_state)
+{
+	if (crtc_state->port_clock > 594000)
+		return 3;
+	else
+		return 0;
+}
+
+static int icl_ddi_min_voltage_level(const struct intel_crtc_state *crtc_state)
+{
+	if (crtc_state->port_clock > 594000)
+		return 1;
+	else
+		return 0;
+}
+
 void intel_ddi_compute_min_voltage_level(struct drm_i915_private *dev_priv,
 					 struct intel_crtc_state *crtc_state)
 {
-	if (DISPLAY_VER(dev_priv) >= 12 && crtc_state->port_clock > 594000)
-		crtc_state->min_voltage_level = 2;
-	else if ((IS_JASPERLAKE(dev_priv) || IS_ELKHARTLAKE(dev_priv)) &&
-		 crtc_state->port_clock > 594000)
-		crtc_state->min_voltage_level = 3;
-	else if (DISPLAY_VER(dev_priv) >= 11 && crtc_state->port_clock > 594000)
-		crtc_state->min_voltage_level = 1;
+	if (DISPLAY_VER(dev_priv) >= 14)
+		crtc_state->min_voltage_level = icl_ddi_min_voltage_level(crtc_state);
+	else if (DISPLAY_VER(dev_priv) >= 12)
+		crtc_state->min_voltage_level = tgl_ddi_min_voltage_level(crtc_state);
+	else if (IS_JASPERLAKE(dev_priv) || IS_ELKHARTLAKE(dev_priv))
+		crtc_state->min_voltage_level = jsl_ddi_min_voltage_level(crtc_state);
+	else if (DISPLAY_VER(dev_priv) >= 11)
+		crtc_state->min_voltage_level = icl_ddi_min_voltage_level(crtc_state);
 }
 
 static enum transcoder bdw_transcoder_master_readout(struct drm_i915_private *dev_priv,
