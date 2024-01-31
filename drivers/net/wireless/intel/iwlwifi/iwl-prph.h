@@ -423,14 +423,14 @@ enum {
  * reserved: bits 12-18
  * slave_exist: bit 19
  * dash: bits 20-23
- * step: bits 24-26
- * flavor: bits 27-31
+ * step: bits 24-27
+ * flavor: bits 28-31
  */
 #define REG_CRF_ID_TYPE(val)		(((val) & 0x00000FFF) >> 0)
 #define REG_CRF_ID_SLAVE(val)		(((val) & 0x00080000) >> 19)
 #define REG_CRF_ID_DASH(val)		(((val) & 0x00F00000) >> 20)
-#define REG_CRF_ID_STEP(val)		(((val) & 0x07000000) >> 24)
-#define REG_CRF_ID_FLAVOR(val)		(((val) & 0xF8000000) >> 27)
+#define REG_CRF_ID_STEP(val)		(((val) & 0x0F000000) >> 24)
+#define REG_CRF_ID_FLAVOR(val)		(((val) & 0xF0000000) >> 28)
 
 #define UREG_CHICK		(0xA05C00)
 #define UREG_CHICK_MSI_ENABLE	BIT(24)
@@ -451,6 +451,7 @@ enum {
 #define REG_CRF_ID_TYPE_FM			0x910
 #define REG_CRF_ID_TYPE_FMI			0x930
 #define REG_CRF_ID_TYPE_FMR			0x900
+#define REG_CRF_ID_TYPE_WHP			0xA10
 
 #define HPM_DEBUG			0xA03440
 #define PERSISTENCE_BIT			BIT(12)
@@ -514,5 +515,9 @@ enum {
 
 #define WFPM_LMAC2_PD_NOTIFICATION 0xA033CC
 #define WFPM_LMAC2_PD_RE_READ BIT(31)
+
+#define DPHYIP_INDIRECT			0xA2D800
+#define DPHYIP_INDIRECT_RD_MSK		0xFF000000
+#define DPHYIP_INDIRECT_RD_SHIFT	24
 
 #endif				/* __iwl_prph_h__ */
