@@ -8,6 +8,7 @@
 #include <linux/rbtree_types.h>
 #include <linux/refcount.h>
 #include <net/dropreason-core.h>
+#include <linux/deepin_kabi.h>
 
 /* Per netns frag queues directory */
 struct fqdir {
@@ -102,6 +103,9 @@ struct inet_frag_queue {
 	u16			max_size;
 	struct fqdir		*fqdir;
 	struct rcu_head		rcu;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct inet_frags {
