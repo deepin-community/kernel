@@ -13,6 +13,7 @@
 #include <linux/crypto.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
+#include <linux/deepin_kabi.h>
 
 /*
  * Maximum values for blocksize and alignmask, used to allocate
@@ -69,6 +70,8 @@ struct crypto_type {
 	unsigned int maskclear;
 	unsigned int maskset;
 	unsigned int tfmsize;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct crypto_instance {
@@ -84,6 +87,8 @@ struct crypto_instance {
 	};
 
 	struct work_struct free_work;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	void *__ctx[] CRYPTO_MINALIGN_ATTR;
 };
@@ -111,6 +116,8 @@ struct crypto_spawn {
 	u32 mask;
 	bool dead;
 	bool registered;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct crypto_queue {

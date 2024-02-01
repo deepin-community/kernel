@@ -21,6 +21,7 @@
 
 #include <uapi/linux/kexec.h>
 #include <linux/verification.h>
+#include <linux/deepin_kabi.h>
 
 /* Location of a reserved region to hold the crash kernel.
  */
@@ -368,6 +369,10 @@ struct kimage {
 	void *elf_headers;
 	unsigned long elf_headers_sz;
 	unsigned long elf_load_addr;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /* kexec interface functions */
