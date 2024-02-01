@@ -19,6 +19,7 @@ struct pintc_chip_data {
 	u32 version;              /* PINTC version */
 	void __iomem *pintc_base; /* INTPU base address */
 	void __iomem *mcu_base;   /* MCU/SPBU base address */
+	struct irq_chip *mcu_chip;
 };
 
 static DEFINE_RAW_SPINLOCK(pintc_lock);
@@ -172,6 +173,10 @@ static struct irq_chip pintc_mcu_chip = {
 	.irq_set_affinity	= mcu_irq_set_affinity,
 };
 
+static struct irq_chip pintc_mcu_vt_chip = {
+	.name                   = "VMCU-INT",
+};
+
 static void pintc_mcu_free_irqs(struct irq_domain *irq_domain,
 				unsigned int virq, unsigned int nr_irqs)
 {
@@ -183,6 +188,19 @@ static void pintc_mcu_free_irqs(struct irq_domain *irq_domain,
 		irq_clear_status_flags(virq + i, IRQ_LEVEL);
 }
 
+static int pintc_mcu_map_irq(struct irq_domain *domain,
+		unsigned int virq, irq_hw_number_t hwirq)
+{
+	struct pintc_chip_data *chip_data = domain->host_data;
+
+	irq_domain_set_info(domain, virq, hwirq,
+			chip_data->mcu_chip, chip_data,
+			handle_level_irq, NULL, NULL);
+	irq_set_status_flags(virq, IRQ_LEVEL);
+
+	return 0;
+}
+
 static int pintc_mcu_alloc_irqs(struct irq_domain *domain,
 				unsigned int virq,
 				unsigned int nr_irqs,
@@ -192,17 +210,14 @@ static int pintc_mcu_alloc_irqs(struct irq_domain *domain,
 	irq_hw_number_t hwirq = fwspec->param[0];
 	int i;
 
-	for (i = 0; i < nr_irqs; i++) {
-		irq_domain_set_info(domain, virq + i, hwirq + i,
-				&pintc_mcu_chip, domain->host_data,
-				handle_level_irq, NULL, NULL);
-		irq_set_status_flags(virq + i, IRQ_LEVEL);
-	}
+	for (i = 0; i < nr_irqs; i++)
+		pintc_mcu_map_irq(domain, virq + i, hwirq + i);
 
 	return 0;
 }
 
 static const struct irq_domain_ops pintc_mcu_domain_ops = {
+	.map = pintc_mcu_map_irq,
 	.xlate = irq_domain_xlate_onecell,
 	.alloc = pintc_mcu_alloc_irqs,
 	.free = pintc_mcu_free_irqs,
@@ -249,13 +264,13 @@ pintc_of_init_common(struct device_node *pintc,
 	}
 
 	pintc_base = of_iomap(pintc, 0);
-	if (!pintc_base) {
+	if (!vt && !pintc_base) {
 		pr_err(PREFIX "failed to map pintc base address\n");
 		return -ENXIO;
 	}
 
 	mcu_base = of_iomap(pintc, 1);
-	if (!mcu_base) {
+	if (!vt && !mcu_base) {
 		pr_err(PREFIX "failed to map mcu base address\n");
 		ret = -ENXIO;
 		goto out_unmap0;
@@ -273,10 +288,12 @@ pintc_of_init_common(struct device_node *pintc,
 	chip_data->pintc_base = pintc_base;
 	chip_data->mcu_base = mcu_base;
 
-	if (vt)
+	if (vt) {
+		chip_data->mcu_chip = &pintc_mcu_vt_chip;
 		mcu_irq_domain = irq_domain_add_legacy(pintc, nr_irqs, 0, 0,
 					&pintc_mcu_domain_ops, chip_data);
-	else {
+	} else {
+		chip_data->mcu_chip = &pintc_mcu_chip;
 		mcu_irq_domain = irq_domain_add_linear(pintc, nr_irqs,
 					&pintc_mcu_domain_ops, chip_data);
 		/* mask all interrupts for now */
