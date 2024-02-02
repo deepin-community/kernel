@@ -20,6 +20,7 @@
 #define HMC_rdhtctl		0x0D
 #define HMC_wrksp		0x0E
 #define HMC_mtinten		0x0F
+#define HMC_wrap_asid		0x10
 #define HMC_load_mm		0x11
 #define HMC_tbisasid		0x14
 #define HMC_tbivpn		0x19
@@ -230,6 +231,15 @@ __CALL_HMC_W1(wrtp, unsigned long);
 
 /* Invalidate all user TLB with current UPN and VPN */
 #define tbiu()		__tbi(4, /* no second argument */)
+
+#ifndef CONFIG_SUBARCH_C3B
+__CALL_HMC_W2(wrap_asid, unsigned long, unsigned long);
+#else
+static inline void wrap_asid(unsigned long asid, unsigned long ptbr)
+{
+	tbivp();
+}
+#endif
 
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */

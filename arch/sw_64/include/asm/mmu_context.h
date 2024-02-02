@@ -41,10 +41,13 @@ static inline bool asid_valid(struct mm_struct *mm, unsigned int cpu)
 
 static inline void __get_new_mm_context(struct mm_struct *mm, long cpu)
 {
+	unsigned long ptbr;
 	unsigned long asid = last_asid(cpu);
 
-	if (!(++asid & ASID_MASK))
-		tbivp();
+	if (!(++asid & ASID_MASK)) {
+		ptbr = virt_to_pfn(mm->pgd);
+		wrap_asid(asid, ptbr);
+	}
 	mm->context.asid[cpu] = last_asid(cpu) = asid;
 
 }
