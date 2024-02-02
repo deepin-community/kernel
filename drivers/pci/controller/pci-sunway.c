@@ -205,7 +205,9 @@ static void set_rc_piu(unsigned long node, unsigned long index)
 	write_rc_conf(node, index, RC_PORT_LINK_CTL, 0x1f0020);
 	write_rc_conf(node, index, RC_EXP_DEVCTL, 0x2850);
 	write_rc_conf(node, index, RC_EXP_DEVCTL2, 0x6);
+#ifdef CONFIG_UNCORE_XUELANG
 	write_rc_conf(node, index, RC_ORDER_RULE_CTL, 0x0100);
+#endif
 
 	/* enable DBI_RO_WR_EN */
 	rc_misc_ctrl = read_rc_conf(node, index, RC_MISC_CONTROL_1);
