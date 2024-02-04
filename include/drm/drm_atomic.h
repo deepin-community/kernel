@@ -30,6 +30,7 @@
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_util.h>
+#include <linux/deepin_kabi.h>
 
 /**
  * struct drm_crtc_commit - track modeset commits on a CRTC
@@ -239,6 +240,9 @@ struct drm_private_state_funcs {
 	 */
 	void (*atomic_print_state)(struct drm_printer *p,
 				   const struct drm_private_state *state);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -338,6 +342,8 @@ struct drm_private_state {
 	 * @obj: backpointer to the private object
 	 */
 	struct drm_private_obj *obj;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct __drm_private_objs_state {
