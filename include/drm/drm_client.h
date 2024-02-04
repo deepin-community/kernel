@@ -10,6 +10,7 @@
 
 #include <drm/drm_connector.h>
 #include <drm/drm_crtc.h>
+#include <linux/deepin_kabi.h>
 
 struct drm_client_dev;
 struct drm_device;
@@ -114,6 +115,9 @@ struct drm_client_dev {
 	 * before. It is usually not tried again.
 	 */
 	bool hotplug_failed;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 int drm_client_init(struct drm_device *dev, struct drm_client_dev *client,
@@ -153,6 +157,9 @@ struct drm_client_buffer {
 	 * @fb: DRM framebuffer
 	 */
 	struct drm_framebuffer *fb;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct drm_client_buffer *
