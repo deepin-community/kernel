@@ -19,6 +19,7 @@
 #include <linux/topology.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/deepin_kabi.h>
 
 #include <asm/irq.h>
 #include <asm/ptrace.h>
@@ -160,6 +161,9 @@ struct irq_common_data {
 #ifdef CONFIG_GENERIC_IRQ_IPI
 	unsigned int		ipi_offset;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 };
 
 /**
@@ -548,6 +552,8 @@ struct irq_chip {
 	void		(*irq_nmi_teardown)(struct irq_data *data);
 
 	unsigned long	flags;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*
@@ -1023,6 +1029,8 @@ struct irq_chip_type {
 	u32			type;
 	u32			mask_cache_priv;
 	u32			*mask_cache;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
