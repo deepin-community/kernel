@@ -28,6 +28,7 @@
 #include <linux/ctype.h>
 #include <linux/hdmi.h>
 #include <linux/notifier.h>
+#include <linux/deepin_kabi.h>
 #include <drm/drm_mode_object.h>
 #include <drm/drm_util.h>
 #include <drm/drm_property.h>
@@ -321,6 +322,9 @@ struct drm_hdmi_info {
 
 	/** @dsc_cap: DSC capabilities of the sink */
 	struct drm_hdmi_dsc_cap dsc_cap;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -824,6 +828,9 @@ struct drm_display_info {
 	 * Defaults to CEC_PHYS_ADDR_INVALID (0xffff).
 	 */
 	u16 source_physical_address;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 int drm_display_info_set_bus_formats(struct drm_display_info *info,
@@ -884,6 +891,8 @@ struct drm_tv_connector_state {
 	unsigned int overscan;
 	unsigned int saturation;
 	unsigned int hue;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -1343,6 +1352,9 @@ struct drm_connector_funcs {
 	 * Allows connectors to create connector-specific debugfs files.
 	 */
 	void (*debugfs_init)(struct drm_connector *connector, struct dentry *root);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -1489,6 +1501,9 @@ struct drm_cmdline_mode {
 	 * Did the mode have a preferred TV mode?
 	 */
 	bool tv_mode_specified;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -1887,6 +1902,9 @@ struct drm_connector {
 
 	/** @hdr_sink_metadata: HDR Metadata Information read from sink */
 	struct hdr_sink_metadata hdr_sink_metadata;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)
