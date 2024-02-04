@@ -374,7 +374,7 @@ static void virtio_dev_shutdown(struct device *_d)
 	dev->config->reset(dev);
 }
 
-static struct bus_type virtio_bus = {
+static const struct bus_type virtio_bus = {
 	.name  = "virtio",
 	.match = virtio_dev_match,
 	.dev_groups = virtio_dev_groups,
