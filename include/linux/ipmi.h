@@ -19,6 +19,7 @@
 #include <linux/list.h>
 #include <linux/proc_fs.h>
 #include <linux/acpi.h> /* For acpi_handle */
+#include <linux/deepin_kabi.h>
 
 struct module;
 struct device;
@@ -70,6 +71,7 @@ struct ipmi_recv_msg {
 	 * the size or existence of this, since it may change.
 	 */
 	unsigned char   msg_data[IPMI_MAX_MSG_LENGTH];
+	DEEPIN_KABI_RESERVE(0)
 };
 
 #define INIT_IPMI_RECV_MSG(done_handler) \
