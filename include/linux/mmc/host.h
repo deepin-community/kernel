@@ -16,6 +16,7 @@
 #include <linux/mmc/pm.h>
 #include <linux/dma-direction.h>
 #include <linux/blk-crypto-profile.h>
+#include <linux/deepin_kabi.h>
 
 struct mmc_ios {
 	unsigned int	clock;			/* clock rate */
@@ -78,6 +79,8 @@ struct mmc_ios {
 #define MMC_SET_DRIVER_TYPE_D	3
 
 	bool enhanced_strobe;			/* hs400es selection */
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct mmc_clk_phase {
@@ -218,6 +221,8 @@ struct mmc_host_ops {
 
 	/* Initialize an SD express card, mandatory for MMC_CAP2_SD_EXP. */
 	int	(*init_sd_express)(struct mmc_host *host, struct mmc_ios *ios);
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct mmc_cqe_ops {
@@ -528,6 +533,9 @@ struct mmc_host {
 	bool			hsq_enabled;
 
 	u32			err_stats[MMC_ERR_MAX];
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	unsigned long		private[] ____cacheline_aligned;
 };
 
