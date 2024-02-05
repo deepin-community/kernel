@@ -114,6 +114,9 @@ struct nh_grp_entry {
 
 	struct list_head nh_list;
 	struct nexthop	*nh_parent;  /* nexthop of group with this entry */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct nh_group {
@@ -150,6 +153,9 @@ struct nexthop {
 		struct nh_info	__rcu *nh_info;
 		struct nh_group __rcu *nh_grp;
 	};
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 enum nexthop_event_type {
