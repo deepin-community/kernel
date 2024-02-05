@@ -2,7 +2,7 @@
 /*
  * Phytium SWMAC specific glue layer
  *
- * Copyright (C) 2022, Phytium Technology Co., Ltd.
+ * Copyright (c) 2022-2024 Phytium Technology Co., Ltd.
  *
  * Chen Baozi <chenbaozi@phytium.com.cn>
  */
