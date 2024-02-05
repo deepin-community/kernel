@@ -36,6 +36,7 @@
 #include <linux/nospec.h>
 #include <linux/vmalloc.h>
 #include <linux/delay.h>
+#include <linux/deepin_kabi.h>
 
 #define IPMI_DRIVER_VERSION "39.2"
 
@@ -203,6 +204,7 @@ struct ipmi_user {
 
 	/* Free must run in process context for RCU cleanup. */
 	struct work_struct remove_work;
+	DEEPIN_KABI_RESERVE(0)
 };
 
 static struct workqueue_struct *remove_work_wq;
@@ -603,6 +605,10 @@ struct ipmi_smi {
 	 * parameters passed by "low" level IPMI code.
 	 */
 	int run_to_completion;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 #define to_si_intf_from_dev(device) container_of(device, struct ipmi_smi, dev)
 
