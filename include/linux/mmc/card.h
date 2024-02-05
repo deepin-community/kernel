@@ -9,6 +9,7 @@
 
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>
+#include <linux/deepin_kabi.h>
 
 struct mmc_cid {
 	unsigned int		manfid;
@@ -126,6 +127,8 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 
 	unsigned int            feature_support;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
 };
 
@@ -343,6 +346,9 @@ struct mmc_card {
 	unsigned int    nr_parts;
 
 	struct workqueue_struct *complete_wq;	/* Private workqueue */
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline bool mmc_large_sector(struct mmc_card *card)
