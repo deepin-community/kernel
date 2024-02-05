@@ -511,6 +511,15 @@ struct nvme_fc_port_template {
 	u32	remote_priv_sz;
 	u32	lsrqst_priv_sz;
 	u32	fcprqst_priv_sz;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 
