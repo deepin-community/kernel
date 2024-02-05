@@ -15,6 +15,7 @@
 #include <uapi/linux/tty.h>
 #include <linux/rwsem.h>
 #include <linux/llist.h>
+#include <linux/deepin_kabi.h>
 
 
 /*
@@ -248,6 +249,12 @@ struct tty_struct {
 
 #define N_TTY_BUF_SIZE 4096
 	struct work_struct SAK_work;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 } __randomize_layout;
 
 /* Each of a tty's open files has private_data pointing to tty_file_private */
