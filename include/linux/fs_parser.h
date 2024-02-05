@@ -45,6 +45,9 @@ struct fs_parameter_spec {
 #define fs_param_can_be_empty	0x0004	/* "xxx=" is allowed */
 #define fs_param_deprecated	0x0008	/* The param is deprecated */
 	const void		*data;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*
