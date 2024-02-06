@@ -89,6 +89,12 @@ struct fscache_volume {
 #define FSCACHE_VOLUME_ACQUIRE_PENDING	3	/* Volume is waiting to complete acquisition */
 #define FSCACHE_VOLUME_CREATING		4	/* Volume is being created on disk */
 	u8				coherency_len;	/* Length of the coherency data */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+
 	u8				coherency[];	/* Coherency data */
 };
 
@@ -145,6 +151,11 @@ struct fscache_cookie {
 		void			*aux;		/* Auxiliary data */
 		u8			inline_aux[8];	/* - If the aux data is short enough */
 	};
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
