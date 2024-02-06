@@ -443,6 +443,9 @@ struct jbd2_inode {
 	 * ends. [j_list_lock]
 	 */
 	loff_t i_dirty_end;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct jbd2_revoke_table_s;
@@ -501,6 +504,8 @@ struct jbd2_journal_handle
 	unsigned int		h_requested_credits;
 
 	unsigned int		saved_alloc_context;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 
@@ -512,6 +517,9 @@ struct transaction_chp_stats_s {
 	__u32			cs_forced_to_close;
 	__u32			cs_written;
 	__u32			cs_dropped;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /* The transaction_t type is the guts of the journaling mechanism.  It
@@ -706,6 +714,11 @@ struct transaction_s
 	 * structures associated with the transaction
 	 */
 	struct list_head	t_private_list;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct transaction_run_stats_s {
@@ -1298,6 +1311,13 @@ struct journal_s
 	 * VFS bmap function.
 	 */
 	int (*j_bmap)(struct journal_s *journal, sector_t *block);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
 };
 
 #define jbd2_might_wait_for_commit(j) \
@@ -1474,6 +1494,9 @@ struct jbd2_buffer_trigger_type {
 	 */
 	void (*t_abort)(struct jbd2_buffer_trigger_type *type,
 			struct buffer_head *bh);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 extern void jbd2_buffer_frozen_trigger(struct journal_head *jh,
