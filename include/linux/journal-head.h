@@ -109,6 +109,9 @@ struct journal_head {
 
 	/* Trigger type for the committing transaction's frozen data */
 	struct jbd2_buffer_trigger_type *b_frozen_triggers;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif		/* JOURNAL_HEAD_H_INCLUDED */
