@@ -90,7 +90,7 @@ static bool find_free_cpu_vectors(const struct cpumask *search_mask, int *found_
 
 	cpu = cpumask_first(search_mask);
 try_again:
-	for (vector = 0; vector < 256; vector++) {
+	for (vector = 0; vector < 256; vector += nr_irqs) {
 		for (i = 0; i < nr_irqs; i++)
 			if (per_cpu(vector_irq, cpu)[vector + i])
 				break;
@@ -101,8 +101,6 @@ try_again:
 			*found_vector = vector;
 			return found;
 		}
-
-		vector += i;
 	}
 
 	cpu = cpumask_next(cpu, search_mask);
@@ -211,7 +209,6 @@ static int __assign_irq_vector(int virq, unsigned int nr_irqs,
 	struct sw64_msi_chip_data *cdata;
 	int node;
 	int i, vector, cpu;
-	unsigned long msiaddr;
 
 	if (unlikely((nr_irqs > 1) && (!is_power_of_2(nr_irqs))))
 		nr_irqs = __roundup_pow_of_two(nr_irqs);
@@ -307,10 +304,9 @@ static int assign_irq_vector(int irq, unsigned int nr_irqs,
 static void sw64_vector_free_irqs(struct irq_domain *domain,
 		unsigned int virq, unsigned int nr_irqs)
 {
-	int i, j;
+	int i;
 	struct irq_data *irq_data;
 	unsigned long flags;
-	unsigned int multi_msi;
 
 	for (i = 0; i < nr_irqs; i++) {
 		irq_data = irq_domain_get_irq_data(domain, virq + i);
@@ -320,13 +316,15 @@ static void sw64_vector_free_irqs(struct irq_domain *domain,
 			raw_spin_lock_irqsave(&vector_lock, flags);
 			cdata = irq_data->chip_data;
 			irq_domain_reset_irq_data(irq_data);
-			multi_msi = cdata->multi_msi;
-			for (j = 0; j < multi_msi; j++)
-				per_cpu(vector_irq, cdata->dst_cpu)[cdata->vector + j] = 0;
-			kfree(cdata);
+			cdata->multi_msi--;
+			per_cpu(vector_irq, cdata->dst_cpu)[cdata->vector] = 0;
+
+			if (cdata->multi_msi)
+				cdata->vector++;
+
+			if (cdata->multi_msi == 0)
+				kfree(cdata);
 			raw_spin_unlock_irqrestore(&vector_lock, flags);
-			if (multi_msi > 1)
-				break;
 		}
 	}
 }
