@@ -44,6 +44,7 @@
 #include <asm/ptrace.h>
 #include <asm/spectre.h>
 #include <asm/types.h>
+#include <linux/deepin_kabi.h>
 
 /*
  * TASK_SIZE - the maximum size of a user space task.
@@ -179,6 +180,14 @@ struct thread_struct {
 	u64			sctlr_user;
 	u64			svcr;
 	u64			tpidr2_el0;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 static inline unsigned int thread_get_vl(struct thread_struct *thread,
