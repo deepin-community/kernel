@@ -587,6 +587,8 @@ struct nameidata {
 	int		dfd;
 	vfsuid_t	dir_vfsuid;
 	umode_t		dir_mode;
+
+	DEEPIN_KABI_RESERVE(1)
 } __randomize_layout;
 
 #define ND_ROOT_PRESET 1
