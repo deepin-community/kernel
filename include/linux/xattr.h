@@ -11,7 +11,7 @@
 #ifndef _LINUX_XATTR_H
 #define _LINUX_XATTR_H
 
-
+#include <linux/deepin_kabi.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
@@ -45,6 +45,9 @@ struct xattr_handler {
 		   struct mnt_idmap *idmap, struct dentry *dentry,
 		   struct inode *inode, const char *name, const void *buffer,
 		   size_t size, int flags);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
