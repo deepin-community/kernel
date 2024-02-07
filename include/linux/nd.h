@@ -9,6 +9,7 @@
 #include <linux/device.h>
 #include <linux/badblocks.h>
 #include <linux/perf_event.h>
+#include <linux/deepin_kabi.h>
 
 enum nvdimm_event {
 	NVDIMM_REVALIDATE_POISON,
@@ -54,6 +55,12 @@ struct nvdimm_pmu {
 	enum cpuhp_state cpuhp_state;
 	/* cpumask provided by arch/platform specific code */
 	struct cpumask arch_cpumask;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 struct platform_device;
@@ -82,6 +89,9 @@ struct nd_device_driver {
 	void (*remove)(struct device *dev);
 	void (*shutdown)(struct device *dev);
 	void (*notify)(struct device *dev, enum nvdimm_event event);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct nd_device_driver *to_nd_device_driver(
@@ -142,6 +152,9 @@ struct nd_namespace_pmem {
 	char *alt_name;
 	uuid_t *uuid;
 	int id;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct nd_namespace_io *to_nd_namespace_io(const struct device *dev)
