@@ -17825,6 +17825,12 @@ F:	include/sound/pxa2xx-lib.h
 F:	sound/arm/pxa*
 F:	sound/soc/pxa/
 
+ARM/PHYTIUM SOC SUPPORT
+M:	Wang Yinfeng <wangyinfeng@phytium.com.cn>
+S:	Maintained
+W:	https://gerrit.b.cpu.ac/c/linux
+F:	arch/arm64/boot/dts/phytium/*
+
 QAT DRIVER
 M:	Giovanni Cabiddu <giovanni.cabiddu@intel.com>
 L:	qat-linux@intel.com
