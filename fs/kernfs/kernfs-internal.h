@@ -51,6 +51,12 @@ struct kernfs_root {
 	struct rw_semaphore	kernfs_supers_rwsem;
 
 	struct rcu_head		rcu;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 /* +1 to avoid triggering overflow warning when negating it */

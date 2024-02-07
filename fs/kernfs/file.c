@@ -25,6 +25,10 @@ struct kernfs_open_node {
 	struct list_head	files; /* goes through kernfs_open_file.list */
 	unsigned int		nr_mmapped;
 	unsigned int		nr_to_release;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /*
