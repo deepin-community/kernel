@@ -33,6 +33,10 @@ struct blk_integrity_profile {
 	integrity_prepare_fn		*prepare_fn;
 	integrity_complete_fn		*complete_fn;
 	const char			*name;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 #ifdef CONFIG_BLK_DEV_INTEGRITY
