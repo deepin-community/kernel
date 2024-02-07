@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 
 #include <asm/fb.h>
+#include <linux/deepin_kabi.h>
 
 struct vm_area_struct;
 struct fb_info;
@@ -218,6 +219,8 @@ struct fb_deferred_io {
 	struct list_head pagereflist; /* list of pagerefs for touched pages */
 	/* callback */
 	void (*deferred_io)(struct fb_info *info, struct list_head *pagelist);
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 #endif
 
@@ -501,6 +504,10 @@ struct fb_info {
 	void *par;
 
 	bool skip_vt_switch; /* no VT switch on suspend/resume required */
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /* This will go away
