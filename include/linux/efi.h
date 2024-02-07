@@ -24,6 +24,7 @@
 #include <linux/range.h>
 #include <linux/reboot.h>
 #include <linux/uuid.h>
+#include <linux/deepin_kabi.h>
 
 #include <asm/page.h>
 
@@ -670,6 +671,9 @@ extern struct efi {
 
 	struct efi_memory_map		memmap;
 	unsigned long			flags;
+	
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } efi;
 
 #define EFI_RT_SUPPORTED_GET_TIME				0x0001
