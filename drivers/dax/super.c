@@ -33,6 +33,15 @@ struct dax_device {
 	const struct dax_operations *ops;
 	void *holder_data;
 	const struct dax_holder_operations *holder_ops;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 static dev_t dax_devt;

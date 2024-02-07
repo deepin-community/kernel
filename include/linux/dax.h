@@ -41,6 +41,11 @@ struct dax_operations {
 	 */
 	size_t (*recovery_write)(struct dax_device *dax_dev, pgoff_t pgoff,
 			void *addr, size_t bytes, struct iov_iter *iter);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct dax_holder_operations {
@@ -53,6 +58,10 @@ struct dax_holder_operations {
 	 */
 	int (*notify_failure)(struct dax_device *dax_dev, u64 offset,
 			u64 len, int mf_flags);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 #if IS_ENABLED(CONFIG_DAX)
