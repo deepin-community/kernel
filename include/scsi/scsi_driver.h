@@ -4,6 +4,7 @@
 
 #include <linux/blk_types.h>
 #include <linux/device.h>
+#include <linux/deepin_kabi.h>
 #include <scsi/scsi_cmnd.h>
 
 struct module;
@@ -19,6 +20,9 @@ struct scsi_driver {
 	int (*done)(struct scsi_cmnd *);
 	int (*eh_action)(struct scsi_cmnd *, int);
 	void (*eh_reset)(struct scsi_cmnd *);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 #define to_scsi_driver(drv) \
 	container_of((drv), struct scsi_driver, gendrv)
