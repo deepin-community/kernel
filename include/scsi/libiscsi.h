@@ -17,6 +17,7 @@
 #include <linux/workqueue.h>
 #include <linux/kfifo.h>
 #include <linux/refcount.h>
+#include <linux/deepin_kabi.h>
 #include <scsi/iscsi_proto.h>
 #include <scsi/iscsi_if.h>
 #include <scsi/scsi_cmnd.h>
@@ -133,6 +134,12 @@ struct iscsi_task {
 	refcount_t		refcount;
 	struct list_head	running;	/* running cmd list */
 	void			*dd_data;	/* driver/transport data */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 static inline int iscsi_task_has_unsol_data(struct iscsi_task *task)
@@ -156,6 +163,9 @@ static inline bool iscsi_task_is_completed(struct iscsi_task *task)
 struct iscsi_cmd {
 	struct iscsi_task	*task;
 	int			age;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct iscsi_cmd *iscsi_cmd(struct scsi_cmnd *cmd)
@@ -256,6 +266,17 @@ struct iscsi_conn {
 	/* custom statistics */
 	uint32_t		eh_abort_cnt;
 	uint32_t		fmr_unalign_cnt;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
 };
 
 struct iscsi_pool {
@@ -363,6 +384,15 @@ struct iscsi_session {
 	struct iscsi_task	**cmds;		/* Original Cmds arr */
 	struct iscsi_pool	cmdpool;	/* PDU's pool */
 	void			*dd_data;	/* LLD private data */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 enum {
@@ -383,6 +413,10 @@ struct iscsi_host {
 	int			state;
 
 	struct workqueue_struct	*workq;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /*

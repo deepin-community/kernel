@@ -3,6 +3,7 @@
 #define _SCSI_SCSI_EH_H
 
 #include <linux/scatterlist.h>
+#include <linux/deepin_kabi.h>
 
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_common.h>
@@ -41,6 +42,9 @@ struct scsi_eh_save {
 	unsigned char cmnd[32];
 	struct scsi_data_buffer sdb;
 	struct scatterlist sense_sgl;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 extern void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd,
