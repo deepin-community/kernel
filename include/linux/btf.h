@@ -497,6 +497,9 @@ bool btf_param_match_suffix(const struct btf *btf,
 			    const struct btf_param *arg,
 			    const char *suffix);
 
+int btf_ctx_arg_offset(const struct btf *btf, const struct btf_type *func_proto,
+		       u32 arg_no);
+
 struct bpf_verifier_log;
 
 #if defined(CONFIG_BPF_JIT) && defined(CONFIG_BPF_SYSCALL)
