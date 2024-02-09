@@ -5986,6 +5986,8 @@ static bool prog_arg_maybe_null(const struct bpf_prog *prog, const struct btf *b
 				const struct btf_param *arg)
 {
 	return btf_param_match_suffix(btf, arg, "__nullable");
+}
+
 int btf_ctx_arg_offset(const struct btf *btf, const struct btf_type *func_proto,
 		       u32 arg_no)
 {
@@ -6148,7 +6150,7 @@ bool btf_ctx_access(int off, int size, enum bpf_access_type type,
 			}
 
 			info->reg_type = ctx_arg_info->reg_type;
-			info->btf = btf_vmlinux;
+			info->btf = ctx_arg_info->btf ? : btf_vmlinux;
 			info->btf_id = ctx_arg_info->btf_id;
 			return true;
 		}
