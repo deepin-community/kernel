@@ -391,6 +391,7 @@ int security_kernfs_init_security(struct kernfs_node *kn_dir,
 				  struct kernfs_node *kn);
 int security_file_permission(struct file *file, int mask);
 int security_file_alloc(struct file *file);
+void security_file_release(struct file *file);
 void security_file_free(struct file *file);
 int security_backing_file_alloc(struct file *backing_file,
 				const struct file *user_file);
@@ -1000,6 +1001,9 @@ static inline int security_file_alloc(struct file *file)
 {
 	return 0;
 }
+
+static inline void security_file_release(struct file *file)
+{ }
 
 static inline void security_file_free(struct file *file)
 { }
