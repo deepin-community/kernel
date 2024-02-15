@@ -3737,6 +3737,7 @@ static int vfs_tmpfile(struct mnt_idmap *idmap,
 		inode->i_state |= I_LINKABLE;
 		spin_unlock(&inode->i_lock);
 	}
+	security_inode_post_create_tmpfile(idmap, inode);
 	ima_post_create_tmpfile(idmap, inode);
 	return 0;
 }
