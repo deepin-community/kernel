@@ -36,12 +36,16 @@ enum HYGON_PSP_OPCODE {
 enum VPSP_DEV_CTRL_OPCODE {
 	VPSP_OP_VID_ADD,
 	VPSP_OP_VID_DEL,
+	VPSP_OP_SET_DEFAULT_VID_PERMISSION,
+	VPSP_OP_GET_DEFAULT_VID_PERMISSION,
 };
 
 struct vpsp_dev_ctrl {
 	unsigned char op;
 	union {
 		unsigned int vid;
+		// Set or check the permissions for the default VID
+		unsigned int def_vid_perm;
 		unsigned char reserved[128];
 	} data;
 };
@@ -176,6 +180,23 @@ static void swap_vid_entries(void *a, void *b, int size)
 }
 
 /**
+ * When 'allow_default_vid' is set to 1,
+ * QEMU is allowed to use 'vid 0' by default
+ * in the absence of a valid 'vid' setting.
+ */
+uint32_t allow_default_vid = 1;
+void vpsp_set_default_vid_permission(uint32_t is_allow)
+{
+	allow_default_vid = is_allow;
+}
+
+int vpsp_get_default_vid_permission(void)
+{
+	return allow_default_vid;
+}
+EXPORT_SYMBOL_GPL(vpsp_get_default_vid_permission);
+
+/**
  * When the virtual machine executes the 'tkm' command,
  * it needs to retrieve the corresponding 'vid'
  * by performing a binary search using 'kvm->userspace_pid'.
@@ -270,6 +291,14 @@ static int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl)
 		ret = vpsp_del_vid();
 		break;
 
+	case VPSP_OP_SET_DEFAULT_VID_PERMISSION:
+		vpsp_set_default_vid_permission(ctrl->data.def_vid_perm);
+		break;
+
+	case VPSP_OP_GET_DEFAULT_VID_PERMISSION:
+		ctrl->data.def_vid_perm = vpsp_get_default_vid_permission();
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -318,6 +347,9 @@ static long ioctl_psp(struct file *file, unsigned int ioctl, unsigned long arg)
 			sizeof(struct vpsp_dev_ctrl)))
 			return -EFAULT;
 		ret = do_vpsp_op_ioctl(&vpsp_ctrl_op);
+		if (!ret && copy_to_user((void __user *)arg, &vpsp_ctrl_op,
+				sizeof(struct vpsp_dev_ctrl)))
+			return -EFAULT;
 		break;
 
 	default:
