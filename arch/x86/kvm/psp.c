@@ -536,9 +536,9 @@ int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa,
 
 	// only tkm cmd need vid
 	if (cmd_type_is_tkm(vcmd->cmd_id)) {
-		// if vm without set vid, then tkm command is not allowed
+		// check the permission to use the default vid when no vid is set
 		ret = vpsp_get_vid(&vid, kvm->userspace_pid);
-		if (ret) {
+		if (ret && !vpsp_get_default_vid_permission()) {
 			pr_err("[%s]: not allowed tkm command without vid\n", __func__);
 			return -EFAULT;
 		}
