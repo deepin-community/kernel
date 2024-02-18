@@ -18,6 +18,7 @@
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/clocksource_ids.h>
+#include <linux/deepin_kabi.h>
 #include <asm/div64.h>
 #include <asm/io.h>
 
@@ -127,6 +128,11 @@ struct clocksource {
 	u64			wd_last;
 #endif
 	struct module		*owner;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
