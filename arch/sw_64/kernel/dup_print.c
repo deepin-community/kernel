@@ -15,33 +15,39 @@ static DEFINE_SPINLOCK(printk_lock);
 unsigned long sw64_printk_offset;
 #define PRINTK_SIZE	0x100000UL
 
-int sw64_printk(const char *fmt, va_list args)
+void sw64_printk(const char *fmt, va_list args)
 {
 	char *sw64_printk_buf;
-	int printed_len = 0;
 	unsigned long flags;
+	char textbuf[1024];
+	const char *text;
+	size_t text_len;
 
 	spin_lock_irqsave(&printk_lock, flags);
 
 	sw64_printk_buf = (char *)(KERNEL_PRINTK_BUFF_BASE  + sw64_printk_offset);
 
-	if (sw64_printk_offset >= (PRINTK_SIZE-1024)) {	//printk wrapped
+	text_len = vscnprintf(textbuf, sizeof(textbuf), fmt, args);
+	text = printk_skip_headers(textbuf);
+	text_len -= text - textbuf;
+
+	if (sw64_printk_offset >= (PRINTK_SIZE - 1024)) {
 		sw64_printk_offset = 0;
 		sw64_printk_buf = (char *)(KERNEL_PRINTK_BUFF_BASE  + sw64_printk_offset);
 		memset(sw64_printk_buf, 0, PRINTK_SIZE);
-		printed_len += vscnprintf(sw64_printk_buf, 1024, fmt, args);
-	} else {
-		printed_len += vscnprintf(sw64_printk_buf, 1024, fmt, args);
-		if (is_in_emul()) {
-			void __iomem *addr = __va(QEMU_PRINTF_BUFF_BASE);
-			u64 data = ((u64)sw64_printk_buf & 0xffffffffUL)
-					| ((u64)printed_len << 32);
-			*(u64 *)addr = data;
-		}
 	}
-	sw64_printk_offset += printed_len;
+
+	memcpy(sw64_printk_buf, text, text_len);
+	sw64_printk_offset += text_len;
+
+	if (is_in_emul()) {
+		void __iomem *addr = __va(QEMU_PRINTF_BUFF_BASE);
+		u64 data = ((u64)sw64_printk_buf & 0xffffffffUL)
+			| ((u64)text_len << 32);
+		*(u64 *)addr = data;
+	}
+
 	spin_unlock_irqrestore(&printk_lock, flags);
-	return printed_len;
 }
 #endif
 
