@@ -2203,7 +2203,7 @@ int vprintk_store(int facility, int level,
 	int ret = 0;
 	u64 ts_nsec;
 #ifdef CONFIG_SW64_RRK
-	extern int sw64_printk(const char *fmt, va_list args);
+	extern void sw64_printk(const char *fmt, va_list args);
 #endif
 
 	if (!printk_enter_irqsave(recursion_ptr, irqflags))
