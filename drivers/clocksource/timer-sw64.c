@@ -13,8 +13,7 @@
 #include <asm/hw_init.h>
 #include <asm/sw64_init.h>
 
-#define SHTCLK_RATE_KHZ	25000
-#define SHTCLK_RATE	(SHTCLK_RATE_KHZ * 1000)
+#define DEFAULT_MCLK    25000      /* Khz */
 
 #if defined(CONFIG_SUBARCH_C4)
 static u64 read_longtime(struct clocksource *cs)
@@ -37,10 +36,31 @@ static u64 notrace read_sched_clock(void)
 	return sw64_read_csr(CSR_SHTCLOCK);
 }
 
+static int override_mclk_khz;
+static int __init setup_mclk(char *str)
+{
+	get_option(&str, &override_mclk_khz);
+
+	return 0;
+}
+early_param("mclk_khz", setup_mclk);
+
 void __init sw64_setup_clocksource(void)
 {
-	clocksource_register_khz(&clocksource_longtime, SHTCLK_RATE_KHZ);
-	sched_clock_register(read_sched_clock, BITS_PER_LONG, SHTCLK_RATE);
+	unsigned long mclk_khz = *((unsigned char *)__va(MB_MCLK)) * 1000;
+
+	if (override_mclk_khz) {
+		mclk_khz = override_mclk_khz;
+		pr_info("Override mclk by cmdline.\n");
+	}
+
+	if (!mclk_khz)
+		mclk_khz = DEFAULT_MCLK;
+
+	pr_info("mclk: %ldKhz\n", mclk_khz);
+
+	clocksource_register_khz(&clocksource_longtime, mclk_khz);
+	sched_clock_register(read_sched_clock, BITS_PER_LONG, mclk_khz * 1000);
 }
 
 void __init setup_sched_clock(void) { }
@@ -122,20 +142,18 @@ static struct clocksource clocksource_tc = {
 };
 #endif /* SMP */
 
-#define DEFAULT_MCLK	25	/* Mhz */
-
 void __init sw64_setup_clocksource(void)
 {
-	unsigned int mclk = *((unsigned char *)__va(MB_MCLK));
+	unsigned long mclk_khz = *((unsigned char *)__va(MB_MCLK)) * 1000;
 
-	if (!mclk)
-		mclk = DEFAULT_MCLK;
+	if (!mclk_khz)
+		mclk_khz = DEFAULT_MCLK;
 
 #ifdef CONFIG_SMP
 	if (is_in_host())
-		clocksource_register_khz(&clocksource_longtime, mclk * 1000);
+		clocksource_register_khz(&clocksource_longtime, mclk_khz);
 	else
-		clocksource_register_khz(&clocksource_vtime, DEFAULT_MCLK * 1000);
+		clocksource_register_khz(&clocksource_vtime, mclk_khz);
 #else
 	clocksource_register_hz(&clocksource_tc, get_cpu_freq());
 	pr_info("Setup clocksource TC, mult = %d\n", clocksource_tc.mult);
