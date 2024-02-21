@@ -28,6 +28,7 @@
 #include <linux/idr.h>
 #include <linux/workqueue.h>
 #include <linux/llist.h>
+#include <linux/deepin_kabi.h>
 
 #include <drm/drm_modeset_lock.h>
 
@@ -955,6 +956,10 @@ struct drm_mode_config {
 	struct drm_atomic_state *suspend_state;
 
 	const struct drm_mode_config_helper_funcs *helper_private;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 int __must_check drmm_mode_config_init(struct drm_device *dev);
