@@ -14,7 +14,10 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/irqchip.h>
 #include <linux/seq_file.h>
+
+#include <asm/irq_impl.h>
 
 volatile unsigned long irq_err_count;
 DEFINE_PER_CPU(unsigned long, irq_pmi_count);
@@ -106,3 +109,41 @@ void fixup_irqs(void)
 	irq_migrate_all_off_this_cpu();
 }
 #endif
+
+void __init init_IRQ(void)
+{
+	/*
+	 * Just in case the platform init_irq() causes interrupts/mchecks
+	 * (as is the case with RAWHIDE, at least).
+	 */
+	if (is_in_host()) {
+		sw64_write_csr(0xffffffffffffffffUL, CSR_PCIE_MSI0_INTEN);
+		sw64_write_csr(0xffffffffffffffffUL, CSR_PCIE_MSI1_INTEN);
+		sw64_write_csr(0xffffffffffffffffUL, CSR_PCIE_MSI2_INTEN);
+		sw64_write_csr(0xffffffffffffffffUL, CSR_PCIE_MSI3_INTEN);
+	}
+
+	wrent(entInt, 0);
+
+	sw64_init_irq();
+	irqchip_init();
+}
+
+void __weak arch_init_msi_domain(struct irq_domain *parent) {}
+
+int __init arch_early_irq_init(void)
+{
+	arch_init_msi_domain(NULL);
+
+	return 0;
+}
+
+int __init arch_probe_nr_irqs(void)
+{
+	return NR_IRQS_LEGACY;
+}
+
+struct irq_chip sw64_irq_chip = {
+	.name = "SW64_DUMMY"
+};
+EXPORT_SYMBOL(sw64_irq_chip);
