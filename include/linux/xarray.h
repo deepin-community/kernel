@@ -19,6 +19,7 @@
 #include <linux/sched/mm.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/deepin_kabi.h>
 
 /*
  * The bottom two bits of the entry determine how the XArray interprets
@@ -1352,6 +1353,8 @@ struct xa_state {
 	struct xa_node *xa_alloc;
 	xa_update_node_t xa_update;
 	struct list_lru *xa_lru;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*
