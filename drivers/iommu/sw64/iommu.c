@@ -1168,7 +1168,6 @@ sunway_iommu_map_pages(struct iommu_domain *dom, unsigned long iova,
 	if (iova >= SW64_BAR_ADDRESS)
 		return 0;
 
-	mutex_lock(&sdomain->api_lock);
 	while (pgcount--) {
 		ret = sunway_iommu_map_page(sdomain, iova, paddr, page_size, iommu_prot);
 		if (ret) {
@@ -1178,7 +1177,6 @@ sunway_iommu_map_pages(struct iommu_domain *dom, unsigned long iova,
 		iova += page_size;
 		paddr += page_size;
 	}
-	mutex_unlock(&sdomain->api_lock);
 
 	if (!ret && mapped)
 		*mapped = size;
@@ -1198,13 +1196,11 @@ sunway_iommu_unmap_pages(struct iommu_domain *dom, unsigned long iova,
 	if (iova >= SW64_BAR_ADDRESS)
 		return page_size;
 
-	mutex_lock(&sdomain->api_lock);
 	while (pgcount--) {
 		unmap_size = sunway_iommu_unmap_page(sdomain, iova, page_size);
 		iova += page_size;
 		total_unmap += page_size;
 	}
-	mutex_unlock(&sdomain->api_lock);
 
 	return total_unmap;
 }
