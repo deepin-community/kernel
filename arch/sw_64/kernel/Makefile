@@ -14,7 +14,7 @@ CFLAGS_REMOVE_printk.o = -pg
 endif
 
 obj-y    := entry.o fpu.o traps.o process.o sys_sw64.o irq.o \
-	    irq_sw64.o signal.o setup.o ptrace.o time.o \
+	    signal.o setup.o ptrace.o time.o \
 	    systbls.o dup_print.o chip_setup.o \
 	    insn.o early_init.o topology.o cacheinfo.o \
 	    vdso.o vdso/ hmcall.o stacktrace.o idle.o reset.o \
