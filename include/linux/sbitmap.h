@@ -20,6 +20,7 @@
 #include <linux/smp.h>
 #include <linux/types.h>
 #include <linux/wait.h>
+#include <linux/deepin_kabi.h>
 
 struct seq_file;
 
@@ -82,6 +83,10 @@ struct sbitmap {
 	 * cachelines until the map is exhausted.
 	 */
 	unsigned int __percpu *alloc_hint;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 #define SBQ_WAIT_QUEUES 8
@@ -149,6 +154,10 @@ struct sbitmap_queue {
 	 * @wakeup_cnt: Number of thread wake ups issued.
 	 */
 	atomic_t wakeup_cnt;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
