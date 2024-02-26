@@ -114,26 +114,24 @@ static int rcid_to_cpu(int physical_id)
 
 /* Callback for Proximity Domain -> CPUID mapping */
 void __init
-acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
+acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
 {
 	int pxm, node;
-	int cpu; // logical core id
+	int cpu;  // logical core id
+	int rcid; // physical core id
 
 	if (srat_disabled())
 		return;
-	if (pa->header.length != sizeof(struct acpi_srat_cpu_affinity)) {
+
+	if (pa->header.length != sizeof(struct acpi_srat_x2apic_cpu_affinity)) {
 		bad_srat();
 		return;
 	}
+
 	if ((pa->flags & ACPI_SRAT_CPU_ENABLED) == 0)
 		return;
-	pxm = pa->proximity_domain_lo;
-	if (acpi_srat_revision >= 2) {
-		pxm |= (pa->proximity_domain_hi[0] << 8);
-		pxm |= (pa->proximity_domain_hi[1] << 16);
-		pxm |= (pa->proximity_domain_hi[2] << 24);
-	}
 
+	pxm = pa->proximity_domain;
 	node = acpi_map_pxm_to_node(pxm);
 	if (node < 0) {
 		pr_err("SRAT: Too many proximity domains %x\n", pxm);
@@ -141,25 +139,25 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
 		return;
 	}
 
-	if (pa->apic_id >= CONFIG_NR_CPUS) {
-		pr_err("SRAT: PXM %u -> CPU 0x%02x -> Node %u skipped apicid that is too big\n",
-				pxm, pa->apic_id, node);
-		return;
-	}
+	/**
+	 * In fact, SW64 does not support local X2_APIC and just
+	 * uses this structure to pass CPU affinity information.
+	 */
+	rcid = pa->apic_id;
 
 	/* Record the mapping from logical core id to node id */
-	cpu = rcid_to_cpu(pa->apic_id);
+	cpu = rcid_to_cpu(rcid);
 	if (cpu < 0) {
-		pr_err("SRAT: Can not find the logical id for physical Core 0x%02x\n",
-				pa->apic_id);
+		pr_err("SRAT: Can not find the logical id for physical Core 0x%04x\n",
+				rcid);
 		return;
 	}
 
 	early_map_cpu_to_node(cpu, node);
 
 	node_set(node, numa_nodes_parsed);
-	pr_info("SRAT: PXM %u -> CPU 0x%02x -> Node %u\n",
-			pxm, pa->apic_id, node);
+	pr_debug("SRAT: PXM %u -> CPU 0x%04x -> Node %u\n",
+			pxm, rcid, node);
 }
 
 #ifdef CONFIG_MEMORY_HOTPLUG
