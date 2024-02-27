@@ -241,4 +241,12 @@ void foo(void)
 	BLANK();
 	DEFINE(RT_SIGFRAME_SIZE, sizeof(struct rt_sigframe));
 	OFFSET(RT_SIGFRAME_MCTX, rt_sigframe, uc.uc_mcontext);
+	BLANK();
+#ifdef CONFIG_FRAME_POINTER
+	DEFINE(STACKFRAME_SIZE, sizeof(struct stackframe));
+	OFFSET(STACKFRAME_PC, stackframe, pc);
+	OFFSET(STACKFRAME_FP, stackframe, fp);
+#else
+	DEFINE(STACKFRAME_SIZE, 0);
+#endif
 }

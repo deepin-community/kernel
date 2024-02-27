@@ -70,9 +70,17 @@
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
 	sys_call HMC_rdktp
+#ifdef CONFIG_FRAME_POINTER
+	ldi	$sp, -STACKFRAME_SIZE($sp)
+	stl	$5, STACKFRAME_PC($sp)
+	stl	$15, STACKFRAME_FP($sp)
+	mov	$sp, $15
+#endif
 	.endm
 
 	.macro RESTORE_ALL
+	ldi	$sp, STACKFRAME_SIZE($sp)
+
 	ldl	$16, PT_REGS_SP($sp)
 	/* skip wrusp if returning to kernel */
 	blt	$16, 1f
@@ -127,7 +135,7 @@
 	.ent entInt
 entInt:
 	SAVE_ALL
-	mov	$sp, $19
+	ldi	$19, STACKFRAME_SIZE($sp)
 	call	$26, do_entInt
 	br	ret_from_sys_call
 	.end entInt
@@ -137,7 +145,7 @@ entInt:
 	.ent entArith
 entArith:
 	SAVE_ALL
-	mov	$sp, $18
+	ldi	$18, STACKFRAME_SIZE($sp)
 	call	$26, do_entArith
 	br	ret_from_sys_call
 	.end entArith
@@ -147,7 +155,7 @@ entArith:
 	.ent entMM
 entMM:
 	SAVE_ALL
-	mov	$sp, $19
+	ldi	$19, STACKFRAME_SIZE($sp)
 	call	$26, do_page_fault
 	br	ret_from_sys_call
 	.end entMM
@@ -157,7 +165,7 @@ entMM:
 	.ent entIF
 entIF:
 	SAVE_ALL
-	mov	$sp, $18
+	ldi	$18, STACKFRAME_SIZE($sp)
 	call	$26, do_entIF
 	br	ret_from_sys_call
 	.end entIF
@@ -173,15 +181,15 @@ entIF:
 	.ent entUna
 entUna:
 	SAVE_ALL
-	mov	$sp, $19
-	ldl	$0, PT_REGS_PS($sp)
+	ldi	$19, STACKFRAME_SIZE($sp)
+	ldl	$0, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
 	and	$0, 8, $0		/* user mode ? */
 	beq	$0, 1f
 	call	$26, do_entUnaUser	/* return to ret_from_syscall */
 	br	ret_from_sys_call
-1:	ldl	$9, PT_REGS_GP($sp)
+1:	ldl	$9, (PT_REGS_GP + STACKFRAME_SIZE)($sp)
 	call	$26, do_entUna
-	stl	$9, PT_REGS_GP($sp)
+	stl	$9, (PT_REGS_GP + STACKFRAME_SIZE)($sp)
 	RESTORE_ALL
 	sys_call HMC_rti
 	.end entUna
@@ -202,10 +210,10 @@ entUna:
 	.ent entSys
 entSys:
 	SAVE_ALL
-	stl	$16, PT_REGS_R16($sp)
-	stl	$17, PT_REGS_R17($sp)
-	stl	$18, PT_REGS_R18($sp)
-	mov	$sp, $16
+	stl	$16, (PT_REGS_R16 + STACKFRAME_SIZE)($sp)
+	stl	$17, (PT_REGS_R17 + STACKFRAME_SIZE)($sp)
+	stl	$18, (PT_REGS_R18 + STACKFRAME_SIZE)($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entSys
 	br	ret_from_sys_call
 	.end entSys
@@ -223,14 +231,14 @@ ret_from_sys_call:
 		sampling and the rti.  */
 	ldi	$16, 7
 	sys_call HMC_swpipl
-	ldl	$0, PT_REGS_PS($sp)
+	ldl	$0, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
 	and	$0, 8, $0
 	beq	$0, restore_all
 ret_to_user:
 	ldw	$17, TI_FLAGS($8)
 	and	$17, _TIF_WORK_MASK, $2
 	beq	$2, restore_all
-	mov	$sp, $16
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_notify_resume
 restore_all:
 	RESTORE_ALL
