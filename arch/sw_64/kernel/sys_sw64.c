@@ -151,3 +151,64 @@ SYSCALL_DEFINE0(sw64_pipe)
 	}
 	return res;
 }
+
+#ifdef CONFIG_SUBARCH_C4
+
+struct pfh_val {
+	unsigned long pfh_ctl;
+	unsigned long pfh_cnt;
+};
+
+static void local_set_pfh(void *info)
+{
+	struct pfh_val *kbuf = info;
+
+	if (kbuf->pfh_ctl)
+		sw64_write_csr(kbuf->pfh_ctl, CSR_PFH_CTL);
+	if (kbuf->pfh_cnt)
+		sw64_write_csr(kbuf->pfh_cnt, CSR_PFH_CNT);
+}
+
+SYSCALL_DEFINE3(pfh_ops, unsigned long, op,
+		unsigned long __user *, pfh_ctl_p,
+		unsigned long __user *, pfh_cnt_p)
+{
+	struct pfh_val kbuf = {0, 0};
+	long error = 0;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
+	if (op) {	// op != 0, set
+		if (pfh_ctl_p)
+			error |= get_user(kbuf.pfh_ctl, pfh_ctl_p);
+		if (pfh_cnt_p)
+			error |= get_user(kbuf.pfh_cnt, pfh_cnt_p);
+
+		if (!error && (kbuf.pfh_ctl || kbuf.pfh_cnt)) {
+			smp_call_function(local_set_pfh, &kbuf, 1);
+			local_set_pfh(&kbuf);
+		}
+	} else {	// op == 0, get
+		if (pfh_ctl_p) {
+			kbuf.pfh_ctl = sw64_read_csr(CSR_PFH_CTL);
+			error |= put_user(kbuf.pfh_ctl, pfh_ctl_p);
+		}
+
+		if (pfh_cnt_p) {
+			kbuf.pfh_cnt = sw64_read_csr(CSR_PFH_CNT);
+			error |= put_user(kbuf.pfh_cnt, pfh_cnt_p);
+		}
+	}
+
+	return error;
+}
+
+#else
+
+SYSCALL_DEFINE0(pfh_ops)
+{
+	return -ENOSYS;
+}
+
+#endif /* CONFIG_SUBARCH_C4 */

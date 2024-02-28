@@ -20,8 +20,12 @@
 #define CSR_EXC_PC		0xe
 #define CSR_AS_INFO		0x3c
 #define CSR_DS_STAT		0x48
+#define CSR_PFH_CTL		0x4f
 #define CSR_SOFTCID		0xc9
 #define CSR_DVA			0x54
+#define CSR_PFH_CNT		0x5c
+#define CSR_BRRETC		0x5e
+#define CSR_BRFAILC		0x5f
 #define CSR_PTBR_SYS		0x68
 #define CSR_PTBR_USR		0x69
 #define CSR_APTP		0x6a
