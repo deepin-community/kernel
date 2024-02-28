@@ -3947,6 +3947,13 @@ static void arm_smmu_write_msi_msg(struct msi_desc *desc, struct msi_msg *msg)
 	doorbell = (((u64)msg->address_hi) << 32) | msg->address_lo;
 	doorbell &= MSI_CFG0_ADDR_MASK;
 
+#ifdef CONFIG_PM_SLEEP
+	/* Saves the msg (base addr of msi irq) and restores it during resume */
+	desc->msg.address_lo = msg->address_lo;
+	desc->msg.address_hi = msg->address_hi;
+	desc->msg.data = msg->data;
+#endif
+
 	writeq_relaxed(doorbell, smmu->base + cfg[0]);
 	writel_relaxed(msg->data, smmu->base + cfg[1]);
 	writel_relaxed(ARM_SMMU_MEMATTR_DEVICE_nGnRE, smmu->base + cfg[2]);
@@ -3989,11 +3996,53 @@ static void arm_smmu_setup_msis(struct arm_smmu_device *smmu)
 	devm_add_action_or_reset(dev, arm_smmu_free_msis, dev);
 }
 
-static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu)
+#ifdef CONFIG_PM_SLEEP
+static void arm_smmu_resume_msis(struct arm_smmu_device *smmu)
+{
+	struct msi_desc *desc;
+	struct device *dev = smmu->dev;
+
+	if (!dev->msi.domain)
+		return;
+
+	msi_for_each_desc(desc, dev, MSI_DESC_ASSOCIATED) {
+		switch (desc->msi_index) {
+		case EVTQ_MSI_INDEX:
+		case GERROR_MSI_INDEX:
+		case PRIQ_MSI_INDEX: {
+			phys_addr_t *cfg = arm_smmu_msi_cfg[desc->msi_index];
+			struct msi_msg *msg = &desc->msg;
+			phys_addr_t doorbell = (((u64)msg->address_hi) << 32) | msg->address_lo;
+
+			doorbell &= MSI_CFG0_ADDR_MASK;
+			writeq_relaxed(doorbell, smmu->base + cfg[0]);
+			writel_relaxed(msg->data, smmu->base + cfg[1]);
+			writel_relaxed(ARM_SMMU_MEMATTR_DEVICE_nGnRE,
+							smmu->base + cfg[2]);
+			break;
+		}
+		default:
+				break;
+		}
+	}
+}
+#else
+static void arm_smmu_resume_msis(struct arm_smmu_device *smmu)
+{
+}
+#endif
+
+static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu, bool resume)
 {
 	int irq, ret;
 
-	arm_smmu_setup_msis(smmu);
+	if (!resume)
+		arm_smmu_setup_msis(smmu);
+	else {
+		/* The irq doesn't need to be re-requested during resume */
+		arm_smmu_resume_msis(smmu);
+		return;
+	}
 
 	/* Request interrupt lines */
 	irq = smmu->evtq.q.irq;
@@ -4035,7 +4084,7 @@ static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu)
 	}
 }
 
-static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu)
+static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu, bool resume)
 {
 	int ret, irq;
 	u32 irqen_flags = IRQ_CTRL_EVTQ_IRQEN | IRQ_CTRL_GERROR_IRQEN;
@@ -4062,7 +4111,7 @@ static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu)
 		if (ret < 0)
 			dev_warn(smmu->dev, "failed to enable combined irq\n");
 	} else
-		arm_smmu_setup_unique_irqs(smmu);
+		arm_smmu_setup_unique_irqs(smmu, resume);
 
 	if (smmu->features & ARM_SMMU_FEAT_PRI)
 		irqen_flags |= IRQ_CTRL_PRIQ_IRQEN;
@@ -4111,7 +4160,7 @@ static void arm_smmu_write_strtab(struct arm_smmu_device *smmu)
 	writel_relaxed(reg, smmu->base + ARM_SMMU_STRTAB_BASE_CFG);
 }
 
-static int arm_smmu_device_reset(struct arm_smmu_device *smmu)
+static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool resume)
 {
 	int ret;
 	u32 reg, enables;
@@ -4215,7 +4264,7 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		}
 	}
 
-	ret = arm_smmu_setup_irqs(smmu);
+	ret = arm_smmu_setup_irqs(smmu, resume);
 	if (ret) {
 		dev_err(smmu->dev, "failed to setup irqs\n");
 		return ret;
@@ -4732,6 +4781,24 @@ err_remove:
 	return ERR_PTR(ret);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int arm_smmu_suspend(struct device *dev)
+{
+    /*
+     * The smmu is powered off and related registers are automatically
+     * cleared when suspend. No need to do anything.
+     */
+	return 0;
+}
+static int arm_smmu_resume(struct device *dev)
+{
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	arm_smmu_device_reset(smmu, true);
+	return 0;
+}
+#endif
+
 static int arm_smmu_device_probe(struct platform_device *pdev)
 {
 	int irq, ret;
@@ -4819,7 +4886,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	arm_smmu_rmr_install_bypass_ste(smmu);
 
 	/* Reset the device */
-	ret = arm_smmu_device_reset(smmu);
+	ret = arm_smmu_device_reset(smmu, false);
 	if (ret)
 		goto err_disable;
 
@@ -4876,10 +4943,21 @@ static void arm_smmu_driver_unregister(struct platform_driver *drv)
 	platform_driver_unregister(drv);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static const struct dev_pm_ops arm_smmu_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(arm_smmu_suspend,
+			arm_smmu_resume)
+};
+#define ARM_SMMU_PM_OPS                (&arm_smmu_pm_ops)
+#else
+#define ARM_SMMU_PM_OPS                NULL
+#endif
+
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {
 		.name			= "arm-smmu-v3",
 		.of_match_table		= arm_smmu_of_match,
+		.pm			= ARM_SMMU_PM_OPS,
 		.suppress_bind_attrs	= true,
 	},
 	.probe	= arm_smmu_device_probe,
