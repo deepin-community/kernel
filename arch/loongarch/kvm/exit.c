@@ -774,15 +774,24 @@ static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 {
 	larch_inst inst;
 	unsigned int code;
+	int ret;
 
 	inst.word = vcpu->arch.badi;
 	code = inst.reg0i15_format.immediate;
-	update_pc(&vcpu->arch);
+	ret = RESUME_GUEST;
 
 	switch (code) {
 	case KVM_HCALL_PV_SERVICE:
 		vcpu->stat.hypercall_exits++;
 		kvm_handle_pv_service(vcpu);
+		break;
+	case KVM_HCALL_SWDBG:
+		/* KVM_HC_SWDBG only in effective when SW_BP is enabled */
+		if (vcpu->guest_debug & KVM_GUESTDBG_USE_SW_BP) {
+			vcpu->run->exit_reason = KVM_EXIT_DEBUG;
+			ret = RESUME_HOST;
+		} else
+			vcpu->arch.gprs[LOONGARCH_GPR_A0] = KVM_HCALL_INVALID_CODE;
 		break;
 	default:
 		/* Treat it as noop intruction, only set return value */
@@ -790,7 +799,10 @@ static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 		break;
 	}
 
-	return RESUME_GUEST;
+	if (ret == RESUME_GUEST)
+		update_pc(&vcpu->arch);
+
+	return ret;
 }
 
 /*
