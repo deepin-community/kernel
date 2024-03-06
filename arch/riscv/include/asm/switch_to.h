@@ -63,6 +63,21 @@ static __always_inline bool has_fpu(void)
 	return riscv_has_extension_likely(RISCV_ISA_EXT_f) ||
 		riscv_has_extension_likely(RISCV_ISA_EXT_d);
 }
+
+
+static inline void kernel_fpu_begin(void)
+{
+		preempt_disable();
+		fstate_save(current, task_pt_regs(current));
+		csr_set(CSR_SSTATUS, SR_FS);
+}
+
+static inline void kernel_fpu_end(void)
+{
+		csr_clear(CSR_SSTATUS, SR_FS);
+		fstate_restore(current, task_pt_regs(current));
+		preempt_enable();
+}
 #else
 static __always_inline bool has_fpu(void) { return false; }
 #define fstate_save(task, regs) do { } while (0)
