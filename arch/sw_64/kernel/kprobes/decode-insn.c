@@ -58,6 +58,7 @@ static bool __kprobes sw64_insn_is_steppable(u32 insn)
 
 
 #ifdef CONFIG_KPROBES
+#ifdef CONFIG_SUBARCH_C3B
 //  lldl  rd_f
 static bool __kprobes is_probed_between_atomic(kprobe_opcode_t *addr)
 {
@@ -81,6 +82,7 @@ static bool __kprobes is_probed_between_atomic(kprobe_opcode_t *addr)
 
 	return true;
 }
+#endif
 
 bool __kprobes sw64_insn_can_kprobe(kprobe_opcode_t *addr)
 {
