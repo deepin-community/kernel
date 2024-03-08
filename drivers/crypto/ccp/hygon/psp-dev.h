@@ -27,4 +27,6 @@ extern struct hygon_psp_hooks_table {
 	int (*__sev_do_cmd_locked)(int cmd, void *data, int *psp_ret);
 } hygon_psp_hooks;
 
+int fixup_hygon_psp_caps(struct psp_device *psp);
+
 #endif	/* __CCP_HYGON_PSP_DEV_H__ */
