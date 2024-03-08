@@ -22,6 +22,8 @@
 #include "dbc.h"
 #include "hsti.h"
 
+#include "hygon/psp-dev.h"
+
 struct psp_device *psp_master;
 
 #define PSP_C2PMSG_17_CMDRESP_CMD	GENMASK(19, 16)
@@ -157,6 +159,17 @@ static unsigned int psp_get_capability(struct psp_device *psp)
 		return -ENODEV;
 	}
 	psp->capability.raw = val;
+
+	/*
+	 * Fix capability of Hygon psp, the meaning of Hygon psp feature
+	 * register is not exactly the same as AMD.
+	 * Return -ENODEV directly if hygon psp not configured with CSV
+	 * capability.
+	 */
+	if (is_vendor_hygon()) {
+		if (fixup_hygon_psp_caps(psp))
+			return -ENODEV;
+	}
 
 	return 0;
 }
