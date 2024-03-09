@@ -2905,7 +2905,7 @@ int bpf_kprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *pr
 		return -EINVAL;
 
 	/* kprobe_multi is not allowed to be sleepable. */
-	if (prog->aux->sleepable)
+	if (prog->sleepable)
 		return -EINVAL;
 
 	flags = attr->link_create.kprobe_multi.flags;
@@ -3117,7 +3117,7 @@ static int uprobe_prog_run(struct bpf_uprobe *uprobe,
 		.uprobe = uprobe,
 	};
 	struct bpf_prog *prog = link->link.prog;
-	bool sleepable = prog->aux->sleepable;
+	bool sleepable = prog->sleepable;
 	struct bpf_run_ctx *old_run_ctx;
 
 	if (link->task && current->mm != link->task->mm)
