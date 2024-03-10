@@ -285,6 +285,10 @@ static void early_detect_mem_encrypt(struct cpuinfo_x86 *c)
 	if (IS_ENABLED(CONFIG_X86_32))
 		goto clear_all;
 
+	/* Clear the SME feature flag if the kernel is not using it. */
+	if (!sme_me_mask)
+		setup_clear_cpu_cap(X86_FEATURE_SME);
+
 	/*
 	 * If BIOS has not enabled CSV then don't advertise the CSV and CSV2
 	 * feature.
