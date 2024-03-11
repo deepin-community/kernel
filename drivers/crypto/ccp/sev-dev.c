@@ -2726,6 +2726,7 @@ static void sev_dev_install_hooks(void)
 	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
 	hygon_psp_hooks.__sev_platform_init_locked = __sev_platform_init_locked;
 	hygon_psp_hooks.__sev_platform_shutdown_locked = __sev_platform_shutdown_locked;
+	hygon_psp_hooks.sev_do_cmd = sev_do_cmd;
 	hygon_psp_hooks.sev_wait_cmd_ioc = sev_wait_cmd_ioc;
 	hygon_psp_hooks.sev_ioctl = sev_ioctl;
 
@@ -2948,6 +2949,7 @@ void sev_pci_init(void)
 {
 	struct sev_device *sev = psp_master->sev_data;
 	u8 api_major, api_minor, build;
+	int error;
 
 	if (!sev)
 		return;
@@ -2969,6 +2971,10 @@ void sev_pci_init(void)
 		dev_info(sev->dev, "SEV firmware updated from %d.%d.%d to %d.%d.%d\n",
 			 api_major, api_minor, build,
 			 sev->api_major, sev->api_minor, sev->build);
+
+	/* Set SMR for HYGON CSV3 */
+	if (is_vendor_hygon() && boot_cpu_has(X86_FEATURE_CSV3))
+		csv_platform_cmd_set_secure_memory_region(sev, &error);
 
 	return;
 

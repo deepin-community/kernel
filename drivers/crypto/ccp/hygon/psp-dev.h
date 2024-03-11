@@ -39,6 +39,7 @@ extern struct hygon_psp_hooks_table {
 	int (*__sev_platform_shutdown_locked)(int *error);
 	int (*sev_wait_cmd_ioc)(struct sev_device *sev,
 				unsigned int *reg, unsigned int timeout);
+	int (*sev_do_cmd)(int cmd, void *data, int *psp_ret);
 	long (*sev_ioctl)(struct file *file, unsigned int ioctl, unsigned long arg);
 } hygon_psp_hooks;
 
