@@ -77,4 +77,5 @@ static inline bool cma_validate_zones(struct cma *cma)
 }
 #endif
 
+extern int __init cma_alloc_areas(unsigned int max_cma_size);
 #endif
