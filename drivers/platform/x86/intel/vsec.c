@@ -103,9 +103,6 @@ int intel_vsec_add_aux(struct pci_dev *pdev, struct device *parent,
 	struct auxiliary_device *auxdev = &intel_vsec_dev->auxdev;
 	int ret, id;
 
-	if (!parent)
-		return -EINVAL;
-
 	ret = xa_alloc(&auxdev_array, &intel_vsec_dev->id, intel_vsec_dev,
 		       PMT_XA_LIMIT, GFP_KERNEL);
 	if (ret < 0) {
@@ -143,6 +140,10 @@ int intel_vsec_add_aux(struct pci_dev *pdev, struct device *parent,
 
 	return devm_add_action_or_reset(parent, intel_vsec_remove_aux,
 				       auxdev);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 EXPORT_SYMBOL_NS_GPL(intel_vsec_add_aux, INTEL_VSEC);
 
