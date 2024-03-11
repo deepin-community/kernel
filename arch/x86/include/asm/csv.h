@@ -48,6 +48,13 @@ static inline uint32_t csv_get_smr_entry_shift(void) { return 0; }
 
 #endif	/* CONFIG_HYGON_CSV */
 
+#define CPUID_VENDOR_HygonGenuine_ebx	0x6f677948
+#define CPUID_VENDOR_HygonGenuine_ecx	0x656e6975
+#define CPUID_VENDOR_HygonGenuine_edx	0x6e65476e
+
+#define MSR_CSV3_ENABLED_BIT		30
+#define MSR_CSV3_ENABLED		BIT_ULL(MSR_CSV3_ENABLED_BIT)
+
 #endif	/* __ASSEMBLY__ */
 
 #endif	/* __ASM_X86_CSV_H__ */
