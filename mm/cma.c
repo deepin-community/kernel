@@ -34,8 +34,11 @@
 #include "internal.h"
 #include "cma.h"
 
-struct cma cma_areas[MAX_CMA_AREAS];
-unsigned int cma_area_count;
+static struct cma cma_areas_data[MAX_CMA_AREAS];
+static unsigned int cma_areas_size = MAX_CMA_AREAS;
+struct cma *cma_areas = cma_areas_data;
+
+unsigned cma_area_count;
 
 phys_addr_t cma_get_base(const struct cma *cma)
 {
@@ -225,7 +228,7 @@ static int __init cma_new_area(const char *name, phys_addr_t size,
 {
 	struct cma *cma;
 
-	if (cma_area_count == ARRAY_SIZE(cma_areas)) {
+	if (cma_area_count == cma_areas_size) {
 		pr_err("Not enough slots for CMA reserved regions!\n");
 		return -ENOSPC;
 	}
@@ -254,6 +257,25 @@ static void __init cma_drop_area(struct cma *cma)
 {
 	totalcma_pages -= cma->count;
 	cma_area_count--;
+}
+
+int __init cma_alloc_areas(unsigned int max_cma_size)
+{
+	struct cma *data;
+
+	if (max_cma_size <= MAX_CMA_AREAS)
+		return 0;
+
+	if (cma_area_count || cma_areas != cma_areas_data)
+		return -EPERM;
+
+	data = memblock_alloc(max_cma_size * sizeof(*cma_areas), SMP_CACHE_BYTES);
+	if (!data)
+		return -ENOMEM;
+
+	cma_areas = data;
+	cma_areas_size = max_cma_size;
+	return 0;
 }
 
 /**
@@ -444,7 +466,7 @@ static int __init __cma_declare_contiguous_nid(phys_addr_t *basep,
 	pr_debug("%s(size %pa, base %pa, limit %pa alignment %pa)\n",
 		__func__, &size, &base, &limit, &alignment);
 
-	if (cma_area_count == ARRAY_SIZE(cma_areas)) {
+	if (cma_area_count == cma_areas_size) {
 		pr_err("Not enough slots for CMA reserved regions!\n");
 		return -ENOSPC;
 	}

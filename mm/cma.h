@@ -71,7 +71,7 @@ enum cma_flags {
 	CMA_ACTIVATED,
 };
 
-extern struct cma cma_areas[MAX_CMA_AREAS];
+extern struct cma *cma_areas;
 extern unsigned int cma_area_count;
 
 static inline unsigned long cma_bitmap_maxno(struct cma *cma,
