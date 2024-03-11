@@ -41,16 +41,7 @@ struct csv_asid_userid {
 	u32 userid_len;
 	char userid[ASID_USERID_LENGTH];
 };
-
 extern struct csv_asid_userid *csv_asid_userid_array;
-
-int csv_alloc_asid_userid_array(unsigned int nr_asids);
-void csv_free_asid_userid_array(void);
-
-#else
-
-static inline int csv_alloc_asid_userid_array(unsigned int nr_asids) { return -ENOMEM; }
-static inline void csv_free_asid_userid_array(void) { }
 
 #endif	/* CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID */
 
@@ -79,8 +70,9 @@ extern struct hygon_kvm_hooks_table {
 void __init csv_init(struct kvm_x86_ops *ops);
 void csv_exit(void);
 
-int csv_alloc_trans_mempool(void);
-void csv_free_trans_mempool(void);
+void __init csv_hardware_setup(unsigned int max_csv_asid);
+void csv_hardware_unsetup(void);
+
 int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
 int csv_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info);
 bool csv_has_emulated_ghcb_msr(struct kvm *kvm);
@@ -98,8 +90,9 @@ static inline bool csv2_state_unstable(struct vcpu_svm *svm)
 static inline void __init csv_init(struct kvm_x86_ops *ops) { }
 static inline void csv_exit(void) { }
 
-static inline int csv_alloc_trans_mempool(void) { return 0; }
-static inline void csv_free_trans_mempool(void) { }
+static inline void __init csv_hardware_setup(unsigned int max_csv_asid) { }
+static inline void csv_hardware_unsetup(void) { }
+
 static inline
 int csv_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info) { return 1; }
 static inline
