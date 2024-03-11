@@ -46,6 +46,15 @@ int csv_cmd_buffer_len(int cmd)
 	switch (cmd) {
 	case CSV_CMD_HGSC_CERT_IMPORT:		return sizeof(struct csv_data_hgsc_cert_import);
 	case CSV_CMD_RING_BUFFER:		return sizeof(struct csv_data_ring_buffer);
+	case CSV3_CMD_LAUNCH_ENCRYPT_DATA:	return sizeof(struct csv3_data_launch_encrypt_data);
+	case CSV3_CMD_LAUNCH_ENCRYPT_VMCB:	return sizeof(struct csv3_data_launch_encrypt_vmcb);
+	case CSV3_CMD_UPDATE_NPT:		return sizeof(struct csv3_data_update_npt);
+	case CSV3_CMD_SET_SMR:			return sizeof(struct csv3_data_set_smr);
+	case CSV3_CMD_SET_SMCR:			return sizeof(struct csv3_data_set_smcr);
+	case CSV3_CMD_SET_GUEST_PRIVATE_MEMORY:
+					return sizeof(struct csv3_data_set_guest_private_memory);
+	case CSV3_CMD_DBG_READ_VMSA:		return sizeof(struct csv3_data_dbg_read_vmsa);
+	case CSV3_CMD_DBG_READ_MEM:		return sizeof(struct csv3_data_dbg_read_mem);
 	default:				return 0;
 	}
 }
