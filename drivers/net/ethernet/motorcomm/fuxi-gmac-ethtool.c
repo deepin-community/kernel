@@ -111,9 +111,9 @@ static void fxgmac_ethtool_get_drvinfo(struct net_device *netdev,
     u32 ver = pdata->hw_feat.version;
     u32 sver, devid, userver;
 
-    strlcpy(drvinfo->driver, pdata->drv_name, sizeof(drvinfo->driver));
-    strlcpy(drvinfo->version, pdata->drv_ver, sizeof(drvinfo->version));
-    strlcpy(drvinfo->bus_info, dev_name(pdata->dev),
+    strscpy(drvinfo->driver, pdata->drv_name, sizeof(drvinfo->driver));
+    strscpy(drvinfo->version, pdata->drv_ver, sizeof(drvinfo->version));
+    strscpy(drvinfo->bus_info, dev_name(pdata->dev),
     sizeof(drvinfo->bus_info));
     /*
     * D|DEVID: Indicates the Device family
@@ -277,8 +277,8 @@ static void fxgmac_get_reta(struct fxgmac_pdata *pdata, u32 *indir)
     	indir[i] = pdata->rss_table[i] & rss_m;
 }
 
-static int fxgmac_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
-			  u8 *hfunc)
+static int fxgmac_get_rxfh(struct net_device *netdev,
+			   struct ethtool_rxfh_param *rxfh)
 {
     struct fxgmac_pdata *pdata = netdev_priv(netdev);
 
@@ -287,30 +287,31 @@ static int fxgmac_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
     ETH_RSS_HASH_XOR        __ETH_RSS_HASH(XOR)
     ETH_RSS_HASH_CRC32      __ETH_RSS_HASH(CRC32)
     */
-    if (hfunc)
+    if (rxfh->hfunc)
     {
-    	//*hfunc = ETH_RSS_HASH_XOR;
-    	*hfunc = ETH_RSS_HASH_TOP;
+    	//rxfh->hfunc = ETH_RSS_HASH_XOR;
+    	rxfh->hfunc = ETH_RSS_HASH_TOP;
     	DPRINTK("fxmac, get_rxfh for hash function\n");
     }
 
-    if (indir)
+    if (rxfh->indir)
     {
-    	fxgmac_get_reta(pdata, indir);
+    	fxgmac_get_reta(pdata, rxfh->indir);
     	DPRINTK("fxmac, get_rxfh for indirection tab\n");
     }
 
-    if (key)
+    if (rxfh->key)
     {
-    	memcpy(key, pdata->rss_key, fxgmac_get_rxfh_key_size(netdev));
+    	memcpy(rxfh->key, pdata->rss_key, fxgmac_get_rxfh_key_size(netdev));
     	DPRINTK("fxmac, get_rxfh  for hash key\n");
     }
 
     return 0;
 }
 
-static int fxgmac_set_rxfh(struct net_device *netdev, const u32 *indir,
-			  const u8 *key, const u8 hfunc)
+static int fxgmac_set_rxfh(struct net_device *netdev,
+			   struct ethtool_rxfh_param *rxfh,
+			   struct netlink_ext_ack *extack)
 {
     struct fxgmac_pdata *pdata = netdev_priv(netdev);
     struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
@@ -318,13 +319,13 @@ static int fxgmac_set_rxfh(struct net_device *netdev, const u32 *indir,
     u32 reta_entries = fxgmac_rss_indir_size(netdev);
     int max_queues = FXGMAC_MAX_DMA_CHANNELS;
 
-    DPRINTK("fxmac, set_rxfh callin, indir=%lx, key=%lx, func=%02x\n", (unsigned long)indir, (unsigned long)key, hfunc);
+    DPRINTK("fxmac, set_rxfh callin, indir=%lx, key=%lx, func=%02x\n", (unsigned long)rxfh->indir, (unsigned long)rxfh->key, rxfh->hfunc);
 
-    if (hfunc)
+    if (rxfh->hfunc)
     	return -EINVAL;
 
     /* Fill out the redirection table */
-    if (indir) {
+    if (rxfh->indir) {
 #if FXGMAC_MSIX_CH0RXDIS_EN
     	max_queues = max_queues; // kill warning
     	reta_entries = reta_entries;
@@ -334,19 +335,19 @@ static int fxgmac_set_rxfh(struct net_device *netdev, const u32 *indir,
 #else
     	/* double check user input. */
     	for (i = 0; i < reta_entries; i++)
-    	    if (indir[i] >= max_queues)
+    	    if (rxfh->indir[i] >= max_queues)
     	        return -EINVAL;
 
     	for (i = 0; i < reta_entries; i++)
-    	    pdata->rss_table[i] = indir[i];
+    	    pdata->rss_table[i] = rxfh->indir[i];
 
     	hw_ops->write_rss_lookup_table(pdata);
 #endif
     }
 
     /* Fill out the rss hash key */
-    if (FXGMAC_RSS_HASH_KEY_LINUX && key) {
-    	hw_ops->set_rss_hash_key(pdata, key);
+    if (FXGMAC_RSS_HASH_KEY_LINUX && rxfh->key) {
+    	hw_ops->set_rss_hash_key(pdata, rxfh->key);
     }
 
     return 0;
