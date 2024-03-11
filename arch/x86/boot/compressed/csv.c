@@ -7,10 +7,43 @@
 
 #include "misc.h"
 
+#undef __init
+#undef __initdata
+#undef __pa
+#define __init
+#define __initdata
+#define __pa(x)	((unsigned long)(x))
+
 #include <asm/csv.h>
 #include <asm/cpuid.h>
 
+/* Include code for early secure calls */
+#include "../../kernel/csv-shared.c"
+
 static unsigned int csv3_enabled __section(".data");
+static unsigned int csv3_secure_call_init;
+
+/* Invoke it before jump to real kernel in case secure call pages are not mapped
+ * in the identity page table.
+ *
+ * If no #VC happens, there is no identity mapping in page table for secure call
+ * pages. And page fault is not supported in the early stage when real kernel is
+ * running. As a result, CSV3 guest will shutdown when access secure call pages
+ * by then.
+ */
+void csv_init_secure_call_pages(void *boot_params)
+{
+	if (!csv3_enabled || csv3_secure_call_init)
+		return;
+
+	/*
+	 * boot_params may be not sanitized, but it's OK to access e820_table
+	 * field.
+	 */
+	csv3_scan_secure_call_pages(boot_params);
+	csv3_early_secure_call_ident_map(0, 0, CSV3_SECURE_CMD_RESET);
+	csv3_secure_call_init = 1;
+}
 
 void csv_set_status(void)
 {
