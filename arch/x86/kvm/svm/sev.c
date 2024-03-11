@@ -2463,19 +2463,8 @@ out:
 		 */
 		sev_install_hooks();
 
-		if (sev_enabled) {
-			/*
-			 * Allocate a memory pool to speed up live migration of
-			 * the CSV/CSV2 guests. If the allocation fails, no
-			 * acceleration is performed at live migration.
-			 */
-			csv_alloc_trans_mempool();
-			/*
-			 * Allocate a buffer to support reuse ASID, reuse ASID
-			 * will not work if the allocation fails.
-			 */
-			csv_alloc_asid_userid_array(nr_asids);
-		}
+		if (sev_enabled)
+			csv_hardware_setup(max_sev_asid);
 	}
 #endif
 
@@ -2487,11 +2476,8 @@ void sev_hardware_unsetup(void)
 	if (!sev_enabled)
 		return;
 
-	/* Free the memory that allocated in sev_hardware_setup(). */
-	if (is_x86_vendor_hygon()) {
-		csv_free_trans_mempool();
-		csv_free_asid_userid_array();
-	}
+	if (is_x86_vendor_hygon())
+		csv_hardware_unsetup();
 
 	/* No need to take sev_bitmap_lock, all VMs have been destroyed. */
 	sev_flush_asids(1, max_sev_asid);

@@ -25,6 +25,9 @@
 /* Function and variable pointers for hooks */
 struct hygon_kvm_hooks_table hygon_kvm_hooks;
 
+/* enable/disable CSV3 support */
+static bool csv3_enabled = true;
+
 static struct kvm_x86_ops csv_x86_ops;
 static const char csv_vm_mnonce[] = "VM_ATTESTATION";
 static DEFINE_MUTEX(csv_cmd_batch_mutex);
@@ -134,7 +137,19 @@ static void csv_reset_mempool_offset(void)
 	g_mempool_offset = 0;
 }
 
-int csv_alloc_trans_mempool(void)
+static void csv_free_trans_mempool(void)
+{
+	int i;
+
+	for (i = 0; i < TRANS_MEMPOOL_BLOCK_NUM; i++) {
+		kfree(g_trans_mempool[i]);
+		g_trans_mempool[i] = NULL;
+	}
+
+	csv_reset_mempool_offset();
+}
+
+static int csv_alloc_trans_mempool(void)
 {
 	int i;
 
@@ -155,18 +170,6 @@ free_trans_mempool:
 	pr_warn("Fail to allocate mem pool, CSV(2) live migration will very slow\n");
 
 	return -ENOMEM;
-}
-
-void csv_free_trans_mempool(void)
-{
-	int i;
-
-	for (i = 0; i < TRANS_MEMPOOL_BLOCK_NUM; i++) {
-		kfree(g_trans_mempool[i]);
-		g_trans_mempool[i] = NULL;
-	}
-
-	csv_reset_mempool_offset();
 }
 
 static void __maybe_unused *get_trans_data_from_mempool(size_t size)
@@ -805,6 +808,46 @@ e_free_hdr:
 	return ret;
 }
 
+struct kvm_csv_info {
+	struct kvm_sev_info *sev;
+
+	bool csv3_active;	/* CSV3 enabled guest */
+	unsigned long nodemask; /* Nodemask where CSV3 guest's memory resides */
+};
+
+struct kvm_svm_csv {
+	struct kvm_svm kvm_svm;
+	struct kvm_csv_info csv_info;
+};
+
+static inline struct kvm_svm_csv *to_kvm_svm_csv(struct kvm *kvm)
+{
+	return (struct kvm_svm_csv *)container_of(kvm, struct kvm_svm, kvm);
+}
+
+static int csv3_guest_init(struct kvm *kvm, struct kvm_sev_cmd *argp)
+{
+	struct kvm_sev_info *sev = &to_kvm_svm(kvm)->sev_info;
+	struct kvm_csv_info *csv = &to_kvm_svm_csv(kvm)->csv_info;
+	struct kvm_csv3_init_data params;
+
+	if (unlikely(csv->csv3_active))
+		return -EINVAL;
+
+	if (unlikely(!sev->es_active))
+		return -EINVAL;
+
+	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
+			   sizeof(params)))
+		return -EFAULT;
+
+	csv->csv3_active = true;
+	csv->sev = sev;
+	csv->nodemask = (unsigned long)params.nodemask;
+
+	return 0;
+}
+
 static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 {
 	struct kvm_sev_cmd sev_cmd;
@@ -846,6 +889,13 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 		 */
 		r = csv_receive_update_vmsa(kvm, &sev_cmd);
 		break;
+	case KVM_CSV3_INIT:
+		if (!csv3_enabled) {
+			r = -ENOTTY;
+			goto out;
+		}
+		r = csv3_guest_init(kvm, &sev_cmd);
+		break;
 	default:
 		/*
 		 * If the command is compatible between CSV and SEV, the
@@ -861,6 +911,7 @@ static int csv_mem_enc_ioctl(struct kvm *kvm, void __user *argp)
 	if (copy_to_user(argp, &sev_cmd, sizeof(struct kvm_sev_cmd)))
 		r = -EFAULT;
 
+out:
 	mutex_unlock(&kvm->lock);
 	return r;
 }
@@ -1072,7 +1123,7 @@ static int csv_control_post_system_reset(struct kvm *kvm)
 
 struct csv_asid_userid *csv_asid_userid_array;
 
-int csv_alloc_asid_userid_array(unsigned int nr_asids)
+static int csv_alloc_asid_userid_array(unsigned int nr_asids)
 {
 	int ret = 0;
 
@@ -1087,13 +1138,58 @@ int csv_alloc_asid_userid_array(unsigned int nr_asids)
 	return ret;
 }
 
-void csv_free_asid_userid_array(void)
+static void csv_free_asid_userid_array(void)
 {
 	kfree(csv_asid_userid_array);
 	csv_asid_userid_array = NULL;
 }
 
+#else	/* !CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID */
+
+static int csv_alloc_asid_userid_array(unsigned int nr_asids)
+{
+	pr_warn("reuse ASID is unavailable\n");
+	return -EFAULT;
+}
+
+static void csv_free_asid_userid_array(void)
+{
+}
+
 #endif	/* CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID */
+
+void __init csv_hardware_setup(unsigned int max_csv_asid)
+{
+	unsigned int nr_asids = max_csv_asid + 1;
+
+	/*
+	 * Allocate a memory pool to speed up live migration of
+	 * the CSV/CSV2 guests. If the allocation fails, no
+	 * acceleration is performed at live migration.
+	 */
+	csv_alloc_trans_mempool();
+	/*
+	 * Allocate a buffer to support reuse ASID, reuse ASID
+	 * will not work if the allocation fails.
+	 */
+	csv_alloc_asid_userid_array(nr_asids);
+
+	/* CSV3 depends on X86_FEATURE_CSV3 */
+	if (boot_cpu_has(X86_FEATURE_SEV_ES) && boot_cpu_has(X86_FEATURE_CSV3))
+		csv3_enabled = true;
+	else
+		csv3_enabled = false;
+
+	pr_info("CSV3 %s (ASIDs 1 - %u)\n",
+		csv3_enabled ? "enabled" : "disabled", max_csv_asid);
+}
+
+void csv_hardware_unsetup(void)
+{
+	/* Free the memory that allocated in csv_hardware_setup(). */
+	csv_free_trans_mempool();
+	csv_free_asid_userid_array();
+}
 
 void csv_exit(void)
 {
@@ -1114,4 +1210,7 @@ void __init csv_init(struct kvm_x86_ops *ops)
 	ops->vm_attestation = csv_vm_attestation;
 	ops->control_pre_system_reset = csv_control_pre_system_reset;
 	ops->control_post_system_reset = csv_control_post_system_reset;
+
+	if (boot_cpu_has(X86_FEATURE_SEV_ES) && boot_cpu_has(X86_FEATURE_CSV3))
+		ops->vm_size = sizeof(struct kvm_svm_csv);
 }
