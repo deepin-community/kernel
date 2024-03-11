@@ -13,10 +13,12 @@
 #ifdef CONFIG_HYGON_CSV
 
 void csv_set_status(void);
+void csv_init_secure_call_pages(void *boot_params);
 
 #else
 
 static inline void csv_set_status(void) { }
+static inline void csv_init_secure_call_pages(void *boot_params) { }
 
 #endif
 
