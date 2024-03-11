@@ -478,6 +478,16 @@ SYM_FUNC_START_LOCAL_NOALIGN(.Lrelocated)
 	movq	%r15, %rdi
 	call	initialize_identity_maps
 
+#ifdef CONFIG_HYGON_CSV
+	/*
+	 * If running as a CSV3 guest, secure call pages must be mapped in
+	 * the identity page table before jumping to the decompressed kernel.
+	 * Scan secure call pages here in safe.
+	 */
+	movq	%r15, %rdi
+	call	csv_init_secure_call_pages
+#endif
+
 /*
  * Do the extraction, and jump to the new kernel..
  */
