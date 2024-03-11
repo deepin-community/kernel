@@ -149,6 +149,7 @@ static void unmap_apt_ptes(struct kvm *kvm, pmd_t *pmd,
 		if (!pte_none(*pte)) {
 			/* Do we need WRITE_ONCE(pte, 0)? */
 			set_pte(pte, __pte(0));
+			kvm_flush_remote_tlbs(kvm);
 			put_page(virt_to_page(pte));
 		}
 	} while (pte++, addr += PAGE_SIZE, addr != end);
@@ -158,6 +159,7 @@ static void unmap_apt_ptes(struct kvm *kvm, pmd_t *pmd,
 		pte_t *pte_table = pte_offset_kernel(pmd, 0);
 
 		pmd_clear(pmd);
+		kvm_flush_remote_tlbs(kvm);
 		free_page((unsigned long)pte_table);
 		put_page(virt_to_page(pmd));
 	}
@@ -195,6 +197,7 @@ static void unmap_apt_pmds(struct kvm *kvm, pud_t *pud,
 		pmd_t *pmd_table __maybe_unused = pmd_offset(pud, 0UL);
 
 		pud_clear(pud);
+		kvm_flush_remote_tlbs(kvm);
 		free_page((unsigned long)pmd_table);
 		put_page(virt_to_page(pud));
 	}
