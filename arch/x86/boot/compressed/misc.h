@@ -37,6 +37,7 @@
 #include <asm/desc_defs.h>
 
 #include "tdx.h"
+#include "csv.h"
 
 #define BOOT_CTYPE_H
 #include <linux/acpi.h>

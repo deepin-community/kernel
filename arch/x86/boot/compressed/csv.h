@@ -1,0 +1,23 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Hygon CSV header for early boot related functions.
+ *
+ * Copyright (C) Hygon Info Technologies Ltd.
+ *
+ * Author: Liyang Han <hanliyang@hygon.cn>
+ */
+
+#ifndef BOOT_COMPRESSED_CSV_H
+#define BOOT_COMPRESSED_CSV_H
+
+#ifdef CONFIG_HYGON_CSV
+
+void csv_set_status(void);
+
+#else
+
+static inline void csv_set_status(void) { }
+
+#endif
+
+#endif	/* BOOT_COMPRESSED_CSV_H */
