@@ -1,0 +1,5 @@
+# License: GPL-2.0
+#
+# inspur drm device configuration.
+
+source "drivers/gpu/drm/inspur/inspur-drm/Kconfig"
