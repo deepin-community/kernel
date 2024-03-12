@@ -388,7 +388,8 @@ asmlinkage void
 do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	  struct pt_regs *regs)
 {
-	long error;
+	long error, disp;
+	unsigned int insn, fncode, rb;
 	unsigned long tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
 	unsigned long pc = regs->pc - 4;
 
@@ -399,6 +400,188 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	 */
 
 	switch (opcode) {
+	case 0x1e:
+		insn = *(unsigned int *)pc;
+		fncode = (insn >> 12) & 0xf;
+		rb = (insn >> 16) & 0x1f;
+		disp = insn & 0xfff;
+
+		disp = (disp << 52) >> 52;	/* sext */
+
+		switch (fncode) {
+		case 0x1: /* ldhu_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 1(%3)\n"
+			"	extlh	%1, %3, %1\n"
+			"	exthh	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table,\"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto got_exception;
+			regs->regs[reg] = tmp1 | tmp2;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+
+		case 0x2: /* ldw_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1,0(%3)\n"
+			"2:	ldl_u	%2,3(%3)\n"
+			"	extlw	%1,%3,%1\n"
+			"	exthw	%2,%3,%2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+			regs->regs[reg] = (int)(tmp1 | tmp2);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+
+		case 0x3: /* ldl_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 7(%3)\n"
+			"	extll	%1, %3, %1\n"
+			"	exthl	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+			regs->regs[reg] = tmp1 | tmp2;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+
+		case 0x7: /* sth_a */
+			__asm__ __volatile__(
+			"	zap	%6, 2, %1\n"
+			"	srl	%6, 8, %2\n"
+			"1:	stb	%1, 0x0(%5)\n"
+			"2:	stb	%2, 0x1(%5)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%2, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%1, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
+			"=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+
+			if (error)
+				goto got_exception;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+
+		case 0x8: /* stw_a */
+			__asm__ __volatile__(
+			"	zapnot	%6, 0x1, %1\n"
+			"	srl	%6, 8, %2\n"
+			"	zapnot	%2, 0x1,%2\n"
+			"	srl	%6, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%6, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"1:	stb	%1, 0x0(%5)\n"
+			"2:	stb	%2, 0x1(%5)\n"
+			"3:	stb	%3, 0x2(%5)\n"
+			"4:	stb	%4, 0x3(%5)\n"
+			"5:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	$31, 5b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 5b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 5b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 5b-4b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
+			  "=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+
+			if (error)
+				goto got_exception;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+
+		case 0x9: /* stl_a */
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			"=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+
+			if (error)
+				goto got_exception;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			return;
+		}
 	case 0x21:
 		__asm__ __volatile__(
 		"1:	ldl_u	%1, 0(%3)\n"
@@ -614,6 +797,11 @@ got_exception:
 			 1L << 0x21 | 1L << 0x29 | /* ldhu sth */	\
 			 1L << 0x20 | 1L << 0x28)  /* ldbu stb */
 
+#define FN_INT_MASK	(1L << 0x0 | 1L << 0x6 |   /* ldbu_a stb_a */	\
+			 1L << 0x1 | 1L << 0x7 |   /* ldhu_a sth_a */	\
+			 1L << 0x2 | 1L << 0x8 |   /* ldw_a stw_a */	\
+			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
+
 asmlinkage void
 do_entUnaUser(void __user *va, unsigned long opcode,
 	      unsigned long reg, struct pt_regs *regs)
@@ -628,7 +816,9 @@ do_entUnaUser(void __user *va, unsigned long opcode,
 	long error;
 	unsigned long tmp, tmp5, tmp6, tmp7, tmp8, vb;
 	unsigned long fp[4];
-	unsigned long instr, instr_op, value;
+	unsigned long instr, instr_op, value, fncode;
+	unsigned int rb = -1U;
+	long disp;
 
 #ifdef CONFIG_DEBUG_FS
 	/*
@@ -673,7 +863,11 @@ do_entUnaUser(void __user *va, unsigned long opcode,
 	if ((unsigned long)va >= TASK_SIZE)
 		goto give_sigsegv;
 
-	if ((1L << opcode) & OP_INT_MASK) {
+	get_user(instr, (__u32 *)(regs->pc - 4));
+	fncode = (instr >> 12) & 0xf;
+
+	if (((1L << opcode) & OP_INT_MASK) ||
+			((opcode == 0x1e) && ((1L << fncode) & FN_INT_MASK))) {
 		/* it's an integer load/store */
 		if (reg < 31) {
 			reg_addr = &regs->regs[reg];
@@ -1287,6 +1481,237 @@ do_entUnaUser(void __user *va, unsigned long opcode,
 		}
 	}
 	switch (opcode) {
+	case 0x1e:
+		rb = (instr >> 16) & 0x1f;
+		disp = instr & 0xfff;
+		disp = (disp << 52) >> 52;
+
+		switch (fncode) {
+		case 0x1: /* ldhu_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 1(%3)\n"
+			"	extlh	%1, %3, %1\n"
+			"	exthh	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto give_sigsegv;
+			*reg_addr = tmp1 | tmp2;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0x2: /* ldw_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 3(%3)\n"
+			"	extlw	%1, %3, %1\n"
+			"	exthw	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto give_sigsegv;
+			*reg_addr = (int)(tmp1 | tmp2);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0x3: /* ldl_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 7(%3)\n"
+			"	extll	%1, %3, %1\n"
+			"	exthl	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto give_sigsegv;
+			*reg_addr = tmp1 | tmp2;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0x4: /* flds_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 3(%3)\n"
+			"	extlw	%1, %3, %1\n"
+			"	exthw	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto give_sigsegv;
+			sw64_write_fp_reg_s(reg, tmp1 | tmp2);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0x5: /* fldd_a */
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%3)\n"
+			"2:	ldl_u	%2, 7(%3)\n"
+			"	extll	%1, %3, %1\n"
+			"	exthl	%2, %3, %2\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "0"(0));
+			if (error)
+				goto give_sigsegv;
+			sw64_write_fp_reg(reg, tmp1 | tmp2);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0x7: /* sth_a */
+			__asm__ __volatile__(
+			"	zap	%6, 2, %1\n"
+			"	srl	%6, 8, %2\n"
+			"1:	stb	%1, 0x0(%5)\n"
+			"2:	stb	%2, 0x1(%5)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%2, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%1, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
+			  "=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "r"(*reg_addr), "0"(0));
+
+			if (error)
+				goto give_sigsegv;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0xa: /* fsts_a */
+			fake_reg = sw64_read_fp_reg_s(reg);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+			/* fallthrough; */
+		case 0x8: /* stw_a */
+			__asm__ __volatile__(
+			"	zapnot	%6, 0x1, %1\n"
+			"	srl	%6, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%6, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%6, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"1:	stb  %1, 0x0(%5)\n"
+			"2:	stb  %2, 0x1(%5)\n"
+			"3:	stb  %3, 0x2(%5)\n"
+			"4:	stb  %4, 0x3(%5)\n"
+			"5:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	$31, 5b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 5b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 5b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 5b-4b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
+			  "=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "r"(*reg_addr), "0"(0));
+
+			if (error)
+				goto give_sigsegv;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+
+		case 0xb: /* fstd_a */
+			fake_reg = sw64_read_fp_reg(reg);
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+			/* fallthrough; */
+		case 0x9: /* stl_a */
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(va), "r"(*reg_addr), "0"(0));
+
+			if (error)
+				goto give_sigsegv;
+			regs->regs[rb] = regs->regs[rb] + disp;
+			break;
+		}
+		break;
+
 	case 0x21: /* ldhu */
 		__asm__ __volatile__(
 		"1:	ldl_u	%1, 0(%3)\n"
