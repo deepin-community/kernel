@@ -26,6 +26,7 @@
 #include <net/geneve.h>
 
 #include "hnae3.h"
+#include "hnae3_ext.h"
 #include "hns3_enet.h"
 /* All hns3 tracepoints are defined by the include below, which
  * must be included exactly once across the whole kernel with
@@ -5950,12 +5951,16 @@ static void hns3_process_hw_error(struct hnae3_handle *handle,
 		if (hns3_hw_err[i].type == type) {
 			dev_err(&handle->pdev->dev, "Detected %s!\n",
 				hns3_hw_err[i].msg);
+			if (handle->ae_algo->ops->priv_ops)
+				handle->ae_algo->ops->priv_ops(handle,
+					HNAE3_EXT_OPC_EVENT_CALLBACK, &type,
+					sizeof(type));
 			break;
 		}
 	}
 }
 
-static const struct hnae3_client_ops client_ops = {
+const struct hnae3_client_ops client_ops = {
 	.init_instance = hns3_client_init,
 	.uninit_instance = hns3_client_uninit,
 	.link_status_change = hns3_link_status_change,

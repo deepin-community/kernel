@@ -811,7 +811,7 @@ static void hclge_handle_ncsi_error(struct hclge_dev *hdev)
 
 	ae_dev->ops->set_default_reset_request(ae_dev, HNAE3_GLOBAL_RESET);
 	dev_warn(&hdev->pdev->dev, "requesting reset due to NCSI error\n");
-	ae_dev->ops->reset_event(hdev->pdev, NULL);
+	hclge_reset_event(hdev->pdev, &hdev->vport[0].nic);
 }
 
 static void hclge_handle_vf_tbl(struct hclge_vport *vport,

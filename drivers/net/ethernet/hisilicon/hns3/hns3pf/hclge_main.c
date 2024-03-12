@@ -17,6 +17,7 @@
 #include <net/rtnetlink.h>
 #include "hclge_cmd.h"
 #include "hclge_dcb.h"
+#include "hclge_ext.h"
 #include "hclge_main.h"
 #include "hclge_mbx.h"
 #include "hclge_mdio.h"
@@ -36,7 +37,6 @@
 #define BUF_MAX_PERCENT		100
 #define BUF_RESERVE_PERCENT	90
 
-#define HCLGE_RESET_MAX_FAIL_CNT	5
 #define HCLGE_RESET_SYNC_TIME		100
 #define HCLGE_PF_RESET_SYNC_TIME	20
 #define HCLGE_PF_RESET_SYNC_CNT		1500
@@ -62,6 +62,7 @@ static void hclge_update_fec_stats(struct hclge_dev *hdev);
 static int hclge_mac_link_status_wait(struct hclge_dev *hdev, int link_ret,
 				      int wait_cnt);
 static int hclge_update_port_info(struct hclge_dev *hdev);
+static void hclge_reset_end(struct hnae3_handle *handle, bool done);
 
 static struct hnae3_ae_algo ae_algo;
 
@@ -2957,7 +2958,7 @@ static void hclge_mbx_task_schedule(struct hclge_dev *hdev)
 	}
 }
 
-static void hclge_reset_task_schedule(struct hclge_dev *hdev)
+void hclge_reset_task_schedule(struct hclge_dev *hdev)
 {
 	if (!test_bit(HCLGE_STATE_REMOVING, &hdev->state) &&
 	    test_bit(HCLGE_STATE_SERVICE_INITED, &hdev->state) &&
@@ -4165,7 +4166,7 @@ static void hclge_show_rst_info(struct hclge_dev *hdev)
 
 static bool hclge_reset_err_handle(struct hclge_dev *hdev)
 {
-#define MAX_RESET_FAIL_CNT 5
+	struct hnae3_handle *handle = &hdev->vport[0].nic;
 
 	if (hdev->reset_pending) {
 		dev_info(&hdev->pdev->dev, "Reset pending %lu\n",
@@ -4177,7 +4178,7 @@ static bool hclge_reset_err_handle(struct hclge_dev *hdev)
 			 "reset failed because new reset interrupt\n");
 		hclge_clear_reset_cause(hdev);
 		return false;
-	} else if (hdev->rst_stats.reset_fail_cnt < MAX_RESET_FAIL_CNT) {
+	} else if (hdev->rst_stats.reset_fail_cnt < HCLGE_RESET_MAX_FAIL_CNT) {
 		hdev->rst_stats.reset_fail_cnt++;
 		set_bit(hdev->reset_type, &hdev->reset_pending);
 		dev_info(&hdev->pdev->dev,
@@ -4191,7 +4192,7 @@ static bool hclge_reset_err_handle(struct hclge_dev *hdev)
 	/* recover the handshake status when reset fail */
 	hclge_reset_handshake(hdev, true);
 
-	dev_err(&hdev->pdev->dev, "Reset fail!\n");
+	hclge_reset_end(handle, false);
 
 	hclge_show_rst_info(hdev);
 
@@ -4308,6 +4309,7 @@ static int hclge_reset_prepare(struct hclge_dev *hdev)
 
 static int hclge_reset_rebuild(struct hclge_dev *hdev)
 {
+	struct hnae3_handle *handle = &hdev->vport[0].nic;
 	int ret;
 
 	hdev->rst_stats.hw_reset_done_cnt++;
@@ -4353,6 +4355,8 @@ static int hclge_reset_rebuild(struct hclge_dev *hdev)
 
 	hclge_update_reset_level(hdev);
 
+	hclge_reset_end(handle, true);
+
 	return 0;
 }
 
@@ -4374,10 +4378,11 @@ err_reset:
 		hclge_reset_task_schedule(hdev);
 }
 
-static void hclge_reset_event(struct pci_dev *pdev, struct hnae3_handle *handle)
+void hclge_reset_event(struct pci_dev *pdev, struct hnae3_handle *handle)
 {
 	struct hnae3_ae_dev *ae_dev = pci_get_drvdata(pdev);
 	struct hclge_dev *hdev = ae_dev->priv;
+	int ret;
 
 	/* We might end up getting called broadly because of 2 below cases:
 	 * 1. Recoverable error was conveyed through APEI and only way to bring
@@ -4411,9 +4416,12 @@ static void hclge_reset_event(struct pci_dev *pdev, struct hnae3_handle *handle)
 	dev_info(&hdev->pdev->dev, "received reset event, reset type is %d\n",
 		 hdev->reset_level);
 
-	/* request reset & schedule reset task */
-	set_bit(hdev->reset_level, &hdev->reset_request);
-	hclge_reset_task_schedule(hdev);
+	ret = hclge_ext_call_event(hdev, (u32)hdev->reset_level);
+	if (ret) {
+		/* request reset & schedule reset task */
+		set_bit(hdev->reset_level, &hdev->reset_request);
+		hclge_reset_task_schedule(hdev);
+	}
 
 	if (hdev->reset_level < HNAE3_GLOBAL_RESET)
 		hdev->reset_level++;
@@ -4439,7 +4447,15 @@ static void hclge_reset_timer(struct timer_list *t)
 
 	dev_info(&hdev->pdev->dev,
 		 "triggering reset in reset timer\n");
-	hclge_reset_event(hdev->pdev, NULL);
+	hclge_reset_event(hdev->pdev, &hdev->vport[0].nic);
+}
+
+static void hclge_reset_end(struct hnae3_handle *handle, bool done)
+{
+	struct hclge_vport *vport = hclge_get_vport(handle);
+	struct hclge_dev *hdev = vport->back;
+
+	hclge_ext_reset_end(hdev, done);
 }
 
 static void hclge_reset_subtask(struct hclge_dev *hdev)
@@ -4479,8 +4495,8 @@ static void hclge_handle_err_reset_request(struct hclge_dev *hdev)
 		hclge_set_def_reset_request(ae_dev, reset_type);
 	}
 
-	if (hdev->default_reset_request && ae_dev->ops->reset_event)
-		ae_dev->ops->reset_event(hdev->pdev, NULL);
+	if (hdev->default_reset_request)
+		hclge_reset_event(hdev->pdev, &hdev->vport[0].nic);
 
 	/* enable interrupt after error handling complete */
 	hclge_enable_vector(&hdev->misc_vector, true);
@@ -12683,7 +12699,7 @@ static int hclge_get_dscp_prio(struct hnae3_handle *h, u8 dscp, u8 *tc_mode,
 	return 0;
 }
 
-static const struct hnae3_ae_ops hclge_ops = {
+struct hnae3_ae_ops hclge_ops = {
 	.init_ae_dev = hclge_init_ae_dev,
 	.uninit_ae_dev = hclge_uninit_ae_dev,
 	.reset_prepare = hclge_reset_prepare_general,
@@ -12789,6 +12805,7 @@ static const struct hnae3_ae_ops hclge_ops = {
 	.get_dscp_prio = hclge_get_dscp_prio,
 	.get_wol = hclge_get_wol,
 	.set_wol = hclge_set_wol,
+	.priv_ops = hclge_ext_ops_handle,
 };
 
 static struct hnae3_ae_algo ae_algo = {

@@ -12,7 +12,7 @@
 
 #include "hclge_cmd.h"
 #include "hclge_ptp.h"
-#include "hnae3.h"
+#include "hnae3_ext.h"
 #include "hclge_comm_rss.h"
 #include "hclge_comm_tqp_stats.h"
 
@@ -25,6 +25,8 @@
 
 #define HCLGE_RD_FIRST_STATS_NUM        2
 #define HCLGE_RD_OTHER_STATS_NUM        4
+
+#define HCLGE_RESET_MAX_FAIL_CNT	5
 
 #define HCLGE_INVALID_VPORT 0xffff
 
@@ -1163,4 +1165,6 @@ int hclge_enable_vport_vlan_filter(struct hclge_vport *vport, bool request_en);
 int hclge_mac_update_stats(struct hclge_dev *hdev);
 struct hclge_vport *hclge_get_vf_vport(struct hclge_dev *hdev, int vf);
 int hclge_inform_vf_reset(struct hclge_vport *vport, u16 reset_type);
+void hclge_reset_task_schedule(struct hclge_dev *hdev);
+void hclge_reset_event(struct pci_dev *pdev, struct hnae3_handle *handle);
 #endif
