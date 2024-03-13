@@ -23,6 +23,16 @@
 #define EIOINTC_REG_ISR		0x1800
 #define EIOINTC_REG_ROUTE	0x1c00
 
+#define EXTIOI_VIRT_FEATURES		0x40000000
+#define  EXTIOI_HAS_VIRT_EXTENSION	0
+#define  EXTIOI_HAS_ENABLE_OPTION	1
+#define  EXTIOI_HAS_INT_ENCODE		2
+#define  EXTIOI_HAS_CPU_ENCODE		3
+#define EXTIOI_VIRT_CONFIG		0x40000004
+#define  EXTIOI_ENABLE			1
+#define  EXTIOI_ENABLE_INT_ENCODE	2
+#define  EXTIOI_ENABLE_CPU_ENCODE	3
+
 #define VEC_REG_COUNT		4
 #define VEC_COUNT_PER_REG	64
 #define VEC_COUNT		(VEC_REG_COUNT * VEC_COUNT_PER_REG)
@@ -41,6 +51,7 @@ struct eiointc_priv {
 	cpumask_t		cpuspan_map;
 	struct fwnode_handle	*domain_handle;
 	struct irq_domain	*eiointc_domain;
+	bool			cpu_encoded;
 };
 
 static struct eiointc_priv *eiointc_priv[MAX_IO_PICS];
@@ -91,7 +102,16 @@ static DEFINE_RAW_SPINLOCK(affinity_lock);
 
 static void virt_extioi_set_irq_route(int irq, unsigned int cpu)
 {
-	iocsr_write8(cpu_logical_map(cpu), EIOINTC_REG_ROUTE + irq);
+	int data;
+
+	/*
+	 * get irq route info for continuous 4 vectors
+	 * and set affinity for specified vector
+	 */
+	data = iocsr_read32(EIOINTC_REG_ROUTE + (irq & ~3));
+	data &=  ~(0xff << ((irq & 3) * 8));
+	data |= cpu_logical_map(cpu) << ((irq & 3) * 8);
+	iocsr_write32(data, EIOINTC_REG_ROUTE + (irq & ~3));
 }
 
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
@@ -116,7 +136,7 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 	vector = d->hwirq;
 	regaddr = EIOINTC_REG_ENABLE + ((vector >> 5) << 2);
 
-	if (cpu_has_hypervisor) {
+	if (priv->cpu_encoded) {
 		iocsr_write32(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1F), regaddr);
 		virt_extioi_set_irq_route(vector, cpu);
 		iocsr_write32(EIOINTC_ALL_ENABLE, regaddr);
@@ -181,8 +201,10 @@ static int eiointc_router_init(unsigned int cpu)
 
 		for (i = 0; i < eiointc_priv[0]->vec_count / 4; i++) {
 			/* Route to Node-0 Core-0 */
-			if (index == 0)
-				bit = (cpu_has_hypervisor ? cpu_logical_map(0) : BIT(cpu_logical_map(0)));
+			if (eiointc_priv[index]->cpu_encoded)
+				bit = cpu_logical_map(0);
+			else if (index == 0)
+				bit = BIT(cpu_logical_map(0));
 			else
 				bit = (eiointc_priv[index]->node << 4) | 1;
 
@@ -383,7 +405,7 @@ static int __init acpi_cascade_irqdomain_init(void)
 static int __init eiointc_init(struct eiointc_priv *priv, int parent_irq,
 			       u64 node_map)
 {
-	int i;
+	int i, val;
 
 	node_map = node_map ? node_map : -1ULL;
 	for_each_possible_cpu(i) {
@@ -401,6 +423,17 @@ static int __init eiointc_init(struct eiointc_priv *priv, int parent_irq,
 	if (!priv->eiointc_domain) {
 		pr_err("loongson-extioi: cannot add IRQ domain\n");
 		return -ENOMEM;
+	}
+
+	if (cpu_has_hypervisor) {
+		val = iocsr_read32(EXTIOI_VIRT_FEATURES);
+		if (val & BIT(EXTIOI_HAS_CPU_ENCODE)) {
+			val = iocsr_read32(EXTIOI_VIRT_CONFIG);
+			val |= BIT(EXTIOI_ENABLE_CPU_ENCODE);
+			iocsr_write32(val, EXTIOI_VIRT_CONFIG);
+			priv->cpu_encoded = true;
+			pr_info("loongson-extioi: enable cpu encodig\n");
+		}
 	}
 
 	eiointc_priv[nr_pics++] = priv;
