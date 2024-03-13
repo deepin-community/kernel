@@ -1,0 +1,31 @@
+before_script:
+ - echo "Before script section"
+ - echo "Clean the environmont"
+ - make clean
+
+stages:
+ - checkpatch
+ - check_build
+ - check_run
+
+.job_template: &job_template
+ only:
+  - /^\d+-.*$/
+
+checkpatch:
+ <<: *job_template
+ stage: checkpatch
+ script:
+  - checkpatch.sh
+
+check_build:
+ <<: *job_template
+ stage: check_build
+ script:
+  - check_build.sh
+
+check_run:
+ <<: *job_template
+ stage: check_run
+ script:
+  - check_run.sh
