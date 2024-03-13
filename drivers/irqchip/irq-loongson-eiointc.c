@@ -18,7 +18,6 @@
 #include <asm/numa.h>
 
 #include "irq-loongson.h"
-
 #define EIOINTC_REG_NODEMAP	0x14a0
 #define EIOINTC_REG_IPMAP	0x14c0
 #define EIOINTC_REG_ENABLE	0x1600
@@ -117,7 +116,16 @@ static DEFINE_RAW_SPINLOCK(affinity_lock);
 
 static void virt_extioi_set_irq_route(int irq, unsigned int cpu)
 {
-	iocsr_write8(cpu_logical_map(cpu), EIOINTC_REG_ROUTE + irq);
+	int data;
+
+	/*
+	 * get irq route info for continuous 4 vectors
+	 * and set affinity for specified vector
+	 */
+	data = iocsr_read32(EIOINTC_REG_ROUTE + (irq & ~3));
+	data &=  ~(0xff << ((irq & 3) * 8));
+	data |= cpu_logical_map(cpu) << ((irq & 3) * 8);
+	iocsr_write32(data, EIOINTC_REG_ROUTE + (irq & ~3));
 }
 
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
@@ -142,7 +150,7 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 	vector = d->hwirq;
 	regaddr = EIOINTC_REG_ENABLE + ((vector >> 5) << 2);
 
-	if (cpu_has_hypervisor) {
+	if (priv->cpu_encoded) {
 		iocsr_write32(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1F), regaddr);
 		virt_extioi_set_irq_route(vector, cpu);
 		iocsr_write32(EIOINTC_ALL_ENABLE, regaddr);
@@ -154,14 +162,14 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 
 		/* Mask target vector */
 		csr_any_send(regaddr, EIOINTC_ALL_ENABLE & (~BIT(vector & 0x1F)),
-			     0x0, cpu_logical_map(i));
+				0x0, cpu_logical_map(i));
 
 		/* Set route for target vector */
 		eiointc_set_irq_route(vector, cpu, priv->node, &priv->node_map);
 
 		/* Unmask target vector */
 		csr_any_send(regaddr, EIOINTC_ALL_ENABLE,
-		     		0x0, cpu_logical_map(i));
+				0x0, cpu_logical_map(i));
 	}
 
 	irq_data_update_effective_affinity(d, cpumask_of(cpu));
@@ -211,8 +219,10 @@ static int eiointc_router_init(unsigned int cpu)
 
 		for (i = 0; i < eiointc_priv[0]->vec_count / 4; i++) {
 			/* Route to Node-0 Core-0 */
-			if (index == 0)
-				bit = (cpu_has_hypervisor ? cpu_logical_map(0) : BIT(cpu_logical_map(0)));
+			if (eiointc_priv[index]->cpu_encoded)
+				bit = cpu_logical_map(0);
+			else if (index == 0)
+				bit = BIT(cpu_logical_map(0));
 			else
 				bit = (eiointc_priv[index]->node << 4) |
 				BIT(cpu_logical_map(smp_processor_id()) %
