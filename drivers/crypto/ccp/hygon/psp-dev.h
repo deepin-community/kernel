@@ -12,6 +12,7 @@
 
 #include <linux/mutex.h>
 #include <linux/bits.h>
+#include <linux/miscdevice.h>
 
 #include "sp-dev.h"
 
@@ -30,6 +31,7 @@
 extern struct hygon_psp_hooks_table {
 	bool sev_dev_hooks_installed;
 	struct mutex *sev_cmd_mutex;
+	struct psp_misc_dev *psp_misc;
 	bool *psp_dead;
 	int *psp_timeout;
 	int *psp_cmd_timeout;
@@ -43,6 +45,25 @@ extern struct hygon_psp_hooks_table {
 	long (*sev_ioctl)(struct file *file, unsigned int ioctl, unsigned long arg);
 } hygon_psp_hooks;
 
+#define PSP_MUTEX_TIMEOUT 10000
+struct psp_mutex {
+	uint64_t locked;
+};
+
+struct psp_dev_data {
+	struct psp_mutex mb_mutex;
+};
+
+struct psp_misc_dev {
+	struct kref refcount;
+	struct psp_dev_data *data_pg_aligned;
+	struct miscdevice misc;
+};
+
+int hygon_psp_additional_setup(struct sp_device *sp);
+void hygon_psp_exit(struct kref *ref);
+int psp_mutex_lock_timeout(struct psp_mutex *mutex, uint64_t ms);
+int psp_mutex_unlock(struct psp_mutex *mutex);
 int fixup_hygon_psp_caps(struct psp_device *psp);
 int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
 			     const char *name, void *data);
