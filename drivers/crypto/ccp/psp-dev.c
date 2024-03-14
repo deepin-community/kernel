@@ -295,6 +295,11 @@ int psp_dev_init(struct sp_device *sp)
 
 	/* Request an irq */
 	if (is_vendor_hygon()) {
+		ret = hygon_psp_additional_setup(sp);
+		if (ret) {
+			dev_err(dev, "psp: unable to do additional setup\n");
+			goto e_err;
+		}
 		ret = sp_request_hygon_psp_irq(psp->sp, psp_irq_handler, psp->name, psp);
 	} else {
 		ret = sp_request_psp_irq(psp->sp, psp_irq_handler, psp->name, psp);
@@ -359,6 +364,9 @@ void psp_dev_destroy(struct sp_device *sp)
 	sev_dev_destroy(psp);
 
 	sp_free_psp_irq(sp, psp);
+
+	if (is_vendor_hygon() && hygon_psp_hooks.psp_misc)
+		kref_put(&hygon_psp_hooks.psp_misc->refcount, hygon_psp_exit);
 
 	if (sp->clear_psp_master_device)
 		sp->clear_psp_master_device(sp);
