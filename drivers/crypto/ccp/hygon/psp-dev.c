@@ -20,6 +20,169 @@
 /* Function and variable pointers for hooks */
 struct hygon_psp_hooks_table hygon_psp_hooks;
 
+static struct psp_misc_dev *psp_misc;
+
+uint64_t atomic64_exchange(uint64_t *dst, uint64_t val)
+{
+	return xchg(dst, val);
+}
+
+int psp_mutex_init(struct psp_mutex *mutex)
+{
+	if (!mutex)
+		return -1;
+	mutex->locked = 0;
+	return 0;
+}
+
+int psp_mutex_trylock(struct psp_mutex *mutex)
+{
+	if (atomic64_exchange(&mutex->locked, 1))
+		return 0;
+	else
+		return 1;
+}
+
+int psp_mutex_lock_timeout(struct psp_mutex *mutex, uint64_t ms)
+{
+	int ret = 0;
+	unsigned long je;
+
+	je = jiffies + msecs_to_jiffies(ms);
+	do {
+		if (psp_mutex_trylock(mutex)) {
+			ret = 1;
+			break;
+		}
+	} while (time_before(jiffies, je));
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(psp_mutex_lock_timeout);
+
+int psp_mutex_unlock(struct psp_mutex *mutex)
+{
+	if (!mutex)
+		return -1;
+
+	atomic64_exchange(&mutex->locked, 0);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(psp_mutex_unlock);
+
+static int mmap_psp(struct file *filp, struct vm_area_struct *vma)
+{
+	unsigned long page;
+
+	page = virt_to_phys((void *)psp_misc->data_pg_aligned) >> PAGE_SHIFT;
+
+	if (remap_pfn_range(vma, vma->vm_start, page, (vma->vm_end - vma->vm_start),
+				vma->vm_page_prot)) {
+		pr_info("remap failed...");
+		return -1;
+	}
+	vm_flags_mod(vma, VM_DONTDUMP|VM_DONTEXPAND, 0);
+	pr_info("remap_pfn_rang page:[%lu] ok.\n", page);
+	return 0;
+}
+
+static ssize_t read_psp(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+{
+	ssize_t remaining;
+
+	if ((*ppos + count) > PAGE_SIZE) {
+		pr_info("%s: invalid address range, pos %llx, count %lx\n",
+			__func__, *ppos, count);
+		return -EFAULT;
+	}
+
+	remaining = copy_to_user(buf, (char *)psp_misc->data_pg_aligned + *ppos, count);
+	if (remaining)
+		return -EFAULT;
+	*ppos += count;
+
+	return count;
+}
+
+static ssize_t write_psp(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
+{
+	ssize_t remaining, written;
+
+	if ((*ppos + count) > PAGE_SIZE) {
+		pr_info("%s: invalid address range, pos %llx, count %lx\n",
+			__func__, *ppos, count);
+		return -EFAULT;
+	}
+
+	remaining = copy_from_user((char *)psp_misc->data_pg_aligned + *ppos, buf, count);
+	written = count - remaining;
+	if (!written)
+		return -EFAULT;
+
+	*ppos += written;
+
+	return written;
+}
+
+static const struct file_operations psp_fops = {
+	.owner          = THIS_MODULE,
+	.mmap		= mmap_psp,
+	.read		= read_psp,
+	.write		= write_psp,
+};
+
+int hygon_psp_additional_setup(struct sp_device *sp)
+{
+	struct device *dev = sp->dev;
+	int ret = 0;
+
+	if (!psp_misc) {
+		struct miscdevice *misc;
+
+		psp_misc = devm_kzalloc(dev, sizeof(*psp_misc), GFP_KERNEL);
+		if (!psp_misc)
+			return -ENOMEM;
+		psp_misc->data_pg_aligned = (struct psp_dev_data *)get_zeroed_page(GFP_KERNEL);
+		if (!psp_misc->data_pg_aligned) {
+			dev_err(dev, "alloc psp data page failed\n");
+			devm_kfree(dev, psp_misc);
+			psp_misc = NULL;
+			return -ENOMEM;
+		}
+		SetPageReserved(virt_to_page(psp_misc->data_pg_aligned));
+		psp_mutex_init(&psp_misc->data_pg_aligned->mb_mutex);
+
+		*(uint32_t *)((void *)psp_misc->data_pg_aligned + 8) = 0xdeadbeef;
+		misc = &psp_misc->misc;
+		misc->minor = MISC_DYNAMIC_MINOR;
+		misc->name = "hygon_psp_config";
+		misc->fops = &psp_fops;
+
+		ret = misc_register(misc);
+		if (ret)
+			return ret;
+		kref_init(&psp_misc->refcount);
+		hygon_psp_hooks.psp_misc = psp_misc;
+	} else {
+		kref_get(&psp_misc->refcount);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(hygon_psp_additional_setup);
+
+void hygon_psp_exit(struct kref *ref)
+{
+	struct psp_misc_dev *misc_dev = container_of(ref, struct psp_misc_dev, refcount);
+
+	misc_deregister(&misc_dev->misc);
+	ClearPageReserved(virt_to_page(misc_dev->data_pg_aligned));
+	free_page((unsigned long)misc_dev->data_pg_aligned);
+	psp_misc = NULL;
+	hygon_psp_hooks.psp_misc = NULL;
+}
+EXPORT_SYMBOL_GPL(hygon_psp_exit);
+
 int fixup_hygon_psp_caps(struct psp_device *psp)
 {
 	/* the hygon psp is unavailable if bit0 is cleared in feature reg */
@@ -96,10 +259,19 @@ static int __psp_do_cmd_locked(int cmd, void *data, int *psp_ret)
 int psp_do_cmd(int cmd, void *data, int *psp_ret)
 {
 	int rc;
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					   PSP_MUTEX_TIMEOUT) != 1)
+			return -EBUSY;
+	} else {
+		mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
+	}
 
-	mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
 	rc = __psp_do_cmd_locked(cmd, data, psp_ret);
-	mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
 
 	return rc;
 }
