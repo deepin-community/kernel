@@ -1045,9 +1045,19 @@ int sev_do_cmd(int cmd, void *data, int *psp_ret)
 {
 	int rc;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
+
 	rc = __sev_do_cmd_locked(cmd, data, psp_ret);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return rc;
 }
@@ -1667,9 +1677,18 @@ int sev_platform_init(struct sev_platform_init_args *args)
 {
 	int rc;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 	rc = _sev_platform_init_locked(args);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return rc;
 }
@@ -2568,7 +2587,13 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > SEV_MAX)
 		return -EINVAL;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 
 	switch (input.cmd) {
 
@@ -2620,7 +2645,10 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 out:
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return ret;
 }
@@ -2838,9 +2866,18 @@ static void __sev_firmware_shutdown(struct sev_device *sev, bool panic)
 
 static void sev_firmware_shutdown(struct sev_device *sev)
 {
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return ;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 	__sev_firmware_shutdown(sev, false);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 }
 
 void sev_platform_shutdown(void)
