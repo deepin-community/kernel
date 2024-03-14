@@ -1,0 +1,41 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: GPL-2.0
+
+srctree ?= .
+KERNELRELEASE = 6.8.9
+DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
+ifneq (,$(filter amd64,$(DEB_HOST_ARCH)))
+BUILD_ARCH = x86
+else ifneq (,$(filter aarch64,$(DEB_HOST_ARCH)))
+BUILD_ARCH = arm64
+else ifneq (,$(filter loong64,$(DEB_HOST_ARCH)))
+BUILD_ARCH = loongarch
+else
+BUILD_ARCH = ${DEB_HOST_ARCH}
+endif
+
+.PHONY: clean build build-arch build-indep binary binary-arch binary-indep
+
+build-indep:
+build-arch:
+ifneq (,$(filter aarch64,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_arm64_desktop_defconfig  all  -j$(shell nproc)
+else ifneq (,$(filter amd64,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_x86_desktop_defconfig  all -j$(shell nproc)
+else ifneq (,$(filter loong64,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_loongarch_desktop_defconfig  all  -j$(shell nproc)
+else ifneq (,$(filter mips64el,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_mips_loongson4000_desktop_defconfig  all  -j$(shell nproc)
+endif
+
+build: build-arch
+
+binary-indep: build-indep
+binary-arch: build-arch
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) bindeb-pkg
+
+clean:
+	rm -rf debian/files debian/linux-*
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} clean
+
+binary: binary-arch

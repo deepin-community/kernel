@@ -5875,6 +5875,12 @@ F:	arch/mips/dec/
 F:	arch/mips/include/asm/dec/
 F:	arch/mips/include/asm/mach-dec/
 
+DEEPIN DEB BUILD RULES
+M:	"WangYuli" <wangyuli@uniontech.com>
+S:	Maintained
+W:	https://build.deepin.com/
+F:	debian/
+
 DEFXX FDDI NETWORK DRIVER
 M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
 S:	Maintained
