@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+
+srctree ?= .
+KERNELRELEASE = 6.5.4
+DEB_HOST_ARCH ?= $(shell dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null)
+ifneq (,$(filter amd64,$(DEB_HOST_ARCH)))
+BUILD_ARCH = x86
+else
+BUILD_ARCH = ${DEB_HOST_ARCH}
+endif
+
+.PHONY: clean build build-arch build-indep binary binary-arch binary-indep
+
+build-indep:
+build-arch:
+ifneq (,$(filter amd64,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_desktop_common_defconfig all  -j$(shell nproc)
+else ifneq (,$(filter arm64,$(DEB_HOST_ARCH)))
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) 	$(shell $(srctree)/scripts/package/deb-build-option) 	deepin_arm_desktop_defconfig  all  -j$(shell nproc)
+endif 
+
+build: build-arch
+
+binary-indep:
+binary-arch: build-arch
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} 	KERNELRELEASE=$(KERNELRELEASE) intdeb-pkg
+
+clean:
+	rm -rf debian/files debian/linux-*
+	$(MAKE) -f $(srctree)/Makefile ARCH=${BUILD_ARCH} clean
+
+binary: binary-arch
