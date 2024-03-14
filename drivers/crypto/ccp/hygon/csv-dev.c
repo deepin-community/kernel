@@ -179,6 +179,7 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	void __user *argp = (void __user *)arg;
 	struct sev_issue_cmd input;
 	int ret = -EFAULT;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
 	if (!hygon_psp_hooks.sev_dev_hooks_installed)
 		return -ENODEV;
@@ -195,7 +196,7 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > CSV_MAX)
 		return -EINVAL;
 
-	if (is_vendor_hygon()) {
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 					   PSP_MUTEX_TIMEOUT) != 1)
 			return -EBUSY;
@@ -223,7 +224,7 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 		 * Release the mutex before calling the native ioctl function
 		 * because it will acquires the mutex.
 		 */
-		if (is_vendor_hygon())
+		if (is_vendor_hygon() && mutex_enabled)
 			psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 		else
 			mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
@@ -233,7 +234,7 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
@@ -391,11 +392,12 @@ static int csv_do_ringbuf_cmds(int *psp_ret)
 {
 	struct sev_user_data_status data;
 	int rc;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
 	if (!hygon_psp_hooks.sev_dev_hooks_installed)
 		return -ENODEV;
 
-	if (is_vendor_hygon()) {
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 					   PSP_MUTEX_TIMEOUT) != 1)
 			return -EBUSY;
@@ -414,7 +416,7 @@ static int csv_do_ringbuf_cmds(int *psp_ret)
 	csv_comm_mode = CSV_COMM_MAILBOX_ON;
 
 cmd_unlock:
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
