@@ -1044,8 +1044,9 @@ static int __sev_do_cmd_locked(int cmd, void *data, int *psp_ret)
 int sev_do_cmd(int cmd, void *data, int *psp_ret)
 {
 	int rc;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
-	if (is_vendor_hygon()) {
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 				PSP_MUTEX_TIMEOUT) != 1)
 		return -EBUSY;
@@ -1054,7 +1055,7 @@ int sev_do_cmd(int cmd, void *data, int *psp_ret)
 	}
 
 	rc = __sev_do_cmd_locked(cmd, data, psp_ret);
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(&sev_cmd_mutex);
@@ -1676,8 +1677,9 @@ static int _sev_platform_init_locked(struct sev_platform_init_args *args)
 int sev_platform_init(struct sev_platform_init_args *args)
 {
 	int rc;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
-	if (is_vendor_hygon()) {
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 				PSP_MUTEX_TIMEOUT) != 1)
 		return -EBUSY;
@@ -1685,7 +1687,7 @@ int sev_platform_init(struct sev_platform_init_args *args)
 		mutex_lock(&sev_cmd_mutex);
 	}
 	rc = _sev_platform_init_locked(args);
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(&sev_cmd_mutex);
@@ -2574,6 +2576,7 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	struct sev_issue_cmd input;
 	int ret = -EFAULT;
 	bool writable = file->f_mode & FMODE_WRITE;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
 	if (!psp_master || !psp_master->sev_data)
 		return -ENODEV;
@@ -2587,7 +2590,7 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > SEV_MAX)
 		return -EINVAL;
 
-	if (is_vendor_hygon()) {
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 					PSP_MUTEX_TIMEOUT) != 1)
 		return -EBUSY;
@@ -2645,7 +2648,7 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 out:
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(&sev_cmd_mutex);
@@ -2866,7 +2869,9 @@ static void __sev_firmware_shutdown(struct sev_device *sev, bool panic)
 
 static void sev_firmware_shutdown(struct sev_device *sev)
 {
-	if (is_vendor_hygon()) {
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
+
+	if (is_vendor_hygon() && mutex_enabled) {
 		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
 				PSP_MUTEX_TIMEOUT) != 1)
 		return ;
@@ -2874,7 +2879,7 @@ static void sev_firmware_shutdown(struct sev_device *sev)
 		mutex_lock(&sev_cmd_mutex);
 	}
 	__sev_firmware_shutdown(sev, false);
-	if (is_vendor_hygon())
+	if (is_vendor_hygon() && mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
 	else
 		mutex_unlock(&sev_cmd_mutex);

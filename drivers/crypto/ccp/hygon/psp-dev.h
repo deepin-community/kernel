@@ -32,6 +32,7 @@ extern struct hygon_psp_hooks_table {
 	bool sev_dev_hooks_installed;
 	struct mutex *sev_cmd_mutex;
 	struct psp_misc_dev *psp_misc;
+	bool psp_mutex_enabled;
 	bool *psp_dead;
 	int *psp_timeout;
 	int *psp_cmd_timeout;
@@ -45,7 +46,7 @@ extern struct hygon_psp_hooks_table {
 	long (*sev_ioctl)(struct file *file, unsigned int ioctl, unsigned long arg);
 } hygon_psp_hooks;
 
-#define PSP_MUTEX_TIMEOUT 10000
+#define PSP_MUTEX_TIMEOUT 60000
 struct psp_mutex {
 	uint64_t locked;
 };
