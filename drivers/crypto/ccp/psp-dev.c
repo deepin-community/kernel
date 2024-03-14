@@ -9,6 +9,7 @@
 
 #include <linux/kernel.h>
 #include <linux/irqreturn.h>
+#include <linux/delay.h>
 
 #include "sp-dev.h"
 #include "psp-dev.h"
