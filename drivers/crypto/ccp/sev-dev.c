@@ -1031,9 +1031,19 @@ int sev_do_cmd(int cmd, void *data, int *psp_ret)
 {
 	int rc;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
+
 	rc = __sev_do_cmd_locked(cmd, data, psp_ret);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return rc;
 }
@@ -1855,9 +1865,18 @@ int sev_platform_init(struct sev_platform_init_args *args)
 {
 	int rc;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 	rc = _sev_platform_init_locked(args);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	/*
 	 * Register the sysfs interface outside the sev_cmd_mutex. The
@@ -2747,7 +2766,13 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > SEV_MAX)
 		return -EINVAL;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 
 	switch (input.cmd) {
 
@@ -2799,7 +2824,10 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 out:
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return ret;
 }
@@ -3012,12 +3040,12 @@ static void __sev_firmware_shutdown(struct sev_device *sev, bool panic)
 
 static void sev_firmware_shutdown(struct sev_device *sev)
 {
-	/*
-	 * Calling without sev_cmd_mutex held as TSM will likely try disconnecting
-	 * IDE and this ends up calling sev_do_cmd() which locks sev_cmd_mutex.
-	 */
-	if (sev->tio_status)
-		sev_tsm_uninit(sev);
+/*
+ * Calling without sev_cmd_mutex held as TSM will likely try disconnecting
+ * IDE and this ends up calling sev_do_cmd() which locks sev_cmd_mutex.
+ */
+if (sev->tio_status)
+	sev_tsm_uninit(sev);
 
 	/*
 	 * Remove the sysfs interface before taking the sev_cmd_mutex.
@@ -3028,14 +3056,24 @@ static void sev_firmware_shutdown(struct sev_device *sev)
 	 */
 	sev_snp_unregister_verify_mitigation(sev);
 
+if (is_vendor_hygon()) {
+	if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				   PSP_MUTEX_TIMEOUT) != 1)
+		return;
+} else {
 	mutex_lock(&sev_cmd_mutex);
+}
 
-	__sev_firmware_shutdown(sev, false);
+__sev_firmware_shutdown(sev, false);
 
-	kfree(sev->tio_status);
-	sev->tio_status = NULL;
+kfree(sev->tio_status);
+sev->tio_status = NULL;
 
+if (is_vendor_hygon())
+	psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+else
 	mutex_unlock(&sev_cmd_mutex);
+
 }
 
 void sev_platform_shutdown(void)

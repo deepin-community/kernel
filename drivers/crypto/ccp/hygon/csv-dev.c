@@ -195,7 +195,13 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > CSV_MAX)
 		return -EINVAL;
 
-	mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					   PSP_MUTEX_TIMEOUT) != 1)
+			return -EBUSY;
+	} else {
+		mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
+	}
 
 	switch (input.cmd) {
 	case CSV_HGSC_CERT_IMPORT:
@@ -217,14 +223,20 @@ static long csv_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 		 * Release the mutex before calling the native ioctl function
 		 * because it will acquires the mutex.
 		 */
-		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
+		if (is_vendor_hygon())
+			psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+		else
+			mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
 		return hygon_psp_hooks.sev_ioctl(file, ioctl, arg);
 	}
 
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 
-	mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
 
 	return ret;
 }
@@ -383,7 +395,13 @@ static int csv_do_ringbuf_cmds(int *psp_ret)
 	if (!hygon_psp_hooks.sev_dev_hooks_installed)
 		return -ENODEV;
 
-	mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
+	if (is_vendor_hygon()) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					   PSP_MUTEX_TIMEOUT) != 1)
+			return -EBUSY;
+	} else {
+		mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
+	}
 
 	rc = __csv_ring_buffer_enter_locked(psp_ret);
 	if (rc)
@@ -396,7 +414,10 @@ static int csv_do_ringbuf_cmds(int *psp_ret)
 	csv_comm_mode = CSV_COMM_MAILBOX_ON;
 
 cmd_unlock:
-	mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
+	if (is_vendor_hygon())
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
 
 	return rc;
 }
