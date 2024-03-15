@@ -24,7 +24,7 @@
 	ldi	$sp, 0x40($sp); \
 	bis	$31, $31, $7
 
-	ble	$18, $out
+	ble	$18, 255f
 
 	cmplt	$18, 8, $1
 	bne	$1, $byte_loop_tail
@@ -60,7 +60,7 @@ $no_more_simd:
 	RESTORE_SIMD_REGS
 
 $simd_end:
-	ble	$18, $out
+	ble	$18, 255f
 	cmplt	$18, 16, $1
 	bne	$1, $quad_loop_end
 
@@ -74,7 +74,7 @@ $quad_loop_tail:
 	beq	$1, $quad_loop_tail
 
 $quad_loop_end:
-	ble	$18, $out
+	ble	$18, 255f
 	cmplt	$18, 8, $1
 	bne	$1, $byte_loop_tail
 
@@ -82,7 +82,7 @@ $move_one_quad:
 	FIXUP_LDST( stl $17, 0($16) )
 	subl	$18, 8, $18
 	addl	$16, 8, $16
-	ble	$18, $out
+	ble	$18, 255f
 
 	.align 3
 $byte_loop_tail:
@@ -90,4 +90,4 @@ $byte_loop_tail:
 	subl	$18, 1, $18
 	addl	$16, 1, $16
 	bgt	$18, $byte_loop_tail
-	br	$31, $out
+	br	$31, 255f
