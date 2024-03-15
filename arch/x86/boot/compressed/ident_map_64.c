@@ -298,6 +298,9 @@ static int set_clr_page_flags(struct x86_mapping_info *info,
 	if ((set | clr) & _PAGE_ENC) {
 		clflush_page(address);
 
+		/* On CSV3, notify secure processor to manage page attr changes */
+		csv_update_page_attr(address, set, clr);
+
 		/*
 		 * If the encryption attribute is being cleared, change the page state
 		 * to shared in the RMP table.
