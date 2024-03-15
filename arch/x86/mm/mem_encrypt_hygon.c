@@ -49,6 +49,9 @@ void print_hygon_cc_feature_info(void)
 	/* Encrypted Register State */
 	if (cc_platform_has(CC_ATTR_GUEST_STATE_ENCRYPT))
 		pr_info(" HYGON CSV2");
+
+	if (csv3_active())
+		pr_info(" HYGON CSV3");
 }
 
 /*
