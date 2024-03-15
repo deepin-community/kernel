@@ -306,6 +306,103 @@ struct csv3_data_dbg_read_mem {
 	u32 size;			/* In */
 } __packed;
 
+/**
+ * struct csv3_data_send_encrypt_data - SEND_ENCRYPT_DATA command parameters
+ *
+ * @handle: handle of the VM to process
+ * @hdr_address: physical address containing packet header
+ * @hdr_len: len of packet header
+ * @guest_block: physical address containing multiple guest address
+ * @guest_len: len of guest block
+ * @flag: flag of send encrypt data
+ *        0x00000000: migrate pages in guest block
+ *        0x00000001: set readonly of pages in guest block
+ *            others: invalid
+ * @trans_block: physical address of a page containing multiple host memory pages
+ * @trans_len: len of host memory region
+ */
+struct csv3_data_send_encrypt_data {
+	u32 handle;			/* In */
+	u32 reserved;			/* In */
+	u64 hdr_address;		/* In */
+	u32 hdr_len;			/* In/Out */
+	u32 reserved1;			/* In */
+	u64 guest_block;		/* In */
+	u32 guest_len;			/* In */
+	u32 flag;			/* In */
+	u64 trans_block;		/* In */
+	u32 trans_len;			/* In/Out */
+} __packed;
+
+/**
+ * struct csv3_data_send_encrypt_context - SEND_ENCRYPT_CONTEXT command parameters
+ *
+ * @handle: handle of the VM to process
+ * @hdr_address: physical address containing packet header
+ * @hdr_len: len of packet header
+ * @trans_block: physical address of a page containing multiple host memory pages
+ * @trans_len: len of host memory region
+ */
+struct csv3_data_send_encrypt_context {
+	u32 handle;			/* In */
+	u32 reserved;			/* In */
+	u64 hdr_address;		/* In */
+	u32 hdr_len;			/* In/Out */
+	u32 reserved1;			/* In */
+	u64 trans_block;		/* In */
+	u32 trans_len;			/* In/Out */
+} __packed;
+
+/**
+ * struct csv3_data_receive_encrypt_data - RECEIVE_ENCRYPT_DATA command parameters
+ *
+ * @handle: handle of the VM to process
+ * @hdr_address: physical address containing packet header blob
+ * @hdr_len: len of packet header
+ * @guest_block: system physical address containing multiple guest address
+ * @guest_len: len of guest block memory region
+ * @trans_block: physical address of a page containing multiple host memory pages
+ * @trans_len: len of host memory region
+ */
+struct csv3_data_receive_encrypt_data {
+	u32 handle;			/* In */
+	u32 reserved;			/* In */
+	u64 hdr_address;		/* In */
+	u32 hdr_len;			/* In */
+	u32 reserved1;			/* In */
+	u64 guest_block;		/* In */
+	u32 guest_len;			/* In */
+	u32 reserved2;			/* In */
+	u64 trans_block;		/* In */
+	u32 trans_len;			/* In */
+} __packed;
+
+/**
+ * struct csv3_data_receive_encrypt_context - RECEIVE_ENCRYPT_CONTEXT command parameters
+ *
+ * @handle: handle of the VM to process
+ * @hdr_address: physical address containing packet header
+ * @hdr_len: len of packet header
+ * @trans_block: physical address of a page containing multiple host memory pages
+ * @trans_len: len of host memory region
+ * @shadow_vmcb_block: physical address of a page containing multiple shadow vmcb address
+ * @secure_vmcb_block: physical address of a page containing multiple secure vmcb address
+ * @vmcb_block_len: len of shadow/secure vmcb block
+ */
+struct csv3_data_receive_encrypt_context {
+	u32 handle;			/* In */
+	u32 reserved;			/* In */
+	u64 hdr_address;		/* In */
+	u32 hdr_len;			/* In */
+	u32 reserved1;			/* In */
+	u64 trans_block;		/* In */
+	u32 trans_len;			/* In */
+	u32 reserved2;			/* In */
+	u64 shadow_vmcb_block;		/* In */
+	u64 secure_vmcb_block;		/* In */
+	u32 vmcb_block_len;		/* In */
+} __packed;
+
 /*
  * enum VPSP_CMD_STATUS - virtual psp command status
  *
