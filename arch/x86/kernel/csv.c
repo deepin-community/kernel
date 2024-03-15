@@ -172,6 +172,50 @@ static void __init __csv3_early_secure_call(u64 base_address, u64 num_pages,
 	early_secure_call_page_idx ^= 1;
 }
 
+static void csv3_secure_call(u64 base_address, u64 num_pages,
+			     enum csv3_secure_command_type cmd_type)
+{
+	u32 cmd_ack;
+	struct secure_call_pages *data;
+	struct csv3_secure_call_cmd *page_rd;
+	struct csv3_secure_call_cmd *page_wr;
+	int page_idx;
+	int cpu;
+
+	preempt_disable();
+
+	cpu = smp_processor_id();
+	data = per_cpu(secure_call_data, cpu);
+	page_idx = per_cpu(secure_call_page_idx, cpu);
+
+	if (page_idx == 0) {
+		page_rd = &data->page_a;
+		page_wr = &data->page_b;
+	} else {
+		page_rd = &data->page_b;
+		page_wr = &data->page_a;
+	}
+
+	while (1) {
+		page_wr->cmd_type = (u32)cmd_type;
+		page_wr->nums = 1;
+		page_wr->entry[0].base_address = base_address;
+		page_wr->entry[0].size = num_pages << PAGE_SHIFT;
+
+		/*
+		 * Write command in page_wr must be done before retrieve cmd
+		 * ack from page_rd, and it is ensured by the smp_mb below.
+		 */
+		smp_mb();
+
+		cmd_ack = page_rd->cmd_type;
+		if (cmd_ack != cmd_type)
+			break;
+	}
+
+	per_cpu(secure_call_page_idx, cpu) ^= 1;
+	preempt_enable();
+}
 
 static void __csv3_memory_enc_dec(csv3_secure_call_func secure_call, u64 vaddr,
 				  u64 pages, bool enc)
@@ -232,4 +276,12 @@ void __init csv_early_memory_enc_dec(u64 vaddr, u64 size, bool enc)
 	npages = (size + (vaddr & ~PAGE_MASK) + PAGE_SIZE - 1) >> PAGE_SHIFT;
 	__csv3_memory_enc_dec(__csv3_early_secure_call, vaddr & PAGE_MASK,
 			      npages, enc);
+}
+
+void csv_memory_enc_dec(u64 vaddr, u64 pages, bool enc)
+{
+	if (!csv3_active())
+		return;
+
+	__csv3_memory_enc_dec(csv3_secure_call, vaddr & PAGE_MASK, pages, enc);
 }
