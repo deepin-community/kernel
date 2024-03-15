@@ -345,6 +345,14 @@ static bool amd_enc_status_change_finish(unsigned long vaddr, int npages, bool e
 	if (!cc_platform_has(CC_ATTR_HOST_MEM_ENCRYPT))
 		enc_dec_hypercall(vaddr, npages << PAGE_SHIFT, enc);
 
+	/*
+	 * On CSV3, the shared and private page attr changes should be managed
+	 * by secure processor. Private pages live in isolated memory region,
+	 * while shared pages live out of isolated memory region.
+	 */
+	if (csv3_active())
+		csv_memory_enc_dec(vaddr, npages, enc);
+
 	return true;
 }
 
