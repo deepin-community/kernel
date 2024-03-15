@@ -15,10 +15,15 @@
 void csv_set_status(void);
 void csv_init_secure_call_pages(void *boot_params);
 
+void csv_update_page_attr(unsigned long address, pteval_t set, pteval_t clr);
+
 #else
 
 static inline void csv_set_status(void) { }
 static inline void csv_init_secure_call_pages(void *boot_params) { }
+
+static inline void csv_update_page_attr(unsigned long address,
+					pteval_t set, pteval_t clr) { }
 
 #endif
 

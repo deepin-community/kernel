@@ -23,6 +23,22 @@
 static unsigned int csv3_enabled __section(".data");
 static unsigned int csv3_secure_call_init;
 
+void csv_update_page_attr(unsigned long address, pteval_t set, pteval_t clr)
+{
+	if (!csv3_enabled)
+		return;
+
+	if ((set | clr) & _PAGE_ENC) {
+		if (set & _PAGE_ENC)
+			csv3_early_secure_call_ident_map(__pa(address), 1,
+							 CSV3_SECURE_CMD_ENC);
+
+		if (clr & _PAGE_ENC)
+			csv3_early_secure_call_ident_map(__pa(address), 1,
+							 CSV3_SECURE_CMD_DEC);
+	}
+}
+
 /* Invoke it before jump to real kernel in case secure call pages are not mapped
  * in the identity page table.
  *
