@@ -282,6 +282,7 @@ static void __init csv_cma_reserve_mem(void)
 					1 << CSV_CMA_SHIFT, node);
 				break;
 			}
+			cma_enable_concurrency(csv_cma->cma);
 
 			if (start > cma_get_base(csv_cma->cma) || !start)
 				start = cma_get_base(csv_cma->cma);
