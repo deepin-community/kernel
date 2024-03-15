@@ -55,6 +55,24 @@ static inline uint32_t csv_get_smr_entry_shift(void) { return 0; }
 #define MSR_CSV3_ENABLED_BIT		30
 #define MSR_CSV3_ENABLED		BIT_ULL(MSR_CSV3_ENABLED_BIT)
 
+#ifdef CONFIG_HYGON_CSV
+
+bool csv3_active(void);
+
+void __init csv_early_reset_memory(struct boot_params *bp);
+void __init csv_early_update_memory_enc(u64 vaddr, u64 pages);
+void __init csv_early_update_memory_dec(u64 vaddr, u64 pages);
+
+#else	/* !CONFIG_HYGON_CSV */
+
+static inline bool csv3_active(void) { return false; }
+
+static inline void __init csv_early_reset_memory(struct boot_params *bp) { }
+static inline void __init csv_early_update_memory_enc(u64 vaddr, u64 pages) { }
+static inline void __init csv_early_update_memory_dec(u64 vaddr, u64 pages) { }
+
+#endif	/* CONFIG_HYGON_CSV */
+
 #endif	/* __ASSEMBLY__ */
 
 #endif	/* __ASM_X86_CSV_H__ */

@@ -160,3 +160,5 @@ ifeq ($(CONFIG_X86_64),y)
 	obj-y				+= vsmp_64.o
 	obj-$(CONFIG_PCI)		+= zhaoxin_kh40000.o
 endif
+
+obj-$(CONFIG_HYGON_CSV)			+= csv.o
