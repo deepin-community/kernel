@@ -29,7 +29,7 @@
 	bis	$31, $31, $7
 
 
-	ble	$18, $out
+	ble	$18, 255f
 
 	cmplt	$18, 8, $1
 	bne	$1, $byte_loop_tail
@@ -68,7 +68,7 @@ $no_more_simd:
 	RESTORE_SIMD_REGS
 
 $simd_end:
-	ble	$18, $out
+	ble	$18, 255f
 	cmplt	$18, 16, $1
 	bne	$1, $quad_loop_end
 
@@ -85,7 +85,7 @@ $quad_loop_tail:
 	beq	$1, $quad_loop_tail
 
 $quad_loop_end:
-	ble	$18, $out
+	ble	$18, 255f
 	cmplt	$18, 8, $1
 	bne	$1, $byte_loop_tail
 
@@ -95,7 +95,7 @@ $move_one_quad:
 	subl	$18, 8, $18
 	addl	$17, 8, $17
 	addl	$16, 8, $16
-	ble	$18, $out
+	ble	$18, 255f
 
 	.align 3
 $byte_loop_tail:
@@ -105,4 +105,4 @@ $byte_loop_tail:
 	addl	$17, 1, $17
 	addl	$16, 1, $16
 	bgt	$18, $byte_loop_tail
-	br	$31, $out
+	br	$31, 255f

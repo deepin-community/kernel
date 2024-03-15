@@ -33,6 +33,7 @@ __start:
 	subl	$18, $16, $18
 	mov	$31, $17
 	call	$26, __constant_c_memset
+	ldgp	$29, 0($26)
 #ifdef CONFIG_RELOCATABLE
 	ldi	$30, -8($30)
 	stl	$29, 0($30)

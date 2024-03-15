@@ -25,8 +25,13 @@ memmove:
 	bis	$1, $2, $1
 	mov	$16, $0
 	xor	$16, $17, $2
-	bne	$1, memcpy		# samegp
+	beq	$1, $memmove_cont
+	ldi	$27, memcpy
+	jmp	$31, ($27)
+	/* should never reach here
+	 * memcpy should return to caller directly */
 
+$memmove_cont:
 	and	$2, 7, $2		# Test for src/dest co-alignment.
 	and	$16, 7, $1
 	cmpule	$16, $17, $3

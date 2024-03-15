@@ -16,7 +16,7 @@
 	99: x,##y;			\
 	.section __ex_table,"a";	\
 	.long 99b - .;			\
-	ldi $31, $out-99b($31);	\
+	ldi $31, 255f-99b($31);	\
 	.previous
 
 /*
@@ -27,19 +27,15 @@
  * $18:	bytes left to copy
  *
  */
-	.globl __clear_user
-	.ent __clear_user
-__clear_user:
+	.globl ____clear_user_hw_una
+	.ent ____clear_user_hw_una
+____clear_user_hw_una:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
 	bis	$31, $31, $17
-#if defined(CONFIG_SUBARCH_C3B)
-#include "deep-set_template.S"
-#elif defined(CONFIG_SUBARCH_C4)
 #include "deep-set_template_c4.S"
-#endif
-$out:
+255:
 	bis	$31, $18, $0
 	beq	$7, $return
 
@@ -48,5 +44,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end __clear_user
-	EXPORT_SYMBOL(__clear_user)
+	.end ____clear_user_hw_una

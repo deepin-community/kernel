@@ -3,6 +3,7 @@
 #define _ASM_SW64_HW_INIT_H
 #include <linux/numa.h>
 #include <linux/jump_label.h>
+#include <linux/cpumask.h>
 
 #include <asm/cache.h>
 
@@ -97,6 +98,8 @@ static inline void update_cpu_freq(unsigned long khz)
 DECLARE_STATIC_KEY_TRUE(run_mode_host_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_guest_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_emul_key);
+
+DECLARE_STATIC_KEY_FALSE(core_hw_una_enabled);
 
 #define is_in_host()		static_branch_likely(&run_mode_host_key)
 #define is_in_guest()		static_branch_unlikely(&run_mode_guest_key)
