@@ -26,6 +26,10 @@
 #include <asm/csv.h>
 #include <asm/processor-hygon.h>
 
+u32 vendor_ebx __section(".data") = 0;
+u32 vendor_ecx __section(".data") = 0;
+u32 vendor_edx __section(".data") = 0;
+
 void print_hygon_cc_feature_info(void)
 {
 	/* Secure Memory Encryption */
@@ -104,6 +108,24 @@ static bool __init __maybe_unused csv3_check_cpu_support(void)
 		return false;
 
 	return !!me_mask && csv3_enabled;
+}
+
+/* csv3_active() indicate whether the guest is protected by CSV3 */
+bool noinstr csv3_active(void)
+{
+	if (vendor_ebx == 0 || vendor_ecx == 0 || vendor_edx == 0) {
+		u32 eax = 0;
+
+		native_cpuid(&eax, &vendor_ebx, &vendor_ecx, &vendor_edx);
+	}
+
+	/* HygonGenuine */
+	if (vendor_ebx == CPUID_VENDOR_HygonGenuine_ebx &&
+	    vendor_ecx == CPUID_VENDOR_HygonGenuine_ecx &&
+	    vendor_edx == CPUID_VENDOR_HygonGenuine_edx)
+		return !!(sev_status & MSR_CSV3_ENABLED);
+	else
+		return false;
 }
 
 /******************************************************************************/
