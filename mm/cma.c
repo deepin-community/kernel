@@ -492,10 +492,12 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 		spin_unlock_irq(&cma->lock);
 
 		pfn = cma->base_pfn + (bitmap_no << cma->order_per_bit);
-		mutex_lock(&cma_mutex);
+		if (!cma->no_mutex)
+			mutex_lock(&cma_mutex);
 		ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA,
 				     GFP_KERNEL | (no_warn ? __GFP_NOWARN : 0));
-		mutex_unlock(&cma_mutex);
+		if (!cma->no_mutex)
+			mutex_unlock(&cma_mutex);
 		if (ret == 0) {
 			page = pfn_to_page(pfn);
 			break;
@@ -608,4 +610,12 @@ int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data)
 	}
 
 	return 0;
+}
+
+void cma_enable_concurrency(struct cma *cma)
+{
+	if (!cma)
+		return;
+
+	cma->no_mutex = true;
 }
