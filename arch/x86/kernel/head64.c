@@ -42,6 +42,7 @@
 #include <asm/sev.h>
 #include <asm/tdx.h>
 #include <asm/init.h>
+#include <asm/csv.h>
 
 /*
  * Manage page tables very early on.
@@ -159,6 +160,14 @@ static unsigned long __head sme_postprocess_startup(struct boot_params *bp, pmdv
 
 			i = pmd_index(vaddr);
 			pmd[i] -= sme_get_me_mask();
+		}
+
+		/* On CSV3, move the shared pages out of isolated memory region. */
+		if (csv3_active()) {
+			vaddr = (unsigned long)__start_bss_decrypted;
+			csv_early_reset_memory(bp);
+			csv_early_update_memory_dec((unsigned long)vaddr,
+						    (vaddr_end - vaddr) >> PAGE_SHIFT);
 		}
 	}
 
