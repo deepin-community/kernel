@@ -58,4 +58,5 @@ extern int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data)
 extern void cma_reserve_pages_on_error(struct cma *cma);
 
 extern int __init cma_alloc_areas(unsigned int max_cma_size);
+extern void cma_enable_concurrency(struct cma *cma);
 #endif
