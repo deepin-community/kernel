@@ -53,3 +53,10 @@ config CRYPTO_DEV_CCP_DEBUGFS
 	help
 	  Expose CCP device information such as operation statistics, feature
 	  information, and descriptor queue contents.
+
+config HYGON_PSP2CPU_CMD
+	bool "Hygon PSP2CPU Command Interface"
+	default y
+	depends on CRYPTO_DEV_SP_PSP
+	help
+	  Hygon PSP2CPU Command Support
