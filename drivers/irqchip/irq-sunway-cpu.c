@@ -133,6 +133,7 @@ static void handle_nmi_int(void)
 	pr_info("enter nmi int\n");
 }
 
+#ifdef CONFIG_SW64_PINTC
 static void handle_dev_int(struct pt_regs *regs)
 {
 	unsigned long config_val, val, stat;
@@ -152,6 +153,12 @@ static void handle_dev_int(struct pt_regs *regs)
 
 	sw64_io_write(node, DEV_INT_CONFIG, config_val);
 }
+#else
+static void handle_dev_int(struct pt_regs *regs)
+{
+	pr_crit(PREFIX "the child controller PINTC is not configured!\n");
+}
+#endif
 
 int pme_state;
 
