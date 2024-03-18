@@ -671,8 +671,6 @@ static void ccp_sm2_enc_compute(struct work_struct *work)
 		goto e_complete;
 	}
 
-	scatterwalk_map_and_copy(rctx->src, req->src, 0, req->src_len, 0);
-
 	/* C2 = M ^ t */
 	ret = ccp_sm2_kdf_xor(shash, req->src, 0, req->src_len,
 			req->dst, CCP_SM2_ENCRYPT_EXT_LEN,
