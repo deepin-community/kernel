@@ -104,3 +104,122 @@ int psp_do_cmd(int cmd, void *data, int *psp_ret)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(psp_do_cmd);
+
+#ifdef CONFIG_HYGON_PSP2CPU_CMD
+
+static DEFINE_SPINLOCK(p2c_notifier_lock);
+static p2c_notifier_t p2c_notifiers[P2C_NOTIFIERS_MAX] = {NULL};
+
+int psp_register_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier)
+{
+	int ret = -ENODEV;
+	unsigned long flags;
+
+	spin_lock_irqsave(&p2c_notifier_lock, flags);
+
+	if (cmd_id < P2C_NOTIFIERS_MAX && !p2c_notifiers[cmd_id]) {
+		p2c_notifiers[cmd_id] = notifier;
+		ret = 0;
+	}
+
+	spin_unlock_irqrestore(&p2c_notifier_lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(psp_register_cmd_notifier);
+
+int psp_unregister_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier)
+{
+	int ret = -ENODEV;
+	unsigned long flags;
+
+	spin_lock_irqsave(&p2c_notifier_lock, flags);
+
+	if (cmd_id < P2C_NOTIFIERS_MAX && p2c_notifiers[cmd_id] == notifier) {
+		p2c_notifiers[cmd_id] = NULL;
+		ret = 0;
+	}
+
+	spin_unlock_irqrestore(&p2c_notifier_lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(psp_unregister_cmd_notifier);
+
+#define PSP2CPU_MAX_LOOP		100
+
+static irqreturn_t psp_irq_handler_hygon(int irq, void *data)
+{
+	struct psp_device *psp = data;
+	struct sev_device *sev = psp->sev_irq_data;
+	unsigned int status;
+	int reg;
+	unsigned long flags;
+	int count = 0;
+	uint32_t p2c_cmd;
+	uint32_t p2c_lo_data;
+	uint32_t p2c_hi_data;
+	uint64_t p2c_data;
+
+	/* Read the interrupt status: */
+	status = ioread32(psp->io_regs + psp->vdata->intsts_reg);
+
+	while (status && (count++ < PSP2CPU_MAX_LOOP)) {
+		/* Clear the interrupt status by writing the same value we read. */
+		iowrite32(status, psp->io_regs + psp->vdata->intsts_reg);
+
+		/* Check if it is command completion: */
+		if (status & SEV_CMD_COMPLETE) {
+			/* Check if it is SEV command completion: */
+			reg = ioread32(psp->io_regs + psp->vdata->sev->cmdresp_reg);
+			if (reg & PSP_CMDRESP_RESP) {
+				sev->int_rcvd = 1;
+				wake_up(&sev->int_queue);
+			}
+		}
+
+		if (status & PSP_X86_CMD) {
+			/* Check if it is P2C command completion: */
+			reg = ioread32(psp->io_regs + psp->vdata->p2c_cmdresp_reg);
+			if (!(reg & PSP_CMDRESP_RESP)) {
+				p2c_lo_data = ioread32(psp->io_regs +
+						       psp->vdata->p2c_cmdbuff_addr_lo_reg);
+				p2c_hi_data = ioread32(psp->io_regs +
+						       psp->vdata->p2c_cmdbuff_addr_hi_reg);
+				p2c_data = (((uint64_t)(p2c_hi_data) << 32) +
+					    ((uint64_t)(p2c_lo_data)));
+				p2c_cmd = (uint32_t)(reg & SEV_CMDRESP_IOC);
+				if (p2c_cmd < P2C_NOTIFIERS_MAX) {
+					spin_lock_irqsave(&p2c_notifier_lock, flags);
+
+					if (p2c_notifiers[p2c_cmd])
+						p2c_notifiers[p2c_cmd](p2c_cmd, p2c_data);
+
+					spin_unlock_irqrestore(&p2c_notifier_lock, flags);
+				}
+
+				reg |= PSP_CMDRESP_RESP;
+				iowrite32(reg, psp->io_regs + psp->vdata->p2c_cmdresp_reg);
+			}
+		}
+		status = ioread32(psp->io_regs + psp->vdata->intsts_reg);
+	}
+
+	return IRQ_HANDLED;
+}
+
+int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
+			     const char *name, void *data)
+{
+	return sp_request_psp_irq(sp, psp_irq_handler_hygon, name, data);
+}
+
+#else	/* !CONFIG_HYGON_PSP2CPU_CMD */
+
+int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
+			     const char *name, void *data)
+{
+	return sp_request_psp_irq(sp, handler, name, data);
+}
+
+#endif	/* CONFIG_HYGON_PSP2CPU_CMD */
