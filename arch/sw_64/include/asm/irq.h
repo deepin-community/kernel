@@ -37,11 +37,30 @@ struct acpi_madt_sw_lpc_intc;
 
 extern int __init sw64_add_gsi_domain_map(u32 gsi_base, u32 gsi_count,
 		struct fwnode_handle *handle);
-extern int __init pintc_acpi_init(struct irq_domain *parent,
-		struct acpi_madt_sw_pintc *pintc);
+
 extern int __init msic_acpi_init(struct irq_domain *parent,
 		struct acpi_madt_sw_msic *msic);
+
+#ifdef CONFIG_SW64_PINTC
+extern int __init pintc_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_pintc *pintc);
+#else
+static inline int __init pintc_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_pintc *pintc)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_SW64_LPC_INTC
 extern int __init lpc_intc_acpi_init(struct irq_domain *parent,
 		struct acpi_madt_sw_lpc_intc *lpc_intc);
+#else
+static inline int __init lpc_intc_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_lpc_intc *lpc_intc)
+{
+	return 0;
+}
+#endif
 
 #endif /* _ASM_SW64_IRQ_H */
