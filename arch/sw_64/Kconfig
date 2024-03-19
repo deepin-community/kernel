@@ -243,6 +243,7 @@ config PLATFORM_JUNZHANG
 	depends on UNCORE_JUNZHANG
 	select SPARSE_IRQ
 	select SYS_HAS_EARLY_PRINTK
+	select I2C_SUNWAY if I2C
 	help
 	  Sunway board chipset for C4
 
