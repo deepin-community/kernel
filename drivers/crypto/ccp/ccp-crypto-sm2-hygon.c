@@ -646,7 +646,7 @@ e_hash:
 	crypto_free_shash(shash);
 
 e_complete:
-	req->base.complete(&req->base, ret);
+	req->base.complete(req->base.data, ret);
 }
 
 static void ccp_sm2_enc_lp(struct work_struct *work)
@@ -672,7 +672,7 @@ static void ccp_sm2_enc_lp(struct work_struct *work)
 
 	ret = ccp_sm2_post_cmd(rctx, CCP_SM2_LP_SRC_SIZE, CCP_SM2_MODE_LP, 0);
 	if (ret != -EBUSY && ret != -EINPROGRESS)
-		req->base.complete(&req->base, ret);
+		req->base.complete(req->base.data, ret);
 }
 
 static int ccp_sm2_encrypt(struct akcipher_request *req)
@@ -749,7 +749,7 @@ e_complete:
 	/* clear private key, plain, and dC1 */
 	memset(rctx->src, 0, CCP_SM2_OPERAND_LEN * 2);
 	memset(dst, 0, CCP_SM2_DST_SIZE);
-	req->base.complete(&req->base, ret);
+	req->base.complete(req->base.data, ret);
 }
 
 static int ccp_sm2_decrypt(struct akcipher_request *req)
