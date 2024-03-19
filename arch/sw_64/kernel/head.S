@@ -10,6 +10,15 @@
 #include <asm/asm-offsets.h>
 #include <asm/hmcall.h>
 #include <asm/setup.h>
+#include <asm/csr.h>
+
+	.macro SAVE_KTP
+#ifdef CONFIG_SUBARCH_C3B
+	sys_call HMC_wrktp
+#else
+	csrw	$8, CSR_KTP
+#endif
+	.endm
 
 __HEAD
 	.globl _stext
@@ -23,6 +32,7 @@ __start:
 1:	ldgp	$29, 0($27)
 	/* We need to get current_task_info loaded up...  */
 	ldi	$8, init_task
+	SAVE_KTP
 	ldl	$30, TASK_STACK($8)
 	/* ... and find our stack ... */
 	ldi	$30, ASM_THREAD_SIZE($30)
@@ -88,7 +98,7 @@ __smp_callin:
 	ldi	$2, idle_task_pointer
 	s8addl	$0, $2, $2
 	ldl	$8, 0($2)	# Get ksp of idle thread
-	sys_call HMC_wrktp
+	SAVE_KTP
 
 	ldl	$30, TASK_STACK($8)
 	ldi	$30, ASM_THREAD_SIZE($30)

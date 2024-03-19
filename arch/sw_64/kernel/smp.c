@@ -69,10 +69,6 @@ void smp_callin(void)
 	}
 	set_cpu_online(cpuid, true);
 
-	/* clear ksp, usp  */
-	wrksp(0);
-	wrusp(0);
-
 	/* Set trap vectors.  */
 	trap_init();
 

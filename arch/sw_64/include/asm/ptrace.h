@@ -31,9 +31,9 @@ struct pt_regs {
 	unsigned long hm_ps;
 	unsigned long hm_pc;
 	unsigned long hm_gp;
-	unsigned long hm_r16;
-	unsigned long hm_r17;
-	unsigned long hm_r18;
+	unsigned long earg0;
+	unsigned long earg1;
+	unsigned long earg2;
 };
 
 #define arch_has_single_step()		(1)

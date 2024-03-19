@@ -14,6 +14,7 @@ typedef struct {
 
 
 struct pcb_struct {
+	unsigned long ksp;
 	unsigned long tp;
 	unsigned long da_match, da_mask;
 	unsigned long dv_match, dv_mask;

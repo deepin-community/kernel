@@ -46,6 +46,15 @@
 #define CSR_DV_MASK		0x57
 #define CSR_IDA_MATCH		0xc5
 #define CSR_IDA_MASK		0xc6
+#define CSR_BASE_KREGS		0xe0
+#define CSR_PS			0xe8
+#define CSR_PC			0xe9
+#define CSR_EARG0		0xea
+#define CSR_EARG1		0xeb
+#define CSR_EARG2		0xec
+#define CSR_SCRATCH		0xed
+#define CSR_SP			0xee
+#define CSR_KTP			0xef
 
 #define DA_MATCH_EN_S		4
 #define DV_MATCH_EN_S		6

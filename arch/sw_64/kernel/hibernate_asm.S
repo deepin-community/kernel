@@ -4,6 +4,13 @@
 #include <asm/page.h>
 #include <asm/regdef.h>
 
+	.macro SAVE_KTP
+#ifdef CONFIG_SUBARCH_C3B
+	sys_call HMC_wrktp
+#else
+	csrw	$8, CSR_KTP
+	.endm
+#endif
 	.text
 	.set noat
 ENTRY(swsusp_arch_suspend)
@@ -114,8 +121,7 @@ $hibernate_setfpec_over:
 
 	ldl	sp, PSTATE_SP($16)
 	ldl	$8, PSTATE_KTP($16)
-	sys_call HMC_wrktp
-
+	SAVE_KTP
 	ldi	$0, 0($31)
 
 	ret

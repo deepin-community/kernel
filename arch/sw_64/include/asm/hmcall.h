@@ -155,9 +155,7 @@ __CALL_HMC_VOID(sleepen);
 __CALL_HMC_VOID(mtinten);
 
 __CALL_HMC_VOID(rdktp);
-#define restore_ktp()	rdktp()
 __CALL_HMC_VOID(wrktp);
-#define save_ktp()	wrktp()
 
 __CALL_HMC_R0(rdps, unsigned long);
 __CALL_HMC_R0(rvpcr, unsigned long);
