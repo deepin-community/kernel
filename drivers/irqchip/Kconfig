@@ -17,6 +17,8 @@ config SW64_PINTC
 	default y
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	select SW64_LPC_INTC
 	help
 	   This enables support for the pINTC chip found in SW systems.
 	   The PINTC receives all platform devices' interrupts and passes
