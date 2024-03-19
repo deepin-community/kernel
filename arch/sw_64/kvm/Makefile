@@ -9,12 +9,8 @@ include $(srctree)/virt/kvm/Makefile.kvm
 
 obj-$(CONFIG_KVM) += kvm.o
 
-kvm-y += sw64.o
-kvm-y += entry.o
-kvm-y += emulate.o
-kvm-y += mmio.o
-kvm-y += kvm_timer.o
-kvm-y += handle_exit.o
-kvm-y += perf.o
-kvm-$(CONFIG_SUBARCH_C3B) += kvm_core3.o kvm_cma.o
-kvm-$(CONFIG_SUBARCH_C4) += kvm_core4.o mmu.o
+kvm-y := $(KVM)/kvm_main.o $(KVM)/eventfd.o $(KVM)/irqchip.o $(KVM)/vfio.o \
+	 sw64.o emulate.o mmio.o kvm_timer.o handle_exit.o perf.o
+
+kvm-$(CONFIG_SUBARCH_C3B) += kvm_core3.o entry_core3.o
+kvm-$(CONFIG_SUBARCH_C4) += kvm_core4.o mmu.o entry_core4.o

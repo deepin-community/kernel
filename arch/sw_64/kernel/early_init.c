@@ -6,6 +6,5 @@
 asmlinkage __visible void __init sw64_start_kernel(void)
 {
 	fixup_hmcall();
-	save_ktp();
 	start_kernel();
 }

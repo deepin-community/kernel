@@ -21,6 +21,7 @@ void foo(void)
 {
 	DEFINE(ASM_THREAD_SIZE, THREAD_SIZE);
 	DEFINE(TI_FLAGS, offsetof(struct thread_info, flags));
+	OFFSET(TI_PCB_KSP, thread_info, pcb.ksp);
 	BLANK();
 
 	DEFINE(TASK_BLOCKED, offsetof(struct task_struct, blocked));
@@ -106,9 +107,9 @@ void foo(void)
 	DEFINE(PT_REGS_HM_PS, offsetof(struct pt_regs, hm_ps));
 	DEFINE(PT_REGS_HM_PC, offsetof(struct pt_regs, hm_pc));
 	DEFINE(PT_REGS_HM_GP, offsetof(struct pt_regs, hm_gp));
-	DEFINE(PT_REGS_HM_R16, offsetof(struct pt_regs, hm_r16));
-	DEFINE(PT_REGS_HM_R17, offsetof(struct pt_regs, hm_r17));
-	DEFINE(PT_REGS_HM_R18, offsetof(struct pt_regs, hm_r18));
+	DEFINE(PT_REGS_EARG0, offsetof(struct pt_regs, earg0));
+	DEFINE(PT_REGS_EARG1, offsetof(struct pt_regs, earg1));
+	DEFINE(PT_REGS_EARG2, offsetof(struct pt_regs, earg2));
 	BLANK();
 
 	DEFINE(KVM_REGS_SIZE, sizeof(struct kvm_regs));
@@ -128,6 +129,9 @@ void foo(void)
 	DEFINE(KVM_REGS_R13, offsetof(struct kvm_regs, r13));
 	DEFINE(KVM_REGS_R14, offsetof(struct kvm_regs, r14));
 	DEFINE(KVM_REGS_R15, offsetof(struct kvm_regs, r15));
+	DEFINE(KVM_REGS_R16, offsetof(struct kvm_regs, r16));
+	DEFINE(KVM_REGS_R17, offsetof(struct kvm_regs, r17));
+	DEFINE(KVM_REGS_R18, offsetof(struct kvm_regs, r18));
 	DEFINE(KVM_REGS_R19, offsetof(struct kvm_regs, r19));
 	DEFINE(KVM_REGS_R20, offsetof(struct kvm_regs, r20));
 	DEFINE(KVM_REGS_R21, offsetof(struct kvm_regs, r21));
@@ -138,6 +142,7 @@ void foo(void)
 	DEFINE(KVM_REGS_R26, offsetof(struct kvm_regs, r26));
 	DEFINE(KVM_REGS_R27, offsetof(struct kvm_regs, r27));
 	DEFINE(KVM_REGS_R28, offsetof(struct kvm_regs, r28));
+	DEFINE(KVM_REGS_GP, offsetof(struct kvm_regs, gp));
 	DEFINE(KVM_REGS_FPCR, offsetof(struct kvm_regs, fpcr));
 	DEFINE(KVM_REGS_F0, offsetof(struct kvm_regs, fp[0 * 4]));
 	DEFINE(KVM_REGS_F1, offsetof(struct kvm_regs, fp[1 * 4]));
@@ -172,10 +177,9 @@ void foo(void)
 	DEFINE(KVM_REGS_F30, offsetof(struct kvm_regs, fp[30 * 4]));
 	DEFINE(KVM_REGS_PS, offsetof(struct kvm_regs, ps));
 	DEFINE(KVM_REGS_PC, offsetof(struct kvm_regs, pc));
-	DEFINE(KVM_REGS_GP, offsetof(struct kvm_regs, gp));
-	DEFINE(KVM_REGS_R16, offsetof(struct kvm_regs, r16));
-	DEFINE(KVM_REGS_R17, offsetof(struct kvm_regs, r17));
-	DEFINE(KVM_REGS_R18, offsetof(struct kvm_regs, r18));
+#ifdef CONFIG_SUBARCH_C4
+	DEFINE(KVM_REGS_SP, offsetof(struct kvm_regs, sp));
+#endif
 	BLANK();
 
 	DEFINE(VCPU_RET_SIZE, sizeof(struct vcpu_run_ret_stack));
