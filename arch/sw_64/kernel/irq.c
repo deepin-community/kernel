@@ -133,6 +133,7 @@ int __init arch_early_irq_init(void)
 
 int __init arch_probe_nr_irqs(void)
 {
+	nr_irqs = NR_IRQS_LEGACY;
 	return NR_IRQS_LEGACY;
 }
 
