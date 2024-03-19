@@ -7,7 +7,7 @@
 extern volatile unsigned long irq_err_count;
 DECLARE_PER_CPU(unsigned long, irq_pmi_count);
 
-#define ACTUAL_NR_IRQS	NR_IRQS
+#define ACTUAL_NR_IRQS nr_irqs
 
 extern struct irq_domain *mcu_irq_domain;
 
