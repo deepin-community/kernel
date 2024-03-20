@@ -450,6 +450,12 @@ int arch_kexec_apply_relocations_add(struct purgatory_info *pi,
 		case R_RISCV_SUB32:
 			*(u32 *)loc -= val;
 			break;
+		case R_RISCV_ADD16:
+			*(u16 *)loc += val;
+			break;
+		case R_RISCV_SUB16:
+			*(u16 *)loc -= val;
+			break;
 		/* It has been applied by R_RISCV_PCREL_HI20 sym */
 		case R_RISCV_PCREL_LO12_I:
 		case R_RISCV_ALIGN:
