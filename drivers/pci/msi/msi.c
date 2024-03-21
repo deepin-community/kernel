@@ -12,6 +12,7 @@
 
 #include "../pci.h"
 #include "msi.h"
+#include "../controller/cadence/pcie-cadence-sophgo.h"
 
 int pci_msi_enable = 1;
 int pci_msi_ignore_mask;
@@ -784,66 +785,70 @@ int __pci_enable_msix_range(struct pci_dev *dev, struct msix_entry *entries, int
 {
 	int hwsize, rc, nvec = maxvec;
 
-	if (maxvec < minvec)
-		return -ERANGE;
+	if (check_vendor_id(dev, vendor_id_list, vendor_id_list_num)) {
+		if (maxvec < minvec)
+			return -ERANGE;
 
-	if (dev->msi_enabled) {
-		pci_info(dev, "can't enable MSI-X (MSI already enabled)\n");
-		return -EINVAL;
-	}
-
-	if (WARN_ON_ONCE(dev->msix_enabled))
-		return -EINVAL;
-
-	/* Check MSI-X early on irq domain enabled architectures */
-	if (!pci_msi_domain_supports(dev, MSI_FLAG_PCI_MSIX, ALLOW_LEGACY))
-		return -ENOTSUPP;
-
-	if (!pci_msi_supported(dev, nvec) || dev->current_state != PCI_D0)
-		return -EINVAL;
-
-	hwsize = pci_msix_vec_count(dev);
-	if (hwsize < 0)
-		return hwsize;
-
-	if (!pci_msix_validate_entries(dev, entries, nvec))
-		return -EINVAL;
-
-	if (hwsize < nvec) {
-		/* Keep the IRQ virtual hackery working */
-		if (flags & PCI_IRQ_VIRTUAL)
-			hwsize = nvec;
-		else
-			nvec = hwsize;
-	}
-
-	if (nvec < minvec)
-		return -ENOSPC;
-
-	rc = pci_setup_msi_context(dev);
-	if (rc)
-		return rc;
-
-	if (!pci_setup_msix_device_domain(dev, hwsize))
-		return -ENODEV;
-
-	for (;;) {
-		if (affd) {
-			nvec = irq_calc_affinity_vectors(minvec, nvec, affd);
-			if (nvec < minvec)
-				return -ENOSPC;
+		if (dev->msi_enabled) {
+			pci_info(dev, "can't enable MSI-X (MSI already enabled)\n");
+			return -EINVAL;
 		}
 
-		rc = msix_capability_init(dev, entries, nvec, affd);
-		if (rc == 0)
-			return nvec;
+		if (WARN_ON_ONCE(dev->msix_enabled))
+			return -EINVAL;
 
-		if (rc < 0)
-			return rc;
-		if (rc < minvec)
+		/* Check MSI-X early on irq domain enabled architectures */
+		if (!pci_msi_domain_supports(dev, MSI_FLAG_PCI_MSIX, ALLOW_LEGACY))
+			return -ENOTSUPP;
+
+		if (!pci_msi_supported(dev, nvec) || dev->current_state != PCI_D0)
+			return -EINVAL;
+
+		hwsize = pci_msix_vec_count(dev);
+		if (hwsize < 0)
+			return hwsize;
+
+		if (!pci_msix_validate_entries(dev, entries, nvec))
+			return -EINVAL;
+
+		if (hwsize < nvec) {
+			/* Keep the IRQ virtual hackery working */
+			if (flags & PCI_IRQ_VIRTUAL)
+				hwsize = nvec;
+			else
+				nvec = hwsize;
+		}
+
+		if (nvec < minvec)
 			return -ENOSPC;
 
-		nvec = rc;
+		rc = pci_setup_msi_context(dev);
+		if (rc)
+			return rc;
+
+		if (!pci_setup_msix_device_domain(dev, hwsize))
+			return -ENODEV;
+
+		for (;;) {
+			if (affd) {
+				nvec = irq_calc_affinity_vectors(minvec, nvec, affd);
+				if (nvec < minvec)
+					return -ENOSPC;
+			}
+
+			rc = msix_capability_init(dev, entries, nvec, affd);
+			if (rc == 0)
+				return nvec;
+
+			if (rc < 0)
+				return rc;
+			if (rc < minvec)
+				return -ENOSPC;
+
+			nvec = rc;
+		}
+	} else {
+		return -1;
 	}
 }
 
