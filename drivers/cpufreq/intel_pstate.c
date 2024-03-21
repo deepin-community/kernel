@@ -1664,7 +1664,6 @@ ack_intr:
 
 static void intel_pstate_disable_hwp_interrupt(struct cpudata *cpudata)
 {
-	unsigned long flags;
 	bool cancel_work;
 
 	if (!cpu_feature_enabled(X86_FEATURE_HWP_NOTIFY))
@@ -1673,9 +1672,9 @@ static void intel_pstate_disable_hwp_interrupt(struct cpudata *cpudata)
 	/* wrmsrl_on_cpu has to be outside spinlock as this can result in IPC */
 	wrmsrl_on_cpu(cpudata->cpu, MSR_HWP_INTERRUPT, 0x00);
 
-	raw_spin_lock_irqsave(&hwp_notify_lock, flags);
+	raw_spin_lock_irqsave(&hwp_notify_lock);
 	cancel_work = cpumask_test_and_clear_cpu(cpudata->cpu, &hwp_intr_enable_mask);
-	raw_spin_unlock_irqrestore(&hwp_notify_lock, flags);
+	raw_spin_unlock_irqrestore(&hwp_notify_lock);
 
 	if (cancel_work)
 		cancel_delayed_work_sync(&cpudata->hwp_notify_work);
@@ -1689,12 +1688,11 @@ static void intel_pstate_enable_hwp_interrupt(struct cpudata *cpudata)
 	/* Enable HWP notification interrupt for performance change */
 	if (boot_cpu_has(X86_FEATURE_HWP_NOTIFY)) {
 		u64 interrupt_mask = HWP_GUARANTEED_PERF_CHANGE_REQ;
-		unsigned long flags;
 
-		raw_spin_lock_irqsave(&hwp_notify_lock, flags);
+		raw_spin_lock_irqsave(&hwp_notify_lock);
 		INIT_DELAYED_WORK(&cpudata->hwp_notify_work, intel_pstate_notify_work);
 		cpumask_set_cpu(cpudata->cpu, &hwp_intr_enable_mask);
-		raw_spin_unlock_irqrestore(&hwp_notify_lock, flags);
+		raw_spin_unlock_irqrestore(&hwp_notify_lock);
 
 		if (cpu_feature_enabled(X86_FEATURE_HWP_HIGHEST_PERF_CHANGE))
 			interrupt_mask |= HWP_HIGHEST_PERF_CHANGE_REQ;
