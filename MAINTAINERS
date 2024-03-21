@@ -5768,6 +5768,11 @@ F:	arch/mips/dec/
 F:	arch/mips/include/asm/dec/
 F:	arch/mips/include/asm/mach-dec/
 
+DEEPIN CJKTTY-PATCHES
+M:	"WangYuli" <wangyuli@uniontech.com>
+S:	Maintained
+F:	lib/fonts/font_cjk*
+
 DEFXX FDDI NETWORK DRIVER
 M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
 S:	Maintained
