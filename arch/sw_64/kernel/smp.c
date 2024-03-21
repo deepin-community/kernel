@@ -21,7 +21,6 @@ struct smp_rcb_struct *smp_rcb;
 
 extern struct cpuinfo_sw64 cpu_data[NR_CPUS];
 
-int smp_booted;
 
 void *idle_task_pointer[NR_CPUS];
 
@@ -304,10 +303,8 @@ int vt_cpu_up(unsigned int cpu, struct task_struct *tidle)
 
 	wmb();
 	smp_rcb->ready = 0;
-	if (smp_booted) {
-		/* irq must be disabled before reset vCPU */
-		reset_cpu(cpu);
-	}
+	/* irq must be disabled before reset vCPU */
+	reset_cpu(cpu);
 	smp_boot_one_cpu(cpu, tidle);
 
 	return cpu_online(cpu) ? 0 : -EIO;
@@ -328,23 +325,19 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	/* send wake up signal */
 	send_wakeup_interrupt(cpu);
 	/* send reset signal */
-	if (smp_booted) {
-		if (is_in_host()) {
-			reset_cpu(cpu);
-		} else {
-			while (1)
-				cpu_relax();
-		}
+	if (is_in_host()) {
+		reset_cpu(cpu);
+	} else {
+		while (1)
+			cpu_relax();
 	}
 	smp_boot_one_cpu(cpu, tidle);
 
 #ifdef CONFIG_SUBARCH_C3B
 	if (static_branch_likely(&use_tc_as_sched_clock)) {
-		if (smp_booted) {
-			tc_sync_clear();
-			smp_call_function_single(cpu, tc_sync_ready, NULL, 0);
-			tc_sync_set();
-		}
+		tc_sync_clear();
+		smp_call_function_single(cpu, tc_sync_ready, NULL, 0);
+		tc_sync_set();
 	}
 #endif
 
@@ -353,7 +346,6 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 
 void __init smp_cpus_done(unsigned int max_cpus)
 {
-	smp_booted = 1;
 	pr_info("SMP: Total of %d processors activated.\n", num_online_cpus());
 }
 
