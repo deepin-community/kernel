@@ -21,19 +21,22 @@
 
 static __always_inline int syscall_fallback(clockid_t clkid, struct timespec64 *ts)
 {
-	register int r0 asm("$0");
-	register unsigned long r19 asm("$19");
+	long retval;
+	long error;
 	asm volatile(
-	"	mov		%0, $16\n"
-	"	mov		%1, $17\n"
-	"	ldi		$0, %2\n"
-	"	sys_call	%3\n"
-	:: "r"(clkid), "r"(ts), "i"(__NR_clock_gettime), "i"(HMC_callsys)
+	"	mov		%2, $16\n"
+	"	mov		%3, $17\n"
+	"	ldi		$0, %4\n"
+	"	sys_call	%5\n"
+	"	mov		$0, %0\n"
+	"	mov		$19, %1"
+	: "=r"(retval), "=r"(error)
+	: "r"(clkid), "r"(ts), "i"(__NR_clock_gettime), "i"(HMC_callsys)
 	: "$0", "$16", "$17", "$19");
-	if (unlikely(r19))
-		return -r0;
+	if (unlikely(error))
+		return -retval;
 	else
-		return r0;
+		return retval;
 }
 
 static __always_inline int do_realtime_coarse(struct timespec64 *ts,
