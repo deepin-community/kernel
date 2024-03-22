@@ -727,8 +727,7 @@ static int phytium_pcie_pmu_dev_probe(struct platform_device *pdev,
 	if (ret)
 		return ret;
 	pcie_pmu->dev = &pdev->dev;
-	pcie_pmu->on_cpu = raw_smp_processor_id();
-	WARN_ON(irq_set_affinity(pcie_pmu->irq, cpumask_of(pcie_pmu->on_cpu)));
+	pcie_pmu->on_cpu = -1;
 	pcie_pmu->ctrler_id = -1;
 
 	return 0;
@@ -750,7 +749,7 @@ static int phytium_pcie_pmu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = cpuhp_state_add_instance_nocalls(
+	ret = cpuhp_state_add_instance(
 		phytium_pcie_pmu_hp_state, &pcie_pmu->node);
 	if (ret) {
 		dev_err(&pdev->dev, "Error %d registering hotplug;\n", ret);
@@ -815,6 +814,29 @@ static struct platform_driver phytium_pcie_pmu_driver = {
 	.remove = phytium_pcie_pmu_remove,
 };
 
+int phytium_pcie_pmu_online_cpu(unsigned int cpu, struct hlist_node *node)
+{
+	struct phytium_pcie_pmu *pcie_pmu =
+		hlist_entry_safe(node, struct phytium_pcie_pmu, node);
+
+	if (!cpumask_test_cpu(cpu, cpumask_of_node(pcie_pmu->die_id)))
+		return 0;
+
+	if (pcie_pmu->on_cpu != -1) {
+		if (!cpumask_test_cpu(pcie_pmu->on_cpu, cpumask_of_node(pcie_pmu->die_id))) {
+			perf_pmu_migrate_context(&pcie_pmu->pmu, pcie_pmu->on_cpu, cpu);
+			pcie_pmu->on_cpu = cpu;
+			WARN_ON(irq_set_affinity_hint(pcie_pmu->irq, cpumask_of(cpu)));
+		}
+		return 0;
+	}
+
+	pcie_pmu->on_cpu = cpu;
+	WARN_ON(irq_set_affinity_hint(pcie_pmu->irq, cpumask_of(cpu)));
+
+	return 0;
+}
+
 int phytium_pcie_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 {
 	struct phytium_pcie_pmu *pcie_pmu =
@@ -825,18 +847,22 @@ int phytium_pcie_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 	if (pcie_pmu->on_cpu != cpu)
 		return 0;
 
-	cpumask_and(&available_cpus,
-			cpumask_of_node(pcie_pmu->die_id), cpu_online_mask);
+	if (cpumask_and(&available_cpus, cpumask_of_node(pcie_pmu->die_id), cpu_online_mask) &&
+		cpumask_andnot(&available_cpus, &available_cpus, cpumask_of(cpu)))
+		target = cpumask_last(&available_cpus);
+	else {
+		cpumask_andnot(&available_cpus, cpu_online_mask, cpumask_of(cpu));
+		target = cpumask_last(&available_cpus);
+	}
 
-	target = cpumask_any_but(&available_cpus, cpu);
 	if (target >= nr_cpu_ids) {
-		target = cpumask_any_but(cpu_online_mask, cpu);
-		if (target >= nr_cpu_ids)
-			return 0;
+		dev_err(pcie_pmu->dev, "offline cpu%d with no target to migrate.\n",
+			cpu);
+		return 0;
 	}
 
 	perf_pmu_migrate_context(&pcie_pmu->pmu, cpu, target);
-	WARN_ON(irq_set_affinity(pcie_pmu->irq, cpumask_of(target)));
+	WARN_ON(irq_set_affinity_hint(pcie_pmu->irq, cpumask_of(target)));
 	pcie_pmu->on_cpu = target;
 
 	return 0;
@@ -848,8 +874,8 @@ static int __init phytium_pcie_pmu_module_init(void)
 
 	phytium_pcie_pmu_hp_state =
 		cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN,
-					"perf/phytium/pciepmu:offline", NULL,
-					phytium_pcie_pmu_offline_cpu);
+					"perf/phytium/pciepmu:online",
+					phytium_pcie_pmu_online_cpu, phytium_pcie_pmu_offline_cpu);
 	if (phytium_pcie_pmu_hp_state < 0) {
 		pr_err("PCIE PMU: setup hotplug, ret = %d\n",
 			phytium_pcie_pmu_hp_state);
