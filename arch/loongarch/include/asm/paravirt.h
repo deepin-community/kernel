@@ -17,11 +17,16 @@ static inline u64 paravirt_steal_clock(int cpu)
 }
 
 int pv_ipi_init(void);
+int __init pv_time_init(void);
 #else
 static inline int pv_ipi_init(void)
 {
 	return 0;
 }
 
+static inline int pv_time_init(void)
+{
+	return 0;
+}
 #endif // CONFIG_PARAVIRT
 #endif
