@@ -12,6 +12,7 @@
 #define KVM_HCALL_CODE_SWDBG		1
 #define KVM_HCALL_PV_SERVICE		HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_PV_SERVICE)
 #define  KVM_HCALL_FUNC_PV_IPI		1
+#define  KVM_HCALL_FUNC_NOTIFY		2
 #define KVM_HCALL_SWDBG			HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_SWDBG)
 
 /*
@@ -20,6 +21,15 @@
 #define KVM_HCALL_STATUS_SUCCESS	0
 #define KVM_HCALL_INVALID_CODE		-1UL
 #define KVM_HCALL_INVALID_PARAMETER	-2UL
+
+#define KVM_STEAL_PHYS_VALID		BIT_ULL(0)
+#define KVM_STEAL_PHYS_MASK		GENMASK_ULL(63, 6)
+struct kvm_steal_time {
+	__u64 steal;
+	__u32 version;
+	__u32 flags;
+	__u32 pad[12];
+};
 
 /*
  * Hypercall interface for KVM hypervisor

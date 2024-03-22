@@ -30,6 +30,7 @@
 #define KVM_PRIVATE_MEM_SLOTS		0
 
 #define KVM_HALT_POLL_NS_DEFAULT	500000
+#define KVM_REQ_RECORD_STEAL		KVM_ARCH_REQ(1)
 
 #define KVM_GUESTDBG_VALID_MASK		(KVM_GUESTDBG_ENABLE | \
 			KVM_GUESTDBG_USE_SW_BP | KVM_GUESTDBG_SINGLESTEP)
@@ -197,6 +198,12 @@ struct kvm_vcpu_arch {
 	struct kvm_mp_state mp_state;
 	/* cpucfg */
 	u32 cpucfg[KVM_MAX_CPUCFG_REGS];
+	/* paravirt steal time */
+	struct {
+		u64 guest_addr;
+		u64 last_steal;
+		struct gfn_to_hva_cache cache;
+	} st;
 };
 
 static inline unsigned long readl_sw_gcsr(struct loongarch_csrs *csr, int reg)
