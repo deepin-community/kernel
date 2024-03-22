@@ -122,16 +122,16 @@ static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr,
 	return cpumap_print_to_pagebuf(true, buf, cpumask_of(ddr_pmu->on_cpu));
 }
 
-#define PHYTIUM_PMU_ATTR(_name, _func, _config)                             \
-	(&((struct dev_ext_attribute[]){                                    \
+#define PHYTIUM_PMU_ATTR(_name, _func, _config)				    \
+	(&((struct dev_ext_attribute[]){				    \
 		{ __ATTR(_name, 0444, _func, NULL), (void *)_config } })[0] \
 		  .attr.attr)
 
-#define PHYTIUM_DDR_PMU_FORMAT_ATTR(_name, _config)                \
+#define PHYTIUM_DDR_PMU_FORMAT_ATTR(_name, _config)		   \
 	PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_format_sysfs_show, \
 			 (void *)_config)
 
-#define PHYTIUM_DDR_PMU_EVENT_ATTR(_name, _config)                \
+#define PHYTIUM_DDR_PMU_EVENT_ATTR(_name, _config)		  \
 	PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_event_sysfs_show, \
 			 (unsigned long)_config)
 
@@ -582,8 +582,7 @@ static int phytium_ddr_pmu_dev_probe(struct platform_device *pdev,
 		return ret;
 
 	ddr_pmu->dev = &pdev->dev;
-	ddr_pmu->on_cpu = raw_smp_processor_id();
-	WARN_ON(irq_set_affinity(ddr_pmu->irq, cpumask_of(ddr_pmu->on_cpu)));
+	ddr_pmu->on_cpu = -1;
 
 	return 0;
 }
@@ -604,7 +603,7 @@ static int phytium_ddr_pmu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = cpuhp_state_add_instance_nocalls(
+	ret = cpuhp_state_add_instance(
 		phytium_ddr_pmu_hp_state, &ddr_pmu->node);
 	if (ret) {
 		dev_err(&pdev->dev, "Error %d registering hotplug;\n", ret);
@@ -670,6 +669,29 @@ static struct platform_driver phytium_ddr_pmu_driver = {
 	.remove = phytium_ddr_pmu_remove,
 };
 
+int phytium_ddr_pmu_online_cpu(unsigned int cpu, struct hlist_node *node)
+{
+	struct phytium_ddr_pmu *ddr_pmu =
+		hlist_entry_safe(node, struct phytium_ddr_pmu, node);
+
+	if (!cpumask_test_cpu(cpu, cpumask_of_node(ddr_pmu->die_id)))
+		return 0;
+
+	if (ddr_pmu->on_cpu != -1) {
+		if (!cpumask_test_cpu(ddr_pmu->on_cpu, cpumask_of_node(ddr_pmu->die_id))) {
+			perf_pmu_migrate_context(&ddr_pmu->pmu, ddr_pmu->on_cpu, cpu);
+			ddr_pmu->on_cpu = cpu;
+			WARN_ON(irq_set_affinity_hint(ddr_pmu->irq, cpumask_of(cpu)));
+		}
+		return 0;
+	}
+
+	ddr_pmu->on_cpu = cpu;
+	WARN_ON(irq_set_affinity_hint(ddr_pmu->irq, cpumask_of(cpu)));
+
+	return 0;
+}
+
 int phytium_ddr_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 {
 	struct phytium_ddr_pmu *ddr_pmu =
@@ -680,17 +702,22 @@ int phytium_ddr_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 	if (ddr_pmu->on_cpu != cpu)
 		return 0;
 
-	cpumask_and(&available_cpus,
-			  cpumask_of_node(ddr_pmu->die_id), cpu_online_mask);
-	target = cpumask_any_but(&available_cpus, cpu);
+	if (cpumask_and(&available_cpus, cpumask_of_node(ddr_pmu->die_id), cpu_online_mask) &&
+		cpumask_andnot(&available_cpus, &available_cpus, cpumask_of(cpu)))
+		target = cpumask_last(&available_cpus);
+	else {
+		cpumask_andnot(&available_cpus, cpu_online_mask, cpumask_of(cpu));
+		target = cpumask_last(&available_cpus);
+	}
+
 	if (target >= nr_cpu_ids) {
-		target = cpumask_any_but(cpu_online_mask, cpu);
-		if (target >= nr_cpu_ids)
-			return 0;
+		dev_err(ddr_pmu->dev, "offline cpu%d with no target to migrate.\n",
+			cpu);
+		return 0;
 	}
 
 	perf_pmu_migrate_context(&ddr_pmu->pmu, cpu, target);
-	WARN_ON(irq_set_affinity(ddr_pmu->irq, cpumask_of(target)));
+	WARN_ON(irq_set_affinity_hint(ddr_pmu->irq, cpumask_of(target)));
 	ddr_pmu->on_cpu = target;
 
 	return 0;
@@ -701,8 +728,8 @@ static int __init phytium_ddr_pmu_module_init(void)
 	int ret;
 
 	phytium_ddr_pmu_hp_state = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN,
-				      "perf/phytium/ddrpmu:offline",
-				      NULL, phytium_ddr_pmu_offline_cpu);
+				      "perf/phytium/ddrpmu:online",
+				      phytium_ddr_pmu_online_cpu, phytium_ddr_pmu_offline_cpu);
 	if (phytium_ddr_pmu_hp_state < 0) {
 		pr_err("DDR PMU: setup hotplug, phytium_ddr_pmu_hp_state = %d\n",
 			phytium_ddr_pmu_hp_state);
