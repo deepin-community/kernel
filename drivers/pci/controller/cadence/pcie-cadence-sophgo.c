@@ -793,6 +793,11 @@ static int cdns_pcie_msi_setup(struct cdns_mango_pcie_rc *rc)
 	return ret;
 }
 
+static int cdns_pcie_irq_parse_and_map_pci(const struct pci_dev *dev, u8 slot, u8 pin)
+{
+	return 0; /* Proper return code 0 == NO_IRQ */
+}
+
 static int cdns_pcie_host_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -899,7 +904,10 @@ static int cdns_pcie_host_probe(struct platform_device *pdev)
 
 	bridge->dev.parent = dev;
 	bridge->ops = &cdns_pcie_host_ops;
-	bridge->map_irq = of_irq_parse_and_map_pci;
+	if (rc->top_intc_used == 1)
+		bridge->map_irq = of_irq_parse_and_map_pci;
+	else
+		bridge->map_irq = cdns_pcie_irq_parse_and_map_pci;
 	bridge->swizzle_irq = pci_common_swizzle;
 	if (rc->top_intc_used == 0)
 		bridge->sysdata = rc;
