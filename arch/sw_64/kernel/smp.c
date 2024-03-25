@@ -60,12 +60,26 @@ void smp_callin(void)
 {
 	int cpuid = smp_processor_id();
 
+#ifdef CONFIG_SUBARCH_C4
+	/* LV2 select PLL1 */
+	int i, cpu_num;
+
+	cpu_num = sw64_chip->get_cpu_num();
+
+	for (i = 0; i < cpu_num; i++) {
+		sw64_io_write(i, CLU_LV2_SELH, -1UL);
+		sw64_io_write(i, CLU_LV2_SELL, -1UL);
+		udelay(1000);
+	}
+#endif
+
 	local_irq_disable();
 
 	if (cpu_online(cpuid)) {
 		pr_err("??, cpu 0x%x already present??\n", cpuid);
 		BUG();
 	}
+
 	set_cpu_online(cpuid, true);
 
 	/* Set trap vectors.  */
@@ -322,8 +336,10 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	wmb();
 	smp_rcb->ready = 0;
 
+#ifdef CONFIG_SUBARCH_C3B
 	/* send wake up signal */
 	send_wakeup_interrupt(cpu);
+#endif
 	/* send reset signal */
 	if (is_in_host()) {
 		reset_cpu(cpu);
@@ -602,6 +618,22 @@ void __cpu_die(unsigned int cpu)
 
 void arch_cpu_idle_dead(void)
 {
+#ifdef CONFIG_SUBARCH_C4
+	/* LV2 select PLL0 */
+	int cpuid = smp_processor_id();
+	int core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
+	int node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
+	unsigned long value;
+
+	if (core_id > 31) {
+		value = 1UL << (2 * (core_id - 32));
+		sw64_io_write(node_id, CLU_LV2_SELH, value);
+	} else {
+		value = 1UL << (2 * core_id);
+		sw64_io_write(node_id, CLU_LV2_SELL, value);
+	}
+#endif
+
 	idle_task_exit();
 	mb();
 	__this_cpu_write(cpu_state, CPU_DEAD);
@@ -616,10 +648,18 @@ void arch_cpu_idle_dead(void)
 	}
 
 #ifdef CONFIG_SUSPEND
+
+#ifdef CONFIG_SUBARCH_C3B
 	sleepen();
 	send_sleep_interrupt(smp_processor_id());
 	while (1)
 		asm("nop");
+#else
+	asm volatile("halt");
+	while (1)
+		asm("nop");
+#endif
+
 #else
 	asm volatile("memb");
 	asm volatile("halt");

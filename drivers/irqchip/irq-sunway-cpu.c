@@ -153,11 +153,27 @@ static void handle_dev_int(struct pt_regs *regs)
 	sw64_io_write(node, DEV_INT_CONFIG, config_val);
 }
 
+int pme_state;
+
 asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 			  unsigned long irq_arg, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs;
 	extern char __idle_start[], __idle_end[];
+
+#ifdef CONFIG_SUBARCH_C4
+	if (pme_state == PME_WFW) {
+		pme_state = PME_PENDING;
+		return;
+	}
+
+	if (pme_state == PME_PENDING) {
+		old_regs = set_irq_regs(regs);
+		handle_device_interrupt(vector);
+		set_irq_regs(old_regs);
+		pme_state = PME_CLEAR;
+	}
+#endif
 
 	if (is_guest_or_emul()) {
 		if ((type & 0xffff) > 15) {

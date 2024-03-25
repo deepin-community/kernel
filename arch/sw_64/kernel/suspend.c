@@ -4,6 +4,8 @@
 #include <asm/suspend.h>
 #include <asm/sw64_init.h>
 
+#define	PME_EN	0x2
+
 struct processor_state suspend_state;
 
 static int native_suspend_state_valid(suspend_state_t pm_state)
@@ -36,7 +38,15 @@ void sw64_suspend_enter(void)
 	disable_local_timer();
 	current_thread_info()->pcb.tp = rtid();
 
+#ifdef CONFIG_SUBARCH_C3B
 	sw64_suspend_deep_sleep(&suspend_state);
+#else
+	pme_state = PME_WFW;
+	sw64_write_csr_imb(PME_EN, CSR_INT_EN);
+	asm("halt");
+	local_irq_disable();
+#endif
+
 	wrtp(current_thread_info()->pcb.tp);
 
 	disable_local_timer();
