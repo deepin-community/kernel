@@ -142,6 +142,15 @@ config DWMAC_NUVOTON
 	  for the stmmac device driver. The nuvoton-dwmac driver is
 	  used for MA35 series SoCs.
 
+config DWMAC_PHYTIUM
+	tristate "Phytium dwmac support"
+	depends on (OF || ACPI)
+	help
+	  Support for GMAC controller on Phytium SoCs.
+
+	  This selects the Phytium GMAC glue layer support for the
+	  stmmac device driver.
+
 config DWMAC_QCOM_ETHQOS
 	tristate "Qualcomm ETHQOS support"
 	default ARCH_QCOM
