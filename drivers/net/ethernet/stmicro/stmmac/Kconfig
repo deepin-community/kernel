@@ -121,6 +121,15 @@ config DWMAC_MESON
 	  the stmmac device driver. This driver is used for Meson6,
 	  Meson8, Meson8b and GXBB SoCs.
 
+config DWMAC_PHYTIUM
+	tristate "Phytium dwmac support"
+	depends on (OF || ACPI)
+	help
+	  Support for GMAC controller on Phytium SoCs.
+
+	  This selects the Phytium GMAC glue layer support for the
+	  stmmac device driver.
+
 config DWMAC_QCOM_ETHQOS
 	tristate "Qualcomm ETHQOS support"
 	default ARCH_QCOM
