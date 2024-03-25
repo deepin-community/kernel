@@ -58,6 +58,8 @@ properties:
           - cdns,gem                  # Generic
           - cdns,macb                 # Generic
           - cdns,np4-macb             # NP4 SoC devices
+          - cdns,phytium-gem-1.0      # GEM version 1.0 on Phytium SoCs
+          - cdns,phytium-gem-2.0      # GEM version 2.0 on Phytium SoCs
           - microchip,sama7g5-emac    # Microchip SAMA7G5 ethernet interface
           - microchip,sama7g5-gem     # Microchip SAMA7G5 gigabit ethernet interface
           - mobileye,eyeq5-gem        # Mobileye EyeQ5 SoCs
