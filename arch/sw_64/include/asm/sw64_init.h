@@ -43,6 +43,13 @@ extern struct sw64_chip_ops *sw64_chip;
 extern struct sw64_chip_init_ops *sw64_chip_init;
 #ifdef CONFIG_PM
 extern struct syscore_ops io_syscore_ops;
+
+#define PME_CLEAR	0
+#define PME_WFW		1	/* wait for wake */
+#define	PME_PENDING	2
+
+extern int pme_state;
+
 #endif
 
 DECLARE_PER_CPU(unsigned long, hard_node_id);
