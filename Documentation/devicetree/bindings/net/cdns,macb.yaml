@@ -58,8 +58,8 @@ properties:
           - cdns,emac                 # Generic
           - cdns,gem                  # Generic
           - cdns,macb                 # Generic
-	  - cdns,phytium-gem-1.0    # GEM version 1.0 on Phytium SoCs
-	  - cdns,phytium-gem-2.0    # GEM version 2.0 on Phytium SoCs
+          - cdns,phytium-gem-1.0      # GEM version 1.0 on Phytium SoCs
+          - cdns,phytium-gem-2.0      # GEM version 2.0 on Phytium SoCs
 
   reg:
     minItems: 1
