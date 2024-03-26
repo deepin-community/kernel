@@ -43,6 +43,20 @@ static void update_attr(u8 *dst, u8 *src, int attribute,
 	}
 }
 
+u16 utf8_pos(struct vc_data *vc, const unsigned short *utf8)
+{
+	unsigned long p = (long)utf8;
+	if (vc->vc_font.charcount <= 512) return 0;
+	if (p >= vc->vc_origin && p < vc->vc_scr_end) {
+		return scr_readw((unsigned short *)(p + vc->vc_screenbuf_size));
+	} else {
+		u16 extra_c;
+		int c = *(int*)utf8;
+		extra_c = (c >> 16 ) & 0x0000ffff;
+		return extra_c;
+	}
+}
+
 static void bit_bmove(struct vc_data *vc, struct fb_info *info, int sy,
 		      int sx, int dy, int dx, int height, int width)
 {

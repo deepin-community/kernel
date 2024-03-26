@@ -294,6 +294,13 @@ static inline u16 *screenpos(const struct vc_data *vc, unsigned int offset,
 	return (u16 *)(origin + offset);
 }
 
+static inline u16 *screenpos_utf8(const struct vc_data *vc, int offset, bool viewed)
+{
+	unsigned long origin = viewed ? vc->vc_visible_origin : vc->vc_origin;
+
+	return (u16 *)(origin + offset + vc->vc_screenbuf_size);
+}
+
 static void con_putc(struct vc_data *vc, u16 ca, unsigned int y, unsigned int x)
 {
 	if (vc->vc_sw->con_putc)
