@@ -68,13 +68,9 @@ int io_mem_abort(struct kvm_vcpu *vcpu, struct kvm_run *run,
 {
 	int ret;
 
-#ifdef CONFIG_SUBARCH_C3B
 	run->mmio.phys_addr = hargs->arg1 & 0xfffffffffffffUL;
 	sw64_decode(vcpu, hargs->arg2, run);
-#elif defined(CONFIG_SUBARCH_C4)
-	run->mmio.phys_addr = sw64_read_csr(CSR_DVA) & 0xfffffffffffffUL;
-	sw64_decode(vcpu, 0, run);
-#endif
+
 	if (run->mmio.is_write) {
 		trace_kvm_mmio(KVM_TRACE_MMIO_WRITE, run->mmio.len,
 				run->mmio.phys_addr, run->mmio.data);

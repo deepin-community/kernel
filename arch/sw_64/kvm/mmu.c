@@ -786,16 +786,22 @@ static bool apt_is_exec(struct kvm *kvm, phys_addr_t addr)
 		return kvm_pte_exec(ptep);
 }
 
-static int apt_set_pte_fast(struct kvm *kvm, struct kvm_mmu_memory_cache *cache,
-		phys_addr_t addr, const pte_t *new_pte,
-		unsigned long flags)
+static int apt_set_pte_fast(struct kvm_vcpu *vcpu,
+			    struct kvm_mmu_memory_cache *cache,
+			    const pte_t *new_pte, unsigned long flags)
 {
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte, old_pte;
+	unsigned long as_info, inv_hpa;
+	int inv_level;
+	struct kvm *kvm = vcpu->kvm;
 	bool logging_active = flags & KVM_APT_FLAG_LOGGING_ACTIVE;
-	int inv_level = ((sw64_read_csr(CSR_AS_INFO)) >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
-	unsigned long inv_hpa = sw64_read_csr(CSR_AS_INFO) & AF_ENTRY_ADDR_MASK;
+	phys_addr_t addr = vcpu->arch.vcb.fault_gpa;
+
+	as_info = vcpu->arch.vcb.as_info;
+	inv_level = (as_info >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
+	inv_hpa = as_info & AF_ENTRY_ADDR_MASK;
 
 	VM_BUG_ON(logging_active && !cache);
 
@@ -1134,25 +1140,28 @@ transparent_hugepage_adjust(struct kvm_memory_slot *memslot,
 	return PAGE_SIZE;
 }
 
-static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_gpa,
-			  struct kvm_memory_slot *memslot, unsigned long hva,
-			  unsigned long fault_status)
+static int user_mem_abort(struct kvm_vcpu *vcpu,
+			  struct kvm_memory_slot *memslot,
+			  unsigned long hva, unsigned long fault_status)
 {
 	int ret;
-	bool write_fault, exec_fault, writable, force_pte = false;
-	unsigned long mmu_seq;
-	gfn_t gfn = fault_gpa >> PAGE_SHIFT;
-	struct kvm *kvm = vcpu->kvm;
-	struct kvm_mmu_memory_cache *memcache = &vcpu->arch.mmu_page_cache;
-	struct vm_area_struct *vma;
+	gfn_t gfn;
 	kvm_pfn_t pfn;
-	pgprot_t mem_type = PAGE_READONLY;
-	bool logging_active = memslot_is_logging(memslot);
-	unsigned long vma_pagesize, flags = 0;
-	unsigned long as_info, access_type;
+	phys_addr_t fault_gpa;
 	unsigned int vma_shift;
+	struct kvm *kvm = vcpu->kvm;
+	struct vm_area_struct *vma;
+	pgprot_t mem_type = PAGE_READONLY;
+	unsigned long as_info, access_type;
+	unsigned long mmu_seq, vma_pagesize, flags = 0;
+	struct kvm_mmu_memory_cache *memcache = &vcpu->arch.mmu_page_cache;
+	bool logging_active, write_fault, exec_fault, writable, force_pte;
 
-	as_info = sw64_read_csr(CSR_AS_INFO);
+	force_pte = false;
+	logging_active = memslot_is_logging(memslot);
+	fault_gpa = vcpu->arch.vcb.fault_gpa;
+	gfn = fault_gpa >> PAGE_SHIFT;
+	as_info = vcpu->arch.vcb.as_info;
 	access_type = (as_info >> AF_ACCESS_TYPE_SHIFT) & AF_ACCESS_TYPE_MASK;
 	write_fault = kvm_is_write_fault(access_type);
 	exec_fault = kvm_is_exec_fault(access_type);
@@ -1317,7 +1326,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_gpa,
 				new_pte = kvm_pte_mkexec(new_pte);
 		}
 
-		ret = apt_set_pte_fast(kvm, memcache, fault_gpa, &new_pte, flags);
+		ret = apt_set_pte_fast(vcpu, memcache, &new_pte, flags);
 		if (!ret)
 			goto out_unlock;
 	}
@@ -1342,28 +1351,27 @@ out_unlock:
  * memory region has been registered as standard RAM by user space.
  */
 #ifdef CONFIG_SUBARCH_C4
-int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run)
+int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run,
+			   struct hcall_args *hargs)
 {
-	unsigned long as_info;		/* the value of CSR: AS_INFO */
-	unsigned int access_type, inv_level;
-	unsigned int fault_status;
+	unsigned long as_info;
+	unsigned int access_type, fault_status;
 	unsigned long fault_entry_addr;
 	phys_addr_t fault_gpa;
 	struct kvm_memory_slot *memslot;
 	unsigned long hva;
 	bool write_fault, writable;
 	gfn_t gfn;
-
 	int ret, idx;
 
-	as_info = sw64_read_csr(CSR_AS_INFO);
+	idx = srcu_read_lock(&vcpu->kvm->srcu);
+
+	as_info = vcpu->arch.vcb.as_info;
 	access_type = (as_info >> AF_ACCESS_TYPE_SHIFT) & AF_ACCESS_TYPE_MASK;
-	inv_level = (as_info >> AF_INV_LEVEL_SHIFT) & AF_INV_LEVEL_MASK;
 	fault_status = (as_info >> AF_FAULT_STATUS_SHIFT) & AF_FAULT_STATUS_MASK;
 	fault_entry_addr = (as_info & AF_ENTRY_ADDR_MASK) >> 3;
 
-	fault_gpa = sw64_read_csr(CSR_EXC_GPA);
-	idx = srcu_read_lock(&vcpu->kvm->srcu);
+	fault_gpa = vcpu->arch.vcb.fault_gpa;
 
 	gfn = fault_gpa >> PAGE_SHIFT;
 	memslot = gfn_to_memslot(vcpu->kvm, gfn);
@@ -1378,13 +1386,13 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run)
 	 */
 
 	if (hva == KVM_HVA_ERR_BAD) {
-		ret = io_mem_abort(vcpu, run, NULL);
+		ret = io_mem_abort(vcpu, run, hargs);
 		goto out_unlock;
 	}
 	/* Userspace should not be able to register out-of-bounds IPAs */
 	VM_BUG_ON(fault_gpa >= KVM_PHYS_SIZE);
 
-	ret = user_mem_abort(vcpu, fault_gpa, memslot, hva, fault_status);
+	ret = user_mem_abort(vcpu, memslot, hva, fault_status);
 	if (ret == 0)
 		ret = 1;
 out_unlock:

@@ -65,7 +65,7 @@ int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		return 0;
 #ifdef CONFIG_SUBARCH_C4
 	case SW64_KVM_EXIT_APT_FAULT:
-		return kvm_handle_guest_abort(vcpu, run);
+		return kvm_handle_guest_abort(vcpu, run, hargs);
 #endif
 	case SW64_KVM_EXIT_FATAL_ERROR:
 		vcpu->stat.fatal_error_exits++;
