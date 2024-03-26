@@ -59,7 +59,7 @@ struct vcpucb {
 
 struct vcpucb {
 	unsigned long ktp;
-	unsigned long pcbb;
+	unsigned long as_info;
 	unsigned long ksp;
 	unsigned long usp;
 	unsigned long kgp;
@@ -95,7 +95,7 @@ struct vcpucb {
 	unsigned long reset_entry;
 	unsigned long pvcpu;
 	unsigned long exit_reason;
-	unsigned long ipaddr;
+	unsigned long fault_gpa; /* CSR:EXC_GPA */
 	unsigned long vcpu_pc_save;
 	unsigned long shtclock_offset;
 	unsigned long migration_mark;
