@@ -234,7 +234,6 @@ config PLATFORM_XUELANG
 	depends on UNCORE_XUELANG
 	select SPARSE_IRQ
 	select SYS_HAS_EARLY_PRINTK
-	select SW64_INTC_V2
 	select I2C_SUNWAY if I2C
 	help
 	  Sunway board chipset for C3B
