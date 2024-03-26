@@ -805,7 +805,9 @@ static int apt_set_pte_fast(struct kvm_vcpu *vcpu,
 
 	VM_BUG_ON(logging_active && !cache);
 
-	if (inv_level == 1) {
+	if (logging_active) {
+		goto dissolve;
+	} else if (inv_level == 1) {
 		pud = (pud_t *)(inv_hpa | PAGE_OFFSET);
 		goto find_pud;
 	} else if (inv_level == 2) {
@@ -816,6 +818,7 @@ static int apt_set_pte_fast(struct kvm_vcpu *vcpu,
 		goto find_pte;
 	}
 
+dissolve:
 	/* Create addtional page table mapping - Levels 0 and 1 */
 	pud = apt_get_pud(kvm->arch.pgd, cache, addr);
 	if (!pud) {
