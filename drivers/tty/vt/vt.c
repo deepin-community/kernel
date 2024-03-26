@@ -595,6 +595,11 @@ static void con_scroll(struct vc_data *vc, unsigned int top,
 	}
 	scr_memmovew(dst, src, (rows - nr) * vc->vc_size_row);
 	scr_memsetw(clear, vc->vc_video_erase_char, vc->vc_size_row * nr);
+
+	dst += (vc->vc_screenbuf_size >> 1);
+	src += (vc->vc_screenbuf_size >> 1);
+	scr_memmovew(dst, src, (rows - nr) * vc->vc_size_row);
+	scr_memsetw(clear, 0, vc->vc_size_row * nr);
 }
 
 static void do_update_region(struct vc_data *vc, unsigned long start, int count)
@@ -754,14 +759,17 @@ void complement_pos(struct vc_data *vc, int offset)
 	static int old_offset = -1;
 	static unsigned short old;
 	static unsigned short oldx, oldy;
+	static unsigned short old_ext = 0;
+	int c_utf8 = 0;
 
 	WARN_CONSOLE_UNLOCKED();
 
 	if (old_offset != -1 && old_offset >= 0 &&
 	    old_offset < vc->vc_screenbuf_size) {
 		scr_writew(old, screenpos(vc, old_offset, true));
+		c_utf8=(old_ext << 16)|old;
 		if (con_should_update(vc))
-			con_putc(vc, old, oldy, oldx);
+			vc->vc_sw->con_putcs(vc, (u16 *)&c_utf8, 1, oldy, oldx);
 		notify_update(vc);
 	}
 
@@ -771,13 +779,17 @@ void complement_pos(struct vc_data *vc, int offset)
 	    offset < vc->vc_screenbuf_size) {
 		unsigned short new;
 		u16 *p = screenpos(vc, offset, true);
+		u16 *p_ext = screenpos_utf8(vc, offset, true);
 		old = scr_readw(p);
+		old_ext = scr_readw(p_ext);
 		new = old ^ vc->vc_complement_mask;
+		c_utf8=(old_ext << 16)|new;
 		scr_writew(new, p);
+		scr_writew(old_ext, p_ext);
 		if (con_should_update(vc)) {
 			oldx = (offset >> 1) % vc->vc_cols;
 			oldy = (offset >> 1) / vc->vc_cols;
-			con_putc(vc, new, oldy, oldx);
+			vc->vc_sw->con_putcs(vc, (u16 *)&c_utf8, 1, oldy, oldx);
 		}
 		notify_update(vc);
 	}
@@ -790,6 +802,8 @@ static void insert_char(struct vc_data *vc, unsigned int nr)
 	vc_uniscr_insert(vc, nr);
 	scr_memmovew(p + nr, p, (vc->vc_cols - vc->state.x - nr) * 2);
 	scr_memsetw(p, vc->vc_video_erase_char, nr * 2);
+	scr_memmovew(p + nr + (vc->vc_screenbuf_size >> 1), p + (vc->vc_screenbuf_size >> 1), (vc->vc_cols - vc->state.x - nr) * 2);
+	scr_memsetw(p + (vc->vc_screenbuf_size >> 1), 0, nr * 2);
 	vc->vc_need_wrap = 0;
 	if (con_should_update(vc))
 		do_update_region(vc, (unsigned long) p,
@@ -804,6 +818,9 @@ static void delete_char(struct vc_data *vc, unsigned int nr)
 	scr_memmovew(p, p + nr, (vc->vc_cols - vc->state.x - nr) * 2);
 	scr_memsetw(p + vc->vc_cols - vc->state.x - nr, vc->vc_video_erase_char,
 			nr * 2);
+	scr_memmovew(p + (vc->vc_screenbuf_size >> 1), p + nr + (vc->vc_screenbuf_size >> 1), (vc->vc_cols - vc->state.x - nr) * 2);
+	scr_memsetw(p + vc->vc_cols - vc->state.x - nr + (vc->vc_screenbuf_size >> 1), 0,
+			nr * 2);
 	vc->vc_need_wrap = 0;
 	if (con_should_update(vc))
 		do_update_region(vc, (unsigned long) p,
@@ -815,6 +832,7 @@ static int softcursor_original = -1;
 static void add_softcursor(struct vc_data *vc)
 {
 	int i = scr_readw((u16 *) vc->vc_pos);
+
 	u32 type = vc->vc_cursor_type;
 
 	if (!(type & CUR_SW))
@@ -1244,15 +1262,23 @@ static int vc_do_resize(struct tty_struct *tty, struct vc_data *vc,
 	while (old_origin < end) {
 		scr_memcpyw((unsigned short *) new_origin,
 			    (unsigned short *) old_origin, rlth);
-		if (rrem)
+ 		scr_memcpyw((unsigned short *) new_origin + (new_screen_size >> 1),
+ 			    (unsigned short *) old_origin + (old_screen_size >> 1), rlth);
+		if (rrem){
 			scr_memsetw((void *)(new_origin + rlth),
 				    vc->vc_video_erase_char, rrem);
+ 			scr_memsetw((void *)(new_origin + rlth + (new_screen_size)),
+				    0x00, rrem);
+		}
 		old_origin += old_row_size;
 		new_origin += new_row_size;
 	}
-	if (new_scr_end > new_origin)
+	if (new_scr_end > new_origin){
 		scr_memsetw((void *)new_origin, vc->vc_video_erase_char,
 			    new_scr_end - new_origin);
+		scr_memsetw((void *)new_origin + (new_screen_size), 0x00,
+ 			    new_scr_end - new_origin);
+	}
 	oldscreen = vc->vc_screenbuf;
 	vc->vc_screenbuf = newscreen;
 	vc->vc_screenbuf_size = new_screen_size;
@@ -2956,11 +2982,16 @@ static int vc_con_write_normal(struct vc_data *vc, int tc, int c,
 	u16 himask = vc->vc_hi_font_mask, charmask = himask ? 0x1ff : 0xff;
 	u8 width = 1;
 	bool inverse = false;
+	int is_utf8 = 0;
+	int tc_1 = 0xfe;
+       uint32_t utf8_c = c;
 
 	if (vc->vc_utf && !vc->vc_disp_ctrl) {
 		if (is_double_width(c))
 			width = 2;
 	}
+        if (utf8_c > 0x7f)
+		is_utf8 = 1;
 
 	/* Now try to find out how to display it */
 	tc = conv_uni_to_pc(vc, tc);
@@ -2999,6 +3030,10 @@ static int vc_con_write_normal(struct vc_data *vc, int tc, int c,
 	}
 
 	next_c = c;
+	if (is_utf8 == 1){
+		tc = 0xff;
+		next_c = 0xff;
+	}
 	while (1) {
 		if (vc->vc_need_wrap || vc->vc_decim)
 			con_flush(vc, draw);
@@ -3017,6 +3052,10 @@ static int vc_con_write_normal(struct vc_data *vc, int tc, int c,
 
 		scr_writew(tc, (u16 *)vc->vc_pos);
 
+		if (is_utf8 == 1) {
+			scr_writew(utf8_c, (u16 *) vc->vc_pos + (vc->vc_screenbuf_size >> 1));
+		}
+
 		if (con_should_update(vc) && draw->x < 0) {
 			draw->x = vc->state.x;
 			draw->from = vc->vc_pos;
@@ -3033,10 +3072,10 @@ static int vc_con_write_normal(struct vc_data *vc, int tc, int c,
 			break;
 
 		/* A space is printed in the second column */
-		tc = conv_uni_to_pc(vc, ' ');
+		tc = conv_uni_to_pc(vc, tc_1);
 		if (tc < 0)
-			tc = ' ';
-		next_c = ' ';
+			tc = tc_1;
+		next_c = tc_1;
 	}
 	notify_write(vc, c);
 
@@ -4867,9 +4906,15 @@ u16 screen_glyph(const struct vc_data *vc, int offset)
 	u16 w = scr_readw(screenpos(vc, offset, true));
 	u16 c = w & 0xff;
 
+	u16 c_utf8 = scr_readw(screenpos_utf8(vc, offset, true));
+
+	if ( (c == 0xff || c == 0xfe) && c_utf8 != 0){
+		return c_utf8;
+	}else{
 	if (w & vc->vc_hi_font_mask)
 		c |= 0x100;
 	return c;
+	}
 }
 EXPORT_SYMBOL_GPL(screen_glyph);
 
@@ -4880,7 +4925,7 @@ u32 screen_glyph_unicode(const struct vc_data *vc, int n)
 	if (uni_lines)
 		return uni_lines[n / vc->vc_cols][n % vc->vc_cols];
 
-	return inverse_translate(vc, screen_glyph(vc, n * 2), true);
+	return screen_glyph(vc, n * 2);
 }
 EXPORT_SYMBOL_GPL(screen_glyph_unicode);
 

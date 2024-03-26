@@ -230,6 +230,8 @@ static int vc_selection_store_chars(struct vc_data *vc, bool unicode)
 			}
 			obp = bp;
 		}
+		if (c > 0x80)
+			i += 2;
 	}
 	vc_sel.buf_len = bp - vc_sel.buffer;
 
