@@ -4710,7 +4710,7 @@ void reset_palette(struct vc_data *vc)
 #define max_font_width	64
 #define max_font_height	128
 #define max_font_glyphs	512
-#define max_font_size	(max_font_glyphs*max_font_width*max_font_height)
+#define max_font_size	(max_font_glyphs*max_font_width*max_font_height >= 65536 * 2 * 8 * 16 ? max_font_glyphs*max_font_width*max_font_height : 65536 * 2 * 8 * 16)
 
 static int con_font_get(struct vc_data *vc, struct console_font_op *op)
 {
@@ -4772,8 +4772,6 @@ static int con_font_set(struct vc_data *vc, const struct console_font_op *op)
 	if (vc->vc_mode != KD_TEXT)
 		return -EINVAL;
 	if (!op->data)
-		return -EINVAL;
-	if (op->charcount > max_font_glyphs)
 		return -EINVAL;
 	if (op->width <= 0 || op->width > max_font_width || !op->height ||
 	    op->height > max_font_height)
