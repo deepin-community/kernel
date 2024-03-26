@@ -604,12 +604,12 @@ config LPC_SCH
 	  LPC bridge function of the Intel SCH provides support for
 	  System Management Bus and General Purpose I/O.
 
-config LPC_CHIP3
-	tristate "CHIP3 LPC"
-	depends on UNCORE_XUELANG
+config LPC_SUNWAY
+	tristate "SUNWAY LPC"
+	depends on SW64
 	select MFD_CORE
 	help
-	  LPC bridge function of the chip3 provides support for
+	  LPC bridge function of the Sunway provides support for
 	  System Management Bus and General Purpose I/O.
 
 config SUNWAY_SUPERIO_AST2400
