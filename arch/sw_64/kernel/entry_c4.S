@@ -153,6 +153,9 @@ entInt:
 	.ent entArith
 entArith:
 	SAVE_ALL
+	ldl     $1, PT_REGS_PC($sp)
+	ldi	$1, 4($1)
+	stl     $1, PT_REGS_PC($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
@@ -179,6 +182,9 @@ entMM:
 	.ent entIF
 entIF:
 	SAVE_ALL
+	ldl     $1, PT_REGS_PC($sp)
+	ldi	$1, 4($1)
+	stl     $1, PT_REGS_PC($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
@@ -198,6 +204,9 @@ entIF:
 	.ent entUna
 entUna:
 	SAVE_ALL
+	ldl     $1, PT_REGS_PC($sp)
+	ldi	$1, 4($1)
+	stl     $1, PT_REGS_PC($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
@@ -230,6 +239,9 @@ entUna:
 	.ent entSys
 entSys:
 	SAVE_ALL
+	ldl     $1, PT_REGS_PC($sp)
+	ldi	$1, 4($1)
+	stl     $1, PT_REGS_PC($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
