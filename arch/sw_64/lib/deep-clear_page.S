@@ -2,6 +2,7 @@
 /*
  * Zero an entire page.
  */
+#include <asm/csr.h>
 #include <asm/export.h>
 	.text
 	.align 4
@@ -37,6 +38,9 @@ clear_page:
 	stl_nc	$31,0x78($16)
 */
 
+#ifdef CONFIG_SUBARCH_C4
+	csrr	$7, CSR_WR_FREGS
+#endif
 	vstd_nc	$f31, 0x0($16)
 	vstd_nc	$f31, 0x20($16)
 	subl	$0, 1, $0
@@ -47,6 +51,9 @@ clear_page:
 	bne	$0, 1b
 
 	memb
+#ifdef CONFIG_SUBARCH_C4
+	csrw	$7, CSR_WR_FREGS
+#endif
 	ret
 
 	.end clear_page

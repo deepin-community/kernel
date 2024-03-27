@@ -10,6 +10,7 @@
  * stuff.
  *
  */
+#include <asm/csr.h>
 #include <asm/export.h>
 /* Allow an exception for an insn; exit if we get one.  */
 #define FIXUP_LDST(x,y...)			\
@@ -34,6 +35,9 @@ ____clear_user_simd_force_ali_addr:
 	bis	$31, $31, $7
 	mov	$17, $18
 	bis	$31, $31, $17
+#ifdef CONFIG_SUBARCH_C4
+	csrr	$6, CSR_WR_FREGS
+#endif
 #include "deep-set_template-force_ali_addr.S"
 255:
 	bis	$31, $18, $0
@@ -43,5 +47,8 @@ $restore_simd:
 	RESTORE_SIMD_REGS
 
 $return:
+#ifdef CONFIG_SUBARCH_C4
+	csrw	$6, CSR_WR_FREGS
+#endif
 	ret
 	.end ____clear_user_simd_force_ali_addr

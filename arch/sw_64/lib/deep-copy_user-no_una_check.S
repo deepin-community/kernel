@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#include <asm/csr.h>
+
 /* Allow an exception for an insn; exit if we get one.  */
 #define FIXUP_LDST(x, y)			\
 	99: x, y;			\
@@ -25,6 +27,9 @@ ____copy_user_simd_no_una_check:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
+#ifdef CONFIG_SUBARCH_C4
+	csrr	$6, CSR_WR_FREGS
+#endif
 #include "deep-copy_template-no_una_check.S"
 255:
 	bis	$31, $18, $0
@@ -36,5 +41,8 @@ $restore_simd:
 	RESTORE_SIMD_REGS
 
 $return:
+#ifdef CONFIG_SUBARCH_C4
+	csrw	$6, CSR_WR_FREGS
+#endif
 	ret
 	.end ____copy_user_simd_no_una_check
