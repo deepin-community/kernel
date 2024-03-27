@@ -114,6 +114,7 @@ void foo(void)
 	BLANK();
 
 	DEFINE(KVM_REGS_SIZE, sizeof(struct kvm_regs));
+#ifdef CONFIG_SUBARCH_C3B
 	DEFINE(KVM_REGS_R0, offsetof(struct kvm_regs, r0));
 	DEFINE(KVM_REGS_R1, offsetof(struct kvm_regs, r1));
 	DEFINE(KVM_REGS_R2, offsetof(struct kvm_regs, r2));
@@ -178,8 +179,72 @@ void foo(void)
 	DEFINE(KVM_REGS_F30, offsetof(struct kvm_regs, fp[30 * 4]));
 	DEFINE(KVM_REGS_PS, offsetof(struct kvm_regs, ps));
 	DEFINE(KVM_REGS_PC, offsetof(struct kvm_regs, pc));
-#ifdef CONFIG_SUBARCH_C4
-	DEFINE(KVM_REGS_SP, offsetof(struct kvm_regs, sp));
+#elif CONFIG_SUBARCH_C4
+	DEFINE(KVM_REGS_R0, offsetof(struct kvm_regs, regs.regs[0]));
+	DEFINE(KVM_REGS_R1, offsetof(struct kvm_regs, regs.regs[1]));
+	DEFINE(KVM_REGS_R2, offsetof(struct kvm_regs, regs.regs[2]));
+	DEFINE(KVM_REGS_R3, offsetof(struct kvm_regs, regs.regs[3]));
+	DEFINE(KVM_REGS_R4, offsetof(struct kvm_regs, regs.regs[4]));
+	DEFINE(KVM_REGS_R5, offsetof(struct kvm_regs, regs.regs[5]));
+	DEFINE(KVM_REGS_R6, offsetof(struct kvm_regs, regs.regs[6]));
+	DEFINE(KVM_REGS_R7, offsetof(struct kvm_regs, regs.regs[7]));
+	DEFINE(KVM_REGS_R8, offsetof(struct kvm_regs, regs.regs[8]));
+	DEFINE(KVM_REGS_R9, offsetof(struct kvm_regs, regs.regs[9]));
+	DEFINE(KVM_REGS_R10, offsetof(struct kvm_regs, regs.regs[10]));
+	DEFINE(KVM_REGS_R11, offsetof(struct kvm_regs, regs.regs[11]));
+	DEFINE(KVM_REGS_R12, offsetof(struct kvm_regs, regs.regs[12]));
+	DEFINE(KVM_REGS_R13, offsetof(struct kvm_regs, regs.regs[13]));
+	DEFINE(KVM_REGS_R14, offsetof(struct kvm_regs, regs.regs[14]));
+	DEFINE(KVM_REGS_R15, offsetof(struct kvm_regs, regs.regs[15]));
+	DEFINE(KVM_REGS_R16, offsetof(struct kvm_regs, regs.regs[16]));
+	DEFINE(KVM_REGS_R17, offsetof(struct kvm_regs, regs.regs[17]));
+	DEFINE(KVM_REGS_R18, offsetof(struct kvm_regs, regs.regs[18]));
+	DEFINE(KVM_REGS_R19, offsetof(struct kvm_regs, regs.regs[19]));
+	DEFINE(KVM_REGS_R20, offsetof(struct kvm_regs, regs.regs[20]));
+	DEFINE(KVM_REGS_R21, offsetof(struct kvm_regs, regs.regs[21]));
+	DEFINE(KVM_REGS_R22, offsetof(struct kvm_regs, regs.regs[22]));
+	DEFINE(KVM_REGS_R23, offsetof(struct kvm_regs, regs.regs[23]));
+	DEFINE(KVM_REGS_R24, offsetof(struct kvm_regs, regs.regs[24]));
+	DEFINE(KVM_REGS_R25, offsetof(struct kvm_regs, regs.regs[25]));
+	DEFINE(KVM_REGS_R26, offsetof(struct kvm_regs, regs.regs[26]));
+	DEFINE(KVM_REGS_R27, offsetof(struct kvm_regs, regs.regs[27]));
+	DEFINE(KVM_REGS_R28, offsetof(struct kvm_regs, regs.regs[28]));
+	DEFINE(KVM_REGS_GP, offsetof(struct kvm_regs, regs.regs[29]));
+	DEFINE(KVM_REGS_SP, offsetof(struct kvm_regs, regs.regs[30]));
+	DEFINE(KVM_REGS_PC, offsetof(struct kvm_regs, regs.pc));
+	DEFINE(KVM_REGS_PS, offsetof(struct kvm_regs, regs.pstate));
+	DEFINE(KVM_REGS_F0, offsetof(struct kvm_regs, fpstate.fp[0]));
+	DEFINE(KVM_REGS_F1, offsetof(struct kvm_regs, fpstate.fp[1]));
+	DEFINE(KVM_REGS_F2, offsetof(struct kvm_regs, fpstate.fp[2]));
+	DEFINE(KVM_REGS_F3, offsetof(struct kvm_regs, fpstate.fp[3]));
+	DEFINE(KVM_REGS_F4, offsetof(struct kvm_regs, fpstate.fp[4]));
+	DEFINE(KVM_REGS_F5, offsetof(struct kvm_regs, fpstate.fp[5]));
+	DEFINE(KVM_REGS_F6, offsetof(struct kvm_regs, fpstate.fp[6]));
+	DEFINE(KVM_REGS_F7, offsetof(struct kvm_regs, fpstate.fp[7]));
+	DEFINE(KVM_REGS_F8, offsetof(struct kvm_regs, fpstate.fp[8]));
+	DEFINE(KVM_REGS_F9, offsetof(struct kvm_regs, fpstate.fp[9]));
+	DEFINE(KVM_REGS_F10, offsetof(struct kvm_regs, fpstate.fp[10]));
+	DEFINE(KVM_REGS_F11, offsetof(struct kvm_regs, fpstate.fp[11]));
+	DEFINE(KVM_REGS_F12, offsetof(struct kvm_regs, fpstate.fp[12]));
+	DEFINE(KVM_REGS_F13, offsetof(struct kvm_regs, fpstate.fp[13]));
+	DEFINE(KVM_REGS_F14, offsetof(struct kvm_regs, fpstate.fp[14]));
+	DEFINE(KVM_REGS_F15, offsetof(struct kvm_regs, fpstate.fp[15]));
+	DEFINE(KVM_REGS_F16, offsetof(struct kvm_regs, fpstate.fp[16]));
+	DEFINE(KVM_REGS_F17, offsetof(struct kvm_regs, fpstate.fp[17]));
+	DEFINE(KVM_REGS_F18, offsetof(struct kvm_regs, fpstate.fp[18]));
+	DEFINE(KVM_REGS_F19, offsetof(struct kvm_regs, fpstate.fp[19]));
+	DEFINE(KVM_REGS_F20, offsetof(struct kvm_regs, fpstate.fp[20]));
+	DEFINE(KVM_REGS_F21, offsetof(struct kvm_regs, fpstate.fp[21]));
+	DEFINE(KVM_REGS_F22, offsetof(struct kvm_regs, fpstate.fp[22]));
+	DEFINE(KVM_REGS_F23, offsetof(struct kvm_regs, fpstate.fp[23]));
+	DEFINE(KVM_REGS_F24, offsetof(struct kvm_regs, fpstate.fp[24]));
+	DEFINE(KVM_REGS_F25, offsetof(struct kvm_regs, fpstate.fp[25]));
+	DEFINE(KVM_REGS_F26, offsetof(struct kvm_regs, fpstate.fp[26]));
+	DEFINE(KVM_REGS_F27, offsetof(struct kvm_regs, fpstate.fp[27]));
+	DEFINE(KVM_REGS_F28, offsetof(struct kvm_regs, fpstate.fp[28]));
+	DEFINE(KVM_REGS_F29, offsetof(struct kvm_regs, fpstate.fp[29]));
+	DEFINE(KVM_REGS_F30, offsetof(struct kvm_regs, fpstate.fp[30]));
+	DEFINE(KVM_REGS_FPCR, offsetof(struct kvm_regs, fpstate.fpcr));
 #endif
 	BLANK();
 

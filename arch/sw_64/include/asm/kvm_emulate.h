@@ -7,6 +7,7 @@
 
 #define R(x)	((size_t) &((struct kvm_regs *)0)->x)
 
+#ifdef CONFIG_SUBARCH_C3B
 static int reg_offsets[32] = {
 	R(r0), R(r1), R(r2), R(r3), R(r4), R(r5), R(r6), R(r7), R(r8),
 	R(r9), R(r10), R(r11), R(r12), R(r13), R(r14), R(r15),
@@ -35,6 +36,21 @@ static inline unsigned long vcpu_get_reg(struct kvm_vcpu *vcpu, u8 reg_num)
 	regs_ptr += reg_offsets[reg_num];
 	return *(unsigned long *)regs_ptr;
 }
+
+#elif defined(CONFIG_SUBARCH_C4)
+static inline void vcpu_set_reg(struct kvm_vcpu *vcpu, u8 reg_num,
+				unsigned long val)
+{
+	vcpu->arch.regs.r[reg_num] = val;
+}
+
+static inline unsigned long vcpu_get_reg(struct kvm_vcpu *vcpu, u8 reg_num)
+{
+	if (reg_num == 31)
+		return 0;
+	return vcpu->arch.regs.r[reg_num];
+}
+#endif
 
 void sw64_decode(struct kvm_vcpu *vcpu, unsigned int insn,
 		 struct kvm_run *run);
