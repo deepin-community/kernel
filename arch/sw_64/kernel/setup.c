@@ -10,7 +10,6 @@
 #include <linux/console.h>
 #include <linux/memblock.h>
 #include <linux/root_dev.h>
-#include <linux/initrd.h>
 #ifdef CONFIG_MAGIC_SYSRQ
 #include <linux/sysrq.h>
 #include <linux/reboot.h>
@@ -118,11 +117,6 @@ struct memmap_entry memmap_map[MAX_NUMMEMMAPS];
 bool memblock_initialized;
 
 cpumask_t cpu_offline = CPU_MASK_NONE;
-
-static char command_line[COMMAND_LINE_SIZE] __initdata;
-#ifdef CONFIG_CMDLINE_BOOL
-static char builtin_cmdline[COMMAND_LINE_SIZE] __initdata = CONFIG_CMDLINE;
-#endif
 
 /* boot_params */
 /**
@@ -335,31 +329,6 @@ static int __init setup_cpuoffline(char *p)
 }
 early_param("cpuoffline", setup_cpuoffline);
 
-#ifdef CONFIG_BLK_DEV_INITRD
-static void * __init move_initrd(unsigned long mem_limit)
-{
-	void *start;
-	unsigned long size;
-
-	size = initrd_end - initrd_start;
-	start = memblock_alloc_from(PAGE_ALIGN(size), PAGE_SIZE, 0);
-	if (!start || __pa(start) + size > mem_limit) {
-		initrd_start = initrd_end = 0;
-		return NULL;
-	}
-	memmove(start, (void *)initrd_start, size);
-	initrd_start = (unsigned long)start;
-	initrd_end = initrd_start + size;
-	pr_info("initrd moved to 0x%px\n", start);
-	return start;
-}
-#else
-static void * __init move_initrd(unsigned long mem_limit)
-{
-	return NULL;
-}
-#endif
-
 static bool __init memmap_range_valid(phys_addr_t base, phys_addr_t *size)
 {
 	if (base > memblock_end_of_DRAM())
@@ -415,26 +384,9 @@ void __init process_memmap(void)
 			}
 			break;
 		case memmap_initrd:
-			if ((base + size) > memblock_end_of_DRAM()) {
-				phys_addr_t old_base = base;
-
-				base = (unsigned long) move_initrd(memblock_end_of_DRAM());
-				if (!base) {
-					pr_err("initrd memmap region [mem %#018llx-%#018llx] extends beyond end of memory (%#018llx)\n",
-							old_base, old_base + size - 1, memblock_end_of_DRAM());
-					break;
-				}
-				memmap_map[i].addr = base;
-			}
-			pr_info("initrd memmap region [mem %#018llx-%#018llx]\n", base, base + size - 1);
-			ret = memblock_reserve(base, size);
-			if (ret)
-				pr_err("reserve memmap region [mem %#018llx-%#018llx] failed\n",
-						base, base + size - 1);
-			break;
 		case memmap_kvm:
 		case memmap_crashkernel:
-			/* kvm and crashkernel are handled elsewhere, skip */
+			/* initrd, kvm and crashkernel are handled elsewhere, skip */
 			break;
 		case memmap_acpi:
 			pr_err("ACPI memmap region is not supported.\n");
@@ -580,51 +532,103 @@ static int __init topology_init(void)
 }
 subsys_initcall(topology_init);
 
-static void __init setup_machine_fdt(void)
+static bool __init arch_dtb_verify(void *dt_virt, bool from_firmware)
 {
-#ifdef CONFIG_USE_OF
+	unsigned long dt_phys = __boot_pa(dt_virt);
+
+	if (!phys_addr_valid(dt_phys)) {
+		pr_crit("Invalid physical DTB address 0x%lx\n", dt_phys);
+		return false;
+	}
+
+	/* Only for non built-in DTB */
+	if (from_firmware &&
+		(dt_phys < virt_to_phys((void *)__bss_stop))) {
+		pr_crit("DTB has been corrupted by kernel image!\n");
+		return false;
+	}
+
+	return true;
+}
+
+static void __init setup_firmware_fdt(void)
+{
 	void *dt_virt;
 	const char *name;
 
-	/* Give a chance to select kernel builtin DTB firstly */
-	if (IS_ENABLED(CONFIG_BUILTIN_DTB))
-		dt_virt = (void *)__dtb_start;
-	else {
+	/**
+	 * Use DTB provided by firmware for early initialization, regardless
+	 * of whether a Built-in DTB configured or not. Since we need the
+	 * boot params from firmware when using new method to pass boot params.
+	 */
+	if (sunway_boot_magic != 0xDEED2024UL)
 		dt_virt = (void *)sunway_boot_params->dtb_start;
-		if (virt_to_phys(dt_virt) < virt_to_phys(__bss_stop)) {
-			pr_emerg("BUG: DTB has been corrupted by kernel image!\n");
-			while (true)
-				cpu_relax();
-		}
+	else {
+		pr_info("Parse boot params in DTB chosen node\n");
+		dt_virt = (void *)sunway_dtb_address;
 	}
 
-	if (!phys_addr_valid(__boot_pa(dt_virt)) ||
+	if (!arch_dtb_verify(dt_virt, true) ||
 			!early_init_dt_scan(dt_virt)) {
-		pr_crit("\n"
-			"Error: invalid device tree blob at virtual address %px\n"
-			"The dtb must be 8-byte aligned and must not exceed 2 MB in size\n"
-			"\nPlease check your bootloader.",
-			dt_virt);
-
+		pr_crit("Invalid DTB(from firmware) at virtual address 0x%lx\n",
+				(unsigned long)dt_virt);
 		while (true)
 			cpu_relax();
 	}
 
 	name = of_flat_dt_get_machine_name();
-	if (!name)
-		return;
+	if (name)
+		pr_info("Machine model: %s\n", name);
 
-	pr_info("Machine model: %s\n", name);
+	/**
+	 * For C3B(xuelang), kernel command line always comes from
+	 * "sunway_boot_params->cmdline". These code can be removed
+	 * when no longer support C3B(xuelang).
+	 */
+	if (sunway_boot_magic != 0xDEED2024UL) {
+		if (!sunway_boot_params->cmdline)
+			sunway_boot_params->cmdline = (unsigned long)COMMAND_LINE;
+		strlcpy(boot_command_line, (char *)sunway_boot_params->cmdline,
+				COMMAND_LINE_SIZE);
+#ifdef CONFIG_CMDLINE
+#if defined(CONFIG_CMDLINE_EXTEND)
+		strlcat(boot_command_line, " ", COMMAND_LINE_SIZE);
+		strlcat(boot_command_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
+#elif defined(CONFIG_CMDLINE_FORCE)
+		strlcpy(boot_command_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
 #else
-	pr_info("Kernel disable device tree support.\n");
-	return;
+		/* No arguments from firmware, use kernel's built-in cmdline */
+		if (!((char *)boot_command_line)[0])
+			strlcpy(boot_command_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
 #endif
+#endif /* CONFIG_CMDLINE */
+	}
 }
 
-void __init device_tree_init(void)
+static void __init setup_builtin_fdt(void)
 {
-	unflatten_and_copy_device_tree();
-	sunway_boot_params->dtb_start = (__u64)initial_boot_params;
+	void *dt_virt;
+
+	dt_virt = (void *)__dtb_start;
+	if (!arch_dtb_verify(dt_virt, false) ||
+			!early_init_dt_verify(dt_virt)) {
+		pr_crit("Invalid DTB(built-in) at virtual address 0x%lx\n",
+				(unsigned long)dt_virt);
+		while (true)
+			cpu_relax();
+	}
+}
+
+static void __init device_tree_init(void)
+{
+	/**
+	 * Built-in DTB is placed in init data, so we need
+	 * to copy it.
+	 */
+	if (IS_ENABLED(CONFIG_BUILTIN_DTB))
+		unflatten_and_copy_device_tree();
+	else
+		unflatten_device_tree();
 }
 
 static void __init setup_cpu_info(void)
@@ -689,7 +693,7 @@ static void __init setup_run_mode(void)
 {
 	if (rvpcr() >> VPCR_SHIFT) {
 		static_branch_disable(&run_mode_host_key);
-		if (*(unsigned long *)MMSIZE & EMUL_FLAG) {
+		if (*(unsigned long *)MM_SIZE & EMUL_FLAG) {
 			pr_info("run mode: emul\n");
 			static_branch_disable(&run_mode_guest_key);
 			static_branch_enable(&run_mode_emul_key);
@@ -720,26 +724,6 @@ static void __init setup_socket_info(void)
 			socket_desc[i].socket_mem = sw64_chip_init->early_init.get_node_mem(i);
 	}
 }
-
-#ifdef CONFIG_BLK_DEV_INITRD
-static void __init reserve_mem_for_initrd(void)
-{
-	int ret;
-
-	initrd_start = sunway_boot_params->initrd_start;
-	if (initrd_start) {
-		initrd_start = __pa(initrd_start) + PAGE_OFFSET;
-		initrd_end = initrd_start + sunway_boot_params->initrd_size;
-		pr_info("Initial ramdisk at: 0x%px (%llu bytes)\n",
-				(void *)initrd_start, sunway_boot_params->initrd_size);
-
-		ret = add_memmap_region(__pa(initrd_start), initrd_end - initrd_start, memmap_initrd);
-		if (ret)
-			pr_err("Add initrd area [mem %#018lx-%#018lx] to memmap region failed.\n",
-				__pa(initrd_start), __pa(initrd_end - 1));
-	}
-}
-#endif /* CONFIG_BLK_DEV_INITRD */
 
 #ifdef CONFIG_SUBARCH_C3B
 #if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
@@ -787,35 +771,17 @@ setup_arch(char **cmdline_p)
 
 	setup_sched_clock();
 
-	setup_machine_fdt();
+	/* Early initialization for device tree */
+	setup_firmware_fdt();
+
+	/* Now we get the final boot_command_line */
+	*cmdline_p = boot_command_line;
 
 	/* Register a call for panic conditions. */
 	atomic_notifier_chain_register(&panic_notifier_list,
 			&sw64_panic_block);
 
 	callback_init();
-
-	/* command line */
-	if (!sunway_boot_params->cmdline)
-		sunway_boot_params->cmdline = (unsigned long)COMMAND_LINE;
-
-	strscpy(boot_command_line, (char *)sunway_boot_params->cmdline, COMMAND_LINE_SIZE);
-
-#if IS_ENABLED(CONFIG_CMDLINE_BOOL)
-#if IS_ENABLED(CONFIG_CMDLINE_OVERRIDE)
-	strscpy(boot_command_line, builtin_cmdline, COMMAND_LINE_SIZE);
-	strscpy((char *)sunway_boot_params->cmdline, boot_command_line, COMMAND_LINE_SIZE);
-#else
-	if (builtin_cmdline[0]) {
-		/* append builtin to boot loader cmdline */
-		strlcat(boot_command_line, " ", COMMAND_LINE_SIZE);
-		strlcat(boot_command_line, builtin_cmdline, COMMAND_LINE_SIZE);
-	}
-#endif /* CMDLINE_EXTEND */
-#endif
-
-	strscpy(command_line, boot_command_line, COMMAND_LINE_SIZE);
-	*cmdline_p = command_line;
 
 	/*
 	 * Process command-line arguments.
@@ -827,10 +793,6 @@ setup_arch(char **cmdline_p)
 
 #ifdef CONFIG_PCI
 	reserve_mem_for_pci();
-#endif
-
-#ifdef CONFIG_BLK_DEV_INITRD
-	reserve_mem_for_initrd();
 #endif
 
 	sw64_memblock_init();
@@ -845,6 +807,10 @@ setup_arch(char **cmdline_p)
 #endif
 
 	efi_init();
+
+	/* After efi initialization, switch to Builtin-in DTB if configured */
+	if (IS_ENABLED(CONFIG_BUILTIN_DTB))
+		setup_builtin_fdt();
 
 	/* Try to upgrade ACPI tables via initrd */
 	acpi_table_upgrade();

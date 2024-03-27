@@ -21,7 +21,7 @@ static unsigned long __init get_node_mem(int nodeid)
 {
 
 	if (is_guest_or_emul())
-		return *(unsigned long *)MMSIZE & MMSIZE_MASK;
+		return *(unsigned long *)MM_SIZE & MM_SIZE_MASK;
 
 	return __get_node_mem(nodeid);
 }

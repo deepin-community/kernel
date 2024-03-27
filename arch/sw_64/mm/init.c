@@ -11,9 +11,13 @@
 #include <linux/swiotlb.h>
 #include <linux/acpi.h>
 #include <linux/memory.h>
+#include <linux/of_fdt.h>
+#include <linux/libfdt.h>
+#include <linux/initrd.h>
 
 #include <asm/pgalloc.h>
 #include <asm/mmu_context.h>
+#include <asm/platform.h>
 
 struct mem_desc_t mem_desc;
 #ifndef CONFIG_NUMA
@@ -157,6 +161,61 @@ void __init mem_detect(void)
 		mem_desc.size = mem_desc.phys_size - NODE0_START;
 }
 
+#ifdef CONFIG_BLK_DEV_INITRD
+static void __init reserve_mem_for_initrd(void)
+{
+	phys_addr_t phys_initrd_start, initrd_size;
+
+	/**
+	 * Get initrd params from boot_params for backward
+	 * compatibility. These code can be removed when
+	 * no longer support C3B(xuelang).
+	 */
+	if (sunway_boot_magic != 0xDEED2024UL) {
+		initrd_start = sunway_boot_params->initrd_start;
+		if (initrd_start) {
+			/**
+			 * It works regardless of whether the firmware
+			 * passes a virtual address or a physical address.
+			 *
+			 * __boot_pa here is used for compatibility with
+			 * old firmware. We can use __pa instead when no
+			 * longer support C3B(xuelang).
+			 */
+			initrd_start = (unsigned long)__va(__boot_pa(initrd_start));
+			initrd_end = initrd_start + sunway_boot_params->initrd_size;
+		}
+	}
+
+	phys_initrd_start = __boot_pa(initrd_start);
+	initrd_size = initrd_end - initrd_start;
+
+	if (!initrd_start || !initrd_size) {
+		pr_info("No initrd found\n");
+		return;
+	}
+
+	pr_info("Initial ramdisk at: 0x%lx(va)/0x%llx(pa) (%llu bytes)\n",
+			initrd_start, phys_initrd_start, initrd_size);
+
+	/**
+	 * Usually, it means that there is an error in the
+	 * initrd params. We should check the firmware.
+	 */
+	if ((phys_initrd_start + initrd_size) > memblock_end_of_DRAM()) {
+		/* Disable initrd */
+		initrd_start = 0;
+		initrd_end = 0;
+		pr_err("Initial ramdisk exceed DRAM limitation\n");
+		return;
+	}
+
+	/* Reserve initrd */
+	memblock_add(phys_initrd_start, initrd_size);
+	memblock_reserve(phys_initrd_start, initrd_size);
+}
+#endif /* CONFIG_BLK_DEV_INITRD */
+
 void __init sw64_memblock_init(void)
 {
 	memblock_add(mem_desc.base, mem_desc.size);
@@ -173,14 +232,21 @@ void __init sw64_memblock_init(void)
 	memblock_add(__pa_symbol(_text), _end - _text);
 	memblock_reserve(__pa_symbol(_text), _end - _text);
 
+#ifdef CONFIG_BLK_DEV_INITRD
 	/* Make sure initrd is in memory range. */
-	if (sunway_boot_params->initrd_start) {
-		phys_addr_t base = __boot_pa(sunway_boot_params->initrd_start);
-		phys_addr_t size = sunway_boot_params->initrd_size;
-
-		memblock_add(base, size);
-		memblock_reserve(base, size);
-	}
+	reserve_mem_for_initrd();
+#endif
+	/**
+	 * When using non built-in DTB, we need to reserve
+	 * it but avoid using early_init_fdt_reserve_self()
+	 * since __pa() does not work for some old firmware.
+	 *
+	 * We can use early_init_fdt_reserve_self() instead
+	 * when kernel no longer support C3B.
+	 */
+	if (!IS_ENABLED(CONFIG_BUILTIN_DTB))
+		memblock_reserve(__boot_pa(initial_boot_params),
+				fdt_totalsize(initial_boot_params));
 
 	/* end of DRAM range may have been changed */
 	max_pfn = max_low_pfn = PFN_DOWN(memblock_end_of_DRAM());

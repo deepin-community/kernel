@@ -10,8 +10,13 @@
 #include <linux/delay.h>
 #include <linux/irq.h>
 #include <linux/reboot.h>
+#include <linux/libfdt.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/efi.h>
 
 #include <asm/cacheflush.h>
+#include <asm/platform.h>
 
 extern void *kexec_control_page;
 extern const unsigned char relocate_new_kernel[];
@@ -143,15 +148,189 @@ void machine_crash_shutdown(struct pt_regs *regs)
 
 #define phys_to_ktext(pa)    (__START_KERNEL_map + (pa))
 
-typedef void (*noretfun_t)(void) __noreturn;
+typedef void (*noretfun_t)(unsigned long, unsigned long) __noreturn;
+
+/**
+ * Current kernel does not yet have a common implementation for
+ * this function. So, make an arch-specific one.
+ */
+static void *arch_kexec_alloc_and_setup_fdt(unsigned long initrd_start,
+		unsigned long initrd_size, const char *cmdline)
+{
+	void *fdt;
+	int ret, chosen_node;
+	size_t fdt_size;
+
+	fdt_size = fdt_totalsize(initial_boot_params) +
+		(cmdline ? strlen(cmdline) : 0) + 0x1000;
+	fdt = kzalloc(fdt_size, GFP_KERNEL);
+	if (!fdt)
+		return NULL;
+
+	ret = fdt_open_into(initial_boot_params, fdt, fdt_size);
+	if (ret < 0) {
+		pr_err("Error %d setting up the new device tree\n", ret);
+		goto out;
+	}
+
+	chosen_node = fdt_path_offset(fdt, "/chosen");
+	if (chosen_node < 0) {
+		pr_err("Failed to find chosen node\n");
+		goto out;
+	}
+
+	/* update initrd params */
+	if (initrd_size) {
+		ret = fdt_setprop_u64(fdt, chosen_node, "linux,initrd-start",
+				initrd_start);
+		if (ret)
+			goto out;
+
+		ret = fdt_setprop_u64(fdt, chosen_node, "linux,initrd-end",
+				initrd_start + initrd_size);
+		if (ret)
+			goto out;
+	} else {
+		ret = fdt_delprop(fdt, chosen_node, "linux,initrd-start");
+		if (ret)
+			goto out;
+
+		ret = fdt_delprop(fdt, chosen_node, "linux,initrd-end");
+		if (ret)
+			goto out;
+	}
+
+	/* update cmdline */
+	if (cmdline) {
+		ret = fdt_setprop_string(fdt, chosen_node, "bootargs", cmdline);
+		if (ret)
+			goto out;
+	} else {
+		ret = fdt_delprop(fdt, chosen_node, "bootargs");
+		if (ret)
+			goto out;
+	}
+
+	return fdt;
+
+out:
+	kfree(fdt);
+	return NULL;
+}
+
+#ifdef CONFIG_EFI
+static int update_efi_properties(const struct boot_params *params)
+{
+	int chosen_node, ret;
+	void *dtb_start = (void *)params->dtb_start;
+
+	if (!dtb_start)
+		return -EINVAL;
+
+	chosen_node = fdt_path_offset(dtb_start, "/chosen");
+	if (chosen_node < 0)
+		return -EINVAL;
+
+	ret = fdt_setprop_u64(dtb_start, chosen_node,
+			"linux,uefi-system-table",
+			params->efi_systab);
+	if (ret)
+		return ret;
+
+	ret = fdt_setprop_u64(dtb_start, chosen_node,
+			"linux,uefi-mmap-start",
+			params->efi_memmap);
+	if (ret)
+		return ret;
+
+	ret = fdt_setprop_u64(dtb_start, chosen_node,
+			"linux,uefi-mmap-size",
+			params->efi_memmap_size);
+	if (ret)
+		return ret;
+
+	ret = fdt_setprop_u64(dtb_start, chosen_node,
+			"linux,uefi-mmap-desc-size",
+			params->efi_memdesc_size);
+	if (ret)
+		return ret;
+
+	ret = fdt_setprop_u64(dtb_start, chosen_node,
+			"linux,uefi-mmap-desc-ver",
+			params->efi_memdesc_version);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+#endif
+
+static void update_boot_params(void)
+{
+	struct boot_params params = { 0 };
+
+	/* Cmdline and initrd can be new */
+	params.cmdline = kexec_start_address - COMMAND_LINE_OFF;
+	params.initrd_start = *(__u64 *)(kexec_start_address - INITRD_START_OFF);
+	params.initrd_size = *(__u64 *)(kexec_start_address - INITRD_SIZE_OFF);
+
+	if (sunway_boot_magic != 0xDEED2024UL) {
+		sunway_boot_params->cmdline = params.cmdline;
+		sunway_boot_params->initrd_start = params.initrd_start;
+		sunway_boot_params->initrd_size = params.initrd_size;
+
+		params.dtb_start = sunway_boot_params->dtb_start;
+		params.efi_systab = sunway_boot_params->efi_systab;
+		params.efi_memmap = sunway_boot_params->efi_memmap;
+		params.efi_memmap_size = sunway_boot_params->efi_memmap_size;
+		params.efi_memdesc_size = sunway_boot_params->efi_memdesc_size;
+		params.efi_memdesc_version = sunway_boot_params->efi_memdesc_version;
+	} else {
+		params.dtb_start = (unsigned long)arch_kexec_alloc_and_setup_fdt(
+				params.initrd_start, params.initrd_size,
+				(const char *)params.cmdline);
+		/* update dtb base address */
+		sunway_dtb_address = params.dtb_start;
+
+#ifdef CONFIG_EFI
+		params.efi_systab = virt_to_phys((void *)efi.systab);
+		params.efi_memmap = efi.memmap.phys_map;
+		params.efi_memmap_size = efi.memmap.map_end - efi.memmap.map;
+		params.efi_memdesc_size = efi.memmap.desc_size;
+		params.efi_memdesc_version = efi.memmap.desc_version;
+
+		/**
+		 * If current kernel take built-in DTB, it's possible that
+		 * there are no efi related properties in "chosen" node. So,
+		 * update these properties here.
+		 *
+		 * Harmless for the following cases:
+		 * 1. Current kernel take DTB from firmware
+		 * 2. New kernel with CONFIG_EFI=n
+		 * 3. New kernel take built-in DTB
+		 */
+		if (update_efi_properties(&params))
+			pr_err("Note: failed to update efi properties\n");
+#endif
+	}
+
+	pr_info("initrd_start     = %#llx, initrd_size         = %#llx\n"
+		"dtb_start        = %#llx, efi_systab          = %#llx\n"
+		"efi_memmap       = %#llx, efi_memmap_size     = %#llx\n"
+		"efi_memdesc_size = %#llx, efi_memdesc_version = %#llx\n"
+		"cmdline          = %s\n",
+		params.initrd_start, params.initrd_size,
+		params.dtb_start, params.efi_systab,
+		params.efi_memmap, params.efi_memmap_size,
+		params.efi_memdesc_size, params.efi_memdesc_version,
+		(char *)params.cmdline);
+}
 
 void machine_kexec(struct kimage *image)
 {
 	void *reboot_code_buffer;
 	unsigned long entry;
 	unsigned long *ptr;
-	struct boot_params *params = sunway_boot_params;
-
 
 	reboot_code_buffer = kexec_control_page;
 	pr_info("reboot_code_buffer = %px\n", reboot_code_buffer);
@@ -166,20 +345,7 @@ void machine_kexec(struct kimage *image)
 	pr_info("kexec_indirection_page = %#lx, image->head=%#lx\n",
 			kexec_indirection_page, image->head);
 
-	params->cmdline = kexec_start_address - COMMAND_LINE_OFF;
-	params->initrd_start = *(__u64 *)(kexec_start_address - INITRD_START_OFF);
-	params->initrd_size = *(__u64 *)(kexec_start_address - INITRD_SIZE_OFF);
-
-	pr_info("initrd_start = %#llx, initrd_size = %#llx\n"
-		"dtb_start = %#llx, efi_systab = %#llx\n"
-		"efi_memmap = %#llx, efi_memmap_size = %#llx\n"
-		"efi_memdesc_size = %#llx, efi_memdesc_version = %#llx\n"
-		"cmdline = %#llx\n",
-		params->initrd_start, params->initrd_size,
-		params->dtb_start, params->efi_systab,
-		params->efi_memmap, params->efi_memmap_size,
-		params->efi_memdesc_size, params->efi_memdesc_version,
-		params->cmdline);
+	update_boot_params();
 
 	memcpy(reboot_code_buffer, relocate_new_kernel, relocate_new_kernel_size);
 
@@ -205,5 +371,6 @@ void machine_kexec(struct kimage *image)
 	pr_info("Will call new kernel at %08lx\n", image->start);
 	pr_info("Bye ...\n");
 	smp_wmb();
-	((noretfun_t) reboot_code_buffer)();
+	((noretfun_t) reboot_code_buffer)(sunway_boot_magic,
+		sunway_dtb_address);
 }
