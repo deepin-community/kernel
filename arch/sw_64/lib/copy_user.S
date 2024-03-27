@@ -9,7 +9,6 @@
  * only _after_ a successful copy). There is also some rather minor
  * exception setup stuff..
  */
-#include <asm/export.h>
 /* Allow an exception for an insn; exit if we get one.  */
 #define EXI(x,y...)			\
 	99: x,##y;			\
@@ -27,9 +26,9 @@
 
 	.set noat
 	.align 4
-	.globl __copy_user
-	.ent __copy_user
-__copy_user:
+	.globl ____copy_user_sisd
+	.ent ____copy_user_sisd
+____copy_user_sisd:
 	.prologue 0
 	and	$18, $18, $0
 	and	$16, 7, $3
@@ -102,5 +101,4 @@ $exitin:
 $exitout:
 	ret	$31, ($26), 1
 
-	.end __copy_user
-	EXPORT_SYMBOL(__copy_user)
+	.end ____copy_user_sisd
