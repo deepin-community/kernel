@@ -19,9 +19,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____copy_user_hw_una
-	.ent ____copy_user_hw_una
-____copy_user_hw_una:
+	.globl ____copy_user_simd_no_una_check
+	.ent ____copy_user_simd_no_una_check
+____copy_user_simd_no_una_check:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
@@ -37,4 +37,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end ____copy_user_hw_una
+	.end ____copy_user_simd_no_una_check

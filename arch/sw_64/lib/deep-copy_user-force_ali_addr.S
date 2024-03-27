@@ -19,9 +19,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____copy_user_sw_una
-	.ent ____copy_user_sw_una
-____copy_user_sw_una:
+	.globl ____copy_user_simd_force_ali_addr
+	.ent ____copy_user_simd_force_ali_addr
+____copy_user_simd_force_ali_addr:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
@@ -41,4 +41,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end ____copy_user_sw_una
+	.end ____copy_user_simd_force_ali_addr

@@ -27,9 +27,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____clear_user_hw_una
-	.ent ____clear_user_hw_una
-____clear_user_hw_una:
+	.globl ____clear_user_simd_no_una_check
+	.ent ____clear_user_simd_no_una_check
+____clear_user_simd_no_una_check:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
@@ -44,4 +44,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end ____clear_user_hw_una
+	.end ____clear_user_simd_no_una_check
