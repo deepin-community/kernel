@@ -108,6 +108,8 @@ struct vcpucb {
 	unsigned long csr_earg1;
 	unsigned long csr_earg2;
 	unsigned long csr_scratch;
+	unsigned long atc;
+	unsigned long reserved[45];
 };
 #endif
 
