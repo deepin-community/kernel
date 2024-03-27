@@ -102,6 +102,8 @@ void smp_callin(void)
 
 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
 	per_cpu(hard_node_id, cpuid) = rcid_to_domain_id(cpu_to_rcid(cpuid));
+	store_cpu_topology(cpuid);
+	numa_add_cpu(cpuid);
 
 	/* Must have completely accurate bogos.  */
 	local_irq_enable();
@@ -149,8 +151,6 @@ static int secondary_cpu_start(int cpuid, struct task_struct *idle)
 	return -1;
 
 started:
-	store_cpu_topology(cpuid);
-	numa_add_cpu(cpuid);
 	return 0;
 }
 
