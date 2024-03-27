@@ -37,6 +37,16 @@ __start:
 	/* ... and find our stack ... */
 	ldi	$30, ASM_THREAD_SIZE($30)
 
+	/**
+	 * Starting from Core4, Grub uses $16 to pass magic num
+	 * and use $17 to pass DTB base address.
+	 *
+	 * So, we need to save $16 and $17 before clearing bss.
+	 */
+	ldi     $30, -16($30)
+	stl     $16, 8($30)
+	stl     $17, 0($30)
+
 	/* ... and then we can clear bss data.  */
 	ldi	$16, __bss_start
 	ldi	$18, __bss_stop
@@ -44,6 +54,18 @@ __start:
 	mov	$31, $17
 	call	$26, __constant_c_memset
 	ldgp	$29, 0($26)
+
+	/* Get magic num and DTB base address. */
+	ldl     $16, 8($30)
+	ldl     $17, 0($30)
+	ldi     $30, 16($30)
+	/* sunway_boot_magic = $16 */
+	ldi     $7, sunway_boot_magic
+	stl     $16, 0($7)
+	/* sunway_dtb_address = $17 */
+	ldi     $7, sunway_dtb_address
+	stl     $17, 0($7)
+
 #ifdef CONFIG_RELOCATABLE
 	ldi	$30, -8($30)
 	stl	$29, 0($30)
@@ -56,6 +78,7 @@ __start:
 	/* Repoint the sp into the new kernel image */
 	addl	$30, $0, $30
 #endif
+
 	/* ... and then we can start the kernel.  */
 	call	$26, sw64_start_kernel
 	sys_call HMC_halt

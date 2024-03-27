@@ -125,7 +125,17 @@ static char builtin_cmdline[COMMAND_LINE_SIZE] __initdata = CONFIG_CMDLINE;
 #endif
 
 /* boot_params */
+/**
+ * Keep sunway_boot_params for backward compatibility. All related code
+ * will be removed when kernel no longer support C3B(xuelang).
+ */
 struct boot_params *sunway_boot_params = (struct boot_params *) (PARAM + 0x100);
+
+unsigned long sunway_boot_magic;
+EXPORT_SYMBOL(sunway_boot_magic);
+
+unsigned long sunway_dtb_address;
+EXPORT_SYMBOL(sunway_dtb_address);
 
 /*
  * The format of "screen_info" is strange, and due to early
