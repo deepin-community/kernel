@@ -7,7 +7,7 @@
 
 #include <asm/cache.h>
 
-#define MMSIZE		__va(0x2040)
+#define MM_SIZE		__va(0x2040)
 #define VPCR_SHIFT	44
 
 /*
@@ -93,7 +93,7 @@ static inline void update_cpu_freq(unsigned long khz)
 }
 
 #define EMUL_FLAG	(0x1UL << 63)
-#define MMSIZE_MASK	(EMUL_FLAG - 1)
+#define MM_SIZE_MASK	(EMUL_FLAG - 1)
 
 DECLARE_STATIC_KEY_TRUE(run_mode_host_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_guest_key);

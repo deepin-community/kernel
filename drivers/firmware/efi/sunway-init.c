@@ -178,21 +178,25 @@ void __init efi_init(void)
 {
 	struct efi_memory_map_data data;
 	u64 efi_system_table;
+	u32 secure_boot;
 
-	if (sunway_boot_params->efi_systab == 0) {
+	if (sunway_boot_magic != 0xDEED2024UL) {
+		/* Legacy way: UEFI information placed in struct boot_params */
+		efi_system_table = sunway_boot_params->efi_systab;
+
+		data.desc_version = sunway_boot_params->efi_memdesc_version;
+		data.desc_size = sunway_boot_params->efi_memdesc_size;
+		data.size = sunway_boot_params->efi_memmap_size;
+		data.phys_map = sunway_boot_params->efi_memmap;
+	} else {
+		/* UEFI information placed in FDT("chosen" node) */
+		efi_system_table = efi_get_fdt_params(&data, &secure_boot);
+	}
+
+	if (efi_system_table == 0) {
 		pr_info("System Table is not exist, disabling EFI.\n");
 		return;
 	}
-
-	/* Grab UEFI information placed in struct boot_params by stub */
-	efi_system_table = sunway_boot_params->efi_systab;
-	if (!efi_system_table)
-		return;
-
-	data.desc_version = sunway_boot_params->efi_memdesc_version;
-	data.desc_size = sunway_boot_params->efi_memdesc_size;
-	data.size = sunway_boot_params->efi_memmap_size;
-	data.phys_map = sunway_boot_params->efi_memmap;
 
 	if (efi_memmap_init_early(&data) < 0) {
 		/*
@@ -212,10 +216,10 @@ void __init efi_init(void)
 		return;
 	}
 
+	efi_set_secure_boot(secure_boot);
+
 	reserve_regions();
 
-	memblock_reserve(sunway_boot_params->efi_memmap & PAGE_MASK,
-			 PAGE_ALIGN(sunway_boot_params->efi_memmap_size +
-				    (sunway_boot_params->efi_memmap & ~PAGE_MASK)));
-
+	memblock_reserve(data.phys_map & PAGE_MASK,
+		PAGE_ALIGN(data.size + (data.phys_map & ~PAGE_MASK)));
 }
