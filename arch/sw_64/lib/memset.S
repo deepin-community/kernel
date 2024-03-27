@@ -13,35 +13,16 @@
  * hand, so they might well be incorrect, please do tell me about it..)
  */
 
-#include <asm/export.h>
-
 	.set noat
 	.set noreorder
 .text
-	.globl memset
-	.globl __memset
-	.globl ___memset
-	.globl __memsetw
-	.globl __constant_c_memset
+	.globl ____constant_c_memset_sisd
 
-	.ent ___memset
-.align 5
-___memset:
+	.ent ____constant_c_memset_sisd
 	.frame $30, 0, $26, 0
 	.prologue 0
-
-	and	$17, 255, $1
-	inslb	$17, 1, $17
-	bis	$17, $1, $17
-	sll	$17, 16, $1
-
-	bis	$17, $1, $17
-	sll	$17, 32, $1
-	bis	$17, $1, $17
-	ldl_u	$31, 0($30)
-
 .align 5
-__constant_c_memset:
+____constant_c_memset_sisd:
 	addl	$18, $16, $6
 	bis	$16, $16, $0
 	xor	$16, $6, $1
@@ -127,27 +108,4 @@ within_one_quad_loop:
 
 end:
 	ret	$31, ($26), 1
-	.end ___memset
-	EXPORT_SYMBOL(___memset)
-
-	.align 5
-	.ent __memsetw
-__memsetw:
-	.prologue 0
-
-	inslh	$17, 0, $1
-	inslh	$17, 2, $2
-	inslh	$17, 4, $3
-	or	$1, $2, $1
-	inslh	$17, 6, $4
-	or	$1, $3, $1
-	or	$1, $4, $17
-	br __constant_c_memset
-
-	.end __memsetw
-	EXPORT_SYMBOL(__memsetw)
-
-memset = ___memset
-EXPORT_SYMBOL(memset)
-__memset = ___memset
-EXPORT_SYMBOL(__memset)
+	.end ____constant_c_memset_sisd

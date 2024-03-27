@@ -4,11 +4,15 @@
 
 #include <linux/export.h>
 
+extern void *____memcpy_sisd(void *dest, const void *src, size_t n);
 extern void *____memcpy_hw_una(void *dest, const void *src, size_t n);
 extern void *____memcpy_sw_una(void *dest, const void *src, size_t n);
 
 static inline void *____memcpy(void *dest, const void *src, size_t n)
 {
+	if (!IS_ENABLED(CONFIG_DEEP_MEMCPY))
+		return ____memcpy_sisd(dest, src, n);
+
 	if (static_branch_likely(&core_hw_una_enabled))
 		return ____memcpy_hw_una(dest, src, n);
 	else
@@ -28,11 +32,15 @@ void *__memcpy(void *dest, const void *src, size_t n)
 }
 EXPORT_SYMBOL(__memcpy);
 
+extern void *____constant_c_memset_sisd(void *s, unsigned long c, size_t n);
 extern void *____constant_c_memset_hw_una(void *s, unsigned long c, size_t n);
 extern void *____constant_c_memset_sw_una(void *s, unsigned long c, size_t n);
 
 static inline void *____constant_c_memset(void *s, unsigned long c, size_t n)
 {
+	if (!IS_ENABLED(CONFIG_DEEP_MEMSET))
+		return ____constant_c_memset_sisd(s, c, n);
+
 	if (static_branch_likely(&core_hw_una_enabled))
 		return ____constant_c_memset_hw_una(s, c, n);
 	else

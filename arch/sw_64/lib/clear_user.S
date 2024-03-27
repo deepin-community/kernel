@@ -10,7 +10,6 @@
  * stuff.
  *
  */
-#include <asm/export.h>
 /* Allow an exception for an insn; exit if we get one.  */
 #define EX(x,y...)			\
 	99: x,##y;			\
@@ -23,11 +22,11 @@
 	.set noreorder
 	.align 4
 
-	.globl __clear_user
-	.ent __clear_user
+	.globl ____clear_user_sisd
+	.ent ____clear_user_sisd
 	.frame $30, 0, $26
 	.prologue 0
-__clear_user:
+____clear_user_sisd:
 	and	$17, $17, $0
 	and	$16, 7, $4
 	beq	$0, $zerolength
@@ -98,5 +97,4 @@ $tail:
 	clr	$0
 	ret	$31, ($26), 1
 
-	.end __clear_user
-	EXPORT_SYMBOL(__clear_user)
+	.end ____clear_user_sisd

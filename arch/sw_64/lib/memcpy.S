@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Reasonably optimized memcpy() routine for the sw64
+ * Reasonably optimized ____memcpy_sisd() routine for the sw64
  *
  *	- memory accessed as aligned quadwords only
  *	- uses bcmpge to compare 8 bytes in parallel
@@ -8,14 +8,13 @@
  * Temp usage notes:
  *	$1, $2, - scratch
  */
-#include <asm/export.h>
 	.set noreorder
 	.set noat
 
 	.align 4
-	.globl memcpy
-	.ent memcpy
-memcpy:
+	.globl ____memcpy_sisd
+	.ent ____memcpy_sisd
+____memcpy_sisd:
 	.frame $30, 0, $26, 0
 	.prologue 0
 
@@ -194,8 +193,4 @@ $misalign_byte:
 $nomoredata:
 	ret	$31, ($26), 1
 
-	.end memcpy
-	EXPORT_SYMBOL(memcpy)
-/* For backwards module compatibility.  */
-__memcpy = memcpy
-.globl __memcpy
+	.end ____memcpy_sisd
