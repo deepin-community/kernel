@@ -27,14 +27,14 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____clear_user_sw_una
-	.ent ____clear_user_sw_una
-____clear_user_sw_una:
+	.globl ____clear_user_hw_una
+	.ent ____clear_user_hw_una
+____clear_user_hw_una:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
 	bis	$31, $31, $17
-#include "deep-set_template.S"
+#include "deep-set_template-no_una_check.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
@@ -44,4 +44,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end ____clear_user_sw_una
+	.end ____clear_user_hw_una

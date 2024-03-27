@@ -45,7 +45,7 @@ ____constant_c_memset_sw_una:
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template.S"
+#include "deep-set_template-force_ali_addr.S"
 255:
 #ifdef CONFIG_SUBARCH_C4
 	csrw	$6, CSR_WR_FREGS

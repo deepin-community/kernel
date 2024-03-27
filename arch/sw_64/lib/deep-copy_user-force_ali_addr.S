@@ -19,22 +19,26 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____copy_user_hw_una
-	.ent ____copy_user_hw_una
-____copy_user_hw_una:
+	.globl ____copy_user_sw_una
+	.ent ____copy_user_sw_una
+____copy_user_sw_una:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
-#include "deep-copy_template_c4.S"
+#include "deep-copy_template-force_ali_addr.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
 	subl	$7, 1, $7
 	beq	$7, $restore_simd
 
+$restore_simd_u:
+	RESTORE_SIMD_U_REGS
+	br	$31, $return
+
 $restore_simd:
 	RESTORE_SIMD_REGS
 
 $return:
 	ret
-	.end ____copy_user_hw_una
+	.end ____copy_user_sw_una
