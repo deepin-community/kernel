@@ -35,11 +35,11 @@
 	.text
 	.align 4
 
-	.globl ____constant_c_memset_sw_una
-	.ent ____constant_c_memset_sw_una
+	.globl ____constant_c_memset_simd_force_ali_addr
+	.ent ____constant_c_memset_simd_force_ali_addr
 	.frame $30, 0, $26, 0
 	.prologue 0
-____constant_c_memset_sw_una:
+____constant_c_memset_simd_force_ali_addr:
 	bis	$31, $31, $7
 	bis	$31, $16, $0
 #ifdef CONFIG_SUBARCH_C4
@@ -51,4 +51,4 @@ ____constant_c_memset_sw_una:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____constant_c_memset_sw_una
+	.end ____constant_c_memset_simd_force_ali_addr

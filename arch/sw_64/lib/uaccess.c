@@ -5,8 +5,8 @@
 #include <linux/export.h>
 
 extern long ____copy_user_sisd(void *to, const void *from, long len);
-extern long ____copy_user_hw_una(void *to, const void *from, long len);
-extern long ____copy_user_sw_una(void *to, const void *from, long len);
+extern long ____copy_user_simd_no_una_check(void *to, const void *from, long len);
+extern long ____copy_user_simd_force_ali_addr(void *to, const void *from, long len);
 
 long __copy_user(void *to, const void *from, long len)
 {
@@ -14,15 +14,15 @@ long __copy_user(void *to, const void *from, long len)
 		return ____copy_user_sisd(to, from, len);
 
 	if (static_branch_likely(&core_hw_una_enabled))
-		return ____copy_user_hw_una(to, from, len);
+		return ____copy_user_simd_no_una_check(to, from, len);
 	else
-		return ____copy_user_sw_una(to, from, len);
+		return ____copy_user_simd_force_ali_addr(to, from, len);
 }
 EXPORT_SYMBOL(__copy_user);
 
 extern long ____clear_user_sisd(void __user *to, long len);
-extern long ____clear_user_hw_una(void __user *to, long len);
-extern long ____clear_user_sw_una(void __user *to, long len);
+extern long ____clear_user_simd_no_una_check(void __user *to, long len);
+extern long ____clear_user_simd_force_ali_addr(void __user *to, long len);
 
 long __clear_user(void __user *to, long len)
 {
@@ -30,8 +30,8 @@ long __clear_user(void __user *to, long len)
 		return ____clear_user_sisd(to, len);
 
 	if (static_branch_likely(&core_hw_una_enabled))
-		return ____clear_user_hw_una(to, len);
+		return ____clear_user_simd_no_una_check(to, len);
 	else
-		return ____clear_user_sw_una(to, len);
+		return ____clear_user_simd_force_ali_addr(to, len);
 }
 EXPORT_SYMBOL(__clear_user);

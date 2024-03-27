@@ -27,9 +27,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____clear_user_sw_una
-	.ent ____clear_user_sw_una
-____clear_user_sw_una:
+	.globl ____clear_user_simd_force_ali_addr
+	.ent ____clear_user_simd_force_ali_addr
+____clear_user_simd_force_ali_addr:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
@@ -44,4 +44,4 @@ $restore_simd:
 
 $return:
 	ret
-	.end ____clear_user_sw_una
+	.end ____clear_user_simd_force_ali_addr

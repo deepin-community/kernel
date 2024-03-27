@@ -35,11 +35,11 @@
 	.text
 	.align 4
 
-	.globl ____constant_c_memset_hw_una
-	.ent ____constant_c_memset_hw_una
+	.globl ____constant_c_memset_simd_no_una_check
+	.ent ____constant_c_memset_simd_no_una_check
 	.frame $30, 0, $26, 0
 	.prologue 0
-____constant_c_memset_hw_una:
+____constant_c_memset_simd_no_una_check:
 	bis	$31, $31, $7
 	bis	$31, $16, $0
 #ifdef CONFIG_SUBARCH_C4
@@ -51,4 +51,4 @@ ____constant_c_memset_hw_una:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____constant_c_memset_hw_una
+	.end ____constant_c_memset_simd_no_una_check
