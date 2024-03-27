@@ -9,7 +9,7 @@ ____memcpy_hw_una:
 	.frame $30, 0, $26, 0
 	.prologue 0
 	mov	$16, $0
-#include "deep-copy_template_c4.S"
+#include "deep-copy_template-no_una_check.S"
 255:
 	ret
 	.end ____memcpy_hw_una

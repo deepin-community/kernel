@@ -45,7 +45,7 @@ ____constant_c_memset_hw_una:
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template_c4.S"
+#include "deep-set_template-no_una_check.S"
 255:
 #ifdef CONFIG_SUBARCH_C4
 	csrw	$6, CSR_WR_FREGS

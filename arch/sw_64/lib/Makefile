@@ -22,16 +22,16 @@ lib-y =	__divlu.o __remlu.o __divwu.o __remwu.o \
 lib-clear_page-y := clear_page.o
 lib-clear_page-$(CONFIG_DEEP_CLEAR_PAGE) := deep-clear_page.o
 
-lib-clear_user-y := clear_user.o deep-clear_user-hw_una.o deep-clear_user-sw_una.o
+lib-clear_user-y := clear_user.o deep-clear_user-no_una_check.o deep-clear_user-force_ali_addr.o
 
 lib-copy_page-y := copy_page.o
 lib-copy_page-$(CONFIG_DEEP_COPY_PAGE) := deep-copy_page.o
 
-lib-copy_user-y := copy_user.o deep-copy_user-hw_una.o deep-copy_user-sw_una.o
+lib-copy_user-y := copy_user.o deep-copy_user-no_una_check.o deep-copy_user-force_ali_addr.o
 
-lib-memcpy-y := memcpy.o deep-memcpy-hw_una.o deep-memcpy-sw_una.o
+lib-memcpy-y := memcpy.o deep-memcpy-no_una_check.o deep-memcpy-force_ali_addr.o
 
-lib-memset-y := memset.o deep-memset-hw_una.o deep-memset-sw_una.o
+lib-memset-y := memset.o deep-memset-no_una_check.o deep-memset-force_ali_addr.o
 
 lib-$(CONFIG_ARCH_HAS_UACCESS_FLUSHCACHE) += uaccess_flushcache.o
 
