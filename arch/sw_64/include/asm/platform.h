@@ -19,6 +19,8 @@ extern unsigned long bios_version;
 #endif
 
 extern struct boot_params *sunway_boot_params;
+extern unsigned long sunway_boot_magic;
+extern unsigned long sunway_dtb_address;
 
 extern void sw64_halt(void);
 extern void sw64_poweroff(void);
