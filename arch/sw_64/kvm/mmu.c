@@ -267,7 +267,7 @@ static void unmap_apt_range(struct kvm *kvm, phys_addr_t start, u64 size)
 		 */
 		if (!READ_ONCE(kvm->arch.pgd))
 			break;
-		next = p4d_addr_end(addr, end);
+		next = pgd_addr_end(addr, end);
 		if (!p4d_none(*p4d))
 			unmap_apt_puds(kvm, p4d, addr, next);
 		/*
@@ -276,7 +276,7 @@ static void unmap_apt_range(struct kvm *kvm, phys_addr_t start, u64 size)
 		 */
 		if (next != end)
 			cond_resched_lock(&kvm->mmu_lock);
-	} while (pgd++, addr = next, addr != end);
+	} while (p4d++, addr = next, addr != end);
 }
 
 static void apt_unmap_memslot(struct kvm *kvm,
