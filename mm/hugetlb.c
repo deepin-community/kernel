@@ -4824,7 +4824,6 @@ static struct ctl_table hugetlb_table[] = {
 		.mode		= 0644,
 		.proc_handler	= hugetlb_overcommit_handler,
 	},
-	{ }
 };
 
 static void __init hugetlb_sysctl_init(void)
