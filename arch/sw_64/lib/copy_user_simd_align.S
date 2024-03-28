@@ -21,16 +21,16 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____copy_user_simd_force_ali_addr
-	.ent ____copy_user_simd_force_ali_addr
-____copy_user_simd_force_ali_addr:
+	.globl ____copy_user_simd_align
+	.ent ____copy_user_simd_align
+____copy_user_simd_align:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-copy_template-force_ali_addr.S"
+#include "copy_simd_align_template.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
@@ -49,4 +49,4 @@ $return:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____copy_user_simd_force_ali_addr
+	.end ____copy_user_simd_align

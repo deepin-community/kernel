@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
 /*
- * template for memcpy and copy_user with SIMD
+ * template for memset and clear_user with SIMD
  *
  * $7:	SIMD status
  *	0: not in simd loop

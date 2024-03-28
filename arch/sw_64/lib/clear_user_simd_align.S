@@ -28,9 +28,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____clear_user_simd_force_ali_addr
-	.ent ____clear_user_simd_force_ali_addr
-____clear_user_simd_force_ali_addr:
+	.globl ____clear_user_simd_align
+	.ent ____clear_user_simd_align
+____clear_user_simd_align:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
@@ -38,7 +38,7 @@ ____clear_user_simd_force_ali_addr:
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template-force_ali_addr.S"
+#include "set_simd_align_template.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
@@ -51,4 +51,4 @@ $return:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____clear_user_simd_force_ali_addr
+	.end ____clear_user_simd_align

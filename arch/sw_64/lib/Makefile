@@ -20,18 +20,18 @@ lib-y =	__divlu.o __remlu.o __divwu.o __remwu.o \
 	uaccess.o
 
 lib-clear_page-y := clear_page.o
-lib-clear_page-$(CONFIG_DEEP_CLEAR_PAGE) := deep-clear_page.o
+lib-clear_page-$(CONFIG_DEEP_CLEAR_PAGE) := clear_page_simd.o
 
-lib-clear_user-y := clear_user.o deep-clear_user-no_una_check.o deep-clear_user-force_ali_addr.o
+lib-clear_user-y := clear_user.o clear_user_simd.o clear_user_simd_align.o
 
 lib-copy_page-y := copy_page.o
-lib-copy_page-$(CONFIG_DEEP_COPY_PAGE) := deep-copy_page.o
+lib-copy_page-$(CONFIG_DEEP_COPY_PAGE) := copy_page_simd.o
 
-lib-copy_user-y := copy_user.o deep-copy_user-no_una_check.o deep-copy_user-force_ali_addr.o
+lib-copy_user-y := copy_user.o copy_user_simd.o copy_user_simd_align.o
 
-lib-memcpy-y := memcpy.o deep-memcpy-no_una_check.o deep-memcpy-force_ali_addr.o
+lib-memcpy-y := memcpy.o memcpy_simd.o memcpy_simd_align.o
 
-lib-memset-y := memset.o deep-memset-no_una_check.o deep-memset-force_ali_addr.o
+lib-memset-y := memset.o memset_simd.o memset_simd_align.o
 
 lib-$(CONFIG_ARCH_HAS_UACCESS_FLUSHCACHE) += uaccess_flushcache.o
 

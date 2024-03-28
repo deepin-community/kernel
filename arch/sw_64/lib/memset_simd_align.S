@@ -35,20 +35,20 @@
 	.text
 	.align 4
 
-	.globl ____constant_c_memset_simd_force_ali_addr
-	.ent ____constant_c_memset_simd_force_ali_addr
+	.globl ____constant_c_memset_simd_align
+	.ent ____constant_c_memset_simd_align
 	.frame $30, 0, $26, 0
 	.prologue 0
-____constant_c_memset_simd_force_ali_addr:
+____constant_c_memset_simd_align:
 	bis	$31, $31, $7
 	bis	$31, $16, $0
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template-force_ali_addr.S"
+#include "set_simd_align_template.S"
 255:
 #ifdef CONFIG_SUBARCH_C4
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____constant_c_memset_simd_force_ali_addr
+	.end ____constant_c_memset_simd_align

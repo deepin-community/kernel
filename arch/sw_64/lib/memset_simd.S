@@ -35,20 +35,20 @@
 	.text
 	.align 4
 
-	.globl ____constant_c_memset_simd_no_una_check
-	.ent ____constant_c_memset_simd_no_una_check
+	.globl ____constant_c_memset_simd
+	.ent ____constant_c_memset_simd
 	.frame $30, 0, $26, 0
 	.prologue 0
-____constant_c_memset_simd_no_una_check:
+____constant_c_memset_simd:
 	bis	$31, $31, $7
 	bis	$31, $16, $0
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template-no_una_check.S"
+#include "set_simd_template.S"
 255:
 #ifdef CONFIG_SUBARCH_C4
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____constant_c_memset_simd_no_una_check
+	.end ____constant_c_memset_simd

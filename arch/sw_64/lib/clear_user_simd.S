@@ -28,9 +28,9 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____clear_user_simd_no_una_check
-	.ent ____clear_user_simd_no_una_check
-____clear_user_simd_no_una_check:
+	.globl ____clear_user_simd
+	.ent ____clear_user_simd
+____clear_user_simd:
 	.prologue 0
 	bis	$31, $31, $7
 	mov	$17, $18
@@ -38,7 +38,7 @@ ____clear_user_simd_no_una_check:
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-set_template-no_una_check.S"
+#include "set_simd_template.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
@@ -51,4 +51,4 @@ $return:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____clear_user_simd_no_una_check
+	.end ____clear_user_simd
