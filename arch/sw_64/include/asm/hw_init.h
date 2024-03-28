@@ -99,7 +99,7 @@ DECLARE_STATIC_KEY_TRUE(run_mode_host_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_guest_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_emul_key);
 
-DECLARE_STATIC_KEY_FALSE(core_hw_una_enabled);
+DECLARE_STATIC_KEY_FALSE(hw_una_enabled);
 
 #define is_in_host()		static_branch_likely(&run_mode_host_key)
 #define is_in_guest()		static_branch_unlikely(&run_mode_guest_key)

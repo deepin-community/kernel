@@ -5,18 +5,18 @@
 #include <linux/export.h>
 
 extern void *____memcpy_sisd(void *dest, const void *src, size_t n);
-extern void *____memcpy_simd_no_una_check(void *dest, const void *src, size_t n);
-extern void *____memcpy_simd_force_ali_addr(void *dest, const void *src, size_t n);
+extern void *____memcpy_simd(void *dest, const void *src, size_t n);
+extern void *____memcpy_simd_align(void *dest, const void *src, size_t n);
 
 static inline void *____memcpy(void *dest, const void *src, size_t n)
 {
 	if (!IS_ENABLED(CONFIG_DEEP_MEMCPY))
 		return ____memcpy_sisd(dest, src, n);
 
-	if (static_branch_likely(&core_hw_una_enabled))
-		return ____memcpy_simd_no_una_check(dest, src, n);
+	if (static_branch_likely(&hw_una_enabled))
+		return ____memcpy_simd(dest, src, n);
 	else
-		return ____memcpy_simd_force_ali_addr(dest, src, n);
+		return ____memcpy_simd_align(dest, src, n);
 }
 
 void *memcpy(void *dest, const void *src, size_t n)
@@ -33,18 +33,18 @@ void *__memcpy(void *dest, const void *src, size_t n)
 EXPORT_SYMBOL(__memcpy);
 
 extern void *____constant_c_memset_sisd(void *s, unsigned long c, size_t n);
-extern void *____constant_c_memset_simd_no_una_check(void *s, unsigned long c, size_t n);
-extern void *____constant_c_memset_simd_force_ali_addr(void *s, unsigned long c, size_t n);
+extern void *____constant_c_memset_simd(void *s, unsigned long c, size_t n);
+extern void *____constant_c_memset_simd_align(void *s, unsigned long c, size_t n);
 
 static inline void *____constant_c_memset(void *s, unsigned long c, size_t n)
 {
 	if (!IS_ENABLED(CONFIG_DEEP_MEMSET))
 		return ____constant_c_memset_sisd(s, c, n);
 
-	if (static_branch_likely(&core_hw_una_enabled))
-		return ____constant_c_memset_simd_no_una_check(s, c, n);
+	if (static_branch_likely(&hw_una_enabled))
+		return ____constant_c_memset_simd(s, c, n);
 	else
-		return ____constant_c_memset_simd_force_ali_addr(s, c, n);
+		return ____constant_c_memset_simd_align(s, c, n);
 }
 
 void *__constant_c_memset(void *s, unsigned long c, size_t n)

@@ -108,7 +108,7 @@ DEFINE_STATIC_KEY_TRUE(run_mode_host_key);
 DEFINE_STATIC_KEY_FALSE(run_mode_guest_key);
 DEFINE_STATIC_KEY_FALSE(run_mode_emul_key);
 
-DEFINE_STATIC_KEY_FALSE(core_hw_una_enabled);
+DEFINE_STATIC_KEY_FALSE(hw_una_enabled);
 
 struct cpu_desc_t cpu_desc;
 struct socket_desc_t socket_desc[MAX_NUMSOCKETS];

@@ -21,16 +21,16 @@
  * $18:	bytes left to copy
  *
  */
-	.globl ____copy_user_simd_no_una_check
-	.ent ____copy_user_simd_no_una_check
-____copy_user_simd_no_una_check:
+	.globl ____copy_user_simd
+	.ent ____copy_user_simd
+____copy_user_simd:
 	.prologue 0
 	.set noreorder
 	bis	$31, $31, $7
 #ifdef CONFIG_SUBARCH_C4
 	csrr	$6, CSR_WR_FREGS
 #endif
-#include "deep-copy_template-no_una_check.S"
+#include "copy_simd_template.S"
 255:
 	bis	$31, $18, $0
 	beq	$7, $return
@@ -45,4 +45,4 @@ $return:
 	csrw	$6, CSR_WR_FREGS
 #endif
 	ret
-	.end ____copy_user_simd_no_una_check
+	.end ____copy_user_simd
