@@ -1105,14 +1105,13 @@ transparent_hugepage_adjust(struct kvm_memory_slot *memslot,
 			    phys_addr_t *gpap)
 {
 	kvm_pfn_t pfn = *pfnp;
-	struct page *page = pfn_to_page(pfn);
 
 	/*
 	 * Make sure the adjustment is done only for THP pages. Also make
 	 * sure that the HVA and IPA are sufficiently aligned and that the
 	 * block map is contained within the memslot.
 	 */
-	if (!PageHuge(page) && PageTransCompoundMap(page) &&
+	if (kvm_is_transparent_hugepage(pfn) &&
 	    fault_supports_apt_huge_mapping(memslot, hva, PMD_SIZE)) {
 		/*
 		 * The address we faulted on is backed by a transparent huge
