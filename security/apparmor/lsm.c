@@ -1821,7 +1821,6 @@ static struct ctl_table apparmor_sysctl_table[] = {
 		.proc_handler   = apparmor_dointvec,
 	},
 
-	{ }
 };
 
 static int __init apparmor_init_sysctl(void)
