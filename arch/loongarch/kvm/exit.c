@@ -83,6 +83,13 @@ static int kvm_handle_csr(struct kvm_vcpu *vcpu, larch_inst inst)
 	rj = inst.reg2csr_format.rj;
 	csrid = inst.reg2csr_format.csr;
 
+	if (csrid >= LOONGARCH_CSR_PERFCTRL0 && csrid <= LOONGARCH_CSR_PERFCNTR3) {
+		if (!kvm_own_pmu(vcpu)) {
+			vcpu->arch.pc -= 4;
+			return EMULATE_DONE;
+		}
+	}
+
 	/* Process CSR ops */
 	switch (rj) {
 	case 0: /* process csrrd */

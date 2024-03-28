@@ -544,6 +544,12 @@ static int _kvm_get_cpucfg_mask(int id, u64 *v)
 	case LOONGARCH_CPUCFG5:
 		*v = GENMASK(31, 0);
 		return 0;
+	case LOONGARCH_CPUCFG6:
+		if (cpu_has_pmp)
+			*v = GENMASK(14, 0);
+		else
+			*v = 0;
+		return 0;
 	case LOONGARCH_CPUCFG16:
 		*v = GENMASK(16, 0);
 		return 0;
@@ -562,7 +568,7 @@ static int _kvm_get_cpucfg_mask(int id, u64 *v)
 
 static int kvm_check_cpucfg(int id, u64 val)
 {
-	int ret;
+	int ret, host;
 	u64 mask = 0;
 
 	ret = _kvm_get_cpucfg_mask(id, &mask);
@@ -587,6 +593,18 @@ static int kvm_check_cpucfg(int id, u64 val)
 		if ((val & CPUCFG2_LASX) && !(val & CPUCFG2_LSX))
 			/* LASX architecturally implies LSX and FP but val does not satisfy that */
 			return -EINVAL;
+		return 0;
+	case LOONGARCH_CPUCFG6:
+		if (val & CPUCFG6_PMP) {
+			host = read_cpucfg(6);
+			if ((val & CPUCFG6_PMBITS) != (host & CPUCFG6_PMBITS))
+				/* Guest pmbits must be the same with host */
+				return -EINVAL;
+			if ((val & CPUCFG6_PMNUM) > (host & CPUCFG6_PMNUM))
+				return -EINVAL;
+			if ((val & CPUCFG6_UPM) && !(host & CPUCFG6_UPM))
+				return -EINVAL;
+		}
 		return 0;
 	default:
 		/*
@@ -767,6 +785,7 @@ static int kvm_loongarch_cpucfg_has_attr(struct kvm_vcpu *vcpu,
 {
 	switch (attr->attr) {
 	case 2:
+	case 6:
 		return 0;
 	default:
 		return -ENXIO;
@@ -1067,6 +1086,77 @@ void kvm_lose_fpu(struct kvm_vcpu *vcpu)
 	preempt_enable();
 }
 
+int kvm_own_pmu(struct kvm_vcpu *vcpu)
+{
+	unsigned long val;
+
+	if (!kvm_guest_has_pmu(&vcpu->arch))
+		return -EINVAL;
+
+	preempt_disable();
+	val = read_csr_gcfg() & ~CSR_GCFG_GPERF;
+	val |= (kvm_get_pmu_num(&vcpu->arch) + 1) << CSR_GCFG_GPERF_SHIFT;
+	write_csr_gcfg(val);
+
+	vcpu->arch.aux_inuse |= KVM_LARCH_PERF;
+	preempt_enable();
+	return 0;
+}
+
+static void kvm_lose_pmu(struct kvm_vcpu *vcpu)
+{
+	struct loongarch_csrs *csr = vcpu->arch.csr;
+
+	if (!(vcpu->arch.aux_inuse & KVM_LARCH_PERF))
+		return;
+
+	/* save guest pmu csr */
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL0);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR0);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL1);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR1);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL2);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR2);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL3);
+	kvm_save_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR3);
+	kvm_write_hw_gcsr(LOONGARCH_CSR_PERFCTRL0, 0);
+	kvm_write_hw_gcsr(LOONGARCH_CSR_PERFCTRL1, 0);
+	kvm_write_hw_gcsr(LOONGARCH_CSR_PERFCTRL2, 0);
+	kvm_write_hw_gcsr(LOONGARCH_CSR_PERFCTRL3, 0);
+	/* Disable pmu access from guest */
+	write_csr_gcfg(read_csr_gcfg() & ~CSR_GCFG_GPERF);
+
+	if (((kvm_read_sw_gcsr(csr, LOONGARCH_CSR_PERFCTRL0) |
+		kvm_read_sw_gcsr(csr, LOONGARCH_CSR_PERFCTRL1) |
+		kvm_read_sw_gcsr(csr, LOONGARCH_CSR_PERFCTRL2) |
+		kvm_read_sw_gcsr(csr, LOONGARCH_CSR_PERFCTRL3))
+				& KVM_PMU_PLV_ENABLE) == 0)
+		vcpu->arch.aux_inuse &= ~KVM_LARCH_PERF;
+}
+
+static void kvm_restore_pmu(struct kvm_vcpu *vcpu)
+{
+	unsigned long val;
+	struct loongarch_csrs *csr = vcpu->arch.csr;
+
+	if (!(vcpu->arch.aux_inuse & KVM_LARCH_PERF))
+		return;
+
+	/* Set PM0-PM(num) to Guest */
+	val = read_csr_gcfg() & ~CSR_GCFG_GPERF;
+	val |= (kvm_get_pmu_num(&vcpu->arch) + 1) << CSR_GCFG_GPERF_SHIFT;
+	write_csr_gcfg(val);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL0);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR0);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL1);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR1);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL2);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR2);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCTRL3);
+	kvm_restore_hw_gcsr(csr, LOONGARCH_CSR_PERFCNTR3);
+}
+
+
 int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu, struct kvm_interrupt *irq)
 {
 	int intr = (int)irq->irq;
@@ -1205,6 +1295,10 @@ static int _kvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 
 	/* Control guest page CCA attribute */
 	change_csr_gcfg(CSR_GCFG_MATC_MASK, CSR_GCFG_MATC_ROOT);
+
+	/* Restore hardware perf csr */
+	kvm_restore_pmu(vcpu);
+
 	kvm_make_request(KVM_REQ_RECORD_STEAL, vcpu);
 
 	/* Don't bother restoring registers multiple times unless necessary */
@@ -1290,6 +1384,7 @@ static int _kvm_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	struct loongarch_csrs *csr = vcpu->arch.csr;
 
 	kvm_lose_fpu(vcpu);
+	kvm_lose_pmu(vcpu);
 
 	/*
 	 * Update CSR state from hardware if software CSR state is stale,

@@ -129,6 +129,7 @@ enum emulation_result {
 #define KVM_LARCH_LASX		(0x1 << 2)
 #define KVM_LARCH_SWCSR_LATEST	(0x1 << 3)
 #define KVM_LARCH_HWCSR_USABLE	(0x1 << 4)
+#define KVM_LARCH_PERF		(0x1 << 5)
 
 struct kvm_vcpu_arch {
 	/*
@@ -204,6 +205,9 @@ struct kvm_vcpu_arch {
 		u64 last_steal;
 		struct gfn_to_hva_cache cache;
 	} st;
+	/* Save host pmu csr */
+	u64 perf_ctrl[4];
+	u64 perf_cntr[4];
 };
 
 static inline unsigned long readl_sw_gcsr(struct loongarch_csrs *csr, int reg)
@@ -229,6 +233,16 @@ static inline bool kvm_guest_has_lsx(struct kvm_vcpu_arch *arch)
 static inline bool kvm_guest_has_lasx(struct kvm_vcpu_arch *arch)
 {
 	return arch->cpucfg[2] & CPUCFG2_LASX;
+}
+
+static inline bool kvm_guest_has_pmu(struct kvm_vcpu_arch *arch)
+{
+	return arch->cpucfg[6] & CPUCFG6_PMP;
+}
+
+static inline int kvm_get_pmu_num(struct kvm_vcpu_arch *arch)
+{
+	return (arch->cpucfg[6] & CPUCFG6_PMNUM) >> CPUCFG6_PMNUM_SHIFT;
 }
 
 /* Debug: dump vcpu state */
