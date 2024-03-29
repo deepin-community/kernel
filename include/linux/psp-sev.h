@@ -13,6 +13,7 @@
 #define __PSP_SEV_H__
 
 #include <uapi/linux/psp-sev.h>
+#include <linux/kvm_types.h>
 
 #define SEV_FW_BLOB_MAX_SIZE	0x4000	/* 16KB */
 

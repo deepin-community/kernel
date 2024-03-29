@@ -320,6 +320,8 @@ u64 __read_mostly host_xcr0;
 
 static struct kmem_cache *x86_emulator_cache;
 
+static int (*kvm_arch_hypercall)(struct kvm *kvm, u64 nr, u64 a0, u64 a1, u64 a2, u64 a3);
+
 /*
  * When called, it means the previous get/set msr reached an invalid msr.
  * Return true if we want to ignore/silent this failed msr access.
@@ -9929,7 +9931,9 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 		ret = 0;
 		break;
 	case KVM_HC_PSP_OP:
-		ret = kvm_pv_psp_op(vcpu->kvm, a0, a1, a2, a3);
+		ret = -KVM_ENOSYS;
+		if (kvm_arch_hypercall)
+			ret = kvm_arch_hypercall(vcpu->kvm, nr, a0, a1, a2, a3);
 		break;
 	case KVM_HC_MAP_GPA_RANGE: {
 		u64 gpa = a0, npages = a1, attrs = a2;
@@ -13712,6 +13716,18 @@ int kvm_sev_es_string_io(struct kvm_vcpu *vcpu, unsigned int size,
 		  : kvm_sev_es_outs(vcpu, size, port);
 }
 EXPORT_SYMBOL_GPL(kvm_sev_es_string_io);
+
+void kvm_arch_hypercall_init(void *func)
+{
+	kvm_arch_hypercall = func;
+}
+EXPORT_SYMBOL_GPL(kvm_arch_hypercall_init);
+
+void kvm_arch_hypercall_exit(void)
+{
+	kvm_arch_hypercall = NULL;
+}
+EXPORT_SYMBOL_GPL(kvm_arch_hypercall_exit);
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_exit);
