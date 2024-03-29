@@ -22,6 +22,7 @@
 #include <linux/hashtable.h>
 #include <linux/objtool.h>
 #include <linux/psp-sev.h>
+#include <linux/psp-hygon.h>
 #include <linux/file.h>
 #include <linux/pagemap.h>
 #include <linux/swap.h>
@@ -1146,6 +1147,9 @@ static void svm_hardware_unsetup(void)
 	__free_pages(pfn_to_page(iopm_base >> PAGE_SHIFT),
 	get_order(IOPM_SIZE));
 	iopm_base = 0;
+
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		kvm_arch_hypercall_exit();
 }
 
 static void init_seg(struct vmcb_seg *seg)
@@ -5211,6 +5215,26 @@ static __init void svm_set_cpu_caps(void)
 	sev_set_cpu_caps();
 }
 
+static int kvm_hygon_arch_hypercall(struct kvm *kvm, u64 nr, u64 a0, u64 a1, u64 a2, u64 a3)
+{
+	int ret = 0;
+	struct kvm_vpsp vpsp = {
+		.kvm = kvm,
+		.write_guest = kvm_write_guest,
+		.read_guest = kvm_read_guest
+	};
+	switch (nr) {
+	case KVM_HC_PSP_OP:
+		ret = kvm_pv_psp_op(&vpsp, a0, a1, a2, a3);
+		break;
+
+	default:
+		ret = -KVM_ENOSYS;
+		break;
+	}
+	return ret;
+}
+
 static __init int svm_hardware_setup(void)
 {
 	int cpu;
@@ -5376,6 +5400,9 @@ static __init int svm_hardware_setup(void)
 	 * this variable can be changed accordingly
 	 */
 	allow_smaller_maxphyaddr = !npt_enabled;
+
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		kvm_arch_hypercall_init(kvm_hygon_arch_hypercall);
 
 	return 0;
 
