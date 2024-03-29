@@ -12,6 +12,7 @@
 
 #include <linux/types.h>
 #include <linux/fs.h>
+#include <linux/kvm_types.h>
 
 /*****************************************************************************/
 /***************************** CSV interface *********************************/
@@ -345,6 +346,12 @@ struct vpsp_ret {
 	u32 status	:	2;
 };
 
+struct kvm_vpsp {
+	struct kvm *kvm;
+	int (*write_guest)(struct kvm *kvm, gpa_t gpa, const void *data, unsigned long len);
+	int (*read_guest)(struct kvm *kvm, gpa_t gpa, void *data, unsigned long len);
+};
+
 #define PSP_VID_MASK            0xff
 #define PSP_VID_SHIFT           56
 #define PUT_PSP_VID(hpa, vid)   ((__u64)(hpa) | ((__u64)(PSP_VID_MASK & vid) << PSP_VID_SHIFT))
@@ -376,6 +383,9 @@ int vpsp_try_do_cmd(uint32_t vid, int cmd, void *data, struct vpsp_ret *psp_ret)
 int vpsp_get_vid(uint32_t *vid, pid_t pid);
 
 int vpsp_get_default_vid_permission(void);
+
+int kvm_pv_psp_op(struct kvm_vpsp *vpsp, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa,
+		gpa_t table_gpa);
 #else	/* !CONFIG_CRYPTO_DEV_SP_PSP */
 
 static inline int vpsp_do_cmd(uint32_t vid, int cmd, void *data, int *psp_ret) { return -ENODEV; }
@@ -403,6 +413,10 @@ vpsp_get_vid(uint32_t *vid, pid_t pid) { return -ENODEV; }
 
 static inline int
 vpsp_get_default_vid_permission(void) { return -ENODEV; }
+
+static inline int
+kvm_pv_psp_op(struct kvm_vpsp *vpsp, int cmd, gpa_t data_gpa,
+	      gpa_t psp_ret_gpa, gpa_t table_gpa) { return -ENODEV; }
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
 
 typedef int (*p2c_notifier_t)(uint32_t id, uint64_t data);
