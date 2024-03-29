@@ -1966,6 +1966,7 @@ static void zhaoxin_apply_global_quirks(struct cpuinfo_x86 *c)
 	if (c->x86 > 6 || (c->x86_model == 0x19 || c->x86_model == 0x1f)) {
 		if (mca_cfg.monarch_timeout < 0)
 			mca_cfg.monarch_timeout = USEC_PER_SEC;
+		mca_cfg.bios_cmci_threshold = 1;
 	}
 }
 
