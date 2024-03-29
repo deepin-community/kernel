@@ -1888,8 +1888,8 @@ static inline unsigned long read_msr(unsigned long msr)
 # define kvm_memslots_for_spte_role(kvm, role) __kvm_memslots(kvm, 0)
 #endif
 
-int kvm_pv_psp_op(struct kvm *kvm, int cmd, gpa_t data_gpa,
-		gpa_t psp_ret_gpa, gpa_t table_gpa);
+void kvm_arch_hypercall_init(void *func);
+void kvm_arch_hypercall_exit(void);
 
 bool kvm_arch_async_page_not_present(struct kvm_vcpu *vcpu,
 				     struct kvm_async_pf *work);

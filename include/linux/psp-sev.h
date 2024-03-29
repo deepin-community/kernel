@@ -13,6 +13,7 @@
 #define __PSP_SEV_H__
 
 #include <uapi/linux/psp-sev.h>
+#include <linux/kvm_types.h>
 
 /* As defined by SEV API, under "Guest Policy". */
 #define SEV_POLICY_MASK_NODBG			BIT(0)
