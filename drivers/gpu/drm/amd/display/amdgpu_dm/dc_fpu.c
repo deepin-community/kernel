@@ -96,14 +96,7 @@ void dc_fpu_begin(const char *function_name, const int line)
 		migrate_disable();
 		kernel_fpu_begin();
 #elif defined(CONFIG_PPC64)
-		if (cpu_has_feature(CPU_FTR_VSX_COMP)) {
-			preempt_disable();
-			enable_kernel_vsx();
-		} else if (cpu_has_feature(CPU_FTR_ALTIVEC_COMP)) {
-			preempt_disable();
-			enable_kernel_altivec();
-		} else if (!cpu_has_feature(CPU_FTR_FPU_UNAVAILABLE)) {
-			preempt_disable();
+		if (!cpu_has_feature(CPU_FTR_FPU_UNAVAILABLE))
 			enable_kernel_fp();
 		}
 #elif defined(CONFIG_ARM64)
@@ -136,13 +129,7 @@ void dc_fpu_end(const char *function_name, const int line)
 		kernel_fpu_end();
 		migrate_enable();
 #elif defined(CONFIG_PPC64)
-		if (cpu_has_feature(CPU_FTR_VSX_COMP)) {
-			disable_kernel_vsx();
-			preempt_enable();
-		} else if (cpu_has_feature(CPU_FTR_ALTIVEC_COMP)) {
-			disable_kernel_altivec();
-			preempt_enable();
-		} else if (!cpu_has_feature(CPU_FTR_FPU_UNAVAILABLE)) {
+		if (!cpu_has_feature(CPU_FTR_FPU_UNAVAILABLE))
 			disable_kernel_fp();
 			preempt_enable();
 		}
