@@ -33,6 +33,8 @@
 #include "psp-dev.h"
 #include "sev-dev.h"
 
+#include "hygon/psp-dev.h"
+
 #define DEVICE_NAME		"sev"
 #define SEV_FW_FILE		"amd/sev.fw"
 #define SEV_FW_NAME_SIZE	64
@@ -1216,11 +1218,28 @@ static int sev_misc_init(struct sev_device *sev)
 	return 0;
 }
 
+/* Code to set all of the function and variable pointers */
+static void sev_dev_install_hooks(void)
+{
+	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
+	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
+
+	hygon_psp_hooks.sev_dev_hooks_installed = true;
+}
+
 int sev_dev_init(struct psp_device *psp)
 {
 	struct device *dev = psp->dev;
 	struct sev_device *sev;
 	int ret = -ENOMEM;
+
+	/*
+	 * Install sev-dev related function and variable pointers hooks only
+	 * for Hygon vendor, install these hooks here, even though the
+	 * following initialization fails.
+	 */
+	if (is_vendor_hygon())
+		sev_dev_install_hooks();
 
 	if (!boot_cpu_has(X86_FEATURE_SEV)) {
 		dev_info_once(dev, "SEV: memory encryption not enabled by BIOS\n");

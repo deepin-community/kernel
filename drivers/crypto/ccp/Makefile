@@ -7,12 +7,14 @@ ccp-$(CONFIG_CRYPTO_DEV_SP_CCP) += ccp-dev.o \
 	    ccp-dev-v5.o \
 	    ccp-dmaengine.o
 ccp-$(CONFIG_CRYPTO_DEV_CCP_DEBUGFS) += ccp-debugfs.o
-ccp-$(CONFIG_PCI) += sp-pci.o
+ccp-$(CONFIG_PCI) += sp-pci.o \
+                     hygon/sp-pci.o
 ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += psp-dev.o \
                                    sev-dev.o \
                                    tee-dev.o \
                                    platform-access.o \
-                                   dbc.o
+                                   dbc.o \
+                                   hygon/psp-dev.o
 
 obj-$(CONFIG_CRYPTO_DEV_CCP_CRYPTO) += ccp-crypto.o
 ccp-crypto-objs := ccp-crypto-main.o \
