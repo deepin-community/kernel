@@ -543,10 +543,8 @@ static bool __init arch_dtb_verify(void *dt_virt, bool from_firmware)
 
 	/* Only for non built-in DTB */
 	if (from_firmware &&
-		(dt_phys < virt_to_phys((void *)__bss_stop))) {
-		pr_crit("DTB has been corrupted by kernel image!\n");
-		return false;
-	}
+		(dt_phys < virt_to_phys((void *)__bss_stop)))
+		pr_warn("DTB(from firmware) may have been corrupted by kernel image!\n");
 
 	return true;
 }
@@ -556,14 +554,18 @@ static void __init setup_firmware_fdt(void)
 	void *dt_virt;
 	const char *name;
 
-	/**
-	 * Use DTB provided by firmware for early initialization, regardless
-	 * of whether a Built-in DTB configured or not. Since we need the
-	 * boot params from firmware when using new method to pass boot params.
-	 */
-	if (sunway_boot_magic != 0xDEED2024UL)
+	if (sunway_boot_magic != 0xDEED2024UL) {
+		/* Bypass DTB from firmware if built-in DTB configured */
+		if (IS_ENABLED(CONFIG_BUILTIN_DTB))
+			goto cmd_handle;
 		dt_virt = (void *)sunway_boot_params->dtb_start;
-	else {
+	} else {
+		/**
+		 * Use DTB provided by firmware for early initialization,
+		 * regardless of whether a Built-in DTB configured or not.
+		 * Since we need the boot params from firmware when using
+		 * new method to pass boot params.
+		 */
 		pr_info("Parse boot params in DTB chosen node\n");
 		dt_virt = (void *)sunway_dtb_address;
 	}
@@ -572,14 +574,16 @@ static void __init setup_firmware_fdt(void)
 			!early_init_dt_scan(dt_virt)) {
 		pr_crit("Invalid DTB(from firmware) at virtual address 0x%lx\n",
 				(unsigned long)dt_virt);
+
 		while (true)
 			cpu_relax();
 	}
 
 	name = of_flat_dt_get_machine_name();
 	if (name)
-		pr_info("Machine model: %s\n", name);
+		pr_info("DTB(from firmware): Machine model: %s\n", name);
 
+cmd_handle:
 	/**
 	 * For C3B(xuelang), kernel command line always comes from
 	 * "sunway_boot_params->cmdline". These code can be removed
@@ -608,6 +612,7 @@ static void __init setup_firmware_fdt(void)
 static void __init setup_builtin_fdt(void)
 {
 	void *dt_virt;
+	const char *name;
 
 	dt_virt = (void *)__dtb_start;
 	if (!arch_dtb_verify(dt_virt, false) ||
@@ -617,6 +622,13 @@ static void __init setup_builtin_fdt(void)
 		while (true)
 			cpu_relax();
 	}
+
+	/* Parse {size,address}-cells */
+	early_init_dt_scan_root();
+
+	name = of_flat_dt_get_machine_name();
+	if (name)
+		pr_info("DTB(built-in): Machine model: %s\n", name);
 }
 
 static void __init device_tree_init(void)
