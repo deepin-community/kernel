@@ -121,6 +121,9 @@ int intel_vsec_add_aux(struct pci_dev *pdev, struct device *parent,
 		return id;
 	}
 
+	if (!parent)
+		parent = &pdev->dev;
+
 	auxdev->id = id;
 	auxdev->name = name;
 	auxdev->dev.parent = parent;
