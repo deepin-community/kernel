@@ -139,6 +139,9 @@ static int secondary_cpu_start(int cpuid, struct task_struct *idle)
 
 	set_secondary_ready(cpuid);
 
+	/* send reset signal */
+	reset_cpu(cpuid);
+
 	/* Wait 10 seconds for secondary cpu.  */
 	timeout = jiffies + 10*HZ;
 	while (time_before(jiffies, timeout)) {
@@ -318,7 +321,6 @@ int vt_cpu_up(unsigned int cpu, struct task_struct *tidle)
 	wmb();
 	smp_rcb->ready = 0;
 	/* irq must be disabled before reset vCPU */
-	reset_cpu(cpu);
 	smp_boot_one_cpu(cpu, tidle);
 
 	return cpu_online(cpu) ? 0 : -EIO;
@@ -340,13 +342,6 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	/* send wake up signal */
 	send_wakeup_interrupt(cpu);
 #endif
-	/* send reset signal */
-	if (is_in_host()) {
-		reset_cpu(cpu);
-	} else {
-		while (1)
-			cpu_relax();
-	}
 	smp_boot_one_cpu(cpu, tidle);
 
 #ifdef CONFIG_SUBARCH_C3B
