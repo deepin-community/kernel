@@ -701,9 +701,10 @@ static void __init setup_cpu_info(void)
 	}
 }
 
+#ifdef CONFIG_SUBARCH_C3B
 static void __init setup_run_mode(void)
 {
-	if (rvpcr() >> VPCR_SHIFT) {
+	if (*(unsigned long *)MMSIZE) {
 		static_branch_disable(&run_mode_host_key);
 		if (*(unsigned long *)MM_SIZE & EMUL_FLAG) {
 			pr_info("run mode: emul\n");
@@ -722,6 +723,29 @@ static void __init setup_run_mode(void)
 		static_branch_disable(&run_mode_emul_key);
 	}
 }
+#elif CONFIG_SUBARCH_C4
+static void __init setup_run_mode(void)
+{
+	if (rvpcr() >> VPCR_SHIFT) {
+		pr_info("run mode: guest\n");
+		static_branch_disable(&run_mode_host_key);
+		static_branch_disable(&run_mode_emul_key);
+		static_branch_enable(&run_mode_guest_key);
+	} else if (sunway_boot_magic == 0xA2024) {
+		pr_info("run mode: emul\n");
+		static_branch_disable(&run_mode_host_key);
+		static_branch_disable(&run_mode_guest_key);
+		static_branch_enable(&run_mode_emul_key);
+		sunway_boot_magic = 0xDEED2024;
+	} else {
+		pr_info("run mode: host\n");
+		static_branch_disable(&run_mode_guest_key);
+		static_branch_disable(&run_mode_emul_key);
+		static_branch_enable(&run_mode_host_key);
+	}
+
+}
+#endif
 
 static void __init setup_socket_info(void)
 {
