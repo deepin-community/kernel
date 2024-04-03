@@ -47,7 +47,12 @@ early_param("mclk_khz", setup_mclk);
 
 void __init sw64_setup_clocksource(void)
 {
-	unsigned long mclk_khz = *((unsigned char *)__va(MB_MCLK)) * 1000;
+	unsigned long mclk_khz;
+
+	if (sunway_mclk_hz)
+		mclk_khz = sunway_mclk_hz / 1000;
+	else
+		mclk_khz = *((unsigned char *)__va(MB_MCLK)) * 1000;
 
 	if (override_mclk_khz) {
 		mclk_khz = override_mclk_khz;
