@@ -1274,6 +1274,17 @@ void intel_psr_compute_config(struct intel_dp *intel_dp,
 		return;
 	}
 
+	/*
+	 * FIXME figure out what is wrong with PSR+bigjoiner and
+	 * fix it. Presumably something related to the fact that
+	 * PSR is a transcoder level feature.
+	 */
+	if (crtc_state->bigjoiner_pipes) {
+		drm_dbg_kms(&dev_priv->drm,
+			    "PSR disabled due to bigjoiner\n");
+		return;
+	}
+
 	psr_setup_time = drm_dp_psr_setup_time(intel_dp->psr_dpcd);
 	if (psr_setup_time < 0) {
 		drm_dbg_kms(&dev_priv->drm,
