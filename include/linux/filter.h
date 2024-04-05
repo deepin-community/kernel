@@ -76,6 +76,9 @@ struct ctl_table_header;
 /* unused opcode to mark special load instruction. Same as BPF_MSH */
 #define BPF_PROBE_MEM32	0xa0
 
+/* unused opcode to mark special atomic instruction */
+#define BPF_PROBE_ATOMIC 0xe0
+
 /* unused opcode to mark call to interpreter with arguments */
 #define BPF_CALL_ARGS	0xe0
 
@@ -944,6 +947,7 @@ bool bpf_jit_supports_subprog_tailcalls(void);
 bool bpf_jit_supports_kfunc_call(void);
 bool bpf_jit_supports_far_kfunc_call(void);
 bool bpf_jit_supports_arena(void);
+bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena);
 bool bpf_helper_changes_pkt_data(enum bpf_func_id func_id);
 static inline bool bpf_dump_raw_ok(const struct cred *cred)
 {
