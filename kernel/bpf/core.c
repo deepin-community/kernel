@@ -3027,6 +3027,10 @@ bool __weak bpf_jit_supports_arena(void)
 	return false;
 }
 
+bool __weak bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena)
+{
+	return false;
+}
 /* To execute LD_ABS/LD_IND instructions __bpf_prog_run() may call
  * skb_copy_bits(), so provide a weak definition of it for NET-less config.
  */
