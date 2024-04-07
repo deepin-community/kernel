@@ -9,8 +9,9 @@
 	sys_call HMC_wrktp
 #else
 	csrw	$8, CSR_KTP
-	.endm
 #endif
+	.endm
+
 	.text
 	.set noat
 ENTRY(swsusp_arch_suspend)
