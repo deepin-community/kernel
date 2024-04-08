@@ -49,7 +49,7 @@ struct kvm_regs {
 
 	unsigned long r27;
 	unsigned long r28;
-	unsigned long __padding0;
+	unsigned long reserved;
 	unsigned long fpcr;
 
 	unsigned long fp[124];
@@ -60,6 +60,7 @@ struct kvm_regs {
 	unsigned long r16;
 	unsigned long r17;
 	unsigned long r18;
+	unsigned long __padding[6];
 };
 
 #elif CONFIG_SUBARCH_C4
