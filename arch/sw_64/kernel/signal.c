@@ -82,7 +82,7 @@ SYSCALL_DEFINE3(odd_sigaction, int, sig,
 struct rt_sigframe {
 	struct siginfo info;
 	struct ucontext uc;
-};
+} __aligned(16);
 
 /*
  * If this changes, userland unwinders that Know Things about our signal
