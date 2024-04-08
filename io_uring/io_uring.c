@@ -2619,18 +2619,6 @@ static int io_cqring_wait(struct io_ring_ctx *ctx, int min_events,
 		if (ret < 0)
 			break;
 
-		/*
-		 * Non-local task_work will be run on exit to userspace, but
-		 * if we're using DEFER_TASKRUN, then we could have waited
-		 * with a timeout for a number of requests. If the timeout
-		 * hits, we could have some requests ready to process. Ensure
-		 * this break is _after_ we have run task_work, to avoid
-		 * deferring running potentially pending requests until the
-		 * next time we wait for events.
-		 */
-		if (ret < 0)
-			break;
-
 		check_cq = READ_ONCE(ctx->check_cq);
 		if (unlikely(check_cq)) {
 			/* let the caller flush overflows, retry */
@@ -2762,14 +2750,15 @@ static void io_rings_free(struct io_ring_ctx *ctx)
 	if (!(ctx->flags & IORING_SETUP_NO_MMAP)) {
 		io_mem_free(ctx->rings);
 		io_mem_free(ctx->sq_sqes);
-		ctx->rings = NULL;
-		ctx->sq_sqes = NULL;
 	} else {
 		io_pages_free(&ctx->ring_pages, ctx->n_ring_pages);
 		ctx->n_ring_pages = 0;
 		io_pages_free(&ctx->sqe_pages, ctx->n_sqe_pages);
 		ctx->n_sqe_pages = 0;
 	}
+
+	ctx->rings = NULL;
+	ctx->sq_sqes = NULL;
 }
 
 void *io_mem_alloc(size_t size)
