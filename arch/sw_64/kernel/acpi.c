@@ -361,6 +361,12 @@ static int __init acpi_process_madt_sw_cintc(void)
 
 void __init acpi_boot_table_init(void)
 {
+	if (IS_ENABLED(CONFIG_SUBARCH_C3B)) {
+		pr_info(PREFIX "Current platform does not support ACPI\n");
+		disable_acpi();
+		return;
+	}
+
 	/**
 	 * ACPI is disabled by default.
 	 * ACPI is only enabled when firmware passes ACPI table
@@ -375,7 +381,6 @@ void __init acpi_boot_table_init(void)
 	if (acpi_disabled)
 		return;
 
-	pr_warn("Currently, ACPI is an experimental feature!\n");
 	if (acpi_table_init()) {
 		pr_err("Failed to init ACPI tables\n");
 		disable_acpi();
