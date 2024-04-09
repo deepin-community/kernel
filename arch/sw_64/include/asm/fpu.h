@@ -100,7 +100,7 @@ rdfpcr(void)
 		"	rfpcr	$f0\n\t"
 		"	fimovd	$f0, %1\n\t"
 		"	vldd	$f0, %0\n\t"
-		: "=m"(*fp), "=r"(ret));
+		: "=m"(*fp), "=&r"(ret));
 
 	return ret;
 }
