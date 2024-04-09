@@ -65,7 +65,7 @@ unsigned long __get_wchan(struct task_struct *p);
 
 #define KSTK_ESP(tsk) (task_pt_regs(tsk)->regs[30])
 
-#define cpu_relax()	barrier()
+#define cpu_relax()	imemb()
 
 #define ARCH_HAS_PREFETCH
 #define ARCH_HAS_PREFETCHW
