@@ -704,7 +704,7 @@ static void __init setup_cpu_info(void)
 #ifdef CONFIG_SUBARCH_C3B
 static void __init setup_run_mode(void)
 {
-	if (*(unsigned long *)MMSIZE) {
+	if (*(unsigned long *)MM_SIZE) {
 		static_branch_disable(&run_mode_host_key);
 		if (*(unsigned long *)MM_SIZE & EMUL_FLAG) {
 			pr_info("run mode: emul\n");
