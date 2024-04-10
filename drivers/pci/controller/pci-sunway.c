@@ -346,18 +346,25 @@ void __init setup_chip_pci_ops(void)
 	sw64_chip_init->pci_init = chip_pci_init_ops;
 }
 
-static unsigned long rc_linkup;
 static struct pci_controller *head, **tail = &head;
+
+static DECLARE_BITMAP(rc_linkup, (MAX_NUMNODES * MAX_NR_RCS_PER_NODE));
 
 void pci_mark_rc_linkup(unsigned long node, unsigned long index)
 {
-	set_bit(node * 8 + index, &rc_linkup);
+	set_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
 }
 EXPORT_SYMBOL(pci_mark_rc_linkup);
 
+void pci_clear_rc_linkup(unsigned long node, unsigned long index)
+{
+	clear_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
+}
+EXPORT_SYMBOL(pci_clear_rc_linkup);
+
 int pci_get_rc_linkup(unsigned long node, unsigned long index)
 {
-	return test_bit(node * 8 + index, &rc_linkup);
+	return test_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
 }
 EXPORT_SYMBOL(pci_get_rc_linkup);
 

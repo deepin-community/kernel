@@ -107,6 +107,7 @@ extern int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 *val);
 
 extern void pci_mark_rc_linkup(unsigned long node, unsigned long index);
+extern void pci_clear_rc_linkup(unsigned long node, unsigned long index);
 extern int pci_get_rc_linkup(unsigned long node, unsigned long index);
 
 #ifdef CONFIG_PCI_DOMAINS
@@ -170,5 +171,7 @@ extern int chip_pcie_configure(struct pci_controller *hose);
 #define LAST_DEVICE_VECTOR		31
 
 #define PCITODMA_OFFSET			0x0	/*0 offset*/
+
+#define MAX_NR_RCS_PER_NODE		12
 
 #endif /* _ASM_SW64_PCI_H */
