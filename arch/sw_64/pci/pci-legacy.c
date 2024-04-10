@@ -244,7 +244,7 @@ static bool __init is_any_rc_linkup_one_node(unsigned long node)
 {
 	int i;
 
-	for (i = 0; i < 8; ++i) {
+	for (i = 0; i < MAX_NR_RCS_PER_NODE; ++i) {
 		if (pci_get_rc_linkup(node, i))
 			return true;
 	}
@@ -279,14 +279,14 @@ void __init sw64_init_arch(void)
 				pr_notice("PCIe is disabled on node %ld\n", node);
 				continue;
 			}
-			for (i = 0; i < MAX_NR_RCS; i++) {
+			for (i = 0; i < MAX_NR_RCS_PER_NODE; i++) {
 				if ((rc_enable >> i) & 0x1)
 					sw64_init_host(node, i);
 			}
 			if (is_any_rc_linkup_one_node(node)) {
 				memset(msg, 0, 64);
 				sprintf(msg, "Node %ld: RC [ ", node);
-				for (i = 0; i < MAX_NR_RCS; i++) {
+				for (i = 0; i < MAX_NR_RCS_PER_NODE; i++) {
 					if (pci_get_rc_linkup(node, i)) {
 						memset(id, 0, 8);
 						sprintf(id, "%d ", i);

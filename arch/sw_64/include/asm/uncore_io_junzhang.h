@@ -48,9 +48,6 @@
 #define SW64_PCI0_BUS		0
 #define PCI0_BUS		SW64_PCI0_BUS
 
-#define MAX_NR_NODES		0x2
-#define MAX_NR_RCS		0x6
-
 #define SPBU_BASE		(0x3UL << 36)
 #define INTPU_BASE		(0x3aUL << 32)
 #define IIC0_BASE		(0x31UL << 32)
