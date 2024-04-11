@@ -621,6 +621,11 @@ static inline int pte_devmap(pte_t a)
 }
 #endif
 
+static inline int pmd_cont(pmd_t pmd)
+{
+	return !!(pmd_val(pmd) & _PAGE_CONT);
+}
+
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 
 /* We don't have hardware dirty/accessed bits, generic_pmdp_establish is fine.*/
@@ -629,11 +634,6 @@ static inline int pte_devmap(pte_t a)
 static inline int pmd_trans_splitting(pmd_t pmd)
 {
 	return !!(pmd_val(pmd) & _PAGE_SPLITTING);
-}
-
-static inline int pmd_trans_cont(pmd_t pmd)
-{
-	return !!(pmd_val(pmd) & _PAGE_CONT);
 }
 
 static inline int pmd_trans_huge(pmd_t pmd)
