@@ -73,7 +73,7 @@ static void apt_dissolve_pmd(struct kvm *kvm, phys_addr_t addr, pmd_t *pmd)
 	if (!pmd_trans_huge(*pmd))
 		return;
 
-	if (pmd_trans_cont(*pmd)) {
+	if (pmd_cont(*pmd)) {
 		for (i = 0; i < CONT_PMDS; i++, pmd++)
 			pmd_clear(pmd);
 	} else
@@ -178,7 +178,7 @@ static void unmap_apt_pmds(struct kvm *kvm, pud_t *pud,
 		next = pmd_addr_end(addr, end);
 		if (!pmd_none(*pmd)) {
 			if (pmd_trans_huge(*pmd)) {
-				if (pmd_trans_cont(*pmd)) {
+				if (pmd_cont(*pmd)) {
 					for (i = 0; i < CONT_PMDS; i++, pmd++)
 						pmd_clear(pmd);
 				} else
