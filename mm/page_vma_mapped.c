@@ -318,6 +318,7 @@ next_pte:
 	return false;
 }
 
+#ifdef CONFIG_MEMORY_FAILURE
 /**
  * page_mapped_in_vma - check whether a page is really mapped in a VMA
  * @page: the page to test
@@ -348,3 +349,4 @@ unsigned long page_mapped_in_vma(struct page *page, struct vm_area_struct *vma)
 out:
 	return pvmw.address;
 }
+#endif
