@@ -289,11 +289,10 @@ static void update_boot_params(void)
 		params.dtb_start = (unsigned long)arch_kexec_alloc_and_setup_fdt(
 				params.initrd_start, params.initrd_size,
 				(const char *)params.cmdline);
-		/* update dtb base address */
-		sunway_dtb_address = params.dtb_start;
 
 #ifdef CONFIG_EFI
-		params.efi_systab = virt_to_phys((void *)efi.systab);
+		early_parse_fdt_property((void *)sunway_dtb_address, "/chosen",
+			"linux,uefi-system-table", &params.efi_systab, sizeof(u64));
 		params.efi_memmap = efi.memmap.phys_map;
 		params.efi_memmap_size = efi.memmap.map_end - efi.memmap.map;
 		params.efi_memdesc_size = efi.memmap.desc_size;
@@ -312,6 +311,8 @@ static void update_boot_params(void)
 		if (update_efi_properties(&params))
 			pr_err("Note: failed to update efi properties\n");
 #endif
+		/* update dtb base address */
+		sunway_dtb_address = params.dtb_start;
 	}
 
 	pr_info("initrd_start     = %#llx, initrd_size         = %#llx\n"

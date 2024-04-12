@@ -553,7 +553,7 @@ static bool __init arch_dtb_verify(void *dt_virt, bool from_firmware)
 	return true;
 }
 
-static void early_parse_fdt_property(const void *fdt, const char *path,
+void early_parse_fdt_property(const void *fdt, const char *path,
 		const char *prop_name, u64 *property, int size)
 {
 	int node, prop_len;
