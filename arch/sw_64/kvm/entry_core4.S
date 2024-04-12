@@ -219,8 +219,6 @@ $g_setfpec_over:
 	ldl	$15, PT_REGS_R15(sp)
 	ldl	$26, PT_REGS_R26(sp)
 	ldl	$29, PT_REGS_GP(sp)
-	csrr	$2, CSR_PS
-	stl	$2, PT_REGS_PS(sp)
 	ldi	sp, PT_REGS_SIZE(sp)
 
 	/* restore host fpregs */

@@ -276,9 +276,6 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	hrtimer_init(&vcpu->arch.hrt, CLOCK_REALTIME, HRTIMER_MODE_ABS);
 	vcpu->arch.hrt.function = clockdev_fn;
 	vcpu->arch.tsk = current;
-
-	vcpu->arch.vcb.soft_cid = vcpu->vcpu_id;
-	vcpu->arch.vcb.vcpu_irq_disabled = 1;
 	vcpu->arch.pcpu_id = -1; /* force flush tlb for the first time */
 
 	return 0;
