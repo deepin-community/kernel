@@ -55,8 +55,6 @@ int kvm_sw64_vcpu_reset(struct kvm_vcpu *vcpu)
 		apt_unmap_vm(vcpu->kvm);
 
 	hrtimer_cancel(&vcpu->arch.hrt);
-	vcpu->arch.vcb.soft_cid = vcpu->vcpu_id;
-	vcpu->arch.vcb.vcpu_irq_disabled = 1;
 	vcpu->arch.pcpu_id = -1; /* force flush tlb for the first time */
 	vcpu->arch.power_off = 0;
 	memset(&vcpu->arch.irqs_pending, 0, sizeof(vcpu->arch.irqs_pending));
