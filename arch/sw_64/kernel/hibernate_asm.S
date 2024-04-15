@@ -3,6 +3,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/page.h>
 #include <asm/regdef.h>
+#include <asm/csr.h>
 
 	.macro SAVE_KTP
 #ifdef CONFIG_SUBARCH_C3B
