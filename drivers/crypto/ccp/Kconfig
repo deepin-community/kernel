@@ -50,6 +50,7 @@ config HYGON_GM
 	bool "Hygon GM (sm2/sm3/sm4) Interface"
 	default y
 	depends on CRYPTO_DEV_CCP_CRYPTO && X86_64
+	select CRYPTO_SM3_GENERIC
 	help
 	  Hygon GM ccp driver
 

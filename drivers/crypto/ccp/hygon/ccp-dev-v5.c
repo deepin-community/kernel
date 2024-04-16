@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * AMD Cryptographic Coprocessor (CCP) driver
+ * HYGON Secure Processor interface driver
  *
- * Copyright (C) 2016,2019 Advanced Micro Devices, Inc.
+ * Copyright (C) 2024 Hygon Info Technologies Ltd.
  *
- * Author: Gary R Hook <gary.hook@amd.com>
+ * Author: Depei Yang <yangdepei@hygon.cn>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/kernel.h>
@@ -14,7 +18,7 @@
 #include <linux/compiler.h>
 #include <linux/ccp.h>
 
-#include "ccp-dev.h"
+#include "../ccp-dev.h"
 
 /* Allocate the requested number of contiguous LSB slots
  * from the LSB bitmap. Look in the private range for this
@@ -64,6 +68,7 @@ static u32 ccp_lsb_alloc(struct ccp_cmd_queue *cmd_q, unsigned int count)
 	}
 }
 
+
 /* Free a number of LSB slots from the bitmap, starting at
  * the indicated starting slot number.
  */
@@ -88,69 +93,63 @@ static void ccp_lsb_free(struct ccp_cmd_queue *cmd_q, unsigned int start,
 	}
 }
 
-/* CCP version 5: Union to define the function field (cmd_reg1/dword0) */
+/* Hygon CCP version 5: Union to define the function field (cmd_reg1/dword0) */
 union ccp_function {
-	struct {
-		u16 size:7;
-		u16 encrypt:1;
-		u16 mode:5;
-		u16 type:2;
-	} aes;
-	struct {
-		u16 size:7;
-		u16 encrypt:1;
-		u16 rsvd:5;
-		u16 type:2;
-	} aes_xts;
-	struct {
-		u16 size:7;
-		u16 encrypt:1;
-		u16 mode:5;
-		u16 type:2;
-	} des3;
-	struct {
-		u16 rsvd1:10;
-		u16 type:4;
-		u16 rsvd2:1;
-	} sha;
-	struct {
-		u16 mode:3;
-		u16 size:12;
-	} rsa;
 	struct {
 		u16 byteswap:2;
 		u16 bitwise:3;
 		u16 reflect:2;
 		u16 rsvd:8;
 	} pt;
-	struct  {
-		u16 rsvd:13;
-	} zlib;
 	struct {
-		u16 size:10;
-		u16 type:2;
+		u16 rand:1;
+		u16 rsvd:10;
 		u16 mode:3;
-	} ecc;
+		u16 ecc_mode:1;
+	} sm2_ecc;
+	struct {
+		u16 rand:1;
+		u16 rsvd:11;
+		u16 mode:3;
+	} sm2;
+	struct {
+		u16 rsvd:10;
+		u16 type:4;
+		u16 rsvd2:1;
+	} sm3;
+	struct {
+		u16 rsvd:7;
+		u16 encrypt:1;
+		u16 mode:4;
+		u16 select:1;
+		u16 rsvd2:2;
+	} sm4;
+	struct {
+		u16 size:7;
+		u16 encrypt:1;
+		u16 step:7;
+	} sm4_ctr;
 	u16 raw;
 };
 
-#define	CCP_AES_SIZE(p)		((p)->aes.size)
-#define	CCP_AES_ENCRYPT(p)	((p)->aes.encrypt)
-#define	CCP_AES_MODE(p)		((p)->aes.mode)
-#define	CCP_AES_TYPE(p)		((p)->aes.type)
-#define	CCP_XTS_SIZE(p)		((p)->aes_xts.size)
-#define	CCP_XTS_TYPE(p)		((p)->aes_xts.type)
-#define	CCP_XTS_ENCRYPT(p)	((p)->aes_xts.encrypt)
-#define	CCP_DES3_SIZE(p)	((p)->des3.size)
-#define	CCP_DES3_ENCRYPT(p)	((p)->des3.encrypt)
-#define	CCP_DES3_MODE(p)	((p)->des3.mode)
-#define	CCP_DES3_TYPE(p)	((p)->des3.type)
-#define	CCP_SHA_TYPE(p)		((p)->sha.type)
-#define	CCP_RSA_SIZE(p)		((p)->rsa.size)
 #define	CCP_PT_BYTESWAP(p)	((p)->pt.byteswap)
 #define	CCP_PT_BITWISE(p)	((p)->pt.bitwise)
-#define	CCP_ECC_MODE(p)		((p)->ecc.mode)
-#define	CCP_ECC_AFFINE(p)	((p)->ecc.one)
+
+#define	CCP_SM2_RAND(p)		((p)->sm2.rand)
+#define	CCP_SM2_MODE(p)		((p)->sm2.mode)
+
+/* For ccp support both sm2 and ecc */
+#define CCP_SM2_ECC_RAND(p)	((p)->sm2_ecc.rand)
+#define CCP_SM2_ECC_MODE(p)	((p)->sm2_ecc.mode)
+#define CCP_SM2_ECC_ECC_MODE(p)	((p)->sm2_ecc.ecc_mode)
+
+#define	CCP_SM3_TYPE(p)		((p)->sm3.type)
+#define	CCP_SM4_ENCRYPT(p)	((p)->sm4.encrypt)
+#define	CCP_SM4_MODE(p)		((p)->sm4.mode)
+#define	CCP_SM4_SELECT(p)	((p)->sm4.select)
+#define	CCP_SM4_CTR_ENCRYPT(p)	((p)->sm4_ctr.encrypt)
+#define	CCP_SM4_CTR_STEP(p)	((p)->sm4_ctr.step)
+#define	CCP_SM4_CTR_SIZE(p)	((p)->sm4_ctr.size)
 
 /* Word 0 */
 #define CCP5_CMD_DW0(p)		((p)->dw0)
@@ -184,8 +183,8 @@ union ccp_function {
 #define CCP5_CMD_DST_HI(p)	(CCP5_CMD_DW5(p))
 #define CCP5_CMD_DST_MEM(p)	((p)->dw5.fields.dst_mem)
 #define CCP5_CMD_FIX_DST(p)	((p)->dw5.fields.fixed)
-#define CCP5_CMD_SHA_LO(p)	((p)->dw4.sha_len_lo)
-#define CCP5_CMD_SHA_HI(p)	((p)->dw5.sha_len_hi)
+#define CCP5_CMD_SM3_LO(p)	((p)->dw4.sm3_len_lo)
+#define CCP5_CMD_SM3_HI(p)	((p)->dw5.sm3_len_hi)
 
 /* Word 6/7 */
 #define CCP5_CMD_DW6(p)		((p)->key_lo)
@@ -193,6 +192,61 @@ union ccp_function {
 #define CCP5_CMD_DW7(p)		((p)->dw7)
 #define CCP5_CMD_KEY_HI(p)	((p)->dw7.key_hi)
 #define CCP5_CMD_KEY_MEM(p)	((p)->dw7.key_mem)
+
+#define CCP5_COMMANDS_PER_QUEUE	8192
+#define CCP5_QUEUE_SIZE_VAL ((ffs(CCP5_COMMANDS_PER_QUEUE) - 2) & \
+							CMD5_Q_SIZE)
+#define CCP5_Q_PTR_MASK	(2 << (CCP5_QUEUE_SIZE_VAL + 5) - 1)
+#define CCP5_Q_SIZE(n)			(CCP5_COMMANDS_PER_QUEUE * (n))
+
+/* indicates whether there is ECC engine for Hygon CCP */
+#define RI_ECC_PRESENT			0x0400
+
+/**
+ * Hygon CCP from 4th generation support both sm2 & ecc,
+ * but its input content is different from previous version.
+ * the previous requries only one src buffer which include
+ * hash + key. Now, hash and key should passed separately. To
+ * compatible with previous driver, we parse hash and key
+ * from src buffer which same as previous input
+ */
+#define SM2_ECC_OPERAND_LEN				32
+#define SM2_ECC_KG_SRC_SIZE				32
+#define SM2_ECC_LP_SRC_SIZE				32
+#define SM2_ECC_SIGN_SRC_SIZE			64
+#define SM2_ECC_VERIFY_SRC_SIZE			96
+
+static inline int ccp5_get_keyinfo(struct ccp_op *op, dma_addr_t *kaddr, u32 *slen)
+{
+	struct ccp_dma_info *sinfo = &op->src.u.dma;
+	dma_addr_t saddr = sinfo->address + sinfo->offset;
+	int ret = 0;
+
+	switch (op->u.sm2.mode) {
+	case CCP_SM2_MODE_SIGN:
+		*kaddr = saddr + SM2_ECC_OPERAND_LEN;
+		*slen = SM2_ECC_SIGN_SRC_SIZE;
+		break;
+	case CCP_SM2_MODE_VERIFY:
+		*kaddr = saddr + SM2_ECC_VERIFY_SRC_SIZE;
+		*slen = SM2_ECC_VERIFY_SRC_SIZE;
+		break;
+	case CCP_SM2_MODE_KG:
+		*kaddr = 0; /* unused for KG */
+		*slen = SM2_ECC_KG_SRC_SIZE;
+		break;
+	case CCP_SM2_MODE_LP:
+		*kaddr = saddr + SM2_ECC_OPERAND_LEN;
+		*slen = SM2_ECC_LP_SRC_SIZE;
+		break;
+	default:
+		pr_err("Invalid sm2 operation, mode = %d\n", op->u.sm2.mode);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
 
 static inline u32 low_address(unsigned long addr)
 {
@@ -213,9 +267,76 @@ static unsigned int ccp5_get_free_slots(struct ccp_cmd_queue *cmd_q)
 	head_lo = ioread32(cmd_q->reg_head_lo);
 	head_idx = (head_lo - queue_start) / sizeof(struct ccp5_desc);
 
-	n = head_idx + COMMANDS_PER_QUEUE - cmd_q->qidx - 1;
+	n = head_idx + CCP5_COMMANDS_PER_QUEUE - cmd_q->qidx - 1;
 
-	return n % COMMANDS_PER_QUEUE; /* Always one unused spot */
+	return n % CCP5_COMMANDS_PER_QUEUE; /* Always one unused spot */
+}
+
+static int ccp5_do_multi_cmds(struct ccp5_desc *desc,
+			struct ccp_cmd_queue *cmd_q)
+{
+	u32 *mP;
+	__le32 *dP;
+	int     i;
+
+	cmd_q->total_ops++;
+
+	if (CCP5_CMD_SOC(desc)) {
+		CCP5_CMD_IOC(desc) = 1;
+		CCP5_CMD_SOC(desc) = 0;
+	}
+
+	mutex_lock(&cmd_q->q_mutex);
+
+	mP = (u32 *) &cmd_q->qbase[cmd_q->qidx];
+	dP = (__le32 *) desc;
+	for (i = 0; i < 8; i++)
+		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
+
+	cmd_q->qidx = (cmd_q->qidx + 1) % CCP5_COMMANDS_PER_QUEUE;
+
+	mutex_unlock(&cmd_q->q_mutex);
+
+	return 0;
+}
+
+static int ccp5_do_run_cmd(struct ccp_op *op)
+{
+	struct ccp_cmd_queue *cmd_q = op->cmd_q;
+	u32 tail;
+	int ret = 0;
+
+	mutex_lock(&cmd_q->q_mutex);
+
+	/* The data used by this command must be flushed to memory */
+	wmb();
+
+	/* Write the new tail address back to the queue register */
+	tail = low_address(cmd_q->qdma_tail + cmd_q->qidx * Q_DESC_SIZE);
+	iowrite32(tail, cmd_q->reg_tail_lo);
+
+	/* Turn the queue back on using our cached control register */
+	iowrite32(cmd_q->qcontrol | CMD5_Q_RUN, cmd_q->reg_control);
+	mutex_unlock(&cmd_q->q_mutex);
+
+	if (op->ioc) {
+		/* Wait for the job to complete */
+		ret = wait_event_interruptible(cmd_q->int_queue,
+					       cmd_q->int_rcvd);
+		if (ret || cmd_q->cmd_error) {
+			/* Log the error and flush the queue by
+			 * moving the head pointer
+			 */
+			if (cmd_q->cmd_error)
+				ccp_log_error(cmd_q->ccp, cmd_q->cmd_error);
+			iowrite32(tail, cmd_q->reg_head_lo);
+			if (!ret)
+				ret = -EIO;
+		}
+		cmd_q->int_rcvd = 0;
+	}
+
+	return ret;
 }
 
 static int ccp5_do_cmd(struct ccp5_desc *desc,
@@ -240,7 +361,7 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 	for (i = 0; i < 8; i++)
 		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
 
-	cmd_q->qidx = (cmd_q->qidx + 1) % COMMANDS_PER_QUEUE;
+	cmd_q->qidx = (cmd_q->qidx + 1) % CCP5_COMMANDS_PER_QUEUE;
 
 	/* The data used by this command must be flushed to memory */
 	wmb();
@@ -274,158 +395,88 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 	return ret;
 }
 
-static int ccp5_perform_aes(struct ccp_op *op)
+static int ccp5_perform_sm2(struct ccp_op *op)
 {
 	struct ccp5_desc desc;
 	union ccp_function function;
-	u32 key_addr = op->sb_key * LSB_ITEM_SIZE;
+	struct ccp_dma_info *saddr = &op->src.u.dma;
+	struct ccp_dma_info *daddr = &op->dst.u.dma;
+	dma_addr_t kaddr;
+	unsigned int slen = saddr->length;
+	int ret = 0;
 
-	op->cmd_q->total_aes_ops++;
+	op->cmd_q->total_sm2_ops++;
 
-	/* Zero out all the fields of the command desc */
 	memset(&desc, 0, Q_DESC_SIZE);
 
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_AES;
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM2;
 
-	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = 1;
-	CCP5_CMD_INIT(&desc) = op->init;
-	CCP5_CMD_EOM(&desc) = op->eom;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_AES_ENCRYPT(&function) = op->u.aes.action;
-	CCP_AES_MODE(&function) = op->u.aes.mode;
-	CCP_AES_TYPE(&function) = op->u.aes.type;
-	CCP_AES_SIZE(&function) = op->u.aes.size;
-
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
-	CCP5_CMD_KEY_HI(&desc) = 0;
-	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
-
-	return ccp5_do_cmd(&desc, op->cmd_q);
-}
-
-static int ccp5_perform_xts_aes(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-	u32 key_addr = op->sb_key * LSB_ITEM_SIZE;
-
-	op->cmd_q->total_xts_aes_ops++;
-
-	/* Zero out all the fields of the command desc */
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_XTS_AES_128;
-
-	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = 1;
-	CCP5_CMD_INIT(&desc) = op->init;
-	CCP5_CMD_EOM(&desc) = op->eom;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_XTS_TYPE(&function) = op->u.xts.type;
-	CCP_XTS_ENCRYPT(&function) = op->u.xts.action;
-	CCP_XTS_SIZE(&function) = op->u.xts.unit_size;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
-	CCP5_CMD_KEY_HI(&desc) =  0;
-	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
-
-	return ccp5_do_cmd(&desc, op->cmd_q);
-}
-
-static int ccp5_perform_sha(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-
-	op->cmd_q->total_sha_ops++;
-
-	/* Zero out all the fields of the command desc */
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SHA;
-
-	CCP5_CMD_SOC(&desc) = op->soc;
+	CCP5_CMD_SOC(&desc) = 0;
 	CCP5_CMD_IOC(&desc) = 1;
 	CCP5_CMD_INIT(&desc) = 1;
-	CCP5_CMD_EOM(&desc) = op->eom;
+	CCP5_CMD_EOM(&desc) = 1;
 	CCP5_CMD_PROT(&desc) = 0;
 
 	function.raw = 0;
-	CCP_SHA_TYPE(&function) = op->u.sha.type;
+
+	/*
+	 * ccp support both sm2 and ecc, the rand,mode filed are different
+	 * with previous, and run on ecc or sm2 also should be indicated
+	 */
+	if (op->cmd_q->ccp->support_sm2_ecc) {
+		ret = ccp5_get_keyinfo(op, &kaddr, &slen);
+		if (ret)
+			return ret;
+
+		CCP_SM2_ECC_RAND(&function) = op->u.sm2.rand;
+		CCP_SM2_ECC_MODE(&function) = op->u.sm2.mode;
+		CCP_SM2_ECC_ECC_MODE(&function) = 0; /* 0: SM2 1: ECC */
+	} else {
+		CCP_SM2_RAND(&function) = op->u.sm2.rand;
+		CCP_SM2_MODE(&function) = op->u.sm2.mode;
+	}
+
 	CCP5_CMD_FUNCTION(&desc) = function.raw;
 
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
+	/* Length of source data must match with mode */
+	CCP5_CMD_LEN(&desc) = slen;
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(saddr);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(saddr);
 	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
 
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
+	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(daddr);
+	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(daddr);
+	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
 
-	if (op->eom) {
-		CCP5_CMD_SHA_LO(&desc) = lower_32_bits(op->u.sha.msg_bits);
-		CCP5_CMD_SHA_HI(&desc) = upper_32_bits(op->u.sha.msg_bits);
-	} else {
-		CCP5_CMD_SHA_LO(&desc) = 0;
-		CCP5_CMD_SHA_HI(&desc) = 0;
+	if (op->cmd_q->ccp->support_sm2_ecc &&
+	    op->u.sm2.mode != CCP_SM2_MODE_KG) {
+		CCP5_CMD_KEY_LO(&desc) = low_address(kaddr);
+		CCP5_CMD_KEY_HI(&desc) = high_address(kaddr);
+		CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
 	}
 
 	return ccp5_do_cmd(&desc, op->cmd_q);
 }
 
-static int ccp5_perform_des3(struct ccp_op *op)
+static int ccp5_perform_sm3(struct ccp_op *op)
 {
 	struct ccp5_desc desc;
 	union ccp_function function;
-	u32 key_addr = op->sb_key * LSB_ITEM_SIZE;
 
-	op->cmd_q->total_3des_ops++;
+	op->cmd_q->total_sm3_ops++;
 
-	/* Zero out all the fields of the command desc */
-	memset(&desc, 0, sizeof(struct ccp5_desc));
+	memset(&desc, 0, Q_DESC_SIZE);
 
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_DES3;
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM3;
 
 	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = 1;
+	CCP5_CMD_IOC(&desc) = op->ioc;
 	CCP5_CMD_INIT(&desc) = op->init;
 	CCP5_CMD_EOM(&desc) = op->eom;
 	CCP5_CMD_PROT(&desc) = 0;
 
 	function.raw = 0;
-	CCP_DES3_ENCRYPT(&function) = op->u.des3.action;
-	CCP_DES3_MODE(&function) = op->u.des3.mode;
-	CCP_DES3_TYPE(&function) = op->u.des3.type;
+	CCP_SM3_TYPE(&function) = op->u.sm3.type;
 	CCP5_CMD_FUNCTION(&desc) = function.raw;
 
 	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
@@ -433,6 +484,46 @@ static int ccp5_perform_des3(struct ccp_op *op)
 	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
 	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
 	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
+
+	if (op->eom) {
+		CCP5_CMD_SM3_LO(&desc) = lower_32_bits(op->u.sm3.msg_bits);
+		CCP5_CMD_SM3_HI(&desc) = upper_32_bits(op->u.sm3.msg_bits);
+	}
+
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
+}
+
+static int ccp5_perform_sm4(struct ccp_op *op)
+{
+	struct ccp5_desc desc;
+	union ccp_function function;
+	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
+
+	op->cmd_q->total_sm4_ops++;
+
+	memset(&desc, 0, Q_DESC_SIZE);
+
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4;
+
+	CCP5_CMD_SOC(&desc) = op->soc;
+	CCP5_CMD_IOC(&desc) = op->ioc;
+	CCP5_CMD_INIT(&desc) = op->init;
+	CCP5_CMD_EOM(&desc) = op->eom;
+	CCP5_CMD_PROT(&desc) = 0;
+
+	function.raw = 0;
+	CCP_SM4_ENCRYPT(&function) = op->u.sm4.action;
+	CCP_SM4_MODE(&function) = op->u.sm4.mode;
+	CCP_SM4_SELECT(&function) = op->u.sm4.select;
+	CCP5_CMD_FUNCTION(&desc) = function.raw;
+
+	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
+
+	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
+	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
+	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
 
 	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
 	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
@@ -441,51 +532,50 @@ static int ccp5_perform_des3(struct ccp_op *op)
 	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
 	CCP5_CMD_KEY_HI(&desc) = 0;
 	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
 
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
 }
 
-static int ccp5_perform_rsa(struct ccp_op *op)
+static int ccp5_perform_sm4_ctr(struct ccp_op *op)
 {
 	struct ccp5_desc desc;
 	union ccp_function function;
+	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
 
-	op->cmd_q->total_rsa_ops++;
+	op->cmd_q->total_sm4_ctr_ops++;
 
-	/* Zero out all the fields of the command desc */
 	memset(&desc, 0, Q_DESC_SIZE);
 
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_RSA;
+	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4_CTR;
 
 	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = 1;
-	CCP5_CMD_INIT(&desc) = 0;
-	CCP5_CMD_EOM(&desc) = 1;
+	CCP5_CMD_IOC(&desc) = op->ioc;
+	CCP5_CMD_INIT(&desc) = op->init;
+	CCP5_CMD_EOM(&desc) = op->eom;
 	CCP5_CMD_PROT(&desc) = 0;
 
 	function.raw = 0;
-	CCP_RSA_SIZE(&function) = (op->u.rsa.mod_size + 7) >> 3;
+	CCP_SM4_CTR_SIZE(&function) = op->u.sm4_ctr.size;
+	CCP_SM4_CTR_ENCRYPT(&function) = op->u.sm4_ctr.action;
+	CCP_SM4_CTR_STEP(&function) = op->u.sm4_ctr.step;
 	CCP5_CMD_FUNCTION(&desc) = function.raw;
 
-	CCP5_CMD_LEN(&desc) = op->u.rsa.input_len;
+	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
 
-	/* Source is from external memory */
 	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
 	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
 	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
 
-	/* Destination is in external memory */
 	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
 	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
 	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
 
-	/* Key (Exponent) is in external memory */
-	CCP5_CMD_KEY_LO(&desc) = ccp_addr_lo(&op->exp.u.dma);
-	CCP5_CMD_KEY_HI(&desc) = ccp_addr_hi(&op->exp.u.dma);
-	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
+	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
+	CCP5_CMD_KEY_HI(&desc) = 0;
+	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
 
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	return ccp5_do_multi_cmds(&desc, op->cmd_q);
 }
 
 static int ccp5_perform_passthru(struct ccp_op *op)
@@ -549,39 +639,40 @@ static int ccp5_perform_passthru(struct ccp_op *op)
 	return ccp5_do_cmd(&desc, op->cmd_q);
 }
 
+static int ccp5_perform_aes(struct ccp_op *op)
+{
+	pr_err("AES function not implement!");
+	return -EPERM;
+}
+
+static int ccp5_perform_xts_aes(struct ccp_op *op)
+{
+	pr_err("XTS-AES function not implement!");
+	return -EPERM;
+}
+
+static int ccp5_perform_sha(struct ccp_op *op)
+{
+	pr_err("SHA function not implement!");
+	return -EPERM;
+}
+
+static int ccp5_perform_des3(struct ccp_op *op)
+{
+	pr_err("DES3 function not implement!");
+	return -EPERM;
+}
+
+static int ccp5_perform_rsa(struct ccp_op *op)
+{
+	pr_err("RSA function not implement!");
+	return -EPERM;
+}
+
 static int ccp5_perform_ecc(struct ccp_op *op)
 {
-	struct ccp5_desc desc;
-	union ccp_function function;
-
-	op->cmd_q->total_ecc_ops++;
-
-	/* Zero out all the fields of the command desc */
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_ECC;
-
-	CCP5_CMD_SOC(&desc) = 0;
-	CCP5_CMD_IOC(&desc) = 1;
-	CCP5_CMD_INIT(&desc) = 0;
-	CCP5_CMD_EOM(&desc) = 1;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	function.ecc.mode = op->u.ecc.function;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	return ccp5_do_cmd(&desc, op->cmd_q);
+	pr_err("ECC function not implement!");
+	return -EPERM;
 }
 
 static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
@@ -593,6 +684,7 @@ static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
 	/* Build a bit mask to know which LSBs this queue has access to.
 	 * Don't bother with segment 0 as it has special privileges.
 	 */
+	status >>= LSB_REGION_WIDTH;
 	for (j = 1; j < MAX_LSB_CNT; j++) {
 		if (status & q_mask)
 			bitmap_set(cmd_q->lsbmask, j, 1);
@@ -744,7 +836,7 @@ static void ccp5_irq_bh(unsigned long data)
 
 		status = ioread32(cmd_q->reg_interrupt_status);
 
-		if (status) {
+		if (status & SUPPORTED_INTERRUPTS) {
 			cmd_q->int_status = status;
 			cmd_q->q_status = ioread32(cmd_q->reg_status);
 			cmd_q->q_int_status = ioread32(cmd_q->reg_int_status);
@@ -753,10 +845,9 @@ static void ccp5_irq_bh(unsigned long data)
 			if ((status & INT_ERROR) && !cmd_q->cmd_error)
 				cmd_q->cmd_error = CMD_Q_ERROR(cmd_q->q_status);
 
-			cmd_q->int_rcvd = 1;
-
 			/* Acknowledge the interrupt and wake the kthread */
 			iowrite32(status, cmd_q->reg_interrupt_status);
+			cmd_q->int_rcvd = 1;
 			wake_up_interruptible(&cmd_q->int_queue);
 		}
 	}
@@ -801,6 +892,10 @@ static int ccp5_init(struct ccp_device *ccp)
 		return 1;
 	}
 
+	/*  check if ccp support both sm2 and ecc. */
+	ccp->support_sm2_ecc = !!(ioread32(ccp->io_regs + CMD5_PSP_CCP_VERSION)
+		& RI_ECC_PRESENT);
+
 	for (i = 0; (i < MAX_HW_QUEUES) && (ccp->cmd_q_count < ccp->max_q_count); i++) {
 		if (!(qmr & (1 << i)))
 			continue;
@@ -827,7 +922,7 @@ static int ccp5_init(struct ccp_device *ccp)
 
 		/* Page alignment satisfies our needs for N <= 128 */
 		BUILD_BUG_ON(COMMANDS_PER_QUEUE > 128);
-		cmd_q->qsize = Q_SIZE(Q_DESC_SIZE);
+		cmd_q->qsize = CCP5_Q_SIZE(Q_DESC_SIZE);
 		cmd_q->qbase = dmam_alloc_coherent(dev, cmd_q->qsize,
 						   &cmd_q->qbase_dma,
 						   GFP_KERNEL);
@@ -914,7 +1009,7 @@ static int ccp5_init(struct ccp_device *ccp)
 		cmd_q = &ccp->cmd_q[i];
 
 		cmd_q->qcontrol &= ~(CMD5_Q_SIZE << CMD5_Q_SHIFT);
-		cmd_q->qcontrol |= QUEUE_SIZE_VAL << CMD5_Q_SHIFT;
+		cmd_q->qcontrol |= CCP5_QUEUE_SIZE_VAL << CMD5_Q_SHIFT;
 
 		cmd_q->qdma_tail = cmd_q->qbase_dma;
 		dma_addr_lo = low_address(cmd_q->qdma_tail);
@@ -1077,7 +1172,15 @@ static void ccp5other_config(struct ccp_device *ccp)
 
 	iowrite32(0x00012D57, ccp->io_regs + CMD5_TRNG_CTL_OFFSET);
 	iowrite32(0x00000003, ccp->io_regs + CMD5_CONFIG_0_OFFSET);
-	for (i = 0; i < 12; i++) {
+
+	/* According to spec description for SM4 high secure module,
+	 * which need 64 bytes data, so the initialize times of writing
+	 * mask register must be 16 or a multiple of 16.
+	 *
+	 * The AES algorithem need 48 bytes, so the initialize times will
+	 * be 12 or a multiple of 12.
+	 */
+	for (i = 0; i < 16; i++) {
 		rnd = ioread32(ccp->io_regs + TRNG_OUT_REG);
 		iowrite32(rnd, ccp->io_regs + CMD5_AES_MASK_OFFSET);
 	}
@@ -1103,6 +1206,11 @@ static const struct ccp_actions ccp5_actions = {
 	.rsa = ccp5_perform_rsa,
 	.passthru = ccp5_perform_passthru,
 	.ecc = ccp5_perform_ecc,
+	.sm2 = ccp5_perform_sm2,
+	.sm3 = ccp5_perform_sm3,
+	.sm4 = ccp5_perform_sm4,
+	.sm4_ctr = ccp5_perform_sm4_ctr,
+	.run_cmd = ccp5_do_run_cmd,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,
@@ -1110,16 +1218,16 @@ static const struct ccp_actions ccp5_actions = {
 	.get_free_slots = ccp5_get_free_slots,
 };
 
-const struct ccp_vdata ccpv5a = {
-	.version = CCP_VERSION(5, 0),
+const struct ccp_vdata ccpv5a_hygon = {
+	.version = CCP_VERSION(5, 1),
 	.setup = ccp5_config,
 	.perform = &ccp5_actions,
 	.offset = 0x0,
 	.rsamax = CCP5_RSA_MAX_WIDTH,
 };
 
-const struct ccp_vdata ccpv5b = {
-	.version = CCP_VERSION(5, 0),
+const struct ccp_vdata ccpv5b_hygon = {
+	.version = CCP_VERSION(5, 1),
 	.dma_chan_attr = DMA_PRIVATE,
 	.setup = ccp5other_config,
 	.perform = &ccp5_actions,
