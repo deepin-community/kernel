@@ -26,7 +26,6 @@ struct numa_node_desc_t {
 extern struct numa_node_desc_t numa_nodes_desc[];
 
 void __init callback_init(void);
-void __init mem_detect(void);
 void __init sw64_memblock_init(void);
 void __init zone_sizes_init(void);
 void __init sw64_numa_init(void);

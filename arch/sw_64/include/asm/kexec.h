@@ -72,10 +72,20 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
 /* Function pointer to optional machine-specific reinitialization */
 extern void (*kexec_reinit)(void);
 
+extern void __init reserve_crashkernel(void);
+extern void __init kexec_control_page_init(void);
+
 #endif /* __ASSEMBLY__ */
 
 struct kimage;
 extern unsigned long kexec_args[4];
+
+#else  /* CONFIG_KEXEC */
+
+#ifndef __ASSEMBLY__
+static inline void __init reserve_crashkernel(void) {}
+static inline void __init kexec_control_page_init(void) {}
+#endif
 
 #endif /* CONFIG_KEXEC */
 

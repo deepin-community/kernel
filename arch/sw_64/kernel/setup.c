@@ -20,16 +20,15 @@
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/libfdt.h>
-#include <linux/genalloc.h>
 #include <linux/acpi.h>
 #include <linux/cpu.h>
 
 #include <asm/efi.h>
-#include <asm/kvm_cma.h>
 #include <asm/mmu_context.h>
 #include <asm/sw64_init.h>
 #include <asm/timer.h>
 #include <asm/pci_impl.h>
+#include <asm/kexec.h>
 
 #include "proto.h"
 
@@ -45,19 +44,6 @@ EXPORT_SYMBOL(__cpu_to_rcid);
 
 DEFINE_PER_CPU(unsigned long, hard_node_id) = { 0 };
 static DEFINE_PER_CPU(struct cpu, cpu_devices);
-
-#ifdef CONFIG_SUBARCH_C3B
-#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
-struct cma *sw64_kvm_cma;
-EXPORT_SYMBOL(sw64_kvm_cma);
-
-static phys_addr_t kvm_mem_size;
-static phys_addr_t kvm_mem_base;
-
-struct gen_pool *sw64_kvm_pool;
-EXPORT_SYMBOL(sw64_kvm_pool);
-#endif
-#endif
 
 static inline int phys_addr_valid(unsigned long addr)
 {
@@ -158,79 +144,6 @@ void store_cpu_data(int cpu)
 {
 	cpu_data[cpu].last_asid = ASID_FIRST_VERSION;
 }
-
-#ifdef CONFIG_KEXEC
-
-void *kexec_control_page;
-
-#define KTEXT_MAX	KERNEL_IMAGE_SIZE
-
-static void __init kexec_control_page_init(void)
-{
-	phys_addr_t addr;
-
-	addr = memblock_phys_alloc_range(KEXEC_CONTROL_PAGE_SIZE, PAGE_SIZE,
-					0, KTEXT_MAX);
-	kexec_control_page = (void *)(__START_KERNEL_map + addr);
-}
-
-/*
- * reserve_crashkernel() - reserves memory are for crash kernel
- *
- * This function reserves memory area given in "crashkernel=" kernel command
- * line parameter. The memory reserved is used by a dump capture kernel when
- * primary kernel is crashing.
- */
-static void __init reserve_crashkernel(void)
-{
-	unsigned long long crash_size, crash_base;
-	int ret;
-
-	ret = parse_crashkernel(boot_command_line, mem_desc.size,
-			&crash_size, &crash_base);
-	if (ret || !crash_size)
-		return;
-
-	if (!crash_size) {
-		pr_warn("size of crash kernel memory unspecified, no memory reserved for crash kernel\n");
-		return;
-	}
-	if (!crash_base) {
-		pr_warn("base of crash kernel memory unspecified, no memory reserved for crash kernel\n");
-		return;
-	}
-
-	if (!memblock_is_region_memory(crash_base, crash_size))
-		memblock_add(crash_base, crash_size);
-
-	ret = memblock_reserve(crash_base, crash_size);
-	if (ret < 0) {
-		pr_warn("crashkernel reservation failed - memory is in use [mem %#018llx-%#018llx]\n",
-				crash_base, crash_base + crash_size - 1);
-		return;
-	}
-
-	pr_info("Reserving %ldMB of memory at %ldMB for crashkernel (System RAM: %ldMB)\n",
-			(unsigned long)(crash_size >> 20),
-			(unsigned long)(crash_base >> 20),
-			(unsigned long)(mem_desc.size >> 20));
-
-	ret = add_memmap_region(crash_base, crash_size, memmap_crashkernel);
-	if (ret)
-		pr_warn("Add crash kernel area [mem %#018llx-%#018llx] to memmap region failed.\n",
-				crash_base, crash_base + crash_size - 1);
-
-	if (crash_base >= KERNEL_IMAGE_SIZE)
-		pr_warn("Crash base should be less than %#x\n", KERNEL_IMAGE_SIZE);
-
-	crashk_res.start = crash_base;
-	crashk_res.end = crash_base + crash_size - 1;
-	insert_resource(&iomem_resource, &crashk_res);
-}
-#else /* !defined(CONFIG_KEXEC)         */
-static void __init reserve_crashkernel(void) {}
-static void __init kexec_control_page_init(void) {}
-#endif /* !defined(CONFIG_KEXEC)  */
 
 /*
  * I/O resources inherited from PeeCees. Except for perhaps the
@@ -488,26 +401,6 @@ subsys_initcall(request_standard_resources);
 extern void cpu_set_node(void);
 #endif
 
-static void __init show_socket_mem_layout(void)
-{
-	int i;
-	phys_addr_t base, size, end;
-
-	base = 0;
-
-	pr_info("Socket memory layout:\n");
-	for (i = 0; i < MAX_NUMSOCKETS; i++) {
-		if (socket_desc[i].is_online) {
-			size = socket_desc[i].socket_mem;
-			end = base + size - 1;
-			pr_info("Socket %d: [mem %#018llx-%#018llx], size %llu\n",
-					i, base, end, size);
-			base = end + 1;
-		}
-	}
-	pr_info("Reserved memory size for Socket 0: %#lx\n", NODE0_START);
-}
-
 int page_is_ram(unsigned long pfn)
 {
 	pfn <<= PAGE_SHIFT;
@@ -592,15 +485,13 @@ static void __init setup_firmware_fdt(void)
 			goto cmd_handle;
 		dt_virt = (void *)sunway_boot_params->dtb_start;
 	} else {
-		/**
-		 * Use DTB provided by firmware for early initialization,
-		 * regardless of whether a Built-in DTB configured or not.
-		 * Since we need the boot params from firmware when using
-		 * new method to pass boot params.
-		 */
+		/* Use DTB provided by firmware for early initialization */
 		pr_info("Parse boot params in DTB chosen node\n");
 		dt_virt = (void *)sunway_dtb_address;
 	}
+
+	/* reserve the DTB from firmware in case it is used later */
+	memblock_reserve(__boot_pa(dt_virt), fdt_totalsize(dt_virt));
 
 	if (!arch_dtb_verify(dt_virt, true) ||
 			!early_init_dt_scan(dt_virt)) {
@@ -791,45 +682,6 @@ static void __init setup_run_mode(void)
 }
 #endif
 
-static void __init setup_socket_info(void)
-{
-	int i;
-	int numsockets = sw64_chip->get_cpu_num();
-
-	memset(socket_desc, 0, MAX_NUMSOCKETS * sizeof(struct socket_desc_t));
-
-	for (i = 0; i < numsockets; i++) {
-		socket_desc[i].is_online = 1;
-		if (sw64_chip_init->early_init.get_node_mem)
-			socket_desc[i].socket_mem = sw64_chip_init->early_init.get_node_mem(i);
-	}
-}
-
-#ifdef CONFIG_SUBARCH_C3B
-#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
-static int __init early_kvm_reserved_mem(char *p)
-{
-	if (!p) {
-		pr_err("Config string not provided\n");
-		return -EINVAL;
-	}
-
-	kvm_mem_size = memparse(p, &p);
-	if (*p != '@')
-		return -EINVAL;
-	kvm_mem_base = memparse(p + 1, &p);
-	return 0;
-}
-early_param("kvm_mem", early_kvm_reserved_mem);
-
-void __init sw64_kvm_reserve(void)
-{
-	kvm_cma_declare_contiguous(kvm_mem_base, kvm_mem_size, 0,
-			PAGE_SIZE, 0, "sw64_kvm_cma", &sw64_kvm_cma);
-}
-#endif
-#endif
-
 void __init
 setup_arch(char **cmdline_p)
 {
@@ -843,8 +695,6 @@ setup_arch(char **cmdline_p)
 	setup_cpu_info();
 	setup_run_mode();
 	setup_chip_ops();
-	setup_socket_info();
-	show_socket_mem_layout();
 	sw64_chip_init->early_init.setup_core_map(&core_start);
 	if (is_guest_or_emul())
 		get_vt_smp_info();
@@ -868,29 +718,18 @@ setup_arch(char **cmdline_p)
 	 */
 	parse_early_param();
 
-	/* Find our memory.  */
-	mem_detect();
-
-#ifdef CONFIG_PCI
-	reserve_mem_for_pci();
-#endif
-
-	sw64_memblock_init();
-
-	reserve_crashkernel();
-
-	/* Reserve large chunks of memory for use by CMA for KVM. */
-#ifdef CONFIG_SUBARCH_C3B
-#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
-	sw64_kvm_reserve();
-#endif
-#endif
-
 	efi_init();
 
-	/* After efi initialization, switch to Builtin-in DTB if configured */
+	/**
+	 * Switch to builtin-in DTB if configured.
+	 * Must be placed after efi_init(), Since
+	 * efi_init() may parse boot params from DTB
+	 * provided by firmware.
+	 */
 	if (IS_ENABLED(CONFIG_BUILTIN_DTB))
 		setup_builtin_fdt();
+
+	sw64_memblock_init();
 
 	/* Try to upgrade ACPI tables via initrd */
 	acpi_table_upgrade();
@@ -1096,49 +935,3 @@ static int __init sw64_of_init(void)
 core_initcall(sw64_of_init);
 #endif
 
-#ifdef CONFIG_SUBARCH_C3B
-#if defined(CONFIG_KVM) || defined(CONFIG_KVM_MODULE)
-static int __init sw64_kvm_pool_init(void)
-{
-	int status = 0;
-	unsigned long kvm_pool_virt;
-	struct page *base_page, *end_page, *p;
-
-	if (!sw64_kvm_cma)
-		goto out;
-
-	kvm_pool_virt = (unsigned long)kvm_mem_base;
-
-	sw64_kvm_pool = gen_pool_create(PAGE_SHIFT, -1);
-	if (!sw64_kvm_pool)
-		goto out;
-
-	status = gen_pool_add_virt(sw64_kvm_pool, kvm_pool_virt, kvm_mem_base,
-			kvm_mem_size, -1);
-	if (status < 0) {
-		pr_err("failed to add memory chunks to sw64 kvm pool\n");
-		gen_pool_destroy(sw64_kvm_pool);
-		sw64_kvm_pool = NULL;
-		goto out;
-	}
-	gen_pool_set_algo(sw64_kvm_pool, gen_pool_best_fit, NULL);
-
-	base_page = pfn_to_page(kvm_mem_base >> PAGE_SHIFT);
-	end_page  = pfn_to_page((kvm_mem_base + kvm_mem_size - 1) >> PAGE_SHIFT);
-
-	p = base_page;
-	while (p <= end_page && page_ref_count(p) == 0) {
-		set_page_count(p, 1);
-		page_mapcount_reset(p);
-		SetPageReserved(p);
-		p++;
-	}
-
-	return status;
-
-out:
-	return -ENOMEM;
-}
-core_initcall_sync(sw64_kvm_pool_init);
-#endif
-#endif
