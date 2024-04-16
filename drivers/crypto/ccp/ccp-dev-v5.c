@@ -131,28 +131,6 @@ union ccp_function {
 		u16 type:2;
 		u16 mode:3;
 	} ecc;
-	struct {
-		u16 rand:1;
-		u16 rsvd:11;
-		u16 mode:3;
-	} sm2;
-	struct {
-		u16 rsvd:10;
-		u16 type:4;
-		u16 rsvd2:1;
-	} sm3;
-	struct {
-		u16 rsvd:7;
-		u16 encrypt:1;
-		u16 mode:4;
-		u16 select:1;
-		u16 rsvd2:2;
-	} sm4;
-	struct {
-		u16 size:7;
-		u16 encrypt:1;
-		u16 step:7;
-	} sm4_ctr;
 	u16 raw;
 };
 
@@ -173,15 +151,6 @@ union ccp_function {
 #define	CCP_PT_BITWISE(p)	((p)->pt.bitwise)
 #define	CCP_ECC_MODE(p)		((p)->ecc.mode)
 #define	CCP_ECC_AFFINE(p)	((p)->ecc.one)
-#define	CCP_SM2_RAND(p)		((p)->sm2.rand)
-#define	CCP_SM2_MODE(p)		((p)->sm2.mode)
-#define	CCP_SM3_TYPE(p)		((p)->sm3.type)
-#define	CCP_SM4_ENCRYPT(p)	((p)->sm4.encrypt)
-#define	CCP_SM4_MODE(p)		((p)->sm4.mode)
-#define	CCP_SM4_SELECT(p)	((p)->sm4.select)
-#define	CCP_SM4_CTR_ENCRYPT(p)	((p)->sm4_ctr.encrypt)
-#define	CCP_SM4_CTR_STEP(p)	((p)->sm4_ctr.step)
-#define	CCP_SM4_CTR_SIZE(p)	((p)->sm4_ctr.size)
 
 /* Word 0 */
 #define CCP5_CMD_DW0(p)		((p)->dw0)
@@ -217,8 +186,6 @@ union ccp_function {
 #define CCP5_CMD_FIX_DST(p)	((p)->dw5.fields.fixed)
 #define CCP5_CMD_SHA_LO(p)	((p)->dw4.sha_len_lo)
 #define CCP5_CMD_SHA_HI(p)	((p)->dw5.sha_len_hi)
-#define CCP5_CMD_SM3_LO(p)	((p)->dw4.sm3_len_lo)
-#define CCP5_CMD_SM3_HI(p)	((p)->dw5.sm3_len_hi)
 
 /* Word 6/7 */
 #define CCP5_CMD_DW6(p)		((p)->key_lo)
@@ -226,17 +193,6 @@ union ccp_function {
 #define CCP5_CMD_DW7(p)		((p)->dw7)
 #define CCP5_CMD_KEY_HI(p)	((p)->dw7.key_hi)
 #define CCP5_CMD_KEY_MEM(p)	((p)->dw7.key_mem)
-
-static inline unsigned int command_per_queue(void)
-{
-#ifdef CONFIG_HYGON_GM
-	return boot_cpu_data.x86_vendor == X86_VENDOR_HYGON ?
-		       HYGON_COMMANDS_PER_QUEUE :
-		       COMMANDS_PER_QUEUE;
-#else
-	return COMMANDS_PER_QUEUE;
-#endif
-}
 
 static inline u32 low_address(unsigned long addr)
 {
@@ -251,86 +207,15 @@ static inline u32 high_address(unsigned long addr)
 static unsigned int ccp5_get_free_slots(struct ccp_cmd_queue *cmd_q)
 {
 	unsigned int head_idx, n;
-	u32 head_lo, queue_start, command_per_q;
+	u32 head_lo, queue_start;
 
-	command_per_q = command_per_queue();
 	queue_start = low_address(cmd_q->qdma_tail);
 	head_lo = ioread32(cmd_q->reg_head_lo);
 	head_idx = (head_lo - queue_start) / sizeof(struct ccp5_desc);
 
-	n = head_idx + command_per_q - cmd_q->qidx - 1;
+	n = head_idx + COMMANDS_PER_QUEUE - cmd_q->qidx - 1;
 
-	return n % command_per_q; /* Always one unused spot */
-}
-
-static int ccp5_do_multi_cmds(struct ccp5_desc *desc,
-			struct ccp_cmd_queue *cmd_q)
-{
-	u32 *mP;
-	__le32 *dP;
-	int     i;
-	u32 command_per_q;
-
-	command_per_q = command_per_queue();
-
-	cmd_q->total_ops++;
-
-	if (CCP5_CMD_SOC(desc)) {
-		CCP5_CMD_IOC(desc) = 1;
-		CCP5_CMD_SOC(desc) = 0;
-	}
-
-	mutex_lock(&cmd_q->q_mutex);
-
-	mP = (u32 *) &cmd_q->qbase[cmd_q->qidx];
-	dP = (__le32 *) desc;
-	for (i = 0; i < 8; i++)
-		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
-
-	cmd_q->qidx = (cmd_q->qidx + 1) % command_per_q;
-
-	mutex_unlock(&cmd_q->q_mutex);
-
-	return 0;
-}
-
-static int ccp5_do_run_cmd(struct ccp_op *op)
-{
-	struct ccp_cmd_queue *cmd_q = op->cmd_q;
-	u32 tail;
-	int ret = 0;
-
-	mutex_lock(&cmd_q->q_mutex);
-
-	/* The data used by this command must be flushed to memory */
-	wmb();
-
-	/* Write the new tail address back to the queue register */
-	tail = low_address(cmd_q->qdma_tail + cmd_q->qidx * Q_DESC_SIZE);
-	iowrite32(tail, cmd_q->reg_tail_lo);
-
-	/* Turn the queue back on using our cached control register */
-	iowrite32(cmd_q->qcontrol | CMD5_Q_RUN, cmd_q->reg_control);
-	mutex_unlock(&cmd_q->q_mutex);
-
-	if (op->ioc) {
-		/* Wait for the job to complete */
-		ret = wait_event_interruptible(cmd_q->int_queue,
-					       cmd_q->int_rcvd);
-		if (ret || cmd_q->cmd_error) {
-			/* Log the error and flush the queue by
-			 * moving the head pointer
-			 */
-			if (cmd_q->cmd_error)
-				ccp_log_error(cmd_q->ccp, cmd_q->cmd_error);
-			iowrite32(tail, cmd_q->reg_head_lo);
-			if (!ret)
-				ret = -EIO;
-		}
-		cmd_q->int_rcvd = 0;
-	}
-
-	return ret;
+	return n % COMMANDS_PER_QUEUE; /* Always one unused spot */
 }
 
 static int ccp5_do_cmd(struct ccp5_desc *desc,
@@ -338,11 +223,10 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 {
 	__le32 *mP;
 	u32 *dP;
-	u32 tail, command_per_q;
+	u32 tail;
 	int	i;
 	int ret = 0;
 
-	command_per_q = command_per_queue();
 	cmd_q->total_ops++;
 
 	if (CCP5_CMD_SOC(desc)) {
@@ -356,7 +240,7 @@ static int ccp5_do_cmd(struct ccp5_desc *desc,
 	for (i = 0; i < 8; i++)
 		mP[i] = cpu_to_le32(dP[i]); /* handle endianness */
 
-	cmd_q->qidx = (cmd_q->qidx + 1) % command_per_q;
+	cmd_q->qidx = (cmd_q->qidx + 1) % COMMANDS_PER_QUEUE;
 
 	/* The data used by this command must be flushed to memory */
 	wmb();
@@ -700,163 +584,6 @@ static int ccp5_perform_ecc(struct ccp_op *op)
 	return ccp5_do_cmd(&desc, op->cmd_q);
 }
 
-static int ccp5_perform_sm2(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-	struct ccp_dma_info *saddr = &op->src.u.dma;
-	struct ccp_dma_info *daddr = &op->dst.u.dma;
-
-	op->cmd_q->total_sm2_ops++;
-
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM2;
-
-	CCP5_CMD_SOC(&desc) = 0;
-	CCP5_CMD_IOC(&desc) = 1;
-	CCP5_CMD_INIT(&desc) = 1;
-	CCP5_CMD_EOM(&desc) = 1;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_SM2_RAND(&function) = op->u.sm2.rand;
-	CCP_SM2_MODE(&function) = op->u.sm2.mode;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	/* Length of source data must match with mode */
-	CCP5_CMD_LEN(&desc) = saddr->length;
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(saddr);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(saddr);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(daddr);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(daddr);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	return ccp5_do_cmd(&desc, op->cmd_q);
-}
-
-static int ccp5_perform_sm3(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-
-	op->cmd_q->total_sm3_ops++;
-
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM3;
-
-	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = op->ioc;
-	CCP5_CMD_INIT(&desc) = op->init;
-	CCP5_CMD_EOM(&desc) = op->eom;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_SM3_TYPE(&function) = op->u.sm3.type;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
-
-	if (op->eom) {
-		CCP5_CMD_SM3_LO(&desc) = lower_32_bits(op->u.sm3.msg_bits);
-		CCP5_CMD_SM3_HI(&desc) = upper_32_bits(op->u.sm3.msg_bits);
-	}
-
-	return ccp5_do_multi_cmds(&desc, op->cmd_q);
-}
-
-static int ccp5_perform_sm4(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
-
-	op->cmd_q->total_sm4_ops++;
-
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4;
-
-	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = op->ioc;
-	CCP5_CMD_INIT(&desc) = op->init;
-	CCP5_CMD_EOM(&desc) = op->eom;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_SM4_ENCRYPT(&function) = op->u.sm4.action;
-	CCP_SM4_MODE(&function) = op->u.sm4.mode;
-	CCP_SM4_SELECT(&function) = op->u.sm4.select;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
-	CCP5_CMD_KEY_HI(&desc) = 0;
-	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
-
-	return ccp5_do_multi_cmds(&desc, op->cmd_q);
-}
-
-static int ccp5_perform_sm4_ctr(struct ccp_op *op)
-{
-	struct ccp5_desc desc;
-	union ccp_function function;
-	u32 key_addr = op->sb_ctx * LSB_ITEM_SIZE + SM4_BLOCK_SIZE;
-
-	op->cmd_q->total_sm4_ctr_ops++;
-
-	memset(&desc, 0, Q_DESC_SIZE);
-
-	CCP5_CMD_ENGINE(&desc) = CCP_ENGINE_SM4_CTR;
-
-	CCP5_CMD_SOC(&desc) = op->soc;
-	CCP5_CMD_IOC(&desc) = op->ioc;
-	CCP5_CMD_INIT(&desc) = op->init;
-	CCP5_CMD_EOM(&desc) = op->eom;
-	CCP5_CMD_PROT(&desc) = 0;
-
-	function.raw = 0;
-	CCP_SM4_CTR_SIZE(&function) = op->u.sm4_ctr.size;
-	CCP_SM4_CTR_ENCRYPT(&function) = op->u.sm4_ctr.action;
-	CCP_SM4_CTR_STEP(&function) = op->u.sm4_ctr.step;
-	CCP5_CMD_FUNCTION(&desc) = function.raw;
-
-	CCP5_CMD_LEN(&desc) = op->src.u.dma.length;
-
-	CCP5_CMD_SRC_LO(&desc) = ccp_addr_lo(&op->src.u.dma);
-	CCP5_CMD_SRC_HI(&desc) = ccp_addr_hi(&op->src.u.dma);
-	CCP5_CMD_SRC_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-	CCP5_CMD_LSB_ID(&desc) = op->sb_ctx;
-
-	CCP5_CMD_DST_LO(&desc) = ccp_addr_lo(&op->dst.u.dma);
-	CCP5_CMD_DST_HI(&desc) = ccp_addr_hi(&op->dst.u.dma);
-	CCP5_CMD_DST_MEM(&desc) = CCP_MEMTYPE_SYSTEM;
-
-	CCP5_CMD_KEY_LO(&desc) = lower_32_bits(key_addr);
-	CCP5_CMD_KEY_HI(&desc) = 0;
-	CCP5_CMD_KEY_MEM(&desc) = CCP_MEMTYPE_SB;
-
-	return ccp5_do_multi_cmds(&desc, op->cmd_q);
-}
-
 static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
 {
 	int q_mask = 1 << cmd_q->id;
@@ -866,7 +593,6 @@ static int ccp_find_lsb_regions(struct ccp_cmd_queue *cmd_q, u64 status)
 	/* Build a bit mask to know which LSBs this queue has access to.
 	 * Don't bother with segment 0 as it has special privileges.
 	 */
-	status >>= LSB_REGION_WIDTH;
 	for (j = 1; j < MAX_LSB_CNT; j++) {
 		if (status & q_mask)
 			bitmap_set(cmd_q->lsbmask, j, 1);
@@ -1018,7 +744,7 @@ static void ccp5_irq_bh(unsigned long data)
 
 		status = ioread32(cmd_q->reg_interrupt_status);
 
-		if (status & SUPPORTED_INTERRUPTS) {
+		if (status) {
 			cmd_q->int_status = status;
 			cmd_q->q_status = ioread32(cmd_q->reg_status);
 			cmd_q->q_int_status = ioread32(cmd_q->reg_int_status);
@@ -1027,9 +753,10 @@ static void ccp5_irq_bh(unsigned long data)
 			if ((status & INT_ERROR) && !cmd_q->cmd_error)
 				cmd_q->cmd_error = CMD_Q_ERROR(cmd_q->q_status);
 
+			cmd_q->int_rcvd = 1;
+
 			/* Acknowledge the interrupt and wake the kthread */
 			iowrite32(status, cmd_q->reg_interrupt_status);
-			cmd_q->int_rcvd = 1;
 			wake_up_interruptible(&cmd_q->int_queue);
 		}
 	}
@@ -1057,7 +784,7 @@ static int ccp5_init(struct ccp_device *ccp)
 	char dma_pool_name[MAX_DMAPOOL_NAME_LEN];
 	unsigned int qmr, i;
 	u64 status;
-	u32 status_lo, status_hi, command_per_q, queue_size_val;
+	u32 status_lo, status_hi;
 	int ret;
 
 	/* Find available queues */
@@ -1073,9 +800,6 @@ static int ccp5_init(struct ccp_device *ccp)
 		dev_notice(dev, "ccp: unable to access the device: you might be running a broken BIOS.\n");
 		return 1;
 	}
-
-	command_per_q = command_per_queue();
-	queue_size_val = QUEUE_SIZE_VAL(command_per_q);
 
 	for (i = 0; (i < MAX_HW_QUEUES) && (ccp->cmd_q_count < ccp->max_q_count); i++) {
 		if (!(qmr & (1 << i)))
@@ -1103,7 +827,7 @@ static int ccp5_init(struct ccp_device *ccp)
 
 		/* Page alignment satisfies our needs for N <= 128 */
 		BUILD_BUG_ON(COMMANDS_PER_QUEUE > 128);
-		cmd_q->qsize = Q_SIZE(command_per_q, Q_DESC_SIZE);
+		cmd_q->qsize = Q_SIZE(Q_DESC_SIZE);
 		cmd_q->qbase = dmam_alloc_coherent(dev, cmd_q->qsize,
 						   &cmd_q->qbase_dma,
 						   GFP_KERNEL);
@@ -1190,7 +914,7 @@ static int ccp5_init(struct ccp_device *ccp)
 		cmd_q = &ccp->cmd_q[i];
 
 		cmd_q->qcontrol &= ~(CMD5_Q_SIZE << CMD5_Q_SHIFT);
-		cmd_q->qcontrol |= queue_size_val << CMD5_Q_SHIFT;
+		cmd_q->qcontrol |= QUEUE_SIZE_VAL << CMD5_Q_SHIFT;
 
 		cmd_q->qdma_tail = cmd_q->qbase_dma;
 		dma_addr_lo = low_address(cmd_q->qdma_tail);
@@ -1338,26 +1062,6 @@ static void ccp5_destroy(struct ccp_device *ccp)
 	}
 }
 
-static int ccp5_get_trng_mask_param(void)
-{
-	/* According to spec description for SM4 high secure module,
-	 * which need 64 bytes data, so the initialize times of writing
-	 * mask register must be 16 or a multiple of 16.
-	 *
-	 * The AES algorithem need 48 bytes, so the initialize times will
-	 * be 12 or a multiple of 12.
-	 */
-
-#ifdef CONFIG_HYGON_GM
-	/* for sm4 HS */
-	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
-		return 16;
-#endif
-
-	/* for AES HS */
-	return 12;
-}
-
 static void ccp5_config(struct ccp_device *ccp)
 {
 	/* Public side */
@@ -1368,13 +1072,12 @@ static void ccp5other_config(struct ccp_device *ccp)
 {
 	int i;
 	u32 rnd;
-	int len = ccp5_get_trng_mask_param();
 
 	/* We own all of the queues on the NTB CCP */
 
 	iowrite32(0x00012D57, ccp->io_regs + CMD5_TRNG_CTL_OFFSET);
 	iowrite32(0x00000003, ccp->io_regs + CMD5_CONFIG_0_OFFSET);
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < 12; i++) {
 		rnd = ioread32(ccp->io_regs + TRNG_OUT_REG);
 		iowrite32(rnd, ccp->io_regs + CMD5_AES_MASK_OFFSET);
 	}
@@ -1400,11 +1103,6 @@ static const struct ccp_actions ccp5_actions = {
 	.rsa = ccp5_perform_rsa,
 	.passthru = ccp5_perform_passthru,
 	.ecc = ccp5_perform_ecc,
-	.sm2 = ccp5_perform_sm2,
-	.sm3 = ccp5_perform_sm3,
-	.sm4 = ccp5_perform_sm4,
-	.sm4_ctr = ccp5_perform_sm4_ctr,
-	.run_cmd = ccp5_do_run_cmd,
 	.sballoc = ccp_lsb_alloc,
 	.sbfree = ccp_lsb_free,
 	.init = ccp5_init,

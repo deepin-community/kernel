@@ -50,7 +50,7 @@ const struct sp_dev_vdata hygon_dev_vdata[] = {
 	{	/* 0 */
 		.bar = 2,
 #ifdef CONFIG_CRYPTO_DEV_SP_CCP
-		.ccp_vdata = &ccpv5a,
+		.ccp_vdata = &ccpv5a_hygon,
 #endif
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
 		.psp_vdata = &pspv1,
@@ -59,13 +59,13 @@ const struct sp_dev_vdata hygon_dev_vdata[] = {
 	{	/* 1 */
 		.bar = 2,
 #ifdef CONFIG_CRYPTO_DEV_SP_CCP
-		.ccp_vdata = &ccpv5b,
+		.ccp_vdata = &ccpv5b_hygon,
 #endif
 	},
 	{	/* 2 */
 		.bar = 2,
 #ifdef CONFIG_CRYPTO_DEV_SP_CCP
-		.ccp_vdata = &ccpv5a,
+		.ccp_vdata = &ccpv5a_hygon,
 #endif
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
 		.psp_vdata = &pspv2,

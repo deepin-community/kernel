@@ -101,13 +101,12 @@
 #define CMD5_Q_SHIFT			3
 
 #define COMMANDS_PER_QUEUE		16
-#define HYGON_COMMANDS_PER_QUEUE	8192
 
+#define QUEUE_SIZE_VAL			((ffs(COMMANDS_PER_QUEUE) - 2) & \
+					  CMD5_Q_SIZE)
+#define Q_PTR_MASK			(2 << (QUEUE_SIZE_VAL + 5) - 1)
 #define Q_DESC_SIZE			sizeof(struct ccp5_desc)
-
-#define QUEUE_SIZE_VAL(c) ((ffs((c)) - 2) & CMD5_Q_SIZE)
-#define Q_PTR_MASK(c)	(2 << (QUEUE_SIZE_VAL((c)) + 5) - 1)
-#define Q_SIZE(c, n)			((c)*(n))
+#define Q_SIZE(n)			(COMMANDS_PER_QUEUE*(n))
 
 #define INT_COMPLETION			0x1
 #define INT_ERROR			0x2
@@ -361,6 +360,9 @@ struct ccp_device {
 	unsigned int irq;
 	bool use_tasklet;
 	struct tasklet_struct irq_tasklet;
+
+	/* This flag mark if the ccp support both sm2 and ecc function */
+	uint32_t support_sm2_ecc;
 
 	/* I/O area used for device communication. The register mapping
 	 * starts at an offset into the mapped bar.
@@ -709,5 +711,7 @@ extern const struct ccp_vdata ccpv3_platform;
 extern const struct ccp_vdata ccpv3;
 extern const struct ccp_vdata ccpv5a;
 extern const struct ccp_vdata ccpv5b;
+extern const struct ccp_vdata ccpv5a_hygon;
+extern const struct ccp_vdata ccpv5b_hygon;
 
 #endif
