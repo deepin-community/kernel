@@ -140,7 +140,7 @@
 		spi: spi@0x8032 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "sunway,chip3-spi";
+			compatible = "sunway,chip-spi";
 			reg = <0x8032 0x0 0x0 0x8000>;
 			clocks = <&spiclk>;
 			poll_mode = <1>;    /* poll_mode:1  interrupt mode: 0 */
