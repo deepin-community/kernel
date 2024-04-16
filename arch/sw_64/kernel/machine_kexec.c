@@ -14,11 +14,11 @@
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/efi.h>
+#include <linux/memblock.h>
 
 #include <asm/cacheflush.h>
 #include <asm/platform.h>
 
-extern void *kexec_control_page;
 extern const unsigned char relocate_new_kernel[];
 extern const size_t relocate_new_kernel_size;
 
@@ -26,6 +26,7 @@ extern unsigned long kexec_start_address;
 extern unsigned long kexec_indirection_page;
 
 static atomic_t waiting_for_crash_ipi;
+static void *kexec_control_page;
 
 #ifdef CONFIG_SMP
 extern struct smp_rcb_struct *smp_rcb;
@@ -45,6 +46,72 @@ static void kexec_smp_down(void *ignored)
 	reset_cpu(cpu);
 }
 #endif
+
+#define KTEXT_MAX	KERNEL_IMAGE_SIZE
+
+void __init kexec_control_page_init(void)
+{
+	phys_addr_t addr;
+
+	addr = memblock_phys_alloc_range(KEXEC_CONTROL_PAGE_SIZE, PAGE_SIZE,
+					0, KTEXT_MAX);
+	kexec_control_page = (void *)(__START_KERNEL_map + addr);
+}
+
+/*
+ * reserve_crashkernel() - reserves memory are for crash kernel
+ *
+ * This function reserves memory area given in "crashkernel=" kernel command
+ * line parameter. The memory reserved is used by a dump capture kernel when
+ * primary kernel is crashing.
+ */
+void __init reserve_crashkernel(void)
+{
+	unsigned long long crash_size, crash_base;
+	unsigned long long mem_size = memblock_phys_mem_size();
+	int ret;
+
+	ret = parse_crashkernel(boot_command_line, mem_size,
+			&crash_size, &crash_base);
+	if (ret || !crash_size)
+		return;
+
+	if (!crash_size) {
+		pr_warn("size of crash kernel memory unspecified, no memory reserved for crash kernel\n");
+		return;
+	}
+	if (!crash_base) {
+		pr_warn("base of crash kernel memory unspecified, no memory reserved for crash kernel\n");
+		return;
+	}
+
+	if (!memblock_is_region_memory(crash_base, crash_size))
+		memblock_add(crash_base, crash_size);
+
+	ret = memblock_reserve(crash_base, crash_size);
+	if (ret < 0) {
+		pr_warn("crashkernel reservation failed - memory is in use [mem %#018llx-%#018llx]\n",
+				crash_base, crash_base + crash_size - 1);
+		return;
+	}
+
+	pr_info("Reserving %ldMB of memory at %ldMB for crashkernel (System RAM: %ldMB)\n",
+			(unsigned long)(crash_size >> 20),
+			(unsigned long)(crash_base >> 20),
+			(unsigned long)(mem_size >> 20));
+
+	ret = add_memmap_region(crash_base, crash_size, memmap_crashkernel);
+	if (ret)
+		pr_warn("Add crash kernel area [mem %#018llx-%#018llx] to memmap region failed.\n",
+				crash_base, crash_base + crash_size - 1);
+
+	if (crash_base >= KERNEL_IMAGE_SIZE)
+		pr_warn("Crash base should be less than %#x\n", KERNEL_IMAGE_SIZE);
+
+	crashk_res.start = crash_base;
+	crashk_res.end = crash_base + crash_size - 1;
+	insert_resource(&iomem_resource, &crashk_res);
+}
 
 int machine_kexec_prepare(struct kimage *kimage)
 {
