@@ -85,6 +85,9 @@
 #define DP_DSC_MAX_ENC_THROUGHPUT_0		340000
 #define DP_DSC_MAX_ENC_THROUGHPUT_1		400000
 
+/* Max DSC line buffer depth supported by HW. */
+#define INTEL_DP_DSC_MAX_LINE_BUF_DEPTH		13
+
 /* DP DSC FEC Overhead factor = 1/(0.972261) */
 #define DP_DSC_FEC_OVERHEAD_FACTOR		972261
 
@@ -1591,7 +1594,6 @@ static int intel_dp_dsc_compute_params(struct intel_encoder *encoder,
 	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 	struct drm_dsc_config *vdsc_cfg = &crtc_state->dsc.config;
-	u8 line_buf_depth;
 	int ret;
 
 	/*
@@ -1620,19 +1622,13 @@ static int intel_dp_dsc_compute_params(struct intel_encoder *encoder,
 			intel_dp->dsc_dpcd[DP_DSC_DEC_COLOR_FORMAT_CAP - DP_DSC_SUPPORT] &
 			DP_DSC_RGB;
 
-	line_buf_depth = drm_dp_dsc_sink_line_buf_depth(intel_dp->dsc_dpcd);
-	if (!line_buf_depth) {
+	vdsc_cfg->line_buf_depth = min(INTEL_DP_DSC_MAX_LINE_BUF_DEPTH,
+				       drm_dp_dsc_sink_line_buf_depth(intel_dp->dsc_dpcd));
+	if (!vdsc_cfg->line_buf_depth) {
 		drm_dbg_kms(&i915->drm,
 			    "DSC Sink Line Buffer Depth invalid\n");
 		return -EINVAL;
 	}
-
-	if (vdsc_cfg->dsc_version_minor == 2)
-		vdsc_cfg->line_buf_depth = (line_buf_depth == DSC_1_2_MAX_LINEBUF_DEPTH_BITS) ?
-			DSC_1_2_MAX_LINEBUF_DEPTH_VAL : line_buf_depth;
-	else
-		vdsc_cfg->line_buf_depth = (line_buf_depth > DSC_1_1_MAX_LINEBUF_DEPTH_BITS) ?
-			DSC_1_1_MAX_LINEBUF_DEPTH_BITS : line_buf_depth;
 
 	vdsc_cfg->block_pred_enable =
 		intel_dp->dsc_dpcd[DP_DSC_BLK_PREDICTION_SUPPORT - DP_DSC_SUPPORT] &
