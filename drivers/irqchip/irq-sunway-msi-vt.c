@@ -2,6 +2,7 @@
 #include <linux/pci.h>
 #include <linux/irq.h>
 #include <linux/msi.h>
+#include <linux/smp.h>
 
 static DEFINE_RAW_SPINLOCK(vector_lock);
 
