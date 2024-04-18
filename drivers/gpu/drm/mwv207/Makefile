@@ -1,4 +1,3 @@
-
 mwv207-y := mwv207_drv.o \
 	mwv207_irq.o \
 	mwv207_db.o \

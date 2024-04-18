@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <linux/dma-fence.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
@@ -355,6 +354,7 @@ static struct dma_fence *mwv207_pipe_dma_submit(struct mwv207_pipe *mpipe,
 static void mwv207_pipe_dma_dump_state(struct mwv207_pipe *mpipe)
 {
 	struct mwv207_pipe_dma *pipe = to_dma_pipe(mpipe);
+
 	pr_info("%s todo: %p", __func__, pipe);
 }
 
@@ -387,7 +387,7 @@ struct mwv207_pipe *mwv207_pipe_dma_create(struct mwv207_device *jdev, int unit,
 
 	/* current TTM impl uses ttm_dma_populate which is coherent.
 	 * set to false if ttm_populate_and_map_pages is used
-	 * */
+	 */
 	pipe->coherent = true;
 
 	pipe->alignment = jdev->lite ? 32 : 64;
