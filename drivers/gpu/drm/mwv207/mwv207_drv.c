@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <linux/version.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -119,12 +118,14 @@ static struct drm_driver mwv207_drm_driver = {
 static inline void iatu_write(struct mwv207_device *jdev, int index, u32 offset, u32 value)
 {
 	u32 region_base = 0x10000 + index * 0x200;
+
 	writel(value, jdev->iatu + region_base + offset);
 }
 
 static inline u32 iatu_read(struct mwv207_device *jdev, int index, u32 offset)
 {
 	u32 region_base = 0x10000 + index * 0x200;
+
 	return readl(jdev->iatu + region_base + offset);
 }
 
@@ -215,7 +216,7 @@ void jdev_write_vram(struct mwv207_device *jdev, u64 vram_addr, void *buf, int s
 		va = mwv207_remap_region(jdev, vram_addr, &len);
 		if (!va || len <= 0) {
 			spin_unlock(&jdev->win_lock);
-			pr_warn("mwv207: write vram faild");
+			pr_warn("mwv207: write vram failed");
 			return;
 		}
 		memcpy_toio(va, buf, len);

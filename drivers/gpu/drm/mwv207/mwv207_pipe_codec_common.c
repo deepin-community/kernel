@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include "mwv207_pipe_codec_common.h"
 
 static void pipe_codec_sw_pp_submit_ex(struct pipe_codec_sw_pp *sw_pp, struct mwv207_pipe *pipe,
@@ -44,7 +43,9 @@ void pipe_codec_sw_pp_excute(struct pipe_codec_sw_pp *sw_pp, struct mwv207_pipe 
 		return;
 
 	for (i = 0; i < sw_pp->wb_cnt; i++) {
-		for (j = 0; j < sw_pp->wb[i].nr && sw_pp->wb[i].reg + j * 4 <= pipe->iosize - 4; j++)
+		for (j = 0;
+		 j < sw_pp->wb[i].nr && sw_pp->wb[i].reg + j * 4 <= pipe->iosize - 4;
+		 j++)
 			sw_pp->wb_buf[j] = pipe_read(pipe, sw_pp->wb[i].reg + j * 4);
 
 		if (!j)

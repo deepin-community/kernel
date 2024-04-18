@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <linux/dma-fence.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
@@ -226,7 +225,7 @@ static u32 *pipe_2d_append_wl(struct mwv207_pipe_2d *pipe)
 	*pipe->tail++ = 0x88000000;
 	*pipe->tail++ = 0x80000000;
 	*pipe->tail++ = 0x89000000;
-	*pipe->tail++ = pipe_2d_gpu_addr(pipe, wait);;
+	*pipe->tail++ = pipe_2d_gpu_addr(pipe, wait);
 
 	return wait;
 }
@@ -272,6 +271,7 @@ static u32 *pipe_2d_wait_for_space(struct mwv207_pipe_2d *pipe, u32 size)
 
 	for (i = 0; i < 10000; i++) {
 		u32 *head = READ_ONCE(pipe->head);
+
 		if (head <= pipe->tail) {
 			if (pipe_2d_ptr_span(pipe->ring_end, pipe->tail) >= size)
 				return pipe->tail;
@@ -436,8 +436,7 @@ static unsigned long pipe_2d_max_freq_get(struct mwv207_device *jdev)
 {
 	unsigned long  freq;
 
-	switch (jdev->pdev->subsystem_device)
-	{
+	switch (jdev->pdev->subsystem_device) {
 	case 0x9103:
 		freq = 600;
 		break;

@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <linux/version.h>
 #include <linux/delay.h>
 #include <drm/drm.h>
@@ -350,15 +349,15 @@ static int mwv207_bo_move(struct ttm_buffer_object *bo, bool evict,
 		return -EMULTIHOP;
 	}
 
-	if (old_mem->mem_type == TTM_PL_TT && new_mem->mem_type == TTM_PL_VRAM) {
+	if (old_mem->mem_type == TTM_PL_TT && new_mem->mem_type == TTM_PL_VRAM)
 		ret = mwv207_move_gtt_vram(bo, evict, ctx, new_mem);
-	} else if (old_mem->mem_type == TTM_PL_VRAM && new_mem->mem_type == TTM_PL_TT) {
+	else if (old_mem->mem_type == TTM_PL_VRAM && new_mem->mem_type == TTM_PL_TT)
 		ret = mwv207_move_vram_gtt(bo, evict, ctx, new_mem);
-	} else if (old_mem->mem_type == TTM_PL_VRAM && new_mem->mem_type == TTM_PL_VRAM) {
+	else if (old_mem->mem_type == TTM_PL_VRAM && new_mem->mem_type == TTM_PL_VRAM)
 		ret = mwv207_move_vram_vram(bo, evict, ctx, new_mem);
-	} else {
+	else
 		ret = -EINVAL;
-	}
+
 	if (ret) {
 		ret = ttm_bo_move_memcpy(bo, ctx, new_mem);
 		if (ret)

@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <drm/display/drm_scdc_helper.h>
 #include <drm/display/drm_hdmi_helper.h>
 #include <linux/delay.h>
@@ -857,10 +856,8 @@ static void mwv207_hdmi_set_timing(struct mwv207_hdmi *hdmi)
 
 	mwv207_hdmi_enable_video_path(hdmi);
 
-	if (hdmi->sink_has_audio) {
+	if (hdmi->sink_has_audio)
 		mwv207_hdmi_enable_audio_clk(hdmi, 1);
-
-	}
 
 	if (hdmi->sink_is_hdmi) {
 		struct drm_connector *conn = &hdmi->base.connector;

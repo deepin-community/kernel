@@ -1,18 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* SPDX-License-Identifier: GPL
-*
-* Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
-* All rights reserved.
-*
-* Author:
-*      shanjinkui <shanjinkui@jingjiamicro.com>
-*
-* The software and information contained herein is proprietary and
-* confidential to JingJiaMicro Electronics. This software can only be
-* used by JingJiaMicro Electronics Corporation. Any use, reproduction,
-* or disclosure without the written permission of JingJiaMicro
-* Electronics Corporation is strictly prohibited.
-*/
+ * Copyright (c) 2020 ChangSha JingJiaMicro Electronics Co., Ltd.
+ * All rights reserved.
+ *
+ * Author:
+ *      shanjinkui <shanjinkui@jingjiamicro.com>
+ *
+ * The software and information contained herein is proprietary and
+ * confidential to JingJiaMicro Electronics. This software can only be
+ * used by JingJiaMicro Electronics Corporation. Any use, reproduction,
+ * or disclosure without the written permission of JingJiaMicro
+ * Electronics Corporation is strictly prohibited.
+ */
 #include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
 #include <drm/gpu_scheduler.h>
@@ -65,7 +64,8 @@ static int mwv207_ctx_entity_init_single(struct mwv207_ctx *ctx,
 		if (!entity)
 			return -ENOMEM;
 
-		ret = drm_sched_entity_init(entity, DRM_SCHED_PRIORITY_NORMAL, &scheds[i], 1, &ctx->guilty);
+		ret = drm_sched_entity_init(entity, DRM_SCHED_PRIORITY_NORMAL,
+					 &scheds[i], 1, &ctx->guilty);
 
 		if (ret) {
 			kfree(entity);
@@ -79,7 +79,8 @@ static int mwv207_ctx_entity_init_single(struct mwv207_ctx *ctx,
 		if (!entity)
 			return -ENOMEM;
 
-		ret = drm_sched_entity_init(entity, DRM_SCHED_PRIORITY_NORMAL, &scheds[0], i, &ctx->guilty);
+		ret = drm_sched_entity_init(entity, DRM_SCHED_PRIORITY_NORMAL,
+					 &scheds[0], i, &ctx->guilty);
 
 		if (ret) {
 			kfree(entity);
@@ -228,15 +229,15 @@ int mwv207_kctx_init(struct mwv207_device *jdev)
 	struct drm_gpu_scheduler *scheds[1];
 	int i;
 
-	for (i = 0; i < 1; i++) {
+	for (i = 0; i < 1; i++)
 		scheds[i] = jdev->sched_dma[i];
-	}
 
 	jdev->dma_entity = devm_kzalloc(jdev->dev, sizeof(struct drm_sched_entity), GFP_KERNEL);
 	if (!jdev->dma_entity)
 		return -ENOMEM;
 
-	return drm_sched_entity_init(jdev->dma_entity, DRM_SCHED_PRIORITY_NORMAL, &scheds[0], i, NULL);
+	return drm_sched_entity_init(jdev->dma_entity, DRM_SCHED_PRIORITY_NORMAL,
+				 &scheds[0], i, NULL);
 }
 
 void mwv207_kctx_fini(struct mwv207_device *jdev)
