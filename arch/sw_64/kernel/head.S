@@ -32,7 +32,6 @@ __start:
 1:	ldgp	$29, 0($27)
 	/* We need to get current_task_info loaded up...  */
 	ldi	$8, init_task
-	SAVE_KTP
 	ldl	$30, TASK_STACK($8)
 	/* ... and find our stack ... */
 	ldi	$30, ASM_THREAD_SIZE($30)
