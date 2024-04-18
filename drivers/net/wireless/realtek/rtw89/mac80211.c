@@ -1434,6 +1434,7 @@ static bool rtw89_can_work_on_links(struct rtw89_dev *rtwdev,
 	return w <= rtwvif->links_inst_valid_num;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0))
 static bool rtw89_ops_can_activate_links(struct ieee80211_hw *hw,
 					 struct ieee80211_vif *vif,
 					 u16 active_links)
@@ -1444,6 +1445,7 @@ static bool rtw89_ops_can_activate_links(struct ieee80211_hw *hw,
 
 	return rtw89_can_work_on_links(rtwdev, vif, active_links);
 }
+#endif
 
 static void __rtw89_ops_clr_vif_links(struct rtw89_dev *rtwdev,
 				      struct rtw89_vif *rtwvif,
@@ -1794,7 +1796,9 @@ const struct ieee80211_ops rtw89_ops = {
 	.set_sar_specs		= rtw89_ops_set_sar_specs,
 	.sta_rc_update		= rtw89_ops_sta_rc_update,
 	.set_tid_config		= rtw89_ops_set_tid_config,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0))
 	.can_activate_links	= rtw89_ops_can_activate_links,
+#endif
 	.change_vif_links	= rtw89_ops_change_vif_links,
 	.change_sta_links	= rtw89_ops_change_sta_links,
 #ifdef CONFIG_PM
