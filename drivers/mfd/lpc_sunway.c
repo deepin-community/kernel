@@ -242,8 +242,15 @@ static const struct of_device_id chip3_lpc_of_match[] = {
 	{.compatible = "sunway,chip3_lpc",},
 	{ /* end of table */ }
 };
-
 MODULE_DEVICE_TABLE(of, chip3_lpc_of_match);
+
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id chip3_lpc_acpi_match[] = {
+	{ "SUNW0006", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, chip3_lpc_acpi_match);
+#endif
 
 #ifdef CONFIG_PM_SLEEP
 unsigned int lpc_irq_ctrl_value;
@@ -293,6 +300,7 @@ static struct platform_driver chip3_lpc_platform_driver = {
 	.driver = {
 		   .name = "chip3_lpc",
 		   .of_match_table = chip3_lpc_of_match,
+		   .acpi_match_table = ACPI_PTR(chip3_lpc_acpi_match),
 #ifdef CONFIG_PM_SLEEP
 		   .pm = &chip3_lpc_pm_ops,
 #endif

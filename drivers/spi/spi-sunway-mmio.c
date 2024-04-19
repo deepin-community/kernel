@@ -17,6 +17,7 @@
 #include <linux/of_platform.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
+#include <linux/acpi.h>
 
 #include "spi-sunway.h"
 
@@ -107,6 +108,8 @@ static int chip_spi_mmio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, spimmio);
 
+	dev_info(&pdev->dev, "SPI(MMIO) probe succeed\n");
+
 	return 0;
 out:
 	clk_disable_unprepare(spimmio->clk);
@@ -129,12 +132,21 @@ static const struct of_device_id chip_spi_mmio_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, chip_spi_mmio_of_match);
 
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id chip_spi_mmio_acpi_match[] = {
+	{ "SUNW0008", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, chip_spi_mmio_acpi_match);
+#endif
+
 static struct platform_driver chip_spi_mmio_driver = {
 	.probe		= chip_spi_mmio_probe,
 	.remove		= chip_spi_mmio_remove,
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.of_match_table = chip_spi_mmio_of_match,
+		.acpi_match_table = ACPI_PTR(chip_spi_mmio_acpi_match),
 	},
 };
 module_platform_driver(chip_spi_mmio_driver);

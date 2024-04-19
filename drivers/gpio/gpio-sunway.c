@@ -648,13 +648,16 @@ static const struct of_device_id sunway_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sunway_of_match);
 
+#ifdef CONFIG_ACPI
 static const struct acpi_device_id sunway_acpi_match[] = {
 	{"HISI0181", 0},
 	{"APMC0D07", 0},
 	{"APMC0D81", GPIO_REG_OFFSET_V2},
+	{"SUNW0002", 0},
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, sunway_acpi_match);
+#endif
 
 static int sunway_gpio_probe(struct platform_device *pdev)
 {
@@ -726,6 +729,8 @@ static int sunway_gpio_probe(struct platform_device *pdev)
 			goto out_unregister;
 	}
 	platform_set_drvdata(pdev, gpio);
+
+	def_info(&pdev->dev, "GPIO probe succeed\n");
 
 	return 0;
 
