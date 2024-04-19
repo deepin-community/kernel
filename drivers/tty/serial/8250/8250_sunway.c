@@ -763,6 +763,7 @@ static const struct acpi_device_id sunway8250_acpi_match[] = {
 	{ "AMDI0020", 0 },
 	{ "BRCM2032", 0 },
 	{ "HISI0031", 0 },
+	{ "SUNW0009", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, sunway8250_acpi_match);

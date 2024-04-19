@@ -267,8 +267,8 @@ static const struct acpi_device_id acpi_apd_device_ids[] = {
 	{ "PHYT0003", APD_ADDR(phytium_i2c_desc) },
 #endif
 #ifdef CONFIG_SW64
-	{ "HISI02A1", APD_ADDR(sunway_i2c_desc) },
-	{ "HISI0173", APD_ADDR(sunway_spi_desc) },
+	{ "SUNW0005", APD_ADDR(sunway_i2c_desc) },
+	{ "SUNW0008", APD_ADDR(sunway_spi_desc) },
 #endif
 	{ }
 };

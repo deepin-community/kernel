@@ -184,6 +184,8 @@ static int pvt_vol_plat_probe(struct platform_device *pdev)
 		return false;
 	}
 
+	dev_info(&pdev->dev, "PVT probe succeed\n");
+
 	return 0;
 
 err:
@@ -199,11 +201,20 @@ static const struct of_device_id pvt_vol_of_match[] = {
 MODULE_DEVICE_TABLE(of, pvt_vol_of_match);
 #endif
 
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id pvt_vol_acpi_match[] = {
+	{ "SUNW0007", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, pvt_vol_acpi_match);
+#endif
+
 static struct platform_driver pvt_vol_driver = {
 	.probe = pvt_vol_plat_probe,
 	.driver         = {
 		.name   = "pvt-sw64",
 		.of_match_table = of_match_ptr(pvt_vol_of_match),
+		.acpi_match_table = ACPI_PTR(pvt_vol_acpi_match),
 	},
 };
 

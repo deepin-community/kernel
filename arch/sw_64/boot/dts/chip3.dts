@@ -86,7 +86,7 @@
 		i2c0@0x8031 {
 			#address-cells = <2>;
 			#size-cells = <2>;
-			compatible = "snps,designware-i2c";
+			compatible = "sunway,suntai-i2c", "snps,designware-i2c";
 			reg = <0x8031 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
@@ -98,7 +98,7 @@
 		i2c1@0x8034 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "snps,designware-i2c";
+			compatible = "sunway,suntai-i2c", "snps,designware-i2c";
 			reg = <0x8034 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
@@ -110,7 +110,7 @@
 		i2c2@0x8035 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "snps,designware-i2c";
+			compatible = "sunway,suntai-i2c", "snps,designware-i2c";
 			reg = <0x8035 0x0 0x0 0x8000>;
 			clock-frequency = <100000>;
 			clocks = <&i2cclk>;
