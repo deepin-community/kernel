@@ -187,7 +187,7 @@ EXPORT_SYMBOL(__percpu_counter_sum);
 
 int __percpu_counter_init_many(struct percpu_counter *fbc, s64 amount,
 			       gfp_t gfp, u32 nr_counters,
-			       struct lock_class_key *key)
+			       struct lock_class_key *key, bool switch_mode)
 {
 	unsigned long flags __maybe_unused;
 	size_t counter_size;
@@ -208,7 +208,8 @@ int __percpu_counter_init_many(struct percpu_counter *fbc, s64 amount,
 #ifdef CONFIG_HOTPLUG_CPU
 		INIT_LIST_HEAD(&fbc[i].list);
 #endif
-		fbc[i].count = amount;
+		if (likely(!switch_mode))
+			fbc[i].count = amount;
 		fbc[i].counters = (void __percpu *)counters + i * counter_size;
 
 		debug_percpu_counter_activate(&fbc[i]);
@@ -311,6 +312,36 @@ int __percpu_counter_compare(struct percpu_counter *fbc, s64 rhs, s32 batch)
 		return 0;
 }
 EXPORT_SYMBOL(__percpu_counter_compare);
+
+/*
+ * percpu_counter_switch_to_pcpu_many: Converts struct percpu_counters from
+ * atomic mode to percpu mode.
+ *
+ * Return: 0 if percpu_counter is already in atomic mode or successfully
+ * switched to atomic mode; -ENOMEM if percpu memory allocation fails,
+ * percpu_counter is still in atomic mode.
+ */
+int percpu_counter_switch_to_pcpu_many(struct percpu_counter *fbc,
+										u32 nr_counters)
+{
+	static struct lock_class_key __key;
+	unsigned long flags;
+	int ret = 0;
+
+	if (percpu_counter_initialized(fbc))
+		return 0;
+
+	preempt_disable();
+	local_irq_save(flags);
+	if (likely(!percpu_counter_initialized(fbc)))
+		ret = __percpu_counter_init_many(fbc, 0,
+										GFP_ATOMIC|__GFP_NOWARN|__GFP_ZERO,
+										nr_counters, &__key, true);
+	local_irq_restore(flags);
+	preempt_enable();
+
+	return ret;
+}
 
 /*
  * Compare counter, and add amount if total is: less than or equal to limit if

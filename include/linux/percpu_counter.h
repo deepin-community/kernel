@@ -21,7 +21,18 @@
 
 struct percpu_counter {
 	raw_spinlock_t lock;
-	s64 count;
+	/*
+	 * Depending on whether counters is NULL, we can support two modes,
+	 * atomic mode using count_atomic and percpu mode using count.
+	 * The single-thread processes should use atomic mode to reduce the
+	 * memory consumption and performance regression.
+	 * The multiple-thread processes should use percpu mode to reduce the
+	 * error margin.
+	 */
+	union {
+		s64 count;
+		atomic64_t count_atomic;
+	};
 #ifdef CONFIG_HOTPLUG_CPU
 	struct list_head list;	/* All percpu_counters are on a list */
 #endif
@@ -32,14 +43,14 @@ extern int percpu_counter_batch;
 
 int __percpu_counter_init_many(struct percpu_counter *fbc, s64 amount,
 			       gfp_t gfp, u32 nr_counters,
-			       struct lock_class_key *key);
+			       struct lock_class_key *key, bool switch_mode);
 
 #define percpu_counter_init_many(fbc, value, gfp, nr_counters)		\
 	({								\
 		static struct lock_class_key __key;			\
 									\
 		__percpu_counter_init_many(fbc, value, gfp, nr_counters,\
-					   &__key);			\
+					   &__key, false);		\
 	})
 
 
@@ -129,6 +140,20 @@ static inline bool percpu_counter_initialized(struct percpu_counter *fbc)
 {
 	return (fbc->counters != NULL);
 }
+
+static inline s64 percpu_counter_atomic_read(struct percpu_counter *fbc)
+{
+	return atomic64_read(&fbc->count_atomic);
+}
+
+static inline void percpu_counter_atomic_add(struct percpu_counter *fbc,
+					     s64 amount)
+{
+	atomic64_add(amount, &fbc->count_atomic);
+}
+
+int percpu_counter_switch_to_pcpu_many(struct percpu_counter *fbc,
+				       u32 nr_counters);
 
 #else /* !CONFIG_SMP */
 
@@ -259,6 +284,23 @@ static inline bool percpu_counter_initialized(struct percpu_counter *fbc)
 
 static inline void percpu_counter_sync(struct percpu_counter *fbc)
 {
+}
+
+static inline s64 percpu_counter_atomic_read(struct percpu_counter *fbc)
+{
+	return fbc->count;
+}
+
+static inline void percpu_counter_atomic_add(struct percpu_counter *fbc,
+					     s64 amount)
+{
+	percpu_counter_add(fbc, amount);
+}
+
+static inline int percpu_counter_switch_to_pcpu_many(struct percpu_counter *fbc,
+						     u32 nr_counters)
+{
+	return 0;
 }
 #endif	/* CONFIG_SMP */
 
