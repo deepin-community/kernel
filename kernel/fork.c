@@ -829,7 +829,7 @@ static void check_mm(struct mm_struct *mm)
 			 "Please make sure 'struct resident_page_types[]' is updated as well");
 
 	for (i = 0; i < NR_MM_COUNTERS; i++) {
-		long x = percpu_counter_sum(&mm->rss_stat[i]);
+		long x = mm_counter_sum(mm, i);
 
 		if (unlikely(x))
 			pr_alert("BUG: Bad rss-counter state mm:%p type:%s val:%ld\n",
@@ -930,7 +930,7 @@ void __mmdrop(struct mm_struct *mm)
 	put_user_ns(mm->user_ns);
 	mm_pasid_drop(mm);
 	mm_destroy_cid(mm);
-	percpu_counter_destroy_many(mm->rss_stat, NR_MM_COUNTERS);
+	mm_counter_destroy(mm);
 
 	free_mm(mm);
 }
@@ -1308,16 +1308,10 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	if (mm_alloc_cid(mm))
 		goto fail_cid;
 
-	if (percpu_counter_init_many(mm->rss_stat, 0, GFP_KERNEL_ACCOUNT,
-				     NR_MM_COUNTERS))
-		goto fail_pcpu;
-
 	mm->user_ns = get_user_ns(user_ns);
 	lru_gen_init_mm(mm);
 	return mm;
 
-fail_pcpu:
-	mm_destroy_cid(mm);
 fail_cid:
 	destroy_context(mm);
 fail_nocontext:
@@ -1740,6 +1734,16 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	oldmm = current->mm;
 	if (!oldmm)
 		return 0;
+
+	/*
+	 * For single-thread processes, rss_stat is in atomic mode, which
+	 * reduces the memory consumption and performance regression caused by
+	 * using percpu. For multiple-thread processes, rss_stat is switched to
+	 * the percpu mode to reduce the error margin.
+	 */
+	if (clone_flags & CLONE_THREAD)
+		if (mm_counter_switch_to_pcpu(oldmm))
+			return -ENOMEM;
 
 	if (clone_flags & CLONE_VM) {
 		mmget(oldmm);
