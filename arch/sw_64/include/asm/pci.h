@@ -51,6 +51,8 @@ struct pci_controller {
 	/* This one's for the kernel only.  It's in KSEG somewhere.  */
 	void __iomem *ep_config_space_base;
 	void __iomem *rc_config_space_base;
+	void __iomem *piu_ior0_base;
+	void __iomem *piu_ior1_base;
 
 	unsigned long index;
 	unsigned long node;
