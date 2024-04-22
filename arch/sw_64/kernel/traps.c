@@ -582,6 +582,8 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 			regs->regs[rb] = regs->regs[rb] + disp;
 			return;
 		}
+		return;
+
 	case 0x21:
 		__asm__ __volatile__(
 		"1:	ldl_u	%1, 0(%3)\n"
