@@ -5,6 +5,8 @@
 #include <linux/pci-acpi.h>
 #include <linux/pci-ecam.h>
 
+#define UPPER_32_BITS_OF_U64(u64_val) ((u64_val) & 0xFFFFFFFF00000000ULL)
+
 struct pci_root_info {
 	struct acpi_pci_root_info info;
 	struct pci_config_window *cfg;
@@ -88,24 +90,24 @@ pci_acpi_setup_ecam_mapping(struct acpi_pci_root *root)
 static int pci_acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 {
 	int status = 0;
-	acpi_status rc;
-	unsigned long long memh = 0;
+	u64 memh;
 	struct resource_entry *entry = NULL, *tmp = NULL;
 	struct acpi_device *device = ci->bridge;
 
 	/**
 	 * To distinguish between mem and pre_mem, firmware
-	 * only pass the lower 32bits of mem via acpi and
-	 * use vendor specific "MEMH" to record the upper
-	 * 32 bits of mem.
+	 * only pass the lower 32bits of mem via _CRS method.
 	 *
 	 * Get the upper 32 bits here.
 	 */
-	rc = acpi_evaluate_integer(ci->bridge->handle, "MEMH", NULL, &memh);
-	if (rc != AE_OK) {
-		dev_err(&device->dev, "unable to retrieve MEMH\n");
-		return -EEXIST;
+	status = fwnode_property_read_u64_array(&device->fwnode,
+			"sw64,ep_mem_32_base", &memh, 1);
+	if (status) {
+		dev_err(&device->dev, "unable to retrieve \"sw64,ep_mem_32_base\"\n");
+		return status;
 	}
+
+	memh = UPPER_32_BITS_OF_U64(memh);
 
 	/**
 	 * Get host bridge resources via _CRS method, the return value
@@ -129,10 +131,10 @@ static int pci_acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 
 	resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
 		if (entry->res->flags & IORESOURCE_MEM) {
-			if (!(entry->res->end & 0xFFFFFFFF00000000ULL)) {
+			if (!UPPER_32_BITS_OF_U64(entry->res->end)) {
 				/* Patch mem res with upper 32 bits */
-				entry->res->start |= (memh << 32);
-				entry->res->end   |= (memh << 32);
+				entry->res->start |= memh;
+				entry->res->end   |= memh;
 			} else {
 				/**
 				 * Add PREFETCH and MEM_64 flags for

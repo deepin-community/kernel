@@ -666,70 +666,61 @@ static void setup_intx_irqs(struct pci_controller *hose)
 	set_pcieport_service_irq(node, index);
 }
 
+enum pci_props {
+	PROP_RC_CONFIG_BASE = 0,
+	PROP_EP_CONFIG_BASE,
+	PROP_EP_MEM_32_BASE,
+	PROP_EP_MEM_64_BASE,
+	PROP_EP_IO_BASE,
+	PROP_PIU_IOR0_BASE,
+	PROP_PIU_IOR1_BASE,
+	PROP_RC_INDEX,
+	PROP_PCIE_IO_BASE,
+	PROP_NUM
+};
+
+const char *prop_names[PROP_NUM] = {
+	"sw64,rc_config_base",
+	"sw64,ep_config_base",
+	"sw64,ep_mem_32_base",
+	"sw64,ep_mem_64_base",
+	"sw64,ep_io_base",
+	"sw64,piu_ior0_base",
+	"sw64,piu_ior1_base",
+	"sw64,rc_index",
+	"sw64,pcie_io_base"
+};
+
 static int sw64_pci_prepare_controller(struct pci_controller *hose,
-		struct acpi_device *adev)
+		struct fwnode_handle *fwnode)
 {
-	unsigned long long index, node;
-	unsigned long long rc_config_base_addr;
-	unsigned long long pci_io_base_addr;
-	unsigned long long ep_io_base_addr;
-	acpi_status rc;
+	u64 props[PROP_NUM];
+	int i, ret;
 
-	/* Get node from ACPI namespace */
-	node = acpi_get_node(adev->handle);
-	if (node == NUMA_NO_NODE) {
-		dev_err(&adev->dev, "unable to get node ID\n");
-		return -EEXIST;
-	}
-
-	/* Get index from ACPI namespace */
-	rc = acpi_evaluate_integer(adev->handle, "INDX", NULL, &index);
-	if (rc != AE_OK) {
-		dev_err(&adev->dev, "unable to retrieve INDX\n");
-		return -EEXIST;
-	}
-
-	/**
-	 * Get Root Complex config space base address.
-	 *
-	 * For sw64, Root Complex config space base addr is different
-	 * from Endpoint config space base address. Use MCFG table to
-	 * pass Endpoint config space base address, and define Root Complex
-	 * config space base address("RCCB") separately in the ACPI namespace.
-	 */
-	rc = acpi_evaluate_integer(adev->handle,
-			"RCCB", NULL, &rc_config_base_addr);
-	if (rc != AE_OK) {
-		dev_err(&adev->dev, "unable to retrieve RCCB\n");
-		return -EEXIST;
-	}
-
-	/* Get Root Complex I/O space base addr from ACPI namespace */
-	rc = acpi_evaluate_integer(adev->handle,
-			"RCIO", NULL, &pci_io_base_addr);
-	if (rc != AE_OK) {
-		dev_err(&adev->dev, "unable to retrieve RCIO\n");
-		return -EEXIST;
-	}
-
-	/* Get Endpoint I/O space base addr from ACPI namespace */
-	rc = acpi_evaluate_integer(adev->handle,
-			"EPIO", NULL, &ep_io_base_addr);
-	if (rc != AE_OK) {
-		dev_err(&adev->dev, "unable to retrieve EPIO\n");
-		return -EEXIST;
+	/* Get properties of Root Complex */
+	for (i = 0; i < PROP_NUM; ++i) {
+		ret = fwnode_property_read_u64_array(fwnode, prop_names[i],
+			&props[i], 1);
+		if (ret) {
+			pr_err("unable to retrieve \"%s\"\n",
+					prop_names[i]);
+			return ret;
+		}
 	}
 
 	hose->iommu_enable = false;
-	hose->index = index;
-	hose->node = node;
+
+	hose->index = props[PROP_RC_INDEX];
 
 	hose->sparse_mem_base = 0;
 	hose->sparse_io_base  = 0;
-	hose->dense_mem_base  = pci_io_base_addr;
-	hose->dense_io_base   = ep_io_base_addr;
+	hose->dense_mem_base  = props[PROP_PCIE_IO_BASE];
+	hose->dense_io_base   = props[PROP_EP_IO_BASE];
 
-	hose->rc_config_space_base = __va(rc_config_base_addr);
+	hose->rc_config_space_base = __va(props[PROP_RC_CONFIG_BASE]);
+	hose->ep_config_space_base = __va(props[PROP_EP_CONFIG_BASE]);
+	hose->piu_ior0_base = __va(props[PROP_PIU_IOR0_BASE]);
+	hose->piu_ior1_base = __va(props[PROP_PIU_IOR1_BASE]);
 
 	hose->first_busno = 0xff;
 	hose->last_busno  = 0xff;
@@ -754,11 +745,11 @@ static int sw64_pci_prepare_controller(struct pci_controller *hose,
 		 * Root Complex link up failed.
 		 * This usually means that no device on the slot.
 		 */
-		dev_info(&adev->dev, "<Node [%ld], RC [%ld]>: failed to link up\n",
+		pr_info("<Node [%ld], RC [%ld]>: link down\n",
 				hose->node, hose->index);
 	} else {
 		pci_mark_rc_linkup(hose->node, hose->index);
-		dev_info(&adev->dev, "<Node [%ld], RC [%ld]>: successfully link up\n",
+		pr_info("<Node [%ld], RC [%ld]>: successfully link up\n",
 				hose->node, hose->index);
 	}
 
@@ -777,7 +768,6 @@ static int sw64_pci_ecam_init(struct pci_config_window *cfg)
 	struct pci_controller *hose = NULL;
 	struct device *dev = cfg->parent;
 	struct acpi_device *adev = to_acpi_device(dev);
-	phys_addr_t mcfg_addr;
 	int ret;
 
 	/**
@@ -805,17 +795,16 @@ static int sw64_pci_ecam_init(struct pci_config_window *cfg)
 	if (!hose)
 		return -ENOMEM;
 
-	/* Get Endpoint config space base address from MCFG table */
-	mcfg_addr = cfg->res.start - (cfg->busr.start << cfg->ops->bus_shift);
-
-	/**
-	 * "__va(mcfg_addr)" is equal to "cfg->win", so we can also use
-	 * "hose->ep_config_space_base = cfg->win" here
-	 */
-	hose->ep_config_space_base = __va(mcfg_addr);
+	/* Get node from ACPI namespace (_PXM) */
+	hose->node = acpi_get_node(adev->handle);
+	if (hose->node == NUMA_NO_NODE) {
+		kfree(hose);
+		dev_err(&adev->dev, "unable to get node ID\n");
+		return -EINVAL;
+	}
 
 	/* Init pci_controller */
-	ret = sw64_pci_prepare_controller(hose, adev);
+	ret = sw64_pci_prepare_controller(hose, &adev->fwnode);
 	if (ret) {
 		kfree(hose);
 		dev_err(&adev->dev, "failed to init pci controller\n");
