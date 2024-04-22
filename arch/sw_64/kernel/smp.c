@@ -58,8 +58,7 @@ enum core_version {
  */
 void smp_callin(void)
 {
-	int cpuid = smp_processor_id();
-
+	int cpuid;
 #ifdef CONFIG_SUBARCH_C4
 	/* LV2 select PLL1 */
 	int i, cpu_num;
@@ -72,7 +71,7 @@ void smp_callin(void)
 		udelay(1000);
 	}
 #endif
-
+	cpuid = smp_processor_id();
 	local_irq_disable();
 
 	if (cpu_online(cpuid)) {
