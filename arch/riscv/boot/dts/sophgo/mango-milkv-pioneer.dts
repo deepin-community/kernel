@@ -7,6 +7,13 @@
 	};
 };
 
+&i2c0 {
+	rtc: rtc@68 {
+		compatible = "dallas,ds1307";
+		reg = <0x68>;
+	};
+};
+
 &i2c1 {
 	mcu: sg2042mcu@17 {
 		compatible = "sophgo,sg20xx-mcu";
