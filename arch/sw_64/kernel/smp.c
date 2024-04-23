@@ -71,6 +71,7 @@ void smp_callin(void)
 		udelay(1000);
 	}
 #endif
+	save_ktp();
 	cpuid = smp_processor_id();
 	local_irq_disable();
 

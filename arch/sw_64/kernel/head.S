@@ -12,14 +12,6 @@
 #include <asm/setup.h>
 #include <asm/csr.h>
 
-	.macro SAVE_KTP
-#ifdef CONFIG_SUBARCH_C3B
-	sys_call HMC_wrktp
-#else
-	csrw	$8, CSR_KTP
-#endif
-	.endm
-
 __HEAD
 	.globl _stext
 	.set noreorder
@@ -120,7 +112,6 @@ __smp_callin:
 	ldi	$2, idle_task_pointer
 	s8addl	$0, $2, $2
 	ldl	$8, 0($2)	# Get ksp of idle thread
-	SAVE_KTP
 
 	ldl	$30, TASK_STACK($8)
 	ldi	$30, ASM_THREAD_SIZE($30)
