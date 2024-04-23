@@ -53,25 +53,53 @@ enum core_version {
 	CORE_VERSION_RESERVED = 3 /* 3 and greater are reserved */
 };
 
+#ifdef CONFIG_SUBARCH_C4
+static void upshift_freq(void)
+{
+	int i, cpu_num;
+
+	if (is_guest_or_emul())
+		return;
+	cpu_num = sw64_chip->get_cpu_num();
+	for (i = 0; i < cpu_num; i++) {
+		sw64_io_write(i, CLU_LV2_SELH, -1UL);
+		sw64_io_write(i, CLU_LV2_SELL, -1UL);
+		udelay(1000);
+	}
+}
+
+static void downshift_freq(void)
+{
+	unsigned long value;
+	int cpuid, core_id, node_id;
+
+	if (is_guest_or_emul())
+		return;
+	cpuid = smp_processor_id();
+	core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
+	node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
+
+	if (core_id > 31) {
+		value = 1UL << (2 * (core_id - 32));
+		sw64_io_write(node_id, CLU_LV2_SELH, value);
+	} else {
+		value = 1UL << (2 * core_id);
+		sw64_io_write(node_id, CLU_LV2_SELL, value);
+	}
+}
+#else
+static void upshift_freq(void)	{ }
+static void downshift_freq(void) { }
+#endif
+
 /*
  * Where secondaries begin a life of C.
  */
 void smp_callin(void)
 {
 	int cpuid;
-#ifdef CONFIG_SUBARCH_C4
-	/* LV2 select PLL1 */
-	int i, cpu_num;
-
-	cpu_num = sw64_chip->get_cpu_num();
-
-	for (i = 0; i < cpu_num; i++) {
-		sw64_io_write(i, CLU_LV2_SELH, -1UL);
-		sw64_io_write(i, CLU_LV2_SELL, -1UL);
-		udelay(1000);
-	}
-#endif
 	save_ktp();
+	upshift_freq();
 	cpuid = smp_processor_id();
 	local_irq_disable();
 
@@ -613,22 +641,7 @@ void __cpu_die(unsigned int cpu)
 
 void arch_cpu_idle_dead(void)
 {
-#ifdef CONFIG_SUBARCH_C4
-	/* LV2 select PLL0 */
-	int cpuid = smp_processor_id();
-	int core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
-	int node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
-	unsigned long value;
-
-	if (core_id > 31) {
-		value = 1UL << (2 * (core_id - 32));
-		sw64_io_write(node_id, CLU_LV2_SELH, value);
-	} else {
-		value = 1UL << (2 * core_id);
-		sw64_io_write(node_id, CLU_LV2_SELL, value);
-	}
-#endif
-
+	downshift_freq();
 	idle_task_exit();
 	mb();
 	__this_cpu_write(cpu_state, CPU_DEAD);
