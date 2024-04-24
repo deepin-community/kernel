@@ -30,6 +30,7 @@
 		};
 
 		serial@31d0000 {
+			current-speed = <115200>;
 			status = "okay";
 		};
 
@@ -174,7 +175,7 @@
 			status = "okay";
 
 			phy-handle = <&mgbe0_phy>;
-			phy-mode = "usxgmii";
+			phy-mode = "10gbase-r";
 
 			mdio {
 				#address-cells = <1>;

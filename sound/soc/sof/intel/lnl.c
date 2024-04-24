@@ -118,9 +118,11 @@ int sof_lnl_ops_init(struct snd_sof_dev *sdev)
 	sof_lnl_ops.resume			= lnl_hda_dsp_resume;
 	sof_lnl_ops.runtime_resume		= lnl_hda_dsp_runtime_resume;
 
-	sof_lnl_ops.get_stream_position = mtl_dsp_get_stream_hda_link_position;
+	/* dsp core get/put */
+	sof_lnl_ops.core_get = mtl_dsp_core_get;
+	sof_lnl_ops.core_put = mtl_dsp_core_put;
 
-	sdev->private = devm_kzalloc(sdev->dev, sizeof(struct sof_ipc4_fw_data), GFP_KERNEL);
+	sdev->private = kzalloc(sizeof(struct sof_ipc4_fw_data), GFP_KERNEL);
 	if (!sdev->private)
 		return -ENOMEM;
 
@@ -128,6 +130,8 @@ int sof_lnl_ops_init(struct snd_sof_dev *sdev)
 	ipc4_data->manifest_fw_hdr_offset = SOF_MAN4_FW_HDR_OFFSET;
 
 	ipc4_data->mtrace_type = SOF_IPC4_MTRACE_INTEL_CAVS_2;
+
+	ipc4_data->fw_context_save = true;
 
 	/* External library loading support */
 	ipc4_data->load_library = hda_dsp_ipc4_load_library;

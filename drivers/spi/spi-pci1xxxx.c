@@ -77,7 +77,7 @@ struct pci1xxxx_spi {
 	struct pci_dev *dev;
 	u8 total_hw_instances;
 	void __iomem *reg_base;
-	struct pci1xxxx_spi_internal *spi_int[];
+	struct pci1xxxx_spi_internal *spi_int[] __counted_by(total_hw_instances);
 };
 
 static const struct pci_device_id pci1xxxx_spi_pci_id_table[] = {
@@ -275,6 +275,8 @@ static int pci1xxxx_spi_probe(struct pci_dev *pdev, const struct pci_device_id *
 		spi_bus->spi_int[iter] = devm_kzalloc(&pdev->dev,
 						      sizeof(struct pci1xxxx_spi_internal),
 						      GFP_KERNEL);
+		if (!spi_bus->spi_int[iter])
+			return -ENOMEM;
 		spi_sub_ptr = spi_bus->spi_int[iter];
 		spi_sub_ptr->spi_host = devm_spi_alloc_host(dev, sizeof(struct spi_controller));
 		if (!spi_sub_ptr->spi_host)

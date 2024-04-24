@@ -4,7 +4,10 @@
  *
  *    Copyright (C) 2006 Arnd Bergmann <arnd@arndb.de>, IBM Corp.
  */
+
+#include <linux/bits.h>
 #include <linux/console.h>
+#include <linux/math.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/serial_core.h>
@@ -25,6 +28,36 @@ struct of_serial_info {
 	int line;
 };
 
+/* Nuvoton NPCM timeout register */
+#define UART_NPCM_TOR          7
+#define UART_NPCM_TOIE         BIT(7)  /* Timeout Interrupt Enable */
+
+static int npcm_startup(struct uart_port *port)
+{
+	/*
+	 * Nuvoton calls the scratch register 'UART_TOR' (timeout
+	 * register). Enable it, and set TIOC (timeout interrupt
+	 * comparator) to be 0x20 for correct operation.
+	 */
+	serial_port_out(port, UART_NPCM_TOR, UART_NPCM_TOIE | 0x20);
+
+	return serial8250_do_startup(port);
+}
+
+/* Nuvoton NPCM UARTs have a custom divisor calculation */
+static unsigned int npcm_get_divisor(struct uart_port *port, unsigned int baud,
+				     unsigned int *frac)
+{
+	return DIV_ROUND_CLOSEST(port->uartclk, 16 * baud + 2) - 2;
+}
+
+static int npcm_setup(struct uart_port *port)
+{
+	port->get_divisor = npcm_get_divisor;
+	port->startup = npcm_startup;
+	return 0;
+}
+
 /*
  * Fill a struct uart_port for a given device node
  */
@@ -33,7 +66,8 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 			struct of_serial_info *info)
 {
 	struct resource resource;
-	struct device_node *np = ofdev->dev.of_node;
+	struct device *dev = &ofdev->dev;
+	struct device_node *np = dev->of_node;
 	struct uart_port *port = &up->port;
 	u32 clk, spd, prop;
 	int ret, irq;
@@ -46,18 +80,11 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 	if (of_property_read_u32(np, "clock-frequency", &clk)) {
 
 		/* Get clk rate through clk driver if present */
-		info->clk = devm_clk_get(&ofdev->dev, NULL);
+		info->clk = devm_clk_get_enabled(dev, NULL);
 		if (IS_ERR(info->clk)) {
-			ret = PTR_ERR(info->clk);
-			if (ret != -EPROBE_DEFER)
-				dev_warn(&ofdev->dev,
-					 "failed to get clock: %d\n", ret);
+			ret = dev_err_probe(dev, PTR_ERR(info->clk), "failed to get clock\n");
 			goto err_pmruntime;
 		}
-
-		ret = clk_prepare_enable(info->clk);
-		if (ret < 0)
-			goto err_pmruntime;
 
 		clk = clk_get_rate(info->clk);
 	}
@@ -67,8 +94,8 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 
 	ret = of_address_to_resource(np, 0, &resource);
 	if (ret) {
-		dev_warn(&ofdev->dev, "invalid address\n");
-		goto err_unprepare;
+		dev_err_probe(dev, ret, "invalid address\n");
+		goto err_pmruntime;
 	}
 
 	port->flags = UPF_SHARE_IRQ | UPF_BOOT_AUTOCONF | UPF_FIXED_PORT |
@@ -85,10 +112,9 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 		/* Check for shifted address mapping */
 		if (of_property_read_u32(np, "reg-offset", &prop) == 0) {
 			if (prop >= port->mapsize) {
-				dev_warn(&ofdev->dev, "reg-offset %u exceeds region size %pa\n",
-					 prop, &port->mapsize);
-				ret = -EINVAL;
-				goto err_unprepare;
+				ret = dev_err_probe(dev, -EINVAL, "reg-offset %u exceeds region size %pa\n",
+						    prop, &port->mapsize);
+				goto err_pmruntime;
 			}
 
 			port->mapbase += prop;
@@ -109,10 +135,9 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 					       UPIO_MEM32BE : UPIO_MEM32;
 				break;
 			default:
-				dev_warn(&ofdev->dev, "unsupported reg-io-width (%d)\n",
-					 prop);
-				ret = -EINVAL;
-				goto err_unprepare;
+				ret = dev_err_probe(dev, -EINVAL, "unsupported reg-io-width (%u)\n",
+						    prop);
+				goto err_pmruntime;
 			}
 		}
 		port->flags |= UPF_IOREMAP;
@@ -139,7 +164,7 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 	if (irq < 0) {
 		if (irq == -EPROBE_DEFER) {
 			ret = -EPROBE_DEFER;
-			goto err_unprepare;
+			goto err_pmruntime;
 		}
 		/* IRQ support not mandatory */
 		irq = 0;
@@ -150,12 +175,12 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 	info->rst = devm_reset_control_get_optional_shared(&ofdev->dev, NULL);
 	if (IS_ERR(info->rst)) {
 		ret = PTR_ERR(info->rst);
-		goto err_unprepare;
+		goto err_pmruntime;
 	}
 
 	ret = reset_control_deassert(info->rst);
 	if (ret)
-		goto err_unprepare;
+		goto err_pmruntime;
 
 	port->type = type;
 	port->uartclk = clk;
@@ -172,10 +197,17 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 	switch (type) {
 	case PORT_RT2880:
 		ret = rt288x_setup(port);
-		if (ret)
-			goto err_unprepare;
+		break;
+	case PORT_NPCM:
+		ret = npcm_setup(port);
+		break;
+	default:
+		/* Nothing to do */
+		ret = 0;
 		break;
 	}
+	if (ret)
+		goto err_pmruntime;
 
 	if (IS_REACHABLE(CONFIG_SERIAL_8250_FSL) &&
 	    (of_device_is_compatible(np, "fsl,ns16550") ||
@@ -185,8 +217,6 @@ static int of_platform_serial_setup(struct platform_device *ofdev,
 	}
 
 	return 0;
-err_unprepare:
-	clk_disable_unprepare(info->clk);
 err_pmruntime:
 	pm_runtime_put_sync(&ofdev->dev);
 	pm_runtime_disable(&ofdev->dev);
@@ -253,7 +283,6 @@ err_dispose:
 	irq_dispose_mapping(port8250.port.irq);
 	pm_runtime_put_sync(&ofdev->dev);
 	pm_runtime_disable(&ofdev->dev);
-	clk_disable_unprepare(info->clk);
 err_free:
 	kfree(info);
 	return ret;
@@ -262,7 +291,7 @@ err_free:
 /*
  * Release a line
  */
-static int of_platform_serial_remove(struct platform_device *ofdev)
+static void of_platform_serial_remove(struct platform_device *ofdev)
 {
 	struct of_serial_info *info = platform_get_drvdata(ofdev);
 
@@ -271,9 +300,7 @@ static int of_platform_serial_remove(struct platform_device *ofdev)
 	reset_control_assert(info->rst);
 	pm_runtime_put_sync(&ofdev->dev);
 	pm_runtime_disable(&ofdev->dev);
-	clk_disable_unprepare(info->clk);
 	kfree(info);
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -349,7 +376,7 @@ static struct platform_driver of_platform_serial_driver = {
 		.pm = &of_serial_pm_ops,
 	},
 	.probe = of_platform_serial_probe,
-	.remove = of_platform_serial_remove,
+	.remove_new = of_platform_serial_remove,
 };
 
 module_platform_driver(of_platform_serial_driver);

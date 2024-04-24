@@ -148,8 +148,8 @@ static int wilc_txq_task(void *vp)
 
 	complete(&wl->txq_thread_started);
 	while (1) {
-		wait_for_completion(&wl->txq_event);
-
+		if (wait_for_completion_interruptible(&wl->txq_event))
+			continue;
 		if (wl->close) {
 			complete(&wl->txq_thread_started);
 
@@ -166,12 +166,24 @@ static int wilc_txq_task(void *vp)
 				srcu_idx = srcu_read_lock(&wl->srcu);
 				list_for_each_entry_rcu(ifc, &wl->vif_list,
 							list) {
-					if (ifc->mac_opened && ifc->ndev)
+					if (ifc->mac_opened &&
+					    netif_queue_stopped(ifc->ndev))
 						netif_wake_queue(ifc->ndev);
 				}
 				srcu_read_unlock(&wl->srcu, srcu_idx);
 			}
-		} while (ret == WILC_VMM_ENTRY_FULL_RETRY && !wl->close);
+			if (ret != WILC_VMM_ENTRY_FULL_RETRY)
+				break;
+			/* Back off TX task from sending packets for some time.
+			 * msleep_interruptible will allow RX task to run and
+			 * free buffers. TX task will be in TASK_INTERRUPTIBLE
+			 * state which will put the thread back to CPU running
+			 * queue when it's signaled even if the timeout isn't
+			 * elapsed. This gives faster chance for reserved SK
+			 * buffers to be free.
+			 */
+			msleep_interruptible(TX_BACKOFF_WEIGHT_MS);
+		} while (!wl->close);
 	}
 	return 0;
 }
@@ -878,8 +890,7 @@ static const struct net_device_ops wilc_netdev_ops = {
 
 void wilc_netdev_cleanup(struct wilc *wilc)
 {
-	struct wilc_vif *vif;
-	int srcu_idx, ifc_cnt = 0;
+	struct wilc_vif *vif, *vif_tmp;
 
 	if (!wilc)
 		return;
@@ -889,31 +900,18 @@ void wilc_netdev_cleanup(struct wilc *wilc)
 		wilc->firmware = NULL;
 	}
 
-	srcu_idx = srcu_read_lock(&wilc->srcu);
-	list_for_each_entry_rcu(vif, &wilc->vif_list, list) {
-		if (vif->ndev)
-			unregister_netdev(vif->ndev);
-	}
-	srcu_read_unlock(&wilc->srcu, srcu_idx);
-
-	wilc_wfi_deinit_mon_interface(wilc, false);
-	destroy_workqueue(wilc->hif_workqueue);
-
-	while (ifc_cnt < WILC_NUM_CONCURRENT_IFC) {
+	list_for_each_entry_safe(vif, vif_tmp, &wilc->vif_list, list) {
 		mutex_lock(&wilc->vif_mutex);
-		if (wilc->vif_num <= 0) {
-			mutex_unlock(&wilc->vif_mutex);
-			break;
-		}
-		vif = wilc_get_wl_to_vif(wilc);
-		if (!IS_ERR(vif))
-			list_del_rcu(&vif->list);
-
+		list_del_rcu(&vif->list);
 		wilc->vif_num--;
 		mutex_unlock(&wilc->vif_mutex);
 		synchronize_srcu(&wilc->srcu);
-		ifc_cnt++;
+		if (vif->ndev)
+			unregister_netdev(vif->ndev);
 	}
+
+	wilc_wfi_deinit_mon_interface(wilc, false);
+	destroy_workqueue(wilc->hif_workqueue);
 
 	wilc_wlan_cfg_deinit(wilc);
 	wlan_deinit_locks(wilc);
@@ -977,13 +975,6 @@ struct wilc_vif *wilc_netdev_ifc_init(struct wilc *wl, const char *name,
 		goto error;
 	}
 
-	wl->hif_workqueue = alloc_ordered_workqueue("%s-wq", WQ_MEM_RECLAIM,
-						    ndev->name);
-	if (!wl->hif_workqueue) {
-		ret = -ENOMEM;
-		goto unregister_netdev;
-	}
-
 	ndev->needs_free_netdev = true;
 	vif->iftype = vif_type;
 	vif->idx = wilc_get_available_idx(wl);
@@ -996,15 +987,15 @@ struct wilc_vif *wilc_netdev_ifc_init(struct wilc *wl, const char *name,
 
 	return vif;
 
-unregister_netdev:
+error:
 	if (rtnl_locked)
 		cfg80211_unregister_netdevice(ndev);
 	else
 		unregister_netdev(ndev);
-  error:
 	free_netdev(ndev);
 	return ERR_PTR(ret);
 }
 
+MODULE_DESCRIPTION("Atmel WILC1000 core wireless driver");
 MODULE_LICENSE("GPL");
 MODULE_FIRMWARE(WILC1000_FW(WILC1000_API_VER));
