@@ -56,7 +56,7 @@
 #define ACPI_EWRD_WIFI_DATA_SIZE_REV2	((ACPI_SAR_PROFILE_NUM - 1) * \
 					 ACPI_SAR_NUM_CHAINS_REV2 * \
 					 ACPI_SAR_NUM_SUB_BANDS_REV2 + 3)
-#define ACPI_WPFC_WIFI_DATA_SIZE	4 /* 4 filter config words */
+#define ACPI_WPFC_WIFI_DATA_SIZE	5 /* domain and 4 filter config words */
 
 /* revision 0 and 1 are identical, except for the semantics in the FW */
 #define ACPI_GEO_NUM_BANDS_REV0		2
@@ -134,10 +134,12 @@ enum iwl_dsm_funcs_rev_0 {
 	DSM_FUNC_DISABLE_SRD = 1,
 	DSM_FUNC_ENABLE_INDONESIA_5G2 = 2,
 	DSM_FUNC_ENABLE_6E = 3,
+	DSM_FUNC_REGULATORY_CONFIG = 4,
 	DSM_FUNC_11AX_ENABLEMENT = 6,
 	DSM_FUNC_ENABLE_UNII4_CHAN = 7,
 	DSM_FUNC_ACTIVATE_CHANNEL = 8,
-	DSM_FUNC_FORCE_DISABLE_CHANNELS = 9
+	DSM_FUNC_FORCE_DISABLE_CHANNELS = 9,
+	DSM_FUNC_ENERGY_DETECTION_THRESHOLD = 10,
 };
 
 enum iwl_dsm_values_srd {
@@ -162,6 +164,10 @@ enum iwl_dsm_values_rfi {
 	DSM_VALUE_RFI_ENABLE,
 	DSM_VALUE_RFI_DISABLE,
 	DSM_VALUE_RFI_MAX
+};
+
+enum iwl_dsm_masks_reg {
+	DSM_MASK_CHINA_22_REG = BIT(2)
 };
 
 #ifdef CONFIG_ACPI

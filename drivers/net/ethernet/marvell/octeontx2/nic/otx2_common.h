@@ -815,7 +815,7 @@ static inline int otx2_sync_mbox_up_msg(struct mbox *mbox, int devid)
 
 	if (!otx2_mbox_nonempty(&mbox->mbox_up, devid))
 		return 0;
-	otx2_mbox_msg_send(&mbox->mbox_up, devid);
+	otx2_mbox_msg_send_up(&mbox->mbox_up, devid);
 	err = otx2_mbox_wait_for_rsp(&mbox->mbox_up, devid);
 	if (err)
 		return err;
@@ -1070,6 +1070,8 @@ int otx2_init_tc(struct otx2_nic *nic);
 void otx2_shutdown_tc(struct otx2_nic *nic);
 int otx2_setup_tc(struct net_device *netdev, enum tc_setup_type type,
 		  void *type_data);
+void otx2_tc_apply_ingress_police_rules(struct otx2_nic *nic);
+
 /* CGX/RPM DMAC filters support */
 int otx2_dmacflt_get_max_cnt(struct otx2_nic *pf);
 int otx2_dmacflt_add(struct otx2_nic *pf, const u8 *mac, u32 bit_pos);

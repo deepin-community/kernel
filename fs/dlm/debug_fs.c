@@ -443,14 +443,14 @@ static int table_seq_show(struct seq_file *seq, void *iter_ptr)
 		break;
 	case 3:
 		if (ri->header) {
-			seq_puts(seq, "version rsb 1.1 lvb 1.1 lkb 1.1\n");
+			seq_puts(seq, "rsb ptr nodeid first_lkid flags !root_list_empty !recover_list_empty recover_locks_count len\n");
 			ri->header = 0;
 		}
 		print_format3(ri->rsb, seq);
 		break;
 	case 4:
 		if (ri->header) {
-			seq_puts(seq, "version 4 rsb 2\n");
+			seq_puts(seq, "rsb ptr nodeid master_nodeid dir_nodeid our_nodeid toss_time flags len str|hex name\n");
 			ri->header = 0;
 		}
 		print_format4(ri->rsb, seq);
@@ -748,7 +748,7 @@ static int table_open4(struct inode *inode, struct file *file)
 	struct seq_file *seq;
 	int ret;
 
-	ret = seq_open(file, &format5_seq_ops);
+	ret = seq_open(file, &format4_seq_ops);
 	if (ret)
 		return ret;
 
@@ -986,7 +986,6 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 
 	/* format 2 */
 
-	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s_locks", ls->ls_name);
 
 	ls->ls_debug_locks_dentry = debugfs_create_file(name,
@@ -997,7 +996,6 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 
 	/* format 3 */
 
-	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s_all", ls->ls_name);
 
 	ls->ls_debug_all_dentry = debugfs_create_file(name,
@@ -1008,7 +1006,6 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 
 	/* format 4 */
 
-	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s_toss", ls->ls_name);
 
 	ls->ls_debug_toss_dentry = debugfs_create_file(name,
@@ -1017,7 +1014,6 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 						       ls,
 						       &format4_fops);
 
-	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s_waiters", ls->ls_name);
 
 	ls->ls_debug_waiters_dentry = debugfs_create_file(name,
@@ -1028,7 +1024,6 @@ void dlm_create_debug_file(struct dlm_ls *ls)
 
 	/* format 5 */
 
-	memset(name, 0, sizeof(name));
 	snprintf(name, sizeof(name), "%s_queued_asts", ls->ls_name);
 
 	ls->ls_debug_queued_asts_dentry = debugfs_create_file(name,

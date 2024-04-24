@@ -51,7 +51,7 @@ void __init arm64_hugetlb_cma_reserve(void)
 	 * page allocator. Just warn if there is any change
 	 * breaking this assumption.
 	 */
-	WARN_ON(order <= MAX_ORDER);
+	WARN_ON(order <= MAX_PAGE_ORDER);
 	hugetlb_cma_reserve(order);
 }
 #endif /* CONFIG_CMA */
@@ -544,8 +544,7 @@ bool __init arch_hugetlb_valid_size(unsigned long size)
 
 pte_t huge_ptep_modify_prot_start(struct vm_area_struct *vma, unsigned long addr, pte_t *ptep)
 {
-	if (IS_ENABLED(CONFIG_ARM64_ERRATUM_2645198) &&
-	    cpus_have_const_cap(ARM64_WORKAROUND_2645198)) {
+	if (alternative_has_cap_unlikely(ARM64_WORKAROUND_2645198)) {
 		/*
 		 * Break-before-make (BBM) is required for all user space mappings
 		 * when the permission changes from executable to non-executable

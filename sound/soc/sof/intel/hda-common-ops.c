@@ -16,8 +16,10 @@
 
 struct snd_sof_dsp_ops sof_hda_common_ops = {
 	/* probe/remove/shutdown */
+	.probe_early	= hda_dsp_probe_early,
 	.probe		= hda_dsp_probe,
 	.remove		= hda_dsp_remove,
+	.remove_late	= hda_dsp_remove_late,
 
 	/* Register IO uses direct mmio */
 
@@ -54,6 +56,9 @@ struct snd_sof_dsp_ops sof_hda_common_ops = {
 	.pcm_trigger	= hda_dsp_pcm_trigger,
 	.pcm_pointer	= hda_dsp_pcm_pointer,
 	.pcm_ack	= hda_dsp_pcm_ack,
+
+	.get_dai_frame_counter = hda_dsp_get_stream_llp,
+	.get_host_byte_counter = hda_dsp_get_stream_ldp,
 
 	/* firmware loading */
 	.load_firmware = snd_sof_load_firmware_raw,

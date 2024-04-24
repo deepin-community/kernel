@@ -1460,6 +1460,7 @@ static int ipip6_tunnel_init(struct net_device *dev)
 		return err;
 	}
 	netdev_hold(dev, &tunnel->dev_tracker, GFP_KERNEL);
+	netdev_lockdep_set_classes(dev);
 	return 0;
 }
 
@@ -1956,6 +1957,7 @@ xfrm_tunnel_failed:
 
 module_init(sit_init);
 module_exit(sit_cleanup);
+MODULE_DESCRIPTION("IPv6-in-IPv4 tunnel SIT driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_RTNL_LINK("sit");
 MODULE_ALIAS_NETDEV("sit0");

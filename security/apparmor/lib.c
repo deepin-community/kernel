@@ -41,6 +41,7 @@ void aa_free_str_table(struct aa_str_table *t)
 			kfree_sensitive(t->table[i]);
 		kfree_sensitive(t->table);
 		t->table = NULL;
+		t->size = 0;
 	}
 }
 
@@ -341,8 +342,8 @@ void aa_profile_match_label(struct aa_profile *profile,
 	/* TODO: doesn't yet handle extended types */
 	aa_state_t state;
 
-	state = aa_dfa_next(rules->policy.dfa,
-			    rules->policy.start[AA_CLASS_LABEL],
+	state = aa_dfa_next(rules->policy->dfa,
+			    rules->policy->start[AA_CLASS_LABEL],
 			    type);
 	aa_label_match(profile, rules, label, state, false, request, perms);
 }

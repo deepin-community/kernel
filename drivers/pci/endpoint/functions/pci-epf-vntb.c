@@ -1172,11 +1172,8 @@ static int vntb_epf_peer_db_set(struct ntb_dev *ndev, u64 db_bits)
 	func_no = ntb->epf->func_no;
 	vfunc_no = ntb->epf->vfunc_no;
 
-	ret = pci_epc_raise_irq(ntb->epf->epc,
-				func_no,
-				vfunc_no,
-				PCI_EPC_IRQ_MSI,
-				interrupt_num + 1);
+	ret = pci_epc_raise_irq(ntb->epf->epc, func_no, vfunc_no,
+				PCI_IRQ_MSI, interrupt_num + 1);
 	if (ret)
 		dev_err(&ntb->ntb.dev, "Failed to raise IRQ\n");
 
@@ -1278,15 +1275,11 @@ static int pci_vntb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	ret = ntb_register_device(&ndev->ntb);
 	if (ret) {
 		dev_err(dev, "Failed to register NTB device\n");
-		goto err_register_dev;
+		return ret;
 	}
 
 	dev_dbg(dev, "PCI Virtual NTB driver loaded\n");
 	return 0;
-
-err_register_dev:
-	put_device(&ndev->ntb.dev);
-	return -EINVAL;
 }
 
 static struct pci_device_id pci_vntb_table[] = {
@@ -1387,7 +1380,7 @@ static void epf_ntb_unbind(struct pci_epf *epf)
 }
 
 // EPF driver probe
-static struct pci_epf_ops epf_ntb_ops = {
+static const struct pci_epf_ops epf_ntb_ops = {
 	.bind   = epf_ntb_bind,
 	.unbind = epf_ntb_unbind,
 	.add_cfs = epf_ntb_add_cfs,

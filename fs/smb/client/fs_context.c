@@ -37,7 +37,7 @@
 #include "rfc1002pdu.h"
 #include "fs_context.h"
 
-static DEFINE_MUTEX(cifs_mount_mutex);
+DEFINE_MUTEX(cifs_mount_mutex);
 
 static const match_table_t cifs_smb_version_tokens = {
 	{ Smb_1, SMB1_VERSION_STRING },
@@ -139,6 +139,7 @@ const struct fs_parameter_spec smb3_fs_parameters[] = {
 	fsparam_u32("dir_mode", Opt_dirmode),
 	fsparam_u32("port", Opt_port),
 	fsparam_u32("min_enc_offload", Opt_min_enc_offload),
+	fsparam_u32("retrans", Opt_retrans),
 	fsparam_u32("esize", Opt_min_enc_offload),
 	fsparam_u32("bsize", Opt_blocksize),
 	fsparam_u32("rasize", Opt_rasize),
@@ -210,7 +211,7 @@ cifs_parse_security_flavors(struct fs_context *fc, char *value, struct smb3_fs_c
 
 	switch (match_token(value, cifs_secflavor_tokens, args)) {
 	case Opt_sec_krb5p:
-		cifs_errorf(fc, "sec=krb5p is not supported!\n");
+		cifs_errorf(fc, "sec=krb5p is not supported. Use sec=krb5,seal instead\n");
 		return 1;
 	case Opt_sec_krb5i:
 		ctx->sign = true;
@@ -752,9 +753,9 @@ static int smb3_get_tree(struct fs_context *fc)
 
 	if (err)
 		return err;
-	mutex_lock(&cifs_mount_mutex);
+	cifs_mount_lock();
 	ret = smb3_get_tree_common(fc);
-	mutex_unlock(&cifs_mount_mutex);
+	cifs_mount_unlock();
 	return ret;
 }
 
@@ -771,7 +772,7 @@ static void smb3_fs_context_free(struct fs_context *fc)
  */
 static int smb3_verify_reconfigure_ctx(struct fs_context *fc,
 				       struct smb3_fs_context *new_ctx,
-				       struct smb3_fs_context *old_ctx)
+				       struct smb3_fs_context *old_ctx, bool need_recon)
 {
 	if (new_ctx->posix_paths != old_ctx->posix_paths) {
 		cifs_errorf(fc, "can not change posixpaths during remount\n");
@@ -797,8 +798,15 @@ static int smb3_verify_reconfigure_ctx(struct fs_context *fc,
 	}
 	if (new_ctx->password &&
 	    (!old_ctx->password || strcmp(new_ctx->password, old_ctx->password))) {
-		cifs_errorf(fc, "can not change password during remount\n");
-		return -EINVAL;
+		if (need_recon == false) {
+			cifs_errorf(fc,
+				    "can not change password of active session during remount\n");
+			return -EINVAL;
+		} else if (old_ctx->sectype == Kerberos) {
+			cifs_errorf(fc,
+				    "can not change password for Kerberos via remount\n");
+			return -EINVAL;
+		}
 	}
 	if (new_ctx->domainname &&
 	    (!old_ctx->domainname || strcmp(new_ctx->domainname, old_ctx->domainname))) {
@@ -842,9 +850,14 @@ static int smb3_reconfigure(struct fs_context *fc)
 	struct smb3_fs_context *ctx = smb3_fc2context(fc);
 	struct dentry *root = fc->root;
 	struct cifs_sb_info *cifs_sb = CIFS_SB(root->d_sb);
+	struct cifs_ses *ses = cifs_sb_master_tcon(cifs_sb)->ses;
+	bool need_recon = false;
 	int rc;
 
-	rc = smb3_verify_reconfigure_ctx(fc, ctx, cifs_sb->ctx);
+	if (ses->expired_pwd)
+		need_recon = true;
+
+	rc = smb3_verify_reconfigure_ctx(fc, ctx, cifs_sb->ctx, need_recon);
 	if (rc)
 		return rc;
 
@@ -857,7 +870,12 @@ static int smb3_reconfigure(struct fs_context *fc)
 	STEAL_STRING(cifs_sb, ctx, UNC);
 	STEAL_STRING(cifs_sb, ctx, source);
 	STEAL_STRING(cifs_sb, ctx, username);
-	STEAL_STRING_SENSITIVE(cifs_sb, ctx, password);
+	if (need_recon == false)
+		STEAL_STRING_SENSITIVE(cifs_sb, ctx, password);
+	else  {
+		kfree_sensitive(ses->password);
+		ses->password = kstrdup(ctx->password, GFP_KERNEL);
+	}
 	STEAL_STRING(cifs_sb, ctx, domainname);
 	STEAL_STRING(cifs_sb, ctx, nodename);
 	STEAL_STRING(cifs_sb, ctx, iocharset);
@@ -1064,6 +1082,9 @@ static int smb3_fs_context_parse_param(struct fs_context *fc,
 	case Opt_min_enc_offload:
 		ctx->min_offload = result.uint_32;
 		break;
+	case Opt_retrans:
+		ctx->retrans = result.uint_32;
+		break;
 	case Opt_blocksize:
 		/*
 		 * inode blocksize realistically should never need to be
@@ -1107,6 +1128,17 @@ static int smb3_fs_context_parse_param(struct fs_context *fc,
 	case Opt_wsize:
 		ctx->wsize = result.uint_32;
 		ctx->got_wsize = true;
+		if (ctx->wsize % PAGE_SIZE != 0) {
+			ctx->wsize = round_down(ctx->wsize, PAGE_SIZE);
+			if (ctx->wsize == 0) {
+				ctx->wsize = PAGE_SIZE;
+				cifs_dbg(VFS, "wsize too small, reset to minimum %ld\n", PAGE_SIZE);
+			} else {
+				cifs_dbg(VFS,
+					 "wsize rounded down to %d to multiple of PAGE_SIZE %ld\n",
+					 ctx->wsize, PAGE_SIZE);
+			}
+		}
 		break;
 	case Opt_acregmax:
 		ctx->acregmax = HZ * result.uint_32;
@@ -1618,6 +1650,8 @@ int smb3_init_fs_context(struct fs_context *fc)
 
 	ctx->backupuid_specified = false; /* no backup intent for a user */
 	ctx->backupgid_specified = false; /* no backup intent for a group */
+
+	ctx->retrans = 1;
 
 /*
  *	short int override_uid = -1;

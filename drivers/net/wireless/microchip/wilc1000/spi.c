@@ -192,11 +192,11 @@ static void wilc_wlan_power(struct wilc *wilc, bool on)
 		/* assert ENABLE: */
 		gpiod_set_value(gpios->enable, 1);
 		mdelay(5);
-		/* assert RESET: */
-		gpiod_set_value(gpios->reset, 1);
-	} else {
 		/* deassert RESET: */
 		gpiod_set_value(gpios->reset, 0);
+	} else {
+		/* assert RESET: */
+		gpiod_set_value(gpios->reset, 1);
 		/* deassert ENABLE: */
 		gpiod_set_value(gpios->enable, 0);
 	}
@@ -273,6 +273,7 @@ static struct spi_driver wilc_spi_driver = {
 	.remove = wilc_bus_remove,
 };
 module_spi_driver(wilc_spi_driver);
+MODULE_DESCRIPTION("Atmel WILC1000 SPI wireless driver");
 MODULE_LICENSE("GPL");
 
 static int wilc_spi_tx(struct wilc *wilc, u8 *b, u32 len)

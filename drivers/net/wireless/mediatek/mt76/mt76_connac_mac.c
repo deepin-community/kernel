@@ -170,7 +170,7 @@ void mt76_connac_write_hw_txp(struct mt76_dev *dev,
 
 	txp->msdu_id[0] = cpu_to_le16(id | MT_MSDU_ID_VALID);
 
-	if (is_mt7663(dev) || is_mt7921(dev))
+	if (is_mt7663(dev) || is_mt7921(dev) || is_mt7925(dev))
 		last_mask = MT_TXD_LEN_LAST;
 	else
 		last_mask = MT_TXD_LEN_AMSDU_LAST |
@@ -214,7 +214,7 @@ mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
 	u32 last_mask;
 	int i;
 
-	if (is_mt7663(dev) || is_mt7921(dev))
+	if (is_mt7663(dev) || is_mt7921(dev) || is_mt7925(dev))
 		last_mask = MT_TXD_LEN_LAST;
 	else
 		last_mask = MT_TXD_LEN_MSDU_LAST;
@@ -256,11 +256,12 @@ void mt76_connac_txp_skb_unmap(struct mt76_dev *dev,
 EXPORT_SYMBOL_GPL(mt76_connac_txp_skb_unmap);
 
 int mt76_connac_init_tx_queues(struct mt76_phy *phy, int idx, int n_desc,
-			       int ring_base, u32 flags)
+			       int ring_base, void *wed, u32 flags)
 {
 	int i, err;
 
-	err = mt76_init_tx_queue(phy, 0, idx, n_desc, ring_base, flags);
+	err = mt76_init_tx_queue(phy, 0, idx, n_desc, ring_base,
+				 wed, flags);
 	if (err < 0)
 		return err;
 

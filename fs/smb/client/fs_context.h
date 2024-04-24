@@ -118,6 +118,7 @@ enum cifs_param {
 	Opt_file_mode,
 	Opt_dirmode,
 	Opt_min_enc_offload,
+	Opt_retrans,
 	Opt_blocksize,
 	Opt_rasize,
 	Opt_rsize,
@@ -245,6 +246,7 @@ struct smb3_fs_context {
 	unsigned int rsize;
 	unsigned int wsize;
 	unsigned int min_offload;
+	unsigned int retrans;
 	bool sockopt_tcp_nodelay:1;
 	/* attribute cache timemout for files and directories in jiffies */
 	unsigned long acregmax;
@@ -292,5 +294,17 @@ extern void smb3_update_mnt_flags(struct cifs_sb_info *cifs_sb);
 #define SMB3_DEF_DCLOSETIMEO (1 * HZ) /* even 1 sec enough to help eg open/write/close/open/read */
 #define MAX_CACHED_FIDS 16
 extern char *cifs_sanitize_prepath(char *prepath, gfp_t gfp);
+
+extern struct mutex cifs_mount_mutex;
+
+static inline void cifs_mount_lock(void)
+{
+	mutex_lock(&cifs_mount_mutex);
+}
+
+static inline void cifs_mount_unlock(void)
+{
+	mutex_unlock(&cifs_mount_mutex);
+}
 
 #endif
