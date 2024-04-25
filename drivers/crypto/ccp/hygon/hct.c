@@ -27,18 +27,21 @@
 #include <linux/pci.h>
 #include <linux/kfifo.h>
 #include <linux/eventfd.h>
+#include <linux/mem_encrypt.h>
 #include <asm/cpuid.h>
 
 /**
  * VERSION_STRING modification instructions:
  * 0.1 -- support hct/mdev mode.
  * 0.2 -- supoort qemu virtualization.
+ * 0.3 -- support host-noiommu mode memory encryption function,
+ *        and performance optimization in virtual machines (enable caching).
  */
 
 #undef  pr_fmt
 #define pr_fmt(fmt)				"hct: " fmt
 
-#define VERSION_STRING				"0.2"
+#define VERSION_STRING				"0.3"
 #define DRIVER_AUTHOR				"HYGON Corporation"
 #define VERSION_SIZE				16
 
@@ -66,6 +69,11 @@
 #define MCCP_SHARE_OP_GET_PASID			0x04
 #define MCCP_SHARE_OP_DMA_UNMAP			0x05
 #define MCCP_SHARE_OP_GET_VERSION		0x06
+
+#define MCCP_NOIOMMU_IOC_TYPE			MCCP_SHARE_IOC_TYPE
+#define MCCP_NOIOMMU_OP				MCCP_SHARE_OP
+#define MCCP_NOIOMMU_SET_MEMORY_WB		0x01
+#define MCCP_NOIOMMU_GET_SME_ACTIVE		0x02
 
 #define MCCP_SHARE_IOMMU_MAGIC			0x3d6a9c5728633b9e
 
@@ -130,10 +138,15 @@ struct hct_dev_ctrl {
 	union {
 		unsigned char version[VERSION_SIZE];
 		unsigned int id;
+		unsigned long sme_mask;
 		struct {
 			unsigned long vaddr;
 			unsigned long iova;
 			unsigned long size;
+		};
+		struct {
+			unsigned long vt_addr;
+			unsigned int nr_pages;
 		};
 	};
 };
@@ -2061,6 +2074,115 @@ static void hct_device_release(struct device *dev)
 	dev_dbg(dev, "hct: released\n");
 }
 
+/* set the flags PAT, PCT and PWT of page all to 0
+ * for obtaining cache properties.
+ */
+void hct_noiommu_set_memory_wb(unsigned long address)
+{
+	pgd_t *pgd = current->mm->pgd + pgd_index(address);
+	p4d_t *p4d;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	pte_t old_pte;
+	pte_t new_pte;
+	pgprot_t new_prot;
+	unsigned long pfn;
+
+	if (pgd_none(*pgd)) {
+		pr_err("pgd val shouldn't be none\n");
+		return;
+	}
+
+	p4d = p4d_offset(pgd, address);
+	if (p4d_none(*p4d)) {
+		pr_err("p4d val shouldn't be none\n");
+		return;
+	}
+
+	pud = pud_offset(p4d, address);
+	if (pud_none(*pud) || pud_large(*pud) || !pud_present(*pud)) {
+		pr_err("pud val is invalid.\n");
+		return;
+	}
+
+	pmd = pmd_offset(pud, address);
+	if (pmd_none(*pmd) || pmd_large(*pmd) || !pmd_present(*pmd)) {
+		pr_err("pmd val is invalid.\n");
+		return;
+	}
+
+	pte = pte_offset_kernel(pmd, address);
+	if (pte_none(*pte)) {
+		pr_err("pte val shouldn't be none\n");
+		return;
+	}
+
+	old_pte = *pte;
+	pfn = pte_pfn(old_pte);
+	new_prot = pte_pgprot(old_pte);
+	pgprot_val(new_prot) &= ~(_PAGE_PAT | _PAGE_PCD | _PAGE_PWT);
+	new_pte = pfn_pte(pfn, new_prot);
+	set_pte_atomic(pte, new_pte);
+}
+
+static DEFINE_MUTEX(hct_noiommu_lock);
+static long hct_noiommu_ioctl(struct file *file,
+		unsigned int ioctl, unsigned long arg)
+{
+	struct hct_dev_ctrl ctrl;
+	unsigned int cmd_id;
+	unsigned int len;
+	int ret = 0;
+
+	if (_IOC_TYPE(ioctl) != MCCP_NOIOMMU_IOC_TYPE)
+		return -EINVAL;
+
+	cmd_id = _IOC_NR(ioctl);
+	len = _IOC_SIZE(ioctl);
+
+	if (cmd_id != MCCP_SHARE_OP)
+		return -EINVAL;
+
+	if (len != sizeof(ctrl))
+		return -EINVAL;
+
+	if (copy_from_user(&ctrl, (void __user *)arg, sizeof(ctrl)))
+		return -EINVAL;
+
+	mutex_lock(&hct_noiommu_lock);
+	switch (ctrl.op) {
+	case MCCP_NOIOMMU_SET_MEMORY_WB:
+		while (ctrl.nr_pages && ctrl.nr_pages--) {
+			hct_noiommu_set_memory_wb(ctrl.vt_addr);
+			ctrl.vt_addr += PAGE_SIZE;
+		}
+		break;
+	case MCCP_NOIOMMU_GET_SME_ACTIVE:
+		ctrl.sme_mask = sme_me_mask;
+		if (copy_to_user((void __user *)arg, &ctrl, sizeof(ctrl)))
+			ret = -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	mutex_unlock(&hct_noiommu_lock);
+
+	return ret;
+}
+
+const struct file_operations hct_noiommu_fops = {
+	.owner          = THIS_MODULE,
+	.unlocked_ioctl = hct_noiommu_ioctl,
+};
+
+struct miscdevice hct_noiommu_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name  = "hct_noiommu",
+	.fops  = &hct_noiommu_fops,
+};
+
 #define CPUID_VENDOR_HygonGenuine_ebx	0x6f677948
 #define CPUID_VENDOR_HygonGenuine_ecx	0x656e6975
 #define CPUID_VENDOR_HygonGenuine_edx	0x6e65476e
@@ -2082,6 +2204,9 @@ static int __init hct_dev_init(void)
 		pr_err("Not hygon hardware\n");
 		return -1;
 	}
+
+	if (!iommu_present(&pci_bus_type))
+		return misc_register(&hct_noiommu_misc);
 
 	ret = mdev_register_driver(&hct_mdev_driver);
 	if (ret)
@@ -2160,6 +2285,11 @@ all_done:
 
 static void __exit hct_dev_exit(void)
 {
+	if (!iommu_present(&pci_bus_type)) {
+		misc_deregister(&hct_noiommu_misc);
+		return;
+	}
+
 	hct_share_exit();
 	hct_dev.dev.bus = NULL;
 	mdev_unregister_parent(&hct_dev.mdev_parent);
