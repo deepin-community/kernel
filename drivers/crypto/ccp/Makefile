@@ -21,6 +21,8 @@ ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += psp-dev.o \
 
 ccp-$(CONFIG_TDM_DEV_HYGON) += hygon/tdm-dev.o
 
+obj-$(CONFIG_CRYPTO_DEV_HCT) += hygon/hct.o
+
 obj-$(CONFIG_CRYPTO_DEV_CCP_CRYPTO) += ccp-crypto.o
 ccp-crypto-objs := ccp-crypto-main.o \
 		   ccp-crypto-aes.o \
