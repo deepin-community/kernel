@@ -23,12 +23,14 @@
 #include <linux/ctype.h>
 #include <linux/file.h>
 #include <linux/pagemap.h>
-#include <linux/mdev.h>
 #include <linux/pci.h>
 #include <linux/kfifo.h>
 #include <linux/eventfd.h>
 #include <linux/mem_encrypt.h>
 #include <asm/cpuid.h>
+#if IS_ENABLED(CONFIG_VFIO_MDEV)
+#include <linux/mdev.h>
+#endif
 
 /**
  * VERSION_STRING modification instructions:
@@ -36,12 +38,13 @@
  * 0.2 -- supoort qemu virtualization.
  * 0.3 -- support host-noiommu mode memory encryption function,
  *        and performance optimization in virtual machines (enable caching).
+ * 0.4 -- support compiling hct.ko when mdev module is disabled.
  */
 
 #undef  pr_fmt
 #define pr_fmt(fmt)				"hct: " fmt
 
-#define VERSION_STRING				"0.3"
+#define VERSION_STRING				"0.4"
 #define DRIVER_AUTHOR				"HYGON Corporation"
 #define VERSION_SIZE				16
 
@@ -192,6 +195,7 @@ struct hct_iommu {
 	unsigned long ref;
 };
 
+#if IS_ENABLED(CONFIG_VFIO_MDEV)
 static struct hct_data {
 	struct hct_iommu iommu[MCCP_DEV_MAX];
 	struct mutex lock;
@@ -2073,6 +2077,7 @@ static void hct_device_release(struct device *dev)
 {
 	dev_dbg(dev, "hct: released\n");
 }
+#endif /* IS_ENABLED(CONFIG_VFIO_MDEV) */
 
 /* set the flags PAT, PCT and PWT of page all to 0
  * for obtaining cache properties.
@@ -2189,7 +2194,7 @@ struct miscdevice hct_noiommu_misc = {
 
 static int __init hct_dev_init(void)
 {
-	int ret = 0;
+	int __maybe_unused ret = 0;
 	u32 vendor_ebx = 0;
 	u32 vendor_ecx = 0;
 	u32 vendor_edx = 0;
@@ -2205,6 +2210,7 @@ static int __init hct_dev_init(void)
 		return -1;
 	}
 
+#if IS_ENABLED(CONFIG_VFIO_MDEV)
 	if (!iommu_present(&pci_bus_type))
 		return misc_register(&hct_noiommu_misc);
 
@@ -2281,10 +2287,15 @@ failed0:
 
 all_done:
 	return ret;
+#else
+	pr_info("The module mdev is disabled.\n");
+	return misc_register(&hct_noiommu_misc);
+#endif
 }
 
 static void __exit hct_dev_exit(void)
 {
+#if IS_ENABLED(CONFIG_VFIO_MDEV)
 	if (!iommu_present(&pci_bus_type)) {
 		misc_deregister(&hct_noiommu_misc);
 		return;
@@ -2302,6 +2313,9 @@ static void __exit hct_dev_exit(void)
 	hct_dev.vd_class = NULL;
 
 	pci_unregister_driver(&hct_pci_driver);
+#else
+	misc_deregister(&hct_noiommu_misc);
+#endif
 }
 
 module_init(hct_dev_init)
