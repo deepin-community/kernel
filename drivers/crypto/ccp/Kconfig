@@ -87,3 +87,15 @@ config TDM_KERNEL_GUARD
 	  The key part of kernel is protected by TDM technology, SCT and IDT
 	  are protected by default, and others are added later according to the
 	  requirements.
+
+config CRYPTO_DEV_HCT
+	tristate "HCT CCP device"
+	default m
+	depends on X86_64
+	select VFIO_MDEV
+	help
+	  Provides hygon crypto technology ccp device driver.
+	  Support virtualize ccp devices based on mediated devices.
+	  Support multi-process and virtual machines.
+	  Support host-noiommu mode memory encryption function.
+	  If you choose 'M' here, this module will be called hct ccp.
