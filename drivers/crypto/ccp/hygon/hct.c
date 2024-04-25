@@ -39,12 +39,13 @@
  * 0.3 -- support host-noiommu mode memory encryption function,
  *        and performance optimization in virtual machines (enable caching).
  * 0.4 -- support compiling hct.ko when mdev module is disabled.
+ * 0.5 -- change the maximum number of supported ccps from 16 to 48.
  */
 
 #undef  pr_fmt
 #define pr_fmt(fmt)				"hct: " fmt
 
-#define VERSION_STRING				"0.4"
+#define VERSION_STRING				"0.5"
 #define DRIVER_AUTHOR				"HYGON Corporation"
 #define VERSION_SIZE				16
 
@@ -92,7 +93,7 @@
 #define MCCP_INSTANCE_MASK			(~((1u << MCCP_INSTANCE_OFFSET) - 1))
 #define MCCP_PASID_SIZE                         (1 << 8)
 #define MCCP_IOVA_MAX_SLOT			1024
-#define MCCP_DEV_MAX				16
+#define MCCP_DEV_MAX				48
 #define MCCP_DEV_QUEUE_MAX			8
 #define MCCP_DEV_QUEUE                          5
 #define MCCP_QUEUES_MAX				(MCCP_DEV_MAX * MCCP_DEV_QUEUE_MAX)
