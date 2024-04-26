@@ -298,9 +298,9 @@ static struct net_device_stats *phytmac_get_stats(struct net_device *dev)
 static inline int phytmac_calc_rx_buf_len(void)
 {
 #if (PAGE_SIZE < 8192)
-	return PHYTMAC_MAX_FRAME_BUILD_SKB;
+	return rounddown(PHYTMAC_MAX_FRAME_BUILD_SKB, RX_BUFFER_MULTIPLE);
 #endif
-	return PHYTMAC_RXBUFFER_2048;
+	return rounddown(PHYTMAC_RXBUFFER_2048, RX_BUFFER_MULTIPLE);
 }
 
 inline struct phytmac_dma_desc *phytmac_get_rx_desc(struct phytmac_queue *queue,
