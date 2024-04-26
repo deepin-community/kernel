@@ -225,7 +225,7 @@ struct phytmac_data phytmac_1000basex = {
 	.use_mii = false,
 	.speed = 1000,
 	.duplex = true,
-	.interface = PHY_INTERFACE_MODE_SGMII,
+	.interface = PHY_INTERFACE_MODE_1000BASEX,
 	.properties = fl_properties[0],
 };
 

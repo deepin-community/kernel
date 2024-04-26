@@ -382,43 +382,32 @@ static int phytmac_get_link_ksettings(struct net_device *ndev,
 	u32 advertising = 0;
 
 	if (!ndev->phydev) {
+		kset->base.port = PORT_FIBRE;
+		kset->base.transceiver = XCVR_INTERNAL;
+		kset->base.duplex = pdata->duplex;
+		kset->base.speed = pdata->speed;
+
 		if (pdata->phy_interface == PHY_INTERFACE_MODE_USXGMII ||
 		    pdata->phy_interface == PHY_INTERFACE_MODE_10GBASER) {
 			supported = SUPPORTED_10000baseT_Full
 				    | SUPPORTED_FIBRE | SUPPORTED_Pause;
 			advertising = ADVERTISED_10000baseT_Full
 				      | ADVERTISED_FIBRE | ADVERTISED_Pause;
-			kset->base.port = PORT_FIBRE;
-			kset->base.transceiver = XCVR_INTERNAL;
-			kset->base.duplex = DUPLEX_FULL;
-			kset->base.speed = SPEED_10000;
 		}  else if (pdata->phy_interface == PHY_INTERFACE_MODE_2500BASEX) {
-			supported = SUPPORTED_2500baseX_Full | SUPPORTED_Pause;
-			advertising = ADVERTISED_2500baseX_Full | ADVERTISED_Pause;
-			kset->base.port = PORT_FIBRE;
-			kset->base.transceiver = XCVR_INTERNAL;
-			kset->base.duplex = DUPLEX_FULL;
-			kset->base.speed = SPEED_2500;
+			supported = SUPPORTED_2500baseX_Full
+				    | SUPPORTED_FIBRE | SUPPORTED_Pause;
+			advertising = ADVERTISED_2500baseX_Full
+				      | ADVERTISED_FIBRE | ADVERTISED_Pause;
 		} else if (pdata->phy_interface == PHY_INTERFACE_MODE_1000BASEX) {
-			supported = SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
-				    | SUPPORTED_10baseT_Full | SUPPORTED_FIBRE
-				    | SUPPORTED_Pause;
-			advertising = ADVERTISED_1000baseT_Full | ADVERTISED_100baseT_Full
-				      | ADVERTISED_10baseT_Full | ADVERTISED_FIBRE
-				      | ADVERTISED_Pause;
-			kset->base.port = PORT_FIBRE;
-			kset->base.transceiver = XCVR_INTERNAL;
-			kset->base.duplex = DUPLEX_FULL;
-			kset->base.speed = SPEED_100;
+			supported = SUPPORTED_1000baseT_Full
+				    | SUPPORTED_FIBRE | SUPPORTED_Pause;
+			advertising = ADVERTISED_1000baseT_Full
+				      | ADVERTISED_FIBRE | ADVERTISED_Pause;
 		} else if (pdata->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-			supported = SUPPORTED_1000baseT_Full | SUPPORTED_100baseT_Full
-				|  SUPPORTED_10baseT_Full | SUPPORTED_FIBRE | SUPPORTED_Pause;
-			advertising = ADVERTISED_1000baseT_Full | ADVERTISED_100baseT_Full
-				| ADVERTISED_10baseT_Full | ADVERTISED_FIBRE | ADVERTISED_Pause;
-			kset->base.port = PORT_FIBRE;
-			kset->base.transceiver = XCVR_INTERNAL;
-			kset->base.duplex = DUPLEX_FULL;
-			kset->base.speed = SPEED_1000;
+			supported = SUPPORTED_1000baseT_Full
+				    | SUPPORTED_FIBRE | SUPPORTED_Pause;
+			advertising = ADVERTISED_1000baseT_Full
+				      | ADVERTISED_FIBRE | ADVERTISED_Pause;
 		}
 
 		ethtool_convert_legacy_u32_to_link_mode(kset->link_modes.supported,
