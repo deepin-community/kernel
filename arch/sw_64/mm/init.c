@@ -69,6 +69,13 @@ static int __init setup_mem_size(char *p)
 
 	mem_start = start;
 	mem_size_limit = size;
+
+	if (mem_start < NODE0_START) {
+		mem_start = NODE0_START;
+		mem_size_limit -= min(mem_size_limit,
+				NODE0_START - mem_start);
+	}
+
 	return 0;
 }
 early_param("mem", setup_mem_size);
@@ -186,17 +193,8 @@ static void __init mem_detect(void)
 			mem_desc.phys_size += socket_desc[i].socket_mem;
 	}
 
-	if (mem_start >= NODE0_START) {
-		mem_desc.base = mem_start;
-	} else {
-		mem_desc.base = NODE0_START;
-		mem_size_limit -= NODE0_START - mem_start;
-	}
-
-	if (mem_size_limit && mem_size_limit < mem_desc.phys_size - NODE0_START)
-		mem_desc.size = mem_size_limit;
-	else
-		mem_desc.size = mem_desc.phys_size - NODE0_START;
+	mem_desc.base = NODE0_START;
+	mem_desc.size = mem_desc.phys_size - NODE0_START;
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -379,6 +377,16 @@ void __init sw64_memblock_init(void)
 #endif
 
 	reserve_crashkernel();
+
+	/* All memory has been added, it's time to handle memory limitation */
+	if (mem_size_limit) {
+		memblock_remove(0, mem_start);
+		memblock_remove(mem_start + mem_size_limit, PHYS_ADDR_MAX);
+		if (sunway_boot_magic != 0xDEED2024UL) {
+			mem_desc.base = mem_start;
+			mem_desc.size = memblock_phys_mem_size();
+		}
+	}
 
 	/* end of DRAM range may have been changed */
 	max_pfn = max_low_pfn = PFN_DOWN(memblock_end_of_DRAM());
