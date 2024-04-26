@@ -1673,12 +1673,6 @@ static int phytmac_open(struct net_device *ndev)
 
 	hw_if->reset_hw(pdata);
 
-	ret = phytmac_get_mac_address(pdata);
-	if (ret) {
-		netdev_err(ndev, "phytmac get mac address failed\n");
-		goto reset_hw;
-	}
-
 	ret = netif_set_real_num_tx_queues(ndev, pdata->queues_num);
 	if (ret) {
 		netdev_err(ndev, "error setting real tx queue number\n");
@@ -2062,6 +2056,12 @@ int phytmac_drv_probe(struct phytmac *pdata)
 	ret = phytmac_phylink_create(pdata);
 	if (ret) {
 		netdev_err(ndev, "phytmac phylink create failed, error %d\n", ret);
+		goto err_phylink_init;
+	}
+
+	ret = phytmac_get_mac_address(pdata);
+	if (ret) {
+		netdev_err(ndev, "phytmac get mac address failed\n");
 		goto err_phylink_init;
 	}
 
