@@ -793,16 +793,12 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 	unsigned int index, space;
 	dma_addr_t paddr;
 	struct sk_buff *skb;
-	unsigned int rx_unclean = 0;
 
 	space = CIRC_SPACE(queue->rx_head, queue->rx_tail,
 			   pdata->rx_ring_size);
 
-	if (space < DEFAULT_RX_DESC_MIN_FREE)
-		return;
-
-	index = queue->rx_head & (pdata->rx_ring_size - 1);
 	while (space > 0) {
+		index = queue->rx_head & (pdata->rx_ring_size - 1);
 		if (!queue->rx_skb[index]) {
 			skb = netdev_alloc_skb(pdata->ndev, pdata->rx_buffer_len);
 			if (unlikely(!skb)) {
@@ -811,7 +807,7 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 			}
 
 			paddr = dma_map_single(pdata->dev, skb->data,
-						pdata->rx_buffer_len, DMA_FROM_DEVICE);
+					       pdata->rx_buffer_len, DMA_FROM_DEVICE);
 			if (dma_mapping_error(pdata->dev, paddr)) {
 				dev_kfree_skb(skb);
 				break;
@@ -820,21 +816,19 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 			queue->rx_skb[index] = skb;
 
 			hw_if->rx_map(queue, index, paddr);
+		} else {
+			hw_if->rx_map(queue, index, 0);
 		}
 
-		index = (index + 1) & (pdata->rx_ring_size - 1);
-		rx_unclean++;
+		queue->rx_head++;
+		if (queue->rx_head >= pdata->rx_ring_size)
+			queue->rx_head &= (pdata->rx_ring_size - 1);
+
 		space--;
 	}
 
 	/* make newly descriptor to hardware */
 	wmb();
-	hw_if->rx_clean(queue, rx_unclean);
-	/* make newly descriptor to hardware */
-	wmb();
-	queue->rx_head += rx_unclean;
-	if (queue->rx_head >= pdata->rx_ring_size)
-		queue->rx_head &= (pdata->rx_ring_size - 1);
 }
 
 static int phytmac_rx(struct phytmac_queue *queue, struct napi_struct *napi,
@@ -1203,7 +1197,7 @@ static unsigned int phytmac_tx_map(struct phytmac *pdata,
 {
 	dma_addr_t mapping;
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
-	unsigned int len, i, tx_tail = queue->tx_tail;
+	unsigned int len, i, tx_tail;
 	struct phytmac_tx_skb *tx_skb = NULL;
 	unsigned int offset, size, count = 0;
 	unsigned int f, nr_frags = skb_shinfo(skb)->nr_frags;
