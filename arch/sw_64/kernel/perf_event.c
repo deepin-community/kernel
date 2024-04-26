@@ -514,15 +514,6 @@ static int sw64_pmu_event_init(struct perf_event *event)
 	if (has_branch_stack(event))
 		return -EOPNOTSUPP;
 
-	/*
-	 * SW64 does not have per-counter usr/os/guest/host bits,
-	 * we can distinguish exclude_user and exclude_kernel by
-	 * sample mode.
-	 */
-	if (attr->exclude_hv || attr->exclude_idle ||
-			attr->exclude_host || attr->exclude_guest)
-		return -EINVAL;
-
 	if (attr->exclude_user && attr->exclude_kernel)
 		return -EOPNOTSUPP;
 	/*
@@ -558,6 +549,15 @@ static int sw64_pmu_event_init(struct perf_event *event)
 	default:
 		return -ENOENT;
 	}
+
+	/*
+	 * SW64 does not have per-counter usr/os/guest/host bits,
+	 * we can distinguish exclude_user and exclude_kernel by
+	 * sample mode.
+	 */
+	if (attr->exclude_hv || attr->exclude_idle ||
+			attr->exclude_host || attr->exclude_guest)
+		return -EINVAL;
 
 	/* Do the real initialisation work. */
 	__hw_perf_event_init(event);
