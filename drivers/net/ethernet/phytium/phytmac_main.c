@@ -36,6 +36,8 @@
 #include <linux/pci.h>
 #include <net/ncsi.h>
 #include <linux/netdevice.h>
+#include <linux/prefetch.h>
+#include <linux/skbuff.h>
 #include "phytmac.h"
 #include "phytmac_ptp.h"
 
@@ -293,27 +295,18 @@ static struct net_device_stats *phytmac_get_stats(struct net_device *dev)
 	return nstat;
 }
 
-static int phytmac_calc_rx_buf_len(struct phytmac *pdata, u32 mtu)
+static inline int phytmac_calc_rx_buf_len(void)
 {
-	unsigned int size = mtu + ETH_HLEN + ETH_FCS_LEN;
-	int rx_buf_len = roundup(size, RX_BUFFER_MULTIPLE);
-
-	netdev_dbg(pdata->ndev, "mtu [%u] rx_buffer_size [%u]\n",
-		   mtu, rx_buf_len);
-
-	return rx_buf_len;
+#if (PAGE_SIZE < 8192)
+	return PHYTMAC_MAX_FRAME_BUILD_SKB;
+#endif
+	return PHYTMAC_RXBUFFER_2048;
 }
 
 inline struct phytmac_dma_desc *phytmac_get_rx_desc(struct phytmac_queue *queue,
 					     unsigned int index)
 {
 	return &queue->rx_ring[index & (queue->pdata->rx_ring_size - 1)];
-}
-
-struct sk_buff *phytmac_get_rx_skb(struct phytmac_queue *queue,
-				   unsigned int index)
-{
-	return queue->rx_skb[index & (queue->pdata->rx_ring_size - 1)];
 }
 
 struct phytmac_tx_skb *phytmac_get_tx_skb(struct phytmac_queue *queue,
@@ -326,6 +319,49 @@ inline struct phytmac_dma_desc *phytmac_get_tx_desc(struct phytmac_queue *queue,
 					     unsigned int index)
 {
 	return &queue->tx_ring[index & (queue->pdata->tx_ring_size - 1)];
+}
+
+static void phytmac_rx_unmap(struct phytmac_queue *queue)
+{
+	struct phytmac_rx_buffer *rx_buffer_info;
+	struct phytmac *pdata = queue->pdata;
+	int i;
+
+	if (queue->rx_buffer_info) {
+		/* Free all the Rx ring sk_buffs */
+		i = queue->rx_tail;
+
+		while (i != queue->rx_next_to_alloc) {
+			rx_buffer_info = &queue->rx_buffer_info[i];
+
+			/* Invalidate cache lines that may have been written to by
+			 * device so that we avoid corrupting memory.
+			 */
+			dma_sync_single_range_for_cpu(pdata->dev,
+						      rx_buffer_info->addr,
+						      rx_buffer_info->page_offset,
+						      pdata->rx_buffer_len,
+						      DMA_FROM_DEVICE);
+
+			/* free resources associated with mapping */
+			dma_unmap_page_attrs(pdata->dev,
+					     rx_buffer_info->addr,
+					     PHYTMAC_RX_PAGE_SIZE,
+					     DMA_FROM_DEVICE,
+					     PHYTMAC_RX_DMA_ATTR);
+
+			__page_frag_cache_drain(rx_buffer_info->page,
+						rx_buffer_info->pagecnt_bias);
+
+			i++;
+			if (i == pdata->rx_ring_size)
+				i = 0;
+		}
+
+		queue->rx_tail = 0;
+		queue->rx_head = 0;
+		queue->rx_next_to_alloc = 0;
+	}
 }
 
 static int phytmac_free_tx_resource(struct phytmac *pdata)
@@ -362,14 +398,10 @@ static int phytmac_free_tx_resource(struct phytmac *pdata)
 static int phytmac_free_rx_resource(struct phytmac *pdata)
 {
 	struct phytmac_queue *queue;
-	struct sk_buff *skb;
-	struct phytmac_dma_desc *desc;
-	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	struct phytmac_dma_desc *rx_ring_base = NULL;
 	dma_addr_t rx_ring_base_addr;
-	dma_addr_t addr;
 	unsigned int q;
-	int size, i;
+	int size;
 
 	queue = pdata->queues;
 	if (queue->rx_ring) {
@@ -378,25 +410,15 @@ static int phytmac_free_rx_resource(struct phytmac *pdata)
 	}
 
 	for (q = 0, queue = pdata->queues; q < pdata->queues_num; ++q, ++queue) {
-		if (queue->rx_skb) {
-			for (i = 0; i < pdata->rx_ring_size; i++) {
-				skb = phytmac_get_rx_skb(queue, i);
-				if (skb) {
-					desc = &queue->rx_ring[i];
-					addr = hw_if->get_desc_addr(desc);
-					dma_unmap_single(pdata->dev, addr, pdata->rx_buffer_len,
-							 DMA_FROM_DEVICE);
-					dev_kfree_skb_any(skb);
-					skb = NULL;
-				}
-			}
-
-			kfree(queue->rx_skb);
-			queue->rx_skb = NULL;
-		}
+		phytmac_rx_unmap(queue);
 
 		if (queue->rx_ring)
 			queue->rx_ring = NULL;
+
+		if (queue->rx_buffer_info) {
+			vfree(queue->rx_buffer_info);
+			queue->rx_buffer_info = NULL;
+		}
 	}
 
 	if (rx_ring_base) {
@@ -450,7 +472,7 @@ static int phytmac_alloc_tx_resource(struct phytmac *pdata)
 		if (netif_msg_drv(pdata))
 			netdev_info(pdata->ndev,
 				    "Allocated TX ring for queue %u of %d bytes at %08lx\n",
-				    q, size, (unsigned long)queue->tx_ring_addr);
+				    q, tx_offset, (unsigned long)queue->tx_ring_addr);
 
 		size = pdata->tx_ring_size * sizeof(struct phytmac_tx_skb);
 		queue->tx_skb = kzalloc(size, GFP_KERNEL);
@@ -473,7 +495,6 @@ err:
 static int phytmac_alloc_rx_resource(struct phytmac *pdata)
 {
 	struct phytmac_queue *queue;
-	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	struct phytmac_dma_desc *rx_ring_base;
 	dma_addr_t rx_ring_base_addr;
 	int rx_offset;
@@ -513,20 +534,12 @@ static int phytmac_alloc_rx_resource(struct phytmac *pdata)
 		if (netif_msg_drv(pdata))
 			netdev_info(pdata->ndev,
 				    "Allocated RX ring for queue %u of %d bytes at %08lx\n",
-				    q, size, (unsigned long)queue->rx_ring_addr);
+				    q, rx_offset, (unsigned long)queue->rx_ring_addr);
 
-		for (i = 0; i < pdata->rx_ring_size; i++)
-			hw_if->init_rx_map(queue, i);
-
-		size = pdata->rx_ring_size * sizeof(struct sk_buff *);
-		queue->rx_skb = kzalloc(size, GFP_KERNEL);
-		if (!queue->rx_skb)
+		size = pdata->rx_ring_size * sizeof(struct phytmac_rx_buffer);
+		queue->rx_buffer_info = vzalloc(size);
+		if (!queue->rx_buffer_info)
 			goto err;
-
-		if (netif_msg_drv(pdata))
-			netdev_info(pdata->ndev,
-				    "Allocated %d RX struct sk_buff entries at %p\n",
-				    pdata->rx_ring_size, queue->rx_skb);
 	}
 
 	return 0;
@@ -538,10 +551,9 @@ err:
 
 static int phytmac_alloc_resource(struct phytmac *pdata)
 {
-	struct net_device *ndev = pdata->ndev;
 	int ret;
 
-	pdata->rx_buffer_len = phytmac_calc_rx_buf_len(pdata, ndev->mtu);
+	pdata->rx_buffer_len = phytmac_calc_rx_buf_len();
 
 	if (netif_msg_drv(pdata))
 		netdev_info(pdata->ndev, "alloc resource, rx_buffer_len = %d\n",
@@ -652,30 +664,226 @@ static void phytmac_dump_pkt(struct phytmac *pdata, struct sk_buff *skb, bool tx
 		       skb->data, skb->len, true);
 }
 
+static bool phytmac_alloc_mapped_page(struct phytmac *pdata,
+				      struct phytmac_rx_buffer *bi)
+{
+	struct page *page = bi->page;
+	dma_addr_t dma;
+
+	/* since we are recycling buffers we should seldom need to alloc */
+	if (likely(page))
+		return true;
+
+	/* alloc new page for storage */
+	page = __dev_alloc_pages(PHYTMAC_GFP_FLAGS, PHYTMAC_RX_PAGE_ORDER);
+	if (unlikely(!page)) {
+		netdev_err(pdata->ndev, "rx alloc page failed\n");
+		return false;
+	}
+
+	/* map page for use */
+	dma = dma_map_page_attrs(pdata->dev, page, 0,
+				 PHYTMAC_RX_PAGE_SIZE,
+				 DMA_FROM_DEVICE, PHYTMAC_RX_DMA_ATTR);
+	if (dma_mapping_error(pdata->dev, dma)) {
+		__free_pages(page, PHYTMAC_RX_PAGE_ORDER);
+		return false;
+	}
+
+	bi->addr = dma;
+	bi->page = page;
+	bi->page_offset = PHYTMAC_SKB_PAD;
+	bi->pagecnt_bias = 1;
+
+	return true;
+}
+
+static inline bool phytmac_page_is_reserved(struct page *page)
+{
+	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
+}
+
+static bool phytmac_can_reuse_rx_page(struct phytmac_rx_buffer *rx_buffer)
+{
+	unsigned int pagecnt_bias = rx_buffer->pagecnt_bias;
+	struct page *page = rx_buffer->page;
+
+	/* avoid re-using remote pages */
+	if (unlikely(phytmac_page_is_reserved(page)))
+		return false;
+
+#if (PAGE_SIZE < 8192)
+	/* if we are only owner of page we can reuse it */
+	if (unlikely((page_ref_count(page) - pagecnt_bias) > 1))
+		return false;
+#else
+#define PHYTMAC_LAST_OFFSET \
+	(SKB_WITH_OVERHEAD(PAGE_SIZE) - PHYTMAC_RXBUFFER_2048)
+
+	if (rx_buffer->page_offset > PHYTMAC_LAST_OFFSET)
+		return false;
+#endif
+
+	/* If we have drained the page fragment pool we need to update
+	 * the pagecnt_bias and page count so that we fully restock the
+	 * number of references the driver holds.
+	 */
+	if (unlikely(!pagecnt_bias)) {
+		page_ref_add(page, USHRT_MAX);
+		rx_buffer->pagecnt_bias = USHRT_MAX;
+	}
+
+	return true;
+}
+
+static void phytmac_reuse_rx_page(struct phytmac_queue *queue,
+				  struct phytmac_rx_buffer *old_buff)
+{
+	struct phytmac_rx_buffer *new_buff;
+	struct phytmac *pdata = queue->pdata;
+	u16 nta = queue->rx_next_to_alloc;
+
+	new_buff = &queue->rx_buffer_info[nta & (pdata->rx_ring_size - 1)];
+
+	/* update, and store next to alloc */
+	nta++;
+	queue->rx_next_to_alloc = (nta < pdata->rx_ring_size) ? nta : 0;
+
+	/* Transfer page from old buffer to new buffer.
+	 * Move each member individually to avoid possible store
+	 * forwarding stalls.
+	 */
+	new_buff->addr		= old_buff->addr;
+	new_buff->page		= old_buff->page;
+	new_buff->page_offset	= old_buff->page_offset;
+	new_buff->pagecnt_bias	= old_buff->pagecnt_bias;
+}
+
+static struct phytmac_rx_buffer *phytmac_get_rx_buffer(struct phytmac_queue *queue,
+						       unsigned int index,
+						       const unsigned int size)
+{
+	struct phytmac_rx_buffer *rx_buffer;
+	struct phytmac *pdata = queue->pdata;
+
+	rx_buffer = &queue->rx_buffer_info[index & (pdata->rx_ring_size - 1)];
+	prefetchw(rx_buffer->page);
+
+	/* we are reusing so sync this buffer for CPU use */
+	dma_sync_single_range_for_cpu(pdata->dev,
+				      rx_buffer->addr,
+				      rx_buffer->page_offset,
+				      size,
+				      DMA_FROM_DEVICE);
+
+	rx_buffer->pagecnt_bias--;
+
+	return rx_buffer;
+}
+
+static void  phytmac_put_rx_buffer(struct phytmac_queue *queue,
+				   struct phytmac_rx_buffer *rx_buffer)
+{
+	struct phytmac *pdata = queue->pdata;
+
+	if (phytmac_can_reuse_rx_page(rx_buffer)) {
+		/* hand second half of page back to the ring */
+		phytmac_reuse_rx_page(queue, rx_buffer);
+	}  else {
+		dma_unmap_page_attrs(pdata->dev, rx_buffer->addr,
+				     PHYTMAC_RX_PAGE_SIZE,
+				     DMA_FROM_DEVICE, PHYTMAC_RX_DMA_ATTR);
+		__page_frag_cache_drain(rx_buffer->page,
+					rx_buffer->pagecnt_bias);
+	}
+
+	/* clear contents of rx_buffer */
+	rx_buffer->page = NULL;
+}
+
+static void phytmac_add_rx_frag(struct phytmac_queue *queue,
+				struct phytmac_rx_buffer *rx_buffer,
+				struct sk_buff *skb,
+				unsigned int size)
+{
+	unsigned int truesize;
+
+#if (PAGE_SIZE < 8192)
+	truesize = PHYTMAC_RX_PAGE_SIZE / 2;
+#else
+	truesize = SKB_DATA_ALIGN(PHYTMAC_SKB_PAD + size);
+#endif
+
+	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
+			rx_buffer->page_offset, size, truesize);
+#if (PAGE_SIZE < 8192)
+	rx_buffer->page_offset ^= truesize;
+#else
+	rx_buffer->page_offset += truesize;
+#endif
+}
+
+static struct sk_buff *phytmac_build_skb(struct phytmac_rx_buffer *rx_buffer,
+					 struct phytmac_dma_desc *desc,
+					 unsigned int size)
+{
+	struct sk_buff *skb;
+	unsigned int truesize;
+	void *va;
+
+#if (PAGE_SIZE < 8192)
+	truesize = PHYTMAC_RX_PAGE_SIZE / 2;
+#else
+	truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
+				  SKB_DATA_ALIGN(PHYTMAC_SKB_PAD + size);
+#endif
+
+	va = page_address(rx_buffer->page) + rx_buffer->page_offset;
+	/* prefetch first cache line of first page */
+	prefetch(va);
+
+	/* build an skb around the page buffer */
+	skb = build_skb(va - PHYTMAC_SKB_PAD, truesize);
+	if (unlikely(!skb))
+		return NULL;
+
+	/* update pointers within the skb to store the data */
+	skb_reserve(skb, PHYTMAC_SKB_PAD);
+	__skb_put(skb, size);
+
+	/* update buffer offset */
+#if (PAGE_SIZE < 8192)
+	rx_buffer->page_offset ^= truesize;
+#else
+	rx_buffer->page_offset += truesize;
+#endif
+
+	return skb;
+}
+
 static struct sk_buff *phytmac_rx_single(struct phytmac_queue *queue, struct phytmac_dma_desc *desc)
 {
 	struct phytmac *pdata = queue->pdata;
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
-	struct sk_buff *skb;
+	struct phytmac_rx_buffer *rx_buffer;
+	struct sk_buff *skb = NULL;
 	unsigned int len;
-	dma_addr_t addr;
 
-	skb = phytmac_get_rx_skb(queue, queue->rx_tail);
+	len = hw_if->get_rx_pkt_len(pdata, desc);
+	rx_buffer = phytmac_get_rx_buffer(queue, queue->rx_tail, len);
+
+	skb = phytmac_build_skb(rx_buffer, desc, len);
 	if (unlikely(!skb)) {
 		netdev_err(pdata->ndev,
-			   "inconsistent Rx descriptor chain\n");
+			   "rx single build skb failed\n");
 		pdata->ndev->stats.rx_dropped++;
 		queue->stats.rx_dropped++;
+		rx_buffer->pagecnt_bias++;
 		return NULL;
 	}
 
-	queue->rx_skb[queue->rx_tail & (pdata->rx_ring_size - 1)] = NULL;
-	len = hw_if->get_rx_pkt_len(pdata, desc);
-	addr = hw_if->get_desc_addr(desc);
+	phytmac_put_rx_buffer(queue, rx_buffer);
 
-	skb_put(skb, len);
-	dma_unmap_single(pdata->dev, addr,
-			 pdata->rx_buffer_len, DMA_FROM_DEVICE);
 	skb->protocol = eth_type_trans(skb, pdata->ndev);
 	skb_checksum_none_assert(skb);
 
@@ -691,27 +899,56 @@ static struct sk_buff *phytmac_rx_single(struct phytmac_queue *queue, struct phy
 }
 
 static struct sk_buff *phytmac_rx_frame(struct phytmac_queue *queue,
-					unsigned int first_frag, unsigned int last_frag, int len)
+					unsigned int first_frag, unsigned int last_frag,
+					unsigned int total_len)
 {
-	unsigned int offset = 0;
 	unsigned int frag = 0;
-	unsigned int entry = 0;
-	dma_addr_t addr = 0;
 	struct sk_buff *skb;
 	struct phytmac_dma_desc *desc;
 	struct phytmac *pdata = queue->pdata;
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	unsigned int frag_len = pdata->rx_buffer_len;
+	unsigned int offset = frag_len;
+	struct phytmac_rx_buffer *rx_buffer;
 
 	if (netif_msg_drv(pdata))
 		netdev_info(pdata->ndev, "rx frame %u - %u (len %u)\n",
-			    first_frag, last_frag, len);
+			    first_frag, last_frag, total_len);
 
-	skb = netdev_alloc_skb(pdata->ndev, len);
-	if (!skb) {
+	desc = phytmac_get_rx_desc(queue, first_frag);
+	rx_buffer = phytmac_get_rx_buffer(queue, first_frag, frag_len);
+
+	skb = phytmac_build_skb(rx_buffer, desc, frag_len);
+	if (unlikely(!skb)) {
+		netdev_err(pdata->ndev, "rx frame build skb failed\n");
 		pdata->ndev->stats.rx_dropped++;
-		netdev_err(pdata->ndev, "rx frame alloc skb failed\n");
+		queue->stats.rx_dropped++;
+		rx_buffer->pagecnt_bias++;
 		return NULL;
+	}
+
+	phytmac_put_rx_buffer(queue, rx_buffer);
+
+	for (frag = first_frag + 1; ; frag++) {
+		desc = phytmac_get_rx_desc(queue, frag);
+		rx_buffer = phytmac_get_rx_buffer(queue, frag, frag_len);
+
+		if (offset + frag_len > total_len) {
+			if (unlikely(frag != last_frag)) {
+				dev_kfree_skb_any(skb);
+				phytmac_put_rx_buffer(queue, rx_buffer);
+				return NULL;
+			}
+			frag_len = total_len - offset;
+		}
+
+		phytmac_add_rx_frag(queue, rx_buffer, skb, frag_len);
+		phytmac_put_rx_buffer(queue, rx_buffer);
+
+		offset += frag_len;
+
+		if (frag == last_frag)
+			break;
 	}
 
 	skb_checksum_none_assert(skb);
@@ -720,34 +957,6 @@ static struct sk_buff *phytmac_rx_frame(struct phytmac_queue *queue,
 	    !(pdata->ndev->flags & IFF_PROMISC) &&
 	    hw_if->rx_checksum(phytmac_get_rx_desc(queue, last_frag)))
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-
-	skb_put(skb, len);
-
-	for (frag = first_frag; ; frag++) {
-		if (offset + frag_len > len) {
-			if (unlikely(frag != last_frag)) {
-				dev_kfree_skb_any(skb);
-				return NULL;
-			}
-			frag_len = len - offset;
-		}
-
-		desc = phytmac_get_rx_desc(queue, frag);
-		addr = hw_if->get_desc_addr(desc);
-		dma_sync_single_for_cpu(pdata->dev, addr, frag_len,
-					DMA_FROM_DEVICE);
-
-		entry = frag & (pdata->rx_ring_size - 1);
-		skb_copy_to_linear_data_offset(skb, offset, queue->rx_skb[entry]->data, frag_len);
-
-		offset += pdata->rx_buffer_len;
-
-		dma_sync_single_for_device(pdata->dev, addr, frag_len,
-					   DMA_FROM_DEVICE);
-
-		if (frag == last_frag)
-			break;
-	}
 
 	skb->protocol = eth_type_trans(skb, pdata->ndev);
 	if (netif_msg_pktdata(pdata))
@@ -764,10 +973,13 @@ static struct sk_buff *phytmac_rx_mbuffer(struct phytmac_queue *queue)
 	struct sk_buff *skb = NULL;
 	unsigned int rx_tail = 0;
 	int first_frag = -1;
-	int len;
+	unsigned int len;
 
 	for (rx_tail = queue->rx_tail; ; rx_tail++) {
 		desc = phytmac_get_rx_desc(queue, rx_tail);
+		if (!hw_if->rx_complete(desc))
+			return NULL;
+
 		if (hw_if->rx_pkt_start(desc)) {
 			if (first_frag != -1)
 				hw_if->clear_rx_desc(queue, first_frag, rx_tail);
@@ -791,34 +1003,24 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 	struct phytmac *pdata = queue->pdata;
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	unsigned int index, space;
-	dma_addr_t paddr;
-	struct sk_buff *skb;
+	struct phytmac_rx_buffer *rx_buf_info;
 
 	space = CIRC_SPACE(queue->rx_head, queue->rx_tail,
 			   pdata->rx_ring_size);
 
 	while (space > 0) {
 		index = queue->rx_head & (pdata->rx_ring_size - 1);
-		if (!queue->rx_skb[index]) {
-			skb = netdev_alloc_skb(pdata->ndev, pdata->rx_buffer_len);
-			if (unlikely(!skb)) {
-				netdev_err(pdata->ndev, "rx clean alloc skb failed\n");
-				break;
-			}
+		rx_buf_info = &queue->rx_buffer_info[index];
 
-			paddr = dma_map_single(pdata->dev, skb->data,
-					       pdata->rx_buffer_len, DMA_FROM_DEVICE);
-			if (dma_mapping_error(pdata->dev, paddr)) {
-				dev_kfree_skb(skb);
-				break;
-			}
+		if (!phytmac_alloc_mapped_page(pdata, rx_buf_info))
+			break;
+		/* sync the buffer for use by the device */
+		dma_sync_single_range_for_device(pdata->dev, rx_buf_info->addr,
+						 rx_buf_info->page_offset,
+						 pdata->rx_buffer_len,
+						 DMA_FROM_DEVICE);
 
-			queue->rx_skb[index] = skb;
-
-			hw_if->rx_map(queue, index, paddr);
-		} else {
-			hw_if->rx_map(queue, index, 0);
-		}
+		hw_if->rx_map(queue, index, rx_buf_info->addr + rx_buf_info->page_offset);
 
 		queue->rx_head++;
 		if (queue->rx_head >= pdata->rx_ring_size)
@@ -827,6 +1029,7 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 		space--;
 	}
 
+	queue->rx_next_to_alloc = queue->rx_head;
 	/* make newly descriptor to hardware */
 	wmb();
 }
@@ -922,7 +1125,7 @@ static int phytmac_maybe_wake_tx_queue(struct phytmac_queue *queue)
 {
 	struct phytmac *pdata = queue->pdata;
 	int space = CIRC_CNT(queue->tx_tail, queue->tx_head,
-		       pdata->tx_ring_size);
+			     pdata->tx_ring_size);
 
 	return (space <= (3 * pdata->tx_ring_size / 4)) ? 1 : 0;
 }
@@ -1291,14 +1494,18 @@ static inline void phytmac_init_ring(struct phytmac *pdata)
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	struct phytmac_queue *queue;
 	unsigned int q = 0;
+	int i;
 
 	for (queue = pdata->queues; q < pdata->queues_num; ++q) {
 		queue->tx_head = 0;
 		queue->tx_tail = 0;
 		hw_if->clear_tx_desc(queue);
 
+		for (i = 0; i < pdata->rx_ring_size; i++)
+			hw_if->init_rx_map(queue, i);
 		queue->rx_head = 0;
 		queue->rx_tail = 0;
+		queue->rx_next_to_alloc = 0;
 		phytmac_rx_clean(queue);
 		++queue;
 	}
@@ -1751,7 +1958,6 @@ static int phytmac_open(struct net_device *ndev)
 		++queue;
 	}
 
-	phytmac_init_ring(pdata);
 	hw_if->init_hw(pdata);
 
 	ret = phytmac_phylink_connect(pdata);
