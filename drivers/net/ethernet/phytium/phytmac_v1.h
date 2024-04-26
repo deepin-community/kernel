@@ -356,6 +356,14 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_VLAN_ID_INDEX			10
 #define PHYTMAC_VLAN_ID_WIDTH			1
 
+/* Bitfields in TAILPTR */
+#define PHYTMAC_TXTAIL_UPDATE_INDEX		31 /* Update tx tail */
+#define PHYTMAC_TXTAIL_UPDATE_WIDTH		1
+
+/* Bitfields in TAIL_ENABLE */
+#define PHYTMAC_TXTAIL_ENABLE_INDEX		0 /* Enable tx tail */
+#define PHYTMAC_TXTAIL_ENABLE_WIDTH		1
+
 #define PHYTMAC_TSEC_WIDTH (PHYTMAC_SECH_WIDTH + PHYTMAC_SECL_WIDTH)
 #define SEC_MAX_VAL (((u64)1 << PHYTMAC_TSEC_WIDTH) - 1)
 #define NSEC_MAX_VAL ((1 << PHYTMAC_NSEC_WIDTH) - 1)
