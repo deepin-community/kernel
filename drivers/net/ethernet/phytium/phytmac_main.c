@@ -1416,10 +1416,12 @@ void phytmac_pcs_link_up(struct phylink_pcs *pcs, unsigned int mode,
 			    phy_modes(interface), speed, duplex);
 	hw_if->pcs_linkup(pdata, interface, speed, duplex);
 }
+
 static const struct phylink_pcs_ops phytmac_pcs_phylink_ops = {
 	.pcs_config = phytmac_pcs_config,
 	.pcs_link_up = phytmac_pcs_link_up,
 };
+
 static struct phylink_pcs *phytmac_mac_select_pcs(struct phylink_config *config,
 						   phy_interface_t interface)
 {
@@ -1766,7 +1768,7 @@ static int phytmac_open(struct net_device *ndev)
 
 	ret = phytmac_phylink_connect(pdata);
 	if (ret) {
-		netdev_err(ndev, "phylink connet failed,(error %d)\n",
+		netdev_err(ndev, "phylink connect failed,(error %d)\n",
 			   ret);
 		goto reset_hw;
 	}
