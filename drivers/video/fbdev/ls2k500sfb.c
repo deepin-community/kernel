@@ -283,19 +283,13 @@ irqreturn_t ls2k500sfb_interrupt(int irq, void *arg)
 #define GPIO_INTPOL ((void *)IO_BASE+0x1fe00000+0x510)
 #define GPIO_INTEN ((void *)IO_BASE+0x1fe00000+0x514)
 
-static int gpiochip_match_name(struct gpio_chip *chip, void *data)
-{
-	const char *name = data;
-
-	return !strcmp(chip->label, name);
-}
 static int get_gpio_irq_from_acpi_table(int gpio)
 {
 	struct gpio_chip *chip;
 	struct gpio_desc *desc;
 
-	chip = gpiochip_find("LOON0007:00", gpiochip_match_name);
-	if (!chip)
+	chip->gpiodev = gpio_device_find_by_label("LOON0007:00");
+	if (!chip->gpiodev)
 		return -ENOENT;
 	desc = gpiochip_request_own_desc(chip, gpio, "reboot", GPIO_LOOKUP_FLAGS_DEFAULT, GPIOD_IN);
 	if (!desc)
