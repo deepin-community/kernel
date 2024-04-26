@@ -140,6 +140,8 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_DBW_128				4
 #define PHYTMAC_RCO_EN_INDEX			24	 /* Receive checksum offload enable */
 #define PHYTMAC_RCO_EN_WIDTH			1
+#define PHYTMAC_IGNORE_RX_FCS_INDEX     26
+#define PHYTMAC_IGNORE_RX_FCS_WIDTH     1
 #define PHYTMAC_SGMII_EN_INDEX			27	 /* Sgmii mode enable */
 #define PHYTMAC_SGMII_EN_WIDTH			1
 
@@ -363,6 +365,15 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 /* Bitfields in TAIL_ENABLE */
 #define PHYTMAC_TXTAIL_ENABLE_INDEX		0 /* Enable tx tail */
 #define PHYTMAC_TXTAIL_ENABLE_WIDTH		1
+
+/* Bitfields in INT ENABLE */
+#define PHYTMAC_WOL_RECEIVE_ENABLE_INDEX    28 /* Enable wol_event_recieve */
+#define PHYTMAC_WOL_RECEIVE_ENABLE_WIDTH    1
+
+/* Bitfields in INT DISABLE */
+#define PHYTMAC_WOL_RECEIVE_DISABLE_INDEX    28 /* Disable wol_event_recieve */
+#define PHYTMAC_WOL_RECEIVE_DISABLE_WIDTH    1
+
 
 #define PHYTMAC_TSEC_WIDTH (PHYTMAC_SECH_WIDTH + PHYTMAC_SECL_WIDTH)
 #define SEC_MAX_VAL (((u64)1 << PHYTMAC_TSEC_WIDTH) - 1)
