@@ -927,22 +927,14 @@ static unsigned int phytmac_rx_map_desc(struct phytmac_queue *queue,
 			addr |= PHYTMAC_BIT(RX_WRAP);
 		desc->desc1 = 0;
 		desc->desc2 = upper_32_bits(addr);
-		desc->desc0 = lower_32_bits(addr) | PHYTMAC_BIT(RX_USED);
-	}
-	return 0;
-}
-
-static unsigned int phytmac_rx_clean_desc(struct phytmac_queue *queue, u32 count)
-{
-	struct phytmac_dma_desc *desc;
-	u32 index = queue->rx_head + count - 1;
-
-	while (count) {
-		desc = phytmac_get_rx_desc(queue, index);
-		desc->desc0 &= ~PHYTMAC_BIT(RX_USED);
+		/* Make newly descriptor to hardware */
 		dma_wmb();
-		index--;
-		count--;
+		desc->desc0 = lower_32_bits(addr);
+	} else {
+		desc->desc1 = 0;
+		/* Make newly descriptor to hardware */
+		dma_wmb();
+		desc->desc0 &= ~PHYTMAC_BIT(RX_USED);
 	}
 
 	return 0;
@@ -1386,7 +1378,6 @@ struct phytmac_hw_if phytmac_1p0_hw = {
 	.get_desc_addr = phytmac_get_desc_addr,
 	.init_rx_map = phytmac_init_rx_map_desc,
 	.rx_map = phytmac_rx_map_desc,
-	.rx_clean = phytmac_rx_clean_desc,
 	.rx_checksum = phytmac_rx_checksum,
 	.rx_single_buffer = phytmac_rx_single_buffer,
 	.rx_pkt_start = phytmac_rx_sof,
