@@ -414,7 +414,7 @@ static int phytmac_init_hw(struct phytmac *pdata)
 	PHYTMAC_WRITE(pdata, PHYTMAC_DCONFIG, dmaconfig);
 
 	if (pdata->capacities & PHYTMAC_CAPS_TAILPTR)
-		PHYTMAC_WRITE(pdata, PHYTMAC_TAIL_ENABLE, 0x80000001);
+		PHYTMAC_WRITE(pdata, PHYTMAC_TAIL_ENABLE, PHYTMAC_BIT(TXTAIL_ENABLE));
 
 	if (phy_interface_mode_is_8023z(pdata->phy_interface))
 		phytmac_pcs_software_reset(pdata, 1);
@@ -945,7 +945,7 @@ static void phytmac_tx_start(struct phytmac_queue *queue)
 
 	if (pdata->capacities & PHYTMAC_CAPS_TAILPTR)
 		PHYTMAC_WRITE(pdata, PHYTMAC_TAILPTR(queue->index),
-			      BIT(31) | queue->tx_tail);
+			      PHYTMAC_BIT(TXTAIL_UPDATE) | queue->tx_tail);
 
 	if (pdata->capacities & PHYTMAC_CAPS_START)
 		PHYTMAC_WRITE(pdata, PHYTMAC_NCTRL,
