@@ -986,16 +986,6 @@ static int phytmac_rx_pkt_len(struct phytmac *pdata, const struct phytmac_dma_de
 		return desc->desc1 & PHYTMAC_FRAME_MASK;
 }
 
-static dma_addr_t phytmac_get_desc_addr(const struct phytmac_dma_desc *desc)
-{
-	dma_addr_t addr = 0;
-
-	addr = ((u64)(desc->desc2) << 32);
-
-	addr |= (desc->desc0 & 0xfffffffc);
-	return addr;
-}
-
 static bool phytmac_rx_checksum(const struct phytmac_dma_desc *desc)
 {
 	u32 value = desc->desc1;
@@ -1375,7 +1365,6 @@ struct phytmac_hw_if phytmac_1p0_hw = {
 	.tx_complete = phytmac_tx_complete,
 	.rx_complete = phytmac_rx_complete,
 	.get_rx_pkt_len = phytmac_rx_pkt_len,
-	.get_desc_addr = phytmac_get_desc_addr,
 	.init_rx_map = phytmac_init_rx_map_desc,
 	.rx_map = phytmac_rx_map_desc,
 	.rx_checksum = phytmac_rx_checksum,
