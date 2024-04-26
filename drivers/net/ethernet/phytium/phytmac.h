@@ -307,6 +307,13 @@ struct phytmac_tx_ts {
 	u32	ts_2;
 };
 
+struct phytmac_rx_buffer {
+	dma_addr_t addr;
+	struct page *page;
+	__u16 page_offset;
+	__u16 pagecnt_bias;
+};
+
 struct phytmac_queue {
 	struct phytmac				*pdata;
 	int					irq;
@@ -328,8 +335,9 @@ struct phytmac_queue {
 	dma_addr_t				rx_ring_addr;
 	unsigned int				rx_head;
 	unsigned int				rx_tail;
+	unsigned int				rx_next_to_alloc;
 	struct phytmac_dma_desc			*rx_ring;
-	struct sk_buff				**rx_skb;
+	struct phytmac_rx_buffer		*rx_buffer_info;
 	struct napi_struct			rx_napi;
 	struct phytmac_queue_stats		stats;
 
@@ -503,7 +511,6 @@ struct phytmac_hw_if {
 	int (*tx_complete)(const struct phytmac_dma_desc *desc);
 	int (*rx_complete)(const struct phytmac_dma_desc *desc);
 	int (*get_rx_pkt_len)(struct phytmac *pdata, const struct phytmac_dma_desc *desc);
-	dma_addr_t (*get_desc_addr)(const struct phytmac_dma_desc *desc);
 	bool (*rx_checksum)(const struct phytmac_dma_desc *desc);
 	void (*set_desc_rxused)(struct phytmac_dma_desc *desc);
 	bool (*rx_single_buffer)(const struct phytmac_dma_desc *desc);
@@ -571,6 +578,19 @@ struct phytmac_hw_if {
 #define PHYTMAC_READ_STAT(pdata)	PHYTMAC_MHU_READ(pdata, PHYTMAC_MHU_AP_CPP_STAT)
 #define PHYTMAC_READ_DATA0(pdata)	PHYTMAC_MHU_READ(pdata, PHYTMAC_MHU_CPP_DATA0)
 #define PHYTMAC_TIMEOUT	1000000000 /* in usecs */
+
+#define PHYTMAC_GFP_FLAGS \
+	(GFP_ATOMIC | __GFP_NOWARN | GFP_DMA | __GFP_DMA32)
+#define PHYTMAC_RX_DMA_ATTR \
+	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
+#define PHYTMAC_SKB_PAD		(NET_SKB_PAD)
+
+#define PHYTMAC_RXBUFFER_2048	2048
+#define PHYTMAC_MAX_FRAME_BUILD_SKB \
+	(SKB_WITH_OVERHEAD(PHYTMAC_RXBUFFER_2048) - PHYTMAC_SKB_PAD)
+
+#define PHYTMAC_RX_PAGE_ORDER	0
+#define PHYTMAC_RX_PAGE_SIZE	(PAGE_SIZE << PHYTMAC_RX_PAGE_ORDER)
 
 struct phytmac_tx_skb *phytmac_get_tx_skb(struct phytmac_queue *queue,
 					  unsigned int index);
