@@ -1843,7 +1843,7 @@ static int phytmac_close(struct net_device *ndev)
 static int phytmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
 	struct phytmac *pdata = netdev_priv(dev);
-	int ret;
+	int ret = -EOPNOTSUPP;
 
 	if (!netif_running(dev))
 		return -EINVAL;
