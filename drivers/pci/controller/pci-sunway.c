@@ -635,36 +635,6 @@ int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 }
 
 #ifdef CONFIG_ACPI
-static void setup_intx_irqs(struct pci_controller *hose)
-{
-	unsigned long int_conf, node, val_node;
-	unsigned long index, irq;
-	int rcid;
-
-	node = hose->node;
-	index = hose->index;
-
-	if (!node_online(node))
-		val_node = next_node_in(node, node_online_map);
-	else
-		val_node = node;
-	irq = irq_alloc_descs_from(NR_IRQS_LEGACY, 2, val_node);
-	WARN_ON(irq < 0);
-	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_level_irq);
-	irq_set_status_flags(irq, IRQ_LEVEL);
-	hose->int_irq = irq;
-	irq_set_chip_and_handler(irq + 1, &dummy_irq_chip, handle_level_irq);
-	hose->service_irq = irq + 1;
-	rcid = cpu_to_rcid(0);
-
-	pr_info_once("INTx are directed to node %d core %d.\n",
-			((rcid >> 6) & 0x3), (rcid & 0x1f));
-	int_conf = 1UL << 62 | rcid; /* rebase all intx on the first logical cpu */
-
-	set_intx(node, index, int_conf);
-
-	set_pcieport_service_irq(node, index);
-}
 
 enum pci_props {
 	PROP_RC_CONFIG_BASE = 0,

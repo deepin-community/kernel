@@ -82,6 +82,7 @@ struct pci_controller {
 
 extern void __init sw64_init_pci(void);
 extern void __init sw64_device_interrupt(unsigned long vector);
+extern void setup_intx_irqs(struct pci_controller *hose);
 extern void __init sw64_init_irq(void);
 extern void __init sw64_init_arch(void);
 extern struct pci_ops sw64_pci_ops;
@@ -161,6 +162,10 @@ extern int pci_create_resource_files(struct pci_dev *dev);
 extern void pci_remove_resource_files(struct pci_dev *dev);
 extern void __init reserve_mem_for_pci(void);
 extern int chip_pcie_configure(struct pci_controller *hose);
+
+#define PCI_INTX_ENABLE			((1UL) << 62)
+#define PCI_INTX_DISABLE		~((1UL) << 62)
+#define PCI_INTX_VALID			(1UL << 63)
 
 #define PCI_VENDOR_ID_JN		0x5656
 #define PCI_DEVICE_ID_SW64_ROOT_BRIDGE	0x3231
