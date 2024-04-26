@@ -489,6 +489,15 @@ static int phytmac_set_wake(struct phytmac *pdata, int wake)
 		value |= PHYTMAC_BIT(MCAST);
 
 	PHYTMAC_WRITE(pdata, PHYTMAC_WOL, value);
+	if (wake) {
+		PHYTMAC_WRITE(pdata, PHYTMAC_IE, PHYTMAC_BIT(WOL_RECEIVE_ENABLE));
+		value = PHYTMAC_READ(pdata, PHYTMAC_NCONFIG) | PHYTMAC_BIT(IGNORE_RX_FCS);
+		PHYTMAC_WRITE(pdata, PHYTMAC_NCONFIG, value);
+	} else {
+		PHYTMAC_WRITE(pdata, PHYTMAC_ID, PHYTMAC_BIT(WOL_RECEIVE_DISABLE));
+		value = PHYTMAC_READ(pdata, PHYTMAC_NCONFIG) & ~PHYTMAC_BIT(IGNORE_RX_FCS);
+		PHYTMAC_WRITE(pdata, PHYTMAC_NCONFIG, value);
+	}
 
 	return 0;
 }
