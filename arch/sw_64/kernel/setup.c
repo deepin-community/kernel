@@ -401,13 +401,6 @@ subsys_initcall(request_standard_resources);
 extern void cpu_set_node(void);
 #endif
 
-int page_is_ram(unsigned long pfn)
-{
-	pfn <<= PAGE_SHIFT;
-
-	return pfn >= mem_desc.base && pfn < (mem_desc.base + mem_desc.size);
-}
-
 static int __init topology_init(void)
 {
 	int i, ret;
