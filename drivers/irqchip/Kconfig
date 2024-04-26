@@ -37,6 +37,11 @@ config SW64_IRQ_CPU
 	depends on SW64
 	default y
 
+config SW64_PCI_INTX
+	bool
+	depends on SW64 && PCI
+	default y
+
 config SW64_IRQ_MSI
 	bool
 	depends on SW64 && PCI_MSI

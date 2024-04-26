@@ -29,6 +29,7 @@ obj-$(CONFIG_ARCH_SPEAR3XX)		+= spear-shirq.o
 obj-$(CONFIG_ARM_GIC)			+= irq-gic.o irq-gic-common.o
 obj-$(CONFIG_SW64_PINTC)     		+= irq-sunway-pintc.o
 obj-$(CONFIG_SW64_LPC_INTC)		+= irq-sunway-lpc-intc.o
+obj-$(CONFIG_SW64_PCI_INTX)		+= irq-sunway-pci-intx.o
 obj-$(CONFIG_SW64_IRQ_CPU)		+= irq-sunway-cpu.o
 
 ifeq ($(CONFIG_UNCORE_XUELANG),y)
