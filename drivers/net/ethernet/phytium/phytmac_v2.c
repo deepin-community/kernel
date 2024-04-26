@@ -842,6 +842,7 @@ static int phytmac_pcs_linkdown(struct phytmac *pdata)
 static unsigned int phytmac_pcs_get_link(struct phytmac *pdata, phy_interface_t interface)
 {
 	if (interface == PHY_INTERFACE_MODE_SGMII ||
+	    interface == PHY_INTERFACE_MODE_1000BASEX ||
 	    interface == PHY_INTERFACE_MODE_2500BASEX)
 		return PHYTMAC_READ_BITS(pdata, PHYTMAC_NETWORK_STATUS, LINK);
 	else if (interface == PHY_INTERFACE_MODE_USXGMII ||
