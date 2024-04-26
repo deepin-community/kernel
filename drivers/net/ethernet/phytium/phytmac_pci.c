@@ -316,3 +316,4 @@ module_pci_driver(phytmac_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Phytium NIC PCI wrapper");
+MODULE_VERSION(PHYTMAC_DRIVER_VERSION);
