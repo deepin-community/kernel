@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 
 obj-$(CONFIG_RTW89_CORE) += rtw89_core.o
+rtw89_core-y += drv_ver.o
 rtw89_core-y += core.o \
 		mac80211.o \
 		mac.o \
@@ -68,4 +69,3 @@ rtw89_core-$(CONFIG_RTW89_DEBUG) += debug.o
 
 obj-$(CONFIG_RTW89_PCI) += rtw89_pci.o
 rtw89_pci-y := pci.o pci_be.o
-

@@ -2108,6 +2108,7 @@ static int rtw89_mac_set_csi_para_reg_be(struct rtw89_dev *rtwdev,
 	if (ret)
 		return ret;
 
+#define sta BP_STA(sta)
 	phy_cap = sta->deflink.he_cap.he_cap_elem.phy_cap_info;
 
 	if ((phy_cap[3] & IEEE80211_HE_PHY_CAP3_SU_BEAMFORMER) ||
@@ -2127,6 +2128,7 @@ static int rtw89_mac_set_csi_para_reg_be(struct rtw89_dev *rtwdev,
 				 IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_MASK);
 		sound_dim = min(sound_dim, t);
 	}
+#undef sta
 
 	nc = min(nc, sound_dim);
 	nr = min(nr, sound_dim);
@@ -2168,6 +2170,7 @@ static int rtw89_mac_csi_rrsc_be(struct rtw89_dev *rtwdev,
 	if (ret)
 		return ret;
 
+#define sta BP_STA(sta)
 	if (sta->deflink.he_cap.has_he) {
 		rrsc |= (BIT(RTW89_MAC_BF_RRSC_HE_MSC0) |
 			 BIT(RTW89_MAC_BF_RRSC_HE_MSC3) |
@@ -2183,6 +2186,7 @@ static int rtw89_mac_csi_rrsc_be(struct rtw89_dev *rtwdev,
 			 BIT(RTW89_MAC_BF_RRSC_HT_MSC3) |
 			 BIT(RTW89_MAC_BF_RRSC_HT_MSC5));
 	}
+#undef sta
 
 	reg = rtw89_mac_reg_by_idx(rtwdev, R_BE_TRXPTCL_RESP_CSI_CTRL_0, mac_idx);
 	rtw89_write32_set(rtwdev, reg, B_BE_BFMEE_BFPARAM_SEL);

@@ -3339,8 +3339,8 @@ int rtw89_core_sta_add(struct rtw89_dev *rtwdev,
 	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls) {
 		/* for station mode, assign the mac_id from itself */
 		rtwsta->mac_id = rtwvif->mac_id;
-		/* must do rtw89_reg_6ghz_power_recalc() before rfk channel */
-		rtw89_reg_6ghz_power_recalc(rtwdev, rtwvif, true);
+		/* must do rtw89_reg_6ghz_recalc() before rfk channel */
+		rtw89_reg_6ghz_recalc(rtwdev, rtwvif, true);
 		rtw89_btc_ntfy_role_info(rtwdev, rtwvif, rtwsta,
 					 BTC_ROLE_MSTS_STA_CONN_START);
 		rtw89_chip_rfk_channel(rtwdev);
@@ -3529,7 +3529,7 @@ int rtw89_core_sta_remove(struct rtw89_dev *rtwdev,
 	int ret;
 
 	if (vif->type == NL80211_IFTYPE_STATION && !sta->tdls) {
-		rtw89_reg_6ghz_power_recalc(rtwdev, rtwvif, false);
+		rtw89_reg_6ghz_recalc(rtwdev, rtwvif, false);
 		rtw89_btc_ntfy_role_info(rtwdev, rtwvif, rtwsta,
 					 BTC_ROLE_MSTS_STA_DIS_CONN);
 	} else if (vif->type == NL80211_IFTYPE_AP || sta->tdls) {
@@ -3971,6 +3971,37 @@ err:
 	kfree(sband_5ghz);
 	kfree(sband_6ghz);
 	return -ENOMEM;
+}
+
+void rtw89_core_custom_he_cap(struct rtw89_dev *rtwdev, enum nl80211_band band)
+{
+	/* In Wi-Fi CERTIFIED 6, the AX210 sniffer does not support
+	 * receiving 1x HE-LTF and 0.8us frames, so we should disable
+	 * this feature during certification.
+	 */
+	const struct ieee80211_sband_iftype_data *old;
+	struct ieee80211_sband_iftype_data *new;
+	struct ieee80211_hw *hw = rtwdev->hw;
+	struct ieee80211_sta_he_cap *he_cap;
+	u8 *phy_cap_info;
+	u16 i, n;
+
+	old = hw->wiphy->bands[band]->iftype_data;
+	n = hw->wiphy->bands[band]->n_iftype_data;
+
+	new = kmemdup(old, sizeof(*old), GFP_KERNEL);
+	if (!new)
+		return;
+
+	for (i = 0; i < n; i++) {
+		he_cap = &new[i].he_cap;
+		phy_cap_info = he_cap->he_cap_elem.phy_cap_info;
+		phy_cap_info[1] &= ~IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US;
+	}
+
+	hw->wiphy->bands[band]->iftype_data = new;
+
+	kfree(old);
 }
 
 static void rtw89_core_clr_supported_band(struct rtw89_dev *rtwdev)
@@ -4693,9 +4724,10 @@ struct rtw89_dev *rtw89_alloc_ieee80211_hw(struct device *device,
 		     !RTW89_CHK_FW_FEATURE(BEACON_FILTER, &early_fw);
 
 	if (no_chanctx) {
-		ops->add_chanctx = NULL;
-		ops->remove_chanctx = NULL;
-		ops->change_chanctx = NULL;
+		ops->add_chanctx = ieee80211_emulate_add_chanctx;
+		ops->remove_chanctx = ieee80211_emulate_remove_chanctx;
+		ops->change_chanctx = ieee80211_emulate_change_chanctx;
+		ops->switch_vif_chanctx = ieee80211_emulate_switch_vif_chanctx;
 		ops->assign_vif_chanctx = NULL;
 		ops->unassign_vif_chanctx = NULL;
 		ops->remain_on_channel = NULL;

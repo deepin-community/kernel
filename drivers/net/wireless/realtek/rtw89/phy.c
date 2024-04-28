@@ -119,9 +119,11 @@ static u64 get_eht_mcs_ra_mask(u8 *max_nss, u8 start_mcs, u8 n_nss)
 
 static u64 get_eht_ra_mask(struct ieee80211_sta *sta)
 {
+#define sta BP_STA(sta)
 	struct ieee80211_sta_eht_cap *eht_cap = &sta->deflink.eht_cap;
 	struct ieee80211_eht_mcs_nss_supp_20mhz_only *mcs_nss_20mhz;
 	struct ieee80211_eht_mcs_nss_supp_bw *mcs_nss;
+	u8 *he_phy_cap = sta->deflink.he_cap.he_cap_elem.phy_cap_info;
 
 	switch (sta->deflink.bandwidth) {
 	case IEEE80211_STA_RX_BW_320:
@@ -132,16 +134,21 @@ static u64 get_eht_ra_mask(struct ieee80211_sta *sta)
 		mcs_nss = &eht_cap->eht_mcs_nss_supp.bw._160;
 		/* MCS 9, 11, 13 */
 		return get_eht_mcs_ra_mask(mcs_nss->rx_tx_max_nss, 9, 3);
+	case IEEE80211_STA_RX_BW_20:
+		if (!(he_phy_cap[0] &
+		      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_MASK_ALL)) {
+			mcs_nss_20mhz = &eht_cap->eht_mcs_nss_supp.only_20mhz;
+			/* MCS 7, 9, 11, 13 */
+			return get_eht_mcs_ra_mask(mcs_nss_20mhz->rx_tx_max_nss, 7, 4);
+		}
+		fallthrough;
 	case IEEE80211_STA_RX_BW_80:
 	default:
 		mcs_nss = &eht_cap->eht_mcs_nss_supp.bw._80;
 		/* MCS 9, 11, 13 */
 		return get_eht_mcs_ra_mask(mcs_nss->rx_tx_max_nss, 9, 3);
-	case IEEE80211_STA_RX_BW_20:
-		mcs_nss_20mhz = &eht_cap->eht_mcs_nss_supp.only_20mhz;
-		/* MCS 7, 9, 11, 13 */
-		return get_eht_mcs_ra_mask(mcs_nss_20mhz->rx_tx_max_nss, 7, 4);
 	}
+#undef sta
 }
 
 #define RA_FLOOR_TABLE_SIZE	7
@@ -315,9 +322,11 @@ static void rtw89_phy_ra_sta_update(struct rtw89_dev *rtwdev,
 	memset(ra, 0, sizeof(*ra));
 	/* Set the ra mask from sta's capability */
 	if (sta->deflink.eht_cap.has_eht) {
+#undef sta
 		mode |= RTW89_RA_MODE_EHT;
 		ra_mask |= get_eht_ra_mask(sta);
 		high_rate_masks = rtw89_ra_mask_eht_rates;
+#define sta BP_STA(sta)
 	} else if (sta->deflink.he_cap.has_he) {
 		mode |= RTW89_RA_MODE_HE;
 		csi_mode = RTW89_RA_RPT_MODE_HE;
@@ -1842,6 +1851,13 @@ static s8 rtw89_phy_txpwr_rf_to_mac(struct rtw89_dev *rtwdev, s8 txpwr_rf)
 	return txpwr_rf >> (chip->txpwr_factor_rf - chip->txpwr_factor_mac);
 }
 
+static s8 rtw89_phy_txpwr_dbm_to_mac(struct rtw89_dev *rtwdev, s8 dbm)
+{
+	const struct rtw89_chip_info *chip = rtwdev->chip;
+
+	return clamp_t(s16, dbm << chip->txpwr_factor_mac, -64, 63);
+}
+
 s8 rtw89_phy_read_txpwr_byrate(struct rtw89_dev *rtwdev, u8 band, u8 bw,
 			       const struct rtw89_rate_desc *rate_desc)
 {
@@ -1910,12 +1926,14 @@ s8 rtw89_phy_read_txpwr_limit(struct rtw89_dev *rtwdev, u8 band,
 	const struct rtw89_txpwr_rule_5ghz *rule_5ghz = &rfe_parms->rule_5ghz;
 	const struct rtw89_txpwr_rule_6ghz *rule_6ghz = &rfe_parms->rule_6ghz;
 	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
+	const struct rtw89_reg_6ghz_tpe *tpe6 = &regulatory->reg_6ghz_tpe;
 	enum nl80211_band nl_band = rtw89_hw_to_nl80211_band(band);
 	u32 freq = ieee80211_channel_to_frequency(ch, nl_band);
 	u8 ch_idx = rtw89_channel_to_idx(rtwdev, band, ch);
 	u8 regd = rtw89_regd_get(rtwdev, band);
 	u8 reg6 = regulatory->reg_6ghz_power;
 	s8 lmt = 0, sar;
+	s8 cstr;
 
 	switch (band) {
 	case RTW89_BAND_2G:
@@ -1947,6 +1965,12 @@ s8 rtw89_phy_read_txpwr_limit(struct rtw89_dev *rtwdev, u8 band,
 	}
 
 	lmt = rtw89_phy_txpwr_rf_to_mac(rtwdev, lmt);
+
+	if (band == RTW89_BAND_6G && tpe6->valid) {
+		cstr = rtw89_phy_txpwr_dbm_to_mac(rtwdev, tpe6->constraint);
+		lmt = min(lmt, cstr);
+	}
+
 	sar = rtw89_query_sar(rtwdev, freq);
 
 	return min(lmt, sar);
@@ -2167,12 +2191,14 @@ s8 rtw89_phy_read_txpwr_limit_ru(struct rtw89_dev *rtwdev, u8 band,
 	const struct rtw89_txpwr_rule_5ghz *rule_5ghz = &rfe_parms->rule_5ghz;
 	const struct rtw89_txpwr_rule_6ghz *rule_6ghz = &rfe_parms->rule_6ghz;
 	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
+	const struct rtw89_reg_6ghz_tpe *tpe6 = &regulatory->reg_6ghz_tpe;
 	enum nl80211_band nl_band = rtw89_hw_to_nl80211_band(band);
 	u32 freq = ieee80211_channel_to_frequency(ch, nl_band);
 	u8 ch_idx = rtw89_channel_to_idx(rtwdev, band, ch);
 	u8 regd = rtw89_regd_get(rtwdev, band);
 	u8 reg6 = regulatory->reg_6ghz_power;
 	s8 lmt_ru = 0, sar;
+	s8 cstr;
 
 	switch (band) {
 	case RTW89_BAND_2G:
@@ -2204,6 +2230,12 @@ s8 rtw89_phy_read_txpwr_limit_ru(struct rtw89_dev *rtwdev, u8 band,
 	}
 
 	lmt_ru = rtw89_phy_txpwr_rf_to_mac(rtwdev, lmt_ru);
+
+	if (band == RTW89_BAND_6G && tpe6->valid) {
+		cstr = rtw89_phy_txpwr_dbm_to_mac(rtwdev, tpe6->constraint);
+		lmt_ru = min(lmt_ru, cstr);
+	}
+
 	sar = rtw89_query_sar(rtwdev, freq);
 
 	return min(lmt_ru, sar);

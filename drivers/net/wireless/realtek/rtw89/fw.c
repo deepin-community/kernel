@@ -2635,7 +2635,9 @@ int rtw89_fw_h2c_assoc_cmac_tbl(struct rtw89_dev *rtwdev,
 	int ret;
 
 	memset(pads, 0, sizeof(pads));
+#define sta BP_STA(sta)
 	if (sta && sta->deflink.he_cap.has_he)
+#undef sta
 		__get_sta_he_pkt_padding(rtwdev, sta, pads);
 
 	if (vif->p2p)
@@ -2702,6 +2704,7 @@ EXPORT_SYMBOL(rtw89_fw_h2c_assoc_cmac_tbl);
 static void __get_sta_eht_pkt_padding(struct rtw89_dev *rtwdev,
 				      struct ieee80211_sta *sta, u8 *pads)
 {
+#define sta BP_STA(sta)
 	u8 nss = min(sta->deflink.rx_nss, rtwdev->hal.tx_nss) - 1;
 	u16 ppe_thres_hdr;
 	u8 ppe16, ppe8;
@@ -2754,6 +2757,7 @@ static void __get_sta_eht_pkt_padding(struct rtw89_dev *rtwdev,
 		else
 			pads[i] = 0;
 	}
+#undef sta
 }
 
 int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
@@ -2775,7 +2779,9 @@ int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
 	if (sta) {
 		if (sta->deflink.eht_cap.has_eht)
 			__get_sta_eht_pkt_padding(rtwdev, sta, pads);
+#define sta BP_STA(sta)
 		else if (sta->deflink.he_cap.has_he)
+#undef sta
 			__get_sta_he_pkt_padding(rtwdev, sta, pads);
 	}
 
@@ -2820,7 +2826,9 @@ int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
 	}
 
 	if (vif->bss_conf.eht_support) {
-		h2c->w4 |= le32_encode_bits(~vif->bss_conf.eht_puncturing,
+		u16 punct = vif->bss_conf.eht_puncturing;
+
+		h2c->w4 |= le32_encode_bits(~punct,
 					    CCTLINFO_G7_W4_ACT_SUBCH_CBW);
 		h2c->m4 |= cpu_to_le32(CCTLINFO_G7_W4_ACT_SUBCH_CBW);
 	}
@@ -2845,11 +2853,13 @@ int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
 				   CCTLINFO_G7_W6_ULDL);
 	h2c->m6 = cpu_to_le32(CCTLINFO_G7_W6_ULDL);
 
+#define sta BP_STA(sta)
 	if (sta) {
 		h2c->w8 = le32_encode_bits(sta->deflink.he_cap.has_he,
 					   CCTLINFO_G7_W8_BSR_QUEUE_SIZE_FORMAT);
 		h2c->m8 = cpu_to_le32(CCTLINFO_G7_W8_BSR_QUEUE_SIZE_FORMAT);
 	}
+#undef sta
 
 	rtw89_h2c_pkt_set_hdr(rtwdev, skb, FWCMD_TYPE_H2C,
 			      H2C_CAT_MAC, H2C_CL_MAC_FR_EXCHG,
@@ -3241,7 +3251,9 @@ rtw89_fw_get_sta_type(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif,
 
 	if (sta->deflink.eht_cap.has_eht)
 		return RTW89_FW_BE_STA;
+#define sta BP_STA(sta)
 	else if (sta->deflink.he_cap.has_he)
+#undef sta
 		return RTW89_FW_AX_STA;
 	else
 		return RTW89_FW_N_AC_STA;
@@ -3249,7 +3261,9 @@ rtw89_fw_get_sta_type(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif,
 by_vif:
 	if (vif->bss_conf.eht_support)
 		return RTW89_FW_BE_STA;
+#define sta BP_STA(sta)
 	else if (vif->bss_conf.he_support)
+#undef sta
 		return RTW89_FW_AX_STA;
 	else
 		return RTW89_FW_N_AC_STA;

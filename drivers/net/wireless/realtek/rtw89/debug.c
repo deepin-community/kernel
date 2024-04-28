@@ -818,6 +818,28 @@ static const struct dbgfs_txpwr_table *dbgfs_txpwr_tables[RTW89_CHIP_GEN_NUM] = 
 	[RTW89_CHIP_BE] = &dbgfs_txpwr_table_be,
 };
 
+static
+void rtw89_debug_priv_txpwr_table_get_regd(struct seq_file *m,
+					   struct rtw89_dev *rtwdev,
+					   const struct rtw89_chan *chan)
+{
+	const struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
+	const struct rtw89_reg_6ghz_tpe *tpe6 = &regulatory->reg_6ghz_tpe;
+
+	seq_printf(m, "[Chanctx] band %u, ch %u, bw %u\n",
+		   chan->band_type, chan->channel, chan->band_width);
+
+	seq_puts(m, "[Regulatory] ");
+	__print_regd(m, rtwdev, chan);
+
+	if (chan->band_type == RTW89_BAND_6G) {
+		seq_printf(m, "[reg6_pwr_type] %u\n", regulatory->reg_6ghz_power);
+
+		if (tpe6->valid)
+			seq_printf(m, "[TPE] %d dBm\n", tpe6->constraint);
+	}
+}
+
 static int rtw89_debug_priv_txpwr_table_get(struct seq_file *m, void *v)
 {
 	struct rtw89_debugfs_priv *debugfs_priv = m->private;
@@ -831,8 +853,7 @@ static int rtw89_debug_priv_txpwr_table_get(struct seq_file *m, void *v)
 	rtw89_leave_ps_mode(rtwdev);
 	chan = rtw89_chan_get(rtwdev, RTW89_SUB_ENTITY_0);
 
-	seq_puts(m, "[Regulatory] ");
-	__print_regd(m, rtwdev, chan);
+	rtw89_debug_priv_txpwr_table_get_regd(m, rtwdev, chan);
 
 	seq_puts(m, "[SAR]\n");
 	rtw89_print_sar(m, rtwdev, chan->freq);
@@ -3009,7 +3030,6 @@ static bool is_dbg_port_valid(struct rtw89_dev *rtwdev, u32 sel)
 	    sel <= RTW89_DBG_PORT_SEL_DSPT_FLOW_CTRL)
 		return false;
 	if (rtw89_mac_check_mac_en(rtwdev, 0, RTW89_CMAC_SEL) &&
-	    sel >= RTW89_DBG_PORT_SEL_PTCL_C0 &&
 	    sel <= RTW89_DBG_PORT_SEL_TXTF_INFOH_C0)
 		return false;
 	if (rtw89_mac_check_mac_en(rtwdev, 1, RTW89_CMAC_SEL) &&
@@ -3826,6 +3846,45 @@ rtw89_debug_priv_disable_dm_set(struct file *filp, const char __user *user_buf,
 	return count;
 }
 
+static ssize_t rtw89_debug_wifi_test_config_set(struct file *filp,
+						const char __user *user_buf,
+						size_t count, loff_t *loff)
+{
+	struct rtw89_debugfs_priv *debugfs_priv = filp->private_data;
+	struct rtw89_dev *rtwdev = debugfs_priv->rtwdev;
+	struct ieee80211_hw *hw = rtwdev->hw;
+	size_t buf_size;
+	char buf[32];
+
+	buf_size = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, buf_size))
+		return -EFAULT;
+
+	buf[buf_size] = '\0';
+
+	if (strncmp("addba_req_buf", buf, 13) == 0) {
+		/* Test items 5.71 in Wi-Fi CERTIFIED 6, it only
+		 * allows ADDBA request buffer <= 64
+		 */
+		hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_HT;
+	} else if (strncmp("custom_he_cap", buf, 13) == 0) {
+		u8 support_bands = rtwdev->chip->support_bands;
+
+		if (support_bands & BIT(NL80211_BAND_2GHZ))
+			rtw89_core_custom_he_cap(rtwdev, NL80211_BAND_2GHZ);
+		if (support_bands & BIT(NL80211_BAND_5GHZ))
+			rtw89_core_custom_he_cap(rtwdev, NL80211_BAND_5GHZ);
+		if (support_bands & BIT(NL80211_BAND_6GHZ))
+			rtw89_core_custom_he_cap(rtwdev, NL80211_BAND_6GHZ);
+	} else if (strncmp("force_he_tb", buf, 11) == 0) {
+		set_bit(RTW89_TEST_CONFIG_FORCE_HE_TB, rtwdev->test_config);
+	} else {
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static struct rtw89_debugfs_priv rtw89_debug_priv_read_reg = {
 	.cb_read = rtw89_debug_priv_read_reg_get,
 	.cb_write = rtw89_debug_priv_read_reg_select,
@@ -3906,6 +3965,10 @@ static struct rtw89_debugfs_priv rtw89_debug_priv_disable_dm = {
 	.cb_write = rtw89_debug_priv_disable_dm_set,
 };
 
+static struct rtw89_debugfs_priv rtw89_debug_priv_wifi_test_config = {
+	.cb_write = rtw89_debug_wifi_test_config_set,
+};
+
 #define rtw89_debugfs_add(name, mode, fopname, parent)				\
 	do {									\
 		rtw89_debug_priv_ ##name.rtwdev = rtwdev;			\
@@ -3947,6 +4010,7 @@ void rtw89_debugfs_init(struct rtw89_dev *rtwdev)
 	rtw89_debugfs_add_r(phy_info);
 	rtw89_debugfs_add_r(stations);
 	rtw89_debugfs_add_rw(disable_dm);
+	rtw89_debugfs_add_w(wifi_test_config);
 }
 #endif
 

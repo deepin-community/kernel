@@ -434,6 +434,7 @@ static void rtw89_ops_bss_info_changed(struct ieee80211_hw *hw,
 			rtw89_chip_cfg_txpwr_ul_tb_offset(rtwdev, vif);
 			rtw89_mac_port_update(rtwdev, rtwvif);
 			rtw89_mac_set_he_obss_narrow_bw_ru(rtwdev, vif);
+			rtw89_mac_set_he_tb(rtwdev, vif);
 
 			rtw89_queue_chanctx_work(rtwdev);
 		} else {
@@ -482,15 +483,8 @@ static int rtw89_ops_start_ap(struct ieee80211_hw *hw,
 {
 	struct rtw89_dev *rtwdev = hw->priv;
 	struct rtw89_vif *rtwvif = (struct rtw89_vif *)vif->drv_priv;
-	const struct rtw89_chan *chan;
 
 	mutex_lock(&rtwdev->mutex);
-
-	chan = rtw89_chan_get(rtwdev, rtwvif->sub_entity_idx);
-	if (chan->band_type == RTW89_BAND_6G) {
-		mutex_unlock(&rtwdev->mutex);
-		return -EOPNOTSUPP;
-	}
 
 	if (rtwdev->scanning)
 		rtw89_hw_scan_abort(rtwdev, rtwdev->scan_info.scanning_vif);
@@ -502,6 +496,8 @@ static int rtw89_ops_start_ap(struct ieee80211_hw *hw,
 	rtw89_fw_h2c_role_maintain(rtwdev, rtwvif, NULL, RTW89_ROLE_TYPE_CHANGE);
 	rtw89_fw_h2c_join_info(rtwdev, rtwvif, NULL, true);
 	rtw89_fw_h2c_cam(rtwdev, rtwvif, NULL, NULL);
+	/* must do rtw89_reg_6ghz_recalc() before rfk channel */
+	rtw89_reg_6ghz_recalc(rtwdev, rtwvif, true);
 	rtw89_chip_rfk_channel(rtwdev);
 
 	rtw89_queue_chanctx_work(rtwdev);
@@ -521,6 +517,7 @@ void rtw89_ops_stop_ap(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	rtw89_mac_stop_ap(rtwdev, rtwvif);
 	rtw89_chip_h2c_assoc_cmac_tbl(rtwdev, vif, NULL);
 	rtw89_fw_h2c_join_info(rtwdev, rtwvif, NULL, true);
+	rtw89_reg_6ghz_recalc(rtwdev, rtwvif, false);
 	mutex_unlock(&rtwdev->mutex);
 }
 
