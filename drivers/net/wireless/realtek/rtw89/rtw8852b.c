@@ -2669,6 +2669,9 @@ const struct rtw89_chip_info rtw8852b_chip_info = {
 	.rrsr_cfgs		= &rtw8852b_rrsr_cfgs,
 	.bss_clr_vld		= {R_BSS_CLR_MAP_V1, B_BSS_CLR_MAP_VLD0},
 	.bss_clr_map_reg	= R_BSS_CLR_MAP_V1,
+	.rfkill_init		= {R_AX_GPIO_EXT_CTRL + 2,
+				   (B_AX_GPIO_MOD_9 | B_AX_GPIO_IO_SEL_9) >> 16, 0x0},
+	.rfkill_get		= {R_AX_GPIO_EXT_CTRL, B_AX_GPIO_IN_9},
 	.dma_ch_mask		= BIT(RTW89_DMA_ACH4) | BIT(RTW89_DMA_ACH5) |
 				  BIT(RTW89_DMA_ACH6) | BIT(RTW89_DMA_ACH7) |
 				  BIT(RTW89_DMA_B1MG) | BIT(RTW89_DMA_B1HI),
