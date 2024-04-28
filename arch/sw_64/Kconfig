@@ -514,6 +514,7 @@ menu "Boot options"
 config BUILTIN_DTB
 	bool "Embed DTB in kernel image"
 	depends on OF
+	depends on SUBARCH_C3B
 	default n
 	help
 	  Embeds a device tree binary in the kernel image.
