@@ -714,7 +714,179 @@ exit:
 	mutex_unlock(&rtwdev->mutex);
 }
 
-static void __rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev)
+/* refer to Maximum Transmit Power Interpretation, the values in field
+ * of Maximum Transmit Power can be EIRP or PSD; besides, they are twice.
+ */
+static s8 tpe_ie_read_transmit_power(const struct ieee80211_tx_pwr_env *ie,
+				     unsigned int index)
+{
+	const u8 antenna_gain = 10; /* unit: 0.5 dB */
+	const u8 hw_deviation = 3; /* unit: 0.5 dB */
+	const u8 offset = antenna_gain + hw_deviation;
+
+	return (ie->tx_power[index] - offset) / 2;
+}
+
+static s8 tpe_convert_psd_to_eirp(s8 psd)
+{
+	static const unsigned int mlog20 = 1301;
+
+	return psd + 10 * mlog20 / 1000;
+}
+
+static void tpe_intersect_constraint(struct rtw89_reg_6ghz_tpe *tpe, s8 cstr)
+{
+	if (tpe->valid) {
+		tpe->constraint = min(tpe->constraint, cstr);
+		return;
+	}
+
+	tpe->constraint = cstr;
+	tpe->valid = true;
+}
+
+static
+void tpe_calculate_constraint_from_psd(struct rtw89_reg_6ghz_tpe *tpe,
+				       const struct ieee80211_tx_pwr_env *ie,
+				       u8 count)
+{
+	unsigned int i;
+	s8 psd, pwr;
+	u8 num;
+
+	/* refer to TPE PSD interpretation */
+	if (count == 0)
+		num = 1;
+	else
+		num = BIT(count - 1);
+
+	for (i = 0; i < num; i++) {
+		psd = tpe_ie_read_transmit_power(ie, i);
+		pwr = tpe_convert_psd_to_eirp(psd);
+
+		tpe_intersect_constraint(tpe, pwr);
+	}
+}
+
+static
+void tpe_calculate_constraint_from_eirp(struct rtw89_reg_6ghz_tpe *tpe,
+					const struct ieee80211_tx_pwr_env *ie,
+					u8 count)
+{
+	unsigned int i;
+	s8 pwr;
+	u8 num;
+
+	/* refer to TPE EIRP interpretation */
+	num = count + 1;
+
+	for (i = 0; i < num; i++) {
+		pwr = tpe_ie_read_transmit_power(ie, i);
+
+		tpe_intersect_constraint(tpe, pwr);
+	}
+}
+
+static void rtw89_calculate_tpe(struct rtw89_dev *rtwdev,
+				struct rtw89_reg_6ghz_tpe *tpe,
+				const struct ieee80211_tx_pwr_env *ie)
+{
+	u8 count = u8_get_bits(ie->tx_power_info,
+			       IEEE80211_TX_PWR_ENV_INFO_COUNT);
+	u8 interpret = u8_get_bits(ie->tx_power_info,
+				   IEEE80211_TX_PWR_ENV_INFO_INTERPRET);
+	u8 category = u8_get_bits(ie->tx_power_info,
+				  IEEE80211_TX_PWR_ENV_INFO_CATEGORY);
+
+	/* default TPE category is 0 for global; only handle default for now */
+	if (category != 0)
+		return;
+
+	switch (interpret) {
+	case IEEE80211_TPE_LOCAL_EIRP:
+	case IEEE80211_TPE_REG_CLIENT_EIRP:
+		tpe_calculate_constraint_from_eirp(tpe, ie, count);
+		break;
+	case IEEE80211_TPE_LOCAL_EIRP_PSD:
+	case IEEE80211_TPE_REG_CLIENT_EIRP_PSD:
+		tpe_calculate_constraint_from_psd(tpe, ie, count);
+		break;
+	default:
+		rtw89_debug(rtwdev, RTW89_DBG_REGD,
+			    "unhandled TPE interpret %u\n", interpret);
+		return;
+	}
+}
+
+static bool __rtw89_reg_6ghz_tpe_recalc(struct rtw89_dev *rtwdev)
+{
+	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
+	struct rtw89_reg_6ghz_tpe new = {};
+	struct rtw89_vif *rtwvif;
+	bool changed = false;
+
+	rtw89_for_each_rtwvif(rtwdev, rtwvif) {
+		const struct rtw89_reg_6ghz_tpe *tmp;
+		const struct rtw89_chan *chan;
+
+		chan = rtw89_chan_get(rtwdev, rtwvif->sub_entity_idx);
+		if (chan->band_type != RTW89_BAND_6G)
+			continue;
+
+		tmp = &rtwvif->reg_6ghz_tpe;
+		if (!tmp->valid)
+			continue;
+
+		tpe_intersect_constraint(&new, tmp->constraint);
+	}
+
+	if (memcmp(&regulatory->reg_6ghz_tpe, &new,
+		   sizeof(regulatory->reg_6ghz_tpe)) != 0)
+		changed = true;
+
+	if (changed) {
+		if (new.valid)
+			rtw89_debug(rtwdev, RTW89_DBG_REGD,
+				    "recalc 6 GHz reg TPE to %d dBm\n",
+				    new.constraint);
+		else
+			rtw89_debug(rtwdev, RTW89_DBG_REGD,
+				    "recalc 6 GHz reg TPE to none\n");
+
+		regulatory->reg_6ghz_tpe = new;
+	}
+
+	return changed;
+}
+
+static bool rtw89_reg_6ghz_tpe_recalc(struct rtw89_dev *rtwdev,
+				      struct rtw89_vif *rtwvif, bool active)
+{
+	struct ieee80211_vif *vif = rtwvif_to_vif(rtwvif);
+	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
+	struct rtw89_reg_6ghz_tpe *tpe = &rtwvif->reg_6ghz_tpe;
+	unsigned int i;
+
+	memset(tpe, 0, sizeof(*tpe));
+
+	if (!active)
+		goto bottom;
+
+	for (i = 0; i < bss_conf->tx_pwr_env_num; i++) {
+		struct rtw89_reg_6ghz_tpe tmp = {};
+
+		rtw89_calculate_tpe(rtwdev, &tmp, &bss_conf->tx_pwr_env[i]);
+		if (!tmp.valid)
+			continue;
+
+		tpe_intersect_constraint(tpe, tmp.constraint);
+	}
+
+bottom:
+	return __rtw89_reg_6ghz_tpe_recalc(rtwdev);
+}
+
+static bool __rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev)
 {
 	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
 	const struct rtw89_regd *regd = regulatory->regd;
@@ -751,22 +923,19 @@ static void __rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev)
 	}
 
 	if (regulatory->reg_6ghz_power == sel)
-		return;
+		return false;
 
 	rtw89_debug(rtwdev, RTW89_DBG_REGD,
 		    "recalc 6 GHz reg power type to %d\n", sel);
 
 	regulatory->reg_6ghz_power = sel;
-
-	rtw89_core_set_chip_txpwr(rtwdev);
+	return true;
 }
 
-void rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev,
-				 struct rtw89_vif *rtwvif, bool active)
+static bool rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev,
+					struct rtw89_vif *rtwvif, bool active)
 {
 	struct ieee80211_vif *vif = rtwvif_to_vif(rtwvif);
-
-	lockdep_assert_held(&rtwdev->mutex);
 
 	if (active) {
 		switch (vif->bss_conf.power_type) {
@@ -787,5 +956,25 @@ void rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev,
 		rtwvif->reg_6ghz_power = RTW89_REG_6GHZ_POWER_DFLT;
 	}
 
-	__rtw89_reg_6ghz_power_recalc(rtwdev);
+	return __rtw89_reg_6ghz_power_recalc(rtwdev);
+}
+
+void rtw89_reg_6ghz_recalc(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif,
+			   bool active)
+{
+	bool changed = false;
+
+	lockdep_assert_held(&rtwdev->mutex);
+
+	/* N.B. reg_6ghz_tpe result may depend on reg_6ghz_power type,
+	 * so must do reg_6ghz_tpe_recalc() after reg_6ghz_power_recalc().
+	 */
+
+	if (rtw89_reg_6ghz_power_recalc(rtwdev, rtwvif, active))
+		changed = true;
+	if (rtw89_reg_6ghz_tpe_recalc(rtwdev, rtwvif, active))
+		changed = true;
+
+	if (changed)
+		rtw89_core_set_chip_txpwr(rtwdev);
 }

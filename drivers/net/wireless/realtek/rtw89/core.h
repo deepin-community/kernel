@@ -12,6 +12,59 @@
 #include <linux/iopoll.h>
 #include <linux/workqueue.h>
 #include <net/mac80211.h>
+#include <linux/version.h>
+
+#define ieee80211_emulate_add_chanctx NULL
+#define ieee80211_emulate_remove_chanctx NULL
+#define ieee80211_emulate_change_chanctx NULL
+#define ieee80211_emulate_switch_vif_chanctx NULL
+
+#define WIPHY_FLAG_DISABLE_WEXT 0
+
+/**
+ * napi_is_scheduled - test if NAPI is scheduled
+ * @n: NAPI context
+ *
+ * This check is "best-effort". With no locking implemented,
+ * a NAPI can be scheduled or terminate right after this check
+ * and produce not precise results.
+ *
+ * NAPI_STATE_SCHED is an internal state, napi_is_scheduled
+ * should not be used normally and napi_schedule should be
+ * used instead.
+ *
+ * Use only if the driver really needs to check if a NAPI
+ * is scheduled for example in the context of delayed timer
+ * that can be skipped if a NAPI is already scheduled.
+ *
+ * Return True if NAPI is scheduled, False otherwise.
+ */
+static inline bool napi_is_scheduled(struct napi_struct *n)
+{
+	return test_bit(NAPI_STATE_SCHED, &n->state);
+}
+
+enum {
+	/* value of IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW */
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_20MHZ	= 0,
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_40MHZ	= 1,
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_80MHZ	= 2,
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_160MHZ	= 3,
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_320MHZ_1	= 4,
+		IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_320MHZ_2	= 5,
+};
+
+#define BP_STA(sta) (sta)
+
+#define BP_STA_AGG(sta) (sta)
+
+#ifndef IEEE80211_TRIGGER_ULBW_MASK
+#define IEEE80211_TRIGGER_ULBW_MASK		0xc0000
+#define IEEE80211_TRIGGER_ULBW_20MHZ		0x0
+#define IEEE80211_TRIGGER_ULBW_40MHZ		0x1
+#define IEEE80211_TRIGGER_ULBW_80MHZ		0x2
+#define IEEE80211_TRIGGER_ULBW_160_80P80MHZ	0x3
+#endif
 
 struct rtw89_dev;
 struct rtw89_pci_info;
@@ -743,6 +796,12 @@ enum rtw89_reg_6ghz_power {
 
 	NUM_OF_RTW89_REG_6GHZ_POWER,
 	RTW89_REG_6GHZ_POWER_DFLT = RTW89_REG_6GHZ_POWER_VLP,
+};
+
+/* calculate based on ieee80211 Transmit Power Envelope */
+struct rtw89_reg_6ghz_tpe {
+	bool valid;
+	s8 constraint; /* unit: dBm */
 };
 
 enum rtw89_fw_pkt_ofld_type {
@@ -1954,9 +2013,18 @@ struct rtw89_btc_fbtc_btscan_v2 {
 	struct rtw89_btc_bt_scan_info_v2 para[CXSCAN_MAX];
 } __packed;
 
+struct rtw89_btc_fbtc_btscan_v7 {
+	u8 fver; /* btc_ver::fcxbtscan */
+	u8 type;
+	u8 rsvd0;
+	u8 rsvd1;
+	struct rtw89_btc_bt_scan_info_v2 para[CXSCAN_MAX];
+} __packed;
+
 union rtw89_btc_fbtc_btscan {
 	struct rtw89_btc_fbtc_btscan_v1 v1;
 	struct rtw89_btc_fbtc_btscan_v2 v2;
+	struct rtw89_btc_fbtc_btscan_v7 v7;
 };
 
 struct rtw89_btc_bt_info {
@@ -2679,18 +2747,46 @@ struct rtw89_btc_fbtc_cynullsta_v2 { /* cycle null statistics */
 	__le32 result[2][5]; /* 0:fail, 1:ok, 2:on_time, 3:retry, 4:tx */
 } __packed;
 
+struct rtw89_btc_fbtc_cynullsta_v7 { /* cycle null statistics */
+	u8 fver;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
+
+	__le32 tmax[2];
+	__le32 tavg[2];
+	__le32 result[2][5];
+} __packed;
+
 union rtw89_btc_fbtc_cynullsta_info {
 	struct rtw89_btc_fbtc_cynullsta_v1 v1; /* info from fw */
 	struct rtw89_btc_fbtc_cynullsta_v2 v2;
+	struct rtw89_btc_fbtc_cynullsta_v7 v7;
 };
 
-struct rtw89_btc_fbtc_btver {
+struct rtw89_btc_fbtc_btver_v1 {
 	u8 fver; /* btc_ver::fcxbtver */
 	u8 rsvd;
 	__le16 rsvd2;
 	__le32 coex_ver; /*bit[15:8]->shared, bit[7:0]->non-shared */
 	__le32 fw_ver;
 	__le32 feature;
+} __packed;
+
+struct rtw89_btc_fbtc_btver_v7 {
+	u8 fver;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
+
+	__le32 coex_ver; /*bit[15:8]->shared, bit[7:0]->non-shared */
+	__le32 fw_ver;
+	__le32 feature;
+} __packed;
+
+union rtw89_btc_fbtc_btver {
+	struct rtw89_btc_fbtc_btver_v1 v1;
+	struct rtw89_btc_fbtc_btver_v7 v7;
 } __packed;
 
 struct rtw89_btc_fbtc_btafh {
@@ -2710,6 +2806,18 @@ struct rtw89_btc_fbtc_btafh_v2 {
 	u8 afh_l[4];
 	u8 afh_m[4];
 	u8 afh_h[4];
+	u8 afh_le_a[4];
+	u8 afh_le_b[4];
+} __packed;
+
+struct rtw89_btc_fbtc_btafh_v7 {
+	u8 fver;
+	u8 map_type;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 afh_l[4]; /*bit0:2402, bit1:2403.... bit31:2433 */
+	u8 afh_m[4]; /*bit0:2434, bit1:2435.... bit31:2465 */
+	u8 afh_h[4]; /*bit0:2466, bit1:2467.....bit14:2480 */
 	u8 afh_le_a[4];
 	u8 afh_le_b[4];
 } __packed;
@@ -2938,7 +3046,7 @@ struct rtw89_btc_rpt_fbtc_gpio_dbg {
 
 struct rtw89_btc_rpt_fbtc_btver {
 	struct rtw89_btc_rpt_cmn_info cinfo; /* common info, by driver */
-	struct rtw89_btc_fbtc_btver finfo; /* info from fw */
+	union rtw89_btc_fbtc_btver finfo; /* info from fw */
 };
 
 struct rtw89_btc_rpt_fbtc_btscan {
@@ -3336,6 +3444,7 @@ struct rtw89_vif {
 	bool chanctx_assigned; /* only valid when running with chanctx_ops */
 	enum rtw89_sub_entity_idx sub_entity_idx;
 	enum rtw89_reg_6ghz_power reg_6ghz_power;
+	struct rtw89_reg_6ghz_tpe reg_6ghz_tpe;
 
 	u8 mac_id;
 	u8 port;
@@ -4554,6 +4663,12 @@ enum rtw89_quirks {
 	NUM_OF_RTW89_QUIRKS,
 };
 
+enum rtw89_test_config {
+	RTW89_TEST_CONFIG_FORCE_HE_TB,
+
+	NUM_OF_RTW89_TEST_CONFIG,
+};
+
 enum rtw89_pkt_drop_sel {
 	RTW89_PKT_DROP_SEL_MACID_BE_ONCE,
 	RTW89_PKT_DROP_SEL_MACID_BK_ONCE,
@@ -4877,6 +4992,7 @@ struct rtw89_regd {
 struct rtw89_regulatory_info {
 	const struct rtw89_regd *regd;
 	enum rtw89_reg_6ghz_power reg_6ghz_power;
+	struct rtw89_reg_6ghz_tpe reg_6ghz_tpe;
 	DECLARE_BITMAP(block_unii4, RTW89_REGD_MAX_COUNTRY_NUM);
 	DECLARE_BITMAP(block_6ghz, RTW89_REGD_MAX_COUNTRY_NUM);
 	DECLARE_BITMAP(block_6ghz_sp, RTW89_REGD_MAX_COUNTRY_NUM);
@@ -5319,6 +5435,7 @@ struct rtw89_dev {
 	DECLARE_BITMAP(flags, NUM_OF_RTW89_FLAGS);
 	DECLARE_BITMAP(pkt_offload, RTW89_MAX_PKT_OFLD_NUM);
 	DECLARE_BITMAP(quirks, NUM_OF_RTW89_QUIRKS);
+	DECLARE_BITMAP(test_config, NUM_OF_RTW89_TEST_CONFIG);
 
 	struct rtw89_phy_stat phystat;
 	struct rtw89_rfk_wait_info rfk_wait;
@@ -6365,6 +6482,7 @@ void rtw89_core_set_tid_config(struct rtw89_dev *rtwdev,
 			       struct ieee80211_sta *sta,
 			       struct cfg80211_tid_config *tid_config);
 void rtw89_core_rfkill_poll(struct rtw89_dev *rtwdev, bool force);
+void rtw89_core_custom_he_cap(struct rtw89_dev *rtwdev, enum nl80211_band band);
 void rtw89_check_quirks(struct rtw89_dev *rtwdev, const struct dmi_system_id *quirks);
 int rtw89_core_init(struct rtw89_dev *rtwdev);
 void rtw89_core_deinit(struct rtw89_dev *rtwdev);
@@ -6410,8 +6528,8 @@ void rtw89_core_scan_start(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif,
 			   const u8 *mac_addr, bool hw_scan);
 void rtw89_core_scan_complete(struct rtw89_dev *rtwdev,
 			      struct ieee80211_vif *vif, bool hw_scan);
-void rtw89_reg_6ghz_power_recalc(struct rtw89_dev *rtwdev,
-				 struct rtw89_vif *rtwvif, bool active);
+void rtw89_reg_6ghz_recalc(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif,
+			   bool active);
 void rtw89_core_update_p2p_ps(struct rtw89_dev *rtwdev, struct ieee80211_vif *vif);
 void rtw89_core_ntfy_btc_event(struct rtw89_dev *rtwdev, enum rtw89_btc_hmsg event);
 

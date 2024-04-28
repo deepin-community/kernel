@@ -4655,6 +4655,31 @@ void rtw89_mac_set_he_obss_narrow_bw_ru(struct rtw89_dev *rtwdev,
 		rtw89_write32_set(rtwdev, reg, mac->narrow_bw_ru_dis.mask);
 }
 
+void rtw89_mac_set_he_tb(struct rtw89_dev *rtwdev, struct ieee80211_vif *vif)
+{
+	/* In Wi-Fi CERTIFIED 6, the Marvell AP sets the UL HE-SIG-A2 reserved
+	 * subfield to all 0s, which will cause the 11BE IC to misinterpret it as an
+	 * EHT trigger frame. By enabling "force HE TB mode" when connecting to HE AP
+	 * that can bypass "UL HE-SIG-A2 reserved subfield" and always use HE TB to
+	 * respond to AP's trigger frame.
+	 */
+	struct rtw89_vif *rtwvif = (struct rtw89_vif *)vif->drv_priv;
+	u32 reg;
+
+	if (!test_bit(RTW89_TEST_CONFIG_FORCE_HE_TB, rtwdev->test_config))
+		return;
+
+	if (rtwdev->chip->chip_gen != RTW89_CHIP_BE)
+		return;
+
+	reg = rtw89_mac_reg_by_idx(rtwdev, R_BE_CLIENT_OM_CTRL, rtwvif->mac_idx);
+
+	if (vif->bss_conf.he_support && !vif->bss_conf.eht_support)
+		rtw89_write32_set(rtwdev, reg, B_BE_TRIG_DIS_EHTTB);
+	else
+		rtw89_write32_clr(rtwdev, reg, B_BE_TRIG_DIS_EHTTB);
+}
+
 void rtw89_mac_stop_ap(struct rtw89_dev *rtwdev, struct rtw89_vif *rtwvif)
 {
 	rtw89_mac_port_cfg_func_sw(rtwdev, rtwvif);
@@ -5770,6 +5795,14 @@ void rtw89_mac_bfee_ctrl(struct rtw89_dev *rtwdev, u8 mac_idx, bool en)
 	}
 }
 
+static void rtw89_mac_dis_csi_append_zero(struct rtw89_dev *rtwdev, u8 mac_idx)
+{
+	u32 reg;
+
+	reg = rtw89_mac_reg_by_idx(rtwdev, R_AX_CSIRPT_OPTION, mac_idx);
+	rtw89_write32_clr(rtwdev, reg, B_AX_CSIRPT_EMPTY_APPZERO);
+}
+
 static int rtw89_mac_init_bfee_ax(struct rtw89_dev *rtwdev, u8 mac_idx)
 {
 	u32 reg;
@@ -5793,6 +5826,7 @@ static int rtw89_mac_init_bfee_ax(struct rtw89_dev *rtwdev, u8 mac_idx)
 	rtw89_write32(rtwdev, reg, val32);
 	rtw89_mac_bfee_standby_timer(rtwdev, mac_idx, true);
 	rtw89_mac_bfee_ctrl(rtwdev, mac_idx, true);
+	rtw89_mac_dis_csi_append_zero(rtwdev, mac_idx);
 
 	reg = rtw89_mac_reg_by_idx(rtwdev, R_AX_TRXPTCL_RESP_CSI_CTRL_0, mac_idx);
 	rtw89_write32_set(rtwdev, reg, B_AX_BFMEE_BFPARAM_SEL |
