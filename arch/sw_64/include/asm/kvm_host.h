@@ -76,17 +76,6 @@ struct kvm_arch {
 	pgd_t *pgd;
 };
 
-#define KVM_NR_MEM_OBJS		40
-
-/*
- * We don't want allocation failures within the mmu code, so we preallocate
- * enough memory for a single page fault in a cache.
- */
-struct kvm_mmu_memory_cache {
-	int nobjs;
-	void *objects[KVM_NR_MEM_OBJS];
-};
-
 struct kvm_vcpu_arch {
 	struct kvm_regs regs __aligned(32);
 	struct vcpucb vcb;
