@@ -29,7 +29,7 @@
 #define AF_STATUS_FOE			0x8
 #define AF_STATUS_INV			0x10
 
-#define KVM_MMU_CACHE_MIN_PAGES		2
+#define KVM_MMU_CACHE_MIN_PAGES		3
 
 static inline void kvm_set_aptpte_readonly(pte_t *pte)
 {
