@@ -374,7 +374,6 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_WOL_RECEIVE_DISABLE_INDEX    28 /* Disable wol_event_recieve */
 #define PHYTMAC_WOL_RECEIVE_DISABLE_WIDTH    1
 
-
 #define PHYTMAC_TSEC_WIDTH (PHYTMAC_SECH_WIDTH + PHYTMAC_SECL_WIDTH)
 #define SEC_MAX_VAL (((u64)1 << PHYTMAC_TSEC_WIDTH) - 1)
 #define NSEC_MAX_VAL ((1 << PHYTMAC_NSEC_WIDTH) - 1)
