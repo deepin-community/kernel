@@ -429,6 +429,7 @@ config NUMA
 	bool "NUMA Support"
 	depends on SMP && !FLATMEM
 	select ACPI_NUMA if ACPI
+	select OF_NUMA
 	help
 	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
 	  Access). This option is for configuring high-end multiprocessor
