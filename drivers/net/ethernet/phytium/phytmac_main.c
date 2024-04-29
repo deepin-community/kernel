@@ -2209,7 +2209,6 @@ static int phytmac_init(struct phytmac *pdata)
 
 	ndev->netdev_ops = &phytmac_netdev_ops;
 	phytmac_set_ethtool_ops(ndev);
-	eth_hw_addr_random(pdata->ndev);
 
 	if (ndev->hw_features & NETIF_F_NTUPLE) {
 		INIT_LIST_HEAD(&pdata->rx_fs_list.list);
