@@ -13,7 +13,7 @@
 
 #define PHYTMAC_DRV_NAME		"phytium-mac"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.0"
+#define PHYTMAC_DRIVER_VERSION		"1.0.1"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
@@ -509,13 +509,14 @@ struct phytmac_hw_if {
 	void (*transmit)(struct phytmac_queue *queue);
 	void (*restart)(struct phytmac *pdata);
 	int (*tx_complete)(const struct phytmac_dma_desc *desc);
-	int (*rx_complete)(const struct phytmac_dma_desc *desc);
+	bool (*rx_complete)(const struct phytmac_dma_desc *desc);
 	int (*get_rx_pkt_len)(struct phytmac *pdata, const struct phytmac_dma_desc *desc);
 	bool (*rx_checksum)(const struct phytmac_dma_desc *desc);
 	void (*set_desc_rxused)(struct phytmac_dma_desc *desc);
 	bool (*rx_single_buffer)(const struct phytmac_dma_desc *desc);
 	bool (*rx_pkt_start)(const struct phytmac_dma_desc *desc);
 	bool (*rx_pkt_end)(const struct phytmac_dma_desc *desc);
+	unsigned int (*zero_rx_desc_addr)(struct phytmac_dma_desc *desc);
 	void (*clear_rx_desc)(struct phytmac_queue *queue, int begin, int end);
 	void (*clear_tx_desc)(struct phytmac_queue *queue);
 	/* ptp */
