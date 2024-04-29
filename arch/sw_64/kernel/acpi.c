@@ -226,7 +226,7 @@ int acpi_unmap_cpu(int cpu)
 EXPORT_SYMBOL(acpi_unmap_cpu);
 #endif /* CONFIG_ACPI_HOTPLUG_CPU */
 
-static bool __init is_rcid_duplicate(int rcid)
+bool __init is_rcid_duplicate(int rcid)
 {
 	int i;
 
@@ -249,14 +249,14 @@ setup_rcid_and_core_mask(struct acpi_madt_sw_cintc *sw_cintc)
 	 * represents the maximum number of cores in the system.
 	 */
 	if (possible_cores >= nr_cpu_ids) {
-		pr_err(PREFIX "Max core num [%u] reached, core [0x%x] ignored\n",
-			nr_cpu_ids, rcid);
+		pr_err(PREFIX "Core [0x%x] exceeds max core num [%u]\n",
+			rcid, nr_cpu_ids);
 		return -ENODEV;
 	}
 
 	/* The rcid of each core is unique */
 	if (is_rcid_duplicate(rcid)) {
-		pr_err(PREFIX "Duplicate core [0x%x] in MADT\n", rcid);
+		pr_err(PREFIX "Duplicate core [0x%x]\n", rcid);
 		return -EINVAL;
 	}
 

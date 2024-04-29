@@ -36,6 +36,8 @@ struct smp_rcb_struct {
 	unsigned long init_done;
 };
 
+extern bool __init is_rcid_duplicate(int rcid);
+
 #ifdef CONFIG_SMP
 /* SMP initialization hook for setup_arch */
 void __init setup_smp(void);
@@ -90,6 +92,9 @@ extern int get_thread_id_from_rcid(int rcid);
 extern int get_domain_id_from_rcid(int rcid);
 
 #else /* CONFIG_SMP */
+
+static inline void __init setup_smp(void) { store_cpu_data(0); }
+
 #define hard_smp_processor_id()		0
 #define smp_call_function_on_cpu(func, info, wait, cpu)    ({ 0; })
 /* The map from sequential logical cpu number to hard cid.  */
@@ -108,6 +113,7 @@ static inline void rcid_information_init(int core_version) { }
 static inline int get_core_id_from_rcid(int rcid) { return 0; }
 static inline int get_thread_id_from_rcid(int rcid) { return 0; }
 static inline int get_domain_id_from_rcid(int rcid) { return 0; }
+
 #endif /* CONFIG_SMP */
 
 #define NO_PROC_ID	(-1)

@@ -688,7 +688,6 @@ setup_arch(char **cmdline_p)
 	setup_cpu_info();
 	setup_run_mode();
 	setup_chip_ops();
-	sw64_chip_init->early_init.setup_core_map(&core_start);
 	if (is_guest_or_emul())
 		get_vt_smp_info();
 
@@ -730,13 +729,10 @@ setup_arch(char **cmdline_p)
 	/* Parse the ACPI tables for possible boot-time configuration */
 	acpi_boot_table_init();
 
-	if (acpi_disabled) {
-#ifdef CONFIG_SMP
-		setup_smp();
-#else
-		store_cpu_data(0);
-#endif
-	}
+	if (acpi_disabled)
+		device_tree_init();
+
+	setup_smp();
 
 	sw64_numa_init();
 
@@ -779,10 +775,8 @@ setup_arch(char **cmdline_p)
 #ifdef CONFIG_NUMA
 		cpu_set_node();
 #endif
-		device_tree_init();
 	}
 }
-
 
 static int
 show_cpuinfo(struct seq_file *f, void *slot)

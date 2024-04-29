@@ -7,6 +7,8 @@
 #include <linux/delay.h>
 #include <linux/irq.h>
 #include <linux/cpu.h>
+#include <linux/acpi.h>
+#include <linux/of.h>
 
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
@@ -220,6 +222,103 @@ void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr)
 	mb();
 }
 
+static int __init sw64_of_core_version(const struct device_node *dn,
+		int *version)
+{
+	if (!dn || !version)
+		return -EINVAL;
+
+	if (of_device_is_compatible(dn, "sw64,xuelang")) {
+		*version = CORE_VERSION_C3B;
+		return 0;
+	}
+
+	if (of_device_is_compatible(dn, "sw64,junzhang")) {
+		*version = CORE_VERSION_C4;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int __init fdt_setup_smp(void)
+{
+	struct device_node *dn = NULL;
+	u64 boot_flag_address;
+	u32 rcid, logical_core_id = 0;
+	int ret, i, version;
+
+	/* Clean the map from logical core ID to physical core ID */
+	for (i = 0; i < ARRAY_SIZE(__cpu_to_rcid); ++i)
+		set_rcid_map(i, -1);
+
+	/* Clean core mask */
+	init_cpu_possible(cpu_none_mask);
+	init_cpu_present(cpu_none_mask);
+
+	while ((dn = of_find_node_by_type(dn, "cpu"))) {
+		if (!of_device_is_available(dn)) {
+			pr_info("OF: Core is not available\n");
+			continue;
+		}
+
+		ret = of_property_read_u32(dn, "reg", &rcid);
+		if (ret) {
+			pr_err("OF: Found core without rcid\n");
+			return -ENODEV;
+		}
+
+		if (logical_core_id >= nr_cpu_ids) {
+			pr_err("OF: Core [0x%x] exceeds max core num [%u]\n",
+					rcid, nr_cpu_ids);
+			return -ENODEV;
+		}
+
+		if (is_rcid_duplicate(rcid)) {
+			pr_err("OF: Duplicate core [0x%x]\n", rcid);
+			return -EINVAL;
+		}
+
+		ret = sw64_of_core_version(dn, &version);
+		if (ret) {
+			pr_err("OF: No valid core version found\n");
+			return ret;
+		}
+
+		ret = of_property_read_u64(dn, "sw64,boot_flag_address",
+					&boot_flag_address);
+		if (ret) {
+			pr_err("OF: No boot_flag_address found\n");
+			return ret;
+		}
+
+		set_rcid_map(logical_core_id, rcid);
+		set_cpu_possible(logical_core_id, true);
+		store_cpu_data(logical_core_id);
+
+		if (!cpumask_test_cpu(logical_core_id, &cpu_offline))
+			set_cpu_present(logical_core_id, true);
+
+		rcid_information_init(version);
+
+		smp_rcb_init(__va(boot_flag_address));
+
+		logical_core_id++;
+	}
+
+	/* No valid cpu node found */
+	if (!num_possible_cpus())
+		return -EINVAL;
+
+	/* It's time to update nr_cpu_ids */
+	nr_cpu_ids = num_possible_cpus();
+
+	pr_info("OF: Detected %u possible CPU(s), %u CPU(s) are present\n",
+			nr_cpu_ids, num_present_cpus());
+
+	return 0;
+}
+
 /*
  * Called from setup_arch.  Detect an SMP system and which processors
  * are present.
@@ -228,10 +327,29 @@ void __init setup_smp(void)
 {
 	int i = 0, num = 0;
 
+	/* First try SMP initialization via ACPI */
+	if (!acpi_disabled)
+		return;
+
+	/* Next try SMP initialization via device tree */
+	if (!fdt_setup_smp())
+		return;
+
+	/* Fallback to legacy SMP initialization */
+
+	/* Clean the map from logical core ID to physical core ID */
+	for (i = 0; i < ARRAY_SIZE(__cpu_to_rcid); ++i)
+		set_rcid_map(i, -1);
+
+	/* Clean core mask */
 	init_cpu_possible(cpu_none_mask);
+	init_cpu_present(cpu_none_mask);
+
+	/* Legacy core detect */
+	sw64_chip_init->early_init.setup_core_map(&core_start);
 
 	/* For unified kernel, NR_CPUS is the maximum possible value */
-	for (; i < NR_CPUS; i++) {
+	for (i = 0; i < NR_CPUS; i++) {
 		if (cpu_to_rcid(i) != -1) {
 			set_cpu_possible(num, true);
 			store_cpu_data(num);
