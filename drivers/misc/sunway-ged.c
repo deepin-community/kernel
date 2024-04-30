@@ -2,6 +2,7 @@
 
 /* Generic Event Device for ACPI. */
 
+#include <linux/acpi.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -236,10 +237,19 @@ static const struct of_device_id sunwayged_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sunwayged_of_match);
 
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id sunwayged_acpi_match[] = {
+	{ "SUNW1000", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, sunwayged_acpi_match);
+#endif
+
 static struct platform_driver sunwayged_platform_driver = {
 	.driver = {
 		.name		= "sunway-ged",
 		.of_match_table	= sunwayged_of_match,
+		.acpi_match_table = ACPI_PTR(sunwayged_acpi_match),
 	},
 	.probe			= sunwayged_probe,
 	.remove			= sunwayged_remove,
