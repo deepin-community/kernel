@@ -68,11 +68,11 @@ static struct ctl_table smc_table[] = {
 		.extra1		= &min_rcvbuf,
 		.extra2		= &max_rcvbuf,
 	},
-	{  }
 };
 
 int __net_init smc_sysctl_net_init(struct net *net)
 {
+	size_t table_size = ARRAY_SIZE(smc_table);
 	struct ctl_table *table;
 
 	table = smc_table;
@@ -83,12 +83,12 @@ int __net_init smc_sysctl_net_init(struct net *net)
 		if (!table)
 			goto err_alloc;
 
-		for (i = 0; i < ARRAY_SIZE(smc_table) - 1; i++)
+		for (i = 0; i < table_size; i++)
 			table[i].data += (void *)net - (void *)&init_net;
 	}
 
 	net->smc.smc_hdr = register_net_sysctl_sz(net, "net/smc", table,
-						  ARRAY_SIZE(smc_table));
+						  table_size);
 	if (!net->smc.smc_hdr)
 		goto err_reg;
 
