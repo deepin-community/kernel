@@ -1,0 +1,110 @@
+# for patch check
+name: Patch Check
+
+on: [pull_request]
+
+jobs:
+  check-patch:
+    runs-on: ubuntu-latest
+    steps:
+    #- name: Checkout repository
+    #  uses: actions/checkout@v3
+    #  with:
+    #    fetch-depth: 0
+
+    - name: patch check
+      shell: python
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        import re
+        import os
+        import requests
+        import subprocess
+
+        owner = "${{ github.repository_owner }}"
+        repo = "${{ github.event.repository.name }}"
+        pull_number = "${{ github.event.number }}"
+        commit_id = "${{ github.event.pull_request.head.sha }}"
+        access_token = os.environ.get("GITHUB_TOKEN")
+
+        # 获取检查脚本
+        check_url = 'https://raw.githubusercontent.com/deepin-community/kernel/linux-6.6.y/scripts/checkpatch.pl'
+        response = requests.get(check_url)
+        if response.status_code == 200:
+            # 获取文件内容
+            file_content = response.text
+            # 例如，保存到本地文件
+            with open('checkpatch.pl', 'w') as file:
+                file.write(file_content)
+
+            # 模拟一个kernel目录结构，保证检查脚本能正常运行（主要是内核clone实在太慢）
+            tree = ["COPYING", "CREDITS", "Kbuild", "MAINTAINERS", "Makefile", "README", "Documentation", "arch", "include", "drivers", "fs", "init", "ipc", "kernel", "lib", "scripts"]
+            for t in tree:
+              with open(t, 'w') as file:
+                pass
+        else:
+            print(f"Failed to download file: {response.status_code}")
+            exit(-1)
+
+        # 获取文件列表
+        url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/files'
+        print(url)
+        headers = {'Authorization': f'Bearer {access_token}'}
+        response = requests.get(url, headers=headers)
+        files = response.json()
+
+        # 遍历文件列表，获取文件内容并转换为patch格式
+        patches = []
+        for file in files:
+            path = file['filename']
+            patch = file.get('patch', '')
+            if patch != '':
+                command = f'echo "{patch}" |perl checkpatch.pl --no-signoff'
+                #print(command)
+                output = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True).stdout
+                '''
+                output example:
+
+                WARNING: It's generally not useful to have the filename in the file
+                #5: FILE: :122:
+                +- OMAP3 BeagleBoard A to B4 : Early BeagleBoard revisions A to B4 with a timer quirk
+
+                WARNING: Prefer a maximum 75 chars per line (possible unwrapped commit description?)
+                #6: FILE: :123:
+                +  compatible = "ti,omap3-beagle-ab4", "ti,omap3-beagle", "ti,omap3430", "ti,omap3"
+
+                WARNING: It's generally not useful to have the filename in the file
+                #6: FILE: :123:
+                +  compatible = "ti,omap3-beagle-ab4", "ti,omap3-beagle", "ti,omap3430", "ti,omap3"
+
+                total: 0 errors, 3 warnings, 9 lines checked
+
+                NOTE: For some of the reported defects, checkpatch may be able to
+                    mechanically convert to the typical style using --fix or --fix-inplace.
+
+                Your patch has style problems, please review.
+
+                NOTE: If any of the errors are false positives, please report
+                    them to the maintainer, see CHECKPATCH in MAINTAINERS.
+                '''
+                if output != '':
+                    print(f'get checkpatch.pl output: {output}\n\n')
+                    for r in output.split('\n\n'):
+                        pattern = re.compile(r'#\d+: FILE: :\d+:')
+                        match = pattern.search(r)
+                        if match:
+                            line_number = match.group().split(' ')[-1]
+                            line_number = line_number.replace(':', '')
+                            body = r.split('\n')[0]
+                            comment_json = {
+                                "body": body,
+                                "commit_id": commit_id,
+                                "path": path,
+                                "line": int(line_number),
+                                "side": "RIGHT"
+                            }
+
+                            comment_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+                            response = requests.post(comment_url, json=comment_json, headers=headers)
+                            print(response.json())
