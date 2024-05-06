@@ -57,7 +57,9 @@ void rtw_bf_assoc(struct rtw_dev *rtwdev, struct ieee80211_vif *vif,
 	}
 
 	ic_vht_cap = &hw->wiphy->bands[NL80211_BAND_5GHZ]->vht_cap;
+#define sta BP_STA(sta)
 	vht_cap = &sta->deflink.vht_cap;
+#undef sta
 
 	rcu_read_unlock();
 

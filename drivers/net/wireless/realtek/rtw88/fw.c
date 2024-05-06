@@ -191,7 +191,9 @@ legacy:
 	si->ra_report.desc_rate = rate;
 	si->ra_report.bit_rate = bit_rate;
 
+#define sta BP_STA_AGG(sta)
 	sta->deflink.agg.max_rc_amsdu_len = get_max_amsdu_len(bit_rate);
+#undef sta
 }
 
 static void rtw_fw_ra_report_handle(struct rtw_dev *rtwdev, u8 *payload,

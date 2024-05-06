@@ -102,6 +102,9 @@ static void rtw_wow_pattern_write_cam_ent(struct rtw_dev *rtwdev, u8 id,
 	case RTW_PATTERN_UNICAST:
 		wdata |= BIT_WKFMCAM_UC | BIT_WKFMCAM_VALID;
 		break;
+	case RTW_PATTERN_WILDCARD:
+		wdata |= BIT_WKFMCAM_VALID;
+		break;
 	default:
 		break;
 	}
@@ -159,17 +162,47 @@ static u16 rtw_calc_crc(u8 *pdata, int length)
 	return ~crc;
 }
 
-static void rtw_wow_pattern_generate(struct rtw_dev *rtwdev,
-				     struct rtw_vif *rtwvif,
-				     const struct cfg80211_pkt_pattern *pkt_pattern,
-				     struct rtw_wow_pattern *rtw_pattern)
+static int rtw_wow_pattern_get_type(struct rtw_vif *rtwvif,
+				    const u8 *pattern, u8 da_mask)
+{
+	u8 da[ETH_ALEN];
+	u8 type;
+
+	ether_addr_copy_mask(da, pattern, da_mask);
+
+	/* Each pattern is divided into different kinds by DA address
+	 *  a. DA is broadcast address
+	 *  b. DA is multicast address
+	 *  c. DA is unicast address same as dev's mac address
+	 *  d. DA is unmasked. Also called wildcard type.
+	 *  e. Others is invalid type.
+	 */
+	if (!da_mask)
+		type = RTW_PATTERN_WILDCARD;
+	else if (is_broadcast_ether_addr(da))
+		type = RTW_PATTERN_BROADCAST;
+	else if (is_multicast_ether_addr(da))
+		type = RTW_PATTERN_MULTICAST;
+	else if (ether_addr_equal(da, rtwvif->mac_addr) &&
+		 (da_mask == GENMASK(5, 0)))
+		type = RTW_PATTERN_UNICAST;
+	else
+		type = RTW_PATTERN_INVALID;
+
+	return type;
+}
+
+static int rtw_wow_pattern_generate(struct rtw_dev *rtwdev,
+				    struct rtw_vif *rtwvif,
+				    const struct cfg80211_pkt_pattern *pkt_pattern,
+				    struct rtw_wow_pattern *rtw_pattern)
 {
 	const u8 *mask;
 	const u8 *pattern;
 	u8 mask_hw[RTW_MAX_PATTERN_MASK_SIZE] = {0};
 	u8 content[RTW_MAX_PATTERN_SIZE] = {0};
-	u8 mac_addr[ETH_ALEN] = {0};
 	u8 mask_len;
+	u8 type;
 	u16 count;
 	int len;
 	int i;
@@ -177,20 +210,15 @@ static void rtw_wow_pattern_generate(struct rtw_dev *rtwdev,
 	pattern = pkt_pattern->pattern;
 	len = pkt_pattern->pattern_len;
 	mask = pkt_pattern->mask;
-
-	ether_addr_copy(mac_addr, rtwvif->mac_addr);
+	mask_len = DIV_ROUND_UP(len, 8);
 	memset(rtw_pattern, 0, sizeof(*rtw_pattern));
 
-	mask_len = DIV_ROUND_UP(len, 8);
+	type = rtw_wow_pattern_get_type(rtwvif, pattern,
+					mask[0] & GENMASK(5, 0));
+	if (type == RTW_PATTERN_INVALID)
+		return -EPERM;
 
-	if (is_broadcast_ether_addr(pattern))
-		rtw_pattern->type = RTW_PATTERN_BROADCAST;
-	else if (is_multicast_ether_addr(pattern))
-		rtw_pattern->type = RTW_PATTERN_MULTICAST;
-	else if (ether_addr_equal(pattern, mac_addr))
-		rtw_pattern->type = RTW_PATTERN_UNICAST;
-	else
-		rtw_pattern->type = RTW_PATTERN_INVALID;
+	rtw_pattern->type = type;
 
 	/* translate mask from os to mask for hw
 	 * pattern from OS uses 'ethenet frame', like this:
@@ -236,6 +264,35 @@ static void rtw_wow_pattern_generate(struct rtw_dev *rtwdev,
 	}
 
 	rtw_pattern->crc = rtw_calc_crc(content, count);
+
+	return 0;
+}
+
+static int rtw_wow_parse_patterns(struct rtw_dev *rtwdev,
+				  struct rtw_vif *rtwvif,
+				  struct cfg80211_wowlan *wowlan)
+{
+	struct rtw_wow_param *rtw_wow = &rtwdev->wow;
+	struct rtw_wow_pattern *rtw_patterns = rtw_wow->patterns;
+	int i;
+	int ret;
+
+	if (!wowlan->n_patterns || !wowlan->patterns)
+		return 0;
+
+	for (i = 0; i < wowlan->n_patterns; i++) {
+		ret = rtw_wow_pattern_generate(rtwdev, rtwvif,
+					       wowlan->patterns + i,
+					       rtw_patterns + i);
+		if (ret) {
+			rtw_err(rtwdev, "failed to generate pattern(%d)\n", i);
+			rtw_wow->pattern_cnt = 0;
+			return ret;
+		}
+	}
+	rtw_wow->pattern_cnt = wowlan->n_patterns;
+
+	return 0;
 }
 
 static void rtw_wow_pattern_clear_cam(struct rtw_dev *rtwdev)
@@ -804,9 +861,7 @@ static int rtw_wow_set_wakeups(struct rtw_dev *rtwdev,
 			       struct cfg80211_wowlan *wowlan)
 {
 	struct rtw_wow_param *rtw_wow = &rtwdev->wow;
-	struct rtw_wow_pattern *rtw_patterns = rtw_wow->patterns;
 	struct rtw_vif *rtwvif;
-	int i;
 
 	if (wowlan->disconnect)
 		set_bit(RTW_WOW_FLAG_EN_DISCONNECT, rtw_wow->flags);
@@ -823,15 +878,7 @@ static int rtw_wow_set_wakeups(struct rtw_dev *rtwdev,
 		return -EPERM;
 
 	rtwvif = (struct rtw_vif *)rtw_wow->wow_vif->drv_priv;
-	if (wowlan->n_patterns && wowlan->patterns) {
-		rtw_wow->pattern_cnt = wowlan->n_patterns;
-		for (i = 0; i < wowlan->n_patterns; i++)
-			rtw_wow_pattern_generate(rtwdev, rtwvif,
-						 wowlan->patterns + i,
-						 rtw_patterns + i);
-	}
-
-	return 0;
+	return rtw_wow_parse_patterns(rtwdev, rtwvif, wowlan);
 }
 
 static void rtw_wow_clear_wakeups(struct rtw_dev *rtwdev)

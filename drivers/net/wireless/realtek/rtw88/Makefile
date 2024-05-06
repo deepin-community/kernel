@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 
 obj-$(CONFIG_RTW88_CORE)	+= rtw88_core.o
+rtw88_core-y += drv_ver.o
 rtw88_core-y += main.o \
 	   mac80211.o \
 	   util.o \

@@ -11,7 +11,7 @@ enum rtw_wow_pattern_type {
 	RTW_PATTERN_BROADCAST = 0,
 	RTW_PATTERN_MULTICAST,
 	RTW_PATTERN_UNICAST,
-	RTW_PATTERN_VALID,
+	RTW_PATTERN_WILDCARD,
 	RTW_PATTERN_INVALID,
 };
 
@@ -50,6 +50,17 @@ static inline bool rtw_wow_no_link(struct rtw_dev *rtwdev)
 	struct rtw_vif *rtwvif = (struct rtw_vif *)wow_vif->drv_priv;
 
 	return (rtwvif->net_type == RTW_NET_NO_LINK);
+}
+
+static inline void ether_addr_copy_mask(u8 *dst, const u8 *src, u8 mask)
+{
+	int i;
+
+	eth_zero_addr(dst);
+	for (i = 0; i < ETH_ALEN; i++) {
+		if (mask & BIT(i))
+			dst[i] = src[i];
+	}
 }
 
 int rtw_wow_suspend(struct rtw_dev *rtwdev, struct cfg80211_wowlan *wowlan);
