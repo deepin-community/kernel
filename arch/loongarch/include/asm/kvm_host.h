@@ -77,12 +77,13 @@ struct kvm_world_switch {
 #define MAX_PGTABLE_LEVELS	4
 
 /*
- * Physical cpu id is used for interrupt routing, there are different
+ * Physical CPUID is used for interrupt routing, there are different
  * definitions about physical cpuid on different hardwares.
- *  For LOONGARCH_CSR_CPUID register, max cpuid size if 512
- *  For IPI HW, max dest CPUID size 1024
- *  For extioi interrupt controller, max dest CPUID size is 256
- *  For MSI interrupt controller, max supported CPUID size is 65536
+ *
+ *  For LOONGARCH_CSR_CPUID register, max CPUID size if 512
+ *  For IPI hardware, max destination CPUID size 1024
+ *  For extioi interrupt controller, max destination CPUID size is 256
+ *  For msgint interrupt controller, max supported CPUID size is 65536
  *
  * Currently max CPUID is defined as 256 for KVM hypervisor, in future
  * it will be expanded to 4096, including 16 packages at most. And every

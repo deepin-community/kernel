@@ -31,13 +31,13 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 	if (!kvm->arch.pgd)
 		return -ENOMEM;
 
-	kvm->arch.phyid_map = kvzalloc(sizeof(struct kvm_phyid_map),
-				GFP_KERNEL_ACCOUNT);
+	kvm->arch.phyid_map = kvzalloc(sizeof(struct kvm_phyid_map), GFP_KERNEL_ACCOUNT);
 	if (!kvm->arch.phyid_map) {
 		free_page((unsigned long)kvm->arch.pgd);
 		kvm->arch.pgd = NULL;
 		return -ENOMEM;
 	}
+	spin_lock_init(&kvm->arch.phyid_map_lock);
 
 	kvm_init_vmcs(kvm);
 
@@ -59,7 +59,6 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 	for (i = 0; i <= kvm->arch.root_level; i++)
 		kvm->arch.pte_shifts[i] = PAGE_SHIFT + i * (PAGE_SHIFT - 3);
 
-	spin_lock_init(&kvm->arch.phyid_map_lock);
 	return 0;
 }
 
@@ -67,8 +66,8 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 {
 	kvm_destroy_vcpus(kvm);
 	free_page((unsigned long)kvm->arch.pgd);
-	kvfree(kvm->arch.phyid_map);
 	kvm->arch.pgd = NULL;
+	kvfree(kvm->arch.phyid_map);
 	kvm->arch.phyid_map = NULL;
 }
 
