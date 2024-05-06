@@ -134,5 +134,4 @@ static inline bool kvm_guest_has_pv_feature(struct kvm_vcpu *vcpu, unsigned int 
 {
 	return vcpu->kvm->arch.pv_features & BIT(feature);
 }
-
 #endif /* __ASM_LOONGARCH_KVM_VCPU_H__ */
