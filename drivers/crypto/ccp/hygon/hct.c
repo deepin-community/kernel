@@ -1250,7 +1250,6 @@ static int hct_share_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 
 	mutex_lock(&hct_data.lock);
-	bitmap_set(hct_data.ids, 0, 1);
 	id = (unsigned int)find_first_zero_bit(hct_data.ids, MCCP_INSTANCE_MAX);
 	if (id < MCCP_INSTANCE_MAX)
 		bitmap_set(hct_data.ids, id, 1);
@@ -1267,7 +1266,13 @@ static int hct_share_open(struct inode *inode, struct file *file)
 	mutex_unlock(&hct_share.lock);
 
 	file->private_data = private;
-	private->id = id << MCCP_INSTANCE_OFFSET;
+	/*
+	 * At user space, each process is assigned a different number
+	 * which cannot be 0, as the identifier for the process.
+	 * The number is assigned by id, so the value of id needs to
+	 * start from 1, and cannot be 0.
+	 */
+	private->id = (++id) << MCCP_INSTANCE_OFFSET;
 	INIT_LIST_HEAD(&private->head);
 	mutex_init(&private->lock);
 
@@ -1891,7 +1896,7 @@ static int hct_share_close(struct inode *inode, struct file *file)
 	mutex_unlock(&hct_share.lock);
 
 	mutex_lock(&hct_data.lock);
-	if (id < MCCP_INSTANCE_MAX)
+	if (--id < MCCP_INSTANCE_MAX)
 		bitmap_clear(hct_data.ids, id, 1);
 	mutex_unlock(&hct_data.lock);
 
