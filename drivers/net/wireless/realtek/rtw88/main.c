@@ -987,7 +987,9 @@ static void rtw_hw_config_rf_ant_num(struct rtw_dev *rtwdev, u8 hw_ant_num)
 static u64 get_vht_ra_mask(struct ieee80211_sta *sta)
 {
 	u64 ra_mask = 0;
+#define sta BP_STA(sta)
 	u16 mcs_map = le16_to_cpu(sta->deflink.vht_cap.vht_mcs.rx_mcs_map);
+#undef sta
 	u8 vht_mcs_cap;
 	int i, nss;
 
@@ -1207,9 +1209,12 @@ void rtw_update_sta_info(struct rtw_dev *rtwdev, struct rtw_sta_info *si,
 	bool is_vht_enable = false;
 	bool is_support_sgi = false;
 
+#define sta BP_STA(sta)
 	if (sta->deflink.vht_cap.vht_supported) {
+#undef sta
 		is_vht_enable = true;
 		ra_mask |= get_vht_ra_mask(sta);
+#define sta BP_STA(sta)
 		if (sta->deflink.vht_cap.cap & IEEE80211_VHT_CAP_RXSTBC_MASK)
 			stbc_en = VHT_STBC_EN;
 		if (sta->deflink.vht_cap.cap & IEEE80211_VHT_CAP_RXLDPC)
@@ -1290,6 +1295,7 @@ void rtw_update_sta_info(struct rtw_dev *rtwdev, struct rtw_sta_info *si,
 		tx_num = 2;
 		rf_type = RF_2T2R;
 	}
+#undef sta
 
 	rate_id = get_rate_id(wireless_set, bw_mode, tx_num);
 
@@ -2242,6 +2248,7 @@ int rtw_register_hw(struct rtw_dev *rtwdev, struct ieee80211_hw *hw)
 	hw->wiphy->available_antennas_rx = hal->antenna_rx;
 
 	hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS |
+			    WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL |
 			    WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
 
 	hw->wiphy->features |= NL80211_FEATURE_SCAN_RANDOM_MAC_ADDR;
