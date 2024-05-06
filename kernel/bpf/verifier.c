@@ -13983,7 +13983,6 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 				      struct bpf_reg_state *dst_reg,
 				      struct bpf_reg_state src_reg)
 {
-	struct bpf_reg_state *regs = cur_regs(env);
 	u8 opcode = BPF_OP(insn->code);
 	bool src_known;
 	s64 smin_val, smax_val;
@@ -14090,7 +14089,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 			/* Shifts greater than 31 or 63 are undefined.
 			 * This includes shifts by a negative number.
 			 */
-			mark_reg_unknown(env, regs, insn->dst_reg);
+			__mark_reg_unknown(env, dst_reg);
 			break;
 		}
 		if (alu32)
@@ -14103,7 +14102,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 			/* Shifts greater than 31 or 63 are undefined.
 			 * This includes shifts by a negative number.
 			 */
-			mark_reg_unknown(env, regs, insn->dst_reg);
+			__mark_reg_unknown(env, dst_reg);
 			break;
 		}
 		if (alu32)
@@ -14116,7 +14115,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 			/* Shifts greater than 31 or 63 are undefined.
 			 * This includes shifts by a negative number.
 			 */
-			mark_reg_unknown(env, regs, insn->dst_reg);
+			__mark_reg_unknown(env, dst_reg);
 			break;
 		}
 		if (alu32)
@@ -14125,7 +14124,7 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 			scalar_min_max_arsh(dst_reg, &src_reg);
 		break;
 	default:
-		mark_reg_unknown(env, regs, insn->dst_reg);
+		__mark_reg_unknown(env, dst_reg);
 		break;
 	}
 
