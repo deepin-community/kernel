@@ -9,13 +9,16 @@
  */
 #define HYPERVISOR_KVM			1
 #define HYPERVISOR_VENDOR_SHIFT		8
-#define HYPERCALL_CODE(vendor, code)	((vendor << HYPERVISOR_VENDOR_SHIFT) + code)
-#define KVM_HCALL_CODE_PV_SERVICE	0
+#define HYPERCALL_ENCODE(vendor, code)	((vendor << HYPERVISOR_VENDOR_SHIFT) + code)
+
+#define KVM_HCALL_CODE_SERVICE		0
 #define KVM_HCALL_CODE_SWDBG		1
-#define KVM_HCALL_SERVICE		HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_PV_SERVICE)
+
+#define KVM_HCALL_SERVICE		HYPERCALL_ENCODE(HYPERVISOR_KVM, KVM_HCALL_CODE_SERVICE)
 #define  KVM_HCALL_FUNC_IPI		1
 #define  KVM_HCALL_FUNC_NOTIFY		2
-#define KVM_HCALL_SWDBG			HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_SWDBG)
+
+#define KVM_HCALL_SWDBG			HYPERCALL_ENCODE(HYPERVISOR_KVM, KVM_HCALL_CODE_SWDBG)
 
 /*
  * LoongArch hypercall return code
@@ -41,7 +44,7 @@ struct kvm_steal_time {
  * Return value will be placed in a0.
  * Up to 5 arguments are passed in a1, a2, a3, a4, a5.
  */
-static __always_inline long kvm_hypercall(u64 fid)
+static __always_inline long kvm_hypercall0(u64 fid)
 {
 	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
@@ -81,11 +84,11 @@ static __always_inline long kvm_hypercall2(u64 fid,
 	register unsigned long a2  asm("a2") = arg1;
 
 	__asm__ __volatile__(
-			"hvcl "__stringify(KVM_HCALL_SERVICE)
-			: "=r" (ret)
-			: "r" (fun), "r" (a1), "r" (a2)
-			: "memory"
-			);
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
+		: "=r" (ret)
+		: "r" (fun), "r" (a1), "r" (a2)
+		: "memory"
+		);
 
 	return ret;
 }
@@ -110,8 +113,9 @@ static __always_inline long kvm_hypercall3(u64 fid,
 }
 
 static __always_inline long kvm_hypercall4(u64 fid,
-		unsigned long arg0, unsigned long arg1, unsigned long arg2,
-		unsigned long arg3)
+		unsigned long arg0, unsigned long arg1,
+		unsigned long arg2, unsigned long arg3)
+
 {
 	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
@@ -131,8 +135,8 @@ static __always_inline long kvm_hypercall4(u64 fid,
 }
 
 static __always_inline long kvm_hypercall5(u64 fid,
-		unsigned long arg0, unsigned long arg1, unsigned long arg2,
-		unsigned long arg3, unsigned long arg4)
+		unsigned long arg0, unsigned long arg1,
+		unsigned long arg2, unsigned long arg3, unsigned long arg4)
 {
 	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
@@ -151,7 +155,6 @@ static __always_inline long kvm_hypercall5(u64 fid,
 
 	return ret;
 }
-
 
 #ifdef CONFIG_PARAVIRT
 bool kvm_para_available(void);

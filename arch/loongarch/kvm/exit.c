@@ -197,6 +197,9 @@ int kvm_emu_iocsr(larch_inst inst, struct kvm_run *run, struct kvm_vcpu *vcpu)
 		run->iocsr_io.len = 8;
 		run->iocsr_io.is_write = 1;
 		break;
+	case CPUCFG_KVM_FEATURE:
+		vcpu->arch.gprs[rd] = KVM_FEATURE_IPI;
+		break;
 	default:
 		ret = EMULATE_FAIL;
 		break;
@@ -693,6 +696,27 @@ static int kvm_handle_fpu_disabled(struct kvm_vcpu *vcpu)
 	return RESUME_GUEST;
 }
 
+/*
+ * Hypercall emulation always return to guest, Caller should check retval.
+ */
+static void kvm_handle_service(struct kvm_vcpu *vcpu)
+{
+	unsigned long func = kvm_read_reg(vcpu, LOONGARCH_GPR_A0);
+	long ret;
+
+	switch (func) {
+	case KVM_HCALL_FUNC_IPI:
+		kvm_send_pv_ipi(vcpu);
+		ret = KVM_HCALL_SUCCESS;
+		break;
+	default:
+		ret = KVM_HCALL_INVALID_CODE;
+		break;
+	};
+
+	kvm_write_reg(vcpu, LOONGARCH_GPR_A0, ret);
+}
+
 static long kvm_save_notify(struct kvm_vcpu *vcpu)
 {
 	unsigned long id, data;
@@ -756,59 +780,32 @@ static int kvm_handle_lbt_disabled(struct kvm_vcpu *vcpu)
 	return RESUME_GUEST;
 }
 
-static int kvm_pv_send_ipi(struct kvm_vcpu *vcpu)
+static int kvm_send_pv_ipi(struct kvm_vcpu *vcpu)
 {
-	unsigned long ipi_bitmap;
 	unsigned int min, cpu, i;
+	unsigned long ipi_bitmap;
 	struct kvm_vcpu *dest;
 
-	min = vcpu->arch.gprs[LOONGARCH_GPR_A3];
+	min = kvm_read_reg(vcpu, LOONGARCH_GPR_A3);
 	for (i = 0; i < 2; i++, min += BITS_PER_LONG) {
-		ipi_bitmap = vcpu->arch.gprs[LOONGARCH_GPR_A1 + i];
+		ipi_bitmap = kvm_read_reg(vcpu, LOONGARCH_GPR_A1 + i);
 		if (!ipi_bitmap)
 			continue;
 
 		cpu = find_first_bit((void *)&ipi_bitmap, BITS_PER_LONG);
 		while (cpu < BITS_PER_LONG) {
 			dest = kvm_get_vcpu_by_cpuid(vcpu->kvm, cpu + min);
-			cpu = find_next_bit((void *)&ipi_bitmap, BITS_PER_LONG,
-					cpu + 1);
+			cpu = find_next_bit((void *)&ipi_bitmap, BITS_PER_LONG, cpu + 1);
 			if (!dest)
 				continue;
 
-			/*
-			 * Send SWI0 to dest vcpu to emulate IPI interrupt
-			 */
+			/* Send SWI0 to dest vcpu to emulate IPI interrupt */
 			kvm_queue_irq(dest, INT_SWI0);
 			kvm_vcpu_kick(dest);
 		}
 	}
 
 	return 0;
-}
-
-/*
- * hypercall emulation always return to guest, Caller should check retval.
- */
-static void kvm_handle_pv_service(struct kvm_vcpu *vcpu)
-{
-	unsigned long func = vcpu->arch.gprs[LOONGARCH_GPR_A0];
-	long ret;
-
-	switch (func) {
-	case KVM_HCALL_FUNC_IPI:
-		kvm_pv_send_ipi(vcpu);
-		ret = KVM_HCALL_STATUS_SUCCESS;
-		break;
-	case KVM_HCALL_FUNC_NOTIFY:
-		ret = kvm_save_notify(vcpu);
-		break;
-	default:
-		ret = KVM_HCALL_INVALID_CODE;
-		break;
-	};
-
-	vcpu->arch.gprs[LOONGARCH_GPR_A0] = ret;
 }
 
 static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
@@ -824,7 +821,7 @@ static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 	switch (code) {
 	case KVM_HCALL_SERVICE:
 		vcpu->stat.hypercall_exits++;
-		kvm_handle_pv_service(vcpu);
+		kvm_handle_service(vcpu);
 		break;
 	case KVM_HCALL_SWDBG:
 		/* KVM_HC_SWDBG only in effective when SW_BP is enabled */
