@@ -1,0 +1,47 @@
+name: "CLA Assistant"
+on:
+  workflow_call:
+    secrets:
+      APP_PRIVATE_KEY:
+        required: true
+
+jobs:
+  CLAssistant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "CLA Assistant"
+        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA.') || github.event_name == 'pull_request_target'
+        # use github app support version
+        uses: linuxdeepin/contributor-assistant-github-action@master
+
+        env:
+          APP_ID: 229710
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
+        with:
+          path-to-signatures: 'signatures/version1/cla.json'
+          path-to-document: 'https://github.com/deepin-community/cla/blob/master/cla.md' # e.g. a CLA or a DCO document
+          # branch should not be protected
+          branch: master
+          allowlist: deepin-community-ci-bot[bot]
+
+         #below are the optional inputs - If the optional inputs are not given, then default values will be taken
+          remote-organization-name: deepin-community
+          remote-repository-name: cla
+          #create-file-commit-message: 'For example: Creating file for storing CLA Signatures'
+          #signed-commit-message: 'For example: $contributorName has signed the CLA in #$pullRequestNo'
+          custom-notsigned-prcomment: '<br/>
+          <br/>
+          **如果你是以企业贡献者的身份进行提交，请<a href="mailto: support@deepin.org" rel="external nofollow" target="_blank" >联系我们</a>签署[企业贡献者许可协议](https://github.com/linuxdeepin/cla/blob/master/%E4%BC%81%E4%B8%9A%E8%B4%A1%E7%8C%AE%E8%80%85%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE%EF%BC%88%E4%B8%AD%E6%96%87%E7%89%88%EF%BC%89-V1.0.md)**<br/>
+          **If you submit as corporate contributor, please <a href="mailto: support@deepin.org" rel="external nofollow" target="_blank" >contact us</a> to sign our [Corporate Contributor License Agreement](https://github.com/linuxdeepin/cla/blob/master/Corporate%20Contributor%20License%20Agreement-EN-V1.0.md)**<br/>
+          <br/>
+          感谢您的提交，我们非常感谢。 像许多开源项目一样，在接受您的贡献之前，我们要求您签署我们的[个人贡献者许可协议](https://github.com/linuxdeepin/cla/blob/master/%E4%B8%AA%E4%BA%BA%E8%B4%A1%E7%8C%AE%E8%80%85%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE%EF%BC%88%E4%B8%AD%E6%96%87%E7%89%88%EF%BC%89-V1.0.md)。 您只需发布与以下格式相同的评论即可签署[个人贡献者许可协议](https://github.com/linuxdeepin/cla/blob/master/%E4%B8%AA%E4%BA%BA%E8%B4%A1%E7%8C%AE%E8%80%85%E8%AE%B8%E5%8F%AF%E5%8D%8F%E8%AE%AE%EF%BC%88%E4%B8%AD%E6%96%87%E7%89%88%EF%BC%89-V1.0.md)。<br/>
+          Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our [Individual Contributor License Agreement](https://github.com/linuxdeepin/cla/blob/master/Individual%20Contributor%20License%20Agreement-EN-V1.0.md) before we can accept your contribution. You can sign the [Individual Contributor License Agreement](https://github.com/linuxdeepin/cla/blob/master/Individual%20Contributor%20License%20Agreement-EN-V1.0.md) by just posting a Pull Request Comment same as the below format.<br/>
+          <br/>'
+          allow-email-list: '*@uniontech.com,*@deepin.org,*@deepin.com,*@phytium.com.cn,*@zhaoxin.com'
+          custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA.'
+          #custom-allsigned-prcomment: 'pull request comment when all contributors has signed, defaults to **CLA Assistant Lite bot** All Contributors have signed the CLA.'
+          lock-pullrequest-aftermerge: false
+          # if you don't want this bot to automatically lock the pull request after merging (default - true)
+          #use-dco-flag: true - If you are using DCO instead of CLA

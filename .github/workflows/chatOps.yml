@@ -1,0 +1,370 @@
+name: chatOps
+on:
+  workflow_call:
+
+env:
+  APP_ID: 229710
+  APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
+jobs:
+  chatopt:
+    if: contains(github.event.comment.html_url, '/pull/')
+    runs-on: [ubuntu-latest]
+    steps:
+      # assign to someone
+      - name: assign
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/assign')
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { COMMENT_BODY } = process.env
+            const groups = COMMENT_BODY.match(/\/assign \@(\S+)/)
+            groups && await github.rest.issues.addAssignees({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              assignees: groups[1]
+            })
+      # request someone to review
+      - name: review
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/review')
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { COMMENT_BODY } = process.env
+            const command = COMMENT_BODY.match(/\/review (\@\w+ )+/)
+            if ( !command || !command[0] ){
+              return
+            }
+            const users = command[0].match(/\@\w+/g)
+            if( !users ){
+              return
+            }
+            await github.rest.pulls.requestReviewers({
+              pull_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              reviewers: users.map(a=>a.slice(1))
+            });
+      # !deprecated add approve label
+      - name: "approve"
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/+1')
+        with:
+          script: |
+            if(context.payload.sender.id == context.payload.issue.user.id){
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: 'Permission denied'
+              })
+              return
+            }
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['approve']
+            })
+
+      # retrigger checks
+      - name: check
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/check')
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { COMMENT_BODY } = process.env
+            const checkNameGroup = COMMENT_BODY.match(/\/check (\S+)/)
+
+            const pull = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+            })
+            const listResp = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pull.data.head.sha,
+            });
+            for(const run of listResp.data.check_runs){
+              if(checkNameGroup) {
+                const input = checkNameGroup[1].startsWith("/") ? checkNameGroup[1] : '/' + checkNameGroup[1]
+                const name ='/' + run.name.replace(/ \/ /g,'/')
+                if(name.includes(input)){
+                  console.log(name, "re-check")
+                  await github.request(`POST /repos/${context.repo.owner}/${context.repo.repo}/actions/jobs/${run.id}/rerun`);
+                } else {
+                  console.log(name, "skip")
+                }
+              }else{
+                await github.request(`POST /repos/${context.repo.owner}/${context.repo.repo}/actions/jobs/${run.id}/rerun`);
+              }
+            }
+
+      - name: install depends for load scripts
+        if: |
+          startsWith(github.event.comment.body, '/merge') || startsWith(github.event.comment.body, '/check')
+        run: |
+          npm install @octokit/rest@19.0.13
+          npm install @octokit/auth-app@6.1.1
+
+      - name: Get token using github-script
+        if: |
+          startsWith(github.event.comment.body, '/merge') || startsWith(github.event.comment.body, '/check')
+        id: get-token
+        uses: actions/github-script@v6
+        with:
+          script: |
+            global["fetch"] = fetch
+            const { Octokit } = require("@octokit/rest");
+            const { createAppAuth } = require("@octokit/auth-app");
+            const appOctokit = new Octokit({
+              authStrategy: createAppAuth,
+              auth: {
+                appId: process.env.APP_ID,
+                privateKey: process.env.APP_PRIVATE_KEY,
+              }
+            });
+            const app_installation = await appOctokit.rest.apps.getRepoInstallation({
+              owner: context.payload.organization.login,
+              repo: context.payload.repository.name
+            });
+            const { token } = await appOctokit.auth({
+              type: "installation",
+              installationId: app_installation.data.id
+            });
+            core.setOutput('app_token', token)
+
+      # retrigger obs build webhook
+      - name: check obs
+        uses: actions/github-script@v6
+        if: startsWith(github.event.comment.body, '/check')
+        id: check-obs
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          HOOK_ID: 396506100
+        with:
+          github-token: ${{ steps.get-token.outputs.app_token }}
+          script: |
+            const BOT_NAME = "Deepin Obs Bot"
+            const COMMENT_HEAD = "**" + BOT_NAME + "**\n"
+            let BODY = "Starting find obs webhook event and retrigger!"
+
+            if ( context.issue.number != undefined ) {
+              const response = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number
+              })
+              const reg = new RegExp("\\*+" + BOT_NAME + "\\*+")
+              BotComment= response.data.find(comment => comment.body.match(reg))
+              if (BotComment) {
+                await github.rest.issues.deleteComment({
+                    comment_id: BotComment.id,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                })
+              }
+
+              await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: COMMENT_HEAD + BODY
+              })
+            } else {
+              console.log("context.issue.number is not a valid issue number: " + context.issue.number)
+            }
+
+            const { COMMENT_BODY } = process.env
+            const checkNameGroup = COMMENT_BODY.match(/\/check (\S+)/)
+
+            // handle obs workflow resend
+            obs_webhook_need_resend = true
+
+            if (checkNameGroup && !COMMENT_BODY.includes("obs")) {
+              obs_webhook_need_resend = false
+            }
+
+            // console.log("HOOK_ID: ", process.env.HOOK_ID)
+            core.setOutput('retriggered', "true")
+            if (obs_webhook_need_resend) {
+              // deliveries obs webhook
+              let maxWebhooks = 1000
+              let retriggered = false
+              for await (const WebhookDeliveriesResp of github.paginate.iterator(
+                github.rest.orgs.listWebhookDeliveries,
+                {
+                  org: context.repo.owner,
+                  hook_id: process.env.HOOK_ID,
+                  per_page: 100,
+                },
+                (response, done) => {
+                  if (retriggered) {
+                    done();
+                  }
+                  return response.data;
+                }
+              )) {
+                console.log("github repository_id: ", ${{ github.repository_id }})
+                core.setOutput('retriggered', "false")
+                for (var i = 0; i < WebhookDeliveriesResp.data.length; i++) {
+                  let wh = WebhookDeliveriesResp.data[i]
+                  console.log("webhook event: ", wh.event, ", webhook repository_id: ", wh.repository_id)
+                  if (wh.event == 'pull_request' && wh.repository_id == ${{ github.repository_id }} && (wh.action == 'opened' || wh.action == 'synchronize')) {
+                    // Get delivery payload and filter
+                    const resp = await github.rest.orgs.getWebhookDelivery({
+                      org: context.repo.owner,
+                      hook_id: process.env.HOOK_ID,
+                      delivery_id: wh.id,
+                    });
+                    //console.log("delivery payload: " + JSON.stringifyesp.data))
+                    console.log("payload number: " + resp.data.request.payload.number)
+                    console.log("pr number: " + context.issue.number)
+                    if (resp.data.request.payload.number == context.issue.number) {
+                      const resp = await github.rest.orgs.redeliverWebhookDelivery({
+                        org: context.repo.owner,
+                        hook_id: process.env.HOOK_ID,
+                        delivery_id: wh.id,
+                      });
+                      console.log("redeliver webhook resp: ", resp)
+                      retriggered = true
+                      core.setOutput('retriggered', "true")
+                      return
+                    }
+                  }
+                }
+              }
+            }
+
+
+      - name: check obs comment
+        uses: actions/github-script@v6
+        if: |
+          startsWith(github.event.comment.body, '/check obs') && steps.check-obs.outputs.retriggered == 'false'
+        with:
+          github-token: ${{ steps.get-token.outputs.app_token }}
+          script: |
+            console.log("redeliveried failed, context.issue.number: ", context.issue.number)
+            const BOT_NAME = "Deepin Obs Bot"
+            const COMMENT_HEAD = "**" + BOT_NAME + "**\n"
+            let COMMENT_BODY = "Deepin redeliveried failed, need update or recreate pull request!!!"
+
+            if ( context.issue.number != undefined ) {
+              const response = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number
+              })
+              const reg = new RegExp("\\*+" + BOT_NAME + "\\*+")
+              BotComment= response.data.find(comment => comment.body.match(reg))
+              if (BotComment) {
+                await github.rest.issues.updateComment({
+                    comment_id: BotComment.id,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: COMMENT_HEAD + COMMENT_BODY
+                })
+              } else {
+                await github.rest.issues.createComment({
+                    issue_number: context.issue.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: COMMENT_HEAD + COMMENT_BODY
+                })
+              }
+            }
+
+      # auto merge pull request
+      - name: merge
+        uses: actions/github-script@v5
+        if: startsWith(github.event.comment.body, '/merge')
+        with:
+          github-token: ${{ steps.get-token.outputs.app_token }}
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Merge" command is disabled`
+            })
+            return
+
+            if(context.payload.sender.id != context.payload.issue.user.id){
+              const permission = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/collaborators/${context.payload.sender.login}/permission`, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.payload.sender.login,
+              })
+              if(!["admin","maintain","write"].includes(permission.data.permission)){
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: 'Permission denied'
+                })
+                return
+              }
+            }
+
+            const pull = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+            })
+
+            if( pull.data.mergeable_state != "clean" ){
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `This pr cannot be merged! (status: ${pull.data.mergeable_state})`
+                })
+                return
+            }
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'rebase'
+            });
+
+  pr-info:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.pr.outputs.ref }}
+    steps:
+      - name: Get integration app token
+        id: pr
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const response = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+            });
+            if (response.data.state != "closed") {
+              core.setOutput('ref', response.data.head.sha)
+            } else {
+              core.setOutput('ref', response.data.merge_commit_sha)
+            }
+
+  integration:
+    needs:
+      - pr-info
+    name: Try pr integration
+    if: startsWith(github.event.comment.body, '/integrate')
+    uses: deepin-community/.github/.github/workflows/auto-integration-pr.yml@master
+    secrets: inherit
+    with:
+      integrationrepo: ${{ github.repository }}
+      tagsha: ${{ needs.pr-info.outputs.ref }}

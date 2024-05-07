@@ -1,0 +1,21 @@
+name: code check
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        required: true
+        type: string
+
+jobs:
+  check-cap:
+    name: check cap
+    strategy:
+      fail-fast: false
+    uses: deepin-community/.github/.github/workflows/check-code-cap.yml@master
+    with:
+      ref: ${{ inputs.ref }}
