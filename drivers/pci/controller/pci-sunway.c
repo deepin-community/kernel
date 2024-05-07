@@ -19,7 +19,7 @@ void set_devint_wken(int node)
 #ifdef CONFIG_UNCORE_JUNZHANG
 void set_adr_int(int node)
 {
-	sw64_io_write(node, ADR_INT_CONFIG, (0x0 << 16 | 0x3f));
+	sw64_io_write(node, ADR_INT_CONFIG, (CORE0_CID << 16 | 0x3f));
 	sw64_io_write(node, ADR_CTL, 0xc);
 }
 #endif

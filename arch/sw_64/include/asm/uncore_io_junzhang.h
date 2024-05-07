@@ -62,9 +62,12 @@
 #define LPC_FIRMWARE_IO		(0x3UL << 28 | IO_BASE | LPC_BASE)
 #define PCI_VT_LEGACY_IO	(IO_BASE | PCI_BASE | PCI_LEGACY_IO)
 
-#define PME_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10)
-#define AER_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10)
-#define HP_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10)
+#define CORE0_CID		(rcid_to_domain_id(cpu_to_rcid(0)) << 7 | \
+				rcid_to_thread_id(cpu_to_rcid(0)) << 6 | \
+				rcid_to_core_id(cpu_to_rcid(0)))
+#define PME_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10 | CORE0_CID)
+#define AER_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10 | CORE0_CID)
+#define HP_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10 | CORE0_CID)
 
 #define PIUCONFIG0_INIT_VAL	0x38016
 
