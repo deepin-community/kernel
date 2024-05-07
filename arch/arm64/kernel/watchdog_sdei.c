@@ -65,7 +65,6 @@ static int sdei_watchdog_callback(u32 event,
 	ktime_t delta, now = ktime_get_mono_fast_ns();
 
 	delta = now - __this_cpu_read(last_check_time);
-	__this_cpu_write(last_check_time, now);
 
 	/*
 	 * Set delta to 4/5 of the actual watchdog threshold period so the
@@ -79,6 +78,7 @@ static int sdei_watchdog_callback(u32 event,
 	}
 
 	watchdog_hardlockup_check(smp_processor_id(), regs);
+	__this_cpu_write(last_check_time, now);
 
 	return 0;
 }
