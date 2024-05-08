@@ -604,7 +604,7 @@ endchoice
 
 config FORCE_MAX_ZONEORDER
 	int
-	default "16" if (HUGETLB_PAGE)
+	default "16" if (HUGETLB_PAGE && SUBARCH_C3B)
 	default "11"
 	help
 	  The kernel memory allocator divides physically contiguous memory
