@@ -730,7 +730,7 @@ static int sunway_gpio_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, gpio);
 
-	def_info(&pdev->dev, "GPIO probe succeed\n");
+	dev_info(&pdev->dev, "GPIO probe succeed\n");
 
 	return 0;
 
