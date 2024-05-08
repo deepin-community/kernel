@@ -489,8 +489,6 @@ void handle_pci_msi_interrupt(unsigned long type, unsigned long vector, unsigned
 	for (i = 0; i < 4; i++) {
 		vector_index = i * 64;
 		while (vector != 0) {
-			int irq = 0;
-
 			msi_index = find_next_bit(&vector, 64, msi_index);
 			if (msi_index == 64) {
 				msi_index = 0;
