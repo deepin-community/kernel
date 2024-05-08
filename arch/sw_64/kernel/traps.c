@@ -275,6 +275,8 @@ do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
 
 	switch (type) {
 	case IF_BREAKPOINT: /* gdb do pc-4 for sigtrap */
+		if (ptrace_cancel_bpt(current))
+			regs->pc -= 4;
 		force_sig_fault(SIGTRAP, TRAP_BRKPT, (void __user *)regs->pc);
 		return;
 
