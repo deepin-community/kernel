@@ -195,6 +195,7 @@ MODULE_DEVICE_TABLE(of, phytium_dwmac_of_match);
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id phytium_dwmac_acpi_ids[] = {
+	{ .id = "FTGM0001" }, // compat FT2000/4 id
 	{ .id = "PHYT0004" },
 	{ }
 };
