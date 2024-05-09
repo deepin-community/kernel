@@ -894,7 +894,7 @@ void start_kernel(void)
 	 */
 	boot_cpu_init();
 	page_address_init();
-	pr_notice("%s", linux_banner);
+	pr_notice("%s", linux_commitid_banner);
 	early_security_init();
 	setup_arch(&command_line);
 	setup_boot_config();
