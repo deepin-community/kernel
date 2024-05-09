@@ -499,6 +499,9 @@ static int sw64_is_fake_mcount(Elf64_Rel const *rp)
 	Elf64_Addr current_r_offset = _w(rp->r_offset);
 	int is_fake;
 
+	if (Elf_r_sym(rp) == 0)
+		return 1;
+
 	is_fake = (old_r_offset != ~(Elf64_Addr)0) &&
 		(current_r_offset - old_r_offset == SW64_FAKEMCOUNT_OFFSET);
 	old_r_offset = current_r_offset;
