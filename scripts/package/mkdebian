@@ -184,6 +184,7 @@ cat <<EOF > debian/changelog
 $sourcename ($packageversion) $distribution; urgency=low
 
   * Custom built Linux kernel.
+  * Git:$(git symbolic-ref --short HEAD 2>/dev/null || true) $(git rev-parse --short HEAD) $(git diff --quiet HEAD || echo "dirty")
 
  -- $maintainer  $(date -R)
 EOF
