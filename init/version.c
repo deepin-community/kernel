@@ -48,6 +48,7 @@ BUILD_LTO_INFO;
 
 struct uts_namespace init_uts_ns __weak;
 const char linux_banner[] __weak;
+const char linux_commitid_banner[] __weak;
 
 #include "version-timestamp.c"
 
