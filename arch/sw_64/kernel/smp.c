@@ -23,6 +23,12 @@ struct smp_rcb_struct *smp_rcb;
 
 extern struct cpuinfo_sw64 cpu_data[NR_CPUS];
 
+static nodemask_t nodes_found_map = NODE_MASK_NONE;
+ /* maps to convert between physical node ID and logical node ID */
+static int pnode_to_lnode_map[MAX_NUMNODES]
+			= { [0 ... MAX_NUMNODES - 1] = NUMA_NO_NODE };
+static int lnode_to_pnode_map[MAX_NUMNODES]
+			= { [0 ... MAX_NUMNODES - 1] = NUMA_NO_NODE };
 
 void *idle_task_pointer[NR_CPUS];
 
@@ -241,12 +247,39 @@ static int __init sw64_of_core_version(const struct device_node *dn,
 	return -EINVAL;
 }
 
+static void __fdt_map_pnode_to_lnode(int pnode, int lnode)
+{
+	if (pnode_to_lnode_map[pnode] == NUMA_NO_NODE || lnode < pnode_to_lnode_map[pnode])
+		pnode_to_lnode_map[pnode] = lnode;
+	if (lnode_to_pnode_map[lnode] == NUMA_NO_NODE || pnode < lnode_to_pnode_map[lnode])
+		lnode_to_pnode_map[lnode] = pnode;
+}
+
+static int fdt_map_pnode_to_lnode(int pnode)
+{
+	int lnode;
+
+	if (pnode < 0 || pnode >= MAX_NUMNODES || numa_off)
+		return NUMA_NO_NODE;
+	lnode = pnode_to_lnode_map[pnode];
+
+	if (lnode == NUMA_NO_NODE) {
+		if (nodes_weight(nodes_found_map) >= MAX_NUMNODES)
+			return NUMA_NO_NODE;
+		lnode = first_unset_node(nodes_found_map);
+		__fdt_map_pnode_to_lnode(pnode, lnode);
+		node_set(lnode, nodes_found_map);
+	}
+
+	return lnode;
+}
+
 static int __init fdt_setup_smp(void)
 {
 	struct device_node *dn = NULL;
 	u64 boot_flag_address;
 	u32 rcid, logical_core_id = 0;
-	int ret, i, version;
+	int ret, i, version, lnode, pnode;
 
 	/* Clean the map from logical core ID to physical core ID */
 	for (i = 0; i < ARRAY_SIZE(__cpu_to_rcid); ++i)
@@ -302,6 +335,12 @@ static int __init fdt_setup_smp(void)
 		rcid_information_init(version);
 
 		smp_rcb_init(__va(boot_flag_address));
+
+		/* Set core affinity */
+	        pnode = of_node_to_nid(dn);
+		lnode = fdt_map_pnode_to_lnode(pnode);
+
+		early_map_cpu_to_node(logical_core_id, lnode);
 
 		logical_core_id++;
 	}
