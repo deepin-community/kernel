@@ -122,12 +122,12 @@ static inline void send_ipi(int cpu, unsigned long type)
 {
 	int rcid;
 
-	rcid = cpu_to_rcid(cpu);
-
 	if (is_in_guest())
-		hcall(HCALL_IVI, rcid, type, 0);
-	else
+		hcall(HCALL_IVI, cpu, type, 0);
+	else {
+		rcid = cpu_to_rcid(cpu);
 		sendii(rcid, type, 0);
+	}
 }
 
 #define reset_cpu(cpu)  send_ipi((cpu), II_RESET)
