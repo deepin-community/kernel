@@ -13,6 +13,7 @@ struct console;
 
 extern const char linux_banner[];
 extern const char linux_proc_banner[];
+extern const char linux_commitid_banner[];
 
 extern int oops_in_progress;	/* If set, an oops, panic(), BUG() or die() is in progress */
 
