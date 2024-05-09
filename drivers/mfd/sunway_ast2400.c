@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <asm/ast2400.h>
 
+#define DRIVER_NAME "sunway_superio_ast2400"
 
 static int superio_uart0_irq;
 static int superio_uart1_irq;
@@ -199,7 +200,7 @@ static struct platform_driver superio_nuvoton_ast2400_driver = {
 	.probe          = superio_ast2400_probe,
 	.remove         = superio_ast2400_remove,
 	.driver         = {
-		.name   = "sunway_superio_ast2400"
+		.name   = DRIVER_NAME
 	},
 };
 
