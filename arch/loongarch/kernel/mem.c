@@ -9,13 +9,35 @@
 #include <asm/bootinfo.h>
 #include <asm/loongson.h>
 #include <asm/sections.h>
-
+#include "legacy_boot.h"
 void __init memblock_init(void)
 {
-	u32 mem_type;
+	u32 i, mem_type;
 	u64 mem_start, mem_end, mem_size;
 	efi_memory_desc_t *md;
+	if (g_mmap) {
+		/* parse memory information */
+		for (i = 0; i < g_mmap->map_count; i++) {
+			mem_type = g_mmap->map[i].mem_type;
+			mem_start = g_mmap->map[i].mem_start;
+			mem_size = g_mmap->map[i].mem_size;
+			mem_end = mem_start + mem_size;
 
+			switch (mem_type) {
+			case ADDRESS_TYPE_SYSRAM:
+			pr_info("add memory region memblock - base: 0x%llx size: 0x%llx\n", mem_start, mem_size);
+				memblock_add(mem_start, mem_size);
+				if (max_low_pfn < (mem_end >> PAGE_SHIFT))
+					max_low_pfn = mem_end >> PAGE_SHIFT;
+				break;
+			}
+		}
+		memblock_set_current_limit(PFN_PHYS(max_low_pfn));
+
+		memblock_reserve(__pa_symbol(&_text),
+			 __pa_symbol(&_end) - __pa_symbol(&_text));
+		return;
+	}
 	/* Parse memory information */
 	for_each_efi_memory_desc(md) {
 		mem_type = md->type;

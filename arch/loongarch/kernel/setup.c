@@ -48,6 +48,7 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/time.h>
+#include "legacy_boot.h"
 
 #define SMBIOS_BIOSSIZE_OFFSET		0x09
 #define SMBIOS_BIOSEXTERN_OFFSET	0x13
@@ -134,9 +135,22 @@ static void __init parse_cpu_table(const struct dmi_header *dm)
 
 static void __init parse_bios_table(const struct dmi_header *dm)
 {
+	int bios_extern;
 	char *dmi_data = (char *)dm;
 
+	bios_extern = *(dmi_data + SMBIOS_BIOSEXTERN_OFFSET);
 	b_info.bios_size = (*(dmi_data + SMBIOS_BIOSSIZE_OFFSET) + 1) << 6;
+
+	if (bpi_version == BPI_VERSION_V2) {
+		if ((!!(efi_bp->flags & BPI_FLAGS_UEFI_SUPPORTED)) != (!!(bios_extern & LOONGSON_EFI_ENABLE)))
+			pr_err("There is a conflict of definitions between efi_bp->flags and smbios\n");
+		return;
+	}
+
+	if (bios_extern & LOONGSON_EFI_ENABLE)
+		set_bit(EFI_BOOT, &efi.flags);
+	else
+		clear_bit(EFI_BOOT, &efi.flags);
 }
 
 static void __init find_tokens(const struct dmi_header *dm, void *dummy)
@@ -614,7 +628,9 @@ void __init setup_arch(char **cmdline_p)
 	pagetable_init();
 	bootcmdline_init(cmdline_p);
 	parse_early_param();
-	reserve_initrd_mem();
+	/* The small fdt method should be skipped directly to avoid two reserved operations. */
+	if (fw_arg2)
+		reserve_initrd_mem();
 
 	platform_init();
 	arch_mem_init(cmdline_p);
