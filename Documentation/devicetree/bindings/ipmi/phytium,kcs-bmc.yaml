@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/ipmi/phytium,kcs-bmc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium KCS (Keyboard Controller Style) IPMI interface
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+description: |
+  The Phytium E-series SOC can be used in BMC which have the KCS interface to
+  perform in-band IPMI communication with their host.
+
+properties:
+  compatible:
+    const: phytium,kcs-bmc
+
+  interrupts:
+    maxItems: 1
+
+  reg:
+    # maxItems: 3
+    items:
+      - description: IDR register
+      - description: ODR register
+      - description: STR register
+
+  kcs_chan:
+    deprecated: true
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description: The LPC channel number in the controller
+
+  kcs_addr:
+    deprecated: true
+    $ref: '/schemas/types.yaml#/definitions/uint32'
+    description: The host CPU IO map address
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - kcs_chan
+  - kcs_addr
+
+additionalProperties: false
+
+examples:
+  - |
+    kcs0: kcs@24 {
+      compatible = "phytium,kcs-bmc";
+      reg = <0x24 0x1>, <0x30 0x1>, <0x3c 0x1>;
+      interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+      kcs_chan = <1>;
+      kcs_addr = <0xca0>;
+    };
