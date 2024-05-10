@@ -52,6 +52,11 @@ static struct pch_pic *pch_pic_priv[MAX_IO_PICS];
 
 struct fwnode_handle *pch_pic_handle[MAX_IO_PICS];
 
+struct irq_domain *get_pchpic_irq_domain(void)
+{
+	return pch_pic_priv[0]->pic_domain;
+}
+
 static void pch_pic_bitset(struct pch_pic *priv, int offset, int bit)
 {
 	u32 reg;
