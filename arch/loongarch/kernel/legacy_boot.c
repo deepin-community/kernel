@@ -93,13 +93,15 @@ static int bad_pch_pic(unsigned long address)
 
 void register_default_pic(int id, u32 address, u32 irq_base)
 {
-	int idx, entries;
+	int j, idx, entries, cores;
 	unsigned long addr;
+	u64 node_map = 0;
 
 	if (bad_pch_pic(address))
 		return;
 
 	idx = nr_io_pics;
+	cores = (cpu_has_hypervisor ? MAX_CORES_PER_EIO_NODE : CORES_PER_EIO_NODE);
 
 	pchpic_default[idx].address = address;
 	if (idx)
@@ -119,14 +121,29 @@ void register_default_pic(int id, u32 address, u32 irq_base)
 	pchmsi_default[idx].start = entries;
 	pchmsi_default[idx].count = MSI_MSG_DEFAULT_COUNT;
 
-	eiointc_default[idx].cascade = 3;
+	for_each_possible_cpu(j) {
+		int node = cpu_logical_map(j) / cores;
+
+		node_map |= (1 << node);
+	}
+	eiointc_default[idx].cascade = 3 + idx;
 	eiointc_default[idx].node = id;
-	eiointc_default[idx].node_map = 1;
+	eiointc_default[idx].node_map = node_map;
 
 	if (idx) {
-		eiointc_default[idx].cascade = 0x4;
-		eiointc_default[0].node_map = 0x1DF;
-		eiointc_default[idx].node_map = 0xFE20;
+		int i;
+
+		for (i = 0; i < idx + 1; i++) {
+			node_map = 0;
+
+			for_each_possible_cpu(j) {
+				int node = cpu_logical_map(j) / cores;
+
+				if (((node & 7) < 4) ? !i : i)
+					node_map |= (1 << node);
+			}
+			eiointc_default[i].node_map = node_map;
+		}
 	}
 
 	acpi_pchpic[idx] = &pchpic_default[idx];
