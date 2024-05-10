@@ -6,6 +6,7 @@
 #define _ASM_LOONGARCH_EFI_H
 
 #include <linux/efi.h>
+#include <asm/early_ioremap.h>
 
 void __init efi_init(void);
 void __init efi_runtime_init(void);

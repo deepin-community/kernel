@@ -450,7 +450,9 @@ static struct syscore eiointc_syscore = {
 	.ops = &eiointc_syscore_ops,
 };
 
-static int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
+extern int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
+					const unsigned long end);
+int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
 					const unsigned long end)
 {
 	struct acpi_madt_bio_pic *pchpic_entry = (struct acpi_madt_bio_pic *)header;
@@ -463,7 +465,9 @@ static int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
 	return 0;
 }
 
-static int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
+extern int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
+					const unsigned long end);
+int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
 					const unsigned long end)
 {
 	struct irq_domain *parent;
