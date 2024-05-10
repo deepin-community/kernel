@@ -148,7 +148,15 @@ static int __init acpi_cascade_irqdomain_init(void)
 	return r;
 }
 
-static int __init cpuintc_acpi_init(union acpi_subtable_headers *header,
+extern struct irq_domain *get_cpudomain(void);
+extern int __init cpuintc_acpi_init(union acpi_subtable_headers *header,
+                                  const unsigned long end);
+struct irq_domain *get_cpudomain(void)
+{
+	return irq_domain;
+}
+
+int __init cpuintc_acpi_init(union acpi_subtable_headers *header,
 				   const unsigned long end)
 {
 	int ret;

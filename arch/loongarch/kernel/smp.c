@@ -35,6 +35,7 @@
 #include <asm/processor.h>
 #include <asm/setup.h>
 #include <asm/time.h>
+#include "legacy_boot.h"
 
 int __cpu_number_map[NR_CPUS];   /* Map physical to logical */
 EXPORT_SYMBOL(__cpu_number_map);
@@ -395,11 +396,12 @@ void __init loongson_prepare_cpus(unsigned int max_cpus)
  */
 void loongson_boot_secondary(int cpu, struct task_struct *idle)
 {
-	unsigned long entry;
+	unsigned long entry = (unsigned long)&smpboot_entry;
 
 	pr_info("Booting CPU#%d...\n", cpu);
 
-	entry = __pa_symbol((unsigned long)&smpboot_entry);
+	if (!efi_bp)
+		entry = __pa_symbol((unsigned long)&smpboot_entry);
 	cpuboot_data.task = (unsigned long)idle;
 	cpuboot_data.stack = (unsigned long)task_pt_regs(idle);
 	cpuboot_data.offset = per_cpu_offset(cpu);
