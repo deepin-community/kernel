@@ -58,13 +58,159 @@ static void acpi_release_root_info(struct acpi_pci_root_info *ci)
 	kfree(info);
 }
 
+static void arch_pci_root_validate_resources(struct device *dev,
+					     struct list_head *resources,
+					     unsigned long type)
+{
+	LIST_HEAD(list);
+	struct resource *res1, *res2, *root = NULL;
+	struct resource_entry *tmp, *entry, *entry2;
+
+	WARN_ON((type & (IORESOURCE_MEM | IORESOURCE_IO)) == 0);
+	root = (type & IORESOURCE_MEM) ? &iomem_resource : &ioport_resource;
+
+	list_splice_init(resources, &list);
+	resource_list_for_each_entry_safe(entry, tmp, &list) {
+		bool free = false;
+		resource_size_t end;
+
+		res1 = entry->res;
+		if (!(res1->flags & type))
+			goto next;
+
+		/* Exclude non-addressable range or non-addressable portion */
+		end = min(res1->end, root->end);
+		if (end <= res1->start) {
+			dev_info(dev, "host bridge window %pR (ignored, not CPU addressable)\n",
+				 res1);
+			free = true;
+			goto next;
+		} else if (res1->end != end) {
+			dev_info(dev, "host bridge window %pR ([%#llx-%#llx] ignored, not CPU addressable)\n",
+				 res1, (unsigned long long)end + 1,
+				 (unsigned long long)res1->end);
+			res1->end = end;
+		}
+
+		resource_list_for_each_entry(entry2, resources) {
+			res2 = entry2->res;
+			if (!(res2->flags & type))
+				continue;
+
+			/*
+			 * I don't like throwing away windows because then
+			 * our resources no longer match the ACPI _CRS, but
+			 * the kernel resource tree doesn't allow overlaps.
+			 */
+			if (resource_overlaps(res1, res2)) {
+				res2->start = min(res1->start, res2->start);
+				res2->end = max(res1->end, res2->end);
+				dev_info(dev, "host bridge window expanded to %pR; %pR ignored\n",
+					 res2, res1);
+				free = true;
+				goto next;
+			}
+		}
+
+next:
+		resource_list_del(entry);
+		if (free)
+			resource_list_free_entry(entry);
+		else
+			resource_list_add_tail(entry, resources);
+	}
+}
+static void arch_pci_root_remap_iospace(struct fwnode_handle *fwnode,
+			struct resource_entry *entry)
+{
+	struct resource *res = entry->res;
+	resource_size_t cpu_addr = res->start;
+	resource_size_t pci_addr = cpu_addr - entry->offset;
+	resource_size_t length = resource_size(res);
+	unsigned long port;
+
+	if (pci_register_io_range(fwnode, cpu_addr, length)) {
+		res->start += ISA_IOSIZE;
+		cpu_addr = res->start;
+		pci_addr = cpu_addr - entry->offset;
+		length = resource_size(res);
+		if (pci_register_io_range(fwnode, cpu_addr, length))
+			goto err;
+	}
+
+	port = pci_address_to_pio(cpu_addr);
+	if (port == (unsigned long)-1)
+		goto err;
+
+	res->start = port;
+	res->end = port + length - 1;
+	entry->offset = port - pci_addr;
+
+	if (pci_remap_iospace(res, cpu_addr) < 0)
+		goto err;
+
+	pr_info("Remapped I/O %pa to %pR\n", &cpu_addr, res);
+	return;
+err:
+	res->flags |= IORESOURCE_DISABLED;
+}
+
+static int arch_pci_probe_root_resources(struct acpi_pci_root_info *info)
+{
+	int ret;
+	struct list_head *list = &info->resources;
+	struct acpi_device *device = info->bridge;
+	struct resource_entry *entry, *tmp;
+	unsigned long flags;
+	struct resource *res;
+
+	flags = IORESOURCE_IO | IORESOURCE_MEM | IORESOURCE_MEM_8AND16BIT;
+	ret = acpi_dev_get_resources(device, list,
+				     acpi_dev_filter_resource_type_cb,
+				     (void *)flags);
+	if (ret < 0)
+		dev_warn(&device->dev,
+			 "failed to parse _CRS method, error code %d\n", ret);
+	else if (ret == 0)
+		dev_dbg(&device->dev,
+			"no IO and memory resources present in _CRS\n");
+	else {
+		resource_list_for_each_entry_safe(entry, tmp, list) {
+			if (entry->res->flags & IORESOURCE_IO) {
+				res = entry->res;
+				res->start = PFN_ALIGN(res->start);
+				res->end += 1;
+				res->end = PFN_ALIGN(res->end);
+				res->end -= 1;
+				if (!entry->offset) {
+					entry->offset = LOONGSON_LIO_BASE;
+					res->start |= LOONGSON_LIO_BASE;
+					res->end |= LOONGSON_LIO_BASE;
+				}
+				arch_pci_root_remap_iospace(&device->fwnode,
+						entry);
+			}
+			if (entry->res->flags & IORESOURCE_DISABLED)
+				resource_list_destroy_entry(entry);
+			else
+				entry->res->name = info->name;
+		}
+		arch_pci_root_validate_resources(&device->dev, list,
+						 IORESOURCE_MEM);
+		arch_pci_root_validate_resources(&device->dev, list,
+						 IORESOURCE_IO);
+	}
+
+	return ret;
+}
+
 static int acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 {
 	int status;
 	struct resource_entry *entry, *tmp;
 	struct acpi_device *device = ci->bridge;
 
-	status = acpi_pci_probe_root_resources(ci);
+	status = arch_pci_probe_root_resources(ci);
 	if (status > 0) {
 		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
 			if (entry->res->flags & IORESOURCE_MEM) {
