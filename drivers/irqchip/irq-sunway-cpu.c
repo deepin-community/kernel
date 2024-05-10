@@ -223,11 +223,8 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 		set_irq_regs(old_regs);
 		return;
 	case INT_VT_SERIAL:
-		old_regs = set_irq_regs(regs);
-		handle_irq(type);
-		set_irq_regs(old_regs);
-		return;
 	case INT_VT_HOTPLUG:
+	case INT_VT_GPIOA_PIN0:
 		old_regs = set_irq_regs(regs);
 		handle_irq(type);
 		set_irq_regs(old_regs);
