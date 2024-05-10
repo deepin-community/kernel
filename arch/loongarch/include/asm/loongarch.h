@@ -171,6 +171,7 @@
 /* IOCSR */
 #define iocsr_read32(reg) __iocsrrd_w(reg)
 #define iocsr_read64(reg) __iocsrrd_d(reg)
+#define iocsr_write8(val, reg)	__iocsrwr_b(val, reg)
 #define iocsr_write32(val, reg) __iocsrwr_w(val, reg)
 #define iocsr_write64(val, reg) __iocsrwr_d(val, reg)
 
