@@ -211,7 +211,7 @@ int setup_legacy_IRQ(void)
 	}
 
 	pic_domain = get_pchpic_irq_domain();
-	if (pic_domain)
+	if (pic_domain && !cpu_has_hypervisor)
 		pch_lpc_acpi_init(pic_domain, acpi_pchlpc);
 
 	return 0;
@@ -373,9 +373,12 @@ __init unsigned long legacy_boot_init(unsigned long argc, unsigned long cmdptr, 
 	efi_bp = (struct boot_params *)bpi;
 	bpi_version = get_bpi_version(&efi_bp->signature);
 	pr_info("BPI%d with boot flags %llx.\n", bpi_version, efi_bp->flags);
-	if (bpi_version == BPI_VERSION_NONE)
-		panic("Fatal error, bpi ver BONE!\n");
-	else if (bpi_version == BPI_VERSION_V2)
+	if (bpi_version == BPI_VERSION_NONE) {
+		if (cpu_has_hypervisor)
+			pr_err(FW_BUG "Fatal error, bpi ver NONE!\n");
+		else
+			panic(FW_BUG "Fatal error, bpi ver NONE!\n");
+	} else if (bpi_version == BPI_VERSION_V2)
 		parse_bpi_flags();
 
 	fw_init_cmdline(argc, cmdptr);
