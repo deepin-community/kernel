@@ -242,25 +242,6 @@ static void set_rc_piu(unsigned long node, unsigned long index)
 	}
 }
 
-static void set_intx(unsigned long node, unsigned long index,
-			   unsigned long int_conf)
-{
-	if (is_guest_or_emul())
-		return;
-
-#if defined(CONFIG_UNCORE_XUELANG)
-	write_piu_ior0(node, index, INTACONFIG, int_conf | (0x8UL << 10));
-	write_piu_ior0(node, index, INTBCONFIG, int_conf | (0x4UL << 10));
-	write_piu_ior0(node, index, INTCCONFIG, int_conf | (0x2UL << 10));
-	write_piu_ior0(node, index, INTDCONFIG, int_conf | (0x1UL << 10));
-#elif defined(CONFIG_UNCORE_JUNZHANG)
-	write_piu_ior0(node, index, INTACONFIG, int_conf | (0x1UL << 10));
-	write_piu_ior0(node, index, INTBCONFIG, int_conf | (0x2UL << 10));
-	write_piu_ior0(node, index, INTCCONFIG, int_conf | (0x4UL << 10));
-	write_piu_ior0(node, index, INTDCONFIG, int_conf | (0x8UL << 10));
-#endif
-}
-
 static unsigned long get_rc_enable(unsigned long node)
 {
 	unsigned long rc_enable;
@@ -338,7 +319,6 @@ static struct sw64_pci_init_ops chip_pci_init_ops = {
 	.hose_init = hose_init,
 	.set_rc_piu = set_rc_piu,
 	.check_pci_linkup = check_pci_linkup,
-	.set_intx = set_intx,
 };
 
 void __init setup_chip_pci_ops(void)
