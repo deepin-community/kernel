@@ -5,6 +5,7 @@
  * Copyright (c) 2022-2023, Phytium Technology Co., Ltd.
  */
 
+#include <linux/acpi.h>
 #include <linux/clk.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
@@ -14,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/pm_runtime.h>
 
 #include <linux/spi/spi-mem.h>
@@ -617,6 +619,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	u32 flash_cap;
 	struct spi_mem *mem;
 	struct spi_nor *nor;
+	const char **reg_name_array;
 
 	ctrl = spi_alloc_master(dev, sizeof(*qspi));
 	if (!ctrl)
@@ -627,19 +630,36 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 			  SPI_TX_DUAL | SPI_TX_QUAD;
 	ctrl->setup = phytium_qspi_setup;
 	ctrl->num_chipselect = PHYTIUM_QSPI_MAX_NORCHIP;
-	ctrl->dev.of_node = dev->of_node;
+	if (IS_ENABLED(CONFIG_OF))
+		ctrl->dev.of_node = dev->of_node;
+	else if (IS_ENABLED(CONFIG_ACPI) && has_acpi_companion(dev))
+		ctrl->dev.fwnode = dev->fwnode;
 
 	qspi = spi_controller_get_devdata(ctrl);
 	qspi->ctrl = ctrl;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
+	reg_name_array = kcalloc(4, sizeof(*reg_name_array), GFP_KERNEL);
+	if (dev->of_node)
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
+	else if (has_acpi_companion(dev)) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		fwnode_property_read_string_array(dev->fwnode,
+						"reg-names", reg_name_array, 2);
+		res->name = reg_name_array[0];
+	}
 	qspi->io_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qspi->io_base)) {
 		ret = PTR_ERR(qspi->io_base);
 		goto probe_master_put;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi_mm");
+	if (dev->of_node)
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi_mm");
+	else if (has_acpi_companion(dev)) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		res->name = reg_name_array[1];
+	}
+
 	qspi->mm_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qspi->mm_base)) {
 		ret = PTR_ERR(qspi->mm_base);
@@ -653,31 +673,34 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	}
 	qspi->used_size = 0;
 
-	qspi->clk = devm_clk_get(dev, NULL);
-	if (IS_ERR(qspi->clk)) {
-		ret = PTR_ERR(qspi->clk);
-		goto probe_master_put;
-	}
+	if (dev->of_node) {
+		qspi->clk = devm_clk_get(dev, NULL);
+		if (IS_ERR(qspi->clk)) {
+			ret = PTR_ERR(qspi->clk);
+			goto probe_master_put;
+		}
 
-	qspi->clk_rate = clk_get_rate(qspi->clk);
-	if (!qspi->clk_rate) {
-		ret = -EINVAL;
-		goto probe_master_put;
-	}
+		qspi->clk_rate = clk_get_rate(qspi->clk);
+		if (!qspi->clk_rate) {
+			ret = -EINVAL;
+			goto probe_master_put;
+		}
 
-	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		goto probe_master_put;
-	}
+		pm_runtime_enable(dev);
+		ret = pm_runtime_get_sync(dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(dev);
+			goto probe_master_put;
+		}
 
-	ret = clk_prepare_enable(qspi->clk);
-	if (ret) {
-		dev_err(dev, "Failed to enable PCLK of the controller.\n");
-		goto probe_clk_failed;
+		ret = clk_prepare_enable(qspi->clk);
+		if (ret) {
+			dev_err(dev, "Failed to enable PCLK of the controller.\n");
+			goto probe_clk_failed;
+		}
+	} else if (has_acpi_companion(dev)) {
+		qspi->clk_rate = 50000000;
 	}
-
 	qspi->nodirmap = device_property_present(dev, "no-direct-mapping");
 	ctrl->mem_ops = qspi->nodirmap ?
 			&phytium_qspi_mem_ops_nodirmap :
@@ -783,7 +806,12 @@ static const struct of_device_id phytium_qspi_of_match[] = {
 	{ .compatible = "phytium,qspi-nor" },
 	{ }
 };
+static const struct acpi_device_id phytium_qspi_acpi_match[] = {
+	{ "PHYT0011", 0 },
+	{ }
+};
 MODULE_DEVICE_TABLE(of, phytium_qspi_of_match);
+MODULE_DEVICE_TABLE(acpi, phytium_qspi_acpi_match);
 
 static struct platform_driver phytium_qspi_driver = {
 	.probe = phytium_qspi_probe,
@@ -791,6 +819,7 @@ static struct platform_driver phytium_qspi_driver = {
 	.driver = {
 		.name = "phytium-qspi",
 		.of_match_table = of_match_ptr(phytium_qspi_of_match),
+		.acpi_match_table = ACPI_PTR(phytium_qspi_acpi_match),
 		.pm = &phytium_qspi_pm_ops,
 	},
 };
