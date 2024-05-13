@@ -114,6 +114,15 @@ config HOTPLUG_PCI_SHPC
 
 	  When in doubt, say N.
 
+config HOTPLUG_PCI_PCIE_SUNWAY
+	bool "SUNWAY PCI Express Hotplug driver"
+	depends on SW64 && SUBARCH_C4 && !HOTPLUG_PCI_PCIE
+	help
+	  Say Y here if you have a motherboard with a SUNWAY PCI Express Hotplug
+	  controller.
+
+	  When in doubt, say N.
+
 config HOTPLUG_PCI_POWERNV
 	tristate "PowerPC PowerNV PCI Hotplug driver"
 	depends on PPC_POWERNV && EEH
