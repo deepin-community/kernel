@@ -7,6 +7,7 @@
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
  */
 
+#include <linux/acpi.h>
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
@@ -17,6 +18,7 @@
 #include <linux/mtd/spi-nor.h>
 #include <linux/mutex.h>
 #include <linux/of_platform.h>
+#include <linux/property.h>
 #include <linux/sched/task_stack.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
@@ -3621,6 +3623,7 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	struct spi_device *spi = spimem->spi;
 	struct flash_platform_data *data = dev_get_platdata(&spi->dev);
 	struct spi_nor *nor;
+	struct acpi_device *adev;
 	/*
 	 * Enable all caps by default. The core will mask them after
 	 * checking what's really supported using spi_mem_supports_op().
@@ -3636,6 +3639,10 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	nor->spimem = spimem;
 	nor->dev = &spi->dev;
 	spi_nor_set_flash_node(nor, spi->dev.of_node);
+	adev = ACPI_COMPANION(nor->dev);
+	nor->mtd.dev.fwnode = spi->dev.fwnode;
+
+	device_property_read_string(&spi->dev, "_HID", &nor->mtd.name);
 
 	spi_mem_set_drvdata(spimem, nor);
 
@@ -3775,6 +3782,11 @@ static const struct of_device_id spi_nor_of_table[] = {
 };
 MODULE_DEVICE_TABLE(of, spi_nor_of_table);
 
+static const struct acpi_device_id spi_nor_acpi_table[] = {
+	{"PHYT8009", 0},
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, spi_nor_acpi_table);
 /*
  * REVISIT: many of these chips have deep power-down modes, which
  * should clearly be entered on suspend() to minimize power use.
@@ -3786,6 +3798,7 @@ static struct spi_mem_driver spi_nor_driver = {
 			.name = "spi-nor",
 			.of_match_table = spi_nor_of_table,
 			.dev_groups = spi_nor_sysfs_groups,
+			.acpi_match_table = spi_nor_acpi_table,
 		},
 		.id_table = spi_nor_dev_ids,
 	},
