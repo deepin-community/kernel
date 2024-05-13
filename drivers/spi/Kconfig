@@ -765,14 +765,30 @@ config SPI_ORION
 	  This enables using the SPI master controller on the Orion
 	  and MVEBU chips.
 
-config SPI_PCI1XXXX
-	tristate "PCI1XXXX SPI Bus support"
-	depends on PCI
+config SPI_PHYTIUM
+	tristate
+	depends on ARCH_PHYTIUM || COMPILE_TEST
+
+config SPI_PHYTIUM_PLAT
+	tristate "Phytium SPI controller platform support"
+	select SPI_PHYTIUM
 	help
-	  Say "yes" to Enable the SPI Bus support for the PCI1xxxx card
-	  This is a PCI to SPI Bus driver
-	  This driver can be built as module. If so, the module will be
-	  called as spi-pci1xxxx.
+	  This selects a platform driver for Phytium SPI controller.
+
+	  If you say yes to this option, support will be included for
+	  Phytium SoC families of SPI controller.
+
+config SPI_PHYTIUM_PCI
+	tristate "Phytium SPI controller PCI support"
+	depends on PCI
+	select SPI_PHYTIUM
+	help
+	  This selects a PCI driver for Phytium SPI controller.
+
+	  If you say yes to this option, support will be included for
+	  Phytium PCIe chipsets of SPI controller.
+
+	  If unsure, say N.
 
 config SPI_PIC32
 	tristate "Microchip PIC32 series SPI"
