@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/phytium,qspi-nor.yaml#
+$schema: http://devicetree.org/schemas/meta-schemas/core.yaml#
+
+title: Phytium Quad Serial Peripheral Interface (QSPI) bindings
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: "spi-controller.yaml#"
+
+properties:
+  compatible:
+    const: phytium,qspi-nor
+
+  reg:
+    items:
+      - description: registers
+      - description: memory mapping region
+
+  reg-names:
+    items:
+      - const: qspi
+      - const: qspi_mm
+
+  clocks:
+    maxItems: 1
+
+  no-direct-mapping:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Indicates if we can use direct mapping to access the flash
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - clocks
+
+unevaluateProperties: false
+
+examples:
+  - |
+    qspi: qspi@28014000 {
+      compatible = "phytium,qspi-nor";
+      reg = <0x0 0x28014000 0x0     0x1000>,
+            <0x0        0x0 0x0 0x02000000>;
+      reg-names = "qspi", "qspi_mm";
+      clocks = <&sysclk_600mhz>;
+
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      flash@0 {
+        compatible = "jedec,spi-nor";
+        reg = <0>;
+        spi-rx-bus-width = <4>;
+        spi-max-frequency = <600000000>;
+      };
+
+      flash@1 {
+        compatible = "jedec,spi-nor";
+        reg = <1>;
+        spi-rx-bus-width = <4>;
+        spi-max-frequency = <600000000>;
+      };
+    };
