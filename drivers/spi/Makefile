@@ -100,6 +100,7 @@ obj-$(CONFIG_SPI_OMAP_UWIRE)		+= spi-omap-uwire.o
 obj-$(CONFIG_SPI_OMAP24XX)		+= spi-omap2-mcspi.o
 obj-$(CONFIG_SPI_TI_QSPI)		+= spi-ti-qspi.o
 obj-$(CONFIG_SPI_ORION)			+= spi-orion.o
+obj-$(CONFIG_SPI_PCI1XXXX)		+= spi-pci1xxxx.o
 obj-$(CONFIG_SPI_PHYTIUM)		+= spi-phytium.o
 obj-$(CONFIG_SPI_PHYTIUM_PLAT)		+= spi-phytium-plat.o
 obj-$(CONFIG_SPI_PHYTIUM_PCI)		+= spi-phytium-pci.o
