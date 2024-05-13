@@ -1346,7 +1346,6 @@ struct rtl8xxxu_priv {
 	u32 rege9c;
 	u32 regeb4;
 	u32 regebc;
-	u32 regrcr;
 	int next_mbox;
 	int nr_out_eps;
 
