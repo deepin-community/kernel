@@ -51,6 +51,7 @@ struct mtd_partition {
 	uint32_t mask_flags;		/* master MTD flags to mask out for this partition */
 	uint32_t add_flags;		/* flags to add to the partition */
 	struct device_node *of_node;
+	struct fwnode_handle *fwnode;
 };
 
 #define MTDPART_OFS_RETAIN	(-3)
@@ -61,6 +62,8 @@ struct mtd_partition {
 
 struct mtd_info;
 struct device_node;
+struct acpi_device;
+struct hwnode_handle;
 
 /**
  * struct mtd_part_parser_data - used to pass data to MTD partition parsers.
@@ -80,6 +83,7 @@ struct mtd_part_parser {
 	struct module *owner;
 	const char *name;
 	const struct of_device_id *of_match_table;
+	const struct acpi_device_id *acpi_match_table;
 	int (*parse_fn)(struct mtd_info *, const struct mtd_partition **,
 			struct mtd_part_parser_data *);
 	void (*cleanup)(const struct mtd_partition *pparts, int nr_parts);
