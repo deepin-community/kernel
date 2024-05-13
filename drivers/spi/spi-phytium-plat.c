@@ -120,18 +120,16 @@ static int phytium_spi_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int spi_suspend(struct device *dev)
 {
-	struct spi_master *master = dev_get_drvdata(dev);
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct phytium_spi_clk *ftsc = dev_get_drvdata(dev);
 
-	return phytium_spi_suspend_host(fts);
+	return phytium_spi_suspend_host(&ftsc->fts);
 }
 
 static int spi_resume(struct device *dev)
 {
-	struct spi_master *master = dev_get_drvdata(dev);
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct phytium_spi_clk *ftsc = dev_get_drvdata(dev);
 
-	return phytium_spi_resume_host(fts);
+	return phytium_spi_resume_host(&ftsc->fts);
 }
 #endif
 
