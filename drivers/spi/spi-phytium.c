@@ -468,7 +468,7 @@ int phytium_spi_add_host(struct device *dev, struct phytium_spi *fts)
 	spi_hw_init(dev, fts);
 
 	spi_master_set_devdata(master, fts);
-	ret = devm_spi_register_master(dev, master);
+	ret = spi_register_controller(master);
 	if (ret) {
 		dev_err(&master->dev, "problem registering spi master\n");
 		goto err_exit;
@@ -488,6 +488,8 @@ EXPORT_SYMBOL_GPL(phytium_spi_add_host);
 void phytium_spi_remove_host(struct phytium_spi *fts)
 {
 	spi_shutdown_chip(fts);
+
+	spi_unregister_controller(fts->master);
 
 	free_irq(fts->irq, fts->master);
 }
