@@ -71,6 +71,15 @@ static void handle_intx(unsigned int offset)
 			}
 		}
 
+		if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY)) {
+			value = read_piu_ior0(hose->node, hose->index, HPINTCONFIG);
+			if (value >> 63) {
+				handle_irq(hose->service_irq);
+				write_piu_ior0(hose->node, hose->index, HPINTCONFIG, value);
+			}
+
+		}
+
 		if (hose->iommu_enable) {
 			value = read_piu_ior0(hose->node, hose->index, IOMMUEXCPT_STATUS);
 			if (value >> 63)

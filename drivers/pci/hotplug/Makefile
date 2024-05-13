@@ -12,6 +12,7 @@ obj-$(CONFIG_HOTPLUG_PCI_IBM)		+= ibmphp.o
 # generic support.
 
 obj-$(CONFIG_HOTPLUG_PCI_PCIE)		+= pciehp.o
+obj-$(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY)	+= sunway_pciehp.o
 obj-$(CONFIG_HOTPLUG_PCI_CPCI_ZT5550)	+= cpcihp_zt5550.o
 obj-$(CONFIG_HOTPLUG_PCI_CPCI_GENERIC)	+= cpcihp_generic.o
 obj-$(CONFIG_HOTPLUG_PCI_SHPC)		+= shpchp.o
@@ -70,3 +71,8 @@ shpchp-objs		:=	shpchp_core.o	\
 				shpchp_pci.o	\
 				shpchp_sysfs.o	\
 				shpchp_hpc.o
+
+sunway_pciehp-objs	:=	sunway_pciehp_core.o	\
+				sunway_pciehp_ctrl.o	\
+				sunway_pciehp_pci.o	\
+				sunway_pciehp_hpc.o

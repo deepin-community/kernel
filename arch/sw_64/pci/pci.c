@@ -201,9 +201,9 @@ static void fixup_root_complex(struct pci_dev *dev)
 	hose->self_busno = hose->busn_space->start;
 
 	if (likely(bus->number == hose->self_busno)) {
-		if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE)) {
+		if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY)) {
 			/* Check Root Complex port again */
-			dev->is_hotplug_bridge = 0;
+			dev->is_hotplug_bridge = 1;
 			dev->current_state = PCI_D0;
 		}
 

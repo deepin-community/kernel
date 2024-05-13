@@ -33,6 +33,23 @@ void set_pcieport_service_irq(int node, int index)
 	if (IS_ENABLED(CONFIG_PCIEAER))
 		write_piu_ior0(node, index,
 				AERERRINTCONFIG, AER_ENABLE_INTD_CORE0);
+
+#ifdef CONFIG_UNCORE_JUNZHANG
+	if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY))
+		write_piu_ior0(node, index,
+				HPINTCONFIG, HP_ENABLE_INTD_CORE0);
+#endif
+}
+
+int pcibios_enable_device(struct pci_dev *dev, int bars)
+{
+	struct pci_bus *bus = dev->bus;
+	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
+
+	if (!is_guest_or_emul() && unlikely(bus->number == hose->self_busno))
+		return 0;
+	else
+		return pci_enable_resources(dev, bars);
 }
 
 int chip_pcie_configure(struct pci_controller *hose)
