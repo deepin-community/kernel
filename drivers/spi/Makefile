@@ -105,6 +105,7 @@ obj-$(CONFIG_SPI_PHYTIUM)		+= spi-phytium.o
 obj-$(CONFIG_SPI_PHYTIUM_PLAT)		+= spi-phytium-plat.o
 obj-$(CONFIG_SPI_PHYTIUM_PCI)		+= spi-phytium-pci.o
 obj-$(CONFIG_SPI_PHYTIUM_QSPI)		+= spi-phytium-qspi.o
+obj-$(CONFIG_SPI_PHYTIUM)               += spi-phytium-dma.o
 obj-$(CONFIG_SPI_PIC32)			+= spi-pic32.o
 obj-$(CONFIG_SPI_PIC32_SQI)		+= spi-pic32-sqi.o
 obj-$(CONFIG_SPI_PL022)			+= spi-pl022.o
