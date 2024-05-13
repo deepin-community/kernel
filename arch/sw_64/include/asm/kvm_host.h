@@ -33,18 +33,19 @@
 #ifdef CONFIG_SUBARCH_C3B
 #define VPN_BITS	8
 #define GUEST_RESET_PC          0xffffffff80011100
+#define KVM_MAX_VCPUS   64
 #endif
 
 #ifdef CONFIG_SUBARCH_C4
 #define VPN_BITS	10
 #define GUEST_RESET_PC          0xfff0000000011002
+#define KVM_MAX_VCPUS   256
 #endif
 
 #define VPN_FIRST_VERSION	(1UL << VPN_BITS)
 #define VPN_MASK		((1UL << VPN_BITS) - 1)
 #define VPN_SHIFT		(64 - VPN_BITS)
 
-#define KVM_MAX_VCPUS 64
 #define KVM_INTERNAL_MEM_SLOTS	(KVM_MEM_SLOTS_NUM - 512)
 
 #define KVM_HALT_POLL_NS_DEFAULT 0
