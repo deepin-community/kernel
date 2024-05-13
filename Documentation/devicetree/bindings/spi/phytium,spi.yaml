@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/phytium,spi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium SPI controller
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: spi-controller.yaml#
+
+properties:
+  compatible:
+    const: phytium,spi
+
+  reg:
+    minItems: 1
+    description: address and length of the spi master registers
+
+  interrupts:
+    maxItems: 1
+    description: should contain one interrupt
+
+  clocks:
+    maxItems: 1
+    description: spi clock phandle
+
+required:
+  - compatible
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - interrupts
+  - clocks
+  - num-cs
+
+examples:
+  - |
+
+    spi0: spi@2800c000 {
+      compatible = "phytium,spi";
+      interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+      reg = <0x0 0x2800c000 0x0 0x1000>;
+      clocks = <&sysclk_48mhz>;
+      num-cs = <4>;
+    };
