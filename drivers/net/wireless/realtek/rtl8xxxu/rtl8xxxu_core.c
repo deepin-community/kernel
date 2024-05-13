@@ -5547,6 +5547,9 @@ static void rtl8xxxu_c2hcmd_callback(struct work_struct *work)
 	btcoex = &priv->bt_coex;
 	rarpt = &priv->ra_report;
 
+	if (priv->rf_paths > 1)
+		goto out;
+
 	while (!skb_queue_empty(&priv->c2hcmd_queue)) {
 		skb = skb_dequeue(&priv->c2hcmd_queue);
 
@@ -5598,9 +5601,10 @@ static void rtl8xxxu_c2hcmd_callback(struct work_struct *work)
 		default:
 			break;
 		}
-
-		dev_kfree_skb(skb);
 	}
+
+out:
+	dev_kfree_skb(skb);
 }
 
 static void rtl8723bu_handle_c2h(struct rtl8xxxu_priv *priv,
