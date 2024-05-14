@@ -1312,7 +1312,7 @@ config X86_REBOOTFIXUPS
 
 config MICROCODE
 	def_bool y
-	depends on CPU_SUP_AMD || CPU_SUP_INTEL
+	depends on CPU_SUP_AMD || CPU_SUP_INTEL || CPU_SUP_HYGON
 
 config MICROCODE_LATE_LOADING
 	bool "Late microcode loading (DANGEROUS)"

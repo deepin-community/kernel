@@ -55,6 +55,9 @@ struct cpio_data find_microcode_in_initrd(const char *path, bool use_pa);
 #define CPUID_AMD1 QCHAR('A', 'u', 't', 'h')
 #define CPUID_AMD2 QCHAR('e', 'n', 't', 'i')
 #define CPUID_AMD3 QCHAR('c', 'A', 'M', 'D')
+#define CPUID_HYGON1 QCHAR('H', 'y', 'g', 'o')
+#define CPUID_HYGON2 QCHAR('n', 'G', 'e', 'n')
+#define CPUID_HYGON3 QCHAR('u', 'i', 'n', 'e')
 
 #define CPUID_IS(a, b, c, ebx, ecx, edx)	\
 		(!(((ebx) ^ (a)) | ((edx) ^ (b)) | ((ecx) ^ (c))))
@@ -80,6 +83,9 @@ static inline int x86_cpuid_vendor(void)
 
 	if (CPUID_IS(CPUID_AMD1, CPUID_AMD2, CPUID_AMD3, ebx, ecx, edx))
 		return X86_VENDOR_AMD;
+
+	if (CPUID_IS(CPUID_HYGON1, CPUID_HYGON2, CPUID_HYGON3, ebx, ecx, edx))
+		return X86_VENDOR_HYGON;
 
 	return X86_VENDOR_UNKNOWN;
 }
@@ -113,6 +119,12 @@ static inline void reload_ucode_amd(unsigned int cpu) { }
 static inline struct microcode_ops *init_amd_microcode(void) { return NULL; }
 static inline void exit_amd_microcode(void) { }
 #endif /* !CONFIG_CPU_SUP_AMD */
+
+#ifdef CONFIG_CPU_SUP_HYGON
+const struct microcode_ops *init_hygon_microcode(void);
+#else /* CONFIG_CPU_SUP_HYGON */
+static const inline struct microcode_ops *init_hygon_microcode(void) { return NULL; }
+#endif /* !CONFIG_CPU_SUP_HYGON */
 
 #ifdef CONFIG_CPU_SUP_INTEL
 void load_ucode_intel_bsp(void);

@@ -35,6 +35,8 @@ on Intel:
   kernel/x86/microcode/GenuineIntel.bin
 on AMD  :
   kernel/x86/microcode/AuthenticAMD.bin
+on Hygon:
+  kernel/x86/microcode/HygonGenuine.bin
 
 During BSP (BootStrapping Processor) boot (pre-SMP), the kernel
 scans the microcode file in the initrd. If microcode matching the
@@ -68,6 +70,10 @@ here for future reference only).
   mkdir $TMPDIR
   cd $TMPDIR
   mkdir -p $DSTDIR
+
+  if [ -d /lib/firmware/hygon-ucode ]; then
+          cat /lib/firmware/hygon-ucode/microcode_hygon*.bin > $DSTDIR/HygonGenuine.bin
+  fi
 
   if [ -d /lib/firmware/amd-ucode ]; then
           cat /lib/firmware/amd-ucode/microcode_amd*.bin > $DSTDIR/AuthenticAMD.bin
@@ -217,7 +223,8 @@ currently supported.
 
 Here's an example::
 
-  CONFIG_EXTRA_FIRMWARE="intel-ucode/06-3a-09 amd-ucode/microcode_amd_fam15h.bin"
+  CONFIG_EXTRA_FIRMWARE="intel-ucode/06-3a-09 \
+    amd-ucode/microcode_amd_fam15h.bin hygon-ucode/microcode_hygon_fam18h.bin"
   CONFIG_EXTRA_FIRMWARE_DIR="/lib/firmware"
 
 This basically means, you have the following tree structure locally::
@@ -226,6 +233,10 @@ This basically means, you have the following tree structure locally::
   |-- amd-ucode
   ...
   |   |-- microcode_amd_fam15h.bin
+  ...
+  |-- hygon-ucode
+  ...
+  |   |-- microcode_hygon_fam18h.bin
   ...
   |-- intel-ucode
   ...
