@@ -84,6 +84,11 @@ static DEFINE_MUTEX(nb_smu_ind_mutex);
  */
 #define AMD_I3255_STR				"3255"
 
+struct hygon_private {
+	u32 index_2nd;
+	u32 offset_2nd;
+};
+
 struct k10temp_data {
 	struct pci_dev *pdev;
 	void (*read_htcreg)(struct pci_dev *pdev, u32 *regval);
@@ -94,6 +99,7 @@ struct k10temp_data {
 	bool is_zen;
 	u32 ccd_offset;
 	bool disp_negative;
+	void *priv;
 };
 
 #define TCTL_BIT	0
@@ -201,6 +207,23 @@ static int k10temp_read_labels(struct device *dev,
 	return 0;
 }
 
+static void hygon_read_temp(struct k10temp_data *data, int channel,
+			       u32 *regval)
+{
+	struct hygon_private *h_priv;
+
+	h_priv = (struct hygon_private *)data->priv;
+	if ((channel - 2) < h_priv->index_2nd)
+		amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
+			     ZEN_CCD_TEMP(data->ccd_offset, channel - 2),
+					  regval);
+	else
+		amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
+			     ZEN_CCD_TEMP(h_priv->offset_2nd,
+					  channel - 2 - h_priv->index_2nd),
+					  regval);
+}
+
 static int k10temp_read_temp(struct device *dev, u32 attr, int channel,
 			     long *val)
 {
@@ -221,7 +244,10 @@ static int k10temp_read_temp(struct device *dev, u32 attr, int channel,
 				*val = 0;
 			break;
 		case 2 ... 13:		/* Tccd{1-12} */
-			amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
+			if (hygon_f18h_m4h())
+				hygon_read_temp(data, channel, &regval);
+			else
+				amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
 				     ZEN_CCD_TEMP(data->ccd_offset, channel - 2),
 						  &regval);
 			*val = (regval & ZEN_CCD_TEMP_MASK) * 125 - 49000;
@@ -388,13 +414,47 @@ static void k10temp_get_ccd_support(struct pci_dev *pdev,
 	}
 }
 
+static void k10temp_get_ccd_support_2nd(struct pci_dev *pdev,
+					struct k10temp_data *data, int limit)
+{
+	struct hygon_private *h_priv;
+	u32 regval;
+	int i;
+
+	h_priv = (struct hygon_private *)data->priv;
+	for (i = h_priv->index_2nd; i < limit; i++) {
+		amd_smn_read(amd_pci_dev_to_node_id(pdev),
+			     ZEN_CCD_TEMP(h_priv->offset_2nd,
+			     i - h_priv->index_2nd),
+			     &regval);
+		if (regval & ZEN_CCD_TEMP_VALID)
+			data->show_temp |= BIT(TCCD_BIT(i));
+	}
+}
+
 static int k10temp_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	int unreliable = has_erratum_319(pdev);
 	struct device *dev = &pdev->dev;
+	struct hygon_private *h_priv;
 	struct k10temp_data *data;
 	struct device *hwmon_dev;
+	u8 df_id;
 	int i;
+
+	if (hygon_f18h_m4h()) {
+		if (get_df_id(pdev, &df_id)) {
+			pr_err("Get DF ID failed.\n");
+			return -ENODEV;
+		}
+
+		/*
+		 * The temperature should be get from the devices
+		 * with id < 4.
+		 */
+		if (df_id >= 4)
+			return 0;
+	}
 
 	if (unreliable) {
 		if (!force) {
@@ -423,7 +483,7 @@ static int k10temp_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	     (boot_cpu_data.x86_model & 0xf0) == 0x70)) {
 		data->read_htcreg = read_htcreg_nb_f15;
 		data->read_tempreg = read_tempreg_nb_f15;
-	} else if (boot_cpu_data.x86 == 0x17 || boot_cpu_data.x86 == 0x18) {
+	} else if (boot_cpu_data.x86 == 0x17) {
 		data->temp_adjust_mask = ZEN_CUR_TEMP_RANGE_SEL_MASK;
 		data->read_tempreg = read_tempreg_nb_zen;
 		data->is_zen = true;
@@ -447,6 +507,25 @@ static int k10temp_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			data->ccd_offset = 0x300;
 			k10temp_get_ccd_support(pdev, data, 8);
 			break;
+		}
+	} else if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
+		   boot_cpu_data.x86 == 0x18) {
+		data->temp_adjust_mask = ZEN_CUR_TEMP_RANGE_SEL_MASK;
+		data->read_tempreg = read_tempreg_nb_zen;
+		data->is_zen = true;
+
+		if (boot_cpu_data.x86_model >= 0x4 &&
+		    boot_cpu_data.x86_model <= 0xf) {
+			data->ccd_offset = 0x154;
+			data->priv = devm_kzalloc(dev, sizeof(*h_priv),
+						  GFP_KERNEL);
+			if (!data->priv)
+				return -ENOMEM;
+			h_priv = (struct hygon_private *)data->priv;
+			h_priv->offset_2nd = 0x2f8;
+			h_priv->index_2nd = 3;
+			k10temp_get_ccd_support(pdev, data, h_priv->index_2nd);
+			k10temp_get_ccd_support_2nd(pdev, data, 8);
 		}
 	} else if (boot_cpu_data.x86 == 0x19) {
 		data->temp_adjust_mask = ZEN_CUR_TEMP_RANGE_SEL_MASK;
@@ -529,6 +608,7 @@ static const struct pci_device_id k10temp_id_table[] = {
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_1AH_M00H_DF_F3) },
 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_1AH_M20H_DF_F3) },
 	{ PCI_VDEVICE(HYGON, PCI_DEVICE_ID_AMD_17H_DF_F3) },
+	{ PCI_VDEVICE(HYGON, PCI_DEVICE_ID_AMD_17H_M30H_DF_F3) },
 	{}
 };
 MODULE_DEVICE_TABLE(pci, k10temp_id_table);
