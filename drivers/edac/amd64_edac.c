@@ -1154,8 +1154,11 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	ctx.nid = nid;
 	ctx.inst_id = umc;
 
-	/* Read D18F0x1B4 (DramOffset), check if base 1 is used. */
-	if (df_indirect_read_instance(nid, 0, 0x1B4, umc, &ctx.tmp))
+	/* Read DramOffset, check if base 1 is used. */
+	if (hygon_f18h_m4h() &&
+	    df_indirect_read_instance(nid, 0, 0x214, umc, &ctx.tmp))
+		goto out_err;
+	else if (df_indirect_read_instance(nid, 0, 0x1B4, umc, &ctx.tmp))
 		goto out_err;
 
 	/* Remove HiAddrOffset from normalized address, if enabled: */
@@ -1179,6 +1182,9 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		goto out_err;
 	}
 
+	intlv_num_sockets = 0;
+	if (hygon_f18h_m4h())
+		intlv_num_sockets = (ctx.tmp >> 2) & 0x3;
 	lgcy_mmio_hole_en = ctx.tmp & BIT(1);
 	intlv_num_chan	  = (ctx.tmp >> 4) & 0xF;
 	intlv_addr_sel	  = (ctx.tmp >> 8) & 0x7;
@@ -1195,7 +1201,8 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	if (df_indirect_read_instance(nid, 0, 0x114 + (8 * base), umc, &ctx.tmp))
 		goto out_err;
 
-	intlv_num_sockets = (ctx.tmp >> 8) & 0x1;
+	if (!hygon_f18h_m4h())
+		intlv_num_sockets = (ctx.tmp >> 8) & 0x1;
 	intlv_num_dies	  = (ctx.tmp >> 10) & 0x3;
 	dram_limit_addr	  = ((ctx.tmp & GENMASK_ULL(31, 12)) << 16) | GENMASK_ULL(27, 0);
 
@@ -1213,6 +1220,9 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		hash_enabled = true;
 		break;
 	default:
+		if (hygon_f18h_m4h() && boot_cpu_data.x86_model == 0x4 &&
+		    intlv_num_chan == 2)
+			break;
 		pr_err("%s: Invalid number of interleaved channels %d.\n",
 			__func__, intlv_num_chan);
 		goto out_err;
@@ -1231,8 +1241,9 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	/* Add a bit if sockets are interleaved. */
 	num_intlv_bits += intlv_num_sockets;
 
-	/* Assert num_intlv_bits <= 4 */
-	if (num_intlv_bits > 4) {
+	/* Assert num_intlv_bits in the correct range. */
+	if ((hygon_f18h_m4h() && num_intlv_bits > 7) ||
+	    (!hygon_f18h_m4h() && num_intlv_bits > 4)) {
 		pr_err("%s: Invalid interleave bits %d.\n",
 			__func__, num_intlv_bits);
 		goto out_err;
@@ -1251,7 +1262,10 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		if (df_indirect_read_instance(nid, 0, 0x50, umc, &ctx.tmp))
 			goto out_err;
 
-		cs_fabric_id = (ctx.tmp >> 8) & 0xFF;
+		if (hygon_f18h_m4h())
+			cs_fabric_id = (ctx.tmp >> 8) & 0x7FF;
+		else
+			cs_fabric_id = (ctx.tmp >> 8) & 0xFF;
 		die_id_bit   = 0;
 
 		/* If interleaved over more than 1 channel: */
@@ -1271,8 +1285,13 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		/* If interleaved over more than 1 die. */
 		if (intlv_num_dies) {
 			sock_id_bit  = die_id_bit + intlv_num_dies;
-			die_id_shift = (ctx.tmp >> 24) & 0xF;
-			die_id_mask  = (ctx.tmp >> 8) & 0xFF;
+			if (hygon_f18h_m4h()) {
+				die_id_shift = (ctx.tmp >> 12) & 0xF;
+				die_id_mask  = ctx.tmp & 0x7FF;
+			} else {
+				die_id_shift = (ctx.tmp >> 24) & 0xF;
+				die_id_mask  = (ctx.tmp >> 8) & 0xFF;
+			}
 
 			cs_id |= ((cs_fabric_id & die_id_mask) >> die_id_shift) << die_id_bit;
 		}
@@ -1280,7 +1299,10 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		/* If interleaved over more than 1 socket. */
 		if (intlv_num_sockets) {
 			socket_id_shift	= (ctx.tmp >> 28) & 0xF;
-			socket_id_mask	= (ctx.tmp >> 16) & 0xFF;
+			if (hygon_f18h_m4h())
+				socket_id_mask	= (ctx.tmp >> 16) & 0x7FF;
+			else
+				socket_id_mask	= (ctx.tmp >> 16) & 0xFF;
 
 			cs_id |= ((cs_fabric_id & socket_id_mask) >> socket_id_shift) << sock_id_bit;
 		}
