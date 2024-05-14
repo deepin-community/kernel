@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/ipmi/phytium,bt-bmc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium BT (Block Transfer) IPMI interface
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+description: |
+  The Phytium E-series SOCs can be used in BMC which may have a BT
+  interface used to perform in-band IPMI communication with their host.
+
+properties:
+  compatible:
+    const: phytium,bt-bmc
+
+  interrupts:
+    maxItems: 1
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - interrupts
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    bt: bt@250 {
+      compatible = "phytium,bt-bmc";
+      reg = <0x250 0x1c>;
+      interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+    };
