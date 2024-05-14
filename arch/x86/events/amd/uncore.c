@@ -203,7 +203,7 @@ static u64 l3_thread_slice_mask(u64 config)
 
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
 	    boot_cpu_data.x86 == 0x18) {
-		if (boot_cpu_data.x86_model == 0x6)
+		if (boot_cpu_data.x86_model >= 0x6 && boot_cpu_data.x86_model <= 0xf)
 			return ((config & HYGON_L3_SLICE_MASK) ? : HYGON_L3_SLICE_MASK) |
 			       ((config & HYGON_L3_THREAD_MASK) ? : HYGON_L3_THREAD_MASK);
 		else
@@ -282,7 +282,8 @@ amd_f17h_uncore_is_visible(struct kobject *kobj, struct attribute *attr, int i)
 static umode_t
 hygon_f18h_m6h_uncore_is_visible(struct kobject *kobj, struct attribute *attr, int i)
 {
-	return boot_cpu_data.x86 == 0x18 && boot_cpu_data.x86_model == 0x6 ?
+	return boot_cpu_data.x86 == 0x18 &&
+	       boot_cpu_data.x86_model >= 0x6 && boot_cpu_data.x86_model <= 0xf ?
 	       attr->mode : 0;
 }
 
@@ -755,7 +756,7 @@ static int __init amd_uncore_init(void)
 			   boot_cpu_data.x86 == 0x18) {
 			*l3_attr++ = &format_attr_event8.attr;
 			*l3_attr++ = &format_attr_umask8.attr;
-			if (boot_cpu_data.x86_model == 0x6) {
+			if (boot_cpu_data.x86_model >= 0x6 && boot_cpu_data.x86_model <= 0xf) {
 				*l3_attr++ = &format_attr_threadmask32.attr;
 				amd_llc_pmu.attr_update = hygon_uncore_l3_attr_update;
 			} else {
