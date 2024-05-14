@@ -11,6 +11,10 @@ ipmi_si-$(CONFIG_PCI) += ipmi_si_pci.o
 ipmi_si-$(CONFIG_IPMI_LS2K) += ipmi_si_ls2k.o
 ipmi_si-$(CONFIG_PARISC) += ipmi_si_parisc.o
 
+ifdef CONFIG_LOONGARCH
+ipmi_si-y += ipmi_si_ls2k500.o
+endif
+
 obj-$(CONFIG_IPMI_HANDLER) += ipmi_msghandler.o
 obj-$(CONFIG_IPMI_DEVICE_INTERFACE) += ipmi_devintf.o
 obj-$(CONFIG_IPMI_SI) += ipmi_si.o
