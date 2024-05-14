@@ -3065,7 +3065,11 @@ static inline void decode_bus_error(int node_id, struct mce *m)
  */
 static void umc_get_err_info(struct mce *m, struct err_info *err)
 {
-	err->channel = (m->ipid & GENMASK(31, 0)) >> 20;
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
+	    boot_cpu_data.x86 == 0x18)
+		err->channel = (m->ipid & GENMASK(23, 0)) >> 20;
+	else
+		err->channel = (m->ipid & GENMASK(31, 0)) >> 20;
 	err->csrow = m->synd & 0x7;
 }
 
