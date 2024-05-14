@@ -876,7 +876,11 @@ int smu_cmn_update_table(struct smu_context *smu,
 	table_size = smu_table->tables[table_index].size;
 
 	if (drv2smu) {
+#if IS_ENABLED(CONFIG_SW64)
+		memcpy_toio(table->cpu_addr, table_data, table_size);
+#else
 		memcpy(table->cpu_addr, table_data, table_size);
+#endif
 		/*
 		 * Flush hdp cache: to guard the content seen by
 		 * GPU is consitent with CPU.
@@ -893,8 +897,12 @@ int smu_cmn_update_table(struct smu_context *smu,
 		return ret;
 
 	if (!drv2smu) {
-		amdgpu_asic_invalidate_hdp(adev, NULL);
+		amdgpu_asic_flush_hdp(adev, NULL);
+#if IS_ENABLED(CONFIG_SW64)
+		memcpy_fromio(table_data, table->cpu_addr, table_size);
+#else
 		memcpy(table_data, table->cpu_addr, table_size);
+#endif
 	}
 
 	return 0;
@@ -950,7 +958,11 @@ int smu_cmn_get_metrics_table(struct smu_context *smu,
 	}
 
 	if (metrics_table)
+#if IS_ENABLED(CONFIG_SW64)
+		memcpy_toio(metrics_table, smu_table->metrics_table, table_size);
+#else
 		memcpy(metrics_table, smu_table->metrics_table, table_size);
+#endif
 
 	return 0;
 }
