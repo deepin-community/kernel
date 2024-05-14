@@ -745,8 +745,13 @@ static void decode_smca_error(struct mce *m)
 	pr_emerg(HW_ERR "%s Ext. Error Code: %d", smca_get_long_name(bank_type), xec);
 
 	if ((bank_type == SMCA_UMC || bank_type == SMCA_UMC_V2) &&
-	    xec == 0 && decode_dram_ecc)
-		decode_dram_ecc(topology_die_id(m->extcpu), m);
+	    xec == 0 && decode_dram_ecc) {
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
+		    boot_cpu_data.x86 == 0x18)
+			decode_dram_ecc(topology_logical_die_id(m->extcpu), m);
+		else
+			decode_dram_ecc(topology_die_id(m->extcpu), m);
+	}
 }
 
 static inline void amd_decode_err_code(u16 ec)
