@@ -747,6 +747,14 @@ config XILINX_ZYNQMP_DPDMA
 	  driver provides the dmaengine required by the DisplayPort subsystem
 	  display driver.
 
+config PHYTIUM_DDMA
+	bool "Phytium PE220x DDMA support"
+	depends on (ARCH_PHYTIUM || COMPILE_TEST)
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Enable support for Phytium PE220x DDMA controller.
+
 # driver files
 source "drivers/dma/bestcomm/Kconfig"
 
