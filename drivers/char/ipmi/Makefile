@@ -13,6 +13,10 @@ ifdef CONFIG_PARISC
 ipmi_si-y += ipmi_si_parisc.o
 endif
 
+ifdef CONFIG_LOONGARCH
+ipmi_si-y += ipmi_si_ls2k500.o
+endif
+
 obj-$(CONFIG_IPMI_HANDLER) += ipmi_msghandler.o
 obj-$(CONFIG_IPMI_DEVICE_INTERFACE) += ipmi_devintf.o
 obj-$(CONFIG_IPMI_SI) += ipmi_si.o
