@@ -51,6 +51,9 @@ struct si_sm_io {
 	unsigned int regshift;
 	enum ipmi_addr_space addr_space;
 	unsigned long addr_data;
+#ifdef CONFIG_LOONGARCH
+	void *addr_source_data;
+#endif
 	enum ipmi_addr_src addr_source; /* ACPI, PCI, SMBIOS, hardcode, etc. */
 	union ipmi_smi_info_union addr_info;
 
@@ -99,6 +102,14 @@ void ipmi_si_parisc_shutdown(void);
 #else
 static inline void ipmi_si_parisc_init(void) { }
 static inline void ipmi_si_parisc_shutdown(void) { }
+#endif
+
+#ifdef CONFIG_LOONGARCH
+int ipmi_si_ls2k500_init(void);
+void ipmi_si_ls2k500_shutdown(void);
+#else
+static inline void ipmi_si_ls2k500_init(void) { }
+static inline void ipmi_si_ls2k500_shutdown(void) { }
 #endif
 
 int ipmi_si_port_setup(struct si_sm_io *io);

@@ -111,6 +111,7 @@ static void ls2k500sfb_redraw_fn(struct work_struct *work)
 	switch_console(saved_console);
 }
 
+static unsigned long event_jiffies;
 static void ls2k500sfb_events_fn(struct work_struct *work)
 {
 	struct ls2k500sfb_struct *priv = container_of(work, struct ls2k500sfb_struct, work);
@@ -151,6 +152,7 @@ static void ls2k500sfb_events_fn(struct work_struct *work)
 	pci_write_config_dword(ppdev, 0x18, 0);
 	pci_write_config_dword(ppdev, 0x1c, 0);
 	pci_write_config_dword(ppdev, 0x20, 0);
+	event_jiffies = jiffies;
 	atomic_set(&waiting_for_pciebreak_ipi, 0);
 	wmb(); /* flush all write after change pcie window */
 	local_bh_enable();
@@ -648,6 +650,7 @@ static struct platform_driver simplefb_driver = {
 	.remove = simplefb_remove,
 };
 
+static void *kcs_data[2] = {&event_jiffies, &mscycles};
 static int ls2k500sfb_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	struct simplefb_platform_data mode;
@@ -740,7 +743,8 @@ static int ls2k500sfb_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	for (i = 0; i < 5; i++) {
 		res[0].start = phybase + 0x00f00000 + 0x1c*i;
 		res[0].end = phybase + 0x00f00000 + 0x1c*(i+1) - 1;
-		platform_device_register_simple("ipmi_ls2k500_si", i, res, 1);
+		platform_device_register_resndata(NULL, "ipmi_ls2k500_si", i, res, 1,
+						kcs_data, sizeof(kcs_data));
 	}
 
 	return PTR_ERR_OR_ZERO(pd);
