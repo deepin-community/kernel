@@ -44,7 +44,10 @@
 #define PCI_DEVICE_ID_AMD_1AH_M00H_DF_F4	0x12c4
 #define PCI_DEVICE_ID_AMD_MI200_DF_F4		0x14d4
 
+#define PCI_DEVICE_ID_HYGON_18H_M05H_ROOT	0x14a0
 #define PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1	0x1491
+#define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1	0x14b1
+#define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F4	0x14b4
 
 /* Protect the PCI config register pairs used for SMN. */
 static DEFINE_MUTEX(smn_mutex);
@@ -127,18 +130,21 @@ static const struct pci_device_id amd_nb_link_ids[] = {
 static const struct pci_device_id hygon_root_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_ROOT) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_ROOT) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_ROOT) },
 	{}
 };
 
 static const struct pci_device_id hygon_nb_misc_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_DF_F3) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_DF_F3) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3) },
 	{}
 };
 
 static const struct pci_device_id hygon_nb_link_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_DF_F4) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_DF_F4) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_DF_F4) },
 	{}
 };
 
@@ -248,10 +254,24 @@ EXPORT_SYMBOL_GPL(hygon_nb_num);
 static int get_df1_register(struct pci_dev *misc, int offset, u32 *value)
 {
 	struct pci_dev *df_f1 = NULL;
+	u32 device;
 	int err;
 
-	while ((df_f1 = pci_get_device(misc->vendor,
-			PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1, df_f1)))
+	switch (boot_cpu_data.x86_model) {
+	case 0x4:
+		device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
+		break;
+	case 0x5:
+		if (misc->device == PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3)
+			device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
+		else
+			device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
+		break;
+	default:
+		return -ENODEV;
+	}
+
+	while ((df_f1 = pci_get_device(misc->vendor, device, df_f1)))
 		if (pci_domain_nr(df_f1->bus) == pci_domain_nr(misc->bus) &&
 		    df_f1->bus->number == misc->bus->number &&
 		    PCI_SLOT(df_f1->devfn) == PCI_SLOT(misc->devfn))
