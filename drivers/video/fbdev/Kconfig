@@ -1824,6 +1824,19 @@ config FB_SM712
 	  called sm712fb. If you want to compile it as a module, say M
 	  here and read <file:Documentation/kbuild/modules.rst>.
 
+config FB_LS2K500
+	tristate "Loongson LS2K500 frame buffer support"
+	depends on FB && PCI
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  Frame buffer driver for the Loongson LS7A Platform-Bridge.
+
+	  This driver is also available as a module.
+	  If you want to compile it as a module, say M here and read
+	  <file:Documentation/kbuild/modules.rst>.
+
 source "drivers/video/fbdev/omap/Kconfig"
 source "drivers/video/fbdev/omap2/Kconfig"
 source "drivers/video/fbdev/mmp/Kconfig"
