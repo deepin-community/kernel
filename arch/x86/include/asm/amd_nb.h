@@ -82,6 +82,10 @@ u16 amd_nb_num(void);
 bool amd_nb_has_feature(unsigned int feature);
 struct amd_northbridge *node_to_amd_nb(int node);
 
+bool hygon_f18h_m4h(void);
+u16 hygon_nb_num(void);
+int get_df_id(struct pci_dev *misc, u8 *id);
+
 static inline u16 amd_pci_dev_to_node_id(struct pci_dev *pdev)
 {
 	struct pci_dev *misc;
@@ -118,6 +122,10 @@ static inline bool amd_gart_present(void)
 #define amd_nb_has_feature(x)	false
 #define node_to_amd_nb(x)	NULL
 #define amd_gart_present(x)	false
+
+#define hygon_f18h_m4h		false
+#define hygon_nb_num(x)	0
+#define get_df_id(x, y)	NULL
 
 #endif
 
