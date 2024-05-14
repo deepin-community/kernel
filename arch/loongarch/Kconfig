@@ -680,6 +680,7 @@ config ARCH_SUSPEND_POSSIBLE
 config ARCH_HIBERNATION_POSSIBLE
 	def_bool y
 
+source "drivers/cpufreq/Kconfig"
 source "kernel/power/Kconfig"
 source "drivers/acpi/Kconfig"
 

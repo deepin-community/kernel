@@ -262,6 +262,17 @@ config LOONGSON2_CPUFREQ
 	  If in doubt, say N.
 endif
 
+if LOONGARCH
+config LOONGSON3_ACPI_CPUFREQ
+	bool "Loongson3 ACPI cpufreq driver"
+	depends on ACPI_PROCESSOR
+	help
+	  This driver adds a CPUFreq driver which utilizes the ACPI
+	  Processor Performance States.
+	  This driver supports Loongson 3A5000 compatible CPUs.
+	  If in doubt, say N.
+endif
+
 if SPARC64
 config SPARC_US3_CPUFREQ
 	tristate "UltraSPARC-III CPU Frequency driver"
