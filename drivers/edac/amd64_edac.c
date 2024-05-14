@@ -4169,6 +4169,10 @@ static int per_family_init(struct amd64_pvt *pvt)
 			pvt->ctl_name			= "F18h_M04h";
 			pvt->max_mcs			= 3;
 			break;
+		} else if (pvt->model == 0x5) {
+			pvt->ctl_name			= "F18h_M05h";
+			pvt->max_mcs			= 1;
+			break;
 		}
 		pvt->ctl_name				= "F18h";
 		break;
