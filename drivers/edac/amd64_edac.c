@@ -3123,6 +3123,7 @@ static void decode_umc_error(int node_id, struct mce *m)
 	struct amd64_pvt *pvt;
 	struct err_info err;
 	u64 sys_addr;
+	u8 umc;
 
 	node_id = fixup_node_id(node_id, m);
 
@@ -3153,7 +3154,12 @@ static void decode_umc_error(int node_id, struct mce *m)
 
 	pvt->ops->get_err_info(m, &err);
 
-	if (umc_normaddr_to_sysaddr(m->addr, pvt->mc_node_id, err.channel, &sys_addr)) {
+	if (hygon_f18h_m4h() && boot_cpu_data.x86_model == 0x6)
+		umc = err.channel << 1;
+	else
+		umc = err.channel;
+
+	if (umc_normaddr_to_sysaddr(m->addr, pvt->mc_node_id, umc, &sys_addr)) {
 		err.err_code = ERR_NORM_ADDR;
 		goto log_error;
 	}
