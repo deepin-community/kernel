@@ -19,6 +19,21 @@ module_param_named(vblank, loongson_vblank, int, 0400);
 
 static int __init loongson_module_init(void)
 {
+	struct pci_dev *pdev = NULL;
+
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		/*
+		 * Multiple video card workaround
+		 *
+		 * This integrated video card will always be selected as
+		 * default boot device by vgaarb subsystem.
+		 */
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON || pdev->device == 0x1a05) {
+			pr_info("Discrete graphic card detected, abort\n");
+			return 0;
+		}
+	}
+
 	if (!loongson_modeset || video_firmware_drivers_only())
 		return -ENODEV;
 
