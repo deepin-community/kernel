@@ -1043,8 +1043,7 @@ static int piix4_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		bool notify_imc = false;
 		is_sb800 = true;
 
-		if ((dev->vendor == PCI_VENDOR_ID_AMD ||
-		     dev->vendor == PCI_VENDOR_ID_HYGON) &&
+		if (dev->vendor == PCI_VENDOR_ID_AMD &&
 		    dev->device == PCI_DEVICE_ID_AMD_KERNCZ_SMBUS) {
 			u8 imc;
 
