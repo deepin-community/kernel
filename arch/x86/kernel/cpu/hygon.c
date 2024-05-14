@@ -78,12 +78,14 @@ static void hygon_get_topology(struct cpuinfo_x86 *c)
 			c->x86_max_cores /= smp_num_siblings;
 
 		/*
-		 * In case leaf B is available, use it to derive
+		 * From model 0x4, leaf B is available, so use it to derive
 		 * topology information.
 		 */
 		err = detect_extended_topology(c);
-		if (!err)
+		if (!err) {
 			c->x86_coreid_bits = get_count_order(c->x86_max_cores);
+			__max_die_per_package = nodes_per_socket;
+		}
 
 		/*
 		 * Socket ID is ApicId[6] for the processors with model <= 0x3
