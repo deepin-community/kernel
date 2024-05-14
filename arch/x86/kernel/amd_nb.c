@@ -50,6 +50,7 @@
 #define PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1	0x1491
 #define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1	0x14b1
 #define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F4	0x14b4
+#define PCI_DEVICE_ID_HYGON_18H_M06H_DF_F5	0x14b5
 
 /* Protect the PCI config register pairs used for SMN. */
 static DEFINE_MUTEX(smn_mutex);
@@ -256,40 +257,55 @@ u16 hygon_nb_num(void)
 }
 EXPORT_SYMBOL_GPL(hygon_nb_num);
 
-static int get_df1_register(struct pci_dev *misc, int offset, u32 *value)
+static int get_df_register(struct pci_dev *misc, u8 func, int offset, u32 *value)
 {
-	struct pci_dev *df_f1 = NULL;
+	struct pci_dev *df_func = NULL;
 	u32 device;
 	int err;
 
-	switch (boot_cpu_data.x86_model) {
-	case 0x4:
-		device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
-		break;
-	case 0x5:
-		if (misc->device == PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3)
-			device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
-		else
+	if (func == 1) {
+		switch (boot_cpu_data.x86_model) {
+		case 0x4:
 			device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
-		break;
-	default:
+			break;
+		case 0x5:
+			if (misc->device == PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3)
+				device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
+			else
+				device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
+			break;
+		case 0x6:
+			device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
+			break;
+		default:
+			return -ENODEV;
+		}
+	} else if (func == 5) {
+		switch (boot_cpu_data.x86_model) {
+		case 0x6:
+			device = PCI_DEVICE_ID_HYGON_18H_M06H_DF_F5;
+			break;
+		default:
+			return -ENODEV;
+		}
+	} else {
 		return -ENODEV;
 	}
 
-	while ((df_f1 = pci_get_device(misc->vendor, device, df_f1)))
-		if (pci_domain_nr(df_f1->bus) == pci_domain_nr(misc->bus) &&
-		    df_f1->bus->number == misc->bus->number &&
-		    PCI_SLOT(df_f1->devfn) == PCI_SLOT(misc->devfn))
+	while ((df_func = pci_get_device(misc->vendor, device, df_func)))
+		if (pci_domain_nr(df_func->bus) == pci_domain_nr(misc->bus) &&
+		    df_func->bus->number == misc->bus->number &&
+		    PCI_SLOT(df_func->devfn) == PCI_SLOT(misc->devfn))
 			break;
 
-	if (!df_f1) {
-		pr_warn("Error getting DF F1 device.\n");
+	if (!df_func) {
+		pr_warn("Error getting DF F%d device.\n", func);
 		return -ENODEV;
 	}
 
-	err = pci_read_config_dword(df_f1, offset, value);
+	err = pci_read_config_dword(df_func, offset, value);
 	if (err)
-		pr_warn("Error reading DF F1 register.\n");
+		pr_warn("Error reading DF F%d register.\n", func);
 
 	return err;
 }
@@ -299,9 +315,15 @@ int get_df_id(struct pci_dev *misc, u8 *id)
 	u32 value;
 	int ret;
 
-	/* F1x200[23:20]: DF ID */
-	ret = get_df1_register(misc, 0x200, &value);
-	*id = (value >> 20) & 0xf;
+	if (boot_cpu_data.x86_model == 0x6) {
+		/* F5x180[19:16]: DF ID */
+		ret = get_df_register(misc, 5, 0x180, &value);
+		*id = (value >> 16) & 0xf;
+	} else {
+		/* F1x200[23:20]: DF ID */
+		ret = get_df_register(misc, 1, 0x200, &value);
+		*id = (value >> 20) & 0xf;
+	}
 
 	return ret;
 }
@@ -313,7 +335,7 @@ static u8 get_socket_num(struct pci_dev *misc)
 	int ret;
 
 	/* F1x200[7:0]: Which socket is present. */
-	ret = get_df1_register(misc, 0x200, &value);
+	ret = get_df_register(misc, 1, 0x200, &value);
 
 	return ret ? 0 : hweight8(value & 0xff);
 }
