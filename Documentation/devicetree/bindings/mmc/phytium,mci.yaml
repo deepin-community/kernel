@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mmc/phytium,mci.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium Multimedia Card Interface controller
+
+description: |
+  The highspeed MMC host controller on Phytium SoCs provides an interface
+  for MMC, SD and SDIO types of memory cards.
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: "mmc-controller.yaml"
+
+properties:
+  compatible:
+    const: phytium,mci
+
+  reg:
+    maxItems: 1
+    description: mmc controller base registers.
+
+  interrupts:
+    maxItems: 1
+    description: mmc controller interrupt.
+
+  clocks:
+    maxItems: 1
+    description: phandles to input clocks.
+
+  clock-names:
+    items:
+      - const: phytium_mci_clk
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+
+examples:
+  - |
+    mmc0: mmc@28000000 {
+      compatible = "phytium,mci";
+      reg = <0x0 0x28000000 0x0 0x1000>;
+      interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+      clocks = <&sysclk_1200mhz>;
+      clock-names = "phytium_mci_clk";
+      status = "disabled";
+    };
+
+    &mmc0 {
+      bus-width = <4>;
+      max-frequency = <50000000>;
+      cap-sdio-irq;
+      cap-sd-highspeed;
+      sd-uhs-sdr12;
+      sd-uhs-sdr25;
+      sd-uhs-sdr50;
+      no-mmc;
+      status = "ok";
+    };
