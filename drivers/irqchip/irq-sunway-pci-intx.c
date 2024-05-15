@@ -19,33 +19,33 @@ static void unlock_legacy_lock(void)
 	raw_spin_unlock(&legacy_lock);
 }
 
-static void set_intx(unsigned long node, unsigned long index, unsigned long intx_conf)
+static void set_intx(struct pci_controller *hose, unsigned long intx_conf)
 {
+	void __iomem *piu_ior0_base;
+
 	if (is_guest_or_emul())
 		return;
 
-	write_piu_ior0(node, index, INTACONFIG, intx_conf | (0x8UL << 10));
-	write_piu_ior0(node, index, INTBCONFIG, intx_conf | (0x4UL << 10));
-	write_piu_ior0(node, index, INTCCONFIG, intx_conf | (0x2UL << 10));
-	write_piu_ior0(node, index, INTDCONFIG, intx_conf | (0x1UL << 10));
+	piu_ior0_base = hose->piu_ior0_base;
+
+	writeq(intx_conf | (0x8UL << 10), (piu_ior0_base + INTACONFIG));
+	writeq(intx_conf | (0x4UL << 10), (piu_ior0_base + INTBCONFIG));
+	writeq(intx_conf | (0x2UL << 10), (piu_ior0_base + INTCCONFIG));
+	writeq(intx_conf | (0x1UL << 10), (piu_ior0_base + INTDCONFIG));
 }
 
 static int __assign_piu_intx_config(struct pci_controller *hose, cpumask_t *targets)
 {
 	unsigned long intx_conf;
 	unsigned int cpu;
-	int node, index;
 	int phy_cpu;
-
-	node = hose->node;
-	index = hose->index;
 
 	/* Use the last cpu in valid cpus to avoid core 0. */
 	cpu = cpumask_last(targets);
 	phy_cpu = cpu_to_rcid(cpu);
 
 	intx_conf = ((phy_cpu >> 5) << 6) | (phy_cpu & 0x1f);
-	set_intx(node, index, intx_conf);
+	set_intx(hose, intx_conf);
 
 	return 0;
 }
@@ -64,59 +64,59 @@ static int assign_piu_intx_config(struct pci_controller *hose, cpumask_t *target
 static void intx_irq_enable(struct irq_data *irq_data)
 {
 	struct pci_controller *hose = irq_data->chip_data;
-	unsigned long intx_conf, node, index;
+	unsigned long intx_conf;
+	void __iomem *piu_ior0_base;
 
 	if (is_guest_or_emul())
 		return;
 	BUG_ON(!hose);
 
-	node = hose->node;
-	index = hose->index;
+	piu_ior0_base = hose->piu_ior0_base;
 
-	intx_conf = read_piu_ior0(node, index, INTACONFIG);
+	intx_conf = readq(piu_ior0_base + INTACONFIG);
 	intx_conf |= PCI_INTX_ENABLE;
-	write_piu_ior0(node, index, INTACONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTACONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTBCONFIG);
+	intx_conf = readq(piu_ior0_base + INTBCONFIG);
 	intx_conf |= PCI_INTX_ENABLE;
-	write_piu_ior0(node, index, INTBCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTBCONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTCCONFIG);
+	intx_conf = readq(piu_ior0_base + INTCCONFIG);
 	intx_conf |= PCI_INTX_ENABLE;
-	write_piu_ior0(node, index, INTCCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTCCONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTDCONFIG);
+	intx_conf = readq(piu_ior0_base + INTDCONFIG);
 	intx_conf |= PCI_INTX_ENABLE;
-	write_piu_ior0(node, index, INTDCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTDCONFIG));
 }
 
 static void intx_irq_disable(struct irq_data *irq_data)
 {
 	struct pci_controller *hose = irq_data->chip_data;
-	unsigned long intx_conf, node, index;
+	unsigned long intx_conf;
+	void __iomem *piu_ior0_base;
 
 	if (is_guest_or_emul())
 		return;
 
 	BUG_ON(!hose);
-	node = hose->node;
-	index = hose->index;
+	piu_ior0_base = hose->piu_ior0_base;
 
-	intx_conf = read_piu_ior0(node, index, INTACONFIG);
+	intx_conf = readq(piu_ior0_base + INTACONFIG);
 	intx_conf &= PCI_INTX_DISABLE;
-	write_piu_ior0(node, index, INTACONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTACONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTBCONFIG);
+	intx_conf = readq(piu_ior0_base + INTBCONFIG);
 	intx_conf &= PCI_INTX_DISABLE;
-	write_piu_ior0(node, index, INTBCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTBCONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTCCONFIG);
+	intx_conf = readq(piu_ior0_base + INTCCONFIG);
 	intx_conf &= PCI_INTX_DISABLE;
-	write_piu_ior0(node, index, INTCCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTCCONFIG));
 
-	intx_conf = read_piu_ior0(node, index, INTDCONFIG);
+	intx_conf = readq(piu_ior0_base + INTDCONFIG);
 	intx_conf &= PCI_INTX_DISABLE;
-	write_piu_ior0(node, index, INTDCONFIG, intx_conf);
+	writeq(intx_conf, (piu_ior0_base + INTDCONFIG));
 }
 
 static int intx_set_affinity(struct irq_data *irq_data,
@@ -149,14 +149,13 @@ static struct irq_chip sw64_intx_chip = {
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
-void __weak set_pcieport_service_irq(int node, int index) {}
+void __weak set_pcieport_service_irq(struct pci_controller *hose) {}
 
 void setup_intx_irqs(struct pci_controller *hose)
 {
-	unsigned long irq, node, index, val_node;
+	unsigned long irq, node, val_node;
 
 	node = hose->node;
-	index = hose->index;
 
 	if (!node_online(node))
 		val_node = next_node_in(node, node_online_map);
@@ -172,7 +171,7 @@ void setup_intx_irqs(struct pci_controller *hose)
 	irq_set_chip_and_handler(irq + 1, &dummy_irq_chip, handle_level_irq);
 	hose->service_irq = irq + 1;
 
-	set_pcieport_service_irq(node, index);
+	set_pcieport_service_irq(hose);
 }
 
 void __init sw64_init_irq(void)

@@ -304,9 +304,9 @@ static bool pci_bus_check_linkup(struct pci_controller *hose)
 	bool linkup = false;
 
 	do {
-		if (sw64_chip_init->pci_init.check_pci_linkup(hose->node, hose->index) == 0) {
+		if (sw64_chip_init->pci_init.check_pci_linkup(hose) == 0) {
 			udelay(10);
-			if (sw64_chip_init->pci_init.check_pci_linkup(hose->node, hose->index) == 0)
+			if (sw64_chip_init->pci_init.check_pci_linkup(hose) == 0)
 				linkup = true;
 		}
 		count++;
@@ -634,16 +634,17 @@ void sunway_pciehp_poll(struct controller *ctrl, u32 events)
 	struct pci_bus *bus = pdev->bus;
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 	unsigned long piu_value;
-	unsigned long node, rc_index;
 	u16 slot_ctrl;
 	int i;
+	void __iomem *piu_ior0_base;
+	void __iomem *piu_ior1_base;
 
-	node = hose->node;
-	rc_index = hose->index;
+	piu_ior0_base = hose->piu_ior0_base;
+	piu_ior1_base = hose->piu_ior1_base;
 
 	if (events & SW64_POLL_DISABLE_SLOT) {
 		while (1) {
-			piu_value = read_piu_ior1(node, rc_index, NEWLTSSMSTATE0);
+			piu_value = readq(piu_ior1_base + NEWLTSSMSTATE0);
 			piu_value &= 0xff;
 
 			if (piu_value == 0x19)
@@ -652,10 +653,10 @@ void sunway_pciehp_poll(struct controller *ctrl, u32 events)
 			udelay(10);
 		}
 
-		write_piu_ior0(node, rc_index, HP_CTRL, HP_CTRL_REMOVE);
+		writeq(HP_CTRL_REMOVE, (piu_ior0_base + HP_CTRL));
 
 		while (1) {
-			piu_value = read_piu_ior0(node, rc_index, HP_WATCHOUT);
+			piu_value = readq(piu_ior0_base + HP_WATCHOUT);
 			piu_value >>= 24;
 
 			if (piu_value == 0x19)
@@ -668,7 +669,7 @@ void sunway_pciehp_poll(struct controller *ctrl, u32 events)
 
 		mdelay(100);
 		while (1) {
-			piu_value = read_piu_ior1(node, rc_index, NEWLTSSMSTATE0);
+			piu_value = readq(piu_ior1_base + NEWLTSSMSTATE0);
 			piu_value &= 0xff;
 
 			if (piu_value == 0x0)
@@ -689,20 +690,20 @@ void sunway_pciehp_poll(struct controller *ctrl, u32 events)
 				PCI_EXP_SLTCTL_DLLSCE);
 		pcie_capability_write_word(pdev, PCI_EXP_SLTCTL, slot_ctrl);
 
-		write_piu_ior0(node, rc_index, HP_CTRL, HP_CTRL_FINISH);
+		writeq(HP_CTRL_FINISH, (piu_ior0_base + HP_CTRL));
 
 		ctrl->state = OFF_STATE;
 	}
 
 	if (events & SW64_POLL_ENABLE_SLOT) {
-		write_piu_ior0(node, rc_index, HP_CTRL, HP_CTRL_INSERT);
+		writeq(HP_CTRL_INSERT, (piu_ior0_base + HP_CTRL));
 
 		for (i = 0; i < 30; i++) {
 			if (pcie_wait_for_link(pdev, true)) {
 				pci_mark_rc_linkup(hose->node, hose->index);
 				sunway_pciehp_restore_rc_piu(ctrl);
 
-				write_piu_ior0(node, rc_index, HP_CTRL, HP_CTRL_FINISH);
+				writeq(HP_CTRL_FINISH, (piu_ior0_base + HP_CTRL));
 
 				pcie_capability_read_word(pdev, PCI_EXP_SLTCTL, &slot_ctrl);
 				slot_ctrl &= ~PCI_EXP_SLTCTL_PWR_OFF;
