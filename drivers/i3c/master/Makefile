@@ -7,3 +7,4 @@ obj-$(CONFIG_SVC_I3C_MASTER)		+= svc-i3c-master.o
 obj-$(CONFIG_MIPI_I3C_HCI)		+= mipi-i3c-hci/
 obj-$(CONFIG_RENESAS_I3C)		+= renesas-i3c.o
 obj-$(CONFIG_AMD_AXI_I3C_MASTER)	+= amd-i3c-master.o
+obj-$(CONFIG_PHYTIUM_I3C_MASTER)	+= i3c-master-phytium.o
