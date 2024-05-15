@@ -57,3 +57,12 @@ config MIPI_I3C_HCI
 
 	  This driver can also be built as a module.  If so, the module will be
 	  called mipi-i3c-hci.
+
+config PHYTIUM_I3C_MASTER
+	tristate "Phytium I3C master driver"
+	depends on I3C
+	depends on HAS_IOMEM
+	depends on !(ALPHA || PARISC)
+	help
+	  Enable this driver if you want to support phytium I3C master block.
+
