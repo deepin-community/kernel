@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+
+* Phytium I3C controller
+
+This I3C controller is for Phytium Soc.
+
+Required properties:
+- compatible: Shall be "phytium,cdns-i3c-master"
+- clocks: Shall reference the pclk and sysclk
+- clock-names: Shall contain "pclk" and "sysclk"
+- interrupts: The interrupt line connected to this I3C master
+- reg: I3C master registers
+- #address-cells: Shall be set to 1
+- #size-cells: Shall be set to 0
+- i2c-scl-hz: I2C CLK frequency
+- i3c-scl-hz: I3C CLK frequency
+
+Example:
+
+	i3c-master@28045000 {
+		compatible = "phytium,cdns-i3c-master";
+		reg = <0x0 0x28045000 0x0 0x1000>;
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&coreclock>, <&i3csysclock>;
+		clock-names = "pclk", "sysclk";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		i2c-scl-hz = <400000>;
+		i3c-scl-hz = <1000000>;
+
+		nunchuk: nunchuk@52 {
+			compatible = "nintendo,nunchuk";
+			reg = <0x52 0x0 0x10>;
+		};
+	};
