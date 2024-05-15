@@ -573,6 +573,18 @@ config HW_RANDOM_JH7110
 	  To compile this driver as a module, choose M here.
 	  The module will be called jh7110-trng.
 
+config HW_RANDOM_PHYTIUM
+	tristate "Phytium Random Number Generator support"
+	depends on ARCH_PHYTIUM || COMPILE_TEST
+	help
+	  This driver provides kernel-side support for the Random Number
+	  Generator hardware found on Phytium SoCs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called phytium-rng.
+
+	  If unsure, say Y.
+
 endif # HW_RANDOM
 
 config UML_RANDOM
