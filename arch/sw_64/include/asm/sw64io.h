@@ -20,66 +20,6 @@
 #define MK_PIU_IOR1(nid, idx) \
 	(SW64_PCI_IO_BASE((nid), (idx)) | PCI_IOR1_BASE)
 
-static inline  unsigned int
-read_rc_conf(unsigned long node, unsigned long rc,
-		unsigned int offset)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_RC_CFG(node, rc) | offset);
-	return readl(addr);
-}
-
-static inline void
-write_rc_conf(unsigned long node, unsigned long rc,
-		unsigned int offset, unsigned int data)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_RC_CFG(node, rc) | offset);
-	writel(data, addr);
-}
-
-static inline  unsigned long
-read_piu_ior0(unsigned long node, unsigned long rc,
-		unsigned int reg)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_PIU_IOR0(node, rc) + reg);
-	return readq(addr);
-}
-
-static inline void
-write_piu_ior0(unsigned long node, unsigned long rc,
-		unsigned int reg, unsigned long data)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_PIU_IOR0(node, rc) + reg);
-	writeq(data, addr);
-}
-
-static inline  unsigned long
-read_piu_ior1(unsigned long node, unsigned long rc,
-		unsigned int reg)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_PIU_IOR1(node, rc) + reg);
-	return readq(addr);
-}
-
-static inline void
-write_piu_ior1(unsigned long node, unsigned long rc,
-		unsigned int reg, unsigned long data)
-{
-	void __iomem *addr;
-
-	addr = __va(MK_PIU_IOR1(node, rc) + reg);
-	writeq(data, addr);
-}
-
 static inline unsigned long
 sw64_io_read(unsigned long node, unsigned long reg)
 {

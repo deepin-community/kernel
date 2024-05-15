@@ -93,8 +93,8 @@ static unsigned long set_piu_msi_config(struct pci_controller *hose, int cpu,
 	phy_cpu = cpu_to_rcid(cpu);
 	msi_config |= ((phy_cpu >> 5) << 6) | (phy_cpu & 0x1f);
 	reg = MSICONFIG0 + (unsigned long)(msiconf_index << 7);
-	write_piu_ior0(hose->node, hose->index, reg, msi_config);
-	msi_config = read_piu_ior0(hose->node, hose->index, reg);
+	writeq(msi_config, (hose->piu_ior0_base + reg));
+	msi_config = readq(hose->piu_ior0_base + reg);
 	set_bit(msiconf_index, hose->piu_msiconfig);
 
 	return msi_config;
@@ -236,8 +236,7 @@ static int __assign_irq_vector(int virq, unsigned int nr_irqs,
 
 		cdata->dst_cpu = cpu;
 		cdata->vector = vector;
-		cdata->rc_index = hose->index;
-		cdata->rc_node = hose->node;
+		cdata->hose = hose;
 		cdata->msi_config = msi_config;
 		cdata->msi_config_index = msiconf_index;
 		cdata->prev_cpu = cpu;
@@ -463,7 +462,7 @@ void handle_pci_msi_interrupt(unsigned long type, unsigned long vector, unsigned
 			irq_move_complete(cdata, cpu, vector_index + msi_index);
 			piu_index = cdata->msi_config_index;
 			value = cdata->msi_config | (1UL << 63);
-			write_piu_ior0(cdata->rc_node, cdata->rc_index, MSICONFIG0 + (piu_index << 7), value);
+			writeq(value, (cdata->hose->piu_ior0_base + MSICONFIG0 + (piu_index << 7)));
 			spin_unlock(&cdata->cdata_lock);
 			handle_irq(irq);
 

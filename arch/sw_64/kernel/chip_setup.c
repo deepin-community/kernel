@@ -78,38 +78,39 @@ static void pcie_save(void)
 {
 	struct pci_controller *hose;
 	struct piu_saved *piu_save;
-	unsigned long node, index;
 	unsigned long i;
+	void __iomem *piu_ior0_base;
+	void __iomem *piu_ior1_base;
 
 	for (hose = hose_head; hose; hose = hose->next) {
-		piu_save = kzalloc(sizeof(*piu_save), GFP_KERNEL);
+		piu_ior0_base = hose->piu_ior0_base;
+		piu_ior1_base = hose->piu_ior1_base;
 
-		node = hose->node;
-		index = hose->index;
+		piu_save = kzalloc(sizeof(*piu_save), GFP_KERNEL);
 		hose->sysdata = piu_save;
 
-		piu_save->piuconfig0 = read_piu_ior0(node, index, PIUCONFIG0);
-		piu_save->piuconfig1 = read_piu_ior1(node, index, PIUCONFIG1);
-		piu_save->epdmabar = read_piu_ior0(node, index, EPDMABAR);
-		piu_save->msiaddr = read_piu_ior0(node, index, MSIADDR);
+		piu_save->piuconfig0 = readq(piu_ior0_base + PIUCONFIG0);
+		piu_save->piuconfig1 = readq(piu_ior1_base + PIUCONFIG1);
+		piu_save->epdmabar = readq(piu_ior0_base + EPDMABAR);
+		piu_save->msiaddr = readq(piu_ior1_base + MSIADDR);
 
 		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
 			for (i = 0; i < 256; i++) {
-				piu_save->msiconfig[i] = read_piu_ior0(node, index,
-						MSICONFIG0 + (i << 7));
+				piu_save->msiconfig[i] =
+					readq(piu_ior0_base + MSICONFIG0 + (i << 7));
 			}
 		}
 
-		piu_save->iommuexcpt_ctrl = read_piu_ior0(node, index, IOMMUEXCPT_CTRL);
-		piu_save->dtbaseaddr = read_piu_ior0(node, index, DTBASEADDR);
+		piu_save->iommuexcpt_ctrl = readq(piu_ior0_base + IOMMUEXCPT_CTRL);
+		piu_save->dtbaseaddr = readq(piu_ior0_base + DTBASEADDR);
 
-		piu_save->intaconfig = read_piu_ior0(node, index, INTACONFIG);
-		piu_save->intbconfig = read_piu_ior0(node, index, INTBCONFIG);
-		piu_save->intcconfig = read_piu_ior0(node, index, INTCCONFIG);
-		piu_save->intdconfig = read_piu_ior0(node, index, INTDCONFIG);
-		piu_save->pmeintconfig = read_piu_ior0(node, index, PMEINTCONFIG);
-		piu_save->aererrintconfig = read_piu_ior0(node, index, AERERRINTCONFIG);
-		piu_save->hpintconfig = read_piu_ior0(node, index, HPINTCONFIG);
+		piu_save->intaconfig = readq(piu_ior0_base + INTACONFIG);
+		piu_save->intbconfig = readq(piu_ior0_base + INTBCONFIG);
+		piu_save->intcconfig = readq(piu_ior0_base + INTCCONFIG);
+		piu_save->intdconfig = readq(piu_ior0_base + INTDCONFIG);
+		piu_save->pmeintconfig = readq(piu_ior0_base + PMEINTCONFIG);
+		piu_save->aererrintconfig = readq(piu_ior0_base + AERERRINTCONFIG);
+		piu_save->hpintconfig = readq(piu_ior0_base + HPINTCONFIG);
 
 	}
 }
@@ -118,53 +119,57 @@ static void pcie_restore(void)
 {
 	struct pci_controller *hose;
 	struct piu_saved *piu_save;
-	unsigned long node, index;
 	u32 rc_misc_ctrl;
 	unsigned int value;
 	unsigned long i;
+	void __iomem *rc_config_space_base;
+	void __iomem *piu_ior0_base;
+	void __iomem *piu_ior1_base;
 
 	for (hose = hose_head; hose; hose = hose->next) {
-		node = hose->node;
-		index = hose->index;
+		rc_config_space_base = hose->rc_config_space_base;
+		piu_ior0_base = hose->piu_ior0_base;
+		piu_ior1_base = hose->piu_ior1_base;
 		piu_save = hose->sysdata;
 
-		write_piu_ior0(node, index, PIUCONFIG0, piu_save->piuconfig0);
-		write_piu_ior1(node, index, PIUCONFIG1, piu_save->piuconfig1);
-		write_piu_ior0(node, index, EPDMABAR, piu_save->epdmabar);
-		write_piu_ior0(node, index, MSIADDR, piu_save->msiaddr);
+		writeq(piu_save->piuconfig0, (piu_ior0_base + PIUCONFIG0));
+		writeq(piu_save->piuconfig1, (piu_ior1_base + PIUCONFIG1));
+		writeq(piu_save->epdmabar, (piu_ior0_base + EPDMABAR));
+		writeq(piu_save->msiaddr, (piu_ior0_base + MSIADDR));
+
 
 		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
 			for (i = 0; i < 256; i++) {
-				write_piu_ior0(node, index, MSICONFIG0 + (i << 7),
-						piu_save->msiconfig[i]);
+				writeq(piu_save->msiconfig[i],
+						(piu_ior0_base + (MSICONFIG0 + (i << 7))));
 			}
 		}
 
-		write_piu_ior0(node, index, IOMMUEXCPT_CTRL, piu_save->iommuexcpt_ctrl);
-		write_piu_ior0(node, index, DTBASEADDR, piu_save->dtbaseaddr);
+		writeq(piu_save->iommuexcpt_ctrl, (piu_ior0_base + IOMMUEXCPT_CTRL));
+		writeq(piu_save->dtbaseaddr, (piu_ior0_base + DTBASEADDR));
 
-		write_piu_ior0(node, index, INTACONFIG, piu_save->intaconfig);
-		write_piu_ior0(node, index, INTBCONFIG, piu_save->intbconfig);
-		write_piu_ior0(node, index, INTCCONFIG, piu_save->intcconfig);
-		write_piu_ior0(node, index, INTDCONFIG, piu_save->intdconfig);
-		write_piu_ior0(node, index, PMEINTCONFIG, piu_save->pmeintconfig);
-		write_piu_ior0(node, index, AERERRINTCONFIG, piu_save->aererrintconfig);
-		write_piu_ior0(node, index, HPINTCONFIG, piu_save->hpintconfig);
+		writeq(piu_save->intaconfig, (piu_ior0_base + INTACONFIG));
+		writeq(piu_save->intbconfig, (piu_ior0_base + INTBCONFIG));
+		writeq(piu_save->intcconfig, (piu_ior0_base + INTCCONFIG));
+		writeq(piu_save->intdconfig, (piu_ior0_base + INTDCONFIG));
+		writeq(piu_save->pmeintconfig, (piu_ior0_base + PMEINTCONFIG));
+		writeq(piu_save->aererrintconfig, (piu_ior0_base + AERERRINTCONFIG));
+		writeq(piu_save->hpintconfig, (piu_ior0_base + HPINTCONFIG));
 
 		/* Enable DBI_RO_WR_EN */
-		rc_misc_ctrl = read_rc_conf(node, index, RC_MISC_CONTROL_1);
-		write_rc_conf(node, index, RC_MISC_CONTROL_1, rc_misc_ctrl | 0x1);
+		rc_misc_ctrl = readl(rc_config_space_base + RC_MISC_CONTROL_1);
+		writel((rc_misc_ctrl | 0x1), (rc_config_space_base + RC_MISC_CONTROL_1));
 
 		/* Fix up DEVICE_ID_VENDOR_ID register */
 		value = (PCI_DEVICE_ID_SW64_ROOT_BRIDGE << 16) | PCI_VENDOR_ID_JN;
-		write_rc_conf(node, index, RC_VENDOR_ID, value);
+		writel(value, (rc_config_space_base + RC_VENDOR_ID));
 
 		/* Set PCI-E root class code */
-		value = read_rc_conf(node, index, RC_REVISION_ID);
-		write_rc_conf(node, index, RC_REVISION_ID, (PCI_CLASS_BRIDGE_HOST << 16) | value);
+		value = readl(rc_config_space_base + RC_REVISION_ID);
+		writel((PCI_CLASS_BRIDGE_HOST << 16) | value, (rc_config_space_base + RC_REVISION_ID));
 
 		/* Disable DBI_RO_WR_EN */
-		write_rc_conf(node, index, RC_MISC_CONTROL_1, rc_misc_ctrl);
+		writel(rc_misc_ctrl, (rc_config_space_base + RC_MISC_CONTROL_1));
 	}
 
 }

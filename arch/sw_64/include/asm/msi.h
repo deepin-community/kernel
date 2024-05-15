@@ -48,8 +48,7 @@ struct sw64_msi_chip_data {
 		unsigned long msi_config;
 		unsigned long msiaddr;
 	};
-	unsigned long rc_node;
-	unsigned long rc_index;
+	struct pci_controller *hose;
 	unsigned int msi_config_index;
 	unsigned int dst_cpu;
 	unsigned int vector;

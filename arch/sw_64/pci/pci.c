@@ -249,23 +249,22 @@ static void enable_sw_dca(struct pci_dev *dev)
 	rc_index = hose->index;
 
 	for (i = 0; i < 256; i++) {
-		dca_conf = read_piu_ior1(node, rc_index, DEVICEID0 + (i << 7));
+		dca_conf = readq(hose->piu_ior1_base + DEVICEID0 + (i << 7));
 		if (dca_conf >> 63)
 			continue;
 		else {
 			dca_conf = (1UL << 63) | (dev->bus->number << 8) | dev->devfn;
 			pr_info("dca device index %d, dca_conf = %#lx\n",
 					i, dca_conf);
-			write_piu_ior1(node, rc_index,
-					DEVICEID0 + (i << 7), dca_conf);
+			writeq(dca_conf, (hose->piu_ior1_base + DEVICEID0 + (i << 7)));
 			break;
 		}
 	}
 
-	dca_ctl = read_piu_ior1(node, rc_index, DCACONTROL);
+	dca_ctl = readq(hose->piu_ior1_base + DCACONTROL);
 	if (dca_ctl & 0x1) {
 		dca_ctl = 0x2;
-		write_piu_ior1(node, rc_index, DCACONTROL, dca_ctl);
+		writeq(dca_ctl, (hose->piu_ior1_base + DCACONTROL));
 		pr_info("Node %ld RC %ld enable DCA 1.0\n", node, rc_index);
 	}
 }
@@ -342,7 +341,7 @@ void sw64_pci_root_bridge_prepare(struct pci_host_bridge *bridge)
 	bridge->map_irq = sw64_pci_map_irq;
 
 	init_busnr = (0xff << 16) + ((last_bus + 1) << 8) + (last_bus);
-	write_rc_conf(hose->node, hose->index, RC_PRIMARY_BUS, init_busnr);
+	writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
 
 	hose->first_busno = last_bus + (is_in_host() ? 1 : 0);
 
@@ -400,10 +399,10 @@ void sw64_pci_root_bridge_scan_finish_up(struct pci_host_bridge *bridge)
 	hose->last_busno = last_bus;
 	hose->busn_space->end = last_bus;
 
-	init_busnr = read_rc_conf(hose->node, hose->index, RC_PRIMARY_BUS);
+	init_busnr = readl(hose->rc_config_space_base + RC_PRIMARY_BUS);
 	init_busnr &= ~(0xff << 16);
 	init_busnr |= last_bus << 16;
-	write_rc_conf(hose->node, hose->index, RC_PRIMARY_BUS, init_busnr);
+	writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
 
 	pci_bus_update_busn_res_end(bus, last_bus);
 	last_bus++;
