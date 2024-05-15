@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/edac/phytium,pe220x-edac.yaml
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium Pe220x SoC EDAC node
+maintainers:
+  - Zhu Honglei <zhuhonglei1714@phytium.com.cn>
+
+description: |
+        EDAC node is defined to describe on-chip error detection and correction.
+
+properties:
+  compatible:
+    const: phytium,pe220x-edac
+
+  reg:
+    maxItems: 3
+
+  interrupts:
+    minItems: 2
+    items:
+      - description: Interrupt-specifier for RAS error IRQ(s).
+
+required:
+  - compatible: Shall be "phytium,pe220x-edac".
+  - reg: Shall be the Pe220x RAS resource.
+  - interrupts: Interrupt-specifier for RAS error IRQ(s).
+
+examples:
+  - |
+	edac: edac@32b28000 {
+		compatible = "phytium,pe220x-edac";
+		reg = <0x0 0x32b28000 0x0 0x1000>,
+			<0x0 0x31400000 0x0 0x1000>,
+			<0x0 0x31401000 0x0 0x1000>;
+		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
+	};
