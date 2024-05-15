@@ -15,7 +15,9 @@ allOf:
 properties:
   compatible:
     oneOf:
-      - const: cdns,i3c-master
+      - enum:
+          - cdns,i3c-master
+          - phytium,cdns-i3c-master
       - items:
           - enum:
               - axiado,ax3000-i3c
