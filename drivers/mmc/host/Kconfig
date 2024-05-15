@@ -1071,3 +1071,38 @@ config MMC_LITEX
 	  module will be called litex_mmc.
 
 	  If unsure, say N.
+
+config MMC_PHYTIUM_SDCI
+        tristate "Phytium SD Host Controller support"
+        depends on ARM64
+        help
+          This selects support for the Phytium SD Host Controller on Phytium
+          Px210 chipset.
+
+          If you have a controller with this interface, say Y or M here.
+
+          If unsure, say N.
+
+config MMC_PHYTIUM_MCI_PCI
+        tristate "Phytium PCI MultiMedia Card Interface support"
+        depends on ARCH_PHYTIUM
+        default y if ARCH_PHYTIUM
+        help
+          This selects support for the PCI MultiMedia Card Interface on Phytium
+          Px210 chipset.
+
+	  If you have a controller with this interface, say Y or M here.
+
+          If unsure, say N.
+
+config MMC_PHYTIUM_MCI_PLTFM
+        tristate "Phytium MultiMedia Card Interface support"
+        depends on ARCH_PHYTIUM && OF
+        default y if ARCH_PHYTIUM
+        help
+          This selects support for  the MultiMedia Card Interface on Phytium
+          Px210 chipset.
+
+          If you have a controller with this interface, say Y or M here.
+
+          If unsure, say N.
