@@ -5,6 +5,8 @@
  * Author: Boris Brezillon <boris.brezillon@bootlin.com>
  */
 
+#include <linux/acpi.h>
+#include <acpi/acpi_bus.h>
 #include <linux/atomic.h>
 #include <linux/bug.h>
 #include <linux/device.h>
@@ -17,7 +19,24 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 
+#ifdef CONFIG_ACPI
+#include "i3c_master_acpi.h"
+#endif
 #include "internals.h"
+
+struct i3c_acpi_lookup {
+	u64 pid;
+	acpi_handle adapter_handle;
+	acpi_handle device_handle;
+	acpi_handle search_handle;
+	int n;
+	int index;
+	u32 speed;
+	u32 min_speed;
+	u32 force_speed;
+	u32 slave_address;
+	u32 lvr;
+};
 
 static DEFINE_IDR(i3c_bus_idr);
 static DEFINE_MUTEX(i3c_core_lock);
@@ -263,6 +282,88 @@ static ssize_t modalias_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(modalias);
 
+static ssize_t reg_read_store(struct device *dev,
+				      struct device_attribute *da,
+				      const char *buf, size_t size)
+{
+	struct i3c_device *i3c = dev_to_i3cdev(dev);
+	struct i3c_priv_xfer xfers[2];
+	u8 status = 0;
+	long value;
+	__u8 reg;
+	__u8 val;
+
+	status = kstrtol(buf, 0, &value);
+	if (status)
+		return status;
+
+	reg = (__u8)value;
+
+	xfers[0].rnw = false;
+	xfers[0].len = 1;
+	xfers[0].data.out = &reg;
+
+	xfers[1].rnw = true;
+	xfers[1].len = 1;
+	xfers[1].data.in = &val;
+
+	i3c_bus_normaluse_lock(i3c->bus);
+	i3c_device_do_priv_xfers(i3c, xfers, 2);
+	dev_info(dev, "reg read  reg =0x%x, val=%x\n", reg, val);
+	i3c_bus_normaluse_unlock(i3c->bus);
+
+	return size;
+}
+static DEVICE_ATTR_WO(reg_read);
+
+static ssize_t reg_write_store(struct device *dev,
+					struct device_attribute *da,
+					const char *buf, size_t size)
+{
+	struct i3c_device *i3c = dev_to_i3cdev(dev);
+	struct i3c_priv_xfer xfers[2];
+	u8 status = 0;
+	char *p;
+	char *token;
+	long value;
+	__u8 reg;
+	u16 val;
+
+	p = kmalloc(size, GFP_KERNEL);
+	strscpy(p, buf, size);
+	token = strsep(&p, " ");
+
+	if (!token)
+		return -EINVAL;
+
+	status = kstrtol(token, 0, &value);
+	if (status)
+		return status;
+
+	reg = (u8)value;
+	token = strsep(&p, " ");
+	if (!token)
+		return -EINVAL;
+
+	status = kstrtol(token, 0, &value);
+	if (status)
+		return status;
+
+	val = ((u8)value << 8) | reg;
+	xfers[0].rnw = false;
+	xfers[0].len = 2;
+	xfers[0].data.out = &val;
+
+	i3c_bus_normaluse_lock(i3c->bus);
+	i3c_device_do_priv_xfers(i3c, xfers, 1);
+	dev_info(dev, "reg write reg =0x%x, val=%x\n", reg, val);
+	i3c_bus_normaluse_unlock(i3c->bus);
+
+	kfree(p);
+	return size;
+}
+static DEVICE_ATTR_WO(reg_write);
+
 static struct attribute *i3c_device_attrs[] = {
 	&dev_attr_bcr.attr,
 	&dev_attr_dcr.attr,
@@ -270,6 +371,8 @@ static struct attribute *i3c_device_attrs[] = {
 	&dev_attr_dynamic_address.attr,
 	&dev_attr_hdrcap.attr,
 	&dev_attr_modalias.attr,
+	&dev_attr_reg_read.attr,
+	&dev_attr_reg_write.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(i3c_device);
@@ -1521,9 +1624,10 @@ i3c_master_register_new_i3c_devs(struct i3c_master_controller *master)
 		dev_set_name(&desc->dev->dev, "%d-%llx", master->bus.id,
 			     desc->info.pid);
 
-		if (desc->boardinfo)
+		if (desc->boardinfo) {
 			desc->dev->dev.of_node = desc->boardinfo->of_node;
-
+			desc->dev->dev.fwnode = desc->boardinfo->fwnode;
+		}
 		ret = device_register(&desc->dev->dev);
 		if (ret) {
 			dev_err(&master->dev,
@@ -2148,6 +2252,183 @@ static int of_populate_i3c_bus(struct i3c_master_controller *master)
 	return 0;
 }
 
+#ifdef CONFIG_ACPI
+static int i3c_acpi_master_add_i2c_boardinfo(struct i3c_master_controller *master,
+				struct acpi_device *adev, struct i3c_acpi_lookup *look_up)
+{
+	struct i2c_dev_boardinfo *boardinfo;
+	struct device *dev = &master->dev;
+	u32 addr = look_up->slave_address;
+
+	boardinfo = devm_kzalloc(dev, sizeof(*boardinfo), GFP_KERNEL);
+	if (!boardinfo)
+		return -ENOMEM;
+
+	boardinfo->base.addr = addr;
+	acpi_set_modalias(adev, dev_name(&adev->dev), boardinfo->base.type,
+						sizeof(boardinfo->base.type));
+	boardinfo->base.fwnode = acpi_fwnode_handle(adev);
+
+	/*
+	 * The I3C Specification does not clearly say I2C devices with 10-bit
+	 * address are supported. These devices can't be passed properly through
+	 * DEFSLVS command.
+	 */
+	if (boardinfo->base.flags & I2C_CLIENT_TEN) {
+		dev_err(dev, "I2C device with 10 bit address not supported.");
+		return -EOPNOTSUPP;
+	}
+
+	boardinfo->lvr = look_up->lvr;
+
+	/* If the client speed is smaller than controller speed,
+	 * then set the controller speed to the client speed
+	 */
+	if (look_up->speed && look_up->speed < master->bus.scl_rate.i2c)
+		master->bus.scl_rate.i2c = look_up->speed;
+
+	list_add_tail(&boardinfo->node, &master->boardinfo.i2c);
+
+	return 0;
+}
+
+static int i3c_acpi_master_add_i3c_boardinfo(struct i3c_master_controller *master,
+		struct acpi_device *adev, acpi_handle handle,	struct i3c_acpi_lookup *look_up)
+{
+	struct i3c_dev_boardinfo *boardinfo;
+	struct device *dev = &master->dev;
+	enum i3c_addr_slot_status addrstatus;
+	u32 init_dyn_addr = 0;
+
+	boardinfo = devm_kzalloc(dev, sizeof(*boardinfo), GFP_KERNEL);
+	if (!boardinfo)
+		return -ENOMEM;
+
+	if (look_up->slave_address) {
+		if (look_up->slave_address > I3C_MAX_ADDR)
+			return -EINVAL;
+
+		addrstatus = i3c_bus_get_addr_slot_status(&master->bus, look_up->slave_address);
+		if (addrstatus != I3C_ADDR_SLOT_FREE)
+			return -EINVAL;
+	}
+
+	boardinfo->static_addr = look_up->slave_address;
+	boardinfo->pid = look_up->pid;
+
+	if ((boardinfo->pid & GENMASK_ULL(63, 48)) ||
+	    I3C_PID_RND_LOWER_32BITS(boardinfo->pid))
+		return -EINVAL;
+
+	boardinfo->init_dyn_addr = init_dyn_addr;
+	boardinfo->fwnode = acpi_fwnode_handle(adev);
+
+	/* If the client speed is smaller than controller speed,
+	 * then set the controller speed to the client speed
+	 */
+	if (look_up->speed && look_up->speed < master->bus.scl_rate.i3c)
+		master->bus.scl_rate.i3c = look_up->speed;
+
+	list_add_tail(&boardinfo->node, &master->boardinfo.i3c);
+
+	return 0;
+}
+
+static int i3c_acpi_master_get_resource(struct acpi_resource *ares, void *data)
+{
+	struct i3c_acpi_lookup *look_up = (struct i3c_acpi_lookup *)data;
+	struct acpi_resource_i2c_serialbus *sb;
+	bool ret;
+
+	ret = i2c_acpi_get_i2c_resource(ares, &sb);
+	if (ret == true) {
+		look_up->slave_address = sb->slave_address;
+		look_up->speed = sb->connection_speed;
+	}
+
+	return 0;
+}
+
+static int i3c_acpi_master_get_slave_info(struct i3c_master_controller *master,
+				struct acpi_device *adev, struct i3c_acpi_lookup *look_up)
+{
+	struct list_head resource_list;
+	int ret;
+
+		/* Look up for I2cSerialBus resource */
+	INIT_LIST_HEAD(&resource_list);
+	ret = acpi_dev_get_resources(adev, &resource_list,
+				     i3c_acpi_master_get_resource, look_up);
+	acpi_dev_free_resource_list(&resource_list);
+
+	return ret;
+}
+
+
+static bool i3c_master_check_cpu_workaround(void)
+{
+	u32 cpu_implementor;
+
+	cpu_implementor = read_cpuid_implementor();
+
+	if (cpu_implementor == ARM_CPU_IMP_PHYTIUM)
+		return true;
+
+	return false;
+}
+
+static int i3c_acpi_master_add_dev(struct acpi_device *adev, void *data)
+{
+	int ret = -1;
+	acpi_handle handle = adev->handle;
+	acpi_status status;
+	struct i3c_master_controller *master = (struct i3c_master_controller *)data;
+	u64 pid, lvr;
+	struct i3c_acpi_lookup look_up;
+	u32 mode_val;
+
+	i3c_acpi_master_get_slave_info(master, adev, &look_up);
+
+	status = acpi_evaluate_integer(handle, "_ADR", NULL, &pid);
+
+	if (ACPI_SUCCESS(status))
+		look_up.pid = pid;
+	else
+		look_up.pid = 0x202a0a0a0a0;
+
+	if (i3c_master_check_cpu_workaround() == true) {
+		dev_info(&master->dev, "I3C ACPI SPECIAL KEYS\n");
+		status = acpi_evaluate_integer(handle, "_LVR", NULL, &lvr);
+
+		if (ACPI_SUCCESS(status))
+			look_up.lvr = (u32)lvr;
+		else
+			look_up.lvr = 0;
+
+		ret = i3c_master_acpi_get_params(handle, "i3c-mode", &mode_val);
+		if (!ret) {
+			if (!mode_val)
+				i3c_acpi_master_add_i2c_boardinfo(master, adev, &look_up);
+			else
+				i3c_acpi_master_add_i3c_boardinfo(master, adev, handle, &look_up);
+		}
+	}
+	return 0;
+}
+
+static void i3c_acpi_register_devices(struct i3c_master_controller *master)
+{
+	struct acpi_device *adev = NULL;
+
+	if (!has_acpi_companion(master->dev.parent))
+		return;
+
+	adev = acpi_fetch_acpi_dev(ACPI_HANDLE(master->dev.parent));
+	if (adev)
+		acpi_dev_for_each_child(adev, i3c_acpi_master_add_dev, master);
+}
+#endif
+
 static int i3c_master_i2c_adapter_xfer(struct i2c_adapter *adap,
 				       struct i2c_msg *xfers, int nxfers)
 {
@@ -2311,7 +2592,7 @@ static int i3c_master_i2c_adapter_init(struct i3c_master_controller *master)
 	adap->dev.parent = master->dev.parent;
 	adap->owner = master->dev.parent->driver->owner;
 	adap->algo = &i3c_master_i2c_algo;
-	strncpy(adap->name, dev_name(master->dev.parent), sizeof(adap->name));
+	strscpy(adap->name, dev_name(master->dev.parent), sizeof(adap->name));
 
 	/* FIXME: Should we allow i3c masters to override these values? */
 	adap->timeout = 1000;
@@ -2616,6 +2897,7 @@ int i3c_master_register(struct i3c_master_controller *master,
 
 	master->dev.parent = parent;
 	master->dev.of_node = of_node_get(parent->of_node);
+	master->dev.fwnode = parent->fwnode;
 	master->dev.bus = &i3c_bus_type;
 	master->dev.type = &i3c_masterdev_type;
 	master->dev.release = i3c_masterdev_release;
@@ -2634,7 +2916,9 @@ int i3c_master_register(struct i3c_master_controller *master,
 	ret = of_populate_i3c_bus(master);
 	if (ret)
 		goto err_put_dev;
-
+#ifdef CONFIG_ACPI
+	i3c_acpi_register_devices(master);
+#endif
 	list_for_each_entry(i2cbi, &master->boardinfo.i2c, node) {
 		switch (i2cbi->lvr & I3C_LVR_I2C_INDEX_MASK) {
 		case I3C_LVR_I2C_INDEX(0):
