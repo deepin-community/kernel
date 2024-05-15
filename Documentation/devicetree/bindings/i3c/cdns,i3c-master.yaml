@@ -14,7 +14,9 @@ allOf:
 
 properties:
   compatible:
-    const: cdns,i3c-master
+    enum:
+      - cdns,i3c-master
+      - phytium,cdns-i3c-master
 
   reg:
     maxItems: 1
