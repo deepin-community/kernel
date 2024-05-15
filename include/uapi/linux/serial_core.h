@@ -234,4 +234,7 @@
 /* Generic type identifier for ports which type is not important to userspace. */
 #define PORT_GENERIC	(-1)
 
+/* Phytium PCI UART */
+#define PORT_PHYTIUM	124
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */

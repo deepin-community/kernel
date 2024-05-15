@@ -90,6 +90,7 @@ obj-$(CONFIG_SERIAL_UARTLITE)		+= uartlite.o
 obj-$(CONFIG_SERIAL_VT8500)		+= vt8500_serial.o
 obj-$(CONFIG_SERIAL_XILINX_PS_UART)	+= xilinx_uartps.o
 obj-$(CONFIG_SERIAL_ZS)			+= zs.o
+obj-$(CONFIG_SERIAL_PHYTIUM_PCI)	+= phytium-uart.o
 
 # GPIOLIB helpers for modem control lines
 obj-$(CONFIG_SERIAL_MCTRL_GPIO)	+= serial_mctrl_gpio.o

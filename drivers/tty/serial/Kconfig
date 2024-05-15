@@ -85,6 +85,18 @@ config SERIAL_EARLYCON_SEMIHOST
 	  This is enabled with "earlycon=smh" on the kernel command line.
 	  The console is enabled when early_param is processed.
 
+config SERIAL_PHYTIUM_PCI
+	tristate "Phytium PCI serial port support"
+	depends on PCI
+	select SERIAL_CORE
+	help
+	  This driver supports the Phytium UART controller on PCI/PCIe adapters.
+	  If you want to compile this driver into the kernel, say Y here.  To
+	  compile this driver as a module, choose M here.
+
+	  If unsure, say N.
+
+
 config SERIAL_EARLYCON_RISCV_SBI
 	bool "Early console using RISC-V SBI"
 	depends on RISCV_SBI
