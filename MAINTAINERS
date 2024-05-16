@@ -17426,6 +17426,7 @@ S:	Maintained
 W:	https://gerrit.b.cpu.ac/c/linux
 F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
 F:	arch/arm64/boot/dts/phytium/*
+F:	drivers/gpio/gpio-phytium*
 
 QAT DRIVER
 M:	Giovanni Cabiddu <giovanni.cabiddu@intel.com>
