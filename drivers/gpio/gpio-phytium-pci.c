@@ -62,7 +62,7 @@ static int phytium_gpio_pci_probe(struct pci_dev *pdev, const struct pci_device_
 	pci_set_master(pdev);
 
 	gpio->irq[0] = pdev->irq;
-	if (gpio->irq < 0)
+	if (gpio->irq[0] < 0)
 		dev_warn(dev, "no irq is found.\n");
 
 	/* There is only one group of Pins at the moment. */
