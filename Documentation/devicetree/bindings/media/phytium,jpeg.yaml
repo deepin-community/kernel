@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/phytium,jpeg.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium JPEG Engine
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+description: |-
+  The JPEG Engine embedded in the Phytium SOCs can capture
+  and compress video data from digital or analog sources.
+
+properties:
+  compatible:
+    const: phytium,jpeg
+
+  reg:
+    maxItems: 1
+    description: |
+      Contains the offset and length of the JPEG Engine memory region.
+
+  interrupts:
+    maxItems: 1
+    description: |
+      The interrupt associated with the VE on this platform.
+
+  phytium,ocm-buf-addr:
+    $ref: /schemas/types.yaml#/definitions/uint64
+    description: |
+      The physical address used to storage the inputing video data.
+
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - phytium,ocm-buf-addr
+
+additionalProperties: false
+
+examples:
+  - |
+    jpeg: jpeg@32b32000 {
+      compatible = "phytium,jpeg";
+      reg = <0x0 0x32b32000 0 0x1000>;
+      interrupts = <0 41 4>;
+      phytium,ocm-buf-addr = <0x30c40000 0x30c60000>;
+      status = "okay";
+    };
