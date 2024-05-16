@@ -100,6 +100,10 @@ static int xhci_plat_start(struct usb_hcd *hcd)
 	return xhci_run(hcd);
 }
 
+static const struct xhci_plat_priv xhci_plat_phytium_pe220x = {
+	.quirks = XHCI_RESET_ON_RESUME,
+};
+
 #ifdef CONFIG_OF
 static const struct xhci_plat_priv xhci_plat_marvell_armada = {
 	.init_quirk = xhci_mvebu_mbus_init_quirk,
