@@ -17424,6 +17424,7 @@ ARM/PHYTIUM SOC SUPPORT
 M:	Wang Yinfeng <wangyinfeng@phytium.com.cn>
 S:	Maintained
 W:	https://gerrit.b.cpu.ac/c/linux
+F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
 F:	arch/arm64/boot/dts/phytium/*
 
 QAT DRIVER
