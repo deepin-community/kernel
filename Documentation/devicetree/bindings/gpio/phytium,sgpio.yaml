@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/gpio/phytium,sgpio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium SGPIO controller
+
+description: |
+  This SGPIO controller is for Phytium Pe220x SoCs, which supports up to
+  96 (32x3) Serial GPIOs.
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+properties:
+  compatible:
+    const: phytium,sgpio
+
+  reg:
+    maxItems: 1
+    description: Address and length of the register set for the device.
+
+  gpio-controller: true
+
+  '#gpio-cells':
+    const: 2
+    description: |
+      The first cell is the pin number and the second cell is used to specify
+      the gpio polarity.
+        0 = active high
+        1 = active low
+
+  interrupts:
+    maxItems: 1
+
+  ngpios: true
+
+  bus-frequency: true
+
+  clocks:
+    maxItems: 1
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - gpio-controller
+  - '#gpio-cells'
+  - interrupts
+  - ngpios
+  - clocks
+  - bus-frequency
+
+examples:
+  - |
+    sgpio: sgpio@2807d000 {
+      compatible = "phytium,sgpio";
+      reg = <0x0 0x2807d000 0x0 0x1000>;
+      interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+      clocks = <&sysclk_48mhz>;
+      ngpios = <96>;
+      bus-frequency = <48000>;
+      gpio-controller;
+      #gpio-cells = <2>;
+    };
