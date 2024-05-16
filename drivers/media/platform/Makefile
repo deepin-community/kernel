@@ -19,6 +19,7 @@ obj-y += microchip/
 obj-y += nuvoton/
 obj-y += nvidia/
 obj-y += nxp/
+obj-y += phytium/
 obj-y += qcom/
 obj-y += renesas/
 obj-y += rockchip/
