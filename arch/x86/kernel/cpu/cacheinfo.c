@@ -708,7 +708,8 @@ void cacheinfo_hygon_init_llc_id(struct cpuinfo_x86 *c, int cpu)
 	if (!cpuid_edx(0x80000006))
 		return;
 
-	if (c->x86_model < 0x5) {
+	if (c->x86_model < 0x5 ||
+	   (c->x86_model >= 0x10 && c->x86_model <= 0x1f)) {
 		/*
 		 * LLC is at the core complex level.
 		 * Core complex ID is ApicId[3] for these processors.
