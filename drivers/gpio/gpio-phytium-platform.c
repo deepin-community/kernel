@@ -106,7 +106,7 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	girq->handler = handle_bad_irq;
 	girq->default_type = IRQ_TYPE_NONE;
 
-	for (irq_count = 0; irq_count < gpio->ngpio[0]; irq_count++) {
+	for (irq_count = 0; irq_count < platform_irq_count(pdev); irq_count++) {
 		gpio->irq[irq_count] = -ENXIO;
 		gpio->irq[irq_count] = platform_get_irq(pdev, irq_count);
 		if (gpio->irq[irq_count] < 0) {
