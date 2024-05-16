@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+comment "Phytium media platform drivers"
+
+config VIDEO_PHYTIUM_JPEG
+	tristate "Phytium JPEG Encoder Engine driver"
+	depends on V4L_PLATFORM_DRIVERS
+	depends on VIDEO_DEV
+	select VIDEOBUF2_DMA_CONTIG
+	help
+	  Support for the Phytium JPEG Encoder Engine embedded
+	  in the Phytium SOCs. The engine can capture and
+	  compress video data from digital or analog sources.
+
