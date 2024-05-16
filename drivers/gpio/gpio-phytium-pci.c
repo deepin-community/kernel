@@ -59,6 +59,8 @@ static int phytium_gpio_pci_probe(struct pci_dev *pdev, const struct pci_device_
 	if (err < 0)
 		goto out;
 
+	pci_set_master(pdev);
+
 	gpio->irq[0] = pdev->irq;
 	if (gpio->irq < 0)
 		dev_warn(dev, "no irq is found.\n");
