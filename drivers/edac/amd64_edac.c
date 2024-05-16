@@ -4185,6 +4185,9 @@ static int per_family_init(struct amd64_pvt *pvt)
 		} else if (pvt->model == 0x7) {
 			pvt->ctl_name			= "F18h_M07h";
 			break;
+		} else if (pvt->model == 0x10) {
+			pvt->ctl_name			= "F18h_M10h";
+			break;
 		}
 		pvt->ctl_name				= "F18h";
 		break;
