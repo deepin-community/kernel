@@ -102,6 +102,7 @@ enum {
 
 /* Hygon HD Audio controller */
 #define PCI_DEVICE_ID_HYGON_18H_M05H_HDA	0x14a9
+#define PCI_DEVICE_ID_HYGON_18H_M10H_HDA	0x14c9
 
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
@@ -2859,6 +2860,8 @@ static const struct pci_device_id azx_ids[] = {
 	  .driver_data = AZX_DRIVER_HYGON | AZX_DCAPS_POSFIX_LPIB | AZX_DCAPS_NO_MSI },
 	/* Lisuan HD-audio */
 	{ PCI_DEVICE(0x4c54, 0x5010), .driver_data = AZX_DRIVER_GENERIC },
+	{ PCI_VDEVICE(HYGON, PCI_DEVICE_ID_HYGON_18H_M10H_HDA),
+	  .driver_data = AZX_DRIVER_HYGON },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, azx_ids);
