@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
+#include <linux/acpi.h>
 
 #define SGPIO_CTL0_REG			0x00
 #define  SGPIO_CTL0_REG_ENABLE		BIT(0)
@@ -42,6 +43,7 @@
 #define SGPIO_RDATA_REG(x)		(SGPIO_RDATA0_REG + (x) * 4)
 
 #define DEFAULT_L3_L0 0
+#define DEFAULT_CLK 50000000
 
 #define GPIO_GROUP(x)	((x) >> 6)
 #define GPIO_OFFSET(x)	((x) & GENMASK(5, 0))
@@ -229,17 +231,26 @@ static int phytium_sgpio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	gpio->pclk = devm_clk_get(dev, NULL);
-	if (IS_ERR(gpio->pclk)) {
-		dev_err(dev, "Could not get the APB clock property\n");
-		return PTR_ERR(gpio->pclk);
+	if (has_acpi_companion(dev)) {
+		device_property_read_u32(dev, "pclk_freq", &pclk_freq);
+		if (!pclk_freq || (pclk_freq != 50000000)) {
+			dev_err(dev, "Could not get APB clock property from acpi, use default clk!\n");
+			pclk_freq = DEFAULT_CLK;
+		}
+
+	} else {
+		gpio->pclk = devm_clk_get(dev, NULL);
+		if (IS_ERR(gpio->pclk)) {
+			dev_err(dev, "Could not get the APB clock property\n");
+			return PTR_ERR(gpio->pclk);
+		}
+		rc = clk_prepare_enable(gpio->pclk);
+		if (rc) {
+			dev_err(dev, "failed to enable pclk: %d\n", rc);
+			return rc;
+		}
+		pclk_freq = clk_get_rate(gpio->pclk);
 	}
-	rc = clk_prepare_enable(gpio->pclk);
-	if (rc) {
-		dev_err(dev, "failed to enable pclk: %d\n", rc);
-		return rc;
-	}
-	pclk_freq = clk_get_rate(gpio->pclk);
 
 	/*
 	 * From the datasheet:
@@ -287,10 +298,17 @@ static const struct of_device_id phytium_sgpio_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, phytium_sgpio_of_match);
 
+static const struct acpi_device_id phytium_sgpio_acpi_match[] = {
+	{ "PHYT0031", 0},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, phytium_sgpio_acpi_match);
+
 static struct platform_driver phytium_sgpio_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = of_match_ptr(phytium_sgpio_of_match),
+		.acpi_match_table = ACPI_PTR(phytium_sgpio_acpi_match),
 	},
 	.probe = phytium_sgpio_probe,
 };
