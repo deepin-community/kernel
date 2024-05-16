@@ -341,7 +341,8 @@ void cacheinfo_hygon_init_llc_id(struct cpuinfo_x86 *c)
 	if (!cpuid_amd_hygon_has_l3_cache())
 		return;
 
-	if (c->x86_model < 0x5) {
+	if (c->x86_model < 0x5 ||
+	   (c->x86_model >= 0x10 && c->x86_model <= 0x1f)) {
 		/*
 		 * Hygons are similar to AMD Family 17h up to 1F models: LLC is
 		 * at the core complex level.  Core complex ID is ApicId[3].
