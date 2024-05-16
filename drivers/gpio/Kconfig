@@ -594,6 +594,15 @@ config GPIO_PHYTIUM_PLAT
 	  Say yes here to support the on-chip GPIO controller for the
 	  Phytium SoC family.
 
+config GPIO_PHYTIUM_SGPIO
+	tristate "Phytium SGPIO support"
+	default y if ARCH_PHYTIUM
+	depends on ARM64
+	select IRQ_DOMAIN
+	select GENERIC_IRQ_CHIP
+	help
+	  Say yes here to enable SGPIO support for Phytium SoCs.
+
 config GPIO_PL061
 	tristate "PrimeCell PL061 GPIO support"
 	depends on ARM_AMBA || COMPILE_TEST
