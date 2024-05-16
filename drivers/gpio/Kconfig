@@ -255,6 +255,7 @@ config GPIO_SUNWAY
 	depends on SW64
 	select GPIO_GENERIC
 	select GENERIC_IRQ_CHIP
+	default y if ACPI
 	help
 	  Say Y or M here to build support for the Sunway
 	  GPIO block.
