@@ -17,6 +17,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 
+#include "hda_phytium.h"
+
 #ifdef CONFIG_X86
 /* for art-tsc conversion */
 #include <asm/tsc.h>
@@ -156,6 +158,9 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 	struct hda_spdif_out *spdif =
 		snd_hda_spdif_out_of_nid(apcm->codec, hinfo->nid);
 	unsigned short ctls = spdif ? spdif->ctls : 0;
+	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
+
+	hda->substream = substream;
 
 	trace_azx_pcm_prepare(chip, azx_dev);
 	dsp_lock(azx_dev);
