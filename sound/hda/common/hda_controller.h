@@ -63,6 +63,13 @@ struct azx_dev {
 	 *  when link position is not greater than FIFO size
 	 */
 	bool insufficient;
+
+	/*
+	 * Delayed IRQ handling flag.
+	 * Upstream moved this into the snd-hda-intel private stream
+	 * (e36a88b33cbe3); keep it here for the Phytium HDA controller.
+	 */
+	bool irq_pending;
 };
 
 #define azx_stream(dev)		(&(dev)->core)

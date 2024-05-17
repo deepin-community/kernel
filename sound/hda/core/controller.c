@@ -220,6 +220,9 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 {
 	unsigned int addr = azx_command_addr(val);
 	unsigned int wp, rp;
+	unsigned long timeout;
+	unsigned int rirb_wp;
+	int i = 0;
 
 	guard(spinlock_irq)(&bus->reg_lock);
 
@@ -243,6 +246,40 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 	bus->rirb.cmds[addr]++;
 	bus->corb.buf[wp] = cpu_to_le32(val);
 	snd_hdac_chip_writew(bus, CORBWP, wp);
+
+	if (bus->cmd_resend) {
+		timeout = jiffies + msecs_to_jiffies(1000);
+		udelay(80);
+		rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
+		while (rirb_wp == bus->rirb.wp) {
+			udelay(80);
+			rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
+			if (rirb_wp != bus->rirb.wp)
+				break;
+			if (i > 5)
+				break;
+			if (time_after(jiffies, timeout))
+				break;
+
+			/* add command to corb */
+			wp = snd_hdac_chip_readw(bus, CORBWP);
+			if (wp == 0xffff) {
+				/* something wrong, controller likely turned to D3 */
+				return -EIO;
+			}
+			wp++;
+			wp %= AZX_MAX_CORB_ENTRIES;
+
+			rp = snd_hdac_chip_readw(bus, CORBRP);
+			if (wp == rp) {
+				/* oops, it's full */
+				return -EAGAIN;
+			}
+			bus->corb.buf[wp] = cpu_to_le32(val);
+			snd_hdac_chip_writew(bus, CORBWP, wp);
+			i++;
+		}
+	}
 
 	return 0;
 }
