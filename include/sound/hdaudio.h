@@ -348,8 +348,9 @@ struct hdac_bus {
 	bool corbrp_self_clear:1;	/* CORBRP clears itself after reset */
 	bool polling_mode:1;
 	bool needs_damn_long_delay:1;
-	bool not_use_interrupts:1;	/* prohibiting the RIRB IRQ */
-	bool access_sdnctl_in_dword:1;	/* accessing the sdnctl register by dword */
+	bool not_use_interrupts:1;      /* prohibiting the RIRB IRQ */
+	bool access_sdnctl_in_dword:1;  /* accessing the sdnctl register by dword */
+	bool cmd_resend;		/* command resend */
 	bool hygon_dword_access:1;
 
 	int poll_count;
