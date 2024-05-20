@@ -679,4 +679,12 @@ config SUNPLUS_SP7021_INTC
 	  chained controller, routing all interrupt source in P-Chip to
 	  the primary controller on C-Chip.
 
+config PHYTIUM_IXIC
+	bool "Phytium SoC PCI Legacy Interrupt Controller"
+	depends on ARCH_PHYTIUM
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  This enables support PCI Legacy Interrupt on Phytium SoC.
+
 endmenu
