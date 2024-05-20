@@ -159,6 +159,11 @@ static bool pci_bridge_d3_disable;
 /* Force bridge_d3 for all PCIe ports */
 static bool pci_bridge_d3_force;
 
+#ifndef CONFIG_PM_SLEEP
+suspend_state_t pm_suspend_target_state;
+#define pm_suspend_target_state (PM_SUSPEND_ON)
+#endif
+
 static int __init pcie_port_pm_setup(char *str)
 {
 	if (!strcmp(str, "off"))
@@ -5928,7 +5933,8 @@ int pcie_set_readrq(struct pci_dev *dev, int rq)
 		return -EINVAL;
 	v = FIELD_PREP(PCI_EXP_DEVCTL_READRQ, firstbit - 8);
 
-	if (bridge->no_inc_mrrs) {
+	if (pm_suspend_target_state == PM_SUSPEND_ON &&
+		bridge->no_inc_mrrs) {
 		int max_mrrs = pcie_get_readrq(dev);
 
 		if (rq > max_mrrs) {
