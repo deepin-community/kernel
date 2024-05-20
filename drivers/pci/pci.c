@@ -158,9 +158,13 @@ static bool pci_bridge_d3_disable;
 /* Force bridge_d3 for all PCIe ports */
 static bool pci_bridge_d3_force;
 
+#ifdef CONFIG_MACH_LOONGSON64
+
 #ifndef CONFIG_PM_SLEEP
 suspend_state_t pm_suspend_target_state;
 #define pm_suspend_target_state (PM_SUSPEND_ON)
+#endif
+
 #endif
 
 static int __init pcie_port_pm_setup(char *str)
@@ -5844,8 +5848,9 @@ int pcie_set_readrq(struct pci_dev *dev, int rq)
 	u16 v;
 	int ret;
 	unsigned int firstbit;
+#ifdef CONFIG_MACH_LOONGSON64
 	struct pci_host_bridge *bridge = pci_find_host_bridge(dev->bus);
-
+#endif
 	if (rq < 128 || rq > 4096 || !is_power_of_2(rq))
 		return -EINVAL;
 
@@ -5866,6 +5871,7 @@ int pcie_set_readrq(struct pci_dev *dev, int rq)
 		return -EINVAL;
 	v = FIELD_PREP(PCI_EXP_DEVCTL_READRQ, firstbit - 8);
 
+#ifdef CONFIG_MACH_LOONGSON64
 	if (pm_suspend_target_state == PM_SUSPEND_ON &&
 		bridge->no_inc_mrrs) {
 		int max_mrrs = pcie_get_readrq(dev);
@@ -5875,6 +5881,7 @@ int pcie_set_readrq(struct pci_dev *dev, int rq)
 			return -EINVAL;
 		}
 	}
+#endif
 
 	ret = pcie_capability_clear_and_set_word(dev, PCI_EXP_DEVCTL,
 						  PCI_EXP_DEVCTL_READRQ, v);
