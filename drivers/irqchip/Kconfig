@@ -59,6 +59,11 @@ config ARM_GIC_V5
 	select IRQ_MSI_LIB
 	select ARM_GIC_ITS_PARENT
 
+config ARM_GIC_PHYTIUM_2500
+	bool
+	select IRQ_DOMAIN_HIERARCHY
+	select GENERIC_IRQ_EFFECTIVE_AFF_MASK
+
 config ARM_NVIC
 	bool
 	select IRQ_DOMAIN_HIERARCHY
