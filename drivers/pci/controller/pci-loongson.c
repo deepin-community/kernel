@@ -185,6 +185,44 @@ static void loongson_ohci_quirk(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, DEV_LS7A_OHCI, loongson_ohci_quirk);
 
+static void loongson_display_quirk(struct pci_dev *dev)
+{
+	u32 val;
+	u64 mask, size;
+	u64 max_size = 0;
+	int i, num;
+	struct pci_bus *bus = dev->bus;
+
+	if (!dev->bus->number) {
+		if (!(dev->vendor == PCI_VENDOR_ID_LOONGSON && dev->device == 0x7a25))
+			return;
+	} else {
+		while (!pci_is_root_bus(bus->parent))
+			bus = bus->parent;
+
+		/* ensure slot is 7a2000 */
+		if (bus->self->vendor != PCI_VENDOR_ID_LOONGSON || bus->self->device < 0x7a39)
+			return;
+	}
+	max_size = 0;
+	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
+		if (dev->resource[i].flags & IORESOURCE_MEM) {
+			size = dev->resource[i].end - dev->resource[i].start;
+			if (size > max_size) {
+				max_size = size;
+				num = i;
+			}
+		}
+	}
+	mask = ~(dev->resource[num].end - dev->resource[num].start);
+	val = (dev->resource[num].start >> (24 - 16)) | ((mask >> 24) & 0xffff);
+	writel(val, (volatile void *)0x80000efdfb000174UL);
+	writel(0x80000000, (volatile void *)0x80000efdfb000170UL);
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, 0x7a25, loongson_display_quirk);
+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
+				PCI_BASE_CLASS_DISPLAY, 16, loongson_display_quirk);
+
 static struct loongson_pci *pci_bus_to_loongson_pci(struct pci_bus *bus)
 {
 	struct pci_config_window *cfg;
