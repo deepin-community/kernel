@@ -214,9 +214,11 @@ static int acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 	if (status > 0) {
 		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
 			if (entry->res->flags & IORESOURCE_MEM) {
-				entry->offset = ci->root->mcfg_addr & GENMASK_ULL(63, 40);
-				entry->res->start |= entry->offset;
-				entry->res->end   |= entry->offset;
+				if (!entry->offset) {
+					entry->offset = ci->root->mcfg_addr & GENMASK_ULL(63, 40);
+					entry->res->start |= entry->offset;
+					entry->res->end   |= entry->offset;
+				}
 			}
 		}
 		return status;
