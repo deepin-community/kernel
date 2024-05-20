@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/phytium,lpc-snoop.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium lpc-snoop
+
+maintainers:
+  - Lan Hengyu <lanhengyu1395@phytium.com.cn>
+
+description:
+        The LPC snoop interface allows the BMC to listen on and record the data
+        bytes written by the Host to the targeted LPC I/O pots.
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - phytium,lpc-snoop
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  snoop-ports:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: The LPC I/O ports to snoop
+
+required:
+  - compatible
+  - interrupts
+  - snoop-ports
+
+examples:
+  - |
+          lpc: lpc@28010000 {
+                  compatible = "simple-mfd", "syscon";
+                  reg = <0x0 0x28010000 0x1000>;
+                  reg-io-width = <4>;
+
+                  #address-cells = <1>;
+                  #size-cells = <1>;
+                  ranges = <0x0 0x0 0x28010000 0x1000>;
+
+                lpc_snoop: lpc-snoop@90 {
+                    compatible = "phytium,lpc-snoop";
+                    reg = <0x90 0x8>;
+                    interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+                    snoop-ports = <0x80>;
+                };
+          };
