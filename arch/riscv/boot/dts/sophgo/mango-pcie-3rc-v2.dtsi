@@ -91,10 +91,10 @@
 		device-id = /bits/ 16 <0x2042>;
 		pcie-id = /bits/ 16 <0x1>;
 		link-id = /bits/ 16 <0x0>;
-		top-intc-used = <0>;
-		interrupt-parent = <&intc>;
-		interrupts = <SOC_PERIPHERAL_IRQ(123) IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "msi";
+		top-intc-used = <1>;
+		top-intc-id = <0>;
+		msix-supported = <0>;
+		interrupt-parent = <&intc1>;
 		reg = <0x70 0x62000000  0x0 0x02000000>,
 		      <0x48 0x00000000  0x0 0x00001000>;
 		reg-names = "reg", "cfg";
