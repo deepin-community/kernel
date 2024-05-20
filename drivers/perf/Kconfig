@@ -311,4 +311,6 @@ config MARVELL_PEM_PMU
 	  Enable support for PCIe Interface performance monitoring
 	  on Marvell platform.
 
+source "drivers/perf/phytium/Kconfig"
+
 endmenu
