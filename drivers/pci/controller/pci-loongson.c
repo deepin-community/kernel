@@ -250,6 +250,36 @@ static void __iomem *pci_loongson_map_bus(struct pci_bus *bus,
 	return NULL;
 }
 
+static int pci_loongson_config_read(struct pci_bus *bus, unsigned int devfn,
+			    int where, int size, u32 *val)
+{
+	void __iomem *addr;
+
+	addr = bus->ops->map_bus(bus, devfn, where);
+	if (!addr) {
+		*val = ~0;
+		return PCIBIOS_DEVICE_NOT_FOUND;
+	}
+
+	if (size == 1)
+		*val = readb(addr);
+	else if (size == 2)
+		*val = readw(addr);
+	else
+		*val = readl(addr);
+	/*
+	 * fix some pcie card not scanning properly when bus number is
+	 * inconsistent during firmware and kernel scan phases.
+	 */
+	if (*val == 0x0 && where == PCI_VENDOR_ID) {
+		writel(*val, addr);
+		*val = readl(addr);
+	}
+
+
+	return PCIBIOS_SUCCESSFUL;
+}
+
 #ifdef CONFIG_OF
 
 static int loongson_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
@@ -273,7 +303,7 @@ static int loongson_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 /* LS2K/LS7A accept 8/16/32-bit PCI config operations */
 static struct pci_ops loongson_pci_ops = {
 	.map_bus = pci_loongson_map_bus,
-	.read	= pci_generic_config_read,
+	.read	= pci_loongson_config_read,
 	.write	= pci_generic_config_write,
 };
 
@@ -400,7 +430,7 @@ const struct pci_ecam_ops loongson_pci_ecam_ops = {
 	.init	   = loongson_pci_ecam_init,
 	.pci_ops   = {
 		.map_bus = pci_loongson_map_bus,
-		.read	 = pci_generic_config_read,
+		.read	 = pci_loongson_config_read,
 		.write	 = pci_generic_config_write,
 	}
 };
