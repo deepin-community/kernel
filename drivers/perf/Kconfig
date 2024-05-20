@@ -234,4 +234,6 @@ config CXL_PMU
 
 	  If unsure say 'm'.
 
+source "drivers/perf/phytium/Kconfig"
+
 endmenu
