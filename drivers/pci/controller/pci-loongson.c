@@ -92,6 +92,20 @@ static const struct pci_device_id loongson_internal_bridge_devids[] = {
 	{ 0, },
 };
 
+static void loongson_d3_quirk(struct pci_dev *pdev)
+{
+	pdev->dev_flags |= PCI_DEV_FLAGS_NO_D3;
+	pdev->no_d1d2 = 1;
+}
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT3, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT4, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT5, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT6, loongson_d3_quirk);
+
 /*
  * Some Loongson PCIe ports have hardware limitations on their Maximum Read
  * Request Size. They can't handle anything larger than this.  Sane
