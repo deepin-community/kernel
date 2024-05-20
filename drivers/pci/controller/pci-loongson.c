@@ -32,6 +32,7 @@
 #define DEV_LS7A_CONF	0x7a10
 #define DEV_LS7A_GNET	0x7a13
 #define DEV_LS7A_EHCI	0x7a14
+#define DEV_LS7A_OHCI	0x7a24
 #define DEV_LS7A_DC2	0x7a36
 #define DEV_LS7A_HDMI	0x7a37
 
@@ -162,6 +163,13 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON,
 			DEV_LS7A_GNET, loongson_pci_pin_quirk);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON,
 			DEV_LS7A_HDMI, loongson_pci_pin_quirk);
+
+static void loongson_ohci_quirk(struct pci_dev *dev)
+{
+	if (dev->revision == 0x2)
+		dev->resource[0].start += 0x1000;
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, DEV_LS7A_OHCI, loongson_ohci_quirk);
 
 static struct loongson_pci *pci_bus_to_loongson_pci(struct pci_bus *bus)
 {
