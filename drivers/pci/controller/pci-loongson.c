@@ -316,6 +316,7 @@ static int loongson_pci_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	struct pci_host_bridge *bridge;
 	struct resource *regs;
+	unsigned int num = 0;
 
 	if (!node)
 		return -ENODEV;
@@ -340,7 +341,9 @@ static int loongson_pci_probe(struct platform_device *pdev)
 	}
 
 	if (priv->data->flags & FLAG_CFG1) {
-		regs = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (priv->cfg0_base)
+			num = 1;
+		regs = platform_get_resource(pdev, IORESOURCE_MEM, num);
 		if (!regs)
 			dev_info(dev, "missing mem resource for cfg1\n");
 		else {
