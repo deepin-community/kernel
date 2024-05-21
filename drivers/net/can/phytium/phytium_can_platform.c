@@ -126,14 +126,9 @@ static int phytium_can_plat_probe(struct platform_device *pdev)
 					    "mode-select", &str);
 		if (!(strcmp(str, "canfd")))
 			devtype = &phytium_canfd_data;
-		else
-			devtype = &phytium_can_data;
 	}
 
 	cdev->tx_fifo_depth = tx_fifo_depth;
-	cdev->tx_head = 0;
-	cdev->tx_tail = 0;
-	cdev->tx_max = tx_fifo_depth;
 
 	if (devtype->cantype == PHYTIUM_CANFD)
 		cdev->fdmode = 1;
