@@ -42,6 +42,21 @@ static unsigned long get_new_vpn_context(struct kvm_vcpu *vcpu, long cpu)
 	return next;
 }
 
+int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
+		struct kvm *kvm, int irq_source_id,
+		int level, bool line_status)
+{
+	switch (e->type) {
+	case KVM_IRQ_ROUTING_MSI:
+		if (!kvm_set_msi(e, kvm, irq_source_id, level, line_status))
+			return 0;
+		break;
+	default:
+		break;
+	}
+	return -EWOULDBLOCK;
+}
+
 int vcpu_interrupt_line(struct kvm_vcpu *vcpu, int number, bool level)
 {
 	set_bit(number, (vcpu->arch.irqs_pending));
