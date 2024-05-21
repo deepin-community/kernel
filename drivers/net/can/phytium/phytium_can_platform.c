@@ -80,7 +80,7 @@ static int phytium_can_plat_probe(struct platform_device *pdev)
 	const struct phytium_can_devtype *devtype = &phytium_can_data;
 	u32 tx_fifo_depth;
 	int ret;
-	const char *str = "canfd";
+	const char *str = "can";
 
 	ret = fwnode_property_read_u32(dev_fwnode(&pdev->dev), "tx-fifo-depth", &tx_fifo_depth);
 	if (ret)
