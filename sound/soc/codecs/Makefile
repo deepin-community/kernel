@@ -427,6 +427,8 @@ snd-soc-wsa881x-y := wsa881x.o
 snd-soc-wsa883x-y := wsa883x.o
 snd-soc-wsa884x-y := wsa884x.o
 snd-soc-zl38060-y := zl38060.o
+snd-soc-es8336-objs := es8336.o
+snd-soc-es8388-objs := es8388.o
 # Amp
 snd-soc-max9877-y := max9877.o
 snd-soc-max98504-y := max98504.o
@@ -579,6 +581,8 @@ obj-$(CONFIG_SND_SOC_ES8328)	+= snd-soc-es8328.o
 obj-$(CONFIG_SND_SOC_ES8328_I2C)+= snd-soc-es8328-i2c.o
 obj-$(CONFIG_SND_SOC_ES8328_SPI)+= snd-soc-es8328-spi.o
 obj-$(CONFIG_SND_SOC_ES8375)    += snd-soc-es8375.o
+obj-$(CONFIG_SND_SOC_ES8336)+= snd-soc-es8336.o
+obj-$(CONFIG_SND_SOC_ES8388)	+= snd-soc-es8388.o
 obj-$(CONFIG_SND_SOC_ES8389)    += snd-soc-es8389.o
 obj-$(CONFIG_SND_SOC_ES9356)    += snd-soc-es9356.o
 obj-$(CONFIG_SND_SOC_FRAMER)	+= snd-soc-framer.o

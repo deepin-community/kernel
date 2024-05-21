@@ -303,3 +303,6 @@ obj-$(CONFIG_MFD_RSMU_SPI)	+= rsmu_spi.o rsmu_core.o
 obj-$(CONFIG_MFD_UPBOARD_FPGA)	+= upboard-fpga.o
 
 obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
+
+obj-$(CONFIG_MFD_PHYTIUM_I2S_LSD)	+= phytium_px210_i2s_lsd.o
+obj-$(CONFIG_MFD_PHYTIUM_I2S_MMD)	+= phytium_px210_i2s_mmd.o

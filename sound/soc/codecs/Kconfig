@@ -1343,6 +1343,15 @@ config SND_SOC_FS210X
 	  Digital Input Class-D Power Amplifiers with Enhanced Signal Processing.
 	  The amplifiers support I2C and I2S/TDM.
 
+config SND_SOC_ES8336
+	tristate "Everest Semi ES8336 CODEC"
+	depends on I2C
+	select GPIO_PHYTIUM_PCI
+
+config SND_SOC_ES8388
+	tristate "Everest Semi ES8388 CODEC"
+	depends on I2C
+
 config SND_SOC_GTM601
 	tristate 'GTM601 UMTS modem audio codec'
 
