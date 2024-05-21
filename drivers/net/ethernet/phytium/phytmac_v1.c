@@ -182,7 +182,7 @@ static int phytmac_mac_linkup(struct phytmac *pdata, phy_interface_t interface,
 
 	config = PHYTMAC_READ(pdata, PHYTMAC_NCONFIG);
 
-	config &= ~(PHYTMAC_BIT(SPEED) | PHYTMAC_BIT(FD));
+	config &= ~(PHYTMAC_BIT(SPEED) | PHYTMAC_BIT(FD) | PHYTMAC_BIT(GM_EN));
 
 	if (speed == SPEED_100)
 		config |= PHYTMAC_BIT(SPEED);
