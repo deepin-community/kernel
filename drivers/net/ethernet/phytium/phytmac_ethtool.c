@@ -429,7 +429,7 @@ static int phytmac_set_link_ksettings(struct net_device *ndev,
 	int ret = 0;
 
 	if (!ndev->phydev) {
-		netdev_err(ndev, "fixed link interface not supported set link\n");
+		netdev_err(ndev, "Without a PHY, setting link is not supported\n");
 		ret = -EOPNOTSUPP;
 	} else {
 		phy_ethtool_set_link_ksettings(ndev, kset);
