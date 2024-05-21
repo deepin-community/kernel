@@ -23,7 +23,7 @@ enum phytium_can_reg {
 	CAN_ACC_ID2_MASK	= 0x28,		/* Acceptance identifier2 mask register */
 	CAN_ACC_ID3_MASK	= 0x2c,		/* Acceptance identifier3 mask register */
 	CAN_XFER_STS		= 0x30,		/* Transfer status register */
-	CAN_ERROR_CNT		= 0x34,		/* Error counter register */
+	CAN_PHYTIUM_ERR_CNT		= 0x34,		/* Error counter register */
 	CAN_FIFO_CNT		= 0x38,		/* FIFO counter register */
 	CAN_DMA_CTRL		= 0x3c,		/* DMA request control register */
 	CAN_XFER_EN		= 0x40,		/* Transfer enable register */
@@ -85,8 +85,10 @@ enum phytium_can_reg {
 
 #define INTR_STATUS_MASK (INTR_BOIS | INTR_PWIS | INTR_PEIS | INTR_RFIS | \
 			  INTR_TFIS | INTR_REIS | INTR_TEIS | INTR_EIS)
-#define INTR_EN_MASK	 (INTR_BOIE | INTR_PWIE | INTR_PEIE | INTR_RFIE | \
-			  INTR_REIE | INTR_TEIE | INTR_EIE)
+
+#define INTR_EN_MASK    (INTR_BOIE | INTR_PWIE | INTR_PEIE | INTR_RFIE | \
+			 INTR_TFIE | INTR_REIE | INTR_TEIE | INTR_EIE)
+
 #define INTR_CLEAR_MASK	 (INTR_BOIC | INTR_PWIC | INTR_PEIC | INTR_RFIC | \
 			  INTR_TFIC | INTR_REIC | INTR_TEIC | INTR_EIC)
 
@@ -281,8 +283,8 @@ static inline u32 phytium_can_read(const struct phytium_can_dev *cdev, enum phyt
 	return readl(cdev->base + reg);
 }
 
-static inline void phytium_can_write(const struct phytium_can_dev *cdev, enum phytium_can_reg reg,
-				     u32 val)
+static inline void
+phytium_can_write(const struct phytium_can_dev *cdev, enum phytium_can_reg reg, u32 val)
 {
 	writel(val, cdev->base + reg);
 }
@@ -302,8 +304,8 @@ static int phytium_can_get_berr_counter(const struct net_device *dev,
 {
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 
-	bec->rxerr = phytium_can_read(cdev, CAN_ERROR_CNT) & ERR_CNT_REC;
-	bec->txerr = (phytium_can_read(cdev, CAN_ERROR_CNT) & ERR_CNT_TEC) >> 16;
+	bec->rxerr = phytium_can_read(cdev, CAN_PHYTIUM_ERR_CNT) & ERR_CNT_REC;
+	bec->txerr = (phytium_can_read(cdev, CAN_PHYTIUM_ERR_CNT) & ERR_CNT_TEC) >> 16;
 
 	return 0;
 }
@@ -451,6 +453,7 @@ static int phytium_can_poll(struct napi_struct *napi, int quota)
 	struct net_device *dev = napi->dev;
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 	int work_done;
+	unsigned long flags;
 
 	netdev_dbg(dev, "The receive processing is going on !\n");
 
@@ -461,7 +464,10 @@ static int phytium_can_poll(struct napi_struct *napi, int quota)
 	 */
 	if (work_done >= 0 && work_done < quota) {
 		napi_complete_done(napi, work_done);
-		phytium_can_enable_all_interrupts(cdev);
+
+		spin_lock_irqsave(&cdev->lock, flags);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_REIE);
+		spin_unlock_irqrestore(&cdev->lock, flags);
 	}
 
 	return work_done;
@@ -471,9 +477,10 @@ static void phytium_can_write_frame(struct phytium_can_dev *cdev)
 {
 	struct canfd_frame *cf = (struct canfd_frame *)cdev->tx_skb->data;
 	struct net_device *dev = cdev->net;
+	struct net_device_stats *stats = &dev->stats;
 	struct sk_buff *skb = cdev->tx_skb;
 	u32 i, id, dlc = 0, frame_head[2] = {0, 0};
-	u32 data_len;
+	u32 data_len, tmp_len;
 
 	data_len = can_fd_len2dlc(cf->len);
 	cdev->tx_skb = NULL;
@@ -558,36 +565,42 @@ static void phytium_can_write_frame(struct phytium_can_dev *cdev)
 		}
 	}
 
-	can_put_echo_skb(skb, dev, cdev->tx_head % cdev->tx_max, 0);
-	cdev->tx_head++;
+	stats->tx_bytes += cf->len;
+	stats->tx_packets++;
 
-	netif_stop_queue(dev);
-	/* trigger transmission */
-	phytium_can_clr_reg_bits(cdev, CAN_CTRL, CTRL_XFER);
-	phytium_can_set_reg_bits(cdev, CAN_CTRL, CTRL_TXREQ | CTRL_XFER);
+	cdev->is_tx_done = false;
+	cdev->is_need_stop_xmit = true;
+	mod_timer(&cdev->timer, jiffies + HZ / 10);
 
 	netdev_dbg(dev, "Trigger send message!\n");
+	can_put_echo_skb(skb, dev, 0, 0);
+	tmp_len = can_get_echo_skb(dev, 0, 0);
 }
 
 static netdev_tx_t phytium_can_tx_handler(struct phytium_can_dev *cdev)
 {
 	struct net_device *dev = cdev->net;
 	u32 tx_fifo_used;
-
-	/* Check if the TX buffer is full */
-	tx_fifo_used = (phytium_can_read(cdev, CAN_FIFO_CNT) & FIFO_CNT_TFN) >> 16;
-	if (tx_fifo_used == cdev->tx_max) {
-		netif_stop_queue(dev);
-		netdev_err(dev, "BUG!, TX FIFO full when queue awake!\n");
-		return NETDEV_TX_BUSY;
-	}
-
-	if (cdev->tx_head == cdev->tx_tail) {
-		cdev->tx_head = 0;
-		cdev->tx_tail = 0;
-	}
+	unsigned long flags;
 
 	phytium_can_write_frame(cdev);
+	/* Check if the TX buffer is full */
+	tx_fifo_used = 4 * ((phytium_can_read(cdev, CAN_FIFO_CNT) & FIFO_CNT_TFN) >> 16);
+	if (cdev->can.ctrlmode & CAN_CTRLMODE_FD) {
+		if (CAN_FIFO_BYTE_LEN - tx_fifo_used <= KEEP_CANFD_FIFO_MIN_LEN) {
+			netif_stop_queue(dev);
+			spin_lock_irqsave(&cdev->lock, flags);
+			cdev->is_stop_queue_flag = STOP_QUEUE_TRUE;
+			spin_unlock_irqrestore(&cdev->lock, flags);
+		}
+	} else {
+		if (CAN_FIFO_BYTE_LEN - tx_fifo_used  <= KEEP_CAN_FIFO_MIN_LEN) {
+			netif_stop_queue(dev);
+			spin_lock_irqsave(&cdev->lock, flags);
+			cdev->is_stop_queue_flag = STOP_QUEUE_TRUE;
+			spin_unlock_irqrestore(&cdev->lock, flags);
+		}
+	}
 
 	return NETDEV_TX_OK;
 }
@@ -601,21 +614,59 @@ static void phytium_can_tx_interrupt(struct net_device *ndev, u32 isr)
 {
 	struct phytium_can_dev *cdev = netdev_priv(ndev);
 	struct net_device_stats *stats = &ndev->stats;
+	u32 tx_fifo_used = 0;
 
-	while ((cdev->tx_head - cdev->tx_tail > 0) && (isr & INTR_TEIS)) {
-		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_TEIC | INTR_REIC);
-		stats->tx_bytes = can_get_echo_skb(ndev, cdev->tx_tail % cdev->tx_max, NULL);
-		cdev->tx_tail++;
-		stats->tx_packets++;
-		isr = (phytium_can_read(cdev, CAN_INTR) & INTR_STATUS_MASK);
+	if (isr & INTR_TEIS)
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_TEIC);
+
+	/* Check if the TX buffer is full */
+	if (cdev->is_stop_queue_flag) {
+		tx_fifo_used =  4 * ((phytium_can_read(cdev, CAN_FIFO_CNT) & FIFO_CNT_TFN) >> 16);
+		if (cdev->can.ctrlmode & CAN_CTRLMODE_FD) {
+			if (CAN_FIFO_BYTE_LEN - tx_fifo_used > KEEP_CANFD_FIFO_MIN_LEN) {
+				netif_wake_queue(ndev);
+				cdev->is_stop_queue_flag = STOP_QUEUE_FALSE;
+			}
+		} else {
+			if (CAN_FIFO_BYTE_LEN - tx_fifo_used  > KEEP_CAN_FIFO_MIN_LEN) {
+				netif_wake_queue(ndev);
+				cdev->is_stop_queue_flag = STOP_QUEUE_FALSE;
+			}
+		}
 	}
 
-	phytium_can_clr_reg_bits(cdev, CAN_CTRL, CTRL_XFER);
-	phytium_can_clr_reg_bits(cdev, CAN_CTRL, CTRL_TXREQ);
-	phytium_can_set_reg_bits(cdev, CAN_CTRL, CTRL_XFER);
+	cdev->is_tx_done = true;
+	cdev->is_need_stop_xmit = false;
+	del_timer(&cdev->timer);
+
 	netdev_dbg(ndev, "Finish transform packets %lu\n", stats->tx_packets);
-	netdev_dbg(ndev, "\n-------------------\n");
-	netif_wake_queue(ndev);
+
+	phytium_can_set_reg_bits(cdev, CAN_INTR, (INTR_BOIE |
+				INTR_PWIE | INTR_PEIE));
+}
+
+static void phytium_can_tx_done_timeout(struct timer_list *t)
+{
+	struct phytium_can_dev *priv = from_timer(priv, t, timer);
+	struct net_device *ndev = priv->net;
+
+	if (!priv->is_tx_done) {
+		if (priv->is_need_stop_xmit) {
+			netdev_dbg(ndev, "%s stop xmit\n", __func__);
+			priv->is_need_stop_xmit = false;
+			phytium_can_clr_reg_bits(priv, CAN_CTRL, CTRL_XFER);
+			phytium_can_clr_reg_bits(priv, CAN_INTR, (INTR_BOIE |
+						 INTR_PWIE | INTR_PEIE));
+			/* stop xmit and restart after 500ms */
+			mod_timer(&priv->timer, jiffies + HZ / 2);
+		} else {
+			netdev_dbg(ndev, "%s  start xmit\n", __func__);
+			priv->is_need_stop_xmit = true;
+			phytium_can_set_reg_bits(priv, CAN_CTRL, CTRL_XFER);
+			/* start xmit and stop after 250ms */
+			mod_timer(&priv->timer, jiffies + HZ / 4);
+		}
+	}
 }
 
 static void phytium_can_err_interrupt(struct net_device *ndev, u32 isr)
@@ -628,11 +679,11 @@ static void phytium_can_err_interrupt(struct net_device *ndev, u32 isr)
 
 	skb = alloc_can_err_skb(ndev, &cf);
 
-	rxerr = phytium_can_read(cdev, CAN_ERROR_CNT) & ERR_CNT_REC;
-	txerr = ((phytium_can_read(cdev, CAN_ERROR_CNT) & ERR_CNT_TEC) >> 16);
+	rxerr = phytium_can_read(cdev, CAN_PHYTIUM_ERR_CNT) & ERR_CNT_REC;
+	txerr = ((phytium_can_read(cdev, CAN_PHYTIUM_ERR_CNT) & ERR_CNT_TEC) >> 16);
 
 	if (isr & INTR_BOIS) {
-		netdev_dbg(ndev, "%s: txerr :%u rxerr :%u\n",
+		netdev_dbg(ndev, "bus_off %s: txerr :%u rxerr :%u\n",
 			   __func__, txerr, rxerr);
 		cdev->can.state = CAN_STATE_BUS_OFF;
 		cdev->can.can_stats.bus_off++;
@@ -642,10 +693,15 @@ static void phytium_can_err_interrupt(struct net_device *ndev, u32 isr)
 		if (skb)
 			cf->can_id |= CAN_ERR_BUSOFF;
 	} else if ((isr & INTR_PEIS) == INTR_PEIS) {
-		netdev_dbg(ndev, "%s: txerr :%u rxerr :%u\n",
+		netdev_dbg(ndev, "error_passive %s: txerr :%u rxerr :%u\n",
 			   __func__, txerr, rxerr);
 		cdev->can.state = CAN_STATE_ERROR_PASSIVE;
 		cdev->can.can_stats.error_passive++;
+		/* Clear interrupt condition */
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_PEIC);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_PWIC);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_TEIC);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_EIC);
 		if (skb) {
 			cf->can_id |= CAN_ERR_CRTL;
 			cf->data[1] = (rxerr > 127) ?
@@ -655,10 +711,13 @@ static void phytium_can_err_interrupt(struct net_device *ndev, u32 isr)
 			cf->data[7] = rxerr;
 		}
 	} else if (isr & INTR_PWIS) {
-		netdev_dbg(ndev, "%s: txerr :%u rxerr :%u\n",
+		netdev_dbg(ndev, "error_warning %s: txerr :%u rxerr :%u\n",
 			   __func__, txerr, rxerr);
 		cdev->can.state = CAN_STATE_ERROR_WARNING;
 		cdev->can.can_stats.error_warning++;
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_PWIC);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_TEIC);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_EIC);
 		if (skb) {
 			cf->can_id |= CAN_ERR_CRTL;
 			cf->data[1] |= (txerr > rxerr) ?
@@ -709,6 +768,7 @@ static irqreturn_t phytium_can_isr(int irq, void *dev_id)
 	if (!isr)
 		return IRQ_NONE;
 
+	spin_lock(&cdev->lock);
 	/* Check for FIFO full interrupt and alarm */
 	if ((isr & INTR_RFIS)) {
 		netdev_dbg(dev, "rx_fifo is full!.\n");
@@ -718,14 +778,22 @@ static irqreturn_t phytium_can_isr(int irq, void *dev_id)
 		napi_schedule(&cdev->napi);
 	}
 
+	/* Check for FIFO empty interrupt and alarm */
+	if ((isr & INTR_TFIS)) {
+		netdev_dbg(dev, "tx_fifo is empty!.\n");
+		isr &= (~INTR_TFIS);
+		phytium_can_clr_reg_bits(cdev, CAN_INTR, INTR_TFIE);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_TFIC);
+	}
+
 	/* Check for the type of error interrupt and Processing it */
-	if (isr & (INTR_EIS | INTR_RFIS | INTR_BOIS | INTR_PEIS)) {
-		phytium_can_clr_reg_bits(cdev, CAN_INTR, (INTR_EIE
-					| INTR_RFIE | INTR_BOIE | INTR_PEIE));
+	if (isr & (INTR_EIS | INTR_RFIS | INTR_BOIS | INTR_PWIS | INTR_PEIS)) {
+		phytium_can_clr_reg_bits(cdev, CAN_INTR, (INTR_EIE | INTR_RFIE |
+					 INTR_BOIE | INTR_PWIE | INTR_PEIE));
 		phytium_can_err_interrupt(dev, isr);
-		phytium_can_set_reg_bits(cdev, CAN_INTR, (INTR_EIC
-					| INTR_RFIC | INTR_BOIC | INTR_PEIC));
-		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_EN_MASK);
+		phytium_can_set_reg_bits(cdev, CAN_INTR, (INTR_EIC | INTR_RFIC |
+					 INTR_BOIC | INTR_PWIC | INTR_PEIC));
+		spin_unlock(&cdev->lock);
 		return IRQ_HANDLED;
 	}
 
@@ -742,7 +810,7 @@ static irqreturn_t phytium_can_isr(int irq, void *dev_id)
 		phytium_can_set_reg_bits(cdev, CAN_INTR, INTR_REIC);
 		napi_schedule(&cdev->napi);
 	}
-
+	spin_unlock(&cdev->lock);
 	return IRQ_HANDLED;
 }
 
@@ -876,6 +944,8 @@ static void phytium_can_stop(struct net_device *dev)
 	ctrl &= ~(CTRL_XFER | CTRL_TXREQ);
 	phytium_can_write(cdev, CAN_CTRL, ctrl);
 
+	del_timer(&cdev->timer);
+
 	/* Set the state as STOPPED */
 	cdev->can.state = CAN_STATE_STOPPED;
 }
@@ -917,10 +987,12 @@ static int phytium_can_open(struct net_device *dev)
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 	int ret;
 
-	/* Start clock */
-	ret = pm_runtime_resume(cdev->dev);
-	if (ret)
+	ret = pm_runtime_get_sync(cdev->dev);
+	if (ret < 0) {
+		netdev_err(dev, "%s: pm_runtime_get failed(%d)\n",
+			   __func__, ret);
 		return ret;
+	}
 
 	/* Open the CAN device */
 	ret = open_candev(dev);
@@ -940,12 +1012,16 @@ static int phytium_can_open(struct net_device *dev)
 	/* Start the controller */
 	phytium_can_start(dev);
 
+	netdev_dbg(dev, "%s is going on\n", __func__);
+
 	napi_enable(&cdev->napi);
+	cdev->is_stop_queue_flag = STOP_QUEUE_FALSE;
 	netif_start_queue(dev);
 
 	return 0;
 
 fail:
+	pm_runtime_put(cdev->dev);
 	close_candev(dev);
 disable_clk:
 	pm_runtime_put_sync(cdev->dev);
@@ -1025,7 +1101,7 @@ static int phytium_can_dev_setup(struct phytium_can_dev *cdev)
 		cdev->can.ctrlmode = CAN_CTRLMODE_FD;
 		cdev->can.data_bittiming_const = cdev->bit_timing;
 	}
-
+	spin_lock_init(&cdev->lock);
 	return 0;
 }
 
@@ -1062,10 +1138,6 @@ int phytium_can_register(struct phytium_can_dev *cdev)
 {
 	int ret;
 
-	ret = pm_runtime_resume(cdev->dev);
-	if (ret)
-		return ret;
-
 	ret = phytium_can_dev_setup(cdev);
 	if (ret)
 		goto fail;
@@ -1076,6 +1148,10 @@ int phytium_can_register(struct phytium_can_dev *cdev)
 			cdev->net->name, ret);
 		goto fail;
 	}
+
+	cdev->is_tx_done = true;
+	cdev->is_need_stop_xmit = false;
+	timer_setup(&cdev->timer, phytium_can_tx_done_timeout, 0);
 
 	dev_info(cdev->dev, "%s device registered (irq=%d)\n",
 		 KBUILD_MODNAME, cdev->net->irq);
