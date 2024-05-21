@@ -41,7 +41,7 @@ static const struct phytium_can_devtype phytium_can_pci = {
 
 static const struct phytium_can_pci_config phytium_can_pci_data = {
 	.devtype = &phytium_can_pci,
-	.clock_freq = 600000000,
+	.clock_freq = 480000000,
 	.tx_fifo_depth = 64,
 };
 
