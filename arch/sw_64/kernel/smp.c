@@ -68,6 +68,7 @@ static void upshift_freq(void)
 
 	if (is_guest_or_emul())
 		return;
+
 	cpu_num = sw64_chip->get_cpu_num();
 	for (i = 0; i < cpu_num; i++) {
 		sw64_io_write(i, CLU_LV2_SELH, -1UL);
@@ -79,11 +80,21 @@ static void upshift_freq(void)
 static void downshift_freq(void)
 {
 	unsigned long value;
-	int cpuid, core_id, node_id;
+	int core_id, node_id, cpu;
+	int cpuid = smp_processor_id();
+	struct cpu_topology *cpu_topo = &cpu_topology[cpuid];
 
 	if (is_guest_or_emul())
 		return;
-	cpuid = smp_processor_id();
+
+	for_each_online_cpu(cpu) {
+		struct cpu_topology *sib_topo = &cpu_topology[cpu];
+
+		if ((cpu_topo->package_id == sib_topo->package_id) &&
+		    (cpu_topo->core_id == sib_topo->core_id))
+			return;
+	}
+
 	core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
 	node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
 
