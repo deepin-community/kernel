@@ -16,6 +16,7 @@
 #include <linux/fb.h>
 #include <linux/vt_kern.h>
 #include <linux/console.h>
+#include <linux/font.h>
 #include <asm/types.h>
 #include "fbcon.h"
 
@@ -41,6 +42,51 @@ static void update_attr(u8 *dst, u8 *src, int attribute,
 			c = ~c;
 		dst[i] = c;
 	}
+}
+
+u16 utf8_pos(struct vc_data *vc, const u16 *s)
+{
+	unsigned long p = (unsigned long) s;
+
+	if (p >= vc->vc_origin && p < vc->vc_scr_end)
+		return scr_readw((u16 *) (p + vc->vc_screenbuf_size));
+	else
+		return scr_readw(s + 1);
+}
+
+u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize, u16 charmask,
+	struct fbcon_ops *ops)
+{
+	u8 *src;
+	u16 c_utf;
+	u32 cellsize_utf = (cellsize < 64) ? 16 : 64;
+	void *fontdata;
+	char *fontname = (cellsize < 64) ? "CJK16x16" : "CJK32x32";
+	const struct font_desc *font;
+
+	fontdata = ops ? ops->fontbuffer : vc->vc_font.data;
+	src = fontdata + (scr_readw(s) & charmask) * cellsize;
+	if ((scr_readw(s) & charmask) != 0xff && (scr_readw(s) & charmask) != 0xfe)
+		return src;
+
+	/* assume current font not support unicode */
+	if (vc->vc_font.charcount < 65536) {
+		if (ops)
+			fontdata = ops->fontbuffer_utf;
+		else {
+			font = find_font(fontname);
+			fontdata = (font && font->data) ? (void *) font->data : NULL;
+		}
+	}
+	if (fontdata) {
+		c_utf = utf8_pos(vc, s);
+		if ((scr_readw(s) & charmask) == 0xff)
+			src = fontdata + (c_utf * cellsize_utf * 2);
+		else
+			src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
+	}
+
+	return src;
 }
 
 static void bit_bmove(struct vc_data *vc, struct fb_info *info, int sy,
@@ -84,8 +130,7 @@ static inline void bit_putcs_aligned(struct vc_data *vc, struct fb_info *info,
 	u8 *src;
 
 	while (cnt--) {
-		src = vc->vc_font.data + (scr_readw(s++)&
-					  charmask)*cellsize;
+		src = font_bits(vc, s++, cellsize, charmask, NULL);
 
 		if (attr) {
 			update_attr(buf, src, attr, vc);
@@ -119,8 +164,7 @@ static inline void bit_putcs_unaligned(struct vc_data *vc,
 	u8 *src;
 
 	while (cnt--) {
-		src = vc->vc_font.data + (scr_readw(s++)&
-					  charmask)*cellsize;
+		src = font_bits(vc, s++, cellsize, charmask, NULL);
 
 		if (attr) {
 			update_attr(buf, src, attr, vc);
@@ -252,7 +296,7 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info, int mode,
 
  	c = scr_readw((u16 *) vc->vc_pos);
 	attribute = get_attribute(info, c);
-	src = vc->vc_font.data + ((c & charmask) * (w * vc->vc_font.height));
+	src = font_bits(vc, (u16 *) vc->vc_pos, (w * vc->vc_font.height), charmask, NULL);
 
 	if (ops->cursor_state.image.data != src ||
 	    ops->cursor_reset) {
