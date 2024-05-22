@@ -12,10 +12,13 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
+/* offset should be the same as QEMU */
 #define OFFSET_START_ADDR	0
 #define OFFSET_LENGTH		8
 #define OFFSET_STATUS		16
 #define OFFSET_SLOT		24
+
+#define OFFSET_NODE		40
 
 /* Memory hotplug event */
 #define SUNWAY_MEMHOTPLUG_ADD		0x1
@@ -29,6 +32,7 @@ struct sunway_memory_device {
 	u64 start_addr;         /* Memory Range start physical addr */
 	u64 length;             /* Memory Range length */
 	u64 slot;		/* Memory Range slot */
+	u64 node;               /* Memory Range node */
 	unsigned int enabled:1;
 };
 
@@ -59,7 +63,7 @@ static int sunway_memory_enable_device(struct sunway_memory_device *mem_device)
 
 	lock_device_hotplug();
 	/* suppose node = 0, fix me! */
-	result = __add_memory(0, mem_device->start_addr, mem_device->length, MHP_NONE);
+	result = __add_memory(mem_device->node, mem_device->start_addr, mem_device->length, MHP_NONE);
 	unlock_device_hotplug();
 	/*
 	 * If the memory block has been used by the kernel, add_memory()
@@ -106,7 +110,7 @@ static int sunway_memory_get_meminfo(struct sunway_memory_device *mem_device)
 static void sunway_memory_device_remove(struct sunway_ged_device *device)
 {
 	struct sunway_memory_device *mem_dev, *n;
-	unsigned long start_addr, length, slot;
+	unsigned long start_addr, length, slot, node;
 
 	if (!device)
 		return;
@@ -114,6 +118,7 @@ static void sunway_memory_device_remove(struct sunway_ged_device *device)
 	start_addr = readq(device->membase + OFFSET_START_ADDR);
 	length = readq(device->membase + OFFSET_LENGTH);
 	slot = readq(device->membase + OFFSET_SLOT);
+	node = readq(device->membase + OFFSET_NODE);
 
 	list_for_each_entry_safe(mem_dev, n, &device->dev_list, list) {
 		if (!mem_dev->enabled)
@@ -122,7 +127,7 @@ static void sunway_memory_device_remove(struct sunway_ged_device *device)
 		if ((start_addr == mem_dev->start_addr) &&
 				(length == mem_dev->length)) {
 			/* suppose node = 0, fix me! */
-			remove_memory(0, start_addr, length);
+			remove_memory(node, start_addr, length);
 			list_del(&mem_dev->list);
 			kfree(mem_dev);
 		}
@@ -150,6 +155,7 @@ static int sunway_memory_device_add(struct sunway_ged_device *device)
 	mem_device->start_addr = readq(device->membase + OFFSET_START_ADDR);
 	mem_device->length = readq(device->membase + OFFSET_LENGTH);
 	mem_device->slot = readq(device->membase + OFFSET_SLOT);
+	mem_device->node = readq(device->membase + OFFSET_NODE);
 
 	result = sunway_memory_enable_device(mem_device);
 	if (result) {
