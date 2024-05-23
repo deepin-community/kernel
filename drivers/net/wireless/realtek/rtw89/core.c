@@ -2955,6 +2955,8 @@ static void rtw89_core_ba_work(struct work_struct *work)
 		struct ieee80211_txq *txq = rtw89_txq_to_txq(rtwtxq);
 		struct ieee80211_sta *sta = txq->sta;
 		struct rtw89_sta *rtwsta = sta_to_rtwsta_safe(sta);
+		struct rtw89_vif *rtwvif = rtwsta->rtwvif;
+		struct ieee80211_vif *vif = rtwvif_to_vif(rtwvif);
 		u8 tid = txq->tid;
 
 		if (!sta) {
@@ -2965,6 +2967,29 @@ static void rtw89_core_ba_work(struct work_struct *work)
 		if (rtwsta->disassoc) {
 			rtw89_debug(rtwdev, RTW89_DBG_TXRX,
 				    "cannot start BA with disassoc sta\n");
+			goto skip_ba_work;
+		}
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0))
+		if (0) {
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+		if (!vif->bss_conf.chandef.chan) {
+#else
+		if (!vif->bss_conf.chanreq.oper.chan) {
+#endif
+			/* ieee80211_start_tx_ba_session() dereferences chan->band from
+			 * `vif->bss_conf` directly. But in MLD connection, link_conf[]
+			 * won't point to vif->bss_conf. So, the chan under vif->bss_conf
+			 * might be NULL.
+			 */
+			if (ieee80211_vif_is_mld(vif))
+				rtw89_warn(rtwdev,
+					   "block BA on MLD before fixing mac80211\n");
+			else
+				rtw89_err(rtwdev,
+					  "block BA due to unexpected NULL chan\n");
+
+			set_bit(RTW89_TXQ_F_BLOCK_BA, &rtwtxq->flags);
 			goto skip_ba_work;
 		}
 
