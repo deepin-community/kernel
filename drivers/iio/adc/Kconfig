@@ -886,6 +886,18 @@ config PALMAS_GPADC
 	  is used in smartphones and tablets and supports a 16 channel
 	  general purpose ADC.
 
+config PHYTIUM_ADC
+	tristate "Phytium ADC driver"
+	depends on ARCH_PHYTIUM || COMPILE_TEST
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for Phytium analog to digital
+	  converters (ADC).
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called phytium-adc.
+
 config QCOM_VADC_COMMON
 	tristate
 
