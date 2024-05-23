@@ -33,4 +33,12 @@ extern void fix_jm585_reset(void);
 extern void early_parse_fdt_property(const void *fdt, const char *path,
 		const char *prop_name, u64 *property, int size);
 
+extern void __iomem *misc_platform_get_spbu_base(unsigned long node);
+extern void __iomem *misc_platform_get_intpu_base(unsigned long node);
+extern void __iomem *misc_platform_get_gpio_base(unsigned long node);
+
+#ifdef CONFIG_SUBARCH_C3B
+extern void __iomem *misc_platform_get_cab0_base(unsigned long node);
+#endif
+
 #endif /* _ASM_SW64_PLATFORM_H */
