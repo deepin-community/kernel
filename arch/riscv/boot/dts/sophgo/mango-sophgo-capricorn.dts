@@ -45,6 +45,15 @@
 	};
 };
 
+
+&i2c0 {
+	status = "okay";
+	ds1307: rtc@68 {
+		compatible = "dallas,ds1307";
+		reg = <0x68>;
+	};
+};
+
 / {
 	 board-info {
 		/* compatible MUST be sophgo,board-info */
