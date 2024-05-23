@@ -97,9 +97,9 @@ struct vcpucb {
 	unsigned long exit_reason;
 	unsigned long fault_gpa; /* CSR:EXC_GPA */
 	unsigned long vcpu_pc_save;
-	unsigned long shtclock_offset;
 	unsigned long migration_mark;
 	unsigned long shtclock;
+	unsigned long shtclock_offset;
 	unsigned long csr_pc;
 	unsigned long csr_ps;
 	unsigned long csr_sp;
