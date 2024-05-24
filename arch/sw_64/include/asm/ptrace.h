@@ -27,6 +27,7 @@ struct pt_regs {
 	};
 	unsigned long orig_r0;
 	unsigned long orig_r19;
+	unsigned long cause;
 	/* These are saved by HMcode: */
 	unsigned long hm_ps;
 	unsigned long hm_pc;

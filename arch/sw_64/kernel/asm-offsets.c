@@ -104,6 +104,7 @@ void foo(void)
 	DEFINE(PT_REGS_PS, offsetof(struct pt_regs, ps));
 	DEFINE(PT_REGS_ORIG_R0, offsetof(struct pt_regs, orig_r0));
 	DEFINE(PT_REGS_ORIG_R19, offsetof(struct pt_regs, orig_r19));
+	DEFINE(PT_REGS_CAUSE, offsetof(struct pt_regs, cause));
 	DEFINE(PT_REGS_HM_PS, offsetof(struct pt_regs, hm_ps));
 	DEFINE(PT_REGS_HM_PC, offsetof(struct pt_regs, hm_pc));
 	DEFINE(PT_REGS_HM_GP, offsetof(struct pt_regs, hm_gp));
