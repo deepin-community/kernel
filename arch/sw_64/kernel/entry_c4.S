@@ -66,6 +66,7 @@
 	csrr	$1, CSR_SP
 	csrr	$2, CSR_PS
 	csrr	$3, CSR_PC
+	csrr	$4, CSR_CAUSE
 	csrr	$16, CSR_EARG0
 	csrr	$17, CSR_EARG1
 	csrr	$18, CSR_EARG2
@@ -76,6 +77,7 @@
 	stl     $1, PT_REGS_SP($sp)
 	stl	$2, PT_REGS_PS($sp)
 	stl	$3, PT_REGS_PC($sp)
+	stl	$4, PT_REGS_CAUSE($sp)
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
 	csrr	$8, CSR_KTP

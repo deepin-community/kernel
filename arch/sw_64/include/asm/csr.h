@@ -59,6 +59,7 @@
 #define CSR_SCRATCH		0xed
 #define CSR_SP			0xee
 #define CSR_KTP			0xef
+#define CSR_CAUSE		0xf0
 
 #define DA_MATCH_EN_S		4
 #define DV_MATCH_EN_S		6
