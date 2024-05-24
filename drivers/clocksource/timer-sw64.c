@@ -418,7 +418,6 @@ void sw64_timer_interrupt(void)
 {
 	struct clock_event_device *evt = this_cpu_ptr(&timer_events);
 
-	irq_enter();
 	if (!evt->event_handler) {
 		pr_warn("Spurious local timer interrupt on cpu %d\n",
 				smp_processor_id());
@@ -429,6 +428,4 @@ void sw64_timer_interrupt(void)
 	inc_irq_stat(timer_irqs_event);
 
 	evt->event_handler(evt);
-
-	irq_exit();
 }

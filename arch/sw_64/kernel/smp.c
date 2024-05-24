@@ -594,9 +594,7 @@ void handle_ipi(struct pt_regs *regs)
 				break;
 
 			case IPI_CALL_FUNC:
-				irq_enter();
 				generic_smp_call_function_interrupt();
-				irq_exit();
 				break;
 
 			case IPI_CPU_STOP:
