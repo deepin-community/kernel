@@ -106,6 +106,9 @@ static void downshift_freq(void) { }
 void smp_callin(void)
 {
 	int cpuid;
+	struct page  __maybe_unused *nmi_stack_page;
+	unsigned long __maybe_unused nmi_stack;
+
 	save_ktp();
 	upshift_freq();
 	cpuid = smp_processor_id();
@@ -132,6 +135,17 @@ void smp_callin(void)
 	current->active_mm = &init_mm;
 	/* update csr:ptbr */
 	update_ptbr_sys(virt_to_phys(init_mm.pgd));
+
+	if (IS_ENABLED(CONFIG_SUBARCH_C4) && is_in_host()) {
+		nmi_stack_page = alloc_pages_node(
+				cpu_to_node(smp_processor_id()),
+				THREADINFO_GFP,
+				THREAD_SIZE_ORDER);
+		nmi_stack = nmi_stack_page ?
+			(unsigned long)page_address(nmi_stack_page) : 0;
+		sw64_write_csr_imb(nmi_stack + THREAD_SIZE, CSR_NMI_STACK);
+		wrent(entNMI, 6);
+	}
 
 	/* inform the notifiers about the new cpu */
 	notify_cpu_starting(cpuid);

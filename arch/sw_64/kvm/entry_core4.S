@@ -266,6 +266,8 @@ $setfpec_over:
 	csrr    $18, CSR_EARG2
 
 	ldi	$19, -PT_REGS_SIZE(sp)
+	csrr	$1, CSR_CAUSE
+	stl	$1, PT_REGS_CAUSE($19)
 	call	$26, do_entInt
 	ldl	$26, VCPU_RET_RA(sp)
 	ldl	$0, VCPU_RET_R0(sp)

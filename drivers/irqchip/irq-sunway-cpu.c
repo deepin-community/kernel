@@ -184,8 +184,10 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 	/* restart idle routine if it is interrupted */
 	if (regs->pc > (u64)__idle_start && regs->pc < (u64)__idle_end)
 		regs->pc = (u64)__idle_start;
-
-	irq_enter();
+	if (regs->cause != -2)
+		irq_enter();
+	else
+		nmi_enter();
 	old_regs = set_irq_regs(regs);
 
 #ifdef CONFIG_SUBARCH_C4
@@ -269,7 +271,10 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 
 out:
 	set_irq_regs(old_regs);
-	irq_exit();
+	if (regs->cause != -2)
+		irq_exit();
+	else
+		nmi_exit();
 }
 EXPORT_SYMBOL(do_entInt);
 
