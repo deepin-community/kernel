@@ -215,6 +215,16 @@ config PCIE_MT7621
 	help
 	  This selects a driver for the MediaTek MT7621 PCIe Controller.
 
+config PCIE_PHYTIUM_EP
+	tristate "Phytium PCIe endpoint controller"
+	depends on OF
+	depends on PCI_ENDPOINT
+	help
+	  Say Y here if you want to support Phytium PCIe controller in
+	  endpoint mode on Phytium SoC. The controller can act as Root Port
+	  or End Point with different phytium firmware. But End Point mode only support
+	  one physical function.
+
 config PCIE_MICROCHIP_HOST
 	tristate "Microchip AXI PCIe controller"
 	depends on PCI_MSI && OF
