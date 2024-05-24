@@ -78,6 +78,7 @@ static inline bool core_is_ht(void)
 extern void entArith(void);
 extern void entIF(void);
 extern void entInt(void);
+extern void entNMI(void);
 extern void entMM(void);
 extern void entSys(void);
 extern void entUna(void);

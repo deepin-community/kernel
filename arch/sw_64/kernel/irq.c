@@ -114,7 +114,17 @@ void __init init_IRQ(void)
 	 * Just in case the platform init_irq() causes interrupts/mchecks
 	 * (as is the case with RAWHIDE, at least).
 	 */
+	struct page __maybe_unused *nmi_stack_page = alloc_pages_node(
+		cpu_to_node(smp_processor_id()),
+		THREADINFO_GFP, THREAD_SIZE_ORDER);
+	unsigned long nmi_stack __maybe_unused = nmi_stack_page ?
+		(unsigned long)page_address(nmi_stack_page) : 0;
+
 	wrent(entInt, 0);
+	if (IS_ENABLED(CONFIG_SUBARCH_C4) && is_in_host()) {
+		sw64_write_csr_imb(nmi_stack + THREAD_SIZE, CSR_NMI_STACK);
+		wrent(entNMI, 6);
+	}
 
 	sw64_init_irq();
 	irqchip_init();

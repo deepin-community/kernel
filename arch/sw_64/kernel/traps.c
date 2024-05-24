@@ -2006,6 +2006,25 @@ syscall_out:
 		syscall_trace_leave();
 }
 
+struct nmi_ctx {
+	unsigned long csr_sp;
+	unsigned long csr_scratch;
+};
+
+DEFINE_PER_CPU(struct nmi_ctx, nmi_context);
+
+void save_nmi_ctx(void)
+{
+	this_cpu_write(nmi_context.csr_sp, sw64_read_csr(CSR_SP));
+	this_cpu_write(nmi_context.csr_scratch, sw64_read_csr(CSR_SCRATCH));
+}
+
+void restore_nmi_ctx(void)
+{
+	sw64_write_csr_imb(this_cpu_read(nmi_context.csr_sp), CSR_SP);
+	sw64_write_csr_imb(this_cpu_read(nmi_context.csr_scratch), CSR_SCRATCH);
+}
+
 void
 trap_init(void)
 {
