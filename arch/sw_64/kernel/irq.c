@@ -98,9 +98,7 @@ handle_irq(int irq)
 		return;
 	}
 
-	irq_enter();
 	generic_handle_irq_desc(desc);
-	irq_exit();
 }
 
 #ifdef CONFIG_HOTPLUG_CPU

@@ -181,16 +181,21 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 	struct pt_regs *old_regs;
 	extern char __idle_start[], __idle_end[];
 
+	/* restart idle routine if it is interrupted */
+	if (regs->pc > (u64)__idle_start && regs->pc < (u64)__idle_end)
+		regs->pc = (u64)__idle_start;
+
+	irq_enter();
+	old_regs = set_irq_regs(regs);
+
 #ifdef CONFIG_SUBARCH_C4
 	if (pme_state == PME_WFW) {
 		pme_state = PME_PENDING;
-		return;
+		goto out;
 	}
 
 	if (pme_state == PME_PENDING) {
-		old_regs = set_irq_regs(regs);
 		handle_device_interrupt(vector);
-		set_irq_regs(old_regs);
 		pme_state = PME_CLEAR;
 	}
 #endif
@@ -205,74 +210,66 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 		}
 	}
 
-	/* restart idle routine if it is interrupted */
-	if (regs->pc > (u64)__idle_start && regs->pc < (u64)__idle_end)
-		regs->pc = (u64)__idle_start;
-
 	switch (type & 0xffff) {
 	case INT_MSI:
-		old_regs = set_irq_regs(regs);
 		if (is_guest_or_emul())
 			vt_handle_pci_msi_interrupt(type, vector, irq_arg);
 		else
 			handle_pci_msi_interrupt(type, vector, irq_arg);
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 	case INT_INTx:
-		old_regs = set_irq_regs(regs);
 		handle_device_interrupt(vector);
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 
 	case INT_IPI:
 #ifdef CONFIG_SMP
 		handle_ipi(regs);
-		return;
+		goto out;
 #else
 		irq_err_count++;
 		pr_crit("Interprocessor interrupt? You must be kidding!\n");
-#endif
 		break;
+#endif
 	case INT_RTC:
-		old_regs = set_irq_regs(regs);
 		sw64_timer_interrupt();
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 	case INT_VT_SERIAL:
 	case INT_VT_HOTPLUG:
 	case INT_VT_GPIOA_PIN0:
-		old_regs = set_irq_regs(regs);
 		handle_irq(type);
-		set_irq_regs(old_regs);
-		return;
+		goto out;
+#if defined(CONFIG_SUBARCH_C3B)
 	case INT_PC0:
 		perf_irq(PMC_PC0, regs);
-		return;
+		goto out;
 	case INT_PC1:
 		perf_irq(PMC_PC1, regs);
-		return;
+		goto out;
+#elif defined(CONFIG_SUBARCH_C4)
+	case INT_PC:
+		perf_irq(PMC_PC0, regs);
+		goto out;
+#endif
 	case INT_DEV:
 		handle_dev_int(regs);
-		return;
+		goto out;
 	case INT_FAULT:
-		old_regs = set_irq_regs(regs);
 		handle_fault_int();
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 	case INT_MT:
-		old_regs = set_irq_regs(regs);
 		handle_mt_int();
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 	case INT_NMI:
-		old_regs = set_irq_regs(regs);
 		handle_nmi_int();
-		set_irq_regs(old_regs);
-		return;
+		goto out;
 	default:
 		pr_crit("Hardware intr	%ld %lx? uh?\n", type, vector);
 	}
 	pr_crit("PC = %016lx PS = %04lx\n", regs->pc, regs->ps);
+
+out:
+	set_irq_regs(old_regs);
+	irq_exit();
 }
 EXPORT_SYMBOL(do_entInt);
 
