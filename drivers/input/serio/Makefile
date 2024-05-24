@@ -7,6 +7,7 @@
 
 obj-$(CONFIG_SERIO)		+= serio.o
 obj-$(CONFIG_SERIO_I8042)	+= i8042.o
+obj-$(CONFIG_SERIO_PHYTIUM_PS2)	+= phytium-ps2.o
 obj-$(CONFIG_SERIO_PARKBD)	+= parkbd.o
 obj-$(CONFIG_SERIO_SERPORT)	+= serport.o
 obj-$(CONFIG_SERIO_CT82C710)	+= ct82c710.o
