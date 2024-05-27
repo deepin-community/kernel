@@ -585,7 +585,6 @@ static int mtd_part_acpi_parse(struct mtd_info *master,
 						struct mtd_partitions *pparts)
 {
 	struct mtd_part_parser *parser;
-	struct acpi_device *adev;
 	struct fwnode_handle *child;
 	const char *compat;
 	const char *fixed = "acpi-fixed-partitions";
