@@ -59,6 +59,9 @@ static void kexec_image_info(const struct kimage *kimage)
 	}
 }
 
+#define MAX_ARGS 64
+#define KEXEC_CMDLINE_SIZE (COMMAND_LINE_SIZE * 2)
+
 int machine_kexec_prepare(struct kimage *kimage)
 {
 	int i;
@@ -70,11 +73,49 @@ int machine_kexec_prepare(struct kimage *kimage)
 	kimage->arch.efi_boot = fw_arg0;
 	kimage->arch.systable_ptr = fw_arg2;
 
+	if (!fw_arg2)
+		pr_err("Small fdt mode is not supported!\n");
+
 	/* Find the command line */
 	for (i = 0; i < kimage->nr_segments; i++) {
 		if (!strncmp(bootloader, (char __user *)kimage->segment[i].buf, strlen(bootloader))) {
-			if (!copy_from_user(cmdline_ptr, kimage->segment[i].buf, COMMAND_LINE_SIZE))
-				kimage->arch.cmdline_ptr = (unsigned long)cmdline_ptr;
+			if (fw_arg0 < 2) {
+				/* New firmware */
+				if (!copy_from_user(cmdline_ptr, kimage->segment[i].buf, COMMAND_LINE_SIZE))
+					kimage->arch.cmdline_ptr = (unsigned long)cmdline_ptr;
+			} else {
+				/* Old firmware */
+				int argc = 0;
+				long offt;
+				char *ptr, *str;
+				unsigned long *argv;
+
+				/*
+				 * convert command line string to array
+				 * of parameters (as bootloader does).
+				 */
+				argv = (unsigned long *)kmalloc(KEXEC_CMDLINE_SIZE, GFP_KERNEL);
+				argv[argc++] = (unsigned long)(KEXEC_CMDLINE_ADDR + KEXEC_CMDLINE_SIZE/2);
+				str = (char *)argv + KEXEC_CMDLINE_SIZE/2;
+
+				if (copy_from_user(str, kimage->segment[i].buf, KEXEC_CMDLINE_SIZE/2))
+					return -EINVAL;
+
+				ptr = strchr(str, ' ');
+
+				while (ptr && (argc < MAX_ARGS)) {
+					*ptr = '\0';
+					if (ptr[1] != ' ') {
+						offt = (long)(ptr - str + 1);
+						argv[argc++] = (unsigned long)argv + KEXEC_CMDLINE_SIZE/2 + offt;
+					}
+					ptr = strchr(ptr + 1, ' ');
+				}
+
+				kimage->arch.efi_boot = argc;
+				kimage->arch.cmdline_ptr = (unsigned long)argv;
+				break;
+			}
 			break;
 		}
 	}
