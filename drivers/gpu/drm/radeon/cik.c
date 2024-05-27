@@ -8093,6 +8093,9 @@ restart_ih:
 	if (queue_thermal)
 		schedule_work(&rdev->pm.dpm.thermal.work);
 	rdev->ih.rptr = rptr;
+#ifdef CONFIG_LOONGARCH
+	WREG32(IH_RB_RPTR, rptr);
+#endif
 	atomic_set(&rdev->ih.lock, 0);
 
 	/* make sure wptr hasn't changed while processing */
