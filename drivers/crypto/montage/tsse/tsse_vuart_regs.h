@@ -1,0 +1,72 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * This file is part of tsse driver for Linux
+ *
+ * Copyright © 2023 Montage Technology. All rights reserved.
+ */
+
+#ifndef __TSSE_VUART_REGS_H__
+#define __TSSE_VUART_REGS_H__
+
+#include <linux/bits.h>
+#include <linux/bitfield.h>
+
+#define VUART_ID 0x0
+#define VUART_ID_MASK GENMASK(31, 0)
+
+#define VUART_HCR 0x10
+#define VUART_HCR_RFIFOT GENMASK(3, 2)
+#define VUART_HCR_TFIFOT GENMASK(5, 4)
+
+#define INTRID_NONE BIT(0)
+#define INTRID_CPU_LSR (BIT(2) | BIT(1))
+#define INTRID_TRIGGER_LEVEL BIT(2)
+#define INTRID_RX_TIMEOUT (BIT(2) | BIT(3))
+#define INTRID_TX_EMPTY BIT(1)
+
+#define VUART_IIR 0x28
+#define VUART_IIR_TXEI GENMASK(0, 0)
+#define VUART_IIR_RXTOI GENMASK(1, 1)
+#define VUART_IIR_RXDAI GENMASK(2, 2)
+#define VUART_IIR_CPUCD GENMASK(3, 3)
+#define VUART_IIR_TXFI GENMASK(4, 4)
+#define VUART_IIR_RXUE GENMASK(5, 5)
+#define VUART_IIR_TXOE GENMASK(6, 6)
+
+#define VUART_FCR 0x30
+#define VUART_FCR_TFIFORST GENMASK(0, 0)
+#define VUART_FCR_RFIFORST GENMASK(1, 1)
+#define VUART_FCR_RFIFOT GENMASK(3, 2)
+#define VUART_FCR_TFIFOT GENMASK(5, 4)
+
+#define VUART_FSR 0x34
+#define VUART_FSR_TXDR GENMASK(0, 0)
+#define VUART_FSR_RXDR GENMASK(1, 1)
+#define VUART_FSR_RXFIFO GENMASK(2, 2)
+#define VUART_FSR_TXFIFOE GENMASK(3, 3)
+#define VUART_FSR_RXFIFOF GENMASK(4, 4)
+#define VUART_FSR_TXFIFOF GENMASK(5, 5)
+#define VUART_FSR_TFIFODN GENMASK(13, 6)
+#define VUART_FSR_RFIFODN GENMASK(21, 14)
+#define VUART_FSR_TXOE GENMASK(23, 23)
+#define VUART_FSR_RXUE GENMASK(24, 24)
+
+#define VUART_SCR 0x3c
+#define VUART_SCR_SCR GENMASK(7, 0)
+
+#define VUART_TX 0x40
+#define VUART_RX 0x40
+
+#define VUART_IER 0x48
+#define VUART_IER_HETXEI GENMASK(0, 0)
+#define VUART_IER_HERXTOI GENMASK(1, 1)
+#define VUART_IER_HETXDRI GENMASK(2, 2)
+#define VUART_IER_CCFGDI GENMASK(3, 3)
+#define VUART_IER_HETXFI GENMASK(4, 4)
+#define VUART_IER_HETXUI GENMASK(5, 5)
+#define VUART_IER_HERXOI GENMASK(6, 6)
+
+#define VUART_CFG 0x4c
+#define VUART_CFG_CCFGD GENMASK(0, 0)
+
+#endif
