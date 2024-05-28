@@ -67,10 +67,7 @@ static int sunway_memory_enable_device(struct sunway_memory_device *mem_device)
 	if (!mem_device->length)
 		goto out;
 
-	lock_device_hotplug();
-	/* suppose node = 0, fix me! */
-	result = __add_memory(mem_device->node, mem_device->start_addr, mem_device->length, MHP_NONE);
-	unlock_device_hotplug();
+	result = add_memory(mem_device->node, mem_device->start_addr, mem_device->length, MHP_NONE);
 	/*
 	 * If the memory block has been used by the kernel, add_memory()
 	 * returns -EEXIST. If add_memory() returns the other error, it
