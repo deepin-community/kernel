@@ -47,3 +47,4 @@ obj-y += intel/
 obj-y += starfive/
 obj-y += cavium/
 obj-y += ti/
+obj-y += montage/

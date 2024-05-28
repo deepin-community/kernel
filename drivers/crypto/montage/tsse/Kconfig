@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config CRYPTO_DEV_TSSE
+	tristate "Support for Montage(R) TSSE"
+	depends on X86 && PCI
+	select FW_LOADER
+	help
+	  Support for Montage(R) TSSE for accelerating crypto workloads.
+
+	  To compile this as a module, choose M here.
