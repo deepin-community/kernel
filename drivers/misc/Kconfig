@@ -377,12 +377,13 @@ config HMC6352
 	  providing configuration and heading data via sysfs.
 
 config SUNWAY_GED
-	tristate "sunway generic device driver for memhotplug"
+	tristate "sunway generic device driver for memhotplug and cpuhotplug"
 	depends on SW64
-	depends on MEMORY_HOTPLUG
+	depends on MEMORY_HOTPLUG || HOTPLUG_CPU
 	help
 	  This driver provides support for sunway generic device driver for
-	  memhotplug, providing configuration and heading data via sysfs.
+	  memhotplug and cpuhotplug, providing configuration and heading
+	  data via sysfs.
 
 config DS1682
 	tristate "Dallas DS1682 Total Elapsed Time Recorder with Alarm"
