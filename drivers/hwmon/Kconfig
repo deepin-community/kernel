@@ -412,6 +412,15 @@ config SENSORS_ASPEED
 	  This driver can also be built as a module. If so, the module
 	  will be called aspeed_pwm_tacho.
 
+config SENSORS_PHYTIUM
+        tristate "Phytium Fan tach and capture counter driver"
+        help
+          This driver provides support for Phytium Fan Tacho and capture
+          counter controllers.
+
+          This driver can also be built as a module. If so, the module
+          will be called tacho-phytium.
+
 config SENSORS_ATXP1
 	tristate "Attansic ATXP1 VID controller"
 	depends on I2C
