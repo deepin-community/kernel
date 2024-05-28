@@ -415,4 +415,12 @@ config PCIE_VISCONTI_HOST
 	  Say Y here if you want PCIe controller support on Toshiba Visconti SoC.
 	  This driver supports TMPV7708 SoC.
 
+config PCIE_ULTRARISC
+	bool "UltraRISC PCIe host controller"
+	depends on PCI_MSI
+	select PCIE_DW_HOST
+	help
+	  Say Y here if you want PCIe controller support on
+	  UltraRISC DP1000 SoC.
+
 endmenu
