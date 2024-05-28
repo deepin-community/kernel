@@ -50,6 +50,7 @@ struct sunway_ged_device {
 	struct list_head dev_list;
 };
 
+#ifdef CONFIG_MEMORY_HOTPLUG
 static int sunway_memory_enable_device(struct sunway_memory_device *mem_device)
 {
 	int num_enabled = 0;
@@ -155,7 +156,9 @@ static int sunway_memory_device_add(struct sunway_ged_device *device)
 
 	return 1;
 }
+#endif
 
+#ifdef CONFIG_HOTPLUG_CPU
 static int sunway_cpu_device_add(struct sunway_ged_device *device)
 {
 	struct device *dev;
@@ -189,6 +192,7 @@ static void sunway_cpu_device_del(struct sunway_ged_device *device)
 
 	writeq(cpuid, device->membase + OFFSET_CPUID);
 }
+#endif
 
 static irqreturn_t sunwayged_ist(int irq, void *data)
 {
@@ -196,19 +200,23 @@ static irqreturn_t sunwayged_ist(int irq, void *data)
 	unsigned int status;
 
 	status = readq(sunwayged_dev->membase + OFFSET_STATUS);
+#ifdef CONFIG_HOTPLUG_CPU
 	/* through IO status to add or remove cpu  */
 	if (status & SUNWAY_CPUHOTPLUG_ADD)
 		sunway_cpu_device_add(sunwayged_dev);
 
 	if (status & SUNWAY_CPUHOTPLUG_REMOVE)
 		sunway_cpu_device_del(sunwayged_dev);
+#endif
 
+#ifdef CONFIG_MEMORY_HOTPLUG
 	/* through IO status to add or remove memory device  */
 	if (status & SUNWAY_MEMHOTPLUG_ADD)
 		sunway_memory_device_add(sunwayged_dev);
 
 	if (status & SUNWAY_MEMHOTPLUG_REMOVE)
 		sunway_memory_device_remove(sunwayged_dev);
+#endif
 
 	return IRQ_HANDLED;
 }
