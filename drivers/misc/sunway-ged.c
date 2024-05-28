@@ -95,24 +95,6 @@ out:
 	return 0;
 }
 
-static int sunway_memory_get_meminfo(struct sunway_memory_device *mem_device)
-{
-	struct sunway_ged_device *geddev;
-
-	if (!mem_device)
-		return -EINVAL;
-
-	if (mem_device->enabled)
-		return 0;
-
-	geddev = mem_device->device;
-
-	mem_device->start_addr = readq(geddev->membase + OFFSET_START_ADDR);
-	mem_device->length = readq(geddev->membase + OFFSET_LENGTH);
-
-	return 0;
-}
-
 static void sunway_memory_device_remove(struct sunway_ged_device *device)
 {
 	struct sunway_memory_device *mem_dev, *n;
