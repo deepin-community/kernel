@@ -20,11 +20,10 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 				  struct mtd_part_parser_data *data)
 {
 	struct mtd_partition *parts;
-	struct acpi_device_id *acpi_id;
+	const struct acpi_device_id *acpi_id;
 	const char *partname;
 	int nr_parts, i, ret = 0;
 	struct acpi_device *adev;
-	struct fwnode_handle *child;
 	struct fwnode_handle *child_handle;
 	bool dedicated = true;
 	struct device *dev;
@@ -110,7 +109,7 @@ acpipart_none:
 
 static const struct acpi_device_id parse_acpipart_match_table[] = {
 	/* Generic */
-	{ "acpi-fixed-partitions", 0 },
+	{ "acpi-partitions", 0 },
 	/* Customized */
 	{},
 };
