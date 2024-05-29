@@ -433,23 +433,32 @@ struct vpsp_cmd {
  *
  * @pret: the return code from device
  * @resv: reserved bits
+ * @format: indicates that the error is a unix error code(is 0) or a psp error(is 1)
  * @index: used to distinguish the position of command in the ringbuffer
  * @status: indicates the current status of the related command
  */
 struct vpsp_ret {
 	u32 pret	:	16;
-	u32 resv	:	2;
+	u32 resv	:	1;
+	u32 format	:	1;
 	u32 index	:	12;
 	u32 status	:	2;
 };
+#define VPSP_RET_SYS_FORMAT    1
+#define VPSP_RET_PSP_FORMAT    0
 
 struct kvm_vpsp {
 	struct kvm *kvm;
 	int (*write_guest)(struct kvm *kvm, gpa_t gpa, const void *data, unsigned long len);
 	int (*read_guest)(struct kvm *kvm, gpa_t gpa, void *data, unsigned long len);
+	kvm_pfn_t (*gfn_to_pfn)(struct kvm *kvm, gfn_t gfn);
+	u32 vm_handle;
+	u8 is_csv_guest;
 };
 
 #define PSP_2MB_MASK		(2*1024*1024 - 1)
+#define PSP_HUGEPAGE_2MB	(2*1024*1024)
+#define PSP_HUGEPAGE_NUM_MAX	128
 #define TKM_CMD_ID_MIN		0x120
 #define TKM_CMD_ID_MAX		0x12f
 #define TKM_PSP_CMDID		TKM_CMD_ID_MIN
@@ -459,6 +468,17 @@ struct kvm_vpsp {
 #define PUT_PSP_VID(hpa, vid)   ((__u64)(hpa) | ((__u64)(PSP_VID_MASK & vid) << PSP_VID_SHIFT))
 #define GET_PSP_VID(hpa)        ((__u16)((__u64)(hpa) >> PSP_VID_SHIFT) & PSP_VID_MASK)
 #define CLEAR_PSP_VID(hpa)      ((__u64)(hpa) & ~((__u64)PSP_VID_MASK << PSP_VID_SHIFT))
+
+struct vpsp_context {
+	u32 vid;
+	pid_t pid;
+	u64 gpa_start;
+	u64 gpa_end;
+
+	// `vm_is_bound` indicates whether the binding operation has been performed
+	u32 vm_is_bound;
+	u32 vm_handle;	// only for csv
+};
 
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
 
@@ -475,17 +495,19 @@ int csv_check_stat_queue_status(int *psp_ret);
  */
 int csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret);
 
-int vpsp_try_get_result(uint32_t vid, uint8_t prio, uint32_t index,
-			void *data, struct vpsp_ret *psp_ret);
+int vpsp_try_get_result(uint8_t prio, uint32_t index,
+			phys_addr_t phy_addr, struct vpsp_ret *psp_ret);
 
-int vpsp_try_do_cmd(uint32_t vid, int cmd, void *data, struct vpsp_ret *psp_ret);
+int vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr, struct vpsp_ret *psp_ret);
 
-int vpsp_get_vid(uint32_t *vid, pid_t pid);
+int vpsp_get_context(struct vpsp_context **ctx, pid_t pid);
 
 int vpsp_get_default_vid_permission(void);
 
 int kvm_pv_psp_copy_forward_op(struct kvm_vpsp *vpsp, int cmd, gpa_t data_gpa, gpa_t psp_ret_gpa);
 
+int kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
+				gpa_t data_gpa, uint32_t psp_ret);
 #else	/* !CONFIG_CRYPTO_DEV_SP_PSP */
 
 static inline int psp_do_cmd(int cmd, void *data, int *psp_ret) { return -ENODEV; }
@@ -499,15 +521,19 @@ static inline int
 csv_issue_ringbuf_cmds_external_user(struct file *filep, int *psp_ret) { return -ENODEV; }
 
 static inline int
-vpsp_try_get_result(uint32_t vid, uint8_t prio,
-		uint32_t index, void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
+vpsp_try_get_result(uint8_t prio,
+		uint32_t index, phys_addr_t phy_addr, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
 static inline int
 vpsp_try_do_cmd(uint32_t vid, int cmd,
 		void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
 static inline int
-vpsp_get_vid(uint32_t *vid, pid_t pid) { return -ENODEV; }
+vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr,
+		struct vpsp_ret *psp_ret) { return -ENODEV; }
+
+static inline int
+vpsp_get_context(struct vpsp_context **ctx, pid_t pid) { return -ENODEV; }
 
 static inline int
 vpsp_get_default_vid_permission(void) { return -ENODEV; }
@@ -515,6 +541,11 @@ vpsp_get_default_vid_permission(void) { return -ENODEV; }
 static inline int
 kvm_pv_psp_copy_forward_op(struct kvm_vpsp *vpsp, int cmd, gpa_t data_gpa,
 				gpa_t psp_ret_gpa) { return -ENODEV; }
+
+static inline int
+kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
+			gpa_t data_gpa, uint32_t psp_ret) { return -ENODEV; }
+
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
 
 typedef int (*p2c_notifier_t)(uint32_t id, uint64_t data);

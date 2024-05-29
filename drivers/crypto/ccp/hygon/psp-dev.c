@@ -38,16 +38,26 @@ enum VPSP_DEV_CTRL_OPCODE {
 	VPSP_OP_VID_DEL,
 	VPSP_OP_SET_DEFAULT_VID_PERMISSION,
 	VPSP_OP_GET_DEFAULT_VID_PERMISSION,
+	VPSP_OP_SET_GPA,
 };
 
 struct vpsp_dev_ctrl {
 	unsigned char op;
+	/**
+	 * To be compatible with old user mode,
+	 * struct vpsp_dev_ctrl must be kept at 132 bytes.
+	 */
+	unsigned char resv[3];
 	union {
 		unsigned int vid;
 		// Set or check the permissions for the default VID
 		unsigned int def_vid_perm;
+		struct {
+			u64 gpa_start;
+			u64 gpa_end;
+		} gpa;
 		unsigned char reserved[128];
-	} data;
+	} __packed data;
 };
 
 uint64_t atomic64_exchange(uint64_t *dst, uint64_t val)
@@ -160,19 +170,15 @@ DEFINE_RWLOCK(vpsp_rwlock);
 #define VPSP_VID_MAX_ENTRIES    2048
 #define VPSP_VID_NUM_MAX        64
 
-struct vpsp_vid_entry {
-	uint32_t vid;
-	pid_t pid;
-};
-static struct vpsp_vid_entry g_vpsp_vid_array[VPSP_VID_MAX_ENTRIES];
+static struct vpsp_context g_vpsp_context_array[VPSP_VID_MAX_ENTRIES];
 static uint32_t g_vpsp_vid_num;
 static int compare_vid_entries(const void *a, const void *b)
 {
-	return ((struct vpsp_vid_entry *)a)->pid - ((struct vpsp_vid_entry *)b)->pid;
+	return ((struct vpsp_context *)a)->pid - ((struct vpsp_context *)b)->pid;
 }
 static void swap_vid_entries(void *a, void *b, int size)
 {
-	struct vpsp_vid_entry entry;
+	struct vpsp_context entry;
 
 	memcpy(&entry, a, size);
 	memcpy(a, b, size);
@@ -197,43 +203,41 @@ int vpsp_get_default_vid_permission(void)
 EXPORT_SYMBOL_GPL(vpsp_get_default_vid_permission);
 
 /**
- * When the virtual machine executes the 'tkm' command,
- * it needs to retrieve the corresponding 'vid'
- * by performing a binary search using 'kvm->userspace_pid'.
+ * get a vpsp context from pid
  */
-int vpsp_get_vid(uint32_t *vid, pid_t pid)
+int vpsp_get_context(struct vpsp_context **ctx, pid_t pid)
 {
-	struct vpsp_vid_entry new_entry = {.pid = pid};
-	struct vpsp_vid_entry *existing_entry = NULL;
+	struct vpsp_context new_entry = {.pid = pid};
+	struct vpsp_context *existing_entry = NULL;
 
 	read_lock(&vpsp_rwlock);
-	existing_entry = bsearch(&new_entry, g_vpsp_vid_array, g_vpsp_vid_num,
-				sizeof(struct vpsp_vid_entry), compare_vid_entries);
+	existing_entry = bsearch(&new_entry, g_vpsp_context_array, g_vpsp_vid_num,
+				sizeof(struct vpsp_context), compare_vid_entries);
 	read_unlock(&vpsp_rwlock);
 
 	if (!existing_entry)
 		return -ENOENT;
-	if (vid) {
-		*vid = existing_entry->vid;
-		pr_debug("PSP: %s %d, by pid %d\n", __func__, *vid, pid);
-	}
+
+	if (ctx)
+		*ctx = existing_entry;
+
 	return 0;
 }
-EXPORT_SYMBOL_GPL(vpsp_get_vid);
+EXPORT_SYMBOL_GPL(vpsp_get_context);
 
 /**
  * Upon qemu startup, this section checks whether
  * the '-device psp,vid' parameter is specified.
  * If set, it utilizes the 'vpsp_add_vid' function
- * to insert the 'vid' and 'pid' values into the 'g_vpsp_vid_array'.
+ * to insert the 'vid' and 'pid' values into the 'g_vpsp_context_array'.
  * The insertion is done in ascending order of 'pid'.
  */
 static int vpsp_add_vid(uint32_t vid)
 {
 	pid_t cur_pid = task_pid_nr(current);
-	struct vpsp_vid_entry new_entry = {.vid = vid, .pid = cur_pid};
+	struct vpsp_context new_entry = {.vid = vid, .pid = cur_pid};
 
-	if (vpsp_get_vid(NULL, cur_pid) == 0)
+	if (vpsp_get_context(NULL, cur_pid) == 0)
 		return -EEXIST;
 	if (g_vpsp_vid_num == VPSP_VID_MAX_ENTRIES)
 		return -ENOMEM;
@@ -241,8 +245,8 @@ static int vpsp_add_vid(uint32_t vid)
 		return -EINVAL;
 
 	write_lock(&vpsp_rwlock);
-	memcpy(&g_vpsp_vid_array[g_vpsp_vid_num++], &new_entry, sizeof(struct vpsp_vid_entry));
-	sort(g_vpsp_vid_array, g_vpsp_vid_num, sizeof(struct vpsp_vid_entry),
+	memcpy(&g_vpsp_context_array[g_vpsp_vid_num++], &new_entry, sizeof(struct vpsp_context));
+	sort(g_vpsp_context_array, g_vpsp_vid_num, sizeof(struct vpsp_context),
 				compare_vid_entries, swap_vid_entries);
 	pr_info("PSP: add vid %d, by pid %d, total vid num is %d\n", vid, cur_pid, g_vpsp_vid_num);
 	write_unlock(&vpsp_rwlock);
@@ -261,12 +265,12 @@ static int vpsp_del_vid(void)
 
 	write_lock(&vpsp_rwlock);
 	for (i = 0; i < g_vpsp_vid_num; ++i) {
-		if (g_vpsp_vid_array[i].pid == cur_pid) {
+		if (g_vpsp_context_array[i].pid == cur_pid) {
 			--g_vpsp_vid_num;
 			pr_info("PSP: delete vid %d, by pid %d, total vid num is %d\n",
-				g_vpsp_vid_array[i].vid, cur_pid, g_vpsp_vid_num);
-			memmove(&g_vpsp_vid_array[i], &g_vpsp_vid_array[i + 1],
-				sizeof(struct vpsp_vid_entry) * (g_vpsp_vid_num - i));
+				g_vpsp_context_array[i].vid, cur_pid, g_vpsp_vid_num);
+			memmove(&g_vpsp_context_array[i], &g_vpsp_context_array[i + 1],
+				sizeof(struct vpsp_context) * (g_vpsp_vid_num - i));
 			ret = 0;
 			goto end;
 		}
@@ -275,6 +279,24 @@ static int vpsp_del_vid(void)
 end:
 	write_unlock(&vpsp_rwlock);
 	return ret;
+}
+
+static int vpsp_set_gpa_range(u64 gpa_start, u64 gpa_end)
+{
+	pid_t cur_pid = task_pid_nr(current);
+	struct vpsp_context *ctx = NULL;
+
+	vpsp_get_context(&ctx, cur_pid);
+	if (!ctx) {
+		pr_err("PSP: %s get vpsp_context failed from pid %d\n", __func__, cur_pid);
+		return -ENOENT;
+	}
+
+	ctx->gpa_start = gpa_start;
+	ctx->gpa_end = gpa_end;
+	pr_info("PSP: set gpa range (start 0x%llx, end 0x%llx), by pid %d\n",
+		gpa_start, gpa_end, cur_pid);
+	return 0;
 }
 
 static int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl)
@@ -297,6 +319,10 @@ static int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl)
 
 	case VPSP_OP_GET_DEFAULT_VID_PERMISSION:
 		ctrl->data.def_vid_perm = vpsp_get_default_vid_permission();
+		break;
+
+	case VPSP_OP_SET_GPA:
+		ret = vpsp_set_gpa_range(ctrl->data.gpa.gpa_start, ctrl->data.gpa.gpa_end);
 		break;
 
 	default:
