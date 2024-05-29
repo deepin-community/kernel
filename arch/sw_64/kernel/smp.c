@@ -9,6 +9,7 @@
 #include <linux/cpu.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
+#include <linux/kvm_host.h>
 
 #include <asm/irq_impl.h>
 #include <asm/mmu_context.h>
@@ -316,6 +317,15 @@ static int __init fdt_setup_smp(void)
 	init_cpu_possible(cpu_none_mask);
 	init_cpu_present(cpu_none_mask);
 
+#ifdef CONFIG_SUBARCH_C4
+	if (is_guest_or_emul()) {
+		int vt_smp_cpu_num;
+
+		vt_smp_cpu_num = sw64_io_read(0, VT_ONLINE_CPU);
+		for (i = vt_smp_cpu_num; i < KVM_MAX_VCPUS; i++)
+			cpumask_set_cpu(i, &cpu_offline);
+	}
+#endif
 	while ((dn = of_find_node_by_type(dn, "cpu"))) {
 		if (!of_device_is_available(dn)) {
 			pr_info("OF: Core is not available\n");
@@ -833,6 +843,7 @@ void arch_cpu_idle_dead(void)
 	if (is_in_guest()) {
 		hcall(HCALL_SET_CLOCKEVENT, 0, 0, 0);
 		hcall(HCALL_STOP, 0, 0, 0);
+		return;
 	} else {
 		wrtimer(0);
 	}
