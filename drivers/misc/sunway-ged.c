@@ -18,11 +18,17 @@
 #define OFFSET_STATUS		16
 #define OFFSET_SLOT		24
 
+#define OFFSET_CPUID		32
+
 #define OFFSET_NODE		40
 
 /* Memory hotplug event */
 #define SUNWAY_MEMHOTPLUG_ADD		0x1
 #define SUNWAY_MEMHOTPLUG_REMOVE	0x2
+/* Cpu hotplug event */
+#define SUNWAY_CPUHOTPLUG_ADD		0x4
+#define SUNWAY_CPUHOTPLUG_REMOVE	0x8
+
 
 struct sunway_memory_device {
 	struct sunway_ged_device *device;
@@ -171,12 +177,52 @@ static int sunway_memory_device_add(struct sunway_ged_device *device)
 	return 1;
 }
 
+static int sunway_cpu_device_add(struct sunway_ged_device *device)
+{
+	struct device *dev;
+	int cpuid;
+
+	cpuid = readq(device->membase + OFFSET_CPUID);
+
+	if (!device)
+		return -EINVAL;
+	set_cpu_present(cpuid, true);
+	dev = get_cpu_device(cpuid);
+	if (device_attach(dev) >= 0)
+		return 1;
+	dev_err(dev, "Processor driver could not be attached\n");
+	set_cpu_present(cpuid, false);
+	return 0;
+}
+
+static void sunway_cpu_device_del(struct sunway_ged_device *device)
+{
+	struct device *dev;
+	int cpuid;
+
+	cpuid = readq(device->membase + OFFSET_CPUID);
+
+	if (!device)
+		return;
+	set_cpu_present(cpuid, false);
+	dev = get_cpu_device(cpuid);
+	device_release_driver(dev);
+
+	writeq(cpuid, device->membase + OFFSET_CPUID);
+}
+
 static irqreturn_t sunwayged_ist(int irq, void *data)
 {
 	struct sunway_ged_device *sunwayged_dev = data;
 	unsigned int status;
 
-	status = readl(sunwayged_dev->membase + OFFSET_STATUS);
+	status = readq(sunwayged_dev->membase + OFFSET_STATUS);
+	/* through IO status to add or remove cpu  */
+	if (status & SUNWAY_CPUHOTPLUG_ADD)
+		sunway_cpu_device_add(sunwayged_dev);
+
+	if (status & SUNWAY_CPUHOTPLUG_REMOVE)
+		sunway_cpu_device_del(sunwayged_dev);
 
 	/* through IO status to add or remove memory device  */
 	if (status & SUNWAY_MEMHOTPLUG_ADD)

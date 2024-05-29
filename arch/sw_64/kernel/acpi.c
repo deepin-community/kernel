@@ -2,6 +2,7 @@
 
 #include <linux/init.h>
 #include <linux/acpi.h>
+#include <linux/kvm_host.h>
 #include <linux/irqdomain.h>
 #include <linux/memblock.h>
 #include <linux/smp.h>
@@ -330,6 +331,17 @@ static int __init acpi_process_madt_sw_cintc(void)
 	/* Clean core mask */
 	init_cpu_possible(cpu_none_mask);
 	init_cpu_present(cpu_none_mask);
+
+#ifdef CONFIG_SUBARCH_C4
+	/* Set cpu_offline mask */
+	if (is_guest_or_emul()) {
+		int vt_smp_cpu_num;
+
+		vt_smp_cpu_num = sw64_io_read(0, VT_ONLINE_CPU);
+		for (i = vt_smp_cpu_num; i < KVM_MAX_VCPUS; i++)
+			cpumask_set_cpu(i, &cpu_offline);
+	}
+#endif
 
 	/* Parse SW CINTC entries one by one */
 	ret = acpi_table_parse_madt(ACPI_MADT_TYPE_SW_CINTC,
