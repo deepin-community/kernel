@@ -33,6 +33,7 @@
 #define KVM_HC_VM_ATTESTATION		100	/* Specific to Hygon CPU */
 #define KVM_HC_PSP_OP_OBSOLETE		101	/* Specific to Hygon platform */
 #define KVM_HC_PSP_COPY_FORWARD_OP	102	/* Specific to Hygon platform */
+#define KVM_HC_PSP_FORWARD_OP		103	/* Specific to Hygon platform */
 
 /*
  * hypercalls use architecture specific
