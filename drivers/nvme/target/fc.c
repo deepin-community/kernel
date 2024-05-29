@@ -149,7 +149,7 @@ struct nvmet_fc_tgt_queue {
 	struct kref			ref;
 	struct rcu_head			rcu;
 	/* array of fcp_iods */
-	struct nvmet_fc_fcp_iod		fod[] __counted_by(sqsize);
+	struct nvmet_fc_fcp_iod		fod[] /* __counted_by(sqsize) */;
 } __aligned(sizeof(unsigned long long));
 
 struct nvmet_fc_hostport {
