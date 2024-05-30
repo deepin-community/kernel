@@ -22,8 +22,6 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/of_device.h>
-#include <linux/acpi.h>
-#include "../i3c_master_acpi.h"
 
 #define DEV_ID				0x0
 #define DEV_ID_I3C_MASTER		0x5034
@@ -366,9 +364,6 @@
 #define ASF_PROTO_FAULT_MSTDDR_FAIL	BIT(14)
 #define ASF_PROTO_FAULT_M(x)		BIT(x)
 
-#define I3C_CONTROL_DEFAULT_I2C_SCL  (1000000)
-#define I3C_CONTROL_DEFAULT_I3C_SCL  (1000000)
-
 struct phytium_i3c_master_caps {
 	u32 cmdfifodepth;
 	u32 cmdrfifodepth;
@@ -417,11 +412,6 @@ struct phytium_i3c_master {
 	void __iomem *regs;
 	struct clk *sysclk;
 	struct clk *pclk;
-	u32 sysclk_rate;
-	u32 prescl0;
-	u32 prescl1;
-	u32 ctrl_thd_del;
-	struct device		*dev;
 	struct phytium_i3c_master_caps caps;
 	unsigned long i3c_scl_lim;
 	const struct phytium_i3c_data *devdata;
@@ -1248,45 +1238,40 @@ static int phytium_i3c_master_bus_init(struct i3c_master_controller *m)
 		return -EINVAL;
 	}
 
-	if (has_acpi_companion(master->dev)) {
-		writel(master->prescl0, master->regs + PRESCL_CTRL0);
-		writel(master->prescl1, master->regs + PRESCL_CTRL1);
-	} else {
-		sysclk_rate = clk_get_rate(master->sysclk);
+	sysclk_rate = clk_get_rate(master->sysclk);
+	if (!sysclk_rate)
+		return -EINVAL;
 
-		if (!sysclk_rate)
-			return -EINVAL;
+	pres = DIV_ROUND_UP(sysclk_rate, (bus->scl_rate.i3c * 4)) - 1;
+	if (pres > PRESCL_CTRL0_MAX)
+		return -ERANGE;
 
-		pres = DIV_ROUND_UP(sysclk_rate, (bus->scl_rate.i3c * 4)) - 1;
-		if (pres > PRESCL_CTRL0_MAX)
-			return -ERANGE;
+	bus->scl_rate.i3c = sysclk_rate / ((pres + 1) * 4);
 
-		bus->scl_rate.i3c = sysclk_rate / ((pres + 1) * 4);
+	prescl0 = PRESCL_CTRL0_I3C(pres);
 
-		prescl0 = PRESCL_CTRL0_I3C(pres);
+	low = ((I3C_BUS_TLOW_OD_MIN_NS * sysclk_rate) / (pres + 1)) - 2;
+	prescl1 = PRESCL_CTRL1_OD_LOW(low);
 
-		low = ((I3C_BUS_TLOW_OD_MIN_NS * sysclk_rate) / (pres + 1)) - 2;
-		prescl1 = PRESCL_CTRL1_OD_LOW(low);
+	max_i2cfreq = bus->scl_rate.i2c;
 
-		max_i2cfreq = bus->scl_rate.i2c;
+	pres = (sysclk_rate / (max_i2cfreq * 5)) - 1;
+	if (pres > PRESCL_CTRL0_MAX)
+		return -ERANGE;
 
-		pres = (sysclk_rate / (max_i2cfreq * 5)) - 1;
-		if (pres > PRESCL_CTRL0_MAX)
-			return -ERANGE;
+	bus->scl_rate.i2c = sysclk_rate / ((pres + 1) * 5);
 
-		bus->scl_rate.i2c = sysclk_rate / ((pres + 1) * 5);
+	prescl0 |= PRESCL_CTRL0_I2C(pres);
+	writel(prescl0, master->regs + PRESCL_CTRL0);
 
-		prescl0 |= PRESCL_CTRL0_I2C(pres);
-		writel(prescl0, master->regs + PRESCL_CTRL0);
+	/* Calculate OD and PP low. */
+	pres_step = 1000000000 / (bus->scl_rate.i3c * 4);
+	ncycles = DIV_ROUND_UP(I3C_BUS_TLOW_OD_MIN_NS, pres_step) - 2;
+	if (ncycles < 0)
+		ncycles = 0;
+	prescl1 = PRESCL_CTRL1_OD_LOW(ncycles);
+	writel(prescl1, master->regs + PRESCL_CTRL1);
 
-		/* Calculate OD and PP low. */
-		pres_step = 1000000000 / (bus->scl_rate.i3c * 4);
-		ncycles = DIV_ROUND_UP(I3C_BUS_TLOW_OD_MIN_NS, pres_step) - 2;
-		if (ncycles < 0)
-			ncycles = 0;
-		prescl1 = PRESCL_CTRL1_OD_LOW(ncycles);
-		writel(prescl1, master->regs + PRESCL_CTRL1);
-	}
 	/* Get an address for the master. */
 	ret = i3c_master_get_free_addr(m, 0);
 	if (ret < 0)
@@ -1318,11 +1303,7 @@ static int phytium_i3c_master_bus_init(struct i3c_master_controller *m)
 	 * master output. This setting allows to meet this timing on master's
 	 * SoC outputs, regardless of PCB balancing.
 	 */
-	if (has_acpi_companion(master->dev))
-		ctrl |= CTRL_THD_DELAY(master->ctrl_thd_del);
-	else
-		ctrl |= CTRL_THD_DELAY(phytium_i3c_master_calculate_thd_delay(master));
-
+	ctrl |= CTRL_THD_DELAY(phytium_i3c_master_calculate_thd_delay(master));
 	writel(ctrl, master->regs + CTRL);
 
 	phytium_i3c_master_enable(master);
@@ -1590,13 +1571,6 @@ static const struct of_device_id phytium_i3c_master_of_ids[] = {
 	{ /* sentinel */ },
 };
 
-#ifdef CONFIG_ACPI
-static const struct acpi_device_id phytium_i3c_master_acpi_ids[] = {
-	{ "PHYT0035", 0 },
-	{ }
-};
-MODULE_DEVICE_TABLE(acpi, phytium_i3c_master_acpi_ids);
-#endif
 static int phytium_i3c_master_probe(struct platform_device *pdev)
 {
 	struct phytium_i3c_master *master;
@@ -1608,52 +1582,34 @@ static int phytium_i3c_master_probe(struct platform_device *pdev)
 	if (!master)
 		return -ENOMEM;
 
-	master->dev = &pdev->dev;
+	master->devdata = of_device_get_match_data(&pdev->dev);
+	if (!master->devdata)
+		return -EINVAL;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	master->regs = devm_ioremap_resource(&pdev->dev, res);
-
 	if (IS_ERR(master->regs))
 		return PTR_ERR(master->regs);
 
-	if (pdev->dev.of_node) {
-		master->devdata = of_device_get_match_data(&pdev->dev);
+	master->pclk = devm_clk_get(&pdev->dev, "pclk");
+	if (IS_ERR(master->pclk))
+		return PTR_ERR(master->pclk);
 
-		if (!master->devdata)
-			return -EINVAL;
-
-
-		master->pclk = devm_clk_get(&pdev->dev, "pclk");
-		if (IS_ERR(master->pclk))
-			return PTR_ERR(master->pclk);
-
-		master->sysclk = devm_clk_get(&pdev->dev, "sysclk");
-		if (IS_ERR(master->sysclk))
-			return PTR_ERR(master->sysclk);
-
-		ret = clk_prepare_enable(master->pclk);
-		if (ret)
-			return ret;
-
-		ret = clk_prepare_enable(master->sysclk);
-		if (ret)
-			goto err_disable_pclk;
-#ifdef CONFIG_ACPI
-	}	else if (has_acpi_companion(&pdev->dev)) {
-		i3c_master_acpi_clk_params(ACPI_HANDLE(&pdev->dev), "SCLK", &master->prescl0,
-							&master->prescl1, &master->ctrl_thd_del);
-
-		if (!master->prescl0)
-			goto err_disable_sysclk;
-
-		master->base.bus.scl_rate.i2c = I3C_CONTROL_DEFAULT_I2C_SCL;
-		master->base.bus.scl_rate.i3c = I3C_BUS_MAX_I3C_SCL_RATE;
-		ACPI_COMPANION_SET(master->dev, ACPI_COMPANION(&pdev->dev));
-#endif
-	}
+	master->sysclk = devm_clk_get(&pdev->dev, "sysclk");
+	if (IS_ERR(master->sysclk))
+		return PTR_ERR(master->sysclk);
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
+
+	ret = clk_prepare_enable(master->pclk);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(master->sysclk);
+	if (ret)
+		goto err_disable_pclk;
 
 	if (readl(master->regs + DEV_ID) != DEV_ID_I3C_MASTER) {
 		ret = -EINVAL;
@@ -1734,7 +1690,6 @@ static struct platform_driver phytium_i3c_master = {
 	.driver = {
 		.name = "phytium-i3c-master",
 		.of_match_table = phytium_i3c_master_of_ids,
-		.acpi_match_table = ACPI_PTR(phytium_i3c_master_acpi_ids),
 	},
 };
 module_platform_driver(phytium_i3c_master);

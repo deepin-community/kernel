@@ -182,7 +182,6 @@ struct i3c_dev_boardinfo {
 	u8 static_addr;
 	u64 pid;
 	struct device_node *of_node;
-	struct fwnode_handle *fwnode;
 };
 
 /**
