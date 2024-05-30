@@ -725,19 +725,6 @@ static int cdns_i3c_master_send_ccc_cmd(struct i3c_master_controller *m,
 	if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
 		cdns_i3c_master_unqueue_xfer(master, xfer);
 
-	/*GETMXDS format 1 need retransmission*/
-	if ((xfer->ret) && (cmd->id == I3C_CCC_GETMXDS)) {
-		if (cmd->dests[0].payload.len == 5) {
-			cmd->dests[0].payload.len = 2;
-			ccmd->rx_len = cmd->dests[0].payload.len;
-			ccmd->cmd0 &= 0xfff000fff;
-			ccmd->cmd0 |= CMD0_FIFO_PL_LEN(cmd->dests[0].payload.len);
-			cdns_i3c_master_queue_xfer(master, xfer);
-			if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
-				cdns_i3c_master_unqueue_xfer(master, xfer);
-		}
-	}
-
 	ret = xfer->ret;
 	cmd->err = cdns_i3c_cmd_get_err(&xfer->cmds[0]);
 	cdns_i3c_master_free_xfer(xfer);
