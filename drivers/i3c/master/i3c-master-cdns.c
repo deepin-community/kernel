@@ -1300,7 +1300,7 @@ static int cdns_i3c_master_bus_init(struct i3c_master_controller *m)
 	 * We will issue ENTDAA afterwards from the threaded IRQ handler.
 	 */
 	if (master->devdata->halt_disable)
-		ctrl |= CTRL_HJ_DISEC | CTRL_MCS_EN;
+		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_MCS_EN;
 	else
 		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
 
@@ -1674,8 +1674,6 @@ static int cdns_i3c_master_probe(struct platform_device *pdev)
 				  &cdns_i3c_master_ops, false);
 	if (ret)
 		goto err_disable_sysclk;
-
-	writel(readl(master->regs + CTRL) | CTRL_HJ_ACK, master->regs + CTRL);
 
 	return 0;
 
