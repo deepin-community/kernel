@@ -23,7 +23,6 @@
 #include <linux/workqueue.h>
 #include <linux/of_device.h>
 #include <linux/acpi.h>
-#include <linux/pm_runtime.h>
 #include "../i3c_master_acpi.h"
 
 #define DEV_ID				0x0
@@ -369,8 +368,6 @@
 
 #define I3C_CONTROL_DEFAULT_I2C_SCL  (1000000)
 #define I3C_CONTROL_DEFAULT_I3C_SCL  (1000000)
-#define PHYTIUM_I3C_DEV_MAX_NUM      (12)
-#define PHYTIUM_I3C_CMDR_MAX_TIMES   (32)
 
 struct phytium_i3c_master_caps {
 	u32 cmdfifodepth;
@@ -402,12 +399,6 @@ struct phytium_i3c_data {
 	u8 thd_delay_ns;
 };
 
-struct phytium_i3c_slave_dev {
-	u32 dev_rr0;
-	u32 dev_rr1;
-	u32 dev_rr2;
-};
-
 struct phytium_i3c_master {
 	struct work_struct hj_work;
 	struct i3c_master_controller base;
@@ -430,13 +421,10 @@ struct phytium_i3c_master {
 	u32 prescl0;
 	u32 prescl1;
 	u32 ctrl_thd_del;
-	u32 ctrl_info;
-	u32 dev_valid;
 	struct device		*dev;
 	struct phytium_i3c_master_caps caps;
 	unsigned long i3c_scl_lim;
 	const struct phytium_i3c_data *devdata;
-	struct phytium_i3c_slave_dev devinfo[PHYTIUM_I3C_DEV_MAX_NUM];
 };
 
 static inline struct phytium_i3c_master *
@@ -553,8 +541,6 @@ static void phytium_i3c_master_start_xfer_locked(struct phytium_i3c_master *mast
 
 	if (!xfer)
 		return;
-
-	phytium_i3c_master_enable(master);
 
 	writel(MST_INT_CMDD_EMP, master->regs + MST_ICR);
 	for (i = 0; i < xfer->ncmds; i++) {
@@ -1292,7 +1278,6 @@ static int phytium_i3c_master_bus_init(struct i3c_master_controller *m)
 
 		prescl0 |= PRESCL_CTRL0_I2C(pres);
 		writel(prescl0, master->regs + PRESCL_CTRL0);
-		master->prescl0 = prescl0;
 
 		/* Calculate OD and PP low. */
 		pres_step = 1000000000 / (bus->scl_rate.i3c * 4);
@@ -1301,7 +1286,6 @@ static int phytium_i3c_master_bus_init(struct i3c_master_controller *m)
 			ncycles = 0;
 		prescl1 = PRESCL_CTRL1_OD_LOW(ncycles);
 		writel(prescl1, master->regs + PRESCL_CTRL1);
-		master->prescl1 = prescl1;
 	}
 	/* Get an address for the master. */
 	ret = i3c_master_get_free_addr(m, 0);
@@ -1613,55 +1597,6 @@ static const struct acpi_device_id phytium_i3c_master_acpi_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, phytium_i3c_master_acpi_ids);
 #endif
-
-static void phytium_i3c_master_controller_init(struct phytium_i3c_master *master)
-{
-	int i;
-
-	phytium_i3c_master_disable(master);
-
-	writel(FLUSH_RX_FIFO | FLUSH_TX_FIFO | FLUSH_CMD_FIFO |
-		       FLUSH_CMD_RESP,
-		       master->regs + FLUSH_CTRL);
-
-	writel(0xffffffff, master->regs + MST_IDR);
-	writel(0xffffffff, master->regs + SLV_IDR);
-
-	writel(master->prescl0, master->regs + PRESCL_CTRL0);
-	writel(master->prescl1, master->regs + PRESCL_CTRL1);
-
-	writel(IBIR_THR(1), master->regs + CMD_IBI_THR_CTRL);
-	writel(MST_INT_IBIR_THR, master->regs + MST_IER);
-	writel(master->dev_valid, master->regs + DEVS_CTRL);
-
-	for (i = 0; i < PHYTIUM_I3C_DEV_MAX_NUM; i++) {
-		writel(master->devinfo[i].dev_rr0, master->regs + DEV_ID_RR0(i));
-		writel(master->devinfo[i].dev_rr1, master->regs + DEV_ID_RR1(i));
-		writel(master->devinfo[i].dev_rr2, master->regs + DEV_ID_RR2(i));
-	}
-
-	for (i = 0; i < PHYTIUM_I3C_CMDR_MAX_TIMES; i++)
-		readl(master->regs + CMDR);
-
-	writel(master->ctrl_info, master->regs + CTRL);
-
-	phytium_i3c_master_enable(master);
-}
-
-static void phytium_i3c_master_store_dev(struct phytium_i3c_master *master)
-{
-	int i;
-
-	master->ctrl_info = readl(master->regs + CTRL);
-	master->dev_valid = readl(master->regs + DEVS_CTRL);
-
-	for (i = 0; i < PHYTIUM_I3C_DEV_MAX_NUM; i++) {
-		master->devinfo[i].dev_rr0 = readl(master->regs + DEV_ID_RR0(i));
-		master->devinfo[i].dev_rr1 = readl(master->regs + DEV_ID_RR1(i));
-		master->devinfo[i].dev_rr2 = readl(master->regs + DEV_ID_RR2(i));
-	}
-}
-
 static int phytium_i3c_master_probe(struct platform_device *pdev)
 {
 	struct phytium_i3c_master *master;
@@ -1729,11 +1664,6 @@ static int phytium_i3c_master_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&master->xferqueue.list);
 
 	INIT_WORK(&master->hj_work, phytium_i3c_master_hj);
-	phytium_i3c_master_disable(master);
-
-	writel(FLUSH_RX_FIFO | FLUSH_TX_FIFO | FLUSH_CMD_FIFO |
-		       FLUSH_CMD_RESP,
-		       master->regs + FLUSH_CTRL);
 	writel(0xffffffff, master->regs + MST_IDR);
 	writel(0xffffffff, master->regs + SLV_IDR);
 	ret = devm_request_irq(&pdev->dev, irq, phytium_i3c_master_interrupt, 0,
@@ -1775,8 +1705,6 @@ static int phytium_i3c_master_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_disable_sysclk;
 	writel(readl(master->regs + CTRL) | CTRL_HJ_ACK, master->regs + CTRL);
-	phytium_i3c_master_store_dev(master);
-
 	return 0;
 
 err_disable_sysclk:
@@ -1800,36 +1728,6 @@ static int phytium_i3c_master_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int __maybe_unused phytium_i3c_plat_suspend(struct device *dev)
-{
-	struct phytium_i3c_master *master = dev_get_drvdata(dev);
-
-
-	phytium_i3c_master_disable(master);
-
-	clk_disable_unprepare(master->sysclk);
-	clk_disable_unprepare(master->pclk);
-
-	return 0;
-}
-
-static int __maybe_unused phytium_i3c_plat_resume(struct device *dev)
-{
-	struct phytium_i3c_master *master = dev_get_drvdata(dev);
-
-	phytium_i3c_master_controller_init(master);
-
-	clk_prepare_enable(master->sysclk);
-	clk_prepare_enable(master->pclk);
-
-	return 0;
-}
-
-static const struct dev_pm_ops phytium_i3c_dev_pm_ops = {
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(phytium_i3c_plat_suspend,
-				     phytium_i3c_plat_resume)
-};
-
 static struct platform_driver phytium_i3c_master = {
 	.probe = phytium_i3c_master_probe,
 	.remove = phytium_i3c_master_remove,
@@ -1837,7 +1735,6 @@ static struct platform_driver phytium_i3c_master = {
 		.name = "phytium-i3c-master",
 		.of_match_table = phytium_i3c_master_of_ids,
 		.acpi_match_table = ACPI_PTR(phytium_i3c_master_acpi_ids),
-		.pm = &phytium_i3c_dev_pm_ops,
 	},
 };
 module_platform_driver(phytium_i3c_master);
