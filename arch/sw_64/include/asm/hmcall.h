@@ -248,6 +248,9 @@ static inline void wrap_asid(unsigned long asid, unsigned long ptbr)
 #define save_ktp()     wrktp()
 #endif
 
+#define set_nmi(irq)	setup_nmi(1, (irq))
+#define clear_nmi(irq)	setup_nmi(0, (irq))
+
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
 

@@ -145,6 +145,13 @@ void store_cpu_data(int cpu)
 	cpu_data[cpu].last_asid = ASID_FIRST_VERSION;
 }
 
+#ifdef CONFIG_HARDLOCKUP_DETECTOR_PERF
+u64 hw_nmi_get_sample_period(int watchdog_thresh)
+{
+	return get_cpu_freq() * watchdog_thresh;
+}
+#endif
+
 /*
  * I/O resources inherited from PeeCees. Except for perhaps the
  * turbochannel SWs, everyone has these on some sort of SuperIO chip.

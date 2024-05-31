@@ -10,6 +10,7 @@
 #include <linux/acpi.h>
 #include <linux/of.h>
 
+#include <asm/irq_impl.h>
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
 #include <asm/sw64_init.h>
@@ -156,6 +157,7 @@ void smp_callin(void)
 			(unsigned long)page_address(nmi_stack_page) : 0;
 		sw64_write_csr_imb(nmi_stack + THREAD_SIZE, CSR_NMI_STACK);
 		wrent(entNMI, 6);
+		set_nmi(INT_PC);
 	}
 
 	/* inform the notifiers about the new cpu */

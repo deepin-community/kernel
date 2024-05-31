@@ -124,6 +124,7 @@ void __init init_IRQ(void)
 	if (IS_ENABLED(CONFIG_SUBARCH_C4) && is_in_host()) {
 		sw64_write_csr_imb(nmi_stack + THREAD_SIZE, CSR_NMI_STACK);
 		wrent(entNMI, 6);
+		set_nmi(INT_PC);
 	}
 
 	sw64_init_irq();
