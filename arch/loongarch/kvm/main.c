@@ -9,6 +9,7 @@
 #include <asm/cacheflush.h>
 #include <asm/cpufeature.h>
 #include <asm/kvm_csr.h>
+#include <asm/kvm_extioi.h>
 #include "trace.h"
 
 unsigned long vpid_mask;
@@ -373,7 +374,10 @@ static int kvm_loongarch_env_init(void)
 	if (ret)
 		return ret;
 
-	return 0;
+	/* Register loongarch extioi interrupt controller interface. */
+	ret = kvm_loongarch_register_extioi_device();
+
+	return ret;
 }
 
 static void kvm_loongarch_env_exit(void)
