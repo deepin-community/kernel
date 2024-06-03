@@ -451,6 +451,29 @@ static int kvm_loongarch_pch_pic_set_attr(struct kvm_device *dev,
 	return ret;
 }
 
+static int kvm_setup_default_irq_routing(struct kvm *kvm)
+{
+	struct kvm_irq_routing_entry *entries;
+
+	u32 nr = KVM_IRQCHIP_NUM_PINS;
+	int i, ret;
+
+	entries = kcalloc(nr, sizeof(*entries), GFP_KERNEL);
+	if (!entries)
+		return -ENOMEM;
+
+	for (i = 0; i < nr; i++) {
+		entries[i].gsi = i;
+		entries[i].type = KVM_IRQ_ROUTING_IRQCHIP;
+		entries[i].u.irqchip.irqchip = 0;
+		entries[i].u.irqchip.pin = i;
+	}
+	ret = kvm_set_irq_routing(kvm, entries, nr, 0);
+	kfree(entries);
+
+	return 0;
+}
+
 static void kvm_loongarch_pch_pic_destroy(struct kvm_device *dev)
 {
 	struct kvm *kvm;
@@ -476,12 +499,17 @@ static void kvm_loongarch_pch_pic_destroy(struct kvm_device *dev)
 
 static int kvm_loongarch_pch_pic_create(struct kvm_device *dev, u32 type)
 {
+	int ret;
 	struct loongarch_pch_pic *s;
 	struct kvm *kvm = dev->kvm;
 
 	/* pch pic should not has been created */
 	if (kvm->arch.pch_pic)
 		return -EINVAL;
+
+	ret = kvm_setup_default_irq_routing(kvm);
+	if (ret)
+		return -ENOMEM;
 
 	s = kzalloc(sizeof(struct loongarch_pch_pic), GFP_KERNEL);
 	if (!s)

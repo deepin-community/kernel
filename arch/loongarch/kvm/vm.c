@@ -78,6 +78,7 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	int r;
 
 	switch (ext) {
+	case KVM_CAP_IRQCHIP:
 	case KVM_CAP_ONE_REG:
 	case KVM_CAP_ENABLE_CAP:
 	case KVM_CAP_READONLY_MEM:
@@ -86,6 +87,7 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_IOEVENTFD:
 	case KVM_CAP_MP_STATE:
 	case KVM_CAP_SET_GUEST_DEBUG:
+	case KVM_CAP_VM_ATTRIBUTES:
 		r = 1;
 		break;
 	case KVM_CAP_NR_VCPUS:
@@ -158,11 +160,16 @@ static int kvm_vm_has_attr(struct kvm *kvm, struct kvm_device_attr *attr)
 
 int kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
+	int r;
 	void __user *argp = (void __user *)arg;
 	struct kvm *kvm = filp->private_data;
 	struct kvm_device_attr attr;
 
 	switch (ioctl) {
+	case KVM_CREATE_IRQCHIP: {
+		r = 1;
+		break;
+	}
 	case KVM_HAS_DEVICE_ATTR:
 		if (copy_from_user(&attr, argp, sizeof(attr)))
 			return -EFAULT;
@@ -203,4 +210,9 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *data,
 	}
 
 	return ret;
+}
+
+bool kvm_arch_irqchip_in_kernel(struct kvm *kvm)
+{
+	return (bool)((!!kvm->arch.extioi) && (!!kvm->arch.pch_pic));
 }
