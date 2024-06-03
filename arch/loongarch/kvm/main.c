@@ -313,7 +313,7 @@ void kvm_arch_hardware_disable(void)
 
 static int kvm_loongarch_env_init(void)
 {
-	int cpu, order;
+	int cpu, order, ret;
 	void *addr;
 	struct kvm_context *context;
 
@@ -367,6 +367,11 @@ static int kvm_loongarch_env_init(void)
 	}
 
 	kvm_init_gcsr_flag();
+
+	/* Register loongarch ipi interrupt controller interface. */
+	ret = kvm_loongarch_register_ipi_device();
+	if (ret)
+		return ret;
 
 	return 0;
 }
