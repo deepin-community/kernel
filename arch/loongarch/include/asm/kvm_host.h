@@ -21,6 +21,7 @@
 #include <asm/loongarch.h>
 #include <asm/kvm_ipi.h>
 #include <asm/kvm_extioi.h>
+#include <asm/kvm_pch_pic.h>
 
 /* Loongarch KVM register ids */
 #define KVM_GET_IOC_CSR_IDX(id)		((id & KVM_CSR_IDX_MASK) >> LOONGARCH_REG_SHIFT)
@@ -123,6 +124,7 @@ struct kvm_arch {
 	struct kvm_context __percpu *vmcs;
 	struct loongarch_ipi *ipi;
 	struct loongarch_extioi *extioi;
+	struct loongarch_pch_pic *pch_pic;
 };
 
 #define CSR_MAX_NUMS		0x800
