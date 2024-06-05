@@ -8,25 +8,22 @@
 #include <asm/debug.h>
 #include <asm/cpufreq.h>
 
+/* Show cpufreq in Mhz */
 static int cpufreq_show(struct seq_file *m, void *v)
 {
 	int i;
 	u64 val;
-	int freq;
 
-	val = sw64_io_read(0, CLK_CTL);
-	val = val >> CORE_PLL2_CFG_SHIFT;
-
+	val = sw64_io_read(0, CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
+	val &= CORE_PLL2_CFG_MASK;
+	seq_puts(m, "CPU frequency in Mhz:\n");
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-		if (freq_table[i].frequency != CPUFREQ_ENTRY_INVALID)
-			freq = freq_table[i].frequency;
-		else
-			freq = freq_table[i].driver_data;
-
+		if (freq_table[i].frequency == CPUFREQ_ENTRY_INVALID)
+			continue;
 		if (val == i)
-			seq_printf(m, "[%d] ", freq);
+			seq_printf(m, "[%d] ", freq_table[i].frequency / 1000);
 		else
-			seq_printf(m, "%d ", freq);
+			seq_printf(m, "%d ", freq_table[i].frequency / 1000);
 	}
 	seq_puts(m, "\n");
 
@@ -53,15 +50,10 @@ static ssize_t cpufreq_set(struct file *file, const char __user *user_buf,
 	err = kstrtoint(buf, 10, &cf);
 	if (err)
 		return err;
-
+	cf *= 1000; /* convert Mhz to khz */
 	index = -1;
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
-		if (freq_table[i].frequency != CPUFREQ_ENTRY_INVALID)
-			freq = freq_table[i].frequency;
-		else
-			freq = freq_table[i].driver_data;
-
-		if (cf == freq) {
+		if (cf == freq_table[i].frequency) {
 			index = i;
 			break;
 		}
