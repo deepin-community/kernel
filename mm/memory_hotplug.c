@@ -2215,10 +2215,8 @@ static int __ref try_remove_memory(u64 start, u64 size)
 		kfree(altmap);
 	}
 
-	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK)) {
-		memblock_phys_free(start, size);
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
 		memblock_remove(start, size);
-	}
 
 	release_mem_region_adjustable(start, size);
 
