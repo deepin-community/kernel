@@ -5239,8 +5239,8 @@ static int kvm_hygon_arch_hypercall(struct kvm *kvm, u64 nr, u64 a0, u64 a1, u64
 		.read_guest = kvm_read_guest
 	};
 	switch (nr) {
-	case KVM_HC_PSP_OP:
-		ret = kvm_pv_psp_op(&vpsp, a0, a1, a2, a3);
+	case KVM_HC_PSP_COPY_FORWARD_OP:
+		ret = kvm_pv_psp_copy_forward_op(&vpsp, a0, a1, a2);
 		break;
 
 	default:
