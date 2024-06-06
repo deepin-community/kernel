@@ -2915,6 +2915,7 @@ EXPORT_SYMBOL(rtw89_core_napi_stop);
 
 int rtw89_core_napi_init(struct rtw89_dev *rtwdev)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
 	rtwdev->netdev = alloc_netdev_dummy(0);
 	if (!rtwdev->netdev)
 		return -ENOMEM;
@@ -2922,6 +2923,13 @@ int rtw89_core_napi_init(struct rtw89_dev *rtwdev)
 	netif_napi_add(rtwdev->netdev, &rtwdev->napi,
 		       rtwdev->hci.ops->napi_poll);
 	return 0;
+#else
+	init_dummy_netdev(&rtwdev->netdev);
+	netif_napi_add(&rtwdev->netdev, &rtwdev->napi,
+		       rtwdev->hci.ops->napi_poll);
+
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(rtw89_core_napi_init);
 
@@ -2929,7 +2937,9 @@ void rtw89_core_napi_deinit(struct rtw89_dev *rtwdev)
 {
 	rtw89_core_napi_stop(rtwdev);
 	netif_napi_del(&rtwdev->napi);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
 	free_netdev(rtwdev->netdev);
+#endif
 }
 EXPORT_SYMBOL(rtw89_core_napi_deinit);
 

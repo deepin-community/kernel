@@ -5895,7 +5895,11 @@ struct rtw89_dev {
 	struct rtw89_wow_param wow;
 
 	/* napi structure */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
 	struct net_device *netdev;
+#else
+	struct net_device netdev;
+#endif
 	struct napi_struct napi;
 	int napi_budget_countdown;
 
