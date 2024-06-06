@@ -14,6 +14,10 @@
 #include <net/mac80211.h>
 #include <linux/version.h>
 
+#ifndef __iftd
+#define __iftd
+#endif
+
 #define ieee80211_emulate_add_chanctx NULL
 #define ieee80211_emulate_remove_chanctx NULL
 #define ieee80211_emulate_change_chanctx NULL

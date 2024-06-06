@@ -4487,7 +4487,7 @@ void rtw89_core_custom_he_cap(struct rtw89_dev *rtwdev, enum nl80211_band band)
 	u8 *phy_cap_info;
 	u16 i, n;
 
-	old = hw->wiphy->bands[band]->iftype_data;
+	old = (const void __force *)hw->wiphy->bands[band]->iftype_data;
 	n = hw->wiphy->bands[band]->n_iftype_data;
 
 	new = kmemdup(old, sizeof(*old), GFP_KERNEL);
@@ -4500,7 +4500,7 @@ void rtw89_core_custom_he_cap(struct rtw89_dev *rtwdev, enum nl80211_band band)
 		phy_cap_info[1] &= ~IEEE80211_HE_PHY_CAP1_HE_LTF_AND_GI_FOR_HE_PPDUS_0_8US;
 	}
 
-	hw->wiphy->bands[band]->iftype_data = new;
+	hw->wiphy->bands[band]->iftype_data = (const void __iftd __force *)new;
 
 	kfree(old);
 }
