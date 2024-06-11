@@ -23,10 +23,15 @@
 #define VT_MSIX_ADDR_DEST_ID(dest)	\
 	(((dest) << VT_MSIX_ADDR_DEST_ID_SHIFT) & VT_MSIX_ADDR_DEST_ID_MASK)
 
+enum irq_alloc_type;
 
 #ifdef CONFIG_PCI_MSI
-extern void vt_sw64_vector_free_irqs(unsigned int virq, unsigned int nr_irqs);
-extern int sw64_setup_vt_msi_irqs(struct pci_dev *dev, int nvec, int type);
+extern void vt_handle_pci_msi_interrupt(unsigned long type,
+					unsigned long vector,
+					unsigned long pci_msi1_addr);
+extern void sw64_init_vt_msi_domain(struct irq_domain *parent);
+extern int sw64_setup_vt_msi_irqs(struct pci_dev *pdev, int nvec, int type);
+extern int vt_pcibios_device_add(struct pci_dev *dev);
 extern bool find_free_cpu_vector(const struct cpumask *search_mask,
 				 int *found_cpu, int *found_vector);
 extern int msi_compose_msg(unsigned int irq, struct msi_msg *msg);

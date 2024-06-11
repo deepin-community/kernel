@@ -198,7 +198,7 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 	if (is_guest_or_emul()) {
 		if ((type & 0xffff) > 15) {
 			vector = type;
-			if (vector == 16)
+			if (vector == 16 || vector == 17)
 				type = INT_INTx;
 			else
 				type = INT_MSI;
@@ -212,7 +212,10 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 	switch (type & 0xffff) {
 	case INT_MSI:
 		old_regs = set_irq_regs(regs);
-		handle_pci_msi_interrupt(type, vector, irq_arg);
+		if (is_guest_or_emul())
+			vt_handle_pci_msi_interrupt(type, vector, irq_arg);
+		else
+			handle_pci_msi_interrupt(type, vector, irq_arg);
 		set_irq_regs(old_regs);
 		return;
 	case INT_INTx:
