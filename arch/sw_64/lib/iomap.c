@@ -11,42 +11,6 @@
 /*
  * Here comes the sw64 implementation of the IOMAP interfaces.
  */
-unsigned int ioread8(const void __iomem *addr)
-{
-	return readb(addr);
-}
-EXPORT_SYMBOL(ioread8);
-
-unsigned int ioread16(const void __iomem *addr)
-{
-	return readw(addr);
-}
-EXPORT_SYMBOL(ioread16);
-
-unsigned int ioread32(const void __iomem *addr)
-{
-	return readl(addr);
-}
-EXPORT_SYMBOL(ioread32);
-
-void iowrite8(u8 b, void __iomem *addr)
-{
-	writeb(b, addr);
-}
-EXPORT_SYMBOL(iowrite8);
-
-void iowrite16(u16 b, void __iomem *addr)
-{
-	writew(b, addr);
-}
-EXPORT_SYMBOL(iowrite16);
-
-void iowrite32(u32 b, void __iomem *addr)
-{
-	writel(b, addr);
-}
-EXPORT_SYMBOL(iowrite32);
-
 u8 inb(unsigned long port)
 {
 	return ioread8(ioport_map(port, 1));
@@ -83,78 +47,11 @@ void outl(u32 b, unsigned long port)
 }
 EXPORT_SYMBOL(outl);
 
-
-/*
- * Read COUNT 8-bit bytes from port PORT into memory starting at SRC.
- */
-void ioread8_rep(const void __iomem *port, void *dst, unsigned long count)
-{
-	while ((unsigned long)dst & 0x3) {
-		if (!count)
-			return;
-		count--;
-		*(unsigned char *)dst = ioread8(port);
-		dst += 1;
-	}
-
-	while (count >= 4) {
-		unsigned int w;
-
-		count -= 4;
-		w = ioread8(port);
-		w |= ioread8(port) << 8;
-		w |= ioread8(port) << 16;
-		w |= ioread8(port) << 24;
-		*(unsigned int *)dst = w;
-		dst += 4;
-	}
-
-	while (count) {
-		--count;
-		*(unsigned char *)dst = ioread8(port);
-		dst += 1;
-	}
-}
-EXPORT_SYMBOL(ioread8_rep);
-
 void insb(unsigned long port, void *dst, unsigned long count)
 {
 	ioread8_rep(ioport_map(port, 1), dst, count);
 }
 EXPORT_SYMBOL(insb);
-
-/*
- * Read COUNT 16-bit words from port PORT into memory starting at
- * SRC.  SRC must be at least short aligned.  This is used by the
- * IDE driver to read disk sectors.  Performance is important, but
- * the interfaces seems to be slow: just using the inlined version
- * of the inw() breaks things.
- */
-void ioread16_rep(const void __iomem *port, void *dst, unsigned long count)
-{
-	if (unlikely((unsigned long)dst & 0x3)) {
-		if (!count)
-			return;
-		BUG_ON((unsigned long)dst & 0x1);
-		count--;
-		*(unsigned short *)dst = ioread16(port);
-		dst += 2;
-	}
-
-	while (count >= 2) {
-		unsigned int w;
-
-		count -= 2;
-		w = ioread16(port);
-		w |= ioread16(port) << 16;
-		*(unsigned int *)dst = w;
-		dst += 4;
-	}
-
-	if (count)
-		*(unsigned short *)dst = ioread16(port);
-}
-EXPORT_SYMBOL(ioread16_rep);
 
 void insw(unsigned long port, void *dst, unsigned long count)
 {
@@ -162,52 +59,11 @@ void insw(unsigned long port, void *dst, unsigned long count)
 }
 EXPORT_SYMBOL(insw);
 
-
-/*
- * Read COUNT 32-bit words from port PORT into memory starting at
- * SRC. Now works with any alignment in SRC. Performance is important,
- * but the interfaces seems to be slow: just using the inlined version
- * of the inl() breaks things.
- */
-void ioread32_rep(const void __iomem *port, void *dst, unsigned long count)
-{
-	if (unlikely((unsigned long)dst & 0x3)) {
-		while (count--) {
-			struct S { int x __packed; };
-			((struct S *)dst)->x = ioread32(port);
-			dst += 4;
-		}
-	} else {
-		/* Buffer 32-bit aligned.  */
-		while (count--) {
-			*(unsigned int *)dst = ioread32(port);
-			dst += 4;
-		}
-	}
-}
-EXPORT_SYMBOL(ioread32_rep);
-
 void insl(unsigned long port, void *dst, unsigned long count)
 {
 	ioread32_rep(ioport_map(port, 4), dst, count);
 }
 EXPORT_SYMBOL(insl);
-
-
-/*
- * Like insb but in the opposite direction.
- * Don't worry as much about doing aligned memory transfers:
- * doing byte reads the "slow" way isn't nearly as slow as
- * doing byte writes the slow way (no r-m-w cycle).
- */
-void iowrite8_rep(void __iomem *port, const void *xsrc, unsigned long count)
-{
-	const unsigned char *src = xsrc;
-
-	while (count--)
-		iowrite8(*src++, port);
-}
-EXPORT_SYMBOL(iowrite8_rep);
 
 void outsb(unsigned long port, const void *src, unsigned long count)
 {
@@ -215,69 +71,11 @@ void outsb(unsigned long port, const void *src, unsigned long count)
 }
 EXPORT_SYMBOL(outsb);
 
-
-/*
- * Like insw but in the opposite direction.  This is used by the IDE
- * driver to write disk sectors.  Performance is important, but the
- * interfaces seems to be slow: just using the inlined version of the
- * outw() breaks things.
- */
-void iowrite16_rep(void __iomem *port, const void *src, unsigned long count)
-{
-	if (unlikely((unsigned long)src & 0x3)) {
-		if (!count)
-			return;
-		BUG_ON((unsigned long)src & 0x1);
-		iowrite16(*(unsigned short *)src, port);
-		src += 2;
-		--count;
-	}
-
-	while (count >= 2) {
-		unsigned int w;
-
-		count -= 2;
-		w = *(unsigned int *)src;
-		src += 4;
-		iowrite16(w >>  0, port);
-		iowrite16(w >> 16, port);
-	}
-
-	if (count)
-		iowrite16(*(unsigned short *)src, port);
-}
-EXPORT_SYMBOL(iowrite16_rep);
-
 void outsw(unsigned long port, const void *src, unsigned long count)
 {
 	iowrite16_rep(ioport_map(port, 2), src, count);
 }
 EXPORT_SYMBOL(outsw);
-
-
-/*
- * Like insl but in the opposite direction.  This is used by the IDE
- * driver to write disk sectors.  Works with any alignment in SRC.
- * Performance is important, but the interfaces seems to be slow:
- * just using the inlined version of the outl() breaks things.
- */
-void iowrite32_rep(void __iomem *port, const void *src, unsigned long count)
-{
-	if (unlikely((unsigned long)src & 0x3)) {
-		while (count--) {
-			struct S { int x __packed; };
-			iowrite32(((struct S *)src)->x, port);
-			src += 4;
-		}
-	} else {
-		/* Buffer 32-bit aligned.  */
-		while (count--) {
-			iowrite32(*(unsigned int *)src, port);
-			src += 4;
-		}
-	}
-}
-EXPORT_SYMBOL(iowrite32_rep);
 
 void outsl(unsigned long port, const void *src, unsigned long count)
 {
@@ -470,8 +268,3 @@ void __iomem *ioport_map(unsigned long port, unsigned int size)
 	return __va(port);
 }
 EXPORT_SYMBOL(ioport_map);
-
-void ioport_unmap(void __iomem *addr)
-{
-}
-EXPORT_SYMBOL(ioport_unmap);
