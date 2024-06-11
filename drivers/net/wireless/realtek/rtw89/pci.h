@@ -1488,6 +1488,7 @@ struct rtw89_pci {
 	bool running;
 	bool low_power;
 	bool under_recovery;
+	bool enable_dac;
 	struct rtw89_pci_tx_ring tx_rings[RTW89_TXCH_NUM];
 	struct rtw89_pci_rx_ring rx_rings[RTW89_RXCH_NUM];
 	struct sk_buff_head h2c_queue;
