@@ -257,7 +257,7 @@ early_param("rd_size", rd_size_early);
 
 #endif
 
-static __init void fw_init_cmdline(unsigned long argc, unsigned long cmdp)
+__init void fw_init_cmdline(unsigned long argc, unsigned long cmdp)
 {
 	int i;
 	char **_fw_argv;
