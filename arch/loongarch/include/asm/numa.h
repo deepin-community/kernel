@@ -12,6 +12,7 @@
 #include <linux/nodemask.h>
 
 #define NODE_ADDRSPACE_SHIFT 44
+#define NODES_PER_FLATMODE_NODE 4
 
 #define pa_to_nid(addr)		(((addr) & 0xf00000000000) >> NODE_ADDRSPACE_SHIFT)
 #define nid_to_addrbase(nid)	(_ULCAST_(nid) << NODE_ADDRSPACE_SHIFT)
