@@ -392,6 +392,9 @@ void arch_init_msi_domain(struct irq_domain *parent)
 {
 	struct irq_domain *sw64_irq_domain;
 
+	if (is_guest_or_emul())
+		return sw64_init_vt_msi_domain(parent);
+
 	sw64_irq_domain = irq_domain_add_tree(NULL, &sw64_msi_domain_ops, NULL);
 	BUG_ON(sw64_irq_domain == NULL);
 	irq_set_default_host(sw64_irq_domain);
@@ -403,6 +406,9 @@ void arch_init_msi_domain(struct irq_domain *parent)
 
 int pcibios_device_add(struct pci_dev *dev)
 {
+	if (is_guest_or_emul())
+		return vt_pcibios_device_add(dev);
+
 	if (msi_default_domain)
 		dev_set_msi_domain(&dev->dev, msi_default_domain);
 	return 0;
