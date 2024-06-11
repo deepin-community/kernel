@@ -231,6 +231,8 @@ static int intel_dp_dsc_mst_compute_link_config(struct intel_encoder *encoder,
 	if (max_bpp > sink_max_bpp)
 		max_bpp = sink_max_bpp;
 
+	crtc_state->pipe_bpp = max_bpp;
+
 	min_bpp = max(min_bpp, to_bpp_int_roundup(limits->link.min_bpp_x16));
 	max_bpp = min(max_bpp, to_bpp_int(limits->link.max_bpp_x16));
 
