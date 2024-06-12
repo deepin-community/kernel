@@ -110,6 +110,12 @@ static void crc32_mod_init_arch(void)
 {
 	if (boot_cpu_has(X86_FEATURE_XMM4_2))
 		static_branch_enable(&have_crc32);
+
+	struct cpuinfo_x86 *c = &boot_cpu_data;
+	if ((c->x86_vendor == X86_VENDOR_ZHAOXIN || c->x86_vendor == X86_VENDOR_CENTAUR) &&
+		(c->x86 <= 7 && c->x86_model <= 59))
+		return ;
+
 	if (boot_cpu_has(X86_FEATURE_PCLMULQDQ)) {
 		static_branch_enable(&have_pclmulqdq);
 		if (have_vpclmul()) {
