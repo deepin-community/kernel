@@ -79,6 +79,21 @@ config CRYPTO_DEV_ZHAOXIN_AES
 	  If unsure say M. The compiled module will be
 	  called zhaoxin-aes.
 
+config CRYPTO_DEV_ZHAOXIN_SHA
+	tristate "Zhaoxin ACE driver for SHA1 and SHA256 algorithms"
+	depends on CRYPTO_DEV_ZHAOXIN
+	default CRYPTO_DEV_ZHAOXIN
+	select CRYPTO_HASH
+	select CRYPTO_SHA1
+	select CRYPTO_SHA256
+	help
+	  Use Zhaoxin ACE for SHA1/SHA256 algorithms.
+
+	  Available in Zhaoxin processors.
+
+	  If unsure say M. The compiled module will be
+	  called zhaoxin-sha.
+
 config CRYPTO_DEV_GEODE
 	tristate "Support for the Geode LX AES engine"
 	depends on X86_32 && PCI
