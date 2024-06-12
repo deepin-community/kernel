@@ -553,6 +553,16 @@ config SATA_VITESSE
 
 	  If unsure, say N.
 
+config SATA_ZHAOXIN
+	tristate "Zhaoxin SATA support"
+	depends on PCI
+	default y
+	select SATA_HOST
+	help
+	  This option enables support for Zhaoxin Serial ATA.
+
+	  If unsure, say N.
+
 comment "PATA SFF controllers with BMDMA"
 
 config PATA_ALI
