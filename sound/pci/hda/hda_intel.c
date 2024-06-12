@@ -1549,7 +1549,8 @@ static int check_position_fix(struct azx *chip, int fix)
 	}
 
 	/* Check VIA/ATI HD Audio Controller exist */
-	if (chip->driver_type == AZX_DRIVER_VIA) {
+	if (chip->driver_type == AZX_DRIVER_VIA ||
+	    chip->driver_type == AZX_DRIVER_ZHAOXIN) {
 		dev_dbg(chip->card->dev, "Using VIACOMBO position fix\n");
 		return POS_FIX_VIACOMBO;
 	}
@@ -1703,7 +1704,7 @@ static void azx_check_snoop_available(struct azx *chip)
 
 	snoop = true;
 	if (azx_get_snoop_type(chip) == AZX_SNOOP_TYPE_NONE &&
-	    chip->driver_type == AZX_DRIVER_VIA) {
+	    (chip->driver_type == AZX_DRIVER_VIA || chip->driver_type == AZX_DRIVER_ZHAOXIN)) {
 		/* force to non-snoop mode for a new VIA controller
 		 * when BIOS is set
 		 */
