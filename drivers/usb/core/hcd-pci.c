@@ -48,6 +48,7 @@ static void for_each_companion(struct pci_dev *pdev, struct usb_hcd *hcd,
 	struct pci_dev		*companion;
 	struct usb_hcd		*companion_hcd;
 	unsigned int		slot = PCI_SLOT(pdev->devfn);
+	struct pci_driver	*drv;
 
 	/*
 	 * Iterate through other PCI functions in the same slot.
@@ -58,6 +59,13 @@ static void for_each_companion(struct pci_dev *pdev, struct usb_hcd *hcd,
 	for_each_pci_dev(companion) {
 		if (companion->bus != pdev->bus ||
 				PCI_SLOT(companion->devfn) != slot)
+			continue;
+
+		drv = companion->driver;
+		if (drv &&
+		    strncmp(drv->name, "uhci_hcd", sizeof("uhci_hcd") - 1) &&
+		    strncmp(drv->name, "ohci-pci", sizeof("ohci-pci") - 1) &&
+		    strncmp(drv->name, "ehci-pci", sizeof("ehci-pci") - 1))
 			continue;
 
 		/*
