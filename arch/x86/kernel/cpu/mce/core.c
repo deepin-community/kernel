@@ -520,6 +520,7 @@ bool mce_usable_address(struct mce *m)
 		return amd_mce_usable_address(m);
 
 	case X86_VENDOR_INTEL:
+	case X86_VENDOR_CENTAUR:
 	case X86_VENDOR_ZHAOXIN:
 		return intel_mce_usable_address(m);
 
@@ -537,6 +538,7 @@ bool mce_is_memory_error(struct mce *m)
 		return amd_mce_is_memory_error(m);
 
 	case X86_VENDOR_INTEL:
+	case X86_VENDOR_CENTAUR:
 	case X86_VENDOR_ZHAOXIN:
 		/*
 		 * Intel SDM Volume 3B - 15.9.2 Compound Error Codes
@@ -1310,7 +1312,8 @@ static noinstr bool mce_check_crashing_cpu(void)
 
 		mcgstatus = native_rdmsrq(MSR_IA32_MCG_STATUS);
 
-		if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) {
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+		    boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) {
 			if (mcgstatus & MCG_STATUS_LMCES)
 				return false;
 		}
@@ -1590,6 +1593,7 @@ noinstr void do_machine_check(struct pt_regs *regs)
 	 * on Intel, Zhaoxin only.
 	 */
 	if (m->cpuvendor == X86_VENDOR_INTEL ||
+	    m->cpuvendor == X86_VENDOR_CENTAUR ||
 	    m->cpuvendor == X86_VENDOR_ZHAOXIN)
 		lmce = m->mcgstatus & MCG_STATUS_LMCES;
 
@@ -1979,21 +1983,6 @@ static bool __mcheck_cpu_ancient_init(struct cpuinfo_x86 *c)
 	return false;
 }
 
-static void mce_centaur_feature_init(struct cpuinfo_x86 *c)
-{
-	struct mca_config *cfg = &mca_cfg;
-
-	 /*
-	  * All newer Centaur CPUs support MCE broadcasting. Enable
-	  * synchronization with a one second timeout.
-	  */
-	if ((c->x86 == 6 && c->x86_model == 0xf && c->x86_stepping >= 0xe) ||
-	     c->x86 > 6) {
-		if (cfg->monarch_timeout < 0)
-			cfg->monarch_timeout = USEC_PER_SEC;
-	}
-}
-
 static void mce_zhaoxin_feature_init(struct cpuinfo_x86 *c)
 {
 	struct mce_bank *mce_banks = this_cpu_ptr(mce_banks_array);
@@ -2035,9 +2024,6 @@ static void __mcheck_cpu_init_vendor(struct cpuinfo_x86 *c)
 		break;
 
 	case X86_VENDOR_CENTAUR:
-		mce_centaur_feature_init(c);
-		break;
-
 	case X86_VENDOR_ZHAOXIN:
 		mce_zhaoxin_feature_init(c);
 		break;
@@ -2054,6 +2040,7 @@ static void __mcheck_cpu_clear_vendor(struct cpuinfo_x86 *c)
 		mce_intel_feature_clear(c);
 		break;
 
+	case X86_VENDOR_CENTAUR:
 	case X86_VENDOR_ZHAOXIN:
 		mce_zhaoxin_feature_clear(c);
 		break;
@@ -2223,6 +2210,7 @@ void mca_bsp_init(struct cpuinfo_x86 *c)
 	case X86_VENDOR_INTEL:
 		intel_apply_global_quirks(c);
 		break;
+	case X86_VENDOR_CENTAUR:
 	case X86_VENDOR_ZHAOXIN:
 		zhaoxin_apply_global_quirks(c);
 		break;
@@ -2404,6 +2392,7 @@ static void vendor_disable_error_reporting(void)
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL ||
 	    boot_cpu_data.x86_vendor == X86_VENDOR_HYGON ||
 	    boot_cpu_data.x86_vendor == X86_VENDOR_AMD ||
+	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
 	    boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN)
 		return;
 
