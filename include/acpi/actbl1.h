@@ -915,6 +915,34 @@ struct acpi_dmar_satc {
 	u8 reserved;
 	u16 segment;
 };
+
+#ifdef CONFIG_SW64
+struct acpi_table_sw_dmar {
+	struct acpi_table_header header;        /* Common ACPI table header*/
+	u8 version;                             /* IOMMU version */
+	u8 width;                               /* Host Address Width */
+	u8 flags;
+};
+
+struct acpi_sw_dmar_header {
+	u8 type;
+	u8 length;
+};
+
+enum acpi_sw_dmar_type {
+	ACPI_SW_DMAR_TYPE_HARDWARE_UNIT = 0,
+	ACPI_SW_DMAR_TYPE_RESERVED = 1
+};
+
+struct acpi_dmar_sw_hardware_unit {
+	struct acpi_sw_dmar_header header;
+	u16 index;
+	u32 size;
+	u8 enable;
+	u64 address;
+};
+#endif
+
 /*******************************************************************************
  *
  * DRTM - Dynamic Root of Trust for Measurement table
