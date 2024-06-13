@@ -111,7 +111,8 @@ static inline bool arch_has_acpi_pdc(void)
 {
 	struct cpuinfo_x86 *c = &cpu_data(0);
 	return (c->x86_vendor == X86_VENDOR_INTEL ||
-		c->x86_vendor == X86_VENDOR_CENTAUR);
+		c->x86_vendor == X86_VENDOR_CENTAUR ||
+		c->x86_vendor == X86_VENDOR_ZHAOXIN);
 }
 
 static inline void arch_acpi_set_proc_cap_bits(u32 *cap)
