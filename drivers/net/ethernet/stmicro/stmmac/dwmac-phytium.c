@@ -222,6 +222,7 @@ static struct platform_driver phytium_dwmac_driver = {
 	.remove = phytium_dwmac_remove,
 	.driver = {
 		.name		= "phytium-dwmac",
+		.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table	= of_match_ptr(phytium_dwmac_of_match),
 		.acpi_match_table = ACPI_PTR(phytium_dwmac_acpi_ids),
 	},
