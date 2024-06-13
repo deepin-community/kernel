@@ -26,6 +26,7 @@ jobs:
         repo = "${{ github.event.repository.name }}"
         pull_number = "${{ github.event.number }}"
         commit_id = "${{ github.event.pull_request.head.sha }}"
+        access_token = os.environ.get("GITHUB_TOKEN")
 
         # 获取检查脚本
         check_url = 'https://raw.githubusercontent.com/deepin-community/kernel/linux-6.6.y/scripts/checkpatch.pl'
@@ -49,10 +50,7 @@ jobs:
         # 获取文件列表
         url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/files'
         print(url)
-        headers = {
-            "Accept": "application/vnd.github+json",
-            "Authorization":"Bearer " + os.environ.get("GITHUB_TOKEN")
-        }
+        headers = {'Authorization': f'Bearer {access_token}'}
         response = requests.get(url, headers=headers)
         files = response.json()
 
@@ -99,15 +97,14 @@ jobs:
                             line_number = match.group().split(' ')[-1]
                             line_number = line_number.replace(':', '')
                             body = r.split('\n')[0]
-                            if "It's generally not useful to have the filename in the file" in body:
-                                comment_json = {
-                                    "body": body,
-                                    "commit_id": commit_id,
-                                    "path": path,
-                                    "line": int(line_number),
-                                    "side": "RIGHT"
-                                }
+                            comment_json = {
+                                "body": body,
+                                "commit_id": commit_id,
+                                "path": path,
+                                "line": int(line_number),
+                                "side": "RIGHT"
+                            }
 
-                                comment_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
-                                response = requests.post(comment_url, json=comment_json, headers=headers)
-                                print(response.json())
+                            comment_url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
+                            response = requests.post(comment_url, json=comment_json, headers=headers)
+                            print(response.json())
