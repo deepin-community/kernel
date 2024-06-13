@@ -1,4 +1,4 @@
-name: build kernel
+name: build kernel arm64
 on:
   push:
   pull_request:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-kernel:
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v3
       - name: "Install Deps"
@@ -25,6 +25,5 @@ jobs:
       - name: "Compile kernel"
         run: |
           # .config
-          make deepin_x86_desktop_defconfig
+          make deepin_arm64_desktop_defconfig
           make -j$(nproc)
-
