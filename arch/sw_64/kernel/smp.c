@@ -335,9 +335,9 @@ static int __init fdt_setup_smp(void)
 		}
 
 		if (logical_core_id >= nr_cpu_ids) {
-			pr_err("OF: Core [0x%x] exceeds max core num [%u]\n",
+			pr_warn_once("OF: Core [0x%x] exceeds max core num [%u]\n",
 					rcid, nr_cpu_ids);
-			return -ENODEV;
+			return 0;
 		}
 
 		if (is_rcid_duplicate(rcid)) {

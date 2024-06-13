@@ -249,9 +249,9 @@ setup_rcid_and_core_mask(struct acpi_madt_sw_cintc *sw_cintc)
 	 * represents the maximum number of cores in the system.
 	 */
 	if (possible_cores >= nr_cpu_ids) {
-		pr_err(PREFIX "Core [0x%x] exceeds max core num [%u]\n",
+		pr_warn_once(PREFIX "Core [0x%x] exceeds max core num [%u]\n",
 			rcid, nr_cpu_ids);
-		return -ENODEV;
+		return 0;
 	}
 
 	/* The rcid of each core is unique */
