@@ -75,11 +75,22 @@
 #define MSR_IA32_UMWAIT_CONTROL			0xe1
 #define MSR_IA32_UMWAIT_CONTROL_C02_DISABLE	BIT(0)
 #define MSR_IA32_UMWAIT_CONTROL_RESERVED	BIT(1)
+
+#define MSR_ZX_PAUSE_CONTROL			0x187f
+#define MSR_ZX_PAUSE_CONTROL_C02_DISABLE	BIT(0)
+#define MSR_ZX_PAUSE_CONTROL_RESERVED		BIT(1)
+
 /*
  * The time field is bit[31:2], but representing a 32bit value with
  * bit[1:0] zero.
  */
 #define MSR_IA32_UMWAIT_CONTROL_TIME_MASK	(~0x03U)
+
+/*
+ * The time field is bit[31:2], but representing a 32bit value with
+ * bit[1:0] zero.
+ */
+#define MSR_ZX_PAUSE_CONTROL_TIME_MASK		(~0x03U)
 
 /* Abbreviated from Intel SDM name IA32_CORE_CAPABILITIES */
 #define MSR_IA32_CORE_CAPS			  0x000000cf

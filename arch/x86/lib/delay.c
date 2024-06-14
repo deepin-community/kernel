@@ -118,6 +118,27 @@ static void delay_halt_tpause(u64 start, u64 cycles)
 }
 
 /*
+* On ZHAOXIN the ZXPAUSE instruction waits until any of:
+* 1) the delta of TSC counter exceeds the value provided in EDX:EAX
+* 2) global timeout in ZX_PAUSE_CONTROL is exceeded
+* 3) an external interrupt occurs
+*/
+static void delay_halt_zxpause(u64 unused, u64 cycles)
+{
+       u64 until = cycles;
+       u32 eax, edx;
+
+       eax = lower_32_bits(until);
+       edx = upper_32_bits(until);
+
+       /*
+        * Hard code the deeper (C0.1) sleep state because exit latency is
+        * small compared to the "microseconds" that usleep() will delay.
+        */
+       __zxpause(ZXPAUSE_C01_STATE, edx, eax);
+}
+
+/*
  * On some AMD platforms, MWAITX has a configurable 32-bit timer, that
  * counts with TSC frequency. The input value is the number of TSC cycles
  * to wait. MWAITX will also exit when the timer expires.
@@ -181,6 +202,12 @@ void __init use_tpause_delay(void)
 {
 	delay_halt_fn = delay_halt_tpause;
 	delay_fn = delay_halt;
+}
+
+void __init use_zxpause_delay(void)
+{
+       delay_halt_fn = delay_halt_zxpause;
+       delay_fn = delay_halt;
 }
 
 void use_mwaitx_delay(void)

@@ -79,6 +79,8 @@ static void early_init_zhaoxin(struct cpuinfo_x86 *c)
 			c->x86_coreid_bits = get_count_order((ebx >> 16) & 0xff);
 	}
 
+	if (cpuid_eax(0xC0000000) >= 0xC0000006)
+		c->x86_capability[CPUID_C000_0006_EAX] = cpuid_eax(0xC0000006);
 }
 
 static void init_zhaoxin(struct cpuinfo_x86 *c)
