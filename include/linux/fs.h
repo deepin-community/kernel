@@ -484,10 +484,10 @@ struct address_space {
 	pgoff_t			writeback_index;
 	const struct address_space_operations *a_ops;
 	unsigned long		flags;
-	struct rw_semaphore	i_mmap_rwsem;
 	errseq_t		wb_err;
 	spinlock_t		private_lock;
 	struct list_head	private_list;
+	struct rw_semaphore	i_mmap_rwsem;
 	void			*private_data;
 } __attribute__((aligned(sizeof(long)))) __randomize_layout;
 	/*
