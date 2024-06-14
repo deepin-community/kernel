@@ -764,6 +764,13 @@
 #define MSR_TMTA_LRTI_READOUT		0x80868018
 #define MSR_TMTA_LRTI_VOLT_MHZ		0x8086801a
 
+/*
+ * Zhaoxin extend VMCS capabilities:
+ *   bit 0: exec-cntl3 VMCS field.
+ */
+#define MSR_ZX_EXT_VMCS_CAPS		0x1675
+#define MSR_ZX_VMCS_EXEC_CTL3		BIT(0)
+
 /* Intel defined MSRs. */
 #define MSR_IA32_P5_MC_ADDR		0x00000000
 #define MSR_IA32_P5_MC_TYPE		0x00000001

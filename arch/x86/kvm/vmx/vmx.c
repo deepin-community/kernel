@@ -214,6 +214,8 @@ module_param(ple_window_max, uint, 0444);
 int __read_mostly pt_mode = PT_MODE_SYSTEM;
 module_param(pt_mode, int, S_IRUGO);
 
+static u32 zx_ext_vmcs_cap;
+
 static DEFINE_STATIC_KEY_FALSE(vmx_l1d_should_flush);
 static DEFINE_STATIC_KEY_FALSE(vmx_l1d_flush_cond);
 static DEFINE_MUTEX(vmx_l1d_flush_mutex);
@@ -2015,7 +2017,11 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_UMWAIT_CONTROL:
 		if (!msr_info->host_initiated && !vmx_has_waitpkg(vmx))
 			return 1;
-
+		msr_info->data = vmx->msr_ia32_umwait_control;
+		break;
+	case MSR_ZX_PAUSE_CONTROL:
+		if (!msr_info->host_initiated && !vmx_guest_zxpause_enabled(vmx))
+			return 1;
 		msr_info->data = vmx->msr_ia32_umwait_control;
 		break;
 	case MSR_IA32_SPEC_CTRL:
@@ -2275,7 +2281,15 @@ static int vmx_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		/* The reserved bit 1 and non-32 bit [63:32] should be zero */
 		if (data & (BIT_ULL(1) | GENMASK_ULL(63, 32)))
 			return 1;
+		vmx->msr_ia32_umwait_control = data;
+		break;
+	case MSR_ZX_PAUSE_CONTROL:
+		if (!msr_info->host_initiated && !vmx_guest_zxpause_enabled(vmx))
+			return 1;
 
+		/* The reserved bit 1 and non-32 bit [63:32] should be zero */
+		if (data & (BIT_ULL(1) | GENMASK_ULL(63, 32)))
+			return 1;
 		vmx->msr_ia32_umwait_control = data;
 		break;
 	case MSR_IA32_SPEC_CTRL:
@@ -2732,6 +2746,10 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf,
 	vmcs_conf->vmexit_ctrl         = _vmexit_control;
 	vmcs_conf->vmentry_ctrl        = _vmentry_control;
 	vmcs_conf->misc	= misc_msr;
+
+	/* Setup Zhaoxin exec-cntl3 VMCS field. */
+	if (zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3)
+		vmcs_conf->zx_cpu_based_3rd_exec_ctrl |= ZX_TERTIARY_EXEC_GUEST_ZXPAUSE;
 
 #if IS_ENABLED(CONFIG_HYPERV)
 	if (enlightened_vmcs)
@@ -4525,6 +4543,29 @@ static u64 vmx_tertiary_exec_control(struct vcpu_vmx *vmx)
 	return exec_control;
 }
 
+static u32 vmx_zx_tertiary_exec_control(struct vcpu_vmx *vmx)
+{
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
+	u32 exec_control = vmcs_config.zx_cpu_based_3rd_exec_ctrl;
+
+	/*
+	 * Show errors if Qemu wants to enable guest_zxpause while
+	 * vmx not support it.
+	 */
+	if (guest_cpuid_has(vcpu, X86_FEATURE_ZXPAUSE)) {
+		if (!cpu_has_vmx_zxpause())
+			pr_err("VMX not support guest_zxpause!\n");
+		else
+			exec_control |= ZX_TERTIARY_EXEC_GUEST_ZXPAUSE;
+	} else {
+		exec_control &= ~ZX_TERTIARY_EXEC_GUEST_ZXPAUSE;
+	}
+
+	/* enable other features here */
+
+	return exec_control;
+}
+
 /*
  * Adjust a single secondary execution control bit to intercept/allow an
  * instruction in the guest.  This is usually done based on whether or not a
@@ -4730,6 +4771,11 @@ static void init_vmcs(struct vcpu_vmx *vmx)
 
 	if (cpu_has_secondary_exec_ctrls())
 		secondary_exec_controls_set(vmx, vmx_secondary_exec_control(vmx));
+
+	if (zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3) {
+		zx_tertiary_exec_controls_set(vmx, vmx_zx_tertiary_exec_control(vmx));
+		zx_vmexit_tsc_controls_set(vmx, 0);
+	}
 
 	if (cpu_has_tertiary_exec_ctrls())
 		tertiary_exec_controls_set(vmx, vmx_tertiary_exec_control(vmx));
@@ -6260,6 +6306,13 @@ void dump_vmcs(struct kvm_vcpu *vcpu)
 	else
 		tertiary_exec_control = 0;
 
+	if (zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3) {
+		pr_err("*** Zhaoxin Specific Fields ***\n");
+		pr_err("Zhaoxin TertiaryExec Cntl = 0x%016x\n",
+		       vmcs_read32(ZX_TERTIARY_VM_EXEC_CONTROL));
+		pr_err("ZXPAUSE Saved TSC = 0x%016llx\n", vmcs_read64(ZXPAUSE_VMEXIT_TSC));
+	}
+
 	pr_err("VMCS %p, last attempted VM-entry on CPU %d\n",
 	       vmx->loaded_vmcs->vmcs, vcpu->arch.last_vmentry_cpu);
 	pr_err("*** Guest State ***\n");
@@ -7782,6 +7835,11 @@ static void vmx_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 		vmcs_set_secondary_exec_control(vmx,
 						vmx_secondary_exec_control(vmx));
 
+	if (zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3) {
+		zx_tertiary_exec_controls_set(vmx, vmx_zx_tertiary_exec_control(vmx));
+		zx_vmexit_tsc_controls_set(vmx, 0);
+	}
+
 	if (guest_can_use(vcpu, X86_FEATURE_VMX))
 		vmx->msr_ia32_feature_control_valid_bits |=
 			FEAT_CTL_VMX_ENABLED_INSIDE_SMX |
@@ -7932,6 +7990,9 @@ static __init void vmx_set_cpu_caps(void)
 
 	if (cpu_has_vmx_waitpkg())
 		kvm_cpu_cap_check_and_set(X86_FEATURE_WAITPKG);
+
+	if (cpu_has_vmx_zxpause())
+		kvm_cpu_cap_check_and_set(X86_FEATURE_ZXPAUSE);
 }
 
 static void vmx_request_immediate_exit(struct kvm_vcpu *vcpu)
@@ -8455,6 +8516,10 @@ static __init int hardware_setup(void)
 	unsigned long host_bndcfgs;
 	struct desc_ptr dt;
 	int r;
+	u32 ign;
+
+	/* Caches Zhaoxin extend VMCS capabilities. */
+	rdmsr_safe(MSR_ZX_EXT_VMCS_CAPS, &zx_ext_vmcs_cap, &ign);
 
 	store_idt(&dt);
 	host_idt_base = dt.address;

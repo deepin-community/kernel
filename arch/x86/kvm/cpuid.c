@@ -791,6 +791,9 @@ void kvm_set_cpu_caps(void)
 		F(PMM) | F(PMM_EN)
 	);
 
+	/* Zhaoxin 0xC0000006 leaf */
+	kvm_cpu_cap_mask(CPUID_C000_0006_EAX, 0 /* bit0: zxpause */ | 0 /* bit1 HMAC */);
+
 	/*
 	 * Hide RDTSCP and RDPID if either feature is reported as supported but
 	 * probing MSR_TSC_AUX failed.  This is purely a sanity check and
@@ -1305,17 +1308,22 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 	}
 	/*Add support for Centaur's CPUID instruction*/
 	case 0xC0000000:
-		/*Just support up to 0xC0000004 now*/
-		entry->eax = min(entry->eax, 0xC0000004);
+		/* Extended to 0xC0000006 */
+		entry->eax = min(entry->eax, 0xC0000006);
 		break;
 	case 0xC0000001:
 		cpuid_entry_override(entry, CPUID_C000_0001_EDX);
 		break;
+	case 0xC0000006:
+		cpuid_entry_override(entry, CPUID_C000_0006_EAX);
+		break;
+
 	case 3: /* Processor serial number */
 	case 5: /* MONITOR/MWAIT */
 	case 0xC0000002:
 	case 0xC0000003:
 	case 0xC0000004:
+	case 0xC0000005:
 	default:
 		entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
 		break;
