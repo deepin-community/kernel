@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+# Intel pin control drivers
+
+if (X86 || COMPILE_TEST)
+
+config PINCTRL_ZHAOXIN
+	tristate
+	select PINMUX
+	select PINCONF
+	select GENERIC_PINCONF
+	select GPIOLIB
+	select GPIOLIB_IRQCHIP
+
+config PINCTRL_KX7000
+	tristate "Zhaoxin KX7000 pinctrl and GPIO driver"
+	depends on ACPI
+	select PINCTRL_ZHAOXIN
+	help
+	  This pinctrl driver provides an interface that allows configuring
+	  of Zhaoxin KX7000 chipset pins and using them as GPIOs.
+
+endif
