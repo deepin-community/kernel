@@ -136,4 +136,6 @@ struct kvm_iocsr_entry {
 
 #define KVM_DEV_LOONGARCH_IPI_GRP_REGS			0x40000001
 
+#define KVM_DEV_LOONGARCH_EXTIOI_GRP_REGS		0x40000002
+
 #endif /* __UAPI_ASM_LOONGARCH_KVM_H */
