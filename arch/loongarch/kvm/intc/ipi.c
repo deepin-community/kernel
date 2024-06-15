@@ -320,16 +320,103 @@ static const struct kvm_io_device_ops kvm_loongarch_mail_ops = {
 	.write	= kvm_loongarch_mail_write,
 };
 
+static int kvm_loongarch_ipi_regs_access(struct kvm_device *dev,
+				struct kvm_device_attr *attr,
+				bool is_write)
+{
+	uint64_t val;
+	int cpu, addr;
+	void *p = NULL;
+	int len = 4;
+	struct kvm_vcpu *vcpu;
+
+	cpu = (attr->attr >> 16) & 0x3ff;
+	addr = attr->attr & 0xff;
+
+	vcpu = kvm_get_vcpu(dev->kvm, cpu);
+	if (unlikely(vcpu == NULL)) {
+		kvm_err("%s: invalid target cpu: %d\n", __func__, cpu);
+		return -EINVAL;
+	}
+	switch (addr) {
+	case CORE_STATUS_OFF:
+		p = &vcpu->arch.ipi_state.status;
+		break;
+	case CORE_EN_OFF:
+		p = &vcpu->arch.ipi_state.en;
+		break;
+	case CORE_SET_OFF:
+		p = &vcpu->arch.ipi_state.set;
+		break;
+	case CORE_CLEAR_OFF:
+		p = &vcpu->arch.ipi_state.clear;
+		break;
+	case CORE_BUF_20:
+		p = &vcpu->arch.ipi_state.buf[0];
+		len = 8;
+		break;
+	case CORE_BUF_28:
+		p = &vcpu->arch.ipi_state.buf[1];
+		len = 8;
+		break;
+	case CORE_BUF_30:
+		p = &vcpu->arch.ipi_state.buf[2];
+		len = 8;
+		break;
+	case CORE_BUF_38:
+		p = &vcpu->arch.ipi_state.buf[3];
+		len = 8;
+		break;
+	default:
+		kvm_err("%s: unknown ipi register, addr = %d\n", __func__, addr);
+		return -EINVAL;
+	}
+
+	if (is_write) {
+		if (len == 4) {
+			if (get_user(val, (uint32_t __user *)attr->addr))
+				return -EFAULT;
+			*(uint32_t *)p = (uint32_t)val;
+		} else if (len == 8) {
+			if (get_user(val, (uint64_t __user *)attr->addr))
+				return -EFAULT;
+			*(uint64_t *)p = val;
+		}
+	} else {
+		if (len == 4) {
+			val = *(uint32_t *)p;
+			return put_user(val, (uint32_t __user *)attr->addr);
+		} else if (len == 8) {
+			val = *(uint64_t *)p;
+			return put_user(val, (uint64_t __user *)attr->addr);
+		}
+	}
+
+	return 0;
+}
+
 static int kvm_loongarch_ipi_get_attr(struct kvm_device *dev,
 			struct kvm_device_attr *attr)
 {
-	return 0;
+	switch (attr->group) {
+	case KVM_DEV_LOONGARCH_IPI_GRP_REGS:
+		return kvm_loongarch_ipi_regs_access(dev, attr, false);
+	default:
+		kvm_err("%s: unknown group (%d)\n", __func__, attr->group);
+		return -EINVAL;
+	}
 }
 
 static int kvm_loongarch_ipi_set_attr(struct kvm_device *dev,
 			struct kvm_device_attr *attr)
 {
-	return 0;
+	switch (attr->group) {
+	case KVM_DEV_LOONGARCH_IPI_GRP_REGS:
+		return kvm_loongarch_ipi_regs_access(dev, attr, true);
+	default:
+		kvm_err("%s: unknown group (%d)\n", __func__, attr->group);
+		return -EINVAL;
+	}
 }
 
 static void kvm_loongarch_ipi_destroy(struct kvm_device *dev)
