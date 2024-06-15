@@ -47,6 +47,26 @@ static void extioi_update_irq(struct loongarch_extioi *s, int irq, int level)
 	kvm_vcpu_ioctl_interrupt(vcpu, &vcpu_irq);
 }
 
+static void extioi_set_sw_coreisr(struct loongarch_extioi *s)
+{
+	int ipnum, cpu, irq_index, irq_mask, irq;
+
+	for (irq = 0; irq < EXTIOI_IRQS; irq++) {
+		ipnum = s->ipmap.reg_u8[irq / 32];
+		ipnum = count_trailing_zeros(ipnum);
+		ipnum = (ipnum >= 0 && ipnum < 4) ? ipnum : 0;
+		irq_index = irq / 32;
+		/* length of accessing core isr is 4 bytes */
+		irq_mask = 1 << (irq & 0x1f);
+
+		cpu = s->coremap.reg_u8[irq];
+		if (!!(s->coreisr.reg_u32[cpu][irq_index] & irq_mask))
+			set_bit(irq, s->sw_coreisr[cpu][ipnum]);
+		else
+			clear_bit(irq, s->sw_coreisr[cpu][ipnum]);
+	}
+}
+
 void extioi_set_irq(struct loongarch_extioi *s, int irq, int level)
 {
 	unsigned long *isr = (unsigned long *)s->isr.reg_u8;
@@ -597,16 +617,95 @@ static const struct kvm_io_device_ops kvm_loongarch_extioi_ops = {
 	.write	= kvm_loongarch_extioi_write,
 };
 
+static int kvm_loongarch_extioi_regs_access(struct kvm_device *dev,
+					struct kvm_device_attr *attr,
+					bool is_write)
+{
+	int len, addr;
+	void __user *data;
+	void *p = NULL;
+	struct loongarch_extioi *s;
+	unsigned long flags;
+
+	s = dev->kvm->arch.extioi;
+	addr = attr->attr;
+	data = (void __user *)attr->addr;
+
+	loongarch_ext_irq_lock(s, flags);
+	switch (addr) {
+	case EXTIOI_NODETYPE_START:
+		p = s->nodetype.reg_u8;
+		len = sizeof(s->nodetype);
+		break;
+	case EXTIOI_IPMAP_START:
+		p = s->ipmap.reg_u8;
+		len = sizeof(s->ipmap);
+		break;
+	case EXTIOI_ENABLE_START:
+		p = s->enable.reg_u8;
+		len = sizeof(s->enable);
+		break;
+	case EXTIOI_BOUNCE_START:
+		p = s->bounce.reg_u8;
+		len = sizeof(s->bounce);
+		break;
+	case EXTIOI_ISR_START:
+		p = s->isr.reg_u8;
+		len = sizeof(s->isr);
+		break;
+	case EXTIOI_COREISR_START:
+		p = s->coreisr.reg_u8;
+		len = sizeof(s->coreisr);
+		break;
+	case EXTIOI_COREMAP_START:
+		p = s->coremap.reg_u8;
+		len = sizeof(s->coremap);
+		break;
+	case EXTIOI_SW_COREMAP_FLAG:
+		p = s->sw_coremap;
+		len = sizeof(s->sw_coremap);
+		break;
+	default:
+		loongarch_ext_irq_unlock(s, flags);
+		kvm_err("%s: unknown extioi register, addr = %d\n", __func__, addr);
+		return -EINVAL;
+	}
+
+	loongarch_ext_irq_unlock(s, flags);
+
+	if (is_write) {
+		if (copy_from_user(p, data, len))
+			return -EFAULT;
+	} else {
+		if (copy_to_user(data, p, len))
+			return -EFAULT;
+	}
+
+	if ((addr == EXTIOI_COREISR_START) && is_write) {
+		loongarch_ext_irq_lock(s, flags);
+		extioi_set_sw_coreisr(s);
+		loongarch_ext_irq_unlock(s, flags);
+	}
+
+	return 0;
+}
+
 static int kvm_loongarch_extioi_get_attr(struct kvm_device *dev,
 				struct kvm_device_attr *attr)
 {
-	return 0;
+	if (attr->group == KVM_DEV_LOONGARCH_EXTIOI_GRP_REGS)
+		return kvm_loongarch_extioi_regs_access(dev, attr, false);
+
+	return -EINVAL;
 }
 
 static int kvm_loongarch_extioi_set_attr(struct kvm_device *dev,
 				struct kvm_device_attr *attr)
 {
-	return 0;
+	if (attr->group == KVM_DEV_LOONGARCH_EXTIOI_GRP_REGS)
+		return kvm_loongarch_extioi_regs_access(dev, attr, true);
+
+	return -EINVAL;
 }
 
 static void kvm_loongarch_extioi_destroy(struct kvm_device *dev)
