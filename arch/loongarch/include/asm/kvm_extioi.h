@@ -19,7 +19,24 @@
 #define EXTIOI_BASE			0x1400
 #define EXTIOI_SIZE			0x900
 
+#define EXTIOI_NODETYPE_START		0xa0
+#define EXTIOI_NODETYPE_END		0xbf
+#define EXTIOI_IPMAP_START		0xc0
+#define EXTIOI_IPMAP_END		0xc7
+#define EXTIOI_ENABLE_START		0x200
+#define EXTIOI_ENABLE_END		0x21f
+#define EXTIOI_BOUNCE_START		0x280
+#define EXTIOI_BOUNCE_END		0x29f
+#define EXTIOI_ISR_START		0x300
+#define EXTIOI_ISR_END			0x31f
+#define EXTIOI_COREISR_START		0x400
+#define EXTIOI_COREISR_END		0x71f
+#define EXTIOI_COREMAP_START		0x800
+#define EXTIOI_COREMAP_END		0x8ff
+
 #define LS3A_INTC_IP			8
+
+#define EXTIOI_SW_COREMAP_FLAG		(1 << 0)
 
 struct loongarch_extioi {
 	spinlock_t lock;
