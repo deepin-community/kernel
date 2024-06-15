@@ -35,6 +35,22 @@
 #define KVM_REQ_STEAL_UPDATE		KVM_ARCH_REQ(1)
 #define KVM_REQ_PMU			KVM_ARCH_REQ(2)
 
+/* KVM_IRQ_LINE irq field index values */
+#define KVM_LOONGARCH_IRQ_TYPE_SHIFT	24
+#define KVM_LOONGARCH_IRQ_TYPE_MASK	0xff
+#define KVM_LOONGARCH_IRQ_VCPU_SHIFT	16
+#define KVM_LOONGARCH_IRQ_VCPU_MASK	0xff
+#define KVM_LOONGARCH_IRQ_NUM_SHIFT	0
+#define KVM_LOONGARCH_IRQ_NUM_MASK	0xffff
+
+/* irq_type field */
+#define KVM_LOONGARCH_IRQ_TYPE_CPU_IP	0
+#define KVM_LOONGARCH_IRQ_TYPE_CPU_IO	1
+#define KVM_LOONGARCH_IRQ_TYPE_HT	2
+#define KVM_LOONGARCH_IRQ_TYPE_MSI	3
+#define KVM_LOONGARCH_IRQ_TYPE_IOAPIC	4
+#define KVM_LOONGARCH_IRQ_TYPE_ROUTE	5
+
 #define KVM_GUESTDBG_VALID_MASK		(KVM_GUESTDBG_ENABLE | \
 			KVM_GUESTDBG_USE_SW_BP | KVM_GUESTDBG_SINGLESTEP)
 
@@ -49,6 +65,8 @@ struct kvm_vm_stat {
 	u64 ipi_write_exits;
 	u64 extioi_read_exits;
 	u64 extioi_write_exits;
+	u64 pch_pic_read_exits;
+	u64 pch_pic_write_exits;
 };
 
 struct kvm_vcpu_stat {
