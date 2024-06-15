@@ -6,6 +6,8 @@
 #include <linux/kvm_host.h>
 #include <asm/kvm_mmu.h>
 #include <asm/kvm_vcpu.h>
+#include <asm/kvm_extioi.h>
+#include <asm/kvm_pch_pic.h>
 
 const struct _kvm_stats_desc kvm_vm_stats_desc[] = {
 	KVM_GENERIC_VM_STATS(),
@@ -169,4 +171,36 @@ int kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	default:
 		return -ENOIOCTLCMD;
 	}
+}
+
+int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *data,
+			  bool line_status)
+{
+	bool level;
+	struct loongarch_pch_pic *s;
+	int type, vcpu, irq, vcpus, val, ret = 0;
+
+	level = data->level;
+	val = data->irq;
+	s = kvm->arch.pch_pic;
+	vcpus = atomic_read(&kvm->online_vcpus);
+
+	type = (val >> KVM_LOONGARCH_IRQ_TYPE_SHIFT) & KVM_LOONGARCH_IRQ_TYPE_MASK;
+	vcpu = (val >> KVM_LOONGARCH_IRQ_VCPU_SHIFT) & KVM_LOONGARCH_IRQ_VCPU_MASK;
+	irq = (val >> KVM_LOONGARCH_IRQ_NUM_SHIFT) & KVM_LOONGARCH_IRQ_NUM_MASK;
+
+	switch (type) {
+	case KVM_LOONGARCH_IRQ_TYPE_IOAPIC:
+		if (irq < KVM_IRQCHIP_NUM_PINS)
+			pch_pic_set_irq(s, irq, level);
+		else if (irq < 256)
+			pch_msi_set_irq(kvm, irq, level);
+		else
+			ret = -EINVAL;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
 }
