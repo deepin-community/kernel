@@ -1400,6 +1400,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	 */
 
 	if (hva == KVM_HVA_ERR_BAD) {
+		hargs->arg1 = fault_gpa | (hargs->arg1 & 0x1fffUL);
 		ret = io_mem_abort(vcpu, run, hargs);
 		goto out_unlock;
 	}
