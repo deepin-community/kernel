@@ -49,6 +49,8 @@ static int loongson_gmac_data(struct plat_stmmacenet_data *plat)
 {
 	loongson_default_data(plat);
 
+	plat->phy_interface = PHY_INTERFACE_MODE_RGMII_ID;
+
 	return 0;
 }
 
