@@ -167,7 +167,6 @@ static int loongson_dwmac_probe(struct pci_dev *pdev, const struct pci_device_id
 		res.irq = pdev->irq;
 	}
 
-	pci_enable_msi(pdev);
 	memset(&res, 0, sizeof(res));
 	res.addr = pcim_iomap_table(pdev)[0];
 
@@ -176,12 +175,10 @@ static int loongson_dwmac_probe(struct pci_dev *pdev, const struct pci_device_id
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat, &res);
 	if (ret)
-		goto err_disable_msi;
+		goto err_disable_device;
 
 	return ret;
 
-err_disable_msi:
-	pci_disable_msi(pdev);
 err_disable_device:
 	pci_disable_device(pdev);
 err_put_node:
@@ -205,7 +202,6 @@ static void loongson_dwmac_remove(struct pci_dev *pdev)
 		break;
 	}
 
-	pci_disable_msi(pdev);
 	pci_disable_device(pdev);
 }
 
