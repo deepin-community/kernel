@@ -501,6 +501,11 @@ void handle_pci_msi_interrupt(unsigned long type, unsigned long vector, unsigned
 			}
 
 			irq = per_cpu(vector_irq, cpu)[vector_index + msi_index];
+			if (unlikely(!irq)) {
+				vector = vector & (~(1UL << msi_index));
+				continue;
+			}
+
 			irq_data = irq_domain_get_irq_data(msi_default_domain->parent, irq);
 			cdata = irq_data_get_irq_chip_data(irq_data);
 			spin_lock(&cdata->cdata_lock);
