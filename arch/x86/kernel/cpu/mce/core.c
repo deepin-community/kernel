@@ -1946,6 +1946,7 @@ static int __mcheck_cpu_apply_quirks(struct cpuinfo_x86 *c)
 			if (cfg->monarch_timeout < 0)
 				cfg->monarch_timeout = USEC_PER_SEC;
 		}
+		mca_cfg.bios_cmci_threshold = 1;
 	}
 
 	if (cfg->monarch_timeout < 0)
