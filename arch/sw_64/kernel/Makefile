@@ -40,6 +40,10 @@ ifndef CONFIG_PCI
 obj-y += pci-noop.o
 endif
 
+ifdef CONFIG_KVM
+obj-$(CONFIG_SUBARCH_C3B) += kvm_cma.o
+endif
+
 # Core logic support
 obj-$(CONFIG_SW64_CPUAUTOPLUG) += cpuautoplug.o
 
