@@ -208,9 +208,16 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 	 * memory slot is write protected.
 	 */
 
+	/* If dirty logging has been stopped, clear migration_mark for now. */
+	if ((change == KVM_MR_FLAGS_ONLY) && (old->flags & KVM_MEM_LOG_DIRTY_PAGES)
+		&& (!(new->flags & KVM_MEM_LOG_DIRTY_PAGES))) {
+		kvm_mark_migration(kvm, 0);
+		return;
+	}
 
 	/* If it's the first time dirty logging, flush all vcpu tlbs. */
-	if ((change == KVM_MR_FLAGS_ONLY) && (new->flags & KVM_MEM_LOG_DIRTY_PAGES))
+	if ((change == KVM_MR_FLAGS_ONLY) && (!(old->flags & KVM_MEM_LOG_DIRTY_PAGES))
+		&& (new->flags & KVM_MEM_LOG_DIRTY_PAGES))
 		kvm_mark_migration(kvm, 1);
 }
 
