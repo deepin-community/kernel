@@ -113,13 +113,12 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	unsigned long ret;
 	size_t size;
 
-	mem->flags = new->flags;
+	if (change == KVM_MR_FLAGS_ONLY || change == KVM_MR_DELETE)
+		return 0;
+
 	mem->guest_phys_addr = ((new->base_gfn) << PAGE_SHIFT);
 	mem->memory_size = ((new->npages) << PAGE_SHIFT);
 	mem->userspace_addr = new->userspace_addr;
-
-	if (change == KVM_MR_FLAGS_ONLY || change == KVM_MR_DELETE)
-		return 0;
 
 	if (test_bit(IO_MARK_BIT, (unsigned long *)(&(mem->guest_phys_addr))))
 		return 0;
