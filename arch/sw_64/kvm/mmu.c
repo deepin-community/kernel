@@ -528,8 +528,9 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 		kvm_mark_migration(kvm, 1);
 		kvm_mmu_wp_memory_region(kvm, new->id);
 	}
-	/* If dirty logging has been stopped, do nothing for now. */
-	if ((change != KVM_MR_DELETE)
+
+	/* If dirty logging has been stopped, clear migration mark for now. */
+	if ((change == KVM_MR_FLAGS_ONLY)
 			&& (old->flags & KVM_MEM_LOG_DIRTY_PAGES)
 			&& (!(new->flags & KVM_MEM_LOG_DIRTY_PAGES))) {
 		kvm_mark_migration(kvm, 0);
