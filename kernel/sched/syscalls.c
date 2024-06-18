@@ -821,6 +821,7 @@ change:
 		p->prio = newprio;
 	}
 	__setscheduler_uclamp(p, attr);
+	check_class_changing(rq, p, prev_class);
 
 	if (queued) {
 		/*
