@@ -2469,6 +2469,17 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		}
 	}
 
+#if IS_ENABLED(CONFIG_X86)
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) &&
+	    (boot_cpu_data.x86 == 7 && boot_cpu_data.x86_model == 0x5b)) {
+		for_each_cpu(i, cpu_map) {
+			for (sd = *per_cpu_ptr(d.sd, i); sd; sd = sd->parent)
+				sd->flags |= SD_ASYM_PACKING;
+		}
+	}
+#endif
+
 	/* Calculate CPU capacity for physical packages and nodes */
 	for (i = nr_cpumask_bits-1; i >= 0; i--) {
 		if (!cpumask_test_cpu(i, cpu_map))
