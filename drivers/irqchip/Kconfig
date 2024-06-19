@@ -44,12 +44,17 @@ config SW64_PCI_INTX
 
 config SW64_IRQ_MSI
 	bool
-	depends on SW64 && PCI_MSI
+	depends on SW64 && PCI_MSI && SUBARCH_C3B
+	default y
+
+config SW64_IRQ_MSI_V2
+	bool
+	depends on SW64 && PCI_MSI && SUBARCH_C4
 	default y
 
 config SW64_IRQ_MSI_VT
 	bool
-	depends on SW64_IRQ_MSI
+	depends on SW64_IRQ_MSI || SW64_IRQ_MSI_V2
 	default y
 
 config ARM_GIC_PM
