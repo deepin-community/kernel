@@ -120,8 +120,7 @@ config SW64
 	select SET_FS
 	select SPARSEMEM_EXTREME if SPARSEMEM
 	select SW64_IRQ_CPU
-	select SW64_IRQ_MSI if PCI_MSI
-	select SW64_IRQ_MSI_VT if PCI_MSI
+	select SW64_PCI_INTX if PCI
 	select SW64_TIMER
 	select SWIOTLB
 	select THREAD_INFO_IN_TASK
