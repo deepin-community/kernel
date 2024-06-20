@@ -158,7 +158,7 @@ static int sw64_set_affinity(struct irq_data *d, const struct cpumask *cpumask, 
 	msi_config = set_piu_msi_config(hose, cpu, cdata->msi_config_index, vector);
 	cdata->msi_config = msi_config;
 	spin_unlock(&cdata->cdata_lock);
-	cpumask_copy((struct cpumask *)irq_data_get_affinity_mask(irqd), &searchmask);
+	irq_data_update_effective_affinity(irqd, &searchmask);
 
 	raw_spin_unlock_irqrestore(&vector_lock, flags);
 
