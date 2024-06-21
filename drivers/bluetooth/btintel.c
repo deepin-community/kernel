@@ -2836,7 +2836,7 @@ int btintel_bootloader_setup_tlv(struct hci_dev *hdev,
 	}
 
 	/* If image type returned is BTINTEL_IMG_IML, then controller supports
-	 * intermediae loader image
+	 * intermediate loader image
 	 */
 	if (ver->img_type == BTINTEL_IMG_IML) {
 		err = btintel_prepare_fw_download_tlv(hdev, ver, &boot_param);
