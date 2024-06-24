@@ -119,7 +119,7 @@ void pcibios_fixup_bus(struct pci_bus *bus)
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 	struct pci_dev *dev = bus->self;
 
-	if (!dev || bus->number == hose->first_busno) {
+	if (!dev) {
 		bus->resource[0] = hose->io_space;
 		bus->resource[1] = hose->mem_space;
 		bus->resource[2] = hose->pre_mem_space;
@@ -209,11 +209,6 @@ static void fixup_root_complex(struct pci_dev *dev)
 
 		dev->class &= 0xff;
 		dev->class |= PCI_CLASS_BRIDGE_PCI << 8;
-		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
-			dev->resource[i].start = 0;
-			dev->resource[i].end   = 0;
-			dev->resource[i].flags = IORESOURCE_PCI_FIXED;
-		}
 	}
 	atomic_inc(&dev->enable_cnt);
 
