@@ -6,6 +6,7 @@
 #include <linux/smp.h>
 #include <linux/delay.h>
 #include <linux/irq.h>
+#include <linux/irq_work.h>
 #include <linux/cpu.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
@@ -38,6 +39,7 @@ enum ipi_message_type {
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
 	IPI_CPU_STOP,
+	IPI_IRQ_WORK,
 };
 
 int smp_num_cpus = 1;		/* Number that came online.  */
@@ -589,6 +591,13 @@ static void ipi_cpu_stop(int cpu)
 		wait_for_interrupt();
 }
 
+#ifdef CONFIG_IRQ_WORK
+void arch_irq_work_raise(void)
+{
+	send_ipi_message(cpumask_of(smp_processor_id()), IPI_IRQ_WORK);
+}
+#endif
+
 void handle_ipi(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
@@ -616,6 +625,10 @@ void handle_ipi(struct pt_regs *regs)
 
 			case IPI_CPU_STOP:
 				ipi_cpu_stop(cpu);
+				break;
+
+			case IPI_IRQ_WORK:
+				irq_work_run();
 				break;
 
 			default:
