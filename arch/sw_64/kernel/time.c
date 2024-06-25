@@ -25,26 +25,6 @@ EXPORT_SYMBOL(rtc_lock);
 
 unsigned long est_cycle_freq;
 
-#ifdef CONFIG_IRQ_WORK
-
-DEFINE_PER_CPU(u8, irq_work_pending);
-
-#define set_irq_work_pending_flag()  __this_cpu_write(irq_work_pending, 1)
-#define test_irq_work_pending()      __this_cpu_read(irq_work_pending)
-#define clear_irq_work_pending()     __this_cpu_write(irq_work_pending, 0)
-
-void arch_irq_work_raise(void)
-{
-	set_irq_work_pending_flag();
-}
-
-#else /* CONFIG_IRQ_WORK */
-
-#define test_irq_work_pending()      0
-#define clear_irq_work_pending()
-
-#endif /* CONFIG_IRQ_WORK */
-
 void __init
 time_init(void)
 {
