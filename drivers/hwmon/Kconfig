@@ -412,6 +412,15 @@ config SENSORS_ASPEED
 	  This driver can also be built as a module. If so, the module
 	  will be called aspeed_pwm_tacho.
 
+config SENSORS_PHYTIUM
+        tristate "Phytium Fan tach and capture counter driver"
+        help
+          This driver provides support for Phytium Fan Tacho and capture
+          counter controllers.
+
+          This driver can also be built as a module. If so, the module
+          will be called tacho-phytium.
+
 config SENSORS_ATXP1
 	tristate "Attansic ATXP1 VID controller"
 	depends on I2C
@@ -2160,6 +2169,15 @@ config SENSORS_VIA_CPUTEMP
 	  If you say yes here you get support for the temperature
 	  sensor inside your CPU. Supported are all known variants of
 	  the VIA C7 and Nano.
+
+config SENSORS_ZHAOXIN_CPUTEMP
+	tristate "Zhaoxin CPU temperature sensor"
+	depends on X86
+	select HWMON_VID
+	help
+	  If you say yes here you get support for the temperature
+	  sensor inside your CPU. Supported are all known variants of
+	  the Zhaoxin processors.
 
 config SENSORS_VIA686A
 	tristate "VIA686A"

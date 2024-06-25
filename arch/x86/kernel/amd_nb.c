@@ -44,10 +44,19 @@
 #define PCI_DEVICE_ID_AMD_1AH_M00H_DF_F4	0x12c4
 #define PCI_DEVICE_ID_AMD_MI200_DF_F4		0x14d4
 
+#define PCI_DEVICE_ID_HYGON_18H_M05H_ROOT	0x14a0
+#define PCI_DEVICE_ID_HYGON_18H_M10H_ROOT	0x14c0
+#define PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1	0x1491
+#define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1	0x14b1
+#define PCI_DEVICE_ID_HYGON_18H_M05H_DF_F4	0x14b4
+#define PCI_DEVICE_ID_HYGON_18H_M10H_DF_F4	0x14d4
+#define PCI_DEVICE_ID_HYGON_18H_M06H_DF_F5	0x14b5
+
 /* Protect the PCI config register pairs used for SMN. */
 static DEFINE_MUTEX(smn_mutex);
 
 static u32 *flush_words;
+static u16 nb_num;
 
 static const struct pci_device_id amd_root_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_17H_ROOT) },
@@ -123,16 +132,25 @@ static const struct pci_device_id amd_nb_link_ids[] = {
 
 static const struct pci_device_id hygon_root_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_ROOT) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_ROOT) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_ROOT) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M10H_ROOT) },
 	{}
 };
 
 static const struct pci_device_id hygon_nb_misc_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_DF_F3) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_DF_F3) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M10H_DF_F3) },
 	{}
 };
 
 static const struct pci_device_id hygon_nb_link_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_DF_F4) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_AMD_17H_M30H_DF_F4) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M05H_DF_F4) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M10H_DF_F4) },
 	{}
 };
 
@@ -209,7 +227,14 @@ out:
 
 int amd_smn_read(u16 node, u32 address, u32 *value)
 {
-	return __amd_smn_rw(node, address, value, false);
+	int err = __amd_smn_rw(node, address, value, false);
+
+	if (PCI_POSSIBLE_ERROR(*value)) {
+		err = -ENODEV;
+		*value = 0;
+	}
+
+	return err;
 }
 EXPORT_SYMBOL_GPL(amd_smn_read);
 
@@ -219,6 +244,228 @@ int amd_smn_write(u16 node, u32 address, u32 value)
 }
 EXPORT_SYMBOL_GPL(amd_smn_write);
 
+bool hygon_f18h_m4h(void)
+{
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_HYGON)
+		return false;
+
+	if (boot_cpu_data.x86 == 0x18 &&
+	    boot_cpu_data.x86_model >= 0x4 &&
+	    boot_cpu_data.x86_model <= 0xf)
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(hygon_f18h_m4h);
+
+u16 hygon_nb_num(void)
+{
+	return nb_num;
+}
+EXPORT_SYMBOL_GPL(hygon_nb_num);
+
+static int get_df_register(struct pci_dev *misc, u8 func, int offset, u32 *value)
+{
+	struct pci_dev *df_func = NULL;
+	u32 device;
+	int err;
+
+	if (func == 1) {
+		switch (boot_cpu_data.x86_model) {
+		case 0x4:
+			device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
+			break;
+		case 0x5:
+			if (misc->device == PCI_DEVICE_ID_HYGON_18H_M05H_DF_F3)
+				device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
+			else
+				device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
+			break;
+		case 0x6:
+		case 0x7:
+			device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
+			break;
+		default:
+			return -ENODEV;
+		}
+	} else if (func == 5) {
+		switch (boot_cpu_data.x86_model) {
+		case 0x6:
+		case 0x7:
+			device = PCI_DEVICE_ID_HYGON_18H_M06H_DF_F5;
+			break;
+		default:
+			return -ENODEV;
+		}
+	} else {
+		return -ENODEV;
+	}
+
+	while ((df_func = pci_get_device(misc->vendor, device, df_func)))
+		if (pci_domain_nr(df_func->bus) == pci_domain_nr(misc->bus) &&
+		    df_func->bus->number == misc->bus->number &&
+		    PCI_SLOT(df_func->devfn) == PCI_SLOT(misc->devfn))
+			break;
+
+	if (!df_func) {
+		pr_warn("Error getting DF F%d device.\n", func);
+		return -ENODEV;
+	}
+
+	err = pci_read_config_dword(df_func, offset, value);
+	if (err)
+		pr_warn("Error reading DF F%d register.\n", func);
+
+	return err;
+}
+
+int get_df_id(struct pci_dev *misc, u8 *id)
+{
+	u32 value;
+	int ret;
+
+	if (boot_cpu_data.x86_model == 0x6) {
+		/* F5x180[19:16]: DF ID */
+		ret = get_df_register(misc, 5, 0x180, &value);
+		*id = (value >> 16) & 0xf;
+	} else {
+		/* F1x200[23:20]: DF ID */
+		ret = get_df_register(misc, 1, 0x200, &value);
+		*id = (value >> 20) & 0xf;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(get_df_id);
+
+static u8 get_socket_num(struct pci_dev *misc)
+{
+	u32 value;
+	int ret;
+
+	/* F1x200[7:0]: Which socket is present. */
+	ret = get_df_register(misc, 1, 0x200, &value);
+
+	return ret ? 0 : hweight8(value & 0xff);
+}
+
+static int northbridge_init_f18h_m4h(const struct pci_device_id *root_ids,
+					const struct pci_device_id *misc_ids,
+					const struct pci_device_id *link_ids)
+{
+	struct pci_dev *root, *misc, *link;
+	struct pci_dev *root_first = NULL;
+	struct amd_northbridge *nb;
+	u16 roots_per_socket = 0;
+	u16 miscs_per_socket = 0;
+	u16 socket_num = 0;
+	u16 root_count = 0;
+	u16 misc_count = 0;
+	int err = -ENODEV;
+	u8 i, j, m, n;
+	u8 id;
+
+	pr_info("Hygon Fam%xh Model%xh NB driver.\n",
+		boot_cpu_data.x86, boot_cpu_data.x86_model);
+
+	misc = next_northbridge(NULL, misc_ids);
+	if (misc != NULL) {
+		socket_num = get_socket_num(misc);
+		pr_info("Socket number: %d\n", socket_num);
+		if (!socket_num) {
+			err = -ENODEV;
+			goto ret;
+		}
+	} else {
+		err = -ENODEV;
+		goto ret;
+	}
+
+	misc = NULL;
+	while ((misc = next_northbridge(misc, misc_ids)) != NULL)
+		misc_count++;
+
+	root = NULL;
+	while ((root = next_northbridge(root, root_ids)) != NULL)
+		root_count++;
+
+	if (!root_count || !misc_count) {
+		err = -ENODEV;
+		goto ret;
+	}
+
+	/*
+	 * There should be _exactly_ N roots for each DF/SMN
+	 * interface, and M DF/SMN interfaces in one socket.
+	 */
+	roots_per_socket = root_count / socket_num;
+	miscs_per_socket = misc_count / socket_num;
+
+	if (!roots_per_socket || !miscs_per_socket) {
+		err = -ENODEV;
+		goto ret;
+	}
+
+	nb = kcalloc(misc_count, sizeof(struct amd_northbridge), GFP_KERNEL);
+	if (!nb) {
+		err = -ENOMEM;
+		goto ret;
+	}
+
+	amd_northbridges.nb = nb;
+	amd_northbridges.num = misc_count;
+
+	link = misc = root = NULL;
+	j = m = n = 0;
+	for (i = 0; i < amd_northbridges.num; i++) {
+		misc = next_northbridge(misc, misc_ids);
+		link = next_northbridge(link, link_ids);
+
+		/* Only save the first PCI root device for each socket. */
+		if (!(i % miscs_per_socket)) {
+			root_first = next_northbridge(root, root_ids);
+			root = root_first;
+			j = 1;
+		}
+
+		if (get_df_id(misc, &id)) {
+			err = -ENODEV;
+			goto err;
+		}
+		pr_info("DF ID: %d\n", id);
+
+		if (id < 4) {
+			/* Add the devices with id<4 from the tail. */
+			node_to_amd_nb(misc_count - m - 1)->misc = misc;
+			node_to_amd_nb(misc_count - m - 1)->link = link;
+			node_to_amd_nb(misc_count - m - 1)->root = root_first;
+			m++;
+		} else {
+			node_to_amd_nb(n)->misc = misc;
+			node_to_amd_nb(n)->link = link;
+			node_to_amd_nb(n)->root = root_first;
+			n++;
+		}
+
+		/* Skip the redundant PCI root devices per socket. */
+		while (j < roots_per_socket) {
+			root = next_northbridge(root, root_ids);
+			j++;
+		}
+	}
+	nb_num = n;
+
+	return 0;
+
+err:
+	kfree(nb);
+	amd_northbridges.nb = NULL;
+
+ret:
+	pr_err("Hygon Fam%xh Model%xh northbridge init failed(%d)!\n",
+		boot_cpu_data.x86, boot_cpu_data.x86_model, err);
+	return err;
+}
 
 static int amd_cache_northbridges(void)
 {
@@ -239,6 +486,11 @@ static int amd_cache_northbridges(void)
 		root_ids = hygon_root_ids;
 		misc_ids = hygon_nb_misc_ids;
 		link_ids = hygon_nb_link_ids;
+
+		if (boot_cpu_data.x86_model >= 0x4 &&
+		    boot_cpu_data.x86_model <= 0xf)
+			return northbridge_init_f18h_m4h(root_ids,
+					misc_ids, link_ids);
 	}
 
 	misc = NULL;

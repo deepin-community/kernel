@@ -57,6 +57,9 @@ obj-$(CONFIG_MTD_NAND_INTEL_LGM)	+= intel-nand-controller.o
 obj-$(CONFIG_MTD_NAND_ROCKCHIP)		+= rockchip-nand-controller.o
 obj-$(CONFIG_MTD_NAND_PL35X)		+= pl35x-nand-controller.o
 obj-$(CONFIG_MTD_NAND_RENESAS)		+= renesas-nand-controller.o
+obj-$(CONFIG_MTD_NAND_PHYTIUM)		+= phytium_nand.o
+obj-$(CONFIG_MTD_NAND_PHYTIUM_PCI)	+= phytium_nand_pci.o
+obj-$(CONFIG_MTD_NAND_PHYTIUM_PLAT)	+= phytium_nand_plat.o
 
 nand-objs := nand_base.o nand_legacy.o nand_bbt.o nand_timings.o nand_ids.o
 nand-objs += nand_onfi.o

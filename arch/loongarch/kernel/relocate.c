@@ -15,6 +15,7 @@
 #include <asm/inst.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
+#include "legacy_boot.h"
 
 #define RELOCATED(x) ((void *)((long)x + reloc_offset))
 #define RELOCATED_KASLR(x) ((void *)((long)x + random_offset))
@@ -172,7 +173,10 @@ unsigned long __init relocate_kernel(void)
 	void *location_new = _text; /* Default to original kernel start */
 	char *cmdline = early_ioremap(fw_arg1, COMMAND_LINE_SIZE); /* Boot command line is passed in fw_arg1 */
 
-	strscpy(boot_command_line, cmdline, COMMAND_LINE_SIZE);
+	if (fw_arg0 < 2)
+		strscpy(boot_command_line, cmdline, COMMAND_LINE_SIZE);
+	else
+		fw_init_cmdline(fw_arg0, TO_CACHE(fw_arg1)); /* OLD BPI parameters */
 
 #ifdef CONFIG_RANDOMIZE_BASE
 	location_new = determine_relocation_address();

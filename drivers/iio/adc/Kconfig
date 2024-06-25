@@ -275,7 +275,7 @@ config AD799X
 config AD9467
 	tristate "Analog Devices AD9467 High Speed ADC driver"
 	depends on SPI
-	depends on ADI_AXI_ADC
+	select IIO_BACKEND
 	help
 	  Say yes here to build support for Analog Devices:
 	  * AD9467 16-Bit, 200 MSPS/250 MSPS Analog-to-Digital Converter
@@ -292,8 +292,8 @@ config ADI_AXI_ADC
 	select IIO_BUFFER
 	select IIO_BUFFER_HW_CONSUMER
 	select IIO_BUFFER_DMAENGINE
-	depends on HAS_IOMEM
-	depends on OF
+	select REGMAP_MMIO
+	select IIO_BACKEND
 	help
 	  Say yes here to build support for Analog Devices Generic
 	  AXI ADC IP core. The IP core is used for interfacing with
@@ -885,6 +885,18 @@ config PALMAS_GPADC
 	  Palmas series pmic chip by Texas Instruments (twl6035/6037)
 	  is used in smartphones and tablets and supports a 16 channel
 	  general purpose ADC.
+
+config PHYTIUM_ADC
+	tristate "Phytium ADC driver"
+	depends on ARCH_PHYTIUM || COMPILE_TEST
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for Phytium analog to digital
+	  converters (ADC).
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called phytium-adc.
 
 config QCOM_VADC_COMMON
 	tristate

@@ -12,6 +12,7 @@
 #include <linux/nodemask.h>
 
 #define NODE_ADDRSPACE_SHIFT 44
+#define NODES_PER_FLATMODE_NODE 4
 
 #define pa_to_nid(addr)		(((addr) & 0xf00000000000) >> NODE_ADDRSPACE_SHIFT)
 #define nid_to_addrbase(nid)	(_ULCAST_(nid) << NODE_ADDRSPACE_SHIFT)
@@ -56,6 +57,7 @@ extern int early_cpu_to_node(int cpu);
 static inline void early_numa_add_cpu(int cpuid, s16 node)	{ }
 static inline void numa_add_cpu(unsigned int cpu)		{ }
 static inline void numa_remove_cpu(unsigned int cpu)		{ }
+static inline void set_cpuid_to_node(int cpuid, s16 node)	{ }
 
 static inline int early_cpu_to_node(int cpu)
 {

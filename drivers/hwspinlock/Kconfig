@@ -17,6 +17,15 @@ config HWSPINLOCK_OMAP
 
 	  If unsure, say N.
 
+config HWSPINLOCK_PHYTIUM
+	tristate "Phytium Hardware Spinlock device"
+	depends on HWSPINLOCK
+	depends on ARCH_PHYTIUM
+	help
+	  Say y here to support the Phytium Hardware Spinlock device.
+
+	  If unsure, say N.
+
 config HWSPINLOCK_QCOM
 	tristate "Qualcomm Hardware Spinlock device"
 	depends on ARCH_QCOM || COMPILE_TEST

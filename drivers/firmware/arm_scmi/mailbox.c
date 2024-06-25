@@ -167,6 +167,7 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	struct mbox_client *cl;
 	resource_size_t size;
 	struct resource res;
+	struct of_phandle_args args;
 
 	ret = mailbox_chan_validate(cdev, &a2p_rx_chan, &p2a_chan);
 	if (ret)
@@ -225,6 +226,16 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 			return ret;
 		}
 	}
+
+	ret = of_parse_phandle_with_args(cdev->of_node, "mboxes",
+					 "#mbox-cells", 1, &args);
+	if (ret) {
+		dev_err(cdev, "failed to get SCMI %s mailbox\n", desc);
+		return ret;
+	}
+
+	if (of_device_is_compatible(args.np, "phytium,mbox"))
+		cinfo->no_completion_irq = true;
 
 	cinfo->transport_info = smbox;
 	smbox->cinfo = cinfo;

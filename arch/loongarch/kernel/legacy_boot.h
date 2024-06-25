@@ -4,6 +4,7 @@
 #include <linux/acpi.h>
 #include <linux/of_address.h>
 #include <linux/screen_info.h>
+#include <asm/loongson.h>
 
 #define ADDRESS_TYPE_SYSRAM	1
 #define ADDRESS_TYPE_RESERVED	2
@@ -89,4 +90,6 @@ extern int __init
 pch_msi_parse_madt(union acpi_subtable_headers *header,
 		const unsigned long end);
 extern struct irq_domain *get_pchpic_irq_domain(void);
+
+extern __init void fw_init_cmdline(unsigned long argc, unsigned long cmdp);
 #endif

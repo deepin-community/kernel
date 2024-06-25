@@ -809,4 +809,15 @@ config KEYBOARD_CYPRESS_SF
 	  To compile this driver as a module, choose M here: the
 	  module will be called cypress-sf.
 
+config KEYBOARD_PHYTIUM
+	tristate "Phytium keypad support"
+	depends on ARCH_PHYTIUM
+	select INPUT_MATRIXKMAP
+	help
+	  Say Y here if you want to enable support for Phytium keypad
+	  port.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called phytium_keypad.
+
 endif
