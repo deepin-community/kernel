@@ -3,6 +3,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/page.h>
 #include <asm/regdef.h>
+#include <asm/csr.h>
 
 	.text
 	.set	noat
@@ -56,6 +57,9 @@ $subloop:
 
 
 	ldl	$8, PSTATE_KTP($18)
+#ifdef CONFIG_SUBARCH_C4
+	csrw	$8, CSR_KTP
+#endif
 	ldi	$1, PSTATE_REGS($18)
 	ldl	$9, CALLEE_R9($1)
 	ldl	$10, CALLEE_R10($1)

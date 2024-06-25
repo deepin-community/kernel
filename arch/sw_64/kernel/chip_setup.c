@@ -193,6 +193,9 @@ static inline void intpu_restore(void)
 		__io_write_longtime(0, saved_long_time);
 		__io_write_longtime_start_en(0, 0x1);
 		break;
+	case CPU_SW8A:
+		__io_write_longtime_start_en(0, 0x1);
+		break;
 	default:
 		pr_info("long time start is disable!");
 		break;
