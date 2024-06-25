@@ -108,6 +108,12 @@ static inline void update_ptbr_sys(unsigned long ptbr)
 	sw64_write_csr_imb(ptbr, CSR_PTBR_SYS);
 }
 
+static inline void update_ptbr_usr(unsigned long ptbr)
+{
+	imemb();
+	sw64_write_csr_imb(ptbr, CSR_PTBR_USR);
+}
+
 #endif
 #else
 #define sw64_read_csr(x)                     (0)

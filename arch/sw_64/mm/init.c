@@ -109,6 +109,9 @@ switch_to_system_map(void)
 {
 	memset(swapper_pg_dir, 0, PAGE_SIZE);
 	update_ptbr_sys(virt_to_phys(swapper_pg_dir));
+#ifdef CONFIG_SUBARCH_C4
+	update_ptbr_usr(__pa_symbol(empty_zero_page));
+#endif
 	tbiv();
 }
 
