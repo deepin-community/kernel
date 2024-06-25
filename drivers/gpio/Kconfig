@@ -499,6 +499,15 @@ config GPIO_OMAP
 	help
 	  Say yes here to enable GPIO support for TI OMAP SoCs.
 
+config GPIO_PHYTIUM_SGPIO
+	tristate "Phytium SGPIO support"
+	default y if ARCH_PHYTIUM
+	depends on ARM64
+	select IRQ_DOMAIN
+	select GENERIC_IRQ_CHIP
+	help
+	  Say yes here to enable SGPIO support for Phytium SoCs.
+
 config GPIO_PHYTIUM_PLAT
 	tristate "Phytium GPIO Platform support"
 	default y if ARCH_PHYTIUM
