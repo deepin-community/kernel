@@ -108,6 +108,14 @@ static inline void fixup_wrusp(void)
 	entry[1] = 0x1ee00000;	/* pri_ret $23 */
 }
 
+static inline void fixup_uwhami(void)
+{
+	unsigned int *entry = __va(HMCALL_ENTRY(uwhami));
+
+	entry[0] = 0x94161078;	/* pri_ldl/p       r0, VC__WHAMI(vcpucb) */
+	entry[1] = 0x1ef00000;	/* pri_ret/b $23 */
+}
+
 void __init fixup_hmcall(void)
 {
 #if defined(CONFIG_SUBARCH_C3B)
@@ -119,6 +127,7 @@ void __init fixup_hmcall(void)
 	fixup_wrktp();
 	fixup_rdusp();
 	fixup_wrusp();
+	fixup_uwhami();
 	imemb();
 #endif
 }

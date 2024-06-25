@@ -36,6 +36,41 @@ struct vdso_data *vdso_data = &vdso_data_store.data;
 
 static struct vm_special_mapping vdso_spec[2];
 
+#ifdef CONFIG_SUBARCH_C3B
+#define V_NODE_SHIFT	6
+static void init_cpu_map(void)
+{
+
+	int i, whami, domain;
+	unsigned int shift, mask;
+
+	if (is_in_host())
+		shift = DOMAIN_ID_SHIFT;
+	else
+		shift = V_NODE_SHIFT;
+	mask = (1 << shift) - 1;
+
+	vdso_data_write_begin(vdso_data);
+	for (i = 0; i < num_possible_cpus(); i++) {
+		domain = cpu_to_rcid(i) >> shift;
+		whami = (domain << DOMAIN_ID_SHIFT) | (cpu_to_rcid(i) & mask);
+		vdso_data->vdso_whami_to_cpu[whami] = i;
+		vdso_data->vdso_whami_to_node[whami] = domain;
+	}
+	vdso_data_write_end(vdso_data);
+}
+#else
+static void init_cpu_map(void)
+{
+	int i;
+
+	vdso_data_write_begin(vdso_data);
+	for (i = 0; i < num_possible_cpus(); i++)
+		vdso_data->vdso_cpu_to_node[i] = (cpu_to_rcid(i) & DOMAIN_ID_MASK) >> DOMAIN_ID_SHIFT;
+	vdso_data_write_end(vdso_data);
+}
+#endif
+
 static int __init vdso_init(void)
 {
 	int i;
@@ -72,6 +107,8 @@ static int __init vdso_init(void)
 		.name	= "[vdso]",
 		.pages	= &vdso_pagelist[1],
 	};
+
+	init_cpu_map();
 
 	return 0;
 }

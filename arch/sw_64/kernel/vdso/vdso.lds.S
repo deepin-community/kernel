@@ -84,6 +84,7 @@ VERSION
 		__vdso_rt_sigreturn;
 		__vdso_gettimeofday;
 		__vdso_clock_gettime;
+		__vdso_getcpu;
 	local: *;
 	};
 }

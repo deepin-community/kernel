@@ -50,6 +50,13 @@ struct vdso_data {
 	s32 tz_minuteswest;
 	s32 tz_dsttime;
 	u32 seq_count;
+#ifdef CONFIG_SUBARCH_C3B
+	u8 vdso_whami_to_cpu[NR_CPUS];
+	u8 vdso_whami_to_node[NR_CPUS];
+#endif
+#ifdef CONFIG_SUBARCH_C4
+	u8 vdso_cpu_to_node[NR_CPUS];
+#endif
 };
 
 static inline unsigned long get_vdso_base(void)

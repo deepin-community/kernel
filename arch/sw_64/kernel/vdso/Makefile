@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # Symbols present in the vdso
-vdso-syms = rt_sigreturn gettimeofday
+vdso-syms = rt_sigreturn gettimeofday getcpu
 
 # Files to link into the vdso
 obj-vdso = $(patsubst %, v%.o, $(vdso-syms))
@@ -17,12 +17,14 @@ CPPFLAGS_vdso.lds += -P -C -U$(ARCH)
 CFLAGS_REMOVE_vdso.o = -pg
 CFLAGS_REMOVE_vrt_sigreturn.o = -pg
 CFLAGS_REMOVE_vgettimeofday.o = -pg
+CFLAGS_REMOVE_vgetcpu = -pg
 
 ifdef CONFIG_FEEDBACK_COLLECT
 # vDSO code runs in userspace, not collecting feedback data.
 CFLAGS_REMOVE_vdso.o = -ffeedback-generate
 CFLAGS_REMOVE_vrt_sigreturn.o = -ffeedback-generate
 CFLAGS_REMOVE_vgettimeofday.o = -ffeedback-generate
+CFLAGS_REMOVE_vgetcpu.o = -ffeedback-generate
 endif
 
 # Disable gcov profiling for VDSO code
