@@ -92,7 +92,7 @@ static void pcie_save(void)
 		piu_save->piuconfig0 = readq(piu_ior0_base + PIUCONFIG0);
 		piu_save->piuconfig1 = readq(piu_ior1_base + PIUCONFIG1);
 		piu_save->epdmabar = readq(piu_ior0_base + EPDMABAR);
-		piu_save->msiaddr = readq(piu_ior1_base + MSIADDR);
+		piu_save->msiaddr = readq(piu_ior0_base + MSIADDR);
 
 		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
 			for (i = 0; i < 256; i++) {
