@@ -54,6 +54,7 @@
 /* Following will be deprecated from user level invocation */
 #define HMC_rwreg		0x87
 #define HMC_sz_uflush		0xA8
+#define HMC_uwhami		0xA0
 #define HMC_longtime		0xB1
 
 #ifdef __KERNEL__
@@ -162,6 +163,7 @@ __CALL_HMC_VOID(wrktp);
 
 __CALL_HMC_R0(rdps, unsigned long);
 __CALL_HMC_R0(rvpcr, unsigned long);
+__CALL_HMC_R0(uwhami, unsigned long);
 
 __CALL_HMC_R0(rdusp, unsigned long);
 __CALL_HMC_W1(wrusp, unsigned long);
