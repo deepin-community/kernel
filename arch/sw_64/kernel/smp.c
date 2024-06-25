@@ -154,6 +154,9 @@ void smp_callin(void)
 	current->active_mm = &init_mm;
 	/* update csr:ptbr */
 	update_ptbr_sys(virt_to_phys(init_mm.pgd));
+#ifdef CONFIG_SUBARCH_C4
+	update_ptbr_usr(__pa_symbol(empty_zero_page));
+#endif
 
 	if (IS_ENABLED(CONFIG_SUBARCH_C4) && is_in_host()) {
 		nmi_stack_page = alloc_pages_node(
