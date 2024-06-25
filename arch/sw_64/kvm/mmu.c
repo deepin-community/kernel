@@ -295,14 +295,14 @@ void apt_unmap_vm(struct kvm *kvm)
 {
 	struct kvm_memslots *slots;
 	struct kvm_memory_slot *memslot;
-	int idx;
+	int idx, bkt;
 
 	idx = srcu_read_lock(&kvm->srcu);
 	down_read(&current->mm->mmap_lock);
 	spin_lock(&kvm->mmu_lock);
 
 	slots = kvm_memslots(kvm);
-	kvm_for_each_memslot(memslot, slots)
+	kvm_for_each_memslot(memslot, bkt, slots)
 		apt_unmap_memslot(kvm, memslot);
 	spin_unlock(&kvm->mmu_lock);
 	up_read(&current->mm->mmap_lock);
@@ -1373,11 +1373,12 @@ static int handle_hva_to_gpa(struct kvm *kvm, unsigned long start, unsigned long
 	struct kvm_memslots *slots;
 	struct kvm_memory_slot *memslot;
 	int ret = 0;
+	int bkt;
 
 	slots = kvm_memslots(kvm);
 
 	/* we only care about the pages that the guest sees */
-	kvm_for_each_memslot(memslot, slots) {
+	kvm_for_each_memslot(memslot, bkt, slots) {
 		unsigned long hva_start, hva_end;
 		gfn_t gpa;
 
