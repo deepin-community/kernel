@@ -2758,7 +2758,11 @@ static int gfx_v7_0_mec_init(struct amdgpu_device *adev)
 	}
 
 	/* clear memory.  Not sure if this is required or not */
+#if IS_ENABLED(CONFIG_SW64)
+	memset_io(hpd, 0, mec_hpd_size);
+#else
 	memset(hpd, 0, mec_hpd_size);
+#endif
 
 	amdgpu_bo_kunmap(adev->gfx.mec.hpd_eop_obj);
 	amdgpu_bo_unreserve(adev->gfx.mec.hpd_eop_obj);
@@ -2867,7 +2871,11 @@ static void gfx_v7_0_mqd_init(struct amdgpu_device *adev,
 	u64 wb_gpu_addr;
 
 	/* init the mqd struct */
+#if IS_ENABLED(CONFIG_SW64)
+	memset_io(mqd, 0, sizeof(struct cik_mqd));
+#else
 	memset(mqd, 0, sizeof(struct cik_mqd));
+#endif
 
 	mqd->header = 0xC0310800;
 	mqd->compute_static_thread_mgmt_se0 = 0xffffffff;
