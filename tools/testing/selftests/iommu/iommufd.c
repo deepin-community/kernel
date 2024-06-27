@@ -1493,34 +1493,34 @@ FIXTURE_TEARDOWN(iommufd_dirty_tracking)
 	teardown_iommufd(self->fd, _metadata);
 }
 
-FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty128k)
+FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty64k)
 {
 	/* one u32 index bitmap */
+	.buffer_size = 64UL * 1024UL,
+};
+
+FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty128k)
+{
+	/* one u64 index bitmap */
 	.buffer_size = 128UL * 1024UL,
 };
 
-FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty256k)
-{
-	/* one u64 index bitmap */
-	.buffer_size = 256UL * 1024UL,
-};
-
-FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty640k)
+FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty320k)
 {
 	/* two u64 index and trailing end bitmap */
-	.buffer_size = 640UL * 1024UL,
+	.buffer_size = 320UL * 1024UL,
+};
+
+FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty64M)
+{
+	/* 4K bitmap (64M IOVA range) */
+	.buffer_size = 64UL * 1024UL * 1024UL,
 };
 
 FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty128M)
 {
-	/* 4K bitmap (128M IOVA range) */
-	.buffer_size = 128UL * 1024UL * 1024UL,
-};
-
-FIXTURE_VARIANT_ADD(iommufd_dirty_tracking, domain_dirty256M)
-{
-	/* 8K bitmap (256M IOVA range) */
-	.buffer_size = 256UL * 1024UL * 1024UL,
+	/* 8K bitmap (128M IOVA range) */
+	.buffer_size = 128UL * 1024UL * 1024UL
 };
 
 TEST_F(iommufd_dirty_tracking, enforce_dirty)
