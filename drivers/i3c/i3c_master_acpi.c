@@ -25,11 +25,12 @@ static int i3c_master_acpi_parse_val(union acpi_object *store_elements, char *me
 
 			if (package_count == 2) {
 				acpi_elements = acpi_elements[i].package.elements;
-				if (acpi_elements[0].type == ACPI_TYPE_STRING) {
-					if (!strcmp(acpi_elements[0].string.pointer, method)) {
-						*value = acpi_elements[1].integer.value;
-						ret = 0;
-						break;
+				if ((acpi_elements[0].type == ACPI_TYPE_STRING) &&
+				   (!strcmp(acpi_elements[0].string.pointer, method))) {
+				   if (acpi_elements[1].type == ACPI_TYPE_INTEGER) {
+	   			      	*value = acpi_elements[1].integer.value;
+					ret = 0;
+					break;
 					}
 				}
 			}

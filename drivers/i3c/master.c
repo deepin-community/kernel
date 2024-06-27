@@ -19,7 +19,7 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 
-#ifdef CONFIG_ACPI
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
 #include "i3c_master_acpi.h"
 #endif
 #include "internals.h"
@@ -2252,7 +2252,7 @@ static int of_populate_i3c_bus(struct i3c_master_controller *master)
 	return 0;
 }
 
-#ifdef CONFIG_ACPI
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
 static int i3c_acpi_master_add_i2c_boardinfo(struct i3c_master_controller *master,
 				struct acpi_device *adev, struct i3c_acpi_lookup *look_up)
 {
@@ -2363,7 +2363,6 @@ static int i3c_acpi_master_get_slave_info(struct i3c_master_controller *master,
 
 	return ret;
 }
-
 
 static bool i3c_master_check_cpu_workaround(void)
 {
@@ -2916,7 +2915,7 @@ int i3c_master_register(struct i3c_master_controller *master,
 	ret = of_populate_i3c_bus(master);
 	if (ret)
 		goto err_put_dev;
-#ifdef CONFIG_ACPI
+#if defined(CONFIG_ACPI) && defined(CONFIG_ARCH_PHYTIUM)
 	i3c_acpi_register_devices(master);
 #endif
 	list_for_each_entry(i2cbi, &master->boardinfo.i2c, node) {
