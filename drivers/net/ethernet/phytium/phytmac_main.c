@@ -1725,6 +1725,9 @@ static void phytmac_mac_link_up(struct phylink_config *config,
 		pdata->pause = rx_pause;
 	}
 
+	pdata->speed = speed;
+	pdata->duplex = duplex;
+
 	phytmac_init_ring(pdata);
 
 	for (q = 0, queue = pdata->queues; q < pdata->queues_num; ++q, ++queue)
