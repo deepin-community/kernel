@@ -1726,6 +1726,9 @@ static void phytmac_mac_link_up(struct phylink_config *config,
 		pdata->pause = rx_pause;
 	}
 
+	pdata->speed = speed;
+	pdata->duplex = duplex;
+
 	phytmac_init_ring(pdata);
 
 	for (q = 0, queue = pdata->queues; q < pdata->queues_num; ++q, ++queue)
@@ -1844,11 +1847,12 @@ static void phytmac_validate(struct phylink_config *config,
 	if (state->interface == PHY_INTERFACE_MODE_5GBASER)
 		phylink_set(mask, 5000baseT_Full);
 
-	if (state->interface == PHY_INTERFACE_MODE_1000BASEX ||
-	    state->interface == PHY_INTERFACE_MODE_SGMII ||
+	if (state->interface == PHY_INTERFACE_MODE_1000BASEX)
+		phylink_set(mask, 1000baseX_Full);
+
+	if (state->interface == PHY_INTERFACE_MODE_SGMII ||
 	    phy_interface_mode_is_rgmii(state->interface)) {
 		phylink_set(mask, 1000baseT_Full);
-		phylink_set(mask, 1000baseX_Full);
 		phylink_set(mask, 1000baseT_Half);
 		phylink_set(mask, 10baseT_Half);
 		phylink_set(mask, 10baseT_Full);
