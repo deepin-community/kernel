@@ -13,7 +13,7 @@
 
 #define PHYTMAC_DRV_NAME		"phytium-mac"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.4"
+#define PHYTMAC_DRIVER_VERSION		"1.0.5"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
@@ -607,4 +607,5 @@ int phytmac_drv_resume(struct phytmac *pdata);
 struct phytmac *phytmac_alloc_pdata(struct device *dev);
 void phytmac_free_pdata(struct phytmac *pdata);
 int phytmac_reset_ringsize(struct phytmac *pdata, u32 rx_size, u32 tx_size);
+void phytmac_set_bios_wol_enable(struct phytmac *pdata, u32 wol);
 #endif
