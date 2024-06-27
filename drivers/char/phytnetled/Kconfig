@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# PCMCIA character device configuration
+#
+config PHYTNET_LED
+        tristate "Phytium mac led control module"
+        depends on PHYTMAC
+        depends on GPIO_PHYTIUM_PLAT
+        default m
+        help
+          If you have a network (Ethernet) controller of this type and
+          want to use it control port led say Y or M here.
+
