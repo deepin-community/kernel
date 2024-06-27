@@ -110,6 +110,8 @@ static int phytmac_set_mac_address(struct net_device *netdev, void *addr)
 
 	hw_if->set_mac_address(pdata, saddr->sa_data);
 
+	phytmac_set_bios_wol_enable(pdata, pdata->wol ? 1 : 0);
+
 	return 0;
 }
 
@@ -1911,6 +1913,7 @@ static int phytmac_open(struct net_device *ndev)
 	}
 
 	phylink_start(pdata->phylink);
+	phytmac_set_bios_wol_enable(pdata, pdata->wol ? 1 : 0);
 
 	netif_tx_start_all_queues(pdata->ndev);
 
@@ -2060,6 +2063,37 @@ static netdev_features_t phytmac_features_check(struct sk_buff *skb,
 			return features & ~NETIF_F_TSO;
 	}
 	return features;
+}
+
+void phytmac_set_bios_wol_enable(struct phytmac *pdata, u32 wol)
+{
+	struct net_device *ndev = pdata->ndev;
+
+	if (ndev->phydev) {
+#ifdef CONFIG_ACPI
+		if (has_acpi_companion(pdata->dev)) {
+			acpi_handle handle = ACPI_HANDLE(pdata->dev);
+
+			if (acpi_has_method(handle, "PWOL")) {
+				union acpi_object args[] = {
+					{ .type = ACPI_TYPE_INTEGER, },
+				};
+				struct acpi_object_list arg_input = {
+					.pointer = args,
+					.count = ARRAY_SIZE(args),
+				};
+				acpi_status status;
+
+				/* Set the input parameters */
+				args[0].integer.value = wol;
+
+				status = acpi_evaluate_object(handle, "PWOL", &arg_input, NULL);
+				if (ACPI_FAILURE(status))
+					netdev_err(ndev, "The PWOL method failed to be executed.\n");
+			}
+		}
+#endif
+	}
 }
 
 int phytmac_reset_ringsize(struct phytmac *pdata, u32 rx_size, u32 tx_size)
