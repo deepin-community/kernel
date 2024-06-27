@@ -1078,12 +1078,15 @@ static void phytmac_mac_interface_config(struct phytmac *pdata, unsigned int mod
 		config |= PHYTMAC_BIT(SGMII_EN) | PHYTMAC_BIT(PCS_EN);
 		if (state->speed == SPEED_1000)
 			config |= PHYTMAC_BIT(GM_EN);
-		else if (state->speed == SPEED_2500)
-			config |= PHYTMAC_BIT(2PT5G);
+		else if (state->speed == SPEED_2500) {
+			ctrl |= PHYTMAC_BIT(2PT5G);
+			config |= PHYTMAC_BIT(GM_EN);
+		}
 	} else if (state->interface == PHY_INTERFACE_MODE_1000BASEX) {
 		config |= PHYTMAC_BIT(PCS_EN) | PHYTMAC_BIT(GM_EN);
 	} else if (state->interface == PHY_INTERFACE_MODE_2500BASEX) {
-		config |= PHYTMAC_BIT(2PT5G) | PHYTMAC_BIT(PCS_EN);
+		ctrl |= PHYTMAC_BIT(2PT5G);
+		config |= PHYTMAC_BIT(PCS_EN) | PHYTMAC_BIT(GM_EN);
 	} else if (state->interface == PHY_INTERFACE_MODE_10GBASER ||
 		   state->interface == PHY_INTERFACE_MODE_USXGMII ||
 		   state->interface == PHY_INTERFACE_MODE_5GBASER) {
@@ -1111,11 +1114,17 @@ static void phytmac_mac_interface_config(struct phytmac *pdata, unsigned int mod
 	if (old_config ^ config)
 		PHYTMAC_WRITE(pdata, PHYTMAC_NCONFIG, config);
 
-	/* Disable AN for SGMII fixed link configuration, enable otherwise.*/
-	if (state->interface == PHY_INTERFACE_MODE_SGMII)
-		phytmac_enable_autoneg(pdata, mode == MLO_AN_FIXED ? 0 : 1);
+	/* Disable AN for SGMII fixed link or speed equal to 2.5G, enable otherwise.*/
+	if (state->interface == PHY_INTERFACE_MODE_SGMII) {
+		if (state->speed == SPEED_2500 || mode == MLO_AN_FIXED)
+			phytmac_enable_autoneg(pdata, 0);
+		else
+			phytmac_enable_autoneg(pdata, 1);
+	}
 	if (state->interface == PHY_INTERFACE_MODE_1000BASEX)
 		phytmac_enable_autoneg(pdata, 1);
+	if (state->interface == PHY_INTERFACE_MODE_2500BASEX)
+		phytmac_enable_autoneg(pdata, 0);
 }
 
 static unsigned int phytmac_pcs_get_link(struct phytmac *pdata,
