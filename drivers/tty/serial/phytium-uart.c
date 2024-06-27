@@ -763,7 +763,7 @@ static struct uart_driver phytium_uart = {
 	.nr		= UART_NR,
 };
 
-void phytium_unregister_port(struct phytium_uart_port *pup)
+static void phytium_unregister_port(struct phytium_uart_port *pup)
 {
 	int i;
 	bool busy = false;
