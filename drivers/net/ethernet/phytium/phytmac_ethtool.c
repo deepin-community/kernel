@@ -131,6 +131,7 @@ static int phytmac_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 		pdata->wol |= PHYTMAC_WAKE_MCAST;
 
 	device_set_wakeup_enable(pdata->dev, pdata->wol ? 1 : 0);
+	phytmac_set_bios_wol_enable(pdata, pdata->wol ? 1 : 0);
 
 	return 0;
 }
