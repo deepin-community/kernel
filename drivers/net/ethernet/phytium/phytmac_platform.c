@@ -14,6 +14,8 @@
 #include "phytmac_v1.h"
 #include "phytmac_v2.h"
 
+#include <linux/platform_device.h>
+
 static const struct phytmac_config phytium_1p0_config = {
 	.hw_if = &phytmac_1p0_hw,
 	.caps = PHYTMAC_CAPS_TAILPTR
