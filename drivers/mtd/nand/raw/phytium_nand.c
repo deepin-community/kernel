@@ -236,7 +236,7 @@ static void phytium_nfc_parse_instructions(struct nand_chip *chip,
 	}
 }
 
-int phytium_nfc_prepare_cmd(struct nand_chip *chip,
+static int phytium_nfc_prepare_cmd(struct nand_chip *chip,
 			    struct phytium_nfc_op *nfc_op,
 			    enum dma_data_direction direction)
 {
@@ -254,9 +254,8 @@ int phytium_nfc_prepare_cmd(struct nand_chip *chip,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_prepare_cmd);
 
-int phytium_nfc_send_cmd(struct nand_chip *chip,
+static int phytium_nfc_send_cmd(struct nand_chip *chip,
 			 struct phytium_nfc_op *nfc_op)
 {
 	struct phytium_nfc *nfc = to_phytium_nfc(chip->controller);
@@ -289,9 +288,8 @@ int phytium_nfc_send_cmd(struct nand_chip *chip,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_send_cmd);
 
-int phytium_nfc_prepare_cmd2(struct nand_chip *chip,
+static int phytium_nfc_prepare_cmd2(struct nand_chip *chip,
 			     struct phytium_nfc_op *nfc_op,
 			     enum dma_data_direction direction,
 			     u32 cmd_num)
@@ -308,9 +306,8 @@ int phytium_nfc_prepare_cmd2(struct nand_chip *chip,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_prepare_cmd2);
 
-int phytium_nfc_send_cmd2(struct nand_chip *chip,
+static int phytium_nfc_send_cmd2(struct nand_chip *chip,
 			  struct phytium_nfc_op *nfc_op,
 			  u32 cmd_num)
 {
@@ -350,9 +347,8 @@ int phytium_nfc_send_cmd2(struct nand_chip *chip,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_send_cmd2);
 
-int phytium_nfc_wait_op(struct nand_chip *chip,
+static int phytium_nfc_wait_op(struct nand_chip *chip,
 			u32 timeout_ms)
 {
 	struct phytium_nfc *nfc = to_phytium_nfc(chip->controller);
@@ -382,7 +378,6 @@ int phytium_nfc_wait_op(struct nand_chip *chip,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_wait_op);
 
 static int phytium_nfc_xfer_data_pio(struct phytium_nfc *nfc,
 				     const struct nand_subop *subop,
@@ -429,7 +424,7 @@ static int memcpy_to_reg16(struct phytium_nfc *nfc, u32 reg, u16 *buf, size_t le
 	return 0;
 }
 
-int phytium_nfc_default_data_interface(struct phytium_nfc *nfc)
+static int phytium_nfc_default_data_interface(struct phytium_nfc *nfc)
 {
 	int value;
 
@@ -493,7 +488,6 @@ int phytium_nfc_default_data_interface(struct phytium_nfc *nfc)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_default_data_interface);
 
 static int phytium_nfc_naked_waitrdy_exec(struct nand_chip *chip,
 					  const struct nand_subop *subop)
@@ -1846,7 +1840,7 @@ static int phytium_nfc_init_dma(struct phytium_nfc *nfc)
 	return 0;
 }
 
-int phytium_nfc_init(struct phytium_nfc *nfc)
+static int phytium_nfc_init(struct phytium_nfc *nfc)
 {
 	u32 value;
 
@@ -1881,7 +1875,6 @@ int phytium_nfc_init(struct phytium_nfc *nfc)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(phytium_nfc_init);
 
 static int phytium_nfc_setup_interface(struct nand_chip *chip, int chipnr,
 				       const struct nand_interface_config *conf)
