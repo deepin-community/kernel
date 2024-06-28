@@ -60,7 +60,7 @@ static int phytmac_msg_send(struct phytmac *pdata, u16 cmd_id,
 	return ret;
 }
 
-void phytmac_reset_hw(struct phytmac *pdata)
+static void phytmac_reset_hw(struct phytmac *pdata)
 {
 	int q;
 	u16 cmd_id, cmd_subid;
@@ -115,7 +115,7 @@ static int phytmac_get_mac_addr(struct phytmac *pdata, u8 *addr)
 	return 0;
 }
 
-int phytmac_set_mac_addr(struct phytmac *pdata, const u8 *addr)
+static int phytmac_set_mac_addr(struct phytmac *pdata, const u8 *addr)
 {
 	u16 cmd_id;
 	u16 cmd_subid;
@@ -260,7 +260,7 @@ static int phytmac_init_ring_hw(struct phytmac *pdata)
 	return 0;
 }
 
-int phytmac_init_msg_ring(struct phytmac *pdata)
+static int phytmac_init_msg_ring(struct phytmac *pdata)
 {
 	u32 size = 0;
 
@@ -317,7 +317,7 @@ static int phytmac_get_feature_all(struct phytmac *pdata)
 	return 0;
 }
 
-void phytmac_get_regs(struct phytmac *pdata, u32 *reg_buff)
+static void phytmac_get_regs(struct phytmac *pdata, u32 *reg_buff)
 {
 	u16 cmd_id, cmd_subid;
 	u16 reg_num;
@@ -1037,7 +1037,7 @@ static void phytmac_get_time(struct phytmac *pdata, struct timespec64 *ts)
 	ts->tv_sec = (((u64)sech << 32) | secl) & TIMER_SEC_MAX_VAL;
 }
 
-void phytmac_set_time(struct phytmac *pdata, time64_t sec, long nsec)
+static void phytmac_set_time(struct phytmac *pdata, time64_t sec, long nsec)
 {
 	u32 secl, sech;
 
@@ -1050,7 +1050,7 @@ void phytmac_set_time(struct phytmac *pdata, time64_t sec, long nsec)
 	PHYTMAC_WRITE(pdata, PHYTMAC_TIMER_NSEC, nsec);
 }
 
-void phytmac_clear_time(struct phytmac *pdata)
+static void phytmac_clear_time(struct phytmac *pdata)
 {
 	u32 value;
 
@@ -1068,7 +1068,7 @@ void phytmac_clear_time(struct phytmac *pdata)
 	PHYTMAC_WRITE(pdata, PHYTMAC_TIMER_ADJUST, 0);
 }
 
-int phytmac_set_tsmode(struct phytmac *pdata, struct ts_ctrl *ctrl)
+static int phytmac_set_tsmode(struct phytmac *pdata, struct ts_ctrl *ctrl)
 {
 	u16 cmd_id, cmd_subid;
 	struct phytmac_ts_config para;
@@ -1129,7 +1129,7 @@ static int phytmac_adjust_fine(struct phytmac *pdata, long ppm, bool negative)
 	return 0;
 }
 
-int phytmac_adjust_time(struct phytmac *pdata, s64 delta, int neg)
+static int phytmac_adjust_time(struct phytmac *pdata, s64 delta, int neg)
 {
 	u32 adj;
 
