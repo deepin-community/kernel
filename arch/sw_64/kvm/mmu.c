@@ -1063,8 +1063,49 @@ retry:
 	return 0;
 }
 
+static int get_user_mapping_size(struct kvm *kvm, u64 hva)
+{
+	unsigned long flags;
+	int pgsize = PAGE_SIZE;
+	pgd_t pgd;
+	p4d_t p4d;
+	pud_t pud;
+	pmd_t pmd;
+
+	/*
+	 * Disable IRQs to prevent concurrent tear down of host page tables,
+	 * e.g. if the primary MMU promotes a P*D to a huge page and then frees
+	 * the original page table.
+	 */
+	local_irq_save(flags);
+
+	pgd = *(pgd_offset(kvm->mm, hva));
+	if (pgd_none(pgd))
+		goto out;
+
+	p4d = *(p4d_offset(&pgd, hva));
+	if (p4d_none(p4d) || !p4d_present(p4d))
+		goto out;
+
+	pud = *(pud_offset(&p4d, hva));
+	if (pud_none(pud) || !pud_present(pud))
+		goto out;
+
+	pmd = *(pmd_offset(&pud, hva));
+	if (pmd_none(pmd) || !pmd_present(pmd))
+		goto out;
+
+	if (pmd_trans_huge(pmd))
+		pgsize = PMD_SIZE;
+
+out:
+	local_irq_restore(flags);
+	return pgsize;
+
+}
+
 static unsigned long
-transparent_hugepage_adjust(struct kvm_memory_slot *memslot,
+transparent_hugepage_adjust(struct kvm *kvm, struct kvm_memory_slot *memslot,
 			    unsigned long hva, kvm_pfn_t *pfnp,
 			    phys_addr_t *gpap)
 {
@@ -1075,8 +1116,14 @@ transparent_hugepage_adjust(struct kvm_memory_slot *memslot,
 	 * sure that the HVA and IPA are sufficiently aligned and that the
 	 * block map is contained within the memslot.
 	 */
-	if (kvm_is_transparent_hugepage(pfn) &&
-	    fault_supports_apt_huge_mapping(memslot, hva, PMD_SIZE)) {
+	if (fault_supports_apt_huge_mapping(memslot, hva, PMD_SIZE)) {
+		int pgsz = get_user_mapping_size(kvm, hva);
+
+		if (pgsz < 0)
+			return pgsz;
+
+		if (pgsz < PMD_SIZE)
+			return PAGE_SIZE;
 		/*
 		 * The address we faulted on is backed by a transparent huge
 		 * page. However, because we map the compound huge page and
@@ -1181,6 +1228,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	smp_rmb();
 
 	pfn = gfn_to_pfn_prot(kvm, gfn, write_fault, &writable);
+
 	if (pfn == KVM_PFN_ERR_HWPOISON) {
 		kvm_send_hwpoison_signal(hva, vma);
 		return 0;
@@ -1213,7 +1261,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	 * backed by a THP and thus use block mapping if possible.
 	 */
 	if (vma_pagesize == PAGE_SIZE && !force_pte) {
-		vma_pagesize = transparent_hugepage_adjust(memslot, hva,
+		vma_pagesize = transparent_hugepage_adjust(kvm, memslot, hva,
 				&pfn, &fault_gpa);
 	}
 
