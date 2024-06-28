@@ -1817,7 +1817,7 @@ static uint32_t initEndpoints(struct HOST_CTRL *priv)
 	return 0;
 }
 
-int32_t hostInit(struct HOST_CTRL *priv, struct HOST_CFG *config,
+static int32_t hostInit(struct HOST_CTRL *priv, struct HOST_CFG *config,
 		struct HOST_CALLBACKS *callbacks, struct device *pdev, bool isVhubHost)
 {
 	int index;
@@ -1888,11 +1888,11 @@ int32_t hostInit(struct HOST_CTRL *priv, struct HOST_CFG *config,
 	return 0;
 }
 
-void hostDestroy(struct HOST_CTRL *priv)
+static void hostDestroy(struct HOST_CTRL *priv)
 {
 }
 
-void hostStart(struct HOST_CTRL *priv)
+static void hostStart(struct HOST_CTRL *priv)
 {
 	uint8_t otgstate, usbien;
 
@@ -1923,7 +1923,7 @@ retry:
 			OTGIRQ_VBUSERRIRQ | OTGIRQ_SRPDETIRQ);
 }
 
-void hostStop(struct HOST_CTRL *priv)
+static void hostStop(struct HOST_CTRL *priv)
 {
 	if (!priv)
 		return;
@@ -1979,7 +1979,7 @@ static void handleReset(struct HOST_CTRL *priv)
 	}
 }
 
-void hostIsr(struct HOST_CTRL *priv)
+static void hostIsr(struct HOST_CTRL *priv)
 {
 	uint8_t usbirq, usbien;
 
@@ -2017,12 +2017,12 @@ DMA_IRQ:
 	priv->dmaDrv->dma_isr(priv->dmaController);
 }
 
-int32_t hostEpDisable(struct HOST_CTRL *priv, struct HOST_EP *ep)
+static int32_t hostEpDisable(struct HOST_CTRL *priv, struct HOST_EP *ep)
 {
 	return 0;
 }
 
-unsigned int get_endpoint_interval(struct usb_endpoint_descriptor desc,
+static unsigned int get_endpoint_interval(struct usb_endpoint_descriptor desc,
 		int speed)
 {
 	unsigned int interval = 0;
@@ -2072,7 +2072,7 @@ unsigned int get_endpoint_interval(struct usb_endpoint_descriptor desc,
 	return interval;
 }
 
-int32_t hostReqQueue(struct HOST_CTRL *priv, struct HOST_REQ *req)
+static int32_t hostReqQueue(struct HOST_CTRL *priv, struct HOST_REQ *req)
 {
 	struct HOST_EP_PRIV *hostEpPriv;
 	struct list_head *hEpQueue = NULL;
@@ -2185,7 +2185,7 @@ static int abortActuallyUsbRequest(struct HOST_CTRL *priv,
 	return 0;
 }
 
-int32_t hostReqDequeue(struct HOST_CTRL *priv, struct HOST_REQ *req, uint32_t status)
+static int32_t hostReqDequeue(struct HOST_CTRL *priv, struct HOST_REQ *req, uint32_t status)
 {
 	struct HOST_EP *usbEp;
 	struct HOST_EP_PRIV *usbEpPriv;
@@ -2220,17 +2220,17 @@ int32_t hostReqDequeue(struct HOST_CTRL *priv, struct HOST_REQ *req, uint32_t st
 	return ret;
 }
 
-int32_t hostVHubStatusData(struct HOST_CTRL *priv, uint8_t *status)
+static int32_t hostVHubStatusData(struct HOST_CTRL *priv, uint8_t *status)
 {
 	return 0;
 }
 
-int32_t hostGetDevicePD(struct HOST_CTRL *priv)
+static int32_t hostGetDevicePD(struct HOST_CTRL *priv)
 {
 	return 0;
 }
 
-int32_t hostGetPrivateDataSize(struct HOST_CTRL *priv)
+static int32_t hostGetPrivateDataSize(struct HOST_CTRL *priv)
 {
 	if (!priv)
 		return 0;
@@ -2500,7 +2500,7 @@ static int hc_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	return retval;
 }
 
-int32_t hostVHubControl(struct HOST_CTRL *priv, struct usb_ctrlrequest *setup, uint8_t *buff)
+static int32_t hostVHubControl(struct HOST_CTRL *priv, struct usb_ctrlrequest *setup, uint8_t *buff)
 {
 	uint16_t request;
 	uint32_t retval = 0;
