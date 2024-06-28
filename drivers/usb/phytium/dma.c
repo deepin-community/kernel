@@ -35,7 +35,7 @@
 	trb.dmaSize = 0; \
 	trb.ctrl = 0; }
 
-uint32_t divRoundUp(uint32_t divident, uint32_t divisor)
+static uint32_t divRoundUp(uint32_t divident, uint32_t divisor)
 {
 	return divisor ? ((divident + divisor - 1) / divisor) : 0;
 }
@@ -734,7 +734,7 @@ static void phytium_dma_setParentPriv(struct DMA_CONTROLLER *priv, void *parent)
 	priv->parent = parent;
 }
 
-void phytium_dma_controllerReset(struct DMA_CONTROLLER *priv)
+static void phytium_dma_controllerReset(struct DMA_CONTROLLER *priv)
 {
 	uint32_t conf;
 
@@ -748,7 +748,7 @@ void phytium_dma_controllerReset(struct DMA_CONTROLLER *priv)
 	priv->resubmit = true;
 }
 
-void phytium_dma_setHostMode(struct DMA_CONTROLLER *priv)
+static void phytium_dma_setHostMode(struct DMA_CONTROLLER *priv)
 {
 	if (!priv)
 		return;
