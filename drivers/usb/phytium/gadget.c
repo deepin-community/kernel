@@ -69,7 +69,7 @@ static inline struct GADGET_REQ *gadgetGetNextEp0Req(struct GADGET_CTRL *priv)
 	return listToGadgetRequest(queue->next);
 }
 
-void gadget_giveback(struct phytium_ep *phy_ep, struct usb_request *usb_req, int status)
+static void gadget_giveback(struct phytium_ep *phy_ep, struct usb_request *usb_req, int status)
 {
 	struct phytium_request	*phy_req;
 	struct phytium_cusb	*config;
@@ -1279,7 +1279,7 @@ static void gadgetEpXDataCallback(struct GADGET_CTRL *priv, uint8_t epNum, uint8
 	}
 }
 
-void gadget_CallbackTransfer(void *priv, uint8_t epNum, uint8_t epDir, bool resubmit)
+static void gadget_CallbackTransfer(void *priv, uint8_t epNum, uint8_t epDir, bool resubmit)
 {
 	if (!epNum)
 		gadgetEp0Irq(priv);
@@ -1914,7 +1914,7 @@ static void gadgetSetup(struct GADGET_CTRL *priv)
 	phytium_write8(&priv->regs->endprst, ENDPRST_FIFORST | ENDPRST_TOGRST);
 	priv->isReady = 1;
 }
-int32_t gadgetInit(struct GADGET_CTRL *priv, struct GADGET_CFG *config,
+static int32_t gadgetInit(struct GADGET_CTRL *priv, struct GADGET_CFG *config,
 		struct GADGET_CALLBACKS *callbacks, struct device *pdev)
 {
 	struct DMA_SYSREQ dmaSysReq;
@@ -2239,19 +2239,19 @@ static int phytium_gadget_set_default_cfg(struct phytium_cusb *config)
 	return 0;
 }
 
-void gadget_callback_connect(struct GADGET_CTRL *priv)
+static void gadget_callback_connect(struct GADGET_CTRL *priv)
 {
 	if (!priv)
 		return;
 }
 
-void gadget_callback_disconnect(struct GADGET_CTRL *priv)
+static void gadget_callback_disconnect(struct GADGET_CTRL *priv)
 {
 	if (!priv)
 		return;
 }
 
-int32_t gadget_callback_setup(struct GADGET_CTRL *priv, struct usb_ctrlrequest *ctrl)
+static int32_t gadget_callback_setup(struct GADGET_CTRL *priv, struct usb_ctrlrequest *ctrl)
 {
 	struct phytium_cusb *config;
 	int ret = 0;
@@ -2284,7 +2284,7 @@ int32_t gadget_callback_setup(struct GADGET_CTRL *priv, struct usb_ctrlrequest *
 	return 0;
 }
 
-void *gadget_callback_usbRequestMemAlloc(struct GADGET_CTRL *priv, u32 size)
+static void *gadget_callback_usbRequestMemAlloc(struct GADGET_CTRL *priv, u32 size)
 {
 	struct GADGET_REQ *gadget_req = NULL;
 
@@ -2295,7 +2295,7 @@ void *gadget_callback_usbRequestMemAlloc(struct GADGET_CTRL *priv, u32 size)
 	return gadget_req;
 }
 
-void gadget_callback_usbRequestMemFree(struct GADGET_CTRL *priv, void *usbReq)
+static void gadget_callback_usbRequestMemFree(struct GADGET_CTRL *priv, void *usbReq)
 {
 	if (!usbReq)
 		return;
@@ -2412,7 +2412,7 @@ err:
 	return ret;
 }
 
-int phytium_gadget_reinit(struct phytium_cusb *config)
+static int phytium_gadget_reinit(struct phytium_cusb *config)
 {
 	struct GADGET_CTRL *ctrl;
 
