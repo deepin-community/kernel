@@ -77,6 +77,7 @@ static int phytmac_get_phy_mode(struct platform_device *pdev)
 static int phytmac_plat_probe(struct platform_device *pdev)
 {
 	const struct phytmac_config *phytmac_config = &phytium_1p0_config;
+	struct device_node __maybe_unused *np;
 	struct resource *regs;
 	struct phytmac *pdata;
 	int ret, i;
