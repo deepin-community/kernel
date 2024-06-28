@@ -260,8 +260,15 @@ static int pwm_export_child(struct device *parent, struct pwm_device *pwm)
 	export->child.parent = parent;
 	export->child.devt = MKDEV(0, 0);
 	export->child.groups = pwm_groups;
-	dev_set_name(&export->child, "pwm%u", pwm->hwpwm);
 
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (read_cpuid_implementor() == ARM_CPU_IMP_PHYTIUM)
+		dev_set_name(&export->child, "pwm%u", pwm->pwm);
+	else
+		dev_set_name(&export->child, "pwm%u", pwm->hwpwm);
+#else
+		dev_set_name(&export->child, "pwm%u", pwm->hwpwm);
+#endif
 	ret = device_register(&export->child);
 	if (ret) {
 		clear_bit(PWMF_EXPORTED, &pwm->flags);

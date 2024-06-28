@@ -454,6 +454,16 @@ config PWM_PCA9685
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-pca9685.
 
+config PWM_PHYTIUM
+	tristate "Phytium PWM support"
+	depends on ARCH_PHYTIUM
+	help
+	  Generic PWM framework driver for the PWM controller found on
+	  Phytium SoCs.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-phytium.
+
 config PWM_PXA
 	tristate "PXA PWM support"
 	depends on ARCH_PXA || ARCH_MMP || COMPILE_TEST
