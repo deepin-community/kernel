@@ -132,6 +132,7 @@ config LOONGARCH
 	select HAVE_KPROBES
 	select HAVE_KPROBES_ON_FTRACE
 	select HAVE_KRETPROBES
+	select HAVE_KVM
 	select HAVE_MOD_ARCH_SPECIFIC
 	select HAVE_NMI
 	select HAVE_PCI
@@ -265,6 +266,9 @@ config AS_HAS_LASX_EXTENSION
 
 config AS_HAS_LBT_EXTENSION
 	def_bool $(as-instr,movscr2gr \$a0$(comma)\$scr0)
+
+config AS_HAS_LVZ_EXTENSION
+	def_bool $(as-instr,hvcl 0)
 
 menu "Kernel type and options"
 
@@ -562,6 +566,15 @@ config CPU_HAS_PREFETCH
 	bool
 	default y
 
+config PARAVIRT
+	bool "Enable paravirtualization code"
+	depends on AS_HAS_LVZ_EXTENSION
+	help
+          This changes the kernel so it can modify itself when it is run
+	  under a hypervisor, potentially improving performance significantly
+	  over full virtualization.  However, when run without a hypervisor
+	  the kernel is theoretically slower and slightly larger.
+
 config ARCH_SUPPORTS_KEXEC
 	def_bool y
 
@@ -659,3 +672,5 @@ source "kernel/power/Kconfig"
 source "drivers/acpi/Kconfig"
 
 endmenu
+
+source "arch/loongarch/kvm/Kconfig"

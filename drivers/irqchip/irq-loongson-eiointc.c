@@ -23,6 +23,16 @@
 #define EIOINTC_REG_ISR		0x1800
 #define EIOINTC_REG_ROUTE	0x1c00
 
+#define EXTIOI_VIRT_FEATURES		0x40000000
+#define  EXTIOI_HAS_VIRT_EXTENSION	0
+#define  EXTIOI_HAS_ENABLE_OPTION	1
+#define  EXTIOI_HAS_INT_ENCODE		2
+#define  EXTIOI_HAS_CPU_ENCODE		3
+#define EXTIOI_VIRT_CONFIG		0x40000004
+#define  EXTIOI_ENABLE			1
+#define  EXTIOI_ENABLE_INT_ENCODE	2
+#define  EXTIOI_ENABLE_CPU_ENCODE	3
+
 #define VEC_REG_COUNT		4
 #define VEC_COUNT_PER_REG	64
 #define VEC_COUNT		(VEC_REG_COUNT * VEC_COUNT_PER_REG)
@@ -41,6 +51,7 @@ struct eiointc_priv {
 	cpumask_t		cpuspan_map;
 	struct fwnode_handle	*domain_handle;
 	struct irq_domain	*eiointc_domain;
+	bool			cpu_encoded;
 };
 
 static struct eiointc_priv *eiointc_priv[MAX_IO_PICS];
@@ -91,7 +102,16 @@ static DEFINE_RAW_SPINLOCK(affinity_lock);
 
 static void virt_extioi_set_irq_route(int irq, unsigned int cpu)
 {
-	iocsr_write8(cpu_logical_map(cpu), EIOINTC_REG_ROUTE + irq);
+	int data;
+
+	/*
+	 * get irq route info for continuous 4 vectors
+	 * and set affinity for specified vector
+	 */
+	data = iocsr_read32(EIOINTC_REG_ROUTE + (irq & ~3));
+	data &=  ~(0xff << ((irq & 3) * 8));
+	data |= cpu_logical_map(cpu) << ((irq & 3) * 8);
+	iocsr_write32(data, EIOINTC_REG_ROUTE + (irq & ~3));
 }
 
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
@@ -116,7 +136,7 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 	vector = d->hwirq;
 	regaddr = EIOINTC_REG_ENABLE + ((vector >> 5) << 2);
 
-	if (cpu_has_hypervisor) {
+	if (priv->cpu_encoded) {
 		iocsr_write32(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1F), regaddr);
 		virt_extioi_set_irq_route(vector, cpu);
 		iocsr_write32(EIOINTC_ALL_ENABLE, regaddr);
@@ -181,8 +201,10 @@ static int eiointc_router_init(unsigned int cpu)
 
 		for (i = 0; i < eiointc_priv[0]->vec_count / 4; i++) {
 			/* Route to Node-0 Core-0 */
-			if (index == 0)
-				bit = (cpu_has_hypervisor ? cpu_logical_map(0) : BIT(cpu_logical_map(0)));
+			if (eiointc_priv[index]->cpu_encoded)
+				bit = cpu_logical_map(0);
+			else if (index == 0)
+				bit = BIT(cpu_logical_map(0));
 			else
 				bit = (eiointc_priv[index]->node << 4) | 1;
 
@@ -212,6 +234,12 @@ static void eiointc_irq_dispatch(struct irq_desc *desc)
 
 	for (i = 0; i < eiointc_priv[0]->vec_count / VEC_COUNT_PER_REG; i++) {
 		pending = iocsr_read64(EIOINTC_REG_ISR + (i << 3));
+
+		/* Skip handling if pending bitmap is zero */
+		if (!pending)
+			continue;
+
+		/* Clear the IRQs */
 		iocsr_write64(pending, EIOINTC_REG_ISR + (i << 3));
 		while (pending) {
 			int bit = __ffs(pending);
@@ -318,23 +346,7 @@ static int eiointc_suspend(void)
 
 static void eiointc_resume(void)
 {
-	int i, j;
-	struct irq_desc *desc;
-	struct irq_data *irq_data;
-
 	eiointc_router_init(0);
-
-	for (i = 0; i < nr_pics; i++) {
-		for (j = 0; j < eiointc_priv[0]->vec_count; j++) {
-			desc = irq_resolve_mapping(eiointc_priv[i]->eiointc_domain, j);
-			if (desc && desc->handle_irq && desc->handle_irq != handle_bad_irq) {
-				raw_spin_lock(&desc->lock);
-				irq_data = irq_domain_get_irq_data(eiointc_priv[i]->eiointc_domain, irq_desc_get_irq(desc));
-				eiointc_set_irq_affinity(irq_data, irq_data->common->affinity, 0);
-				raw_spin_unlock(&desc->lock);
-			}
-		}
-	}
 }
 
 static struct syscore_ops eiointc_syscore_ops = {
@@ -363,7 +375,7 @@ int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
 	int node;
 
 	if (cpu_has_flatmode)
-		node = cpu_to_node(eiointc_priv[nr_pics - 1]->node * CORES_PER_EIO_NODE);
+		node = eiointc_priv[nr_pics - 1]->node / NODES_PER_FLATMODE_NODE;
 	else
 		node = eiointc_priv[nr_pics - 1]->node;
 
@@ -393,7 +405,7 @@ static int __init acpi_cascade_irqdomain_init(void)
 static int __init eiointc_init(struct eiointc_priv *priv, int parent_irq,
 			       u64 node_map)
 {
-	int i;
+	int i, val;
 
 	node_map = node_map ? node_map : -1ULL;
 	for_each_possible_cpu(i) {
@@ -411,6 +423,17 @@ static int __init eiointc_init(struct eiointc_priv *priv, int parent_irq,
 	if (!priv->eiointc_domain) {
 		pr_err("loongson-extioi: cannot add IRQ domain\n");
 		return -ENOMEM;
+	}
+
+	if (cpu_has_hypervisor) {
+		val = iocsr_read32(EXTIOI_VIRT_FEATURES);
+		if (val & BIT(EXTIOI_HAS_CPU_ENCODE)) {
+			val = iocsr_read32(EXTIOI_VIRT_CONFIG);
+			val |= BIT(EXTIOI_ENABLE_CPU_ENCODE);
+			iocsr_write32(val, EXTIOI_VIRT_CONFIG);
+			priv->cpu_encoded = true;
+			pr_info("loongson-extioi: enable cpu encodig\n");
+		}
 	}
 
 	eiointc_priv[nr_pics++] = priv;
@@ -455,7 +478,7 @@ int __init eiointc_acpi_init(struct irq_domain *parent,
 		goto out_free_handle;
 
 	if (cpu_has_flatmode)
-		node = cpu_to_node(acpi_eiointc->node * CORES_PER_EIO_NODE);
+		node = acpi_eiointc->node / NODES_PER_FLATMODE_NODE;
 	else
 		node = acpi_eiointc->node;
 	acpi_set_vec_parent(node, priv->eiointc_domain, pch_group);

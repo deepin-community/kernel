@@ -1107,6 +1107,20 @@ config PCF50633_GPIO
 	  Say yes here if you want to include support GPIO for pins on
 	  the PCF50633 chip.
 
+config MFD_PHYTIUM_I2S_LSD
+	bool "PHYTIUM Px210 I2S LSD MFD driver"
+	depends on (PCI && ARCH_PHYTIUM)
+	select MFD_CORE
+	help
+	  This enables support for the Phytium Px210 LSD I2S controller.
+
+config MFD_PHYTIUM_I2S_MMD
+	bool "PHYTIUM Px210 I2S MMD MFD driver"
+	depends on (PCI && ARCH_PHYTIUM)
+	help
+	  This enables support for the Phytium Px210 MMD I2S controllers
+	  for Display Port.
+
 config MFD_PM8XXX
 	tristate "Qualcomm PM8xxx PMIC chips driver"
 	depends on (ARM || HEXAGON || COMPILE_TEST)
