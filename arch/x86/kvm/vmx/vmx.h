@@ -575,8 +575,17 @@ static inline u8 vmx_get_rvi(void)
 	 SECONDARY_EXEC_ENCLS_EXITING)
 
 #define KVM_REQUIRED_VMX_TERTIARY_VM_EXEC_CONTROL 0
-#define KVM_OPTIONAL_VMX_TERTIARY_VM_EXEC_CONTROL			\
-	(TERTIARY_EXEC_IPI_VIRT)
+#define KVM_OPTIONAL_VMX_TERTIARY_VM_EXEC_CONTROL	(TERTIARY_EXEC_IPI_VIRT)
+
+#define KVM_REQUIRED_VMX_ZX_TERTIARY_VM_EXEC_CONTROL 0
+#define KVM_OPTIONAL_VMX_ZX_TERTIARY_VM_EXEC_CONTROL	(ZX_TERTIARY_EXEC_GUEST_ZXPAUSE)
+
+/*
+ * We shouldn't rw zxpause_vmexit_tsc vmcs field in this
+ * way, try to use another way in the future.
+ */
+#define KVM_REQUIRED_VMX_ZXPAUSE_VMEXIT_TSC 0
+#define KVM_OPTIONAL_VMX_ZXPAUSE_VMEXIT_TSC 1
 
 #define BUILD_CONTROLS_SHADOW(lname, uname, bits)						\
 static inline void lname##_controls_set(struct vcpu_vmx *vmx, u##bits val)			\
@@ -610,6 +619,8 @@ BUILD_CONTROLS_SHADOW(pin, PIN_BASED_VM_EXEC_CONTROL, 32)
 BUILD_CONTROLS_SHADOW(exec, CPU_BASED_VM_EXEC_CONTROL, 32)
 BUILD_CONTROLS_SHADOW(secondary_exec, SECONDARY_VM_EXEC_CONTROL, 32)
 BUILD_CONTROLS_SHADOW(tertiary_exec, TERTIARY_VM_EXEC_CONTROL, 64)
+BUILD_CONTROLS_SHADOW(zx_tertiary_exec, ZX_TERTIARY_VM_EXEC_CONTROL, 32)
+BUILD_CONTROLS_SHADOW(zx_vmexit_tsc, ZXPAUSE_VMEXIT_TSC, 64)
 
 /*
  * VMX_REGS_LAZY_LOAD_SET - The set of registers that will be updated in the
@@ -710,6 +721,11 @@ static inline bool vmx_has_waitpkg(struct vcpu_vmx *vmx)
 {
 	return secondary_exec_controls_get(vmx) &
 		SECONDARY_EXEC_ENABLE_USR_WAIT_PAUSE;
+}
+
+static inline bool vmx_guest_zxpause_enabled(struct vcpu_vmx *vmx)
+{
+	return zx_tertiary_exec_controls_get(vmx) & ZX_TERTIARY_EXEC_GUEST_ZXPAUSE;
 }
 
 static inline bool vmx_need_pf_intercept(struct kvm_vcpu *vcpu)

@@ -1462,6 +1462,7 @@ static const u32 msrs_to_save_base[] = {
 	MSR_IA32_RTIT_ADDR2_A, MSR_IA32_RTIT_ADDR2_B,
 	MSR_IA32_RTIT_ADDR3_A, MSR_IA32_RTIT_ADDR3_B,
 	MSR_IA32_UMWAIT_CONTROL,
+	MSR_ZX_PAUSE_CONTROL,
 
 	MSR_IA32_XFD, MSR_IA32_XFD_ERR,
 };
@@ -7147,6 +7148,10 @@ static void kvm_probe_msr_to_save(u32 msr_index)
 		break;
 	case MSR_IA32_UMWAIT_CONTROL:
 		if (!kvm_cpu_cap_has(X86_FEATURE_WAITPKG))
+			return;
+		break;
+	case MSR_ZX_PAUSE_CONTROL:
+		if (!kvm_cpu_cap_has(X86_FEATURE_ZXPAUSE))
 			return;
 		break;
 	case MSR_IA32_RTIT_CTL:

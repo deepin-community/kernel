@@ -5,7 +5,7 @@
 /*
  * Defines VMX CPU feature bits
  */
-#define NVMXINTS			5 /* N 32-bit words worth of info */
+#define NVMXINTS			6 /* N 32-bit words worth of info */
 
 /*
  * Note: If the comment begins with a quoted string, that string is used
@@ -89,4 +89,7 @@
 
 /* Tertiary Processor-Based VM-Execution Controls, word 3 */
 #define VMX_FEATURE_IPI_VIRT		( 3*32+  4) /* Enable IPI virtualization */
+
+/* Zhaoxin Tertiary Processor-Based VM-Execution Controls, word 3 */
+#define VMX_FEATURE_GUEST_ZXPAUSE      ( 5*32+  0) /* zxpause instruction in guest mode */
 #endif /* _ASM_X86_VMXFEATURES_H */

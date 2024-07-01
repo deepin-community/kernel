@@ -109,6 +109,9 @@ static void early_init_centaur(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_CONSTANT_TSC);
 		set_cpu_cap(c, X86_FEATURE_NONSTOP_TSC);
 	}
+
+	if (cpuid_eax(0xC0000000) >= 0xC0000006)
+		c->x86_capability[CPUID_C000_0006_EAX] = cpuid_eax(0xC0000006);
 }
 
 static void init_centaur(struct cpuinfo_x86 *c)

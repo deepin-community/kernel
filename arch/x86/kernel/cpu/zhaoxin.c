@@ -65,6 +65,7 @@ static void early_init_zhaoxin(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_CONSTANT_TSC);
 		set_cpu_cap(c, X86_FEATURE_NONSTOP_TSC);
 	}
+
 }
 
 static void init_zhaoxin(struct cpuinfo_x86 *c)

@@ -60,6 +60,7 @@ struct vmcs_config {
 	u32 pin_based_exec_ctrl;
 	u32 cpu_based_exec_ctrl;
 	u32 cpu_based_2nd_exec_ctrl;
+	u32 zx_cpu_based_3rd_exec_ctrl;
 	u64 cpu_based_3rd_exec_ctrl;
 	u32 vmexit_ctrl;
 	u32 vmentry_ctrl;
@@ -253,6 +254,11 @@ static inline bool cpu_has_vmx_xsaves(void)
 {
 	return vmcs_config.cpu_based_2nd_exec_ctrl &
 		SECONDARY_EXEC_ENABLE_XSAVES;
+}
+
+static inline bool cpu_has_vmx_zxpause(void)
+{
+	return vmcs_config.zx_cpu_based_3rd_exec_ctrl &	ZX_TERTIARY_EXEC_GUEST_ZXPAUSE;
 }
 
 static inline bool cpu_has_vmx_waitpkg(void)
