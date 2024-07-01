@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/phytnet_led.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium mac led controller
+
+maintainers:
+  - LongShixiang <longshixiang1718@phytium.com.cn>
+
+description:
+  This modules is used to control mac led.
+
+properties:
+  compatible:
+    const: phytium,net_led
+  net_dev:
+    maxItems: 1
+    description: Phandler of specified Net device
+  led-gpios:
+    minItems: 1
+    maxItems: 2
+    description: |-
+      the gpios used for led control based on net_dev condition.
+      One represents LINK condition, another represents ACT condition.
+
+required:
+  - compatible
+  - net_dev
+  - led-gpios
+
+examples:
+  - |
+    gpiochip0: gpop_controller{
+            ...
+    }
+    eth0: ethernet{
+            ...
+    }
+    phytium_net_led0 {
+      compatible = "phytium,net_led";
+      net_dev = <&eth1>;
+      led-gpios = <&gpiochip0 9 GPIO_ACTIVE_HIGH>,  /* link */
+                  <&gpiochip0 11 GPIO_ACTIVE_HIGH>; /* act */
+    };
