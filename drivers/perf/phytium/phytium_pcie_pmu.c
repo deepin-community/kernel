@@ -111,7 +111,7 @@ static const u32 pcie_counter_reg_offset[] = {
 	PCIE_EVENT_W_DATA,   PCIE_EVENT_RDELAY_TIME, PCIE_EVENT_WDELAY_TIME
 };
 
-ssize_t phytium_pcie_pmu_format_sysfs_show(struct device *dev,
+static ssize_t phytium_pcie_pmu_format_sysfs_show(struct device *dev,
 					   struct device_attribute *attr,
 					   char *buf)
 {
@@ -122,7 +122,7 @@ ssize_t phytium_pcie_pmu_format_sysfs_show(struct device *dev,
 	return sprintf(buf, "%s\n", (char *)eattr->var);
 }
 
-ssize_t phytium_pcie_pmu_event_sysfs_show(struct device *dev,
+static ssize_t phytium_pcie_pmu_event_sysfs_show(struct device *dev,
 					  struct device_attribute *attr,
 					  char *page)
 {
@@ -399,7 +399,7 @@ static void phytium_pcie_pmu_unmark_event(struct phytium_pcie_pmu *pcie_pmu,
 	clear_bit(idx, pcie_pmu->pmu_events.used_mask);
 }
 
-int phytium_pcie_pmu_event_init(struct perf_event *event)
+static int phytium_pcie_pmu_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
 	struct phytium_pcie_pmu *pcie_pmu;
@@ -483,7 +483,7 @@ int phytium_pcie_pmu_event_init(struct perf_event *event)
 	return 0;
 }
 
-void phytium_pcie_pmu_event_update(struct perf_event *event)
+static void phytium_pcie_pmu_event_update(struct perf_event *event)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
@@ -493,7 +493,7 @@ void phytium_pcie_pmu_event_update(struct perf_event *event)
 	local64_add(delta, &event->count);
 }
 
-void phytium_pcie_pmu_event_start(struct perf_event *event, int flags)
+static void phytium_pcie_pmu_event_start(struct perf_event *event, int flags)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
@@ -501,7 +501,7 @@ void phytium_pcie_pmu_event_start(struct perf_event *event, int flags)
 	perf_event_update_userpage(event);
 }
 
-void phytium_pcie_pmu_event_stop(struct perf_event *event, int flags)
+static void phytium_pcie_pmu_event_stop(struct perf_event *event, int flags)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
@@ -511,7 +511,7 @@ void phytium_pcie_pmu_event_stop(struct perf_event *event, int flags)
 		phytium_pcie_pmu_event_update(event);
 }
 
-int phytium_pcie_pmu_event_add(struct perf_event *event, int flags)
+static int phytium_pcie_pmu_event_add(struct perf_event *event, int flags)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
@@ -529,7 +529,7 @@ int phytium_pcie_pmu_event_add(struct perf_event *event, int flags)
 	return 0;
 }
 
-void phytium_pcie_pmu_event_del(struct perf_event *event, int flags)
+static void phytium_pcie_pmu_event_del(struct perf_event *event, int flags)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
@@ -549,7 +549,7 @@ void phytium_pcie_pmu_event_del(struct perf_event *event, int flags)
 	pcie_pmu->pmu_events.hw_events[hwc->idx] = NULL;
 }
 
-void phytium_pcie_pmu_enable(struct pmu *pmu)
+static void phytium_pcie_pmu_enable(struct pmu *pmu)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(pmu);
 	int event_added = bitmap_weight(pcie_pmu->pmu_events.used_mask,
@@ -561,7 +561,7 @@ void phytium_pcie_pmu_enable(struct pmu *pmu)
 	}
 }
 
-void phytium_pcie_pmu_disable(struct pmu *pmu)
+static void phytium_pcie_pmu_disable(struct pmu *pmu)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(pmu);
 	int event_added = bitmap_weight(pcie_pmu->pmu_events.used_mask,
@@ -811,7 +811,7 @@ static struct platform_driver phytium_pcie_pmu_driver = {
 	.remove = phytium_pcie_pmu_remove,
 };
 
-int phytium_pcie_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
+static int phytium_pcie_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 {
 	struct phytium_pcie_pmu *pcie_pmu =
 		hlist_entry_safe(node, struct phytium_pcie_pmu, node);
