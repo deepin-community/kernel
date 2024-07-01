@@ -7,6 +7,7 @@
 #include <linux/netdevice.h>
 #include <linux/of_platform.h>
 #include <linux/of_net.h>
+#include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/slab.h>
 #include "phytnet_led.h"
