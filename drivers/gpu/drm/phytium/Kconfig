@@ -1,0 +1,12 @@
+config DRM_PHYTIUM
+	tristate "DRM Support for Phytium Graphics Card"
+	depends on DRM && ARCH_PHYTIUM
+	select DRM_KMS_HELPER
+	select DRM_DISPLAY_HELPER
+	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HDCP_HELPER
+	help
+	  Choose this option if you have a phytium graphics card.
+	  Phytium graphics card include display controller for X100 and E2000 devices.
+	  In addition,the driver also supports the display of E2000S BMC.
+	  This driver provides kernel mode setting and buffer management to userspace.
