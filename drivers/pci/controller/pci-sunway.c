@@ -348,25 +348,20 @@ void __init setup_chip_pci_ops(void)
 
 static struct pci_controller *head, **tail = &head;
 
-static DECLARE_BITMAP(rc_linkup, (MAX_NUMNODES * MAX_NR_RCS_PER_NODE));
-
-void pci_mark_rc_linkup(unsigned long node, unsigned long index)
+void pci_mark_rc_linkup(struct pci_controller *hose)
 {
-	set_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
+	hose->linkup = true;
 }
-EXPORT_SYMBOL(pci_mark_rc_linkup);
 
-void pci_clear_rc_linkup(unsigned long node, unsigned long index)
+void pci_clear_rc_linkup(struct pci_controller *hose)
 {
-	clear_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
+	hose->linkup = false;
 }
-EXPORT_SYMBOL(pci_clear_rc_linkup);
 
-int pci_get_rc_linkup(unsigned long node, unsigned long index)
+int pci_get_rc_linkup(const struct pci_controller *hose)
 {
-	return test_bit(node * MAX_NR_RCS_PER_NODE + index, rc_linkup);
+	return hose->linkup;
 }
-EXPORT_SYMBOL(pci_get_rc_linkup);
 
 /**
  * Link the specified pci controller to list
@@ -551,7 +546,7 @@ int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 	if (unlikely(bus->number == hose->self_busno)) {
 		ret = sw64_pcie_read_rc_cfg(bus, devfn, where, size, val);
 	} else {
-		if (pci_get_rc_linkup(hose->node, hose->index))
+		if (pci_get_rc_linkup(hose))
 			ret = pci_generic_config_read(bus, devfn, where, size, val);
 		else
 			return ret;
@@ -715,12 +710,10 @@ static int sw64_pci_prepare_controller(struct pci_controller *hose,
 		 * Root Complex link up failed.
 		 * This usually means that no device on the slot.
 		 */
-		pr_info("<Node [%ld], RC [%ld]>: link down\n",
-				hose->node, hose->index);
+		pr_info("RC link down\n");
 	} else {
-		pci_mark_rc_linkup(hose->node, hose->index);
-		pr_info("<Node [%ld], RC [%ld]>: successfully link up\n",
-				hose->node, hose->index);
+		pci_mark_rc_linkup(hose);
+		pr_info("RC successfully link up\n");
 	}
 
 	setup_intx_irqs(hose);
@@ -765,13 +758,17 @@ static int sw64_pci_ecam_init(struct pci_config_window *cfg)
 	if (!hose)
 		return -ENOMEM;
 
-	/* Get node from ACPI namespace (_PXM) */
-	hose->node = acpi_get_node(adev->handle);
-	if (hose->node == NUMA_NO_NODE) {
-		kfree(hose);
-		dev_err(&adev->dev, "unable to get node ID\n");
-		return -EINVAL;
+#ifdef CONFIG_ACPI_NUMA
+	if (!numa_off) {
+		/* Get node from ACPI namespace (_PXM) */
+		hose->node = acpi_get_node(adev->handle);
+		if (hose->node == NUMA_NO_NODE) {
+			kfree(hose);
+			dev_err(&adev->dev, "unable to get node ID\n");
+			return -EINVAL;
+		}
 	}
+#endif
 
 	/* Init pci_controller */
 	ret = sw64_pci_prepare_controller(hose, &adev->fwnode);

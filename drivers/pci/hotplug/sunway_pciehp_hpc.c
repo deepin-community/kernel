@@ -251,7 +251,7 @@ static bool pcie_wait_link_active(struct controller *ctrl)
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 
 	if (pcie_wait_for_link(pdev, true)) {
-		pci_mark_rc_linkup(hose->node, hose->index);
+		pci_mark_rc_linkup(hose);
 		sunway_pciehp_restore_rc_piu(ctrl);
 		return true;
 	}
@@ -403,7 +403,7 @@ int sunway_pciehp_link_disable(struct controller *ctrl)
 	int ret;
 
 	ret =  __sunway_pciehp_link_set(ctrl, false);
-	pci_clear_rc_linkup(hose->node, hose->index);
+	pci_clear_rc_linkup(hose);
 
 	return ret;
 }
@@ -694,7 +694,7 @@ void sunway_pciehp_poll(struct controller *ctrl, u32 events)
 
 		for (i = 0; i < 30; i++) {
 			if (pcie_wait_for_link(pdev, true)) {
-				pci_mark_rc_linkup(hose->node, hose->index);
+				pci_mark_rc_linkup(hose);
 				sunway_pciehp_restore_rc_piu(ctrl);
 
 				writeq(HP_CTRL_FINISH, (piu_ior0_base + HP_CTRL));
