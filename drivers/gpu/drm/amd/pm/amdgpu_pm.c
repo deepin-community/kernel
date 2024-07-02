@@ -264,6 +264,7 @@ static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
+	struct pci_dev *pdev = adev->pdev;
 	enum amd_dpm_forced_level level;
 	int ret = 0;
 
@@ -302,6 +303,13 @@ static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 		return ret;
 	}
 
+	//Some devices have stablity issue on AMD_DPM_FORCED_LEVEL_* except AMD_DPM_FORCED_LEVEL_AUTO. Don't use these AMD_DPM_FORCED_LEVEL
+	if(pdev->device == 0x15d8 && (level != AMD_DPM_FORCED_LEVEL_AUTO))
+	{
+		pr_warn("device 0x%04X don't allow dpm force level %d\n", pdev->device, level);
+		return count;
+	}
+
 	mutex_lock(&adev->pm.stable_pstate_ctx_lock);
 	if (amdgpu_dpm_force_performance_level(adev, level)) {
 		pm_runtime_mark_last_busy(ddev->dev);
@@ -309,6 +317,7 @@ static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 		mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
 		return -EINVAL;
 	}
+  
 	/* override whatever a user ctx may have set */
 	adev->pm.stable_pstate_ctx = NULL;
 	mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
