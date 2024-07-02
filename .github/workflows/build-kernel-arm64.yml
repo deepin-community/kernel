@@ -27,3 +27,9 @@ jobs:
           # .config
           make deepin_arm64_desktop_defconfig
           make -j$(nproc)
+
+      - name: 'Upload Kernel Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-ABI-arm64
+          path: "Module.symvers"
