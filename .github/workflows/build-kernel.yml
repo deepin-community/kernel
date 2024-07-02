@@ -28,3 +28,8 @@ jobs:
           make deepin_x86_desktop_defconfig
           make -j$(nproc)
 
+      - name: 'Upload Kernel Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-ABI-x86-64
+          path: "Module.symvers"
