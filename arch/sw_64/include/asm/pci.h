@@ -64,6 +64,7 @@ struct pci_controller {
 	 */
 	unsigned int need_domain_info;
 	bool iommu_enable;
+	bool linkup;
 	struct sunway_iommu *pci_iommu;
 	bool hotplug_enable;
 	int first_busno;
@@ -110,9 +111,9 @@ extern int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
 extern int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 *val);
 
-extern void pci_mark_rc_linkup(unsigned long node, unsigned long index);
-extern void pci_clear_rc_linkup(unsigned long node, unsigned long index);
-extern int pci_get_rc_linkup(unsigned long node, unsigned long index);
+extern void pci_mark_rc_linkup(struct pci_controller *hose);
+extern void pci_clear_rc_linkup(struct pci_controller *hose);
+extern int pci_get_rc_linkup(const struct pci_controller *hose);
 
 #ifdef CONFIG_PCI_DOMAINS
 static inline int pci_proc_domain(struct pci_bus *bus)
