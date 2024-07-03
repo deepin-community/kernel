@@ -661,7 +661,8 @@ static int add_exception_handler(const struct bpf_insn *insn,
  * >0 - successfully JITed a 16-byte eBPF instruction.
  * <0 - failed to JIT.
  */
-static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
+static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
+		bool extra_pass)
 {
 	const u8 code = insn->code;
 	u8 dst = bpf2sw64[insn->dst_reg];
@@ -672,7 +673,6 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const s32 imm = insn->imm;
 	const int bpf_idx = insn - ctx->prog->insnsi;
 	s32 jmp_offset;
-	u64 func;
 	struct bpf_insn insn1;
 	u64 imm64;
 	int ret;
@@ -1142,13 +1142,18 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		break;
 
 	case BPF_JMP | BPF_CALL:
-		func = (u64)__bpf_call_base + imm;
-		if ((func & ~(KERNEL_IMAGE_SIZE - 1)) != __START_KERNEL_map)
-			/* calling bpf program, switch to vmalloc addr */
-			func = (func & U32_MAX) | VMALLOC_START;
+	{
+		bool fixed;
+		u64 func;
+
+		ret = bpf_jit_get_func_addr(ctx->prog, insn, extra_pass, &func, &fixed);
+		if (ret < 0)
+			return ret;
+
 		emit_sw64_ldu64(SW64_BPF_REG_PV, func, ctx);
 		emit(SW64_BPF_CALL(SW64_BPF_REG_RA, SW64_BPF_REG_PV), ctx);
 		break;
+	}
 
 	case BPF_JMP | BPF_TAIL_CALL:
 		if (emit_bpf_tail_call(ctx))
@@ -1269,7 +1274,7 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	return 0;
 }
 
-static int build_body(struct jit_ctx *ctx)
+static int build_body(struct jit_ctx *ctx, bool extra_pass)
 {
 	const struct bpf_prog *prog = ctx->prog;
 	int i;
@@ -1280,7 +1285,7 @@ static int build_body(struct jit_ctx *ctx)
 
 		if (ctx->image == NULL)
 			ctx->insn_offset[i] = ctx->idx;
-		ret = build_insn(insn, ctx);
+		ret = build_insn(insn, ctx, extra_pass);
 		if (ret < 0)
 			return ret;
 		while (ret > 0) {
@@ -1371,7 +1376,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	/* Fake pass to fill in ctx->offset. */
 	build_prologue(&ctx, was_classic);
 
-	if (build_body(&ctx)) {
+	if (build_body(&ctx, extra_pass)) {
 		prog = orig_prog;
 		goto out_off;
 	}
@@ -1405,7 +1410,7 @@ skip_init_ctx:
 
 	build_prologue(&ctx, was_classic);
 
-	if (build_body(&ctx)) {
+	if (build_body(&ctx, extra_pass)) {
 		bpf_jit_binary_free(header);
 		prog = orig_prog;
 		goto out_off;
