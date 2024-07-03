@@ -200,8 +200,8 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 
 #define PFN_PTE_SHIFT	_PFN_SHIFT
 
-#define _PFN_BITS	(MAX_PHYSMEM_BITS - PAGE_SHIFT)
-#define _PFN_MASK	(GENMASK(_PFN_BITS - 1, 0) << _PFN_SHIFT)
+#define __PFN_BITS	(MAX_PHYSMEM_BITS - PAGE_SHIFT)
+#define _PFN_MASK	(GENMASK(__PFN_BITS - 1, 0) << _PFN_SHIFT)
 
 #define _PAGE_TABLE	(_PAGE_VALID | __DIRTY_BITS | __ACCESS_BITS)
 #define _PAGE_CHG_MASK	(_PFN_MASK | __DIRTY_BITS | __ACCESS_BITS | _PAGE_SPECIAL | _PAGE_LEAF | _PAGE_CONT)
