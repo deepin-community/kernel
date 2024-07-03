@@ -1103,7 +1103,8 @@ map_end:
 				map_size = 0;
 			}
 		}
-
+		if (apply_zhaoxin_dmar_acpi_a_behavior())
+			iova_reserve_domain_addr(domain, start, end);
 	}
 
 	if (!list_empty(&mappings) && iommu_is_dma_domain(domain))
@@ -1170,6 +1171,12 @@ err_free_device:
 	dev_err(dev, "Failed to add to iommu group %d: %d\n", group->id, ret);
 	return ERR_PTR(ret);
 }
+
+int __acpi_rmrr_device_create_direct_mappings(struct iommu_domain *domain, struct device *dev)
+{
+	return iommu_create_device_direct_mappings(domain, dev);
+}
+EXPORT_SYMBOL_GPL(__acpi_rmrr_device_create_direct_mappings);
 
 /**
  * iommu_group_add_device - add a device to an iommu group
