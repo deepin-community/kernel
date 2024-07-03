@@ -156,6 +156,17 @@
 #define X86_FEATURE_PHE2_EN		( 5*32+26) /* "phe2_en" PHE2 enabled */
 #define X86_FEATURE_RSA			( 5*32+27) /* "rsa" Big-number arithmetic */
 #define X86_FEATURE_RSA_EN		( 5*32+28) /* "rsa_en" RSA enabled */
+#define X86_FEATURE_ZX_FMA		( 5*32+15) /* FMA supported */
+#define X86_FEATURE_PARALLAX		( 5*32+16) /* Adaptive P-state control present */
+#define X86_FEATURE_PARALLAX_EN		( 5*32+17) /* Adaptive P-state control enabled */
+#define X86_FEATURE_OVERSTRESS		( 5*32+18) /* Overstress for auto overclock present */
+#define X86_FEATURE_OVERSTRESS_EN	( 5*32+19) /* Overstress for auto overclock enabled */
+#define X86_FEATURE_TM3			( 5*32+20) /* Thermal Monitor 3 present */
+#define X86_FEATURE_TM3_EN		( 5*32+21) /* Thermal Monitor 3 enabled */
+#define X86_FEATURE_SEM			( 5*32+24) /* SME feature present */
+#define X86_FEATURE_VEX			( 5*32+29) /* VEX instructions are present */
+#define X86_FEATURE_VEX_EN		( 5*32+30) /* VEX instructions are enabled */
+#define X86_FEATURE_STK			( 5*32+31) /* STK are present */
 
 /* More extended AMD flags: CPUID level 0x80000001, ECX, word 6 */
 #define X86_FEATURE_LAHF_LM		( 6*32+ 0) /* "lahf_lm" LAHF/SAHF in long mode */
