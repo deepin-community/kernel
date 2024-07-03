@@ -92,6 +92,7 @@ extern void outsl(unsigned long port, const void *src, unsigned long count);
 #define pci_iounmap pci_iounmap
 
 #include <asm-generic/io.h>
+#undef PCI_IOBASE
 
 ///*
 // * Change addresses as seen by the kernel (virtual) to addresses as
