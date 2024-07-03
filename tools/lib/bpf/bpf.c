@@ -59,6 +59,8 @@
 #  define __NR_bpf 6319
 # elif defined(__mips__) && defined(_ABI64)
 #  define __NR_bpf 5315
+# elif defined(__sw_64__)
+#  define __NR_bpf 170
 # else
 #  error __NR_bpf not defined. libbpf does not support your arch.
 # endif
