@@ -768,6 +768,57 @@ static void __init dmar_acpi_insert_dev_scope(u8 device_number,
 		device_number, dev_name(&adev->dev));
 }
 
+/* Return: > 0 if match found, 0 if no match found */
+bool dmar_rmrr_acpi_insert_dev_scope(u8 device_number, struct acpi_device *adev, void *start,
+				     void *end, struct dmar_dev_scope *devices, int devices_cnt)
+{
+	struct acpi_dmar_device_scope *scope;
+	struct device *tmp;
+	int i;
+	struct acpi_dmar_pci_path *path;
+
+	for (; start < end; start += scope->length) {
+		scope = start;
+		if (scope->entry_type != ACPI_DMAR_SCOPE_TYPE_NAMESPACE)
+			continue;
+		if (scope->enumeration_id != device_number)
+			continue;
+		path = (void *)(scope + 1);
+		pr_info("ACPI device \"%s\" under DMAR as %02x:%02x.%d\n", dev_name(&adev->dev),
+			scope->bus, path->device, path->function);
+		for_each_dev_scope(devices, devices_cnt, i, tmp)
+			if (tmp == NULL) {
+				devices[i].bus = scope->bus;
+				devices[i].devfn = PCI_DEVFN(path->device, path->function);
+				rcu_assign_pointer(devices[i].dev, get_device(&adev->dev));
+				return true;
+			}
+		WARN_ON(i >= devices_cnt);
+	}
+
+	return false;
+}
+
+static int dmar_acpi_bus_add_dev(u8 device_number, struct acpi_device *adev)
+{
+	struct dmar_drhd_unit *dmaru;
+	struct acpi_dmar_hardware_unit *drhd;
+	int ret;
+
+	for_each_drhd_unit(dmaru) {
+		drhd = container_of(dmaru->hdr, struct acpi_dmar_hardware_unit, header);
+		ret = dmar_rmrr_acpi_insert_dev_scope(device_number, adev, (void *)(drhd+1),
+						      ((void *)drhd)+drhd->header.length,
+						      dmaru->devices, dmaru->devices_cnt);
+		if (ret)
+			break;
+	}
+	if (ret > 0)
+		ret = dmar_rmrr_add_acpi_dev(device_number, adev);
+
+	return ret;
+}
+
 static int __init dmar_acpi_dev_scope_init(void)
 {
 	struct acpi_dmar_andd *andd;
@@ -795,7 +846,11 @@ static int __init dmar_acpi_dev_scope_init(void)
 				       andd->device_name);
 				continue;
 			}
-			dmar_acpi_insert_dev_scope(andd->device_number, adev);
+
+			if (apply_zhaoxin_dmar_acpi_a_behavior())
+				dmar_acpi_bus_add_dev(andd->device_number, adev);
+			else
+				dmar_acpi_insert_dev_scope(andd->device_number, adev);
 		}
 	}
 	return 0;
