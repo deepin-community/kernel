@@ -478,6 +478,25 @@ resv_iova:
 	return 0;
 }
 
+int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_addr_t end)
+{
+	struct iommu_dma_cookie *cookie = domain->iova_cookie;
+	struct iova_domain *iovad = &cookie->iovad;
+
+	unsigned long lo, hi;
+
+	lo = iova_pfn(iovad, start);
+	hi = iova_pfn(iovad, end);
+
+	if (!cookie)
+		return -EINVAL;
+
+	reserve_iova(iovad, lo, hi);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(iova_reserve_domain_addr);
+
 static int iova_reserve_iommu_regions(struct device *dev,
 		struct iommu_domain *domain)
 {
