@@ -66,16 +66,21 @@ static void early_init_zhaoxin(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_NONSTOP_TSC);
 	}
 
+	if (detect_extended_topology_early(c) < 0)
+		detect_ht_early(c);
 }
 
 static void init_zhaoxin(struct cpuinfo_x86 *c)
 {
 	early_init_zhaoxin(c);
+	detect_extended_topology(c);
 	init_intel_cacheinfo(c);
-	detect_num_cpu_cores(c);
+	if (!cpu_has(c, X86_FEATURE_XTOPOLOGY)) {
+		detect_num_cpu_cores(c);
 #ifdef CONFIG_X86_32
 	detect_ht(c);
 #endif
+	}
 
 	if (c->cpuid_level > 9) {
 		unsigned int eax = cpuid_eax(10);
