@@ -194,7 +194,6 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82378,
  */
 static void fixup_root_complex(struct pci_dev *dev)
 {
-	int i;
 	struct pci_bus *bus = dev->bus;
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 
