@@ -85,9 +85,8 @@ static int loongson2_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int loongson2_cpufreq_exit(struct cpufreq_policy *policy)
+static void loongson2_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	return 0;
 }
 
 static struct cpufreq_driver loongson2_cpufreq_driver = {

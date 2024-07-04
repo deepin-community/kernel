@@ -184,9 +184,8 @@ static int gs464_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int gs464_cpufreq_exit(struct cpufreq_policy *policy)
+static void gs464_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	return 0;
 }
 
 static struct cpufreq_driver gs464_cpufreq_driver = {

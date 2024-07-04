@@ -268,9 +268,8 @@ static int sunway_cpufreq_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int sunway_cpufreq_exit(struct cpufreq_policy *policy)
+static void sunway_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	return 0;
 }
 
 static struct freq_attr *sunway_table_attr[] = {
