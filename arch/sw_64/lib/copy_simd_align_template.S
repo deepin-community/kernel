@@ -15,7 +15,9 @@
  *
  */
 
+#ifdef CONFIG_SUBARCH_C3B
 #define NC_STORE_THRESHOLD	2048
+#endif
 
 #define SAVE_SIMD_REGS \
 	ldi	$sp, -0x60($sp); \
@@ -97,6 +99,7 @@ $dest_aligned_32:
 
 $prep_simd_loop:
 	SAVE_SIMD_REGS
+#ifdef CONFIG_SUBARCH_C3B
 	ldi	$1, NC_STORE_THRESHOLD($31)
 	cmple	$18, $1, $1
 	bne	$1, $simd_loop
@@ -114,6 +117,7 @@ $simd_loop_nc:
 	beq	$1, $simd_loop_nc
 	memb			# required for _nc store instructions
 	br	$31, $simd_loop_end
+#endif
 
 	.align 4
 $simd_loop:
@@ -207,6 +211,7 @@ $prep_simd_u_loop:
 	ifmovd	$1, $f1
 	ifmovd	$2, $f2
 	FIXUP_LDST( vldd $f4, 0($3) )
+#ifdef CONFIG_SUBARCH_C3B
 	ldi	$1, NC_STORE_THRESHOLD($31)
 	cmple	$18, $1, $1
 	bne	$1, $simd_u_loop
@@ -230,6 +235,7 @@ $simd_u_loop_nc:
 	beq	$1, $simd_u_loop_nc
 	memb			# required for _nc store instructions
 	br	$31, $simd_u_loop_end
+#endif
 
 	.align 4
 $simd_u_loop:
