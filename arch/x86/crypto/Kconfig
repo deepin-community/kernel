@@ -231,6 +231,25 @@ config CRYPTO_SM4_AESNI_AVX2_X86_64
 
 	  If unsure, say N.
 
+config CRYPTO_SM4_ZHAOXIN_GMI
+	tristate "Ciphers: SM4 with modes: ECB, CBC, CTR, CFB, OFB (Zhaoxin GMI)"
+	depends on X86 && CRYPTO
+	select CRYPTO_SKCIPHER
+	select CRYPTO_SIMD
+	select CRYPTO_ALGAPI
+	select CRYPTO_SM4
+	help
+	  SM4 cipher algorithms (Zhaoxin GMI Instruction).
+
+	  SM4 (GBT.32907-2016) is a cryptographic standard issued by the
+	  Organization of State Commercial Administration of China (OSCCA)
+	  as an authorized cryptographic algorithms for the use within China.
+
+	  This is SM4 optimized implementation using Zhaoxin GMI
+	  instruction set for block cipher.
+
+	  If unsure, say N.
+
 config CRYPTO_TWOFISH_586
 	tristate "Ciphers: Twofish (32-bit)"
 	depends on (X86 || UML_X86) && !64BIT
@@ -474,6 +493,19 @@ config CRYPTO_SM3_AVX_X86_64
 
 	  Architecture: x86_64 using:
 	  - AVX (Advanced Vector Extensions)
+
+	  If unsure, say N.
+
+config CRYPTO_SM3_ZHAOXIN_GMI
+	tristate "Hash functions: SM3 (Zhaoxin GMI)"
+	depends on X86 && CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_SM3
+	help
+	  SM3 cipher algorithms (Zhaoxin GMI Instruction).
+
+	  SM3 secure hash function as defined by OSCCA GM/T 0004-2012 SM3).
+	  It is part of the Chinese Commercial Cryptography suite.
 
 	  If unsure, say N.
 
