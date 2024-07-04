@@ -21,6 +21,8 @@
 
 #include "proto.h"
 
+static DECLARE_COMPLETION(cpu_running);
+
 struct smp_rcb_struct *smp_rcb;
 EXPORT_SYMBOL(smp_rcb);
 
@@ -135,14 +137,12 @@ void smp_callin(void)
 	save_ktp();
 	upshift_freq();
 	cpuid = smp_processor_id();
-	local_irq_disable();
+	WARN_ON_ONCE(!irqs_disabled());
 
 	if (cpu_online(cpuid)) {
 		pr_err("??, cpu 0x%x already present??\n", cpuid);
 		BUG();
 	}
-
-	set_cpu_online(cpuid, true);
 
 	/* Set trap vectors.  */
 	trap_init();
@@ -182,6 +182,10 @@ void smp_callin(void)
 	store_cpu_topology(cpuid);
 	numa_add_cpu(cpuid);
 
+	set_cpu_online(cpuid, true);
+
+	complete(&cpu_running);
+
 	/* Must have completely accurate bogos.  */
 	local_irq_enable();
 
@@ -205,7 +209,6 @@ static inline void set_secondary_ready(int cpuid)
  */
 static int secondary_cpu_start(int cpuid, struct task_struct *idle)
 {
-	unsigned long timeout;
 	/*
 	 * Precalculate the target ksp.
 	 */
@@ -222,17 +225,12 @@ static int secondary_cpu_start(int cpuid, struct task_struct *idle)
 #endif
 
 	/* Wait 10 seconds for secondary cpu.  */
-	timeout = jiffies + 10*HZ;
-	while (time_before(jiffies, timeout)) {
-		if (cpu_online(cpuid))
-			goto started;
-		udelay(10);
-		barrier();
+	if (!wait_for_completion_timeout(&cpu_running,
+				msecs_to_jiffies(10000))) {
+		pr_err("SMP: Processor %d failed to start.\n", cpuid);
+		return -1;
 	}
-	pr_err("SMP: Processor %d failed to start.\n", cpuid);
-	return -1;
 
-started:
 	return 0;
 }
 
