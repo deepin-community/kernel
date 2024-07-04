@@ -115,6 +115,16 @@ config SATA_AHCI
 
 	  If unsure, say N.
 
+config AHCI_ZHAOXIN_SGPIO
+	tristate "Zhaoxin AHCI SGPIO support"
+	depends on SATA_AHCI && (CPU_SUP_ZHAOXIN || CPU_SUP_CENTAUR)
+	default y
+	help
+	  This option enables support for Zhaoxin AHCI SGPIO.
+	  Add support SGPIO mode and SGPIO GP mode.
+
+	  If unsure, say N.
+
 config SATA_MOBILE_LPM_POLICY
 	int "Default SATA Link Power Management policy for low power chipsets"
 	range 0 4
