@@ -104,6 +104,14 @@ config PHANTOM
 	  If you choose to build module, its name will be phantom. If unsure,
 	  say N here.
 
+config PHYTIUM_LPC_SNOOP
+        tristate "Phytium HOST LPC snoop support"
+        depends on ARCH_PHYTIUM && REGMAP && MFD_SYSCON
+        help
+          Provides a driver to control the LPC snoop interface which
+          allows the BMC to listen on and save the data written by
+          the host to an arbitrary LPC I/O port.
+
 config TIFM_CORE
 	tristate "TI Flash Media interface support"
 	depends on PCI

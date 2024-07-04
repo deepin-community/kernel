@@ -132,18 +132,23 @@ config LOONGARCH
 	select HAVE_KPROBES
 	select HAVE_KPROBES_ON_FTRACE
 	select HAVE_KRETPROBES
+	select HAVE_KVM
+	select HAVE_LIVEPATCH
 	select HAVE_MOD_ARCH_SPECIFIC
 	select HAVE_NMI
+	select HAVE_OBJTOOL if AS_HAS_EXPLICIT_RELOCS
 	select HAVE_PCI
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
 	select HAVE_REGS_AND_STACK_ACCESS_API
+	select HAVE_RELIABLE_STACKTRACE if UNWINDER_ORC
 	select HAVE_RETHOOK
 	select HAVE_RSEQ
 	select HAVE_SAMPLE_FTRACE_DIRECT
 	select HAVE_SAMPLE_FTRACE_DIRECT_MULTI
 	select HAVE_SETUP_PER_CPU_AREA if NUMA
+	select HAVE_STACK_VALIDATION if HAVE_OBJTOOL
 	select HAVE_STACKPROTECTOR
 	select HAVE_SYSCALL_TRACEPOINTS
 	select HAVE_TIF_NOHZ
@@ -265,6 +270,9 @@ config AS_HAS_LASX_EXTENSION
 
 config AS_HAS_LBT_EXTENSION
 	def_bool $(as-instr,movscr2gr \$a0$(comma)\$scr0)
+
+config AS_HAS_LVZ_EXTENSION
+	def_bool $(as-instr,hvcl 0)
 
 menu "Kernel type and options"
 
@@ -562,6 +570,15 @@ config CPU_HAS_PREFETCH
 	bool
 	default y
 
+config PARAVIRT
+	bool "Enable paravirtualization code"
+	depends on AS_HAS_LVZ_EXTENSION
+	help
+          This changes the kernel so it can modify itself when it is run
+	  under a hypervisor, potentially improving performance significantly
+	  over full virtualization.  However, when run without a hypervisor
+	  the kernel is theoretically slower and slightly larger.
+
 config ARCH_SUPPORTS_KEXEC
 	def_bool y
 
@@ -605,6 +622,8 @@ config RANDOMIZE_BASE_MAX_OFFSET
 	  amount of physical RAM available in the target system.
 
 	  This is limited by the size of the lower address memory, 256MB.
+
+source "kernel/livepatch/Kconfig"
 
 endmenu
 
@@ -659,3 +678,5 @@ source "kernel/power/Kconfig"
 source "drivers/acpi/Kconfig"
 
 endmenu
+
+source "arch/loongarch/kvm/Kconfig"

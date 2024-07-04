@@ -1061,6 +1061,16 @@ static void stream_update(struct hdac_bus *bus, struct hdac_stream *s)
 	}
 }
 
+static void azx_rirb_zxdelay(struct azx *chip, int enable)
+{
+	if (chip->remap_diu_addr) {
+		if (!enable)
+			writel(0x0, (char *)chip->remap_diu_addr + 0x490a8);
+		else
+			writel(0x1000000, (char *)chip->remap_diu_addr + 0x490a8);
+	}
+}
+
 irqreturn_t azx_interrupt(int irq, void *dev_id)
 {
 	struct azx *chip = dev_id;
@@ -1103,9 +1113,14 @@ irqreturn_t azx_interrupt(int irq, void *dev_id)
 			azx_writeb(chip, RIRBSTS, RIRB_INT_MASK);
 			active = true;
 			if (status & RIRB_INT_RESPONSE) {
-				if (chip->driver_caps & AZX_DCAPS_CTX_WORKAROUND)
+				if ((chip->driver_caps & AZX_DCAPS_CTX_WORKAROUND) ||
+				    (chip->driver_caps & AZX_DCAPS_RIRB_PRE_DELAY)) {
+					azx_rirb_zxdelay(chip, 1);
 					udelay(80);
+				}
 				snd_hdac_bus_update_rirb(bus);
+				if (chip->driver_caps & AZX_DCAPS_RIRB_PRE_DELAY)
+					azx_rirb_zxdelay(chip, 0);
 			}
 		}
 	} while (active && ++repeat < 10);

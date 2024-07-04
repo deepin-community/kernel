@@ -48,6 +48,7 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/time.h>
+#include <asm/unwind.h>
 #include "legacy_boot.h"
 
 #define SMBIOS_BIOSSIZE_OFFSET		0x09
@@ -58,7 +59,9 @@
 #define SMBIOS_CORE_PACKAGE_OFFSET	0x23
 #define LOONGSON_EFI_ENABLE		(1 << 3)
 
+#ifdef CONFIG_EFI
 struct screen_info screen_info __section(".data");
+#endif
 
 unsigned long fw_arg0, fw_arg1, fw_arg2;
 DEFINE_PER_CPU(unsigned long, kernelsp);
@@ -620,6 +623,7 @@ static void __init prefill_possible_map(void)
 void __init setup_arch(char **cmdline_p)
 {
 	cpu_probe();
+	unwind_init();
 
 	init_environ();
 	efi_init();

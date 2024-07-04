@@ -551,4 +551,16 @@ config CRYPTO_CRCT10DIF_PCLMUL
 	  Architecture: x86_64 using:
 	  - PCLMULQDQ (carry-less multiplication)
 
+config CRYPTO_SM2_ZHAOXIN_GMI
+	tristate "SM2 Cipher algorithm (Zhaoxin GMI Instruction)"
+	depends on X86 && (CPU_SUP_CENTAUR || CPU_SUP_ZHAOXIN)
+	default m
+	select CRYPTO_AKCIPHER
+	select CRYPTO_MANAGER
+	help
+	  SM2 (ShangMi 2) public key algorithm by Zhaoxin GMI Instruction
+
+	  Published by State Encryption Management Bureau, China,
+	  as specified by OSCCA GM/T 0003.1-2012 -- 0003.5-2012.
+
 endmenu

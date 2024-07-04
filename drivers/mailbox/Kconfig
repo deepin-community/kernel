@@ -41,6 +41,15 @@ config IMX_MBOX
 	help
 	  Mailbox implementation for i.MX Messaging Unit (MU).
 
+config PHYTIUM_MBOX
+	tristate "Phytium SoC Mailbox Support"
+	depends on ARCH_PHYTIUM || COMPILE_TEST
+	help
+	  Mailbox driver implementation for the Phytium platform. It is used
+	  to send message between application processors and on-chip management
+	  firmware. Say Y here if you want to build this mailbox controller
+	  driver.
+
 config PLATFORM_MHU
 	tristate "Platform MHU Mailbox"
 	depends on OF

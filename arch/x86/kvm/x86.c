@@ -1462,6 +1462,7 @@ static const u32 msrs_to_save_base[] = {
 	MSR_IA32_RTIT_ADDR2_A, MSR_IA32_RTIT_ADDR2_B,
 	MSR_IA32_RTIT_ADDR3_A, MSR_IA32_RTIT_ADDR3_B,
 	MSR_IA32_UMWAIT_CONTROL,
+	MSR_ZX_PAUSE_CONTROL,
 
 	MSR_IA32_XFD, MSR_IA32_XFD_ERR,
 };
@@ -7149,6 +7150,10 @@ static void kvm_probe_msr_to_save(u32 msr_index)
 		if (!kvm_cpu_cap_has(X86_FEATURE_WAITPKG))
 			return;
 		break;
+	case MSR_ZX_PAUSE_CONTROL:
+		if (!kvm_cpu_cap_has(X86_FEATURE_ZXPAUSE))
+			return;
+		break;
 	case MSR_IA32_RTIT_CTL:
 	case MSR_IA32_RTIT_STATUS:
 		if (!kvm_cpu_cap_has(X86_FEATURE_INTEL_PT))
@@ -10456,13 +10461,12 @@ static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 
 	bitmap_zero(vcpu->arch.ioapic_handled_vectors, 256);
 
+	static_call_cond(kvm_x86_sync_pir_to_irr)(vcpu);
+
 	if (irqchip_split(vcpu->kvm))
 		kvm_scan_ioapic_routes(vcpu, vcpu->arch.ioapic_handled_vectors);
-	else {
-		static_call_cond(kvm_x86_sync_pir_to_irr)(vcpu);
-		if (ioapic_in_kernel(vcpu->kvm))
-			kvm_ioapic_scan_entry(vcpu, vcpu->arch.ioapic_handled_vectors);
-	}
+	else if (ioapic_in_kernel(vcpu->kvm))
+		kvm_ioapic_scan_entry(vcpu, vcpu->arch.ioapic_handled_vectors);
 
 	if (is_guest_mode(vcpu))
 		vcpu->arch.load_eoi_exitmap_pending = true;
