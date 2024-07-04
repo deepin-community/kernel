@@ -9,7 +9,6 @@
 #include <linux/cpu.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
-#include <linux/kvm_host.h>
 
 #include <asm/irq_impl.h>
 #include <asm/mmu_context.h>
@@ -307,6 +306,8 @@ static int __init fdt_setup_smp(void)
 	struct device_node *dn = NULL;
 	u64 boot_flag_address;
 	u32 rcid, logical_core_id = 0;
+	u32 online_capable = 0;
+	bool available;
 	int ret, i, version, lnode, pnode;
 
 	/* Clean the map from logical core ID to physical core ID */
@@ -317,17 +318,12 @@ static int __init fdt_setup_smp(void)
 	init_cpu_possible(cpu_none_mask);
 	init_cpu_present(cpu_none_mask);
 
-#ifdef CONFIG_SUBARCH_C4
-	if (is_guest_or_emul()) {
-		int vt_smp_cpu_num;
-
-		vt_smp_cpu_num = sw64_io_read(0, VT_ONLINE_CPU);
-		for (i = vt_smp_cpu_num; i < KVM_MAX_VCPUS; i++)
-			cpumask_set_cpu(i, &cpu_offline);
-	}
-#endif
 	while ((dn = of_find_node_by_type(dn, "cpu"))) {
-		if (!of_device_is_available(dn)) {
+		of_property_read_u32(dn, "online-capable", &online_capable);
+
+		available = of_device_is_available(dn);
+
+		if (!available && !online_capable) {
 			pr_info("OF: Core is not available\n");
 			continue;
 		}
@@ -366,7 +362,8 @@ static int __init fdt_setup_smp(void)
 		set_cpu_possible(logical_core_id, true);
 		store_cpu_data(logical_core_id);
 
-		if (!cpumask_test_cpu(logical_core_id, &cpu_offline))
+		if (!cpumask_test_cpu(logical_core_id, &cpu_offline) &&
+				available)
 			set_cpu_present(logical_core_id, true);
 
 		rcid_information_init(version);
