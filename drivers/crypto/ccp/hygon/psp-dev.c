@@ -30,6 +30,8 @@ enum HYGON_PSP_OPCODE {
 	HYGON_PSP_MUTEX_ENABLE = 1,
 	HYGON_PSP_MUTEX_DISABLE,
 	HYGON_VPSP_CTRL_OPT,
+	HYGON_PSP_OP_PIN_USER_PAGE,
+	HYGON_PSP_OP_UNPIN_USER_PAGE,
 	HYGON_PSP_OPCODE_MAX_NR,
 };
 
@@ -299,6 +301,67 @@ static int vpsp_set_gpa_range(u64 gpa_start, u64 gpa_end)
 	return 0;
 }
 
+/**
+ * Try to pin a page
+ *
+ * @vaddr: the userspace virtual address, must be aligned to PAGE_SIZE
+ */
+static int psp_pin_user_page(u64 vaddr)
+{
+	struct page *page;
+	long npinned = 0;
+	int ref_count = 0;
+
+	// check must be aligned to PAGE_SIZE
+	if (vaddr & (PAGE_SIZE - 1)) {
+		pr_err("vaddr %llx not aligned to 0x%lx\n", vaddr, PAGE_SIZE);
+		return -EFAULT;
+	}
+
+	npinned = pin_user_pages_fast(vaddr, 1, FOLL_WRITE, &page);
+	if (npinned != 1) {
+		pr_err("PSP: pin_user_pages_fast fail\n");
+		return -ENOMEM;
+	}
+
+	ref_count = page_ref_count(page);
+	pr_debug("pin user page with address %llx, page ref_count %d\n", vaddr, ref_count);
+	return 0;
+}
+
+/**
+ * Try to unpin a page
+ *
+ * @vaddr: the userspace virtual address, must be aligned to PAGE_SIZE
+ */
+static int psp_unpin_user_page(u64 vaddr)
+{
+	struct page *page;
+	long npinned = 0;
+	int ref_count = 0;
+
+	// check must be aligned to PAGE_SIZE
+	if (vaddr & (PAGE_SIZE - 1)) {
+		pr_err("vaddr %llx not aligned to 0x%lx\n", vaddr, PAGE_SIZE);
+		return -EFAULT;
+	}
+
+	// page reference count increment by 1
+	npinned = get_user_pages_fast(vaddr, 1, FOLL_WRITE, &page);
+	if (npinned != 1) {
+		pr_err("PSP: pin_user_pages_fast fail\n");
+		return -ENOMEM;
+	}
+
+	// page reference count decrement by 2
+	put_page(page);
+	put_page(page);
+
+	ref_count = page_ref_count(page);
+	pr_debug("unpin user page with address %llx, page ref_count %d\n", vaddr, ref_count);
+	return 0;
+}
+
 static int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl)
 {
 	int ret = 0;
@@ -379,6 +442,14 @@ static long ioctl_psp(struct file *file, unsigned int ioctl, unsigned long arg)
 		if (!ret && copy_to_user((void __user *)arg, &vpsp_ctrl_op,
 				sizeof(struct vpsp_dev_ctrl)))
 			return -EFAULT;
+		break;
+
+	case HYGON_PSP_OP_PIN_USER_PAGE:
+		ret = psp_pin_user_page((u64)arg);
+		break;
+
+	case HYGON_PSP_OP_UNPIN_USER_PAGE:
+		ret = psp_unpin_user_page((u64)arg);
 		break;
 
 	default:
