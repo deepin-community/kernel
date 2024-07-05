@@ -1,0 +1,2435 @@
+Source: linux
+Section: kernel
+Priority: optional
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Uploaders: Bastian Blank <waldi@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <benh@debian.org>, Salvatore Bonaccorso <carnil@debian.org>
+Standards-Version: 4.2.0
+Build-Depends: debhelper-compat (= 12), dh-exec, python3:native, python3-dacite:native, python3-jinja2:native, quilt, cpio <!pkg.linux.nokernel>, xz-utils <!pkg.linux.nokernel !pkg.linux.nosource>, dh-python <!pkg.linux.notools>, bison <!pkg.linux.nokernel>, flex (>= 2.6.1-1.1~) <!pkg.linux.nokernel>
+Build-Depends-Arch: bc <!pkg.linux.nokernel>, libssl-dev:native <!pkg.linux.nokernel>, libssl-dev <!pkg.linux.notools>, openssl (>= 1.1.0-1~) <!pkg.linux.nokernel>, libelf-dev:native <!pkg.linux.nokernel>, libelf-dev [linux-any] <!pkg.linux.notools>, lz4 [amd64 arm64] <!pkg.linux.nokernel>, pahole <!pkg.linux.nokernel> | dwarves:native (>= 1.16~) <!pkg.linux.nokernel>, gcc-13 [alpha amd64 arm64 armel armhf hppa i386 loong64 m68k mips mips64 mips64el mips64r6el mipsel powerpc ppc64 ppc64el riscv64 s390x sh4 sparc64] <!cross !pkg.linux.nokernel>, gcc-13-alpha-linux-gnu [alpha] <cross !pkg.linux.nokernel>, gcc-13-x86-64-linux-gnu [amd64] <cross !pkg.linux.nokernel>, gcc-13-aarch64-linux-gnu [arm64] <cross !pkg.linux.nokernel>, gcc-arm-linux-gnueabihf [arm64] <!pkg.linux.nokernel>, gcc-13-arm-linux-gnueabi [armel] <cross !pkg.linux.nokernel>, gcc-13-arm-linux-gnueabihf [armhf] <cross !pkg.linux.nokernel>, gcc-13-hppa-linux-gnu [hppa] <cross !pkg.linux.nokernel>, gcc-13-hppa64-linux-gnu [hppa] <!pkg.linux.nokernel>, gcc-13-i686-linux-gnu [i386] <cross !pkg.linux.nokernel>, gcc-13-loongarch64-linux-gnu [loong64] <cross !pkg.linux.nokernel>, gcc-13-m68k-linux-gnu [m68k] <cross !pkg.linux.nokernel>, gcc-13-mips-linux-gnu [mips] <cross !pkg.linux.nokernel>, gcc-13-mips64-linux-gnuabi64 [mips64] <cross !pkg.linux.nokernel>, gcc-13-mips64el-linux-gnuabi64 [mips64el] <cross !pkg.linux.nokernel>, gcc-13-mipsisa64r6el-linux-gnuabi64 [mips64r6el] <cross !pkg.linux.nokernel>, gcc-13-mipsel-linux-gnu [mipsel] <cross !pkg.linux.nokernel>, gcc-13-powerpc-linux-gnu [powerpc] <cross !pkg.linux.nokernel>, gcc-13-powerpc64-linux-gnu [ppc64] <cross !pkg.linux.nokernel>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross !pkg.linux.nokernel>, gcc-13-riscv64-linux-gnu [riscv64] <cross !pkg.linux.nokernel>, gcc-13-s390x-linux-gnu [s390x] <cross !pkg.linux.nokernel>, gcc-13-sh4-linux-gnu [sh4] <cross !pkg.linux.nokernel>, gcc-13-sparc64-linux-gnu [sparc64] <cross !pkg.linux.nokernel>, python3-docutils [amd64 arm64 armhf i386 linux-any x32] <!nodoc !pkg.linux.notools> <!pkg.linux.mintools !pkg.linux.notools>, binutils-dev [hppa] <!pkg.linux.mintools !pkg.linux.notools>, zlib1g-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libcap-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libpci-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, asciidoc [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nodoc !nopython !pkg.linux.notools>, gcc-multilib [amd64 mips64 mips64el mips64r6 mips64r6el ppc64 s390x sparc64] <!cross>, libaudit-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libbabeltrace-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libdw-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libnewt-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libnuma-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libopencsd-dev (>= 1.5.2-1) [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libperl-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libpython3-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libtraceevent-dev (>= 1:1.5) [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64 x32] <!pkg.linux.mintools !pkg.linux.notools>, libunwind-dev [amd64 arm64 armel armhf hppa i386 mips mips64 mips64el mipsel powerpc ppc64 ppc64el sh4] <!nopython !pkg.linux.mintools !pkg.linux.notools>, libzstd-dev [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, python3-dev:any [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, python3-setuptools [alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64] <!nopython !pkg.linux.mintools !pkg.linux.notools>, autoconf [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, automake [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libtool [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libglib2.0-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libudev-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libwrap0-dev [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, rsync [linux-any] <!pkg.linux.mintools !pkg.linux.notools>, libtracefs-dev (>= 1.3) [amd64 arm64 armhf i386 x32] <!pkg.linux.mintools !pkg.linux.notools>, kmod [alpha amd64 arm64 armel armhf hppa i386 loong64 m68k mips mips64 mips64el mips64r6el mipsel powerpc ppc64 ppc64el riscv64 s390x sh4 sparc64] <!pkg.linux.nokernel>
+Build-Depends-Indep: graphviz <!nodoc !pkg.linux.quick>, python3-sphinx <!nodoc !pkg.linux.quick>, python3-sphinx-rtd-theme <!nodoc !pkg.linux.quick>, texlive-latex-base <!nodoc !pkg.linux.quick>, texlive-latex-extra <!nodoc !pkg.linux.quick>, dvipng <!nodoc !pkg.linux.quick>, python3-yaml <!nodoc !pkg.linux.quick>, patchutils <!pkg.linux.nosource !pkg.linux.quick>, rsync
+Rules-Requires-Root: no
+Homepage: https://www.kernel.org/
+Vcs-Browser: https://salsa.debian.org/kernel-team/linux
+Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
+
+Package: linux-support-6.6.36
+Architecture: all
+Section: devel
+Build-Profiles: <!pkg.linux.notools>
+Depends: ${python3:Depends}, python3-dacite, python3-jinja2, ${misc:Depends}
+Multi-Arch: foreign
+Description: Support files for Linux 6.6
+ This package provides support files for the Linux kernel build, e.g.
+ scripts to handle ABI information and for generation of build system meta
+ data.
+
+Package: linux-doc-6.6
+Architecture: all
+Section: doc
+Build-Profiles: <!nodoc !pkg.linux.quick>
+Depends: ${misc:Depends}
+Multi-Arch: foreign
+Description: Linux kernel specific documentation for version 6.6
+ This package provides the various README files and HTML documentation for
+ the Linux kernel version 6.6.  Plenty of information, including the
+ descriptions of various kernel subsystems, filesystems, driver-specific
+ notes and the like.  An index to the documentation is installed as
+ /usr/share/doc/linux-doc-6.6/html/index.html.
+
+Package: linux-doc
+Architecture: all
+Section: doc
+Build-Profiles: <!nodoc !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-doc-6.6 (= ${binary:Version}), ${misc:Depends}
+Description: Linux kernel specific documentation (meta-package)
+ This package depends on the package containing the documentation for the
+ latest Linux kernel.
+
+Package: linux-source-6.6
+Architecture: all
+Section: kernel
+Build-Profiles: <!pkg.linux.nosource !pkg.linux.quick>
+Depends: binutils, xz-utils, ${misc:Depends}
+Recommends: build-essential, bc, rsync, kmod, cpio, bison, flex, libelf-dev, libssl-dev, linux-config-6.6
+Suggests: libncurses-dev | ncurses-dev, qtbase5-dev, pkg-config
+Multi-Arch: foreign
+Description: Linux kernel source for version 6.6 with Debian patches
+ This package provides source code for the Linux kernel version 6.6. This
+ source closely tracks official Linux kernel releases.  Debian's
+ modifications to that source consist of security fixes, bug fixes, and
+ features that have already been (or are believed to be) accepted by the
+ upstream maintainers.
+
+Package: linux-source
+Architecture: all
+Build-Profiles: <!pkg.linux.nometa !pkg.linux.nosource !pkg.linux.quick>
+Depends: linux-source-6.6 (= ${binary:Version}), ${misc:Depends}
+Description: Linux kernel source (meta-package)
+ This package depends on packages containing the sources of the latest
+ Linux kernel.
+
+Package: linux-libc-dev
+Architecture: all
+Section: devel
+Provides: linux-libc-dev-alpha-cross (= ${binary:Version}), linux-libc-dev-amd64-cross (= ${binary:Version}), linux-libc-dev-arm64-cross (= ${binary:Version}), linux-libc-dev-armel-cross (= ${binary:Version}), linux-libc-dev-armhf-cross (= ${binary:Version}), linux-libc-dev-hppa-cross (= ${binary:Version}), linux-libc-dev-i386-cross (= ${binary:Version}), linux-libc-dev-loong64-cross (= ${binary:Version}), linux-libc-dev-m68k-cross (= ${binary:Version}), linux-libc-dev-mips-cross (= ${binary:Version}), linux-libc-dev-mips64-cross (= ${binary:Version}), linux-libc-dev-mips64el-cross (= ${binary:Version}), linux-libc-dev-mips64r6el-cross (= ${binary:Version}), linux-libc-dev-mipsel-cross (= ${binary:Version}), linux-libc-dev-powerpc-cross (= ${binary:Version}), linux-libc-dev-ppc64-cross (= ${binary:Version}), linux-libc-dev-ppc64el-cross (= ${binary:Version}), linux-libc-dev-riscv64-cross (= ${binary:Version}), linux-libc-dev-s390x-cross (= ${binary:Version}), linux-libc-dev-sh4-cross (= ${binary:Version}), linux-libc-dev-sparc64-cross (= ${binary:Version}), linux-libc-dev-x32-cross (= ${binary:Version})
+Depends: ${misc:Depends}
+Multi-Arch: foreign
+Description: Linux support headers for userspace development
+ This package provides userspaces headers from the Linux kernel.  These
+ files are going to be installed into /usr/include, and are used by the
+ installed headers for GNU libc and other system libraries.
+
+Package: linux-headers-6.6.36-common
+Architecture: all
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: ${misc:Depends}
+Multi-Arch: foreign
+Description: Common header files for Linux 6.6.36
+ This package provides the common kernel header files for Linux kernel
+ version 6.6.36, generally used for building out-of-tree kernel modules.
+ These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-common.
+ .
+ To obtain a complete set of headers you also need to install the
+ linux-headers-6.6.36-(flavour) package, matching the flavour of the kernel
+ you intend the build for.
+
+Package: linux-headers-6.6.36-common-rt
+Architecture: all
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: ${misc:Depends}
+Multi-Arch: foreign
+Description: Common header files for Linux 6.6.36-rt
+ This package provides the common kernel header files for Linux kernel
+ version 6.6.36 with the PREEMPT_RT featureset, generally used for building
+ out-of-tree kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-common-rt.
+ .
+ To obtain a complete set of headers you also need to install the
+ linux-headers-6.6.36-(flavour) package, matching the flavour of the kernel
+ you intend the build for.
+
+Package: linux-config-6.6
+Architecture: linux-any
+Build-Profiles: <!pkg.linux.nosource>
+Depends: ${misc:Depends}
+Recommends: linux-source-6.6
+Multi-Arch: same
+Description: Debian kernel configurations for Linux 6.6
+ This package contains the configuration files used to build the official
+ Debian kernel files, but without references to Debian's signing
+ certificates.
+ .
+ These can be used as a basis for configuring custom kernels.
+
+Package: bpftool
+Architecture: linux-any
+Section: devel
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Inspection and simple manipulation of BPF programs and maps
+ The bpftool command allows for inspection and simple modification of
+ Berkeley Packet Filter (BPF) objects on the system.
+
+Package: linux-cpupower
+Architecture: linux-any
+Section: admin
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: CPU power management tools for Linux
+ The cpupower command allows inspection and control of cpufreq and cpuidle
+ tunables for hardware that supports these features.  It replaces
+ "cpufreq-info" and "cpufreq-set" in cpufrequtils.
+ .
+ ${cpupower:Arch-Description}
+
+Package: libcpupower1
+Architecture: linux-any
+Section: libs
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: CPU frequency and voltage scaling tools for Linux (libraries)
+ libcpupower is a library for inspecting and controlling cpufreq and
+ cpuidle tunables.
+ .
+ This package contains the shared library.
+
+Package: libcpupower-dev
+Architecture: linux-any
+Section: libdevel
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Provides: libcpufreq-dev
+Depends: ${misc:Depends}, libcpupower1 (= ${binary:Version})
+Replaces: libcpufreq-dev
+Conflicts: libcpufreq-dev
+Description: CPU frequency and voltage scaling tools for Linux (development files)
+ libcpupower is a library for inspecting and controlling cpufreq and
+ cpuidle tunables.
+ .
+ This package is needed to compile programs against libcpupower.
+
+Package: linux-perf
+Architecture: alpha amd64 arm64 armel armhf hppa i386 loong64 mips mips64 mips64el mips64r6 mips64r6el mipsel mipsn32 mipsn32el mipsn32r6 mipsn32r6el mipsr6 mipsr6el powerpc ppc64 ppc64el riscv64 s390 s390x sh4 sparc sparc64
+Section: devel
+Build-Profiles: <!nopython !pkg.linux.mintools !pkg.linux.notools>
+Provides: linux-tools-6.6
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${perl:Depends}, ${python3:Depends}
+Suggests: linux-doc-6.6
+Replaces: linux-tools-6.6
+Conflicts: linux-tools-6.6
+Description: Performance analysis tools for Linux
+ This package contains the 'perf' performance analysis tools for Linux.
+
+Package: usbip
+Architecture: linux-any
+Section: admin
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Depends: usb.ids, ${shlibs:Depends}, ${misc:Depends}
+Description: USB device sharing system over IP network
+ USB/IP is a system for sharing USB devices over the network.
+ .
+ To share USB devices between computers with their full functionality,
+ USB/IP encapsulates "USB requests" into IP packets and transmits them
+ between computers.
+ .
+ Original USB device drivers and applications can be used for remote USB
+ devices without any modification of them.  A computer can use remote USB
+ devices as if they were directly attached.
+ .
+ Currently USB/IP provides no access control or encryption.  It should only
+ be used in trusted environments.
+ .
+ This package provides the server component 'usbipd' and the client tool
+ 'usbip'.
+
+Package: hyperv-daemons
+Architecture: amd64 arm64 i386 x32
+Section: admin
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Support daemons for Linux running on Hyper-V
+ Suite of daemons for Linux guests running on Hyper-V, consisting of
+ hv_fcopy_daemon, hv_kvp_daemon and hv_vss_daemon.
+ .
+ hv_fcopy_daemon provides the file copy service, allowing the host to copy
+ files into the guest.
+ .
+ hv_kvp_daemon provides the key-value pair (KVP) service, allowing the host
+ to get and set the IP networking configuration of the guest.  (This
+ requires helper scripts which are not currently included.)
+ .
+ hv_vss_daemon provides the volume shadow copy service (VSS), allowing the
+ host to freeze the guest filesystems while taking a snapshot.
+
+Package: rtla
+Architecture: amd64 arm64 armhf i386 x32
+Section: devel
+Build-Profiles: <!pkg.linux.mintools !pkg.linux.notools>
+Depends: ${shlibs:Depends}
+Description: Real-Time Linux Analysis tools
+ rtla provides a set of commands for analysing the real-time properties of
+ Linux.  rtla uses kernel tracing capabilities to provide precise
+ information about the properties and root causes of unexpected results.
+
+Package: linux-kbuild-6.6.36
+Architecture: linux-any
+Build-Profiles: <!pkg.linux.notools>
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Multi-Arch: foreign
+Description: Kbuild infrastructure for Linux 6.6.36
+ This package provides the kbuild infrastructure for the headers packages
+ for Linux kernel version 6.6.
+
+Package: linux-headers-6.6.36-alpha-generic
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-alpha-generic (= ${binary:Version}) | linux-image-6.6.36-alpha-generic-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-alpha-generic
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-alpha-generic, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-alpha-generic, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-alpha-generic package.
+
+Package: linux-image-6.6.36-alpha-generic
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [alpha] | linux-initramfs-tool [alpha]
+Recommends: apparmor [alpha]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, aboot [alpha], fdutils [alpha]
+Breaks: fwupdate (<< 12-7) [alpha], wireless-regdb (<< 2019.06.03-1~) [alpha], initramfs-tools (<< 0.120+deb8u2) [alpha]
+Description: Linux 6.6 for Alpha
+ The Linux kernel 6.6 and modules for use on DEC Alpha systems with
+ extended kernel start address (Wildfire, Titan, Marvel).
+
+Package: linux-image-alpha-generic
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-alpha-generic, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-alpha-generic (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Alpha (meta-package)
+ This package depends on the latest Linux kernel and modules for use on DEC
+ Alpha systems with extended kernel start address (Wildfire, Titan,
+ Marvel).
+
+Package: linux-headers-alpha-generic
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-alpha-generic (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux alpha-generic configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel alpha-generic configuration.
+
+Package: linux-image-6.6.36-alpha-generic-dbg
+Architecture: alpha
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-alpha-generic
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-alpha-generic.
+
+Package: linux-image-alpha-generic-dbg
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-alpha-generic-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux alpha-generic configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel alpha-generic configuration.
+
+Package: linux-headers-6.6.36-alpha-smp
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-alpha-smp (= ${binary:Version}) | linux-image-6.6.36-alpha-smp-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-alpha-smp
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-alpha-smp, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-alpha-smp, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-alpha-smp package.
+
+Package: linux-image-6.6.36-alpha-smp
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [alpha] | linux-initramfs-tool [alpha]
+Recommends: apparmor [alpha]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, aboot [alpha], fdutils [alpha]
+Breaks: fwupdate (<< 12-7) [alpha], wireless-regdb (<< 2019.06.03-1~) [alpha], initramfs-tools (<< 0.120+deb8u2) [alpha]
+Description: Linux 6.6 for Alpha SMP
+ The Linux kernel 6.6 and modules for use on DEC Alpha SMP systems with
+ extended kernel start address (Wildfire, Titan, Marvel).
+
+Package: linux-image-alpha-smp
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-alpha-smp, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-alpha-smp (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Alpha SMP (meta-package)
+ This package depends on the latest Linux kernel and modules for use on DEC
+ Alpha SMP systems with extended kernel start address (Wildfire, Titan,
+ Marvel).
+
+Package: linux-headers-alpha-smp
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-alpha-smp (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux alpha-smp configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel alpha-smp configuration.
+
+Package: linux-image-6.6.36-alpha-smp-dbg
+Architecture: alpha
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-alpha-smp
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-alpha-smp.
+
+Package: linux-image-alpha-smp-dbg
+Architecture: alpha
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-alpha-smp-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux alpha-smp configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel alpha-smp configuration.
+
+Package: linux-image-amd64-signed-template
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: dpkg-dev, python3:any, ${misc:Depends}
+Description: Template for signed linux-image packages for amd64
+ This package is used to control code signing by the Debian signing
+ service.
+
+Package: linux-headers-6.6.36-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-amd64 (= ${binary:Version}) | linux-image-6.6.36-amd64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-amd64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-amd64, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-amd64, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-amd64
+ package.
+
+Package: linux-image-6.6.36-amd64-unsigned
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-amd64
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-amd64
+Description: Linux 6.6 for 64-bit PCs
+ The Linux kernel 6.6 and modules for use on PCs with AMD64, Intel 64 or
+ VIA Nano processors.
+
+Package: linux-image-6.6.36-amd64-dbg
+Architecture: amd64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-amd64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-amd64.
+
+Package: linux-image-amd64-dbg
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-amd64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux amd64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel amd64 configuration.
+
+Package: linux-headers-6.6.36-cloud-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-cloud-amd64 (= ${binary:Version}) | linux-image-6.6.36-cloud-amd64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-cloud-amd64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-cloud-amd64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-cloud-amd64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-cloud-amd64 package.
+
+Package: linux-image-6.6.36-cloud-amd64-unsigned
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-cloud-amd64
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-cloud-amd64
+Description: Linux 6.6 for x86-64 cloud
+ The Linux kernel 6.6 and modules for use on cloud platforms including
+ Amazon EC2, Microsoft Azure, and Google Compute Engine.
+
+Package: linux-image-6.6.36-cloud-amd64-dbg
+Architecture: amd64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-cloud-amd64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-cloud-amd64.
+
+Package: linux-image-cloud-amd64-dbg
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-cloud-amd64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux cloud-amd64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel cloud-amd64 configuration.
+
+Package: linux-headers-6.6.36-rt-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common-rt (= ${source:Version}), linux-image-6.6.36-rt-amd64 (= ${binary:Version}) | linux-image-6.6.36-rt-amd64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-rt-amd64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-rt-amd64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-rt-amd64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-rt-amd64 package.
+
+Package: linux-image-6.6.36-rt-amd64-unsigned
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-rt-amd64
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-rt-amd64
+Description: Linux 6.6 for 64-bit PCs, PREEMPT_RT
+ The Linux kernel 6.6 and modules for use on PCs with AMD64, Intel 64 or
+ VIA Nano processors.
+ .
+ This kernel includes the PREEMPT_RT realtime patch set.
+
+Package: linux-image-6.6.36-rt-amd64-dbg
+Architecture: amd64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-rt-amd64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-rt-amd64.
+
+Package: linux-image-rt-amd64-dbg
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-rt-amd64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux rt-amd64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel rt-amd64 configuration.
+
+Package: linux-image-arm64-signed-template
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: dpkg-dev, python3:any, ${misc:Depends}
+Description: Template for signed linux-image packages for arm64
+ This package is used to control code signing by the Debian signing
+ service.
+
+Package: linux-headers-6.6.36-arm64
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-arm64 (= ${binary:Version}) | linux-image-6.6.36-arm64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-arm64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-arm64, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-arm64, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-arm64
+ package.
+
+Package: linux-image-6.6.36-arm64-unsigned
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [arm64] | linux-initramfs-tool [arm64]
+Recommends: apparmor [arm64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Replaces: linux-image-6.6.36-arm64
+Breaks: fwupdate (<< 12-7) [arm64], wireless-regdb (<< 2019.06.03-1~) [arm64], initramfs-tools (<< 0.120+deb8u2) [arm64]
+Conflicts: linux-image-6.6.36-arm64
+Description: Linux 6.6 for 64-bit ARMv8 machines
+ The Linux kernel 6.6 and modules for use on 64-bit ARMv8 machines.
+
+Package: linux-image-6.6.36-arm64-dbg
+Architecture: arm64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-arm64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-arm64.
+
+Package: linux-image-arm64-dbg
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-arm64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux arm64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel arm64 configuration.
+
+Package: linux-headers-6.6.36-cloud-arm64
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-cloud-arm64 (= ${binary:Version}) | linux-image-6.6.36-cloud-arm64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-cloud-arm64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-cloud-arm64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-cloud-arm64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-cloud-arm64 package.
+
+Package: linux-image-6.6.36-cloud-arm64-unsigned
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [arm64] | linux-initramfs-tool [arm64]
+Recommends: apparmor [arm64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Replaces: linux-image-6.6.36-cloud-arm64
+Breaks: fwupdate (<< 12-7) [arm64], wireless-regdb (<< 2019.06.03-1~) [arm64], initramfs-tools (<< 0.120+deb8u2) [arm64]
+Conflicts: linux-image-6.6.36-cloud-arm64
+Description: Linux 6.6 for arm64 cloud
+ The Linux kernel 6.6 and modules for use on cloud platforms supporting
+ arm64 virtual machines.
+
+Package: linux-image-6.6.36-cloud-arm64-dbg
+Architecture: arm64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-cloud-arm64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-cloud-arm64.
+
+Package: linux-image-cloud-arm64-dbg
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-cloud-arm64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux cloud-arm64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel cloud-arm64 configuration.
+
+Package: linux-headers-6.6.36-rt-arm64
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common-rt (= ${source:Version}), linux-image-6.6.36-rt-arm64 (= ${binary:Version}) | linux-image-6.6.36-rt-arm64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-rt-arm64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-rt-arm64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-rt-arm64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-rt-arm64 package.
+
+Package: linux-image-6.6.36-rt-arm64-unsigned
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [arm64] | linux-initramfs-tool [arm64]
+Recommends: apparmor [arm64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Replaces: linux-image-6.6.36-rt-arm64
+Breaks: fwupdate (<< 12-7) [arm64], wireless-regdb (<< 2019.06.03-1~) [arm64], initramfs-tools (<< 0.120+deb8u2) [arm64]
+Conflicts: linux-image-6.6.36-rt-arm64
+Description: Linux 6.6 for 64-bit ARMv8 machines, PREEMPT_RT
+ The Linux kernel 6.6 and modules for use on 64-bit ARMv8 machines.
+ .
+ This kernel includes the PREEMPT_RT realtime patch set.
+
+Package: linux-image-6.6.36-rt-arm64-dbg
+Architecture: arm64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-rt-arm64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-rt-arm64.
+
+Package: linux-image-rt-arm64-dbg
+Architecture: arm64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-rt-arm64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux rt-arm64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel rt-arm64 configuration.
+
+Package: linux-headers-6.6.36-rpi
+Architecture: armel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-rpi (= ${binary:Version}) | linux-image-6.6.36-rpi-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-rpi
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-rpi, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-rpi, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-rpi package.
+
+Package: linux-image-6.6.36-rpi
+Architecture: armel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [armel] | linux-initramfs-tool [armel]
+Recommends: apparmor [armel]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [armel], wireless-regdb (<< 2019.06.03-1~) [armel], initramfs-tools (<< 0.120+deb8u2) [armel]
+Description: Linux 6.6 for Raspberry Pi Zero, Zero W and 1
+ The Linux kernel 6.6 and modules for use on Raspberry Pi Zero, Zero W and
+ 1 based systems.
+
+Package: linux-image-rpi
+Architecture: armel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-rpi, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-rpi (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Raspberry Pi Zero, Zero W and 1 (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Raspberry Pi Zero, Zero W and 1 based systems.
+
+Package: linux-headers-rpi
+Architecture: armel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-rpi (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux rpi configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel rpi configuration.
+
+Package: linux-image-6.6.36-rpi-dbg
+Architecture: armel
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-rpi
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-rpi.
+
+Package: linux-image-rpi-dbg
+Architecture: armel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-rpi-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux rpi configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel rpi configuration.
+
+Package: linux-headers-6.6.36-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-armmp (= ${binary:Version}) | linux-image-6.6.36-armmp-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-armmp
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-armmp, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-armmp, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-armmp
+ package.
+
+Package: linux-image-6.6.36-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [armhf] | linux-initramfs-tool [armhf]
+Recommends: apparmor [armhf]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [armhf], wireless-regdb (<< 2019.06.03-1~) [armhf], initramfs-tools (<< 0.120+deb8u2) [armhf]
+Description: Linux 6.6 for ARMv7 multiplatform compatible SoCs
+ The Linux kernel 6.6 and modules for use on ARMv7 multiplatform kernel.
+ See https://wiki.debian.org/DebianKernel/ARMMP for details of supported
+ platforms.
+
+Package: linux-image-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-armmp, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-armmp (= ${binary:Version}), ${misc:Depends}
+Description: Linux for ARMv7 multiplatform compatible SoCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ ARMv7 multiplatform kernel.  See
+ https://wiki.debian.org/DebianKernel/ARMMP for details of supported
+ platforms.
+
+Package: linux-headers-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-armmp (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux armmp configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel armmp configuration.
+
+Package: linux-image-6.6.36-armmp-dbg
+Architecture: armhf
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-armmp
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-armmp.
+
+Package: linux-image-armmp-dbg
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-armmp-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux armmp configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel armmp configuration.
+
+Package: linux-headers-6.6.36-armmp-lpae
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-armmp-lpae (= ${binary:Version}) | linux-image-6.6.36-armmp-lpae-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-armmp-lpae
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-armmp-lpae, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-armmp-lpae, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-armmp-lpae package.
+
+Package: linux-image-6.6.36-armmp-lpae
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [armhf] | linux-initramfs-tool [armhf]
+Recommends: apparmor [armhf]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [armhf], wireless-regdb (<< 2019.06.03-1~) [armhf], initramfs-tools (<< 0.120+deb8u2) [armhf]
+Description: Linux 6.6 for ARMv7 multiplatform compatible SoCs supporting LPAE
+ The Linux kernel 6.6 and modules for use on ARMv7 multiplatform kernel
+ supporting LPAE. See https://wiki.debian.org/DebianKernel/ARMMP for
+ details of supported platforms..
+
+Package: linux-image-armmp-lpae
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-armmp-lpae, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-armmp-lpae (= ${binary:Version}), ${misc:Depends}
+Description: Linux for ARMv7 multiplatform compatible SoCs supporting LPAE (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ ARMv7 multiplatform kernel supporting LPAE. See
+ https://wiki.debian.org/DebianKernel/ARMMP for details of supported
+ platforms..
+
+Package: linux-headers-armmp-lpae
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-armmp-lpae (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux armmp-lpae configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel armmp-lpae configuration.
+
+Package: linux-image-6.6.36-armmp-lpae-dbg
+Architecture: armhf
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-armmp-lpae
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-armmp-lpae.
+
+Package: linux-image-armmp-lpae-dbg
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-armmp-lpae-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux armmp-lpae configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel armmp-lpae configuration.
+
+Package: linux-headers-6.6.36-rt-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common-rt (= ${source:Version}), linux-image-6.6.36-rt-armmp (= ${binary:Version}) | linux-image-6.6.36-rt-armmp-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-rt-armmp
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-rt-armmp, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-rt-armmp, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-rt-armmp package.
+
+Package: linux-image-6.6.36-rt-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [armhf] | linux-initramfs-tool [armhf]
+Recommends: apparmor [armhf]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [armhf], wireless-regdb (<< 2019.06.03-1~) [armhf], initramfs-tools (<< 0.120+deb8u2) [armhf]
+Description: Linux 6.6 for ARMv7 multiplatform compatible SoCs, PREEMPT_RT
+ The Linux kernel 6.6 and modules for use on ARMv7 multiplatform kernel.
+ See https://wiki.debian.org/DebianKernel/ARMMP for details of supported
+ platforms.
+ .
+ This kernel includes the PREEMPT_RT realtime patch set.
+
+Package: linux-image-rt-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-rt-armmp, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-rt-armmp (= ${binary:Version}), ${misc:Depends}
+Description: Linux for ARMv7 multiplatform compatible SoCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ ARMv7 multiplatform kernel.  See
+ https://wiki.debian.org/DebianKernel/ARMMP for details of supported
+ platforms.
+
+Package: linux-headers-rt-armmp
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-rt-armmp (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux rt-armmp configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel rt-armmp configuration.
+
+Package: linux-image-6.6.36-rt-armmp-dbg
+Architecture: armhf
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-rt-armmp
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-rt-armmp.
+
+Package: linux-image-rt-armmp-dbg
+Architecture: armhf
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-rt-armmp-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux rt-armmp configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel rt-armmp configuration.
+
+Package: linux-headers-6.6.36-parisc
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-parisc (= ${binary:Version}) | linux-image-6.6.36-parisc-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-parisc
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-parisc, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-parisc, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-parisc
+ package.
+
+Package: linux-image-6.6.36-parisc
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [hppa] | linux-initramfs-tool [hppa]
+Recommends: apparmor [hppa]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, palo [hppa]
+Breaks: fwupdate (<< 12-7) [hppa], wireless-regdb (<< 2019.06.03-1~) [hppa], initramfs-tools (<< 0.120+deb8u2) [hppa]
+Description: Linux 6.6 for 32-bit PA-RISC
+ The Linux kernel 6.6 and modules for use on HP PA-RISC 32-bit systems with
+ max 4 GB RAM.
+
+Package: linux-image-parisc
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-parisc, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-parisc (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 32-bit PA-RISC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on HP
+ PA-RISC 32-bit systems with max 4 GB RAM.
+
+Package: linux-headers-parisc
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-parisc (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux parisc configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel parisc configuration.
+
+Package: linux-image-6.6.36-parisc-dbg
+Architecture: hppa
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-parisc
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-parisc.
+
+Package: linux-image-parisc-dbg
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-parisc-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux parisc configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel parisc configuration.
+
+Package: linux-headers-6.6.36-parisc64
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-parisc64 (= ${binary:Version}) | linux-image-6.6.36-parisc64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-parisc64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-parisc64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-parisc64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-parisc64 package.
+
+Package: linux-image-6.6.36-parisc64
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [hppa] | linux-initramfs-tool [hppa]
+Recommends: apparmor [hppa]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, palo [hppa]
+Breaks: fwupdate (<< 12-7) [hppa], wireless-regdb (<< 2019.06.03-1~) [hppa], initramfs-tools (<< 0.120+deb8u2) [hppa]
+Description: Linux 6.6 for 64-bit PA-RISC
+ The Linux kernel 6.6 and modules for use on HP PA-RISC 64-bit systems with
+ support for more than 4 GB RAM.
+
+Package: linux-image-parisc64
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-parisc64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-parisc64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit PA-RISC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on HP
+ PA-RISC 64-bit systems with support for more than 4 GB RAM.
+
+Package: linux-headers-parisc64
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-parisc64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux parisc64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel parisc64 configuration.
+
+Package: linux-image-6.6.36-parisc64-dbg
+Architecture: hppa
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-parisc64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-parisc64.
+
+Package: linux-image-parisc64-dbg
+Architecture: hppa
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-parisc64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux parisc64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel parisc64 configuration.
+
+Package: linux-headers-6.6.36-686
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-686 (= ${binary:Version}) | linux-image-6.6.36-686-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-686
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-686, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-686, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-686 package.
+
+Package: linux-image-6.6.36-686
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [i386] | linux-initramfs-tool [i386]
+Recommends: apparmor [i386]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [i386] | grub-efi-ia32 [i386] | extlinux [i386]
+Breaks: fwupdate (<< 12-7) [i386], wireless-regdb (<< 2019.06.03-1~) [i386], initramfs-tools (<< 0.120+deb8u2) [i386]
+Description: Linux 6.6 for older PCs
+ The Linux kernel 6.6 and modules for use on PCs with one or more
+ processors not supporting PAE.
+
+Package: linux-image-686
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-686, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-686 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for older PCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on PCs
+ with one or more processors not supporting PAE.
+
+Package: linux-headers-686
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-686 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux 686 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel 686 configuration.
+
+Package: linux-image-6.6.36-686-dbg
+Architecture: i386
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-686
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-686.
+
+Package: linux-image-686-dbg
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-686-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux 686 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel 686 configuration.
+
+Package: linux-headers-6.6.36-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-686-pae (= ${binary:Version}) | linux-image-6.6.36-686-pae-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-686-pae
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-686-pae, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-686-pae, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-686-pae package.
+
+Package: linux-image-6.6.36-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [i386] | linux-initramfs-tool [i386]
+Recommends: apparmor [i386]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [i386] | grub-efi-ia32 [i386] | extlinux [i386]
+Breaks: fwupdate (<< 12-7) [i386], wireless-regdb (<< 2019.06.03-1~) [i386], initramfs-tools (<< 0.120+deb8u2) [i386]
+Description: Linux 6.6 for modern PCs
+ The Linux kernel 6.6 and modules for use on PCs with one or more
+ processors supporting PAE.
+ .
+ This kernel requires PAE (Physical Address Extension). This feature is
+ supported by the Intel Pentium Pro/II/III/4/4M/D, Xeon, Core and Atom; AMD
+ Geode NX, Athlon (K7), Duron, Opteron, Sempron, Turion or Phenom;
+ Transmeta Efficeon; VIA C7; and some other processors.
+
+Package: linux-image-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-686-pae, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-686-pae (= ${binary:Version}), ${misc:Depends}
+Description: Linux for modern PCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on PCs
+ with one or more processors supporting PAE.
+
+Package: linux-headers-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-686-pae (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux 686-pae configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel 686-pae configuration.
+
+Package: linux-image-6.6.36-686-pae-dbg
+Architecture: i386
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-686-pae
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-686-pae.
+
+Package: linux-image-686-pae-dbg
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-686-pae-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux 686-pae configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel 686-pae configuration.
+
+Package: linux-headers-6.6.36-rt-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common-rt (= ${source:Version}), linux-image-6.6.36-rt-686-pae (= ${binary:Version}) | linux-image-6.6.36-rt-686-pae-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-rt-686-pae
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-rt-686-pae, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-rt-686-pae, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-rt-686-pae package.
+
+Package: linux-image-6.6.36-rt-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [i386] | linux-initramfs-tool [i386]
+Recommends: apparmor [i386]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [i386] | grub-efi-ia32 [i386] | extlinux [i386]
+Breaks: fwupdate (<< 12-7) [i386], wireless-regdb (<< 2019.06.03-1~) [i386], initramfs-tools (<< 0.120+deb8u2) [i386]
+Description: Linux 6.6 for modern PCs, PREEMPT_RT
+ The Linux kernel 6.6 and modules for use on PCs with one or more
+ processors supporting PAE.
+ .
+ This kernel requires PAE (Physical Address Extension). This feature is
+ supported by the Intel Pentium Pro/II/III/4/4M/D, Xeon, Core and Atom; AMD
+ Geode NX, Athlon (K7), Duron, Opteron, Sempron, Turion or Phenom;
+ Transmeta Efficeon; VIA C7; and some other processors.
+ .
+ This kernel includes the PREEMPT_RT realtime patch set.
+
+Package: linux-image-rt-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-rt-686-pae, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-rt-686-pae (= ${binary:Version}), ${misc:Depends}
+Description: Linux for modern PCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on PCs
+ with one or more processors supporting PAE.
+
+Package: linux-headers-rt-686-pae
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-rt-686-pae (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux rt-686-pae configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel rt-686-pae configuration.
+
+Package: linux-image-6.6.36-rt-686-pae-dbg
+Architecture: i386
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-rt-686-pae
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-rt-686-pae.
+
+Package: linux-image-rt-686-pae-dbg
+Architecture: i386
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-rt-686-pae-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux rt-686-pae configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel rt-686-pae configuration.
+
+Package: linux-headers-6.6.36-loong64
+Architecture: loong64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-loong64 (= ${binary:Version}) | linux-image-6.6.36-loong64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-loong64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-loong64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-loong64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-loong64 package.
+
+Package: linux-image-6.6.36-loong64
+Architecture: loong64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [loong64] | linux-initramfs-tool [loong64]
+Recommends: apparmor [loong64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [loong64], wireless-regdb (<< 2019.06.03-1~) [loong64], initramfs-tools (<< 0.120+deb8u2) [loong64]
+Description: Linux 6.6 for 64-bit LoongArch platforms
+ The Linux kernel 6.6 and modules for use on 64-bit LoongArch platforms.
+
+Package: linux-image-loong64
+Architecture: loong64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-loong64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-loong64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit LoongArch platforms (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ 64-bit LoongArch platforms.
+
+Package: linux-headers-loong64
+Architecture: loong64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-loong64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux loong64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel loong64 configuration.
+
+Package: linux-image-6.6.36-loong64-dbg
+Architecture: loong64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-loong64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-loong64.
+
+Package: linux-image-loong64-dbg
+Architecture: loong64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-loong64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux loong64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel loong64 configuration.
+
+Package: linux-headers-6.6.36-m68k
+Architecture: m68k
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-m68k (= ${binary:Version}) | linux-image-6.6.36-m68k-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-m68k
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-m68k, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-m68k, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-m68k package.
+
+Package: linux-image-6.6.36-m68k
+Architecture: m68k
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [m68k] | linux-initramfs-tool [m68k]
+Recommends: apparmor [m68k]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, vmelilo [m68k], fdutils [m68k]
+Breaks: fwupdate (<< 12-7) [m68k], wireless-regdb (<< 2019.06.03-1~) [m68k], initramfs-tools (<< 0.120+deb8u2) [m68k]
+Description: Linux 6.6 for Motorola MC68020+ family
+ The Linux kernel 6.6 and modules for use on Motorola MC68020+ family.
+
+Package: linux-image-m68k
+Architecture: m68k
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-m68k, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-m68k (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Motorola MC68020+ family (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Motorola MC68020+ family.
+
+Package: linux-headers-m68k
+Architecture: m68k
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-m68k (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux m68k configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel m68k configuration.
+
+Package: linux-image-6.6.36-m68k-dbg
+Architecture: m68k
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-m68k
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-m68k.
+
+Package: linux-image-m68k-dbg
+Architecture: m68k
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-m68k-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux m68k configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel m68k configuration.
+
+Package: linux-headers-6.6.36-4kc-malta
+Architecture: mips mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-4kc-malta (= ${binary:Version}) | linux-image-6.6.36-4kc-malta-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-4kc-malta
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-4kc-malta, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-4kc-malta, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-4kc-malta package.
+
+Package: linux-image-6.6.36-4kc-malta
+Architecture: mips mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips mipsel] | linux-initramfs-tool [mips mipsel]
+Recommends: apparmor [mips mipsel]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips mipsel], wireless-regdb (<< 2019.06.03-1~) [mips mipsel], initramfs-tools (<< 0.120+deb8u2) [mips], initramfs-tools (<< 0.120+deb8u2) [mipsel]
+Description: Linux 6.6 for MIPS Malta
+ The Linux kernel 6.6 and modules for use on MIPS Malta boards.
+
+Package: linux-image-4kc-malta
+Architecture: mips mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-4kc-malta, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-4kc-malta (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Malta (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Malta boards.
+
+Package: linux-headers-4kc-malta
+Architecture: mips mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-4kc-malta (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux 4kc-malta configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel 4kc-malta configuration.
+
+Package: linux-image-6.6.36-4kc-malta-dbg
+Architecture: mips mipsel
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-4kc-malta
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-4kc-malta.
+
+Package: linux-image-4kc-malta-dbg
+Architecture: mips mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-4kc-malta-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux 4kc-malta configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel 4kc-malta configuration.
+
+Package: linux-headers-6.6.36-mips32r2eb
+Architecture: mips
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-mips32r2eb (= ${binary:Version}) | linux-image-6.6.36-mips32r2eb-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-mips32r2eb
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-mips32r2eb, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-mips32r2eb, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-mips32r2eb package.
+
+Package: linux-image-6.6.36-mips32r2eb
+Architecture: mips
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips] | linux-initramfs-tool [mips]
+Recommends: apparmor [mips]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips], wireless-regdb (<< 2019.06.03-1~) [mips], initramfs-tools (<< 0.120+deb8u2) [mips]
+Description: Linux 6.6 for MIPS Generic (mips32r2eb)
+ The Linux kernel 6.6 and modules for use on MIPS Generic platform
+ (mips32r2eb).
+
+Package: linux-image-mips32r2eb
+Architecture: mips
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-mips32r2eb, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-mips32r2eb (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Generic (mips32r2eb) (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Generic platform (mips32r2eb).
+
+Package: linux-headers-mips32r2eb
+Architecture: mips
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-mips32r2eb (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux mips32r2eb configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel mips32r2eb configuration.
+
+Package: linux-image-6.6.36-mips32r2eb-dbg
+Architecture: mips
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-mips32r2eb
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-mips32r2eb.
+
+Package: linux-image-mips32r2eb-dbg
+Architecture: mips
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-mips32r2eb-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux mips32r2eb configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel mips32r2eb configuration.
+
+Package: linux-headers-6.6.36-octeon
+Architecture: mips mips64 mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-octeon (= ${binary:Version}) | linux-image-6.6.36-octeon-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-octeon
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-octeon, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-octeon, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-octeon
+ package.
+
+Package: linux-image-6.6.36-octeon
+Architecture: mips mips64 mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips mips64 mips64el mipsel] | linux-initramfs-tool [mips mips64 mips64el mipsel]
+Recommends: apparmor [mips mips64 mips64el mipsel]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips mips64 mips64el mipsel], wireless-regdb (<< 2019.06.03-1~) [mips mips64 mips64el mipsel], initramfs-tools (<< 0.120+deb8u2) [mips], initramfs-tools (<< 0.120+deb8u2) [mips64], initramfs-tools (<< 0.120+deb8u2) [mips64el], initramfs-tools (<< 0.120+deb8u2) [mipsel]
+Description: Linux 6.6 for Octeon
+ The Linux kernel 6.6 and modules for use on Cavium Networks Octeon.
+
+Package: linux-image-octeon
+Architecture: mips mips64 mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-octeon, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-octeon (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Octeon (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Cavium Networks Octeon.
+
+Package: linux-headers-octeon
+Architecture: mips mips64 mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-octeon (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux octeon configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel octeon configuration.
+
+Package: linux-image-6.6.36-octeon-dbg
+Architecture: mips mips64 mips64el mipsel
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-octeon
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-octeon.
+
+Package: linux-image-octeon-dbg
+Architecture: mips mips64 mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-octeon-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux octeon configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel octeon configuration.
+
+Package: linux-headers-6.6.36-5kc-malta
+Architecture: mips64 mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-5kc-malta (= ${binary:Version}) | linux-image-6.6.36-5kc-malta-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-5kc-malta
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-5kc-malta, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-5kc-malta, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-5kc-malta package.
+
+Package: linux-image-6.6.36-5kc-malta
+Architecture: mips64 mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips64 mips64el] | linux-initramfs-tool [mips64 mips64el]
+Recommends: apparmor [mips64 mips64el]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips64 mips64el], wireless-regdb (<< 2019.06.03-1~) [mips64 mips64el], initramfs-tools (<< 0.120+deb8u2) [mips64], initramfs-tools (<< 0.120+deb8u2) [mips64el]
+Description: Linux 6.6 for MIPS Malta
+ The Linux kernel 6.6 and modules for use on MIPS Malta boards.
+
+Package: linux-image-5kc-malta
+Architecture: mips64 mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-5kc-malta, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-5kc-malta (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Malta (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Malta boards.
+
+Package: linux-headers-5kc-malta
+Architecture: mips64 mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-5kc-malta (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux 5kc-malta configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel 5kc-malta configuration.
+
+Package: linux-image-6.6.36-5kc-malta-dbg
+Architecture: mips64 mips64el
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-5kc-malta
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-5kc-malta.
+
+Package: linux-image-5kc-malta-dbg
+Architecture: mips64 mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-5kc-malta-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux 5kc-malta configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel 5kc-malta configuration.
+
+Package: linux-headers-6.6.36-mips64r2eb
+Architecture: mips64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-mips64r2eb (= ${binary:Version}) | linux-image-6.6.36-mips64r2eb-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-mips64r2eb
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-mips64r2eb, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-mips64r2eb, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-mips64r2eb package.
+
+Package: linux-image-6.6.36-mips64r2eb
+Architecture: mips64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips64] | linux-initramfs-tool [mips64]
+Recommends: apparmor [mips64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips64], wireless-regdb (<< 2019.06.03-1~) [mips64], initramfs-tools (<< 0.120+deb8u2) [mips64]
+Description: Linux 6.6 for MIPS Generic (mips64r2eb)
+ The Linux kernel 6.6 and modules for use on MIPS Generic platform
+ (mips64r2eb).
+
+Package: linux-image-mips64r2eb
+Architecture: mips64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-mips64r2eb, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-mips64r2eb (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Generic (mips64r2eb) (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Generic platform (mips64r2eb).
+
+Package: linux-headers-mips64r2eb
+Architecture: mips64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-mips64r2eb (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux mips64r2eb configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel mips64r2eb configuration.
+
+Package: linux-image-6.6.36-mips64r2eb-dbg
+Architecture: mips64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-mips64r2eb
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-mips64r2eb.
+
+Package: linux-image-mips64r2eb-dbg
+Architecture: mips64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-mips64r2eb-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux mips64r2eb configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel mips64r2eb configuration.
+
+Package: linux-headers-6.6.36-mips64r2el
+Architecture: mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-mips64r2el (= ${binary:Version}) | linux-image-6.6.36-mips64r2el-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-mips64r2el
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-mips64r2el, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-mips64r2el, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-mips64r2el package.
+
+Package: linux-image-6.6.36-mips64r2el
+Architecture: mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips64el] | linux-initramfs-tool [mips64el]
+Recommends: apparmor [mips64el]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips64el], wireless-regdb (<< 2019.06.03-1~) [mips64el], initramfs-tools (<< 0.120+deb8u2) [mips64el]
+Description: Linux 6.6 for MIPS Generic (mips64r2el)
+ The Linux kernel 6.6 and modules for use on MIPS Generic platform
+ (mips64r2el).
+
+Package: linux-image-mips64r2el
+Architecture: mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-mips64r2el, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-mips64r2el (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Generic (mips64r2el) (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Generic platform (mips64r2el).
+
+Package: linux-headers-mips64r2el
+Architecture: mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-mips64r2el (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux mips64r2el configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel mips64r2el configuration.
+
+Package: linux-image-6.6.36-mips64r2el-dbg
+Architecture: mips64el
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-mips64r2el
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-mips64r2el.
+
+Package: linux-image-mips64r2el-dbg
+Architecture: mips64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-mips64r2el-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux mips64r2el configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel mips64r2el configuration.
+
+Package: linux-headers-6.6.36-loongson-3
+Architecture: mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-loongson-3 (= ${binary:Version}) | linux-image-6.6.36-loongson-3-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-loongson-3
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-loongson-3, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-loongson-3, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-loongson-3 package.
+
+Package: linux-image-6.6.36-loongson-3
+Architecture: mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips64el mipsel] | linux-initramfs-tool [mips64el mipsel]
+Recommends: apparmor [mips64el mipsel], pmon-update [mips64el mipsel]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips64el mipsel], wireless-regdb (<< 2019.06.03-1~) [mips64el mipsel], initramfs-tools (<< 0.120+deb8u2) [mips64el], initramfs-tools (<< 0.120+deb8u2) [mipsel]
+Description: Linux 6.6 for Loongson 3A/3B
+ The Linux kernel 6.6 and modules for use on Loongson 3A or 3B based
+ systems (e.g.  from Loongson or Lemote).
+
+Package: linux-image-loongson-3
+Architecture: mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-loongson-3, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-loongson-3 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Loongson 3A/3B (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Loongson 3A or 3B based systems (e.g.  from Loongson or Lemote).
+
+Package: linux-headers-loongson-3
+Architecture: mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-loongson-3 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux loongson-3 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel loongson-3 configuration.
+
+Package: linux-image-6.6.36-loongson-3-dbg
+Architecture: mips64el mipsel
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-loongson-3
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-loongson-3.
+
+Package: linux-image-loongson-3-dbg
+Architecture: mips64el mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-loongson-3-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux loongson-3 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel loongson-3 configuration.
+
+Package: linux-headers-6.6.36-mips64r6el
+Architecture: mips64r6el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-mips64r6el (= ${binary:Version}) | linux-image-6.6.36-mips64r6el-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-mips64r6el
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-mips64r6el, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-mips64r6el, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-mips64r6el package.
+
+Package: linux-image-6.6.36-mips64r6el
+Architecture: mips64r6el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mips64r6el] | linux-initramfs-tool [mips64r6el]
+Recommends: apparmor [mips64r6el]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mips64r6el], wireless-regdb (<< 2019.06.03-1~) [mips64r6el], initramfs-tools (<< 0.120+deb8u2) [mips64r6el]
+Description: Linux 6.6 for MIPS Generic (mips64r6el)
+ The Linux kernel 6.6 and modules for use on MIPS Generic platform
+ (mips64r6el).
+
+Package: linux-image-mips64r6el
+Architecture: mips64r6el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-mips64r6el, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-mips64r6el (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Generic (mips64r6el) (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Generic platform (mips64r6el).
+
+Package: linux-headers-mips64r6el
+Architecture: mips64r6el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-mips64r6el (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux mips64r6el configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel mips64r6el configuration.
+
+Package: linux-image-6.6.36-mips64r6el-dbg
+Architecture: mips64r6el
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-mips64r6el
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-mips64r6el.
+
+Package: linux-image-mips64r6el-dbg
+Architecture: mips64r6el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-mips64r6el-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux mips64r6el configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel mips64r6el configuration.
+
+Package: linux-headers-6.6.36-mips32r2el
+Architecture: mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-mips32r2el (= ${binary:Version}) | linux-image-6.6.36-mips32r2el-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-mips32r2el
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-mips32r2el, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-mips32r2el, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-mips32r2el package.
+
+Package: linux-image-6.6.36-mips32r2el
+Architecture: mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [mipsel] | linux-initramfs-tool [mipsel]
+Recommends: apparmor [mipsel]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [mipsel], wireless-regdb (<< 2019.06.03-1~) [mipsel], initramfs-tools (<< 0.120+deb8u2) [mipsel]
+Description: Linux 6.6 for MIPS Generic (mips32r2el)
+ The Linux kernel 6.6 and modules for use on MIPS Generic platform
+ (mips32r2el).
+
+Package: linux-image-mips32r2el
+Architecture: mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-mips32r2el, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-mips32r2el (= ${binary:Version}), ${misc:Depends}
+Description: Linux for MIPS Generic (mips32r2el) (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ MIPS Generic platform (mips32r2el).
+
+Package: linux-headers-mips32r2el
+Architecture: mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-mips32r2el (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux mips32r2el configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel mips32r2el configuration.
+
+Package: linux-image-6.6.36-mips32r2el-dbg
+Architecture: mipsel
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-mips32r2el
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-mips32r2el.
+
+Package: linux-image-mips32r2el-dbg
+Architecture: mipsel
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-mips32r2el-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux mips32r2el configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel mips32r2el configuration.
+
+Package: linux-headers-6.6.36-powerpc
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-powerpc (= ${binary:Version}) | linux-image-6.6.36-powerpc-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-powerpc
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-powerpc, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-powerpc, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-powerpc package.
+
+Package: linux-image-6.6.36-powerpc
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [powerpc] | linux-initramfs-tool [powerpc]
+Recommends: apparmor [powerpc]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, mkvmlinuz [powerpc], grub-ieee1275 [powerpc]
+Breaks: fwupdate (<< 12-7) [powerpc], wireless-regdb (<< 2019.06.03-1~) [powerpc], initramfs-tools (<< 0.120+deb8u2) [powerpc]
+Description: Linux 6.6 for uniprocessor 32-bit PowerPC
+ The Linux kernel 6.6 and modules for use on uniprocessor 32-bit PowerPC.
+
+Package: linux-image-powerpc
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-powerpc, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-powerpc (= ${binary:Version}), ${misc:Depends}
+Description: Linux for uniprocessor 32-bit PowerPC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ uniprocessor 32-bit PowerPC.
+
+Package: linux-headers-powerpc
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-powerpc (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux powerpc configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel powerpc configuration.
+
+Package: linux-image-6.6.36-powerpc-dbg
+Architecture: powerpc
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-powerpc
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-powerpc.
+
+Package: linux-image-powerpc-dbg
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-powerpc-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux powerpc configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel powerpc configuration.
+
+Package: linux-headers-6.6.36-powerpc-smp
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-powerpc-smp (= ${binary:Version}) | linux-image-6.6.36-powerpc-smp-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-powerpc-smp
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-powerpc-smp, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-powerpc-smp, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-powerpc-smp package.
+
+Package: linux-image-6.6.36-powerpc-smp
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [powerpc] | linux-initramfs-tool [powerpc]
+Recommends: apparmor [powerpc]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, mkvmlinuz [powerpc], grub-ieee1275 [powerpc]
+Breaks: fwupdate (<< 12-7) [powerpc], wireless-regdb (<< 2019.06.03-1~) [powerpc], initramfs-tools (<< 0.120+deb8u2) [powerpc]
+Description: Linux 6.6 for multiprocessor 32-bit PowerPC
+ The Linux kernel 6.6 and modules for use on multiprocessor 32-bit PowerPC.
+
+Package: linux-image-powerpc-smp
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-powerpc-smp, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-powerpc-smp (= ${binary:Version}), ${misc:Depends}
+Description: Linux for multiprocessor 32-bit PowerPC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ multiprocessor 32-bit PowerPC.
+
+Package: linux-headers-powerpc-smp
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-powerpc-smp (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux powerpc-smp configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel powerpc-smp configuration.
+
+Package: linux-image-6.6.36-powerpc-smp-dbg
+Architecture: powerpc
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-powerpc-smp
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-powerpc-smp.
+
+Package: linux-image-powerpc-smp-dbg
+Architecture: powerpc
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-powerpc-smp-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux powerpc-smp configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel powerpc-smp configuration.
+
+Package: linux-headers-6.6.36-powerpc64
+Architecture: powerpc ppc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-powerpc64 (= ${binary:Version}) | linux-image-6.6.36-powerpc64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-powerpc64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-powerpc64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-powerpc64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-powerpc64 package.
+
+Package: linux-image-6.6.36-powerpc64
+Architecture: powerpc ppc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [powerpc ppc64] | linux-initramfs-tool [powerpc ppc64]
+Recommends: apparmor [powerpc ppc64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, mkvmlinuz [powerpc ppc64], grub-ieee1275 [powerpc ppc64]
+Breaks: fwupdate (<< 12-7) [powerpc ppc64], wireless-regdb (<< 2019.06.03-1~) [powerpc ppc64], initramfs-tools (<< 0.120+deb8u2) [powerpc], initramfs-tools (<< 0.120+deb8u2) [ppc64]
+Description: Linux 6.6 for 64-bit PowerPC
+ The Linux kernel 6.6 and modules for use on 64-bit PowerPC.
+
+Package: linux-image-powerpc64
+Architecture: powerpc ppc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-powerpc64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-powerpc64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit PowerPC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ 64-bit PowerPC.
+
+Package: linux-headers-powerpc64
+Architecture: powerpc ppc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-powerpc64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux powerpc64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel powerpc64 configuration.
+
+Package: linux-image-6.6.36-powerpc64-dbg
+Architecture: powerpc ppc64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-powerpc64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-powerpc64.
+
+Package: linux-image-powerpc64-dbg
+Architecture: powerpc ppc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-powerpc64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux powerpc64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel powerpc64 configuration.
+
+Package: linux-headers-6.6.36-powerpc64le
+Architecture: ppc64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-powerpc64le (= ${binary:Version}) | linux-image-6.6.36-powerpc64le-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-powerpc64le
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-powerpc64le, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-powerpc64le, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-powerpc64le package.
+
+Package: linux-image-6.6.36-powerpc64le
+Architecture: ppc64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [ppc64el] | linux-initramfs-tool [ppc64el]
+Recommends: apparmor [ppc64el]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, mkvmlinuz [ppc64el], grub-ieee1275 [ppc64el]
+Breaks: fwupdate (<< 12-7) [ppc64el], wireless-regdb (<< 2019.06.03-1~) [ppc64el], initramfs-tools (<< 0.120+deb8u2) [ppc64el]
+Description: Linux 6.6 for Little-endian 64-bit PowerPC
+ The Linux kernel 6.6 and modules for use on Little-endian 64-bit PowerPC.
+
+Package: linux-image-powerpc64le
+Architecture: ppc64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-powerpc64le, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-powerpc64le (= ${binary:Version}), ${misc:Depends}
+Description: Linux for Little-endian 64-bit PowerPC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Little-endian 64-bit PowerPC.
+
+Package: linux-headers-powerpc64le
+Architecture: ppc64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-powerpc64le (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux powerpc64le configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel powerpc64le configuration.
+
+Package: linux-image-6.6.36-powerpc64le-dbg
+Architecture: ppc64el
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-powerpc64le
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-powerpc64le.
+
+Package: linux-image-powerpc64le-dbg
+Architecture: ppc64el
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-powerpc64le-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux powerpc64le configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel powerpc64le configuration.
+
+Package: linux-headers-6.6.36-riscv64
+Architecture: riscv64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-riscv64 (= ${binary:Version}) | linux-image-6.6.36-riscv64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-riscv64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-riscv64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-riscv64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-riscv64 package.
+
+Package: linux-image-6.6.36-riscv64
+Architecture: riscv64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [riscv64] | linux-initramfs-tool [riscv64]
+Recommends: apparmor [riscv64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [riscv64], wireless-regdb (<< 2019.06.03-1~) [riscv64], initramfs-tools (<< 0.120+deb8u2) [riscv64]
+Description: Linux 6.6 for 64-bit RISC-V platforms
+ The Linux kernel 6.6 and modules for use on 64-bit RISC-V platforms.
+
+Package: linux-image-riscv64
+Architecture: riscv64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-riscv64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-riscv64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit RISC-V platforms (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ 64-bit RISC-V platforms.
+
+Package: linux-headers-riscv64
+Architecture: riscv64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-riscv64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux riscv64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel riscv64 configuration.
+
+Package: linux-image-6.6.36-riscv64-dbg
+Architecture: riscv64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-riscv64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-riscv64.
+
+Package: linux-image-riscv64-dbg
+Architecture: riscv64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-riscv64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux riscv64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel riscv64 configuration.
+
+Package: linux-headers-6.6.36-s390x
+Architecture: s390x
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-s390x (= ${binary:Version}) | linux-image-6.6.36-s390x-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-s390x
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-s390x, generally used for building out-of-tree kernel
+ modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-s390x, and can be used for building modules
+ that load into the kernel provided by the linux-image-6.6.36-s390x
+ package.
+
+Package: linux-image-6.6.36-s390x
+Architecture: s390x
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [s390x] | linux-initramfs-tool [s390x]
+Recommends: apparmor [s390x]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, s390-tools [s390x]
+Breaks: fwupdate (<< 12-7) [s390x], wireless-regdb (<< 2019.06.03-1~) [s390x], initramfs-tools (<< 0.120+deb8u2) [s390x]
+Description: Linux 6.6 for IBM zSeries
+ The Linux kernel 6.6 and modules for use on IBM zSeries.
+
+Package: linux-image-s390x
+Architecture: s390x
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-s390x, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-s390x (= ${binary:Version}), ${misc:Depends}
+Description: Linux for IBM zSeries (meta-package)
+ This package depends on the latest Linux kernel and modules for use on IBM
+ zSeries.
+
+Package: linux-headers-s390x
+Architecture: s390x
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-s390x (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux s390x configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel s390x configuration.
+
+Package: linux-image-6.6.36-s390x-dbg
+Architecture: s390x
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-s390x
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-s390x.
+
+Package: linux-image-s390x-dbg
+Architecture: s390x
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-s390x-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux s390x configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel s390x configuration.
+
+Package: linux-headers-6.6.36-sh7751r
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-sh7751r (= ${binary:Version}) | linux-image-6.6.36-sh7751r-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-sh7751r
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-sh7751r, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-sh7751r, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-sh7751r package.
+
+Package: linux-image-6.6.36-sh7751r
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [sh4] | linux-initramfs-tool [sh4]
+Recommends: apparmor [sh4]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [sh4], wireless-regdb (<< 2019.06.03-1~) [sh4], initramfs-tools (<< 0.120+deb8u2) [sh4]
+Description: Linux 6.6 for sh7751r
+ The Linux kernel 6.6 and modules for use on Renesas SH7751R R2D plus
+ board.
+
+Package: linux-image-sh7751r
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-sh7751r, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-sh7751r (= ${binary:Version}), ${misc:Depends}
+Description: Linux for sh7751r (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Renesas SH7751R R2D plus board.
+
+Package: linux-headers-sh7751r
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-sh7751r (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux sh7751r configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel sh7751r configuration.
+
+Package: linux-image-6.6.36-sh7751r-dbg
+Architecture: sh4
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-sh7751r
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-sh7751r.
+
+Package: linux-image-sh7751r-dbg
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-sh7751r-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux sh7751r configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel sh7751r configuration.
+
+Package: linux-headers-6.6.36-sh7785lcr
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-sh7785lcr (= ${binary:Version}) | linux-image-6.6.36-sh7785lcr-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-sh7785lcr
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-sh7785lcr, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-sh7785lcr, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-sh7785lcr package.
+
+Package: linux-image-6.6.36-sh7785lcr
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [sh4] | linux-initramfs-tool [sh4]
+Recommends: apparmor [sh4], u-boot-tools [sh4]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook
+Breaks: fwupdate (<< 12-7) [sh4], wireless-regdb (<< 2019.06.03-1~) [sh4], initramfs-tools (<< 0.120+deb8u2) [sh4]
+Description: Linux 6.6 for sh7785lcr
+ The Linux kernel 6.6 and modules for use on Renesas SH7785 reference
+ board.
+
+Package: linux-image-sh7785lcr
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-sh7785lcr, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-sh7785lcr (= ${binary:Version}), ${misc:Depends}
+Description: Linux for sh7785lcr (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ Renesas SH7785 reference board.
+
+Package: linux-headers-sh7785lcr
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-sh7785lcr (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux sh7785lcr configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel sh7785lcr configuration.
+
+Package: linux-image-6.6.36-sh7785lcr-dbg
+Architecture: sh4
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-sh7785lcr
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-sh7785lcr.
+
+Package: linux-image-sh7785lcr-dbg
+Architecture: sh4
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-sh7785lcr-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux sh7785lcr configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel sh7785lcr configuration.
+
+Package: linux-headers-6.6.36-sparc64
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-sparc64 (= ${binary:Version}) | linux-image-6.6.36-sparc64-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-sparc64
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-sparc64, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-sparc64, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-sparc64 package.
+
+Package: linux-image-6.6.36-sparc64
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [sparc64] | linux-initramfs-tool [sparc64]
+Recommends: apparmor [sparc64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, fdutils [sparc64], grub-ieee1275 [sparc64]
+Breaks: fwupdate (<< 12-7) [sparc64], wireless-regdb (<< 2019.06.03-1~) [sparc64], initramfs-tools (<< 0.120+deb8u2) [sparc64]
+Description: Linux 6.6 for uniprocessor 64-bit UltraSPARC
+ The Linux kernel 6.6 and modules for use on uniprocessor 64-bit
+ UltraSPARC.
+
+Package: linux-image-sparc64
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-sparc64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-sparc64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for uniprocessor 64-bit UltraSPARC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ uniprocessor 64-bit UltraSPARC.
+
+Package: linux-headers-sparc64
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-sparc64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux sparc64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel sparc64 configuration.
+
+Package: linux-image-6.6.36-sparc64-dbg
+Architecture: sparc64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-sparc64
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-sparc64.
+
+Package: linux-image-sparc64-dbg
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-sparc64-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux sparc64 configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel sparc64 configuration.
+
+Package: linux-headers-6.6.36-sparc64-smp
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: linux-headers-6.6.36-common (= ${source:Version}), linux-image-6.6.36-sparc64-smp (= ${binary:Version}) | linux-image-6.6.36-sparc64-smp-unsigned (= ${binary:Version}), linux-kbuild-6.6.36, ${misc:Depends}, gcc-13
+Description: Header files for Linux 6.6.36-sparc64-smp
+ This package provides the architecture-specific kernel header files for
+ Linux kernel 6.6.36-sparc64-smp, generally used for building out-of-tree
+ kernel modules.  These files are going to be installed into
+ /usr/src/linux-headers-6.6.36-sparc64-smp, and can be used for building
+ modules that load into the kernel provided by the
+ linux-image-6.6.36-sparc64-smp package.
+
+Package: linux-image-6.6.36-sparc64-smp
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [sparc64] | linux-initramfs-tool [sparc64]
+Recommends: apparmor [sparc64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, fdutils [sparc64], grub-ieee1275 [sparc64]
+Breaks: fwupdate (<< 12-7) [sparc64], wireless-regdb (<< 2019.06.03-1~) [sparc64], initramfs-tools (<< 0.120+deb8u2) [sparc64]
+Description: Linux 6.6 for multiprocessor 64-bit UltraSPARC
+ The Linux kernel 6.6 and modules for use on multiprocessor 64-bit
+ UltraSPARC.
+
+Package: linux-image-sparc64-smp
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-sparc64-smp, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-sparc64-smp (= ${binary:Version}), ${misc:Depends}
+Description: Linux for multiprocessor 64-bit UltraSPARC (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ multiprocessor 64-bit UltraSPARC.
+
+Package: linux-headers-sparc64-smp
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-sparc64-smp (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux sparc64-smp configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel sparc64-smp configuration.
+
+Package: linux-image-6.6.36-sparc64-smp-dbg
+Architecture: sparc64
+Section: debug
+Priority: optional
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.quick>
+Depends: ${misc:Depends}
+Description: Debug symbols for linux-image-6.6.36-sparc64-smp
+ This package provides the detached debug symbols for the Linux kernel and
+ modules in linux-image-6.6.36-sparc64-smp.
+
+Package: linux-image-sparc64-smp-dbg
+Architecture: sparc64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nokerneldbg !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-image-dbg
+Depends: linux-image-6.6.36-sparc64-smp-dbg (= ${binary:Version}), ${misc:Depends}
+Description: Debugging symbols for Linux sparc64-smp configuration (meta-package)
+ This package depends on the detached debugging symbols for the latest
+ Linux kernel sparc64-smp configuration.
+

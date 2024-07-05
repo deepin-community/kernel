@@ -1,0 +1,3 @@
+linux-signed-amd64 (@signedtemplate_sourceversion@) unstable; urgency=medium
+
+  * Sign kernel from linux @signedtemplate_binaryversion@

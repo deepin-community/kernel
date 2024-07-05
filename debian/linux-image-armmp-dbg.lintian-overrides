@@ -1,0 +1,1 @@
+linux-image-armmp-dbg: wrong-section-according-to-package-name linux-image-armmp-dbg => debug

@@ -1,0 +1,7 @@
+# Some 32-bit architectures need 64-bit kernels and we still build
+# these as the "wrong" architecture rather than mandating multiarch.
+linux-image-6.6.36-mips32r2el: binary-from-other-architecture *boot/vmlinu*
+linux-image-6.6.36-mips32r2el: binary-from-other-architecture *lib/modules/*
+
+# vmlinux needs extra sections that would normally be stripped.
+linux-image-6.6.36-mips32r2el: unstripped-binary-or-object *boot/vmlinu*

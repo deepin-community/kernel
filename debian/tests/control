@@ -1,0 +1,274 @@
+Test-Command: py.test debian/lib/python
+Restrictions: superficial
+Depends: python3-pytest, python3-jinja2
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-alpha-generic
+Architecture: alpha
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-alpha-generic
+Depends: linux-headers-6.6.36-alpha-generic, linux-image-6.6.36-alpha-generic
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-alpha-smp
+Architecture: alpha
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-alpha-smp
+Depends: linux-headers-6.6.36-alpha-smp, linux-image-6.6.36-alpha-smp
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-amd64
+Architecture: amd64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-amd64
+Depends: linux-headers-6.6.36-amd64, linux-image-6.6.36-amd64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-cloud-amd64
+Architecture: amd64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-cloud-amd64
+Depends: linux-headers-6.6.36-cloud-amd64, linux-image-6.6.36-cloud-amd64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-rt-amd64
+Architecture: amd64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-rt-amd64
+Depends: linux-headers-6.6.36-rt-amd64, linux-image-6.6.36-rt-amd64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-arm64
+Architecture: arm64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-arm64
+Depends: linux-headers-6.6.36-arm64, linux-image-6.6.36-arm64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-cloud-arm64
+Architecture: arm64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-cloud-arm64
+Depends: linux-headers-6.6.36-cloud-arm64, linux-image-6.6.36-cloud-arm64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-rt-arm64
+Architecture: arm64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-rt-arm64
+Depends: linux-headers-6.6.36-rt-arm64, linux-image-6.6.36-rt-arm64-unsigned
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-rpi
+Architecture: armel
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-rpi
+Depends: linux-headers-6.6.36-rpi, linux-image-6.6.36-rpi
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-armmp
+Architecture: armhf
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-armmp
+Depends: linux-headers-6.6.36-armmp, linux-image-6.6.36-armmp
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-armmp-lpae
+Architecture: armhf
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-armmp-lpae
+Depends: linux-headers-6.6.36-armmp-lpae, linux-image-6.6.36-armmp-lpae
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-rt-armmp
+Architecture: armhf
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-rt-armmp
+Depends: linux-headers-6.6.36-rt-armmp, linux-image-6.6.36-rt-armmp
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-parisc
+Architecture: hppa
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-parisc
+Depends: linux-headers-6.6.36-parisc, linux-image-6.6.36-parisc
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-parisc64
+Architecture: hppa
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-parisc64
+Depends: linux-headers-6.6.36-parisc64, linux-image-6.6.36-parisc64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-686
+Architecture: i386
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-686
+Depends: linux-headers-6.6.36-686, linux-image-6.6.36-686
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-686-pae
+Architecture: i386
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-686-pae
+Depends: linux-headers-6.6.36-686-pae, linux-image-6.6.36-686-pae
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-rt-686-pae
+Architecture: i386
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-rt-686-pae
+Depends: linux-headers-6.6.36-rt-686-pae, linux-image-6.6.36-rt-686-pae
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-loong64
+Architecture: loong64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-loong64
+Depends: linux-headers-6.6.36-loong64, linux-image-6.6.36-loong64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-m68k
+Architecture: m68k
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-m68k
+Depends: linux-headers-6.6.36-m68k, linux-image-6.6.36-m68k
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-4kc-malta
+Architecture: mips
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-4kc-malta
+Depends: linux-headers-6.6.36-4kc-malta, linux-image-6.6.36-4kc-malta
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-mips32r2eb
+Architecture: mips
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-mips32r2eb
+Depends: linux-headers-6.6.36-mips32r2eb, linux-image-6.6.36-mips32r2eb
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-octeon
+Architecture: mips
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-octeon
+Depends: linux-headers-6.6.36-octeon, linux-image-6.6.36-octeon
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-5kc-malta
+Architecture: mips64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-5kc-malta
+Depends: linux-headers-6.6.36-5kc-malta, linux-image-6.6.36-5kc-malta
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-mips64r2eb
+Architecture: mips64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-mips64r2eb
+Depends: linux-headers-6.6.36-mips64r2eb, linux-image-6.6.36-mips64r2eb
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-octeon
+Architecture: mips64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-octeon
+Depends: linux-headers-6.6.36-octeon, linux-image-6.6.36-octeon
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-5kc-malta
+Architecture: mips64el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-5kc-malta
+Depends: linux-headers-6.6.36-5kc-malta, linux-image-6.6.36-5kc-malta
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-mips64r2el
+Architecture: mips64el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-mips64r2el
+Depends: linux-headers-6.6.36-mips64r2el, linux-image-6.6.36-mips64r2el
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-loongson-3
+Architecture: mips64el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-loongson-3
+Depends: linux-headers-6.6.36-loongson-3, linux-image-6.6.36-loongson-3
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-octeon
+Architecture: mips64el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-octeon
+Depends: linux-headers-6.6.36-octeon, linux-image-6.6.36-octeon
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-mips64r6el
+Architecture: mips64r6el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-mips64r6el
+Depends: linux-headers-6.6.36-mips64r6el, linux-image-6.6.36-mips64r6el
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-4kc-malta
+Architecture: mipsel
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-4kc-malta
+Depends: linux-headers-6.6.36-4kc-malta, linux-image-6.6.36-4kc-malta
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-mips32r2el
+Architecture: mipsel
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-mips32r2el
+Depends: linux-headers-6.6.36-mips32r2el, linux-image-6.6.36-mips32r2el
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-loongson-3
+Architecture: mipsel
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-loongson-3
+Depends: linux-headers-6.6.36-loongson-3, linux-image-6.6.36-loongson-3
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-octeon
+Architecture: mipsel
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-octeon
+Depends: linux-headers-6.6.36-octeon, linux-image-6.6.36-octeon
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-powerpc
+Architecture: powerpc
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-powerpc
+Depends: linux-headers-6.6.36-powerpc, linux-image-6.6.36-powerpc
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-powerpc-smp
+Architecture: powerpc
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-powerpc-smp
+Depends: linux-headers-6.6.36-powerpc-smp, linux-image-6.6.36-powerpc-smp
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-powerpc64
+Architecture: powerpc
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-powerpc64
+Depends: linux-headers-6.6.36-powerpc64, linux-image-6.6.36-powerpc64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-powerpc64
+Architecture: ppc64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-powerpc64
+Depends: linux-headers-6.6.36-powerpc64, linux-image-6.6.36-powerpc64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-powerpc64le
+Architecture: ppc64el
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-powerpc64le
+Depends: linux-headers-6.6.36-powerpc64le, linux-image-6.6.36-powerpc64le
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-riscv64
+Architecture: riscv64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-riscv64
+Depends: linux-headers-6.6.36-riscv64, linux-image-6.6.36-riscv64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-s390x
+Architecture: s390x
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-s390x
+Depends: linux-headers-6.6.36-s390x, linux-image-6.6.36-s390x
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-sh7751r
+Architecture: sh4
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-sh7751r
+Depends: linux-headers-6.6.36-sh7751r, linux-image-6.6.36-sh7751r
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-sh7785lcr
+Architecture: sh4
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-sh7785lcr
+Depends: linux-headers-6.6.36-sh7785lcr, linux-image-6.6.36-sh7785lcr
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-sparc64
+Architecture: sparc64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-sparc64
+Depends: linux-headers-6.6.36-sparc64, linux-image-6.6.36-sparc64
+
+Test-Command: debian/tests/headers-kbuild 6.6.36-sparc64-smp
+Architecture: sparc64
+Restrictions: skip-not-installable, superficial
+Features: test-name=headers-kbuild-sparc64-smp
+Depends: linux-headers-6.6.36-sparc64-smp, linux-image-6.6.36-sparc64-smp
+
