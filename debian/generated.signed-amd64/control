@@ -1,0 +1,116 @@
+Source: linux-signed-amd64
+Section: kernel
+Priority: optional
+Maintainer: Debian Kernel Team <debian-kernel@lists.debian.org>
+Uploaders: Bastian Blank <waldi@debian.org>, maximilian attems <maks@debian.org>, Ben Hutchings <benh@debian.org>, Salvatore Bonaccorso <carnil@debian.org>
+Standards-Version: 4.2.0
+Build-Depends: debhelper-compat (= 12), dh-exec, python3:any, sbsigntool [amd64 arm64 i386]
+Build-Depends-Arch: linux-image-6.6.36-amd64-unsigned (= @signedtemplate_binaryversion@) [amd64] <!pkg.linux.nokernel !pkg.linux.quick>, kernel-wedge (>= 2.105~) [amd64] <!pkg.linux.nokernel>, kmod [amd64] <!pkg.linux.nokernel>, rsync [amd64] <!pkg.linux.nokernel>, linux-image-6.6.36-cloud-amd64-unsigned (= @signedtemplate_binaryversion@) [amd64] <!pkg.linux.nokernel>, linux-image-6.6.36-rt-amd64-unsigned (= @signedtemplate_binaryversion@) [amd64] <!pkg.linux.nokernel !pkg.linux.quick>
+Rules-Requires-Root: no
+Homepage: https://www.kernel.org/
+Vcs-Browser: https://salsa.debian.org/kernel-team/linux
+Vcs-Git: https://salsa.debian.org/kernel-team/linux.git
+
+Package: linux-image-6.6.36-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Built-Using: linux (= 6.6.36-1)
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-amd64-unsigned
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-amd64-unsigned
+Description: Linux 6.6 for 64-bit PCs (signed)
+ The Linux kernel 6.6 and modules for use on PCs with AMD64, Intel 64 or
+ VIA Nano processors.
+ .
+ The kernel image is signed for use with Secure Boot.
+
+Package: linux-image-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-amd64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386], linux-image-generic
+Depends: linux-image-6.6.36-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit PCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on PCs
+ with AMD64, Intel 64 or VIA Nano processors.
+
+Package: linux-headers-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-headers-generic
+Depends: linux-headers-6.6.36-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux amd64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel amd64 configuration.
+
+Package: linux-image-6.6.36-cloud-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel>
+Built-Using: linux (= 6.6.36-1)
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-cloud-amd64-unsigned
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-cloud-amd64-unsigned
+Description: Linux 6.6 for x86-64 cloud (signed)
+ The Linux kernel 6.6 and modules for use on cloud platforms including
+ Amazon EC2, Microsoft Azure, and Google Compute Engine.
+ .
+ The kernel image is signed for use with Secure Boot.
+
+Package: linux-image-cloud-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa>
+Provides: linux-latest-modules-6.6.36-cloud-amd64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-cloud-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for x86-64 cloud (meta-package)
+ This package depends on the latest Linux kernel and modules for use on
+ cloud platforms including Amazon EC2, Microsoft Azure, and Google Compute
+ Engine.
+
+Package: linux-headers-cloud-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa>
+Depends: linux-headers-6.6.36-cloud-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux cloud-amd64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel cloud-amd64 configuration.
+
+Package: linux-image-6.6.36-rt-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.quick>
+Built-Using: linux (= 6.6.36-1)
+Depends: kmod, linux-base (>= 4.3~), ${misc:Depends}, initramfs-tools (>= 0.120+deb8u2) [amd64] | linux-initramfs-tool [amd64]
+Recommends: apparmor [amd64]
+Suggests: firmware-linux-free, linux-doc-6.6, debian-kernel-handbook, grub-pc [amd64] | grub-efi-amd64 [amd64] | extlinux [amd64]
+Replaces: linux-image-6.6.36-rt-amd64-unsigned
+Breaks: fwupdate (<< 12-7) [amd64], wireless-regdb (<< 2019.06.03-1~) [amd64], initramfs-tools (<< 0.120+deb8u2) [amd64]
+Conflicts: linux-image-6.6.36-rt-amd64-unsigned
+Description: Linux 6.6 for 64-bit PCs (signed), PREEMPT_RT
+ The Linux kernel 6.6 and modules for use on PCs with AMD64, Intel 64 or
+ VIA Nano processors.
+ .
+ The kernel image is signed for use with Secure Boot.
+ .
+ This kernel includes the PREEMPT_RT realtime patch set.
+
+Package: linux-image-rt-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Provides: linux-latest-modules-6.6.36-rt-amd64, wireguard-modules (= 1.0.0), virtualbox-guest-modules [amd64 i386]
+Depends: linux-image-6.6.36-rt-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Linux for 64-bit PCs (meta-package)
+ This package depends on the latest Linux kernel and modules for use on PCs
+ with AMD64, Intel 64 or VIA Nano processors.
+
+Package: linux-headers-rt-amd64
+Architecture: amd64
+Build-Profiles: <!pkg.linux.nokernel !pkg.linux.nometa !pkg.linux.quick>
+Depends: linux-headers-6.6.36-rt-amd64 (= ${binary:Version}), ${misc:Depends}
+Description: Header files for Linux rt-amd64 configuration (meta-package)
+ This package depends on the architecture-specific header files for the
+ latest Linux kernel rt-amd64 configuration.
+

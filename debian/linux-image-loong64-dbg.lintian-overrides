@@ -1,0 +1,1 @@
+linux-image-loong64-dbg: wrong-section-according-to-package-name linux-image-loong64-dbg => debug

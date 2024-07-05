@@ -1,0 +1,31 @@
+{
+  "packages": {
+    "linux-image-6.6.36-amd64-unsigned": {
+      "trusted_certs": [],
+      "files": [
+        {
+          "sig_type": "efi",
+          "file": "boot/vmlinuz-6.6.36-amd64"
+        }
+      ]
+    },
+    "linux-image-6.6.36-cloud-amd64-unsigned": {
+      "trusted_certs": [],
+      "files": [
+        {
+          "sig_type": "efi",
+          "file": "boot/vmlinuz-6.6.36-cloud-amd64"
+        }
+      ]
+    },
+    "linux-image-6.6.36-rt-amd64-unsigned": {
+      "trusted_certs": [],
+      "files": [
+        {
+          "sig_type": "efi",
+          "file": "boot/vmlinuz-6.6.36-rt-amd64"
+        }
+      ]
+    }
+  }
+}

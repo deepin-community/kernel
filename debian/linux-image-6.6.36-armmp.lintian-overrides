@@ -1,0 +1,4 @@
+# Some 32-bit architectures need 64-bit kernels and we still build
+# these as the "wrong" architecture rather than mandating multiarch.
+
+# vmlinux needs extra sections that would normally be stripped.
