@@ -54,7 +54,7 @@ void __init kexec_control_page_init(void)
 	phys_addr_t addr;
 
 	addr = memblock_phys_alloc_range(KEXEC_CONTROL_PAGE_SIZE, PAGE_SIZE,
-					0, KTEXT_MAX);
+					0, 0);
 	kexec_control_page = (void *)(__START_KERNEL_map + addr);
 }
 
@@ -105,8 +105,8 @@ void __init reserve_crashkernel(void)
 		pr_warn("Add crash kernel area [mem %#018llx-%#018llx] to memmap region failed.\n",
 				crash_base, crash_base + crash_size - 1);
 
-	if (crash_base >= KERNEL_IMAGE_SIZE)
-		pr_warn("Crash base should be less than %#x\n", KERNEL_IMAGE_SIZE);
+	if (crash_base < PCI_LEGACY_IO_SIZE)
+		pr_warn("Crash base should be greater than or equal to %#lx\n", PCI_LEGACY_IO_SIZE);
 
 	crashk_res.start = crash_base;
 	crashk_res.end = crash_base + crash_size - 1;
@@ -192,7 +192,6 @@ void machine_crash_shutdown(struct pt_regs *regs)
 
 	cpu = smp_processor_id();
 	local_irq_disable();
-	kernel_restart_prepare(NULL);
 	atomic_set(&waiting_for_crash_ipi, num_online_cpus() - 1);
 	smp_call_function(machine_crash_nonpanic_core, NULL, false);
 	msecs = 1000; /* Wait at most a second for the other cpus to stop */
