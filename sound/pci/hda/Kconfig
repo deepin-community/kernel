@@ -26,6 +26,22 @@ config SND_HDA_INTEL
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-hda-intel.
 
+config SND_HDA_PHYTIUM
+	tristate "PHYTIUM HD Audio"
+	depends on SOUND
+	select SND_HDA
+	select SND_HDA_ALIGNED_MMIO
+	help
+	  Say Y here to support the HDA controller present in PHYTIUM
+	  SoCs
+
+	  This options enables support for the HD Audio controller
+	  present in some PHYTIUM SoCs, used to communicate audio
+	  to the "High Definition Audio" codec.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-hda-phytium.
+
 config SND_HDA_TEGRA
 	tristate "NVIDIA Tegra HD Audio"
 	depends on ARCH_TEGRA
