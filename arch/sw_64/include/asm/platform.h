@@ -41,4 +41,6 @@ extern void __iomem *misc_platform_get_gpio_base(unsigned long node);
 extern void __iomem *misc_platform_get_cab0_base(unsigned long node);
 #endif
 
+extern bool sunway_machine_is_compatible(const char *compat);
+
 #endif /* _ASM_SW64_PLATFORM_H */

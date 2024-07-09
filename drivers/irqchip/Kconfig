@@ -36,6 +36,7 @@ config SW64_IRQ_CPU
 	bool
 	depends on SW64
 	default y
+	select SW64_PINTC
 
 config SW64_PCI_INTX
 	bool

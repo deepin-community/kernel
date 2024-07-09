@@ -6,6 +6,8 @@
 #include <asm/sw64io.h>
 #include <asm/topology.h>
 
+#define OFFSET_SMP_INFO	0x80UL
+
 static int __init parse_dt_topology(void)
 {
 	return 0;
@@ -24,11 +26,12 @@ static int topo_threads[NR_CPUS];
 static int topo_cores[NR_CPUS];
 static int topo_packages[NR_CPUS];
 
-void __init get_vt_smp_info(void)
+static void __init get_vt_smp_info(void)
 {
 	unsigned long smp_info;
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 
-	smp_info = sw64_io_read(0, SMP_INFO);
+	smp_info = readq(spbu_base + OFFSET_SMP_INFO);
 	if (smp_info == -1UL)
 		smp_info = 0;
 	topo_nr_threads = (smp_info >> VT_THREADS_SHIFT) & VT_THREADS_MASK;
@@ -79,6 +82,7 @@ static void __init init_topo_packages(void)
 
 static void __init init_topology_array(void)
 {
+	get_vt_smp_info();
 	topo_nr_cpus = num_present_cpus();
 	if (topo_nr_maxcpus > topo_nr_cpus)
 		topo_nr_cpus = topo_nr_maxcpus;

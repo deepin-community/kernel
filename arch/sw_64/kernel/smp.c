@@ -63,17 +63,25 @@ enum core_version {
 };
 
 #ifdef CONFIG_SUBARCH_C4
+#define OFFSET_CLU_LV2_SELH	0x3a00UL
+#define OFFSET_CLU_LV2_SELL	0x3b00UL
+
 static void upshift_freq(void)
 {
 	int i, cpu_num;
+	void __iomem *spbu_base;
 
 	if (is_guest_or_emul())
 		return;
 
+	if (!sunway_machine_is_compatible("sunway,junzhang"))
+		return;
+
 	cpu_num = sw64_chip->get_cpu_num();
 	for (i = 0; i < cpu_num; i++) {
-		sw64_io_write(i, CLU_LV2_SELH, -1UL);
-		sw64_io_write(i, CLU_LV2_SELL, -1UL);
+		spbu_base = misc_platform_get_spbu_base(i);
+		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELH);
+		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELL);
 		udelay(1000);
 	}
 }
@@ -84,8 +92,12 @@ static void downshift_freq(void)
 	int core_id, node_id, cpu;
 	int cpuid = smp_processor_id();
 	struct cpu_topology *cpu_topo = &cpu_topology[cpuid];
+	void __iomem *spbu_base;
 
 	if (is_guest_or_emul())
+		return;
+
+	if (!sunway_machine_is_compatible("sunway,junzhang"))
 		return;
 
 	for_each_online_cpu(cpu) {
@@ -99,12 +111,14 @@ static void downshift_freq(void)
 	core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
 	node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
 
+	spbu_base = misc_platform_get_spbu_base(node_id);
+
 	if (core_id > 31) {
 		value = 1UL << (2 * (core_id - 32));
-		sw64_io_write(node_id, CLU_LV2_SELH, value);
+		writeq(value, spbu_base + OFFSET_CLU_LV2_SELH);
 	} else {
 		value = 1UL << (2 * core_id);
-		sw64_io_write(node_id, CLU_LV2_SELL, value);
+		writeq(value, spbu_base + OFFSET_CLU_LV2_SELL);
 	}
 }
 #else
