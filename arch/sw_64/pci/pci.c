@@ -209,7 +209,6 @@ static void fixup_root_complex(struct pci_dev *dev)
 		dev->class &= 0xff;
 		dev->class |= PCI_CLASS_BRIDGE_PCI << 8;
 	}
-	atomic_inc(&dev->enable_cnt);
 
 	dev->no_msi = 1;
 }
