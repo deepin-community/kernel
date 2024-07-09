@@ -3,6 +3,7 @@
 /* Generic Event Device for ACPI. */
 
 #include <linux/acpi.h>
+#include <linux/cpu.h>
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -17,9 +18,7 @@
 #define OFFSET_LENGTH		8
 #define OFFSET_STATUS		16
 #define OFFSET_SLOT		24
-
 #define OFFSET_CPUID		32
-
 #define OFFSET_NODE		40
 
 /* Memory hotplug event */
@@ -96,7 +95,7 @@ out:
 static void sunway_memory_device_remove(struct sunway_ged_device *device)
 {
 	struct sunway_memory_device *mem_dev, *n;
-	unsigned long start_addr, length, slot, node;
+	unsigned long start_addr, length, slot;
 
 	if (!device)
 		return;
@@ -104,7 +103,6 @@ static void sunway_memory_device_remove(struct sunway_ged_device *device)
 	start_addr = readq(device->membase + OFFSET_START_ADDR);
 	length = readq(device->membase + OFFSET_LENGTH);
 	slot = readq(device->membase + OFFSET_SLOT);
-	node = readq(device->membase + OFFSET_NODE);
 
 	list_for_each_entry_safe(mem_dev, n, &device->dev_list, list) {
 		if (!mem_dev->enabled)
@@ -112,8 +110,7 @@ static void sunway_memory_device_remove(struct sunway_ged_device *device)
 
 		if ((start_addr == mem_dev->start_addr) &&
 				(length == mem_dev->length)) {
-			/* suppose node = 0, fix me! */
-			remove_memory(node, start_addr, length);
+			remove_memory(start_addr, length);
 			list_del(&mem_dev->list);
 			kfree(mem_dev);
 		}
