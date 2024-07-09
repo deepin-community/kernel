@@ -3962,7 +3962,7 @@
 			vulnerability. System may allow data leaks with this
 			option.
 
-	no-steal-acc	[X86,PV_OPS,ARM64,PPC/PSERIES] Disable paravirtualized
+	no-steal-acc	[X86,PV_OPS,ARM64,PPC/PSERIES,LOONGARCH] Disable paravirtualized
 			steal time accounting. steal time is computed, but
 			won't influence scheduler behaviour
 
