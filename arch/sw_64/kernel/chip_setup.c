@@ -6,6 +6,18 @@
 #include <asm/hw_init.h>
 #include <asm/sw64_init.h>
 
+#define OFFSET_CORE_ONLINE		0x780UL
+#define OFFSET_MC_ONLINE		0x3780UL
+#define OFFSET_I2C0_SRST_L		0x1900UL
+#define OFFSET_I2C1_SRST_L		0x1980UL
+#define OFFSET_I2C2_SRST_L		0x1a00UL
+#define OFFSET_MCU_DVC_INT_EN		0x3080UL
+#define OFFSET_LONG_TIME_START_EN	0x9000UL
+
+#define OFFSET_LONG_TIME		0x180UL
+
+#define OFFSET_GPIO_SWPORTA_DDR		0x200UL
+
 struct sw64_chip_ops *sw64_chip;
 struct sw64_chip_init_ops *sw64_chip_init;
 
@@ -30,11 +42,13 @@ static void __init setup_core_map(struct cpumask *cpumask)
 {
 	int i, j, cpu_num, cpuid, max_cores_per_cpu;
 	unsigned long coreonline;
+	void __iomem *spbu_base;
 
 	cpu_num = get_cpu_nums();
 	cpuid = 0;
 	for (i = 0; i < cpu_num; i++) {
-		coreonline = sw64_io_read(i, CORE_ONLINE);
+		spbu_base = misc_platform_get_spbu_base(i);
+		coreonline = readq(spbu_base + OFFSET_CORE_ONLINE);
 		max_cores_per_cpu = MAX_CORES_PER_CPU;
 
 		if (is_guest_or_emul())
@@ -64,14 +78,16 @@ static void __init setup_core_map(struct cpumask *cpumask)
 #ifdef CONFIG_PM
 static void i2c_srst(void)
 {
-	sw64_io_write(0, I2C0_SRST_L, 0x0);
-	sw64_io_write(0, I2C0_SRST_L, 0x1);
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 
-	sw64_io_write(0, I2C1_SRST_L, 0x0);
-	sw64_io_write(0, I2C1_SRST_L, 0x1);
+	writeq(0x0, spbu_base + OFFSET_I2C0_SRST_L);
+	writeq(0x1, spbu_base + OFFSET_I2C0_SRST_L);
 
-	sw64_io_write(0, I2C2_SRST_L, 0x0);
-	sw64_io_write(0, I2C2_SRST_L, 0x1);
+	writeq(0x0, spbu_base + OFFSET_I2C1_SRST_L);
+	writeq(0x1, spbu_base + OFFSET_I2C1_SRST_L);
+
+	writeq(0x0, spbu_base + OFFSET_I2C2_SRST_L);
+	writeq(0x1, spbu_base + OFFSET_I2C2_SRST_L);
 }
 
 static void pcie_save(void)
@@ -178,9 +194,11 @@ static unsigned long saved_dvc_int, saved_long_time;
 
 static inline void intpu_save(void)
 {
+	void __iomem *intpu_base = misc_platform_get_intpu_base(0);
+
 	switch (cpu_desc.model) {
 	case CPU_SW831:
-		saved_long_time = __io_read_longtime(0);
+		saved_long_time = readq(intpu_base + OFFSET_LONG_TIME);
 	default:
 		break;
 	}
@@ -188,13 +206,17 @@ static inline void intpu_save(void)
 
 static inline void intpu_restore(void)
 {
+	void __iomem *intpu_base = misc_platform_get_intpu_base(0);
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
+	void __iomem *gpio_base = misc_platform_get_gpio_base(0);
+
 	switch (cpu_desc.model) {
 	case CPU_SW831:
-		__io_write_longtime(0, saved_long_time);
-		__io_write_longtime_start_en(0, 0x1);
+		writeq(saved_long_time, intpu_base + OFFSET_LONG_TIME);
+		writeq(0x1, spbu_base + OFFSET_LONG_TIME_START_EN);
 		break;
 	case CPU_SW8A:
-		__io_write_longtime_start_en(0, 0x1);
+		writeq(0x1, gpio_base + OFFSET_GPIO_SWPORTA_DDR);
 		break;
 	default:
 		pr_info("long time start is disable!");
@@ -204,13 +226,17 @@ static inline void intpu_restore(void)
 
 static inline void spbu_save(void)
 {
-	saved_dvc_int = sw64_io_read(0, MCU_DVC_INT_EN);
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
+
+	saved_dvc_int = readq(spbu_base + OFFSET_MCU_DVC_INT_EN);
 }
 
 static inline void spbu_restore(void)
 {
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
+
 	i2c_srst();
-	sw64_io_write(0, MCU_DVC_INT_EN, saved_dvc_int);
+	writeq(saved_dvc_int, spbu_base + OFFSET_MCU_DVC_INT_EN);
 }
 
 static int io_suspend(void)

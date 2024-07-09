@@ -9,6 +9,9 @@
 #include <asm/sw64_init.h>
 #include <asm/pci_impl.h>
 
+#define OFFSET_DEVINT_WKEN	0x1500UL
+#define OFFSET_DEVINTWK_INTEN	0x1600UL
+
 /*
  * The PCI controller list.
  */
@@ -240,8 +243,16 @@ sw64_init_host(unsigned long node, unsigned long index)
 	}
 }
 
-void __weak set_devint_wken(int node) {}
-void __weak set_adr_int(int node) {}
+static void set_devint_wken(int node)
+{
+	unsigned long val;
+	void __iomem *intpu_base = misc_platform_get_intpu_base(node);
+
+	/* enable INTD wakeup */
+	val = 0x80;
+	writeq(val, intpu_base + OFFSET_DEVINT_WKEN);
+	writeq(val, intpu_base + OFFSET_DEVINTWK_INTEN);
+}
 
 static bool __init is_any_rc_linkup_one_node(unsigned long node)
 {
@@ -263,17 +274,18 @@ void __init sw64_init_arch(void)
 		char id[8], msg[64];
 		int i;
 
+		if (!acpi_disabled)
+			return;
+
+		if (sunway_machine_is_compatible("sunway,junzhang_v3"))
+			return;
+
 		cpu_num = sw64_chip->get_cpu_num();
 
 		for (node = 0; node < cpu_num; node++) {
-			if (is_in_host()) {
+			if (is_in_host())
 				set_devint_wken(node);
-				set_adr_int(node);
-			}
 		}
-
-		if (!acpi_disabled)
-			return;
 
 		pr_info("SW arch PCI initialize!\n");
 		for (node = 0; node < cpu_num; node++) {

@@ -6,23 +6,7 @@
 
 #include <asm/sw64_init.h>
 
-void set_devint_wken(int node)
-{
-	unsigned long val;
-
-	/* enable INTD wakeup */
-	val = 0x80;
-	sw64_io_write(node, DEVINT_WKEN, val);
-	sw64_io_write(node, DEVINTWK_INTEN, val);
-}
-
-#ifdef CONFIG_UNCORE_JUNZHANG
-void set_adr_int(int node)
-{
-	sw64_io_write(node, ADR_INT_CONFIG, (CORE0_CID << 16 | 0x3f));
-	sw64_io_write(node, ADR_CTL, 0xc);
-}
-#endif
+#define OFFSET_IO_START	0x1300UL
 
 void set_pcieport_service_irq(struct pci_controller *hose)
 {
@@ -263,11 +247,13 @@ static void set_rc_piu(struct pci_controller *hose)
 static unsigned long get_rc_enable(unsigned long node)
 {
 	unsigned long rc_enable;
+	void __iomem *spbu_base;
 
 	if (is_guest_or_emul())
 		return 1;
 
-	rc_enable = sw64_io_read(node, IO_START);
+	spbu_base = misc_platform_get_spbu_base(node);
+	rc_enable = readq(spbu_base + OFFSET_IO_START);
 
 	return rc_enable;
 }

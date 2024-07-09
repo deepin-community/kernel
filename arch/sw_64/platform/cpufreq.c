@@ -8,11 +8,10 @@
 #include <linux/platform_device.h>
 
 #include <asm/sw64_init.h>
-#include <asm/sw64io.h>
 #include <asm/hw_init.h>
 #include <asm/debug.h>
 #include <asm/cpufreq.h>
-#include <asm/sw64io.h>
+#include <asm/platform.h>
 
 #define MAX_RETRY	10
 
@@ -139,9 +138,10 @@ unsigned int __sw64_cpufreq_get(struct cpufreq_policy *policy)
 {
 	int i;
 	u64 val;
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 	struct cpufreq_frequency_table *ft = policy->freq_table;
 
-	val = sw64_io_read(0, CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
+	val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
 	val &= CORE_PLL2_CFG_MASK;
 
 	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++) {
@@ -155,25 +155,36 @@ EXPORT_SYMBOL(__sw64_cpufreq_get);
 int sw64_set_rate(unsigned int index)
 {
 	int i, retry, cpu_num;
+	void __iomem *spbu_base;
 
 	cpu_num = sw64_chip->get_cpu_num();
 	for (i = 0; i < cpu_num; i++) {
-		sw64_io_write(i, CLU_LV1_SEL, CLK_LV1_SEL_PROTECT);
-		sw64_io_write(i, CLK_CTL, CLK2_PROTECT | CORE_CLK2_RESET | CORE_CLK2_VALID | CLK0_PROTECT);
-		sw64_io_write(i, CLK_CTL, CLK2_PROTECT | CORE_CLK2_VALID | (unsigned long)index << CORE_PLL2_CFG_SHIFT);
+		spbu_base = misc_platform_get_spbu_base(i);
+
+		/* select PLL0/PLL1 */
+		writeq(CLK_LV1_SEL_PROTECT, spbu_base + OFFSET_CLU_LV1_SEL);
+		/* reset PLL2 */
+		writeq(CLK2_PROTECT | CORE_CLK2_RESET | CORE_CLK2_VALID, spbu_base + OFFSET_CLK_CTL);
+		/* configure PLL2_CFG */
+		writeq(CLK2_PROTECT | CORE_CLK2_VALID | (unsigned long)index << CORE_PLL2_CFG_SHIFT,
+				spbu_base + OFFSET_CLK_CTL);
 		udelay(1);
-		sw64_io_write(i, CLK_CTL, CORE_CLK2_VALID);
+		/* reset over */
+		writeq(CORE_CLK2_VALID, spbu_base + OFFSET_CLK_CTL);
 		retry = 0;
 		while (retry < MAX_RETRY) {
-			if (sw64_io_read(i, CLK_CTL) & CORE_CLK2_LOCK)
+			if (readq(spbu_base + OFFSET_CLK_CTL) & CORE_CLK2_LOCK)
 				break;
 			retry++;
 			udelay(100);
 		}
 		if (retry == MAX_RETRY)
 			return -ETIME;
-		sw64_io_write(i, CLK_CTL, 0);
-		sw64_io_write(i, CLU_LV1_SEL, CLK_LV1_SEL_MUXA | CLK_LV1_SEL_MUXB | CLK_LV1_SEL_PROTECT);
+		/* configure over */
+		writeq(0, spbu_base + OFFSET_CLK_CTL);
+		/* select PLL2/PLL2 */
+		writeq(CLK_LV1_SEL_MUXA | CLK_LV1_SEL_MUXB | CLK_LV1_SEL_PROTECT,
+				spbu_base + OFFSET_CLU_LV1_SEL);
 	}
 	return 0;
 }

@@ -62,8 +62,6 @@ static inline void numa_remove_cpu(unsigned int cpu) { }
 static inline void numa_store_cpu_info(unsigned int cpu) { }
 #endif /* CONFIG_NUMA */
 
-extern void get_vt_smp_info(void);
-
 #include <asm-generic/topology.h>
 
 static inline void arch_fix_phys_package_id(int num, u32 slot) { }

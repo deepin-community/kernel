@@ -71,23 +71,36 @@ void __init sw64_setup_clocksource(void)
 void __init setup_sched_clock(void) { }
 #elif defined(CONFIG_SUBARCH_C3B)
 #ifdef CONFIG_SMP
+#define OFFSET_LONG_TIME_START_EN	0x9000UL
+
+#define OFFSET_LONG_TIME		0x180UL
+
+#define OFFSET_GPIO_SWPORTA_DR		0x0UL
+#define OFFSET_GPIO_SWPORTA_DDR		0x200UL
+
 static u64 read_longtime(struct clocksource *cs)
 {
 	unsigned long node;
+	void __iomem *intpu_base;
 
 	node = __this_cpu_read(hard_node_id);
-	return __io_read_longtime(node);
+	intpu_base = misc_platform_get_intpu_base(node);
+
+	return readq(intpu_base + OFFSET_LONG_TIME);
 }
 
 static int longtime_enable(struct clocksource *cs)
 {
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
+	void __iomem *gpio_base = misc_platform_get_gpio_base(0);
+
 	switch (cpu_desc.model) {
 	case CPU_SW3231:
-		sw64_io_write(0, GPIO_SWPORTA_DR, 0);
-		sw64_io_write(0, GPIO_SWPORTA_DDR, 0xff);
+		writeq(0, gpio_base + OFFSET_GPIO_SWPORTA_DR);
+		writeq(0xff, gpio_base + OFFSET_GPIO_SWPORTA_DDR);
 		break;
 	case CPU_SW831:
-		__io_write_longtime_start_en(0, 0x1);
+		writeq(0x1, spbu_base + OFFSET_LONG_TIME_START_EN);
 		break;
 	default:
 		break;
@@ -111,7 +124,7 @@ static u64 read_vtime(struct clocksource *cs)
 {
 	unsigned long vtime_addr;
 
-	vtime_addr = IO_BASE | LONG_TIME;
+	vtime_addr = IO_BASE | INTPU_BASE | OFFSET_LONG_TIME;
 	return rdio64(vtime_addr);
 }
 

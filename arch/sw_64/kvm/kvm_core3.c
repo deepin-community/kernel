@@ -24,6 +24,8 @@
 #include "trace.h"
 #include "vmem.c"
 
+#define OFFSET_LONG_TIME	0x180UL
+
 __read_mostly bool bind_vcpu_enabled;
 
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_NUMA)
@@ -240,10 +242,11 @@ int kvm_sw64_vcpu_reset(struct kvm_vcpu *vcpu)
 
 long kvm_sw64_get_vcb(struct file *filp, unsigned long arg)
 {
+	void __iomem *intpu_base = misc_platform_get_intpu_base(0);
 	struct kvm_vcpu *vcpu = filp->private_data;
 
 	if (vcpu->arch.vcb.migration_mark) {
-		unsigned long result = sw64_io_read(0, LONG_TIME)
+		unsigned long result = readq(intpu_base + OFFSET_LONG_TIME)
 			+ vcpu->arch.vcb.guest_longtime_offset;
 		vcpu->arch.vcb.guest_longtime = result;
 		vcpu->arch.vcb.guest_irqs_pending = vcpu->arch.irqs_pending[0];
@@ -260,6 +263,7 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 	unsigned long result;
 	struct kvm_vcpu *vcpu = filp->private_data;
 	struct vcpucb *kvm_vcb;
+	void __iomem *intpu_base = misc_platform_get_intpu_base(0);
 
 	kvm_vcb = memdup_user((void __user *)arg, sizeof(*kvm_vcb));
 	memcpy(&(vcpu->arch.vcb), kvm_vcb, sizeof(struct vcpucb));
@@ -269,7 +273,7 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 		vcpu->arch.vcb.vpcr = get_vpcr(vcpu, 0);
 		/* synchronize the longtime of source and destination */
 		if (vcpu->arch.vcb.soft_cid == 0) {
-			result = sw64_io_read(0, LONG_TIME);
+			result = readq(intpu_base + OFFSET_LONG_TIME);
 			vcpu->arch.vcb.guest_longtime_offset = vcpu->arch.vcb.guest_longtime - result;
 			longtime_offset = vcpu->arch.vcb.guest_longtime_offset;
 		} else

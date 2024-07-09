@@ -470,6 +470,18 @@ void early_parse_fdt_property(const void *fdt, const char *path,
 	*property = of_read_number(prop, size / 4);
 }
 
+bool sunway_machine_is_compatible(const char *compat)
+{
+	const void *fdt = initial_boot_params;
+	int offset;
+
+	offset = fdt_path_offset(fdt, "/");
+	if (offset < 0)
+		return false;
+
+	return !fdt_node_check_compatible(fdt, offset, compat);
+}
+
 static void __init setup_firmware_fdt(void)
 {
 	void *dt_virt;
@@ -691,8 +703,6 @@ setup_arch(char **cmdline_p)
 	setup_cpu_info();
 	setup_run_mode();
 	setup_chip_ops();
-	if (is_guest_or_emul())
-		get_vt_smp_info();
 
 	setup_sched_clock();
 

@@ -13,8 +13,9 @@ static int cpufreq_show(struct seq_file *m, void *v)
 {
 	int i;
 	u64 val;
+	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 
-	val = sw64_io_read(0, CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
+	val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
 	val &= CORE_PLL2_CFG_MASK;
 	seq_puts(m, "CPU frequency in Mhz:\n");
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {

@@ -41,11 +41,23 @@ extern int __init sw64_add_gsi_domain_map(u32 gsi_base, u32 gsi_count,
 #ifdef CONFIG_SW64_PINTC
 extern int __init pintc_acpi_init(struct irq_domain *parent,
 		struct acpi_madt_sw_pintc *pintc);
+extern void handle_dev_int(struct pt_regs *regs);
+extern void handle_fault_int(void);
 #else
 static inline int __init pintc_acpi_init(struct irq_domain *parent,
 		struct acpi_madt_sw_pintc *pintc)
 {
 	return 0;
+}
+
+static inline void handle_dev_int(struct pt_regs *regs)
+{
+	pr_crit("Enter MCU int, but the driver is not configured!\n");
+}
+
+static inline void handle_fault_int(void)
+{
+	pr_crit("Enter fault int, but the driver is not configured!\n");
 }
 #endif
 

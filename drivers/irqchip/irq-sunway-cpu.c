@@ -117,25 +117,6 @@ static void dummy_perf(unsigned long vector, struct pt_regs *regs)
 void (*perf_irq)(unsigned long vector, struct pt_regs *regs) = dummy_perf;
 EXPORT_SYMBOL(perf_irq);
 
-static void handle_fault_int(void)
-{
-	int node;
-	unsigned long value;
-
-	node = __this_cpu_read(hard_node_id);
-	pr_info("enter fault int, si_fault_stat = %#lx\n",
-			sw64_io_read(node, SI_FAULT_STAT));
-	sw64_io_write(node, SI_FAULT_INT_EN, 0);
-	sw64_io_write(node, DLI_RLTD_FAULT_INTEN, 0);
-#if defined(CONFIG_UNCORE_XUELANG)
-	value = 0;
-#elif defined(CONFIG_UNCORE_JUNZHANG)
-	value = sw64_io_read(node, FAULT_INT_CONFIG);
-	value |= (1 << 8);
-#endif
-	__io_write_fault_int_en(node, value);
-}
-
 static void handle_mt_int(void)
 {
 	pr_info("enter mt int\n");
@@ -145,33 +126,6 @@ static void handle_nmi_int(void)
 {
 	pr_info("enter nmi int\n");
 }
-
-#ifdef CONFIG_SW64_PINTC
-static void handle_dev_int(struct pt_regs *regs)
-{
-	unsigned long config_val, val, stat;
-	int node = 0;
-	unsigned int hwirq;
-
-	config_val = sw64_io_read(node, DEV_INT_CONFIG);
-	val = config_val & (~(1UL << 8));
-	sw64_io_write(node, DEV_INT_CONFIG, val);
-	stat = sw64_io_read(node, MCU_DVC_INT);
-
-	while (stat) {
-		hwirq = ffs(stat) - 1;
-		generic_handle_domain_irq(mcu_irq_domain, hwirq);
-		stat &= ~(1UL << hwirq);
-	}
-
-	sw64_io_write(node, DEV_INT_CONFIG, config_val);
-}
-#else
-static void handle_dev_int(struct pt_regs *regs)
-{
-	pr_crit(PREFIX "the child controller PINTC is not configured!\n");
-}
-#endif
 
 int pme_state;
 
@@ -343,12 +297,6 @@ static int __init pintc_parse_madt(union acpi_subtable_headers *header,
 	struct acpi_madt_sw_pintc *pintc;
 
 	pintc = (struct acpi_madt_sw_pintc *)header;
-
-	/* Not yet supported */
-	if (pintc->node > 0) {
-		pr_warn(PREFIX "PINTC and LPC-INTC on node x(x > 0) are not supported\n");
-		return 0;
-	}
 
 	if ((pintc->version == ACPI_MADT_SW_PINTC_VERSION_NONE) ||
 		(pintc->version >= ACPI_MADT_SW_PINTC_VERSION_RESERVED)) {

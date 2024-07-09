@@ -70,6 +70,9 @@ struct clk {
 #define STARTUP_RATE		(2400UL * 1000 * 1000)
 #endif
 
+#define OFFSET_CLU_LV1_SEL	0x3a80UL
+#define OFFSET_CLK_CTL		0x3b80UL
+
 extern struct cpufreq_frequency_table freq_table[];
 
 int clk_init(void);

@@ -7,6 +7,8 @@
 #include <linux/of_address.h>
 #include <linux/topology.h>
 
+#include <asm/platform.h>
+
 /**
  * Currently, Peripheral interrupt control logic of Sunway is mainly
  * distributed on the device side, which are hardware entities
@@ -43,9 +45,26 @@
 
 #define PREFIX  "PINTC: "
 
-#define OFFSET_MCU_DVC_INT_EN  0x3080UL
+#define OFFSET_DLI_RLTD_FAULT_INTEN  0xa80UL
+#define OFFSET_MCU_DVC_INT           0x3000UL
+#define OFFSET_MCU_DVC_INT_EN        0x3080UL
+#define OFFSET_SI_FAULT_STAT         0x3100UL
+#define OFFSET_SI_FAULT_INT_EN       0x3200UL
+#define OFFSET_ADR_CTL               0x3600UL /* PINTC version >= 2 */
+#define OFFSET_DUAL_CG0_FAULT_INTEN  0x7580UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG1_FAULT_INTEN  0x7600UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG2_FAULT_INTEN  0x7680UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG3_FAULT_INTEN  0x7700UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG4_FAULT_INTEN  0x7780UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG5_FAULT_INTEN  0x7800UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG6_FAULT_INTEN  0x7880UL /* PINTC version 1 only */
+#define OFFSET_DUAL_CG7_FAULT_INTEN  0x7900UL /* PINTC version 1 only */
 
-#define OFFSET_DEV_INT_CONFIG  0x480UL
+#define OFFSET_DEV_INT_CONFIG        0x480UL
+#define OFFSET_FAULT_INT_CONFIG      0x780UL
+#define OFFSET_DEVINT_WKEN           0x1500UL
+#define OFFSET_ADR_INT_CONFIG        0x1580UL /* PINTC version >= 2 */
+#define OFFSET_DEVINTWK_INTEN        0x1600UL
 
 #define SW_PINTC_MCU_GSI_BASE  64
 
@@ -54,6 +73,8 @@
 
 #define MCU_BASE_V1   0x803000000000
 #define MCU_SIZE_V1   0x8f00
+
+DECLARE_PER_CPU(unsigned long, hard_node_id);
 
 struct pintc_chip_data {
 	bool vt;                  /* virtual pintc */
@@ -64,6 +85,39 @@ struct pintc_chip_data {
 	struct irq_chip *mcu_chip;
 	u32 mcu_irq_num;
 };
+
+static struct pintc_chip_data *chip_datas[MAX_NUMNODES];
+
+static struct pintc_chip_data *pintc_alloc_chip_data(u32 node)
+{
+	struct pintc_chip_data *chip_data;
+
+	if (WARN_ON(node >= MAX_NUMNODES))
+		return NULL;
+
+	chip_data = kzalloc_node(sizeof(struct pintc_chip_data),
+			GFP_KERNEL, node);
+	if (!chip_data)
+		chip_data = kzalloc(sizeof(struct pintc_chip_data),
+				GFP_KERNEL);
+
+	chip_datas[node] = chip_data;
+
+	return chip_data;
+}
+
+static void pintc_free_chip_data(struct pintc_chip_data *chip_data)
+{
+	if (!chip_data)
+		return;
+
+	if (WARN_ON((chip_data->node >= MAX_NUMNODES) ||
+		(chip_datas[chip_data->node] != chip_data)))
+		return;
+
+	chip_datas[chip_data->node] = NULL;
+	kfree(chip_data);
+}
 
 static DEFINE_RAW_SPINLOCK(pintc_lock);
 static void lock_dev_lock(void)
@@ -120,7 +174,7 @@ static void mcu_irq_disable(struct irq_data *irq_data)
 	mcu_irq_mask(irq_data);
 }
 
-static unsigned long make_mcu_int_target(u32 version, int rcid)
+static unsigned long make_pintc_int_target(u32 version, int rcid)
 {
 	int node, core, thread;
 	unsigned long target = 0;
@@ -168,7 +222,7 @@ static int __assign_mcu_irq_config(const struct pintc_chip_data *chip_data,
 	rcid = cpu_to_rcid(cpu);
 
 	val = readq(chip_data->pintc_base + OFFSET_DEV_INT_CONFIG);
-	dev_int_tar = make_mcu_int_target(chip_data->version, rcid);
+	dev_int_tar = make_pintc_int_target(chip_data->version, rcid);
 	val &= 0xffff;
 	val |= dev_int_tar << 16;
 	writeq(val, chip_data->pintc_base + OFFSET_DEV_INT_CONFIG);
@@ -333,13 +387,89 @@ static int __init pintc_init_mcu(struct pintc_chip_data *chip_data,
 		return -ENOMEM;
 	}
 
-	pr_info(PREFIX "MCU sub controller [%u:%u] initialized\n",
+	pr_info(PREFIX "MCU version [%u] on node [%u] initialized\n",
 			chip_data->version, chip_data->node);
 
 	return 0;
 }
 
+void handle_dev_int(struct pt_regs *regs)
+{
+	void __iomem *mcu_base, *intpu_base;
+	unsigned long config_val, val, stat;
+	unsigned int hwirq;
+
+	/* Currently, only MCU controller on node 0 is supported */
+	mcu_base = chip_datas[0]->mcu_base;
+	intpu_base = chip_datas[0]->pintc_base;
+
+	config_val = readq(intpu_base + OFFSET_DEV_INT_CONFIG);
+	val = config_val & (~(1UL << 8));
+	writeq(val, intpu_base + OFFSET_DEV_INT_CONFIG);
+	stat = readq(mcu_base + OFFSET_MCU_DVC_INT);
+
+	while (stat) {
+		hwirq = ffs(stat) - 1;
+		generic_handle_domain_irq(mcu_irq_domain, hwirq);
+		stat &= ~(1UL << hwirq);
+	}
+
+	writeq(config_val, intpu_base + OFFSET_DEV_INT_CONFIG);
+}
+
+void handle_fault_int(void)
+{
+	int node;
+	unsigned long value;
+	void __iomem *mcu_base, *intpu_base;
+
+	node = __this_cpu_read(hard_node_id);
+
+#if defined(CONFIG_UNCORE_XUELANG)
+	mcu_base = misc_platform_get_spbu_base(node);
+	intpu_base = misc_platform_get_intpu_base(node);
+#elif defined(CONFIG_UNCORE_JUNZHANG)
+	mcu_base = chip_datas[node]->mcu_base;
+	intpu_base = chip_datas[node]->pintc_base;
+#endif
+
+	pr_info("Enter fault int, si_fault_stat = %#llx\n",
+			readq(mcu_base + OFFSET_SI_FAULT_STAT));
+
+	writeq(0, mcu_base + OFFSET_SI_FAULT_INT_EN);
+	writeq(0, mcu_base + OFFSET_DLI_RLTD_FAULT_INTEN);
+
+#if defined(CONFIG_UNCORE_XUELANG)
+	value = 0;
+	writeq(value, mcu_base + OFFSET_DUAL_CG0_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG1_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG2_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG3_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG4_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG5_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG6_FAULT_INTEN);
+	writeq(value, mcu_base + OFFSET_DUAL_CG7_FAULT_INTEN);
+#elif defined(CONFIG_UNCORE_JUNZHANG)
+	value = readq(intpu_base + OFFSET_FAULT_INT_CONFIG);
+	value |= (1 << 8);
+	writeq(value, intpu_base + OFFSET_FAULT_INT_CONFIG);
+#endif
+}
+
 #ifdef CONFIG_OF
+static int __init pintc_of_init_mcu(struct pintc_chip_data *chip_data,
+		struct device_node *pintc)
+{
+	/* Not yet supported */
+	if (chip_data->node > 0) {
+		pr_info(PREFIX "MCU version [%u] on node [%u] skipped\n",
+				chip_data->version, chip_data->node);
+		return 0;
+	}
+
+	return pintc_init_mcu(chip_data, of_node_to_fwnode(pintc));
+}
+
 static int __init
 pintc_of_init_common(struct device_node *pintc,
 		struct device_node *parent, bool vt)
@@ -393,7 +523,7 @@ pintc_of_init_common(struct device_node *pintc,
 				MCU_BASE_V1);
 	}
 
-	chip_data = kzalloc_node(sizeof(*chip_data), GFP_KERNEL, node);
+	chip_data = pintc_alloc_chip_data(node);
 	if (!chip_data) {
 		ret = -ENOMEM;
 		goto out_unmap;
@@ -406,14 +536,20 @@ pintc_of_init_common(struct device_node *pintc,
 	chip_data->mcu_base = mcu_base;
 	chip_data->mcu_irq_num = nr_irqs;
 
-	ret = pintc_init_mcu(chip_data, of_node_to_fwnode(pintc));
+	/* Enable S3 wakeup interrupt for physical environment */
+	if (!vt && IS_ENABLED(CONFIG_SUSPEND)) {
+		writeq(0x80, chip_data->pintc_base + OFFSET_DEVINT_WKEN);
+		writeq(0x80, chip_data->pintc_base + OFFSET_DEVINTWK_INTEN);
+	}
+
+	ret = pintc_of_init_mcu(chip_data, pintc);
 	if (ret)
 		goto out_free_mem;
 
 	return 0;
 
 out_free_mem:
-	kfree(chip_data);
+	pintc_free_chip_data(chip_data);
 out_unmap:
 	iounmap(mcu_base);
 	iounmap(pintc_base);
@@ -496,8 +632,15 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 	struct fwnode_handle *handle;
 	int ret;
 
+	/* Not yet supported */
+	if (chip_data->node > 0) {
+		pr_info(PREFIX "MCU version [%u] on node [%u] skipped\n",
+				chip_data->version, chip_data->node);
+		return 0;
+	}
+
 	if (!mcu->status) {
-		pr_info(PREFIX "MCU sub controller [%u:%u] disabled\n",
+		pr_info(PREFIX "MCU version [%u] on node [%u] disabled\n",
 				chip_data->version, chip_data->node);
 		return 0;
 	}
@@ -532,6 +675,10 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 		goto out_acpi_free_mcu_domain;
 	}
 
+	/* Init SW LPC INTC */
+	acpi_table_parse_madt(ACPI_MADT_TYPE_SW_LPC_INTC,
+			lpc_intc_parse_madt, 0);
+
 	return 0;
 
 out_acpi_free_mcu_domain:
@@ -541,6 +688,28 @@ out_acpi_unmap_mcu:
 out_acpi_free_fwnode:
 	irq_domain_free_fwnode(handle);
 	return ret;
+}
+
+static int __init pintc_acpi_init_fault(struct pintc_chip_data *chip_data,
+		struct acpi_madt_sw_sub_pintc *fault)
+{
+	if (!fault->status) {
+		pr_info(PREFIX "Fault version [%u] on node [%u] disabled\n",
+				chip_data->version, chip_data->node);
+		return 0;
+	}
+
+	/* Fault share the same base address with MCU currently */
+	chip_data->mcu_base = ioremap(fault->address, fault->size);
+	if (!chip_data->mcu_base) {
+		pr_err(PREFIX "failed to map fault base address\n");
+		return -ENXIO;
+	}
+
+	pr_info(PREFIX "Fault version [%u] on node [%u] initialized\n",
+			chip_data->version, chip_data->node);
+
+	return 0;
 }
 
 int __init pintc_acpi_init(struct irq_domain *parent,
@@ -566,8 +735,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 		return -EINVAL;
 	}
 
-	chip_data = kzalloc_node(sizeof(*chip_data), GFP_KERNEL,
-			pintc->node);
+	chip_data = pintc_alloc_chip_data(pintc->node);
 	if (!chip_data)
 		return -ENOMEM;
 
@@ -588,24 +756,29 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 		goto out_acpi_free_chip_data;
 	}
 
+	/* Enable S3 wakeup interrupt for physical environment */
+	if (!virtual && IS_ENABLED(CONFIG_SUSPEND)) {
+		writeq(0x80, chip_data->pintc_base + OFFSET_DEVINT_WKEN);
+		writeq(0x80, chip_data->pintc_base + OFFSET_DEVINTWK_INTEN);
+	}
+
 	for (i = 0; i < pintc->sub_num; ++i) {
 		switch (pintc->sub[i].type) {
 		case SW_PINTC_SUB_TYPE_MCU:
 			pintc_acpi_init_mcu(chip_data, &pintc->sub[i]);
+			break;
+		case SW_PINTC_SUB_TYPE_FAULT:
+			pintc_acpi_init_fault(chip_data, &pintc->sub[i]);
 			break;
 		default:
 			break;
 		}
 	}
 
-	/* Init SW LPC INTC */
-	acpi_table_parse_madt(ACPI_MADT_TYPE_SW_LPC_INTC,
-			lpc_intc_parse_madt, 0);
-
 	return 0;
 
 out_acpi_free_chip_data:
-	kfree(chip_data);
+	pintc_free_chip_data(chip_data);
 	return ret;
 }
 #endif
