@@ -13,6 +13,7 @@
 #include <linux/psp-sev.h>
 #include <linux/psp.h>
 #include <linux/psp-hygon.h>
+#include <asm/cpuid.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -188,13 +189,43 @@ static int kvm_bind_vtkm(uint32_t vm_handle, uint32_t cmd_id, uint32_t vid, uint
 	return ret;
 }
 
+static unsigned long vpsp_get_me_mask(void)
+{
+	unsigned int eax, ebx, ecx, edx;
+	unsigned long me_mask;
+
+#define AMD_SME_BIT	BIT(0)
+#define AMD_SEV_BIT	BIT(1)
+	/*
+	 * Check for the SME/SEV feature:
+	 *   CPUID Fn8000_001F[EAX]
+	 *   - Bit 0 - Secure Memory Encryption support
+	 *   - Bit 1 - Secure Encrypted Virtualization support
+	 *   CPUID Fn8000_001F[EBX]
+	 *   - Bits 5:0 - Pagetable bit position used to indicate encryption
+	 */
+	eax = 0x8000001f;
+	ecx = 0;
+	native_cpuid(&eax, &ebx, &ecx, &edx);
+	/* Check whether SEV or SME is supported */
+	if (!(eax & (AMD_SEV_BIT | AMD_SME_BIT)))
+		return 0;
+
+	me_mask = 1UL << (ebx & 0x3f);
+	return me_mask;
+}
+
 static phys_addr_t gpa_to_hpa(struct kvm_vpsp *vpsp, unsigned long data_gpa)
 {
 	phys_addr_t hpa = 0;
 	unsigned long pfn = vpsp->gfn_to_pfn(vpsp->kvm, data_gpa >> PAGE_SHIFT);
+	unsigned long me_mask = sme_get_me_mask();
+
+	if (me_mask == 0 && vpsp->is_csv_guest)
+		me_mask = vpsp_get_me_mask();
 
 	if (!is_error_pfn(pfn))
-		hpa = ((pfn << PAGE_SHIFT) + offset_in_page(data_gpa)) | sme_get_me_mask();
+		hpa = ((pfn << PAGE_SHIFT) + offset_in_page(data_gpa)) | me_mask;
 
 	pr_debug("gpa %lx, hpa %llx\n", data_gpa, hpa);
 	return hpa;
