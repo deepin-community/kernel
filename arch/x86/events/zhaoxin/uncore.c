@@ -2795,7 +2795,7 @@ struct zhaoxin_uncore_init_fun {
 	void (*mmio_init)(void);
 };
 
-void kx5000_uncore_cpu_init(void)
+static void kx5000_uncore_cpu_init(void)
 {
 	uncore_msr_uncores = kx5000_msr_uncores;
 }
@@ -2804,12 +2804,12 @@ static const struct zhaoxin_uncore_init_fun kx5000_uncore_init __initconst = {
 	.cpu_init = kx5000_uncore_cpu_init,
 };
 
-void kh40000_uncore_cpu_init(void)
+static void kh40000_uncore_cpu_init(void)
 {
 	uncore_msr_uncores = kh40000_msr_uncores;
 }
 
-int kh40000_uncore_pci_init(void)
+static int kh40000_uncore_pci_init(void)
 {
 	int ret = kh40000_pci2node_map_init(); /*pci_bus to package mapping, do nothing*/
 
@@ -2825,7 +2825,7 @@ static const struct zhaoxin_uncore_init_fun kh40000_uncore_init __initconst = {
 	.pci_init = kh40000_uncore_pci_init,
 };
 
-void kx7000_uncore_cpu_init(void)
+static void kx7000_uncore_cpu_init(void)
 {
 	u64 val;
 	int cpu;
@@ -2839,7 +2839,7 @@ void kx7000_uncore_cpu_init(void)
 	}
 }
 
-int kx7000_uncore_pci_init(void)
+static int kx7000_uncore_pci_init(void)
 {
 	uncore_pci_uncores = kx7000_pci_uncores;
 	uncore_pci_driver = &kx7000_uncore_pci_driver;
@@ -2847,7 +2847,7 @@ int kx7000_uncore_pci_init(void)
 	return 0;
 }
 
-void kx7000_uncore_mmio_init(void)
+static void kx7000_uncore_mmio_init(void)
 {
 	uncore_mmio_uncores = kx7000_mmio_uncores;
 }
