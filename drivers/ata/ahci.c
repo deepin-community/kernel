@@ -895,6 +895,11 @@ static int ahci_pci_device_runtime_suspend(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct ata_host *host = pci_get_drvdata(pdev);
 
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN && pdev->revision <= 0x20) {
+		dev_err(&pdev->dev, "zx ahci controller does not support runtime pm!\n");
+		return -EIO;
+	}
+
 	ahci_pci_disable_interrupts(host);
 	return 0;
 }
