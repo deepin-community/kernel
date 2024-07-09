@@ -28,6 +28,7 @@
 #define KVM_MAX_CPUCFG_REGS		21
 
 #define KVM_HALT_POLL_NS_DEFAULT	500000
+#define KVM_REQ_TLB_FLUSH_GPA		KVM_ARCH_REQ(0)
 #define KVM_REQ_RECORD_STEAL		KVM_ARCH_REQ(1)
 
 #define KVM_GUESTDBG_VALID_MASK		(KVM_GUESTDBG_ENABLE | \
@@ -186,6 +187,7 @@ struct kvm_vcpu_arch {
 
 	/* vcpu's vpid */
 	u64 vpid;
+	gpa_t flush_gpa;
 
 	/* Frequency of stable timer in Hz */
 	u64 timer_mhz;
