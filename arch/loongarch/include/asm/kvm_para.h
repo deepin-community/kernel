@@ -10,8 +10,8 @@
 #define HYPERCALL_CODE(vendor, code)	((vendor << HYPERVISOR_VENDOR_SHIFT) + code)
 #define KVM_HCALL_CODE_PV_SERVICE	0
 #define KVM_HCALL_CODE_SWDBG		1
-#define KVM_HCALL_PV_SERVICE		HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_PV_SERVICE)
-#define  KVM_HCALL_FUNC_PV_IPI		1
+#define KVM_HCALL_SERVICE		HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_PV_SERVICE)
+#define  KVM_HCALL_FUNC_IPI		1
 #define  KVM_HCALL_FUNC_NOTIFY		2
 #define KVM_HCALL_SWDBG			HYPERCALL_CODE(HYPERVISOR_KVM, KVM_HCALL_CODE_SWDBG)
 
@@ -45,7 +45,7 @@ static __always_inline long kvm_hypercall(u64 fid)
 	register unsigned long fun asm("a0") = fid;
 
 	__asm__ __volatile__(
-		"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
 		: "=r" (ret)
 		: "r" (fun)
 		: "memory"
@@ -61,7 +61,7 @@ static __always_inline long kvm_hypercall1(u64 fid, unsigned long arg0)
 	register unsigned long a1  asm("a1") = arg0;
 
 	__asm__ __volatile__(
-		"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
 		: "=r" (ret)
 		: "r" (fun), "r" (a1)
 		: "memory"
@@ -79,7 +79,7 @@ static __always_inline long kvm_hypercall2(u64 fid,
 	register unsigned long a2  asm("a2") = arg1;
 
 	__asm__ __volatile__(
-			"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+			"hvcl "__stringify(KVM_HCALL_SERVICE)
 			: "=r" (ret)
 			: "r" (fun), "r" (a1), "r" (a2)
 			: "memory"
@@ -98,7 +98,7 @@ static __always_inline long kvm_hypercall3(u64 fid,
 	register unsigned long a3  asm("a3") = arg2;
 
 	__asm__ __volatile__(
-		"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
 		: "=r" (ret)
 		: "r" (fun), "r" (a1), "r" (a2), "r" (a3)
 		: "memory"
@@ -119,7 +119,7 @@ static __always_inline long kvm_hypercall4(u64 fid,
 	register unsigned long a4  asm("a4") = arg3;
 
 	__asm__ __volatile__(
-		"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
 		: "=r" (ret)
 		: "r"(fun), "r" (a1), "r" (a2), "r" (a3), "r" (a4)
 		: "memory"
@@ -141,7 +141,7 @@ static __always_inline long kvm_hypercall5(u64 fid,
 	register unsigned long a5  asm("a5") = arg4;
 
 	__asm__ __volatile__(
-		"hvcl "__stringify(KVM_HCALL_PV_SERVICE)
+		"hvcl "__stringify(KVM_HCALL_SERVICE)
 		: "=r" (ret)
 		: "r"(fun), "r" (a1), "r" (a2), "r" (a3), "r" (a4), "r" (a5)
 		: "memory"

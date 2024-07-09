@@ -87,7 +87,7 @@ struct kvm_fpu {
 /* Device Control API on vcpu fd */
 #define KVM_LOONGARCH_VCPU_CPUCFG	0
 #define KVM_LOONGARCH_VCPU_PVTIME_CTRL	1
-#define  KVM_LOONGARCH_VCPU_PVTIME_GPA	0
+#define KVM_LOONGARCH_VCPU_PVTIME_GPA	0
 
 struct kvm_debug_exit_arch {
 };
