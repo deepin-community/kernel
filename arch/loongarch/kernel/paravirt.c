@@ -82,7 +82,7 @@ static void pv_send_ipi_single(int cpu, unsigned int action)
 		return;
 
 	min = cpu_logical_map(cpu);
-	kvm_hypercall3(KVM_HCALL_FUNC_PV_IPI, 1, 0, min);
+	kvm_hypercall3(KVM_HCALL_FUNC_IPI, 1, 0, min);
 }
 
 #define KVM_IPI_CLUSTER_SIZE		(2 * BITS_PER_LONG)
@@ -116,7 +116,7 @@ static void pv_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 			 * for the next mask calculation, send IPI here
 			 * directly and skip the remainding cpus
 			 */
-			kvm_hypercall3(KVM_HCALL_FUNC_PV_IPI,
+			kvm_hypercall3(KVM_HCALL_FUNC_IPI,
 				(unsigned long)bitmap,
 				(unsigned long)(bitmap >> BITS_PER_LONG), min);
 			min = max = cpu;
@@ -126,7 +126,7 @@ static void pv_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 	}
 
 	if (bitmap)
-		kvm_hypercall3(KVM_HCALL_FUNC_PV_IPI, (unsigned long)bitmap,
+		kvm_hypercall3(KVM_HCALL_FUNC_IPI, (unsigned long)bitmap,
 				(unsigned long)(bitmap >> BITS_PER_LONG), min);
 }
 

@@ -248,12 +248,9 @@ static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
 			vcpu->arch.gprs[rd] = 0;
 		break;
 	case CPUCFG_KVM_FEATURE:
-		ret = 0;
-		if ((plv & CSR_CRMD_PLV) == PLV_KERN) {
-			ret = KVM_FEATURE_PV_IPI;
-			if (sched_info_on())
-				ret |= KVM_FEATURE_STEAL_TIME;
-		}
+		ret = KVM_FEATURE_IPI;
+		if (kvm_pvtime_supported())
+			ret |= KVM_FEATURE_STEAL_TIME;
 		vcpu->arch.gprs[rd] = ret;
 		break;
 	default:
@@ -706,6 +703,34 @@ static int kvm_handle_fpu_disabled(struct kvm_vcpu *vcpu)
 	return RESUME_GUEST;
 }
 
+static long kvm_save_notify(struct kvm_vcpu *vcpu)
+{
+	unsigned long id, data;
+
+	id   = kvm_read_reg(vcpu, LOONGARCH_GPR_A1);
+	data = kvm_read_reg(vcpu, LOONGARCH_GPR_A2);
+	switch (id) {
+	case KVM_FEATURE_STEAL_TIME:
+		if (!kvm_pvtime_supported())
+			return KVM_HCALL_INVALID_CODE;
+
+		if (data & ~(KVM_STEAL_PHYS_MASK | KVM_STEAL_PHYS_VALID))
+			return KVM_HCALL_INVALID_PARAMETER;
+
+		vcpu->arch.st.guest_addr = data;
+		if (!(data & KVM_STEAL_PHYS_VALID))
+			break;
+
+		vcpu->arch.st.last_steal = current->sched_info.run_delay;
+		kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
+		break;
+	default:
+		break;
+	};
+
+	return 0;
+};
+
 /*
  * kvm_handle_lsx_disabled() - Guest used LSX while disabled in root.
  * @vcpu:      Virtual CPU context.
@@ -767,25 +792,6 @@ static int kvm_pv_send_ipi(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
-static int kvm_save_notify(struct kvm_vcpu *vcpu)
-{
-	unsigned long id, data;
-
-	id = vcpu->arch.gprs[LOONGARCH_GPR_A1];
-	data = vcpu->arch.gprs[LOONGARCH_GPR_A2];
-	switch (id) {
-	case KVM_FEATURE_STEAL_TIME:
-		vcpu->arch.st.guest_addr = data;
-		vcpu->arch.st.last_steal = current->sched_info.run_delay;
-		kvm_make_request(KVM_REQ_RECORD_STEAL, vcpu);
-		break;
-	default:
-		break;
-	};
-
-	return 0;
-};
-
 /*
  * hypercall emulation always return to guest, Caller should check retval.
  */
@@ -795,7 +801,7 @@ static void kvm_handle_pv_service(struct kvm_vcpu *vcpu)
 	long ret;
 
 	switch (func) {
-	case KVM_HCALL_FUNC_PV_IPI:
+	case KVM_HCALL_FUNC_IPI:
 		kvm_pv_send_ipi(vcpu);
 		ret = KVM_HCALL_STATUS_SUCCESS;
 		break;
@@ -821,7 +827,7 @@ static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 	ret = RESUME_GUEST;
 
 	switch (code) {
-	case KVM_HCALL_PV_SERVICE:
+	case KVM_HCALL_SERVICE:
 		vcpu->stat.hypercall_exits++;
 		kvm_handle_pv_service(vcpu);
 		break;
