@@ -773,6 +773,16 @@ void __weak arch_apei_report_mem_error(int sev,
 }
 EXPORT_SYMBOL_GPL(arch_apei_report_mem_error);
 
+void __weak arch_apei_report_pcie_error(int sev, struct cper_sec_pcie *pcie_err)
+{
+}
+EXPORT_SYMBOL_GPL(arch_apei_report_pcie_error);
+
+void __weak arch_apei_report_zdi_error(int sev, struct cper_sec_proc_generic *zdi_err)
+{
+}
+EXPORT_SYMBOL_GPL(arch_apei_report_zdi_error);
+
 int apei_osc_setup(void)
 {
 	static u8 whea_uuid_str[] = "ed855e0c-6c90-47bf-a62a-26de0fc5ad5c";
