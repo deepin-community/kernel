@@ -699,7 +699,7 @@ static bool ghes_do_proc(struct ghes *ghes,
 
 			atomic_notifier_call_chain(&ghes_report_chain, sev, mem_err);
 
-			arch_apei_report_mem_error(sev, mem_err);
+			arch_apei_report_mem_error(sec_sev, mem_err);
 			queued = ghes_handle_memory_failure(gdata, sev, sync);
 		}
 		else if (guid_equal(sec_type, &CPER_SEC_PCIE)) {
