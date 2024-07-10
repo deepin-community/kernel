@@ -12,6 +12,8 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/pci.h>
+#include <linux/pci-ecam.h>
+#include <linux/acpi.h>
 
 #include "../pci.h"
 #include "sunway_pciehp.h"
@@ -161,7 +163,7 @@ static void sunway_pciehp_check_presence(struct controller *ctrl)
 {
 	int occupied;
 
-	down_read(&ctrl->reset_lock);
+	down_read_nested(&ctrl->reset_lock, ctrl->depth);
 	mutex_lock(&ctrl->state_lock);
 
 	occupied = sunway_pciehp_card_present_or_link_active(ctrl);
@@ -241,12 +243,42 @@ static void sunwayhp_remove(struct pci_dev *dev)
 	sunway_pciehp_release_ctrl(ctrl);
 }
 
-extern struct pci_controller *hose_head, **hose_tail;
+static void sunway_hose_hotplug_init(void)
+{
+	int ret;
+	struct pci_dev *pdev = NULL;
+	struct pci_controller *hose;
+	struct pci_config_window *cfg;
+	struct acpi_device *adev;
+	u64 prop_hotplug_enable;
+
+	while ((pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev))) {
+		hose = pci_bus_to_pci_controller(pdev->bus);
+		hose->hotplug_enable = false;
+
+		if (!acpi_disabled) {
+			cfg = (struct pci_config_window *)pdev->bus->sysdata;
+			adev = to_acpi_device(cfg->parent);
+
+			ret = fwnode_property_read_u64_array(&adev->fwnode,
+					"sw64,hot_plug_slot_enable", &prop_hotplug_enable, 1);
+
+			if (ret == 0)
+				hose->hotplug_enable = prop_hotplug_enable;
+		}
+	}
+}
+
 static int __init sunway_pciehp_init(void)
 {
 	int retval;
 	struct pci_dev *pdev = NULL;
-	struct pci_controller *hose = NULL;
+	struct pci_controller *hose;
+
+	if (is_guest_or_emul()) {
+		pr_info(DRIVER_DESC " does not support for VM and emulator.\n");
+		return -ENODEV;
+	}
 
 	if (is_guest_or_emul()) {
 		pr_info(DRIVER_DESC " does not support for VM and emulator.\n");
@@ -255,8 +287,13 @@ static int __init sunway_pciehp_init(void)
 
 	pr_info(DRIVER_DESC " version: " DRIVER_VERSION "\n");
 
-	for (hose = hose_head; hose; hose = hose->next) {
-		pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev);
+	sunway_hose_hotplug_init();
+
+	while ((pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev))) {
+		hose = pci_bus_to_pci_controller(pdev->bus);
+
+		if (!hose->hotplug_enable)
+			continue;
 
 		retval = sunwayhp_init(pdev);
 	}
@@ -267,12 +304,15 @@ static int __init sunway_pciehp_init(void)
 static void __exit sunway_pciehp_exit(void)
 {
 	struct pci_dev *pdev = NULL;
-	struct pci_controller *hose = NULL;
+	struct pci_controller *hose;
 
 	pr_info(DRIVER_DESC " version: " DRIVER_VERSION " unloaded\n");
 
-	for (hose = hose_head; hose; hose = hose->next) {
-		pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev);
+	while ((pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev))) {
+		hose = pci_bus_to_pci_controller(pdev->bus);
+
+		if (!hose->hotplug_enable)
+			continue;
 
 		sunwayhp_remove(pdev);
 	}

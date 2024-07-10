@@ -65,6 +65,7 @@ struct pci_controller {
 	unsigned int need_domain_info;
 	bool iommu_enable;
 	struct sunway_iommu *pci_iommu;
+	bool hotplug_enable;
 	int first_busno;
 	int last_busno;
 	int self_busno;
