@@ -14,6 +14,10 @@
 #include <net/mac80211.h>
 #include <linux/version.h>
 
+#ifndef PCI_IRQ_INTX
+#define PCI_IRQ_INTX PCI_IRQ_LEGACY
+#endif
+
 #ifndef __iftd
 #define __iftd
 #endif
