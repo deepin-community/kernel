@@ -295,6 +295,12 @@ struct cper_sec_mem_err;
 extern void apei_mce_report_mem_error(int corrected,
 				      struct cper_sec_mem_err *mem_err);
 
+extern void zx_apei_mce_report_mem_error(int corrected, struct cper_sec_mem_err *mem_err);
+struct cper_sec_pcie;
+extern void zx_apei_mce_report_pcie_error(int corrected, struct cper_sec_pcie *pcie_err);
+struct cper_sec_proc_generic;
+extern void zx_apei_mce_report_zdi_error(int corrected, struct cper_sec_proc_generic *zdi_err);
+
 /*
  * Enumerate new IP types and HWID values in AMD processors which support
  * Scalable MCA.
