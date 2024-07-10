@@ -843,7 +843,6 @@ void arch_cpu_idle_dead(void)
 	if (is_in_guest()) {
 		hcall(HCALL_SET_CLOCKEVENT, 0, 0, 0);
 		hcall(HCALL_STOP, 0, 0, 0);
-		return;
 	} else {
 		wrtimer(0);
 	}
