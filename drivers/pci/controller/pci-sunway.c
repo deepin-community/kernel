@@ -327,8 +327,6 @@ static void hose_init(struct pci_controller *hose)
 	hose->first_busno = hose->self_busno = hose->busn_space->start;
 	hose->last_busno  = hose->busn_space->end;
 
-	hose->hotplug_enable = true;
-
 	if (is_in_host()) {
 		if (IS_ENABLED(CONFIG_PCI_MSI))
 			memset(hose->piu_msiconfig, 0, 256/8);
@@ -648,7 +646,6 @@ enum pci_props {
 	PROP_PIU_IOR1_BASE,
 	PROP_RC_INDEX,
 	PROP_PCIE_IO_BASE,
-	PROP_HOTPLUG_ENABLE,
 	PROP_NUM
 };
 
@@ -661,8 +658,7 @@ const char *prop_names[PROP_NUM] = {
 	"sw64,piu_ior0_base",
 	"sw64,piu_ior1_base",
 	"sw64,rc_index",
-	"sw64,pcie_io_base",
-	"sw64,hot_plug_slot_enable"
+	"sw64,pcie_io_base"
 };
 
 static int sw64_pci_prepare_controller(struct pci_controller *hose,
@@ -685,7 +681,6 @@ static int sw64_pci_prepare_controller(struct pci_controller *hose,
 	hose->iommu_enable = false;
 
 	hose->index = props[PROP_RC_INDEX];
-	hose->hotplug_enable = props[PROP_HOTPLUG_ENABLE];
 
 	hose->sparse_mem_base = 0;
 	hose->sparse_io_base  = 0;
