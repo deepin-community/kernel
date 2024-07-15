@@ -280,11 +280,6 @@ static int __init sunway_pciehp_init(void)
 		return -ENODEV;
 	}
 
-	if (is_guest_or_emul()) {
-		pr_info(DRIVER_DESC " does not support for VM and emulator.\n");
-		return -ENODEV;
-	}
-
 	pr_info(DRIVER_DESC " version: " DRIVER_VERSION "\n");
 
 	sunway_hose_hotplug_init();
