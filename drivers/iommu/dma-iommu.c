@@ -569,6 +569,18 @@ int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_
 }
 EXPORT_SYMBOL_GPL(iova_reserve_domain_addr);
 
+static int iova_reserve_pci_regions(struct device *dev, struct iommu_domain *domain)
+{
+	struct iommu_dma_cookie *cookie = domain->iova_cookie;
+	struct iova_domain *iovad = &cookie->iovad;
+	int ret = 0;
+
+	if (dev_is_pci(dev))
+		ret = iova_reserve_pci_windows(to_pci_dev(dev), iovad);
+
+	return ret;
+}
+
 static int iova_reserve_iommu_regions(struct device *dev,
 		struct iommu_domain *domain)
 {
@@ -577,12 +589,6 @@ static int iova_reserve_iommu_regions(struct device *dev,
 	struct iommu_resv_region *region;
 	LIST_HEAD(resv_regions);
 	int ret = 0;
-
-	if (dev_is_pci(dev)) {
-		ret = iova_reserve_pci_windows(to_pci_dev(dev), iovad);
-		if (ret)
-			return ret;
-	}
 
 	iommu_get_resv_regions(dev, &resv_regions);
 	list_for_each_entry(region, &resv_regions, list) {
@@ -723,7 +729,8 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, struct device *dev
 			return -EFAULT;
 		}
 
-		return 0;
+		ret = 0;
+		goto iova_reserve_iommu;
 	}
 
 	init_iova_domain(iovad, 1UL << order, base_pfn);
@@ -739,7 +746,15 @@ static int iommu_dma_init_domain(struct iommu_domain *domain, struct device *dev
 	     iommu_dma_init_fq(domain)))
 		domain->type = IOMMU_DOMAIN_DMA;
 
-	return iova_reserve_iommu_regions(dev, domain);
+	ret = iova_reserve_pci_regions(dev, domain);
+	if (ret)
+		goto done;
+
+iova_reserve_iommu:
+	ret = iova_reserve_iommu_regions(dev, domain);
+
+done:
+	return ret;
 }
 
 /**
