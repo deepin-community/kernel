@@ -400,8 +400,6 @@ void sw64_pci_root_bridge_scan_finish_up(struct pci_host_bridge *bridge)
 	pci_bus_update_busn_res_end(bus, last_bus);
 	last_bus++;
 
-	pr_info("bus number update to %u\n", last_bus);
-
 	if (is_in_host())
 		sw64_pci_root_bridge_reserve_legacy_io(bridge);
 
