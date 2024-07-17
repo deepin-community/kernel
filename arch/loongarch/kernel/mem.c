@@ -19,6 +19,7 @@ void __init memblock_init(void)
 	/* Parse memory information */
 	for_each_efi_memory_desc(md) {
 		mem_type = md->type;
+		md->phys_addr = TO_PHYS(md->phys_addr);
 		mem_start = md->phys_addr;
 		mem_size = md->num_pages << EFI_PAGE_SHIFT;
 		mem_end = mem_start + mem_size;

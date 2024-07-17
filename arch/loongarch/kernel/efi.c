@@ -93,6 +93,23 @@ static void __init init_screen_info(void)
 	memblock_reserve(screen_info.lfb_base, screen_info.lfb_size);
 }
 
+static void __init fix_initrd_table(const efi_config_table_t *config_tables,
+				    int count)
+{
+	for(int i = 0; i < count; i++) {
+		if (efi_guidcmp(config_tables[i].guid,
+				LINUX_EFI_INITRD_MEDIA_GUID) == 0) {
+			struct linux_efi_initrd *tbl =
+				early_memremap((u64)config_tables[i].table, sizeof(*tbl));
+			if (tbl) {
+				tbl->base = TO_PHYS(tbl->base);
+				early_memunmap(tbl, sizeof(*tbl));
+			}
+			break;
+		}
+	}
+}
+
 void __init efi_init(void)
 {
 	int size;
@@ -116,6 +133,7 @@ void __init efi_init(void)
 
 	size = sizeof(efi_config_table_t);
 	config_tables = early_memremap(efi_config_table, efi_nr_tables * size);
+	fix_initrd_table(config_tables, efi_systab->nr_tables);
 	efi_config_parse_tables(config_tables, efi_systab->nr_tables, arch_tables);
 	early_memunmap(config_tables, efi_nr_tables * size);
 
