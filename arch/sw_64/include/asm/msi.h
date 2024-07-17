@@ -40,6 +40,8 @@ extern struct irq_chip sw64_irq_chip;
 extern void handle_pci_msi_interrupt(unsigned long type,
 				     unsigned long vector,
 				     unsigned long pci_msi1_addr);
+extern int __init msic_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_msic *msic);
 
 #define MSI_ADDR_BASE_HI	0
 #define MSI_ADDR_BASE_LO	0x91abc0
@@ -93,5 +95,14 @@ static inline void handle_pci_msi_interrupt(unsigned long type,
 {
 	pr_warn("SW arch disable CONFIG_PCI_MSI option.\n");
 }
+
+static inline void vt_handle_pci_msi_interrupt(unsigned long type,
+		unsigned long vector, unsigned long pci_msi1_addr)
+{
+	pr_warn("SW arch disable CONFIG_PCI_MSI option.\n");
+}
+
+static inline int __init msic_acpi_init(struct irq_domain *parent,
+		struct acpi_madt_sw_msic *msic) { return 0; }
 #endif /* CONFIG_PCI_MSI */
 #endif /* _ASM_SW64_MSI_H */
