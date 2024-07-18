@@ -28,23 +28,38 @@ static void set_intx(struct pci_controller *hose, unsigned long intx_conf)
 
 	piu_ior0_base = hose->piu_ior0_base;
 
-	writeq(intx_conf | (0x8UL << 10), (piu_ior0_base + INTACONFIG));
-	writeq(intx_conf | (0x4UL << 10), (piu_ior0_base + INTBCONFIG));
-	writeq(intx_conf | (0x2UL << 10), (piu_ior0_base + INTCCONFIG));
-	writeq(intx_conf | (0x1UL << 10), (piu_ior0_base + INTDCONFIG));
+	if (IS_ENABLED(CONFIG_SUBARCH_C3B)) {
+		writeq(intx_conf | (0x8UL << 10), (piu_ior0_base + INTACONFIG));
+		writeq(intx_conf | (0x4UL << 10), (piu_ior0_base + INTBCONFIG));
+		writeq(intx_conf | (0x2UL << 10), (piu_ior0_base + INTCCONFIG));
+		writeq(intx_conf | (0x1UL << 10), (piu_ior0_base + INTDCONFIG));
+	} else {
+		writeq(intx_conf | (0x8UL << 10), (piu_ior0_base + INTDCONFIG));
+		writeq(intx_conf | (0x4UL << 10), (piu_ior0_base + INTCCONFIG));
+		writeq(intx_conf | (0x2UL << 10), (piu_ior0_base + INTBCONFIG));
+		writeq(intx_conf | (0x1UL << 10), (piu_ior0_base + INTACONFIG));
+	}
 }
 
 static int __assign_piu_intx_config(struct pci_controller *hose, cpumask_t *targets)
 {
 	unsigned long intx_conf;
 	unsigned int cpu;
-	int phy_cpu;
+	int thread, node, core, rcid;
 
 	/* Use the last cpu in valid cpus to avoid core 0. */
 	cpu = cpumask_last(targets);
-	phy_cpu = cpu_to_rcid(cpu);
+	rcid = cpu_to_rcid(cpu);
 
-	intx_conf = ((phy_cpu >> 5) << 6) | (phy_cpu & 0x1f);
+	thread = rcid_to_thread_id(rcid);
+	node = rcid_to_domain_id(rcid);
+	core = rcid_to_core_id(rcid);
+
+	if (IS_ENABLED(CONFIG_SUBARCH_C3B))
+		intx_conf = core | (node << 6);
+	else
+		intx_conf = core | (thread << 6) | (node << 7);
+
 	set_intx(hose, intx_conf);
 
 	return 0;
@@ -181,4 +196,3 @@ void __init sw64_init_irq(void)
 	for (hose = hose_head; hose; hose = hose->next)
 		setup_intx_irqs(hose);
 }
-
