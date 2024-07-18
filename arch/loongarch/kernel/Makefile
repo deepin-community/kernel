@@ -79,3 +79,5 @@ obj-$(CONFIG_UPROBES)		+= uprobes.o
 obj-$(CONFIG_JUMP_LABEL)	+= jump_label.o
 
 CPPFLAGS_vmlinux.lds		:= $(KBUILD_CFLAGS)
+
+obj-y				+= legacy_boot.o
