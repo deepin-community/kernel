@@ -25,6 +25,8 @@
 #include <asm/efi.h>
 #include <asm/loongson.h>
 
+#include "legacy_boot.h"
+
 static unsigned long efi_nr_tables;
 static unsigned long efi_config_table;
 
@@ -35,6 +37,7 @@ static efi_system_table_t *efi_systab;
 static efi_config_table_type_t arch_tables[] __initdata = {
 	{LINUX_EFI_BOOT_MEMMAP_GUID,	&boot_memmap,	"MEMMAP" },
 	{DEVICE_TREE_GUID,		&fdt_pointer,	"FDTPTR" },
+	{LOONGARCH_BPI_GUID,		&loongarch_bpi_info.bpi,	"BPI" },
 	{},
 };
 

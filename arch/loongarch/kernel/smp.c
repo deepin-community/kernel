@@ -36,6 +36,8 @@
 #include <asm/setup.h>
 #include <asm/time.h>
 
+#include "legacy_boot.h"
+
 int __cpu_number_map[NR_CPUS];   /* Map physical to logical */
 EXPORT_SYMBOL(__cpu_number_map);
 
@@ -400,6 +402,8 @@ void loongson_boot_secondary(int cpu, struct task_struct *idle)
 	pr_info("Booting CPU#%d...\n", cpu);
 
 	entry = __pa_symbol((unsigned long)&smpboot_entry);
+	if (loongarch_have_legacy_bpi())
+		entry = (unsigned long)&smpboot_entry;
 	cpuboot_data.task = (unsigned long)idle;
 	cpuboot_data.stack = (unsigned long)task_pt_regs(idle);
 	cpuboot_data.offset = per_cpu_offset(cpu);
