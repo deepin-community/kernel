@@ -26,6 +26,8 @@
 #include <asm/sections.h>
 #include <asm/time.h>
 
+#include "legacy_boot.h"
+
 int numa_off;
 struct pglist_data *node_data[MAX_NUMNODES];
 unsigned char node_distances[MAX_NUMNODES][MAX_NUMNODES];
@@ -396,6 +398,7 @@ int __init init_numa_memory(void)
 		return -EINVAL;
 
 	init_node_memblock();
+	bpi_init_node_memblock(add_numamem_region);
 	if (numa_meminfo_cover_memory(&numa_meminfo) == false)
 		return -EINVAL;
 
