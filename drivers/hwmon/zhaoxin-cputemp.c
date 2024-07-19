@@ -329,3 +329,5 @@ MODULE_LICENSE("GPL");
 
 module_init(zhaoxin_cputemp_init)
 module_exit(zhaoxin_cputemp_exit)
+
+MODULE_IMPORT_NS(HWMON_THERMAL);
