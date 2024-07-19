@@ -851,6 +851,7 @@ acpi_status acpi_os_table_override(struct acpi_table_header *existing_table,
 			*new_table = (struct acpi_table_header *)&dsdt_amlcode;
 	}
 #endif
+	acpi_arch_os_table_override(existing_table, new_table);
 	if (*new_table != NULL)
 		acpi_table_taint(existing_table);
 	return AE_OK;
@@ -906,6 +907,7 @@ void __init acpi_table_init_complete(void)
 {
 	acpi_table_initrd_scan();
 	check_multiple_madt();
+	acpi_arch_table_init_complete();
 }
 
 int __init acpi_table_init(void)
