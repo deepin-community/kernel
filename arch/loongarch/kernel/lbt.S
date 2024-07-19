@@ -11,7 +11,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/errno.h>
 #include <asm/regdef.h>
-#include <asm/unwind_hints.h>
 
 #define SCR_REG_WIDTH 8
 
@@ -154,5 +153,3 @@ SYM_FUNC_END(_restore_ftop_context)
 .L_lbt_fault:
 	li.w		a0, -EFAULT		# failure
 	jr		ra
-
-STACK_FRAME_NON_STANDARD _restore_ftop_context

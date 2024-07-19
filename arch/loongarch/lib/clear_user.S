@@ -10,7 +10,6 @@
 #include <asm/asm-extable.h>
 #include <asm/cpu.h>
 #include <asm/regdef.h>
-#include <asm/unwind_hints.h>
 
 SYM_FUNC_START(__clear_user)
 	/*
@@ -205,5 +204,3 @@ SYM_FUNC_START(__clear_user_fast)
 	_asm_extable 28b, .Lsmall_fixup
 	_asm_extable 29b, .Lexit
 SYM_FUNC_END(__clear_user_fast)
-
-STACK_FRAME_NON_STANDARD __clear_user_fast
