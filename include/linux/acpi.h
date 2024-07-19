@@ -812,6 +812,16 @@ int acpi_mrrm_max_mem_region(void);
 
 extern bool cmos_rtc_platform_device_present;
 
+#ifndef ACPI_HAVE_ARCH_TABLE_OVERRIDE
+static inline void acpi_arch_os_table_override (struct acpi_table_header *existing_table, struct acpi_table_header **new_table){
+}
+#endif
+#ifndef ACPI_HAVE_ARCH_TABLE_INIT_COMPLETE
+static inline void acpi_arch_table_init_complete(void)
+{
+}
+#endif
+
 #else	/* !CONFIG_ACPI */
 
 #define acpi_disabled 1
