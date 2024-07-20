@@ -5,6 +5,7 @@ config SW64
 	select ACPI
 	select ACPI_GENERIC_GSI if ACPI
 	select ACPI_MCFG if (ACPI && PCI)
+	select ACPI_PPTT if ACPI
 	select ACPI_REDUCED_HARDWARE_ONLY
 	select ARCH_ATOMIC
 	select ARCH_HAS_ACPI_TABLE_UPGRADE if ACPI
@@ -59,6 +60,7 @@ config SW64
 	select AUDIT_ARCH
 	select COMMON_CLK
 	select DMA_OPS if PCI
+	select GENERIC_ARCH_TOPOLOGY
 	select GENERIC_CLOCKEVENTS
 	select GENERIC_IRQ_LEGACY
 	select GENERIC_IRQ_MIGRATION if SMP
