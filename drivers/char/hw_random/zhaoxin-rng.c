@@ -69,10 +69,8 @@ static int __init zhaoxin_rng_mod_init(void)
 {
 	int err;
 
-	if (!x86_match_cpu(zhaoxin_rng_cpu_ids)) {
-		pr_err(PFX "The CPU isn't support XSTORE.\n");
+	if (!x86_match_cpu(zhaoxin_rng_cpu_ids))
 		return -ENODEV;
-	}
 
 	pr_info("Zhaoxin RNG detected\n");
 
