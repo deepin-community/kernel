@@ -399,7 +399,7 @@ void __init setup_smp(void)
 	init_cpu_present(cpu_none_mask);
 
 	/* Legacy core detect */
-	sw64_chip_init->early_init.setup_core_map(&core_start);
+	sw64_chip_init->early_init.setup_core_map();
 
 	/* For unified kernel, NR_CPUS is the maximum possible value */
 	for (i = 0; i < NR_CPUS; i++) {

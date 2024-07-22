@@ -1,13 +1,33 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * include/asm/cache.h
- */
+
 #ifndef _ASM_SW64_CACHE_H
 #define _ASM_SW64_CACHE_H
 
 #define L1_CACHE_SHIFT		7
 #define L1_CACHE_BYTES		(1 << L1_CACHE_SHIFT)
 
-#define SMP_CACHE_BYTES		L1_CACHE_BYTES
+#define CACHE_SIZE_SHIFT	0
+#define CACHE_SIZE_MASK		(0xffffffffUL << CACHE_SIZE_SHIFT)
+#define CACHE_SIZE(val)	\
+	(((val) & CACHE_SIZE_MASK) >> CACHE_SIZE_SHIFT)
+#define CACHE_LINE_BITS_SHIFT	32
+#define CACHE_LINE_BITS_MASK	(0xfUL << CACHE_LINE_BITS_SHIFT)
+#define CACHE_LINE_BITS(val)	\
+	(((val) & CACHE_LINE_BITS_MASK) >> CACHE_LINE_BITS_SHIFT)
+#define CACHE_INDEX_BITS_SHIFT	36
+#define CACHE_INDEX_BITS_MASK	(0x3fUL << CACHE_INDEX_BITS_SHIFT)
+#define CACHE_INDEX_BITS(val)	\
+	(((val) & CACHE_INDEX_BITS_MASK) >> CACHE_INDEX_BITS_SHIFT)
+
+#ifndef __ASSEMBLY__
+
+enum sunway_cache_type {
+	L1_ICACHE = 0,
+	L1_DCACHE = 1,
+	L2_CACHE  = 2,
+	L3_CACHE  = 3
+};
+
+#endif
 
 #endif /* _ASM_SW64_CACHE_H */

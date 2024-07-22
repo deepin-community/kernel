@@ -8,7 +8,7 @@
 #include <asm/sw64io.h>
 
 struct sw64_early_init_ops {
-	void (*setup_core_map)(struct cpumask *cpumask);
+	void (*setup_core_map)(void);
 	unsigned long (*get_node_mem)(int nodeid);
 	void (*get_smp_info)(void);
 };

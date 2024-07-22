@@ -5,6 +5,7 @@
 #include <linux/time.h>
 #include <linux/clk-provider.h>
 
+#include <asm/cpu.h>
 #include <asm/debug.h>
 #include <asm/timer.h>
 

@@ -8,7 +8,7 @@
 #include <linux/platform_device.h>
 
 #include <asm/sw64_init.h>
-#include <asm/hw_init.h>
+#include <asm/cpu.h>
 #include <asm/debug.h>
 #include <asm/cpufreq.h>
 #include <asm/platform.h>

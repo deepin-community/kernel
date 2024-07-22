@@ -13,7 +13,7 @@ CFLAGS_REMOVE_insn.o = -pg
 CFLAGS_REMOVE_printk.o = -pg
 endif
 
-obj-y    := fpu.o traps.o process.o sys_sw64.o irq.o \
+obj-y    := fpu.o traps.o process.o sys_sw64.o irq.o cpu.o \
 	    signal.o setup.o ptrace.o time.o \
 	    systbls.o dup_print.o chip_setup.o \
 	    insn.o early_init.o topology.o cacheinfo.o \

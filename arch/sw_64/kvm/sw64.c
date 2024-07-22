@@ -15,6 +15,7 @@
 #include <asm/barrier.h>
 #include <asm/core.h>
 #include <asm/pci_impl.h>
+#include <asm/cpu.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"

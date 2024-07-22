@@ -16,6 +16,7 @@
  */
 #include <linux/cacheinfo.h>
 
+#include <asm/cpu.h>
 #include <asm/topology.h>
 
 /* Populates leaf and increments to next leaf */
