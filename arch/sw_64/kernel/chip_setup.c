@@ -3,7 +3,7 @@
 #include <linux/pci.h>
 #include <linux/syscore_ops.h>
 
-#include <asm/hw_init.h>
+#include <asm/cpu.h>
 #include <asm/sw64_init.h>
 
 #define OFFSET_CORE_ONLINE		0x780UL
@@ -38,7 +38,7 @@ static unsigned long __init get_node_mem(int nodeid)
 	return __get_node_mem(nodeid);
 }
 
-static void __init setup_core_map(struct cpumask *cpumask)
+static void __init setup_core_map(void)
 {
 	int i, j, cpu_num, cpuid, max_cores_per_cpu;
 	unsigned long coreonline;

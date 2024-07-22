@@ -27,6 +27,7 @@
 #include <asm/ptrace.h>
 
 #include <asm/kvm_mmio.h>
+#include <asm/cpu.h>
 
 #define last_vpn(cpu)	(cpu_data[cpu].last_vpn)
 

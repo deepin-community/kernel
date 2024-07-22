@@ -6,6 +6,7 @@
 #include <linux/memblock.h>
 #include <linux/smp.h>
 
+#include <asm/cpu.h>
 #include <asm/early_ioremap.h>
 
 #ifdef CONFIG_ACPI_HOTPLUG_CPU

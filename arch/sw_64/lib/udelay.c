@@ -7,6 +7,8 @@
 
 #include <linux/module.h>
 
+#include <asm/cpu.h>
+
 /*
  * Use only for very small delays (< 1 msec).
  *

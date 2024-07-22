@@ -17,6 +17,7 @@
 #include <linux/irqchip.h>
 #include <linux/seq_file.h>
 
+#include <asm/cpu.h>
 #include <asm/irq_impl.h>
 
 volatile unsigned long irq_err_count;

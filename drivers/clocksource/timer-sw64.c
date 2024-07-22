@@ -8,9 +8,9 @@
 #include <linux/types.h>
 
 #include <asm/csr.h>
+#include <asm/cpu.h>
 #include <asm/debug.h>
 #include <asm/hmcall.h>
-#include <asm/hw_init.h>
 #include <asm/sw64_init.h>
 
 #define DEFAULT_MCLK    25000      /* Khz */

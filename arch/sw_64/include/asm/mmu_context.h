@@ -15,7 +15,7 @@
 #define ASID_BITS	10
 #endif
 
-#include <asm/hw_init.h>
+#include <asm/cpu.h>
 #define last_asid(cpu)		(cpu_data[cpu].last_asid)
 
 #define ASID_FIRST_VERSION	(1UL << ASID_BITS)
