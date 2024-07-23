@@ -39,9 +39,13 @@
 #include "trace.h"
 #define KVM_APT_FLAG_LOGGING_ACTIVE	(1UL << 1)
 
-static bool memslot_is_logging(struct kvm_memory_slot *memslot)
+static bool memslot_is_logging(struct kvm *kvm, struct kvm_memory_slot *memslot)
 {
-	return memslot->dirty_bitmap && (memslot->flags & KVM_MEM_LOG_DIRTY_PAGES);
+	if (!kvm->dirty_ring_size)
+		return memslot->dirty_bitmap
+				&& (memslot->flags & KVM_MEM_LOG_DIRTY_PAGES);
+	else
+		return memslot->flags & KVM_MEM_LOG_DIRTY_PAGES;
 }
 
 /*
@@ -1171,7 +1175,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	bool logging_active, write_fault, exec_fault, writable, force_pte;
 
 	force_pte = false;
-	logging_active = memslot_is_logging(memslot);
+	logging_active = memslot_is_logging(kvm, memslot);
 	fault_gpa = vcpu->arch.vcb.fault_gpa;
 	gfn = fault_gpa >> PAGE_SHIFT;
 	as_info = vcpu->arch.vcb.as_info;
