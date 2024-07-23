@@ -16,11 +16,6 @@
 
 relocate_new_kernel:
 	.prologue 0
-	ldl	a0, arg0
-	ldl	a1, arg1
-	ldl	a2, arg2
-	ldl	a3, arg3
-
 	ldl	s0, kexec_indirection_page
 	ldl	s1, kexec_start_address
 
@@ -100,10 +95,6 @@ done:
 	.globl kexec_smp_wait
 	.ent kexec_smp_wait
 kexec_smp_wait:
-	ldl	a0, s_arg0
-	ldl	a1, s_arg1
-	ldl	a2, s_arg2
-	ldl	a3, s_arg3
 	ldl	s1, kexec_start_address
 
 	/* Non-relocated address works for args and kexec_start_address (old
@@ -124,35 +115,6 @@ kexec_smp_wait:
 	jmp	ra, (s1)
 	.end kexec_smp_wait
 	.size kexec_smp_wait, .-kexec_smp_wait
-#endif
-
-	.align 3
-
-	/* All parameters to new kernel are passed in registers a0-a3.
-	 * kexec_args[0..3] are uses to prepare register values.
-	 */
-
-kexec_args:
-	.globl kexec_args
-arg0:	.quad 0x0
-arg1:	.quad 0x0
-arg2:	.quad 0x0
-arg3:	.quad 0x0
-	.size kexec_args, 8*4
-
-#ifdef CONFIG_CRASH_SMP
-	/*
-	 * Secondary CPUs may have different kernel parameters in
-	 * their registers a0-a3. secondary_kexec_args[0..3] are used
-	 * to prepare register values.
-	 */
-secondary_kexec_args:
-	.globl secondary_kexec_args
-s_arg0:	.quad 0x0
-s_arg1:	.quad 0x0
-s_arg2:	.quad 0x0
-s_arg3:	.quad 0x0
-	.size secondary_kexec_args, 8*4
 
 kexec_flag:
 	.quad 0x1
