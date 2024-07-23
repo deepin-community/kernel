@@ -41,7 +41,7 @@
 
 static bool memslot_is_logging(struct kvm_memory_slot *memslot)
 {
-	return memslot->dirty_bitmap && !(memslot->flags & KVM_MEM_READONLY);
+	return memslot->dirty_bitmap && (memslot->flags & KVM_MEM_LOG_DIRTY_PAGES);
 }
 
 /*
