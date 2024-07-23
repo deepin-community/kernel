@@ -21,22 +21,10 @@
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/consumer.h>
 
 #include "../core.h"
 #include "pinctrl-zhaoxin.h"
-
-static int pin_to_hwgpio(struct pinctrl_gpio_range *range, unsigned int pin)
-{
-	int offset = 0;
-
-	if (range->pins) {
-		for (offset = 0; offset < range->npins; offset++)
-			if (pin == range->pins[offset])
-				break;
-		return range->base+offset-range->gc->base;
-	} else
-		return pin-range->pin_base+range->base-range->gc->base;
-}
 
 static u16 zx_pad_read16(struct zhaoxin_pinctrl *pctrl, u8 index)
 {
@@ -498,7 +486,7 @@ static int zhaoxin_gpio_irq_type(struct irq_data *d, unsigned int type)
 	else if (type & IRQ_TYPE_LEVEL_HIGH)
 		value |= TRIGGER_HIGH_LEVEL << (point*4);
 	else
-		pr_debug(pctrl, "%s wrang type\n", __func__);
+		pr_debug("%s wrong type\n", __func__);
 
 	zx_pad_write16(pctrl, index, value);
 
