@@ -1,12 +1,5 @@
-/*++
-
-Copyright (c) 2021 Motor-comm Corporation.
-Confidential and Proprietary. All rights reserved.
-
-This is Motor-comm Corporation NIC driver relevant files.
-Please don't copy, modify,distribute without commercial permission.
-
---*/
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (c) 2021 Motorcomm Corporation. */
 
 
 #ifndef __FUXI_OS_H__
@@ -31,19 +24,8 @@ Please don't copy, modify,distribute without commercial permission.
 #include <linux/crc32.h>
 #include <linux/dcbnl.h>
 #include <linux/inet.h>
-
-#define LINUX
-
-#ifndef LINUX_VERSION_CODE
 #include <linux/version.h>
-#else
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#endif
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,0))
 #include <linux/crc32poly.h>
-#endif
-
 #include "fuxi-dbg.h"
 
 struct fxgmac_ring;
@@ -51,31 +33,10 @@ struct fxgmac_pdata;
 
 #define FXGMAC_DRV_VERSION                  "1.0.27"
 
-#ifdef CONFIG_PCI_MSI
-//#undef CONFIG_PCI_MSI 				//undefined for legacy interupt mode
-#endif
-
 #define PCIE_LP_ASPM_L0S                    1
 #define PCIE_LP_ASPM_L1                     2
 #define PCIE_LP_ASPM_L1SS                   4
 #define PCIE_LP_ASPM_LTR                    8
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0))
-/*
- * There are multiple 16-bit CRC polynomials in common use, but this is
- * *the* standard CRC-32 polynomial, first popularized by Ethernet.
- * x^32+x^26+x^23+x^22+x^16+x^12+x^11+x^10+x^8+x^7+x^5+x^4+x^2+x^1+x^0
- */
-#define CRC32_POLY_LE 0xedb88320
-#define CRC32_POLY_BE 0x04c11db7
-
-/*
- * This is the CRC32c polynomial, as outlined by Castagnoli.
- * x^32+x^28+x^27+x^26+x^25+x^23+x^22+x^20+x^19+x^18+x^14+x^13+x^11+x^10+x^9+
- * x^8+x^6+x^0
- */
-#define CRC32C_POLY_LE 0x82F63B78
-#endif
 
 #define FXGMAC_FAIL    -1
 #define FXGMAC_SUCCESS     0
@@ -93,104 +54,100 @@ struct fxgmac_pdata;
 
 #define RSS_Q_COUNT                         4
 
-//#define FXGMAC_TX_INTERRUPT_EN		1
 #define FXGMAC_TX_HANG_TIMER_EN             0
-/* only for debug. for normal run, pls keep them both 0 */
-//0: use default tx q; other: specify txq-1: 1 txq;
+/* only for debug. for normal run, pls keep them both 0
+ * 0: use default tx q; other: specify txq-1: 1 txq;
+ */
 #define FXGMAC_NUM_OF_TX_Q_USED		0
-//1 to enable a dummy tx,ie, no tail for gmac;
+/* 1 to enable a dummy tx, ie, no tail for gmac; */
 #define FXGMAC_DUMMY_TX_DEBUG		0
-//1 to trigger(write reg 0x1000) for sniffer stop
+/* 1 to trigger(write reg 0x1000) for sniffer stop */
 #define FXGMAC_TRIGGER_TX_HANG		0
 
 /* driver feature configuration */
 #if FXGMAC_TX_HANG_TIMER_EN
-//0: check hw current desc; 1: check software dirty
+/* 0: check hw current desc; 1: check software dirty */
 #define FXGMAC_TX_HANG_CHECH_DIRTY	0
 #endif
 
-// 1:poll tx of 4 channels; 0: since only 1 tx channel supported in this
-// version, poll ch 0 always.
+/* 1:poll tx of 4 channels; 0: since only 1 tx channel supported in this
+ * version, poll ch 0 always.
+ */
+
 #define FXGMAC_FULL_TX_CHANNEL		0
 
 #ifdef CONFIG_ARM64
-// when you want to run this driver on 64bit arm,you should open this,otherwise
-// dma's mask cannot be set successfully.
+/* when you want to run this driver on 64bit arm, you should open this,
+ * otherwise dma's mask cannot be set successfully.
+ */
 #define FUXI_DMA_BIT_MASK       64
 #endif
 
 #ifdef CONFIG_PCI_MSI
-//should be same as FXGMAC_MAX_DMA_CHANNELS + 1 tx_irq
+/* should be same as FXGMAC_MAX_DMA_CHANNELS + 1 tx_irq */
 #define FXGMAC_MAX_MSIX_Q_VECTORS	(FXGMAC_MSIX_Q_VECTORS + 1)
-#define FXGMAC_MSIX_CH0RXDIS_EN		0 //set to 1 for ch0 unbalance fix;
+#define FXGMAC_MSIX_CH0RXDIS_EN		0 /* set to 1 for ch0 unbalance fix; */
 #define FXGMAC_MSIX_INTCTRL_EN      1
 
 #define FXGMAC_PHY_INT_NUM          1
 #define FXGMAC_MSIX_INT_NUMS (FXGMAC_MAX_MSIX_Q_VECTORS + FXGMAC_PHY_INT_NUM)
-#else //for case of no CONFIG_PCI_MSI
-#define FXGMAC_MSIX_CH0RXDIS_EN		0   //NO modification needed! for non-MSI, set to 0 always
+#else /* for case of no CONFIG_PCI_MSI */
+/* NO modification needed! for non-MSI, set to 0 always */
+#define FXGMAC_MSIX_CH0RXDIS_EN		0
 #define FXGMAC_MSIX_INTCTRL_EN      0
 #endif
 
 /*RSS features*/
 #ifdef FXGMAC_ONE_CHANNEL
-#define FXGMAC_RSS_FEATURE_ENABLED	0 // 1:enable rss ; 0: rss not included.
+#define FXGMAC_RSS_FEATURE_ENABLED	0 /* 1:enable rss ; 0: rss not included. */
 #else
-#define FXGMAC_RSS_FEATURE_ENABLED	1 // 1:enable rss ; 0: rss not included.
+#define FXGMAC_RSS_FEATURE_ENABLED	1 /* 1:enable rss ; 0: rss not included. */
 #endif
-#define FXGMAC_RSS_HASH_KEY_LINUX	1 // 0:hard to default rss key ;1: normal hash key process from Linux.
+#define FXGMAC_RSS_HASH_KEY_LINUX	1 /*  0:hard to default rss key ;1: normal hash key process from Linux. */
 
 /*WOL features*/
-#define FXGMAC_WOL_FEATURE_ENABLED	1 // 1:enable wol ; 0: wol not included.
+#define FXGMAC_WOL_FEATURE_ENABLED	1 /* 1:enable wol ; 0: wol not included. */
 /*since wol upon link will cause issue, disabled it always. */
-#define FXGMAC_WOL_UPON_EPHY_LINK	1 // 1:enable ephy link change wol ; 0: ephy link change wol is not supported.
+#define FXGMAC_WOL_UPON_EPHY_LINK	1 /* 1:enable ephy link change wol ; 0: ephy link change wol is not supported. */
 
 /*Pause features*/
-#define FXGMAC_PAUSE_FEATURE_ENABLED	1 // 1:enable flow control/pause framce ; 0: flow control/pause frame not included.
+#define FXGMAC_PAUSE_FEATURE_ENABLED	1 /* 1:enable flow control/pause framce ; 0: flow control/pause frame not included. */
 
 /*ARP offload engine (AOE)*/
-#define FXGMAC_AOE_FEATURE_ENABLED	1 // 1:enable arp offload engine ; 0: aoe is not included.
+#define FXGMAC_AOE_FEATURE_ENABLED	1 /* 1:enable arp offload engine ; 0: aoe is not included. */
 
 /*NS offload engine*/
-#define FXGMAC_NS_OFFLOAD_ENABLED	1 // 1:enable NS offload for IPv6 ; 0: NS is not included.
+#define FXGMAC_NS_OFFLOAD_ENABLED	1 /* 1:enable NS offload for IPv6 ; 0: NS is not included. */
 
 /*for fpga ver after, which needs release phy before set of MAC tx/rx */
-#define FXGMAC_TXRX_EN_AFTER_PHY_RELEASE	1 // 1:release ephy before mac tx/rx bits are set.
+#define FXGMAC_TXRX_EN_AFTER_PHY_RELEASE	1 /* 1:release ephy before mac tx/rx bits are set. */
 
 /*power management features*/
-#define FXGMAC_PM_FEATURE_ENABLED	1 // 1:enable PM ; 0: PM not included.
+#define FXGMAC_PM_FEATURE_ENABLED	1 /* 1:enable PM ; 0: PM not included. */
 
 /*sanity check*/
-#define FXGMAC_SANITY_CHECK_ENABLED	0 // 1:enable health checking ;
+#define FXGMAC_SANITY_CHECK_ENABLED	0 /* 1:enable health checking; */
 
 /*vlan id filter*/
-#define FXGMAC_FILTER_SINGLE_VLAN_ENABLED	1 // 1:enable health checking ;
-
-//Linux driver implement VLAN HASH Table feature to support mutliple VLAN feautre
+#define FXGMAC_FILTER_SINGLE_VLAN_ENABLED	1 /* 1:enable health checking; */
 #define FXGMAC_FILTER_MULTIPLE_VLAN_ENABLED 1
-
-//Linux driver implement MAC HASH Table feature
 #define FUXI_MAC_HASH_TABLE 1
-
-//Linux driver implement write multiple mac addr
 #define FXGMAC_FILTER_MULTIPLE_MAC_ADDR_ENABLED 1
-
-//Linux driver disable MISC Interrupt
 #define FUXI_MISC_INT_HANDLE_FEATURE_EN             1
 
 #define HAVE_FXGMAC_DEBUG_FS
 
 #ifndef offsetof
-#define offsetof(TYPE, MEMBER) ((size_t) &(((TYPE*)0)->MEMBER))
+#define offsetof(TYPE, MEMBER) ((size_t) &(((TYPE *)0)->MEMBER))
 #endif
 
 #define ETH_IS_ZEROADDRESS(Address)               \
-    ((((u8*)(Address))[0] == ((u8)0x00))            \
-    && (((u8*)(Address))[1] == ((u8)0x00))          \
-    && (((u8*)(Address))[2] == ((u8)0x00))          \
-    && (((u8*)(Address))[3] == ((u8)0x00))          \
-    && (((u8*)(Address))[4] == ((u8)0x00))          \
-    && (((u8*)(Address))[5] == ((u8)0x00)))
+	((((u8 *)(Address))[0] == ((u8)0x00))            \
+	&& (((u8 *)(Address))[1] == ((u8)0x00))          \
+	&& (((u8 *)(Address))[2] == ((u8)0x00))          \
+	&& (((u8 *)(Address))[3] == ((u8)0x00))          \
+	&& (((u8 *)(Address))[4] == ((u8)0x00))          \
+	&& (((u8 *)(Address))[5] == ((u8)0x00)))
 
  /* read from 8bit register via pci config space */
 #define cfg_r8(_pdata, reg, pdat) pci_read_config_byte((_pdata)->pdev, (reg), (u8 *)(pdat))
@@ -216,35 +173,35 @@ struct fxgmac_pdata;
 #define _CR(Record, TYPE, Field)  ((TYPE *) ((char *) (Record) - (char *) &(((TYPE *) 0)->Field)))
 
 #define FXGMAC_GET_REG_BITS(var, pos, len) ({				\
-    typeof(pos) _pos = (pos);					            \
-    typeof(len) _len = (len);					            \
-    ((var) & GENMASK(_pos + _len - 1, _pos)) >> (_pos);		\
+	typeof(pos) _pos = (pos);					            \
+	typeof(len) _len = (len);					            \
+	((var) & GENMASK(_pos + _len - 1, _pos)) >> (_pos);		\
 })
 
 #define FXGMAC_GET_REG_BITS_LE(var, pos, len) ({			\
-    typeof(pos) _pos = (pos);					            \
-    typeof(len) _len = (len);					            \
-    typeof(var) _var = le32_to_cpu((var));				    \
-    ((_var) & GENMASK(_pos + _len - 1, _pos)) >> (_pos);	\
+	typeof(pos) _pos = (pos);					            \
+	typeof(len) _len = (len);					            \
+	typeof(var) _var = le32_to_cpu((var));				    \
+	((_var) & GENMASK(_pos + _len - 1, _pos)) >> (_pos);	\
 })
 
 #define FXGMAC_SET_REG_BITS(var, pos, len, val) ({			\
-    typeof(var) _var = (var);					            \
-    typeof(pos) _pos = (pos);					            \
-    typeof(len) _len = (len);					            \
-    typeof(val) _val = (val);					            \
-    _val = (_val << _pos) & GENMASK(_pos + _len - 1, _pos);	\
-    _var = (_var & ~GENMASK(_pos + _len - 1, _pos)) | _val;	\
+	typeof(var) _var = (var);					            \
+	typeof(pos) _pos = (pos);					            \
+	typeof(len) _len = (len);					            \
+	typeof(val) _val = (val);					            \
+	_val = (_val << _pos) & GENMASK(_pos + _len - 1, _pos);	\
+	_var = (_var & ~GENMASK(_pos + _len - 1, _pos)) | _val;	\
 })
 
 #define FXGMAC_SET_REG_BITS_LE(var, pos, len, val) ({		\
-    typeof(var) _var = (var);					            \
-    typeof(pos) _pos = (pos);					            \
-    typeof(len) _len = (len);					            \
-    typeof(val) _val = (val);					            \
-    _val = (_val << _pos) & GENMASK(_pos + _len - 1, _pos);	\
-    _var = (_var & ~GENMASK(_pos + _len - 1, _pos)) | _val;	\
-    cpu_to_le32(_var);						                \
+	typeof(var) _var = (var);					            \
+	typeof(pos) _pos = (pos);					            \
+	typeof(len) _len = (len);					            \
+	typeof(val) _val = (val);					            \
+	_val = (_val << _pos) & GENMASK(_pos + _len - 1, _pos);	\
+	_var = (_var & ~GENMASK(_pos + _len - 1, _pos)) | _val;	\
+	cpu_to_le32(_var);						                \
 })
 
 #define STR_FORMAT      "%s"
@@ -254,7 +211,7 @@ struct fxgmac_pdata;
 #define DBGPRINT_RAW(Level, Fmt)
 #define DBGPRINT_S(Status, Fmt)
 #define DBGPRINT_UNICODE(Level, UString)
-#define Dump(p,cb,fAddress,ulGroup)
+#define Dump(p, cb, fAddress, ulGroup)
 
 #undef ASSERT
 #define ASSERT(x)
@@ -263,7 +220,7 @@ struct fxgmac_pdata;
 #define DbgPrintAddress(_pAddress)
 
 #define fxgmac_dump_buffer(_skb, _len, _tx_rx)
-#define DumpLine(_p, _cbLine, _fAddress, _ulGroup )
+#define DumpLine(_p, _cbLine, _fAddress, _ulGroup)
 
 #ifndef FXGMAC_DEBUG
 #define FXGMAC_DEBUG
@@ -272,7 +229,7 @@ struct fxgmac_pdata;
 /* For debug prints */
 #ifdef FXGMAC_DEBUG
 #define FXGMAC_PR(fmt, args...) \
-    pr_alert("[%s,%d]:" fmt, __func__, __LINE__, ## args)
+	pr_alert("[%s,%d]:" fmt, __func__, __LINE__, ## args)
 
 #define DPRINTK printk
 #else
@@ -345,28 +302,27 @@ struct fxgmac_pdata;
 
 
 #pragma pack(1)
-// it's better to make this struct's size to 128byte.
+/* it's better to make this struct's size to 128byte. */
 struct pattern_packet{
-    u8                  ether_daddr[ETH_ALEN];
-    u8                  ether_saddr[ETH_ALEN];
-    u16                 ether_type;
+	u8                  ether_daddr[ETH_ALEN];
+	u8                  ether_saddr[ETH_ALEN];
+	u16                 ether_type;
 
-    __be16		        ar_hrd;		/* format of hardware address	*/
-    __be16		        ar_pro;		/* format of protocol 	*/
-    unsigned char       ar_hln;		/* length of hardware address	*/
-    unsigned char       ar_pln;		/* length of protocol address	*/
-    __be16		        ar_op;		/* ARP opcode (command)		*/
-    unsigned char       ar_sha[ETH_ALEN];	/* sender hardware address  */
-    unsigned char       ar_sip[4];		/* sender IP address        */
-    unsigned char       ar_tha[ETH_ALEN];	/* target hardware address  */
-    unsigned char       ar_tip[4];		/* target IP address        */
+	__be16		        ar_hrd;		/* format of hardware address	*/
+	__be16		        ar_pro;		/* format of protocol 	*/
+	unsigned char       ar_hln;		/* length of hardware address	*/
+	unsigned char       ar_pln;		/* length of protocol address	*/
+	__be16		        ar_op;		/* ARP opcode (command)		*/
+	unsigned char       ar_sha[ETH_ALEN];	/* sender hardware address  */
+	unsigned char       ar_sip[4];		/* sender IP address        */
+	unsigned char       ar_tha[ETH_ALEN];	/* target hardware address  */
+	unsigned char       ar_tip[4];		/* target IP address        */
 
-    u8                  reverse[86];
+	u8                  reverse[86];
 };
 #pragma pack()
 
-typedef enum
-{
+typedef enum {
 	CURRENT_STATE_SHUTDOWN = 0,
 	CURRENT_STATE_RESUME = 1,
 	CURRENT_STATE_INIT = 2,
@@ -375,15 +331,15 @@ typedef enum
 	CURRENT_STATE_OPEN = 5,
 	CURRENT_STATE_RESTART = 6,
 	CURRENT_STATE_REMOVE = 7,
-}CURRENT_STATE;
+} CURRENT_STATE;
 
-typedef dma_addr_t                  DMA_ADDR_T;
-typedef enum pkt_hash_types         RSS_HASH_TYPE;
-typedef void __iomem*               IOMEM;
-typedef struct pci_dev              PCI_DEV;
+typedef dma_addr_t			DMA_ADDR_T;
+typedef enum pkt_hash_types		RSS_HASH_TYPE;
+typedef void __iomem			*IOMEM;
+typedef struct pci_dev			PCI_DEV;
 
 struct ext_command_buf {
-	void* buf;
+	void *buf;
 	u32 size_in;
 	u32 size_out;
 };
@@ -409,34 +365,34 @@ struct ext_ioctl_data {
 };
 
 typedef struct _fxgmac_test_buf {
-	u8* addr;
+	u8 *addr;
 	u32 offset;
 	u32 length;
 } fxgmac_test_buf, *pfxgmac_test_buf;
 
 typedef struct _fxgmac_test_packet {
-	struct _fxgmac_test_packet  * next;
+	struct _fxgmac_test_packet  *next;
 	u32                      length;             /* total length of the packet(buffers) */
 	u32                      type;               /* packet type, vlan, ip checksum, TSO, etc. */
 
 	fxgmac_test_buf          buf[MAX_PKT_BUF];
 	fxgmac_test_buf          sGList[MAX_PKT_BUF];
-    u16                      vlanID;
-    u16                      mss;
-    u32                      hash;
-    u16                      cpuNum;
-    u16                      xsum;               /* rx, ip-payload checksum */
-    u16                      csumStart;          /* custom checksum offset to the mac-header */
-    u16                      csumPos;            /* custom checksom position (to the mac_header) */
-    void*                    upLevelReserved[4];
-    void*                    lowLevelReserved[4];
+	u16                      vlanID;
+	u16                      mss;
+	u32                      hash;
+	u16                      cpuNum;
+	u16                      xsum;               /* rx, ip-payload checksum */
+	u16                      csumStart;          /* custom checksum offset to the mac-header */
+	u16                      csumPos;            /* custom checksom position (to the mac_header) */
+	void                    *upLevelReserved[4];
+	void                    *lowLevelReserved[4];
 } fxgmac_test_packet, *pfxgmac_test_packet;
 
-typedef struct fxgmac_channel_of_platform
-{
+typedef struct fxgmac_channel_of_platform {
 	char dma_irq_name[IFNAMSIZ + 32];
 
-	u32 dma_irq_tx; //for MSIx to match the type of struct msix_entry.vector
+	/* for MSIx to match the type of struct msix_entry.vector */
+	u32 dma_irq_tx;
 	char dma_irq_name_tx[IFNAMSIZ + 32];
 
 	/* Netdev related settings */
@@ -451,26 +407,25 @@ typedef struct fxgmac_channel_of_platform
 	struct timer_list tx_hang_timer;
 	unsigned int tx_hang_hw_cur;
 #endif
-}FXGMAC_CHANNEL_OF_PLATFORM;
+} FXGMAC_CHANNEL_OF_PLATFORM;
 
-typedef struct per_regisiter_info
-{
+typedef struct per_regisiter_info {
 	unsigned int           size;
 	unsigned int           address;
 	unsigned int           value;
 	unsigned char          data[FXGAMC_MAX_DATA_SIZE];
-}PER_REG_INFO;
+} PER_REG_INFO;
 
-// for FXGMAC_EFUSE_WRITE_PATCH_PER_INDEX,val0 is index, val1 is offset,
-// val2 is value
+/* for FXGMAC_EFUSE_WRITE_PATCH_PER_INDEX, val0 is index, val1 is offset,
+ * val2 is value.
+ */
 typedef struct ext_command_data {
 	u32 val0;
 	u32 val1;
 	u32 val2;
-}CMD_DATA;
+} CMD_DATA;
 
-typedef struct fxgmac_pdata_of_platform
-{
+typedef struct fxgmac_pdata_of_platform {
 	u32                             cfg_pci_cmd;
 	u32                             cfg_cache_line_size;
 	u32                             cfg_mem_base;
@@ -483,16 +438,16 @@ typedef struct fxgmac_pdata_of_platform
 	u32                             cfg_msix_capability;
 
 	struct  work_struct             restart_work;
-	u32                             int_flags; //legacy, msi or msix
+	u32                             int_flags; /* legacy, msi or msix */
 	int                             phy_irq;
 #ifdef CONFIG_PCI_MSI
 	struct msix_entry               *msix_entries;
 #endif
 
 	/* power management and wol*/
-	u32                             wol; //wol options
-	unsigned long                   powerstate; //power state
-	unsigned int                    ns_offload_tab_idx; //for ns-offload table. 2 entries supported.
+	u32                             wol; /* wol options */
+	unsigned long                   powerstate; /* power state */
+	unsigned int                    ns_offload_tab_idx; /* for ns-offload table. 2 entries supported. */
 	CURRENT_STATE                   current_state;
 	netdev_features_t               netdev_features;
 	struct napi_struct              napi;
@@ -505,16 +460,17 @@ typedef struct fxgmac_pdata_of_platform
 	u32                             fxgmac_test_packet_len;
 	volatile u32                    fxgmac_test_skb_arr_in_index;
 	volatile u32                    fxgmac_test_skb_arr_out_index;
-	//CMD_DATA                        ex_cmd_data;
-	//PER_REG_INFO                    per_reg_data;
 	struct sk_buff              *fxgmac_test_skb_array[FXGMAC_MAX_DBG_TEST_PKT];
 #ifdef HAVE_FXGMAC_DEBUG_FS
 	struct dentry               *dbg_adapter;
 	struct dentry               *fxgmac_dbg_root;
 	char                        fxgmac_dbg_netdev_ops_buf[FXGMAC_NETDEV_OPS_BUF_LEN];
 #endif
-}FXGMAC_PDATA_OF_PLATFORM;
+} FXGMAC_PDATA_OF_PLATFORM;
 
+void fxgmac_print_pkt(struct net_device *netdev, struct sk_buff *skb,
+		      bool tx_rx);
+int fxgmac_dismiss_all_int(struct fxgmac_pdata *pdata);
 
 #ifdef HAVE_FXGMAC_DEBUG_FS
 void fxgmac_dbg_adapter_init(struct fxgmac_pdata *pdata);
@@ -531,7 +487,7 @@ int  fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg);
 /* for phy interface */
 int  fxgmac_ephy_autoneg_ability_get(struct fxgmac_pdata *pdata,
 									unsigned int *cap_mask);
-int  fxgmac_ephy_status_get(struct fxgmac_pdata *pdata, int* speed,
+int  fxgmac_ephy_status_get(struct fxgmac_pdata *pdata, int *speed,
 							int *duplex, int *ret_link, int *media);
 int  fxgmac_ephy_soft_reset(struct fxgmac_pdata *pdata);
 void fxgmac_phy_force_speed(struct fxgmac_pdata *pdata, int speed);
@@ -556,5 +512,4 @@ void fxgmac_stop(struct fxgmac_pdata *pdata);
 void fxgmac_free_rx_data(struct fxgmac_pdata *pdata);
 void fxgmac_free_tx_data(struct fxgmac_pdata *pdata);
 
-#endif //__FUXI_OS_H__
-
+#endif /* __FUXI_OS_H__ */

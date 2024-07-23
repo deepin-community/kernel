@@ -393,6 +393,7 @@ struct cdns_i3c_xfer {
 
 struct cdns_i3c_data {
 	u8 thd_delay_ns;
+	u8 halt_disable;
 };
 
 struct cdns_i3c_master {
@@ -723,6 +724,19 @@ static int cdns_i3c_master_send_ccc_cmd(struct i3c_master_controller *m,
 	cdns_i3c_master_queue_xfer(master, xfer);
 	if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
 		cdns_i3c_master_unqueue_xfer(master, xfer);
+
+	/*GETMXDS format 1 need retransmission*/
+	if ((xfer->ret) && (cmd->id == I3C_CCC_GETMXDS)) {
+		if (cmd->dests[0].payload.len == 5) {
+			cmd->dests[0].payload.len = 2;
+			ccmd->rx_len = cmd->dests[0].payload.len;
+			ccmd->cmd0 &= 0xfff000fff;
+			ccmd->cmd0 |= CMD0_FIFO_PL_LEN(cmd->dests[0].payload.len);
+			cdns_i3c_master_queue_xfer(master, xfer);
+			if (!wait_for_completion_timeout(&xfer->comp, msecs_to_jiffies(1000)))
+				cdns_i3c_master_unqueue_xfer(master, xfer);
+		}
+	}
 
 	ret = xfer->ret;
 	cmd->err = cdns_i3c_cmd_get_err(&xfer->cmds[0]);
@@ -1285,7 +1299,10 @@ static int cdns_i3c_master_bus_init(struct i3c_master_controller *m)
 	 *
 	 * We will issue ENTDAA afterwards from the threaded IRQ handler.
 	 */
-	ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
+	if (master->devdata->halt_disable)
+		ctrl |= CTRL_HJ_DISEC | CTRL_MCS_EN;
+	else
+		ctrl |= CTRL_HJ_ACK | CTRL_HJ_DISEC | CTRL_HALT_EN | CTRL_MCS_EN;
 
 	/*
 	 * Configure data hold delay based on device-specific data.
@@ -1556,10 +1573,17 @@ static void cdns_i3c_master_hj(struct work_struct *work)
 
 static struct cdns_i3c_data cdns_i3c_devdata = {
 	.thd_delay_ns = 10,
+	.halt_disable = 0,
+};
+
+static struct cdns_i3c_data phytium_i3c_devdata = {
+	.thd_delay_ns = 10,
+	.halt_disable = 1,
 };
 
 static const struct of_device_id cdns_i3c_master_of_ids[] = {
 	{ .compatible = "cdns,i3c-master", .data = &cdns_i3c_devdata },
+	{ .compatible = "phytium,cdns-i3c-master", .data = &phytium_i3c_devdata},
 	{ /* sentinel */ },
 };
 
@@ -1650,6 +1674,8 @@ static int cdns_i3c_master_probe(struct platform_device *pdev)
 				  &cdns_i3c_master_ops, false);
 	if (ret)
 		goto err_disable_sysclk;
+
+	writel(readl(master->regs + CTRL) | CTRL_HJ_ACK, master->regs + CTRL);
 
 	return 0;
 

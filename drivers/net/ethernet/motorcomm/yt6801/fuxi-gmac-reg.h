@@ -1,24 +1,17 @@
-/*++
-
-Copyright (c) 2021 Motorcomm, Inc.
-Motorcomm Confidential and Proprietary.
-
-This is Motorcomm NIC driver relevant files. Please don't copy, modify,
-distribute without commercial permission.
-
---*/
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (c) 2021 Motorcomm Corporation. */
 
 #ifndef __FUXI_GMAC_REG_H__
 #define __FUXI_GMAC_REG_H__
 
 #define  AISC_MODE
 
-#define FUXI_REV_01                             0x01    // The first NTO version.
-#define FUXI_REV_03                             0x03    // ECO back on 07/2023.
+#define FUXI_REV_01                             0x01    /* The first NTO version. */
+#define FUXI_REV_03                             0x03    /* ECO back on 07/2023. */
 
 /* MAC register offsets */
 #define MAC_OFFSET                              0x2000
-#define MAC_CR                                  0x0000  //The MAC Configuration Register
+#define MAC_CR                                  0x0000  /* The MAC Configuration Register */
 #define MAC_ECR                                 0x0004
 #define MAC_PFR                                 0x0008
 #define MAC_HTR0                                0x0010
@@ -35,7 +28,10 @@ distribute without commercial permission.
 #define MAC_IER                                 0x00b4
 #define MAC_TX_RX_STA                           0x00b8
 #define MAC_PMT_STA                             0x00c0
-#define MAC_RWK_PAC                             0x00c4 // This is the FIFO address, the pointer will be increased automatically after writting.
+/* This is the FIFO address, the pointer will be increased
+ * automatically after writting.
+ */
+#define MAC_RWK_PAC                             0x00c4
 #define MAC_LPI_STA                             0x00d0
 #define MAC_LPI_CONTROL                         0x00d4
 #define MAC_LPI_TIMER                           0x00d8
@@ -54,8 +50,10 @@ distribute without commercial permission.
 #define MAC_ARP_PROTO_ADDR                      0x0210
 #define MAC_CSR_SW_CTRL                         0x0230
 
-#define MAC_MACA0HR                             0x0300  // mac[5]->bit15:8, mac[4]->bit7:0
-#define MAC_MACA0LR                             0x0304  // mac[0]->bit7:0, mac[1]->bit15:8, mac[2]->bit23:16, mac[3]->bit31:24
+/* mac[5]->bit15:8, mac[4]->bit7:0 */
+#define MAC_MACA0HR                             0x0300
+/* mac[0]->bit7:0, mac[1]->bit15:8, mac[2]->bit23:16, mac[3]->bit31:24 */
+#define MAC_MACA0LR                             0x0304
 
 #define MAC_MACA1HR                             0x0308
 #define MAC_MACA1HR_AE_POS                      31
@@ -64,9 +62,9 @@ distribute without commercial permission.
 #define MAC_MACA1LR                             0x030c
 
 
-#define MAC_RSSCR                               0x3c80//TODO
-#define MAC_RSSAR                               0x3c88//TODO
-#define MAC_RSSDR                               0x3c8c//TODO
+#define MAC_RSSCR                               0x3c80
+#define MAC_RSSAR                               0x3c88
+#define MAC_RSSDR                               0x3c8c
 
 
 
@@ -117,10 +115,6 @@ distribute without commercial permission.
 #define MAC_HWF1R_HASHTBLSZ_LEN		2
 #define MAC_HWF1R_L3L4FNUM_POS		27
 #define MAC_HWF1R_L3L4FNUM_LEN		4
-//#define MAC_HWF1R_NUMTC_POS		21
-//#define MAC_HWF1R_NUMTC_LEN		3
-//#define MAC_HWF1R_RSSEN_POS		20
-//#define MAC_HWF1R_RSSEN_LEN		1
 #define MAC_HWF1R_RAVSEL_POS		21
 #define MAC_HWF1R_RAVSEL_LEN		1
 #define MAC_HWF1R_AVSEL_POS		20
@@ -161,13 +155,16 @@ distribute without commercial permission.
 #define MAC_PFR_HMC_LEN			1
 #define MAC_PFR_HPF_POS			10
 #define MAC_PFR_HPF_LEN			1
-#define MAC_PFR_PM_POS              4  // Pass all Multicast.
+#define MAC_PFR_PM_POS              4  /* Pass all Multicast. */
 #define MAC_PFR_PM_LEN              1
-#define MAC_PFR_DBF_POS             5  // Disable Broadcast Packets.
+#define MAC_PFR_DBF_POS             5  /* Disable Broadcast Packets. */
 #define MAC_PFR_DBF_LEN             1
-#define MAC_PFR_HUC_POS             1 // Hash Unicast. 0x0 (DISABLE). compares the DA field with the values programmed in DA registers.
+/* Hash Unicast. 0x0 (DISABLE). compares the DA field with
+ * the values programmed in DA registers.
+ */
+#define MAC_PFR_HUC_POS             1
 #define MAC_PFR_HUC_LEN             1
-#define MAC_PFR_PR_POS              0 // Enable Promiscuous Mode.
+#define MAC_PFR_PR_POS              0 /* Enable Promiscuous Mode. */
 #define MAC_PFR_PR_LEN              1
 #define MAC_PFR_VTFE_POS		16
 #define MAC_PFR_VTFE_LEN		1
@@ -308,7 +305,7 @@ distribute without commercial permission.
 #define MAC_DBG_STA_TX_BUSY     0x70000
 #define MTL_TXQ_DEG_TX_BUSY     0x10
 
-#define MAC_MDIO_ADDRESS_BUSY	1 //bit 0
+#define MAC_MDIO_ADDRESS_BUSY	1 /* bit 0 */
 
 #define MAC_MDIO_ADDR_GOC_POS	    2
 #define MAC_MDIO_ADDR_GOC_LEN		2
@@ -408,8 +405,6 @@ distribute without commercial permission.
 #define MMC_CR_ROR_LEN				1
 #define MMC_CR_MCF_POS				3
 #define MMC_CR_MCF_LEN				1
-//#define MMC_CR_MCT_POS				4
-//#define MMC_CR_MCT_LEN				2
 #define MMC_RIER_ALL_INTERRUPTS_POS		0
 #define MMC_RIER_ALL_INTERRUPTS_LEN		26
 #define MMC_RISR_RXFRAMECOUNT_GB_POS		0
@@ -464,9 +459,9 @@ distribute without commercial permission.
 #define MMC_RISR_RXERRORFRAMES_LEN		1
 #define MMC_RISR_RXERRORCONTROLFRAMES_POS	25
 #define MMC_RISR_RXERRORCONTROLFRAMES_LEN	1
-#define MMC_RISR_RXLPIMICROSECOND_POS		26 //no counter register
+#define MMC_RISR_RXLPIMICROSECOND_POS		26 /* no counter register */
 #define MMC_RISR_RXLPIMICROSECOND_LEN		1
-#define MMC_RISR_RXLPITRANSITION_POS		27 //no counter register
+#define MMC_RISR_RXLPITRANSITION_POS		27 /* no counter register */
 #define MMC_RISR_RXLPITRANSITION_LEN		1
 
 #define MMC_TIER_ALL_INTERRUPTS_POS		0
@@ -523,9 +518,9 @@ distribute without commercial permission.
 #define MMC_TISR_TXVLANFRAMES_G_LEN		1
 #define MMC_TISR_TXOVERSIZE_G_POS		25
 #define MMC_TISR_TXOVERSIZE_G_LEN		1
-#define MMC_TISR_TXLPIMICROSECOND_POS		26 //no counter register
+#define MMC_TISR_TXLPIMICROSECOND_POS		26 /* no counter register */
 #define MMC_TISR_TXLPIMICROSECOND_LEN		1
-#define MMC_TISR_TXLPITRANSITION_POS		27 //no counter register
+#define MMC_TISR_TXLPITRANSITION_POS		27 /* no counter register */
 #define MMC_TISR_TXLPITRANSITION_LEN		1
 
 /* MTL register offsets */
@@ -557,8 +552,8 @@ distribute without commercial permission.
 #define MTL_Q_RQOMR			0x30
 #define MTL_Q_RQDR			0x38
 #define MTL_Q_IER			0x2c
-#define MTL_Q_ISR			0x2c //no isr register
-#define MTL_TXQ_DEG			0x08 //transmit  debug
+#define MTL_Q_ISR			0x2c /* no isr register */
+#define MTL_TXQ_DEG			0x08 /* transmit  debug */
 
 /* MTL queue register entry bit positions and sizes */
 #define MTL_Q_RQDR_PRXQ_POS		16
@@ -583,8 +578,6 @@ distribute without commercial permission.
 #define MTL_Q_RQOMR_RTC_LEN		2
 #define MTL_Q_TQOMR_FTQ_POS		0
 #define MTL_Q_TQOMR_FTQ_LEN		1
-//#define MTL_Q_TQOMR_Q2TCMAP_POS	8 // no register
-//#define MTL_Q_TQOMR_Q2TCMAP_LEN	3 // no register
 #define MTL_Q_TQOMR_TQS_POS		16
 #define MTL_Q_TQOMR_TQS_LEN		7
 #define MTL_Q_TQOMR_TSF_POS		1
@@ -656,7 +649,6 @@ distribute without commercial permission.
  *   are accessed using an offset of 0x80 from the previous queue.
  */
 /* NO TRAFFIC CLASS REGISTER DESCRIPTION */
-#if 1
 #define MTL_TC_BASE			MTL_Q_BASE
 #define MTL_TC_INC			MTL_Q_INC
 
@@ -673,7 +665,6 @@ distribute without commercial permission.
 /* MTL traffic class register value */
 #define MTL_TSA_SP			0x00
 #define MTL_TSA_ETS			0x02
-#endif
 
 /* DMA register offsets */
 #define DMA_MR				0x1000
@@ -732,7 +723,7 @@ distribute without commercial permission.
 #define DMA_DSR0_TPS_START		12
 #define DMA_DSRX_FIRST_QUEUE		3
 #define DMA_DSRX_INC			4
-#define DMA_DSRX_QPR			4 // no definition
+#define DMA_DSRX_QPR			4 /* no definition */
 #define DMA_DSRX_TPS_START		4
 #define DMA_TPS_STOPPED			0x00
 #define DMA_TPS_SUSPENDED		0x06
@@ -858,7 +849,6 @@ distribute without commercial permission.
 #define RX_NORMAL_DESC0_OVT_LEN			16
 #define RX_NORMAL_DESC2_HL_POS			0
 #define RX_NORMAL_DESC2_HL_LEN			10
-//#define RX_NORMAL_DESC3_CDA_POS			27//
 #define RX_NORMAL_DESC3_CDA_LEN			1
 #define RX_NORMAL_DESC3_CTXT_POS		30
 #define RX_NORMAL_DESC3_CTXT_LEN		1
@@ -870,7 +860,6 @@ distribute without commercial permission.
 #define RX_NORMAL_DESC3_FD_LEN			1
 #define RX_NORMAL_DESC3_INTE_POS		30
 #define RX_NORMAL_DESC3_INTE_LEN		1
-//#define RX_NORMAL_DESC3_L34T_POS		20//
 #define RX_NORMAL_DESC3_L34T_LEN		4
 #define RX_NORMAL_DESC3_LD_POS			28
 #define RX_NORMAL_DESC3_LD_LEN			1
@@ -882,43 +871,57 @@ distribute without commercial permission.
 #define RX_NORMAL_DESC3_BUF1V_LEN		1
 #define RX_NORMAL_DESC3_PL_POS			0
 #define RX_NORMAL_DESC3_PL_LEN			15
-//#define RX_NORMAL_DESC3_RSV_POS			26 //
 #define RX_NORMAL_DESC3_RSV_LEN			1
 
-#define RX_NORMAL_DESC0_WB_IVT_POS	        16 // Inner VLAN Tag. Valid only when Double VLAN tag processing and VLAN tag stripping are enabled.
+/* Inner VLAN Tag. Valid only when Double VLAN tag processing
+ * and VLAN tag stripping are enabled.
+ */
+#define RX_NORMAL_DESC0_WB_IVT_POS	        16
 #define RX_NORMAL_DESC0_WB_IVT_LEN			16
-#define RX_NORMAL_DESC0_WB_OVT_POS	        0  // Outer VLAN Tag.
+#define RX_NORMAL_DESC0_WB_OVT_POS	        0  /* Outer VLAN Tag. */
 #define RX_NORMAL_DESC0_WB_OVT_LEN			16
-#define RX_NORMAL_DESC0_WB_OVT_VLANID_POS	0  // Outer VLAN ID.
+#define RX_NORMAL_DESC0_WB_OVT_VLANID_POS	0  /* Outer VLAN ID. */
 #define RX_NORMAL_DESC0_WB_OVT_VLANID_LEN	12
-#define RX_NORMAL_DESC0_WB_OVT_CFI_POS	    12  // Outer VLAN CFI.
+#define RX_NORMAL_DESC0_WB_OVT_CFI_POS	    12  /* Outer VLAN CFI. */
 #define RX_NORMAL_DESC0_WB_OVT_CFI_LEN	    1
-#define RX_NORMAL_DESC0_WB_OVT_PRIO_POS	    13  // Outer VLAN Priority.
+#define RX_NORMAL_DESC0_WB_OVT_PRIO_POS	    13  /* Outer VLAN Priority. */
 #define RX_NORMAL_DESC0_WB_OVT_PRIO_LEN	    3
 
-#define RX_NORMAL_DESC1_WB_IPCE_POS			7  // IP Payload Error.
+#define RX_NORMAL_DESC1_WB_IPCE_POS			7  /* IP Payload Error. */
 #define RX_NORMAL_DESC1_WB_IPCE_LEN			1
-#define RX_NORMAL_DESC1_WB_IPV6_POS			5  // IPV6 Header Present.
+#define RX_NORMAL_DESC1_WB_IPV6_POS			5  /* IPV6 Header Present. */
 #define RX_NORMAL_DESC1_WB_IPV6_LEN			1
-#define RX_NORMAL_DESC1_WB_IPV4_POS			4  // IPV4 Header Present.
+#define RX_NORMAL_DESC1_WB_IPV4_POS			4  /* IPV4 Header Present. */
 #define RX_NORMAL_DESC1_WB_IPV4_LEN			1
-#define RX_NORMAL_DESC1_WB_IPHE_POS			3  // IP Header Error.
+#define RX_NORMAL_DESC1_WB_IPHE_POS			3  /* P Header Error. */
 #define RX_NORMAL_DESC1_WB_IPHE_LEN			1
-#define RX_NORMAL_DESC1_WB_PT_POS           0 //
+#define RX_NORMAL_DESC1_WB_PT_POS           0
 #define RX_NORMAL_DESC1_WB_PT_LEN           3
 
-#define RX_NORMAL_DESC2_WB_HF_POS           18 // Hash Filter Status. When this bit is set, it indicates that the packet passed the MAC address hash filter
+/* Hash Filter Status. When this bit is set, it indicates
+ * that the packet passed the MAC address hash filter.
+ */
+#define RX_NORMAL_DESC2_WB_HF_POS           18
 #define RX_NORMAL_DESC2_WB_HF_LEN           1
-#define RX_NORMAL_DESC2_WB_DAF_POS          17 /* Destination Address Filter Fail. When Flexible RX Parser is disabled, and this bit is set, it indicates that the packet failed
-                                                  the DA Filter in the MAC.*/
+/* Destination Address Filter Fail. When Flexible RX Parser
+ * is disabled, and this bit is set, it indicates that the packet
+ * failed the DA Filter in the MAC.
+ */
+#define RX_NORMAL_DESC2_WB_DAF_POS          17
 #define RX_NORMAL_DESC2_WB_DAF_LEN          1
 
 #define RX_NORMAL_DESC3_WB_LD_POS           28
 #define RX_NORMAL_DESC3_WB_LD_LEN           1
-#define RX_NORMAL_DESC3_WB_RS0V_POS	        25 // When this bit is set, it indicates that the status in RDES0 is valid and it is written by the DMA.
+/* When this bit is set, it indicates that the status in
+ * RDES0 is valid and it is written by the DMA.
+ */
+#define RX_NORMAL_DESC3_WB_RS0V_POS	        25
 #define RX_NORMAL_DESC3_WB_RS0V_LEN         1
-#define RX_NORMAL_DESC3_WB_CE_POS	        24 // When this bit is set, it indicates that a Cyclic Redundancy Check (CRC) Error occurred on the
-//received packet.This field is valid only when the LD bit of RDES3 is set.
+/* When this bit is set, it indicates that a Cyclic Redundancy
+ * Check (CRC) Error occurred on the received packet. This field
+ * is valid only when the LD bit of RDES3 is set.
+ */
+#define RX_NORMAL_DESC3_WB_CE_POS	        24
 #define RX_NORMAL_DESC3_WB_CE_LEN           1
 
 #define RX_DESC3_L34T_IPV4_TCP			1
@@ -935,12 +938,7 @@ distribute without commercial permission.
 #define RX_DESC1_PT_AV_TAG_CTRL	       7
 #define RX_DESC1_PT_AV_NOTAG_CTRL	5
 
-
-
-
-//#define RX_CONTEXT_DESC3_TSA_POS		4//
 #define RX_CONTEXT_DESC3_TSA_LEN		1
-//#define RX_CONTEXT_DESC3_TSD_POS		6//
 #define RX_CONTEXT_DESC3_TSD_LEN		1
 
 #define TX_PACKET_ATTRIBUTES_CSUM_ENABLE_POS    0
@@ -954,7 +952,7 @@ distribute without commercial permission.
 
 #define TX_CONTEXT_DESC2_MSS_POS                0
 #define TX_CONTEXT_DESC2_MSS_LEN                14
-#define TX_CONTEXT_DESC2_IVLTV_POS              16  // Inner VLAN Tag.
+#define TX_CONTEXT_DESC2_IVLTV_POS              16  /* Inner VLAN Tag. */
 #define TX_CONTEXT_DESC2_IVLTV_LEN              16
 
 #define TX_CONTEXT_DESC3_CTXT_POS               30
@@ -963,58 +961,74 @@ distribute without commercial permission.
 #define TX_CONTEXT_DESC3_TCMSSV_LEN             1
 #define TX_CONTEXT_DESC3_IVTIR_POS              18
 #define TX_CONTEXT_DESC3_IVTIR_LEN              2
-#define TX_CONTEXT_DESC3_IVTIR_INSERT           2   // Insert an inner VLAN tag with the tag value programmed in the MAC_Inner_VLAN_Incl register or context descriptor.
-#define TX_CONTEXT_DESC3_IVLTV_POS              17  // Indicates that the Inner VLAN TAG, IVLTV field of context TDES2 is valid.
+/* Insert an inner VLAN tag with the tag value programmed
+ * in the MAC_Instxner_VLAN_Incl register or context
+ * descriptor.
+ */
+#define TX_CONTEXT_DESC3_IVTIR_INSERT           2
+/* Indicates that the Inner VLAN TAG, IVLTV field of context TDES2 is valid. */
+#define TX_CONTEXT_DESC3_IVLTV_POS              17
 #define TX_CONTEXT_DESC3_IVLTV_LEN              1
-#define TX_CONTEXT_DESC3_VLTV_POS               16  // Indicates that the VT field of context TDES3 is valid.
+/* Indicates that the VT field of context TDES3 is valid. */
+#define TX_CONTEXT_DESC3_VLTV_POS               16
 #define TX_CONTEXT_DESC3_VLTV_LEN               1
 #define TX_CONTEXT_DESC3_VT_POS                 0
 #define TX_CONTEXT_DESC3_VT_LEN                 16
 
-#define TX_NORMAL_DESC2_HL_B1L_POS              0   // Header Length or Buffer 1 Length.
+/* Header Length or Buffer 1 Length. */
+#define TX_NORMAL_DESC2_HL_B1L_POS              0
 #define TX_NORMAL_DESC2_HL_B1L_LEN              14
-#define TX_NORMAL_DESC2_IC_POS                  31  // Interrupt on Completion.
+/* Interrupt on Completion. */
+#define TX_NORMAL_DESC2_IC_POS                  31
 #define TX_NORMAL_DESC2_IC_LEN                  1
-#define TX_NORMAL_DESC2_TTSE_POS                30  // Transmit Timestamp Enable or External TSO Memory Write Enable.
+/* Transmit Timestamp Enable or External TSO Memory Write Enable. */
+#define TX_NORMAL_DESC2_TTSE_POS                30
 #define TX_NORMAL_DESC2_TTSE_LEN                1
-#define TX_NORMAL_DESC2_VTIR_POS                14  //LAN Tag Insertion or Replacement.
+/* LAN Tag Insertion or Replacement. */
+#define TX_NORMAL_DESC2_VTIR_POS                14
 #define TX_NORMAL_DESC2_VTIR_LEN                2
 #define TX_NORMAL_DESC2_VLAN_INSERT             0x2
 
 #define TX_NORMAL_DESC3_TCPPL_POS               0
 #define TX_NORMAL_DESC3_TCPPL_LEN               18
-#define TX_NORMAL_DESC3_FL_POS                  0   // Frame Length or TCP Payload Length.
+/* Frame Length or TCP Payload Length. */
+#define TX_NORMAL_DESC3_FL_POS                  0
 #define TX_NORMAL_DESC3_FL_LEN                  15
-#define TX_NORMAL_DESC3_CIC_POS                 16  /* Checksum Insertion Control or TCP Payload Length.
-                                                        2'b00: Checksum Insertion Disabled.
-                                                        2'b01: Only IP header checksum calculation and insertion are enabled.
-                                                        2'b10: IP header checksum and payload checksum calculation and insertion are
-                                                            enabled, but pseudo-header checksum is not calculated in hardware.
-                                                        2'b11: IP Header checksum and payload checksum calculation and insertion are
-                                                        enabled, and pseudo - header checksum is calculated in hardware. */
+/* Checksum Insertion Control or TCP Payload Length.
+ * 2'b00: Checksum Insertion Disabled.
+ * 2'b01: Only IP header checksum calculation and insertion are enabled.
+ * 2'b10: IP header checksum and payload checksum calculation and insertion are
+ *        enabled, but pseudo-header checksum is not calculated in hardware.
+ * 2'b11: IP Header checksum and payload checksum calculation and insertion are
+ * enabled, and pseudo - header checksum is calculated in hardware. */
+#define TX_NORMAL_DESC3_CIC_POS                 16
 #define TX_NORMAL_DESC3_CIC_LEN                 2
-#define TX_NORMAL_DESC3_TSE_POS                 18  // TCP Segmentation Enable.
+/* TCP Segmentation Enable. */
+#define TX_NORMAL_DESC3_TSE_POS                 18
 #define TX_NORMAL_DESC3_TSE_LEN                 1
-#define TX_NORMAL_DESC3_TCPHDRLEN_POS           19  /* THL: TCP/UDP Header Length.If the TSE bit is set, this field contains
-                                                       the length of the TCP / UDP header.The minimum value of this field must
-                                                       be 5 for TCP header.The value must be equal to 2 for UDP header. This
-                                                       field is valid only for the first descriptor.*/
+/* THL: TCP/UDP Header Length.If the TSE bit is set, this field contains
+ * the length of the TCP / UDP header.The minimum value of this field must
+ * be 5 for TCP header.The value must be equal to 2 for UDP header. This
+ * field is valid only for the first descriptor.
+ */
+#define TX_NORMAL_DESC3_TCPHDRLEN_POS           19
 #define TX_NORMAL_DESC3_TCPHDRLEN_LEN           4
-#define TX_NORMAL_DESC3_CPC_POS                 26  // CRC Pad Control.
+#define TX_NORMAL_DESC3_CPC_POS                 26  /* CRC Pad Control. */
 #define TX_NORMAL_DESC3_CPC_LEN                 2
-#define TX_NORMAL_DESC3_LD_POS                  28  // Last Descriptor.
+#define TX_NORMAL_DESC3_LD_POS                  28  /* Last Descriptor. */
 #define TX_NORMAL_DESC3_LD_LEN                  1
-#define TX_NORMAL_DESC3_FD_POS                  29  // First Descriptor.
+#define TX_NORMAL_DESC3_FD_POS                  29  /* First Descriptor. */
 #define TX_NORMAL_DESC3_FD_LEN                  1
-#define TX_NORMAL_DESC3_CTXT_POS                30  // Context Type.This bit should be set to 1'b0 for normal descriptor.
+/* Context Type.This bit should be set to 1'b0 for normal descriptor. */
+#define TX_NORMAL_DESC3_CTXT_POS                30
 #define TX_NORMAL_DESC3_CTXT_LEN                1
-#define TX_NORMAL_DESC3_OWN_POS                 31  // Own Bit.
+#define TX_NORMAL_DESC3_OWN_POS                 31  /* Own Bit. */
 #define TX_NORMAL_DESC3_OWN_LEN                 1
 
 /* for ephy generic register definitions */
-#define FXGMAC_EPHY_REGS_LEN                    32	//32 ethernet phy registers under spec
 
-#define REG_MII_BMCR                            0x00    /* Basic mode control register */
+#define FXGMAC_EPHY_REGS_LEN	32   /* 32 ethernet phy registers under spec */
+#define REG_MII_BMCR		0x00    /* Basic mode control register */
 #define PHY_CR_RESET_POS                15
 #define PHY_CR_RESET_LEN                1
 #define PHY_CR_SPEED_SEL_H_POS          6
@@ -1071,12 +1085,12 @@ distribute without commercial permission.
 #define PHY_MII_SPEC_DUPLEX_LEN     1
 #define REG_MII_INT_MASK      0x12    /* Interrupt mask register     */
 
-#ifdef   AISC_MODE
+#ifdef AISC_MODE
 #define PHY_INT_MASK_LINK_UP_POS        10
 #define PHY_INT_MASK_LINK_UP_LEN        1
 #define PHY_INT_MASK_LINK_DOWN_POS      11
 #define PHY_INT_MASK_LINK_DOWN_LEN      1
-#else  //FPGA_MODE
+#else  /* FPGA_MODE */
 #define PHY_INT_MASK_LINK_UP_POS        1
 #define PHY_INT_MASK_LINK_UP_LEN        1
 #define PHY_INT_MASK_LINK_DOWN_POS      0
@@ -1120,7 +1134,7 @@ distribute without commercial permission.
 #define REG_BIT_ADVERTISE_1000HALF      0x0100  /* Advertise 1000BASE-T half duplex */
 
 #define REG_BIT_ADVERTISE_1000_CAP		(REG_BIT_ADVERTISE_1000FULL | REG_BIT_ADVERTISE_1000HALF)
-#define REG_BIT_ADVERTISE_100_10_CAP	(FXGMAC_ADVERTISE_100FULL | FXGMAC_ADVERTISE_100HALF | FXGMAC_ADVERTISE_10FULL | FXGMAC_ADVERTISE_10HALF )
+#define REG_BIT_ADVERTISE_100_10_CAP	(FXGMAC_ADVERTISE_100FULL | FXGMAC_ADVERTISE_100HALF | FXGMAC_ADVERTISE_10FULL | FXGMAC_ADVERTISE_10HALF)
 
 #ifndef SPEED_1000M
 #define SPEED_1000M     1000
@@ -1163,7 +1177,9 @@ distribute without commercial permission.
 #define REG_MII_EXT_ANALOG_CFG3                          0x52
 #define MII_EXT_ANALOG_CFG3_ADC_START_CFG_POS            14
 #define MII_EXT_ANALOG_CFG3_ADC_START_CFG_LEN            2
-// VGA bandwidth, default is 2 after reset. Set to 0 to mitigate unstable issue in 130m.
+/* VGA bandwidth, default is 2 after reset. Set to 0 to mitigate
+ * unstable issue in 130m.
+ */
 #define MII_EXT_ANALOG_CFG3_ADC_START_CFG_DEFAULT        0x0
 #define MII_EXT_ANALOG_CFG3_ON_TIME_CFG_POS              12
 #define MII_EXT_ANALOG_CFG3_ON_TIME_CFG_LEN              2
@@ -1179,7 +1195,9 @@ distribute without commercial permission.
 #define REG_MII_EXT_PMA_DEBUG_KCOEF                      0x78
 #define MII_EXT_PMA_DEBUG_KCOEF_IPR_KCOEF_GE_LNG_POS     8
 #define MII_EXT_PMA_DEBUG_KCOEF_IPR_KCOEF_GE_LNG_LEN     6
-// After reset, it's 0x10. We need change it to 0x20 to make it easier to linkup in gigabit mode with long cable.
+/* After reset, it's 0x10. We need change it to 0x20 to make it
+ * easier to linkup in gigabit mode with long cable.
+ */
 #define MII_EXT_PMA_DEBUG_KCOEF_IPR_KCOEF_GE_LNG_DEFAULT 0x20
 #define MII_EXT_PMA_DEBUG_KCOEF_IPR_KCOEF_DEFAULT_POS    0
 #define MII_EXT_PMA_DEBUG_KCOEF_IPR_KCOEF_DEFAULT_LEN    6
@@ -1272,13 +1290,13 @@ distribute without commercial permission.
 */
 #define MGMT_EPHY_CTRL_RESET_POS                0
 #define MGMT_EPHY_CTRL_RESET_LEN                1
-#define MGMT_EPHY_CTRL_STA_EPHY_RESET           0 // 0: reset state.
-#define MGMT_EPHY_CTRL_STA_EPHY_RELEASE         1 // 1: release state.
-#define MGMT_EPHY_CTRL_STA_EPHY_LINKUP          2 // 1: link up; 0: link down.
+#define MGMT_EPHY_CTRL_STA_EPHY_RESET           0 /* 0: reset state. */
+#define MGMT_EPHY_CTRL_STA_EPHY_RELEASE         1 /* 1: release state. */
+#define MGMT_EPHY_CTRL_STA_EPHY_LINKUP          2 /* 1: link up; 0: link down. */
 #define MGMT_EPHY_CTRL_STA_EPHY_LINKUP_POS      1
 #define MGMT_EPHY_CTRL_STA_EPHY_LINKUP_LEN      1
-#define MGMT_EPHY_CTRL_STA_EPHY_DUPLEX_POS      2 // ephy duplex
-#define MGMT_EPHY_CTRL_STA_EPHY_DUPLEX_LEN      1 //
+#define MGMT_EPHY_CTRL_STA_EPHY_DUPLEX_POS      2 /* ephy duplex */
+#define MGMT_EPHY_CTRL_STA_EPHY_DUPLEX_LEN      1
 
 #define MGMT_EPHY_CTRL_STA_SPEED_POS	        3
 #define MGMT_EPHY_CTRL_STA_SPEED_LEN	        2
@@ -1299,24 +1317,26 @@ distribute without commercial permission.
 
 /***power management ***/
 #define WOL_CTL	     	                        0x100C
-#define WOL_PKT_EN_POS                          1 //set means  magic and remote packet wakeup  enable
+/* set means  magic and remote packet wakeup  enable */
+#define WOL_PKT_EN_POS                          1
 #define WOL_PKT_EN_LEN                          1
-#define WOL_LINKCHG_EN_POS                      0 //set means  link change wakeup  enable
+/* set means  link change wakeup  enable */
+#define WOL_LINKCHG_EN_POS                      0
 #define WOL_LINKCHG_EN_LEN                      1
 
 #define OOB_WOL_CTRL                            0x1010
 #define OOB_WOL_CTRL_DIS_POS                    0
 #define OOB_WOL_CTRL_DIS_LEN                    1
 
-#define MGMT_INT_CTRL0                          0x1100
 /* b3:0 per rx ch interrupt
-  * b7:4 per tx ch interrupt
-  * b8 	Safety interrupt signal for un-correctable error
-  * b9	Safety interrupt signal for correctable error
-  * b10	Interrupt signal to host system
-  * b11	Magic Packet Received or Remote Wake-up Packet Received
-  * b12	ethernet phy interrupt
-  */
+ * b7:4 per tx ch interrupt
+ * b8 	Safety interrupt signal for un-correctable error
+ * b9	Safety interrupt signal for correctable error
+ * b10	Interrupt signal to host system
+ * b11	Magic Packet Received or Remote Wake-up Packet Received
+ * b12	ethernet phy interrupt
+ */
+#define MGMT_INT_CTRL0                          0x1100
 
 /* MAC management registers bit positions and sizes */
 #define MGMT_INT_CTRL0_INT_MASK_POS         16
@@ -1418,8 +1438,8 @@ system exit idle state, send out one LTR exit message.
 #define  LPW_CTRL_L1SS_EN_LEN                   1
 #define  LPW_CTRL_L1SS_SEL_POS                  21  /* 0 - up to both CFG0x158 and reg1188 L1ss setting. 1 - up to CFG0x158 L1ss setting. */
 #define  LPW_CTRL_L1SS_SEL_LEN                  1
-#define  LPW_CTRL_L1SS_SEL_CFG                  1   /* */
-#define  LPW_CTRL_ASPM_L1_CPM_POS               19  /*L1.CPM mode enable bit. Default 0,set as 1 enable this mode. clkreq pin need to connect RC*/
+#define  LPW_CTRL_L1SS_SEL_CFG                  1
+#define  LPW_CTRL_ASPM_L1_CPM_POS               19  /*L1.CPM mode enable bit. Default 0, set as 1 enable this mode. clkreq pin need to connect RC*/
 #define  LPW_CTRL_ASPM_L1_CPM_LEN               1
 #define  LPW_CTRL_ASPM_L0S_EN_POS               17
 #define  LPW_CTRL_ASPM_L0S_EN_LEN               1
@@ -1608,9 +1628,11 @@ system exit idle state, send out one LTR exit message.
   */
 #define MGMT_WPI_CTRL0_WPI_MODE_POS     0
 #define MGMT_WPI_CTRL0_WPI_MODE_LEN     2
-#define MGMT_WPI_CTRL0_WPI_MODE_NORMAL  0x00 // normal working mode.
-#define MGMT_WPI_CTRL0_WPI_MODE_WR      0x01 // WPI write mode, work in sleep mode.
-#define MGMT_WPI_CTRL0_WPI_MODE_RD      0x02 // WPI read mode, work after sleep before normal working mode.
+#define MGMT_WPI_CTRL0_WPI_MODE_NORMAL  0x00 /* normal working mode. */
+/* WPI write mode, work in sleep mode. */
+#define MGMT_WPI_CTRL0_WPI_MODE_WR      0x01
+/* WPI read mode, work after sleep before normal working mode. */
+#define MGMT_WPI_CTRL0_WPI_MODE_RD      0x02
 #define MGMT_WPI_CTRL0_RAM_OP_DONE      0x4
 #define MGMT_WPI_CTRL0_WPI_OP_DONE      0x8
 #define MGMT_WPI_CTRL0_WPI_PKT_LEN_POS  4
@@ -1636,7 +1658,7 @@ system exit idle state, send out one LTR exit message.
 #define MGMT_SIGDET_LEN             3
 #define MGMT_SIGDET_55MV            7
 #define MGMT_SIGDET_50MV            6
-#define MGMT_SIGDET_45MV            5  //default value
+#define MGMT_SIGDET_45MV            5  /* default value */
 #define MGMT_SIGDET_40MV            4
 #define MGMT_SIGDET_35MV            3
 #define MGMT_SIGDET_30MV            2
@@ -1648,22 +1670,14 @@ system exit idle state, send out one LTR exit message.
 
 #define FXGMAC_DMA_REG(channel, reg)	((channel)->dma_regs + (reg))
 
-//#define RSS_Q_COUNT                       4
 #define MSI_ID_RXQ0                    	    0
 #define MSI_ID_RXQ1                     	1
 #define MSI_ID_RXQ2                     	2
 #define MSI_ID_RXQ3                     	3
 #define MSI_ID_TXQ0                     	4
 
-#if  1//msi table  modify  to 6  0~3  rx  4  tx  5  phy/other
+#if  1/* msi table  modify  to 6  0~3  rx  4  tx  5  phy/other */
 #define MSI_ID_PHY_OTHER           5
-//#define MSI_ID_TXQ2                     	6
-//#define MSI_ID_TXQ3                     	7
-//#define MSI_ID_SFTUE                     	8
-//#define MSI_ID_SFTCE                     	9
-//#define MSI_ID_SBD                     	10
-//#define MSI_ID_PMT                     	11
-//#define MSI_ID_PHY                     	12
 
 #define MSIX_TBL_MAX_NUM		      6
 #define MSIX_TBL_RXTX_NUM		      5
@@ -1687,13 +1701,13 @@ system exit idle state, send out one LTR exit message.
 #define MSIX_TBL_ADDR_OFFSET  	0x0
 
 /*******************************************************************
-        efuse entry. val31:0 -> offset15:0
-        offset7:0
-        offset15:8
-        val7:0
-        val15:8
-        val23:16
-        val31:24
+	efuse entry. val31:0 -> offset15:0
+	offset7:0
+	offset15:8
+	val7:0
+	val15:8
+	val23:16
+	val31:24
 *******************************************************************/
 #define	EFUSE_OP_CTRL_0                 0x1500
 #define	EFUSE_OP_WR_DATA_POS            16
@@ -1721,7 +1735,7 @@ system exit idle state, send out one LTR exit message.
 #define	EFUSE_OP_DONE_POS               1
 #define	EFUSE_OP_DONE_LEN               1
 
-//efuse layout refer to http://redmine.motor-comm.com/issues/3856
+/* efuse layout refer to http://redmine.motor-comm.com/issues/3856 */
 #define EFUSE_FISRT_UPDATE_ADDR         255
 #define EFUSE_SECOND_UPDATE_ADDR        209
 #define FUXI_EFUSE_MAX_ENTRY            39
@@ -1733,8 +1747,12 @@ system exit idle state, send out one LTR exit message.
 
 #define EFUSE_REVID_REGISTER            0x0008
 #define EFUSE_SUBSYS_REGISTER           0x002C
-#define MACA0LR_FROM_EFUSE              0x1520 //mac[5]->bit7:0, mac[4]->bit15:8, mac[3]->bit23:16, mac[2]->bit31:24.
-#define MACA0HR_FROM_EFUSE              0x1524 //mac[1]->bit7:0, mac[0]->bit15:8. mac[6] = {00, 01, 02, 03, 04, 05} 00-01-02-03-04-05.
+/* mac[5]->bit7:0, mac[4]->bit15:8, mac[3]->bit23:16, mac[2]->bit31:24. */
+#define MACA0LR_FROM_EFUSE              0x1520
+/* mac[1]->bit7:0, mac[0]->bit15:8. mac[6] =
+ * {00, 01, 02, 03, 04, 05} 00-01-02-03-04-05.
+ */
+#define MACA0HR_FROM_EFUSE              0x1524
 
 #define EFUSE_LED_ADDR                  0x00
 #define EFUSE_LED_POS                   0
@@ -1809,7 +1827,7 @@ system exit idle state, send out one LTR exit message.
 #define PCI_LINK_CTRL_ASPM_CONTROL_POS          0
 #define PCI_LINK_CTRL_ASPM_CONTROL_LEN          2
 #define PCI_LINK_CTRL_L1_STATUS                 2
-#define PCI_LINK_CTRL_CONTROL_CPM_POS           8       /*L1.CPM mode enable bit. Default 0,set as 1 enable this mode. clkreq pin need to connect RC*/
+#define PCI_LINK_CTRL_CONTROL_CPM_POS           8       /*L1.CPM mode enable bit. Default 0, set as 1 enable this mode. clkreq pin need to connect RC*/
 #define PCI_LINK_CTRL_CONTROL_CPM_LEN           1
 #define PCI_LINK_CTRL_STATUS_POS                16
 #define PCI_LINK_CTRL_STATUS_LEN                16
