@@ -1218,16 +1218,17 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	mmu_seq = vcpu->kvm->mmu_invalidate_seq;
 	/*
 	 * Ensure the read of mmu_invalidate_seq happens before we call
-	 * gfn_to_pfn_prot (which calls get_user_pages), so that we don't risk
-	 * the page we just got a reference to gets unmapped before we have a
-	 * chance to grab the mmu_lock, which ensure that if the page gets
+	 * __gfn_to_pfn_memslot (which calls get_user_pages), so that we don't
+	 * risk the page we just got a reference to gets unmapped before we have
+	 * a chance to grab the mmu_lock, which ensure that if the page gets
 	 * unmapped afterwards, the call to kvm_unmap_gfn will take it away
 	 * from us again properly. This smp_rmb() interacts with the smp_wmb()
 	 * in kvm_mmu_notifier_invalidate_<page|range_end>.
 	 */
 	smp_rmb();
 
-	pfn = gfn_to_pfn_prot(kvm, gfn, write_fault, &writable);
+	pfn = __gfn_to_pfn_memslot(memslot, gfn, false, false, NULL,
+				   write_fault, &writable, NULL);
 
 	if (pfn == KVM_PFN_ERR_HWPOISON) {
 		kvm_send_hwpoison_signal(hva, vma);
@@ -1329,7 +1330,7 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 		if (writable) {
 			new_pte = kvm_pte_mkwrite(new_pte);
 			kvm_set_pfn_dirty(pfn);
-			mark_page_dirty(kvm, gfn);
+			mark_page_dirty_in_slot(kvm, memslot, gfn);
 		}
 
 		if (exec_fault && fault_status == AF_STATUS_INV) {
