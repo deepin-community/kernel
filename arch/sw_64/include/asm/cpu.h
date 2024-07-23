@@ -5,6 +5,7 @@
 
 #include <linux/kernel.h>
 #include <linux/cache.h>
+#include <linux/cacheinfo.h>
 
 #define TABLE_ENTRY_MAX 32
 #define VENDOR_ID_MAX   2
@@ -53,22 +54,10 @@ enum sunway_cpu_model {
 	CPU_SW8A   = 0x41
 };
 
-struct cache_desc {
-	unsigned int size;	/* Bytes per way */
-	unsigned int sets;	/* Number of lines per set */
-	unsigned char ways;	/* Number of ways */
-	unsigned char linesz;	/* Size of line in bytes */
-	unsigned char flags;	/* Flags describing cache properties */
-};
-
 struct cpuinfo_sw64 {
 	unsigned long last_asid;
 	unsigned long last_vpn;
 	unsigned long ipi_count;
-	struct cache_desc icache; /* Primary I-cache */
-	struct cache_desc dcache; /* Primary D or combined I/D cache */
-	struct cache_desc scache; /* Secondary cache */
-	struct cache_desc tcache; /* Tertiary/split secondary cache */
 } __aligned(SMP_CACHE_BYTES);
 
 struct cpu_desc_t {
@@ -100,5 +89,8 @@ static inline void update_cpu_freq(unsigned long khz)
 {
 	cpu_desc.frequency = khz * 1000;
 }
+
+extern unsigned int get_cpu_cache_size(int cpu, int level, enum cache_type type);
+extern unsigned int get_cpu_cacheline_size(int cpu, int level, enum cache_type type);
 
 #endif /* _ASM_SW64_CPU_H */

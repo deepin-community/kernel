@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#include <linux/cacheinfo.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
@@ -29,7 +30,6 @@ void store_cpu_data(int cpu)
 void __init setup_cpu_info(void)
 {
 	int i;
-	struct cache_desc *c;
 	unsigned long val;
 
 	val = cpuid(GET_TABLE_ENTRY, 0);
@@ -52,46 +52,20 @@ void __init setup_cpu_info(void)
 	}
 
 	cpu_desc.frequency = cpuid(GET_CPU_FREQ, 0) * 1000UL * 1000UL;
-
-	for (i = 0; i < NR_CPUS; i++) {
-		c = &(cpu_data[i].icache);
-		val = cpuid(GET_CACHE_INFO, L1_ICACHE);
-		c->size = CACHE_SIZE(val);
-		c->linesz = 1 << (CACHE_LINE_BITS(val));
-		c->sets = 1 << (CACHE_INDEX_BITS(val));
-		c->ways = c->size / c->sets / c->linesz;
-
-		c = &(cpu_data[i].dcache);
-		val = cpuid(GET_CACHE_INFO, L1_DCACHE);
-		c->size = CACHE_SIZE(val);
-		c->linesz = 1 << (CACHE_LINE_BITS(val));
-		c->sets = 1 << (CACHE_INDEX_BITS(val));
-		c->ways = c->size / c->sets / c->linesz;
-
-		c = &(cpu_data[i].scache);
-		val = cpuid(GET_CACHE_INFO, L2_CACHE);
-		c->size = CACHE_SIZE(val);
-		c->linesz = 1 << (CACHE_LINE_BITS(val));
-		c->sets = 1 << (CACHE_INDEX_BITS(val));
-		c->ways = c->size / c->sets / c->linesz;
-
-		c = &(cpu_data[i].tcache);
-		val = cpuid(GET_CACHE_INFO, L3_CACHE);
-		c->size = CACHE_SIZE(val);
-		c->linesz = 1 << (CACHE_LINE_BITS(val));
-		c->sets = 1 << (CACHE_INDEX_BITS(val));
-		c->ways = c->size / c->sets / c->linesz;
-	}
 }
 
 static int show_cpuinfo(struct seq_file *f, void *slot)
 {
 	int i;
+	unsigned int l3_cache_size, l3_cachline_size;
 	unsigned long freq;
 
 	freq = cpuid(GET_CPU_FREQ, 0);
 
 	for_each_online_cpu(i) {
+		l3_cache_size = get_cpu_cache_size(i, 3, CACHE_TYPE_UNIFIED);
+		l3_cachline_size = get_cpu_cacheline_size(i, 3, CACHE_TYPE_UNIFIED);
+
 		/*
 		 * glibc reads /proc/cpuinfo to determine the number of
 		 * online processors, looking for lines beginning with
@@ -113,14 +87,14 @@ static int show_cpuinfo(struct seq_file *f, void *slot)
 				"cache size\t: %u KB\n"
 				"physical id\t: %d\n"
 				"bogomips\t: %lu.%02lu\n",
-				get_cpu_freq() / 1000 / 1000, cpu_data[i].tcache.size >> 10,
+				get_cpu_freq() / 1000 / 1000, l3_cache_size >> 10,
 				cpu_topology[i].package_id,
 				loops_per_jiffy / (500000/HZ),
 				(loops_per_jiffy / (5000/HZ)) % 100);
 
 		seq_printf(f, "flags\t\t: fpu simd vpn upn cpuid\n");
 		seq_printf(f, "page size\t: %d\n", 8192);
-		seq_printf(f, "cache_alignment\t: %d\n", cpu_data[i].tcache.linesz);
+		seq_printf(f, "cache_alignment\t: %d\n", l3_cachline_size);
 		seq_printf(f, "address sizes\t: %u bits physical, %u bits virtual\n\n",
 				cpu_desc.pa_bits, cpu_desc.va_bits);
 	}
