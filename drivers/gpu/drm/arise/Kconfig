@@ -1,0 +1,8 @@
+config DRM_ARISE
+	tristate "Arise DRM"
+	default m
+	depends on DRM
+	select DRM_KMS_HELPER
+	help
+	  Choose this option if you have an Glenfly Arise GPU. If M is selected
+	  the module will be called arise.
