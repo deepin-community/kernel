@@ -122,7 +122,7 @@ void sw64_kvm_switch_vpn(struct kvm_vcpu *vcpu)
 	}
 }
 
-void check_vcpu_requests(struct kvm_vcpu *vcpu)
+static int check_vcpu_requests(struct kvm_vcpu *vcpu)
 {
 	unsigned long vpn;
 	long cpu = smp_processor_id();
@@ -132,7 +132,12 @@ void check_vcpu_requests(struct kvm_vcpu *vcpu)
 			vpn = vcpu->arch.vpnc[cpu] & VPN_MASK;
 			tbivpn(0, 0, vpn);
 		}
+
+		if (kvm_dirty_ring_check_request(vcpu))
+			return 0;
 	}
+
+	return 1;
 }
 
 struct kvm_stats_debugfs_item debugfs_entries[] = {
@@ -452,9 +457,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		}
 
 		if (ret <= 0) {
-			local_irq_enable();
-			preempt_enable();
-			continue;
+			goto exit;
 		}
 
 		memset(&hargs, 0, sizeof(hargs));
@@ -474,7 +477,14 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		vcpu->arch.halted = 0;
 
 		sw64_kvm_switch_vpn(vcpu);
-		check_vcpu_requests(vcpu);
+		ret = check_vcpu_requests(vcpu);
+		if (ret <= 0) {
+exit:
+			local_irq_enable();
+			preempt_enable();
+			continue;
+		}
+
 		guest_enter_irqoff();
 
 		/* update aptp before the guest runs */

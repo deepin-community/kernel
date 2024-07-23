@@ -31,6 +31,7 @@ config KVM
 	select TUN
 	select GENERIC_ALLOCATOR
 	select KVM_GENERIC_DIRTYLOG_READ_PROTECT
+	select HAVE_KVM_DIRTY_RING_ACQ_REL
 	help
 	  Support for hosting Guest kernels.
 	  We don't support KVM with 3-level page tables yet.
