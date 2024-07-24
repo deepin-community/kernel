@@ -909,6 +909,7 @@ int acpi_pci_probe_root_resources(struct acpi_pci_root_info *info)
 			"no IO and memory resources present in _CRS\n");
 	else {
 		resource_list_for_each_entry_safe(entry, tmp, list) {
+			acpi_arch_pci_probe_root_dev_filter(entry);
 			if (entry->res->flags & IORESOURCE_IO)
 				acpi_pci_root_remap_iospace(&device->fwnode,
 						entry);
