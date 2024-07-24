@@ -60,7 +60,7 @@ struct loongarch_bpi_info __initdata loongarch_bpi_info = {
 	.bpi = EFI_INVALID_TABLE_ADDR,
 };
 
-static enum bpi_vers __initdata bpi_version = BPI_VERSION_NONE;
+static enum bpi_vers bpi_version = BPI_VERSION_NONE;
 static u64 __initdata bpi_flags = 0;
 
 static int have_bpi = 0;
@@ -593,6 +593,27 @@ static void __init init_acpi_arch_os_table_override (struct acpi_table_header *e
 void acpi_arch_os_table_override (struct acpi_table_header *existing_table, struct acpi_table_header **new_table){
 	if(p_init_acpi_arch_os_table_override && system_state == SYSTEM_BOOTING) {
 		p_init_acpi_arch_os_table_override(existing_table, new_table);
+	}
+}
+
+void acpi_arch_pci_probe_root_dev_filter(struct resource_entry *entry)
+{
+	if (bpi_version == BPI_VERSION_NONE) {
+		return;
+	}
+	if (bpi_version > BPI_VERSION_V1) {
+		return;
+	}
+
+	if (entry->res->flags & IORESOURCE_IO) {
+		if (entry->offset == 0) {
+			if (entry->res->start == ISA_IOSIZE) {
+				entry->res->start = 0;
+			}
+			entry->offset = LOONGSON_LIO_BASE;
+			entry->res->start = LOONGSON_LIO_BASE + PFN_ALIGN(entry->res->start);
+			entry->res->end = LOONGSON_LIO_BASE + PFN_ALIGN(entry->res->end + 1) - 1;
+		}
 	}
 }
 
