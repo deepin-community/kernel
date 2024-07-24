@@ -49,7 +49,7 @@ static inline int phys_addr_valid(unsigned long addr)
 	 * and other physical address variables cannot be used, so let's
 	 * roughly judge physical address based on arch specific bit.
 	 */
-	return !(addr >> (cpu_desc.pa_bits - 1));
+	return !(addr >> (current_cpu_data.pa_bits - 1));
 }
 
 extern struct atomic_notifier_head panic_notifier_list;
@@ -648,7 +648,6 @@ setup_arch(char **cmdline_p)
 	trap_init();
 
 	jump_label_init();
-	setup_cpu_info();
 	setup_run_mode();
 	setup_chip_ops();
 

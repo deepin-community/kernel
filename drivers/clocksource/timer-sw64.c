@@ -94,7 +94,7 @@ static int longtime_enable(struct clocksource *cs)
 	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 	void __iomem *gpio_base = misc_platform_get_gpio_base(0);
 
-	switch (cpu_desc.model) {
+	switch (current_cpu_data.model) {
 	case CPU_SW3231:
 		writeq(0, gpio_base + OFFSET_GPIO_SWPORTA_DR);
 		writeq(0xff, gpio_base + OFFSET_GPIO_SWPORTA_DDR);
