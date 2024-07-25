@@ -91,6 +91,13 @@ void __init init_IRQ(void)
 	int i, ret;
 	unsigned int order = get_order(IRQ_STACK_SIZE);
 	struct page *page;
+	unsigned long node;
+
+	if (!acpi_gbl_reduced_hardware) {
+		for_each_node(node)
+			writel(0x40000000 | (node << 12),
+				(volatile void __iomem *)(0x80000efdfb000274UL + (node<<44)));
+	}
 
 	clear_csr_ecfg(ECFG0_IM);
 	clear_csr_estat(ESTATF_IP);
