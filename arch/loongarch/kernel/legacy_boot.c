@@ -617,6 +617,53 @@ void acpi_arch_pci_probe_root_dev_filter(struct resource_entry *entry)
 	}
 }
 
+static __initconst const struct {
+	struct acpi_table_header header;
+	unsigned char code [];
+} __packed dsdt_add_aml_code = {
+	.header = {
+		.signature = ACPI_SIG_DSDT
+	},
+	.code = {
+		                    0x14,0x21,0x5C,0x2F,  /* 00000020    "    .!\/" */
+		0x05,0x5F,0x53,0x42,0x5F,0x50,0x43,0x49,  /* 00000028    "._SB_PCI" */
+		0x30,0x4C,0x50,0x43,0x5F,0x45,0x43,0x5F,  /* 00000030    "0LPC_EC_" */
+		0x5F,0x5F,0x44,0x45,0x50,0x08,0xA4,0x12,  /* 00000038    "__DEP..." */
+		0x06,0x01,0x50,0x43,0x49,0x30             /* 00000040    "..PCI0"   */
+	},
+};
+
+void __init acpi_arch_init (){
+	if (bpi_version == BPI_VERSION_NONE) {
+		return;
+	}
+	if (bpi_version > BPI_VERSION_V1) {
+		return;
+	}
+	pr_info("BPI: Trying to patch DSDT\n");
+
+	acpi_status status;
+	acpi_handle handle;
+
+	status = acpi_get_handle(NULL, "\\_SB.PCI0.LPC.EC", &handle);
+	if (ACPI_FAILURE(status)) {
+		if (status != AE_NOT_FOUND) {
+			pr_info("BPI: Unable to find EC device: %s\n", acpi_format_exception(status));
+		}
+		return;
+	}
+	if (acpi_has_method(handle, "_DEP")) {
+		return;
+	}
+
+	status = acpi_install_method((u8 *)&dsdt_add_aml_code);
+	if (ACPI_FAILURE(status)) {
+		pr_info("BPI: Unable to patch DSDT(0x%x)\n", status);
+		return;
+	}
+	acpi_handle_info(handle, "BPI: Patched DSDT\n");
+}
+
 int loongarch_have_legacy_bpi (void){
 	return have_bpi;
 }
