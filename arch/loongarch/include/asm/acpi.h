@@ -50,6 +50,8 @@ extern void acpi_arch_os_table_override (struct acpi_table_header *existing_tabl
 extern void acpi_arch_table_init_complete(void);
 #define ACPI_HAVE_ARCH_PCI_ROOT_RES_FILTER
 extern void acpi_arch_pci_probe_root_dev_filter(struct resource_entry *entry);
+#define ACPI_HAVE_ARCH_INIT
+extern void acpi_arch_init(void);
 
 #endif /* !CONFIG_ACPI */
 
