@@ -1,0 +1,35 @@
+name: build kernel loong64
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  email: support@deepin.org
+
+permissions:
+  pull-requests: read
+
+jobs:
+  build-kernel:
+    runs-on: [self-hosted, linux, loong64]
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
+      - name: "Compile kernel"
+        run: |
+          # .config
+          make deepin_loongarch_desktop_defconfig
+          make -j$(nproc)
+
+      - name: 'Upload Kernel Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-ABI-loong64
+          path: "Module.symvers"
