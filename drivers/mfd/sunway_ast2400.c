@@ -163,7 +163,7 @@ static int superio_ast2400_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_IO, 1);
+	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (res) {
 		physaddr = res->start;
 		dev_info(&pdev->dev, "request memory region %pR\n", res);
@@ -171,8 +171,8 @@ static int superio_ast2400_probe(struct platform_device *pdev)
 
 	superio_device->dev = &pdev->dev;
 	superio_device->enabled = 1;
-	superio_device->superio_ast2400_efir = physaddr + SUPERIO_PNP_PORT;
-	superio_device->superio_ast2400_efdr = physaddr + SUPERIO_PNP_PORT + 1;
+	superio_device->superio_ast2400_efir = physaddr + (SUPERIO_PNP_PORT << PORT_OFFSET);
+	superio_device->superio_ast2400_efdr = physaddr + ((SUPERIO_PNP_PORT + 1) << PORT_OFFSET);
 	superio_uart0_irq = platform_get_irq_byname(pdev, "uart0_irq");
 	superio_uart1_irq = platform_get_irq_byname(pdev, "uart1_irq");
 
