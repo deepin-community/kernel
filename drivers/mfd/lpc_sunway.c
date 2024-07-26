@@ -78,6 +78,10 @@ struct lpc_chip3_adapter {
 static struct resource superio_chip3_resources[] = {
 	{
 		.flags = IORESOURCE_IO,
+#ifdef CONFIG_SUBARCH_C4
+		.start = LPC_MEM_IO,
+		.end = LPC_MEM_IO + 0x10,
+#endif
 	}
 };
 

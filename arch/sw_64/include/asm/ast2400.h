@@ -49,9 +49,17 @@
 #define SUPERIO_PNP_PORT	0x2E
 #define SUPERIO_CHIPID		0xC333
 
+#ifdef CONFIG_SUBARCH_C3B
+#define PORT_OFFSET		0
+#endif
+
+#ifdef CONFIG_SUBARCH_C4
+#define PORT_OFFSET		12
+#endif
+
 struct device_operations;
 typedef struct pnp_device {
-	unsigned int port;
+	unsigned long port;
 	unsigned int device;
 
 	struct device_operations *ops;
@@ -100,8 +108,8 @@ typedef struct superio_ast2400_device {
 	struct device	*dev;
 	const char	*name;
 	unsigned int	enabled : 1;		/* set if we should enable the device */
-	unsigned int	superio_ast2400_efir;	/* extended function index register */
-	unsigned int	superio_ast2400_efdr;	/* extended function data register */
+	unsigned long	superio_ast2400_efir;	/* extended function index register */
+	unsigned long	superio_ast2400_efdr;	/* extended function data register */
 	struct chip_operations *chip_ops;
 	const void	*chip_info;
 } *superio_device_t;
@@ -136,19 +144,18 @@ static inline void pnp_exit_conf_mode(device_t dev)
 static inline u8 pnp_read_config(device_t dev, u8 reg)
 {
 	outb(reg, dev->port);
-	return inb(dev->port + 1);
+	return inb(dev->port + (1 << PORT_OFFSET));
 }
 
 static inline void pnp_write_config(device_t dev, u8 reg, u8 value)
 {
 	outb(reg, dev->port);
-	outb(value, dev->port + 1);
+	outb(value, dev->port + (1 << PORT_OFFSET));
 }
 
 static inline void pnp_set_logical_device(device_t dev)
 {
 	pnp_write_config(dev, 0x07, dev->device & 0xff);
-//	pnp_write_config(dev, 0x07, 0x3);
 }
 
 static inline void pnp_set_enable(device_t dev, int enable)
