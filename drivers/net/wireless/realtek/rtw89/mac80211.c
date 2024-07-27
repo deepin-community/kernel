@@ -514,7 +514,7 @@ static int rtw89_ops_start_ap(struct ieee80211_hw *hw,
 	rtw89_fw_h2c_cam(rtwdev, rtwvif, NULL, NULL);
 	/* must do rtw89_reg_6ghz_recalc() before rfk channel */
 	rtw89_reg_6ghz_recalc(rtwdev, rtwvif, true);
-	rtw89_chip_rfk_channel(rtwdev);
+	rtw89_chip_rfk_channel(rtwdev, rtwvif);
 
 	rtw89_queue_chanctx_work(rtwdev);
 	mutex_unlock(&rtwdev->mutex);
