@@ -645,7 +645,7 @@ static void free_cache(void)
 static struct ucode_patch *find_patch(unsigned int cpu)
 {
 	struct ucode_cpu_info *uci = ucode_cpu_info + cpu;
-	u16 equiv_id;
+	u16 equiv_id = 0;
 
 
 	equiv_id = find_equiv_id(&equiv_table, uci->cpu_sig.sig);
