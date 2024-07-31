@@ -7,7 +7,8 @@
 #define __PERF_ARM_PMUV3_H
 
 #define ARMV8_PMU_MAX_COUNTERS	32
-#define ARMV8_PMU_COUNTER_MASK	(ARMV8_PMU_MAX_COUNTERS - 1)
+#define ARMV8_PMU_CYCLE_IDX	(ARMV8_PMU_MAX_COUNTERS - 1)
+
 
 /*
  * Common architectural and microarchitectural event numbers.
