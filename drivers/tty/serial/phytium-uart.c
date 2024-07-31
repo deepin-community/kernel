@@ -23,7 +23,7 @@
 #include <linux/tty_flip.h>
 
 #define DRV_NAME		"phytium_uart"
-
+#define PHYT_UART_DRV_VERSION	"1.1.0"
 #define REG_DR			0x00
 #define REG_FR			0x18
 #define REG_IBRD		0x24
@@ -924,4 +924,5 @@ module_exit(phytium_uart_exit);
 
 MODULE_AUTHOR("Chen Baozi <chenbaozi@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium PCI serial port driver");
+MODULE_VERSION(PHYT_UART_DRV_VERSION);
 MODULE_LICENSE("GPL");
