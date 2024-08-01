@@ -68,3 +68,14 @@ config TDM_DEV_HYGON
 	depends on HYGON_PSP2CPU_CMD
 	help
 	  Hygon TDM driver
+
+config TDM_KERNEL_GUARD
+	tristate "Hygon TDM kernel guard"
+	default y
+	depends on TDM_DEV_HYGON
+	depends on CRYPTO_DEV_CCP_DD
+	depends on CRYPTO_SM3
+	help
+	  The key part of kernel is protected by TDM technology, SCT and IDT
+	  are protected by default, and others are added later according to the
+	  requirements.
