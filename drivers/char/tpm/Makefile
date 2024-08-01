@@ -43,3 +43,4 @@ obj-$(CONFIG_TCG_CRB) += tpm_crb.o
 obj-$(CONFIG_TCG_VTPM_PROXY) += tpm_vtpm_proxy.o
 obj-$(CONFIG_TCG_FTPM_TEE) += tpm_ftpm_tee.o
 obj-$(CONFIG_TCG_HYGON) += tpm_hygon.o
+obj-$(CONFIG_TCM_HYGON) += tcm_hygon.o
