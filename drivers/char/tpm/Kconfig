@@ -210,5 +210,17 @@ config TCG_FTPM_TEE
 	help
 	  This driver proxies for firmware TPM running in TEE.
 
+config TCG_HYGON
+        tristate "Hygon TPM Interface"
+        depends on ACPI
+        depends on CRYPTO_DEV_CCP_DD
+        depends on CRYPTO_DEV_SP_PSP
+        default y
+        help
+          If you want to make Hygon TPM support available, say Yes and
+          it will be accessible from within Linux. To compile this
+          driver as a module, choose M here; the module will be called
+          tpm_hygon.
+
 source "drivers/char/tpm/st33zp24/Kconfig"
 endif # TCG_TPM
