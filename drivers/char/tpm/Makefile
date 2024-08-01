@@ -48,3 +48,4 @@ obj-$(CONFIG_TCG_FTPM_TEE) += tpm_ftpm_tee.o
 obj-$(CONFIG_TCG_SVSM) += tpm_svsm.o
 obj-$(CONFIG_TCG_LOONGSON) += tpm_loongson.o
 obj-$(CONFIG_TCG_HYGON) += tpm_hygon.o
+obj-$(CONFIG_TCM_HYGON) += tcm_hygon.o
