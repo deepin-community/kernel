@@ -21,18 +21,17 @@
 
 		clocks {
 			i2cclk: i2cclk {
-			compatible = "fixed-clock";
-			clock-frequency = <12500000>;
-			#clock-cells = <0>;
-			clock-output-names = "i2cclk_12.5mhz";
+				compatible = "fixed-clock";
+				clock-frequency = <12000000>;
+				#clock-cells = <0>;
+				clock-output-names = "i2cclk_12mhz";
 			};
 			spiclk: spiclk {
-			compatible = "fixed-clock";
-			clock-frequency = <12500000>;
-			#clock-cells = <0>;
-			clock-output-names = "spiclk_12.5mhz";
+				compatible = "fixed-clock";
+				clock-frequency = <12000000>;
+				#clock-cells = <0>;
+				clock-output-names = "spiclk_12mhz";
 			};
-
 		};
 
 		pintc: interrupt-controller {
@@ -135,7 +134,7 @@
 			compatible = "sw64,pvt-vol";
 			reg = <0x8030 0x0 0x0 0x7c00>;
 			status = "okay";
-			};
+		};
 
 		spi: spi@0x8032 {
 			#address-cells = <1>;
@@ -235,7 +234,7 @@
 			reg = <0x8036 0x0 0x0 0x8000>;
 			status = "okay";
 
-			porta: gpio-contraller@0 {
+			porta: gpio-controller@0 {
 				compatible = "snps,dw-apb-gpio-port";
 				gpio-controller;
 				#gpio-cells = <2>;
@@ -244,7 +243,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				interrupts-extended = <&pintc 0>, <&pintc 1>;
-			       };
-		      };
+			};
+		};
 	};
 };
