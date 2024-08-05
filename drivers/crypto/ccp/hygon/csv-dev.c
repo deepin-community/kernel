@@ -15,6 +15,7 @@
 #include <linux/psp-hygon.h>
 #include <uapi/linux/psp-hygon.h>
 
+#include "csv-dev.h"
 #include "psp-dev.h"
 
 int csv_cmd_buffer_len(int cmd)
