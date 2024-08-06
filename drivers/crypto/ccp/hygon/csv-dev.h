@@ -11,6 +11,7 @@
 #define __CCP_HYGON_CSV_DEV_H__
 
 #include <linux/fs.h>
+#include <linux/psp-sev.h>
 
 extern u32 hygon_csv_build;
 extern const struct file_operations csv_fops;
