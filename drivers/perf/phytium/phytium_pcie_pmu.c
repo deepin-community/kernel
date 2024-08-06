@@ -32,6 +32,8 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_pcie_pmu: " fmt
 
+#define PCIE_PERF_DRIVER_VERSION "1.2.1"
+
 #define PHYTIUM_PCIE_MAX_COUNTERS 18
 
 #define PCIE_START_TIMER 0x000
@@ -872,4 +874,5 @@ module_exit(phytium_pcie_pmu_module_exit);
 
 MODULE_DESCRIPTION("Phytium PCIe PMU driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(PCIE_PERF_DRIVER_VERSION);
 MODULE_AUTHOR("Hu Xianghua <huxianghua@phytium.com.cn>");
