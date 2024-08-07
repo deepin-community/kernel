@@ -59,7 +59,7 @@ static int csv_vm_attestation(struct kvm *kvm, unsigned long gpa, unsigned long 
 	unsigned long guest_uaddr, n;
 	int ret = 0, offset, error;
 
-	if (!sev_guest(kvm) || !hygon_kvm_hooks.sev_hooks_installed)
+	if (!____sev_guest(kvm) || !hygon_kvm_hooks.sev_hooks_installed)
 		return -ENOTTY;
 
 	/*
@@ -218,7 +218,7 @@ csv_send_update_data_to_ringbuf(struct kvm *kvm,
 	unsigned long n;
 	int ret, offset;
 
-	if (!sev_guest(kvm))
+	if (!____sev_guest(kvm))
 		return -ENOTTY;
 
 	if (copy_from_user(&params, (void __user *)data_ptr,
@@ -354,7 +354,7 @@ csv_receive_update_data_to_ringbuf(struct kvm *kvm,
 	unsigned long n;
 	int ret, offset;
 
-	if (!sev_guest(kvm))
+	if (!____sev_guest(kvm))
 		return -EINVAL;
 
 	if (copy_from_user(&params, (void __user *)data_ptr,
@@ -522,7 +522,7 @@ static int csv_command_batch(struct kvm *kvm, struct kvm_sev_cmd *argp)
 	csv_ringbuf_output_fn csv_copy_to_user_fn = NULL;
 	int prio = CSV_COMMAND_PRIORITY_HIGH;
 
-	if (!sev_guest(kvm))
+	if (!____sev_guest(kvm))
 		return -ENOTTY;
 
 	if (copy_from_user(&params, (void __user *)(uintptr_t)argp->data,
@@ -783,8 +783,18 @@ static int csv_receive_update_vmsa(struct kvm *kvm, struct kvm_sev_cmd *argp)
 	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, SEV_CMD_RECEIVE_UPDATE_VMSA,
 					    vmsa, &argp->error);
 
-	if (!ret)
+	if (!ret) {
 		vcpu->arch.guest_state_protected = true;
+
+		/*
+		 * CSV2 guest mandates LBR Virtualization to be _always_ ON.
+		 * Enable it only after setting guest_state_protected because
+		 * KVM_SET_MSRS allows dynamic toggling of LBRV (for performance
+		 * reason) on write access to MSR_IA32_DEBUGCTLMSR when
+		 * guest_state_protected is not set.
+		 */
+		svm_enable_lbrv(vcpu);
+	}
 
 	kfree(vmsa);
 e_free_trans:
@@ -1028,7 +1038,7 @@ static int csv_control_post_system_reset(struct kvm *kvm)
 	unsigned long i;
 	int ret;
 
-	if (!sev_guest(kvm))
+	if (!____sev_guest(kvm))
 		return 0;
 
 	/* Flush both host and guest caches before next boot flow */
