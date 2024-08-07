@@ -783,8 +783,18 @@ static int csv_receive_update_vmsa(struct kvm *kvm, struct kvm_sev_cmd *argp)
 	ret = hygon_kvm_hooks.sev_issue_cmd(kvm, SEV_CMD_RECEIVE_UPDATE_VMSA,
 					    vmsa, &argp->error);
 
-	if (!ret)
+	if (!ret) {
 		vcpu->arch.guest_state_protected = true;
+
+		/*
+		 * CSV2 guest mandates LBR Virtualization to be _always_ ON.
+		 * Enable it only after setting guest_state_protected because
+		 * KVM_SET_MSRS allows dynamic toggling of LBRV (for performance
+		 * reason) on write access to MSR_IA32_DEBUGCTLMSR when
+		 * guest_state_protected is not set.
+		 */
+		svm_enable_lbrv(vcpu);
+	}
 
 	kfree(vmsa);
 e_free_trans:
