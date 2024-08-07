@@ -1300,6 +1300,9 @@ config WMARK_STEP
 	    - Apply wmark-step=3 for kthread (can be set by sysfs)
 	    - Apply wmark-step=0 for process (default, can be set to 0-5)
 
+config NUMA_MEMBLKS
+	bool
+
 source "mm/damon/Kconfig"
 
 endmenu
