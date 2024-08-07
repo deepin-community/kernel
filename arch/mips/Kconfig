@@ -521,7 +521,6 @@ config MACH_LOONGSON64
 	select USE_OF
 	select BUILTIN_DTB
 	select PCI_HOST_GENERIC
-	select HAVE_ARCH_NODEDATA_EXTENSION if NUMA
 	select CPU_SUPPORTS_CPUFREQ
 	select MIPS_EXTERNAL_TIMER
 	help
@@ -2631,9 +2630,6 @@ config NUMA
 	  disabled.
 
 config SYS_SUPPORTS_NUMA
-	bool
-
-config HAVE_ARCH_NODEDATA_EXTENSION
 	bool
 
 config RELOCATABLE
