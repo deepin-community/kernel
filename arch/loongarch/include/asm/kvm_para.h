@@ -38,7 +38,7 @@ struct kvm_steal_time {
  *
  * a0: function identifier
  * a1-a5: args
- * Return value will be placed in v0.
+ * Return value will be placed in a0.
  * Up to 5 arguments are passed in a1, a2, a3, a4, a5.
  */
 static __always_inline long kvm_hypercall(u64 fid)
