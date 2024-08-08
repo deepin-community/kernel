@@ -99,20 +99,6 @@ static void eiointc_set_irq_route(int pos, unsigned int cpu, unsigned int mnode,
 
 static DEFINE_RAW_SPINLOCK(affinity_lock);
 
-static void virt_extioi_set_irq_route(int irq, unsigned int cpu)
-{
-	int data;
-
-	/*
-	 * get irq route info for continuous 4 vectors
-	 * and set affinity for specified vector
-	 */
-	data = iocsr_read32(EIOINTC_REG_ROUTE + (irq & ~3));
-	data &=  ~(0xff << ((irq & 3) * 8));
-	data |= cpu_logical_map(cpu) << ((irq & 3) * 8);
-	iocsr_write32(data, EIOINTC_REG_ROUTE + (irq & ~3));
-}
-
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
 {
 	unsigned int cpu;
@@ -344,7 +330,7 @@ static struct syscore_ops eiointc_syscore_ops = {
 	.resume = eiointc_resume,
 };
 
-int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
+static int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
 					const unsigned long end)
 {
 	struct acpi_madt_bio_pic *pchpic_entry = (struct acpi_madt_bio_pic *)header;
@@ -357,7 +343,7 @@ int __init pch_pic_parse_madt(union acpi_subtable_headers *header,
 	return 0;
 }
 
-int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
+static int __init pch_msi_parse_madt(union acpi_subtable_headers *header,
 					const unsigned long end)
 {
 	struct irq_domain *parent;
