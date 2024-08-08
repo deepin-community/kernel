@@ -20,7 +20,6 @@
 #include <asm/irq.h>
 #include <asm/loongson.h>
 #include <asm/setup.h>
-#include "legacy_boot.h"
 
 DEFINE_PER_CPU(unsigned long, irq_stack);
 DEFINE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
@@ -62,12 +61,6 @@ static int __init early_pci_mcfg_parse(struct acpi_table_header *header)
 	if (header->length < sizeof(struct acpi_table_mcfg))
 		return -EINVAL;
 
-	for (i = 0; i < MAX_IO_PICS; i++) {
-		msi_group[i].pci_segment = -1;
-		msi_group[i].node = -1;
-		pch_group[i].node = -1;
-	}
-
 	n = (header->length - sizeof(struct acpi_table_mcfg)) /
 					sizeof(struct acpi_mcfg_allocation);
 	mcfg = (struct acpi_table_mcfg *)header;
@@ -83,6 +76,14 @@ static int __init early_pci_mcfg_parse(struct acpi_table_header *header)
 
 static void __init init_vec_parent_group(void)
 {
+	int i;
+
+	for (i = 0; i < MAX_IO_PICS; i++) {
+		msi_group[i].pci_segment = -1;
+		msi_group[i].node = -1;
+		pch_group[i].node = -1;
+	}
+
 	acpi_table_parse(ACPI_SIG_MCFG, early_pci_mcfg_parse);
 }
 
@@ -103,13 +104,7 @@ void __init init_IRQ(void)
 	clear_csr_estat(ESTATF_IP);
 
 	init_vec_parent_group();
-	if (efi_bp && bpi_version <= BPI_VERSION_V1) {
-		ret = setup_legacy_IRQ();
-		if (ret)
-			panic("IRQ domain init error!\n");
-	} else {
-		irqchip_init();
-	}
+	irqchip_init();
 #ifdef CONFIG_SMP
 	smp_ops.init_ipi();
 #endif
