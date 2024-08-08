@@ -89,7 +89,7 @@ static void __init init_vec_parent_group(void)
 
 void __init init_IRQ(void)
 {
-	int i, ret;
+	int i;
 	unsigned int order = get_order(IRQ_STACK_SIZE);
 	struct page *page;
 	unsigned long node;
