@@ -150,7 +150,7 @@ config OF_IOMMU
 
 # IOMMU-agnostic DMA-mapping layer
 config IOMMU_DMA
-	def_bool ARM64 || IA64 || X86
+	def_bool ARM64 || IA64 || X86 || LOONGARCH
 	select DMA_OPS
 	select IOMMU_API
 	select IOMMU_IOVA
@@ -504,5 +504,18 @@ config SPRD_IOMMU
 	  ISP(image), and CPP(camera pixel processor), etc.
 
 	  Say Y here if you want to use the multimedia devices listed above.
+
+# LOONGARCH IOMMU support
+config LOONGARCH_IOMMU
+	tristate "LOONGARCH IOMMU support"
+	select IOMMU_API
+	select IOMMU_DEFAULT_PASSTHROUGH
+	depends on LOONGARCH
+	help
+	  With this option you can enable support for LOONGARCH IOMMU hardware in
+	  your system. An IOMMU is a hardware component which provides
+	  remapping of DMA memory accesses from devices. With an LOONGARCH IOMMU you
+	  can isolate the DMA memory of different devices and protect the
+	  system from misbehaving device drivers or hardware.
 
 endif # IOMMU_SUPPORT
