@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 include ../../scripts/Makefile.include
 
-ARCH ?= $(shell uname -m)
 FILES=                                          \
          test-all.bin                           \
          test-backtrace.bin                     \
@@ -88,11 +87,7 @@ all: $(FILES)
 
 __BUILD = $(CC) $(CFLAGS) -MD -Wall -Werror -o $@ $(patsubst %.bin,%.c,$(@F)) $(LDFLAGS)
   BUILD = $(__BUILD) > $(@:.bin=.make.output) 2>&1
-ifeq ($(ARCH),sw_64)
-  BUILD_BFD = $(BUILD) -DPACKAGE='"perf"' -lbfd -ldl -liberty -lz
-else
   BUILD_BFD = $(BUILD) -DPACKAGE='"perf"' -lbfd -ldl
-endif
   BUILD_ALL = $(BUILD) -fstack-protector-all -O2 -D_FORTIFY_SOURCE=2 -ldw -lelf -lnuma -lelf -lslang $(FLAGS_PERL_EMBED) $(FLAGS_PYTHON_EMBED) -DPACKAGE='"perf"' -lbfd -ldl -lz -llzma -lzstd -lcap
 
 __BUILDXX = $(CXX) $(CXXFLAGS) -MD -Wall -Werror -o $@ $(patsubst %.bin,%.cpp,$(@F)) $(LDFLAGS)
