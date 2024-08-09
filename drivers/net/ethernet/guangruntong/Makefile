@@ -26,12 +26,6 @@ else	# ifneq($(KERNELRELEASE),)
 
 DRIVER := grtnic_xgb
 
-ifeq (,$(wildcard common.mk))
-  $(error Cannot find common.mk build rules)
-else
-  include common.mk
-endif
-
 # Check that kernel version is at least 2.6.0, since we don't support 2.4.x
 # kernels with the grtnic driver. We can't use minimum_kver_check since SLES 10
 # SP4's Make has a bug which causes $(eval) inside an ifeq conditional to error
