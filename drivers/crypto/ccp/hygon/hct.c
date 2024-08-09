@@ -2085,10 +2085,23 @@ static void hct_device_release(struct device *dev)
 }
 #endif /* IS_ENABLED(CONFIG_VFIO_MDEV) */
 
+static void _pfn_vm_pat_flags_moved(unsigned long addr)
+{
+	struct vm_area_struct *vma = find_vma(current->mm, addr);
+
+	if (!vma) {
+		pr_err("vma is NULL.\n");
+		return;
+	}
+
+	if (vma->vm_flags & VM_PFNMAP)
+		vm_flags_clear(vma, VM_PAT);
+}
+
 /* set the flags PAT, PCT and PWT of page all to 0
  * for obtaining cache properties.
  */
-void hct_noiommu_set_memory_wb(unsigned long address)
+static void hct_noiommu_set_memory_wb(unsigned long address)
 {
 	pgd_t *pgd = current->mm->pgd + pgd_index(address);
 	p4d_t *p4d;
@@ -2135,6 +2148,7 @@ void hct_noiommu_set_memory_wb(unsigned long address)
 	pgprot_val(new_prot) &= ~(_PAGE_PAT | _PAGE_PCD | _PAGE_PWT);
 	new_pte = pfn_pte(pfn, new_prot);
 	set_pte_atomic(pte, new_pte);
+	_pfn_vm_pat_flags_moved(address);
 }
 
 static DEFINE_MUTEX(hct_noiommu_lock);
