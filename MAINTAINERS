@@ -5773,6 +5773,11 @@ M:	"WangYuli" <wangyuli@uniontech.com>
 S:	Maintained
 F:	lib/fonts/font_cjk*
 
+DEEPIN OWNERS
+M:	"WangYuli" <wangyuli@uniontech.com>
+S:	Maintained
+F:	OWNERS
+
 DEFXX FDDI NETWORK DRIVER
 M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
 S:	Maintained
