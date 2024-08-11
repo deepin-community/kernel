@@ -1,0 +1,26 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+approvers:
+- Avenger-285714
+- matrix-wsk
+- MingcongBai
+- opsiff
+emeritus_approvers:
+- deepin-community/deepin-sysdev-team
+- hudeng-go
+- UTsweetyfish
+- xzl01
+- YukariChiba
+- zccrs
+- Zeno-sole
+reviewers:
+- BLumia
+- chenchongbiao
+- Clansty
+- huangbibo
+- justforlxz
+- morduang
+- myml
+- Rabenda
+- shy129
+- Wenlp

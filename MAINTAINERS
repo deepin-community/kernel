@@ -7177,6 +7177,11 @@ F:	arch/mips/dec/
 F:	arch/mips/include/asm/dec/
 F:	arch/mips/include/asm/mach-dec/
 
+DEEPIN OWNERS
+M:	"WangYuli" <wangyuli@uniontech.com>
+S:	Maintained
+F:	OWNERS
+
 DEFXX FDDI NETWORK DRIVER
 M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
 S:	Maintained
