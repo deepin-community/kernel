@@ -387,6 +387,7 @@ struct sev_data_send_update_data {
  */
 struct sev_data_send_update_vmsa {
 	u32 handle;				/* In */
+	u32 reserved1;
 	u64 hdr_address;			/* In */
 	u32 hdr_len;				/* In/Out */
 	u32 reserved2;

@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Guangruntong network device configuration
+#
+
+config NET_VENDOR_GRT
+        bool "Guanruntong devices"
+        depends on PCI
+        default y
+        help
+          If you have a network (Ethernet) card belonging to this class, say Y.
+
+          Note that the answer to this question doesn't directly affect the
+          kernel: saying N will just cause the configurator to skip all
+          the questions about Intel cards. If you say Y, you will be asked for
+          your specific card in the following questions.
+
+config GRTNIC
+        tristate "Guangruntong PCI Express adapters support"
+        depends on NET_VENDOR_GRT
+        help
+          This driver supports Guangruntong PCI Express family of
+          adapters.

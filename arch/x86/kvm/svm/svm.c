@@ -41,6 +41,7 @@
 #include <asm/traps.h>
 #include <asm/reboot.h>
 #include <asm/fpu/api.h>
+#include <asm/processor-hygon.h>
 
 #include <trace/events/ipi.h>
 
@@ -51,6 +52,8 @@
 
 #include "kvm_onhyperv.h"
 #include "svm_onhyperv.h"
+
+#include "csv.h"
 
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
@@ -547,7 +550,8 @@ static bool __kvm_is_svm_supported(void)
 	}
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
-		pr_info("KVM is unsupported when running as an SEV guest\n");
+		pr_info("KVM is unsupported when running as an %s guest\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV");
 		return false;
 	}
 
@@ -1458,6 +1462,11 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 		if (!vmsa_page)
 			goto error_free_vmcb_page;
 
+		if (is_x86_vendor_hygon()) {
+			if (csv2_setup_reset_vmsa(svm))
+				goto error_free_vmsa_page;
+		}
+
 		/*
 		 * SEV-ES guests maintain an encrypted version of their FPU
 		 * state which is restored and saved on VMRUN and VMEXIT.
@@ -1493,6 +1502,9 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 error_free_vmsa_page:
 	if (vmsa_page)
 		__free_page(vmsa_page);
+
+	if (is_x86_vendor_hygon())
+		csv2_free_reset_vmsa(svm);
 error_free_vmcb_page:
 	__free_page(vmcb01_page);
 out:
@@ -2950,6 +2962,12 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_AMD64_DE_CFG:
 		msr_info->data = svm->msr_decfg;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support export this MSR to userspace */
+		if (is_x86_vendor_hygon())
+			return csv_get_msr(vcpu, msr_info);
+		else
+			return 1;
 	default:
 		return kvm_get_msr_common(vcpu, msr_info);
 	}
@@ -3185,6 +3203,12 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->msr_decfg = data;
 		break;
 	}
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support update this MSR from userspace */
+		if (is_x86_vendor_hygon())
+			return csv_set_msr(vcpu, msr);
+		else
+			return 1;
 	default:
 		return kvm_set_msr_common(vcpu, msr);
 	}
@@ -4151,6 +4175,19 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	trace_kvm_entry(vcpu);
 
+	/*
+	 * For receipient side of CSV2 guest, fake the exit code as SVM_EXIT_ERR
+	 * and return directly if failed to mapping the necessary GHCB page.
+	 * When handling the exit code afterwards, it can exit to userspace and
+	 * stop the guest.
+	 */
+	if (is_x86_vendor_hygon() && sev_es_guest(vcpu->kvm)) {
+		if (csv2_state_unstable(svm)) {
+			svm->vmcb->control.exit_code = SVM_EXIT_ERR;
+			return EXIT_FASTPATH_NONE;
+		}
+	}
+
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
 	svm->vmcb->save.rip = vcpu->arch.regs[VCPU_REGS_RIP];
@@ -4325,6 +4362,12 @@ static bool svm_has_emulated_msr(struct kvm *kvm, u32 index)
 		if (kvm && sev_es_guest(kvm))
 			return false;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support emulate this MSR */
+		if (is_x86_vendor_hygon())
+			return csv_has_emulated_ghcb_msr(kvm);
+		else
+			return false;
 	default:
 		break;
 	}
@@ -5351,6 +5394,10 @@ static struct kvm_x86_init_ops svm_init_ops __initdata = {
 
 static void __svm_exit(void)
 {
+	/* Unregister CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_exit();
+
 	kvm_x86_vendor_exit();
 
 	cpu_emergency_unregister_virt_callback(svm_emergency_disable);
@@ -5365,9 +5412,21 @@ static int __init svm_init(void)
 	if (!kvm_is_svm_supported())
 		return -EOPNOTSUPP;
 
+	/* Register CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_init(&svm_x86_ops);
+
 	r = kvm_x86_vendor_init(&svm_init_ops);
-	if (r)
+	if (r) {
+		/*
+		 * Unregister CSV specific interface for Hygon CPUs
+		 * if error occurs.
+		 */
+		if (is_x86_vendor_hygon())
+			csv_exit();
+
 		return r;
+	}
 
 	cpu_emergency_register_virt_callback(svm_emergency_disable);
 

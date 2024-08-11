@@ -34,6 +34,7 @@
 #include "sev-dev.h"
 
 #include "hygon/psp-dev.h"
+#include "hygon/csv-dev.h"
 
 #define DEVICE_NAME		"sev"
 #define SEV_FW_FILE		"amd/sev.fw"
@@ -106,7 +107,8 @@ static void sev_irq_handler(int irq, void *data, unsigned int status)
 
 	/* Check if it is SEV command completion: */
 	reg = ioread32(sev->io_regs + sev->vdata->cmdresp_reg);
-	if (FIELD_GET(PSP_CMDRESP_RESP, reg)) {
+	if (FIELD_GET(PSP_CMDRESP_RESP, reg) ||
+	    (is_vendor_hygon() && csv_in_ring_buffer_mode())) {
 		sev->int_rcvd = 1;
 		wake_up(&sev->int_queue);
 	}
@@ -129,6 +131,18 @@ static int sev_wait_cmd_ioc(struct sev_device *sev,
 
 static int sev_cmd_buffer_len(int cmd)
 {
+	/*
+	 * The Hygon CSV command may conflict with AMD SEV command, so it's
+	 * preferred to check whether it's a CSV-specific command for Hygon
+	 * psp.
+	 */
+	if (is_vendor_hygon()) {
+		int r = csv_cmd_buffer_len(cmd);
+
+		if (r)
+			return r;
+	}
+
 	switch (cmd) {
 	case SEV_CMD_INIT:			return sizeof(struct sev_data_init);
 	case SEV_CMD_INIT_EX:                   return sizeof(struct sev_data_init_ex);
@@ -502,8 +516,12 @@ static int __sev_platform_init_locked(int *error)
 
 	dev_dbg(sev->dev, "SEV firmware initialized\n");
 
-	dev_info(sev->dev, "SEV API:%d.%d build:%d\n", sev->api_major,
-		 sev->api_minor, sev->build);
+	if (is_vendor_hygon())
+		dev_info(sev->dev, "CSV API:%d.%d build:%d\n", sev->api_major,
+			 sev->api_minor, hygon_csv_build);
+	else
+		dev_info(sev->dev, "SEV API:%d.%d build:%d\n", sev->api_major,
+			 sev->api_minor, sev->build);
 
 	return 0;
 }
@@ -537,6 +555,10 @@ static int __sev_platform_shutdown_locked(int *error)
 	ret = __sev_do_cmd_locked(SEV_CMD_SHUTDOWN, NULL, error);
 	if (ret)
 		return ret;
+
+	/* RING BUFFER mode exits if a SHUTDOWN command is executed */
+	if (is_vendor_hygon() && csv_in_ring_buffer_mode())
+		csv_restore_mailbox_mode_postprocess();
 
 	sev->state = SEV_STATE_UNINIT;
 	dev_dbg(sev->dev, "SEV firmware shutdown\n");
@@ -725,6 +747,13 @@ static int sev_get_api_version(void)
 	sev->build = status.build;
 	sev->state = status.state;
 
+	/*
+	 * The api version fields of HYGON CSV firmware are not consistent
+	 * with AMD SEV firmware.
+	 */
+	if (is_vendor_hygon())
+		csv_update_api_version(&status);
+
 	return 0;
 }
 
@@ -733,6 +762,14 @@ static int sev_get_firmware(struct device *dev,
 {
 	char fw_name_specific[SEV_FW_NAME_SIZE];
 	char fw_name_subset[SEV_FW_NAME_SIZE];
+
+	if (is_vendor_hygon()) {
+		/* Check for CSV FW to using generic name: csv.fw */
+		if (firmware_request_nowarn(firmware, CSV_FW_FILE, dev) >= 0)
+			return 0;
+		else
+			return -ENOENT;
+	}
 
 	snprintf(fw_name_specific, sizeof(fw_name_specific),
 		 "amd/amd_sev_fam%.2xh_model%.2xh.sbin",
@@ -772,13 +809,15 @@ static int sev_update_firmware(struct device *dev)
 	struct page *p;
 	u64 data_size;
 
-	if (!sev_version_greater_or_equal(0, 15)) {
+	if (!sev_version_greater_or_equal(0, 15) &&
+	    !(is_vendor_hygon() && csv_version_greater_or_equal(1667))) {
 		dev_dbg(dev, "DOWNLOAD_FIRMWARE not supported\n");
 		return -1;
 	}
 
 	if (sev_get_firmware(dev, &firmware) == -ENOENT) {
-		dev_dbg(dev, "No SEV firmware file present\n");
+		dev_dbg(dev, "No %s firmware file present\n",
+			is_vendor_hygon() ? "CSV" : "SEV");
 		return -1;
 	}
 
@@ -818,9 +857,11 @@ static int sev_update_firmware(struct device *dev)
 		ret = sev_do_cmd(SEV_CMD_DOWNLOAD_FIRMWARE, data, &error);
 
 	if (ret)
-		dev_dbg(dev, "Failed to update SEV firmware: %#x\n", error);
+		dev_dbg(dev, "Failed to update %s firmware: %#x\n",
+			is_vendor_hygon() ? "CSV" : "SEV", error);
 	else
-		dev_info(dev, "SEV firmware update successful\n");
+		dev_info(dev, "%s firmware update successful\n",
+			 is_vendor_hygon() ? "CSV" : "SEV");
 
 	__free_pages(p, order);
 
@@ -1200,7 +1241,11 @@ static int sev_misc_init(struct sev_device *sev)
 		misc = &misc_dev->misc;
 		misc->minor = MISC_DYNAMIC_MINOR;
 		misc->name = DEVICE_NAME;
-		misc->fops = &sev_fops;
+
+		if (is_vendor_hygon())
+			misc->fops = &csv_fops;
+		else
+			misc->fops = &sev_fops;
 
 		ret = misc_register(misc);
 		if (ret)
@@ -1222,7 +1267,15 @@ static int sev_misc_init(struct sev_device *sev)
 static void sev_dev_install_hooks(void)
 {
 	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
+	hygon_psp_hooks.psp_dead = &psp_dead;
+	hygon_psp_hooks.psp_timeout = &psp_timeout;
+	hygon_psp_hooks.psp_cmd_timeout = &psp_cmd_timeout;
+	hygon_psp_hooks.sev_cmd_buffer_len = sev_cmd_buffer_len;
 	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
+	hygon_psp_hooks.__sev_platform_init_locked = __sev_platform_init_locked;
+	hygon_psp_hooks.__sev_platform_shutdown_locked = __sev_platform_shutdown_locked;
+	hygon_psp_hooks.sev_wait_cmd_ioc = sev_wait_cmd_ioc;
+	hygon_psp_hooks.sev_ioctl = sev_ioctl;
 
 	hygon_psp_hooks.sev_dev_hooks_installed = true;
 }
@@ -1330,7 +1383,8 @@ void sev_dev_destroy(struct psp_device *psp)
 int sev_issue_cmd_external_user(struct file *filep, unsigned int cmd,
 				void *data, int *error)
 {
-	if (!filep || filep->f_op != &sev_fops)
+	if (!filep || filep->f_op != (is_vendor_hygon()
+				      ? &csv_fops : &sev_fops))
 		return -EBADF;
 
 	return sev_do_cmd(cmd, data, error);

@@ -114,6 +114,12 @@ void add_encrypt_protection_map(void);
 
 extern char __start_bss_decrypted[], __end_bss_decrypted[], __start_bss_decrypted_unused[];
 
+#ifdef CONFIG_HYGON_CSV
+extern void print_hygon_cc_feature_info(void);
+#else	/* !CONFIG_HYGON_CSV */
+static inline void print_hygon_cc_feature_info(void) { }
+#endif	/* CONFIG_HYGON_CSV */
+
 #endif	/* __ASSEMBLY__ */
 
 #endif	/* __X86_MEM_ENCRYPT_H__ */

@@ -405,13 +405,6 @@ int phytium_spi_add_host(struct device *dev, struct phytium_spi *fts)
 	fts->dma_addr = (dma_addr_t)(fts->paddr + DR);
 	snprintf(fts->name, sizeof(fts->name), "phytium_spi%d", fts->bus_num);
 
-	ret = request_irq(fts->irq, phytium_spi_irq, IRQF_SHARED,
-			fts->name, master);
-	if (ret < 0) {
-		dev_err(dev, "can not get IRQ\n");
-		goto err_free_master;
-	}
-
 	master->use_gpio_descriptors = true;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
 	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(16);
@@ -440,6 +433,14 @@ int phytium_spi_add_host(struct device *dev, struct phytium_spi *fts)
 	}
 
 	spi_master_set_devdata(master, fts);
+
+	ret = request_irq(fts->irq, phytium_spi_irq, IRQF_SHARED,
+			fts->name, master);
+	if (ret < 0) {
+		dev_err(dev, "can not get IRQ\n");
+		goto err_free_master;
+	}
+
 	ret = spi_register_controller(master);
 	if (ret) {
 		dev_err(&master->dev, "problem registering spi master\n");
