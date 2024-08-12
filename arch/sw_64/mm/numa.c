@@ -289,6 +289,28 @@ static void __init get_numa_info_socket(void)
 	}
 }
 
+static void cpu_set_node(void)
+{
+	int i;
+
+	if (numa_off) {
+		for (i = 0; i < nr_cpu_ids; i++)
+			cpu_to_node_map[i] = 0;
+	} else {
+		for (i = 0; i < nr_cpu_ids; i++) {
+			int nid = rcid_to_domain_id(cpu_to_rcid(i));
+
+			cpu_to_node_map[i] = nid;
+			node_set(nid, numa_nodes_parsed);
+		}
+	}
+	/*
+	 * Setup numa_node for cpu 0 before per_cpu area for booting.
+	 * Actual setup of numa_node will be done in native_smp_prepare_cpus().
+	 */
+	set_cpu_numa_node(0, cpu_to_node_map[0]);
+}
+
 static int __init manual_numa_init(void)
 {
 	int ret, nid;
@@ -350,6 +372,8 @@ static int __init manual_numa_init(void)
 		}
 	}
 
+	cpu_set_node();
+
 	return 0;
 }
 
@@ -383,37 +407,6 @@ void __init sw64_numa_init(void)
 	}
 
 	numa_init(manual_numa_init);
-}
-
-void cpu_set_node(void)
-{
-	int i;
-
-	if (numa_off) {
-		for (i = 0; i < nr_cpu_ids; i++)
-			cpu_to_node_map[i] = 0;
-	} else {
-		int rr, default_node, cid;
-
-		rr = first_node(node_online_map);
-		for (i = 0; i < nr_cpu_ids; i++) {
-			cid = cpu_to_rcid(i);
-			default_node = rcid_to_domain_id(cid);
-			if (node_online(default_node)) {
-				cpu_to_node_map[i] = default_node;
-			} else {
-				cpu_to_node_map[i] = rr;
-				rr = next_node(rr, node_online_map);
-				if (rr == MAX_NUMNODES)
-					rr = first_node(node_online_map);
-			}
-		}
-	}
-	/*
-	 * Setup numa_node for cpu 0 before per_cpu area for booting.
-	 * Actual setup of numa_node will be done in native_smp_prepare_cpus().
-	 */
-	set_cpu_numa_node(0, cpu_to_node_map[0]);
 }
 
 void numa_store_cpu_info(unsigned int cpu)
