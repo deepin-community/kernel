@@ -24,6 +24,10 @@ static bool rtw89_disable_ps_mode;
 module_param_named(disable_ps_mode, rtw89_disable_ps_mode, bool, 0644);
 MODULE_PARM_DESC(disable_ps_mode, "Set Y to disable low power mode");
 
+static bool rtw89_disable_pwr_lmt;
+module_param_named(disable_pwr_lmt, rtw89_disable_pwr_lmt, bool, 0644);
+MODULE_PARM_DESC(disable_pwr_lmt, "Set Y to disable power limit");
+
 #define RTW89_DEF_CHAN(_freq, _hw_val, _flags, _band)	\
 	{ .center_freq = _freq, .hw_value = _hw_val, .flags = _flags, .band = _band, }
 #define RTW89_DEF_CHAN_2G(_freq, _hw_val)	\
@@ -457,6 +461,11 @@ static void __rtw89_set_channel(struct rtw89_dev *rtwdev,
 	chip->ops->set_channel(rtwdev, chan, mac_idx, phy_idx);
 
 	chip->ops->set_txpwr(rtwdev, chan, phy_idx);
+
+	if (rtw89_disable_pwr_lmt) {
+		rtw89_write32(rtwdev, 0xd208, 0x00000000);
+		rtw89_info(rtwdev, "[0xd208]: %08x", rtw89_read32(rtwdev, 0xd208));
+	}
 
 	rtw89_chip_set_channel_done(rtwdev, &bak, chan, mac_idx, phy_idx);
 
