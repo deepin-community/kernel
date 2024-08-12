@@ -382,10 +382,6 @@ static int __init request_standard_resources(void)
 }
 subsys_initcall(request_standard_resources);
 
-#ifdef CONFIG_NUMA
-extern void cpu_set_node(void);
-#endif
-
 static int __init topology_init(void)
 {
 	int i, ret;
@@ -733,12 +729,6 @@ setup_arch(char **cmdline_p)
 
 	/* Default root filesystem to sda2.  */
 	ROOT_DEV = MKDEV(SCSI_DISK0_MAJOR, 2);
-
-	if (acpi_disabled) {
-#ifdef CONFIG_NUMA
-		cpu_set_node();
-#endif
-	}
 }
 
 static int
