@@ -195,5 +195,6 @@ source "drivers/net/ethernet/xilinx/Kconfig"
 source "drivers/net/ethernet/xircom/Kconfig"
 source "drivers/net/ethernet/phytium/Kconfig"
 source "drivers/net/ethernet/guangruntong/Kconfig"
+source "drivers/net/ethernet/bzwx/Kconfig"
 
 endif # ETHERNET

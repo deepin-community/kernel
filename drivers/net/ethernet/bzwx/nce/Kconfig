@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# BeiZhongWangXin device configuration
+
+
+config NCE
+	tristate "BeiZhongWangXin Ethernet Connection N5/N6 Series Support"
+	depends on PCI
+	help
+	  This selects the drivers support BeiZhongWangXin Ethernet Connection N5/N6 Series devices.
+
+if NCE
+
+config NE6X
+	tristate "BeiZhongWangXin Ethernet Connection N5/N6 Series Support"
+	depends on (PCI_MSI && NETDEVICES && ETHERNET && INET && (X86_64 || ARM64))
+	select NET_DEVLINK
+	help
+	  This driver supports BeiZhongWangXin Ethernet Connection N5/N6 Series
+	  of devices.
+
+	  To compile this driver as a module, choose M here.
+	  The module will be called ncepf.
+
+config NE6XVF
+	tristate "BeiZhongWangXin Ethernet Connection N5/N6 Series Virtual Function support"
+	depends on NE6X
+	help
+	  This driver supports virtual functions for BeiZhongWangXin Ethernet Connection N5/N6 Series
+	  Virtual Function devices.
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called ncevf.
+
+endif #NCE
