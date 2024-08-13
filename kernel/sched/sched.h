@@ -2664,8 +2664,16 @@ extern void post_init_entity_util_avg(struct task_struct *p);
 extern bool sched_can_stop_tick(struct rq *rq);
 extern int __init sched_tick_offload_init(void);
 
-static inline void set_next_task_first(struct rq *rq, struct task_struct *next)
+static inline void put_prev_set_next_task(struct rq *rq,
+					  struct task_struct *prev,
+					  struct task_struct *next)
 {
+	WARN_ON_ONCE(rq->curr != prev);
+
+	if (next == prev)
+		return;
+
+	prev->sched_class->put_prev_task(rq, prev);
 	next->sched_class->set_next_task(rq, next, true);
 }
 
