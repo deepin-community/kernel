@@ -59,6 +59,16 @@ enum bpi_mem_type {
 #define LS7A_DMA_NODE_ID_OFFSET_SHF	8
 #define LS7A_DMA_NODE_ID_OFFSET_MASK	GENMASK(12, 8)
 
+/* Section 14.4.1, Page 100 of Loongson-3A5000 User Manual v1.03 */
+#define HT_CTRL_CFG_OFF		0xfdfb000000ull
+/* Section 14.5.34, Page 141 of Loongson-3A5000 User Manual v1.03 */
+#define HT_CTRL_HT_RX_INT_TRANS_LO_OFF	0x270
+#define HT_CTRL_HT_RX_INT_TRANS_HI_OFF	0x274
+#define HT_CTRL_HT_RX_INT_TRANS_INT_TRANS_ALLOW BIT(30)
+
+/* Section 11.2.3, Page 61 of Loongson-3A5000 User Manual v1.03 */
+#define EXT_IOI_SEND_OFF	0x1140
+
 struct loongarch_bpi_mem_map {
 	struct	loongarch_bpi_ext_hdr header;	/*{"M", "E", "M"}*/
 	u8	map_count;
@@ -614,6 +624,20 @@ static void __init init_acpi_arch_os_table_override (struct acpi_table_header *e
 			dma_cfg |= 8 << LS7A_DMA_NODE_ID_OFFSET_SHF;
 			writel(dma_cfg, dma_node_id_addr);
 		}
+	}
+
+	// Override HT_RX_INT_TRANS
+	for(int i = 0; i < io_apic_count; i++){
+		unsigned int node = eio_pics[i].node;
+		void __iomem *ht_rx_int_trans_hi = (void __iomem *) TO_UNCACHE(nid_to_addrbase(node) + HT1LO_OFFSET + HT_CTRL_CFG_OFF + HT_CTRL_HT_RX_INT_TRANS_HI_OFF);
+		void __iomem *ht_rx_int_trans_lo = (void __iomem *) TO_UNCACHE(nid_to_addrbase(node) + HT1LO_OFFSET + HT_CTRL_CFG_OFF + HT_CTRL_HT_RX_INT_TRANS_LO_OFF);
+		u64 ext_ioi_addr = nid_to_addrbase(node) + LOONGSON_REG_BASE + EXT_IOI_SEND_OFF;
+		u64 ht_rx_int_trans_cfg_orig = ((u64)readl(ht_rx_int_trans_hi) << 32) | readl(ht_rx_int_trans_lo);
+		u32 ht_rx_int_trans_cfg_hi = HT_CTRL_HT_RX_INT_TRANS_INT_TRANS_ALLOW | (ext_ioi_addr >> 32);
+		u32 ht_rx_int_trans_cfg_lo = ext_ioi_addr & GENMASK(31, 0);
+		pr_info("BPI: HT controller on node %u RX_INT_TRANS is 0x%llx, will set to 0x%llx\n", node, ht_rx_int_trans_cfg_orig, ((u64)ht_rx_int_trans_cfg_hi << 32) | ht_rx_int_trans_cfg_lo);
+		writel(ht_rx_int_trans_cfg_hi, ht_rx_int_trans_hi);
+		writel(ht_rx_int_trans_cfg_lo, ht_rx_int_trans_lo);
 	}
 }
 
