@@ -2656,6 +2656,11 @@ extern void post_init_entity_util_avg(struct task_struct *p);
 extern bool sched_can_stop_tick(struct rq *rq);
 extern int __init sched_tick_offload_init(void);
 
+static inline void set_next_task_first(struct rq *rq, struct task_struct *next)
+{
+	next->sched_class->set_next_task(rq, next, true);
+}
+
 /*
  * Tick may be needed by tasks in the runqueue depending on their policy and
  * requirements. If tick is needed, lets send the target an IPI to kick it out of
