@@ -46,6 +46,19 @@ enum bpi_mem_type {
 #define MSI_MSG_ADDRESS		0x2FF00000
 #define MSI_MSG_DEFAULT_COUNT	0xC0
 
+/*
+  ``This should be configured by firmware"
+    -- Section 4, Page 25 of Loongson-7A1000 User Manual v2.0
+  but unable to figure out the exact value.
+  The manual gives a typical value in Table 3.2, Page 23.
+*/
+#define LS7A_CHIPCFG_REG_OFF	0x00010000
+
+/* Section 4.1, Page 26 of Loongson-7A1000 User Manual v2.0 */
+#define LS7A_DMA_CFG_OFF	0x041c
+#define LS7A_DMA_NODE_ID_OFFSET_SHF	8
+#define LS7A_DMA_NODE_ID_OFFSET_MASK	GENMASK(12, 8)
+
 struct loongarch_bpi_mem_map {
 	struct	loongarch_bpi_ext_hdr header;	/*{"M", "E", "M"}*/
 	u8	map_count;
@@ -588,6 +601,20 @@ static void __init init_acpi_arch_os_table_override (struct acpi_table_header *e
 	new_madt->header.checksum = 0 - ext_listhdr_checksum((u8 *)new_madt, new_madt_size);
 	new_mcfg->header.checksum = 0 - ext_listhdr_checksum((u8 *)new_mcfg, new_mcfg_size);
 	*new_table = (struct acpi_table_header *)new_madt;
+
+	// Override LS7A dma_node_id_offset
+	for(int i = 0; i < io_apic_count; i++){
+		u64 ls7a_base_addr = bio_pics[i].address;
+		void __iomem *dma_node_id_addr = (void __iomem *) TO_UNCACHE(ls7a_base_addr + LS7A_CHIPCFG_REG_OFF + LS7A_DMA_CFG_OFF);
+		u32 dma_cfg = readl(dma_node_id_addr);
+		u32 dma_node_id_offset = (dma_cfg & LS7A_DMA_NODE_ID_OFFSET_MASK) >> LS7A_DMA_NODE_ID_OFFSET_SHF;
+		if(dma_node_id_offset != 8){
+			pr_info("BPI: LS7A %d DMA node id offset is %d, will set to 8\n", i, dma_node_id_offset);
+			dma_cfg &= ~LS7A_DMA_NODE_ID_OFFSET_MASK;
+			dma_cfg |= 8 << LS7A_DMA_NODE_ID_OFFSET_SHF;
+			writel(dma_cfg, dma_node_id_addr);
+		}
+	}
 }
 
 void acpi_arch_os_table_override (struct acpi_table_header *existing_table, struct acpi_table_header **new_table){
