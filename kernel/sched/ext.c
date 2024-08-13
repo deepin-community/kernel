@@ -2728,7 +2728,8 @@ static void process_ddsp_deferred_locals(struct rq *rq)
 	}
 }
 
-static void put_prev_task_scx(struct rq *rq, struct task_struct *p)
+static void put_prev_task_scx(struct rq *rq, struct task_struct *p,
+			      struct task_struct *next)
 {
 	update_curr_scx(rq);
 
@@ -2789,14 +2790,14 @@ static struct task_struct *pick_next_task_scx(struct rq *rq,
 	struct task_struct *p;
 
 	if (prev->sched_class == &ext_sched_class)
-		put_prev_task_scx(rq, prev);
+		put_prev_task_scx(rq, prev, NULL);
 
 	p = first_local_task(rq);
 	if (!p)
 		return NULL;
 
 	if (prev->sched_class != &ext_sched_class)
-		prev->sched_class->put_prev_task(rq, prev);
+		prev->sched_class->put_prev_task(rq, prev, p);
 
 	set_next_task_scx(rq, p, true);
 
