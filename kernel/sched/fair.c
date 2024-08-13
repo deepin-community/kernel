@@ -8805,8 +8805,7 @@ again:
 
 simple:
 #endif
-	put_prev_task(rq, prev);
-	set_next_task_fair(rq, p, true);
+	put_prev_set_next_task(rq, prev, p);
 	return p;
 
 idle:
