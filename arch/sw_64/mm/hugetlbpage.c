@@ -94,11 +94,12 @@ pte_t *huge_pte_offset(struct mm_struct *mm, unsigned long addr,
 			pud = pud_offset(p4d, addr);
 			if (pud_present(*pud)) {
 				pmd = pmd_offset(pud, addr);
-				if (!pmd_present(*pmd))
-					return NULL;
-				if (pmd_val(*pmd) & _PAGE_CONT)
-					pte = pte_offset_map(pmd, addr);
-				else
+				if (sz == CONT_PMD_SIZE) {
+					if (!pmd_none(*pmd))
+						pte = pte_offset_map(pmd, addr);
+					else
+						return NULL;
+				} else if (sz == PMD_SIZE)
 					pte = (pte_t *) pmd;
 			}
 		}
