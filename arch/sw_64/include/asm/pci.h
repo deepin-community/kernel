@@ -158,6 +158,8 @@ extern void __init sw64_init_arch(void);
 extern struct pci_ops sw64_pci_ops;
 extern int sw64_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 extern struct pci_controller *hose_head;
+extern bool sunway_legacy_pci;
+
 #ifdef CONFIG_PCI_SW64
 extern void __init setup_chip_pci_ops(void);
 #else
@@ -168,7 +170,6 @@ extern struct pci_controller *
 pci_bus_to_pci_controller(const struct pci_bus *bus);
 extern struct pci_controller *bus_num_to_pci_controller(unsigned long bus_num);
 
-extern void sw64_pci_root_bridge_prepare(struct pci_host_bridge *bridge);
 extern void sw64_pci_root_bridge_scan_finish_up(struct pci_host_bridge *bridge);
 extern int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 

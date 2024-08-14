@@ -3,6 +3,9 @@
 #include <linux/pci-acpi.h>
 #include <linux/pci-ecam.h>
 #include <linux/acpi.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
 
 #include <asm/sw64_init.h>
 
@@ -385,7 +388,7 @@ struct pci_controller *pci_bus_to_pci_controller(const struct pci_bus *bus)
 	if (unlikely(!bus))
 		return NULL;
 
-	if (acpi_disabled)
+	if (sunway_legacy_pci)
 		return (struct pci_controller *)(bus->sysdata);
 
 	cfg = (struct pci_config_window *)bus->sysdata;
@@ -615,8 +618,6 @@ int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	return map_irq(dev, slot, pin);
 }
 
-#ifdef CONFIG_ACPI
-
 enum pci_props {
 	PROP_RC_CONFIG_BASE = 0,
 	PROP_EP_CONFIG_BASE,
@@ -630,7 +631,7 @@ enum pci_props {
 	PROP_NUM
 };
 
-const char *prop_names[PROP_NUM] = {
+static const char *prop_names_legacy[PROP_NUM] = {
 	"sw64,rc_config_base",
 	"sw64,ep_config_base",
 	"sw64,ep_mem_32_base",
@@ -642,22 +643,67 @@ const char *prop_names[PROP_NUM] = {
 	"sw64,pcie_io_base"
 };
 
+static const char *prop_names[PROP_NUM] = {
+	"sunway,rc-config-base",
+	"sunway,ep-config-base",
+	"sunway,ep-mem-32-base",
+	"sunway,ep-mem-64-base",
+	"sunway,ep-io-base",
+	"sunway,piu-ior0-base",
+	"sunway,piu-ior1-base",
+	"sunway,rc-index",
+	"sunway,pcie-io-base"
+};
+
+#ifdef CONFIG_NUMA
+static void pci_controller_set_node(struct pci_controller *hose,
+		struct fwnode_handle *fwnode)
+{
+	if (numa_off)
+		return;
+
+	/* Get node from ACPI namespace (_PXM) or DTB */
+	if (acpi_disabled)
+		hose->node = of_node_to_nid(to_of_node(fwnode));
+	else
+		hose->node = acpi_get_node(ACPI_HANDLE_FWNODE(fwnode));
+
+	/**
+	 * If numa_off is not set, we expect a valid node ID.
+	 * If not, fallback to node 0.
+	 */
+	if (hose->node == NUMA_NO_NODE) {
+		pr_warn("Invalid node ID\n");
+		hose->node = 0;
+	}
+}
+#endif
+
 static int sw64_pci_prepare_controller(struct pci_controller *hose,
 		struct fwnode_handle *fwnode)
 {
 	u64 props[PROP_NUM];
 	int i, ret;
 
-	/* Get properties of Root Complex */
+	/* Get necessary properties of Root Complex */
 	for (i = 0; i < PROP_NUM; ++i) {
-		ret = fwnode_property_read_u64_array(fwnode, prop_names[i],
-			&props[i], 1);
+		ret = fwnode_property_read_u64(fwnode, prop_names[i],
+				&props[i]);
+
+		/* Fallback to legacy names and try again */
+		if (ret)
+			ret = fwnode_property_read_u64(fwnode,
+					prop_names_legacy[i], &props[i]);
+
 		if (ret) {
-			pr_err("unable to retrieve \"%s\"\n",
-					prop_names[i]);
+			pr_err("unable to retrieve \"%s\"\n", prop_names[i]);
 			return ret;
 		}
 	}
+
+#ifdef CONFIG_NUMA
+	pci_controller_set_node(hose, fwnode);
+#endif
 
 	hose->iommu_enable = false;
 
@@ -709,13 +755,9 @@ static int sw64_pci_prepare_controller(struct pci_controller *hose,
 	return 0;
 }
 
-/**
- * Use the info from ACPI to init pci_controller
- */
-static int sw64_pci_ecam_init(struct pci_config_window *cfg)
+#ifdef CONFIG_ACPI
+static int sw64_pci_acpi_present(struct device *dev)
 {
-	struct pci_controller *hose = NULL;
-	struct device *dev = cfg->parent;
 	struct acpi_device *adev = to_acpi_device(dev);
 	int ret;
 
@@ -740,27 +782,39 @@ static int sw64_pci_ecam_init(struct pci_config_window *cfg)
 		return -ENODEV;
 	}
 
+	return 0;
+}
+#endif
+
+/**
+ * Use the information from ACPI or DTB to init pci_controller
+ */
+static int sw64_pci_ecam_init(struct pci_config_window *cfg)
+{
+	struct pci_controller *hose = NULL;
+	struct device *dev = cfg->parent;
+	struct fwnode_handle *fwnode = dev->fwnode;
+	int ret;
+
+#ifdef CONFIG_ACPI
+	if (!acpi_disabled) {
+		ret = sw64_pci_acpi_present(dev);
+		if (ret)
+			return ret;
+
+		fwnode = acpi_fwnode_handle(to_acpi_device(dev));
+	}
+#endif
+
 	hose = kzalloc(sizeof(*hose), GFP_KERNEL);
 	if (!hose)
 		return -ENOMEM;
 
-#ifdef CONFIG_ACPI_NUMA
-	if (!numa_off) {
-		/* Get node from ACPI namespace (_PXM) */
-		hose->node = acpi_get_node(adev->handle);
-		if (hose->node == NUMA_NO_NODE) {
-			kfree(hose);
-			dev_err(&adev->dev, "unable to get node ID\n");
-			return -EINVAL;
-		}
-	}
-#endif
-
 	/* Init pci_controller */
-	ret = sw64_pci_prepare_controller(hose, &adev->fwnode);
+	ret = sw64_pci_prepare_controller(hose, fwnode);
 	if (ret) {
 		kfree(hose);
-		dev_err(&adev->dev, "failed to init pci controller\n");
+		dev_err(dev, "failed to init pci controller\n");
 		return ret;
 	}
 
@@ -778,4 +832,125 @@ const struct pci_ecam_ops sw64_pci_ecam_ops = {
 		.write   = sw64_pcie_config_write,
 	}
 };
-#endif
+
+#ifdef CONFIG_OF
+
+static const struct of_device_id sunway_pcie_of_match[] = {
+	{
+		.compatible = "sunway,pcie",
+		.data = &sw64_pci_ecam_ops,
+	},
+	{},
+};
+
+static void sunway_pcie_ecam_free(void *p)
+{
+	pci_ecam_free((struct pci_config_window *)p);
+}
+
+static struct pci_host_bridge *sunway_pcie_of_init(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct pci_host_bridge *bridge;
+	struct pci_config_window *cfg;
+	struct pci_ecam_ops *ops;
+	struct resource *ecam_res = NULL;
+	struct resource_entry *bus_range = NULL;
+	int ret;
+
+	ops = (struct pci_ecam_ops *)of_device_get_match_data(dev);
+	if (!ops) {
+		dev_err(dev, "failed to get ecam ops\n");
+		return NULL;
+	}
+
+	ecam_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ecam");
+	if (!ecam_res) {
+		dev_err(dev, "failed to get ecam\n");
+		return NULL;
+	}
+
+	bridge = devm_pci_alloc_host_bridge(dev, 0);
+	if (!bridge) {
+		dev_err(dev, "failed to create host bridge\n");
+		return NULL;
+	}
+
+	bus_range = resource_list_first_type(&bridge->windows, IORESOURCE_BUS);
+	if (!bus_range) {
+		dev_err(dev, "failed to get bus resource\n");
+		return NULL;
+	}
+
+	cfg = pci_ecam_create(dev, ecam_res, bus_range->res, ops);
+	if (IS_ERR(cfg)) {
+		dev_err(dev, "failed to create ecam\n");
+		return NULL;
+	}
+
+	ret = devm_add_action_or_reset(dev, sunway_pcie_ecam_free, cfg);
+	if (ret)
+		return NULL;
+
+	bridge->sysdata = cfg;
+	bridge->ops = (struct pci_ops *)&ops->pci_ops;
+
+	return bridge;
+}
+
+static int sunway_pcie_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct pci_host_bridge *bridge;
+	struct pci_bus *bus, *child;
+	int ret;
+
+	/* Prevent conflicts between legacy PCI and DT-based PCI */
+	if (sunway_legacy_pci)
+		return 0;
+
+	bridge = sunway_pcie_of_init(pdev);
+	if (!bridge)
+		return -ENODEV;
+
+	ret = pci_scan_root_bus_bridge(bridge);
+	if (ret < 0) {
+		dev_err(dev, "failed to scan root bridge\n");
+		return ret;
+	}
+
+	bus = bridge->bus;
+
+	/**
+	 * Some quirks for Sunway PCIe controller after scanning,
+	 * that's why we don't directly call function pci_host_probe().
+	 */
+	sw64_pci_root_bridge_scan_finish_up(bridge);
+
+	pci_bus_size_bridges(bus);
+	pci_bus_assign_resources(bus);
+
+	list_for_each_entry(child, &bus->children, node)
+		pcie_bus_configure_settings(child);
+
+	pci_bus_add_devices(bus);
+
+	return 0;
+}
+
+static struct platform_driver sunway_pcie_driver = {
+	.probe = sunway_pcie_probe,
+	.driver = {
+		.name = "sunway-pcie",
+		.of_match_table = sunway_pcie_of_match,
+	},
+};
+
+static int __init sunway_pcie_driver_init(void)
+{
+	return platform_driver_register(&sunway_pcie_driver);
+}
+subsys_initcall(sunway_pcie_driver_init);
+
+#endif /* CONFIG_OF */
+

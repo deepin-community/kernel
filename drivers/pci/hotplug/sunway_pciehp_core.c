@@ -249,23 +249,38 @@ static void sunway_hose_hotplug_init(void)
 	struct pci_dev *pdev = NULL;
 	struct pci_controller *hose;
 	struct pci_config_window *cfg;
-	struct acpi_device *adev;
-	u64 prop_hotplug_enable;
+	struct device *dev;
+	struct fwnode_handle *fwnode;
+	u64 hotplug_enable;
 
-	while ((pdev = pci_get_device(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev))) {
+	while ((pdev = pci_get_device(PCI_VENDOR_ID_JN,
+				PCI_DEVICE_ID_SW64_ROOT_BRIDGE, pdev))) {
 		hose = pci_bus_to_pci_controller(pdev->bus);
+
+		/* disable by default */
 		hose->hotplug_enable = false;
 
-		if (!acpi_disabled) {
-			cfg = (struct pci_config_window *)pdev->bus->sysdata;
-			adev = to_acpi_device(cfg->parent);
+		if (sunway_legacy_pci)
+			continue;
 
-			ret = fwnode_property_read_u64_array(&adev->fwnode,
-					"sw64,hot_plug_slot_enable", &prop_hotplug_enable, 1);
+		cfg = (struct pci_config_window *)pdev->bus->sysdata;
+		dev = cfg->parent;
 
-			if (ret == 0)
-				hose->hotplug_enable = prop_hotplug_enable;
-		}
+		if (acpi_disabled)
+			fwnode = dev->fwnode;
+		else
+			fwnode = acpi_fwnode_handle(to_acpi_device(dev));
+
+		ret = fwnode_property_read_u64(fwnode,
+			"sunway,hotplug-enable", &hotplug_enable);
+
+		/* Fallback to legacy prop name */
+		if (ret)
+			ret = fwnode_property_read_u64(fwnode,
+				"sw64,hot_plug_slot_enable", &hotplug_enable);
+
+		if (!ret)
+			hose->hotplug_enable = hotplug_enable;
 	}
 }
 

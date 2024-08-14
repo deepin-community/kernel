@@ -2,6 +2,7 @@
 #include <linux/list.h>
 #include <linux/pci.h>
 #include <linux/pci-ecam.h>
+#include <linux/acpi.h>
 
 #include <asm/pci.h>
 #include <asm/sw64_init.h>
@@ -287,7 +288,7 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, enable_sw_dca);
  */
 static unsigned char last_bus;
 
-void sw64_pci_root_bridge_prepare(struct pci_host_bridge *bridge)
+static void sw64_pci_root_bridge_prepare(struct pci_host_bridge *bridge)
 {
 	struct pci_controller *hose = NULL;
 	struct resource_entry *entry = NULL;
@@ -429,3 +430,26 @@ void sw64_pci_root_bridge_scan_finish_up(struct pci_host_bridge *bridge)
 	 */
 	pci_clear_flags(PCI_REASSIGN_ALL_BUS);
 }
+
+int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+{
+	struct pci_config_window *cfg = bridge->sysdata;
+	struct acpi_device *adev = NULL;
+	struct pci_controller *hose = cfg->priv;
+	struct device *bus_dev = &bridge->bus->dev;
+
+	if (sunway_legacy_pci)
+		return 0;
+
+	if (!acpi_disabled)
+		adev = to_acpi_device(cfg->parent);
+
+	ACPI_COMPANION_SET(&bridge->dev, adev);
+	set_dev_node(bus_dev, hose->node);
+
+	/* Some quirks for Sunway PCIe controller before scanning */
+	sw64_pci_root_bridge_prepare(bridge);
+
+	return 0;
+}
+

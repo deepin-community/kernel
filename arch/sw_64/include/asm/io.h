@@ -121,6 +121,20 @@ static inline void * __deprecated bus_to_virt(unsigned long address)
 }
 #define isa_bus_to_virt bus_to_virt
 
+static inline int pci_remap_iospace(const struct resource *res,
+		phys_addr_t phys_addr)
+{
+	if (!(res->flags & IORESOURCE_IO))
+		return -EINVAL;
+
+	if (res->end > IO_SPACE_LIMIT)
+		return -EINVAL;
+
+	return 0;
+}
+
+#define pci_remap_iospace pci_remap_iospace
+
 #endif /* __KERNEL__ */
 
 #endif /* _ASM_SW64_IO_H */
