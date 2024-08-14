@@ -86,6 +86,9 @@ DEFINE_STATIC_KEY_FALSE(run_mode_guest_key);
 DEFINE_STATIC_KEY_FALSE(run_mode_emul_key);
 
 DEFINE_STATIC_KEY_FALSE(hw_una_enabled);
+DEFINE_STATIC_KEY_FALSE(junzhang_v1_key);
+DEFINE_STATIC_KEY_FALSE(junzhang_v2_key);
+DEFINE_STATIC_KEY_FALSE(junzhang_v3_key);
 
 struct socket_desc_t socket_desc[MAX_NUMSOCKETS];
 int memmap_nr;
@@ -498,6 +501,20 @@ static void __init setup_firmware_fdt(void)
 		early_parse_fdt_property(dt_virt, "/soc/clocks/extclk",
 				"clock-frequency", &sunway_extclk_hz, sizeof(u32));
 		pr_info("EXTCLK: %llu Hz\n", sunway_extclk_hz);
+	}
+
+	if (sunway_machine_is_compatible("sunway,junzhang")) {
+		static_branch_enable(&junzhang_v1_key);
+		static_branch_disable(&junzhang_v2_key);
+		static_branch_disable(&junzhang_v3_key);
+	} else if (sunway_machine_is_compatible("sunway,junzhang_v2")) {
+		static_branch_enable(&junzhang_v2_key);
+		static_branch_disable(&junzhang_v1_key);
+		static_branch_disable(&junzhang_v3_key);
+	} else if (sunway_machine_is_compatible("sunway,junzhang_v3")) {
+		static_branch_enable(&junzhang_v3_key);
+		static_branch_disable(&junzhang_v1_key);
+		static_branch_disable(&junzhang_v2_key);
 	}
 
 	name = of_flat_dt_get_machine_name();
