@@ -99,9 +99,10 @@ static void downshift_freq(void)
 		struct cpu_topology *sib_topo = &cpu_topology[cpu];
 
 		if ((cpu_topo->package_id == sib_topo->package_id) &&
-		    (cpu_topo->core_id == sib_topo->core_id))
+				(cpu_topo->core_id == sib_topo->core_id))
 			return;
 	}
+
 
 	core_id = rcid_to_core_id(cpu_to_rcid(cpuid));
 	node_id = rcid_to_domain_id(cpu_to_rcid(cpuid));
@@ -542,10 +543,11 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	wmb();
 	smp_rcb->ready = 0;
 
-#ifdef CONFIG_SUBARCH_C3B
-	/* send wake up signal */
-	send_wakeup_interrupt(cpu);
-#endif
+	if (!is_junzhang_v1()) {
+		/* send wake up signal */
+		send_wakeup_interrupt(cpu);
+	}
+
 	smp_boot_one_cpu(cpu, tidle);
 
 #ifdef CONFIG_SUBARCH_C3B
@@ -841,17 +843,16 @@ void arch_cpu_idle_dead(void)
 	}
 
 #ifdef CONFIG_SUSPEND
-
-#ifdef CONFIG_SUBARCH_C3B
-	sleepen();
-	send_sleep_interrupt(smp_processor_id());
-	while (1)
-		asm("nop");
-#else
-	asm volatile("halt");
-	while (1)
-		asm("nop");
-#endif
+	if (!is_junzhang_v1()) {
+		sleepen();
+		send_sleep_interrupt(smp_processor_id());
+		while (1)
+			asm("nop");
+	} else {
+		asm volatile("halt");
+		while (1)
+			asm("nop");
+	}
 
 #else
 	asm volatile("memb");
