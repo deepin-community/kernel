@@ -38,14 +38,14 @@ void sw64_suspend_enter(void)
 	disable_local_timer();
 	current_thread_info()->pcb.tp = rtid();
 
-#ifdef CONFIG_SUBARCH_C3B
-	sw64_suspend_deep_sleep(&suspend_state);
-#else
-	pme_state = PME_WFW;
-	sw64_write_csr_imb(PME_EN, CSR_INT_EN);
-	asm("halt");
-	local_irq_disable();
-#endif
+	if (!is_junzhang_v1())
+		sw64_suspend_deep_sleep(&suspend_state);
+	else {
+		pme_state = PME_WFW;
+		sw64_write_csr_imb(PME_EN, CSR_INT_EN);
+		asm("halt");
+		local_irq_disable();
+	}
 
 	wrtp(current_thread_info()->pcb.tp);
 

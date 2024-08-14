@@ -91,17 +91,17 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 		nmi_enter();
 	old_regs = set_irq_regs(regs);
 
-#ifdef CONFIG_SUBARCH_C4
-	if (pme_state == PME_WFW) {
-		pme_state = PME_PENDING;
-		goto out;
-	}
+	if (is_junzhang_v1()) {
+		if (pme_state == PME_WFW) {
+			pme_state = PME_PENDING;
+			goto out;
+		}
 
-	if (pme_state == PME_PENDING) {
-		handle_device_interrupt(vector);
-		pme_state = PME_CLEAR;
+		if (pme_state == PME_PENDING) {
+			handle_device_interrupt(vector);
+			pme_state = PME_CLEAR;
+		}
 	}
-#endif
 
 	if (is_guest_or_emul()) {
 		if ((type & 0xffff) > 15) {
