@@ -12,6 +12,8 @@
 #define OFFSET_DEVINT_WKEN	0x1500UL
 #define OFFSET_DEVINTWK_INTEN	0x1600UL
 
+bool sunway_legacy_pci;
+
 /*
  * The PCI controller list.
  */
@@ -22,7 +24,7 @@ static void __init pcibios_reserve_legacy_regions(struct pci_bus *bus);
 static int __init
 pcibios_init(void)
 {
-	if (acpi_disabled)
+	if (sunway_legacy_pci)
 		sw64_init_pci();
 	return 0;
 }
@@ -277,8 +279,11 @@ void __init sw64_init_arch(void)
 		if (!acpi_disabled)
 			return;
 
-		if (sunway_machine_is_compatible("sunway,junzhang_v3"))
+		if (!sunway_machine_is_compatible("sunway,chip3") &&
+			!sunway_machine_is_compatible("sunway,junzhang"))
 			return;
+
+		sunway_legacy_pci = true;
 
 		cpu_num = sw64_chip->get_cpu_num();
 
