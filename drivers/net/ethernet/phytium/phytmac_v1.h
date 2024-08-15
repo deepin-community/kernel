@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd. */
+
 #ifndef _PHYTMAC_V1_H
 #define _PHYTMAC_V1_H
 
@@ -53,6 +55,9 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_USXSTATUS		0x0A88
 #define PHYTMAC_TXBDCTRL		0x04CC
 #define PHYTMAC_RXBDCTRL		0x04D0
+#define PHYTMAC_TXSTART			0x0E70
+#define PHYTMAC_TXSTARTSEL		0x0E74
+#define PHYTMAC_VERSION			0x0FF0
 
 /* Fdir match registers */
 #define PHYTMAC_FDIR(i)			(0x0540 + ((i) << 2))
@@ -75,7 +80,8 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_IDR(i)			(0x0620 + ((i) << 2))
 #define PHYTMAC_IMR(i)			(0x0640 + ((i) << 2))
 #define PHYTMAC_TAIL_ENABLE		(0x0e7c)
-#define PHYTMAC_TAILPTR(i)		(0x0e80 + ((i) << 2))
+#define PHYTMAC_TX_TAILPTR(i)	(0x0e80 + ((i) << 2))
+#define PHYTMAC_RX_TAILPTR(i)	(0x0ec0 + ((i) << 2))
 
 #define PHYTMAC_PHY_INT_ENABLE		0x1C88
 #define PHYTMAC_PHY_INT_CLEAR		0x1C8C
@@ -363,8 +369,11 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_TXTAIL_UPDATE_WIDTH		1
 
 /* Bitfields in TAIL_ENABLE */
-#define PHYTMAC_TXTAIL_ENABLE_INDEX		0 /* Enable tx tail */
-#define PHYTMAC_TXTAIL_ENABLE_WIDTH		1
+#define PHYTMAC_TXPTR_EN_INDEX		0	/* Enable tx tail */
+#define PHYTMAC_TXPTR_EN_WIDTH		1
+
+#define PHYTMAC_RXPTR_EN_INDEX		16	/* Enable rx tail */
+#define PHYTMAC_RXPTR_EN_WIDTH		1
 
 /* Bitfields in INT ENABLE */
 #define PHYTMAC_WOL_RECEIVE_ENABLE_INDEX    28 /* Enable wol_event_recieve */
@@ -373,6 +382,10 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 /* Bitfields in INT DISABLE */
 #define PHYTMAC_WOL_RECEIVE_DISABLE_INDEX    28 /* Disable wol_event_recieve */
 #define PHYTMAC_WOL_RECEIVE_DISABLE_WIDTH    1
+
+/* Bitfields in PHYTMAC_TXSTARTSEL */
+#define PHYTMAC_TSTARTSEL_ENABLE_INDEX 0 /* Enable Tstart_sel */
+#define PHYTMAC_TSTARTSEL_ENABLE_WIDTH 1
 
 #define PHYTMAC_TSEC_WIDTH (PHYTMAC_SECH_WIDTH + PHYTMAC_SECL_WIDTH)
 #define SEC_MAX_VAL (((u64)1 << PHYTMAC_TSEC_WIDTH) - 1)
