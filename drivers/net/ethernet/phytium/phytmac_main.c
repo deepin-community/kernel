@@ -2,6 +2,8 @@
 /*
  * Phytium Ethernet Controller driver
  *
+ * Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -124,10 +126,12 @@ static int phytmac_get_mac_address(struct phytmac *pdata)
 
 	if (is_valid_ether_addr(addr)) {
 		eth_hw_addr_set(pdata->ndev, addr);
+		ether_addr_copy(pdata->ndev->perm_addr, addr);
 		return 0;
 	}
 	dev_info(pdata->dev, "invalid hw address, using random\n");
 	eth_hw_addr_random(pdata->ndev);
+	ether_addr_copy(pdata->ndev->perm_addr, pdata->ndev->dev_addr);
 
 	return 0;
 }
@@ -1032,6 +1036,8 @@ static void phytmac_rx_clean(struct phytmac_queue *queue)
 	queue->rx_next_to_alloc = queue->rx_head;
 	/* make newly descriptor to hardware */
 	wmb();
+
+	hw_if->update_rx_tail(queue);
 }
 
 static int phytmac_rx(struct phytmac_queue *queue, struct napi_struct *napi,
@@ -1142,7 +1148,7 @@ static int phytmac_tx_clean(struct phytmac_queue *queue, int budget)
 	unsigned int tail = queue->tx_tail;
 	unsigned int head;
 
-	spin_lock(&pdata->lock);
+	spin_lock(&queue->tx_lock);
 
 	for (head = queue->tx_head; head != tail && packet_count < budget; ) {
 		struct sk_buff *skb;
@@ -1179,7 +1185,7 @@ static int phytmac_tx_clean(struct phytmac_queue *queue, int budget)
 				packet_count++;
 			}
 
-			  /* Now we can safely release resources */
+			/* Now we can safely release resources */
 			phytmac_tx_unmap(pdata, tx_skb, budget);
 
 			if (complete) {
@@ -1197,7 +1203,7 @@ static int phytmac_tx_clean(struct phytmac_queue *queue, int budget)
 	if (__netif_subqueue_stopped(pdata->ndev, queue_index) &&
 	    (phytmac_maybe_wake_tx_queue(queue)))
 		netif_wake_subqueue(pdata->ndev, queue_index);
-	spin_unlock(&pdata->lock);
+	spin_unlock(&queue->tx_lock);
 
 	return packet_count;
 }
@@ -1280,6 +1286,7 @@ static inline int phytmac_clear_csum(struct sk_buff *skb)
 
 static int phytmac_add_fcs(struct sk_buff **skb, struct net_device *ndev)
 {
+#ifdef PHYTMAC_SW_FCS
 	bool cloned = skb_cloned(*skb) || skb_header_cloned(*skb) ||
 				  skb_is_nonlinear(*skb);
 	int padlen = ETH_ZLEN - (*skb)->len;
@@ -1289,7 +1296,7 @@ static int phytmac_add_fcs(struct sk_buff **skb, struct net_device *ndev)
 	u32 fcs;
 	int i;
 
-	if ((ndev->features & NETIF_F_HW_CSUM) ||
+	if (!(ndev->features & NETIF_F_HW_CSUM) ||
 	    !((*skb)->ip_summed != CHECKSUM_PARTIAL) ||
 	    skb_shinfo(*skb)->gso_size || phytmac_ptp_one_step(*skb))
 		return 0;
@@ -1326,6 +1333,8 @@ add_fcs:
 
 	for (i = 0; i < 4; ++i)
 		skb_put_u8(*skb, (fcs >> (i * 8)) & 0xff);
+#endif
+
 	return 0;
 }
 
@@ -1375,13 +1384,13 @@ static int phytmac_packet_info(struct phytmac *pdata,
 		desc_cnt += TXD_USE_COUNT(pdata, skb_frag_size(&skb_shinfo(skb)->frags[f]));
 	packet->desc_cnt = desc_cnt;
 
-	if ((!(pdata->ndev->features & NETIF_F_HW_CSUM)) &&
+#ifdef PHYTMAC_SW_FCS
+	if ((pdata->ndev->features & NETIF_F_HW_CSUM) &&
 	    skb->ip_summed != CHECKSUM_PARTIAL &&
 	    !is_lso &&
 	    !phytmac_ptp_one_step(skb))
 		packet->nocrc = 1;
-	else
-		packet->nocrc = 0;
+#endif
 
 	if (netif_msg_pktdata(pdata)) {
 		netdev_info(pdata->ndev, "packet info: desc_cnt=%d, nocrc=%d,ip_summed=%d\n",
@@ -1521,7 +1530,6 @@ static netdev_tx_t phytmac_start_xmit(struct sk_buff *skb, struct net_device *nd
 	struct phytmac_queue *queue = &pdata->queues[queue_index];
 	netdev_tx_t ret = NETDEV_TX_OK;
 	struct packet_info packet;
-	unsigned long flags;
 
 	if (phytmac_clear_csum(skb)) {
 		dev_kfree_skb_any(skb);
@@ -1542,7 +1550,7 @@ static netdev_tx_t phytmac_start_xmit(struct sk_buff *skb, struct net_device *nd
 	if (netif_msg_pktdata(pdata))
 		phytmac_dump_pkt(pdata, skb, true);
 
-	spin_lock_irqsave(&pdata->lock, flags);
+	spin_lock_bh(&queue->tx_lock);
 	/* Check that there are enough descriptors available */
 	ret = phytmac_maybe_stop_tx_queue(queue, packet.desc_cnt);
 	if (ret)
@@ -1561,7 +1569,7 @@ static netdev_tx_t phytmac_start_xmit(struct sk_buff *skb, struct net_device *nd
 	hw_if->transmit(queue);
 
 tx_return:
-	spin_unlock_irqrestore(&pdata->lock, flags);
+	spin_unlock_bh(&queue->tx_lock);
 	return ret;
 }
 
@@ -1667,6 +1675,7 @@ static void phytmac_mac_link_down(struct phylink_config *config, unsigned int mo
 	unsigned int q;
 	unsigned long flags;
 	struct phytmac_tx_skb *tx_skb;
+	struct phytmac_dma_desc *tx_desc = NULL;
 	int i;
 
 	if (netif_msg_link(pdata)) {
@@ -1685,17 +1694,21 @@ static void phytmac_mac_link_down(struct phylink_config *config, unsigned int mo
 
 	/* Disable Rx and Tx */
 	hw_if->enable_network(pdata, false, PHYTMAC_RX | PHYTMAC_TX);
+	spin_unlock_irqrestore(&pdata->lock, flags);
 
 	/* Tx clean */
 	for (q = 0, queue = pdata->queues; q < pdata->queues_num; ++q, ++queue) {
+		spin_lock_bh(&queue->tx_lock);
 		for (i = 0; i < pdata->tx_ring_size; i++) {
 			tx_skb = phytmac_get_tx_skb(queue, i);
 			if (tx_skb)
 				phytmac_tx_unmap(pdata, tx_skb, 0);
-		}
-	}
 
-	spin_unlock_irqrestore(&pdata->lock, flags);
+			tx_desc = phytmac_get_tx_desc(queue, i);
+			hw_if->zero_tx_desc(tx_desc);
+		}
+		spin_unlock_bh(&queue->tx_lock);
+	}
 
 	netif_tx_stop_all_queues(ndev);
 }
@@ -1826,6 +1839,8 @@ static int phytmac_phylink_create(struct phytmac *pdata)
 
 	pdata->phylink_config.dev = &pdata->ndev->dev;
 	pdata->phylink_config.type = PHYLINK_NETDEV;
+	pdata->phylink_config.mac_managed_pm = true;
+
 	if (pdata->phy_interface == PHY_INTERFACE_MODE_SGMII ||
 	    pdata->phy_interface == PHY_INTERFACE_MODE_1000BASEX ||
 	    pdata->phy_interface == PHY_INTERFACE_MODE_2500BASEX ||
@@ -1862,10 +1877,6 @@ static int phytmac_open(struct net_device *ndev)
 
 	if (netif_msg_probe(pdata))
 		dev_dbg(pdata->dev, "open\n");
-
-	/* phytmac_powerup */
-	if (pdata->power_state == PHYTMAC_POWEROFF)
-		hw_if->poweron(pdata, PHYTMAC_POWERON);
 
 	if (hw_if->init_msg_ring)
 		hw_if->init_msg_ring(pdata);
@@ -1972,10 +1983,6 @@ static int phytmac_close(struct net_device *ndev)
 
 	if (IS_REACHABLE(CONFIG_PHYTMAC_ENABLE_PTP))
 		phytmac_ptp_unregister(pdata);
-
-	/* phytmac_powerup */
-	if (pdata->power_state == PHYTMAC_POWERON)
-		hw_if->poweron(pdata, PHYTMAC_POWEROFF);
 
 	return 0;
 }
@@ -2250,6 +2257,7 @@ int phytmac_drv_probe(struct phytmac *pdata)
 {
 	struct net_device *ndev = pdata->ndev;
 	struct device *dev = pdata->dev;
+	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	int ret = 0;
 
 	if (netif_msg_probe(pdata))
@@ -2273,12 +2281,13 @@ int phytmac_drv_probe(struct phytmac *pdata)
 			goto err_out;
 	}
 
-	netif_carrier_off(ndev);
-	ret = register_netdev(ndev);
-	if (ret) {
-		dev_err(pdata->dev, "Cannot register net device, aborting.\n");
-		goto err_out;
-	}
+	if (pdata->power_state == PHYTMAC_POWEROFF)
+		hw_if->poweron(pdata, PHYTMAC_POWERON);
+
+	if (hw_if->init_msg_ring)
+		hw_if->init_msg_ring(pdata);
+
+	mutex_init(&pdata->msg_ring.msg_mutex);
 
 	if (pdata->use_mii && !pdata->mii_bus) {
 		ret = phytmac_mdio_register(pdata);
@@ -2300,6 +2309,13 @@ int phytmac_drv_probe(struct phytmac *pdata)
 		goto err_phylink_init;
 	}
 
+	ret = register_netdev(ndev);
+	if (ret) {
+		dev_err(pdata->dev, "Cannot register net device, aborting.\n");
+		goto err_phylink_init;
+	}
+	netif_carrier_off(ndev);
+
 	if (netif_msg_probe(pdata))
 		dev_dbg(pdata->dev, "probe successfully! Phytium %s at 0x%08lx irq %d (%pM)\n",
 			"MAC", ndev->base_addr, ndev->irq, ndev->dev_addr);
@@ -2314,8 +2330,6 @@ err_out_free_mdiobus:
 	if (pdata->mii_bus)
 		mdiobus_free(pdata->mii_bus);
 
-	unregister_netdev(ndev);
-
 err_out:
 	return ret;
 }
@@ -2324,12 +2338,15 @@ EXPORT_SYMBOL_GPL(phytmac_drv_probe);
 int phytmac_drv_remove(struct phytmac *pdata)
 {
 	struct net_device *ndev = pdata->ndev;
+	struct phytmac_hw_if *hw_if = pdata->hw_if;
 
 	if (ndev) {
 		if (pdata->use_ncsi && pdata->ncsidev)
 			ncsi_unregister_dev(pdata->ncsidev);
 
 		unregister_netdev(ndev);
+		if (pdata->power_state == PHYTMAC_POWERON)
+			hw_if->poweron(pdata, PHYTMAC_POWEROFF);
 
 		if (pdata->use_mii && pdata->mii_bus) {
 			mdiobus_unregister(pdata->mii_bus);
@@ -2338,6 +2355,8 @@ int phytmac_drv_remove(struct phytmac *pdata)
 
 		if (pdata->phylink)
 			phylink_destroy(pdata->phylink);
+
+		mutex_destroy(&pdata->msg_ring.msg_mutex);
 	}
 
 	return 0;
@@ -2363,12 +2382,15 @@ int phytmac_drv_suspend(struct phytmac *pdata)
 	/* napi_disable */
 	for (q = 0, queue = pdata->queues; q < pdata->queues_num;
 	     ++q, ++queue) {
+		hw_if->disable_irq(pdata, queue->index, pdata->rx_irq_mask | pdata->tx_irq_mask);
+		hw_if->clear_irq(pdata, queue->index, pdata->rx_irq_mask | pdata->tx_irq_mask);
 		napi_disable(&queue->tx_napi);
 		napi_disable(&queue->rx_napi);
 	}
 
 	if (pdata->wol) {
 		hw_if->set_wol(pdata, pdata->wol);
+		pdata->power_state = PHYTMAC_POWEROFF;
 	} else {
 		rtnl_lock();
 		phylink_stop(pdata->phylink);
@@ -2390,14 +2412,13 @@ int phytmac_drv_resume(struct phytmac *pdata)
 	struct phytmac_hw_if *hw_if = pdata->hw_if;
 	struct ethtool_rx_fs_item *item;
 
-	if (!netif_running(pdata->ndev))
-		return 0;
-
-	if (pdata->power_state == PHYTMAC_POWEROFF)
-		hw_if->poweron(pdata, PHYTMAC_POWERON);
+	hw_if->poweron(pdata, PHYTMAC_POWERON);
 
 	if (hw_if->init_msg_ring)
 		hw_if->init_msg_ring(pdata);
+
+	if (!netif_running(pdata->ndev))
+		return 0;
 
 	if (pdata->wol) {
 		hw_if->set_wol(pdata, 0);
@@ -2460,6 +2481,23 @@ void phytmac_free_pdata(struct phytmac *pdata)
 	free_netdev(netdev);
 }
 EXPORT_SYMBOL_GPL(phytmac_free_pdata);
+
+void phytmac_drv_shutdown(struct phytmac *pdata)
+{
+	struct net_device *netdev = pdata->ndev;
+	struct phytmac_hw_if *hw_if = pdata->hw_if;
+
+	rtnl_lock();
+	netif_device_detach(netdev);
+
+	if (netif_running(netdev))
+		phytmac_close(netdev);
+	rtnl_unlock();
+
+	if (pdata->power_state == PHYTMAC_POWERON)
+		hw_if->poweron(pdata, PHYTMAC_POWEROFF);
+}
+EXPORT_SYMBOL_GPL(phytmac_drv_shutdown);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Phytium Ethernet driver");
