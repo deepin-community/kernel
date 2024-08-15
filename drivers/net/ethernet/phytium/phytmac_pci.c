@@ -2,6 +2,9 @@
 /*
  * Phytium GMAC PCI wrapper.
  *
+ * Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd.
+ *
+ * Author: Wenting Song <songwenting@phytium.com>
  */
 
 #include <linux/pci.h>
@@ -21,7 +24,6 @@
 struct phytmac_data {
 	struct phytmac_hw_if	*hw_if;
 	u32			caps;
-	u32			tsu_rate;
 	u16			queue_num;
 	int			speed;
 	bool			duplex;
