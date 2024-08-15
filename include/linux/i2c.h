@@ -758,6 +758,9 @@ struct i2c_adapter {
 
 	struct dentry *debugfs;
 
+	/* 7bit address space */
+	DECLARE_BITMAP(addrs_in_instantiation, 1 << 7);
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 };
