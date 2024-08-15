@@ -2,6 +2,9 @@
 /**
  * 1588 PTP support for Phytium GMAC device.
  *
+ * Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd.
+ *
+ * Author: Wenting Song <songwenting@phytium.com>
  */
 #include <linux/kernel.h>
 #include <linux/types.h>

@@ -2,6 +2,7 @@
 /*
  * Phytium Ethernet Controller driver
  *
+ * Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
