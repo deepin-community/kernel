@@ -2616,7 +2616,7 @@ skl_compute_ddb(struct intel_atomic_state *state)
 
 		if (old_dbuf_state->joined_mbus != new_dbuf_state->joined_mbus) {
 			/* TODO: Implement vblank synchronized MBUS joining changes */
-			ret = intel_modeset_all_pipes(state, "MBUS joining change");
+			ret = intel_modeset_all_pipes_late(state, "MBUS joining change");
 			if (ret)
 				return ret;
 		}
@@ -3718,4 +3718,18 @@ void skl_watermark_debugfs_register(struct drm_i915_private *i915)
 	if (HAS_SAGV(i915))
 		debugfs_create_file("i915_sagv_status", 0444, minor->debugfs_root, i915,
 				    &intel_sagv_status_fops);
+}
+
+unsigned int skl_watermark_max_latency(struct drm_i915_private *i915)
+{
+	int level;
+
+	for (level = i915->display.wm.num_levels - 1; level >= 0; level--) {
+		unsigned int latency = skl_wm_latency(i915, level, NULL);
+
+		if (latency)
+			return latency;
+	}
+
+	return 0;
 }

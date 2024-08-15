@@ -541,6 +541,21 @@ void iommu_set_dma_strict(void);
 extern int report_iommu_fault(struct iommu_domain *domain, struct device *dev,
 			      unsigned long iova, int flags);
 
+static inline bool apply_zhaoxin_dmar_acpi_a_behavior(void)
+{
+#if defined(CONFIG_CPU_SUP_ZHAOXIN) || defined(CONFIG_CPU_SUP_CENTAUR)
+	if (((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR) ||
+	     (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN)) &&
+	    ((boot_cpu_data.x86 == 7) && (boot_cpu_data.x86_model == 0x3b)))
+		return true;
+#endif
+	return false;
+}
+
+extern int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_addr_t end);
+
+int __acpi_rmrr_device_create_direct_mappings(struct iommu_domain *domain, struct device *dev);
+
 static inline void iommu_flush_iotlb_all(struct iommu_domain *domain)
 {
 	if (domain->ops->flush_iotlb_all)
@@ -1199,7 +1214,7 @@ u32 iommu_sva_get_pasid(struct iommu_sva *handle);
 static inline struct iommu_sva *
 iommu_sva_bind_device(struct device *dev, struct mm_struct *mm)
 {
-	return NULL;
+	return ERR_PTR(-ENODEV);
 }
 
 static inline void iommu_sva_unbind_device(struct iommu_sva *handle)

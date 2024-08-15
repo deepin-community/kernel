@@ -44,6 +44,15 @@ static inline u32 get_acpi_id_for_cpu(unsigned int cpu)
 	return acpi_core_pic[cpu_logical_map(cpu)].processor_id;
 }
 
+#define ACPI_HAVE_ARCH_TABLE_OVERRIDE
+extern void acpi_arch_os_table_override (struct acpi_table_header *existing_table, struct acpi_table_header **new_table);
+#define ACPI_HAVE_ARCH_TABLE_INIT_COMPLETE
+extern void acpi_arch_table_init_complete(void);
+#define ACPI_HAVE_ARCH_PCI_ROOT_RES_FILTER
+extern void acpi_arch_pci_probe_root_dev_filter(struct resource_entry *entry);
+#define ACPI_HAVE_ARCH_INIT
+extern void acpi_arch_init(void);
+
 #endif /* !CONFIG_ACPI */
 
 #define ACPI_TABLE_UPGRADE_MAX_PHYS ARCH_LOW_ADDRESS_LIMIT

@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pwm/phytium,pwm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium PWM controller
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: pwm.yaml#
+
+properties:
+  compatible:
+    const: phytium,pwm
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description: Clock specifiers for both ipg and per clocks.
+
+  interrupts:
+    maxItems: 1
+
+  phytium,db:
+    description: |
+      One or two <cntmod dutymod div updbcly dbpolarity> to describe dead-band configurations.
+      "cntmod" indicates the counter mode (0 for modulo, 1 for up-and-down).
+      "dutymod" indicdates which duty to compare with (0 for PMW_CCR, 1 for FIFO).
+      "div" selects the clock divider value, from 0 to 1023.
+      "updbcly" selects the rising edge delay cycles.
+      "dbpolarity" selects the polarity for dead-band.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    uniqueItems: true
+    items:
+      minimum: 1
+      maximum: 2
+
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - interrupts
+  - phytium,db
+
+additionalProperties: false
+
+examples:
+  - |
+    pwm0: pwm@2804a000 {
+      compatible = "phytium,pwm";
+      reg= <0x0 0x2804a000 0x0 0x1000>;
+      interrupts = <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>;
+      clocks = <&sysclk_48mhz>;
+      phytium,db = <0 0 0 1000 0>;
+    };

@@ -1,0 +1,1 @@
+obj-$(CONFIG_PHYTNET_LED)              += phytnet_led.o

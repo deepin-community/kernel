@@ -334,6 +334,18 @@ config I2C_VIAPRO
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-viapro.
 
+config I2C_ZHAOXIN
+	tristate "Zhaoxin I2C controller driver"
+	depends on PCI && (CPU_SUP_ZHAOXIN || CPU_SUP_CENTAUR)
+	default m
+	select I2C_ALGOBIT
+	help
+	  If you say yes to this option, support will be included for the
+	  Zhaoxin I2C interface
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-zhaoxin.
+
 if ACPI
 
 comment "ACPI drivers"
@@ -347,6 +359,17 @@ config I2C_SCMI
 
 	  To compile this driver as a module, choose M here:
 	  the module will be called i2c-scmi.
+
+config I2C_ZHAOXIN_SMBUS
+	tristate "Zhaoxin SMBus Interface"
+	depends on (PCI && (CPU_SUP_CENTAUR || CPU_SUP_ZHAOXIN)) || COMPILE_TEST
+	default m
+	help
+	  If you say yes to this option, support will be included for the
+	  ZHAOXIN SMBus interface
+
+	  This driver can also be built as a module. If so, the module
+	  will be called i2c-zhaoxin-smbus.
 
 endif # ACPI
 

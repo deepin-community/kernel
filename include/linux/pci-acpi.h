@@ -133,6 +133,10 @@ static inline void pci_acpi_remove_edr_notifier(struct pci_dev *pdev) { }
 int pci_acpi_set_companion_lookup_hook(struct acpi_device *(*func)(struct pci_dev *));
 void pci_acpi_clear_companion_lookup_hook(void);
 
+#ifndef ACPI_HAVE_ARCH_PCI_ROOT_RES_FILTER
+static inline void acpi_arch_pci_probe_root_dev_filter(struct resource_entry *entry) { }
+#endif
+
 #else	/* CONFIG_ACPI */
 static inline void acpi_pci_add_bus(struct pci_bus *bus) { }
 static inline void acpi_pci_remove_bus(struct pci_bus *bus) { }

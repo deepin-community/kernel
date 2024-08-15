@@ -48,6 +48,7 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/time.h>
+
 #include "legacy_boot.h"
 
 #define SMBIOS_BIOSSIZE_OFFSET		0x09
@@ -58,7 +59,9 @@
 #define SMBIOS_CORE_PACKAGE_OFFSET	0x23
 #define LOONGSON_EFI_ENABLE		(1 << 3)
 
+#ifdef CONFIG_EFI
 struct screen_info screen_info __section(".data");
+#endif
 
 unsigned long fw_arg0, fw_arg1, fw_arg2;
 DEFINE_PER_CPU(unsigned long, kernelsp);
@@ -135,22 +138,9 @@ static void __init parse_cpu_table(const struct dmi_header *dm)
 
 static void __init parse_bios_table(const struct dmi_header *dm)
 {
-	int bios_extern;
 	char *dmi_data = (char *)dm;
 
-	bios_extern = *(dmi_data + SMBIOS_BIOSEXTERN_OFFSET);
 	b_info.bios_size = (*(dmi_data + SMBIOS_BIOSSIZE_OFFSET) + 1) << 6;
-
-	if (bpi_version == BPI_VERSION_V2) {
-		if ((!!(efi_bp->flags & BPI_FLAGS_UEFI_SUPPORTED)) != (!!(bios_extern & LOONGSON_EFI_ENABLE)))
-			pr_err("There is a conflict of definitions between efi_bp->flags and smbios\n");
-		return;
-	}
-
-	if (bios_extern & LOONGSON_EFI_ENABLE)
-		set_bit(EFI_BOOT, &efi.flags);
-	else
-		clear_bit(EFI_BOOT, &efi.flags);
 }
 
 static void __init find_tokens(const struct dmi_header *dm, void *dummy)
@@ -610,8 +600,10 @@ static void __init prefill_possible_map(void)
 
 	for (i = 0; i < possible; i++)
 		set_cpu_possible(i, true);
-	for (; i < NR_CPUS; i++)
+	for (; i < NR_CPUS; i++) {
+		set_cpu_present(i, false);
 		set_cpu_possible(i, false);
+	}
 
 	set_nr_cpu_ids(possible);
 }
@@ -624,13 +616,12 @@ void __init setup_arch(char **cmdline_p)
 	init_environ();
 	efi_init();
 	fdt_setup();
+	bpi_init();
 	memblock_init();
 	pagetable_init();
 	bootcmdline_init(cmdline_p);
 	parse_early_param();
-	/* The small fdt method should be skipped directly to avoid two reserved operations. */
-	if (fw_arg2)
-		reserve_initrd_mem();
+	reserve_initrd_mem();
 
 	platform_init();
 	arch_mem_init(cmdline_p);

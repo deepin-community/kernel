@@ -81,9 +81,23 @@ extern u16 __read_mostly tlb_lld_1g[NR_INFO];
  */
 
 struct cpuinfo_x86 {
-	__u8			x86;		/* CPU family */
-	__u8			x86_vendor;	/* CPU vendor */
-	__u8			x86_model;
+	union {
+		/*
+		 * The particular ordering (low-to-high) of (vendor,
+		 * family, model) is done in case range of models, like
+		 * it is usually done on AMD, need to be compared.
+		 */
+		struct {
+			__u8	x86_model;
+			/* CPU family */
+			__u8	x86;
+			/* CPU vendor */
+			__u8	x86_vendor;
+			__u8	x86_reserved;
+		};
+		/* combined vendor, family, model */
+		__u32		x86_vfm;
+	};
 	__u8			x86_stepping;
 #ifdef CONFIG_X86_64
 	/* Number of 4K pages in DTLB/ITLB combined(in pages): */
@@ -399,7 +413,7 @@ static inline unsigned long cpu_kernelmode_gs_base(int cpu)
 	return (unsigned long)per_cpu(fixed_percpu_data.gs_base, cpu);
 }
 
-extern asmlinkage void ignore_sysret(void);
+extern asmlinkage void entry_SYSCALL32_ignore(void);
 
 /* Save actual FS/GS selectors and bases to current->thread */
 void current_save_fsgs(void);
@@ -464,7 +478,6 @@ struct thread_struct {
 	unsigned long		iopl_emul;
 
 	unsigned int		iopl_warn:1;
-	unsigned int		sig_on_uaccess_err:1;
 
 	/*
 	 * Protection Keys Register for Userspace.  Loaded immediately on

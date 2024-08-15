@@ -17,6 +17,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 
+#include "hda_phytium.h"
+
 #ifdef CONFIG_X86
 /* for art-tsc conversion */
 #include <asm/tsc.h>
@@ -156,6 +158,9 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 	struct hda_spdif_out *spdif =
 		snd_hda_spdif_out_of_nid(apcm->codec, hinfo->nid);
 	unsigned short ctls = spdif ? spdif->ctls : 0;
+	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
+
+	hda->substream = substream;
 
 	trace_azx_pcm_prepare(chip, azx_dev);
 	dsp_lock(azx_dev);
@@ -1061,6 +1066,16 @@ static void stream_update(struct hdac_bus *bus, struct hdac_stream *s)
 	}
 }
 
+static void azx_rirb_zxdelay(struct azx *chip, int enable)
+{
+	if (chip->remap_diu_addr) {
+		if (!enable)
+			writel(0x0, (char *)chip->remap_diu_addr + 0x490a8);
+		else
+			writel(0x1000000, (char *)chip->remap_diu_addr + 0x490a8);
+	}
+}
+
 irqreturn_t azx_interrupt(int irq, void *dev_id)
 {
 	struct azx *chip = dev_id;
@@ -1103,9 +1118,14 @@ irqreturn_t azx_interrupt(int irq, void *dev_id)
 			azx_writeb(chip, RIRBSTS, RIRB_INT_MASK);
 			active = true;
 			if (status & RIRB_INT_RESPONSE) {
-				if (chip->driver_caps & AZX_DCAPS_CTX_WORKAROUND)
+				if ((chip->driver_caps & AZX_DCAPS_CTX_WORKAROUND) ||
+				    (chip->driver_caps & AZX_DCAPS_RIRB_PRE_DELAY)) {
+					azx_rirb_zxdelay(chip, 1);
 					udelay(80);
+				}
 				snd_hdac_bus_update_rirb(bus);
+				if (chip->driver_caps & AZX_DCAPS_RIRB_PRE_DELAY)
+					azx_rirb_zxdelay(chip, 0);
 			}
 		}
 	} while (active && ++repeat < 10);

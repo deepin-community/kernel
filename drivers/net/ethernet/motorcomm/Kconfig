@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-#
-# Motorcomm network device configuration
-#
+# Copyright (c) 2023 Motorcomm, Inc.
 
 config NET_VENDOR_MOTORCOMM
 	bool "Motorcomm devices"
@@ -13,7 +11,7 @@ config NET_VENDOR_MOTORCOMM
 	  Note that the answer to this question doesn't directly affect the
 	  kernel: saying N will just cause the configurator to skip all
 	  the questions about Motorcomm cards. If you say Y, you will be asked
-          for your specific card in the following questions.
+	  for your specific card in the following questions.
 
 if NET_VENDOR_MOTORCOMM
 

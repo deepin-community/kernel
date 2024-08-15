@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# 3SNIC network device configuration
+#
+
+config SSSNIC
+	tristate "3SNIC Ethernet Controller SSSNIC Support"
+	depends on PCI
+	depends on ARM64 || X86_64
+	default y
+	help
+	  This driver supports 3SNIC Ethernet Controller SSSNIC device.
+	  For more information about this product, go to the product
+	  description with smart NIC:
+
+	  <http://www.3snic.com>
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called sssnic.

@@ -105,6 +105,10 @@ config GPIO_REGMAP
 
 # put drivers in the right section, in alphabetical order
 
+# This symbol is selected by both MMIO and PCI expanders
+config GPIO_PHYTIUM_CORE
+	tristate
+
 # This symbol is selected by both I2C and SPI expanders
 config GPIO_MAX730X
 	tristate
@@ -494,6 +498,27 @@ config GPIO_OMAP
 	select GPIOLIB_IRQCHIP
 	help
 	  Say yes here to enable GPIO support for TI OMAP SoCs.
+
+config GPIO_PHYTIUM_SGPIO
+	tristate "Phytium SGPIO support"
+	default y if ARCH_PHYTIUM
+	depends on ARM64
+	select IRQ_DOMAIN
+	select GENERIC_IRQ_CHIP
+	help
+	  Say yes here to enable SGPIO support for Phytium SoCs.
+
+config GPIO_PHYTIUM_PLAT
+	tristate "Phytium GPIO Platform support"
+	default y if ARCH_PHYTIUM
+	depends on ARM64
+	select GPIO_PHYTIUM_CORE
+	select IRQ_DOMAIN
+	select GENERIC_IRQ_CHIP
+	select GPIOLIB_IRQCHIP
+	help
+	  Say yes here to support the on-chip GPIO controller for the
+	  Phytium SoC family.
 
 config GPIO_PL061
 	tristate "PrimeCell PL061 GPIO support"
@@ -1507,7 +1532,7 @@ config GPIO_TPS68470
 	  are "output only" GPIOs.
 
 config GPIO_TQMX86
-	tristate "TQ-Systems QTMX86 GPIO"
+	tristate "TQ-Systems TQMx86 GPIO"
 	depends on MFD_TQMX86 || COMPILE_TEST
 	depends on HAS_IOPORT_MAP
 	select GPIOLIB_IRQCHIP
@@ -1679,6 +1704,19 @@ config GPIO_PCIE_IDIO_24
 	  when any of the inputs change state (low to high or high to low).
 	  Input filter control is not supported by this driver, and the input
 	  filters are deactivated by this driver.
+
+config GPIO_PHYTIUM_PCI
+	tristate "Phytium GPIO PCI support"
+	select GPIO_PHYTIUM_CORE
+	select IRQ_DOMAIN
+	select GENERIC_IRQ_CHIP
+	select GPIOLIB_IRQCHIP
+	help
+	  Say Y here to support Phytium PCI GPIO controller on Px210 chipset.
+	  An interrupt is generated when any of the inputs change state
+	  (low to high or high to low).
+
+	  This driver can be used for Phytium Px210.
 
 config GPIO_RDC321X
 	tristate "RDC R-321x GPIO support"

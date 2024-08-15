@@ -193,11 +193,9 @@ bool tsc_store_and_check_tsc_adjust(bool bootcpu)
 	cur->warned = false;
 
 	/*
-	 * If a non-zero TSC value for socket 0 may be valid then the default
-	 * adjusted value cannot assumed to be zero either.
+	 * The default adjust value cannot be assumed to be zero on any socket.
 	 */
-	if (tsc_async_resets)
-		cur->adjusted = bootval;
+	cur->adjusted = bootval;
 
 	/*
 	 * Check whether this CPU is the first in a package to come up. In
@@ -232,6 +230,11 @@ bool tsc_store_and_check_tsc_adjust(bool bootcpu)
 	if (bootval != ref->adjusted) {
 		cur->adjusted = ref->adjusted;
 		wrmsrl(MSR_IA32_TSC_ADJUST, ref->adjusted);
+	} else if (cur->adjusted != bootval) {
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+			boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) {
+			cur->adjusted = bootval;
+		}
 	}
 	/*
 	 * We have the TSCs forced to be in sync on this package. Skip sync

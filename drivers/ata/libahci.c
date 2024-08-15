@@ -207,6 +207,12 @@ static int devslp_idle_timeout __read_mostly = 1000;
 module_param(devslp_idle_timeout, int, 0644);
 MODULE_PARM_DESC(devslp_idle_timeout, "device sleep idle timeout");
 
+int get_ahci_em_messages(void)
+{
+	return ahci_em_messages;
+}
+EXPORT_SYMBOL_GPL(get_ahci_em_messages);
+
 static void ahci_enable_ahci(void __iomem *mmio)
 {
 	int i;

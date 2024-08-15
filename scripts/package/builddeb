@@ -92,6 +92,29 @@ install_linux_image () {
 	esac
 	cp "$(${MAKE} -s -f ${srctree}/Makefile image_name)" "${pdir}/${installed_image_path}"
 
+        # UEFI Secure Boot CA paths.
+        deepin_uefi_ca="${srctree}/scripts/package/UEFI-CA-CERT/DEEPIN-UEFI-RSA.pem"
+        uos_uefi_ca="${srctree}/scripts/package/UEFI-CA-CERT/UOS-UEFI-RSA.pem"
+
+	# Sign the kernel image.
+	if [ -f "${srctree}/auto_deepin_sign_kernel" ];then
+		sbsign \
+			--swkey \
+			--ip 10.0.32.114 \
+			--port 9090 \
+			--cert "$deepin_uefi_ca" \
+			--output "${pdir}/${installed_image_path}" \
+			"${pdir}/${installed_image_path}"
+	elif [ -f "${srctree}/auto_sign_kernel" ];then
+		sbsign \
+			--hwkey 1 \
+			--ip 10.0.32.114 \
+			--port 8080 \
+			--cert "$uos_uefi_ca" \
+			--output "${pdir}/${installed_image_path}" \
+			"${pdir}/${installed_image_path}"
+	fi
+
 	# Install the maintainer scripts
 	# Note: hook scripts under /etc/kernel are also executed by official Debian
 	# kernel packages, as well as kernel packages built using make-kpkg.

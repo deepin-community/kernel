@@ -19,6 +19,7 @@ config SUNGEM_PHY
 	tristate
 
 source "drivers/net/ethernet/3com/Kconfig"
+source "drivers/net/ethernet/3snic/Kconfig"
 source "drivers/net/ethernet/actions/Kconfig"
 source "drivers/net/ethernet/adaptec/Kconfig"
 source "drivers/net/ethernet/aeroflex/Kconfig"
@@ -193,5 +194,8 @@ source "drivers/net/ethernet/wangxun/Kconfig"
 source "drivers/net/ethernet/wiznet/Kconfig"
 source "drivers/net/ethernet/xilinx/Kconfig"
 source "drivers/net/ethernet/xircom/Kconfig"
+source "drivers/net/ethernet/phytium/Kconfig"
+source "drivers/net/ethernet/guangruntong/Kconfig"
+source "drivers/net/ethernet/bzwx/Kconfig"
 
 endif # ETHERNET

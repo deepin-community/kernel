@@ -3,8 +3,14 @@
 
 prev_ver=$(cat .version 2>/dev/null) &&
 ver=$(expr ${prev_ver} + 1 2>/dev/null) ||
-ver=1
 
+# Respect $prev_ver as the final build version ID.
+if [ X$prev_ver = "X" ]
+then
+	ver=1
+else
+	ver=$prev_ver
+fi
 echo ${ver} > .version
 
 echo ${ver}

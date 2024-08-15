@@ -36,3 +36,4 @@ obj-$(CONFIG_NPCM7XX_KCS_IPMI_BMC) += kcs_bmc_npcm7xx.o
 obj-$(CONFIG_IPMB_DEVICE_INTERFACE) += ipmb_dev_int.o
 obj-$(CONFIG_SSIF_IPMI_BMC) += ssif_bmc.o
 obj-$(CONFIG_PHYTIUM_KCS_IPMI_BMC) += kcs_bmc_phytium.o
+obj-$(CONFIG_PHYTIUM_BT_IPMI_BMC) += bt_bmc_phytium.o

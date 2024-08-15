@@ -1,0 +1,147 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2020 - 2024, Chengdu BeiZhongWangXin Technology Co., Ltd. */
+
+#ifndef _NE6X_COMM_MAILBOX_H
+#define _NE6X_COMM_MAILBOX_H
+
+enum virtchnl_ops {
+	VIRTCHNL_OP_UNKNOWN                 = 0,
+	VIRTCHNL_OP_VERSION                 = 1,
+	VIRTCHNL_OP_RESET_VF                = 2,
+	VIRTCHNL_OP_GET_VF_RESOURCES        = 3,
+	VIRTCHNL_OP_CONFIG_TX_QUEUE         = 4,
+	VIRTCHNL_OP_CONFIG_RX_QUEUE         = 5,
+	VIRTCHNL_OP_CONFIG_ADPT_QUEUES      = 6,
+	VIRTCHNL_OP_CONFIG_IRQ_MAP          = 7,
+	VIRTCHNL_OP_ENABLE_QUEUES           = 8,
+	VIRTCHNL_OP_DISABLE_QUEUES          = 9,
+	VIRTCHNL_OP_ADD_ETH_ADDR            = 10,
+	VIRTCHNL_OP_DEL_ETH_ADDR            = 11,
+	VIRTCHNL_OP_ADD_VLAN                = 12,
+	VIRTCHNL_OP_DEL_VLAN                = 13,
+	/* promiscuous mode / unicast promisc / multicast promisc */
+	VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE = 14,
+	VIRTCHNL_OP_EVENT                   = 17, /* link state */
+	VIRTCHNL_OP_SET_VF_ADDR             = 18,
+	VIRTCHNL_OP_VF_CONFIG               = 19,
+	VIRTCHNL_OP_CONFIG_OFFLOAD          = 27,
+	VIRTCHNL_OP_GET_VF_FEATURE          = 28,
+	VIRTCHNL_OP_REQUEST_QUEUES          = 29,
+	VIRTCHNL_OP_CONFIG_RSS              = 30,
+	VIRTCHNL_OP_GET_PORT_STATUS         = 31,
+	VIRTCHNL_OP_CHANGED_RSS             = 32,
+	VIRTCHNL_OP_SET_VF_STATE            = 33,
+	VIRTCHNL_OP_SET_FAST_MDOE           = 34,
+	VIRTCHNL_OP_CONFIG_VLAN             = 40,
+	VIRTCHNL_OP_CONFIG_VLAN_OFFLOAD     = 41,
+	VIRTCHNL_OP_CONFIG_MTU              = 42,
+	VIRTCHNL_OP_CONFIG_FLOW_CTRL        = 43,
+
+	VIRTCHNL_OP_MAX,
+};
+
+static char local_error_buffer[64];
+static inline const char *ne6x_opcode_str(enum virtchnl_ops opcode)
+{
+	sprintf(local_error_buffer, "__OPCODE_UNKNOWN_OPCODE(%d)", opcode);
+	switch (opcode) {
+	case VIRTCHNL_OP_VERSION:
+		return "__OPCODE_GET_VERSION";
+	case VIRTCHNL_OP_RESET_VF:
+		return "__OPCODE_RESET_VF";
+	case VIRTCHNL_OP_GET_VF_RESOURCES:
+		return "__OPCODE_GET_VF_RESOURCES";
+	case VIRTCHNL_OP_CONFIG_TX_QUEUE:
+		return "__OPCODE_CONFIG_TX_QUEUE";
+	case VIRTCHNL_OP_CONFIG_RX_QUEUE:
+		return "__OPCODE_INIT_EXTENDED_CAPS";
+	case VIRTCHNL_OP_CONFIG_ADPT_QUEUES:
+		return "__OPCODE_CONFIG_ADPT_QUEUES";
+	case VIRTCHNL_OP_CONFIG_IRQ_MAP:
+		return "__OPCODE_CONFIG_IRQ_MAP";
+	case VIRTCHNL_OP_ENABLE_QUEUES:
+		return "__OPCODE_ENABLE_QUEUES";
+	case VIRTCHNL_OP_DISABLE_QUEUES:
+		return "__OPCODE_DISABLE_QUEUES";
+	case VIRTCHNL_OP_ADD_ETH_ADDR:
+		return "__OPCODE_ADD_ETH_ADDR";
+	case VIRTCHNL_OP_DEL_ETH_ADDR:
+		return "__OPCODE_DEL_ETH_ADDR";
+	case VIRTCHNL_OP_ADD_VLAN:
+		return "__OPCODE_ADD_VLAN";
+	case VIRTCHNL_OP_DEL_VLAN:
+		return "__OPCODE_DEL_VLAN";
+	case VIRTCHNL_OP_CONFIG_PROMISCUOUS_MODE:
+		return "__OPCODE_CONFIG_PROMISCUOUS_MODE";
+	case VIRTCHNL_OP_EVENT:
+		return "__OPCODE_EVENT";
+	case VIRTCHNL_OP_CONFIG_RSS:
+		return "__OPCODE_CONFIG_RSS";
+	case VIRTCHNL_OP_CHANGED_RSS:
+		return "__OP_CHANGED_RSS";
+	case VIRTCHNL_OP_CONFIG_OFFLOAD:
+		return "__OPCODE_CONFIGURE_OFFLOAD";
+	case VIRTCHNL_OP_GET_VF_FEATURE:
+		return "VIRTCHNL_OP_GET_VF_FEATURE";
+	case VIRTCHNL_OP_REQUEST_QUEUES:
+		return "__OPCODE_REQUEST_QUEUES";
+	case VIRTCHNL_OP_GET_PORT_STATUS:
+		return "__OP_GET_PORT_STATUS";
+	case VIRTCHNL_OP_SET_VF_ADDR:
+		return "__OPCODE_SET_VF_ADDR";
+	case VIRTCHNL_OP_VF_CONFIG:
+		return "__VIRTCHNL_OP_VF_CONFIG";
+	case VIRTCHNL_OP_SET_VF_STATE:
+		return "__VIRTCHNL_OP_SET_VF_STATE";
+	case VIRTCHNL_OP_SET_FAST_MDOE:
+		return "__VIRTCHNL_OP_SET_FAST_MDOE";
+	case VIRTCHNL_OP_CONFIG_VLAN:
+		return "__VIRTCHNL_OP_CONFIG_VLAN";
+	case VIRTCHNL_OP_CONFIG_VLAN_OFFLOAD:
+		return "__VIRTCHNL_OP_CONFIG_VLAN_OFFLOAD";
+	case VIRTCHNL_OP_CONFIG_MTU:
+		return "__VIRTCHNL_OP_CONFIG_MTU";
+	case VIRTCHNL_OP_CONFIG_FLOW_CTRL:
+		return "__VIRTCHNL_OP_CONFIG_FLOW_CTRL";
+	default:
+		return local_error_buffer;
+	}
+}
+
+/* Error Codes */
+enum virtchnl_status_code {
+	VIRTCHNL_STATUS_SUCCESS               = 0,
+	VIRTCHNL_STATUS_ERR_PARAM             = -5,
+	VIRTCHNL_STATUS_ERR_NO_MEMORY         = -18,
+	VIRTCHNL_STATUS_ERR_OPCODE_MISMATCH   = -38,
+	VIRTCHNL_STATUS_ERR_CQP_COMPL_ERROR   = -39,
+	VIRTCHNL_STATUS_ERR_INVALID_VF_ID     = -40,
+	VIRTCHNL_STATUS_ERR_ADMIN_QUEUE_ERROR = -53,
+	VIRTCHNL_STATUS_ERR_NOT_SUPPORTED     = -64,
+};
+
+static inline const char *ne6x_mbox_status_str(enum virtchnl_status_code opcode)
+{
+	switch (opcode) {
+	case VIRTCHNL_STATUS_SUCCESS:
+		return "__STATUS_SUCCESS";
+	case VIRTCHNL_STATUS_ERR_PARAM:
+		return "__STATUS_ERR_PARAM";
+	case VIRTCHNL_STATUS_ERR_NO_MEMORY:
+		return "__STATUS_ERR_NO_MEMORY";
+	case VIRTCHNL_STATUS_ERR_OPCODE_MISMATCH:
+		return "__STATUS_ERR_OPCODE_MISMATCH";
+	case VIRTCHNL_STATUS_ERR_CQP_COMPL_ERROR:
+		return "__STATUS_ERR_CQP_COMPL_ERROR";
+	case VIRTCHNL_STATUS_ERR_INVALID_VF_ID:
+		return "__STATUS_ERR_INVALID_VF_ID";
+	case VIRTCHNL_STATUS_ERR_ADMIN_QUEUE_ERROR:
+		return "__STATUS_ERR_ADMIN_QUEUE_ERROR";
+	case VIRTCHNL_STATUS_ERR_NOT_SUPPORTED:
+		return "__STATUS_ERR_NOT_SUPPORTED";
+	default:
+		return "__STATUS_UNKNOWN";
+	}
+}
+
+#endif

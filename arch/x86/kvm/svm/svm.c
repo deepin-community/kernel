@@ -41,6 +41,7 @@
 #include <asm/traps.h>
 #include <asm/reboot.h>
 #include <asm/fpu/api.h>
+#include <asm/processor-hygon.h>
 
 #include <trace/events/ipi.h>
 
@@ -51,6 +52,8 @@
 
 #include "kvm_onhyperv.h"
 #include "svm_onhyperv.h"
+
+#include "csv.h"
 
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
@@ -99,10 +102,12 @@ static const struct svm_direct_access_msrs {
 	{ .index = MSR_IA32_SPEC_CTRL,			.always = false },
 	{ .index = MSR_IA32_PRED_CMD,			.always = false },
 	{ .index = MSR_IA32_FLUSH_CMD,			.always = false },
+	{ .index = MSR_IA32_DEBUGCTLMSR,		.always = false },
 	{ .index = MSR_IA32_LASTBRANCHFROMIP,		.always = false },
 	{ .index = MSR_IA32_LASTBRANCHTOIP,		.always = false },
 	{ .index = MSR_IA32_LASTINTFROMIP,		.always = false },
 	{ .index = MSR_IA32_LASTINTTOIP,		.always = false },
+	{ .index = MSR_IA32_XSS,			.always = false },
 	{ .index = MSR_EFER,				.always = false },
 	{ .index = MSR_IA32_CR_PAT,			.always = false },
 	{ .index = MSR_AMD64_SEV_ES_GHCB,		.always = true  },
@@ -214,7 +219,7 @@ int vgif = true;
 module_param(vgif, int, 0444);
 
 /* enable/disable LBR virtualization */
-static int lbrv = true;
+int lbrv = true;
 module_param(lbrv, int, 0444);
 
 static int tsc_scaling = true;
@@ -545,7 +550,8 @@ static bool __kvm_is_svm_supported(void)
 	}
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
-		pr_info("KVM is unsupported when running as an SEV guest\n");
+		pr_info("KVM is unsupported when running as an %s guest\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV");
 		return false;
 	}
 
@@ -1007,7 +1013,7 @@ void svm_copy_lbrs(struct vmcb *to_vmcb, struct vmcb *from_vmcb)
 	vmcb_mark_dirty(to_vmcb, VMCB_LBR);
 }
 
-static void svm_enable_lbrv(struct kvm_vcpu *vcpu)
+void svm_enable_lbrv(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
 
@@ -1017,6 +1023,9 @@ static void svm_enable_lbrv(struct kvm_vcpu *vcpu)
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTINTFROMIP, 1, 1);
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTINTTOIP, 1, 1);
 
+	if (sev_es_guest(vcpu->kvm))
+		set_msr_interception(vcpu, svm->msrpm, MSR_IA32_DEBUGCTLMSR, 1, 1);
+
 	/* Move the LBR msrs to the vmcb02 so that the guest can see them. */
 	if (is_guest_mode(vcpu))
 		svm_copy_lbrs(svm->vmcb, svm->vmcb01.ptr);
@@ -1025,6 +1034,8 @@ static void svm_enable_lbrv(struct kvm_vcpu *vcpu)
 static void svm_disable_lbrv(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
+
+	KVM_BUG_ON(sev_es_guest(vcpu->kvm), vcpu->kvm);
 
 	svm->vmcb->control.virt_ext &= ~LBR_CTL_ENABLE_MASK;
 	set_msr_interception(vcpu, svm->msrpm, MSR_IA32_LASTBRANCHFROMIP, 0, 0);
@@ -1451,6 +1462,11 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 		if (!vmsa_page)
 			goto error_free_vmcb_page;
 
+		if (is_x86_vendor_hygon()) {
+			if (csv2_setup_reset_vmsa(svm))
+				goto error_free_vmsa_page;
+		}
+
 		/*
 		 * SEV-ES guests maintain an encrypted version of their FPU
 		 * state which is restored and saved on VMRUN and VMEXIT.
@@ -1486,6 +1502,9 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 error_free_vmsa_page:
 	if (vmsa_page)
 		__free_page(vmsa_page);
+
+	if (is_x86_vendor_hygon())
+		csv2_free_reset_vmsa(svm);
 error_free_vmcb_page:
 	__free_page(vmcb01_page);
 out:
@@ -2943,6 +2962,12 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_AMD64_DE_CFG:
 		msr_info->data = svm->msr_decfg;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support export this MSR to userspace */
+		if (is_x86_vendor_hygon())
+			return csv_get_msr(vcpu, msr_info);
+		else
+			return 1;
 	default:
 		return kvm_get_msr_common(vcpu, msr_info);
 	}
@@ -3178,6 +3203,12 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->msr_decfg = data;
 		break;
 	}
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support update this MSR from userspace */
+		if (is_x86_vendor_hygon())
+			return csv_set_msr(vcpu, msr);
+		else
+			return 1;
 	default:
 		return kvm_set_msr_common(vcpu, msr);
 	}
@@ -3856,16 +3887,27 @@ static void svm_enable_nmi_window(struct kvm_vcpu *vcpu)
 	struct vcpu_svm *svm = to_svm(vcpu);
 
 	/*
-	 * KVM should never request an NMI window when vNMI is enabled, as KVM
-	 * allows at most one to-be-injected NMI and one pending NMI, i.e. if
-	 * two NMIs arrive simultaneously, KVM will inject one and set
-	 * V_NMI_PENDING for the other.  WARN, but continue with the standard
-	 * single-step approach to try and salvage the pending NMI.
+	 * If NMIs are outright masked, i.e. the vCPU is already handling an
+	 * NMI, and KVM has not yet intercepted an IRET, then there is nothing
+	 * more to do at this time as KVM has already enabled IRET intercepts.
+	 * If KVM has already intercepted IRET, then single-step over the IRET,
+	 * as NMIs aren't architecturally unmasked until the IRET completes.
+	 *
+	 * If vNMI is enabled, KVM should never request an NMI window if NMIs
+	 * are masked, as KVM allows at most one to-be-injected NMI and one
+	 * pending NMI.  If two NMIs arrive simultaneously, KVM will inject one
+	 * NMI and set V_NMI_PENDING for the other, but if and only if NMIs are
+	 * unmasked.  KVM _will_ request an NMI window in some situations, e.g.
+	 * if the vCPU is in an STI shadow or if GIF=0, KVM can't immediately
+	 * inject the NMI.  In those situations, KVM needs to single-step over
+	 * the STI shadow or intercept STGI.
 	 */
-	WARN_ON_ONCE(is_vnmi_enabled(svm));
+	if (svm_get_nmi_mask(vcpu)) {
+		WARN_ON_ONCE(is_vnmi_enabled(svm));
 
-	if (svm_get_nmi_mask(vcpu) && !svm->awaiting_iret_completion)
-		return; /* IRET will cause a vm exit */
+		if (!svm->awaiting_iret_completion)
+			return; /* IRET will cause a vm exit */
+	}
 
 	/*
 	 * SEV-ES guests are responsible for signaling when a vCPU is ready to
@@ -4133,6 +4175,19 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu)
 
 	trace_kvm_entry(vcpu);
 
+	/*
+	 * For receipient side of CSV2 guest, fake the exit code as SVM_EXIT_ERR
+	 * and return directly if failed to mapping the necessary GHCB page.
+	 * When handling the exit code afterwards, it can exit to userspace and
+	 * stop the guest.
+	 */
+	if (is_x86_vendor_hygon() && sev_es_guest(vcpu->kvm)) {
+		if (csv2_state_unstable(svm)) {
+			svm->vmcb->control.exit_code = SVM_EXIT_ERR;
+			return EXIT_FASTPATH_NONE;
+		}
+	}
+
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
 	svm->vmcb->save.rip = vcpu->arch.regs[VCPU_REGS_RIP];
@@ -4307,6 +4362,12 @@ static bool svm_has_emulated_msr(struct kvm *kvm, u32 index)
 		if (kvm && sev_es_guest(kvm))
 			return false;
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support emulate this MSR */
+		if (is_x86_vendor_hygon())
+			return csv_has_emulated_ghcb_msr(kvm);
+		else
+			return false;
 	default:
 		break;
 	}
@@ -5237,6 +5298,12 @@ static __init int svm_hardware_setup(void)
 
 	nrips = nrips && boot_cpu_has(X86_FEATURE_NRIPS);
 
+	if (lbrv) {
+		if (!boot_cpu_has(X86_FEATURE_LBRV))
+			lbrv = false;
+		else
+			pr_info("LBR virtualization supported\n");
+	}
 	/*
 	 * Note, SEV setup consumes npt_enabled and enable_mmio_caching (which
 	 * may be modified by svm_adjust_mmio_mask()), as well as nrips.
@@ -5290,14 +5357,6 @@ static __init int svm_hardware_setup(void)
 		svm_x86_ops.set_vnmi_pending = NULL;
 	}
 
-
-	if (lbrv) {
-		if (!boot_cpu_has(X86_FEATURE_LBRV))
-			lbrv = false;
-		else
-			pr_info("LBR virtualization supported\n");
-	}
-
 	if (!enable_pmu)
 		pr_info("PMU virtualization is disabled\n");
 
@@ -5335,6 +5394,10 @@ static struct kvm_x86_init_ops svm_init_ops __initdata = {
 
 static void __svm_exit(void)
 {
+	/* Unregister CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_exit();
+
 	kvm_x86_vendor_exit();
 
 	cpu_emergency_unregister_virt_callback(svm_emergency_disable);
@@ -5349,9 +5412,21 @@ static int __init svm_init(void)
 	if (!kvm_is_svm_supported())
 		return -EOPNOTSUPP;
 
+	/* Register CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_init(&svm_x86_ops);
+
 	r = kvm_x86_vendor_init(&svm_init_ops);
-	if (r)
+	if (r) {
+		/*
+		 * Unregister CSV specific interface for Hygon CPUs
+		 * if error occurs.
+		 */
+		if (is_x86_vendor_hygon())
+			csv_exit();
+
 		return r;
+	}
 
 	cpu_emergency_register_virt_callback(svm_emergency_disable);
 

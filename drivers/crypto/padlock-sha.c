@@ -491,7 +491,7 @@ static struct shash_alg sha256_alg_nano = {
 };
 
 static const struct x86_cpu_id padlock_sha_ids[] = {
-	X86_MATCH_FEATURE(X86_FEATURE_PHE, NULL),
+	{ X86_VENDOR_CENTAUR, 6, X86_MODEL_ANY, X86_FEATURE_PHE },
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, padlock_sha_ids);

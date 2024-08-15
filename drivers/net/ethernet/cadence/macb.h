@@ -85,6 +85,7 @@
 #define GEM_PBUFRXCUT		0x0044 /* RX Partial Store and Forward */
 #define GEM_JML			0x0048 /* Jumbo Max Length */
 #define GEM_HS_MAC_CONFIG	0x0050 /* GEM high speed config */
+#define GEM_AXI_PIPE		0x0054 /* Axi max pipeline register*/
 #define GEM_HRB			0x0080 /* Hash Bottom */
 #define GEM_HRT			0x0084 /* Hash Top */
 #define GEM_SA1B		0x0088 /* Specific1 Bottom */
@@ -220,6 +221,36 @@
 #define GEM_IDR(hw_q)		(0x0620 + ((hw_q) << 2))
 #define GEM_IMR(hw_q)		(0x0640 + ((hw_q) << 2))
 
+#define GEM_SRC_SEL_LN		0x1C04
+#define GEM_DIV_SEL0_LN		0x1C08
+#define GEM_DIV_SEL1_LN		0x1C0C
+#define GEM_PMA_XCVR_POWER_STATE	0x1C10
+#define GEM_SPEED_MODE		0x1C14
+#define GEM_MII_SELECT		0x1C18
+#define GEM_SEL_MII_ON_RGMII	0x1C1C
+#define GEM_TX_CLK_SEL0		0x1C20
+#define GEM_TX_CLK_SEL1		0x1C24
+#define GEM_TX_CLK_SEL2		0x1C28
+#define GEM_TX_CLK_SEL3		0x1C2C
+#define GEM_RX_CLK_SEL0		0x1C30
+#define GEM_RX_CLK_SEL1		0x1C34
+#define GEM_CLK_250M_DIV10_DIV100_SEL	0x1C38
+#define GEM_TX_CLK_SEL5		0x1C3C
+#define GEM_TX_CLK_SEL6		0x1C40
+#define GEM_RX_CLK_SEL4		0x1C44
+#define GEM_RX_CLK_SEL5		0x1C48
+#define GEM_TX_CLK_SEL3_0	0x1C70
+#define GEM_TX_CLK_SEL4_0	0x1C74
+#define GEM_RX_CLK_SEL3_0	0x1C78
+#define GEM_RX_CLK_SEL4_0	0x1C7C
+#define GEM_RGMII_TX_CLK_SEL0	0x1C80
+#define GEM_RGMII_TX_CLK_SEL1	0x1C84
+
+#define GEM_PHY_INT_ENABLE	0x1C88
+#define GEM_PHY_INT_CLEAR	0x1C8C
+#define GEM_PHY_INT_STATE	0x1C90
+#define GEM_INTX_IRQ_MASK		  0x1C7C /* Phytium: irq mask */
+
 /* Bitfields in NCR */
 #define MACB_LB_OFFSET		0 /* reserved */
 #define MACB_LB_SIZE		1
@@ -254,6 +285,8 @@
 #define MACB_OSSMODE_SIZE	1
 #define MACB_MIIONRGMII_OFFSET	28 /* MII Usage on RGMII Interface */
 #define MACB_MIIONRGMII_SIZE	1
+#define MACB_2PT5G_OFFSET	29 /* 2.5G operation selected */
+#define MACB_2PT5G_SIZE		1
 
 /* Bitfields in NCFGR */
 #define MACB_SPD_OFFSET		0 /* Speed */
@@ -562,6 +595,8 @@
 #define GEM_RX_SCR_BYPASS_SIZE			1
 #define GEM_TX_SCR_BYPASS_OFFSET		8
 #define GEM_TX_SCR_BYPASS_SIZE			1
+#define GEM_RX_SYNC_RESET_OFFSET		2
+#define GEM_RX_SYNC_RESET_SIZE			1
 #define GEM_TX_EN_OFFSET			1
 #define GEM_TX_EN_SIZE				1
 #define GEM_SIGNAL_OK_OFFSET			0
@@ -731,8 +766,10 @@
 #define MACB_CAPS_GEM_HAS_PTP			0x00000040
 #define MACB_CAPS_BD_RD_PREFETCH		0x00000080
 #define MACB_CAPS_NEEDS_RSTONUBR		0x00000100
+#define MACB_CAPS_SEL_CLK				0x00000800
 #define MACB_CAPS_MIIONRGMII			0x00000200
 #define MACB_CAPS_NEED_TSUCLK			0x00000400
+#define MACB_CAPS_SEL_CLK				0x00000800
 #define MACB_CAPS_PCS				0x01000000
 #define MACB_CAPS_HIGH_SPEED			0x02000000
 #define MACB_CAPS_CLK_HW_CHG			0x04000000
@@ -741,6 +778,8 @@
 #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
 #define MACB_CAPS_SG_DISABLED			0x40000000
 #define MACB_CAPS_MACB_IS_GEM			0x80000000
+#define MACB_CAPS_PCS					0x01000000
+#define MACB_CAPS_HIGH_SPEED			0x02000000
 
 /* LSO settings */
 #define MACB_LSO_UFO_ENABLE			0x01
@@ -782,6 +821,8 @@
 #define queue_writel(queue, reg, value)	(queue)->bp->macb_reg_writel((queue)->bp, (queue)->reg, (value))
 #define gem_readl_n(port, reg, idx)		(port)->macb_reg_readl((port), GEM_##reg + idx * 4)
 #define gem_writel_n(port, reg, idx, value)	(port)->macb_reg_writel((port), GEM_##reg + idx * 4, (value))
+
+#define PTP_TS_BUFFER_SIZE		128 /* must be power of 2 */
 
 /* Conditional GEM/MACB macros.  These perform the operation to the correct
  * register dependent on whether the device is a GEM or a MACB.  For registers
@@ -831,6 +872,11 @@ struct macb_dma_desc_64 {
 struct macb_dma_desc_ptp {
 	u32	ts_1;
 	u32	ts_2;
+};
+
+struct gem_tx_ts {
+	struct sk_buff *skb;
+	struct macb_dma_desc_ptp desc_ptp;
 };
 #endif
 
@@ -1193,6 +1239,7 @@ struct macb_config {
 	unsigned int		max_tx_length;
 	int	jumbo_max_len;
 	const struct macb_usrio_config *usrio;
+	void (*sel_clk_hw)(struct macb *bp, int speed);
 };
 
 struct tsu_incr {
@@ -1231,8 +1278,15 @@ struct macb_queue {
 	struct macb_dma_desc	*rx_ring;
 	struct sk_buff		**rx_skbuff;
 	void			*rx_buffers;
+	struct napi_struct	napi;
 	struct napi_struct	napi_rx;
 	struct queue_stats stats;
+
+#ifdef CONFIG_MACB_USE_HWSTAMP
+	struct work_struct	tx_ts_task;
+	unsigned int		tx_ts_head, tx_ts_tail;
+	struct gem_tx_ts	tx_timestamps[PTP_TS_BUFFER_SIZE];
+#endif
 };
 
 struct ethtool_rx_fs_item {
@@ -1270,6 +1324,7 @@ struct macb {
 	struct clk		*rx_clk;
 	struct clk		*tsu_clk;
 	struct net_device	*dev;
+	struct ncsi_dev		*ndev;
 	union {
 		struct macb_stats	macb;
 		struct gem_stats	gem;
@@ -1282,6 +1337,10 @@ struct macb {
 	struct phylink_config	phylink_config;
 	struct phylink_pcs	phylink_usx_pcs;
 	struct phylink_pcs	phylink_sgmii_pcs;
+	int			link;
+	int			speed;
+	int			duplex;
+	int			use_ncsi;
 
 	u32			caps;
 	unsigned int		dma_burst_length;
@@ -1330,6 +1389,8 @@ struct macb {
 
 	struct macb_pm_data pm_data;
 	const struct macb_usrio_config *usrio;
+
+	void (*sel_clk_hw)(struct macb *bp, int speed);
 };
 
 #ifdef CONFIG_MACB_USE_HWSTAMP

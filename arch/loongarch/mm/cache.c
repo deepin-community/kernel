@@ -63,6 +63,27 @@ static void flush_cache_leaf(unsigned int leaf)
 	} while (--nr_nodes > 0);
 }
 
+static void flush_cache_last_level(unsigned int leaf)
+{
+	u64 addr;
+	int i, j, nr_nodes;
+	struct cache_desc *cdesc = current_cpu_data.cache_leaves + leaf;
+
+	nr_nodes = loongson_sysconf.nr_nodes;
+
+	addr = CSR_DMW1_BASE;
+	iocsr_write32(0x1, 0x280);
+	do {
+		for (i = 0; i < (cdesc->ways * 3); i++) {
+			for (j = 0; j < (cdesc->sets); j++) {
+				*(volatile u32 *)addr;
+				addr += cdesc->linesz;
+			}
+		}
+		addr += 0x100000000000;
+	} while (--nr_nodes > 0);
+}
+
 asmlinkage __visible void __flush_cache_all(void)
 {
 	int leaf;
@@ -71,7 +92,7 @@ asmlinkage __visible void __flush_cache_all(void)
 
 	leaf = cache_present - 1;
 	if (cache_inclusive(cdesc + leaf)) {
-		flush_cache_leaf(leaf);
+		flush_cache_last_level(leaf);
 		return;
 	}
 

@@ -20,7 +20,6 @@
 #include <asm/irq.h>
 #include <asm/loongson.h>
 #include <asm/setup.h>
-#include "legacy_boot.h"
 
 DEFINE_PER_CPU(unsigned long, irq_stack);
 DEFINE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
@@ -62,12 +61,6 @@ static int __init early_pci_mcfg_parse(struct acpi_table_header *header)
 	if (header->length < sizeof(struct acpi_table_mcfg))
 		return -EINVAL;
 
-	for (i = 0; i < MAX_IO_PICS; i++) {
-		msi_group[i].pci_segment = -1;
-		msi_group[i].node = -1;
-		pch_group[i].node = -1;
-	}
-
 	n = (header->length - sizeof(struct acpi_table_mcfg)) /
 					sizeof(struct acpi_mcfg_allocation);
 	mcfg = (struct acpi_table_mcfg *)header;
@@ -83,48 +76,37 @@ static int __init early_pci_mcfg_parse(struct acpi_table_header *header)
 
 static void __init init_vec_parent_group(void)
 {
+	int i;
+
+	for (i = 0; i < MAX_IO_PICS; i++) {
+		msi_group[i].pci_segment = -1;
+		msi_group[i].node = -1;
+		pch_group[i].node = -1;
+	}
+
 	acpi_table_parse(ACPI_SIG_MCFG, early_pci_mcfg_parse);
-}
-
-static int __init get_ipi_irq(void)
-{
-	struct irq_domain *d = irq_find_matching_fwnode(cpuintc_handle, DOMAIN_BUS_ANY);
-
-	if (d)
-		return irq_create_mapping(d, INT_IPI);
-
-	return -EINVAL;
 }
 
 void __init init_IRQ(void)
 {
-	int i, ret;
-#ifdef CONFIG_SMP
-	int r, ipi_irq;
-	static int ipi_dummy_dev;
-#endif
+	int i;
 	unsigned int order = get_order(IRQ_STACK_SIZE);
 	struct page *page;
+	unsigned long node;
+
+	if (!acpi_gbl_reduced_hardware) {
+		for_each_node(node)
+			writel(0x40000000 | (node << 12),
+				(volatile void __iomem *)(0x80000efdfb000274UL + (node<<44)));
+	}
 
 	clear_csr_ecfg(ECFG0_IM);
 	clear_csr_estat(ESTATF_IP);
 
 	init_vec_parent_group();
-	if (efi_bp && bpi_version <= BPI_VERSION_V1) {
-		ret = setup_legacy_IRQ();
-		if (ret)
-			panic("IRQ domain init error!\n");
-	} else {
-		irqchip_init();
-	}
+	irqchip_init();
 #ifdef CONFIG_SMP
-	ipi_irq = get_ipi_irq();
-	if (ipi_irq < 0)
-		panic("IPI IRQ mapping failed\n");
-	irq_set_percpu_devid(ipi_irq);
-	r = request_percpu_irq(ipi_irq, loongson_ipi_interrupt, "IPI", &ipi_dummy_dev);
-	if (r < 0)
-		panic("IPI IRQ request failed\n");
+	smp_ops.init_ipi();
 #endif
 
 	for (i = 0; i < NR_IRQS; i++)
@@ -138,5 +120,5 @@ void __init init_IRQ(void)
 			per_cpu(irq_stack, i), per_cpu(irq_stack, i) + IRQ_STACK_SIZE);
 	}
 
-	set_csr_ecfg(ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
+	set_csr_ecfg(ECFGF_SIP0 | ECFGF_IP0 | ECFGF_IP1 | ECFGF_IP2 | ECFGF_IPI | ECFGF_PMC);
 }

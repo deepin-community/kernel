@@ -25,6 +25,7 @@ obj-y			+= bugs.o
 obj-y			+= aperfmperf.o
 obj-y			+= cpuid-deps.o
 obj-y			+= umwait.o
+obj-y                   += zxpause.o
 
 obj-$(CONFIG_PROC_FS)	+= proc.o
 obj-y += capflags.o powerflags.o

@@ -246,6 +246,7 @@ config ARCH_NPCM
 
 config ARCH_PHYTIUM
 	bool "Phytium SoC Family"
+	select ARM_GIC_PHYTIUM_2500
 	help
 	  This enables support for Phytium ARMv8 SoC family, including:
 	   - Phytium Server SoC Family

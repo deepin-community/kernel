@@ -65,6 +65,21 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	plat->phy_interface = device_get_phy_mode(&pdev->dev);
+#ifdef CONFIG_ACPI
+	static const struct acpi_device_id phytium_old_acpi_id[] = {
+		{ .id = "FTGM0001" }, // compat FT2000/4 id
+		{ }
+	};
+	/* "phy-mode" in phytium platform DSDT is not correct in some old device.
+	 * Force this PHY mode to rgmii-rxid and info of its use.
+	 * If the phy-mode rgmii is realy used, a blacklist may need to be added.
+	 */
+	if (acpi_match_device_ids(to_acpi_device(&pdev->dev), phytium_old_acpi_id) &&
+		plat->phy_interface == PHY_INTERFACE_MODE_RGMII) {
+		plat->phy_interface = PHY_INTERFACE_MODE_RGMII_RXID;
+		dev_info(&pdev->dev, "phytium workaround: phy-mode from rgmii to rgmii-rxid\n");
+	}
+#endif
 	if (plat->phy_interface < 0)
 		return plat->phy_interface;
 
@@ -153,7 +168,15 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 	plat->dma_cfg->aal = fwnode_property_read_bool(fwnode, "snps,aal");
 	plat->dma_cfg->fixed_burst = fwnode_property_read_bool(fwnode, "snps,fixed-burst");
 	plat->dma_cfg->mixed_burst = fwnode_property_read_bool(fwnode, "snps,mixed-burst");
-
+#ifdef CONFIG_ACPI
+	/* Some old phytium 2000/4 FTGM0001 cannot auto deferred stmmac DMA settings
+	 * show kernel error 'DMA descriptors allocation failed'
+	 */
+	if (acpi_match_device_ids(to_acpi_device(&pdev->dev), phytium_old_acpi_id)) {
+		pdev->dev.dma_ops = NULL; // solved set DMA mask Failed
+		plat->host_dma_width = 32;
+	}
+#endif
 	plat->axi->axi_lpi_en = false;
 	plat->axi->axi_xit_frm = false;
 	plat->axi->axi_wr_osr_lmt = 7;

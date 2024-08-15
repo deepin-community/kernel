@@ -12,6 +12,22 @@
 #define UIP_RECHECK_DELAY_MS		(USEC_PER_MSEC / UIP_RECHECK_DELAY)
 #define UIP_RECHECK_LOOPS_MS(x)		(x / UIP_RECHECK_DELAY_MS)
 
+#ifdef CONFIG_X86
+static inline bool follow_mc146818_divider_reset(void)
+{
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) &&
+	    (boot_cpu_data.x86 <= 7 && boot_cpu_data.x86_model <= 59))
+		return false;
+	return true;
+}
+#else
+static inline bool follow_mc146818_divider_reset(void)
+{
+	return true;
+}
+#endif
+
 /*
  * Execute a function while the UIP (Update-in-progress) bit of the RTC is
  * unset. The timeout is configurable by the caller in ms.
@@ -280,12 +296,13 @@ int mc146818_set_time(struct rtc_time *time)
 	spin_lock_irqsave(&rtc_lock, flags);
 	save_control = CMOS_READ(RTC_CONTROL);
 	CMOS_WRITE((save_control|RTC_SET), RTC_CONTROL);
-	save_freq_select = CMOS_READ(RTC_FREQ_SELECT);
-	if (apply_amd_register_a_behavior())
-		CMOS_WRITE((save_freq_select & ~RTC_AMD_BANK_SELECT), RTC_FREQ_SELECT);
-	else
-		CMOS_WRITE((save_freq_select|RTC_DIV_RESET2), RTC_FREQ_SELECT);
-
+	if (follow_mc146818_divider_reset()) {
+		save_freq_select = CMOS_READ(RTC_FREQ_SELECT);
+		if (apply_amd_register_a_behavior())
+			CMOS_WRITE((save_freq_select & ~RTC_AMD_BANK_SELECT), RTC_FREQ_SELECT);
+		else
+			CMOS_WRITE((save_freq_select|RTC_DIV_RESET2), RTC_FREQ_SELECT);
+	}
 #ifdef CONFIG_MACH_DECSTATION
 	CMOS_WRITE(real_yrs, RTC_DEC_YEAR);
 #endif
@@ -302,7 +319,8 @@ int mc146818_set_time(struct rtc_time *time)
 #endif
 
 	CMOS_WRITE(save_control, RTC_CONTROL);
-	CMOS_WRITE(save_freq_select, RTC_FREQ_SELECT);
+	if (follow_mc146818_divider_reset())
+		CMOS_WRITE(save_freq_select, RTC_FREQ_SELECT);
 
 	spin_unlock_irqrestore(&rtc_lock, flags);
 

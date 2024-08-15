@@ -449,9 +449,15 @@ struct drm_dp_aux {
 	 * @is_remote: Is this AUX CH actually using sideband messaging.
 	 */
 	bool is_remote;
+
+	/**
+	 * @powered_down: If true then the remote endpoint is powered down.
+	 */
+	bool powered_down;
 };
 
 int drm_dp_dpcd_probe(struct drm_dp_aux *aux, unsigned int offset);
+void drm_dp_dpcd_set_powered(struct drm_dp_aux *aux, bool powered);
 ssize_t drm_dp_dpcd_read(struct drm_dp_aux *aux, unsigned int offset,
 			 void *buffer, size_t size);
 ssize_t drm_dp_dpcd_write(struct drm_dp_aux *aux, unsigned int offset,
@@ -699,6 +705,7 @@ void drm_dp_cec_irq(struct drm_dp_aux *aux);
 void drm_dp_cec_register_connector(struct drm_dp_aux *aux,
 				   struct drm_connector *connector);
 void drm_dp_cec_unregister_connector(struct drm_dp_aux *aux);
+void drm_dp_cec_attach(struct drm_dp_aux *aux, u16 source_physical_address);
 void drm_dp_cec_set_edid(struct drm_dp_aux *aux, const struct edid *edid);
 void drm_dp_cec_unset_edid(struct drm_dp_aux *aux);
 #else
@@ -713,6 +720,11 @@ drm_dp_cec_register_connector(struct drm_dp_aux *aux,
 }
 
 static inline void drm_dp_cec_unregister_connector(struct drm_dp_aux *aux)
+{
+}
+
+static inline void drm_dp_cec_attach(struct drm_dp_aux *aux,
+				     u16 source_physical_address)
 {
 }
 

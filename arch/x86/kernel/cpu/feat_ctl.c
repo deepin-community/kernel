@@ -17,6 +17,7 @@ enum vmx_feature_leafs {
 	SECONDARY_CTLS,
 	TERTIARY_CTLS_LOW,
 	TERTIARY_CTLS_HIGH,
+	ZX_TERTIARY_CTLS,
 	NR_VMX_FEATURE_WORDS,
 };
 
@@ -97,6 +98,13 @@ static void init_vmx_capabilities(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_EPT_AD);
 	if (c->vmx_capability[MISC_FEATURES] & VMX_F(VPID))
 		set_cpu_cap(c, X86_FEATURE_VPID);
+	/*
+	 * Initialize Zhaoxin Tertiary Exec Control feature flags.
+	 */
+	rdmsr_safe(MSR_ZX_EXT_VMCS_CAPS, &supported, &ign);
+	if (supported & MSR_ZX_VMCS_EXEC_CTL3)
+		c->vmx_capability[ZX_TERTIARY_CTLS] |= VMX_F(GUEST_ZXPAUSE);
+
 }
 #endif /* CONFIG_X86_VMX_FEATURE_NAMES */
 

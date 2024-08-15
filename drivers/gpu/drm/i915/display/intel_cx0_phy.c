@@ -46,6 +46,22 @@ static int lane_mask_to_lane(u8 lane_mask)
 	return ilog2(lane_mask);
 }
 
+static u8 intel_cx0_get_owned_lane_mask(struct drm_i915_private *i915,
+					struct intel_encoder *encoder)
+{
+	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
+
+	if (!intel_tc_port_in_dp_alt_mode(dig_port))
+		return INTEL_CX0_BOTH_LANES;
+
+	/*
+	 * In DP-alt with pin assignment D, only PHY lane 0 is owned
+	 * by display and lane 1 is owned by USB.
+	 */
+	return intel_tc_port_fia_max_lane_count(dig_port) > 2
+		? INTEL_CX0_BOTH_LANES : INTEL_CX0_LANE0;
+}
+
 static void
 assert_dc_off(struct drm_i915_private *i915)
 {
@@ -164,6 +180,13 @@ static int __intel_cx0_read_once(struct drm_i915_private *i915, enum port port,
 
 	intel_clear_response_ready_flag(i915, port, lane);
 
+	/*
+	 * FIXME: Workaround to let HW to settle
+	 * down and let the message bus to end up
+	 * in a known state
+	 */
+	intel_cx0_bus_reset(i915, port, lane);
+
 	return REG_FIELD_GET(XELPDP_PORT_P2M_DATA_MASK, val);
 }
 
@@ -242,6 +265,13 @@ static int __intel_cx0_write_once(struct drm_i915_private *i915, enum port port,
 	}
 
 	intel_clear_response_ready_flag(i915, port, lane);
+
+	/*
+	 * FIXME: Workaround to let HW to settle
+	 * down and let the message bus to end up
+	 * in a known state
+	 */
+	intel_cx0_bus_reset(i915, port, lane);
 
 	return 0;
 }
@@ -359,6 +389,7 @@ void intel_cx0_phy_set_signal_levels(struct intel_encoder *encoder,
 	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	const struct intel_ddi_buf_trans *trans;
 	enum phy phy = intel_port_to_phy(i915, encoder->port);
+	u8 owned_lane_mask = intel_cx0_get_owned_lane_mask(i915, encoder);
 	intel_wakeref_t wakeref;
 	int n_entries, ln;
 
@@ -371,13 +402,13 @@ void intel_cx0_phy_set_signal_levels(struct intel_encoder *encoder,
 	}
 
 	if (intel_is_c10phy(i915, phy)) {
-		intel_cx0_rmw(i915, encoder->port, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CONTROL(1),
+		intel_cx0_rmw(i915, encoder->port, owned_lane_mask, PHY_C10_VDR_CONTROL(1),
 			      0, C10_VDR_CTRL_MSGBUS_ACCESS, MB_WRITE_COMMITTED);
-		intel_cx0_rmw(i915, encoder->port, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CMN(3),
+		intel_cx0_rmw(i915, encoder->port, owned_lane_mask, PHY_C10_VDR_CMN(3),
 			      C10_CMN3_TXVBOOST_MASK,
 			      C10_CMN3_TXVBOOST(intel_c10_get_tx_vboost_lvl(crtc_state)),
 			      MB_WRITE_UNCOMMITTED);
-		intel_cx0_rmw(i915, encoder->port, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_TX(1),
+		intel_cx0_rmw(i915, encoder->port, owned_lane_mask, PHY_C10_VDR_TX(1),
 			      C10_TX1_TERMCTL_MASK,
 			      C10_TX1_TERMCTL(intel_c10_get_tx_term_ctl(crtc_state)),
 			      MB_WRITE_COMMITTED);
@@ -385,32 +416,34 @@ void intel_cx0_phy_set_signal_levels(struct intel_encoder *encoder,
 
 	for (ln = 0; ln < crtc_state->lane_count; ln++) {
 		int level = intel_ddi_level(encoder, crtc_state, ln);
-		int lane, tx;
+		int lane = ln / 2;
+		int tx = ln % 2;
+		u8 lane_mask = lane == 0 ? INTEL_CX0_LANE0 : INTEL_CX0_LANE1;
 
-		lane = ln / 2;
-		tx = ln % 2;
+		if (!(lane_mask & owned_lane_mask))
+			continue;
 
-		intel_cx0_rmw(i915, encoder->port, BIT(lane), PHY_CX0_VDROVRD_CTL(lane, tx, 0),
+		intel_cx0_rmw(i915, encoder->port, lane_mask, PHY_CX0_VDROVRD_CTL(lane, tx, 0),
 			      C10_PHY_OVRD_LEVEL_MASK,
 			      C10_PHY_OVRD_LEVEL(trans->entries[level].snps.pre_cursor),
 			      MB_WRITE_COMMITTED);
-		intel_cx0_rmw(i915, encoder->port, BIT(lane), PHY_CX0_VDROVRD_CTL(lane, tx, 1),
+		intel_cx0_rmw(i915, encoder->port, lane_mask, PHY_CX0_VDROVRD_CTL(lane, tx, 1),
 			      C10_PHY_OVRD_LEVEL_MASK,
 			      C10_PHY_OVRD_LEVEL(trans->entries[level].snps.vswing),
 			      MB_WRITE_COMMITTED);
-		intel_cx0_rmw(i915, encoder->port, BIT(lane), PHY_CX0_VDROVRD_CTL(lane, tx, 2),
+		intel_cx0_rmw(i915, encoder->port, lane_mask, PHY_CX0_VDROVRD_CTL(lane, tx, 2),
 			      C10_PHY_OVRD_LEVEL_MASK,
 			      C10_PHY_OVRD_LEVEL(trans->entries[level].snps.post_cursor),
 			      MB_WRITE_COMMITTED);
 	}
 
 	/* Write Override enables in 0xD71 */
-	intel_cx0_rmw(i915, encoder->port, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_OVRD,
+	intel_cx0_rmw(i915, encoder->port, owned_lane_mask, PHY_C10_VDR_OVRD,
 		      0, PHY_C10_VDR_OVRD_TX1 | PHY_C10_VDR_OVRD_TX2,
 		      MB_WRITE_COMMITTED);
 
 	if (intel_is_c10phy(i915, phy))
-		intel_cx0_rmw(i915, encoder->port, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CONTROL(1),
+		intel_cx0_rmw(i915, encoder->port, owned_lane_mask, PHY_C10_VDR_CONTROL(1),
 			      0, C10_VDR_CTRL_UPDATE_CFG, MB_WRITE_COMMITTED);
 
 	intel_cx0_phy_transaction_end(encoder, wakeref);
@@ -783,10 +816,10 @@ static const struct intel_c20pll_state mtl_c20_dp_hbr3 = {
 static const struct intel_c20pll_state mtl_c20_dp_uhbr10 = {
 	.clock = 1000000, /* 10 Gbps */
 	.tx = {	0xbe21, /* tx cfg0 */
-		0x4800, /* tx cfg1 */
+		0xe800, /* tx cfg1 */
 		0x0000, /* tx cfg2 */
 		},
-	.cmn = {0x0500, /* cmn cfg0*/
+	.cmn = {0x0700, /* cmn cfg0*/
 		0x0005, /* cmn cfg1 */
 		0x0000, /* cmn cfg2 */
 		0x0000, /* cmn cfg3 */
@@ -1576,7 +1609,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_594 = {
 static const struct intel_c20pll_state mtl_c20_hdmi_300 = {
 	.clock = 3000000,
 	.tx = {  0xbe98, /* tx cfg0 */
-		  0x9800, /* tx cfg1 */
+		  0x8800, /* tx cfg1 */
 		  0x0000, /* tx cfg2 */
 		},
 	.cmn = { 0x0500, /* cmn cfg0*/
@@ -1584,8 +1617,8 @@ static const struct intel_c20pll_state mtl_c20_hdmi_300 = {
 		  0x0000, /* cmn cfg2 */
 		  0x0000, /* cmn cfg3 */
 		},
-	.mpllb = { 0x209c,	/* mpllb cfg0 */
-		   0x7d10,	/* mpllb cfg1 */
+	.mpllb = { 0x309c,	/* mpllb cfg0 */
+		   0x2110,	/* mpllb cfg1 */
 		   0xca06,	/* mpllb cfg2 */
 		   0xbe40,	/* mpllb cfg3 */
 		   0x0000,	/* mpllb cfg4 */
@@ -1601,7 +1634,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_300 = {
 static const struct intel_c20pll_state mtl_c20_hdmi_600 = {
 	.clock = 6000000,
 	.tx = {  0xbe98, /* tx cfg0 */
-		  0x9800, /* tx cfg1 */
+		  0x8800, /* tx cfg1 */
 		  0x0000, /* tx cfg2 */
 		},
 	.cmn = { 0x0500, /* cmn cfg0*/
@@ -1609,8 +1642,8 @@ static const struct intel_c20pll_state mtl_c20_hdmi_600 = {
 		  0x0000, /* cmn cfg2 */
 		  0x0000, /* cmn cfg3 */
 		},
-	.mpllb = { 0x009c,	/* mpllb cfg0 */
-		   0x7d08,	/* mpllb cfg1 */
+	.mpllb = { 0x109c,	/* mpllb cfg0 */
+		   0x2108,	/* mpllb cfg1 */
 		   0xca06,	/* mpllb cfg2 */
 		   0xbe40,	/* mpllb cfg3 */
 		   0x0000,	/* mpllb cfg4 */
@@ -1626,7 +1659,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_600 = {
 static const struct intel_c20pll_state mtl_c20_hdmi_800 = {
 	.clock = 8000000,
 	.tx = {  0xbe98, /* tx cfg0 */
-		  0x9800, /* tx cfg1 */
+		  0x8800, /* tx cfg1 */
 		  0x0000, /* tx cfg2 */
 		},
 	.cmn = { 0x0500, /* cmn cfg0*/
@@ -1634,8 +1667,8 @@ static const struct intel_c20pll_state mtl_c20_hdmi_800 = {
 		  0x0000, /* cmn cfg2 */
 		  0x0000, /* cmn cfg3 */
 		},
-	.mpllb = { 0x00d0,	/* mpllb cfg0 */
-		   0x7d08,	/* mpllb cfg1 */
+	.mpllb = { 0x10d0,	/* mpllb cfg0 */
+		   0x2108,	/* mpllb cfg1 */
 		   0x4a06,	/* mpllb cfg2 */
 		   0xbe40,	/* mpllb cfg3 */
 		   0x0000,	/* mpllb cfg4 */
@@ -1651,7 +1684,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_800 = {
 static const struct intel_c20pll_state mtl_c20_hdmi_1000 = {
 	.clock = 10000000,
 	.tx = {  0xbe98, /* tx cfg0 */
-		  0x9800, /* tx cfg1 */
+		  0x8800, /* tx cfg1 */
 		  0x0000, /* tx cfg2 */
 		},
 	.cmn = { 0x0500, /* cmn cfg0*/
@@ -1660,7 +1693,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_1000 = {
 		  0x0000, /* cmn cfg3 */
 		},
 	.mpllb = { 0x1104,	/* mpllb cfg0 */
-		   0x7d08,	/* mpllb cfg1 */
+		   0x2108,	/* mpllb cfg1 */
 		   0x0a06,	/* mpllb cfg2 */
 		   0xbe40,	/* mpllb cfg3 */
 		   0x0000,	/* mpllb cfg4 */
@@ -1676,7 +1709,7 @@ static const struct intel_c20pll_state mtl_c20_hdmi_1000 = {
 static const struct intel_c20pll_state mtl_c20_hdmi_1200 = {
 	.clock = 12000000,
 	.tx = {  0xbe98, /* tx cfg0 */
-		  0x9800, /* tx cfg1 */
+		  0x8800, /* tx cfg1 */
 		  0x0000, /* tx cfg2 */
 		},
 	.cmn = { 0x0500, /* cmn cfg0*/
@@ -1684,8 +1717,8 @@ static const struct intel_c20pll_state mtl_c20_hdmi_1200 = {
 		  0x0000, /* cmn cfg2 */
 		  0x0000, /* cmn cfg3 */
 		},
-	.mpllb = { 0x0138,	/* mpllb cfg0 */
-		   0x7d08,	/* mpllb cfg1 */
+	.mpllb = { 0x1138,	/* mpllb cfg0 */
+		   0x2108,	/* mpllb cfg1 */
 		   0x5486,	/* mpllb cfg2 */
 		   0xfe40,	/* mpllb cfg3 */
 		   0x0000,	/* mpllb cfg4 */
@@ -2518,17 +2551,15 @@ static void intel_cx0_phy_lane_reset(struct drm_i915_private *i915,
 {
 	enum port port = encoder->port;
 	enum phy phy = intel_port_to_phy(i915, port);
-	bool both_lanes =  intel_tc_port_fia_max_lane_count(enc_to_dig_port(encoder)) > 2;
-	u8 lane_mask = lane_reversal ? INTEL_CX0_LANE1 :
-				  INTEL_CX0_LANE0;
-	u32 lane_pipe_reset = both_lanes ?
-			      XELPDP_LANE_PIPE_RESET(0) |
-			      XELPDP_LANE_PIPE_RESET(1) :
-			      XELPDP_LANE_PIPE_RESET(0);
-	u32 lane_phy_current_status = both_lanes ?
-				      XELPDP_LANE_PHY_CURRENT_STATUS(0) |
-				      XELPDP_LANE_PHY_CURRENT_STATUS(1) :
-				      XELPDP_LANE_PHY_CURRENT_STATUS(0);
+	u8 owned_lane_mask = intel_cx0_get_owned_lane_mask(i915, encoder);
+	u8 lane_mask = lane_reversal ? INTEL_CX0_LANE1 : INTEL_CX0_LANE0;
+	u32 lane_pipe_reset = owned_lane_mask == INTEL_CX0_BOTH_LANES
+				? XELPDP_LANE_PIPE_RESET(0) | XELPDP_LANE_PIPE_RESET(1)
+				: XELPDP_LANE_PIPE_RESET(0);
+	u32 lane_phy_current_status = owned_lane_mask == INTEL_CX0_BOTH_LANES
+					? (XELPDP_LANE_PHY_CURRENT_STATUS(0) |
+					   XELPDP_LANE_PHY_CURRENT_STATUS(1))
+					: XELPDP_LANE_PHY_CURRENT_STATUS(0);
 
 	if (__intel_de_wait_for_register(i915, XELPDP_PORT_BUF_CTL1(port),
 					 XELPDP_PORT_BUF_SOC_PHY_READY,
@@ -2547,15 +2578,11 @@ static void intel_cx0_phy_lane_reset(struct drm_i915_private *i915,
 			 phy_name(phy), XELPDP_PORT_RESET_START_TIMEOUT_US);
 
 	intel_de_rmw(i915, XELPDP_PORT_CLOCK_CTL(port),
-		     intel_cx0_get_pclk_refclk_request(both_lanes ?
-						       INTEL_CX0_BOTH_LANES :
-						       INTEL_CX0_LANE0),
+		     intel_cx0_get_pclk_refclk_request(owned_lane_mask),
 		     intel_cx0_get_pclk_refclk_request(lane_mask));
 
 	if (__intel_de_wait_for_register(i915, XELPDP_PORT_CLOCK_CTL(port),
-					 intel_cx0_get_pclk_refclk_ack(both_lanes ?
-								       INTEL_CX0_BOTH_LANES :
-								       INTEL_CX0_LANE0),
+					 intel_cx0_get_pclk_refclk_ack(owned_lane_mask),
 					 intel_cx0_get_pclk_refclk_ack(lane_mask),
 					 XELPDP_REFCLK_ENABLE_TIMEOUT_US, 0, NULL))
 		drm_warn(&i915->drm, "PHY %c failed to request refclk after %dus.\n",
@@ -2577,7 +2604,8 @@ static void intel_cx0_program_phy_lane(struct drm_i915_private *i915,
 				       struct intel_encoder *encoder, int lane_count,
 				       bool lane_reversal)
 {
-	u8 l0t1, l0t2, l1t1, l1t2;
+	int i;
+	u8 disables;
 	bool dp_alt_mode = intel_tc_port_in_dp_alt_mode(enc_to_dig_port(encoder));
 	enum port port = encoder->port;
 
@@ -2587,66 +2615,26 @@ static void intel_cx0_program_phy_lane(struct drm_i915_private *i915,
 			      C10_VDR_CTRL_MSGBUS_ACCESS,
 			      MB_WRITE_COMMITTED);
 
-	/* TODO: DP-alt MFD case where only one PHY lane should be programmed. */
-	l0t1 = intel_cx0_read(i915, port, INTEL_CX0_LANE0, PHY_CX0_TX_CONTROL(1, 2));
-	l0t2 = intel_cx0_read(i915, port, INTEL_CX0_LANE0, PHY_CX0_TX_CONTROL(2, 2));
-	l1t1 = intel_cx0_read(i915, port, INTEL_CX0_LANE1, PHY_CX0_TX_CONTROL(1, 2));
-	l1t2 = intel_cx0_read(i915, port, INTEL_CX0_LANE1, PHY_CX0_TX_CONTROL(2, 2));
+	if (lane_reversal)
+		disables = REG_GENMASK8(3, 0) >> lane_count;
+	else
+		disables = REG_GENMASK8(3, 0) << lane_count;
 
-	l0t1 |= CONTROL2_DISABLE_SINGLE_TX;
-	l0t2 |= CONTROL2_DISABLE_SINGLE_TX;
-	l1t1 |= CONTROL2_DISABLE_SINGLE_TX;
-	l1t2 |= CONTROL2_DISABLE_SINGLE_TX;
-
-	if (lane_reversal) {
-		switch (lane_count) {
-		case 4:
-			l0t1 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			fallthrough;
-		case 3:
-			l0t2 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			fallthrough;
-		case 2:
-			l1t1 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			fallthrough;
-		case 1:
-			l1t2 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			break;
-		default:
-			MISSING_CASE(lane_count);
-		}
-	} else {
-		switch (lane_count) {
-		case 4:
-			l1t2 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			fallthrough;
-		case 3:
-			l1t1 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			fallthrough;
-		case 2:
-			l0t2 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			l0t1 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			break;
-		case 1:
-			if (dp_alt_mode)
-				l0t2 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			else
-				l0t1 &= ~CONTROL2_DISABLE_SINGLE_TX;
-			break;
-		default:
-			MISSING_CASE(lane_count);
-		}
+	if (dp_alt_mode && lane_count == 1) {
+		disables &= ~REG_GENMASK8(1, 0);
+		disables |= REG_FIELD_PREP8(REG_GENMASK8(1, 0), 0x1);
 	}
 
-	/* disable MLs */
-	intel_cx0_write(i915, port, INTEL_CX0_LANE0, PHY_CX0_TX_CONTROL(1, 2),
-			l0t1, MB_WRITE_COMMITTED);
-	intel_cx0_write(i915, port, INTEL_CX0_LANE0, PHY_CX0_TX_CONTROL(2, 2),
-			l0t2, MB_WRITE_COMMITTED);
-	intel_cx0_write(i915, port, INTEL_CX0_LANE1, PHY_CX0_TX_CONTROL(1, 2),
-			l1t1, MB_WRITE_COMMITTED);
-	intel_cx0_write(i915, port, INTEL_CX0_LANE1, PHY_CX0_TX_CONTROL(2, 2),
-			l1t2, MB_WRITE_COMMITTED);
+	/* TODO: DP-alt MFD case where only one PHY lane should be programmed. */
+	for (i = 0; i < 4; i++) {
+		int tx = i % 2 + 1;
+		u8 lane_mask = i < 2 ? INTEL_CX0_LANE0 : INTEL_CX0_LANE1;
+
+		intel_cx0_rmw(i915, port, lane_mask, PHY_CX0_TX_CONTROL(tx, 2),
+			      CONTROL2_DISABLE_SINGLE_TX,
+			      disables & BIT(i) ? CONTROL2_DISABLE_SINGLE_TX : 0,
+			      MB_WRITE_COMMITTED);
+	}
 
 	if (intel_is_c10phy(i915, intel_port_to_phy(i915, port)))
 		intel_cx0_rmw(i915, port, INTEL_CX0_BOTH_LANES,
@@ -2979,11 +2967,11 @@ intel_mtl_port_pll_type(struct intel_encoder *encoder,
 }
 
 void intel_c10pll_state_verify(struct intel_atomic_state *state,
-			       struct intel_crtc_state *new_crtc_state)
+			       const struct intel_crtc_state *new_crtc_state)
 {
 	struct drm_i915_private *i915 = to_i915(state->base.dev);
 	struct intel_c10pll_state mpllb_hw_state = { 0 };
-	struct intel_c10pll_state *mpllb_sw_state = &new_crtc_state->cx0pll_state.c10;
+	const struct intel_c10pll_state *mpllb_sw_state = &new_crtc_state->cx0pll_state.c10;
 	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->uapi.crtc);
 	struct intel_encoder *encoder;
 	enum phy phy;

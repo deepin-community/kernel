@@ -48,10 +48,6 @@ void machine_power_off(void)
 		enable_pci_wakeup();
 #endif
 	do_kernel_power_off();
-#ifdef CONFIG_EFI
-	if (efi.reset_system)
-		efi.reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
-#endif
 
 	while (true) {
 		__arch_cpu_idle();

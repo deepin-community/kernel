@@ -8,6 +8,7 @@
 #include <asm/efi.h>
 #include <asm/addrspace.h>
 #include "efistub.h"
+#include "loongarch-stub.h"
 
 typedef void __noreturn (*kernel_entry_t)(bool efi, unsigned long cmdline,
 					  unsigned long systab);
@@ -21,6 +22,8 @@ struct exit_boot_struct {
 	efi_memory_desc_t	*runtime_map;
 	int			runtime_entry_count;
 };
+
+static int is_oldworld = 0;
 
 static efi_status_t exit_boot_func(struct efi_boot_memmap *map, void *priv)
 {
@@ -37,9 +40,19 @@ static efi_status_t exit_boot_func(struct efi_boot_memmap *map, void *priv)
 	return EFI_SUCCESS;
 }
 
-unsigned long __weak kernel_entry_address(unsigned long kernel_addr)
+static void detect_oldworld(void)
 {
-	return *(unsigned long *)(kernel_addr + 8) - VMLINUX_LOAD_ADDRESS + kernel_addr;
+	is_oldworld = !!(csr_read64(LOONGARCH_CSR_DMWIN1) & CSR_DMW1_PLV0);
+	efi_debug("is_oldworld: %d\n", is_oldworld);
+	if(is_oldworld) {
+		efi_info("Booting on OldWorld firmware\n");
+	}
+}
+
+unsigned long __weak kernel_entry_address(unsigned long kernel_addr,
+		efi_loaded_image_t *image)
+{
+	return *(unsigned long *)(kernel_addr + 8) - PHYSADDR(VMLINUX_LOAD_ADDRESS) + kernel_addr;
 }
 
 efi_status_t efi_boot_kernel(void *handle, efi_loaded_image_t *image,
@@ -50,6 +63,8 @@ efi_status_t efi_boot_kernel(void *handle, efi_loaded_image_t *image,
 	unsigned long desc_size;
 	efi_status_t status;
 	u32 desc_ver;
+
+	detect_oldworld();
 
 	status = efi_alloc_virtmap(&priv.runtime_map, &desc_size, &desc_ver);
 	if (status != EFI_SUCCESS) {
@@ -64,16 +79,21 @@ efi_status_t efi_boot_kernel(void *handle, efi_loaded_image_t *image,
 	if (status != EFI_SUCCESS)
 		return status;
 
+	if (is_oldworld) {
+		goto skip_set_virtual_address_map;
+	}
+
 	/* Install the new virtual address map */
 	efi_rt_call(set_virtual_address_map,
 		    priv.runtime_entry_count * desc_size, desc_size,
 		    desc_ver, priv.runtime_map);
 
+skip_set_virtual_address_map:
 	/* Config Direct Mapping */
 	csr_write64(CSR_DMW0_INIT, LOONGARCH_CSR_DMWIN0);
 	csr_write64(CSR_DMW1_INIT, LOONGARCH_CSR_DMWIN1);
 
-	real_kernel_entry = (void *)kernel_entry_address(kernel_addr);
+	real_kernel_entry = (void *)kernel_entry_address(kernel_addr, image);
 
 	real_kernel_entry(true, (unsigned long)cmdline_ptr,
 			  (unsigned long)efi_system_table);

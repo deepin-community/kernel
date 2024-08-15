@@ -3543,6 +3543,13 @@ void cik_fence_gfx_ring_emit(struct radeon_device *rdev,
 	struct radeon_ring *ring = &rdev->ring[fence->ring];
 	u64 addr = rdev->fence_drv[fence->ring].gpu_addr;
 
+/* This workaround causes instability for LoongArch/Loongson (MIPS)
+ * devices based on the 7A1000/2000 chipset under heavy I/O load.
+ *
+ * FIXME: Disable this workaround until we find a better fix (possibly in
+ * the platform-specific PCI code).
+ */
+#ifndef CONFIG_MACH_LOONGSON64
 	/* Workaround for cache flush problems. First send a dummy EOP
 	 * event down the pipe with seq one below.
 	 */
@@ -3556,6 +3563,7 @@ void cik_fence_gfx_ring_emit(struct radeon_device *rdev,
 				DATA_SEL(1) | INT_SEL(0));
 	radeon_ring_write(ring, fence->seq - 1);
 	radeon_ring_write(ring, 0);
+#endif
 
 	/* Then send the real EOP event down the pipe. */
 	radeon_ring_write(ring, PACKET3(PACKET3_EVENT_WRITE_EOP, 4));

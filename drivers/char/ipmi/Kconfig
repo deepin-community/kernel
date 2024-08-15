@@ -130,6 +130,15 @@ config PHYTIUM_KCS_IPMI_BMC
 	  The driver implements the BMC side of the KCS contorller, it
 	  provides the access of KCS IO space for BMC side.
 
+config PHYTIUM_BT_IPMI_BMC
+	depends on ARCH_PHYTIUM
+	depends on REGMAP && REGMAP_MMIO && MFD_SYSCON
+	tristate "Phytium BT BMC driver"
+	help
+	  Provides a driver for the BT (Block Transfer) interface found
+	  on Phytium SOCs. The driver implements the BMC side of
+	  the BT interface.
+
 config NPCM7XX_KCS_IPMI_BMC
 	depends on ARCH_NPCM || COMPILE_TEST
 	select IPMI_KCS_BMC

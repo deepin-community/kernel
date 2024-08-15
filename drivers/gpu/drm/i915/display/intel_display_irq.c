@@ -340,16 +340,15 @@ static void flip_done_handler(struct drm_i915_private *i915,
 			      enum pipe pipe)
 {
 	struct intel_crtc *crtc = intel_crtc_for_pipe(i915, pipe);
-	struct drm_crtc_state *crtc_state = crtc->base.state;
-	struct drm_pending_vblank_event *e = crtc_state->event;
 	struct drm_device *dev = &i915->drm;
 	unsigned long irqflags;
 
 	spin_lock_irqsave(&dev->event_lock, irqflags);
 
-	crtc_state->event = NULL;
-
-	drm_crtc_send_vblank_event(&crtc->base, e);
+	if (crtc->flip_done_event) {
+		drm_crtc_send_vblank_event(&crtc->base, crtc->flip_done_event);
+		crtc->flip_done_event = NULL;
+	}
 
 	spin_unlock_irqrestore(&dev->event_lock, irqflags);
 }
@@ -987,7 +986,7 @@ static void gen8_read_and_ack_pch_irqs(struct drm_i915_private *i915, u32 *pch_i
 	 * their flags both in the PICA and SDE IIR.
 	 */
 	if (*pch_iir & SDE_PICAINTERRUPT) {
-		drm_WARN_ON(&i915->drm, INTEL_PCH_TYPE(i915) < PCH_MTP);
+		drm_WARN_ON(&i915->drm, INTEL_PCH_TYPE(i915) < PCH_MTL);
 
 		pica_ier = intel_de_rmw(i915, PICAINTERRUPT_IER, ~0, 0);
 		*pica_iir = intel_de_read(i915, PICAINTERRUPT_IIR);

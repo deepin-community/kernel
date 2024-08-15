@@ -4494,6 +4494,20 @@ static int patch_via_hdmi(struct hda_codec *codec)
 	return patch_simple_hdmi(codec, VIAHDMI_CVT_NID, VIAHDMI_PIN_NID);
 }
 
+/* Zhaoxin HDMI Implementation */
+static int patch_zhaoxin_hdmi(struct hda_codec *codec)
+{
+	int err;
+
+	err = patch_generic_hdmi(codec);
+	codec->no_sticky_stream = 1;
+
+	if (err)
+		return err;
+
+	return 0;
+}
+
 static int patch_gf_hdmi(struct hda_codec *codec)
 {
 	int err;
@@ -4616,6 +4630,15 @@ HDA_CODEC_ENTRY(0x11069f80, "VX900 HDMI/DP",	patch_via_hdmi),
 HDA_CODEC_ENTRY(0x11069f81, "VX900 HDMI/DP",	patch_via_hdmi),
 HDA_CODEC_ENTRY(0x11069f84, "VX11 HDMI/DP",	patch_generic_hdmi),
 HDA_CODEC_ENTRY(0x11069f85, "VX11 HDMI/DP",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x11069f88, "KX-5000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f89, "KX-5000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8a, "KX-6000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8b, "KX-6000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8c, "KX-6000G HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8d, "KX-6000G HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8e, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f8f, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x11069f90, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
 HDA_CODEC_ENTRY(0x80860054, "IbexPeak HDMI",	patch_i915_cpt_hdmi),
 HDA_CODEC_ENTRY(0x80862800, "Geminilake HDMI",	patch_i915_glk_hdmi),
 HDA_CODEC_ENTRY(0x80862801, "Bearlake HDMI",	patch_generic_hdmi),
@@ -4648,6 +4671,15 @@ HDA_CODEC_ENTRY(0x80862880, "CedarTrail HDMI",	patch_generic_hdmi),
 HDA_CODEC_ENTRY(0x80862882, "Valleyview2 HDMI",	patch_i915_byt_hdmi),
 HDA_CODEC_ENTRY(0x80862883, "Braswell HDMI",	patch_i915_byt_hdmi),
 HDA_CODEC_ENTRY(0x808629fb, "Crestline HDMI",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x1d179f88, "KX-5000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f89, "KX-5000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8a, "KX-6000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8b, "KX-6000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8c, "KX-6000G HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8d, "KX-6000G HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8e, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f8f, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
+HDA_CODEC_ENTRY(0x1d179f90, "KX-7000 HDMI/DP",	patch_zhaoxin_hdmi),
 /* special ID for generic HDMI */
 HDA_CODEC_ENTRY(HDA_CODEC_ID_GENERIC_HDMI, "Generic HDMI", patch_generic_hdmi),
 {} /* terminator */

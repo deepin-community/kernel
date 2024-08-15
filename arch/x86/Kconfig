@@ -2016,6 +2016,29 @@ config EFI_RUNTIME_MAP
 
 	  See also Documentation/ABI/testing/sysfs-firmware-efi-runtime-map.
 
+config HYGON_CSV
+	bool "Hygon secure virtualization CSV support"
+	default y
+	depends on CPU_SUP_HYGON && AMD_MEM_ENCRYPT
+	help
+	  Hygon CSV integrates secure processor, memory encryption and
+	  memory isolation to provide the ability to protect guest's private
+	  data. It has evolved from CSV, CSV2 to CSV3.
+
+	  For CSV, the guest's memory is encrypted.
+
+	  For CSV2, not only the guest's memory, but also the guest's vCPU
+	  registers are encrypted, neither other guests nor the host can tamper
+	  with the vCPU registers.
+
+	  For CSV3, the guest's context like vCPU registers, control block and
+	  nested page table is accessed only by the guest itself and the secure
+	  processor. Neither other guests nor the host can tamper with the
+	  guest's context.
+
+	  Say Y here to enable support for the whole capbilities of Hygon secure
+	  virtualization on hygon processor.
+
 source "kernel/Kconfig.hz"
 
 config ARCH_SUPPORTS_KEXEC
@@ -2428,9 +2451,13 @@ menuconfig CPU_MITIGATIONS
 	help
 	  Say Y here to enable options which enable mitigations for hardware
 	  vulnerabilities (usually related to speculative execution).
+	  Mitigations can be disabled or restricted to SMT systems at runtime
+	  via the "mitigations" kernel parameter.
 
-	  If you say N, all mitigations will be disabled. You really
-	  should know what you are doing to say so.
+	  If you say N, all mitigations will be disabled.  This CANNOT be
+	  overridden at runtime.
+
+	  Say 'Y', unless you really know what you are doing.
 
 if CPU_MITIGATIONS
 

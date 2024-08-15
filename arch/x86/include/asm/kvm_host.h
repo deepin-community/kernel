@@ -1751,6 +1751,13 @@ struct kvm_x86_ops {
 	 * Returns vCPU specific APICv inhibit reasons
 	 */
 	unsigned long (*vcpu_get_apicv_inhibit_reasons)(struct kvm_vcpu *vcpu);
+
+	/*
+	 * Interfaces for HYGON CSV guest
+	 */
+	int (*vm_attestation)(struct kvm *kvm, unsigned long gpa, unsigned long len);
+	int (*control_pre_system_reset)(struct kvm *kvm);
+	int (*control_post_system_reset)(struct kvm *kvm);
 };
 
 struct kvm_x86_nested_ops {
@@ -1758,7 +1765,7 @@ struct kvm_x86_nested_ops {
 	bool (*is_exception_vmexit)(struct kvm_vcpu *vcpu, u8 vector,
 				    u32 error_code);
 	int (*check_events)(struct kvm_vcpu *vcpu);
-	bool (*has_events)(struct kvm_vcpu *vcpu);
+	bool (*has_events)(struct kvm_vcpu *vcpu, bool for_injection);
 	void (*triple_fault)(struct kvm_vcpu *vcpu);
 	int (*get_state)(struct kvm_vcpu *vcpu,
 			 struct kvm_nested_state __user *user_kvm_nested_state,

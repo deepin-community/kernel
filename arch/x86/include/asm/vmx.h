@@ -84,6 +84,12 @@
  */
 #define TERTIARY_EXEC_IPI_VIRT			VMCS_CONTROL_BIT(IPI_VIRT)
 
+/*
+ * Definitions of Zhaoxin Tertiary Processor-Based VM-Execution Controls.
+ */
+#define ZX_TERTIARY_EXEC_GUEST_ZXPAUSE         VMCS_CONTROL_BIT(GUEST_ZXPAUSE)
+
+
 #define PIN_BASED_EXT_INTR_MASK                 VMCS_CONTROL_BIT(INTR_EXITING)
 #define PIN_BASED_NMI_EXITING                   VMCS_CONTROL_BIT(NMI_EXITING)
 #define PIN_BASED_VIRTUAL_NMIS                  VMCS_CONTROL_BIT(VIRTUAL_NMIS)
@@ -235,6 +241,7 @@ enum vmcs_field {
 	TERTIARY_VM_EXEC_CONTROL_HIGH	= 0x00002035,
 	PID_POINTER_TABLE		= 0x00002042,
 	PID_POINTER_TABLE_HIGH		= 0x00002043,
+	ZXPAUSE_VMEXIT_TSC              = 0x00002200,
 	GUEST_PHYSICAL_ADDRESS          = 0x00002400,
 	GUEST_PHYSICAL_ADDRESS_HIGH     = 0x00002401,
 	VMCS_LINK_POINTER               = 0x00002800,
@@ -284,6 +291,7 @@ enum vmcs_field {
 	PLE_GAP                         = 0x00004020,
 	PLE_WINDOW                      = 0x00004022,
 	NOTIFY_WINDOW                   = 0x00004024,
+	ZX_TERTIARY_VM_EXEC_CONTROL     = 0x00004200,
 	VM_INSTRUCTION_ERROR            = 0x00004400,
 	VM_EXIT_REASON                  = 0x00004402,
 	VM_EXIT_INTR_INFO               = 0x00004404,

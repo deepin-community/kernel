@@ -571,8 +571,8 @@ acpi_status acpi_run_osc(acpi_handle handle, struct acpi_osc_context *context);
 #define OSC_SB_PCLPI_SUPPORT			0x00000080
 #define OSC_SB_OSLPI_SUPPORT			0x00000100
 #define OSC_SB_CPC_DIVERSE_HIGH_SUPPORT		0x00001000
-#define OSC_SB_GENERIC_INITIATOR_SUPPORT	0x00002000
 #define OSC_SB_CPC_FLEXIBLE_ADR_SPACE		0x00004000
+#define OSC_SB_GENERIC_INITIATOR_SUPPORT	0x00020000
 #define OSC_SB_NATIVE_USB4_SUPPORT		0x00040000
 #define OSC_SB_PRM_SUPPORT			0x00200000
 #define OSC_SB_FFH_OPR_SUPPORT			0x00400000
@@ -761,6 +761,16 @@ static inline u64 acpi_arch_get_root_pointer(void)
 
 int acpi_get_local_address(acpi_handle handle, u32 *addr);
 const char *acpi_get_subsystem_id(acpi_handle handle);
+
+#ifndef ACPI_HAVE_ARCH_TABLE_OVERRIDE
+static inline void acpi_arch_os_table_override (struct acpi_table_header *existing_table, struct acpi_table_header **new_table){
+}
+#endif
+#ifndef ACPI_HAVE_ARCH_TABLE_INIT_COMPLETE
+static inline void acpi_arch_table_init_complete(void)
+{
+}
+#endif
 
 #else	/* !CONFIG_ACPI */
 
@@ -1522,6 +1532,10 @@ static inline int find_acpi_cpu_topology_hetero_id(unsigned int cpu)
 void acpi_arm_init(void);
 #else
 static inline void acpi_arm_init(void) { }
+#endif
+
+#ifndef ACPI_HAVE_ARCH_INIT
+static inline void acpi_arch_init(void) {}
 #endif
 
 #ifdef CONFIG_ACPI_PCC
