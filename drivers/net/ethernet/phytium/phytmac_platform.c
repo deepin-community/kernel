@@ -2,6 +2,9 @@
 /*
  * Phytium GMAC Platform wrapper.
  *
+ * Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd.
+ *
+ * Author: Wenting Song <songwenting@phytium.com>
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -23,18 +26,17 @@ static const struct phytmac_config phytium_1p0_config = {
 			| PHYTMAC_CAPS_JUMBO
 			| PHYTMAC_CAPS_LSO,
 	.queue_num = 4,
-	.tsu_rate = 300000000,
 };
 
 static const struct phytmac_config phytium_2p0_config = {
 	.hw_if = &phytmac_2p0_hw,
 	.caps = PHYTMAC_CAPS_TAILPTR
-			| PHYTMAC_CAPS_LPI
+			| PHYTMAC_CAPS_RXPTR
+			| PHYTMAC_CAPS_PWCTRL
 			| PHYTMAC_CAPS_LSO
 			| PHYTMAC_CAPS_MSG
 			| PHYTMAC_CAPS_JUMBO,
 	.queue_num = 2,
-	.tsu_rate = 300000000,
 };
 
 #if defined(CONFIG_OF)
@@ -49,13 +51,103 @@ MODULE_DEVICE_TABLE(of, phytmac_dt_ids);
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id phytmac_acpi_ids[] = {
 	{ .id = "PHYT0046", .driver_data = (kernel_ulong_t)&phytium_1p0_config },
-	{ }
+	{ .id = "PHYT0056", .driver_data = (kernel_ulong_t)&phytium_2p0_config },
+	{}
 };
 
 MODULE_DEVICE_TABLE(acpi, phytmac_acpi_ids);
 #else
 #define phytmac_acpi_ids NULL
 #endif
+
+static const char *phytmac_phy_modes(enum phytmac_interface interface)
+{
+	switch (interface) {
+	case PHYTMAC_PHY_INTERFACE_MODE_NA:
+		return "";
+	case PHYTMAC_PHY_INTERFACE_MODE_INTERNAL:
+		return "internal";
+	case PHYTMAC_PHY_INTERFACE_MODE_MII:
+		return "mii";
+	case PHYTMAC_PHY_INTERFACE_MODE_GMII:
+		return "gmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_SGMII:
+		return "sgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_TBI:
+		return "tbi";
+	case PHYTMAC_PHY_INTERFACE_MODE_REVMII:
+		return "rev-mii";
+	case PHYTMAC_PHY_INTERFACE_MODE_RMII:
+		return "rmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_RGMII:
+		return "rgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_RGMII_ID:
+		return "rgmii-id";
+	case PHYTMAC_PHY_INTERFACE_MODE_RGMII_RXID:
+		return "rgmii-rxid";
+	case PHYTMAC_PHY_INTERFACE_MODE_RGMII_TXID:
+		return "rgmii-txid";
+	case PHYTMAC_PHY_INTERFACE_MODE_RTBI:
+		return "rtbi";
+	case PHYTMAC_PHY_INTERFACE_MODE_SMII:
+		return "smii";
+	case PHYTMAC_PHY_INTERFACE_MODE_XGMII:
+		return "xgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_MOCA:
+		return "moca";
+	case PHYTMAC_PHY_INTERFACE_MODE_QSGMII:
+		return "qsgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_TRGMII:
+		return "trgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_100BASEX:
+		return "100base-x";
+	case PHYTMAC_PHY_INTERFACE_MODE_1000BASEX:
+		return "1000base-x";
+	case PHYTMAC_PHY_INTERFACE_MODE_2500BASEX:
+		return "2500base-x";
+	case PHYTMAC_PHY_INTERFACE_MODE_5GBASER:
+		return "5gbase-r";
+	case PHYTMAC_PHY_INTERFACE_MODE_RXAUI:
+		return "rxaui";
+	case PHYTMAC_PHY_INTERFACE_MODE_XAUI:
+		return "xaui";
+	case PHYTMAC_PHY_INTERFACE_MODE_10GBASER:
+		return "10gbase-r";
+	case PHYTMAC_PHY_INTERFACE_MODE_USXGMII:
+		return "usxgmii";
+	case PHYTMAC_PHY_INTERFACE_MODE_10GKR:
+		return "10gbase-kr";
+	default:
+		return "unknown";
+	}
+}
+
+static int phytmac_v2_get_phy_mode(struct platform_device *pdev)
+{
+	const char *pm;
+	int err, i;
+	int phy_interface;
+
+	err = device_property_read_string(&pdev->dev, "phy-mode", &pm);
+	if (err < 0)
+		return err;
+
+	phy_interface = PHYTMAC_PHY_INTERFACE_MODE_MAX + 1;
+	for (i = 0; i < PHYTMAC_PHY_INTERFACE_MODE_MAX; i++) {
+		if (!strcasecmp(pm, phytmac_phy_modes(i))) {
+			phy_interface = i;
+			dev_notice(&pdev->dev, "Phy mode is %s.\n", pm);
+			break;
+		}
+	}
+
+	if (phy_interface > PHYTMAC_PHY_INTERFACE_MODE_MAX) {
+		dev_err(&pdev->dev, "Invalid phy mode value: %s!\n", pm);
+		return -EINVAL;
+	}
+
+	return phy_interface;
+}
 
 static int phytmac_get_phy_mode(struct platform_device *pdev)
 {
@@ -82,6 +174,8 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 	struct phytmac *pdata;
 	int ret, i;
 	u32 queue_num;
+	const struct of_device_id *match = NULL;
+	const struct acpi_device_id *match_acpi = NULL;
 
 	pdata = phytmac_alloc_pdata(&pdev->dev);
 	if (IS_ERR(pdata)) {
@@ -94,8 +188,6 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 	pdata->platdev = pdev;
 
 	if (pdev->dev.of_node) {
-		const struct of_device_id *match;
-
 		match = of_match_node(phytmac_dt_ids, np);
 		if (match && match->data) {
 			phytmac_config = match->data;
@@ -104,11 +196,9 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 			pdata->queues_max_num = phytmac_config->queue_num;
 		}
 	} else if (has_acpi_companion(&pdev->dev)) {
-		const struct acpi_device_id *match;
-
-		match = acpi_match_device(phytmac_acpi_ids, &pdev->dev);
-		if (match && match->driver_data) {
-			phytmac_config = (void *)match->driver_data;
+		match_acpi = acpi_match_device(phytmac_acpi_ids, &pdev->dev);
+		if (match_acpi && match_acpi->driver_data) {
+			phytmac_config = (void *)match_acpi->driver_data;
 			pdata->hw_if = phytmac_config->hw_if;
 			pdata->capacities = phytmac_config->caps;
 			pdata->queues_max_num = phytmac_config->queue_num;
@@ -124,6 +214,18 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 	}
 	pdata->ndev->base_addr = regs->start;
 
+	if (pdev->dev.of_node && match) {
+		if (!strcmp(match->compatible, "phytium,gmac-1.0"))
+			pdata->version = PHYTMAC_READ(pdata, PHYTMAC_VERSION) & 0xff;
+		else
+			pdata->version = VERSION_V3;
+	} else if (has_acpi_companion(&pdev->dev) && match_acpi) {
+		if (!strcmp(match_acpi->id, "PHYT0046"))
+			pdata->version = PHYTMAC_READ(pdata, PHYTMAC_VERSION) & 0xff;
+		else
+			pdata->version = VERSION_V3;
+	}
+
 	if (pdata->capacities & PHYTMAC_CAPS_MSG) {
 		++i;
 		regs = platform_get_resource(pdev, IORESOURCE_MEM, i);
@@ -137,11 +239,10 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (device_property_read_bool(&pdev->dev, "lpi"))
-		pdata->capacities |= PHYTMAC_CAPS_LPI;
+	if (device_property_read_bool(&pdev->dev, "powerctrl"))
+		pdata->capacities |= PHYTMAC_CAPS_PWCTRL;
 
-	if (pdata->capacities & PHYTMAC_CAPS_LPI) {
-		/* lpi resource */
+	if (pdata->version == VERSION_V3 && pdev->dev.of_node) {
 		++i;
 		regs = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		if (regs) {
@@ -184,6 +285,14 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 	else
 		pdata->phy_interface = ret;
 
+	if (pdata->version == VERSION_V3) {
+		ret = phytmac_v2_get_phy_mode(pdev);
+		if (ret < 0)
+			pdata->phytmac_v2_interface = PHYTMAC_PHY_INTERFACE_MODE_USXGMII;
+		else
+			pdata->phytmac_v2_interface = ret;
+	}
+
 	ret = phytmac_drv_probe(pdata);
 	if (ret)
 		goto err_mem;
@@ -211,6 +320,13 @@ static void phytmac_plat_remove(struct platform_device *pdev)
 
 	phytmac_drv_remove(pdata);
 	phytmac_free_pdata(pdata);
+}
+
+static void phytmac_plat_shutdown(struct platform_device *pdev)
+{
+	struct phytmac *pdata = platform_get_drvdata(pdev);
+
+	phytmac_drv_shutdown(pdata);
 }
 
 static int __maybe_unused phytmac_plat_suspend(struct device *dev)
@@ -246,6 +362,7 @@ static struct platform_driver phytmac_driver = {
 		.acpi_match_table = phytmac_acpi_ids,
 		.pm = &phytmac_plat_pm_ops,
 	},
+	.shutdown = phytmac_plat_shutdown,
 };
 
 module_platform_driver(phytmac_driver);
