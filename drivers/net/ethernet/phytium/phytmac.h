@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright(c) 2022 - 2025 Phytium Technology Co., Ltd. */
+
 #ifndef _PHYTMAC_H
 #define _PHYTMAC_H
 
@@ -13,7 +15,7 @@
 
 #define PHYTMAC_DRV_NAME		"phytium-mac"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.5"
+#define PHYTMAC_DRIVER_VERSION		"1.0.29"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
@@ -44,6 +46,8 @@
 
 #define PHYTMAC_POWEROFF	1
 #define PHYTMAC_POWERON		2
+#define PHYTMAC_PWCTL_GMAC_ID		6
+#define PHYTMAC_PWCTL_DEFAULT_VAL	0
 
 #define PHYTMAC_WOL_MAGIC_PACKET	1
 
@@ -58,8 +62,12 @@
 #define PHYTMAC_CAPS_TAILPTR			0x00000040
 #define PHYTMAC_CAPS_START			0x00000080
 #define PHYTMAC_CAPS_NO_WOL			0x0000100
-#define PHYTMAC_CAPS_LPI			0x0000400
+#define PHYTMAC_CAPS_PWCTRL			0x0000200
 #define PHYTMAC_CAPS_MSG			0x0000800
+#define PHYTMAC_CAPS_RXPTR			0x0001000
+
+#define VERSION_V0			0
+#define VERSION_V3			0x3
 
 #define PHYTMAC_TX			0x1
 #define PHYTMAC_RX			0x2
@@ -121,6 +129,39 @@
 #define PHYTMAC_WAKE_ARP		0x00000002
 #define PHYTMAC_WAKE_UCAST		0x00000004
 #define PHYTMAC_WAKE_MCAST		0x00000008
+
+enum phytmac_interface {
+	PHYTMAC_PHY_INTERFACE_MODE_NA,
+	PHYTMAC_PHY_INTERFACE_MODE_INTERNAL,
+	PHYTMAC_PHY_INTERFACE_MODE_MII,
+	PHYTMAC_PHY_INTERFACE_MODE_GMII,
+	PHYTMAC_PHY_INTERFACE_MODE_SGMII,
+	PHYTMAC_PHY_INTERFACE_MODE_TBI,
+	PHYTMAC_PHY_INTERFACE_MODE_REVMII,
+	PHYTMAC_PHY_INTERFACE_MODE_RMII,
+	PHYTMAC_PHY_INTERFACE_MODE_RGMII,
+	PHYTMAC_PHY_INTERFACE_MODE_RGMII_ID,
+	PHYTMAC_PHY_INTERFACE_MODE_RGMII_RXID,
+	PHYTMAC_PHY_INTERFACE_MODE_RGMII_TXID,
+	PHYTMAC_PHY_INTERFACE_MODE_RTBI,
+	PHYTMAC_PHY_INTERFACE_MODE_SMII,
+	PHYTMAC_PHY_INTERFACE_MODE_XGMII,
+	PHYTMAC_PHY_INTERFACE_MODE_MOCA,
+	PHYTMAC_PHY_INTERFACE_MODE_QSGMII,
+	PHYTMAC_PHY_INTERFACE_MODE_TRGMII,
+	PHYTMAC_PHY_INTERFACE_MODE_100BASEX,
+	PHYTMAC_PHY_INTERFACE_MODE_1000BASEX,
+	PHYTMAC_PHY_INTERFACE_MODE_2500BASEX,
+	PHYTMAC_PHY_INTERFACE_MODE_5GBASER,
+	PHYTMAC_PHY_INTERFACE_MODE_RXAUI,
+	PHYTMAC_PHY_INTERFACE_MODE_XAUI,
+	/* 10GBASE-R, XFI, SFI - single lane 10G Serdes */
+	PHYTMAC_PHY_INTERFACE_MODE_10GBASER,
+	PHYTMAC_PHY_INTERFACE_MODE_USXGMII,
+	/* 10GBASE-KR - with Clause 73 AN */
+	PHYTMAC_PHY_INTERFACE_MODE_10GKR,
+	PHYTMAC_PHY_INTERFACE_MODE_MAX,
+};
 
 struct packet_info {
 	int lso;
@@ -214,7 +255,6 @@ static const struct phytmac_statistics queue_statistics[] = {
 struct phytmac_config {
 	struct	phytmac_hw_if *hw_if;
 	u32	caps;
-	u32	tsu_rate;
 	u16	queue_num;
 };
 
@@ -367,8 +407,8 @@ struct phytmac_msg {
 	u32			tx_msg_tail;
 	u32			rx_msg_head;
 	u32			rx_msg_tail;
-	/* Lock to protect msg */
-	spinlock_t		msg_lock;
+	/*use msg_mutex to protect msg */
+	struct mutex		msg_mutex;
 };
 
 struct ts_ctrl {
@@ -401,7 +441,6 @@ struct phytmac {
 	u32				min_tx_length;
 	u32				jumbo_len;
 	u32				wol;
-	u32				lpi;
 	u32				power_state;
 	struct work_struct		restart_task;
 	/* Lock to protect mac config */
@@ -430,6 +469,7 @@ struct phytmac {
 	struct phylink_pcs		phylink_pcs;
 	int				pause;
 	phy_interface_t			phy_interface;
+	enum phytmac_interface	phytmac_v2_interface;
 	int				speed;
 	int				duplex;
 	int				autoneg;
@@ -446,6 +486,7 @@ struct phytmac {
 	/* Lock to protect fs */
 	spinlock_t			rx_fs_lock;
 	unsigned int			max_rx_fs;
+	u32						version;
 };
 
 struct phytmac_hw_if {
@@ -507,7 +548,7 @@ struct phytmac_hw_if {
 	void (*init_rx_map)(struct phytmac_queue *queue, u32 index);
 	unsigned int (*rx_map)(struct phytmac_queue *queue, u32 index, dma_addr_t addr);
 	void (*transmit)(struct phytmac_queue *queue);
-	void (*restart)(struct phytmac *pdata);
+	void (*update_rx_tail)(struct phytmac_queue *queue);
 	int (*tx_complete)(const struct phytmac_dma_desc *desc);
 	bool (*rx_complete)(const struct phytmac_dma_desc *desc);
 	int (*get_rx_pkt_len)(struct phytmac *pdata, const struct phytmac_dma_desc *desc);
@@ -517,6 +558,7 @@ struct phytmac_hw_if {
 	bool (*rx_pkt_start)(const struct phytmac_dma_desc *desc);
 	bool (*rx_pkt_end)(const struct phytmac_dma_desc *desc);
 	unsigned int (*zero_rx_desc_addr)(struct phytmac_dma_desc *desc);
+	unsigned int (*zero_tx_desc)(struct phytmac_dma_desc *desc);
 	void (*clear_rx_desc)(struct phytmac_queue *queue, int begin, int end);
 	void (*clear_tx_desc)(struct phytmac_queue *queue);
 	/* ptp */
@@ -604,6 +646,7 @@ int phytmac_drv_probe(struct phytmac *pdata);
 int phytmac_drv_remove(struct phytmac *pdata);
 int phytmac_drv_suspend(struct phytmac *pdata);
 int phytmac_drv_resume(struct phytmac *pdata);
+void phytmac_drv_shutdown(struct phytmac *pdata);
 struct phytmac *phytmac_alloc_pdata(struct device *dev);
 void phytmac_free_pdata(struct phytmac *pdata);
 int phytmac_reset_ringsize(struct phytmac *pdata, u32 rx_size, u32 tx_size);
