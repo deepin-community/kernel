@@ -2313,6 +2313,11 @@
 	isapnp=		[ISAPNP]
 			Format: <RDP>,<reset>,<pci_scan>,<verbosity>
 
+	zhaoxin_patch_bitmask=
+			[X86] Bitmask for Zhaoxin Platform's patch.
+			bit 0: enable KH-40000 dma patch's node check function
+
+
 	isolcpus=	[KNL,SMP,ISOL] Isolate a given set of CPUs from disturbance.
 			[Deprecated - use cpusets instead]
 			Format: [flag-list,]<cpu-list>
