@@ -14,7 +14,6 @@ struct sw64_early_init_ops {
 };
 
 struct sw64_pci_init_ops {
-	int (*map_irq)(const struct pci_dev *dev, u8 slot, u8 pin);
 	unsigned long (*get_rc_enable)(unsigned long node);
 	void (*hose_init)(struct pci_controller *hose);
 	void (*set_rc_piu)(struct pci_controller *hose);

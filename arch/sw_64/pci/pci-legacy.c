@@ -70,6 +70,12 @@ int __weak chip_pcie_configure(struct pci_controller *hose)
 	return 0;
 }
 
+static struct pci_ops sunway_pci_ops = {
+	.map_bus = sunway_pci_map_bus,
+	.read    = sunway_pci_config_read,
+	.write   = sunway_pci_config_write,
+};
+
 unsigned char last_bus = PCI0_BUS;
 void __init common_init_pci(void)
 {
@@ -102,9 +108,9 @@ void __init common_init_pci(void)
 		bridge->dev.parent = NULL;
 		bridge->sysdata = hose;
 		bridge->busnr = hose->busn_space->start;
-		bridge->ops = &sw64_pci_ops;
+		bridge->ops = &sunway_pci_ops;
 		bridge->swizzle_irq = pci_common_swizzle;
-		bridge->map_irq = sw64_map_irq;
+		bridge->map_irq = sunway_pci_map_irq;
 
 		ret = pci_scan_root_bus_bridge(bridge);
 		if (ret) {
@@ -198,17 +204,6 @@ static void __init pcibios_reserve_legacy_regions(struct pci_bus *bus)
 
 no_io:
 	return;
-}
-
-struct pci_ops sw64_pci_ops = {
-	.map_bus = sw64_pcie_map_bus,
-	.read    = sw64_pcie_config_read,
-	.write   = sw64_pcie_config_write,
-};
-
-int sw64_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
-{
-	return sw64_chip_init->pci_init.map_irq(dev, slot, pin);
 }
 
 static bool rc_linkup[MAX_NUMNODES][MAX_NR_RCS_PER_NODE];
