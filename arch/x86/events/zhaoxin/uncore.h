@@ -45,9 +45,9 @@ struct zhaoxin_uncore_type {
 	unsigned int fixed_ctl;
 	unsigned int box_ctl;
 	union {
-                unsigned int msr_offset;
-                unsigned int mmio_offset;
-        };
+		unsigned int msr_offset;
+		unsigned int mmio_offset;
+	};
 	unsigned int num_shared_regs:8;
 	unsigned int single_fixed:1;
 	unsigned int pair_ctr_ctl:1;

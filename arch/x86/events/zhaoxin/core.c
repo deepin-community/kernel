@@ -658,7 +658,7 @@ __init int zhaoxin_pmu_init(void)
 
 			if (boot_cpu_data.x86_model == 0x5b)
 				pr_cont("Yongfeng events, ");
-			
+
 			if (boot_cpu_data.x86_model == 0x6b)
 				pr_cont("Shijidadao events, ");
 
