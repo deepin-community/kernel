@@ -4,6 +4,7 @@
  * Author: fire3 <fire3@example.com> yangzh <yangzh@gmail.com>
  * linhn <linhn@example.com>
  */
+#include <asm/irq_impl.h>
 #include <asm/kvm_emulate.h>
 #include <asm/kvm_asm.h>
 #include <linux/errno.h>
@@ -74,6 +75,12 @@ unsigned int interrupt_pending(struct kvm_vcpu *vcpu, bool *more)
 	DECLARE_BITMAP(blk, SWVM_IRQS);
 
 	bitmap_copy(blk, vcpu->arch.irqs_pending, SWVM_IRQS);
+
+	if (test_bit(INT_RTC, blk))
+		return INT_RTC;
+
+	if (test_bit(INT_IPI, blk))
+		return INT_IPI;
 
 	irq = find_last_bit(blk, SWVM_IRQS);
 
