@@ -699,7 +699,7 @@ static bool ghes_do_proc(struct ghes *ghes,
 
 			atomic_notifier_call_chain(&ghes_report_chain, sev, mem_err);
 
-			arch_apei_report_mem_error(sec_sev, mem_err);
+			arch_apei_report_mem_error(sev, mem_err);
 			queued = ghes_handle_memory_failure(gdata, sev, sync);
 		}
 		else if (guid_equal(sec_type, &CPER_SEC_PCIE)) {
@@ -710,17 +710,16 @@ static bool ghes_do_proc(struct ghes *ghes,
 		}
 		else if (guid_equal(sec_type, &CPER_SEC_PROC_ARM)) {
 			queued = ghes_handle_arm_hw_error(gdata, sev, sync);
-		} else if (guid_equal(sec_type, &CPER_SEC_PROC_GENERIC)) {
-			struct cper_sec_proc_generic *zdi_err = acpi_hest_get_payload(gdata);
-
-			arch_apei_report_zdi_error(sec_sev, zdi_err);
 		} else {
 			void *err = acpi_hest_get_payload(gdata);
 
-			ghes_defer_non_standard_event(gdata, sev);
-			log_non_standard_event(sec_type, fru_id, fru_text,
-					       sec_sev, err,
-					       gdata->error_data_length);
+			if (!arch_apei_report_zdi_error(sec_type,
+							(struct cper_sec_proc_generic *)err)) {
+				ghes_defer_non_standard_event(gdata, sev);
+				log_non_standard_event(sec_type, fru_id, fru_text,
+						       sec_sev, err,
+						       gdata->error_data_length);
+			}
 		}
 	}
 
@@ -1149,7 +1148,7 @@ static int ghes_in_nmi_queue_one_entry(struct ghes *ghes,
 				struct cper_sec_proc_generic *zdi_err =
 							acpi_hest_get_payload(gdata);
 
-				arch_apei_report_zdi_error(sev, zdi_err);
+				arch_apei_report_zdi_error(sec_type, zdi_err);
 			}
 		}
 		ghes_print_queued_estatus();
