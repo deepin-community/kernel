@@ -778,8 +778,9 @@ void __weak arch_apei_report_pcie_error(int sev, struct cper_sec_pcie *pcie_err)
 }
 EXPORT_SYMBOL_GPL(arch_apei_report_pcie_error);
 
-void __weak arch_apei_report_zdi_error(int sev, struct cper_sec_proc_generic *zdi_err)
+bool __weak arch_apei_report_zdi_error(guid_t *sec_type, struct cper_sec_proc_generic *zdi_err)
 {
+	return false;
 }
 EXPORT_SYMBOL_GPL(arch_apei_report_zdi_error);
 
