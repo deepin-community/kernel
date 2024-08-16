@@ -85,7 +85,7 @@ pci_acpi_setup_ecam_mapping(struct acpi_pci_root *root)
 	return cfg;
 }
 
-static int upper_32_bits_of_ep_mem_32_base(struct acpi_device *adev, u64 *memh)
+static int ep_32bits_memio_base(struct acpi_device *adev, u64 *memh)
 {
 	int status = 0;
 	u64 val;
@@ -125,7 +125,7 @@ static int pci_acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 	 *
 	 * Get the upper 32 bits here.
 	 */
-	status = upper_32_bits_of_ep_mem_32_base(device, &memh);
+	status = ep_32bits_memio_base(device, &memh);
 	if (status)
 		return status;
 
@@ -219,11 +219,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
 		if (!bus)
 			return NULL;
 
-		/**
-		 *  Some quirks for pci controller of Sunway
-		 *  after scanning Root Complex
-		 */
-		sw64_pci_root_bridge_scan_finish_up(pci_find_host_bridge(bus));
+		/* Some quirks for Sunway PCIe controller after scanning */
+		sunway_pci_root_bridge_scan_finish(pci_find_host_bridge(bus));
 
 		pci_bus_size_bridges(bus);
 		pci_bus_assign_resources(bus);

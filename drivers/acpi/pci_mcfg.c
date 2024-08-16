@@ -210,15 +210,15 @@ static struct mcfg_fixup mcfg_quirks[] = {
 	{ "SUNWAY", table_id, rev, ((node) * MAX_NR_RCS_PER_NODE + 10), MCFG_BUS_ANY, ops }, \
 	{ "SUNWAY", table_id, rev, ((node) * MAX_NR_RCS_PER_NODE + 11), MCFG_BUS_ANY, ops }  \
 
-	/* up to 8 nodes for SW64 series */
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x00, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x01, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x02, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x03, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x04, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x05, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x06, &sw64_pci_ecam_ops),
-	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x07, &sw64_pci_ecam_ops),
+	/* Up to 8 nodes for Sunway PCIe controller */
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x00, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x01, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x02, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x03, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x04, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x05, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x06, &sunway_pci_ecam_ops),
+	SW64_ECAM_QUIRK("SUNWAY  ", 1, 0x07, &sunway_pci_ecam_ops),
 #endif /* SW64 */
 };
 

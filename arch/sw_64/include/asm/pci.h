@@ -155,7 +155,6 @@ extern void __init sw64_device_interrupt(unsigned long vector);
 extern void setup_intx_irqs(struct pci_controller *hose);
 extern void __init sw64_init_irq(void);
 extern void __init sw64_init_arch(void);
-extern struct pci_ops sw64_pci_ops;
 extern int sw64_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 extern struct pci_controller *hose_head;
 extern bool sunway_legacy_pci;
@@ -170,14 +169,14 @@ extern struct pci_controller *
 pci_bus_to_pci_controller(const struct pci_bus *bus);
 extern struct pci_controller *bus_num_to_pci_controller(unsigned long bus_num);
 
-extern void sw64_pci_root_bridge_scan_finish_up(struct pci_host_bridge *bridge);
-extern int sw64_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
+extern int sunway_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
+extern void sunway_pci_root_bridge_scan_finish(struct pci_host_bridge *bridge);
 
-extern void __iomem *sw64_pcie_map_bus(struct pci_bus *bus,
+extern void __iomem *sunway_pci_map_bus(struct pci_bus *bus,
 		unsigned int devfn, int where);
-extern int sw64_pcie_config_write(struct pci_bus *bus, unsigned int devfn,
+extern int sunway_pci_config_write(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 val);
-extern int sw64_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
+extern int sunway_pci_config_read(struct pci_bus *bus, unsigned int devfn,
 		int where, int size, u32 *val);
 
 extern void pci_mark_rc_linkup(struct pci_controller *hose);
