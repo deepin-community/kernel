@@ -776,7 +776,7 @@ static int __init gmi_sm4_init(void)
 		algname = sm4_algs[i].base.cra_name + 2;
 		drvname = sm4_algs[i].base.cra_driver_name + 2;
 		basename = sm4_algs[i].base.cra_driver_name;
-		simd = simd_skcipher_create_compat(algname, drvname, basename);
+		simd = simd_skcipher_create_compat(sm4_algs + i, algname, drvname, basename);
 		err = PTR_ERR(simd);
 		if (IS_ERR(simd))
 			goto unregister_simds;
