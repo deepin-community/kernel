@@ -76,7 +76,9 @@ static int phytium_can_plat_probe(struct platform_device *pdev)
 	struct phytium_can_dev *cdev;
 	struct phytium_can_plat *priv;
 	struct resource *res;
+# ifdef CONFIG_OF
 	const struct of_device_id *of_id;
+# endif /* CONFIG_OF */
 	const struct phytium_can_devtype *devtype = &phytium_can_data;
 	u32 tx_fifo_depth;
 	int ret;
@@ -110,9 +112,11 @@ static int phytium_can_plat_probe(struct platform_device *pdev)
 		}
 		cdev->can.clock.freq = clk_get_rate(cdev->clk);
 
+# ifdef CONFIG_OF
 		of_id = of_match_device(phytium_can_of_ids, &pdev->dev);
 		if (of_id && of_id->data)
 			devtype = of_id->data;
+# endif /* CONFIG_OF */
 	} else if (has_acpi_companion(&pdev->dev)) {
 		ret = fwnode_property_read_u32(dev_fwnode(&pdev->dev),
 					       "clock-frequency",
