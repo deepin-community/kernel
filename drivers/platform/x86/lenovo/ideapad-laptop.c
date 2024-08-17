@@ -192,6 +192,7 @@ struct ideapad_private {
 		struct led_classdev led;
 		unsigned int last_brightness;
 	} fn_lock;
+	bool suspended;
 };
 
 static bool no_bt_rfkill;
@@ -1880,6 +1881,16 @@ static void ideapad_acpi_notify(acpi_handle handle, u32 event, void *data)
 	unsigned long vpc1, vpc2, bit;
 
 	scoped_guard(mutex, &priv->vpc_mutex) {
+		acpi_handle_info(handle, "event: %lu\n",
+						(unsigned long)event);
+
+		if(!data)
+			acpi_handle_info(handle, "no data");
+			return;
+
+		if (priv->suspended)
+			return;
+
 		if (read_ec_data(handle, VPCCMD_R_VPC1, &vpc1))
 			return;
 
@@ -1926,6 +1937,7 @@ static void ideapad_acpi_notify(acpi_handle handle, u32 event, void *data)
 			ideapad_backlight_notify_power(priv);
 			break;
 		case KBD_BL_KBLC_CHANGED_EVENT:
+		case 0:
 		case 1:
 			/*
 			 * Some IdeaPads report event 1 every ~20
@@ -1935,8 +1947,6 @@ static void ideapad_acpi_notify(acpi_handle handle, u32 event, void *data)
 			 * backlight has changed.
 			 */
 			ideapad_kbd_bl_notify(priv);
-			break;
-		case 0:
 			ideapad_check_special_buttons(priv);
 			break;
 		default:
@@ -2236,6 +2246,8 @@ static const struct wmi_device_id ideapad_wmi_ids[] = {
 	{ "26CAB2E5-5CF1-46AE-AAC3-4A12B6BA50E6", &ideapad_wmi_context_esc }, /* Yoga 3 */
 	{ "56322276-8493-4CE8-A783-98C991274F5E", &ideapad_wmi_context_esc }, /* Yoga 700 */
 	{ "8FC0DE0C-B4E4-43FD-B0F3-8871711C1294", &ideapad_wmi_context_fn_keys }, /* Legion 5 */
+	{ "46f16367-fb9d-11ee-a4f6-40c2ba4a5625", &ideapad_wmi_context_esc }, /* ThinkBook 16+ 2024 IMH */
+	{ "077c4a1f-e344-11ee-a4f6-40c2ba413e67", &ideapad_wmi_context_esc }, /* ThinkBook 2024 AMD */
 	{},
 };
 MODULE_DEVICE_TABLE(wmi, ideapad_wmi_ids);
@@ -2422,10 +2434,19 @@ static int ideapad_acpi_resume(struct device *dev)
 	if (priv->dytc)
 		dytc_profile_refresh(priv);
 
+	priv->suspended = false;
+
+	return 0;
+}
+
+static int ideapad_acpi_suspended(struct device *dev)
+{
+	struct ideapad_private *priv = dev_get_drvdata(dev);
+	priv->suspended = true;
 	return 0;
 }
 #endif
-static SIMPLE_DEV_PM_OPS(ideapad_pm, NULL, ideapad_acpi_resume);
+static SIMPLE_DEV_PM_OPS(ideapad_pm, ideapad_acpi_suspended, ideapad_acpi_resume);
 
 static const struct acpi_device_id ideapad_device_ids[] = {
 	{"VPC2004", 0},
