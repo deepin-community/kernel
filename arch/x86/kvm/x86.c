@@ -1709,22 +1709,17 @@ static int do_get_msr_feature(struct kvm_vcpu *vcpu, unsigned index, u64 *data)
 	struct kvm_msr_entry msr;
 	int r;
 
+	/* Unconditionally clear the output for simplicity */
+	msr.data = 0;
 	msr.index = index;
 	r = kvm_get_msr_feature(&msr);
 
-	if (r == KVM_MSR_RET_INVALID) {
-		/* Unconditionally clear the output for simplicity */
-		*data = 0;
-		if (kvm_msr_ignored_check(index, 0, false))
-			r = 0;
-	}
-
-	if (r)
-		return r;
+	if (r == KVM_MSR_RET_INVALID && kvm_msr_ignored_check(index, 0, false))
+		r = 0;
 
 	*data = msr.data;
 
-	return 0;
+	return r;
 }
 
 static bool __kvm_valid_efer(struct kvm_vcpu *vcpu, u64 efer)
@@ -9855,8 +9850,13 @@ static int complete_hypercall_exit(struct kvm_vcpu *vcpu)
 {
 	u64 ret = vcpu->run->hypercall.ret;
 
-	if (!is_64_bit_mode(vcpu))
+	/* Use is_64_bit_hypercall() instead of is_64_bit_mode() for Hygon CPUs */
+	if (is_x86_vendor_hygon()) {
+		if (!is_64_bit_hypercall(vcpu))
+			ret = (u32)ret;
+	} else if (!is_64_bit_mode(vcpu)) {
 		ret = (u32)ret;
+	}
 	kvm_rax_write(vcpu, ret);
 	++vcpu->stat.hypercalls;
 	return kvm_skip_emulated_instruction(vcpu);
