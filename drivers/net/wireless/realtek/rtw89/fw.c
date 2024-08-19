@@ -5324,10 +5324,8 @@ fail:
 }
 
 int rtw89_fw_h2c_rf_tssi(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
-			 enum rtw89_tssi_mode tssi_mode)
+			 const struct rtw89_chan *chan, enum rtw89_tssi_mode tssi_mode)
 {
-	const struct rtw89_chan *chan = rtw89_chan_get(rtwdev,
-						       RTW89_CHANCTX_0);
 	struct rtw89_hal *hal = &rtwdev->hal;
 	struct rtw89_h2c_rf_tssi *h2c;
 	u32 len = sizeof(*h2c);
@@ -5371,7 +5369,8 @@ fail:
 	return ret;
 }
 
-int rtw89_fw_h2c_rf_iqk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx)
+int rtw89_fw_h2c_rf_iqk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
+			const struct rtw89_chan *chan)
 {
 	struct rtw89_h2c_rf_iqk *h2c;
 	u32 len = sizeof(*h2c);
@@ -5406,10 +5405,9 @@ fail:
 	return ret;
 }
 
-int rtw89_fw_h2c_rf_dpk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx)
+int rtw89_fw_h2c_rf_dpk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
+			const struct rtw89_chan *chan)
 {
-	const struct rtw89_chan *chan = rtw89_chan_get(rtwdev,
-						       RTW89_CHANCTX_0);
 	struct rtw89_h2c_rf_dpk *h2c;
 	u32 len = sizeof(*h2c);
 	struct sk_buff *skb;
@@ -5449,10 +5447,9 @@ fail:
 	return ret;
 }
 
-int rtw89_fw_h2c_rf_txgapk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx)
+int rtw89_fw_h2c_rf_txgapk(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
+			   const struct rtw89_chan *chan)
 {
-	const struct rtw89_chan *chan = rtw89_chan_get(rtwdev,
-						       RTW89_CHANCTX_0);
 	struct rtw89_hal *hal = &rtwdev->hal;
 	struct rtw89_h2c_rf_txgapk *h2c;
 	u32 len = sizeof(*h2c);
@@ -5493,7 +5490,8 @@ fail:
 	return ret;
 }
 
-int rtw89_fw_h2c_rf_dack(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx)
+int rtw89_fw_h2c_rf_dack(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
+			 const struct rtw89_chan *chan)
 {
 	struct rtw89_h2c_rf_dack *h2c;
 	u32 len = sizeof(*h2c);
@@ -5529,10 +5527,9 @@ fail:
 	return ret;
 }
 
-int rtw89_fw_h2c_rf_rxdck(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx)
+int rtw89_fw_h2c_rf_rxdck(struct rtw89_dev *rtwdev, enum rtw89_phy_idx phy_idx,
+			  const struct rtw89_chan *chan)
 {
-	const struct rtw89_chan *chan = rtw89_chan_get(rtwdev,
-						       RTW89_CHANCTX_0);
 	struct rtw89_h2c_rf_rxdck *h2c;
 	u32 len = sizeof(*h2c);
 	struct sk_buff *skb;
