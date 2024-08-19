@@ -42,7 +42,7 @@ void arch_apei_report_mem_error(int sev, struct cper_sec_mem_err *mem_err)
 #ifdef CONFIG_X86_MCE
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN ||
 	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR)
-		zx_apei_mce_report_mem_error(sev, mem_err);
+		zx_apei_mce_report_mem_error(mem_err);
 	else
 		apei_mce_report_mem_error(sev, mem_err);
 #endif
@@ -57,13 +57,17 @@ void arch_apei_report_pcie_error(int sev, struct cper_sec_pcie *pcie_err)
 #endif
 }
 
-void arch_apei_report_zdi_error(int sev, struct cper_sec_proc_generic *zdi_err)
+bool arch_apei_report_zdi_error(guid_t *sec_type, struct cper_sec_proc_generic *zdi_err)
 {
 #ifdef CONFIG_X86_MCE
-	if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN ||
-	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR)
-		zx_apei_mce_report_zdi_error(sev, zdi_err);
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) &&
+	    (guid_equal(sec_type, &CPER_SEC_PROC_GENERIC))) {
+		zx_apei_mce_report_zdi_error(zdi_err);
+		return true;
+	}
 #endif
+	return false;
 }
 
 int arch_apei_report_x86_error(struct cper_ia_proc_ctx *ctx_info, u64 lapic_id)

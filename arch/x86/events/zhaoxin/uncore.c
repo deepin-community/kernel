@@ -212,7 +212,7 @@ static int kh40000_pcibus_limit[KH40000_MAX_SUBNODE_NUMBER];
 #define KX7000_MC_B1_CHy_PMON_CTL0		0xee0
 #define KX7000_MC_B1_CHy_PMON_BLK_CTL		0xef4
 
-#define	KX7000_ZDI_DL_MMIO_PMON_CTR0		0xf00	
+#define	KX7000_ZDI_DL_MMIO_PMON_CTR0		0xf00
 #define KX7000_ZDI_DL_MMIO_PMON_CTL0		0xf28
 #define KX7000_ZDI_DL_MMIO_PMON_BLK_CTL		0xf44
 #define KX7000_IOD_ZDI_DL_MMIO_BASE_OFFSET	0x168
@@ -397,24 +397,24 @@ DEFINE_PER_CPU(cpumask_t, zx_subnode_core_bits);
 
 static void zx_gen_core_map(void)
 {
-	int i, nr, cpu;
+	int cpu, i;
 	int cluster_id, subnode_id;
 
 	for_each_present_cpu(cpu) {
 		cluster_id = zx_topology_cluster_id(cpu);
 
-		for (i = 0; i < 4; i++) {
-			nr = (cluster_id << 2) + i;
-			cpumask_set_cpu(nr, &per_cpu(zx_cluster_core_bits, cpu));
+		for_each_present_cpu(i) {
+			if (zx_topology_cluster_id(i) == cluster_id)
+				cpumask_set_cpu(i, &per_cpu(zx_cluster_core_bits, cpu));
 		}
 	}
 
 	for_each_present_cpu(cpu) {
 		subnode_id = zx_topology_subnode_id(cpu);
 
-		for (i = 0; i < 8; i++) {
-			nr = (subnode_id << 3) + i;
-			cpumask_set_cpu(nr, &per_cpu(zx_subnode_core_bits, cpu));
+		for_each_present_cpu(i) {
+			if (zx_topology_subnode_id(i) == subnode_id)
+				cpumask_set_cpu(i, &per_cpu(zx_subnode_core_bits, cpu));
 		}
 	}
 }
@@ -2829,6 +2829,7 @@ void kx7000_uncore_cpu_init(void)
 {
 	u64 val;
 	int cpu;
+
 	uncore_msr_uncores = kx7000_msr_uncores;
 
 	/* clear bit 16 of MSR 0x1877 so that HIF can work normally */

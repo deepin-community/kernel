@@ -805,6 +805,12 @@ static u64 read_hpet(struct clocksource *cs)
 		return (u64)hpet_readl(HPET_COUNTER);
 
 	/*
+	 * Read HPET directly if panic in progress.
+	 */
+	if (unlikely(atomic_read(&panic_cpu) != PANIC_CPU_INVALID))
+		return (u64)hpet_readl(HPET_COUNTER);
+
+	/*
 	 * Read the current state of the lock and HPET value atomically.
 	 */
 	old.lockval = READ_ONCE(hpet.lockval);

@@ -36,6 +36,7 @@ extern const struct file_operations csv_fops;
 void csv_update_api_version(struct sev_user_data_status *status);
 int csv_cmd_buffer_len(int cmd);
 void csv_restore_mailbox_mode_postprocess(void);
+int csv_platform_cmd_set_secure_memory_region(struct sev_device *sev, int *error);
 
 static inline bool csv_version_greater_or_equal(u32 build)
 {

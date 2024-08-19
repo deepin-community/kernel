@@ -63,7 +63,7 @@ void apei_mce_report_mem_error(int severity, struct cper_sec_mem_err *mem_err)
 }
 EXPORT_SYMBOL_GPL(apei_mce_report_mem_error);
 
-void zx_apei_mce_report_mem_error(int severity, struct cper_sec_mem_err *mem_err)
+void zx_apei_mce_report_mem_error(struct cper_sec_mem_err *mem_err)
 {
 	struct mce m;
 	int apei_error = 0;
@@ -92,18 +92,19 @@ void zx_apei_mce_report_mem_error(int severity, struct cper_sec_mem_err *mem_err
 		apei_error = apei_write_mce(&m);
 		break;
 	case 8:
-		if (mem_err->requestor_id == 2)
+		if (mem_err->requestor_id == 2) {
 			m.status = 0x98200040000400b0;
-		else if (mem_err->requestor_id == 3) {
+		} else if (mem_err->requestor_id == 3) {
 			m.status = 0xba400000000600a0;
 			apei_error = apei_write_mce(&m);
-		} else if (mem_err->requestor_id == 4)
+		} else if (mem_err->requestor_id == 4) {
 			m.status = 0x98200100000300b0;
-		else if (mem_err->requestor_id == 5) {
+		} else if (mem_err->requestor_id == 5) {
 			m.status = 0xba000000000500b0;
 			apei_error = apei_write_mce(&m);
-		} else
+		} else {
 			pr_info("Undefined Parity error\n");
+		}
 		break;
 	case 10:
 		if (mem_err->requestor_id == 6) {
@@ -112,8 +113,9 @@ void zx_apei_mce_report_mem_error(int severity, struct cper_sec_mem_err *mem_err
 		} else if (mem_err->requestor_id == 7) {
 			m.status = 0xba000000000800b0;
 			apei_error = apei_write_mce(&m);
-		} else
+		} else {
 			pr_info("Undefined dvad error\n");
+		}
 		break;
 	case 13:
 		m.status = 0x9c200040000100c0;
@@ -163,7 +165,7 @@ void zx_apei_mce_report_pcie_error(int severity, struct cper_sec_pcie *pcie_err)
 }
 EXPORT_SYMBOL_GPL(zx_apei_mce_report_pcie_error);
 
-void zx_apei_mce_report_zdi_error(int severity, struct cper_sec_proc_generic *zdi_err)
+void zx_apei_mce_report_zdi_error(struct cper_sec_proc_generic *zdi_err)
 {
 	struct mce m;
 	int apei_error = 0;
