@@ -272,12 +272,12 @@ static void zhaoxin_gpio_set(struct gpio_chip *chip, unsigned int offset, int va
 
 static int zhaoxin_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
-	return pinctrl_gpio_direction_input(chip->base + offset);
+	return pinctrl_gpio_direction_input(chip, offset);
 }
 
 static int zhaoxin_gpio_direction_output(struct gpio_chip *chip, unsigned int offset, int value)
 {
-	return pinctrl_gpio_direction_output(chip->base + offset);
+	return pinctrl_gpio_direction_output(chip, offset);
 }
 
 static int zhaoxin_gpio_request(struct gpio_chip *gc, unsigned int offset)
