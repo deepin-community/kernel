@@ -9,6 +9,7 @@
 #include <linux/of.h>
 
 #include <asm/core.h>
+#include <asm/platform.h>
 
 int cpu_to_node_map[NR_CPUS];
 cpumask_var_t node_to_cpumask_map[MAX_NUMNODES];
@@ -293,6 +294,14 @@ static int __init manual_numa_init(void)
 	int ret, nid;
 	struct memblock_region *mblk;
 	phys_addr_t node_base, node_size, node_end;
+
+	/**
+	 * When boot magic is 0xDEED2024UL, legacy memory detection is
+	 * completely bypassed, causing manual_numa_init failure. So we
+	 * disable numa here.
+	 */
+	if (sunway_boot_magic == 0xDEED2024UL)
+		numa_off = 1;
 
 	if (numa_off) {
 		pr_info("NUMA disabled\n"); /* Forced off on command line. */
