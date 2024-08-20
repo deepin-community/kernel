@@ -10,8 +10,6 @@
 #include <asm/loongson.h>
 #include <asm/sections.h>
 
-#include "legacy_boot.h"
-
 void __init memblock_init(void)
 {
 	u32 mem_type;
@@ -51,8 +49,6 @@ void __init memblock_init(void)
 			break;
 		}
 	}
-
-	bpi_memblock_init(&max_low_pfn);
 
 	memblock_set_current_limit(PFN_PHYS(max_low_pfn));
 
