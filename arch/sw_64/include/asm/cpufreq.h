@@ -51,7 +51,8 @@ struct clk {
 #define CORE_CLK2_VALID		(0x1UL << 33)
 #define CORE_CLK2_RESET		(0x1UL << 34)
 #define CORE_CLK2_LOCK		(0x1UL << 35)
-#define CORE_PLL0_CFG_SHIFT     20
+#define CORE_PLL0_CFG_SHIFT     4
+#define CORE_PLL1_CFG_SHIFT     20
 #define CORE_PLL2_CFG_SHIFT     36
 #define CORE_PLL2_CFG_MASK	0x1f
 #define STARTUP_RATE		(2000UL * 1000 * 1000)
@@ -65,6 +66,7 @@ struct clk {
 #define CORE_CLK2_RESET         (0x1UL << 16)
 #define CORE_CLK2_LOCK		(0x1UL << 17)
 #define CORE_PLL0_CFG_SHIFT     4
+#define CORE_PLL1_CFG_SHIFT     11
 #define CORE_PLL2_CFG_SHIFT     18
 #define CORE_PLL2_CFG_MASK	0xf
 #define STARTUP_RATE		(2400UL * 1000 * 1000)
