@@ -232,7 +232,7 @@ static bool phytium_tx_char(struct phytium_uart_port *pup, unsigned char c,
 
 static bool phytium_tx_chars(struct phytium_uart_port *pup, bool from_irq)
 {
-	struct circ_buf *xmit = &pup->port.state->xmit;
+	struct tty_port *tport = &pup->port.state->port;
 	int count = pup->port.fifosize >> 1;
 
 	if (pup->port.x_char) {
@@ -241,7 +241,7 @@ static bool phytium_tx_chars(struct phytium_uart_port *pup, bool from_irq)
 		pup->port.x_char = 0;
 		--count;
 	}
-	if (uart_circ_empty(xmit) || uart_tx_stopped(&pup->port)) {
+	if (kfifo_is_empty(&tport->xmit_fifo) || uart_tx_stopped(&pup->port)) {
 		phytium_stop_tx(&pup->port);
 		return false;
 	}
@@ -250,16 +250,14 @@ static bool phytium_tx_chars(struct phytium_uart_port *pup, bool from_irq)
 		if (likely(from_irq) && count-- == 0)
 			break;
 
-		if (!phytium_tx_char(pup, xmit->buf[xmit->tail], from_irq))
+		if (!phytium_tx_char(pup, kfifo_len(&tport->xmit_fifo), from_irq))
 			break;
+	} while (!kfifo_is_empty(&tport->xmit_fifo));
 
-		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-	} while (!uart_circ_empty(xmit));
-
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
 		uart_write_wakeup(&pup->port);
 
-	if (uart_circ_empty(xmit)) {
+	if (kfifo_is_empty(&tport->xmit_fifo)) {
 		phytium_stop_tx(&pup->port);
 		return false;
 	}
