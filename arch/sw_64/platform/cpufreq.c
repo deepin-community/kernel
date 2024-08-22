@@ -136,12 +136,20 @@ EXPORT_SYMBOL(sw64_clk_get);
 
 unsigned int __sw64_cpufreq_get(struct cpufreq_policy *policy)
 {
-	int i;
+	int i, clu_lv1_sel;
 	u64 val;
 	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 	struct cpufreq_frequency_table *ft = policy->freq_table;
 
-	val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
+	clu_lv1_sel = (readq(spbu_base + OFFSET_CLU_LV1_SEL) >> 2) & 0x3;
+
+	if (clu_lv1_sel == 0)
+		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL0_CFG_SHIFT;
+	else if (clu_lv1_sel == 2)
+		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL1_CFG_SHIFT;
+	else
+		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
+
 	val &= CORE_PLL2_CFG_MASK;
 
 	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++) {
