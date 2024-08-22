@@ -128,7 +128,7 @@ static void vuart_stop_tx(struct uart_port *port)
 
 static void vuart_tx_chars(struct uart_port *port)
 {
-	struct circ_buf *xmit = &port->state->xmit;
+	struct tty_port *tport = &port->state->port;
 	struct tsse_vuart *vuart = (struct tsse_vuart *)port;
 	int count;
 
@@ -137,21 +137,25 @@ static void vuart_tx_chars(struct uart_port *port)
 		return;
 	}
 
-	if (uart_tx_stopped(port) || uart_circ_empty(xmit)) {
+	if (uart_tx_stopped(port) || kfifo_is_empty(&tport->xmit_fifo)) {
 		vuart_stop_tx(port);
 		return;
 	}
 
 	count = vuart->tx_loadsz;
 	do {
-		vuart_serial_out(port, VUART_TX, xmit->buf[xmit->tail]);
-		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
+		unsigned char c;
+
+		if (!uart_fifo_get(port, &c))
+			break;
+
+		vuart_serial_out(port, UART_TX, c);
 		port->icount.tx++;
-		if (uart_circ_empty(xmit))
+		if (kfifo_is_empty(&tport->xmit_fifo))
 			break;
 	} while (--count > 0);
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
 		uart_write_wakeup(port);
 }
 
