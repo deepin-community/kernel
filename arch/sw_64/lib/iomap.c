@@ -8,6 +8,9 @@
 #include <asm/io.h>
 #include <asm/platform.h>
 
+extern unsigned long legacy_io_base;
+extern unsigned long legacy_io_shift;
+
 /*
  * Here comes the sw64 implementation of the IOMAP interfaces.
  */
@@ -258,13 +261,9 @@ EXPORT_SYMBOL(_memset_c_io);
 
 void __iomem *ioport_map(unsigned long port, unsigned int size)
 {
-	unsigned long io_offset;
+	if (port >= 0x100000)
+		return __va(port);
 
-	if (port < 0x100000) {
-		io_offset = is_in_host() ? LPC_LEGACY_IO : PCI_VT_LEGACY_IO;
-		port = port | io_offset;
-	}
-
-	return __va(port);
+	return __va((port << legacy_io_shift) | legacy_io_base);
 }
 EXPORT_SYMBOL(ioport_map);

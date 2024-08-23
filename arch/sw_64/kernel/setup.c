@@ -118,6 +118,9 @@ EXPORT_SYMBOL(sunway_boot_magic);
 unsigned long sunway_dtb_address;
 EXPORT_SYMBOL(sunway_dtb_address);
 
+unsigned long legacy_io_base;
+unsigned long legacy_io_shift;
+
 u64 sunway_mclk_hz;
 u64 sunway_extclk_hz;
 
@@ -552,6 +555,30 @@ cmd_handle:
 	}
 }
 
+static void __init setup_legacy_io(void)
+{
+	if (is_guest_or_emul()) {
+		legacy_io_base = PCI_VT_LEGACY_IO;
+		legacy_io_shift = 0;
+		return;
+	}
+
+	if (sunway_machine_is_compatible("sunway,junzhang") ||
+	    sunway_machine_is_compatible("sunway,junzhang_v2")) {
+		/*
+		 * Due to a hardware defect, chip junzhang and junzhang_v2 cannot
+		 * recognize accesses to LPC legacy IO. The workaround is using some
+		 * of the LPC MEMIO space to access Legacy IO space. Thus,
+		 * legacy_io_base should be LPC_MEM_IO instead on these chips.
+		 */
+		legacy_io_base = LPC_MEM_IO;
+		legacy_io_shift = 12;
+	} else {
+		legacy_io_base = LPC_LEGACY_IO;
+		legacy_io_shift = 0;
+	}
+}
+
 static void __init setup_builtin_fdt(void)
 {
 	void *dt_virt;
@@ -711,6 +738,9 @@ setup_arch(char **cmdline_p)
 
 	/* Now we get the final boot_command_line */
 	*cmdline_p = boot_command_line;
+
+	/* Decide legacy IO base addr based on chips */
+	setup_legacy_io();
 
 	/* Register a call for panic conditions. */
 	atomic_notifier_chain_register(&panic_notifier_list,
