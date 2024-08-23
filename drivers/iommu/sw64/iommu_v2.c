@@ -590,7 +590,7 @@ static struct sunway_iommu *sunway_iommu_early_init(struct pci_controller *hose)
 
 	iommu->iommu_dtbr = page_address(page);
 	base = __pa(iommu->iommu_dtbr) & PAGE_MASK;
-	iommu->reg_base_addr = __va(MK_PIU_IOR0(iommu->node, iommu->index));
+	iommu->reg_base_addr = hose->piu_ior0_base;
 	writeq(base, iommu->reg_base_addr + DTBASEADDR);
 
 	hose->pci_iommu = iommu;
@@ -971,8 +971,9 @@ static int sunway_iommu_acpi_init(void)
 		return ret;
 
 	for_each_iommu(iommu) {
-		if (!iommu->enabled)
+		if (!iommu->enabled || hose->iommu_enable)
 			continue;
+
 		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
 				iommu_index);
 		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
@@ -1007,6 +1008,9 @@ static int sunway_iommu_legacy_init(void)
 			hose->iommu_enable = false;
 			continue;
 		}
+
+		if (hose->iommu_enable)
+			continue;
 
 		iommu = sunway_iommu_early_init(hose);
 		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",

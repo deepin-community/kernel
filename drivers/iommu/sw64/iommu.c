@@ -760,7 +760,7 @@ static struct sunway_iommu *sunway_iommu_early_init(struct pci_controller *hose)
 
 	iommu->iommu_dtbr = page_address(page);
 	base = __pa(iommu->iommu_dtbr) & PAGE_MASK;
-	iommu->reg_base_addr = __va(MK_PIU_IOR0(iommu->node, iommu->index));
+	iommu->reg_base_addr = hose->piu_ior0_base;
 	writeq(base, iommu->reg_base_addr + DTBASEADDR);
 
 	hose->pci_iommu = iommu;
@@ -795,6 +795,9 @@ static int sunway_iommu_init(void)
 			hose->iommu_enable = false;
 			continue;
 		}
+
+		if (hose->iommu_enable)
+			continue;
 
 		iommu = sunway_iommu_early_init(hose);
 		if (!iommu) {
