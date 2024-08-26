@@ -68,9 +68,9 @@ static int __init setup_mem_size(char *p)
 	mem_size_limit = size;
 
 	if (mem_start < NODE0_START) {
-		mem_start = NODE0_START;
 		mem_size_limit -= min(mem_size_limit,
 				NODE0_START - mem_start);
+		mem_start = NODE0_START;
 	}
 
 	return 0;
