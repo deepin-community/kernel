@@ -12,12 +12,15 @@
 static bool rtw89_pci_disable_clkreq;
 static bool rtw89_pci_disable_aspm_l1;
 static bool rtw89_pci_disable_l1ss;
+static bool rtw89_pci_force_32bit;
 module_param_named(disable_clkreq, rtw89_pci_disable_clkreq, bool, 0644);
 module_param_named(disable_aspm_l1, rtw89_pci_disable_aspm_l1, bool, 0644);
 module_param_named(disable_aspm_l1ss, rtw89_pci_disable_l1ss, bool, 0644);
+module_param_named(force_32bit_dma, rtw89_pci_force_32bit, bool, 0644);
 MODULE_PARM_DESC(disable_clkreq, "Set Y to disable PCI clkreq support");
 MODULE_PARM_DESC(disable_aspm_l1, "Set Y to disable PCI ASPM L1 support");
 MODULE_PARM_DESC(disable_aspm_l1ss, "Set Y to disable PCI L1SS support");
+MODULE_PARM_DESC(force_32bit_dma, "Set Y to force 32 bit DMA");
 
 static int rtw89_pci_get_phy_offset_by_link_speed(struct rtw89_dev *rtwdev,
 						  u32 *phy_offset)
@@ -3144,7 +3147,11 @@ static int rtw89_pci_setup_mapping(struct rtw89_dev *rtwdev,
 	if (!rtw89_pci_is_dac_compatible_bridge(rtwdev))
 		goto try_dac_done;
 
-	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(36));
+	if (rtw89_pci_force_32bit)
+		ret = 1;
+	else
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(36));
+
 	if (!ret) {
 		ret = rtw89_pci_cfg_dac(rtwdev, true);
 		if (!ret) {
