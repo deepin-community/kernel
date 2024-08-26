@@ -341,6 +341,7 @@ struct ftrace_ops {
 	unsigned long			direct_call;
 #endif
 #endif
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 };

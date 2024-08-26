@@ -317,6 +317,8 @@ struct bpf_func_state {
 	struct bpf_reference_state *refs;
 	int allocated_stack;
 	struct bpf_stack_state *stack;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct bpf_idx_pair {
@@ -522,6 +524,9 @@ struct bpf_insn_aux_data {
 	 * accepts callback function as a parameter.
 	 */
 	bool calls_callback;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #define MAX_USED_MAPS 64 /* max number of maps accessed by one eBPF program */
@@ -673,6 +678,11 @@ struct bpf_verifier_env {
 	 * e.g., in reg_type_str() to generate reg_type string
 	 */
 	char tmp_str_buf[TMP_STR_BUF_LEN];
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 __printf(2, 0) void bpf_verifier_vlog(struct bpf_verifier_log *log,

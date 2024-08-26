@@ -156,6 +156,9 @@ struct flowi6 {
 #define fl6_mh_type		uli.mht.type
 #define fl6_gre_key		uli.gre_key
 	__u32			mp_hash;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } __attribute__((__aligned__(BITS_PER_LONG/8)));
 
 struct flowi {
@@ -175,6 +178,8 @@ struct flowi {
 #define flowi_secid	u.__fl_common.flowic_secid
 #define flowi_tun_key	u.__fl_common.flowic_tun_key
 #define flowi_uid	u.__fl_common.flowic_uid
+
+	DEEPIN_KABI_RESERVE(1)
 } __attribute__((__aligned__(BITS_PER_LONG/8)));
 
 static inline struct flowi *flowi4_to_flowi(struct flowi4 *fl4)

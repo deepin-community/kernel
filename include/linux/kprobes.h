@@ -92,6 +92,8 @@ struct kprobe {
 	 * Protected by kprobe_mutex after this kprobe is registered.
 	 */
 	u32 flags;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /* Kprobe status flags */

@@ -209,8 +209,9 @@ struct audit_context {
 	};
 	int fds[2];
 	struct audit_proctitle proctitle;
-	DEEPIN_KABI_RESERVE(0)
+
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 extern bool audit_ever_enabled;

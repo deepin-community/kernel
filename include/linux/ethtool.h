@@ -173,6 +173,8 @@ struct ethtool_link_ksettings {
 		__ETHTOOL_DECLARE_LINK_MODE_MASK(lp_advertising);
 	} link_modes;
 	u32	lanes;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -389,6 +391,8 @@ struct ethtool_pause_stats {
 		u64 tx_pause_frames;
 		u64 rx_pause_frames;
 	);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define ETHTOOL_MAX_LANES	8
@@ -918,6 +922,18 @@ struct ethtool_ops {
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
+	DEEPIN_KABI_RESERVE(13)
+	DEEPIN_KABI_RESERVE(14)
+	DEEPIN_KABI_RESERVE(15)
+	DEEPIN_KABI_RESERVE(16)
 };
 
 int ethtool_check_ops(const struct ethtool_ops *ops);

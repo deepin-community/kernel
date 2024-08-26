@@ -321,6 +321,9 @@ struct drm_hdmi_info {
 
 	/** @dsc_cap: DSC capabilities of the sink */
 	struct drm_hdmi_dsc_cap dsc_cap;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -383,6 +386,8 @@ enum drm_panel_orientation {
 struct drm_monitor_range_info {
 	u16 min_vfreq;
 	u16 max_vfreq;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -824,6 +829,9 @@ struct drm_display_info {
 	 * Defaults to CEC_PHYS_ADDR_INVALID (0xffff).
 	 */
 	u16 source_physical_address;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 int drm_display_info_set_bus_formats(struct drm_display_info *info,
@@ -1343,6 +1351,9 @@ struct drm_connector_funcs {
 	 * Allows connectors to create connector-specific debugfs files.
 	 */
 	void (*debugfs_init)(struct drm_connector *connector, struct dentry *root);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -1887,6 +1898,19 @@ struct drm_connector {
 
 	/** @hdr_sink_metadata: HDR Metadata Information read from sink */
 	struct hdr_sink_metadata hdr_sink_metadata;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

@@ -19,6 +19,8 @@ struct genl_multicast_group {
 	char			name[GENL_NAMSIZ];
 	u8			flags;
 	u8			cap_sys_admin:1;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct genl_split_ops;
@@ -257,6 +259,11 @@ struct genl_split_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**

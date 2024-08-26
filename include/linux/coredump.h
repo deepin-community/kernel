@@ -28,6 +28,8 @@ struct coredump_params {
 	int vma_count;
 	size_t vma_data_size;
 	struct core_vma_metadata *vma_meta;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*

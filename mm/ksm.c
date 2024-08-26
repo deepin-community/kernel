@@ -140,6 +140,9 @@ struct ksm_scan {
 	unsigned long address;
 	struct ksm_rmap_item **rmap_list;
 	unsigned long seqnr;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**

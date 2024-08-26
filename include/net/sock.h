@@ -1551,6 +1551,8 @@ proto_memory_pressure(struct proto *prot)
 struct prot_inuse {
 	int all;
 	int val[PROTO_INUSE_NR];
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 static inline void sock_prot_inuse_add(const struct net *net,

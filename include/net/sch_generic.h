@@ -131,6 +131,12 @@ struct Qdisc {
 
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 
 	/* private data */
 	long privdata[] ____cacheline_aligned;
@@ -407,6 +413,8 @@ struct tcf_proto_ops {
 
 	struct module		*owner;
 	int			flags;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /* Classifiers setting TCF_PROTO_OPS_DOIT_UNLOCKED in tcf_proto_ops->flags

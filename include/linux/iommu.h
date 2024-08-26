@@ -236,6 +236,9 @@ struct iommu_iotlb_gather {
 	size_t			pgsize;
 	struct list_head	freelist;
 	bool			queued;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -343,6 +346,7 @@ struct iommu_ops {
 	const struct iommu_domain_ops *default_domain_ops;
 	unsigned long pgsize_bitmap;
 	struct module *owner;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)

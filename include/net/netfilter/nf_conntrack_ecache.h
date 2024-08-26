@@ -63,6 +63,7 @@ struct nf_exp_event {
 struct nf_ct_event_notifier {
 	int (*ct_event)(unsigned int events, const struct nf_ct_event *item);
 	int (*exp_event)(unsigned int events, const struct nf_exp_event *item);
+	DEEPIN_KABI_RESERVE(1)
 };
 
 void nf_conntrack_register_notifier(struct net *net,

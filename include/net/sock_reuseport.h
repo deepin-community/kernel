@@ -26,6 +26,9 @@ struct sock_reuseport {
 	unsigned int		bind_inany:1;
 	unsigned int		has_conns:1;
 	struct bpf_prog __rcu	*prog;		/* optional BPF sock selector */
+
+	DEEPIN_KABI_RESERVE(1)
+
 	struct sock		*socks[];	/* array of sock pointers */
 };
 

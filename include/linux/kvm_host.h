@@ -392,6 +392,8 @@ struct kvm_vcpu {
 	 */
 	struct kvm_memory_slot *last_used_slot;
 	u64 last_used_slot_gen;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*
@@ -588,6 +590,8 @@ struct kvm_memory_slot {
 	u32 flags;
 	short id;
 	u16 as_id;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 static inline bool kvm_slot_dirty_track_enabled(const struct kvm_memory_slot *slot)
@@ -808,6 +812,8 @@ struct kvm {
 	struct notifier_block pm_notifier;
 #endif
 	char stats_id[KVM_STATS_NAME_SIZE];
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define kvm_err(fmt, ...) \

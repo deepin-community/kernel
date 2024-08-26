@@ -165,6 +165,9 @@ struct tcp_request_sock {
 						  * after data-in-SYN.
 						  */
 	u8				syn_tos;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct tcp_request_sock *tcp_rsk(const struct request_sock *req)
@@ -480,6 +483,11 @@ struct tcp_sock {
 	 */
 	struct request_sock __rcu *fastopen_rsk;
 	struct saved_syn *saved_syn;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 enum tsq_enum {
@@ -525,6 +533,9 @@ struct tcp_timewait_sock {
 #ifdef CONFIG_TCP_MD5SIG
 	struct tcp_md5sig_key	  *tw_md5_key;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline struct tcp_timewait_sock *tcp_twsk(const struct sock *sk)

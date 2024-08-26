@@ -179,6 +179,9 @@ struct netns_sctp {
 #ifdef CONFIG_NET_L3_MASTER_DEV
 	int l3mdev_accept;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif /* __NETNS_SCTP_H__ */

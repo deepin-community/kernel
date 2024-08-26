@@ -203,6 +203,9 @@ struct msi_desc {
 		struct pci_msi_desc	pci;
 		struct msi_desc_data	data;
 	};
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*

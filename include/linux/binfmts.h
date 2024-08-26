@@ -64,6 +64,9 @@ struct linux_binprm {
 	struct rlimit rlim_stack; /* Saved RLIMIT_STACK used during exec. */
 
 	char buf[BINPRM_BUF_SIZE];
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } __randomize_layout;
 
 #define BINPRM_FLAGS_ENFORCE_NONDUMP_BIT 0

@@ -94,6 +94,8 @@ struct bpf_local_storage {
 				 */
 	struct rcu_head rcu;
 	raw_spinlock_t lock;	/* Protect adding/removing from the "list" */
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /* U16_MAX is much more than enough for sk local storage

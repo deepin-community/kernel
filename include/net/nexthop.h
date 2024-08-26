@@ -114,6 +114,10 @@ struct nh_grp_entry {
 
 	struct list_head nh_list;
 	struct nexthop	*nh_parent;  /* nexthop of group with this entry */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 struct nh_group {
@@ -126,6 +130,9 @@ struct nh_group {
 	bool			has_v4;
 
 	struct nh_res_table __rcu *res_table;
+
+	DEEPIN_KABI_RESERVE(1)
+
 	struct nh_grp_entry	nh_entries[];
 };
 

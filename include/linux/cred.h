@@ -153,6 +153,10 @@ struct cred {
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 } __randomize_layout;
 
 extern void __put_cred(struct cred *);

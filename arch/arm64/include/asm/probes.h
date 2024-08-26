@@ -8,6 +8,7 @@
 #define _ARM_PROBES_H
 
 #include <asm/insn.h>
+#include <linux/deepin_kabi.h>
 
 typedef u32 probe_opcode_t;
 typedef void (probes_handler_t) (u32 opcode, long addr, struct pt_regs *);
@@ -24,6 +25,9 @@ struct arch_probe_insn {
 typedef u32 kprobe_opcode_t;
 struct arch_specific_insn {
 	struct arch_probe_insn api;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 #endif
 

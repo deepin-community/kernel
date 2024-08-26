@@ -72,6 +72,8 @@ struct drm_modeset_acquire_ctx {
 
 	/* Perform interruptible waits on this context. */
 	bool interruptible;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

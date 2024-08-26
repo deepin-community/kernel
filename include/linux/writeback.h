@@ -89,6 +89,9 @@ struct writeback_control {
 	size_t wb_lcand_bytes;		/* bytes written by last candidate */
 	size_t wb_tcand_bytes;		/* bytes written by this candidate */
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline blk_opf_t wbc_to_write_flags(struct writeback_control *wbc)

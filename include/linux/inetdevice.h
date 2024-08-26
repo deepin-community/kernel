@@ -19,6 +19,8 @@ struct ipv4_devconf {
 	void	*sysctl;
 	int	data[IPV4_DEVCONF_MAX];
 	DECLARE_BITMAP(state, IPV4_DEVCONF_MAX);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define MC_HASH_SZ_LOG 9

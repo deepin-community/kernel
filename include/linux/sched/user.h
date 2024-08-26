@@ -34,6 +34,9 @@ struct user_struct {
 
 	/* Miscellaneous per-user rate limit */
 	struct ratelimit_state ratelimit;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 extern int uids_sysfs_init(void);

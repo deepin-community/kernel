@@ -11,6 +11,7 @@
 
 #include <asm/current.h>
 
+#include <linux/deepin_kabi.h>
 #include <linux/pid.h>
 #include <linux/sem.h>
 #include <linux/shm.h>
@@ -395,6 +396,11 @@ struct sched_info {
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 #endif /* CONFIG_SCHED_INFO */
+
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
 };
 
 /*
@@ -414,6 +420,11 @@ struct sched_info {
 struct load_weight {
 	unsigned long			weight;
 	u32				inv_weight;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -471,8 +482,11 @@ struct sched_avg {
 	unsigned long			runnable_avg;
 	unsigned long			util_avg;
 	unsigned int			util_est;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } ____cacheline_aligned;
 
 /*
@@ -534,6 +548,11 @@ struct sched_statistics {
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
 #endif /* CONFIG_SCHEDSTATS */
+
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
 } ____cacheline_aligned;
 
 struct sched_entity {
@@ -575,10 +594,15 @@ struct sched_entity {
 	 */
 	struct sched_avg		avg;
 #endif
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 struct sched_rt_entity {
@@ -597,8 +621,11 @@ struct sched_rt_entity {
 	/* rq "owned" by this entity/group: */
 	struct rt_rq			*my_q;
 #endif
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } __randomize_layout;
 
 struct sched_dl_entity {
@@ -672,6 +699,11 @@ struct sched_dl_entity {
 	 */
 	struct sched_dl_entity *pi_se;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_UCLAMP_TASK

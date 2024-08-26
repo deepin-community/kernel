@@ -430,6 +430,8 @@ struct crypto_tfm {
 	
 	struct crypto_alg *__crt_alg;
 
+	DEEPIN_KABI_RESERVE(1)
+
 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
 };
 

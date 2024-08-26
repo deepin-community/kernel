@@ -45,6 +45,8 @@ struct xattr_handler {
 		   struct mnt_idmap *idmap, struct dentry *dentry,
 		   struct inode *inode, const char *name, const void *buffer,
 		   size_t size, int flags);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

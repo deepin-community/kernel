@@ -1463,6 +1463,8 @@ struct kvm_arch {
 	 */
 #define SPLIT_DESC_CACHE_MIN_NR_OBJECTS (SPTE_ENT_PER_PAGE + 1)
 	struct kvm_mmu_memory_cache split_desc_cache;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct kvm_vm_stat {

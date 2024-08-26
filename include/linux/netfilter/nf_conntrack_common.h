@@ -4,6 +4,7 @@
 
 #include <linux/refcount.h>
 #include <uapi/linux/netfilter/nf_conntrack_common.h>
+#include <linux/deepin_kabi.h>
 
 struct ip_conntrack_stat {
 	unsigned int found;
@@ -19,6 +20,8 @@ struct ip_conntrack_stat {
 	unsigned int expect_delete;
 	unsigned int search_restart;
 	unsigned int chaintoolong;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define NFCT_INFOMASK	7UL

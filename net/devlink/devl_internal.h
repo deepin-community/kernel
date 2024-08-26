@@ -52,6 +52,10 @@ struct devlink {
 	 */
 	struct mutex lock;
 	struct lock_class_key lock_key;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 	u8 reload_failed:1;
 	refcount_t refcount;
 	struct rcu_work rwork;

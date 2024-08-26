@@ -279,6 +279,7 @@ struct key {
 	 * restriction.
 	 */
 	struct key_restriction *restrict_link;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 };

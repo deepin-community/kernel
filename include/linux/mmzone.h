@@ -737,6 +737,8 @@ struct per_cpu_zonestat {
 struct per_cpu_nodestat {
 	s8 stat_threshold;
 	s8 vm_node_stat_diff[NR_VM_NODE_STAT_ITEMS];
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #endif /* !__GENERATING_BOUNDS.H */
@@ -1008,13 +1010,14 @@ struct zone {
 
 	CACHELINE_PADDING(_pad3_);
 
+	/* Zone statistics */
+	atomic_long_t		vm_stat[NR_VM_ZONE_STAT_ITEMS];
+	atomic_long_t		vm_numa_event[NR_VM_NUMA_EVENT_ITEMS];
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
-	/* Zone statistics */
-	atomic_long_t		vm_stat[NR_VM_ZONE_STAT_ITEMS];
-	atomic_long_t		vm_numa_event[NR_VM_NUMA_EVENT_ITEMS];
 } ____cacheline_internodealigned_in_smp;
 
 enum pgdat_flags {
@@ -1425,9 +1428,6 @@ typedef struct pglist_data {
 
 	CACHELINE_PADDING(_pad2_);
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
-	DEEPIN_KABI_RESERVE(3)
 	/* Per-node vmstats */
 	struct per_cpu_nodestat __percpu *per_cpu_nodestats;
 	atomic_long_t		vm_stat[NR_VM_NODE_STAT_ITEMS];
@@ -1437,6 +1437,11 @@ typedef struct pglist_data {
 #ifdef CONFIG_MEMORY_FAILURE
 	struct memory_failure_stats mf_stats;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } pg_data_t;
 
 #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)

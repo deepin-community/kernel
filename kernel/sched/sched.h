@@ -31,6 +31,7 @@
 #include <linux/cpufreq.h>
 #include <linux/cpumask_api.h>
 #include <linux/ctype.h>
+#include <linux/deepin_kabi.h>
 #include <linux/file.h>
 #include <linux/fs_api.h>
 #include <linux/hrtimer_api.h>
@@ -284,8 +285,11 @@ struct rt_bandwidth {
 	u64			rt_runtime;
 	struct hrtimer		rt_period_timer;
 	unsigned int		rt_period_active;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline int dl_bandwidth_enabled(void)
@@ -315,6 +319,11 @@ struct dl_bw {
 	raw_spinlock_t		lock;
 	u64			bw;
 	u64			total_bw;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 extern void init_dl_bw(struct dl_bw *dl_b);
@@ -358,6 +367,7 @@ struct cfs_bandwidth {
 	int			nr_burst;
 	u64			throttled_time;
 	u64			burst_time;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -422,6 +432,14 @@ struct task_group {
 	struct uclamp_se	uclamp[UCLAMP_CNT];
 #endif
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -659,6 +677,7 @@ struct cfs_rq {
 #endif
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -713,8 +732,11 @@ struct rt_rq {
 	struct rq		*rq;
 	struct task_group	*tg;
 #endif
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline bool rt_rq_is_runnable(struct rt_rq *rt_rq)
@@ -783,6 +805,11 @@ struct dl_rq {
 	 * by the GRUB algorithm.
 	 */
 	u64			bw_ratio;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -909,8 +936,11 @@ struct root_domain {
 	 * CPUs of the rd. Protected by RCU.
 	 */
 	struct perf_domain __rcu *pd;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 extern void init_defrootdomain(void);
@@ -1188,6 +1218,7 @@ struct rq {
 	call_single_data_t	cfsb_csd;
 	struct list_head	cfsb_csd_list;
 #endif
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -1927,6 +1958,11 @@ struct sched_group_capacity {
 	int			id;
 #endif
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+
 	unsigned long		cpumask[];		/* Balance mask */
 };
 
@@ -1941,6 +1977,8 @@ struct sched_group {
 	int			flags;
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 
 	/*
 	 * The CPUs this group covers.
@@ -2334,6 +2372,8 @@ struct sched_class {
 #endif
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)

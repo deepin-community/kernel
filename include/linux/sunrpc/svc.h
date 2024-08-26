@@ -44,6 +44,9 @@ struct svc_pool {
 	struct percpu_counter	sp_threads_woken;
 
 	unsigned long		sp_flags;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } ____cacheline_aligned_in_smp;
 
 /* bits for sp_flags */
@@ -96,6 +99,9 @@ struct svc_serv {
 						 * entries in the svc_cb_list */
 	bool			sv_bc_enabled;	/* service uses backchannel */
 #endif /* CONFIG_SUNRPC_BACKCHANNEL */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**

@@ -76,14 +76,15 @@ struct kobject {
 	unsigned int state_add_uevent_sent:1;
 	unsigned int state_remove_uevent_sent:1;
 	unsigned int uevent_suppress:1;
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
-	DEEPIN_KABI_RESERVE(3)
-	DEEPIN_KABI_RESERVE(4)
 
 #ifdef CONFIG_DEBUG_KOBJECT_RELEASE
 	struct delayed_work	release;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 __printf(2, 3) int kobject_set_name(struct kobject *kobj, const char *name, ...);
@@ -125,6 +126,7 @@ struct kobj_type {
 	const struct kobj_ns_type_operations *(*child_ns_type)(const struct kobject *kobj);
 	const void *(*namespace)(const struct kobject *kobj);
 	void (*get_ownership)(const struct kobject *kobj, kuid_t *uid, kgid_t *gid);
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -179,6 +181,7 @@ struct kset {
 	spinlock_t list_lock;
 	struct kobject kobj;
 	const struct kset_uevent_ops *uevent_ops;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)

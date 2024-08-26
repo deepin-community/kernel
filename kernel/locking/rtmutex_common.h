@@ -56,6 +56,8 @@ struct rt_mutex_waiter {
 	struct rt_mutex_base	*lock;
 	unsigned int		wake_state;
 	struct ww_acquire_ctx	*ww_ctx;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

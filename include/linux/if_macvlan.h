@@ -35,6 +35,9 @@ struct macvlan_dev {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	struct netpoll		*netpoll;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline void macvlan_count_rx(const struct macvlan_dev *vlan,

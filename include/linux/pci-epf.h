@@ -51,6 +51,8 @@ struct pci_epf_header {
 	u16	subsys_vendor_id;
 	u16	subsys_id;
 	enum pci_interrupt_pin interrupt_pin;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -121,6 +123,8 @@ struct pci_epf_bar {
 	size_t		size;
 	enum pci_barno	barno;
 	int		flags;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -180,6 +184,8 @@ struct pci_epf {
 	unsigned long		vfunction_num_map;
 	struct list_head	pci_vepf;
 	const struct pci_epc_event_ops *event_ops;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
