@@ -4,7 +4,7 @@
  *                    All rights reserved.
  */
 
-#define DRIVER_VERSION "1.6.0"
+#define DRIVER_VERSION "1.6.1"
 
 #include <linux/acpi.h>
 #include <linux/delay.h>
@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/version.h>
 
-#define ZX_I2C_NAME             "i2c_zhaoxin"
+#define ZX_I2C_NAME	"i2c_zhaoxin"
 
 /* REG_CR Bit fields */
 #define ZXI2C_REG_CR		0x00
@@ -145,7 +145,6 @@ static int zxi2c_irq_xfer(struct zxi2c *i2c)
 			val |= ZXI2C_CR_RX_END;
 		writew(val, base + ZXI2C_REG_CR);
 	} else {
-
 		val = readw(base + ZXI2C_REG_CSR);
 		if (val & ZXI2C_CSR_RCV_NOT_ACK) {
 			dev_dbg_ratelimited(i2c->dev, "write RCV NACK error\n");
@@ -232,25 +231,25 @@ int zxi2c_fifo_irq_xfer(struct zxi2c *i2c, bool irq)
 static irqreturn_t zxi2c_isr(int irq, void *data)
 {
 	struct zxi2c *i2c = data;
+	void __iomem *base = i2c->base;
 	u8 status;
 
 	/* save the status and write-clear it */
-	status = readw(i2c->base + ZXI2C_REG_ISR);
+	status = readw(base + ZXI2C_REG_ISR);
 	if (!status)
 		return IRQ_NONE;
 
-	writew(status, i2c->base + ZXI2C_REG_ISR);
+	writew(status, base + ZXI2C_REG_ISR);
 
 	i2c->ret = 0;
 	if (status & ZXI2C_ISR_NACK_ADDR)
 		i2c->ret = -EIO;
 
 	if (!i2c->ret) {
-		if (i2c->mode == ZXI2C_BYTE_MODE) {
+		if (i2c->mode == ZXI2C_BYTE_MODE)
 			i2c->ret = zxi2c_irq_xfer(i2c);
-		} else {
+		else
 			i2c->ret = zxi2c_fifo_irq_xfer(i2c, true);
-		}
 	}
 
 	if (i2c->ret)
@@ -262,16 +261,17 @@ static irqreturn_t zxi2c_isr(int irq, void *data)
 static int zxi2c_write(struct zxi2c *i2c, struct i2c_msg *msg, int last)
 {
 	u16 tcr_val = i2c->tcr;
+	void __iomem *base = i2c->base;
 
 	i2c->last = last;
 
-	writew(msg->buf[0] & 0xFF, i2c->base + ZXI2C_REG_CDR);
+	writew(msg->buf[0] & 0xFF, base + ZXI2C_REG_CDR);
 
 	reinit_completion(&i2c->complete);
 
 	tcr_val |= msg->addr & 0x7f;
 
-	writew(tcr_val, i2c->base + ZXI2C_REG_TCR);
+	writew(tcr_val, base + ZXI2C_REG_TCR);
 
 	if (!wait_for_completion_timeout(&i2c->complete, ZXI2C_TIMEOUT))
 		return -ETIMEDOUT;
@@ -282,25 +282,26 @@ static int zxi2c_write(struct zxi2c *i2c, struct i2c_msg *msg, int last)
 static int zxi2c_read(struct zxi2c *i2c, struct i2c_msg *msg, bool first)
 {
 	u16 val, tcr_val = i2c->tcr;
+	void __iomem *base = i2c->base;
 
-	val = readw(i2c->base + ZXI2C_REG_CR);
+	val = readw(base + ZXI2C_REG_CR);
 	val &= ~(ZXI2C_CR_TX_END | ZXI2C_CR_RX_END);
 
 	if (msg->len == 1)
 		val |= ZXI2C_CR_RX_END;
 
-	writew(val, i2c->base + ZXI2C_REG_CR);
+	writew(val, base + ZXI2C_REG_CR);
 
 	reinit_completion(&i2c->complete);
 
 	tcr_val |= ZXI2C_TCR_READ | (msg->addr & 0x7f);
 
-	writew(tcr_val, i2c->base + ZXI2C_REG_TCR);
+	writew(tcr_val, base + ZXI2C_REG_TCR);
 
 	if (!first) {
-		val = readw(i2c->base + ZXI2C_REG_CR);
+		val = readw(base + ZXI2C_REG_CR);
 		val |= ZXI2C_CR_CPU_RDY;
-		writew(val, i2c->base + ZXI2C_REG_CR);
+		writew(val, base + ZXI2C_REG_CR);
 	}
 
 	if (!wait_for_completion_timeout(&i2c->complete, ZXI2C_TIMEOUT))
@@ -360,8 +361,10 @@ static int zxi2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int
 
 		zxi2c_fifo_irq_xfer(i2c, 0);
 
-		if (!wait_for_completion_timeout(&i2c->complete, ZXI2C_TIMEOUT))
+		if (!wait_for_completion_timeout(&i2c->complete, ZXI2C_TIMEOUT)) {
+			dev_dbg(i2c->dev, "fifo mode timeout\n");
 			return -ETIMEDOUT;
+		}
 
 		ret = i2c->ret;
 	} else {
@@ -373,8 +376,10 @@ static int zxi2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int
 		iowrite8(ZXI2C_ISR_NACK_ADDR | ZXI2C_IMR_BYTE, base + ZXI2C_REG_IMR);
 
 		ret = zxi2c_xfer(adap, msgs, num);
-		if (ret == -ETIMEDOUT)
+		if (ret == -ETIMEDOUT) {
+			dev_dbg(i2c->dev, "byte mode timeout\n");
 			iowrite16(tmp | ZXI2C_CR_END_MASK, base + ZXI2C_REG_CR);
+		}
 	}
 	/* dis interrupt */
 	iowrite8(0, base + ZXI2C_REG_IMR);
@@ -411,9 +416,11 @@ static const u32 zxi2c_speed_params_table[][3] = {
 
 static void zxi2c_set_bus_speed(struct zxi2c *i2c)
 {
-	iowrite16(i2c->tr, i2c->base + ZXI2C_REG_TR);
-	iowrite8(ZXI2C_CLK_50M, i2c->base + ZXI2C_REG_CLK);
-	iowrite16(i2c->mcr, i2c->base + ZXI2C_REG_MCR);
+	void __iomem *base = i2c->base;
+
+	iowrite16(i2c->tr, base + ZXI2C_REG_TR);
+	iowrite8(ZXI2C_CLK_50M, base + ZXI2C_REG_CLK);
+	iowrite16(i2c->mcr, base + ZXI2C_REG_MCR);
 }
 
 static void zxi2c_get_bus_speed(struct zxi2c *i2c)
@@ -421,6 +428,7 @@ static void zxi2c_get_bus_speed(struct zxi2c *i2c)
 	u8 i, count;
 	u8 fstp;
 	const u32 *params;
+	void __iomem *base = i2c->base;
 
 	u32 acpi_speed = i2c_acpi_find_bus_speed(i2c->dev);
 
@@ -432,7 +440,7 @@ static void zxi2c_get_bus_speed(struct zxi2c *i2c)
 	i = i < count ? i : 1;
 
 	params = zxi2c_speed_params_table[i];
-	fstp = ioread8(i2c->base + ZXI2C_REG_TR);
+	fstp = ioread8(base + ZXI2C_REG_TR);
 	if (abs(fstp - params[2]) > 0x10) {
 		/*
 		 * if BIOS setting value far from golden value,
@@ -446,7 +454,7 @@ static void zxi2c_get_bus_speed(struct zxi2c *i2c)
 	}
 
 	i2c->tcr = params[1];
-	i2c->mcr = ioread16(i2c->base + ZXI2C_REG_MCR);
+	i2c->mcr = ioread16(base + ZXI2C_REG_MCR);
 	/* for Hs-mode, use 0000 1000 as master code */
 	if (params[0] == I2C_MAX_HIGH_SPEED_MODE_FREQ)
 		i2c->mcr |= ZXI2C_HS_MASTER_CODE;
@@ -518,27 +526,12 @@ static int zxi2c_probe(struct platform_device *pdev)
 		 dev_name(i2c->dev));
 	i2c_set_adapdata(adap, i2c);
 
-	error = i2c_add_adapter(adap);
+	error = devm_i2c_add_adapter(&pdev->dev, adap);
 	if (error)
 		return error;
 
 	dev_info(i2c->dev, "adapter /dev/i2c-%d registered. version %s\n", adap->nr,
 		 DRIVER_VERSION);
-
-	return 0;
-}
-
-static int zxi2c_remove(struct platform_device *pdev)
-{
-	struct zxi2c *i2c = platform_get_drvdata(pdev);
-
-	devm_free_irq(&pdev->dev, i2c->irq, i2c);
-
-	i2c_del_adapter(&i2c->adapter);
-
-	platform_set_drvdata(pdev, NULL);
-
-	devm_kfree(&pdev->dev, i2c);
 
 	return 0;
 }
@@ -565,7 +558,6 @@ MODULE_DEVICE_TABLE(acpi, zxi2c_acpi_match);
 
 static struct platform_driver zxi2c_driver = {
 	.probe = zxi2c_probe,
-	.remove = zxi2c_remove,
 	.driver = {
 		.name = ZX_I2C_NAME,
 		.acpi_match_table = zxi2c_acpi_match,
