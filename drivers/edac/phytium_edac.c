@@ -246,8 +246,8 @@ static int phytium_edac_device_add(struct phytium_edac *edac)
 
 	edac_dev = edac_device_alloc_ctl_info(
 					sizeof(struct edac_device_ctl_info),
-					      "ras", 1, "soc", 1, 0, NULL,
-					      0, edac_device_alloc_index());
+					      "ras", 1, "soc", 1, 0,
+					      edac_device_alloc_index());
 	if (!edac_dev)
 		res = -ENOMEM;
 
