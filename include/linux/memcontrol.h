@@ -21,6 +21,7 @@
 #include <linux/vmstat.h>
 #include <linux/writeback.h>
 #include <linux/page-flags.h>
+#include <linux/deepin_kabi.h>
 
 struct mem_cgroup;
 struct obj_cgroup;
@@ -65,6 +66,7 @@ struct mem_cgroup_reclaim_cookie {
 struct mem_cgroup_id {
 	int id;
 	refcount_t ref;
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*
@@ -139,6 +141,11 @@ struct mem_cgroup_per_node {
 	bool			on_tree;
 	struct mem_cgroup	*memcg;		/* Back pointer, we cannot */
 						/* use container_of	   */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct mem_cgroup_threshold {
@@ -333,6 +340,14 @@ struct mem_cgroup {
 	struct lru_gen_mm_list mm_list;
 #endif
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 	struct mem_cgroup_per_node *nodeinfo[];
 };
 

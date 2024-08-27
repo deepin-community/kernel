@@ -28,6 +28,7 @@
 #include <linux/path.h>
 #include <net/ipv6.h>
 #include <linux/sunrpc/xprtmultipath.h>
+#include <linux/deepin_kabi.h>
 
 struct rpc_inode;
 struct rpc_sysfs_client {
@@ -93,6 +94,11 @@ struct rpc_clnt {
 	const struct cred	*cl_cred;
 	unsigned int		cl_max_connect; /* max number of transports not to the same IP */
 	struct super_block *pipefs_sb;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -106,6 +112,8 @@ struct rpc_program {
 	const struct rpc_version **	version;	/* version array */
 	struct rpc_stat *	stats;		/* statistics */
 	const char *		pipe_dir_name;	/* path to rpc_pipefs dir */
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct rpc_version {
@@ -148,10 +156,13 @@ struct rpc_create_args {
 	char			*client_name;
 	struct svc_xprt		*bc_xprt;	/* NFSv4.1 backchannel */
 	const struct cred	*cred;
+
 	unsigned int		max_connect;
 	struct xprtsec_parms	xprtsec;
 	unsigned long		connect_timeout;
 	unsigned long		reconnect_timeout;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct rpc_add_xprt_test {

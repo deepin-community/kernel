@@ -9,6 +9,7 @@
 #define __NET_DCBNL_H__
 
 #include <linux/dcbnl.h>
+#include <linux/deepin_kabi.h>
 
 struct net_device;
 
@@ -131,6 +132,15 @@ struct dcbnl_rtnl_ops {
 	/* rewrite */
 	int (*dcbnl_setrewr)(struct net_device *dev, struct dcb_app *app);
 	int (*dcbnl_delrewr)(struct net_device *dev, struct dcb_app *app);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 #endif /* __NET_DCBNL_H__ */
