@@ -386,6 +386,16 @@ do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
 	force_sig_fault(SIGILL, ILL_ILLOPC, (void __user *)regs->pc);
 }
 
+#define OP_INT_MASK	(1L << 0x22 | 1L << 0x2a | /* ldw stw */	\
+			 1L << 0x23 | 1L << 0x2b | /* ldl stl */	\
+			 1L << 0x21 | 1L << 0x29 | /* ldhu sth */	\
+			 1L << 0x20 | 1L << 0x28)  /* ldbu stb */
+
+#define FN_INT_MASK	(1L << 0x0 | 1L << 0x6 |   /* ldbu_a stb_a */	\
+			 1L << 0x1 | 1L << 0x7 |   /* ldhu_a sth_a */	\
+			 1L << 0x2 | 1L << 0x8 |   /* ldw_a stw_a */	\
+			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
+
 asmlinkage void
 do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	  struct pt_regs *regs)
@@ -394,7 +404,22 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	unsigned int insn, fncode, rb;
 	unsigned long tmp, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, vb;
 	unsigned long fp[4];
+	unsigned long fake_reg, *reg_addr = &fake_reg;
 	unsigned long pc = regs->pc - 4;
+
+	insn = *(unsigned int *)pc;
+	fncode = (insn >> 12) & 0xf;
+
+	if (((1L << opcode) & OP_INT_MASK) ||
+			((opcode == 0x1e) && ((1L << fncode) & FN_INT_MASK))) {
+		/* it's an integer load/store */
+		if (reg < 31) {
+			reg_addr = &regs->regs[reg];
+		} else {
+			/* zero "register" */
+			fake_reg = 0;
+		}
+	}
 
 	/*
 	 * We don't want to use the generic get/put unaligned macros as
@@ -1017,7 +1042,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 			".previous"
 			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
 			"=&r"(tmp3), "=&r"(tmp4)
-			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+			: "r"(va), "r"(*reg_addr), "0"(0));
 
 			if (error)
 				goto got_exception;
@@ -1050,7 +1075,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 			".previous"
 			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
 			  "=&r"(tmp3), "=&r"(tmp4)
-			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+			: "r"(va), "r"(*reg_addr), "0"(0));
 
 			if (error)
 				goto got_exception;
@@ -1103,7 +1128,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 			".previous"
 			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
 			"=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
-			: "r"(va), "r"(regs->regs[reg]), "0"(0));
+			: "r"(va), "r"(*reg_addr), "0"(0));
 
 			if (error)
 				goto got_exception;
@@ -1190,7 +1215,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 		".previous"
 		: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
 		"=&r"(tmp3), "=&r"(tmp4)
-		: "r"(va), "r"(regs->regs[reg]), "0"(0));
+		: "r"(va), "r"(*reg_addr), "0"(0));
 
 		if (error)
 			goto got_exception;
@@ -1222,7 +1247,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 		".previous"
 		: "=r"(error), "=&r"(tmp1), "=&r"(tmp2),
 		  "=&r"(tmp3), "=&r"(tmp4)
-		: "r"(va), "r"(regs->regs[reg]), "0"(0));
+		: "r"(va), "r"(*reg_addr), "0"(0));
 
 		if (error)
 			goto got_exception;
@@ -1274,7 +1299,7 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 		".previous"
 		: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
 		"=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
-		: "r"(va), "r"(regs->regs[reg]), "0"(0));
+		: "r"(va), "r"(*reg_addr), "0"(0));
 
 		if (error)
 			goto got_exception;
@@ -1322,16 +1347,6 @@ got_exception:
  * uses them as temporary storage for integer memory to memory copies.
  * However, we need to deal with stt/ldt and sts/lds only.
  */
-#define OP_INT_MASK	(1L << 0x22 | 1L << 0x2a | /* ldw stw */	\
-			 1L << 0x23 | 1L << 0x2b | /* ldl stl */	\
-			 1L << 0x21 | 1L << 0x29 | /* ldhu sth */	\
-			 1L << 0x20 | 1L << 0x28)  /* ldbu stb */
-
-#define FN_INT_MASK	(1L << 0x0 | 1L << 0x6 |   /* ldbu_a stb_a */	\
-			 1L << 0x1 | 1L << 0x7 |   /* ldhu_a sth_a */	\
-			 1L << 0x2 | 1L << 0x8 |   /* ldw_a stw_a */	\
-			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
-
 asmlinkage void
 do_entUnaUser(void __user *va, unsigned long opcode,
 	      unsigned long reg, struct pt_regs *regs)
