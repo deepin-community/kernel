@@ -922,7 +922,7 @@ int hwq_process_vsync_event(adapter_t *adapter, unsigned long long time)
             }
             p_hwq_event->idle_time+=(e_idle_time - s_idle_time);
         }
-        p_hwq_event->engine_usage=100-((p_hwq_event->idle_time)*100/((time-hwq_event_mgr->start_time)));
+        p_hwq_event->engine_usage = 100 - gf_do_div(p_hwq_event->idle_time*100, time - hwq_event_mgr->start_time);
         //gf_info("\n EngineNum=%d engine_usage ALL=%llu%%\n",engine,p_hwq_event->engine_usage);
 
         p_hwq_event->idle_time=0;
@@ -1099,11 +1099,13 @@ int hwq_get_video_info(void *adp, gf_video_info *video_info)
         decode_framenum[i] = adapter->vcp_info[i].TotalDecodeFrameNum;
         return ret;
     }
-    interval_ms = (time - last_time[i]) / 1000000;
-    if (interval_ms < 1 || adapter->vcp_info[i].TotalDecodetime == last_decodetime[i]) return 0; //
-    video_info->presentspeed[i] = (adapter->vcp_info[i].TotalRenderFrameNum - frame_num[i]) * 1000 / interval_ms;
-    video_info->decodespeed[i] = (adapter->vcp_info[i].TotalDecodeFrameNum - decode_framenum[i]) * 1000 /(adapter->vcp_info[i].TotalDecodetime -last_decodetime[i]);
-    video_info->bitrate[i] = (adapter->vcp_info[i].TotalBitstreamSize - bit_size[i]) * 8 * 1000/ interval_ms / 1024;
+    interval_ms = gf_do_div(time - last_time[i], 1000000);
+    if (interval_ms < 1 || adapter->vcp_info[i].TotalDecodetime == last_decodetime[i])
+        return 0;
+
+    video_info->presentspeed[i] = gf_do_div((adapter->vcp_info[i].TotalRenderFrameNum - frame_num[i]) * 1000, interval_ms);
+    video_info->decodespeed[i] = gf_do_div((adapter->vcp_info[i].TotalDecodeFrameNum - decode_framenum[i]) * 1000, adapter->vcp_info[i].TotalDecodetime -last_decodetime[i]);
+    video_info->bitrate[i] = gf_do_div((adapter->vcp_info[i].TotalBitstreamSize - bit_size[i]) * 8 * 1000, interval_ms * 1024);
     last_time[i] = time;
     frame_num[i] = adapter->vcp_info[i].TotalRenderFrameNum;
     bit_size[i] = adapter->vcp_info[i].TotalBitstreamSize;

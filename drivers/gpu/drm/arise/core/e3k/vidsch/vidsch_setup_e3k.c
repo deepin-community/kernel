@@ -463,13 +463,9 @@ static void vidsch_get_set_reg_e3k(adapter_t *adapter, gf_query_info_t *info)
 
             reg_offset = (CHIP_ARISE1020 <= adapter->chip_id) ? Reg_Csp_Ref_Total_Gpu_Timestamp_Offset_Arise1020 : Reg_Csp_Ms_Total_Gpu_Timestamp_Offset;
 
-#ifdef __aarch64__
             time_stamp_lo = gf_read32(adapter->mmio + MMIO_CSP_START_ADDRESS  + reg_offset * 4);
             time_stamp_hi = gf_read32(adapter->mmio + MMIO_CSP_START_ADDRESS  + reg_offset * 4 + 4);
             info->value64 = time_stamp_lo | (time_stamp_hi << 32);
-#else
-            info->value64 = gf_read64(adapter->mmio + MMIO_CSP_START_ADDRESS  + reg_offset * 4);
-#endif
         }
             break;
 

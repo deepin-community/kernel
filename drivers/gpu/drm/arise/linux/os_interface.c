@@ -242,7 +242,11 @@ unsigned long gf_strlen(char *s)
 
 unsigned long long GF_API_CALL gf_read64(void* addr)
 {
+#ifdef CONFIG_64BIT
     return readq(addr);
+#else
+    return 0ull;
+#endif
 }
 
 unsigned int GF_API_CALL  gf_read32(void* addr)
