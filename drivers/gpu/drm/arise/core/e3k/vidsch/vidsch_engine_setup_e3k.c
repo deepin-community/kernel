@@ -306,8 +306,7 @@ unsigned long long engine_update_vcp_fence_id_e3k(vidsch_mgr_t *sch_mgr)
                         unsigned long long   update_timestamp;         /* THE time update fence id */
                         unsigned long long   time_interval;
                         gf_get_nsecs(&update_timestamp);
-                        time_interval = (update_timestamp - \
-                                        sch_mgr->adapter->vcp_task_info[i].vcp_inc_timestamp)/1000000;
+                        time_interval = gf_do_div(update_timestamp - sch_mgr->adapter->vcp_task_info[i].vcp_inc_timestamp, 1000000);
                         sch_mgr->adapter->vcp_info[j].TotalDecodetime += time_interval;
                         sch_mgr->adapter->vcp_info[j].TotalDecodeFrameNum++;
                         sch_mgr->last_returned_fence_id = sch_mgr->returned_fence_id;

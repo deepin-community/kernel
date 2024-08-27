@@ -224,7 +224,7 @@ static inline CBIOS_U32 cb_swab32(CBIOS_U32 x)
 #define cbmemset(s1, v, n)     CBIOS_NULL
 #define cbmemcpy(s1, s2, n)    CBIOS_NULL
 #define cbmemcmp(s1, s2, n)    0
-#define cbdo_div(a, b) ((a)/(b))
+#define cbdo_div(a, b)         0
 #define cbvsprintf(s, f, ...)  0
 
 #else
