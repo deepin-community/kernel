@@ -392,7 +392,8 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 {
 	long error, disp;
 	unsigned int insn, fncode, rb;
-	unsigned long tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+	unsigned long tmp, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, vb;
+	unsigned long fp[4];
 	unsigned long pc = regs->pc - 4;
 
 	/*
@@ -402,6 +403,531 @@ do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	 */
 
 	switch (opcode) {
+
+	case 0x0c:  /* vlds */
+		if ((unsigned long)va<<61 == 0) {
+			__asm__ __volatile__(
+			"1:	ldl	%1, 0(%5)\n"
+			"2:	ldl	%2, 8(%5)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
+
+			return;
+		} else {
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%6)\n"
+			"2:	ldl_u	%2, 7(%6)\n"
+			"3:	ldl_u	%3, 15(%6)\n"
+			"	extll	%1, %6, %1\n"
+			"	extll	%2, %6, %5\n"
+			"	exthl	%2, %6, %4\n"
+			"	exthl	%3, %6, %3\n"
+			"4:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 4b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 4b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	%3, 4b-3b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			tmp1 = tmp1 | tmp4;
+			tmp2 = tmp5 | tmp3;
+
+			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
+
+			return;
+		}
+
+	case 0x0d: /* vldd */
+		if ((unsigned long)va<<61 == 0) {
+			__asm__ __volatile__(
+			"1:	ldl	%1, 0(%5)\n"
+			"2:	ldl	%2, 8(%5)\n"
+			"3:	ldl	%3, 16(%5)\n"
+			"4:	ldl	%4, 24(%5)\n"
+			"5:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 5b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 5b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	%3, 5b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	%4, 5b-4b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3), "=&r"(tmp4)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			sw64_write_simd_fp_reg_d(reg, tmp1, tmp2, tmp3, tmp4);
+
+			return;
+		} else {
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%6)\n"
+			"2:	ldl_u	%2, 7(%6)\n"
+			"3:	ldl_u	%3, 15(%6)\n"
+			"	extll	%1, %6, %1\n"
+			"	extll	%2, %6, %5\n"
+			"	exthl	%2, %6, %4\n"
+			"	exthl	%3, %6, %3\n"
+			"4:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 4b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 4b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	%3, 4b-3b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5)
+			: "r"(va), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			tmp7 = tmp1 | tmp4;		//f0
+			tmp8 = tmp5 | tmp3;		//f1
+
+			vb = ((unsigned long)(va))+16;
+
+			__asm__ __volatile__(
+			"1:	ldl_u	%1, 0(%6)\n"
+			"2:	ldl_u	%2, 7(%6)\n"
+			"3:	ldl_u	%3, 15(%6)\n"
+			"	extll	%1, %6, %1\n"
+			"	extll	%2, %6, %5\n"
+			"	exthl	%2, %6, %4\n"
+			"	exthl	%3, %6, %3\n"
+			"4:\n"
+			".section __ex_table, \"a\"\n"
+			"	.long	1b - .\n"
+			"	ldi	%1, 4b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	%2, 4b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	%3, 4b-3b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5)
+			: "r"(vb), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			tmp = tmp1 | tmp4;			// f2
+			tmp2 = tmp5 | tmp3;			// f3
+
+			sw64_write_simd_fp_reg_d(reg, tmp7, tmp8, tmp, tmp2);
+			return;
+		}
+
+	case 0x0e: /* vsts */
+		sw64_read_simd_fp_m_s(reg, fp);
+		if ((unsigned long)va<<61 == 0) {
+			__asm__ __volatile__(
+			"	bis	%4, %4, %1\n"
+			"	bis	%5, %5, %2\n"
+			"1:	stl	%1, 0(%3)\n"
+			"2:	stl	%2, 8(%3)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "r"(fp[0]), "r"(fp[1]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			return;
+		} else {
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(va), "r"(fp[0]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+
+			vb = ((unsigned long)va) + 8;
+
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(vb), "r"(fp[1]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			return;
+		}
+
+	case 0x0f: /* vstd */
+		sw64_read_simd_fp_m_d(reg, fp);
+		if ((unsigned long)va<<61 == 0) {
+			__asm__ __volatile__(
+			"	bis	%4, %4, %1\n"
+			"	bis	%5, %5, %2\n"
+			"1:	stl	%1, 0(%3)\n"
+			"2:	stl	%2, 8(%3)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(va), "r"(fp[0]), "r"(fp[1]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			vb = ((unsigned long)va)+16;
+
+
+			__asm__ __volatile__(
+			"	bis	%4, %4, %1\n"
+			"	bis	%5, %5, %2\n"
+			"1:	stl	%1, 0(%3)\n"
+			"2:	stl	%2, 8(%3)\n"
+			"3:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 3b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 3b-2b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+			: "r"(vb), "r"(fp[2]), "r"(fp[3]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			return;
+		} else {
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(va), "r"(fp[0]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			vb = ((unsigned long)va) + 8;
+
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(vb), "r"(fp[1]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			vb = vb + 8;
+
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(vb), "r"(fp[2]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			vb = vb + 8;
+
+			__asm__ __volatile__(
+			"	zapnot	%10, 0x1, %1\n"
+			"	srl	%10, 8, %2\n"
+			"	zapnot	%2, 0x1, %2\n"
+			"	srl	%10, 16, %3\n"
+			"	zapnot	%3, 0x1, %3\n"
+			"	srl	%10, 24, %4\n"
+			"	zapnot	%4, 0x1, %4\n"
+			"	srl	%10, 32, %5\n"
+			"	zapnot	%5, 0x1, %5\n"
+			"	srl	%10, 40, %6\n"
+			"	zapnot	%6, 0x1, %6\n"
+			"	srl	%10, 48, %7\n"
+			"	zapnot	%7, 0x1, %7\n"
+			"	srl	%10, 56, %8\n"
+			"	zapnot	%8, 0x1, %8\n"
+			"1:	stb	%1, 0(%9)\n"
+			"2:	stb	%2, 1(%9)\n"
+			"3:	stb	%3, 2(%9)\n"
+			"4:	stb	%4, 3(%9)\n"
+			"5:	stb	%5, 4(%9)\n"
+			"6:	stb	%6, 5(%9)\n"
+			"7:	stb	%7, 6(%9)\n"
+			"8:	stb	%8, 7(%9)\n"
+			"9:\n"
+			".section __ex_table, \"a\"\n\t"
+			"	.long	1b - .\n"
+			"	ldi	$31, 9b-1b(%0)\n"
+			"	.long	2b - .\n"
+			"	ldi	$31, 9b-2b(%0)\n"
+			"	.long	3b - .\n"
+			"	ldi	$31, 9b-3b(%0)\n"
+			"	.long	4b - .\n"
+			"	ldi	$31, 9b-4b(%0)\n"
+			"	.long	5b - .\n"
+			"	ldi	$31, 9b-5b(%0)\n"
+			"	.long	6b - .\n"
+			"	ldi	$31, 9b-6b(%0)\n"
+			"	.long	7b - .\n"
+			"	ldi	$31, 9b-7b(%0)\n"
+			"	.long	8b - .\n"
+			"	ldi	$31, 9b-8b(%0)\n"
+			".previous"
+			: "=r"(error), "=&r"(tmp1), "=&r"(tmp2), "=&r"(tmp3),
+			  "=&r"(tmp4), "=&r"(tmp5), "=&r"(tmp6), "=&r"(tmp7), "=&r"(tmp8)
+			: "r"(vb), "r"(fp[3]), "0"(0));
+
+			if (error)
+				goto got_exception;
+
+			return;
+		}
+
 	case 0x1e:
 		insn = *(unsigned int *)pc;
 		fncode = (insn >> 12) & 0xf;
