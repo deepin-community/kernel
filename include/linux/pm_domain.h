@@ -110,6 +110,9 @@ struct genpd_power_state {
 	struct fwnode_handle *fwnode;
 	u64 idle_time;
 	void *data;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct genpd_lock_ops;
@@ -166,6 +169,11 @@ struct generic_pm_domain {
 			unsigned long lock_flags;
 		};
 	};
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 
 };
 

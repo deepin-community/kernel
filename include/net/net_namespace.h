@@ -43,6 +43,7 @@
 #include <linux/skbuff.h>
 #include <linux/notifier.h>
 #include <linux/xarray.h>
+#include <linux/deepin_kabi.h>
 
 struct user_namespace;
 struct proc_dir_entry;
@@ -190,6 +191,11 @@ struct net {
 #if IS_ENABLED(CONFIG_SMC)
 	struct netns_smc	smc;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } __randomize_layout;
 
 #include <linux/seq_file_net.h>

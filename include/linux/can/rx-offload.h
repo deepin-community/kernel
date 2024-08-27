@@ -11,6 +11,7 @@
 
 #include <linux/netdevice.h>
 #include <linux/can.h>
+#include <linux/deepin_kabi.h>
 
 struct can_rx_offload {
 	struct net_device *dev;
@@ -29,6 +30,9 @@ struct can_rx_offload {
 	struct napi_struct napi;
 
 	bool inc;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 int can_rx_offload_add_timestamp(struct net_device *dev,

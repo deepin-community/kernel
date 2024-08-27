@@ -14,6 +14,7 @@
 #include <linux/compiler.h>
 #include <linux/minmax.h>
 #include <linux/types.h>
+#include <linux/deepin_kabi.h>
 /*
  * Resources are tree-like, allowing
  * nesting etc..
@@ -25,6 +26,10 @@ struct resource {
 	unsigned long flags;
 	unsigned long desc;
 	struct resource *parent, *sibling, *child;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*

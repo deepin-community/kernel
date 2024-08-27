@@ -16,6 +16,7 @@
 #include <linux/netdevice.h>
 #include <linux/sockptr.h>
 #include <net/net_namespace.h>
+#include <linux/deepin_kabi.h>
 
 static inline int NF_DROP_GETERR(int verdict)
 {
@@ -179,6 +180,8 @@ struct nf_sockopt_ops {
 	int (*get)(struct sock *sk, int optval, void __user *user, int *len);
 	/* Use the module struct to lock set/get code in place */
 	struct module *owner;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /* Function to register/unregister hook points. */
@@ -377,6 +380,8 @@ struct nf_nat_hook {
 				  enum nf_nat_manip_type mtype,
 				  enum ip_conntrack_dir dir);
 	void (*remove_nat_bysrc)(struct nf_conn *ct);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 extern const struct nf_nat_hook __rcu *nf_nat_hook;
@@ -465,6 +470,9 @@ struct nf_ct_hook {
 	void (*attach)(struct sk_buff *nskb, const struct sk_buff *skb);
 	void (*set_closing)(struct nf_conntrack *nfct);
 	int (*confirm)(struct sk_buff *skb);
+
+	DEEPIN_KABI_RESERVE(1)
+
 };
 extern const struct nf_ct_hook __rcu *nf_ct_hook;
 
@@ -480,6 +488,8 @@ struct nfnl_ct_hook {
 			     u32 portid, u32 report);
 	void (*seq_adjust)(struct sk_buff *skb, struct nf_conn *ct,
 			   enum ip_conntrack_info ctinfo, s32 off);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 extern const struct nfnl_ct_hook __rcu *nfnl_ct_hook;
 

@@ -19,6 +19,7 @@
 #include <net/gen_stats.h>
 #include <net/rtnetlink.h>
 #include <net/flow_offload.h>
+#include <linux/deepin_kabi.h>
 
 struct Qdisc_ops;
 struct qdisc_walker;
@@ -127,6 +128,10 @@ struct Qdisc {
 	struct rcu_head		rcu;
 	netdevice_tracker	dev_tracker;
 	struct lock_class_key	root_lock_key;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 	/* private data */
 	long privdata[] ____cacheline_aligned;
 };
@@ -278,6 +283,8 @@ struct Qdisc_class_ops {
 					struct sk_buff *skb, struct tcmsg*);
 	int			(*dump_stats)(struct Qdisc *, unsigned long,
 					struct gnet_dump *);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /* Qdisc_class_ops flag values */
@@ -323,6 +330,8 @@ struct Qdisc_ops {
 	u32			(*egress_block_get)(struct Qdisc *sch);
 
 	struct module		*owner;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 

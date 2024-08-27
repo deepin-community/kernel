@@ -14,6 +14,7 @@
 #include <linux/atomic.h>
 #include <linux/uidgid.h>
 #include <linux/sched.h>
+#include <linux/deepin_kabi.h>
 #include <linux/sched/user.h>
 
 struct cred;
@@ -143,6 +144,10 @@ struct cred {
 		int non_rcu;			/* Can we skip RCU deletion? */
 		struct rcu_head	rcu;		/* RCU deletion hook */
 	};
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } __randomize_layout;
 
 extern void __put_cred(struct cred *);
