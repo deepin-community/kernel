@@ -1930,6 +1930,13 @@ config BINDGEN_VERSION_TEXT
 config TRACEPOINTS
 	bool
 
+config DEEPIN_KABI_RESERVE
+	bool "Support for KABI RESERVE"
+	default y
+	help
+	 This option can be turned off for images that clearly do not require
+	 kabi compatibility.
+
 source "kernel/Kconfig.kexec"
 
 endmenu		# General setup

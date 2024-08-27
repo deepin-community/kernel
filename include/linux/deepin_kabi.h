@@ -443,6 +443,7 @@
 # define _DEEPIN_KABI_DEPRECATE(_type, _orig)	_type deepin_reserved_##_orig
 # define _DEEPIN_KABI_DEPRECATE_FN(_type, _orig, _args...)  \
 	_type (* deepin_reserved_##_orig)(_args)
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
 # define _DEEPIN_KABI_REPLACE(_orig, _new)			  \
 	union {						  \
 		_new;					  \
@@ -451,6 +452,9 @@
 		} DEEPIN_KABI_UNIQUE_ID;			  \
 		__DEEPIN_KABI_CHECK_SIZE_ALIGN(_orig, _new);  \
 	}
+#else
+# define _DEEPIN_KABI_REPLACE(_orig, _new)		_new;
+#endif /* CONFIG_DEEPIN_KABI_RESERVE */
 
 # define _DEEPIN_KABI_EXCLUDE(_elem)		_elem
 
@@ -497,7 +501,11 @@
 
 # define DEEPIN_KABI_USE_SPLIT(n, ...)	DEEPIN_KABI_REPLACE_SPLIT(_DEEPIN_KABI_RESERVE(n), __VA_ARGS__)
 
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
 # define _DEEPIN_KABI_RESERVE(n)		unsigned long deepin_reserved##n
+#else
+# define _DEEPIN_KABI_RESERVE(n)
+#endif /* CONFIG_DEEPIN_KABI_RESERVE */
 
 #define DEEPIN_KABI_EXCLUDE(_elem)		_DEEPIN_KABI_EXCLUDE(_elem);
 
