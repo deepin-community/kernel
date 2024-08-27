@@ -5773,6 +5773,14 @@ M:	"WangYuli" <wangyuli@uniontech.com>
 S:	Maintained
 F:	lib/fonts/font_cjk*
 
+DEEPIN KABI-HELPERS
+M:	"Lugang He" <helugang@uniontech.com>
+M:	"WangYuli" <wangyuli@uniontech.com>
+M:	"Wentao Guan" <guanwentao@uniontech.com>
+M:	"Winston Wen" <wentao@uniontech.com>
+S:	Maintained
+F:	include/linux/deepin_kabi.h
+
 DEEPIN OWNERS
 M:	"WangYuli" <wangyuli@uniontech.com>
 S:	Maintained
