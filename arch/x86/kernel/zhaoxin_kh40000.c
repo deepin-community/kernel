@@ -175,6 +175,11 @@ const struct dma_map_ops kh40000_dma_direct_ops = {
 	.map_resource		= dma_direct_map_resource,
 };
 
+void kh40000_get_direct_dma_ops(void)
+{
+	dma_ops = &kh40000_dma_direct_ops;
+}
+
 /* zhaoxin kh-40000 iommu dma ops */
 static const struct dma_map_ops *iommu_dma_ops;
 
