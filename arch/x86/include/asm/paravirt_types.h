@@ -19,6 +19,8 @@ struct paravirt_patch_site {
 #include <asm/pgtable_types.h>
 #include <asm/nospec-branch.h>
 
+#include <linux/deepin_kabi.h>
+
 struct page;
 struct thread_struct;
 struct desc_ptr;
@@ -133,6 +135,9 @@ struct pv_irq_ops {
 
 	void (*safe_halt)(void);
 	void (*halt)(void);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 #endif
 } __no_randomize_layout;
 
@@ -217,6 +222,11 @@ struct pv_mmu_ops {
 	   an mfn.  We can tell which is which from the index. */
 	void (*set_fixmap)(unsigned /* enum fixed_addresses */ idx,
 			   phys_addr_t phys, pgprot_t flags);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 #endif
 } __no_randomize_layout;
 
@@ -235,6 +245,8 @@ struct pv_lock_ops {
 	void (*kick)(int cpu);
 
 	struct paravirt_callee_save vcpu_is_preempted;
+
+	DEEPIN_KABI_RESERVE(1)
 } __no_randomize_layout;
 
 /* This contains all the paravirt structures: we get a convenient
