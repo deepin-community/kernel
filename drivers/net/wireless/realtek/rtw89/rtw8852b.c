@@ -664,6 +664,20 @@ static void rtw8852b_efuse_parsing_gain_offset(struct rtw89_dev *rtwdev,
 	gain->offset_valid = valid;
 }
 
+static inline
+void rtw8852bx_convert_rpl_to_rssi(struct rtw89_dev *rtwdev,
+				   struct rtw89_rx_phy_ppdu *phy_ppdu)
+{
+	u8 delta = phy_ppdu->rpl_avg - phy_ppdu->rssi_avg;
+	u8 *rssi = phy_ppdu->rssi;
+	u8 i;
+
+	for (i = 0; i < RF_PATH_NUM_8852B; i++)
+		rssi[i] += delta;
+
+	phy_ppdu->rssi_avg = phy_ppdu->rpl_avg;
+}
+
 static int rtw8852b_read_efuse(struct rtw89_dev *rtwdev, u8 *log_map,
 			       enum rtw89_efuse_block block)
 {
@@ -2531,6 +2545,7 @@ static const struct rtw89_chip_ops rtw8852b_chip_ops = {
 	.get_thermal		= rtw8852b_get_thermal,
 	.ctrl_btg_bt_rx		= rtw8852b_ctrl_btg_bt_rx,
 	.query_ppdu		= rtw8852b_query_ppdu,
+	.convert_rpl_to_rssi	= rtw8852bx_convert_rpl_to_rssi,
 	.ctrl_nbtg_bt_tx	= rtw8852b_ctrl_nbtg_bt_tx,
 	.cfg_txrx_path		= rtw8852b_bb_cfg_txrx_path,
 	.set_txpwr_ul_tb_offset	= rtw8852b_set_txpwr_ul_tb_offset,
