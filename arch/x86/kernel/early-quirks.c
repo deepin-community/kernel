@@ -696,7 +696,7 @@ static void quirk_zhaoxin_dma_patch(int num, int slot, int func)
 	revision = read_pci_config_byte(num, slot, func, PCI_REVISION_ID);
 	if (revision == 0x10) {
 		is_zhaoxin_kh40000 = true;
-		dma_ops = &kh40000_dma_direct_ops;
+		kh40000_get_direct_dma_ops();
 		pr_info("zhaoxin direct dma patch enabled\n");
 	}
 }
