@@ -739,9 +739,6 @@ setup_arch(char **cmdline_p)
 	/* Now we get the final boot_command_line */
 	*cmdline_p = boot_command_line;
 
-	/* Decide legacy IO base addr based on chips */
-	setup_legacy_io();
-
 	/* Register a call for panic conditions. */
 	atomic_notifier_chain_register(&panic_notifier_list,
 			&sw64_panic_block);
@@ -763,6 +760,9 @@ setup_arch(char **cmdline_p)
 	 */
 	if (IS_ENABLED(CONFIG_BUILTIN_DTB))
 		setup_builtin_fdt();
+
+	/* Decide legacy IO base addr based on chips */
+	setup_legacy_io();
 
 	sw64_memblock_init();
 
