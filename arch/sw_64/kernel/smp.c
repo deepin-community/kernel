@@ -268,12 +268,14 @@ static int __init sw64_of_core_version(const struct device_node *dn,
 	if (!dn || !version)
 		return -EINVAL;
 
-	if (of_device_is_compatible(dn, "sw64,xuelang")) {
+	if (of_device_is_compatible(dn, "sw64,xuelang") ||
+		of_device_is_compatible(dn, "sunway,xuelang")) {
 		*version = CORE_VERSION_C3B;
 		return 0;
 	}
 
-	if (of_device_is_compatible(dn, "sw64,junzhang")) {
+	if (of_device_is_compatible(dn, "sw64,junzhang") ||
+		of_device_is_compatible(dn, "sunway,junzhang")) {
 		*version = CORE_VERSION_C4;
 		return 0;
 	}
@@ -303,10 +305,8 @@ static int __init fdt_setup_smp(void)
 
 		available = of_device_is_available(dn);
 
-		if (!available && !online_capable) {
-			pr_info("OF: Core is not available\n");
+		if (!available && !online_capable)
 			continue;
-		}
 
 		ret = of_property_read_u32(dn, "reg", &rcid);
 		if (ret) {
@@ -317,7 +317,7 @@ static int __init fdt_setup_smp(void)
 		if (logical_core_id >= nr_cpu_ids) {
 			pr_warn_once("OF: Core [0x%x] exceeds max core num [%u]\n",
 					rcid, nr_cpu_ids);
-			return 0;
+			break;
 		}
 
 		if (is_rcid_duplicate(rcid)) {
@@ -332,6 +332,9 @@ static int __init fdt_setup_smp(void)
 		}
 
 		ret = of_property_read_u64(dn, "sw64,boot_flag_address",
+					&boot_flag_address);
+		if (ret)
+			ret = of_property_read_u64(dn, "sunway,boot_flag_address",
 					&boot_flag_address);
 		if (ret) {
 			pr_err("OF: No boot_flag_address found\n");
