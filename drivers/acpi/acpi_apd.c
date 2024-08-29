@@ -204,10 +204,7 @@ static int sw64_acpi_apd_setup(struct apd_private_data *pdata)
 {
 	struct apd_device_desc *dev_desc = (struct apd_device_desc *)pdata->dev_desc;
 
-	if (sunway_machine_is_compatible("sunway,junzhang"))
-		dev_desc->fixed_clk_rate = 12000000;
-	else
-		dev_desc->fixed_clk_rate = sunway_mclk_hz;
+	dev_desc->fixed_clk_rate = sunway_mclk_hz;
 
 	return acpi_apd_setup(pdata);
 }
