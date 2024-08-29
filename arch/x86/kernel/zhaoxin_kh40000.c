@@ -42,7 +42,7 @@ static int __init zhaoxin_patch_code_setup(char *str)
 		return err;
 	}
 
-	if (ZHAOXIN_P2CW_NODE_CHECK | zhaoxin_patch_code)
+	if (ZHAOXIN_P2CW_NODE_CHECK & zhaoxin_patch_code)
 		pr_info("zhaoxin dma patch node check is enabled\n");
 
 	return 0;
