@@ -188,6 +188,7 @@ static unsigned long make_pintc_int_target(u32 version, int rcid)
 		target = core | (thread << 5) | (node << 6);
 		break;
 	case 0x2: /* PINTC v2 */
+	case 0x3: /* PINTC v3 */
 		target = core | (thread << 6) | (node << 7);
 		break;
 	default:
