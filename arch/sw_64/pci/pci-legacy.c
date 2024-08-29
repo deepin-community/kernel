@@ -227,6 +227,20 @@ static bool __init is_any_rc_linkup_one_node(unsigned long node)
 	return false;
 }
 
+static bool __init is_sunway_legacy_pci(void)
+{
+	if (IS_ENABLED(CONFIG_SUBARCH_C3B))
+		return true;
+
+	if (sunway_machine_is_compatible("sunway,chip4"))
+		return true;
+
+	if (is_in_host() && sunway_machine_is_compatible("sunway,junzhang"))
+		return true;
+
+	return false;
+}
+
 void __init sw64_init_arch(void)
 {
 	if (IS_ENABLED(CONFIG_PCI)) {
@@ -238,8 +252,7 @@ void __init sw64_init_arch(void)
 		if (!acpi_disabled)
 			return;
 
-		if (!sunway_machine_is_compatible("sunway,chip3") &&
-			!sunway_machine_is_compatible("sunway,junzhang"))
+		if (!is_sunway_legacy_pci())
 			return;
 
 		sunway_legacy_pci = true;
