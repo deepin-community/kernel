@@ -148,7 +148,7 @@ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
 	/* Record the mapping from logical core id to node id */
 	cpu = rcid_to_cpu(rcid);
 	if (cpu < 0) {
-		pr_err("SRAT: Can not find the logical id for physical Core 0x%04x\n",
+		pr_warn_once("SRAT: Can not find the logical id for physical Core 0x%04x\n",
 				rcid);
 		return;
 	}
