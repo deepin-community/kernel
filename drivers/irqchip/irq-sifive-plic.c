@@ -48,6 +48,8 @@
 #define CONTEXT_ENABLE_BASE		0x2000
 #define     CONTEXT_ENABLE_SIZE		0x80
 
+#define PENDING_BASE                    0x1000
+
 /*
  * Each hart context has a set of control registers associated with it.  Right
  * now there's only two: a source priority threshold over which the hart will
@@ -62,6 +64,7 @@
 #define	PLIC_ENABLE_THRESHOLD		0
 
 #define PLIC_QUIRK_EDGE_INTERRUPT	0
+#define PLIC_QUIRK_CLAIM_REGISTER	1
 
 struct plic_priv {
 	struct device *dev;
@@ -358,6 +361,82 @@ static const struct irq_domain_ops plic_irqdomain_ops = {
 	.free		= irq_domain_free_irqs_top,
 };
 
+static bool plic_check_enable_first_pending(u32 ie[])
+{
+	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
+	void __iomem *enable = handler->enable_base;
+	void __iomem *pending = handler->priv->regs + PENDING_BASE;
+	int nr_irqs = handler->priv->nr_irqs;
+	int nr_irq_groups = (nr_irqs + 31) / 32;
+	bool is_pending = false;
+	int i, j;
+
+	raw_spin_lock(&handler->enable_lock);
+
+	// Read current interrupt enables
+	for (i = 0; i < nr_irq_groups; i++)
+		ie[i] = readl(enable + i * sizeof(u32));
+
+	// Check for pending interrupts and enable only the first one found
+	for (i = 0; i < nr_irq_groups; i++) {
+		u32 pending_irqs = readl(pending + i * sizeof(u32)) & ie[i];
+
+		if (pending_irqs) {
+			int nbit = __ffs(pending_irqs);
+
+			for (j = 0; j < nr_irq_groups; j++)
+				writel((i == j)?(1 << nbit):0, enable + j * sizeof(u32));
+			is_pending = true;
+			break;
+		}
+	}
+
+	raw_spin_unlock(&handler->enable_lock);
+
+	return is_pending;
+}
+
+static void plic_restore_enable_state(u32 ie[])
+{
+	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
+	void __iomem *enable = handler->enable_base;
+	int nr_irqs = handler->priv->nr_irqs;
+	int nr_irq_groups = (nr_irqs + 31) / 32;
+	int i;
+
+	raw_spin_lock(&handler->enable_lock);
+
+	for (i = 0; i < nr_irq_groups; i++)
+		writel(ie[i], enable + i * sizeof(u32));
+
+	raw_spin_unlock(&handler->enable_lock);
+}
+
+static irq_hw_number_t plic_get_hwirq(void)
+{
+	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
+	struct plic_priv *priv = handler->priv;
+	void __iomem *claim = handler->hart_base + CONTEXT_CLAIM;
+	irq_hw_number_t hwirq;
+	u32 ie[32] = {0};
+
+	/*
+	 * Due to the implementation of the claim register in the UltraRISC DP1000
+	 * platform PLIC not conforming to the specification, this is a hardware
+	 * bug. Therefore, when an interrupt is pending, we need to disable the other
+	 * interrupts before reading the claim register. After processing the interrupt,
+	 * we should then restore the enable register.
+	 */
+	if (test_bit(PLIC_QUIRK_CLAIM_REGISTER, &priv->plic_quirks)) {
+		hwirq = plic_check_enable_first_pending(ie)?readl(claim):0;
+		plic_restore_enable_state(ie);
+	} else {
+		hwirq = readl(claim);
+	}
+
+	return hwirq;
+}
+
 /*
  * Handling an interrupt is a two-step process: first you claim the interrupt
  * by reading the claim register, then you complete the interrupt by writing
@@ -368,14 +447,13 @@ static void plic_handle_irq(struct irq_desc *desc)
 {
 	struct plic_handler *handler = this_cpu_ptr(&plic_handlers);
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-	void __iomem *claim = handler->hart_base + CONTEXT_CLAIM;
 	irq_hw_number_t hwirq;
 
 	WARN_ON_ONCE(!handler->present);
 
 	chained_irq_enter(chip, desc);
 
-	while ((hwirq = readl(claim))) {
+	while ((hwirq = plic_get_hwirq())) {
 		int err = generic_handle_domain_irq(handler->priv->irqdomain,
 						    hwirq);
 		if (unlikely(err))
@@ -421,6 +499,8 @@ static const struct of_device_id plic_match[] = {
 	  .data = (const void *)BIT(PLIC_QUIRK_EDGE_INTERRUPT) },
 	{ .compatible = "thead,c900-plic",
 	  .data = (const void *)BIT(PLIC_QUIRK_EDGE_INTERRUPT) },
+	{ .compatible = "ultrarisc,dp1000-plic",
+	  .data = (const void *)BIT(PLIC_QUIRK_CLAIM_REGISTER) },
 	{}
 };
 
