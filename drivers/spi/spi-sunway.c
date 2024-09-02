@@ -350,7 +350,7 @@ int spi_chip_add_host(struct device *dev, struct spi_chip *spi_chip)
 	master->handle_err = spi_chip_handle_err;
 	master->max_speed_hz = spi_chip->max_freq;
 	master->dev.of_node = dev->of_node;
-	master->flags = SPI_MASTER_GPIO_SS;
+	master->flags = SPI_CONTROLLER_GPIO_SS;
 	master->max_transfer_size = spi_chip_max_length;
 	master->max_message_size = spi_chip_max_length;
 
