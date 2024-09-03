@@ -233,7 +233,7 @@ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 	pfn = pte_pfn(pte);
 	hugeprot = pte_pgprot(pte);
 
-	get_and_clear(mm, addr, ptep, pgsize, ncontig);
+	clear_flush(mm, addr, ptep, pgsize, ncontig);
 
 	for (i = 0; i < ncontig; i++, ptep++, addr += pgsize)
 		set_pte_at(mm, addr, ptep, pfn_pte(pfn, hugeprot));
