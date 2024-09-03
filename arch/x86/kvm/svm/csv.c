@@ -1881,6 +1881,15 @@ static int csv3_receive_encrypt_context(struct kvm *kvm, struct kvm_sev_cmd *arg
 
 		svm->current_vmcb->pa = secure_vmcb_block->vmcb_paddr[i];
 		svm->vcpu.arch.guest_state_protected = true;
+
+		/*
+		 * CSV3 guest mandates LBR Virtualization to be _always_ ON.
+		 * Enable it only after setting guest_state_protected because
+		 * KVM_SET_MSRS allows dynamic toggling of LBRV (for performance
+		 * reason) on write access to MSR_IA32_DEBUGCTLMSR when
+		 * guest_state_protected is not set.
+		 */
+		svm_enable_lbrv(vcpu);
 	}
 
 e_free_shadow_vmcb_block:
