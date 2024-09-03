@@ -433,20 +433,14 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 }
 #endif /* CONFIG_HUGETLB_PAGE */
 
-static __init int setup_hugepagesz(char *opt)
+bool __init arch_hugetlb_valid_size(unsigned long size)
 {
-	unsigned long ps = memparse(opt, &opt);
-
-	switch (ps) {
+	switch (size) {
 	case PUD_SIZE:
 	case PMD_SIZE * CONT_PMDS:
 	case PMD_SIZE:
-		hugetlb_add_hstate(ilog2(ps) - PAGE_SHIFT);
-		return 1;
+		return true;
 	}
 
-	pr_err("hugepagesz: Unsupported page size %lu M\n",
-			ps >> 20);
-	return 0;
+	return false;
 }
-__setup("hugepagesz=", setup_hugepagesz);
