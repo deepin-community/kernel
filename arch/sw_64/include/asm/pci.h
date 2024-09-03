@@ -147,7 +147,7 @@ struct pci_controller {
 
 #define pcibios_assign_all_busses() (pci_has_flag(PCI_REASSIGN_ALL_BUS))
 
-#define PCIBIOS_MIN_IO		0
+#define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		0
 
 extern void __init sw64_init_pci(void);

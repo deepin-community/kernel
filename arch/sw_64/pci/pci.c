@@ -342,36 +342,6 @@ static void sunway_pci_root_bridge_prepare(struct pci_host_bridge *bridge)
 	pci_add_flags(PCI_REASSIGN_ALL_BUS);
 }
 
-static void
-sw64_pci_root_bridge_reserve_legacy_io(struct pci_host_bridge *bridge)
-{
-	struct pci_bus *bus = bridge->bus;
-	struct resource_entry *entry = NULL;
-	struct resource *res = NULL;
-
-	resource_list_for_each_entry(entry, &bridge->windows) {
-		if (!(entry->res->flags & IORESOURCE_IO))
-			continue;
-
-		res = kzalloc(sizeof(struct resource), GFP_KERNEL);
-		if (WARN_ON(!res))
-			return;
-
-		res->name  = "legacy io";
-		res->flags = IORESOURCE_IO;
-		res->start = entry->res->start;
-		res->end   = (res->start + 0xFFF) & 0xFFFFFFFFFFFFFFFFUL;
-
-		pr_info("reserving legacy io %pR for domain %04x\n",
-			res, pci_domain_nr(bus));
-		if (request_resource(entry->res, res)) {
-			pr_err("pci %04x:%02x reserve legacy io %pR failed\n",
-				pci_domain_nr(bus), bus->number, res);
-			kfree(res);
-		}
-	}
-}
-
 void sunway_pci_root_bridge_scan_finish(struct pci_host_bridge *bridge)
 {
 	struct pci_controller *hose = NULL;
@@ -400,9 +370,6 @@ void sunway_pci_root_bridge_scan_finish(struct pci_host_bridge *bridge)
 
 	pci_bus_update_busn_res_end(bus, last_bus);
 	last_bus++;
-
-	if (is_in_host())
-		sw64_pci_root_bridge_reserve_legacy_io(bridge);
 
 	/**
 	 * Root Complex of SW64 does not support ASPM, causing
