@@ -16,6 +16,7 @@
  */
 
 #include <linux/cacheinfo.h>
+#include <linux/acpi.h>
 
 #include <asm/cpu.h>
 #include <asm/cache.h>
@@ -39,7 +40,6 @@ do {									\
 	leaf->number_of_sets = get_cache_sets(cache_info);		\
 	leaf->ways_of_associativity = get_cache_ways(cache_info);	\
 	leaf->size = get_cache_size(cache_info);			\
-	leaf++;								\
 } while (0)
 
 static struct cacheinfo *get_cacheinfo(int cpu, int level, enum cache_type type)
@@ -140,14 +140,32 @@ static void setup_shared_cpu_map(unsigned int cpu)
 	}
 }
 
+static bool is_pptt_cache_info_valid(void)
+{
+	struct acpi_table_header *table;
+	acpi_status status;
+
+	if (is_guest_or_emul() || acpi_disabled)
+		return false;
+
+	status = acpi_get_table(ACPI_SIG_PPTT, 0, &table);
+	if (ACPI_FAILURE(status))
+		return false;
+
+	acpi_put_table(table);
+
+	return true;
+}
+
 int populate_cache_leaves(unsigned int cpu)
 {
 	enum sunway_cache_type type;
 	unsigned int cache_id;
 	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
 	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
+	bool pptt_valid = is_pptt_cache_info_valid();
 
-	for (type = L1_ICACHE; type <= L3_CACHE; type++) {
+	for (type = L1_ICACHE; type <= L3_CACHE; type++, this_leaf++) {
 		if (!cache_size(type))
 			continue;
 
@@ -158,11 +176,15 @@ int populate_cache_leaves(unsigned int cpu)
 		populate_cache(get_cache_info(type), this_leaf, cache_level(type),
 				kernel_cache_type(type), cache_id);
 
+		if (pptt_valid)
+			this_leaf->attributes &= ~CACHE_ID;
+
 	}
 
-	setup_shared_cpu_map(cpu);
-
-	this_cpu_ci->cpu_map_populated = true;
+	if (!pptt_valid) {
+		setup_shared_cpu_map(cpu);
+		this_cpu_ci->cpu_map_populated = true;
+	}
 
 	return 0;
 }
