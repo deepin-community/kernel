@@ -18,7 +18,6 @@
 #include <linux/cacheinfo.h>
 
 #include <asm/cpu.h>
-#include <asm/topology.h>
 #include <asm/cache.h>
 
 #define get_cache_info(type)     cpuid(GET_CACHE_INFO, (type))
@@ -113,29 +112,55 @@ int init_cache_level(unsigned int cpu)
 	return 0;
 }
 
+static void setup_shared_cpu_map(unsigned int cpu)
+{
+	unsigned int index;
+	unsigned int rcid = cpu_to_rcid(cpu);
+	struct cacheinfo *this_leaf;
+	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
+
+	for (index = 0; index < this_cpu_ci->num_leaves; index++) {
+		unsigned int i;
+
+		this_leaf = this_cpu_ci->info_list + index;
+
+		cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
+
+		for_each_possible_cpu(i) {
+			unsigned int sib_rcid = cpu_to_rcid(i);
+
+			if ((rcid_to_domain_id(sib_rcid) != rcid_to_domain_id(rcid)) ||
+					(i == cpu))
+				continue;
+
+			if ((rcid_to_core_id(rcid) == rcid_to_core_id(sib_rcid)) ||
+					(this_leaf->level == 3))
+				cpumask_set_cpu(i, &this_leaf->shared_cpu_map);
+		}
+	}
+}
+
 int populate_cache_leaves(unsigned int cpu)
 {
 	enum sunway_cache_type type;
+	unsigned int cache_id;
 	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
 	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
-	struct cpu_topology *topo = &cpu_topology[cpu];
 
 	for (type = L1_ICACHE; type <= L3_CACHE; type++) {
 		if (!cache_size(type))
 			continue;
 
 		/* L3 Cache is shared */
-		if (type == L3_CACHE) {
-			cpumask_copy(&this_leaf->shared_cpu_map,
-					topology_llc_cpumask(cpu));
-			populate_cache(get_cache_info(type), this_leaf, cache_level(type),
-					kernel_cache_type(type), topo->package_id);
-		} else {
-			cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
-			populate_cache(get_cache_info(type), this_leaf, cache_level(type),
-					kernel_cache_type(type), cpu);
-		}
+		cache_id = (type == L3_CACHE) ? rcid_to_domain_id(cpu_to_rcid(cpu)) :
+			rcid_to_core_id(cpu_to_rcid(cpu));
+
+		populate_cache(get_cache_info(type), this_leaf, cache_level(type),
+				kernel_cache_type(type), cache_id);
+
 	}
+
+	setup_shared_cpu_map(cpu);
 
 	this_cpu_ci->cpu_map_populated = true;
 
