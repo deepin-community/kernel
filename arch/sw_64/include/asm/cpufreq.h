@@ -8,6 +8,7 @@
 #include <linux/seq_file.h>
 #include <linux/clk.h>
 #include <linux/cpufreq.h>
+#include <asm/cpu.h>
 
 struct clk;
 
