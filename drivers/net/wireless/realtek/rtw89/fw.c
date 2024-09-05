@@ -3490,7 +3490,7 @@ int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
 	}
 
 	if (bss_conf->eht_support) {
-		u16 punct = bss_conf->chanreq.oper.punctured;
+ 		u16 punct = bss_conf->eht_puncturing;
 
 		h2c->w4 |= le32_encode_bits(~punct,
 					    CCTLINFO_G7_W4_ACT_SUBCH_CBW);
