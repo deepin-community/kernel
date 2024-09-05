@@ -128,8 +128,6 @@ void  gf_crtc_helper_enable(struct drm_crtc *crtc)
     drm_crtc_vblank_on(crtc);
 
     gf_crtc_dpms_onoff_helper(crtc, 1);
-
-
 }
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)

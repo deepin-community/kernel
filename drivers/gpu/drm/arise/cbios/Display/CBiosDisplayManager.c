@@ -446,7 +446,7 @@ static CBIOS_STATUS cbDispMgrPrepareToSetMode(PCBIOS_EXTENSION_COMMON pcbe, PCBI
         bForceHDTV = CBIOS_TRUE;
     }
     cbPathMgrSelectDIUPath(pcbe, pDevCommon->DeviceType, pModeParams->IGAIndex, &pSettingModeParams->DestModeParams, bForceHDTV);
-    
+
     cbDevUpdateDeviceModeInfo(pcbe, pDevCommon, pModeParams);
 
     return csRet;

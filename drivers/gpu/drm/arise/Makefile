@@ -1,12 +1,11 @@
 CHIP?=E3k
 DRIVER_NAME?=arise
-PRO_DRIVER_NAME=$(DRIVER_NAME)
 TARGET_ARCH?=x86_64
 DEBUG?=0
 VIDEO_ONLY_FPGA?=0
 RUN_HW_NULL?=0
 HW_NULL?=0
-CONFIG-GFGPU=m
+CONFIG_DRM_ARISE?=m
 ifeq ("$(M)", "")
 CHECK_GCC_VERSION?=0
 else
@@ -80,4 +79,4 @@ endif
 include $(GFGPU_FULL_PATH)/core/Makefile
 include $(GFGPU_FULL_PATH)/cbios/cbios.mk
 include $(GFGPU_FULL_PATH)/linux/Makefile
-obj-$(CONFIG_DRM_ARISE) := $(PRO_DRIVER_NAME).o
+obj-$(CONFIG_DRM_ARISE) := $(DRIVER_NAME).o

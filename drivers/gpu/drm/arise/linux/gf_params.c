@@ -41,6 +41,7 @@ struct gf_params gf_modparams __read_mostly = {
     .gf_local_size_m = 0,
     .gf_pcie_size_g = 0,//adjust pcie memory size, 0 use real pcie memory
     .gf_pcie_size_m = 0,
+    .gf_runtime_pm = 0,
     .debugfs_mask   =  0x1,
     .misc_control_flag = 0x111,
 };
@@ -66,6 +67,7 @@ gf_param_named(gf_local_size_g, int, 0444, "manual set the local vram size, uint
 gf_param_named(gf_local_size_m, int, 0444, "manual set the local vram size, uint in MB, the size should not larger than real vram size");
 gf_param_named(gf_pcie_size_g, int, 0444, "manual set the pcie vram size, uint in GB, the size should not larger than real vram size");
 gf_param_named(gf_pcie_size_m, int, 0444, "manual set the pcie vram size, uint in MB, the size should not larger than real vram size");
+gf_param_named(gf_runtime_pm, int, 0444, "0-disable, 1-enable");
 gf_param_named(debugfs_mask, int, 0444, "debugfs control bits");
 gf_param_named(misc_control_flag, int, 0444, "misc control flag");
 

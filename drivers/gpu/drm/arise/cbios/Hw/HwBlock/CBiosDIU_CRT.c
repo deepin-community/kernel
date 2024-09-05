@@ -33,7 +33,7 @@ static CBREGISTER NewCRTDetectEnv[] = {
     {SR,(CBIOS_U8)~0x01,0x0B, 0x00 },       //Turn on DCLK2
     {SR,(CBIOS_U8)~0x20,0x18, 0x20 },       //Turn on CRT Dac1
     {SR,(CBIOS_U8)~0x02,0x21, 0x02 },       //Turn on CRT Dac1 Sense power
-    {SR,(CBIOS_U8)~0x02,0x20, 0x00 },       //CRT DAC not off in Standby mode 
+    {SR,(CBIOS_U8)~0x02,0x20, 0x00 },       //CRT DAC not off in Standby mode
     {SR,(CBIOS_U8)~0x4C,0x31, 0x44 },       //DAC1 Sense Data Source Select
     {SR, 0x00,0x4B, 0x94 },        // R sense data
     {SR, 0x00,0x4C, 0x94 },        // G sense data
@@ -270,9 +270,9 @@ CBIOS_BOOL cbDIU_CRT_DACSense(PCBIOS_VOID pvcbe, PCBIOS_DEVICE_COMMON pDevCommon
     {
         return  (DacSensePara.Connected)? CBIOS_TRUE : CBIOS_FALSE;
     }
-    
+
     if(DacSensePara.UseNewSense)
-    {        
+    {
         //Use new DAC1 sense logic when CRT is on.
         RegSR21Value.Value = 0;
         RegSR21Value.DAC1_SENSE_Power_Down_Enable = 0;
@@ -301,11 +301,11 @@ CBIOS_BOOL cbDIU_CRT_DACSense(PCBIOS_VOID pvcbe, PCBIOS_DEVICE_COMMON pDevCommon
         RegCR71Mask.SENSEL = 0;
         RegCR71Mask.SENWIDTH = 0;
         cbMMIOWriteReg(pcbe,CR_71, RegCR71Value.Value, RegCR71Mask.Value);
-        
+
         cbMMIOWriteReg(pcbe,SR_4B, 0x7A, 0x00);   //R sense
         cbMMIOWriteReg(pcbe,SR_4C, 0x7A, 0x00);   // G sense
         cbMMIOWriteReg(pcbe,SR_4D, 0x7A, 0x00);  // B sense
-        
+
         RegSR3FValue.Value = 0;
         RegSR3FValue.B_Sense_1to0 = 3;
         RegSR3FValue.G_Sense_1to0 = 3;

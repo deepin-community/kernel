@@ -73,6 +73,7 @@ typedef struct
     unsigned int misc_control_flag;
     unsigned long       allocation_trace_tags; // allocation trace tags, 0 to disable.
     unsigned int video_irq_info_all;
+    int runtime_pm;
 }gf_card_t;
 
 struct gf_file

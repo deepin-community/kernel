@@ -102,6 +102,7 @@ typedef  struct
     unsigned int  lut_entry[256];  //(b | g << 8 | r << 16) for 8bit lut or (b | g << 10 | r << 20) for 10bit lut
 #endif
     unsigned int enabled;
+    unsigned int vsync_int;
 }gf_crtc_t;
 
 typedef struct

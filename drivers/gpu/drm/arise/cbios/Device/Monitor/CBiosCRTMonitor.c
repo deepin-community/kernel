@@ -70,7 +70,7 @@ CBIOS_BOOL cbCRTMonitor_Detect(PCBIOS_VOID pvcbe, PCBIOS_CRT_MONITOR_CONTEXT pCr
         //then after resume,driver will not enter some hdmi module related codes,so monitor can't light
         //so not memset pDevCommon->EdidStruct when device is not connected
         cbClearEdidRelatedData(pcbe, pDevCommon);
-                
+
         if(cbDIU_CRT_DACSense(pcbe, pDevCommon, bPrevEdidValid))
         {
             pDevCommon->CurrentMonitorType = CBIOS_MONITOR_TYPE_CRT;

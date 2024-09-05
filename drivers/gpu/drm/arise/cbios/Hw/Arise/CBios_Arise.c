@@ -689,6 +689,12 @@ CBIOS_VOID cbSetSRTimingReg_Arise(PCBIOS_EXTENSION_COMMON pcbe,
     {
         cbBiosMMIOWriteReg(pcbe, CR_8F, Value, (CBIOS_U8)~0xc0, IGAIndex);
     }
+
+    //Fix Arise1020/2030 VGA Hsync Timing issue
+    if(pcbe->DispMgr.ActiveDevices[IGAIndex] == CBIOS_TYPE_CRT)
+    {
+        cbMMIOWriteReg(pcbe, SR_18, 0x80, 0x7F);
+    }
 }
 
 

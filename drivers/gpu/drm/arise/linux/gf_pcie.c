@@ -24,6 +24,7 @@
 #include "gf_irq.h"
 #include "gf_fbdev.h"
 #include "gf_params.h"
+#include "gf_pm.h"
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(5,5,0)
 #if DRM_VERSION_CODE < KERNEL_VERSION(5,8,0)
@@ -37,7 +38,11 @@
 #include <linux/irq.h>
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6,11,0)
 #include <drm/drm_fbdev_generic.h>
+#else
+#include <drm/drm_fbdev_ttm.h>
+#endif
 #endif
 
 #define DRIVER_DESC         "Glenfly DRM Pro"
@@ -134,7 +139,7 @@ static void gf_pcie_shutdown(struct pci_dev *pdev)
 }
 #endif
 
-static int gf_drm_suspend(struct drm_device *dev, pm_message_t state)
+static int __gf_drm_suspend(struct drm_device *dev, pm_message_t state, bool fbcon)
 {
     gf_card_t* gf = dev->dev_private;
     int ret;
@@ -143,12 +148,15 @@ static int gf_drm_suspend(struct drm_device *dev, pm_message_t state)
     disp_suspend(dev);
     gf_info("drm suspend: save display status finished.\n");
 
-#if DRM_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-    gf_fbdev_set_suspend(gf, 1);
-#else
-    drm_fb_helper_set_suspend_unlocked(dev->fb_helper, true);
-#endif
-    gf_info("drm suspend: save drmfb status finished.\n");
+    if (fbcon)
+    {
+    #if DRM_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+        gf_fbdev_set_suspend(gf, 1);
+    #else
+        drm_fb_helper_set_suspend_unlocked(dev->fb_helper, true);
+    #endif
+        gf_info("drm suspend: save drmfb status finished.\n");
+    }
 
     ret = gf_core_interface->save_state(gf->adapter, state.event == PM_EVENT_FREEZE);
 
@@ -188,7 +196,19 @@ static int gf_drm_suspend(struct drm_device *dev, pm_message_t state)
     return 0;
 }
 
-static int gf_drm_resume(struct drm_device *dev)
+static int gf_drm_suspend(struct drm_device *dev, pm_message_t state)
+{
+    return __gf_drm_suspend(dev, state, true);
+}
+
+static int gf_runtime_suspend(struct drm_device *dev, pm_message_t state)
+{
+    //TODO
+    return 0;
+    //return __gf_drm_suspend(dev, state, false);
+}
+
+static int __gf_drm_resume(struct drm_device *dev, bool fbcon)
 {
     gf_card_t* gf = dev->dev_private;
     int         ret = 0;
@@ -225,17 +245,32 @@ static int gf_drm_resume(struct drm_device *dev)
         return -1;
     }
 
-#if DRM_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-    gf_fbdev_set_suspend(gf, 0);
-#else
-    drm_fb_helper_set_suspend_unlocked(dev->fb_helper, false);
-#endif
-    gf_info("drm resume: restore drmfb status finished.\n");
+    if (fbcon)
+    {
+    #if DRM_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
+        gf_fbdev_set_suspend(gf, 0);
+    #else
+        drm_fb_helper_set_suspend_unlocked(dev->fb_helper, false);
+    #endif
+        gf_info("drm resume: restore drmfb status finished.\n");
+    }
 
     disp_post_resume(dev);
     gf_info("drm resume: restore display status finished.\n");
 
     return 0;
+}
+
+static int gf_drm_resume(struct drm_device *dev)
+{
+    return __gf_drm_resume(dev, true);
+}
+
+static int gf_runtime_resume(struct drm_device *dev)
+{
+    //TODO
+    return 0;
+    //return __gf_drm_resume(dev, false);
 }
 
 static __inline__ int gf_backdoor_available(void)
@@ -281,6 +316,12 @@ static int gf_kick_out_firmware_fb(struct pci_dev *pdev)
 {
     struct apertures_struct *ap;
     bool primary = false;
+#if defined(__loongarch__)
+    int i = 0;
+    struct fb_info *pfb_info = NULL;
+    unsigned long long fix_fb_base;
+    struct platform_device *pd = NULL;
+#endif
 
     ap = alloc_apertures(1);
     if (!ap)
@@ -293,11 +334,41 @@ static int gf_kick_out_firmware_fb(struct pci_dev *pdev)
     primary = pdev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_ROM_SHADOW;
 #endif
 
+#if defined(__loongarch__)
+    if ((ap->ranges[0].base >> 32) != 0)
+    {
+        fix_fb_base =  ap->ranges[0].base & 0xFFFFFFFF;
+        for (i = 0; i < num_registered_fb; i++)
+        {
+            pfb_info = registered_fb[i];
+            if (!pfb_info)
+            {
+                continue;
+            }
+
+            pd = to_platform_device(pfb_info->device);
+            if (!pd)
+            {
+                continue;
+            }
+
+            if (gf_strcmp(pd->name, "efi-framebuffer") == 0 &&
+                pfb_info->fix.smem_start == fix_fb_base)
+            {
+                ap->ranges[0].base = fix_fb_base;
+                gf_info("reassign aperture base address to remove firmware framebuffer.");
+                break;
+            }
+        }
+    }
+#endif
+
 #if  DRM_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
     drm_fb_helper_remove_conflicting_framebuffers(ap, "arisedrmfb", primary);
 #else
     remove_conflicting_framebuffers(ap, "arisedrmfb", primary);
 #endif
+
     gf_free(ap);
 
     return 0;
@@ -343,13 +414,6 @@ static int gf_drm_load_kms(struct drm_device *dev, unsigned long flags)
         gf_error("remove conflicting framebuffer failed. ret:%x.\n", ret);
     }
 
-
-    ret = pci_request_regions(pdev, gf_driver.name);
-    if(ret)
-    {
-        gf_error("pci_request_regions() failed. ret:%x.\n", ret);
-    }
-
     pci_set_master(pdev);
 
    //fpga only
@@ -390,6 +454,17 @@ static int gf_drm_load_kms(struct drm_device *dev, unsigned long flags)
     gf_fbdev_init(gf);
 #endif
 
+    if (gf->runtime_pm)
+    {
+        gf_rpm_set_driver_flags(dev->dev);
+        gf_rpm_use_autosuspend(dev->dev);
+        gf_rpm_set_autosuspend_delay(dev->dev, 5000); //5s
+        gf_rpm_set_active(dev->dev);
+        gf_rpm_allow(dev->dev);             //-1
+        gf_rpm_mark_last_busy(dev->dev);
+        gf_rpm_put_autosuspend(dev->dev);
+    }
+
     return ret;
 }
 
@@ -404,9 +479,18 @@ static int gf_drm_open(struct drm_device *dev, struct drm_file *file)
         return err;
     }
 
+    err = gf_rpm_get_sync(dev->dev);
+    if (err < 0)
+    {
+        goto err_pm_put;
+    }
+
     priv = gf_calloc(sizeof(gf_file_t));
     if (!priv)
-        return -ENOMEM;
+    {
+        err = -ENOMEM;
+        goto err_suspend_out;
+    }
 
     file->driver_priv = priv;
     priv->parent_file = file;
@@ -421,7 +505,12 @@ static int gf_drm_open(struct drm_device *dev, struct drm_file *file)
         priv->debug = gf_debugfs_add_device_node(gf->debugfs_dev, gf_get_current_pid(), priv->gpu_device);
     }
 
-    return 0;
+err_suspend_out:
+    gf_rpm_mark_last_busy(dev->dev);
+err_pm_put:
+    gf_rpm_put_autosuspend(dev->dev);
+
+    return err;
 }
 
 static void gf_drm_postclose(struct drm_device *dev, struct drm_file *file)
@@ -433,6 +522,8 @@ static void gf_drm_postclose(struct drm_device *dev, struct drm_file *file)
     {
         gf_mutex_unlock(gf->lock);
     }
+
+    gf_rpm_get_sync(dev->dev);
 
     if(priv->gpu_device)
     {
@@ -450,6 +541,9 @@ static void gf_drm_postclose(struct drm_device *dev, struct drm_file *file)
     gf_free(priv);
 
     file->driver_priv = NULL;
+
+    gf_rpm_mark_last_busy(dev->dev);
+    gf_rpm_put_autosuspend(dev->dev);
 }
 
 static void  gf_drm_last_close(struct drm_device* dev)
@@ -525,6 +619,27 @@ int gf_mmap(struct file *filp, struct vm_area_struct *vma)
     return ret;
 }
 
+static long gf_drm_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    struct drm_file *file_priv = filp->private_data;
+    struct drm_device *dev = file_priv->minor->dev ;
+    long ret;
+
+    ret = gf_rpm_get_sync(dev->dev);
+    if (ret < 0)
+    {
+        goto out;
+    }
+
+    ret = drm_ioctl(filp, cmd, arg);
+
+    gf_rpm_mark_last_busy(dev->dev);
+out:
+    gf_rpm_put_autosuspend(dev->dev);
+    return ret;
+}
+
+
 #if defined(CONFIG_COMPAT)
 static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -537,7 +652,7 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
     }
     else
     {
-        ret = drm_ioctl(filp, cmd, arg);
+        ret = gf_drm_ioctl(filp, cmd, arg);
     }
 
     return ret;
@@ -567,7 +682,7 @@ static struct file_operations gf_drm_fops = {
     .owner      = THIS_MODULE,
     .open       = drm_open,
     .release    = drm_release,
-    .unlocked_ioctl = drm_ioctl,
+    .unlocked_ioctl = gf_drm_ioctl,
 #if defined(__x86_64__) && defined(CONFIG_COMPAT)
     .compat_ioctl = gf_compat_ioctl,
 #endif
@@ -716,7 +831,20 @@ static int gf_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
     gf_debugfs_init(gf);
 
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
     drm_fbdev_generic_setup(dev, 32);
+#else
+    drm_fbdev_ttm_setup(dev, 32);
+#endif
+
+#if DRM_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
+    //skip_vt_switch is not set in drm_fb_helper_alloc_fbi function under kernel version of 5.2.0, patch it here
+    if (dev->fb_helper && dev->fb_helper->fbdev &&
+        dev->fb_helper->fbdev->dev)
+    {
+        pm_vt_switch_required(dev->fb_helper->fbdev->dev, false);
+    }
+#endif
 
     return 0;
 
@@ -734,10 +862,23 @@ err_free:
 }
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(3,10,52)
+#if DRM_VERSION_CODE >= KERNEL_VERSION(6,11,0)
+static void gf_pcie_cleanup(struct pci_dev *pdev)
+#else
 static void __exit gf_pcie_cleanup(struct pci_dev *pdev)
+#endif
 {
     struct drm_device *dev = pci_get_drvdata(pdev);
+    gf_card_t *gf_card = (gf_card_t *)dev->dev_private;
+
     gf_info("pcie_cleanup.\n");
+
+    if (gf_card->runtime_pm)
+    {
+        gf_rpm_get_sync(dev->dev);
+        gf_rpm_forbid(dev->dev);
+    }
+
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
     drm_dev_unplug(dev);
 
@@ -756,8 +897,6 @@ static void __exit gf_pcie_cleanup(struct pci_dev *pdev)
 #endif
 
     pci_set_drvdata(pdev, NULL);
-
-    pci_release_regions(pdev);
 }
 #endif
 
@@ -776,8 +915,17 @@ static int gf_pmops_suspend(struct device *dev)
 static int gf_pmops_resume(struct device *dev)
 {
     struct pci_dev *pdev = to_pci_dev(dev);
+    struct drm_device *drm_dev = pci_get_drvdata(pdev);
+    gf_card_t *gf_card = (gf_card_t *)drm_dev->dev_private;
 
     gf_info("pci device(vendor:0x%X, device:0x%X) pm resume\n", pdev->vendor, pdev->device);
+
+    if (gf_card->runtime_pm)
+    {
+        gf_rpm_disable(dev);
+        gf_rpm_set_active(dev);
+        gf_rpm_enable(dev);
+    }
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4,0,0)
     gf_drm_resume(pci_get_drvdata(pdev));
@@ -847,8 +995,20 @@ static int gf_pmops_restore(struct device *dev)
 static int gf_pmops_runtime_suspend(struct device *dev)
 {
     struct pci_dev *pdev = to_pci_dev(dev);
+    struct drm_device *drm_dev = pci_get_drvdata(pdev);
+    gf_card_t *gf_card = (gf_card_t *)drm_dev->dev_private;
+
+    if (!gf_card->runtime_pm)
+    {
+        gf_rpm_forbid(dev);
+        return -EBUSY;
+    }
 
     gf_info("pci device(vendor:0x%X, device:0x%X) pm runtime_suspend\n", pdev->vendor, pdev->device);
+
+#if DRM_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+    gf_runtime_suspend(drm_dev, PMSG_AUTO_SUSPEND);
+#endif
 
     return 0;
 }
@@ -856,18 +1016,52 @@ static int gf_pmops_runtime_suspend(struct device *dev)
 static int gf_pmops_runtime_resume(struct device *dev)
 {
     struct pci_dev *pdev = to_pci_dev(dev);
+    struct drm_device *drm_dev = dev_get_drvdata(dev);
+    gf_card_t *gf_card = (gf_card_t *)drm_dev->dev_private;
+
+    if (!gf_card->runtime_pm)
+    {
+        return -EINVAL;
+    }
 
     gf_info("pci device(vendor:0x%X, device:0x%X) pm runtime_resume\n", pdev->vendor, pdev->device);
 
+#if DRM_VERSION_CODE >= KERNEL_VERSION(4,0,0)
+    gf_runtime_resume(drm_dev);
+#endif
+
     return 0;
 }
+
 static int gf_pmops_runtime_idle(struct device *dev)
 {
     struct pci_dev *pdev = to_pci_dev(dev);
+    struct drm_device *drm_dev = dev_get_drvdata(dev);
+    gf_card_t *gf_card = (gf_card_t *)drm_dev->dev_private;
+    struct drm_crtc *crtc;
+
+    if (!gf_card->runtime_pm)
+    {
+        gf_rpm_forbid(dev);
+        return -EBUSY;
+    }
 
     gf_info("pci device(vendor:0x%X, device:0x%X) pm runtime_idle\n", pdev->vendor, pdev->device);
 
-    return 0;
+    list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list, head)
+    {
+        if (crtc->enabled)
+        {
+            DRM_DEBUG_DRIVER("fail to power off - crtc active\n");
+            return -EBUSY;
+        }
+    }
+
+    gf_rpm_mark_last_busy(dev);
+    gf_rpm_autosuspend(dev);
+
+    /* use autosuspend instead of calling rpm_suspend directly in main rpm_idle */
+    return 1;
 }
 
 static void gf_shutdown(struct pci_dev *pdev)
@@ -936,7 +1130,6 @@ int gf_write_command_status32(void *dev, unsigned int command)
 {
     return pci_write_config_dword((struct pci_dev*)dev, 0x4, command);
 }
-
 
 int gf_get_bar1(void *dev, unsigned int *bar1)
 {

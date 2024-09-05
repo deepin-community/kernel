@@ -64,7 +64,7 @@ CBIOS_STATUS cbPathMgrGetDevComb(PCBIOS_VOID pvcbe, PCBIOS_GET_DEV_COMB pDevComb
     while(Devices)
     {
         bAssigned = CBIOS_FALSE;
-        
+
         //select a high priority device if more than one device
         TempDev = cbDevGetPrimaryDevice(Devices);
         Devices &= ~TempDev;
@@ -98,7 +98,7 @@ CBIOS_STATUS cbPathMgrGetDevComb(PCBIOS_VOID pvcbe, PCBIOS_GET_DEV_COMB pDevComb
         pDeviceComb->Iga3Dev = DevOnIga[IGA3];
         pDeviceComb->Iga4Dev = DevOnIga[IGA4];
         pDevComb->bSupported = CBIOS_TRUE;
-        
+
         return CBIOS_OK;
     }
     else
@@ -106,7 +106,7 @@ CBIOS_STATUS cbPathMgrGetDevComb(PCBIOS_VOID pvcbe, PCBIOS_GET_DEV_COMB pDevComb
         pDevComb->bSupported = CBIOS_FALSE;
         return CBIOS_ER_INVALID_PARAMETER;
     }
-    
+
 }
 
 CBIOS_STATUS cbPathMgrGetIgaMask(PCBIOS_VOID pvcbe, PCBIOS_GET_IGA_MASK pGetIgaMask)

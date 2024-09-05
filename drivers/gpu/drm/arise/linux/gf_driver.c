@@ -639,7 +639,7 @@ static ssize_t gf_gpuinfo_proc_read(struct file *filp, char *buf, size_t count, 
     len += sprintf(buffer + len, "Memory ddr Remain Size : %d MB\n", free_mem);
     len += sprintf(buffer + len, "Memory Clock Freq : %d MHz\n", mclk / 2);
     len += sprintf(buffer + len, "Memory Transfer Rates : %d MT/s\n", mclk);
-    len += sprintf(buffer + len, "GPU Work Frequency : Core %d MHz / Aux %d MHz\n", coreclk, eclk);
+    len += sprintf(buffer + len, "GPU Work Frequency : %d MHz\n", coreclk);
     len += sprintf(buffer + len, "Realtime Temperature : %d Degree\n", temp);
     len += sprintf(buffer + len, "Max Display Port : %d\n", output_cnt);
     len += sprintf(buffer + len, "Support Display Type : %s\n", output_type);
@@ -1009,6 +1009,7 @@ int gf_card_init(gf_card_t *gf, void *pdev)
     gf->misc_control_flag = gf_modparams.misc_control_flag;
     gf->allocation_trace_tags = 0;
     gf->video_irq_info_all = 0;
+    gf->runtime_pm = gf_modparams.gf_runtime_pm;
 
     return ret;
 }

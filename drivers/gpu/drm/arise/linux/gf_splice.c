@@ -2035,6 +2035,7 @@ static void gf_splice_init_crtc_and_planes(gf_splice_manager_t *splice_manager)
     gf_crtc->crtc_dpms = 0;
     gf_crtc->support_scale = disp_info->scale_support;
     gf_crtc->plane_cnt = GF_SPLICE_PLANE_NUM;
+    gf_crtc->vsync_int = 0;
 
     ret = drm_crtc_init_with_planes(drm, &gf_crtc->base_crtc,
                                     &gf_plane->base_plane,

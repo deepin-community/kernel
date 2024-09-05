@@ -1449,7 +1449,7 @@ CBIOS_VOID cbHDMIMonitor_SetMode(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT 
     if (bHDMIDevice)
     {
         // avoid HBlank being too small to not transmit any packet(32 bytes).
-        if (pModeParams->TargetTiming.HorBEnd - pModeParams->TargetTiming.HorBStart < 
+        if (pModeParams->TargetTiming.HorBEnd - pModeParams->TargetTiming.HorBStart <
             HDMI_DELAY_FOR_HDCP + HDMI_LEADING_GUARD_BAND_PERIOD + HDMI_MIN_CTL_PERIOD + HDMI_TRAILING_GUARD_BAND_PERIOD + 32)
         {
             bHDCPCapable = CBIOS_FALSE;

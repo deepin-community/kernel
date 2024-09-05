@@ -58,7 +58,7 @@ core-objs := \
 	$(CORE_OBJ) \
 	$(PERF_EVENT_OBJ)
 
-$(PRO_DRIVER_NAME)-objs += $(addprefix core/, $(core-objs))
+$(DRIVER_NAME)-objs += $(addprefix core/, $(core-objs))
 
 ifeq ($(CHIP), E3k)
 	include $(GFGPU_FULL_PATH)/core/e3k/Makefile

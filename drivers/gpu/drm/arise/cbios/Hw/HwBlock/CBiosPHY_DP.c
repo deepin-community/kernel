@@ -1579,7 +1579,7 @@ static CBIOS_BOOL cbPHY_DP_SelectTMDSModeSource(PCBIOS_EXTENSION_COMMON pcbe, CB
             else if(MonitorType == CBIOS_MONITOR_TYPE_DVI)
             {
                 RegSR3AValue.Value = 0;
-                RegSR3AValue.DP_PHY_Source_Sel = 0;
+                RegSR3AValue.DP_PHY_Source_Sel = 4; //PS background overlay will affect DE of DVI timing, force to HDMI mode can fix this issue
             }
             RegSR3AMask.Value = 0xFF;
             RegSR3AMask.DP_PHY_Source_Sel = 0;

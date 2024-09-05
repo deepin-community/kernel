@@ -55,6 +55,8 @@
 #include <linux/log2.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm.h>
 
 #ifndef DRM_VERSION_CODE
 #define DRM_VERSION_CODE LINUX_VERSION_CODE
