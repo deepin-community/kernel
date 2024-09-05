@@ -1,0 +1,57 @@
+#ifndef __SXE_COMPAT_SUSE_H__
+#define __SXE_COMPAT_SUSE_H__
+
+#if !CONFIG_SUSE_KERNEL
+#error "CONFIG_SUSE_KERNEL is 0 or undefined"
+#endif
+
+#if !SUSE_PRODUCT_CODE
+#error "SUSE_PRODUCT_CODE is 0 or undefined"
+#endif
+
+#if defined SUSE_PRODUCT_CODE && (SUSE_PRODUCT_CODE == SUSE_PRODUCT(1,15,2,0))   
+#define HAVE_XDP_SUPPORT
+#define HAVE_XDP_BUFF_DATA_META
+#define XDP_XMIT_FRAME_FAILED_NEED_FREE
+#define HAVE_XDP_QUERY_PROG
+#define HAVE_AF_XDP_ZERO_COPY
+#define XDP_RXQ_INFO_REQ_API_NEED_3_PARAMS
+#define HAVE_XSK_UMEM_ADJUST_OFFSET
+#define HAVE_NDO_XSK_WAKEUP
+#define HAVE_NDO_FDB_ADD_EXTACK
+#define HAVE_NDO_BRIDGE_SETLINK_EXTACK
+#define HAVE_NDO_SET_VF_LINK_STATE
+#define HAVE_MACVLAN_OFFLOAD_SUPPORT
+
+#define XDP_SETUP_XSK_POOL XDP_SETUP_XSK_UMEM
+#define xdp_convert_buff_to_frame convert_to_xdp_frame
+#define xsk_tx_release xsk_umem_consume_tx_done
+#define xsk_tx_completed xsk_umem_complete_tx
+#define xsk_uses_need_wakeup xsk_umem_uses_need_wakeup
+#define SXE_KERNEL_MATCHED
+#endif
+
+#if defined SUSE_PRODUCT_CODE && (SUSE_PRODUCT_CODE == SUSE_PRODUCT(1,15,4,0))   
+#define HAVE_XDP_SUPPORT
+#define HAVE_XDP_BUFF_DATA_META
+#define HAVE_MEM_TYPE_XSK_BUFF_POOL
+#define HAVE_NETDEV_BPF_XSK_BUFF_POOL
+#define HAVE_AF_XDP_ZERO_COPY
+#define HAVE_XDP_BUFF_FRAME_SIZE
+#define HAVE_XDP_BUFF_INIT_API
+#define HAVE_XDP_PREPARE_BUFF_API
+#define HAVE_SKB_CSUM_SCTP_API
+#define HAVE_ETHTOOL_COALESCE_EXTACK
+#define HAVE_NETDEV_NESTED_PRIV
+#define HAVE_TIMEOUT_TXQUEUE_IDX
+#define HAVE_NET_PREFETCH_API
+#define HAVE_DEV_PAGE_IS_REUSABLE_API
+#define HAVE_NDO_XSK_WAKEUP
+#define HAVE_NDO_FDB_ADD_EXTACK
+#define HAVE_NDO_BRIDGE_SETLINK_EXTACK
+#define HAVE_NDO_SET_VF_LINK_STATE
+#define HAVE_MACVLAN_OFFLOAD_SUPPORT
+#define SXE_KERNEL_MATCHED
+#endif
+
+#endif 
