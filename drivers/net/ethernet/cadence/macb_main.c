@@ -3194,6 +3194,10 @@ static void macb_init_hw(struct macb *bp)
 	macb_reset_hw(bp);
 	macb_set_hwaddr(bp);
 
+	config = macb_readl(bp, NCR);
+	config |= MACB_BIT(MPE);
+	macb_writel(bp, NCR, config);
+
 	config = macb_mdc_clk_div(bp);
 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
