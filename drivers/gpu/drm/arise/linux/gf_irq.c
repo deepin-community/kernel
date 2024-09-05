@@ -19,6 +19,7 @@
 #include "gf_kms.h"
 #include "gf_splice.h"
 #include "gf_trace.h"
+#include "gf_pm.h"
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
 /* get_scanout_position() return flags */
@@ -32,7 +33,6 @@
 
 #define RESET_TIME_MINUTE_interval  10
 
-
 static int video_irq_info_count[VIDEO_ERROR_INFO_NUM] = {0};
 static ktime_t video_irq_info_time[VIDEO_ERROR_INFO_NUM] = {0};
 static int video_irq_mask[VIDEO_ERROR_INFO_NUM] = {INT_FE_HANG_VD0, INT_BE_HANG_VD0, INT_FE_HANG_VD1, INT_BE_HANG_VD1,
@@ -40,9 +40,6 @@ static int video_irq_mask[VIDEO_ERROR_INFO_NUM] = {INT_FE_HANG_VD0, INT_BE_HANG_
 static char* video_irq_name[VIDEO_ERROR_INFO_NUM] = {"CORE0_FE_HANG", "CORE0_BE_HANG", "CORE1_FE_HANG", "CORE1_BE_HANG",
     "CORE0_FE_ERROR", "CORE0_BE_ERROR", "CORE1_FE_ERROR", "CORE1_BE_ERROR"};
 static int video_reg_offset[VIDEO_ERROR_INFO_NUM] = {0x4C81C, 0x4C81C, 0x4A81C, 0x4A81C, 0x4C81C, 0x4C81C, 0x4A81C, 0x4A81C};
-
-
-
 
 static struct drm_crtc* gf_get_crtc_by_pipe(struct drm_device *dev, pipe_t pipe)
 {
@@ -586,15 +583,15 @@ int gf_irq_install(struct drm_device *drm_dev)
 
 static void  gf_vblank_intrr_handle(struct drm_device* dev, unsigned int intrr)
 {
-    unsigned int index = 0;
-    unsigned int vsync[MAX_CRTC_NUM] = {INT_VSYNC1, INT_VSYNC2, INT_VSYNC3, INT_VSYNC4};
-    struct  drm_crtc* crtc = NULL;
     gf_card_t *gf = dev->dev_private;
-    disp_info_t* disp_info = (disp_info_t *)gf->disp_info;
+    disp_info_t *disp_info = (disp_info_t *)gf->disp_info;
     gf_splice_manager_t *splice_manager = disp_info->splice_manager;
     gf_splice_target_t *target = NULL;
     gf_splice_source_t *source = NULL;
     struct drm_crtc *splice_source_crtc = NULL, *splice_target_crtc = NULL;
+    struct drm_crtc *crtc = NULL;
+    gf_crtc_t *gf_crtc = NULL;
+    unsigned int crtc_idx = 0;
 
     if (splice_manager != NULL)
     {
@@ -608,48 +605,46 @@ static void  gf_vblank_intrr_handle(struct drm_device* dev, unsigned int intrr)
         }
     }
 
-    if(intrr & INT_VSYNCS)
+    list_for_each_entry(crtc, &(dev->mode_config.crtc_list), head)
     {
-        for (index = 0; index < MAX_CRTC_NUM; index++)
+        gf_crtc = to_gf_crtc(crtc);
+
+        if (intrr & gf_crtc->vsync_int)
         {
-            if (intrr & vsync[index])
+            gf_perf_event_t perf_event = {0, };
+            gf_get_counter_t get_cnt = {0, };
+            unsigned int vblcnt = 0;
+            unsigned long long timestamp;
+
+            if (splice_source_crtc == crtc)
             {
-                gf_perf_event_t perf_event = {0, };
-                gf_get_counter_t get_cnt = {0, };
-                unsigned int vblcnt = 0;
-                unsigned long long timestamp;
-
-                crtc = gf_get_crtc_by_pipe(dev, index);
-
-                //TODO: support splice combination with stand along connector
-                if (splice_source_crtc == crtc)
-                {
-                    drm_crtc_handle_vblank(splice_target_crtc);
-                }
-
-                if (to_gf_crtc(crtc)->enabled)
-                {
-                    drm_crtc_handle_vblank(crtc);
-                }
-
-                get_cnt.crtc_index = index;
-                get_cnt.vblk = &vblcnt;
-                disp_cbios_get_counter(disp_info, &get_cnt);
-
-                trace_gfx_vblank_intrr(gf->index << 16 | index, vblcnt);
-
-                gf_get_nsecs(&timestamp);
-                perf_event.header.timestamp_high = timestamp >> 32;
-                perf_event.header.timestamp_low = timestamp & 0xffffffff;
-                perf_event.header.size = sizeof(gf_perf_event_vsync_t);
-                perf_event.header.type = GF_PERF_EVENT_VSYNC;
-                perf_event.vsync_event.iga_idx = index + 1;
-                perf_event.vsync_event.vsync_cnt_low = vblcnt;
-                perf_event.vsync_event.vsync_cnt_high = 0;
-
-                gf_core_interface->perf_event_add_isr_event(gf->adapter, &perf_event);
-                //gf_core_interface->hwq_process_vsync_event(gf->adapter, timestamp);
+                drm_crtc_handle_vblank(splice_target_crtc);
             }
+
+            if (gf_crtc->enabled)
+            {
+                drm_crtc_handle_vblank(crtc);
+            }
+
+            crtc_idx = drm_get_crtc_index(crtc);
+
+            get_cnt.crtc_index = crtc_idx;
+            get_cnt.vblk = &vblcnt;
+            disp_cbios_get_counter(disp_info, &get_cnt);
+
+            trace_gfx_vblank_intrr(gf->index << 16 | crtc_idx, vblcnt);
+
+            gf_get_nsecs(&timestamp);
+            perf_event.header.timestamp_high = timestamp >> 32;
+            perf_event.header.timestamp_low = timestamp & 0xffffffff;
+            perf_event.header.size = sizeof(gf_perf_event_vsync_t);
+            perf_event.header.type = GF_PERF_EVENT_VSYNC;
+            perf_event.vsync_event.iga_idx = crtc_idx + 1;
+            perf_event.vsync_event.vsync_cnt_low = vblcnt;
+            perf_event.vsync_event.vsync_cnt_high = 0;
+
+            gf_core_interface->perf_event_add_isr_event(gf->adapter, &perf_event);
+            //gf_core_interface->hwq_process_vsync_event(gf->adapter, timestamp);
         }
     }
 }
@@ -960,6 +955,7 @@ irqreturn_t gf_irq_handle(int irq, void *arg)
     {
         intrr |= INT_FENCE;
     }
+
     if(intrr & INT_FENCE)
     {
         tasklet_schedule(&gf_card->fence_notify);
@@ -968,6 +964,8 @@ irqreturn_t gf_irq_handle(int irq, void *arg)
     }
 
     atomic_set(&disp_info->atomic_irq_lock, 0);
+
+    gf_rpm_mark_last_busy(dev->dev);
 
     return  IRQ_HANDLED;
 }

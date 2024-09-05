@@ -41,6 +41,7 @@ struct gf_params {
     int gf_local_size_m;
     int gf_pcie_size_g;
     int gf_pcie_size_m;
+    int gf_runtime_pm;
     int debugfs_mask;    //debugfs mask, bit0: gem_enable
     int misc_control_flag;
 };

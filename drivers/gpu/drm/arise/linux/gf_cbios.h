@@ -16,8 +16,6 @@
 #define __GF_CBIOS_H__
 #include "CBios.h"
 
-#define MAX_CRTC_NUM CBIOS_MAX_CRTCS
-
 enum
 {
     FAMILY_CMODEL,

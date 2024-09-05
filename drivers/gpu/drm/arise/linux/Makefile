@@ -55,4 +55,4 @@ else
 	linux-objs += gf_pcie.o
 endif
 
-$(PRO_DRIVER_NAME)-objs += $(addprefix linux/, $(linux-objs))
+$(DRIVER_NAME)-objs += $(addprefix linux/, $(linux-objs))

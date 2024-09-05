@@ -24,12 +24,18 @@ static int gf_i2c_xfer(struct i2c_adapter *i2c_adapter, struct i2c_msg *msgs, in
     disp_info_t *disp_info = (disp_info_t *)gf_card->disp_info;
     gf_i2c_param_t i2c_param;
     int i = 0, retval = 0;
+
+    if (gf_connector->base_connector.status != connector_status_connected)
+    {
+        DRM_DEBUG_DRIVER("invalid i2c request as connector(0x%x) is not connected",
+                         gf_connector->output_type);
+        return -EIO;
+    }
+
     for (i = 0; i < num; i++)
     {
-        DRM_DEBUG_KMS("xfer: num: %d/%d, len:%d, flags:%#x\n\n", i + 1,
+        DRM_DEBUG_DRIVER("xfer: num: %d/%d, len:%d, flags:%#x\n\n", i + 1,
                       num, msgs[i].len, msgs[i].flags);
-        /*gf_info("xfer: num MUTEX: %d/%d, len:%d, flags:%#x\n\n", i + 1,
-                      num, msgs[i].len, msgs[i].flags);*/
         gf_memset(&i2c_param, 0, sizeof(gf_i2c_param_t));
         i2c_param.use_dev_type = 1;
         i2c_param.device_id = gf_connector->output_type;

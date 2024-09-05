@@ -73,6 +73,14 @@ static  char*  plane_name[] = {
     "FS",
 };
 
+static const unsigned int vsync_int_tbl[] = {
+    INT_VSYNC1,
+    INT_VSYNC2,
+    INT_VSYNC3,
+    INT_VSYNC4,
+};
+#define VSYNC_INT_TABLE_LEN (sizeof(vsync_int_tbl)/sizeof(vsync_int_tbl[0]))
+
 static char*  cursor_name = "cursor";
 
 #if  DRM_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
@@ -672,6 +680,13 @@ static int  disp_crtc_init(disp_info_t* disp_info, unsigned int index)
     crtc_state->base_cstate.crtc = &gf_crtc->base_crtc;
     gf_crtc->crtc_dpms = 0;
 
+    if (index >= VSYNC_INT_TABLE_LEN)
+    {
+        gf_error("index excceds vsync int table length\n");
+        goto fail;
+    }
+    gf_crtc->vsync_int = vsync_int_tbl[index];
+
     gf_crtc->support_scale = disp_info->scale_support;
 
     gf_crtc->plane_cnt = disp_info->num_plane[index];
@@ -741,6 +756,13 @@ static int  disp_crtc_init(disp_info_t* disp_info, unsigned int index)
     gf_crtc->plane_cnt = disp_info->num_plane[index];
 
     gf_crtc->crtc_dpms = 0;
+
+    if (index >= VSYNC_INT_TABLE_LEN)
+    {
+        gf_error("index excceds vsync int table length\n");
+        goto fail;
+    }
+    gf_crtc->vsync_int = vsync_int_tbl[index];
 
     ret = drm_crtc_init(drm, &gf_crtc->base_crtc, &gf_crtc_funcs);
 
@@ -1205,11 +1227,11 @@ static void disp_info_print(disp_info_t* disp_info)
     }
     if (DISP_OK == disp_cbios_get_clock(disp_info, GF_QUERY_ENGINE_CLOCK, &value))
     {
-        gf_info("displayinfo Eclk:%dMHz\n", value / 1000);
+        //gf_info("displayinfo Eclk:%dMHz\n", value / 1000);
     }
     if(DISP_OK == disp_cbios_get_clock(disp_info, GF_QUERY_VCLK, &value))
     {
-        gf_info("displayinfo Vclk:%dMHz\n", (value + 500)/1000);
+        //gf_info("displayinfo Vclk:%dMHz\n", (value + 500)/1000);
     }
     if(DISP_OK == disp_cbios_get_clock(disp_info, GF_QUERY_MCLK, &value))
     {

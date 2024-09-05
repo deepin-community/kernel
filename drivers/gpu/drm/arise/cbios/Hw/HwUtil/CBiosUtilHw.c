@@ -1236,10 +1236,17 @@ CBIOS_U32 cbGetProgClock(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 *ClockFreq, CBI
 {
     CBIOS_CLOCK_INFO ClkInfo = {0};
     CBIOS_U32 RegD130 = 0;
+    CBIOS_U32 D300_Value = 0;
+    CBIOS_BOOL bUseNewMclk = CBIOS_FALSE;
 
     if(ClockType >= CBIOS_INVALID_CLK)
     {
         return -1;
+    }
+    if (pcbe->ChipID == CHIPID_ARISE1020 && ClockType == CBIOS_MCLKTYPE)
+    {
+        D300_Value = cb_ReadU32(pcbe->pAdapterContext, 0xD300);
+        bUseNewMclk = ((D300_Value & 0xF) == 0xA) ? CBIOS_TRUE : CBIOS_FALSE;
     }
 
     switch (ClockType)
@@ -1295,17 +1302,25 @@ CBIOS_U32 cbGetProgClock(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 *ClockFreq, CBI
         }
         break;
     case CBIOS_MCLKTYPE:
-        RegD130 = cb_ReadU32(pcbe->pAdapterContext, 0xd130);
-        ClkInfo.Integer = ((RegD130 >> 0x7) & 0x7F) | ((RegD130 & 0x10)? 0x80:0);
-        ClkInfo.R = (RegD130 >> 0x11) & 0x3;
-        ClkInfo.Fraction = 0;
-        ClkInfo.PLLDiv = 0;
+        if(bUseNewMclk)
+        {
+            *ClockFreq = (D300_Value & 0xFFF00)>>8;
+        }
+        else
+        {
+            RegD130 = cb_ReadU32(pcbe->pAdapterContext, 0xd130);
+            ClkInfo.Integer = ((RegD130 >> 0x7) & 0x7F) | ((RegD130 & 0x10)? 0x80:0);
+            ClkInfo.R = (RegD130 >> 0x11) & 0x3;
+            ClkInfo.Fraction = 0;
+            ClkInfo.PLLDiv = 0;
+        }
         break;
     default:
         break;
     }
 
-    if (pcbe->ChipID == CHIPID_ARISE10C0T && (ClockType == CBIOS_ECLKTYPE || ClockType == CBIOS_VCLKTYPE))
+    if ((pcbe->ChipID == CHIPID_ARISE10C0T && (ClockType == CBIOS_ECLKTYPE || ClockType == CBIOS_VCLKTYPE)) ||
+        (pcbe->ChipID == CHIPID_ARISE1020 && ClockType == CBIOS_MCLKTYPE && bUseNewMclk))
     {
         (*ClockFreq) *= 10000;
     }

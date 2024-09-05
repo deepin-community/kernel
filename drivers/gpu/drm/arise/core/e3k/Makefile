@@ -35,4 +35,4 @@ core_e3k-objs := \
     $(PERFEVENT_OBJ) \
 	$(GLOBAL_OBJ) 
 
-$(PRO_DRIVER_NAME)-objs += $(addprefix core/e3k/, $(core_e3k-objs))
+$(DRIVER_NAME)-objs += $(addprefix core/e3k/, $(core_e3k-objs))

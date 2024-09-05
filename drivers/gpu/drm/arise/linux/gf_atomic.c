@@ -16,6 +16,7 @@
 #include "gf_kms.h"
 #include "gf_sink.h"
 #include "gf_splice.h"
+#include "gf_pm.h"
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
 
@@ -245,6 +246,9 @@ static void gf_update_crtc_sink(struct drm_atomic_state *old_state)
 void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 {
     struct drm_device *dev = old_state->dev;
+    struct drm_crtc *crtc;
+    struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+    int i;
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
     uint32_t flags = DRM_PLANE_COMMIT_NO_DISABLE_AFTER_MODESET;
@@ -256,7 +260,24 @@ void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 
     drm_atomic_helper_commit_modeset_enables(dev, old_state);
 
-    gf_update_crtc_sink(old_state);
+#if DRM_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
+    for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
+    {
+        new_crtc_state = crtc->state;
+#else
+    for_each_oldnew_crtc_in_state(old_state, crtc, old_crtc_state, new_crtc_state, i)
+    {
+#endif
+        if (old_crtc_state->active && !new_crtc_state->active)
+        {
+            gf_rpm_put_noidle(dev->dev);
+        }
+
+        if (new_crtc_state->active && !old_crtc_state->active)
+        {
+            gf_rpm_get_noresume(dev->dev);
+        }
+    }
 
     drm_atomic_helper_commit_planes(dev, old_state, flags);
 
@@ -275,6 +296,8 @@ void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 #endif
 
     drm_atomic_helper_cleanup_planes(dev, old_state);
+
+    gf_rpm_mark_last_busy(dev->dev);
 }
 
 

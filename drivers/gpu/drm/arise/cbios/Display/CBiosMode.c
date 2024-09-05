@@ -5667,6 +5667,14 @@ CBIOS_VOID cbMode_GetFilterPara(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE Device, PCB
         break;
     }
 
+    if((pcbe->ChipID == CHIPID_ARISE2030) || (pcbe->ChipID == CHIPID_ARISE2020))
+    {
+        if((Device == CBIOS_TYPE_DP2) && (MonitorType == CBIOS_MONITOR_TYPE_HDMI))
+        {
+            pFilter->MaxDclk = 3400000;
+        }
+    }
+
     if(pFilter->MaxDclk > pcbe->ChipLimits.ulMaxIGAClock)
     {
         pFilter->MaxDclk = pcbe->ChipLimits.ulMaxIGAClock;
