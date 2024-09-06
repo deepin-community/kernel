@@ -269,6 +269,20 @@ pgprot_t __acpi_get_mem_attribute(phys_addr_t addr)
 
 void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size)
 {
+#ifdef CONFIG_ARM64
+       if (read_cpuid_implementor() == ARM_CPU_IMP_HISI) {
+               /* For normal memory we already have a cacheable mapping. */
+               if (memblock_is_map_memory(phys))
+	               return (void __iomem *)__phys_to_virt(phys);
+
+               /*
+               * We should still honor the memory's attribute here because
+               * crash dump kernel possibly excludes some ACPI (reclaim)
+               * regions from memblock list.
+               */
+               return ioremap_prot(phys, size, pgprot_val(__acpi_get_mem_attribute(phys)));
+       }
+#endif
 	efi_memory_desc_t *md, *region = NULL;
 	pgprot_t prot;
 
