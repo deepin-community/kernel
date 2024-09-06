@@ -681,7 +681,11 @@ int acpi_cppc_processor_probe(struct acpi_processor *pr)
 	acpi_status status;
 	int ret = -ENODATA;
 
+#ifdef CONFIG_ARM64
+	if (read_cpuid_implementor() != ARM_CPU_IMP_HISI && !osc_sb_cppc2_support_acked) {
+#else
 	if (!osc_sb_cppc2_support_acked) {
+#endif
 		pr_debug("CPPC v2 _OSC not acked\n");
 		if (!cpc_supported_by_cpu())
 			return -ENODEV;
