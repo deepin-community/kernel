@@ -208,21 +208,24 @@ static int k10temp_read_labels(struct device *dev,
 	return 0;
 }
 
-static void hygon_read_temp(struct k10temp_data *data, int channel,
+static int hygon_read_temp(struct k10temp_data *data, int channel,
 			       u32 *regval)
 {
 	struct hygon_private *h_priv;
+	int ret = -EOPNOTSUPP;
 
 	h_priv = (struct hygon_private *)data->priv;
 	if ((channel - 2) < h_priv->index_2nd)
-		amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
-			     ZEN_CCD_TEMP(data->ccd_offset, channel - 2),
-					  regval);
+		ret = amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
+				   ZEN_CCD_TEMP(data->ccd_offset, channel - 2),
+				   regval);
 	else
-		amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
-			     ZEN_CCD_TEMP(h_priv->offset_2nd,
-					  channel - 2 - h_priv->index_2nd),
-					  regval);
+		ret = amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
+				   ZEN_CCD_TEMP(h_priv->offset_2nd,
+				   channel - 2 - h_priv->index_2nd),
+				   regval);
+
+	return ret;
 }
 
 static int k10temp_read_temp(struct device *dev, u32 attr, int channel,
@@ -247,15 +250,14 @@ static int k10temp_read_temp(struct device *dev, u32 attr, int channel,
 			break;
 		case 2 ... 13:		/* Tccd{1-12} */
 			if (hygon_f18h_m4h())
-				hygon_read_temp(data, channel, &regval);
+				ret = hygon_read_temp(data, channel, &regval);
 			else {
 				ret = amd_smn_read(amd_pci_dev_to_node_id(data->pdev),
 						   ZEN_CCD_TEMP(data->ccd_offset, channel - 2),
 						   &regval);
-
-				if (ret)
-					return ret;
 			}
+			if (ret)
+				return ret;
 
 			*val = (regval & ZEN_CCD_TEMP_MASK) * 125 - 49000;
 			break;
@@ -442,10 +444,21 @@ static void k10temp_get_ccd_support_2nd(struct pci_dev *pdev,
 
 	h_priv = (struct hygon_private *)data->priv;
 	for (i = h_priv->index_2nd; i < limit; i++) {
-		amd_smn_read(amd_pci_dev_to_node_id(pdev),
+               /*
+                * Ignore inaccessible CCDs.
+                *
+                * Some systems will return a register value of 0, and the TEMP_VALID
+                * bit check below will naturally fail.
+                *
+                * Other systems will return a PCI_ERROR_RESPONSE (0xFFFFFFFF) for
+                * the register value. And this will incorrectly pass the TEMP_VALID
+                * bit check.
+                */
+		if (amd_smn_read(amd_pci_dev_to_node_id(pdev),
 			     ZEN_CCD_TEMP(h_priv->offset_2nd,
 			     i - h_priv->index_2nd),
-			     &regval);
+			     &regval))
+			continue;
 		if (regval & ZEN_CCD_TEMP_VALID)
 			data->show_temp |= BIT(TCCD_BIT(i));
 	}
