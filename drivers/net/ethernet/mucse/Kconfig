@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# 
+# Mucse network device configuration
+#
+
+config NET_VENDOR_MUCSE
+        bool "Mucse devices"
+        default y
+        help
+          If you have a network (Ethernet) card belonging to this class, say Y.
+
+          Note that the answer to this question doesn't directly affect the
+          kernel: saying N will just cause the configurator to skip all
+          the questions about Mucse cards. If you say Y, you will be asked for
+          your specific card in the following questions.
+
+
+if NET_VENDOR_MUCSE
+
+config MGBE
+	tristate "Mucse(R) 1GbE PCI Express adapters support"
+        depends on PCI
+        imply PTP_1588_CLOCK
+        help
+          This driver supports Mucse(R) 1GbE PCI Express family of
+          adapters. 
+
+          To compile this driver as a module, choose M here. The module
+          will be called rnp.
+
+config MGBE_OPTM_WITH_LPAGE
+	bool "Reduce Memory Cost In Large PAGE_SIZE(>8192)"
+	default n
+	depends on MGBE
+	help
+          Say Y here if you want to reduce memory cost in large PAGE_SIZE.
+
+          If unsure, say N.
+
+config MGBE_MSIX_COUNT
+	int "Number of msix count"
+	default "26"
+	depends on MGBE
+        help
+          MXGBE range [2,26].
+
+endif # NET_VENDOR_MUCSE
+
