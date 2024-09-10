@@ -23972,6 +23972,11 @@ L:	linux-mm@kvack.org
 S:	Maintained
 F:	mm/zswap.c
 
+MUCSE Ethernet Controller drivers
+M:      Yibo Dong <dong100@mucse.com>
+S:      Maintained
+F:      drivers/net/ethernet/mucse/
+
 THE REST
 M:	Linus Torvalds <torvalds@linux-foundation.org>
 L:	linux-kernel@vger.kernel.org
