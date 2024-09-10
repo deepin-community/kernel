@@ -116,8 +116,8 @@
 106	common	listen				sys_listen
 #107 is unused
 #108 is unused
-#109 is unused
-110	common	pfh_ops				sys_pfh_ops
+109	common	pfh_ops				sys_pfh_ops
+110	common	old_pfh_ops			sys_ni_syscall
 111	common	sigsuspend			sys_sigsuspend
 #112 is unused
 113	common	recvmsg				sys_recvmsg
