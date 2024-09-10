@@ -146,8 +146,10 @@ static void unmap_apt_pmds(struct kvm *kvm, pud_t *pud,
 		if (!pmd_none(*pmd)) {
 			if (pmd_trans_huge(*pmd)) {
 				if (pmd_cont(*pmd)) {
-					for (i = 0; i < CONT_PMDS; i++, pmd++)
-						pmd_clear(pmd);
+					for (i = 0; i < CONT_PMDS; i++)
+						pmd_clear(pmd + i);
+					pmd += CONT_PMDS - 1;
+					next += CONT_PMD_SIZE - PMD_SIZE;
 				} else
 					pmd_clear(pmd);
 				/* Do we need flush tlb???? edited by lff */
