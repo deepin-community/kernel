@@ -3,6 +3,7 @@
 #include <linux/pci.h>
 #include <linux/pci-ecam.h>
 #include <linux/acpi.h>
+#include <linux/reboot.h>
 
 #include <asm/pci.h>
 #include <asm/sw64_init.h>
@@ -264,6 +265,35 @@ static void enable_sw_dca(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, enable_sw_dca);
 #endif
+
+static int jm585_restart_notify(struct notifier_block *nb, unsigned long action,
+		void *data)
+{
+	struct pci_dev *pdev;
+	struct pci_controller *hose;
+	int val;
+
+	pdev = pci_get_device(PCI_VENDOR_ID_JMICRON, 0x0585, NULL);
+	if (pdev) {
+		hose = pci_bus_to_pci_controller(pdev->bus);
+		val = readl(hose->rc_config_space_base + RC_PORT_LINK_CTL);
+		writel((val | 0x8), (hose->rc_config_space_base + RC_PORT_LINK_CTL));
+		writel(val, (hose->rc_config_space_base + RC_PORT_LINK_CTL));
+	}
+
+	return NOTIFY_DONE;
+}
+
+static void quirk_jm585_restart(struct pci_dev *dev)
+{
+	static struct notifier_block jm585_restart_nb = {
+		.notifier_call = jm585_restart_notify,
+		.priority = 128,
+	};
+
+	register_restart_handler(&jm585_restart_nb);
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_JMICRON, 0x0585, quirk_jm585_restart);
 
 /**
  * There are some special aspects to the Root Complex of Sunway:
