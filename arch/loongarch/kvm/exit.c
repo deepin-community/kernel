@@ -249,9 +249,7 @@ static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
 			vcpu->arch.gprs[rd] = 0;
 		break;
 	case CPUCFG_KVM_FEATURE:
-		ret = KVM_FEATURE_IPI;
-		if (kvm_pvtime_supported())
-			ret |= KVM_FEATURE_STEAL_TIME;
+		ret = vcpu->kvm->arch.pv_features & LOONGARCH_PV_FEAT_MASK;
 		vcpu->arch.gprs[rd] = ret;
 		break;
 	default:
@@ -711,25 +709,22 @@ static long kvm_save_notify(struct kvm_vcpu *vcpu)
 	id   = kvm_read_reg(vcpu, LOONGARCH_GPR_A1);
 	data = kvm_read_reg(vcpu, LOONGARCH_GPR_A2);
 	switch (id) {
-	case KVM_FEATURE_STEAL_TIME:
-		if (!kvm_pvtime_supported())
-			return KVM_HCALL_INVALID_CODE;
-
+	case BIT(KVM_FEATURE_STEAL_TIME):
 		if (data & ~(KVM_STEAL_PHYS_MASK | KVM_STEAL_PHYS_VALID))
 			return KVM_HCALL_INVALID_PARAMETER;
 
 		vcpu->arch.st.guest_addr = data;
 		if (!(data & KVM_STEAL_PHYS_VALID))
-			break;
+			return 0;
 
 		vcpu->arch.st.last_steal = current->sched_info.run_delay;
 		kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
-		break;
+		return 0;
 	default:
-		break;
+		return KVM_HCALL_INVALID_CODE;
 	};
 
-	return 0;
+	return KVM_HCALL_INVALID_CODE;
 };
 
 /*
