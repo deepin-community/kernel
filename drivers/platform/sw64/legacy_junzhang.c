@@ -41,10 +41,9 @@ void sw64_poweroff(void)
 
 void sw64_restart(void)
 {
-	if (is_in_host()) {
-		fix_jm585_reset();
+	if (is_in_host())
 		cpld_write(0x64, 0x00, 0xc3);
-	} else
+	else
 		vt_mode_kill_arch(LINUX_REBOOT_CMD_RESTART);
 }
 

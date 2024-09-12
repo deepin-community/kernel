@@ -8,32 +8,13 @@
 #include <linux/efi.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
-#include <linux/pci.h>
 #include <linux/pm.h>
 #include <linux/reboot.h>
 #include <linux/types.h>
 
 #include <acpi/reboot.h>
 #include <asm/idle.h>
-#include <asm/sw64io.h>
 
-void fix_jm585_reset(void)
-{
-	struct pci_dev *pdev;
-	struct pci_controller *hose;
-	int val;
-
-	pdev = pci_get_device(PCI_VENDOR_ID_JMICRON,
-				0x0585, NULL);
-	if (pdev) {
-		hose = pci_bus_to_pci_controller(pdev->bus);
-		val = readl(hose->rc_config_space_base + RC_PORT_LINK_CTL);
-		writel((val | 0x8), (hose->rc_config_space_base + RC_PORT_LINK_CTL));
-		writel(val, (hose->rc_config_space_base + RC_PORT_LINK_CTL));
-
-	}
-
-}
 static void default_halt(void)
 {
 	local_irq_disable();
@@ -57,10 +38,6 @@ static void default_poweroff(void)
 
 static void default_restart(void)
 {
-	/* No point in taking interrupts anymore. */
-	local_irq_disable();
-
-	fix_jm585_reset();
 #ifdef CONFIG_EFI
 	if (efi_capsule_pending(NULL))
 		efi_reboot(REBOOT_WARM, NULL);
@@ -103,6 +80,9 @@ void machine_restart(char *command)
 	preempt_disable();
 	smp_send_stop();
 #endif
+	/* No point in taking interrupts anymore. */
+	local_irq_disable();
+
 	do_kernel_restart(command);
 	pm_restart();
 }
