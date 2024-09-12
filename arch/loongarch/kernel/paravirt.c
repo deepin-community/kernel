@@ -234,7 +234,7 @@ int __init pv_ipi_init(void)
 	 */
 	feature = read_cpucfg(CPUCFG_KVM_FEATURE);
 #ifdef CONFIG_SMP
-	if (feature & KVM_FEATURE_PV_IPI) {
+	if (feature & BIT(KVM_FEATURE_IPI))
 		smp_ops.init_ipi		= pv_init_ipi;
 		smp_ops.send_ipi_single		= pv_send_ipi_single;
 		smp_ops.send_ipi_mask		= pv_send_ipi_mask;
@@ -263,7 +263,7 @@ static int pv_enable_steal_time(void)
 	}
 
 	addr |= KVM_STEAL_PHYS_VALID;
-	kvm_hypercall2(KVM_HCALL_FUNC_NOTIFY, KVM_FEATURE_STEAL_TIME, addr);
+	kvm_hypercall2(KVM_HCALL_FUNC_NOTIFY, BIT(KVM_FEATURE_STEAL_TIME), addr);
 
 	return 0;
 }
@@ -271,7 +271,7 @@ static int pv_enable_steal_time(void)
 static void pv_disable_steal_time(void)
 {
 	if (has_steal_clock)
-		kvm_hypercall2(KVM_HCALL_FUNC_NOTIFY, KVM_FEATURE_STEAL_TIME, 0);
+		kvm_hypercall2(KVM_HCALL_FUNC_NOTIFY, BIT(KVM_FEATURE_STEAL_TIME), 0);
 }
 
 #ifdef CONFIG_SMP
@@ -323,7 +323,7 @@ int __init pv_time_init(void)
 		return 0;
 
 	feature = read_cpucfg(CPUCFG_KVM_FEATURE);
-	if (!(feature & KVM_FEATURE_STEAL_TIME))
+	if (!(feature & BIT(KVM_FEATURE_STEAL_TIME)))
 		return 0;
 
 	has_steal_clock = 1;
