@@ -385,6 +385,8 @@ void __init sw64_memblock_init(void)
 		}
 	}
 
+	early_init_fdt_scan_reserved_mem();
+
 	/* end of DRAM range may have been changed */
 	max_pfn = max_low_pfn = PFN_DOWN(memblock_end_of_DRAM());
 }
