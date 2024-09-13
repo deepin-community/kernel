@@ -598,7 +598,7 @@ void pcie_port_service_unregister(struct pcie_port_service_driver *drv)
 }
 
 /* If this switch is set, PCIe port native services should not be enabled. */
-bool pcie_ports_disabled;
+bool pcie_ports_disabled = true;
 
 /*
  * If the user specified "pcie_ports=native", use the PCIe services regardless

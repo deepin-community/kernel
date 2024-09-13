@@ -25,7 +25,7 @@ static inline void arch_dma_cache_wback(phys_addr_t paddr, size_t size)
 		return;
 	}
 #endif
-	ALT_CMO_OP(clean, vaddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP_VPA(clean, vaddr, paddr, size, riscv_cbom_block_size);
 }
 
 static inline void arch_dma_cache_inv(phys_addr_t paddr, size_t size)
@@ -39,7 +39,7 @@ static inline void arch_dma_cache_inv(phys_addr_t paddr, size_t size)
 	}
 #endif
 
-	ALT_CMO_OP(inval, vaddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP_VPA(inval, vaddr, paddr, size, riscv_cbom_block_size);
 }
 
 static inline void arch_dma_cache_wback_inv(phys_addr_t paddr, size_t size)
@@ -53,7 +53,7 @@ static inline void arch_dma_cache_wback_inv(phys_addr_t paddr, size_t size)
 	}
 #endif
 
-	ALT_CMO_OP(flush, vaddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP_VPA(flush, vaddr, paddr, size, riscv_cbom_block_size);
 }
 
 static inline bool arch_sync_dma_clean_before_fromdevice(void)
@@ -117,6 +117,7 @@ void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
 void arch_dma_prep_coherent(struct page *page, size_t size)
 {
 	void *flush_addr = page_address(page);
+	phys_addr_t paddr = PFN_PHYS(page_to_pfn(page));
 
 #ifdef CONFIG_RISCV_NONSTANDARD_CACHE_OPS
 	if (unlikely(noncoherent_cache_ops.wback_inv)) {
@@ -125,7 +126,7 @@ void arch_dma_prep_coherent(struct page *page, size_t size)
 	}
 #endif
 
-	ALT_CMO_OP(flush, flush_addr, size, riscv_cbom_block_size);
+	ALT_CMO_OP_VPA(flush, flush_addr, paddr, size, riscv_cbom_block_size);
 }
 
 void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,

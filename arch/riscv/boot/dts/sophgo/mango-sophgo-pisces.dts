@@ -1,0 +1,58 @@
+#include "mango-2sockets.dtsi"
+#include "mango-top-intc2.dtsi"
+#include "mango-pcie-2rc.dtsi"
+
+/ {
+	info {
+		file-name = "mango-sophgo-pisces.dts";
+	};
+};
+
+&ethernet0 {
+	max-speed = <1000>;
+	eth-sophgo-config {
+		autoneg = "enable";
+	};
+};
+
+&soc {
+	gpio-poweroff {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio2_acquire>;
+
+		power {
+			label = "GPIO Key Power";
+			linux,code = <KEY_POWER>;
+			gpios = <&port0a 2 GPIO_ACTIVE_HIGH>;
+			linux,input-type = <1>;
+			debounce-interval = <100>;
+		};
+	};
+};
+
+&port0a {
+	compatible = "snps,dw-apb-gpio-port", "sophgo,gpio0";
+
+	cpld_poweroff: cpld-poweroff {
+		compatible = "mango,cpld-poweroff";
+		gpios = <&port0a 3 GPIO_ACTIVE_HIGH>;
+	};
+
+	cpld_reboot: cpld-reboot {
+		compatible = "mango,cpld-reboot";
+		gpios = <&port0a 5 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/ {
+	 board-info {
+		/* compatible MUST be sophgo,board-info */
+		compatible = "sophgo,board-info";
+		/* valid values are: full-function, xmr */
+		chip-package = "full-function";
+		/* valid values are: x4, x8 */
+		ddr-pcb-type = "x4";
+	};
+};

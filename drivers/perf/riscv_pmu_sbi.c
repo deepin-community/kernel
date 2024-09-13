@@ -650,18 +650,20 @@ static inline void pmu_sbi_start_overflow_mask(struct riscv_pmu *pmu,
 	/* Reinitialize and start all the counter that overflowed */
 	while (ctr_ovf_mask) {
 		if (ctr_ovf_mask & 0x01) {
-			event = cpu_hw_evt->events[idx];
-			hwc = &event->hw;
-			max_period = riscv_pmu_ctr_get_width_mask(event);
-			init_val = local64_read(&hwc->prev_count) & max_period;
+			if(event) {
+				event = cpu_hw_evt->events[idx];
+				hwc = &event->hw;
+				max_period = riscv_pmu_ctr_get_width_mask(event);
+				init_val = local64_read(&hwc->prev_count) & max_period;
 #if defined(CONFIG_32BIT)
-			sbi_ecall(SBI_EXT_PMU, SBI_EXT_PMU_COUNTER_START, idx, 1,
-				  flag, init_val, init_val >> 32, 0);
+				sbi_ecall(SBI_EXT_PMU, SBI_EXT_PMU_COUNTER_START, idx, 1,
+				  	flag, init_val, init_val >> 32, 0);
 #else
-			sbi_ecall(SBI_EXT_PMU, SBI_EXT_PMU_COUNTER_START, idx, 1,
-				  flag, init_val, 0, 0);
+				sbi_ecall(SBI_EXT_PMU, SBI_EXT_PMU_COUNTER_START, idx, 1,
+				  	flag, init_val, 0, 0);
 #endif
-			perf_event_update_userpage(event);
+				perf_event_update_userpage(event);
+			}
 		}
 		ctr_ovf_mask = ctr_ovf_mask >> 1;
 		idx++;

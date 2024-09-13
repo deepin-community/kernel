@@ -353,7 +353,7 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 	ret = ttm_tt_populate(bo->bdev, ttm, &ctx);
 	if (ret)
 		return ret;
-
+#if 0
 	if (num_pages == 1 && ttm->caching == ttm_cached &&
 	    !(man->use_tt && (ttm->page_flags & TTM_TT_FLAG_DECRYPTED))) {
 		/*
@@ -364,7 +364,9 @@ static int ttm_bo_kmap_ttm(struct ttm_buffer_object *bo,
 		map->bo_kmap_type = ttm_bo_map_kmap;
 		map->page = ttm->pages[start_page];
 		map->virtual = kmap(map->page);
-	} else {
+	} else
+#endif
+	{
 		/*
 		 * We need to use vmap to get the desired page protection
 		 * or to make the buffer object look contiguous.

@@ -154,7 +154,7 @@ static void ttm_tt_init_fields(struct ttm_tt *ttm,
 	ttm->dma_address = NULL;
 	ttm->swap_storage = NULL;
 	ttm->sg = bo->sg;
-	ttm->caching = caching;
+	ttm->caching = ttm_write_combined;
 }
 
 int ttm_tt_init(struct ttm_tt *ttm, struct ttm_buffer_object *bo,
