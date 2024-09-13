@@ -9,6 +9,7 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 
+#include <asm/asm-offsets.h>
 #include <asm/fpu.h>
 #include <asm/switch_to.h>
 #include <asm/syscall.h>

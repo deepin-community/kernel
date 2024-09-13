@@ -50,8 +50,7 @@ extern void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr);
 #ifdef GENERATING_ASM_OFFSETS
 #define raw_smp_processor_id() (0)
 #else
-#include <asm/asm-offsets.h>
-#define raw_smp_processor_id() (*((unsigned int *)((void *)current + TASK_CPU)))
+#define raw_smp_processor_id() (current_thread_info()->cpu)
 #endif
 #define hard_smp_processor_id()	cpu_to_rcid(raw_smp_processor_id())
 
