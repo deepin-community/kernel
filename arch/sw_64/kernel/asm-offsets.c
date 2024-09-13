@@ -30,9 +30,6 @@ void foo(void)
 	DEFINE(TASK_GROUP_LEADER, offsetof(struct task_struct, group_leader));
 	DEFINE(TASK_TGID, offsetof(struct task_struct, tgid));
 	DEFINE(TASK_STACK, offsetof(struct task_struct, stack));
-#ifdef CONFIG_SMP
-	DEFINE(TASK_CPU, offsetof(struct task_struct, thread_info.cpu));
-#endif
 	BLANK();
 
 	OFFSET(PSTATE_REGS, processor_state, regs);
