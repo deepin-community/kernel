@@ -39,59 +39,6 @@
 
 struct fwnode_handle *cintc_handle;
 
-static void handle_intx(unsigned int offset)
-{
-	struct pci_controller *hose;
-	unsigned long value;
-	void __iomem *piu_ior0_base;
-
-	hose = hose_head;
-	offset <<= 7;
-	for (hose = hose_head; hose; hose = hose->next) {
-		piu_ior0_base = hose->piu_ior0_base;
-
-		value = readq(piu_ior0_base + INTACONFIG + offset);
-		if (value >> 63) {
-			value = value & (~(1UL << 62));
-			writeq(value, (piu_ior0_base + INTACONFIG + offset));
-			handle_irq(hose->int_irq);
-			value = value | (1UL << 62);
-			writeq(value, (piu_ior0_base + INTACONFIG + offset));
-		}
-
-		if (IS_ENABLED(CONFIG_PCIE_PME)) {
-			value = readq(piu_ior0_base + PMEINTCONFIG);
-			if (value >> 63) {
-				handle_irq(hose->service_irq);
-				writeq(value, (piu_ior0_base + PMEINTCONFIG));
-			}
-		}
-
-		if (IS_ENABLED(CONFIG_PCIEAER)) {
-			value = readq(piu_ior0_base + AERERRINTCONFIG);
-			if (value >> 63) {
-				handle_irq(hose->service_irq);
-				writeq(value, (piu_ior0_base + AERERRINTCONFIG));
-			}
-		}
-
-		if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY)) {
-			value = readq(piu_ior0_base + HPINTCONFIG);
-			if (value >> 63) {
-				handle_irq(hose->service_irq);
-				writeq(value, (piu_ior0_base + HPINTCONFIG));
-			}
-
-		}
-
-		if (hose->iommu_enable) {
-			value = readq(piu_ior0_base + IOMMUEXCPT_STATUS);
-			if (value >> 63)
-				handle_irq(hose->int_irq);
-		}
-	}
-}
-
 static void handle_device_interrupt(unsigned long irq_info)
 {
 	unsigned int i;
