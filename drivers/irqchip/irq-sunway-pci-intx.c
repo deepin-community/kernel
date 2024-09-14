@@ -7,6 +7,7 @@
 #include <asm/smp.h>
 #include <asm/pci.h>
 #include <asm/hw_irq.h>
+#include <asm/irq_impl.h>
 
 static DEFINE_RAW_SPINLOCK(legacy_lock);
 static void lock_legacy_lock(void)
@@ -195,4 +196,56 @@ void __init sw64_init_irq(void)
 
 	for (hose = hose_head; hose; hose = hose->next)
 		setup_intx_irqs(hose);
+}
+
+void handle_intx(unsigned int offset)
+{
+	struct pci_controller *hose;
+	unsigned long value;
+	void __iomem *piu_ior0_base;
+
+	hose = hose_head;
+	offset <<= 7;
+	for (hose = hose_head; hose; hose = hose->next) {
+		piu_ior0_base = hose->piu_ior0_base;
+
+		value = readq(piu_ior0_base + INTACONFIG + offset);
+		if (value & PCI_INTX_VALID) {
+			value &= PCI_INTX_DISABLE;
+			writeq(value, (piu_ior0_base + INTACONFIG + offset));
+			handle_irq(hose->int_irq);
+			value |= PCI_INTX_ENABLE;
+			writeq(value, (piu_ior0_base + INTACONFIG + offset));
+		}
+
+		if (IS_ENABLED(CONFIG_PCIE_PME)) {
+			value = readq(piu_ior0_base + PMEINTCONFIG);
+			if (value & PCI_INTX_VALID) {
+				handle_irq(hose->service_irq);
+				writeq(value, (piu_ior0_base + PMEINTCONFIG));
+			}
+		}
+
+		if (IS_ENABLED(CONFIG_PCIEAER)) {
+			value = readq(piu_ior0_base + AERERRINTCONFIG);
+			if (value & PCI_INTX_VALID) {
+				handle_irq(hose->service_irq);
+				writeq(value, (piu_ior0_base + AERERRINTCONFIG));
+			}
+		}
+
+		if (IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE_SUNWAY)) {
+			value = readq(piu_ior0_base + HPINTCONFIG);
+			if (value & PCI_INTX_VALID) {
+				handle_irq(hose->service_irq);
+				writeq(value, (piu_ior0_base + HPINTCONFIG));
+			}
+		}
+
+		if (hose->iommu_enable) {
+			value = readq(piu_ior0_base + IOMMUEXCPT_STATUS);
+			if (value & PCI_INTX_VALID)
+				handle_irq(hose->int_irq);
+		}
+	}
 }
