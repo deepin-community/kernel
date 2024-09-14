@@ -200,11 +200,6 @@ int psp_dev_init(struct sp_device *sp)
 
 	/* Request an irq */
 	if (is_vendor_hygon()) {
-		ret = hygon_psp_additional_setup(sp);
-		if (ret) {
-			dev_err(dev, "psp: unable to do additional setup\n");
-			goto e_err;
-		}
 		ret = sp_request_hygon_psp_irq(psp->sp, psp_irq_handler, psp->name, psp);
 	} else {
 		ret = sp_request_psp_irq(psp->sp, psp_irq_handler, psp->name, psp);
@@ -221,6 +216,18 @@ int psp_dev_init(struct sp_device *sp)
 	ret = psp_init(psp);
 	if (ret)
 		goto e_irq;
+
+	/**
+	 * hygon_psp_additional_setup() needs to wait for
+	 * sev_dev_install_hooks() to complete before it can be called.
+	 */
+	if (is_vendor_hygon()) {
+		ret = hygon_psp_additional_setup(sp);
+		if (ret) {
+			dev_err(dev, "psp: unable to do additional setup\n");
+			goto e_irq;
+		}
+	}
 
 	/* Enable interrupt */
 	iowrite32(-1, psp->io_regs + psp->vdata->inten_reg);
