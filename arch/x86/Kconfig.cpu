@@ -155,7 +155,6 @@ config MPENTIUM4
 		-Paxville
 		-Dempsey
 
-
 config MK6
 	bool "AMD K6/K6-II/K6-III"
 	depends on X86_32
@@ -604,29 +603,53 @@ config GENERIC_CPU
 	  Generic x86-64 CPU.
 	  Run equally well on all x86-64 CPUs.
 
-config GENERIC_CPU2
-	bool "Generic-x86-64-v2"
+config MAMD_CPU_V2
+	bool "AMD x86-64-v2"
 	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
 	depends on X86_64
 	help
-	  Generic x86-64 CPU.
-	  Run equally well on all x86-64 CPUs with min support of x86-64-v2.
+	  AMD x86-64 CPU with v2 instructions.
+	  Run equally well on all AMD x86-64 CPUs with min support of -march=x86-64-v2.
 
-config GENERIC_CPU3
-	bool "Generic-x86-64-v3"
+config MAMD_CPU_V3
+	bool "AMD x86-64-v3"
 	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
 	depends on X86_64
 	help
-	  Generic x86-64-v3 CPU with v3 instructions.
-	  Run equally well on all x86-64 CPUs with min support of x86-64-v3.
+	  AMD x86-64-v3 CPU with v3 instructions.
+	  Run equally well on all AMD x86-64 CPUs with min support of -march=x86-64-v3.
 
-config GENERIC_CPU4
-	bool "Generic-x86-64-v4"
+config MAMD_CPU_V4
+	bool "AMD x86-64-v4"
 	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
 	depends on X86_64
 	help
-	  Generic x86-64 CPU with v4 instructions.
-	  Run equally well on all x86-64 CPUs with min support of x86-64-v4.
+	  AMD x86-64 CPU with v4 instructions.
+	  Run equally well on all AMD x86-64 CPUs with min support of -march=x86-64-v4.
+
+config MINTEL_CPU_V2
+	bool "Intel x86-64-v2"
+	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
+	depends on X86_64
+	help
+	  Intel x86-64 CPU with v2 instructions.
+	  Run equally well on all Intel x86-64 CPUs with min support of -march=x86-64-v2.
+
+config MINTEL_CPU_V3
+	bool "Intel x86-64-v3"
+	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
+	depends on X86_64
+	help
+	  Intel x86-64 CPU with v3 instructions.
+	  Run equally well on all Intel x86-64 CPUs with min support of -march=x86-64-v3.
+
+config MINTEL_CPU_V4
+	bool "Intel x86-64-v4"
+	depends on (CC_IS_GCC && GCC_VERSION > 110000) || (CC_IS_CLANG && CLANG_VERSION >= 120000)
+	depends on X86_64
+	help
+	  Intel x86-64 CPU with v4 instructions.
+	  Run equally well on all Intel x86-64 CPUs with min support of -march=x86-64-v4.
 
 config MNATIVE_INTEL
 	bool "Intel-Native optimizations autodetected by the compiler"
@@ -678,8 +701,8 @@ config X86_L1_CACHE_SHIFT
 	|| MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL \
 	|| MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE || MCASCADELAKE || MCOOPERLAKE \
 	|| MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE \
-	|| MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD || X86_GENERIC || GENERIC_CPU || GENERIC_CPU2 \
-	|| GENERIC_CPU3 || GENERIC_CPU4
+	|| MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD || X86_GENERIC || GENERIC_CPU || MAMD_CPU_V2 || MAMD_CPU_V3 \
+	|| MAMD_CPU_V4 || MINTEL_CPU_V2 || MINTEL_CPU_V3 || MINTEL_CPU_V4
 	default "4" if MELAN || M486SX || M486 || MGEODEGX1
 	default "5" if MWINCHIP3D || MWINCHIPC6 || MCRUSOE || MEFFICEON || MCYRIXIII || MK6 || MPENTIUMIII \
 	|| MPENTIUMII || M686 || M586MMX || M586TSC || M586 || MVIAC3_2 || MGEODE_LX
@@ -703,7 +726,8 @@ config X86_INTEL_USERCOPY
 	|| MK8 || MK7 || MEFFICEON || MCORE2 || MNEHALEM || MWESTMERE || MSILVERMONT || MGOLDMONT \
 	|| MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX \
 	|| MCANNONLAKE || MICELAKE || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS \
-	|| MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL
+	|| MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL \
+	|| MINTEL_CPU_V2 || MINTEL_CPU_V3 || MINTEL_CPU_V4
 
 config X86_USE_PPRO_CHECKSUM
 	def_bool y
@@ -714,7 +738,8 @@ config X86_USE_PPRO_CHECKSUM
 	|| MWESTMERE || MSILVERMONT || MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE \
 	|| MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE \
 	|| MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE \
-	|| MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD
+	|| MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD \
+	|| MAMD_CPU_V2 || MAMD_CPU_V3 || MAMD_CPU_V4 || MINTEL_CPU_V2 || MINTEL_CPU_V3 || MINTEL_CPU_V4
 
 #
 # P6_NOPs are a relatively minor optimization that require a family >=
@@ -734,7 +759,7 @@ config X86_P6_NOP
 	|| MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE \
 	|| MSKYLAKEX || MCANNONLAKE || MICELAKE || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE \
 	|| MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS \
-	|| MNATIVE_INTEL)
+	|| MNATIVE_INTEL || MINTEL_CPU_V2 || MINTEL_CPU_V3 || MINTEL_CPU_V4)
 
 config X86_TSC
 	def_bool y
@@ -755,7 +780,8 @@ config X86_CMPXCHG64
 	|| MZEN2 || MZEN3 || MZEN4 || MZEN5 || MNEHALEM || MWESTMERE || MSILVERMONT || MGOLDMONT || MGOLDMONTPLUS \
 	|| MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL || MSKYLAKE || MSKYLAKEX || MCANNONLAKE \
 	|| MICELAKE || MCASCADELAKE || MCOOPERLAKE || MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE \
-	|| MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD
+	|| MALDERLAKE || MRAPTORLAKE || MMETEORLAKE || MEMERALDRAPIDS || MNATIVE_INTEL || MNATIVE_AMD \
+	|| MAMD_CPU_V2 || MAMD_CPU_V3 || MAMD_CPU_V4 || MINTEL_CPU_V2 || MINTEL_CPU_V3 || MINTEL_CPU_V4
 
 # this should be set for all -march=.. options where the compiler
 # generates cmov.
@@ -779,7 +805,8 @@ config X86_MINIMUM_CPU_FAMILY
 	|| MGOLDMONT || MGOLDMONTPLUS || MSANDYBRIDGE || MIVYBRIDGE || MHASWELL || MBROADWELL \
 	|| MSKYLAKE || MSKYLAKEX || MCANNONLAKE || MICELAKE || MCASCADELAKE || MCOOPERLAKE \
 	|| MTIGERLAKE || MSAPPHIRERAPIDS || MROCKETLAKE || MALDERLAKE || MRAPTORLAKE || MRAPTORLAKE \
-	|| MNATIVE_INTEL || MNATIVE_AMD)
+	|| MNATIVE_INTEL || MNATIVE_AMD || MAMD_CPU_V2 || MAMD_CPU_V3 || MAMD_CPU_V4 || MINTEL_CPU_V2 \
+	|| MINTEL_CPU_V3 || MINTEL_CPU_V4)
 	default "5" if X86_32 && X86_CMPXCHG64
 	default "4"
 

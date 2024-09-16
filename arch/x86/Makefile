@@ -191,10 +191,13 @@ else
         cflags-$(CONFIG_MRAPTORLAKE) 	+= -march=raptorlake
         cflags-$(CONFIG_MMETEORLAKE) 	+= -march=meteorlake
         cflags-$(CONFIG_MEMERALDRAPIDS)	+= -march=emeraldrapids
-        cflags-$(CONFIG_GENERIC_CPU2) 	+= -march=x86-64-v2
-        cflags-$(CONFIG_GENERIC_CPU3) 	+= -march=x86-64-v3
-        cflags-$(CONFIG_GENERIC_CPU4) 	+= -march=x86-64-v4
         cflags-$(CONFIG_GENERIC_CPU)	+= -mtune=generic
+        cflags-$(CONFIG_MAMD_CPU_V2)	+= -march=x86-64-v2
+        cflags-$(CONFIG_MAMD_CPU_V3)	+= -march=x86-64-v3
+        cflags-$(CONFIG_MAMD_CPU_V4)	+= -march=x86-64-v4
+        cflags-$(CONFIG_MINTEL_CPU_V2)	+= -march=x86-64-v2
+        cflags-$(CONFIG_MINTEL_CPU_V3)	+= -march=x86-64-v3
+        cflags-$(CONFIG_MINTEL_CPU_V4)	+= -march=x86-64-v4
         KBUILD_CFLAGS += $(cflags-y)
 
         rustflags-$(CONFIG_MK8)		+= -Ctarget-cpu=k8
