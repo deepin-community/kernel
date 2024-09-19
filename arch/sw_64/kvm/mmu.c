@@ -956,10 +956,11 @@ static int apt_set_pte(struct kvm *kvm, struct kvm_mmu_memory_cache *cache,
 
 
 static int apt_set_pmd_huge(struct kvm *kvm, struct kvm_mmu_memory_cache
-		*cache, phys_addr_t addr, const pmd_t *new_pmd, unsigned long sz)
+		*cache, phys_addr_t addr, pmd_t *new_pmd, unsigned long sz)
 {
 	pmd_t *pmd, old_pmd, *ori_pmd;
 	int i;
+	unsigned long dpfn;
 retry:
 	pmd = apt_get_pmd(kvm, cache, addr, sz);
 	VM_BUG_ON(!pmd);
@@ -1022,8 +1023,11 @@ retry:
 
 	/* Do we need WRITE_ONCE(pmd, new_pmd)? */
 	if (sz == CONT_PMD_SIZE) {
-		for (i = 0; i < CONT_PMDS; i++, ori_pmd++)
+		dpfn = 1UL << (_PFN_SHIFT + PMD_SHIFT - PAGE_SHIFT);
+		for (i = 0; i < CONT_PMDS; i++, ori_pmd++) {
 			set_pmd(ori_pmd, *new_pmd);
+			new_pmd->pmd += dpfn;
+		}
 	} else
 		set_pmd(pmd, *new_pmd);
 	return 0;
