@@ -9,26 +9,12 @@
 #include <asm/uncore_io_junzhang.h>
 #endif
 
-#ifdef CONFIG_EFI
-#define BIOS_VERSION_GUID       EFI_GUID(0xc47a23c3, 0xcebb, 0x4cc9, 0xa5, 0xe2, 0xde, 0xd0, 0x8f, 0xe4, 0x20, 0xb5)
-
-#define BIOS_SUPPORT_RESET_CLALLBACK(bios_version) ((bios_version) != NULL)
-
-extern unsigned long bios_version;
-
-#endif
-
 extern struct boot_params *sunway_boot_params;
 extern unsigned long sunway_boot_magic;
 extern unsigned long sunway_dtb_address;
 
-extern void sw64_halt(void);
-extern void sw64_poweroff(void);
-extern void sw64_restart(void);
-extern void (*pm_restart)(void);
-extern void (*pm_halt)(void);
-extern int i2c_set_adapter(void);
 extern void cpld_write(uint8_t slave_addr, uint8_t reg, uint8_t data);
+
 extern void early_parse_fdt_property(const void *fdt, const char *path,
 		const char *prop_name, u64 *property, int size);
 
