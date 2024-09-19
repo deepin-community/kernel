@@ -35,6 +35,7 @@ obj-$(CONFIG_RELOCATABLE)   += relocate.o
 obj-$(CONFIG_DEBUG_FS)	+= segvdbg.o unaligned.o
 obj-$(CONFIG_JUMP_LABEL) += jump_label.o
 obj-$(CONFIG_DEBUG_MATCH)	+= match.o
+obj-$(CONFIG_EFI)	+= efi.o
 
 ifdef CONFIG_PERF_EVENTS
 obj-$(CONFIG_SUBARCH_C3B) += perf_event.o
