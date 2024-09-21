@@ -629,9 +629,9 @@ module_param_named(timeout_period, amdgpu_watchdog_timer.period, uint, 0644);
  * See also radeon.si_support which should be disabled when amdgpu.si_support is
  * enabled, and vice versa.
  */
-int amdgpu_si_support = -1;
+int amdgpu_si_support = 1;
 #ifdef CONFIG_DRM_AMDGPU_SI
-MODULE_PARM_DESC(si_support, "SI support (1 = enabled, 0 = disabled, -1 = default)");
+MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
 module_param_named(si_support, amdgpu_si_support, int, 0444);
 #endif
 
@@ -647,9 +647,9 @@ module_param_named(si_support, amdgpu_si_support, int, 0444);
  * See also radeon.cik_support which should be disabled when amdgpu.cik_support is
  * enabled, and vice versa.
  */
-int amdgpu_cik_support = -1;
+int amdgpu_cik_support = 1;
 #ifdef CONFIG_DRM_AMDGPU_CIK
-MODULE_PARM_DESC(cik_support, "CIK support  (1 = enabled, 0 = disabled, -1 = default)");
+MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled (default), 0 = disabled)");
 module_param_named(cik_support, amdgpu_cik_support, int, 0444);
 #endif
 
