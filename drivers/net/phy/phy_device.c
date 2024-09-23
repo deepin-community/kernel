@@ -277,6 +277,19 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
 	if (!drv || !phydrv->suspend)
 		return false;
 
+	/* 1.Ethernet and phy device wol state may not same, netdev->wol_enabled
+	 * disabled,and phydev set wol_enabled enabled, so netdev->wol_enabled
+	 * is not enough, so check phydev->wol_enabled.
+  	 * 2.Phy may not attached to netdev, but enabled wol.
+	 */
+	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+
+	phy_ethtool_get_wol(phydev, &wol);
+	if (wol.wolopts) {
+		phydev_warn(phydev, "Phy and mac wol are not compatible.\n");
+		return false;
+	}
+
 	/* PHY not attached? May suspend if the PHY has not already been
 	 * suspended as part of a prior call to phy_disconnect() ->
 	 * phy_detach() -> phy_suspend() because the parent netdev might be the
@@ -287,18 +300,6 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
 
 	if (netdev->wol_enabled)
 		return false;
-
-	/* Ethernet and phy device wol state may not same, netdev->wol_enabled
-	 * disabled,and phydev set wol_enabled enabled, so netdev->wol_enabled
-	 * is not enough, so check phydev->wol_enabled.
-	 */
-	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
-
-	phy_ethtool_get_wol(phydev, &wol);
-	if (wol.wolopts) {
-		phydev_warn(phydev, "Phy and mac wol are not compatible\n");
-		return false;
-	}
 
 	/* As long as not all affected network drivers support the
 	 * wol_enabled flag, let's check for hints that WoL is enabled.
