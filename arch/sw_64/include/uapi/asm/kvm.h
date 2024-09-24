@@ -19,6 +19,7 @@ enum SW64_KVM_IRQ {
 };
 
 #define __KVM_HAVE_IRQ_LINE
+#define __KVM_HAVE_READONLY_MEM
 
 #define KVM_NR_IRQCHIPS		1
 
