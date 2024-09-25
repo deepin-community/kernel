@@ -1520,6 +1520,8 @@ source "drivers/scsi/csiostor/Kconfig"
 
 source "drivers/scsi/pcmcia/Kconfig"
 
+source "drivers/scsi/linkdata/Kconfig"
+
 endif # SCSI_LOWLEVEL
 
 source "drivers/scsi/device_handler/Kconfig"
