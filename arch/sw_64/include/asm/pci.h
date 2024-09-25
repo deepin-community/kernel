@@ -236,6 +236,7 @@ extern int chip_pcie_configure(struct pci_controller *hose);
 #define PCI_INTX_ENABLE			((1UL) << 62)
 #define PCI_INTX_DISABLE		~((1UL) << 62)
 #define PCI_INTX_VALID			(1UL << 63)
+#define PCI_INTX_INTDST_MASK		0x3ffUL
 
 #define PCI_VENDOR_ID_JN		0x5656
 #define PCI_DEVICE_ID_SW64_ROOT_BRIDGE	0x3231
