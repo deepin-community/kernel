@@ -1,0 +1,53 @@
+
+#ifndef _PS3_HTP_PCI_H_
+#define _PS3_HTP_PCI_H_
+
+#define PCI_DEVICE_ID		0x02
+
+enum {
+    PCI_VENDOR_ID_STARS            = 0x1eb6,
+    PCI_VENDOR_ID_PS3_FPGA         = 0x1eb6,
+    PCI_VENDOR_ID_PS3_SWITCH_FPGA  = 0x1eb6,
+    PCI_VENDOR_ID_PS3_ASIC         = 0x1666,
+    PCI_VENDOR_ID_PS3              = 0x1ff2,
+    PCI_DEVICE_ID_PS3_RAID         = 0x0001,
+    PCI_DEVICE_ID_PS3_HBA          = 0x0002,
+    PCI_DEVICE_ID_PS3_SWITCH       = 0x0003,
+    PCI_DEVICE_ID_PS3_SWITCH_FPGA  = 0x6004,
+    PCI_DEVICE_ID_PS3_RAID_FPGA    = 0xabcd,
+    PCI_DEVICE_ID_STARS_HBA_2120_16i = 0x20a1,
+    PCI_DEVICE_ID_STARS_IOC_2020_18i = 0x20a2,
+    PCI_DEVICE_ID_STARS_IOC_2213_16i = 0x20a3,
+    PCI_DEVICE_ID_STARS_ROC_2020_10i = 0x30a2,
+    PCI_SUBVERDOR_PS3_SWITCH_FPGA  = 0x1eb6,
+    PCI_SUBSYSTEM_PS3_SWITCH_FPGA  = 0x6004,
+    PCI_CLASS_CODE_PS3_SWITCH_FPGA = 0x058000,
+};
+
+static inline const S8 * namePciDevType(U16 e)
+{
+    switch (e) {
+    case PCI_DEVICE_ID_PS3_RAID:
+        return "PCI_DEVICE_ID_PS3_RAID";
+    case PCI_DEVICE_ID_PS3_RAID_FPGA:
+        return "PCI_DEVICE_ID_PS3_RAID_FPGA";
+    case PCI_DEVICE_ID_PS3_HBA:
+        return "PCI_DEVICE_ID_PS3_HBA";
+    case PCI_DEVICE_ID_PS3_SWITCH:
+        return "PCI_DEVICE_ID_PS3_SWITCH";
+    case PCI_DEVICE_ID_PS3_SWITCH_FPGA:
+        return "PCI_DEVICE_ID_PS3_SWITCH_FPGA";
+    case PCI_DEVICE_ID_STARS_HBA_2120_16i:
+        return "PCI_DEVICE_ID_STARS_HBA_2120_16i";
+    case PCI_DEVICE_ID_STARS_IOC_2020_18i:
+        return "PCI_DEVICE_ID_STARS_IOC_2020_18i";
+    case PCI_DEVICE_ID_STARS_ROC_2020_10i:
+        return "PCI_DEVICE_ID_STARS_ROC_2020_10i";
+    case PCI_DEVICE_ID_STARS_IOC_2213_16i:
+        return "PCI_DEVICE_ID_STARS_IOC_2213_16i";
+    default:
+        return "PCI_DEVICE_ID_INVALID";
+    }
+}
+
+#endif 
