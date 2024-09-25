@@ -47,7 +47,7 @@ config SW64_RRK
 
 config DEBUG_MATCH
 	bool "instruction-flow and data-flow match debugfs interface"
-	depends on DEBUG_FS
+	depends on DEBUG_FS && SUBARCH_C4
 	default n
 	help
 	  Turns on the DebugFS interface for instruction-flow and data-flow match.
