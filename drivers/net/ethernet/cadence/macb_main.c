@@ -809,7 +809,21 @@ static void phytium_gem1p0_sel_clk(struct macb *bp, int speed)
 		gem_writel(bp, RX_CLK_SEL3_0, 0x0); /*0x1c78*/
 		gem_writel(bp, RX_CLK_SEL4_0, 0x0); /*0x1c7c*/
 	} else if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-		if (speed == SPEED_1000) {
+		if (speed == SPEED_2500) {
+			gem_writel(bp, DIV_SEL0_LN, 0x1);		   /*0x1c08*/
+			gem_writel(bp, DIV_SEL1_LN, 0x2);		   /*0x1c0c*/
+			gem_writel(bp, PMA_XCVR_POWER_STATE, 0x1); /*0x1c10*/
+			gem_writel(bp, TX_CLK_SEL0, 0x0);		   /*0x1c20*/
+			gem_writel(bp, TX_CLK_SEL1, 0x1);		   /*0x1c24*/
+			gem_writel(bp, TX_CLK_SEL2, 0x1);		   /*0x1c28*/
+			gem_writel(bp, TX_CLK_SEL3, 0x1);		   /*0x1c2c*/
+			gem_writel(bp, RX_CLK_SEL0, 0x1);		   /*0x1c30*/
+			gem_writel(bp, RX_CLK_SEL1, 0x0);		   /*0x1c34*/
+			gem_writel(bp, TX_CLK_SEL3_0, 0x0);		   /*0x1c70*/
+			gem_writel(bp, TX_CLK_SEL4_0, 0x0);		   /*0x1c74*/
+			gem_writel(bp, RX_CLK_SEL3_0, 0x0);		   /*0x1c78*/
+			gem_writel(bp, RX_CLK_SEL4_0, 0x0);		   /*0x1c7c*/
+		} else if (speed == SPEED_1000) {
 			gem_writel(bp, SRC_SEL_LN, 0x1); /*0x1c04*/
 			gem_writel(bp, DIV_SEL0_LN, 0x4); /*0x1c08*/
 			gem_writel(bp, DIV_SEL1_LN, 0x8); /*0x1c0c*/
@@ -983,10 +997,16 @@ static void macb_mac_link_up(struct phylink_config *config,
 
 	if (speed == SPEED_2500) {
 		u32 network_ctrl;
+		u32 pcsctrl, old_pcsctrl;
 
 		network_ctrl = macb_readl(bp, NCR);
 		network_ctrl |= MACB_BIT(2PT5G);
 		macb_writel(bp, NCR, network_ctrl);
+
+		old_pcsctrl = gem_readl(bp, PCSCNTRL);
+		pcsctrl = old_pcsctrl & ~GEM_BIT(PCSAUTONEG);
+		if (old_pcsctrl != pcsctrl)
+			gem_writel(bp, PCSCNTRL, pcsctrl);
 	}
 
 	if (bp->phy_interface == PHY_INTERFACE_MODE_10GBASER ||
@@ -1128,11 +1148,11 @@ static int macb_mii_probe(struct net_device *dev)
 	bp->phylink_config.type = PHYLINK_NETDEV;
 	bp->phylink_config.mac_managed_pm = true;
 
-	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII ||
+	    bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX) {
 		bp->phylink_config.poll_fixed_state = true;
 		bp->phylink_config.get_fixed_state = macb_get_pcs_fixed_state;
-	} else if (bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX ||
-			bp->phy_interface == PHY_INTERFACE_MODE_USXGMII) {
+	} else if (bp->phy_interface == PHY_INTERFACE_MODE_USXGMII) {
 		bp->phylink_config.poll_fixed_state = true;
 		bp->phylink_config.get_fixed_state = macb_get_usx_pcs_fixed_state;
 	}
@@ -1166,12 +1186,6 @@ static int macb_mii_probe(struct net_device *dev)
 				  bp->phylink_config.supported_interfaces);
 			bp->phylink_config.mac_capabilities |= MAC_10000FD;
 		}
-	}
-
-	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII ||
-	    bp->phy_interface == PHY_INTERFACE_MODE_2500BASEX) {
-		bp->phylink_config.poll_fixed_state = true;
-		bp->phylink_config.get_fixed_state = macb_get_pcs_fixed_state;
 	}
 
 	bp->phylink = phylink_create(&bp->phylink_config, bp->pdev->dev.fwnode,
