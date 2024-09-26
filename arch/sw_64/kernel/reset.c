@@ -65,6 +65,8 @@ void machine_restart(char *command)
 	/* VM cannot reach here */
 	WARN_ON(!is_in_host());
 
+	acpi_reboot();
+
 	/**
 	 * Compatibility with old firmware, can be removed
 	 * when no longer support SW3231.

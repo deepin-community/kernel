@@ -112,6 +112,18 @@ static inline u32 get_acpi_id_for_cpu(unsigned int cpu)
 	/* We take rcid as processor _UID */
 	return cpu_physical_id(cpu);
 }
+
+static inline unsigned long acpi_get_wakeup_address(void)
+{
+	return 0;
+}
+
+static inline bool acpi_skip_set_wakeup_address(void)
+{
+	return true;
+}
+
+#define acpi_skip_set_wakeup_address acpi_skip_set_wakeup_address
 #else /* !CONFIG_ACPI */
 
 static inline void acpi_noirq_set(void) { }
