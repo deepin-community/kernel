@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0
+# Common clock support for Cixtech SoC family
+menu "Clock support for Cixtech"
+
+comment "Clock options for Cixtech CPUs:"
+
+config COMMON_CLK_CIX
+	tristate "Support for Cix's clock controllers"
+	select REGMAP_MMIO
+	select RESET_CONTROLLER
+	help
+	  Say y here to enable common clock controller for Cix platforms.
+
+endmenu
