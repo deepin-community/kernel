@@ -24,7 +24,7 @@
 static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
 {
 	int rd, rj;
-	unsigned int index;
+	unsigned int index, ret;
 
 	if (inst.reg2_format.opcode != cpucfg_op)
 		return EMULATE_FAIL;
@@ -50,6 +50,10 @@ static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
 	case CPUCFG_KVM_SIG:
 		/* CPUCFG emulation between 0x40000000 -- 0x400000ff */
 		vcpu->arch.gprs[rd] = *(unsigned int *)KVM_SIGNATURE;
+		break;
+	case CPUCFG_KVM_FEATURE:
+		ret = vcpu->kvm->arch.pv_features & LOONGARCH_PV_FEAT_MASK;
+		vcpu->arch.gprs[rd] = ret;
 		break;
 	default:
 		vcpu->arch.gprs[rd] = 0;
@@ -280,8 +284,7 @@ static int kvm_trap_handle_gspr(struct kvm_vcpu *vcpu)
 	er = EMULATE_FAIL;
 	switch (((inst.word >> 24) & 0xff)) {
 	case 0x0: /* CPUCFG GSPR */
-		if (inst.reg2_format.opcode == cpucfg_op)
-			er = kvm_emu_cpucfg(vcpu, inst);
+		er = kvm_emu_cpucfg(vcpu, inst);
 		break;
 	case 0x4: /* CSR{RD,WR,XCHG} GSPR */
 		er = kvm_handle_csr(vcpu, inst);
@@ -730,27 +733,6 @@ static int kvm_handle_fpu_disabled(struct kvm_vcpu *vcpu)
 	return RESUME_GUEST;
 }
 
-/*
- * Hypercall emulation always return to guest, Caller should check retval.
- */
-static void kvm_handle_service(struct kvm_vcpu *vcpu)
-{
-	unsigned long func = kvm_read_reg(vcpu, LOONGARCH_GPR_A0);
-	long ret;
-
-	switch (func) {
-	case KVM_HCALL_FUNC_IPI:
-		kvm_send_pv_ipi(vcpu);
-		ret = KVM_HCALL_SUCCESS;
-		break;
-	default:
-		ret = KVM_HCALL_INVALID_CODE;
-		break;
-	};
-
-	kvm_write_reg(vcpu, LOONGARCH_GPR_A0, ret);
-}
-
 static long kvm_save_notify(struct kvm_vcpu *vcpu)
 {
 	unsigned long id, data;
@@ -842,11 +824,37 @@ static int kvm_send_pv_ipi(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+/*
+ * Hypercall emulation always return to guest, Caller should check retval.
+ */
+static void kvm_handle_service(struct kvm_vcpu *vcpu)
+{
+	long ret = KVM_HCALL_INVALID_CODE;
+	unsigned long func = kvm_read_reg(vcpu, LOONGARCH_GPR_A0);
+
+	switch (func) {
+	case KVM_HCALL_FUNC_IPI:
+		if (kvm_guest_has_pv_feature(vcpu, KVM_FEATURE_IPI)) {
+			kvm_send_pv_ipi(vcpu);
+			ret = KVM_HCALL_SUCCESS;
+		}
+		break;
+	case KVM_HCALL_FUNC_NOTIFY:
+		if (kvm_guest_has_pv_feature(vcpu, KVM_FEATURE_STEAL_TIME))
+			ret = kvm_save_notify(vcpu);
+		break;
+	default:
+		break;
+	}
+
+	kvm_write_reg(vcpu, LOONGARCH_GPR_A0, ret);
+}
+
 static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 {
+	int ret;
 	larch_inst inst;
 	unsigned int code;
-	int ret;
 
 	inst.word = vcpu->arch.badi;
 	code = inst.reg0i15_format.immediate;
@@ -858,16 +866,16 @@ static int kvm_handle_hypercall(struct kvm_vcpu *vcpu)
 		kvm_handle_service(vcpu);
 		break;
 	case KVM_HCALL_SWDBG:
-		/* KVM_HC_SWDBG only in effective when SW_BP is enabled */
-		if (vcpu->guest_debug & KVM_GUESTDBG_USE_SW_BP) {
+		/* KVM_HCALL_SWDBG only in effective when SW_BP is enabled */
+		if (vcpu->guest_debug & KVM_GUESTDBG_SW_BP_MASK) {
 			vcpu->run->exit_reason = KVM_EXIT_DEBUG;
 			ret = RESUME_HOST;
-		} else
-			vcpu->arch.gprs[LOONGARCH_GPR_A0] = KVM_HCALL_INVALID_CODE;
-		break;
+			break;
+		}
+		fallthrough;
 	default:
 		/* Treat it as noop intruction, only set return value */
-		vcpu->arch.gprs[LOONGARCH_GPR_A0] = KVM_HCALL_INVALID_CODE;
+		kvm_write_reg(vcpu, LOONGARCH_GPR_A0, KVM_HCALL_INVALID_CODE);
 		break;
 	}
 

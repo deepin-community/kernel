@@ -23,7 +23,7 @@
 /*
  * LoongArch hypercall return code
  */
-#define KVM_HCALL_STATUS_SUCCESS	0
+#define KVM_HCALL_SUCCESS		0
 #define KVM_HCALL_INVALID_CODE		-1UL
 #define KVM_HCALL_INVALID_PARAMETER	-2UL
 

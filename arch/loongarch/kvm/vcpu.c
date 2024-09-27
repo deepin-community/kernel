@@ -32,11 +32,6 @@ const struct kvm_stats_header kvm_vcpu_stats_header = {
 		       sizeof(kvm_vcpu_stats_desc),
 };
 
-static bool kvm_pvtime_supported(void)
-{
-	return !!sched_info_on();
-}
-
 static inline void kvm_save_host_pmu(struct kvm_vcpu *vcpu)
 {
 	struct kvm_context *context;
@@ -151,17 +146,10 @@ static void kvm_restore_pmu(struct kvm_vcpu *vcpu)
 
 static void kvm_check_pmu(struct kvm_vcpu *vcpu)
 {
-	if (!kvm_check_request(KVM_REQ_PMU, vcpu))
-		return;
-
-	kvm_own_pmu(vcpu);
-
-	/*
-	 * Set KVM_GUEST PMU_ENABLE and GUEST_PMU_ACTIVE
-	 * when guest has KVM_REQ_PMU request.
-	 */
-	vcpu->arch.aux_inuse |= KVM_GUEST_PMU_ENABLE;
-	vcpu->arch.aux_inuse |= KVM_GUEST_PMU_ACTIVE;
+	if (kvm_check_request(KVM_REQ_PMU, vcpu)) {
+		kvm_own_pmu(vcpu);
+		vcpu->arch.aux_inuse |= KVM_LARCH_PMU;
+	}
 }
 
 static void kvm_update_stolen_time(struct kvm_vcpu *vcpu)
@@ -225,7 +213,7 @@ static int kvm_check_requests(struct kvm_vcpu *vcpu)
 	if (kvm_dirty_ring_check_request(vcpu))
 		return RESUME_HOST;
 
-	if (kvm_check_request(KVM_REQ_RECORD_STEAL, vcpu))
+	if (kvm_check_request(KVM_REQ_STEAL_UPDATE, vcpu))
 		kvm_update_stolen_time(vcpu);
 
 	return RESUME_GUEST;
@@ -649,6 +637,8 @@ static int _kvm_get_cpucfg_mask(int id, u64 *v)
 		 */
 		if (cpu_has_lsx)
 			*v |= CPUCFG2_LSX;
+		if (cpu_has_lasx)
+			*v |= CPUCFG2_LASX;
 		if (cpu_has_lbt_x86)
 			*v |= CPUCFG2_X86BT;
 		if (cpu_has_lbt_arm)
@@ -688,7 +678,7 @@ static int _kvm_get_cpucfg_mask(int id, u64 *v)
 
 static int kvm_check_cpucfg(int id, u64 val)
 {
-	int ret, host;
+	int ret;
 	u64 mask = 0;
 
 	ret = _kvm_get_cpucfg_mask(id, &mask);
@@ -786,7 +776,7 @@ static int kvm_get_one_reg(struct kvm_vcpu *vcpu,
 			*v = drdtime() + vcpu->kvm->arch.time_offset;
 			break;
 		case KVM_REG_LOONGARCH_DEBUG_INST:
-			*v = INSN_HVCL + KVM_HCALL_SWDBG;
+			*v = INSN_HVCL | KVM_HCALL_SWDBG;
 			break;
 		default:
 			ret = -EINVAL;
@@ -1151,7 +1141,6 @@ static int kvm_loongarch_vcpu_set_attr(struct kvm_vcpu *vcpu,
 		break;
 	case KVM_LOONGARCH_VCPU_PVTIME_CTRL:
 		ret = kvm_loongarch_pvtime_set_attr(vcpu, attr);
-		break;
 		break;
 	default:
 		break;
@@ -1575,8 +1564,6 @@ static int _kvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	/* Control guest page CCA attribute */
 	change_csr_gcfg(CSR_GCFG_MATC_MASK, CSR_GCFG_MATC_ROOT);
 	kvm_make_request(KVM_REQ_STEAL_UPDATE, vcpu);
-
-	kvm_make_request(KVM_REQ_RECORD_STEAL, vcpu);
 
 	/* Restore hardware PMU CSRs */
 	kvm_restore_pmu(vcpu);
