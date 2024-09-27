@@ -170,14 +170,17 @@ int kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		r = 1;
 		break;
 	}
-	case KVM_HAS_DEVICE_ATTR:
+	case KVM_HAS_DEVICE_ATTR: {
 		if (copy_from_user(&attr, argp, sizeof(attr)))
 			return -EFAULT;
 
 		return kvm_vm_has_attr(kvm, &attr);
-	default:
-		return -ENOIOCTLCMD;
 	}
+	default:
+		return -EINVAL;
+	}
+
+	return r;
 }
 
 int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *data,
