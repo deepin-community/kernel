@@ -2,12 +2,6 @@
 #ifndef _ASM_SW64_IRQ_H
 #define _ASM_SW64_IRQ_H
 
-/*
- *	arch/sw/include/asm/irq.h
- *
- *	(C) 2012 OSKernel JN
- */
-
 #include <linux/linkage.h>
 
 #define NR_VECTORS_PERCPU	256
