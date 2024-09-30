@@ -220,12 +220,28 @@ static phys_addr_t gpa_to_hpa(struct kvm_vpsp *vpsp, unsigned long data_gpa)
 	phys_addr_t hpa = 0;
 	unsigned long pfn = vpsp->gfn_to_pfn(vpsp->kvm, data_gpa >> PAGE_SHIFT);
 	unsigned long me_mask = sme_get_me_mask();
+	struct page *page;
 
 	if (me_mask == 0 && vpsp->is_csv_guest)
 		me_mask = vpsp_get_me_mask();
 
 	if (!is_error_pfn(pfn))
 		hpa = ((pfn << PAGE_SHIFT) + offset_in_page(data_gpa)) | me_mask;
+	else {
+		pr_err("[%s] pfn: %lx is invalid, gpa %lx",
+				__func__, pfn, data_gpa);
+		return 0;
+	}
+
+	/*
+	 * Using gfn_to_pfn causes the refcount to increment
+	 * atomically by one, which needs to be released.
+	 */
+	page = pfn_to_page(pfn);
+	if (PageCompound(page))
+		page = compound_head(page);
+
+	put_page(page);
 
 	pr_debug("gpa %lx, hpa %llx\n", data_gpa, hpa);
 	return hpa;
@@ -343,6 +359,7 @@ int kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
 	struct vpsp_context *vpsp_ctx = NULL;
 	struct vpsp_cmd *vcmd = (struct vpsp_cmd *)&cmd;
 	uint8_t prio = CSV_COMMAND_PRIORITY_LOW;
+	phys_addr_t hpa;
 
 	vpsp_get_context(&vpsp_ctx, vpsp->kvm->userspace_pid);
 
@@ -363,7 +380,14 @@ int kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
 		vid = vpsp_ctx->vid;
 
 	*((uint32_t *)&psp_async) = psp_ret;
-	data_hpa = PUT_PSP_VID(gpa_to_hpa(vpsp, data_gpa), vid);
+
+	hpa = gpa_to_hpa(vpsp, data_gpa);
+	if (unlikely(!hpa)) {
+		ret = -EFAULT;
+		goto end;
+	}
+
+	data_hpa = PUT_PSP_VID(hpa, vid);
 
 	switch (psp_async.status) {
 	case VPSP_INIT:
