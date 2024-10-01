@@ -741,6 +741,13 @@ config PHYTIUM_DDMA
 	help
 	  Enable support for Phytium PE220x DDMA controller.
 
+config ARM_DMA350
+	tristate "ARM DMA350 support"
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Enable support for ARM  DMA350 controller.
+
 # driver files
 source "drivers/dma/bestcomm/Kconfig"
 
