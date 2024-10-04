@@ -103,7 +103,6 @@ install_linux_image () {
 
 		mkdir -p "${pdir}/DEBIAN"
 		cat <<-EOF > "${pdir}/DEBIAN/${script}"
-
 		#!/bin/sh
 
 		set -e
