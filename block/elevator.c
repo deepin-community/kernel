@@ -575,8 +575,13 @@ static struct elevator_type *elevator_get_default(struct request_queue *q)
 	if (q->nr_hw_queues != 1 &&
 	    !blk_mq_is_shared_tags(q->tag_set->flags))
 		return NULL;
-
+#if defined(CONFIG_IOSCHED_BFQ)
+	if (!blk_queue_nonrot(q))
+		return elevator_find_get(q, "bfq");
 	return elevator_find_get(q, "mq-deadline");
+#else
+	return elevator_find_get(q, "mq-deadline");
+#endif
 }
 
 /*
