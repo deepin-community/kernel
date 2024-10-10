@@ -6,6 +6,8 @@
  * Copyright (c) 2022 Tejun Heo <tj@kernel.org>
  * Copyright (c) 2022 David Vernet <dvernet@meta.com>
  */
+#include <linux/bpf.h>
+
 #define SCX_OP_IDX(op)		(offsetof(struct sched_ext_ops, op) / sizeof(void (*)(void)))
 
 enum scx_consts {
@@ -3613,7 +3615,8 @@ void sched_ext_free(struct task_struct *p)
 	}
 }
 
-static void reweight_task_scx(struct rq *rq, struct task_struct *p, int newprio)
+static void reweight_task_scx(struct rq *rq, struct task_struct *p,
+			      const struct load_weight *lw)
 {
 	lockdep_assert_rq_held(task_rq(p));
 
@@ -4435,7 +4438,7 @@ static void scx_ops_disable_workfn(struct kthread_work *work)
 		sched_deq_and_put_task(p, DEQUEUE_SAVE | DEQUEUE_MOVE, &ctx);
 
 		p->scx.slice = min_t(u64, p->scx.slice, SCX_SLICE_DFL);
-		__setscheduler_prio(p, p->prio);
+		p->sched_class = __setscheduler_class(p, p->prio);
 		check_class_changing(task_rq(p), p, old_class);
 
 		sched_enq_and_set_task(&ctx);
@@ -5145,7 +5148,7 @@ static int scx_ops_enable(struct sched_ext_ops *ops, struct bpf_link *link)
 		sched_deq_and_put_task(p, DEQUEUE_SAVE | DEQUEUE_MOVE, &ctx);
 
 		scx_set_task_state(p, SCX_TASK_READY);
-		__setscheduler_prio(p, p->prio);
+		p->sched_class = __setscheduler_class(p, p->prio);
 		check_class_changing(task_rq(p), p, old_class);
 
 		sched_enq_and_set_task(&ctx);
@@ -5322,7 +5325,7 @@ bpf_scx_get_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_task_storage_delete:
 		return &bpf_task_storage_delete_proto;
 	default:
-		return bpf_base_func_proto(func_id, prog);
+		return bpf_base_func_proto(func_id);
 	}
 }
 
