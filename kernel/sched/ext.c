@@ -3235,7 +3235,7 @@ static int select_task_rq_scx(struct task_struct *p, int prev_cpu, int wake_flag
 	if (unlikely(wake_flags & WF_EXEC))
 		return prev_cpu;
 
-	if (SCX_HAS_OP(select_cpu)) {
+	if (SCX_HAS_OP(select_cpu) && !scx_rq_bypassing(task_rq(p))) {
 		s32 cpu;
 		struct task_struct **ddsp_taskp;
 
@@ -4388,21 +4388,23 @@ bool task_should_scx(struct task_struct *p)
  * the DISABLING state and then cycling the queued tasks through dequeue/enqueue
  * to force global FIFO scheduling.
  *
- * a. ops.enqueue() is ignored and tasks are queued in simple global FIFO order.
- *    %SCX_OPS_ENQ_LAST is also ignored.
+ * - ops.select_cpu() is ignored and the default select_cpu() is used.
  *
- * b. ops.dispatch() is ignored.
+ * - ops.enqueue() is ignored and tasks are queued in simple global FIFO order.
+ *   %SCX_OPS_ENQ_LAST is also ignored.
  *
- * c. balance_scx() does not set %SCX_RQ_BAL_KEEP on non-zero slice as slice
- *    can't be trusted. Whenever a tick triggers, the running task is rotated to
- *    the tail of the queue with core_sched_at touched.
+ * - ops.dispatch() is ignored.
  *
- * d. pick_next_task() suppresses zero slice warning.
+ * - balance_scx() does not set %SCX_RQ_BAL_KEEP on non-zero slice as slice
+ *   can't be trusted. Whenever a tick triggers, the running task is rotated to
+ *   the tail of the queue with core_sched_at touched.
  *
- * e. scx_bpf_kick_cpu() is disabled to avoid irq_work malfunction during PM
- *    operations.
+ * - pick_next_task() suppresses zero slice warning.
  *
- * f. scx_prio_less() reverts to the default core_sched_at order.
+ * - scx_bpf_kick_cpu() is disabled to avoid irq_work malfunction during PM
+ *   operations.
+ *
+ * - scx_prio_less() reverts to the default core_sched_at order.
  */
 static void scx_ops_bypass(bool bypass)
 {
