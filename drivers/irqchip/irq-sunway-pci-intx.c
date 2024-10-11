@@ -9,11 +9,22 @@
 #include <asm/hw_irq.h>
 #include <asm/irq_impl.h>
 
+#define PCI_INTXCONFIG_OFFSET	7
+#define PCI_INTTYPE_OFFSET	10
+
+#if defined(CONFIG_SUBARCH_C3B)
+	#define PCI_INTDST_DOMAIN_ID_SHIFT 6
+#elif defined(CONFIG_SUBARCH_C4)
+	#define PCI_INTDST_DOMAIN_ID_SHIFT 7
+#endif
+
+#define PCI_INTDST_THREAD_ID_SHIFT 6
+
 static DEFINE_RAW_SPINLOCK(legacy_lock);
 
 struct intx_chip_data {
 	struct pci_controller *hose;
-	unsigned long intxconfig[4];
+	unsigned long intxconfig[PCI_NUM_INTX];
 	unsigned int offset;
 };
 
@@ -67,16 +78,18 @@ static int __assign_piu_intx_config(struct intx_chip_data *chip_data,
 	hose = chip_data->hose;
 	piu_ior0_base = hose->piu_ior0_base;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < PCI_NUM_INTX; i++) {
 		intxconfig = chip_data->intxconfig[i];
 		intxconfig &= ~PCI_INTX_INTDST_MASK;
 
 		if (IS_ENABLED(CONFIG_SUBARCH_C3B))
-			intxconfig |= core | (node << 6);
+			intxconfig |= core | (node << PCI_INTDST_DOMAIN_ID_SHIFT);
 		else
-			intxconfig |= core | (thread << 6) | (node << 7);
+			intxconfig |= core | (thread << PCI_INTDST_THREAD_ID_SHIFT)
+						| (node << PCI_INTDST_DOMAIN_ID_SHIFT);
 
-		writeq(intxconfig, piu_ior0_base + INTACONFIG + (i << 7));
+		writeq(intxconfig, piu_ior0_base + INTACONFIG +
+					(i << PCI_INTXCONFIG_OFFSET));
 		chip_data->intxconfig[i] = intxconfig;
 	}
 	return 0;
@@ -108,13 +121,14 @@ static void set_intx_enable(struct irq_data *irq_data, u32 flag)
 	hose = chip_data->hose;
 	piu_ior0_base = hose->piu_ior0_base;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < PCI_NUM_INTX; i++) {
 		intxconfig = chip_data->intxconfig[i];
 		if (flag)
 			intxconfig |= PCI_INTX_ENABLE;
 		else
 			intxconfig &= PCI_INTX_DISABLE;
-		writeq(intxconfig, piu_ior0_base + INTACONFIG + (i << 7));
+		writeq(intxconfig, piu_ior0_base + INTACONFIG +
+					(i << PCI_INTXCONFIG_OFFSET));
 	}
 }
 
@@ -174,7 +188,8 @@ static void intx_mask_irq(struct irq_data *irq_data, u32 flag)
 	else
 		intxconfig |= PCI_INTX_ENABLE;
 
-	writeq(intxconfig, piu_ior0_base + INTACONFIG + (offset << 7));
+	writeq(intxconfig, piu_ior0_base + INTACONFIG +
+				(offset << PCI_INTXCONFIG_OFFSET));
 }
 
 static void intx_irq_mask(struct irq_data *irq_data)
@@ -196,7 +211,7 @@ static void intx_irq_unmask(struct irq_data *irq_data)
 static void noop(struct irq_data *d) {}
 
 static struct irq_chip sw64_intx_chip = {
-	.name			= "PCI_INTX",
+	.name			= "PCI-INTX",
 	.irq_enable		= intx_irq_enable,
 	.irq_disable		= intx_irq_disable,
 	.irq_mask		= intx_irq_mask,
@@ -234,11 +249,11 @@ void setup_intx_irqs(struct pci_controller *hose)
 
 	chip_data->hose = hose;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < PCI_NUM_INTX; i++) {
 		if (IS_ENABLED(CONFIG_SUBARCH_C3B))
-			chip_data->intxconfig[i] = (0x1UL << (3 - i)) << 10;
+			chip_data->intxconfig[i] = (0x1UL << (3 - i)) << PCI_INTTYPE_OFFSET;
 		else
-			chip_data->intxconfig[i] = (0x1UL << i) << 10;
+			chip_data->intxconfig[i] = (0x1UL << i) << PCI_INTTYPE_OFFSET;
 	}
 
 	irq_set_chip_data(irq, chip_data);
@@ -250,7 +265,7 @@ void setup_intx_irqs(struct pci_controller *hose)
 	set_pcieport_service_irq(hose);
 }
 
-void __init sw64_init_irq(void)
+void __init sunway_init_pci_intx(void)
 {
 	struct pci_controller *hose = hose_head;
 
@@ -270,7 +285,9 @@ void handle_intx(unsigned int offset)
 	for (hose = hose_head; hose; hose = hose->next) {
 		piu_ior0_base = hose->piu_ior0_base;
 
-		value = readq(piu_ior0_base + INTACONFIG + (offset << 7));
+		value = readq(piu_ior0_base + INTACONFIG +
+				(offset << PCI_INTXCONFIG_OFFSET));
+
 		if ((value & (PCI_INTX_VALID)) && (value & PCI_INTX_ENABLE)) {
 			irq_data = irq_get_irq_data(hose->int_irq);
 			if (irq_data) {

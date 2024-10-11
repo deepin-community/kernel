@@ -39,7 +39,7 @@
 
 struct fwnode_handle *cintc_handle;
 
-static void handle_device_interrupt(unsigned long irq_info)
+static void handle_pci_intx_interrupt(unsigned long irq_info)
 {
 	unsigned int i;
 
@@ -48,7 +48,7 @@ static void handle_device_interrupt(unsigned long irq_info)
 		return;
 	}
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < PCI_NUM_INTX; i++) {
 		if ((irq_info >> i) & 0x1)
 			handle_intx(i);
 	}
@@ -99,7 +99,7 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 		}
 
 		if (pme_state == PME_PENDING) {
-			handle_device_interrupt(vector);
+			handle_pci_intx_interrupt(vector);
 			pme_state = PME_CLEAR;
 		}
 	}
@@ -123,7 +123,7 @@ asmlinkage void do_entInt(unsigned long type, unsigned long vector,
 			handle_pci_msi_interrupt(type, vector, irq_arg);
 		goto out;
 	case INT_INTx:
-		handle_device_interrupt(vector);
+		handle_pci_intx_interrupt(vector);
 		goto out;
 
 	case INT_IPI:

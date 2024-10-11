@@ -44,7 +44,7 @@ extern struct irqaction timer_irqaction;
 extern void init_rtc_irq(irq_handler_t handler);
 extern void handle_irq(int irq);
 extern void handle_ipi(struct pt_regs *regs);
-extern void __init sw64_init_irq(void);
+extern void __init sunway_init_pci_intx(void);
 extern irqreturn_t timer_interrupt(int irq, void *dev);
 
 #endif /* _ASM_SW64_IRQ_IMPL_H */

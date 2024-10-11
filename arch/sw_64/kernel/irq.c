@@ -128,7 +128,7 @@ void __init init_IRQ(void)
 		set_nmi(INT_PC);
 	}
 
-	sw64_init_irq();
+	sunway_init_pci_intx();
 	irqchip_init();
 }
 

@@ -153,7 +153,7 @@ struct pci_controller {
 extern void __init sw64_init_pci(void);
 extern void __init sw64_device_interrupt(unsigned long vector);
 extern void setup_intx_irqs(struct pci_controller *hose);
-extern void __init sw64_init_irq(void);
+extern void __init sunway_init_pci_intx(void);
 extern void __init sw64_init_arch(void);
 extern int sw64_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 extern struct pci_controller *hose_head;
