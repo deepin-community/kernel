@@ -47,9 +47,6 @@ struct intx_chip_data *alloc_intx_chip_data(u32 node)
 
 	chip_data = kzalloc_node(sizeof(struct intx_chip_data),
 			GFP_KERNEL, node);
-	if (!chip_data)
-		chip_data = kzalloc(sizeof(struct intx_chip_data),
-				GFP_KERNEL);
 
 	return chip_data;
 }
