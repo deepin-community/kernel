@@ -4,3 +4,4 @@
 #
 
 obj-$(CONFIG_MGBE) += rnpgbe/
+obj-$(CONFIG_MXGBE) += rnp/
