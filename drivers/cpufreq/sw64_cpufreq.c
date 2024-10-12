@@ -66,13 +66,16 @@ static unsigned int sw64_cpufreq_get(unsigned int cpu)
 static int sw64_cpufreq_target(struct cpufreq_policy *policy,
 				     unsigned int index)
 {
+	int ret;
 	unsigned int cpu = policy->cpu;
 
 	if (!cpu_online(cpu))
 		return -ENODEV;
 
 	/* setting the cpu frequency */
-	sw64_set_rate(index);
+	ret = sw64_set_rate(index);
+	if (ret)
+		return ret;
 	update_cpu_freq(freq_table[index].frequency);
 
 	return 0;
