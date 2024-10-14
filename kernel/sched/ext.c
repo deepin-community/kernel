@@ -1378,7 +1378,6 @@ static struct task_struct *scx_task_iter_next(struct scx_task_iter *iter)
 
 	if (!(++iter->cnt % SCX_OPS_TASK_ITER_BATCH)) {
 		scx_task_iter_unlock(iter);
-		cpu_relax();
 		cond_resched();
 		scx_task_iter_relock(iter);
 	}
