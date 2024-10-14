@@ -7,7 +7,7 @@ else ifeq ($(CONFIG_KYLINOS_SERVER), y)
     ccflags-y += -DKYLIN
 endif
 else ifeq ($(CONFIG_MIPS), y)
-    ccflags-y += -mips64r2 -D__mips64__ -mlong-calls
+    ccflags-y += -D__mips64__ -mlong-calls
 endif
 
 ccflags-y += -fms-extensions
