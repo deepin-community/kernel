@@ -365,25 +365,12 @@ drivers-$(CONFIG_PM)	+= arch/mips/power/
 boot-y			:= vmlinux.bin
 boot-y			+= vmlinux.ecoff
 boot-y			+= vmlinux.srec
-boot-y			+= uImage
-boot-y			+= uImage.bin
-boot-y			+= uImage.bz2
-boot-y			+= uImage.gz
-boot-y			+= uImage.lzma
-boot-y			+= uImage.lzo
-boot-y			+= vmlinux.itb
-boot-y			+= vmlinux.gz.itb
-boot-y			+= vmlinux.bz2.itb
-boot-y			+= vmlinux.lzma.itb
-boot-y			+= vmlinux.lzo.itb
 
 # compressed boot image targets (arch/mips/boot/compressed/)
 bootz-y			:= vmlinuz
 bootz-y			+= vmlinuz.bin
 bootz-y			+= vmlinuz.ecoff
 bootz-y			+= vmlinuz.srec
-bootz-y			+= uzImage.bin
-bootz-y			+= vmlinuz.itb
 
 #
 # Some machines like the Indy need 32-bit ELF binaries for booting purposes.
