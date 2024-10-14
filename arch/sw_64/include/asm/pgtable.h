@@ -142,9 +142,6 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
  * the page is accessed. They are cleared only by the page-out routines
  */
 #define PAGE_NONE	__pgprot(__ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE | _PAGE_PROTNONE)
-#define PAGE_SHARED	__pgprot(_PAGE_VALID | __ACCESS_BITS)
-#define PAGE_COPY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
-#define PAGE_READONLY	__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW)
 #define PAGE_KERNEL	__pgprot(_PAGE_VALID | _PAGE_ASM | _PAGE_KRE | _PAGE_KWE)
 #define _PAGE_NORMAL(x)	__pgprot(_PAGE_VALID | __ACCESS_BITS | (x))
 
@@ -189,9 +186,6 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
  * the page is accessed. They are cleared only by the page-out routines
  */
 #define PAGE_NONE		__pgprot(__ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE | _PAGE_LEAF | _PAGE_PROTNONE)
-#define PAGE_SHARED		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_LEAF)
-#define PAGE_COPY		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW | _PAGE_LEAF)
-#define PAGE_READONLY		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_FOW | _PAGE_LEAF)
 #define PAGE_KERNEL		__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF)
 #define _PAGE_NORMAL(x)		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_LEAF | (x))
 
@@ -206,8 +200,48 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define _PAGE_TABLE	(_PAGE_VALID | __DIRTY_BITS | __ACCESS_BITS)
 #define _PAGE_CHG_MASK	(_PFN_MASK | __DIRTY_BITS | __ACCESS_BITS | _PAGE_SPECIAL | _PAGE_LEAF | _PAGE_CONT)
 
-#define _PAGE_P(x)	_PAGE_NORMAL((x) | _PAGE_FOW)
-#define _PAGE_S(x)	_PAGE_NORMAL((x) | _PAGE_FOW)
+#define PAGE_READONLY_NOEXEC	_PAGE_NORMAL(_PAGE_FOE | _PAGE_FOW)
+#define PAGE_EXEC		_PAGE_NORMAL(_PAGE_FOW | _PAGE_FOR)
+#define PAGE_READONLY_EXEC	_PAGE_NORMAL(_PAGE_FOW)
+#define PAGE_COPY_NOEXEC	PAGE_READONLY_NOEXEC
+#define PAGE_COPY_EXEC		PAGE_READONLY_EXEC
+/*
+ * Since we don't have hardware dirty-bit management yet, shared
+ * writable page has FOW bit set to make sure dirty-bit could be
+ * set properly.
+ */
+#define PAGE_SHARED_NOEXEC	PAGE_READONLY_NOEXEC
+#define PAGE_SHARED_EXEC	PAGE_READONLY_EXEC
+
+/* For backward compatibility */
+#define PAGE_READONLY		PAGE_READONLY_EXEC
+#define PAGE_COPY		PAGE_COPY_EXEC
+#define PAGE_SHARED		PAGE_SHARED_EXEC
+
+/*
+ * The hardware can handle write-only mappings, but as the sw64
+ * architecture does byte-wide writes with a read-modify-write
+ * sequence, it's not practical to have write-without-read privs.
+ * Thus the "-w- -> rw-" and "-wx -> rwx" mapping here (and in
+ * arch/sw_64/mm/fault.c)
+ */
+#define __P000		PAGE_NONE
+#define __P001		PAGE_READONLY_NOEXEC
+#define __P010		PAGE_COPY_NOEXEC
+#define __P011		PAGE_COPY_NOEXEC
+#define __P100		PAGE_EXEC
+#define __P101		PAGE_READONLY_EXEC
+#define __P110		PAGE_COPY_EXEC
+#define __P111		PAGE_COPY_EXEC
+
+#define __S000		PAGE_NONE
+#define __S001		PAGE_READONLY_NOEXEC
+#define __S010		PAGE_SHARED_NOEXEC
+#define __S011		PAGE_SHARED_NOEXEC
+#define __S100		PAGE_EXEC
+#define __S101		PAGE_READONLY_EXEC
+#define __S110		PAGE_SHARED_EXEC
+#define __S111		PAGE_SHARED_EXEC
 
 /*
  * pgprot_noncached() is only for infiniband pci support, and a real

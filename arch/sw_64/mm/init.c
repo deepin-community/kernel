@@ -473,23 +473,21 @@ void arch_remove_memory(u64 start, u64 size, struct vmem_altmap *altmap)
 #endif
 
 static const pgprot_t protection_map[16] = {
-	[VM_NONE]					= _PAGE_P(_PAGE_FOE | _PAGE_FOW |
-								  _PAGE_FOR),
-	[VM_READ]					= _PAGE_P(_PAGE_FOE | _PAGE_FOW),
-	[VM_WRITE]					= _PAGE_P(_PAGE_FOE),
-	[VM_WRITE | VM_READ]				= _PAGE_P(_PAGE_FOE),
-	[VM_EXEC]					= _PAGE_P(_PAGE_FOW | _PAGE_FOR),
-	[VM_EXEC | VM_READ]				= _PAGE_P(_PAGE_FOW),
-	[VM_EXEC | VM_WRITE]				= _PAGE_P(0),
-	[VM_EXEC | VM_WRITE | VM_READ]			= _PAGE_P(0),
-	[VM_SHARED]					= _PAGE_S(_PAGE_FOE | _PAGE_FOW |
-								  _PAGE_FOR),
-	[VM_SHARED | VM_READ]				= _PAGE_S(_PAGE_FOE | _PAGE_FOW),
-	[VM_SHARED | VM_WRITE]				= _PAGE_S(_PAGE_FOE),
-	[VM_SHARED | VM_WRITE | VM_READ]		= _PAGE_S(_PAGE_FOE),
-	[VM_SHARED | VM_EXEC]				= _PAGE_S(_PAGE_FOW | _PAGE_FOR),
-	[VM_SHARED | VM_EXEC | VM_READ]			= _PAGE_S(_PAGE_FOW),
-	[VM_SHARED | VM_EXEC | VM_WRITE]		= _PAGE_S(0),
-	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]	= _PAGE_S(0)
+	[VM_NONE]					= PAGE_NONE,
+	[VM_READ]                                       = PAGE_READONLY_NOEXEC,
+	[VM_WRITE]                                      = PAGE_COPY_NOEXEC,
+	[VM_WRITE | VM_READ]                            = PAGE_COPY_NOEXEC,
+	[VM_EXEC]                                       = PAGE_EXEC,
+	[VM_EXEC | VM_READ]                             = PAGE_READONLY_EXEC,
+	[VM_EXEC | VM_WRITE]                            = PAGE_COPY_EXEC,
+	[VM_EXEC | VM_WRITE | VM_READ]                  = PAGE_COPY_EXEC,
+	[VM_SHARED]                                     = PAGE_NONE,
+	[VM_SHARED | VM_READ]                           = PAGE_READONLY_NOEXEC,
+	[VM_SHARED | VM_WRITE]                          = PAGE_SHARED_NOEXEC,
+	[VM_SHARED | VM_WRITE | VM_READ]                = PAGE_SHARED_NOEXEC,
+	[VM_SHARED | VM_EXEC]                           = PAGE_EXEC,
+	[VM_SHARED | VM_EXEC | VM_READ]                 = PAGE_READONLY_EXEC,
+	[VM_SHARED | VM_EXEC | VM_WRITE]                = PAGE_SHARED_EXEC,
+	[VM_SHARED | VM_EXEC | VM_WRITE | VM_READ]      = PAGE_SHARED_EXEC
 };
 DECLARE_VM_GET_PAGE_PROT
