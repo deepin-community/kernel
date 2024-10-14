@@ -207,7 +207,7 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define _PAGE_CHG_MASK	(_PFN_MASK | __DIRTY_BITS | __ACCESS_BITS | _PAGE_SPECIAL | _PAGE_LEAF | _PAGE_CONT)
 
 #define _PAGE_P(x)	_PAGE_NORMAL((x) | _PAGE_FOW)
-#define _PAGE_S(x)	_PAGE_NORMAL(x)
+#define _PAGE_S(x)	_PAGE_NORMAL((x) | _PAGE_FOW)
 
 /*
  * pgprot_noncached() is only for infiniband pci support, and a real
