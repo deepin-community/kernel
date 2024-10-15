@@ -507,7 +507,7 @@ static void hw_perf_event_destroy(struct perf_event *event)
 	/* Nothing to be done! */
 }
 
-static int __hw_perf_event_init(struct perf_event *event)
+static void __hw_perf_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
@@ -523,8 +523,6 @@ static int __hw_perf_event_init(struct perf_event *event)
 		hwc->last_period = hwc->sample_period;
 		local64_set(&hwc->period_left, hwc->sample_period);
 	}
-
-	return 0;
 }
 
 /*
@@ -632,6 +630,7 @@ static void sw64_perf_event_irq_handler(unsigned long perfmon_num,
 	int idx;
 	u64 val;
 
+	__this_cpu_inc(irq_pmi_count);
 	cpuc = this_cpu_ptr(&cpu_hw_events);
 
 	for (idx = 0; idx < sw64_pmu->num_pmcs; ++idx) {
@@ -660,8 +659,6 @@ static void sw64_perf_event_irq_handler(unsigned long perfmon_num,
 		if (perf_event_overflow(event, &data, regs))
 			sw64_pmu_stop(event, 0);
 	}
-
-
 }
 
 /*
@@ -669,12 +666,18 @@ static void sw64_perf_event_irq_handler(unsigned long perfmon_num,
  */
 int __init init_hw_perf_events(void)
 {
+	pr_info("Performance Events: ");
 	if (!supported_cpu()) {
 		pr_info("Performance events: Unsupported CPU type!\n");
 		return 0;
 	}
 
-	pr_info("Performance events: Supported CPU type!\n");
+	if (is_in_guest()) {
+		pr_cont("No PMU driver, software events only.\n");
+		return 0;
+	}
+
+	pr_cont("Supported CPU type!\n");
 
 	/* Override performance counter IRQ vector */
 

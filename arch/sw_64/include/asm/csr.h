@@ -29,6 +29,10 @@
 #define CSR_PTBR_SYS		0x68
 #define CSR_PTBR_USR		0x69
 #define CSR_APTP		0x6a
+#define CSR_IDR_PCCTL		0x7a
+#define CSR_IACC		0x7b
+#define CSR_IMISC		0x7c
+#define CSR_RETIC		0x7f
 #define CSR_CID			0xc4
 #define CSR_WR_FREGS		0xc8
 #define CSR_SHTCLOCK		0xca
