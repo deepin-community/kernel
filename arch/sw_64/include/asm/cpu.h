@@ -14,8 +14,13 @@ enum hmcall_cpuid_cmd {
 	GET_VENDOR_ID   = 2,
 	GET_MODEL       = 3,
 	GET_CPU_FREQ    = 4,
-	GET_CACHE_INFO  = 5
+	GET_CACHE_INFO  = 5,
+	GET_FEATURES    = 6
 };
+
+#define CPU_FEAT_FPU	0x1
+#define CPU_FEAT_SIMD	0x2
+#define CPU_FEAT_UNA	0x4
 
 enum sunway_cpu_model {
 	CPU_SW3231 = 0x31,
