@@ -5,14 +5,22 @@
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
+#include <linux/dmi.h>
 
 #include <asm/cache.h>
 #include <asm/cpu.h>
 #include <asm/mmu_context.h>
+#include <asm/efi.h>
 
 #define TABLE_ENTRY_MAX 32
 #define VENDOR_ID_MAX   2
 #define MODEL_MAX       8
+
+/* Offset in the DMI processor structure (Type 4) */
+#define DMI_PROCESSOR_FAMILY		0x06
+#define DMI_PROCESSOR_MANUFACTURER	0x07
+#define DMI_PROCESSOR_VERSION		0x10
+#define DMI_PROCESSOR_FAMILY2		0x28
 
 #define cpuinfo_arch_rev(cpu_info) ((cpu_info) & 0xf)
 #define cpuinfo_arch_var(cpu_info) (((cpu_info) >> 4) & 0xf)
@@ -34,7 +42,8 @@ cpumask_t cpu_offline = CPU_MASK_NONE;
 
 static unsigned long cpu_freq;
 static unsigned long cpu_info;
-static char vendor_id[16];
+static __u16 family;
+static char vendor_id[64];
 static char model_id[64];
 
 unsigned long get_cpu_freq(void)
@@ -60,12 +69,13 @@ static int cpuinfo_cpu_online(unsigned int cpu)
 {
 	/* Currently, cpu info is shared by all cores */
 	cpu_data[cpu].model    = cpuinfo_model(cpu_info);
-	cpu_data[cpu].family   = cpuinfo_family(cpu_info);
 	cpu_data[cpu].chip_var = cpuinfo_chip_var(cpu_info);
 	cpu_data[cpu].arch_var = cpuinfo_arch_var(cpu_info);
 	cpu_data[cpu].arch_rev = cpuinfo_arch_rev(cpu_info);
 	cpu_data[cpu].pa_bits  = cpuinfo_pa_bits(cpu_info);
 	cpu_data[cpu].va_bits  = cpuinfo_va_bits(cpu_info);
+
+	cpu_data[cpu].family   = family;
 
 	cpu_data[cpu].vendor_id = vendor_id;
 	cpu_data[cpu].model_id  = model_id;
@@ -73,25 +83,145 @@ static int cpuinfo_cpu_online(unsigned int cpu)
 	return 0;
 }
 
-static int __init sw64_cpuinfo_init(void)
+static const char * __init dmi_get_string(const struct dmi_header *dm, u8 s)
 {
-	int i, ret;
-	unsigned long val;
+	const u8 *bp = ((u8 *) dm) + dm->length;
+	const u8 *nsp;
 
-	/* Get cpu info */
-	cpu_info = cpuid(GET_TABLE_ENTRY, 0);
+	if (s) {
+		while (--s > 0 && *bp)
+			bp += strlen(bp) + 1;
 
-	/* Get vendor name in string format */
-	for (i = 0; i < VENDOR_ID_MAX; i++) {
-		val = cpuid(GET_VENDOR_ID, i);
-		memcpy(vendor_id + (i * 8), &val, 8);
+		/* Strings containing only spaces are considered empty */
+		nsp = bp;
+		while (*nsp == ' ')
+			nsp++;
+		if (*nsp != '\0')
+			return bp;
 	}
 
-	/* Get model name in string format */
+	return "";
+}
+
+static void __init find_dmi_processor_version(const struct dmi_header *dm,
+		void *private)
+{
+	char *dmi_data = (char *)dm;
+	const char *p;
+	size_t len;
+
+	if (dm->type != DMI_ENTRY_PROCESSOR)
+		return;
+
+	p = dmi_get_string(dm, dmi_data[DMI_PROCESSOR_VERSION]);
+
+	len = strlen(p);
+
+	if ((len > 0) && (len < ARRAY_SIZE(model_id)))
+		strcpy(model_id, p);
+}
+
+static void __init get_model_id(void)
+{
+	int i;
+	unsigned long val;
+
+	/* Prefer model id from SMBIOS */
+	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
+			sunway_bios_version)
+		dmi_walk(find_dmi_processor_version, NULL);
+
+	if (strlen(model_id) > 0)
+		return;
+
+	/* Fallback to HMCode */
 	for (i = 0; i < MODEL_MAX; i++) {
 		val = cpuid(GET_MODEL, i);
 		memcpy(model_id + (i * 8), &val, 8);
 	}
+}
+
+static void __init find_dmi_processor_manufacturer(const struct dmi_header *dm,
+		void *private)
+{
+	char *dmi_data = (char *)dm;
+	const char *p;
+	size_t len;
+
+	if (dm->type != DMI_ENTRY_PROCESSOR)
+		return;
+
+	p = dmi_get_string(dm, dmi_data[DMI_PROCESSOR_MANUFACTURER]);
+
+	len = strlen(p);
+
+	if ((len > 0) && (len < ARRAY_SIZE(vendor_id)))
+		strcpy(vendor_id, p);
+}
+
+static void __init get_vendor_id(void)
+{
+	int i;
+	unsigned long val;
+
+	/* Prefer vendor id from SMBIOS */
+	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
+			sunway_bios_version)
+		dmi_walk(find_dmi_processor_manufacturer, NULL);
+
+	if (strlen(vendor_id) > 0)
+		return;
+
+	/* Fallback to HMCode */
+	for (i = 0; i < VENDOR_ID_MAX; i++) {
+		val = cpuid(GET_VENDOR_ID, i);
+		memcpy(vendor_id + (i * 8), &val, 8);
+	}
+}
+
+static void __init find_dmi_processor_family(const struct dmi_header *dm,
+		void *private)
+{
+	char *dmi_data = (char *)dm;
+
+	if (dm->type != DMI_ENTRY_PROCESSOR)
+		return;
+
+	family = *(__u8 *)(dmi_data + DMI_PROCESSOR_FAMILY);
+
+	if (family == 0xfe)
+		family = *(__u16 *)(dmi_data + DMI_PROCESSOR_FAMILY2);
+}
+
+static void __init get_family(void)
+{
+	/* Prefer processor family from SMBIOS */
+	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
+			sunway_bios_version)
+		dmi_walk(find_dmi_processor_family, NULL);
+
+	if (family)
+		return;
+
+	/* Fallback to HMCode */
+	family = cpuinfo_family(cpu_info);
+}
+
+static int __init sw64_cpuinfo_init(void)
+{
+	int ret;
+
+	/* Get CPU information from HMCode */
+	cpu_info = cpuid(GET_TABLE_ENTRY, 0);
+
+	/* Get processor family */
+	get_family();
+
+	/* Get vendor name in string format */
+	get_vendor_id();
+
+	/* Get processor name in string format */
+	get_model_id();
 
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "sw64/cpuinfo:online",
 			cpuinfo_cpu_online, NULL);
