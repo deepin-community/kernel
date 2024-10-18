@@ -58,6 +58,7 @@ static int pci_mmap_resource(struct kobject *kobj,
 			     struct vm_area_struct *vma, int sparse)
 {
 	struct pci_dev *pdev = to_pci_dev(kobj_to_dev(kobj));
+	struct pci_controller *hose = pci_bus_to_pci_controller(pdev->bus);
 	struct resource *res = attr->private;
 	enum pci_mmap_state mmap_type;
 	struct pci_bus_region bar;
@@ -79,7 +80,7 @@ static int pci_mmap_resource(struct kobject *kobj,
 	vma->vm_pgoff += bar.start >> (PAGE_SHIFT - (sparse ? 5 : 0));
 	mmap_type = res->flags & IORESOURCE_MEM ? pci_mmap_mem : pci_mmap_io;
 
-	return hose_mmap_page_range(pdev->sysdata, vma, mmap_type, sparse);
+	return hose_mmap_page_range(hose, vma, mmap_type, sparse);
 }
 
 static int pci_mmap_resource_sparse(struct file *filp, struct kobject *kobj,
