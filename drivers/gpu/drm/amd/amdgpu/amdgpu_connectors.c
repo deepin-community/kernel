@@ -614,6 +614,16 @@ static int amdgpu_connector_set_property(struct drm_connector *connector,
 		    (amdgpu_encoder->native_mode.clock == 0))
 			return 0;
 
+		/*
+		* Black screen when Oland GPU set scaling mode with Full/Full aspect/Center
+		* on 4K monitor, do not allow Oland GPU set scaling mode when native mode is 4K.
+		* FIXME: is there a new way to fix it?
+		*/
+		if(adev->asic_type == CHIP_OLAND &&
+			amdgpu_encoder->native_mode.hdisplay == 3840 &&
+			amdgpu_encoder->native_mode.vdisplay == 2160)
+			return 0;
+
 		amdgpu_encoder->rmx_type = rmx_type;
 
 		amdgpu_connector_property_change_mode(&amdgpu_encoder->base);
