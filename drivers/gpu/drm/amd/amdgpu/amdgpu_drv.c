@@ -882,9 +882,9 @@ module_param_named(visualconfirm, amdgpu_dc_visual_confirm, uint, 0444);
  * Defaults to -1, or auto. Userspace can only override this level after
  * boot if it's set to auto.
  */
-int amdgpu_dm_abm_level = -1;
+int amdgpu_dm_abm_level = 0;
 MODULE_PARM_DESC(abmlevel,
-		 "ABM level (0 = off, 1-4 = backlight reduction level, -1 auto (default))");
+		 "ABM level (0 = off (default), 1-4 = backlight reduction level, -1 auto)");
 module_param_named(abmlevel, amdgpu_dm_abm_level, int, 0444);
 
 int amdgpu_backlight = -1;
