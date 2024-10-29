@@ -7,6 +7,7 @@
 #define __LOONGSON_MODULE_H__
 
 extern int loongson_vblank;
+extern int loongson_ls7a1000_support;
 extern struct pci_driver lsdc_pci_driver;
 
 #endif
