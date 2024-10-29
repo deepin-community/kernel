@@ -267,6 +267,14 @@ static int lsdc_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	int ret;
 
 	descp = lsdc_device_probe(pdev, ent->driver_data);
+
+	if (to_loongson_gfx(descp)->chip_id == CHIP_LS7A1000 &&
+	    !loongson_ls7a1000_support) {
+		dev_info(&pdev->dev,
+			"LS7A1000 support disabled or not enabled via module parameter\n");
+		return -ENODEV;
+	}
+
 	if (IS_ERR_OR_NULL(descp))
 		return -ENODEV;
 
