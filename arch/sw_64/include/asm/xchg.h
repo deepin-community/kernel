@@ -244,22 +244,25 @@ ____cmpxchg(_u64, volatile long *m, unsigned long old, unsigned long new)
 static inline unsigned long
 ____xchg(_u8, volatile char *m, unsigned long val)
 {
-	unsigned long ret, tmp, addr64;
+	unsigned long ret, tmp, addr64, tmp2;
 
 	__asm__ __volatile__(
-	"	andnot	%4, 7, %3\n"
-	"	inslb	%1, %4, %1\n"
-	"1:	lldl	%2, 0(%3)\n"
-	"	extlb	%2, %4, %0\n"
-	"	masklb	%2, %4, %2\n"
-	"	or	%1, %2, %2\n"
-	"	lstl	%2, 0(%3)\n"
-	"	beq	%2, 2f\n"
+	"	andnot	%[m], 7, %[addr64]\n"
+	"	inslb	%[new_v], %[m], %[new_v]\n"
+	"	ldl	%[ret], 0(%[addr64])\n"
+	"1:	masklb	%[ret], %[m], %[tmp]\n"
+	"	or	%[new_v], %[tmp], %[tmp]\n"
+	"	casl	%[ret], %[addr64], %[tmp]\n"
+	"	cmpeq	%[ret], %[tmp], %[tmp2]\n"
+	"	beq	%[tmp2], 2f\n"
+	"	extlb	%[ret], %[m], %[ret]\n"
 	".subsection 2\n"
-	"2:	lbr	1b\n"
+	"2:	mov	%[tmp], %[ret]\n"
+	"	br	1b\n"
 	".previous"
-	: "=&r" (ret), "=&r" (val), "=&r" (tmp), "=&r" (addr64)
-	: "r" ((long)m), "1" (val) : "memory");
+	: [ret]"=&r"(ret), [new_v]"=&r"(val), [tmp]"=&r"(tmp),
+	[addr64]"=&r"(addr64), [tmp2]"=&r"(tmp2)
+	: [m]"r" ((long)m), "1" (val) : "memory");
 
 	return ret;
 }
@@ -267,22 +270,25 @@ ____xchg(_u8, volatile char *m, unsigned long val)
 static inline unsigned long
 ____xchg(_u16, volatile short *m, unsigned long val)
 {
-	unsigned long ret, tmp, addr64;
+	unsigned long ret, tmp, addr64, tmp2;
 
 	__asm__ __volatile__(
-	"	andnot	%4, 7, %3\n"
-	"	inslh	%1, %4, %1\n"
-	"1:	lldl	%2, 0(%3)\n"
-	"	extlh	%2, %4, %0\n"
-	"	masklh	%2, %4, %2\n"
-	"	or	%1, %2, %2\n"
-	"	lstl	%2, 0(%3)\n"
-	"	beq	%2, 2f\n"
+	"	andnot	%[m], 7, %[addr64]\n"
+	"	inslh	%[new_v], %[m], %[new_v]\n"
+	"	ldl	%[ret], 0(%[addr64])\n"
+	"1:	masklh	%[ret], %[m], %[tmp]\n"
+	"	or	%[new_v], %[tmp], %[tmp]\n"
+	"	casl	%[ret], %[addr64], %[tmp]\n"
+	"	cmpeq	%[ret], %[tmp], %[tmp2]\n"
+	"	beq	%[tmp2], 2f\n"
+	"	extlh	%[ret], %[m], %[ret]\n"
 	".subsection 2\n"
-	"2:	lbr	1b\n"
+	"2:	mov	%[tmp], %[ret]\n"
+	"	br	1b\n"
 	".previous"
-	: "=&r" (ret), "=&r" (val), "=&r" (tmp), "=&r" (addr64)
-	: "r" ((long)m), "1" (val) : "memory");
+	: [ret]"=&r"(ret), [new_v]"=&r"(val), [tmp]"=&r"(tmp),
+	[addr64]"=&r"(addr64), [tmp2]"=&r"(tmp2)
+	: [m]"r" ((long)m), "1" (val) : "memory");
 
 	return ret;
 }
@@ -290,19 +296,21 @@ ____xchg(_u16, volatile short *m, unsigned long val)
 static inline unsigned long
 ____xchg(_u32, volatile int *m, unsigned long val)
 {
-	unsigned long dummy, addr;
+	unsigned long tmp1, tmp2;
 
 	__asm__ __volatile__(
-	"	ldi	%3, %5\n"
-	"1:	lldw	%0, 0(%3)\n"
-	"	bis	$31, %4, %1\n"
-	"	lstw	%1, 0(%3)\n"
-	"	beq	%1, 2f\n"
+	"	ldw	%[old_v], 0(%[m])\n"
+	"1:	mov	%[new_v], %[tmp1]\n"
+	"	casw	%[old_v], %[m], %[tmp1]\n"
+	"	cmpeq	%[old_v], %[tmp1], %[tmp2]\n"
+	"	beq	%[tmp2], 2f\n"
 	".subsection 2\n"
-	"2:	lbr	1b\n"
+	"2:	mov	%[tmp1], %[old_v]\n"
+	"	br	1b\n"
 	".previous"
-	: "=&r" (val), "=&r" (dummy), "=m" (*m), "=&r"(addr)
-	: "rI" (val), "m" (*m) : "memory");
+	: [old_v]"=&r"(val), [tmp1]"=&r"(tmp1), [tmp2]"=&r"(tmp2)
+	: [new_v]"r"(val), [m]"r"(m)
+	);
 
 	return val;
 }
@@ -310,19 +318,21 @@ ____xchg(_u32, volatile int *m, unsigned long val)
 static inline unsigned long
 ____xchg(_u64, volatile long *m, unsigned long val)
 {
-	unsigned long dummy, addr;
+	unsigned long tmp1, tmp2;
 
 	__asm__ __volatile__(
-	"	ldi	%3, %5\n"
-	"1:	lldl	%0, 0(%3)\n"
-	"	bis	$31, %4, %1\n"
-	"	lstl	%1, 0(%3)\n"
-	"	beq	%1, 2f\n"
+	"	ldl	%[old_v], 0(%[m])\n"
+	"1:	mov	%[new_v], %[tmp1]\n"
+	"	casl	%[old_v], %[m], %[tmp1]\n"
+	"	cmpeq	%[old_v], %[tmp1], %[tmp2]\n"
+	"	beq	%[tmp2], 2f\n"
 	".subsection 2\n"
-	"2:	lbr	1b\n"
+	"2:	mov	%[tmp1], %[old_v]\n"
+	"	br	1b\n"
 	".previous"
-	: "=&r" (val), "=&r" (dummy), "=m" (*m), "=&r"(addr)
-	: "rI" (val), "m" (*m) : "memory");
+	: [old_v]"=&r"(val), [tmp1]"=&r"(tmp1), [tmp2]"=&r"(tmp2)
+	: [new_v]"r"(val), [m]"r"(m)
+	);
 
 	return val;
 }
@@ -343,22 +353,18 @@ ____cmpxchg(_u8, volatile char *m, unsigned char old, unsigned char new)
 	unsigned long prev, tmp, cmp, addr64;
 
 	__asm__ __volatile__(
-	"	andnot	%5, 7, %4\n"
-	"	inslb	%1, %5, %1\n"
-	"1:	lldl	%2, 0(%4)\n"
-	"	extlb	%2, %5, %0\n"
-	"	cmpeq	%0, %6, %3\n"
-	"	beq	%3, 2f\n"
-	"	masklb	%2, %5, %2\n"
-	"	or	%1, %2, %2\n"
-	"	lstl	%2, 0(%4)\n"
-	"	beq	%2, 3f\n"
-	"2:\n"
-	".subsection 2\n"
-	"3:	lbr	1b\n"
-	".previous"
-	: "=&r" (prev), "=&r" (new), "=&r" (tmp), "=&r" (cmp), "=&r" (addr64)
-	: "r" ((long)m), "Ir" (old), "1" (new) : "memory");
+	"	andnot	%[m], 7, %[addr64]\n"
+	"	inslb	%[new_v], %[m], %[new_v]\n"
+	"	inslb	%[old], %[m], %[cmp]\n"
+	"	ldl	%[prev], 0(%[addr64])\n"
+	"	masklb	%[prev], %[m], %[tmp]\n"
+	"	or	%[new_v], %[tmp], %[new_v]\n"
+	"	or	%[cmp], %[tmp], %[cmp]\n"
+	"	casl	%[cmp], %[addr64], %[new_v]\n"
+	"	extlb	%[new_v], %[m], %[prev]\n"
+	: [prev]"=&r" (prev), [new_v]"=&r" (new), [tmp]"=&r" (tmp),
+	[cmp]"=&r" (cmp), [addr64]"=&r" (addr64)
+	: [m]"r" ((long)m), [old]"r" (old), "1" (new) : "memory");
 
 	return prev;
 }
@@ -369,45 +375,30 @@ ____cmpxchg(_u16, volatile short *m, unsigned short old, unsigned short new)
 	unsigned long prev, tmp, cmp, addr64;
 
 	__asm__ __volatile__(
-	"	andnot	%5, 7, %4\n"
-	"	inslh	%1, %5, %1\n"
-	"1:	lldl	%2, 0(%4)\n"
-	"	extlh	%2, %5, %0\n"
-	"	cmpeq	%0, %6, %3\n"
-	"	beq	%3, 2f\n"
-	"	masklh	%2, %5, %2\n"
-	"	or	%1, %2, %2\n"
-	"	lstl	%2, 0(%4)\n"
-	"	beq	%2, 3f\n"
-	"2:\n"
-	".subsection 2\n"
-	"3:	lbr	1b\n"
-	".previous"
-	: "=&r" (prev), "=&r" (new), "=&r" (tmp), "=&r" (cmp), "=&r" (addr64)
-	: "r" ((long)m), "Ir" (old), "1" (new) : "memory");
-
+	"	andnot	%[m], 7, %[addr64]\n"
+	"	inslh	%[new_v], %[m], %[new_v]\n"
+	"	inslh	%[old], %[m], %[cmp]\n"
+	"	ldl	%[prev], 0(%[addr64])\n"
+	"	masklh	%[prev], %[m], %[tmp]\n"
+	"	or	%[new_v], %[tmp], %[new_v]\n"
+	"	or	%[cmp], %[tmp], %[cmp]\n"
+	"	casl	%[cmp], %[addr64], %[new_v]\n"
+	"	extlh	%[new_v], %[m], %[prev]\n"
+	: [prev]"=&r" (prev), [new_v]"=&r" (new), [tmp]"=&r" (tmp),
+	[cmp]"=&r" (cmp), [addr64]"=&r" (addr64)
+	: [m]"r" ((long)m), [old]"r" (old), "1" (new) : "memory");
 	return prev;
 }
 
 static inline unsigned long
 ____cmpxchg(_u32, volatile int *m, int old, int new)
 {
-	unsigned long prev, cmp, addr, tmp;
+	unsigned long prev;
 
 	__asm__ __volatile__(
-	"	ldi	%3, %7\n"
-	"1:	lldw	%0, 0(%3)\n"
-	"	cmpeq	%0, %5, %1\n"
-	"	beq	%1, 2f\n"
-	"	bis	$31, %6, %4\n"
-	"	lstw	%4, 0(%3)\n"
-	"	beq	%4, 3f\n"
-	"2:\n"
-	".subsection 2\n"
-	"3:	lbr	1b\n"
-	".previous"
-	: "=&r"(prev), "=&r"(cmp), "=m"(*m), "=&r"(addr), "=&r"(tmp)
-	: "r"((long) old), "r"(new), "m"(*m) : "memory");
+	"	casw	%[old], %[m], %[prev]\n"
+	: [prev]"=r"(prev)
+	: [old]"r"((long) old), "0"(new), [m]"r"(m) : "memory");
 
 	return prev;
 }
@@ -415,22 +406,12 @@ ____cmpxchg(_u32, volatile int *m, int old, int new)
 static inline unsigned long
 ____cmpxchg(_u64, volatile long *m, unsigned long old, unsigned long new)
 {
-	unsigned long prev, cmp, addr, tmp;
+	unsigned long prev;
 
 	__asm__ __volatile__(
-	"	ldi	%3, %7\n"
-	"1:	lldl	%0, 0(%3)\n"
-	"	cmpeq	%0, %5, %1\n"
-	"	beq	%1, 2f\n"
-	"	bis	$31, %6, %4\n"
-	"	lstl	%4, 0(%3)\n"
-	"	beq	%4, 3f\n"
-	"2:\n"
-	".subsection 2\n"
-	"3:	lbr	1b\n"
-	".previous"
-	: "=&r"(prev), "=&r"(cmp), "=m"(*m), "=&r"(addr), "=&r"(tmp)
-	: "r"((long) old), "r"(new), "m"(*m) : "memory");
+	"	casl	%[old], %[m], %[prev]\n"
+	: [prev]"=r"(prev)
+	: [old]"r"((long) old), "0"(new), [m]"r"(m) : "memory");
 
 	return prev;
 }
