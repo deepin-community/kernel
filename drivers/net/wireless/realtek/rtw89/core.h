@@ -56,6 +56,11 @@
 #define __iftd
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+#define ieee80211_gtk_rekey_add(vif, keyconf, link_id) \
+	ieee80211_gtk_rekey_add(vif, keyconf)
+#endif
+
 #define ieee80211_emulate_add_chanctx NULL
 #define ieee80211_emulate_remove_chanctx NULL
 #define ieee80211_emulate_change_chanctx NULL
