@@ -308,6 +308,10 @@ struct iommu_ops {
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
+
+#ifdef CONFIG_SMMU_BYPASS_DEV
+	int (*device_domain_type)(struct device *dev, unsigned int *type);
+#endif
 };
 
 /**
