@@ -461,6 +461,12 @@ config QCOM_IOMMU
 	help
 	  Support for IOMMU on certain Qualcomm SoCs.
 
+config  SMMU_BYPASS_DEV
+	bool "SMMU bypass streams for some specific devices"
+	help
+	  according smmu.bypassdev cmdline, SMMU performs attribute
+	  transformation only,with no address translation.
+
 config HYPERV_IOMMU
 	bool "Hyper-V IRQ Handling"
 	depends on HYPERV && X86
