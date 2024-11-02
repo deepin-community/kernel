@@ -158,7 +158,7 @@ static const char * const omen_thermal_profile_boards[] = {
 	"88F7", "88FD", "88FE", "88FF",
 	"8900", "8901", "8902", "8912", "8917", "8918", "8949", "894A", "89EB",
 	"8A15", "8A42",
-	"8BAD",
+	"8BAB", "8BAD",
 	"8C58",
 	"8E41",
 };
@@ -178,7 +178,7 @@ static const char * const omen_thermal_profile_force_v0_boards[] = {
  */
 static const char * const omen_timed_thermal_profile_boards[] = {
 	"8A15", "8A42",
-	"8BAD",
+	"8BAB", "8BAD",
 };
 
 /* DMI Board names of Victus 16-d laptops */
