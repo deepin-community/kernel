@@ -35,6 +35,7 @@ Documentation/dev-tools/testing-overview.rst
    kunit/index
    ktap
    autofdo
+   propeller
 
 
 .. only::  subproject and html
