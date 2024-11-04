@@ -86,7 +86,7 @@ static void cpufreq_governor_limits(struct cpufreq_policy *policy);
 static int cpufreq_set_policy(struct cpufreq_policy *policy,
 			      struct cpufreq_governor *new_gov,
 			      unsigned int new_pol);
-static bool cpufreq_boost_supported(void);
+bool cpufreq_boost_supported(void);
 
 /*
  * Two notifier lists: the "policy" list is involved in the
@@ -1224,7 +1224,6 @@ static void cpufreq_policy_put_kobj(struct cpufreq_policy *policy)
 	cmp = &policy->kobj_unregister;
 	up_write(&policy->rwsem);
 	kobject_put(kobj);
-
 	/*
 	 * We need to make sure that the underlying kobj is
 	 * actually not referenced anymore by anybody before we
@@ -2794,10 +2793,14 @@ err_reset_state:
 	return ret;
 }
 
-static bool cpufreq_boost_supported(void)
+bool cpufreq_boost_supported(void)
 {
+	if (!cpufreq_driver)
+		return -EINVAL;
+
 	return cpufreq_driver->set_boost;
 }
+EXPORT_SYMBOL_GPL(cpufreq_boost_supported);
 
 static int create_boost_sysfs_file(void)
 {
@@ -2834,6 +2837,9 @@ EXPORT_SYMBOL_GPL(cpufreq_enable_boost_support);
 
 int cpufreq_boost_enabled(void)
 {
+	if (!cpufreq_driver)
+		return -EINVAL;
+
 	return cpufreq_driver->boost_enabled;
 }
 EXPORT_SYMBOL_GPL(cpufreq_boost_enabled);
