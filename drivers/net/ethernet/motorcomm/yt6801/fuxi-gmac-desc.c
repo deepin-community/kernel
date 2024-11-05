@@ -209,8 +209,6 @@ static int fxgmac_alloc_channels(struct fxgmac_pdata *pdata)
 	if (!channel_head)
 		return ret;
 
-	netif_dbg(pdata, drv, pdata->netdev, "channel_head=%p\n", channel_head);
-
 	tx_ring = kcalloc(pdata->tx_ring_count, sizeof(struct fxgmac_ring),
 			  GFP_KERNEL);
 	if (!tx_ring)
@@ -285,11 +283,6 @@ static int fxgmac_alloc_channels(struct fxgmac_pdata *pdata)
 
 		if (i < pdata->rx_ring_count)
 			channel->rx_ring = rx_ring++;
-
-		netif_dbg(pdata, drv, pdata->netdev,
-			  "%s: dma_regs=%p, tx_ring=%p, rx_ring=%p\n",
-			  channel->name, channel->dma_regs, channel->tx_ring,
-			  channel->rx_ring);
 	}
 
 	pdata->channel_head = channel_head;
@@ -363,9 +356,56 @@ static int fxgmac_map_rx_buffer(struct fxgmac_pdata *pdata,
 	return 0;
 }
 
+static void fxgmac_tx_desc_reset(struct fxgmac_desc_data *desc_data)
+{
+	struct fxgmac_dma_desc *dma_desc = desc_data->dma_desc;
+
+	/* Reset the Tx descriptor
+	 *   Set buffer 1 (lo) address to zero
+	 *   Set buffer 1 (hi) address to zero
+	 *   Reset all other control bits (IC, TTSE, B2L & B1L)
+	 *   Reset all other control bits (OWN, CTXT, FD, LD, CPC, CIC, etc)
+	 */
+	dma_desc->desc0 = 0;
+	dma_desc->desc1 = 0;
+	dma_desc->desc2 = 0;
+	dma_desc->desc3 = 0;
+
+	/* Make sure ownership is written to the descriptor */
+	dma_wmb();
+}
+
+static void fxgmac_tx_desc_init_channel(struct fxgmac_channel *channel)
+{
+	struct fxgmac_ring *ring = channel->tx_ring;
+	struct fxgmac_desc_data *desc_data;
+	int start_index = ring->cur;
+	unsigned int i;
+	start_index = start_index;
+	/* Initialize all descriptors */
+	for (i = 0; i < ring->dma_desc_count; i++) {
+		desc_data = FXGMAC_GET_DESC_DATA(ring, i);
+
+		/* Initialize Tx descriptor */
+		fxgmac_tx_desc_reset(desc_data);
+	}
+
+	///* Update the total number of Tx descriptors */
+	//writereg(ring->dma_desc_count - 1, FXGMAC_DMA_REG(channel, DMA_CH_TDRLR));
+
+	writereg(channel->pdata->pAdapter, channel->pdata->tx_desc_count - 1, FXGMAC_DMA_REG(channel, DMA_CH_TDRLR));
+
+	/* Update the starting address of descriptor ring */
+
+	desc_data = FXGMAC_GET_DESC_DATA(ring, start_index);
+	writereg(channel->pdata->pAdapter, upper_32_bits(desc_data->dma_desc_addr),
+		FXGMAC_DMA_REG(channel, DMA_CH_TDLR_HI));
+	writereg(channel->pdata->pAdapter, lower_32_bits(desc_data->dma_desc_addr),
+		FXGMAC_DMA_REG(channel, DMA_CH_TDLR_LO));
+}
+
 static void fxgmac_tx_desc_init(struct fxgmac_pdata *pdata)
 {
-	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
 	struct fxgmac_desc_data *desc_data;
 	struct fxgmac_dma_desc *dma_desc;
 	struct fxgmac_channel *channel;
@@ -399,13 +439,97 @@ static void fxgmac_tx_desc_init(struct fxgmac_pdata *pdata)
 		ring->dirty = 0;
 		memset(&ring->tx, 0, sizeof(ring->tx));
 
-		hw_ops->tx_desc_init(channel);
+		fxgmac_tx_desc_init_channel(channel);
 	}
+}
+
+static void fxgmac_rx_desc_reset(struct fxgmac_pdata *pdata,
+	struct fxgmac_desc_data *desc_data,
+	unsigned int index)
+{
+	struct fxgmac_dma_desc *dma_desc = desc_data->dma_desc;
+
+	/* Reset the Rx descriptor
+	 *   Set buffer 1 (lo) address to header dma address (lo)
+	 *   Set buffer 1 (hi) address to header dma address (hi)
+	 *   Set buffer 2 (lo) address to buffer dma address (lo)
+	 *   Set buffer 2 (hi) address to buffer dma address (hi) and
+	 *     set control bits OWN and INTE
+	 */
+	//hdr_dma = desc_data->rx.hdr.dma_base + desc_data->rx.hdr.dma_off;
+	//buf_dma = desc_data->rx.buf.dma_base + desc_data->rx.buf.dma_off;
+	dma_desc->desc0 = cpu_to_le32(lower_32_bits(desc_data->rx.buf.dma_base));
+	dma_desc->desc1 = cpu_to_le32(upper_32_bits(desc_data->rx.buf.dma_base));
+	dma_desc->desc2 = 0;//cpu_to_le32(lower_32_bits(buf_dma));
+	dma_desc->desc3 = 0;//cpu_to_le32(upper_32_bits(buf_dma));
+	dma_desc->desc3 = FXGMAC_SET_REG_BITS_LE(
+		dma_desc->desc3,
+		RX_NORMAL_DESC3_INTE_POS,
+		RX_NORMAL_DESC3_INTE_LEN,
+		1);
+	dma_desc->desc3 = FXGMAC_SET_REG_BITS_LE(
+		dma_desc->desc3,
+		RX_NORMAL_DESC3_BUF2V_POS,
+		RX_NORMAL_DESC3_BUF2V_LEN,
+		0);
+	dma_desc->desc3 = FXGMAC_SET_REG_BITS_LE(
+		dma_desc->desc3,
+		RX_NORMAL_DESC3_BUF1V_POS,
+		RX_NORMAL_DESC3_BUF1V_LEN,
+		1);
+
+	/* Since the Rx DMA engine is likely running, make sure everything
+		* is written to the descriptor(s) before setting the OWN bit
+		* for the descriptor
+		*/
+	dma_wmb();
+
+	dma_desc->desc3 = FXGMAC_SET_REG_BITS_LE(
+		dma_desc->desc3,
+		RX_NORMAL_DESC3_OWN_POS,
+		RX_NORMAL_DESC3_OWN_LEN,
+		1);
+
+	/* Make sure ownership is written to the descriptor */
+	dma_wmb();
+}
+
+static void fxgmac_rx_desc_init_channel(struct fxgmac_channel *channel)
+{
+	struct fxgmac_pdata *pdata = channel->pdata;
+	struct fxgmac_ring *ring = channel->rx_ring;
+	unsigned int start_index = ring->cur;
+	struct fxgmac_desc_data *desc_data;
+	unsigned int i;
+
+
+	/* Initialize all descriptors */
+	for (i = 0; i < ring->dma_desc_count; i++) {
+		desc_data = FXGMAC_GET_DESC_DATA(ring, i);
+
+		/* Initialize Rx descriptor */
+		fxgmac_rx_desc_reset(pdata, desc_data, i);
+	}
+
+	/* Update the total number of Rx descriptors */
+	writereg(pdata->pAdapter, ring->dma_desc_count - 1, FXGMAC_DMA_REG(channel, DMA_CH_RDRLR));
+
+	/* Update the starting address of descriptor ring */
+	desc_data = FXGMAC_GET_DESC_DATA(ring, start_index);
+	writereg(pdata->pAdapter, upper_32_bits(desc_data->dma_desc_addr),
+		FXGMAC_DMA_REG(channel, DMA_CH_RDLR_HI));
+	writereg(pdata->pAdapter, lower_32_bits(desc_data->dma_desc_addr),
+		FXGMAC_DMA_REG(channel, DMA_CH_RDLR_LO));
+
+	/* Update the Rx Descriptor Tail Pointer */
+	desc_data = FXGMAC_GET_DESC_DATA(ring, start_index +
+		ring->dma_desc_count - 1);
+	writereg(pdata->pAdapter, lower_32_bits(desc_data->dma_desc_addr),
+		FXGMAC_DMA_REG(channel, DMA_CH_RDTR_LO));
 }
 
 static void fxgmac_rx_desc_init(struct fxgmac_pdata *pdata)
 {
-	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
 	struct fxgmac_desc_data *desc_data;
 	struct fxgmac_dma_desc *dma_desc;
 	struct fxgmac_channel *channel;
@@ -438,7 +562,7 @@ static void fxgmac_rx_desc_init(struct fxgmac_pdata *pdata)
 		ring->cur = 0;
 		ring->dirty = 0;
 
-		hw_ops->rx_desc_init(channel);
+		fxgmac_rx_desc_init_channel(channel);
 	}
 }
 
@@ -591,7 +715,7 @@ err_out:
 
 void fxgmac_init_desc_ops(struct fxgmac_desc_ops *desc_ops)
 {
-	desc_ops->alloc_channles_and_rings = fxgmac_alloc_channels_and_rings;
+	desc_ops->alloc_channels_and_rings = fxgmac_alloc_channels_and_rings;
 	desc_ops->free_channels_and_rings = fxgmac_free_channels_and_rings;
 	desc_ops->map_tx_skb = fxgmac_map_tx_skb;
 	desc_ops->map_rx_buffer = fxgmac_map_rx_buffer;

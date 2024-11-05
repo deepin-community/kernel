@@ -21,7 +21,7 @@ static void fxgmac_read_mac_addr(struct fxgmac_pdata *pdata)
 	struct net_device *netdev = pdata->netdev;
 	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
 
-	DPRINTK("read mac from eFuse\n");
+	/* DPRINTK("read mac from eFuse\n");  */
 
 	/* if efuse have mac addr, use it.if not, use static mac address. */
 	hw_ops->read_mac_subsys_from_efuse(pdata, pdata->mac_addr, NULL, NULL);
@@ -35,10 +35,10 @@ static void fxgmac_default_config(struct fxgmac_pdata *pdata)
 {
 	pdata->tx_osp_mode = DMA_OSP_ENABLE;
 	pdata->tx_sf_mode = MTL_TSF_ENABLE;
-	pdata->rx_sf_mode = MTL_RSF_DISABLE; /* MTL_RSF_DISABLE 20210514 */
+	pdata->rx_sf_mode = MTL_RSF_ENABLE; /* MTL_RSF_DISABLE 20210514 */
 	pdata->pblx8 = DMA_PBL_X8_ENABLE; /* DMA_PBL_X8_ENABLE 20210514 */
-	pdata->tx_pbl = DMA_PBL_32;
-	pdata->rx_pbl = DMA_PBL_32; /* DMA_PBL_32 20210514 */
+	pdata->tx_pbl = DMA_PBL_16;
+	pdata->rx_pbl = DMA_PBL_4; /* DMA_PBL_32 20210514 */
 	pdata->tx_threshold = MTL_TX_THRESHOLD_128;
 	pdata->rx_threshold = MTL_RX_THRESHOLD_128;
 	pdata->tx_pause = 1;
@@ -66,8 +66,8 @@ static void fxgmac_default_config(struct fxgmac_pdata *pdata)
 	strscpy(pdata->drv_name, FXGMAC_DRV_NAME, sizeof(pdata->drv_name));
 	strscpy(pdata->drv_ver, FXGMAC_DRV_VERSION, sizeof(pdata->drv_ver));
 
-	printk("FXGMAC_DRV_NAME:%s, FXGMAC_DRV_VERSION:%s\n", FXGMAC_DRV_NAME,
-	       FXGMAC_DRV_VERSION);
+	dev_info(pdata->dev, "FXGMAC_DRV_NAME:%s, FXGMAC_DRV_VERSION:%s\n",
+									FXGMAC_DRV_NAME, FXGMAC_DRV_VERSION);
 }
 
 static void fxgmac_init_all_ops(struct fxgmac_pdata *pdata)
@@ -75,7 +75,7 @@ static void fxgmac_init_all_ops(struct fxgmac_pdata *pdata)
 	fxgmac_init_desc_ops(&pdata->desc_ops);
 	fxgmac_init_hw_ops(&pdata->hw_ops);
 
-	DPRINTK("register desc_ops and hw ops\n");
+	/* DPRINTK("register desc_ops and hw ops\n"); */
 }
 
 int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
@@ -152,17 +152,11 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
 				     pdata->hw_feat.tx_q_cnt);
 	pdata->tx_q_count = pdata->tx_ring_count;
 
-#if !(FXGMAC_NUM_OF_TX_Q_USED)
 	ret = netif_set_real_num_tx_queues(netdev, pdata->tx_q_count);
-#else
-	ret = netif_set_real_num_tx_queues(
-		netdev, FXGMAC_NUM_OF_TX_Q_USED /*pdata->tx_q_count*/);
-#endif
 
 	DPRINTK("num_online_cpus:%u, tx_ch_cnt:%u, tx_q_cnt:%u, tx_ring_count:%u\n",
 		num_online_cpus(), pdata->hw_feat.tx_ch_cnt,
 		pdata->hw_feat.tx_q_cnt, pdata->tx_ring_count);
-
 	if (ret) {
 		dev_err(pdata->dev, "error setting real tx queue count\n");
 		return ret;
@@ -192,7 +186,7 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
 		netif_get_num_default_rss_queues(), pdata->hw_feat.rx_ch_cnt,
 		pdata->hw_feat.rx_q_cnt, pdata->rx_ring_count);
 	DPRINTK("channel_count:%u, netdev tx channel_num=%u\n",
-		pdata->channel_count, netdev->num_tx_queues);
+		pdata->channel_count, netdev->real_num_tx_queues);
 
 	/* Initialize RSS hash key and lookup table */
 #if FXGMAC_RSS_HASH_KEY_LINUX
@@ -306,6 +300,8 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
 	pdata->rx_usecs = FXGMAC_INIT_DMA_RX_USECS;
 	pdata->rx_frames = FXGMAC_INIT_DMA_RX_FRAMES;
 
+	mutex_init(&pdata->expansion.mutex);
+
 	DPRINTK("fxgmac_init callout, ok.\n");
 
 	return 0;
@@ -320,14 +316,14 @@ static void fxgmac_init_interrupt_scheme(struct fxgmac_pdata *pdata)
 	 * otherwise, just roll back to legacy
 	 */
 	vectors = num_online_cpus();
-	DPRINTK("num of cpu=%d\n", vectors);
 	if (vectors >= FXGMAC_MAX_DMA_CHANNELS) {
 		/* 0-3 for rx, 4 for tx, 5 for phy */
 		req_vectors = FXGMAC_MSIX_INT_NUMS;
 		pdata->expansion.msix_entries = kcalloc(
 			req_vectors, sizeof(struct msix_entry), GFP_KERNEL);
 		if (!pdata->expansion.msix_entries) {
-			DPRINTK("MSIx, kcalloc err for msix entries, rollback to MSI..\n");
+			dev_err(pdata->dev, "MSIx, kcalloc err for msix entries, \
+				rollback to MSI\n");
 			goto enable_msi_interrupt;
 		} else {
 			for (i = 0; i < req_vectors; i++)
@@ -337,14 +333,14 @@ static void fxgmac_init_interrupt_scheme(struct fxgmac_pdata *pdata)
 				pdata->pdev, pdata->expansion.msix_entries,
 				req_vectors, req_vectors);
 			if (rc < 0) {
-				DPRINTK("enable MSIx failed,%d.\n", rc);
+				dev_err(pdata->dev, "enable MSIx failed,%d.\n", rc);
 				req_vectors = 0; /* indicate failure */
 			} else {
 				req_vectors = rc;
 			}
 
 			if (req_vectors >= FXGMAC_MAX_DMA_CHANNELS_PLUS_1TX) {
-				DPRINTK("enable MSIx ok, cpu=%d, vectors=%d.\n",
+				dev_info(pdata->dev, "enable MSIx ok, cpu=%d,vectors=%d.\n",
 					vectors, req_vectors);
 				pdata->expansion.int_flags =
 					FXGMAC_SET_REG_BITS(
@@ -353,21 +349,22 @@ static void fxgmac_init_interrupt_scheme(struct fxgmac_pdata *pdata)
 						FXGMAC_FLAG_INTERRUPT_LEN,
 						FXGMAC_FLAG_MSIX_ENABLED);
 				pdata->per_channel_irq = 1;
-				pdata->expansion.phy_irq =
+				pdata->expansion.misc_irq =
 					pdata->expansion
 						.msix_entries[MSI_ID_PHY_OTHER]
 						.vector;
 				return;
 			} else if (req_vectors) {
-				DPRINTK("enable MSIx with only %d vector, while we need %d, rollback to MSI.\n",
-					req_vectors, vectors);
+				dev_err(pdata->dev, "enable MSIx with only %d vector, \
++                    while we need %d, rollback to MSI.\n",
++                                                req_vectors, vectors);
 				/* roll back to msi */
 				pci_disable_msix(pdata->pdev);
 				kfree(pdata->expansion.msix_entries);
 				pdata->expansion.msix_entries = NULL;
 				req_vectors = 0;
 			} else {
-				DPRINTK("enable MSIx failure and clear msix entries.\n");
+				dev_err(pdata->dev, "enable MSIx failure and clear msix entries.\n");
 				/* roll back to msi */
 				kfree(pdata->expansion.msix_entries);
 				pdata->expansion.msix_entries = NULL;
@@ -382,13 +379,13 @@ enable_msi_interrupt:
 		pdata->expansion.int_flags = FXGMAC_SET_REG_BITS(
 			pdata->expansion.int_flags, FXGMAC_FLAG_INTERRUPT_POS,
 			FXGMAC_FLAG_INTERRUPT_LEN, FXGMAC_FLAG_LEGACY_ENABLED);
-		DPRINTK("enable MSI failure, rollback to LEGACY.\n");
+		dev_err(pdata->dev, "dev_err MSI failure, rollback to LEGACY.\n");
 	} else {
 		pdata->expansion.int_flags = FXGMAC_SET_REG_BITS(
 			pdata->expansion.int_flags, FXGMAC_FLAG_INTERRUPT_POS,
 			FXGMAC_FLAG_INTERRUPT_LEN, FXGMAC_FLAG_MSI_ENABLED);
 		pdata->dev_irq = pdata->pdev->irq;
-		DPRINTK("enable MSI ok, irq=%d.\n", pdata->pdev->irq);
+		dev_info(pdata->dev, "enable MSI ok, cpu=%d, irq=%d.\n", vectors, pdata->pdev->irq);
 	}
 #else
 	pdata = pdata;
@@ -417,19 +414,15 @@ int fxgmac_drv_probe(struct device *dev, struct fxgmac_resources *res)
 	pdata->netdev = netdev;
 
 	pdata->dev_irq = res->irq;
-
+	pdata->msg_enable = NETIF_MSG_DRV;
+	pdata->expansion.dev_state = FXGMAC_DEV_PROBE;
 	/* default to legacy interrupt */
 	pdata->expansion.int_flags = FXGMAC_SET_REG_BITS(
 		pdata->expansion.int_flags, FXGMAC_FLAG_INTERRUPT_POS,
 		FXGMAC_FLAG_INTERRUPT_LEN, FXGMAC_FLAG_LEGACY_ENABLED);
-	pdata->expansion.phy_irq = pdata->dev_irq;
+	pdata->expansion.misc_irq = pdata->dev_irq;
 
 	fxgmac_init_interrupt_scheme(pdata);
-
-	pdata->expansion.current_state = CURRENT_STATE_INIT;
-
-	pdata->msg_enable = NETIF_MSG_DRV;
-	DPRINTK("netif msg_enable init to %08x\n", pdata->msg_enable);
 
 	pdata->mac_regs = res->addr;
 	pdata->base_mem = res->addr;
@@ -451,7 +444,7 @@ int fxgmac_drv_probe(struct device *dev, struct fxgmac_resources *res)
 	}
 	if (netif_msg_drv(pdata))
 		DPRINTK("fxgamc_drv_prob callout, netdev num_tx_q=%u\n",
-			netdev->num_tx_queues);
+			netdev->real_num_tx_queues);
 
 #ifdef HAVE_FXGMAC_DEBUG_FS
 	fxgmac_dbg_init(pdata);
@@ -715,7 +708,7 @@ void fxgmac_get_all_hw_features(struct fxgmac_pdata *pdata)
 	hw_feat->tc_cnt++;
 
 	hw_feat->hwfr3 = mac_hfr3;
-	DPRINTK("HWFR3: %u\n", mac_hfr3);
+	/* DPRINTK("HWFR3: %u\n", mac_hfr3); */
 }
 
 void fxgmac_print_all_hw_features(struct fxgmac_pdata *pdata)

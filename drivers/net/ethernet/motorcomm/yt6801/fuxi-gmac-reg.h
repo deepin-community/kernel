@@ -406,7 +406,7 @@
 #define MMC_CR_MCF_POS				3
 #define MMC_CR_MCF_LEN				1
 #define MMC_RIER_ALL_INTERRUPTS_POS		0
-#define MMC_RIER_ALL_INTERRUPTS_LEN		26
+#define MMC_RIER_ALL_INTERRUPTS_LEN		28
 #define MMC_RISR_RXFRAMECOUNT_GB_POS		0
 #define MMC_RISR_RXFRAMECOUNT_GB_LEN		1
 #define MMC_RISR_RXOCTETCOUNT_GB_POS		1
@@ -465,7 +465,7 @@
 #define MMC_RISR_RXLPITRANSITION_LEN		1
 
 #define MMC_TIER_ALL_INTERRUPTS_POS		0
-#define MMC_TIER_ALL_INTERRUPTS_LEN		26
+#define MMC_TIER_ALL_INTERRUPTS_LEN		28
 #define MMC_TISR_TXOCTETCOUNT_GB_POS		0
 #define MMC_TISR_TXOCTETCOUNT_GB_LEN		1
 #define MMC_TISR_TXFRAMECOUNT_GB_POS		1
@@ -1037,6 +1037,8 @@
 #define PHY_CR_SPEED_SEL_L_LEN          1
 #define PHY_CR_AUTOENG_POS              12
 #define PHY_CR_AUTOENG_LEN              1
+#define PHY_CR_POWER_POS                11
+#define PHY_CR_POWER_LEN                1
 #define PHY_CR_RE_AUTOENG_POS           9
 #define PHY_CR_RE_AUTOENG_LEN           1
 #define PHY_CR_DUPLEX_POS               8
@@ -1060,6 +1062,10 @@
 #define PHY_MII_ADVERTISE_10HALF_POS         5
 #define PHY_MII_ADVERTISE_10HALF_LEN         1
 #define REG_MII_LPA           0x05    /* Link partner ability reg    */
+#define PHY_MII_LINK_PARNTNER_10FULL_POS      6
+#define PHY_MII_LINK_PARNTNER_10FULL_LEN      1
+#define PHY_MII_LINK_PARNTNER_10HALF_POS      5
+#define PHY_MII_LINK_PARNTNER_10HALF_LEN      1
 #define REG_MII_EXPANSION     0x06    /* Expansion register          */
 #define REG_MII_NEXT_PAGE     0x07    /* Next page register          */
 #define REG_MII_LPR_NEXT_PAGE 0x08    /* LPR next page register      */
@@ -1210,9 +1216,10 @@
 #define REG_MII_EXT_SLEEP_REG_CLEAN_LOOPBACK             0xe812
 
 #define REG_MII_EXT_ANALOG_CFG2                                           0x51
-#define REG_MII_EXT_ANALOG_CFG2_LED_VALUE                                 0x4a9
+#define REG_MII_EXT_ANALOG_CFG2_VALUE                                 0x4a9
 #define REG_MII_EXT_ANALOG_CFG8                                           0x57
-#define REG_MII_EXT_ANALOG_CFG8_LED_VALUE                                 0x274c
+#define REG_MII_EXT_ANALOG_CFG8_VALUE                                 0x274c
+#define REG_MII_EXT_ANALOG_CFG8_137D1D05_VALUE                            0x264c
 
 #define REG_MII_EXT_COMMON_LED_CFG                                        0xA00B
 #define REG_MII_EXT_COMMON_LED0_CFG                                       0xA00C
@@ -1302,7 +1309,7 @@
 #define MGMT_EPHY_CTRL_STA_SPEED_LEN	        2
 #define MGMT_EPHY_CTRL_STA_SPEED_MASK           0x18
 
-#define MGMT_EPHY_CTRL_ERROR_VAULE              0xFFFFFFFF
+#define MGMT_EPHY_CTRL_ERROR_VALUE              0xFFFFFFFF
 
 #define MGMT_PCIE_EP_CTRL                       0x1008
 
@@ -1390,7 +1397,7 @@
 Two working mode:
 1. SW trigger
 LTR idle threshold timer set as 0, enable LTR enable will trigger one LTR message
-Note: PCIe cfg enable should set in initilization before enable LTR.
+Note : PCIe cfg enable should set in initialization before enable LTR.
 2. HW auto trigger
 LTR idle threshold timer set as one non-zero value, HW monitor system status,
 when system idle timer over threshold, HW send out LTR message
@@ -1425,7 +1432,7 @@ system exit idle state, send out one LTR exit message.
 #define  LTR_IDLE_EXIT                          0x1140  /* LTR_CTRL4, LTR latency message, only for System IDLE End. */
 #define  LTR_IDLE_EXIT_POS                      0
 #define  LTR_IDLE_EXIT_LEN                      10
-#define  LTR_IDLE_EXIT_USVAL                    2
+#define  LTR_IDLE_EXIT_USVAL                    171
 #define  LTR_IDLE_EXIT_SCALE_POS                10
 #define  LTR_IDLE_EXIT_SCALE_LEN                5
 #define  LTR_IDLE_EXIT_SCALE                    2
@@ -1890,5 +1897,7 @@ system exit idle state, send out one LTR exit message.
 #define REG_POWER_EIOS                          0x710
 #define POWER_EIOS_POS                          7
 #define POWER_EIOS_LEN                          1
+
+#define TONGFANGID_137D1D05_ADJUST_SI           0x137D1D05
 
 #endif /* __FUXI_GMAC_REG_H__ */

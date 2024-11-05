@@ -438,7 +438,7 @@ struct fxphy_ag_adv {
 };
 
 struct fxgmac_desc_ops {
-	int (*alloc_channles_and_rings)(struct fxgmac_pdata *pdata);
+	int (*alloc_channels_and_rings)(struct fxgmac_pdata *pdata);
 	void (*free_channels_and_rings)(struct fxgmac_pdata *pdata);
 	int (*map_tx_skb)(struct fxgmac_channel *channel, struct sk_buff *skb);
 	int (*map_rx_buffer)(struct fxgmac_pdata *pdata,
@@ -448,6 +448,13 @@ struct fxgmac_desc_ops {
 				struct fxgmac_desc_data *desc_data);
 	void (*tx_desc_init)(struct fxgmac_pdata *pdata);
 	void (*rx_desc_init)(struct fxgmac_pdata *pdata);
+	/* For descriptor related operation */
+	void (*tx_desc_init_channel)(struct fxgmac_channel *channel);
+	void (*rx_desc_init_channel)(struct fxgmac_channel *channel);
+	void (*tx_desc_reset)(struct fxgmac_desc_data *desc_data);
+	void (*rx_desc_reset)(struct fxgmac_pdata *pdata,
+		struct fxgmac_desc_data *desc_data,
+		unsigned int index);
 };
 
 struct fxgmac_hw_ops {
@@ -455,9 +462,9 @@ struct fxgmac_hw_ops {
 	int (*exit)(struct fxgmac_pdata *pdata);
 	void (*save_nonstick_reg)(struct fxgmac_pdata *pdata);
 	void (*restore_nonstick_reg)(struct fxgmac_pdata *pdata);
-	int (*set_gmac_register)(struct fxgmac_pdata *pdata, u8 *address,
+	int (*set_gmac_register)(struct fxgmac_pdata *pdata, IOMEM address,
 				 unsigned int data);
-	u32 (*get_gmac_register)(struct fxgmac_pdata *pdata, u8 *address);
+	u32 (*get_gmac_register)(struct fxgmac_pdata *pdata, IOMEM address);
 	void (*esd_restore_pcie_cfg)(struct fxgmac_pdata *pdata);
 
 	int (*tx_complete)(struct fxgmac_dma_desc *dma_desc);
@@ -483,6 +490,7 @@ struct fxgmac_hw_ops {
 					   u32 intid);
 	bool (*enable_mgm_interrupt)(struct fxgmac_pdata *pdata);
 	bool (*disable_mgm_interrupt)(struct fxgmac_pdata *pdata);
+	int  (*dismiss_all_int)(struct fxgmac_pdata *pdata);
 
 	void (*dev_xmit)(struct fxgmac_channel *channel);
 	int (*dev_read)(struct fxgmac_channel *channel);
@@ -504,18 +512,14 @@ struct fxgmac_hw_ops {
 				     bool link_up_wait_to_complete);
 
 	/* For descriptor related operation */
-	void (*tx_desc_init)(struct fxgmac_channel *channel);
-	void (*rx_desc_init)(struct fxgmac_channel *channel);
-	void (*tx_desc_reset)(struct fxgmac_desc_data *desc_data);
-	void (*rx_desc_reset)(struct fxgmac_pdata *pdata,
-			      struct fxgmac_desc_data *desc_data,
-			      unsigned int index);
+	// void (*tx_desc_init)(struct fxgmac_channel *channel);
+	// void (*rx_desc_init)(struct fxgmac_channel *channel);
+	// void (*tx_desc_reset)(struct fxgmac_desc_data *desc_data);
+	// void (*rx_desc_reset)(struct fxgmac_pdata *pdata,
+	// 		      struct fxgmac_desc_data *desc_data,
+	// 		      unsigned int index);
 	int (*is_last_desc)(struct fxgmac_dma_desc *dma_desc);
 	int (*is_context_desc)(struct fxgmac_dma_desc *dma_desc);
-	void (*tx_start_xmit)(struct fxgmac_channel *channel,
-			      struct fxgmac_ring *ring);
-	void (*set_pattern_data)(struct fxgmac_pdata *pdata);
-	void (*config_wol)(struct fxgmac_pdata *pdata, int en);
 
 	/* For Flow Control */
 	int (*config_tx_flow_control)(struct fxgmac_pdata *pdata);
@@ -579,6 +583,7 @@ struct fxgmac_hw_ops {
 				    const u32 *table);
 
 	/*For Offload*/
+#ifdef FXGMAC_POWER_MANAGEMENT
 	void (*set_arp_offload)(struct fxgmac_pdata *pdata,
 				unsigned char *ip_addr);
 	int (*enable_arp_offload)(struct fxgmac_pdata *pdata);
@@ -609,7 +614,7 @@ struct fxgmac_hw_ops {
 	int (*set_wake_pattern_mask)(struct fxgmac_pdata *pdata,
 				     u32 filter_index, u8 register_index,
 				     u32 Data);
-#if defined(FUXI_PM_WPI_READ_FEATURE_EN) && FUXI_PM_WPI_READ_FEATURE_EN
+#if FUXI_PM_WPI_READ_FEATURE_EN
 	void (*get_wake_packet_indication)(struct fxgmac_pdata *pdata,
 					   int *wake_reason,
 					   u32 *wake_pattern_number,
@@ -617,6 +622,7 @@ struct fxgmac_hw_ops {
 					   u32 *packet_size);
 	void (*enable_wake_packet_indication)(struct fxgmac_pdata *pdata,
 					      int en);
+#endif
 #endif
 
 	void (*reset_phy)(struct fxgmac_pdata *pdata);
@@ -630,7 +636,7 @@ struct fxgmac_hw_ops {
 	void (*enable_phy_sleep)(struct fxgmac_pdata *pdata);
 	void (*phy_green_ethernet)(struct fxgmac_pdata *pdata);
 	void (*phy_eee_feature)(struct fxgmac_pdata *pdata);
-	int (*get_ephy_state)(struct fxgmac_pdata *pdata);
+	u32 (*get_ephy_state)(struct fxgmac_pdata *pdata);
 	int (*write_ephy_reg)(struct fxgmac_pdata *pdata, u32 val, u32 data);
 	int (*read_ephy_reg)(struct fxgmac_pdata *pdata, u32 val, u32 *data);
 	int (*set_ephy_autoneg_advertise)(struct fxgmac_pdata *pdata,
@@ -701,15 +707,6 @@ struct fxgmac_hw_ops {
 	void (*trigger_pcie)(
 		struct fxgmac_pdata *pdata,
 		u32 code); /* To trigger pcie sniffer for analysis. */
-#ifdef DPDK
-	int (*phy_init)(struct fxgmac_pdata *);
-	int (*phy_start)(struct fxgmac_pdata *);
-	void (*phy_stop)(struct fxgmac_pdata *);
-	void (*phy_status)(struct fxgmac_pdata *);
-	void (*an_isr)(
-		struct fxgmac_pdata
-			*); /* phy_if->an_isr For single interrupt support */
-#endif
 };
 
 /* This structure contains flags that indicate what hardware features
@@ -915,6 +912,20 @@ struct fxgmac_pdata {
 #define FXGMAC_FLAG_LEGACY_IRQ_FREE_LEN 1
 #define FXGMAC_FLAG_LEGACY_NAPI_FREE_POS 30 /* bit30 */
 #define FXGMAC_FLAG_LEGACY_NAPI_FREE_LEN 1
+#define FXGMAC_FLAG_MISC_IRQ_FREE_POS                  29
+#define FXGMAC_FLAG_MISC_IRQ_FREE_LEN                  1
+#define FXGMAC_FLAG_MISC_NAPI_FREE_POS                 28
+#define FXGMAC_FLAG_MISC_NAPI_FREE_LEN                 1
+#define FXGMAC_FLAG_TX_IRQ_FREE_POS                    27
+#define FXGMAC_FLAG_TX_IRQ_FREE_LEN                    1
+#define FXGMAC_FLAG_TX_NAPI_FREE_POS                   26
+#define FXGMAC_FLAG_TX_NAPI_FREE_LEN                   1
+#define FXGMAC_FLAG_RX_IRQ_FREE_POS                    22
+#define FXGMAC_FLAG_RX_IRQ_FREE_LEN                    4
+#define FXGMAC_FLAG_PER_CHAN_RX_IRQ_FREE_LEN           1
+#define FXGMAC_FLAG_RX_NAPI_FREE_POS                   18
+#define FXGMAC_FLAG_RX_NAPI_FREE_LEN                   4
+#define FXGMAC_FLAG_PER_CHAN_RX_NAPI_FREE_LEN          1
 
 void fxgmac_init_desc_ops(struct fxgmac_desc_ops *desc_ops);
 void fxgmac_init_hw_ops(struct fxgmac_hw_ops *hw_ops);

@@ -7,6 +7,39 @@
 #include "fuxi-gmac.h"
 #include "fuxi-gmac-reg.h"
 
+/*
+ * When in forced mode, set the speed, duplex, and auto-negotiation of the PHY
+ * all at once to avoid the problems caused by individual settings
+ * on some machines
+ */
+void fxgmac_phy_force_mode(struct fxgmac_pdata *pdata)
+{
+	struct fxgmac_hw_ops    *hw_ops = &pdata->hw_ops;
+	u32                     regval = 0;
+	unsigned int            high_bit = 0, low_bit = 0;
+
+	switch (pdata->phy_speed) {
+	case SPEED_1000:
+		high_bit = 1, low_bit = 0;
+		break;
+	case SPEED_100:
+		high_bit = 0, low_bit = 1;
+		break;
+	case SPEED_10:
+		high_bit = 0, low_bit = 0;
+		break;
+	default:
+		break;
+	}
+
+	hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &regval);
+	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_AUTOENG_POS, PHY_CR_AUTOENG_LEN, pdata->phy_autoeng);
+	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_SPEED_SEL_H_POS, PHY_CR_SPEED_SEL_H_LEN, high_bit);
+	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_SPEED_SEL_L_POS, PHY_CR_SPEED_SEL_L_LEN, low_bit);
+	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_DUPLEX_POS, PHY_CR_DUPLEX_LEN, pdata->phy_duplex);
+	hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, regval);
+}
+
 void fxgmac_phy_force_speed(struct fxgmac_pdata *pdata, int speed)
 {
 	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
@@ -27,10 +60,7 @@ void fxgmac_phy_force_speed(struct fxgmac_pdata *pdata, int speed)
 		break;
 	}
 
-	/* disable autoneg */
 	hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &regval);
-	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_AUTOENG_POS,
-				     PHY_CR_AUTOENG_LEN, 0);
 	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_SPEED_SEL_H_POS,
 				     PHY_CR_SPEED_SEL_H_LEN, high_bit);
 	regval = FXGMAC_SET_REG_BITS(regval, PHY_CR_SPEED_SEL_L_POS,

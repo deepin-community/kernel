@@ -451,8 +451,11 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ret = hw_ops->read_efuse_data(pdata, ex_data.val0,
 						      &ex_data.val1);
-			DPRINTK("FXGMAC_EFUSE_READ_REGIONABC, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
+			/*
+			 * DPRINTK("FXGMAC_EFUSE_READ_REGIONABC, address = 0x%x, val = 0x%x\n",
+			 *    ex_data.val0,
+			 *    ex_data.val1);
+			 */
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -465,8 +468,11 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 
 		case FXGMAC_EFUSE_WRITE_PATCH_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
-			DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_REG, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
+			/*
+			 * DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_REG, address = 0x%x, val = 0x%x\n",
+			 *    ex_data.val0,
+			 *    ex_data.val1);
+			 */
 			ret = hw_ops->write_patch_to_efuse(pdata, ex_data.val0,
 							   ex_data.val1);
 			break;
@@ -475,8 +481,10 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ret = hw_ops->read_patch_from_efuse(pdata, ex_data.val0,
 							    &ex_data.val1);
-			DPRINTK("FXGMAC_EFUSE_READ_PATCH_REG, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
+			/*
+			 * DPRINTK("FXGMAC_EFUSE_READ_PATCH_REG, address = 0x%x, val = 0x%x\n",
+			 *    ex_data.val0, ex_data.val1);
+			 */
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -492,8 +500,10 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			ret = hw_ops->write_patch_to_efuse_per_index(
 				pdata, ex_data.val0, ex_data.val1,
 				ex_data.val2);
-			DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_PER_INDEX, index = %d, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1, ex_data.val2);
+			/*
+			 * DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_PER_INDEX, index = %d, address = 0x%x, val = 0x%x\n",
+			 *            ex_data.val0, ex_data.val1, ex_data.val2);
+			 */
 			break;
 
 		case FXGMAC_EFUSE_READ_PATCH_PER_INDEX:
@@ -501,8 +511,10 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			ret = hw_ops->read_patch_from_efuse_per_index(
 				pdata, ex_data.val0, &ex_data.val1,
 				&ex_data.val2);
-			DPRINTK("FXGMAC_EFUSE_READ_PATCH_PER_INDEX, address = 0x%x, val = 0x%x\n",
-				ex_data.val1, ex_data.val2);
+			/*
+			 * DPRINTK("FXGMAC_EFUSE_READ_PATCH_PER_INDEX, address = 0x%x, val = 0x%x\n",
+			 *    ex_data.val1, ex_data.val2);
+			 */
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -565,7 +577,7 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 				pdata, NULL, &ex_data.val0, NULL);
 			break;
 
-		case FXGMAC_GET_GMAC_REG:
+		case FXGMAC_GET_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ex_data.val1 = hw_ops->get_gmac_register(
 				pdata, (u8 *)(pdata->mac_regs + ex_data.val0));
@@ -576,7 +588,7 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 				goto err;
 			break;
 
-		case FXGMAC_SET_GMAC_REG:
+		case FXGMAC_SET_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			regval = hw_ops->set_gmac_register(
 				pdata, (u8 *)(pdata->mac_regs + ex_data.val0),
@@ -697,7 +709,7 @@ static struct file_operations fxgmac_dbg_netdev_ops_fops = {
 
 /**
  * fxgmac_dbg_adapter_init - setup the debugfs directory for the adapter
- * @adapter: the adapter that is starting up
+ * @pdata: board private structure
  **/
 void fxgmac_dbg_adapter_init(struct fxgmac_pdata *pdata)
 {
@@ -719,7 +731,7 @@ void fxgmac_dbg_adapter_init(struct fxgmac_pdata *pdata)
 
 /**
  * fxgmac_dbg_adapter_exit - clear out the adapter's debugfs entries
- * @adapter: board private structure
+ * @pdata: board private structure
  **/
 void fxgmac_dbg_adapter_exit(struct fxgmac_pdata *pdata)
 {
@@ -730,6 +742,7 @@ void fxgmac_dbg_adapter_exit(struct fxgmac_pdata *pdata)
 
 /**
  * fxgmac_dbg_init - start up debugfs for the driver
+ * @pdata: board private structure
  **/
 void fxgmac_dbg_init(struct fxgmac_pdata *pdata)
 {
@@ -777,6 +790,7 @@ void fxgmac_dbg_init(struct fxgmac_pdata *pdata)
 
 /**
  * fxgmac_dbg_exit - clean out the driver's debugfs entries
+ * @pdata: board private structure
  **/
 void fxgmac_dbg_exit(struct fxgmac_pdata *pdata)
 {
