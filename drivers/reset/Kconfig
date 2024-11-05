@@ -292,6 +292,14 @@ config RESET_TN48M_CPLD
 	  This driver can also be built as a module. If so, the module will be
 	  called reset-tn48m.
 
+config RESET_PHYTIUM
+	bool "PHYTIUM Reset Driver"
+	default ARCH_PHYTIUM
+	help
+	  This enables the reset driver for phytium SoCs. If you wish
+	  to use the reset framework for such memory-mapped devices,
+	  say Y here. Otherwise, say N.
+
 config RESET_UNIPHIER
 	tristate "Reset controller driver for UniPhier SoCs"
 	depends on ARCH_UNIPHIER || COMPILE_TEST
