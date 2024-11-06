@@ -75,7 +75,11 @@
 #define SW64_BPF_FUNC_ALU_ADDL		0x08
 #define SW64_BPF_FUNC_ALU_SUBL		0x09
 #define SW64_BPF_FUNC_ALU_MULW		0x10
+#define SW64_BPF_FUNC_ALU_UDIVW		0x12
+#define SW64_BPF_FUNC_ALU_UREMW		0x14
 #define SW64_BPF_FUNC_ALU_MULL		0x18
+#define SW64_BPF_FUNC_ALU_UDIVL		0x1b
+#define SW64_BPF_FUNC_ALU_UREML		0x1d
 #define SW64_BPF_FUNC_ALU_CMPEQ		0x28
 #define SW64_BPF_FUNC_ALU_CMPLT		0x29
 #define SW64_BPF_FUNC_ALU_CMPLE		0x2A
@@ -90,6 +94,9 @@
 #define SW64_BPF_FUNC_ALU_SLL		0x48
 #define SW64_BPF_FUNC_ALU_SRL		0x49
 #define SW64_BPF_FUNC_ALU_SRA		0x4A
+#define SW64_BPF_FUNC_ALU_REVBH		0x5b
+#define SW64_BPF_FUNC_ALU_REVBW		0x5c
+#define SW64_BPF_FUNC_ALU_REVBL		0x5d
 #define SW64_BPF_FUNC_ALU_ZAP		0x68
 #define SW64_BPF_FUNC_ALU_ZAPNOT	0x69
 #define SW64_BPF_FUNC_ALU_SEXTB		0x6A
@@ -193,9 +200,30 @@ enum sw64_bpf_registers {
 #define SW64_BPF_MULW_REG(ra, rb, dst) \
 	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
 			ra, rb, dst, SW64_BPF_FUNC_ALU_MULW)
+#define SW64_BPF_UDIVW_REG(ra, rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			ra, rb, dst, SW64_BPF_FUNC_ALU_UDIVW)
+#define SW64_BPF_UREMW_REG(ra, rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			ra, rb, dst, SW64_BPF_FUNC_ALU_UREMW)
 #define SW64_BPF_MULL_REG(ra, rb, dst) \
 	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
 			ra, rb, dst, SW64_BPF_FUNC_ALU_MULL)
+#define SW64_BPF_UDIVL_REG(ra, rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			ra, rb, dst, SW64_BPF_FUNC_ALU_UDIVL)
+#define SW64_BPF_UREML_REG(ra, rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			ra, rb, dst, SW64_BPF_FUNC_ALU_UREML)
+#define SW64_BPF_REVBH_REG(rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			SW64_BPF_REG_ZR, rb, dst, SW64_BPF_FUNC_ALU_REVBH)
+#define SW64_BPF_REVBW_REG(rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			SW64_BPF_REG_ZR, rb, dst, SW64_BPF_FUNC_ALU_REVBW)
+#define SW64_BPF_REVBL_REG(rb, dst) \
+	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
+			SW64_BPF_REG_ZR, rb, dst, SW64_BPF_FUNC_ALU_REVBL)
 #define SW64_BPF_ZAP_REG(ra, rb, dst) \
 	sw64_bpf_gen_format_simple_alu_reg(SW64_BPF_OPCODE_ALU_REG, \
 			ra, rb, dst, SW64_BPF_FUNC_ALU_ZAP)
