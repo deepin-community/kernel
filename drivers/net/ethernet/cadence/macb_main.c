@@ -112,6 +112,8 @@ struct sifive_fu540_macb_mgmt {
 static void macb_tx_unmap(struct macb *bp,
 			  struct macb_tx_skb *tx_skb,
 			  int budget);
+static void macb_set_addr(struct macb *bp, struct macb_dma_desc *desc,
+			  dma_addr_t addr);
 
 /* DMA buffer descriptor might be different size
  * depends on hardware configuration:
@@ -744,6 +746,7 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 	struct macb *bp = netdev_priv(ndev);
 	struct macb_tx_skb *tx_skb;
 	struct macb_queue *queue;
+	struct macb_dma_desc *tx_desc = NULL;
 	unsigned int q;
 	u32 ctrl;
 	int i;
@@ -763,12 +766,18 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 
 	/* Tx clean */
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		spin_lock(&queue->tx_ptr_lock);
 		for (i = 0; i < bp->tx_ring_size; i++) {
 			tx_skb = macb_tx_skb(queue, i);
 			/* free unsent skb buffers */
 			if (tx_skb)
 				macb_tx_unmap(bp, tx_skb, 0);
+
+			tx_desc = macb_tx_desc(queue, i);
+			macb_set_addr(bp, tx_desc, 0);
+			tx_desc->ctrl &= ~MACB_BIT(TX_USED);
 		}
+		spin_unlock(&queue->tx_ptr_lock);
 	}
 
 	netif_tx_stop_all_queues(ndev);
