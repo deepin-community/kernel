@@ -277,6 +277,7 @@ static void emit_sw64_ldu64(const int dst, const u64 imm, struct jit_ctx *ctx)
 	put_tmp_reg(ctx);
 }
 
+#if defined(CONFIG_SUBARCH_C3B)
 /* Do not change!!! See arch/sw_64/lib/divide.S for more detail */
 #define REG(x)		"$"str(x)
 #define str(x)		#x
@@ -323,6 +324,7 @@ static void emit_sw64_divmod(const int dst, const int src, struct jit_ctx *ctx, 
 #undef DIVIDEND
 #undef DIVISOR
 #undef RESULT
+#endif
 
 /* STX XADD: lock *(u32 *)(dst + off) += src */
 static void emit_sw64_xadd32(const int src, int dst, s16 off, struct jit_ctx *ctx)
@@ -396,6 +398,7 @@ static void emit_sw64_xadd64(const int src, int dst, s16 off, struct jit_ctx *ct
 	put_tmp_reg(ctx);
 }
 
+#if defined(CONFIG_SUBARCH_C3B)
 static void emit_sw64_htobe16(const int dst, struct jit_ctx *ctx)
 {
 	u8 tmp = get_tmp_reg(ctx);
@@ -472,6 +475,7 @@ static void emit_sw64_htobe64(const int dst, struct jit_ctx *ctx)
 	put_tmp_reg(ctx);
 	put_tmp_reg(ctx);
 }
+#endif
 
 static void jit_fill_hole(void *area, unsigned int size)
 {
@@ -715,16 +719,34 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 		emit(SW64_BPF_MULL_REG(dst, src, dst), ctx);
 		break;
 	case BPF_ALU | BPF_DIV | BPF_X:
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, src, ctx, code);
+#else
+		emit(SW64_BPF_UDIVW_REG(dst, src, dst), ctx);
+		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
+#endif
 		break;
 	case BPF_ALU64 | BPF_DIV | BPF_X:
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, src, ctx, code);
+#else
+		emit(SW64_BPF_UDIVL_REG(dst, src, dst), ctx);
+#endif
 		break;
 	case BPF_ALU | BPF_MOD | BPF_X:
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, src, ctx, code);
+#else
+		emit(SW64_BPF_UREMW_REG(dst, src, dst), ctx);
+		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
+#endif
 		break;
 	case BPF_ALU64 | BPF_MOD | BPF_X:
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, src, ctx, code);
+#else
+		emit(SW64_BPF_UREML_REG(dst, src, dst), ctx);
+#endif
 		break;
 	case BPF_ALU | BPF_LSH | BPF_X:
 		emit(SW64_BPF_SLL_REG(dst, src, dst), ctx);
@@ -794,13 +816,26 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 	case BPF_ALU | BPF_END | BPF_TO_BE:
 		switch (imm) {
 		case 16:
+#if defined(CONFIG_SUBARCH_C3B)
 			emit_sw64_htobe16(dst, ctx);
+#else
+			emit(SW64_BPF_REVBH_REG(dst, dst), ctx);
+#endif
 			break;
 		case 32:
+#if defined(CONFIG_SUBARCH_C3B)
 			emit_sw64_htobe32(dst, ctx);
+#else
+			emit(SW64_BPF_REVBW_REG(dst, dst), ctx);
+			emit(SW64_BPF_ZAPNOT_IMM(dst, 0xf, dst), ctx);
+#endif
 			break;
 		case 64:
+#if defined(CONFIG_SUBARCH_C3B)
 			emit_sw64_htobe64(dst, ctx);
+#else
+			emit(SW64_BPF_REVBL_REG(dst, dst), ctx);
+#endif
 			break;
 		default:
 			pr_err("eBPF JIT %s[%d]: BPF_TO_BE unknown size\n",
@@ -875,19 +910,37 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 		break;
 	case BPF_ALU | BPF_DIV | BPF_K:
 		emit_sw64_ldu32(tmp1, imm, ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, tmp1, ctx, code);
+#else
+		emit(SW64_BPF_UDIVW_REG(dst, tmp1, dst), ctx);
+		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
+#endif
 		break;
 	case BPF_ALU64 | BPF_DIV | BPF_K:
 		emit_sw64_lds32(tmp1, imm, ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, tmp1, ctx, code);
+#else
+		emit(SW64_BPF_UDIVL_REG(dst, tmp1, dst), ctx);
+#endif
 		break;
 	case BPF_ALU | BPF_MOD | BPF_K:
 		emit_sw64_ldu32(tmp1, imm, ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, tmp1, ctx, code);
+#else
+		emit(SW64_BPF_UREMW_REG(dst, tmp1, dst), ctx);
+		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
+#endif
 		break;
 	case BPF_ALU64 | BPF_MOD | BPF_K:
 		emit_sw64_lds32(tmp1, imm, ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 		emit_sw64_divmod(dst, tmp1, ctx, code);
+#else
+		emit(SW64_BPF_UREML_REG(dst, tmp1, dst), ctx);
+#endif
 		break;
 	case BPF_ALU | BPF_LSH | BPF_K:
 		if (imm >= 0 && imm <= U8_MAX) {
