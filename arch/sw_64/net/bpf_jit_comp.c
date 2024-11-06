@@ -331,7 +331,7 @@ static void emit_sw64_xadd32(const int src, int dst, s16 off, struct jit_ctx *ct
 	int atomic_end;
 	u8 tmp1 = get_tmp_reg(ctx);
 	u8 tmp2 = get_tmp_reg(ctx);
-	u8 tmp3 = get_tmp_reg(ctx);
+	u8 __maybe_unused tmp3 = get_tmp_reg(ctx);
 
 	if (off < -0x800 || off > 0x7ff) {
 		emit(SW64_BPF_LDI(tmp1, dst, off), ctx);
@@ -341,15 +341,19 @@ static void emit_sw64_xadd32(const int src, int dst, s16 off, struct jit_ctx *ct
 
 	atomic_start = ctx->idx;
 	emit(SW64_BPF_LLDW(tmp2, dst, off), ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 	emit(SW64_BPF_LDI(tmp3, SW64_BPF_REG_ZR, 1), ctx);
 	emit(SW64_BPF_WR_F(tmp3), ctx);
+#endif
 	emit(SW64_BPF_ADDW_REG(tmp2, src, tmp2), ctx);
 	if (ctx->idx & 1)
 		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
 	emit(SW64_BPF_LSTW(tmp2, dst, off), ctx);
-	emit(SW64_BPF_RD_F(tmp3), ctx);
+#if defined(CONFIG_SUBARCH_C3B)
+	emit(SW64_BPF_RD_F(tmp2), ctx);
+#endif
 	atomic_end = ctx->idx;
-	emit(SW64_BPF_BEQ(tmp3, atomic_start - atomic_end - 1), ctx);
+	emit(SW64_BPF_BEQ(tmp2, atomic_start - atomic_end - 1), ctx);
 
 	put_tmp_reg(ctx);
 	put_tmp_reg(ctx);
@@ -363,7 +367,7 @@ static void emit_sw64_xadd64(const int src, int dst, s16 off, struct jit_ctx *ct
 	int atomic_end;
 	u8 tmp1 = get_tmp_reg(ctx);
 	u8 tmp2 = get_tmp_reg(ctx);
-	u8 tmp3 = get_tmp_reg(ctx);
+	u8 __maybe_unused tmp3 = get_tmp_reg(ctx);
 
 	if (off < -0x800 || off > 0x7ff) {
 		emit(SW64_BPF_LDI(tmp1, dst, off), ctx);
@@ -373,15 +377,19 @@ static void emit_sw64_xadd64(const int src, int dst, s16 off, struct jit_ctx *ct
 
 	atomic_start = ctx->idx;
 	emit(SW64_BPF_LLDL(tmp2, dst, off), ctx);
+#if defined(CONFIG_SUBARCH_C3B)
 	emit(SW64_BPF_LDI(tmp3, SW64_BPF_REG_ZR, 1), ctx);
 	emit(SW64_BPF_WR_F(tmp3), ctx);
+#endif
 	emit(SW64_BPF_ADDL_REG(tmp2, src, tmp2), ctx);
 	if (ctx->idx & 1)
 		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
 	emit(SW64_BPF_LSTL(tmp2, dst, off), ctx);
-	emit(SW64_BPF_RD_F(tmp3), ctx);
+#if defined(CONFIG_SUBARCH_C3B)
+	emit(SW64_BPF_RD_F(tmp2), ctx);
+#endif
 	atomic_end = ctx->idx;
-	emit(SW64_BPF_BEQ(tmp3, atomic_start - atomic_end - 1), ctx);
+	emit(SW64_BPF_BEQ(tmp2, atomic_start - atomic_end - 1), ctx);
 
 	put_tmp_reg(ctx);
 	put_tmp_reg(ctx);
