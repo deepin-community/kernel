@@ -277,6 +277,38 @@ static void emit_sw64_ldu64(const int dst, const u64 imm, struct jit_ctx *ctx)
 	put_tmp_reg(ctx);
 }
 
+/* constant insn count */
+static void emit_sw64_load_call_addr(u64 addr, struct jit_ctx *ctx)
+{
+	u16 imm_tmp;
+	u8 dst = SW64_BPF_REG_PV;
+	u8 reg_tmp = get_tmp_reg(ctx);
+
+	imm_tmp = (addr >> 60) & 0xf;
+	emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm_tmp), ctx);
+	emit(SW64_BPF_SLL_IMM(dst, 60, dst), ctx);
+
+	imm_tmp = (addr >> 45) & 0x7fff;
+	emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
+	emit(SW64_BPF_SLL_IMM(reg_tmp, 45, reg_tmp), ctx);
+	emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
+
+	imm_tmp = (addr >> 30) & 0x7fff;
+	emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
+	emit(SW64_BPF_SLL_IMM(reg_tmp, 30, reg_tmp), ctx);
+	emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
+
+	imm_tmp = (addr >> 15) & 0x7fff;
+	emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
+	emit(SW64_BPF_SLL_IMM(reg_tmp, 15, reg_tmp), ctx);
+	emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
+
+	imm_tmp = addr & 0x7fff;
+	emit(SW64_BPF_LDI(dst, dst, imm_tmp), ctx);
+
+	put_tmp_reg(ctx);
+}
+
 #if defined(CONFIG_SUBARCH_C3B)
 /* Do not change!!! See arch/sw_64/lib/divide.S for more detail */
 #define REG(x)		"$"str(x)
@@ -1211,7 +1243,7 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 		if (ret < 0)
 			return ret;
 
-		emit_sw64_ldu64(SW64_BPF_REG_PV, func, ctx);
+		emit_sw64_load_call_addr(func, ctx);
 		emit(SW64_BPF_CALL(SW64_BPF_REG_RA, SW64_BPF_REG_PV), ctx);
 		break;
 	}
