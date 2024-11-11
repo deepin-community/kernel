@@ -145,134 +145,83 @@ static inline void put_tmp_reg(struct jit_ctx *ctx)
 		ctx->current_tmp_reg = 7;
 }
 
-static void emit_sw64_ldu32(const int dst, const u32 imm, struct jit_ctx *ctx)
-{
-	u16 imm_tmp;
-	u8 reg_tmp = get_tmp_reg(ctx);
-
-	if (!imm) {
-		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, dst), ctx);
-		put_tmp_reg(ctx);
-		return;
-	}
-
-	if (imm <= S16_MAX) {
-		emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm), ctx);
-		put_tmp_reg(ctx);
-		return;
-	}
-
-	if (imm >= U32_MAX - S16_MAX) {
-		emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm), ctx);
-		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
-		put_tmp_reg(ctx);
-		return;
-	}
-
-	imm_tmp = (imm >> 30) & 3;
-	emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm_tmp), ctx);
-	if (imm_tmp)
-		emit(SW64_BPF_SLL_IMM(dst, 30, dst), ctx);
-
-	imm_tmp = (imm >> 15) & 0x7fff;
-	if (imm_tmp) {
-		emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
-		emit(SW64_BPF_SLL_IMM(reg_tmp, 15, reg_tmp), ctx);
-		emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
-	}
-
-	imm_tmp = imm & 0x7fff;
-	if (imm_tmp)
-		emit(SW64_BPF_LDI(dst, dst, imm_tmp), ctx);
-
-	put_tmp_reg(ctx);
-}
-
 static void emit_sw64_lds32(const int dst, const s32 imm, struct jit_ctx *ctx)
 {
 	s16 hi = imm >> 16;
 	s16 lo = imm & 0xffff;
-	u8 reg_tmp = get_tmp_reg(ctx);
 
-	if (!imm) {
-		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, dst), ctx);
-		put_tmp_reg(ctx);
-		return;
+	if (!imm)
+		return emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, dst), ctx);
+
+	if (imm >= S16_MIN && imm <= S16_MAX)
+		return emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm), ctx);
+
+	if (lo < 0) {
+		if (hi == S16_MAX) {
+			emit(SW64_BPF_LDIH(dst, SW64_BPF_REG_ZR, (hi >> 1) + 1), ctx);
+			emit(SW64_BPF_ADDL_REG(dst, dst, dst), ctx);
+		} else {
+			emit(SW64_BPF_LDIH(dst, SW64_BPF_REG_ZR, hi + 1), ctx);
+		}
+	} else {
+		emit(SW64_BPF_LDIH(dst, SW64_BPF_REG_ZR, hi), ctx);
 	}
+	if (lo)
+		emit(SW64_BPF_LDI(dst, dst, lo), ctx);
+}
+
+static void emit_sw64_ldu32(const int dst, const u32 imm, struct jit_ctx *ctx)
+{
+	emit_sw64_lds32(dst, imm, ctx);
+	if ((s32)imm < 0)
+		emit(SW64_BPF_ZAP_IMM(dst, 0xf0, dst), ctx);
+}
+
+/*
+ * Load high 32 bits for emit_sw64_ldu64().
+ *
+ * Same as emit_sw64_lds32() except this one does not worry about sign extension
+ * and generates a 32 bits left shift at the end.
+ */
+static void emit_sw64_ld32_hi(const int dst, const s32 imm, struct jit_ctx *ctx)
+{
+	s16 hi = imm >> 16;
+	s16 lo = imm & 0xffff;
+
+	if (!imm)
+		return emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, dst), ctx);
 
 	if (imm >= S16_MIN && imm <= S16_MAX) {
 		emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm), ctx);
-		put_tmp_reg(ctx);
-		return;
+		goto out;
 	}
 
+	if (lo < 0)
+		hi++;
 	emit(SW64_BPF_LDIH(dst, SW64_BPF_REG_ZR, hi), ctx);
-	if (lo & 0x8000) {	// sign bit is 1
-		lo = lo & 0x7fff;
-		emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, 1), ctx);
-		emit(SW64_BPF_SLL_IMM(reg_tmp, 15, reg_tmp), ctx);
-		emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
-		if (lo)
-			emit(SW64_BPF_LDI(dst, dst, lo), ctx);
-	} else {	// sign bit is 0
-		if (lo)
-			emit(SW64_BPF_LDI(dst, dst, lo), ctx);
-	}
-
-	put_tmp_reg(ctx);
+	if (lo)
+		emit(SW64_BPF_LDI(dst, dst, lo), ctx);
+out:
+	emit(SW64_BPF_SLL_IMM(dst, 32, dst), ctx);
 }
 
 static void emit_sw64_ldu64(const int dst, const u64 imm, struct jit_ctx *ctx)
 {
-	u16 imm_tmp;
-	u8 reg_tmp = get_tmp_reg(ctx);
+	u32 hi = imm >> 32;
+	u32 lo = imm & 0xffffffff;
+	u8 reg_tmp;
 
-	if (!imm) {
-		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, dst), ctx);
-		put_tmp_reg(ctx);
-		return;
-	}
+	if (!hi)
+		return emit_sw64_ldu32(dst, lo, ctx);
 
-	if (imm <= U32_MAX) {
-		put_tmp_reg(ctx);
-		return emit_sw64_ldu32(dst, (u32)imm, ctx);
-	}
+	if (!lo)
+		return emit_sw64_ld32_hi(dst, hi, ctx);
 
-	if (imm >= (U64_MAX - S16_MAX) || imm <= S16_MAX) {
-		emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm), ctx);
-		put_tmp_reg(ctx);
-		return;
-	}
+	reg_tmp = get_tmp_reg(ctx);
 
-	imm_tmp = (imm >> 60) & 0xf;
-	emit(SW64_BPF_LDI(dst, SW64_BPF_REG_ZR, imm_tmp), ctx);
-	if (imm_tmp)
-		emit(SW64_BPF_SLL_IMM(dst, 60, dst), ctx);
-
-	imm_tmp = (imm >> 45) & 0x7fff;
-	if (imm_tmp) {
-		emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
-		emit(SW64_BPF_SLL_IMM(reg_tmp, 45, reg_tmp), ctx);
-		emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
-	}
-
-	imm_tmp = (imm >> 30) & 0x7fff;
-	if (imm_tmp) {
-		emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
-		emit(SW64_BPF_SLL_IMM(reg_tmp, 30, reg_tmp), ctx);
-		emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
-	}
-
-	imm_tmp = (imm >> 15) & 0x7fff;
-	if (imm_tmp) {
-		emit(SW64_BPF_LDI(reg_tmp, SW64_BPF_REG_ZR, imm_tmp), ctx);
-		emit(SW64_BPF_SLL_IMM(reg_tmp, 15, reg_tmp), ctx);
-		emit(SW64_BPF_ADDL_REG(dst, reg_tmp, dst), ctx);
-	}
-
-	imm_tmp = imm & 0x7fff;
-	if (imm_tmp)
-		emit(SW64_BPF_LDI(dst, dst, imm_tmp), ctx);
+	emit_sw64_ld32_hi(dst, hi, ctx);
+	emit_sw64_ldu32(reg_tmp, lo, ctx);
+	emit(SW64_BPF_BIS_REG(dst, reg_tmp, dst), ctx);
 
 	put_tmp_reg(ctx);
 }
