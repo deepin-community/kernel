@@ -843,7 +843,7 @@ static void phytium_ddma_chan_remove(struct phytium_ddma_chan *chan)
 	list_del(&chan->vchan.chan.device_node);
 }
 
-static int phytium_ddma_remove(struct platform_device *pdev)
+static void phytium_ddma_remove(struct platform_device *pdev)
 {
 	struct phytium_ddma_device *ddma = platform_get_drvdata(pdev);
 	struct phytium_ddma_chan *chan = NULL;
@@ -859,8 +859,6 @@ static int phytium_ddma_remove(struct platform_device *pdev)
 
 	phytium_ddma_irq_disable(ddma);
 	phytium_ddma_disable(ddma);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
