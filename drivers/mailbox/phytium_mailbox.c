@@ -170,13 +170,11 @@ fail:
 	return err;
 }
 
-static int phytium_mbox_remove(struct platform_device *pdev)
+static void phytium_mbox_remove(struct platform_device *pdev)
 {
 	struct phytium_mbox *mbox = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&mbox->mbox);
-
-	return 0;
 }
 
 static struct platform_driver phytium_mbox_driver = {
