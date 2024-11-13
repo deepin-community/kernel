@@ -658,14 +658,15 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 
 	if (gic_irq_in_rdist(d)) {
 		base = gic_data_rdist_sgi_base();
-		ret = gic_configure_irq(index, type, base + offset, gic_redist_wait_for_rwp);
+		ret = gic_configure_irq(index, type, base + offset);
+		gic_redist_wait_for_rwp();
 		mpidr = (unsigned long)cpu_logical_map(smp_processor_id());
 
 		if ((mpidr & 0xffff) == 0) {
 			rbase = base + 64*SZ_128K;
 
 			for (i = 0; i < 4; i++) {
-				ret = gic_configure_irq(index, type, rbase + offset, NULL);
+				ret = gic_configure_irq(index, type, rbase + offset);
 				gic_do_wait_for_rwp(rbase - SZ_64K, GICR_CTLR_RWP);
 				rbase = rbase + SZ_128K;
 			}
@@ -673,7 +674,7 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	} else {
 		skt = mars3_irq_to_skt(gic_irq(d));
 		base = mars3_gic_dists[skt].dist_base;
-		ret = gic_configure_irq(index, type, base + offset, NULL);
+		ret = gic_configure_irq(index, type, base + offset);
 		gic_do_wait_for_rwp(base, GICD_CTLR_RWP);
 	}
 
@@ -944,10 +945,10 @@ static void __init gic_dist_init(void)
 			writel_relaxed(0, base + GICD_ICFGRnE + i / 4);
 
 		for (i = 0; i < GIC_ESPI_NR; i += 4)
-			writel_relaxed(GICD_INT_DEF_PRI_X4, base + GICD_IPRIORITYRnE + i);
+			writel_relaxed(REPEAT_BYTE_U32(GICD_INT_DEF_PRI), base + GICD_IPRIORITYRnE + i);
 
 		/* Now do the common stuff, and wait for the distributor to drain */
-		gic_dist_config(base, GIC_LINE_NR, NULL);
+		gic_dist_config(base, GIC_LINE_NR, GICD_INT_DEF_PRI);
 		gic_do_wait_for_rwp(base, GICD_CTLR_RWP);      // do sync outside of gic_dist_config
 
 		val = GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1A | GICD_CTLR_ENABLE_G1;
@@ -1294,7 +1295,8 @@ static void gic_cpu_init(void)
 	for (i = 0; i < gic_data.ppi_nr + 16; i += 32)
 		writel_relaxed(~0, rbase + GICR_IGROUPR0 + i / 8);
 
-	gic_cpu_config(rbase, gic_data.ppi_nr + 16, gic_redist_wait_for_rwp);
+	gic_cpu_config(rbase, gic_data.ppi_nr + 16, GICD_INT_DEF_PRI);
+	gic_redist_wait_for_rwp();
 
 	mpidr = (unsigned long)cpu_logical_map(smp_processor_id());
 
@@ -1305,7 +1307,7 @@ static void gic_cpu_init(void)
 			/* Configure SGIs/PPIs as non-secure Group-1 */
 			writel_relaxed(~0, rbase + GICR_IGROUPR0);
 
-			gic_cpu_config(rbase, gic_data.ppi_nr + 16, NULL);
+			gic_cpu_config(rbase, gic_data.ppi_nr + 16, GICD_INT_DEF_PRI);
 			gic_do_wait_for_rwp(rbase - SZ_64K, GICR_CTLR_RWP);
 
 			rbase = rbase + SZ_128K;
