@@ -507,7 +507,7 @@ static void hw_perf_event_destroy(struct perf_event *event)
 	/* Nothing to be done! */
 }
 
-static void __hw_perf_event_init(struct perf_event *event)
+static int __hw_perf_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
@@ -515,6 +515,18 @@ static void __hw_perf_event_init(struct perf_event *event)
 
 	if (!is_sampling_event(event))
 		pr_debug("not sampling event\n");
+	else {
+		switch (hwc->config) {
+		case SW64_L1I_CACHE:
+		case SW64_L1I_CACHE_MISSES:
+		case SW64_PMU_INSTRUCTIONS:
+		case SW64_PMU_BRANCH:
+		case SW64_PMU_BRANCH_MISSES:
+			return -EOPNOTSUPP;
+		default:
+			break;
+		}
+	}
 
 	event->destroy = hw_perf_event_destroy;
 
@@ -523,6 +535,8 @@ static void __hw_perf_event_init(struct perf_event *event)
 		hwc->last_period = hwc->sample_period;
 		local64_set(&hwc->period_left, hwc->sample_period);
 	}
+
+	return 0;
 }
 
 /*
@@ -581,9 +595,7 @@ static int sw64_pmu_event_init(struct perf_event *event)
 
 	hwc->config = config;
 	/* Do the real initialisation work. */
-	__hw_perf_event_init(event);
-
-	return 0;
+	return __hw_perf_event_init(event);
 }
 
 static struct pmu pmu = {
