@@ -643,7 +643,7 @@ static int phytium_ddr_pmu_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int phytium_ddr_pmu_remove(struct platform_device *pdev)
+static void phytium_ddr_pmu_remove(struct platform_device *pdev)
 {
 	struct phytium_ddr_pmu *ddr_pmu = platform_get_drvdata(pdev);
 
@@ -652,8 +652,6 @@ static int phytium_ddr_pmu_remove(struct platform_device *pdev)
 	perf_pmu_unregister(&ddr_pmu->pmu);
 	cpuhp_state_remove_instance_nocalls(
 		phytium_ddr_pmu_hp_state, &ddr_pmu->node);
-
-	return 0;
 }
 
 static struct platform_driver phytium_ddr_pmu_driver = {
