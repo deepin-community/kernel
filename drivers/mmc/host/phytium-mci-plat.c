@@ -127,7 +127,7 @@ host_free:
 	return ret;
 }
 
-static int phytium_mci_remove(struct platform_device *pdev)
+static void phytium_mci_remove(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct phytium_mci_host *host;
@@ -135,14 +135,14 @@ static int phytium_mci_remove(struct platform_device *pdev)
 	mmc = platform_get_drvdata(pdev);
 	if (!mmc) {
 		dev_info(&pdev->dev, "%s %d: mmc is null.\n", __func__, __LINE__);
-		return -1;
+		return;
 	}
 	host = mmc_priv(mmc);
 	if (!host) {
 		dev_info(&pdev->dev, "%s %d: host is null.\n", __func__, __LINE__);
 		mmc_remove_host(mmc);
 		mmc_free_host(mmc);
-		return -1;
+		return;
 	}
 	del_timer(&host->hotplug_timer);
 	mmc_remove_host(host->mmc);
@@ -155,7 +155,6 @@ static int phytium_mci_remove(struct platform_device *pdev)
 	phytium_mci_deinit_hw(host);
 	mmc_free_host(mmc);
 	platform_set_drvdata(pdev, NULL);
-	return 0;
 }
 
 static const struct of_device_id phytium_mci_of_ids[] = {
