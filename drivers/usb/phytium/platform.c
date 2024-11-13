@@ -128,12 +128,12 @@ static int phytium_driver_probe(struct platform_device *pdev)
 	return retval;
 }
 
-static int phytium_driver_remove(struct platform_device *dev)
+static void phytium_driver_remove(struct platform_device *dev)
 {
 	struct phytium_cusb *config = platform_get_drvdata(dev);
 
 	if (!config)
-		return 0;
+		return;
 
 	phytium_get_dr_mode(config);
 
@@ -146,7 +146,6 @@ static int phytium_driver_remove(struct platform_device *dev)
 		phytium_gadget_uninit(config);
 
 	dev_set_drvdata(&dev->dev, NULL);
-	return 0;
 }
 
 static void phytium_driver_shutdown(struct platform_device *dev)
