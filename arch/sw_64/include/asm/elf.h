@@ -4,6 +4,7 @@
 #ifdef __KERNEL__
 #include <asm/auxvec.h>
 #endif
+#include <asm/ptrace.h>
 /* Special values for the st_other field in the symbol table.  */
 
 
@@ -59,7 +60,7 @@
  *
  * For now, we just leave it at 33 (32 general regs + processor status word).
  */
-#define ELF_NGREG	33
+#define ELF_NGREG (sizeof(struct user_pt_regs) / sizeof(elf_greg_t))
 
 typedef unsigned long elf_greg_t;
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
@@ -118,8 +119,14 @@ extern int arch_setup_additional_pages(struct linux_binprm *bprm,
 #ifdef __KERNEL__
 struct pt_regs;
 struct task_struct;
-extern void sw64_elf_core_copy_regs(elf_greg_t *dest, struct pt_regs *pt);
-#define ELF_CORE_COPY_REGS(DEST, REGS) sw64_elf_core_copy_regs(DEST, REGS);
+#define ELF_CORE_COPY_REGS(dest, regs)				\
+do {								\
+	struct thread_info *ti;					\
+								\
+	*(struct user_pt_regs *)&(dest) = (regs)->user_regs;	\
+	ti = (void *)((__u64)regs & ~(THREAD_SIZE - 1));	\
+	dest[ELF_NGREG] = ti->pcb.tp;				\
+} while (0);
 
 /*
  * This yields a mask that user programs can use to figure out what
