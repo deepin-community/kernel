@@ -1328,7 +1328,7 @@ host_free:
 	return ret;
 }
 
-static int phytium_sdci_remove(struct platform_device *pdev)
+static void phytium_sdci_remove(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct phytium_sdci_host *host;
@@ -1346,8 +1346,6 @@ static int phytium_sdci_remove(struct platform_device *pdev)
 				  host->dma_rx.buf, host->dma_rx.bd_addr);
 
 	mmc_free_host(host->mmc);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
