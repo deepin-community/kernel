@@ -176,7 +176,7 @@ static int phytmac_set_ringparam(struct net_device *ndev,
 }
 
 static int phytmac_get_ts_info(struct net_device *ndev,
-			       struct ethtool_ts_info *info)
+			       struct kernel_ethtool_ts_info *info)
 {
 	struct phytmac *pdata = netdev_priv(ndev);
 
