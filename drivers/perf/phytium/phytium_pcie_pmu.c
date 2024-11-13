@@ -788,7 +788,7 @@ static int phytium_pcie_pmu_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int phytium_pcie_pmu_remove(struct platform_device *pdev)
+static void phytium_pcie_pmu_remove(struct platform_device *pdev)
 {
 	struct phytium_pcie_pmu *pcie_pmu = platform_get_drvdata(pdev);
 
@@ -797,8 +797,6 @@ static int phytium_pcie_pmu_remove(struct platform_device *pdev)
 	perf_pmu_unregister(&pcie_pmu->pmu);
 	cpuhp_state_remove_instance_nocalls(
 		phytium_pcie_pmu_hp_state, &pcie_pmu->node);
-
-	return 0;
 }
 
 static struct platform_driver phytium_pcie_pmu_driver = {
