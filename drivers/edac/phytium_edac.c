@@ -450,13 +450,11 @@ out:
 	return ret;
 }
 
-static int phytium_edac_remove(struct platform_device *pdev)
+static void phytium_edac_remove(struct platform_device *pdev)
 {
 	struct phytium_edac *edac = dev_get_drvdata(&pdev->dev);
 
 	phytium_edac_device_remove(edac);
-
-	return 0;
 }
 
 static const struct of_device_id phytium_edac_of_match[] = {
