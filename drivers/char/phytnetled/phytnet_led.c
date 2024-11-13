@@ -277,7 +277,7 @@ net_led_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int
+static void
 net_led_remove(struct platform_device *pdev)
 {
 	struct led_data *phytnet_led = platform_get_drvdata(pdev);
@@ -299,8 +299,6 @@ net_led_remove(struct platform_device *pdev)
 	}
 
 	devm_kfree(&pdev->dev, phytnet_led);
-
-	return 0;
 }
 
 static struct platform_driver net_led_driver = {
