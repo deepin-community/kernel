@@ -630,7 +630,7 @@ static int phytium_adc_probe(struct platform_device *pdev)
 	return iio_device_register(indio_dev);
 }
 
-static int phytium_adc_remove(struct platform_device *pdev)
+static void phytium_adc_remove(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct phytium_adc *adc = iio_priv(indio_dev);
@@ -638,8 +638,6 @@ static int phytium_adc_remove(struct platform_device *pdev)
 	phytium_adc_power_setup(adc, false);
 	iio_device_unregister(indio_dev);
 	kfree(adc->scan_data);
-
-	return 0;
 }
 
 static const struct of_device_id phytium_of_match[] = {
