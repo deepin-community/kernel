@@ -85,11 +85,10 @@ static int phytium_nfc_plat_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int phytium_nfc_plat_remove(struct platform_device *pdev)
+static void phytium_nfc_plat_remove(struct platform_device *pdev)
 {
 	struct phytium_nfc *nfc = platform_get_drvdata(pdev);
-
-	return phytium_nand_remove(nfc);
+	phytium_nand_remove(nfc);
 }
 
 static int __maybe_unused phytium_nfc_plat_prepare(struct device *dev)
