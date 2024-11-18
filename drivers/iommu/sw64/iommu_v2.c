@@ -1540,14 +1540,11 @@ static struct iommu_device *sunway_iommu_probe_device(struct device *dev)
 	struct sunway_iommu *iommu;
 	int ret;
 
+	if (!dev_is_pci(dev))
+		return ERR_PTR(-ENODEV);
+
 	pdev = to_pci_dev(dev);
 	if (!pdev)
-		return ERR_PTR(-ENODEV);
-
-	if (pdev->hdr_type == PCI_HEADER_TYPE_BRIDGE)
-		return ERR_PTR(-ENODEV);
-
-	if (pci_pcie_type(pdev) == PCI_EXP_TYPE_ROOT_PORT)
 		return ERR_PTR(-ENODEV);
 
 	hose = pci_bus_to_pci_controller(pdev->bus);
