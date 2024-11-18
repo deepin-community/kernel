@@ -1,9 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0
 # Symbols present in the vdso
+ARCH_REL_TYPE_ABS := R_SW64_REFLONG|R_SW64_REFQUAD|R_SW64_JMP_SLOT
+include $(srctree)/lib/vdso/Makefile
 vdso-syms = rt_sigreturn gettimeofday getcpu
 
 # Files to link into the vdso
 obj-vdso = $(patsubst %, v%.o, $(vdso-syms))
+
+ifneq ($(c-gettimeofday-y),)
+    CFLAGS_vgettimeofday.o += -include $(c-gettimeofday-y)
+endif
 
 # Build rules
 targets := $(obj-vdso) vdso.so vdso.so.dbg vdso.lds vdso-syms.S
@@ -35,7 +41,7 @@ $(obj)/vdso.o: $(obj)/vdso.so
 
 # link rule for the .so file, .lds has to be first
 SYSCFLAGS_vdso.so.dbg = $(c_flags)
-$(obj)/vdso.so.dbg: $(src)/vdso.lds $(obj-vdso) FORCE
+$(obj)/vdso.so.dbg: $(src)/vdso.lds $(obj-vdso)
 	$(call if_changed,vdsold)
 SYSCFLAGS_vdso.so.dbg = -shared -s -Wl,-soname=linux-vdso.so.1 \
                             $(call cc-ldoption, -Wl$(comma)--hash-style=both)

@@ -156,25 +156,3 @@ up_fail:
 	return PTR_ERR(ret);
 }
 
-void update_vsyscall(struct timekeeper *tk)
-{
-	vdso_data_write_begin(vdso_data);
-
-	vdso_data->xtime_sec = tk->xtime_sec;
-	vdso_data->xtime_nsec = tk->tkr_mono.xtime_nsec;
-	vdso_data->wall_to_mono_sec = tk->wall_to_monotonic.tv_sec;
-	vdso_data->wall_to_mono_nsec = tk->wall_to_monotonic.tv_nsec;
-	vdso_data->cs_shift = tk->tkr_mono.shift;
-
-	vdso_data->cs_mult = tk->tkr_mono.mult;
-	vdso_data->cs_cycle_last = tk->tkr_mono.cycle_last;
-	vdso_data->cs_mask = tk->tkr_mono.mask;
-
-	vdso_data_write_end(vdso_data);
-}
-
-void update_vsyscall_tz(void)
-{
-	vdso_data->tz_minuteswest = sys_tz.tz_minuteswest;
-	vdso_data->tz_dsttime = sys_tz.tz_dsttime;
-}

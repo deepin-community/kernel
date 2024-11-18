@@ -8,6 +8,7 @@
 #include <asm/cpu.h>
 #include <asm/debug.h>
 #include <asm/timer.h>
+#include <linux/clocksource.h>
 
 #include "proto.h"
 
@@ -41,4 +42,9 @@ time_init(void)
 	sw64_setup_timer();
 	/* Calibrate the delay loop directly */
 	lpj_fine = cycle_freq / HZ;
+}
+
+void clocksource_arch_init(struct clocksource *cs)
+{
+	cs->vdso_clock_mode = VDSO_CLOCKMODE_ARCHTIMER;
 }
