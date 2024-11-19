@@ -1170,8 +1170,22 @@ unsigned int reclaim_clean_pages_from_list(struct zone *zone,
 #define ALLOC_HIGHATOMIC	0x200 /* Allows access to MIGRATE_HIGHATOMIC */
 #define ALLOC_KSWAPD		0x800 /* allow waking of kswapd, __GFP_KSWAPD_RECLAIM set */
 
+#ifdef CONFIG_WMARK_STEP
+#define ALLOC_WMARK_STEP	0x10000 /* Allow use user-reserve */
+#endif
+
 /* Flags that allow allocations below the min watermark. */
 #define ALLOC_RESERVES (ALLOC_NON_BLOCK|ALLOC_MIN_RESERVE|ALLOC_HIGHATOMIC|ALLOC_OOM)
+
+#ifdef CONFIG_WMARK_STEP
+extern bool wmark_step_enable;
+extern unsigned int wmark_step_max;
+extern unsigned int wmark_step_irq;
+extern unsigned int wmark_step_kthread;
+extern unsigned int wmark_step_default;
+extern unsigned int wmark_step_size;
+int get_wmark_step_value(void);
+#endif
 
 enum ttu_flags;
 struct tlbflush_unmap_batch;

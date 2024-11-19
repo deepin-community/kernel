@@ -207,6 +207,15 @@ EXPORT_SYMBOL(node_states);
 
 gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
 
+#ifdef CONFIG_WMARK_STEP
+bool wmark_step_enable __read_mostly = false;
+unsigned int wmark_step_max __read_mostly = 5;
+unsigned int wmark_step_irq __read_mostly = 5;
+unsigned int wmark_step_kthread __read_mostly = 3;
+unsigned int wmark_step_default __read_mostly = 0;
+unsigned int wmark_step_size __read_mostly = SZ_16M;
+#endif
+
 #ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
 unsigned int pageblock_order __read_mostly;
 #endif
@@ -3158,9 +3167,36 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 {
 	long min = mark;
 	int o;
+#ifdef CONFIG_WMARK_STEP
+	long pages_wmark_step = (wmark_step_max * wmark_step_size) >> PAGE_SHIFT;
+	int wmark_step;
+#endif
 
 	/* free_pages may go negative - that's OK */
 	free_pages -= __zone_watermark_unusable_free(z, order, alloc_flags);
+
+#ifdef CONFIG_WMARK_STEP
+	if (zone_idx(z) == ZONE_NORMAL && wmark_step_enable) {
+		if (unlikely(min <= pages_wmark_step)) {
+			pr_err_once("uosste: min[%ld] < pages_wmark_step[%ld]\n",
+					min, pages_wmark_step);
+			goto skip;
+		}
+
+		if (unlikely(alloc_flags & ALLOC_RESERVES))
+			min -= pages_wmark_step;
+		else if (alloc_flags & ALLOC_WMARK_STEP) {
+			wmark_step = get_wmark_step_value();
+			if (wmark_step < 0 || wmark_step > wmark_step_max) {
+				pr_err_once("uosste: wmark_step error: %d\n", wmark_step);
+				goto skip;
+			}
+			min -= (wmark_step * wmark_step_size) >> PAGE_SHIFT;
+		}
+
+	}
+skip:
+#endif
 
 	if (unlikely(alloc_flags & ALLOC_RESERVES)) {
 		/*
@@ -4026,6 +4062,11 @@ static inline unsigned int
 gfp_to_alloc_flags(gfp_t gfp_mask, unsigned int order)
 {
 	unsigned int alloc_flags = ALLOC_WMARK_MIN | ALLOC_CPUSET;
+#ifdef CONFIG_WMARK_STEP
+	/* Only enabled when ALLOC_WMARK_MIN */
+	if (wmark_step_enable)
+		alloc_flags |= ALLOC_WMARK_STEP;
+#endif
 
 	/*
 	 * __GFP_HIGH is assumed to be the same as ALLOC_MIN_RESERVE
@@ -6049,6 +6090,9 @@ static void setup_per_zone_lowmem_reserve(void)
 static void __setup_per_zone_wmarks(void)
 {
 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
+#ifdef CONFIG_WMARK_STEP
+	unsigned long pages_wmark_step = (wmark_step_max * wmark_step_size) >> PAGE_SHIFT;
+#endif
 	unsigned long lowmem_pages = 0;
 	struct zone *zone;
 	unsigned long flags;
@@ -6086,6 +6130,12 @@ static void __setup_per_zone_wmarks(void)
 			 * proportionate to the zone's size.
 			 */
 			zone->_watermark[WMARK_MIN] = tmp;
+
+#ifdef CONFIG_WMARK_STEP
+			/* Put all wmark step in zone normal */
+			if (zone_idx(zone) == ZONE_NORMAL)
+				zone->_watermark[WMARK_MIN] += pages_wmark_step;
+#endif
 		}
 
 		/*

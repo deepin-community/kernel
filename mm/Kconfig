@@ -1295,6 +1295,20 @@ config NUMA_EMU
 	  into virtual nodes when booted with "numa=fake=N", where N is the
 	  number of nodes. This is only useful for debugging.
 
+config WMARK_STEP
+	bool "WaterMark step"
+	depends on MEMCG
+	help
+	  Increase global watermark and watermark stepping based on request:
+
+	  1. If wmark_step_enable=0, global watermark increasing 80M.
+	  2. If wmark_step_enable=1, global watermark increasing 80M then
+	  stepping based on allocation request type (1 step for decreasing 16M):
+	    - Maintain current watermark for ALLOC_RESERVES
+	    - Apply wmark-step=5 for irq (origin min wmark, highest priority)
+	    - Apply wmark-step=3 for kthread (can be set by sysfs)
+	    - Apply wmark-step=0 for process (default, can be set to 0-5)
+
 source "mm/damon/Kconfig"
 
 endmenu

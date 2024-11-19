@@ -3586,6 +3586,9 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
 	page_counter_set_high(&memcg->swap, PAGE_COUNTER_MAX);
 	if (parent) {
 		WRITE_ONCE(memcg->swappiness, mem_cgroup_swappiness(parent));
+#ifdef CONFIG_WMARK_STEP
+		WRITE_ONCE(memcg->wmark_step, READ_ONCE(parent->wmark_step));
+#endif
 
 		page_counter_init(&memcg->memory, &parent->memory, true);
 		page_counter_init(&memcg->swap, &parent->swap, false);
@@ -3599,6 +3602,9 @@ mem_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
 		init_memcg_events();
 		page_counter_init(&memcg->memory, NULL, true);
 		page_counter_init(&memcg->swap, NULL, false);
+#ifdef CONFIG_WMARK_STEP
+		memcg->wmark_step = wmark_step_default;
+#endif
 #ifdef CONFIG_MEMCG_V1
 		page_counter_init(&memcg->kmem, NULL, false);
 		page_counter_init(&memcg->tcpmem, NULL, false);
@@ -4282,6 +4288,67 @@ static ssize_t memory_oom_group_write(struct kernfs_open_file *of,
 	return nbytes;
 }
 
+#ifdef CONFIG_WMARK_STEP
+int get_wmark_step_value(void)
+{
+	struct mem_cgroup *memcg;
+	int wmark_step = wmark_step_default;
+
+	if (!in_task())
+		return wmark_step_irq;
+
+	if (current->flags & PF_KTHREAD)
+		return wmark_step_kthread;
+
+	if (mem_cgroup_disabled())
+		return wmark_step_default;
+
+	rcu_read_lock();
+	memcg = mem_cgroup_from_task(current);
+	if (memcg)
+		wmark_step = memcg->wmark_step;
+	rcu_read_unlock();
+
+	return wmark_step;
+}
+
+static int memory_wmark_step_show(struct seq_file *m, void *v)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_seq(m);
+
+	seq_printf(m, "%d\n", READ_ONCE(memcg->wmark_step));
+
+	return 0;
+}
+
+static ssize_t memory_wmark_step_write(struct kernfs_open_file *of,
+				      char *buf, size_t nbytes, loff_t off)
+{
+	struct mem_cgroup *memcg = mem_cgroup_from_css(of_css(of));
+	struct mem_cgroup *iter;
+	int ret, wmark_step;
+
+	if (mem_cgroup_is_root(memcg))
+		return -EPERM;
+
+	buf = strstrip(buf);
+	if (!buf)
+		return -EINVAL;
+
+	ret = kstrtoint(buf, 0, &wmark_step);
+	if (ret)
+		return ret;
+
+	if (wmark_step < 0 || wmark_step > wmark_step_max)
+		return -EINVAL;
+
+	for_each_mem_cgroup_tree(iter, memcg)
+		WRITE_ONCE(iter->wmark_step, wmark_step);
+
+	return nbytes;
+}
+#endif
+
 enum {
 	MEMORY_RECLAIM_SWAPPINESS = 0,
 	MEMORY_RECLAIM_NULL,
@@ -4424,6 +4491,14 @@ static struct cftype memory_files[] = {
 		.seq_show = memory_oom_group_show,
 		.write = memory_oom_group_write,
 	},
+#ifdef CONFIG_WMARK_STEP
+	{
+		.name = "wmark_step",
+		.flags = CFTYPE_NOT_ON_ROOT,
+		.seq_show = memory_wmark_step_show,
+		.write = memory_wmark_step_write,
+	},
+#endif
 	{
 		.name = "reclaim",
 		.flags = CFTYPE_NS_DELEGATABLE,
@@ -4899,6 +4974,63 @@ static int __init cgroup_memory(char *s)
 }
 __setup("cgroup.memory=", cgroup_memory);
 
+#ifdef CONFIG_WMARK_STEP
+static ssize_t wmark_step_kthread_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%u\n", wmark_step_kthread);
+}
+
+static ssize_t wmark_step_kthread_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t len)
+{
+	unsigned int value;
+
+	if (kstrtouint(buf, 0, &value))
+		return -EINVAL;
+
+	if (value > wmark_step_max)
+		return -EINVAL;
+
+	wmark_step_kthread = value;
+
+	return len;
+}
+
+static struct kobj_attribute wmark_step_kthread_attr = __ATTR_RW(wmark_step_kthread);
+
+static ssize_t wmark_step_enabled_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%d\n", wmark_step_enable);
+}
+
+static ssize_t wmark_step_enabled_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t len)
+{
+	bool enable;
+
+	if (kstrtobool(buf, &enable))
+		return -EINVAL;
+
+	wmark_step_enable = enable;
+
+	return len;
+}
+
+static struct kobj_attribute wmark_step_enabled_attr = __ATTR(enabled, 0644,
+	wmark_step_enabled_show, wmark_step_enabled_store);
+
+static struct attribute *wmark_step_attrs[] = {
+	&wmark_step_enabled_attr.attr,
+	&wmark_step_kthread_attr.attr,
+	NULL
+};
+
+static const struct attribute_group wmark_step_attr_group = {
+	.name = "wmark_step",
+	.attrs = wmark_step_attrs,
+};
+#endif
+
 /*
  * subsys_initcall() for memory controller.
  *
@@ -4925,6 +5057,11 @@ static int __init mem_cgroup_init(void)
 	for_each_possible_cpu(cpu)
 		INIT_WORK(&per_cpu_ptr(&memcg_stock, cpu)->work,
 			  drain_local_stock);
+
+#ifdef CONFIG_WMARK_STEP
+	if (sysfs_create_group(mm_kobj, &wmark_step_attr_group))
+		pr_warn("wmark-step: failed to create sysfs group\n");
+#endif
 
 	return 0;
 }

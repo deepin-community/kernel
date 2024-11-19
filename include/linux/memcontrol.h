@@ -222,6 +222,10 @@ struct mem_cgroup {
 
 	int swappiness;
 
+#ifdef CONFIG_WMARK_STEP
+	int		wmark_step;
+#endif
+
 	/* memory.events and memory.events.local */
 	struct cgroup_file events_file;
 	struct cgroup_file events_local_file;
