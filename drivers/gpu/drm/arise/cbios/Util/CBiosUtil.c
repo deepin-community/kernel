@@ -52,10 +52,6 @@ static CBIOS_U32 cbGetVsyncWidth(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 XRes, C
     {
         ulRet = 6;
     }
-    else if((ulTemp<126)&&(ulTemp>125))
-    {
-        ulRet = 7;
-    }
     else if((ulTemp<167)&&(ulTemp>165))
     {
         ulRet = 7;
