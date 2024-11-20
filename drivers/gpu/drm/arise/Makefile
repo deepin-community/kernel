@@ -13,7 +13,8 @@ CHECK_GCC_VERSION?=1
 endif
 
 ccflags-y := -D__LINUX__ -DKERNEL_BUILD
-ccflags-y += -Wno-undef -Wno-unused -Wno-missing-braces -Wno-missing-attributes -Wno-overflow -Wno-missing-prototypes -Wno-missing-declarations
+ccflags-y += -Wno-undef -Wno-unused -Wno-missing-braces -Wno-overflow -Wno-missing-prototypes -Wno-missing-declarations
+ccflags-y += $(call cc-option, -Wno-missing-attributes)
 
 ifeq ($(CHECK_GCC_VERSION), 1)
 
