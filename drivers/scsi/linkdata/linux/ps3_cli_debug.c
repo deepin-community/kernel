@@ -3606,8 +3606,6 @@ l_out:
 }
 static void ps3_cli_err_inject_clear(int argc, char *argv[])
 {
-	argc = argc;
-	argv = argv;
 	INJECT_EXIT()
 }
 
@@ -4092,8 +4090,6 @@ void ps3_show_inject_all_scsi_rw(int argc, char *argv[])
 	struct inject_cmds_t *pitem = NULL;
 	PS3Inject_s *p_inject_list = get_inject();
 
-	argc = argc;
-	argv = argv;
 	ps3_mutex_lock(&p_inject_list->lock);
 	if (list_empty(&p_inject_list->scsi_rw_list)) {
 		ps3stor_cli_printf("rw inject list is empty!\n");
@@ -4168,8 +4164,6 @@ void ps3_show_inject_all_scsi_task(int argc, char *argv[])
 	struct inject_cmds_t *pitem = NULL;
 	PS3Inject_s *p_inject_list = get_inject();
 
-	argc = argc;
-	argv = argv;
 	ps3_mutex_lock(&p_inject_list->lock);
 	if (list_empty(&p_inject_list->scsi_task_list)) {
 		ps3stor_cli_printf("task inject list is empty!\n");
@@ -4194,8 +4188,6 @@ void ps3_show_inject_all_mgr(int argc, char *argv[])
 	struct inject_cmds_t *pitem = NULL;
 	PS3Inject_s *p_inject_list = get_inject();
 
-	argc = argc;
-	argv = argv;
 	ps3_mutex_lock(&p_inject_list->lock);
 	if (list_empty(&p_inject_list->mgr_list)) {
 		goto l_out;
@@ -5076,9 +5068,6 @@ l_err:
 
 static void ps3_clear_all_inject(int argc, char *argv[])
 {
-	argc = argc;
-	argv = argv;
-
 	ps3_clear_all_inject_scsi_rw();
 	ps3_clear_all_inject_scsi_task();
 	ps3_clear_all_inject_mgr();
@@ -5421,9 +5410,6 @@ l_out:
 
 static void ps3_clear_hit_cmd(int argc, char *argv[])
 {
-	argc = argc;
-	argv = argv;
-
 	ps3_scsi_rw_cmd_clear_all();
 	ps3_scsi_task_cmd_clear_all();
 	ps3_mgr_cmd_clear_all();

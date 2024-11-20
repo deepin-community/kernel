@@ -231,7 +231,6 @@ l_out:
 void ps3_sas_node_phy_update(struct ps3_instance *instance, struct ps3_sas_phy *ps3_phy,
 	struct PS3PhyInfo *phy_info)
 {
-	instance = instance;
 	ps3_phy->identify.initiator_port_protocols =
 		phy_info->initiatorPortProtocol;
 	ps3_phy->identify.target_port_protocols =
