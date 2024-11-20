@@ -130,6 +130,7 @@ static S32 ps3_err_fault_strategy_exec(struct ps3_instance *instance,
 	case PS3_FAULT_STRATEGY_RETRY:
 		ps3_msleep(PS3_ERR_MGR_CMD_DELAY_TIME_BEFORE_RERTY);
 		proc_result = -PS3_RETRY;
+		break;
 	default:
 		break;
 	}
