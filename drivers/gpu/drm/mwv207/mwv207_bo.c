@@ -162,7 +162,7 @@ int mwv207_bo_kmap_reserved(struct mwv207_bo *jbo, void **ptr)
 	bool is_iomem;
 	int ret;
 
-	if (!jbo->flags & (1<<0))
+	if ((!jbo->flags) & (1<<0))
 		return -EPERM;
 
 	if (jbo->kptr) {
