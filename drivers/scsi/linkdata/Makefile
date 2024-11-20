@@ -13,7 +13,8 @@ ps3stor-objs := ps3_cmd_channel.o ps3_device_update.o ps3_ioc_manager.o ps3_mgr_
 				ps3_device_manager_sas.o ps3_ioc_adp.o ps3_load.o ps3_pci.o ps3_sas_transport.o ps3_watchdog.o
 ps3stor-objs += linux/ps3_base.o linux/ps3_cli.o linux/ps3_cli_debug.o linux/ps3_driver_log.o linux/ps3_dump.o linux/ps3_pcie_err_handle.o
 
-ccflags-y += -Werror -Wmaybe-uninitialized -frecord-gcc-switches
+ccflags-y += -Werror -frecord-gcc-switches
+ccflags-y += $(call cc-option, -Wmaybe-uninitialized)
 ccflags-y += -I$(srctree) \
 			 -I$(srctree)/drivers/scsi/linkdata \
 			 -I$(srctree)/drivers/scsi/linkdata/linux \

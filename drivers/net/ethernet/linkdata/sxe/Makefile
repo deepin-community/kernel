@@ -15,7 +15,8 @@ sxe-objs += $(patsubst %.c, base/trace/%.o, $(notdir $(wildcard $(CURDIR)/base/t
 sxe-objs += $(patsubst %.c, base/log/%.o, $(notdir $(wildcard $(CURDIR)/base/log/*.c)))
 
 #添加编译选项和编译宏
-ccflags-y += -Werror -Wmaybe-uninitialized -frecord-gcc-switches 
+ccflags-y += -Werror -frecord-gcc-switches
+ccflags-y += $(call cc-option, -Wmaybe-uninitialized)
 ccflags-y += -I$(CURDIR)/sxepf
 ccflags-y += -I$(CURDIR)/include/sxe
 ccflags-y += -I$(CURDIR)/include
