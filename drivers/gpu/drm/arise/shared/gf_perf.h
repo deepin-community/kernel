@@ -13,7 +13,7 @@
 //*****************************************************************************
 
 #ifndef __gf_perf_h__
-#define __gf_peff_h__
+#define __gf_perf_h__
 
 typedef struct gf_begin_perf_event_tag
 {
