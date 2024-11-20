@@ -49,6 +49,8 @@ extern int __init msic_acpi_init(struct irq_domain *parent,
 #define	MSI_ADDR_SHIFT		20
 #define	MSI_ADDR_DEST_ID_SHIFT	10
 
+#define arch_is_isolated_msi() true
+
 struct sw64_msi_chip_data {
 	spinlock_t cdata_lock;
 	union {
