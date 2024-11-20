@@ -133,7 +133,7 @@ CBIOS_EDP_PANEL_DESC ITN156_Panel_Desc =
         /*.LaneNum = */4,
         /*.BacklightMax = */255,
         /*.BacklightMin = */0,
-        /*.Flags = */0x2,//backlight control = 0, use hard code link para
+        /*.Flags = */0,//backlight control = 0, use hard code link para
     },
     /*.pFnEDPPanelInit = */INT156_Init,
     /*.pFnEDPPanelDeInit = */INT156_DeInit,
