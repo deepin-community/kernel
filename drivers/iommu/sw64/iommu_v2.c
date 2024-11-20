@@ -88,7 +88,6 @@ struct dma_domain {
 };
 const struct iommu_ops sunway_iommu_ops;
 static const struct dma_map_ops sunway_dma_ops;
-static int iommu_identity_mapping;
 
 static int __last_alias(struct pci_dev *pdev, u16 alias, void *data)
 {
@@ -1570,11 +1569,7 @@ static struct iommu_device *sunway_iommu_probe_device(struct device *dev)
 
 static int sunway_iommu_def_domain_type(struct device *dev)
 {
-	if (dev_is_pci(dev))
-		if (iommu_identity_mapping)
-			return IOMMU_DOMAIN_IDENTITY;
-
-	return 0;
+	return IOMMU_DOMAIN_IDENTITY;
 }
 
 static bool sunway_iommu_capable(struct device *dev, enum iommu_cap cap)
