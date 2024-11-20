@@ -813,7 +813,7 @@ l_out:
 }
 #endif
 
-S32 ps3_sas_attach_transport()
+S32 ps3_sas_attach_transport(void)
 {
 	S32 ret = PS3_SUCCESS;
 	static struct sas_function_template ps3_sas_transport_functions = {
@@ -834,7 +834,7 @@ S32 ps3_sas_attach_transport()
 	return ret;
 }
 
-void ps3_sas_release_transport()
+void ps3_sas_release_transport(void)
 {
 	if(ps3_sas_transport_template != NULL) {
 		sas_release_transport(ps3_sas_transport_template);
