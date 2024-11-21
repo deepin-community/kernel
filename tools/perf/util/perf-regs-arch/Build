@@ -6,4 +6,5 @@ perf-y += perf_regs_mips.o
 perf-y += perf_regs_powerpc.o
 perf-y += perf_regs_riscv.o
 perf-y += perf_regs_s390.o
+perf-y += perf_regs_sw_64.o
 perf-y += perf_regs_x86.o

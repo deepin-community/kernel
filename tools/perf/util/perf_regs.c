@@ -39,6 +39,8 @@ const char *perf_reg_name(int id, const char *arch)
 		reg_name = __perf_reg_name_riscv(id);
 	else if (!strcmp(arch, "s390"))
 		reg_name = __perf_reg_name_s390(id);
+	else if (!strcmp(arch, "sw_64"))
+		reg_name = __perf_reg_name_sw_64(id);
 	else if (!strcmp(arch, "x86"))
 		reg_name = __perf_reg_name_x86(id);
 	else if (!strcmp(arch, "arm"))
