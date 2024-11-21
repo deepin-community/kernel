@@ -197,7 +197,7 @@ static CBIOS_VOID cbHDMIMonitor_GenerateAVIInfoFrameData(PCBIOS_EXTENSION_COMMON
 
     if(bIsCEAMode && VICCode > 1)
     {
-        if((pAVIInfoFrameData->ColorFormat == 0))//RGB
+        if(pAVIInfoFrameData->ColorFormat == 0)//RGB
         {
             if((pModeParams->IsAdobe) && pModeParams->ColorimetryCaps.IsSupportAdobeRGB)
             {
