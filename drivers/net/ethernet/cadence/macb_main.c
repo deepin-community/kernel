@@ -722,7 +722,7 @@ static void macb_mac_config(struct phylink_config *config, unsigned int mode,
 	 * otherwise writes will not take effect.
 	 */
 	if (macb_is_gem(bp) && (state->interface == PHY_INTERFACE_MODE_SGMII ||
-				PHY_INTERFACE_MODE_2500BASEX)) {
+				state->interface == PHY_INTERFACE_MODE_2500BASEX)) {
 		u32 pcsctrl, old_pcsctrl;
 
 		old_pcsctrl = gem_readl(bp, PCSCNTRL);
