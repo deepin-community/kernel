@@ -1992,8 +1992,6 @@ int gf_mtrr_del(int reg, unsigned long base, unsigned long size)
     err =  mtrr_del(reg, base, size);
 #else
     /* avoid build warning */
-    base = base;
-    size = size;
     arch_phys_wc_del(reg);
     err = 0;
 #endif
