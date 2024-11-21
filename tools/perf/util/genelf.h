@@ -37,6 +37,10 @@ int jit_add_debug_info(Elf *e, uint64_t code_addr, void *debug, int nr_debug_ent
 #elif defined(__sparc__)
 #define GEN_ELF_ARCH	EM_SPARC
 #define GEN_ELF_CLASS	ELFCLASS32
+#elif defined(__sw_64__)
+#define EM_SW64		0x9916
+#define GEN_ELF_ARCH	EM_SW64
+#define GEN_ELF_CLASS	ELFCLASS64
 #elif defined(__s390x__)
 #define GEN_ELF_ARCH	EM_S390
 #define GEN_ELF_CLASS	ELFCLASS64

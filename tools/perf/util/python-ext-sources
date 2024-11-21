@@ -48,4 +48,5 @@ util/perf-regs-arch/perf_regs_mips.c
 util/perf-regs-arch/perf_regs_powerpc.c
 util/perf-regs-arch/perf_regs_riscv.c
 util/perf-regs-arch/perf_regs_s390.c
+util/perf-regs-arch/perf_regs_sw64.c
 util/perf-regs-arch/perf_regs_x86.c
