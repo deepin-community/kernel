@@ -3391,7 +3391,6 @@ static s32 rnpgbe_get_thermal_sensor_data_hw_ops_n500(struct rnpgbe_hw *hw)
 	int voltage = 0;
 	struct rnpgbe_thermal_sensor_data *data = &hw->thermal_sensor_data;
 
-	voltage = voltage;
 	data->sensor[0].temp = rnpgbe_mbx_get_temp(hw, &voltage);
 
 	return 0;

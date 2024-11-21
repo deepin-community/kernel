@@ -4205,7 +4205,6 @@ static s32 rnp_get_thermal_sensor_data_hw_ops_n10(struct rnp_hw *hw)
 	int voltage = 0;
 	struct rnp_thermal_sensor_data *data = &hw->thermal_sensor_data;
 
-	voltage = voltage;
 	data->sensor[0].temp = rnp_mbx_get_temp(hw, &voltage);
 
 	return 0;
