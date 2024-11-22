@@ -13,6 +13,7 @@
 #include <linux/mutex.h>
 #include <linux/bits.h>
 #include <linux/miscdevice.h>
+#include <linux/pci.h>
 
 #include "sp-dev.h"
 
@@ -71,5 +72,11 @@ int __vpsp_do_cmd_locked(uint32_t vid, int cmd, void *data, int *psp_ret);
 int fixup_hygon_psp_caps(struct psp_device *psp);
 int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
 			     const char *name, void *data);
+
+#ifdef CONFIG_PM_SLEEP
+void hygon_psp_dev_freeze(struct sp_device *sp);
+void hygon_psp_dev_thaw(struct sp_device *sp);
+void hygon_psp_dev_restore(struct sp_device *sp);
+#endif
 
 #endif	/* __CCP_HYGON_PSP_DEV_H__ */
