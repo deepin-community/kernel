@@ -6162,7 +6162,7 @@ netdev_tx_t rnp_xmit_frame_ring(struct sk_buff *skb,
 			 * protocol and store the tag
 			 */
 			/* veb only use ctags */
-		} else if ((protocol == htons(ETH_P_8021Q))) {
+		} else if (protocol == htons(ETH_P_8021Q)) {
 			struct vlan_hdr *vhdr, _vhdr;
 
 			vhdr = skb_header_pointer(skb, ETH_HLEN, sizeof(_vhdr),

@@ -3326,8 +3326,8 @@ static int rnp10_set_link_ksettings(struct net_device *netdev,
 		if (advertising_link_speed) {
 			hw->phy.autoneg_advertised = advertising_link_speed;
 		} else {
-			if ((hw->force_speed_stat ==
-			     FORCE_SPEED_STAT_DISABLED)) {
+			if (hw->force_speed_stat ==
+			     FORCE_SPEED_STAT_DISABLED) {
 				netdev_info(netdev,
 					    "advertising_link_speed is 0\n");
 				err = -EINVAL;
