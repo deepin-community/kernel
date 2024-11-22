@@ -598,6 +598,11 @@ static struct pci_driver sp_pci_driver = {
 
 int sp_pci_init(void)
 {
+#ifdef CONFIG_PM_SLEEP
+	/* Set pm driver callbacks for Hygon secure processor */
+	if (is_vendor_hygon())
+		hygon_set_pm_cb(&sp_pci_driver);
+#endif
 	return pci_register_driver(&sp_pci_driver);
 }
 

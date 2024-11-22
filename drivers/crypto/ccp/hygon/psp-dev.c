@@ -736,3 +736,40 @@ int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
 }
 
 #endif	/* CONFIG_HYGON_PSP2CPU_CMD */
+
+#ifdef CONFIG_PM_SLEEP
+
+void hygon_psp_dev_freeze(struct sp_device *sp)
+{
+	struct psp_device *psp;
+
+	if (!psp_master)
+		return;
+
+	psp = sp->psp_data;
+	if (psp == psp_master)
+		psp_pci_exit();
+}
+
+void hygon_psp_dev_thaw(struct sp_device *sp)
+{
+	struct psp_device *psp;
+
+	if (!psp_master)
+		return;
+
+	psp = sp->psp_data;
+
+	/* re-enable interrupt */
+	iowrite32(-1, psp->io_regs + psp->vdata->inten_reg);
+
+	if (psp == psp_master)
+		psp_pci_init();
+}
+
+void hygon_psp_dev_restore(struct sp_device *sp)
+{
+	hygon_psp_dev_thaw(sp);
+}
+
+#endif

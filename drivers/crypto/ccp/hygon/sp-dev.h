@@ -15,6 +15,7 @@
 
 #include "../ccp-dev.h"
 #include "../sp-dev.h"
+#include "psp-dev.h"
 
 #ifdef CONFIG_X86_64
 static inline bool is_vendor_hygon(void)
@@ -26,5 +27,18 @@ static inline bool is_vendor_hygon(void) { return false; }
 #endif
 
 extern const struct sp_dev_vdata hygon_dev_vdata[];
+
+#ifdef CONFIG_PM_SLEEP
+
+int hygon_sp_suspend(struct sp_device *sp);
+int hygon_sp_resume(struct sp_device *sp);
+int hygon_sp_freeze(struct sp_device *sp);
+int hygon_sp_thaw(struct sp_device *sp);
+int hygon_sp_poweroff(struct sp_device *sp);
+int hygon_sp_restore(struct sp_device *sp);
+
+void hygon_set_pm_cb(struct pci_driver *drv);
+
+#endif
 
 #endif	/* __CCP_HYGON_SP_DEV_H__ */
