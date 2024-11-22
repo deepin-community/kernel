@@ -128,7 +128,8 @@ static int rnpgbevf_get_link_ksettings(struct net_device *netdev,
 	struct rnpgbevf_hw *hw = &adapter->hw;
 	bool autoneg = false;
 	bool link_up;
-	u32 supported, advertising;
+	u32 supported;
+	u32 advertising = 0;
 	u32 link_speed = 0;
 
 	ethtool_convert_link_mode_to_legacy_u32(&supported,
