@@ -72,3 +72,63 @@ const struct sp_dev_vdata hygon_dev_vdata[] = {
 #endif
 	},
 };
+
+#ifdef CONFIG_PM_SLEEP
+
+static int hygon_sp_pci_suspend(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_suspend(sp);
+}
+
+static int hygon_sp_pci_resume(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_resume(sp);
+}
+
+static int hygon_sp_pci_freeze(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_freeze(sp);
+}
+
+static int hygon_sp_pci_thaw(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_thaw(sp);
+}
+
+static int hygon_sp_pci_poweroff(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_poweroff(sp);
+}
+
+static int hygon_sp_pci_restore(struct device *dev)
+{
+	struct sp_device *sp = dev_get_drvdata(dev);
+
+	return hygon_sp_restore(sp);
+}
+
+static const struct dev_pm_ops hygon_pm_ops = {
+	.suspend = hygon_sp_pci_suspend,
+	.resume = hygon_sp_pci_resume,
+	.freeze = hygon_sp_pci_freeze,
+	.thaw = hygon_sp_pci_thaw,
+	.poweroff = hygon_sp_pci_poweroff,
+	.restore = hygon_sp_pci_restore,
+};
+
+void hygon_set_pm_cb(struct pci_driver *drv)
+{
+	drv->driver.pm = &hygon_pm_ops;
+}
+
+#endif   /* CONFIG_PM_SLEEP */
