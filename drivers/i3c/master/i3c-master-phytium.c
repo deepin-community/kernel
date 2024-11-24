@@ -1666,7 +1666,8 @@ static int phytium_i3c_master_probe(struct platform_device *pdev)
 {
 	struct phytium_i3c_master *master;
 	struct resource *res;
-	int ret, irq;
+	int ret = -EINVAL;
+	int irq;
 	u32 val;
 
 	master = devm_kzalloc(&pdev->dev, sizeof(*master), GFP_KERNEL);
