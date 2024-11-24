@@ -32,7 +32,7 @@ static inline int xdp_rxq_info_reg_compat(struct xdp_rxq_info *xdp_rxq,
 
 static s32 sxevf_rx_ring_alloc(struct sxevf_ring *ring)
 {
-	s32 ret;
+	s32 ret = 0;
 	u32 size;
 	union sxevf_rx_data_desc *desc;
 	struct sxevf_adapter *adapter = netdev_priv(ring->netdev);
@@ -72,13 +72,14 @@ static s32 sxevf_rx_ring_alloc(struct sxevf_ring *ring)
 #ifndef HAVE_NO_XDP_BUFF_RXQ
 	if (xdp_rxq_info_reg(&ring->xdp_rxq, adapter->netdev, ring->idx, 0) < 0) {
 		LOG_ERROR_BDF("ring[%u] xdp rxq info reg failed\n",ring->idx);
+		ret = -ENOMEM;
 		goto l_xdp_rxq_reg_failed;
 	}
 #endif
 
 	ring->xdp_prog = adapter->xdp_prog;
 
-	return 0;
+	return ret;
 
 #ifndef HAVE_NO_XDP_BUFF_RXQ
 l_xdp_rxq_reg_failed:
