@@ -179,7 +179,7 @@ STATIC void sxe_pci_addr_get(struct pci_dev       *pci_dev,
 	return;
 }
 
-s32 sxe_cli_cdev_register()
+s32 sxe_cli_cdev_register(void)
 {
 	s32 ret;
 
@@ -212,7 +212,7 @@ l_alloc_cdev_failed:
 
 }
 
-void sxe_cli_cdev_unregister()
+void sxe_cli_cdev_unregister(void)
 {
 	class_destroy (sxe_cdev_class);
 	unregister_chrdev_region(sxe_cdev_major, SXE_MAX_DEVICES_NUM);

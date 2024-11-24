@@ -134,7 +134,7 @@ void sxe_time_sync_handler(struct work_struct *work)
 	return;
 }
 
-struct semaphore *sxe_hdc_sema_get()
+struct semaphore *sxe_hdc_sema_get(void)
 {
 	return &g_hdc_sema;
 }
