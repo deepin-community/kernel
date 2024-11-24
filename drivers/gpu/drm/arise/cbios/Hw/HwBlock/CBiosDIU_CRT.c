@@ -56,6 +56,7 @@ CBIOS_VOID cbDIU_CRT_SetHVSync(PCBIOS_VOID pvcbe, CBIOS_U8 HVPolarity, CBIOS_U8 
     PCBIOS_EXTENSION_COMMON pcbe = (PCBIOS_EXTENSION_COMMON)pvcbe;
     CBIOS_ACTIVE_TYPE DevicePort = 0;
     CBIOS_U8 byTemp = 0;
+    GPIO_REGISTER Gpio21Value;
 
     DevicePort = pcbe->DispMgr.ActiveDevices[IGAIndex];
 
@@ -90,6 +91,23 @@ CBIOS_VOID cbDIU_CRT_SetHVSync(PCBIOS_VOID pvcbe, CBIOS_U8 HVPolarity, CBIOS_U8 
         {
             cbMMIOWriteReg(pcbe, CR_55, (byTemp >> 6), 0xFC);
         }
+
+        if (pcbe->ChipID == CHIPID_ARISE2030)
+        {
+            // Set GPIO21 for Blue pin
+            Gpio21Value.Value = 0;
+            Gpio21Value.GPIO_OE = 1;
+            if (HVPolarity & VerNEGATIVE)
+            {
+                Gpio21Value.GPIO_OUT = 1; // if VerNEGATIVE, output = 1
+            }
+            else
+            {
+                Gpio21Value.GPIO_OUT = 0; // if VerPOSITIVE, output = 0
+            }
+            cb_WriteU16(pcbe->pAdapterContext, 0xA005C, Gpio21Value.Value); // GPIO21 = 0xA0058, swap 58 --> 5C
+        }
+
     }
 }
 
@@ -251,6 +269,61 @@ static CBIOS_BOOL  cbIsNeedDacSense(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_DAC_SENS
     return bNeedSense;
 }
 
+CBIOS_BOOL cbArise2030_DACSense(PCBIOS_VOID pvcbe, PCBIOS_DEVICE_COMMON pDevCommon)
+{
+    PCBIOS_EXTENSION_COMMON pcbe = (PCBIOS_EXTENSION_COMMON)pvcbe;
+    CBIOS_U32               IGAIndex = pDevCommon->DispSource.ModuleList.IGAModule.Index;
+    CBIOS_BOOL              bStatus = CBIOS_FALSE;
+    GPIO_REGISTER           Gpio21Value, Gpio22Value;
+
+    if(pDevCommon->PowerState != CBIOS_PM_ON)
+    {
+        // Set GPIO21
+        Gpio21Value.Value = 0;
+        Gpio21Value.GPIO_OE = 1;
+        Gpio21Value.GPIO_OUT = 0;
+        cb_WriteU16(pcbe->pAdapterContext, 0xA005C, Gpio21Value.Value); // GPIO21 = 0xA0058, swap 58 --> 5C
+        cb_DelayMicroSeconds(200);//delay 200us
+        Gpio21Value.Value = 0;
+        Gpio21Value.GPIO_OE = 1;
+        Gpio21Value.GPIO_OUT = 1;
+        cb_WriteU16(pcbe->pAdapterContext, 0xA005C, Gpio21Value.Value);  //swap 58 --> 5C
+        cb_DelayMicroSeconds(200);//delay 200us
+        Gpio21Value.Value = 0;
+        Gpio21Value.GPIO_OE = 1;
+        Gpio21Value.GPIO_OUT = 0;
+        cb_WriteU16(pcbe->pAdapterContext, 0xA005C, Gpio21Value.Value);  //swap 58 --> 5C
+
+        // Set GPIO22 Input Enable
+        Gpio22Value.Value = 0;
+        Gpio22Value.GPIO_IE = 1;
+        cb_WriteU16(pcbe->pAdapterContext, 0xA0058, Gpio22Value.Value); // GPIO22 = 0xA005C, swap 5C --> 58
+        cb_DelayMicroSeconds(200);//delay 200us
+
+        // Read GPIO22 Input Value
+        Gpio22Value.Value = cb_ReadU16(pcbe->pAdapterContext, 0xA0058); // GPIO22 = 0xA005C, swap 5C --> 58
+        if(Gpio22Value.GPIO_Data_In == 0) // 0: connect; 1: not connect
+        {
+            bStatus = CBIOS_TRUE;
+        }
+    }
+    else
+    {
+        // Set GPIO22 Input Enable
+        Gpio22Value.Value = 0;
+        Gpio22Value.GPIO_IE = 1;
+        cb_WriteU16(pcbe->pAdapterContext, 0xA0058, Gpio22Value.Value); // GPIO22 = 0xA005C, swap 5C --> 58
+        cbWaitVSync(pcbe, (CBIOS_U8)IGAIndex);
+
+        // Read GPIO22 Input Value
+        Gpio22Value.Value = cb_ReadU16(pcbe->pAdapterContext, 0xA0058); // GPIO22 = 0xA005C, swap 5C --> 58
+        if(Gpio22Value.GPIO_Data_In == 0) // 0: connect; 1: not connect
+        {
+            bStatus = CBIOS_TRUE;
+        }
+    }
+    return bStatus;
+}
 CBIOS_BOOL cbDIU_CRT_DACSense(PCBIOS_VOID pvcbe, PCBIOS_DEVICE_COMMON pDevCommon, CBIOS_BOOL  bPrevEdidValid)
 {
     PCBIOS_EXTENSION_COMMON pcbe       = (PCBIOS_EXTENSION_COMMON)pvcbe;
@@ -262,6 +335,11 @@ CBIOS_BOOL cbDIU_CRT_DACSense(PCBIOS_VOID pvcbe, PCBIOS_DEVICE_COMMON pDevCommon
     REG_SR3F                RegSR3FValue, RegSR3FMask;
     REG_CR71_Pair           RegCR71Value, RegCR71Mask;
     CBIOS_DAC_SENSE_PARA  DacSensePara = {0};
+
+    if (pcbe->ChipID == CHIPID_ARISE2030)
+    {
+        return cbArise2030_DACSense(pcbe, pDevCommon);
+    }
 
     DacSensePara.PowerState = pDevCommon->PowerState;
     DacSensePara.PrevEdidValid = (bPrevEdidValid)? 1 : 0;

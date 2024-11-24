@@ -126,6 +126,7 @@ int         disp_cbios_update_output_active(disp_info_t *disp_info, int* outputs
 int         disp_cbios_set_mode(disp_info_t *disp_info, int crtc, struct drm_display_mode* mode, struct drm_display_mode* adjusted_mode, int  update_flag);
 int         disp_cbios_set_hdac_connect_status(disp_info_t *disp_info, int device , int bPresent, int bEldValid);
 int         disp_cbios_turn_onoff_screen(disp_info_t *disp_info, int iga, int on);
+int         disp_cbios_turn_onoff_iga(disp_info_t *disp_info, int iga, int on);
 int         disp_cbios_detect_connected_output(disp_info_t *disp_info, int to_detect, int full_detect);
 int         disp_cbios_set_dpms(disp_info_t *disp_info, int device, int dpms_mode);
 int         disp_cbios_sync_vbios(disp_info_t *disp_info);

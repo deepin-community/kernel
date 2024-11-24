@@ -572,7 +572,7 @@ CBIOS_MONITOR_TYPE cbGetSupportMonitorType(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE 
         }
         else
         {
-            MonitorType |=  CBIOS_MONITOR_TYPE_CRT | CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
+            MonitorType |= CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
         }
     }
 
@@ -584,7 +584,7 @@ CBIOS_MONITOR_TYPE cbGetSupportMonitorType(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE 
         }
         else
         {
-            MonitorType |=  CBIOS_MONITOR_TYPE_CRT | CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
+            MonitorType |= CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
         }
     }
 
@@ -596,7 +596,7 @@ CBIOS_MONITOR_TYPE cbGetSupportMonitorType(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE 
         }
         else
         {
-            MonitorType |=  CBIOS_MONITOR_TYPE_CRT | CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
+            MonitorType |=  CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
         }
     }
 
@@ -608,7 +608,7 @@ CBIOS_MONITOR_TYPE cbGetSupportMonitorType(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE 
         }
         else
         {
-            MonitorType |=  CBIOS_MONITOR_TYPE_CRT | CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
+            MonitorType |= CBIOS_MONITOR_TYPE_DP | CBIOS_MONITOR_TYPE_DVI | CBIOS_MONITOR_TYPE_HDMI;
         }
     }
 

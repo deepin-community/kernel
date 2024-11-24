@@ -242,6 +242,93 @@ CBIOS_STATUS cbHWSetIgaScreenOnOffState(PCBIOS_VOID pvcbe, CBIOS_BOOL status, CB
     return CBIOS_OK;
 }
 
+CBIOS_STATUS cbHWSetIgaOnOffState(PCBIOS_VOID pvcbe, CBIOS_BOOL status, CBIOS_U8 IGAIndex)
+{
+    PCBIOS_EXTENSION_COMMON pcbe = (PCBIOS_EXTENSION_COMMON)pvcbe;
+    REG_CRFC_B RegCRB_FCValue;
+    REG_CRFC_B RegCRB_FCMask;
+    REG_CRFD_B RegCRB_FDValue;
+    REG_CRFD_B RegCRB_FDMask;
+    REG_SR0B RegSR0BValue;
+    REG_SR0B RegSR0BMask;
+
+    cbTraceEnter(GENERIC);
+
+    if(status) //on
+    {
+        if (IGAIndex == IGA1)
+        {
+            RegCRB_FCValue.Value = 0;
+            RegCRB_FCValue.PLL_DCLK1_POWER_DOWN = 0;
+            RegCRB_FCMask.Value = 0xFF;
+            RegCRB_FCMask.PLL_DCLK1_POWER_DOWN = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FC, RegCRB_FCValue.Value, RegCRB_FCMask.Value);
+        }
+        else if(IGAIndex == IGA2)
+        {
+            RegSR0BValue.Value = 0;
+            RegSR0BValue.DCLK2_Power_Down = 0;
+            RegSR0BMask.Value = 0xFF;
+            RegSR0BMask.DCLK2_Power_Down = 0;
+            cbMMIOWriteReg(pcbe,SR_0B, RegSR0BValue.Value, RegSR0BMask.Value);
+        }
+        else if(IGAIndex == IGA3)
+        {
+            RegCRB_FCValue.Value = 0;
+            RegCRB_FCValue.PLL_DCLK3_Power_Down = 0;
+            RegCRB_FCMask.Value = 0xFF;
+            RegCRB_FCMask.PLL_DCLK3_Power_Down = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FC, RegCRB_FCValue.Value, RegCRB_FCMask.Value);
+        }
+        else if(IGAIndex == IGA4)
+        {
+            RegCRB_FDValue.Value = 0;
+            RegCRB_FDValue.DCLK4_PLL_PWDN = 0;
+            RegCRB_FDMask.Value = 0xFF;
+            RegCRB_FDMask.DCLK4_PLL_PWDN = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FD, RegCRB_FDValue.Value, RegCRB_FDMask.Value);
+        }
+    }
+    else //off
+    {
+        if (IGAIndex == IGA1)
+        {
+            RegCRB_FCValue.Value = 0;
+            RegCRB_FCValue.PLL_DCLK1_POWER_DOWN = 1;
+            RegCRB_FCMask.Value = 0xFF;
+            RegCRB_FCMask.PLL_DCLK1_POWER_DOWN = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FC, RegCRB_FCValue.Value, RegCRB_FCMask.Value);
+        }
+        else if(IGAIndex == IGA2)
+        {
+            RegSR0BValue.Value = 0;
+            RegSR0BValue.DCLK2_Power_Down = 1;
+            RegSR0BMask.Value = 0xFF;
+            RegSR0BMask.DCLK2_Power_Down = 0;
+            cbMMIOWriteReg(pcbe,SR_0B, RegSR0BValue.Value, RegSR0BMask.Value);
+        }
+        else if(IGAIndex == IGA3)
+        {
+            RegCRB_FCValue.Value = 0;
+            RegCRB_FCValue.PLL_DCLK3_Power_Down = 1;
+            RegCRB_FCMask.Value = 0xFF;
+            RegCRB_FCMask.PLL_DCLK3_Power_Down = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FC, RegCRB_FCValue.Value, RegCRB_FCMask.Value);
+        }
+        else if(IGAIndex == IGA4)
+        {
+            RegCRB_FDValue.Value = 0;
+            RegCRB_FDValue.DCLK4_PLL_PWDN = 1;
+            RegCRB_FDMask.Value = 0xFF;
+            RegCRB_FDMask.DCLK4_PLL_PWDN = 0;
+            cbMMIOWriteReg(pcbe,CR_B_FD, RegCRB_FDValue.Value, RegCRB_FDMask.Value);
+        }
+    }
+
+    cbTraceExit(GENERIC);
+
+    return CBIOS_OK;
+}
 
 CBIOS_STATUS cbHWResetBlock(PCBIOS_VOID pvcbe, CBIOS_HW_BLOCK HWBlock)
 {

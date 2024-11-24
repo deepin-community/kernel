@@ -17,6 +17,7 @@
 #include "gf_atomic.h"
 #include "gf_capture_drv.h"
 #include "gf_splice.h"
+#include "gf_audio.h"
 
 static void gf_encoder_destroy(struct drm_encoder *encoder)
 {
@@ -82,9 +83,7 @@ void gf_encoder_disable(struct drm_encoder *encoder)
              is_splice_target_active_in_drm(dev)))
         {
 
-            disp_cbios_set_hdac_connect_status(disp_info, gf_encoder->output_type, FALSE, FALSE);
-
-            gf_usleep_range(1000, 1100); //delay 1 ms
+            gf_audio_set_connect(gf_connector, 0);
 
     #if GF_RUN_HDCP_CTS
             if (gf_connector->hdcp_enable)
@@ -147,10 +146,7 @@ void gf_encoder_enable(struct drm_encoder *encoder)
         gf_mutex_unlock(gf_connector->conn_mutex);
         gf_encoder->enc_dpms = GF_DPMS_ON;
 
-        if (gf_connector->support_audio)
-        {
-            disp_cbios_set_hdac_connect_status(disp_info, gf_encoder->output_type, TRUE, TRUE);
-        }
+        gf_audio_set_connect(gf_connector, 1);
 
 #if GF_RUN_HDCP_CTS
         if ((!(gf_connector->hdcp_enable))

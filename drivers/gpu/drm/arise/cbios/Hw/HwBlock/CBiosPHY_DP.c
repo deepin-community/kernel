@@ -236,6 +236,7 @@ CBIOS_VOID cbPHY_DP_DualModeOnOff(PCBIOS_VOID pvcbe, CBIOS_MODULE_INDEX DPModule
     REG_MM334E0   DPEphySetting1RegValue, DPEphySetting1RegMask;
     REG_MM836C    DPEphyStatusRegValue, DPEphyStatusRegMask;
     REG_MM334E4   DPEphySetting2RegValue, DPEphySetting2RegMask;
+    CBIOS_BOOL    bACE = ((pcbe->ChipID == CHIPID_ARISE2030) || (pcbe->ChipID == CHIPID_ARISE2020)) ? CBIOS_TRUE : CBIOS_FALSE;
 
     cbTraceEnter(DP);
 
@@ -370,7 +371,7 @@ CBIOS_VOID cbPHY_DP_DualModeOnOff(PCBIOS_VOID pvcbe, CBIOS_MODULE_INDEX DPModule
 
         DPEphyStatusRegValue.Value = 0;
         DPEphyStatusRegValue.EPHY1_TPLL_ISEL = 0;
-        if (ClockFreq == 5940000 && (pcbe->ChipID == CHIPID_E3K || pcbe->ChipID == CHIPID_ARISE10C0T))
+        if ((ClockFreq == 5940000 && (pcbe->ChipID == CHIPID_E3K || pcbe->ChipID == CHIPID_ARISE10C0T)) || (ClockFreq < 3400000 && bACE))
         {
             DPEphyStatusRegValue.TR = 0;
             DPEphyStatusRegValue.TC = 7;
@@ -403,7 +404,7 @@ CBIOS_VOID cbPHY_DP_DualModeOnOff(PCBIOS_VOID pvcbe, CBIOS_MODULE_INDEX DPModule
             }
             else
             {
-                DPEphySetting1RegValue.EPHY1_FBOOST = 1;
+                DPEphySetting1RegValue.EPHY1_FBOOST = bACE ? 2 : 1;
             }
         }
         else if(ClockFreq >= 1700000)
@@ -584,11 +585,28 @@ CBIOS_VOID cbPHY_DP_DualModeOnOff(PCBIOS_VOID pvcbe, CBIOS_MODULE_INDEX DPModule
             }
             else
             {
+                if(bACE)
+                {
+                    DPSwingRegValue.Value = 0;
+                    DPSwingRegValue.enable_SW_swing_pp = 1;
+                    DPSwingRegValue.SW_swing_SW_PP_SW_post_cursor_load_index = 9;
+                    DPSwingRegValue.DP1_SW_swing = 0x2E;
+                    DPSwingRegValue.DP1_SW_pp = 0x9;
+                    DPSwingRegValue.DP1_SW_post_cursor = 0;
+
+                    DPSwingRegMask.Value = 0xFFFFFFFF;
+                    DPSwingRegMask.enable_SW_swing_pp = 0;
+                    DPSwingRegMask.SW_swing_SW_PP_SW_post_cursor_load_index = 0;
+                    DPSwingRegMask.DP1_SW_swing = 0;
+                    DPSwingRegMask.DP1_SW_pp = 0;
+                    DPSwingRegMask.DP1_SW_post_cursor = 0;
+                    cbMMIOWriteReg32(pcbe, DP_REG_SWING[DPModuleIndex], DPSwingRegValue.Value, DPSwingRegMask.Value);
+                }
                 DPSwingRegValue.Value = 0;
                 DPSwingRegValue.enable_SW_swing_pp = 1;
                 DPSwingRegValue.SW_swing_SW_PP_SW_post_cursor_load_index = 1;
-                DPSwingRegValue.DP1_SW_swing = 0x3F;
-                DPSwingRegValue.DP1_SW_pp = 0x18;
+                DPSwingRegValue.DP1_SW_swing = bACE ? 0x36 : 0x3F;
+                DPSwingRegValue.DP1_SW_pp = bACE ? 0x1A : 0x18;
                 DPSwingRegValue.DP1_SW_post_cursor = 0;
 
                 DPSwingRegMask.Value = 0xFFFFFFFF;
@@ -623,7 +641,7 @@ CBIOS_VOID cbPHY_DP_DualModeOnOff(PCBIOS_VOID pvcbe, CBIOS_MODULE_INDEX DPModule
             DPLinkRegValue.SW_Link_Train_State = 1;
             DPLinkRegValue.Software_Bit_Rate = 0;
             DPLinkRegValue.SW_Lane0_Swing = 0;
-            DPLinkRegValue.SW_Lane0_Pre_emphasis = 0;
+            DPLinkRegValue.SW_Lane0_Pre_emphasis = bACE ? 2 : 0;
             DPLinkRegValue.SW_Lane1_Swing = 0;
             DPLinkRegValue.SW_Lane1_Pre_emphasis = 0;
             DPLinkRegValue.SW_Lane2_Swing = 0;

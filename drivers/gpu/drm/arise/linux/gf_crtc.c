@@ -34,12 +34,26 @@ void gf_crtc_dpms_onoff_helper(struct drm_crtc *crtc, int dpms_on)
     gf_crtc_t *gf_crtc = to_gf_crtc(crtc);
     int status = dpms_on? 1 : 0;
 
-    if (gf_crtc->crtc_dpms != status)
+    if(gf_crtc->crtc_dpms && !status)
     {
+        //turn off crtc
         if (!(is_crtc_work_in_splice_mode(crtc) &&
             is_splice_target_active_in_drm(drm_dev)))
         {
-            disp_cbios_turn_onoff_screen(disp_info, gf_crtc->pipe, status);
+            disp_cbios_turn_onoff_screen(disp_info, gf_crtc->pipe, 0);
+            disp_cbios_turn_onoff_iga(disp_info, gf_crtc->pipe, 0);
+        }
+
+        gf_crtc->crtc_dpms = status;
+    }
+    else if(!gf_crtc->crtc_dpms && status)
+    {
+        //turn on crtc
+        if (!(is_crtc_work_in_splice_mode(crtc) &&
+            is_splice_target_active_in_drm(drm_dev)))
+        {
+            disp_cbios_turn_onoff_iga(disp_info, gf_crtc->pipe, 1);
+            disp_cbios_turn_onoff_screen(disp_info, gf_crtc->pipe, 1);
         }
 
         gf_crtc->crtc_dpms = status;
@@ -97,13 +111,18 @@ void  gf_crtc_helper_set_mode(struct drm_crtc *crtc)
     struct drm_display_mode* mode = &crtc->state->mode;
     struct drm_display_mode* adj_mode = &crtc_state->adjusted_mode;
     int flag = 0;
-
+    struct task_struct *cur_task = current;
      //in atomic set phase, atomic state is updated to state of crtc/encoder/connector,
     //so we can't roll back mode setting, that means all parameter check should be placed in
     //atomic check function, and now all para is correct, we only need flush them to HW register
     //but we still add para check code here tempararily, it will be removed after code stable.
 
     DRM_DEBUG_KMS("crtc=%d\n", crtc->index);
+
+    if(cur_task)
+    {
+        gf_info("Task [%s] set mode to crtc %d.\n", cur_task->comm, crtc->index);
+    }
 
     gf_update_active_connector(crtc);
 

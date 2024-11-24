@@ -815,6 +815,13 @@ CBiosSetIgaScreenOnOffState(PCBIOS_VOID pvcbe, CBIOS_BOOL status, CBIOS_U8 IGAIn
 }
 
 DLLEXPORTS CBIOS_STATUS
+CBiosSetIgaOnOffState(PCBIOS_VOID pvcbe, CBIOS_BOOL status, CBIOS_U8 IGAIndex)
+{
+    PCBIOS_EXTENSION_COMMON pcbe = pvcbe;
+    return cbHWSetIgaOnOffState(pcbe, status, IGAIndex);
+}
+
+DLLEXPORTS CBIOS_STATUS
 CBiosSetDisplayDevicePowerState(PCBIOS_VOID pvcbe, CBIOS_U32 DevicesId, CBIOS_PM_STATUS PMState)
 {
     PCBIOS_EXTENSION_COMMON pcbe = pvcbe;

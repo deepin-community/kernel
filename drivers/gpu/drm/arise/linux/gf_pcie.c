@@ -690,6 +690,9 @@ static struct file_operations gf_drm_fops = {
     .read       = drm_read,
     .poll       = drm_poll,
     .llseek     = noop_llseek,
+#if DRM_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+    .fop_flags  = FOP_UNSIGNED_OFFSET,
+#endif
 };
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)

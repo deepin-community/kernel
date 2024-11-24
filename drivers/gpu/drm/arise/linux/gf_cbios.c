@@ -1484,6 +1484,17 @@ int disp_cbios_set_mode(disp_info_t *disp_info, int crtc, struct drm_display_mod
     return (cb_status == CBIOS_OK) ? DISP_OK : DISP_FAIL;
 }
 
+int disp_cbios_turn_onoff_iga(disp_info_t *disp_info, int iga, int bOn)
+{
+    void                        *pcbe = disp_info->cbios_ext;
+    int                         cb_status;
+
+    cb_status = CBiosSetIgaOnOffState(pcbe, bOn, iga);
+
+    return (cb_status == CBIOS_OK) ? DISP_OK : DISP_FAIL;
+
+}
+
 int disp_cbios_turn_onoff_screen(disp_info_t *disp_info, int iga, int bOn)
 {
     void *pcbe = disp_info->cbios_ext;

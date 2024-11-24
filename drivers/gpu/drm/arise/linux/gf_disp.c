@@ -1068,15 +1068,6 @@ void disp_post_resume(struct drm_device *dev)
 
     if (!ret && state)
     {
-#if DRM_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
-        for_each_crtc_in_state(state, crtc, crtc_state, i)
-#else
-        for_each_new_crtc_in_state(state, crtc, crtc_state, i)
-#endif
-        {
-            crtc_state->mode_changed = true;
-        }
-
         if (gf->flags & GF_S4_RESUME)
         {
 #if DRM_VERSION_CODE < KERNEL_VERSION(4, 15, 0)
@@ -1095,7 +1086,7 @@ void disp_post_resume(struct drm_device *dev)
             gf->flags &= ~GF_S4_RESUME;
         }
 
-#if DRM_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+#if DRM_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
         ret = drm_atomic_helper_commit_duplicated_state(state, &ctx);
 #else
         ret = drm_atomic_commit(state);
@@ -1188,6 +1179,7 @@ static void  disp_turn_off_crtc_output(disp_info_t* disp_info)
     for(index = 0; index < disp_info->num_crtc; index++)
     {
         disp_cbios_turn_onoff_screen(disp_info, index, 0);
+        disp_cbios_turn_onoff_iga(disp_info, index, 0);
     }
 }
 

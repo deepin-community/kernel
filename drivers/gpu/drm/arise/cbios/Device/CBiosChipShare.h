@@ -256,6 +256,27 @@ typedef struct _CBIOS_EXTENSION_COMMON
 
 } CBIOS_EXTENSION_COMMON, *PCBIOS_EXTENSION_COMMON;
 
+typedef union _GPIO_REGISTER
+{
+    CBIOS_U16 Value;
+    struct
+    {
+        CBIOS_U16  GPIO_Enable     :1;
+        CBIOS_U16  GPIO_SL         :1;
+        CBIOS_U16  GPIO_DS2        :1;
+        CBIOS_U16  GPIO_DS1        :1;
+        CBIOS_U16  GPIO_DS0        :1;
+        CBIOS_U16  GPIO_PD         :1;
+        CBIOS_U16  GPIO_PU         :1;
+        CBIOS_U16  GPIO_ST         :1;
+        CBIOS_U16  GPIO_OE         :1;     //Output Enable
+        CBIOS_U16  GPIO_OUT        :1;     //Output Data
+        CBIOS_U16  GPIO_IE         :1;     //Input Enable
+        CBIOS_U16  IP_SL_1         :1;
+        CBIOS_U16  GPIO_Data_In    :1;     //Input Data
+        CBIOS_U16  Reserved        :3;
+    };
+}GPIO_REGISTER;
 
 //************************* CBios sw utility functions ***************************//
 CBIOS_BOOL cbCalcCustomizedTiming(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 XRes, CBIOS_U32 YRes, CBIOS_U32 RefreshRate, PCBIOS_TIMING_ATTRIB pTimingReg);

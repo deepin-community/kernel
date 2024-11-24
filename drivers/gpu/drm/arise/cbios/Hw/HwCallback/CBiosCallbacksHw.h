@@ -80,7 +80,7 @@ typedef CBIOS_VOID    (*CALLBACK_cbRegulatorPut)(PCBIOS_VOID Regulator);
 
 
 CBIOS_UCHAR cb_ReadU8(PCBIOS_VOID  pAdapterContext, CBIOS_U32 RegisterPort);
-CBIOS_U16 cb_cbReadU16(PCBIOS_VOID  pAdapterContext, CBIOS_U32 RegisterPort);
+CBIOS_U16 cb_ReadU16(PCBIOS_VOID  pAdapterContext, CBIOS_U32 RegisterPort);
 CBIOS_U32 cb_ReadU32(PCBIOS_VOID  pAdapterContext, CBIOS_U32 RegisterPort);
 
 CBIOS_VOID cb_WriteU8(PCBIOS_VOID pAdapterContext, CBIOS_U32 RegisterPort, CBIOS_UCHAR Value);
