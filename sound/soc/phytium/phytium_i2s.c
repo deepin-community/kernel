@@ -975,32 +975,24 @@ static const u32 fifo_width[COMP_MAX_WORDSIZE] = {
 	12, 16, 20, 24, 32, 0, 0, 0
 };
 
-/* Width of (DMA) bus */
-static const u32 bus_widths[COMP_MAX_DATA_WIDTH] = {
-	DMA_SLAVE_BUSWIDTH_1_BYTE,
-	DMA_SLAVE_BUSWIDTH_2_BYTES,
-	DMA_SLAVE_BUSWIDTH_4_BYTES,
-	DMA_SLAVE_BUSWIDTH_UNDEFINED
-};
-
-/* PCM format to support channel resolution */
-static const u32 formats[COMP_MAX_WORDSIZE] = {
-	SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S16_LE,
-	SNDRV_PCM_FMTBIT_S24_LE,
-	SNDRV_PCM_FMTBIT_S24_LE,
-	SNDRV_PCM_FMTBIT_S32_LE,
-	0,
-	0,
-	0
-};
-
 static int phytium_configure_dai(struct i2s_phytium *dev)
 {
 	u32 comp1 = i2s_read_reg(dev->regs, dev->i2s_reg_comp1);
 	u32 comp2 = i2s_read_reg(dev->regs, dev->i2s_reg_comp2);
 	u32 fifo_depth = 1 << (1 + COMP1_FIFO_DEPTH_GLOBAL(comp1));
 	u32 idx;
+
+	/* PCM format to support channel resolution */
+	static const u32 formats[COMP_MAX_WORDSIZE] = {
+		SNDRV_PCM_FMTBIT_S16_LE,
+		SNDRV_PCM_FMTBIT_S16_LE,
+		SNDRV_PCM_FMTBIT_S24_LE,
+		SNDRV_PCM_FMTBIT_S24_LE,
+		SNDRV_PCM_FMTBIT_S32_LE,
+		0,
+		0,
+		0
+	};
 
 	if (COMP1_TX_ENABLED(comp1)) {
 		dev_dbg(dev->dev, " phytium: play supported\n");
@@ -1037,6 +1029,14 @@ static int phytium_configure_dai_by_dt(struct i2s_phytium *dev)
 	u32 idx = COMP1_APB_DATA_WIDTH(comp1);
 	u32 idx2;
 	int ret;
+
+	/* Width of (DMA) bus */
+	static const u32 bus_widths[COMP_MAX_DATA_WIDTH] = {
+		DMA_SLAVE_BUSWIDTH_1_BYTE,
+		DMA_SLAVE_BUSWIDTH_2_BYTES,
+		DMA_SLAVE_BUSWIDTH_4_BYTES,
+		DMA_SLAVE_BUSWIDTH_UNDEFINED
+	};
 
 	if (WARN_ON(idx >= ARRAY_SIZE(bus_widths)))
 		return -EINVAL;
