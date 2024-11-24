@@ -208,6 +208,7 @@ static void ne6xvf_get_strings(struct net_device *netdev, u32 stringset, u8 *dat
 		break;
 	case ETH_SS_TEST:
 		memcpy(data, ne6xvf_gstrings_test, NE6XVF_TEST_LEN * ETH_GSTRING_LEN);
+		break;
 	default:
 		break;
 	}
