@@ -116,6 +116,7 @@ void sxevf_ring_num_set(struct sxevf_adapter *adapter)
 			adapter->tx_ring_ctxt.num = rss;
 			adapter->rx_ring_ctxt.num = rss;
 			adapter->xdp_ring_ctxt.num = adapter->xdp_prog ? rss : 0;
+			fallthrough;
 		default:
 			break;
 		}
