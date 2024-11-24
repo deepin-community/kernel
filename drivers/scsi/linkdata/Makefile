@@ -2,7 +2,6 @@
 EXTRA_CFLAGS += -DPS3_CFG_RELEASE
 EXTRA_CFLAGS += -DPS3_HARDWARE_ASIC
 EXTRA_CFLAGS += -DPS3_MODEL_V200
-EXTRA_CFLAGS += -mno-outline-atomics
 
 obj-$(CONFIG_SCSI_LINKDATA_PS3STOR) += ps3stor.o
 
@@ -20,6 +19,7 @@ ccflags-y += -I$(srctree) \
 			 -I$(srctree)/drivers/scsi/linkdata/linux \
 			 -I$(srctree)/drivers/scsi/linkdata/include \
 			 -I$(srctree)/drivers/scsi/linkdata/include/htp_v200
+ccflags-y += $(call cc-option, -mno-outline-atomics)
 
 clean:
 	@rm -rf *.o *.d *.ko Module.* modules.* *.mod.* .*.d .*.cmd .tmp_versions *.o.ur-safe
