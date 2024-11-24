@@ -223,7 +223,8 @@ static int pwm_phytium_set_dbcly(struct pwm_chip *chip, unsigned int updbcly, un
 {
 	struct phytium_pwm_chip *our_chip = to_phytium_pwm_chip(chip);
 	u32 reg;
-	u64 dbcly, cycles, upcycles, dwcycles;
+	u64 cycles, upcycles, dwcycles;
+	u64 dbcly = 0;
 
 	reg = readl(our_chip->base + REG_TPERIOD);
 	if (has_acpi_companion(chip->dev))
