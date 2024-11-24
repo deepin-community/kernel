@@ -26,7 +26,8 @@ struct mbx_req_cookie {
 
 	int done;
 	int priv_len;
-	char priv[0];
+#define MAX_PRIV_LEN 64
+	char priv[MAX_PRIV_LEN];
 };
 
 enum GENERIC_CMD {
