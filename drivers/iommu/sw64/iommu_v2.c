@@ -977,12 +977,12 @@ static int sunway_iommu_acpi_init(void)
 		if (!iommu->enabled || hose->iommu_enable)
 			continue;
 
+		sunway_enable_iommu_func(hose);
+		hose->iommu_enable = true;
 		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
 				iommu_index);
 		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
 		iommu_index++;
-		sunway_enable_iommu_func(hose);
-		hose->iommu_enable = true;
 		piu_flush_all(iommu);
 	}
 
@@ -1015,12 +1015,12 @@ static int sunway_iommu_legacy_init(void)
 			continue;
 
 		iommu = sunway_iommu_early_init(hose);
+		sunway_enable_iommu_func(hose);
+		hose->iommu_enable = true;
 		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
 				       iommu_index);
 		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
 		iommu_index++;
-		sunway_enable_iommu_func(hose);
-		hose->iommu_enable = true;
 		piu_flush_all(iommu);
 	}
 
