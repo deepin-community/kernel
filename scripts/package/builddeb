@@ -147,6 +147,9 @@ install_kernel_headers () {
 		"${srctree}/scripts/package/install-extmod-build" "${pdir}/usr/src/linux-headers-${version}"
 	fi
 
+	# Install .config archive
+	cp .config ${pdir}/usr/src/linux-headers-${version}/
+
 	mkdir -p $pdir/lib/modules/$version/
 	ln -s /usr/src/linux-headers-$version $pdir/lib/modules/$version/build
 }
