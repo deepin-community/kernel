@@ -96,7 +96,7 @@ void foo(void)
 	DEFINE(PT_REGS_R27, offsetof(struct pt_regs, regs[27]));
 	DEFINE(PT_REGS_R28, offsetof(struct pt_regs, regs[28]));
 	DEFINE(PT_REGS_GP, offsetof(struct pt_regs, regs[29]));
-	DEFINE(PT_REGS_SP, offsetof(struct pt_regs, regs[30]));
+	DEFINE(PT_REGS_R30, offsetof(struct pt_regs, regs[30]));
 	DEFINE(PT_REGS_PC, offsetof(struct pt_regs, pc));
 	DEFINE(PT_REGS_PS, offsetof(struct pt_regs, ps));
 	DEFINE(PT_REGS_ORIG_R0, offsetof(struct pt_regs, orig_r0));
