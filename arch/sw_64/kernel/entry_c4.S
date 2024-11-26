@@ -67,7 +67,7 @@
 	stl	$17, PT_REGS_EARG1($sp)
 	stl	$18, PT_REGS_EARG2($sp)
 
-	stl     $1, PT_REGS_SP($sp)
+	stl     $1, PT_REGS_R30($sp)
 	stl	$2, PT_REGS_PS($sp)
 	stl	$3, PT_REGS_PC($sp)
 	stl     $4, PT_REGS_CAUSE($sp)
@@ -128,7 +128,7 @@
 	ldl	$27, PT_REGS_R27($sp)
 	ldl	$28, PT_REGS_R28($sp)
 	ldl     $29, PT_REGS_GP($sp)
-	ldl	$sp, PT_REGS_SP($sp)
+	ldl	$sp, PT_REGS_R30($sp)
 	.endm
 
 	.macro SAVE_ALL
@@ -191,7 +191,7 @@
 	stl	$17, PT_REGS_EARG1($sp)
 	stl	$18, PT_REGS_EARG2($sp)
 
-	stl     $1, PT_REGS_SP($sp)
+	stl     $1, PT_REGS_R30($sp)
 	stl	$2, PT_REGS_PS($sp)
 	stl	$3, PT_REGS_PC($sp)
 	stl	$4, PT_REGS_CAUSE($sp)
@@ -251,7 +251,7 @@
 	ldl	$27, PT_REGS_R27($sp)
 	ldl	$28, PT_REGS_R28($sp)
 	ldl     $29, PT_REGS_GP($sp)
-	ldl	$sp, PT_REGS_SP($sp)
+	ldl	$sp, PT_REGS_R30($sp)
 	.endm
 
 	.macro RESTORE_IRQ

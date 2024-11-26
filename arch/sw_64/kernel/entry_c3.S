@@ -69,7 +69,7 @@
 	sys_call HMC_rdusp
 	br	2f
 1:	ldi	$0, PT_REGS_SIZE($sp)
-2:	stl	$0, PT_REGS_SP($sp)
+2:	stl	$0, PT_REGS_R30($sp)
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
 	sys_call HMC_rdktp
@@ -84,7 +84,7 @@
 	.macro RESTORE_ALL
 	ldi	$sp, STACKFRAME_SIZE($sp)
 
-	ldl	$16, PT_REGS_SP($sp)
+	ldl	$16, PT_REGS_R30($sp)
 	/* skip wrusp if returning to kernel */
 	blt	$16, 1f
 	sys_call HMC_wrusp
