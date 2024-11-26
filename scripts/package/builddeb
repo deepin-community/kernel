@@ -141,6 +141,9 @@ install_kernel_headers () {
 
 	CC="${DEB_HOST_GNU_TYPE}-gcc" "${srctree}/scripts/package/install-extmod-build" "${pdir}/usr/src/linux-headers-${version}"
 
+	# Install .config archive
+	cp .config ${pdir}/usr/src/linux-headers-${version}/
+
 	mkdir -p $pdir/lib/modules/$version/
 	ln -s /usr/src/linux-headers-$version $pdir/lib/modules/$version/build
 }
