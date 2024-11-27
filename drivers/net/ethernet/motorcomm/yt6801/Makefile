@@ -12,4 +12,4 @@ yt6801-objs := fuxi-gmac-common.o \
 	fuxi-gmac-pci.o \
 	fuxi-gmac-phy.o \
 	fuxi-efuse.o \
-	fuxi-gmac-ioctl.o
+	fuxi-gmac-debugfs.o

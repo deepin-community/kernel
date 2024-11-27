@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2021 Motorcomm Corporation. */
 
-#ifndef __FXGMAC_GMAC_H__
-#define __FXGMAC_GMAC_H__
+#ifndef __FUXI_GMAC_H__
+#define __FUXI_GMAC_H__
 
-#include "fuxi-errno.h"
 #include "fuxi-os.h"
 
 /* For fpga before 20210507 */
@@ -13,17 +12,17 @@
 
 #define FXGMAC_DRV_NAME "yt6801"
 
-#define FXGMAC_DRV_DESC "Motorcomm YT6801 Gigabit Ethernet Driver"
+#define FXGMAC_DRV_DESC "Motorcomm FUXI GMAC Driver"
 
-#define FXGMAC_MAC_REGS_OFFSET 0x2000
+#define FUXI_MAC_REGS_OFFSET 0x2000
 
 /* 1: in normal D0 state, turn off ephy link change interrupt. */
-#define FXGMAC_EPHY_INTERRUPT_D0_OFF 0
+#define FUXI_EPHY_INTERRUPT_D0_OFF 0
 /* 1:when rec buffer is not enough, to create rbd and rec buffer,
  * but  the rdb need to be continus with the intialized rdb, so
  * close the feature
  */
-#define FXGMAC_ALLOC_NEW_RECBUFFER 0
+#define FUXI_ALLOC_NEW_RECBUFFER 0
 
 #define RESUME_MAX_TIME 3000000
 #define PHY_LINK_TIMEOUT 3000
@@ -42,11 +41,11 @@
 
 #define FXGMAX_ASPM_WAR_EN
 /* Descriptor related parameters */
-#if FXGMAC_TX_HANG_TIMER_ENABLED
+#if FXGMAC_TX_HANG_TIMER_EN
 #define FXGMAC_TX_DESC_CNT 1024
 #else
 /* 256 to make sure the tx ring is in the 4k range when
- * FXGMAC_TX_HANG_TIMER_ENABLED is 0
+ * FXGMAC_TX_HANG_TIMER_EN is 0
  */
 #define FXGMAC_TX_DESC_CNT 256
 #endif
@@ -74,6 +73,9 @@
 #define FXGMAC_SPH_HDSMS_SIZE 3
 #define FXGMAC_SKB_ALLOC_SIZE 512
 
+/* In Linux Driver, it set MAX_FIFO size 131072, here it uses
+ * the same value as windows driver
+ */
 #define FXGMAC_MAX_FIFO 81920
 
 #define FXGMAC_MAX_DMA_CHANNELS FXGMAC_MSIX_Q_VECTORS
@@ -123,10 +125,6 @@
 /* power management */
 #define FXGMAC_POWER_STATE_DOWN 0
 #define FXGMAC_POWER_STATE_UP 1
-
-#define FXGMAC_DATA_WIDTH               128
-
-#define FXGMAC_WOL_WAIT_TIME            2 // unit 1ms
 
 struct wol_bitmap_pattern {
 	u32 flags;
@@ -421,7 +419,7 @@ struct fxgmac_channel {
 	u32 dma_irq;
 	FXGMAC_CHANNEL_OF_PLATFORM expansion;
 
-	u32 saved_ier;
+	unsigned int saved_ier;
 
 	unsigned int tx_timer_active;
 
@@ -485,7 +483,7 @@ struct fxgmac_hw_ops {
 	void (*set_interrupt_moderation)(struct fxgmac_pdata *pdata);
 	void (*enable_msix_rxtxinterrupt)(struct fxgmac_pdata *pdata);
 	void (*disable_msix_interrupt)(struct fxgmac_pdata *pdata);
-	int (*enable_msix_rxtxphyinterrupt)(struct fxgmac_pdata *pdata);
+	void (*enable_msix_rxtxphyinterrupt)(struct fxgmac_pdata *pdata);
 	void (*enable_msix_one_interrupt)(struct fxgmac_pdata *pdata,
 					  u32 intid);
 	void (*disable_msix_one_interrupt)(struct fxgmac_pdata *pdata,
@@ -493,7 +491,6 @@ struct fxgmac_hw_ops {
 	bool (*enable_mgm_interrupt)(struct fxgmac_pdata *pdata);
 	bool (*disable_mgm_interrupt)(struct fxgmac_pdata *pdata);
 	int  (*dismiss_all_int)(struct fxgmac_pdata *pdata);
-	void (*clear_misc_int_status)(struct fxgmac_pdata *pdata);
 
 	void (*dev_xmit)(struct fxgmac_channel *channel);
 	int (*dev_read)(struct fxgmac_channel *channel);
@@ -507,6 +504,9 @@ struct fxgmac_hw_ops {
 
 	/* For MII speed configuration */
 	int (*config_mac_speed)(struct fxgmac_pdata *pdata);
+	int (*set_xlgmii_2500_speed)(struct fxgmac_pdata *pdata);
+	int (*set_xlgmii_1000_speed)(struct fxgmac_pdata *pdata);
+	int (*set_xlgmii_100_speed)(struct fxgmac_pdata *pdata);
 	int (*get_xlgmii_phy_status)(struct fxgmac_pdata *pdata, u32 *speed,
 				     bool *link_up,
 				     bool link_up_wait_to_complete);
@@ -541,9 +541,9 @@ struct fxgmac_hw_ops {
 	/* For RX coalescing */
 	int (*config_rx_coalesce)(struct fxgmac_pdata *pdata);
 	int (*config_tx_coalesce)(struct fxgmac_pdata *pdata);
-	unsigned long (*usec_to_riwt)(struct fxgmac_pdata *pdata,
+	unsigned int (*usec_to_riwt)(struct fxgmac_pdata *pdata,
 				     unsigned int usec);
-	unsigned long (*riwt_to_usec)(struct fxgmac_pdata *pdata,
+	unsigned int (*riwt_to_usec)(struct fxgmac_pdata *pdata,
 				     unsigned int riwt);
 
 	/* For RX and TX threshold config */
@@ -560,11 +560,10 @@ struct fxgmac_hw_ops {
 	int (*config_osp_mode)(struct fxgmac_pdata *pdata);
 
 	/* For RX and TX PBL config */
-	u32 (*calculate_max_checksum_size)(struct fxgmac_pdata *pdata);
 	int (*config_rx_pbl_val)(struct fxgmac_pdata *pdata);
-	u32 (*get_rx_pbl_val)(struct fxgmac_pdata *pdata);
+	int (*get_rx_pbl_val)(struct fxgmac_pdata *pdata);
 	int (*config_tx_pbl_val)(struct fxgmac_pdata *pdata);
-	u32 (*get_tx_pbl_val)(struct fxgmac_pdata *pdata);
+	int (*get_tx_pbl_val)(struct fxgmac_pdata *pdata);
 	int (*config_pblx8)(struct fxgmac_pdata *pdata);
 
 	/* For MMC statistics */
@@ -615,7 +614,7 @@ struct fxgmac_hw_ops {
 	int (*set_wake_pattern_mask)(struct fxgmac_pdata *pdata,
 				     u32 filter_index, u8 register_index,
 				     u32 Data);
-#if FXGMAC_PM_WPI_READ_FEATURE_ENABLED
+#if FUXI_PM_WPI_READ_FEATURE_EN
 	void (*get_wake_packet_indication)(struct fxgmac_pdata *pdata,
 					   int *wake_reason,
 					   u32 *wake_pattern_number,
@@ -639,7 +638,7 @@ struct fxgmac_hw_ops {
 	void (*phy_eee_feature)(struct fxgmac_pdata *pdata);
 	u32 (*get_ephy_state)(struct fxgmac_pdata *pdata);
 	int (*write_ephy_reg)(struct fxgmac_pdata *pdata, u32 val, u32 data);
-	int (*read_ephy_reg)(struct fxgmac_pdata *pdata, u32 val, u32 __far *data);
+	int (*read_ephy_reg)(struct fxgmac_pdata *pdata, u32 val, u32 *data);
 	int (*set_ephy_autoneg_advertise)(struct fxgmac_pdata *pdata,
 					  struct fxphy_ag_adv phy_ag_adv);
 	int (*phy_config)(struct fxgmac_pdata *pdata);
@@ -676,21 +675,18 @@ struct fxgmac_hw_ops {
 				   unsigned int enable);
 
 	/* efuse relevant operation. */
-	bool (*read_patch_from_efuse_per_index)(
-		struct fxgmac_pdata *pdata, u8 index, u32 __far *offset,
-		u32 __far *value); /* read patch per index. */
-	bool (*read_mac_subsys_from_efuse)(struct fxgmac_pdata *pdata,
-						u8 *mac_addr, u32 *subsys,
-						u32 *revid);
-	bool (*read_efuse_data)(struct fxgmac_pdata *pdata, u32 offset,
-				u32 __far *value);
-#ifndef COMMENT_UNUSED_CODE_TO_REDUCE_SIZE
 	bool (*read_patch_from_efuse)(struct fxgmac_pdata *pdata, u32 offset,
 				      u32 *value); /* read patch per index. */
+	bool (*read_patch_from_efuse_per_index)(
+		struct fxgmac_pdata *pdata, u8 index, u32 *offset,
+		u32 *value); /* read patch per index. */
 	bool (*write_patch_to_efuse)(struct fxgmac_pdata *pdata, u32 offset,
 				     u32 value);
 	bool (*write_patch_to_efuse_per_index)(struct fxgmac_pdata *pdata,
 					       u8 index, u32 offset, u32 value);
+	bool (*read_mac_subsys_from_efuse)(struct fxgmac_pdata *pdata,
+					   u8 *mac_addr, u32 *subsys,
+					   u32 *revid);
 	bool (*write_mac_subsys_to_efuse)(struct fxgmac_pdata *pdata,
 					  u8 *mac_addr, u32 *subsys,
 					  u32 *revid);
@@ -699,11 +695,12 @@ struct fxgmac_hw_ops {
 	bool (*write_mac_addr_to_efuse)(struct fxgmac_pdata *pdata,
 					u8 *mac_addr);
 	bool (*efuse_load)(struct fxgmac_pdata *pdata);
+	bool (*read_efuse_data)(struct fxgmac_pdata *pdata, u32 offset,
+				u32 *value);
 	bool (*write_oob)(struct fxgmac_pdata *pdata);
 	bool (*write_led)(struct fxgmac_pdata *pdata, u32 value);
 	bool (*read_led_config)(struct fxgmac_pdata *pdata);
 	bool (*write_led_config)(struct fxgmac_pdata *pdata);
-#endif
 
 	int (*pcie_init)(struct fxgmac_pdata *pdata, bool ltr_en,
 			 bool aspm_l1ss_en, bool aspm_l1_en, bool aspm_l0s_en);
@@ -717,47 +714,47 @@ struct fxgmac_hw_ops {
  */
 struct fxgmac_hw_features {
 	/* HW Version */
-	u32 version;
+	unsigned int version;
 
 	/* HW Feature Register0 */
-	u32 phyifsel; /* PHY interface support */
-	u32 vlhash; /* VLAN Hash Filter */
-	u32 sma; /* SMA(MDIO) Interface */
-	u32 rwk; /* PMT remote wake-up packet */
-	u32 mgk; /* PMT magic packet */
-	u32 mmc; /* RMON module */
-	u32 aoe; /* ARP Offload */
-	u32 ts; /* IEEE 1588-2008 Advanced Timestamp */
-	u32 eee; /* Energy Efficient Ethernet */
-	u32 tx_coe; /* Tx Checksum Offload */
-	u32 rx_coe; /* Rx Checksum Offload */
-	u32 addn_mac; /* Additional MAC Addresses */
-	u32 ts_src; /* Timestamp Source */
-	u32 sa_vlan_ins; /* Source Address or VLAN Insertion */
+	unsigned int phyifsel; /* PHY interface support */
+	unsigned int vlhash; /* VLAN Hash Filter */
+	unsigned int sma; /* SMA(MDIO) Interface */
+	unsigned int rwk; /* PMT remote wake-up packet */
+	unsigned int mgk; /* PMT magic packet */
+	unsigned int mmc; /* RMON module */
+	unsigned int aoe; /* ARP Offload */
+	unsigned int ts; /* IEEE 1588-2008 Advanced Timestamp */
+	unsigned int eee; /* Energy Efficient Ethernet */
+	unsigned int tx_coe; /* Tx Checksum Offload */
+	unsigned int rx_coe; /* Rx Checksum Offload */
+	unsigned int addn_mac; /* Additional MAC Addresses */
+	unsigned int ts_src; /* Timestamp Source */
+	unsigned int sa_vlan_ins; /* Source Address or VLAN Insertion */
 
 	/* HW Feature Register1 */
-	u32 rx_fifo_size; /* MTL Receive FIFO Size */
-	u32 tx_fifo_size; /* MTL Transmit FIFO Size */
-	u32 adv_ts_hi; /* Advance Timestamping High Word */
-	u32 dma_width; /* DMA width */
-	u32 dcb; /* DCB Feature */
-	u32 sph; /* Split Header Feature */
-	u32 tso; /* TCP Segmentation Offload */
-	u32 dma_debug; /* DMA Debug Registers */
-	u32 rss; /* Receive Side Scaling */
-	u32 tc_cnt; /* Number of Traffic Classes */
-	u32 avsel; /* AV Feature Enable */
-	u32 ravsel; /* Rx Side Only AV Feature Enable */
-	u32 hash_table_size; /* Hash Table Size */
-	u32 l3l4_filter_num; /* Number of L3-L4 Filters */
+	unsigned int rx_fifo_size; /* MTL Receive FIFO Size */
+	unsigned int tx_fifo_size; /* MTL Transmit FIFO Size */
+	unsigned int adv_ts_hi; /* Advance Timestamping High Word */
+	unsigned int dma_width; /* DMA width */
+	unsigned int dcb; /* DCB Feature */
+	unsigned int sph; /* Split Header Feature */
+	unsigned int tso; /* TCP Segmentation Offload */
+	unsigned int dma_debug; /* DMA Debug Registers */
+	unsigned int rss; /* Receive Side Scaling */
+	unsigned int tc_cnt; /* Number of Traffic Classes */
+	unsigned int avsel; /* AV Feature Enable */
+	unsigned int ravsel; /* Rx Side Only AV Feature Enable */
+	unsigned int hash_table_size; /* Hash Table Size */
+	unsigned int l3l4_filter_num; /* Number of L3-L4 Filters */
 
 	/* HW Feature Register2 */
-	u32 rx_q_cnt; /* Number of MTL Receive Queues */
-	u32 tx_q_cnt; /* Number of MTL Transmit Queues */
-	u32 rx_ch_cnt; /* Number of DMA Receive Channels */
-	u32 tx_ch_cnt; /* Number of DMA Transmit Channels */
-	u32 pps_out_num; /* Number of PPS outputs */
-	u32 aux_snap_num; /* Number of Aux snapshot inputs */
+	unsigned int rx_q_cnt; /* Number of MTL Receive Queues */
+	unsigned int tx_q_cnt; /* Number of MTL Transmit Queues */
+	unsigned int rx_ch_cnt; /* Number of DMA Receive Channels */
+	unsigned int tx_ch_cnt; /* Number of DMA Transmit Channels */
+	unsigned int pps_out_num; /* Number of PPS outputs */
+	unsigned int aux_snap_num; /* Number of Aux snapshot inputs */
 
 	/* HW Feature Register3 */
 	u32 hwfr3;
@@ -808,7 +805,7 @@ struct fxgmac_pdata {
 	unsigned int tx_threshold;
 	unsigned int tx_pbl;
 	unsigned int tx_osp_mode;
-#if FXGMAC_TX_HANG_TIMER_ENABLED
+#if FXGMAC_TX_HANG_TIMER_EN
 	/* for tx hang checking. 20211227 */
 	unsigned int tx_hang_restart_queuing;
 #endif
@@ -823,7 +820,7 @@ struct fxgmac_pdata {
 	unsigned int tx_frames;
 
 	/* Rx coalescing settings */
-	unsigned long rx_riwt;
+	unsigned int rx_riwt;
 	unsigned int rx_usecs;
 	unsigned int rx_frames;
 
@@ -883,10 +880,8 @@ struct fxgmac_pdata {
 	int phy_duplex;
 	int phy_autoeng;
 
-#ifndef COMMENT_UNUSED_CODE_TO_REDUCE_SIZE
 	char drv_name[32];
 	char drv_ver[32];
-#endif
 
 	struct wol_bitmap_pattern pattern[MAX_PATTERN_COUNT];
 
@@ -931,10 +926,6 @@ struct fxgmac_pdata {
 #define FXGMAC_FLAG_RX_NAPI_FREE_POS                   18
 #define FXGMAC_FLAG_RX_NAPI_FREE_LEN                   4
 #define FXGMAC_FLAG_PER_CHAN_RX_NAPI_FREE_LEN          1
-
-#ifndef FXGMAC_FAKE_4_TX_QUEUE_ENABLED
-#define FXGMAC_FAKE_4_TX_QUEUE_ENABLED 0
-#endif
 
 void fxgmac_init_desc_ops(struct fxgmac_desc_ops *desc_ops);
 void fxgmac_init_hw_ops(struct fxgmac_hw_ops *hw_ops);

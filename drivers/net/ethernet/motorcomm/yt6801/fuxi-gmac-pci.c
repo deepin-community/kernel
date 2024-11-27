@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2021 Motorcomm Corporation. */
 
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/pci.h>
+
+/* for file operation */
+#include <linux/fs.h>
+
 #include "fuxi-gmac.h"
 #include "fuxi-gmac-reg.h"
 
@@ -68,7 +75,9 @@ static void fxgmac_remove(struct pci_dev *pcidev)
 	}
 #endif
 
-	DPRINTK("%s has been removed\n", netdev->name);
+#ifdef HAVE_FXGMAC_DEBUG_FS
+	fxgmac_dbg_exit(pdata);
+#endif /* HAVE_FXGMAC_DEBUG_FS */
 }
 
 /* for Power management, 20210628 */
@@ -181,7 +190,7 @@ static int fxgmac_resume(struct pci_dev *pdev)
 {
 	struct net_device *netdev = dev_get_drvdata(&pdev->dev);
 	struct fxgmac_pdata *pdata = netdev_priv(netdev);
-	u32 err = 0;
+	u32 err;
 
 	DPRINTK("fxpm, fxgmac_resume callin\n");
 
@@ -249,5 +258,5 @@ module_pci_driver(fxgmac_pci_driver);
 
 MODULE_DESCRIPTION(FXGMAC_DRV_DESC);
 MODULE_VERSION(FXGMAC_DRV_VERSION);
-MODULE_AUTHOR("Motorcomm Electronic Tech. Co., Ltd.");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Frank <Frank.Sae@motor-comm.com>");
+MODULE_LICENSE("Dual BSD/GPL");

@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (c) 2021 Motorcomm Corporation. */
 
+#include <linux/ethtool.h>
+#include <linux/kernel.h>
+#include <linux/netdevice.h>
+
 #include "fuxi-gmac.h"
 #include "fuxi-gmac-reg.h"
 
@@ -111,6 +115,7 @@ static void fxgmac_ethtool_get_drvinfo(struct net_device *netdev,
 	devid = FXGMAC_GET_REG_BITS(ver, MAC_VR_DEVID_POS, MAC_VR_DEVID_LEN);
 	userver = FXGMAC_GET_REG_BITS(ver, MAC_VR_USERVER_POS,
 				      MAC_VR_USERVER_LEN);
+	/*DPRINTK("xlgma: No userver (%x) here, sver (%x) should be 0x51\n", userver, sver);*/
 	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
 		 "S.D.U: %x.%x.%x", sver, devid, userver);
 }
@@ -297,7 +302,7 @@ static int fxgmac_set_rxfh(struct net_device *netdev, const u32 *indir,
 
 	/* Fill out the redirection table */
 	if (indir) {
-#if FXGMAC_MSIX_CH0RXDIS_ENABLED
+#if FXGMAC_MSIX_CH0RXDIS_EN
 		max_queues = max_queues;
 		reta_entries = reta_entries;
 		i = i;
@@ -435,6 +440,9 @@ static int fxgmac_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
 	case ETHTOOL_GRXCLSRLALL:
 		cmd->rule_cnt = 0;
 		ret = 0;
+		/*ret = ixgbe_get_ethtool_fdir_all(adapter, cmd,
+					 (u32 *)rule_locs);
+	*/
 		DPRINTK("fxmac, get_rxnfc for classify both cnt and rules\n");
 		break;
 	case ETHTOOL_GRXFH:
@@ -448,6 +456,7 @@ static int fxgmac_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
 	return ret;
 }
 
+#define UDP_RSS_FLAGS (BIT(MAC_RSSCR_UDP4TE_POS) | BIT(MAC_RSSCR_UDP6TE_POS))
 static int fxgmac_set_rss_hash_opt(struct fxgmac_pdata *pdata,
 				   struct ethtool_rxnfc *nfc)
 {
@@ -647,6 +656,11 @@ static void fxgmac_get_wol(struct net_device *netdev,
 {
 	struct fxgmac_pdata *pdata = netdev_priv(netdev);
 
+	/* for further feature implementation
+	 * wol->supported = WAKE_PHY | WAKE_UCAST | WAKE_MCAST |
+	 * WAKE_BCAST | WAKE_MAGIC;
+	 */
+
 	wol->supported = WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_MAGIC |
 			 WAKE_ARP;
 #if FXGMAC_WOL_UPON_EPHY_LINK
@@ -660,6 +674,7 @@ static void fxgmac_get_wol(struct net_device *netdev,
 		return;
 	}
 	wol->wolopts = pdata->expansion.wol;
+	/* DPRINTK("fxmac, get_wol, 0x%x, 0x%x\n", wol->wolopts, pdata->expansion.wol); */
 }
 
 // only supports four patterns, and patterns will be cleared on every call
@@ -863,6 +878,7 @@ static void fxgmac_get_regs(struct net_device *netdev,
 			regs_buff[REG_MII_PHYSID2];
 }
 
+#if FXGMAC_PAUSE_FEATURE_ENABLED
 static int fxgmac_get_link_ksettings(struct net_device *netdev,
 				     struct ethtool_link_ksettings *cmd)
 {
@@ -870,10 +886,9 @@ static int fxgmac_get_link_ksettings(struct net_device *netdev,
 	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
 	u32 duplex, regval, link_status;
 	u32 adv = 0xFFFFFFFF;
-	int ret;
 
-	ret = fxgmac_ephy_autoneg_ability_get(pdata, &adv);
-	if (ret < 0)
+	regval = fxgmac_ephy_autoneg_ability_get(pdata, &adv);
+	if (regval)
 		return -ETIMEDOUT;
 
 	ethtool_link_ksettings_zero_link_mode(cmd, supported);
@@ -889,10 +904,7 @@ static int fxgmac_get_link_ksettings(struct net_device *netdev,
 	/* Indicate pause support */
 	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
 	ethtool_link_ksettings_add_link_mode(cmd, supported, Asym_Pause);
-	ret = hw_ops->read_ephy_reg(pdata, REG_MII_ADVERTISE, &regval);
-	if (ret < 0)
-		return ret;
-
+	hw_ops->read_ephy_reg(pdata, REG_MII_ADVERTISE, &regval);
 	if (FXGMAC_GET_REG_BITS(regval, PHY_MII_ADVERTISE_PAUSE_POS, PHY_MII_ADVERTISE_PAUSE_LEN))
 		ethtool_link_ksettings_add_link_mode(cmd, advertising, Pause);
 	if (FXGMAC_GET_REG_BITS(regval, PHY_MII_ADVERTISE_ASYPAUSE_POS, PHY_MII_ADVERTISE_ASYPAUSE_LEN))
@@ -902,9 +914,7 @@ static int fxgmac_get_link_ksettings(struct net_device *netdev,
 	cmd->base.port = PORT_MII;
 
 	ethtool_link_ksettings_add_link_mode(cmd, supported, Autoneg);
-	ret = hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &regval);
-	if (ret < 0)
-		return ret;
+	hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &regval);
 	regval = FXGMAC_GET_REG_BITS(regval, PHY_CR_AUTOENG_POS,
 				     PHY_CR_AUTOENG_LEN);
 	if (regval) {
@@ -964,12 +974,8 @@ static int fxgmac_get_link_ksettings(struct net_device *netdev,
 	}
 	cmd->base.autoneg = pdata->phy_autoeng ? regval : 0;
 
-	regval = 0;
-	ret = hw_ops->read_ephy_reg(pdata, REG_MII_SPEC_STATUS, &regval);
-	if (ret < 0)
-	return ret;
-
-	link_status = regval & (BIT(FXGMAC_EPHY_LINK_STATUS_BIT));
+	hw_ops->read_ephy_reg(pdata, REG_MII_SPEC_STATUS, &regval);
+	link_status = regval & (BIT(FUXI_EPHY_LINK_STATUS_BIT));
 	if (link_status) {
 		duplex = FXGMAC_GET_REG_BITS(regval, PHY_MII_SPEC_DUPLEX_POS,
 					     PHY_MII_SPEC_DUPLEX_LEN);
@@ -1007,53 +1013,47 @@ static int fxgmac_set_link_ksettings(struct net_device *netdev,
 	    (!pdata->phy_autoeng && cmd->base.speed == SPEED_1000)) {
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_ADVERTISE, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv &= ~REG_BIT_ADVERTISE_100_10_CAP;
 		adv |= ethtool_adv_to_mii_adv_t(advertising);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_ADVERTISE, adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_CTRL1000, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv &= ~REG_BIT_ADVERTISE_1000_CAP;
 		adv |= ethtool_adv_to_mii_ctrl1000_t(advertising);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_CTRL1000, adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv = FXGMAC_SET_REG_BITS(adv, PHY_CR_AUTOENG_POS,
 					  PHY_CR_AUTOENG_LEN, 1);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv = FXGMAC_SET_REG_BITS(adv, PHY_CR_RE_AUTOENG_POS,
 					  PHY_CR_RE_AUTOENG_LEN, 1);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 	} else {
 		pdata->phy_duplex = cmd->base.duplex;
 		pdata->phy_speed = cmd->base.speed;
 		fxgmac_phy_force_mode(pdata);
 	}
 
-	/* Save speed is used to restore it when resuming */
-	pdata->expansion.pre_phy_speed = cmd->base.speed;
-	pdata->expansion.pre_phy_autoneg = cmd->base.autoneg;
-	pdata->expansion.pre_phy_duplex = cmd->base.duplex;
-
 	return 0;
 }
 
-#if FXGMAC_PAUSE_FEATURE_ENABLED
 static void fxgmac_get_pauseparam(struct net_device *netdev,
 				  struct ethtool_pauseparam *pause)
 {
@@ -1098,7 +1098,7 @@ static int fxgmac_set_pauseparam(struct net_device *netdev,
 	if (pause->autoneg) {
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_ADVERTISE, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv = FXGMAC_SET_REG_BITS(adv, PHY_MII_ADVERTISE_PAUSE_POS,
 										PHY_MII_ADVERTISE_PAUSE_LEN,
 										enable_pause);
@@ -1107,16 +1107,16 @@ static int fxgmac_set_pauseparam(struct net_device *netdev,
 										enable_pause);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_ADVERTISE, adv);
 		if (ret < 0) {
-			return ret;
+			return -ETIMEDOUT;
 		}
 
 		ret = hw_ops->read_ephy_reg(pdata, REG_MII_BMCR, &adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 		adv = FXGMAC_SET_REG_BITS(adv, PHY_CR_RE_AUTOENG_POS, PHY_CR_RE_AUTOENG_LEN, 1);
 		ret = hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, adv);
 		if (ret < 0)
-			return ret;
+			return -ETIMEDOUT;
 	} else {
 		DPRINTK("Can't set phy pause because autoneg is off.\n");
 	}
@@ -1127,6 +1127,14 @@ static int fxgmac_set_pauseparam(struct net_device *netdev,
 	return 0;
 }
 #endif /*FXGMAC_PAUSE_FEATURE_ENABLED*/
+
+/* yzhang added for debug sake. descriptors status checking
+ * 2021.03.29
+ */
+#define FXGMAC_ETH_GSTRING_LEN 32
+
+#define FXGMAC_TEST_LEN (sizeof(fxgmac_gstrings_test) / FXGMAC_ETH_GSTRING_LEN)
+#define DBG_ETHTOOL_CHECK_NUM_OF_DESC 5
 
 static void fxgmac_ethtool_get_strings(struct net_device *netdev, u32 stringset,
 				       u8 *data)
@@ -1173,6 +1181,7 @@ static void fxgmac_ethtool_get_ethtool_stats(struct net_device *netdev,
 	int i;
 
 #if FXGMAC_PM_FEATURE_ENABLED
+	/* 20210709 for net power down */
 	if (!test_bit(FXGMAC_POWER_STATE_DOWN, &pdata->expansion.powerstate))
 #endif
 	{
@@ -1196,7 +1205,6 @@ static int fxgmac_ethtool_reset(struct net_device *netdev, u32 *flag)
 	struct fxgmac_pdata *pdata = netdev_priv(netdev);
 	struct fxgmac_hw_ops *hw_ops = &pdata->hw_ops;
 	u32 val;
-	int ret = 0;
 
 	val = (*flag & ETH_RESET_ALL) || (*flag & ETH_RESET_PHY);
 	if (!val) {
@@ -1218,17 +1226,12 @@ static int fxgmac_ethtool_reset(struct net_device *netdev, u32 *flag)
 		val = FXGMAC_SET_REG_BITS(val, PHY_CR_POWER_POS,
 											PHY_CR_POWER_LEN,
 												PHY_POWER_DOWN);
-		ret = hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, val);
-		if (ret < 0)
-				return ret;
+		hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, val);
 		usleep_range_ex(pdata->pAdapter, 9000, 10000);
 		val = FXGMAC_SET_REG_BITS(val, PHY_CR_POWER_POS,
 											PHY_CR_POWER_LEN,
 												PHY_POWER_UP);
-		ret = hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, val);
-		if (ret < 0)
-				return ret;
-
+		hw_ops->write_ephy_reg(pdata, REG_MII_BMCR, val);
 		*flag = 0;
 		break;
 	default:
@@ -1281,8 +1284,10 @@ static const struct ethtool_ops fxgmac_ethtool_ops = {
 	.set_wol = fxgmac_set_wol,
 #endif
 #if (FXGMAC_PAUSE_FEATURE_ENABLED)
+#ifdef ETHTOOL_GLINKSETTINGS
 	.get_link_ksettings = fxgmac_get_link_ksettings,
 	.set_link_ksettings = fxgmac_set_link_ksettings,
+#endif /* ETHTOOL_GLINKSETTINGS */
 	.get_pauseparam = fxgmac_get_pauseparam,
 	.set_pauseparam = fxgmac_set_pauseparam,
 #endif
