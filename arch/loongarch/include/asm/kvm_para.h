@@ -41,7 +41,7 @@ struct kvm_steal_time {
  */
 static __always_inline long kvm_hypercall(u64 fid)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 
 	__asm__ __volatile__(
@@ -56,7 +56,7 @@ static __always_inline long kvm_hypercall(u64 fid)
 
 static __always_inline long kvm_hypercall1(u64 fid, unsigned long arg0)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 	register unsigned long a1  asm("a1") = arg0;
 
@@ -73,7 +73,7 @@ static __always_inline long kvm_hypercall1(u64 fid, unsigned long arg0)
 static __always_inline long kvm_hypercall2(u64 fid,
 		unsigned long arg0, unsigned long arg1)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 	register unsigned long a1  asm("a1") = arg0;
 	register unsigned long a2  asm("a2") = arg1;
@@ -91,7 +91,7 @@ static __always_inline long kvm_hypercall2(u64 fid,
 static __always_inline long kvm_hypercall3(u64 fid,
 	unsigned long arg0, unsigned long arg1, unsigned long arg2)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 	register unsigned long a1  asm("a1") = arg0;
 	register unsigned long a2  asm("a2") = arg1;
@@ -111,7 +111,7 @@ static __always_inline long kvm_hypercall4(u64 fid,
 		unsigned long arg0, unsigned long arg1, unsigned long arg2,
 		unsigned long arg3)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 	register unsigned long a1  asm("a1") = arg0;
 	register unsigned long a2  asm("a2") = arg1;
@@ -132,7 +132,7 @@ static __always_inline long kvm_hypercall5(u64 fid,
 		unsigned long arg0, unsigned long arg1, unsigned long arg2,
 		unsigned long arg3, unsigned long arg4)
 {
-	register long ret asm("v0");
+	register long ret asm("a0");
 	register unsigned long fun asm("a0") = fid;
 	register unsigned long a1  asm("a1") = arg0;
 	register unsigned long a2  asm("a2") = arg1;
