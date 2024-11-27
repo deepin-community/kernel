@@ -482,10 +482,11 @@ static void fxgmac_config_multicast_mac_hash_table(struct fxgmac_pdata *pdata,
 	writereg(pdata->pAdapter, regval, pdata->mac_regs + hash_reg);
 }
 
-static void fxgmac_set_mac_hash_table(struct fxgmac_pdata *pdata)
-{
 #ifndef DPDK
 #if FXGMAC_MAC_HASH_TABLE
+static void fxgmac_set_mac_hash_table(struct fxgmac_pdata *pdata)
+{
+
 	struct net_device *netdev = pdata->netdev;
 	struct netdev_hw_addr *ha;
 
@@ -493,13 +494,13 @@ static void fxgmac_set_mac_hash_table(struct fxgmac_pdata *pdata)
 	netdev_for_each_mc_addr(ha, netdev) {
 		fxgmac_config_multicast_mac_hash_table(pdata, ha->addr, 1);
 	}
-#endif
-	pdata = pdata;
-
-#else
-	(void)pdata;
-#endif
 }
+#else
+static inline void fxgmac_set_mac_hash_table(void)
+{
+}
+#endif /* FXGMAC_MAC_HASH_TABLE */
+#endif /* DPDK */
 
 static int fxgmac_set_mc_addresses(struct fxgmac_pdata *pdata)
 {
@@ -612,15 +613,13 @@ static int fxgmac_config_rx_mode(struct fxgmac_pdata *pdata)
 	return 0;
 }
 
+#ifdef FXGMAC_WAIT_TX_STOP
 static void fxgmac_prepare_tx_stop(struct fxgmac_pdata *pdata,
 				   struct fxgmac_channel *channel)
 {
-#ifdef FXGMAC_WAIT_TX_STOP
 	unsigned int tx_dsr, tx_pos, tx_qidx;
 	unsigned long tx_timeout;
 	unsigned int tx_status;
-
-	pdata = pdata;
 
 	/* Calculate the status register to read and the position within */
 	if (channel->queue_index < DMA_DSRX_FIRST_QUEUE) {
@@ -655,11 +654,12 @@ static void fxgmac_prepare_tx_stop(struct fxgmac_pdata *pdata,
 		netdev_info(pdata->netdev,
 			    "timed out waiting for Tx DMA channel %u to stop\n",
 			    channel->queue_index);
-#else
-    pdata = pdata;
-    channel = channel;
-#endif
 }
+#else
+static inline void fxgmac_prepare_tx_stop(void)
+{
+}
+#endif /* FXGMAC_WAIT_TX_STOP */
 
 static void fxgmac_enable_tx(struct fxgmac_pdata *pdata)
 {
@@ -1229,7 +1229,6 @@ static void fxgmac_config_rx_fup_enable(struct fxgmac_pdata *pdata)
 
 static int fxgmac_config_tx_coalesce(struct fxgmac_pdata *pdata)
 {
-	pdata = pdata;
 	return 0;
 }
 
@@ -2318,7 +2317,6 @@ static int fxgmac_write_rss_reg(struct fxgmac_pdata *pdata, unsigned int type,
 				unsigned int index, u32 val)
 {
 	int ret = 0;
-	type = type;
 
 	writereg(pdata->pAdapter, val, (pdata->base_mem + index));
 
@@ -4563,7 +4561,6 @@ static int fxgmac_dismiss_DMA_int(struct fxgmac_channel *channel, int int_id)
 {
 	u32 dma_ch_ier;
 
-	int_id = int_id;
 	dma_ch_ier = readreg(channel->pdata->pAdapter,
 			     FXGMAC_DMA_REG(channel, DMA_CH_SR /*1160*/));
 	writereg(channel->pdata->pAdapter, dma_ch_ier,
@@ -4885,7 +4882,6 @@ static void fxgmac_pre_powerdown(struct fxgmac_pdata *pdata, bool phyloopback)
 #ifdef FXGMAC_LINK_SPEED_CHECK_PHY_LINK
 	int link;
 #endif
-	speed = speed;
 
 	fxgmac_disable_rx(pdata);
 

@@ -475,7 +475,7 @@ static void fxgmac_tx_desc_init_channel(struct fxgmac_channel *channel)
 	struct fxgmac_desc_data *desc_data;
 	int start_index = ring->cur;
 	unsigned int i;
-	start_index = start_index;
+
 	/* Initialize all descriptors */
 	for (i = 0; i < ring->dma_desc_count; i++) {
 		desc_data = FXGMAC_GET_DESC_DATA(ring, i);
