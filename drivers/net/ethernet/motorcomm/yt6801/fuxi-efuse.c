@@ -416,13 +416,9 @@ bool fxgmac_read_mac_subsys_from_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr,
 bool fxgmac_write_mac_subsys_to_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr,
 				      u32 *subsys, u32 *revid)
 {
-#ifdef DBG
-	u32 machr = 0, maclr = 0;
-#endif
-	u32 pcie_cfg_ctrl = PCIE_CFG_CTRL_DEFAULT_VAL;
+	u32 machr = 0, maclr = 0, pcie_cfg_ctrl = PCIE_CFG_CTRL_DEFAULT_VAL;
 	bool succeed = true;
 	if (mac_addr) {
-#ifdef DBG
 		machr = readreg(pdata->pAdapter,
 				pdata->base_mem + MACA0HR_FROM_EFUSE);
 		maclr = readreg(pdata->pAdapter,
@@ -431,7 +427,7 @@ bool fxgmac_write_mac_subsys_to_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr,
 			(machr >> 8) & 0xFF, machr & 0xFF, (maclr >> 24) & 0xFF,
 			(maclr >> 16) & 0xFF, (maclr >> 8) & 0xFF,
 			maclr & 0xFF);
-#endif
+
 		if (!fxgmac_write_patch_to_efuse(pdata, MACA0HR_FROM_EFUSE,
 						 (((u32)mac_addr[0]) << 8) |
 							 mac_addr[1])) {
@@ -477,13 +473,10 @@ bool fxgmac_write_mac_subsys_to_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr,
 
 bool fxgmac_write_mac_addr_to_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr)
 {
-#ifdef DBG
 	u32 machr = 0, maclr = 0;
-#endif
 	bool succeed = true;
 
 	if (mac_addr) {
-#ifdef DBG
 		machr = readreg(pdata->pAdapter,
 				pdata->base_mem + MACA0HR_FROM_EFUSE);
 		maclr = readreg(pdata->pAdapter,
@@ -492,7 +485,7 @@ bool fxgmac_write_mac_addr_to_efuse(struct fxgmac_pdata *pdata, u8 *mac_addr)
 			(machr >> 8) & 0xFF, machr & 0xFF, (maclr >> 24) & 0xFF,
 			(maclr >> 16) & 0xFF, (maclr >> 8) & 0xFF,
 			maclr & 0xFF);
-#endif
+
 		if (!fxgmac_write_patch_to_efuse(pdata, MACA0HR_FROM_EFUSE,
 						 (((u32)mac_addr[0]) << 8) |
 							 mac_addr[1])) {
