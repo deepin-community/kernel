@@ -684,7 +684,7 @@ static __initconst const struct {
 	},
 };
 
-void __init acpi_arch_init (){
+void __init acpi_arch_init (void){
 	if (bpi_version == BPI_VERSION_NONE) {
 		return;
 	}
