@@ -592,7 +592,6 @@ config ARCH_SELECTS_CRASH_DUMP
 
 config RELOCATABLE
 	bool "Relocatable kernel"
-	select ARCH_HAS_RELR
 	help
 	  This builds the kernel as a Position Independent Executable (PIE),
 	  which retains all relocation metadata required, so as to relocate
