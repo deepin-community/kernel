@@ -129,6 +129,7 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 			pdata->msg_regs = ioremap_wt(regs->start, MEMORY_SIZE);
 			if (!pdata->msg_regs) {
 				dev_err(&pdev->dev, "msg_regs ioremap failed, i=%d\n", i);
+				ret = PTR_ERR(pdata->mac_regs);
 				goto err_mem;
 			}
 		}
