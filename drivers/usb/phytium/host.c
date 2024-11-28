@@ -448,7 +448,7 @@ static void hostErrorIrq(struct HOST_CTRL *priv)
 
 	rxerrirq = phytium_read16(&priv->regs->rxerrirq);
 	rxerrien = phytium_read16(&priv->regs->rxerrien);
-	rxerrirq &= rxerrirq;
+	rxerrirq &= rxerrien;
 	if (!txerrirq && !rxerrirq)
 		return;
 
