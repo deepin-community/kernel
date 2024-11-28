@@ -976,7 +976,7 @@ void fxgmac_free_rx_data(struct fxgmac_pdata *pdata)
 static int fxgmac_disable_pci_msi_config(struct pci_dev *pdev)
 {
 	u16 pcie_cap_offset;
-	u32 pcie_msi_mask_bits;
+	u32 pcie_msi_mask_bits = 0;
 	int ret = 0;
 
 	pcie_cap_offset = pci_find_capability(pdev, PCI_CAP_ID_MSI);
@@ -1007,7 +1007,7 @@ static int fxgmac_disable_pci_msi_config(struct pci_dev *pdev)
 static int fxgmac_disable_pci_msix_config(struct pci_dev *pdev)
 {
 	u16 pcie_cap_offset;
-	u32 pcie_msi_mask_bits;
+	u32 pcie_msi_mask_bits = 0;
 	int ret = 0;
 
 	pcie_cap_offset = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
