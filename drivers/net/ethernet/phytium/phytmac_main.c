@@ -1758,6 +1758,7 @@ static int phytmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 #endif
 	default:
+		ret = -EOPNOTSUPP;
 		break;
 	}
 
