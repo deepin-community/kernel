@@ -804,12 +804,12 @@ static int sunway_iommu_init(void)
 			continue;
 		}
 
+		sunway_enable_iommu_func(hose);
+		hose->iommu_enable = true;
 		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
 					iommu_index);
 		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
 
-		sunway_enable_iommu_func(hose);
-		hose->iommu_enable = true;
 		piu_flush_all(iommu);
 
 		iommu_index++;
@@ -1294,8 +1294,10 @@ static struct iommu_device *sunway_iommu_probe_device(struct device *dev)
 	if (!hose->iommu_enable)
 		return ERR_PTR(-ENODEV);
 
-	if (dev_iommu_priv_get(dev))
+	if (dev_iommu_priv_get(dev)) {
+		iommu = hose->pci_iommu;
 		return &iommu->iommu;
+	}
 
 	ret = iommu_init_device(dev);
 	if (ret)
