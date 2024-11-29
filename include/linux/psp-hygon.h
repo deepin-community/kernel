@@ -566,10 +566,6 @@ vpsp_try_get_result(uint8_t prio,
 		uint32_t index, phys_addr_t phy_addr, struct vpsp_ret *psp_ret) { return -ENODEV; }
 
 static inline int
-vpsp_try_do_cmd(uint32_t vid, int cmd,
-		void *data, struct vpsp_ret *psp_ret) { return -ENODEV; }
-
-static inline int
 vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr,
 		struct vpsp_ret *psp_ret) { return -ENODEV; }
 
