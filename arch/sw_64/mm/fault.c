@@ -133,7 +133,7 @@ out:
 extern int do_match(unsigned long address, unsigned long mmcsr, long cause, struct pt_regs *regs);
 
 asmlinkage void notrace
-do_page_fault(unsigned long address, unsigned long mmcsr,
+noinstr do_page_fault(unsigned long address, unsigned long mmcsr,
 		long cause, struct pt_regs *regs)
 {
 	struct vm_area_struct *vma;

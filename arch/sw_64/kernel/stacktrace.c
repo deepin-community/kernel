@@ -61,7 +61,7 @@ int unwind_frame(struct task_struct *tsk, struct stackframe *frame)
 }
 EXPORT_SYMBOL_GPL(unwind_frame);
 
-void walk_stackframe(struct task_struct *tsk, struct pt_regs *regs,
+void noinstr walk_stackframe(struct task_struct *tsk, struct pt_regs *regs,
 		     int (*fn)(unsigned long, void *), void *data)
 {
 	unsigned long pc, fp;
@@ -109,7 +109,7 @@ void walk_stackframe(struct task_struct *tsk, struct pt_regs *regs,
 EXPORT_SYMBOL_GPL(walk_stackframe);
 
 #else /* !CONFIG_FRAME_POINTER */
-void walk_stackframe(struct task_struct *tsk, struct pt_regs *regs,
+void noinstr walk_stackframe(struct task_struct *tsk, struct pt_regs *regs,
 		     int (*fn)(unsigned long, void *), void *data)
 {
 	unsigned long *ksp;

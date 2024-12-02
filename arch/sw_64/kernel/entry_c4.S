@@ -263,6 +263,7 @@
  * Non-syscall kernel entry points.
  */
 
+	.pushsection ".entry.text", "ax"
 	.align 4
 	.globl entNMI
 	.ent entNMI
@@ -489,3 +490,4 @@ ret_from_kernel_thread:
 	call	$26, ($9)
 	br	ret_to_user
 	.end ret_from_kernel_thread
+	.popsection

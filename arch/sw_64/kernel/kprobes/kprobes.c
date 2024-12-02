@@ -271,6 +271,19 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 }
 
 /*
+ * Provide a blacklist of symbols identifying ranges which cannot be kprobed.
+ * This blacklist is exposed to userspace via debugfs (kprobes/blacklist).
+ */
+int __init arch_populate_kprobe_blacklist(void)
+{
+	int ret;
+
+	ret = kprobe_add_area_blacklist((unsigned long)__entry_text_start,
+					(unsigned long)__entry_text_end);
+		return ret;
+}
+
+/*
  * Called when the probe at kretprobe trampoline is hit
  */
 static int __kprobes trampoline_probe_handler(struct kprobe *p,

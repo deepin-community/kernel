@@ -206,6 +206,7 @@ END(return_to_handler)
 
 #endif
 
+	.pushsection ".entry.text", "ax"
 #ifdef CONFIG_DYNAMIC_FTRACE
 	.global _mcount
 	.ent _mcount
@@ -283,8 +284,8 @@ skip_ftrace:
 3:	mcount_end
 	ret	$31, ($28), 1
 	.end _mcount
-
 #endif /* CONFIG_DYNAMIC_FTRACE */
+	.popsection
 
 #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
 	.global ftrace_regs_caller

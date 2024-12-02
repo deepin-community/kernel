@@ -9,7 +9,7 @@
 #include <asm/idle.h>
 #include <asm/asm-offsets.h>
 
-void arch_cpu_idle(void)
+void noinstr arch_cpu_idle(void)
 {
 	local_irq_enable();
 	cpu_relax();

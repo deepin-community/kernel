@@ -76,7 +76,7 @@ static void handle_nmi_int(void)
 
 int pme_state;
 
-asmlinkage void do_entInt(unsigned long type, unsigned long vector,
+asmlinkage void noinstr do_entInt(unsigned long type, unsigned long vector,
 			  unsigned long irq_arg, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs;

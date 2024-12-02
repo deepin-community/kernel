@@ -148,7 +148,7 @@ extern long sw64_fp_emul(unsigned long pc);
 #endif
 
 asmlinkage void
-do_entArith(unsigned long exc_sum, unsigned long write_mask,
+noinstr do_entArith(unsigned long exc_sum, unsigned long write_mask,
 		struct pt_regs *regs)
 {
 	long si_code = FPE_FLTINV;
@@ -250,7 +250,7 @@ static int try_fix_rd_f(unsigned int inst, struct pt_regs *regs)
  * do something necessary to handle it correctly.
  */
 asmlinkage void
-do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
+noinstr do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
 {
 	int signo, code;
 	unsigned int inst, type;
@@ -397,7 +397,7 @@ do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
 			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
 
 asmlinkage void
-do_entUna(void *va, unsigned long opcode, unsigned long reg,
+noinstr do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	  struct pt_regs *regs)
 {
 	long error, disp;
@@ -1348,7 +1348,7 @@ got_exception:
  * However, we need to deal with stt/ldt and sts/lds only.
  */
 asmlinkage void
-do_entUnaUser(void __user *va, unsigned long opcode,
+noinstr do_entUnaUser(void __user *va, unsigned long opcode,
 	      unsigned long reg, struct pt_regs *regs)
 {
 #ifdef CONFIG_UNA_PRINT
@@ -2508,7 +2508,7 @@ give_sigbus:
 	force_sig_fault(SIGBUS, BUS_ADRALN, va);
 }
 
-asmlinkage void do_entSys(struct pt_regs *regs)
+asmlinkage void noinstr do_entSys(struct pt_regs *regs)
 {
 	long ret = -ENOSYS;
 	unsigned long nr;
