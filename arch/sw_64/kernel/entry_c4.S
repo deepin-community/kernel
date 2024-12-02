@@ -357,8 +357,6 @@ entUna:
 	ldi	$2, do_entUna
 	seleq	$9, $2, $1, $27
 	call	$26, ($27), 0
-	.align 2
-	bne	$9, ret_from_sys_call
 	RESTORE_ALL
 	sys_call HMC_rti
 	.end entUna
