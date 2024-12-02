@@ -351,12 +351,14 @@ entUna:
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
-	ldl	$0, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
-	and	$0, 8, $0		/* user mode ? */
-	beq	$0, 1f
-	call	$26, do_entUnaUser	/* return to ret_from_syscall */
-	br	ret_from_sys_call
-1:	call	$26, do_entUna
+	ldl	$9, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
+	and	$9, 8, $9		/* user mode ? */
+	ldi	$1, do_entUnaUser
+	ldi	$2, do_entUna
+	seleq	$9, $2, $1, $27
+	call	$26, ($27), 0
+	.align 2
+	bne	$9, ret_from_sys_call
 	RESTORE_ALL
 	sys_call HMC_rti
 	.end entUna
