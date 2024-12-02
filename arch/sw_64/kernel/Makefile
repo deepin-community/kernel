@@ -13,12 +13,17 @@ CFLAGS_REMOVE_insn.o = -pg
 CFLAGS_REMOVE_printk.o = -pg
 endif
 
+ifneq ($(CONFIG_SUBARCH_C3B),y)
+	CFLAGS_REMOVE_trap_unalign.o = -fsw-unalign-byte
+	CFLAGS_trap_unalign.o += -fno-sw-unalign-byte
+endif
+
 obj-y    := fpu.o traps.o process.o sys_sw64.o irq.o cpu.o \
 	    signal.o setup.o ptrace.o time.o \
 	    systbls.o dup_print.o chip_setup.o \
 	    insn.o early_init.o topology.o cacheinfo.o \
 	    vdso.o vdso/ hmcall.o stacktrace.o idle.o reset.o \
-	    head.o termios.o
+	    head.o termios.o trap_unalign.o
 
 obj-$(CONFIG_SUBARCH_C3B) += entry_c3.o tc.o
 obj-$(CONFIG_SUBARCH_C4) += entry_c4.o
