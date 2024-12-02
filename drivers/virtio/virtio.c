@@ -374,6 +374,24 @@ static void virtio_dev_shutdown(struct device *_d)
 	dev->config->reset(dev);
 }
 
+/*
+ * virtio_irq_get_affinity - get IRQ affinity mask for device
+ * @_d: ptr to dev structure
+ * @irq_vec: interrupt vector number
+ *
+ * Return the CPU affinity mask for @_d and @irq_vec.
+ */
+static const struct cpumask *virtio_irq_get_affinity(struct device *_d,
+						     unsigned int irq_vec)
+{
+	struct virtio_device *dev = dev_to_virtio(_d);
+
+	if (!dev->config->get_vq_affinity)
+		return NULL;
+
+	return dev->config->get_vq_affinity(dev, irq_vec);
+}
+
 static const struct bus_type virtio_bus = {
 	.name  = "virtio",
 	.match = virtio_dev_match,
@@ -382,6 +400,7 @@ static const struct bus_type virtio_bus = {
 	.probe = virtio_dev_probe,
 	.remove = virtio_dev_remove,
 	.shutdown = virtio_dev_shutdown,
+	.irq_get_affinity = virtio_irq_get_affinity,
 };
 
 int register_virtio_driver(struct virtio_driver *driver)
