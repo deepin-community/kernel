@@ -44,4 +44,15 @@ struct hda_intel_stream {
 #define azx_dev_to_istream(azx_dev) \
 	container_of(azx_dev, struct hda_intel_stream, azx_dev)
 
+struct gf_private {
+	struct hda_intel hda;
+
+	phys_addr_t diu_fb_stream_ofs[2];
+	void __iomem *diu_fb_stream_vaddr[2];
+	unsigned int diu_fb_stream_pos[2];
+
+	phys_addr_t diu_fb_bdl_ofs[2];
+	void __iomem *diu_fb_bdl_vaddr[2];
+};
+
 #endif
