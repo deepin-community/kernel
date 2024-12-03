@@ -42,12 +42,6 @@ static irqreturn_t constant_timer_interrupt(int irq, void *data)
 	return IRQ_NONE;
 }
 
-static struct irqaction constant_timer_irqaction = {
-	.handler = constant_timer_interrupt,
-	.flags = IRQF_PERCPU | IRQF_TIMER | IRQF_SHARED,
-	.name = "timer",
-};
-
 static int constant_set_state_oneshot(struct clock_event_device *evt)
 {
 	unsigned int raw_cpuid;
@@ -155,6 +149,7 @@ int constant_clockevent_init(void)
 	unsigned long max_delta = (1UL << 48) - 1;
 	unsigned int cpu = smp_processor_id();
 	struct clock_event_device *cd;
+	int err;
 
 	config = read_c0_config6();
 	config |= LOONGSON_CONF6_EXTIMER;
@@ -192,7 +187,14 @@ int constant_clockevent_init(void)
 		return 0;
 
 	constant_timer_irq_installed = 1;
-	setup_irq(irq, &constant_timer_irqaction);
+
+	err = request_irq(irq, constant_timer_interrupt,
+		    IRQF_PERCPU | IRQF_TIMER | IRQF_SHARED,
+		    "timer", cd);
+	if (err) {
+		pr_err("loongson64: setup irq for constant_clock_event failed: %d\n", err);
+		return err;
+	}
 
 	return 0;
 }
