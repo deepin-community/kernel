@@ -252,7 +252,7 @@ int __init init_constant_clocksource(void)
 	res = clocksource_register_hz(&clocksource_const, freq);
 
 	sched_clock_register(read_sched_clock, 64, freq);
-	clocksource_const.archdata.vdso_clock_mode = VDSO_CLOCKMODE_CONST;
+	clocksource_const.vdso_clock_mode = VDSO_CLOCKMODE_CONST;
 
 	return res;
 }
