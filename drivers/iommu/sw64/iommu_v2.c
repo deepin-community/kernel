@@ -1633,8 +1633,8 @@ static int __init sunway_iommu_setup(char *str)
 		bitmap_zero(iommu_bitmap, 64);
 	} else {
 		ret = kstrtoul(str, 16, &rc_val);
-		if (!ret)
-			return -EINVAL;
+		if (ret)
+			return ret;
 
 		bitmap_from_u64(iommu_bitmap, rc_val);
 	}
@@ -1655,8 +1655,8 @@ static int __init iommu_enable_setup(char *str)
 	bitmap_zero(iommu_bitmap, 64);
 
 	ret = kstrtoul(str, 16, &rc_val);
-	if (!ret)
-		return -EINVAL;
+	if (ret)
+		return ret;
 
 	bitmap_from_u64(iommu_bitmap, rc_val);
 
