@@ -16,7 +16,7 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
-
+#include <linux/pci.h>
 #include "hda_phytium.h"
 
 #ifdef CONFIG_X86
@@ -27,6 +27,7 @@
 #include <sound/core.h>
 #include <sound/initval.h>
 #include "hda_controller.h"
+#include "hda_intel.h"
 #include "hda_local.h"
 
 #define CREATE_TRACE_POINTS
@@ -80,6 +81,104 @@ static u64 azx_adjust_codec_delay(struct snd_pcm_substream *substream,
 		return nsec + codec_nsecs;
 
 	return (nsec > codec_nsecs) ? nsec - codec_nsecs : 0;
+}
+
+int gf_setup_bdle(struct snd_pcm_substream *substream)
+{
+	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
+	struct azx *chip = apcm->chip;
+	struct azx_dev *azx_dev = get_azx_dev(substream);
+	__le32 *bdl;
+	unsigned int i, stream_idx;
+	struct gf_private *gf_chip = NULL;
+
+	// setup BDL and BDLE
+	if ((chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
+		gf_chip = container_of(chip, struct gf_private, hda.chip);
+		if (gf_chip == NULL) {
+			return -1;
+		}
+		stream_idx = apcm->codec->addr - 1;
+		if ((stream_idx <= 1) && (gf_chip->diu_fb_bdl_vaddr[stream_idx])) {
+			if (azx_dev->core.bdl.bytes <= BDL_SIZE) {
+				memcpy(gf_chip->diu_fb_bdl_vaddr[stream_idx], azx_dev->core.bdl.area, azx_dev->core.bdl.bytes);
+			} else {
+				memcpy(gf_chip->diu_fb_bdl_vaddr[stream_idx], azx_dev->core.bdl.area, BDL_SIZE);
+			}
+			bdl = (__le32 *)gf_chip->diu_fb_bdl_vaddr[stream_idx];
+			for (i = 0; i < azx_dev->core.frags; i++) {
+				if (i > 0) {
+					bdl[i*4] = cpu_to_le32((u32)(bdl[(i-1)*4] + bdl[(i-1)*4+2]));
+					bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
+				}
+				else {
+					bdl[i*4] = cpu_to_le32((u32)gf_chip->diu_fb_stream_ofs[stream_idx]);
+					bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
+				}
+			}
+			snd_hdac_stream_writel((azx_stream(azx_dev)), SD_BDLPL, (u32)gf_chip->diu_fb_bdl_ofs[stream_idx]);
+			snd_hdac_stream_writel((azx_stream(azx_dev)), SD_BDLPU, upper_32_bits(gf_chip->diu_fb_bdl_ofs[stream_idx]));
+		}
+	}
+	return 0;
+}
+
+int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
+	struct azx *chip = apcm->chip;
+	unsigned int stream_idx;
+	struct gf_private *gf_chip = NULL;
+
+	if ((substream->runtime) && (chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
+		gf_chip = container_of(chip, struct gf_private, hda.chip);
+		if (gf_chip == NULL) {
+			return -1;
+		}
+		stream_idx = apcm->codec->addr - 1;
+		if ((cmd == SNDRV_PCM_TRIGGER_START) &&
+		    (stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) && (substream->runtime->dma_area)) {
+			memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
+			gf_chip->diu_fb_stream_pos[stream_idx] = 0;
+		}
+	}
+	return 0;
+}
+
+int gf_update_stream(struct snd_pcm_substream *substream)
+{
+	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
+	struct azx *chip = apcm->chip;
+	unsigned int stream_idx, hw_pos, appl_pos;
+	struct gf_private *gf_chip = NULL;
+
+	if ((substream->runtime) && (chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
+		gf_chip = container_of(chip, struct gf_private, hda.chip);
+		if (gf_chip == NULL) {
+			return -1;
+		}
+		stream_idx = apcm->codec->addr - 1;
+		if ((stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) && (substream->runtime->dma_area) &&
+		    (substream->runtime->dma_bytes <= GF_HDA_FB_STREAM_SIZE) && snd_pcm_running(substream)) {
+			hw_pos = frames_to_bytes(substream->runtime, substream->runtime->status->hw_ptr % substream->runtime->buffer_size);
+			appl_pos = frames_to_bytes(substream->runtime, substream->runtime->control->appl_ptr % substream->runtime->buffer_size);
+
+			if (hw_pos == appl_pos) {
+				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
+			}
+			else if (appl_pos > gf_chip->diu_fb_stream_pos[stream_idx]) {
+				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (appl_pos - gf_chip->diu_fb_stream_pos[stream_idx]));
+			}
+			else if (appl_pos < gf_chip->diu_fb_stream_pos[stream_idx]) {
+				if(substream->runtime->dma_bytes > gf_chip->diu_fb_stream_pos[stream_idx]) {
+					memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (substream->runtime->dma_bytes - gf_chip->diu_fb_stream_pos[stream_idx]));
+				}
+				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, appl_pos);
+			}
+			gf_chip->diu_fb_stream_pos[stream_idx] = appl_pos;
+		}
+	}
+	return 0;
 }
 
 /*
@@ -189,6 +288,8 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 
 	snd_hdac_stream_setup(azx_stream(azx_dev));
 
+	gf_setup_bdle(substream);
+
 	stream_tag = azx_dev->core.stream_tag;
 	/* CA-IBG chips need the playback stream starting from 1 */
 	if ((chip->driver_caps & AZX_DCAPS_CTX_WORKAROUND) &&
@@ -242,6 +343,8 @@ static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	default:
 		return -EINVAL;
 	}
+
+	gf_pre_trigger(substream, cmd);
 
 	snd_pcm_group_for_each_entry(s, substream) {
 		if (s->pcm->card != substream->pcm->card)
@@ -330,6 +433,9 @@ static snd_pcm_uframes_t azx_pcm_pointer(struct snd_pcm_substream *substream)
 	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
 	struct azx *chip = apcm->chip;
 	struct azx_dev *azx_dev = get_azx_dev(substream);
+
+	gf_update_stream(substream);
+
 	return bytes_to_frames(substream->runtime,
 			       azx_get_position(chip, azx_dev));
 }

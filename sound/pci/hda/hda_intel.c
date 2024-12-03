@@ -400,6 +400,83 @@ static void azx_free_pci_zx(struct azx *chip)
 		iounmap(chip->remap_diu_addr);
 }
 
+static int gf_init_pci(struct azx *chip)
+{
+	struct pci_dev *diu_pci = NULL;
+	unsigned long fb_size;
+	phys_addr_t diu_fb_base;
+	phys_addr_t diu_fb_stream[2];
+	phys_addr_t diu_fb_bdl[2];
+	struct gf_private *gf_chip = NULL;
+
+	dev_info(chip->card->dev, "gf_hda patch version %03d \n", GF_HDA_PATCH_VERSION);
+
+	if ((chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
+		gf_chip = container_of(chip, struct gf_private, hda.chip);
+		if (gf_chip == NULL) {
+			return -1;
+		}
+		gf_chip->diu_fb_stream_vaddr[0] = NULL;
+		gf_chip->diu_fb_stream_vaddr[1] = NULL;
+		gf_chip->diu_fb_bdl_vaddr[0] = NULL;
+		gf_chip->diu_fb_bdl_vaddr[1] = NULL;
+
+		if (chip->pci->bus != NULL)
+			diu_pci = pci_get_slot(chip->pci->bus, PCI_DEVFN(PCI_SLOT(chip->pci->devfn), 0));
+
+		if (!diu_pci) {
+			dev_info(chip->card->dev, "gf_hda can't get display device\n");
+		}
+		else {
+			diu_fb_base = pci_resource_start(diu_pci, 1);
+			fb_size = pci_resource_len(diu_pci, 1);
+
+			diu_fb_stream[0] = diu_fb_base + fb_size - (4+16)*1024*1024;
+			gf_chip->diu_fb_stream_ofs[0] = diu_fb_stream[0] - diu_fb_base; // stream offset = fb_size -4M-16M
+			gf_chip->diu_fb_stream_vaddr[0] = ioremap_wc(diu_fb_stream[0], GF_HDA_FB_STREAM_SIZE); // size = 7M
+
+			diu_fb_stream[1] = diu_fb_stream[0] + GF_HDA_FB_STREAM_SIZE;
+			gf_chip->diu_fb_stream_ofs[1] = diu_fb_stream[1] - diu_fb_base; // stream offset = fb_size -4M-16M+7M
+			gf_chip->diu_fb_stream_vaddr[1] = ioremap_wc(diu_fb_stream[1], GF_HDA_FB_STREAM_SIZE); // size = 7M
+
+			diu_fb_bdl[0] = diu_fb_stream[1] + GF_HDA_FB_STREAM_SIZE;
+			gf_chip->diu_fb_bdl_ofs[0] = diu_fb_bdl[0] - diu_fb_base; // stream offset = fb_size -4M-16M+7M*2
+			gf_chip->diu_fb_bdl_vaddr[0] = ioremap_wc(diu_fb_bdl[0], BDL_SIZE); // size = 4K
+
+			diu_fb_bdl[1] = diu_fb_bdl[0] + BDL_SIZE;
+			gf_chip->diu_fb_bdl_ofs[1] = diu_fb_bdl[1] - diu_fb_base; // stream offset = fb_size -4M-16M+7M*2+4K
+			gf_chip->diu_fb_bdl_vaddr[1] = ioremap_wc(diu_fb_bdl[1], BDL_SIZE); // size = 4K
+
+			dev_info(chip->card->dev, "gf_hda diu fb base=0x%llx, size=%dM.\n", diu_fb_base, (unsigned int)(fb_size >> 20));
+		}
+	}
+	return 0;
+}
+
+static void gf_free_pci(struct azx *chip)
+{
+	struct gf_private *gf_chip = NULL;
+
+	if ((chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
+		gf_chip = container_of(chip, struct gf_private, hda.chip);
+		if (gf_chip == NULL) {
+			return;
+		}
+
+		if(gf_chip->diu_fb_stream_vaddr[0])
+			iounmap(gf_chip->diu_fb_stream_vaddr[0]);
+
+		if(gf_chip->diu_fb_stream_vaddr[1])
+			iounmap(gf_chip->diu_fb_stream_vaddr[1]);
+
+		if(gf_chip->diu_fb_bdl_vaddr[0])
+			iounmap(gf_chip->diu_fb_bdl_vaddr[0]);
+
+		if(gf_chip->diu_fb_bdl_vaddr[1])
+			iounmap(gf_chip->diu_fb_bdl_vaddr[1]);
+	}
+}
+
 static void azx_init_pci(struct azx *chip)
 {
 	int snoop_type = azx_get_snoop_type(chip);
@@ -1408,6 +1485,10 @@ static void azx_free(struct azx *chip)
 	if (bus->irq >= 0)
 		free_irq(bus->irq, (void*)chip);
 
+	if (chip->driver_type == AZX_DRIVER_GFHDMI) {
+		gf_free_pci(chip);
+	}
+
 	azx_free_stream_pages(chip);
 	azx_free_streams(chip);
 	snd_hdac_bus_exit(bus);
@@ -1816,7 +1897,12 @@ static int azx_create(struct snd_card *card, struct pci_dev *pci,
 	if (err < 0)
 		return err;
 
-	hda = devm_kzalloc(&pci->dev, sizeof(*hda), GFP_KERNEL);
+	if ((pci != NULL) && (pci->vendor == 0x6766) && (pci->device == 0x3d40)) {
+		hda = devm_kzalloc(&pci->dev, sizeof(struct gf_private), GFP_KERNEL);
+	}
+	else {
+		hda = devm_kzalloc(&pci->dev, sizeof(*hda), GFP_KERNEL);
+	}
 	if (!hda)
 		return -ENOMEM;
 
@@ -1904,8 +1990,10 @@ static int azx_first_init(struct azx *chip)
 	 * Fix response write request not synced to memory when handle
 	 * hdac interrupt on Glenfly Gpus
 	 */
-	if (chip->driver_type == AZX_DRIVER_GFHDMI)
+	if (chip->driver_type == AZX_DRIVER_GFHDMI) {
 		bus->polling_mode = 1;
+		gf_init_pci(chip);
+	}
 
 	if (chip->driver_type == AZX_DRIVER_LOONGSON) {
 		bus->polling_mode = 1;
