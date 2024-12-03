@@ -1311,7 +1311,14 @@ static int sunway_iommu_def_domain_type(struct device *dev)
 
 static bool sunway_iommu_capable(struct device *dev, enum iommu_cap cap)
 {
-	return false;
+	switch (cap) {
+	case IOMMU_CAP_CACHE_COHERENCY:
+		return true;
+	case IOMMU_CAP_NOEXEC:
+		return true;
+	default:
+		return false;
+	}
 }
 
 static void sunway_iommu_probe_finalize(struct device *dev)
