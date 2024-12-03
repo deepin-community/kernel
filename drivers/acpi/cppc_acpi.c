@@ -1213,6 +1213,11 @@ static int cppc_get_perf(int cpunum, enum cppc_regs reg_idx, u64 *perf)
 		return ret;
 	}
 
+	if (!CPC_SUPPORTED(reg)) {
+		pr_debug("CPC register %d is not supported\n", reg_idx);
+		return -EOPNOTSUPP;
+	}
+
 	cpc_read(cpunum, reg, perf);
 
 	return 0;
@@ -1539,6 +1544,139 @@ int cppc_set_epp_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls, bool enable)
 }
 EXPORT_SYMBOL_GPL(cppc_set_epp_perf);
 
+static int cppc_get_reg(int cpunum, enum cppc_regs reg_idx, u64 *val)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpunum);
+	struct cppc_pcc_data *pcc_ss_data = NULL;
+	struct cpc_register_resource *reg;
+	int pcc_ss_id;
+	int ret = 0;
+
+	if (!cpc_desc) {
+		pr_debug("No CPC descriptor for CPU:%d\n", cpunum);
+		return -ENODEV;
+	}
+
+	reg = &cpc_desc->cpc_regs[reg_idx];
+
+	if (!CPC_SUPPORTED(reg)) {
+		pr_debug("CPC register (reg_idx=%u) is not supported\n", reg_idx);
+		return -EOPNOTSUPP;
+	}
+
+	if (CPC_IN_PCC(reg)) {
+		pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, cpunum);
+
+		if (pcc_ss_id < 0)
+			return -ENODEV;
+
+		pcc_ss_data = pcc_data[pcc_ss_id];
+
+		down_write(&pcc_ss_data->pcc_lock);
+
+		if (send_pcc_cmd(pcc_ss_id, CMD_READ) >= 0)
+			cpc_read(cpunum, reg, val);
+		else
+			ret = -EIO;
+
+		up_write(&pcc_ss_data->pcc_lock);
+
+		return ret;
+	}
+
+	cpc_read(cpunum, reg, val);
+
+	return 0;
+}
+
+static int cppc_set_reg(int cpu, enum cppc_regs reg_idx, u64 val)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpu);
+	struct cppc_pcc_data *pcc_ss_data = NULL;
+	struct cpc_register_resource *reg;
+	int pcc_ss_id;
+	int ret;
+
+	if (!cpc_desc) {
+		pr_debug("No CPC descriptor for CPU:%d\n", cpu);
+		return -ENODEV;
+	}
+
+	reg = &cpc_desc->cpc_regs[reg_idx];
+
+	if (!CPC_SUPPORTED(reg)) {
+		pr_debug("CPC register (reg_idx=%u) is not supported\n", reg_idx);
+		return -EOPNOTSUPP;
+	}
+
+	if (CPC_IN_PCC(reg)) {
+		pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, cpu);
+
+		if (pcc_ss_id < 0) {
+			pr_debug("Invalid pcc_ss_id\n");
+			return -ENODEV;
+		}
+
+		ret = cpc_write(cpu, reg, val);
+		if (ret)
+			return ret;
+
+		pcc_ss_data = pcc_data[pcc_ss_id];
+
+		down_write(&pcc_ss_data->pcc_lock);
+		/* after writing CPC, transfer the ownership of PCC to platform */
+		ret = send_pcc_cmd(pcc_ss_id, CMD_WRITE);
+		up_write(&pcc_ss_data->pcc_lock);
+		return ret;
+	}
+
+	return cpc_write(cpu, reg, val);
+}
+
+/**
+ * cppc_set_epp() - Write the EPP register
+ * @cpu:CPU on which to write register.
+ * @epp_val:Value to write to the EPP register.
+ */
+int cppc_set_epp(int cpu, u64 epp_val)
+{
+	return cppc_set_reg(cpu, ENERGY_PERF, epp_val);
+}
+EXPORT_SYMBOL_GPL(cppc_set_epp);
+
+/**
+ * cppc_get_auto_act_window() - Read autonomous activity window register.
+ * @cpunum:CPU from which to read register.
+ * @auto_act_window:Return address.
+ */
+int cppc_get_auto_act_window(int cpunum, u64 *auto_act_window)
+{
+	return cppc_get_reg(cpunum, AUTO_ACT_WINDOW, auto_act_window);
+}
+EXPORT_SYMBOL_GPL(cppc_get_auto_act_window);
+
+/**
+ * cppc_set_auto_act_window() - Write autonomous activity window register.
+ * @cpu:CPU on which to write register.
+ * @auto_act_window:Value to write to the autonomous activity window register.
+ */
+int cppc_set_auto_act_window(int cpu, u64 auto_act_window)
+{
+	return cppc_set_reg(cpu, AUTO_ACT_WINDOW, auto_act_window);
+}
+EXPORT_SYMBOL_GPL(cppc_set_auto_act_window);
+
+/**
+ * cppc_get_auto_sel() - Read autonomous selection register.
+ * @cpunum:CPU from which to read register.
+ * @auto_act_window:Return address.
+ */
+int cppc_get_auto_sel(int cpunum, u64 *auto_sel)
+{
+	return cppc_get_reg(cpunum, AUTO_SEL_ENABLE, auto_sel);
+}
+EXPORT_SYMBOL_GPL(cppc_get_auto_sel);
+
 /**
  * cppc_get_auto_sel_caps - Read autonomous selection register.
  * @cpunum : CPU from which to read register.
@@ -1626,12 +1764,17 @@ int cppc_set_auto_sel(int cpu, bool enable)
 		/* after writing CPC, transfer the ownership of PCC to platform */
 		ret = send_pcc_cmd(pcc_ss_id, CMD_WRITE);
 		up_write(&pcc_ss_data->pcc_lock);
-	} else {
-		ret = -ENOTSUPP;
-		pr_debug("_CPC in PCC is not supported\n");
+
+		return ret;
 	}
 
-	return ret;
+	if (!CPC_SUPPORTED(auto_sel_reg)) {
+		pr_debug("CPC register (reg_idx=%u) is not supported\n",
+			 AUTO_SEL_ENABLE);
+		return -EOPNOTSUPP;
+	}
+
+	return cpc_write(cpu, auto_sel_reg, enable);
 }
 EXPORT_SYMBOL_GPL(cppc_set_auto_sel);
 
