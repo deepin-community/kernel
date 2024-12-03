@@ -1359,16 +1359,16 @@ static int __init sunway_iommu_setup(char *str)
 	if (!str)
 		return -EINVAL;
 
-	bitmap_zero(iommu_bitmap, 64);
+	bitmap_zero(iommu_bitmap, 32);
 
 	if (!strncmp(str, "on", 2)) {
-		bitmap_fill(iommu_bitmap, 64);
+		bitmap_fill(iommu_bitmap, 32);
 	} else if (!strncmp(str, "off", 3)) {
-		bitmap_zero(iommu_bitmap, 64);
+		bitmap_zero(iommu_bitmap, 32);
 	} else {
 		ret = kstrtoul(str, 16, &rc_val);
-		if (!ret)
-			return -EINVAL;
+		if (ret)
+			return ret;
 
 		bitmap_from_u64(iommu_bitmap, rc_val);
 	}
@@ -1386,11 +1386,11 @@ static int __init iommu_enable_setup(char *str)
 		return -EINVAL;
 
 	pr_info("iommu_enable= deprecated; use sunway_iommu=on/off instead.\n");
-	bitmap_zero(iommu_bitmap, 64);
+	bitmap_zero(iommu_bitmap, 32);
 
 	ret = kstrtoul(str, 16, &rc_val);
-	if (!ret)
-		return -EINVAL;
+	if (ret)
+		return ret;
 
 	bitmap_from_u64(iommu_bitmap, rc_val);
 
