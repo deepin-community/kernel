@@ -843,10 +843,118 @@ static ssize_t show_freqdomain_cpus(struct cpufreq_policy *policy, char *buf)
 
 	return cpufreq_show_cpus(cpu_data->shared_cpu_map, buf);
 }
+
+#ifdef CONFIG_CPPC_CPUFREQ_SYSFS_INTERFACE
+
+#define AUTO_ACT_WINDOW_SIG_BIT_SIZE	(7)
+#define AUTO_ACT_WINDOW_EXP_BIT_SIZE	(3)
+#define AUTO_ACT_WINDOW_MAX_SIG	((1 << AUTO_ACT_WINDOW_SIG_BIT_SIZE) - 1)
+#define AUTO_ACT_WINDOW_MAX_EXP	((1 << AUTO_ACT_WINDOW_EXP_BIT_SIZE) - 1)
+/* AUTO_ACT_WINDOW_MAX_SIG is 127, so 128 and 129 will decay to 127 when writing */
+#define AUTO_ACT_WINDOW_SIG_CARRY_THRESH 129
+
+static ssize_t show_auto_act_window(struct cpufreq_policy *policy, char *buf)
+{
+	unsigned int exp;
+	u64 val, sig;
+	int ret;
+
+	ret = cppc_get_auto_act_window(policy->cpu, &val);
+
+	/* show "<unsupported>" when this register is not supported by cpc */
+	if (ret == -EOPNOTSUPP)
+		return sysfs_emit(buf, "%s\n", "<unsupported>");
+
+	if (ret)
+		return ret;
+
+	sig = val & AUTO_ACT_WINDOW_MAX_SIG;
+	exp = (val >> AUTO_ACT_WINDOW_SIG_BIT_SIZE) & AUTO_ACT_WINDOW_MAX_EXP;
+
+	return sysfs_emit(buf, "%llu\n", sig * int_pow(10, exp));
+}
+
+static ssize_t store_auto_act_window(struct cpufreq_policy *policy,
+				     const char *buf, size_t count)
+{
+	unsigned long usec;
+	int digits = 0;
+	int ret;
+
+	ret = kstrtoul(buf, 0, &usec);
+	if (ret)
+		return ret;
+
+	if (usec > AUTO_ACT_WINDOW_MAX_SIG * int_pow(10, AUTO_ACT_WINDOW_MAX_EXP))
+		return -EINVAL;
+
+	while (usec > AUTO_ACT_WINDOW_SIG_CARRY_THRESH) {
+		usec /= 10;
+		digits += 1;
+	}
+
+	if (usec > AUTO_ACT_WINDOW_MAX_SIG)
+		usec = AUTO_ACT_WINDOW_MAX_SIG;
+
+	ret = cppc_set_auto_act_window(policy->cpu,
+				       (digits << AUTO_ACT_WINDOW_SIG_BIT_SIZE) + usec);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t show_energy_perf(struct cpufreq_policy *policy, char *buf)
+{
+	u64 val;
+	int ret;
+
+	ret = cppc_get_epp_perf(policy->cpu, &val);
+
+	/* show "<unsupported>" when this register is not supported by cpc */
+	if (ret == -EOPNOTSUPP)
+		return sysfs_emit(buf, "%s\n", "<unsupported>");
+
+	if (ret)
+		return ret;
+
+	return sysfs_emit(buf, "%lld\n", val);
+}
+
+#define ENERGY_PERF_MAX	(0xFF)
+
+static ssize_t store_energy_perf(struct cpufreq_policy *policy,
+				 const char *buf, size_t count)
+{
+	unsigned long val;
+	int ret;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val > ENERGY_PERF_MAX)
+		return -EINVAL;
+
+	ret = cppc_set_epp(policy->cpu, val);
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+cpufreq_freq_attr_rw(auto_act_window);
+cpufreq_freq_attr_rw(energy_perf);
+#endif // CONFIG_CPPC_CPUFREQ_SYSFS_INTERFACE
+
 cpufreq_freq_attr_ro(freqdomain_cpus);
 
 static struct freq_attr *cppc_cpufreq_attr[] = {
 	&freqdomain_cpus,
+#ifdef CONFIG_CPPC_CPUFREQ_SYSFS_INTERFACE
+	&auto_act_window,
+	&energy_perf,
+#endif // CONFIG_CPPC_CPUFREQ_SYSFS_INTERFACE
 	NULL,
 };
 
