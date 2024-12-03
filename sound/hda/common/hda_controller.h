@@ -17,6 +17,9 @@
 #define AZX_MAX_CODECS		HDA_MAX_CODECS
 #define AZX_DEFAULT_CODECS	4
 
+#define GF_HDA_PATCH_VERSION 1
+#define GF_HDA_FB_STREAM_SIZE  7*1024*1024
+
 /* driver quirks (capabilities) */
 /* bits 0-7 are used for indicating driver type */
 #define AZX_DCAPS_NO_TCSEL	(1 << 8)	/* No Intel TCSEL bit */
