@@ -1569,7 +1569,7 @@ static struct iommu_device *sunway_iommu_probe_device(struct device *dev)
 
 static int sunway_iommu_def_domain_type(struct device *dev)
 {
-	return IOMMU_DOMAIN_IDENTITY;
+	return 0;
 }
 
 static bool sunway_iommu_capable(struct device *dev, enum iommu_cap cap)
