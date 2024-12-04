@@ -374,6 +374,7 @@ extern int ec_write_noindex(unsigned char command, unsigned char data);
 
 /* Query sequence of 62/66 port access routine. */
 extern int ec_query_seq(unsigned char command);
+extern int ec_query_get_event_num(void);
 extern int ec_get_event_num(void);
 
 extern void clean_ec_event_status(void);
