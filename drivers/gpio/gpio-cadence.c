@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
+#include <linux/acpi.h>
 
 #define CDNS_GPIO_BYPASS_MODE		0x00
 #define CDNS_GPIO_DIRECTION_MODE	0x04
@@ -284,10 +285,18 @@ static const struct of_device_id cdns_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, cdns_of_ids);
 
+static const struct acpi_device_id cdns_acpi_ids[] = {
+	{ "CIXH1002", 0 },
+	{ "CIXH1003", 0 },
+	{ "", 0 },
+};
+MODULE_DEVICE_TABLE(acpi, cdns_acpi_ids);
+
 static struct platform_driver cdns_gpio_driver = {
 	.driver = {
 		.name = "cdns-gpio",
 		.of_match_table = cdns_of_ids,
+		.acpi_match_table = ACPI_PTR(cdns_acpi_ids),
 	},
 	.probe = cdns_gpio_probe,
 	.remove = cdns_gpio_remove,
