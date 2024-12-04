@@ -79,6 +79,7 @@ struct sunway_iommu_group {
 #define SW64_IOMMU_LEVEL3_OFFSET	0x3ff
 #define SW64_IOMMU_BYPASS		0x1
 #define SW64_IOMMU_MAP_FLAG		((0x1UL) << 20)
+#define MAX_IOVA_WIDTH			(1UL << 42)
 
 #define PAGE_SHIFT_IOMMU	18
 #define PAGE_SIZE_IOMMU		(_AC(1, UL) << PAGE_SHIFT_IOMMU)
