@@ -39,7 +39,7 @@ config LS2K_RESET
 
 config LEMOTE3A_LAPTOP
 	tristate "Lemote Loongson-3A Laptop Driver"
-	depends on LOONGSON_MACH3X
+	depends on MACH_LOONGSON64
 	select BACKLIGHT_LCD_SUPPORT
 	select LCD_CLASS_DEVICE
 	select BACKLIGHT_CLASS_DEVICE
