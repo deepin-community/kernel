@@ -542,10 +542,16 @@ static int lemote3a_laptop_suspend(struct platform_device * pdev, pm_message_t s
 /* Platform device resume handler */
 static int lemote3a_laptop_resume(struct platform_device * pdev)
 {
+	int err;
 	struct pci_dev *dev;
 
 	dev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_DEVICE_ID_ATI_SBX00_SMBUS, NULL);
-	pci_enable_device(dev);
+	err = pci_enable_device(dev);
+	if (err) {
+		dev_err(&pdev->dev, "lemote3a-laptop: cannot enable ATI device: %d\n",
+			err);
+		return err;
+	}
 
 	/* Process LID event */
 	lemote3a_sci_event_handler(SCI_EVENT_NUM_LID);
