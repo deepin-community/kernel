@@ -1152,12 +1152,10 @@ sunway_iommu_iova_to_phys(struct iommu_domain *dom, dma_addr_t iova)
 }
 
 static int
-sunway_iommu_map_pages(struct iommu_domain *dom, unsigned long iova,
-		 phys_addr_t paddr, size_t page_size, size_t pgcount,
-		 int iommu_prot, gfp_t gfp, size_t *mapped)
+sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
+		 phys_addr_t paddr, size_t page_size, int iommu_prot, gfp_t gfp)
 {
 	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
-	size_t size = pgcount << PAGE_SHIFT;
 	int ret;
 
 	/*
@@ -1168,41 +1166,24 @@ sunway_iommu_map_pages(struct iommu_domain *dom, unsigned long iova,
 	if (iova >= SW64_BAR_ADDRESS)
 		return 0;
 
-	while (pgcount--) {
-		ret = sunway_iommu_map_page(sdomain, iova, paddr, page_size, iommu_prot);
-		if (ret) {
-			pr_info("Failed to map page from IOVA %lx.\n", iova);
-			return ret;
-		}
-		iova += page_size;
-		paddr += page_size;
-	}
-
-	if (!ret && mapped)
-		*mapped = size;
+	ret = sunway_iommu_map_page(sdomain, iova, paddr, page_size, iommu_prot);
 
 	return ret;
 }
 
 static size_t
-sunway_iommu_unmap_pages(struct iommu_domain *dom, unsigned long iova,
-			size_t page_size, size_t pgcount,
-			struct iommu_iotlb_gather *gather)
+sunway_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
+		   size_t page_size, struct iommu_iotlb_gather *gather)
 {
 	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
 	size_t unmap_size;
-	size_t total_unmap = 0;
 
 	if (iova >= SW64_BAR_ADDRESS)
 		return page_size;
 
-	while (pgcount--) {
-		unmap_size = sunway_iommu_unmap_page(sdomain, iova, page_size);
-		iova += page_size;
-		total_unmap += page_size;
-	}
+	unmap_size = sunway_iommu_unmap_page(sdomain, iova, page_size);
 
-	return total_unmap;
+	return unmap_size;
 }
 
 static struct iommu_group *sunway_iommu_device_group(struct device *dev)
@@ -1343,8 +1324,8 @@ const struct iommu_ops sunway_iommu_ops = {
 	.def_domain_type = sunway_iommu_def_domain_type,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev = sunway_iommu_attach_device,
-		.map_pages = sunway_iommu_map_pages,
-		.unmap_pages = sunway_iommu_unmap_pages,
+		.map = sunway_iommu_map,
+		.unmap = sunway_iommu_unmap,
 		.iova_to_phys = sunway_iommu_iova_to_phys,
 		.free = sunway_iommu_domain_free,
 	}
