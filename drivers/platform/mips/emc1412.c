@@ -336,66 +336,6 @@ static void do_thermal_timer(struct work_struct *work)
 	}
 }
 
-static int fixup_cpu_temp(int cpu, int cputemp)
-{
-	static int printed[MAX_PACKAGES] = {0, 0, 0, 0};
-	int i, value, temp_min = 50000, temp_max = -20000;
-
-	for (i=0; i<MAX_EMC1412_CLIENTS; i++) {
-		value = emc1412_internal_temp(i);
-		if (value == NOT_VALID_TEMP)
-			continue;
-		if (value < temp_min)
-			temp_min = value;
-		if (value > temp_max)
-			temp_max = value;
-	}
-	for (i=0; i<MAX_EMC1412_CLIENTS; i++) {
-		value = emc1412_external_temp(i);
-		if (value == NOT_VALID_TEMP)
-			continue;
-		if (value < temp_min)
-			temp_min = value;
-		if (value > temp_max)
-			temp_max = value;
-	}
-
-	if (temp_min > temp_max) {
-		printk_once("EMC1412: No valid reference.\n");
-		return cputemp;
-	}
-	if (cputemp < 0 && temp_max < 2000) {
-		printk_once("EMC1412: No valid reference.\n");
-		return cputemp;
-	}
-
-	if (cputemp < temp_min - 5000) {
-		if(!printed[cpu]) {
-			printed[cpu] = 1;
-			printk("EMC1412: Original CPU#%d temperature too low, "
-				"fixup with reference: (%d -> %d).\n",
-				cpu, cputemp, temp_min - 5000);
-		}
-		return temp_min - 5000;
-	}
-	if (cputemp > temp_max + 15000) {
-		if(!printed[cpu]) {
-			printed[cpu] = 1;
-			printk("EMC1412: Original CPU#%d temperature too high, "
-				"fixup with reference: (%d -> %d).\n",
-				cpu, cputemp, temp_max + 10000);
-		}
-		return temp_max + 15000;
-	}
-	if(!printed[cpu]) {
-		printed[cpu] = 1;
-		printk("EMC1412: Original CPU#%d temperature is OK: (%d:%d:%d).\n",
-			cpu, cputemp, temp_min, temp_max);
-	}
-
-	return cputemp;
-}
-
 static struct platform_driver emc1412_driver = {
 	.probe		= emc1412_probe,
 	.shutdown	= emc1412_shutdown,
