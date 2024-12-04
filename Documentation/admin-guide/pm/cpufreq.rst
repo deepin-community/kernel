@@ -590,6 +590,48 @@ This governor exposes the following tunables:
 	It effectively causes the frequency to go down ``sampling_down_factor``
 	times slower than it ramps up.
 
+``seep``
+------------
+
+This governor is specifically designed for platforms with hardware-managed P-states
+through CPPC (Collaborative Processor Performance Control). Unlike other governors
+that implement their own frequency scaling algorithms, the ``seep`` governor
+delegates the P-state selection to the hardware/firmware by enabling CPPC
+autonomous mode.
+
+The governor requires the ``cppc_cpufreq`` driver and the platform must support
+three key CPPC capabilities:
+ * Autonomous selection (auto_sel)
+ * Autonomous activity window (auto_act_window)
+ * Energy-Performance Preference (EPP)
+
+When this governor is attached to a policy, it enables the hardware autonomous
+mode, allowing the processor's firmware to directly manage frequency scaling based
+on workload characteristics. The actual P-state selection algorithms are
+implemented in firmware/hardware rather than in the operating system.
+
+This governor exposes the following tunables (per-policy):
+
+``auto_act_window``
+	The time window (in microseconds) used by the hardware/firmware to observe
+	and evaluate workload characteristics before making P-state decisions.
+	A smaller window makes the algorithm more responsive but potentially less
+	stable, while a larger window provides more stable but less responsive
+	frequency scaling.
+
+``energy_perf``
+	A value between 0 and 255 that biases the hardware's frequency scaling
+	decisions between performance and energy efficiency. Lower values (closer
+	to 0) favor performance at the expense of power consumption, while higher
+	values (closer to 255) favor energy efficiency but may impact performance.
+
+The ``seep`` governor is particularly suitable for platforms where the hardware
+has more accurate and fine-grained information about the system's power and
+thermal constraints than the operating system. It can potentially provide better
+energy efficiency than software-based governors while maintaining good
+performance, as the hardware can make faster and more informed P-state
+decisions.
+
 
 Frequency Boost Support
 =======================
