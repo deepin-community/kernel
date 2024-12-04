@@ -174,30 +174,6 @@ static void emc1412_shutdown(struct platform_device *dev)
 	msleep(15); /* Release I2C/SMBus resources */
 }
 
-/*
- * emc1412 provide 2 temprature data
- * Internal temprature: reg0.reg29
- * External temprature: reg1.reg10
- * reg0 & reg1 from 0 to 127
- * reg1 & reg10 between (0.125, 0.875)
- * to avoid use float, temprature will mult 1000
- */
-static int emc1412_internal_temp(int id)
-{
-	u8 reg;
-	int temp;
-	struct i2c_client *client;
-
-	if (id < 0 || !(client = emc1412_client[id]))
-		return NOT_VALID_TEMP;
-
-	reg = i2c_smbus_read_byte_data(client, EMC1412_TEMP_INT_LO_REG);
-	temp = i2c_smbus_read_byte_data(client, EMC1412_TEMP_INT_HI_REG) * 1000;
-	temp += (reg >> 5) * 125;
-
-	return temp;
-}
-
 static int emc1412_external_temp(int id)
 {
 	u8 reg;
