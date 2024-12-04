@@ -97,10 +97,44 @@ static struct loongson_fan_policy fan_policy[MAX_SBX00_FANS];
 /* threshold = SpeedOfPWM(0)/SpeedOfPWM(255) */
 static int speed_percent_threshold[MAX_SBX00_FANS];
 
-extern u8 pm_ioread(u8 reg);
-extern u8 pm2_ioread(u8 reg);
-extern void pm_iowrite(u8 reg, u8 val);
-extern void pm2_iowrite(u8 reg, u8 val);
+/* from rs780-acpi */
+#define PM_INDEX        0xCD6
+#define PM_DATA         0xCD7
+#define PM2_INDEX       0xCD0
+#define PM2_DATA        0xCD1
+
+static void pmio_write_index(u16 index, u8 reg, u8 value)
+{
+        outb(reg, index);
+        outb(value, index + 1);
+}
+
+static u8 pmio_read_index(u16 index, u8 reg)
+{
+        outb(reg, index);
+        return inb(index + 1);
+}
+
+static void pm_iowrite(u8 reg, u8 value)
+{
+        pmio_write_index(PM_INDEX, reg, value);
+}
+
+static u8 pm_ioread(u8 reg)
+{
+        return pmio_read_index(PM_INDEX, reg);
+}
+
+static void pm2_iowrite(u8 reg, u8 value)
+{
+        pmio_write_index(PM2_INDEX, reg, value);
+}
+
+static u8 pm2_ioread(u8 reg)
+{
+        return pmio_read_index(PM2_INDEX, reg);
+}
+
 
 /* up_temp & down_temp used in fan auto adjust */
 static u8 fan_up_temp[MAX_SBX00_FANS];
