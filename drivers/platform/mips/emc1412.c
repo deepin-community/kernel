@@ -182,7 +182,7 @@ static void emc1412_shutdown(struct platform_device *dev)
  * reg1 & reg10 between (0.125, 0.875)
  * to avoid use float, temprature will mult 1000
  */
-int emc1412_internal_temp(int id)
+static int emc1412_internal_temp(int id)
 {
 	u8 reg;
 	int temp;
@@ -198,7 +198,7 @@ int emc1412_internal_temp(int id)
 	return temp;
 }
 
-int emc1412_external_temp(int id)
+static int emc1412_external_temp(int id)
 {
 	u8 reg;
 	int temp;
@@ -336,7 +336,7 @@ static void do_thermal_timer(struct work_struct *work)
 	}
 }
 
-int fixup_cpu_temp(int cpu, int cputemp)
+static int fixup_cpu_temp(int cpu, int cputemp)
 {
 	static int printed[MAX_PACKAGES] = {0, 0, 0, 0};
 	int i, value, temp_min = 50000, temp_max = -20000;
