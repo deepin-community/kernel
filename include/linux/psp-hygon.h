@@ -511,6 +511,19 @@ struct vpsp_context {
 
 int psp_do_cmd(int cmd, void *data, int *psp_ret);
 
+typedef int (*p2c_notifier_t)(uint32_t id, uint64_t data);
+
+#ifdef CONFIG_HYGON_PSP2CPU_CMD
+int psp_register_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier);
+int psp_unregister_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier);
+#else	/* !CONFIG_HYGON_PSP2CPU_CMD */
+static int __maybe_unused
+psp_register_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier) { return -ENODEV; }
+
+static int __maybe_unused
+psp_unregister_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier) { return -ENODEV; }
+#endif	/* CONFIG_HYGON_PSP2CPU_CMD */
+
 int csv_ring_buffer_queue_init(void);
 int csv_ring_buffer_queue_free(void);
 int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags);
@@ -586,19 +599,5 @@ kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
 static inline int csv_get_extension_info(void *buf, size_t *size) { return -ENODEV; }
 
 #endif	/* CONFIG_CRYPTO_DEV_SP_PSP */
-
-typedef int (*p2c_notifier_t)(uint32_t id, uint64_t data);
-
-#ifdef CONFIG_HYGON_PSP2CPU_CMD
-
-int psp_register_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier);
-int psp_unregister_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier);
-
-#else	/* !CONFIG_HYGON_PSP2CPU_CMD */
-
-int psp_register_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier) { return -ENODEV; }
-int psp_unregister_cmd_notifier(uint32_t cmd_id, p2c_notifier_t notifier) { return -ENODEV; }
-
-#endif	/* CONFIG_HYGON_PSP2CPU_CMD */
 
 #endif	/* __PSP_HYGON_H__ */
