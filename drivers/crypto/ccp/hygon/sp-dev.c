@@ -36,8 +36,10 @@ int hygon_sp_freeze(struct sp_device *sp)
 	if (sp->dev_vdata->ccp_vdata)
 		ccp_dev_suspend(sp);
 
+#ifdef CONFIG_CRYPTO_DEV_SP_PSP
 	if (sp->dev_vdata->psp_vdata)
 		hygon_psp_dev_freeze(sp);
+#endif
 
 	return 0;
 }
@@ -47,8 +49,10 @@ int hygon_sp_thaw(struct sp_device *sp)
 	if (sp->dev_vdata->ccp_vdata)
 		ccp_dev_resume(sp);
 
+#ifdef CONFIG_CRYPTO_DEV_SP_PSP
 	if (sp->dev_vdata->psp_vdata)
 		hygon_psp_dev_thaw(sp);
+#endif
 
 	return 0;
 }
@@ -66,8 +70,10 @@ int hygon_sp_restore(struct sp_device *sp)
 	if (sp->dev_vdata->ccp_vdata)
 		ccp_dev_resume(sp);
 
+#ifdef CONFIG_CRYPTO_DEV_SP_PSP
 	if (sp->dev_vdata->psp_vdata)
 		hygon_psp_dev_restore(sp);
+#endif
 
 	return 0;
 }

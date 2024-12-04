@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 obj-$(CONFIG_CRYPTO_DEV_CCP_DD) += ccp.o
-ccp-objs  := sp-dev.o sp-platform.o
+ccp-objs  := sp-dev.o sp-platform.o \
+	    hygon/sp-dev.o
 ccp-$(CONFIG_CRYPTO_DEV_SP_CCP) += ccp-dev.o \
 	    ccp-ops.o \
 	    ccp-dev-v3.o \
@@ -20,8 +21,7 @@ ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += psp-dev.o \
                                    hygon/psp-dev.o \
                                    hygon/csv-dev.o \
                                    hygon/ring-buffer.o \
-                                   hygon/vpsp.o \
-                                   hygon/sp-dev.o
+                                   hygon/vpsp.o
 
 ifeq ($(CONFIG_PCI_TSM),y)
 ccp-$(CONFIG_CRYPTO_DEV_SP_PSP) += sev-dev-tsm.o sev-dev-tio.o
