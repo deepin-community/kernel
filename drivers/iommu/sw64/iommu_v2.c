@@ -1589,7 +1589,7 @@ static void sunway_iommu_probe_finalize(struct device *dev)
 	struct iommu_domain *domain;
 
 	domain = iommu_get_domain_for_dev(dev);
-	if (domain->type == IOMMU_DOMAIN_DMA) {
+	if (domain->type & __IOMMU_DOMAIN_DMA_API) {
 		if (min(dev->coherent_dma_mask, *dev->dma_mask) == DMA_BIT_MASK(32))
 			iommu_setup_dma_ops(dev, SW64_DMA_START, SW64_32BIT_DMA_LIMIT);
 		else

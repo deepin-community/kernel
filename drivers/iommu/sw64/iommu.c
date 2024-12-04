@@ -1326,8 +1326,8 @@ static void sunway_iommu_probe_finalize(struct device *dev)
 	struct iommu_domain *domain;
 
 	domain = iommu_get_domain_for_dev(dev);
-	if (domain->type == IOMMU_DOMAIN_DMA) {
-		iommu_setup_dma_ops(dev, 0, SW64_32BIT_DMA_LIMIT);
+	if (domain->type & __IOMMU_DOMAIN_DMA_API) {
+		iommu_setup_dma_ops(dev, SW64_DMA_START, SW64_32BIT_DMA_LIMIT);
 	} else
 		set_dma_ops(dev, get_arch_dma_ops());
 }
