@@ -625,9 +625,8 @@ static int lemote3a_set_brightness(struct backlight_device * pdev)
 {
 	unsigned int level = 0;
 
-	level = ((FB_BLANK_UNBLANK==pdev->props.fb_blank) &&
-				(FB_BLANK_UNBLANK==pdev->props.power)) ?
-					pdev->props.brightness : 0;
+	level = (FB_BLANK_UNBLANK==pdev->props.power) ?
+				pdev->props.brightness : 0;
 
 	if (MAX_BRIGHTNESS < level) {
 		level = MAX_BRIGHTNESS;
