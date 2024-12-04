@@ -93,7 +93,7 @@ static int sd5075_probe(struct platform_device *dev)
 	info.addr = sdev->base_addr & ADDR_MASK;
 	info.platform_data = dev->dev.platform_data;
 	strncpy(info.type, "sd5075", I2C_NAME_SIZE);
-	sd5075_client = i2c_new_device(adapter, &info);
+	sd5075_client = i2c_new_client_device(adapter, &info);
 	if (sd5075_client == NULL) {
 		pr_err("failed to attach sd5075 sensor\n");
 		goto fail;
