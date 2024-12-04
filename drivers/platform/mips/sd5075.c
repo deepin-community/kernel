@@ -128,7 +128,7 @@ static ssize_t get_sd5075_label(struct device *dev,
 	return sprintf(buf, "%s\n", sdev->label);
 }
 
-int sd5075_internal_temp(int id)
+static int sd5075_internal_temp(int id)
 {
 	int reg_value = 0, temp;
 	
