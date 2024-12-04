@@ -143,7 +143,7 @@ static int emc1412_probe(struct platform_device *dev)
 	info.addr = sdev->base_addr;
 	info.platform_data = dev->dev.platform_data;
 	strncpy(info.type, "emc1412", I2C_NAME_SIZE);
-	emc1412_client[id] = i2c_new_device(adapter, &info);
+	emc1412_client[id] = i2c_new_client_device(adapter, &info);
 	if (emc1412_client[id] == NULL) {
 		printk(KERN_ERR "failed to attach EMC1412 sensor\n");
 		goto fail;
