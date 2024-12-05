@@ -53,7 +53,7 @@ struct mtd_partition flash_parts[] = {
 
 static struct mtd_info *mymtd;
 
-int __init init_flash(void)
+static int __init init_flash(void)
 {
 	printk(KERN_NOTICE "Flash flash device: %x at %x\n",
 			FLASH_SIZE, FLASH_PHYS_ADDR);
