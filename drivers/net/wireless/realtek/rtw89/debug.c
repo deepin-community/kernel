@@ -160,6 +160,7 @@ static ssize_t rtw89_debugfs_file_read(struct file *file, char __user *userbuf,
 		goto out;
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 	if (opt->rlock) {
 		n = wiphy_locked_debugfs_read(rtwdev->hw->wiphy, file, buf, bufsz,
 					      userbuf, count, ppos,
@@ -169,6 +170,7 @@ static ssize_t rtw89_debugfs_file_read(struct file *file, char __user *userbuf,
 
 		return n;
 	}
+#endif
 
 	n = rtw89_debugfs_file_read_helper(rtwdev->hw->wiphy, file, buf, bufsz,
 					   debugfs_priv);
@@ -178,6 +180,7 @@ out:
 	return simple_read_from_buffer(userbuf, count, ppos, buf, n);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 static ssize_t rtw89_debugfs_file_write_helper(struct wiphy *wiphy, struct file *file,
 					       char *buf, size_t count, void *data)
 {
@@ -186,20 +189,26 @@ static ssize_t rtw89_debugfs_file_write_helper(struct wiphy *wiphy, struct file 
 
 	return debugfs_priv->cb_write(rtwdev, debugfs_priv, buf, count);
 }
+#endif
 
 static ssize_t rtw89_debugfs_file_write(struct file *file,
 					const char __user *userbuf,
 					size_t count, loff_t *loff)
 {
 	struct rtw89_debugfs_priv *debugfs_priv = file->private_data;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 	struct rtw89_debugfs_priv_opt *opt = &debugfs_priv->opt;
+#endif
 	struct rtw89_dev *rtwdev = debugfs_priv->rtwdev;
 	char *buf __free(kfree) = kmalloc(count + 1, GFP_KERNEL);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 	ssize_t n;
+#endif
 
 	if (!buf)
 		return -ENOMEM;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 	if (opt->wlock) {
 		n = wiphy_locked_debugfs_write(rtwdev->hw->wiphy,
 					       file, buf, count + 1,
@@ -208,6 +217,7 @@ static ssize_t rtw89_debugfs_file_write(struct file *file,
 					       debugfs_priv);
 		return n;
 	}
+#endif
 
 	if (copy_from_user(buf, userbuf, count))
 		return -EFAULT;
