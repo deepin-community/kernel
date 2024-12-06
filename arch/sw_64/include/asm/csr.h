@@ -83,7 +83,7 @@
 
 #ifdef CONFIG_HAVE_CSRRW
 #ifndef __ASSEMBLY__
-static inline unsigned long sw64_read_csr(unsigned long x)
+static __always_inline unsigned long sw64_read_csr(unsigned long x)
 {
 	unsigned long __val;
 
@@ -91,12 +91,12 @@ static inline unsigned long sw64_read_csr(unsigned long x)
 	return __val;
 }
 
-static inline void sw64_write_csr(unsigned long x, unsigned long y)
+static __always_inline void sw64_write_csr(unsigned long x, unsigned long y)
 {
 	__asm__ __volatile__("csrw %0,%1" ::"r"(x), "i"(y));
 }
 
-static inline void sw64_write_csr_imb(unsigned long x, unsigned long y)
+static __always_inline void sw64_write_csr_imb(unsigned long x, unsigned long y)
 {
 	__asm__ __volatile__("csrw %0,%1; imemb" ::"r"(x), "i"(y));
 }
