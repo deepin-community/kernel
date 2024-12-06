@@ -16,6 +16,7 @@
 #include <acpi/reboot.h>
 #include <asm/idle.h>
 #include <asm/efi.h>
+#include <asm/io.h>
 
 void (*pm_power_off)(void);
 EXPORT_SYMBOL(pm_power_off);
@@ -38,6 +39,13 @@ void machine_power_off(void)
 	local_irq_disable();
 	smp_send_stop();
 
+	if (is_in_emul()) {
+		void __iomem *addr = __va(QEMU_RESTART_SHUTDOWN_BASE);
+		u64 data = 1;
+
+		*(u64 *)addr = data;
+	}
+
 	do_kernel_power_off();
 
 	/* VM cannot reach here */
@@ -59,6 +67,13 @@ void machine_restart(char *command)
 	preempt_disable();
 	local_irq_disable();
 	smp_send_stop();
+
+	if (is_in_emul()) {
+		void __iomem *addr = __va(QEMU_RESTART_SHUTDOWN_BASE);
+		u64 data = 2;
+
+		*(u64 *)addr = data;
+	}
 
 	do_kernel_restart(command);
 
