@@ -543,7 +543,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	wmb();
 	smp_rcb->ready = 0;
 
-	if (!is_junzhang_v1()) {
+	if (!is_junzhang_v1() && is_in_host()) {
 		/* send wake up signal */
 		send_wakeup_interrupt(cpu);
 	}
