@@ -170,7 +170,6 @@ static struct gpio_chip nct6102_chip = {
 
 static int __init nct6102_gpio_setup(void)
 {
-	int ret;
 	u16 dev_id;
 
 	/* Detect device */
