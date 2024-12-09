@@ -485,7 +485,7 @@ config GPIO_MXS
 config GPIO_NCT6102
 	bool "NCT6102 GPIO driver"
 	def_bool y
-	depends on CPU_LOONGSON3
+	depends on CPU_LOONGSON64
 	help
 	  Say yes here to support the NCT6102 GPIO device
 
