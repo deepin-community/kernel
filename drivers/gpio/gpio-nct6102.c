@@ -177,6 +177,6 @@ static int __init nct6102_gpio_setup(void)
 	if (dev_id != SIO_NCT6102_ID)
 		return 0;
 
-	return gpiochip_add(&nct6102_chip);
+	return gpiochip_add_data(&nct6102_chip, NULL);
 }
 subsys_initcall(nct6102_gpio_setup);
