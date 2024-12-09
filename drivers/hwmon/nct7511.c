@@ -744,8 +744,7 @@ static int nct7511_init_chip(struct nct7511_data *data)
 	return regmap_update_bits(data->regmap, REG_VMON_ENABLE, 0x03, 0x03);
 }
 
-static int nct7511_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int nct7511_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct nct7511_data *data;
