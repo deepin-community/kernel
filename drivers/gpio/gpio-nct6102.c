@@ -47,15 +47,6 @@ static unsigned char read_gbl(u8 gbl_reg)
 	return ret;
 }
 
-static void write_gbl(u8 val, u8 gbl_reg)
-{
-	outb(0x87, EFIR_ADDR);
-	outb(0x87, EFIR_ADDR);
-	outb(gbl_reg, EFIR_ADDR);
-	outb(val, EFDR_ADDR);
-	outb(0xAA, EFIR_ADDR);
-}
-
 /*
  read/write_dev() is used to read/write Logical Device register.
  */
