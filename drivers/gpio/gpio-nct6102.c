@@ -6,6 +6,7 @@
 #include <asm/types.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
+#include <linux/gpio/driver.h>
 
 #define NCT6102_GPIO_BASE 	80
 
