@@ -709,7 +709,7 @@ static int nct7511_detect(struct i2c_client *client,
 	if (reg < 0 || (reg & 0x1f))
 		return -ENODEV;
 
-	strlcpy(info->type, "nct7511", I2C_NAME_SIZE);
+	strscpy(info->type, "nct7511", I2C_NAME_SIZE);
 	return 0;
 }
 
