@@ -29,4 +29,6 @@
 
 bool radeon_device_is_virtual(void);
 
+void radeon_recover_callback(struct work_struct *work);
+
 #endif                         /* __RADEON_DEVICE_H__ */

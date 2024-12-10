@@ -40,6 +40,7 @@
 #include "radeon_kms.h"
 #include "radeon_reg.h"
 
+#include "radeon_device.h"
 
 #define RADEON_WAIT_IDLE_TIMEOUT 200
 
@@ -306,8 +307,6 @@ static bool radeon_msi_ok(struct radeon_device *rdev)
 
 	return true;
 }
-
-extern void radeon_recover_callback(struct work_struct *work);
 
 /**
  * radeon_irq_kms_init - init driver interrupt info
