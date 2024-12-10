@@ -317,6 +317,22 @@ static inline void ttm_bo_move_null(struct ttm_buffer_object *bo,
 }
 
 /**
+ * ttm_bo_lock_delayed_workqueue
+ *
+ * Prevent the delayed workqueue from running.
+ * Returns
+ * True if the workqueue was queued at the time
+ */
+int ttm_bo_lock_delayed_workqueue(struct ttm_device *bdev);
+
+/**
+ * ttm_bo_unlock_delayed_workqueue
+ *
+ * Allows the delayed workqueue to run.
+ */
+void ttm_bo_unlock_delayed_workqueue(struct ttm_device *bdev, int resched);
+
+/**
  * ttm_bo_unreserve
  *
  * @bo: A pointer to a struct ttm_buffer_object.
