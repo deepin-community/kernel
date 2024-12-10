@@ -2336,7 +2336,7 @@ static struct ctl_table vm_page_writeback_sysctls[] = {
  */
 void __init page_writeback_init(void)
 {
-#ifdef CONFIG_CPU_LOONGSON3
+#ifdef CONFIG_CPU_LOONGSON64
 	uint64_t x, d;
 	unsigned long ratio = dirty_background_ratio;
 	unsigned long avail = global_dirtyable_memory();
