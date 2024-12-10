@@ -190,7 +190,7 @@ static int audit_match_perm(struct audit_context *ctx, int mask)
 	case AUDITSC_OPENAT2:
 		return mask & ACC_MODE((u32)ctx->openat2.flags);
 #ifdef CONFIG_MIPS
-	case 6: /* for N32 */
+	case AUDITSC_MIPS_N32: /* for N32 */
 		if ((mask & AUDIT_PERM_WRITE) &&
 		     audit_match_class(AUDIT_CLASS_WRITE_N32, n))
 			return 1;

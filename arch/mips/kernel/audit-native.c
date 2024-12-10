@@ -45,20 +45,20 @@ int audit_classify_syscall(int abi, unsigned syscall)
 
 	switch (syscall) {
 	case __NR_open:
-		res = 2;
+		res = AUDITSC_OPEN;
 		break;
 
 	case __NR_openat:
-		res = 3;
+		res = AUDITSC_OPEN;
 		break;
 
 #ifdef __NR_socketcall		/* Only exists on O32 */
 	case __NR_socketcall:
-		res = 4;
+		res = AUDITSC_SOCKETCALL;
 		break;
 #endif
 	case __NR_execve:
-		res = 5;
+		res = AUDITSC_EXECVE;
 		break;
 	default:
 #ifdef CONFIG_AUDITSYSCALL_O32

@@ -17,6 +17,9 @@ enum auditsc_class_t {
 	AUDITSC_SOCKETCALL,
 	AUDITSC_EXECVE,
 	AUDITSC_OPENAT2,
+#ifdef CONFIG_MIPS
+	AUDITSC_MIPS_N32,
+#endif
 
 	AUDITSC_NVALS /* count */
 };
