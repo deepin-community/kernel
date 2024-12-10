@@ -2,6 +2,8 @@
 #include <linux/types.h>
 #include <linux/audit.h>
 #include <asm/unistd.h>
+#include "audit-n32.h"
+#include "audit-o32.h"
 
 static unsigned dir_class[] = {
 #include <asm-generic/audit_dir_write.h>
@@ -36,9 +38,6 @@ int audit_classify_arch(int arch)
 {
 	return 0;
 }
-
-extern int audit_classify_syscall_o32(int abi, unsigned syscall);
-extern int audit_classify_syscall_n32(int abi, unsigned syscall);
 
 int audit_classify_syscall(int abi, unsigned syscall)
 {
