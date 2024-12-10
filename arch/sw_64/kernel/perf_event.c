@@ -42,7 +42,7 @@ struct sw64_pmu_t {
 	 * All PMC counters reside in the IBOX register PCTR.  This is the
 	 * LSB of the counter.
 	 */
-	int  pmc_count_shift[MAX_HWEVENTS];
+	int  pmc_count_shift[PMU_NUM_GENERIC_COUNTERS];
 
 	/*
 	 * The mask that isolates the PMC bits when the LSB of the counter
@@ -244,7 +244,7 @@ static const struct sw64_pmu_t core3_pmu = {
 	.map_hw_event = core3_map_hw_event,
 	.cache_events = &core3_cache_event_map,
 	.map_cache_event = core3_map_cache_event,
-	.num_pmcs = MAX_HWEVENTS,
+	.num_pmcs = PMU_NUM_GENERIC_COUNTERS,
 	.pmc_count_mask = PMC_COUNT_MASK,
 	.pmc_max_period = PMC_COUNT_MASK,
 	.pmc_left = 4,

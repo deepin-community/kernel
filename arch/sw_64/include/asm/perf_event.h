@@ -25,9 +25,9 @@ struct cpu_hw_events {
 	 * Set the bit (indexed by the counter number) when the counter
 	 * is used for an event.
 	 */
-	unsigned long		used_mask[BITS_TO_LONGS(MAX_HWEVENTS)];
+	unsigned long		used_mask[BITS_TO_LONGS(PMU_NUM_GENERIC_COUNTERS)];
 	/* Array of events current scheduled on this cpu. */
-	struct perf_event	*event[MAX_HWEVENTS];
+	struct perf_event	*event[PMU_NUM_GENERIC_COUNTERS + PMU_NUM_EXCLUSIVE_COUNTERS];
 };
 
 #endif /* _ASM_SW64_PERF_EVENT_H */

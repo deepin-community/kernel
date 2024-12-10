@@ -49,7 +49,8 @@
 #define PC1_DTB_SINGLE_MISSES		0x30
 #define PC1_DCACHE_MISSES		0x32
 
-#define MAX_HWEVENTS			2
+#define PMU_NUM_GENERIC_COUNTERS	2
 #define PMC_COUNT_MASK			((1UL << 58) - 1)
+#define PMU_NUM_EXCLUSIVE_COUNTERS	5
 
 #endif /* _ASM_SW64_PMC_H */

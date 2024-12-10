@@ -63,16 +63,16 @@ static const struct sw64_pmu_t *sw64_pmu;
  * actual codes that are used to program the PMCs hence we introduce our
  * own hw event type identifiers.
  */
-#define SW64_OP_UNSUPP         (-EOPNOTSUPP)
+#define SW64_PMU_OP_UNSUPP         (-EOPNOTSUPP)
 
 /* Mapping of the hw event types to the perf tool interface */
 static const int core4_hw_event_map[] = {
 	[PERF_COUNT_HW_CPU_CYCLES]		= SW64_PMU_CYCLE,
-	[PERF_COUNT_HW_INSTRUCTIONS]		= SW64_PMU_INSTRUCTIONS,
-	[PERF_COUNT_HW_CACHE_REFERENCES]	= SW64_PMU_L2_REFERENCES,
-	[PERF_COUNT_HW_CACHE_MISSES]		= SW64_PMU_L2_MISSES,
-	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS]	= SW64_PMU_BRANCH,
-	[PERF_COUNT_HW_BRANCH_MISSES]		= SW64_PMU_BRANCH_MISSES,
+	[PERF_COUNT_HW_INSTRUCTIONS]		= SW64_PMU_EXCLUSIVE_INSTRUCTIONS,
+	[PERF_COUNT_HW_CACHE_REFERENCES]	= SW64_PMU_L1D_CACHE,
+	[PERF_COUNT_HW_CACHE_MISSES]		= SW64_PMU_L1D_CACHE_MISSES,
+	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS]	= SW64_PMU_EXCLUSIVE_BRANCH,
+	[PERF_COUNT_HW_BRANCH_MISSES]		= SW64_PMU_EXCLUSIVE_BRANCH_MISSES,
 };
 
 /* Mapping of the hw cache event types to the perf tool interface */
@@ -83,104 +83,120 @@ static const int core4_cache_event_map
 				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_L1D_CACHE,
-			[C(RESULT_MISS)]	= SW64_L1D_CACHE_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_PMU_L1D_CACHE,
+			[C(RESULT_MISS)]	= SW64_PMU_L1D_CACHE_MISSES,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_L1D_CACHE,
-			[C(RESULT_MISS)]	= SW64_L1D_CACHE_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_PMU_L1D_CACHE,
+			[C(RESULT_MISS)]	= SW64_PMU_L1D_CACHE_MISSES,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(L1I)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_L1I_CACHE,
-			[C(RESULT_MISS)]	= SW64_L1I_CACHE_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_PMU_EXCLUSIVE_L1I_CACHE,
+			[C(RESULT_MISS)]	= SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(LL)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(DTLB)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_DTB,
-			[C(RESULT_MISS)]	= SW64_DTB_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_PMU_DTB,
+			[C(RESULT_MISS)]	= SW64_PMU_DTB_MISSES,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_DTB,
-			[C(RESULT_MISS)]	= SW64_DTB_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_PMU_DTB,
+			[C(RESULT_MISS)]	= SW64_PMU_DTB_MISSES,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(ITLB)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(BPU)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 	[C(NODE)] = {
 		[C(OP_READ)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
-			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
-			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_ACCESS)]	= SW64_PMU_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_PMU_OP_UNSUPP,
 		},
 	},
 
 };
+
+static inline int event_has_exclusive_counter(int event)
+{
+	return event == SW64_PMU_EXCLUSIVE_INSTRUCTIONS ||
+		event == SW64_PMU_EXCLUSIVE_L1I_CACHE ||
+		event == SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES ||
+		event == SW64_PMU_EXCLUSIVE_L1D_CACHE ||
+		event == SW64_PMU_EXCLUSIVE_L1D_CACHE_MISSES ||
+		event == SW64_PMU_EXCLUSIVE_BRANCH ||
+		event == SW64_PMU_EXCLUSIVE_BRANCH_MISSES;
+}
+
+static inline int event_support_sampling(int event)
+{
+	return !event_has_exclusive_counter(event);
+}
 
 static const int core4_map_hw_event(u64 config)
 {
@@ -219,7 +235,10 @@ static bool core4_raw_event_valid(u64 config)
 	int idx = config >> 8;
 	int event = config & 0xff;
 
-	if (idx >= 0 && idx < MAX_HWEVENTS &&
+	if (event_has_exclusive_counter(event))
+		return true;
+
+	if (idx >= 0 && idx < PMU_NUM_GENERIC_COUNTERS &&
 		event >= PC_RAW_BASE && event <= (PC_RAW_BASE + PC_MAX))
 		return true;
 
@@ -232,7 +251,7 @@ static const struct sw64_pmu_t core4_pmu = {
 	.map_hw_event = core4_map_hw_event,
 	.cache_events = &core4_cache_event_map,
 	.map_cache_event = core4_map_cache_event,
-	.num_pmcs = MAX_HWEVENTS,
+	.num_pmcs = PMU_NUM_GENERIC_COUNTERS,
 	.pmc_count_mask = PMC_COUNT_MASK,
 	.pmc_max_period = PMC_COUNT_MASK,
 	.raw_event_valid = core4_raw_event_valid,
@@ -245,7 +264,10 @@ static int sw64_perf_event_set_period(struct perf_event *event)
 	long left = local64_read(&hwc->period_left);
 	long period = hwc->sample_period;
 	int overflow = 0, idx = hwc->idx;
-	long value;
+	long value = 0;
+
+	if (!event_support_sampling(hwc->config))
+		goto set_counter;
 
 	if (unlikely(left <= -period)) {
 		left = period;
@@ -265,22 +287,30 @@ static int sw64_perf_event_set_period(struct perf_event *event)
 		left = sw64_pmu->pmc_max_period;
 
 	value = sw64_pmu->pmc_max_period - left;
+
+set_counter:
 	local64_set(&hwc->prev_count, value);
 	switch (hwc->config) {
-	case SW64_PMU_INSTRUCTIONS:
+	case SW64_PMU_EXCLUSIVE_INSTRUCTIONS:
 		sw64_write_csr(value, CSR_RETIC);
 		break;
-	case SW64_PMU_BRANCH:
-		sw64_write_csr(value, CSR_BRRETC);
-		break;
-	case SW64_PMU_BRANCH_MISSES:
-		sw64_write_csr(value, CSR_BRFAILC);
-		break;
-	case SW64_L1I_CACHE:
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE:
 		sw64_write_csr(value, CSR_IACC);
 		break;
-	case SW64_L1I_CACHE_MISSES:
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES:
 		sw64_write_csr(value, CSR_IMISC);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE:
+		sw64_write_csr(value, CSR_DACC);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE_MISSES:
+		sw64_write_csr(value, CSR_DMISC);
+		break;
+	case SW64_PMU_EXCLUSIVE_BRANCH:
+		sw64_write_csr(value, CSR_BRRETC);
+		break;
+	case SW64_PMU_EXCLUSIVE_BRANCH_MISSES:
+		sw64_write_csr(value, CSR_BRFAILC);
 		break;
 	default:
 		wrperfmon(idx + PMC_CMD_WRITE_BASE, value);
@@ -315,23 +345,29 @@ static unsigned long sw64_perf_event_update(struct perf_event *event)
 again:
 	prev_raw_count = local64_read(&hwc->prev_count);
 	switch (hwc->config) {
-	case SW64_PMU_INSTRUCTIONS:
+	case SW64_PMU_EXCLUSIVE_INSTRUCTIONS:
 		new_raw_count = sw64_read_csr(CSR_RETIC);
 		break;
-	case SW64_PMU_BRANCH:
-		new_raw_count = sw64_read_csr(CSR_BRRETC);
-		break;
-	case SW64_PMU_BRANCH_MISSES:
-		new_raw_count = sw64_read_csr(CSR_BRFAILC);
-		break;
-	case SW64_L1I_CACHE:
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE:
 		new_raw_count = sw64_read_csr(CSR_IACC);
 		break;
-	case SW64_L1I_CACHE_MISSES:
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES:
 		new_raw_count = sw64_read_csr(CSR_IMISC);
 		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE:
+		new_raw_count = sw64_read_csr(CSR_DACC);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE_MISSES:
+		new_raw_count = sw64_read_csr(CSR_DMISC);
+		break;
+	case SW64_PMU_EXCLUSIVE_BRANCH:
+		new_raw_count = sw64_read_csr(CSR_BRRETC);
+		break;
+	case SW64_PMU_EXCLUSIVE_BRANCH_MISSES:
+		new_raw_count = sw64_read_csr(CSR_BRFAILC);
+		break;
 	default:
-		new_raw_count = wrperfmon(idx + MAX_HWEVENTS, 0);
+		new_raw_count = wrperfmon(idx + PMU_NUM_GENERIC_COUNTERS, 0);
 	}
 
 	if (local64_cmpxchg(&hwc->prev_count, prev_raw_count,
@@ -341,7 +377,8 @@ again:
 	delta = new_raw_count - prev_raw_count;
 
 	local64_add(delta, &event->count);
-	local64_sub(delta, &hwc->period_left);
+	if (event_support_sampling(hwc->config))
+		local64_sub(delta, &hwc->period_left);
 
 	return new_raw_count;
 }
@@ -366,19 +403,25 @@ static void sw64_pmu_stop(struct perf_event *event, int flags)
 	if (!(hwc->state & PERF_HES_STOPPED)) {
 		value = sw64_read_csr(CSR_IDR_PCCTL);
 		switch (hwc->config) {
-		case SW64_L1I_CACHE:
-			sw64_write_csr(value & ~IACC_EN, CSR_IDR_PCCTL);
-			break;
-		case SW64_L1I_CACHE_MISSES:
-			sw64_write_csr(value & ~IMISC_EN, CSR_IDR_PCCTL);
-			break;
-		case SW64_PMU_INSTRUCTIONS:
+		case SW64_PMU_EXCLUSIVE_INSTRUCTIONS:
 			sw64_write_csr(value & ~RETIC_EN, CSR_IDR_PCCTL);
 			break;
-		case SW64_PMU_BRANCH:
+		case SW64_PMU_EXCLUSIVE_L1I_CACHE:
+			sw64_write_csr(value & ~IACC_EN, CSR_IDR_PCCTL);
+			break;
+		case SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES:
+			sw64_write_csr(value & ~IMISC_EN, CSR_IDR_PCCTL);
+			break;
+		case SW64_PMU_EXCLUSIVE_L1D_CACHE:
+			sw64_write_csr(value & ~DACC_EN, CSR_IDR_PCCTL);
+			break;
+		case SW64_PMU_EXCLUSIVE_L1D_CACHE_MISSES:
+			sw64_write_csr(value & ~DMISC_EN, CSR_IDR_PCCTL);
+			break;
+		case SW64_PMU_EXCLUSIVE_BRANCH:
 			sw64_write_csr(value & ~BRRETC_EN, CSR_IDR_PCCTL);
 			break;
-		case SW64_PMU_BRANCH_MISSES:
+		case SW64_PMU_EXCLUSIVE_BRANCH_MISSES:
 			sw64_write_csr(value & ~BRFAILC_EN, CSR_IDR_PCCTL);
 			break;
 		default:
@@ -419,19 +462,25 @@ static void sw64_pmu_start(struct perf_event *event, int flags)
 
 	/* counting in selected modes, for both counters */
 	switch (hwc->config) {
-	case SW64_L1I_CACHE:
-		sw64_write_csr(value | IACC_EN, CSR_IDR_PCCTL);
-		break;
-	case SW64_L1I_CACHE_MISSES:
-		sw64_write_csr(value | IMISC_EN, CSR_IDR_PCCTL);
-		break;
-	case SW64_PMU_INSTRUCTIONS:
+	case SW64_PMU_EXCLUSIVE_INSTRUCTIONS:
 		sw64_write_csr(value | RETIC_EN, CSR_IDR_PCCTL);
 		break;
-	case SW64_PMU_BRANCH:
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE:
+		sw64_write_csr(value | IACC_EN, CSR_IDR_PCCTL);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1I_CACHE_MISSES:
+		sw64_write_csr(value | IMISC_EN, CSR_IDR_PCCTL);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE:
+		sw64_write_csr(value | DACC_EN, CSR_IDR_PCCTL);
+		break;
+	case SW64_PMU_EXCLUSIVE_L1D_CACHE_MISSES:
+		sw64_write_csr(value | DMISC_EN, CSR_IDR_PCCTL);
+		break;
+	case SW64_PMU_EXCLUSIVE_BRANCH:
 		sw64_write_csr(value | BRRETC_EN, CSR_IDR_PCCTL);
 		break;
-	case SW64_PMU_BRANCH_MISSES:
+	case SW64_PMU_EXCLUSIVE_BRANCH_MISSES:
 		sw64_write_csr(value | BRFAILC_EN, CSR_IDR_PCCTL);
 		break;
 	default:
@@ -451,7 +500,9 @@ static int sw64_pmu_add(struct perf_event *event, int flags)
 	int idx = hwc->idx;
 	int err = -EAGAIN;
 
-	if (__test_and_set_bit(idx, cpuc->used_mask)) {
+	if (event_has_exclusive_counter(hwc->config)) {
+		hwc->idx = (hwc->config & 0xff) + PMU_NUM_GENERIC_COUNTERS;
+	} else if (__test_and_set_bit(idx, cpuc->used_mask)) {
 		idx = find_first_zero_bit(cpuc->used_mask, sw64_pmu->num_pmcs);
 		if (idx == sw64_pmu->num_pmcs)
 			goto out;
@@ -513,19 +564,12 @@ static int __hw_perf_event_init(struct perf_event *event)
 
 	hwc->config_base = SW64_PERFCTRL_AM;
 
-	if (!is_sampling_event(event))
+	if (!is_sampling_event(event)) {
 		pr_debug("not sampling event\n");
-	else {
-		switch (hwc->config) {
-		case SW64_L1I_CACHE:
-		case SW64_L1I_CACHE_MISSES:
-		case SW64_PMU_INSTRUCTIONS:
-		case SW64_PMU_BRANCH:
-		case SW64_PMU_BRANCH_MISSES:
-			return -EOPNOTSUPP;
-		default:
-			break;
-		}
+	} else if (!event_support_sampling(hwc->config)) {
+		pr_info("event %#llx does not support sampling(period=%#llx)",
+				hwc->config, event->attr.sample_period);
+		return -EOPNOTSUPP;
 	}
 
 	event->destroy = hw_perf_event_destroy;

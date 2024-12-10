@@ -32,6 +32,8 @@
 #define CSR_IDR_PCCTL		0x7a
 #define CSR_IACC		0x7b
 #define CSR_IMISC		0x7c
+#define CSR_DACC		0x7d
+#define CSR_DMISC		0x7e
 #define CSR_RETIC		0x7f
 #define CSR_CID			0xc4
 #define CSR_WR_FREGS		0xc8
