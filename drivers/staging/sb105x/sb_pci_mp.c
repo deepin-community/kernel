@@ -1728,12 +1728,10 @@ static int mp_register_driver(struct uart_driver *drv)
 	}
 	memset(drv->state, 0, sizeof(struct sb_uart_state) * drv->nr);
 
-	normal = alloc_tty_driver(drv->nr);
-	if (!normal)
-	{
-		printk("SB PCI Error: tty allocation error!\n");
-		goto out;
-	}
+	normal = tty_alloc_driver(drv->nr,
+				  TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV);
+	if (IS_ERR(normal))
+		return PTR_ERR(normal);
 
 	drv->tty_driver = normal;
 
@@ -1750,7 +1748,6 @@ static int mp_register_driver(struct uart_driver *drv)
 	normal->subtype		= SERIAL_TYPE_NORMAL;
 	normal->init_termios	= tty_std_termios;
 	normal->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
-	normal->flags		= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
 	normal->driver_state    = drv;
 
 	tty_set_operations(normal, &sb_mp_ops);
