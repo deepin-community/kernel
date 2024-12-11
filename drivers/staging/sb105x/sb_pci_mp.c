@@ -1765,7 +1765,7 @@ for (i = 0; i < drv->nr; i++) {
 out:
 	if (retval < 0) {
 		printk("Register tty driver Fail!\n");
-		put_tty_driver(normal);
+		tty_driver_kref_put(normal);
 		kfree(drv->state);
 	}
 
@@ -1784,7 +1784,7 @@ void mp_unregister_driver(struct uart_driver *drv)
     }
 
     tty_unregister_driver(normal);
-    put_tty_driver(normal);
+    tty_driver_kref_put(normal);
     drv->tty_driver = NULL;
 
 
