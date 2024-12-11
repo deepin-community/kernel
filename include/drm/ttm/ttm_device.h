@@ -266,6 +266,11 @@ struct ttm_device {
 	 * @wq: Work queue structure for the delayed delete workqueue.
 	 */
 	struct workqueue_struct *wq;
+
+	/**
+	 * @dwork: Delayed work in the workqueue.
+	 */
+	struct delayed_work dwork;
 };
 
 int ttm_global_swapout(struct ttm_operation_ctx *ctx, gfp_t gfp_flags);

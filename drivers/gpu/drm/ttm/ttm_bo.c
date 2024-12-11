@@ -397,14 +397,14 @@ EXPORT_SYMBOL(ttm_bo_put);
 
 int ttm_bo_lock_delayed_workqueue(struct ttm_device *bdev)
 {
-	return cancel_delayed_work_sync(&bdev->wq);
+	return cancel_delayed_work_sync(&bdev->dwork);
 }
 EXPORT_SYMBOL(ttm_bo_lock_delayed_workqueue);
 
 void ttm_bo_unlock_delayed_workqueue(struct ttm_device *bdev, int resched)
 {
 	if (resched)
-		schedule_delayed_work(&bdev->wq,
+		schedule_delayed_work(&bdev->dwork,
 				      ((HZ / 100) < 1) ? 1 : HZ / 100);
 }
 EXPORT_SYMBOL(ttm_bo_unlock_delayed_workqueue);
