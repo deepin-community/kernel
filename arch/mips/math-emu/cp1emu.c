@@ -1451,7 +1451,7 @@ static union ieee754sp fpemu_sp_rsqrt(union ieee754sp s)
 	return ieee754sp_div(ieee754sp_one(0), ieee754sp_sqrt(s));
 }
 
-#ifndef CONFIG_CPU_LOONGSON3
+#ifndef CONFIG_CPU_LOONGSON64
 DEF3OP(madd, sp, ieee754sp_mul, ieee754sp_add, );
 DEF3OP(msub, sp, ieee754sp_mul, ieee754sp_sub, );
 DEF3OP(nmadd, sp, ieee754sp_mul, ieee754sp_add, ieee754sp_neg);
@@ -1515,7 +1515,7 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			}
 			break;
 
-#ifdef CONFIG_CPU_LOONGSON3
+#ifdef CONFIG_CPU_LOONGSON64
 		case madd_s_op:
 			handler = ieee754sp_madd;
 			goto scoptop;
@@ -1638,7 +1638,7 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			}
 			break;
 
-#ifdef CONFIG_CPU_LOONGSON3
+#ifdef CONFIG_CPU_LOONGSON64
 		case madd_d_op:
 			handler = ieee754dp_madd;
 			goto dcoptop;
