@@ -2808,7 +2808,7 @@ static void __init multi_init_ports(void)
 				osc = 0;
 			for(j=0;j<osc;j++)
 				mtpt->port.uartclk *= 2;
-			mtpt->port.flags    |= STD_COM_FLAGS | UPF_SHARE_IRQ ;
+			mtpt->port.flags    |= UPF_SHARE_IRQ ;
 			mtpt->port.iotype   = UPIO_PORT;
 			mtpt->port.ops      = &multi_pops;
 
