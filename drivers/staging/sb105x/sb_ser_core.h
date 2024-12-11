@@ -52,7 +52,7 @@
 	(CIRC_SPACE((circ)->head, (circ)->tail, UART_XMIT_SIZE))
 
 #define uart_tx_stopped(port)		\
-	((port)->info->tty->stopped || (port)->info->tty->hw_stopped)
+	((port)->info->tty->flow.stopped || (port)->info->tty->hw_stopped)
 
 #define UART_ENABLE_MS(port,cflag)	((port)->flags & UPF_HARDPPS_CD || \
 					 (cflag) & CRTSCTS || \

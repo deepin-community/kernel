@@ -480,7 +480,7 @@ static void __mp_start(struct tty_struct *tty)
 	struct sb_uart_port *port = state->port;
 
 	if (!uart_circ_empty(&state->info->xmit) && state->info->xmit.buf &&
-			!tty->stopped && !tty->hw_stopped)
+			!tty->flow.stopped && !tty->hw_stopped)
 		port->ops->start_tx(port);
 }
 
@@ -929,7 +929,7 @@ static int mp_get_lsr_info(struct sb_uart_state *state, unsigned int *value)
 
 	if (port->x_char ||
 			((uart_circ_chars_pending(&state->info->xmit) > 0) &&
-				!state->info->tty->stopped && !state->info->tty->hw_stopped))
+				!state->info->tty->flow.stopped && !state->info->tty->hw_stopped))
 		result &= ~TIOCSER_TEMT;
 
 	return put_user(result, value);
