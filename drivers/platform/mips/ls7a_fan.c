@@ -9,10 +9,16 @@
 #include <asm/io.h>
 
 #include <boot_param.h>
-#include <loongson-pch.h>
+#include <loongson.h>
 #include <loongson_hwmon.h>
 
-#define LS7A_PWM_REG_BASE              (void *)TO_UNCAC(LS7A_MISC_REG_BASE + 0x20000)
+/**
+ * Miscellaneous register base (LS7A_MISC_REG_BASE) starts at
+ * LOONGSON_PCILO0_BASE + 0x80000, according to legacy loongson-pch.h
+ * from Lemote.
+ */
+#define LS7A_PWM_REG_BASE              (void *)TO_UNCAC(LOONGSON_PCILO0_BASE + \
+							0x80000 + 0x20000)
 
 #define LS7A_PWM0_LOW                   0x004
 #define LS7A_PWM0_FULL                  0x008
