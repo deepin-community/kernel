@@ -1624,7 +1624,7 @@ static inline void mp_report_port(struct uart_driver *drv, struct sb_uart_port *
 			break;
 		default:
 			snprintf(address, sizeof(address),"*unknown*" );
-			strlcpy(address, "*unknown*", sizeof(address));
+			strscpy(address, "*unknown*", sizeof(address));
 			break;
 	}
 
