@@ -39,7 +39,7 @@ static inline int __mp_put_char(struct sb_uart_port *port, struct circ_buf *circ
 static int mp_put_char(struct tty_struct *tty, unsigned char ch);
 
 static void mp_put_chars(struct tty_struct *tty);
-static int mp_write(struct tty_struct *tty, const unsigned char *buf, int count);
+static ssize_t mp_write(struct tty_struct *tty, const unsigned char *buf, long unsigned int count);
 static int mp_write_room(struct tty_struct *tty);
 static int mp_chars_in_buffer(struct tty_struct *tty);
 static void mp_flush_buffer(struct tty_struct *tty);
@@ -637,7 +637,7 @@ static void mp_put_chars(struct tty_struct *tty)
 	mp_start(tty);
 }
 
-static int mp_write(struct tty_struct *tty, const unsigned char *buf, int count)
+static ssize_t mp_write(struct tty_struct *tty, const unsigned char *buf, long unsigned int count)
 {
 	struct sb_uart_state *state = tty->driver_data;
 	struct sb_uart_port *port;
