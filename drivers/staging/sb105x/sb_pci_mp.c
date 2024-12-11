@@ -41,7 +41,7 @@ static int mp_put_char(struct tty_struct *tty, unsigned char ch);
 static void mp_put_chars(struct tty_struct *tty);
 static ssize_t mp_write(struct tty_struct *tty, const unsigned char *buf, long unsigned int count);
 static unsigned int mp_write_room(struct tty_struct *tty);
-static int mp_chars_in_buffer(struct tty_struct *tty);
+static unsigned int mp_chars_in_buffer(struct tty_struct *tty);
 static void mp_flush_buffer(struct tty_struct *tty);
 static void mp_send_xchar(struct tty_struct *tty, char ch);
 static void mp_throttle(struct tty_struct *tty);
@@ -678,7 +678,7 @@ static unsigned int mp_write_room(struct tty_struct *tty)
 	return uart_circ_chars_free(&state->info->xmit);
 }
 
-static int mp_chars_in_buffer(struct tty_struct *tty)
+static unsigned int mp_chars_in_buffer(struct tty_struct *tty)
 {
 	struct sb_uart_state *state = tty->driver_data;
 
