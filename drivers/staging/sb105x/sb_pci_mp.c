@@ -33,7 +33,7 @@ static void mp_tasklet_action(unsigned long data);
 static inline void mp_update_mctrl(struct sb_uart_port *port, unsigned int set, unsigned int clear);
 static int mp_startup(struct sb_uart_state *state, int init_hw);
 static void mp_shutdown(struct sb_uart_state *state);
-static void mp_change_speed(struct sb_uart_state *state, struct MP_TERMIOS *old_termios);
+static void mp_change_speed(struct sb_uart_state *state, const struct MP_TERMIOS *old_termios);
 
 static inline int __mp_put_char(struct sb_uart_port *port, struct circ_buf *circ, unsigned char c);
 static int mp_put_char(struct tty_struct *tty, unsigned char ch);
@@ -57,7 +57,7 @@ static int mp_do_autoconfig(struct sb_uart_state *state);
 static int mp_wait_modem_status(struct sb_uart_state *state, unsigned long arg);
 static int mp_get_count(struct sb_uart_state *state, struct serial_icounter_struct *icnt);
 static int mp_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg);
-static void mp_set_termios(struct tty_struct *tty, struct MP_TERMIOS *old_termios);
+static void mp_set_termios(struct tty_struct *tty, const struct MP_TERMIOS *old_termios);
 static void mp_close(struct tty_struct *tty, struct file *filp);
 static void mp_wait_until_sent(struct tty_struct *tty, int timeout);
 static void mp_hangup(struct tty_struct *tty);
@@ -96,7 +96,7 @@ static void multi_break_ctl(struct sb_uart_port *port, int break_state);
 static int multi_startup(struct sb_uart_port *port);
 static void multi_shutdown(struct sb_uart_port *port);
 static unsigned int multi_get_divisor(struct sb_uart_port *port, unsigned int baud);
-static void multi_set_termios(struct sb_uart_port *port, struct MP_TERMIOS *termios, struct MP_TERMIOS *old);
+static void multi_set_termios(struct sb_uart_port *port, struct MP_TERMIOS *termios, const struct MP_TERMIOS *old);
 static void multi_pm(struct sb_uart_port *port, unsigned int state, unsigned int oldstate);
 static void multi_release_std_resource(struct mp_port *mtpt);
 static void multi_release_port(struct sb_uart_port *port);
@@ -586,7 +586,7 @@ static void mp_shutdown(struct sb_uart_state *state)
 	}
 }
 
-static void mp_change_speed(struct sb_uart_state *state, struct MP_TERMIOS *old_termios)
+static void mp_change_speed(struct sb_uart_state *state, const struct MP_TERMIOS *old_termios)
 {
 	struct tty_struct *tty = state->info->tty;
 	struct sb_uart_port *port = state->port;
@@ -1264,7 +1264,7 @@ out:
 	return ret;
 }
 
-static void mp_set_termios(struct tty_struct *tty, struct MP_TERMIOS *old_termios)
+static void mp_set_termios(struct tty_struct *tty, const struct MP_TERMIOS *old_termios)
 {
 	struct sb_uart_state *state = tty->driver_data;
 	unsigned long flags;
@@ -2510,7 +2510,7 @@ static unsigned int multi_get_divisor(struct sb_uart_port *port, unsigned int ba
 
 
 
-static void multi_set_termios(struct sb_uart_port *port, struct MP_TERMIOS *termios, struct MP_TERMIOS *old)
+static void multi_set_termios(struct sb_uart_port *port, struct MP_TERMIOS *termios, const struct MP_TERMIOS *old)
 {
 	struct mp_port *mtpt = (struct mp_port *)port;
 	unsigned char cval, fcr = 0;

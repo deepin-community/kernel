@@ -77,7 +77,7 @@ struct sb_uart_ops {
 	int		(*startup)(struct sb_uart_port *);
 	void		(*shutdown)(struct sb_uart_port *);
 	void		(*set_termios)(struct sb_uart_port *, struct MP_TERMIOS *new,
-				       struct MP_TERMIOS *old);
+				       const struct MP_TERMIOS *old);
 	void		(*pm)(struct sb_uart_port *, unsigned int state,
 			      unsigned int oldstate);
 	int		(*set_wake)(struct sb_uart_port *, unsigned int state);
@@ -241,7 +241,7 @@ static void sb_uart_update_timeout(struct sb_uart_port *port, unsigned int cflag
     port->timeout = (HZ * bits) / baud + HZ/50;
 }
 static unsigned int sb_uart_get_baud_rate(struct sb_uart_port *port, struct MP_TERMIOS *termios,
-				struct MP_TERMIOS *old, unsigned int min,
+				const struct MP_TERMIOS *old, unsigned int min,
 				unsigned int max)
 {
         unsigned int try, baud, altbaud = 38400;
