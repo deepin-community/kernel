@@ -1736,7 +1736,6 @@ static int mp_register_driver(struct uart_driver *drv)
 	drv->tty_driver = normal;
 
 	normal->owner           = drv->owner;
-	normal->magic		= TTY_DRIVER_MAGIC;
 	normal->driver_name     = drv->driver_name;
 	normal->name		= drv->dev_name;
 	normal->major		= drv->major;
