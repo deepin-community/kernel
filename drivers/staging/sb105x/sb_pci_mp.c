@@ -1051,7 +1051,7 @@ static int mp_wait_modem_status(struct sb_uart_state *state, unsigned long arg)
 		cprev = cnow;
 	}
 
-	current->state = TASK_RUNNING;
+	current->__state = TASK_RUNNING;
 	remove_wait_queue(&state->info->delta_msr_wait, &wait);
 
 	return ret;
