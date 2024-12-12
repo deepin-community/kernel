@@ -2118,9 +2118,9 @@ endchoice
 
 config ARCH_FORCE_MAX_ORDER
 	int "Maximum zone order"
-	default "13" if MIPS_HUGE_TLB_SUPPORT && PAGE_SIZE_64KB
-	default "12" if MIPS_HUGE_TLB_SUPPORT && PAGE_SIZE_32KB
-	default "11" if MIPS_HUGE_TLB_SUPPORT && PAGE_SIZE_16KB
+	default "13" if (NUMA_BALANCING || MIPS_HUGE_TLB_SUPPORT) && PAGE_SIZE_64KB
+	default "12" if (NUMA_BALANCING || MIPS_HUGE_TLB_SUPPORT) && PAGE_SIZE_32KB
+	default "11" if (NUMA_BALANCING || MIPS_HUGE_TLB_SUPPORT) && PAGE_SIZE_16KB
 	default "10"
 	help
 	  The kernel memory allocator divides physically contiguous memory
