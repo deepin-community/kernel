@@ -119,8 +119,10 @@ LEAF(memcpy)				/* a0=dst a1=src a2=len */
 EXPORT_SYMBOL(memcpy)
 	move	v0, dst
 .L__memcpy:
-FEXPORT(__copy_user)
-EXPORT_SYMBOL(__copy_user)
+FEXPORT(__raw_copy_from_user)
+EXPORT_SYMBOL(__raw_copy_from_user)
+FEXPORT(__raw_copy_to_user)
+EXPORT_SYMBOL(__raw_copy_to_user)
 	/* if less then 0x28 bytes */
 	sltu	t2, a2, 0x28
 	andi	t0, dst, 0xf
