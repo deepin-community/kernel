@@ -30,7 +30,7 @@ extern struct pci_controller *hose_head;
 /*
  * Boot Core will enter suspend stat here.
  */
-void sw64_suspend_enter(void)
+int sw64_suspend_enter(void)
 {
 	/* boot processor will go to deep sleep mode from here
 	 * After wake up  boot processor, pc will go here
@@ -50,15 +50,17 @@ void sw64_suspend_enter(void)
 	wrtp(current_thread_info()->pcb.tp);
 
 	disable_local_timer();
+
+	return 0;
 }
 
 static int native_suspend_enter(suspend_state_t state)
 {
 	if (is_in_guest())
 		return 0;
+
 	/* processor specific suspend */
-	sw64_suspend_enter();
-	return 0;
+	return sw64_suspend_enter();
 }
 
 const struct platform_suspend_ops native_suspend_ops = {

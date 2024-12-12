@@ -46,5 +46,7 @@ struct processor_state {
 };
 
 extern void sw64_suspend_deep_sleep(struct processor_state *state);
+extern int sw64_suspend_enter(void);
+
 extern const struct platform_suspend_ops native_suspend_ops;
 #endif /* _ASM_SW64_SUSPEND_H */
