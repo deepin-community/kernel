@@ -1295,6 +1295,7 @@ config CPU_LOONGSON64
 	select GPIOLIB
 	select SWIOTLB
 	select HAVE_KVM
+	select HAVE_PLAT_MEMCPY
 	help
 	  The Loongson GSx64(GS264/GS464/GS464E/GS464V) series of processor
 	  cores implements the MIPS64R2 instruction set with many extensions,
