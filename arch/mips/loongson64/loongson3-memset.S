@@ -22,7 +22,7 @@
 #define EX(insn,reg,addr,handler)			\
 9:	insn	reg, addr;				\
 	.section __ex_table,"a";			\
-	PTR	9b, handler;				\
+	PTR_WD	9b, handler;				\
 	.previous
 
 #define EX_GSSQ(reg, addr, handler)			\
@@ -31,7 +31,7 @@
 9:	gssq	reg, reg, addr;				\
 	.set pop;					\
 	.section __ex_table,"a";			\
-	PTR	9b, handler;				\
+	PTR_WD	9b, handler;				\
 	.previous
 
 	.macro	f_fill128 dst, offset, val, fixup
