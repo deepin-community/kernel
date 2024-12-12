@@ -37,13 +37,13 @@
 #define EXC(inst_reg,addr,handler)		\
 9:	inst_reg, addr;				\
 	.section __ex_table,"a";		\
-	PTR	9b, handler;			\
+	PTR_WD	9b, handler;			\
 	.previous
 
 #define EXCQ(inst,reg1,reg2,addr,handler)	\
 9:	inst	reg1, reg2, addr;		\
 	.section __ex_table,"a";		\
-	PTR	9b, handler;			\
+	PTR_WD	9b, handler;			\
 	.previous
 
 #endif
