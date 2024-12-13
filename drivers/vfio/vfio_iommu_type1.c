@@ -539,11 +539,15 @@ static int follow_fault_pfn(struct vm_area_struct *vma, struct mm_struct *mm,
 
 	pte = ptep_get(ptep);
 
+#ifdef CONFIG_SW64
+	*pfn = pte_pfn(pte);
+#else
 	if (write_fault && !pte_write(pte))
 		ret = -EFAULT;
 	else
 		*pfn = pte_pfn(pte);
 
+#endif
 	pte_unmap_unlock(ptep, ptl);
 	return ret;
 }
