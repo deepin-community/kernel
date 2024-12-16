@@ -41,7 +41,7 @@ int audit_classify_syscall_n32(int abi, unsigned syscall)
 	case __NR_execve:
 		return AUDITSC_EXECVE;
 	default:
-		return 0;
+		return AUDITSC_NATIVE;
 	}
 }
 

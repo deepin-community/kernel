@@ -41,45 +41,26 @@ int audit_classify_arch(int arch)
 
 int audit_classify_syscall(int abi, unsigned syscall)
 {
-	int res;
-
 	switch (syscall) {
 	case __NR_open:
-		res = AUDITSC_OPEN;
-		break;
-
+		return AUDITSC_OPEN;
 	case __NR_openat:
-		res = AUDITSC_OPEN;
-		break;
-
+		return AUDITSC_OPEN;
 #ifdef __NR_socketcall		/* Only exists on O32 */
 	case __NR_socketcall:
-		res = AUDITSC_SOCKETCALL;
-		break;
+		return AUDITSC_SOCKETCALL;
 #endif
 	case __NR_execve:
-		res = AUDITSC_EXECVE;
-		break;
+		return AUDITSC_EXECVE;
 	default:
 #ifdef CONFIG_AUDITSYSCALL_O32
-		res = audit_classify_syscall_o32(abi, syscall);
-		if (res)
-			break;
+		return audit_classify_syscall_o32(abi, syscall);
 #endif
 #ifdef CONFIG_AUDITSYSCALL_N32
-		res = audit_classify_syscall_n32(abi, syscall);
-		if (res)
-			break;
+		return audit_classify_syscall_n32(abi, syscall);
 #endif
-		if (abi == AUDIT_ARCH_MIPS || abi == AUDIT_ARCH_MIPSEL)
-			res = 1;
-		else if (abi == AUDIT_ARCH_MIPS64 || abi == AUDIT_ARCH_MIPSEL64)
-			res = 0;
-		else if (abi == AUDIT_ARCH_MIPS64N32 || abi == AUDIT_ARCH_MIPSEL64N32)
-			res = 6;
+		return AUDITSC_NATIVE;
 	}
-
-	return res;
 }
 
 static int __init audit_classes_init(void)
