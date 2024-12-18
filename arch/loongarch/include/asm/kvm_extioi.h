@@ -92,4 +92,5 @@ struct loongarch_extioi {
 
 void extioi_set_irq(struct loongarch_extioi *s, int irq, int level);
 int kvm_loongarch_register_extioi_device(void);
+int kvm_loongarch_reset_extioi(struct kvm *kvm);
 #endif /* LOONGARCH_EXTIOI_H */

@@ -779,3 +779,24 @@ int kvm_loongarch_register_extioi_device(void)
 	return kvm_register_device_ops(&kvm_loongarch_extioi_dev_ops,
 					KVM_DEV_TYPE_LOONGARCH_EIOINTC);
 }
+
+int kvm_loongarch_reset_extioi(struct kvm *kvm)
+{
+	struct loongarch_extioi *extioi = kvm->arch.extioi;
+	unsigned long flags;
+	u8 offset, size;
+	u8 *pstart;
+
+	if (!extioi)
+		return -EINVAL;
+
+	pstart = (char *)&extioi->nodetype;
+	offset = (char *)&extioi->nodetype - (char *)extioi;
+	size = sizeof(struct loongarch_extioi) - offset;
+
+	loongarch_ext_irq_lock(extioi, flags);
+	memset(pstart, 0, size);
+	loongarch_ext_irq_unlock(extioi, flags);
+
+	return 0;
+}
