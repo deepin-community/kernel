@@ -302,6 +302,8 @@ struct xfrm_state {
 
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline struct net *xs_net(struct xfrm_state *x)
@@ -570,6 +572,8 @@ struct xfrm_policy {
 
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline struct net *xp_net(const struct xfrm_policy *xp)
