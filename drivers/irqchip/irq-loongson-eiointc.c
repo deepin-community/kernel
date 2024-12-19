@@ -142,16 +142,16 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 	vector = d->hwirq;
 	regaddr = EIOINTC_REG_ENABLE + ((vector >> 5) << 2);
 
-	for_each_online_cpu(i) {
-		if (cpu_to_eio_node(i) == priv->node)
-			break;
-	}
-
 	if (cpu_has_hypervisor) {
 		iocsr_write32(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1F), regaddr);
 		virt_extioi_set_irq_route(vector, cpu);
 		iocsr_write32(EIOINTC_ALL_ENABLE, regaddr);
 	} else {
+		for_each_online_cpu(i) {
+			if (cpu_to_eio_node(i) == priv->node)
+				break;
+		}
+
 		/* Mask target vector */
 		csr_any_send(regaddr, EIOINTC_ALL_ENABLE & (~BIT(vector & 0x1F)),
 			     0x0, cpu_logical_map(i));
@@ -189,14 +189,13 @@ static int eiointc_router_init(unsigned int cpu)
 	uint32_t data;
 	uint32_t node = cpu_to_eio_node(cpu);
 	int index = eiointc_index(node);
-	int cores = (cpu_has_hypervisor ? MAX_CORES_PER_EIO_NODE : CORES_PER_EIO_NODE);
 
 	if (index < 0) {
 		pr_err("Error: invalid nodemap!\n");
 		return -1;
 	}
 
-	if ((cpu_logical_map(cpu) % cores) == 0) {
+	if (!test_bit(node, (&extioi_node_maps)->bits)) {
 		eiointc_enable();
 
 		for (i = 0; i < eiointc_priv[0]->vec_count / 32; i++) {
