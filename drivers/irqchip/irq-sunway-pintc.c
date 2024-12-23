@@ -515,26 +515,9 @@ pintc_of_init_common(struct device_node *pintc,
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(pintc, "sw64,node", &node);
-	if (ret) {
-		node = 0;
-		pr_warn(PREFIX "\"sw64,node\" fallback to %u\n",
-				node);
-	}
-
-	ret = of_property_read_u32(pintc, "sw64,irq-num", &nr_irqs);
-	if (ret) {
-		nr_irqs = vt ? 16 : 8;
-		pr_warn(PREFIX "\"sw64,irq-num\" fallback to %u\n",
-				nr_irqs);
-	}
-
-	ret = of_property_read_u32(pintc, "sw64,ver", &version);
-	if (ret) {
-		version = 1;
-		pr_warn(PREFIX "\"sw64,ver\" fallback to %u\n",
-				version);
-	}
+	sunway_of_get_numa_node(pintc, &node, 0);
+	sunway_of_get_irq_num(pintc, &nr_irqs, vt ? 16 : 8);
+	sunway_of_get_version(pintc, &version, 1);
 
 	pintc_base = of_iomap(pintc, 0);
 	if (!vt && !pintc_base) {
@@ -589,8 +572,9 @@ pintc_of_init(struct device_node *pintc, struct device_node *parent)
 	return pintc_of_init_common(pintc, parent, false);
 }
 
-IRQCHIP_DECLARE(sw64_pintc, "sw64,pintc", pintc_of_init);
-IRQCHIP_DECLARE(sw64_pintc_legacy, "sw64,sw6_irq_controller", pintc_of_init);
+IRQCHIP_DECLARE(sunway_pintc, "sunway,pintc", pintc_of_init);
+IRQCHIP_DECLARE(sunway_pintc_legacy1, "sw64,pintc", pintc_of_init);
+IRQCHIP_DECLARE(sunway_pintc_legacy0, "sw64,sw6_irq_controller", pintc_of_init);
 
 static int __init
 pintc_vt_of_init(struct device_node *pintc, struct device_node *parent)
@@ -598,8 +582,9 @@ pintc_vt_of_init(struct device_node *pintc, struct device_node *parent)
 	return pintc_of_init_common(pintc, parent, true);
 }
 
-IRQCHIP_DECLARE(sw64_pintc_vt, "sw64,pintc_vt", pintc_vt_of_init);
-IRQCHIP_DECLARE(sw64_pintc_vt_legacy, "sw64,sw6_irq_vt_controller", pintc_vt_of_init);
+IRQCHIP_DECLARE(sunway_pintc_vt, "sunway,pintc-vt", pintc_vt_of_init);
+IRQCHIP_DECLARE(sunway_pintc_vt_legacy1, "sw64,pintc_vt", pintc_vt_of_init);
+IRQCHIP_DECLARE(sunway_pintc_vt_legacy0, "sw64,sw6_irq_vt_controller", pintc_vt_of_init);
 #endif
 
 #ifdef CONFIG_ACPI
