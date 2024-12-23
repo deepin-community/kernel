@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
+
+#define pr_fmt(fmt) "LPC-INTC: " fmt
+
 #include <linux/bitops.h>
 #include <linux/irq.h>
 #include <linux/of_address.h>
@@ -6,8 +9,6 @@
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/interrupt.h>
-
-#define PREFIX  "LPC-INTC: "
 
 #define	LPC_IRQ  0x4
 #define	LPC_IRQ_MASK  0x8
@@ -156,7 +157,7 @@ static int __init lpc_intc_init(struct fwnode_handle *handle,
 	lpc_irq_domain = __irq_domain_add(handle, irqnr, irqnr,
 			0, &sw64_lpc_domain_ops, base_addr);
 	if (!lpc_irq_domain) {
-		pr_info(PREFIX "failed to create irq domain\n");
+		pr_info("failed to create irq domain\n");
 		return -ENOMEM;
 	}
 
@@ -208,13 +209,13 @@ static int __init lpc_intc_of_init(struct device_node *np,
 
 	base = of_iomap(np, 0);
 	if (!base) {
-		pr_err(PREFIX "failed to remap lpc intc registers\n");
+		pr_err("failed to remap lpc intc registers\n");
 		return -ENXIO;
 	}
 
 	parent_irq = irq_of_parse_and_map(np, 0);
 	if (!parent_irq) {
-		pr_err(PREFIX "failed to find parent interrupt\n");
+		pr_err("failed to find parent interrupt\n");
 		ret = -EINVAL;
 		goto out_unmap;
 	}
@@ -223,7 +224,7 @@ static int __init lpc_intc_of_init(struct device_node *np,
 	if (ret)
 		goto out_unmap;
 
-	pr_info(PREFIX "version [%u] on node [%u] initialized\n",
+	pr_info("version [%u] on node [%u] initialized\n",
 			version, node);
 
 	return 0;
@@ -250,20 +251,20 @@ int __init lpc_intc_acpi_init(struct irq_domain *parent,
 	bool enabled;
 
 	enabled = is_lpc_intc_enabled(lpc_intc->flags);
-	pr_info(PREFIX "version [%u] on node [%u] %s\n",
+	pr_info("version [%u] on node [%u] %s\n",
 			lpc_intc->version, lpc_intc->node,
 			enabled ? "found" : "disabled");
 	if (!enabled)
 		return 0;
 
 	if (lpc_intc->gsi_base != SW_LPC_INTC_GSI_BASE) {
-		pr_err(PREFIX "invalid GSI\n");
+		pr_err("invalid GSI\n");
 		return -EINVAL;
 	}
 
 	handle = irq_domain_alloc_named_id_fwnode("LPC-INTC", lpc_intc->node);
 	if (!handle) {
-		pr_err(PREFIX "failed to alloc fwnode\n");
+		pr_err("failed to alloc fwnode\n");
 		return -ENOMEM;
 	}
 
@@ -273,14 +274,14 @@ int __init lpc_intc_acpi_init(struct irq_domain *parent,
 
 	parent_irq = irq_create_fwspec_mapping(&fwspec);
 	if (parent_irq <= 0) {
-		pr_err(PREFIX "failed to map parent irq\n");
+		pr_err("failed to map parent irq\n");
 		ret = -EINVAL;
 		goto out_acpi_free_fwnode;
 	}
 
 	base_addr = ioremap(lpc_intc->address, lpc_intc->size);
 	if (!base_addr) {
-		pr_err(PREFIX "failed to map base address\n");
+		pr_err("failed to map base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_fwnode;
 	}
@@ -293,11 +294,11 @@ int __init lpc_intc_acpi_init(struct irq_domain *parent,
 	ret = sw64_add_gsi_domain_map(lpc_intc->gsi_base,
 			lpc_intc->gsi_count, handle);
 	if (ret) {
-		pr_info(PREFIX "failed to add GSI map\n");
+		pr_info("failed to add GSI map\n");
 		goto out_acpi_free_lpc_domain;
 	}
 
-	pr_info(PREFIX "version [%u] on node [%u] initialized\n",
+	pr_info("version [%u] on node [%u] initialized\n",
 			lpc_intc->version, lpc_intc->node);
 
 	return 0;

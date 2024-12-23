@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#define pr_fmt(fmt) "CINTC: " fmt
+
 #include <linux/kconfig.h>
 #include <linux/pci.h>
 #include <linux/irqchip.h>
@@ -34,8 +36,6 @@
  * |                                                           |
  * +-----------------------------------------------------------+
  */
-
-#define PREFIX "CINTC: "
 
 struct fwnode_handle *cintc_handle;
 
@@ -249,7 +249,7 @@ static int __init pintc_parse_madt(union acpi_subtable_headers *header,
 
 	if ((pintc->version == ACPI_MADT_SW_PINTC_VERSION_NONE) ||
 		(pintc->version >= ACPI_MADT_SW_PINTC_VERSION_RESERVED)) {
-		pr_err(PREFIX "invalid PINTC version\n");
+		pr_err("invalid PINTC version\n");
 		return -EINVAL;
 	}
 
@@ -265,7 +265,7 @@ static int __init msic_parse_madt(union acpi_subtable_headers *header,
 	msic = (struct acpi_madt_sw_msic *)header;
 	if ((msic->version == ACPI_MADT_SW_MSIC_VERSION_NONE) ||
 			(msic->version >= ACPI_MADT_SW_MSIC_VERSION_RESERVED)) {
-		pr_err(PREFIX "invalid MSIC version\n");
+		pr_err("invalid MSIC version\n");
 		return -EINVAL;
 	}
 
@@ -302,7 +302,7 @@ static __init int cintc_acpi_init(union acpi_subtable_headers *header,
 
 	cintc = (struct acpi_madt_sw_cintc *)header;
 	virtual = is_core_virtual(cintc->flags);
-	pr_info(PREFIX "version [%u] (%s) found\n", cintc->version,
+	pr_info("version [%u] (%s) found\n", cintc->version,
 			virtual ? "virtual" : "physical");
 
 	/**
@@ -315,7 +315,7 @@ static __init int cintc_acpi_init(union acpi_subtable_headers *header,
 	 */
 	cintc_handle = irq_domain_alloc_named_fwnode("CINTC");
 	if (!cintc_handle) {
-		pr_err(PREFIX "failed to alloc fwnode\n");
+		pr_err("failed to alloc fwnode\n");
 		return -ENOMEM;
 	}
 
