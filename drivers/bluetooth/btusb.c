@@ -4075,6 +4075,9 @@ static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
 
 	BT_DBG("intf %p", intf);
 
+	if (!data)
+		return -ENODEV;
+
 	/* Don't auto-suspend if there are connections; external suspend calls
 	 * shall never fail.
 	 */
