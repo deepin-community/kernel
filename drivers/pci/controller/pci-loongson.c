@@ -484,7 +484,9 @@ static int loongson_pci_probe(struct platform_device *pdev)
 	}
 
 	if (priv->data->flags & FLAG_CFG1) {
+#ifdef CONFIG_LOONGARCH
 		if (priv->cfg0_base)
+#endif
 			num = 1;
 		regs = platform_get_resource(pdev, IORESOURCE_MEM, num);
 		if (!regs)
