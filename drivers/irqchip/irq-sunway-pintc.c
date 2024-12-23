@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
+
+#define pr_fmt(fmt) "PINTC: " fmt
+
 #include <linux/irqdomain.h>
 #include <linux/irqchip.h>
 #include <linux/acpi.h>
@@ -42,8 +45,6 @@
  * |                                                                |
  * +----------------------------------------------------------------+
  */
-
-#define PREFIX  "PINTC: "
 
 #define OFFSET_DLI_RLTD_FAULT_INTEN  0xa80UL
 #define OFFSET_MCU_DVC_INT           0x3000UL
@@ -410,14 +411,14 @@ static int __init pintc_init_mcu(struct pintc_chip_data *chip_data,
 	}
 
 	if (!mcu_irq_domain) {
-		pr_err(PREFIX "failed to create MCU irq domain\n");
+		pr_err("failed to create MCU irq domain\n");
 		return -ENOMEM;
 	}
 
 	raw_spin_lock_init(&chip_data->pintc_lock);
 	raw_spin_lock_init(&chip_data->mcu_lock);
 
-	pr_info(PREFIX "MCU version [%u] on node [%u] initialized\n",
+	pr_info("MCU version [%u] on node [%u] initialized\n",
 			chip_data->version, chip_data->node);
 
 	return 0;
@@ -488,7 +489,7 @@ static int __init pintc_of_init_mcu(struct pintc_chip_data *chip_data,
 {
 	/* Not yet supported */
 	if (chip_data->node > 0) {
-		pr_info(PREFIX "MCU version [%u] on node [%u] skipped\n",
+		pr_info("MCU version [%u] on node [%u] skipped\n",
 				chip_data->version, chip_data->node);
 		return 0;
 	}
@@ -510,7 +511,7 @@ pintc_of_init_common(struct device_node *pintc,
 		return -ENODEV;
 
 	if (vt && parent) {
-		pr_err(PREFIX "virtual pintc has no parent controller\n");
+		pr_err("virtual pintc has no parent controller\n");
 		return -EINVAL;
 	}
 
@@ -538,14 +539,14 @@ pintc_of_init_common(struct device_node *pintc,
 	pintc_base = of_iomap(pintc, 0);
 	if (!vt && !pintc_base) {
 		pintc_base = ioremap(INTPU_BASE_V1, INTPU_SIZE_V1);
-		pr_warn(PREFIX "pintc base address fallback to 0x%lx\n",
+		pr_warn("pintc base address fallback to 0x%lx\n",
 				INTPU_BASE_V1);
 	}
 
 	mcu_base = of_iomap(pintc, 1);
 	if (!vt && !mcu_base) {
 		mcu_base = ioremap(MCU_BASE_V1, MCU_SIZE_V1);
-		pr_warn(PREFIX "mcu base address fallback to 0x%lx\n",
+		pr_warn("mcu base address fallback to 0x%lx\n",
 				MCU_BASE_V1);
 	}
 
@@ -632,7 +633,7 @@ static int __init lpc_intc_parse_madt(union acpi_subtable_headers *header,
 
 	if ((lpc_intc->version == ACPI_MADT_SW_LPC_INTC_VERSION_NONE) ||
 		(lpc_intc->version >= ACPI_MADT_SW_LPC_INTC_VERSION_RESERVED)) {
-		pr_err(PREFIX "invalid LPC-INTC version\n");
+		pr_err("invalid LPC-INTC version\n");
 		return -EINVAL;
 	}
 
@@ -660,25 +661,25 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 
 	/* Not yet supported */
 	if (chip_data->node > 0) {
-		pr_info(PREFIX "MCU version [%u] on node [%u] skipped\n",
+		pr_info("MCU version [%u] on node [%u] skipped\n",
 				chip_data->version, chip_data->node);
 		return 0;
 	}
 
 	if (!mcu->status) {
-		pr_info(PREFIX "MCU version [%u] on node [%u] disabled\n",
+		pr_info("MCU version [%u] on node [%u] disabled\n",
 				chip_data->version, chip_data->node);
 		return 0;
 	}
 
 	if (mcu->gsi_base != SW_PINTC_MCU_GSI_BASE) {
-		pr_err(PREFIX "invalid MCU GSI\n");
+		pr_err("invalid MCU GSI\n");
 		return -EINVAL;
 	}
 
 	handle = irq_domain_alloc_named_id_fwnode("PINTC-MCU", chip_data->node);
 	if (!handle) {
-		pr_err(PREFIX "failed to alloc fwnode\n");
+		pr_err("failed to alloc fwnode\n");
 		return -ENOMEM;
 	}
 
@@ -686,7 +687,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 
 	chip_data->mcu_base = ioremap(mcu->address, mcu->size);
 	if (!chip_data->mcu_base) {
-		pr_err(PREFIX "failed to map mcu base address\n");
+		pr_err("failed to map mcu base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_fwnode;
 	}
@@ -697,7 +698,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 
 	ret = sw64_add_gsi_domain_map(mcu->gsi_base, mcu->gsi_count, handle);
 	if (ret) {
-		pr_info(PREFIX "failed to add GSI map\n");
+		pr_info("failed to add GSI map\n");
 		goto out_acpi_free_mcu_domain;
 	}
 
@@ -720,7 +721,7 @@ static int __init pintc_acpi_init_fault(struct pintc_chip_data *chip_data,
 		struct acpi_madt_sw_sub_pintc *fault)
 {
 	if (!fault->status) {
-		pr_info(PREFIX "Fault version [%u] on node [%u] disabled\n",
+		pr_info("Fault version [%u] on node [%u] disabled\n",
 				chip_data->version, chip_data->node);
 		return 0;
 	}
@@ -728,11 +729,11 @@ static int __init pintc_acpi_init_fault(struct pintc_chip_data *chip_data,
 	/* Fault share the same base address with MCU currently */
 	chip_data->mcu_base = ioremap(fault->address, fault->size);
 	if (!chip_data->mcu_base) {
-		pr_err(PREFIX "failed to map fault base address\n");
+		pr_err("failed to map fault base address\n");
 		return -ENXIO;
 	}
 
-	pr_info(PREFIX "Fault version [%u] on node [%u] initialized\n",
+	pr_info("Fault version [%u] on node [%u] initialized\n",
 			chip_data->version, chip_data->node);
 
 	return 0;
@@ -748,7 +749,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 	enabled = is_pintc_enabled(pintc->flags);
 	virtual = is_pintc_virtual(pintc->flags);
 
-	pr_info(PREFIX "version [%u] on node [%u] (%s) %s\n",
+	pr_info("version [%u] on node [%u] (%s) %s\n",
 			pintc->version, pintc->node,
 			virtual ? "virtual" : "physical",
 			enabled ? "found" : "disabled");
@@ -757,7 +758,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 		return 0;
 
 	if (pintc_sub_type_check(pintc)) {
-		pr_err(PREFIX "invalid sub type\n");
+		pr_err("invalid sub type\n");
 		return -EINVAL;
 	}
 
@@ -777,7 +778,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 
 	chip_data->pintc_base = ioremap(pintc->address, pintc->size);
 	if (!chip_data->pintc_base) {
-		pr_err(PREFIX "failed to map pintc base address\n");
+		pr_err("failed to map pintc base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_chip_data;
 	}
