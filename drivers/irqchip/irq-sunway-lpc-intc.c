@@ -10,6 +10,8 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/interrupt.h>
 
+#include <asm/platform.h>
+
 #define	LPC_IRQ  0x4
 #define	LPC_IRQ_MASK  0x8
 
@@ -186,26 +188,9 @@ static int __init lpc_intc_of_init(struct device_node *np,
 
 	sw_lpc_intc_node = np;
 
-	ret = of_property_read_u32(np, "sw64,node", &node);
-	if (ret) {
-		node = 0;
-		pr_warn(PREFIX "\"sw64,node\" fallback to %u\n",
-				node);
-	}
-
-	ret = of_property_read_u32(np, "sw64,irq-num", &nr_irqs);
-	if (ret) {
-		nr_irqs = 16;
-		pr_warn(PREFIX "\"sw64,irq-num\" fallback to %u\n",
-				nr_irqs);
-	}
-
-	ret = of_property_read_u32(np, "sw64,ver", &version);
-	if (ret) {
-		version = 1;
-		pr_warn(PREFIX "\"sw64,ver\" fallback to %u\n",
-				version);
-	}
+	sunway_of_get_numa_node(np, &node, 0);
+	sunway_of_get_irq_num(np, &nr_irqs, 16);
+	sunway_of_get_version(np, &version, 1);
 
 	base = of_iomap(np, 0);
 	if (!base) {
@@ -233,7 +218,9 @@ out_unmap:
 	iounmap(base);
 	return ret;
 }
-IRQCHIP_DECLARE(sw_lpc_intc, "sw64,lpc_intc", lpc_intc_of_init);
+
+IRQCHIP_DECLARE(sunway_lpc_intc, "sunway,lpc-intc", lpc_intc_of_init);
+IRQCHIP_DECLARE(sunway_lpc_intc_legacy, "sw64,lpc_intc", lpc_intc_of_init);
 #endif
 
 #ifdef CONFIG_ACPI
