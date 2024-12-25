@@ -187,7 +187,7 @@ void __init prom_lefi_init_env(void)
 
 	/* Append default cpu frequency with round-off */
 	sprintf(freq, " @ %uMHz", (cpu_clock_freq + 500000) / 1000000);
-	strncat(cpu_full_name, freq, sizeof(cpu_full_name));
+	strncat(cpu_full_name, freq, strlen(freq));
 	__cpu_full_name[0] = cpu_full_name;
 
 	/* Read the ID of PCI host bridge to detect bridge type */
