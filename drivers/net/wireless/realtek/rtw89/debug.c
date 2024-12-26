@@ -227,18 +227,28 @@ static ssize_t rtw89_debugfs_file_write(struct file *file,
 	return debugfs_priv->cb_write(rtwdev, debugfs_priv, buf, count);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
+#define RTW89_SIMPLE_OPEN
+#else
+#define RTW89_SIMPLE_OPEN .owner = THIS_MODULE, .open = simple_open,
+#define debugfs_short_fops file_operations
+#endif
+
 static const struct debugfs_short_fops file_ops_single_r = {
+	RTW89_SIMPLE_OPEN
 	.read = rtw89_debugfs_file_read,
 	.llseek = generic_file_llseek,
 };
 
 static const struct debugfs_short_fops file_ops_common_rw = {
+	RTW89_SIMPLE_OPEN
 	.read = rtw89_debugfs_file_read,
 	.write = rtw89_debugfs_file_write,
 	.llseek = generic_file_llseek,
 };
 
 static const struct debugfs_short_fops file_ops_single_w = {
+	RTW89_SIMPLE_OPEN
 	.write = rtw89_debugfs_file_write,
 	.llseek = generic_file_llseek,
 };
