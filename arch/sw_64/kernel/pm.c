@@ -10,7 +10,7 @@ struct syscore_ops io_syscore_ops;
 static int __init sw64_pm_init(void)
 {
 #ifdef CONFIG_SUSPEND
-	if (acpi_sleep_state_supported(ACPI_STATE_S3))
+	if (!acpi_disabled && acpi_sleep_state_supported(ACPI_STATE_S3))
 		acpi_suspend_lowlevel = sw64_suspend_enter;
 	else
 		suspend_set_ops(&native_suspend_ops);
