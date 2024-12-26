@@ -71,6 +71,8 @@
 
 #define PCIE_DATA_WIDTH		0xe04
 
+#define PCIE_PMU_OFL_STOP_TYPE_VAL	0x10
+
 #define SYS_AIDR_EL1		sys_reg(3, 1, 0, 0, 7)
 #define SOC_ID_PS230XX		0x8
 #define SOC_ID_PS240XX		0x6
@@ -634,7 +636,7 @@ static irqreturn_t phytium_pcie_pmu_overflow_handler(int irq, void *dev_id)
 			phytium_pcie_pmu_event_update(event);
 		}
 		phytium_pcie_pmu_clear_all_counters(pcie_pmu);
-		if ((stop_state & 0x10) == 0)
+		if ((stop_state & PCIE_PMU_OFL_STOP_TYPE_VAL) == 0)
 			phytium_pcie_pmu_start_all_counters(pcie_pmu);
 
 		return IRQ_HANDLED;
