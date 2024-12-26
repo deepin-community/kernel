@@ -12,7 +12,7 @@ bool efi_poweroff_required(void)
 		return false;
 
 	/* Prefer ACPI S5 */
-	if (acpi_sleep_state_supported(ACPI_STATE_S5))
+	if (!acpi_disabled && acpi_sleep_state_supported(ACPI_STATE_S5))
 		return false;
 
 	return efi_enabled(EFI_RUNTIME_SERVICES);
