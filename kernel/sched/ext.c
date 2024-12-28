@@ -3659,10 +3659,7 @@ static void reset_idle_masks(void)
 
 static void update_builtin_idle(int cpu, bool idle)
 {
-	if (idle)
-		cpumask_set_cpu(cpu, idle_masks.cpu);
-	else
-		cpumask_clear_cpu(cpu, idle_masks.cpu);
+	assign_cpu(cpu, idle_masks.cpu, idle);
 
 #ifdef CONFIG_SCHED_SMT
 	if (sched_smt_active()) {
