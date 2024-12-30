@@ -1521,7 +1521,7 @@ source "drivers/scsi/csiostor/Kconfig"
 
 source "drivers/scsi/pcmcia/Kconfig"
 
-source "drivers/scsi/linkdata/Kconfig"
+source "drivers/scsi/ps3stor/Kconfig"
 
 endif # SCSI_LOWLEVEL
 
