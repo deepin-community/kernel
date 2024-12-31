@@ -5,8 +5,11 @@
 #include <linux/of.h>
 #include <linux/acpi.h>
 #include <linux/platform_device.h>
+#include <linux/reboot.h>
 
 #include <asm/sw64io.h>
+
+#define OFFSET_EMUL_POWER_CONTROL 0x50000UL
 
 struct misc_platform {
 	void __iomem *spbu_base;
@@ -61,10 +64,27 @@ static int misc_platform_get_node(struct device *dev)
 	return nid;
 }
 
+static int emul_restart(struct sys_off_data *data)
+{
+	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+
+	writeq(2, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+
+	return NOTIFY_DONE;
+}
+
+static int emul_power_off(struct sys_off_data *data)
+{
+	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+
+	writeq(1, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+
+	return NOTIFY_DONE;
+}
+
 static int misc_platform_probe(struct platform_device *pdev)
 {
-	int ret, node;
-	u64 base_address;
+	u64 node, base_address;
 	void __iomem *spbu_base = NULL;
 	void __iomem *intpu_base = NULL;
 	void __iomem *gpio_base = NULL;
@@ -73,8 +93,13 @@ static int misc_platform_probe(struct platform_device *pdev)
 	node = misc_platform_get_node(dev);
 	if (node == NUMA_NO_NODE) {
 		pr_err("unable to get node ID\n");
-		return ret;
+		return -ENODATA;
 	}
+
+	/* Set default value */
+	spbu_base = __va(SW64_IO_BASE(node) | SPBU_BASE);
+	intpu_base = __va(SW64_IO_BASE(node) | INTPU_BASE);
+	gpio_base = __va(SW64_IO_BASE(node) | GPIO_BASE);
 
 	if (!device_property_read_u64(dev, "sunway,spbu_base",
 				&base_address))
@@ -92,7 +117,17 @@ static int misc_platform_probe(struct platform_device *pdev)
 	misc_platform_devices[node].intpu_base = intpu_base;
 	misc_platform_devices[node].gpio_base = gpio_base;
 
-	pr_info("misc-platform on node %d found\n", node);
+	if (is_in_emul() && (node == 0)) {
+		if (IS_ERR(register_sys_off_handler(SYS_OFF_MODE_RESTART,
+				SYS_OFF_PRIO_DEFAULT, emul_restart, NULL)))
+			pr_info("unable to register emul_restart\n");
+
+		if (IS_ERR(register_sys_off_handler(SYS_OFF_MODE_POWER_OFF,
+				SYS_OFF_PRIO_DEFAULT, emul_power_off, NULL)))
+			pr_info("unable to register emul_power_off\n");
+	}
+
+	pr_info("misc-platform on node %llu found\n", node);
 
 	return 0;
 }
