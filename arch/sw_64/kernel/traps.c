@@ -147,11 +147,10 @@ extern long sw64_fp_emul_imprecise(struct pt_regs *regs, unsigned long writemask
 extern long sw64_fp_emul(unsigned long pc);
 #endif
 
-asmlinkage void
-noinstr do_entArith(unsigned long exc_sum, unsigned long write_mask,
-		struct pt_regs *regs)
+asmlinkage void noinstr do_entArith(struct pt_regs *regs)
 {
 	long si_code = FPE_FLTINV;
+	unsigned long exc_sum = regs->earg0;
 
 #ifndef CONFIG_SUBARCH_C3B
 	/* integer divide by zero */
@@ -249,11 +248,12 @@ static int try_fix_rd_f(unsigned int inst, struct pt_regs *regs)
  * BPT/GENTRAP/OPDEC make regs->pc = exc_pc + 4. debugger should
  * do something necessary to handle it correctly.
  */
-asmlinkage void
-noinstr do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs)
+asmlinkage void noinstr do_entIF(struct pt_regs *regs)
 {
 	int signo, code;
 	unsigned int inst, type;
+	unsigned long inst_type = regs->earg0;
+	unsigned long va = regs->earg1;
 
 	type = inst_type & 0xffffffff;
 	inst = inst_type >> 32;
@@ -396,9 +396,7 @@ noinstr do_entIF(unsigned long inst_type, unsigned long va, struct pt_regs *regs
 			 1L << 0x2 | 1L << 0x8 |   /* ldw_a stw_a */	\
 			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
 
-asmlinkage void
-noinstr do_entUna(void *va, unsigned long opcode, unsigned long reg,
-	  struct pt_regs *regs)
+asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 {
 	long error, disp;
 	unsigned int insn, fncode, rb;
@@ -406,6 +404,9 @@ noinstr do_entUna(void *va, unsigned long opcode, unsigned long reg,
 	unsigned long fp[4];
 	unsigned long fake_reg, *reg_addr = &fake_reg;
 	unsigned long pc = regs->pc - 4;
+	void *va = (void *)regs->earg0;
+	unsigned long opcode = regs->earg1;
+	unsigned long reg = regs->earg2;
 
 	insn = *(unsigned int *)pc;
 	fncode = (insn >> 12) & 0xf;
@@ -1347,9 +1348,7 @@ got_exception:
  * uses them as temporary storage for integer memory to memory copies.
  * However, we need to deal with stt/ldt and sts/lds only.
  */
-asmlinkage void
-noinstr do_entUnaUser(void __user *va, unsigned long opcode,
-	      unsigned long reg, struct pt_regs *regs)
+asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 {
 #ifdef CONFIG_UNA_PRINT
 	static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 5);
@@ -1364,6 +1363,9 @@ noinstr do_entUnaUser(void __user *va, unsigned long opcode,
 	unsigned long instr, instr_op, value, fncode;
 	unsigned int rb = -1U;
 	long disp;
+	void __user *va = (void *)regs->earg0;
+	unsigned long opcode = regs->earg1;
+	unsigned long reg = regs->earg2;
 
 #ifdef CONFIG_DEBUG_FS
 	/*

@@ -76,11 +76,13 @@ static void handle_nmi_int(void)
 
 int pme_state;
 
-asmlinkage void noinstr do_entInt(unsigned long type, unsigned long vector,
-			  unsigned long irq_arg, struct pt_regs *regs)
+asmlinkage void noinstr do_entInt(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs;
 	extern char __idle_start[], __idle_end[];
+	unsigned long type = regs->earg0;
+	unsigned long vector = regs->earg1;
+	unsigned long irq_arg = regs->earg2;
 
 	/* restart idle routine if it is interrupted */
 	if (regs->pc > (u64)__idle_start && regs->pc < (u64)__idle_end)

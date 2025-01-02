@@ -271,7 +271,7 @@ entNMI:
 	SAVE_ALL_NMI
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	ldi	$19, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entInt
 	br	ret_from_nmi
 	.end entNMI
@@ -283,7 +283,7 @@ entInt:
 	SAVE_ALL
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	ldi	$19, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entInt
 	br	ret_from_sys_call
 	.end entInt
@@ -299,7 +299,7 @@ entArith:
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
-	ldi	$18, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entArith
 	br	ret_from_sys_call
 	.end entArith
@@ -312,7 +312,7 @@ entMM:
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
-	ldi	$19, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_page_fault
 	br	ret_from_sys_call
 	.end entMM
@@ -328,7 +328,7 @@ entIF:
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
-	ldi	$18, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entIF
 	br	ret_from_sys_call
 	.end entIF
@@ -350,7 +350,7 @@ entUna:
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
 	RESTORE_IRQ
-	ldi	$19, STACKFRAME_SIZE($sp)
+	ldi	$16, STACKFRAME_SIZE($sp)
 	ldl	$0, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
 	and	$0, 8, $0		/* user mode ? */
 	beq	$0, 1f
