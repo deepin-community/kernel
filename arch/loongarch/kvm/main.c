@@ -245,6 +245,21 @@ void kvm_check_vpid(struct kvm_vcpu *vcpu)
 		trace_kvm_vpid_change(vcpu, vcpu->arch.vpid);
 		vcpu->cpu = cpu;
 		kvm_clear_request(KVM_REQ_TLB_FLUSH_GPA, vcpu);
+		/*
+		 * LLBCTL_WCLLB is separated CSR register from host
+		 * eret instruction in host mode clears host LLBCTL_WCLLB
+		 * register, and clears guest register in guest mode
+		 *
+		 * When gpa --> hpa mapping is changed, guest does not know
+		 * even if the content is changed with new address
+		 *
+		 * Here clear guest LLBCTL_WCLLB register when mapping is
+		 * changed, else if mapping is changed when guest is executing
+		 * LL/SC pair, LL loads old address, SC store new address
+		 * successfully since LLBCTL_WCLLB is on, even if memory
+		 * with new address is changed with other VCPUs.
+		 */
+		set_gcsr_llbctl(LOONGARCH_CSR_LLBCTL);
 	}
 
 	/* Restore GSTAT(0x50).vpid */
