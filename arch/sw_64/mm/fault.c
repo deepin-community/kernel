@@ -132,15 +132,16 @@ out:
 
 extern int do_match(unsigned long address, unsigned long mmcsr, long cause, struct pt_regs *regs);
 
-asmlinkage void notrace
-noinstr do_page_fault(unsigned long address, unsigned long mmcsr,
-		long cause, struct pt_regs *regs)
+asmlinkage void notrace noinstr do_page_fault(struct pt_regs *regs)
 {
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
 	int si_code = SEGV_MAPERR;
 	vm_fault_t fault;
 	unsigned int flags = FAULT_FLAG_DEFAULT;
+	unsigned long address = regs->earg0;
+	unsigned long mmcsr = regs->earg1;
+	long cause = regs->earg2;
 
 	if (notify_page_fault(regs, mmcsr))
 		return;
