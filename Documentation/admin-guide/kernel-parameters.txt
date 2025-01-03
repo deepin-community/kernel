@@ -4030,12 +4030,14 @@
 	numa_spinlock=	[NUMA, PV_OPS] Select the NUMA-aware variant
 			of spinlock. The options are:
 			auto - Enable this variant if running on a multi-node
-			machine in native environment.
+			machine in native environment. (Under this option, if
+			paravirt spinlock is already enabled, this variant will
+			not be enabled.)
 			on  - Unconditionally enable this variant.
 			off - Unconditionally disable this variant.
 
 			Not specifying this option is equivalent to
-			numa_spinlock=auto.
+			numa_spinlock=off.
 
 	numa_zonelist_order= [KNL, BOOT] Select zonelist order for NUMA.
 			'node', 'default' can be specified
