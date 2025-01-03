@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
-/* Copyright(c) 2020-2022  Realtek Corporation
+/* Copyright(c) 2024  Realtek Corporation
  */
 
 #include <linux/module.h>
@@ -7,9 +7,15 @@
 
 #include "pci.h"
 #include "reg.h"
-#include "rtw8852b.h"
+#include "rtw8852bt.h"
 
-static const struct rtw89_pci_info rtw8852b_pci_info = {
+static const struct rtw89_pci_ssid_quirk rtw8852bt_pci_ssid_quirks[] = {
+	{RTW89_PCI_SSID(PCI_VENDOR_ID_REALTEK, 0xB520, 0x103C, 0x88E9, HP),
+	 .bitmap = BIT(RTW89_QUIRK_THERMAL_PROT_110C)},
+	{},
+};
+
+static const struct rtw89_pci_info rtw8852bt_pci_info = {
 	.gen_def		= &rtw89_pci_gen_ax,
 	.txbd_trunc_mode	= MAC_AX_BD_TRUNC,
 	.rxbd_trunc_mode	= MAC_AX_BD_TRUNC,
@@ -61,38 +67,36 @@ static const struct rtw89_pci_info rtw8852b_pci_info = {
 	.enable_intr		= rtw89_pci_enable_intr,
 	.disable_intr		= rtw89_pci_disable_intr,
 	.recognize_intrs	= rtw89_pci_recognize_intrs,
+
+	.ssid_quirks		= rtw8852bt_pci_ssid_quirks,
 };
 
-static const struct rtw89_driver_info rtw89_8852be_info = {
-	.chip = &rtw8852b_chip_info,
+static const struct rtw89_driver_info rtw89_8852bte_info = {
+	.chip = &rtw8852bt_chip_info,
 	.quirks = NULL,
 	.bus = {
-		.pci = &rtw8852b_pci_info,
+		.pci = &rtw8852bt_pci_info,
 	},
 };
 
-static const struct pci_device_id rtw89_8852be_id_table[] = {
+static const struct pci_device_id rtw89_8852bte_id_table[] = {
 	{
-		PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0xb852),
-		.driver_data = (kernel_ulong_t)&rtw89_8852be_info,
-	},
-	{
-		PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0xb85b),
-		.driver_data = (kernel_ulong_t)&rtw89_8852be_info,
+		PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0xb520),
+		.driver_data = (kernel_ulong_t)&rtw89_8852bte_info,
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(pci, rtw89_8852be_id_table);
+MODULE_DEVICE_TABLE(pci, rtw89_8852bte_id_table);
 
-static struct pci_driver rtw89_8852be_driver = {
-	.name		= "rtw89_8852be",
-	.id_table	= rtw89_8852be_id_table,
+static struct pci_driver rtw89_8852bte_driver = {
+	.name		= "rtw89_8852bte",
+	.id_table	= rtw89_8852bte_id_table,
 	.probe		= rtw89_pci_probe,
 	.remove		= rtw89_pci_remove,
 	.driver.pm	= &rtw89_pm_ops,
 };
-module_pci_driver(rtw89_8852be_driver);
+module_pci_driver(rtw89_8852bte_driver);
 
 MODULE_AUTHOR("Realtek Corporation");
-MODULE_DESCRIPTION("Realtek 802.11ax wireless 8852BE driver");
+MODULE_DESCRIPTION("Realtek 802.11ax wireless 8852BE-VT driver");
 MODULE_LICENSE("Dual BSD/GPL");
