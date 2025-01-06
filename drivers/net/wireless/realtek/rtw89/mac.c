@@ -1700,8 +1700,10 @@ const struct rtw89_mac_size_set rtw89_mac_size = {
 	.wde_size7 = {RTW89_WDE_PG_64, 510, 2,},
 	/* DLFW */
 	.wde_size9 = {RTW89_WDE_PG_64, 0, 1024,},
+	.wde_size16_v1 = {RTW89_WDE_PG_64, 639, 1, 0,},
 	/* 8852C DLFW */
 	.wde_size18 = {RTW89_WDE_PG_64, 0, 2048,},
+	.wde_size18_v1 = {RTW89_WDE_PG_64, 0, 640, 0,},
 	/* 8852C PCIE SCC */
 	.wde_size19 = {RTW89_WDE_PG_64, 3328, 0,},
 	.wde_size23 = {RTW89_WDE_PG_64, 1022, 2,},
@@ -1722,6 +1724,8 @@ const struct rtw89_mac_size_set rtw89_mac_size = {
 	.ple_size18 = {RTW89_PLE_PG_128, 2544, 16,},
 	/* 8852C PCIE SCC */
 	.ple_size19 = {RTW89_PLE_PG_128, 1904, 16,},
+	.ple_size20_v1 = {RTW89_PLE_PG_128, 2554, 182, 40960,},
+	.ple_size22_v1 = {RTW89_PLE_PG_128, 2736, 0, 40960,},
 	/* 8852B USB2.0 SCC */
 	.ple_size32 = {RTW89_PLE_PG_128, 620, 20,},
 	/* 8852B USB3.0 SCC */
@@ -1739,6 +1743,7 @@ const struct rtw89_mac_size_set rtw89_mac_size = {
 	.wde_qt17 = {0, 0, 0,  0,},
 	/* 8852C PCIE SCC */
 	.wde_qt18 = {3228, 60, 0, 40,},
+	.wde_qt19_v1 = {613, 6, 0, 20,},
 	.wde_qt23 = {958, 48, 0, 16,},
 	/* 8852B USB2.0/USB3.0 SCC */
 	.wde_qt25 = {152, 2, 0, 8,},
@@ -1748,6 +1753,7 @@ const struct rtw89_mac_size_set rtw89_mac_size = {
 	.ple_qt4 = {264, 0, 16, 20, 26, 13, 356, 0, 32, 40, 8,},
 	/* PCIE SCC */
 	.ple_qt5 = {264, 0, 32, 20, 64, 13, 1101, 0, 64, 128, 120,},
+	.ple_qt5_v2 = {0, 0, 32, 256, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,},
 	.ple_qt9 = {0, 0, 32, 256, 0, 0, 0, 0, 0, 0, 1, 0, 0,},
 	/* DLFW */
 	.ple_qt13 = {0, 0, 16, 48, 0, 0, 0, 0, 0, 0, 0,},
@@ -1782,8 +1788,13 @@ const struct rtw89_mac_size_set rtw89_mac_size = {
 	.ple_qt_51b_wow = {147, 0, 16, 20, 157, 13, 133, 0, 172, 14, 24, 0,},
 	.ple_rsvd_qt0 = {2, 107, 107, 6, 6, 6, 6, 0, 0, 0,},
 	.ple_rsvd_qt1 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,},
+	.ple_rsvd_qt9 = {1, 44, 44, 6, 6, 6, 6, 69, 0, 0,},
 	.rsvd0_size0 = {212992, 0,},
+	.rsvd0_size6 = {40960, 0,},
 	.rsvd1_size0 = {587776, 2048,},
+	.rsvd1_size2 = {391168, 2048,},
+	.dle_input3 = {0, 0, 0, 16384, 0, 2048, 0, 0,},
+	.dle_input18 = {128, 128, 11454, 2048, 0, 2048, 24, 24,},
 };
 EXPORT_SYMBOL(rtw89_mac_size);
 

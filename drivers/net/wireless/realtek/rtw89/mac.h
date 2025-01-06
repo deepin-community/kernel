@@ -924,7 +924,9 @@ struct rtw89_mac_size_set {
 	const struct rtw89_dle_size wde_size6;
 	const struct rtw89_dle_size wde_size7;
 	const struct rtw89_dle_size wde_size9;
+	const struct rtw89_dle_size wde_size16_v1;
 	const struct rtw89_dle_size wde_size18;
+	const struct rtw89_dle_size wde_size18_v1;
 	const struct rtw89_dle_size wde_size19;
 	const struct rtw89_dle_size wde_size23;
 	const struct rtw89_dle_size wde_size25;
@@ -937,6 +939,8 @@ struct rtw89_mac_size_set {
 	const struct rtw89_dle_size ple_size9;
 	const struct rtw89_dle_size ple_size18;
 	const struct rtw89_dle_size ple_size19;
+	const struct rtw89_dle_size ple_size20_v1;
+	const struct rtw89_dle_size ple_size22_v1;
 	const struct rtw89_dle_size ple_size32;
 	const struct rtw89_dle_size ple_size33;
 	const struct rtw89_wde_quota wde_qt0;
@@ -946,12 +950,14 @@ struct rtw89_mac_size_set {
 	const struct rtw89_wde_quota wde_qt7;
 	const struct rtw89_wde_quota wde_qt17;
 	const struct rtw89_wde_quota wde_qt18;
+	const struct rtw89_wde_quota wde_qt19_v1;
 	const struct rtw89_wde_quota wde_qt23;
 	const struct rtw89_wde_quota wde_qt25;
 	const struct rtw89_ple_quota ple_qt0;
 	const struct rtw89_ple_quota ple_qt1;
 	const struct rtw89_ple_quota ple_qt4;
 	const struct rtw89_ple_quota ple_qt5;
+	const struct rtw89_ple_quota ple_qt5_v2;
 	const struct rtw89_ple_quota ple_qt9;
 	const struct rtw89_ple_quota ple_qt13;
 	const struct rtw89_ple_quota ple_qt18;
@@ -972,8 +978,14 @@ struct rtw89_mac_size_set {
 	const struct rtw89_ple_quota ple_qt_51b_wow;
 	const struct rtw89_rsvd_quota ple_rsvd_qt0;
 	const struct rtw89_rsvd_quota ple_rsvd_qt1;
+	const struct rtw89_rsvd_quota ple_rsvd_qt1_v1;
+	const struct rtw89_rsvd_quota ple_rsvd_qt9;
 	const struct rtw89_dle_rsvd_size rsvd0_size0;
+	const struct rtw89_dle_rsvd_size rsvd0_size6;
 	const struct rtw89_dle_rsvd_size rsvd1_size0;
+	const struct rtw89_dle_rsvd_size rsvd1_size2;
+	const struct rtw89_dle_input dle_input3;
+	const struct rtw89_dle_input dle_input18;
 };
 
 extern const struct rtw89_mac_size_set rtw89_mac_size;
