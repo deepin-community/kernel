@@ -2325,6 +2325,7 @@ const struct rtw89_chip_info rtw8852a_chip_info = {
 	.bss_clr_map_reg	= R_BSS_CLR_MAP,
 	.rfkill_init		= {},
 	.rfkill_get		= {},
+	.btc_sb			= {{{R_AX_SCOREBOARD, R_AX_SCOREBOARD},}},
 	.dma_ch_mask		= 0,
 	.edcca_regs		= &rtw8852a_edcca_regs,
 #ifdef CONFIG_PM
