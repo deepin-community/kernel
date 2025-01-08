@@ -38,6 +38,7 @@
 #include <linux/rv.h>
 #include <linux/livepatch_sched.h>
 #include <asm/kmap_size.h>
+#include <linux/deepin_kabi.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -391,6 +392,8 @@ struct sched_info {
 	/* When were we last queued to run? */
 	unsigned long long		last_queued;
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 #endif /* CONFIG_SCHED_INFO */
 };
 
@@ -504,6 +507,8 @@ struct sched_avg {
 	unsigned long			runnable_avg;
 	unsigned long			util_avg;
 	struct util_est			util_est;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } ____cacheline_aligned;
 
 struct sched_statistics {
@@ -545,6 +550,14 @@ struct sched_statistics {
 #ifdef CONFIG_SCHED_CORE
 	u64				core_forceidle_sum;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 #endif /* CONFIG_SCHEDSTATS */
 } ____cacheline_aligned;
 
@@ -587,6 +600,10 @@ struct sched_entity {
 	 */
 	struct sched_avg		avg;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct sched_rt_entity {
@@ -605,6 +622,8 @@ struct sched_rt_entity {
 	/* rq "owned" by this entity/group: */
 	struct rt_rq			*my_q;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } __randomize_layout;
 
 struct sched_dl_entity {
@@ -741,6 +760,12 @@ struct kmap_ctrl {
 	int				idx;
 	pte_t				pteval[KM_MAX_IDX];
 #endif
+};
+
+struct task_struct_deepin {
+};
+
+struct task_struct_extend {
 };
 
 struct task_struct {
@@ -1541,11 +1566,32 @@ struct task_struct {
 	struct user_event_mm		*user_event_mm;
 #endif
 
+	/* reserve extra field for randomized used */
+	struct task_struct_extend	*task_struct_extend;
+
 	/*
 	 * New fields for task_struct should be added above here, so that
 	 * they are included in the randomized portion of task_struct.
 	 */
 	randomized_struct_fields_end
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
+	DEEPIN_KABI_RESERVE(13)
+	DEEPIN_KABI_RESERVE(14)
+	DEEPIN_KABI_RESERVE(15)
+	DEEPIN_KABI_RESERVE(16)
+	DEEPIN_KABI_AUX_PTR(task_struct)
 
 	/* CPU-specific state of this task: */
 	struct thread_struct		thread;
