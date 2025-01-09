@@ -18,6 +18,15 @@
 
 #define _KVM_FLUSH_PGTABLE	0x1
 #define _KVM_HAS_PGMASK		0x2
+
+/* If the page entry has a write attribute,
+ * we use the page entry 50bit(KVM_RECORD_PAGE_WRITE_ABLE)
+ * to record it to restore the write attribute of the page entry,
+ * in the fast path kvm_map_page_fast for page table processing
+ */
+#define	KVM_RECORD_PAGE_WRITE_ABLE_SHIFT	50
+#define KVM_RECORD_PAGE_WRITE_ABLE		(_ULCAST_(1) << KVM_RECORD_PAGE_WRITE_ABLE_SHIFT)
+
 #define kvm_pfn_pte(pfn, prot)	(((pfn) << PFN_PTE_SHIFT) | pgprot_val(prot))
 #define kvm_pte_pfn(x)		((phys_addr_t)((x & _PFN_MASK) >> PFN_PTE_SHIFT))
 
@@ -53,6 +62,7 @@ static inline void kvm_set_pte(kvm_pte_t *ptep, kvm_pte_t val)
 }
 
 static inline int kvm_pte_write(kvm_pte_t pte) { return pte & _PAGE_WRITE; }
+static inline int kvm_record_pte_write_able(kvm_pte_t pte) { return pte & KVM_RECORD_PAGE_WRITE_ABLE; }
 static inline int kvm_pte_dirty(kvm_pte_t pte) { return pte & _PAGE_DIRTY; }
 static inline int kvm_pte_young(kvm_pte_t pte) { return pte & _PAGE_ACCESSED; }
 static inline int kvm_pte_huge(kvm_pte_t pte) { return pte & _PAGE_HUGE; }
@@ -74,7 +84,7 @@ static inline kvm_pte_t kvm_pte_mkdirty(kvm_pte_t pte)
 
 static inline kvm_pte_t kvm_pte_mkclean(kvm_pte_t pte)
 {
-	return pte & ~_PAGE_DIRTY;
+	return pte & (~(_PAGE_DIRTY | _PAGE_WRITE));
 }
 
 static inline kvm_pte_t kvm_pte_mkhuge(kvm_pte_t pte)

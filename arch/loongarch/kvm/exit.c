@@ -44,6 +44,8 @@ static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
 	switch (index) {
 	case 0 ... (KVM_MAX_CPUCFG_REGS - 1):
 		vcpu->arch.gprs[rd] = vcpu->arch.cpucfg[index];
+		if (cpu_has_ptw && (index == LOONGARCH_CPUCFG2))
+			vcpu->arch.gprs[rd] |= CPUCFG2_PTW;
 		break;
 	case CPUCFG_KVM_SIG:
 		/* CPUCFG emulation between 0x40000000 -- 0x400000ff */
