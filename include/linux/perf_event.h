@@ -63,6 +63,7 @@ struct perf_guest_info_callbacks {
 #include <linux/static_call.h>
 #include <linux/lockdep.h>
 #include <asm/local.h>
+#include <linux/deepin_kabi.h>
 
 struct perf_callchain_entry {
 	__u64				nr;
@@ -324,6 +325,11 @@ struct pmu {
 	/* number of address filters this PMU can do */
 	unsigned int			nr_addr_filters;
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+
 	/*
 	 * Fully disable/enable this PMU, can be used to protect from the PMI
 	 * as well as for lazy/batch writing of the MSRs.
@@ -540,6 +546,11 @@ struct pmu {
 	 * Check period value for PERF_EVENT_IOC_PERIOD ioctl.
 	 */
 	int (*check_period)		(struct perf_event *event, u64 value); /* optional */
+
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 enum perf_addr_filter_action_t {
@@ -840,6 +851,13 @@ struct perf_event {
 	 * user.
 	 */
 	__u32				orig_type;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
 #endif /* CONFIG_PERF_EVENTS */
 };
 
@@ -966,6 +984,11 @@ struct perf_event_context {
 	 * that until the signal is delivered.
 	 */
 	local_t				nr_pending;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -1041,6 +1064,9 @@ struct perf_cgroup_info {
 	u64				timestamp;
 	u64				timeoffset;
 	int				active;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct perf_cgroup {
@@ -1193,6 +1219,11 @@ struct perf_sample_data {
 	u64				data_page_size;
 	u64				code_page_size;
 	u64				aux_size;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 } ____cacheline_aligned;
 
 /* default value for data source */
