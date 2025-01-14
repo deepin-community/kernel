@@ -23,6 +23,8 @@
 
 #include <asm/mmu.h>
 
+#include <linux/deepin_kabi.h>
+
 #ifndef AT_VECTOR_SIZE_ARCH
 #define AT_VECTOR_SIZE_ARCH 0
 #endif
@@ -1232,6 +1234,11 @@ enum vm_fault_reason {
 struct vm_special_mapping {
 	const char *name;	/* The name, e.g. "[vdso]". */
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 	/*
 	 * If .fault is not provided, this points to a
 	 * NULL-terminated array of pages that back the special mapping.
