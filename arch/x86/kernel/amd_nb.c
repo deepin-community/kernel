@@ -466,8 +466,9 @@ err:
 	amd_northbridges.nb = NULL;
 
 ret:
-	pr_err("Hygon Fam%xh Model%xh northbridge init failed(%d)!\n",
-		boot_cpu_data.x86, boot_cpu_data.x86_model, err);
+	if (!boot_cpu_has(X86_FEATURE_HYPERVISOR))
+		pr_err("Hygon Fam%xh Model%xh northbridge init failed(%d)!\n",
+			boot_cpu_data.x86, boot_cpu_data.x86_model, err);
 	return err;
 }
 
