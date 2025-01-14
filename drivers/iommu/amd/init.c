@@ -3045,7 +3045,7 @@ static bool __init check_ioapic_information(void)
 			   (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
 			    boot_cpu_data.x86 == 0x18 &&
 			    boot_cpu_data.x86_model >= 0x4 &&
-			    boot_cpu_data.x86_model <= 0xf &&
+			    boot_cpu_data.x86_model <= 0x10 &&
 			    devid == IOAPIC_SB_DEVID_FAM18H_M4H)) {
 			has_sb_ioapic = true;
 			ret           = true;
