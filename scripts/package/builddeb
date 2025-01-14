@@ -85,12 +85,18 @@ install_linux_image () {
 	case "${SRCARCH}" in
 	um)
 		installed_image_path="usr/bin/linux-${KERNELRELEASE}";;
-	parisc|mips|powerpc)
+	parisc|powerpc)
 		installed_image_path="boot/vmlinux-${KERNELRELEASE}";;
 	*)
 		installed_image_path="boot/vmlinuz-${KERNELRELEASE}";;
 	esac
-	cp "$(${MAKE} -s -f ${srctree}/Makefile image_name)" "${pdir}/${installed_image_path}"
+
+	case "${SRCARCH}" in
+	mips)
+		cp vmlinuz "${pdir}/${installed_image_path}";;
+	*)
+		cp "$(${MAKE} -s -f ${srctree}/Makefile image_name)" "${pdir}/${installed_image_path}";;
+	esac
 
         # UEFI Secure Boot CA paths.
         deepin_uefi_ca="${srctree}/scripts/package/UEFI-CA-CERT/DEEPIN-UEFI-RSA.pem"
