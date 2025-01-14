@@ -1154,7 +1154,7 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	ctx.inst_id = umc;
 
 	/* Read DramOffset, check if base 1 is used. */
-	if (hygon_f18h_m4h() &&
+	if ((hygon_f18h_m4h() || hygon_f18h_m10h()) &&
 	    df_indirect_read_instance(nid, 0, 0x214, umc, &ctx.tmp))
 		goto out_err;
 	else if (df_indirect_read_instance(nid, 0, 0x1B4, umc, &ctx.tmp))
@@ -1182,7 +1182,7 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	}
 
 	intlv_num_sockets = 0;
-	if (hygon_f18h_m4h())
+	if (hygon_f18h_m4h() || hygon_f18h_m10h())
 		intlv_num_sockets = (ctx.tmp >> 2) & 0x3;
 	lgcy_mmio_hole_en = ctx.tmp & BIT(1);
 	intlv_num_chan	  = (ctx.tmp >> 4) & 0xF;
@@ -1200,14 +1200,15 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 	if (df_indirect_read_instance(nid, 0, 0x114 + (8 * base), umc, &ctx.tmp))
 		goto out_err;
 
-	if (!hygon_f18h_m4h())
+	if (!hygon_f18h_m4h() && !hygon_f18h_m10h())
 		intlv_num_sockets = (ctx.tmp >> 8) & 0x1;
 	intlv_num_dies	  = (ctx.tmp >> 10) & 0x3;
 	dram_limit_addr	  = ((ctx.tmp & GENMASK_ULL(31, 12)) << 16) | GENMASK_ULL(27, 0);
 
 	intlv_addr_bit = intlv_addr_sel + 8;
 
-	if (hygon_f18h_m4h() && boot_cpu_data.x86_model >= 0x6) {
+	if ((hygon_f18h_m4h() && boot_cpu_data.x86_model >= 0x6) ||
+	    hygon_f18h_m10h()) {
 		if (df_indirect_read_instance(nid, 0, 0x60, umc, &ctx.tmp))
 			goto out_err;
 		intlv_num_dies = ctx.tmp & 0x3;
@@ -1272,7 +1273,7 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 		if (df_indirect_read_instance(nid, 0, 0x50, umc, &ctx.tmp))
 			goto out_err;
 
-		if (hygon_f18h_m4h())
+		if (hygon_f18h_m4h() || hygon_f18h_m10h())
 			cs_fabric_id = (ctx.tmp >> 8) & 0x7FF;
 		else
 			cs_fabric_id = (ctx.tmp >> 8) & 0xFF;
