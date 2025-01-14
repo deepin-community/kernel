@@ -328,7 +328,8 @@ int get_df_id(struct pci_dev *misc, u8 *id)
 	u32 value;
 	int ret;
 
-	if (boot_cpu_data.x86_model == 0x6) {
+	if (boot_cpu_data.x86_model >= 0x6 &&
+	    boot_cpu_data.x86_model <= 0x7) {
 		/* F5x180[19:16]: DF ID */
 		ret = get_df_register(misc, 5, 0x180, &value);
 		*id = (value >> 16) & 0xf;
