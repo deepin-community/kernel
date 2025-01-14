@@ -1282,12 +1282,14 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 			if (hygon_f18h_m4h()) {
 				die_id_shift = (ctx.tmp >> 12) & 0xF;
 				die_id_mask  = ctx.tmp & 0x7FF;
+				cs_id |= (((cs_fabric_id & die_id_mask) >> die_id_shift) - 4) <<
+						die_id_bit;
 			} else {
 				die_id_shift = (ctx.tmp >> 24) & 0xF;
 				die_id_mask  = (ctx.tmp >> 8) & 0xFF;
+				cs_id |= ((cs_fabric_id & die_id_mask) >> die_id_shift) <<
+						die_id_bit;
 			}
-
-			cs_id |= ((cs_fabric_id & die_id_mask) >> die_id_shift) << die_id_bit;
 		}
 
 		/* If interleaved over more than 1 socket. */
