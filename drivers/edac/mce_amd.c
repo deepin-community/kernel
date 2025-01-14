@@ -168,6 +168,33 @@ static const char * const smca_ls_mce_desc[] = {
 	"L2 Fill Data error",
 };
 
+/* Hygon Model7h Scalable MCA LS error strings */
+static const char * const smca_ls_mce_hygon_desc[] = {
+	"Load queue parity error",
+	"Store queue parity error",
+	"Miss address buffer payload parity error",
+	"Level 1 TLB parity error",
+	"DC Tag error type 5",
+	"DC Tag error type 6",
+	"DC Tag error type 1",
+	"Internal error type 1",
+	"Internal error type 2",
+	"System Read Data Error 0",
+	"System Read Data Error 1",
+	"System Read Data Error 2",
+	"System Read Data Error 3",
+	"DC Tag error type 2",
+	"DC Data error type 1 and poison consumption",
+	"DC Data error type 2",
+	"DC Data error type 3",
+	"DC Tag error type 4",
+	"Level 2 TLB parity error",
+	"PDC parity error",
+	"DC Tag error type 3",
+	"DC Tag error type 5",
+	"L2 Fill Data error",
+};
+
 static const char * const smca_ls2_mce_desc[] = {
 	"An ECC error was detected on a data cache read by a probe or victimization",
 	"An ECC error or L2 poison was detected on a data cache read by a load",
@@ -206,6 +233,31 @@ static const char * const smca_if_mce_desc[] = {
 	"L2 ITLB Parity Error",
 	"BPQ Thread 0 Snoop Parity Error",
 	"BPQ Thread 1 Snoop Parity Error",
+	"L1 BTB Multi-Match Error",
+	"L2 BTB Multi-Match Error",
+	"L2 Cache Response Poison Error",
+	"System Read Data Error",
+	"Hardware Assertion Error",
+	"L1-TLB Multi-Hit",
+	"L2-TLB Multi-Hit",
+	"BSR Parity Error",
+	"CT MCE",
+};
+
+/* Hygon Model7h Scalable MCA IF error strings */
+static const char * const smca_if_mce_hygon_desc[] = {
+	"Op Cache Microtag Probe Port Parity Error",
+	"IC Microtag or Full Tag Multi-hit Error",
+	"IC Full Tag Parity Error",
+	"IC Data Array Parity Error",
+	"Decoupling Queue PhysAddr Parity Error",
+	"L0 ITLB Parity Error",
+	"L1 ITLB Parity Error",
+	"L2 ITLB Parity Error",
+	"BPQ 0 Snoop Parity Error",
+	"BPQ 1 Snoop Parity Error",
+	"BPQ 2 Snoop Parity Error",
+	"BPQ 3 Snoop Parity Error",
 	"L1 BTB Multi-Match Error",
 	"L2 BTB Multi-Match Error",
 	"L2 Cache Response Poison Error",
@@ -1432,6 +1484,16 @@ static int __init mce_amd_init(void)
 
 out:
 	pr_info("MCE: In-kernel MCE decoding enabled.\n");
+
+	if (c->x86_vendor == X86_VENDOR_HYGON &&
+	    c->x86_model >= 0x7 && c->x86_model <= 0xf) {
+		smca_mce_descs[SMCA_LS].descs = smca_ls_mce_hygon_desc;
+		smca_mce_descs[SMCA_LS].num_descs = ARRAY_SIZE(smca_ls_mce_hygon_desc);
+		smca_mce_descs[SMCA_IF].descs = smca_if_mce_hygon_desc;
+		smca_mce_descs[SMCA_IF].num_descs = ARRAY_SIZE(smca_if_mce_hygon_desc);
+		pr_info("MCE: Hygon Fam%xh Model%xh smca mce descs setup.\n",
+				c->x86, c->x86_model);
+	}
 
 	mce_register_decode_chain(&amd_mce_dec_nb);
 
