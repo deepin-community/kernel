@@ -1906,7 +1906,9 @@ static void umc_determine_memory_type(struct amd64_pvt *pvt)
 		 * Check if the system supports the "DDR Type" field in UMC Config
 		 * and has DDR5 DIMMs in use.
 		 */
-		if ((pvt->flags.zn_regs_v2 || hygon_f18h_m4h()) &&
+		if ((pvt->flags.zn_regs_v2 ||
+		     hygon_f18h_m4h() ||
+		     hygon_f18h_m10h()) &&
 		    ((umc->umc_cfg & GENMASK(2, 0)) == 0x1)) {
 			if (umc->dimm_cfg & BIT(5))
 				umc->dram_type = MEM_LRDDR5;
