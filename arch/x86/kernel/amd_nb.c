@@ -262,6 +262,20 @@ bool hygon_f18h_m4h(void)
 }
 EXPORT_SYMBOL_GPL(hygon_f18h_m4h);
 
+bool hygon_f18h_m10h(void)
+{
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_HYGON)
+		return false;
+
+	if (boot_cpu_data.x86 == 0x18 &&
+	    boot_cpu_data.x86_model >= 0x10 &&
+	    boot_cpu_data.x86_model <= 0x1f)
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL_GPL(hygon_f18h_m10h);
+
 u16 hygon_nb_num(void)
 {
 	return nb_num;
