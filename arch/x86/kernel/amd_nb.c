@@ -299,8 +299,7 @@ static int get_df_register(struct pci_dev *misc, u8 func, int offset, u32 *value
 			else
 				device = PCI_DEVICE_ID_HYGON_18H_M04H_DF_F1;
 			break;
-		case 0x6:
-		case 0x7:
+		case 0x6 ... 0x8:
 			device = PCI_DEVICE_ID_HYGON_18H_M05H_DF_F1;
 			break;
 		default:
@@ -308,8 +307,7 @@ static int get_df_register(struct pci_dev *misc, u8 func, int offset, u32 *value
 		}
 	} else if (func == 5) {
 		switch (boot_cpu_data.x86_model) {
-		case 0x6:
-		case 0x7:
+		case 0x6 ... 0x8:
 			device = PCI_DEVICE_ID_HYGON_18H_M06H_DF_F5;
 			break;
 		default:
@@ -343,7 +341,7 @@ int get_df_id(struct pci_dev *misc, u8 *id)
 	int ret;
 
 	if (boot_cpu_data.x86_model >= 0x6 &&
-	    boot_cpu_data.x86_model <= 0x7) {
+	    boot_cpu_data.x86_model <= 0xf) {
 		/* F5x180[19:16]: DF ID */
 		ret = get_df_register(misc, 5, 0x180, &value);
 		*id = (value >> 16) & 0xf;
