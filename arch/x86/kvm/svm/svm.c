@@ -243,6 +243,17 @@ module_param(intercept_smi, bool, 0444);
 bool vnmi = true;
 module_param(vnmi, bool, 0444);
 
+/*
+ * Allow set guest PAT to WB in some non-passthrough
+ * application scenarios to enhance performance.
+ *
+ * Add kernel parameter set_guest_pat_wb(default 0):
+ * 1 - set guest PAT to WB
+ * 0 - keep guest PAT to the kernel default value
+ */
+static int set_guest_pat_wb = false;
+module_param(set_guest_pat_wb, int, 0444);
+
 static bool svm_gp_erratum_intercept = true;
 
 static u8 rsm_ins_bytes[] = "\x0f\xaa";
@@ -1256,6 +1267,16 @@ static inline void init_vmcb_after_set_cpuid(struct kvm_vcpu *vcpu)
 	}
 }
 
+static void svm_set_guest_pat(struct vcpu_svm *svm, u64 *g_pat)
+{
+	struct kvm_vcpu *vcpu = &svm->vcpu;
+
+	if (!kvm_arch_has_assigned_device(vcpu->kvm))
+		*g_pat = GUEST_PAT_WB_ATTR;
+	else
+		*g_pat = vcpu->arch.pat;
+}
+
 static void init_vmcb(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
@@ -1357,6 +1378,8 @@ static void init_vmcb(struct kvm_vcpu *vcpu)
 		svm_clr_intercept(svm, INTERCEPT_CR3_READ);
 		svm_clr_intercept(svm, INTERCEPT_CR3_WRITE);
 		save->g_pat = vcpu->arch.pat;
+		if (set_guest_pat_wb)
+			svm_set_guest_pat(svm, &save->g_pat);
 		save->cr3 = 0;
 	}
 	svm->current_vmcb->asid_generation = 0;
@@ -3068,6 +3091,10 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->vmcb01.ptr->save.g_pat = data;
 		if (is_guest_mode(vcpu))
 			nested_vmcb02_compute_g_pat(svm);
+		if (npt_enabled && set_guest_pat_wb) {
+			svm_set_guest_pat(svm, &svm->vmcb01.ptr->save.g_pat);
+			vcpu->arch.pat = svm->vmcb01.ptr->save.g_pat;
+		}
 		vmcb_mark_dirty(svm->vmcb, VMCB_NPT);
 		break;
 	case MSR_IA32_SPEC_CTRL:
