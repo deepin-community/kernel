@@ -1130,7 +1130,12 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 {
 	u64 dram_base_addr, dram_limit_addr, dram_hole_base;
 
-	u8 die_id_shift, die_id_mask, socket_id_shift, socket_id_mask;
+	u8 die_id_shift, socket_id_shift;
+#ifdef CONFIG_CPU_SUP_HYGON
+	u16 die_id_mask, socket_id_mask;
+#else
+	u8 die_id_mask, socket_id_mask;
+#endif
 	u8 intlv_num_dies, intlv_num_chan, intlv_num_sockets;
 	u8 intlv_addr_sel, intlv_addr_bit;
 	u8 num_intlv_bits, hashed_bit;
@@ -1245,7 +1250,12 @@ static int umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr
 
 	if (num_intlv_bits > 0) {
 		u64 temp_addr_x, temp_addr_i, temp_addr_y;
-		u8 die_id_bit, sock_id_bit, cs_fabric_id;
+		u8 die_id_bit, sock_id_bit;
+#ifdef CONFIG_CPU_SUP_HYGON
+		u16 cs_fabric_id;
+#else
+		u8 cs_fabric_id;
+#endif
 
 		/*
 		 * Read FabricBlockInstanceInformation3_CS[BlockFabricID].
