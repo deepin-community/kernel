@@ -843,7 +843,7 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 	u8 databits = 0;
 	u8 stopbits = 0;
 	u8 parity_en = 0;
-	u8 parodd = 0;
+	u8 parodd = 1;
 	u8 cmspar = 0;
 	u8 crtscts = 0;
 	cmd_subid_type cmd_subid1, cmd_subid2;
