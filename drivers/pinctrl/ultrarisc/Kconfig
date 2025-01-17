@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config PINCTRL_ULTRARISC
+	bool
+	depends on OF
+	select PINMUX
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINCONF
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	select IRQ_DOMAIN_HIERARCHY
+	select MFD_SYSCON
+
+config PINCTRL_ULTRARISC_DP1000
+	tristate "Pinctrl driver of UltraRisc DP1000"
+	select PINCTRL_ULTRARISC
+	depends on OF && HAS_IOMEM
+	help
+	  This driver configures the UltraRisc DP1000 SoC's pinctrl
+	  subsystem.
