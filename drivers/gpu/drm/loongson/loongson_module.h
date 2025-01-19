@@ -8,6 +8,7 @@
 
 extern int loongson_vblank;
 extern int loongson_ls7a1000_support;
+extern int loongson_ls7a2000_support;
 extern struct pci_driver lsdc_pci_driver;
 
 #endif
