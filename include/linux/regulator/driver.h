@@ -67,7 +67,7 @@ enum regulator_detection_severity {
  *		May also return negative errno.
  *
  * @set_voltage: Set the voltage for the regulator within the range specified.
- *               The driver should select the voltage closest to min_uV.
+ *		The driver should select the voltage closest to min_uV.
  * @set_voltage_sel: Set the voltage for the regulator using the specified
  *                   selector.
  * @map_voltage: Convert a voltage into a selector
@@ -365,11 +365,16 @@ struct regulator_desc {
 	const char *name;
 	const char *supply_name;
 	const char *of_match;
+	const char *fwnode_match;
 	bool of_match_full_name;
+	bool fwnode_match_full_name;
 	const char *regulators_node;
 	int (*of_parse_cb)(struct device_node *,
 			    const struct regulator_desc *,
 			    struct regulator_config *);
+	int (*fwnode_parse_cb)(struct fwnode_handle *handle,
+			    const struct regulator_desc *desc,
+			    struct regulator_config *config);
 	int id;
 	unsigned int continuous_voltage_range:1;
 	unsigned n_voltages;
@@ -435,6 +440,7 @@ struct regulator_desc {
 	unsigned int poll_enabled_time;
 
 	unsigned int (*of_map_mode)(unsigned int mode);
+	unsigned int (*fwnode_map_mode)(unsigned int mode);
 };
 
 /**
@@ -458,6 +464,7 @@ struct regulator_config {
 	const struct regulator_init_data *init_data;
 	void *driver_data;
 	struct device_node *of_node;
+	struct fwnode_handle *fwnode;
 	struct regmap *regmap;
 
 	struct gpio_desc *ena_gpiod;
