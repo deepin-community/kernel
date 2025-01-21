@@ -26,6 +26,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/module.h>
+#include <linux/acpi.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
@@ -452,6 +453,30 @@ err_node_put:
 	return regnode;
 }
 
+static struct fwnode_handle *fwnode_get_child_regulator(struct fwnode_handle *parent,
+						  const char *prop_name)
+{
+	struct fwnode_handle *regnode = NULL;
+	struct fwnode_handle *child = NULL;
+
+	fwnode_for_each_child_node(parent, child) {
+		regnode = fwnode_find_reference(child, prop_name, 0);
+
+		if (IS_ERR_OR_NULL(regnode)) {
+			regnode = fwnode_get_child_regulator(child, prop_name);
+			if (!IS_ERR_OR_NULL(regnode))
+				goto err_node_put;
+		} else {
+			goto err_node_put;
+		}
+	}
+	return NULL;
+
+err_node_put:
+	fwnode_handle_put(child);
+	return regnode;
+}
+
 /**
  * of_get_regulator - get a regulator device node based on supply name
  * @dev: Device pointer for the consumer (of regulator) device
@@ -474,6 +499,28 @@ static struct device_node *of_get_regulator(struct device *dev, const char *supp
 	if (!regnode) {
 		regnode = of_get_child_regulator(dev->of_node, prop_name);
 		if (regnode)
+			return regnode;
+
+		dev_dbg(dev, "Looking up %s property in node %pOF failed\n",
+				prop_name, dev->of_node);
+		return NULL;
+	}
+	return regnode;
+}
+
+static struct fwnode_handle *fwnode_get_regulator(struct device *dev, const char *supply)
+{
+	struct fwnode_handle *regnode = NULL;
+	char prop_name[64]; /* 64 is max size of property name */
+
+	dev_dbg(dev, "Looking up %s-supply from device tree\n", supply);
+
+	snprintf(prop_name, 64, "%s-supply", supply);
+	regnode = fwnode_find_reference(dev->fwnode, prop_name, 0);
+
+	if (IS_ERR_OR_NULL(regnode)) {
+		regnode = fwnode_get_child_regulator(dev->fwnode, prop_name);
+		if (!IS_ERR_OR_NULL(regnode))
 			return regnode;
 
 		dev_dbg(dev, "Looking up %s property in node %pOF failed\n",
@@ -2010,11 +2057,26 @@ static struct regulator_dev *regulator_dev_lookup(struct device *dev,
 	struct device_node *node;
 	struct regulator_map *map;
 	const char *devname = NULL;
+	struct fwnode_handle *fwnode;
 
 	regulator_supply_alias(&dev, &supply);
 
 	/* first do a dt based lookup */
-	if (dev && dev->of_node) {
+	if (has_acpi_companion(dev)) {
+		fwnode = fwnode_get_regulator(dev, supply);
+		if (fwnode) {
+			r = fwnode_find_regulator_by_node(fwnode);
+			fwnode_handle_put(fwnode);
+			if (r)
+				return r;
+
+			/*
+			 * We have a node, but there is no device.
+			 * assume it has not registered yet.
+			 */
+			return ERR_PTR(-EPROBE_DEFER);
+		}
+	} else if (dev && dev->of_node) {
 		node = of_get_regulator(dev, supply);
 		if (node) {
 			r = of_find_regulator_by_node(node);
@@ -5358,8 +5420,10 @@ static void regulator_resolve_coupling(struct regulator_dev *rdev)
 		/* already resolved */
 		if (c_desc->coupled_rdevs[i])
 			continue;
-
-		c_rdev = of_parse_coupled_regulator(rdev, i - 1);
+		if (has_acpi_companion(&rdev->dev))
+			c_rdev = fwnode_parse_coupled_regulator(rdev, i - 1);
+		else
+			c_rdev = of_parse_coupled_regulator(rdev, i - 1);
 
 		if (!c_rdev)
 			continue;
@@ -5432,8 +5496,8 @@ static int regulator_init_coupling(struct regulator_dev *rdev)
 	struct regulator_dev **coupled;
 	int err, n_phandles;
 
-	if (!IS_ENABLED(CONFIG_OF))
-		n_phandles = 0;
+	if (has_acpi_companion(&rdev->dev))
+		n_phandles = fwnode_get_n_coupled(rdev);
 	else
 		n_phandles = of_get_n_coupled(rdev);
 
@@ -5455,8 +5519,12 @@ static int regulator_init_coupling(struct regulator_dev *rdev)
 	if (n_phandles == 0)
 		return 0;
 
-	if (!of_check_coupling_data(rdev))
-		return -EPERM;
+	if (has_acpi_companion(&rdev->dev)) {
+		if (!fwnode_check_coupling_data(rdev))
+			return -EPERM;
+	} else
+		if (!of_check_coupling_data(rdev))
+			return -EPERM;
 
 	mutex_lock(&regulator_list_mutex);
 	rdev->coupling_desc.coupler = regulator_find_coupler(rdev);
@@ -5577,8 +5645,12 @@ regulator_register(struct device *dev,
 		goto clean;
 	}
 
-	init_data = regulator_of_get_init_data(dev, regulator_desc, config,
-					       &rdev->dev.of_node);
+	if (has_acpi_companion(dev))
+		init_data = regulator_fwnode_get_init_data(dev, regulator_desc, config,
+							&rdev->dev.fwnode);
+	else
+		init_data = regulator_of_get_init_data(dev, regulator_desc, config,
+							&rdev->dev.of_node);
 
 	/*
 	 * Sometimes not all resources are probed already so we need to take
@@ -5603,6 +5675,7 @@ regulator_register(struct device *dev,
 	if (!init_data) {
 		init_data = config->init_data;
 		rdev->dev.of_node = of_node_get(config->of_node);
+		rdev->dev.fwnode = fwnode_handle_get(config->fwnode);
 	}
 
 	ww_mutex_init(&rdev->mutex, &regulator_ww_class);
