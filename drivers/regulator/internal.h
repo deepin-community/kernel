@@ -65,6 +65,16 @@ static inline struct regulator_dev *dev_to_rdev(struct device *dev)
 	return container_of(dev, struct regulator_dev, dev);
 }
 
+struct regulator_dev *fwnode_find_regulator_by_node(struct fwnode_handle *np);
+struct regulator_init_data *regulator_fwnode_get_init_data(struct device *dev,
+				const struct regulator_desc *desc,
+				struct regulator_config *config,
+				struct fwnode_handle **node);
+struct regulator_dev *fwnode_parse_coupled_regulator(struct regulator_dev *rdev,
+						 int index);
+int fwnode_get_n_coupled(struct regulator_dev *rdev);
+bool fwnode_check_coupling_data(struct regulator_dev *rdev);
+
 #ifdef CONFIG_OF
 struct regulator_dev *of_find_regulator_by_node(struct device_node *np);
 struct regulator_init_data *regulator_of_get_init_data(struct device *dev,
