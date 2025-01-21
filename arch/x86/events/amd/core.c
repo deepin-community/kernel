@@ -296,6 +296,9 @@ static u64 amd_pmu_event_map(int hw_event)
 	if (cpu_feature_enabled(X86_FEATURE_ZEN1))
 		return amd_zen1_perfmon_event_map[hw_event];
 
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		return amd_zen1_perfmon_event_map[hw_event];
+
 	return amd_perfmon_event_map[hw_event];
 }
 
