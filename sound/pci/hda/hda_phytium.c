@@ -952,6 +952,51 @@ static const struct hda_controller_ops axi_hda_ops = {
 	.link_power = azx_ft_link_power,
 };
 
+static ssize_t runtime_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	struct azx *chip = card->private_data;
+	struct hdac_bus *bus = azx_bus(chip);
+	unsigned int cmd = 0x001f0500;
+	unsigned int res = -1;
+	char *status;
+
+	dev_info(dev, "Inquire codec status!\n");
+	mutex_lock(&bus->cmd_mutex);
+	snd_hdac_bus_send_cmd(bus, cmd);
+	snd_hdac_bus_get_response(bus, 0, &res);
+	mutex_unlock(&bus->cmd_mutex);
+
+	switch (res & 0x3) {
+	case 0x0:
+		status = "D0";
+		break;
+	case 0x1:
+		status = "D1";
+		break;
+	case 0x2:
+		status = "D2";
+		break;
+	case 0x3:
+		status = "D3";
+		break;
+	}
+
+	return sprintf(buf, "%s\n", status);
+}
+
+static DEVICE_ATTR_RO(runtime_status);
+
+static struct attribute *runtime_status_attrs[] = {
+	&dev_attr_runtime_status.attr,
+	NULL,
+};
+
+static const struct attribute_group hda_ft_runtime_status_group = {
+	.attrs = runtime_status_attrs,
+};
+
 static DECLARE_BITMAP(probed_devs, SNDRV_CARDS);
 
 static int hda_ft_probe(struct platform_device *pdev)
@@ -993,11 +1038,18 @@ static int hda_ft_probe(struct platform_device *pdev)
 	if (schedule_probe)
 		schedule_work(&hda->probe_work);
 
+	if (sysfs_create_group(&hda->dev->kobj, &hda_ft_runtime_status_group)) {
+		dev_warn(&pdev->dev, "failed create sysfs\n");
+		goto err_sysfs;
+	}
+
 	set_bit(dev, probed_devs);
 	if (chip->disabled)
 		complete_all(&hda->probe_wait);
 	return 0;
 
+err_sysfs:
+	sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 out_free:
 	snd_card_free(card);
 	return err;
@@ -1070,6 +1122,7 @@ static int hda_ft_remove(struct platform_device *pdev)
 		hda = container_of(chip, struct hda_ft, chip);
 		cancel_work_sync(&hda->probe_work);
 		clear_bit(chip->dev_index, probed_devs);
+		sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 
 		snd_card_free(card);
 		return 0;
