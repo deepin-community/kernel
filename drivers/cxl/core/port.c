@@ -1533,6 +1533,8 @@ retry:
 				return rc;
 			}
 
+			cxl_gpf_port_setup(dport_dev, port);
+
 			/* Any more ports to add between this one and the root? */
 			if (!dev_is_cxl_root_child(&port->dev)) {
 				put_device(&port->dev);
