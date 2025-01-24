@@ -94,4 +94,6 @@ enum cxl_poison_trace_type {
 	CXL_POISON_TRACE_CLEAR,
 };
 
+int cxl_gpf_port_setup(struct device *dport_dev, struct cxl_port *port);
+
 #endif /* __CXL_CORE_H__ */

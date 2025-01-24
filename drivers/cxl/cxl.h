@@ -581,6 +581,7 @@ struct cxl_dax_region {
  * @depth: How deep this port is relative to the root. depth 0 is the root.
  * @cdat: Cached CDAT data
  * @cdat_available: Should a CDAT attribute be available in sysfs
+ * @gpf_dvsec: Cached GPF port DVSEC
  */
 struct cxl_port {
 	struct device dev;
@@ -604,6 +605,7 @@ struct cxl_port {
 		size_t length;
 	} cdat;
 	bool cdat_available;
+	int gpf_dvsec;
 };
 
 static inline struct cxl_dport *
