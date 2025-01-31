@@ -3522,6 +3522,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 			if (PMSG_IS_AUTO(msg))
 				goto err_wakeup;
 		}
+		usb_enable_remote_wakeup(udev->bus->root_hub);
 	}
 
 	/* disable USB2 hardware LPM */
@@ -3585,8 +3586,10 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		/* Try to enable USB2 hardware LPM again */
 		usb_enable_usb2_hardware_lpm(udev);
 
-		if (udev->do_remote_wakeup)
+		if (udev->do_remote_wakeup) {
 			(void) usb_disable_remote_wakeup(udev);
+			(void) usb_disable_remote_wakeup(udev->bus->root_hub);
+		}
  err_wakeup:
 
 		/* System sleep transitions should never fail */
