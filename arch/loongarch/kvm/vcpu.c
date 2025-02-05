@@ -882,8 +882,11 @@ static int kvm_set_one_reg(struct kvm_vcpu *vcpu,
 			break;
 		case KVM_REG_LOONGARCH_VCPU_RESET:
 			vcpu->arch.st.guest_addr = 0;
-			if (vcpu->vcpu_id == 0)
+			if (vcpu->vcpu_id == 0) {
 				kvm_loongarch_reset_extioi(vcpu->kvm);
+				kvm_loongarch_reset_pch(vcpu->kvm);
+			}
+			kvm_loongarch_reset_ipi(vcpu);
 			memset(&vcpu->arch.irq_pending, 0, sizeof(vcpu->arch.irq_pending));
 			memset(&vcpu->arch.irq_clear, 0, sizeof(vcpu->arch.irq_clear));
 			break;

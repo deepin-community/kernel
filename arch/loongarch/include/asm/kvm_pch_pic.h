@@ -41,6 +41,7 @@ struct loongarch_pch_pic {
 	spinlock_t lock;
 	struct kvm *kvm;
 	struct kvm_io_device device;
+	uint64_t pch_pic_base;
 	uint64_t mask; /* 1:disable irq, 0:enable irq */
 	uint64_t htmsi_en; /* 1:msi */
 	uint64_t edge; /* 1:edge triggered, 0:level triggered */
@@ -52,10 +53,10 @@ struct loongarch_pch_pic {
 	uint64_t polarity; /* 0: high level trigger, 1: low level trigger */
 	uint8_t  route_entry[64]; /* default value 0, route to int0: extioi */
 	uint8_t  htmsi_vector[64]; /* irq route table for routing to extioi */
-	uint64_t pch_pic_base;
 };
 
 void pch_pic_set_irq(struct loongarch_pch_pic *s, int irq, int level);
 void pch_msi_set_irq(struct kvm *kvm, int irq, int level);
 int kvm_loongarch_register_pch_pic_device(void);
+int kvm_loongarch_reset_pch(struct kvm *kvm);
 #endif /* LOONGARCH_PCH_PIC_H */

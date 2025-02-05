@@ -49,4 +49,5 @@ struct ipi_state {
 #define ANY_SEND_OFFSET			(IOCSR_ANY_SEND - IOCSR_MAIL_SEND)
 
 int kvm_loongarch_register_ipi_device(void);
+int kvm_loongarch_reset_ipi(struct kvm_vcpu *vcpu);
 #endif
