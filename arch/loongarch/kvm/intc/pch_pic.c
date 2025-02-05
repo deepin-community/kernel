@@ -538,3 +538,23 @@ int kvm_loongarch_register_pch_pic_device(void)
 	return kvm_register_device_ops(&kvm_loongarch_pch_pic_dev_ops,
 					KVM_DEV_TYPE_LOONGARCH_PCHPIC);
 }
+
+int kvm_loongarch_reset_pch(struct kvm *kvm)
+{
+	struct loongarch_pch_pic *s = kvm->arch.pch_pic;
+	u8 offset, size;
+	u8 *pstart;
+
+	if (!s)
+		return -EINVAL;
+
+	pstart = (char *)&s->mask;
+	offset = (char *)&s->mask - (char *)s;
+	size = sizeof(struct loongarch_pch_pic) - offset;
+
+	spin_lock(&s->lock);
+	memset(pstart, 0, size);
+	spin_unlock(&s->lock);
+
+	return 0;
+}

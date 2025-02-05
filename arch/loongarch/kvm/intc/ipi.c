@@ -536,3 +536,23 @@ int kvm_loongarch_register_ipi_device(void)
 	return kvm_register_device_ops(&kvm_loongarch_ipi_dev_ops,
 					KVM_DEV_TYPE_LOONGARCH_IPI);
 }
+
+int kvm_loongarch_reset_ipi(struct kvm_vcpu *vcpu)
+{
+	struct ipi_state *s = &vcpu->arch.ipi_state;
+	u8 offset, size;
+	u8 *pstart;
+
+	if (!s)
+		return -EINVAL;
+
+	pstart = (char *)&s->status;
+	offset = (char *)&s->status - (char *)s;
+	size = sizeof(struct ipi_state) - offset;
+
+	spin_lock(&vcpu->arch.ipi_state.lock);
+	memset(pstart, 0, size);
+	spin_unlock(&vcpu->arch.ipi_state.lock);
+
+	return 0;
+}
