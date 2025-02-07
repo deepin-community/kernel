@@ -30,6 +30,7 @@
 #include <asm/hw_init.h>
 
 #include "iommu.h"
+#include "../dma-iommu.h"
 
 #define SW64_64BIT_DMA_LIMIT ((1UL << 42) - 1)
 #define SW64_BAR_ADDRESS (IO_BASE | PCI_BASE)
@@ -84,8 +85,8 @@ LIST_HEAD(sunway_domain_list);
 
 struct dma_domain {
 	struct sunway_iommu_domain sdomain;
-	struct iova_domain iovad;
 };
+
 const struct iommu_ops sunway_iommu_ops;
 static const struct dma_map_ops sunway_dma_ops;
 
@@ -265,7 +266,6 @@ static void dma_domain_free(struct dma_domain *dma_dom)
 		return;
 
 	del_domain_from_list(&dma_dom->sdomain);
-	put_iova_domain(&dma_dom->iovad);
 	free_pagetable(&dma_dom->sdomain);
 	if (dma_dom->sdomain.id)
 		domain_id_free(dma_dom->sdomain.id);
@@ -1236,7 +1236,7 @@ static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type)
 		}
 
 		sdomain->domain.geometry.aperture_start = 0UL;
-		sdomain->domain.geometry.aperture_end	= ~0ULL;
+		sdomain->domain.geometry.aperture_end	= SW64_64BIT_DMA_LIMIT;
 		sdomain->domain.geometry.force_aperture	= true;
 		sdomain->type = IOMMU_DOMAIN_UNMANAGED;
 		break;
@@ -1249,6 +1249,9 @@ static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type)
 		}
 
 		sdomain = &dma_dom->sdomain;
+		sdomain->domain.geometry.aperture_start = 0UL;
+		sdomain->domain.geometry.aperture_end	= SW64_64BIT_DMA_LIMIT;
+		sdomain->domain.geometry.force_aperture = true;
 		break;
 
 	case IOMMU_DOMAIN_IDENTITY:
@@ -1411,6 +1414,16 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
 	int ret;
 
+	/*
+	 * As VFIO cannot distinguish between normal DMA request
+	 * and pci device BAR, check should be introduced manually
+	 * to avoid VFIO trying to map pci config space.
+	 */
+	if (iova > IO_BASE) {
+		pr_err("iova %#lx is out of memory!\n", iova);
+		return -ENOMEM;
+	}
+
 	if (iova >= SW64_BAR_ADDRESS)
 		return 0;
 
@@ -1567,13 +1580,40 @@ static void sunway_iommu_probe_finalize(struct device *dev)
 	struct iommu_domain *domain;
 
 	domain = iommu_get_domain_for_dev(dev);
-	if (domain->type & __IOMMU_DOMAIN_DMA_API) {
-		if (min(dev->coherent_dma_mask, *dev->dma_mask) == DMA_BIT_MASK(32))
-			iommu_setup_dma_ops(dev, SW64_DMA_START, SW64_32BIT_DMA_LIMIT);
-		else
-			iommu_setup_dma_ops(dev, SW64_DMA_START, SW64_64BIT_DMA_LIMIT);
-	} else
+	if (domain->type & __IOMMU_DOMAIN_DMA_API)
+		iommu_setup_dma_ops(dev, SW64_DMA_START,
+					SW64_64BIT_DMA_LIMIT - SW64_DMA_START);
+	else
 		set_dma_ops(dev, get_arch_dma_ops());
+}
+
+static void sunway_iommu_get_resv_regions(struct device *dev,
+					  struct list_head *head)
+{
+	struct iommu_resv_region *region;
+
+	/* Reserve 3.5~4G for device */
+	region = iommu_alloc_resv_region(SW64_32BIT_DMA_LIMIT,
+					 (DMA_BIT_MASK(32) - SW64_32BIT_DMA_LIMIT),
+					 IOMMU_NOEXEC | IOMMU_MMIO,
+					 IOMMU_RESV_RESERVED, GFP_KERNEL);
+	if (!region)
+		return;
+
+	list_add_tail(&region->list, head);
+
+	if (dev_is_pci(dev)) {
+		struct pci_dev *pdev = to_pci_dev(dev);
+
+		if ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA) {
+			region = iommu_alloc_resv_region(0, 1UL << 24,
+					IOMMU_READ | IOMMU_WRITE,
+					IOMMU_RESV_DIRECT_RELAXABLE,
+					GFP_KERNEL);
+			if (region)
+				list_add_tail(&region->list, head);
+		}
+	}
 }
 
 const struct iommu_ops sunway_iommu_ops = {
@@ -1584,6 +1624,7 @@ const struct iommu_ops sunway_iommu_ops = {
 	.release_device = sunway_iommu_release_device,
 	.device_group = sunway_iommu_device_group,
 	.pgsize_bitmap	= SZ_8K | SZ_8M | SZ_512M | SZ_8G,
+	.get_resv_regions = sunway_iommu_get_resv_regions,
 	.def_domain_type = sunway_iommu_def_domain_type,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev = sunway_iommu_attach_device,
