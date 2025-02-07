@@ -33,6 +33,7 @@
 #include <asm/sw64io.h>
 
 #include "iommu.h"
+#include "../dma-iommu.h"
 
 #define SW64_BAR_ADDRESS (IO_BASE | PCI_BASE)
 
@@ -71,7 +72,6 @@ LIST_HEAD(sunway_domain_list);
 
 struct dma_domain {
 	struct sunway_iommu_domain sdomain;
-	struct iova_domain iovad;
 };
 const struct iommu_ops sunway_iommu_ops;
 
@@ -243,7 +243,6 @@ static void dma_domain_free(struct dma_domain *dma_dom)
 		return;
 
 	del_domain_from_list(&dma_dom->sdomain);
-	put_iova_domain(&dma_dom->iovad);
 	free_pagetable(&dma_dom->sdomain);
 	if (dma_dom->sdomain.id)
 		domain_id_free(dma_dom->sdomain.id);
@@ -1018,6 +1017,9 @@ static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type)
 		}
 
 		sdomain = &dma_dom->sdomain;
+		sdomain->domain.geometry.aperture_start = 0ULL;
+		sdomain->domain.geometry.aperture_end	= DMA_BIT_MASK(32);
+		sdomain->domain.geometry.force_aperture	= true;
 		break;
 
 	case IOMMU_DOMAIN_IDENTITY:
@@ -1313,6 +1315,34 @@ static void sunway_iommu_probe_finalize(struct device *dev)
 		set_dma_ops(dev, get_arch_dma_ops());
 }
 
+static void sunway_iommu_get_resv_regions(struct device *dev,
+					  struct list_head *head)
+{
+	struct iommu_resv_region *region;
+
+	region = iommu_alloc_resv_region(SW64_32BIT_DMA_LIMIT,
+					 (DMA_BIT_MASK(32) - SW64_32BIT_DMA_LIMIT),
+					 IOMMU_NOEXEC | IOMMU_MMIO,
+					 IOMMU_RESV_RESERVED, GFP_KERNEL);
+	if (!region)
+		return;
+
+	list_add_tail(&region->list, head);
+
+	if (dev_is_pci(dev)) {
+		struct pci_dev *pdev = to_pci_dev(dev);
+
+		if ((pdev->class >> 8) == PCI_CLASS_BRIDGE_ISA) {
+			region = iommu_alloc_resv_region(0, 1UL << 24,
+					IOMMU_READ | IOMMU_WRITE,
+					IOMMU_RESV_DIRECT_RELAXABLE,
+					GFP_KERNEL);
+			if (region)
+				list_add_tail(&region->list, head);
+		}
+	}
+}
+
 const struct iommu_ops sunway_iommu_ops = {
 	.capable = sunway_iommu_capable,
 	.domain_alloc = sunway_iommu_domain_alloc,
@@ -1320,6 +1350,7 @@ const struct iommu_ops sunway_iommu_ops = {
 	.probe_finalize = sunway_iommu_probe_finalize,
 	.release_device = sunway_iommu_release_device,
 	.device_group = sunway_iommu_device_group,
+	.get_resv_regions = sunway_iommu_get_resv_regions,
 	.pgsize_bitmap = SW64_IOMMU_PGSIZES,
 	.def_domain_type = sunway_iommu_def_domain_type,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
