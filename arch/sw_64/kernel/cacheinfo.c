@@ -166,19 +166,20 @@ int populate_cache_leaves(unsigned int cpu)
 	bool pptt_valid = is_pptt_cache_info_valid();
 
 	for (type = L1_ICACHE; type <= L3_CACHE; type++, this_leaf++) {
+		unsigned int node = rcid_to_domain_id(cpu_to_rcid(cpu));
+		unsigned int core = rcid_to_core_id(cpu_to_rcid(cpu));
+
 		if (!cache_size(type))
 			continue;
 
 		/* L3 Cache is shared */
-		cache_id = (type == L3_CACHE) ? rcid_to_domain_id(cpu_to_rcid(cpu)) :
-			rcid_to_core_id(cpu_to_rcid(cpu));
+		cache_id = (type == L3_CACHE) ? node : ((node << 16) | core);
 
 		populate_cache(get_cache_info(type), this_leaf, cache_level(type),
 				kernel_cache_type(type), cache_id);
 
 		if (pptt_valid)
 			this_leaf->attributes &= ~CACHE_ID;
-
 	}
 
 	if (!pptt_valid) {
