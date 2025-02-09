@@ -42,14 +42,14 @@ struct vpsp_cmd {
  * @pret: the return code from device
  * @resv: reserved bits
  * @format: indicates that the error is a unix error code(is 0) or a psp error(is 1)
- * @index: used to distinguish the position of command in the ringbuffer
+ * @resv2: reserved bits
  * @status: indicates the current status of the related command
  */
 struct vpsp_ret {
 	u32 pret	:	16;
 	u32 resv	:	1;
 	u32 format	:	1;
-	u32 index	:	12;
+	u32 resv2	:	12;
 	u32 status	:	2;
 };
 #define VPSP_RET_SYS_FORMAT    1
@@ -68,7 +68,7 @@ struct vpsp_ret {
 #define GET_PSP_VID(hpa)        ((__u16)((__u64)(hpa) >> PSP_VID_SHIFT) & PSP_VID_MASK)
 #define CLEAR_PSP_VID(hpa)      ((__u64)(hpa) & ~((__u64)PSP_VID_MASK << PSP_VID_SHIFT))
 
-struct vpsp_context {
+struct vpsp_dev_ctx {
 	u32 vid;
 	pid_t pid;
 	u64 gpa_start;
@@ -77,6 +77,28 @@ struct vpsp_context {
 	// `vm_is_bound` indicates whether the binding operation has been performed
 	u32 vm_is_bound;
 	u32 vm_handle;	// only for csv
+};
+
+struct vpsp_cmd_ctx {
+	void *data;		// copy forward mode only
+	uint32_t data_size;	// copy forward mode only
+	uint8_t rb_prio;
+	uint32_t rb_index;
+	uint32_t statval;
+	phys_addr_t psp_cmdbuf_paddr;
+	refcount_t ref;
+
+	/**
+	 * key1 indicates the GPA
+	 * to the data passed by the Guest
+	 *
+	 * key2 indicates the pid of Qemu Process
+	 *
+	 * Serves as the key for the vpsp_cmd_ctx_table.
+	 */
+	gpa_t key1;
+	pid_t key2;
+	struct hlist_node node;
 };
 
 enum VPSP_DEV_CTRL_OPCODE {
@@ -118,11 +140,17 @@ enum VPSP_RB_CHECK_STATUS {
 
 extern struct csv_ringbuffer_queue vpsp_ring_buffer[CSV_COMMAND_PRIORITY_NUM];
 extern struct hygon_psp_hooks_table hygon_psp_hooks;
+extern bool vpsp_in_ringbuffer_mode;
+extern struct kmem_cache *vpsp_cmd_ctx_slab;
 
-int vpsp_try_get_result(uint8_t prio, uint32_t index,
-			phys_addr_t phy_addr, struct vpsp_ret *psp_ret);
-int vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr, struct vpsp_ret *psp_ret);
-int vpsp_get_context(struct vpsp_context **ctx, pid_t pid);
+void vpsp_worker_handler(struct work_struct *unused);
+int vpsp_try_get_result(struct vpsp_cmd_ctx *cmd_ctx, struct vpsp_ret *psp_ret);
+int vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr,
+		struct vpsp_cmd_ctx *cmd_ctx, struct vpsp_ret *psp_ret);
+void vpsp_cmd_ctx_obj_get(struct vpsp_cmd_ctx *cmd_ctx);
+
+void vpsp_cmd_ctx_obj_put(struct vpsp_cmd_ctx *cmd_ctx, bool force);
+int vpsp_get_dev_ctx(struct vpsp_dev_ctx **ctx, pid_t pid);
 int vpsp_get_default_vid_permission(void);
 int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl);
 int vpsp_rb_check_and_cmd_prio_parse(uint8_t *prio,
