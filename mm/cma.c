@@ -41,7 +41,6 @@ static unsigned int cma_areas_size = MAX_CMA_AREAS;
 struct cma *cma_areas = cma_areas_data;
 
 unsigned cma_area_count;
-static DEFINE_MUTEX(cma_mutex);
 
 phys_addr_t cma_get_base(const struct cma *cma)
 {
@@ -124,6 +123,8 @@ static void __init cma_activate_area(struct cma *cma)
 		init_cma_reserved_pageblock(pfn_to_page(pfn));
 
 	spin_lock_init(&cma->lock);
+
+	mutex_init(&cma->alloc_mutex);
 
 #ifdef CONFIG_CMA_DEBUGFS
 	INIT_HLIST_HEAD(&cma->mem_head);
@@ -492,10 +493,10 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 		spin_unlock_irq(&cma->lock);
 
 		pfn = cma->base_pfn + (bitmap_no << cma->order_per_bit);
-		mutex_lock(&cma_mutex);
+		mutex_lock(&cma->alloc_mutex);
 		ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA,
 				     GFP_KERNEL | (no_warn ? __GFP_NOWARN : 0));
-		mutex_unlock(&cma_mutex);
+		mutex_unlock(&cma->alloc_mutex);
 		if (ret == 0) {
 			page = pfn_to_page(pfn);
 			break;
