@@ -104,8 +104,10 @@ static inline void sw64_write_csr_imb(unsigned long x, unsigned long y)
 #include <asm/barrier.h>
 static inline void update_ptbr_sys(unsigned long ptbr)
 {
+	mb();
 	imemb();
 	sw64_write_csr_imb(ptbr, CSR_PTBR_SYS);
+	tbiv();
 }
 
 static inline void update_ptbr_usr(unsigned long ptbr)
