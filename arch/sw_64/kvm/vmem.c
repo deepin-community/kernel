@@ -41,7 +41,7 @@ static int vmem_vm_insert_page(struct vm_area_struct *vma)
 	size = info->size;
 	uaddr = vma->vm_start;
 
-	vm_flags_init(vma, VM_DONTEXPAND | VM_DONTDUMP | VM_MIXEDMAP);
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP | VM_MIXEDMAP);
 	vmem_page = pfn_to_page(addr >> PAGE_SHIFT);
 	do {
 		ret = vm_insert_page(vma, uaddr, vmem_page);
