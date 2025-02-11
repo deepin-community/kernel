@@ -4137,7 +4137,13 @@ int rtw89_fw_h2c_assoc_cmac_tbl_be(struct rtw89_dev *rtwdev,
 	h2c->m4 = cpu_to_le32(BE_CCTL_INFO_W4_MULTI_PORT_ID);
 
 	if (bss_conf->eht_support) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 		u16 punct = bss_conf->chanreq.oper.punctured;
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
+		u16 punct = bss_conf->eht_puncturing;
+#else
+		u32 punct = ~field_mask(BE_CCTL_INFO_W4_ACT_SUBCH_CBW);
+#endif
 
 		h2c->w4 |= le32_encode_bits(~punct,
 					    BE_CCTL_INFO_W4_ACT_SUBCH_CBW);
