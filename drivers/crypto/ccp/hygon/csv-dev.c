@@ -34,6 +34,7 @@ EXPORT_SYMBOL_GPL(hygon_csv_build);
 int csv_comm_mode = CSV_COMM_MAILBOX_ON;
 
 static uint8_t vpsp_rb_supported;
+uint8_t vpsp_rb_oc_supported;	// support overcommit
 static atomic_t vpsp_rb_check_status = ATOMIC_INIT(RB_NOT_CHECK);
 
 /*
@@ -733,6 +734,9 @@ int vpsp_rb_check_and_cmd_prio_parse(uint8_t *prio,
 				goto end;
 			}
 			WRITE_ONCE(vpsp_rb_supported, 1);
+
+			if (VPSP_RB_OC_IS_SUPPORTED(status->build))
+				WRITE_ONCE(vpsp_rb_oc_supported, 1);
 		}
 
 		atomic_set(&vpsp_rb_check_status, RB_CHECKED);

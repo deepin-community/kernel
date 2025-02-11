@@ -292,8 +292,10 @@ int hygon_psp_additional_setup(struct sp_device *sp)
 
 		vpsp_cmd_ctx_slab = kmem_cache_create("vpsp_cmd_ctx",
 				sizeof(struct vpsp_cmd_ctx), 0, SLAB_HWCACHE_ALIGN, NULL);
-		if (!vpsp_cmd_ctx_slab)
+		if (!vpsp_cmd_ctx_slab) {
+			destroy_workqueue(vpsp_wq);
 			return -ENOMEM;
+		}
 
 		psp_misc = devm_kzalloc(dev, sizeof(*psp_misc), GFP_KERNEL);
 		if (!psp_misc)

@@ -128,20 +128,23 @@ struct vpsp_dev_ctrl {
 	} __packed data;
 };
 
-/* defination of variabled used by virtual psp */
+/* definition of variables used by virtual psp */
 enum VPSP_RB_CHECK_STATUS {
 	RB_NOT_CHECK = 0,
 	RB_CHECKING,
 	RB_CHECKED,
 	RB_CHECK_MAX
 };
-#define VPSP_RB_IS_SUPPORTED(buildid)	(buildid >= 1913)
+#define VPSP_RB_IS_SUPPORTED(buildid)		(buildid >= 1913)
+#define VPSP_RB_OC_IS_SUPPORTED(buildid)	(buildid >= 2167)
 #define VPSP_CMD_STATUS_RUNNING		0xffff
+#define VPSP_RB_OVERCOMMIT_SIZE		1024
 
 extern struct csv_ringbuffer_queue vpsp_ring_buffer[CSV_COMMAND_PRIORITY_NUM];
 extern struct hygon_psp_hooks_table hygon_psp_hooks;
 extern bool vpsp_in_ringbuffer_mode;
 extern struct kmem_cache *vpsp_cmd_ctx_slab;
+extern uint8_t vpsp_rb_oc_supported;
 
 void vpsp_worker_handler(struct work_struct *unused);
 int vpsp_try_get_result(struct vpsp_cmd_ctx *cmd_ctx, struct vpsp_ret *psp_ret);

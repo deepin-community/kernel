@@ -558,8 +558,10 @@ int kvm_pv_psp_forward_op(struct kvm_vpsp *vpsp, uint32_t cmd,
 		break;
 	}
 
-	if (psp_async.status == VPSP_FINISH)
+	if (psp_async.status == VPSP_FINISH) {
 		vpsp_cmd_ctx_destroy(cmd_ctx);
+		ret = 0;
+	}
 
 end:
 	/**
@@ -865,9 +867,25 @@ int do_vpsp_op_ioctl(struct vpsp_dev_ctrl *ctrl)
 static DEFINE_MUTEX(vpsp_rb_mutex);
 struct csv_ringbuffer_queue vpsp_ring_buffer[CSV_COMMAND_PRIORITY_NUM];
 
-static int get_queue_tail(struct csv_ringbuffer_queue *ringbuffer)
+static unsigned int vpsp_queue_cmd_size(int prio)
 {
+	return csv_cmd_queue_size(&vpsp_ring_buffer[prio].cmd_ptr);
+}
+
+static int get_queue_tail(int prio)
+{
+	struct csv_ringbuffer_queue *ringbuffer = &vpsp_ring_buffer[prio];
 	return ringbuffer->cmd_ptr.tail & ringbuffer->cmd_ptr.mask;
+}
+
+static int get_queue_overcommit_tail(int prio)
+{
+	uint32_t que_size = vpsp_queue_cmd_size(prio);
+	struct csv_ringbuffer_queue *ringbuffer = &vpsp_ring_buffer[prio];
+
+	if (que_size >= VPSP_RB_OVERCOMMIT_SIZE || que_size == 0 || !vpsp_rb_oc_supported)
+		return get_queue_tail(prio);
+	return (ringbuffer->cmd_ptr.head + VPSP_RB_OVERCOMMIT_SIZE) & ringbuffer->cmd_ptr.mask;
 }
 
 static int get_queue_head(struct csv_ringbuffer_queue *ringbuffer)
@@ -889,11 +907,6 @@ static int vpsp_get_cmd_status(int prio, int index)
 	struct csv_statval_entry *statval = (struct csv_statval_entry *)ringbuf->data;
 
 	return statval[index].status;
-}
-
-static unsigned int vpsp_queue_cmd_size(int prio)
-{
-	return csv_cmd_queue_size(&vpsp_ring_buffer[prio].cmd_ptr);
 }
 
 static int vpsp_dequeue_and_notify(int prio, struct csv_cmdptr_entry *cmd_ptr)
@@ -923,6 +936,24 @@ static int vpsp_dequeue_and_notify(int prio, struct csv_cmdptr_entry *cmd_ptr)
 	return 0;
 }
 
+/**
+ * Ensure that the 'status' field of cmd statval
+ * in the range from tail to overcommit tail in the queue is 0.
+ */
+static void vpsp_queue_overcommit_entry_inactive(int prio)
+{
+	int tail = 0, overcommit_tail = 0, i = 0;
+
+	mutex_lock(&vpsp_rb_mutex);
+
+	tail = get_queue_tail(prio);
+	overcommit_tail = get_queue_overcommit_tail(prio);
+	for (i = tail; i < overcommit_tail; ++i)
+		vpsp_set_cmd_status(prio, i, 0);
+
+	mutex_unlock(&vpsp_rb_mutex);
+}
+
 /*
  * Populate the command from the virtual machine to the queue to
  * support execution in ringbuffer mode
@@ -937,14 +968,34 @@ static int vpsp_fill_cmd_queue(int prio, int cmd, phys_addr_t phy_addr, uint16_t
 	cmdptr.cmd_flags = flags;
 
 	mutex_lock(&vpsp_rb_mutex);
-	index = get_queue_tail(&vpsp_ring_buffer[prio]);
+	index = get_queue_tail(prio);
 
-	/* The status must be written first, and then the cmd can be enqueued */
-	vpsp_set_cmd_status(prio, index, VPSP_CMD_STATUS_RUNNING);
-	if (csv_enqueue_cmd(&vpsp_ring_buffer[prio].cmd_ptr, &cmdptr, 1) != 1) {
-		vpsp_set_cmd_status(prio, index, 0);
-		index = -1;
-		goto out;
+	/**
+	 * If the firmware does not support the overcommit function:
+	 *      the firmware may not check the 'status' before executing cmd.
+	 *      Therefore, the 'status' must be written before the cmd be enqueued,
+	 *      otherwise, X86 may overwrite the result written by the firmware.
+	 *
+	 * If the firmware support the overcommit function:
+	 *      The firmware will forcefully check the 'status'
+	 *      before executing cmd until the 'status' becomes 0xffff.
+	 *      In order to prevent the firmware from getting the cmd to be valid,
+	 *      the 'status' must be written after waiting for the cmd to be queued.
+	 */
+	if (vpsp_rb_oc_supported) {
+		if (csv_enqueue_cmd(&vpsp_ring_buffer[prio].cmd_ptr, &cmdptr, 1) != 1) {
+			vpsp_set_cmd_status(prio, index, 0);
+			index = -1;
+			goto out;
+		}
+		vpsp_set_cmd_status(prio, index, VPSP_CMD_STATUS_RUNNING);
+	} else {
+		vpsp_set_cmd_status(prio, index, VPSP_CMD_STATUS_RUNNING);
+		if (csv_enqueue_cmd(&vpsp_ring_buffer[prio].cmd_ptr, &cmdptr, 1) != 1) {
+			vpsp_set_cmd_status(prio, index, 0);
+			index = -1;
+			goto out;
+		}
 	}
 
 out:
@@ -1042,12 +1093,17 @@ void vpsp_worker_handler(struct work_struct *unused)
 	struct sev_user_data_status data;
 	struct sev_device *sev = psp_master->sev_data;
 	unsigned int reg;
+	unsigned int rb_head, rb_tail;
 
 	reg = ioread32(sev->io_regs + sev->vdata->cmdbuff_addr_lo_reg);
 	/* cmd error happends */
 	if (reg & PSP_RBHEAD_QPAUSE_INT_STAT)
 		goto end;
 
+	rb_head = reg;
+	rb_tail = ioread32(sev->io_regs + sev->vdata->cmdbuff_addr_hi_reg);
+
+	pr_debug("ringbuffer exit rb_head %x, rb_tail %x\n", rb_head, rb_tail);
 	/* update head */
 	vpsp_ring_update_head(CSV_COMMAND_PRIORITY_HIGH,
 			(reg & PSP_RBHEAD_QHI_HEAD_MASK) >> PSP_RBHEAD_QHI_HEAD_SHIFT);
@@ -1074,6 +1130,8 @@ static int __vpsp_do_ringbuf_cmds_locked(void)
 	unsigned int rb_tail, rb_head;
 	unsigned int rb_ctl;
 	struct sev_device *sev;
+	struct csv_queue *queue;
+	struct csv_cmdptr_entry *first_cmd;
 
 	if (!psp || !hygon_psp_hooks.sev_dev_hooks_installed)
 		return -ENODEV;
@@ -1084,12 +1142,13 @@ static int __vpsp_do_ringbuf_cmds_locked(void)
 	sev = psp->sev_data;
 
 	/* update rb tail */
+	vpsp_queue_overcommit_entry_inactive(CSV_COMMAND_PRIORITY_LOW);
 	rb_tail = ioread32(sev->io_regs + sev->vdata->cmdbuff_addr_hi_reg);
 	rb_tail &= (~PSP_RBTAIL_QHI_TAIL_MASK);
-	rb_tail |= (get_queue_tail(&vpsp_ring_buffer[CSV_COMMAND_PRIORITY_HIGH])
+	rb_tail |= (get_queue_tail(CSV_COMMAND_PRIORITY_HIGH)
 					<< PSP_RBTAIL_QHI_TAIL_SHIFT);
 	rb_tail &= (~PSP_RBTAIL_QLO_TAIL_MASK);
-	rb_tail |= get_queue_tail(&vpsp_ring_buffer[CSV_COMMAND_PRIORITY_LOW]);
+	rb_tail |= get_queue_overcommit_tail(CSV_COMMAND_PRIORITY_LOW);
 	iowrite32(rb_tail, sev->io_regs + sev->vdata->cmdbuff_addr_hi_reg);
 
 	/* update rb head */
@@ -1100,6 +1159,26 @@ static int __vpsp_do_ringbuf_cmds_locked(void)
 	rb_head &= (~PSP_RBHEAD_QLO_HEAD_MASK);
 	rb_head |= get_queue_head(&vpsp_ring_buffer[CSV_COMMAND_PRIORITY_LOW]);
 	iowrite32(rb_head, sev->io_regs + sev->vdata->cmdbuff_addr_lo_reg);
+
+	/**
+	 * In some PSP firmware, even if the high priority queue is empty,
+	 * it will still try to read the element at the head of the queue and try to process it.
+	 * When the element at the head of the queue happens to be an illegal cmd id,
+	 * PSP returns the PSP_RBHEAD_QPAUSE_INT_STAT error.
+	 *
+	 * Therefore, now we need to manually set the head element of the queue to
+	 * the default tkm cmd id before sending the ringbuffer each time when
+	 * the high priority queue is empty.
+	 *
+	 * The low priority queue has no such bug, and future PSP firmware should fix it.
+	 */
+	if (vpsp_queue_cmd_size(CSV_COMMAND_PRIORITY_HIGH) == 0) {
+		queue = &vpsp_ring_buffer[CSV_COMMAND_PRIORITY_HIGH].cmd_ptr;
+		first_cmd = (struct csv_cmdptr_entry *)queue->data_align;
+		first_cmd[queue->head & queue->mask].cmd_id = TKM_PSP_CMDID;
+	}
+
+	pr_debug("ringbuffer launch rb_head %x, rb_tail %x\n", rb_head, rb_tail);
 
 	/* update rb ctl to trigger psp irq */
 	sev->int_rcvd = 0;
