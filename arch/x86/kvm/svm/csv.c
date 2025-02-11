@@ -79,7 +79,7 @@ int csv_vm_attestation(struct kvm *kvm, unsigned long gpa, unsigned long len)
 	}
 
 	guest_uaddr = gfn_to_hva(kvm, gpa_to_gfn(gpa));
-	pages = hygon_kvm_hooks.sev_pin_memory(kvm, guest_uaddr, len, &n, 1);
+	pages = hygon_kvm_hooks.sev_pin_memory(kvm, guest_uaddr, len, &n, FOLL_WRITE);
 	if (IS_ERR(pages))
 		return PTR_ERR(pages);
 
@@ -404,7 +404,7 @@ csv_receive_update_data_to_ringbuf(struct kvm *kvm,
 
 	/* Pin guest memory */
 	guest_page = hygon_kvm_hooks.sev_pin_memory(kvm, params.guest_uaddr & PAGE_MASK,
-						    PAGE_SIZE, &n, 1);
+						    PAGE_SIZE, &n, FOLL_WRITE);
 	if (IS_ERR(guest_page)) {
 		ret = PTR_ERR(guest_page);
 		goto e_free;
@@ -2651,7 +2651,7 @@ static int csv_launch_secret(struct kvm *kvm, struct kvm_sev_cmd *argp)
 	if (!csv3_guest(kvm) ||
 	    !(csv->inuse_ext & KVM_CAP_HYGON_COCO_EXT_CSV3_INJ_SECRET)) {
 		pages = hygon_kvm_hooks.sev_pin_memory(kvm, params.guest_uaddr,
-						       params.guest_len, &n, 1);
+						       params.guest_len, &n, FOLL_WRITE);
 		if (IS_ERR(pages))
 			return PTR_ERR(pages);
 
