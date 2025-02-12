@@ -1055,8 +1055,8 @@ static bool ufs_mtk_pmc_via_fastauto(struct ufs_hba *hba,
 }
 
 static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
-				  struct ufs_pa_layer_attr *dev_max_params,
-				  struct ufs_pa_layer_attr *dev_req_params)
+				const struct ufs_pa_layer_attr *dev_max_params,
+				struct ufs_pa_layer_attr *dev_req_params)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct ufs_dev_params host_cap;
@@ -1155,9 +1155,9 @@ static int ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
 }
 
 static int ufs_mtk_pwr_change_notify(struct ufs_hba *hba,
-				     enum ufs_notify_change_status stage,
-				     struct ufs_pa_layer_attr *dev_max_params,
-				     struct ufs_pa_layer_attr *dev_req_params)
+				enum ufs_notify_change_status stage,
+				const struct ufs_pa_layer_attr *dev_max_params,
+				struct ufs_pa_layer_attr *dev_req_params)
 {
 	int ret = 0;
 	static u32 reg;
