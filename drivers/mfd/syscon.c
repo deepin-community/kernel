@@ -25,6 +25,8 @@
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 #include <linux/slab.h>
+#include <linux/acpi.h>
+#include <linux/property.h>
 
 static struct platform_driver syscon_driver;
 
@@ -336,6 +338,30 @@ struct regmap *syscon_regmap_lookup_by_phandle_optional(struct device_node *np,
 }
 EXPORT_SYMBOL_GPL(syscon_regmap_lookup_by_phandle_optional);
 
+struct regmap *device_syscon_regmap_lookup_by_property(struct device *dev,
+						       const char *property)
+{
+	struct fwnode_handle *fwnode;
+	struct platform_device *pdev;
+	struct syscon *syscon;
+
+	if (!has_acpi_companion(dev))
+		return syscon_regmap_lookup_by_phandle(dev->of_node, property);
+
+	fwnode = fwnode_find_reference(dev_fwnode(dev), property, 0);
+	if (IS_ERR_OR_NULL(fwnode))
+		return ERR_PTR(-ENODEV);
+
+	pdev = to_platform_device(fwnode->dev);
+
+	syscon = platform_get_drvdata(pdev);
+	if (!syscon)
+		return ERR_PTR(-ENODEV);
+
+	return syscon->regmap;
+}
+EXPORT_SYMBOL_GPL(device_syscon_regmap_lookup_by_property);
+
 static int syscon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -378,9 +404,16 @@ static const struct platform_device_id syscon_ids[] = {
 	{ }
 };
 
+static const struct acpi_device_id syscon_acpi_match[] = {
+	{ "CIXHA018", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, syscon_acpi_match);
+
 static struct platform_driver syscon_driver = {
 	.driver = {
 		.name = "syscon",
+		.acpi_match_table = ACPI_PTR(syscon_acpi_match),
 	},
 	.probe		= syscon_probe,
 	.id_table	= syscon_ids,
