@@ -71,6 +71,8 @@ extern int __cpu_logical_map[NR_CPUS];
 #define SMP_RESCHEDULE		BIT(ACTION_RESCHEDULE)
 #define SMP_CALL_FUNCTION	BIT(ACTION_CALL_FUNCTION)
 
+struct seq_file;
+
 struct secondary_data {
 	unsigned long stack;
 	unsigned long thread_info;
