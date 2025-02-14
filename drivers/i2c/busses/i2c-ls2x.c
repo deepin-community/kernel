@@ -26,7 +26,8 @@
 #include <linux/units.h>
 
 /* I2C Registers */
-#define I2C_LS2X_PRER		0x0 /* Freq Division Register(16 bits) */
+#define I2C_LS2X_PRER_LO	0x0 /* Freq Division Register Lo(8 bits) */
+#define I2C_LS2X_PRER_HI	0x1 /* Freq Division Register Hi(8 bits) */
 #define I2C_LS2X_CTR		0x2 /* Control Register */
 #define I2C_LS2X_TXR		0x3 /* Transport Data Register */
 #define I2C_LS2X_RXR		0x3 /* Receive Data Register */
@@ -96,6 +97,7 @@ static void ls2x_i2c_adjust_bus_speed(struct ls2x_i2c_priv *priv)
 	struct i2c_timings *t = &priv->i2c_t;
 	struct device *dev = priv->adapter.dev.parent;
 	u32 acpi_speed = i2c_acpi_find_bus_speed(dev);
+	u16 prer_val;
 
 	i2c_parse_fw_timings(dev, t, false);
 
@@ -104,9 +106,11 @@ static void ls2x_i2c_adjust_bus_speed(struct ls2x_i2c_priv *priv)
 	else
 		t->bus_freq_hz = LS2X_I2C_FREQ_STD;
 
-	/* Calculate and set i2c frequency. */
-	writew(LS2X_I2C_PCLK_FREQ / (5 * t->bus_freq_hz) - 1,
-	       priv->base + I2C_LS2X_PRER);
+	prer_val = LS2X_I2C_PCLK_FREQ / (5 * t->bus_freq_hz) - 1;
+
+	/* set i2c frequency. */
+	writeb(prer_val & 0xFF, priv->base + I2C_LS2X_PRER_LO);
+	writeb((prer_val & 0xFF00) >> 8, priv->base + I2C_LS2X_PRER_HI);
 }
 
 static void ls2x_i2c_init(struct ls2x_i2c_priv *priv)

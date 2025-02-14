@@ -390,7 +390,7 @@ config GPIO_LOONGSON
 
 config GPIO_LOONGSON_64BIT
 	tristate "Loongson 64 bit GPIO support"
-	depends on LOONGARCH || COMPILE_TEST
+	depends on LOONGARCH || (64BIT && COMPILE_TEST)
 	depends on OF_GPIO
 	select GPIO_GENERIC
 	help
