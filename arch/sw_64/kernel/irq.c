@@ -16,6 +16,7 @@
 #include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/seq_file.h>
+#include <linux/delay.h>
 
 #include <asm/cpu.h>
 #include <asm/irq_impl.h>
@@ -106,6 +107,8 @@ handle_irq(int irq)
 void fixup_irqs(void)
 {
 	irq_migrate_all_off_this_cpu();
+
+	mdelay(1);
 }
 #endif
 
