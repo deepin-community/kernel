@@ -288,7 +288,7 @@ static int i2c_hid_get_report(struct i2c_hid *ihid,
 
 		if (error != -EAGAIN) {
 			dev_err(&ihid->client->dev,
-				"failed to set a report to device: %d\n", error);
+				"failed to get a report from device: %d\n", error);
 			return error;
 		}
 		usleep_range(4000, 5000);
