@@ -389,7 +389,7 @@ static int i2c_hid_set_or_send_report(struct i2c_hid *ihid,
 	error = i2c_hid_xfer(ihid, ihid->cmdbuf, length, NULL, 0);
 	if (error) {
 		dev_err(&ihid->client->dev,
-			"failed to set a report to device: %d\n", error);
+			"failed to get a report from device: %d\n", error);
 		return error;
 	}
 
