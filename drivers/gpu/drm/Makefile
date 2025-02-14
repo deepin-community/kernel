@@ -198,6 +198,6 @@ obj-y			+= gud/
 obj-$(CONFIG_DRM_HYPERV) += hyperv/
 obj-y			+= solomon/
 obj-$(CONFIG_DRM_SPRD) += sprd/
-obj-$(CONFIG_DRM_LOONGSON) += loongson/
+obj-y += loongson/
 obj-$(CONFIG_DRM_PHYTIUM) += phytium/
 obj-$(CONFIG_DRM_ARISE) += arise/
