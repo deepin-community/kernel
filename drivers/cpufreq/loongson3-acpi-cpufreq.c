@@ -1241,6 +1241,8 @@ static int loongson3_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	if (has_boost_freq() && boost_supported())
 		loongson3_cpufreq_attr[1] = &cpufreq_freq_attr_scaling_boost_freqs;
 
+	policy->cur = core->normal_max_freq * 1000;
+
 	pr_info("CPU%u - ACPI performance management activated.\n", cpu);
 	for (i = 0; i < perf->state_count; i++)
 		pr_debug("     %cP%d: %d MHz, %d mW, %d uS %d level\n",
