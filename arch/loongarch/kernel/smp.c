@@ -75,6 +75,9 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	[IPI_CLEAR_VECTOR] = "Clear vector interrupts",
 };
 
+unsigned int __max_packages __read_mostly;
+EXPORT_SYMBOL(__max_packages);
+
 void show_ipi_list(struct seq_file *p, int prec)
 {
 	unsigned int cpu, i;

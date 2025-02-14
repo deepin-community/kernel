@@ -156,8 +156,7 @@ static int __init loongson_hwmon_init(void)
 
 	pr_info("Loongson Hwmon Enter...\n");
 
-	nr_packages = loongson_sysconf.nr_cpus /
-		loongson_sysconf.cores_per_package;
+	nr_packages = topology_max_packages();
 
 	cpu_hwmon_dev = hwmon_device_register_with_groups(NULL, "cpu_hwmon",
 							  NULL, cpu_hwmon_groups);
