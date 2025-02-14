@@ -12390,6 +12390,7 @@ F:	Documentation/arch/loongarch/
 F:	Documentation/translations/zh_CN/arch/loongarch/
 F:	arch/loongarch/
 F:	drivers/*/*loongarch*
+F:	drivers/*/*loongson*
 
 LOONGSON GPIO DRIVER
 M:	Yinbo Zhu <zhuyinbo@loongson.cn>

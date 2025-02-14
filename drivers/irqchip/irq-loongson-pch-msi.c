@@ -15,6 +15,8 @@
 #include <linux/pci.h>
 #include <linux/slab.h>
 
+#include "irq-loongson.h"
+
 static int nr_pics;
 
 struct pch_msi_data {
@@ -266,17 +268,17 @@ IRQCHIP_DECLARE(pch_msi, "loongson,pch-msi-1.0", pch_msi_of_init);
 #ifdef CONFIG_ACPI
 struct fwnode_handle *get_pch_msi_handle(int pci_segment)
 {
-	int i;
+	if (cpu_has_avecint)
+		return pch_msi_handle[0];
 
-	for (i = 0; i < MAX_IO_PICS; i++) {
+	for (int i = 0; i < MAX_IO_PICS; i++) {
 		if (msi_group[i].pci_segment == pci_segment)
 			return pch_msi_handle[i];
 	}
-	return NULL;
+	return pch_msi_handle[0];
 }
 
-int __init pch_msi_acpi_init(struct irq_domain *parent,
-					struct acpi_madt_msi_pic *acpi_pchmsi)
+int __init pch_msi_acpi_init(struct irq_domain *parent, struct acpi_madt_msi_pic *acpi_pchmsi)
 {
 	int ret;
 	struct fwnode_handle *domain_handle;
@@ -288,5 +290,37 @@ int __init pch_msi_acpi_init(struct irq_domain *parent,
 		irq_domain_free_fwnode(domain_handle);
 
 	return ret;
+}
+
+static struct irq_chip pch_msi_irq_chip_avec = {
+	.name			= "PCH PCI MSI",
+	.irq_ack		= irq_chip_ack_parent,
+};
+
+static struct msi_domain_info pch_msi_domain_info_avec = {
+	.flags	= MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		  MSI_FLAG_MULTI_PCI_MSI | MSI_FLAG_PCI_MSIX,
+	.chip	= &pch_msi_irq_chip_avec,
+};
+
+int __init pch_msi_acpi_init_avec(struct irq_domain *parent)
+{
+	struct irq_domain *msi_domain;
+
+	if (pch_msi_handle[0])
+		return 0;
+
+	pch_msi_handle[0] = parent->fwnode;
+	irq_domain_update_bus_token(parent, DOMAIN_BUS_NEXUS);
+
+	msi_domain = pci_msi_create_irq_domain(pch_msi_handle[0],
+					       &pch_msi_domain_info_avec, parent);
+	if (!msi_domain) {
+		pr_err("Failed to create PCI MSI domain\n");
+		kfree(pch_msi_handle[0]);
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 #endif

@@ -15,4 +15,13 @@ extern void bpi_memblock_init(unsigned long *p_max_low_pfn);
 extern void bpi_init_node_memblock(void (*p_add_numamem_region)(u64 start, u64 end, u32 type));
 extern int loongarch_have_legacy_bpi(void);
 
+extern int liointc_acpi_init(struct irq_domain *parent,
+					struct acpi_madt_lio_pic *acpi_liointc);
+extern int eiointc_acpi_init(struct irq_domain *parent,
+					struct acpi_madt_eio_pic *acpi_eiointc);
+extern int htvec_acpi_init(struct irq_domain *parent,
+					struct acpi_madt_ht_pic *acpi_htvec);
+extern int pch_lpc_acpi_init(struct irq_domain *parent,
+					struct acpi_madt_lpc_pic *acpi_pchlpc);
+
 #endif /* __LEGACY_BOOT_H_ */

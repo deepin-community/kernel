@@ -72,6 +72,7 @@ static DEFINE_PER_CPU(int, cpu_state);
 static const char *ipi_types[NR_IPI] __tracepoint_string = {
 	[IPI_RESCHEDULE] = "Rescheduling interrupts",
 	[IPI_CALL_FUNCTION] = "Function call interrupts",
+	[IPI_CLEAR_VECTOR] = "Clear vector interrupts",
 };
 
 void show_ipi_list(struct seq_file *p, int prec)
@@ -244,6 +245,11 @@ static irqreturn_t loongson_ipi_interrupt(int irq, void *dev)
 	if (action & SMP_CALL_FUNCTION) {
 		generic_smp_call_function_interrupt();
 		per_cpu(irq_stat, cpu).ipi_irqs[IPI_CALL_FUNCTION]++;
+	}
+
+	if (action & SMP_CLEAR_VECTOR) {
+		complete_irq_moving();
+		per_cpu(irq_stat, cpu).ipi_irqs[IPI_CLEAR_VECTOR]++;
 	}
 
 	return IRQ_HANDLED;
