@@ -396,6 +396,36 @@ static void quirk_tigerpoint_bm_sts(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_TGP_LPC, quirk_tigerpoint_bm_sts);
 #endif
 
+#define DEV_PCIE_PORT_4	0x7a39
+#define DEV_PCIE_PORT_5	0x7a49
+#define DEV_PCIE_PORT_6	0x7a59
+#define DEV_PCIE_PORT_7	0x7a69
+static void loongson_d3_and_link_quirk(struct pci_dev *dev)
+{
+	struct pci_bus *bus = dev->bus;
+	struct pci_dev *bridge;
+	static const struct pci_device_id bridge_devids[] = {
+		{ PCI_VDEVICE(LOONGSON, DEV_PCIE_PORT_4) },
+		{ PCI_VDEVICE(LOONGSON, DEV_PCIE_PORT_5) },
+		{ PCI_VDEVICE(LOONGSON, DEV_PCIE_PORT_6) },
+		{ PCI_VDEVICE(LOONGSON, DEV_PCIE_PORT_7) },
+		{ 0, },
+	};
+
+	/* look for the matching bridge */
+	while (!pci_is_root_bus(bus)) {
+		bridge = bus->self;
+		bus = bus->parent;
+		if (bridge && pci_match_id(bridge_devids, bridge)) {
+			dev->dev_flags |= (PCI_DEV_FLAGS_NO_D3 |
+				PCI_DEV_FLAGS_NO_LINK_SPEED_CHANGE);
+			dev->no_d1d2 = 1;
+		break;
+		}
+	}
+}
+DECLARE_PCI_FIXUP_ENABLE(PCI_ANY_ID, PCI_ANY_ID, loongson_d3_and_link_quirk);
+
 /* Chipsets where PCI->PCI transfers vanish or hang */
 static void quirk_nopcipci(struct pci_dev *dev)
 {
