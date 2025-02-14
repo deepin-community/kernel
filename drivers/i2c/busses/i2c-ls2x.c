@@ -27,8 +27,8 @@
 #include <linux/units.h>
 
 /* I2C Registers */
-#define I2C_LS2X_PRER_LO	0x0 /* Freq Division Low Byte Register */
-#define I2C_LS2X_PRER_HI	0x1 /* Freq Division High Byte Register */
+#define I2C_LS2X_PRER_LO	0x0 /* Freq Division Register Lo(8 bits) */
+#define I2C_LS2X_PRER_HI	0x1 /* Freq Division Register Hi(8 bits) */
 #define I2C_LS2X_CTR		0x2 /* Control Register */
 #define I2C_LS2X_TXR		0x3 /* Transport Data Register */
 #define I2C_LS2X_RXR		0x3 /* Receive Data Register */
