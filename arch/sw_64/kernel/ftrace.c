@@ -115,6 +115,19 @@ int __init ftrace_dyn_arch_init(void)
 int ftrace_modify_call(struct dyn_ftrace *rec, unsigned long old_addr,
 		       unsigned long addr)
 {
+	unsigned int insn[1];
+	unsigned long pc = rec->ip + MCOUNT_LDGP_SIZE + 4;
+	unsigned long offset;
+
+	if (addr == FTRACE_ADDR)
+		offset = TI_FTRACE_ADDR;
+	else
+		offset = TI_FTRACE_REGS_ADDR;
+
+	/* ldl r28,(ftrace_addr_offset)(r8) */
+	insn[0] = (0x23U << 26) | (28U << 21) | (8U << 16) | offset;
+	copy_to_kernel_nofault((void *)pc, insn, SW64_INSN_SIZE);
+
 	return 0;
 }
 #endif
