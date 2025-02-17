@@ -89,6 +89,8 @@ enum rtw89_acpi_sar_rev {
 #define RTW89_ACPI_SAR_ANT_NR_SML 2
 
 #define RTW89_ACPI_METHOD_STATIC_SAR "WRDS"
+#define RTW89_ACPI_METHOD_DYNAMIC_SAR "RWRD"
+#define RTW89_ACPI_METHOD_DYNAMIC_SAR_INDICATOR "RWSI"
 
 struct rtw89_acpi_sar_std_legacy {
 	u8 v[RTW89_ACPI_SAR_ANT_NR_STD][RTW89_ACPI_SAR_SUBBAND_NR_LEGACY];
@@ -110,6 +112,21 @@ struct rtw89_acpi_static_sar_hdr {
 	__le16 cid;
 	u8 rev;
 	u8 content[];
+} __packed;
+
+struct rtw89_acpi_dynamic_sar_hdr {
+	__le16 cid;
+	u8 rev;
+	u8 cnt;
+	u8 content[];
+} __packed;
+
+#define RTW89_ACPI_DYNAMIC_SAR_INDICATOR_GET_SEL(indicator, ant_idx) \
+	((indicator)->tblidx_by_ant[ant_idx] - 1)
+
+struct rtw89_acpi_dynamic_sar_indicator {
+	/* 1-base */
+	u8 tblidx_by_ant[RTW89_ACPI_SAR_ANT_NR_STD];
 } __packed;
 
 struct rtw89_acpi_sar_identifier {
@@ -148,5 +165,8 @@ int rtw89_acpi_evaluate_rtag(struct rtw89_dev *rtwdev,
 			     struct rtw89_acpi_rtag_result *res);
 int rtw89_acpi_evaluate_sar(struct rtw89_dev *rtwdev,
 			    struct rtw89_sar_cfg_acpi *cfg);
+int rtw89_acpi_evaluate_dynamic_sar_indicator(struct rtw89_dev *rtwdev,
+					      struct rtw89_sar_cfg_acpi *cfg,
+					      bool *changed);
 
 #endif
