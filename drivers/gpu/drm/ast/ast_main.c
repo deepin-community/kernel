@@ -45,7 +45,7 @@ static bool ast_is_vga_enabled(struct drm_device *dev)
 	return !!(ch & 0x01);
 }
 
-static void ast_enable_vga(struct drm_device *dev)
+void ast_enable_vga(struct drm_device *dev)
 {
 	struct ast_device *ast = to_ast_device(dev);
 
@@ -65,7 +65,7 @@ static void ast_enable_mmio_release(void *data)
 	ast_set_index_reg(ast, AST_IO_CRTC_PORT, 0xa1, 0x04);
 }
 
-static int ast_enable_mmio(struct ast_device *ast)
+int ast_enable_mmio(struct ast_device *ast)
 {
 	struct drm_device *dev = &ast->base;
 
@@ -74,10 +74,6 @@ static int ast_enable_mmio(struct ast_device *ast)
 	return devm_add_action_or_reset(dev->dev, ast_enable_mmio_release, ast);
 }
 
-static void ast_open_key(struct ast_device *ast)
-{
-	ast_set_index_reg(ast, AST_IO_CRTC_PORT, 0x80, 0xA8);
-}
 
 static int ast_device_config_init(struct ast_device *ast)
 {
