@@ -18,10 +18,10 @@
 #include <linux/memblock.h>
 #include <linux/param.h>
 #include <linux/percpu-defs.h>
+#include <linux/pm.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-#include <linux/pm.h>
 
 #include <asm/addrspace.h>
 #include <asm/bootinfo.h>
@@ -48,13 +48,8 @@
 #include <asm/dec/kn02ca.h>
 #include <asm/dec/kn03.h>
 #include <asm/dec/kn230.h>
+#include <asm/dec/reset.h>
 #include <asm/dec/system.h>
-
-
-extern void dec_machine_restart(char *command);
-extern void dec_machine_halt(void);
-extern void dec_machine_power_off(void);
-extern irqreturn_t dec_intr_halt(int irq, void *dev_id);
 
 unsigned long dec_kn_slot_base, dec_kn_slot_size;
 

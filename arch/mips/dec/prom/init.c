@@ -18,7 +18,7 @@
 #include <asm/processor.h>
 
 #include <asm/dec/prom.h>
-
+#include <asm/dec/reset.h>
 
 int (*__rex_bootinit)(void);
 int (*__rex_bootread)(void);
@@ -88,7 +88,6 @@ static void __init which_prom(s32 magic, s32 *prom_vec)
 
 void __init prom_init(void)
 {
-	extern void dec_machine_halt(void);
 	static const char cpu_msg[] __initconst =
 		"Sorry, this kernel is compiled for a wrong CPU type!\n";
 	s32 argc = fw_arg0;
