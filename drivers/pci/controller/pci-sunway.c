@@ -36,6 +36,171 @@ int pcibios_enable_device(struct pci_dev *dev, int bars)
 		return pci_enable_resources(dev, bars);
 }
 
+#ifdef CONFIG_UNCORE_XUELANG
+#define PIU_IOR0_SAVE_REGS (12 + 256)
+#define PIU_IOR1_SAVE_REGS 1
+#else
+#define PIU_IOR0_SAVE_REGS 12
+#define PIU_IOR1_SAVE_REGS 1
+#endif
+
+static struct piu_saved_data *alloc_piu_saved_data(unsigned int size)
+{
+	struct piu_saved_data *piu_saved_data;
+
+	piu_saved_data = kzalloc(sizeof(*piu_saved_data) + size, GFP_KERNEL);
+	if (!piu_saved_data) {
+		pr_err("alloc piu saved data failed!\n");
+		return NULL;
+	}
+
+	piu_saved_data->size = size;
+
+	return piu_saved_data;
+}
+
+void save_piu_ior0(struct pci_controller *hose)
+{
+	int i = 0, j;
+	void __iomem *piu_ior0_base;
+	struct piu_saved_data *piu_ior0;
+	u64 *ior;
+
+	piu_ior0 = hose->piu_ior0;
+	if (!piu_ior0)
+		return;
+
+	piu_ior0_base = hose->piu_ior0_base;
+
+	ior = piu_ior0->data;
+	ior[i++] = readq(piu_ior0_base + PIUCONFIG0);
+	ior[i++] = readq(piu_ior0_base + EPDMABAR);
+	ior[i++] = readq(piu_ior0_base + IOMMUEXCPT_CTRL);
+	ior[i++] = readq(piu_ior0_base + MSIADDR);
+
+	if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
+		for (j = 0; j < 256; j++)
+			ior[i++] = readq(piu_ior0_base + MSICONFIG0 + (j << 7));
+	}
+
+	ior[i++] = readq(piu_ior0_base + INTACONFIG);
+	ior[i++] = readq(piu_ior0_base + INTBCONFIG);
+	ior[i++] = readq(piu_ior0_base + INTCCONFIG);
+	ior[i++] = readq(piu_ior0_base + INTDCONFIG);
+	ior[i++] = readq(piu_ior0_base + PMEINTCONFIG);
+	ior[i++] = readq(piu_ior0_base + AERERRINTCONFIG);
+	ior[i++] = readq(piu_ior0_base + HPINTCONFIG);
+	ior[i++] = readq(piu_ior0_base + DTBASEADDR);
+
+	piu_ior0->saved_state = true;
+
+}
+
+void restore_piu_ior0(struct pci_controller *hose)
+{
+	int i = 0, j;
+	void __iomem *piu_ior0_base;
+	struct piu_saved_data *piu_ior0;
+	u64 *ior;
+
+	piu_ior0 = hose->piu_ior0;
+	if (!piu_ior0)
+		return;
+
+	if (piu_ior0->saved_state) {
+		piu_ior0_base = hose->piu_ior0_base;
+
+		ior = piu_ior0->data;
+		writeq(ior[i++], piu_ior0_base + PIUCONFIG0);
+		writeq(ior[i++], piu_ior0_base + EPDMABAR);
+		writeq(ior[i++], piu_ior0_base + IOMMUEXCPT_CTRL);
+		writeq(ior[i++], piu_ior0_base + MSIADDR);
+
+		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
+			for (j = 0; j < 256; j++)
+				writeq(ior[i++], piu_ior0_base + MSICONFIG0 + (j << 7));
+		}
+		writeq(ior[i++], piu_ior0_base + INTACONFIG);
+		writeq(ior[i++], piu_ior0_base + INTBCONFIG);
+		writeq(ior[i++], piu_ior0_base + INTCCONFIG);
+		writeq(ior[i++], piu_ior0_base + INTDCONFIG);
+		writeq(ior[i++], piu_ior0_base + PMEINTCONFIG);
+		writeq(ior[i++], piu_ior0_base + AERERRINTCONFIG);
+		writeq(ior[i++], piu_ior0_base + HPINTCONFIG);
+		writeq(ior[i++], piu_ior0_base + DTBASEADDR);
+
+		piu_ior0->saved_state = false;
+	}
+}
+
+void save_piu_ior1(struct pci_controller *hose)
+{
+	int i = 0;
+	void __iomem *piu_ior1_base;
+	struct piu_saved_data *piu_ior1;
+	u64 *ior;
+
+	piu_ior1 = hose->piu_ior1;
+	if (!piu_ior1)
+		return;
+
+	piu_ior1_base = hose->piu_ior1_base;
+
+	ior = piu_ior1->data;
+	ior[i++] = readq(piu_ior1_base + PIUCONFIG1);
+
+	piu_ior1->saved_state = true;
+}
+
+void restore_piu_ior1(struct pci_controller *hose)
+{
+	int i = 0;
+	void __iomem *piu_ior1_base;
+	struct piu_saved_data *piu_ior1;
+	u64 *ior;
+
+	piu_ior1 = hose->piu_ior1;
+	if (!piu_ior1)
+		return;
+
+	if (piu_ior1->saved_state) {
+		piu_ior1_base = hose->piu_ior1_base;
+
+		ior = piu_ior1->data;
+		writeq(ior[i++], piu_ior1_base + PIUCONFIG1);
+
+		piu_ior1->saved_state = false;
+	}
+}
+
+void save_rc_piu(struct pci_dev *dev)
+{
+	struct pci_bus *bus = dev->bus;
+	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
+
+	if (bus->self)
+		return;
+
+	pci_save_state(dev);
+
+	save_piu_ior0(hose);
+	save_piu_ior1(hose);
+}
+
+void restore_rc_piu(struct pci_dev *dev)
+{
+	struct pci_bus *bus = dev->bus;
+	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
+
+	if (bus->self)
+		return;
+
+	pci_restore_state(dev);
+
+	restore_piu_ior0(hose);
+	restore_piu_ior1(hose);
+}
+
 int chip_pcie_configure(struct pci_controller *hose)
 {
 	struct pci_dev *dev;
@@ -315,6 +480,9 @@ static void hose_init(struct pci_controller *hose)
 	hose->busn_space->flags = IORESOURCE_BUS;
 	hose->first_busno = hose->self_busno = hose->busn_space->start;
 	hose->last_busno  = hose->busn_space->end;
+
+	hose->piu_ior0 = alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
+	hose->piu_ior1 = alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
 
 	if (is_in_host()) {
 		if (IS_ENABLED(CONFIG_PCI_MSI))
@@ -718,6 +886,9 @@ static int pci_prepare_controller(struct pci_controller *hose,
 	hose->self_busno  = 0xff;
 
 	hose->need_domain_info = 0;
+
+	hose->piu_ior0 = alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
+	hose->piu_ior1 = alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
 
 #if IS_ENABLED(CONFIG_PCI_MSI)
 	if (is_in_host())

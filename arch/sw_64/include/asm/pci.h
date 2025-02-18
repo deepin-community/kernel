@@ -86,21 +86,10 @@ struct resource;
 struct sunway_iommu;
 struct page;
 
-struct piu_saved {
-	unsigned long piuconfig0;
-	unsigned long piuconfig1;
-	unsigned long epdmabar;
-	unsigned long msiaddr;
-	unsigned long msiconfig[256];
-	unsigned long iommuexcpt_ctrl;
-	unsigned long dtbaseaddr;
-	unsigned long hpintconfig;
-	unsigned long pmeintconfig;
-	unsigned long aererrintconfig;
-	unsigned long intaconfig;
-	unsigned long intbconfig;
-	unsigned long intcconfig;
-	unsigned long intdconfig;
+struct piu_saved_data {
+	unsigned int size;
+	bool saved_state;
+	u64 data[0];
 };
 
 /* A controller.  Used to manage multiple PCI busses.  */
@@ -139,6 +128,8 @@ struct pci_controller {
 	int last_busno;
 	int self_busno;
 	void *sysdata;
+	struct piu_saved_data *piu_ior0;
+	struct piu_saved_data *piu_ior1;
 };
 
 /* Override the logic in pci_scan_bus for skipping already-configured
@@ -164,6 +155,13 @@ extern void __init setup_chip_pci_ops(void);
 #else
 #define setup_chip_pci_ops()	do { } while (0)
 #endif
+
+extern void save_piu_ior0(struct pci_controller *hose);
+extern void restore_piu_ior0(struct pci_controller *hose);
+extern void save_piu_ior1(struct pci_controller *hose);
+extern void restore_piu_ior1(struct pci_controller *hose);
+extern void save_rc_piu(struct pci_dev *dev);
+extern void restore_rc_piu(struct pci_dev *dev);
 
 extern struct pci_controller *
 pci_bus_to_pci_controller(const struct pci_bus *bus);
