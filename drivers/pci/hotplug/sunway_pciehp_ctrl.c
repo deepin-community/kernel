@@ -218,44 +218,11 @@ void sunway_pciehp_handle_disable_request(struct controller *ctrl)
 	ctrl->request_result = sunway_pciehp_disable_slot(ctrl, SAFE_REMOVAL);
 }
 
-void sunway_pciehp_save_config_space(struct controller *ctrl)
-{
-	struct pci_dev *pdev = ctrl->pci_dev;
-	int i;
-
-	if (!pdev->state_saved) {
-		for (i = 0; i < 16; i++)
-			pci_read_config_dword(pdev, i * 4, &pdev->saved_config_space[i]);
-		pdev->state_saved = true;
-	}
-}
-
 void sunway_pciehp_save_rc_piu(struct controller *ctrl)
 {
-	struct pci_bus *bus = ctrl->pci_dev->bus;
-	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
-	void __iomem *piu_ior0_base;
+	struct pci_dev *pdev = ctrl->pci_dev;
 
-	piu_ior0_base = hose->piu_ior0_base;
-
-	sunway_pciehp_save_config_space(ctrl);
-
-	if (!ctrl->saved_piu.state_saved) {
-		ctrl->saved_piu.epdmabar = readq(piu_ior0_base + EPDMABAR);
-		ctrl->saved_piu.msiaddr = readq(piu_ior0_base + MSIADDR);
-		ctrl->saved_piu.iommuexcpt_ctrl = readq(piu_ior0_base + IOMMUEXCPT_CTRL);
-		ctrl->saved_piu.dtbaseaddr = readq(piu_ior0_base + DTBASEADDR);
-
-		ctrl->saved_piu.intaconfig = readq(piu_ior0_base + INTACONFIG);
-		ctrl->saved_piu.intbconfig = readq(piu_ior0_base + INTBCONFIG);
-		ctrl->saved_piu.intcconfig = readq(piu_ior0_base + INTCCONFIG);
-		ctrl->saved_piu.intdconfig = readq(piu_ior0_base + INTDCONFIG);
-		ctrl->saved_piu.pmeintconfig = readq(piu_ior0_base + PMEINTCONFIG);
-		ctrl->saved_piu.aererrintconfig = readq(piu_ior0_base + AERERRINTCONFIG);
-		ctrl->saved_piu.hpintconfig = readq(piu_ior0_base + HPINTCONFIG);
-
-		ctrl->saved_piu.state_saved = true;
-	}
+	save_rc_piu(pdev);
 }
 
 void sunway_pciehp_start(struct hotplug_slot *hotplug_slot)
@@ -358,55 +325,11 @@ void sunway_pciehp_start(struct hotplug_slot *hotplug_slot)
 	}
 }
 
-static void pciehp_restore_config_space_range(struct pci_dev *pdev,
-		int start, int end)
-{
-	int index;
-
-	for (index = end; index >= start; index--) {
-		pci_write_config_dword(pdev, 4 * index,
-				pdev->saved_config_space[index]);
-	}
-}
-
-void sunway_pciehp_restore_config_space(struct controller *ctrl)
+void sunway_pciehp_restore_rc_piu(struct controller *ctrl)
 {
 	struct pci_dev *pdev = ctrl->pci_dev;
 
-	if (pdev->state_saved) {
-		pciehp_restore_config_space_range(pdev, 12, 15);
-		pciehp_restore_config_space_range(pdev, 9, 11);
-		pciehp_restore_config_space_range(pdev, 0, 8);
-		pdev->state_saved = false;
-	}
-}
-
-void sunway_pciehp_restore_rc_piu(struct controller *ctrl)
-{
-	struct pci_bus *bus = ctrl->pci_dev->bus;
-	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
-	void __iomem *piu_ior0_base;
-
-	piu_ior0_base = hose->piu_ior0_base;
-
-	sunway_pciehp_restore_config_space(ctrl);
-
-	if (ctrl->saved_piu.state_saved) {
-		writeq(ctrl->saved_piu.epdmabar, (piu_ior0_base + EPDMABAR));
-		writeq(ctrl->saved_piu.msiaddr, (piu_ior0_base + MSIADDR));
-		writeq(ctrl->saved_piu.iommuexcpt_ctrl, (piu_ior0_base + IOMMUEXCPT_CTRL));
-		writeq(ctrl->saved_piu.dtbaseaddr, (piu_ior0_base + DTBASEADDR));
-
-		writeq(ctrl->saved_piu.intaconfig, (piu_ior0_base + INTACONFIG));
-		writeq(ctrl->saved_piu.intbconfig, (piu_ior0_base + INTBCONFIG));
-		writeq(ctrl->saved_piu.intcconfig, (piu_ior0_base + INTCCONFIG));
-		writeq(ctrl->saved_piu.intdconfig, (piu_ior0_base + INTDCONFIG));
-		writeq(ctrl->saved_piu.pmeintconfig, (piu_ior0_base + PMEINTCONFIG));
-		writeq(ctrl->saved_piu.aererrintconfig, (piu_ior0_base + AERERRINTCONFIG));
-		writeq(ctrl->saved_piu.hpintconfig, (piu_ior0_base + HPINTCONFIG));
-
-		ctrl->saved_piu.state_saved = false;
-	}
+	restore_rc_piu(pdev);
 }
 
 void sunway_pciehp_end(struct controller *ctrl, bool insert)

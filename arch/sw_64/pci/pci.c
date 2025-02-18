@@ -4,6 +4,7 @@
 #include <linux/pci-ecam.h>
 #include <linux/acpi.h>
 #include <linux/reboot.h>
+#include <linux/delay.h>
 
 #include <asm/pci.h>
 #include <asm/sw64_init.h>
@@ -31,6 +32,24 @@ int raw_pci_write(unsigned int domain, unsigned int bus, unsigned int devfn,
 		return bus_tmp->ops->write(bus_tmp, devfn, reg, len, val);
 
 	return -EINVAL;
+}
+
+void pcibios_reset_secondary_bus(struct pci_dev *dev)
+{
+	if (dev->bus->self) {
+		pci_reset_secondary_bus(dev);
+	} else {
+		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
+			pr_warn("The chip does not support secondary bus reset! \
+					No further action is required.\n");
+			return;
+		}
+
+		save_rc_piu(dev);
+		pci_reset_secondary_bus(dev);
+		ssleep(1);
+		restore_rc_piu(dev);
+	}
 }
 
 resource_size_t pcibios_default_alignment(void)

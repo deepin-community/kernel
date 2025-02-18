@@ -93,84 +93,22 @@ static void i2c_srst(void)
 static void pcie_save(void)
 {
 	struct pci_controller *hose;
-	struct piu_saved *piu_save;
-	unsigned long i;
-	void __iomem *piu_ior0_base;
-	void __iomem *piu_ior1_base;
 
 	for (hose = hose_head; hose; hose = hose->next) {
-		piu_ior0_base = hose->piu_ior0_base;
-		piu_ior1_base = hose->piu_ior1_base;
-
-		piu_save = kzalloc(sizeof(*piu_save), GFP_KERNEL);
-		hose->sysdata = piu_save;
-
-		piu_save->piuconfig0 = readq(piu_ior0_base + PIUCONFIG0);
-		piu_save->piuconfig1 = readq(piu_ior1_base + PIUCONFIG1);
-		piu_save->epdmabar = readq(piu_ior0_base + EPDMABAR);
-		piu_save->msiaddr = readq(piu_ior0_base + MSIADDR);
-
-		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
-			for (i = 0; i < 256; i++) {
-				piu_save->msiconfig[i] =
-					readq(piu_ior0_base + MSICONFIG0 + (i << 7));
-			}
-		}
-
-		piu_save->iommuexcpt_ctrl = readq(piu_ior0_base + IOMMUEXCPT_CTRL);
-		piu_save->dtbaseaddr = readq(piu_ior0_base + DTBASEADDR);
-
-		piu_save->intaconfig = readq(piu_ior0_base + INTACONFIG);
-		piu_save->intbconfig = readq(piu_ior0_base + INTBCONFIG);
-		piu_save->intcconfig = readq(piu_ior0_base + INTCCONFIG);
-		piu_save->intdconfig = readq(piu_ior0_base + INTDCONFIG);
-		piu_save->pmeintconfig = readq(piu_ior0_base + PMEINTCONFIG);
-		piu_save->aererrintconfig = readq(piu_ior0_base + AERERRINTCONFIG);
-		piu_save->hpintconfig = readq(piu_ior0_base + HPINTCONFIG);
-
+		save_piu_ior0(hose);
+		save_piu_ior1(hose);
 	}
 }
 
 static void pcie_restore(void)
 {
 	struct pci_controller *hose;
-	struct piu_saved *piu_save;
 	u32 rc_misc_ctrl;
 	unsigned int value;
-	unsigned long i;
 	void __iomem *rc_config_space_base;
-	void __iomem *piu_ior0_base;
-	void __iomem *piu_ior1_base;
 
 	for (hose = hose_head; hose; hose = hose->next) {
 		rc_config_space_base = hose->rc_config_space_base;
-		piu_ior0_base = hose->piu_ior0_base;
-		piu_ior1_base = hose->piu_ior1_base;
-		piu_save = hose->sysdata;
-
-		writeq(piu_save->piuconfig0, (piu_ior0_base + PIUCONFIG0));
-		writeq(piu_save->piuconfig1, (piu_ior1_base + PIUCONFIG1));
-		writeq(piu_save->epdmabar, (piu_ior0_base + EPDMABAR));
-		writeq(piu_save->msiaddr, (piu_ior0_base + MSIADDR));
-
-
-		if (IS_ENABLED(CONFIG_UNCORE_XUELANG)) {
-			for (i = 0; i < 256; i++) {
-				writeq(piu_save->msiconfig[i],
-						(piu_ior0_base + (MSICONFIG0 + (i << 7))));
-			}
-		}
-
-		writeq(piu_save->iommuexcpt_ctrl, (piu_ior0_base + IOMMUEXCPT_CTRL));
-		writeq(piu_save->dtbaseaddr, (piu_ior0_base + DTBASEADDR));
-
-		writeq(piu_save->intaconfig, (piu_ior0_base + INTACONFIG));
-		writeq(piu_save->intbconfig, (piu_ior0_base + INTBCONFIG));
-		writeq(piu_save->intcconfig, (piu_ior0_base + INTCCONFIG));
-		writeq(piu_save->intdconfig, (piu_ior0_base + INTDCONFIG));
-		writeq(piu_save->pmeintconfig, (piu_ior0_base + PMEINTCONFIG));
-		writeq(piu_save->aererrintconfig, (piu_ior0_base + AERERRINTCONFIG));
-		writeq(piu_save->hpintconfig, (piu_ior0_base + HPINTCONFIG));
 
 		/* Enable DBI_RO_WR_EN */
 		rc_misc_ctrl = readl(rc_config_space_base + RC_MISC_CONTROL_1);
@@ -186,6 +124,9 @@ static void pcie_restore(void)
 
 		/* Disable DBI_RO_WR_EN */
 		writel(rc_misc_ctrl, (rc_config_space_base + RC_MISC_CONTROL_1));
+
+		restore_piu_ior0(hose);
+		restore_piu_ior1(hose);
 	}
 
 }
