@@ -361,6 +361,14 @@ config IMX_GPCV2
 	help
 	  Enables the wakeup IRQs for IMX platforms with GPCv2 block
 
+config SKY1_PDC
+	bool
+	depends on ARM_GIC
+	default y
+	select IRQ_DOMAIN
+	help
+	  Enables the wakeup IRQs for SKY1 platforms with PDC block
+
 config IRQ_MXS
 	def_bool y if MACH_ASM9260 || ARCH_MXS
 	select IRQ_DOMAIN
