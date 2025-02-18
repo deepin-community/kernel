@@ -22,6 +22,17 @@ config USB_CDNS3
 
 	  If you choose to build this driver is a dynamically linked
 	  as module, the module will be called cdns3.ko.
+
+config USB_CDNSP_CIX
+       bool "Cadence USBSSP Dual-Role Controller for Cix platform"
+       depends on USB_CDNS_SUPPORT
+       help
+         Say Y here if your system has a Cadence USBSSP dual-role controller.
+         It supports: dual-role switch, Host-only, and Peripheral-only.
+
+         If you choose to build this driver is a dynamically linked
+         as module, the module will be called cdnsp-cix.ko.
+
 endif
 
 if USB_CDNS3
@@ -129,5 +140,15 @@ config USB_CDNSP_HOST
 
 	  Host controller is compliant with XHCI so it uses
 	  standard XHCI driver.
+
+config USB_CDNSP_SKY1
+       tristate "sky1 base on Cadence CDNSP Dual-Role Controller"
+       depends on OF || COMPILE_TEST
+       select USB_CDNSP_HOST
+       help
+         Say Y here if sky1 has a Cadence CDNSP dual-role controller.
+
+         If you choose to build this driver is a dynamically linked
+         module, the module will be called cdnsp-sky1.ko.
 
 endif

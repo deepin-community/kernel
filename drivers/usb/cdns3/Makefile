@@ -6,6 +6,8 @@ CFLAGS_cdnsp-trace.o				:= -I$(src)
 cdns-usb-common-y				:= core.o drd.o
 cdns3-y						:= cdns3-plat.o
 
+obj-$(CONFIG_USB_CDNSP_CIX)                         += cdnsp-cix.o
+
 ifeq ($(CONFIG_USB),m)
 obj-m						+= cdns-usb-common.o
 obj-m						+= cdns3.o
@@ -42,3 +44,5 @@ cdnsp-udc-pci-$(CONFIG_USB_CDNSP_GADGET)	+= cdnsp-ring.o cdnsp-gadget.o \
 ifneq ($(CONFIG_USB_CDNSP_GADGET),)
 cdnsp-udc-pci-$(CONFIG_TRACING)			+= cdnsp-trace.o
 endif
+
+obj-$(CONFIG_USB_CDNSP_SKY1)			+= cdnsp-sky1.o
