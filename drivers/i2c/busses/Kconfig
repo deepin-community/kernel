@@ -530,6 +530,13 @@ config I2C_CADENCE
 	  Say yes here to select Cadence I2C Host Controller. This controller is
 	  e.g. used by Xilinx Zynq.
 
+config I2C_CIX
+	tristate "Cadence I2C Controller for Cix"
+	depends on ARCH_ZYNQ || ARM64 || XTENSA || COMPILE_TEST
+	help
+	  Say yes here to select Cadence I2C Host Controller on Cix platform.
+	  This controller is e.g. used by Cix sky1.
+
 config I2C_CBUS_GPIO
 	tristate "CBUS I2C driver"
 	depends on GPIOLIB || COMPILE_TEST
