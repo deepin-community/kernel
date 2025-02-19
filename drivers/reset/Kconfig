@@ -318,6 +318,18 @@ config RESET_ZYNQ
 	help
 	  This enables the reset controller driver for Xilinx Zynq SoCs.
 
+config RESET_SKY1
+	tristate "Sky1 Reset Driver"
+	depends on COMMON_CLK_CIX
+	help
+	  This enables the reset controller driver for Sky1 SoCs.
+
+config RESET_SKY1_AUDSS
+	tristate "Sky1 Audss Reset Driver"
+	depends on COMMON_CLK_CIX
+	help
+	  This enables the audss reset controller driver for Sky1 SoCs.
+
 source "drivers/reset/starfive/Kconfig"
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
