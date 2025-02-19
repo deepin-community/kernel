@@ -2058,6 +2058,11 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 		if (reloc->sym->type == STT_SECTION) {
 			/* Addend field in the relocation entry associated with the symbol */
 			offset = reloc_addend(reloc);
+			/* Handle the special cases compiled with Clang on LoongArch */
+			if (file->elf->ehdr.e_machine == EM_LOONGARCH &&
+			    reloc_type(reloc) == R_LARCH_32_PCREL)
+				offset = reloc->sym->offset + reloc_addend(reloc) -
+					 (reloc_offset(reloc) - reloc_offset(table));
 		} else {
 			/* The address of the symbol in the relocation entry */
 			offset = reloc->sym->offset;
