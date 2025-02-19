@@ -114,6 +114,27 @@ static struct reloc *find_reloc_by_table_annotate(struct objtool_file *file,
 	return NULL;
 }
 
+static struct reloc *find_reloc_of_rodata_c_jump_table(struct section *sec,
+						       unsigned long offset)
+{
+	struct section *rsec;
+	struct reloc *reloc;
+
+	rsec = sec->rsec;
+	if (!rsec)
+		return NULL;
+
+	for_each_reloc(rsec, reloc) {
+		if (reloc_offset(reloc) > offset)
+			break;
+
+		if (!strncmp(reloc->sym->sec->name, ".rodata..c_jump_table", 21))
+			return reloc;
+	}
+
+	return NULL;
+}
+
 struct reloc *arch_find_switch_table(struct objtool_file *file,
 				     struct instruction *insn)
 {
@@ -123,8 +144,11 @@ struct reloc *arch_find_switch_table(struct objtool_file *file,
 	unsigned long table_offset;
 
 	annotate_reloc = find_reloc_by_table_annotate(file, insn);
-	if (!annotate_reloc)
-		return NULL;
+	if (!annotate_reloc) {
+		annotate_reloc = find_reloc_of_rodata_c_jump_table(insn->sec, insn->offset);
+		if (!annotate_reloc)
+			return NULL;
+	}
 
 	table_sec = annotate_reloc->sym->sec;
 	if (annotate_reloc->sym->type == STT_SECTION)
