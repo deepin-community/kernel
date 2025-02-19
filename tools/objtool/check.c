@@ -26,6 +26,10 @@
 #define EM_LOONGARCH		258
 #endif
 
+#ifndef R_LARCH_32_PCREL
+#define R_LARCH_32_PCREL	99
+#endif
+
 struct alternative {
 	struct alternative *next;
 	struct instruction *insn;
@@ -2028,6 +2032,7 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 	struct reloc *reloc = table;
 	struct alternative *alt;
 	unsigned long offset;
+	unsigned long rodata_entry_size;
 
 	/*
 	 * Each @reloc is a switch table relocation which points to the target
@@ -2039,8 +2044,15 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 		if (reloc != table && reloc == next_table)
 			break;
 
+		/* Handle the special cases compiled with Clang on LoongArch */
+		if (file->elf->ehdr.e_machine == EM_LOONGARCH &&
+		    reloc_type(reloc) == R_LARCH_32_PCREL)
+			rodata_entry_size = 4;
+		else
+			rodata_entry_size = 8;
+
 		/* Make sure the table entries are consecutive: */
-		if (prev_offset && reloc_offset(reloc) != prev_offset + 8)
+		if (prev_offset && reloc_offset(reloc) != prev_offset + rodata_entry_size)
 			break;
 
 		if (reloc->sym->type == STT_SECTION) {
