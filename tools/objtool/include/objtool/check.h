@@ -46,6 +46,7 @@ struct instruction {
 	struct section *sec;
 	unsigned long offset;
 	unsigned long immediate;
+	unsigned long table_size;
 
 	u8 len;
 	u8 prev_len;

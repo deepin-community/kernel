@@ -2033,6 +2033,7 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 	struct alternative *alt;
 	unsigned long offset;
 	unsigned long rodata_entry_size;
+	unsigned long rodata_table_size = insn->table_size;
 
 	/*
 	 * Each @reloc is a switch table relocation which points to the target
@@ -2042,6 +2043,12 @@ static int add_jump_table(struct objtool_file *file, struct instruction *insn,
 
 		/* Check for the end of the table: */
 		if (reloc != table && reloc == next_table)
+			break;
+
+		/* Handle the special cases compiled with Clang on LoongArch */
+		if (file->elf->ehdr.e_machine == EM_LOONGARCH &&
+		    reloc->sym->type == STT_SECTION && reloc != table &&
+		    reloc_offset(reloc) == reloc_offset(table) + rodata_table_size)
 			break;
 
 		/* Handle the special cases compiled with Clang on LoongArch */
