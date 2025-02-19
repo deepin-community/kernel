@@ -293,11 +293,17 @@ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
 		return;
 	}
 
+/*
+ * apic_id's type is u8.
+ * Conditionally skip this check to silence compiler warnings.
+ */
+#if CONFIG_NR_CPUS < 256
 	if (pa->apic_id >= CONFIG_NR_CPUS) {
 		pr_info("SRAT: PXM %u -> CPU 0x%02x -> Node %u skipped apicid that is too big\n",
 				pxm, pa->apic_id, node);
 		return;
 	}
+#endif /* CONFIG_NR_CPUS < 256 */
 
 	early_numa_add_cpu(pa->apic_id, node);
 
