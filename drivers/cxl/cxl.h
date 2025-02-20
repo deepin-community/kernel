@@ -833,4 +833,6 @@ static inline struct cxl_dax_region *to_cxl_dax_region(struct device *dev)
 #define __mock static
 #endif
 
+u16 cxl_gpf_get_dvsec(struct device *dev, bool is_port);
+
 #endif /* __CXL_H__ */
