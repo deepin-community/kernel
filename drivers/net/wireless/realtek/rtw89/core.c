@@ -5453,9 +5453,24 @@ static void rtw89_core_unregister_hw(struct rtw89_dev *rtwdev)
 	rtw89_core_clr_supported_band(rtwdev);
 }
 
+static bool rtw89_warn_chip_info(struct rtw89_dev *rtwdev)
+{
+	const struct rtw89_chip_info *chip = rtwdev->chip;
+	const struct rtw89_chanctx_listener *listener = chip->chanctx_listener;
+
+	if (WARN_ON(chip->support_tas && chip->support_chanctx_num > 1 &&
+		    (!listener || !listener->callbacks[RTW89_CHANCTX_CALLBACK_TAS])))
+		return true;
+
+	return false;
+}
+
 int rtw89_core_register(struct rtw89_dev *rtwdev)
 {
 	int ret;
+
+	if (rtw89_warn_chip_info(rtwdev))
+		return -EINVAL;
 
 	ret = rtw89_core_register_hw(rtwdev);
 	if (ret) {
