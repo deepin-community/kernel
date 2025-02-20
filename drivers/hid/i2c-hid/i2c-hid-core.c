@@ -282,16 +282,22 @@ static int i2c_hid_get_report(struct i2c_hid *ihid,
 			   ihid->cmdbuf + length);
 	length += sizeof(__le16);
 
-	/*
-	 * In addition to report data device will supply data length
-	 * in the first 2 bytes of the response, so adjust .
-	 */
-	error = i2c_hid_xfer(ihid, ihid->cmdbuf, length,
-			     ihid->rawbuf, recv_len + sizeof(__le16));
-	if (error) {
-		dev_err(&ihid->client->dev,
-			"failed to get a report from device: %d\n", error);
-		return error;
+	for (int i = 0; i < 5; ++i) {
+		/*
+		 * In addition to report data device will supply data length
+		 * in the first 2 bytes of the response, so adjust .
+		 */
+		error = i2c_hid_xfer(ihid, ihid->cmdbuf, length,
+					ihid->rawbuf, recv_len + sizeof(__le16));
+		if (!error)
+			break;
+
+		if (error != -EAGAIN) {
+			dev_err(&ihid->client->dev,
+				"failed to get a report from device: %d\n", error);
+			return error;
+		}
+		usleep_range(4000, 5000);
 	}
 
 	/* The buffer is sufficiently aligned */
