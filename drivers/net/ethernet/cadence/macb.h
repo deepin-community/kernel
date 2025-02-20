@@ -1325,6 +1325,8 @@ struct macb {
 	struct clk		*tsu_clk;
 	struct net_device	*dev;
 	struct ncsi_dev		*ndev;
+	/* Protects hw_stats and ethtool_stats */
+	spinlock_t		stats_lock;
 	union {
 		struct macb_stats	macb;
 		struct gem_stats	gem;
