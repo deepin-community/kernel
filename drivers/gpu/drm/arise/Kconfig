@@ -1,6 +1,7 @@
 config DRM_ARISE
 	tristate "Arise DRM"
 	default m
+	depends on ARM || LOONGARCH || MIPS || X86 || COMPILE_TEST
 	depends on DRM
 	select DRM_KMS_HELPER
 	help
