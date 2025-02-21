@@ -339,6 +339,9 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 	if (!mt7921_disable_aspm && mt76_pci_aspm_supported(pdev))
 		dev->aspm_supported = true;
 
+	pr_info("mt7921_pci_probe: disable_aspm:%d,aspm_supported:%d\n",
+		mt7921_disable_aspm, dev->aspm_supported);
+
 	ret = mt792xe_mcu_fw_pmctrl(dev);
 	if (ret)
 		goto err_free_dev;
