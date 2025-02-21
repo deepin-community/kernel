@@ -94,7 +94,7 @@ asmlinkage void noinstr do_entInt(struct pt_regs *regs)
 	old_regs = set_irq_regs(regs);
 
 #ifdef CONFIG_PM
-	if (is_junzhang_v1()) {
+	if (is_in_host() && is_junzhang_v1()) {
 		if (pme_state == PME_WFW) {
 			pme_state = PME_PENDING;
 			goto out;
