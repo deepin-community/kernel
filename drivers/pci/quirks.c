@@ -396,6 +396,8 @@ static void quirk_tigerpoint_bm_sts(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_TGP_LPC, quirk_tigerpoint_bm_sts);
 #endif
 
+#if defined(CONFIG_MACH_LOONGSON64)
+
 #define DEV_PCIE_PORT_4	0x7a39
 #define DEV_PCIE_PORT_5	0x7a49
 #define DEV_PCIE_PORT_6	0x7a59
@@ -425,6 +427,7 @@ static void loongson_d3_and_link_quirk(struct pci_dev *dev)
 	}
 }
 DECLARE_PCI_FIXUP_ENABLE(PCI_ANY_ID, PCI_ANY_ID, loongson_d3_and_link_quirk);
+#endif
 
 /* Chipsets where PCI->PCI transfers vanish or hang */
 static void quirk_nopcipci(struct pci_dev *dev)
