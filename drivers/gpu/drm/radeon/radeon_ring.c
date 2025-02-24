@@ -185,7 +185,9 @@ void radeon_ring_commit(struct radeon_device *rdev, struct radeon_ring *ring,
 	if (hdp_flush && rdev->asic->mmio_hdp_flush)
 		rdev->asic->mmio_hdp_flush(rdev);
 	radeon_ring_set_wptr(rdev, ring);
+#if defined(CONFIG_MACH_LOONGSON64)
 	mmiowb(); /* Make sure wptr is up-to-date for hw */
+#endif
 }
 
 /**
