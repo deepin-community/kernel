@@ -2,7 +2,7 @@
 /*
  * This file is part of tsse driver for Linux
  *
- * Copyright © 2023 Montage Technology. All rights reserved.
+ * Copyright © 2023-2024 Montage Technology. All rights reserved.
  */
 
 #include <linux/types.h>
@@ -14,25 +14,11 @@
 #include <linux/delay.h>
 #include "tsse_dev.h"
 #include "tsse_irq.h"
+#include "tsse_handle.h"
 static DEFINE_MUTEX(tsse_dev_table_lock);
 static LIST_HEAD(tsse_dev_table);
 
 static DEFINE_MUTEX(algs_lock);
-
-static inline void tsse_list_del(struct list_head *entry)
-{
-	WRITE_ONCE(entry->next->prev, entry->prev);
-	WRITE_ONCE(entry->prev->next, entry->next);
-}
-static inline void tsse_list_add(struct list_head *new, struct list_head *prev,
-				 struct list_head *next)
-{
-	WRITE_ONCE(new->next, next);
-	WRITE_ONCE(new->prev, prev);
-	mb();  /* Make sure new node updates first */
-	WRITE_ONCE(next->prev, new);
-	WRITE_ONCE(prev->next, new);
-}
 
 static int tsse_dev_pf_get(struct tsse_dev *vf_tsse_dev)
 {
@@ -116,12 +102,10 @@ static int tsse_stop_dev(struct tsse_dev *tdev, bool busy_exit)
 		if (busy_exit)
 			return -EBUSY;
 	}
-	if (tdev->qpairs_bank.num_qparis != 0) {
-		mutex_lock(&tsse_dev_table_lock);
-		tsse_list_del(&tdev->list);
-		mutex_unlock(&tsse_dev_table_lock);
-		tsse_dev_info(tdev, "removed from active dev table list\n");
-	}
+	mutex_lock(&tsse_dev_table_lock);
+	tsse_list_del(&tdev->list);
+	mutex_unlock(&tsse_dev_table_lock);
+	tsse_dev_info(tdev, "removed from active dev table list\n");
 
 	tsse_dev_info(tdev, "device stopped\n");
 
@@ -134,12 +118,6 @@ int tsse_start_dev(struct tsse_dev *tdev)
 	struct list_head *prev_node = &tsse_dev_table;
 	int ret = 0;
 
-	if (tdev->qpairs_bank.num_qparis == 0) {
-		set_bit(TSSE_DEV_STATUS_STARTED, &tdev->status);
-		tsse_dev_info(tdev, "device started\n");
-		return 0;
-	}
-
 	set_bit(TSSE_DEV_STATUS_STARTING, &tdev->status);
 
 	mutex_lock(&tsse_dev_table_lock);
@@ -148,7 +126,7 @@ int tsse_start_dev(struct tsse_dev *tdev)
 		if (tmp_dev == tdev) {
 			ret = -EEXIST;
 			tsse_dev_err(tdev,
-				     "The device cannot be added repeatedly\n");
+					 "The device cannot be added repeatedly\n");
 			goto clear_status;
 		}
 	}
@@ -156,9 +134,9 @@ int tsse_start_dev(struct tsse_dev *tdev)
 	set_bit(TSSE_DEV_STATUS_STARTED, &tdev->status);
 	tsse_list_add(&tdev->list, prev_node, prev_node->next);
 
-	tsse_dev_info(tdev, "device started\n");
 	mutex_unlock(&tsse_dev_table_lock);
 
+	tsse_dev_info(tdev, "device started\n");
 	return 0;
 clear_status:
 	mutex_unlock(&tsse_dev_table_lock);
@@ -198,4 +176,95 @@ int tsse_devmgr_add_dev(struct tsse_dev *tdev)
 struct list_head *tsse_devmgr_get_head(void)
 {
 	return &tsse_dev_table;
+}
+
+/**
+ * tsse_get_dev_by_handle() - Get TSSE device by its handle
+ * @handle: handle to TSSE device
+ * Return: pointer to TSSE device structure if found, otherwise NULL
+ */
+struct tsse_dev *tsse_get_dev_by_handle(int handle)
+{
+	struct list_head *itr = NULL;
+	struct tsse_dev *ptr = NULL;
+	struct tsse_dev *tdev = NULL;
+
+	mutex_lock(&tsse_dev_table_lock);
+	list_for_each(itr, &tsse_dev_table) {
+		ptr = list_entry(itr, struct tsse_dev, list);
+		if (handle == ptr->id) {
+			tdev = ptr;
+			break;
+		}
+	}
+	mutex_unlock(&tsse_dev_table_lock);
+
+	if (!tdev) {
+		pr_err("%s %d: no such device: %d\n", __func__, __LINE__, handle);
+		return NULL;
+	}
+	return tdev;
+}
+
+/**
+ * tsse_get_available_handle() - get handle from available device.
+ * Return: -1 if no available device, otherwise the handle id.
+ */
+int tsse_get_available_handle(void)
+{
+	struct list_head *itr = NULL;
+	struct tsse_dev *tdev = NULL;
+
+	mutex_lock(&tsse_dev_table_lock);
+	list_for_each(itr, &tsse_dev_table) {
+		tdev = list_entry(itr, struct tsse_dev, list);
+		break;
+	}
+	mutex_unlock(&tsse_dev_table_lock);
+
+	if (!tdev) {
+		pr_err("%s(): device not ready\n", __func__);
+		return -1;
+	}
+	return tdev->id;
+}
+EXPORT_SYMBOL_GPL(tsse_get_available_handle);
+
+/**
+ * tsse_get_domain_by_handle() - get IOMMU domain from the handle of device.
+ * @handle: handle of a TSSE device
+ * Return: pointer to IOMMU domain of the device if the handle is correct
+ * and IOMMU enabled, otherwise NULL.
+ */
+struct iommu_domain *tsse_get_domain_by_handle(int handle)
+{
+	struct tsse_dev *tdev;
+	struct pci_dev *pdev;
+
+	if (!iommu_present(&pci_bus_type)) {
+		pr_err("%s(): IOMMU is not enabled\n", __func__);
+		return NULL;
+	}
+	tdev = tsse_get_dev_by_handle(handle);
+	if (!tdev)
+		return NULL;
+
+	pdev = tdev->tsse_pci_dev.pci_dev;
+	return iommu_get_domain_for_dev(&pdev->dev);
+}
+EXPORT_SYMBOL_GPL(tsse_get_domain_by_handle);
+
+int tsse_process_for_all(tsse_dev_process_func func)
+{
+	struct list_head *itr = NULL;
+	struct tsse_dev *tdev = NULL;
+	int rc = 0;
+
+	list_for_each(itr, &tsse_dev_table) {
+		tdev = list_entry(itr, struct tsse_dev, list);
+		rc = func(tdev);
+		if (rc)
+			break;
+	}
+	return rc;
 }
