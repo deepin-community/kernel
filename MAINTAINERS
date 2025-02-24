@@ -12450,6 +12450,9 @@ LOONGSON SE DRIVER
 M:	Qunqin Zhao <zhaoqunqin@loongson.cn>
 S:	Maintained
 F:	Documentation/devicetree/bindings/security/loongson_se/se.yaml
+F:	arch/loongarch/include/asm/se.h
+F:	drivers/char/loongson_se.c
+F:	drivers/char/lsse_sdf_cdev.c
 
 LOONGSON-2 SOC SERIES THERMAL DRIVER
 M:	zhanghongchen <zhanghongchen@loongson.cn>

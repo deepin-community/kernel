@@ -391,6 +391,26 @@ config UV_MMTIMER
 	  The uv_mmtimer device allows direct userspace access to the
 	  UV system timer.
 
+config LOONGSON_SE
+	tristate "LOONGSON SECURITY MODULE Interface"
+	depends on LOONGARCH
+	default m
+	help
+	  If you have LOONGSON security module (SE) support say Yes and it
+	  will be accessible from within Linux.
+          To compile this driver as a module, choose M here,the module will
+          be called loongson-se.
+
+config LOONGSON_SE_SDF
+	tristate "LOONGSON SECURITY MODULE SDF Interface"
+	depends on LOONGARCH && LOONGSON_SE
+	default m
+	help
+	  If you want to use LOONGSON security module (SE) as SDF say Yes
+	  and it will be accessible from within Linux.
+          To compile this driver as a module, choose M here,the module will
+          be called loongson-se.
+
 source "drivers/char/tpm/Kconfig"
 
 config TELCLOCK
