@@ -2,7 +2,7 @@
 /*
  * This file is part of tsse driver for Linux
  *
- * Copyright © 2023 Montage Technology. All rights reserved.
+ * Copyright © 2023-2024 Montage Technology. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,7 +15,7 @@
 
 #include "tsse_dev_drv.h"
 #include "tsse_vuart.h"
-#include "tsse_ipc.h"
+#include "tsse_ipc_setup.h"
 #include "tsse_fw_service.h"
 
 #define CLUSTER_SLOT_CONFIG_OFFSET 0x5780000
@@ -87,22 +87,20 @@ static int tsse_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
 
 	if (tdev->num_vfs > 0) {
 		tdev->num_irqs = TSSE_SRIOV_PF_MAX_IRQ_NUM;
-		tdev->qpairs_bank.num_qparis = TSSE_SRIOV_PF_MAX_QPAIR_NUM;
 	} else {
 		tdev->num_irqs = TSSE_PF_MAX_IRQ_NUM;
-		tdev->qpairs_bank.num_qparis = TSSE_PF_MAX_QPAIR_NUM;
 	}
 
 	tsse_dev_info(
 		tdev,
-		"num_irqs:%u num_qparis:%u qpairs' start irq vector index:%u qpairs' reg base:0x%lx\n",
-		tdev->num_irqs, tdev->qpairs_bank.num_qparis,
+		"num_irqs:%u, qpair start irq vector index:%u, qpair reg base:0x%lx\n",
+		tdev->num_irqs,
 		tdev->qpairs_bank.irq_vec, (ulong)tdev->qpairs_bank.reg_base);
 
 	ret = tsse_start_dev(tdev);
 	if (ret) {
-		dev_err(&pdev->dev, "%s %d: failed to start the device\n",
-			__func__, __LINE__);
+		dev_err(&pdev->dev, "%s %d: failed to start the device: %d\n",
+			__func__, __LINE__, ret);
 		return ret;
 	}
 
@@ -123,7 +121,7 @@ static int tsse_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
  * @buf: string that user writes
  * @count: string length that user writes
  * Return: the number of bytes used from the buffer, here it is just the count argument.
-*/
+ */
 static ssize_t tsse_image_load_store(struct device *dev, struct device_attribute *attr,
 	const char *buf, size_t count)
 {
@@ -168,15 +166,31 @@ static int device_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -EINVAL;
 	}
 
+	/* Disable ASPM completely as that cause device performence low */
+	status = pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S |
+					  PCIE_LINK_STATE_L1);
+	if (status) {
+		dev_info(&pdev->dev,
+			"%s %d: Disable ASPM failed(%d), may cause device performence low.\n",
+			__func__, __LINE__, status);
+	}
+
 	tdev = kzalloc_node(sizeof(*tdev), GFP_KERNEL, dev_to_node(&pdev->dev));
 
 	if (!tdev)
 		return -ENOMEM;
 
+	tdev->fw_data = kzalloc_node(TSSE_FIRMWARE_MAX_LENGTH, GFP_KERNEL, dev_to_node(&pdev->dev));
+
+	if (!tdev->fw_data) {
+		kfree(tdev);
+		return -ENOMEM;
+	}
+
 	status = pcim_enable_device(pdev);
 
 	if (status) {
-		dev_err(&pdev->dev, "pcim_enable_device failed\n");
+		dev_err(&pdev->dev, "pcim_enable_device failed: %d\n", status);
 		goto out_err;
 	}
 
@@ -200,7 +214,7 @@ static int device_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	status = pcim_iomap_regions(pdev, BIT(0) | BIT(2), TSSE_DEV_NAME);
 	if (status) {
-		dev_err(&pdev->dev, "I/O memory remapping failed\n");
+		dev_err(&pdev->dev, "I/O memory remapping failed: %d\n", status);
 		goto out_err;
 	}
 
@@ -232,7 +246,6 @@ static int device_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, tdev);
 
 	tdev->num_irqs = TSSE_PF_MAX_IRQ_NUM;
-	tdev->qpairs_bank.num_qparis = TSSE_PF_MAX_QPAIR_NUM;
 	tdev->qpairs_bank.irq_vec = TSSE_PF_QPAIR_START_IRQ_VECTOR;
 	tdev->qpairs_bank.reg_base =
 		TSSE_DEV_BARS(tdev)[2].virt_addr + TSSE_PF_QPAIR_REG_BASE;
@@ -241,8 +254,8 @@ static int device_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	tsse_dev_info(
 		tdev,
-		"num_irqs:%u num_qparis:%u qpairs' start irq vector index:%u qpairs' reg base:0x%lx\n",
-		tdev->num_irqs, tdev->qpairs_bank.num_qparis,
+		"num_irqs:%u, qpair start irq vector index:%u, qpair reg base:0x%lx\n",
+		tdev->num_irqs,
 		tdev->qpairs_bank.irq_vec, (ulong)tdev->qpairs_bank.reg_base);
 
 	if (tsse_devmgr_add_dev(tdev)) {
@@ -268,37 +281,41 @@ static int device_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			tdev->fw_version_exist = true;
 	}
 
-	if (tsse_ipc_init(pdev)) {
-		dev_err(&pdev->dev,
-			"%s %d: tsse_ipc_init failed to tsse_ipc.\n", __func__,
-			__LINE__);
-		status = -EFAULT;
-		goto out_err_ipc;
-	}
-
 	if (sysfs_create_file(&pdev->dev.kobj, &dev_attr_tsse_image_load.attr)) {
 		dev_err(&pdev->dev,
 			"%s %d: sysfs_create_file failed for tsse image load.\n",
 			__func__, __LINE__);
 		status = -EFAULT;
-		goto out_err_image_load;
+		goto out_err_sysfs;
 	}
 
+	if (tsse_ipc_init(pdev)) {
+		dev_err(&pdev->dev,
+			"%s %d: tsse_ipc_init failed.\n", __func__,
+			__LINE__);
+		status = -EFAULT;
+		goto out_err_ipc;
+	}
 	tsse_dev_info(tdev, "successful\n");
 
 	pci_read_config_dword(pdev, 0x720, &tmp_val);
 	tsse_dev_dbg(tdev, "the value of FILTER_MASK_2_REG is 0x%x\n", tmp_val);
 
 	return 0;
-out_err_image_load:
-	tsse_ipc_deinit(tdev);
 out_err_ipc:
+	if (tdev->fw) {
+		release_firmware(tdev->fw);
+		tdev->fw = NULL;
+	}
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_tsse_image_load.attr);
+out_err_sysfs:
 	vuart_uninit_port(pdev);
 out_err_port_init:
 	tsse_devmgr_rm_dev(tdev);
 out_err_ida_free:
 	ida_free(&tsse_ida, tdev->id);
 out_err:
+	kfree(tdev->fw_data);
 	kfree(tdev);
 	return status;
 }
@@ -311,12 +328,13 @@ static void device_remove(struct pci_dev *pdev)
 		(ulong)pdev, (ulong)tdev);
 
 	tsse_sriov_disable(tdev);
+	tsse_ipc_deinit(tdev);
 	if (tdev->fw) {
 		release_firmware(tdev->fw);
 		tdev->fw = NULL;
 	}
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_tsse_image_load.attr);
-	tsse_ipc_deinit(tdev);
+	kfree(tdev->fw_data);
 	vuart_uninit_port(pdev);
 	tsse_devmgr_rm_dev(tdev);
 	ida_free(&tsse_ida, tdev->id);
@@ -378,6 +396,6 @@ module_exit(tsse_exit);
 
 MODULE_AUTHOR("montage-tech.com");
 MODULE_DESCRIPTION("TSSE device driver");
-MODULE_VERSION("1.0.0");
+MODULE_VERSION("1.1.2");
 MODULE_LICENSE("GPL");
 MODULE_FIRMWARE(TSSE_FIRMWARE);

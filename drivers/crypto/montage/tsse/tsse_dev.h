@@ -2,7 +2,7 @@
 /*
  * This file is part of tsse driver for Linux
  *
- * Copyright © 2023 Montage Technology. All rights reserved.
+ * Copyright © 2023-2024 Montage Technology. All rights reserved.
  */
 
 #ifndef __TSSE_DEV_H__
@@ -14,7 +14,7 @@
 #include <linux/pci-ats.h>
 #include <linux/serial_core.h>
 #include <linux/firmware.h>
-#include "tsse_ipc.h"
+#include "tsse_ipc_setup.h"
 
 #define TSSE_PCI_MAX_BARS 4
 #define TSSE_FW_VERSION_LEN 32
@@ -37,8 +37,6 @@ enum tsse_dev_status_bit {
 struct tsse_qpairs_bank {
 	struct tsse_dev *tsse_dev;
 	void __iomem *reg_base;
-
-	u32 num_qparis;
 	u32 irq_vec;
 };
 struct tsse_dev {
@@ -57,10 +55,12 @@ struct tsse_dev {
 	struct tsse_ipc *ipc;
 	void *adi;
 	void *mbx_hw;
+	void *fw_data;
 	const struct firmware *fw;
 	char fw_version[TSSE_FW_VERSION_LEN];
 	bool fw_version_exist;
 };
+
 #define TSSEDEV_TO_DEV(tssedev) (&((tssedev)->tsse_pci_dev.pci_dev->dev))
 #define TSSE_DEV_BARS(tssedev) ((tssedev)->tsse_pci_dev.bars)
 
@@ -74,6 +74,10 @@ int tsse_devmgr_add_dev(struct tsse_dev *tsse_dev);
 void tsse_devmgr_rm_dev(struct tsse_dev *tdev);
 int tsse_prepare_restart_dev(struct tsse_dev *tdev);
 int tsse_start_dev(struct tsse_dev *tdev);
+struct tsse_dev *tsse_get_dev_by_handle(int handle);
+
+typedef int (*tsse_dev_process_func)(struct tsse_dev *tdev);
+int tsse_process_for_all(tsse_dev_process_func func);
 
 static inline struct tsse_dev *pci_to_tsse_dev(struct pci_dev *pci_dev)
 {
@@ -98,5 +102,20 @@ static inline int tsse_dev_started(struct tsse_dev *tdev)
 static inline int tsse_dev_in_use(struct tsse_dev *tdev)
 {
 	return atomic_read(&tdev->ref_count) != 0;
+}
+
+static inline void tsse_list_del(struct list_head *entry)
+{
+	WRITE_ONCE(entry->next->prev, entry->prev);
+	WRITE_ONCE(entry->prev->next, entry->next);
+}
+static inline void tsse_list_add(struct list_head *new, struct list_head *prev,
+				 struct list_head *next)
+{
+	WRITE_ONCE(new->next, next);
+	WRITE_ONCE(new->prev, prev);
+	mb();  /* Make sure new node updates first */
+	WRITE_ONCE(next->prev, new);
+	WRITE_ONCE(prev->next, new);
 }
 #endif

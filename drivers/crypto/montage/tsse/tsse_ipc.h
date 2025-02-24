@@ -2,7 +2,7 @@
 /*
  * This file is part of tsse driver for Linux
  *
- * Copyright © 2023 Montage Technology. All rights reserved.
+ * Copyright © 2023-2024 Montage Technology. All rights reserved.
  */
 
 #ifndef __TM_HOST_IPC_H__
@@ -11,45 +11,7 @@
 #include <linux/types.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
-
-#define TSSE_PASID_SVA
-
-#define HOST2MAIN_INTR_SET_OFFSET 0x2000
-#define HOST2MAIN_INTR_ENABLE_OFFSET 0x2004
-#define HOST2MAIN_ACK_INTR_CLR_OFFSET 0x2008
-#define HOST2MAIN_ACK_INTR_ENABLE_OFFSET 0x200c
-#define HOST2MAIN_VLD_INTR_STATUS_OFFSET 0x2010
-#define HOST2MAIN_ACK_INTR_STATUS_OFFSET 0x2014
-#define MSIX_MASK_EN_REG_OFFSET 0x2020
-#define INTR_MASK_BIT_OFFSET 0x2024
-#define INTR_PENDING_BIT_OFFSET 0x2028
-#define HOST2MAIN_IPC_OFFSET 0x2400
-
-#define MAIN2HOST_INTR_SET_OFFSET 0x3000
-#define MAIN2HOST_INTR_ENABLE_OFFSET 0x3004
-#define MAIN2HOST_ACK_INTR_CLR_OFFSET 0x3008
-#define MAIN2HOST_ACK_INTR_ENABLE_OFFSET 0x300c
-#define MAIN2HOST_VEN_MSI_FUNC_NUM_OFFSET 0x3010
-#define MAIN2HOST_VEN_MSI_VFUNC_ACTIVE_OFFSET 0x3014
-#define MAIN2HOST_IPC_OFFSET 0x3400
-
-#define IPC_REGISTER_INT_SET BIT(0)
-#define IPC_REGISTER_INT_MASK BIT(1)
-
-enum IPC_BASIC_CMD {
-	IPC_BASIC_CMD_HOST_INIT = 0x1,
-	IPC_BASIC_CMD_PING = 0x2
-};
-
-enum IPC_BOOT_CMD {
-	IPC_BOOT_CMD_GET_FIRMWARE = 0x1
-};
-
-enum IPC_MESSAGE_CLASS {
-	IPC_MESSAGE_BASIC = 1,
-	IPC_MESSAGE_BOOT,
-	IPC_MESSAGE_CLASS_NUM,
-};
+#include "tsse_ipc_setup.h"
 
 struct ipc_header {
 	uint32_t inst_id;
@@ -87,17 +49,7 @@ struct ipc_layout {
 	struct msg_info info;
 };
 
-struct tsse_ipc {
-	struct device *dev;
-	struct pci_dev *pdev;
-	void __iomem *virt_addr;
-	struct mutex list_lock;
-	struct tasklet_struct ipc_handle;
-};
+int ipc_h2d_msg_send_legacy(int handle, uint32_t msg_class, void *msg_payload, uint32_t length);
+int ipc_d2h_legacy_msg_process(struct tsse_ipc *tsseipc, void *msg);
 
-int tsse_ipc_init(struct pci_dev *pdev);
-void tsse_ipc_deinit(void *tdev);
-int tsse_fw_manual_load_ipc(struct pci_dev *pdev);
-bool check_send_enbit(struct tsse_ipc *tsseipc);
-void notify_device(struct tsse_ipc *tsseipc);
 #endif

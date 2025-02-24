@@ -8,6 +8,12 @@ obj-m += tsse.o
 
 tsse-objs := tsse_dev_mgr.o \
 	tsse_ipc.o \
+	tsse_ipc_epid.o \
+	tsse_ipc_api.o \
+	tsse_ipc_setup.o \
+	tsse_ipc_drv.o \
+	tsse_ipc_service.o \
+	tsse_ipc_hash.o \
 	tsse_fw_service.o \
 	tsse_service.o \
 	tsse_irq.o \
