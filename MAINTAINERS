@@ -12446,6 +12446,11 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/pinctrl/loongson,ls2k-pinctrl.yaml
 F:	drivers/pinctrl/pinctrl-loongson2.c
 
+LOONGSON SE DRIVER
+M:	Qunqin Zhao <zhaoqunqin@loongson.cn>
+S:	Maintained
+F:	Documentation/devicetree/bindings/security/loongson_se/se.yaml
+
 LOONGSON-2 SOC SERIES THERMAL DRIVER
 M:	zhanghongchen <zhanghongchen@loongson.cn>
 M:	Yinbo Zhu <zhuyinbo@loongson.cn>
