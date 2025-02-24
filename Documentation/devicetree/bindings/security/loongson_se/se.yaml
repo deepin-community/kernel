@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/security/loongson_se/se.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Loongson SE module
+
+description:
+  Loongson SE module
+maintainers:
+  - Qunqin Zhao <zhaoqunqin@loongson.cn>
+
+allOf:
+  - $ref: se.yaml#
+
+properties:
+  compatible:
+    const: loongson,ls3c6000se
+
+  reg:
+    maxItems: 2
+
+  interrupts:
+    maxItems: 2
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
