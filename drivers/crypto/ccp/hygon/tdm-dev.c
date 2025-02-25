@@ -24,6 +24,7 @@
 #include <linux/kallsyms.h>
 #include <linux/ftrace.h>
 #include "tdm-dev.h"
+#include "psp-dev.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -533,8 +534,12 @@ int psp_check_tdm_support(void)
 {
 	int ret = 0;
 	struct tdm_version version;
+	struct psp_device *psp = psp_master;
 
-	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) {
+	if (!psp)
+		goto end;
+
+	if (is_vendor_hygon() && (psp->capability & PSP_CAPABILITY_SEV)) {
 		if (tdm_support)
 			goto end;
 
