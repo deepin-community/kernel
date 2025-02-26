@@ -2349,9 +2349,9 @@ struct xe_bo *xe_bo_init_locked(struct xe_device *xe, struct xe_bo *bo,
 		flags |= XE_BO_FLAG_INTERNAL_64K;
 		alignment = align >> PAGE_SHIFT;
 	} else {
-		aligned_size = ALIGN(size, SZ_4K);
+		aligned_size = ALIGN(size, PAGE_SIZE);
 		flags &= ~XE_BO_FLAG_INTERNAL_64K;
-		alignment = SZ_4K >> PAGE_SHIFT;
+		alignment = PAGE_SIZE >> PAGE_SHIFT;
 	}
 
 	if (type == ttm_bo_type_device && aligned_size != size) {
@@ -2380,7 +2380,7 @@ struct xe_bo *xe_bo_init_locked(struct xe_device *xe, struct xe_bo *bo,
 	/* Initialize purge advisory state */
 	bo->purgeable.state = XE_MADV_PURGEABLE_WILLNEED;
 
-	drm_gem_private_object_init(&xe->drm, &bo->ttm.base, size);
+	drm_gem_private_object_init(&xe->drm, &bo->ttm.base, aligned_size);
 
 	if (resv) {
 		ctx.allow_res_evict = !(flags & XE_BO_FLAG_NO_RESV_EVICT);
