@@ -234,7 +234,7 @@ int kvm_sw64_vcpu_reset(struct kvm_vcpu *vcpu)
 	vcpu->arch.power_off = 0;
 	memset(&vcpu->arch.irqs_pending, 0, sizeof(vcpu->arch.irqs_pending));
 
-	if (vcpu->vcpu_id == 0)
+	if (vcpu->vcpu_id == 0 && addr)
 		memset(__va(addr), 0, 0x2000000);
 
 	return 0;
