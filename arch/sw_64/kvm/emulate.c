@@ -66,6 +66,7 @@ void sw64_decode(struct kvm_vcpu *vcpu, unsigned int insn, struct kvm_run *run)
 	}
 }
 
+#ifdef CONFIG_SUBARCH_C3B
 /*
  * Virtual Interrupts.
  */
@@ -123,3 +124,4 @@ void try_deliver_interrupt(struct kvm_vcpu *vcpu, unsigned int irq, bool more)
 		inject_vcpu_irq(vcpu, irq);
 	}
 }
+#endif

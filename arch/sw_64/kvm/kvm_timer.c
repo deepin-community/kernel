@@ -50,17 +50,7 @@ void set_timer(struct kvm_vcpu *vcpu, unsigned long delta)
 /* And this is the routine when we want to set an interrupt for the Guest. */
 void set_interrupt(struct kvm_vcpu *vcpu, unsigned int irq)
 {
-	/*
-	 * Next time the Guest runs, the core code will see if it can deliver
-	 * this interrupt.
-	 */
-	set_bit(irq, (vcpu->arch.irqs_pending));
-
-	/*
-	 * Make sure it sees it; it might be asleep (eg. halted), or running
-	 * the Guest right now, in which case kick_process() will knock it out.
-	 */
-	kvm_vcpu_kick(vcpu);
+	vcpu_interrupt_line(vcpu, irq);
 }
 
 enum hrtimer_restart clockdev_fn(struct hrtimer *timer)
