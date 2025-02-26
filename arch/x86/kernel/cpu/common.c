@@ -607,7 +607,16 @@ static __always_inline void setup_cet(struct cpuinfo_x86 *c)
 	else
 		wrmsrl(MSR_IA32_S_CET, 0);
 
+	#ifndef CONFIG_IEE
+	/*
+	 * NOTE: IEE relies on CR0.WP (Write Protection).
+	 * According to Intel SDM Vol.3(Section 2.5):
+	 * This flag must be set before software can set CR4.CET,
+	 * and it cannot be cleared as long as CR4.CET = 1.
+	 * Therefore, IEE does not enable CR4.CET during kernel boot.
+	 */
 	cr4_set_bits(X86_CR4_CET);
+	#endif
 
 	if (kernel_ibt && ibt_selftest()) {
 		pr_err("IBT selftest: Failed!\n");

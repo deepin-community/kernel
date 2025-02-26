@@ -56,6 +56,9 @@
 #include <asm/setup.h>
 #include <asm/ftrace.h>
 
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 #include "mm_internal.h"
 
 #include "ident_map.c"
@@ -1355,6 +1358,15 @@ void __init mem_init(void)
 	if (get_gate_vma(&init_mm))
 		kclist_add(&kcore_vsyscall, (void *)VSYSCALL_ADDR, PAGE_SIZE, KCORE_USER);
 
+	#ifdef CONFIG_IEE
+	/*
+	 * Split the linear mapping region of the kernel address space into two equally-sized parts.
+	 * The lower region retains the original linear mapping.
+	 * The upper region becomes the IEE linear mapping area.
+	 * Note that the IEE mapping region is mapped with read-only permissions.
+	 */
+	iee_init();
+	#endif
 	preallocate_vmalloc_pages();
 }
 
