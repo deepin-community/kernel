@@ -655,8 +655,13 @@ EXPORT_SYMBOL_GPL(dw_pcie_own_conf_map_bus);
 
 static struct pci_ops dw_pcie_ops = {
 	.map_bus = dw_pcie_own_conf_map_bus,
+#ifdef CONFIG_PCIE_ULTRARISC
+	.read = pci_generic_config_read32,
+	.write = pci_generic_config_write32,
+#else
 	.read = pci_generic_config_read,
 	.write = pci_generic_config_write,
+#endif
 };
 
 static int dw_pcie_iatu_setup(struct dw_pcie_rp *pp)
