@@ -407,6 +407,8 @@ config DRM_HYPERV
 
 	 If M is selected the module will be called hyperv_drm.
 
+source "drivers/gpu/drm/cix/Kconfig"
+
 # Keep legacy drivers last
 
 menuconfig DRM_LEGACY
