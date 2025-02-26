@@ -25,6 +25,9 @@
 #include <xen/interface/xen.h>
 #endif
 
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 #ifdef CONFIG_X86_32
 # include "asm-offsets_32.c"
 #else
@@ -127,4 +130,8 @@ static void __used common(void)
 	OFFSET(ARIA_CTX_rounds, aria_ctx, rounds);
 #endif
 
+#ifdef CONFIG_IEE
+	/* Offset for fields in iee_stack */
+	OFFSET(IEE_STACK, iee_stack, stack);
+#endif
 }
