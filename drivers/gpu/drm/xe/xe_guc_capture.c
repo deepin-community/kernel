@@ -591,8 +591,8 @@ guc_capture_getlistsize(struct xe_guc *guc, u32 owner, u32 type,
 		return -ENODATA;
 
 	if (size)
-		*size = PAGE_ALIGN((sizeof(struct guc_debug_capture_list)) +
-				   (num_regs * sizeof(struct guc_mmio_reg)));
+		*size = ALIGN((sizeof(struct guc_debug_capture_list)) +
+			      (num_regs * sizeof(struct guc_mmio_reg)), SZ_4K);
 
 	return 0;
 }
@@ -739,7 +739,7 @@ size_t xe_guc_capture_ads_input_worst_size(struct xe_guc *guc)
 	 * sequence, that is, during the pre-hwconfig phase before we have
 	 * the exact engine fusing info.
 	 */
-	total_size = PAGE_SIZE;	/* Pad a page in front for empty lists */
+	total_size = SZ_4K;	/* Pad a page in front for empty lists */
 	for (i = 0; i < GUC_CAPTURE_LIST_INDEX_MAX; i++) {
 		for (j = 0; j < GUC_CAPTURE_LIST_CLASS_MAX; j++) {
 			if (xe_guc_capture_getlistsize(guc, i,
@@ -759,7 +759,7 @@ size_t xe_guc_capture_ads_input_worst_size(struct xe_guc *guc)
 		total_size += global_size;
 	}
 
-	return PAGE_ALIGN(total_size);
+	return ALIGN(total_size, SZ_4K);
 }
 
 static int guc_capture_output_size_est(struct xe_guc *guc)
