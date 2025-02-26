@@ -617,7 +617,7 @@ static void emit_pte(struct xe_migrate *m,
 			u64 addr, flags = 0;
 			bool devmem = false;
 
-			addr = xe_res_dma(cur) & PAGE_MASK;
+			addr = xe_res_dma(cur) & ~XE_PTE_MASK;
 			if (is_vram) {
 				if (vm->flags & XE_VM_FLAG_64K) {
 					u64 va = cur_ofs * XE_PAGE_SIZE / 8;
@@ -638,7 +638,7 @@ static void emit_pte(struct xe_migrate *m,
 			bb->cs[bb->len++] = lower_32_bits(addr);
 			bb->cs[bb->len++] = upper_32_bits(addr);
 
-			xe_res_next(cur, min_t(u32, size, PAGE_SIZE));
+			xe_res_next(cur, min_t(u32, size, SZ_4K));
 			cur_ofs += 8;
 		}
 	}
