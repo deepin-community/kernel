@@ -1,0 +1,34 @@
+name: Check defconfig Consistency
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-defconfig:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc build-essential zstd flex bison libssl-dev make libelf-dev git debhelper pahole libncurses-dev
+
+    - name: Backup original defconfig
+      run: |
+        cp arch/x86/configs/deepin_x86_desktop_defconfig defconfig.orig
+
+    - name: Generate new defconfig
+      run: |
+        make ARCH=x86 deepin_x86_desktop_defconfig
+        make ARCH=x86 savedefconfig
+
+    - name: Compare defconfig files
+      run: |
+        if ! diff -u defconfig defconfig.orig; then
+          echo "::error:: deepin_x86_desktop_defconfig 文件不一致，请执行 'make savedefconfig' 并提交更新"
+          exit 1
+        fi
