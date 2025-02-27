@@ -29,6 +29,26 @@
 #include <asm/asm-uaccess.h>
 #include <asm/unistd.h>
 
+#ifdef CONFIG_IEE
+/* IEE code shall not be interrupted. */
+	.macro iee_elr_check
+	ldr x1, =__iee_code_start
+	cmp x1, x22			/* ELR_EL1 was stored in x22 on kernel entry. */
+	b.hi 114f
+	ldr x2, =__iee_code_end
+	cmp x2, x22
+	b.lo 114f
+	/* ELR check fail */
+	mov	x0, sp
+	mov	x1, #BAD_ELR_EL1
+	mrs	x2, esr_el1
+	mov x3, x22
+	bl	iee_bad_mode
+	ASM_BUG()
+114:
+	.endm
+#endif
+
 	.macro	clear_gp_regs
 	.irp	n,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29
 	mov	x\n, xzr
@@ -573,6 +593,9 @@ SYM_CODE_END(__bad_stack)
 	.macro entry_handler el:req, ht:req, regsize:req, label:req
 SYM_CODE_START_LOCAL(el\el\ht\()_\regsize\()_\label)
 	kernel_entry \el, \regsize
+#ifdef CONFIG_IEE
+	iee_elr_check
+#endif
 	mov	x0, sp
 	bl	el\el\ht\()_\regsize\()_\label\()_handler
 	.if \el == 0

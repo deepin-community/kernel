@@ -36,6 +36,7 @@ obj-y			:= debug-monitors.o entry.o irq.o fpsimd.o		\
 			   syscall.o proton-pack.o idreg-override.o idle.o	\
 			   patching.o
 
+obj-$(CONFIG_IEE)				+= haoc/
 obj-$(CONFIG_COMPAT)			+= sys32.o signal32.o			\
 					   sys_compat.o
 obj-$(CONFIG_COMPAT)			+= sigreturn32.o
