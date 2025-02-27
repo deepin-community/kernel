@@ -495,8 +495,8 @@
 #define X86_FEATURE_ZXPAUSE            (22*32+ 0) /* ZHAOXIN ZXPAUSE */
 
 /* HYGON-defined CPU features, CPUID level 0x8c860000:0 (EDX), word 23 */
-#define X86_FEATURE_SM3			(23*32 + 1) /* SM3 instructions */
-#define X86_FEATURE_SM4			(23*32 + 2) /* SM4 instructions */
+#define X86_FEATURE_HYGON_SM3		(23*32 + 1) /* "sm3" SM3 instructions */
+#define X86_FEATURE_HYGON_SM4		(23*32 + 2) /* "sm4" SM4 instructions */
 
 /*
  * BUG word(s)
