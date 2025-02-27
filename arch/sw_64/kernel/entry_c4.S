@@ -356,9 +356,7 @@ entUna:
 	beq	$0, 1f
 	call	$26, do_entUnaUser	/* return to ret_from_syscall */
 	br	ret_from_sys_call
-1:	ldl	$9, (PT_REGS_GP + STACKFRAME_SIZE)($sp)
-	call	$26, do_entUna
-	stl	$9, (PT_REGS_GP + STACKFRAME_SIZE)($sp)
+1:	call	$26, do_entUna
 	RESTORE_ALL
 	sys_call HMC_rti
 	.end entUna
