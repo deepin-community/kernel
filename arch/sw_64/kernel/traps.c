@@ -408,6 +408,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 	unsigned long opcode = regs->earg1;
 	unsigned long reg = regs->earg2;
 
+	if (reg == 29)
+		return;
+
 	insn = *(unsigned int *)pc;
 	fncode = (insn >> 12) & 0xf;
 
