@@ -25,6 +25,9 @@
 #include <asm/pgtable-hwdef.h>
 #include <asm/ptrace.h>
 #include <asm/thread_info.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee-asm.h>
+#endif
 
 	/*
 	 * Provide a wxN alias for each wN register so what we can paste a xN
@@ -473,6 +476,9 @@ alternative_endif
 	.macro		load_ttbr1, pgtbl, tmp1, tmp2
 	phys_to_ttbr	\tmp1, \pgtbl
 	offset_ttbr1 	\tmp1, \tmp2
+	#ifdef CONFIG_IEE
+	orr \tmp1, \tmp1, #IEE_ASM_ASID
+	#endif
 	msr		ttbr1_el1, \tmp1
 	isb
 	.endm

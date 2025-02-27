@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Hardware assisted os compartmentalization(Haoc) configuration
+#
+menu "Hardware Assisted OS Compartmentalization(HAOC)"
+
+config IEE
+	bool "Isolated Execution Environment Framework(IEE)"
+	help
+		Support for Isolated Execution Environment Framework. Foundation of HAOC.
+		Could isolate kernel critical data and enforce all write access made and
+		verified in IEE APIs.
+		Needs hardware support FEAT_HPDS.
+	depends on ARM64_4K_PAGES
+	depends on ARM64_VA_BITS_48
+	def_bool n
+
+endmenu # HAOC

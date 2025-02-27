@@ -40,6 +40,10 @@
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
 #include <asm/kfence.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#include <asm/haoc/iee-mmu.h>
+#endif
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
 #define NO_CONT_MAPPINGS	BIT(1)
@@ -401,8 +405,13 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 				 int flags)
 {
 	mutex_lock(&fixmap_lock);
+	#ifdef CONFIG_IEE
+	__iee_create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
+		pgtable_alloc, flags);
+	#else
 	__create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
 				    pgtable_alloc, flags);
+	#endif
 	mutex_unlock(&fixmap_lock);
 }
 
@@ -794,13 +803,25 @@ void __init paging_init(void)
 
 	idmap_t0sz = 63UL - __fls(__pa_symbol(_end) | GENMASK(VA_BITS_MIN - 1, 0));
 
+	#ifdef CONFIG_IEE
+	early_iee_data_cache_init();
+	#endif
+
 	map_kernel(pgdp);
 	map_mem(pgdp);
+
+	#ifdef CONFIG_IEE
+	iee_init_mappings(pgdp);
+	#endif
 
 	pgd_clear_fixmap();
 
 	cpu_replace_ttbr1(lm_alias(swapper_pg_dir), init_idmap_pg_dir);
 	init_mm.pgd = swapper_pg_dir;
+
+	#ifdef CONFIG_IEE
+	init_early_iee_data();
+	#endif
 
 	memblock_phys_free(__pa_symbol(init_pg_dir),
 			   __pa_symbol(init_pg_end) - __pa_symbol(init_pg_dir));
@@ -808,6 +829,10 @@ void __init paging_init(void)
 	memblock_allow_resize();
 
 	create_idmap();
+
+	#ifdef CONFIG_IEE
+	iee_init_post();
+	#endif
 }
 
 #ifdef CONFIG_MEMORY_HOTPLUG

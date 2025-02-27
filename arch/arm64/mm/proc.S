@@ -21,6 +21,9 @@
 #include <asm/alternative.h>
 #include <asm/smp.h>
 #include <asm/sysreg.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee-asm.h>
+#endif
 
 #ifdef CONFIG_ARM64_64K_PAGES
 #define TCR_TG_FLAGS	TCR_TG0_64K | TCR_TG1_64K
@@ -173,6 +176,9 @@ SYM_FUNC_END(cpu_do_resume)
 	adrp	\tmp1, reserved_pg_dir
 	phys_to_ttbr \tmp2, \tmp1
 	offset_ttbr1 \tmp2, \tmp1
+	#ifdef CONFIG_IEE
+	orr \tmp2, \tmp2, #IEE_ASM_ASID
+	#endif
 	msr	ttbr1_el1, \tmp2
 	isb
 	tlbi	vmalle1
@@ -190,6 +196,9 @@ SYM_TYPED_FUNC_START(idmap_cpu_replace_ttbr1)
 	__idmap_cpu_set_reserved_ttbr1 x1, x3
 
 	offset_ttbr1 x0, x3
+	#ifdef CONFIG_IEE
+	orr x0, x0, #IEE_ASM_ASID
+	#endif
 	msr	ttbr1_el1, x0
 	isb
 
@@ -421,9 +430,15 @@ SYM_FUNC_START(__cpu_setup)
 	mair	.req	x17
 	tcr	.req	x16
 	mov_q	mair, MAIR_EL1_SET
+#ifdef CONFIG_IEE
+	mov_q	tcr, TCR_TxSZ(VA_BITS) | TCR_CACHE_FLAGS | TCR_SMP_FLAGS | \
+			TCR_TG_FLAGS | TCR_KASLR_FLAGS | TCR_ASID16 | \
+			TCR_TBI0 | TCR_KASAN_SW_FLAGS | TCR_MTE_FLAGS
+#else
 	mov_q	tcr, TCR_TxSZ(VA_BITS) | TCR_CACHE_FLAGS | TCR_SMP_FLAGS | \
 			TCR_TG_FLAGS | TCR_KASLR_FLAGS | TCR_ASID16 | \
 			TCR_TBI0 | TCR_A1 | TCR_KASAN_SW_FLAGS | TCR_MTE_FLAGS
+#endif
 
 	tcr_clear_errata_bits tcr, x9, x5
 

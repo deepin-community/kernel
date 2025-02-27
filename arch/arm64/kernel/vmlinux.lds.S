@@ -123,6 +123,17 @@ jiffies = jiffies_64;
 #define TRAMP_TEXT
 #endif
 
+#ifdef CONFIG_IEE
+#define IEE_TEXT \
+	. = ALIGN(PAGE_SIZE);				\
+	__iee_code_start = .;       \
+	*(.iee.text)				        \
+	. = ALIGN(PAGE_SIZE);				\
+	__iee_code_end = .;
+#else
+#define IEE_TEXT
+#endif
+
 #ifdef CONFIG_UNWIND_TABLES
 #define UNWIND_DATA_SECTIONS				\
 	.eh_frame : {					\
@@ -181,6 +192,7 @@ SECTIONS
 			LOCK_TEXT
 			KPROBES_TEXT
 			HYPERVISOR_TEXT
+			IEE_TEXT
 			*(.gnu.warning)
 	}
 

@@ -16,6 +16,10 @@
 #include <asm/mmu_context.h>
 #include <asm/smp.h>
 #include <asm/tlbflush.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#include <asm/haoc/iee-asm.h>
+#endif
 
 static u32 asid_bits;
 static DEFINE_RAW_SPINLOCK(cpu_asid_lock);
@@ -360,6 +364,18 @@ void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
 	if (IS_ENABLED(CONFIG_ARM64_SW_TTBR0_PAN))
 		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, asid);
 
+#ifdef CONFIG_IEE
+	/*
+	 * IEE requires the reserved ASID stored in TTBR1 and User ASID stored
+	 * in TTBR0 to support ASID switch by changing TCR.A1.
+	 */
+	ttbr0 &= ~TTBR_ASID_MASK;
+	ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, asid);
+
+	cpu_set_reserved_ttbr0_nosync();
+	write_sysreg(ttbr0, ttbr0_el1);
+	isb();
+#else
 	/* Set ASID in TTBR1 since TCR.A1 is set */
 	ttbr1 &= ~TTBR_ASID_MASK;
 	ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, asid);
@@ -368,6 +384,7 @@ void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
 	write_sysreg(ttbr1, ttbr1_el1);
 	write_sysreg(ttbr0, ttbr0_el1);
 	isb();
+#endif
 	post_ttbr_update_workaround();
 }
 
@@ -379,6 +396,12 @@ static int asids_update_limit(void)
 		num_available_asids /= 2;
 		if (pinned_asid_map)
 			set_kpti_asid_bits(pinned_asid_map);
+#ifdef CONFIG_IEE
+		if (pinned_asid_map) {
+			__set_bit(ctxid2asid(IEE_ASID), pinned_asid_map);
+			__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), pinned_asid_map);
+		}
+#endif
 	}
 	/*
 	 * Expect allocation after rollover to fail if we don't have at least
@@ -417,6 +440,14 @@ static int asids_init(void)
 	 */
 	if (IS_ENABLED(CONFIG_UNMAP_KERNEL_AT_EL0))
 		set_kpti_asid_bits(asid_map);
+#ifdef CONFIG_IEE
+	#ifdef CONFIG_UNMAP_KERNEL_AT_EL0
+	__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), asid_map);
+	__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), pinned_asid_map);
+	#endif
+	__set_bit(ctxid2asid(IEE_ASID), asid_map);
+	__set_bit(ctxid2asid(IEE_ASID), pinned_asid_map);
+#endif
 	return 0;
 }
 early_initcall(asids_init);
