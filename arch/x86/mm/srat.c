@@ -91,10 +91,12 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
 	else
 		apic_id = pa->apic_id;
 
+#ifdef CONFIG_X86_X2APIC
 	if (apic_id >= MAX_LOCAL_APIC) {
 		printk(KERN_INFO "SRAT: PXM %u -> APIC 0x%02x -> Node %u skipped apicid that is too big\n", pxm, apic_id, node);
 		return;
 	}
+#endif /* CONFIG_X86_X2APIC */
 
 	set_apicid_to_node(apic_id, node);
 	node_set(node, numa_nodes_parsed);
