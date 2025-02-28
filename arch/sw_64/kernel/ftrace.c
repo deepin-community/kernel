@@ -72,13 +72,17 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 	else
 		offset = TI_FTRACE_REGS_ADDR;
 
-	insn[0] = SW64_NOP;
 	/* ldl r28,(ftrace_addr_offset)(r8) */
-	insn[1] = (0x23U << 26) | (28U << 21) | (8U << 16) | offset;
-	insn[2] = SW64_CALL(R28, R28, 0);
+	insn[0] = (0x23U << 26) | (28U << 21) | (8U << 16) | offset;
+	insn[1] = SW64_CALL(R28, R28, 0);
+	insn[2] = SW64_NOP;
 
-	/* replace the 3 mcount instructions at once */
-	return copy_to_kernel_nofault((void *)pc, insn, 3 * SW64_INSN_SIZE);
+	*((u32 *)pc) = insn[0];
+	mb();
+	*((u32 *)(pc + 4)) = insn[1];
+	*((u32 *)(pc + 8)) = insn[2];
+
+	return 0;
 }
 
 /*
@@ -90,7 +94,12 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
 	unsigned long pc = rec->ip + MCOUNT_LDGP_SIZE;
 	unsigned int insn[3] = {SW64_NOP, SW64_NOP, SW64_NOP};
 
-	return copy_to_kernel_nofault((void *)pc, insn, 3 * SW64_INSN_SIZE);
+	*((u32 *)(pc + 8)) = insn[2];
+	*((u32 *)(pc + 4)) = insn[1];
+	mb();
+	*((u32 *)pc) = insn[0];
+
+	return 0;
 }
 
 void arch_ftrace_update_code(int command)
@@ -116,7 +125,7 @@ int ftrace_modify_call(struct dyn_ftrace *rec, unsigned long old_addr,
 		       unsigned long addr)
 {
 	unsigned int insn[1];
-	unsigned long pc = rec->ip + MCOUNT_LDGP_SIZE + 4;
+	unsigned long pc = rec->ip + MCOUNT_LDGP_SIZE;
 	unsigned long offset;
 
 	if (addr == FTRACE_ADDR)
