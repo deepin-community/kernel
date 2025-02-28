@@ -41,6 +41,7 @@
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_gem_shmem_helper.h>
+#include <drm/drm_gem_vram_helper.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_panic.h>
 #include <drm/drm_probe_helper.h>
@@ -55,7 +56,7 @@
 
 static unsigned long ast_fb_vram_offset(void)
 {
-	return 0; // with shmem, the primary plane is always at offset 0
+	return 0; // the primary plane is always at offset 0
 }
 
 static unsigned long ast_fb_vram_size(struct ast_device *ast)
@@ -473,8 +474,7 @@ static void ast_wait_for_vretrace(struct ast_device *ast)
  */
 
 int ast_plane_init(struct drm_device *dev, struct ast_plane *ast_plane,
-		   void __iomem *vaddr, u64 offset, unsigned long size,
-		   uint32_t possible_crtcs,
+		   u64 offset, unsigned long size, uint32_t possible_crtcs,
 		   const struct drm_plane_funcs *funcs,
 		   const uint32_t *formats, unsigned int format_count,
 		   const uint64_t *format_modifiers,
@@ -482,7 +482,6 @@ int ast_plane_init(struct drm_device *dev, struct ast_plane *ast_plane,
 {
 	struct drm_plane *plane = &ast_plane->base;
 
-	ast_plane->vaddr = vaddr;
 	ast_plane->offset = offset;
 	ast_plane->size = size;
 
@@ -537,7 +536,7 @@ static void ast_handle_damage(struct ast_plane *ast_plane, struct iosys_map *src
 			      struct drm_framebuffer *fb,
 			      const struct drm_rect *clip)
 {
-	struct iosys_map dst = IOSYS_MAP_INIT_VADDR_IOMEM(ast_plane->vaddr);
+	struct iosys_map dst = ast_plane->map;
 
 	iosys_map_incr(&dst, drm_fb_clip_offset(fb->pitches[0], fb->format, clip));
 	drm_fb_memcpy(&dst, fb->pitches, src, fb, clip);
@@ -557,6 +556,7 @@ static void ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc = plane_state->crtc;
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 	struct drm_rect damage;
+	struct drm_gem_vram_object *gbo;
 	struct drm_atomic_helper_damage_iter iter;
 
 	if (!old_fb || (fb->format != old_fb->format) || crtc_state->mode_changed) {
@@ -566,9 +566,15 @@ static void ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
 		ast_set_vbios_color_reg(ast, fb->format, ast_crtc_state->vmode);
 	}
 
-	drm_atomic_helper_damage_iter_init(&iter, old_plane_state, plane_state);
-	drm_atomic_for_each_plane_damage(&iter, &damage) {
-		ast_handle_damage(ast_plane, shadow_plane_state->data, fb, &damage);
+	if (!ast_shmem) {
+		gbo = drm_gem_vram_of_gem(fb->obj[0]);
+		ast_plane->offset = drm_gem_vram_offset(gbo);
+		ast_set_start_address_crt1(ast, (u32)ast_plane->offset);
+	} else {
+		drm_atomic_helper_damage_iter_init(&iter, old_plane_state, plane_state);
+		drm_atomic_for_each_plane_damage(&iter, &damage) {
+			ast_handle_damage(ast_plane, shadow_plane_state->data, fb, &damage);
+		}
 	}
 
 	/*
@@ -610,19 +616,18 @@ static int ast_primary_plane_helper_get_scanout_buffer(struct drm_plane *plane,
 {
 	struct ast_plane *ast_plane = to_ast_plane(plane);
 
-	if (plane->state && plane->state->fb && ast_plane->vaddr) {
+	if (plane->state && plane->state->fb && ast_plane->map.vaddr_iomem) {
 		sb->format = plane->state->fb->format;
 		sb->width = plane->state->fb->width;
 		sb->height = plane->state->fb->height;
 		sb->pitch[0] = plane->state->fb->pitches[0];
-		iosys_map_set_vaddr_iomem(&sb->map[0], ast_plane->vaddr);
+		iosys_map_set_vaddr_iomem(&sb->map[0], ast_plane->map.vaddr_iomem);
 		return 0;
 	}
 	return -ENODEV;
 }
 
-static const struct drm_plane_helper_funcs ast_primary_plane_helper_funcs = {
-	DRM_GEM_SHADOW_PLANE_HELPER_FUNCS,
+static struct drm_plane_helper_funcs ast_primary_plane_helper_funcs = {
 	.atomic_check = ast_primary_plane_helper_atomic_check,
 	.atomic_update = ast_primary_plane_helper_atomic_update,
 	.atomic_enable = ast_primary_plane_helper_atomic_enable,
@@ -630,11 +635,10 @@ static const struct drm_plane_helper_funcs ast_primary_plane_helper_funcs = {
 	.get_scanout_buffer = ast_primary_plane_helper_get_scanout_buffer,
 };
 
-static const struct drm_plane_funcs ast_primary_plane_funcs = {
+static struct drm_plane_funcs ast_primary_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
 	.destroy = drm_plane_cleanup,
-	DRM_GEM_SHADOW_PLANE_FUNCS,
 };
 
 static int ast_primary_plane_init(struct ast_device *ast)
@@ -647,7 +651,23 @@ static int ast_primary_plane_init(struct ast_device *ast)
 	unsigned long size = ast_fb_vram_size(ast);
 	int ret;
 
-	ret = ast_plane_init(dev, ast_primary_plane, vaddr, offset, size,
+	if (ast_shmem) {
+		ast_primary_plane_funcs.reset = drm_gem_reset_shadow_plane;
+		ast_primary_plane_funcs.atomic_duplicate_state = drm_gem_duplicate_shadow_plane_state;
+		ast_primary_plane_funcs.atomic_destroy_state = drm_gem_destroy_shadow_plane_state;
+		ast_primary_plane_helper_funcs.begin_fb_access = drm_gem_begin_shadow_fb_access;
+		ast_primary_plane_helper_funcs.end_fb_access = drm_gem_end_shadow_fb_access;
+	} else {
+		ast_primary_plane_funcs.reset = drm_atomic_helper_plane_reset;
+		ast_primary_plane_funcs.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state;
+		ast_primary_plane_funcs.atomic_destroy_state = drm_atomic_helper_plane_destroy_state;
+		ast_primary_plane_helper_funcs.prepare_fb = drm_gem_vram_plane_helper_prepare_fb;
+		ast_primary_plane_helper_funcs.cleanup_fb = drm_gem_vram_plane_helper_cleanup_fb;
+	}
+
+	iosys_map_set_vaddr_iomem(&ast_primary_plane->map, vaddr);
+
+	ret = ast_plane_init(dev, ast_primary_plane, offset, size,
 			     0x01, &ast_primary_plane_funcs,
 			     ast_primary_plane_formats, ARRAY_SIZE(ast_primary_plane_formats),
 			     NULL, DRM_PLANE_TYPE_PRIMARY);
@@ -992,9 +1012,7 @@ static enum drm_mode_status ast_mode_config_mode_valid(struct drm_device *dev,
 	return MODE_OK;
 }
 
-static const struct drm_mode_config_funcs ast_mode_config_funcs = {
-	.fb_create = drm_gem_fb_create_with_dirty,
-	.mode_valid = ast_mode_config_mode_valid,
+static struct drm_mode_config_funcs ast_mode_config_funcs = {
 	.atomic_check = drm_atomic_helper_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
@@ -1016,6 +1034,15 @@ int ast_mode_config_init(struct ast_device *ast)
 	dev->mode_config.min_width = 0;
 	dev->mode_config.min_height = 0;
 	dev->mode_config.preferred_depth = 24;
+	dev->mode_config.prefer_shadow = !ast_shmem;
+
+	if (!ast_shmem) {
+		ast_mode_config_funcs.fb_create = drm_gem_fb_create;
+		ast_mode_config_funcs.mode_valid = drm_vram_helper_mode_valid;
+	} else {
+		ast_mode_config_funcs.fb_create = drm_gem_fb_create_with_dirty;
+		ast_mode_config_funcs.mode_valid = ast_mode_config_mode_valid;
+	}
 
 	if (ast->support_fullhd) {
 		dev->mode_config.max_width = 1920;

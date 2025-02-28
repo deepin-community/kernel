@@ -28,6 +28,7 @@
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_format_helper.h>
 #include <drm/drm_gem_atomic_helper.h>
+#include <drm/drm_gem_vram_helper.h>
 #include <drm/drm_print.h>
 
 #include "ast_drv.h"
@@ -48,7 +49,7 @@
 
 static unsigned long ast_cursor_vram_size(void)
 {
-	return AST_HWC_SIZE + AST_HWC_SIGNATURE_SIZE;
+	return roundup(AST_HWC_SIZE + AST_HWC_SIGNATURE_SIZE, PAGE_SIZE);
 }
 
 long ast_cursor_vram_offset(struct ast_device *ast)
@@ -91,8 +92,8 @@ static u32 ast_cursor_calculate_checksum(const void *src, unsigned int width, un
 static void ast_set_cursor_image(struct ast_device *ast, const u8 *src,
 				 unsigned int width, unsigned int height)
 {
-	u8 __iomem *dst = ast->cursor_plane.base.vaddr;
 	u32 csum;
+	u8 __iomem *dst = ast->cursor_plane.base.map.vaddr_iomem;
 
 	csum = ast_cursor_calculate_checksum(src, width, height);
 
@@ -193,7 +194,7 @@ static void ast_cursor_plane_helper_atomic_update(struct drm_plane *plane,
 	struct ast_device *ast = to_ast_device(plane->dev);
 	struct drm_rect damage;
 	u64 dst_off = ast_plane->offset;
-	u8 __iomem *dst = ast_plane->vaddr; /* TODO: Use mapping abstraction properly */
+	u8 __iomem *dst = ast_plane->map.vaddr_iomem; /* TODO: Use mapping abstraction properly */
 	u8 __iomem *sig = dst + AST_HWC_SIZE; /* TODO: Use mapping abstraction properly */
 	unsigned int offset_x, offset_y;
 	u16 x, y;
@@ -277,10 +278,22 @@ static const struct drm_plane_helper_funcs ast_cursor_plane_helper_funcs = {
 	.atomic_disable = ast_cursor_plane_helper_atomic_disable,
 };
 
-static const struct drm_plane_funcs ast_cursor_plane_funcs = {
+static void ast_cursor_plane_destroy(struct drm_plane *plane)
+{
+	struct ast_plane *ast_plane = to_ast_plane(plane);
+	struct drm_gem_vram_object *gbo = ast_plane->gbo;
+	struct iosys_map map = ast_plane->map;
+
+	drm_gem_vram_vunmap(gbo, &map);
+	drm_gem_vram_unpin(gbo);
+	drm_gem_vram_put(gbo);
+
+	drm_plane_cleanup(plane);
+}
+
+static struct drm_plane_funcs ast_cursor_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
-	.destroy = drm_plane_cleanup,
 	DRM_GEM_SHADOW_PLANE_FUNCS,
 };
 
@@ -290,18 +303,37 @@ int ast_cursor_plane_init(struct ast_device *ast)
 	struct ast_cursor_plane *ast_cursor_plane = &ast->cursor_plane;
 	struct ast_plane *ast_plane = &ast_cursor_plane->base;
 	struct drm_plane *cursor_plane = &ast_plane->base;
+	struct drm_gem_vram_object *gbo;
+	struct iosys_map map;
 	unsigned long size;
 	void __iomem *vaddr;
 	long offset;
 	int ret;
 
 	size = ast_cursor_vram_size();
-	offset = ast_cursor_vram_offset(ast);
-	if (offset < 0)
-		return offset;
-	vaddr = ast->vram + offset;
 
-	ret = ast_plane_init(dev, ast_plane, vaddr, offset, size,
+	if (ast_shmem) {
+		offset = ast_cursor_vram_offset(ast);
+		if (offset < 0)
+			return offset;
+
+		vaddr = ast->vram + offset;
+		iosys_map_set_vaddr_iomem(&ast_cursor_plane->base.map, vaddr);
+		ast_cursor_plane_funcs.destroy = drm_plane_cleanup;
+	} else {
+		gbo = drm_gem_vram_create(dev, size, 0);
+		if (IS_ERR(gbo))
+			return PTR_ERR(gbo);
+
+		drm_gem_vram_pin(gbo, DRM_GEM_VRAM_PL_FLAG_VRAM | DRM_GEM_VRAM_PL_FLAG_TOPDOWN);
+		drm_gem_vram_vmap(gbo, &map);
+		offset = drm_gem_vram_offset(gbo);
+		ast_cursor_plane->base.gbo = gbo;
+		ast_cursor_plane->base.map = map;
+		ast_cursor_plane_funcs.destroy = ast_cursor_plane_destroy;
+	}
+
+	ret = ast_plane_init(dev, ast_plane, offset, size,
 			     0x01, &ast_cursor_plane_funcs,
 			     ast_cursor_plane_formats, ARRAY_SIZE(ast_cursor_plane_formats),
 			     NULL, DRM_PLANE_TYPE_CURSOR);
