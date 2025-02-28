@@ -1038,18 +1038,11 @@ static int hda_ft_probe(struct platform_device *pdev)
 	if (schedule_probe)
 		schedule_work(&hda->probe_work);
 
-	if (sysfs_create_group(&hda->dev->kobj, &hda_ft_runtime_status_group)) {
-		dev_warn(&pdev->dev, "failed create sysfs\n");
-		goto err_sysfs;
-	}
-
 	set_bit(dev, probed_devs);
 	if (chip->disabled)
 		complete_all(&hda->probe_wait);
 	return 0;
 
-err_sysfs:
-	sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 out_free:
 	snd_card_free(card);
 	return err;
@@ -1100,8 +1093,14 @@ static int azx_probe_continue(struct azx *chip)
 	if (azx_has_pm_runtime(chip))
 		pm_runtime_put_noidle(hddev);
 
+	if (sysfs_create_group(&hda->dev->kobj, &hda_ft_runtime_status_group)) {
+		dev_warn(hda->dev, "failed create sysfs\n");
+		goto err_sysfs;
+	}
 	return err;
 
+err_sysfs:
+	sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 out_free:
 	if (bus->irq >= 0) {
 		free_irq(bus->irq, (void *)chip);
