@@ -101,8 +101,8 @@ static const int core4_cache_event_map
 			[C(RESULT_MISS)]	= SW64_L1I_CACHE_MISSES,
 		},
 		[C(OP_WRITE)] = {
-			[C(RESULT_ACCESS)]	= SW64_L1I_CACHE,
-			[C(RESULT_MISS)]	= SW64_L1I_CACHE_MISSES,
+			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
+			[C(RESULT_MISS)]	= SW64_OP_UNSUPP,
 		},
 		[C(OP_PREFETCH)] = {
 			[C(RESULT_ACCESS)]	= SW64_OP_UNSUPP,
