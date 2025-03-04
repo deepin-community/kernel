@@ -253,8 +253,14 @@ $setfpec_over:
 	ldl	$18, HOST_INT_R18(sp)
 	ldi	sp, (HOST_INT_SIZE + PT_REGS_SIZE)(sp)
 
-	ldi	$19, -PT_REGS_SIZE(sp)
+	ldi	sp, -PT_REGS_SIZE(sp)
+	stl     $16, PT_REGS_EARG0(sp)
+	stl     $17, PT_REGS_EARG1(sp)
+	stl     $18, PT_REGS_EARG2(sp)
+	ldi	$16, 0(sp)
+
 	call	$26, do_entInt
+	ldi	sp, PT_REGS_SIZE(sp)
 	ldl	$26, VCPU_RET_RA(sp)
 	ldl	$0, VCPU_RET_R0(sp)
 $ret_to:
