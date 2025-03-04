@@ -346,7 +346,7 @@ static void __init bootcmdline_init(char **cmdline_p)
 	 * Append built-in command line to the bootloader command line if
 	 * CONFIG_CMDLINE_EXTEND is enabled.
 	 */
-	if (IS_ENABLED(CONFIG_CMDLINE_EXTEND) && CONFIG_CMDLINE[0]) {
+	if (IS_ENABLED(CONFIG_CMDLINE_EXTEND) && !!CONFIG_CMDLINE[0]) {
 		strlcat(boot_command_line, " ", COMMAND_LINE_SIZE);
 		strlcat(boot_command_line, CONFIG_CMDLINE, COMMAND_LINE_SIZE);
 	}
