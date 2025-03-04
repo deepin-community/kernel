@@ -558,6 +558,12 @@ static void hw_perf_event_destroy(struct perf_event *event)
 	/* Nothing to be done! */
 }
 
+static inline bool max_sampling_period(struct perf_event *event)
+{
+	return ((u64)event->attr.sample_period == U64_MAX) ||
+		((s64)event->attr.sample_period == S64_MAX);
+}
+
 static int __hw_perf_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
@@ -566,6 +572,8 @@ static int __hw_perf_event_init(struct perf_event *event)
 
 	if (!is_sampling_event(event)) {
 		pr_debug("not sampling event\n");
+	} else if (max_sampling_period(event)) {
+		pr_debug("max sampling period, allowing all events\n");
 	} else if (!event_support_sampling(hwc->config)) {
 		pr_info("event %#llx does not support sampling(period=%#llx)",
 				hwc->config, event->attr.sample_period);
