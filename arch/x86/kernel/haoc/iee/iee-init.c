@@ -156,3 +156,10 @@ void __init iee_init(void)
 	_iee_mapping_init();
 	_iee_stack_init();
 }
+
+bool __ro_after_init haoc_enabled;
+static int __init parse_haoc_enabled(char *str)
+{
+	return kstrtobool(str, &haoc_enabled);
+}
+early_param("haoc", parse_haoc_enabled);

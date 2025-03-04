@@ -1517,7 +1517,8 @@ config AMD_MEM_ENCRYPT
 
 config IEE
 	depends on X86_64
-	def_bool n
+	def_bool y
+
 # Common NUMA Features
 config NUMA
 	bool "NUMA Memory Allocation and Scheduler Support"

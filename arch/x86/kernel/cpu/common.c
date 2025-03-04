@@ -65,6 +65,9 @@
 #include <asm/set_memory.h>
 #include <asm/traps.h>
 #include <asm/sev.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 
 #include "cpu.h"
 
@@ -592,6 +595,20 @@ static __always_inline void setup_cet(struct cpuinfo_x86 *c)
 	if (!IS_ENABLED(CONFIG_X86_CET))
 		return;
 
+#ifdef CONFIG_IEE
+	if (haoc_enabled) {
+		/*
+		 * NOTE: IEE relies on CR0.WP (Write Protection).
+		 * According to Intel SDM Vol.3(Section 2.5):
+		 * This flag must be set before software can set CR4.CET,
+		 * and it cannot be cleared as long as CR4.CET = 1.
+		 * Therefore, IEE does not enable CET during kernel boot.
+		 */
+		pr_info("CET disabled because of the contradiction with IEE");
+		return;
+	}
+#endif
+
 	kernel_ibt = HAS_KERNEL_IBT && cpu_feature_enabled(X86_FEATURE_IBT);
 	user_shstk = cpu_feature_enabled(X86_FEATURE_SHSTK) &&
 		     IS_ENABLED(CONFIG_X86_USER_SHADOW_STACK);
@@ -607,16 +624,7 @@ static __always_inline void setup_cet(struct cpuinfo_x86 *c)
 	else
 		wrmsrl(MSR_IA32_S_CET, 0);
 
-	#ifndef CONFIG_IEE
-	/*
-	 * NOTE: IEE relies on CR0.WP (Write Protection).
-	 * According to Intel SDM Vol.3(Section 2.5):
-	 * This flag must be set before software can set CR4.CET,
-	 * and it cannot be cleared as long as CR4.CET = 1.
-	 * Therefore, IEE does not enable CR4.CET during kernel boot.
-	 */
 	cr4_set_bits(X86_CR4_CET);
-	#endif
 
 	if (kernel_ibt && ibt_selftest()) {
 		pr_err("IBT selftest: Failed!\n");
