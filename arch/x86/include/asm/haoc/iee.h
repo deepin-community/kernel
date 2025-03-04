@@ -30,4 +30,5 @@ DECLARE_PER_CPU(struct iee_stack, iee_stacks);
 
 extern void *alloc_low_pages(unsigned int num);
 extern void iee_init(void);
+extern bool haoc_enabled;
 #endif
