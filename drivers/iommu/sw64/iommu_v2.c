@@ -65,8 +65,16 @@ enum exceptype {
 	PTE_LEVEL1,
 	PTE_LEVEL2,
 	PTE_LEVEL3,
-	UNAUTHORIZED_ACCESS,
+	LEVEL1_PTE_UNAUTHORIZED_ACCESS,
+	LEVEL2_PTE_UNAUTHORIZED_ACCESS,
+	LEVEL3_PTE_UNAUTHORIZED_ACCESS,
+	LEVEL1_PTE_GRANULARITY_ERROR,
+	LEVEL2_PTE_GRANULARITY_ERROR,
+	LEVEL3_PTE_GRANULARITY_ERROR,
 	ILLEGAL_RESPONSE,
+	INVALID_HIGH_ADDRESS,
+	SEGMENT_TRANSLATION_MISS,
+	SEGMENT_TRANSLATION_UNAUTHORIZED_ACCESS,
 	DTE_LEVEL1_VAL,
 	DTE_LEVEL2_VAL,
 	PTE_LEVEL1_VAL,
@@ -716,7 +724,9 @@ irqreturn_t iommu_interrupt(int irq, void *dev)
 		return IRQ_HANDLED;
 	}
 
-		sdomain = sdev->domain;
+	sdomain = sdev->domain;
+	pr_info("iommu exception type:%#lx\n", type);
+
 	switch (type) {
 	case DTE_LEVEL1:
 		pr_info("invalid level1 dte, addr:%#lx, val:%#lx\n",
@@ -732,31 +742,55 @@ irqreturn_t iommu_interrupt(int irq, void *dev)
 		pr_info("invalid level1 pte, addr: %#lx, val:%#lx\n",
 			fetch_pte(sdomain, dva, PTE_LEVEL1),
 			fetch_pte(sdomain, dva, PTE_LEVEL1_VAL));
-
-		iommu_status &= ~(1UL << 62);
-		writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
 		break;
 	case PTE_LEVEL2:
 		pr_info("invalid level2 pte, addr: %#lx, val: %#lx\n",
 			fetch_pte(sdomain, dva, PTE_LEVEL2),
 			fetch_pte(sdomain, dva, PTE_LEVEL2_VAL));
-
-		iommu_status &= ~(1UL << 62);
-		writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
 		break;
-
 	case PTE_LEVEL3:
 		pr_info("invalid level3 pte, addr: %#lx, val: %#lx\n",
 			fetch_pte(sdomain, dva, PTE_LEVEL3),
 			fetch_pte(sdomain, dva, PTE_LEVEL3_VAL));
-
-		iommu_status &= ~(1UL << 62);
-		writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
+		break;
+	case LEVEL1_PTE_UNAUTHORIZED_ACCESS:
+		pr_info("level1 pte unauthorized access\n");
+		break;
+	case LEVEL2_PTE_UNAUTHORIZED_ACCESS:
+		pr_info("level2 pte unauthorized access\n");
+		break;
+	case LEVEL3_PTE_UNAUTHORIZED_ACCESS:
+		pr_info("level3 pte unauthorized access\n");
+		break;
+	case LEVEL1_PTE_GRANULARITY_ERROR:
+		pr_info("level1 pte  granularity error\n");
+		break;
+	case LEVEL2_PTE_GRANULARITY_ERROR:
+		pr_info("level2 pte  granularity error\n");
+		break;
+	case LEVEL3_PTE_GRANULARITY_ERROR:
+		pr_info("level3 pte  granularity error\n");
+		break;
+	case ILLEGAL_RESPONSE:
+		pr_info("accessing the device table or page table \
+				return an illegal response\n");
+		break;
+	case INVALID_HIGH_ADDRESS:
+		pr_info("the address is longer than the allowed length\n");
+		break;
+	case SEGMENT_TRANSLATION_MISS:
+		pr_info("segment translation miss\n");
+		break;
+	case SEGMENT_TRANSLATION_UNAUTHORIZED_ACCESS:
+		pr_info("segment translation unauthorized access\n");
 		break;
 	default:
-		pr_info("iommu exception type %ld\n", type);
+		pr_info("unknown error\n");
 		break;
 	}
+
+	iommu_status &= ~(1UL << 62);
+	writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
 
 	return IRQ_HANDLED;
 }

@@ -53,6 +53,8 @@ enum exceptype {
 	PTE_LEVEL2,
 	UNAUTHORIZED_ACCESS,
 	ILLEGAL_RESPONSE,
+	SEGMENT_TRANSLATION_MISS,
+	SEGMENT_TRANSLATION_UNAUTHORIZED_ACCESS,
 	DTE_LEVEL1_VAL,
 	DTE_LEVEL2_VAL,
 	PTE_LEVEL1_VAL,
@@ -640,6 +642,7 @@ irqreturn_t iommu_interrupt(int irq, void *dev)
 	}
 
 	sdomain = sdev->domain;
+	pr_info("iommu exception type:%#lx\n", type);
 
 	switch (type) {
 	case DTE_LEVEL1:
@@ -661,21 +664,27 @@ irqreturn_t iommu_interrupt(int irq, void *dev)
 		pr_info("invalid level2 pte, addr: %#lx, val: %#lx\n",
 			fetch_pte(sdomain, dva, PTE_LEVEL2),
 			fetch_pte(sdomain, dva, PTE_LEVEL2_VAL));
-
-		iommu_status &= ~(1UL << 62);
-		writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
 		break;
-
 	case UNAUTHORIZED_ACCESS:
-		pr_info("unauthorized access\n");
+		pr_info("page translation unauthorized access\n");
 		break;
 	case ILLEGAL_RESPONSE:
-		pr_info("illegal response\n");
+		pr_info("accessing the device table or page table \
+				return an illegal response\n");
+		break;
+	case SEGMENT_TRANSLATION_MISS:
+		pr_info("segment translation miss\n");
+		break;
+	case SEGMENT_TRANSLATION_UNAUTHORIZED_ACCESS:
+		pr_info("segment translation unauthorized access\n");
 		break;
 	default:
 		pr_info("unknown error\n");
 		break;
 	}
+
+	iommu_status &= ~(1UL << 62);
+	writeq(iommu_status, iommu->reg_base_addr + IOMMUEXCPT_STATUS);
 
 	return IRQ_HANDLED;
 }
