@@ -406,8 +406,12 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 {
 	mutex_lock(&fixmap_lock);
 	#ifdef CONFIG_IEE
-	__iee_create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
-		pgtable_alloc, flags);
+	if (haoc_enabled)
+		__iee_create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
+				pgtable_alloc, flags);
+	else
+		__create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
+				pgtable_alloc, flags);
 	#else
 	__create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
 				    pgtable_alloc, flags);

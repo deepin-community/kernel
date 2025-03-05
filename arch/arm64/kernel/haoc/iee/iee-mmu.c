@@ -127,6 +127,9 @@ static phys_addr_t __init iee_mem_pool_early_alloc(struct iee_early_alloc *cache
 /* Prepare one block for each early page pool. */
 void __init early_iee_data_cache_init(void)
 {
+	if (!haoc_enabled)
+		return;
+
 	iee_mem_pool_early_alloc(&iee_stack, IEE_DATA_ORDER);
 }
 
@@ -477,6 +480,12 @@ void __init iee_init_mappings(pgd_t *pgdp)
 	int flags = NO_EXEC_MAPPINGS;
 	u64 i;
 
+	/* Check if haoc is enabled by kernel parameter. */
+	if (!haoc_enabled) {
+		pr_info("HAOC is disabled by kernel command line.");
+		return;
+	}
+
 	/* Check if hardware supports IEE. */
 	if (!cpuid_feature_extract_unsigned_field(read_cpuid(ID_AA64MMFR1_EL1),
 						ID_AA64MMFR1_EL1_HPDS_SHIFT))
@@ -515,5 +524,8 @@ static void prot_iee_early_data_cache(struct iee_early_alloc *cache)
 /* Put early allocated pages into IEE. */
 void __init init_early_iee_data(void)
 {
+	if (!haoc_enabled)
+		return;
+
 	prot_iee_early_data_cache(&iee_stack);
 }

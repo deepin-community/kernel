@@ -16,7 +16,10 @@
 /* An example of IEE API. */
 static inline void iee_memset(void *ptr, int data, size_t n)
 {
-	iee_rw_gate(IEE_OP_MEMSET, ptr, data, n);
+	if (haoc_enabled)
+		iee_rw_gate(IEE_OP_MEMSET, ptr, data, n);
+	else
+		memset(ptr, data, n);
 }
 
 #endif
