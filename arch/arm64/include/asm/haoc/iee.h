@@ -17,6 +17,7 @@
 extern unsigned long iee_tcr;
 extern unsigned long kernel_tcr;
 extern bool iee_init_done;
+extern bool haoc_enabled;
 
 #define IEE_OFFSET 0x400000000000
 #define IEE_DATA_ORDER (PMD_SHIFT - PAGE_SHIFT)

@@ -13,6 +13,6 @@ config IEE
 		Needs hardware support FEAT_HPDS.
 	depends on ARM64_4K_PAGES
 	depends on ARM64_VA_BITS_48
-	def_bool n
+	def_bool y
 
 endmenu # HAOC

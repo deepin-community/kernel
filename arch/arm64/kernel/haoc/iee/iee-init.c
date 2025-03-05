@@ -16,6 +16,7 @@ __aligned(PAGE_SIZE) DEFINE_PER_CPU(u64*[(PAGE_SIZE/8)],
 				iee_cpu_stack_ptr);
 
 bool __initdata iee_init_done;
+bool __ro_after_init haoc_enabled;
 
 /* Allocate pages from IEE data pool to use as per-cpu IEE stack. */
 static void __init iee_stack_alloc(void)
@@ -35,6 +36,9 @@ static void __init iee_stack_alloc(void)
 
 void __init iee_init_post(void)
 {
+	if (!haoc_enabled)
+		return;
+
 	/* Flush tlb to enable IEE. */
 	flush_tlb_all();
 
@@ -43,5 +47,14 @@ void __init iee_init_post(void)
 
 void __init iee_stack_init(void)
 {
+	if (!haoc_enabled)
+		return;
+
 	iee_stack_alloc();
 }
+
+static int __init parse_haoc_enabled(char *str)
+{
+	return kstrtobool(str, &haoc_enabled);
+}
+early_param("haoc", parse_haoc_enabled);
