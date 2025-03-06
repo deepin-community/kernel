@@ -1967,7 +1967,7 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 				     struct file *out, loff_t *ppos,
 				     size_t len, unsigned int flags)
 {
-	unsigned int head, tail, mask, count;
+	unsigned int head, tail, count;
 	unsigned nbuf;
 	unsigned idx;
 	struct pipe_buffer *bufs;
@@ -1984,8 +1984,7 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 
 	head = pipe->head;
 	tail = pipe->tail;
-	mask = pipe->ring_size - 1;
-	count = head - tail;
+	count = pipe_occupancy(head, tail);
 
 	bufs = kvmalloc_array(count, sizeof(struct pipe_buffer), GFP_KERNEL);
 	if (!bufs) {
@@ -1995,8 +1994,8 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 
 	nbuf = 0;
 	rem = 0;
-	for (idx = tail; idx != head && rem < len; idx++)
-		rem += pipe->bufs[idx & mask].len;
+	for (idx = tail; !pipe_empty(head, idx) && rem < len; idx++)
+		rem += pipe_buf(pipe, idx)->len;
 
 	ret = -EINVAL;
 	if (rem < len)
@@ -2007,10 +2006,10 @@ static ssize_t fuse_dev_splice_write(struct pipe_inode_info *pipe,
 		struct pipe_buffer *ibuf;
 		struct pipe_buffer *obuf;
 
-		if (WARN_ON(nbuf >= count || tail == head))
+		if (WARN_ON(nbuf >= count || pipe_empty(head, tail)))
 			goto out_free;
 
-		ibuf = &pipe->bufs[tail & mask];
+		ibuf = pipe_buf(pipe, tail);
 		obuf = &bufs[nbuf];
 
 		if (rem >= ibuf->len) {
