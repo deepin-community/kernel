@@ -656,6 +656,7 @@ static void __rtw89_ops_bss_link_assoc(struct rtw89_dev *rtwdev,
 	rtw89_chip_cfg_txpwr_ul_tb_offset(rtwdev, rtwvif_link);
 	rtw89_mac_port_update(rtwdev, rtwvif_link);
 	rtw89_mac_set_he_obss_narrow_bw_ru(rtwdev, rtwvif_link);
+	rtw89_mac_set_he_tb(rtwdev, rtwvif_link);
 }
 
 static void __rtw89_ops_bss_assoc(struct rtw89_dev *rtwdev,
@@ -683,7 +684,6 @@ static void rtw89_ops_vif_cfg_changed(struct ieee80211_hw *hw,
 		if (vif->cfg.assoc) {
 			rtw89_station_mode_sta_assoc(rtwdev, vif);
 			__rtw89_ops_bss_assoc(rtwdev, vif);
-			rtw89_mac_set_he_tb(rtwdev, vif);
 
 			rtw89_queue_chanctx_work(rtwdev);
 		} else {
