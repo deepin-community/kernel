@@ -174,10 +174,10 @@ asmlinkage void noinstr do_entInt(unsigned long type, unsigned long vector,
 
 out:
 	set_irq_regs(old_regs);
-	if (regs->cause != -2)
-		irq_exit();
-	else
+	if (unlikely(regs->cause == -2 && IS_ENABLED(CONFIG_SUBARCH_C4)))
 		nmi_exit();
+	else
+		irq_exit();
 }
 EXPORT_SYMBOL(do_entInt);
 
