@@ -51,7 +51,7 @@ boot := arch/sw_64/boot
 
 PHONY += vdso_install
 vdso_install:
-	$(Q)$(MAKE) $(build)=arch/sw64/kernel/vdso $@
+	$(Q)$(MAKE) $(build)=arch/sw_64/kernel/vdso $@
 
 #Default target when executing make with no arguments
 all: $(boot)/vmlinux.bin.gz
