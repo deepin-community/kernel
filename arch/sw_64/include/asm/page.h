@@ -58,6 +58,7 @@ extern unsigned long __boot_phys_addr(unsigned long addr);
 
 #define virt_to_pfn(vaddr)	(PHYS_PFN(__pa(vaddr)))
 #define pfn_to_virt(pfn)	(__va(PFN_PHYS(pfn)))
+#define sym_to_pfn(x)		__phys_to_pfn(__pa_symbol(x))
 
 #ifdef CONFIG_FLATMEM
 #define pfn_valid(pfn)		((pfn) < max_mapnr)

@@ -25,6 +25,7 @@
  * to prelink this.
  */
 #define VDSO_LBASE	0x0
+#define __VVAR_PAGES    2
 
 #ifndef __ASSEMBLY__
 
@@ -37,6 +38,7 @@
 	((unsigned long)(base) + __vdso_##name);			\
 })
 
+extern char vdso_start[], vdso_end[];
 
 struct vdso_data {
 	u64 xtime_sec;
@@ -74,7 +76,7 @@ static inline unsigned long get_vdso_base(void)
 
 static inline const struct vdso_data *get_vdso_data(void)
 {
-	return (const struct vdso_data *)(get_vdso_base() - PAGE_SIZE);
+	return (const struct vdso_data *)(get_vdso_base() - __VVAR_PAGES * PAGE_SIZE);
 }
 
 static inline u32 vdso_data_read_begin(const struct vdso_data *data)
