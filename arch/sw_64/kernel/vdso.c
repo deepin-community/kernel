@@ -71,6 +71,19 @@ static void init_cpu_map(void)
 }
 #endif
 
+static int vdso_mremap(const struct vm_special_mapping *sm,
+		struct vm_area_struct *new_vma)
+{
+	unsigned long new_size = new_vma->vm_end - new_vma->vm_start;
+	unsigned long vdso_size = vdso_end - vdso_start;
+
+	if (vdso_size != new_size)
+		return -EINVAL;
+
+	current->mm->context.vdso = (void *)new_vma->vm_start;
+	return 0;
+}
+
 static int __init vdso_init(void)
 {
 	int i;
@@ -106,6 +119,7 @@ static int __init vdso_init(void)
 	vdso_spec[1] = (struct vm_special_mapping) {
 		.name	= "[vdso]",
 		.pages	= &vdso_pagelist[1],
+		.mremap = vdso_mremap,
 	};
 
 	init_cpu_map();
