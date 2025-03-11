@@ -27,26 +27,6 @@ static uint nowait;
 
 static struct clk *cpuclk;
 
-
-static int sw64_cpu_freq_notifier(struct notifier_block *nb,
-					unsigned long val, void *data);
-
-static struct notifier_block sw64_cpufreq_notifier_block = {
-	.notifier_call = sw64_cpu_freq_notifier
-};
-
-static int sw64_cpu_freq_notifier(struct notifier_block *nb,
-					unsigned long val, void *data)
-{
-	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
-	unsigned long cpu = freqs->policy->cpu;
-
-	if (val == CPUFREQ_POSTCHANGE)
-		sw64_update_clockevents(cpu, freqs->new * 1000);
-
-	return 0;
-}
-
 static unsigned int sw64_cpufreq_get(unsigned int cpu)
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu);
@@ -153,18 +133,12 @@ static int __init cpufreq_init(void)
 
 	pr_info("SW-64 CPU frequency driver\n");
 
-	cpufreq_register_notifier(&sw64_cpufreq_notifier_block,
-				  CPUFREQ_TRANSITION_NOTIFIER);
-
 	return cpufreq_register_driver(&sw64_cpufreq_driver);
 }
 
 static void __exit cpufreq_exit(void)
 {
 	cpufreq_unregister_driver(&sw64_cpufreq_driver);
-	cpufreq_unregister_notifier(&sw64_cpufreq_notifier_block,
-				    CPUFREQ_TRANSITION_NOTIFIER);
-
 	platform_driver_unregister(&platform_driver);
 }
 
