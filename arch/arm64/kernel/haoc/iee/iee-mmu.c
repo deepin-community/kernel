@@ -205,16 +205,16 @@ static void iee_init_pte(pmd_t *pmdp, unsigned long addr, unsigned long end,
 
 	ptep = pte_set_fixmap_offset(pmdp, addr);
 	do {
-		pte_t old_pte = __ptep_get(ptep);
+		pte_t old_pte = ptep_get(ptep);
 
-		__set_pte(ptep, pfn_pte(__phys_to_pfn(phys), prot));
+		set_pte(ptep, pfn_pte(__phys_to_pfn(phys), prot));
 
 		/*
 		 * After the PTE entry has been populated once, we
 		 * only allow updates to the permission attributes.
 		 */
 		IEE_CHECK(!pgattr_change_is_safe(pte_val(old_pte),
-					      pte_val(__ptep_get(ptep))));
+					      pte_val(ptep_get(ptep))));
 
 		phys += PAGE_SIZE;
 	} while (ptep++, addr += PAGE_SIZE, addr != end);
@@ -233,7 +233,7 @@ static void iee_alloc_init_cont_pte(pmd_t *pmdp, unsigned long addr,
 
 	IEE_CHECK(pmd_sect(pmd));
 	if (pmd_none(pmd)) {
-		pmdval_t pmdval = PMD_TYPE_TABLE | PMD_TABLE_UXN | PMD_TABLE_AF;
+		pmdval_t pmdval = PMD_TYPE_TABLE | PMD_TABLE_UXN | PMD_SECT_AF;
 		phys_addr_t pte_phys;
 
 		if (flags & NO_EXEC_MAPPINGS)
@@ -311,7 +311,7 @@ static void iee_alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 	 */
 	IEE_CHECK(pud_sect(pud));
 	if (pud_none(pud)) {
-		pudval_t pudval = PUD_TYPE_TABLE | PUD_TABLE_UXN | PUD_TABLE_AF;
+		pudval_t pudval = PUD_TYPE_TABLE | PUD_TABLE_UXN | PMD_SECT_AF;
 		phys_addr_t pmd_phys;
 
 		if (flags & NO_EXEC_MAPPINGS)
@@ -350,7 +350,7 @@ static void iee_alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long en
 	p4d_t p4d = READ_ONCE(*p4dp);
 
 	if (p4d_none(p4d)) {
-		p4dval_t p4dval = P4D_TYPE_TABLE | P4D_TABLE_UXN | P4D_TABLE_AF;
+		p4dval_t p4dval = P4D_TYPE_TABLE | P4D_TABLE_UXN | PMD_SECT_AF;
 		phys_addr_t pud_phys;
 
 		if (flags & NO_EXEC_MAPPINGS)
