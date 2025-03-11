@@ -337,15 +337,6 @@ config SW64_CPUFREQ
 	  For details, take a look at <file:Documentation/cpu-freq>.
 
 	  If unsure, say N.
-
-config SW64_CPUFREQ_DEBUGFS
-	bool "SW64 CPU Frequency debugfs interface"
-	depends on SW64_CPUFREQ && DEBUG_FS
-	default y
-	help
-	  Turns on the DebugFS interface for CPU Frequency.
-
-	  If you don't know what to do here, say N.
 endif
 
 config QORIQ_CPUFREQ
