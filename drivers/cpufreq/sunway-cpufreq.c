@@ -1,20 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  linux/arch/sw/kernel/setup.c
- *
- *  Copyright (C) 1995  Linus Torvalds
+ *  Copyright (C) 2025 WXIAT
  */
 
-/*
- * Cpufreq driver for the sw64 processors
- *
- */
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+#define pr_fmt(fmt) "cpufreq: " fmt
 
 #include <linux/cpufreq.h>
 #include <linux/module.h>
 #include <linux/err.h>
-#include <linux/sched.h>	/* set_cpus_allowed() */
+#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
@@ -23,17 +17,13 @@
 #include <asm/cpufreq.h>
 #include <asm/sw64io.h>
 
-static uint nowait;
-
-static struct clk *cpuclk;
-
 static unsigned int sw64_cpufreq_get(unsigned int cpu)
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu);
 
-	if (!policy || IS_ERR(policy->clk)) {
-		pr_err("%s: No %s associated to cpu: %d\n",
-			__func__, policy ? "clk" : "policy", cpu);
+	if (!policy) {
+		pr_err("%s: no policy associated to cpu: %d\n",
+				__func__, cpu);
 		return 0;
 	}
 
@@ -63,14 +53,6 @@ static int sw64_cpufreq_target(struct cpufreq_policy *policy,
 
 static int sw64_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
-	cpuclk = sw64_clk_get(NULL, "cpu_clk");
-	if (IS_ERR(cpuclk)) {
-		pr_err("couldn't get CPU clk\n");
-		return PTR_ERR(cpuclk);
-	}
-
-	policy->clk = cpuclk;
-
 	cpufreq_generic_init(policy, freq_table, 0);
 
 	return 0;
@@ -100,53 +82,16 @@ static struct cpufreq_driver sw64_cpufreq_driver = {
 	.attr = sw64_table_attr,
 };
 
-static const struct platform_device_id platform_device_ids[] = {
-	{
-		.name = "sw64_cpufreq",
-	},
-	{}
-};
-
-MODULE_DEVICE_TABLE(platform, platform_device_ids);
-
-static struct platform_driver platform_driver = {
-	.driver = {
-		.name = "sw64_cpufreq",
-	},
-	.id_table = platform_device_ids,
-};
-
-
 static int __init cpufreq_init(void)
 {
-	int ret;
-
 	if (is_in_guest()) {
 		pr_warn("Now sw_64 CPUFreq does not support virtual machines\n");
 		return -ENODEV;
 	}
 
-	/* Register platform stuff */
-	ret = platform_driver_register(&platform_driver);
-	if (ret)
-		return ret;
-
 	pr_info("SW-64 CPU frequency driver\n");
 
 	return cpufreq_register_driver(&sw64_cpufreq_driver);
 }
+device_initcall(cpufreq_init);
 
-static void __exit cpufreq_exit(void)
-{
-	cpufreq_unregister_driver(&sw64_cpufreq_driver);
-	platform_driver_unregister(&platform_driver);
-}
-
-module_init(cpufreq_init);
-module_exit(cpufreq_exit);
-
-module_param(nowait, uint, 0644);
-MODULE_PARM_DESC(nowait, "Disable SW-64 specific wait");
-
-MODULE_DESCRIPTION("cpufreq driver for sw64");
-MODULE_LICENSE("GPL");

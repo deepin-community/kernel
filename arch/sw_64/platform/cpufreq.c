@@ -15,11 +15,6 @@
 
 #define MAX_RETRY	10
 
-static struct platform_device sw64_cpufreq_device = {
-	.name = "sw64_cpufreq",
-	.id = -1,
-};
-
 /*
  * frequency in MHz, volts in mV and stored as "driver_data" in the structure.
  * volts 0 means to be determined
@@ -118,21 +113,10 @@ static int __init sw64_cpufreq_init(void)
 		if (max_rate == freq_table[i].frequency)
 			freq_table[i+1].frequency = CPUFREQ_TABLE_END;
 	}
-	return platform_device_register(&sw64_cpufreq_device);
+
+	return 0;
 }
 arch_initcall(sw64_cpufreq_init);
-
-static struct clk cpu_clk = {
-	.name = "cpu_clk",
-	.flags = CLK_ALWAYS_ENABLED | CLK_RATE_PROPAGATES,
-	.rate = STARTUP_RATE,
-};
-
-struct clk *sw64_clk_get(struct device *dev, const char *id)
-{
-	return &cpu_clk;
-}
-EXPORT_SYMBOL(sw64_clk_get);
 
 unsigned int __sw64_cpufreq_get(struct cpufreq_policy *policy)
 {
