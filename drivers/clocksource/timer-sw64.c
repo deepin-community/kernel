@@ -2,6 +2,7 @@
 
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
+#include <linux/cpufreq.h>
 #include <linux/kconfig.h>
 #include <linux/percpu-defs.h>
 #include <linux/sched_clock.h>
@@ -385,7 +386,7 @@ static int timer_set_oneshot(struct clock_event_device *evt)
 	return 0;
 }
 
-void sw64_update_clockevents(unsigned long cpu, u32 freq)
+static void sw64_update_clockevents(unsigned long cpu, u32 freq)
 {
 	struct clock_event_device *swevt = &per_cpu(timer_events, cpu);
 
@@ -397,6 +398,29 @@ void sw64_update_clockevents(unsigned long cpu, u32 freq)
 		swevt->max_delta_ns = clockevent_delta2ns(swevt->max_delta_ticks, swevt);
 	}
 }
+
+static int sw64_cpufreq_notifier(struct notifier_block *nb,
+					unsigned long val, void *data)
+{
+	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
+	unsigned long cpu = freqs->policy->cpu;
+
+	if (val == CPUFREQ_POSTCHANGE)
+		sw64_update_clockevents(cpu, freqs->new * 1000);
+
+	return 0;
+}
+
+static struct notifier_block sw64_cpufreq_notifier_block = {
+	.notifier_call = sw64_cpufreq_notifier
+};
+
+static int __init register_cpufreq_notifier(void)
+{
+	return cpufreq_register_notifier(&sw64_cpufreq_notifier_block,
+			CPUFREQ_TRANSITION_NOTIFIER);
+}
+arch_initcall(register_cpufreq_notifier);
 
 /*
  * Setup the local timer for this CPU. Copy the initialized values
