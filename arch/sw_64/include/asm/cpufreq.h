@@ -10,38 +10,6 @@
 #include <linux/cpufreq.h>
 #include <asm/cpu.h>
 
-struct clk;
-
-struct clk_ops {
-	void (*init)(struct clk *clk);
-	void (*enable)(struct clk *clk);
-	void (*disable)(struct clk *clk);
-	void (*recalc)(struct clk *clk);
-	int (*set_rate)(struct clk *clk, unsigned long rate, int algo_id);
-	long (*round_rate)(struct clk *clk, unsigned long rate);
-};
-
-struct clk {
-	struct list_head node;
-	const char *name;
-	int id;
-	struct module *owner;
-
-	struct clk *parent;
-	const struct clk_ops *ops;
-
-	struct kref kref;
-
-	unsigned long rate;
-	unsigned long flags;
-};
-
-#define CLK_ALWAYS_ENABLED	(1 << 0)
-#define CLK_RATE_PROPAGATES	(1 << 1)
-
-#define CORE_CLK0_VALID		(0x1UL << 1)
-#define CORE_CLK0_RESET		(0x1UL << 2)
-
 #define CLK_LV1_SEL_PROTECT	(0x1UL << 0)
 #define CLK_LV1_SEL_MUXA	(0x1UL << 2)
 #define CLK_LV1_SEL_MUXB	(0x1UL << 3)
@@ -56,7 +24,6 @@ struct clk {
 #define CORE_PLL1_CFG_SHIFT     20
 #define CORE_PLL2_CFG_SHIFT     36
 #define CORE_PLL2_CFG_MASK	0x1f
-#define STARTUP_RATE		(2000UL * 1000 * 1000)
 #endif
 
 #ifdef CONFIG_UNCORE_XUELANG
@@ -70,7 +37,6 @@ struct clk {
 #define CORE_PLL1_CFG_SHIFT     11
 #define CORE_PLL2_CFG_SHIFT     18
 #define CORE_PLL2_CFG_MASK	0xf
-#define STARTUP_RATE		(2400UL * 1000 * 1000)
 #endif
 
 #define OFFSET_CLU_LV1_SEL	0x3a80UL
@@ -78,10 +44,7 @@ struct clk {
 
 extern struct cpufreq_frequency_table freq_table[];
 
-int clk_init(void);
 int sw64_set_rate(unsigned int index);
-
-struct clk *sw64_clk_get(struct device *dev, const char *id);
 
 unsigned int __sw64_cpufreq_get(struct cpufreq_policy *policy);
 #endif /* _ASM_SW64_CPUFREQ_H */
