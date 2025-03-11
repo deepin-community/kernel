@@ -164,7 +164,7 @@ static __always_inline int __calc_tpm2_event_size(struct tcg_pcr_event2_head *ev
 	struct tcg_efi_specid_event_head *efispecid;
 	struct tcg_event_field *event_field;
 	void *mapping = NULL;
-	int mapping_size;
+	__maybe_unused int mapping_size;
 	void *marker;
 	void *marker_start;
 	u32 halg_size;
