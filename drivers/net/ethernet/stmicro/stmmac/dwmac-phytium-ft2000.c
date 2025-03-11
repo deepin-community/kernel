@@ -20,33 +20,24 @@
 int phytium_dwmac_probe(struct platform_device *pdev, bool quirk);
 int phytium_dwmac_remove(struct platform_device *pdev);
 
-static int phytium_dwmac_probe_driver(struct platform_device *pdev)
+static int phytium_dwmac_probe_ft2000(struct platform_device *pdev)
 {
-    return phytium_dwmac_probe(pdev, false);
+    return phytium_dwmac_probe(pdev, true);
 }
-
-#ifdef CONFIG_OF
-static const struct of_device_id phytium_dwmac_of_match[] = {
-	{ .compatible = "phytium,gmac" },
-	{ }
-};
-MODULE_DEVICE_TABLE(of, phytium_dwmac_of_match);
-#endif
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id phytium_dwmac_acpi_ids[] = {
-	{ .id = "PHYT0004" },
+	{ .id = "FTGM0001" }, // compat FT2000/4 id
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, phytium_dwmac_acpi_ids);
 #endif
 
 static struct platform_driver phytium_dwmac_driver = {
-	.probe = phytium_dwmac_probe_driver,
+	.probe = phytium_dwmac_probe_ft2000,
 	.remove = phytium_dwmac_remove,
 	.driver = {
 		.name		= "phytium-dwmac",
-		.of_match_table	= of_match_ptr(phytium_dwmac_of_match),
 		.acpi_match_table = ACPI_PTR(phytium_dwmac_acpi_ids),
 	},
 };

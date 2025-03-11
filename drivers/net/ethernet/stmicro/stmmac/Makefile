@@ -33,7 +33,8 @@ obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
 obj-$(CONFIG_DWMAC_IMX8)	+= dwmac-imx.o
 obj-$(CONFIG_DWMAC_TEGRA)	+= dwmac-tegra.o
 obj-$(CONFIG_DWMAC_VISCONTI)	+= dwmac-visconti.o
-obj-$(CONFIG_DWMAC_PHYTIUM)	+= dwmac-phytium.o
+obj-$(CONFIG_DWMAC_PHYTIUM)	+= dwmac-phytium.o dwmac-phytium-common.o
+obj-$(CONFIG_DWMAC_PHYTIUM)	+= dwmac-phytium-ft2000.o dwmac-phytium-common.o
 stmmac-platform-objs:= stmmac_platform.o
 dwmac-altr-socfpga-objs := dwmac-socfpga.o
 
