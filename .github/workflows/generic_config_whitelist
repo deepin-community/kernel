@@ -1,0 +1,3 @@
+CONFIG_CGROUPS
+# Memory controller
+CONFIG_MEMCG
