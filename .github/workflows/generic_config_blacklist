@@ -1,2 +1,4 @@
 # It causes usb plug in out during install to break some loongarch/mac computer
 CONFIG_USB_ONBOARD_HUB
+# https://github.com/deepin-community/kernel/pull/249
+CONFIG_RT_GROUP_SCHED
