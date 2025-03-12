@@ -10,7 +10,6 @@ Contents:
 
    appletalk/index
    atm/index
-   cable/index
    can/index
    cellular/index
    ethernet/index
