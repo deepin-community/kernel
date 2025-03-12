@@ -1,3 +1,9 @@
 CONFIG_CGROUPS
 # Memory controller
 CONFIG_MEMCG
+# Support Android Phone usb wireless share
+CONFIG_USB_NET_RNDIS_HOST
+# Support Apple Phone usb wireless share
+CONFIG_USB_IPHETH
+# CONFIG_USB_NET_RNDIS_HOST depend
+CONFIG_USB_USBNET
