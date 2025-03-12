@@ -265,8 +265,8 @@ static int __init cpufreq_init(void)
 	int i, ret;
 	unsigned long max_rate = get_cpu_freq() / 1000;
 
-	if (is_in_guest()) {
-		pr_warn("Now sw_64 CPUFreq does not support virtual machines\n");
+	if (!is_in_host()) {
+		pr_warn("cpufreq driver of Sunway platforms is only supported in host mode\n");
 		return -ENODEV;
 	}
 
