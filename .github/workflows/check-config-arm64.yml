@@ -32,3 +32,44 @@ jobs:
           echo "::error:: deepin_arm64_desktop_defconfig 文件不一致，请执行 'make savedefconfig' 并提交更新"
           exit 1
         fi
+
+    - name: Generate config whitelist/blacklist
+      run: |
+        touch whitelist
+        cat .github/workflows/generic_config_whitelist >> whitelist
+        cat arch/arm64/configs/config_whitelist >> whitelist
+        touch blacklist
+        cat .github/workflows/generic_config_blacklist >> blacklist
+        cat arch/arm64/configs/config_blacklist >> blacklist
+
+    - name: Check config whitelist
+      run: |
+        # Format: CONFIG_XXX with no # prefix
+        exit_code=0
+        grep -vE '^#|^$' whitelist | while read -r config_item; do
+          # Check for positive configuration (CONFIG_XXX=y/m...)
+          if ! grep -q "^${config_item}=" .config; then
+            # Check for negative configuration (# CONFIG_XXX is not set)
+            if grep -q "^# ${config_item} is not set" .config; then
+              echo "::error::Whitelist violation: ${config_item} is explicitly disabled in .config"
+              exit_code=1
+            else
+              echo "::error::Whitelist violation: ${config_item} is missing in .config"
+              exit_code=1
+            fi
+          fi
+        done
+        exit $exit_code
+
+    - name: Check config blacklist
+      run: |
+        # Format: CONFIG_XXX with no # prefix
+        exit_code=0
+        grep -vE '^#|^$' blacklist | while read -r config_item; do
+          # Check for positive configuration (CONFIG_XXX=y/m...)
+          if grep -q "^${config_item}=" .config; then
+            echo "::error::Blacklist violation: ${config_item} is explicitly enabled in .config"
+            exit_code=1
+          fi
+        done
+        exit $exit_code

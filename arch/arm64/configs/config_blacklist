@@ -1,0 +1,2 @@
+# It causes some problem so we don not enable it in arm64
+CONFIG_USB_UAS

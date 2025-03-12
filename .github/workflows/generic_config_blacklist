@@ -1,0 +1,2 @@
+# It causes usb plug in out during install to break some loongarch/mac computer
+CONFIG_USB_ONBOARD_HUB
