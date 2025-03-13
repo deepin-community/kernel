@@ -21,6 +21,43 @@
 #include <asm/kvm_vcpu.h>
 #include "trace.h"
 
+static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
+{
+	int rd, rj;
+	unsigned int index;
+
+	if (inst.reg2_format.opcode != cpucfg_op)
+		return EMULATE_FAIL;
+
+	rd = inst.reg2_format.rd;
+	rj = inst.reg2_format.rj;
+	++vcpu->stat.cpucfg_exits;
+	index = vcpu->arch.gprs[rj];
+
+	/*
+	 * By LoongArch Reference Manual 2.2.10.5
+	 * Return value is 0 for undefined CPUCFG index
+	 *
+	 * Disable preemption since hw gcsr is accessed
+	 */
+	preempt_disable();
+	switch (index) {
+	case 0 ... (KVM_MAX_CPUCFG_REGS - 1):
+		vcpu->arch.gprs[rd] = vcpu->arch.cpucfg[index];
+		break;
+	case CPUCFG_KVM_SIG:
+		/* CPUCFG emulation between 0x40000000 -- 0x400000ff */
+		vcpu->arch.gprs[rd] = *(unsigned int *)KVM_SIGNATURE;
+		break;
+	default:
+		vcpu->arch.gprs[rd] = 0;
+		break;
+	}
+	preempt_enable();
+
+	return EMULATE_DONE;
+}
+
 static unsigned long kvm_emu_read_csr(struct kvm_vcpu *vcpu, int csrid)
 {
 	unsigned long val = 0;
@@ -212,52 +249,6 @@ int kvm_emu_idle(struct kvm_vcpu *vcpu)
 	if (!kvm_arch_vcpu_runnable(vcpu))
 		kvm_vcpu_halt(vcpu);
 
-	return EMULATE_DONE;
-}
-
-static int kvm_emu_cpucfg(struct kvm_vcpu *vcpu, larch_inst inst)
-{
-	int rd, rj;
-	unsigned int index, ret;
-	unsigned long plv;
-
-	rd = inst.reg2_format.rd;
-	rj = inst.reg2_format.rj;
-	++vcpu->stat.cpucfg_exits;
-	index = vcpu->arch.gprs[rj];
-
-	/*
-	 * By LoongArch Reference Manual 2.2.10.5
-	 * Return value is 0 for undefined cpucfg index
-	 *
-	 * Disable preemption since hw gcsr is accessed
-	 */
-	preempt_disable();
-	plv = kvm_read_hw_gcsr(LOONGARCH_CSR_CRMD) >> CSR_CRMD_PLV_SHIFT;
-	switch (index) {
-	case 0 ... (KVM_MAX_CPUCFG_REGS - 1):
-		vcpu->arch.gprs[rd] = vcpu->arch.cpucfg[index];
-		break;
-	case CPUCFG_KVM_SIG:
-		/*
-		 * Cpucfg emulation between 0x40000000 -- 0x400000ff
-		 * Return value with 0 if executed in user mode
-		 */
-		if ((plv & CSR_CRMD_PLV) == PLV_KERN)
-			vcpu->arch.gprs[rd] = *(unsigned int *)KVM_SIGNATURE;
-		else
-			vcpu->arch.gprs[rd] = 0;
-		break;
-	case CPUCFG_KVM_FEATURE:
-		ret = vcpu->kvm->arch.pv_features & LOONGARCH_PV_FEAT_MASK;
-		vcpu->arch.gprs[rd] = ret;
-		break;
-	default:
-		vcpu->arch.gprs[rd] = 0;
-		break;
-	}
-
-	preempt_enable();
 	return EMULATE_DONE;
 }
 
