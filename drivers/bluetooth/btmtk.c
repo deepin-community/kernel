@@ -24,6 +24,7 @@
 
 /* It is for mt79xx iso data transmission setting */
 #define MTK_ISO_THRESHOLD	264
+static bool enable_isopkt = 0;
 
 struct btmtk_patch_header {
 	u8 datetime[16];
@@ -1374,7 +1375,7 @@ int btmtk_usb_setup(struct hci_dev *hdev)
 		hci_set_aosp_capable(hdev);
 
 		/* Set up ISO interface after protocol enabled */
-		if (test_bit(BTMTK_ISOPKT_OVER_INTR, &btmtk_data->flags)) {
+		if (enable_isopkt && test_bit(BTMTK_ISOPKT_OVER_INTR, &btmtk_data->flags)) {
 			if (!btmtk_usb_isointf_init(hdev))
 				set_bit(BTMTK_ISOPKT_RUNNING, &btmtk_data->flags);
 		}
@@ -1500,6 +1501,8 @@ int btmtk_usb_shutdown(struct hci_dev *hdev)
 EXPORT_SYMBOL_GPL(btmtk_usb_shutdown);
 #endif
 
+module_param(enable_isopkt, bool, 0644);
+MODULE_PARM_DESC(enable_isopkt, "Enable isopkt by default");
 MODULE_AUTHOR("Sean Wang <sean.wang@mediatek.com>");
 MODULE_AUTHOR("Mark Chen <mark-yw.chen@mediatek.com>");
 MODULE_DESCRIPTION("Bluetooth support for MediaTek devices ver " VERSION);
