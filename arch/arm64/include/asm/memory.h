@@ -77,11 +77,7 @@
 #define KASAN_THREAD_SHIFT	1
 #else
 #define KASAN_THREAD_SHIFT	0
-#ifdef CONFIG_IEE
-#define PAGE_END		((UL(1) << ((VA_BITS_MIN) - 2)) | PAGE_OFFSET)
-#else
 #define PAGE_END		(_PAGE_END(VA_BITS_MIN))
-#endif
 #endif /* CONFIG_KASAN */
 
 #define MIN_THREAD_SHIFT	(14 + KASAN_THREAD_SHIFT)
