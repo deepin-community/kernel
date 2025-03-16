@@ -436,13 +436,18 @@ static void __init __create_pgd_mapping_for_iee_locked(pgd_t *pgdir, phys_addr_t
 
 	do {
 		next = pgd_addr_end(addr, end);
+		p4dp = p4d_offset(pgdp, addr);
+		p4d = READ_ONCE(*p4dp);
+		if (!p4d_none(p4d) && !(p4d_val(p4d) & PGD_APTABLE_RO)) {
+			phys += next - addr;
+			continue;
+		}
 		iee_alloc_init_pud(pgdp, addr, next, phys, prot, pgtable_alloc,
 			       flags);
 
 		/* Set APTable RO on pgd entries of IEE mappings to prevent kernel access
 		 * when TCR.HPD1 == 0.
 		 */
-		p4dp = p4d_offset(pgdp, addr);
 		p4d = READ_ONCE(*p4dp);
 		__p4d_populate(p4dp, __p4d_to_phys(p4d), (PGD_APTABLE_RO | PGD_PXNTABLE |
 				PGD_UXNTABLE | PUD_TYPE_TABLE));

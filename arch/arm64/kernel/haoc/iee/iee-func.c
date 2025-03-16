@@ -217,6 +217,9 @@ void put_pages_into_iee(unsigned long addr, int order)
 {
 	unsigned long end = addr + (PAGE_SIZE << order);
 
+	if (addr & IEE_OFFSET)
+		return;
+
 	/* Split the address range if needed. */
 	if (order < IEE_DATA_ORDER)
 		put_pages_into_iee_block(addr, order);
@@ -312,3 +315,4 @@ asmlinkage void notrace iee_bad_mode(struct pt_regs *regs, int reason,
 
 	panic("bad mode");
 }
+
