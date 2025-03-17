@@ -56,6 +56,7 @@ void iee_init_mappings(pgd_t *pgdp);
 void iee_init_post(void);
 void iee_stack_init(void);
 void iee_init_tcr(void);
+void iee_setup_asid(void);
 
 #define IEE_STACK_ORDER	0x3
 #define IEE_STACK_SIZE	(PAGE_SIZE << IEE_STACK_ORDER)

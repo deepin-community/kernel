@@ -28,6 +28,9 @@
 #include <asm/thread_info.h>
 #include <asm/asm-uaccess.h>
 #include <asm/unistd.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee-asm.h>
+#endif
 
 #ifdef CONFIG_IEE
 /* IEE code shall not be interrupted. */
