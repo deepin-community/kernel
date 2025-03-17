@@ -493,8 +493,11 @@ void __init iee_init_mappings(pgd_t *pgdp)
 
 	/* Check if hardware supports IEE. */
 	if (!cpuid_feature_extract_unsigned_field(read_cpuid(ID_AA64MMFR1_EL1),
-						ID_AA64MMFR1_EL1_HPDS_SHIFT))
-		panic("Architecture doesn't support HPDS, please disable CONFIG_IEE.\n");
+						ID_AA64MMFR1_EL1_HPDS_SHIFT)) {
+		pr_err("Architecture doesn't support HPDS, please disable CONFIG_IEE.\n");
+		haoc_enabled = false;
+		return;
+	}
 	else
 		pr_info("HAOC: ARM64 hardware support detected.");
 

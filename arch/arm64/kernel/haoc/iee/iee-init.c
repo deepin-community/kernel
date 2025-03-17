@@ -11,11 +11,12 @@
 #include <linux/memblock.h>
 #include <asm/cpufeature.h>
 #include <asm/haoc/iee-mmu.h>
+#include <asm/haoc/iee-asm.h>
 
 __aligned(PAGE_SIZE) DEFINE_PER_CPU(u64*[(PAGE_SIZE/8)],
 				iee_cpu_stack_ptr);
 
-bool __initdata iee_init_done;
+bool __ro_after_init iee_init_done;
 bool __ro_after_init haoc_enabled;
 
 /* Allocate pages from IEE data pool to use as per-cpu IEE stack. */
@@ -34,13 +35,30 @@ static void __init iee_stack_alloc(void)
 	flush_tlb_all();
 }
 
+/* Setup TCR for this cpu and move ASID from ttbr1 to ttbr0 */
+void iee_setup_asid(void)
+{
+	unsigned long asid, ttbr0, ttbr1;
+
+	ttbr1 = read_sysreg(ttbr1_el1);
+	asid = FIELD_GET(TTBR_ASID_MASK, ttbr1);
+	ttbr0 = read_sysreg(ttbr0_el1) | FIELD_PREP(TTBR_ASID_MASK, asid);
+	ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
+	write_sysreg(ttbr1, ttbr1_el1);
+	write_sysreg(ttbr0, ttbr0_el1);
+	write_sysreg(read_sysreg(tcr_el1) & ~TCR_A1, tcr_el1);
+	isb();
+
+	/* Flush tlb to enable IEE. */
+	local_flush_tlb_all();
+}
+
 void __init iee_init_post(void)
 {
 	if (!haoc_enabled)
 		return;
 
-	/* Flush tlb to enable IEE. */
-	flush_tlb_all();
+	iee_setup_asid();
 
 	iee_init_done = true;
 }
