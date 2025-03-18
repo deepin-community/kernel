@@ -1911,6 +1911,8 @@ bpf_base_func_proto(enum bpf_func_id func_id)
 		return &bpf_task_pt_regs_proto;
 	case BPF_FUNC_trace_vprintk:
 		return bpf_get_trace_vprintk_proto();
+	case BPF_FUNC_perf_event_read_value:
+		return bpf_get_perf_event_read_value_proto();
 	default:
 		return NULL;
 	}
