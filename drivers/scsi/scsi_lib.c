@@ -1470,6 +1470,7 @@ static void scsi_complete(struct request *rq)
 static int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 {
 	struct Scsi_Host *host = cmd->device->host;
+	struct scsi_device *sdev = cmd->device;
 	int rtn = 0;
 
 	atomic_inc(&cmd->device->iorequest_cnt);
@@ -1515,6 +1516,17 @@ static int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 			       "cdb_size=%d host->max_cmd_len=%d\n",
 			       cmd->cmd_len, cmd->device->host->max_cmd_len));
 		cmd->result = (DID_ABORT << 16);
+		goto done;
+	}
+
+	/*
+	 * Before we queue this command, check attribute use_192_bytes_for_3f.
+	 * Because transmits data with a length of 0xff bytes via ioctl may
+	 * cause some hard drives to hang and become unusable.
+	 */
+	if (cmd->cmnd[0] == MODE_SENSE && sdev->use_192_bytes_for_3f &&
+		cmd->cmnd[2] == 0x3f && cmd->cmnd[4] != 192) {
+		cmd->result = DID_ABORT << 16;
 		goto done;
 	}
 
