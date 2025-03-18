@@ -91,6 +91,11 @@ static inline u64 roundup_u64(u64 x, u32 y)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+#define ieee80211_csa_finish(vif, link_id) \
+	ieee80211_csa_finish(vif)
+#endif
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define ieee80211_beacon_cntdwn_is_complete(vif, link_id) \
 	ieee80211_beacon_cntdwn_is_complete(vif)
 #endif
