@@ -91,6 +91,11 @@ static inline u64 roundup_u64(u64 x, u32 y)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+#define ieee80211_beacon_cntdwn_is_complete(vif, link_id) \
+	ieee80211_beacon_cntdwn_is_complete(vif)
+#endif
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define ieee80211_gtk_rekey_add(vif, keyconf, link_id) \
 	ieee80211_gtk_rekey_add(vif, keyconf)
 #endif
