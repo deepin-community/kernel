@@ -137,22 +137,24 @@ static int sw64_set_affinity(struct irq_data *d, const struct cpumask *cpumask, 
 
 	irqd = irq_domain_get_irq_data(msi_default_domain->parent, d->irq);
 	/* Don't do anything if the interrupt isn't started */
-	if (!irqd_is_started(irqd))
+	if (!irqd_is_started(irqd) && !irqd_affinity_is_managed(irqd))
 		return IRQ_SET_MASK_OK;
 
 	cdata = irqd->chip_data;
 	if (!cdata)
 		return -ENOMEM;
 
-	if (cdata->move_in_progress)
-		return -EBUSY;
-
 	/*
 	 * If existing target cpu is already in the new mask and is online
 	 * then do nothing.
 	 */
-	if (cpu_online(cdata->dst_cpu) && cpumask_test_cpu(cdata->dst_cpu, cpumask))
-		return IRQ_SET_MASK_OK;
+	if (cpu_online(cdata->dst_cpu)) {
+		if (cpumask_test_cpu(cdata->dst_cpu, cpumask))
+			return IRQ_SET_MASK_OK;
+
+		if (cdata->move_in_progress)
+			return -EBUSY;
+	}
 
 	raw_spin_lock_irqsave(&vector_lock, flags);
 
@@ -190,7 +192,7 @@ static int sw64_set_affinity(struct irq_data *d, const struct cpumask *cpumask, 
 	irq_msi_compose_msg(d, &msg);
 	__pci_write_msi_msg(entry, &msg);
 	spin_unlock(&cdata->cdata_lock);
-	irq_data_update_effective_affinity(irqd, &searchmask);
+	irq_data_update_effective_affinity(d, cpumask_of(cpu));
 
 	raw_spin_unlock_irqrestore(&vector_lock, flags);
 
@@ -259,6 +261,7 @@ static int __assign_irq_vector(int virq, unsigned int nr_irqs,
 			}
 
 			irq_data->chip_data = cdata;
+			irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
 		}
 
 		cdata->dst_cpu = cpu;
@@ -295,6 +298,7 @@ static int __assign_irq_vector(int virq, unsigned int nr_irqs,
 			cdata->prev_vector = vector;
 			cdata->multi_msi = 1;
 			cdata->move_in_progress = false;
+			irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
 		}
 	}
 	return 0;
