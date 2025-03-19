@@ -4113,6 +4113,9 @@ static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
 	if (data->suspend_count++)
 		return 0;
 
+#ifdef CONFIG_LOONGARCH
+	mdelay(1);
+#endif
 	spin_lock_irq(&data->txlock);
 	if (!(PMSG_IS_AUTO(message) && data->tx_in_flight)) {
 		set_bit(BTUSB_SUSPENDING, &data->flags);
