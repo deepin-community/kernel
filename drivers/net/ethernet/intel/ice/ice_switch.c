@@ -5071,10 +5071,8 @@ ice_add_sw_recipe(struct ice_hw *hw, struct ice_sw_recipe *rm,
 		}
 
 		/* fill recipe dependencies */
-		bitmap_zero((unsigned long *)buf[recps].recipe_bitmap,
-			    ICE_MAX_NUM_RECIPES);
-		set_bit(buf[recps].recipe_indx,
-			(unsigned long *)buf[recps].recipe_bitmap);
+		put_unaligned_le64(BIT_ULL(buf[recps].recipe_indx),
+				   buf[recps].recipe_bitmap);
 		content->act_ctrl_fwd_priority = rm->priority;
 
 		if (rm->need_pass_l2)

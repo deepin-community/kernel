@@ -1806,9 +1806,7 @@ static int ice_create_lag_recipe(struct ice_hw *hw, u16 *rid,
 	new_rcp->content.act_ctrl_fwd_priority = prio;
 	new_rcp->content.rid = *rid | ICE_AQ_RECIPE_ID_IS_ROOT;
 	new_rcp->recipe_indx = *rid;
-	bitmap_zero((unsigned long *)new_rcp->recipe_bitmap,
-		    ICE_MAX_NUM_RECIPES);
-	set_bit(*rid, (unsigned long *)new_rcp->recipe_bitmap);
+	put_unaligned_le64(BIT_ULL(*rid), new_rcp->recipe_bitmap);
 
 	err = ice_aq_add_recipe(hw, new_rcp, 1, NULL);
 	if (err)
