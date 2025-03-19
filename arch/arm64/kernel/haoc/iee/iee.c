@@ -14,8 +14,11 @@
  * The first Parameter must be reserved, and later parameters shall be the same
  * with outer API like iee_memset();
  */
-#pragma GCC push_options
-#pragma GCC optimize("O0")
+#if defined(clang)
+__attribute__((optnone))
+#elif defined(GNUC) || defined(GNUG)
+__attribute__((optimize("O0")))
+#endif
 void __iee_code _iee_memset(unsigned long __unused, void *ptr, int data, size_t n)
 {
 	/* Maybe you need to verify the input parameters first. */
@@ -29,4 +32,3 @@ void __iee_code _iee_memset(unsigned long __unused, void *ptr, int data, size_t 
 	while (n--)
 		*_ptr++ = data;
 }
-#pragma GCC pop_options

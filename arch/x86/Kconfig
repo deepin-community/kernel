@@ -1516,8 +1516,12 @@ config AMD_MEM_ENCRYPT
 	  Encryption (SME).
 
 config IEE
+	bool "Isolated Execution Environment Framework(IEE)"
+	help
+		Support for Isolated Execution Environment Framework. Foundation of HAOC.
+		Could isolate kernel critical data and enforce all write access made and
+		verified in IEE APIs.
 	depends on X86_64
-	def_bool y
 
 # Common NUMA Features
 config NUMA
