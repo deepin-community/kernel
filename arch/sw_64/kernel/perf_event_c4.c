@@ -235,7 +235,7 @@ static bool core4_raw_event_valid(u64 config)
 	int idx = config >> 8;
 	int event = config & 0xff;
 
-	if (event_has_exclusive_counter(event))
+	if (event_has_exclusive_counter(config))
 		return true;
 
 	if (idx >= 0 && idx < PMU_NUM_GENERIC_COUNTERS &&
@@ -501,7 +501,11 @@ static int sw64_pmu_add(struct perf_event *event, int flags)
 	int err = -EAGAIN;
 
 	if (event_has_exclusive_counter(hwc->config)) {
-		hwc->idx = (hwc->config & 0xff) + PMU_NUM_GENERIC_COUNTERS;
+		idx = hwc->config & 0xff;
+		if (__test_and_set_bit(idx, cpuc->exclusive_used_mask))
+			goto out;
+		__set_bit(idx, cpuc->exclusive_used_mask);
+		hwc->idx = idx + PMU_NUM_GENERIC_COUNTERS;
 	} else if (__test_and_set_bit(idx, cpuc->used_mask)) {
 		idx = find_first_zero_bit(cpuc->used_mask, sw64_pmu->num_pmcs);
 		if (idx == sw64_pmu->num_pmcs)
@@ -534,6 +538,8 @@ static void sw64_pmu_del(struct perf_event *event, int flags)
 		return;
 
 	sw64_pmu_stop(event, PERF_EF_UPDATE);
+	if (event_has_exclusive_counter(hwc->config))
+		__clear_bit(event->hw.idx - PMU_NUM_GENERIC_COUNTERS, cpuc->exclusive_used_mask);
 	__clear_bit(event->hw.idx, cpuc->used_mask);
 
 	/* Absorb the final count and turn off the event. */
@@ -645,7 +651,11 @@ static int sw64_pmu_event_init(struct perf_event *event)
 			attr->exclude_host || attr->exclude_guest)
 		return -EINVAL;
 
-	hwc->config = config;
+	if ((hwc->idx & 0xf0) == 0)
+		hwc->config = config;
+	else
+		hwc->config = attr->config;
+
 	/* Do the real initialisation work. */
 	return __hw_perf_event_init(event);
 }
