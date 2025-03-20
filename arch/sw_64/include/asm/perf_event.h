@@ -26,6 +26,7 @@ struct cpu_hw_events {
 	 * is used for an event.
 	 */
 	unsigned long		used_mask[BITS_TO_LONGS(PMU_NUM_GENERIC_COUNTERS)];
+	unsigned long		exclusive_used_mask[BITS_TO_LONGS(PMU_NUM_EXCLUSIVE_COUNTERS)];
 	/* Array of events current scheduled on this cpu. */
 	struct perf_event	*event[PMU_NUM_GENERIC_COUNTERS + PMU_NUM_EXCLUSIVE_COUNTERS];
 };
