@@ -21,7 +21,6 @@
 #include "psp-dev.h"
 #include "csv-dev.h"
 #include "ring-buffer.h"
-#include "vpsp.h"
 
 /*
  * Hygon CSV build info:
@@ -32,10 +31,6 @@ u32 hygon_csv_build;
 EXPORT_SYMBOL_GPL(hygon_csv_build);
 
 int csv_comm_mode = CSV_COMM_MAILBOX_ON;
-
-static uint8_t vpsp_rb_supported;
-uint8_t vpsp_rb_oc_supported;	// support overcommit
-static atomic_t vpsp_rb_check_status = ATOMIC_INIT(RB_NOT_CHECK);
 
 /*
  * csv_update_api_version used to update the api version of HYGON CSV
@@ -650,20 +645,6 @@ int csv_check_stat_queue_status(int *psp_ret)
 }
 EXPORT_SYMBOL_GPL(csv_check_stat_queue_status);
 
-static int vpsp_ring_buffer_queue_init(void)
-{
-	int i;
-	int ret;
-
-	for (i = CSV_COMMAND_PRIORITY_HIGH; i < CSV_COMMAND_PRIORITY_NUM; i++) {
-		ret = __csv_ring_buffer_queue_init(&vpsp_ring_buffer[i]);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
 /**
  * struct user_data_status - PLATFORM_STATUS command parameters
  *
@@ -695,66 +676,6 @@ struct user_data_status {
 		build : 31;		/* Out */
 	uint32_t guest_count;		/* Out */
 } __packed;
-
-/*
- * Check whether the firmware supports ringbuffer mode and parse
- * commands from the virtual machine
- */
-int vpsp_rb_check_and_cmd_prio_parse(uint8_t *prio,
-		struct vpsp_cmd *vcmd)
-{
-	int ret, error;
-	int rb_supported;
-	int rb_check_old = RB_NOT_CHECK;
-	struct user_data_status *status = NULL;
-
-	if (atomic_try_cmpxchg(&vpsp_rb_check_status, &rb_check_old,
-				RB_CHECKING)) {
-		/* get buildid to check if the firmware supports ringbuffer mode */
-		status = kzalloc(sizeof(*status), GFP_KERNEL);
-		if (!status) {
-			atomic_set(&vpsp_rb_check_status, RB_CHECKED);
-			goto end;
-		}
-		ret = sev_platform_status((struct sev_user_data_status *)status,
-				&error);
-		if (ret) {
-			pr_warn("failed to get status[%#x], use default command mode.\n", error);
-			atomic_set(&vpsp_rb_check_status, RB_CHECKED);
-			kfree(status);
-			goto end;
-		}
-
-		/* check if the firmware supports the ringbuffer mode */
-		if (VPSP_RB_IS_SUPPORTED(status->build)) {
-			if (vpsp_ring_buffer_queue_init()) {
-				pr_warn("vpsp_ring_buffer_queue_init fail, use default command mode\n");
-				atomic_set(&vpsp_rb_check_status, RB_CHECKED);
-				kfree(status);
-				goto end;
-			}
-			WRITE_ONCE(vpsp_rb_supported, 1);
-
-			if (VPSP_RB_OC_IS_SUPPORTED(status->build))
-				WRITE_ONCE(vpsp_rb_oc_supported, 1);
-		}
-
-		atomic_set(&vpsp_rb_check_status, RB_CHECKED);
-		kfree(status);
-	}
-
-end:
-	rb_supported = READ_ONCE(vpsp_rb_supported);
-	/* parse prio by vcmd */
-	if (rb_supported && vcmd->is_high_rb)
-		*prio = CSV_COMMAND_PRIORITY_HIGH;
-	else
-		*prio = CSV_COMMAND_PRIORITY_LOW;
-	/* clear rb level bit in vcmd */
-	vcmd->is_high_rb = 0;
-
-	return rb_supported;
-}
 
 int csv_get_extension_info(void *buf, size_t *size)
 {

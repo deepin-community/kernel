@@ -54,6 +54,11 @@ struct psp_mutex {
 	uint64_t locked;
 };
 
+#define PSP_CMD_RING_BUFFER		0x304
+#define PSP_DO_CMD_OP_PHYADDR	BIT(0)   // Input data as physical address
+#define PSP_DO_CMD_OP_NOWAIT	BIT(1)   // No need to wait ioc
+int psp_do_cmd_locked(int cmd, void *data, int *psp_ret, uint32_t op);
+
 struct psp_dev_data {
 	struct psp_mutex mb_mutex;
 };
