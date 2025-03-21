@@ -64,6 +64,9 @@
 DEFINE_HASHTABLE(vpsp_cmd_ctx_table, 11);
 DEFINE_RWLOCK(table_rwlock);
 bool vpsp_in_ringbuffer_mode;
+uint8_t vpsp_rb_oc_supported;	// support overcommit
+static uint8_t vpsp_rb_supported;
+static atomic_t vpsp_rb_check_status = ATOMIC_INIT(RB_NOT_CHECK);
 static struct vpsp_cmd_ctx *vpsp_cmd_ctx_array[CSV_COMMAND_PRIORITY_NUM]
 				[CSV_RING_BUFFER_SIZE / CSV_RING_BUFFER_ESIZE];
 
@@ -1206,62 +1209,6 @@ end:
 	return rc;
 }
 
-static int __vpsp_do_cmd_locked(int cmd, phys_addr_t phy_addr, int *psp_ret)
-{
-	struct psp_device *psp = psp_master;
-	struct sev_device *sev;
-	unsigned int phys_lsb, phys_msb;
-	unsigned int reg, ret = 0;
-
-	if (!psp || !psp->sev_data || !hygon_psp_hooks.sev_dev_hooks_installed)
-		return -ENODEV;
-
-	if (*hygon_psp_hooks.psp_dead)
-		return -EBUSY;
-
-	sev = psp->sev_data;
-
-	/* Get the physical address of the command buffer */
-	phys_lsb = phy_addr ? lower_32_bits(phy_addr) : 0;
-	phys_msb = phy_addr ? upper_32_bits(phy_addr) : 0;
-
-	dev_dbg(sev->dev, "sev command id %#x buffer 0x%08x%08x timeout %us\n",
-		cmd, phys_msb, phys_lsb, *hygon_psp_hooks.psp_timeout);
-
-	iowrite32(phys_lsb, sev->io_regs + sev->vdata->cmdbuff_addr_lo_reg);
-	iowrite32(phys_msb, sev->io_regs + sev->vdata->cmdbuff_addr_hi_reg);
-
-	sev->int_rcvd = 0;
-
-	reg = FIELD_PREP(SEV_CMDRESP_CMD, cmd) | SEV_CMDRESP_IOC;
-	iowrite32(reg, sev->io_regs + sev->vdata->cmdresp_reg);
-
-	/* wait for command completion */
-	ret = hygon_psp_hooks.sev_wait_cmd_ioc(sev, &reg, *hygon_psp_hooks.psp_timeout);
-	if (ret) {
-		if (psp_ret)
-			*psp_ret = 0;
-
-		dev_err(sev->dev, "sev command %#x timed out, disabling PSP\n", cmd);
-		*hygon_psp_hooks.psp_dead = true;
-
-		return ret;
-	}
-
-	*hygon_psp_hooks.psp_timeout = *hygon_psp_hooks.psp_cmd_timeout;
-
-	if (psp_ret)
-		*psp_ret = FIELD_GET(PSP_CMDRESP_STS, reg);
-
-	if (FIELD_GET(PSP_CMDRESP_STS, reg)) {
-		dev_dbg(sev->dev, "sev command %#x failed (%#010lx)\n",
-			cmd, FIELD_GET(PSP_CMDRESP_STS, reg));
-		ret = -EIO;
-	}
-
-	return ret;
-}
-
 int vpsp_do_cmd(int cmd, phys_addr_t phy_addr, int *psp_ret)
 {
 	int rc;
@@ -1279,7 +1226,7 @@ int vpsp_do_cmd(int cmd, phys_addr_t phy_addr, int *psp_ret)
 		mutex_lock(hygon_psp_hooks.sev_cmd_mutex);
 	}
 
-	rc = __vpsp_do_cmd_locked(cmd, phy_addr, psp_ret);
+	rc = psp_do_cmd_locked(cmd, (void *)phy_addr, psp_ret, PSP_DO_CMD_OP_PHYADDR);
 
 	if (mutex_enabled)
 		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
@@ -1323,8 +1270,8 @@ int vpsp_try_get_result(struct vpsp_cmd_ctx *cmd_ctx, struct vpsp_ret *psp_ret)
 		if (vpsp_queue_cmd_size(prio) == 1) {
 			/* dequeue command from queue*/
 			vpsp_dequeue_and_notify(prio, &cmd);
-
-			ret = __vpsp_do_cmd_locked(cmd.cmd_id, phy_addr, (int *)psp_ret);
+			ret = psp_do_cmd_locked(cmd.cmd_id, (void *)phy_addr,
+						(int *)psp_ret, PSP_DO_CMD_OP_PHYADDR);
 			psp_ret->status = VPSP_FINISH;
 			vpsp_psp_mutex_unlock();
 			if (unlikely(ret)) {
@@ -1429,4 +1376,110 @@ int vpsp_try_do_cmd(int cmd, phys_addr_t phy_addr,
 
 end:
 	return ret;
+}
+
+static int __vpsp_ring_buffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
+{
+	int ret = 0;
+	void *cmd_ptr_buffer	= NULL;
+	void *stat_val_buffer	= NULL;
+
+	memset((void *)ring_buffer, 0, sizeof(struct csv_ringbuffer_queue));
+
+	cmd_ptr_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!cmd_ptr_buffer)
+		return -ENOMEM;
+	csv_queue_init(&ring_buffer->cmd_ptr, cmd_ptr_buffer,
+			CSV_RING_BUFFER_SIZE, CSV_RING_BUFFER_ESIZE);
+	stat_val_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!stat_val_buffer) {
+		ret = -ENOMEM;
+		goto free_cmdptr;
+	}
+	csv_queue_init(&ring_buffer->stat_val, stat_val_buffer,
+			CSV_RING_BUFFER_SIZE, CSV_RING_BUFFER_ESIZE);
+	return 0;
+
+free_cmdptr:
+	kfree(cmd_ptr_buffer);
+
+	return ret;
+}
+
+static int vpsp_ring_buffer_queue_init(void)
+{
+	int i;
+	int ret;
+
+	for (i = CSV_COMMAND_PRIORITY_HIGH; i < CSV_COMMAND_PRIORITY_NUM; i++) {
+		ret = __vpsp_ring_buffer_queue_init(&vpsp_ring_buffer[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+/*
+ * Check whether the firmware supports ringbuffer mode and parse
+ * commands from the virtual machine
+ */
+int vpsp_rb_check_and_cmd_prio_parse(uint8_t *prio,
+		struct vpsp_cmd *vcmd)
+{
+	int ret, error;
+	int rb_supported;
+	int rb_check_old = RB_NOT_CHECK;
+	struct tkm_cmdresp_device_info_get *info = NULL;
+
+	if (atomic_try_cmpxchg(&vpsp_rb_check_status, &rb_check_old,
+				RB_CHECKING)) {
+		/* get buildid to check if the firmware supports ringbuffer
+		 * mode
+		 */
+		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		if (!info) {
+			atomic_set(&vpsp_rb_check_status, RB_CHECKED);
+			goto end;
+		}
+
+		info->head.cmdresp_code = TKM_DEVICE_INFO_GET;
+		info->head.cmdresp_size = sizeof(*info);
+		info->head.buf_size = sizeof(*info);
+		ret = psp_do_cmd(TKM_PSP_CMDID, info, &error);
+		if (ret) {
+			pr_warn("failed to get status[%#x], use default command mode.\n", error);
+			atomic_set(&vpsp_rb_check_status, RB_CHECKED);
+			kfree(info);
+			goto end;
+		}
+
+		/* check if the firmware supports the ringbuffer mode */
+		if (VPSP_RB_IS_SUPPORTED(info->dev_info.fw_version)) {
+			if (vpsp_ring_buffer_queue_init()) {
+				pr_warn("vpsp_ring_buffer_queue_init fail, use default command mode\n");
+				atomic_set(&vpsp_rb_check_status, RB_CHECKED);
+				kfree(info);
+				goto end;
+			}
+			WRITE_ONCE(vpsp_rb_supported, 1);
+			if (VPSP_RB_OC_IS_SUPPORTED(info->dev_info.fw_version))
+				WRITE_ONCE(vpsp_rb_oc_supported, 1);
+		}
+
+		atomic_set(&vpsp_rb_check_status, RB_CHECKED);
+		kfree(info);
+	}
+
+end:
+	rb_supported = READ_ONCE(vpsp_rb_supported);
+	/* parse prio by vcmd */
+	if (rb_supported && vcmd->is_high_rb)
+		*prio = CSV_COMMAND_PRIORITY_HIGH;
+	else
+		*prio = CSV_COMMAND_PRIORITY_LOW;
+	/* clear rb level bit in vcmd */
+	vcmd->is_high_rb = 0;
+
+	return rb_supported;
 }
