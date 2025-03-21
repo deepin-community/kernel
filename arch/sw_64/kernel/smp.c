@@ -215,8 +215,10 @@ static int secondary_cpu_start(int cpuid, struct task_struct *idle)
 
 	set_secondary_ready(cpuid);
 
+#ifdef CONFIG_SUBARCH_C4
 	/* send reset signal */
 	reset_cpu(cpuid);
+#endif
 
 	/* Wait 10 seconds for secondary cpu.  */
 	timeout = jiffies + 10*HZ;
@@ -546,6 +548,9 @@ int __cpu_up(unsigned int cpu, struct task_struct *tidle)
 	if (!is_junzhang_v1() && is_in_host()) {
 		/* send wake up signal */
 		send_wakeup_interrupt(cpu);
+#ifdef CONFIG_SUBARCH_C3B
+		reset_cpu(cpu);
+#endif
 	}
 
 	smp_boot_one_cpu(cpu, tidle);
