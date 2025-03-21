@@ -201,9 +201,7 @@ void arch_kgdb_breakpoint(void)
 	__asm__ __volatile__(
 		".globl breakinst\n\t"
 		".set\tnoreorder\n\t"
-		"nop\n"
 		"breakinst:\tbreak\n\t"
-		"nop\n\t"
 		".set\treorder");
 }
 
