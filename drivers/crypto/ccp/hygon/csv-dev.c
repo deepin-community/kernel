@@ -606,7 +606,7 @@ int csv_fill_cmd_queue(int prio, int cmd, void *data, uint16_t flags)
 	cmdptr.cmd_id = cmd;
 	cmdptr.cmd_flags = flags;
 
-	if (csv_enqueue_cmd(&sev->ring_buffer[prio].cmd_ptr, &cmdptr, 1) != 1)
+	if (enqueue_cmd(&sev->ring_buffer[prio].cmd_ptr, &cmdptr, 1) != 1)
 		return -EFAULT;
 
 	return 0;
@@ -630,7 +630,7 @@ int csv_check_stat_queue_status(int *psp_ret)
 		do {
 			struct csv_statval_entry statval;
 
-			len = csv_dequeue_stat(&sev->ring_buffer[prio].stat_val,
+			len = dequeue_stat(&sev->ring_buffer[prio].stat_val,
 					       &statval, 1);
 			if (len) {
 				if (statval.status != 0) {

@@ -20,6 +20,7 @@
 
 #include "psp-dev.h"
 #include "vpsp.h"
+#include "csv-dev.h"
 
 /* Function and variable pointers for hooks */
 struct hygon_psp_hooks_table hygon_psp_hooks;
@@ -27,9 +28,12 @@ static unsigned int psp_int_rcvd;
 wait_queue_head_t psp_int_queue;
 
 struct kmem_cache *vpsp_cmd_ctx_slab;
-static struct workqueue_struct *vpsp_wq;
-static struct work_struct vpsp_work;
+static struct workqueue_struct *psp_wq;
+static struct work_struct psp_work;
+static struct psp_ringbuffer_cmd_buf *psp_grb_cmdbuf;
+static work_func_t psp_worker_notify;
 
+bool psp_in_nowait_mode;
 static struct psp_misc_dev *psp_misc;
 #define HYGON_PSP_IOC_TYPE 'H'
 enum HYGON_PSP_OPCODE {
@@ -91,6 +95,30 @@ int psp_mutex_unlock(struct psp_mutex *mutex)
 
 	atomic64_exchange(&mutex->locked, 0);
 	return 0;
+}
+
+void psp_worker_register_notify(work_func_t notify)
+{
+	psp_worker_notify = notify;
+}
+
+static void psp_worker_handler(struct work_struct *unused)
+{
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
+
+	if (!hygon_psp_hooks.sev_dev_hooks_installed)
+		return;
+
+	if (psp_worker_notify) {
+		psp_worker_notify(unused);
+		psp_worker_notify = NULL;
+		psp_in_nowait_mode = false;
+	}
+
+	if (mutex_enabled)
+		psp_mutex_unlock(&psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(hygon_psp_hooks.sev_cmd_mutex);
 }
 
 static int mmap_psp(struct file *filp, struct vm_area_struct *vma)
@@ -348,16 +376,23 @@ int hygon_psp_additional_setup(struct sp_device *sp)
 	if (!psp_misc) {
 		struct miscdevice *misc;
 
-		vpsp_wq = create_singlethread_workqueue("vpsp_workqueue");
-		if (!vpsp_wq)
+		psp_wq = create_singlethread_workqueue("psp_workqueue");
+		if (!psp_wq)
 			return -ENOMEM;
 
-		INIT_WORK(&vpsp_work, vpsp_worker_handler);
+		INIT_WORK(&psp_work, psp_worker_handler);
 
 		vpsp_cmd_ctx_slab = kmem_cache_create("vpsp_cmd_ctx",
 				sizeof(struct vpsp_cmd_ctx), 0, SLAB_HWCACHE_ALIGN, NULL);
 		if (!vpsp_cmd_ctx_slab) {
-			destroy_workqueue(vpsp_wq);
+			destroy_workqueue(psp_wq);
+			return -ENOMEM;
+		}
+
+		psp_grb_cmdbuf = kmalloc(sizeof(*psp_grb_cmdbuf), GFP_KERNEL);
+		if (!psp_grb_cmdbuf) {
+			kmem_cache_destroy(vpsp_cmd_ctx_slab);
+			destroy_workqueue(psp_wq);
 			return -ENOMEM;
 		}
 
@@ -392,6 +427,8 @@ int hygon_psp_additional_setup(struct sp_device *sp)
 		ret = misc_register(misc);
 		if (ret)
 			return ret;
+
+		psp_ringbuffer_queue_init(vpsp_ring_buffer);
 		kref_init(&psp_misc->refcount);
 		hygon_psp_hooks.psp_misc = psp_misc;
 	} else {
@@ -412,8 +449,10 @@ void hygon_psp_exit(struct kref *ref)
 	psp_misc = NULL;
 	hygon_psp_hooks.psp_misc = NULL;
 	kmem_cache_destroy(vpsp_cmd_ctx_slab);
-	flush_workqueue(vpsp_wq);
-	destroy_workqueue(vpsp_wq);
+	flush_workqueue(psp_wq);
+	destroy_workqueue(psp_wq);
+	kfree(psp_grb_cmdbuf);
+	psp_ringbuffer_queue_free(vpsp_ring_buffer);
 }
 
 int fixup_hygon_psp_caps(struct psp_device *psp)
@@ -442,6 +481,20 @@ static int psp_wait_cmd_ioc(struct psp_device *psp,
 	return 0;
 }
 
+static int psp_wait_cmd_ioc_ringbuffer(struct psp_device *psp,
+			    unsigned int *reg, unsigned int timeout)
+{
+	int ret;
+
+	ret = wait_event_timeout(psp_int_queue,
+			psp_int_rcvd, timeout * HZ);
+	if (!ret)
+		return -ETIMEDOUT;
+
+	*reg = ioread32(psp->io_regs + psp->vdata->sev->cmdbuff_addr_lo_reg);
+	return 0;
+}
+
 int psp_do_cmd_locked(int cmd, void *data, int *psp_ret, uint32_t op)
 {
 	struct psp_device *psp = psp_master;
@@ -453,6 +506,17 @@ int psp_do_cmd_locked(int cmd, void *data, int *psp_ret, uint32_t op)
 
 	if (*hygon_psp_hooks.psp_dead)
 		return -EBUSY;
+
+	if (op & PSP_DO_CMD_OP_NOWAIT) {
+		if (psp_worker_notify)
+			psp_in_nowait_mode = true;
+		else {
+			dev_err(psp->dev, "psp_worker_notify not registered in nowait mode\n");
+			return -EINVAL;
+		}
+	} else {
+		psp_in_nowait_mode = false;
+	}
 
 	if (op & PSP_DO_CMD_OP_PHYADDR) {
 		phys_lsb = data ? lower_32_bits((phys_addr_t)data) : 0;
@@ -525,6 +589,407 @@ int psp_do_cmd(int cmd, void *data, int *psp_ret)
 }
 EXPORT_SYMBOL_GPL(psp_do_cmd);
 
+uint8_t psp_legacy_rb_supported;	// support legacy ringbuffer
+uint8_t psp_rb_oc_supported;		// support overcommit
+uint8_t psp_generic_rb_supported;	// support generic ringbuffer
+void psp_ringbuffer_check_support(void)
+{
+	int ret, error = 0;
+	static atomic_t rb_checked = ATOMIC_INIT(0);
+	int rb_check_old = 0;
+	struct tkm_cmdresp_device_info_get *info = NULL;
+
+	if (atomic_try_cmpxchg(&rb_checked, &rb_check_old, 1)) {
+		// get buildid to check if the firmware supports ringbuffer mode
+		info = kzalloc(sizeof(*info), GFP_KERNEL);
+		if (!info) {
+			atomic_set(&rb_checked, 0);
+			goto end;
+		}
+
+		info->head.cmdresp_code = TKM_DEVICE_INFO_GET;
+		info->head.cmdresp_size = sizeof(*info);
+		info->head.buf_size = sizeof(*info);
+		ret = psp_do_cmd(TKM_PSP_CMDID, info, &error);
+		if (ret) {
+			pr_warn("psp_do_cmd failed ret %d[%#x]\n", ret, error);
+			atomic_set(&rb_checked, 0);
+			goto end;
+		}
+
+		/* check if the firmware supports the ringbuffer mode */
+		psp_legacy_rb_supported = PSP_RB_IS_SUPPORTED(info->dev_info.fw_version);
+		psp_rb_oc_supported = PSP_RB_OC_IS_SUPPORTED(info->dev_info.fw_version);
+		psp_generic_rb_supported = PSP_GRB_IS_SUPPORTED(info->dev_info.fw_version);
+
+		if (!psp_legacy_rb_supported && !psp_generic_rb_supported)
+			pr_info("psp ringbuffer not supported\n");
+		else
+			pr_info("psp ringbuffer is supported\n");
+	}
+end:
+	kfree(info);
+}
+
+
+static DEFINE_MUTEX(psp_rb_mutex);
+
+/*
+ * Populate the command from the virtual machine to the queue to
+ * support execution in ringbuffer mode
+ */
+uint32_t psp_ringbuffer_enqueue(struct csv_ringbuffer_queue *ringbuffer,
+				uint32_t cmd, phys_addr_t phy_addr, uint16_t flags)
+{
+	struct csv_cmdptr_entry cmdptr = { };
+	struct csv_statval_entry statval = { };
+	uint32_t index = -1;
+
+	if (!psp_legacy_rb_supported && !psp_generic_rb_supported)
+		return -1;
+
+	cmdptr.cmd_buf_ptr = phy_addr;
+	cmdptr.cmd_id = cmd;
+	cmdptr.cmd_flags = flags;
+
+	statval.status = PSP_CMD_STATUS_RUNNING;
+
+	mutex_lock(&psp_rb_mutex);
+	index = cmd_queue_tail(&ringbuffer->cmd_ptr);
+
+	/**
+	 * If the firmware does not support the overcommit function:
+	 *	the firmware may not check the 'status' before executing cmd.
+	 *	Therefore, the 'status' must be written before the cmd be enqueued,
+	 *	otherwise, X86 may overwrite the result written by the firmware.
+	 *
+	 * If the firmware support the overcommit function:
+	 *	The firmware will forcefully check the 'status'
+	 *	before executing cmd until the 'status' becomes 0xffff.
+	 *	In order to prevent the firmware from getting the cmd to be valid,
+	 *	the 'status' must be written after waiting for the cmd to be queued.
+	 */
+	if (psp_rb_oc_supported) {
+		if (enqueue_cmd(&ringbuffer->cmd_ptr, &cmdptr, 1) != 1) {
+			index = -1;
+			goto out;
+		}
+		enqueue_stat(&ringbuffer->stat_val, &statval, 1);
+	} else {
+		if (enqueue_stat(&ringbuffer->stat_val, &statval, 1) != 1) {
+			index = -1;
+			goto out;
+		}
+		enqueue_cmd(&ringbuffer->cmd_ptr, &cmdptr, 1);
+	}
+
+out:
+	mutex_unlock(&psp_rb_mutex);
+	return index;
+}
+
+void psp_ringbuffer_dequeue(struct csv_ringbuffer_queue *ringbuffer,
+				struct csv_cmdptr_entry *cmdptr,
+				struct csv_statval_entry *statval, uint32_t num)
+{
+	int i;
+	uint32_t orig_head, que_size;
+
+	mutex_lock(&psp_rb_mutex);
+
+	orig_head = cmd_queue_head(&ringbuffer->cmd_ptr);
+	que_size = cmd_queue_size(&ringbuffer->cmd_ptr);
+	if (que_size < num)
+		num = que_size;
+
+	if (cmdptr)
+		dequeue_cmd(&ringbuffer->cmd_ptr, (void *)cmdptr, num);
+	else
+		ringbuffer->cmd_ptr.head += num;
+
+	if (statval)
+		dequeue_stat(&ringbuffer->stat_val, (void *)statval, num);
+	else
+		ringbuffer->stat_val.head += num;
+
+	/**
+	 * Ensure that the statval of the dequeued command is 0
+	 * to prevent it from being accessed by the overcommit
+	 * function of the psp ringbuffer.
+	 */
+	for (i = orig_head; i < orig_head + num; ++i)
+		ringbuffer_set_status(ringbuffer, i, 0);
+
+	mutex_unlock(&psp_rb_mutex);
+}
+
+static int __psp_ringbuffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
+{
+	int ret = 0;
+	void *cmd_ptr_buffer	= NULL;
+	void *stat_val_buffer	= NULL;
+
+	memset((void *)ring_buffer, 0, sizeof(struct csv_ringbuffer_queue));
+
+	cmd_ptr_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!cmd_ptr_buffer)
+		return -ENOMEM;
+	csv_queue_init(&ring_buffer->cmd_ptr, cmd_ptr_buffer,
+			CSV_RING_BUFFER_SIZE, CSV_RING_BUFFER_ESIZE);
+	stat_val_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
+	if (!stat_val_buffer) {
+		ret = -ENOMEM;
+		goto free_cmdptr;
+	}
+	csv_queue_init(&ring_buffer->stat_val, stat_val_buffer,
+			CSV_RING_BUFFER_SIZE, CSV_RING_BUFFER_ESIZE);
+	return 0;
+
+free_cmdptr:
+	kfree(cmd_ptr_buffer);
+
+	return ret;
+}
+
+int psp_ringbuffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
+{
+	int i;
+	int ret;
+
+	for (i = CSV_COMMAND_PRIORITY_HIGH; i < CSV_COMMAND_PRIORITY_NUM; i++) {
+		ret = __psp_ringbuffer_queue_init(&ring_buffer[i]);
+		if (ret)
+			goto free;
+	}
+	return 0;
+free:
+	psp_ringbuffer_queue_free(ring_buffer);
+	return -ENOMEM;
+}
+
+void psp_ringbuffer_queue_free(struct csv_ringbuffer_queue *ring_buffer)
+{
+	int i;
+
+	for (i = CSV_COMMAND_PRIORITY_HIGH; i < CSV_COMMAND_PRIORITY_NUM; i++) {
+		kfree((void *)ring_buffer[i].cmd_ptr.data);
+		ring_buffer[i].cmd_ptr.data = 0;
+		kfree((void *)ring_buffer[i].stat_val.data);
+		ring_buffer[i].stat_val.data = 0;
+	}
+}
+
+static int __psp_do_generic_ringbuf_cmds_locked(struct csv_ringbuffer_queue *ring_buffer,
+						int *pspret)
+{
+	int cmd = PSP_CMD_RING_BUFFER;
+	struct csv_ringbuffer_queue *que = NULL;
+	int psp_op = 0;
+
+	if (!psp_grb_cmdbuf)
+		return -EFAULT;
+
+	que = &ring_buffer[CSV_COMMAND_PRIORITY_HIGH];
+	psp_grb_cmdbuf->high.mask = que->cmd_ptr.mask;
+	psp_grb_cmdbuf->high.cmdptr_address = __psp_pa(que->cmd_ptr.data_align);
+	psp_grb_cmdbuf->high.statval_address = __psp_pa(que->stat_val.data_align);
+	psp_grb_cmdbuf->high.head = cmd_queue_head(&que->cmd_ptr);
+	psp_grb_cmdbuf->high.tail = cmd_queue_tail(&que->cmd_ptr);
+
+	que = &ring_buffer[CSV_COMMAND_PRIORITY_LOW];
+	psp_grb_cmdbuf->low.mask = que->cmd_ptr.mask;
+	psp_grb_cmdbuf->low.cmdptr_address = __psp_pa(que->cmd_ptr.data_align);
+	psp_grb_cmdbuf->low.statval_address = __psp_pa(que->stat_val.data_align);
+	psp_grb_cmdbuf->low.head = cmd_queue_head(&que->cmd_ptr);
+	if (psp_rb_oc_supported)
+		psp_grb_cmdbuf->low.tail = cmd_queue_overcommit_tail(&que->cmd_ptr);
+	else
+		psp_grb_cmdbuf->low.tail = cmd_queue_tail(&que->cmd_ptr);
+
+	pr_debug("ringbuffer launch high head %x, tail %x\n",
+		psp_grb_cmdbuf->high.head, psp_grb_cmdbuf->high.tail);
+	pr_debug("ringbuffer launch low head %x, tail %x\n",
+		psp_grb_cmdbuf->low.head, psp_grb_cmdbuf->low.tail);
+
+	if (psp_worker_notify)
+		psp_op = PSP_DO_CMD_OP_NOWAIT;
+
+	return psp_do_cmd_locked(cmd, psp_grb_cmdbuf, pspret, psp_op);
+}
+
+static int __psp_ringbuffer_enter_locked(struct csv_ringbuffer_queue *ring_buffer, int *error)
+{
+	int ret;
+	struct csv_data_ring_buffer *data;
+	struct csv_ringbuffer_queue *low_queue;
+	struct csv_ringbuffer_queue *hi_queue;
+	struct psp_device *psp = psp_master;
+
+	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	low_queue = &ring_buffer[CSV_COMMAND_PRIORITY_LOW];
+	hi_queue = &ring_buffer[CSV_COMMAND_PRIORITY_HIGH];
+
+	data->queue_lo_cmdptr_address = __psp_pa(low_queue->cmd_ptr.data_align);
+	data->queue_lo_statval_address = __psp_pa(low_queue->stat_val.data_align);
+	data->queue_hi_cmdptr_address = __psp_pa(hi_queue->cmd_ptr.data_align);
+	data->queue_hi_statval_address = __psp_pa(hi_queue->stat_val.data_align);
+	data->queue_lo_size = 1;
+	data->queue_hi_size = 1;
+	data->int_on_empty = 1;
+
+	ret = psp_do_cmd_locked(CSV_CMD_RING_BUFFER, data, error, 0);
+	if (!ret)
+		iowrite32(0, psp->io_regs + psp->vdata->sev->cmdbuff_addr_hi_reg);
+
+	kfree(data);
+	return ret;
+}
+
+static int __psp_do_ringbuffer_cmds_locked(struct csv_ringbuffer_queue *ring_buffer, int *psp_ret)
+{
+	struct psp_device *psp = psp_master;
+	unsigned int rb_tail, rb_head;
+	unsigned int reg, rb_ctl, ret = 0;
+	struct csv_queue *queue;
+	struct csv_cmdptr_entry *first_cmd;
+	struct csv_ringbuffer_queue *hi_rb, *low_rb;
+
+	if (!psp || !hygon_psp_hooks.sev_dev_hooks_installed)
+		return -ENODEV;
+
+	if (*hygon_psp_hooks.psp_dead)
+		return -EBUSY;
+
+	hi_rb = &ring_buffer[CSV_COMMAND_PRIORITY_HIGH];
+	low_rb = &ring_buffer[CSV_COMMAND_PRIORITY_LOW];
+
+	/* update rb tail */
+	rb_tail = ioread32(psp->io_regs + psp->vdata->sev->cmdbuff_addr_hi_reg);
+	rb_tail &= (~PSP_RBTAIL_QHI_TAIL_MASK);
+	rb_tail |= (cmd_queue_tail(&hi_rb->cmd_ptr) << PSP_RBTAIL_QHI_TAIL_SHIFT);
+	rb_tail &= (~PSP_RBTAIL_QLO_TAIL_MASK);
+	if (psp_rb_oc_supported)
+		rb_tail |= cmd_queue_overcommit_tail(&low_rb->cmd_ptr);
+	else
+		rb_tail |= cmd_queue_tail(&low_rb->cmd_ptr);
+	iowrite32(rb_tail, psp->io_regs + psp->vdata->sev->cmdbuff_addr_hi_reg);
+
+	/* update rb head */
+	rb_head = ioread32(psp->io_regs + psp->vdata->sev->cmdbuff_addr_lo_reg);
+	rb_head &= (~PSP_RBHEAD_QHI_HEAD_MASK);
+	rb_head |= (cmd_queue_head(&hi_rb->cmd_ptr) << PSP_RBHEAD_QHI_HEAD_SHIFT);
+	rb_head &= (~PSP_RBHEAD_QLO_HEAD_MASK);
+	rb_head |= cmd_queue_head(&low_rb->cmd_ptr);
+	iowrite32(rb_head, psp->io_regs + psp->vdata->sev->cmdbuff_addr_lo_reg);
+
+	/**
+	 * In some PSP firmware, even if the high priority queue is empty,
+	 * it will still try to read the element at the head of the queue and try to process it.
+	 * When the element at the head of the queue happens to be an illegal cmd id,
+	 * PSP returns the PSP_RBHEAD_QPAUSE_INT_STAT error.
+	 *
+	 * Therefore, now we need to manually set the head element of the queue to
+	 * the default tkm cmd id before sending the ringbuffer each time when
+	 * the high priority queue is empty.
+	 *
+	 * The low priority queue has no such bug, and future PSP firmware should fix it.
+	 */
+	if (cmd_queue_size(&hi_rb->cmd_ptr) == 0) {
+		queue = &hi_rb->cmd_ptr;
+		first_cmd = (struct csv_cmdptr_entry *)queue->data_align;
+		first_cmd[queue->head & queue->mask].cmd_id = TKM_PSP_CMDID;
+	}
+	pr_debug("ringbuffer launch rb_head %x, rb_tail %x\n", rb_head, rb_tail);
+
+	if (psp_worker_notify)
+		psp_in_nowait_mode = true;
+
+	/* update rb ctl to trigger psp irq */
+	psp_int_rcvd = 0;
+	/* PSP response to x86 only when all queue is empty or error happends */
+	rb_ctl = (PSP_RBCTL_X86_WRITES | PSP_RBCTL_RBMODE_ACT | PSP_RBCTL_CLR_INTSTAT);
+	iowrite32(rb_ctl, psp->io_regs + psp->vdata->sev->cmdresp_reg);
+
+	if (!psp_in_nowait_mode) {
+		/* wait for all commands in ring buffer completed */
+		ret = psp_wait_cmd_ioc_ringbuffer(psp, &reg, *hygon_psp_hooks.psp_cmd_timeout*10);
+		if (ret) {
+			if (psp_ret)
+				*psp_ret = 0;
+			dev_err(psp->dev,
+				"psp command in ringbuffer mode timed out, disabling PSP\n");
+			*hygon_psp_hooks.psp_dead = true;
+			return ret;
+		}
+		/* cmd error happends */
+		if (reg & PSP_RBHEAD_QPAUSE_INT_STAT)
+			ret = -EFAULT;
+	}
+
+	return ret;
+}
+
+int psp_do_ringbuffer_cmds_locked(struct csv_ringbuffer_queue *ring_buffer, int *psp_ret)
+{
+	int rc = 0;
+
+	if (psp_generic_rb_supported) {
+		rc = __psp_do_generic_ringbuf_cmds_locked(ring_buffer, psp_ret);
+	} else {
+		rc = __psp_ringbuffer_enter_locked(ring_buffer, psp_ret);
+		if (rc)
+			goto end;
+
+		rc = __psp_do_ringbuffer_cmds_locked(ring_buffer, psp_ret);
+	}
+end:
+	return rc;
+}
+
+int psp_ringbuffer_get_newhead(uint32_t *hi_head, uint32_t *low_head)
+{
+	struct psp_device *psp = psp_master;
+	unsigned int reg;
+	unsigned int rb_head, rb_tail;
+	unsigned int psp_ret;
+	int ret = -EIO;
+
+	if (psp_generic_rb_supported) {
+		reg = ioread32(psp->io_regs + psp->vdata->sev->cmdresp_reg);
+		psp_ret = FIELD_GET(PSP_CMDRESP_STS, reg);
+		if (psp_ret) {
+			pr_debug("ringbuffer execve failed (%#010x)\n", psp_ret);
+			ret = -psp_ret;
+			goto end;
+		}
+
+		*hi_head = psp_grb_cmdbuf->high.head;
+		*low_head = psp_grb_cmdbuf->low.head;
+		pr_debug("ringbuffer exit hi_head %x, low_head %x\n", *hi_head, *low_head);
+	} else {
+		reg = ioread32(psp->io_regs + psp->vdata->sev->cmdbuff_addr_lo_reg);
+		/* cmd error happends */
+		if (reg & PSP_RBHEAD_QPAUSE_INT_STAT) {
+			pr_debug("ringbuffer execve failed (%#010x)\n", reg);
+			goto end;
+		}
+
+		rb_head = reg;
+		rb_tail = ioread32(psp->io_regs + psp->vdata->sev->cmdbuff_addr_hi_reg);
+
+		*hi_head = (reg & PSP_RBHEAD_QHI_HEAD_MASK) >> PSP_RBHEAD_QHI_HEAD_SHIFT;
+		*low_head = reg & PSP_RBHEAD_QLO_HEAD_MASK;
+		pr_debug("ringbuffer exit rb_head %x, rb_tail %x\n", rb_head, rb_tail);
+	}
+
+	ret = 0;
+end:
+	return ret;
+}
+
 #ifdef CONFIG_HYGON_PSP2CPU_CMD
 
 static DEFINE_SPINLOCK(p2c_notifier_lock);
@@ -593,8 +1058,8 @@ static irqreturn_t psp_irq_handler_hygon(int irq, void *data)
 			/* Check if it is SEV command completion: */
 			reg = ioread32(psp->io_regs + psp->vdata->sev->cmdresp_reg);
 			if (reg & PSP_CMDRESP_RESP) {
-				if (vpsp_in_ringbuffer_mode) {
-					queue_work(vpsp_wq, &vpsp_work);
+				if (psp_in_nowait_mode) {
+					queue_work(psp_wq, &psp_work);
 				} else {
 					psp_int_rcvd = 1;
 					wake_up(&psp_int_queue);

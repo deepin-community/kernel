@@ -102,7 +102,21 @@ void csv_queue_cleanup(struct csv_queue *queue)
 	memset((void *)queue, 0, sizeof(struct csv_queue));
 }
 
-unsigned int csv_enqueue_cmd(struct csv_queue *queue,
+unsigned int enqueue_stat(struct csv_queue *ring_buf,
+		const void *buf, unsigned int len)
+{
+	unsigned int size;
+
+	size = queue_avail_size(ring_buf);
+	if (len > size)
+		len = size;
+
+	enqueue_data(ring_buf, buf, len, ring_buf->tail);
+	ring_buf->tail += len;
+	return len;
+}
+
+unsigned int enqueue_cmd(struct csv_queue *queue,
 			     const void *buf, unsigned int len)
 {
 	unsigned int size;
@@ -116,7 +130,7 @@ unsigned int csv_enqueue_cmd(struct csv_queue *queue,
 	return len;
 }
 
-unsigned int csv_dequeue_stat(struct csv_queue *queue,
+unsigned int dequeue_stat(struct csv_queue *queue,
 			      void *buf, unsigned int len)
 {
 	unsigned int size;
@@ -130,7 +144,7 @@ unsigned int csv_dequeue_stat(struct csv_queue *queue,
 	return len;
 }
 
-unsigned int csv_dequeue_cmd(struct csv_queue *ring_buf,
+unsigned int dequeue_cmd(struct csv_queue *ring_buf,
 	void *buf, unsigned int len)
 {
 	unsigned int size;
@@ -144,10 +158,47 @@ unsigned int csv_dequeue_cmd(struct csv_queue *ring_buf,
 	return len;
 }
 
-unsigned int csv_cmd_queue_size(struct csv_queue *ring_buf)
+unsigned int cmd_queue_size(struct csv_queue *ring_buf)
 {
 	unsigned int free_size;
 
 	free_size = queue_avail_size(ring_buf);
 	return ring_buf->mask - free_size;
+}
+
+unsigned int cmd_queue_tail(struct csv_queue *ring_buf)
+{
+	return ring_buf->tail & ring_buf->mask;
+}
+
+unsigned int cmd_queue_overcommit_tail(struct csv_queue *ring_buf)
+{
+	unsigned int que_size = cmd_queue_size(ring_buf);
+
+	if (que_size >= PSP_RING_BUFFER_OVERCOMMIT_SIZE || que_size == 0)
+		return cmd_queue_tail(ring_buf);
+	return (ring_buf->head + PSP_RING_BUFFER_OVERCOMMIT_SIZE) & ring_buf->mask;
+}
+
+unsigned int cmd_queue_head(struct csv_queue *ring_buf)
+{
+	return ring_buf->head & ring_buf->mask;
+}
+
+void ringbuffer_set_status(struct csv_ringbuffer_queue *ringbuffer,
+				unsigned int index, unsigned int status)
+{
+	struct csv_queue *queue = &ringbuffer->stat_val;
+	struct csv_statval_entry *statval = (struct csv_statval_entry *)queue->data;
+
+	statval[index & queue->mask].status = status;
+}
+
+unsigned int ringbuffer_get_status(struct csv_ringbuffer_queue *ringbuffer, unsigned int index)
+{
+	struct csv_queue *ringbuf = &ringbuffer->stat_val;
+	struct csv_statval_entry *statval = (struct csv_statval_entry *)ringbuf->data;
+
+	return statval[index & ringbuf->mask].status;
+
 }
