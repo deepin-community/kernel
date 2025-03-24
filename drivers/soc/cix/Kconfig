@@ -3,6 +3,7 @@ menu "Cix Dst drivers"
 
 config SOC_CIX
 	bool "Cix Sky SoC family support"
+	depends on ARM64 || COMPILE_TEST
 	default n
 	help
 	  If you say yes here you get support for the Cix sky family
@@ -11,6 +12,7 @@ config SOC_CIX
 
 config CIX_SKY1_SOCINFO
 	bool "Cix Sky1 SoC Information driver"
+	depends on ARM64 || COMPILE_TEST
 	select SOC_BUS
 	help
 	  Say yes to support decoding of CIX Sky1 SoC family information
@@ -18,6 +20,7 @@ config CIX_SKY1_SOCINFO
 
 config CIX_SOC_ACPI
 	bool "Cix SoC ACPI drivers"
+	depends on ARM64 || COMPILE_TEST
 	depends on ACPI
 	select SOC_BUS
 	help

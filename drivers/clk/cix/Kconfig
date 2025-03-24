@@ -8,6 +8,7 @@ config COMMON_CLK_CIX
 	tristate "Support for Cix's clock controllers"
 	select REGMAP_MMIO
 	select RESET_CONTROLLER
+	depends on ARM64 || COMPILE_TEST
 	help
 	  Say y here to enable common clock controller for Cix platforms.
 

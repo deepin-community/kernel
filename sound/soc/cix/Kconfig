@@ -6,6 +6,7 @@ comment "ASoC options for Cixtech CPUs:"
 config SND_SOC_CIX
 	tristate "CIX ASoC"
 	imply SND_SOC_RT5682S
+	depends on ARM64 || COMPILE_TEST
 	default n
 	help
 	  Select Y or M to add support for CIX sound card
@@ -14,6 +15,7 @@ config SND_SOC_CIX
 config SND_SOC_CDNS_I2S_SC_CIX
 	tristate "Cadence I2S-SC Controller Driver"
 	select SND_SOC_GENERIC_DMAENGINE_PCM
+	depends on ARM64 || COMPILE_TEST
 	help
 	  Say Y or M if you want to add driver support for Cadence
 	  I2S-SC (SingleChannel) controller.
@@ -21,6 +23,7 @@ config SND_SOC_CDNS_I2S_SC_CIX
 config SND_SOC_CDNS_I2S_MC_CIX
 	tristate "Cadence I2S-MC Controller Driver"
 	select SND_SOC_GENERIC_DMAENGINE_PCM
+	depends on ARM64 || COMPILE_TEST
 	help
 	  Say Y or M if you want to add driver support for Cadence
 	  I2S-MC (MultiChannel) controller.
@@ -30,12 +33,14 @@ config SND_SOC_IPBLOQ_HDA_CIX
 	select SND_HDA_CORE
 	select SND_HDA_EXT_CORE
 	select SND_HDA_ALIGNED_MMIO
+	depends on ARM64 || COMPILE_TEST
 	help
 	  Say Y or M if you want add support for ipbloq hda
 
 config SND_HDACODEC_REALTEK_CIX
-        tristate "Build Realtek HD-audio codec support"
+	tristate "Build Realtek HD-audio codec support"
 	depends on SND_SOC_IPBLOQ_HDA_CIX
+	depends on ARM64 || COMPILE_TEST
         help
           Say Y or M here to include Realtek HD-audio codec support in
           snd-soc-hda driver, such as ALC256.
