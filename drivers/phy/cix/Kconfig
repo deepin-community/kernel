@@ -6,6 +6,7 @@
 config PHY_CIX_USBDP
 	tristate "Cix USBDP PHY Driver"
 	depends on OF && HAS_IOMEM
+	depends on ARM64 || COMPILE_TEST
 	select GENERIC_PHY
 	help
 	  Enable this to support the CIX USBDP PHY for TYPEC Connection
@@ -13,6 +14,7 @@ config PHY_CIX_USBDP
 config PHY_CIX_USB2
 	tristate "Cix USB2 PHY Driver"
 	depends on OF
+	depends on ARM64 || COMPILE_TEST
 	select GENERIC_PHY
 	help
 	  Enable this to support the CIX USB2 PHY
@@ -20,6 +22,7 @@ config PHY_CIX_USB2
 config PHY_CIX_USB3
 	tristate "Cix USB3 PHY Driver"
 	depends on OF && HAS_IOMEM
+	depends on ARM64 || COMPILE_TEST
 	select GENERIC_PHY
 	help
 	  Enable this to support the CIX USB3 PHY for TYPEA Connection
