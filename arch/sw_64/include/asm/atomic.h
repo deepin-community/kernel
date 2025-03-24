@@ -23,18 +23,6 @@
 #define arch_atomic_set(v, i)	WRITE_ONCE((v)->counter, (i))
 #define arch_atomic64_set(v, i)	WRITE_ONCE((v)->counter, (i))
 
-/*
- * To get proper branch prediction for the main line, we must branch
- * forward to code at the end of this object's .text section, then
- * branch back to restart the operation.
- */
-#define arch_atomic64_cmpxchg(v, old, new) (arch_cmpxchg(&((v)->counter), old, new))
-#define arch_atomic64_xchg(v, new) (arch_xchg(&((v)->counter), new))
-
-#define arch_atomic_cmpxchg(v, old, new) (arch_cmpxchg(&((v)->counter), old, new))
-#define arch_atomic_xchg(v, new) (arch_xchg(&((v)->counter), new))
-
-
 #ifdef CONFIG_SUBARCH_C3B
 /**
  * arch_atomic_fetch_add_unless - add unless the number is a given value
