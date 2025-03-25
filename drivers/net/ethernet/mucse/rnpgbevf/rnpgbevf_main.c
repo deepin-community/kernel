@@ -2036,7 +2036,7 @@ static irqreturn_t rnpgbevf_msix_clean_rings(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-void update_rx_count(int cleaned, struct rnpgbevf_q_vector *q_vector)
+void rnpgbevf_update_rx_count(int cleaned, struct rnpgbevf_q_vector *q_vector)
 {
 	struct rnpgbevf_adapter *adapter = q_vector->adapter;
 
@@ -2227,7 +2227,7 @@ static int rnpgbevf_poll(struct napi_struct *napi, int budget)
 		clean_complete = true;
 
 	if (!(q_vector->vector_flags & RNPVF_QVECTOR_FLAG_ITR_FEATURE))
-		update_rx_count(cleaned_total, q_vector);
+		rnpgbevf_update_rx_count(cleaned_total, q_vector);
 
 	/* If all work not completed, return budget and keep polling */
 	if (!clean_complete)
@@ -5400,7 +5400,7 @@ static int rnpgbevf_set_mac(struct net_device *netdev, void *p)
 	return 0;
 }
 
-void remove_mbx_irq(struct rnpgbevf_adapter *adapter)
+void rnpgbevf_remove_mbx_irq(struct rnpgbevf_adapter *adapter)
 {
 	u32 msgbuf[2];
 	struct rnpgbevf_hw *hw = &adapter->hw;
@@ -5450,7 +5450,7 @@ static void rnp_get_link_status(struct rnpgbevf_adapter *adapter)
 	spin_unlock_bh(&adapter->mbx_lock);
 }
 
-int register_mbx_irq(struct rnpgbevf_adapter *adapter)
+int rnpgbevf_register_mbx_irq(struct rnpgbevf_adapter *adapter)
 {
 	struct rnpgbevf_hw *hw = &adapter->hw;
 	struct net_device *netdev = adapter->netdev;
@@ -5493,7 +5493,7 @@ static int rnpgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
 		rtnl_unlock();
 	}
 
-	remove_mbx_irq(adapter);
+	rnpgbevf_remove_mbx_irq(adapter);
 	rnpgbevf_clear_interrupt_scheme(adapter);
 
 #ifdef CONFIG_PM
@@ -5532,7 +5532,7 @@ static int rnpgbevf_resume(struct pci_dev *pdev)
 	rtnl_lock();
 	err = rnpgbevf_init_interrupt_scheme(adapter);
 	rtnl_unlock();
-	register_mbx_irq(adapter);
+	rnpgbevf_register_mbx_irq(adapter);
 
 	if (err) {
 		dev_err(&pdev->dev, "Cannot initialize interrupts\n");
@@ -5976,7 +5976,7 @@ static int rnpgbevf_add_adpater(struct pci_dev *pdev,
 	if (err)
 		goto err_sw_init;
 
-	err = register_mbx_irq(adapter);
+	err = rnpgbevf_register_mbx_irq(adapter);
 	if (err)
 		goto err_register;
 
@@ -6019,7 +6019,7 @@ static int rnpgbevf_add_adpater(struct pci_dev *pdev,
 
 	return 0;
 err_register:
-	remove_mbx_irq(adapter);
+	rnpgbevf_remove_mbx_irq(adapter);
 	rnpgbevf_clear_interrupt_scheme(adapter);
 err_sw_init:
 err_ioremap:
@@ -6066,7 +6066,7 @@ static int rnpgbevf_rm_adpater(struct rnpgbevf_adapter *adapter)
 			unregister_netdev(netdev);
 	}
 
-	remove_mbx_irq(adapter);
+	rnpgbevf_remove_mbx_irq(adapter);
 	rnpgbevf_clear_interrupt_scheme(adapter);
 	rnpgbevf_reset_interrupt_capability(adapter);
 

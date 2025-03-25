@@ -63,8 +63,8 @@ static struct rnp_info *rnp_info_tbl[] = {
 	[board_n400] = &rnp_n400_info,
 };
 
-static int register_mbx_irq(struct rnp_adapter *adapter);
-static void remove_mbx_irq(struct rnp_adapter *adapter);
+static int rnp_register_mbx_irq(struct rnp_adapter *adapter);
+static void rnp_remove_mbx_irq(struct rnp_adapter *adapter);
 
 static void rnp_pull_tail(struct sk_buff *skb);
 #ifdef OPTM_WITH_LPAGE
@@ -2485,7 +2485,7 @@ static irqreturn_t rnp_msix_clean_rings(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void update_rx_count(int cleaned, struct rnp_q_vector *q_vector)
+static void rnp_update_rx_count(int cleaned, struct rnp_q_vector *q_vector)
 {
 	struct rnp_adapter *adapter = q_vector->adapter;
 	u32 link_speed = adapter->link_speed;
@@ -2636,7 +2636,7 @@ int rnp_poll(struct napi_struct *napi, int budget)
 	}
 	/* all work done, exit the polling mode */
 	if (!(q_vector->vector_flags & RNP_QVECTOR_FLAG_ITR_FEATURE))
-		update_rx_count(cleaned_total, q_vector);
+		rnp_update_rx_count(cleaned_total, q_vector);
 
 	if (!clean_complete) {
 		int cpu_id = smp_processor_id();
@@ -4908,7 +4908,7 @@ static int rnp_resume(struct pci_dev *pdev)
 
 	err = rnp_init_interrupt_scheme(adapter);
 	if (!err)
-		err = register_mbx_irq(adapter);
+		err = rnp_register_mbx_irq(adapter);
 
 	if (hw->ops.driver_status)
 		hw->ops.driver_status(hw, false, rnp_driver_suspuse);
@@ -4954,7 +4954,7 @@ static int __rnp_shutdown(struct pci_dev *pdev, bool *enable_wake)
 	if (hw->ops.driver_status)
 		hw->ops.driver_status(hw, true, rnp_driver_suspuse);
 
-	remove_mbx_irq(adapter);
+	rnp_remove_mbx_irq(adapter);
 	rnp_clear_interrupt_scheme(adapter);
 
 #ifdef CONFIG_PM
@@ -5447,13 +5447,13 @@ static void rnp_reset_pf_subtask(struct rnp_adapter *adapter)
 	usleep_range(500, 1000);
 
 	rnp_reset(adapter);
-	remove_mbx_irq(adapter);
+	rnp_remove_mbx_irq(adapter);
 	rnp_clear_interrupt_scheme(adapter);
 
 	rtnl_lock();
 	err = rnp_init_interrupt_scheme(adapter);
 
-	register_mbx_irq(adapter);
+	rnp_register_mbx_irq(adapter);
 
 	if (!err && netif_running(netdev))
 		err = rnp_open(netdev);
@@ -6514,7 +6514,7 @@ int rnp_setup_tc(struct net_device *dev, u8 tc)
 
 	rnp_fdir_filter_exit(adapter);
 	adapter->priv_flags &= (~RNP_PRIV_FLAG_TCP_SYNC);
-	remove_mbx_irq(adapter);
+	rnp_remove_mbx_irq(adapter);
 	rnp_clear_interrupt_scheme(adapter);
 	adapter->num_tc = tc;
 
@@ -6528,7 +6528,7 @@ int rnp_setup_tc(struct net_device *dev, u8 tc)
 
 	rnp_init_interrupt_scheme(adapter);
 
-	register_mbx_irq(adapter);
+	rnp_register_mbx_irq(adapter);
 	/* rss table must reset */
 	adapter->rss_tbl_setup_flag = 0;
 
@@ -7202,7 +7202,7 @@ static inline unsigned long rnp_tso_features(struct rnp_hw *hw)
 	return features;
 }
 
-static void remove_mbx_irq(struct rnp_adapter *adapter)
+static void rnp_remove_mbx_irq(struct rnp_adapter *adapter)
 {
 	/* mbx */
 	if (adapter->num_other_vectors) {
@@ -7218,7 +7218,7 @@ static void remove_mbx_irq(struct rnp_adapter *adapter)
 	}
 }
 
-static int register_mbx_irq(struct rnp_adapter *adapter)
+static int rnp_register_mbx_irq(struct rnp_adapter *adapter)
 {
 	struct rnp_hw *hw = &adapter->hw;
 	struct net_device *netdev = adapter->netdev;
@@ -7287,7 +7287,7 @@ static int rnp_rm_adpater(struct rnp_adapter *adapter)
 	if (hw->ops.driver_status)
 		hw->ops.driver_status(hw, false, rnp_driver_insmod);
 
-	remove_mbx_irq(adapter);
+	rnp_remove_mbx_irq(adapter);
 
 	rnp_clear_interrupt_scheme(adapter);
 
@@ -7723,7 +7723,7 @@ static int rnp_add_adpater(struct pci_dev *pdev, struct rnp_info *ii,
 	if (err)
 		goto err_sw_init;
 
-	err = register_mbx_irq(adapter);
+	err = rnp_register_mbx_irq(adapter);
 	if (err)
 		goto err_register;
 
@@ -7785,7 +7785,7 @@ static int rnp_add_adpater(struct pci_dev *pdev, struct rnp_info *ii,
 
 	return 0;
 err_register:
-	remove_mbx_irq(adapter);
+	rnp_remove_mbx_irq(adapter);
 	rnp_clear_interrupt_scheme(adapter);
 err_sw_init:
 	rnp_disable_sriov(adapter);

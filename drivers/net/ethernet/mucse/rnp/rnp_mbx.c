@@ -638,7 +638,7 @@ s32 rnp_init_mbx_params_pf(struct rnp_hw *hw)
 	return 0;
 }
 
-struct rnp_mbx_operations mbx_ops_generic = {
+struct rnp_mbx_operations rnp_mbx_ops_generic = {
 	.init_params = rnp_init_mbx_params_pf,
 	.read = rnp_read_mbx_pf,
 	.write = rnp_write_mbx_pf,

@@ -183,7 +183,7 @@ s32 rnp_check_for_msg(struct rnp_hw *, enum MBX_ID);
 s32 rnp_check_for_ack(struct rnp_hw *, enum MBX_ID);
 s32 rnp_check_for_rst(struct rnp_hw *, enum MBX_ID);
 s32 rnp_init_mbx_params_pf(struct rnp_hw *);
-extern struct rnp_mbx_operations mbx_ops_generic;
+extern struct rnp_mbx_operations rnp_mbx_ops_generic;
 #define MBX_IFDOWN (0)
 #define MBX_IFUP (1)
 #define MBX_PROBE (2)
