@@ -746,8 +746,8 @@ int rtw89_acpi_evaluate_dynamic_sar_indicator(struct rtw89_dev *rtwdev,
 {
 	struct rtw89_sar_indicator_from_acpi *ind = &cfg->indicator;
 	struct rtw89_sar_indicator_from_acpi tmp = *ind;
-	struct rtw89_acpi_dynamic_sar_indicator *ptr;
 	const struct rtw89_acpi_data *data;
+	const u8 *tbl_base1_by_ant;
 	enum rtw89_rf_path path;
 	int ret = 0;
 	u32 len;
@@ -760,13 +760,13 @@ int rtw89_acpi_evaluate_dynamic_sar_indicator(struct rtw89_dev *rtwdev,
 		rtw89_debug(rtwdev, RTW89_DBG_ACPI, "acpi load dynamic sar indicator\n");
 
 	len = data->len;
-	if (len != sizeof(*ptr)) {
+	if (len != ind->fields) {
 		rtw89_debug(rtwdev, RTW89_DBG_ACPI, "invalid buf len %u\n", len);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	ptr = (typeof(ptr))data->buf;
+	tbl_base1_by_ant = data->buf;
 
 	for (path = 0; path < NUM_OF_RTW89_ACPI_SAR_RF_PATH; path++) {
 		u8 antidx = ind->rfpath_to_antidx(path);
@@ -775,7 +775,8 @@ int rtw89_acpi_evaluate_dynamic_sar_indicator(struct rtw89_dev *rtwdev,
 		if (antidx >= ind->fields)
 			antidx = 0;
 
-		sel = RTW89_ACPI_DYNAMIC_SAR_INDICATOR_GET_SEL(ptr, antidx);
+		/* convert the table index from 1-based to 0-based */
+		sel = tbl_base1_by_ant[antidx] - 1;
 		if (sel >= cfg->valid_num)
 			sel = 0;
 

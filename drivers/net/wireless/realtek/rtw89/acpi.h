@@ -121,14 +121,6 @@ struct rtw89_acpi_dynamic_sar_hdr {
 	u8 content[];
 } __packed;
 
-#define RTW89_ACPI_DYNAMIC_SAR_INDICATOR_GET_SEL(indicator, ant_idx) \
-	((indicator)->tblidx_by_ant[ant_idx] - 1)
-
-struct rtw89_acpi_dynamic_sar_indicator {
-	/* 1-base */
-	u8 tblidx_by_ant[RTW89_ACPI_SAR_ANT_NR_STD];
-} __packed;
-
 struct rtw89_acpi_sar_identifier {
 	enum rtw89_acpi_sar_cid cid;
 	enum rtw89_acpi_sar_rev rev;
