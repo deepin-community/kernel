@@ -124,7 +124,6 @@ static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
 	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
-	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
 	u32 new_mode;
 	int err;
 
@@ -161,6 +160,8 @@ static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
 #endif
 	}
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
+
 	err = clk_set_rate(master->pxlclk, mode->crtc_clock * 1000);
 	if (err)
 		DRM_ERROR("failed to set pxlclk for pipe%d\n", master->id);
@@ -544,7 +545,6 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
 				     struct drm_display_mode *adjusted_mode)
 {
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
-	unsigned long clk_rate;
 	u16 hor_divisor = 1;
 
 	drm_mode_set_crtcinfo(adjusted_mode, 0);
@@ -561,6 +561,8 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
 		adjusted_mode->crtc_htotal /= hor_divisor;
 	}
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
+	unsigned long clk_rate;
+
 	clk_rate = adjusted_mode->crtc_clock * 1000;
 	/* crtc_clock will be used as the linlondp output pixel clock */
 	adjusted_mode->crtc_clock = clk_round_rate(kcrtc->master->pxlclk,
