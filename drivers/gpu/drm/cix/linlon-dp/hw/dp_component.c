@@ -233,7 +233,7 @@ static u32 dp_layer_update_color(struct drm_plane_state *st,
 	if (kplane_st->ctm) {
 		u32 ctm_coeffs[LINLONDP_N_CTM_COEFFS];
 
-		drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
+		cix_drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
 		linlondp_write_group(reg, LAYER_RGB_RGB_COEFF0,
 				     ARRAY_SIZE(ctm_coeffs), ctm_coeffs);
 		ctrl |= L_R2R;	/* enable RGB2RGB conversion */

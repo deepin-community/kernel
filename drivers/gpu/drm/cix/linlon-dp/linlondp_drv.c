@@ -21,7 +21,7 @@ struct linlondp_drv {
 	struct linlondp_kms_dev *kms;
 };
 
-struct linlondp_dev *dev_to_mdev(struct device *dev)
+struct linlondp_dev *cix_dev_to_mdev(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
 
