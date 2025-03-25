@@ -333,7 +333,7 @@ int hda_pcm_trigger(struct snd_soc_component *component,
 }
 EXPORT_SYMBOL_GPL(hda_pcm_trigger);
 
-unsigned int azx_get_pos_posbuf(struct hdac *hdac, struct hdac_stream *hstr)
+unsigned int cix_azx_get_pos_posbuf(struct hdac *hdac, struct hdac_stream *hstr)
 {
 	return snd_hdac_stream_get_pos_posbuf(hstr);
 }
@@ -349,7 +349,7 @@ static unsigned int azx_get_position(struct hdac *hdac,
 	if (hdac->get_position[stream])
 		pos = hdac->get_position[stream](hdac, hstr);
 	else /* use the position buffer as default */
-		pos = azx_get_pos_posbuf(hdac, hstr);
+		pos = cix_azx_get_pos_posbuf(hdac, hstr);
 
 	pos = snd_hdac_stream_readl(hstr, SD_LPIB);
 
