@@ -936,7 +936,7 @@ int kvm_loongarch_reset_extioi(struct kvm *kvm)
 {
 	struct loongarch_extioi *extioi = kvm->arch.extioi;
 	unsigned long flags;
-	u8 offset, size;
+	unsigned long offset, size;
 	u8 *pstart;
 
 	if (!extioi)

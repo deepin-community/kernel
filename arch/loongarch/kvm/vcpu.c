@@ -886,7 +886,14 @@ static int kvm_set_one_reg(struct kvm_vcpu *vcpu,
 				kvm_loongarch_reset_extioi(vcpu->kvm);
 				kvm_loongarch_reset_pch(vcpu->kvm);
 			}
+
 			kvm_loongarch_reset_ipi(vcpu);
+			/*
+			 * When the vcpu resets, clear the ESTAT and GINTC registers,
+			 * and clear other CSR registers through the _kvm_set_csr register.
+			 */
+			kvm_write_sw_gcsr(vcpu->arch.csr, LOONGARCH_CSR_GINTC, 0);
+			kvm_write_sw_gcsr(vcpu->arch.csr, LOONGARCH_CSR_ESTAT, 0);
 			memset(&vcpu->arch.irq_pending, 0, sizeof(vcpu->arch.irq_pending));
 			memset(&vcpu->arch.irq_clear, 0, sizeof(vcpu->arch.irq_clear));
 			break;
