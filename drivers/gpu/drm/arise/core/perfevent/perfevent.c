@@ -38,7 +38,7 @@
 
 
 
-int perf_event_init(adapter_t *adapter)
+int arise_perf_event_init(adapter_t *adapter)
 {
     perf_event_mgr_t *perf_event_mgr;
     int ret = 0;

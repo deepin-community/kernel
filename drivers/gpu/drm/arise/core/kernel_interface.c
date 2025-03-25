@@ -124,7 +124,7 @@ static  void krnl_init_adapter(void* adp, int reserved_vmem, void *disp_info)
 
     gf_register_trace_events();
 
-    perf_event_init(adapter);
+    arise_perf_event_init(adapter);
 
     gf_hwq_event_init(adapter);
 
