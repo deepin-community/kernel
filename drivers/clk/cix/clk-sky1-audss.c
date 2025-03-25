@@ -2,6 +2,7 @@
 // Copyright 2024 Cix Technology Group Co., Ltd.
 
 #include <linux/acpi.h>
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
@@ -19,6 +20,7 @@
 #include <linux/clk-provider.h>
 
 #include <dt-bindings/clock/sky1-audss.h>
+
 #include "acpi_clk.h"
 
 #define INFO_HIFI0		0x00
