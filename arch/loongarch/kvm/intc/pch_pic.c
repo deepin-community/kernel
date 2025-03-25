@@ -542,7 +542,7 @@ int kvm_loongarch_register_pch_pic_device(void)
 int kvm_loongarch_reset_pch(struct kvm *kvm)
 {
 	struct loongarch_pch_pic *s = kvm->arch.pch_pic;
-	u8 offset, size;
+	unsigned long offset, size;
 	u8 *pstart;
 
 	if (!s)

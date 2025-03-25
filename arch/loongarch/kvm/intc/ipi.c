@@ -540,7 +540,7 @@ int kvm_loongarch_register_ipi_device(void)
 int kvm_loongarch_reset_ipi(struct kvm_vcpu *vcpu)
 {
 	struct ipi_state *s = &vcpu->arch.ipi_state;
-	u8 offset, size;
+	unsigned long offset, size;
 	u8 *pstart;
 
 	if (!s)
