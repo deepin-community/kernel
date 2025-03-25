@@ -24,7 +24,9 @@
 #include <linux/smp.h>
 #include <linux/types.h>
 
+#if IS_ENABLED(CONFIG_ARM || CONFIG_ARM64)
 #include <asm/cputype.h>
+#endif /* CONFIG_ARM || CONFIG_ARM64 */
 #include <asm/local64.h>
 
 #undef pr_fmt
