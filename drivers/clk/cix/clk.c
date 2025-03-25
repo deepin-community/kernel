@@ -8,6 +8,8 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/slab.h>
+
 #include "clk.h"
 
 #ifndef MODULE
