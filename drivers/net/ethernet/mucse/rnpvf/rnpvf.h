@@ -672,9 +672,9 @@ extern void rnpvf_free_tx_resources(struct rnpvf_adapter *,
 				    struct rnpvf_ring *);
 extern void rnpvf_update_stats(struct rnpvf_adapter *adapter);
 extern int ethtool_ioctl(struct ifreq *ifr);
-extern void remove_mbx_irq(struct rnpvf_adapter *adapter);
+extern void rnpvf_remove_mbx_irq(struct rnpvf_adapter *adapter);
 extern void rnpvf_clear_interrupt_scheme(struct rnpvf_adapter *adapter);
-extern int register_mbx_irq(struct rnpvf_adapter *adapter);
+extern int rnpvf_register_mbx_irq(struct rnpvf_adapter *adapter);
 extern int rnpvf_init_interrupt_scheme(struct rnpvf_adapter *adapter);
 extern int rnpvf_close(struct net_device *netdev);
 extern int rnpvf_open(struct net_device *netdev);

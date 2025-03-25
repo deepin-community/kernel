@@ -666,10 +666,10 @@ static int rnpgbevf_set_coalesce(struct net_device *netdev,
 	if (reset) {
 		if (netif_running(netdev))
 			rnpgbevf_close(netdev);
-		remove_mbx_irq(adapter);
+		rnpgbevf_remove_mbx_irq(adapter);
 		rnpgbevf_clear_interrupt_scheme(adapter);
 		rnpgbevf_init_interrupt_scheme(adapter);
-		register_mbx_irq(adapter);
+		rnpgbevf_register_mbx_irq(adapter);
 		if (netif_running(netdev))
 			return rnpgbevf_open(netdev);
 	}

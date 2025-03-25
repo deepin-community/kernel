@@ -4662,7 +4662,7 @@ struct rnp_info rnp_n10_info = {
 	.get_invariants = &rnp_get_invariants_n10,
 	.mac_ops = &mac_ops_n10,
 	.eeprom_ops = NULL,
-	.mbx_ops = &mbx_ops_generic,
+	.mbx_ops = &rnp_mbx_ops_generic,
 	.pcs_ops = &pcs_ops_generic,
 };
 
@@ -4807,6 +4807,6 @@ struct rnp_info rnp_n400_info = {
 	.get_invariants = &rnp_get_invariants_n400,
 	.mac_ops = &mac_ops_n10,
 	.eeprom_ops = NULL,
-	.mbx_ops = &mbx_ops_generic,
+	.mbx_ops = &rnp_mbx_ops_generic,
 	.pcs_ops = &pcs_ops_generic,
 };

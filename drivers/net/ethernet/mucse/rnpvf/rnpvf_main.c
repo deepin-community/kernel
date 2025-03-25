@@ -2077,7 +2077,7 @@ static irqreturn_t rnpvf_msix_clean_rings(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-void update_rx_count(int cleaned, struct rnpvf_q_vector *q_vector)
+void rnpvf_update_rx_count(int cleaned, struct rnpvf_q_vector *q_vector)
 {
 	struct rnpvf_adapter *adapter = q_vector->adapter;
 
@@ -2209,7 +2209,7 @@ static int rnpvf_poll(struct napi_struct *napi, int budget)
 		clean_complete = true;
 
 	if (!(q_vector->vector_flags & RNPVF_QVECTOR_FLAG_ITR_FEATURE))
-		update_rx_count(cleaned_total, q_vector);
+		rnpvf_update_rx_count(cleaned_total, q_vector);
 
 	/* If all work not completed, return budget and keep polling */
 	if (!clean_complete)
@@ -5601,7 +5601,7 @@ static int rnpvf_set_mac(struct net_device *netdev, void *p)
 	return 0;
 }
 
-void remove_mbx_irq(struct rnpvf_adapter *adapter)
+void rnpvf_remove_mbx_irq(struct rnpvf_adapter *adapter)
 {
 	u32 msgbuf[2];
 	struct rnpvf_hw *hw = &adapter->hw;
@@ -5651,7 +5651,7 @@ static void rnp_get_link_status(struct rnpvf_adapter *adapter)
 	spin_unlock_bh(&adapter->mbx_lock);
 }
 
-int register_mbx_irq(struct rnpvf_adapter *adapter)
+int rnpvf_register_mbx_irq(struct rnpvf_adapter *adapter)
 {
 	struct rnpvf_hw *hw = &adapter->hw;
 	struct net_device *netdev = adapter->netdev;
@@ -5696,7 +5696,7 @@ static int rnpvf_suspend(struct pci_dev *pdev, pm_message_t state)
 		rtnl_unlock();
 	}
 
-	remove_mbx_irq(adapter);
+	rnpvf_remove_mbx_irq(adapter);
 	rnpvf_clear_interrupt_scheme(adapter);
 
 #ifdef CONFIG_PM
@@ -5736,7 +5736,7 @@ static int rnpvf_resume(struct pci_dev *pdev)
 	rtnl_lock();
 	err = rnpvf_init_interrupt_scheme(adapter);
 	rtnl_unlock();
-	register_mbx_irq(adapter);
+	rnpvf_register_mbx_irq(adapter);
 
 	if (err) {
 		dev_err(&pdev->dev, "Cannot initialize interrupts\n");
@@ -6148,7 +6148,7 @@ static int rnpvf_add_adpater(struct pci_dev *pdev,
 	if (err)
 		goto err_sw_init;
 
-	err = register_mbx_irq(adapter);
+	err = rnpvf_register_mbx_irq(adapter);
 	if (err)
 		goto err_register;
 
@@ -6180,7 +6180,7 @@ static int rnpvf_add_adpater(struct pci_dev *pdev,
 
 	return 0;
 err_register:
-	remove_mbx_irq(adapter);
+	rnpvf_remove_mbx_irq(adapter);
 	rnpvf_clear_interrupt_scheme(adapter);
 err_sw_init:
 err_ioremap:
@@ -6214,7 +6214,7 @@ static int rnpvf_rm_adpater(struct rnpvf_adapter *adapter)
 			unregister_netdev(netdev);
 	}
 
-	remove_mbx_irq(adapter);
+	rnpvf_remove_mbx_irq(adapter);
 	rnpvf_clear_interrupt_scheme(adapter);
 	rnpvf_reset_interrupt_capability(adapter);
 
