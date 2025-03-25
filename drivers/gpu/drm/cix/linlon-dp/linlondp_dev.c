@@ -91,7 +91,7 @@ static void linlondp_debugfs_init(struct linlondp_dev *mdev)
 static ssize_t
 core_id_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "0x%08x\n", mdev->chip.core_id);
 }
@@ -101,7 +101,7 @@ static DEVICE_ATTR_RO(core_id);
 static ssize_t
 config_id_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe = mdev->pipelines[0];
 	union linlondp_config_id config_id;
 	int i;
@@ -126,7 +126,7 @@ static DEVICE_ATTR_RO(config_id);
 static ssize_t
 aclk_hz_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq);
 }
@@ -137,7 +137,7 @@ static ssize_t
 aclk_freq_fixed_store(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	long val;
 	int err;
 
@@ -159,7 +159,7 @@ aclk_freq_fixed_store(struct device *dev, struct device_attribute *attr,
 static ssize_t
 aclk_freq_fixed_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
 }
@@ -170,7 +170,7 @@ static ssize_t
 smart_aclk_freq_store(struct device *dev, struct device_attribute *attr,
 		      const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	long val;
 	int err;
 
@@ -189,7 +189,7 @@ static ssize_t
 smart_aclk_freq_show(struct device *dev, struct device_attribute *attr,
 		     char *buf)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
 }
@@ -200,7 +200,7 @@ static ssize_t
 test_pattern_store(struct device *dev, struct device_attribute *attr,
 		   const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -222,7 +222,7 @@ static ssize_t
 test_pattern_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 
@@ -245,7 +245,7 @@ static ssize_t
 crc_enable_store(struct device *dev, struct device_attribute *attr,
 		 const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -267,7 +267,7 @@ static ssize_t
 crc_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 
@@ -290,7 +290,7 @@ static ssize_t
 dither_enable_store(struct device *dev, struct device_attribute *attr,
 		    const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -312,7 +312,7 @@ static ssize_t
 dither_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = dev_to_mdev(dev);
+	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 

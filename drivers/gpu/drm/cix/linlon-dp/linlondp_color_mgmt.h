@@ -39,8 +39,8 @@ int linlondp_color_validate(struct linlondp_color_manager *mgr,
 
 void drm_lut_to_coeffs(struct drm_property_blob *lut_blob,
 		u32 *coeffs, bool igamma);
-void drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
-void drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
+void cix_drm_lut_to_fgamma_coeffs(struct drm_property_blob *lut_blob, u32 *coeffs);
+void cix_drm_ctm_to_coeffs(struct drm_property_blob *ctm_blob, u32 *coeffs);
 
 const s32 *linlondp_select_yuv2rgb_coeffs(u32 color_encoding, u32 color_range);
 const s32 *linlondp_select_rgb2yuv_coeffs(u32 color_encoding, u32 color_range);

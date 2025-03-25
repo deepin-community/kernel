@@ -681,7 +681,7 @@ linlondp_merger_validate(struct linlondp_merger *merger,
 	return err;
 }
 
-void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+void cix_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
 	bool side_by_side, u16 *hsize, u16 *vsize, bool is_overlap)
 {
 	struct linlondp_crtc *kcrtc = to_kcrtc(kcrtc_st->base.crtc);
@@ -707,7 +707,7 @@ linlondp_compiz_set_input(struct linlondp_compiz *compiz,
 	u16 compiz_w, compiz_h;
 	int idx = dflow->blending_zorder;
 
-	pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
+	cix_pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
 				  &compiz_w, &compiz_h, true);
 	/* check display rect */
 	//FIXME
@@ -776,7 +776,7 @@ linlondp_compiz_validate(struct linlondp_compiz *compiz,
 
 	st = to_compiz_st(c_st);
 
-	pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
+	cix_pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
 				  &st->hsize, &st->vsize, true);
 
 	linlondp_component_set_output(&dflow->input, &compiz->base, 0);
@@ -858,9 +858,9 @@ linlondp_improc_validate(struct linlondp_improc *improc,
 	}
 
 	if (kcrtc_st->base.color_mgmt_changed) {
-		drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
+		cix_drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
 					 st->fgamma_coeffs);
-		drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
+		cix_drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
 	}
 
 	linlondp_component_add_input(&st->base, &m_dflow->input, 0);
@@ -1223,7 +1223,7 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 	u32 disp_end = master->out_x + master->out_w;
 	u16 boundary;
 
-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+	cix_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
 
 	if (disp_end <= boundary) {
 		/* the master viewport only located in master side, no need
@@ -1333,7 +1333,7 @@ linlondp_split_sbs_slave_data_flow(struct linlondp_crtc_state *kcrtc_st,
 {
 	u16 boundary;
 
-	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+	cix_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
 
 	if (slave->out_x < boundary) {
 		DRM_DEBUG_ATOMIC
