@@ -44,7 +44,11 @@ extern bool haoc_enabled;
 #define SET_PPAGE(x)	__pgprot(pgprot_val(x) & (~PTE_USER))
 #define SET_INVALID(x)	__pgprot(pgprot_val(x) & (~PTE_VALID))
 #define SET_NG(x)	__pgprot(pgprot_val(x) | PTE_NG)
-
+/* 
+ * The APTable and XNTable bits in ARM64 table descriptors play a critical role in hierarchical
+ * permission systems, where higher-level permissions restrict lower-level entries, and we may
+ * change the page permission by enable/disable hierarchical permission with supprot of FEAT_HPDS.
+ */
 #define PGD_APTABLE_RO	(_AT(pudval_t, 1) << 62)
 #define PGD_APTABLE		(_AT(pudval_t, 1) << 61)
 #define PGD_PXNTABLE	(_AT(pudval_t, 1) << 59)
