@@ -170,7 +170,7 @@ static int adjust_systime(void __iomem *ioaddr, u32 sec, u32 nsec, int add_sub,
 	return 0;
 }
 
-const struct rnpgbe_hwtimestamp mac_ptp = {
+const struct rnpgbe_hwtimestamp rnpgbe_mac_ptp = {
 	.config_hw_tstamping = config_hw_tstamping,
 	.config_mac_irq_enable = config_mac_interrupt_enable,
 	.init_systime = init_systime,
@@ -534,7 +534,7 @@ static struct ptp_clock_info rnpgbe_ptp_clock_ops = {
 
 int rnpgbe_ptp_register(struct rnpgbe_adapter *pf)
 {
-	pf->hwts_ops = &mac_ptp;
+	pf->hwts_ops = &rnpgbe_mac_ptp;
 
 	pf->ptp_tx_en = 0;
 	pf->ptp_rx_en = 0;

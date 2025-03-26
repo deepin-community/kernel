@@ -654,9 +654,9 @@ extern void rnpgbevf_free_tx_resources(struct rnpgbevf_adapter *adapter,
 				       struct rnpgbevf_ring *ring);
 extern void rnpgbevf_update_stats(struct rnpgbevf_adapter *adapter);
 extern int ethtool_ioctl(struct ifreq *ifr);
-extern void remove_mbx_irq(struct rnpgbevf_adapter *adapter);
+extern void rnpgbevf_remove_mbx_irq(struct rnpgbevf_adapter *adapter);
 extern void rnpgbevf_clear_interrupt_scheme(struct rnpgbevf_adapter *adapter);
-extern int register_mbx_irq(struct rnpgbevf_adapter *adapter);
+extern int rnpgbevf_register_mbx_irq(struct rnpgbevf_adapter *adapter);
 extern int rnpgbevf_init_interrupt_scheme(struct rnpgbevf_adapter *adapter);
 extern int rnpgbevf_close(struct net_device *netdev);
 extern int rnpgbevf_open(struct net_device *netdev);

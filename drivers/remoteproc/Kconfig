@@ -368,6 +368,7 @@ config XLNX_R5_REMOTEPROC
 config CIX_DSP_REMOTEPROC
 	tristate "CIX DSP remoteproc support"
 	depends on MAILBOX
+	depends on ARM64 || COMPILE_TEST
 	help
 	  Say y here to support CIX DSP remote processor framework.
 

@@ -536,10 +536,10 @@ static int rnpvf_set_coalesce(struct net_device *netdev,
 	if (reset) {
 		if (netif_running(netdev))
 			rnpvf_close(netdev);
-		remove_mbx_irq(adapter);
+		rnpvf_remove_mbx_irq(adapter);
 		rnpvf_clear_interrupt_scheme(adapter);
 		rnpvf_init_interrupt_scheme(adapter);
-		register_mbx_irq(adapter);
+		rnpvf_register_mbx_irq(adapter);
 		if (netif_running(netdev))
 			return rnpvf_open(netdev);
 	}

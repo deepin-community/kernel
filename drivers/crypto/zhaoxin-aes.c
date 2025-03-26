@@ -62,7 +62,7 @@ struct aes_ctx {
 	u32 *D;
 };
 
-static DEFINE_PER_CPU(struct cword *, paes_last_cword);
+static DEFINE_PER_CPU(struct cword *, paes_last_cword_zx);
 
 /* Tells whether the ACE is capable to generate the extended key for a given key_len. */
 static inline int aes_hw_extkey_available(uint8_t key_len)
@@ -142,9 +142,9 @@ static int aes_set_key(struct crypto_tfm *tfm, const u8 *in_key, unsigned int ke
 
 ok:
 	for_each_online_cpu(cpu)
-		if (&ctx->cword.encrypt == per_cpu(paes_last_cword, cpu) ||
-			&ctx->cword.decrypt == per_cpu(paes_last_cword, cpu))
-			per_cpu(paes_last_cword, cpu) = NULL;
+		if (&ctx->cword.encrypt == per_cpu(paes_last_cword_zx, cpu) ||
+			&ctx->cword.decrypt == per_cpu(paes_last_cword_zx, cpu))
+			per_cpu(paes_last_cword_zx, cpu) = NULL;
 
 	return 0;
 }
@@ -162,7 +162,7 @@ static inline void padlock_reset_key(struct cword *cword)
 {
 	int cpu = raw_smp_processor_id();
 
-	if (cword != per_cpu(paes_last_cword, cpu))
+	if (cword != per_cpu(paes_last_cword_zx, cpu))
 #ifndef CONFIG_X86_64
 		asm volatile ("pushfl; popfl");
 #else
@@ -172,7 +172,7 @@ static inline void padlock_reset_key(struct cword *cword)
 
 static inline void padlock_store_cword(struct cword *cword)
 {
-	per_cpu(paes_last_cword, raw_smp_processor_id()) = cword;
+	per_cpu(paes_last_cword_zx, raw_smp_processor_id()) = cword;
 }
 
 /*

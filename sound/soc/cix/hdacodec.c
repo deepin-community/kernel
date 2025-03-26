@@ -23,7 +23,7 @@
 
 static struct hda_codec *hda_codec_device_init(struct hdac_bus *bus, int addr);
 
-int snd_hda_codec_set_name(struct hda_codec *codec, const char *name)
+int cix_snd_hda_codec_set_name(struct hda_codec *codec, const char *name)
 {
 	int err;
 
@@ -164,7 +164,7 @@ static void snd_hda_codec_dev_release(struct device *dev)
 }
 
 
-struct hda_codec *snd_hda_codec_device_init(struct hda_bus *bus,
+struct hda_codec *cix_snd_hda_codec_device_init(struct hda_bus *bus,
 	unsigned int codec_addr,
 	const char *fmt, ...)
 {
@@ -205,7 +205,7 @@ static struct hda_codec *hda_codec_device_init(struct hdac_bus *bus, int addr)
 	struct hda_codec *codec;
 	int ret;
 
-	codec = snd_hda_codec_device_init(to_hda_bus(bus), addr,
+	codec = cix_snd_hda_codec_device_init(to_hda_bus(bus), addr,
 					  "hdaudio%dD%d", bus->idx, addr);
 	if (IS_ERR(codec)) {
 		dev_err(bus->dev,
@@ -328,7 +328,7 @@ int __maybe_unused hda_codec_runtime_resume(struct device *dev)
 	}
 	hcp->codec = codec;
 
-	snd_hda_codec_set_name(codec, dev_name(dev));
+	cix_snd_hda_codec_set_name(codec, dev_name(dev));
 
 	if (codec && patch) {
 		ret = patch(codec);

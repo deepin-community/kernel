@@ -1919,7 +1919,7 @@ config RUST
 	depends on !GCC_PLUGINS
 	depends on !RANDSTRUCT
 	depends on !SHADOW_CALL_STACK
-	depends on !DEBUG_INFO_BTF || PAHOLE_HAS_LANG_EXCLUDE
+	depends on !DEBUG_INFO_BTF || (PAHOLE_HAS_LANG_EXCLUDE && !LTO)
 	help
 	  Enables Rust support in the kernel.
 
@@ -1955,7 +1955,6 @@ config TRACEPOINTS
 
 config DEEPIN_KABI_RESERVE
 	bool "Support for KABI RESERVE"
-	default y
 	help
 	 This option can be turned off for images that clearly do not require
 	 kabi compatibility.

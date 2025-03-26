@@ -9,6 +9,7 @@
 #include <linux/cma.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
+#include <linux/memblock.h>
 #include <linux/module.h>
 
 enum {

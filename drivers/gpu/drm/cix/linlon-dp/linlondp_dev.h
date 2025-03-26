@@ -272,7 +272,7 @@ dp_identify(u32 __iomem *reg, struct linlondp_chip_info *chip);
 struct linlondp_dev *linlondp_dev_create(struct device *dev);
 void linlondp_dev_destroy(struct linlondp_dev *mdev);
 
-struct linlondp_dev *dev_to_mdev(struct device *dev);
+struct linlondp_dev *cix_dev_to_mdev(struct device *dev);
 
 void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev);
 

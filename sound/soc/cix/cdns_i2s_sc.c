@@ -2,6 +2,7 @@
 // Copyright 2024 Cix Technology Group Co., Ltd.
 
 #include <linux/acpi.h>
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/module.h>

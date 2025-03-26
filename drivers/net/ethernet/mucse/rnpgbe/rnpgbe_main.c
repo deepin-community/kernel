@@ -58,8 +58,8 @@ static struct rnpgbe_info *rnpgbe_info_tbl[] = {
 	[board_n210] = &rnpgbe_n210_info,
 };
 
-static int register_mbx_irq(struct rnpgbe_adapter *adapter);
-static void remove_mbx_irq(struct rnpgbe_adapter *adapter);
+static int rnpgbe_register_mbx_irq(struct rnpgbe_adapter *adapter);
+static void rnpgbe_remove_mbx_irq(struct rnpgbe_adapter *adapter);
 
 static void rnpgbe_pull_tail(struct sk_buff *skb);
 #ifdef OPTM_WITH_LPAGE
@@ -4631,7 +4631,7 @@ static int rnpgbe_resume(struct device *dev)
 
 	err = rnpgbe_init_interrupt_scheme(adapter);
 	if (!err)
-		err = register_mbx_irq(adapter);
+		err = rnpgbe_register_mbx_irq(adapter);
 
 	if (hw->ops.driver_status)
 		hw->ops.driver_status(hw, false, rnpgbe_driver_suspuse);
@@ -4684,7 +4684,7 @@ static int rnpgbe_freeze(struct device *dev)
 		rnpgbe_free_all_rx_resources(adapter);
 	}
 
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 	rtnl_unlock();
 
@@ -4741,7 +4741,7 @@ static int __rnpgbe_shutdown_suspuse(struct pci_dev *pdev, bool *enable_wake)
 	if ((hw->ncsi_en || adapter->wol) && hw->ops.driver_status)
 		hw->ops.driver_status(hw, true, rnpgbe_driver_suspuse);
 
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 
 	retval = pci_save_state(pdev);
@@ -4795,7 +4795,7 @@ static int __rnpgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
 	if ((hw->ncsi_en || adapter->wol) && hw->ops.driver_status)
 		hw->ops.driver_status(hw, false, rnpgbe_driver_insmod);
 
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 
 	retval = pci_save_state(pdev);
@@ -5253,11 +5253,11 @@ static void rnpgbe_reset_pf_subtask(struct rnpgbe_adapter *adapter)
 	/* wait all vf get this status */
 	usleep_range(500, 1000);
 	rnpgbe_reset(adapter);
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 	rtnl_lock();
 	err = rnpgbe_init_interrupt_scheme(adapter);
-	register_mbx_irq(adapter);
+	rnpgbe_register_mbx_irq(adapter);
 
 	if (!err && netif_running(netdev))
 		err = rnpgbe_open(netdev);
@@ -6323,7 +6323,7 @@ int rnpgbe_setup_tc(struct net_device *dev, u8 tc)
 
 	rnpgbe_fdir_filter_exit(adapter);
 	adapter->priv_flags &= (~RNP_PRIV_FLAG_TCP_SYNC);
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 	adapter->num_tc = tc;
 
@@ -6339,7 +6339,7 @@ int rnpgbe_setup_tc(struct net_device *dev, u8 tc)
 
 	rnpgbe_init_interrupt_scheme(adapter);
 
-	register_mbx_irq(adapter);
+	rnpgbe_register_mbx_irq(adapter);
 	/* rss table must reset */
 	adapter->rss_tbl_setup_flag = 0;
 
@@ -6708,7 +6708,7 @@ static inline unsigned long rnpgbe_tso_features(struct rnpgbe_hw *hw)
 	return features;
 }
 
-static void remove_mbx_irq(struct rnpgbe_adapter *adapter)
+static void rnpgbe_remove_mbx_irq(struct rnpgbe_adapter *adapter)
 {
 	/* mbx */
 	if (adapter->num_other_vectors) {
@@ -6725,7 +6725,7 @@ static void remove_mbx_irq(struct rnpgbe_adapter *adapter)
 	}
 }
 
-static int register_mbx_irq(struct rnpgbe_adapter *adapter)
+static int rnpgbe_register_mbx_irq(struct rnpgbe_adapter *adapter)
 {
 	struct rnpgbe_hw *hw = &adapter->hw;
 	struct net_device *netdev = adapter->netdev;
@@ -6792,7 +6792,7 @@ static int rnpgbe_rm_adpater(struct rnpgbe_adapter *adapter)
 	if (hw->ops.driver_status)
 		hw->ops.driver_status(hw, false, rnpgbe_driver_insmod);
 
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 
 	rnpgbe_clear_interrupt_scheme(adapter);
 
@@ -7324,7 +7324,7 @@ static int rnpgbe_add_adpater(struct pci_dev *pdev, struct rnpgbe_info *ii,
 	if (err)
 		goto err_sw_init;
 
-	err = register_mbx_irq(adapter);
+	err = rnpgbe_register_mbx_irq(adapter);
 	if (err)
 		goto err_register;
 
@@ -7377,7 +7377,7 @@ static int rnpgbe_add_adpater(struct pci_dev *pdev, struct rnpgbe_info *ii,
 
 	return 0;
 err_register:
-	remove_mbx_irq(adapter);
+	rnpgbe_remove_mbx_irq(adapter);
 	rnpgbe_clear_interrupt_scheme(adapter);
 err_sw_init:
 	rnpgbe_disable_sriov(adapter);

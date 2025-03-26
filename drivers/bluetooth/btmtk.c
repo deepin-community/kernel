@@ -24,6 +24,7 @@
 
 /* It is for mt79xx iso data transmission setting */
 #define MTK_ISO_THRESHOLD	264
+static bool enable_isopkt = 0;
 
 struct btmtk_patch_header {
 	u8 datetime[16];
@@ -620,17 +621,14 @@ static int btmtk_usb_hci_wmt_sync(struct hci_dev *hdev,
 
 	if (err < 0) {
 		clear_bit(BTMTK_TX_WAIT_VND_EVT, &data->flags);
-		usb_autopm_put_interface(data->intf);
-		goto err_free_wc;
+		goto err_pm_put;
 	}
 
 	/* Submit control IN URB on demand to process the WMT event */
 	err = btmtk_usb_submit_wmt_recv_urb(hdev);
 
-	usb_autopm_put_interface(data->intf);
-
 	if (err < 0)
-		goto err_free_wc;
+		goto err_pm_put;
 
 	/* The vendor specific WMT commands are all answered by a vendor
 	 * specific event and will have the Command Status or Command
@@ -646,18 +644,18 @@ static int btmtk_usb_hci_wmt_sync(struct hci_dev *hdev,
 	if (err == -EINTR) {
 		bt_dev_err(hdev, "Execution of wmt command interrupted");
 		clear_bit(BTMTK_TX_WAIT_VND_EVT, &data->flags);
-		goto err_free_wc;
+		goto err_pm_put;
 	}
 
 	if (err) {
 		bt_dev_err(hdev, "Execution of wmt command timed out");
 		clear_bit(BTMTK_TX_WAIT_VND_EVT, &data->flags);
 		err = -ETIMEDOUT;
-		goto err_free_wc;
+		goto err_pm_put;
 	}
 
 	if (data->evt_skb == NULL)
-		goto err_free_wc;
+		goto err_pm_put;
 
 	/* Parse and handle the return WMT event */
 	wmt_evt = (struct btmtk_hci_wmt_evt *)data->evt_skb->data;
@@ -700,6 +698,8 @@ static int btmtk_usb_hci_wmt_sync(struct hci_dev *hdev,
 err_free_skb:
 	kfree_skb(data->evt_skb);
 	data->evt_skb = NULL;
+err_pm_put:
+	usb_autopm_put_interface(data->intf);
 err_free_wc:
 	kfree(wc);
 	return err;
@@ -1375,7 +1375,7 @@ int btmtk_usb_setup(struct hci_dev *hdev)
 		hci_set_aosp_capable(hdev);
 
 		/* Set up ISO interface after protocol enabled */
-		if (test_bit(BTMTK_ISOPKT_OVER_INTR, &btmtk_data->flags)) {
+		if (enable_isopkt && test_bit(BTMTK_ISOPKT_OVER_INTR, &btmtk_data->flags)) {
 			if (!btmtk_usb_isointf_init(hdev))
 				set_bit(BTMTK_ISOPKT_RUNNING, &btmtk_data->flags);
 		}
@@ -1501,6 +1501,8 @@ int btmtk_usb_shutdown(struct hci_dev *hdev)
 EXPORT_SYMBOL_GPL(btmtk_usb_shutdown);
 #endif
 
+module_param(enable_isopkt, bool, 0644);
+MODULE_PARM_DESC(enable_isopkt, "Enable isopkt by default");
 MODULE_AUTHOR("Sean Wang <sean.wang@mediatek.com>");
 MODULE_AUTHOR("Mark Chen <mark-yw.chen@mediatek.com>");
 MODULE_DESCRIPTION("Bluetooth support for MediaTek devices ver " VERSION);

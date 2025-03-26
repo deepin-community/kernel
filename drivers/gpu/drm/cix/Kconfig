@@ -4,6 +4,7 @@ config DRM_CIX
 	select DRM_KMS_HELPER
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_DMA_HELPER
+	depends on ARM64 || COMPILE_TEST
 	depends on DRM
 	help
 	  enable CiX DRM display support

@@ -450,6 +450,7 @@ static inline bool ps3_pgdat_is_empty(pg_data_t *pgdat)
 	return !pgdat->node_start_pfn && !pgdat->node_spanned_pages;
 }
 
+#ifdef MODULE
 struct pglist_data *first_online_pgdat(void)
 {
 	return NODE_DATA(first_online_node);
@@ -463,6 +464,7 @@ struct pglist_data *next_online_pgdat(struct pglist_data *pgdat)
 	}
 	return NODE_DATA(nid);
 }
+#endif /* MODULE */
 
 static Bool ps3_get_numa_mem_addr(struct ps3_instance *instance)
 {
