@@ -11,6 +11,9 @@
 #include <asm/haoc/iee.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
+#include <asm/ptrace.h>
+#include <asm/system_misc.h>
+#include <asm/daifflags.h>
 
 static inline bool iee_support_pmd_block(unsigned long addr, unsigned int order)
 {
@@ -52,8 +55,7 @@ static void iee_may_split_pmd(pud_t *pudp, unsigned long addr, unsigned int orde
 
 		if (!pgtable)
 			panic("Alloc pgtable error.\n");
-
-		{
+		else {
 			/* Iterate on the new page table. */
 			pte_t *ptep = pgtable;
 
@@ -237,7 +239,7 @@ void put_pages_into_iee(unsigned long addr, int order)
 /* The reverse operation of put_pages_into_iee().
  * Call this function when you are returning pages back to kernel.
  */
-void remove_pages_from_iee(unsigned long addr, int order)
+static void remove_pages_from_iee(unsigned long addr, int order)
 {
 	pgd_t *pgdir = swapper_pg_dir;
 	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
@@ -280,10 +282,6 @@ void unset_iee_page(unsigned long addr, int order)
 	remove_pages_from_iee(addr, order);
 }
 
-#include <asm/ptrace.h>
-#include <asm/system_misc.h>
-#include <asm/daifflags.h>
-
 static char *handler[] = {
 	"ELR_EL1",
 	"TCR_EL1",
@@ -315,4 +313,3 @@ asmlinkage void notrace iee_bad_mode(struct pt_regs *regs, int reason,
 
 	panic("bad mode");
 }
-

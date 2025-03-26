@@ -26,6 +26,10 @@ SYM_FUNC_START(iee_rw_gate)
     ret
 SYM_FUNC_END(iee_rw_gate)
 
+	.pushsection ".iee.text", "ax"
+
+.align 4
+
 .global iee_tcr
 iee_tcr:
 	.quad 0
@@ -33,8 +37,6 @@ iee_tcr:
 .global kernel_tcr
 kernel_tcr:
 	.quad 0
-
-	.pushsection ".iee.text", "ax"
 
 .global iee_tcr_mask
 iee_tcr_mask:
@@ -51,8 +53,7 @@ SYM_FUNC_START(iee_protected_rw_gate)
 	msr tcr_el1, x12
 	isb
 	/* Check TCR */
-	adrp x9, iee_tcr
-	ldr x9, [x9, #:lo12:iee_tcr]
+	ldr x9, iee_tcr
 	ldr x10, iee_tcr_mask
 	and x12, x12, x10
 	cmp x9, x12
@@ -81,8 +82,7 @@ SYM_FUNC_START(iee_protected_rw_gate)
 	msr tcr_el1, x12
 	isb
 	/* Check TCR */
-	adrp x9, kernel_tcr
-	ldr x9, [x9, #:lo12:kernel_tcr]
+	ldr x9, kernel_tcr
 	ldr x10, iee_tcr_mask
 	and x12, x12, x10
 	cmp x9, x12

@@ -473,7 +473,6 @@ void __init smp_prepare_boot_cpu(void)
 	/* Init percpu seeds for random tags after cpus are set up. */
 	kasan_init_sw_tags();
 #ifdef CONFIG_IEE
-	extern void iee_stack_init(void);
 	iee_stack_init();
 #endif
 }
