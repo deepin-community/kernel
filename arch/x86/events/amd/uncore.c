@@ -235,8 +235,21 @@ static int amd_uncore_event_init(struct perf_event *event)
 	if (event->attr.type != event->pmu->type)
 		return -ENOENT;
 
-	if (pmu_version >= 2 && is_nb_event(event))
+	if (pmu_version >= 2 && is_nb_event(event)) {
 		event_mask = AMD64_PERFMON_V2_RAW_EVENT_MASK_NB;
+	} else if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
+		   boot_cpu_data.x86 == 0x18 &&
+		   is_nb_event(event)) {
+		event_mask = HYGON_F18H_RAW_EVENT_MASK_NB;
+		if (boot_cpu_data.x86_model == 0x4 ||
+		    boot_cpu_data.x86_model == 0x5)
+			event_mask = HYGON_F18H_M4H_RAW_EVENT_MASK_NB;
+		if (boot_cpu_data.x86_model == 0x6 ||
+		    boot_cpu_data.x86_model == 0x7 ||
+		    boot_cpu_data.x86_model == 0x8 ||
+		    boot_cpu_data.x86_model == 0x10)
+			event_mask = HYGON_F18H_M6H_RAW_EVENT_MASK_NB;
+	}
 
 	/*
 	 * NB and Last level cache counters (MSRs) are shared across all cores
@@ -334,8 +347,11 @@ static struct device_attribute format_attr_##_var =			\
 DEFINE_UNCORE_FORMAT_ATTR(event12,	event,		"config:0-7,32-35");
 DEFINE_UNCORE_FORMAT_ATTR(event14,	event,		"config:0-7,32-35,59-60"); /* F17h+ DF */
 DEFINE_UNCORE_FORMAT_ATTR(event14v2,	event,		"config:0-7,32-37");	   /* PerfMonV2 DF */
+DEFINE_UNCORE_FORMAT_ATTR(event14f18h,	event,		"config:0-7,32-35,61-62"); /* F18h DF */
 DEFINE_UNCORE_FORMAT_ATTR(event8,	event,		"config:0-7");		   /* F17h+ L3 */
 DEFINE_UNCORE_FORMAT_ATTR(umask8,	umask,		"config:8-15");
+DEFINE_UNCORE_FORMAT_ATTR(umask10f18h,	umask,		"config:8-17");		   /* F18h M4h DF */
+DEFINE_UNCORE_FORMAT_ATTR(umask12f18h,	umask,		"config:8-19");		   /* F18h M6h DF */
 DEFINE_UNCORE_FORMAT_ATTR(umask12,	umask,		"config:8-15,24-27");	   /* PerfMonV2 DF */
 DEFINE_UNCORE_FORMAT_ATTR(coreid,	coreid,		"config:42-44");	   /* F19h L3 */
 DEFINE_UNCORE_FORMAT_ATTR(slicemask,	slicemask,	"config:48-51");	   /* F17h L3 */
@@ -717,8 +733,20 @@ static int __init amd_uncore_init(void)
 		if (pmu_version >= 2) {
 			*df_attr++ = &format_attr_event14v2.attr;
 			*df_attr++ = &format_attr_umask12.attr;
-		} else if (boot_cpu_data.x86 >= 0x17) {
+		} else if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
+			   boot_cpu_data.x86 >= 0x17) {
 			*df_attr = &format_attr_event14.attr;
+		} else if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
+			   boot_cpu_data.x86 == 0x18) {
+			*df_attr++ = &format_attr_event14f18h.attr;
+			if (boot_cpu_data.x86_model == 0x4 ||
+			    boot_cpu_data.x86_model == 0x5)
+				*df_attr++ = &format_attr_umask10f18h.attr;
+			else if (boot_cpu_data.x86_model == 0x6 ||
+				 boot_cpu_data.x86_model == 0x7 ||
+				 boot_cpu_data.x86_model == 0x8 ||
+				 boot_cpu_data.x86_model == 0x10)
+				*df_attr++ = &format_attr_umask12f18h.attr;
 		}
 
 		amd_uncore_nb = alloc_percpu(struct amd_uncore *);
