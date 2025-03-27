@@ -16,6 +16,7 @@
 #include <linux/bitfield.h>
 #include <linux/delay.h>
 #include <linux/rwlock.h>
+#include <linux/pgtable.h>
 
 #include "psp-dev.h"
 #include "vpsp.h"
@@ -38,6 +39,12 @@ enum HYGON_PSP_OPCODE {
 	HYGON_PSP_OP_PIN_USER_PAGE,
 	HYGON_PSP_OP_UNPIN_USER_PAGE,
 	HYGON_PSP_OPCODE_MAX_NR,
+};
+
+#define HYGON_RESOURCE2_IOC_TYPE 'R'
+enum HYGON_PSP_RESOURCE2_OPCODE {
+	HYGON_RESOURCE2_OP_GET_PCI_BAR_RANGE = 1,
+	HYGON_RESOURCE2_OPCODE_MAX_NR,
 };
 
 uint64_t atomic64_exchange(uint64_t *dst, uint64_t val)
@@ -265,6 +272,63 @@ static long ioctl_psp(struct file *file, unsigned int ioctl, unsigned long arg)
 	return ret;
 }
 
+static resource_size_t get_master_psp_bar_size(void)
+{
+	struct psp_device *psp = psp_master;
+	struct pci_dev *pdev = to_pci_dev(psp->dev);
+
+	return pci_resource_len(pdev, 2);
+}
+
+static long ioctl_psp_resource2(struct file *file, unsigned int ioctl, unsigned long arg)
+{
+	unsigned int opcode = 0;
+	resource_size_t bar_size = 0;
+	int ret = -EFAULT;
+
+	if (_IOC_TYPE(ioctl) != HYGON_RESOURCE2_IOC_TYPE) {
+		pr_err("%s: invalid ioctl type: 0x%x\n", __func__, _IOC_TYPE(ioctl));
+		return -EINVAL;
+	}
+
+	opcode = _IOC_NR(ioctl);
+	switch (opcode) {
+	case HYGON_RESOURCE2_OP_GET_PCI_BAR_RANGE:
+		bar_size = get_master_psp_bar_size();
+
+		if (copy_to_user((void __user *)arg, &bar_size,
+				sizeof(unsigned long)))
+			return -EFAULT;
+		ret = 0;
+		break;
+
+	default:
+		pr_err("%s: invalid ioctl number: %d\n", __func__, opcode);
+		return -EINVAL;
+	}
+	return ret;
+}
+
+static int mmap_psp_resource2(struct file *filp, struct vm_area_struct *vma)
+{
+	struct psp_device *psp = psp_master;
+	struct pci_dev *pdev = to_pci_dev(psp->dev);
+	int bar = 2;
+
+	vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
+	vma->vm_pgoff += (pci_resource_start(pdev, bar) >> PAGE_SHIFT);
+
+	return io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+				  vma->vm_end - vma->vm_start,
+				  vma->vm_page_prot);
+}
+
+static const struct file_operations psp_source2_fops = {
+	.owner          = THIS_MODULE,
+	.mmap		= mmap_psp_resource2,
+	.unlocked_ioctl = ioctl_psp_resource2,
+};
+
 static const struct file_operations psp_fops = {
 	.owner          = THIS_MODULE,
 	.mmap		= mmap_psp,
@@ -311,10 +375,19 @@ int hygon_psp_additional_setup(struct sp_device *sp)
 		psp_mutex_init(&psp_misc->data_pg_aligned->mb_mutex);
 
 		*(uint32_t *)((void *)psp_misc->data_pg_aligned + 8) = 0xdeadbeef;
-		misc = &psp_misc->misc;
+		misc = &psp_misc->dev_misc;
 		misc->minor = MISC_DYNAMIC_MINOR;
 		misc->name = "hygon_psp_config";
 		misc->fops = &psp_fops;
+
+		ret = misc_register(misc);
+		if (ret)
+			return ret;
+
+		misc = &psp_misc->resource2_misc;
+		misc->minor = MISC_DYNAMIC_MINOR;
+		misc->name = "hygon_psp_resource2";
+		misc->fops = &psp_source2_fops;
 
 		ret = misc_register(misc);
 		if (ret)
@@ -332,7 +405,8 @@ void hygon_psp_exit(struct kref *ref)
 {
 	struct psp_misc_dev *misc_dev = container_of(ref, struct psp_misc_dev, refcount);
 
-	misc_deregister(&misc_dev->misc);
+	misc_deregister(&misc_dev->dev_misc);
+	misc_deregister(&misc_dev->resource2_misc);
 	ClearPageReserved(virt_to_page(misc_dev->data_pg_aligned));
 	free_page((unsigned long)misc_dev->data_pg_aligned);
 	psp_misc = NULL;
