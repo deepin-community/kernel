@@ -591,6 +591,9 @@ u16 pci_find_next_ext_capability(struct pci_dev *dev, u16 start, int cap)
 		return 0;
 
 	while (ttl-- > 0) {
+		if (header == 0xffffffff)
+			return 0;
+
 		if (PCI_EXT_CAP_ID(header) == cap && pos != start)
 			return pos;
 
