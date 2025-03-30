@@ -740,8 +740,10 @@ struct kmap_ctrl {
 struct task_struct_deepin {
 };
 
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
 struct task_struct_extend {
 };
+#endif
 
 struct task_struct {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
@@ -1542,8 +1544,10 @@ struct task_struct {
 	struct user_event_mm		*user_event_mm;
 #endif
 
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
 	/* reserve extra field for randomized used */
 	struct task_struct_extend	*task_struct_extend;
+#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that
