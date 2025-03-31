@@ -1,0 +1,14 @@
+#
+#se chip configuration
+#
+config CRYPTO_DEV_WST_SE
+	tristate "Westone Security Engine Chip Driver"
+	depends on MACH_LOONGSON64
+	help
+	  Westone Security Engine Chip Driver.
+	  This driver supports the security co-processor in Loongson
+	  3A4000 and 3A5000 processors.
+	  It provides hardware acceleration for a range of cryptographic
+	  algorithms, such as ECC-based asymmetric cryptography.
+
+	  If unsure, say N.
