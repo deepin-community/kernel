@@ -23,8 +23,33 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 static int eh_obj = -1;
+static char *tdm_guard;
 module_param(eh_obj, int, 0644);
-MODULE_PARM_DESC(eh_obj, "security enhance object for TDM");
+MODULE_PARM_DESC(eh_obj,
+	"Bitmap of kernel targets protected by Hygon TDM(bit0: SCT, bit1: IDT, default: both)");
+module_param(tdm_guard, charp, 0644);
+MODULE_PARM_DESC(tdm_guard,
+	"Enable TDM protection for selected targets(on=enable, off=disable, default:off)");
+
+static bool tdm_guard_enabled;
+
+static int __init __maybe_unused parse_tdm_guard(char *str)
+{
+	if (!str)
+		return 0;
+
+	if (!strncmp(str, "off", 3)) {
+		tdm_guard_enabled = false;
+		pr_info("Hygon TDM Guard: Disabled(cmdline)\n");
+	} else if (!strncmp(str, "on", 2)) {
+		tdm_guard_enabled = true;
+		pr_info("Hygon TDM Guard: Enabled(cmdline)\n");
+	}
+
+	return 0;
+}
+
+__setup("tdm_guard=", parse_tdm_guard);
 
 /* Objects are protected by TDM now
  *   SCT: 0
@@ -292,6 +317,16 @@ static int __init kernel_security_enhance_init(void)
 		goto end;
 	}
 
+	if (tdm_guard) {
+		if (!strncmp(tdm_guard, "off", 3))
+			tdm_guard_enabled = false;
+		else if (!strncmp(tdm_guard, "on", 2))
+			tdm_guard_enabled = true;
+	}
+
+	if (tdm_guard_enabled == false)
+		goto end;
+
 	asm("sidt %0":"=m"(idtr));
 
 	if (!psp_check_tdm_support())
@@ -326,6 +361,9 @@ end:
 static void __exit kernel_security_enhance_exit(void)
 {
 	int i = 0;
+
+	if (tdm_guard_enabled == false)
+		return;
 
 	if (!psp_check_tdm_support())
 		return;
