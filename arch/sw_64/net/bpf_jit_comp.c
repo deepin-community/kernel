@@ -637,7 +637,7 @@ static int add_exception_handler(const struct bpf_insn *insn,
 	ex = &ctx->prog->aux->extable[ctx->exentry_idx];
 	pc = (unsigned long)&ctx->image[ctx->idx - 1];
 
-	offset = (long)&ex->insn - pc;
+	offset = pc - (long)&ex->insn;
 	ex->insn = offset;
 
 	ex->fixup.bits.nextinsn = sizeof(u32);
