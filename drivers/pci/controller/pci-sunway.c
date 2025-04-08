@@ -36,15 +36,7 @@ int pcibios_enable_device(struct pci_dev *dev, int bars)
 		return pci_enable_resources(dev, bars);
 }
 
-#ifdef CONFIG_UNCORE_XUELANG
-#define PIU_IOR0_SAVE_REGS (12 + 256)
-#define PIU_IOR1_SAVE_REGS 1
-#else
-#define PIU_IOR0_SAVE_REGS 12
-#define PIU_IOR1_SAVE_REGS 1
-#endif
-
-static struct piu_saved_data *alloc_piu_saved_data(unsigned int size)
+struct piu_saved_data *alloc_piu_saved_data(unsigned int size)
 {
 	struct piu_saved_data *piu_saved_data;
 
@@ -480,9 +472,6 @@ static void hose_init(struct pci_controller *hose)
 	hose->busn_space->flags = IORESOURCE_BUS;
 	hose->first_busno = hose->self_busno = hose->busn_space->start;
 	hose->last_busno  = hose->busn_space->end;
-
-	hose->piu_ior0 = alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
-	hose->piu_ior1 = alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
 
 	if (is_in_host()) {
 		if (IS_ENABLED(CONFIG_PCI_MSI))

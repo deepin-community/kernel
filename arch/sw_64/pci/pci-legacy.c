@@ -92,6 +92,13 @@ void __init common_init_pci(void)
 		bridge = pci_alloc_host_bridge(0);
 		if (!bridge)
 			continue;
+
+		hose->piu_ior0 =
+			alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
+
+		hose->piu_ior1 =
+			alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
+
 		hose->busn_space->start = last_bus;
 		init_busnr = (0xff << 16) + ((last_bus + 1) << 8) + (last_bus);
 		writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
