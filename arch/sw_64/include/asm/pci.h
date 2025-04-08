@@ -156,6 +156,15 @@ extern void __init setup_chip_pci_ops(void);
 #define setup_chip_pci_ops()	do { } while (0)
 #endif
 
+#ifdef CONFIG_UNCORE_XUELANG
+#define PIU_IOR0_SAVE_REGS (12 + 256)
+#define PIU_IOR1_SAVE_REGS 1
+#else
+#define PIU_IOR0_SAVE_REGS 12
+#define PIU_IOR1_SAVE_REGS 1
+#endif
+
+extern struct piu_saved_data *alloc_piu_saved_data(unsigned int size);
 extern void save_piu_ior0(struct pci_controller *hose);
 extern void restore_piu_ior0(struct pci_controller *hose);
 extern void save_piu_ior1(struct pci_controller *hose);
