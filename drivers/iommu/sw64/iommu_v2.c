@@ -1117,7 +1117,6 @@ sunway_iommu_unmap_page(struct sunway_iommu_domain *sunway_domain,
 	int tmp = 1;
 
 	pr_debug("%s iova %#lx, page_size %#lx\n", __func__, iova, page_size);
-	BUG_ON(!is_power_of_2(page_size));
 
 	switch (page_size) {
 	case (1UL << 33):
@@ -1445,12 +1444,15 @@ sunway_iommu_iova_to_phys(struct iommu_domain *dom, dma_addr_t iova)
 	paddr += iova & ~PAGE_MASK;
 	return paddr;
 }
-static int
-sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
-		 phys_addr_t paddr, size_t page_size, int iommu_prot, gfp_t gfp)
+
+static int sunway_iommu_map_pages(struct iommu_domain *domain, unsigned long iova,
+			      phys_addr_t paddr, size_t pgsize, size_t pgcount,
+			      int prot, gfp_t gfp, size_t *mapped)
 {
-	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
-	int ret;
+	struct sunway_iommu_domain *sdomain = to_sunway_domain(domain);
+	size_t size = pgcount << __ffs(pgsize);
+	unsigned long mapped_size = 0;
+	int ret = 0;
 
 	/*
 	 * 3.5G ~ 4G currently is seen as PCI 32-bit MEMIO space. In theory,
@@ -1470,7 +1472,7 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	 * users at the same time. So users can quickly learn if they are using
 	 * these "illegal" IOVA and thus change their strategies accordingly.
 	 */
-	if ((SW64_32BIT_DMA_LIMIT < iova + page_size)
+	if ((SW64_32BIT_DMA_LIMIT < iova + size)
 		&& (iova <= DMA_BIT_MASK(32))) {
 		pr_warn_once("process %s (pid:%d) is using domain %d with IOVA: %lx\n",
 			current->comm, current->pid, sdomain->id, iova);
@@ -1482,6 +1484,8 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	 */
 	if (iova >= SW64_BAR_ADDRESS) {
 		pr_warn_once("Domain %d are using IOVA: %lx\n", sdomain->id, iova);
+		if (mapped)
+			*mapped = size;
 		return 0;
 	}
 
@@ -1491,20 +1495,39 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 		return -EFAULT;
 	}
 
-	ret = sunway_iommu_map_page(sdomain, iova, paddr, page_size, iommu_prot);
+	if (!(pgsize & domain->pgsize_bitmap)) {
+		pr_err("pgsize: %lx not supported\n", pgsize);
+		return -EINVAL;
+	}
 
+	while (mapped_size < size) {
+		ret = sunway_iommu_map_page(sdomain, iova, paddr, pgsize, prot);
+		if (ret)
+			goto out;
+
+		iova += pgsize;
+		paddr += pgsize;
+		mapped_size += pgsize;
+	}
+
+	if (mapped)
+		*mapped = size;
+
+out:
 	return ret;
 }
 
-static size_t
-sunway_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
-		   size_t page_size, struct iommu_iotlb_gather *gather)
+static size_t sunway_iommu_unmap_pages(struct iommu_domain *domain, unsigned long iova,
+				       size_t pgsize, size_t pgcount,
+				       struct iommu_iotlb_gather *iotlb_gather)
 {
-	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
-	size_t unmap_size;
+	struct sunway_iommu_domain *sdomain = to_sunway_domain(domain);
+	size_t size = pgcount << __ffs(pgsize);
+	unsigned long unmapped_size = 0;
+	unsigned long unmap_size;
 
 	if (iova >= SW64_BAR_ADDRESS)
-		return page_size;
+		return size;
 
 	/* IOMMU v2 supports 42 bit mapped address width */
 	if (iova >= MAX_IOVA_WIDTH) {
@@ -1512,9 +1535,19 @@ sunway_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
 		return 0;
 	}
 
-	unmap_size = sunway_iommu_unmap_page(sdomain, iova, page_size);
+	if (!(pgsize & domain->pgsize_bitmap)) {
+		pr_err("pgsize: %lx not supported\n", pgsize);
+		return -EINVAL;
+	}
 
-	return unmap_size;
+	while (unmapped_size < size) {
+		unmap_size = sunway_iommu_unmap_page(sdomain, iova, pgsize);
+
+		iova += unmap_size;
+		unmapped_size += unmap_size;
+	}
+
+	return size;
 }
 
 static struct iommu_group *sunway_iommu_device_group(struct device *dev)
@@ -1700,8 +1733,8 @@ const struct iommu_ops sunway_iommu_ops = {
 	.def_domain_type = sunway_iommu_def_domain_type,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev = sunway_iommu_attach_device,
-		.map = sunway_iommu_map,
-		.unmap = sunway_iommu_unmap,
+		.map_pages = sunway_iommu_map_pages,
+		.unmap_pages = sunway_iommu_unmap_pages,
 		.iova_to_phys = sunway_iommu_iova_to_phys,
 		.free = sunway_iommu_domain_free,
 	}
