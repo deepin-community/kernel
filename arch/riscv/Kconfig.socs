@@ -71,6 +71,16 @@ config ARCH_THEAD
 	help
 	  This enables support for the RISC-V based T-HEAD SoCs.
 
+config ARCH_ULTRARISC
+	bool "UltraRISC RISC-V SoCs"
+	depends on MMU && !XIP_KERNEL
+	help
+	  This enables support for UltraRISC SoC platform hardware,
+	  including boards based on the UR-DP1000.
+	  UR-DP1000 is an 8-core 64-bit RISC-V SoC that supports
+	  the RV64GCBHX ISA. Supports Hardware Virtualization,
+	  RISC-V RV64 ISA H(v1.0) Extension.
+
 config ARCH_VIRT
 	bool "QEMU Virt Machine"
 	select POWER_RESET
