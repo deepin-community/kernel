@@ -135,13 +135,14 @@ vt_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
 	struct irq_data *irqd;
 	struct cpumask searchmask;
 	int cpu, vector;
+	unsigned long flags;
 
 	/* Is this valid ? */
 	if (cpumask_any_and(cpumask, cpu_online_mask) >= nr_cpu_ids)
 		return -EINVAL;
 
 	irqd = irq_domain_get_irq_data(vt_msi_default_domain->parent, d->irq);
-	if (!irqd_is_started(irqd))
+	if (!irqd_is_started(irqd) && !irqd_affinity_is_managed(irqd))
 		return IRQ_SET_MASK_OK;
 
 	cdata = irqd->chip_data;
@@ -155,20 +156,34 @@ vt_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
 	if (cpu_online(cdata->dst_cpu) && cpumask_test_cpu(cdata->dst_cpu, cpumask))
 		return IRQ_SET_MASK_OK;
 
+	if (cdata->move_in_progress && cpu_online(cdata->dst_cpu))
+		return -EBUSY;
+
+	raw_spin_lock_irqsave(&vector_lock, flags);
+
 	cpumask_and(&searchmask, cpumask, cpu_online_mask);
-	if (!vt_find_free_cpu_vector(&searchmask, &cpu, &vector, irqd))
+	if (!vt_find_free_cpu_vector(&searchmask, &cpu, &vector, irqd)) {
+		raw_spin_unlock_irqrestore(&vector_lock, flags);
 		return -ENOSPC;
+	}
 
 	per_cpu(vector_irq, cpu)[vector] = irqd->irq;
 	spin_lock(&cdata->cdata_lock);
-	cdata->prev_cpu = cdata->dst_cpu;
-	cdata->prev_vector = cdata->vector;
+
+	if (cpu_online(cdata->dst_cpu)) {
+		cdata->move_in_progress = true;
+		cdata->prev_vector = cdata->vector;
+		cdata->prev_cpu = cdata->dst_cpu;
+	} else {
+		per_cpu(vector_irq, cdata->dst_cpu)[cdata->vector] = 0;
+	}
 	cdata->dst_cpu = cpu;
 	cdata->vector = vector;
-	cdata->move_in_progress = true;
 	spin_unlock(&cdata->cdata_lock);
-	irq_data_update_effective_affinity(irqd, &searchmask);
+	irq_data_update_effective_affinity(d, cpumask_of(cpu));
 	vt_irq_msi_update_msg(irqd, irqd->chip_data);
+
+	raw_spin_unlock_irqrestore(&vector_lock, flags);
 
 	return 0;
 }
@@ -234,6 +249,7 @@ int chip_setup_vt_msi_irqs(int virq, unsigned int nr_irqs,
 		cdata->prev_cpu = cpu;
 		cdata->prev_vector = vector;
 		cdata->move_in_progress = false;
+		irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
 
 		irq_data->chip_data = cdata;
 	}
