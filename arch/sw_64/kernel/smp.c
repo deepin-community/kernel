@@ -808,11 +808,9 @@ int __cpu_disable(void)
 	int cpu = smp_processor_id();
 	int ret;
 
-	if (is_in_host()) {
-		ret = can_unplug_cpu();
-		if (ret)
-			return ret;
-	}
+	ret = can_unplug_cpu();
+	if (ret)
+		return ret;
 
 	set_cpu_online(cpu, false);
 	remove_cpu_topology(cpu);
