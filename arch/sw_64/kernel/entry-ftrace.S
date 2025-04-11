@@ -63,8 +63,6 @@
 	ldl	$21, 0x48($sp)
 	addl	$sp, FTRACE_SP_OFF, $sp
 
-	ldl	$28, 0($sp)
-	ldl	$26, 0x10($sp)
 	ldl	$15, 0x18($sp)
 	addl	$sp, 0x20, $sp
 	.endm
@@ -160,9 +158,7 @@
 	ldl	$29, PT_REGS_GP($sp)
 	ldi	$sp, PT_REGS_SIZE($sp)
 
-	/* restore $28 & $26 & fp */
-	ldl	$28, 0($sp)
-	ldl	$26, 0x10($sp)
+	/* only restore $fp */
 	ldl	$15, 0x18($sp)
 	addl	$sp, 0x20, $sp
 	.endm
