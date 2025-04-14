@@ -16,7 +16,6 @@
 
 #include <asm/cputime.h>
 #include <asm/smp.h>
-#include "../../../kernel/sched/sched.h"
 
 int autoplug_enabled;
 int autoplug_verbose;
@@ -452,7 +451,7 @@ static void do_autoplug_timer(struct work_struct *work)
 #else
 	active = atomic_long_read(&calc_load_tasks);
 	active = active > 0 ? active * FIXED_1 : 0;
-	CALC_LOAD(avenrun[0], EXP_1, active);
+	calc_load(avenrun[0], EXP_1, active);
 	load = avenrun[0] / 2;
 #endif
 
