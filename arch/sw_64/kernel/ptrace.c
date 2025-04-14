@@ -146,6 +146,20 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 		return PTR_ERR(addr);
 	else {
 		*addr = data;
+
+		/*
+		 * Any modifications made to $0 and $19 at syscall entry
+		 * should also be reflected on orig_r0 and orig_r19.
+		 *
+		 * See syscall_set() for how to modify orig_r0 only.
+		 */
+		if (task->ptrace_message == PTRACE_EVENTMSG_SYSCALL_ENTRY) {
+			if (regno == PT_REG_BASE)
+				task_pt_regs(task)->orig_r0 = data;
+			if (regno == (PT_REG_BASE + 19))
+				task_pt_regs(task)->orig_r19 = data;
+		}
+
 		return 0;
 	}
 }
@@ -423,7 +437,6 @@ long arch_ptrace(struct task_struct *child, long request,
 
 asmlinkage unsigned long syscall_trace_enter(void)
 {
-	unsigned long ret = 0;
 	struct pt_regs *regs = current_pt_regs();
 
 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
@@ -437,9 +450,10 @@ asmlinkage unsigned long syscall_trace_enter(void)
 #endif
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
-		trace_sys_enter(regs, regs->regs[0]);
-	audit_syscall_entry(regs->regs[0], regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
-	return ret ?: regs->regs[0];
+		trace_sys_enter(regs, regs->orig_r0);
+	audit_syscall_entry(regs->orig_r0, regs->regs[16],
+			regs->regs[17], regs->regs[18], regs->regs[19]);
+	return regs->orig_r0;
 }
 
 asmlinkage void

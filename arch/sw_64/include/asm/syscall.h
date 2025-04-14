@@ -13,7 +13,7 @@ extern syscall_fn_t sys_call_table[];
 static inline int syscall_get_nr(struct task_struct *task,
 				 struct pt_regs *regs)
 {
-	return regs->regs[0];
+	return regs->orig_r0;
 }
 
 static inline long
