@@ -7,3 +7,11 @@ CONFIG_USB_NET_RNDIS_HOST
 CONFIG_USB_IPHETH
 # CONFIG_USB_NET_RNDIS_HOST depend
 CONFIG_USB_USBNET
+# slabtop depends
+CONFIG_SLUB_DEBUG
+# see sched/debug: Make CONFIG_SCHED_DEBUG functionality unconditional
+CONFIG_SCHED_DEBUG
+# driver for EFI frame buffer
+CONFIG_FB_EFI
+# driver for CAN bus
+CONFIG_CAN
