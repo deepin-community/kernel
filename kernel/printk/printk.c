@@ -2184,6 +2184,10 @@ static u16 printk_sprint(char *text, u16 size, int facility,
 	return text_len;
 }
 
+#ifdef CONFIG_SW64_RRK
+extern void sw64_rrk_store(const char *text, u16 text_len, u64 ts_nsec, int level,
+		unsigned long id, bool final);
+#endif
 __printf(4, 0)
 int vprintk_store(int facility, int level,
 		  const struct dev_printk_info *dev_info,
@@ -2202,16 +2206,9 @@ int vprintk_store(int facility, int level,
 	u16 text_len;
 	int ret = 0;
 	u64 ts_nsec;
-#ifdef CONFIG_SW64_RRK
-	extern void sw64_printk(const char *fmt, va_list args);
-#endif
 
 	if (!printk_enter_irqsave(recursion_ptr, irqflags))
 		return 0;
-
-#ifdef CONFIG_SW64_RRK
-	sw64_printk(fmt, args);
-#endif
 
 	/*
 	 * Since the duration of printk() can vary depending on the message
@@ -2260,6 +2257,12 @@ int vprintk_store(int facility, int level,
 				prb_commit(&e);
 			}
 
+#ifdef CONFIG_SW64_RRK
+			sw64_rrk_store(&r.text_buf[r.info->text_len], text_len,
+					r.info->ts_nsec, -1, e.id,
+					!!(flags & LOG_NEWLINE));
+#endif
+
 			ret = text_len;
 			goto out;
 		}
@@ -2298,6 +2301,11 @@ int vprintk_store(int facility, int level,
 		prb_commit(&e);
 	else
 		prb_final_commit(&e);
+
+#ifdef CONFIG_SW64_RRK
+	sw64_rrk_store(&r.text_buf[0], r.info->text_len, r.info->ts_nsec, r.info->level,
+			e.id, !!(flags & LOG_NEWLINE));
+#endif
 
 	ret = text_len + trunc_msg_len;
 out:
