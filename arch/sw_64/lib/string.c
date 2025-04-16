@@ -19,14 +19,14 @@ static inline void *____memcpy(void *dest, const void *src, size_t n)
 		return ____memcpy_simd_align(dest, src, n);
 }
 
-void *memcpy(void *dest, const void *src, size_t n)
+void notrace *memcpy(void *dest, const void *src, size_t n)
 {
 	return ____memcpy(dest, src, n);
 }
 EXPORT_SYMBOL(memcpy);
 
 /* For backward compatibility with modules.  Unused otherwise.  */
-void *__memcpy(void *dest, const void *src, size_t n)
+void notrace *__memcpy(void *dest, const void *src, size_t n)
 {
 	return ____memcpy(dest, src, n);
 }
@@ -47,12 +47,12 @@ static inline void *____constant_c_memset(void *s, unsigned long c, size_t n)
 		return ____constant_c_memset_simd_align(s, c, n);
 }
 
-void *__constant_c_memset(void *s, unsigned long c, size_t n)
+void notrace *__constant_c_memset(void *s, unsigned long c, size_t n)
 {
 	return ____constant_c_memset(s, c, n);
 }
 
-void *___memset(void *s, int c, size_t n)
+void notrace *___memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
 
@@ -60,7 +60,7 @@ void *___memset(void *s, int c, size_t n)
 }
 EXPORT_SYMBOL(___memset);
 
-void *__memset(void *s, int c, size_t n)
+void notrace *__memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
 
@@ -68,7 +68,7 @@ void *__memset(void *s, int c, size_t n)
 }
 EXPORT_SYMBOL(__memset);
 
-void *memset(void *s, int c, size_t n)
+void notrace *memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
 
@@ -76,7 +76,7 @@ void *memset(void *s, int c, size_t n)
 }
 EXPORT_SYMBOL(memset);
 
-void *__memsetw(void *dest, unsigned short c, size_t count)
+void notrace *__memsetw(void *dest, unsigned short c, size_t count)
 {
 	unsigned long c_ul = (c & 0xffff) * 0x0001000100010001UL;
 
