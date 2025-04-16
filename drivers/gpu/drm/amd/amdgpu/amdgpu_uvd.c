@@ -1196,7 +1196,11 @@ int amdgpu_uvd_get_create_msg(struct amdgpu_ring *ring, uint32_t handle,
 {
 	struct amdgpu_device *adev = ring->adev;
 	struct amdgpu_bo *bo = adev->uvd.ib_bo;
+#if IS_ENABLED(CONFIG_SW64)
+	volatile uint32_t *msg;
+#else
 	uint32_t *msg;
+#endif
 	int i;
 
 	msg = amdgpu_bo_kptr(bo);
