@@ -665,7 +665,11 @@ ttm_kmap_iter_linear_io_init(struct ttm_kmap_iter_linear_io *iter_io,
 	}
 
 	if (mem->bus.addr) {
+#if IS_ENABLED(CONFIG_SW64)
+		iosys_map_set_vaddr_iomem(&iter_io->dmap, mem->bus.addr);
+#else
 		iosys_map_set_vaddr(&iter_io->dmap, mem->bus.addr);
+#endif
 		iter_io->needs_unmap = false;
 	} else {
 		iter_io->needs_unmap = true;
