@@ -116,7 +116,7 @@ static void setup_shared_cpu_map(unsigned int cpu)
 {
 	unsigned int index;
 	unsigned int rcid = cpu_to_rcid(cpu);
-	struct cacheinfo *this_leaf;
+	struct cacheinfo *this_leaf, *sib_leaf;
 	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
 
 	for (index = 0; index < this_cpu_ci->num_leaves; index++) {
@@ -126,16 +126,20 @@ static void setup_shared_cpu_map(unsigned int cpu)
 
 		cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
 
-		for_each_possible_cpu(i) {
+		for_each_online_cpu(i) {
 			unsigned int sib_rcid = cpu_to_rcid(i);
+			struct cpu_cacheinfo *sib_cpu_ci = get_cpu_cacheinfo(i);
 
 			if ((rcid_to_domain_id(sib_rcid) != rcid_to_domain_id(rcid)) ||
 					(i == cpu))
 				continue;
 
+			sib_leaf = sib_cpu_ci->info_list + index;
 			if ((rcid_to_core_id(rcid) == rcid_to_core_id(sib_rcid)) ||
-					(this_leaf->level == 3))
+					(this_leaf->level == 3)) {
+				cpumask_set_cpu(cpu, &sib_leaf->shared_cpu_map);
 				cpumask_set_cpu(i, &this_leaf->shared_cpu_map);
+			}
 		}
 	}
 }
