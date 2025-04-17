@@ -190,7 +190,7 @@ void load_ucode_ap(void)
 			load_ucode_amd_ap(cpuid_1_eax);
 		break;
 	case X86_VENDOR_HYGON:
-		load_ucode_amd_bsp(&early_data, cpuid_1_eax);
+		load_ucode_amd_ap(cpuid_1_eax);
 		break;
 	default:
 		break;
