@@ -16,6 +16,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-map-ops.h>
 #include <linux/dma-direct.h>
+#include <linux/iommu.h>
 #include <linux/iommu-helper.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -431,7 +432,7 @@ set_entry_by_devid(u16 devid,
 		dte_l2_val |= 0x1;
 
 	*dte_l2 = dte_l2_val;
-	printk("device with id %d added to domain: %d with pte_root: %lx\n",
+	pr_debug("device with id %d added to domain: %d with pte_root: %lx\n",
 			devid, sdomain->id, dte_l2_val);
 
 	return 0;
@@ -1270,7 +1271,7 @@ static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type)
 		}
 
 		sdomain->domain.geometry.aperture_start = 0UL;
-		sdomain->domain.geometry.aperture_end	= SW64_64BIT_DMA_LIMIT;
+		sdomain->domain.geometry.aperture_end	= ~0UL;
 		sdomain->domain.geometry.force_aperture	= true;
 		sdomain->type = IOMMU_DOMAIN_UNMANAGED;
 		break;
@@ -1388,8 +1389,15 @@ sunway_iommu_iova_to_phys(struct iommu_domain *dom, dma_addr_t iova)
 	unsigned long paddr, grn;
 	unsigned long is_last;
 
+	if ((iova > SW64_32BIT_DMA_LIMIT)
+		&& (iova <= DMA_BIT_MASK(32)))
+		return iova;
+
 	if (iova >= SW64_BAR_ADDRESS)
 		return iova;
+
+	if (iova >= MAX_IOVA_WIDTH)
+		return 0;
 
 	paddr = fetch_pte(sdomain, iova, PTE_LEVEL1_VAL);
 	if ((paddr & SW64_IOMMU_ENTRY_VALID) == 0)
@@ -1449,21 +1457,41 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	int ret;
 
 	/*
-	 * As VFIO cannot distinguish between normal DMA request
-	 * and pci device BAR, check should be introduced manually
-	 * to avoid VFIO trying to map pci config space.
+	 * 3.5G ~ 4G currently is seen as PCI 32-bit MEMIO space. In theory,
+	 * this space should be excluded from memory space addressing (using
+	 * resv_region APIs), which will leave a memory hole on the entire memory
+	 * space naturally.
+	 *
+	 * However, some applications(especially qemu) under sunway do not
+	 * support incontiguous memory allocation right now. This memory
+	 * hole has to be seen as one of the valid IOVA ranges to pass VFIO
+	 * validness check for qemu. In this case, CPU is still capable of
+	 * allocating IOVA in this space, which is, frankly speaking, dangerous
+	 * and buggy.
+	 *
+	 * We manage to find a compromise solution, which is allow these IOVA
+	 * being allocated and "mapped" as usual, but with a warning issued to
+	 * users at the same time. So users can quickly learn if they are using
+	 * these "illegal" IOVA and thus change their strategies accordingly.
 	 */
-	if (iova > IO_BASE) {
-		pr_err("iova %#lx is out of memory!\n", iova);
-		return -ENOMEM;
+	if ((iova > SW64_32BIT_DMA_LIMIT)
+		&& (iova <= DMA_BIT_MASK(32))) {
+		pr_warn_once("Domain %d are using IOVA: %lx\n", sdomain->id, iova);
+		return 0;
 	}
 
-	if (iova >= SW64_BAR_ADDRESS)
+	/*
+	 * For the same reason, IOVA allocated from PCI dev BAR address should
+	 * be warned as well.
+	 */
+	if (iova >= SW64_BAR_ADDRESS) {
+		pr_warn_once("Domain %d are using IOVA: %lx\n", sdomain->id, iova);
 		return 0;
+	}
 
 	/* IOMMU v2 supports 42 bit mapped address width*/
 	if (iova >= MAX_IOVA_WIDTH) {
-		pr_err("IOMMU cannot map provided address: %lx\n", iova);
+		pr_err("The IOMMU hardware cannot map provided address: %lx\n", iova);
 		return -EFAULT;
 	}
 
@@ -1479,13 +1507,17 @@ sunway_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
 	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
 	size_t unmap_size;
 
+	if ((iova > SW64_32BIT_DMA_LIMIT)
+		&& (iova <= DMA_BIT_MASK(32)))
+		return page_size;
+
 	if (iova >= SW64_BAR_ADDRESS)
 		return page_size;
 
-	/* IOMMU v2 supports 42 bit mapped address width*/
+	/* IOMMU v2 supports 42 bit mapped address width */
 	if (iova >= MAX_IOVA_WIDTH) {
 		pr_err("Trying to unmap illegal IOVA : %lx\n", iova);
-		return -EFAULT;
+		return 0;
 	}
 
 	unmap_size = sunway_iommu_unmap_page(sdomain, iova, page_size);
@@ -1625,8 +1657,22 @@ static void sunway_iommu_get_resv_regions(struct device *dev,
 					  struct list_head *head)
 {
 	struct iommu_resv_region *region;
+	struct iommu_domain *domain;
 
-	/* Reserve 3.5~4G for device */
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain)
+		goto do_resv;
+	/*
+	 * Allow user applications have access to a contiguous memory space,
+	 * so no reserves for unmanaged domains.
+	 *
+	 * See comments in map API for more detail.
+	 */
+	if (domain->type == IOMMU_DOMAIN_UNMANAGED)
+		return;
+
+do_resv:
+	/* Reserve 3.5~4G for MEMIO */
 	region = iommu_alloc_resv_region(SW64_32BIT_DMA_LIMIT,
 					 (DMA_BIT_MASK(32) - SW64_32BIT_DMA_LIMIT),
 					 IOMMU_NOEXEC | IOMMU_MMIO,
