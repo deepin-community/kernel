@@ -13,6 +13,11 @@
 #include <linux/smp.h>
 #include <linux/percpu.h>
 
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+extern bool haoc_enabled;
+#endif
+
 static inline void fill_ldt(struct desc_struct *desc, const struct user_desc *info)
 {
 	desc->limit0		= info->limit & 0x0ffff;
@@ -210,9 +215,23 @@ static inline void native_load_gdt(const struct desc_ptr *dtr)
 	asm volatile("lgdt %0"::"m" (*dtr));
 }
 
-static __always_inline void native_load_idt(const struct desc_ptr *dtr)
+#ifdef CONFIG_IEE_SIP
+static __always_inline void iee_load_idt_early(const struct desc_ptr *dtr)
 {
 	asm volatile("lidt %0"::"m" (*dtr));
+}
+#endif
+
+static __always_inline void native_load_idt(const struct desc_ptr *dtr)
+{
+	#ifdef CONFIG_IEE_SIP
+	if(haoc_enabled)
+		iee_load_idt((void *)dtr);
+	else
+		asm volatile("lidt %0"::"m" (*dtr));
+	#else
+	asm volatile("lidt %0"::"m" (*dtr));
+	#endif
 }
 
 static inline void native_store_gdt(struct desc_ptr *dtr)

@@ -9,6 +9,10 @@
 #include <asm/processor-flags.h>
 #include <linux/irqflags.h>
 #include <linux/jump_label.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+extern bool haoc_enabled;
+#endif
 
 /*
  * The compiler should not reorder volatile asm statements with respect to each
@@ -49,9 +53,23 @@ static inline unsigned long __native_read_cr3(void)
 	return val;
 }
 
+#ifdef CONFIG_IEE_SIP
+static inline void iee_write_cr3_early(unsigned long val)
+{
+	asm volatile("mov %0,%%cr3" : : "r" (val) : "memory");
+}
+#endif
+ 
 static inline void native_write_cr3(unsigned long val)
 {
+	#ifdef CONFIG_IEE_SIP
+	if(haoc_enabled)
+		iee_write_cr3(val);
+	else
+		asm volatile("mov %0,%%cr3": : "r" (val) : "memory");
+	#else
 	asm volatile("mov %0,%%cr3": : "r" (val) : "memory");
+	#endif
 }
 
 static inline unsigned long native_read_cr4(void)

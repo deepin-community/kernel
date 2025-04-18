@@ -1522,6 +1522,9 @@ config IEE
 		Support for Isolated Execution Environment Framework. Foundation of HAOC.
 		Could isolate kernel critical data and enforce all write access made and
 		verified in IEE APIs.
+config IEE_SIP
+	depends on IEE
+	def_bool y
 
 # Common NUMA Features
 config NUMA
