@@ -14,10 +14,17 @@
 #include <asm/set_memory.h>
 #include <asm/haoc/iee.h>
 #include <asm/pgalloc.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
 unsigned long IEE_OFFSET = 0x200000000000;
+#ifdef CONFIG_IEE_SIP
+bool iee_init_done __iee_si_data;
+#else
 bool iee_init_done;
+#endif
 DEFINE_PER_CPU(struct iee_stack, iee_stacks);
 
 static void __init _iee_mapping_populate_pud(pud_t *pud, unsigned long addr, unsigned long end)
@@ -158,8 +165,20 @@ void __init iee_init(void)
 }
 
 bool __ro_after_init haoc_enabled;
+#ifdef CONFIG_IEE_SIP
+extern unsigned long cr4_pinned_mask;
+#endif
 static int __init parse_haoc_enabled(char *str)
 {
-	return kstrtobool(str, &haoc_enabled);
+	int ret = kstrtobool(str, &haoc_enabled);
+	#ifdef CONFIG_IEE_SIP
+	if(haoc_enabled)
+	{
+		cr4_pinned_mask =
+		X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
+		X86_CR4_FSGSBASE | X86_CR4_CET;
+	}
+	#endif
+	return ret;
 }
 early_param("haoc", parse_haoc_enabled);

@@ -720,7 +720,14 @@ static void startup_64_load_idt(unsigned long physbase)
 	}
 
 	desc->address = (unsigned long)idt;
+	#ifdef CONFIG_IEE_SIP
+	if(haoc_enabled)
+		iee_load_idt_early(desc);
+	else
+		native_load_idt(desc);
+	#else
 	native_load_idt(desc);
+	#endif
 }
 
 /* This is used when running on kernel addresses */

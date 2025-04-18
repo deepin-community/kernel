@@ -18,4 +18,12 @@ enum {
 	IEE_FLAG_END
 };
 
+#ifdef CONFIG_IEE_SIP
+#define IEE_SIP_TEST    0
+#define IEE_WRITE_CR0   1
+#define IEE_WRITE_CR3   2
+#define IEE_WRITE_CR4   3
+#define IEE_LOAD_IDT    4
+#endif
+
 #endif

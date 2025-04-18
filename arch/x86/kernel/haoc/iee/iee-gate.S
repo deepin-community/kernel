@@ -71,3 +71,49 @@ SYM_FUNC_START(iee_rw_gate)
 
 	jmp __x86_return_thunk  /* ret */
 SYM_FUNC_END(iee_rw_gate)
+
+#ifdef CONFIG_IEE_SIP
+SYM_FUNC_START(iee_rwx_gate)
+	pushq %r12
+ 
+	/* save Interrupt flag*/
+	pushfq
+	/* close irq */
+	cli
+ 
+	/* set SMEP=0 to enable supervisor-mode exec user-mode insn */
+	movq %cr4, %rax  /* rax -> cr4 */
+	andq $(~X86_CR4_SMEP), %rax
+	movq %rax, %cr4
+ 
+	DISABLE_WP r12
+ 
+	movq %rsp, %r12
+	/* If iee hasn't been initialized, skip stack switch. */
+	cmpb $0, iee_init_done(%rip)
+	jz 2f
+ 
+	/* switch to iee stack */
+	movq PER_CPU_VAR(iee_stacks) + IEE_STACK, %rsp
+ 
+2:  call _iee_si_handler
+	/* switch to kernel stack. If iee hasn't been initialized, skip switch*/
+	movq %r12, %rsp
+ 
+	ENABLE_WP r12
+ 
+	/* set SMEP=1 to disable supervisor-mode exec user-mode insn */
+	movq %cr4, %rax  /* rax -> cr4 */
+1:  orq $X86_CR4_SMEP_SMAP, %rax
+	movq %rax, %cr4
+	andq $X86_CR4_SMEP_SMAP, %rax
+	cmpq $X86_CR4_SMEP_SMAP, %rax
+	jnz 1
+ 
+	/* restore irq*/
+	popfq
+ 
+	popq %r12
+	jmp __x86_return_thunk  /* ret */
+SYM_FUNC_END(iee_rwx_gate)
+#endif
