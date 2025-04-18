@@ -15,5 +15,10 @@ iee_func iee_funcs[] = {
 	(iee_func)_iee_memset,
 	(iee_func)_iee_set_freeptr,
 	(iee_func)_iee_test_and_clear_bit,
+#ifdef CONFIG_IEE_PTRP
+	(iee_func)_iee_set_token_pgd,
+	(iee_func)_iee_invalidate_token,
+	(iee_func)_iee_validate_token,
+#endif
 	NULL
 };
