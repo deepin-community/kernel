@@ -10,7 +10,9 @@
 #ifndef _LINUX_IEE_FUNC_H
 #define _LINUX_IEE_FUNC_H
 
+#include <linux/slab.h>
 extern void set_iee_page(unsigned long addr, unsigned int order);
 extern void unset_iee_page(unsigned long addr, unsigned int order);
-
+extern bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab, unsigned int order);
+extern unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order);
 #endif  /* _LINUX_IEE_FUNC_H */

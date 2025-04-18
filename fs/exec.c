@@ -78,6 +78,10 @@
 
 #include <trace/events/sched.h>
 
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
+
 static int bprm_creds_from_file(struct linux_binprm *bprm);
 
 int suid_dumpable = 0;
@@ -1035,6 +1039,10 @@ static int exec_mmap(struct mm_struct *mm)
 	if (!IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
 		local_irq_enable();
 	activate_mm(active_mm, mm);
+#ifdef CONFIG_IEE_PTRP
+	if(haoc_enabled)
+		iee_set_token_pgd(tsk, mm->pgd);
+#endif
 	if (IS_ENABLED(CONFIG_ARCH_WANT_IRQS_OFF_ACTIVATE_MM))
 		local_irq_enable();
 	lru_gen_add_mm(mm);

@@ -44,6 +44,12 @@
 
 #include <linux/debugfs.h>
 #include <trace/events/kmem.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee-func.h>
+#endif
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 
 #include "internal.h"
 
@@ -165,7 +171,17 @@
  * 			options set. This moves	slab handling out of
  * 			the fast path and disables lockless freelists.
  */
-
+#ifdef CONFIG_IEE
+void __weak iee_allocate_slab_data(struct kmem_cache *s, struct slab *slab, unsigned int order) {}
+bool __weak iee_free_slab_data(struct kmem_cache *s, struct slab *slab, unsigned int order)
+{
+	return false;
+}
+unsigned int __weak iee_calculate_order(struct kmem_cache *s, unsigned int order) 
+{
+	return order;
+}
+#endif
 /*
  * We could simply use migrate_disable()/enable() but as long as it's a
  * function call even on !PREEMPT_RT, use inline preempt_disable() there.
@@ -2021,6 +2037,10 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		alloc_gfp = (alloc_gfp | __GFP_NOMEMALLOC) & ~__GFP_RECLAIM;
 
 	slab = alloc_slab_page(alloc_gfp, node, oo);
+#ifdef CONFIG_IEE_PTRP
+	if(haoc_enabled)
+		slab = iee_alloc_task_token_slab(s, slab, oo_order(oo));
+#endif
 	if (unlikely(!slab)) {
 		oo = s->min;
 		alloc_gfp = flags;
@@ -2029,6 +2049,10 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		 * Try a lower order alloc if possible
 		 */
 		slab = alloc_slab_page(alloc_gfp, node, oo);
+#ifdef CONFIG_IEE_PTRP
+		if(haoc_enabled)
+			slab = iee_alloc_task_token_slab(s, slab, oo_order(oo));
+#endif
 		if (unlikely(!slab))
 			return NULL;
 		stat(s, ORDER_FALLBACK);
@@ -2038,6 +2062,10 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	slab->inuse = 0;
 	slab->frozen = 0;
 
+#ifdef CONFIG_IEE
+	if(haoc_enabled)
+		iee_allocate_slab_data(s, slab, oo_order(oo));
+#endif
 	account_slab(slab, oo_order(oo), s, flags);
 
 	slab->slab_cache = s;
@@ -2090,6 +2118,13 @@ static void __free_slab(struct kmem_cache *s, struct slab *slab)
 	__folio_clear_slab(folio);
 	mm_account_reclaimed_pages(pages);
 	unaccount_slab(slab, order, s);
+#ifdef CONFIG_IEE
+	if(haoc_enabled)
+	{
+		if (iee_free_slab_data(s, slab, order))
+			return;
+	}
+#endif
 	__free_pages(&folio->page, order);
 }
 
@@ -4487,7 +4522,10 @@ static int calculate_sizes(struct kmem_cache *s)
 	s->size = size;
 	s->reciprocal_size = reciprocal_value(size);
 	order = calculate_order(size);
-
+	#ifdef CONFIG_IEE
+	if(haoc_enabled)
+		order = iee_calculate_order(s, order);
+	#endif
 	if ((int)order < 0)
 		return 0;
 
