@@ -3066,7 +3066,7 @@ static int csv_get_hygon_coco_extension(struct kvm *kvm)
 	size_t len = sizeof(uint32_t);
 	int ret = 0;
 
-	if (!kvm)
+	if (!kvm || !csv3_guest(kvm))
 		return 0;
 
 	csv = &to_kvm_svm_csv(kvm)->csv_info;
