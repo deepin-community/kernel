@@ -14,4 +14,14 @@ config IEE
 		verified in IEE APIs.
 		Needs hardware support FEAT_HPDS.
 
+config IEE_PTRP
+	bool "Pointer Protection for IEE(IEE_PTRP)"
+	help
+		Provide IEE matadata for each process called task_token to allow
+		verifing pointers inside task_struct, like struct cred* that determines
+		the capabilities of a process.
+		Could be a enhancement of other sub-module of HAOC.
+	depends on IEE
+	def_bool y
+
 endmenu # HAOC
