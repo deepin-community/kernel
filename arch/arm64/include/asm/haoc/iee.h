@@ -26,6 +26,7 @@ extern bool haoc_enabled;
 #define __virt_to_iee(x)	(((u64)x) | IEE_OFFSET)
 #define __kimg_to_iee(x)	(__phys_to_iee(__pa_symbol(x)))
 #define __page_to_iee(x)	(__phys_to_iee(page_to_phys(x)))
+#define __slab_to_iee(x)	(__page_to_iee(folio_page(slab_folio(x), 0)))
 
 #define __iee_to_virt(x)	(((u64)x) & ~IEE_OFFSET)
 #define __iee_to_phys(x)	(__pa(__iee_to_virt(x)))
@@ -37,6 +38,15 @@ extern bool haoc_enabled;
 		__val = ((typeof(x))(__virt_to_iee((u64)x)));	\
 	else						\
 		__val = ((typeof(x))(__kimg_to_iee((u64)x)));	\
+	__val;						\
+})
+
+#define __addr_to_iee(x)	({		\
+	u64 __val;			\
+	if (__is_lm_address((u64)x))	\
+		__val = __virt_to_iee((u64)x);	\
+	else						\
+		__val = __kimg_to_iee((u64)x);	\
 	__val;						\
 })
 

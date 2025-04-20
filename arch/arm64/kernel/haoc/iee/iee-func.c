@@ -14,6 +14,7 @@
 #include <asm/ptrace.h>
 #include <asm/system_misc.h>
 #include <asm/daifflags.h>
+#include "slab.h"
 
 static inline bool iee_support_pmd_block(unsigned long addr, unsigned int order)
 {
@@ -86,6 +87,128 @@ static void iee_may_split_pmd(pud_t *pudp, unsigned long addr, unsigned int orde
 			pte_free_kernel(&init_mm, pgtable);
 	}
 }
+
+/*
+ * Used to enforce or remove RO protection linear addresses of IEE objects.
+ * Not handling block descriptors except pmd blocks when change page tables,
+ * so DO NOT use larger block on kernel linear mappings.
+ */
+void iee_set_logical_mem(unsigned long addr, unsigned int order, bool prot)
+{
+	pgd_t *pgdir = swapper_pg_dir;
+	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
+	p4d_t *p4dp = p4d_offset(pgdp, addr);
+	pud_t *pudp = pud_offset(p4dp, addr);
+	pmd_t *pmdp;
+
+	/* Split pmd block if needed. */
+	iee_may_split_pmd(pudp, addr, order);
+
+	pmdp = pmd_offset(pudp, addr);
+
+	if (pmd_leaf(READ_ONCE(*pmdp))) {
+		/* Only permits writing single pmd block right now. */
+		if (order != (PMD_SHIFT - PAGE_SHIFT))
+			panic("%s: error on linear mappings.", __func__);
+
+		pmd_t pmd = READ_ONCE(*pmdp);
+
+		if (prot)
+			pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
+		else
+			pmd = __pmd(pmd_val(pmd) & ~PMD_SECT_RDONLY);
+		set_pmd(pmdp, pmd);
+	} else {
+		pte_t *ptep = pte_offset_kernel(pmdp, addr);
+		pte_t pte;
+
+		/* Protect addresses one by one on this pte table.*/
+		for (int i = 0; i < (1UL << order); i++) {
+			/* Clear continuous bits first. */
+			if (pte_val(*ptep) & PTE_CONT && !iee_support_cont_pte(addr, order)) {
+				pte_t *cont_ptep = pte_offset_kernel(pmdp, addr & CONT_PTE_MASK);
+
+				for (int j = 0; j < CONT_PTES; j++) {
+					set_pte(cont_ptep, __pte(pte_val(*cont_ptep) & ~PTE_CONT));
+					cont_ptep++;
+				}
+			}
+
+			pte = READ_ONCE(*ptep);
+			if (prot)
+				pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
+			else
+				pte = __pte(pte_val(pte) & ~PTE_RDONLY);
+			set_pte(ptep, pte);
+
+			ptep++;
+		}
+	}
+}
+
+void iee_set_logical_mem_ro(unsigned long addr)
+{
+	iee_set_logical_mem(addr, 0, true);
+	__flush_tlb_kernel_pgtable(addr);
+	isb();
+}
+
+void iee_set_logical_mem_rw(unsigned long addr)
+{
+	iee_set_logical_mem(addr, 0, false);
+	__flush_tlb_kernel_pgtable(addr);
+	isb();
+}
+
+/*
+ * IEE addresses are mapped in page granule so we only need to valid or invalid
+ * the pte entries of these mappings to mark whether a physical page is inside IEE.
+ */
+void set_iee_address(unsigned long addr, unsigned int order, bool valid)
+{
+	pgd_t *pgdir = swapper_pg_dir;
+	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
+	p4d_t *p4dp = p4d_offset(pgdp, addr);
+	pud_t *pudp = pud_offset(p4dp, addr);
+	pmd_t *pmdp = pmd_offset(pudp, addr);
+	pte_t *ptep = pte_offset_kernel(pmdp, addr);
+	unsigned long end_addr = addr + (PAGE_SIZE << order);
+
+	if ((addr < (PAGE_OFFSET + IEE_OFFSET)) |
+			(addr > (PAGE_OFFSET + BIT(vabits_actual - 1)))) {
+		pr_err("IEE: Invalid address to valid in IEE.");
+		return;
+	}
+
+	if (addr != ALIGN(addr, PAGE_SIZE)
+			|| end_addr > ALIGN(addr + 1, PMD_SIZE))
+		panic("%s: invalid input address range 0x%lx-0x%lx.", __func__,
+				addr, end_addr);
+
+	for (int i = 0; i < (1UL << order); i++) {
+		pte_t pte = READ_ONCE(*ptep);
+
+		if (valid)
+			pte = __pte(pte_val(pte) | PTE_VALID);
+		else
+			pte = __pte(pte_val(pte) & ~PTE_VALID);
+
+		set_pte(ptep, pte);
+		ptep++;
+	}
+}
+
+// TODO: Delete when allocate page table from pool
+void set_iee_address_valid(unsigned long lm_addr, unsigned int order)
+{
+	set_iee_address(__virt_to_iee(lm_addr), order, true);
+}
+
+void set_iee_address_invalid(unsigned long lm_addr, unsigned int order)
+{
+	set_iee_address(__virt_to_iee(lm_addr), order, false);
+}
+// TODO END
 
 /* Modify linear and IEE mappings of each address at the same time to avoid
  * synchronization problems.
@@ -280,6 +403,23 @@ void set_iee_page(unsigned long addr, int order)
 void unset_iee_page(unsigned long addr, int order)
 {
 	remove_pages_from_iee(addr, order);
+}
+
+unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
+{
+#ifdef CONFIG_IEE_PTRP
+	if (strcmp(s->name, "task_struct") == 0)
+		return IEE_DATA_ORDER;
+#endif
+	return order;
+}
+
+void iee_set_min_partial(struct kmem_cache *s)
+{
+#ifdef CONFIG_IEE_PTRP
+	if (strcmp(s->name, "task_struct") == 0)
+		s->min_partial *= 16;
+#endif
 }
 
 static char *handler[] = {

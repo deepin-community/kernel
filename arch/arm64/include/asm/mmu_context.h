@@ -25,6 +25,10 @@
 #include <asm/sysreg.h>
 #include <asm/tlbflush.h>
 
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#include <asm/haoc/iee-asm.h>
+#endif
 extern bool rodata_full;
 
 static inline void contextidr_thread_switch(struct task_struct *next)
@@ -173,6 +177,10 @@ static inline void cpu_replace_ttbr1(pgd_t *pgdp, pgd_t *idmap)
 		 */
 		ttbr1 |= TTBR_CNP_BIT;
 	}
+#ifdef CONFIG_IEE
+	if (iee_init_done)
+		ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
+#endif
 
 	replace_phys = (void *)__pa_symbol(idmap_cpu_replace_ttbr1);
 

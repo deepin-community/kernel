@@ -33,6 +33,11 @@ struct iee_early_alloc {
 	char *name;
 };
 
+static struct iee_early_alloc iee_data = {
+	.name = "iee_early_data",
+	.curr_block_nr = -1
+};
+
 static struct iee_early_alloc iee_stack = {
 	.name = "iee_stack",
 	.curr_block_nr = -1
@@ -55,7 +60,7 @@ void __init iee_init_tcr(void)
 
 	__set_fixmap(FIX_PTE, __pa_symbol(&kernel_tcr), FIXMAP_PAGE_NORMAL);
 	ptr += (unsigned long)(&kernel_tcr) & (PAGE_SIZE - 1);
-	*((u64 *)ptr) = read_sysreg(tcr_el1) & IEE_TCR_MASK;
+	*((u64 *)ptr) = read_sysreg(tcr_el1) & IEE_TCR_MASK & ~(TCR_HPD1 | TCR_A1);
 	clear_fixmap(FIX_PTE);
 	ptr = (unsigned long)(fix_to_virt(FIX_PTE));
 	__set_fixmap(FIX_PTE, __pa_symbol(&iee_tcr), FIXMAP_PAGE_NORMAL);
@@ -124,13 +129,34 @@ static phys_addr_t __init iee_mem_pool_early_alloc(struct iee_early_alloc *cache
 	return phys;
 }
 
+/* Calculate the reserved size for early data. */
+static unsigned int get_iee_alloc_order(int shift)
+{
+	phys_addr_t start, end;
+	u64 i = 0, size_order = 0;
+	unsigned long size = 0;
+
+	for_each_mem_range(i, &start, &end) {
+		if (start >= end)
+			break;
+		size += (end - start);
+	}
+
+	size = size >> 36;
+	while (size >> size_order)
+		size_order++;
+	return IEE_DATA_ORDER + (size_order + shift);
+}
+
 /* Prepare one block for each early page pool. */
 void __init early_iee_data_cache_init(void)
 {
 	if (!haoc_enabled)
 		return;
-
+	/* Calculate IEE stack alloc block size. */
 	iee_mem_pool_early_alloc(&iee_stack, IEE_DATA_ORDER);
+	/* Calculate IEE data alloc block size. */
+	iee_mem_pool_early_alloc(&iee_data, get_iee_alloc_order(1));
 }
 
 phys_addr_t __init iee_early_alloc(struct iee_early_alloc *cache,
@@ -168,6 +194,11 @@ redo:
 phys_addr_t __init early_iee_stack_alloc(int order)
 {
 	return iee_early_alloc(&iee_stack, order);
+}
+
+phys_addr_t __init early_iee_data_alloc(int shift)
+{
+	return iee_early_alloc(&iee_data, 0);
 }
 
 static phys_addr_t __init early_pgtable_alloc(int shift)

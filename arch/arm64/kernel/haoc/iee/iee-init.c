@@ -11,12 +11,15 @@
 #include <linux/memblock.h>
 #include <asm/cpufeature.h>
 #include <asm/haoc/iee-mmu.h>
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 #include <asm/haoc/iee-asm.h>
 
 __aligned(PAGE_SIZE) DEFINE_PER_CPU(u64*[(PAGE_SIZE/8)],
 				iee_cpu_stack_ptr);
 
-bool __ro_after_init iee_init_done;
+bool __ro_after_init __aligned(8) iee_init_done;
 bool __ro_after_init haoc_enabled;
 
 /* Allocate pages from IEE data pool to use as per-cpu IEE stack. */
@@ -59,7 +62,12 @@ void __init iee_init_post(void)
 		return;
 
 	iee_setup_asid();
+	/* Flush tlb to enable IEE. */
+	flush_tlb_all();
 
+#ifdef CONFIG_IEE_PTRP
+	iee_prepare_init_task_token();
+#endif
 	iee_init_done = true;
 }
 
