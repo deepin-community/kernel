@@ -11,6 +11,9 @@
 #include <linux/user_namespace.h>
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 struct group_info *groups_alloc(int gidsetsize)
 {
@@ -119,7 +122,11 @@ void set_groups(struct cred *new, struct group_info *group_info)
 {
 	put_group_info(new->group_info);
 	get_group_info(group_info);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_group_info(new, group_info);
+	#else
 	new->group_info = group_info;
+	#endif
 }
 
 EXPORT_SYMBOL(set_groups);

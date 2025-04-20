@@ -21,6 +21,9 @@
 #include <linux/fs_struct.h>
 #include <linux/bsearch.h>
 #include <linux/sort.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 static struct kmem_cache *user_ns_cachep __ro_after_init;
 static DEFINE_MUTEX(userns_state_mutex);
@@ -45,6 +48,19 @@ static void set_cred_user_ns(struct cred *cred, struct user_namespace *user_ns)
 	/* Start with the same capabilities as init but useless for doing
 	 * anything as the capabilities are bound to the new user namespace.
 	 */
+	#ifdef CONFIG_CREDP
+	iee_set_cred_securebits(cred, SECUREBITS_DEFAULT);
+	iee_set_cred_cap_inheritable(cred, CAP_EMPTY_SET);
+	iee_set_cred_cap_permitted(cred, CAP_FULL_SET);
+	iee_set_cred_cap_effective(cred, CAP_FULL_SET);
+	iee_set_cred_cap_ambient(cred, CAP_EMPTY_SET);
+	iee_set_cred_cap_bset(cred, CAP_FULL_SET);
+#ifdef CONFIG_KEYS
+	key_put(cred->request_key_auth);
+	iee_set_cred_request_key_auth(cred, NULL);
+#endif
+	iee_set_cred_user_ns(cred, user_ns);
+	#else
 	cred->securebits = SECUREBITS_DEFAULT;
 	cred->cap_inheritable = CAP_EMPTY_SET;
 	cred->cap_permitted = CAP_FULL_SET;
@@ -57,6 +73,7 @@ static void set_cred_user_ns(struct cred *cred, struct user_namespace *user_ns)
 #endif
 	/* tgcred will be cleared in our caller bc CLONE_THREAD won't be set */
 	cred->user_ns = user_ns;
+	#endif
 }
 
 static unsigned long enforced_nproc_rlimit(void)

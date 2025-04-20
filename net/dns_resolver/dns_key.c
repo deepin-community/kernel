@@ -32,6 +32,9 @@
 #include <linux/dns_resolver.h>
 #include <keys/dns_resolver-type.h>
 #include <keys/user-type.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "internal.h"
 
 MODULE_DESCRIPTION("DNS Resolver");
@@ -365,8 +368,13 @@ static int __init init_dns_resolver(void)
 	/* instruct request_key() to use this special keyring as a cache for
 	 * the results it looks up */
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_thread_keyring(cred, keyring);
+ 	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
+ 	#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
+	#endif
 	dns_resolver_cache = cred;
 
 	kdebug("DNS resolver keyring: %d\n", key_serial(keyring));

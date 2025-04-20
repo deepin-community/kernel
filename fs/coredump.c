@@ -53,6 +53,10 @@
 
 #include <trace/events/sched.h>
 
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
+
 static bool dump_vma_snapshot(struct coredump_params *cprm);
 static void free_vma_snapshot(struct coredump_params *cprm);
 
@@ -564,7 +568,11 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 	 */
 	if (__get_dumpable(cprm.mm_flags) == SUID_DUMP_ROOT) {
 		/* Setuid core dump mode */
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(cred, GLOBAL_ROOT_UID);
+		#else
 		cred->fsuid = GLOBAL_ROOT_UID;	/* Dump root private */
+		#endif
 		need_suid_safe = true;
 	}
 

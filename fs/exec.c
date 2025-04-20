@@ -81,6 +81,9 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 static int bprm_creds_from_file(struct linux_binprm *bprm);
 
@@ -1690,12 +1693,20 @@ static void bprm_fill_uid(struct linux_binprm *bprm, struct file *file)
 
 	if (mode & S_ISUID) {
 		bprm->per_clear |= PER_CLEAR_ON_SETID;
+		#ifdef CONFIG_CREDP
+		iee_set_cred_euid(bprm->cred, vfsuid_into_kuid(vfsuid));
+		#else
 		bprm->cred->euid = vfsuid_into_kuid(vfsuid);
+		#endif
 	}
 
 	if ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP)) {
 		bprm->per_clear |= PER_CLEAR_ON_SETID;
+		#ifdef CONFIG_CREDP
+		iee_set_cred_egid(bprm->cred, vfsgid_into_kgid(vfsgid));
+		#else
 		bprm->cred->egid = vfsgid_into_kgid(vfsgid);
+		#endif
 	}
 }
 

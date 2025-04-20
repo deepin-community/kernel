@@ -22,6 +22,9 @@
 #include <linux/uio.h>
 #include <linux/uaccess.h>
 #include <keys/request_key_auth-type.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "internal.h"
 
 #define KEY_MAX_DESC_SIZE 4096
@@ -1155,7 +1158,11 @@ static int keyctl_change_reqkey_auth(struct key *key)
 		return -ENOMEM;
 
 	key_put(new->request_key_auth);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_request_key_auth(new, key_get(key));
+	#else
 	new->request_key_auth = key_get(key);
+	#endif
 
 	return commit_creds(new);
 }
@@ -1432,7 +1439,11 @@ long keyctl_set_reqkey_keyring(int reqkey_defl)
 	}
 
 set:
+	#ifdef CONFIG_CREDP
+	iee_set_cred_jit_keyring(new, reqkey_defl);
+	#else
 	new->jit_keyring = reqkey_defl;
+	#endif
 	commit_creds(new);
 	return old_setting;
 error:
@@ -1644,9 +1655,20 @@ long keyctl_session_to_parent(void)
 	cred = cred_alloc_blank();
 	if (!cred)
 		goto error_keyring;
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+		newwork = (struct rcu_head *)(cred->rcu.func);
+	else
+		newwork = &cred->rcu;
+	#else
 	newwork = &cred->rcu;
+	#endif
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_session_keyring(cred, key_ref_to_ptr(keyring_r));
+	#else
 	cred->session_keyring = key_ref_to_ptr(keyring_r);
+	#endif
 	keyring_r = NULL;
 	init_task_work(newwork, key_change_session_keyring);
 
@@ -1704,8 +1726,16 @@ long keyctl_session_to_parent(void)
 unlock:
 	write_unlock_irq(&tasklist_lock);
 	rcu_read_unlock();
-	if (oldwork)
+	if (oldwork){
+		#ifdef CONFIG_CREDP
+		if(haoc_enabled)
+			put_cred(*(struct cred **)(oldwork + 1));
+		else
+			put_cred(container_of(oldwork, struct cred, rcu));
+		#else
 		put_cred(container_of(oldwork, struct cred, rcu));
+		#endif
+	}
 	if (newwork)
 		put_cred(cred);
 	return ret;

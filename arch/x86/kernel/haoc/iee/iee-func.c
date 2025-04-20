@@ -13,6 +13,7 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+extern bool haoc_enabled;
 
 void set_iee_page(unsigned long addr, unsigned int order)
 {
@@ -33,6 +34,8 @@ struct iee_free_slab_work {
 void iee_free_slab(struct kmem_cache *s, struct slab *slab,
 		   void (*do_free_slab)(struct work_struct *work))
 {
+	if(haoc_enabled)
+	return;
 	struct iee_free_slab_work *iee_free_slab_work =
 		kmalloc(sizeof(struct iee_free_slab_work), GFP_ATOMIC);
 
@@ -72,9 +75,17 @@ bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab,
 
 unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 {
+	if(!haoc_enabled)
+	{
+		return order;
+	}
 #ifdef CONFIG_IEE_PTRP
 	if (strcmp(s->name, "task_struct") == 0)
 		return IEE_DATA_ORDER;
+#endif
+#ifdef CONFIG_CREDP
+ 	if (strcmp(s->name, "cred_jar") == 0)
+ 		order = IEE_DATA_ORDER;
 #endif
 	return order;
 }

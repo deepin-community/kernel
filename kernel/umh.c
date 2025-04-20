@@ -31,6 +31,9 @@
 #include <linux/freezer.h>
 
 #include <trace/events/module.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 static kernel_cap_t usermodehelper_bset = CAP_FULL_SET;
 static kernel_cap_t usermodehelper_inheritable = CAP_FULL_SET;
@@ -91,9 +94,15 @@ static int call_usermodehelper_exec_async(void *data)
 		goto out;
 
 	spin_lock(&umh_sysctl_lock);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_cap_bset(new, cap_intersect(usermodehelper_bset, new->cap_bset));
+	iee_set_cred_cap_inheritable(new, cap_intersect(usermodehelper_inheritable,
+					     new->cap_inheritable));
+	#else
 	new->cap_bset = cap_intersect(usermodehelper_bset, new->cap_bset);
 	new->cap_inheritable = cap_intersect(usermodehelper_inheritable,
 					     new->cap_inheritable);
+	#endif
 	spin_unlock(&umh_sysctl_lock);
 
 	if (sub_info->init) {

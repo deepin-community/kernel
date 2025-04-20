@@ -2,6 +2,9 @@
 /* Copyright (C) 1995, 1996 Olaf Kirch <okir@monad.swb.de> */
 
 #include <linux/sched.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "nfsd.h"
 #include "auth.h"
 
@@ -32,22 +35,40 @@ int nfsd_setuser(struct svc_rqst *rqstp, struct svc_export *exp)
 	if (!new)
 		return -ENOMEM;
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsuid(new, rqstp->rq_cred.cr_uid);
+	iee_set_cred_fsgid(new, rqstp->rq_cred.cr_gid);
+	#else
 	new->fsuid = rqstp->rq_cred.cr_uid;
 	new->fsgid = rqstp->rq_cred.cr_gid;
+	#endif
 
 	rqgi = rqstp->rq_cred.cr_group_info;
 
 	if (flags & NFSEXP_ALLSQUASH) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(new, exp->ex_anon_uid);
+		iee_set_cred_fsgid(new, exp->ex_anon_gid);
+		#else
 		new->fsuid = exp->ex_anon_uid;
 		new->fsgid = exp->ex_anon_gid;
+		#endif
 		gi = groups_alloc(0);
 		if (!gi)
 			goto oom;
 	} else if (flags & NFSEXP_ROOTSQUASH) {
 		if (uid_eq(new->fsuid, GLOBAL_ROOT_UID))
+			#ifdef CONFIG_CREDP
+			iee_set_cred_fsuid(new, exp->ex_anon_uid);
+			#else
 			new->fsuid = exp->ex_anon_uid;
+			#endif
 		if (gid_eq(new->fsgid, GLOBAL_ROOT_GID))
+			#ifdef CONFIG_CREDP
+ 			iee_set_cred_fsgid(new, exp->ex_anon_gid);
+ 			#else
 			new->fsgid = exp->ex_anon_gid;
+			#endif
 
 		gi = groups_alloc(rqgi->ngroups);
 		if (!gi)
@@ -67,18 +88,35 @@ int nfsd_setuser(struct svc_rqst *rqstp, struct svc_export *exp)
 	}
 
 	if (uid_eq(new->fsuid, INVALID_UID))
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(new, exp->ex_anon_uid);
+		#else
 		new->fsuid = exp->ex_anon_uid;
+		#endif
 	if (gid_eq(new->fsgid, INVALID_GID))
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsgid(new, exp->ex_anon_gid);
+		#else
 		new->fsgid = exp->ex_anon_gid;
+		#endif
 
 	set_groups(new, gi);
 	put_group_info(gi);
 
 	if (!uid_eq(new->fsuid, GLOBAL_ROOT_UID))
+		#ifdef CONFIG_CREDP
+		iee_set_cred_cap_effective(new, cap_drop_nfsd_set(new->cap_effective));
+		#else
 		new->cap_effective = cap_drop_nfsd_set(new->cap_effective);
+		#endif
 	else
+		#ifdef CONFIG_CREDP
+		iee_set_cred_cap_effective(new, cap_raise_nfsd_set(new->cap_effective,
+							new->cap_permitted));
+		#else
 		new->cap_effective = cap_raise_nfsd_set(new->cap_effective,
 							new->cap_permitted);
+		#endif
 	put_cred(override_creds(new));
 	put_cred(new);
 	return 0;

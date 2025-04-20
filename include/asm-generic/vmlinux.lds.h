@@ -1079,6 +1079,14 @@
  * They will fit only a subset of the architectures
  */
 
+#ifdef CONFIG_CREDP
+#define CRED_DATA				\
+. = ALIGN(PAGE_SIZE);		\
+*(.iee.cred)				\
+. = ALIGN(PAGE_SIZE);
+#else
+#define CRED_DATA
+#endif
 
 /*
  * Writeable data.
@@ -1096,6 +1104,7 @@
 	. = ALIGN(PAGE_SIZE);						\
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {				\
 		INIT_TASK_DATA(inittask)				\
+		CRED_DATA								\
 		NOSAVE_DATA						\
 		PAGE_ALIGNED_DATA(pagealigned)				\
 		CACHELINE_ALIGNED_DATA(cacheline)			\

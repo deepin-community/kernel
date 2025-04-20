@@ -11,6 +11,9 @@
 #include <linux/exportfs.h>
 
 #include <linux/sunrpc/svcauth_gss.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "nfsd.h"
 #include "vfs.h"
 #include "auth.h"
@@ -223,9 +226,14 @@ static __be32 nfsd_set_fh_dentry(struct svc_rqst *rqstp, struct svc_fh *fhp)
 			error =  nfserrno(-ENOMEM);
 			goto out;
 		}
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_effective(new, cap_raise_nfsd_set(new->cap_effective,
+ 					   new->cap_permitted));
+ 		#else
 		new->cap_effective =
 			cap_raise_nfsd_set(new->cap_effective,
 					   new->cap_permitted);
+		#endif
 		put_cred(override_creds(new));
 		put_cred(new);
 	} else {

@@ -1530,6 +1530,9 @@ config IEE_PTRP
 	depends on IEE
 	def_bool y
 
+config CREDP
+	depends on IEE
+	def_bool y
 # Common NUMA Features
 config NUMA
 	bool "NUMA Memory Allocation and Scheduler Support"

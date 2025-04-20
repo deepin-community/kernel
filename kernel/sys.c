@@ -74,6 +74,9 @@
 #include <linux/uaccess.h>
 #include <asm/io.h>
 #include <asm/unistd.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 #include "uid16.h"
 
@@ -395,7 +398,11 @@ long __sys_setregid(gid_t rgid, gid_t egid)
 		if (gid_eq(old->gid, krgid) ||
 		    gid_eq(old->egid, krgid) ||
 		    ns_capable_setid(old->user_ns, CAP_SETGID))
+			#ifdef CONFIG_CREDP
+			iee_set_cred_gid(new, krgid);
+			#else
 			new->gid = krgid;
+			#endif
 		else
 			goto error;
 	}
@@ -404,15 +411,27 @@ long __sys_setregid(gid_t rgid, gid_t egid)
 		    gid_eq(old->egid, kegid) ||
 		    gid_eq(old->sgid, kegid) ||
 		    ns_capable_setid(old->user_ns, CAP_SETGID))
+			#ifdef CONFIG_CREDP
+			iee_set_cred_egid(new, kegid);
+			#else
 			new->egid = kegid;
+			#endif
 		else
 			goto error;
 	}
 
 	if (rgid != (gid_t) -1 ||
 	    (egid != (gid_t) -1 && !gid_eq(kegid, old->gid)))
+		#ifdef CONFIG_CREDP
+		iee_set_cred_sgid(new, new->egid);
+		#else
 		new->sgid = new->egid;
+		#endif
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsgid(new, new->egid);
+	#else
 	new->fsgid = new->egid;
+	#endif
 
 	retval = security_task_fix_setgid(new, old, LSM_SETID_RE);
 	if (retval < 0)
@@ -454,9 +473,25 @@ long __sys_setgid(gid_t gid)
 
 	retval = -EPERM;
 	if (ns_capable_setid(old->user_ns, CAP_SETGID))
+		#ifdef CONFIG_CREDP
+	{
+		iee_set_cred_fsgid(new, kgid);
+		iee_set_cred_sgid(new, kgid);
+		iee_set_cred_egid(new, kgid);
+		iee_set_cred_gid(new, kgid);
+	}
+		#else
 		new->gid = new->egid = new->sgid = new->fsgid = kgid;
+		#endif
 	else if (gid_eq(kgid, old->gid) || gid_eq(kgid, old->sgid))
+		#ifdef CONFIG_CREDP
+	{
+		iee_set_cred_fsgid(new, kgid);
+		iee_set_cred_egid(new, kgid);
+	}
+		#else
 		new->egid = new->fsgid = kgid;
+		#endif
 	else
 		goto error;
 
@@ -488,7 +523,11 @@ static int set_user(struct cred *new)
 		return -EAGAIN;
 
 	free_uid(new->user);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_user(new, new_user);
+	#else
 	new->user = new_user;
+	#endif
 	return 0;
 }
 
@@ -549,7 +588,11 @@ long __sys_setreuid(uid_t ruid, uid_t euid)
 
 	retval = -EPERM;
 	if (ruid != (uid_t) -1) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_uid(new, kruid);
+		#else
 		new->uid = kruid;
+		#endif
 		if (!uid_eq(old->uid, kruid) &&
 		    !uid_eq(old->euid, kruid) &&
 		    !ns_capable_setid(old->user_ns, CAP_SETUID))
@@ -557,7 +600,11 @@ long __sys_setreuid(uid_t ruid, uid_t euid)
 	}
 
 	if (euid != (uid_t) -1) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_euid(new, keuid);
+		#else
 		new->euid = keuid;
+		#endif
 		if (!uid_eq(old->uid, keuid) &&
 		    !uid_eq(old->euid, keuid) &&
 		    !uid_eq(old->suid, keuid) &&
@@ -572,8 +619,16 @@ long __sys_setreuid(uid_t ruid, uid_t euid)
 	}
 	if (ruid != (uid_t) -1 ||
 	    (euid != (uid_t) -1 && !uid_eq(keuid, old->uid)))
+		#ifdef CONFIG_CREDP
+		iee_set_cred_suid(new, new->euid);
+		#else
 		new->suid = new->euid;
+		#endif
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsuid(new, new->euid);
+	#else
 	new->fsuid = new->euid;
+	#endif
 
 	retval = security_task_fix_setuid(new, old, LSM_SETID_RE);
 	if (retval < 0)
@@ -626,7 +681,12 @@ long __sys_setuid(uid_t uid)
 
 	retval = -EPERM;
 	if (ns_capable_setid(old->user_ns, CAP_SETUID)) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_uid(new, kuid);
+		iee_set_cred_suid(new, kuid);
+		#else
 		new->suid = new->uid = kuid;
+		#endif
 		if (!uid_eq(kuid, old->uid)) {
 			retval = set_user(new);
 			if (retval < 0)
@@ -636,7 +696,12 @@ long __sys_setuid(uid_t uid)
 		goto error;
 	}
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_euid(new, kuid);
+	iee_set_cred_fsuid(new, kuid);
+	#else
 	new->fsuid = new->euid = kuid;
+	#endif
 
 	retval = security_task_fix_setuid(new, old, LSM_SETID_ID);
 	if (retval < 0)
@@ -710,7 +775,11 @@ long __sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)
 		return -ENOMEM;
 
 	if (ruid != (uid_t) -1) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_uid(new, kruid);
+		#else
 		new->uid = kruid;
+		#endif
 		if (!uid_eq(kruid, old->uid)) {
 			retval = set_user(new);
 			if (retval < 0)
@@ -718,10 +787,22 @@ long __sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)
 		}
 	}
 	if (euid != (uid_t) -1)
+		#ifdef CONFIG_CREDP
+		iee_set_cred_euid(new, keuid);
+		#else
 		new->euid = keuid;
+		#endif
 	if (suid != (uid_t) -1)
+		#ifdef CONFIG_CREDP
+		iee_set_cred_suid(new, ksuid);
+		#else
 		new->suid = ksuid;
+		#endif
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsuid(new, new->euid);
+	#else
 	new->fsuid = new->euid;
+	#endif
 
 	retval = security_task_fix_setuid(new, old, LSM_SETID_RES);
 	if (retval < 0)
@@ -810,12 +891,28 @@ long __sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)
 		return -ENOMEM;
 
 	if (rgid != (gid_t) -1)
+		#ifdef CONFIG_CREDP
+		iee_set_cred_gid(new, krgid);
+		#else
 		new->gid = krgid;
+		#endif
 	if (egid != (gid_t) -1)
+		#ifdef CONFIG_CREDP
+		iee_set_cred_egid(new, kegid);
+		#else
 		new->egid = kegid;
+		#endif
 	if (sgid != (gid_t) -1)
+		#ifdef CONFIG_CREDP
+		iee_set_cred_sgid(new, ksgid);
+		#else
 		new->sgid = ksgid;
+		#endif
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsgid(new, new->egid);
+	#else
 	new->fsgid = new->egid;
+	#endif
 
 	retval = security_task_fix_setgid(new, old, LSM_SETID_RES);
 	if (retval < 0)
@@ -882,7 +979,11 @@ long __sys_setfsuid(uid_t uid)
 	    uid_eq(kuid, old->suid) || uid_eq(kuid, old->fsuid) ||
 	    ns_capable_setid(old->user_ns, CAP_SETUID)) {
 		if (!uid_eq(kuid, old->fsuid)) {
+			#ifdef CONFIG_CREDP
+			iee_set_cred_fsuid(new, kuid);
+			#else
 			new->fsuid = kuid;
+			#endif
 			if (security_task_fix_setuid(new, old, LSM_SETID_FS) == 0)
 				goto change_okay;
 		}
@@ -926,7 +1027,11 @@ long __sys_setfsgid(gid_t gid)
 	    gid_eq(kgid, old->sgid) || gid_eq(kgid, old->fsgid) ||
 	    ns_capable_setid(old->user_ns, CAP_SETGID)) {
 		if (!gid_eq(kgid, old->fsgid)) {
+			#ifdef CONFIG_CREDP
+			iee_set_cred_fsgid(new, kgid);
+			#else
 			new->fsgid = kgid;
+			#endif
 			if (security_task_fix_setgid(new,old,LSM_SETID_FS) == 0)
 				goto change_okay;
 		}

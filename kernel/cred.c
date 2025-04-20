@@ -19,6 +19,10 @@
 #include <linux/binfmts.h>
 #include <linux/cn_proc.h>
 #include <linux/uidgid.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#include <asm/haoc/iee-func.h>
+#endif
 
 #if 0
 #define kdebug(FMT, ...)						\
@@ -33,7 +37,12 @@ do {									\
 } while (0)
 #endif
 
+#ifdef CONFIG_CREDP
+struct kmem_cache *cred_jar;
+static struct kmem_cache *rcu_jar;
+#else
 static struct kmem_cache *cred_jar;
+#endif
 
 /* init to 2 - one for init_task, one to ensure it is never freed */
 static struct group_info init_groups = { .usage = ATOMIC_INIT(2) };
@@ -41,6 +50,32 @@ static struct group_info init_groups = { .usage = ATOMIC_INIT(2) };
 /*
  * The initial credentials for the initial task
  */
+#ifdef CONFIG_CREDP
+struct cred init_cred __section(".iee.cred") = {
+	.usage			= ATOMIC_INIT(4),
+#ifdef CONFIG_DEBUG_CREDENTIALS
+	.subscribers		= ATOMIC_INIT(2),
+	.magic			= CRED_MAGIC,
+#endif
+	.uid			= GLOBAL_ROOT_UID,
+	.gid			= GLOBAL_ROOT_GID,
+	.suid			= GLOBAL_ROOT_UID,
+	.sgid			= GLOBAL_ROOT_GID,
+	.euid			= GLOBAL_ROOT_UID,
+	.egid			= GLOBAL_ROOT_GID,
+	.fsuid			= GLOBAL_ROOT_UID,
+	.fsgid			= GLOBAL_ROOT_GID,
+	.securebits		= SECUREBITS_DEFAULT,
+	.cap_inheritable	= CAP_EMPTY_SET,
+	.cap_permitted		= CAP_FULL_SET,
+	.cap_effective		= CAP_FULL_SET,
+	.cap_bset		= CAP_FULL_SET,
+	.user			= INIT_USER,
+	.user_ns		= &init_user_ns,
+	.group_info		= &init_groups,
+	.ucounts		= &init_ucounts,
+};
+#else
 struct cred init_cred = {
 	.usage			= ATOMIC_INIT(4),
 	.uid			= GLOBAL_ROOT_UID,
@@ -61,13 +96,22 @@ struct cred init_cred = {
 	.group_info		= &init_groups,
 	.ucounts		= &init_ucounts,
 };
+#endif
 
 /*
  * The RCU callback to actually dispose of a set of credentials
  */
 static void put_cred_rcu(struct rcu_head *rcu)
 {
+	#ifdef CONFIG_CREDP
+	struct cred *cred = NULL;
+	if(haoc_enabled)
+		cred = *(struct cred **)(rcu + 1);
+	else
+		cred = container_of(rcu, struct cred, rcu);
+	#else
 	struct cred *cred = container_of(rcu, struct cred, rcu);
+	#endif
 
 	kdebug("put_cred_rcu(%p)", cred);
 
@@ -86,6 +130,12 @@ static void put_cred_rcu(struct rcu_head *rcu)
 	if (cred->ucounts)
 		put_ucounts(cred->ucounts);
 	put_user_ns(cred->user_ns);
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		kmem_cache_free(rcu_jar, (struct rcu_head *)(cred->rcu.func));
+	}
+	#endif
 	kmem_cache_free(cred_jar, cred);
 }
 
@@ -104,10 +154,26 @@ void __put_cred(struct cred *cred)
 	BUG_ON(cred == current->cred);
 	BUG_ON(cred == current->real_cred);
 
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		if (*(int *)(&(((struct rcu_head *)(cred->rcu.func))->next)))
+			put_cred_rcu((struct rcu_head *)(cred->rcu.func));
+		else
+			call_rcu((struct rcu_head *)(cred->rcu.func), put_cred_rcu);
+	}
+	else{
+		if (cred->non_rcu)
+			put_cred_rcu(&cred->rcu);
+		else
+			call_rcu(&cred->rcu, put_cred_rcu);
+	}
+	#else
 	if (cred->non_rcu)
 		put_cred_rcu(&cred->rcu);
 	else
 		call_rcu(&cred->rcu, put_cred_rcu);
+	#endif
 }
 EXPORT_SYMBOL(__put_cred);
 
@@ -173,7 +239,21 @@ struct cred *cred_alloc_blank(void)
 	if (!new)
 		return NULL;
 
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		iee_set_cred_rcu(new, kmem_cache_zalloc(rcu_jar, GFP_KERNEL));
+		*(struct cred **)(((struct rcu_head *)(new->rcu.func)) + 1) = new;
+	}
+	iee_set_cred_atomic_set_usage(new, 1);
+	#else
 	atomic_long_set(&new->usage, 1);
+
+	#ifdef CONFIG_DEBUG_CREDENTIALS
+	new->magic = CRED_MAGIC;
+	#endif
+	#endif
+
 	if (security_cred_alloc_blank(new, GFP_KERNEL_ACCOUNT) < 0)
 		goto error;
 
@@ -208,13 +288,27 @@ struct cred *prepare_creds(void)
 	if (!new)
 		return NULL;
 
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		iee_set_cred_rcu(new, kmem_cache_alloc(rcu_jar, GFP_KERNEL));
+		*(struct cred **)(((struct rcu_head *)(new->rcu.func)) + 1) = new;
+	}
+	#endif
+
 	kdebug("prepare_creds() alloc %p", new);
 
 	old = task->cred;
+	#ifdef CONFIG_CREDP
+	iee_copy_cred(old, new);
+	iee_set_cred_non_rcu(new, 0);
+	iee_set_cred_atomic_set_usage(new, 1);
+	#else
 	memcpy(new, old, sizeof(struct cred));
 
 	new->non_rcu = 0;
 	atomic_long_set(&new->usage, 1);
+	#endif
 	get_group_info(new->group_info);
 	get_uid(new->user);
 	get_user_ns(new->user_ns);
@@ -227,10 +321,18 @@ struct cred *prepare_creds(void)
 #endif
 
 #ifdef CONFIG_SECURITY
+	#ifdef CONFIG_CREDP
+	iee_set_cred_security(new, NULL);
+	#else
 	new->security = NULL;
+	#endif
 #endif
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_ucounts(new, get_ucounts(new->ucounts));
+	#else
 	new->ucounts = get_ucounts(new->ucounts);
+	#endif
 	if (!new->ucounts)
 		goto error;
 
@@ -260,15 +362,30 @@ struct cred *prepare_exec_creds(void)
 #ifdef CONFIG_KEYS
 	/* newly exec'd tasks don't get a thread keyring */
 	key_put(new->thread_keyring);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_thread_keyring(new, NULL);
+	#else
 	new->thread_keyring = NULL;
+	#endif
 
 	/* inherit the session keyring; new process keyring */
 	key_put(new->process_keyring);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_process_keyring(new, NULL);
+	#else
 	new->process_keyring = NULL;
+	#endif
 #endif
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsuid(new, new->euid);
+	iee_set_cred_suid(new, new->euid);
+	iee_set_cred_fsgid(new, new->egid);
+	iee_set_cred_sgid(new, new->egid);
+	#else
 	new->suid = new->fsuid = new->euid;
 	new->sgid = new->fsgid = new->egid;
+	#endif
 
 	return new;
 }
@@ -323,7 +440,11 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 	 * had one */
 	if (new->thread_keyring) {
 		key_put(new->thread_keyring);
+		#ifdef CONFIG_CREDP
+		iee_set_cred_thread_keyring(new, NULL);
+		#else
 		new->thread_keyring = NULL;
+		#endif
 		if (clone_flags & CLONE_THREAD)
 			install_thread_keyring_to_cred(new);
 	}
@@ -333,7 +454,11 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 	 */
 	if (!(clone_flags & CLONE_THREAD)) {
 		key_put(new->process_keyring);
+		#ifdef CONFIG_CREDP
+		iee_set_cred_process_keyring(new, NULL);
+		#else
 		new->process_keyring = NULL;
+		#endif
 	}
 #endif
 
@@ -591,7 +716,11 @@ int set_cred_ucounts(struct cred *new)
 	if (!(new_ucounts = alloc_ucounts(new->user_ns, new->uid)))
 		return -EAGAIN;
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_ucounts(new, new_ucounts);
+	#else
 	new->ucounts = new_ucounts;
+	#endif
 	put_ucounts(old_ucounts);
 
 	return 0;
@@ -603,8 +732,23 @@ int set_cred_ucounts(struct cred *new)
 void __init cred_init(void)
 {
 	/* allocate a slab in which we can store credentials */
+	#ifdef CONFIG_CREDP
+		cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
+				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+
+		rcu_jar = kmem_cache_create("rcu_jar", sizeof(struct rcu_head) + sizeof(struct cred *), 0,
+				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+	if(haoc_enabled)
+	{
+		// Map init_cred
+		*((struct rcu_head **)(&(init_cred.rcu.func))) =
+						(struct rcu_head *)kmem_cache_zalloc(rcu_jar, GFP_KERNEL);
+		*(struct cred **)(((struct rcu_head *)(init_cred.rcu.func)) + 1) = &init_cred;
+	}
+	#else
 	cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+	#endif
 }
 
 /**
@@ -635,29 +779,59 @@ struct cred *prepare_kernel_cred(struct task_struct *daemon)
 	if (!new)
 		return NULL;
 
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		iee_set_cred_rcu(new, kmem_cache_alloc(rcu_jar, GFP_KERNEL));
+		*(struct cred **)(((struct rcu_head *)(new->rcu.func)) + 1) = new;
+	}
+	#endif
+
 	kdebug("prepare_kernel_cred() alloc %p", new);
 
 	old = get_task_cred(daemon);
 
+	#ifdef CONFIG_CREDP
+	iee_copy_cred(old, new);
+	iee_set_cred_non_rcu(new, 0);
+	iee_set_cred_atomic_set_usage(new, 1);
+	#else
 	*new = *old;
 	new->non_rcu = 0;
 	atomic_long_set(&new->usage, 1);
+	#endif
 	get_uid(new->user);
 	get_user_ns(new->user_ns);
 	get_group_info(new->group_info);
 
 #ifdef CONFIG_KEYS
+	#ifdef CONFIG_CREDP
+	iee_set_cred_session_keyring(new, NULL);
+	iee_set_cred_process_keyring(new, NULL);
+	iee_set_cred_thread_keyring(new, NULL);
+	iee_set_cred_request_key_auth(new, NULL);
+	iee_set_cred_jit_keyring(new, KEY_REQKEY_DEFL_THREAD_KEYRING);
+	#else
 	new->session_keyring = NULL;
 	new->process_keyring = NULL;
 	new->thread_keyring = NULL;
 	new->request_key_auth = NULL;
 	new->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
+	#endif
 #endif
 
 #ifdef CONFIG_SECURITY
+	#ifdef CONFIG_CREDP
+	iee_set_cred_security(new, NULL);
+	#else
 	new->security = NULL;
+	#endif
 #endif
+	#ifdef CONFIG_CREDP
+	iee_set_cred_ucounts(new, get_ucounts(new->ucounts));
+	#else
 	new->ucounts = get_ucounts(new->ucounts);
+	#endif
 	if (!new->ucounts)
 		goto error;
 
@@ -724,8 +898,13 @@ int set_create_files_as(struct cred *new, struct inode *inode)
 {
 	if (!uid_valid(inode->i_uid) || !gid_valid(inode->i_gid))
 		return -EINVAL;
+	#ifdef CONFIG_CREDP
+	iee_set_cred_fsuid(new, inode->i_uid);
+	iee_set_cred_fsgid(new, inode->i_gid);
+	#else
 	new->fsuid = inode->i_uid;
 	new->fsgid = inode->i_gid;
+	#endif
 	return security_kernel_create_files_as(new, inode);
 }
 EXPORT_SYMBOL(set_create_files_as);

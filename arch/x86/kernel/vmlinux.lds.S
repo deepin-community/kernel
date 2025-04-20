@@ -114,6 +114,12 @@ __iee_si_text_end = .;
 . = ALIGN(PAGE_SIZE);       \
 __iee_si_data_end = .;
 #endif
+#ifdef CONFIG_CREDP
+#define CRED_DATA				\
+	. = ALIGN(PAGE_SIZE);		\
+	*(.iee.cred)				\
+	. = ALIGN(PAGE_SIZE);
+#endif
 
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
@@ -202,6 +208,9 @@ SECTIONS
 		DATA_DATA
 #ifdef CONFIG_IEE_SIP
 		IEE_SI_DATA
+#endif
+#ifdef CONFIG_CREDP
+		CRED_DATA
 #endif
 		CONSTRUCTORS
 
