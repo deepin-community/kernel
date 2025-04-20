@@ -25,6 +25,9 @@
 #include <linux/binfmts.h>
 #include <linux/personality.h>
 #include <linux/mnt_idmapping.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 /*
  * If a non-root user executes a setuid-root binary in
@@ -265,7 +268,14 @@ int cap_capset(struct cred *new,
 	/* verify the _new_Effective_ is a subset of the _new_Permitted_ */
 	if (!cap_issubset(*effective, *permitted))
 		return -EPERM;
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_cap_effective(new, *effective);
+ 	iee_set_cred_cap_inheritable(new, *inheritable);
+ 	iee_set_cred_cap_permitted(new, *permitted);
 
+ 	iee_set_cred_cap_ambient(new, cap_intersect(new->cap_ambient,
+ 					 cap_intersect(*permitted, *inheritable)));
+ 	#else
 	new->cap_effective   = *effective;
 	new->cap_inheritable = *inheritable;
 	new->cap_permitted   = *permitted;
@@ -277,6 +287,7 @@ int cap_capset(struct cred *new,
 	new->cap_ambient = cap_intersect(new->cap_ambient,
 					 cap_intersect(*permitted,
 						       *inheritable));
+	#endif
 	if (WARN_ON(!cap_ambient_invariant_ok(new)))
 		return -EINVAL;
 	return 0;
@@ -601,9 +612,17 @@ static inline int bprm_caps_from_vfs_caps(struct cpu_vfs_cap_data *caps,
 	 * pP' = (X & fP) | (pI & fI)
 	 * The addition of pA' is handled later.
 	 */
+	#ifdef CONFIG_CREDP
+ 	kernel_cap_t temp = new->cap_permitted;
+ 
+ 	temp.val = (new->cap_bset.val & caps->permitted.val) |
+ 		(new->cap_inheritable.val & caps->inheritable.val);
+ 	iee_set_cred_cap_permitted(new, temp);
+ 	#else
 	new->cap_permitted.val =
 		(new->cap_bset.val & caps->permitted.val) |
 		(new->cap_inheritable.val & caps->inheritable.val);
+	#endif
 
 	if (caps->permitted.val & ~new->cap_permitted.val)
 		/* insufficient to execute correctly */
@@ -726,7 +745,16 @@ static int get_file_caps(struct linux_binprm *bprm, struct file *file,
 	int rc = 0;
 	struct cpu_vfs_cap_data vcaps;
 
+	#ifdef CONFIG_CREDP
+ 	do {
+ 		kernel_cap_t tmp_cap = bprm->cred->cap_permitted;
+ 
+ 		tmp_cap.val = 0;
+ 		iee_set_cred_cap_permitted(bprm->cred, tmp_cap);
+ 	} while (0);
+ 	#else
 	cap_clear(bprm->cred->cap_permitted);
+	#endif
 
 	if (!file_caps_enabled)
 		return 0;
@@ -757,7 +785,16 @@ static int get_file_caps(struct linux_binprm *bprm, struct file *file,
 
 out:
 	if (rc)
+	#ifdef CONFIG_CREDP
+ 		do {
+ 			kernel_cap_t tmp_cap = bprm->cred->cap_permitted;
+ 
+ 			tmp_cap.val = 0;
+ 			iee_set_cred_cap_permitted(bprm->cred, tmp_cap);
+ 		} while (0);
+ 	#else
 		cap_clear(bprm->cred->cap_permitted);
+	#endif
 
 	return rc;
 }
@@ -809,8 +846,13 @@ static void handle_privileged_root(struct linux_binprm *bprm, bool has_fcap,
 	 */
 	if (__is_eff(root_uid, new) || __is_real(root_uid, new)) {
 		/* pP' = (cap_bset & ~0) | (pI & ~0) */
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_permitted(new, cap_combine(old->cap_bset,
+ 						 old->cap_inheritable));
+ 		#else
 		new->cap_permitted = cap_combine(old->cap_bset,
 						 old->cap_inheritable);
+		#endif
 	}
 	/*
 	 * If only the real uid is 0, we do not set the effective bit.
@@ -919,34 +961,73 @@ int cap_bprm_creds_from_file(struct linux_binprm *bprm, struct file *file)
 		/* downgrade; they get no more than they had, and maybe less */
 		if (!ns_capable(new->user_ns, CAP_SETUID) ||
 		    (bprm->unsafe & LSM_UNSAFE_NO_NEW_PRIVS)) {
+			#ifdef CONFIG_CREDP
+ 			iee_set_cred_euid(new, new->uid);
+ 			iee_set_cred_egid(new, new->gid);
+ 			#else
 			new->euid = new->uid;
 			new->egid = new->gid;
+			#endif
 		}
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_permitted(new, cap_intersect(new->cap_permitted,
+ 						   old->cap_permitted));
+ 		#else
 		new->cap_permitted = cap_intersect(new->cap_permitted,
 						   old->cap_permitted);
+		#endif
 	}
 
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_fsuid(new, new->euid);
+ 	iee_set_cred_suid(new, new->euid);
+ 	iee_set_cred_fsgid(new, new->egid);
+ 	iee_set_cred_sgid(new, new->egid);
+ 	#else
 	new->suid = new->fsuid = new->euid;
 	new->sgid = new->fsgid = new->egid;
+	#endif
 
 	/* File caps or setid cancels ambient. */
 	if (has_fcap || is_setid)
+	#ifdef CONFIG_CREDP
+ 		do {
+ 			kernel_cap_t tmp_cap = new->cap_ambient;
+ 
+ 			tmp_cap.val = 0;
+ 			iee_set_cred_cap_ambient(new, tmp_cap);
+ 		} while (0);
+ 	#else
 		cap_clear(new->cap_ambient);
+	#endif
 
 	/*
 	 * Now that we've computed pA', update pP' to give:
 	 *   pP' = (X & fP) | (pI & fI) | pA'
 	 */
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_cap_permitted(new,
+ 					cap_combine(new->cap_permitted, new->cap_ambient));
+ 	#else
 	new->cap_permitted = cap_combine(new->cap_permitted, new->cap_ambient);
+	#endif
 
 	/*
 	 * Set pE' = (fE ? pP' : pA').  Because pA' is zero if fE is set,
 	 * this is the same as pE' = (fE ? pP' : 0) | pA'.
 	 */
 	if (effective)
+	#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_effective(new, new->cap_permitted);
+ 	#else
 		new->cap_effective = new->cap_permitted;
+	#endif
 	else
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_effective(new, new->cap_ambient);
+ 		#else
 		new->cap_effective = new->cap_ambient;
+		#endif
 
 	if (WARN_ON(!cap_ambient_invariant_ok(new)))
 		return -EPERM;
@@ -957,7 +1038,12 @@ int cap_bprm_creds_from_file(struct linux_binprm *bprm, struct file *file)
 			return ret;
 	}
 
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_securebits(new,
+ 					new->securebits & ~issecure_mask(SECURE_KEEP_CAPS));
+ 	#else
 	new->securebits &= ~issecure_mask(SECURE_KEEP_CAPS);
+	#endif
 
 	if (WARN_ON(!cap_ambient_invariant_ok(new)))
 		return -EPERM;
@@ -1092,8 +1178,17 @@ static inline void cap_emulate_setxuid(struct cred *new, const struct cred *old)
 	     !uid_eq(new->euid, root_uid) &&
 	     !uid_eq(new->suid, root_uid))) {
 		if (!issecure(SECURE_KEEP_CAPS)) {
+			#ifdef CONFIG_CREDP
+ 			do {
+ 				kernel_cap_t tmp_cap = new->cap_permitted;
+ 
+ 				tmp_cap.val = 0;
+ 				iee_set_cred_cap_permitted(new, tmp_cap);
+ 			} while (0);
+ 			#else
 			cap_clear(new->cap_permitted);
 			cap_clear(new->cap_effective);
+			#endif
 		}
 
 		/*
@@ -1101,12 +1196,34 @@ static inline void cap_emulate_setxuid(struct cred *new, const struct cred *old)
 		 * by exec to drop capabilities.  We should make sure that
 		 * this remains the case.
 		 */
+		#ifdef CONFIG_CREDP
+ 		do {
+ 			kernel_cap_t tmp_cap = new->cap_ambient;
+ 
+ 			tmp_cap.val = 0;
+ 			iee_set_cred_cap_ambient(new, tmp_cap);
+ 		} while (0);
+ 		#else
 		cap_clear(new->cap_ambient);
+		#endif
 	}
 	if (uid_eq(old->euid, root_uid) && !uid_eq(new->euid, root_uid))
+		#ifdef CONFIG_CREDP
+ 		do {
+ 			kernel_cap_t tmp_cap = new->cap_effective;
+ 
+ 			tmp_cap.val = 0;
+ 			iee_set_cred_cap_effective(new, tmp_cap);
+ 		} while (0);
+ 		#else
 		cap_clear(new->cap_effective);
+		#endif
 	if (!uid_eq(old->euid, root_uid) && uid_eq(new->euid, root_uid))
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_cap_effective(new, new->cap_permitted);
+ 		#else
 		new->cap_effective = new->cap_permitted;
+		#endif
 }
 
 /**
@@ -1142,13 +1259,23 @@ int cap_task_fix_setuid(struct cred *new, const struct cred *old, int flags)
 		if (!issecure(SECURE_NO_SETUID_FIXUP)) {
 			kuid_t root_uid = make_kuid(old->user_ns, 0);
 			if (uid_eq(old->fsuid, root_uid) && !uid_eq(new->fsuid, root_uid))
+				#ifdef CONFIG_CREDP
+ 				iee_set_cred_cap_effective(new,
+ 							cap_drop_fs_set(new->cap_effective));
+ 				#else
 				new->cap_effective =
 					cap_drop_fs_set(new->cap_effective);
+				#endif
 
 			if (!uid_eq(old->fsuid, root_uid) && uid_eq(new->fsuid, root_uid))
+				#ifdef CONFIG_CREDP
+ 				iee_set_cred_cap_effective(new, cap_raise_fs_set(new->cap_effective,
+ 							 new->cap_permitted));
+ 				#else
 				new->cap_effective =
 					cap_raise_fs_set(new->cap_effective,
 							 new->cap_permitted);
+				#endif
 		}
 		break;
 
@@ -1243,7 +1370,16 @@ static int cap_prctl_drop(unsigned long cap)
 	new = prepare_creds();
 	if (!new)
 		return -ENOMEM;
+	#ifdef CONFIG_CREDP
+ 	{
+ 		kernel_cap_t tmp = new->cap_bset;
+ 
+ 		cap_lower(tmp, cap);
+ 		iee_set_cred_cap_bset(new, tmp);
+ 	}
+ 	#else
 	cap_lower(new->cap_bset, cap);
+	#endif
 	return commit_creds(new);
 }
 
@@ -1319,7 +1455,11 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		new = prepare_creds();
 		if (!new)
 			return -ENOMEM;
+		#ifdef CONFIG_CREDP
+ 		iee_set_cred_securebits(new, arg2);
+ 		#else
 		new->securebits = arg2;
+		#endif
 		return commit_creds(new);
 
 	case PR_GET_SECUREBITS:
@@ -1338,9 +1478,19 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 		if (!new)
 			return -ENOMEM;
 		if (arg2)
+			#ifdef CONFIG_CREDP
+ 			iee_set_cred_securebits(new,
+ 						new->securebits | issecure_mask(SECURE_KEEP_CAPS));
+ 			#else
 			new->securebits |= issecure_mask(SECURE_KEEP_CAPS);
+			#endif
 		else
+			#ifdef CONFIG_CREDP
+ 			iee_set_cred_securebits(new,
+ 						new->securebits & ~issecure_mask(SECURE_KEEP_CAPS));
+ 			#else
 			new->securebits &= ~issecure_mask(SECURE_KEEP_CAPS);
+			#endif
 		return commit_creds(new);
 
 	case PR_CAP_AMBIENT:
@@ -1351,7 +1501,16 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 			new = prepare_creds();
 			if (!new)
 				return -ENOMEM;
+			#ifdef CONFIG_CREDP
+ 			do {
+ 				kernel_cap_t tmp_cap = new->cap_ambient;
+ 
+ 				tmp_cap.val = 0;
+ 				iee_set_cred_cap_ambient(new, tmp_cap);
+ 			} while (0);
+ 			#else
 			cap_clear(new->cap_ambient);
+			#endif
 			return commit_creds(new);
 		}
 
@@ -1375,9 +1534,27 @@ int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 			if (!new)
 				return -ENOMEM;
 			if (arg2 == PR_CAP_AMBIENT_RAISE)
+				#ifdef CONFIG_CREDP
+ 				{
+ 					kernel_cap_t tmp = new->cap_ambient;
+ 
+ 					cap_raise(tmp, arg3);
+ 					iee_set_cred_cap_ambient(new, tmp);
+ 				}
+ 				#else
 				cap_raise(new->cap_ambient, arg3);
+				#endif
 			else
+				#ifdef CONFIG_CREDP
+ 				{
+ 					kernel_cap_t tmp = new->cap_ambient;
+ 
+ 					cap_lower(tmp, arg3);
+ 					iee_set_cred_cap_ambient(new, tmp);
+ 				}
+ 				#else
 				cap_lower(new->cap_ambient, arg3);
+				#endif
 			return commit_creds(new);
 		}
 

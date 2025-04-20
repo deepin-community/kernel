@@ -25,6 +25,9 @@ typedef u64 freelist_full_t;
 #if defined(system_has_freelist_aba) && !defined(CONFIG_HAVE_ALIGNED_STRUCT_PAGE)
 #undef system_has_freelist_aba
 #endif
+#ifdef CONFIG_CREDP
+extern struct kmem_cache *cred_jar;
+#endif
 
 /*
  * Freelist pointer and counter to cmpxchg together, avoids the typical ABA
@@ -721,7 +724,9 @@ static inline struct kmem_cache *slab_pre_alloc_hook(struct kmem_cache *s,
 
 	return s;
 }
-
+#ifdef CONFIG_CREDP
+#include<asm/haoc/iee-access.h>
+#endif
 static inline void slab_post_alloc_hook(struct kmem_cache *s,
 					struct obj_cgroup *objcg, gfp_t flags,
 					size_t size, void **p, bool init,
@@ -766,7 +771,16 @@ static inline void slab_post_alloc_hook(struct kmem_cache *s,
 	for (i = 0; i < size; i++) {
 		p[i] = kasan_slab_alloc(s, p[i], flags, kasan_init);
 		if (p[i] && init && (!kasan_init || !kasan_has_integrated_init()))
+		{
+			#ifdef CONFIG_CREDP
+			if (haoc_enabled && s == cred_jar)
+				iee_memset(p[i], 0, zero_size);
+			else
+				memset(p[i], 0, zero_size);
+			#else
 			memset(p[i], 0, zero_size);
+			#endif
+		}
 		kmemleak_alloc_recursive(p[i], s->object_size, 1,
 					 s->flags, flags);
 		kmsan_slab_alloc(s, p[i], flags);

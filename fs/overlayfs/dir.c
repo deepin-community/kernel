@@ -14,6 +14,9 @@
 #include <linux/posix_acl_xattr.h>
 #include <linux/atomic.h>
 #include <linux/ratelimit.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "overlayfs.h"
 
 static unsigned short ovl_redirect_max = 256;
@@ -590,8 +593,13 @@ static int ovl_create_or_link(struct dentry *dentry, struct inode *inode,
 		 * create a new inode, so just use the ovl mounter's
 		 * fs{u,g}id.
 		 */
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(override_cred, inode->i_uid);
+		iee_set_cred_fsgid(override_cred, inode->i_gid);
+		#else
 		override_cred->fsuid = inode->i_uid;
 		override_cred->fsgid = inode->i_gid;
+		#endif
 		err = security_dentry_create_files_as(dentry,
 				attr->mode, &dentry->d_name, old_cred,
 				override_cred);

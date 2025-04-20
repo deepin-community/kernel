@@ -15,6 +15,10 @@
 
 #include <linux/sunrpc/metrics.h>
 
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
+
 #include "flexfilelayout.h"
 #include "../nfs4session.h"
 #include "../nfs4idmap.h"
@@ -502,8 +506,13 @@ ff_layout_alloc_lseg(struct pnfs_layout_hdr *lh,
 		rc = -ENOMEM;
 		if (!kcred)
 			goto out_err_free;
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(kcred, uid);
+		iee_set_cred_fsgid(kcred, gid);
+		#else
 		kcred->fsuid = uid;
 		kcred->fsgid = gid;
+		#endif
 		cred = RCU_INITIALIZER(kcred);
 
 		if (lgr->range.iomode == IOMODE_READ)

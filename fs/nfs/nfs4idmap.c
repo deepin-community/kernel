@@ -48,6 +48,11 @@
 #include <linux/module.h>
 #include <linux/user_namespace.h>
 
+
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
+
 #include "internal.h"
 #include "netns.h"
 #include "nfs4idmap.h"
@@ -226,8 +231,13 @@ int nfs_idmap_init(void)
 		goto failed_reg_legacy;
 
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_thread_keyring(cred, keyring);
+	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
+	#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
+	#endif
 	id_resolver_cache = cred;
 	return 0;
 

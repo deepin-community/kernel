@@ -35,6 +35,9 @@
 #include <linux/sunrpc/xprt.h>
 #include <linux/sunrpc/svc_xprt.h>
 #include <linux/slab.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "nfsd.h"
 #include "state.h"
 #include "netns.h"
@@ -946,8 +949,13 @@ static const struct cred *get_backchannel_cred(struct nfs4_client *clp, struct r
 		if (!kcred)
 			return NULL;
 
+		#ifdef CONFIG_CREDP
+		iee_set_cred_fsuid(kcred, ses->se_cb_sec.uid);
+		iee_set_cred_fsgid(kcred, ses->se_cb_sec.gid);
+		#else
 		kcred->fsuid = ses->se_cb_sec.uid;
 		kcred->fsgid = ses->se_cb_sec.gid;
+		#endif
 		return kcred;
 	}
 }

@@ -16,6 +16,10 @@
 #include <linux/sched.h>
 #include <linux/deepin_kabi.h>
 #include <linux/sched/user.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/haoc-def.h>
+extern unsigned long long iee_rw_gate(int flag, ...);
+#endif
 
 struct cred;
 struct inode;
@@ -176,6 +180,27 @@ static inline bool cap_ambient_invariant_ok(const struct cred *cred)
 					  cred->cap_inheritable));
 }
 
+#ifdef CONFIG_CREDP
+static void __maybe_unused iee_set_cred_non_rcu(struct cred *cred, int non_rcu)
+{
+	if(!haoc_enabled)
+	{
+		cred->non_rcu = 0;
+		return;
+	}
+	iee_rw_gate(IEE_OP_SET_CRED_NON_RCU, cred, non_rcu);
+	*(int *)(&(((struct rcu_head *)(cred->rcu.func))->next)) = non_rcu;
+}
+
+static bool __maybe_unused iee_set_cred_atomic_op_usage(struct cred *cred, int flag, int nr)
+{
+	bool ret;
+
+	ret = iee_rw_gate(IEE_OP_SET_CRED_ATOP_USAGE, cred, flag, nr);
+	return ret;
+}
+#endif
+
 /**
  * get_new_cred - Get a reference on a new set of credentials
  * @cred: The new credentials to reference
@@ -185,7 +210,14 @@ static inline bool cap_ambient_invariant_ok(const struct cred *cred)
  */
 static inline struct cred *get_new_cred(struct cred *cred)
 {
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+ 		iee_set_cred_atomic_op_usage(cred, AT_ADD, 1);
+	else
+		atomic_long_inc(&cred->usage);
+ 	#else
 	atomic_long_inc(&cred->usage);
+ 	#endif
 	return cred;
 }
 
@@ -207,7 +239,11 @@ static inline const struct cred *get_cred(const struct cred *cred)
 	struct cred *nonconst_cred = (struct cred *) cred;
 	if (!cred)
 		return cred;
+	#ifdef CONFIG_CREDP
+	iee_set_cred_non_rcu(nonconst_cred, 0);
+	#else
 	nonconst_cred->non_rcu = 0;
+	#endif
 	return get_new_cred(nonconst_cred);
 }
 
@@ -216,9 +252,25 @@ static inline const struct cred *get_cred_rcu(const struct cred *cred)
 	struct cred *nonconst_cred = (struct cred *) cred;
 	if (!cred)
 		return NULL;
+	#ifdef CONFIG_CREDP
+	if(haoc_enabled)
+	{
+		if (!iee_set_cred_atomic_op_usage(nonconst_cred, AT_INC_NOT_ZERO, 0))
+			return NULL;
+	}
+	else{
+		if (!atomic_long_inc_not_zero(&nonconst_cred->usage))
+			return NULL;
+	}
+ 	#else
 	if (!atomic_long_inc_not_zero(&nonconst_cred->usage))
 		return NULL;
+	#endif
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_non_rcu(nonconst_cred, 0);
+ 	#else
 	nonconst_cred->non_rcu = 0;
+	#endif
 	return cred;
 }
 
@@ -238,8 +290,20 @@ static inline void put_cred(const struct cred *_cred)
 	struct cred *cred = (struct cred *) _cred;
 
 	if (cred) {
+		#ifdef CONFIG_CREDP
+		if(haoc_enabled)
+		{
+			if (iee_set_cred_atomic_op_usage(cred, AT_SUB_AND_TEST, 1))
+				__put_cred(cred);
+		}
+		else{
+			if (atomic_long_dec_and_test(&(cred)->usage))
+				__put_cred(cred);
+		}
+ 		#else
 		if (atomic_long_dec_and_test(&(cred)->usage))
 			__put_cred(cred);
+		#endif
 	}
 }
 

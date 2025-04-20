@@ -71,6 +71,7 @@ SYM_FUNC_START(iee_rw_gate)
 
 	jmp __x86_return_thunk  /* ret */
 SYM_FUNC_END(iee_rw_gate)
+EXPORT_SYMBOL(iee_rw_gate)
 
 #ifdef CONFIG_IEE_SIP
 SYM_FUNC_START(iee_rwx_gate)

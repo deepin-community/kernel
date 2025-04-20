@@ -44,6 +44,10 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/nfsd/cld.h>
 
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
+
 #include "nfsd.h"
 #include "state.h"
 #include "vfs.h"
@@ -78,8 +82,13 @@ nfs4_save_creds(const struct cred **original_creds)
 	if (!new)
 		return -ENOMEM;
 
+	#ifdef CONFIG_CREDP
+ 	iee_set_cred_fsuid(new, GLOBAL_ROOT_UID);
+ 	iee_set_cred_fsgid(new, GLOBAL_ROOT_GID);
+ 	#else
 	new->fsuid = GLOBAL_ROOT_UID;
 	new->fsgid = GLOBAL_ROOT_GID;
+	#endif
 	*original_creds = override_creds(new);
 	put_cred(new);
 	return 0;

@@ -14,6 +14,9 @@
 #include <linux/key-type.h>
 #include <linux/keyctl.h>
 #include <linux/inet.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "cifsglob.h"
 #include "cifs_spnego.h"
 #include "cifs_debug.h"
@@ -214,8 +217,13 @@ init_cifs_spnego(void)
 	 * the results it looks up
 	 */
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_thread_keyring(cred, keyring);
+	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
+	#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
+	#endif
 	spnego_cred = cred;
 
 	cifs_dbg(FYI, "cifs spnego keyring: %d\n", key_serial(keyring));

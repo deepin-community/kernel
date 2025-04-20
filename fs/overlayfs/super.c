@@ -18,6 +18,9 @@
 #include <linux/file.h>
 #include <linux/fs_context.h>
 #include <linux/fs_parser.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "overlayfs.h"
 #include "params.h"
 
@@ -1490,7 +1493,16 @@ int ovl_fill_super(struct super_block *sb, struct fs_context *fc)
 		sb->s_export_op = &ovl_export_fid_operations;
 
 	/* Never override disk quota limits or use reserved space */
+	#ifdef CONFIG_CREDP
+	{
+		kernel_cap_t tmp = cred->cap_effective;
+
+		cap_lower(tmp, CAP_SYS_RESOURCE);
+		iee_set_cred_cap_effective(cred, tmp);
+	}
+	#else
 	cap_lower(cred->cap_effective, CAP_SYS_RESOURCE);
+	#endif
 
 	sb->s_magic = OVERLAYFS_SUPER_MAGIC;
 	sb->s_xattr = ofs->config.userxattr ? ovl_user_xattr_handlers :

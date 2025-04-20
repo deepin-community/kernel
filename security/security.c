@@ -30,6 +30,9 @@
 #include <linux/string.h>
 #include <linux/msg.h>
 #include <net/flow.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 
 /* How many LSMs were built into the kernel? */
 #define LSM_COUNT (__end_lsm_info - __start_lsm_info)
@@ -570,11 +573,19 @@ EXPORT_SYMBOL(unregister_blocking_lsm_notifier);
 static int lsm_cred_alloc(struct cred *cred, gfp_t gfp)
 {
 	if (blob_sizes.lbs_cred == 0) {
+		#ifdef CONFIG_CREDP
+		iee_set_cred_security(cred, NULL);
+		#else
 		cred->security = NULL;
+		#endif
 		return 0;
 	}
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_security(cred, kzalloc(blob_sizes.lbs_cred, gfp));
+	#else
 	cred->security = kzalloc(blob_sizes.lbs_cred, gfp);
+	#endif
 	if (cred->security == NULL)
 		return -ENOMEM;
 	return 0;
@@ -2954,7 +2965,11 @@ void security_cred_free(struct cred *cred)
 	call_void_hook(cred_free, cred);
 
 	kfree(cred->security);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_security(cred, NULL);
+	#else
 	cred->security = NULL;
+	#endif
 }
 
 /**

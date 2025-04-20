@@ -17,6 +17,9 @@
 #include <linux/posix_acl.h>
 #include <linux/posix_acl_xattr.h>
 #include <keys/user-type.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "cifspdu.h"
 #include "cifsglob.h"
 #include "cifsacl.h"
@@ -491,8 +494,13 @@ init_cifs_idmap(void)
 	/* instruct request_key() to use this special keyring as a cache for
 	 * the results it looks up */
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
+	#ifdef CONFIG_CREDP
+	iee_set_cred_thread_keyring(cred, keyring);
+	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
+	#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
+	#endif
 	root_cred = cred;
 
 	cifs_dbg(FYI, "cifs idmap keyring: %d\n", key_serial(keyring));

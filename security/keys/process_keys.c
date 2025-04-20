@@ -17,6 +17,9 @@
 #include <linux/uaccess.h>
 #include <linux/init_task.h>
 #include <keys/request_key_auth-type.h>
+#ifdef CONFIG_CREDP
+#include <asm/haoc/iee-cred.h>
+#endif
 #include "internal.h"
 
 /* Session keyring create vs join semaphore */
@@ -232,7 +235,11 @@ int install_thread_keyring_to_cred(struct cred *new)
 	if (IS_ERR(keyring))
 		return PTR_ERR(keyring);
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_thread_keyring(new, keyring);
+	#else
 	new->thread_keyring = keyring;
+	#endif
 	return 0;
 }
 
@@ -279,7 +286,11 @@ int install_process_keyring_to_cred(struct cred *new)
 	if (IS_ERR(keyring))
 		return PTR_ERR(keyring);
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_process_keyring(new, keyring);
+	#else
 	new->process_keyring = keyring;
+	#endif
 	return 0;
 }
 
@@ -338,7 +349,11 @@ int install_session_keyring_to_cred(struct cred *cred, struct key *keyring)
 
 	/* install the keyring */
 	old = cred->session_keyring;
+	#ifdef CONFIG_CREDP
+	iee_set_cred_session_keyring(cred, keyring);
+	#else
 	cred->session_keyring = keyring;
+	#endif
 
 	if (old)
 		key_put(old);
@@ -911,7 +926,15 @@ error:
 void key_change_session_keyring(struct callback_head *twork)
 {
 	const struct cred *old = current_cred();
+	#ifdef CONFIG_CREDP
+	struct cred *new =NULL;
+	if(haoc_enabled)
+		new = *(struct cred **)(twork + 1);
+	else
+		new = container_of(twork, struct cred, rcu);
+	#else
 	struct cred *new = container_of(twork, struct cred, rcu);
+	#endif
 
 	if (unlikely(current->flags & PF_EXITING)) {
 		put_cred(new);
@@ -925,6 +948,31 @@ void key_change_session_keyring(struct callback_head *twork)
 		return;
 	}
 
+	#ifdef CONFIG_CREDP
+	iee_set_cred_uid(new, old->uid);
+	iee_set_cred_euid(new, old->euid);
+	iee_set_cred_suid(new, old->suid);
+	iee_set_cred_fsuid(new, old->fsuid);
+	iee_set_cred_gid(new, old->gid);
+	iee_set_cred_egid(new, old->egid);
+	iee_set_cred_sgid(new, old->sgid);
+	iee_set_cred_fsgid(new, old->fsgid);
+	iee_set_cred_user(new, get_uid(old->user));
+	iee_set_cred_ucounts(new, old->ucounts);
+	iee_set_cred_user_ns(new, get_user_ns(old->user_ns));
+	iee_set_cred_group_info(new, get_group_info(old->group_info));
+
+	iee_set_cred_securebits(new, old->securebits);
+	iee_set_cred_cap_inheritable(new, old->cap_inheritable);
+	iee_set_cred_cap_permitted(new, old->cap_permitted);
+	iee_set_cred_cap_effective(new, old->cap_effective);
+	iee_set_cred_cap_ambient(new, old->cap_ambient);
+	iee_set_cred_cap_bset(new, old->cap_bset);
+
+	iee_set_cred_jit_keyring(new, old->jit_keyring);
+	iee_set_cred_thread_keyring(new, key_get(old->thread_keyring));
+	iee_set_cred_process_keyring(new, key_get(old->process_keyring));
+	#else
 	new->  uid	= old->  uid;
 	new-> euid	= old-> euid;
 	new-> suid	= old-> suid;
@@ -948,6 +996,7 @@ void key_change_session_keyring(struct callback_head *twork)
 	new->jit_keyring	= old->jit_keyring;
 	new->thread_keyring	= key_get(old->thread_keyring);
 	new->process_keyring	= key_get(old->process_keyring);
+	#endif
 
 	security_transfer_creds(new, old);
 
