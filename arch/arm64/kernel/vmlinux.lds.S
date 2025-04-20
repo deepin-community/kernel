@@ -123,13 +123,27 @@ jiffies = jiffies_64;
 #define TRAMP_TEXT
 #endif
 
+#ifdef CONFIG_IEE_SIP
+#define IEE_SI_TEXT	\
+	. = ALIGN(PAGE_SIZE);	\
+	. += PMD_SIZE;		\
+	__iee_si_text_start = .;	\
+	*(.iee.si_text)	\
+	. = ALIGN(PAGE_SIZE);	\
+	__iee_si_text_end = .;	\
+	. += PMD_SIZE;
+#else
+#define IEE_SI_TEXT
+#endif
+
 #ifdef CONFIG_IEE
 #define IEE_TEXT \
 	. = ALIGN(PAGE_SIZE);				\
 	__iee_code_start = .;       \
 	*(.iee.text)				        \
 	. = ALIGN(PAGE_SIZE);				\
-	__iee_code_end = .;
+	__iee_code_end = .;			\
+	IEE_SI_TEXT
 #else
 #define IEE_TEXT
 #endif

@@ -1594,7 +1594,11 @@ static void cpu_emulate_effective_ctr(const struct arm64_cpu_capabilities *__unu
 	 * value.
 	 */
 	if (!(read_cpuid_cachetype() & BIT(CTR_EL0_IDC_SHIFT)))
+#ifdef CONFIG_IEE_SIP
+		iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_UCT, 0);
+#else
 		sysreg_clear_set(sctlr_el1, SCTLR_EL1_UCT, 0);
+#endif
 }
 
 static bool has_cache_dic(const struct arm64_cpu_capabilities *entry,
@@ -1858,8 +1862,12 @@ static inline void __cpu_enable_hw_dbm(void)
 {
 	u64 tcr = read_sysreg(tcr_el1) | TCR_HD;
 
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_SI_SET_TCR_EL1, tcr);
+#else
 	write_sysreg(tcr, tcr_el1);
 	isb();
+#endif
 	local_flush_tlb_all();
 }
 
@@ -2040,7 +2048,11 @@ static void cpu_enable_pan(const struct arm64_cpu_capabilities *__unused)
 	 */
 	WARN_ON_ONCE(in_interrupt());
 
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_SPAN, 0);
+#else
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_SPAN, 0);
+#endif
 	set_pstate_pan(1);
 }
 #endif /* CONFIG_ARM64_PAN */
@@ -2105,7 +2117,11 @@ static bool has_generic_auth(const struct arm64_cpu_capabilities *entry,
 static void cpu_enable_e0pd(struct arm64_cpu_capabilities const *cap)
 {
 	if (this_cpu_has_cap(ARM64_HAS_E0PD))
+#ifdef CONFIG_IEE_SIP
+		iee_si_sysreg_clear_set(TCR_EL1, 0, TCR_E0PD1);
+#else
 		sysreg_clear_set(tcr_el1, 0, TCR_E0PD1);
+#endif
 }
 #endif /* CONFIG_ARM64_E0PD */
 
@@ -2171,15 +2187,23 @@ static void bti_enable(const struct arm64_cpu_capabilities *__unused)
 	 * So, be strict and forbid other BRs using other registers to
 	 * jump onto a PACIxSP instruction:
 	 */
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_EL1_BT0 | SCTLR_EL1_BT1);
+#else
 	sysreg_clear_set(sctlr_el1, 0, SCTLR_EL1_BT0 | SCTLR_EL1_BT1);
 	isb();
+#endif
 }
 #endif /* CONFIG_ARM64_BTI */
 
 #ifdef CONFIG_ARM64_MTE
 static void cpu_enable_mte(struct arm64_cpu_capabilities const *cap)
 {
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_ELx_ATA | SCTLR_EL1_ATA0);
+#else
 	sysreg_clear_set(sctlr_el1, 0, SCTLR_ELx_ATA | SCTLR_EL1_ATA0);
+#endif
 
 	mte_cpu_setup();
 
@@ -2224,7 +2248,11 @@ static bool is_kvm_protected_mode(const struct arm64_cpu_capabilities *entry, in
 
 static void cpu_trap_el0_impdef(const struct arm64_cpu_capabilities *__unused)
 {
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_EL1_TIDCP);
+#else
 	sysreg_clear_set(sctlr_el1, 0, SCTLR_EL1_TIDCP);
+#endif
 }
 
 static void cpu_enable_dit(const struct arm64_cpu_capabilities *__unused)
@@ -2234,7 +2262,11 @@ static void cpu_enable_dit(const struct arm64_cpu_capabilities *__unused)
 
 static void cpu_enable_mops(const struct arm64_cpu_capabilities *__unused)
 {
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_EL1_MSCEn);
+#else
 	sysreg_clear_set(sctlr_el1, 0, SCTLR_EL1_MSCEn);
+#endif
 }
 
 /* Internal helper functions to match cpu capability type */

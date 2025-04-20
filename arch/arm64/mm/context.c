@@ -20,6 +20,9 @@
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-asm.h>
 #endif
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 static u32 asid_bits;
 static DEFINE_RAW_SPINLOCK(cpu_asid_lock);
@@ -374,8 +377,12 @@ void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
 		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, asid);
 
 		cpu_set_reserved_ttbr0_nosync();
+		#ifdef CONFIG_IEE_SIP
+		iee_rwx_gate(IEE_SI_CONTEXT_SWITCH, ttbr0);
+		#else
 		write_sysreg(ttbr0, ttbr0_el1);
 		isb();
+		#endif
 	} else {
 		/* Set ASID in TTBR1 since TCR.A1 is set */
 		ttbr1 &= ~TTBR_ASID_MASK;

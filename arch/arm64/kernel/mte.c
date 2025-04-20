@@ -23,6 +23,9 @@
 #include <asm/mte.h>
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 static DEFINE_PER_CPU_READ_MOSTLY(u64, mte_tcf_preferred);
 
@@ -79,9 +82,14 @@ int memcmp_pages(struct page *page1, struct page *page2)
 static inline void __mte_enable_kernel(const char *mode, unsigned long tcf)
 {
 	/* Enable MTE Sync Mode for EL1. */
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_TCF_MASK,
+			 SYS_FIELD_PREP(SCTLR_EL1, TCF, tcf));
+#else
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_TCF_MASK,
 			 SYS_FIELD_PREP(SCTLR_EL1, TCF, tcf));
 	isb();
+#endif
 
 	pr_info_once("MTE: enabled in %s mode at EL1\n", mode);
 }

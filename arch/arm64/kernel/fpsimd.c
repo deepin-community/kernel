@@ -44,6 +44,9 @@
 #include <asm/sysreg.h>
 #include <asm/traps.h>
 #include <asm/virt.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 #define FPEXC_IOF	(1 << 0)
 #define FPEXC_DZF	(1 << 1)
@@ -1309,8 +1312,12 @@ void sme_kernel_enable(const struct arm64_cpu_capabilities *__always_unused p)
 	isb();
 
 	/* Allow EL0 to access TPIDR2 */
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_WRITE_sctlr_el1, read_sysreg(SCTLR_EL1) | SCTLR_ELx_ENTP2);
+#else
 	write_sysreg(read_sysreg(SCTLR_EL1) | SCTLR_ELx_ENTP2, SCTLR_EL1);
 	isb();
+#endif
 }
 
 /*

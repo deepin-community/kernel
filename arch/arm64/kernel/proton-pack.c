@@ -31,6 +31,9 @@
 #include <asm/traps.h>
 #include <asm/vectors.h>
 #include <asm/virt.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 /*
  * We try to ensure that the mitigation state can never change as the result of
@@ -553,7 +556,11 @@ static enum mitigation_state spectre_v4_enable_hw_mitigation(void)
 		return state;
 
 	if (spectre_v4_mitigations_off()) {
+#ifdef CONFIG_IEE_SIP
+		iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_ELx_DSSBS);
+#else
 		sysreg_clear_set(sctlr_el1, 0, SCTLR_ELx_DSSBS);
+#endif
 		set_pstate_ssbs(1);
 		return SPECTRE_VULNERABLE;
 	}
@@ -1013,8 +1020,12 @@ static void this_cpu_set_vectors(enum arm64_bp_harden_el1_vectors slot)
 	if (arm64_kernel_unmapped_at_el0())
 		return;
 
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_SI_SET_VBAR, v);
+#else
 	write_sysreg(v, vbar_el1);
 	isb();
+#endif
 }
 
 static bool __read_mostly __nospectre_bhb;
