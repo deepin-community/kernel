@@ -32,4 +32,10 @@
 #define TCR_A1			(UL(1) << 22)
 #define IEE_TCR_MASK		(~(TCR_HD | TCR_E0PD1 | TCR_T0SZ_MASK))
 
+#ifdef CONFIG_IEE_SIP
+/* IEE exit code Remember that ARM instructions are aligned with 8 byte. */
+#define IEE_SI_EXIT_OFFSET	(4*4)
+#define IEE_SI_TCR_MASK		(~IEE_TCR_MASK)
+#endif
+
 #endif

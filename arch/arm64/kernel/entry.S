@@ -38,7 +38,11 @@
 	ldr x1, =__iee_code_start
 	cmp x1, x22			/* ELR_EL1 was stored in x22 on kernel entry. */
 	b.hi 114f
+	#ifdef CONFIG_IEE_SIP
+	ldr x2, =__iee_si_text_end
+	#else
 	ldr x2, =__iee_code_end
+	#endif
 	cmp x2, x22
 	b.lo 114f
 	/* ELR check fail */

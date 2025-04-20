@@ -69,6 +69,11 @@ void __init iee_init_post(void)
 	iee_prepare_init_task_token();
 #endif
 	iee_init_done = true;
+
+#ifdef CONFIG_IEE_SIP
+	extern void iee_si_init(void);
+	iee_si_init();
+#endif
 }
 
 void __init iee_stack_init(void)

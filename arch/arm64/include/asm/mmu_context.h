@@ -24,6 +24,13 @@
 #include <asm/cputype.h>
 #include <asm/sysreg.h>
 #include <asm/tlbflush.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#include <asm/haoc/iee-asm.h>
+#endif
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 #ifdef CONFIG_IEE
 #include <asm/haoc/iee.h>
@@ -47,7 +54,11 @@ static inline void cpu_set_reserved_ttbr0_nosync(void)
 {
 	unsigned long ttbr = phys_to_ttbr(__pa_symbol(reserved_pg_dir));
 
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_SI_SET_TTBR0, ttbr);
+#else
 	write_sysreg(ttbr, ttbr0_el1);
+#endif
 }
 
 static inline void cpu_set_reserved_ttbr0(void)
@@ -83,8 +94,12 @@ static inline void __cpu_set_tcr_t0sz(unsigned long t0sz)
 
 	tcr &= ~TCR_T0SZ_MASK;
 	tcr |= t0sz << TCR_T0SZ_OFFSET;
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_SI_SET_TCR_EL1, tcr);
+#else
 	write_sysreg(tcr, tcr_el1);
 	isb();
+#endif
 }
 
 #define cpu_set_default_tcr_t0sz()	__cpu_set_tcr_t0sz(TCR_T0SZ(vabits_actual))
@@ -148,8 +163,12 @@ static inline void cpu_install_ttbr0(phys_addr_t ttbr0, unsigned long t0sz)
 	__cpu_set_tcr_t0sz(t0sz);
 
 	/* avoid cpu_switch_mm() and its SW-PAN and CNP interactions */
+#ifdef CONFIG_IEE_SIP
+	iee_rwx_gate(IEE_SI_SET_TTBR0, ttbr0);
+#else
 	write_sysreg(ttbr0, ttbr0_el1);
 	isb();
+#endif
 }
 
 /*

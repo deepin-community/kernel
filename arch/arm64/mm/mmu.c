@@ -43,6 +43,9 @@
 #ifdef CONFIG_IEE
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-mmu.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 #endif
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
@@ -736,6 +739,9 @@ static void __init map_kernel(pgd_t *pgdp)
 {
 	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_inittext,
 				vmlinux_initdata, vmlinux_data;
+#ifdef CONFIG_IEE_SIP
+	static struct vm_struct vmlinux_iee_text, vmlinux_text_end;
+#endif
 
 	/*
 	 * External debuggers may need to write directly to the text
@@ -752,12 +758,23 @@ static void __init map_kernel(pgd_t *pgdp)
 	if (arm64_early_this_cpu_has_bti())
 		text_prot = __pgprot_modify(text_prot, PTE_GP, PTE_GP);
 
+#ifdef CONFIG_IEE_SIP
+	/* Ensure iee si code are not mapped with block descriptor. */
+	map_kernel_segment(pgdp, _stext, __iee_si_text_start, text_prot,
+			&vmlinux_text, 0, VM_NO_GUARD);
+	map_kernel_segment(pgdp, __iee_si_text_start, __iee_si_text_end,
+			SET_NG(text_prot), &vmlinux_iee_text, NO_CONT_MAPPINGS |
+			NO_BLOCK_MAPPINGS, VM_NO_GUARD);
+	map_kernel_segment(pgdp, __iee_si_text_end, _etext, text_prot,
+			&vmlinux_text_end, 0, VM_NO_GUARD);
+#else
 	/*
 	 * Only rodata will be remapped with different permissions later on,
 	 * all other segments are allowed to use contiguous mappings.
 	 */
 	map_kernel_segment(pgdp, _stext, _etext, text_prot, &vmlinux_text, 0,
 			   VM_NO_GUARD);
+#endif
 	map_kernel_segment(pgdp, __start_rodata, __inittext_begin, PAGE_KERNEL,
 			   &vmlinux_rodata, NO_CONT_MAPPINGS, VM_NO_GUARD);
 	map_kernel_segment(pgdp, __inittext_begin, __inittext_end, text_prot,

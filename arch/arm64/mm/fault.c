@@ -42,6 +42,9 @@
 #include <asm/system_misc.h>
 #include <asm/tlbflush.h>
 #include <asm/traps.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 struct fault_info {
 	int	(*fn)(unsigned long far, unsigned long esr,
@@ -350,9 +353,14 @@ static void do_tag_recovery(unsigned long addr, unsigned long esr,
 	 * It will be done lazily on the other CPUs when they will hit a
 	 * tag fault.
 	 */
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_TCF_MASK,
+			  SYS_FIELD_PREP_ENUM(SCTLR_EL1, TCF, NONE));
+#else
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_TCF_MASK,
 			 SYS_FIELD_PREP_ENUM(SCTLR_EL1, TCF, NONE));
 	isb();
+#endif
 }
 
 static bool is_el1_mte_sync_tag_check_fault(unsigned long esr)

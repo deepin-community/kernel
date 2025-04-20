@@ -510,7 +510,11 @@ void update_sctlr_el1(u64 sctlr)
 	 * EnIA must not be cleared while in the kernel as this is necessary for
 	 * in-kernel PAC. It will be cleared on kernel exit if needed.
 	 */
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_USER_MASK & ~SCTLR_ELx_ENIA, sctlr);
+#else
 	sysreg_clear_set(sctlr_el1, SCTLR_USER_MASK & ~SCTLR_ELx_ENIA, sctlr);
+#endif
 
 	/* ISB required for the kernel uaccess routines when setting TCF0. */
 	isb();

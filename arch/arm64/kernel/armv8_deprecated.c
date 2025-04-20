@@ -17,6 +17,9 @@
 #include <asm/sysreg.h>
 #include <asm/system_misc.h>
 #include <asm/traps.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "trace-events-emulation.h"
@@ -306,11 +309,19 @@ ret:
 
 static int cp15_barrier_set_hw_mode(bool enable)
 {
+#ifdef CONFIG_IEE_SIP
+	if (enable)
+		iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_EL1_CP15BEN);
+	else
+		iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_CP15BEN, 0);
+	return 0;
+#else
 	if (enable)
 		sysreg_clear_set(sctlr_el1, 0, SCTLR_EL1_CP15BEN);
 	else
 		sysreg_clear_set(sctlr_el1, SCTLR_EL1_CP15BEN, 0);
 	return 0;
+#endif
 }
 
 static bool try_emulate_cp15_barrier(struct pt_regs *regs, u32 insn)
@@ -341,11 +352,19 @@ static int setend_set_hw_mode(bool enable)
 	if (!cpu_supports_mixed_endian_el0())
 		return -EINVAL;
 
+#ifdef CONFIG_IEE_SIP
+	if (enable)
+		iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_SED, 0);
+	else
+		iee_si_sysreg_clear_set(SCTLR_EL1, 0, SCTLR_EL1_SED);
+	return 0;
+#else
 	if (enable)
 		sysreg_clear_set(sctlr_el1, SCTLR_EL1_SED, 0);
 	else
 		sysreg_clear_set(sctlr_el1, 0, SCTLR_EL1_SED);
 	return 0;
+#endif
 }
 
 static int compat_setend_handler(struct pt_regs *regs, u32 big_endian)

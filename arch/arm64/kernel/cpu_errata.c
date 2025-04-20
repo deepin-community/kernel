@@ -13,6 +13,9 @@
 #include <asm/cpufeature.h>
 #include <asm/kvm_asm.h>
 #include <asm/smp_plat.h>
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-si.h>
+#endif
 
 static bool __maybe_unused
 is_affected_midr_range(const struct arm64_cpu_capabilities *entry, int scope)
@@ -103,7 +106,11 @@ cpu_enable_trap_ctr_access(const struct arm64_cpu_capabilities *cap)
 		enable_uct_trap = true;
 
 	if (enable_uct_trap)
+#ifdef CONFIG_IEE_SIP
+		iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_UCT, 0);
+#else
 		sysreg_clear_set(sctlr_el1, SCTLR_EL1_UCT, 0);
+#endif
 }
 
 #ifdef CONFIG_ARM64_ERRATUM_1463225
@@ -118,7 +125,11 @@ has_cortex_a76_erratum_1463225(const struct arm64_cpu_capabilities *entry,
 static void __maybe_unused
 cpu_enable_cache_maint_trap(const struct arm64_cpu_capabilities *__unused)
 {
+#ifdef CONFIG_IEE_SIP
+	iee_si_sysreg_clear_set(SCTLR_EL1, SCTLR_EL1_UCI, 0);
+#else
 	sysreg_clear_set(sctlr_el1, SCTLR_EL1_UCI, 0);
+#endif
 }
 
 static DEFINE_RAW_SPINLOCK(reg_user_mask_modification);
