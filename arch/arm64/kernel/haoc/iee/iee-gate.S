@@ -25,6 +25,7 @@ SYM_FUNC_START(iee_rw_gate)
 	msr daif, x13
     ret
 SYM_FUNC_END(iee_rw_gate)
+EXPORT_SYMBOL(iee_rw_gate)
 
 	.pushsection ".iee.text", "ax"
 

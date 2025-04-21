@@ -411,6 +411,10 @@ unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 	if (strcmp(s->name, "task_struct") == 0)
 		return IEE_DATA_ORDER;
 #endif
+#ifdef CONFIG_CREDP
+	if (strcmp(s->name, "cred_jar") == 0)
+		return IEE_DATA_ORDER;
+#endif
 	return order;
 }
 

@@ -19,6 +19,7 @@
 #ifdef CONFIG_CREDP
 #include <asm/haoc/haoc-def.h>
 extern unsigned long long iee_rw_gate(int flag, ...);
+extern bool haoc_enabled;
 #endif
 
 struct cred;

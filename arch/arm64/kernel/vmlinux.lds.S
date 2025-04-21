@@ -148,6 +148,24 @@ jiffies = jiffies_64;
 #define IEE_TEXT
 #endif
 
+#ifdef CONFIG_CREDP
+#define CRED_DATA				\
+	. = ALIGN(PAGE_SIZE);		\
+	*(.iee.cred)				\
+	. = ALIGN(PAGE_SIZE);
+#endif
+
+#ifdef CONFIG_IEE
+#define IEE_INIT_DATA \
+	.iee.data : {		\
+	. = ALIGN(PAGE_SIZE);		\
+	iee_init_data_begin = .;	\
+	CRED_DATA	\
+	. = ALIGN(PAGE_SIZE);	\
+	iee_init_data_end = .;	\
+	}
+#endif
+
 #ifdef CONFIG_UNWIND_TABLES
 #define UNWIND_DATA_SECTIONS				\
 	.eh_frame : {					\
@@ -250,6 +268,10 @@ SECTIONS
 	swapper_pg_dir = .;
 	. += PAGE_SIZE;
 
+	#ifdef CONFIG_IEE
+	IEE_INIT_DATA
+	#endif
+	
 	. = ALIGN(SEGMENT_ALIGN);
 	__init_begin = .;
 	__inittext_begin = .;

@@ -21,6 +21,7 @@ __aligned(PAGE_SIZE) DEFINE_PER_CPU(u64*[(PAGE_SIZE/8)],
 
 bool __ro_after_init __aligned(8) iee_init_done;
 bool __ro_after_init haoc_enabled;
+EXPORT_SYMBOL(haoc_enabled);
 
 /* Allocate pages from IEE data pool to use as per-cpu IEE stack. */
 static void __init iee_stack_alloc(void)

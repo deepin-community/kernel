@@ -734,7 +734,7 @@ void __init cred_init(void)
 	/* allocate a slab in which we can store credentials */
 	#ifdef CONFIG_CREDP
 		cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
-				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_RED_ZONE, NULL);
 
 		rcu_jar = kmem_cache_create("rcu_jar", sizeof(struct rcu_head) + sizeof(struct cred *), 0,
 				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
@@ -744,6 +744,7 @@ void __init cred_init(void)
 		*((struct rcu_head **)(&(init_cred.rcu.func))) =
 						(struct rcu_head *)kmem_cache_zalloc(rcu_jar, GFP_KERNEL);
 		*(struct cred **)(((struct rcu_head *)(init_cred.rcu.func)) + 1) = &init_cred;
+		pr_info("HAOC: CONFIG_CREDP enabled.");
 	}
 	#else
 	cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,

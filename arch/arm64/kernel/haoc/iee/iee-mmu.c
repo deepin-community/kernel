@@ -563,8 +563,12 @@ static void prot_iee_early_data_cache(struct iee_early_alloc *cache)
 /* Put early allocated pages into IEE. */
 void __init init_early_iee_data(void)
 {
+	u64 i;
 	if (!haoc_enabled)
 		return;
 
+	for (i = 0; (iee_init_data_begin + i * PAGE_SIZE) < iee_init_data_end; i++)
+		set_iee_address(__phys_to_iee(__pa_symbol(iee_init_data_begin + i * PAGE_SIZE)),
+					0, true);
 	prot_iee_early_data_cache(&iee_stack);
 }

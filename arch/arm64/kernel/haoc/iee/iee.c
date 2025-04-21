@@ -14,15 +14,11 @@
  * The first Parameter must be reserved, and later parameters shall be the same
  * with outer API like iee_memset();
  */
-#if defined(clang)
-__attribute__((optnone))
-#elif defined(GNUC) || defined(GNUG)
-__attribute__((optimize("O0")))
-#endif
+
 void __iee_code _iee_memset(unsigned long __unused, void *ptr, int data, size_t n)
 {
 	/* Maybe you need to verify the input parameters first. */
-	char *_ptr;
+	volatile char *_ptr;
 
 	/* Write the page by IEE address of the input pointer as the address it
 	 * points to shall be already read-only to prevent kernel access.
@@ -31,4 +27,21 @@ void __iee_code _iee_memset(unsigned long __unused, void *ptr, int data, size_t 
 
 	while (n--)
 		*_ptr++ = data;
+}
+
+void __iee_code _iee_memcpy(unsigned long __unused, void *dst, void *src, size_t n)
+{
+	volatile char *_dst, *_src;
+
+	_dst = __ptr_to_iee(dst);
+	_src = (char *)src;
+
+	while (n--)
+		*_dst++ = *_src++;
+}
+
+void __iee_code _iee_set_freeptr(unsigned long __unused, void **pptr, void *ptr)
+{
+	pptr = __ptr_to_iee(pptr);
+	*pptr = ptr;
 }

@@ -22,4 +22,19 @@ static inline void iee_memset(void *ptr, int data, size_t n)
 		memset(ptr, data, n);
 }
 
+static inline void iee_set_freeptr(void **pptr, void *ptr)
+{
+	if (haoc_enabled)
+		iee_rw_gate(IEE_OP_SET_FREEPTR, pptr, ptr);
+	else
+		*pptr = ptr;
+}
+
+static inline void iee_memcpy(void *dst, const void *src, size_t n)
+{
+	if (haoc_enabled)
+		iee_rw_gate(IEE_OP_MEMCPY, dst, src, n);
+	else
+		memcpy(dst, src, n);
+}
 #endif
