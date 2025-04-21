@@ -386,29 +386,24 @@ static int timer_set_oneshot(struct clock_event_device *evt)
 	return 0;
 }
 
-static void sw64_update_clockevents(unsigned long cpu, u32 freq)
+static void sw64_update_clockevents(void *data)
 {
-	struct clock_event_device *swevt = &per_cpu(timer_events, cpu);
+	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
+	struct clock_event_device *swevt = this_cpu_ptr(&timer_events);
 
-	if (cpu == smp_processor_id())
-		clockevents_update_freq(swevt, freq);
-	else {
-		clockevents_calc_mult_shift(swevt, freq, 4);
-		swevt->min_delta_ns = clockevent_delta2ns(swevt->min_delta_ticks, swevt);
-		swevt->max_delta_ns = clockevent_delta2ns(swevt->max_delta_ticks, swevt);
-	}
+	clockevents_update_freq(swevt, freqs->new * 1000);
 }
 
 static int sw64_cpufreq_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
 {
 	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
-	unsigned long cpu = freqs->policy->cpu;
 
 	if (val == CPUFREQ_POSTCHANGE)
-		sw64_update_clockevents(cpu, freqs->new * 1000);
+		on_each_cpu_mask(freqs->policy->cpus,
+				sw64_update_clockevents, data, 1);
 
-	return 0;
+	return NOTIFY_OK;
 }
 
 static struct notifier_block sw64_cpufreq_notifier_block = {
