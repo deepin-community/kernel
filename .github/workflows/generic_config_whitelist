@@ -15,3 +15,5 @@ CONFIG_SCHED_DEBUG
 CONFIG_FB_EFI
 # driver for CAN bus
 CONFIG_CAN
+# driver for USB serial
+CONFIG_USB_SERIAL
