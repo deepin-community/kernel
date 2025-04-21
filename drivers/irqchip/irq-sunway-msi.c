@@ -293,6 +293,8 @@ static void sw64_vector_free_irqs(struct irq_domain *domain,
 			}
 			irq_domain_reset_irq_data(irq_data);
 			per_cpu(vector_irq, cdata->dst_cpu)[cdata->vector] = 0;
+			if (cdata->move_in_progress)
+				per_cpu(vector_irq, cdata->prev_cpu)[cdata->prev_vector] = 0;
 			kfree(cdata);
 			raw_spin_unlock_irqrestore(&vector_lock, flags);
 		}
