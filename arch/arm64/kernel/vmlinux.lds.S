@@ -268,10 +268,6 @@ SECTIONS
 	swapper_pg_dir = .;
 	. += PAGE_SIZE;
 
-	#ifdef CONFIG_IEE
-	IEE_INIT_DATA
-	#endif
-	
 	. = ALIGN(SEGMENT_ALIGN);
 	__init_begin = .;
 	__inittext_begin = .;
@@ -339,6 +335,9 @@ SECTIONS
 
 	_data = .;
 	_sdata = .;
+	#ifdef CONFIG_IEE
+	IEE_INIT_DATA
+	#endif	
 	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
 
 	/*

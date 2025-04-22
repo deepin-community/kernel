@@ -407,6 +407,9 @@ void unset_iee_page(unsigned long addr, int order)
 
 unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 {
+	if (!haoc_enabled) {
+		return order;
+	}
 #ifdef CONFIG_IEE_PTRP
 	if (strcmp(s->name, "task_struct") == 0)
 		return IEE_DATA_ORDER;
@@ -420,6 +423,9 @@ unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 
 void iee_set_min_partial(struct kmem_cache *s)
 {
+	if (!haoc_enabled) {
+		return ;
+	}
 #ifdef CONFIG_IEE_PTRP
 	if (strcmp(s->name, "task_struct") == 0)
 		s->min_partial *= 16;

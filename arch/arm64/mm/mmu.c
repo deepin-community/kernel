@@ -43,6 +43,7 @@
 #ifdef CONFIG_IEE
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-mmu.h>
+#include <asm/haoc/iee-init.h>
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
@@ -739,6 +740,9 @@ static void __init map_kernel(pgd_t *pgdp)
 {
 	static struct vm_struct vmlinux_text, vmlinux_rodata, vmlinux_inittext,
 				vmlinux_initdata, vmlinux_data;
+#ifdef CONFIG_IEE
+	static struct vm_struct vmlinux_iee_init_data;
+#endif
 #ifdef CONFIG_IEE_SIP
 	static struct vm_struct vmlinux_iee_text, vmlinux_text_end;
 #endif
@@ -759,32 +763,45 @@ static void __init map_kernel(pgd_t *pgdp)
 		text_prot = __pgprot_modify(text_prot, PTE_GP, PTE_GP);
 
 #ifdef CONFIG_IEE_SIP
-	/* Ensure iee si code are not mapped with block descriptor. */
-	map_kernel_segment(pgdp, _stext, __iee_si_text_start, text_prot,
-			&vmlinux_text, 0, VM_NO_GUARD);
-	map_kernel_segment(pgdp, __iee_si_text_start, __iee_si_text_end,
-			SET_NG(text_prot), &vmlinux_iee_text, NO_CONT_MAPPINGS |
-			NO_BLOCK_MAPPINGS, VM_NO_GUARD);
-	map_kernel_segment(pgdp, __iee_si_text_end, _etext, text_prot,
-			&vmlinux_text_end, 0, VM_NO_GUARD);
+		if (haoc_enabled) {
+			/* Ensure iee si code are not mapped with block descriptor. */
+			map_kernel_segment(pgdp, _stext, __iee_si_text_start, text_prot,
+					&vmlinux_text, 0, VM_NO_GUARD);
+			map_kernel_segment(pgdp, __iee_si_text_start, __iee_si_text_end,
+					SET_NG(text_prot), &vmlinux_iee_text, NO_CONT_MAPPINGS |
+					NO_BLOCK_MAPPINGS, VM_NO_GUARD);
+			map_kernel_segment(pgdp, __iee_si_text_end, _etext, text_prot,
+					&vmlinux_text_end, 0, VM_NO_GUARD);
+		} else	
+			map_kernel_segment(pgdp, _stext, _etext, text_prot, &vmlinux_text, 0,
+				VM_NO_GUARD);
 #else
-	/*
-	 * Only rodata will be remapped with different permissions later on,
-	 * all other segments are allowed to use contiguous mappings.
-	 */
-	map_kernel_segment(pgdp, _stext, _etext, text_prot, &vmlinux_text, 0,
-			   VM_NO_GUARD);
+		/*
+		 * Only rodata will be remapped with different permissions later on,
+		 * all other segments are allowed to use contiguous mappings.
+		 */
+		map_kernel_segment(pgdp, _stext, _etext, text_prot, &vmlinux_text, 0,
+				   VM_NO_GUARD);
 #endif
-	map_kernel_segment(pgdp, __start_rodata, __inittext_begin, PAGE_KERNEL,
-			   &vmlinux_rodata, NO_CONT_MAPPINGS, VM_NO_GUARD);
-	map_kernel_segment(pgdp, __inittext_begin, __inittext_end, text_prot,
-			   &vmlinux_inittext, 0, VM_NO_GUARD);
-	map_kernel_segment(pgdp, __initdata_begin, __initdata_end, PAGE_KERNEL,
-			   &vmlinux_initdata, 0, VM_NO_GUARD);
-	map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
-
-	fixmap_copy(pgdp);
-	kasan_copy_shadow(pgdp);
+		map_kernel_segment(pgdp, __start_rodata, __inittext_begin, PAGE_KERNEL,
+				   &vmlinux_rodata, NO_CONT_MAPPINGS, VM_NO_GUARD);
+		map_kernel_segment(pgdp, __inittext_begin, __inittext_end, text_prot,
+				   &vmlinux_inittext, 0, VM_NO_GUARD);
+		map_kernel_segment(pgdp, __initdata_begin, __initdata_end, PAGE_KERNEL,
+				   &vmlinux_initdata, 0, VM_NO_GUARD);
+#ifdef CONFIG_IEE
+		if (haoc_enabled) {
+			map_kernel_segment(pgdp, _data, iee_init_data_end, PAGE_KERNEL,
+					 &vmlinux_iee_init_data, NO_CONT_MAPPINGS | NO_BLOCK_MAPPINGS, VM_NO_GUARD);
+			map_kernel_segment(pgdp, iee_init_data_end, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+			} else
+			map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+#else	
+		map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+#endif
+		
+		fixmap_copy(pgdp);
+		kasan_copy_shadow(pgdp);
 }
 
 static void __init create_idmap(void)

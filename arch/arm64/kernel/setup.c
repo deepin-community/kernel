@@ -300,9 +300,6 @@ u64 cpu_logical_map(unsigned int cpu)
 void __init __no_sanitize_address setup_arch(char **cmdline_p)
 {
 	setup_initial_init_mm(_stext, _etext, _edata, _end);
-	#ifdef CONFIG_IEE_SIP
-	iee_si_setup_data();
-	#endif
 
 	*cmdline_p = boot_command_line;
 
