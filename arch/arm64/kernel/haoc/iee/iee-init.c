@@ -11,6 +11,7 @@
 #include <linux/memblock.h>
 #include <asm/cpufeature.h>
 #include <asm/haoc/iee-mmu.h>
+#include <asm/haoc/iee-init.h>
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
@@ -57,6 +58,12 @@ void iee_setup_asid(void)
 	local_flush_tlb_all();
 }
 
+static void iee_setup_init_data(void){
+	for (u64 addr = (u64)iee_init_data_begin; addr < (u64)iee_init_data_end;
+			addr += PAGE_SIZE)
+		iee_set_logical_mem(addr, 0, true);
+}
+
 void __init iee_init_post(void)
 {
 	if (!haoc_enabled)
@@ -75,6 +82,7 @@ void __init iee_init_post(void)
 	extern void iee_si_init(void);
 	iee_si_init();
 #endif
+	iee_setup_init_data();
 }
 
 void __init iee_stack_init(void)

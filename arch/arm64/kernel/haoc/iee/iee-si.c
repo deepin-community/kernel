@@ -101,6 +101,8 @@ static int __init iee_si_init_code(void)
 
 void __init iee_si_init(void)
 {
+	iee_si_setup_data();
+	
 	if (iee_si_init_code())
 		pr_info("IEE: Sensitive instruction protection is ready.");
 }
