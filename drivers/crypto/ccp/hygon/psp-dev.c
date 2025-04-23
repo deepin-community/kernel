@@ -725,9 +725,10 @@ void psp_ringbuffer_dequeue(struct csv_ringbuffer_queue *ringbuffer,
 
 static int __psp_ringbuffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
 {
-	int ret = 0;
+	int ret = 0, i;
 	void *cmd_ptr_buffer	= NULL;
 	void *stat_val_buffer	= NULL;
+	struct csv_cmdptr_entry *cmd;
 
 	memset((void *)ring_buffer, 0, sizeof(struct csv_ringbuffer_queue));
 
@@ -736,6 +737,17 @@ static int __psp_ringbuffer_queue_init(struct csv_ringbuffer_queue *ring_buffer)
 		return -ENOMEM;
 	csv_queue_init(&ring_buffer->cmd_ptr, cmd_ptr_buffer,
 			CSV_RING_BUFFER_SIZE, CSV_RING_BUFFER_ESIZE);
+	/**
+	 * For high-priority queue: initialize all commands with a valid cmd_id
+	 * to prevent PSP from reading invalid cmd_id.
+	 *
+	 * Low-priority queue never
+	 * attempts to read commands from empty queue.
+	 */
+	cmd = (struct csv_cmdptr_entry *)ring_buffer->cmd_ptr.data_align;
+	for (i = 0; i < CSV_RING_BUFFER_ELEMENT_NUM; ++i)
+		cmd[i].cmd_id = TKM_PSP_CMDID;
+
 	stat_val_buffer = kzalloc(CSV_RING_BUFFER_LEN, GFP_KERNEL);
 	if (!stat_val_buffer) {
 		ret = -ENOMEM;
@@ -853,8 +865,6 @@ static int __psp_do_ringbuffer_cmds_locked(struct csv_ringbuffer_queue *ring_buf
 	struct psp_device *psp = psp_master;
 	unsigned int rb_tail, rb_head;
 	unsigned int reg, rb_ctl, ret = 0;
-	struct csv_queue *queue;
-	struct csv_cmdptr_entry *first_cmd;
 	struct csv_ringbuffer_queue *hi_rb, *low_rb;
 
 	if (!psp || !hygon_psp_hooks.sev_dev_hooks_installed)
@@ -885,23 +895,6 @@ static int __psp_do_ringbuffer_cmds_locked(struct csv_ringbuffer_queue *ring_buf
 	rb_head |= cmd_queue_head(&low_rb->cmd_ptr);
 	iowrite32(rb_head, psp->io_regs + psp->vdata->sev->cmdbuff_addr_lo_reg);
 
-	/**
-	 * In some PSP firmware, even if the high priority queue is empty,
-	 * it will still try to read the element at the head of the queue and try to process it.
-	 * When the element at the head of the queue happens to be an illegal cmd id,
-	 * PSP returns the PSP_RBHEAD_QPAUSE_INT_STAT error.
-	 *
-	 * Therefore, now we need to manually set the head element of the queue to
-	 * the default tkm cmd id before sending the ringbuffer each time when
-	 * the high priority queue is empty.
-	 *
-	 * The low priority queue has no such bug, and future PSP firmware should fix it.
-	 */
-	if (cmd_queue_size(&hi_rb->cmd_ptr) == 0) {
-		queue = &hi_rb->cmd_ptr;
-		first_cmd = (struct csv_cmdptr_entry *)queue->data_align;
-		first_cmd[queue->head & queue->mask].cmd_id = TKM_PSP_CMDID;
-	}
 	pr_debug("ringbuffer launch rb_head %x, rb_tail %x\n", rb_head, rb_tail);
 
 	if (psp_worker_notify)
