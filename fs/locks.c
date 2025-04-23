@@ -2554,13 +2554,10 @@ void locks_remove_posix(struct file *filp, fl_owner_t owner)
 	locks_init_lock(&lock);
 	lock.fl_type = F_UNLCK;
 	lock.fl_flags = FL_POSIX | FL_CLOSE;
-	lock.fl_start = 0;
 	lock.fl_end = OFFSET_MAX;
 	lock.fl_owner = owner;
 	lock.fl_pid = current->tgid;
 	lock.fl_file = filp;
-	lock.fl_ops = NULL;
-	lock.fl_lmops = NULL;
 
 	error = vfs_lock_file(filp, F_SETLK, &lock, NULL);
 
