@@ -9,6 +9,7 @@
  */
 #include <linux/elf.h>
 #include <linux/notifier.h>
+#include <linux/panic_notifier.h>
 #include <linux/mm.h>
 
 #include <asm/sections.h>
