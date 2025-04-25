@@ -7,6 +7,6 @@ struct thread;
 struct perf_sample;
 #endif
 
-extern struct test arch_tests[];
+extern struct test_suite *arch_tests[];
 
 #endif
