@@ -213,7 +213,7 @@ static cputime64_t calc_busy_time(unsigned int cpu)
 	return busy_time;
 }
 
-static inline cputime64_t get_idle_time_jiffy(cputime64_t *wall)
+static inline cputime64_t sw64_get_idle_time_jiffy(cputime64_t *wall)
 {
 	unsigned int cpu;
 	cputime64_t idle_time = 0;
@@ -234,7 +234,7 @@ static inline cputime64_t get_idle_time_jiffy(cputime64_t *wall)
 	return (cputime64_t)jiffies_to_usecs(idle_time);
 }
 
-static inline cputime64_t get_idle_time(cputime64_t *wall)
+static inline cputime64_t sw64_get_idle_time(cputime64_t *wall)
 {
 	unsigned int cpu;
 	u64 idle_time = 0;
@@ -242,7 +242,7 @@ static inline cputime64_t get_idle_time(cputime64_t *wall)
 	for_each_online_cpu(cpu) {
 		idle_time += get_cpu_idle_time_us(cpu, wall);
 		if (idle_time == -1ULL)
-			return get_idle_time_jiffy(wall);
+			return sw64_get_idle_time_jiffy(wall);
 	}
 
 	return idle_time;
@@ -378,7 +378,7 @@ static void do_autoplug_timer(struct work_struct *work)
 		goto out;
 	}
 
-	cur_idle_time = get_idle_time(&cur_wall_time);
+	cur_idle_time = sw64_get_idle_time(&cur_wall_time);
 	if (cur_wall_time == 0)
 		cur_wall_time = jiffies64_to_cputime64(get_jiffies_64());
 
@@ -441,11 +441,16 @@ static struct platform_driver platform_driver = {
 static int __init cpuautoplug_init(void)
 {
 	int i, ret, delay;
+	struct device *dev_root;
 
-	ret = sysfs_create_group(&cpu_subsys.dev_root->kobj,
+	dev_root = bus_get_dev_root(&cpu_subsys);
+	if (dev_root) {
+		ret = sysfs_create_group(&dev_root->kobj,
 					&cpuclass_attr_group);
-	if (ret)
-		return ret;
+		put_device(dev_root);
+		if (ret)
+			return ret;
+	}
 
 	ret = platform_driver_register(&platform_driver);
 	if (ret)
