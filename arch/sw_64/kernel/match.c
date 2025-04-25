@@ -211,8 +211,7 @@ static ssize_t da_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-	if (on_each_cpu(write_da_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_da_match, NULL, 1);
 
 	return len;
 }
@@ -258,8 +257,7 @@ static ssize_t dv_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-	if (on_each_cpu(write_dv_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_dv_match, NULL, 1);
 
 	return len;
 }
@@ -313,9 +311,7 @@ static ssize_t dav_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-
-	if (on_each_cpu(write_dav_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_dav_match, NULL, 1);
 	return len;
 }
 
@@ -364,8 +360,7 @@ static ssize_t ia_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-	if (on_each_cpu(write_ia_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_ia_match, NULL, 1);
 	return len;
 }
 
@@ -406,8 +401,7 @@ static ssize_t iv_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-	if (on_each_cpu(write_iv_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_iv_match, NULL, 1);
 	return len;
 }
 
@@ -448,8 +442,7 @@ static ssize_t ida_match_set(struct file *file, const char __user *user_buf,
 	if (err)
 		return err;
 
-	if (on_each_cpu(write_ida_match, NULL, 1))
-		pr_crit("%s: timed out\n", __func__);
+	on_each_cpu(write_ida_match, NULL, 1);
 
 	return len;
 }
