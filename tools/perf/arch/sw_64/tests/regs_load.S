@@ -3,12 +3,12 @@
 
 .text
 .set noat
-.type perf_regs_load,%function
+.globl perf_regs_load
 #define STL_REG(r)	stl $r, (8 * r)($16)
 #define LDL_REG(r)	ldl $r, (8 * r)($16)
 #define SP	(8 * 30)
 #define PC	(8 * 31)
-SYM_FUNC_START(perf_regs_load)
+perf_regs_load:
 	STL_REG(0)
 	STL_REG(1)
 	STL_REG(2)
@@ -44,4 +44,4 @@ SYM_FUNC_START(perf_regs_load)
 	stl $26, (PC)($16)
 	LDL_REG(17)
 	ret
-SYM_FUNC_END(perf_regs_load)
+.end perf_regs_load
