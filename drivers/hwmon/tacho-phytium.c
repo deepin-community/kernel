@@ -57,6 +57,8 @@
 
 #define	TIMER_INT_CLR_MASK	GENMASK(5, 0)
 
+#define TACHO_DRIVER_VERSION "1.1.1"
+
 enum tacho_modes {
 	tacho_mode = 1,
 	capture_mode,
@@ -388,3 +390,4 @@ module_platform_driver(phytium_tacho_driver);
 MODULE_AUTHOR("Zhang Yiqun <zhangyiqun@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium tachometer driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(TACHO_DRIVER_VERSION);
