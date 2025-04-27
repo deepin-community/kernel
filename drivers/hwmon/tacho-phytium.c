@@ -236,41 +236,24 @@ static const struct attribute_group *capture_groups[] = {
 
 static int phytium_tacho_get_work_mode(struct phytium_tacho *tacho)
 {
-	struct device_node *nc = tacho->dev->of_node;
 	struct fwnode_handle *fwn = tacho->dev->fwnode;
 
-	if (of_property_read_bool(nc, "tacho"))
+	if (fwnode_property_read_bool(fwn, "tacho"))
 		return tacho_mode;
-	else if (has_acpi_companion(tacho->dev) && fwnode_property_read_bool(
-				fwn, "tacho"))
-		return tacho_mode;
-	if (of_property_read_bool(nc, "capture"))
-		return capture_mode;
-	else if (has_acpi_companion(tacho->dev) && fwnode_property_read_bool(
-				fwn, "capture"))
+	if (fwnode_property_read_bool(fwn, "capture"))
 		return capture_mode;
 	return tacho_mode;
 }
 
 static int phytium_tacho_get_edge_mode(struct phytium_tacho *tacho)
 {
-	struct device_node *nc = tacho->dev->of_node;
 	struct fwnode_handle *fwn = tacho->dev->fwnode;
 
-	if (of_property_read_bool(nc, "up"))
+	if (fwnode_property_read_bool(fwn, "up"))
 		return rising_edge;
-	else if (has_acpi_companion(tacho->dev) && fwnode_property_read_bool(
-				fwn, "up"))
-		return rising_edge;
-	if (of_property_read_bool(nc, "down"))
+	if (fwnode_property_read_bool(fwn, "down"))
 		return falling_edge;
-	else if (has_acpi_companion(tacho->dev) && fwnode_property_read_bool(
-				fwn, "down"))
-		return falling_edge;
-	if (of_property_read_bool(nc, "double"))
-		return double_edge;
-	else if (has_acpi_companion(tacho->dev) && fwnode_property_read_bool(
-				fwn, "double"))
+	if (fwnode_property_read_bool(fwn, "double"))
 		return double_edge;
 	return rising_edge;
 }
@@ -278,15 +261,10 @@ static int phytium_tacho_get_edge_mode(struct phytium_tacho *tacho)
 static int phytium_tacho_get_debounce(struct phytium_tacho *tacho)
 {
 	u32 value;
-	struct device_node *nc = tacho->dev->of_node;
 	struct fwnode_handle *fwn = tacho->dev->fwnode;
 
-	if (!of_property_read_u32(nc, "debounce-level", &value))
+	if (!fwnode_property_read_u32(fwn, "debounce-level", &value))
 		return value;
-	if (has_acpi_companion(tacho->dev)) {
-		if (!fwnode_property_read_u32(fwn, "debounce-level", &value))
-			return value;
-	}
 	return 0;
 }
 
@@ -303,6 +281,7 @@ static int phytium_tacho_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct phytium_tacho *tacho;
 	int ret;
+	u32 fre;
 
 	tacho = devm_kzalloc(dev, sizeof(*tacho), GFP_KERNEL);
 	if (!tacho)
@@ -320,24 +299,19 @@ static int phytium_tacho_probe(struct platform_device *pdev)
 		return PTR_ERR(tacho->base);
 	}
 
+	tacho->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(tacho->clk))
+		return PTR_ERR(tacho->clk);
+	ret = clk_prepare_enable(tacho->clk);
+	if (ret)
+		return ret;
+
 	if (!has_acpi_companion(tacho->dev)) {
-		tacho->clk = devm_clk_get(&pdev->dev, NULL);
-		if (IS_ERR(tacho->clk))
-			return PTR_ERR(tacho->clk);
-		ret = clk_prepare_enable(tacho->clk);
-		if (ret)
-			return ret;
 		tacho->freq = clk_get_rate(tacho->clk);
 	} else {
-		u32 fre;
-
-		ret = clk_prepare_enable(tacho->clk);
-		if (ret)
-			return ret;
 		fwnode_property_read_u32(tacho->dev->fwnode, "clock-frequency", &fre);
 		tacho->freq = fre;
 	}
-
 	tacho->irq = platform_get_irq(pdev, 0);
 	if (tacho->irq < 0) {
 		dev_err(&pdev->dev, "no irq resource?\n");
