@@ -327,19 +327,36 @@ void phytium_gpio_irq_handler(struct irq_desc *desc)
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
 	unsigned long pending;
 	int offset;
+	int index = -1;
+	unsigned int index_found = 0;
 
 	chained_irq_enter(irqchip, desc);
 
 	pending = readl(gpio->regs + GPIO_INTSTATUS);
+
+	if (gc->irq.num_parents > 1) {
+		for (index = 0 ; index < gc->irq.num_parents; index++) {
+			if (gc->irq.parents[index] == desc->irq_data.irq) {
+				index_found = 1;
+				break;
+			}
+		}
+		if (index_found == 0) {
+			pr_err("Can't find index for this gpio interrupt.\n");
+			index = -1;
+		}
+	}
+
 	if (pending) {
 		for_each_set_bit(offset, &pending, gpio->ngpio[0]) {
-			int gpio_irq = irq_find_mapping(gc->irq.domain,
-							offset);
-			generic_handle_irq(gpio_irq);
-
-			if ((irq_get_trigger_type(gpio_irq) &
-			    IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH)
-				phytium_gpio_toggle_trigger(gpio, offset);
+			if (index == -1 || offset == index) {
+				int gpio_irq = irq_find_mapping(gc->irq.domain,
+						offset);
+				generic_handle_irq(gpio_irq);
+				if ((irq_get_trigger_type(gpio_irq) &
+					IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH)
+					phytium_gpio_toggle_trigger(gpio, offset);
+			}
 		}
 	}
 
