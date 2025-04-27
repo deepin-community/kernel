@@ -5,6 +5,9 @@
  * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
  */
 
+#include <linux/pwm.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include "phytium_display_drv.h"
 #include "pe220x_reg.h"
 #include "phytium_dp.h"
@@ -379,13 +382,9 @@ static void pe220x_dp_hw_poweron_panel(struct phytium_dp_device *phytium_dp)
 {
 	struct drm_device *dev = phytium_dp->dev;
 	struct phytium_display_private *priv = dev->dev_private;
-	int port = phytium_dp->port;
 	int ret = 0;
 
-	phytium_writel_reg(priv, FLAG_REQUEST | CMD_BACKLIGHT | PANEL_POWER_ENABLE,
-			   0, PE220X_DC_CMD_REGISTER(port));
-	ret = phytium_wait_cmd_done(priv, PE220X_DC_CMD_REGISTER(port),
-				    FLAG_REQUEST, FLAG_REPLY);
+	gpiod_set_value(priv->edp_power_en, 1);
 	if (ret < 0)
 		DRM_ERROR("%s: failed to poweron panel\n", __func__);
 }
@@ -394,13 +393,9 @@ static void pe220x_dp_hw_poweroff_panel(struct phytium_dp_device *phytium_dp)
 {
 	struct drm_device *dev = phytium_dp->dev;
 	struct phytium_display_private *priv = dev->dev_private;
-	int port = phytium_dp->port;
 	int ret = 0;
 
-	phytium_writel_reg(priv, FLAG_REQUEST | CMD_BACKLIGHT | PANEL_POWER_DISABLE,
-			   0, PE220X_DC_CMD_REGISTER(port));
-	ret = phytium_wait_cmd_done(priv, PE220X_DC_CMD_REGISTER(port),
-				    FLAG_REQUEST, FLAG_REPLY);
+	gpiod_set_value(priv->edp_power_en, 0);
 	if (ret < 0)
 		DRM_ERROR("%s: failed to poweroff panel\n", __func__);
 }
@@ -409,12 +404,14 @@ static void pe220x_dp_hw_enable_backlight(struct phytium_dp_device *phytium_dp)
 {
 	struct drm_device *dev = phytium_dp->dev;
 	struct phytium_display_private *priv = dev->dev_private;
-	int port = phytium_dp->port, ret = 0;
+	struct pwm_state state;
+	int ret = 0;
 
-	phytium_writel_reg(priv, FLAG_REQUEST | CMD_BACKLIGHT | BACKLIGHT_ENABLE,
-			   0, PE220X_DC_CMD_REGISTER(port));
-	ret = phytium_wait_cmd_done(priv, PE220X_DC_CMD_REGISTER(port),
-				    FLAG_REQUEST, FLAG_REPLY);
+	pwm_get_state(phytium_dp->pwm, &state);
+	state.enabled = true;
+	pwm_set_relative_duty_cycle(&state, 50, 100);
+	ret = pwm_apply_might_sleep(phytium_dp->pwm, &state);
+	gpiod_set_value(priv->edp_bl_en, 1);
 	if (ret < 0)
 		DRM_ERROR("%s: failed to enable backlight\n", __func__);
 }
@@ -423,45 +420,41 @@ static void pe220x_dp_hw_disable_backlight(struct phytium_dp_device *phytium_dp)
 {
 	struct drm_device *dev = phytium_dp->dev;
 	struct phytium_display_private *priv = dev->dev_private;
-	int port = phytium_dp->port;
 	int ret = 0;
 
-	phytium_writel_reg(priv, FLAG_REQUEST | CMD_BACKLIGHT | BACKLIGHT_DISABLE,
-			   0, PE220X_DC_CMD_REGISTER(port));
-	ret = phytium_wait_cmd_done(priv, PE220X_DC_CMD_REGISTER(port),
-				    FLAG_REQUEST, FLAG_REPLY);
+	gpiod_set_value(priv->edp_bl_en, 0);
 	if (ret < 0)
-		DRM_ERROR("%s: failed to disable backlight\n", __func__);
+		DRM_ERROR("%s: failed to disable backlight, ret = %d\n", __func__, ret);
 }
 
 static uint32_t pe220x_dp_hw_get_backlight(struct phytium_dp_device *phytium_dp)
 {
-	struct drm_device *dev = phytium_dp->dev;
-	struct phytium_display_private *priv = dev->dev_private;
-	int config;
-	uint32_t group_offset = priv->address_transform_base;
+	struct pwm_state state;
+	uint32_t level;
 
-	config = phytium_readl_reg(priv, group_offset, PE220X_DC_ADDRESS_TRANSFORM_BACKLIGHT_VALUE);
-	return ((config >> BACKLIGHT_VALUE_SHIFT) & BACKLIGHT_VALUE_MASK);
+	pwm_get_state(phytium_dp->pwm, &state);
+	level = pwm_get_relative_duty_cycle(&state, 100);
+	return level;
 }
 
 static int pe220x_dp_hw_set_backlight(struct phytium_dp_device *phytium_dp, uint32_t level)
 {
-	struct drm_device *dev = phytium_dp->dev;
-	struct phytium_display_private *priv = dev->dev_private;
-	int port = phytium_dp->port;
-	int config = 0;
+	struct pwm_state state;
 	int ret = 0;
 
 	if (level > PE220X_DP_BACKLIGHT_MAX) {
 		ret = -EINVAL;
 		goto out;
 	}
+	pwm_get_state(phytium_dp->pwm, &state);
+	state.enabled = true;
+	state.period = phytium_dp->pwm->args.period;
+	if (state.period == 0)
+		DRM_ERROR("%s: set pwm period to 0\n", __func__);
 
-	config = FLAG_REQUEST | CMD_BACKLIGHT | ((level & BACKLIGHT_MASK) << BACKLIGHT_SHIFT);
-	phytium_writel_reg(priv, config, 0, PE220X_DC_CMD_REGISTER(port));
-	ret = phytium_wait_cmd_done(priv, PE220X_DC_CMD_REGISTER(port),
-				    FLAG_REQUEST, FLAG_REPLY);
+	pwm_set_relative_duty_cycle(&state, level, 100);
+
+	ret = pwm_apply_might_sleep(phytium_dp->pwm, &state);
 	if (ret < 0)
 		DRM_ERROR("%s: failed to set backlight\n", __func__);
 out:

@@ -7,7 +7,9 @@
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic.h>
+#if defined(__arm__) || defined(__aarch64__)
 #include <asm/neon.h>
+#endif
 #include <linux/delay.h>
 #include "phytium_display_drv.h"
 #include "pe220x_reg.h"
@@ -54,6 +56,10 @@ static const unsigned int pe220x_primary_formats[] = {
 	DRM_FORMAT_NV16,
 	DRM_FORMAT_NV12,
 	DRM_FORMAT_NV21,
+};
+
+static const unsigned int pe220x_bmc_primary_formats[] = {
+	DRM_FORMAT_XRGB8888,
 };
 
 static uint64_t pe220x_primary_formats_modifiers[] = {
@@ -109,49 +115,76 @@ void pe220x_dc_hw_reset(struct drm_crtc *crtc)
 	int config = 0;
 	int phys_pipe = phytium_crtc->phys_pipe;
 
-	/* disable pixel clock for bmc mode */
-	if (phys_pipe == 0)
-		pe220x_dc_hw_disable(crtc);
-
 	config = phytium_readl_reg(priv, 0, PE220X_DC_CLOCK_CONTROL);
-	config &= (~(DC0_CORE_RESET | DC1_CORE_RESET | AXI_RESET | AHB_RESET));
 
-	if (phys_pipe == 0) {
-		phytium_writel_reg(priv, config | DC0_CORE_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET | AHB_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC0_CORE_RESET,
-				      0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
+	if (priv->info.bmc_mode) {
+		pe220x_dc_hw_disable(crtc);
+		config &= (~(DC0_CORE_RESET | DC1_CORE_RESET | AHB_RESET));
+		if (phys_pipe == 0) {
+			phytium_writel_reg(priv, config | DC0_CORE_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET | AHB_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET,
+					      0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+		} else {
+			phytium_writel_reg(priv, config | DC1_CORE_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET | AHB_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET,
+					      0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+		}
+
 	} else {
-		phytium_writel_reg(priv, config | DC1_CORE_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET | AHB_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET,
-				   0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config | DC1_CORE_RESET,
-				      0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
-		phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
-		udelay(20);
+		config &= (~(DC0_CORE_RESET | DC1_CORE_RESET | AXI_RESET | AHB_RESET));
+		if (phys_pipe == 0) {
+			phytium_writel_reg(priv, config | DC0_CORE_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET | AHB_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET | AXI_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC0_CORE_RESET,
+					      0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+		} else {
+			phytium_writel_reg(priv, config | DC1_CORE_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET | AHB_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET | AXI_RESET,
+					   0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config | DC1_CORE_RESET,
+					      0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+			phytium_writel_reg(priv, config, 0, PE220X_DC_CLOCK_CONTROL);
+			udelay(20);
+		}
 	}
 }
 
@@ -214,6 +247,15 @@ void pe220x_dc_hw_plane_get_primary_format(const uint64_t **format_modifiers,
 	*format_modifiers = pe220x_primary_formats_modifiers;
 	*formats = pe220x_primary_formats;
 	*format_count = ARRAY_SIZE(pe220x_primary_formats);
+}
+
+void pe220x_dc_bmc_hw_plane_get_primary_format(const uint64_t **format_modifiers,
+					    const uint32_t **formats,
+					    uint32_t *format_count)
+{
+	  *format_modifiers = pe220x_primary_formats_modifiers;
+	  *formats = pe220x_bmc_primary_formats;
+	  *format_count = ARRAY_SIZE(pe220x_bmc_primary_formats);
 }
 
 void pe220x_dc_hw_plane_get_cursor_format(const uint64_t **format_modifiers,

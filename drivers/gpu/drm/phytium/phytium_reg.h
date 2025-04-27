@@ -268,7 +268,7 @@
 #define PHYTIUM_DP_INTERRUPT_MASK			0x0144
 	#define HPD_IRQ_MASK					(1<<1)
 	#define HPD_EVENT_MASK					(1<<0)
-	#define HPD_OTHER_MASK					0x5c
+	#define HPD_OTHER_MASK					0x7c
 #define PHYTIUM_DP_AUX_REPLY_DATA_COUNT			0x0148
 #define PHYTIUM_DP_AUX_STATUS				0x014C
 	#define REPLY_RECEIVED					0x1

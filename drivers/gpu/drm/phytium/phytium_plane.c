@@ -448,16 +448,15 @@ static void phytium_dc_cursor_plane_update(struct drm_plane *plane)
 	struct drm_device *dev = plane->dev;
 	struct phytium_display_private *priv = dev->dev_private;
 	struct phytium_plane *phytium_plane = to_phytium_plane(plane);
-	struct drm_framebuffer *fb = plane->state->fb;
 	int phys_pipe = phytium_plane->phys_pipe;
 	int config;
 	unsigned long iova;
 
 	phytium_plane->enable = 1;
-	phytium_plane->cursor_hot_x = fb->hot_x;
-	phytium_plane->cursor_hot_y = fb->hot_y;
-	phytium_plane->cursor_x = plane->state->crtc_x + fb->hot_x;
-	phytium_plane->cursor_y = plane->state->crtc_y + fb->hot_y;
+	phytium_plane->cursor_hot_x = plane->state->hotspot_x;
+	phytium_plane->cursor_hot_y = plane->state->hotspot_x;
+	phytium_plane->cursor_x = plane->state->crtc_x + plane->state->hotspot_x ;
+	phytium_plane->cursor_y = plane->state->crtc_y + plane->state->hotspot_x;
 
 	if (phytium_plane->cursor_x < 0) {
 		phytium_plane->cursor_hot_x = plane->state->crtc_w - 1;
@@ -580,7 +579,12 @@ struct phytium_plane *phytium_primary_plane_create(struct drm_device *dev, int p
 		phytium_plane->dc_hw_update_primary_hi_addr = px210_dc_hw_update_primary_hi_addr;
 		phytium_plane->dc_hw_update_cursor_hi_addr = NULL;
 	}  else if (IS_PE220X(priv)) {
-		phytium_plane->dc_hw_plane_get_format = pe220x_dc_hw_plane_get_primary_format;
+		if (priv->info.bmc_mode)
+			phytium_plane->dc_hw_plane_get_format =
+				pe220x_dc_bmc_hw_plane_get_primary_format;
+		else
+			phytium_plane->dc_hw_plane_get_format =
+				pe220x_dc_hw_plane_get_primary_format;
 		phytium_plane->dc_hw_update_dcreq = NULL;
 		phytium_plane->dc_hw_update_primary_hi_addr = pe220x_dc_hw_update_primary_hi_addr;
 		phytium_plane->dc_hw_update_cursor_hi_addr = NULL;

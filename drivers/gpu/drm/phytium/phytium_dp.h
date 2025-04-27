@@ -113,6 +113,7 @@ struct phytium_dp_device {
 
 	struct phytium_panel panel;
 	struct drm_display_mode native_mode;
+	struct pwm_device *pwm;
 };
 
 union phytium_phy_tp {
