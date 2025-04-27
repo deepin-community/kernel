@@ -29,6 +29,10 @@
 
 #define DRV_NAME "i2c-phytium-pci"
 
+static int i2c_msi_enable;
+module_param(i2c_msi_enable, int, 0644);
+MODULE_PARM_DESC(i2c_msi_enable, "Enable I2C msi interrupt (0-disabled; 1-enabled; default-0)");
+
 enum phytium_pci_ctl_id_t {
 	octopus_i2c,
 };
@@ -160,6 +164,16 @@ static int i2c_phytium_pci_probe(struct pci_dev *pdev,
 	if (!dev) {
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	if (i2c_msi_enable) {
+		pci_set_master(pdev);
+
+		ret = pci_enable_msi(pdev);
+		if (ret) {
+			dev_dbg(&pdev->dev, "Error enabling MSI. ret = %d\n", ret);
+			goto out;
+		}
 	}
 
 	dev->controller = controller;
