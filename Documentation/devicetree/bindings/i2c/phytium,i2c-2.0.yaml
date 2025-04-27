@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: Phytium I2C Controller
+
+maintainers:
+  - WuJinyong <wujinyong1788@phytium.com.cn>
+
+properties:
+  compatible:
+    - description: Phytium I2C controller
+      const: phytium,i2c-2.0
+
+  reg:
+    minItems: 1
+    items:
+      - description: Offset and length of the memory mapped registers
+      - description: Offset and length of the memory mapped share memory address
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    minItems: 1
+    items:
+      - description: I2C controller reference clock source
+
+  clock-frequency:
+    description: Desired I2C bus clock frequency in Hz
+    enum: [100000, 400000, 1000000, 3400000]
+    default: 400000
+
+  i2c-sda-hold-time-ns:
+    description: |
+      The property should contain the SDA hold time in nanoseconds. This option
+      is only supported in hardware blocks version 1.11a or newer or on
+      Microsemi SoCs.
+
+  i2c-scl-falling-time-ns:
+    description: |
+      The property should contain the SCL falling time in nanoseconds.
+      This value is used to compute the tLOW period.
+    default: 300
+
+  i2c-sda-falling-time-ns:
+    description: |
+      The property should contain the SDA falling time in nanoseconds.
+      This value is used to compute the tHIGH period.
+    default: 300
+
+unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+examples:
+  - |
+    i2c@0x2701a000 {
+      compatible = "phytium,i2c-2.0";
+      reg = <0x0 0x2701a000 0x0 0x1000 0x0 0x2701e000 0x0 0x200>;
+      interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+      clock-frequency = <400000>;
+    };
+  - |
+    i2c@2701a000 {
+      compatible = "phytium,i2c-2.0";
+      reg = <0x0 0x2701a000 0x0 0x1000 0x0 0x2701e000 0x0 0x200>;
+      interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+      clock-frequency = <400000>;
+      i2c-sda-hold-time-ns = <300>;
+      i2c-sda-falling-time-ns = <300>;
+      i2c-scl-falling-time-ns = <300>;
+    };
+  - |
+    i2c@2701a000 {
+      compatible = "phytium,i2c-2.0";
+      reg = <0x0 0x2701a000 0x0 0x1000 0x0 0x2701e000 0x0 0x200>;
+      #address-cells = <1>;
+      #size-cells = <0>;
+      clock-frequency = <400000>;
+      clocks = <&i2cclk>;
+      interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+
+      eeprom@64 {
+        compatible = "atmel,24c02";
+        reg = <0x64>;
+      };
+    };
+...
