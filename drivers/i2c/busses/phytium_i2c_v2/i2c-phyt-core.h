@@ -2,7 +2,7 @@
 /*
  * Phytium I2C adapter driver.
  *
- * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  */
 #ifndef I2C_PHYT_CORE_H__
 #define I2C_PHYT_CORE_H__
@@ -14,22 +14,26 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 
-#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.0"
+#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.1"
 
 #define FT_I2C_MSG_UNIT_SIZE			10
 #define FT_I2C_DATA_RESV_LEN			2
 #define FT_I2C_SHMEM_RX_ADDR_OFFSET		384
-#define FT_I2C_MSG_CMDDATA_SIZE			80
+#define FT_I2C_MSG_CMDDATA_SIZE			64
 #define FT_I2C_IN_INTERRUPT_MODE		0
+#define FT_I2C_ENABLE_INTERRUPT			1
 #define FT_I2C_REGFILE_AP2RV_INTR_MASK		0x20
 #define FT_I2C_REGFILE_AP2RV_INTR_STATE		0x24
 #define FT_I2C_REGFILE_RV2AP_INTR_MASK		0x28
 #define FT_I2C_REGFILE_RV2AP_INTR_STAT		0x2C
+#define FT_I2C_REGFILE_RING			0x48
 #define FT_I2C_REGFILE_DEBUG			0x58
 #define FT_I2C_REGFILE_RV2AP_INTR_CLEAR		0x74
 #define FT_I2C_TRANS_FRAME_START		(BIT(0))
 #define FT_I2C_TRANS_FRAME_END			(BIT(1))
 #define FT_I2C_TRANS_FRAME_RESTART		(BIT(2))
+#define FT_I2C_REGFILE_TX_RING_OFFSET		8
+#define FT_I2C_REGFILE_TX_RING_MASK             GENMASK(13, 8)
 
 #define FT_I2C_REGFILE_HEARTBIT_VAL		BIT(2)
 #define FT_I2C_LOG_SIZE_LOW_SHIFT		4
@@ -246,9 +250,9 @@
 #define FT_ACCESS_INTR_MASK			0x00000004
 #define FT_DEFAULT_CLOCK_FREQUENCY		100000000
 
-#define FT_I2C_MSG_DATA_LEN			120
-#define FT_I2C_SINGLE_BUF_LEN			116
-#define FT_I2C_SINGLE_FRAME_CNT			3
+#define FT_I2C_MSG_DATA_LEN			56
+#define FT_I2C_SINGLE_BUF_LEN			51
+#define FT_I2C_SINGLE_FRAME_CNT			32
 
 #define RV_ANSWER_DATA_SIZE			122
 #define RV_ANSWER_DATA_CONTINUE			1
@@ -262,6 +266,7 @@ enum phyti2c_status_code {
 	FT_I2C_INT_ERR,
 	FT_I2C_BLOCK_SIZE,
 	FT_I2C_INVALID_ADDR,
+	FT_I2C_TRANS_PACKET_FAIL,
 	/*The RV result must put above*/
 	FT_I2C_RUNNING,
 	FT_I2C_CHECK_STATUS_ERR
@@ -300,9 +305,7 @@ struct i2c_ft_default_cfg_msg {
 	u32 smbclk_timeout;
 	u32 smbdat_timeout;
 	u32 cfg;
-	u32 intr_poll;
 	u32 intr_mask;
-	u32 resv;
 };
 
 enum phyti2c_set_subid {
@@ -321,14 +324,11 @@ enum phyti2c_set_subid {
 	PHYTI2C_MSG_CMD_SET_SMBCLK_LOW_TIMEOUT,
 	PHYTI2C_MSG_CMD_SET_SMBDAT_STUCK_TIMEOUT,
 	PHYTI2C_MSG_CMD_SET_ADDR,
-	PHYTI2C_MSG_CMD_SET_SHMEM_RX_ADDR,
-	PHYTI2C_MSG_CMD_SET_RX_HEAD_TAIL_LEN,
 	PHYTI2C_MSG_CMD_SET_SUSPEND
 };
 
 enum phyti2c_data_subid {
-	PHYTI2C_MSG_CMD_DATA_POLL_XFER = 0,
-	PHYTI2C_MSG_CMD_DATA_XFER,
+	PHYTI2C_MSG_CMD_DATA_XFER = 0,
 	PHYTI2C_MSG_CMD_DATA_SLAVE
 };
 
@@ -345,6 +345,7 @@ struct i2c_phyt_tranfer {
 	u32 cur_cmd_cnt;
 	u32 cur_index;
 	u32 opt_finish_len;
+	u32 tx_ring_cnt;
 	bool is_need_check;
 	bool is_last_frame;
 };
@@ -370,6 +371,7 @@ struct i2c_phyt_dev {
 	u32 intr_mask;
 	u32 flags;
 	u32 total_shmem_len;
+	u32 total_cnt;
 	int mode;
 	struct i2c_phyt_tranfer mng;
 	struct completion cmd_complete;
@@ -388,7 +390,7 @@ struct i2c_phyt_dev {
 	u32 slave_cfg;
 	u32 functionality;
 
-	u32 real_index[FT_I2C_SINGLE_FRAME_CNT];
+	u8 real_index[FT_I2C_SINGLE_FRAME_CNT];
 	struct i2c_timings timings;
 	u32 sda_hold_time;
 	u16 ss_hcnt;
@@ -431,7 +433,8 @@ struct phyt_msg_info {
 struct i2c_ft_trans_msg_info {
 	u16 addr;
 	u16 flags;
-};
+	u8 type;
+} __packed;
 
 struct i2c_phyt_bus_speed_info {
 	u8   speed_mode;
@@ -496,7 +499,6 @@ int i2c_phyt_slave_event_process(struct i2c_phyt_dev *dev,
 					struct phyt_msg_info *rx_msg, u32 head, u32 tail);
 void i2c_phyt_data_cmd8_array(struct i2c_phyt_dev *dev, u8 sub_cmd, u8 *data,
 							int len);
-int i2c_phyt_set_rx_addr(struct i2c_phyt_dev *dev);
 void i2c_phyt_slave_isr_handle(struct i2c_phyt_dev *dev);
 void i2c_phyt_master_isr_handle(struct i2c_phyt_dev *dev);
 int i2c_phyt_master_smbus_alert_process(struct i2c_phyt_dev *dev);
@@ -505,4 +507,6 @@ void i2c_phyt_common_regfile_disable_int(struct i2c_phyt_dev *dev);
 void i2c_phyt_common_regfile_clear_rv2ap_int(struct i2c_phyt_dev *dev, u32 stat);
 void i2c_phyt_notify_rv(struct i2c_phyt_dev *dev, bool need_check);
 int i2c_phyt_check_status(struct i2c_phyt_dev *dev, struct phyt_msg_info *msg);
+void i2c_phyt_set_int_interrupt(struct i2c_phyt_dev *dev,
+				u32 is_enable, u32 intr_mask);
 #endif

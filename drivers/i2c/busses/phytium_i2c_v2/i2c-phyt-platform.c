@@ -2,7 +2,7 @@
 /*
  * Phytium I2C adapter driver.
  *
- * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  */
 #include <linux/acpi.h>
 #include <linux/clk-provider.h>
@@ -295,7 +295,14 @@ static int i2c_phyt_plat_probe(struct platform_device *pdev)
 	}
 
 	/*set rx share mem start addr*/
-	dev->rx_shmem_addr = dev->tx_shmem_addr + FT_I2C_SHMEM_RX_ADDR_OFFSET;
+	dev->mng.tx_ring_cnt = (i2c_phyt_read_reg(dev, FT_I2C_REGFILE_RING) &
+			    FT_I2C_REGFILE_TX_RING_MASK) >> FT_I2C_REGFILE_TX_RING_OFFSET;
+	if (!dev->mng.tx_ring_cnt || (dev->mng.tx_ring_cnt > 8)) {
+		dev_err(&pdev->dev, "failed set tx ring cnt:%d\n", dev->mng.tx_ring_cnt);
+		return -EINVAL;
+	}
+	dev->rx_shmem_addr = dev->tx_shmem_addr +
+			    dev->mng.tx_ring_cnt * sizeof(struct phyt_msg_info);
 
 	dev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, dev);
@@ -392,7 +399,6 @@ static int i2c_phyt_plat_probe(struct platform_device *pdev)
 	adap->dev.of_node = pdev->dev.of_node;
 	adap->timeout = HZ;
 	adap->dev.fwnode = pdev->dev.fwnode;
-
 	dev_pm_set_driver_flags(&pdev->dev,
 				DPM_FLAG_SMART_PREPARE |
 				DPM_FLAG_SMART_SUSPEND |
@@ -442,7 +448,6 @@ static int i2c_phyt_plat_remove(struct platform_device *pdev)
 	i2c_del_adapter(&dev->adapter);
 	sysfs_remove_group(&dev->dev->kobj, &i2c_ft_device_group);
 	dev->disable(dev);
-	i2c_phyt_common_regfile_disable_int(dev);
 	/*disable alive function*/
 	i2c_phyt_disable_alive(dev);
 	del_timer(&dev->timer);
@@ -453,6 +458,8 @@ static int i2c_phyt_plat_remove(struct platform_device *pdev)
 
 	if (!IS_ERR_OR_NULL(dev->rst))
 		reset_control_assert(dev->rst);
+
+	i2c_phyt_common_regfile_disable_int(dev);
 
 	return 0;
 }

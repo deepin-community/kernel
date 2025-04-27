@@ -2,7 +2,7 @@
 /*
  * Phytium I2C adapter driver.
  *
- * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  */
 #include <linux/acpi.h>
 #include <linux/delay.h>
@@ -137,6 +137,7 @@ static int i2c_phyt_master_update_new_msg(struct i2c_phyt_dev *dev)
 		return -EINVAL;
 
 	memset(&shmem_msg, 0, sizeof(struct phyt_msg_info));
+	i2c_msg_info = (struct i2c_ft_trans_msg_info *)&shmem_msg.data[0];
 	/*Get the remain len*/
 	remain_len = msgs[dev->mng.cur_index].len - dev->mng.opt_finish_len;
 	if (!remain_len) {
@@ -148,7 +149,7 @@ static int i2c_phyt_master_update_new_msg(struct i2c_phyt_dev *dev)
 
 		if ((msgs[dev->mng.cur_index - 1].flags & I2C_M_RD) !=
 		    (msgs[dev->mng.cur_index].flags & I2C_M_RD))
-			shmem_msg.head.seq = FT_I2C_TRANS_FRAME_RESTART;
+			i2c_msg_info->type = FT_I2C_TRANS_FRAME_RESTART;
 
 		dev->mng.opt_finish_len = 0;
 		remain_len = msgs[dev->mng.cur_index].len;
@@ -160,17 +161,17 @@ static int i2c_phyt_master_update_new_msg(struct i2c_phyt_dev *dev)
 		shmem_msg.head.len = FT_I2C_SINGLE_BUF_LEN;
 	} else {
 		if (dev->mng.cur_index + 1 >= dev->msgs_num) {
-			shmem_msg.head.seq |= FT_I2C_TRANS_FRAME_END;
+			i2c_msg_info->type |= FT_I2C_TRANS_FRAME_END;
 			dev->mng.is_last_frame = true;
 		}
 	}
 	/*Set other info of the Head*/
+	shmem_msg.head.seq = dev->total_cnt--;
 	shmem_msg.head.cmd_type = PHYTI2C_MSG_CMD_DATA;
 	shmem_msg.head.cmd_subid = PHYTI2C_MSG_CMD_DATA_XFER;
 	shmem_msg.head.status0 = FT_I2C_MSG_COMPLETE_UNKNOW;
 
 	/*store addr flags of struct i2c_msg*/
-	i2c_msg_info = (struct i2c_ft_trans_msg_info *)&shmem_msg.data[0];
 	i2c_msg_info->addr = msgs[dev->mng.cur_index].addr;
 	i2c_msg_info->flags = msgs[dev->mng.cur_index].flags;
 
@@ -185,15 +186,15 @@ static int i2c_phyt_master_update_new_msg(struct i2c_phyt_dev *dev)
 
 	dev->mng.opt_finish_len += shmem_msg.head.len;
 	/*update new data to shmem*/
-	memcpy(&tx_shmem[dev->mng.tx_cmd_cnt % FT_I2C_SINGLE_FRAME_CNT],
+	memcpy(&tx_shmem[dev->mng.tx_cmd_cnt % dev->mng.tx_ring_cnt],
 	       &shmem_msg, dev->total_shmem_len);
 
-	dev->real_index[dev->mng.tx_cmd_cnt % FT_I2C_SINGLE_FRAME_CNT] =
+	dev->real_index[dev->mng.tx_cmd_cnt % dev->mng.tx_ring_cnt] =
 		dev->mng.cur_index;
 	/*Update the Tx_Tail*/
 	dev->mng.tx_cmd_cnt++;
 	i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL,
-				   dev->mng.tx_cmd_cnt % FT_I2C_SINGLE_FRAME_CNT);
+				   dev->mng.tx_cmd_cnt % dev->mng.tx_ring_cnt);
 	return FT_I2C_RUNNING;
 }
 
@@ -208,7 +209,7 @@ static int i2c_phyt_master_handle(struct i2c_phyt_dev *dev)
 		return 0;
 
 	/*Get the index of general msg*/
-	tx_head = dev->mng.cur_cmd_cnt % FT_I2C_SINGLE_FRAME_CNT;
+	tx_head = dev->mng.cur_cmd_cnt % dev->mng.tx_ring_cnt;
 	dev->mng.cur_cmd_cnt++;
 
 	/*Read the general_msg*/
@@ -233,6 +234,26 @@ static int i2c_phyt_master_handle(struct i2c_phyt_dev *dev)
 	return i2c_phyt_master_update_new_msg(dev);
 }
 
+static int i2c_phyt_master_calc_total_frame_cnt(struct i2c_phyt_dev *dev)
+{
+	int i, frame_cnt = 0, len = 0, remain_len;
+	struct i2c_msg *msgs = dev->msgs;
+
+	for (i = 0; i < dev->msgs_num; i++) {
+		len = 0;
+		remain_len = msgs[i].len;
+		while (len < remain_len) {
+			if (remain_len > FT_I2C_SINGLE_BUF_LEN)
+				len += FT_I2C_SINGLE_BUF_LEN;
+			else
+				len = remain_len;
+
+			frame_cnt++;
+		}
+	}
+	return frame_cnt;
+}
+
 static void i2c_phyt_master_xfer_single_frame(struct i2c_phyt_dev *dev)
 {
 	struct phyt_msg_info i2c_mng_msg;
@@ -242,36 +263,25 @@ static void i2c_phyt_master_xfer_single_frame(struct i2c_phyt_dev *dev)
 	struct i2c_msg *msgs = dev->msgs;
 	int i, len = 0, remain_len;
 
+	dev->total_cnt = i2c_phyt_master_calc_total_frame_cnt(dev);
+	if (dev->total_cnt)
+		dev->total_cnt--;
+
 	/*orign info*/
 	for (i = 0; i < dev->msgs_num; i++) {
 		remain_len = msgs[i].len;
 		dev->mng.opt_finish_len = 0;
 
-		while (dev->mng.tx_cmd_cnt < FT_I2C_SINGLE_FRAME_CNT - 1) {
+		while (dev->mng.tx_cmd_cnt < dev->mng.tx_ring_cnt - 1) {
 			dev->total_shmem_len = 0;
 			memset(&i2c_mng_msg, 0, sizeof(i2c_mng_msg));
 
+			i2c_mng_msg.head.seq = dev->total_cnt--;
 			/*Set the Head.len*/
 			len = remain_len;
 			if (remain_len >= FT_I2C_SINGLE_BUF_LEN)
 				len = FT_I2C_SINGLE_BUF_LEN;
 			i2c_mng_msg.head.len = len;
-
-			/*Set the Head.seq (Start)*/
-			if (!dev->mng.tx_cmd_cnt)
-				i2c_mng_msg.head.seq = FT_I2C_TRANS_FRAME_START;
-
-			/*Set the Head.seq (Restart)*/
-			if ((i) && ((msgs[i - 1].flags & I2C_M_RD) !=
-				    (msgs[i].flags & I2C_M_RD))) {
-				if (remain_len == msgs[i].len)
-					i2c_mng_msg.head.seq = FT_I2C_TRANS_FRAME_RESTART;
-			}
-			/*Set the Head.seq (End)*/
-			if (((i + 1) >= dev->msgs_num) &&  (len == remain_len)) {
-				dev->mng.is_last_frame = true;
-				i2c_mng_msg.head.seq |= FT_I2C_TRANS_FRAME_END;
-			}
 
 			/*Set other info of the Head*/
 			i2c_mng_msg.head.cmd_type = PHYTI2C_MSG_CMD_DATA;
@@ -283,6 +293,23 @@ static void i2c_phyt_master_xfer_single_frame(struct i2c_phyt_dev *dev)
 				(struct i2c_ft_trans_msg_info *)&i2c_mng_msg.data[0];
 			i2c_msg_info->addr = (u16)msgs[i].addr;
 			i2c_msg_info->flags = (u16)msgs[i].flags;
+
+			/*Set the Head.seq (Start)*/
+			if (!dev->mng.tx_cmd_cnt)
+				i2c_msg_info->type = FT_I2C_TRANS_FRAME_START;
+
+			/*Set the Head.seq (Restart)*/
+			if ((i) && ((msgs[i - 1].flags & I2C_M_RD) !=
+				    (msgs[i].flags & I2C_M_RD))) {
+				if (remain_len == msgs[i].len)
+					i2c_msg_info->type = FT_I2C_TRANS_FRAME_RESTART;
+			}
+			/*Set the Head.seq (End)*/
+			if (((i + 1) >= dev->msgs_num) &&  (len == remain_len)) {
+				dev->mng.is_last_frame = true;
+				i2c_msg_info->type |= FT_I2C_TRANS_FRAME_END;
+			}
+
 
 			dev->total_shmem_len = FT_I2C_SHMEM_STORE_OFFSET;
 			/*store data*/
@@ -341,9 +368,11 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 	} else {
 		if (dev->abort_source != FT_I2C_SUCCESS) {
 			i2c_phyt_handle_tx_abort(dev);
-			if (ret == FT_I2C_TIMEOUT) {
+			if ((dev->abort_source & BIT(FT_I2C_TIMEOUT)) ||
+			    (dev->abort_source & BIT(FT_I2C_TRANS_PACKET_FAIL))) {
 				i2c_phyt_set_module_en(
 					dev, FT_I2C_ADAPTER_MODULE_RESET);
+				i2c_phyt_check_result(dev);
 				i2c_phyt_master_default_init(dev);
 				ret = -ETIMEDOUT;
 				goto done;
@@ -400,9 +429,7 @@ static int i2c_phyt_master_default_init(struct i2c_phyt_dev *dev)
 	cfg_info.smbclk_timeout = FT_DEFAULT_TIMEOUT;
 	cfg_info.smbdat_timeout = FT_DEFAULT_TIMEOUT;
 	cfg_info.cfg = dev->master_cfg;
-	cfg_info.intr_poll = FT_I2C_IN_INTERRUPT_MODE;
 	cfg_info.intr_mask = dev->intr_mask;
-
 	i2c_phyt_default_cfg(dev, &cfg_info);
 	ret = i2c_phyt_check_result(dev);
 	if (ret) {
@@ -487,12 +514,6 @@ int i2c_phyt_master_probe(struct i2c_phyt_dev *dev)
 
 	i2c_phyt_common_regfile_enable_int(dev);
 
-	ret = i2c_phyt_set_rx_addr(dev);
-	if (ret) {
-		dev_err(dev->dev, "failed set rx addr\n");
-		return ret;
-	}
-
 	ret = i2c_phyt_master_set_timings_master(dev);
 	if (ret) {
 		dev_err(dev->dev, "master set times\n");
@@ -541,12 +562,12 @@ int i2c_phyt_master_probe(struct i2c_phyt_dev *dev)
 			"failed to enable SMBus alert protocol (%d)\n", ret);
 		}
 		dev->intr_mask |= FT_IC_INTR_SMBALERT_IN_N;
-		i2c_phyt_set_cmd32(
-			dev, PHYTI2C_MSG_CMD_SET_INTERRUPT, dev->intr_mask);
+		i2c_phyt_set_int_interrupt(dev, FT_I2C_ENABLE_INTERRUPT, dev->intr_mask);
 		ret = i2c_phyt_check_result(dev);
 		if (ret)
 			dev_warn(dev->dev, "fail to set interrupt: %d\n", ret);
-	}
+	} else
+		dev_info(dev->dev, "find no alert\n");
 
 exit_probe:
 	pm_runtime_put_noidle(dev->dev);

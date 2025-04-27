@@ -2,7 +2,7 @@
 /*
  * Phytium I2C adapter driver (slave only).
  *
- * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  */
 
 #include <linux/delay.h>
@@ -21,7 +21,7 @@
 #define FT_I2C_CON_STOP_DET_IFADDR_ENABLE	1
 #define FT_I2C_CON_STOP_DET_IFADDR_DISABLE	0
 
-#define FT_I2C_SLAVE_EVNET_MAX_CNT		64
+#define FT_I2C_SLAVE_EVNET_MAX_CNT		56
 #define FT_I2C_SLAVE_DATA_INDEX(index)		(index+1)
 /*one is cmd,the next one is data*/
 #define FT_I2C_SLAVE_RX_INFO_SIZE		2
@@ -157,7 +157,7 @@ static int i2c_phyt_slave_init(struct i2c_phyt_dev *dev)
 		dev_err(dev->dev, "fail to set stop det ifaddr: %d\n", ret);
 		return ret;
 	}
-	i2c_phyt_set_cmd32(dev, PHYTI2C_MSG_CMD_SET_INTERRUPT, FT_IC_INTR_SLAVE_MASK);
+	i2c_phyt_set_int_interrupt(dev, FT_I2C_ENABLE_INTERRUPT, FT_IC_INTR_SLAVE_MASK);
 	ret = i2c_phyt_check_result(dev);
 	if (ret) {
 		dev_err(dev->dev, "fail to set interrupt: %d\n", ret);
@@ -243,6 +243,7 @@ int i2c_phyt_slave_probe(struct i2c_phyt_dev *dev)
 	init_completion(&dev->cmd_complete);
 
 	i2c_phyt_common_regfile_disable_int(dev);
+	i2c_phyt_common_regfile_clear_rv2ap_int(dev, 0);
 
 	ret = devm_request_irq(dev->dev, dev->irq, i2c_phyt_slave_regfile_isr, IRQF_SHARED,
 			dev_name(dev->dev), dev);
@@ -253,12 +254,6 @@ int i2c_phyt_slave_probe(struct i2c_phyt_dev *dev)
 	}
 
 	i2c_phyt_common_regfile_enable_int(dev);
-
-	ret = i2c_phyt_set_rx_addr(dev);
-	if (ret) {
-		dev_err(dev->dev, "failed set rx addr\n");
-		return ret;
-	}
 
 	dev->init = i2c_phyt_slave_init;
 	dev->disable = i2c_phyt_disable;
