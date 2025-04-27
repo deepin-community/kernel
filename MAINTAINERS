@@ -6169,9 +6169,11 @@ S:	Maintained
 T:	git git://anongit.freedesktop.org/drm/drm-misc
 F:	Documentation/driver-api/dma-buf.rst
 F:	drivers/dma-buf/
+F:	drivers/dma-buf/heaps/phytium_npu_heap.c
 F:	include/linux/*fence.h
 F:	include/linux/dma-buf.h
 F:	include/linux/dma-resv.h
+F:	include/linux/phytium_npu_dma_buf_heap.h
 K:	\bdma_(?:buf|fence|resv)\b
 
 DMA GENERIC OFFLOAD ENGINE SUBSYSTEM
