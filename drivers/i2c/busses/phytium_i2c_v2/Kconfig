@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Sensor device configuration
+#
+
+config I2C_V2_PLATFORM
+	tristate "Phytium I2C_V2 Platform"
+	depends on (ACPI && COMMON_CLK) || !ACPI
+	select I2C_SMBUS
+
+	help
+	  If you say yes to this option, support will be included for the
+	  Phytium I2C adapter. Only master mode is supported.
+
+	  This driver can also be built as a module.If so,the module
+	  will be called i2c-phytium-v2-platform.
