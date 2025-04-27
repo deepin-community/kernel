@@ -2,7 +2,7 @@
 /*
  * Phytium I2C adapter driver.
  *
- * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  */
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -350,6 +350,9 @@ void i2c_phyt_notify_rv(struct i2c_phyt_dev *dev,
 void i2c_phyt_set_suspend(struct i2c_phyt_dev *dev)
 {
 	i2c_phyt_set_cmd32(dev, PHYTI2C_MSG_CMD_SET_SUSPEND, 0);
+
+	if (i2c_phyt_check_result(dev))
+		dev_warn(dev->dev, "fail to set suspend\n");
 }
 
 void i2c_phyt_set_sda_hold(struct i2c_phyt_dev *dev, u32 data)
@@ -385,7 +388,8 @@ int i2c_phyt_check_result(struct i2c_phyt_dev *dev)
 					 dev->adapter.timeout)) {
 		dev_err(dev->dev, "check timed out\n");
 		i2c_phyt_show_log(dev);
-		return FT_I2C_TIMEOUT;
+		dev->abort_source = BIT(FT_I2C_TIMEOUT);
+		return -EINVAL;
 	}
 	if (!dev->abort_source)
 		return 0;
@@ -404,14 +408,6 @@ void i2c_phyt_set_module_en(struct i2c_phyt_dev *dev, u8 data)
 	i2c_phyt_set_cmd8(dev, PHYTI2C_MSG_CMD_SET_MODULE_EN, data);
 }
 
-int i2c_phyt_set_rx_addr(struct i2c_phyt_dev *dev)
-{
-	i2c_phyt_set_cmd32(dev, PHYTI2C_MSG_CMD_SET_SHMEM_RX_ADDR,
-					FT_I2C_SHMEM_RX_ADDR_OFFSET);
-
-	return i2c_phyt_check_result(dev);
-}
-
 void i2c_phyt_set_int_tl(struct i2c_phyt_dev *dev,
 				u8 tx_threshold, u8 rx_threshold)
 {
@@ -427,6 +423,24 @@ void i2c_phyt_set_int_tl(struct i2c_phyt_dev *dev,
 	ctrl->tx_fifo_threshold = tx_threshold;
 	ctrl->rx_fifo_threshold = rx_threshold;
 
+	dev->total_shmem_len = FT_I2C_MSG_CMDDATA_SIZE;
+
+	i2c_phyt_send_msg(dev, &i2c_mng_msg, true);
+}
+
+void i2c_phyt_set_int_interrupt(struct i2c_phyt_dev *dev,
+				u32 is_enable, u32 intr_mask)
+{
+	struct phyt_msg_info i2c_mng_msg;
+	u32 *data = (u32 *)i2c_mng_msg.data;
+
+	memset(&i2c_mng_msg, 0, sizeof(i2c_mng_msg));
+
+	i2c_phyt_common_set_cmd(dev, &i2c_mng_msg, PHYTI2C_MSG_CMD_SET,
+					PHYTI2C_MSG_CMD_SET_INTERRUPT);
+
+	data[0] = is_enable;
+	data[1] = intr_mask;
 	dev->total_shmem_len = FT_I2C_MSG_CMDDATA_SIZE;
 
 	i2c_phyt_send_msg(dev, &i2c_mng_msg, true);
@@ -494,5 +508,5 @@ void i2c_phyt_master_isr_handle(struct i2c_phyt_dev *dev)
 }
 
 MODULE_AUTHOR("Wu Jinyong <wujinyong1788@phytium.com.cn>");
-MODULE_DESCRIPTION("Phytium I2C_FT bus adapter core");
+MODULE_DESCRIPTION("Phytium I2C bus adapter core");
 MODULE_LICENSE("GPL");
