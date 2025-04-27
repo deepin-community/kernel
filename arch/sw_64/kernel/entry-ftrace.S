@@ -331,6 +331,7 @@ ftrace_regs_caller:
 1:	ldgp	$29, 0($27)
 
 	subl	$28, MCOUNT_INSN_SIZE, $16
+	stl     $16, PT_REGS_PC($sp)
 	bis	$26, $31, $17
 	ldi	$4, function_trace_op
 	ldl	$18, 0($4)

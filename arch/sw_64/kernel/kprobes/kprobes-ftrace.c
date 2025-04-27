@@ -26,6 +26,16 @@ void kprobe_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 		kprobes_inc_nmissed_count(p);
 	} else {
 		regs->regs[28] -= MCOUNT_INSN_SIZE;
+		if (in_task()) {
+			regs->orig_r0 = current_pt_regs()->orig_r0;
+			regs->orig_r19 = current_pt_regs()->orig_r19;
+			regs->cause = current_pt_regs()->cause;
+		}
+		if (in_interrupt()) {
+			regs->orig_r0 = get_irq_regs()->orig_r0;
+			regs->orig_r19 = get_irq_regs()->orig_r19;
+			regs->cause = get_irq_regs()->cause;
+		}
 
 		__this_cpu_write(current_kprobe, p);
 		kcb->kprobe_status = KPROBE_HIT_ACTIVE;
