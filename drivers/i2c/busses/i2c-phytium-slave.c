@@ -146,62 +146,44 @@ static int i2c_phytium_irq_handler_slave(struct phytium_i2c_dev *dev)
 	stat = phytium_readl(dev, IC_INTR_STAT);
 	enabled = phytium_readl(dev, IC_ENABLE);
 	raw_stat = phytium_readl(dev, IC_RAW_INTR_STAT);
-	slave_activity = ((phytium_readl(dev, IC_STATUS) &
-		IC_STATUS_SLAVE_ACTIVITY) >> 6);
+	slave_activity =
+		((phytium_readl(dev, IC_STATUS) & IC_STATUS_SLAVE_ACTIVITY) >> 6);
 
 	if (!enabled || !(raw_stat & ~IC_INTR_ACTIVITY) || !dev->slave)
 		return 0;
 
-	dev_dbg(dev->dev,
-		"%#x STATUS SLAVE_ACTIVITY=%#x : RAW_INTR_STAT=%#x : INTR_STAT=%#x\n",
-		enabled, slave_activity, raw_stat, stat);
+	stat = i2c_phytium_read_clear_intrbits_slave(dev);
 
-	if ((stat & IC_INTR_RX_FULL) && (stat & IC_INTR_STOP_DET))
-		i2c_slave_event(dev->slave, I2C_SLAVE_WRITE_REQUESTED, &val);
+	if (stat & IC_INTR_RX_FULL) {
+		if (dev->status != STATUS_WRITE_IN_PROGRESS) {
+			dev->status = STATUS_WRITE_IN_PROGRESS;
+			i2c_slave_event(dev->slave, I2C_SLAVE_WRITE_REQUESTED, &val);
+		}
+		do {
+			val = phytium_readl(dev, IC_DATA_CMD);
+			i2c_slave_event(dev->slave, I2C_SLAVE_WRITE_RECEIVED,	&val);
+			val = phytium_readl(dev, IC_STATUS);
+		} while (val & BIT(3));
+	}
 
 	if (stat & IC_INTR_RD_REQ) {
 		if (slave_activity) {
-			if (stat & IC_INTR_RX_FULL) {
-				val = phytium_readl(dev, IC_DATA_CMD);
-
-				if (!i2c_slave_event(dev->slave,
-						     I2C_SLAVE_WRITE_RECEIVED,
-						     &val)) {
-					dev_vdbg(dev->dev, "Byte %X acked!",
-						 val);
-				}
-				phytium_readl(dev, IC_CLR_RD_REQ);
-				stat = i2c_phytium_read_clear_intrbits_slave(dev);
+			phytium_readl(dev, IC_CLR_RD_REQ);
+			if (!(dev->status & STATUS_READ_IN_PROGRESS)) {
+				i2c_slave_event(dev->slave,	I2C_SLAVE_READ_REQUESTED, &val);
+				dev->status |= STATUS_READ_IN_PROGRESS;
+				dev->status &= ~STATUS_WRITE_IN_PROGRESS;
 			} else {
-				phytium_readl(dev, IC_CLR_RD_REQ);
-				phytium_readl(dev, IC_CLR_RX_UNDER);
-				stat = i2c_phytium_read_clear_intrbits_slave(dev);
+				i2c_slave_event(dev->slave,
+						I2C_SLAVE_READ_PROCESSED, &val);
 			}
-			if (!i2c_slave_event(dev->slave,
-					     I2C_SLAVE_READ_REQUESTED,
-					     &val))
-				phytium_writel(dev, val, IC_DATA_CMD);
+			phytium_writel(dev, val, IC_DATA_CMD);
 		}
 	}
 
-	if (stat & IC_INTR_RX_DONE) {
-		if (!i2c_slave_event(dev->slave, I2C_SLAVE_READ_PROCESSED,
-				     &val))
-			phytium_readl(dev, IC_CLR_RX_DONE);
-
+	if (stat & IC_INTR_STOP_DET) {
 		i2c_slave_event(dev->slave, I2C_SLAVE_STOP, &val);
-		stat = i2c_phytium_read_clear_intrbits_slave(dev);
-		return 1;
-	}
-
-	if (stat & IC_INTR_RX_FULL) {
-		val = phytium_readl(dev, IC_DATA_CMD);
-		if (!i2c_slave_event(dev->slave, I2C_SLAVE_WRITE_RECEIVED,
-				     &val))
-			dev_vdbg(dev->dev, "Byte %X acked!", val);
-	} else {
-		i2c_slave_event(dev->slave, I2C_SLAVE_STOP, &val);
-		stat = i2c_phytium_read_clear_intrbits_slave(dev);
+		dev->status = STATUS_IDLE;
 	}
 
 	return 1;
@@ -212,7 +194,6 @@ static irqreturn_t i2c_phytium_isr_slave(int this_irq, void *dev_id)
 	struct phytium_i2c_dev *dev = dev_id;
 	int ret;
 
-	i2c_phytium_read_clear_intrbits_slave(dev);
 	ret = i2c_phytium_irq_handler_slave(dev);
 	if (ret > 0)
 		complete(&dev->cmd_complete);
@@ -237,12 +218,14 @@ int i2c_phytium_probe_slave(struct phytium_i2c_dev *dev)
 	dev->disable = i2c_phytium_disable;
 	dev->disable_int = i2c_phytium_disable_int;
 
+	dev->status = STATUS_IDLE;
+
 	ret = dev->init(dev);
 	if (ret)
 		return ret;
 
 	snprintf(adap->name, sizeof(adap->name),
-		 "Synopsys DesignWare I2C Slave adapter");
+		 "Phytium I2C Slave adapter");
 	adap->retries = 3;
 	adap->algo = &i2c_phytium_algo;
 	adap->dev.parent = dev->dev;
