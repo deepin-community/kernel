@@ -129,13 +129,12 @@ int phytium_gpio_direction_output(struct gpio_chip *gc, unsigned int offset,
 		return -EINVAL;
 	ddr = gpio->regs + GPIO_SWPORTA_DDR + (loc.port * GPIO_PORT_STRIDE);
 
+	phytium_gpio_set(gc, offset, value);
 	raw_spin_lock_irqsave(&gpio->lock, flags);
 
 	writel(readl(ddr) | BIT(loc.offset), ddr);
 
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
-
-	phytium_gpio_set(gc, offset, value);
 
 	return 0;
 }
