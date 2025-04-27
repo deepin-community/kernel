@@ -63,6 +63,7 @@ struct phytium_gpio {
 	struct gpio_chip	gc;
 	unsigned int		ngpio[2];
 	int			irq[32];
+	int			is_resuming;
 #ifdef CONFIG_PM_SLEEP
 	struct phytium_gpio_ctx	ctx;
 #endif
