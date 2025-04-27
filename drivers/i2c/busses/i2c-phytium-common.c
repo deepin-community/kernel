@@ -2,11 +2,6 @@
 /*
  * Phytium I2C adapter driver.
  *
- * Derived from Synopysys I2C driver.
- *   Copyright (C) 2006 Texas Instruments.
- *   Copyright (C) 2007 MontaVista Software Inc.
- *   Copyright (C) 2009 Provigent Ltd.
- *
  * Copyright (C) 2021-2023, Phytium Technology Co., Ltd.
  */
 #include <linux/clk.h>
@@ -20,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/swab.h>
+#include <linux/reset.h>
 
 #include "i2c-phytium-core.h"
 
@@ -96,22 +92,7 @@ int i2c_phytium_set_sda_hold(struct phytium_i2c_dev *dev)
 
 void __i2c_phytium_disable(struct phytium_i2c_dev *dev)
 {
-	int timeout = 100;
-
-	do {
-		__i2c_phytium_disable_nowait(dev);
-		if ((phytium_readl(dev, IC_ENABLE_STATUS) & 1) == 0)
-			return;
-
-		/*
-		 * Wait 10 times the signaling period of the highest I2C
-		 * transfer supported by the driver (for 400KHz this is
-		 * 25us).
-		 */
-		usleep_range(25, 250);
-	} while (timeout--);
-
-	dev_warn(dev->dev, "timeout in disabling adapter\n");
+	__i2c_phytium_disable_nowait(dev);
 }
 
 unsigned long i2c_phytium_clk_rate(struct phytium_i2c_dev *dev)
@@ -134,23 +115,12 @@ int i2c_phytium_prepare_clk(struct phytium_i2c_dev *dev, bool prepare)
 }
 EXPORT_SYMBOL_GPL(i2c_phytium_prepare_clk);
 
-int i2c_phytium_wait_bus_not_busy(struct phytium_i2c_dev *dev)
+int i2c_phytium_check_bus_not_busy(struct phytium_i2c_dev *dev)
 {
-	int timeout = 20; /* 20 ms */
-
-	while (phytium_readl(dev, IC_STATUS) & IC_STATUS_ACTIVITY) {
-		if (timeout <= 0) {
-			dev_warn(dev->dev, "timeout waiting for bus ready\n");
-			i2c_recover_bus(&dev->adapter);
-
-			if (phytium_readl(dev, IC_STATUS) & IC_STATUS_ACTIVITY)
-				return -ETIMEDOUT;
-			return 0;
-		}
-		timeout--;
-		usleep_range(1000, 1100);
-	}
-
+	if (dev->slave_state != SLAVE_STATE_IDLE)
+		return -EAGAIN;
+	if (phytium_readl(dev, IC_STATUS) & IC_STATUS_ACTIVITY)
+		return -ETIMEDOUT;
 	return 0;
 }
 
