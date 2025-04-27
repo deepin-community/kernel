@@ -56,6 +56,7 @@
 #define	TIMER_START_VALUE_REG	0x38
 
 #define	TIMER_INT_CLR_MASK	GENMASK(5, 0)
+#define TIMER_TACHO_DEFAULT_FREQ	0x2FAF080
 
 #define TACHO_DRIVER_VERSION "1.1.1"
 
@@ -301,18 +302,18 @@ static int phytium_tacho_probe(struct platform_device *pdev)
 		return PTR_ERR(tacho->base);
 	}
 
-	tacho->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(tacho->clk))
-		return PTR_ERR(tacho->clk);
-	ret = clk_prepare_enable(tacho->clk);
-	if (ret)
-		return ret;
-
+	tacho->freq = TIMER_TACHO_DEFAULT_FREQ;
 	if (!has_acpi_companion(tacho->dev)) {
-		tacho->freq = clk_get_rate(tacho->clk);
+		tacho->clk = devm_clk_get(&pdev->dev, NULL);
+		if (IS_ERR(tacho->clk) || clk_prepare_enable(tacho->clk))
+			dev_err(&pdev->dev, "Tacho get clocks failed\n");
+		else
+			tacho->freq = clk_get_rate(tacho->clk);
 	} else {
-		fwnode_property_read_u32(tacho->dev->fwnode, "clock-frequency", &fre);
-		tacho->freq = fre;
+		if (fwnode_property_read_u32(tacho->dev->fwnode, "clock-frequency", &fre))
+			dev_err(&pdev->dev, "Tacho get clock-frequency failed\n");
+		else
+			tacho->freq = fre;
 	}
 	tacho->irq = platform_get_irq(pdev, 0);
 	if (tacho->irq < 0) {
