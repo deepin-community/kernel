@@ -326,7 +326,7 @@ static long phytium_npu_ioctl(struct file *file, unsigned int cmd, unsigned long
 {
 	struct phytium_npu_session *sess = file->private_data;
 	struct phytium_npu_dev *npu = sess->npu_dev;
-	int retval;
+	int retval = 0;
 
 	if (!sess)
 		return -EINVAL;
@@ -367,6 +367,7 @@ static long phytium_npu_ioctl(struct file *file, unsigned int cmd, unsigned long
 		break;
 	default:
 		dev_err(npu->dev, "No this cmd to execute.");
+		retval = -EINVAL;
 		break;
 	}
 

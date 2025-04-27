@@ -12,3 +12,11 @@ config DMABUF_HEAPS_CMA
 	  Choose this option to enable dma-buf CMA heap. This heap is backed
 	  by the Contiguous Memory Allocator (CMA). If your system has these
 	  regions, you should say Y here.
+
+config DMABUF_HEAPS_NPU_SYSTEM
+	bool "DMA-BUF for Phytium NPU system Heap"
+	depends on DMABUF_HEAPS && ARCH_PHYTIUM
+	help
+	  Choose this option to enable a new dma-buf system heap for the
+	  Phytium's NPU. The npu system heap is backed by pages from the buddy
+	  allocator. If your system has NPU driver, you should say Y here.

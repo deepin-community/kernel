@@ -12,12 +12,13 @@ menuconfig PHYTIUM_NPU
 if PHYTIUM_NPU
 choice
 	prompt "Select the Phytium NPU Hardware"
-	default y
+	default PHYTIUM_NPU_PCI
 	help
 	  You need to select a suitable NPU controller in the current board.
 	  This option allows you to decide which Phytium NPU will be built
 	  in system.
 	  If in doubt, select 'N'
+
 	config NPU_PLATFORM
 		tristate "driver runs on platform"
 	help
@@ -25,7 +26,8 @@ choice
 	  This support is for devices that have the Phytium NPU controller IP.
 	  To compile this driver as a module, choose M here: the module will be
 	  called phytium_npu_platform.
-	config NPU_PCI
+
+	config PHYTIUM_NPU_PCI
 		tristate "driver runs on PCI hardware"
 	help
 	  Say Y here if you want to support for Phytium NPU controller connected
