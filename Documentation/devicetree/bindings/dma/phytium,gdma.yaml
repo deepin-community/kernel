@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+title: Phytium GDMA Controller bindings
+
+description:
+  The Phytium GDMA is a general-purpose direct memory access
+  controller capable of supporting 16 independent DMA channels.
+  DMA clients connected to the GDMA controller must use the format
+  described in the dma-common.yaml file, using a one cell specifier for
+  each channel, just provide the channel id to use.
+
+maintainers:
+  - Huang Jie <huangjie1663@phytium.com.cn>
+
+allOf:
+  - $ref: "dma-controller.yaml#"
+
+properties:
+  "#dma-cells":
+    const: 1
+
+  compatible:
+    const: phytium,gdma
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    minItems: 1
+    description: set interrupts according to the programming manual
+
+  dma-channels:
+    minimum: 1
+    maximum: 16
+
+  max-outstanding:
+    minimum: 1
+    maximum: 64
+    description: set max-outstanding according to the programming manual
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - dma-channels
+  - max-outstanding
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    gdma: gdma@32b34000 {
+      compatible = "phytium,gdma";
+      dma-channels = <16>;
+      max-outstanding = <16>;
+      reg = <0x0 0x32b34000 0x0 0x1000>;
+      interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+      #dma-cells = <1>;
+    };
