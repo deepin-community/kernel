@@ -44,7 +44,7 @@ static const u32 data_ints_mask = MCI_INT_MASK_DTO | MCI_INT_MASK_DCRC | MCI_INT
 				  MCI_INT_MASK_SBE_BCI;
 static const u32 cmd_err_ints_mask = MCI_INT_MASK_RTO | MCI_INT_MASK_RCRC | MCI_INT_MASK_RE |
 				     MCI_INT_MASK_DCRC | MCI_INT_MASK_DRTO |
-				     MCI_MASKED_INTS_SBE_BCI;
+				     MCI_MASKED_INTS_SBE_BCI | MCI_MASKED_INTS_EBE;
 
 static const u32 dmac_ints_mask = MCI_DMAC_INT_ENA_FBE | MCI_DMAC_INT_ENA_DU |
 				  MCI_DMAC_INT_ENA_NIS | MCI_DMAC_INT_ENA_AIS;
@@ -62,6 +62,7 @@ static void phytium_mci_init_adma_table(struct phytium_mci_host *host,
 					 struct phytium_mci_dma *dma);
 static void phytium_mci_init_hw(struct phytium_mci_host *host);
 static int phytium_mci_get_cd(struct mmc_host *mmc);
+static int phytium_mci_get_ro(struct mmc_host *mmc);
 static int phytium_mci_err_irq(struct phytium_mci_host *host, u32 dmac_events, u32 events);
 
 static void sdr_set_bits(void __iomem *reg, u32 bs)
@@ -151,10 +152,17 @@ static void phytium_mci_send_cmd(struct phytium_mci_host *host, u32 cmd, u32 arg
 
 static void phytium_mci_update_cmd11(struct phytium_mci_host *host, u32 cmd)
 {
+	int rc;
+	u32 data;
+
 	writel(MCI_CMD_START | cmd, host->base + MCI_CMD);
 
-	while (readl(host->base + MCI_CMD) & MCI_CMD_START)
-		cpu_relax();
+	rc = readl_relaxed_poll_timeout(host->base + MCI_CMD,
+					 data,
+					 !(data & MCI_CMD_START),
+					 0, 100 * 1000);
+	if (rc == -ETIMEDOUT)
+		pr_debug("%s %d, timeout mci_cmd: 0x%08x\n", __func__, __LINE__, data);
 }
 
 static void phytium_mci_set_clk(struct phytium_mci_host *host, struct mmc_ios *ios)
@@ -179,7 +187,7 @@ static void phytium_mci_set_clk(struct phytium_mci_host *host, struct mmc_ios *i
 			host->clk_rate, ios->clock);
 
 		if (ios->clock >= 25000000)
-			tmp_ext_reg = 0x202;
+			tmp_ext_reg = 0x102;
 		else if (ios->clock == 400000)
 			tmp_ext_reg = 0x502;
 		else
@@ -227,8 +235,26 @@ static void phytium_mci_set_clk(struct phytium_mci_host *host, struct mmc_ios *i
 			}
 		}
 
-		dev_dbg(host->dev, "UHS_REG_EXT ext: %x, CLKDIV: %x\n",
-			readl(host->base + MCI_UHS_REG_EXT), readl(host->base + MCI_CLKDIV));
+		if (!(readl(host->base + MCI_CLKDIV) & 0xff00) &&
+			(ios->timing == MMC_TIMING_MMC_DDR52 ||
+			ios->timing == MMC_TIMING_MMC_HS400 ||
+			ios->timing == MMC_TIMING_UHS_DDR50)) {
+			sdr_set_bits(host->base + MCI_CNTRL, MCI_CNTRL_CRC_SERIAL_DATA);
+			sdr_set_bits(host->base + MCI_CNTRL, MCI_CNTRL_DRV_SHIFT_EN);
+		} else {
+			sdr_clr_bits(host->base + MCI_CNTRL, MCI_CNTRL_CRC_SERIAL_DATA);
+			sdr_clr_bits(host->base + MCI_CNTRL, MCI_CNTRL_DRV_SHIFT_EN);
+		}
+
+		if (div >= 2)
+			writel(((2 * (div & 0xff)) & 0xffff), host->base + MCI_CLK_DIVIDER);
+
+		dev_dbg(host->dev, "UHS_REG_EXT ext: %x, CLKDIV: %x MCI_CLK_DIVIDER %x %x\n",
+			readl(host->base + MCI_UHS_REG_EXT), readl(host->base + MCI_CLKDIV),
+			readl(host->base + MCI_CLK_DIVIDER), ((2 * (div & 0xff)) & 0xffff));
+
+		if (cur_cmd_index == SD_SWITCH_VOLTAGE)
+			msleep(40);
 
 		sdr_set_bits(host->base + MCI_CLKENA, MCI_CLKENA_CCLK_ENABLE);
 
@@ -1201,6 +1227,7 @@ static void phytium_mci_init_hw(struct phytium_mci_host *host)
 	sdr_set_bits(host->base + MCI_CLKENA, MCI_CLKENA_CCLK_ENABLE);
 	sdr_set_bits(host->base + MCI_UHS_REG_EXT, MCI_EXT_CLK_ENABLE);
 	sdr_clr_bits(host->base + MCI_UHS_REG, MCI_UHS_REG_VOLT);
+	sdr_clr_bits(host->base + MCI_EMMC_DDR_REG, MCI_EMMC_DDR_CYCLE);
 
 	phytium_mci_reset_hw(host);
 
@@ -1303,8 +1330,13 @@ static void phytium_mci_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct phytium_mci_host *host = mmc_priv(mmc);
 
-	if (ios->timing == MMC_TIMING_MMC_DDR52 || ios->timing == MMC_TIMING_UHS_DDR50)
+	if (ios->timing == MMC_TIMING_MMC_DDR52 ||
+		ios->timing == MMC_TIMING_MMC_HS400 ||
+		ios->timing == MMC_TIMING_UHS_DDR50) {
 		sdr_set_bits(host->base + MCI_UHS_REG, MCI_UHS_REG_DDR);
+		sdr_set_bits(host->base + MCI_CNTRL, MCI_CNTRL_START_BIT_MODE);
+		sdr_clr_bits(host->base + MCI_EMMC_DDR_REG, MCI_EMMC_DDR_CYCLE);
+	}
 	else
 		sdr_clr_bits(host->base + MCI_UHS_REG, MCI_UHS_REG_DDR);
 
@@ -1353,6 +1385,20 @@ static int phytium_mci_get_cd(struct mmc_host *mmc)
 		return 0;
 
 	return 1;
+}
+
+static int phytium_mci_get_ro(struct mmc_host *mmc)
+{
+	struct phytium_mci_host *host = mmc_priv(mmc);
+	u32 status;
+
+	status = readl(host->base + MCI_CARD_WRTPRT);
+
+	dev_dbg(host->dev, "mci_get_ro status %d\n", status);
+	if ((status & 0x1) == 0x1)
+		return 1;
+
+	return 0;
 }
 
 static int phytium_mci_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -1448,6 +1494,7 @@ static struct mmc_host_ops phytium_mci_ops = {
 	.request = phytium_mci_ops_request,
 	.set_ios = phytium_mci_ops_set_ios,
 	.get_cd = phytium_mci_get_cd,
+	.get_ro = phytium_mci_get_ro,
 	.enable_sdio_irq = phytium_mci_enable_sdio_irq,
 	.ack_sdio_irq = phytium_mci_ack_sdio_irq,
 	.card_busy = phytium_mci_card_busy,
