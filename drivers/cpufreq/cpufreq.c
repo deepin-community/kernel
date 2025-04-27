@@ -2820,7 +2820,7 @@ static void remove_boost_sysfs_file(void)
 int cpufreq_enable_boost_support(void)
 {
 	if (!cpufreq_driver)
-		return -EINVAL;
+		return 0;
 
 	if (cpufreq_boost_supported())
 		return 0;
@@ -2834,6 +2834,9 @@ EXPORT_SYMBOL_GPL(cpufreq_enable_boost_support);
 
 int cpufreq_boost_enabled(void)
 {
+	if (!cpufreq_driver)
+		return 0;
+
 	return cpufreq_driver->boost_enabled;
 }
 EXPORT_SYMBOL_GPL(cpufreq_boost_enabled);
