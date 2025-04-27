@@ -271,6 +271,8 @@ void phytium_gpio_irq_enable(struct irq_data *d)
 	unsigned long flags;
 	u32 val;
 
+	if (gpio->is_resuming)
+		return;
 	/* Only port A can provide interrupt source */
 	if (irqd_to_hwirq(d) >= gpio->ngpio[0])
 		return;

@@ -105,6 +105,7 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	girq = &gpio->gc.irq;
 	girq->handler = handle_bad_irq;
 	girq->default_type = IRQ_TYPE_NONE;
+	gpio->is_resuming = 0;
 
 	for (irq_count = 0; irq_count < platform_irq_count(pdev); irq_count++) {
 		gpio->irq[irq_count] = -ENXIO;
@@ -149,11 +150,13 @@ static int phytium_gpio_suspend(struct device *dev)
 	gpio->ctx.ext_portb = readl(gpio->regs + GPIO_EXT_PORTB);
 
 	gpio->ctx.inten = readl(gpio->regs + GPIO_INTEN);
+	gpio->is_resuming = 1;
 	gpio->ctx.intmask = readl(gpio->regs + GPIO_INTMASK);
 	gpio->ctx.inttype_level = readl(gpio->regs + GPIO_INTTYPE_LEVEL);
 	gpio->ctx.int_polarity = readl(gpio->regs + GPIO_INT_POLARITY);
 	gpio->ctx.debounce = readl(gpio->regs + GPIO_DEBOUNCE);
 
+	writel(0, gpio->regs + GPIO_INTEN);
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
 
 	return 0;
@@ -174,13 +177,15 @@ static int phytium_gpio_resume(struct device *dev)
 	writel(gpio->ctx.swportb_ddr, gpio->regs + GPIO_SWPORTB_DDR);
 	writel(gpio->ctx.ext_portb, gpio->regs + GPIO_EXT_PORTB);
 
-	writel(gpio->ctx.inten, gpio->regs + GPIO_INTEN);
 	writel(gpio->ctx.intmask, gpio->regs + GPIO_INTMASK);
 	writel(gpio->ctx.inttype_level, gpio->regs + GPIO_INTTYPE_LEVEL);
 	writel(gpio->ctx.int_polarity, gpio->regs + GPIO_INT_POLARITY);
 	writel(gpio->ctx.debounce, gpio->regs + GPIO_DEBOUNCE);
 
 	writel(0xffffffff, gpio->regs + GPIO_PORTA_EOI);
+
+	writel(gpio->ctx.inten, gpio->regs + GPIO_INTEN);
+	gpio->is_resuming = 0;
 
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
 
