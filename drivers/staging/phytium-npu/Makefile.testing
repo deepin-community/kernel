@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-2.0
+export CONFIG_PHYTIUM_NPU := y
+export CONFIG_NPU_PLATFORM := y
+export CONFIG_PHYTIUM_NPU_DMA_HEAP := y
+include Makefile
+ARCH := arm64
+CROSS_COMPILE := aarch64-linux-gnu-
+
+#------------------------------------
+# for internal use
+#------------------------------------
+
+ifeq ($(KERNELRELEASE),)
+
+#KDIR ?= /lib/modules/$(shell uname -r)/build
+KSRC := /home/chengquan/code/phytium-linux-kernel-master/
+PWD := $(shell pwd)
+
+# kernel warning levels: as high as possible:
+# W=12 and W=123 seem to warn about linux kernel headers, so use W=1.
+KWARN := W=1
+
+ifneq (,$(shell which sparse))
+# C=1: use 'sparse' for extra warnings, if it is avail.
+SPARSE := C=1
+endif
+
+all: modules
+modules:
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)-C $(KSRC) M=$(shell pwd)  modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+check:
+	cd $(KDIR); scripts/checkpatch.pl -f `find $(PWD)/include -name "*\.[ch]"`
+
+endif # KERNELRELEASE
