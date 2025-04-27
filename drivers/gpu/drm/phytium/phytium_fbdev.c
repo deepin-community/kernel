@@ -16,14 +16,6 @@
 #define	PHYTIUM_MAX_CONNECTOR	1
 #define	helper_to_drm_private(x) container_of(x, struct phytium_display_private, fbdev_helper)
 
-static void phytium_fbdev_destroy(struct fb_info *info)
-{
-	struct drm_fb_helper *helper = info->par;
-	struct phytium_display_private *priv = helper_to_drm_private(helper);
-
-	phytium_gem_free_object(&priv->fbdev_phytium_gem->base);
-}
-
 static int phytium_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 	struct drm_fb_helper *helper = info->par;
@@ -35,7 +27,6 @@ static int phytium_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 static const struct fb_ops phytium_fbdev_ops = {
 	.owner = THIS_MODULE,
 	.fb_mmap = phytium_fbdev_mmap,
-	.fb_destroy = phytium_fbdev_destroy,
 	 DRM_FB_HELPER_DEFAULT_OPS,
 	 FB_DEFAULT_IOMEM_OPS,
 };

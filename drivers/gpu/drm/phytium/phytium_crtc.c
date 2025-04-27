@@ -6,7 +6,11 @@
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_atomic.h>
+#if defined(__arm__) || defined(__aarch64__)
 #include <asm/neon.h>
+#elif defined(__x86_64)
+#include <asm/fpu/api.h>
+#endif
 #include <drm/drm_vblank.h>
 #include "phytium_display_drv.h"
 #include "phytium_crtc.h"
@@ -37,6 +41,298 @@ struct filter_blit_array {
 	uint32_t scaleFactor;
 	uint32_t *kernelStates;
 };
+
+static uint32_t dc_scaling_get_factor(uint32_t src_size, uint32_t dst_size)
+{
+	uint32_t factor = 0;
+
+	factor = ((src_size - 1) << SCALE_FACTOR_SRC_OFFSET) / (dst_size - 1);
+
+	return factor;
+}
+
+static float dc_sint(float x)
+{
+	const float B = 1.2732395477;
+	const float C = -0.4052847346;
+	const float P = 0.2310792853;
+	float y;
+
+	if (x < 0)
+		y = B*x - C*x*x;
+	else
+		y = B*x + C*x*x;
+	if (y < 0)
+		y = P * (y * (0 - y) - y) + y;
+	else
+		y = P * (y * y - y) + y;
+	return y;
+}
+
+static float dc_sinc_filter(float x, int radius)
+{
+	float pit, pitd, f1, f2, result;
+	float f_radius = MATH_I2Float(radius);
+
+	if (x == 0.0f) {
+		result = 1.0f;
+	} else if ((x < -f_radius) || (x > f_radius)) {
+		result = 0.0f;
+	} else {
+		pit  = MATH_Multiply(PHYPI, x);
+		pitd = MATH_Divide(pit, f_radius);
+		f1 = MATH_Divide(dc_sint(pit), pit);
+		f2 = MATH_Divide(dc_sint(pitd), pitd);
+		result = MATH_Multiply(f1, f2);
+	}
+
+	return result;
+}
+
+static int dc_calculate_sync_table(
+	uint8_t kernel_size,
+	uint32_t src_size,
+	uint32_t dst_size,
+	struct filter_blit_array *kernel_info)
+{
+	uint32_t scale_factor;
+	float f_scale;
+	int kernel_half;
+	float f_subpixel_step;
+	float f_subpixel_offset;
+	uint32_t subpixel_pos;
+	int kernel_pos;
+	int padding;
+	uint16_t *kernel_array;
+	int range = 0;
+
+	do {
+		/* Compute the scale factor. */
+		scale_factor = dc_scaling_get_factor(src_size, dst_size);
+
+		/* Same kernel size and ratio as before? */
+		if ((kernel_info->kernelSize  == kernel_size) &&
+		(kernel_info->scaleFactor == kernel_size)) {
+			break;
+		}
+
+		/* check the array */
+		if (kernel_info->kernelStates == NULL)
+			break;
+
+		/* Store new parameters. */
+		kernel_info->kernelSize  = kernel_size;
+		kernel_info->scaleFactor = scale_factor;
+
+		/* Compute the scale factor. */
+		f_scale = MATH_DivideFromUInteger(dst_size, src_size);
+
+		/* Adjust the factor for magnification. */
+		if (f_scale > 1.0f)
+			f_scale = 1.0f;
+
+		/* Calculate the kernel half. */
+		kernel_half = (int) (kernel_info->kernelSize >> 1);
+
+		/* Calculate the subpixel step. */
+		f_subpixel_step = MATH_Divide(1.0f, MATH_I2Float(SUBPIXELCOUNT));
+
+		/* Init the subpixel offset. */
+		f_subpixel_offset = 0.5f;
+
+		/* Determine kernel padding size. */
+		padding = (MAXKERNELSIZE - kernel_info->kernelSize) / 2;
+
+		/* Set initial kernel array pointer. */
+		kernel_array = (uint16_t *) (kernel_info->kernelStates + 1);
+
+		/* Loop through each subpixel. */
+		for (subpixel_pos = 0; subpixel_pos < SUBPIXELLOADCOUNT; subpixel_pos++) {
+			/* Define a temporary set of weights. */
+			float fSubpixelSet[MAXKERNELSIZE];
+
+			/* Init the sum of all weights for the current subpixel. */
+			float fWeightSum = 0.0f;
+			uint16_t weightSum = 0;
+			short int adjustCount, adjustFrom;
+			short int adjustment;
+
+			/* Compute weights. */
+			for (kernel_pos = 0; kernel_pos < MAXKERNELSIZE; kernel_pos++) {
+				/* Determine the current index. */
+				int index = kernel_pos - padding;
+
+				/* Pad with zeros. */
+				if ((index < 0) || (index >= kernel_info->kernelSize)) {
+					fSubpixelSet[kernel_pos] = 0.0f;
+				} else {
+					if (kernel_info->kernelSize == 1) {
+						fSubpixelSet[kernel_pos] = 1.0f;
+					} else {
+						/* Compute the x position for filter function. */
+						float fX = MATH_Add(
+							MATH_I2Float(index - kernel_half),
+							f_subpixel_offset);
+						fX = MATH_Multiply(fX, f_scale);
+
+						/* Compute the weight. */
+						fSubpixelSet[kernel_pos] = dc_sinc_filter(fX,
+									   kernel_half);
+					}
+
+					/* Update the sum of weights. */
+					fWeightSum = MATH_Add(fWeightSum,
+								      fSubpixelSet[kernel_pos]);
+				}
+			}
+
+			/* Adjust weights so that the sum will be 1.0. */
+			for (kernel_pos = 0; kernel_pos < MAXKERNELSIZE; kernel_pos++) {
+				/* Normalize the current weight. */
+				float fWeight = MATH_Divide(fSubpixelSet[kernel_pos],
+								    fWeightSum);
+
+				/* Convert the weight to fixed point and store in the table. */
+				if (fWeight == 0.0f)
+					kernel_array[kernel_pos] = 0x0000;
+				else if (fWeight >= 1.0f)
+					kernel_array[kernel_pos] = 0x4000;
+				else if (fWeight <= -1.0f)
+					kernel_array[kernel_pos] = 0xC000;
+				else
+					kernel_array[kernel_pos] =
+						(int16_t) MATH_Multiply(fWeight, 16384.0f);
+				weightSum += kernel_array[kernel_pos];
+			}
+
+			/* Adjust the fixed point coefficients. */
+			adjustCount = 0x4000 - weightSum;
+			if (adjustCount < 0) {
+				adjustCount = -adjustCount;
+				adjustment = -1;
+			} else {
+				adjustment = 1;
+			}
+
+			adjustFrom = (MAXKERNELSIZE - adjustCount) / 2;
+			for (kernel_pos = 0; kernel_pos < adjustCount; kernel_pos++) {
+				range = (MAXKERNELSIZE*subpixel_pos + adjustFrom + kernel_pos) *
+					sizeof(uint16_t);
+				if ((range >= 0) && (range < KERNELTABLESIZE))
+					kernel_array[adjustFrom + kernel_pos] += adjustment;
+				else
+					DRM_ERROR("%s failed\n", __func__);
+			}
+
+			kernel_array += MAXKERNELSIZE;
+
+			/* Advance to the next subpixel. */
+			f_subpixel_offset = MATH_Add(f_subpixel_offset, -f_subpixel_step);
+		}
+	} while (0);
+
+	return 0;
+}
+
+static void phytium_dc_scaling_config(struct drm_crtc *crtc,
+				     struct drm_crtc_state *old_state)
+{
+	struct drm_device *dev = crtc->dev;
+	struct phytium_display_private *priv = dev->dev_private;
+	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
+	struct phytium_crtc *phytium_crtc = to_phytium_crtc(crtc);
+	int phys_pipe = phytium_crtc->phys_pipe;
+	uint32_t group_offset = priv->dc_reg_base[phys_pipe];
+	uint32_t scale_factor_x, scale_factor_y, i;
+	uint32_t kernelStates[128];
+	struct filter_blit_array kernel_info_width;
+	void *tmp =  NULL;
+
+	if (mode->hdisplay != mode->crtc_hdisplay || mode->vdisplay != mode->crtc_vdisplay) {
+		phytium_crtc->src_width = mode->hdisplay;
+		phytium_crtc->src_height = mode->vdisplay;
+		phytium_crtc->dst_width = mode->crtc_hdisplay;
+		phytium_crtc->dst_height = mode->crtc_vdisplay;
+
+		phytium_crtc->dst_x = (mode->crtc_hdisplay - phytium_crtc->dst_width) / 2;
+		phytium_crtc->dst_y = (mode->crtc_vdisplay - phytium_crtc->dst_height) / 2;
+
+		scale_factor_x = dc_scaling_get_factor(phytium_crtc->src_width,
+								 phytium_crtc->dst_width);
+		scale_factor_y = dc_scaling_get_factor(phytium_crtc->src_height,
+								 phytium_crtc->dst_height);
+		if (scale_factor_y > (SCALE_FACTOR_Y_MAX << SCALE_FACTOR_SRC_OFFSET))
+			scale_factor_y = (SCALE_FACTOR_Y_MAX << SCALE_FACTOR_SRC_OFFSET);
+
+		phytium_writel_reg(priv, scale_factor_x & SCALE_FACTOR_X_MASK,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_SCALE_FACTOR_X);
+		phytium_writel_reg(priv, scale_factor_y & SCALE_FACTOR_Y_MASK,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_SCALE_FACTOR_Y);
+		phytium_writel_reg(priv, FRAMEBUFFER_TAP,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_SCALECONFIG);
+
+		tmp = kmalloc(KERNELSTATES, GFP_KERNEL);
+		if (!tmp) {
+			DRM_ERROR("malloc %ld failed\n", KERNELSTATES);
+			return;
+		}
+
+		memset(&kernel_info_width, 0, sizeof(struct filter_blit_array));
+		kernel_info_width.kernelStates = tmp;
+		memset(kernel_info_width.kernelStates, 0, KERNELSTATES);
+#if defined(__arm__) || defined(__aarch64__)
+		kernel_neon_begin();
+#elif defined(__x86_64__)
+		kernel_fpu_begin();
+#endif
+		dc_calculate_sync_table(FRAMEBUFFER_HORIZONTAL_FILTER_TAP,
+					phytium_crtc->src_width,
+					phytium_crtc->dst_width,
+					&kernel_info_width);
+		memset(kernelStates, 0, sizeof(kernelStates));
+		memcpy(kernelStates, kernel_info_width.kernelStates + 1, KERNELSTATES - 4);
+#if defined(__arm__) || defined(__aarch64__)
+		kernel_neon_end();
+#elif defined(__x86_64__)
+		kernel_fpu_end();
+#endif
+		phytium_writel_reg(priv, HORI_FILTER_INDEX,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_HORI_FILTER_INDEX);
+		for (i = 0; i < 128; i++) {
+			phytium_writel_reg(priv, kernelStates[i],
+					   group_offset, PHYTIUM_DC_FRAMEBUFFER_HORI_FILTER);
+		}
+
+		memset(&kernel_info_width, 0, sizeof(struct filter_blit_array));
+		kernel_info_width.kernelStates = tmp;
+		memset(kernel_info_width.kernelStates, 0, KERNELSTATES);
+#if defined(__arm__) || defined(__aarch64__)
+		kernel_neon_begin();
+#elif defined(__x86_64__)
+		kernel_fpu_begin();
+#endif
+		dc_calculate_sync_table(FRAMEBUFFER_FILTER_TAP, phytium_crtc->src_height,
+				     phytium_crtc->dst_height, &kernel_info_width);
+		memset(kernelStates, 0, sizeof(kernelStates));
+		memcpy(kernelStates, kernel_info_width.kernelStates + 1, KERNELSTATES - 4);
+#if defined(__arm__) || defined(__aarch64__)
+		kernel_neon_end();
+#elif defined(__x86_64__)
+		kernel_fpu_end();
+#endif
+		phytium_writel_reg(priv, VERT_FILTER_INDEX,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_VERT_FILTER_INDEX);
+		for (i = 0; i < 128; i++)
+			phytium_writel_reg(priv, kernelStates[i],
+					   group_offset, PHYTIUM_DC_FRAMEBUFFER_VERT_FILTER);
+		phytium_writel_reg(priv, INITIALOFFSET,
+				   group_offset, PHYTIUM_DC_FRAMEBUFFER_INITIALOFFSET);
+		kfree(tmp);
+		phytium_crtc->scale_enable = true;
+	} else {
+		phytium_crtc->scale_enable = false;
+	}
+}
 
 static void phytium_crtc_gamma_set(struct drm_crtc *crtc)
 {
@@ -230,6 +526,7 @@ static void
 phytium_crtc_atomic_enable(struct drm_crtc *crtc,
 				     struct drm_atomic_state *state)
 {
+	struct drm_crtc_state *old_state = drm_atomic_get_old_crtc_state(state, crtc);
 	struct drm_device *dev = crtc->dev;
 	struct phytium_display_private *priv = dev->dev_private;
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
@@ -260,6 +557,7 @@ phytium_crtc_atomic_enable(struct drm_crtc *crtc,
 	/* config pix clock */
 	phytium_crtc->dc_hw_config_pix_clock(crtc, mode->clock);
 
+	phytium_dc_scaling_config(crtc, old_state);
 	config = ((mode->crtc_hdisplay & HDISPLAY_END_MASK) << HDISPLAY_END_SHIFT)
 		| ((mode->crtc_htotal&HDISPLAY_TOTAL_MASK) << HDISPLAY_TOTAL_SHIFT);
 	phytium_writel_reg(priv, config, group_offset, PHYTIUM_DC_HDISPLAY);
@@ -293,7 +591,8 @@ phytium_crtc_atomic_enable(struct drm_crtc *crtc,
 	else
 		config &= (~FRAMEBUFFER_SCALE_ENABLE);
 
-	config |= FRAMEBUFFER_GAMMA_ENABLE;
+	if (!priv->info.bmc_mode)
+		config |= FRAMEBUFFER_GAMMA_ENABLE;
 
 	if (crtc->state->gamma_lut)
 		phytium_crtc_gamma_set(crtc);
@@ -470,6 +769,7 @@ int phytium_crtc_init(struct drm_device *dev, int phys_pipe)
 	struct phytium_crtc_state *phytium_crtc_state;
 	struct phytium_plane *phytium_primary_plane = NULL;
 	struct phytium_plane *phytium_cursor_plane = NULL;
+	struct drm_plane *cursor_base = NULL;
 	struct phytium_display_private *priv = dev->dev_private;
 	int ret;
 
@@ -512,16 +812,21 @@ int phytium_crtc_init(struct drm_device *dev, int phys_pipe)
 		goto failed_create_primary;
 	}
 
-	phytium_cursor_plane = phytium_cursor_plane_create(dev, phys_pipe);
-	if (IS_ERR(phytium_cursor_plane)) {
-		ret = PTR_ERR(phytium_cursor_plane);
-		DRM_ERROR("create cursor plane failed, phys_pipe(%d)\n", phys_pipe);
-		goto failed_create_cursor;
+	if (priv->info.bmc_mode) {
+		cursor_base = NULL;
+	} else {
+		phytium_cursor_plane = phytium_cursor_plane_create(dev, phys_pipe);
+		if (IS_ERR(phytium_cursor_plane)) {
+			ret = PTR_ERR(phytium_cursor_plane);
+			DRM_ERROR("create cursor plane failed, phys_pipe(%d)\n", phys_pipe);
+			goto failed_create_cursor;
+		}
+		cursor_base = &phytium_cursor_plane->base;
 	}
 
 	ret = drm_crtc_init_with_planes(dev, &phytium_crtc->base,
 					&phytium_primary_plane->base,
-					&phytium_cursor_plane->base,
+					cursor_base,
 					&phytium_crtc_funcs,
 					"phys_pipe %d", phys_pipe);
 

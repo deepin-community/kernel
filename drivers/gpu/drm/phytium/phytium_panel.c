@@ -195,7 +195,7 @@ static void phytium_dp_hw_setup_backlight(struct phytium_panel *panel)
 	struct phytium_display_private *priv = dev->dev_private;
 
 	panel->max = priv->info.backlight_max;
-	panel->min = 0;
+	panel->min = priv->info.backlight_min;
 	panel->level = phytium_dp_hw_get_backlight(panel);
 }
 
@@ -211,7 +211,7 @@ void phytium_dp_panel_init_backlight_funcs(struct phytium_dp_device *phytium_dp)
 		phytium_dp->panel.set_backlight = phytium_dp_aux_set_backlight;
 		phytium_dp->panel.get_backlight = phytium_dp_aux_get_backlight;
 	} else {
-		DRM_DEBUG_KMS("SE Backlight Control Supported!\n");
+		DRM_DEBUG_KMS("PWM Backlight Control Supported!\n");
 		phytium_dp->panel.setup_backlight = phytium_dp_hw_setup_backlight;
 		phytium_dp->panel.enable_backlight = phytium_dp_hw_enable_backlight;
 		phytium_dp->panel.disable_backlight = phytium_dp_hw_disable_backlight;

@@ -9,8 +9,8 @@
 #define __PE220X_DC_H__
 
 #define PE220X_DC_PIX_CLOCK_MAX				(594000)
-#define PE220X_DC_HDISPLAY_MAX				3840
-#define PE220X_DC_VDISPLAY_MAX				2160
+#define PE220X_DC_HDISPLAY_MAX				1920
+#define PE220X_DC_VDISPLAY_MAX				1080
 #define PE220X_DC_ADDRESS_MASK				0x7f
 
 extern void pe220x_dc_hw_vram_init(struct phytium_display_private *priv,
@@ -20,6 +20,9 @@ extern void pe220x_dc_hw_config_pix_clock(struct drm_crtc *crtc, int clock);
 extern void pe220x_dc_hw_disable(struct drm_crtc *crtc);
 extern int pe220x_dc_hw_fb_format_check(const struct drm_mode_fb_cmd2 *mode_cmd, int count);
 extern void pe220x_dc_hw_plane_get_primary_format(const uint64_t **format_modifiers,
+						 const uint32_t **formats,
+						 uint32_t *format_count);
+extern void pe220x_dc_bmc_hw_plane_get_primary_format(const uint64_t **format_modifiers,
 						 const uint32_t **formats,
 						 uint32_t *format_count);
 extern void pe220x_dc_hw_plane_get_cursor_format(const uint64_t **format_modifiers,
