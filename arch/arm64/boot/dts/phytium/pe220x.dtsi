@@ -937,6 +937,13 @@
 			};
 		};
 
+		gdma: gdma@32b34000 {
+			compatible = "phytium,gdma";
+			reg = <0x0 0x32b34000 0x0 0x1000>;
+			interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+			#dma-cells = <1>;
+		};
+
 		hwspinlock: spinlock@32b36000 {
 			compatible = "phytium,hwspinlock";
 			reg = <0x0 0x32b36000 0x0 0x1000>;
