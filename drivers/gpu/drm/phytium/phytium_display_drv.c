@@ -289,8 +289,11 @@ static void phytium_display_unload(struct drm_device *dev)
  * The device specific ioctl range is 0x40 to 0x79.
  */
 #define DRM_PHYTIUM_VRAM_TYPE_DEVICE	0x0
+#define DRM_PHYTIUM_BMC_DEVICE	0x1
 #define DRM_IOCTL_PHYTIUM_VRAM_TYPE_DEVICE	DRM_IO(DRM_COMMAND_BASE\
 	+ DRM_PHYTIUM_VRAM_TYPE_DEVICE)
+#define DRM_IOCTL_PHYTIUM_IS_BMC_DEVICE	DRM_IO(DRM_COMMAND_BASE\
+	+ DRM_PHYTIUM_BMC_DEVICE)
 
 static int phytium_ioctl_check_vram_device(struct drm_device *dev, void *data,
 				struct drm_file *file_priv)
@@ -300,9 +303,19 @@ static int phytium_ioctl_check_vram_device(struct drm_device *dev, void *data,
 	return ((priv->support_memory_type == MEMORY_TYPE_VRAM_DEVICE) ? 1 : 0);
 }
 
+static int phytium_ioctl_check_bmc_device(struct drm_device *dev, void *data,
+				struct drm_file *file_priv)
+{
+	struct phytium_display_private *priv = dev->dev_private;
+
+	return priv->info.bmc_mode ? 1 : 0;
+}
+
 static const struct drm_ioctl_desc phytium_ioctls[] = {
 	/* for test, none so far */
 	DRM_IOCTL_DEF_DRV(PHYTIUM_VRAM_TYPE_DEVICE, phytium_ioctl_check_vram_device,
+						DRM_AUTH|DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(PHYTIUM_IS_BMC_DEVICE, phytium_ioctl_check_bmc_device,
 						DRM_AUTH|DRM_UNLOCKED),
 };
 
@@ -447,5 +460,6 @@ module_init(phytium_display_init);
 module_exit(phytium_display_exit);
 
 MODULE_LICENSE("GPL");
+MODULE_VERSION(DC_DRIVER_VERSION);
 MODULE_AUTHOR("Yang Xun <yangxun@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium Display Controller");

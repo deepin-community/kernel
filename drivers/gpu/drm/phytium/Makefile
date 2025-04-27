@@ -16,3 +16,7 @@ phytium-dc-drm-y := phytium_display_drv.o \
 
 obj-$(CONFIG_DRM_PHYTIUM) += phytium-dc-drm.o
 CFLAGS_REMOVE_phytium_crtc.o += -mgeneral-regs-only
+ifeq ($(ARCH), x86)
+	FPU_CFLAGS += -msse -msse2
+	CFLAGS_phytium_crtc.o += $(FPU_CFLAGS)
+endif

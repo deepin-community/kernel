@@ -2222,13 +2222,13 @@ phytium_encoder_mode_valid(struct drm_encoder *encoder, const struct drm_display
 	case 8:
 		break;
 	default:
-		DRM_INFO("not support bpc(%d)\n", display_info->bpc);
+		DRM_DEBUG_KMS("not support bpc(%d)\n", display_info->bpc);
 		display_info->bpc = 8;
 		break;
 	}
 
 	if ((display_info->color_formats & DRM_COLOR_FORMAT_RGB444) == 0) {
-		DRM_INFO("not support color_format(%d)\n", display_info->color_formats);
+		DRM_DEBUG_KMS("not support color_format(%d)\n", display_info->color_formats);
 		display_info->color_formats = DRM_COLOR_FORMAT_RGB444;
 	}
 
@@ -2595,6 +2595,7 @@ int phytium_dp_init(struct drm_device *dev, int port)
 	if (phytium_dp_is_edp(phytium_dp, port)) {
 		phytium_dp->is_edp = true;
 		type = DRM_MODE_CONNECTOR_eDP;
+		phytium_dp->pwm = priv->info.pwm;
 		phytium_dp_panel_init_backlight_funcs(phytium_dp);
 		phytium_edp_backlight_off(phytium_dp);
 		phytium_edp_panel_poweroff(phytium_dp);

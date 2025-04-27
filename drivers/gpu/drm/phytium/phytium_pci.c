@@ -256,6 +256,12 @@ static int phytium_pci_probe(struct pci_dev *pdev, const struct pci_device_id *e
 	struct phytium_display_private *priv = NULL;
 	struct drm_device *dev = NULL;
 	int ret = 0;
+	struct phytium_device_info *phytium_info = (struct phytium_device_info *)ent->driver_data;
+
+	if (phytium_info) {
+		if (phytium_info->platform_mask & BIT(PHYTIUM_PLATFORM_PE220X))
+			phytium_display_drm_driver.name = "pe220x";
+	}
 
 	ret = phytium_remove_conflicting_framebuffers(pdev);
 	if (ret) {
@@ -402,6 +408,8 @@ static const struct phytium_device_info px210_info = {
 	.vdisplay_max = PX210_DC_VDISPLAY_MAX,
 	.address_mask = PX210_DC_ADDRESS_MASK,
 	.backlight_max = PX210_DP_BACKLIGHT_MAX,
+	.backlight_min = PX210_DP_BACKLIGHT_MIN,
+	.bmc_mode = false,
 };
 
 static const struct phytium_device_info pe220x_info = {
@@ -412,6 +420,8 @@ static const struct phytium_device_info pe220x_info = {
 	.vdisplay_max = PE220X_DC_VDISPLAY_MAX,
 	.address_mask = PE220X_DC_ADDRESS_MASK,
 	.backlight_max = PE220X_DP_BACKLIGHT_MAX,
+	.backlight_min = PE220X_DP_BACKLIGHT_MIN,
+	.bmc_mode = true,
 };
 
 static const struct pci_device_id phytium_display_pci_ids[] = {
