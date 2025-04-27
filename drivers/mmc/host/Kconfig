@@ -1106,3 +1106,14 @@ config MMC_PHYTIUM_MCI_PLTFM
           If you have a controller with this interface, say Y or M here.
 
           If unsure, say N.
+
+config MMC_PHYTIUM_MCI_PLTFM_V2
+       tristate "Phytium V2 MultiMedia Card Interface support"
+       depends on ARCH_PHYTIUM && OF
+       default y if ARCH_PHYTIUM
+       help
+         This selects support for the V2 MultiMedia Card Interface on Phytium SoCs.
+         If you have a controller with this interface, say Y or M here.
+
+         If unsure, say N.
+
