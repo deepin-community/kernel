@@ -845,18 +845,18 @@ static int phytium_can_set_bittiming(struct net_device *dev)
 	/* Setting Time Segment 1 in BTR Register */
 	btr |= (bt->prop_seg - 1) << 2;
 
-	btr |= (bt->phase_seg1 - 1) << 5;
+	btr |= (bt->phase_seg1 - 1) << 8;
 
 	/* Setting Time Segment 2 in BTR Register */
-	btr |= (bt->phase_seg2 - 1) << 8;
+	btr |= (bt->phase_seg2 - 1) << 5;
 
 	/* Setting Synchronous jump width in BTR Register */
 	btr |= (bt->sjw - 1);
 
 	dbtr = (dbt->brp - 1) << 16;
 	dbtr |= (dbt->prop_seg - 1) << 2;
-	dbtr |= (dbt->phase_seg1 - 1) << 5;
-	dbtr |= (dbt->phase_seg2 - 1) << 8;
+	dbtr |= (dbt->phase_seg1 - 1) << 8;
+	dbtr |= (dbt->phase_seg2 - 1) << 5;
 	dbtr |= (dbt->sjw - 1);
 
 	if (cdev->can.ctrlmode & CAN_CTRLMODE_FD) {
