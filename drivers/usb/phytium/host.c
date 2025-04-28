@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
+/*
+ * Copyright (c) 2022, Phytium Technology Co., Ltd.
+ */
+
 #include <linux/dma-mapping.h>
 #include <linux/usb.h>
 #include<linux/usb/hcd.h>

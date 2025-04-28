@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
+/*
+ * Copyright (c) 2022, Phytium Technology Co., Ltd.
+ */
+
 #include <linux/errno.h>
 #include <linux/string.h>
 #include "core.h"

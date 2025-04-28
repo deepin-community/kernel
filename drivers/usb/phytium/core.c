@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 
+/*
+ * Copyright (c) 2022, Phytium Technology Co., Ltd.
+ */
+
 #include "core.h"
 
 int phytium_core_reset(struct phytium_cusb *config, bool skip_wait)
