@@ -31,6 +31,7 @@
 #include <linux/regmap.h>
 #include "es8336.h"
 
+#define ES8336_V1_VERSION "1.0.0"
 #define INVALID_GPIO -1
 #define GPIO_LOW  0
 #define GPIO_HIGH 1
@@ -1081,3 +1082,4 @@ static struct i2c_driver es8336_i2c_driver = {
 module_i2c_driver(es8336_i2c_driver);
 MODULE_DESCRIPTION("ASoC es8336 driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(ES8336_V1_VERSION);

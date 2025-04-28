@@ -23,6 +23,8 @@
 #include <linux/i2c.h>
 #include <linux/regmap.h>
 
+#define ES8388_V1_VERSION "1.0.0"
+
 static const unsigned int rates_12288[] = {
 	8000, 12000, 16000, 24000, 32000, 48000, 96000,
 };
@@ -817,3 +819,4 @@ module_i2c_driver(es8388_i2c_driver);
 MODULE_DESCRIPTION("ASoC ES8388 driver");
 MODULE_AUTHOR("Yiqun Zhang <zhangyiqun@phytium.com.cn>");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(ES8388_V1_VERSION);

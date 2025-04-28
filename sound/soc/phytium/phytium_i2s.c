@@ -31,6 +31,7 @@
 #include <linux/pci.h>
 #include "local.h"
 
+#define PHYTIUM_I2S_V1_VERSION "1.0.0"
 #define NUM_CAPTURE	1
 #define NUM_PLAYBACK	1
 
@@ -1574,3 +1575,4 @@ module_platform_driver(phytium_i2s_driver);
 MODULE_DESCRIPTION("Phytium I2S Driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Zhang Yiqun <zhangyiqun@phytium.com.cn>");
+MODULE_VERSION(PHYTIUM_I2S_V1_VERSION);
