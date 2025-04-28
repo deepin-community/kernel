@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mtd/phytium,localbus.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium Localbus controller
+
+maintainers:
+        - Wang Hanmo <wanghanmo@phytium.com.cn>
+
+properties:
+        compatible:
+                const: phytium,localbus
+
+        reg:
+                minitem: 2
+                description: first contains the register location and length,
+                             second contains the memory mapping address and length.
+
+        reg-names:
+                minitem: 2
+                description: localbus,configuration registers address space,
+                             lbc_mm, memory mapped address space.
+
+required:
+        - compatible
+        - reg
+        - reg-names
+
+examples:
+        - |
+                lbc: localbus@28003000 {
+                        compatible = "phytium,localbus";
+                        #address-cells = <2>;
+                        #size-cells = <1>;
+                        reg = <0x00 0x28003000 0x00 0x1000 0x01 0x10000000 0x0 0x10000000>;
+                        reg-names = "localbus", "lbc_mm";
+                        status = "disabled";
+                        norflash@0 {
+                                device-type = <1>;
+                                device-time-seq = <0x0003 0x043043 0x3f1f01 0x3fc40f>;
+                                device-size = <0x10000000>;
+                                bank-width = <2>;
+                        };
+                };
