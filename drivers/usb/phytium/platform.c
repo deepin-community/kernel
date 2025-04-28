@@ -10,6 +10,7 @@
 #include "core.h"
 #include "hw-regs.h"
 
+#define PHYTIUM_OTG_V1_VERSION "1.0.0"
 #define PHYTIUM_OTG_USB_LOADED  3
 #define USB2_2_BASE_ADDRESS 0x31800000
 
@@ -214,3 +215,4 @@ module_platform_driver(phytium_otg_driver);
 MODULE_AUTHOR("Chen Zhenhua <chenzhenhua@phytium.com.cn>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Phytium usb platform wrapper");
+MODULE_VERSION(PHYTIUM_OTG_V1_VERSION);
