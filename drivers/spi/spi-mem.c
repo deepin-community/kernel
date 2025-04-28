@@ -11,6 +11,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 #include <linux/sched/task_stack.h>
+#include <linux/mtd/spi-nor.h>
 
 #include "internals.h"
 
@@ -142,6 +143,24 @@ static int spi_check_buswidth_req(struct spi_mem *mem, u8 buswidth, bool tx)
 static bool spi_mem_check_buswidth(struct spi_mem *mem,
 				   const struct spi_mem_op *op)
 {
+	u32 proto;
+
+	if (op->data.dir == SPI_MEM_DATA_OUT)
+		proto = mem->spi->tx_proto;
+	else if (op->data.dir == SPI_MEM_DATA_IN)
+		proto = mem->spi->rx_proto;
+
+	if (op->data.dir != SPI_MEM_NO_DATA) {
+		if (op->cmd.buswidth > spi_nor_get_protocol_inst_nbits(proto))
+			return false;
+		if (op->addr.buswidth > spi_nor_get_protocol_addr_nbits(proto))
+			return false;
+		if (op->dummy.buswidth > spi_nor_get_protocol_addr_nbits(proto))
+			return false;
+		if (op->data.buswidth > spi_nor_get_protocol_data_nbits(proto))
+			return false;
+	}
+
 	if (spi_check_buswidth_req(mem, op->cmd.buswidth, true))
 		return false;
 

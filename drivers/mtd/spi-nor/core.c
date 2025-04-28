@@ -2790,6 +2790,10 @@ static void spi_nor_no_sfdp_init_params(struct spi_nor *nor)
 		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_1_4],
 					  0, 8, SPINOR_OP_READ_1_1_4,
 					  SNOR_PROTO_1_1_4);
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_1_4_4;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_4_4],
+					  0, 8, SPINOR_OP_READ_1_4_4,
+					  SNOR_PROTO_1_4_4);
 	}
 
 	if (no_sfdp_flags & SPI_NOR_OCTAL_READ) {
