@@ -27,6 +27,7 @@
 #include <linux/timecounter.h>
 #include <sound/core.h>
 #include <sound/initval.h>
+#include <sound/jack.h>
 #include <linux/pci.h>
 #include "local.h"
 
@@ -46,9 +47,23 @@
 #define EIGHT_CHANNEL_SUPPORT	8	/* up to 7.1 */
 
 struct pdata_px210_mfd {
-	struct device		*dev;
+	struct device *dev;
 	char *name;
 	int clk_base;
+};
+
+static struct snd_soc_jack hs_jack;
+
+/* Headset jack detection DAPM pins */
+static struct snd_soc_jack_pin hs_jack_pins[] = {
+	{
+		.pin	= "FrontIn",
+		.mask	= SND_JACK_MICROPHONE,
+	},
+	{
+		.pin	= "Front",
+		.mask	= SND_JACK_HEADPHONE,
+	},
 };
 
 static inline void i2s_write_reg(void __iomem *io_base, int reg, u32 val)
@@ -151,6 +166,72 @@ irqreturn_t azx_i2s_interrupt(int irq, void *dev_id)
 	return IRQ_RETVAL(handled);
 }
 
+int azx_i2s_enable_gpio(struct i2s_phytium *i2s)
+{
+	u32 val;
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_SWPORTA_DDR,
+			(I2S_GPIO_INPUT(0) | I2S_GPIO_OUTPUT(1)));
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_SWPORTA_DDR);
+	if (val != (I2S_GPIO_INPUT(0) | I2S_GPIO_OUTPUT(1)))
+		goto enable_err;
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INTMASK, !I2S_GPIO(0));
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_INTMASK);
+	if (val != !I2S_GPIO(0))
+		goto enable_err;
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INTTYPE_LEVEL, I2S_GPIO_EDGE(0));
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_INTTYPE_LEVEL);
+	if (val != I2S_GPIO_EDGE(0))
+		goto enable_err;
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INT_POLARITY, I2S_GPIO_DOWN(0));
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_INT_POLARITY);
+	if (val != I2S_GPIO_DOWN(0))
+		goto enable_err;
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INTEN, I2S_GPIO(0));
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_INTEN);
+	if (val != I2S_GPIO(0))
+		goto enable_err;
+
+	return 0;
+enable_err:
+	return -EBUSY;
+}
+
+static void i2s_gpio_jack_work(struct work_struct *work)
+{
+	struct i2s_phytium *i2s = container_of(work, struct i2s_phytium, i2s_gpio_work.work);
+	u32 val;
+
+	val = i2s_read_reg(i2s->regs_gpio, I2S_GPIO_INT_POLARITY);
+	if (val == 1) {
+		snd_soc_jack_report(&hs_jack, I2S_HEADPHONE_DISABLE, SND_JACK_HEADSET);
+		i2s_write_reg(i2s->regs_gpio, I2S_GPIO_SWPORTA_DR, I2S_HEADPHONE_REAR);
+	} else {
+		snd_soc_jack_report(&hs_jack, I2S_HEADPHONE_ENABLE, SND_JACK_HEADSET);
+		i2s_write_reg(i2s->regs_gpio, I2S_GPIO_SWPORTA_DR, I2S_HEADPHONE_FRONT);
+	}
+	val = ~val;
+	val &= 0x1;
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INT_POLARITY, val);
+}
+
+irqreturn_t azx_i2s_gpio_interrupt(int irq, void *dev_id)
+{
+	struct azx *chip = dev_id;
+	struct i2s_phytium *i2s = container_of(chip, struct i2s_phytium, chip);
+	bool handled = true;
+
+	queue_delayed_work(system_power_efficient_wq, &i2s->i2s_gpio_work,
+			      msecs_to_jiffies(100));
+
+	i2s_write_reg(i2s->regs_gpio, I2S_GPIO_PORTA_EOI, I2S_GPIO(0));
+	return IRQ_RETVAL(handled);
+}
+
 static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 {
 	struct i2sc_bus *bus = azx_bus(chip);
@@ -163,6 +244,22 @@ static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 	if (err < 0) {
 		dev_err(i2s->dev, "failed to request irq\n");
 		return err;
+	}
+
+	if (i2s->detect) {
+		err = azx_i2s_enable_gpio(i2s);
+		if (err < 0) {
+			dev_err(i2s->dev, "failed to enable gpio irq\n");
+			return err;
+		}
+
+		err = devm_request_irq(i2s->dev, i2s->gpio_irq_id, azx_i2s_gpio_interrupt,
+					IRQF_SHARED,
+					"phytium i2s gpio", chip);
+		if (err < 0) {
+			dev_err(i2s->dev, "failed to request gpio irq\n");
+			return err;
+		}
 	}
 
 	bus->irq = i2s->irq_id;
@@ -370,12 +467,31 @@ static int phytium_i2s_resume(struct snd_soc_component *component)
 	}
 	i2s_write_reg(dev->regs, CLK_CFG0, dev->cfg);
 	i2s_write_reg(dev->regs, CLK_CFG1, 0xf);
+
+	if (dev->detect)
+		azx_i2s_enable_gpio(dev);
+
 	return 0;
 }
 #else
 #define phytium_i2s_suspend NULL
 #define phytium_i2s_resume  NULL
 #endif
+
+static int phytium_i2s_component_probe(struct snd_soc_component *component)
+{
+	struct snd_soc_card *card = component->card;
+	int ret;
+
+	ret = snd_soc_card_jack_new_pins(card, "Headset Jack", SND_JACK_HEADSET,
+			    &hs_jack, hs_jack_pins,
+			    ARRAY_SIZE(hs_jack_pins));
+	if (ret < 0) {
+		dev_err(component->dev, "Cannot create jack\n");
+		return ret;
+	}
+	return 0;
+}
 
 static struct snd_soc_dai_driver phytium_i2s_dai = {
 	.playback = {
@@ -967,6 +1083,7 @@ static const struct snd_soc_component_driver phytium_i2s_component = {
 	.pointer	= phytium_pcm_pointer,
 	.suspend	= phytium_i2s_suspend,
 	.resume		= phytium_i2s_resume,
+	.probe = phytium_i2s_component_probe,
 	.legacy_dai_naming = 1,
 };
 
@@ -1265,6 +1382,8 @@ static int i2s_phytium_create(struct platform_device *pdev,
 	}
 
 	INIT_WORK(&i2s->probe_work, azx_probe_work);
+	if (i2s->detect)
+		INIT_DELAYED_WORK(&i2s->i2s_gpio_work, i2s_gpio_jack_work);
 	*rchip = chip;
 	return 0;
 }
@@ -1324,16 +1443,27 @@ static int phytium_i2s_probe(struct platform_device *pdev)
 	i2s->paddr = res->start;
 	i2s->regs = devm_ioremap_resource(&pdev->dev, res);
 
+	if (IS_ERR(i2s->regs))
+		return PTR_ERR(i2s->regs);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	i2s->regs_db = devm_ioremap_resource(&pdev->dev, res);
 
-	if (IS_ERR(i2s->regs))
-		return PTR_ERR(i2s->regs);
+	if (IS_ERR(i2s->regs_db))
+		return PTR_ERR(i2s->regs_db);
 
 	i2s->irq_id = platform_get_irq(pdev, 0);
 
 	if (i2s->irq_id < 0)
 		return i2s->irq_id;
+
+	i2s->gpio_irq_id = platform_get_irq(pdev, 1);
+	i2s->detect = true;
+
+	if (i2s->gpio_irq_id < 0)
+		i2s->detect = false;
+	else
+		i2s->regs_gpio = i2s->regs + I2S_GPIO_BASE;
 
 	i2s->i2s_reg_comp1 = I2S_COMP_PARAM_1;
 	i2s->i2s_reg_comp2 = I2S_COMP_PARAM_2;
