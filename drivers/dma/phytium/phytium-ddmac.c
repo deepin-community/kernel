@@ -29,6 +29,7 @@
 #include <asm/barrier.h>
 #include "phytium-ddmac.h"
 
+#define DDMA_DRIVER_VERSION "1.1.1"
 
 static inline struct phytium_ddma_device *to_ddma_device
 		(struct dma_chan *chan)
@@ -958,3 +959,4 @@ module_platform_driver(phytium_driver);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Phytium DDMA Controller platform driver");
 MODULE_AUTHOR("HuangJie <huangjie1663@phytium.com.cn>");
+MODULE_VERSION(DDMA_DRIVER_VERSION);
