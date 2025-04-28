@@ -21,7 +21,7 @@
 #include <linux/spi/spi-mem.h>
 #include <linux/mtd/spi-nor.h>
 
-#define DRIVER_VERSION	"1.0.1"
+#define DRIVER_VERSION	"1.0.2"
 
 #define PHYTIUM_CPU_PART_FTC862		0x862
 
@@ -153,6 +153,9 @@
 #define XFER_PROTO_4_4_4		0x6
 
 #define WR_CFG_NODIR_VALUE		0x5000000
+
+#define QSPI_DEFAULT_CLK		500000000
+
 struct phytium_qspi_flash {
 	u32 cs;
 	u32 clk_div;
@@ -688,6 +691,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	struct spi_nor *nor;
 	const char **reg_name_array;
 	bool new_capacity = false;
+	u32 clk_rate = QSPI_DEFAULT_CLK;
 
 	ctrl = spi_alloc_master(dev, sizeof(*qspi));
 	if (!ctrl)
@@ -767,7 +771,8 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 			goto probe_clk_failed;
 		}
 	} else if (has_acpi_companion(dev)) {
-		qspi->clk_rate = 50000000;
+		fwnode_property_read_u32(dev->fwnode, "spi-clock", &clk_rate);
+		qspi->clk_rate = clk_rate;
 	}
 	qspi->nodirmap = device_property_present(dev, "no-direct-mapping");
 	ctrl->mem_ops = qspi->nodirmap ?
