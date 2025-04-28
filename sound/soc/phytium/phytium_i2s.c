@@ -237,6 +237,15 @@ static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 	struct i2sc_bus *bus = azx_bus(chip);
 	struct i2s_phytium *i2s = container_of(chip, struct i2s_phytium, chip);
 	int err;
+	u32 status;
+
+	status = i2s_read_reg(i2s->regs_db, DMA_STS);
+	if (status & 0x1)
+		i2s_write_reg(i2s->regs_db, DMA_STS, 0x1);
+	if (status & 0x100)
+		i2s_write_reg(i2s->regs_db, DMA_STS, 0x100);
+
+	i2s_write_reg(i2s->regs_db, DMA_MASK_INT, 0x0);
 
 	err = devm_request_irq(i2s->dev, i2s->irq_id, azx_i2s_interrupt, IRQF_SHARED,
 			       "phytium i2s", chip);
@@ -247,11 +256,8 @@ static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 	}
 
 	if (i2s->detect) {
-		err = azx_i2s_enable_gpio(i2s);
-		if (err < 0) {
-			dev_err(i2s->dev, "failed to enable gpio irq\n");
-			return err;
-		}
+		i2s_write_reg(i2s->regs_gpio, I2S_GPIO_PORTA_EOI, I2S_GPIO(0));
+		i2s_write_reg(i2s->regs_gpio, I2S_GPIO_INTMASK, 0x1);
 
 		err = devm_request_irq(i2s->dev, i2s->gpio_irq_id, azx_i2s_gpio_interrupt,
 					IRQF_SHARED,
@@ -260,6 +266,13 @@ static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 			dev_err(i2s->dev, "failed to request gpio irq\n");
 			return err;
 		}
+
+		err = azx_i2s_enable_gpio(i2s);
+		if (err < 0) {
+			dev_err(i2s->dev, "failed to enable gpio irq\n");
+			return err;
+		}
+
 	}
 
 	bus->irq = i2s->irq_id;
