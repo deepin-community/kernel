@@ -10,7 +10,7 @@
 #include "core.h"
 #include "hw-regs.h"
 
-#define PHYTIUM_OTG_V1_VERSION "1.0.0"
+#define PHYTIUM_OTG_V1_VERSION "1.0.1"
 #define PHYTIUM_OTG_USB_LOADED  3
 #define USB2_2_BASE_ADDRESS 0x31800000
 
