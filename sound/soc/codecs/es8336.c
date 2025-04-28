@@ -832,31 +832,14 @@ static int es8336_suspend(struct snd_soc_component *component)
 
 static int es8336_resume(struct snd_soc_component *component)
 {
-	struct es8336_priv *es8336 = snd_soc_component_get_drvdata(component);
+	struct regmap *regmap = dev_get_regmap(component->dev, NULL);
 	int ret;
 
-	es8336_reset(component); /* UPDATED BY DAVID,15-3-5 */
-	ret = snd_soc_component_read(component, ES8336_CLKMGR_ADCDIV2_REG05);
-	if (!ret) {
-		es8336_init_regs(component);
-		snd_soc_component_write(component, ES8336_GPIO_SEL_REG4D, 0x02);
-		/* max debance time, enable interrupt, low active */
-		snd_soc_component_write(component, ES8336_GPIO_DEBUNCE_INT_REG4E, 0xf3);
-		/* es8336_set_bias_level(component, SND_SOC_BIAS_OFF); */
-		snd_soc_component_write(component, ES8336_CPHP_OUTEN_REG17, 0x00);
-		snd_soc_component_write(component, ES8336_DAC_PDN_REG2F, 0x11);
-		snd_soc_component_write(component, ES8336_CPHP_LDOCTL_REG1B, 0x03);
-		snd_soc_component_write(component, ES8336_CPHP_PDN2_REG1A, 0x22);
-		snd_soc_component_write(component, ES8336_CPHP_PDN1_REG19, 0x06);
-		snd_soc_component_write(component, ES8336_HPMIX_SWITCH_REG14, 0x00);
-		snd_soc_component_write(component, ES8336_HPMIX_PDN_REG15, 0x33);
-		snd_soc_component_write(component, ES8336_HPMIX_VOL_REG16, 0x00);
-		if (!es8336->hp_inserted)
-			snd_soc_component_write(component, ES8336_SYS_PDN_REG0D, 0x3F);
-		snd_soc_component_write(component, ES8336_SYS_LP1_REG0E, 0xFF);
-		snd_soc_component_write(component, ES8336_SYS_LP2_REG0F, 0xFF);
-		snd_soc_component_write(component, ES8336_CLKMGR_CLKSW_REG01, 0xF3);
-		snd_soc_component_write(component, ES8336_ADC_PDN_LINSEL_REG22, 0xc0);
+	regcache_mark_dirty(regmap);
+	ret = regcache_sync(regmap);
+	if (ret) {
+		dev_err(component->dev, "unable to sync regcache\n");
+		return ret;
 	}
 	return 0;
 }
@@ -942,6 +925,8 @@ const struct regmap_config es8336_regmap_config = {
 	.cache_type	= REGCACHE_RBTREE,
 	.reg_defaults = es8336_reg_defaults,
 	.num_reg_defaults = ARRAY_SIZE(es8336_reg_defaults),
+	.use_single_read = true,
+	.use_single_write = true,
 };
 
 static const struct snd_soc_component_driver soc_component_dev_es8336 = {
