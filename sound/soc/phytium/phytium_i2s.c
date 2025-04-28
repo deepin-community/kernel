@@ -494,8 +494,12 @@ static int phytium_i2s_resume(struct snd_soc_component *component)
 
 static int phytium_i2s_component_probe(struct snd_soc_component *component)
 {
+	struct i2s_phytium *dev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_card *card = component->card;
 	int ret;
+
+	if (!dev->detect)
+		return 0;
 
 	ret = snd_soc_card_jack_new_pins(card, "Headset Jack", SND_JACK_HEADSET,
 			    &hs_jack, hs_jack_pins,
@@ -1471,7 +1475,7 @@ static int phytium_i2s_probe(struct platform_device *pdev)
 	if (i2s->irq_id < 0)
 		return i2s->irq_id;
 
-	i2s->gpio_irq_id = platform_get_irq(pdev, 1);
+	i2s->gpio_irq_id = platform_get_irq_optional(pdev, 1);
 	i2s->detect = true;
 
 	if (i2s->gpio_irq_id < 0)
@@ -1556,6 +1560,7 @@ static const struct acpi_device_id phytium_i2s_acpi_match[] = {
 	{ "PHYT0016", 0 },
 	{ }
 };
+MODULE_DEVICE_TABLE(acpi, phytium_i2s_acpi_match);
 #else
 #define phytium_i2s_acpi_match NULL
 #endif
