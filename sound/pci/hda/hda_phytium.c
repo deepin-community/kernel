@@ -477,7 +477,7 @@ static int azx_resume(struct device *dev)
 	snd_hdac_bus_exit_link_reset(bus);
 	usleep_range(1000, 1200);
 
-	azx_init_chip(chip, 0);
+	azx_init_chip(chip, 1);
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
 
