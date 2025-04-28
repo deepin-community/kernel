@@ -208,6 +208,8 @@ struct spi_device {
 	 */
 #define SPI_MODE_KERNEL_MASK	(~(BIT(29) - 1))
 	u32			mode;
+	u32			rx_proto;
+	u32			tx_proto;
 	int			irq;
 	void			*controller_state;
 	void			*controller_data;

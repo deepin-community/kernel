@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
+#include <linux/mtd/spi-nor.h>
 #include <uapi/linux/sched/types.h>
 
 #define CREATE_TRACE_POINTS
@@ -2330,6 +2331,18 @@ static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
 	if (!of_property_read_u32(nc, "spi-max-frequency", &value))
 		spi->max_speed_hz = value;
 
+	if (!of_property_read_u32(nc, "spi-rx-proto", &value))
+		spi->rx_proto = value;
+	if (!of_property_read_u32(nc, "spi-tx-proto", &value))
+		spi->tx_proto = value;
+
+	if (spi->rx_proto != SNOR_PROTO_1_1_4 &&
+	    spi->rx_proto != SNOR_PROTO_1_4_4 &&
+	    spi->rx_proto != SNOR_PROTO_1_1_2)
+		spi->rx_proto = SNOR_PROTO_1_1_1;
+	if (spi->tx_proto != SNOR_PROTO_1_1_4)
+		spi->tx_proto = SNOR_PROTO_1_1_1;
+
 	/* Device CS delays */
 	of_spi_parse_dt_cs_delay(nc, &spi->cs_setup, "spi-cs-setup-delay-ns");
 	of_spi_parse_dt_cs_delay(nc, &spi->cs_hold, "spi-cs-hold-delay-ns");
@@ -2650,6 +2663,8 @@ struct spi_device *acpi_spi_device_alloc(struct spi_controller *ctlr,
 	struct acpi_spi_lookup lookup = {};
 	struct spi_device *spi;
 	int ret;
+	int rx_val = 1, tx_val = 1;
+	int rx_proto = 1, tx_proto = 1;
 
 	if (!ctlr && index == -1)
 		return ERR_PTR(-EINVAL);
@@ -2663,6 +2678,52 @@ struct spi_device *acpi_spi_device_alloc(struct spi_controller *ctlr,
 	ret = acpi_dev_get_resources(adev, &resource_list,
 				     acpi_spi_add_resource, &lookup);
 	acpi_dev_free_resource_list(&resource_list);
+
+	if (!fwnode_property_read_u32(&adev->fwnode, "spi-tx-bus-width", &tx_val)) {
+		switch (tx_val) {
+		case 0:
+			lookup.mode |= SPI_NO_TX;
+			break;
+		case 1:
+			break;
+		case 2:
+			lookup.mode |= SPI_TX_DUAL;
+			break;
+		case 4:
+			lookup.mode |= SPI_TX_QUAD;
+			break;
+		case 8:
+			lookup.mode |= SPI_TX_OCTAL;
+			break;
+		default:
+			dev_warn(&lookup.ctlr->dev, "spi-tx-bus-width %d not supported\n", tx_val);
+			break;
+		}
+	}
+	if (!fwnode_property_read_u32(&adev->fwnode, "spi-rx-bus-width", &rx_val)) {
+		switch (rx_val) {
+		case 0:
+			lookup.mode |= SPI_NO_RX;
+			break;
+		case 1:
+			break;
+		case 2:
+			lookup.mode |= SPI_RX_DUAL;
+			break;
+		case 4:
+			lookup.mode |= SPI_RX_QUAD;
+			break;
+		case 8:
+			lookup.mode |= SPI_RX_OCTAL;
+			break;
+		default:
+			dev_warn(&lookup.ctlr->dev, "spi-rx-bus-width %d not supported\n", rx_val);
+			break;
+		}
+	}
+
+	fwnode_property_read_u32(&adev->fwnode, "spi-rx-proto", &rx_proto);
+	fwnode_property_read_u32(&adev->fwnode, "spi-tx-proto", &tx_proto);
 
 	if (ret < 0)
 		/* Found SPI in _CRS but it points to another controller */
@@ -2691,6 +2752,18 @@ struct spi_device *acpi_spi_device_alloc(struct spi_controller *ctlr,
 	spi->irq		= lookup.irq;
 	spi->bits_per_word	= lookup.bits_per_word;
 	spi_set_chipselect(spi, 0, lookup.chip_select);
+
+	if (rx_proto)
+		spi->rx_proto = rx_proto;
+	if (tx_proto)
+		spi->tx_proto = tx_proto;
+
+	if (spi->rx_proto != SNOR_PROTO_1_1_4 &&
+		spi->rx_proto != SNOR_PROTO_1_4_4 &&
+		spi->rx_proto != SNOR_PROTO_1_1_2)
+		spi->rx_proto = SNOR_PROTO_1_1_1;
+	if (spi->tx_proto != SNOR_PROTO_1_1_4)
+		spi->tx_proto = SNOR_PROTO_1_1_1;
 
 	return spi;
 }
