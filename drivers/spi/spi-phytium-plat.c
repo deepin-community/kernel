@@ -29,6 +29,7 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME "phytium_spi"
+#define DRIVER_VERSION	"1.0.0"
 
 struct phytium_spi_clk {
 	struct phytium_spi  fts;
@@ -169,3 +170,4 @@ module_platform_driver(phytium_spi_driver);
 MODULE_AUTHOR("Yiqun Zhang <zhangyiqun@phytium.com.cn>");
 MODULE_DESCRIPTION("Platform Driver for Phytium SPI controller core");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(DRIVER_VERSION);
