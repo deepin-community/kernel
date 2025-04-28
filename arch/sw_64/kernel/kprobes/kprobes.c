@@ -240,35 +240,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
 	}
 	return ret;
 }
-/*
- * Function return probe trampoline:
- *	- init_kprobes() establishes a probepoint here
- *	- When the probed function returns, this probe causes the
- *	  handlers to fire
- */
-static void __used kretprobe_trampoline_holder(void)
-{
-	asm volatile(
-			/* Keep the assembler from reordering and placing JR here. */
-			".set noreorder\n\t"
-			"nop\n\t"
-			".global __kretprobe_trampoline\n"
-			"__kretprobe_trampoline:\n\t"
-			"nop\n\t"
-			: : : "memory");
-}
-
-void __kretprobe_trampoline(void);
-
-void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
-		struct pt_regs *regs)
-{
-	ri->ret_addr = (kprobe_opcode_t *) regs->regs[26];
-	ri->fp = NULL;
-
-	/* Replace the return addr with trampoline addr */
-	regs->regs[26] = (unsigned long)__kretprobe_trampoline;
-}
 
 /*
  * Provide a blacklist of symbols identifying ranges which cannot be kprobed.
@@ -283,40 +254,12 @@ int __init arch_populate_kprobe_blacklist(void)
 		return ret;
 }
 
-/*
- * Called when the probe at kretprobe trampoline is hit
- */
-static int __kprobes trampoline_probe_handler(struct kprobe *p,
-		struct pt_regs *regs)
-{
-	unsigned long orig_ret_address;
-
-	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
-	instruction_pointer(regs) = orig_ret_address;
-	regs->regs[26] = orig_ret_address;
-
-	/*
-	 * By returning a non-zero value, we are telling
-	 * kprobe_handler() that we don't want the post_handler
-	 * to run (and have re-enabled preemption)
-	 */
-	return 1;
-}
-
 int __kprobes arch_trampoline_kprobe(struct kprobe *p)
 {
-	if (p->addr == (kprobe_opcode_t *)__kretprobe_trampoline)
-		return 1;
-
 	return 0;
 }
 
-static struct kprobe trampoline_p = {
-	.addr = (kprobe_opcode_t *)__kretprobe_trampoline,
-	.pre_handler = trampoline_probe_handler
-};
-
 int __init arch_init_kprobes(void)
 {
-	return register_kprobe(&trampoline_p);
+	return 0;
 }
