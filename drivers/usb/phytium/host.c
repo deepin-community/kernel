@@ -23,34 +23,35 @@
 
 #define HOST_EP_NUM	16
 
+static void dump_ep_remap_pool(struct HOST_CTRL *priv, bool dirIn)
+{
+	int index, dir = 0;
+
+	if (!dirIn)
+		dir = 1;
+
+	pr_info("%s dir endpoint remap table\n", dir ? "OUT" : "IN");
+
+	for (index = 1; index <= MAX_INSTANCE_EP_NUM; index++)
+		pr_info("ep_remap_pool[%d][%d]->%d\n", dir, index,
+				priv->ep_remap_pool[dir][index]);
+}
+
 static int get_epnum_from_pool(struct HOST_CTRL *priv, int real_epNum, bool dirIn)
 {
 	int index, dir = 0;
 	int ret = 0;
 
-	if (!priv)
+	if (!priv || real_epNum == 0)
 		return 0;
 
 	if (!dirIn)
 		dir = 1;
 
-	if (real_epNum <= MAX_INSTANCE_EP_NUM) {
-		if (!priv->ep_remap_pool[dir][real_epNum]) {
-			priv->ep_remap_pool[dir][real_epNum] = real_epNum;
-			ret = real_epNum;
+	for (index = 1; index <= MAX_INSTANCE_EP_NUM; index++) {
+		if (priv->ep_remap_pool[dir][index] == real_epNum) {
+			ret = index;
 			goto out;
-		}
-
-		if (priv->ep_remap_pool[dir][real_epNum] == real_epNum) {
-			ret = real_epNum;
-			goto out;
-		}
-	} else {
-		for (index = 1; index <= MAX_INSTANCE_EP_NUM; index++) {
-			if (priv->ep_remap_pool[dir][index] == real_epNum) {
-				ret = index;
-				goto out;
-			}
 		}
 	}
 
@@ -62,6 +63,9 @@ static int get_epnum_from_pool(struct HOST_CTRL *priv, int real_epNum, bool dirI
 		}
 	}
 
+	if (index > MAX_INSTANCE_EP_NUM)
+		return index;
+
 out:
 	return ret;
 }
@@ -71,7 +75,7 @@ static int release_epnum_from_pool(struct HOST_CTRL *priv, int real_epNum, bool 
 	int index = 0;
 	int dir = 0;
 
-	if (!priv)
+	if (!priv || real_epNum == 0)
 		return 0;
 
 	if (!dirIn)
@@ -150,7 +154,6 @@ static inline void disconnectHostDetect(struct HOST_CTRL *priv)
 	if (!priv)
 		return;
 
-	memset(priv->ep_remap_pool, 0, sizeof(priv->ep_remap_pool));
 	otgctrl = phytium_read8(&priv->regs->otgctrl);
 	if ((otgctrl & OTGCTRL_ASETBHNPEN) && priv->otgState == HOST_OTG_STATE_A_SUSPEND)
 		pr_info("Device no Response\n");
@@ -286,6 +289,8 @@ static inline void connectHostDetect(struct HOST_CTRL *priv, uint8_t otgState)
 
 	if (!priv)
 		return;
+
+	memset(priv->ep_remap_pool, 0, sizeof(priv->ep_remap_pool));
 	pr_debug("otgState:0x%x pirv->otgState:0x%x\n", otgState, priv->otgState);
 	if (priv->custom_regs) {
 		phytium_write32(&priv->custom_regs->wakeup, 0);
@@ -1308,6 +1313,11 @@ static int hc_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flags)
 	req->isoFramesNumber = urb->number_of_packets;
 	req->epNum = get_epnum_from_pool(config->host_priv, usb_endpoint_num(host_ep_desc),
 			usb_endpoint_dir_in(host_ep_desc));
+	if (req->epNum > MAX_INSTANCE_EP_NUM) {
+		pr_err("Not enough endpoint resource for remap\n");
+		dump_ep_remap_pool(priv, usb_endpoint_num(host_ep_desc));
+		req->epNum = MAX_INSTANCE_EP_NUM;
+	}
 
 	if (usb_endpoint_dir_in(host_ep_desc)) {
 		if (!usbDev->in_ep[req->epNum])
@@ -1407,6 +1417,7 @@ static void hc_endpoint_disable(struct usb_hcd *hcd, struct usb_host_endpoint *l
 	struct HOST_USB_DEVICE *usbDev;
 	int ep_num;
 	struct phytium_cusb *config;
+	struct HOST_CTRL *priv;
 
 	config = *(struct phytium_cusb **)hcd->hcd_priv;
 	if (!config)
@@ -1414,6 +1425,8 @@ static void hc_endpoint_disable(struct usb_hcd *hcd, struct usb_host_endpoint *l
 
 	ep_num = get_epnum_from_pool(config->host_priv, usb_endpoint_num(&ld_ep->desc),
 			usb_endpoint_dir_in(&ld_ep->desc));
+
+	priv = config->host_priv;
 
 	usbDev = (struct HOST_USB_DEVICE *)ld_ep->hcpriv;
 	if (!usbDev)
@@ -1426,6 +1439,7 @@ static void hc_endpoint_disable(struct usb_hcd *hcd, struct usb_host_endpoint *l
 				INIT_LIST_HEAD(&usbDev->in_ep[ep_num]->reqList);
 				kfree(usbDev->in_ep[ep_num]);
 				usbDev->in_ep[ep_num] = NULL;
+				priv->ep_remap_pool[0][ep_num] = 0;
 			}
 		} else {
 			if (usbDev->out_ep[ep_num]) {
@@ -1433,6 +1447,7 @@ static void hc_endpoint_disable(struct usb_hcd *hcd, struct usb_host_endpoint *l
 				INIT_LIST_HEAD(&usbDev->out_ep[ep_num]->reqList);
 				kfree(usbDev->out_ep[ep_num]);
 				usbDev->out_ep[ep_num] = NULL;
+				priv->ep_remap_pool[1][ep_num] = 0;
 			}
 		}
 	}
