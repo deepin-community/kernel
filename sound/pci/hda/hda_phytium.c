@@ -966,6 +966,7 @@ out_free:
 	return err;
 }
 
+#define codec_power_count(codec) codec->core.dev.power.usage_count.counter
 /* number of codec slots for each chipset: 0 = default slots (i.e. 4) */
 static unsigned int azx_max_codecs[AZX_NUM_DRIVERS] = {
 	[AZX_DRIVER_FT] = 4,
@@ -978,6 +979,7 @@ static int azx_probe_continue(struct azx *chip)
 	int dev = chip->dev_index;
 	int err;
 	struct hdac_bus *bus = azx_bus(chip);
+	struct hda_codec *codec;
 
 	hda->probe_continued = 1;
 
@@ -1010,6 +1012,14 @@ static int azx_probe_continue(struct azx *chip)
 
 	if (azx_has_pm_runtime(chip))
 		pm_runtime_put_noidle(hddev);
+
+	list_for_each_codec(codec, &chip->bus) {
+		if (codec_power_count(codec) > 0) {
+			pm_runtime_mark_last_busy(&codec->core.dev);
+			pm_runtime_put_autosuspend(&codec->core.dev);
+		}
+	}
+
 	return err;
 
 out_free:
