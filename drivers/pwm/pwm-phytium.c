@@ -47,6 +47,8 @@
 #define PWM_N(x)		((0x400)*(x))
 #define MAX_PARAMETER 2
 
+#define PWM_DRIVER_VERSION "1.1.1"
+
 struct phytium_pwm_state {
 	int rst;
 	int cntmod;
@@ -589,3 +591,4 @@ module_platform_driver(pwm_phytium_driver);
 MODULE_DESCRIPTION("Phytium SoC PWM driver");
 MODULE_AUTHOR("Yang Liu <yangliu2021@phytium.com.cn>");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(PWM_DRIVER_VERSION);
