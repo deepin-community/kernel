@@ -17470,6 +17470,7 @@ M:	Wang Yinfeng <wangyinfeng@phytium.com.cn>
 S:	Maintained
 W:	https://gerrit.b.cpu.ac/c/linux
 F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
+F:	Documentation/devicetree/bindings/usb/phytium,usb2-2.0.yaml
 F:	arch/arm64/boot/dts/phytium/*
 F:	drivers/gpio/gpio-phytium*
 
