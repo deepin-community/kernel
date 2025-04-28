@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config USB_PHYTIUM_PCI_V2
+	tristate "PHYTIUM USB V2 Support for PCI"
+	depends on USB && USB_GADGET && USB_ROLE_SWITCH
+	help
+	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
+
+	  If you choose to build this driver is a dynamically linked modules, the module will
+          be called phytium-usb-v2-pci.ko
+
+config USB_PHYTIUM_V2
+	tristate "PHYTIUM USB V2 Support for Platform"
+	depends on USB && USB_GADGET && USB_ROLE_SWITCH
+	help
+	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
+
+	  If you choose to build this driver is a dynamically linked modules, the module will
+          be called phytium-usb-v2-platform.ko

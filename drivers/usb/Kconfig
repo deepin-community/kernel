@@ -131,6 +131,8 @@ source "drivers/usb/isp1760/Kconfig"
 
 source "drivers/usb/phytium/Kconfig"
 
+source "drivers/usb/phytium_usb_v2/Kconfig"
+
 comment "USB port drivers"
 
 if USB
