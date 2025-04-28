@@ -43,3 +43,4 @@ obj-$(CONFIG_MTD_PLATRAM)	+= plat-ram.o
 obj-$(CONFIG_MTD_INTEL_VR_NOR)	+= intel_vr_nor.o
 obj-$(CONFIG_MTD_VMU)		+= vmu-flash.o
 obj-$(CONFIG_MTD_LANTIQ)	+= lantiq-flash.o
+obj-$(CONFIG_MTD_PHYTIUM_LBC)	+= phytium_lbc.o
