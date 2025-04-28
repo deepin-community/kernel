@@ -1379,6 +1379,11 @@ config SND_SOC_PEB2466
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-soc-peb2466.
 
+config SND_SOC_PHYTIUM_CODEC_V2
+	tristate "Phytium Codec V2 driver"
+	help
+	  Select Y if you want to add Phytium codec V2 driver.
+
 config SND_SOC_RK3328
 	tristate "Rockchip RK3328 audio CODEC"
 	select REGMAP_MMIO
