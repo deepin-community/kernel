@@ -7,6 +7,9 @@
 #include <linux/cache.h>
 #include <linux/cacheinfo.h>
 
+#define KHZ (1000UL)
+#define MHZ (1000UL * 1000UL)
+
 #define current_cpu_data cpu_data[smp_processor_id()]
 
 enum hmcall_cpuid_cmd {
@@ -48,10 +51,23 @@ extern struct cpuinfo_sw64 cpu_data[NR_CPUS];
 extern cpumask_t cpu_offline;
 
 extern void store_cpu_data(int cpu);
-extern unsigned long get_cpu_freq(void);
-extern void update_cpu_freq(unsigned long khz);
 
 extern unsigned int get_cpu_cache_size(int cpu, int level, enum cache_type type);
 extern unsigned int get_cpu_cacheline_size(int cpu, int level, enum cache_type type);
+
+/* Hz */
+static inline unsigned long sunway_max_cpu_freq(void)
+{
+	return cpuid(GET_CPU_FREQ, 0) * MHZ;
+}
+
+#ifdef CONFIG_SW64_CPUFREQ
+extern unsigned long get_cpu_freq(unsigned int cpu);
+#else
+static inline unsigned long get_cpu_freq(unsigned int cpu)
+{
+	return sunway_max_cpu_freq();
+}
+#endif
 
 #endif /* _ASM_SW64_CPU_H */
