@@ -31,6 +31,9 @@
 #include <asm/io.h>
 
 #include "internal.h"
+#ifdef CONFIG_ARCH_PHYTIUM
+#include "phytium_base_ctrl.h"
+#endif
 
 #define ACPI_EC_CLASS			"embedded_controller"
 #define ACPI_EC_DEVICE_NAME		"Embedded Controller"
@@ -273,7 +276,12 @@ static bool acpi_ec_flushed(struct acpi_ec *ec)
 
 static inline u8 acpi_ec_read_status(struct acpi_ec *ec)
 {
-	u8 x = inb(ec->command_addr);
+	u8 x;
+
+	if (phytium_check_cpu() == true)
+		x = base_ctrl_readb(ec->command_addr);
+	else
+		x = inb(ec->command_addr);
 
 	ec_dbg_raw("EC_SC(R) = 0x%2.2x "
 		   "SCI_EVT=%d BURST=%d CMD=%d IBF=%d OBF=%d",
@@ -288,7 +296,12 @@ static inline u8 acpi_ec_read_status(struct acpi_ec *ec)
 
 static inline u8 acpi_ec_read_data(struct acpi_ec *ec)
 {
-	u8 x = inb(ec->data_addr);
+	u8 x;
+
+	if (phytium_check_cpu() == true)
+		x = base_ctrl_readb(ec->data_addr);
+	else
+		x = inb(ec->data_addr);
 
 	ec->timestamp = jiffies;
 	ec_dbg_raw("EC_DATA(R) = 0x%2.2x", x);
@@ -298,14 +311,24 @@ static inline u8 acpi_ec_read_data(struct acpi_ec *ec)
 static inline void acpi_ec_write_cmd(struct acpi_ec *ec, u8 command)
 {
 	ec_dbg_raw("EC_SC(W) = 0x%2.2x", command);
-	outb(command, ec->command_addr);
+
+	if (phytium_check_cpu() == true)
+		base_ctrl_writeb(ec->command_addr, command);
+	else
+		outb(command, ec->command_addr);
+
 	ec->timestamp = jiffies;
 }
 
 static inline void acpi_ec_write_data(struct acpi_ec *ec, u8 data)
 {
 	ec_dbg_raw("EC_DATA(W) = 0x%2.2x", data);
-	outb(data, ec->data_addr);
+
+	if (phytium_check_cpu() == true)
+		base_ctrl_writeb(ec->data_addr, data);
+	else
+		outb(data, ec->data_addr);
+
 	ec->timestamp = jiffies;
 }
 
@@ -371,6 +394,17 @@ static inline void acpi_ec_disable_gpe(struct acpi_ec *ec, bool close)
 	}
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM
+static void hwreduce_acpi_enable(struct acpi_ec *ec)
+{
+	base_ctrl_writeb(ec->command_addr, 0x86);
+}
+static void hwreduce_acpi_disable(struct acpi_ec *ec)
+{
+	base_ctrl_writeb(ec->command_addr, 0x87);
+}
+#endif
+
 /* --------------------------------------------------------------------------
  *                           Transaction Management
  * -------------------------------------------------------------------------- */
@@ -415,9 +449,12 @@ static void acpi_ec_unmask_events(struct acpi_ec *ec)
 		clear_bit(EC_FLAGS_EVENTS_MASKED, &ec->flags);
 		if (ec->gpe >= 0)
 			acpi_ec_enable_gpe(ec, false);
-		else
-			enable_irq(ec->irq);
-
+		else {
+			if (!phytium_check_cpu())
+				enable_irq(ec->irq);
+			else if ((irq_to_desc(ec->irq))->depth > 0)
+				enable_irq(ec->irq);
+		}
 		ec_dbg_drv("Polling disabled");
 	}
 }
@@ -496,6 +533,10 @@ static inline void __acpi_ec_enable_event(struct acpi_ec *ec)
 	 * Unconditionally invoke this once after enabling the event
 	 * handling mechanism to detect the pending events.
 	 */
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (phytium_check_cpu())
+		hwreduce_acpi_enable(ec);
+#endif
 	advance_transaction(ec, false);
 }
 
@@ -503,6 +544,11 @@ static inline void __acpi_ec_disable_event(struct acpi_ec *ec)
 {
 	if (test_and_clear_bit(EC_FLAGS_QUERY_ENABLED, &ec->flags))
 		ec_log_drv("event blocked");
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (phytium_check_cpu())
+		hwreduce_acpi_disable(ec);
+#endif
 }
 
 /*
@@ -2117,6 +2163,10 @@ static int acpi_ec_resume(struct device *dev)
 	struct acpi_ec *ec =
 		acpi_driver_data(to_acpi_device(dev));
 
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (phytium_check_cpu())
+		hwreduce_acpi_enable(ec);
+#endif
 	acpi_ec_enable_event(ec);
 	return 0;
 }
@@ -2130,7 +2180,7 @@ EXPORT_SYMBOL_GPL(acpi_ec_mark_gpe_for_wake);
 
 void acpi_ec_set_gpe_wake_mask(u8 action)
 {
-	if (pm_suspend_no_platform() && first_ec && !ec_no_wakeup)
+	if (!phytium_check_cpu() && pm_suspend_no_platform() && first_ec && !ec_no_wakeup)
 		acpi_set_gpe_wake_mask(NULL, first_ec->gpe, action);
 }
 
