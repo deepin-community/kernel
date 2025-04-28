@@ -101,7 +101,7 @@ static int xhci_plat_start(struct usb_hcd *hcd)
 }
 
 static const struct xhci_plat_priv xhci_plat_phytium_pe220x = {
-	.quirks = XHCI_RESET_ON_RESUME,
+	.quirks = XHCI_RESET_ON_RESUME | XHCI_S1_SUSPEND_WAKEUP,
 };
 
 #ifdef CONFIG_OF
