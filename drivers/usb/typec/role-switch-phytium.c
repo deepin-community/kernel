@@ -1630,7 +1630,7 @@ static const struct of_device_id role_sw_phytium_match_table[] = {
 	{},
 };
 static const struct acpi_device_id role_sw_phytium_acpi_match[] = {
-	{ "PHYT0066", 0 },
+	{ "PHYT8011", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, role_sw_phytium_acpi_match);
