@@ -21,9 +21,14 @@
 #include <linux/spi/spi-mem.h>
 #include <linux/mtd/spi-nor.h>
 
-#define DRIVER_VERSION	"1.0.0"
+#define DRIVER_VERSION	"1.0.1"
+
+#define PHYTIUM_CPU_PART_FTC862		0x862
+
+#define MIDR_PHYTIUM_FTC862 MIDR_CPU_MODEL(ARM_CPU_IMP_PHYTIUM, PHYTIUM_CPU_PART_FTC862)
 
 #define QSPI_FLASH_CAP_REG		0x00
+#define	 QSPI_FLASH_CAP_NUM_SHIFT_NEW	16
 #define  QSPI_FLASH_CAP_NUM_SHIFT	3
 #define  QSPI_FLASH_CAP_NUM_MASK	(0x3 << QSPI_FLASH_CAP_NUM_SHIFT)
 #define  QSPI_FLASH_CAP_CAP_SHIFT	0
@@ -147,6 +152,7 @@
 #define XFER_PROTO_2_2_2		0x5
 #define XFER_PROTO_4_4_4		0x6
 
+#define WR_CFG_NODIR_VALUE		0x5000000
 struct phytium_qspi_flash {
 	u32 cs;
 	u32 clk_div;
@@ -247,6 +253,44 @@ static int phytium_spi_nor_protocol_encode(const struct spi_mem_op *op, u32 *cod
 		*code = XFER_PROTO_4_4_4;
 	else
 		*code = XFER_PROTO_1_1_1;
+
+	return ret;
+}
+
+static int phytium_qspi_flash_capacity_encode_new(u32 size,
+		u32 *cap, int i)
+{
+	int ret = 0;
+
+	switch (size) {
+	case SZ_4M:
+		*cap |= (0x0 >> (4 * i));
+		break;
+	case SZ_8M:
+		*cap |= (0x1 >> (4 * i));
+		break;
+	case SZ_16M:
+		*cap |= (0x2 >> (4 * i));
+		break;
+	case SZ_32M:
+		*cap |= (0x3 >> (4 * i));
+		break;
+	case SZ_64M:
+		*cap |= (0x4 >> (4 * i));
+		break;
+	case SZ_128M:
+		*cap |= (0x5 >> (4 * i));
+		break;
+	case SZ_256M:
+		*cap |= (0x6 >> (4 * i));
+		break;
+	case SZ_512M:
+		*cap |= (0x7 >> (4 * i));
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
 
 	return ret;
 }
@@ -643,6 +687,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	struct spi_mem *mem;
 	struct spi_nor *nor;
 	const char **reg_name_array;
+	bool new_capacity = false;
 
 	ctrl = spi_alloc_master(dev, sizeof(*qspi));
 	if (!ctrl)
@@ -729,6 +774,11 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 			&phytium_qspi_mem_ops_nodirmap :
 			&phytium_qspi_mem_ops;
 
+	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_FTC862) {
+		dev_warn(dev, "capacity register(0x00) is the latest design\n");
+		new_capacity = true;
+	}
+
 	qspi->dev = dev;
 	platform_set_drvdata(pdev, qspi);
 
@@ -755,25 +805,38 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 				}
 			}
 		}
+		if (!new_capacity) {
+			for (i = 1; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+				if (qspi->flash[i].size != qspi->flash[0].size) {
+					dev_err(dev, "Flashes are of different sizes.\n");
+					ret = -EINVAL;
+					goto probe_setup_failed;
+				}
+			}
 
-		for (i = 1; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-			if (qspi->flash[i].size != qspi->flash[0].size) {
-				dev_err(dev, "Flashes are of different sizes.\n");
-				ret = -EINVAL;
+			ret = phytium_qspi_flash_capacity_encode(qspi->flash[0].size,
+								 &qspi->flash_cap);
+			if (ret) {
+				dev_err(dev, "Flash size is invalid.\n");
 				goto probe_setup_failed;
 			}
-		}
 
-		ret = phytium_qspi_flash_capacity_encode(qspi->flash[0].size,
-							 &qspi->flash_cap);
-		if (ret) {
-			dev_err(dev, "Flash size is invalid.\n");
-			goto probe_setup_failed;
+			qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT;
+		} else {
+			for (i = 0; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+				ret = phytium_qspi_flash_capacity_encode_new(qspi->flash[i].size,
+					&qspi->flash_cap, i);
+				if (ret) {
+					dev_err(dev, "Flash size is invalid.\n");
+					goto probe_setup_failed;
+				}
+			}
+			qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT_NEW;
 		}
-
-		qspi->flash_cap |= qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT;
 
 		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+	} else {
+		writel_relaxed(WR_CFG_NODIR_VALUE, qspi->io_base + QSPI_WR_CFG_REG);
 	}
 
 	return 0;
@@ -819,9 +882,14 @@ static int __maybe_unused phytium_qspi_resume(struct device *dev)
 {
 	struct phytium_qspi *qspi = dev_get_drvdata(dev);
 
-	/* set rd_cfg reg and flash_capacity reg after resume */
-	writel_relaxed(qspi->rd_cfg_reg, qspi->io_base + QSPI_RD_CFG_REG);
-	writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+	if (!qspi->nodirmap) {
+		/* set rd_cfg reg and flash_capacity reg after resume */
+		writel_relaxed(qspi->rd_cfg_reg, qspi->io_base + QSPI_RD_CFG_REG);
+		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+	} else {
+		writel_relaxed(WR_CFG_NODIR_VALUE, qspi->io_base + QSPI_WR_CFG_REG);
+	}
+
 	return pm_runtime_force_resume(dev);
 }
 
