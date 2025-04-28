@@ -39,9 +39,9 @@ static inline void spi_phyt_set_clk(struct phytium_spi *fts, u16 div)
 	spi_phytium_set_cmd32(fts, PHYTSPI_MSG_CMD_SET_BAUDR, new_div);
 }
 
-static inline void spi_phyt_mask_intr(struct phytium_spi *fts, u8 enable)
+static inline void spi_phyt_dma_reset(struct phytium_spi *fts, u8 enable)
 {
-	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_INTERRUPT, enable);
+	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_DMA_RESET, enable);
 }
 
 static inline void spi_phyt_global_cs(struct phytium_spi *fts)
@@ -57,10 +57,10 @@ static inline void spi_phyt_global_cs(struct phytium_spi *fts)
 
 static inline void spi_phyt_reset_chip(struct phytium_spi *fts)
 {
+	spi_phyt_dma_reset(fts, 1);
 	spi_phyt_enable_chip(fts, 0);
 	if (fts->global_cs)
 		spi_phyt_global_cs(fts);
-	spi_phyt_mask_intr(fts, 0);
 	spi_phyt_enable_chip(fts, 1);
 }
 
