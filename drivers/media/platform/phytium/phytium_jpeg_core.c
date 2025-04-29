@@ -71,7 +71,13 @@ static u32 phytium_jpeg_header[PHYTIUM_JPEG_HEADER_SIZE] = {
 static char yuv_mode_str[YUV_MODE_STR_LEN] = { "yuv444" };
 
 module_param_string(yuv_mode, yuv_mode_str, sizeof(yuv_mode_str), 0444);
-MODULE_PARM_DESC(yuv_mode, "Users select one mode from such modes as 'yuv444', or 'yuv422', or 'yuv420'. If no mode is set, the driver adapts defaults mode 'yuv444'.");
+MODULE_PARM_DESC(yuv_mode, "Users select one mode from such modes as\n"
+		" \t\t'yuv444', or 'yuv422', or 'yuv420'. If no mode is set,\n"
+		"  \t\tthe driver adapts defaults mode 'yuv444'.");
+
+/* The below global variables are used to filter same log-print lines */
+static bool first_invalid = true;
+static bool cur_non_zero = true;
 
 static u32 phytium_jpeg_read(struct phytium_jpeg_dev *jpeg_dev, u32 reg)
 {
@@ -166,17 +172,18 @@ static void phytium_jpeg_off(struct phytium_jpeg_dev *jpeg_dev)
 	u32 clear_all_interrupt = INT_FIFO_OVERFLOW | INT_OCM_BUF_OVERFLOW |
 			INT_JPEG_ENCODE_COMPLETE | INT_VIDEO_FORMAT_CHANGE;
 
-	if (!test_bit(VIDEO_CLOCKS_ON, &jpeg_dev->status)) {
-		dev_info(jpeg_dev->dev, "JPEG Engine is already off.\n");
-		return;
-	}
-
 	/* disable all interrupt */
 	phytium_jpeg_write(jpeg_dev, INT_STATUS_CTRL_REG, disable_all_interrupt);
 	/* clear all interrupt */
 	phytium_jpeg_write(jpeg_dev, INT_STATUS_CTRL_REG, clear_all_interrupt);
+
 	/* disable JPEG engine */
 	phytium_jpeg_update(jpeg_dev, TRANSFORM_INFO_REG, TRANSINFO_ENABLE_ENGINE, 0);
+
+	if (!test_bit(VIDEO_CLOCKS_ON, &jpeg_dev->status)) {
+		dev_info(jpeg_dev->dev, "JPEG Engine is already off.\n");
+		return;
+	}
 
 	clear_bit(VIDEO_CLOCKS_ON, &jpeg_dev->status);
 	/* wait 50 ms */
@@ -218,21 +225,27 @@ static void phytium_jpeg_get_resolution(struct phytium_jpeg_dev *jpeg_dev)
 	if (width * height != 0) {
 		detected_timings->width = width;
 		detected_timings->height = height;
+		jpeg_dev->v4l2_input_status = 0;
+		cur_non_zero = true;
+	} else {
+		/* filter some repeated log-print lines */
+		first_invalid = cur_non_zero;
+		cur_non_zero = false;
 	}
-
-	jpeg_dev->v4l2_input_status = 0;
 
 	/*
 	 * Resolution is changed will trigger an interrupt, resolution detecting
 	 * also is disable during process interrupt. So re-enable.
 	 */
 	phytium_jpeg_enable_source_detecting(jpeg_dev);
-	dev_info(jpeg_dev->dev, "Change resolution: %uX%u\n", width, height);
+
+	if (cur_non_zero == true || first_invalid == true)
+		dev_info(jpeg_dev->dev, "Change resolution: %uX%u\n", width, height);
 }
 
 static void phytium_jpeg_set_resolution(struct phytium_jpeg_dev *jpeg_dev)
 {
-	struct v4l2_bt_timings  *active_timings = &jpeg_dev->active_timings;
+	struct v4l2_bt_timings	*active_timings = &jpeg_dev->active_timings;
 	int i;
 	int src_addrs[OCM_BUF_NUM];
 	/*
@@ -479,6 +492,9 @@ static int phytium_jpeg_query_dv_timings(struct file *file, void *priv,
 					 struct v4l2_dv_timings *timings)
 {
 	int ret;
+	u32 source_info;
+	u32 width;
+	u32 height;
 	struct phytium_jpeg_dev *jpeg_dev = video_drvdata(file);
 
 	/*
@@ -499,6 +515,15 @@ static int phytium_jpeg_query_dv_timings(struct file *file, void *priv,
 
 	timings->type = V4L2_DV_BT_656_1120;
 	timings->bt = jpeg_dev->detected_timings;
+
+	/* Get resolution from SRC_VGA_INFO_REG */
+	source_info = phytium_jpeg_read(jpeg_dev, SRC_VGA_INFO_REG);
+	width = (source_info & SRC_HOR_PIXELS) >> SRC_WIDTH_SHIFT;
+	height = (source_info & SRC_VER_PIXELS) >> SRC_HEIGHT_SHIFT;
+
+	/* Check if that the current resolution is zero. */
+	if (width == 0 || height == 0)
+		jpeg_dev->v4l2_input_status = V4L2_IN_ST_NO_SIGNAL;
 
 	return jpeg_dev->v4l2_input_status ? -ENOLINK : 0;
 }
@@ -738,10 +763,11 @@ static int phytium_jpeg_start_frame(struct phytium_jpeg_dev *jpeg_dev)
 	unsigned long status;
 	struct phytium_jpeg_buffer *jpeg_buf;
 
-	if (jpeg_dev->v4l2_input_status) {
-		dev_err(jpeg_dev->dev, "No signal; needn't start frame\n");
+	/* JPEG Engine shouldn't be enable to compress in the case no signal is input JPEG Engine.
+	 * V4L2_IN_ST_NO_SIGNAL
+	 */
+	if (jpeg_dev->v4l2_input_status)
 		return 0;
-	}
 
 	spin_lock_irqsave(&jpeg_dev->hw_lock, status);
 	jpeg_buf = list_first_entry_or_null(&jpeg_dev->buffers,
@@ -855,7 +881,7 @@ static int phytium_jpeg_buf_prepare(struct vb2_buffer *vb)
 static inline struct phytium_jpeg_buffer *
 phytium_vb2buf_to_dstbuf(struct vb2_v4l2_buffer *buf)
 {
-	return  container_of(buf, struct phytium_jpeg_buffer, vb);
+	return container_of(buf, struct phytium_jpeg_buffer, vb);
 }
 
 static void phytium_jpeg_buf_queue(struct vb2_buffer *vb)
@@ -914,7 +940,12 @@ static irqreturn_t phytium_jpeg_irq(int irq, void *arg)
 	u32 frame_size;
 
 	if (test_bit(VIDEO_POWEROFF, &jpeg_dev->status)) {
-		dev_info(jpeg_dev->dev, "jpeg engine is requested to poweroff\n");
+		dev_info(jpeg_dev->dev, "jpeg engine is requested to poweroff 0x%x\n",
+			phytium_jpeg_read(jpeg_dev, INT_STATUS_CTRL_REG));
+		/* Disable interruption */
+		phytium_jpeg_update(jpeg_dev, INT_STATUS_CTRL_REG, STS_VE_JPEG_CODE_COMP_EN, 0);
+		/* clear all interruption of the hardware's buffers */
+		phytium_jpeg_update(jpeg_dev, INT_STATUS_CTRL_REG, INT_JPEG_ENCODE_COMPLETE, 1);
 		return IRQ_HANDLED;
 	}
 
@@ -1065,7 +1096,7 @@ static irqreturn_t phytium_jpeg_timer31_irq(int irq, void *arg)
 	/* clear timer interrupt status */
 	writel(0x8, jpeg_dev->timer31_addr + 0x2c);
 
-	/* clear JPEG Engine's  poweroff status */
+	/* clear JPEG Engine's poweroff status */
 	clear_bit(VIDEO_POWEROFF, &jpeg_dev->status);
 	dev_info(jpeg_dev->dev, "timer31 set jpeg status 0x%lx\n", jpeg_dev->status);
 
@@ -1105,13 +1136,23 @@ static irqreturn_t phytium_jpeg_timer30_irq(int irq, void *arg)
 	struct phytium_jpeg_dev *jpeg_dev = arg;
 	struct arm_smccc_res res;
 
+	u32 disable_all_interrupt = 0;
+	u32 clear_all_interrupt = INT_FIFO_OVERFLOW | INT_OCM_BUF_OVERFLOW |
+				INT_JPEG_ENCODE_COMPLETE | INT_VIDEO_FORMAT_CHANGE;
+
 	/* disable timer interrupt */
 	writel(0, jpeg_dev->timer30_addr);
 	/* clear timer interrupt status */
 	writel(0x8, jpeg_dev->timer30_addr + 0x2c);
 
-	/* Disable interruption */
-	phytium_jpeg_update(jpeg_dev, INT_STATUS_CTRL_REG, STS_VE_JPEG_CODE_COMP_EN, 0);
+	/* disable all interrupts */
+	phytium_jpeg_write(jpeg_dev, INT_STATUS_CTRL_REG, disable_all_interrupt);
+	udelay(5);
+	/* clear all interrupts */
+	phytium_jpeg_write(jpeg_dev, INT_STATUS_CTRL_REG, clear_all_interrupt);
+
+	/* disable JPEG engine */
+	phytium_jpeg_update(jpeg_dev, TRANSFORM_INFO_REG, 0, 0);
 
 	/* call SE to poweroff JPEG Engine */
 	arm_smccc_smc(0xc300fff4, 0x9, 0x2, 0x80000020, 0, 0, 0, 0, &res);
@@ -1201,12 +1242,44 @@ static int phytium_jpeg_init(struct phytium_jpeg_dev *jpeg_dev)
 
 }
 
+/* The function is provided for user space adjusts the sampling mode. */
+static int phytium_jpeg_set_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct phytium_jpeg_dev *jpeg_dev = container_of(ctrl->handler,
+						struct phytium_jpeg_dev,
+						ctrl_handler);
+	if (ctrl->id != V4L2_CID_JPEG_CHROMA_SUBSAMPLING)
+		return -EINVAL;
+
+	switch (ctrl->val) {
+	case V4L2_JPEG_CHROMA_SUBSAMPLING_420:
+		strscpy(yuv_mode_str, "yuv420", sizeof(yuv_mode_str));
+		break;
+	case V4L2_JPEG_CHROMA_SUBSAMPLING_422:
+		strscpy(yuv_mode_str, "yuv422", sizeof(yuv_mode_str));
+		break;
+	default:
+		strscpy(yuv_mode_str, "yuv444", sizeof(yuv_mode_str));
+	}
+	phytium_jpeg_set_yuv_mode(jpeg_dev);
+	dev_info(jpeg_dev->dev, "current sample mode is %s\n", yuv_mode_str);
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops phytium_jpeg_ctrl_ops = {
+	.s_ctrl = phytium_jpeg_set_ctrl,
+};
+
+
 
 static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 {
 	struct v4l2_device *v4l2_dev = &jpeg_dev->v4l2_dev;
 	struct vb2_queue *dst_vq = &jpeg_dev->queue;
 	struct video_device *vdev = &jpeg_dev->vdev;
+	const u64 mask = ~(BIT(V4L2_JPEG_CHROMA_SUBSAMPLING_444)  |
+			    BIT(V4L2_JPEG_CHROMA_SUBSAMPLING_422) |
+			    BIT(V4L2_JPEG_CHROMA_SUBSAMPLING_420));
 	int ret;
 
 	jpeg_dev->pix_fmt.pixelformat = V4L2_PIX_FMT_JPEG;
@@ -1222,6 +1295,20 @@ static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 	}
 
 	/* Register how many v4l2 controls to a handler */
+	v4l2_ctrl_handler_init(&jpeg_dev->ctrl_handler, 1);
+	v4l2_ctrl_new_std_menu(&jpeg_dev->ctrl_handler, &phytium_jpeg_ctrl_ops,
+				V4L2_CID_JPEG_CHROMA_SUBSAMPLING,
+				V4L2_JPEG_CHROMA_SUBSAMPLING_420, mask,
+				V4L2_JPEG_CHROMA_SUBSAMPLING_444);
+
+	if (jpeg_dev->ctrl_handler.error) {
+		v4l2_ctrl_handler_free(&jpeg_dev->ctrl_handler);
+		dev_err(jpeg_dev->dev, "Failed to init v4l2 controls:%d\n",
+		    jpeg_dev->ctrl_handler.error);
+		goto err_v4l2_register;
+	}
+	v4l2_dev->ctrl_handler = &jpeg_dev->ctrl_handler;
+
 	dst_vq->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	dst_vq->io_modes = VB2_MMAP | VB2_READ | VB2_DMABUF;
 	dst_vq->dev = v4l2_dev->dev;
@@ -1234,6 +1321,7 @@ static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 	dst_vq->min_buffers_needed = CAPTURE_BUF_NUMBER;
 	ret = vb2_queue_init(dst_vq);
 	if (ret) {
+		v4l2_ctrl_handler_free(&jpeg_dev->ctrl_handler);
 		dev_err(jpeg_dev->dev, "Failed to init vb2 queue\n");
 		goto err_v4l2_register;
 	}
@@ -1244,7 +1332,7 @@ static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 			    V4L2_CAP_STREAMING;
 	vdev->v4l2_dev = v4l2_dev;
 	strscpy(vdev->name, PHYTIUM_JPEG_NAME, sizeof(vdev->name));
-	vdev->vfl_type = VFL_TYPE_VIDEO;
+	vdev->vfl_type = VFL_TYPE_VIDEO; /* The newest kernel using VFL_TYPE_VIDEO */
 	vdev->vfl_dir = VFL_DIR_RX;
 	vdev->release = video_device_release_empty;
 	vdev->ioctl_ops = &phytium_jpeg_ioctl_ops;
@@ -1263,7 +1351,7 @@ static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 
 err_video_register:
 	vb2_queue_release(dst_vq);
-
+	v4l2_ctrl_handler_free(&jpeg_dev->ctrl_handler);
 err_v4l2_register:
 	v4l2_device_unregister(v4l2_dev);
 	return ret;
@@ -1352,9 +1440,13 @@ static int phytium_jpeg_remove(struct platform_device *pdev)
 
 	phytium_jpeg_off(jpeg_dev);
 
+	phytium_jpeg_write(jpeg_dev, TRANSFORM_INFO_REG, 0);
+
 	video_unregister_device(&jpeg_dev->vdev);
 
 	vb2_queue_release(&jpeg_dev->queue);
+
+	v4l2_ctrl_handler_free(&jpeg_dev->ctrl_handler);
 
 	v4l2_device_unregister(v4l2_dev);
 
@@ -1375,5 +1467,6 @@ static struct platform_driver phytium_jpeg_driver = {
 module_platform_driver(phytium_jpeg_driver);
 
 MODULE_DESCRIPTION("Phytium JPEG Encoder driver");
+MODULE_VERSION(JPEG_DRIVER_VERSION);
 MODULE_AUTHOR("Wang Min <wangmin@phytium.com.cn>");
 MODULE_LICENSE("GPL");
