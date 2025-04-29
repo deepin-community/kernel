@@ -11,6 +11,7 @@
 #include "phytium_nand.h"
 
 #define DRV_NAME	"phytium_nand_pci"
+#define DRV_VERSION	"1.0.0"
 
 static struct mtd_partition partition_info[] = {
 	{
@@ -148,3 +149,4 @@ module_pci_driver(phytium_pci_driver);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("PCI driver for Phytium NAND controller");
 MODULE_AUTHOR("Zhu Mingshuai <zhumingshuai@phytium.com.cn>");
+MODULE_VERSION(DRV_VERSION);
