@@ -18,11 +18,15 @@ archheaders:
 
 NM := $(NM) -B
 CCVERSION := $(shell $(CC) -dumpversion)
-LDFLAGS_vmlinux	:= -static -N #-relax
+LDFLAGS_vmlinux	:= -static -N
 CHECKFLAGS	+= -D__sw__
 
 ifeq ($(CONFIG_RELOCATABLE),y)
 LDFLAGS_vmlinux                        += --emit-relocs
+endif
+
+ifeq ($(CONFIG_FUNCTION_TRACER),y)
+	LDFLAGS_vmlinux += -relax
 endif
 
 CHECKFLAGS	+= -D__sw__
