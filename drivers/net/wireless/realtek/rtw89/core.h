@@ -56,6 +56,10 @@
 #define __iftd
 #endif
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0))
+#define str_disable_enable(v) str_enable_disable(!(v))
+#endif
+
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 /**
  * DIV_U64_ROUND_UP - unsigned 64bit divide with 32bit divisor rounded up
