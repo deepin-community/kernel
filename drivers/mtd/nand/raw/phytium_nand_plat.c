@@ -20,6 +20,7 @@
 #include "phytium_nand.h"
 
 #define DRV_NAME	"phytium_nand_plat"
+#define DRV_VERSION	"1.0.0"
 
 static int phytium_nfc_plat_probe(struct platform_device *pdev)
 {
@@ -136,3 +137,4 @@ module_platform_driver(phytium_nfc_plat_driver)
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Phytium NAND controller Platform driver");
 MODULE_AUTHOR("Zhu Mingshuai <zhumingshuai@phytium.com.cn>");
+MODULE_VERSION(DRV_VERSION);

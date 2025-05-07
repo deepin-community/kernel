@@ -2023,6 +2023,8 @@ int phytium_nand_init(struct phytium_nfc *nfc)
 	nfc->controller.ops = &phytium_nand_controller_ops;
 	INIT_LIST_HEAD(&nfc->chips);
 
+	spin_lock_init(&nfc->spinlock);
+
 	/* Init the controller and then probe the chips */
 	ret = phytium_nfc_init(nfc);
 	if (ret)
@@ -2031,8 +2033,6 @@ int phytium_nand_init(struct phytium_nfc *nfc)
 	ret = phytium_nand_chip_init(nfc);
 	if (ret)
 		goto out;
-
-	spin_lock_init(&nfc->spinlock);
 
 out:
 	return ret;
