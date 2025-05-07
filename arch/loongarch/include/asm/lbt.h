@@ -15,6 +15,10 @@
 extern void _init_lbt(void);
 extern void _save_lbt(struct loongarch_lbt *);
 extern void _restore_lbt(struct loongarch_lbt *);
+extern int _save_lbt_context(void __user *regs, void __user *eflags);
+extern int _restore_lbt_context(void __user *regs, void __user *eflags);
+extern int _save_ftop_context(void __user *ftop);
+extern int _restore_ftop_context(void __user *ftop);
 
 static inline int is_lbt_enabled(void)
 {
