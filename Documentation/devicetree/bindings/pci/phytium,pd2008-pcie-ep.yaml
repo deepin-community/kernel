@@ -17,7 +17,7 @@ properties:
     const: phytium,pd2008-pcie-ep
 
   reg:
-    maxItems: 2
+    maxItems: 3
 
   reg-names:
     items:
