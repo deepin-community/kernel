@@ -72,9 +72,13 @@ void ptrace_disable(struct task_struct *child)
 
 /* regset get/set implementations */
 
-static int gpr_get(struct task_struct *target,
-		   const struct user_regset *regset,
-		   struct membuf to)
+int gpr_get(struct task_struct *target,
+	    const struct user_regset *regset,
+	    struct membuf to);
+
+int gpr_get(struct task_struct *target,
+	    const struct user_regset *regset,
+	    struct membuf to)
 {
 	int r;
 	struct pt_regs *regs = task_pt_regs(target);
@@ -87,10 +91,15 @@ static int gpr_get(struct task_struct *target,
 	return r;
 }
 
-static int gpr_set(struct task_struct *target,
-		   const struct user_regset *regset,
-		   unsigned int pos, unsigned int count,
-		   const void *kbuf, const void __user *ubuf)
+int gpr_set(struct task_struct *target,
+	    const struct user_regset *regset,
+	    unsigned int pos, unsigned int count,
+	    const void *kbuf, const void __user *ubuf);
+
+int gpr_set(struct task_struct *target,
+	    const struct user_regset *regset,
+	    unsigned int pos, unsigned int count,
+	    const void *kbuf, const void __user *ubuf)
 {
 	int err;
 	int a0_start = sizeof(u64) * GPR_NUM;
@@ -950,8 +959,11 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 	return &user_loongarch64_view;
 }
 
-static inline int read_user(struct task_struct *target, unsigned long addr,
-			    unsigned long __user *data)
+int read_user(struct task_struct *target, unsigned long addr,
+	      unsigned long __user *data);
+
+int read_user(struct task_struct *target, unsigned long addr,
+	      unsigned long __user *data)
 {
 	unsigned long tmp = 0;
 
@@ -975,8 +987,11 @@ static inline int read_user(struct task_struct *target, unsigned long addr,
 	return put_user(tmp, data);
 }
 
-static inline int write_user(struct task_struct *target, unsigned long addr,
-			    unsigned long data)
+int write_user(struct task_struct *target, unsigned long addr,
+	       unsigned long data);
+
+int write_user(struct task_struct *target, unsigned long addr,
+	       unsigned long data)
 {
 	switch (addr) {
 	case 0 ... 31:
