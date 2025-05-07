@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pci/phytium,pd2008-pcie-ep.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium PCIe endpoint controller
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: "pci-ep.yaml#"
+
+properties:
+  compatible:
+    const: phytium,pd2008-pcie-ep
+
+  reg:
+    maxItems: 2
+
+  reg-names:
+    items:
+      - const: reg
+      - const: mem
+
+required:
+  - compatible
+  - reg
+  - reg-names
+
+examples:
+  - |
+    ep0: ep@0x29030000 {
+      compatible = "phytium,pd2008-pcie-ep";
+      reg = <0x0 0x29030000 0x0 0x10000>,
+            <0x11 0x00000000 0x1 0x00000000>,
+            <0x0 0x29101000 0x0 0x1000>;
+      reg-names = "reg", "mem", "hpb";
+      max-outbound-regions = <3>;
+      max-functions = /bits/ 8 <1>;
+    };
