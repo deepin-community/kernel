@@ -935,8 +935,11 @@ badframe:
 	return 0;
 }
 
-static int setup_rt_frame(void *sig_return, struct ksignal *ksig,
-			  struct pt_regs *regs, sigset_t *set)
+int setup_rt_frame(void *sig_return, struct ksignal *ksig,
+		   struct pt_regs *regs, sigset_t *set);
+
+int setup_rt_frame(void *sig_return, struct ksignal *ksig,
+		   struct pt_regs *regs, sigset_t *set)
 {
 	int err = 0;
 	struct extctx_layout extctx;
