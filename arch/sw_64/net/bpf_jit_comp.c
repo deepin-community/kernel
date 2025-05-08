@@ -227,10 +227,9 @@ static void emit_sw64_ldu64(const int dst, const u64 imm, struct jit_ctx *ctx)
 }
 
 /* constant insn count */
-static void emit_sw64_load_call_addr(u64 addr, struct jit_ctx *ctx)
+static void emit_sw64_load_call_addr(u8 dst, u64 addr, struct jit_ctx *ctx)
 {
 	u16 imm_tmp;
-	u8 dst = SW64_BPF_REG_PV;
 	u8 reg_tmp = get_tmp_reg(ctx);
 
 	imm_tmp = (addr >> 60) & 0xf;
@@ -1192,7 +1191,7 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 		if (ret < 0)
 			return ret;
 
-		emit_sw64_load_call_addr(func, ctx);
+		emit_sw64_load_call_addr(SW64_BPF_REG_PV, func, ctx);
 		emit(SW64_BPF_CALL(SW64_BPF_REG_RA, SW64_BPF_REG_PV), ctx);
 		break;
 	}
@@ -1224,7 +1223,10 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx,
 	case BPF_LD | BPF_IMM | BPF_DW:
 		insn1 = insn[1];
 		imm64 = ((u64)insn1.imm << 32) | (u32)imm;
-		emit_sw64_ldu64(dst, imm64, ctx);
+		if (bpf_pseudo_func(insn))
+			emit_sw64_load_call_addr(SW64_BPF_REG_A1, imm64, ctx);
+		else
+			emit_sw64_ldu64(dst, imm64, ctx);
 		put_tmp_reg(ctx);
 		put_tmp_reg(ctx);
 		return 1;
