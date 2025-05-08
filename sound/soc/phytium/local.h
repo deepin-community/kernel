@@ -81,6 +81,36 @@
 
 #define DMA_STS			0x0008
 
+#define I2S_HEADPHONE_ENABLE 1
+#define I2S_HEADPHONE_DISABLE 0
+
+#define I2S_GPIO(x) BIT(x)
+#define I2S_GPIO_BASE 0xD00
+
+/* I2S GPIO registers */
+#define I2S_GPIO_SWPORTA_DR         0x00 /* WR Port A Output Data Register */
+	#define I2S_HEADPHONE_FRONT	(!I2S_GPIO(1))
+	#define I2S_HEADPHONE_REAR	I2S_GPIO(1)
+#define I2S_GPIO_SWPORTA_DDR        0x04 /* WR Port A Data Direction Register */
+	#define I2S_GPIO_INPUT(x)	(!I2S_GPIO(x))
+	#define I2S_GPIO_OUTPUT(x)	I2S_GPIO(x)
+#define I2S_GPIO_EXT_PORTA          0x08 /* RO Port A Input Data Register */
+#define I2S_GPIO_SWPORTB_DR         0x0c /* WR Port B Output Data Register */
+#define I2S_GPIO_SWPORTB_DDR        0x10 /* WR Port B Data Direction Register */
+#define I2S_GPIO_EXT_PORTB          0x14 /* RO Port B Input Data Register */
+
+#define I2S_GPIO_INTEN              0x18 /* WR Port A Interrput Enable Register */
+#define I2S_GPIO_INTMASK            0x1c /* WR Port A Interrupt Mask Register */
+#define I2S_GPIO_INTTYPE_LEVEL      0x20 /* WR Port A Interrupt Level Register */
+	#define I2S_GPIO_LEVEL(x)	(!I2S_GPIO(x))
+	#define I2S_GPIO_EDGE(x)	I2S_GPIO(x)
+#define I2S_GPIO_INT_POLARITY       0x24 /* WR Port A Interrupt Polarity Register */
+	#define I2S_GPIO_DOWN(x)	(!I2S_GPIO(x))
+	#define I2S_GPIO_UP(x)		I2S_GPIO(x)
+#define I2S_GPIO_INTSTATUS          0x28 /* RO Port A Interrupt Status Register */
+#define I2S_GPIO_DEBOUNCE           0x34 /* WR Debounce Enable Register */
+#define I2S_GPIO_PORTA_EOI          0x38 /* WO Port A Clear Interrupt Register */
+
 /* max number of fragments - we may use more if allocating more pages for BDL */
 #define BDL_SIZE		4096
 #define AZX_MAX_BDL_ENTRIES	(BDL_SIZE / 16)
@@ -281,7 +311,10 @@ struct i2s_phytium {
 	u32 paddr;
 	void __iomem *regs;
 	void __iomem *regs_db;
+	void __iomem *regs_gpio;
 	int irq_id;
+	int gpio_irq_id;
+	bool detect;
 
 	/* for pending irqs */
 	struct work_struct irq_pending_work;
@@ -289,6 +322,7 @@ struct i2s_phytium {
 	/* sync probing */
 	struct completion probe_wait;
 	struct work_struct probe_work;
+	struct delayed_work i2s_gpio_work;
 
 	/* extra flags */
 	unsigned int pcie:1;
