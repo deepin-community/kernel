@@ -9,6 +9,8 @@
 #include <sound/pcm_params.h>
 #include <sound/jack.h>
 
+#define PMDK_ES8388_VERSION "1.0.0"
+
 static struct snd_soc_jack hs_jack;
 
 /* Headset jack detection DAPM pins */
@@ -167,3 +169,4 @@ module_platform_driver(pmdk_sound_driver);
 MODULE_AUTHOR("Zhang Yiqun<zhangyiqun@phytium.com.cn>");
 MODULE_DESCRIPTION("ALSA SoC PMDK ES8388");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(PMDK_ES8388_VERSION);

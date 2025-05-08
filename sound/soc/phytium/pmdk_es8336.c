@@ -8,6 +8,7 @@
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
 
+#define PMDK_ES8336_VERSION "1.0.0"
 
 /* PMDK widgets */
 static const struct snd_soc_dapm_widget pmdk_es8336_dapm_widgets[] = {
@@ -95,3 +96,4 @@ module_platform_driver(pmdk_sound_driver);
 MODULE_AUTHOR("Zhang Yiqun <zhangyiqun@phytium.com.cn>");
 MODULE_DESCRIPTION("ALSA SoC PMDK ES8336");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(PMDK_ES8336_VERSION);
