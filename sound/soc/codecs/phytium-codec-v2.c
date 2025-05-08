@@ -1,0 +1,739 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Phytium CODEC ALSA SoC Audio driver
+ *
+ * Copyright (C) 2024, Phytium Technology Co., Ltd.
+ *
+ */
+
+#include <linux/clk.h>
+#include <linux/device.h>
+#include <linux/init.h>
+#include <linux/io.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/dma-mapping.h>
+#include <linux/slab.h>
+#include <linux/pm_runtime.h>
+#include <sound/pcm.h>
+#include <sound/pcm_params.h>
+#include <sound/soc.h>
+#include <sound/dmaengine_pcm.h>
+#include <linux/clocksource.h>
+#include <linux/random.h>
+#include <linux/timecounter.h>
+#include <sound/core.h>
+#include <sound/initval.h>
+#include <linux/pci.h>
+#include <linux/version.h>
+#include <linux/acpi.h>
+#include <sound/tlv.h>
+#include <linux/i2c.h>
+
+#include "phytium-codec-v2.h"
+
+#define PHYT_CODEC_V2_VERSION "1.0.0"
+#define PHYTIUM_RATES (SNDRV_PCM_RATE_192000 | \
+		SNDRV_PCM_RATE_96000 | \
+		SNDRV_PCM_RATE_88200 | \
+		SNDRV_PCM_RATE_8000_48000)
+#define PHYTIUM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | \
+		SNDRV_PCM_FMTBIT_S18_3LE | \
+		SNDRV_PCM_FMTBIT_S20_3LE | \
+		SNDRV_PCM_FMTBIT_S24_LE | \
+		SNDRV_PCM_FMTBIT_S32_LE)
+
+static const struct snd_kcontrol_new phyt_snd_controls[] = {
+	SOC_SINGLE("PCM Volume", PHYTIUM_CODEC_PLAYBACKE_VOL, 0, 0xc0, 0),
+	SOC_SINGLE("Playback Volume1", PHYTIUM_CODEC_PLAYBACKE_OUT1_VOL, 0, 0x24, 0),
+	SOC_SINGLE("Playback Volume2", PHYTIUM_CODEC_PLAYBACKE_OUT2_VOL, 0, 0x24, 0),
+
+	SOC_SINGLE("Capture Digital Volume", PHYTIUM_CODEC_CAPTURE_VOL, 0, 0xc0, 0),
+	SOC_SINGLE("Mic PGA Volume", PHYTIUM_CODEC_CAPTURE_IN1_VOL, 0, 8, 0),
+};
+
+/*
+ * DAPM Controls
+ */
+
+/* Input Mux */
+static const char * const phyt_mux_sel[] = {
+	"Line 1", "Line 2"};
+
+static const struct soc_enum phyt_mux_enum =
+	SOC_ENUM_SINGLE(PHYTIUM_CODEC_INMUX_SEL, 0,
+			ARRAY_SIZE(phyt_mux_sel),
+			phyt_mux_sel);
+
+static const struct snd_kcontrol_new phyt_pga_controls =
+	SOC_DAPM_ENUM("Route", phyt_mux_enum);
+
+/* dapm widgets */
+static const struct snd_soc_dapm_widget phyt_dapm_widgets[] = {
+	/* Input Signal */
+	SND_SOC_DAPM_INPUT("INPUT1"),
+	SND_SOC_DAPM_INPUT("INPUT2"),
+
+	/* Input Mux */
+	SND_SOC_DAPM_MUX("Input Mux", PHYTIUM_CODEC_INMUX_ENABLE, 0, 0, &phyt_pga_controls),
+
+	/* Input ADC */
+	SND_SOC_DAPM_ADC("Input ADC", "Capture", PHYTIUM_CODEC_ADC_ENABLE, 0, 0),
+
+	/* Output DAC */
+	SND_SOC_DAPM_DAC("Output DAC", "Playback", PHYTIUM_CODEC_DAC_ENABLE, 0, 0),
+
+	/* Output Signal */
+	SND_SOC_DAPM_OUTPUT("OUTPUT1"),
+	SND_SOC_DAPM_OUTPUT("OUTPUT2"),
+};
+
+static const struct snd_soc_dapm_route phyt_dapm_routes[] = {
+	{ "Input Mux", "Line 1", "INPUT1"},
+	{ "Input Mux", "Line 2", "INPUT2"},
+
+	{ "Input ADC", NULL, "Input Mux"},
+
+	{ "OUTPUT1", NULL, "Output DAC"},
+	{ "OUTPUT2", NULL, "Output DAC"},
+};
+
+static void phyt_codec_show_status(uint8_t status)
+{
+	switch (status) {
+	case 0:
+		pr_err("success\n");
+		break;
+	case 2:
+		pr_err("device busy\n");
+		break;
+	case 3:
+		pr_err("read/write error\n");
+		break;
+	case 4:
+		pr_err("no device\n");
+		break;
+	default:
+		pr_err("unknown error: %d\n", status);
+		break;
+	}
+}
+
+int phyt_codec_msg_set_cmd(struct phytium_codec *priv)
+{
+	struct phytcodec_cmd *ans_msg;
+	int timeout = 5000, ret = 0;
+
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_AP2RV_INT_STATE, SEND_INTR);
+
+	ans_msg = priv->sharemem_base;
+
+	while (timeout && (ans_msg->complete == PHYTCODEC_COMPLETE_NOT_READY
+			|| ans_msg->complete == PHYTCODEC_COMPLETE_GOING)) {
+		udelay(200);
+		timeout--;
+	}
+
+	if (timeout == 0) {
+		dev_err(priv->dev, "failed to receive msg, timeout\n");
+		ret = -EINVAL;
+	} else if (ans_msg->complete >= PHYTCODEC_COMPLETE_GENERIC_ERROR) {
+		dev_err(priv->dev, "receive msg; generic_error, error code:%d\n",
+					ans_msg->complete);
+		ret = -EINVAL;
+	} else if (ans_msg->complete == PHYTCODEC_COMPLETE_SUCCESS) {
+		dev_dbg(priv->dev, "receive msg successfully\n");
+	}
+
+	if (ans_msg->complete != PHYTCODEC_COMPLETE_SUCCESS)
+		phyt_codec_show_status(ans_msg->status);
+	return ret;
+}
+
+static int phyt_cmd(struct snd_soc_component *component,
+				unsigned int cmd)
+{
+	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+	int ret = 0;
+
+	msg->reserved = 0;
+	msg->seq = 0;
+	msg->cmd_id = PHYTCODEC_MSG_CMD_SET;
+	msg->cmd_subid = cmd;
+	msg->complete = 0;
+	ret = phyt_codec_msg_set_cmd(priv);
+	if (ret < 0) {
+		dev_err(priv->dev, "set cmd_subid 0x%x failed\n", cmd);
+		ret = -EINVAL;
+		goto error;
+	}
+error:
+	return ret;
+}
+
+static int phyt_pm_cmd(struct snd_soc_component *component,
+				unsigned int cmd)
+{
+	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+	uint16_t total_regs_len;
+	uint8_t *regs;
+	int ret = 0;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
+
+	msg->reserved = 0;
+	msg->seq = 0;
+	msg->cmd_id = PHYTCODEC_MSG_CMD_SET;
+	msg->cmd_subid = cmd;
+	msg->complete = 0;
+	msg->cmd_para.phytcodec_reg.cnt = 0;
+	if (cmd == PHYTCODEC_MSG_CMD_SET_RESUME)
+		memcpy(msg->cmd_para.phytcodec_reg.regs, priv->regs, REG_SH_LEN);
+	ret = phyt_codec_msg_set_cmd(priv);
+	if (ret < 0) {
+		dev_err(priv->dev, "set cmd_subid 0x%x failed\n", cmd);
+		ret = -EINVAL;
+		goto error;
+	}
+	total_regs_len = msg->cmd_para.phytcodec_reg.total_regs_len;
+
+	if (cmd == PHYTCODEC_MSG_CMD_SET_SUSPEND) {
+		regs = kmalloc(total_regs_len, GFP_KERNEL);
+		priv->regs = regs;
+		while (total_regs_len > REG_SH_LEN * msg->cmd_para.phytcodec_reg.cnt) {
+			memcpy(regs, msg->cmd_para.phytcodec_reg.regs, REG_SH_LEN);
+			regs += REG_SH_LEN;
+			msg->complete = 0;
+			ret = phyt_codec_msg_set_cmd(priv);
+			if (ret < 0) {
+				dev_err(priv->dev, "set cmd_subid 0x%x failed\n", cmd);
+				ret = -EINVAL;
+				goto error;
+			}
+		}
+		memcpy(regs, msg->cmd_para.phytcodec_reg.regs,
+			total_regs_len - REG_SH_LEN * (msg->cmd_para.phytcodec_reg.cnt - 1));
+	} else if (cmd == PHYTCODEC_MSG_CMD_SET_RESUME) {
+		regs = priv->regs;
+		while (total_regs_len > REG_SH_LEN * msg->cmd_para.phytcodec_reg.cnt) {
+			regs += REG_SH_LEN;
+			memcpy(msg->cmd_para.phytcodec_reg.regs, regs, REG_SH_LEN);
+			msg->complete = 0;
+			ret = phyt_codec_msg_set_cmd(priv);
+			if (ret < 0) {
+				dev_err(priv->dev, "set cmd_subid 0x%x failed\n", cmd);
+				ret = -EINVAL;
+				goto error;
+			}
+		}
+		kfree(priv->regs);
+	}
+error:
+	return ret;
+}
+
+static int phyt_show_registers(struct phytium_codec *priv)
+{
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+	int ret = 0, i;
+
+	msg->reserved = 0;
+	msg->seq = 0;
+	msg->cmd_id = PHYTCODEC_MSG_CMD_GET;
+	msg->cmd_subid = 0;
+	msg->complete = 0;
+	ret = phyt_codec_msg_set_cmd(priv);
+	if (ret < 0) {
+		dev_err(priv->dev, "failed to get codec registers\n");
+		ret = -EINVAL;
+		goto error;
+	} else {
+		dev_dbg(priv->dev, "show codec registers\n");
+		for (i = 0; i < msg->len && i < 56; i++) {
+			dev_dbg(priv->dev, "%d ", msg->cmd_para.para[i]);
+			if (i % 16 == 0)
+				dev_dbg(priv->dev, "\n");
+		}
+	}
+error:
+	return ret;
+}
+
+static int phyt_probe(struct snd_soc_component *component)
+{
+	return phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_PROBE);
+}
+
+static void phyt_remove(struct snd_soc_component *component)
+{
+	phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_REMOVE);
+}
+
+static int phyt_suspend(struct snd_soc_component *component)
+{
+	return phyt_pm_cmd(component, PHYTCODEC_MSG_CMD_SET_SUSPEND);
+}
+
+static int phyt_resume(struct snd_soc_component *component)
+{
+	return phyt_pm_cmd(component, PHYTCODEC_MSG_CMD_SET_RESUME);
+}
+
+static int phyt_set_bias_level(struct snd_soc_component *component,
+				 enum snd_soc_bias_level level)
+{
+	int ret;
+	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
+	msg->cmd_para.para[0] = priv->channels/2;
+
+	switch (level) {
+	case SND_SOC_BIAS_ON:
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_BIAS_ON);
+		break;
+
+	case SND_SOC_BIAS_PREPARE:
+		ret = phyt_cmd(component,  PHYTCODEC_MSG_CMD_SET_BIAS_PREPARE);
+		break;
+
+	case SND_SOC_BIAS_STANDBY:
+		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_OFF)
+			ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_BIAS_STANDBY);
+		else
+			ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_BIAS_STANDBY);
+		break;
+
+	case SND_SOC_BIAS_OFF:
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_BIAS_OFF);
+		break;
+	}
+
+	return ret;
+}
+
+static const struct snd_soc_component_driver phyt_component_driver = {
+	.probe			= phyt_probe,
+	.remove			= phyt_remove,
+	.suspend		= phyt_suspend,
+	.resume			= phyt_resume,
+	.set_bias_level		= phyt_set_bias_level,
+	.controls		= phyt_snd_controls,
+	.num_controls		= ARRAY_SIZE(phyt_snd_controls),
+	.dapm_widgets		= phyt_dapm_widgets,
+	.num_dapm_widgets	= ARRAY_SIZE(phyt_dapm_widgets),
+	.dapm_routes		= phyt_dapm_routes,
+	.num_dapm_routes	= ARRAY_SIZE(phyt_dapm_routes),
+	.suspend_bias_off	= 1,
+	.idle_bias_on		= 1,
+	.use_pmdown_time	= 1,
+	.endianness		= 1,
+};
+
+static int phyt_mute(struct snd_soc_dai *dai, int mute, int direction)
+{
+	int ret;
+	struct snd_soc_component *component = dai->component;
+	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
+	msg->cmd_para.para[0] = (uint8_t)direction;
+	if (mute)
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_MUTE);
+	else
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_UNMUTE);
+
+	return ret;
+}
+
+static int phyt_startup(struct snd_pcm_substream *substream,
+			  struct snd_soc_dai *dai)
+{
+	int ret;
+	struct snd_soc_component *component = dai->component;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_STARTUP);
+	else
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_STARTUP_RC);
+
+	return ret;
+}
+
+static void phyt_shutdown(struct snd_pcm_substream *substream,
+			  struct snd_soc_dai *dai)
+{
+	int ret;
+	struct snd_soc_component *component = dai->component;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_SHUTDOWN);
+	else
+		ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_SHUTDOWN_RC);
+}
+
+static int phyt_hw_params(struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params,
+	struct snd_soc_dai *dai)
+{
+	int wl, ret = 0;
+	struct snd_soc_component *component = dai->component;
+	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+
+	priv->channels = params_channels(params);
+	switch (params_width(params)) {
+	case 16:
+		wl = 3;
+		break;
+	case 18:
+		wl = 2;
+		break;
+	case 20:
+		wl = 1;
+		break;
+	case 24:
+		wl = 0;
+		break;
+	case 32:
+		wl = 4;
+		break;
+	default:
+		ret = -EINVAL;
+		goto error;
+	}
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		snd_soc_component_write(component, PHYTIUM_CODEC_HW_PARAM, wl);
+	else
+		snd_soc_component_write(component, PHYTIUM_CODEC_HW_PARAM_RC, wl);
+
+error:
+	return ret;
+}
+
+static int phyt_set_dai_fmt(struct snd_soc_dai *codec_dai,
+		unsigned int fmt)
+{
+	int ret;
+	struct snd_soc_component *component = codec_dai->component;
+
+	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) != SND_SOC_DAIFMT_CBS_CFS)
+		return -EINVAL;
+
+	if ((fmt & SND_SOC_DAIFMT_FORMAT_MASK) != SND_SOC_DAIFMT_I2S)
+		return -EINVAL;
+
+	if ((fmt & SND_SOC_DAIFMT_INV_MASK) != SND_SOC_DAIFMT_NB_NF)
+		return -EINVAL;
+
+	ret = phyt_cmd(component, PHYTCODEC_MSG_CMD_SET_DAI_FMT);
+
+	return ret;
+}
+
+static const struct snd_soc_dai_ops phyt_dai_ops = {
+	.startup	 = phyt_startup,
+	.shutdown	 = phyt_shutdown,
+	.hw_params	 = phyt_hw_params,
+	.mute_stream	= phyt_mute,
+	.set_fmt	 = phyt_set_dai_fmt,
+};
+
+static struct snd_soc_dai_driver phyt_dai = {
+	.name = "phytium-hifi-v2",
+	.playback = {
+		.stream_name = "Playback",
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = PHYTIUM_RATES,
+		.formats = PHYTIUM_FORMATS,
+	},
+	.capture = {
+		.stream_name = "Capture",
+		.channels_min = 2,
+		.channels_max = 2,
+		.rates = PHYTIUM_RATES,
+		.formats = PHYTIUM_FORMATS,
+	},
+	.ops = &phyt_dai_ops,
+	.symmetric_rate = 1,
+};
+
+static const struct regmap_config phyt_codec_regmap_config = {
+	.reg_bits = 32,
+	.reg_stride = 4,
+	.val_bits = 32,
+	.max_register = REG_MAX,
+	.cache_type = REGCACHE_NONE,
+};
+
+void phyt_enable_debug(struct phytium_codec *priv)
+{
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	phyt_writel_reg(priv->regfile_base,
+		PHYTIUM_CODEC_DEBUG, reg | PHYTIUM_CODEC_DEBUG_ENABLE);
+}
+
+void phyt_disable_debug(struct phytium_codec *priv)
+{
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	reg &= ~PHYTIUM_CODEC_DEBUG_ENABLE;
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG, reg);
+}
+
+void phyt_enable_alive(struct phytium_codec *priv)
+{
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	phyt_writel_reg(priv->regfile_base,
+		PHYTIUM_CODEC_DEBUG, reg | PHYTIUM_CODEC_ALIVE_ENABLE);
+}
+
+void phyt_disable_alive(struct phytium_codec *priv)
+{
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	reg &= ~PHYTIUM_CODEC_ALIVE_ENABLE;
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG, reg);
+}
+
+void phyt_heartbeat(struct phytium_codec *priv)
+{
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	phyt_writel_reg(priv->regfile_base,
+		PHYTIUM_CODEC_DEBUG, reg | PHYTIUM_CODEC_HEARTBIT_VAL);
+}
+
+static void phyt_timer_handle(struct timer_list *t)
+{
+	struct phytium_codec *priv = from_timer(priv, t, timer);
+
+	if (priv->alive_enabled && priv->heartbeat)
+		priv->heartbeat(priv);
+
+	mod_timer(&priv->timer, jiffies + msecs_to_jiffies(2000));
+}
+
+static ssize_t debug_show(struct device *dev, struct device_attribute *da, char *buf)
+{
+	struct phytium_codec *priv = dev_get_drvdata(dev);
+	ssize_t ret;
+	u32 reg;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	ret = sprintf(buf, "%x\n", reg);
+
+	return ret;
+}
+
+static ssize_t debug_store(struct device *dev, struct device_attribute *da,
+		const char *buf, size_t size)
+{
+	struct phytium_codec *priv = dev_get_drvdata(dev);
+	u8 loc, dis_en, status = 0;
+	char *p;
+	char *token;
+	long value;
+	u32 reg;
+
+	dev_info(dev, "first number is debug/alive/register, the second number is disable/enable");
+	dev_info(dev, "echo 2 1 > debug, print all codec register");
+
+	p = kmalloc(size, GFP_KERNEL);
+	strscpy(p, buf, sizeof(p));
+	token = strsep(&p, " ");
+	if (!token)
+		return -EINVAL;
+	status = kstrtol(token, 0, &value);
+	if (status)
+		return status;
+	loc = (u8)value;
+
+	token = strsep(&p, " ");
+	if (!token)
+		return -EINVAL;
+	status = kstrtol(token, 0, &value);
+	if (status)
+		return status;
+	dis_en = value;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG);
+	if (loc == 1) {
+		if (dis_en == 1) {
+			priv->alive_enabled = true;
+			reg |= BIT(loc);
+		} else if (dis_en == 0) {
+			priv->alive_enabled = false;
+			reg &= ~BIT(loc);
+		}
+	} else if (loc == 0) {
+		if (dis_en == 1) {
+			priv->debug_enabled = true;
+			reg |= BIT(loc);
+		} else if (dis_en == 0) {
+			priv->debug_enabled = false;
+			reg &= ~BIT(loc);
+		}
+	} else if (loc == 2)
+		if (dis_en == 1)
+			phyt_show_registers(priv);
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_DEBUG, reg);
+	kfree(p);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(debug);
+
+static struct attribute *phyt_codec_device_attr[] = {
+	&dev_attr_debug.attr,
+	NULL,
+};
+
+static const struct attribute_group phyt_codec_device_group = {
+	.attrs = phyt_codec_device_attr,
+};
+
+static int phyt_get_channels(struct phytium_codec *priv)
+{
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+	int ret = 0;
+	uint8_t channels;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
+	msg->reserved = 0;
+	msg->seq = 0;
+	msg->cmd_id = PHYTCODEC_MSG_CMD_GET;
+	msg->cmd_subid = PHYTCODEC_MSG_CMD_GET_CHANNELS;
+	msg->complete = 0;
+
+	ret = phyt_codec_msg_set_cmd(priv);
+	if (ret < 0) {
+		dev_err(priv->dev, "failed to get codec channels\n");
+		return -EINVAL;
+	}
+	channels = msg->cmd_para.para[0] * 2;
+	return channels;
+}
+
+static int phyt_codec_probe(struct platform_device *pdev)
+{
+	struct phytium_codec *priv;
+	struct resource *res;
+	int ret;
+	struct device *dev;
+
+	dev = &pdev->dev;
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
+		dev_err(dev, "failed to alloc struct phytium_codec\n");
+		ret = -ENOMEM;
+		goto failed_alloc_phytium_codec;
+	}
+
+	dev_set_drvdata(dev, priv);
+	priv->dev = dev;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	priv->regfile_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(priv->regfile_base)) {
+		dev_err(&pdev->dev, "failed to ioremap resource0\n");
+		ret = PTR_ERR(priv->regfile_base);
+		goto failed_ioremap_res0;
+	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	priv->sharemem_base = devm_ioremap_wc(&pdev->dev, res->start, resource_size(res));
+	if (IS_ERR(priv->sharemem_base)) {
+		dev_err(&pdev->dev, "failed to ioremap resource1\n");
+		ret = PTR_ERR(priv->sharemem_base);
+		goto failed_ioremap_res1;
+	}
+
+	priv->regmap = devm_regmap_init_mmio(dev, priv->regfile_base,
+			     &phyt_codec_regmap_config);
+	if (IS_ERR(priv->regmap)) {
+		dev_err(dev, "failed to init regmap\n");
+		ret = PTR_ERR(priv->regmap);
+		goto failed_regmap_init;
+	}
+
+	phyt_disable_debug(priv);
+	phyt_disable_alive(priv);
+	priv->debug_enabled = false;
+	priv->alive_enabled = false;
+	priv->heartbeat = phyt_heartbeat;
+	priv->timer.expires = jiffies + msecs_to_jiffies(10000);
+	timer_setup(&priv->timer, phyt_timer_handle, 0);
+	add_timer(&priv->timer);
+
+	if (sysfs_create_group(&pdev->dev.kobj, &phyt_codec_device_group))
+		dev_warn(dev, "failed to create sysfs\n");
+
+	phyt_dai.playback.channels_max = phyt_get_channels(priv);
+	phyt_dai.capture.channels_max = phyt_dai.playback.channels_max;
+
+	ret = devm_snd_soc_register_component(dev, &phyt_component_driver,
+					      &phyt_dai, 1);
+	if (ret != 0) {
+		dev_err(dev, "not able to register codec dai\n");
+		goto failed_register_com;
+	}
+
+	return 0;
+failed_register_com:
+failed_regmap_init:
+failed_ioremap_res1:
+failed_ioremap_res0:
+failed_alloc_phytium_codec:
+	return ret;
+}
+
+static int phyt_codec_remove(struct platform_device *pdev)
+{
+	struct phytium_codec *priv = dev_get_drvdata(&pdev->dev);
+
+	sysfs_remove_group(&pdev->dev.kobj, &phyt_codec_device_group);
+	del_timer(&priv->timer);
+	return 0;
+}
+
+static const struct of_device_id phyt_codec_of_match[] = {
+	{ .compatible = "phytium,codec-2.0", },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, phyt_codec_of_match);
+
+static const struct acpi_device_id phyt_codec_acpi_match[] = {
+	{ "PHYT1002", 0},
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, phyt_codec_acpi_match);
+
+static struct platform_driver phyt_codec_driver = {
+	.probe	= phyt_codec_probe,
+	.remove = phyt_codec_remove,
+	.driver	= {
+		.name = "phytium-codec-v2",
+		.of_match_table = of_match_ptr(phyt_codec_of_match),
+		.acpi_match_table = phyt_codec_acpi_match,
+	},
+};
+
+module_platform_driver(phyt_codec_driver);
+MODULE_DESCRIPTION("Phytium CODEC V2 Driver");
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Yang Xun <yangxun@phytium.com.cn>");
+MODULE_VERSION(PHYT_CODEC_V2_VERSION);
