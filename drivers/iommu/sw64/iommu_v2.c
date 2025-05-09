@@ -1389,10 +1389,6 @@ sunway_iommu_iova_to_phys(struct iommu_domain *dom, dma_addr_t iova)
 	unsigned long paddr, grn;
 	unsigned long is_last;
 
-	if ((iova > SW64_32BIT_DMA_LIMIT)
-		&& (iova <= DMA_BIT_MASK(32)))
-		return iova;
-
 	if (iova >= SW64_BAR_ADDRESS)
 		return iova;
 
@@ -1470,14 +1466,14 @@ sunway_iommu_map(struct iommu_domain *dom, unsigned long iova,
 	 * and buggy.
 	 *
 	 * We manage to find a compromise solution, which is allow these IOVA
-	 * being allocated and "mapped" as usual, but with a warning issued to
+	 * being allocated and mapped as usual, and with a warning issued to
 	 * users at the same time. So users can quickly learn if they are using
 	 * these "illegal" IOVA and thus change their strategies accordingly.
 	 */
-	if ((iova > SW64_32BIT_DMA_LIMIT)
+	if ((SW64_32BIT_DMA_LIMIT < iova + page_size)
 		&& (iova <= DMA_BIT_MASK(32))) {
-		pr_warn_once("Domain %d are using IOVA: %lx\n", sdomain->id, iova);
-		return 0;
+		pr_warn_once("process %s (pid:%d) is using domain %d with IOVA: %lx\n",
+			current->comm, current->pid, sdomain->id, iova);
 	}
 
 	/*
@@ -1506,10 +1502,6 @@ sunway_iommu_unmap(struct iommu_domain *dom, unsigned long iova,
 {
 	struct sunway_iommu_domain *sdomain = to_sunway_domain(dom);
 	size_t unmap_size;
-
-	if ((iova > SW64_32BIT_DMA_LIMIT)
-		&& (iova <= DMA_BIT_MASK(32)))
-		return page_size;
 
 	if (iova >= SW64_BAR_ADDRESS)
 		return page_size;
