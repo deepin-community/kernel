@@ -865,10 +865,9 @@ static int pci_prepare_controller(struct pci_controller *hose,
 	hose->dense_mem_base  = props[PROP_PCIE_IO_BASE];
 	hose->dense_io_base   = props[PROP_EP_IO_BASE];
 
-	hose->rc_config_space_base = __va(props[PROP_RC_CONFIG_BASE]);
-	hose->ep_config_space_base = __va(props[PROP_EP_CONFIG_BASE]);
-	hose->piu_ior0_base = __va(props[PROP_PIU_IOR0_BASE]);
-	hose->piu_ior1_base = __va(props[PROP_PIU_IOR1_BASE]);
+	hose->rc_config_space_base = ioremap(props[PROP_RC_CONFIG_BASE], SUNWAY_RC_SIZE);
+	hose->piu_ior0_base = ioremap(props[PROP_PIU_IOR0_BASE], SUNWAY_PIU_IOR0_SIZE);
+	hose->piu_ior1_base = ioremap(props[PROP_PIU_IOR1_BASE], SUNWAY_PIU_IOR1_SIZE);
 
 	hose->first_busno = 0xff;
 	hose->last_busno  = 0xff;
@@ -963,6 +962,8 @@ static int sunway_pci_ecam_init(struct pci_config_window *cfg)
 	hose = kzalloc(sizeof(*hose), GFP_KERNEL);
 	if (!hose)
 		return -ENOMEM;
+
+	hose->ep_config_space_base = cfg->win;
 
 	/* Init pci_controller */
 	ret = pci_prepare_controller(hose, fwnode);

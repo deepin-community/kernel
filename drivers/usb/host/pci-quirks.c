@@ -1328,7 +1328,7 @@ fixup_usb_xhci_reset(struct pci_dev *dev)
 	if (offset == 0)
 		return;
 
-	base = (void *)__va(SW64_PCI_IO_BASE(hose->node, hose->index) | offset);
+	base = ioremap(SW64_PCI_IO_BASE(hose->node, hose->index) | offset, SZ_8K);
 
 	ext_cap_offset = xhci_find_next_ext_cap(base, 0, XHCI_EXT_CAPS_LEGACY);
 	if (!ext_cap_offset)
@@ -1415,6 +1415,8 @@ retry:
 	pci_read_config_dword(dev, PCI_COMMAND, &tmp);
 	tmp &= ~(PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
 	pci_write_config_dword(dev, PCI_COMMAND, tmp);
+
+	iounmap(base);
 }
 DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_ANY_ID, PCI_ANY_ID,
 		PCI_CLASS_SERIAL_USB_XHCI, 0, fixup_usb_xhci_reset);
