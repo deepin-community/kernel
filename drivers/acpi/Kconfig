@@ -45,14 +45,6 @@ if ACPI
 config ACPI_LEGACY_TABLES_LOOKUP
 	bool
 
-config PHYTIUM_BASE_CTRL
-	bool "Phytium base ctrl driver"
-	depends on ARCH_PHYTIUM || COMPILE_TEST
-	default y
-	help
-	  This driver provides interface functions for reading and
-	  writing phytium base controller device address.
-
 config ARCH_MIGHT_HAVE_ACPI_PDC
 	bool
 
