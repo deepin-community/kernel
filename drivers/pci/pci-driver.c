@@ -407,7 +407,7 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
 		cpu = cpumask_any_and(cpumask_of_node(node),
 				      housekeeping_cpumask(HK_TYPE_DOMAIN));
 
-		if (cpu < nr_cpu_ids) {
+		if ((cpu < nr_cpu_ids) && cpu_online(cpu)) {
 			struct workqueue_struct *wq = pci_probe_wq;
 
 			if (WARN_ON_ONCE(!wq))
