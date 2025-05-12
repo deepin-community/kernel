@@ -582,6 +582,7 @@ static const struct pci_device_id sp_pci_table[] = {
 	{ PCI_VDEVICE(AMD, 0x1134), (kernel_ulong_t)&dev_vdata[7] },
 	{ PCI_VDEVICE(AMD, 0x17E0), (kernel_ulong_t)&dev_vdata[7] },
 	{ PCI_VDEVICE(AMD, 0x156E), (kernel_ulong_t)&dev_vdata[8] },
+	{ PCI_VDEVICE(AMD, 0x17D8), (kernel_ulong_t)&dev_vdata[8] },
 	{ PCI_VDEVICE(HYGON, 0x1456), (kernel_ulong_t)&hygon_dev_vdata[0] },
 	{ PCI_VDEVICE(HYGON, 0x1468), (kernel_ulong_t)&hygon_dev_vdata[1] },
 	{ PCI_VDEVICE(HYGON, 0x1486), (kernel_ulong_t)&hygon_dev_vdata[2] },
