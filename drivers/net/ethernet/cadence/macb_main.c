@@ -4787,7 +4787,6 @@ static const struct macb_config phytium_gem1p0_config = {
 	.usrio = &macb_default_usrio,
 };
 
-#if defined(CONFIG_OF)
 /* 1518 rounded up */
 #define AT91ETHER_MAX_RBUFF_SZ	0x600
 /* max number of receive buffers */
@@ -5490,6 +5489,7 @@ static const struct macb_config phytium_gem2p0_config = {
 	.usrio = &macb_default_usrio,
 };
 
+#if defined(CONFIG_OF)
 static const struct of_device_id macb_dt_ids[] = {
 	{ .compatible = "cdns,at91sam9260-macb", .data = &at91sam9260_config },
 	{ .compatible = "cdns,macb" },
