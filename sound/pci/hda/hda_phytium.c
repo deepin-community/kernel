@@ -1070,6 +1070,7 @@ MODULE_DEVICE_TABLE(of, hda_ft_of_match);
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id hda_ft_acpi_match[] = {
 	{ .id = "PHYT0006" },
+	{ .id = "FTHD0001" },
 	{}
 };
 MODULE_DEVICE_TABLE(acpi, hda_ft_acpi_match);
