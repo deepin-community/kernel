@@ -483,7 +483,7 @@ static void __init setup_firmware_fdt(void)
 	memblock_reserve(__boot_pa(dt_virt), fdt_totalsize(dt_virt));
 
 	if (!arch_dtb_verify(dt_virt, true) ||
-			!early_init_dt_scan(dt_virt)) {
+			!early_init_dt_scan(dt_virt, __boot_pa(dt_virt))) {
 		pr_crit("Invalid DTB(from firmware) at virtual address 0x%lx\n",
 				(unsigned long)dt_virt);
 
@@ -578,7 +578,7 @@ static void __init setup_builtin_fdt(void)
 
 	dt_virt = (void *)__dtb_start;
 	if (!arch_dtb_verify(dt_virt, false) ||
-			!early_init_dt_verify(dt_virt)) {
+			!early_init_dt_verify(dt_virt, __boot_pa(dt_virt))) {
 		pr_crit("Invalid DTB(built-in) at virtual address 0x%lx\n",
 				(unsigned long)dt_virt);
 		while (true)
