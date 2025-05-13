@@ -280,7 +280,8 @@ void huge_ptep_set_wrprotect(struct mm_struct *mm,
 }
 
 pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
-		unsigned long addr, pte_t *ptep)
+			      unsigned long addr, pte_t *ptep,
+			      unsigned long sz)
 {
 	int ncontig;
 	size_t pgsize;
