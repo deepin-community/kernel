@@ -34,6 +34,23 @@
 #define EXTIOI_COREMAP_START		0x800
 #define EXTIOI_COREMAP_END		0x8ff
 
+#define EIOINTC_VIRT_BASE		(0x40000000)
+#define EIOINTC_VIRT_SIZE		(0x1000)
+
+#define EIOINTC_VIRT_FEATURES		(0x0)
+#define EIOINTC_HAS_VIRT_EXTENSION	(0)
+#define EIOINTC_HAS_ENABLE_OPTION	(1)
+#define EIOINTC_HAS_INT_ENCODE		(2)
+#define EIOINTC_HAS_CPU_ENCODE		(3)
+#define EIOINTC_VIRT_HAS_FEATURES	((1U << EIOINTC_HAS_VIRT_EXTENSION) \
+					| (1U << EIOINTC_HAS_ENABLE_OPTION) \
+					| (1U << EIOINTC_HAS_INT_ENCODE)    \
+					| (1U << EIOINTC_HAS_CPU_ENCODE))
+#define EIOINTC_VIRT_CONFIG		(0x4)
+#define EIOINTC_ENABLE			(1)
+#define EIOINTC_ENABLE_INT_ENCODE	(2)
+#define EIOINTC_ENABLE_CPU_ENCODE	(3)
+
 #define LS3A_INTC_IP			8
 
 #define EXTIOI_SW_COREMAP_FLAG		(1 << 0)
@@ -42,6 +59,11 @@ struct loongarch_extioi {
 	spinlock_t lock;
 	struct kvm *kvm;
 	struct kvm_io_device device;
+	struct kvm_io_device device_vext;
+	uint32_t num_cpu;
+	uint32_t features;
+	uint32_t status;
+
 	/* hardware state */
 	union nodetype {
 		u64 reg_u64[EXTIOI_IRQS_NODETYPE_COUNT / 4];
