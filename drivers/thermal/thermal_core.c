@@ -21,6 +21,7 @@
 #include <linux/cpufreq.h>
 #include <linux/of.h>
 #include <linux/suspend.h>
+
 #include <asm/stacktrace.h>
 #define CREATE_TRACE_POINTS
 #include "thermal_trace.h"
