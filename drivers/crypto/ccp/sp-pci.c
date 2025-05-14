@@ -587,6 +587,8 @@ static const struct pci_device_id sp_pci_table[] = {
 	{ PCI_VDEVICE(HYGON, 0x1486), (kernel_ulong_t)&hygon_dev_vdata[2] },
 	{ PCI_VDEVICE(HYGON, 0x14b8), (kernel_ulong_t)&hygon_dev_vdata[1] },
 	{ PCI_VDEVICE(HYGON, 0x14a6), (kernel_ulong_t)&hygon_dev_vdata[2] },
+	{ PCI_VDEVICE(HYGON, 0x14d8), (kernel_ulong_t)&hygon_dev_vdata[1] },
+	{ PCI_VDEVICE(HYGON, 0x14c6), (kernel_ulong_t)&hygon_dev_vdata[2] },
 	/* Last entry must be zero */
 	{ 0, }
 };
