@@ -315,7 +315,7 @@ static int tdm_get_cmd_context_hash(uint32_t flag, uint8_t *hash)
 #if IS_BUILTIN(CONFIG_CRYPTO_DEV_CCP_DD)
 	struct module *p_module = NULL;
 #elif IS_ENABLED(CONFIG_KALLSYMS)
-	char symbol_buf[128] = {0};
+	char symbol_buf[KSYM_NAME_LEN] = {0};
 	int symbol_len = 0;
 	char *symbol_begin = NULL;
 	char *symbol_end = NULL;
