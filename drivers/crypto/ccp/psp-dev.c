@@ -217,6 +217,9 @@ int psp_dev_init(struct sp_device *sp)
 	if (ret)
 		goto e_irq;
 
+	if (is_vendor_hygon())
+		init_waitqueue_head(&psp_int_queue);
+
 	/**
 	 * hygon_psp_additional_setup() needs to wait for
 	 * sev_dev_install_hooks() to complete before it can be called.
