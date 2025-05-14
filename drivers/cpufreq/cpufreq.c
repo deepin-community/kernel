@@ -1224,6 +1224,7 @@ static void cpufreq_policy_put_kobj(struct cpufreq_policy *policy)
 	cmp = &policy->kobj_unregister;
 	up_write(&policy->rwsem);
 	kobject_put(kobj);
+
 	/*
 	 * We need to make sure that the underlying kobj is
 	 * actually not referenced anymore by anybody before we
