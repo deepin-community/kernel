@@ -2342,6 +2342,9 @@ void __init sev_hardware_setup(void)
 	bool sev_es_supported = false;
 	bool sev_supported = false;
 
+	if (is_x86_vendor_hygon() && hygon_csv_build < 1878 && !sme_me_mask)
+		goto out;
+
 	if (!sev_enabled || !npt_enabled || !nrips)
 		goto out;
 
