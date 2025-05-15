@@ -491,6 +491,7 @@ source "drivers/scsi/mpt3sas/Kconfig"
 source "drivers/scsi/mpi3mr/Kconfig"
 source "drivers/scsi/leapioraid/Kconfig"
 source "drivers/scsi/smartpqi/Kconfig"
+source "drivers/scsi/hisi_raid/Kconfig"
 
 config SCSI_HPTIOP
 	tristate "HighPoint RocketRAID 3xxx/4xxx Controller support"
