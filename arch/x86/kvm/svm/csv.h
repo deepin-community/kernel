@@ -32,6 +32,8 @@ struct csv_ringbuf_infos {
 	int num;
 };
 
+extern u32 hygon_csv_build;
+
 #ifdef CONFIG_KVM_SUPPORTS_CSV_REUSE_ASID
 
 #define ASID_USERID_LENGTH 20
