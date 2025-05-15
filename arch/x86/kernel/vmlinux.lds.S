@@ -119,6 +119,8 @@ __iee_si_data_end = .;
 	. = ALIGN(PAGE_SIZE);		\
 	*(.iee.cred)				\
 	. = ALIGN(PAGE_SIZE);
+#else
+#define CRED_DATA
 #endif
 
 PHDRS {

@@ -153,6 +153,8 @@ jiffies = jiffies_64;
 	. = ALIGN(PAGE_SIZE);		\
 	*(.iee.cred)				\
 	. = ALIGN(PAGE_SIZE);
+#else
+#define CRED_DATA
 #endif
 
 #ifdef CONFIG_IEE
