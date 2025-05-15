@@ -1,0 +1,14 @@
+#
+# Kernel configuration file for the hisi_raid
+#
+
+config SCSI_HISI_RAID
+	tristate "Huawei Hisi_Raid Adapter"
+	depends on PCI && SCSI
+	select BLK_DEV_BSGLIB
+	depends on ARM64 || X86_64 || COMPILE_TEST
+	help
+	This driver supports hisi_raid SPxx serial RAID controller, which has
+	PCI Express Gen4 interface with host and supports SAS/SATA HDD/SSD.
+	To compile this driver as a module, choose M here: the module will
+	be called hisi_raid.
