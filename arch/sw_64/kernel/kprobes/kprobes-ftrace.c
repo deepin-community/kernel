@@ -31,7 +31,7 @@ void kprobe_ftrace_handler(unsigned long ip, unsigned long parent_ip,
 			regs->orig_r19 = current_pt_regs()->orig_r19;
 			regs->cause = current_pt_regs()->cause;
 		}
-		if (in_interrupt()) {
+		if (in_irq()) {
 			regs->orig_r0 = get_irq_regs()->orig_r0;
 			regs->orig_r19 = get_irq_regs()->orig_r19;
 			regs->cause = get_irq_regs()->cause;
