@@ -1522,7 +1522,7 @@ static int gadget_start(void *data)
 	struct phytium_device *pdev;
 	struct phytium_usb *phytium_usb = (struct phytium_usb *)data;
 	u32 max_speed;
-	int ret;
+	int ret = -ENOMEM;
 
 	if (!phytium_usb)
 		return 0;
