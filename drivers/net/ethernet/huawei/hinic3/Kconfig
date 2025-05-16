@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Huawei driver configuration
+#
+
+config HINIC3
+	tristate "Huawei Intelligent Network Interface Card 3rd"
+	depends on PCI_MSI && NUMA && PCI_IOV && DCB
+	depends on X86 || ARM64 || COMPILE_TEST
+	help
+	  This driver supports HiNIC PCIE Ethernet cards.
+	  To compile this driver as part of the kernel, choose Y here.
+	  If unsure, choose N.
+	  The default is N.

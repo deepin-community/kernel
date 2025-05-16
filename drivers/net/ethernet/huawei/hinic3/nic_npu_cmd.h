@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C), 2001-2011, Huawei Tech. Co., Ltd.
+ * File Name     : nic_npu_cmd.h
+ * Version       : Initial Draft
+ * Created       : 2019/4/25
+ * Last Modified :
+ * Description   : NIC Commands between Driver and NPU
+ * Function List :
+ */
+
+#ifndef NIC_NPU_CMD_H
+#define NIC_NPU_CMD_H
+
+/* NIC CMDQ MODE */
+enum hinic3_ucode_cmd {
+	HINIC3_UCODE_CMD_MODIFY_QUEUE_CTX = 0,
+	HINIC3_UCODE_CMD_CLEAN_QUEUE_CONTEXT,
+	HINIC3_UCODE_CMD_ARM_SQ, /**< Unused */
+	HINIC3_UCODE_CMD_ARM_RQ,    /**< Unused */
+	HINIC3_UCODE_CMD_SET_RSS_INDIR_TABLE,
+	HINIC3_UCODE_CMD_SET_RSS_CONTEXT_TABLE,
+	HINIC3_UCODE_CMD_GET_RSS_INDIR_TABLE,
+	HINIC3_UCODE_CMD_GET_RSS_CONTEXT_TABLE,    /**< Unused */
+	HINIC3_UCODE_CMD_SET_IQ_ENABLE,    /**< Unused */
+	HINIC3_UCODE_CMD_SET_RQ_FLUSH = 10,
+	HINIC3_UCODE_CMD_MODIFY_VLAN_CTX,
+	HINIC3_UCODE_CMD_PPA_HASH_TABLE,
+	HINIC3_UCODE_CMD_RXQ_INFO_GET = 13,
+	HINIC3_UCODE_MIG_CFG_Q_CTX = 14,
+	HINIC3_UCODE_MIG_CHK_SQ_STOP,
+	HINIC3_UCODE_CHK_RQ_STOP,
+	HINIC3_UCODE_MIG_CFG_BAT_INFO,
+};
+
+#endif /* NIC_NPU_CMD_H */
