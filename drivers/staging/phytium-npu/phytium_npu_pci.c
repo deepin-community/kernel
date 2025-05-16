@@ -49,7 +49,7 @@ static int phytium_npu_pci_probe(struct pci_dev *pci_dev,
 {
 	struct phytium_npu_dev *npu_dev;
 	struct device *dev = &pci_dev->dev;
-	void __iomem *reg_addr;
+	void __iomem *reg_addr = NULL;
 	int ret = 0;
         int irq = 0;
         int bar = 0;
