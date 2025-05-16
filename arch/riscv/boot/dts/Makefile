@@ -6,5 +6,6 @@ subdir-y += renesas
 subdir-y += sifive
 subdir-y += starfive
 subdir-y += thead
+subdir-y += ultrarisc
 
 obj-$(CONFIG_BUILTIN_DTB) := $(addsuffix /, $(subdir-y))
