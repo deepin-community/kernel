@@ -554,10 +554,10 @@ static int gadget_ep_queue(struct usb_ep *ep, struct usb_request *request, gfp_t
 
 static int gadget_ep_dequeue(struct usb_ep *ep, struct usb_request *request)
 {
-	struct phytium_device *pdev;
+	struct phytium_device *pdev = NULL;
 	struct gadget_ep *pep;
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	if (!request || !ep)
 		return -EINVAL;
