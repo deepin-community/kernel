@@ -10,3 +10,4 @@ subdir-y += sophgo
 subdir-y += spacemit
 subdir-y += starfive
 subdir-y += thead
+subdir-y += ultrarisc
