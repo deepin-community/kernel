@@ -322,7 +322,7 @@ EXPORT_SYMBOL_GPL(spi_phytium_flash_write);
 int spi_phytium_write(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		u8 tmode, u8 flags, u8 spi_write_flag)
 {
-	int ret;
+	int ret = 0;
 	u32 len;
 	u64 smem_tx;
 	u8 first = 1;
