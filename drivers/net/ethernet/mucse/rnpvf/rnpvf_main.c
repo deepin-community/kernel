@@ -906,14 +906,6 @@ skip_fix:
 	if (err) {
 		u32 ntc = rx_ring->next_to_clean + 1;
 		struct rnpvf_rx_buffer *rx_buffer;
-#if (PAGE_SIZE < 8192)
-		unsigned int truesize = rnpvf_rx_pg_size(rx_ring) / 2;
-#else
-		unsigned int truesize =
-			ring_uses_build_skb(rx_ring) ?
-				SKB_DATA_ALIGN(RNPVF_SKB_PAD + size) :
-				SKB_DATA_ALIGN(size);
-#endif
 
 		if (likely(rnpvf_test_staterr(rx_desc, RNP_RXD_STAT_EOP)))
 			*driver_drop_packets = *driver_drop_packets + 1;
@@ -928,11 +920,6 @@ skip_fix:
 		/* we should clean it since we used all info in it */
 		rx_desc->wb.cmd = 0;
 
-#if (PAGE_SIZE < 8192)
-		rx_buffer->page_offset ^= truesize;
-#else
-		rx_buffer->page_offset += truesize;
-#endif
 #ifdef OPTM_WITH_LPAGE
 		rnpvf_put_rx_buffer(rx_ring, rx_buffer);
 #else
