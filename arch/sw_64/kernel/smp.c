@@ -35,17 +35,19 @@ void *idle_task_pointer[NR_CPUS];
 /* State of each CPU */
 DEFINE_PER_CPU(int, cpu_state) = { 0 };
 
-/* A collection of single bit ipi messages.  */
-static struct {
-	unsigned long bits ____cacheline_aligned;
-} ipi_data[NR_CPUS] __cacheline_aligned;
-
 enum ipi_message_type {
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
 	IPI_CPU_STOP,
 	IPI_IRQ_WORK,
+	IPI_MAX,
 };
+
+#define IPI_PENDING_TYPE	u64
+/* A collection of single bit ipi messages.  */
+static struct {
+	IPI_PENDING_TYPE pending[IPI_MAX] ____cacheline_aligned;
+} ipi_data[CONFIG_NR_CPUS] __cacheline_aligned;
 
 int smp_num_cpus = 1;		/* Number that came online.  */
 EXPORT_SYMBOL(smp_num_cpus);
@@ -61,6 +63,22 @@ enum core_version {
 	CORE_VERSION_C4   = 2,
 	CORE_VERSION_RESERVED = 3 /* 3 and greater are reserved */
 };
+
+static inline void get_ipi_pending(int cpu, IPI_PENDING_TYPE *dst)
+{
+	int i;
+
+	/* make sure we can see pending for this ipi */
+	smp_mb();
+	for (i = 0; i < IPI_MAX; i++) {
+		if (READ_ONCE(ipi_data[cpu].pending[i])) {
+			WRITE_ONCE(dst[i], 1);
+			WRITE_ONCE(ipi_data[cpu].pending[i], 0);
+		}
+	}
+	/* make sure we won't miss any pending set after ipi */
+	smp_mb();
+}
 
 #ifdef CONFIG_SUBARCH_C4
 #define OFFSET_CLU_LV2_SELH	0x3a00UL
@@ -602,13 +620,15 @@ static void send_ipi_message(const struct cpumask *to_whom, enum ipi_message_typ
 {
 	int i;
 
-	mb();
-	for_each_cpu(i, to_whom)
-		set_bit(operation, &ipi_data[i].bits);
-
-	mb();
-	for_each_cpu(i, to_whom)
-		send_ipi(i, II_II0);
+	/* make sure ipi data are written before setting pending */
+	smp_mb();
+	for_each_cpu(i, to_whom) {
+		WRITE_ONCE(ipi_data[i].pending[operation], 1);
+		/* make sure pending is set before sending ipi */
+		smp_mb();
+		if (READ_ONCE(ipi_data[i].pending[operation]))
+			send_ipi(i, II_II0);
+	}
 }
 
 static void ipi_cpu_stop(int cpu)
@@ -629,20 +649,13 @@ void arch_irq_work_raise(void)
 void handle_ipi(struct pt_regs *regs)
 {
 	int cpu = smp_processor_id();
-	unsigned long *pending_ipis = &ipi_data[cpu].bits;
-	unsigned long ops;
+	IPI_PENDING_TYPE pending[IPI_MAX] = { 0 };
+	int i;
 
-	mb();	/* Order interrupt and bit testing. */
-	while ((ops = xchg(pending_ipis, 0)) != 0) {
-		mb();	/* Order bit clearing and data access. */
-		do {
-			unsigned long which;
-
-			which = ops & -ops;
-			ops &= ~which;
-			which = __ffs(which);
-
-			switch (which) {
+	get_ipi_pending(cpu, pending);
+	for (i = 0; i < IPI_MAX; i++) {
+		if (pending[i]) {
+			switch (i) {
 			case IPI_RESCHEDULE:
 				scheduler_ipi();
 				break;
@@ -660,12 +673,10 @@ void handle_ipi(struct pt_regs *regs)
 				break;
 
 			default:
-				pr_crit("Unknown IPI on CPU %d: %lu\n", cpu, which);
+				pr_crit("Unknown IPI on CPU %d\n", cpu);
 				break;
 			}
-		} while (ops);
-
-		mb();	/* Order data access and bit testing. */
+		}
 	}
 
 	cpu_data[cpu].ipi_count++;
