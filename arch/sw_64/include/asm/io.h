@@ -30,6 +30,7 @@ extern void		outl(u32 b, unsigned long port);
 #define outw outw
 #define outl outl
 
+#ifndef CONFIG_GENERIC_IOREMAP
 static inline void __iomem *__ioremap(phys_addr_t addr, size_t size,
 				      pgprot_t prot)
 {
@@ -37,18 +38,20 @@ static inline void __iomem *__ioremap(phys_addr_t addr, size_t size,
 
 	return (void __iomem *)(tmp);
 }
-
 #define ioremap(addr, size)		__ioremap((addr), (size), PAGE_KERNEL)
-#define ioremap_nocache(addr, size)	__ioremap((addr), (size), PAGE_KERNEL)
-#define ioremap_cache(addr, size)	__ioremap((addr), (size), PAGE_KERNEL)
+
+static inline void __iounmap(volatile void __iomem *addr)
+{
+}
+#define iounmap				__iounmap
+#endif
+
+#define ioremap_nocache(addr, size)	ioremap((addr), (size))
+#define ioremap_cache(addr, size)	ioremap((addr), (size))
 #define ioremap_uc			ioremap_nocache
 
 #define ioport_map ioport_map
 extern void __iomem *ioport_map(unsigned long port, unsigned int nr);
-
-static inline void iounmap(volatile void __iomem *addr)
-{
-}
 
 /*
  * String version of IO memory access ops:

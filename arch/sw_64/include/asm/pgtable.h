@@ -188,6 +188,7 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define PAGE_NONE		__pgprot(__ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE | _PAGE_LEAF | _PAGE_PROTNONE)
 #define PAGE_KERNEL		__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF)
 #define _PAGE_NORMAL(x)		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_LEAF | (x))
+#define _PAGE_IOREMAP		pgprot_val(PAGE_KERNEL)
 
 #define page_valid_kern(x)	((x & (_PAGE_VALID | _PAGE_KERN)) == (_PAGE_VALID | _PAGE_KERN))
 #endif
