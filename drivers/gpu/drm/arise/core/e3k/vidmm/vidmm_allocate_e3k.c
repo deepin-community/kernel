@@ -544,7 +544,6 @@ static void vidmmi_calc_allocation_pitch_e3k(vidmm_allocation_t *allocation)
     unsigned int  TileWidth, TileHeight;
     unsigned int  UnitWidth, UnitHeight;
     unsigned int  P2Width0, P2Height0;
-    unsigned int  UnitSize;
     unsigned int  Pitch;
     unsigned int  WidthAligned;
     unsigned int  HeightAligned;
@@ -552,7 +551,6 @@ static void vidmmi_calc_allocation_pitch_e3k(vidmm_allocation_t *allocation)
     BitCount   = allocation->bit_count;
     TileWidth  = calcTileWidth_e3k(BitCount);
     TileHeight = calcTileHeight_e3k(BitCount);
-    UnitSize   = UNIT_SIZE_E3K;
     UnitWidth  = calcUnitWidth_e3k(BitCount);
     UnitHeight = calcUnitHeight_e3k(BitCount);
 

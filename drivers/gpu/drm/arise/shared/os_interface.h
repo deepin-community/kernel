@@ -121,6 +121,8 @@ extern int GF_API_CALL gf_sscanf(char *buf, char *fmt, ...);
 
 extern void GF_API_CALL gf_printk(unsigned int msglevel, const char* fmt, ...);
 extern void GF_API_CALL gf_cb_printk(const char* msg);
+extern void GF_API_CALL gf_cb_vdbgprint(int enable, unsigned int print_level, const char* prefix, const char* msg, ...);
+
 
 #ifdef _DEBUG_
 #define GF_MSG_LEVEL GF_DRV_DEBUG

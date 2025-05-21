@@ -24,14 +24,18 @@
 #include "gf_adapter.h"
 #include "vidsch.h"
 #include "vidmm.h"
-#include "context.h"
 #include "global.h"
+#include "vidschi.h"
 #include "powermgr.h"
 
 int pm_save_state(adapter_t *adapter, int need_save_memory)
 {
     int ret = S_OK;
+    struct vidschedule *schedule = adapter->schedule;
 
+    schedule->chip_func->boost(adapter, ENG_POWER_STATE_E0, 60 * 1000, FALSE);
+
+    adapter->ctl_flags.boost = FALSE;
     adapter->in_suspend_resume = TRUE;
 
     ret = cm_save(adapter, need_save_memory);
@@ -87,6 +91,7 @@ int pm_restore_state(adapter_t *adapter)
     cm_restore(adapter);
     util_print_time("cm_restore finish, cur time");
 
+    adapter->ctl_flags.boost = TRUE;
     adapter->in_suspend_resume = FALSE;
 
     return ret;

@@ -207,6 +207,7 @@ struct gf_dma_fence_driver;
 
 struct gf_dma_fence
 {
+    unsigned long long magic_number;
     struct gf_dma_fence_driver *driver;
     dma_fence_t base;
     unsigned long long initialize_value;
@@ -241,6 +242,8 @@ struct gf_dma_fence_driver
     struct gf_dma_fence_context *context;
     struct kmem_cache       *fence_slab;
     atomic_t                fence_alloc_count;
+    gf_card_t               *gf_card;
+    void*                   primary_bo[MAX_CORE_CRTCS];
 };
 
 #define gf_engine_by_fence(driver, fence) \

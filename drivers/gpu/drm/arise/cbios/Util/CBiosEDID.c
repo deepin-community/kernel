@@ -671,7 +671,8 @@ static CBIOS_U32 cbEDIDModule_GetCEADetailedMode(CBIOS_U8 *pEDID, PCBIOS_MODE_IN
         while ((i + 18) < 128)
         {
             cb_memset(&tmpExtDltTiming, 0, sizeof(CBIOS_MODE_INFO_EXT));
-            if (!cbEDIDModule_ParseDtlTiming(&pEDIDBlock[i], &tmpExtDltTiming))
+            if (!cbEDIDModule_ParseDtlTiming(&pEDIDBlock[i], &tmpExtDltTiming)
+                 || ulNumOfExtDtlMode >= CBIOS_DTDTIMING_BLOCK_CNT)
             {
                 break;
             }
@@ -801,6 +802,11 @@ static CBIOS_U32 cbEDIDModule_GetHDMIAudioFormat(CBIOS_U8 *pAudioFormatDataInEDI
 
     for (j = 0; j < PayloadLength/3; j++)
     {
+        if(ulNumOfAudioFormat >= CBIOS_HDMI_AUDIO_FORMAT_COUNTS)
+        {
+            break;
+        }
+
         AudioFormatCode = (pAudioFormatDataInEDID[1 + j * 3] >> 3) & 0xF;
         if ((AudioFormatCode > 0) && (AudioFormatCode < 16))
         {
@@ -890,11 +896,12 @@ static CBIOS_VOID cbEDIDPatchHDMIAudio(PCBIOS_EDID_STRUCTURE_DATA pEDIDStruct, P
     }
 }
 
-static CBIOS_VOID cbEDIDPatchHDMICEAMode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTURE_DATA pEDIDStruct, PCBIOS_U32 pModeNumOfCEABlock)
+static CBIOS_VOID cbEDIDPatchCEAModes(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTURE_DATA pEDIDStruct, PCBIOS_U32 pModeNumOfCEABlock)
 {
     PCBIOS_MONITOR_MISC_ATTRIB pMonitorAttrib = &(pEDIDStruct->Attribute);
     PCBIOS_HDMI_FORMAT_DESCRIPTOR pCEAVideoFormat = pEDIDStruct->HDMIFormat;
     CBIOS_UCHAR                MonitorID[8] = {0};
+    CBIOS_U32                  i = 0;
 
     if ((pMonitorAttrib == CBIOS_NULL) || (pCEAVideoFormat == CBIOS_NULL))
     {
@@ -910,6 +917,25 @@ static CBIOS_VOID cbEDIDPatchHDMICEAMode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTURE_
         pCEAVideoFormat[31].IsSupported = CBIOS_FALSE;
         *pModeNumOfCEABlock = *pModeNumOfCEABlock - 1;
         cbDebugPrint((MAKE_LEVEL(GENERIC, DEBUG), "%s: filter 1080p@24Hz, ModeNumOfCEABlock = %d\n", FUNCTION_NAME, *pModeNumOfCEABlock));
+    }
+
+    // patch for BenQ EL2870U monitor, filter 3840x2160@29.97Hz mode in DTDTimings for no sound issue.
+    if ((!cb_strcmp(MonitorID, (CBIOS_UCHAR*)"BNQ7949")) && (!cb_strcmp(pMonitorAttrib->MonitorName, (CBIOS_UCHAR*)"BenQ EL2870U")))
+    {
+        for (i = 0; i < CBIOS_DTDTIMING_BLOCK_CNT; i++)
+        {
+            if ((pEDIDStruct->DTDTimings[i].Valid) &&
+                (pEDIDStruct->DTDTimings[i].XResolution == 3840) &&
+                (pEDIDStruct->DTDTimings[i].YResolution == 2160) &&
+                ((pEDIDStruct->DTDTimings[i].Refreshrate >= (3000 - 50)) &&
+                (pEDIDStruct->DTDTimings[i].Refreshrate <= (3000 + 50))))
+            {
+                pEDIDStruct->DTDTimings[i].Valid = CBIOS_FALSE;
+                *pModeNumOfCEABlock = *pModeNumOfCEABlock - 1;
+                cbDebugPrint((MAKE_LEVEL(GENERIC, DEBUG), "%s: filter 3840x2160@29.97Hz, ModeNumOfCEABlock = %d\n", FUNCTION_NAME, *pModeNumOfCEABlock));
+                break;
+            }
+        }
     }
 
 }
@@ -1268,24 +1294,43 @@ VSDB_DONE:
 
 }
 
+//HFVSDB
+
 /***************************************************************
-Function:    cbEDIDModule_ParseHFVSDB
+Function:    cbEDIDModule_ParseHFSCDS
 
-Description: Decode HDMI Forum vendor specific data block of CEA extension
+Description: Decode HF-VSDB or HF-SCDB of CEA extension
 
-Input:       pVSDBDataInEDID, HDMI Forum vendor specific data buffer
+Input:       pSCDSDataInEDID, HDMI Forum vendor specific data buffer, or Sink Capability data block buffer
 
-Output:      pVSDBData, decoded HDMI Forum VSDB data
+Output:      pSCDSData, decoded Sink capability data structure
 
-Return:      the total length of HDMI Forum vendor specific data block
+Return:      the total length of HDMI Forum vendor specific data block, or Sink capability data block
 ***************************************************************/
 
 /*
-                                                HDMI Forum Vendor Specific Data Block
+                                            SCDS (Sink Capability Data Structure)
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |    PB1    |                                                   Version (=1)                                                |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |    PB2    |                                              Max_TMDS_Character_Rate                                          |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |           |   SCDC_     |    RR_      |    Rsvd     |    Rsvd     |  LTE_340Mcsc| Independent |     Dual    |   3D_OSD_   |
+    |    PB3    |   Present   |    Capable  |    (0)      |    (0)      |  _scramble  | _view       |     _View   |   Disparity |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |           |    Rsvd     |      Rsvd   |    Rsvd     |    Rsvd     |    Rsvd     |   DC_48Bit  |   DC_36Bit  |   DC_30Bit  |
+    |    PB4    |    (0)      |      (0)    |    (0)      |    (0)      |    (0)      |   _420      |   _420      |   _420      |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |   ...N    |                                                   ...                                                         |
+    |---------------------------------------------------------------------------------------------------------------------------|
+
+** Sinks shall include only one SCDS, in HF-VSDB or HF-SCDB
+
+                                        HDMI Forum Vendor Specific Data Block
     -----------------------------------------------------------------------------------------------------------------------------
     |Byte\Bit # |      7      |      6      |      5      |      4      |      3      |      2      |      1      |      0      |
     |-----------|---------------------------------------------------------------------------------------------------------------|
-    |           |     Vendor-specific tag code (=3)       |                             Length (=N)                             |
+    |     0     |     Vendor-specific tag code (=3)       |                             Length (=N)                             |
     |-----------|---------------------------------------------------------------------------------------------------------------|
     |     1     |                                           IEEE OUI, Third Octet  (0xD8)                                       |
     |-----------|---------------------------------------------------------------------------------------------------------------|
@@ -1293,77 +1338,98 @@ Return:      the total length of HDMI Forum vendor specific data block
     |-----------|---------------------------------------------------------------------------------------------------------------|
     |     3     |                                           IEEE OUI, First Octet  (0xC4)                                       |
     |-----------|---------------------------------------------------------------------------------------------------------------|
-    |     4     |                                                   Version (=1)                                                |
+    |   4..n    |                                                   ** SCDS                                                     |
     |-----------|---------------------------------------------------------------------------------------------------------------|
-    |     5     |                                              Max_TMDS_Character_Rate                                          |
-    |-----------|---------------------------------------------------------------------------------------------------------------|
-    |           |   SCDC_     |    RR_      |    Rsvd     |    Rsvd     |  LTE_340Mcsc| Independent |     Dual    |   3D_OSD_   |
-    |     6     |   Present   |    Capable  |    (0)      |    (0)      |  _scramble  | _view       |     _View   |   Disparity |
-    |-----------|---------------------------------------------------------------------------------------------------------------|
-    |           |    Rsvd     |      Rsvd   |    Rsvd     |    Rsvd     |    Rsvd     |   DC_48Bit  |   DC_36Bit  |   DC_30Bit  |
-    |     7     |    (0)      |      (0)    |    (0)      |    (0)      |    (0)      |   _420      |   _420      |   _420      |
-    |-----------|---------------------------------------------------------------------------------------------------------------|
-    |   ...N    |                                                   Reserved(0)*                                                |
-    |---------------------------------------------------------------------------------------------------------------------------|
 
+
+                                        HDMI Forum Sink Capability Data Block
+    -----------------------------------------------------------------------------------------------------------------------------
+    |Byte\Bit # |      7      |      6      |      5      |      4      |      3      |      2      |      1      |      0      |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |     0     |     Vendor-specific tag code (=7)       |                             Length (=N)                             |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |     1     |                                           Extended Tag Code (0x79)                                            |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |     2     |                                                   Reserved                                                    |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |     3     |                                                   Reserved                                                    |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
+    |   4..n    |                                                   ** SCDS                                                     |
+    |-----------|---------------------------------------------------------------------------------------------------------------|
 */
 
-static CBIOS_U32 cbEDIDModule_ParseHFVSDB(CBIOS_U8 *pVSDBDataInEDID, PCBIOS_HF_HDMI_VSDB_EXTENTION pVSDBData)
+static CBIOS_U32 cbEDIDModule_ParseHFSCDS(CBIOS_U8 *pSCDSDataInEDID, PCBIOS_HF_SCDS_DATA pSCDSData)
 {
-    CBIOS_U8    *pCurByte = pVSDBDataInEDID;
+    CBIOS_U8    *pCurByte = pSCDSDataInEDID;
     CBIOS_U32   PayloadLen = 0;
 
-    if ((pVSDBDataInEDID == CBIOS_NULL) || (pVSDBData == CBIOS_NULL))
+    if ((pSCDSDataInEDID == CBIOS_NULL) || (pSCDSData == CBIOS_NULL))
     {
-        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "cbEDIDModule_ParseHFVSDB: NULL pointer!\n"));
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: NULL pointer!\n", FUNCTION_NAME));
         return 0;
     }
 
-    //initialize CBIOS_HDMI_VSDB_EXTENTION
-    cb_memset(pVSDBData, 0, sizeof(CBIOS_HF_HDMI_VSDB_EXTENTION));
+    cb_memset(pSCDSData, 0, sizeof(CBIOS_HF_SCDS_DATA));
 
-    //check tag and length
-    cb_memcpy(&(pVSDBData->Tag), pCurByte++, sizeof(pVSDBData->Tag));
-
-    if ((pVSDBData->Tag.VSDBTag != VENDOR_SPECIFIC_DATA_BLOCK_TAG)
-        ||(pVSDBData->Tag.VSDBLength < 7))
+    cb_memcpy(&(pSCDSData->Tag), pCurByte++, sizeof(pSCDSData->Tag));
+    //byte 0 Tag and length
+    if (pSCDSData->Tag.CTATag == VENDOR_SPECIFIC_DATA_BLOCK_TAG
+        && pSCDSData->Tag.Length >= 7)
     {
-        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "cbEDIDModule_ParseHFVSDB: invalid VSDB data!\n"));
-        pVSDBData->Tag.VSDBLength = 0;
-    }
-    else//tag OK
-    {
-        PayloadLen = 0;
-        //Byte 1-3, The IEEE Organizationally Unique Identifier (OUI) of C4-5D-D8
-        pVSDBData->HFVSDBOUI.IEEEOUIByte0 = *(pCurByte++);
-        pVSDBData->HFVSDBOUI.IEEEOUIByte1 = *(pCurByte++);
-        pVSDBData->HFVSDBOUI.IEEEOUIByte2 = *(pCurByte++);
+        // HF-VSDB
+        // byte 1-3, The IEEE Organizationally Unique Identifier (OUI) of C4-5D-D8
+        pSCDSData->HFVSDBOUI.IEEEOUIByte0 = *(pCurByte++);
+        pSCDSData->HFVSDBOUI.IEEEOUIByte1 = *(pCurByte++);
+        pSCDSData->HFVSDBOUI.IEEEOUIByte2 = *(pCurByte++);
         PayloadLen += 3;
+    }
+    else if (pSCDSData->Tag.CTATag == CEA_EXTENDED_BLOCK_TAG
+        && *pCurByte == HF_SINK_CAPABILITY_DATA_BLOCK
+        && pSCDSData->Tag.Length >= 7)
+    {
+        // HF-SCDB
+        // byte 1, Extended Tag Code
+        pSCDSData->ExtTagCode = *(pCurByte++);
+        // byte 2~3, reserved
+        pCurByte += 2;
+        PayloadLen += 3;
+    }
+    else
+    {
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: no valid HF-VSDB or HF-SCDB data!\n", FUNCTION_NAME));
+        pSCDSData->Tag.Length = 0;
+    }
 
-        //byte 4 version
-        pVSDBData->Version = *(pCurByte++);
+    if (pSCDSData->Tag.Length)  //tag ok
+    {
+        //byte 4  version
+        pSCDSData->Version = *(pCurByte++);
         PayloadLen++;
 
-        //byte 5 Max_TMDS_Character_Rate in MHz / 5
-        pVSDBData->MaxTMDSCharacterRate = (CBIOS_U16)(*pCurByte) * 5;
+        //byte 5  Max_TMDS_Character_Rate in MHz / 5
+        pSCDSData->MaxTMDSCharacterRate = (CBIOS_U16)(*pCurByte) * 5;
         pCurByte++;
         PayloadLen++;
 
         //byte 6-7
-        cb_memcpy(&(pVSDBData->SupportCaps), pCurByte, sizeof(CBIOS_U16));
-        pCurByte += 2;
+        cb_memcpy(&(pSCDSData->SupportCaps), pCurByte, sizeof(CBIOS_U16));
+        // Patch for Issue 21429, Issue21458: SCDCPresent is false that can't call cbHDMIMonitor_SCDC_Configure().
+        if (pSCDSData->MaxTMDSCharacterRate > 340)
+        {
+            pSCDSData->IsSCDCPresent = CBIOS_TRUE;
+        }
+        pCurByte += 2;   
         PayloadLen += 2;
     }
 
     //check payload length
-    if (PayloadLen != pVSDBData->Tag.VSDBLength)
+    if (PayloadLen != pSCDSData->Tag.Length)
     {
-        cbDebugPrint((MAKE_LEVEL(GENERIC, WARNING), "cbEDIDModule_ParseHFVSDB: payload length error!\n"));
+        cbDebugPrint((MAKE_LEVEL(GENERIC, WARNING), "%s: payload length error !\n", FUNCTION_NAME));
     }
 
     //block total length = payload len + 1
-    return (pVSDBData->Tag.VSDBLength + 1);
-
+    return (pSCDSData->Tag.Length + 1);
 }
 
 
@@ -1420,6 +1486,12 @@ static CBIOS_U32 cbEDIDModule_ParseCEAExtBlock(CBIOS_U8 *pExtBlockDataInEDID, PC
             //Colorimetry Data Block
             pCEAExtData = &pEDIDStruct->Attribute.ExtDataBlock[COLORIMETRY_DATA_BLOCK_TAG];
             cb_memcpy(&pCEAExtData->ColorimetryData, &pExtBlockDataInEDID[2], sizeof(CBIOS_COLORIMETRY_DATA));
+        }
+        else if(ExtTagCode == HDR_STATIC_META_DATA_BLOCK)
+        {
+
+            cbDebugPrint((MAKE_LEVEL(GENERIC, INFO), "%s: EDID HDR data\n", FUNCTION_NAME));
+
         }
         else if(ExtTagCode == VIDEO_FMT_PREFERENCE_DATA_BLOCK)
         {
@@ -1661,6 +1733,15 @@ static CBIOS_U32 cbEDIDModule_ParseCEAExtBlock(CBIOS_U8 *pExtBlockDataInEDID, PC
                 Index += Len;
             }
         }
+        else if(ExtTagCode == HF_EDID_EXTENSION_OVERRIDE_DATA_BLOCK)
+        {
+            // HF-EEODB for ext block num, already parsed by cbEDIDModule_GetExtBlockNum
+            PayloadLen = (*pExtBlockDataInEDID) & 0x1F;
+        }
+        else if(ExtTagCode == HF_SINK_CAPABILITY_DATA_BLOCK)
+        {
+            PayloadLen = cbEDIDModule_ParseHFSCDS(pExtBlockDataInEDID, &(pEDIDStruct->Attribute.HFSCDSData)) - 1;
+        }
         else
         {
             cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "cbEDIDModule_ParseCEAExtBlock: ExtTagCode = 0x%x which is not parsed yet!\n", ExtTagCode));
@@ -1872,6 +1953,11 @@ static CBIOS_U32 cbEDIDModule_GetDisplayIDType1DetailedMode(CBIOS_U8 *pType1Timi
 
     for (i = 0; i < PayloadLen/DID_TYPE1_TIMING_DESCRIPTOR_LENGTH; i++)
     {
+        if(ulNumOfModes >= CBIOS_DISPLAYID_TYPE1_MODECOUNT)
+        {
+            break;
+        }
+
         pDisplayIDDtlMode[ulNumOfModes].PixelClock = (((pType1TimingInEDID[5 + i*20] << 16) | (pType1TimingInEDID[4 + i*20] << 8) | (pType1TimingInEDID[3 + i*20])) * 100);
         if(pDisplayIDDtlMode[ulNumOfModes].PixelClock == 0)
         {
@@ -1910,6 +1996,42 @@ static CBIOS_U32 cbEDIDModule_GetDisplayIDType1DetailedMode(CBIOS_U8 *pType1Timi
         }
     }
     return ulNumOfModes;
+}
+
+CBIOS_U32 cbEDIDModule_GetExtBlockNum(CBIOS_U8 *pEDID)
+{
+    CBIOS_U32 ExtBlockNum = 0;
+
+    if (!pEDID)
+    {
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: invalid EDID\n", FUNCTION_NAME));
+        return 0;
+    }
+
+    if (!pEDID[0x7E])  // Extension Flag
+    {
+        ExtBlockNum = 0;
+    }
+    else
+    {
+        if ((pEDID[0x84] >> 5 == CEA_EXTENDED_BLOCK_TAG) &&
+            (pEDID[0x85] == HF_EDID_EXTENSION_OVERRIDE_DATA_BLOCK))  // be HF-EEODB
+        {
+            ExtBlockNum = pEDID[0x86];
+        }
+        else
+        {
+            ExtBlockNum = pEDID[0x7E];
+        }
+    }
+
+    if(ExtBlockNum > (CBIOS_EDIDMAXBLOCKCOUNT - 1))
+    {
+        cbDebugPrint((MAKE_LEVEL(GENERIC, WARNING), "%s: block num > %d, need refine!\n", FUNCTION_NAME, CBIOS_EDIDMAXBLOCKCOUNT));
+        ExtBlockNum = CBIOS_EDIDMAXBLOCKCOUNT - 1;
+    }
+
+    return ExtBlockNum;
 }
 
 /***************************************************************
@@ -1974,7 +2096,7 @@ static CBIOS_U32 cbEDIDModule_GetCEA861Mode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTU
                 //audio data block
                 AudioFormatDataOffset = (CBIOS_U8)i;
                 PayloadLength = pEDIDBlock[i++] & 0x1F;
-                pEDIDStruct->TotalHDMIAudioFormatNum += cbEDIDModule_GetHDMIAudioFormat(&pEDIDBlock[AudioFormatDataOffset], pEDIDStruct->HDMIAudioFormat);
+                pEDIDStruct->TotalHDMIAudioFormatNum = cbEDIDModule_GetHDMIAudioFormat(&pEDIDBlock[AudioFormatDataOffset], pEDIDStruct->HDMIAudioFormat);
                 i += PayloadLength;
             }
             else if (((pEDIDBlock[i] >> 5) & 0x07) == VIDEO_DATA_BLOCK_TAG)
@@ -1997,7 +2119,7 @@ static CBIOS_U32 cbEDIDModule_GetCEA861Mode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTU
                         (pEDIDBlock[i + 2] == 0x5D) &&
                         (pEDIDBlock[i + 3] == 0xC4))
                 {
-                    i += cbEDIDModule_ParseHFVSDB(&pEDIDBlock[i], &(pEDIDStruct->Attribute.HFVSDBData));
+                    i += cbEDIDModule_ParseHFSCDS(&pEDIDBlock[i], &(pEDIDStruct->Attribute.HFSCDSData));
                 }
                 else
                 {
@@ -2024,8 +2146,6 @@ static CBIOS_U32 cbEDIDModule_GetCEA861Mode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTU
     }
     //some monitor's AUDIO_DATA_BLOCK not support LPCM,but it indicates support basic audio, should patch here
     cbEDIDPatchHDMIAudio(pEDIDStruct,&pEDIDStruct->HDMIAudioFormat[0]);
-    //patch for some monitor can't display some CEA modes.
-    cbEDIDPatchHDMICEAMode(pEDID, pEDIDStruct, &ulModeNumOfCEABlock);
 
     // get the detailed timing in CEA extension
     ulModeNumOfCEABlock += cbEDIDModule_GetCEADetailedMode(pEDID, pEDIDStruct->DTDTimings, TotalBlocks);
@@ -2055,6 +2175,9 @@ static CBIOS_U32 cbEDIDModule_GetCEA861Mode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRUCTU
         }
     }
 
+    //patch for some monitor can't display some CEA modes.
+    cbEDIDPatchCEAModes(pEDID, pEDIDStruct, &ulModeNumOfCEABlock);
+
     return ulModeNumOfCEABlock;
 
 }
@@ -2067,7 +2190,7 @@ static CBIOS_U32 cbEDIDModule_GetDisplayIDMode(CBIOS_U8 *pEDID, PCBIOS_EDID_STRU
     CBIOS_U32   i = 0;
     CBIOS_U32   ulModeNumOfDisplayIDBlock = 0;
 
-    TotalBlocks = pEDID[0x7E] + 1; // Ext. blocks plus base block.
+    TotalBlocks =  1 + cbEDIDModule_GetExtBlockNum(pEDID); // Ext. blocks plus base block.
     if (TotalBlocks > MAX_EDID_BLOCK_NUM)
     {
         // TBD: support for more than 8 blocks
@@ -2459,9 +2582,9 @@ CBIOS_STATUS cbEDIDModule_GetMonitor3DCaps(PCBIOS_EDID_STRUCTURE_DATA pEDIDStruc
                     pModeList->RefreshRate = CEAVideoFormatTable[i].RefRate[pSupportFormat[i].RefreshIndex];
                     pModeList->bIsInterlace = (CBIOS_BOOL)CEAVideoFormatTable[i].Interlace;
                     pModeList->SupportCaps = pSupportFormat[i].Video3DSupportCaps & CBIOS_3D_VIDEO_FORMAT_MASK;
-                    pModeList->IsSupport3DOSDDisparity = pEDIDStruct->Attribute.HFVSDBData.IsSupport3DOSDDisparity;
-                    pModeList->IsSupport3DDualView = pEDIDStruct->Attribute.HFVSDBData.IsSupport3DDualView;
-                    pModeList->IsSupport3DIndependentView = pEDIDStruct->Attribute.HFVSDBData.IsSupport3DIndependentView;
+                    pModeList->IsSupport3DOSDDisparity = pEDIDStruct->Attribute.HFSCDSData.IsSupport3DOSDDisparity;
+                    pModeList->IsSupport3DDualView = pEDIDStruct->Attribute.HFSCDSData.IsSupport3DDualView;
+                    pModeList->IsSupport3DIndependentView = pEDIDStruct->Attribute.HFSCDSData.IsSupport3DIndependentView;
                     pModeList++;
                 }
 
@@ -2570,7 +2693,7 @@ Return:      CBIOS_TRUE if get monitor ID successfully
 ***************************************************************/
 CBIOS_BOOL cbEDIDModule_GetMonitorID(CBIOS_U8 *pEDID, CBIOS_U8 *pMonitorID)
 {
-    CBIOS_U8 index[32] = "0ABCDEFGHIJKLMNOPQRSTUVWXYZ[/]^_";
+    CBIOS_U8 *index = "0ABCDEFGHIJKLMNOPQRSTUVWXYZ[/]^_";
     CBIOS_U8 ProductID[3] = {0};
     CBIOS_BOOL bRet = CBIOS_FALSE;
     CBIOS_U8 *pMonitorIDinEDID = pEDID + MONITORIDINDEX;

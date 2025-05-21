@@ -30,21 +30,13 @@
 #define CBIOS_DBG_PRINT 1
 
 #if CBIOS_DBG_PRINT
-#ifdef __LINUX__
-#define cbDebugPrint1(DebugCtlFlag, DebugMessage, args...) \
-    do{ \
-        CBIOS_UCHAR* pDbgBuff = cbGetDebugBuffer(DebugCtlFlag); \
-        if(pDbgBuff != CBIOS_NULL && cbVsnprintf != CBIOS_NULL) \
-        { \
-            CBIOS_U32  preLen = cbAddPrefix(DebugCtlFlag, pDbgBuff); \
-            cbVsnprintf(pDbgBuff + preLen, CBIOSDEBUGMESSAGEMAXBYTES-preLen-1, DebugMessage, ##args); \
-            cbPrintWithDbgFlag(DebugCtlFlag, pDbgBuff);\
-        } \
-    }while(0)
-#define cbDebugPrint(arg) cbDebugPrint1 arg
-#else
-#define cbDebugPrint(arg) cbPrintMessage arg
-#endif
+#define cbDebugPrint(arg)  \
+do{ \
+    if(cbVDbgPrint != CBIOS_NULL)  \
+    { \
+        cbVDbgPrint arg;   \
+    }   \
+}while(0)
 #else /*else DBG*/
 #define cbDebugPrint(arg)
 #endif
@@ -85,21 +77,16 @@ typedef PCBIOS_VOID   (*CALLBACK_cbMemSet)(PCBIOS_VOID pBuf, CBIOS_S32 value, CB
 typedef PCBIOS_VOID   (*CALLBACK_cbMemCpy)(PCBIOS_VOID pBuf1, PCBIOS_VOID pBuf2, CBIOS_U32 length);
 typedef CBIOS_S32     (*CALLBACK_cbMemCmp)(PCBIOS_VOID pBuf1, PCBIOS_VOID pBuf2, CBIOS_U32 length);
 typedef CBIOS_U64     (*CALLBACK_cbDoDiv)(CBIOS_U64 a, CBIOS_U64 b);
-#ifdef  __LINUX__
-typedef CBIOS_S32   (*CALLBACK_cbVsprintf)(PCBIOS_UCHAR buf, PCBIOS_CHAR fmt, ...);
-typedef CBIOS_S32   (*CALLBACK_cbVsnprintf)(PCBIOS_UCHAR buf, CBIOS_U32 size, PCBIOS_CHAR fmt, ...);
-#else
-typedef CBIOS_S32     (*CALLBACK_cbVsprintf)(PCBIOS_UCHAR buf, PCBIOS_CHAR fmt, va_list  args);
-typedef CBIOS_S32     (*CALLBACK_cbVsnprintf)(PCBIOS_UCHAR buf, CBIOS_U32 size, PCBIOS_CHAR fmt, va_list args);
-#endif
+typedef CBIOS_VOID  (*CALLBACK_cbVDbgPrint)(CBIOS_BOOL  bEnablePrint, CBIOS_U32 PrintLevel, PCBIOS_UCHAR PrefixStr, PCBIOS_UCHAR DbgMsg, ...);
 
-extern CALLBACK_cbVsprintf                  cbVsprintf;
-extern CALLBACK_cbVsnprintf                 cbVsnprintf;
+extern CALLBACK_cbVDbgPrint              cbVDbgPrint;
+
+
 
 CBIOS_STATUS cbSetCallBackFunctions(PCBIOS_CALLBACK_FUNCTIONS pFnCallBack);
 
 //******** Debug Print functions *******************************
-CBIOS_VOID cb_DbgPrint(CBIOS_U32 DebugPrintLevel, PCBIOS_UCHAR DebugMessage);
+
 
 //******** time delay functions ********************************
 CBIOS_VOID cb_DelayMicroSeconds(CBIOS_U32 Microseconds);

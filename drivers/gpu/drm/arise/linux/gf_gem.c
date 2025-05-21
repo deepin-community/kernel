@@ -31,7 +31,11 @@
 #include "os_interface.h"
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
 MODULE_IMPORT_NS(DMA_BUF);
+#else
+MODULE_IMPORT_NS("DMA_BUF");
+#endif
 #endif
 
 extern struct os_pages_memory* gf_allocate_pages_memory_struct(int page_cnt, struct sg_table *st);

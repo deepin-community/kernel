@@ -106,6 +106,8 @@ typedef struct _CBIOS_DP_MONITOR_CONTEXT
     {
         CBIOS_U32    LaneNumberToUse;       // 1 ~ 4 lanes
         CBIOS_U32    LinkSpeedToUse;        // 1.62Gbps, 2.7 Gbps or 5.4 Gbps
+        CBIOS_U32    LinkPassLaneNum;
+        CBIOS_U32    LinkPassSpeed;
         CBIOS_U32    bpc;                   // bit per channel
         CBIOS_U32    TUSize;                // 32 ~ 64, default to 48
         CBIOS_BOOL   EnhancedMode;          // 1 (yes) to support HDCP

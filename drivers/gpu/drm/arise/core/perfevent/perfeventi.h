@@ -25,7 +25,6 @@
 #define __PERF_EVENTI_H__
 
 #include "gf_adapter.h"
-#include "gf_def.h"
 #include "list.h"
 
 

@@ -25,24 +25,20 @@
 #include "CBiosShare.h"
 #include "CBiosChipShare.h"
 
-#define  BACK_BUFFER_COUNT    64
 
 static  CBIOS_U32       ModuleMask = 0;
 static  CBIOS_U32       MaxDbgLevel = 2;
 static  CBIOS_U32       ModuleMaskLevel = 0x3;
-static  CBIOS_UCHAR*    pDebugBuf = CBIOS_NULL;
-static  CBIOS_UCHAR*    pBackBuf = CBIOS_NULL;
-static  CBIOS_BOOL      bEnableBackOutput = CBIOS_FALSE;
-static  CBIOS_U32       TimeStamp = 0;
-static  CBIOS_U32       BackBufIndex = 0;
+static  CBIOS_UCHAR DbgBuffer[CBIOSDEBUGMESSAGEMAXBYTES];
+
 
 CBIOS_UCHAR* ModuleName[] =
 {
-    (CBIOS_UCHAR*)"[DISP] General ",
-    (CBIOS_UCHAR*)"[DISP] MHL ",
-    (CBIOS_UCHAR*)"[DISP] DSI ",
-    (CBIOS_UCHAR*)"[DISP] HDMI ",
-    (CBIOS_UCHAR*)"[DISP] DP ",
+    (CBIOS_UCHAR*)"[GFDISP] General ",
+    (CBIOS_UCHAR*)"[GFDISP] MHL ",
+    (CBIOS_UCHAR*)"[GFDISP] DSI ",
+    (CBIOS_UCHAR*)"[GFDISP] HDMI ",
+    (CBIOS_UCHAR*)"[GFDISP] DP ",
 };
 
 CBIOS_UCHAR* DebugLevelName[] =
@@ -54,186 +50,64 @@ CBIOS_UCHAR* DebugLevelName[] =
     (CBIOS_UCHAR*)"Trace:  ",
 };
 
-
-#ifndef __LINUX__
-CBIOS_VOID cbPrintMessage(CBIOS_U32 DebugPrintLevel, CBIOS_CHAR *DebugMessage, ...)
+CBIOS_UCHAR*  cbGetDebugPrefix(CBIOS_U32  Level)
 {
-    va_list     args;
-    CBIOS_UCHAR *pDebugString;
-    CBIOS_BOOL  isSkipPrint = CBIOS_TRUE;
-    CBIOS_U32   preLen = 0;
+    CBIOS_U32 index = 0;
+    DbgBuffer[0] = '\0';
 
-    if(((DebugPrintLevel & 0xFF) <= MaxDbgLevel) || ((DebugPrintLevel & ModuleMask) &&((DebugPrintLevel & 0xFF) <= ModuleMaskLevel )))
+    Level &= 0xFFFF;
+
+    index = Level >> 8;
+    if (index < sizeofarray(ModuleName))
     {
-        isSkipPrint = CBIOS_FALSE;
+        cbStrCat(DbgBuffer, ModuleName[index]);
     }
 
-    if (isSkipPrint)
+    index = Level & 0xff;
+    if (index < sizeofarray(DebugLevelName))
     {
-        return;
+        cbStrCat(DbgBuffer, DebugLevelName[index]);
     }
 
-    pDebugString = cbGetDebugBuffer(DebugPrintLevel & 0xFFFF);
+    return DbgBuffer;
+}
 
-    if(pDebugString == CBIOS_NULL)
+CBIOS_BOOL  cbCheckDebugLevel(CBIOS_U32  DbgFlag)
+{
+    CBIOS_U32  Level = DbgFlag & 0xFF;
+    CBIOS_U32  ModuIndex = (DbgFlag >> 8) & 0xFF;
+
+    if((Level <= MaxDbgLevel) || (((1 << ModuIndex) & ModuleMask) &&(Level <= ModuleMaskLevel )))
     {
-        return;
-    }
-
-    preLen = cbAddPrefix(DebugPrintLevel, pDebugString);
-
-    va_start(args, DebugMessage);
-
-    if (cbVsprintf != CBIOS_NULL)
-    {
-        //new driver has the callback function
-        cbVsprintf(pDebugString + preLen, DebugMessage, args);
+        return CBIOS_TRUE;
     }
     else
     {
-
-        //old driver has no callback function, then use standard lib function
-        vsprintf(pDebugString + preLen, DebugMessage, args);
-
+        return CBIOS_FALSE;
     }
-
-    va_end(args);
-
-    cb_DbgPrint((DebugPrintLevel & 0xFF), pDebugString);
-
-    return;
 }
-#endif
 
 CBIOS_VOID cbDelayMilliSeconds(CBIOS_U32  Milliseconds)
 {
     cb_DelayMicroSeconds(1000*Milliseconds);
 }
 
-CBIOS_U32  cbAddPrefix(CBIOS_U32  Level, CBIOS_UCHAR*  pBuffer)
-{
-    CBIOS_U32 index = 0;
-    pBuffer[0] = '\0';
-
-#ifdef  __LINUX__
-    if((Level & 0xFF000000) == BACK_OUTPUT && cbVsnprintf != CBIOS_NULL)
-    {
-        cbVsnprintf(pBuffer, CBIOSDEBUGMESSAGEMAXBYTES, "%d.", TimeStamp);
-        TimeStamp++;
-    }
-#endif
-
-    Level &= 0xFFFF;
-    if(Level >> 8)
-    {
-        index = cbGetLastBitIndex(Level >> 8);
-    }
-
-    if (index < sizeofarray(ModuleName))
-    {
-        cbStrCat(pBuffer, ModuleName[index]);
-    }
-
-    index = Level & 0xff;
-    if (index < sizeofarray(DebugLevelName))
-    {
-        cbStrCat(pBuffer, DebugLevelName[index]);
-    }
-
-    return cbStrLen(pBuffer);
-}
-
-CBIOS_VOID  cbPrintWithDbgFlag(CBIOS_U32  DbgFlag, CBIOS_UCHAR*  pBuffer)
-{
-    if((DbgFlag & 0xFF000000) == BACK_OUTPUT)
-    {
-        return;
-    }
-
-    if(((DbgFlag & 0xFF) <= MaxDbgLevel) || ((DbgFlag & ModuleMask) &&((DbgFlag & 0xFF) <= ModuleMaskLevel )))
-    {
-        if(pBuffer != CBIOS_NULL)
-        {
-            cb_DbgPrint(0, pBuffer);
-        }
-    }
-}
-
 CBIOS_STATUS  cbDbgLevelCtl(PCBIOS_DBG_LEVEL_CTRL  pDbgLevelCtl)
 {
-    CBIOS_U32  BackBufCtrl = 0;
+
     if(pDbgLevelCtl->bGetValue)
     {
-        pDbgLevelCtl->DbgLevel = MaxDbgLevel | ModuleMask | (ModuleMaskLevel << 16);
-        pDbgLevelCtl->DbgLevel |= ((bEnableBackOutput)? 1 : 0) << 24;
+        pDbgLevelCtl->DbgLevel = MaxDbgLevel |(ModuleMask << 8)| (ModuleMaskLevel << 16);
     }
     else
     {
         ModuleMaskLevel = (pDbgLevelCtl->DbgLevel >> 16) & 0xFF;
-        ModuleMask = pDbgLevelCtl->DbgLevel & 0xFF00;
+        ModuleMask = (pDbgLevelCtl->DbgLevel >> 8) & 0xFF;
         MaxDbgLevel = pDbgLevelCtl->DbgLevel & 0xFF;
-        BackBufCtrl = pDbgLevelCtl->DbgLevel >> 24;
-        bEnableBackOutput = (BackBufCtrl && BackBufCtrl != 0xFF)? CBIOS_TRUE : CBIOS_FALSE;
-        if(BackBufCtrl == 0xFF)
-        {
-            CBIOS_U32  Index = 0;
-            CBIOS_UCHAR* pBuffer = CBIOS_NULL;
-            if(pBackBuf)
-            {
-                for(Index = 0; Index < BACK_BUFFER_COUNT; Index++)
-                {
-                    pBuffer = pBackBuf + Index * CBIOSDEBUGMESSAGEMAXBYTES;
-                    cb_DbgPrint(0, pBuffer);
-                }
-                cb_FreePool(pBackBuf);
-                pBackBuf = CBIOS_NULL;
-            }
-        }
     }
     return CBIOS_OK;
 }
 
-CBIOS_UCHAR*  cbGetDebugBuffer(CBIOS_U32  DbgFlag)
-{
-    CBIOS_UCHAR*  pBuffer = CBIOS_NULL;
-    if((DbgFlag & 0xFF000000) == BACK_OUTPUT)
-    {
-        if(bEnableBackOutput)
-        {
-            if(pBackBuf == CBIOS_NULL)
-            {
-                pBackBuf = (CBIOS_UCHAR*)cb_AllocateNonpagedPool(CBIOSDEBUGMESSAGEMAXBYTES * BACK_BUFFER_COUNT);
-                BackBufIndex = 0;
-                TimeStamp = 0;
-            }
-            pBuffer = pBackBuf + BackBufIndex * CBIOSDEBUGMESSAGEMAXBYTES;
-            BackBufIndex = (BackBufIndex+1) % BACK_BUFFER_COUNT;
-        }
-    }
-    else
-    {
-        if(pDebugBuf == CBIOS_NULL)
-        {
-            pDebugBuf = (CBIOS_UCHAR*)cb_AllocateNonpagedPool(CBIOSDEBUGMESSAGEMAXBYTES);
-        }
-        pBuffer = pDebugBuf;
-    }
-    return pBuffer;
-}
-
-CBIOS_VOID  cbReleaseDebugBuffer(CBIOS_VOID)
-{
-    if(pDebugBuf != CBIOS_NULL)
-    {
-        cb_FreePool(pDebugBuf);
-        pDebugBuf = CBIOS_NULL;
-    }
-    if(pBackBuf != CBIOS_NULL)
-    {
-        cb_FreePool(pBackBuf);
-        pBackBuf = CBIOS_NULL;
-    }
-}
 
 CBIOS_BOARD_VERSION cbGetBoardVersion(PCBIOS_VOID pvcbe)
 {
@@ -386,5 +260,70 @@ CBIOS_U32 cbRound(CBIOS_U32 Dividend, CBIOS_U32 Divisor, CBIOS_ROUND_METHOD Roun
     return ulRet;
 
 }
+
+CBIOS_S32  cbStrnCmp(CBIOS_UCHAR *pStr1, CBIOS_UCHAR * pStr2, CBIOS_U32  Lenth)
+{
+    CBIOS_U32 i = 0;
+    CBIOS_S32  Ret = 0;
+
+    if(!pStr1 || !pStr2)
+    {
+        return 0;
+    }
+
+    for(i = 0; i < Lenth; i++)
+    {
+        if(!pStr1[i] || !pStr2[i] || (pStr1[i] != pStr2[i]))
+        {
+            Ret = pStr1[i] - pStr2[i];
+            break;
+        }
+    }
+
+    return  Ret;
+}
+
+CBIOS_S32  cbStrCmp(CBIOS_UCHAR *pStr1, const CBIOS_UCHAR * pStr2)
+{
+    CBIOS_S32  Ret = 0;
+
+    if(!pStr1 || !pStr2)
+    {
+        return 0;
+    }
+
+    while(*pStr1 == *pStr2)
+    {
+        if(*pStr1 == '\0')
+        {
+            return 0;
+        }
+        pStr1++;
+        pStr2++;
+    }
+    Ret = *pStr1 -*pStr2;
+
+    return Ret;
+}
+
+PCBIOS_UCHAR cbStrCpy(CBIOS_UCHAR *pStrDst, CBIOS_UCHAR * pStrSrc)
+{
+    CBIOS_UCHAR *pTmp = pStrDst;
+
+    if(!pStrDst || !pStrSrc)
+    {
+        return CBIOS_NULL;
+    }
+
+    while(*pStrSrc)
+    {
+        *pTmp++ = *pStrSrc++;
+    }
+
+    *pTmp = '\0';
+
+    return pStrDst;
+}
+
 
 

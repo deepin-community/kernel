@@ -472,12 +472,12 @@ static inline unsigned int NearestLog2(unsigned int  val)
  */
 typedef enum _SEGMENT_ID_E3K
 {
-    SEGMENT_ID_INVALID_E3K                  = 0x0,
-    SEGMENT_ID_LOCAL_E3K                    = 0x1,
-    SEGMENT_ID_GART_UNSNOOPABLE_E3K         = 0x2,
-    SEGMENT_ID_GART_SNOOPABLE_E3K           = 0x3,
-    SEGMENT_ID_LOCAL_CPU_UNVISIABLE_E3K     = 0x4,
-    SEGMENT_ID_LOCAL_CPU_UNVISIABLE_E3K_1   = 0x5,
+    SEGMENT_ID_INVALID_E3K                  = 0x0,  //invalid
+    SEGMENT_ID_LOCAL_E3K                    = 0x1,  //local low /local cpu visible/pcie bar memory range
+    SEGMENT_ID_GART_UNSNOOPABLE_E3K         = 0x2,  //pcie unsnoop
+    SEGMENT_ID_GART_SNOOPABLE_E3K           = 0x3,  //pcie snoonp
+    SEGMENT_ID_LOCAL_CPU_UNVISIABLE_E3K     = 0x4,  //local video/local cpu unvisible and inside 4G
+    SEGMENT_ID_LOCAL_CPU_UNVISIABLE_E3K_1   = 0x5,  //local high/local cpu unvisible and outside 4G
     SEGMENT_ID_SECURE_RANGE_E3K             = 0x6,
     SEGMENT_ID_SECURE_RANGE_E3K_1           = 0x7,
     SEGMENT_ID_MAX_E3K                      = 0x8,

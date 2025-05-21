@@ -48,7 +48,11 @@
 #endif
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(5, 14, 0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
 #include <drm/drm_aperture.h>
+#else
+#include <linux/aperture.h>
+#endif
 #endif
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(5, 5, 0)

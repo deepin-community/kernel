@@ -34,6 +34,9 @@
 #define __STR(x)    #x
 #define STR(x)      __STR(x)
 
+#define GF_S4_RESUME  0x01
+#define GF_SHUT_DOWN 0x02
+
 typedef struct gf_file gf_file_t;
 
 typedef int (*gf_ioctl_t)(struct drm_device *dev, void *data,struct drm_file *filp);
@@ -75,7 +78,6 @@ typedef struct
     struct os_pages_memory *trace_buffer;
     gf_vm_area_t        *trace_buffer_vma;
 
-#define GF_S4_RESUME  0x01
     unsigned int flags;
     unsigned int fps_count;
     unsigned int rxa_blt_scn_cnt;
@@ -83,6 +85,7 @@ typedef struct
     unsigned long       allocation_trace_tags; // allocation trace tags, 0 to disable.
     unsigned int video_irq_info_all;
     int runtime_pm;
+    unsigned long long primary_addr[MAX_CORE_CRTCS];
 }gf_card_t;
 
 struct gf_file

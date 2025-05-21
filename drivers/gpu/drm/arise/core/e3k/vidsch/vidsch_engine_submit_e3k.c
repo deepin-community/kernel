@@ -27,7 +27,6 @@
 #include "vidsch_engine_e3k.h"
 #include "vidsch_debug_hang_e3k.h"
 #include "ring_buffer.h"
-#include "context.h"
 #include "perfevent.h"
 
 reg_debug_mode_e3k debug_mode_e3k = {0};
@@ -304,7 +303,6 @@ static int enginei_submit_to_gfx_high_e3k(engine_e3k_t *engine, task_dma_t *task
     unsigned int * pRB1 = NULL;
     Cmd_Blk_Cmd_Csp_Indicator_Dword1 trigger_Dw = {0};
     Csp_Opcodes_cmd         cmd                 = {0};
-    unsigned int dwRealRBSize;
     RINGBUFFER_COMMANDS_E3K *pRingBufferCommands = (RINGBUFFER_COMMANDS_E3K*)share->RingBufferCommands;
     RB_PREDEFINE_DMA        *pPredefine         = (RB_PREDEFINE_DMA*)share->begin_end_vma->virt_addr;
     CONTEXT_RESTORE_DMA_E3K *pRestoreDMA        = &(pPredefine->RestoreDMA);
@@ -519,14 +517,6 @@ static int enginei_submit_to_gfx_high_e3k(engine_e3k_t *engine, task_dma_t *task
 
     cmd.cmd_Tbr_Indicator.Indicator_Info = TBR_INDICATOR_INDICATOR_INFO_BEGIN;
     *pRB++ = cmd.uint;
-
-    dwRealRBSize = pRB - pRB0;
-
-//    dwAlignRBSize = (((dwRealRBSize) + 15) & ~15);
-//    if (dwAlignRBSize != dwRbSize)
-//    {
-//        *pRB++ = SEND_SKIP_E3K(dwRbSize - dwRealRBSize);
-//    }
 
     gf_memcpy(pRB1, pRB0, (dwRbSize<<2));
     //util_dump_memory(pRB1, dwRbSize<<2, "high dma in rb");

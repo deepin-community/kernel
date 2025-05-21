@@ -22,7 +22,6 @@
  *
  */
 #include "gf_adapter.h"
-#include "gf_def.h"
 #include "vidmm.h"
 #include "vidsch.h"
 #include "vidmmi.h"

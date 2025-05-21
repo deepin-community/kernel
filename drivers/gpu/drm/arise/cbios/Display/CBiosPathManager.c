@@ -26,6 +26,7 @@
 #include "CBiosChipShare.h"
 #include "../Hw/HwBlock/CBiosDIU_HDCP.h"
 #include "../Hw/HwBlock/CBiosDIU_HDTV.h"
+#include "../Hw/HwBlock/CBiosDIU_DP.h"
 #include "../Hw/HwBlock/CBiosDIU_HDMI.h"
 
 
@@ -356,12 +357,20 @@ CBIOS_MODULE_INDEX cbGetModuleIndex(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE Device,
     {
     case CBIOS_MODULE_TYPE_DP:
         ModuleIndex = pSource->ModuleList.DPModule.Index;
+        if(ModuleIndex >= DP_MODU_NUM)
+        {
+            ModuleIndex = CBIOS_MODULE_INDEX_INVALID;
+        }
         break;
     case CBIOS_MODULE_TYPE_MHL:
         ModuleIndex = pSource->ModuleList.MHLModule.Index;
         break;
     case CBIOS_MODULE_TYPE_HDMI:
         ModuleIndex = pSource->ModuleList.HDMIModule.Index;
+        if(ModuleIndex >= HDMI_MODU_NUM)
+        {
+            ModuleIndex = CBIOS_MODULE_INDEX_INVALID;
+        }
         break;
     case CBIOS_MODULE_TYPE_HDTV:
         ModuleIndex = pSource->ModuleList.HDTVModule.Index;
@@ -374,6 +383,10 @@ CBIOS_MODULE_INDEX cbGetModuleIndex(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE Device,
         break;
     case CBIOS_MODULE_TYPE_IGA:
         ModuleIndex = pSource->ModuleList.IGAModule.Index;
+        if((CBIOS_U32)ModuleIndex >= pcbe->DispMgr.IgaCount)
+        {
+            ModuleIndex = CBIOS_MODULE_INDEX_INVALID;
+        }
         break;
     default:
         cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: invalid module type: %d!\n", FUNCTION_NAME, ModuleType));
@@ -382,7 +395,7 @@ CBIOS_MODULE_INDEX cbGetModuleIndex(PCBIOS_VOID pvcbe, CBIOS_ACTIVE_TYPE Device,
 
     if (ModuleIndex == CBIOS_MODULE_INDEX_INVALID)
     {
-        cbDebugPrint((MAKE_LEVEL(GENERIC, WARNING), "%s: invalid module index of module: %d!\n", FUNCTION_NAME, ModuleType));
+        cbDebugPrint((MAKE_LEVEL(GENERIC, INFO), "%s: Invalid module %d for device 0x%x!\n", FUNCTION_NAME, ModuleType, Device));
     }
 
     return ModuleIndex;

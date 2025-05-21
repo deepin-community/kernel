@@ -51,6 +51,12 @@ typedef struct {
 #define to_gf_bo(gem) container_of(gem, struct drm_gf_gem_object, base)
 #define dmabuf_to_gf_bo(dmabuf) to_gf_bo((struct drm_gem_object*)((dmabuf)->priv))
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
+#define bo_resv(bo)  ((bo)->resv)
+#else
+#define bo_resv(bo)  ((bo)->base.resv)
+#endif
+
 static inline unsigned int gf_gem_get_core_handle(gf_file_t *file, unsigned int handle)
 {
     struct drm_gem_object *gem;

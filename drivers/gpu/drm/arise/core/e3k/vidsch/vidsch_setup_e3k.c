@@ -713,6 +713,7 @@ vidschedule_chip_func_t vidschedule_chip_func =
     .dump_info             = vidsch_dump_info_e3k,
     .dump_debugbus         = vidsch_dump_debugbus_e3k,
     .power_tuning          = vidsch_power_tuning_e3k,
+    .boost                 = vidsch_boost_e3k,
     .get_set_reg           = vidsch_get_set_reg_e3k,
 };
 

@@ -41,26 +41,25 @@ static CBIOS_U32 cbGetVsyncWidth(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 XRes, C
         return ulRet;
     }
     ulTemp = XRes*100/YRes;
-    if((ulTemp<134)&&(ulTemp>132))
+    switch(ulTemp)
     {
-        ulRet = 4;
+        case 133:
+            ulRet = 4;
+            break;
+        case 177:
+            ulRet = 5;
+            break;
+        case 160:
+            ulRet = 6;
+            break;
+        case 166:
+            ulRet = 7;
+            break;
+        default:
+            ulRet = 10;
+            break;
     }
-    else if((ulTemp<178)&&(ulTemp>176))
-    {
-        ulRet = 5;
-    }
-    else if((ulTemp<161)&&(ulTemp>159))
-    {
-        ulRet = 6;
-    }
-    else if((ulTemp<167)&&(ulTemp>165))
-    {
-        ulRet = 7;
-    }
-    else
-    {
-        ulRet = 10;
-    }
+
     return ulRet;
 }
 

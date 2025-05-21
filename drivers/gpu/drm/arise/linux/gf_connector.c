@@ -306,7 +306,11 @@ END:
 }
 
 static enum drm_mode_status
+#if DRM_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
+gf_connector_mode_valid(struct drm_connector *connector, const struct drm_display_mode *mode)
+#else
 gf_connector_mode_valid(struct drm_connector *connector, struct drm_display_mode *mode)
+#endif
 {
     gf_connector_t *gf_connector = to_gf_connector(connector);
     int max_clock;

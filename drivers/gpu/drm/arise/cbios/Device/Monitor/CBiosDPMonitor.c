@@ -140,8 +140,8 @@ static CBIOS_BOOL cbDPMonitor_LinkTrainingHw(PCBIOS_EXTENSION_COMMON pcbe, PCBIO
     bStatus = cbDIU_DP_LinkTrainingHw(pcbe, DPModuleIndex, &LinkTrainingParams);
     if (bStatus)
     {
-        pDPMonitorContext->LinkSpeedToUse = LinkTrainingParams.CurrLinkSpeed;
-        pDPMonitorContext->LaneNumberToUse = LinkTrainingParams.CurrLaneCount;
+        pDPMonitorContext->LinkPassSpeed = LinkTrainingParams.CurrLinkSpeed;
+        pDPMonitorContext->LinkPassLaneNum = LinkTrainingParams.CurrLaneCount;
     }
 
     cbTraceExit(DP);
@@ -155,6 +155,7 @@ static CBIOS_BOOL cbDPMonitor_GetAutoTestDpcdData(PCBIOS_EXTENSION_COMMON pcbe, 
     AUX_CONTROL     AUX;
     DPCD_REG_00219  DPCD_00219;
     DPCD_REG_00220  DPCD_00220;
+    CBIOS_U32  LaneNum = 0, LinkSpeed = 0;
 
     AUX.Function = CBIOS_AUX_REQUEST_NATIVE_READ;
     AUX.Offset = 0x219;
@@ -168,15 +169,15 @@ static CBIOS_BOOL cbDPMonitor_GetAutoTestDpcdData(PCBIOS_EXTENSION_COMMON pcbe, 
     DPCD_00219.Value = AUX.Data[0] & 0x000000FF;
     if (DPCD_00219.TEST_LINK_RATE == CBIOS_DPCD_LINK_RATE_5400Mbps)
     {
-        pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_5400Mbps;
+        LinkSpeed = CBIOS_DP_LINK_SPEED_5400Mbps;
     }
     else if (DPCD_00219.TEST_LINK_RATE == CBIOS_DPCD_LINK_RATE_2700Mbps)
     {
-        pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_2700Mbps;
+        LinkSpeed = CBIOS_DP_LINK_SPEED_2700Mbps;
     }
     else
     {
-        pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_1620Mbps;
+        LinkSpeed = CBIOS_DP_LINK_SPEED_1620Mbps;
     }
 
     AUX.Function = CBIOS_AUX_REQUEST_NATIVE_READ;
@@ -190,12 +191,16 @@ static CBIOS_BOOL cbDPMonitor_GetAutoTestDpcdData(PCBIOS_EXTENSION_COMMON pcbe, 
     DPCD_00220.Value = AUX.Data[0] & 0x000000FF;
     if ((DPCD_00220.TEST_LANE_COUNT == 0x01) || (DPCD_00220.TEST_LANE_COUNT == 0x02) || (DPCD_00220.TEST_LANE_COUNT == 0x04))
     {
-        pDPMonitorContext->LaneNumberToUse = DPCD_00220.TEST_LANE_COUNT;
+        LaneNum = DPCD_00220.TEST_LANE_COUNT;
     }
     else
     {
-        cbDebugPrint((MAKE_LEVEL(DP, WARNING), "%s: Invalid lane count:%d!\n", FUNCTION_NAME, DPCD_00220.TEST_LANE_COUNT));
+        cbDebugPrint((MAKE_LEVEL(DP, ERROR), "%s: Invalid lane count:%d!\n", FUNCTION_NAME, DPCD_00220.TEST_LANE_COUNT));
+        return CBIOS_FALSE;
     }
+
+    pDPMonitorContext->LaneNumberToUse = LaneNum;
+    pDPMonitorContext->LinkSpeedToUse = LinkSpeed;
 
     return CBIOS_TRUE;
 }
@@ -214,25 +219,6 @@ static CBIOS_BOOL cbDPMonitor_GetSinkCapsFromSpecificPlace(PCBIOS_EXTENSION_COMM
     }
     else
     {
-        if (pDPMonitorContext->LaneNumberToUse > 4)
-        {
-            pDPMonitorContext->LaneNumberToUse = 4;      // Default use 4 lanes
-            cbDebugPrint((MAKE_LEVEL(DP, DEBUG), "%s: Use default 4 lanes!\n", FUNCTION_NAME));
-        }
-
-        if ((pDPMonitorContext->LinkSpeedToUse != CBIOS_DP_LINK_SPEED_1620Mbps) &&
-            (pDPMonitorContext->LinkSpeedToUse != CBIOS_DP_LINK_SPEED_2700Mbps) &&
-            (pDPMonitorContext->LinkSpeedToUse != CBIOS_DP_LINK_SPEED_5400Mbps))
-        {
-            pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_1620Mbps;
-            cbDebugPrint((MAKE_LEVEL(DP, DEBUG),"%s: Use default 1.62Gbps!\n", FUNCTION_NAME));
-        }
-        pDPMonitorContext->EnhancedMode = pDPMonitorContext->bSupportEnhanceMode;
-        pDPMonitorContext->AsyncMode = 0x01;
-        pDPMonitorContext->DynamicRange = 0;
-        pDPMonitorContext->YCbCrCoefficients = 0;
-        pDPMonitorContext->TUSize = DP_Default_TUSize;
-
         return CBIOS_FALSE;
     }
 
@@ -254,18 +240,30 @@ static CBIOS_BOOL cbDPMonitor_GetSinkCapsFromSpecificPlace(PCBIOS_EXTENSION_COMM
             pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_1620Mbps;
         }
 
-        pDPMonitorContext->bpc = pUserTiming->BitDepthPerComponet;
+        if(pUserTiming->DClk)
+        {
+            pDPMonitorContext->bpc = pUserTiming->BitDepthPerComponet;
 
-        pDPMonitorContext->AsyncMode = (pUserTiming->ClockSynAsyn == 0) ? 1 : 0;
-        pDPMonitorContext->ColorFormat = pUserTiming->ColorFormat;
-        pDPMonitorContext->DynamicRange = pUserTiming->DynamicRange;
-        pDPMonitorContext->YCbCrCoefficients = pUserTiming->YCbCrCoefficients;
-        pDPMonitorContext->EnhancedMode = pUserTiming->EnhancedFrameMode;
+            pDPMonitorContext->AsyncMode = (pUserTiming->ClockSynAsyn == 0) ? 1 : 0;
+            pDPMonitorContext->ColorFormat = pUserTiming->ColorFormat;
+            pDPMonitorContext->DynamicRange = pUserTiming->DynamicRange;
+            pDPMonitorContext->YCbCrCoefficients = pUserTiming->YCbCrCoefficients;
+            pDPMonitorContext->EnhancedMode = pUserTiming->EnhancedFrameMode;
+        }
 
         cbDebugPrint((MAKE_LEVEL(DP, DEBUG), "%s: LinkRate = %d, LaneCount = %d, bpc = %d, Async = %d\n", FUNCTION_NAME,
             pDPMonitorContext->LinkSpeedToUse, pDPMonitorContext->LaneNumberToUse, pDPMonitorContext->bpc, pDPMonitorContext->AsyncMode));
         cbDebugPrint((MAKE_LEVEL(DP, DEBUG), "%s: ColorFormat = %d, DynamicRange = %d, YCbCrCoefficients = %d, EnhancedMode = %d\n", FUNCTION_NAME,
             pDPMonitorContext->ColorFormat,pDPMonitorContext->DynamicRange, pDPMonitorContext->YCbCrCoefficients, pDPMonitorContext->EnhancedMode));
+
+        /*In order to pass dp cts on unigraf DPR-120, use max link rate and max lane count,
+          because dpcd timing perhaps don't update, but these two params update everytime.
+        */
+        if(pcbe->SpecifyDestTimingSrc[IGAIndex].Flag == 2)
+        {
+            pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
+            pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
+        }
 
         return CBIOS_TRUE;
     }
@@ -282,7 +280,8 @@ static CBIOS_VOID cbDPMonitor_DetermineLinkTrainingPara(PCBIOS_EXTENSION_COMMON 
     CBIOS_MODULE_INDEX DPModuleIndex = cbGetModuleIndex(pcbe, pDPMonitorContext->pDevCommon->DeviceType, CBIOS_MODULE_TYPE_DP);
     PCBIOS_DP_CONTEXT  pDpContext = container_of(pDPMonitorContext->pDevCommon, PCBIOS_DP_CONTEXT, Common);
     PCBIOS_EDPPanel_PARAMS    pEDPPanelDevice =  &(pDPMonitorContext->pDevCommon->DeviceParas.EDPPanelDevice);
-    CBIOS_BOOL bUsingSinkMax = CBIOS_FALSE;
+    CBIOS_U32  LinkSpeed = 0, LaneNum = 0;
+    CBIOS_BOOL  bGotLinkPara = CBIOS_FALSE;
 
     IGAIndex = DPModuleIndex;
 
@@ -293,92 +292,72 @@ static CBIOS_VOID cbDPMonitor_DetermineLinkTrainingPara(PCBIOS_EXTENSION_COMMON 
         pcbe->SpecifyDestTimingSrc[IGAIndex].Flag = 2;
     }
 
-    if((pcbe->SpecifyDestTimingSrc[IGAIndex].Flag == 2) && (pDPMonitorContext->TestDpcdDataTiming.DClk == 0))
-    {
-        pcbe->SpecifyDestTimingSrc[IGAIndex].Flag = 0;
-        bUsingSinkMax = CBIOS_TRUE;
-    }
-
     if (isAutoTest)
     {
-        cbDPMonitor_GetAutoTestDpcdData(pcbe, pDPMonitorContext);
+        bGotLinkPara = cbDPMonitor_GetAutoTestDpcdData(pcbe, pDPMonitorContext);
     }
     else if (pcbe->SpecifyDestTimingSrc[IGAIndex].Flag & 0x03)
     {
-        cbDPMonitor_GetSinkCapsFromSpecificPlace(pcbe, pDPMonitorContext, IGAIndex);
-
-        /*In order to pass dp cts on unigraf DPR-120, use max link rate and max lane count,
-          because dpcd timing perhaps don't update, but these two params update everytime.
-        */
-        if(pcbe->SpecifyDestTimingSrc[IGAIndex].Flag == 2)
-        {
-            pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
-            pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
-        }
+        bGotLinkPara = cbDPMonitor_GetSinkCapsFromSpecificPlace(pcbe, pDPMonitorContext, IGAIndex);
     }
-    else
+
+    if(!bGotLinkPara)
     {
         if(pDPMonitorContext->bpc > DP_Default_bpc)
         {
             pDPMonitorContext->bpc = DP_Default_bpc;
         }
 
-        pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
+        LaneNum = pDPMonitorContext->SinkMaxLaneCount;
 
         // choose Link Speed according to current mode's pixel clock
-        MaxSupportClock_2700Mbps = (CBIOS_DP_LINK_SPEED_2700Mbps / (pDPMonitorContext->bpc * 3))
-                                   * pDPMonitorContext->LaneNumberToUse * 8;
-        MaxSupportClock_1620Mbps = (CBIOS_DP_LINK_SPEED_1620Mbps / (pDPMonitorContext->bpc * 3))
-                                   * pDPMonitorContext->LaneNumberToUse * 8;
+        MaxSupportClock_2700Mbps = (CBIOS_DP_LINK_SPEED_2700Mbps / (pDPMonitorContext->bpc * 3)) * LaneNum * 8;
+        MaxSupportClock_1620Mbps = (CBIOS_DP_LINK_SPEED_1620Mbps / (pDPMonitorContext->bpc * 3)) * LaneNum * 8;
         if (pDPMonitorContext->TargetTiming.PixelClock < MaxSupportClock_1620Mbps)
         {
-            pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_1620Mbps;
+            LinkSpeed = CBIOS_DP_LINK_SPEED_1620Mbps;
         }
         else if (pDPMonitorContext->TargetTiming.PixelClock < MaxSupportClock_2700Mbps)
         {
-            pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_2700Mbps;
+            LinkSpeed = CBIOS_DP_LINK_SPEED_2700Mbps;
         }
         else
         {
-            pDPMonitorContext->LinkSpeedToUse = CBIOS_DP_LINK_SPEED_5400Mbps;
+            LinkSpeed = CBIOS_DP_LINK_SPEED_5400Mbps;
         }
 
-        if (pDPMonitorContext->LinkSpeedToUse > pDPMonitorContext->SinkMaxLinkSpeed)
+        if (LinkSpeed > pDPMonitorContext->SinkMaxLinkSpeed)
         {
-            pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
-        }
-
-        if(bUsingSinkMax)//for dp cts
-        {
-            pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
-            pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
+            LinkSpeed = pDPMonitorContext->SinkMaxLinkSpeed;
         }
 
         if(cbDPMonitor_IsEDPSupported(pcbe, DPModuleIndex))
         {
             if(pEDPPanelDevice &&pEDPPanelDevice->EDPPanelDesc.EDPCaps.isHardcodeLinkPara)
             {
-                pDPMonitorContext->LinkSpeedToUse = pEDPPanelDevice->EDPPanelDesc.EDPCaps.LinkSpeed;
-                pDPMonitorContext->LaneNumberToUse = pEDPPanelDevice->EDPPanelDesc.EDPCaps.LaneNum;
+                LinkSpeed = pEDPPanelDevice->EDPPanelDesc.EDPCaps.LinkSpeed;
+                LaneNum = pEDPPanelDevice->EDPPanelDesc.EDPCaps.LaneNum;
             }
             else
             {
-                pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
-                pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
+                LinkSpeed = pDPMonitorContext->SinkMaxLinkSpeed;
+                LaneNum = pDPMonitorContext->SinkMaxLaneCount;
             }
         }
 
         /* To avoid exceeding max clock when lighten 10bpc or higher, use default bpc*/
-        MaxClockForCurrentLinkSpeed = (pDPMonitorContext->LinkSpeedToUse / (pDPMonitorContext->bpc * 3))
-                                        * pDPMonitorContext->LaneNumberToUse * 8;
-        if(pDPMonitorContext->TargetTiming.PixelClock > MaxClockForCurrentLinkSpeed)
+        MaxClockForCurrentLinkSpeed = (LinkSpeed / (pDPMonitorContext->bpc * 3)) * LaneNum * 8;
+        if(pDPMonitorContext->TargetTiming.PixelClock > MaxClockForCurrentLinkSpeed
+            && pDPMonitorContext->bpc > DP_Default_bpc)
         {
-            cbDebugPrint((MAKE_LEVEL(DP, WARNING), "%s: Current link speed(%d) can't lighten to PixelClock(%d) with %d bit, use default bpc\n",
-                            FUNCTION_NAME, pDPMonitorContext->LinkSpeedToUse, pDPMonitorContext->TargetTiming.PixelClock,
-                            pDPMonitorContext->bpc));
+            cbDebugPrint((MAKE_LEVEL(DP, DEBUG), "%s: LinkSpeed(%d) can't support PixelClock(%d) with %d bit, use default bpc\n",
+                            FUNCTION_NAME, LinkSpeed, pDPMonitorContext->TargetTiming.PixelClock, pDPMonitorContext->bpc));
 
             pDPMonitorContext->bpc = DP_Default_bpc;
         }
+
+        pDPMonitorContext->LinkSpeedToUse = LinkSpeed;
+        pDPMonitorContext->LaneNumberToUse = LaneNum;
     }
 
     // determine final link training params according to Source's caps
@@ -446,8 +425,8 @@ CBIOS_BOOL cbDPMonitor_SetUpMainLink(PCBIOS_VOID pvcbe, PCBIOS_DP_MONITOR_CONTEX
     }
 
     MainLinkParams.pTiming = pTiming;
-    MainLinkParams.LaneNumberToUse = pDPMonitorContext->LaneNumberToUse;
-    MainLinkParams.LinkSpeedToUse = pDPMonitorContext->LinkSpeedToUse;
+    MainLinkParams.LinkedLaneNumber = pDPMonitorContext->LinkPassLaneNum;
+    MainLinkParams.LinkedSpeed = pDPMonitorContext->LinkPassSpeed;
     MainLinkParams.bpc = pDPMonitorContext->bpc;
     MainLinkParams.TUSize = pDPMonitorContext->TUSize;
     MainLinkParams.AsyncMode = pDPMonitorContext->AsyncMode;
@@ -1069,10 +1048,6 @@ static CBIOS_BOOL cbDPMonitor_GetSinkCaps(PCBIOS_EXTENSION_COMMON pcbe, PCBIOS_D
         }
     }
 
-    //initialize current link speed and lane count to max value
-    pDPMonitorContext->LinkSpeedToUse = pDPMonitorContext->SinkMaxLinkSpeed;
-    pDPMonitorContext->LaneNumberToUse = pDPMonitorContext->SinkMaxLaneCount;
-
     pDPMonitorContext->bpc = DP_Default_bpc;
     pDPMonitorContext->EnhancedMode = 0x01;
     pDPMonitorContext->AsyncMode = 0x01;
@@ -1420,7 +1395,7 @@ CBIOS_VOID cbDPMonitor_OnOff(PCBIOS_VOID pvcbe, PCBIOS_DP_MONITOR_CONTEXT pDPMon
         }
 
         // 2. turn on DP EPHY
-        cbPHY_DP_DPModeOnOff(pcbe, DPModuleIndex, pDPMonitorContext->LinkSpeedToUse, bOn);
+        cbPHY_DP_DPModeOnOff(pcbe, DPModuleIndex, pDPMonitorContext->LinkPassSpeed, bOn);
 
         // 3. Set Sink device to D0(normal operation mode) state
         cbDPMonitor_SetSinkPowerState(pcbe, DPModuleIndex, CBIOS_TRUE);
@@ -1478,7 +1453,7 @@ CBIOS_VOID cbDPMonitor_OnOff(PCBIOS_VOID pvcbe, PCBIOS_DP_MONITOR_CONTEXT pDPMon
         cbDPMonitor_SetSinkPowerState(pcbe, DPModuleIndex, CBIOS_FALSE);
 
         // 4. turn off DP EPHY
-        cbPHY_DP_DPModeOnOff(pcbe, DPModuleIndex, pDPMonitorContext->LinkSpeedToUse, bOn);
+        cbPHY_DP_DPModeOnOff(pcbe, DPModuleIndex, pDPMonitorContext->LinkPassSpeed, bOn);
 
         // 5. reset AUX
         cbDIU_DP_ResetAUX(pcbe, DPModuleIndex);
@@ -1995,7 +1970,7 @@ static CBIOS_BOOL cbDPMonitor_ProcLinkStatusCheck(PCBIOS_EXTENSION_COMMON pcbe, 
 
     // Link maintenance hot IRQ signal, need to check link/sink status field of DPCD.
     cbDebugPrint((MAKE_LEVEL(DP, DEBUG), "%s: Not a automated test IRQ, Link maitanance IRQ!\n", FUNCTION_NAME));
-    ulLaneNum = pDPMonitorContext->LaneNumberToUse;
+    ulLaneNum = pDPMonitorContext->LinkPassLaneNum;
 
     AUX.Function = CBIOS_AUX_REQUEST_NATIVE_READ;
     AUX.Offset = 0x202;

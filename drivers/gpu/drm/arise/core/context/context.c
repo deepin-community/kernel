@@ -217,13 +217,6 @@ gpu_context_t* cm_create_context(gpu_device_t *device, create_context_t *create_
     context->engine_index = cm_get_hw_ringbuffer_index(device->adapter, create_context->node_ordinal);
     context->is_kernel    = is_kernel;
 
-    context->context_ctrl = 1;
-    if(context->context_ctrl)
-    {
-      context->context_sema    = gf_create_sema(CONTEXT_TASK_QUEUE_LENGTH);
-    }
-
-
     cm_device_lock(device);
 
     list_add(&context->list_node, &device->context_list);
@@ -280,7 +273,7 @@ void cm_wait_context_idle(gpu_context_t *context)
         {
             vidsch_dump(NULL,adapter);
         }
-        gf_assert(idle, "context not idle");
+        gf_warning("wait context not idle\n");
     }
 }
 
@@ -290,11 +283,6 @@ void cm_destroy_context(gpu_device_t *device, gpu_context_t *context)
     cm_wait_context_idle(context);
 
     remove_handle(&device->adapter->hdl_mgr, context->handle);
-    if(context->context_ctrl)
-    {
-        gf_destroy_sema(context->context_sema);
-    }
-
 
     cm_device_lock(device);
 

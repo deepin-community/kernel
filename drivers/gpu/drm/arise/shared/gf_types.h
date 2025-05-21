@@ -120,6 +120,7 @@ typedef enum
     GF_FORMAT_S8_UINT          = 35,
 
     GF_FORMAT_B8G8R8A8_SRGB    = 36,
+    GF_FORMAT_AYUV_VIDEO       = 37,
 }gf_format;
 
 typedef struct

@@ -263,7 +263,11 @@ void gf_crtc_update_lut(struct drm_crtc_state *crtc_state)
         gamma[i] = ((b >> 6) & 0x3FF) + ((g << 4) & 0xFFC00) + ((r << 14) & 0x3FF00000);
     }
 
+    gf_mutex_lock(disp_info->gamma_lock);
+
     disp_cbios_set_gamma(disp_info, gf_crtc->pipe, gamma);
+
+    gf_mutex_unlock(disp_info->gamma_lock);
 
     gf_free(gamma);
 }
@@ -284,10 +288,10 @@ void gf_crtc_atomic_begin(struct drm_crtc *crtc, struct drm_crtc_state *old_crtc
     //do some prepare on specified crtc before update planes
     //for intel chip, it will wait until scan line is not in (vblank-100us) ~ vblank
     //will implement it later
-    if(crtc_state->color_mgmt_changed ||
+    if (crtc_state->color_mgmt_changed ||
        drm_atomic_crtc_needs_modeset(crtc_state))
     {
-        if(crtc_state->gamma_lut)
+        if (crtc_state->gamma_lut)
         {
             gf_crtc_update_lut(crtc_state);
         }
@@ -518,7 +522,12 @@ void gf_crtc_gamma_set(struct drm_crtc *crtc, u16 *red, u16 *green,
         gf_crtc->lut_entry[i] = (blue[i] >> 6) | ((green[i] << 4) & 0xFFC00) | ((red[i] << 14) & 0x3FF00000);
     }
 
+    gf_mutex_lock(disp_info->gamma_lock);
+
     disp_cbios_set_gamma(disp_info, gf_crtc->pipe, gf_crtc->lut_entry);
+
+    gf_mutex_unlock(disp_info->gamma_lock);
+
 #ifdef PHYTIUM_2000
      return 0;
 #endif

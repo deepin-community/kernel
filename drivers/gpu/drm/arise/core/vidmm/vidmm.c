@@ -742,6 +742,12 @@ int vidmm_save(adapter_t *adapter)
     if (adapter->fence_buf_local->backup)
         gf_memcpy(adapter->fence_buf_local->backup, adapter->fence_buf_local->reserved_memory->vma->virt_addr, 68 * 1024);
 
+    if (!adapter->fence_buf->reserved_memory->pages_mem)
+    {
+        adapter->fence_buf->backup = gf_malloc(512 * 1024);
+        if (adapter->fence_buf->backup)
+            gf_memcpy(adapter->fence_buf->backup, adapter->fence_buf->reserved_memory->vma->virt_addr, 512 * 1024);
+    }
 
     return result;
 }
@@ -783,12 +789,28 @@ void vidmm_restore(adapter_t *adapter)
     }
 #endif
 
+    if (gart_table_L3->backup)
+    {
+        gf_mutex_lock(adapter->gart_table_lock);
+        gart_table_L3->dirty = TRUE;
+        gart_table_L3->gart_table_dirty_addr = 0;
+        gart_table_L3->gart_table_dirty_mask = -1;
+        gf_mutex_unlock(adapter->gart_table_lock);
+    }
+
     if (adapter->fence_buf_local->backup)
     {
         gf_memcpy(adapter->fence_buf_local->reserved_memory->vma->virt_addr, adapter->fence_buf_local->backup, 68 * 1024);
         gf_free(adapter->fence_buf_local->backup);
     }
 
+    if (adapter->fence_buf->backup)
+    {
+        gf_memcpy(adapter->fence_buf->reserved_memory->vma->virt_addr, adapter->fence_buf->backup, 512 * 1024);
+        gf_free(adapter->fence_buf->backup);
+    }
+
+    adapter->fence_buf->backup = NULL;
     adapter->fence_buf_local->backup = NULL;
     gart_table_L3->backup = NULL;
     gart_table_L2->backup = NULL;

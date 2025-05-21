@@ -35,3 +35,29 @@ void glb_init_power_caps(adapter_t *adapter)
 {
     gf_warning("%s(): is blank, maybe implemented in other function()\n", util_remove_name_suffix(__func__));
 }
+
+int glb_detect_power_switch(adapter_t *adapter)
+{
+    int enabled = FALSE;
+    unsigned int value, tmp, retry;
+
+    gf_write32(adapter->mmio + 0x8E080, 0x1);
+
+    retry = 100;
+    while (retry > 0)
+    {
+        tmp = gf_read32(adapter->mmio + 0x8E000);
+        value = (tmp & 0x00ff0000) >> 16;
+        if (value == 0x22)
+        {
+            enabled = TRUE;
+            break;
+        }
+
+        retry--;
+        gf_udelay(1000);
+    }
+
+    return enabled;
+}
+

@@ -22,7 +22,6 @@
  *
  */
 #include "gf_adapter.h"
-#include "context.h"
 #include "vidsch.h"
 #include "vidschi.h"
 #include "vidsch_sync.h"

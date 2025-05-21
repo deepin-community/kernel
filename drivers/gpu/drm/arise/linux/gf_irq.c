@@ -406,6 +406,7 @@ void  gf_disable_vblank(struct drm_device *dev, pipe_t pipe)
         }
 
         gf_spin_unlock_irqrestore(disp_info->intr_lock, flags);
+
     }
 
     trace_gfx_vblank_onoff(gf_card->index << 16 | pipe, 0);
@@ -1657,6 +1658,14 @@ void gf_video_interrupt_handle(disp_info_t*  disp_info, unsigned int video_int_m
             ktime_t ctime = ktime_get();
             if (output_all || video_irq_info_count[i] < DEFAULT_PRINT_COUNT)
             {
+                if (!output_all)
+                {
+                    /* Ignore default be error info print. */
+                    if (5 == i || 7 == i)
+                    {
+                        continue;
+                    }
+                }
                 gf_info("*******************%s!*******************\n", video_irq_name[i]);
                 if (i < 4)
                 {

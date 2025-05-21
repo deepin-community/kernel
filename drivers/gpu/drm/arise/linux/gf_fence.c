@@ -22,8 +22,10 @@
  *
  */
 #include "gf_fence.h"
+#include "gf_driver.h"
 #include "gf_gem.h"
 #include "gf_gem_priv.h"
+#include "gf_disp.h"
 #include "gf_trace.h"
 
 static const char *engine_name[MAX_ENGINE_COUNT] = {
@@ -38,8 +40,6 @@ static const char *engine_name[MAX_ENGINE_COUNT] = {
     "ring8",
     "ring9",
 };
-
-static struct gf_dma_fence_driver *fence_driver = NULL;
 
 static bool gf_dma_fence_signaled(dma_fence_t *base)
 {
@@ -89,12 +89,15 @@ static void gf_dma_fence_free(struct rcu_head *rcu)
     dma_fence_t *base = container_of(rcu, dma_fence_t, rcu);
     struct gf_dma_fence *fence = to_gf_fence(base);
 
-    if (fence_driver != fence->driver)
-        gf_info("detect someone trying to write fence:0x%llx\n", fence->driver);
-
-    atomic_dec(&fence_driver->fence_alloc_count);
-
-    kmem_cache_free(fence_driver->fence_slab, fence);
+    if (!fence->magic_number)
+    {
+        atomic_dec(&fence->driver->fence_alloc_count);
+        kmem_cache_free(fence->driver->fence_slab, fence);
+    }
+    else
+    {
+        gf_info("detect someone trying to write magic_number:0x%llx\n", fence->magic_number);
+    }
 }
 
 static void gf_dma_fence_release(dma_fence_t *base)
@@ -143,6 +146,7 @@ static void *gf_dma_fence_create_cb(void *driver_, unsigned int engine_index, un
     fence->initialize_value =
     fence->value            = initialize_value;
     fence->driver = driver;
+    fence->magic_number = 0;
     gf_get_nsecs(&fence->create_time);
     INIT_LIST_HEAD(&fence->link);
     dma_fence_init(&fence->base, &gf_dma_fence_ops, &context->lock, context->id, seq);
@@ -391,6 +395,81 @@ static void gf_fence_dump(struct gf_dma_fence *fence)
     gf_info("  DmaFence %p baseid:%lld context:%lld value:%lld flags:0x%x\n", fence,fence->driver->base_context_id, fence->base.context, fence->value, fence->base.flags);
 }
 
+void gf_check_touch_primary(void *_driver, void *_bo)
+{
+    struct drm_gf_gem_object *bo = (struct drm_gf_gem_object *)_bo;
+    struct gf_dma_fence_driver *driver = (struct gf_dma_fence_driver *)_driver;
+    gf_card_t *gf_card = driver->gf_card;
+    disp_info_t* disp_info = (disp_info_t *)gf_card->disp_info;
+    int i;
+
+    for (i = 0; i < disp_info->num_crtc; i++)
+    {
+        if (bo && bo->info.gpu_virt_addr == gf_card->primary_addr[i])
+        {
+           spin_lock(&driver->lock);
+           if (driver->primary_bo[i])
+           {
+               gf_gem_object_put(driver->primary_bo[i]);
+           }
+           driver->primary_bo[i] = gf_gem_object_get(bo);
+           spin_unlock(&driver->lock);
+           //gf_info("try draw to bo %llx while it's used for flip in crtc %d\n", bo, i);
+
+           gf_acquire_display(disp_info, DISP_ONSCREENDRAW_REF);
+       }
+
+    }
+}
+
+static void gf_touch_primary_done(struct gf_dma_fence_driver *driver)
+{
+   int i,j, fence_count = 0;
+   struct drm_gf_gem_object *bo = NULL;
+   dma_fence_t **fences = NULL;
+   int ret = 0;
+   gf_card_t *gf_card = driver->gf_card;
+   disp_info_t* disp_info = (disp_info_t *)gf_card->disp_info;
+
+   for (i = 0; i < disp_info->num_crtc; i++)
+   {
+        bo = driver->primary_bo[i];
+        if (bo && bo_resv(bo))
+        {
+           int touch_primary_done = 1;
+           ret = reservation_get_fences(bo_resv(bo), 1, &fence_count, &fences);
+           gf_assert(ret == 0, "");
+
+           for (j = 0; j < fence_count; j++)
+           {
+               if (!gf_dma_fence_signaled(fences[j]))
+               {
+                   touch_primary_done = 0;
+               }
+               dma_fence_put(fences[j]);
+           }
+
+           if (touch_primary_done)
+           {
+               spin_lock(&driver->lock);
+               gf_gem_object_put(driver->primary_bo[i]);
+               driver->primary_bo[i] = NULL;
+               spin_unlock(&driver->lock);
+               //gf_info("draw to bo %llx in crtc %d has done\n", bo, i);
+
+               gf_release_display(disp_info, DISP_ONSCREENDRAW_REF);
+           }
+
+           if (fences)
+           {
+              kfree(fences);
+              fences = NULL;
+              fence_count = 0;
+           }
+        }
+   }
+}
+
 static long gf_dma_sync_object_wait_cb(void *driver, void *sync_obj_, unsigned long long timeout)
 {
     struct gf_dma_sync_object *sync_obj = sync_obj_;
@@ -436,6 +515,10 @@ static gf_drm_callback_t gf_drm_callback =
     .gem = {
         .get_from_handle = gf_get_from_gem_handle,
     },
+
+    .kms = {
+        .check_touch_primary = gf_check_touch_primary,
+    },
 };
 
 static int gf_dma_fence_event_thread(void *data)
@@ -451,6 +534,7 @@ static int gf_dma_fence_event_thread(void *data)
 
     do {
         ret = gf_thread_wait(driver->event, driver->timeout_msec);
+        gf_touch_primary_done(driver);
 
 try_again1:
         spin_lock(&driver->lock);
@@ -564,11 +648,6 @@ int gf_dma_fence_driver_init(void *adapter, struct gf_dma_fence_driver *driver)
     atomic_set(&driver->fence_alloc_count, 0);
     INIT_LIST_HEAD(&driver->fence_list);
     driver->os_thread = gf_create_thread(gf_dma_fence_event_thread, driver, "dma_fenced");
-
-    /**
-     * TODO: remove this
-    */
-    fence_driver = driver;
 
     return 0;
 }

@@ -27,7 +27,6 @@
 #include "heap_manager.h"
 #include "list.h"
 #include "context.h"
-#include "gf_def.h"
 
 #define SEGMENT_ID_INVALID    0x0
 #define SEGMENT_ID_LOCAL    0x1

@@ -26,8 +26,7 @@
 #include "CBiosCallbacks.h"
 #include "../Device/CBiosChipShare.h"
 
-CALLBACK_cbVsprintf                  cbVsprintf = CBIOS_NULL;
-CALLBACK_cbVsnprintf                 cbVsnprintf = CBIOS_NULL;
+CALLBACK_cbVDbgPrint              cbVDbgPrint = CBIOS_NULL;
 
 CBIOS_CALLBACK_FUNCTIONS FnCallback = {0};
 
@@ -60,13 +59,10 @@ CBIOS_STATUS cbSetCallBackFunctions(PCBIOS_CALLBACK_FUNCTIONS pFnCallBack)
 
     pFnCallBack->pFnDbgPrintToFile = CBIOS_NULL;
 
-    cbVsprintf = pFnCallBack->pFnVsprintf;
-
-    cbVsnprintf = pFnCallBack->pFnVsnprintf;
+    cbVDbgPrint = pFnCallBack->pFnVDbgPrint;
 
     //FnCallback = *pFnCallBack;
     FnCallback.Size=pFnCallBack->Size;
-    FnCallback.pFnDbgPrint=pFnCallBack->pFnDbgPrint;
     FnCallback.pFnDelayMicroSeconds=pFnCallBack->pFnDelayMicroSeconds;
     FnCallback.pFnReadUchar=pFnCallBack->pFnReadUchar;
     FnCallback.pFnReadUshort=pFnCallBack->pFnReadUshort;
@@ -114,20 +110,10 @@ CBIOS_STATUS cbSetCallBackFunctions(PCBIOS_CALLBACK_FUNCTIONS pFnCallBack)
     FnCallback.pFnRegulatorGetVoltage=pFnCallBack->pFnRegulatorGetVoltage;
     FnCallback.pFnRegulatorSetVoltage=pFnCallBack->pFnRegulatorSetVoltage;
     FnCallback.pFnRegulatorPut=pFnCallBack->pFnRegulatorPut;
+    FnCallback.pFnVDbgPrint = pFnCallBack->pFnVDbgPrint;
     return CBIOS_OK;
 }
 
-CBIOS_VOID cb_DbgPrint(CBIOS_U32 DebugPrintLevel, PCBIOS_UCHAR DebugMessage)
-{
-    if (FnCallback.pFnDbgPrint != CBIOS_NULL)
-    {
-        ((CALLBACK_cbDbgPrint)FnCallback.pFnDbgPrint)(DebugPrintLevel,DebugMessage);
-    }
-    else
-    {
-        return;
-    }
-}
 
 CBIOS_VOID cb_DelayMicroSeconds(CBIOS_U32 Microseconds)
 {
@@ -299,8 +285,7 @@ CBIOS_S32 cb_strcmp(PCBIOS_UCHAR s1, const CBIOS_UCHAR* s2)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbstrcmp(s1, s2);
+        Ret = cbStrCmp(s1, s2);
     }
 
     return Ret;
@@ -317,8 +302,7 @@ PCBIOS_CHAR cb_strcpy(PCBIOS_CHAR s1, PCBIOS_CHAR s2)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbstrcpy(s1, s2);
+        Ret = cbStrCpy(s1, s2);
     }
 
     return Ret;
@@ -335,8 +319,7 @@ CBIOS_S32 cb_strncmp(PCBIOS_UCHAR s1, PCBIOS_UCHAR s2, CBIOS_U32 length)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbstrncmp(s1, s2, length);
+        Ret = cbStrnCmp(s1, s2, length);
     }
 
     return Ret;
@@ -353,8 +336,7 @@ PCBIOS_VOID cb_memset(PCBIOS_VOID pBuf, CBIOS_S32 value, CBIOS_U32 length)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbmemset(pBuf, value, length);
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: callback func is not defined!\n", FUNCTION_NAME));
     }
 
     return Ret;
@@ -371,8 +353,7 @@ PCBIOS_VOID cb_memcpy(PCBIOS_VOID pBuf1, PCBIOS_VOID pBuf2, CBIOS_U32 length)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbmemcpy(pBuf1, pBuf2, length);
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: callback func is not defined!\n", FUNCTION_NAME));
     }
 
     return Ret;
@@ -389,8 +370,7 @@ CBIOS_S32 cb_memcmp(PCBIOS_VOID pBuf1, PCBIOS_VOID pBuf2, CBIOS_U32 length)
     }
     else
     {
-        //old driver has no callback function, then use standard lib function
-        Ret = cbmemcmp(pBuf1, pBuf2, length);
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "%s: callback func is not defined!\n", FUNCTION_NAME));
     }
 
     return Ret;
@@ -409,7 +389,7 @@ CBIOS_U64 cb_do_div(CBIOS_U64 a, CBIOS_U64 b)
     }
     else
     {
-        Ret = cbdo_div(a, b);
+        Ret = 0;
     }
 
     return Ret;

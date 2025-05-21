@@ -29,7 +29,6 @@
 #include "vidsch_debug_hang_e3k.h"
 #include "vidsch_engine_e3k.h"
 #include "mm_e3k.h"
-#include "context.h"
 #include "global.h"
 #include "bit_op.h"
 

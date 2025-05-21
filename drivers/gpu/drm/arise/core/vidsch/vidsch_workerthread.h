@@ -153,11 +153,6 @@ static inline int vidschi_add_task_to_pending_queue(vidsch_mgr_t *sch_mgr, task_
 
 
     gf_down(sch_mgr->normal_pool_sema);
-    if(context->context_ctrl)
-    {
-        gf_down(context->context_sema);
-    }
-
 
     if (sch_mgr->task_id_lock)
     {

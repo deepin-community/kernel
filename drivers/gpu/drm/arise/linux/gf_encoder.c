@@ -63,6 +63,7 @@ void gf_encoder_disable(struct drm_encoder *encoder)
     gf_encoder_t *gf_encoder = to_gf_encoder(encoder);
     gf_connector_t *gf_connector = gf_encoder_get_connector(gf_encoder);
     gf_capture_id_t cf_id = GF_CAPTURE_INVALID;
+    struct task_struct *cur_task = current;
 
     if (!gf_connector)
     {
@@ -102,7 +103,14 @@ void gf_encoder_disable(struct drm_encoder *encoder)
             }
     #endif
 
-            gf_info("To turn off power of device: 0x%x.\n", gf_encoder->output_type);
+            if (cur_task)
+            {
+                gf_info("Task [%s] turn off power of device: 0x%x.\n", cur_task->comm, gf_encoder->output_type);
+            }
+            else
+            {
+                gf_info("To turn off power of device: 0x%x.\n", gf_encoder->output_type);
+            }
 
             gf_capture_handle_event(disp_info, cf_id, GF_CAPTURE_EVENT_SIGNAL_OFF);
 
@@ -123,6 +131,7 @@ void gf_encoder_enable(struct drm_encoder *encoder)
     gf_encoder_t *gf_encoder = to_gf_encoder(encoder);
     gf_connector_t *gf_connector = gf_encoder_get_connector(gf_encoder);
     gf_capture_id_t cf_id = GF_CAPTURE_INVALID;
+    struct task_struct *cur_task = current;
 
     if (!gf_connector)
     {
@@ -148,7 +157,14 @@ void gf_encoder_enable(struct drm_encoder *encoder)
 
     if(gf_encoder->enc_dpms != GF_DPMS_ON)
     {
-        gf_info("To turn on power of device: 0x%x.\n", gf_encoder->output_type);
+        if (cur_task)
+        {
+            gf_info("Task [%s] turn on power of device: 0x%x.\n", cur_task->comm, gf_encoder->output_type);
+        }
+        else
+        {
+            gf_info("To turn on power of device: 0x%x.\n", gf_encoder->output_type);
+        }
 
         gf_mutex_lock(gf_connector->conn_mutex);
         disp_cbios_set_dpms(disp_info, gf_encoder->output_type, GF_DPMS_ON);
@@ -175,69 +191,105 @@ bool gf_encoder_mode_fixup_internal(disp_info_t*  disp_info,
                                    const struct drm_display_mode *mode,
                                    struct drm_display_mode *adjusted_mode)
 {
-    unsigned int dev_mode_size = 0, dev_real_num = 0, i = 0, matched = 0;
-    void * dev_mode_buf = NULL;
+    unsigned int dev_mode_size = 0, dev_real_num = 0, i = 0;
+    unsigned int adapter_mode_size = 0, adapter_mode_num = 0;
+    void *dev_mode_buf = NULL, *adapter_mode_buf = NULL;
     PCBiosModeInfoExt pcbios_mode = NULL, matched_mode = NULL;
+    PCBiosModeInfoExt ppreferred_mode = NULL, pmaxium_mode = NULL;
+
+    if (!adjusted_mode)
+    {
+        return FALSE;
+    }
 
     dev_mode_size = disp_cbios_get_modes_size(disp_info, output_type);
-    if(dev_mode_size)
+    if (!dev_mode_size)
     {
-        dev_mode_buf = gf_calloc(dev_mode_size);
-        if(dev_mode_buf)
+        goto End;
+    }
+
+    dev_mode_buf = gf_calloc(dev_mode_size);
+    if (!dev_mode_buf)
+    {
+        goto End;
+    }
+
+    dev_real_num = disp_cbios_get_modes(disp_info, output_type, dev_mode_buf, dev_mode_size);
+    for (i = 0; i < dev_real_num; i++)
+    {
+        pcbios_mode = (PCBiosModeInfoExt)dev_mode_buf + i;
+        if ((pcbios_mode->XRes == mode->hdisplay) &&
+            (pcbios_mode->YRes == mode->vdisplay) &&
+            (pcbios_mode->RefreshRate/100 == drm_mode_vrefresh(mode)) &&
+            ((mode->flags & DRM_MODE_FLAG_INTERLACE) ? (pcbios_mode->InterlaceProgressiveCaps == 0x02) : (pcbios_mode->InterlaceProgressiveCaps == 0x01)))
         {
-            dev_real_num = disp_cbios_get_modes(disp_info, output_type, dev_mode_buf, dev_mode_size);
-            for(i = 0; i < dev_real_num; i++)
+            //sw mode == hw mode
+            goto End;
+        }
+    }
+
+    if (!disp_info->scale_support)
+    {
+        goto End;
+    }
+
+    adapter_mode_size = disp_cbios_get_adapter_modes_size(disp_info);
+    if (!adapter_mode_size)
+    {
+        goto End;
+    }
+
+    adapter_mode_buf = gf_calloc(adapter_mode_size);
+    if (!adapter_mode_buf)
+    {
+        goto End;
+    }
+
+    ppreferred_mode = disp_cbios_get_preferred_mode((PCBiosModeInfoExt)dev_mode_buf, dev_real_num);
+    pmaxium_mode = disp_cbios_get_maxium_mode((PCBiosModeInfoExt)dev_mode_buf);
+
+    adapter_mode_num = disp_cbios_get_adapter_modes(disp_info, adapter_mode_buf, adapter_mode_size);
+    for (i = 0; i < adapter_mode_num; i++)
+    {
+        pcbios_mode = (PCBiosModeInfoExt)adapter_mode_buf + i;
+
+        if (pcbios_mode->XRes == mode->hdisplay &&
+            pcbios_mode->YRes == mode->vdisplay &&
+            pcbios_mode->RefreshRate/100 == drm_mode_vrefresh(mode))
+        {
+            if (ppreferred_mode != NULL &&
+                ppreferred_mode->XRes >= mode->hdisplay &&
+                ppreferred_mode->YRes >= mode->vdisplay &&
+                ppreferred_mode->RefreshRate/100 >= drm_mode_vrefresh(mode))
             {
-                pcbios_mode = (PCBiosModeInfoExt)dev_mode_buf + i;
-                if((pcbios_mode->XRes == mode->hdisplay) &&
-                   (pcbios_mode->YRes == mode->vdisplay) &&
-                   (pcbios_mode->RefreshRate/100 == drm_mode_vrefresh(mode)) &&
-                   ((mode->flags & DRM_MODE_FLAG_INTERLACE) ? (pcbios_mode->InterlaceProgressiveCaps == 0x02) : (pcbios_mode->InterlaceProgressiveCaps == 0x01)))
-                {
-                    matched = 1;
-                    break;
-                }
+                //perferred as the hw mode
+                matched_mode = ppreferred_mode;
+                break;
+            }
+
+            if (pmaxium_mode != NULL &&
+                pmaxium_mode->XRes >= mode->hdisplay &&
+                pmaxium_mode->YRes >= mode->vdisplay &&
+                pmaxium_mode->RefreshRate/100 >= drm_mode_vrefresh(mode))
+            {
+                //maxium as the hw mode
+                matched_mode = pmaxium_mode;
+                break;
             }
         }
     }
 
-    if(!matched && disp_info->scale_support)
+    if (matched_mode)
     {
-        for(i = 0; i < dev_real_num; i++)
-        {
-            pcbios_mode = (PCBiosModeInfoExt)dev_mode_buf + i;
-            if(pcbios_mode->XRes >= mode->hdisplay && pcbios_mode->YRes >= mode->vdisplay &&
-               pcbios_mode->RefreshRate/100 >= drm_mode_vrefresh(mode))
-            {
-                if(pcbios_mode->isPreferredMode)
-                {
-                    matched_mode = pcbios_mode;
-                    break;
-                }
-                else if(!matched_mode)
-                {
-                    matched_mode = pcbios_mode;
-                }
-            }
-        }
-
-        if(matched_mode)
-        {
-            if(adjusted_mode)
-            {
-                disp_cbios_cbmode_to_drmmode(disp_info, output_type, matched_mode, 0, adjusted_mode);
-            }
-            matched = 1;
-        }
+        disp_cbios_cbmode_to_drmmode(disp_info, output_type, matched_mode, 0, adjusted_mode);
     }
 
-    if (adjusted_mode && matched)
-    {
+End:
 #if DRM_VERSION_CODE < KERNEL_VERSION(5,9,0)
-        adjusted_mode->vrefresh = drm_mode_vrefresh(adjusted_mode);
+    adjusted_mode->vrefresh = drm_mode_vrefresh(adjusted_mode);
 #endif
-        disp_cbios_get_mode_timing(disp_info, output_type, adjusted_mode);
-    }
+
+    disp_cbios_get_mode_timing(disp_info, output_type, adjusted_mode);
 
     if (dev_mode_buf)
     {
@@ -245,7 +297,13 @@ bool gf_encoder_mode_fixup_internal(disp_info_t*  disp_info,
         dev_mode_buf = NULL;
     }
 
-    return (matched)? TRUE : FALSE;
+    if (adapter_mode_buf)
+    {
+        gf_free(adapter_mode_buf);
+        adapter_mode_buf = NULL;
+    }
+
+    return TRUE;
 }
 
 static bool gf_encoder_mode_fixup(struct drm_encoder *encoder,

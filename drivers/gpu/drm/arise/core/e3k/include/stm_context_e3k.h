@@ -56,7 +56,7 @@ typedef struct CONTEXT_REGISTER_BUFFER_E3K
 
 #define MAX_HW_SLICE_NUM                8
 #define SLICE_ILA_COUNTERS_ALIGN_SIZE   32
-#define FENCE_COUNTER_NUM               16
+#define FENCE_COUNTER_NUM               8
 
 #define HW_MAX_GPC_NUM_E3K               3
 

@@ -1110,7 +1110,7 @@ CBIOS_BOOL cbHDMIMonitor_SCDC_Handler(CBIOS_VOID* pvcbe, PCBIOS_DEVICE_COMMON pD
     CBIOS_SCDC_UPDATE_FLAGS UpdateFlags;
     CBIOS_BOOL bRet = CBIOS_FALSE;
 
-    if(pDevCommon->EdidStruct.Attribute.HFVSDBData.IsSCDCPresent)
+    if(pDevCommon->EdidStruct.Attribute.HFSCDSData.IsSCDCPresent)
     {
         cb_memset(&UpdateFlags, 0, sizeof(UpdateFlags));
         bRet = cbHDMIMonitor_SCDC_ReadUpdateFlags(pcbe, pDevCommon, &UpdateFlags);
@@ -1287,6 +1287,7 @@ CBIOS_BOOL cbHDMIMonitor_Detect(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT p
 #else
         cb_memcpy(pDevCommon->EdidData, FPGAHDMIEdid, sizeof(FPGAHDMIEdid));
 #endif
+        pDevCommon->TotalBlockNum = cbEDIDModule_GetExtBlockNum(pDevCommon->EdidData) + 1;
         IsDevChanged = CBIOS_TRUE;
         bConnected = CBIOS_TRUE;
     }
@@ -1326,7 +1327,7 @@ CBIOS_BOOL cbHDMIMonitor_Detect(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT p
             }
             cbDIU_HDMI_ConfigScrambling(pcbe, HDMIModuleIndex, pHDMIMonitorContext->ScramblingEnable);
 
-            if(pDevCommon->EdidStruct.Attribute.HFVSDBData.IsSCDCPresent)
+            if(pDevCommon->EdidStruct.Attribute.HFSCDSData.IsSCDCPresent)
             {
                 SCDCStatusFlags.ScramblerStatus = 0;
                 if(cbHDMIMonitor_SCDC_ReadData(pcbe, pDevCommon, &(SCDCStatusFlags.ScramblerStatus), 0x21, 0x1))
@@ -1483,7 +1484,7 @@ CBIOS_VOID cbHDMIMonitor_OnOff(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT pH
     CBIOS_MODULE_INDEX      IGAIndex        = cbGetModuleIndex(pcbe, pDevCommon->DeviceType, CBIOS_MODULE_TYPE_IGA);
     PCBIOS_DISP_MODE_PARAMS pModeParams     = CBIOS_NULL;
     CBIOS_BOOL              bHDMIDevice     = pDevCommon->EdidStruct.Attribute.IsCEA861HDMI;
-    CBIOS_BOOL              bSCDCPresent    = pDevCommon->EdidStruct.Attribute.HFVSDBData.IsSCDCPresent;
+    CBIOS_BOOL              bSCDCPresent    = pDevCommon->EdidStruct.Attribute.HFSCDSData.IsSCDCPresent;
     PCBIOS_CEA_EXTENED_BLOCK pCEAExtData    = &pDevCommon->EdidStruct.Attribute.ExtDataBlock[VIDEO_CAPABILITY_DATA_BLOCK_TAG];
     CBIOS_BOOL              bQS             = pCEAExtData->VideoCapabilityData.bRGBQuantRange;
     CBIOS_CSC_ADJUST_PARA   CSCAdjustPara   = {0};
@@ -1571,9 +1572,6 @@ CBIOS_VOID cbHDMIMonitor_OnOff(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT pH
     }
     else
     {
-        //Wait vblank before turning off device to avoid flashing white lines
-        cbWaitVBlank(pcbe, IGAIndex);
-
         cbDIU_HDMI_DisableVideoAudio(pcbe, HDMIModuleIndex);
 
         if(pcbe->ChipCaps.bSupportScrambling)
@@ -1585,9 +1583,7 @@ CBIOS_VOID cbHDMIMonitor_OnOff(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT pH
         {
             cbDIU_HDMI_EnableReadRequest(pcbe, HDMIModuleIndex, CBIOS_FALSE);
         }
-
     }
-
 }
 
 CBIOS_VOID cbHDMIMonitor_QueryAttribute(PCBIOS_VOID pvcbe, PCBIOS_HDMI_MONITOR_CONTEXT pHDMIMonitorContext, PCBiosMonitorAttribute pMonitorAttribute)

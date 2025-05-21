@@ -29,9 +29,13 @@
 #include <sound/hdaudio.h>
 #endif
 
+#if  DRM_VERSION_CODE >= KERNEL_VERSION(6, 14, 0)
+static int gf_audio_match(struct device *dev, const void *data)
+#else
 static int gf_audio_match(struct device *dev, void *data)
+#endif
 {
-    int                *addr = data;
+    const int                *addr = data;
 
 #if  DRM_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
     struct hdac_device *hdev = dev_to_hdac_dev(dev);
@@ -70,6 +74,7 @@ void gf_audio_set_connect(gf_connector_t *gf_connector, int enable)
     gf_card_t          *gf_card;
     int                addr = 0;
     struct device      *dev = NULL;
+    int                pm_ret = 0, pm_req = 0;
 
     if (!gf_connector)
     {
@@ -83,12 +88,18 @@ void gf_audio_set_connect(gf_connector_t *gf_connector, int enable)
     {
         if (gf_connector->hda_codec_index & (1 << addr))
         {
-
             dev = gf_audio_find_device(gf_card, addr+1);  // Our codec addr in hdaudio driver is 1-based.
 
             if (dev)
             {
-                pm_runtime_get_sync(dev); // set codec device to RPM_ACTIVE
+                if(!(gf_card->flags & GF_SHUT_DOWN))
+                {
+                    pm_req = 1;
+                }
+                if (pm_req)
+                {
+                    pm_ret = pm_runtime_get_sync(dev); // set codec device to RPM_ACTIVE
+                }
             }
 
             if (enable && gf_connector->support_audio)
@@ -103,15 +114,24 @@ void gf_audio_set_connect(gf_connector_t *gf_connector, int enable)
 
             if (dev)
             {
-                pm_runtime_mark_last_busy(dev);
-                pm_runtime_put_autosuspend(dev);
+                if (pm_req)
+                {
+                    if (pm_ret < 0)
+                    {
+                        pm_runtime_put_noidle(dev);
+                    }
+                    else
+                    {
+                        pm_runtime_mark_last_busy(dev);
+                        pm_runtime_put_autosuspend(dev);
+                    }
+                }
                 put_device(dev);
             }
 
             break;
         }
     }
-
 }
 
 

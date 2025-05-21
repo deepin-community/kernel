@@ -30,4 +30,6 @@
 int vidsch_power_clock_on_off_e3k(vidsch_mgr_t *sch_mgr, unsigned int off);
 int vidsch_power_clock_on_off_vcp(vidsch_mgr_t *sch_mgr, unsigned int off);
 void vidsch_power_tuning_e3k(adapter_t *adapter, unsigned int gfx_only);
+void vidsch_power_switch_e3k(adapter_t *adapter, unsigned int power_state, unsigned int holding_ms, unsigned int force, unsigned int sync_wait);
+void vidsch_boost_e3k(adapter_t *adapter, unsigned int power_state, unsigned int holding_ms, unsigned int force);
 #endif

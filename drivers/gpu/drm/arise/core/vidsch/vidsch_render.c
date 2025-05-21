@@ -29,7 +29,6 @@
 #include "vidsch_workerthread.h"
 #include "vidsch_sync.h"
 #include "vidmm.h"
-#include "context.h"
 #include "global.h"
 #include "perfevent.h"
 
@@ -73,6 +72,11 @@ void vidschi_emit_dma_fence(vidsch_mgr_t *sch_mgr, task_desc_t *task)
                     adapter->drm_cb->fence.attach_buffer(
                             adapter->drm_cb_argu, allocation->bo,
                             task->dma_fence, sch_allocation_list[i].write_operation ? 0 : 1);
+
+                    if (sch_allocation_list[i].write_operation)
+                    {
+                        adapter->drm_cb->kms.check_touch_primary(adapter->drm_cb_argu, allocation->bo);
+                    }
                 }
             }
         }

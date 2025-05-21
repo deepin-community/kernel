@@ -47,11 +47,30 @@
 #include <linux/irq.h>
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-#if DRM_VERSION_CODE < KERNEL_VERSION(6,11,0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 #include <drm/drm_fbdev_generic.h>
 #else
+#if DRM_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
+#include <drm/drm_client_setup.h>
+#else
+#include <drm/clients/drm_client_setup.h>
+#endif
+#endif
 #include <drm/drm_fbdev_ttm.h>
 #endif
+#endif
+
+#if DRM_VERSION_CODE >= KERNEL_VERSION(5, 14, 0)
+#if DRM_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+#include <drm/drm_aperture.h>
+#else
+#include <linux/aperture.h>
+#endif
+#endif
+
+#if defined(__loongarch__)  && defined(KYLIN) && DRM_VERSION_CODE == KERNEL_VERSION(6, 6, 0)
+#include <linux/sysfb.h>
 #endif
 
 #define DRIVER_DESC         "Glenfly DRM Pro"
@@ -91,6 +110,7 @@ static struct pci_device_id pciidlist[] =
     {0x6766, 0x3D06, PCI_ANY_ID, PCI_ANY_ID, 0, 0, (kernel_ulong_t)&gf_e3k_info}, //arise10c0t
     {0x6766, 0x3D07, PCI_ANY_ID, PCI_ANY_ID, 0, 0, (kernel_ulong_t)&gf_e3k_info},
     {0x6766, 0x3D08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, (kernel_ulong_t)&gf_e3k_info},
+    {0x6766, 0x3D0E, PCI_ANY_ID, PCI_ANY_ID, 0, 0, (kernel_ulong_t)&gf_e3k_info}, //arise10D0
     {0, 0, 0}
 };
 
@@ -411,7 +431,22 @@ static int gf_drm_load_kms(struct drm_device *dev, unsigned long flags)
     gf->pdev = pdev;
 
 #if  DRM_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#if  DRM_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+
+#if defined(__loongarch__)  && defined(KYLIN) && DRM_VERSION_CODE == KERNEL_VERSION(6, 6, 0)
+    //NOTE: add patch here to resolve firmware fb remove failure for old firmware on loongarch64 platform.
+    //  gop fb address issue has been fixed from firmware 03000014 version.
+    //  now only patch for KylinV11 which use kernel verion 6.6.0
+    if (vga_default_device() == pdev)
+    {
+        sysfb_disable(NULL);
+    }
+#endif
+
     ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, (const struct drm_driver *)&gf_drm_driver.base);
+#else
+    ret = aperture_remove_conflicting_pci_devices(pdev, gf_drm_driver.base.name);
+#endif
 #elif DRM_VERSION_CODE >= KERNEL_VERSION(5, 14, 0)
     ret = drm_aperture_remove_conflicting_pci_framebuffers(pdev, "arisedrmfb");
 #else
@@ -451,6 +486,7 @@ static int gf_drm_load_kms(struct drm_device *dev, unsigned long flags)
     }
 
     gf->fence_drv = gf_calloc(sizeof(struct gf_dma_fence_driver));
+    gf->fence_drv->gf_card = gf;
 
     gf_dma_fence_driver_init(gf->adapter, gf->fence_drv);
 
@@ -699,7 +735,7 @@ static struct file_operations gf_drm_fops = {
     .read       = drm_read,
     .poll       = drm_poll,
     .llseek     = noop_llseek,
-#if DRM_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+#if DRM_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
     .fop_flags  = FOP_UNSIGNED_OFFSET,
 #endif
 };
@@ -734,7 +770,9 @@ static struct drm_gf_driver gf_drm_driver = {
     #endif
 
         .postclose          = gf_drm_postclose,
+    #if DRM_VERSION_CODE < KERNEL_VERSION(6,12,0)
         .lastclose          = gf_drm_last_close,
+    #endif
         .ioctls             = gf_ioctls,
         .num_ioctls         = ioctl_nr_total_num,
     #if DRM_VERSION_CODE < KERNEL_VERSION(4,14,0) && DRM_VERSION_CODE >= KERNEL_VERSION(3,18,0)
@@ -754,6 +792,10 @@ static struct drm_gf_driver gf_drm_driver = {
 
     #if DRM_VERSION_CODE < KERNEL_VERSION(5,11,0)
         .gem_vm_ops         = &gf_gem_vm_ops,
+    #endif
+
+    #if DRM_VERSION_CODE >=  KERNEL_VERSION(6, 13, 0)
+        DRM_FBDEV_TTM_DRIVER_OPS,
     #endif
 
     #if DRM_VERSION_CODE <  KERNEL_VERSION(5, 11, 0)
@@ -794,7 +836,9 @@ static struct drm_gf_driver gf_drm_driver = {
     #endif
         .name               = STR(DRIVER_NAME),
         .desc               = DRIVER_DESC,
+    #if DRM_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
         .date               = DRIVER_DATE,
+    #endif
         .major              = DRIVER_MAJOR,
         .minor              = DRIVER_MINOR,
         .patchlevel         = DRIVER_PATCHLEVEL,
@@ -845,8 +889,10 @@ static int gf_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 #if DRM_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
     drm_fbdev_generic_setup(dev, 32);
-#else
+#elif DRM_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
     drm_fbdev_ttm_setup(dev, 32);
+#else
+    drm_client_setup(dev, NULL);
 #endif
 
 #if DRM_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
@@ -1083,6 +1129,7 @@ static void gf_shutdown(struct pci_dev *pdev)
 
     gf_info("pci device(vendor:0x%X, device:0x%X) shutting down.\n", pdev->vendor, pdev->device);
 
+    gf->flags |= GF_SHUT_DOWN;
     gf_core_interface->wait_chip_idle(gf->adapter);
 
 #if DRM_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)

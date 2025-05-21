@@ -131,8 +131,8 @@ typedef struct _CBIOS_LINK_TRAINING_PARAMS
 
 typedef struct _CBIOS_MAIN_LINK_PARAMS
 {
-    CBIOS_U32  LaneNumberToUse;  // 1 ~ 4 lanes
-    CBIOS_U32  LinkSpeedToUse;   // 1.62Gbps, 2.7Gbps or 5.4Gbps
+    CBIOS_U32  LinkedLaneNumber;  // 1 ~ 4 lanes
+    CBIOS_U32  LinkedSpeed;   // 1.62Gbps, 2.7Gbps or 5.4Gbps
     CBIOS_U32  bpc;              // bit per channel
     CBIOS_U32  TUSize;           // 32 ~ 64, default to 48
     CBIOS_BOOL AsyncMode;        // 1 (yes), asynchronous mode

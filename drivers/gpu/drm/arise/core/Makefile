@@ -6,7 +6,6 @@ ccflags-y += \
     -I${GFGPU_FULL_PATH}/core/vidmm \
     -I${GFGPU_FULL_PATH}/core/vidsch \
     -I${GFGPU_FULL_PATH}/core/util \
-    -I${GFGPU_FULL_PATH}/core/isr \
     -I${GFGPU_FULL_PATH}/core/perfevent \
     -I${GFGPU_FULL_PATH}/shared
 
