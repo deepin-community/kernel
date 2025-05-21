@@ -173,14 +173,16 @@
 
 	/* save return value regs*/
 	.macro save_return_regs
-	subl	$sp, 0x8, $sp
-	stl	$0, 0x0($sp)
+	subl	$sp, 16, $sp
+	stl	$0, 0($sp)
+	stl	$15, 8($sp)
 	.endm
 
 	/* restore return value regs*/
 	.macro restore_return_regs
-	ldl	$0, 0x0($sp)
-	addl	$sp, 0x8, $sp
+	ldl	$15, 8($sp)
+	ldl	$0, 0($sp)
+	addl	$sp, 16, $sp
 	.endm
 
 
@@ -231,7 +233,7 @@ ENTRY(return_to_handler)
 	br	$27, 1f
 1:	ldgp	$29, 0($27)
 	save_return_regs
-	bis	$31, $15, $16	/* parent's fp */
+	bis	$31, $sp, $16	/* ret_regs */
 	ldi	$27, ftrace_return_to_handler
 	call	$26, ($27)
 	bis	$31, $0, $26
