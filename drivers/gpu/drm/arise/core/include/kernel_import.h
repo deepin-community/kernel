@@ -249,6 +249,10 @@ typedef struct gf_drm_callback
     struct {
         unsigned int (*get_from_handle)(void *file, unsigned int handle);
     } gem;
+
+    struct {
+        void (*check_touch_primary) (void* driver, void *bo);
+    } kms;
 } gf_drm_callback_t;
 
 struct os_printer;

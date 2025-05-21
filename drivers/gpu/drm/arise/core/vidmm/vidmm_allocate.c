@@ -203,6 +203,8 @@ int vidmmi_allocate_video_memory_try(vidmm_mgr_t *mm_mgr, vidmm_allocation_t *al
 
     if(list_node == NULL)
     {
+        gf_warning("!!!!!!!!!!!!!!!!!!!  kmd can't allocate first prefered segment %d , try allocate segment : %d !!!!!!!!!!!!!!!!!!!!!",
+            preferred_segment->segment_id_0, preferred_segment->segment_id_1);
         segment_id = preferred_segment->segment_id_1;
         direction  = preferred_segment->direction_1;
 
@@ -215,6 +217,8 @@ int vidmmi_allocate_video_memory_try(vidmm_mgr_t *mm_mgr, vidmm_allocation_t *al
 
     if(list_node == NULL)
     {
+        gf_warning("!!!!!!!!!!!!!!!!!!!  kmd can't allocate first prefered segment %d , try allocate segment : %d !!!!!!!!!!!!!!!!!!!!!",
+            preferred_segment->segment_id_0, preferred_segment->segment_id_2);
         segment_id = preferred_segment->segment_id_2;
         direction  = preferred_segment->direction_2;
 
@@ -227,6 +231,8 @@ int vidmmi_allocate_video_memory_try(vidmm_mgr_t *mm_mgr, vidmm_allocation_t *al
 
     if(list_node == NULL)
     {
+        gf_warning("!!!!!!!!!!!!!!!!!!!  kmd can't allocate first prefered segment %d , try allocate segment : %d !!!!!!!!!!!!!!!!!!!!!",
+            preferred_segment->segment_id_0, preferred_segment->segment_id_3);
         segment_id = preferred_segment->segment_id_3;
         direction  = preferred_segment->direction_3;
         segment = &mm_mgr->segment[segment_id];
@@ -240,6 +246,8 @@ int vidmmi_allocate_video_memory_try(vidmm_mgr_t *mm_mgr, vidmm_allocation_t *al
 
     if(list_node == NULL)
     {
+        gf_warning("!!!!!!!!!!!!!!!!!!!  kmd can't allocate first prefered segment %d , try allocate segment : %d !!!!!!!!!!!!!!!!!!!!!",
+            preferred_segment->segment_id_0, preferred_segment->segment_id_4);
         segment_id = preferred_segment->segment_id_4;
         direction  = preferred_segment->direction_4;
 

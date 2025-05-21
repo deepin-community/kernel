@@ -25,25 +25,16 @@
 #ifndef _CBIOS_SHARE_H_
 #define _CBIOS_SHARE_H_
 
-#ifdef __LINUX__
-#define GCC_BUILD_CBIOS 1
-#endif
+#ifndef __LINUX__
 
-#ifndef GCC_BUILD_CBIOS
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#pragma warning(disable:4311)
-#ifndef  inline
-#define  inline  __inline
-#endif
 #ifndef  __func__
 #define  __func__  __FUNCTION__
 #endif
-#else
-#ifndef __LINUX__
-#include "gcc_stdarg.h"
+
+#ifndef  inline
+#define  inline  __inline
 #endif
+
 #endif
 
 #include "../CBios.h"
@@ -57,11 +48,9 @@
 #define FUNCTION_NAME __FUNCTION__
 #endif
 
-#ifdef __LINUX__
+
 #define LINE_NUM __LINE__
-#else
-#define LINE_NUM __LINE__
-#endif
+
 
 #ifndef ASSERT
 #if defined(DBG) && defined(WIN32)
@@ -100,13 +89,10 @@ typedef enum _CBIOS_ACTIVE_TYPE   {
 
 #define CBIOS_BOARD_VERSION_DEFAULT CBIOS_BOARD_VERSION_1
 
-#ifndef CBIOSDEBUGMESSAGEMAXBYTES
-#define CBIOSDEBUGMESSAGEMAXBYTES 256
-#endif
+#define CBIOSDEBUGMESSAGEMAXBYTES 64
 
-#define ELT2K_HARDCODE_DP5          0
+
 #define ELT2K_HARDCODE_DSI_CMDMODE  0
-#define ELT2K_HARDCODE_DSI_MHL      0
 
 /******* these functions must be implemented outside *******/
 /* debug print function */
@@ -117,17 +103,19 @@ typedef enum _CBIOS_ACTIVE_TYPE   {
 #define     DBG_LEVEL_DEBUG         3
 #define     DBG_LEVEL_TRACE         4
 
-#define     GENERIC_MODULE          (1 << 8)
-#define     MHL_MODULE              (2 << 8)
-#define     DSI_MODULE              (4 << 8)
-#define     HDMI_MODULE             (8 << 8)
-#define     DP_MODULE               (16 << 8)
+typedef enum  _DEBUG_MODULE
+{
+    GENERIC_MODULE = 0,
+    MHL_MODULE = 1,
+    DSI_MODULE = 2,
+    HDMI_MODULE = 3,
+    DP_MODULE = 4,
+    DBG_MODULE_NUM = 5,
+}DEBUG_MODULE;
 
-#define     STD_OUTPUT   (0 << 24)
-#define     BACK_OUTPUT  (1<< 24)
 
-#define     MAKE_LEVEL(Module, Level)  (Module##_MODULE + DBG_LEVEL_##Level)
-#define     MAKE_LEVEL_EX(Out, Module, Level) (Out##_OUTPUT + Module##_MODULE + DBG_LEVEL_##Level)
+
+#define     MAKE_LEVEL(Module, Level)  cbCheckDebugLevel((Module##_MODULE << 8) + DBG_LEVEL_##Level), DBG_LEVEL_##Level, cbGetDebugPrefix((Module##_MODULE << 8) + DBG_LEVEL_##Level)
 
 #define cbTraceEnter(Module)  cbDebugPrint((MAKE_LEVEL(Module, TRACE), "%s: Enter\n", __func__))
 #define cbTraceExit(Module)   cbDebugPrint((MAKE_LEVEL(Module, TRACE), "%s: Exit\n", __func__))
@@ -179,19 +167,16 @@ typedef enum _CBIOS_ROUND_METHOD
     ROUND_NEAREST
 }CBIOS_ROUND_METHOD;
 
-#ifndef  __LINUX__
-CBIOS_VOID  cbPrintMessage(CBIOS_U32 DebugPrintLevel, CBIOS_CHAR *DebugMessage, ...);
-#endif
-
-CBIOS_U32  cbAddPrefix(CBIOS_U32 Level, CBIOS_UCHAR* pBuffer);
-CBIOS_VOID  cbPrintWithDbgFlag(CBIOS_U32 DbgFlag, CBIOS_UCHAR* pBuffer);
+CBIOS_UCHAR*  cbGetDebugPrefix(CBIOS_U32  Level);
+CBIOS_BOOL  cbCheckDebugLevel(CBIOS_U32  DbgFlag);
 CBIOS_STATUS  cbDbgLevelCtl(PCBIOS_DBG_LEVEL_CTRL pDbgLevelCtl);
-CBIOS_UCHAR*   cbGetDebugBuffer(CBIOS_U32  DbgFlag);
-CBIOS_VOID  cbReleaseDebugBuffer(CBIOS_VOID);
 CBIOS_VOID cbDelayMilliSeconds(CBIOS_U32 Milliseconds);
 CBIOS_BOOL  cbItoA(CBIOS_U32 ulValue, CBIOS_U8 *pStr, CBIOS_U8 byRadix, CBIOS_U32 ulLength);
 CBIOS_U32   cbStrLen(CBIOS_UCHAR * pStrSrc);
 PCBIOS_UCHAR cbStrCat(CBIOS_UCHAR *pStrDst, CBIOS_UCHAR * pStrSrc);
+CBIOS_S32  cbStrnCmp(CBIOS_UCHAR *pStr1, CBIOS_UCHAR * pStr2, CBIOS_U32  Lenth);
+CBIOS_S32  cbStrCmp(CBIOS_UCHAR *pStr1, const CBIOS_UCHAR * pStr2);
+PCBIOS_UCHAR cbStrCpy(CBIOS_UCHAR *pStrDst, CBIOS_UCHAR * pStrSrc);
 CBIOS_U32 cbRound(CBIOS_U32 Dividend, CBIOS_U32 Divisor, CBIOS_ROUND_METHOD RoundMethod);
 CBIOS_BOARD_VERSION cbGetBoardVersion(PCBIOS_VOID pvcbe);
 CBIOS_STATUS cbGetExtensionSize(CBIOS_U32 *pulExtensionSize);
@@ -217,30 +202,6 @@ static inline CBIOS_U32 cb_swab32(CBIOS_U32 x)
 #define cb_swab32(x) x
 #endif
 
-#ifdef __LINUX__
-
-#define cbstrcmp(s1, s2)       0
-#define cbstrcpy(s1, s2)       CBIOS_NULL
-#define cbstrncmp(s1, s2, n)   0
-#define cbmemset(s1, v, n)     CBIOS_NULL
-#define cbmemcpy(s1, s2, n)    CBIOS_NULL
-#define cbmemcmp(s1, s2, n)    0
-#define cbdo_div(a, b)   0
-#define cbvsprintf(s, f, ...)  0
-
-#else
-
-#define cbstrcmp  strcmp
-#define cbstrcpy  strcpy
-#define cbstrncmp strncmp
-#define cbmemset  memset
-#define cbmemcpy  memcpy
-#define cbmemcmp  memcmp
-#define cbdo_div(a, b) ((a)/(b))
-
-#define cbvsprintf vsprintf
-
-#endif
 
 #endif /* _CBIOS_SHARE_H_ */
 

@@ -21,7 +21,6 @@
  * IN THE SOFTWARE.
  *
  */
-#include "gf_def.h"
 #include "gf_ioctl.h"
 #include "os_interface.h"
 #include "kernel_interface.h"

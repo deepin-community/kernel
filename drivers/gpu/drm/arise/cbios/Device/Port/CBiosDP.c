@@ -200,26 +200,29 @@ static CBIOS_BOOL cbDPPort_DeviceDetect(PCBIOS_EXTENSION_COMMON pcbe, PCBIOS_DEV
     CBIOS_MODULE_INDEX HDMIModuleIndex = CBIOS_MODULE_INDEX_INVALID;
     DP_EPHY_MODE  Mode;
 
-    cbTraceEnter(DP);
-
     if ((pDevCommon == CBIOS_NULL) || (!(pDevCommon->DeviceType & ALL_DP_TYPES)))
     {
         cbDebugPrint((MAKE_LEVEL(DP, ERROR), "%s: the 2nd param is invalid!\n", FUNCTION_NAME));
-        bConnected = CBIOS_FALSE;
-        goto EXIT;
+        return CBIOS_FALSE;
     }
 
     DPModuleIndex = cbGetModuleIndex(pcbe, pDevCommon->DeviceType, CBIOS_MODULE_TYPE_DP);
     HDMIModuleIndex = cbGetModuleIndex(pcbe, pDevCommon->DeviceType, CBIOS_MODULE_TYPE_HDMI);
+    if(CBIOS_MODULE_INDEX_INVALID == DPModuleIndex)
+    {
+        cbDebugPrint((MAKE_LEVEL(DP, ERROR), "Invalid DP index in detect device 0x%x!\n", pDevCommon->DeviceType));
+        return CBIOS_FALSE;
+    }
+
     Mode = cbPHY_DP_GetEphyMode(pcbe, DPModuleIndex);
 
     pDpContext->DPPortParams.bDualMode = cbDualModeDetect(pcbe, pDevCommon);
     //Some monitors(like samsung UA40) can't get EDID by I2C after change brightness through DDX, and bDualMode is FALSE
     //So it has no chance to enter cbHDMIMonitor_Detect function to handle scramble, just clear it here when found bDualMode is FALSE
-    if (!pDpContext->DPPortParams.bDualMode)
+    if (!pDpContext->DPPortParams.bDualMode && CBIOS_MODULE_INDEX_INVALID != HDMIModuleIndex)
     {
         pDpContext->HDMIMonitorContext.ScramblingEnable = CBIOS_FALSE;
-        cbDIU_HDMI_ConfigScrambling(pcbe, HDMIModuleIndex, pDpContext->HDMIMonitorContext.ScramblingEnable);
+        cbDIU_HDMI_ConfigScrambling(pcbe, HDMIModuleIndex, CBIOS_FALSE);
     }
 
     if ((!bConnected) && (pDpContext->DPPortParams.bDualMode)
@@ -267,8 +270,6 @@ static CBIOS_BOOL cbDPPort_DeviceDetect(PCBIOS_EXTENSION_COMMON pcbe, PCBIOS_DEV
                      FUNCTION_NAME, pDevCommon->DeviceType));
     }
 
-EXIT:
-    cbTraceExit(DP);
     return bConnected;
 }
 
@@ -286,6 +287,12 @@ static CBIOS_VOID cbDPPort_OnOff(PCBIOS_EXTENSION_COMMON pcbe, PCBIOS_DEVICE_COM
     }
 
     DPModuleIndex = cbGetModuleIndex(pcbe, pDevCommon->DeviceType, CBIOS_MODULE_TYPE_DP);
+    if(CBIOS_MODULE_INDEX_INVALID == DPModuleIndex)
+    {
+        cbDebugPrint((MAKE_LEVEL(DP, ERROR), "Invalid DP index in onoff device 0x%x!\n", pDevCommon->DeviceType));
+        return;
+    }
+
     bDPMode = (pDpContext->DPPortParams.DPEphyMode == DP_EPHY_DP_MODE) ? CBIOS_TRUE : CBIOS_FALSE;
     pSource = &(pDevCommon->DispSource);
 
@@ -341,6 +348,8 @@ static CBIOS_VOID cbDPPort_OnOff(PCBIOS_EXTENSION_COMMON pcbe, PCBIOS_DEVICE_COM
         {
             if ((pDpContext->Common.CurrentMonitorType == CBIOS_MONITOR_TYPE_HDMI) || (pDpContext->Common.CurrentMonitorType == CBIOS_MONITOR_TYPE_DVI))
             {
+                //Wait vblank before turning off device to avoid flashing white garbage
+                cbWaitNonFullVBlank(pcbe, DPModuleIndex);
                 cbHDMIMonitor_OnOff(pcbe, &pDpContext->HDMIMonitorContext, bOn);
                 cbPHY_DP_DualModeOnOff(pcbe, DPModuleIndex, pDpContext->HDMIMonitorContext.HDMIClock, bOn);
             }

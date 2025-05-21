@@ -552,7 +552,6 @@ int disp_init_cbios(disp_info_t *disp_info)
 
     fnCallBack.Size = sizeof(CBIOS_CALLBACK_FUNCTIONS);
 
-    fnCallBack.pFnDbgPrint          = disp_dbg_print;
     fnCallBack.pFnDelayMicroSeconds = disp_delay_micro_seconds;
     fnCallBack.pFnReadUchar         = disp_read_uchar;
     fnCallBack.pFnReadUshort        = disp_read_ushort;
@@ -582,6 +581,7 @@ int disp_init_cbios(disp_info_t *disp_info)
     fnCallBack.pFnDodiv             = gf_do_div;
     fnCallBack.pFnVsprintf          = gf_vsprintf;
     fnCallBack.pFnVsnprintf         = gf_vsnprintf;
+    fnCallBack.pFnVDbgPrint         = gf_cb_vdbgprint;
 
     if(CBiosSetCallBackFunctions(&fnCallBack) != CBIOS_OK)
     {
@@ -851,6 +851,29 @@ int disp_cbios_get_adapter_modes(disp_info_t *disp_info, void* buffer, int buf_s
     real_num = real_size / sizeof(CBiosModeInfoExt);
 
     return  real_num;
+}
+
+CBiosModeInfoExt* disp_cbios_get_preferred_mode(CBiosModeInfoExt *dev_mode_list, unsigned int mode_num)
+{
+    CBiosModeInfoExt *pcbios_mode = NULL;
+    int i = 0;
+
+    for (i = 0; i < mode_num; i++)
+    {
+        pcbios_mode = dev_mode_list + i;
+
+        if (pcbios_mode->isPreferredMode)
+        {
+            break;
+        }
+    }
+
+    return pcbios_mode;
+}
+
+CBiosModeInfoExt* disp_cbios_get_maxium_mode(CBiosModeInfoExt *dev_mode_list)
+{
+    return &dev_mode_list[0];
 }
 
 int disp_cbios_merge_modes(CBiosModeInfoExt* merge_mode_list, CBiosModeInfoExt * adapter_mode_list, unsigned int const adapter_mode_num,
@@ -1945,6 +1968,8 @@ int disp_cbios_crtc_flip(disp_info_t *disp_info, gf_crtc_flip_t *arg)
         disp_plane.FlipMode.FlipType = CBIOS_PLANE_FLIP_WITH_DISABLE;
     }
 
+    gf_card->primary_addr[arg->crtc] = gfb ? gfb->obj->info.gpu_virt_addr:0;
+
     if(fb)
     {
         input_stream.SurfaceAttrib.StartAddr = gfb->obj->info.gpu_virt_addr;
@@ -2562,64 +2587,34 @@ int disp_cbios_wb_ctl(disp_info_t *disp_info, gf_wb_set_t *wb_set)
 int disp_wait_idle(void *_disp_info)
 {
     disp_info_t *disp_info = _disp_info;
-
-    unsigned long timeout_j = jiffies + msecs_to_jiffies(50) + 1;
-    unsigned int  in_vblank;
-    int ret = DISP_OK;
-    gf_get_counter_t   get_cnt = {0};
+    void *pcbe = NULL;
     unsigned int i = 0;
+    int cb_status = CBIOS_OK;
 
-    if(!disp_info)
+    if (!disp_info)
     {
         gf_info("why disp_info is null, 0x%x  0x%x\n",disp_info,_disp_info);
-        return -1;
+        return -EINVAL;
     }
 
-    i = 0;
-    while(i < disp_info->num_crtc)
+    pcbe = disp_info->cbios_ext;
+
+    while (i < disp_info->num_crtc)
     {
-        if(disp_info->active_output[i])
+        if (disp_info->active_output[i])
         {
             break;
         }
         i++;
     }
 
-    //case1): has one active crtc, wait the crtc's vblank
-    //case2): no active crtc,  no need to wait.
-    if(i != disp_info->num_crtc)  //has active crtc
+    //only wait the first active crtc's vblank
+    if (i != disp_info->num_crtc)
     {
-        get_cnt.crtc_index = i;
-        get_cnt.in_vblk = &in_vblank;
-
-        disp_cbios_get_counter(disp_info, &get_cnt);
-
-        while(in_vblank == 1)
-        {
-            if(time_after(jiffies, timeout_j))
-            {
-                gf_error("wait in vblank tiemout \n");
-                ret = -ETIMEDOUT;
-                break;
-            }
-            disp_cbios_get_counter(disp_info, &get_cnt);
-        }
-
-        timeout_j = jiffies + msecs_to_jiffies(50) + 1;
-
-        while(in_vblank == 0)
-        {
-            if(time_after(jiffies, timeout_j))
-            {
-                gf_error("wait in active timeout\n");
-                ret = -ETIMEDOUT;
-                break;
-            }
-            disp_cbios_get_counter(disp_info, &get_cnt);
-        }
+        cb_status = CBiosWaitVBlank(pcbe, i);
     }
 
-    return ret;
+    return (cb_status == CBIOS_TRUE) ? DISP_OK : DISP_FAIL;
 }
 
 static unsigned int cal_bits(unsigned int v)

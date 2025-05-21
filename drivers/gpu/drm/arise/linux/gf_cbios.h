@@ -123,6 +123,8 @@ int         disp_cbios_get_adapter_modes_size(disp_info_t *disp_info);
 int         disp_cbios_get_adapter_modes(disp_info_t *disp_info, void* buffer, int buf_size);
 int         disp_cbios_merge_modes(CBiosModeInfoExt* merge_mode_list, CBiosModeInfoExt * adapter_mode_list, unsigned int const adapter_mode_num,
     CBiosModeInfoExt const * dev_mode_list, unsigned int const dev_mode_num);
+CBiosModeInfoExt* disp_cbios_get_preferred_mode(CBiosModeInfoExt *dev_mode_list, unsigned int mode_num);
+CBiosModeInfoExt* disp_cbios_get_maxium_mode(CBiosModeInfoExt *dev_mode_list);
 int         disp_cbios_cbmode_to_drmmode(disp_info_t *disp_info, int output, void* cbmode, int i, struct drm_display_mode *drm_mode);
 int         disp_cbios_3dmode_to_drmmode(disp_info_t *disp_info, int output, void* mode, int i, struct drm_display_mode *drm_mode);
 int         disp_cbios_get_3dmode_size(disp_info_t* disp_info, int output);

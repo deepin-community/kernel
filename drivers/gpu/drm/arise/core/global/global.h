@@ -32,4 +32,5 @@ extern void glb_init_chip_interface(adapter_t *adapter);
 extern void glb_fini_bus_config(adapter_t *adapter);
 
 extern void glb_init_power_caps(adapter_t *adapter);
+extern int glb_detect_power_switch(adapter_t *adapter);
 #endif

@@ -52,6 +52,7 @@ static void* krnl_pre_init_adapter(void *pdev, krnl_adapter_init_info_t *info, k
 {
     adapter_t *adapter     = NULL;
     platform_caps_t caps   = {0};
+    unsigned int enabled = FALSE;
 
     gf = import;
 
@@ -124,7 +125,7 @@ static  void krnl_init_adapter(void* adp, int reserved_vmem, void *disp_info)
 
     gf_register_trace_events();
 
-    arise_perf_event_init(adapter);
+    perf_event_init(adapter);
 
     gf_hwq_event_init(adapter);
 
@@ -143,8 +144,8 @@ static  void krnl_init_adapter(void* adp, int reserved_vmem, void *disp_info)
          adapter->hw_caps.page_64k_enable, adapter->ctl_flags.paging_enable,
          adapter->pwm_level.EnableClockGating, adapter->hw_caps.dfs_enable);
 
-    gf_info("power caps: ClockGating:%d, PowerGating:%d\n",
-        adapter->pwm_level.EnableClockGating, adapter->pwm_level.EnablePowerGating);
+    gf_info("power caps: ClockGating:%d, PowerGating:%d PowerSwitch:%d\n",
+        adapter->pwm_level.EnableClockGating, adapter->pwm_level.EnablePowerGating, adapter->pwm_level.EnablePowerSwitch);
 
     gf_info("Ctrl: Recovery:%d, WK-thread:%d, Hang-Dump:%d, RunOnQT:%d, PwmMode:0x%x, NonsnoopEnable:%d\n",
         adapter->ctl_flags.recovery_enable, adapter->ctl_flags.worker_thread_enable,
@@ -1330,6 +1331,57 @@ static void krnl_reset_dvfs_power_flag(void* data)
     vidsch_dvfs_power_flag_reset(adapter);
 }
 
+static void krnl_disp_state_update(void *data, unsigned int state)
+{
+    adapter_t *adapter = data;
+
+    adapter->disp_state = state;
+}
+
+static int krnl_get_power_state(void *data, unsigned int *state)
+{
+    adapter_t *adapter = data;
+
+    if (!adapter->pwm_level.EnablePowerSwitch)
+        return -1;
+
+    if (state)
+        *state = adapter->power_state;
+
+    return 0;
+}
+
+static int krnl_set_power_state(void *data, unsigned int state, unsigned int holding_ms, unsigned int force, unsigned int lock, unsigned int unlock)
+{
+    adapter_t *adapter = data;
+
+    if (!adapter->pwm_level.EnablePowerSwitch)
+        return -1;
+
+    if (state == ENG_POWER_STATE_HOLD)
+        adapter->power_state_hold = !adapter->power_state_hold;
+
+    if (adapter->power_state_hold)
+        return 0;
+
+    if (state >= ENG_POWER_STATE_AUTO)
+    {
+        state = ENG_POWER_STATE_AUTO;
+        lock = FALSE;
+        unlock = TRUE;
+    }
+
+    if (lock || unlock)
+        adapter->ctl_flags.boost = TRUE;
+
+    vidsch_set_power_state(adapter, state, holding_ms, force);
+
+    if (lock)
+        adapter->ctl_flags.boost = FALSE;
+
+    return 0;
+}
+
 static core_interface_t gfe3k_gpu_core = {
 #define INTERFACE(item) .item = krnl_##item
     INTERFACE(pre_init_adapter),
@@ -1390,6 +1442,9 @@ static core_interface_t gfe3k_gpu_core = {
     INTERFACE(hwq_process_vsync_event),
     INTERFACE(task_timeout_update),
     INTERFACE(reset_dvfs_power_flag),
+    INTERFACE(disp_state_update),
+    INTERFACE(get_power_state),
+    INTERFACE(set_power_state),
 #undef INTERFACE
 };
 

@@ -474,8 +474,21 @@ CBIOS_VOID cbDIU_HDAC_SetHDACodecPara(PCBIOS_VOID pvcbe, PCBIOS_HDAC_PARA pCbios
     {
         PCBIOS_DP_MONITOR_CONTEXT pDPMonitorContext = cbGetDPMonitorContext(pcbe, pDevCommon);
         CBIOS_MODULE_INDEX DPModuleIndex = cbGetModuleIndex(pcbe, Device, CBIOS_MODULE_TYPE_DP);
+        CBIOS_U32  LinkSpeed = pDPMonitorContext->LinkPassSpeed;
 
-        cbDIU_DP_SetMaudNaud(pcbe, DPModuleIndex, pDPMonitorContext->LinkSpeedToUse, StreamFormat);
+        if(!LinkSpeed)
+        {
+            if(pDPMonitorContext->SinkMaxLinkSpeed)
+            {
+                LinkSpeed = pDPMonitorContext->SinkMaxLinkSpeed;
+            }
+            else
+            {
+                LinkSpeed = CBIOS_DP_LINK_SPEED_5400Mbps;
+            }
+        }
+
+        cbDIU_DP_SetMaudNaud(pcbe, DPModuleIndex, LinkSpeed, StreamFormat);
     }
 #endif
 

@@ -93,7 +93,9 @@ typedef enum _CBIOS_CEA_EXTENDED_BLOCK_TAG
     RSVD_VESA_VIDEO_DATA_BLOCK_TAG,
     RSVD_HDMI_VIDEO_DATA_BLOCK,
     COLORIMETRY_DATA_BLOCK_TAG,
-    //6-12 reserved for video-related blocks
+    HDR_STATIC_META_DATA_BLOCK,
+    HDR_DYNAMIC_META_DATA_BLOCK,
+    //8-12 reserved for video-related blocks
     VIDEO_FMT_PREFERENCE_DATA_BLOCK = 0xD,
     YCBCR420_VIDEO_DATA_BLOCK,
     YCBCR420_CAP_MAP_DATA_BLOCK,
@@ -103,6 +105,8 @@ typedef enum _CBIOS_CEA_EXTENDED_BLOCK_TAG
     //19-31 reserved for audio-related blocks
     INFOFRAME_DATA_BLOCK = 0x20,
     //33-255 reserved for general
+    HF_EDID_EXTENSION_OVERRIDE_DATA_BLOCK = 0x78,
+    HF_SINK_CAPABILITY_DATA_BLOCK,
     MAX_CEA_EXT_DATA_BLOCK_NUM,
 }CBIOS_CEA_EXTENDED_BLOCK_TAG;
 
@@ -259,20 +263,31 @@ typedef struct _CBIOS_HDMI_VSDB_EXTENTION
     CBIOS_U32           HDMI3DFormatCount;
 }CBIOS_HDMI_VSDB_EXTENTION, *PCBIOS_HDMI_VSDB_EXTENTION;
 
-typedef struct _CBIOS_HF_HDMI_VSDB_EXTENTION
+typedef struct _CBIOS_HF_SCDS_DATA
 {
     struct
     {
-        CBIOS_U8        VSDBLength              :5;
-        CBIOS_U8        VSDBTag                 :3;
+        CBIOS_U8        Length    :5;
+        CBIOS_U8        CTATag    :3;
     }Tag;
-    struct
-    {
-        CBIOS_U8        IEEEOUIByte0;
-        CBIOS_U8        IEEEOUIByte1;
-        CBIOS_U8        IEEEOUIByte2;
 
-    }HFVSDBOUI;
+    union
+    {
+        struct // for HF-VSDB
+        {
+            CBIOS_U8    IEEEOUIByte0;
+            CBIOS_U8    IEEEOUIByte1;
+            CBIOS_U8    IEEEOUIByte2;
+        }HFVSDBOUI;
+
+        struct // for HF-SCDB
+        {
+            CBIOS_U8    ExtTagCode;
+            CBIOS_U16   Reserved;
+        };
+    };
+
+    // Sink Capability Data Structure (SCDS)
     CBIOS_U8            Version;
     CBIOS_U16           MaxTMDSCharacterRate;
     union
@@ -294,8 +309,7 @@ typedef struct _CBIOS_HF_HDMI_VSDB_EXTENTION
         };
         CBIOS_U16       SupportCaps;
     };
-}CBIOS_HF_HDMI_VSDB_EXTENTION, *PCBIOS_HF_HDMI_VSDB_EXTENTION;
-
+}CBIOS_HF_SCDS_DATA, *PCBIOS_HF_SCDS_DATA;
 
 typedef struct _CBIOS_COLORIMETRY_DATA
 {
@@ -473,7 +487,7 @@ typedef struct _CBIOS_MONITOR_MISC_ATTRIB
     CBIOS_U8                        RevisionNumber;
     CBIOS_U8                        OffsetOfDetailedTimingBlock;
     CBIOS_HDMI_VSDB_EXTENTION       VSDBData;
-    CBIOS_HF_HDMI_VSDB_EXTENTION    HFVSDBData;
+    CBIOS_HF_SCDS_DATA              HFSCDSData;
     CBIOS_CEA_SVD_DATA              SVDData[CBIOS_EDIDMAXBLOCKCOUNT - 1];
     CBIOS_CEA_EXTENED_BLOCK         ExtDataBlock[MAX_CEA_EXT_DATA_BLOCK_NUM];
     CBIOS_BOOL                      bStereoViewSupport;    // stereo Viewing Support for row-interlace
@@ -491,6 +505,8 @@ typedef struct _CBIOS_MONITOR_MISC_ATTRIB
     CBIOS_SVR_DESC                  ShortVideoRef[MAX_SVR_LEN];
 }CBIOS_MONITOR_MISC_ATTRIB, *PCBIOS_MONITOR_MISC_ATTRIB;
 
+#define  CBIOS_DTDTIMING_BLOCK_CNT  (CBIOS_DTDTIMINGCOUNTS*2)
+
 typedef struct _CBIOS_EDID_STRUCTURE_DATA {
     CBIOS_U8          Version;
     CBIOS_MODE_INFO EstTimings[CBIOS_ESTABLISHMODECOUNT];
@@ -499,12 +515,13 @@ typedef struct _CBIOS_EDID_STRUCTURE_DATA {
     CBIOS_MONITOR_MISC_ATTRIB Attribute;
     CBIOS_HDMI_FORMAT_DESCRIPTOR HDMIFormat[CBIOS_HDMIFORMATCOUNTS];
     CBIOS_HDMI_AUDIO_INFO HDMIAudioFormat[CBIOS_HDMI_AUDIO_FORMAT_COUNTS];
-    CBIOS_MODE_INFO_EXT DTDTimings[CBIOS_DTDTIMINGCOUNTS*2]; //may meet two CEA data block(edid has 4 block)
+    CBIOS_MODE_INFO_EXT DTDTimings[CBIOS_DTDTIMING_BLOCK_CNT]; //may meet two CEA data block(edid has 4 block)
     CBIOS_U32         TotalModeNum;    // total number of modes that supported in EDID
     CBIOS_U32         TotalHDMIAudioFormatNum; // total number of hdmi audio formats that supported in EDID
     CBIOS_MODE_INFO_EXT DisplayID_TYPE1_Timings[CBIOS_DISPLAYID_TYPE1_MODECOUNT];
 } CBIOS_EDID_STRUCTURE_DATA, *PCBIOS_EDID_STRUCTURE_DATA;
 
+CBIOS_U32 cbEDIDModule_GetExtBlockNum(CBIOS_U8 *pEDID);
 CBIOS_U32 cbEDIDModule_GetMonitorAttrib(CBIOS_U8 *pEDID, PCBIOS_MONITOR_MISC_ATTRIB pMonitorAttrib, CBIOS_U32 TotalBlocks);
 CBIOS_STATUS cbEDIDModule_GetMonitor3DCaps(PCBIOS_EDID_STRUCTURE_DATA pEDIDStruct,
                                            PCBIOS_MONITOR_3D_CAPABILITY_PARA p3DCapability,

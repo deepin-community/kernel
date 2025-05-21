@@ -253,7 +253,7 @@ CBIOS_U32 cbGetRomRegTbl(PCBIOS_VOID VCPBase, CBIOS_U16 TblOffset, CBREGISTER** 
     pReg = *pRegTable = cb_AllocateNonpagedPool(RegCounter * sizeof(CBREGISTER));
     if(pReg == CBIOS_NULL)
     {
-        cbDebugPrint((1,"pRegTable allocate error!\n"));
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR),"pRegTable allocate error!\n"));
         return 0;
     }
 

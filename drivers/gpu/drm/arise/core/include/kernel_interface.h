@@ -170,6 +170,9 @@ typedef struct
     int (*hwq_process_vsync_event)(void *data, unsigned long long time);
     void (*task_timeout_update)(void* data, unsigned long long *value, int update);
     void (*reset_dvfs_power_flag)(void* data);
+    void (*disp_state_update)(void* data, unsigned int state);
+    int (*get_power_state)(void* data, unsigned int *state);
+    int (*set_power_state)(void* data, unsigned int state, unsigned int holding_ms, unsigned int force, unsigned int lcok, unsigned int unlock);
 } core_interface_t;
 
 extern core_interface_t *gf_core_interface;

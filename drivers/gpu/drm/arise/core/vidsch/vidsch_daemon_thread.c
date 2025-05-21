@@ -177,6 +177,19 @@ static int vidschi_check_hang_and_recovery(adapter_t *adapter)
     return 0;
 }
 
+static int vidsch_daemon_engine_status(void *data, gf_event_status_t ret)
+{
+    vidschedule_t *schedule = data;
+    adapter_t *adapter = schedule->adapter;
+    unsigned long long timestamp;
+
+    gf_get_nsecs(&timestamp);
+    gf_core_interface->hwq_process_vsync_event(adapter, timestamp);
+    schedule->chip_func->boost(adapter, ENG_POWER_STATE_AUTO, ENG_POWER_MIN_HOLDING_TIME_MS, FALSE);
+
+    return 0;
+}
+
 static int vidsch_daemon_delay_allocation(void *data, gf_event_status_t ret)
 {
     vidschedule_t *schedule = data;
@@ -220,6 +233,8 @@ int vidschi_init_daemon_thread(adapter_t *adapter)
             util_create_event_thread(vidsch_daemon_check_hang, schedule, "daemon_check_hang", DAEMON_THREAD_INTERVAL);
     schedule->daemon_thread_destory_allocation =
             util_create_event_thread(vidsch_daemon_delay_allocation, schedule, "daemon_delay_allocation", DAEMON_THREAD_INTERVAL);
+    schedule->daemon_thread_power_control =
+            util_create_event_thread(vidsch_daemon_engine_status, schedule, "daemon_engine_status", DAEMON_THREAD_INTERVAL / 5);
 
     return 0;
 }
@@ -232,9 +247,15 @@ int vidschi_deinit_daemon_thread(adapter_t *adapter)
     {
         util_destroy_event_thread(schedule->daemon_thread_check_hang);
     }
+
     if (schedule->daemon_thread_destory_allocation)
     {
         util_destroy_event_thread(schedule->daemon_thread_destory_allocation);
+    }
+
+    if (schedule->daemon_thread_power_control)
+    {
+        util_destroy_event_thread(schedule->daemon_thread_power_control);
     }
 
     return 0;

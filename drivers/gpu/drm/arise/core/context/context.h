@@ -27,12 +27,12 @@
 #include "util.h"
 #include "list.h"
 
+
 #define USER_MODE_DMA_SIZE      64 * 1024                       /* Set to 64KB to pass MaxContexts test */
 #define SYNCOBJECTLIST_SIZE     256
 #define ALLOCATIONLIST_SIZE     (USER_MODE_DMA_SIZE / 64) * 4   /* Set to 2KB for every 64KB of command buffer to pass MaxContexts test */
 #define PATCHLOCATIONLIST_SIZE  (USER_MODE_DMA_SIZE / 64) * 16   /* Set to 2KB for every 64KB of command buffer to pass MaxContexts test */
-#define MAX_SYNC_OBJECT_SIZE_PER_DEVICE  512*4
-#define CONTEXT_TASK_QUEUE_LENGTH       8
+#define MAX_SYNC_OBJECT_SIZE_PER_DEVICE  64 * 1024
 
 #ifdef GFX_ONLY_FPGA
 #define CM_DESTROY_TIMEOUT       20000
@@ -84,8 +84,6 @@ typedef struct gpu_context
     unsigned long long wait_delta_check_end;
 
     int                is_kernel;
-    unsigned int       context_ctrl;
-    struct os_sema     *context_sema;
 
     struct os_atomic   *ref_cnt; //dma_ref_cnt
 

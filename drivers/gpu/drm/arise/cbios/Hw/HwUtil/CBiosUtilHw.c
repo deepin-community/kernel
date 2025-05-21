@@ -1243,7 +1243,7 @@ CBIOS_U32 cbGetProgClock(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 *ClockFreq, CBI
     {
         return -1;
     }
-    if (pcbe->ChipID == CHIPID_ARISE1020 && ClockType == CBIOS_MCLKTYPE)
+    if ((pcbe->ChipID == CHIPID_ARISE1020 || pcbe->ChipID == CHIPID_ARISE2030) && ClockType == CBIOS_MCLKTYPE)
     {
         D300_Value = cb_ReadU32(pcbe->pAdapterContext, 0xD300);
         bUseNewMclk = ((D300_Value & 0xF) == 0xA) ? CBIOS_TRUE : CBIOS_FALSE;
@@ -1319,8 +1319,7 @@ CBIOS_U32 cbGetProgClock(PCBIOS_EXTENSION_COMMON pcbe, CBIOS_U32 *ClockFreq, CBI
         break;
     }
 
-    if ((pcbe->ChipID == CHIPID_ARISE10C0T && (ClockType == CBIOS_ECLKTYPE || ClockType == CBIOS_VCLKTYPE)) ||
-        (pcbe->ChipID == CHIPID_ARISE1020 && ClockType == CBIOS_MCLKTYPE && bUseNewMclk))
+    if ((pcbe->ChipID == CHIPID_ARISE10C0T && (ClockType == CBIOS_ECLKTYPE || ClockType == CBIOS_VCLKTYPE)) || bUseNewMclk)
     {
         (*ClockFreq) *= 10000;
     }

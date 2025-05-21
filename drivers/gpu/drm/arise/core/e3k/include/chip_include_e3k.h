@@ -76,12 +76,12 @@ typedef enum
     // Above are stored in context buffer
 
     //Slot used by video
-    HWM_SYNC_VCP0_FE_SLOT = 11,
-    HWM_SYNC_VCP0_BE_SLOT = 12,
-    HWM_SYNC_VCP1_FE_SLOT = 13,
-    HWM_SYNC_VCP1_BE_SLOT = 14,
-    HWM_SYNC_VPP_SLOT     = 15,
-
+    HWM_SYNC_VCP0_FE_SLOT = 16,
+    HWM_SYNC_VCP0_BE_SLOT = 17,
+    HWM_SYNC_VCP1_FE_SLOT = 18,
+    HWM_SYNC_VCP1_BE_SLOT = 19,
+    HWM_SYNC_VPP_SLOT     = 20,
+    HWM_SYNC_VCP_BANDWIDTH = 21,
 } HWM_SYNC_SLOT_E3K;
 
 

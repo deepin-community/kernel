@@ -22,6 +22,7 @@
  *
  */
 #include "gf_atomic.h"
+#include "gf_disp.h"
 #include "gf_kms.h"
 #include "gf_sink.h"
 #include "gf_splice.h"
@@ -255,6 +256,9 @@ static void gf_update_crtc_sink(struct drm_atomic_state *old_state)
 void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 {
     struct drm_device *dev = old_state->dev;
+    gf_card_t *gf_card = dev->dev_private;
+    disp_info_t *disp_info = (disp_info_t*)gf_card->disp_info;
+
     struct drm_crtc *crtc;
     struct drm_crtc_state *old_crtc_state, *new_crtc_state;
     int i;
@@ -264,6 +268,8 @@ void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 #else
     bool flags = false;
 #endif
+
+    gf_acquire_display(disp_info, DISP_FLIP_REF);
 
     drm_atomic_helper_commit_modeset_disables(dev, old_state);
 
@@ -305,6 +311,8 @@ void gf_atomic_helper_commit_tail(struct drm_atomic_state *old_state)
 #endif
 
     drm_atomic_helper_cleanup_planes(dev, old_state);
+
+    gf_release_display(disp_info, DISP_FLIP_REF);
 
     gf_rpm_mark_last_busy(dev->dev);
 }

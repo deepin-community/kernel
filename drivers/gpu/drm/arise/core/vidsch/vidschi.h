@@ -256,6 +256,7 @@ typedef struct _vidsch_mgr
     unsigned long long  last_busy;
     unsigned int  completely_idle;
     unsigned long long  idle_elapse;
+    unsigned int boost_level;
 }vidsch_mgr_t;
 
 /* for histroy issue, vidsch_mgr_t acctuall mean HW engine, and vidsch_global is engine manager */
@@ -267,6 +268,7 @@ typedef struct vidschedule
 
     util_event_thread_t *daemon_thread_destory_allocation;
     util_event_thread_t *daemon_thread_check_hang;
+    util_event_thread_t *daemon_thread_power_control;
 
     unsigned int        hw_hang; /* one bit for one engine, added for video module checking hw hang by looping */
 
@@ -314,6 +316,7 @@ struct vidschedule_chip_func
 {
     void (*dvfs_tuning)(adapter_t* adapter);
     void (*power_tuning)(adapter_t* adapter, unsigned int gfx_only);
+    void (*boost)(adapter_t *adapter, unsigned int state, unsigned int holding_ms, unsigned int force);
 
     void (*dump_info)(struct os_seq_file *seq_file, adapter_t *adapter);
     void (*dump_debugbus)(struct os_printer *p, adapter_t *adapter);

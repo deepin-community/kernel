@@ -36,7 +36,7 @@ static PCBIOS_EDP_PANEL_DESC EDPPanelDescTbl[] =
 
 static CBIOS_BOOL cbEDPPanel_GetMonitorID(CBIOS_U8 *pEDID, CBIOS_U8 *pMnitorID)
 {
-    CBIOS_U8 index[32] = "0ABCDEFGHIJKLMNOPQRSTUVWXYZ[/]^_";
+    CBIOS_U8 *index = "0ABCDEFGHIJKLMNOPQRSTUVWXYZ[/]^_";
     CBIOS_U8 ProductID[3] = {0};
     CBIOS_BOOL bRet = CBIOS_FALSE;
     CBIOS_U8 *pMonitorIDinEDID = pEDID + 0x08;

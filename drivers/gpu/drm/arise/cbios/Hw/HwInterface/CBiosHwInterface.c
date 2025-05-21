@@ -177,7 +177,6 @@ CBIOS_STATUS cbHWUnload(PCBIOS_VOID pvcbe)
 
     cbDeInitDeviceArray(pcbe);
     cbDispMgrDeInit(pcbe);
-    cbReleaseDebugBuffer();
     return CBIOS_OK;
 }
 
@@ -691,7 +690,7 @@ CBIOS_STATUS  cbHwSyncDataWithVbios(PCBIOS_VOID  pvcbe, PCBIOS_VBIOS_DATA_PARAM 
     }
     else
     {
-        cbDebugPrint((0, "CBiosSyncDataWithVbios_dst: null pointer is transfered!\n"));
+        cbDebugPrint((MAKE_LEVEL(GENERIC, ERROR), "CBiosSyncDataWithVbios_dst: null pointer is transfered!\n"));
         return CBIOS_ER_NULLPOINTER;
     }
 }
@@ -1179,7 +1178,7 @@ CBIOS_STATUS cbHWCECTransmitMessage(PCBIOS_VOID pvcbe, PCBIOS_CEC_MESSAGE pCECMe
         }
         else
         {
-            cbDebugPrint((DBG_LEVEL_ERROR_MSG, "cbHWCECTransmitMessage: Message transmission fail!\n"));
+            cbDebugPrint((MAKE_LEVEL(HDMI, ERROR), "cbHWCECTransmitMessage: Message transmission fail!\n"));
             Status = CBIOS_ER_INTERNAL;
         }
 
@@ -1280,7 +1279,7 @@ CBIOS_STATUS cbHWCECReceiveMessage(PCBIOS_VOID pvcbe, PCBIOS_CEC_MESSAGE pCECMes
         }
         else
         {
-            cbDebugPrint((DBG_LEVEL_ERROR_MSG, "cbHWCECReceiveMessage: Message receive fail!\n"));
+            cbDebugPrint((MAKE_LEVEL(HDMI, ERROR), "cbHWCECReceiveMessage: Message receive fail!\n"));
             Status = CBIOS_ER_INTERNAL;
         }
 

@@ -27,6 +27,8 @@
 
 void glb_init_chip_id(adapter_t *adapter, krnl_adapter_init_info_t *info)
 {
+    unsigned int enabled;
+
     adapter->hw_caps.support_snooping = TRUE;
     adapter->pm_caps.pwm_mode = info->gf_pwm_mode;
 
@@ -88,6 +90,8 @@ void glb_init_chip_id(adapter_t *adapter, krnl_adapter_init_info_t *info)
             adapter->chip_id = CHIP_ARISE1010;
         else if((adapter->bus_config.device_id & CHIP_MASK) == CHIP_MASK_ARISE10C0T)
             adapter->chip_id = CHIP_ARISE10C0T;
+        else if((adapter->bus_config.device_id & CHIP_MASK) == CHIP_MASK_ARISE10D0)
+            adapter->chip_id = CHIP_ARISE10C0T;
         else if((adapter->bus_config.device_id & CHIP_MASK) == CHIP_MASK_ARISE2030)
             adapter->chip_id = CHIP_ARISE2030;
         else if((adapter->bus_config.device_id & CHIP_MASK) == CHIP_MASK_ARISE2020)
@@ -105,6 +109,7 @@ void glb_init_chip_id(adapter_t *adapter, krnl_adapter_init_info_t *info)
         {
             unsigned int cg_manual_mode          = info->gf_pwm_mode & 0x1;
             unsigned int cg_auto_mode            = (info->gf_pwm_mode >> 4) & 0x7;
+            unsigned int power_switch_mode       = (info->gf_pwm_mode >> 8) & 0x1;
 
             if (adapter->chip_id < CHIP_ARISE2030)
             {
@@ -115,6 +120,22 @@ void glb_init_chip_id(adapter_t *adapter, krnl_adapter_init_info_t *info)
                 adapter->pm_caps.pwm_auto            = cg_auto_mode;
                 adapter->pwm_level.EnableClockGating = cg_auto_mode ? 0 : (cg_manual_mode ? 1 : 0);
             }
+
+            if (power_switch_mode)
+            {
+                enabled = glb_detect_power_switch(adapter);
+                if (enabled)
+                {
+                    adapter->ctl_flags.perf_event_enable = TRUE;
+                    adapter->ctl_flags.hwq_event_enable = TRUE;
+                }
+
+                adapter->pwm_level.EnablePowerSwitch = enabled;
+            }
+            else
+            {
+                adapter->pwm_level.EnablePowerSwitch = 0;
+            }
         }
     }
 
@@ -123,6 +144,10 @@ void glb_init_chip_id(adapter_t *adapter, krnl_adapter_init_info_t *info)
     // qemu will set default subsystem id to PCI_SUBVENDOR_ID_REDHAT_QUMRANET:PCI_SUBDEVICE_ID_QEMU
     adapter->ctl_flags.run_on_qemu_device = adapter->bus_config.sub_sys_vendor_id == 0x1AF4 && adapter->bus_config.sub_sys_id == 0x1100;
     adapter->ctl_flags.hang_dump            = info->gf_hang_dump;
+    adapter->ctl_flags.boost                = TRUE;
+
+    adapter->power_state = ENG_POWER_STATE_E0;
+    adapter->power_state_hold = FALSE;
 
     if(info->gf_hang_dump)
     {

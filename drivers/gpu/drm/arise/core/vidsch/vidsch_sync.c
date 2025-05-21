@@ -528,7 +528,7 @@ static int vidschi_wait_fence_sync_object_signaled(task_wait_t *task, vidsch_wai
     adapter_t                  *adapter   = context->device->adapter;
     vidsch_mgr_t               *sch_mgr   = adapter->sch_mgr[context->engine_index];
     condition_func_t           condition  = (condition_func_t)&vidschi_is_fence_sync_object_signaled;
-    unsigned int               msec       = gf_do_div(instance->timeout, 1000);
+    unsigned int               msec       = gf_do_div(instance->timeout, 1000 * 1000);
     unsigned int               e_status   = 0, status = 0;
 
     vidsch_wait_fence_signaled_arg_t argu = {0};
@@ -577,7 +577,7 @@ static int vidschi_client_wait_instance_signaled(task_wait_t *task, vidsch_wait_
     adapter_t *adapter = task->desc.context->device->adapter;
     vidsch_sync_object_t *sync_obj = instance->sync_obj;
 
-    int status = GF_SYNC_OBJ_CONDITION_SATISFIED;
+    int ret = 0, status = GF_SYNC_OBJ_CONDITION_SATISFIED;
 
     switch (sync_obj->type)
     {
@@ -601,7 +601,13 @@ static int vidschi_client_wait_instance_signaled(task_wait_t *task, vidsch_wait_
 
     case GF_SYNC_OBJ_TYPE_DMAFENCE:
 
-        status = adapter->drm_cb->fence.dma_sync_object_wait(adapter->drm_cb_argu, sync_obj->dma.dma_sync_obj, 1000);
+        ret = adapter->drm_cb->fence.dma_sync_object_wait(adapter->drm_cb_argu, sync_obj->dma.dma_sync_obj, 1000);
+        if (ret > 0)
+            status = GF_SYNC_OBJ_ALREAD_SIGNALED;
+        else if (!ret)
+            status = GF_SYNC_OBJ_TIMEOUT_EXPIRED;
+        else
+            status = GF_SYNC_OBJ_ERROR;
 
         break;
 

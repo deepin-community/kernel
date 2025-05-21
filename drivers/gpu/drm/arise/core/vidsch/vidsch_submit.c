@@ -26,7 +26,6 @@
 #include "vidschi.h"
 #include "vidsch_render.h"
 #include "vidmm.h"
-#include "context.h"
 #include "vidsch_submit.h"
 #include "perfevent.h"
 
@@ -37,16 +36,20 @@ static int vidschi_submit_dma(vidsch_mgr_t *sch_mgr, task_dma_t *task_dma)
     gpu_context_t           *context       = task_dma->desc.context;
     vidmm_allocation_t      *mm_allocation = NULL;
     vidsch_allocation_t     *sch_allocation = NULL;
-    unsigned long long      fence_id, last_send_fence_id;
+    unsigned long long      fence_id;
     int                      i, ret = S_OK;
 
     gf_down_read(schedule->rw_lock);
+
+    if (task_dma->desc.Flags.normal_recovery)
+        schedule->chip_func->boost(adapter, ENG_POWER_STATE_E0, ENG_POWER_MIN_HOLDING_TIME_MS * 10, FALSE);
+    else
+        schedule->chip_func->boost(adapter, sch_mgr->boost_level, ENG_POWER_MIN_HOLDING_TIME_MS, FALSE);
 
     gf_mutex_lock(sch_mgr->engine_lock);
 
     //gf_mutex_lock(adapter->hw_reset_lock);
 
-    last_send_fence_id = sch_mgr->last_send_fence_id;
     fence_id = vidschi_inc_send_fence_id(sch_mgr, task_dma->prepare_submit);
 
     task_dma->prepare_submit = FALSE;
@@ -79,7 +82,6 @@ static int vidschi_submit_dma(vidsch_mgr_t *sch_mgr, task_dma_t *task_dma)
 
             sch_allocation->segment_id = mm_allocation->segment_id;
             sch_allocation->phy_addr   = mm_allocation->phys_addr;
-
         }
     }
 
@@ -160,6 +162,8 @@ void vidsch_submit_paging_task(adapter_t *adapter, task_paging_t *paging_task)
         }
 
         gf_down_read(schedule->rw_lock);
+
+        schedule->chip_func->boost(adapter, sch_mgr->boost_level, ENG_POWER_MIN_HOLDING_TIME_MS, FALSE);
 
         /* lock engine */
         gf_mutex_lock(sch_mgr->engine_lock);

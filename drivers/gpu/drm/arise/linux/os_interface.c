@@ -489,6 +489,35 @@ void GF_API_CALL gf_cb_printk(const char* msg)
     }
 }
 
+void GF_API_CALL gf_cb_vdbgprint(int enable, unsigned int print_level, const char* prefix, const char* msg, ...)
+{
+    char buffer[256];
+    va_list  args;
+    unsigned int prefix_len = 0;
+
+    UNUSED(print_level);
+
+    if(!enable)
+    {
+        return;
+    }
+
+    if(prefix)
+    {
+        prefix_len = gf_strlen((char*)prefix);
+        gf_strncpy(buffer, prefix, prefix_len);
+    }
+
+    va_start(args, msg);
+
+    vsnprintf(buffer+prefix_len, 256-prefix_len, msg, args);
+
+    va_end(args);
+
+    printk("%s", buffer);
+}
+
+
 void GF_API_CALL gf_printk(unsigned int msglevel, const char* fmt, ...)
 {
     char buffer[256];
@@ -1139,6 +1168,7 @@ void gf_get_current_pname(char *pname, int size)
     gf_strncpy(pname, buf, size);
 }
 
+#if defined(__mips64__) || defined(__loongarch__)
 void gf_dma_cache_sync(struct device *dev, void *vaddr, size_t size, enum dma_data_direction direction)
 {
     unsigned long long len;
@@ -1147,15 +1177,15 @@ void gf_dma_cache_sync(struct device *dev, void *vaddr, size_t size, enum dma_da
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
     dma_cache_sync(dev, vaddr, size, direction);
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 19, 0)
-#if defined(__mips64__) || defined(__loongarch__)
     for (len = 0; len < size; len += PAGE_SIZE)
     {
         flush_data_cache_page(addr);
         addr += PAGE_SIZE;
     }
 #endif
-#endif
+
 }
+#endif
 
 static void gf_flush_page_cache(struct device *dev, struct page *pages, unsigned int flush_size)
 {
@@ -1181,8 +1211,10 @@ static void gf_flush_page_cache(struct device *dev, struct page *pages, unsigned
 #if __ARM_ARCH >= 8
         flush_icache_range((unsigned long)ptr, (unsigned long)(ptr+PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr, ptr + PAGE_SIZE);
         outer_flush_range(page_to_phys(pages), page_to_phys(pages) + PAGE_SIZE);
+#endif
 #endif
         kunmap(pages);
         pages++;
@@ -1752,8 +1784,10 @@ void gf_flush_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memor
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)(ptr + page_start_offset), (unsigned long)(ptr + page_end_offset));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr + page_start_offset, ptr + page_end_offset);
         outer_flush_range(page_to_phys(pages) + page_start_offset, page_to_phys(pages) + page_end_offset);
+#endif
 #endif
         kunmap(pages);
     }
@@ -1766,8 +1800,10 @@ void gf_flush_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memor
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)(ptr + page_start_offset), (unsigned long)(ptr + PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr + page_start_offset, ptr + PAGE_SIZE);
         outer_flush_range(page_to_phys(pages) + page_start_offset, page_to_phys(pages) + PAGE_SIZE);
+#endif
 #endif
         kunmap(pages);
 
@@ -1778,8 +1814,10 @@ void gf_flush_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memor
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)ptr, (unsigned long)(ptr + page_end_offset));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr, ptr + PAGE_SIZE);
         outer_flush_range(page_to_phys(pages), page_to_phys(pages) + page_end_offset);
+#endif
 #endif
         kunmap(pages);
     }
@@ -1793,8 +1831,10 @@ void gf_flush_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memor
 #elif  __ARM_ARCH >= 8
         flush_icache_range((unsigned long)ptr, (unsigned long)(ptr + PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr, ptr + PAGE_SIZE);
         outer_flush_range(page_to_phys(pages), page_to_phys(pages) + PAGE_SIZE);
+#endif
 #endif
         kunmap(pages);
     }
@@ -1838,8 +1878,10 @@ void gf_inv_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memory,
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)(ptr + page_start_offset), (unsigned long)(ptr + page_end_offset));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr + page_start_offset, ptr + page_end_offset);
         outer_inv_range(page_to_phys(pages) + page_start_offset, page_to_phys(pages) + page_end_offset);
+#endif
 #endif
         kunmap(pages);
     }
@@ -1852,8 +1894,10 @@ void gf_inv_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memory,
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)(ptr + page_start_offset), (unsigned long)(ptr + PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr + page_start_offset, ptr + PAGE_SIZE);
         outer_inv_range(page_to_phys(pages) + page_start_offset, page_to_phys(pages) + PAGE_SIZE);
+#endif
 #endif
         kunmap(pages);
 
@@ -1864,8 +1908,10 @@ void gf_inv_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memory,
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)ptr, (unsigned long)(ptr + PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr, ptr + PAGE_SIZE);
         outer_inv_range(page_to_phys(pages), page_to_phys(pages) + page_end_offset);
+#endif
 #endif
         kunmap(pages);
     }
@@ -1879,8 +1925,10 @@ void gf_inv_cache(void *pdev, gf_vm_area_t *vma, struct os_pages_memory* memory,
 #elif __ARM_ARCH >= 8
         flush_icache_range((unsigned long)ptr, (unsigned long)(ptr + PAGE_SIZE));
 #else
+#if !defined(__riscv)
         dmac_flush_range(ptr, ptr + PAGE_SIZE);
         outer_inv_range(page_to_phys(pages), page_to_phys(pages) + PAGE_SIZE);
+#endif
 #endif
         kunmap(pages);
     }
@@ -2050,35 +2098,15 @@ int gf_query_platform_caps(void *pdev, platform_caps_t *caps)
     caps->dcache_type = GF_CPU_CACHE_UNKNOWN;
 #endif
 
-#if defined(CONFIG_IOMMU_SUPPORT)
-    caps->iommu_support = iommu_present(&platform_bus_type) ||
-#ifdef CONFIG_ARM_AMBA
-        iommu_present(&amba_bustype) ||
-#endif
-        iommu_present(&pci_bus_type);
-#if defined(CONFIG_ARM_GIC_PHYTIUM_2500)
-    caps->iommu_support = FALSE;
-#endif
-#else
-    caps->iommu_support = FALSE;
-#endif
+    caps->iommu_support = TRUE;
 
     caps->page_size  = PAGE_SIZE;
     caps->page_shift = PAGE_SHIFT;
 
-    /*for (mem_res = iomem_resource.child; mem_res; mem_res = mem_res->sibling)
-    {
-         if (mem_res->name && (!gf_strcmp(mem_res->name, "System RAM")) && (mem_res->end >  max_physical_addr))
-            max_physical_addr = mem_res->end;
-    }
-
-
-    if (BITS_PER_LONG == 64 && !caps->iommu_support  && max_physical_addr >= (1ULL << 36))
-    {
-         caps->system_need_dma32 = TRUE;
-    }*/
-
-    caps->system_need_dma32 = caps->iommu_support ? FALSE : dma_get_required_mask(device) > DMA_BIT_MASK(40);
+    caps->system_need_dma32 = dma_get_required_mask(device) > DMA_BIT_MASK(40);
+#if defined(__loongarch__)
+    caps->system_need_dma32 = FALSE;
+#endif
 
 #if defined(__i386__) || defined(__x86_64__)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
@@ -2338,7 +2366,7 @@ int gf_disp_wait_idle(void *disp_info)
 #define gf_wmb_asm()   wmb()
 #define gf_flush_wc_asm() mb()
 #define gf_dsb_asm()
-#else
+#elif defined(__aarch64__)
 #if __ARM_ARCH >= 7
 #define dmb(opt)        asm volatile("dmb " #opt : : : "memory")
 #define dsb(opt)        asm volatile("dsb " #opt : : : "memory")
@@ -2349,6 +2377,12 @@ int gf_disp_wait_idle(void *disp_info)
 #define gf_flush_wc_asm() dsb(sy)
 #define gf_dsb_asm()   dsb(sy)
 #endif
+#elif defined(__riscv)
+#define gf_mb_asm()
+#define gf_rmb_asm()
+#define gf_wmb_asm()
+#define gf_flush_wc_asm()
+#define gf_dsb_asm()
 #endif
 
 void gf_mb(void)

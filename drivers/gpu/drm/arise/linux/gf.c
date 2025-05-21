@@ -71,6 +71,7 @@ module_init(gf_init);
 module_exit(gf_exit);
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DRIVER_VERSION_CHAR);
+MODULE_DESCRIPTION("Glenfly DRM PRO Driver");
 
 #ifndef KERNEL_2_4
 module_param(gf_fb, int, 0);

@@ -84,7 +84,7 @@ int vidsch_create(adapter_t *adapter)
 
     adapter->active_engine_count = query_data.engine_count;
 
-    adapter->fence_buf = vidschi_create_fence_buffer(adapter, query_data.fence_buffer_segment_id, 68*1024);
+    adapter->fence_buf = vidschi_create_fence_buffer(adapter, query_data.fence_buffer_segment_id, 512 * 1024);
     adapter->fence_buf_local = vidschi_create_fence_buffer(adapter, 0x1, 68*1024);
     adapter->fence_buf_snoop = vidschi_create_fence_buffer(adapter, 0x3, 68*1024);
 
@@ -252,6 +252,8 @@ int vidsch_create(adapter_t *adapter)
             adapter->context_destroy_timeout *= 100;
         }
     }
+
+    schedule->chip_func->boost(adapter, ENG_POWER_STATE_E0, 90 * 1000, FALSE);
 
     vidschi_init_daemon_thread(adapter);
 
@@ -703,12 +705,22 @@ void vidsch_dvfs_power_flag_reset(adapter_t *adapter)
     }
 }
 
+void vidsch_set_power_state(adapter_t *adapter, unsigned int state, unsigned int holding_ms, unsigned int force)
+{
+    struct vidschedule *schedule = adapter->schedule;
+
+    if (!adapter->pwm_level.EnablePowerSwitch)
+        return;
+
+    schedule->chip_func->boost(adapter, state, holding_ms, force);
+}
+
 static vidsch_fence_buffer_t *vidschi_create_fence_buffer(adapter_t *adapter, unsigned int segment_id, int buffer_size)
 {
     vidsch_fence_buffer_t   *fence_buf       = gf_calloc(sizeof(vidsch_fence_buffer_t));
     vidmm_segment_memory_t  *reserved_memory = NULL;
     vidmm_map_flags_t        map_flags       = {0};
-    unsigned short           total_num       = 0;
+    unsigned int           total_num       = 0;
 
     reserved_memory = vidmm_allocate_segment_memory(adapter, segment_id, buffer_size, 0);
 

@@ -25,7 +25,6 @@
 #define __VIDSCH_3DBLT_E3K_H
 
 #include "vidmm.h"
-#include "context.h"
 #include "chip_include_e3k.h"
 #include "util.h"
 

@@ -2723,7 +2723,7 @@ static CBIOS_STATUS cbDSI_GetHostUpdatePara(PCBIOS_VOID pvcbe, PCBIOS_DSI_HOSTUP
         if((pUpdateParams->UpdateWindow.XStart + pUpdateParams->UpdateWindow.WinWidth) < (pTargetTiming->XRes / 2))
         {
             pUpdateWin = &(pHostUpdateParams->HostUpdateWindow[DSI_INDEX0]);
-            cbmemcpy(pUpdateWin, &(pUpdateParams->UpdateWindow), sizeof(CBIOS_DSI_WINDOW));
+            cb_memcpy(pUpdateWin, &(pUpdateParams->UpdateWindow), sizeof(CBIOS_DSI_WINDOW));
             cbDSI_AdjustPanelUpdateWindow(pcbe, &(pHostUpdateParams->PanelUpdatePara), pUpdateWin);
         }
         else if (pUpdateParams->UpdateWindow.XStart >=  (pTargetTiming->XRes / 2))   //only in right part
@@ -2801,7 +2801,7 @@ static CBIOS_STATUS cbDSI_GetDMAUpdatePara(PCBIOS_VOID pvcbe, PCBIOS_DSI_DMAUPDA
         pDMAUpdateParams->DMABaseAddr = pUpdateParams->DSIUpdateConfig.DMABaseAddr;
         pDMAUpdateParams->DMAStride = pUpdateParams->DSIUpdateConfig.DMAStride;
         pDMAUpdateParams->isDMAAligned = pUpdateParams->DSIUpdateConfig.bDMAAligned;
-        cbmemcpy(&(pDMAUpdateParams->DMAUpdateWindow),  &(pUpdateParams->UpdateWindow), sizeof(CBIOS_DSI_WINDOW));
+        cb_memcpy(&(pDMAUpdateParams->DMAUpdateWindow),  &(pUpdateParams->UpdateWindow), sizeof(CBIOS_DSI_WINDOW));
     }
     else
     {

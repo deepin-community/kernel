@@ -31,6 +31,36 @@
 
 #define VERIFY_BIT_OP 0
 
+#if defined(__riscv)
+static inline int ffs(int x)
+{
+    int r = 1;
+
+    if (!x)
+        return 0;
+    if (!(x & 0xffff)) {
+        x >>= 16;
+        r += 16;
+    }
+    if (!(x & 0xff)) {
+        x >>= 8;
+        r += 8;
+    }
+    if (!(x & 0xf)) {
+        x >>= 4;
+        r += 4;
+    }
+    if (!(x & 3)) {
+        x >>= 2;
+        r += 2;
+    }
+    if (!(x & 1)) {
+        x >>= 1;
+        r += 1;
+    }
+    return r;
+}
+#endif
 
 static __inline__ unsigned char _BitScanForward(volatile unsigned int *Index, unsigned int Mask)
 {
@@ -48,6 +78,8 @@ static __inline__ unsigned char _BitScanForward(volatile unsigned int *Index, un
        :"=r"(Mask)
        :"r" (Mask)
        );
+#elif defined(__riscv)
+    Mask = ffs(Mask)-1;
 #else
     Mask = __builtin_ffs(Mask)-1;
 #endif

@@ -24,9 +24,7 @@
 #ifndef __PERF_EVENT_H__
 #define __PERF_EVENT_H__
 
-#include "gf_def.h"
-
-extern int arise_perf_event_init(adapter_t *adapter);
+extern int perf_event_init(adapter_t *adapter);
 extern int perf_event_deinit(adapter_t *adapter);
 extern int perf_event_begin(adapter_t *adapter, gf_begin_perf_event_t *begin);
 extern int perf_event_end(adapter_t *adapter, gf_end_perf_event_t *end);

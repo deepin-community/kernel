@@ -6081,7 +6081,7 @@ CBIOS_U32 cbMode_GetDeviceModeList(PCBIOS_VOID pvcbe,
                 {
                     cbDebugPrint((MAKE_LEVEL(GENERIC, DEBUG),"cbMode_GetDeviceModeList: Filter mode %d x %d @ %d as it is greater than config max mode.\n",
                               MaxMode.XResolution, MaxMode.YResolution, MaxMode.Refreshrate));
-                     bFilterThisMode = CBIOS_TRUE;
+                    bFilterThisMode = CBIOS_TRUE;
                 }
             }
         }

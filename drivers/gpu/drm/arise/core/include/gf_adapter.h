@@ -229,17 +229,34 @@ typedef struct ctl_flags
     unsigned int  vesa_tempbuffer_enable :1;
     unsigned int  hwq_event_enable       :1;
     unsigned int  run_on_qemu_device     :1;
-    unsigned int  reserved               :14;
+    unsigned int  boost                  :1;
+    unsigned int  reserved               :13;
 }ctl_flags_t;
 
 #define PATCH_E2UMA_FENCE_ID_LOST   (1 << 0)
 #define PATCH_FENCE_INTERRUPT_LOST  (1 << 1)
 #define PATCH_E2UMA_HW66 (1<<2)
 
+#define ENG_POWER_MIN_HOLDING_TIME_MS 300
+
+enum engine_power_state
+{
+    ENG_POWER_STATE_E0 = 0,        // ECLK Default(650Mhz)
+    ENG_POWER_STATE_E1,            // ECLK 250Mhz
+    ENG_POWER_STATE_E2,            // ECLK 250Mhz + VCLK OFF
+    ENG_POWER_STATE_E3,            // ECLK 150Mhz + VCLK OFF
+    ENG_POWER_STATE_E4,            // ECLK 150Mhz + VCLK OFF + VCORE + LOW VCC (short idle)
+    ENG_POWER_STATE_E5,            // ECLK 50Mhz + VCLK OFF + VCORE + LOW VCC (long idle)
+    ENG_POWER_STATE_HOLD,
+    ENG_POWER_STATE_AUTO,
+    ENG_POWER_STATE_NONE
+};
+
 typedef struct
 {
     int EnableClockGating;
     int EnablePowerGating;
+    int EnablePowerSwitch;
     int DonotInitPowerSet;
 }pwm_level_t;
 
@@ -391,6 +408,10 @@ typedef struct
     unsigned long long          hw_hang_max_timeout_ns;
     unsigned long long          hw_hang_fast_timeout_ns;
     unsigned long long          sync_max_server_wait_time_ns;
+    unsigned int                power_state;
+    unsigned int                disp_state;
+    unsigned long long          power_holding_time;
+    unsigned int                power_state_hold;
 } adapter_t;
 
 #endif

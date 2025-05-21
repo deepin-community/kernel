@@ -31,7 +31,7 @@ struct gf_params gf_modparams __read_mostly = {
 #else
     .gf_fb = 1,
 #endif
-    .gf_pwm_mode = 0x1,
+    .gf_pwm_mode = 0x101,
     .gf_dfs_mode = 0,
     .gf_worker_thread_enable = 1,
     .gf_recovery_enable = 1,

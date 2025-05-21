@@ -639,6 +639,8 @@ int engine_gfx_low_init_e3k(adapter_t *adapter, vidsch_mgr_t *sch_mgr)
         return S_OK;
     }
 
+    sch_mgr->boost_level = ENG_POWER_STATE_E2;
+
     start_align = ((local_reserved_start + HW_CONTEXT_E3K_ALIGN)& ~HW_CONTEXT_E3K_ALIGN) - local_reserved_start;
     current_low_offset += start_align;
 
@@ -718,6 +720,8 @@ int engine_gfx_high_init_e3k(adapter_t *adapter, vidsch_mgr_t *sch_mgr)
         return S_OK;
     }
 
+    sch_mgr->boost_level = ENG_POWER_STATE_E2;
+
     start_align = ((local_reserved_start + HW_CONTEXT_E3K_ALIGN)& ~HW_CONTEXT_E3K_ALIGN) - local_reserved_start;
     current_low_offset += start_align;
 
@@ -751,7 +755,7 @@ int engine_vcp_init_e3k(adapter_t *adapter, vidsch_mgr_t *sch_mgr)
         gf_error("%s, out of mem.\n", util_remove_name_suffix(__func__));
         gf_assert(0, "engine_vcp_init");
     }
-
+    sch_mgr->boost_level = ENG_POWER_STATE_E1;
     enginei_common_init_e3k(sch_mgr, engine, &current_pcie_offset, &current_low_offset);
 
     return S_OK;
@@ -769,6 +773,7 @@ int engine_vpp_init_e3k(adapter_t *adapter, vidsch_mgr_t *sch_mgr)
         gf_assert(0, "engine_vpp_init");
     }
 
+    sch_mgr->boost_level = ENG_POWER_STATE_E1;
     enginei_common_init_e3k(sch_mgr, engine, &current_pcie_offset, &current_low_offset);
 
     return S_OK;
@@ -780,7 +785,8 @@ void engine_gfx_low_restore_e3k(vidsch_mgr_t *sch_mgr, unsigned int pm)
     engine_gfx_e3k_t    *engine  = sch_mgr->private_data;
     engine_share_e3k_t  *share   = engine->common.share;
 
-    vidschi_reset_adapter_e3k(sch_mgr->adapter);
+    if (!adapter->in_suspend_resume)
+        vidschi_reset_adapter_e3k(sch_mgr->adapter);
 
     //fix issue 18315, before system sleep, vcp clk is off,
     //when resume, open vcp clk before disable vcp decouple in vidmm_init_mem_settings_e3k

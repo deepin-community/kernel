@@ -1349,6 +1349,7 @@ typedef struct _CBIOS_CALLBACK_FUNCTIONS
     CBIOS_VOID*     pFnVsprintf;
     CBIOS_VOID*     pFnWriteRegisterU32;
     CBIOS_VOID*     pFnReadRegisterU32;
+    CBIOS_VOID*     pFnVDbgPrint;
     CBIOS_VOID*     pFnDbgPrintToFile;
     CBIOS_VOID*     pFnVsnprintf;
     //gpio
