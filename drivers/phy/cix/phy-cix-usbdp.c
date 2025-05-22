@@ -1451,8 +1451,10 @@ static int cix_udphy_probe(struct platform_device *pdev)
 
 	if (udphy->phy_reset) {
 		dev_info(dev, "phy reset\n");
-		reset_control_assert(udphy->reset);
-		reset_control_assert(udphy->preset);
+		if (!IS_ERR(udphy->reset))
+			reset_control_assert(udphy->reset);
+		if (!IS_ERR(udphy->preset))
+			reset_control_assert(udphy->preset);
 	}
 
 	udphy->apb_clk = devm_clk_get(dev, "pclk");
