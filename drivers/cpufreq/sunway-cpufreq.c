@@ -135,26 +135,23 @@ static void __init fill_freq_table(struct cpufreq_frequency_table *ft)
 
 static unsigned int sunway_get_rate(struct cpufreq_policy *policy)
 {
-	int i, clu_lv1_sel;
+	int i;
 	u64 val;
 	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
 	struct cpufreq_frequency_table *ft = policy->freq_table;
 
-	clu_lv1_sel = (readq(spbu_base + OFFSET_CLU_LV1_SEL) >> 2) & 0x3;
-
-	if (clu_lv1_sel == 0)
-		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL0_CFG_SHIFT;
-	else if (clu_lv1_sel == 2)
-		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL1_CFG_SHIFT;
-	else
-		val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
-
+	/* PLL2 provides working frequency for core */
+	val = readq(spbu_base + OFFSET_CLK_CTL) >> CORE_PLL2_CFG_SHIFT;
 	val &= CORE_PLL2_CFG_MASK;
 
 	for (i = 0; ft[i].frequency != CPUFREQ_TABLE_END; i++) {
-		if (val == i)
+		if (val == i) {
+			if (ft[i].frequency == CPUFREQ_ENTRY_INVALID)
+				return cpuid(GET_CPU_FREQ, 0) * 1000UL;
 			return ft[i].frequency;
+		}
 	}
+
 	return 0;
 }
 
@@ -252,6 +249,7 @@ static struct freq_attr *sunway_table_attr[] = {
 
 static struct cpufreq_driver sunway_cpufreq_driver = {
 	.name = "sunway-cpufreq",
+	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK,
 	.init = sunway_cpufreq_init,
 	.verify = sunway_cpufreq_verify,
 	.target_index = sunway_cpufreq_target,
