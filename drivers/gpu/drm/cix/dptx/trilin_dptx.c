@@ -2698,12 +2698,9 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
 	fwnode_edp_panel = fwnode_find_reference(dev->fwnode, "edp-panel", 0);
 	if (!IS_ERR_OR_NULL(fwnode_edp_panel)) {
 		//edp_panel = fwnode_drm_find_panel(fwnode_edp_panel); /*not a public interface*/
-		if (IS_ERR_OR_NULL(edp_panel)) {
+		if (IS_ERR(edp_panel)) {
 			dev_err(dev, "%s, invalid drm_panel\n", __func__);
 			return PTR_ERR(edp_panel);
-		} else {
-			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
-				 dev_name(edp_panel->dev));
 		}
 	}
 
