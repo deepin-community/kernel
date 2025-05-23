@@ -152,8 +152,10 @@ static int cdnsp_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(cdns->usb3_phy))
 		cdns->usb3_phy =
 			devm_phy_optional_ref_get(dev, "cdnsp,usb3-phy");
-	if (IS_ERR(cdns->usb3_phy))
-		return PTR_ERR(cdns->usb3_phy);
+	if (IS_ERR(cdns->usb3_phy)) {
+		dev_dbg(dev, "get usb3_phy failed, wait for phy driver loaded!");
+		return -EPROBE_DEFER;
+	}
 
 	ret = phy_init(cdns->usb3_phy);
 	if (ret)
