@@ -164,6 +164,74 @@ asm (
 
 #endif /* CONFIG_LOONGARCH */
 
+#ifdef CONFIG_SW64
+
+asm (
+"	.pushsection    .text, \"ax\", @progbits\n"
+"	.type		my_tramp1, @function\n"
+"	.globl		my_tramp1\n"
+"   my_tramp1:\n"
+"	subl    $sp, 0x10, $sp\n"
+"	stl     $26, 0($sp)\n"
+"	stl     $15, 0x8($sp)\n"
+"	ldi     $15, 0($sp)\n"
+	/* save $28 & fp of caller */
+"	subl    $sp, 0x10, $sp\n"
+"	stl     $28, 0($sp)\n"
+"	stl     $15, 0x8($sp)\n"
+"	ldi     $15, 0($sp)\n"
+	/* save other regs */
+"	subl    $sp, 0x18, $sp\n"
+"	stl     $26, 0($sp)\n"
+"	stl     $28, 0x8($sp)\n"
+"	stl     $29, 0x10($sp)\n"
+"	br      $27, 1f\n"
+"1:	ldgp	$29, 0($27)\n"
+"	call	my_direct_func1\n"
+	/* restore all regs */
+"	ldl     $26, 0x0($sp)\n"
+"	ldl     $28, 0x8($sp)\n"
+"	ldl     $29, 0x10($sp)\n"
+"	addl    $sp, 0x18, $sp\n"
+"	ldl     $15, 0x18($sp)\n"
+"	addl    $sp, 0x20, $sp\n"
+"	ret     $31, ($28), 1\n"
+"	.size		my_tramp1, .-my_tramp1\n"
+
+"	.type		my_tramp2, @function\n"
+"	.globl		my_tramp2\n"
+"   my_tramp2:\n"
+"	subl    $sp, 0x10, $sp\n"
+"	stl     $26, 0($sp)\n"
+"	stl     $15, 0x8($sp)\n"
+"	ldi     $15, 0($sp)\n"
+	/* save $28 & fp of caller */
+"	subl    $sp, 0x10, $sp\n"
+"	stl     $28, 0($sp)\n"
+"	stl     $15, 0x8($sp)\n"
+"	ldi     $15, 0($sp)\n"
+	/* save other regs */
+"	subl    $sp, 0x18, $sp\n"
+"	stl     $26, 0($sp)\n"
+"	stl     $28, 0x8($sp)\n"
+"	stl     $29, 0x10($sp)\n"
+"	br      $27, 1f\n"
+"1:	ldgp	$29, 0($27)\n"
+"	call	my_direct_func2\n"
+	/* restore all regs */
+"	ldl     $26, 0x0($sp)\n"
+"	ldl     $28, 0x8($sp)\n"
+"	ldl     $29, 0x10($sp)\n"
+"	addl    $sp, 0x18, $sp\n"
+"	ldl     $15, 0x18($sp)\n"
+"	addl    $sp, 0x20, $sp\n"
+"	ret     $31, ($28), 1\n"
+"	.size		my_tramp2, .-my_tramp2\n"
+"	.popsection\n"
+);
+
+#endif /* CONFIG_SW64 */
+
 static struct ftrace_ops direct;
 
 static unsigned long my_tramp = (unsigned long)my_tramp1;
