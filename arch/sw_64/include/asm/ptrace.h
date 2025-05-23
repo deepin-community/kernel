@@ -87,6 +87,11 @@ static inline long regs_return_value(struct pt_regs *regs)
 		return -regs->regs[0];
 }
 
+static inline void regs_set_return_value(struct pt_regs *regs, unsigned long rc)
+{
+	regs->regs[0] = rc;
+}
+
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
 

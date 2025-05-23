@@ -40,6 +40,8 @@ lib-y += $(lib-clear_page-y) $(lib-clear_user-y) $(lib-copy_page-y) $(lib-copy_u
 obj-y = iomap.o
 obj-y += iomap_copy.o
 
+obj-$(CONFIG_FUNCTION_ERROR_INJECTION) += error-inject.o
+
 ifeq ($(CONFIG_SUBARCH_C3B),y)
 # The division routines are built from single source, with different defines.
 AFLAGS___divlu.o = -DDIV
