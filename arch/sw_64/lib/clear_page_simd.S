@@ -4,6 +4,13 @@
  */
 #include <asm/csr.h>
 #include <asm/export.h>
+
+#ifndef CONFIG_SUBARCH_C3B
+# define VSTD_CPU	vstd_nc
+#else
+# define VSTD_CPU	vstd
+#endif
+
 	.text
 	.align 4
 	.global clear_page
@@ -11,49 +18,17 @@
 clear_page:
 	.prologue 0
 
-	ldi	$0,64
+	ldi		$1, 0x2000($16)
 
-/* Optimize by GUOY from SOC 2013-06-04 */
 1:
+	VSTD_CPU	$f31, 0($16)
+	VSTD_CPU	$f31, 32($16)
+	VSTD_CPU	$f31, 64($16)
+	VSTD_CPU	$f31, 96($16)
+	addl		$16, 128, $16
+	cmpeq		$16, $1, $2
+	beq		$2, 1b
 
-/*
-	stl_nc	$31,0x0($16)
-	stl_nc	$31,0x8($16)
-	stl_nc	$31,0x10($16)
-	stl_nc	$31,0x18($16)
-
-	stl_nc	$31,0x20($16)
-	stl_nc	$31,0x28($16)
-	stl_nc	$31,0x30($16)
-	stl_nc	$31,0x38($16)
-
-	stl_nc	$31,0x40($16)
-	stl_nc	$31,0x48($16)
-	stl_nc	$31,0x50($16)
-	stl_nc	$31,0x58($16)
-
-	stl_nc	$31,0x60($16)
-	stl_nc	$31,0x68($16)
-	stl_nc	$31,0x70($16)
-	stl_nc	$31,0x78($16)
-*/
-
-#ifdef CONFIG_SUBARCH_C4
-	csrr	$7, CSR_WR_FREGS
-#endif
-	vstd_nc	$f31, 0x0($16)
-	vstd_nc	$f31, 0x20($16)
-	subl	$0, 1, $0
-	vstd_nc	$f31, 0x40($16)
-
-	vstd_nc	$f31, 0x60($16)
-	addl	$16, 128, $16
-	bne	$0, 1b
-
-	memb
-#ifdef CONFIG_SUBARCH_C4
-	csrw	$7, CSR_WR_FREGS
-#endif
 	ret
 
 	.end clear_page
