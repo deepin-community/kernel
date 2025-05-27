@@ -18,4 +18,9 @@ void *pgtable_alloc_late(void);
 
 #endif
 
+
+static inline void clear_asid(mm_context_t *mm_context)
+{
+	memset(mm_context->asid, 0, sizeof(mm_context->asid[0]) * nr_cpu_ids);
+}
 #endif /* _ASM_SW64_MMU_H */
