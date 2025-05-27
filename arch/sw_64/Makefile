@@ -34,6 +34,9 @@ cflags-y	:= -pipe -ffixed-8 -mno-fp-regs #-msmall-data
 ifneq ($(CONFIG_SUBARCH_C3B),y)
 	cflags-y += -fsw-rev -fsw-unalign-byte
 endif
+cflags-y	+= $(call cc-option, -fsw-memcpy)
+cflags-y	+= $(call cc-option, -fsw-memclr)
+cflags-y	+= $(call cc-option, -fsw-leaf-optimize-fp)
 cflags-y	+= $(call cc-option, -fno-jump-tables)
 
 cflags-y				+= $(cpuflags-y)
