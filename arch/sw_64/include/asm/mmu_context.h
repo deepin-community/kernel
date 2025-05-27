@@ -92,10 +92,7 @@ switch_mm(struct mm_struct *prev_mm, struct mm_struct *next_mm,
 static inline int init_new_context(struct task_struct *tsk,
 				   struct mm_struct *mm)
 {
-	int i;
-
-	for_each_possible_cpu(i)
-		mm->context.asid[i] = 0;
+	clear_asid(&mm->context);
 	return 0;
 }
 

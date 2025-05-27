@@ -732,7 +732,6 @@ static void ipi_flush_tlb_mm(void *x)
 
 void flush_tlb_mm(struct mm_struct *mm)
 {
-
 	/* happens as a result of exit_mmap()
 	 * Shall we clear mm->context.asid[] here?
 	 */
@@ -744,12 +743,11 @@ void flush_tlb_mm(struct mm_struct *mm)
 	if (atomic_read(&mm->mm_users) != 1 || mm != current->mm) {
 		on_each_cpu_mask(mm_cpumask(mm), ipi_flush_tlb_mm, mm, 1);
 	} else {
-		int cpu, this_cpu = smp_processor_id();
+		int cpu = smp_processor_id();
+		unsigned long asid = mm->context.asid[cpu];
 
-		for_each_online_cpu(cpu) {
-			if (cpu != this_cpu && mm->context.asid[cpu])
-				mm->context.asid[cpu] = 0;
-		}
+		clear_asid(&mm->context);
+		mm->context.asid[cpu] = asid;
 		local_flush_tlb_mm(mm);
 	}
 
@@ -784,12 +782,11 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
 		};
 		on_each_cpu_mask(mm_cpumask(mm), ipi_flush_tlb_page, &info, 1);
 	} else {
-		int cpu, this_cpu = smp_processor_id();
+		int cpu = smp_processor_id();
+		unsigned long asid = mm->context.asid[cpu];
 
-		for_each_online_cpu(cpu) {
-			if (cpu != this_cpu && mm->context.asid[cpu])
-				mm->context.asid[cpu] = 0;
-		}
+		clear_asid(&mm->context);
+		mm->context.asid[cpu] = asid;
 		local_flush_tlb_page(vma, addr);
 	}
 
