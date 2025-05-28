@@ -576,6 +576,12 @@ cmd_handle:
 	}
 }
 
+static void __init setup_cpu_caps(void)
+{
+	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) && !is_junzhang_v1())
+		static_branch_enable(&hw_una_enabled);
+}
+
 static void __init setup_legacy_io(void)
 {
 	if (is_guest_or_emul()) {
@@ -678,6 +684,9 @@ setup_arch(char **cmdline_p)
 
 	/* Early initialization for device tree */
 	setup_firmware_fdt();
+
+	/* Now we know who we are, setup caps */
+	setup_cpu_caps();
 
 	/* Now we get the final boot_command_line */
 	*cmdline_p = boot_command_line;
