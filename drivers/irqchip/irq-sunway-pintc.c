@@ -243,9 +243,10 @@ static void update_pintc_mcu_target(struct pintc_chip_data *chip_data,
 	raw_spin_unlock_irqrestore(&chip_data->pintc_lock, flags);
 }
 
-static int assign_mcu_irq_config(struct pintc_chip_data *chip_data,
+static int assign_mcu_irq_config(struct irq_data *irq_data,
 		cpumask_t *targets)
 {
+	struct pintc_chip_data *chip_data = irq_data->chip_data;
 	unsigned long dev_int_tar;
 	unsigned int cpu;
 	int rcid;
@@ -270,13 +271,14 @@ static int assign_mcu_irq_config(struct pintc_chip_data *chip_data,
 	dev_int_tar = make_pintc_int_target(chip_data->version, rcid);
 	update_pintc_mcu_target(chip_data, dev_int_tar);
 
+	irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
+
 	return 0;
 }
 
 static int mcu_irq_set_affinity(struct irq_data *irq_data,
 				 const struct cpumask *dest, bool force)
 {
-	struct pintc_chip_data *chip_data = irq_data->chip_data;
 	cpumask_t targets;
 
 	if (cpumask_any_and(dest, cpu_online_mask) >= nr_cpu_ids)
@@ -284,7 +286,7 @@ static int mcu_irq_set_affinity(struct irq_data *irq_data,
 
 	cpumask_and(&targets, dest, cpu_online_mask);
 
-	return assign_mcu_irq_config(chip_data, &targets);
+	return assign_mcu_irq_config(irq_data, &targets);
 }
 
 static struct irq_chip pintc_mcu_chips[SUNWAY_MAX_NODES] = {
