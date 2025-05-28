@@ -64,7 +64,7 @@ archclean:
 	$(Q)$(MAKE) $(clean)=$(boot)
 	$(Q)$(MAKE) $(clean)=arch/sw_64/tools
 
-KBUILD_IMAGE := $(boot)/vmlinux.bin
+KBUILD_IMAGE := $(boot)/vmlinux
 
 define archhelp
   echo '* boot		- Compressed kernel image (arch/sw_64/boot/vmlinux.bin.gz)'

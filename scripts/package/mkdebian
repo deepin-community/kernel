@@ -26,8 +26,10 @@ set_debarch() {
 
 	# Attempt to find the correct Debian architecture
 	case "$UTS_MACHINE" in
-	i386|ia64|alpha|m68k|riscv*|sw_64)
+	i386|ia64|alpha|m68k|riscv*)
 		debarch="$UTS_MACHINE" ;;
+	sw_64)
+		debarch=sw64 ;;
 	x86_64)
 		debarch=amd64 ;;
 	sparc*)
