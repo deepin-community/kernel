@@ -16,6 +16,7 @@
 #include <linux/arm_sdei.h>
 #include <linux/kprobes.h>
 #include <linux/nmi.h>
+#include <linux/cpu_pm.h>
 
 /* We use the secure physical timer as SDEI NMI watchdog timer */
 #define SDEI_NMI_WATCHDOG_HWIRQ		29
@@ -106,6 +107,34 @@ void sdei_watchdog_clear_eoi(void)
 		sdei_api_clear_eoi(SDEI_NMI_WATCHDOG_HWIRQ);
 }
 
+static int sdei_watchdog_pm_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	int rv;
+
+	WARN_ON_ONCE(preemptible());
+
+	switch (action) {
+	case CPU_PM_ENTER:
+		rv = sdei_api_event_disable(sdei_watchdog_event_num);
+		break;
+	case CPU_PM_EXIT:
+		rv = sdei_api_event_enable(sdei_watchdog_event_num);
+		break;
+	default:
+		return NOTIFY_DONE;
+	}
+
+	if (rv)
+		return notifier_from_errno(rv);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block sdei_watchdog_pm_nb = {
+	.notifier_call = sdei_watchdog_pm_notifier,
+};
+
 int __init sdei_watchdog_hardlockup_probe(void)
 {
 	int ret;
@@ -144,6 +173,11 @@ int __init sdei_watchdog_hardlockup_probe(void)
 		return ret;
 	}
 
+	ret = cpu_pm_register_notifier(&sdei_watchdog_pm_nb);
+	if (ret) {
+		pr_warn("Failed to register sdei PM notifier...\n");
+		return ret;
+	}
 	sdei_watchdog_registered = true;
 	pr_info("SDEI Watchdog registered successfully\n");
 
