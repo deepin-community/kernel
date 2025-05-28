@@ -114,6 +114,10 @@
 	stl	$29, PT_REGS_GP($sp)
 	ldi	$0, PT_REGS_SIZE($sp)
 	stl	$0, PT_REGS_R30($sp)
+
+	/* save direct caller reg */
+	ldi	$2, 0($31)
+	stl	$2, PT_REGS_R2($sp)
 	.endm
 
 	.macro RESTORE_PT_REGS
@@ -338,7 +342,10 @@ ftrace_regs_call:
 	call    ftrace_graph_caller
 #endif
 	RESTORE_PT_REGS
-	ret $31, ($28), 1
+	bne	$2, .Ldirect
+	ret	$31, ($28), 1
+.Ldirect:
+	ret	$31, ($2), 1
 	.end ftrace_regs_caller
 #endif /* CONFIG_DYNAMIC_FTRACE_WITH_REGS */
 
