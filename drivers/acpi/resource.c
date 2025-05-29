@@ -654,6 +654,13 @@ static const struct dmi_system_id lg_laptop[] = {
 		},
 	},
 	{
+		/* MACHENIKE L16P/L16P */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "MACHENIKE"),
+			DMI_MATCH(DMI_BOARD_NAME, "L16P"),
+		},
+	},
+	{
 		/*
 		 * TongFang GM5HG0A in case of the SKIKK Vanaheim relabel the
 		 * board-name is changed, so check OEM strings instead. Note
