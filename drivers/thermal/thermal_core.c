@@ -18,11 +18,9 @@
 #include <linux/thermal.h>
 #include <linux/reboot.h>
 #include <linux/string.h>
-#include <linux/cpufreq.h>
 #include <linux/of.h>
 #include <linux/suspend.h>
 
-#include <asm/stacktrace.h>
 #define CREATE_TRACE_POINTS
 #include "thermal_trace.h"
 
@@ -343,49 +341,6 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 		tz->ops->critical(tz);
 }
 
-static int thermal_boost_enable(struct thermal_zone_device *tz)
-{
-	enum thermal_trend trend = get_tz_trend(tz, 0);
-	struct thermal_trip trip;
-
-	if (!tz->overheated)
-		return -EPERM;
-	if (trend == THERMAL_TREND_RAISING)
-		return -EBUSY;
-
-	__thermal_zone_get_trip(tz, 0, &trip);
-
-	if ((tz->temperature + (trip.temperature >> 2)) < trip.temperature) {
-		mutex_lock(&tz->lock);
-		tz->overheated = false;
-		if (tz->boost_polling) {
-			tz->boost_polling = false;
-			thermal_zone_device_set_polling(tz, 0);
-		}
-		mutex_unlock(&tz->lock);
-		cpufreq_boost_trigger_state(1);
-		return 0;
-	}
-	return -EBUSY;
-}
-
-static void thermal_boost_disable(struct thermal_zone_device *tz)
-{
-	cpufreq_boost_trigger_state(0);
-
-	/*
-	 * If no workqueue for monitoring is running - start one with
-	 * 1000 ms monitoring period
-	 * If workqueue already running - do not change its period and only
-	 * test if target CPU has cooled down
-	 */
-	if (tz->mode != THERMAL_DEVICE_ENABLED) {
-		tz->boost_polling = true;
-		thermal_zone_device_set_polling(tz, 1000);
-	}
-	tz->overheated = true;
-}
-
 static void handle_thermal_trip(struct thermal_zone_device *tz, int trip_id)
 {
 	struct thermal_trip trip;
@@ -464,11 +419,6 @@ void __thermal_zone_device_update(struct thermal_zone_device *tz,
 		return;
 
 	update_temperature(tz);
-
-	if (cpufreq_boost_supported() && cpufreq_boost_enabled())
-		if ((tz->temperature + (tz->trips[0].temperature >> 2))
-					>= tz->trips[0].temperature)
-			thermal_boost_disable(tz);
 
 	__thermal_zone_set_trips(tz);
 
@@ -576,9 +526,6 @@ static void thermal_zone_device_check(struct work_struct *work)
 	struct thermal_zone_device *tz = container_of(work, struct
 						      thermal_zone_device,
 						      poll_queue.work);
-	if (cpufreq_boost_supported())
-		if (!thermal_boost_enable(tz))
-			return;
 	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
 }
 

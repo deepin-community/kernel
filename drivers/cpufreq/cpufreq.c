@@ -86,7 +86,7 @@ static void cpufreq_governor_limits(struct cpufreq_policy *policy);
 static int cpufreq_set_policy(struct cpufreq_policy *policy,
 			      struct cpufreq_governor *new_gov,
 			      unsigned int new_pol);
-bool cpufreq_boost_supported(void);
+static bool cpufreq_boost_supported(void);
 
 /*
  * Two notifier lists: the "policy" list is involved in the
@@ -2826,14 +2826,10 @@ err_reset_state:
 	return ret;
 }
 
-bool cpufreq_boost_supported(void)
+static bool cpufreq_boost_supported(void)
 {
-	if (!cpufreq_driver)
-		return -EINVAL;
-
 	return cpufreq_driver->set_boost;
 }
-EXPORT_SYMBOL_GPL(cpufreq_boost_supported);
 
 static int create_boost_sysfs_file(void)
 {
@@ -2870,9 +2866,6 @@ EXPORT_SYMBOL_GPL(cpufreq_enable_boost_support);
 
 int cpufreq_boost_enabled(void)
 {
-	if (!cpufreq_driver)
-		return -EINVAL;
-
 	return cpufreq_driver->boost_enabled;
 }
 EXPORT_SYMBOL_GPL(cpufreq_boost_enabled);
