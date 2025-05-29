@@ -2829,7 +2829,7 @@ err_reset_state:
 bool cpufreq_boost_supported(void)
 {
 	if (!cpufreq_driver)
-		return 0;
+		return -EINVAL;
 
 	return cpufreq_driver->set_boost;
 }
@@ -2871,7 +2871,7 @@ EXPORT_SYMBOL_GPL(cpufreq_enable_boost_support);
 int cpufreq_boost_enabled(void)
 {
 	if (!cpufreq_driver)
-		return 0;
+		return -EINVAL;
 
 	return cpufreq_driver->boost_enabled;
 }
