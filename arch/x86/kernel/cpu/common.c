@@ -92,6 +92,9 @@ EXPORT_SYMBOL_GPL(get_llc_id);
 /* L2 cache ID of each logical CPU */
 DEFINE_PER_CPU_READ_MOSTLY(u16, cpu_l2c_id) = BAD_APICID;
 
+DEFINE_STATIC_KEY_FALSE(hygon_lmc_key);
+EXPORT_SYMBOL_GPL(hygon_lmc_key);
+
 static struct ppin_info {
 	int	feature;
 	int	msr_ppin_ctl;
@@ -2511,6 +2514,17 @@ void arch_smt_update(void)
 	apic_smt_update();
 }
 
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+static inline void update_lmc_branch_cond(void)
+{
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		static_branch_enable(&hygon_lmc_key);
+}
+#else
+static inline void update_lmc_branch_cond(void) { }
+#endif
+
 void __init arch_cpu_finalize_init(void)
 {
 	identify_boot_cpu();
@@ -2529,6 +2543,8 @@ void __init arch_cpu_finalize_init(void)
 	cpu_select_mitigations();
 
 	arch_smt_update();
+
+	update_lmc_branch_cond();
 
 	if (IS_ENABLED(CONFIG_X86_32)) {
 		/*

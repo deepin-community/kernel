@@ -63,6 +63,8 @@
 
 #include "process.h"
 
+extern struct static_key_false hygon_lmc_key;
+
 /* Prints also some state that isn't saved in the pt_regs */
 void __show_regs(struct pt_regs *regs, enum show_regs_mode mode,
 		 const char *log_lvl)
@@ -571,6 +573,9 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	if (!test_thread_flag(TIF_NEED_FPU_LOAD))
 		switch_fpu_prepare(prev_fpu, cpu);
 
+	if (static_branch_unlikely(&hygon_lmc_key))
+		switch_kernel_fpu_prepare(prev_p, cpu);
+
 	/* We must save %fs and %gs before load_TLS() because
 	 * %fs and %gs may be cleared by load_TLS().
 	 *
@@ -624,6 +629,9 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	raw_cpu_write(pcpu_hot.top_of_stack, task_top_of_stack(next_p));
 
 	switch_fpu_finish();
+
+	if (static_branch_unlikely(&hygon_lmc_key))
+		switch_kernel_fpu_finish(next_p);
 
 	/* Reload sp0. */
 	update_task_stack(next_p);

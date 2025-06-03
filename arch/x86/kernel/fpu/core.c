@@ -33,6 +33,8 @@ DEFINE_STATIC_KEY_FALSE(__fpu_state_size_dynamic);
 DEFINE_PER_CPU(u64, xfd_state);
 #endif
 
+extern struct static_key_false hygon_lmc_key;
+
 /* The FPU state configuration data for kernel and user space */
 struct fpu_state_config	fpu_kernel_cfg __ro_after_init;
 struct fpu_state_config fpu_user_cfg __ro_after_init;
@@ -421,6 +423,8 @@ EXPORT_SYMBOL_GPL(fpu_copy_uabi_to_guest_fpstate);
 void kernel_fpu_begin_mask(unsigned int kfpu_mask)
 {
 	preempt_disable();
+	if (static_branch_unlikely(&hygon_lmc_key))
+		check_using_kernel_fpu();
 
 	WARN_ON_FPU(!irq_fpu_usable());
 	WARN_ON_FPU(this_cpu_read(in_kernel_fpu));
@@ -445,12 +449,116 @@ EXPORT_SYMBOL_GPL(kernel_fpu_begin_mask);
 
 void kernel_fpu_end(void)
 {
+	if (static_branch_unlikely(&hygon_lmc_key))
+		check_using_kernel_fpu();
+
 	WARN_ON_FPU(!this_cpu_read(in_kernel_fpu));
 
 	this_cpu_write(in_kernel_fpu, false);
 	preempt_enable();
 }
 EXPORT_SYMBOL_GPL(kernel_fpu_end);
+
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+
+extern unsigned int fpu_kernel_nonatomic_xstate_size;
+unsigned int get_fpustate_free_space(struct fpu *fpu)
+{
+	if ((fpu_kernel_cfg.default_size + fpu_kernel_nonatomic_xstate_size) >
+	    sizeof(fpu->fpstate->regs))
+		return 0;
+	return fpu_kernel_nonatomic_xstate_size;
+}
+
+unsigned long get_fpu_registers_pos(struct fpu *fpu, unsigned int off)
+{
+	unsigned long addr = 0;
+
+	if (fpu && (fpu_kernel_nonatomic_xstate_size > off)) {
+		addr = (unsigned long)&fpu->__fpstate.regs.__padding[0];
+		addr += fpu_kernel_cfg.default_size + off;
+	}
+	return addr;
+}
+
+/*
+ * We can call kernel_fpu_begin_nonatomic in non-atomic task context.
+ */
+int kernel_fpu_begin_nonatomic_mask(unsigned int kfpu_mask)
+{
+	preempt_disable();
+	/* we not support Nested call */
+	if (test_thread_flag(TIF_USING_FPU_NONATOMIC))
+		goto err;
+
+	if (KERNEL_FPU_NONATOMIC_SIZE >
+	    get_fpustate_free_space(&current->thread.fpu))
+		goto err;
+
+	/*
+	 * This means we call kernel_fpu_begin_nonatomic after kernel_fpu_begin,
+	 * but before kernel_fpu_end.
+	 */
+	if (this_cpu_read(in_kernel_fpu))
+		goto err;
+
+	if (in_interrupt())
+		goto err;
+
+	if (current->flags & PF_KTHREAD)
+		goto err;
+
+	if (!test_thread_flag(TIF_NEED_FPU_LOAD)) {
+		set_thread_flag(TIF_NEED_FPU_LOAD);
+		save_fpregs_to_fpstate(&current->thread.fpu);
+	}
+	/* Set thread flag: TIC_USING_FPU_NONATOMIC */
+	set_thread_flag(TIF_USING_FPU_NONATOMIC);
+
+	__cpu_invalidate_fpregs_state();
+
+	/* Put sane initial values into the control registers. */
+	if (likely(kfpu_mask & KFPU_MXCSR) && boot_cpu_has(X86_FEATURE_XMM))
+		ldmxcsr(MXCSR_DEFAULT);
+
+	if (unlikely(kfpu_mask & KFPU_387) && boot_cpu_has(X86_FEATURE_FPU))
+		asm volatile ("fninit");
+
+	preempt_enable();
+
+	return 0;
+
+err:
+	preempt_enable();
+
+	return -1;
+}
+EXPORT_SYMBOL_GPL(kernel_fpu_begin_nonatomic_mask);
+
+void kernel_fpu_end_nonatomic(void)
+{
+	preempt_disable();
+	/*
+	 * This means we call kernel_fpu_end_nonatomic after kernel_fpu_begin,
+	 * but before kernel_fpu_end.
+	 */
+	WARN_ON_FPU(this_cpu_read(in_kernel_fpu));
+
+	WARN_ON_FPU(!test_thread_flag(TIF_USING_FPU_NONATOMIC));
+
+	clear_thread_flag(TIF_USING_FPU_NONATOMIC);
+	preempt_enable();
+}
+EXPORT_SYMBOL_GPL(kernel_fpu_end_nonatomic);
+
+void save_fpregs_to_fpkernelstate(struct fpu *kfpu)
+{
+	kernel_fpu_states_save((void *)get_fpu_registers_pos(kfpu,
+							     MAX_FPU_CTX_SIZE),
+			       NULL, MAX_FPU_CTX_SIZE);
+}
+#endif
 
 /*
  * Sync the FPU register state to current's memory register state when the

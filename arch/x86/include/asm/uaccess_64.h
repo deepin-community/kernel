@@ -11,6 +11,12 @@
 #include <asm/alternative.h>
 #include <asm/cpufeatures.h>
 #include <asm/page.h>
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+#include <asm/fpu/api.h>
+#endif
+
+extern struct static_key_false hygon_lmc_key;
 
 #ifdef CONFIG_ADDRESS_MASKING
 /*
@@ -97,6 +103,74 @@ static inline bool __access_ok(const void __user *ptr, unsigned long size)
  * Copy To/From Userspace
  */
 
+#ifdef CONFIG_X86_HYGON_LMC_SSE2_ON
+void fpu_save_xmm0_3(void *to, const void *from, unsigned long len);
+void fpu_restore_xmm0_3(void *to, const void *from, unsigned long len);
+
+#define kernel_fpu_states_save fpu_save_xmm0_3
+#define kernel_fpu_states_restore fpu_restore_xmm0_3
+
+__must_check unsigned long copy_user_sse2_opt_string(void *to, const void *from,
+						     unsigned long len);
+
+#define MAX_FPU_CTX_SIZE 64
+#define KERNEL_FPU_NONATOMIC_SIZE (2 * (MAX_FPU_CTX_SIZE))
+
+#define copy_user_large_memory_generic_string copy_user_sse2_opt_string
+
+#endif
+
+#ifdef CONFIG_X86_HYGON_LMC_AVX2_ON
+void fpu_save_ymm0_7(void *to, const void *from, unsigned long len);
+void fpu_restore_ymm0_7(void *to, const void *from, unsigned long len);
+
+#define kernel_fpu_states_save fpu_save_ymm0_7
+#define kernel_fpu_states_restore fpu_restore_ymm0_7
+
+__must_check unsigned long
+copy_user_avx2_pf64_nt_string(void *to, const void *from, unsigned long len);
+
+#define MAX_FPU_CTX_SIZE 256
+#define KERNEL_FPU_NONATOMIC_SIZE (2 * (MAX_FPU_CTX_SIZE))
+
+#define copy_user_large_memory_generic_string copy_user_avx2_pf64_nt_string
+#endif
+
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+unsigned int get_nt_block_copy_mini_len(void);
+static inline bool Hygon_LMC_check(unsigned long len)
+{
+	unsigned int nt_blk_cpy_mini_len = get_nt_block_copy_mini_len();
+
+	if (((nt_blk_cpy_mini_len) && (nt_blk_cpy_mini_len <= len) &&
+	     (system_state == SYSTEM_RUNNING) &&
+	     (!kernel_fpu_begin_nonatomic())))
+		return true;
+	else
+		return false;
+}
+static inline unsigned long
+copy_large_memory_generic_string(void *to, const void *from, unsigned long len)
+{
+	unsigned long ret;
+
+	ret = copy_user_large_memory_generic_string(to, from, len);
+	kernel_fpu_end_nonatomic();
+	return ret;
+}
+#else
+static inline bool Hygon_LMC_check(unsigned long len)
+{
+	return false;
+}
+static inline unsigned long
+copy_large_memory_generic_string(void *to, const void *from, unsigned long len)
+{
+	return 0;
+}
+#endif
+
 /* Handles exceptions in both to and from, but doesn't do access_ok */
 __must_check unsigned long
 rep_movs_alternative(void *to, const void *from, unsigned len);
@@ -104,6 +178,16 @@ rep_movs_alternative(void *to, const void *from, unsigned len);
 static __always_inline __must_check unsigned long
 copy_user_generic(void *to, const void *from, unsigned long len)
 {
+	/* Check if Hygon large memory copy support enabled. */
+	if (static_branch_unlikely(&hygon_lmc_key)) {
+		if (Hygon_LMC_check(len)) {
+			unsigned long ret;
+
+			ret = copy_large_memory_generic_string(to, from, len);
+			return ret;
+		}
+	}
+
 	stac();
 	/*
 	 * If CPU has FSRM feature, use 'rep movs'.

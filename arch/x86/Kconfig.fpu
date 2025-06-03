@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menuconfig USING_FPU_IN_KERNEL_NONATOMIC
+	bool "Hygon large memory copy support"
+	depends on X86_64 && CPU_SUP_HYGON
+	default y
+	help
+	  This option enables support for optimized large memory copy operations
+	  on Hygon processors in the kernel space using SSE2 or AVX2 non-temporal (NT)
+	  copy instructions. NT instructions are streaming store instructions that bypass
+	  the on-chip cache and send data directly to a write-combining buffer.
+
+	  When this option is enabled, you can choose the specific instruction set to use
+	  for large memory copy: SSE2 or AVX2. Using these instruction sets can improve data
+	  throughput and reduce the number of cache misses during memory copy operations.
+
+if USING_FPU_IN_KERNEL_NONATOMIC
+
+choice
+	prompt "X86_HYGON_LMC"
+	depends on X86_64 && CPU_SUP_HYGON
+	default X86_HYGON_LMC_AVX2_ON
+	help
+	  Select the type of non-temporal (NT) copy instructions to use for
+	  large memory copy operations between kernel and user mode. You can
+	  choose between SSE2 or AVX2 instructions based on the processor
+	  capabilities and the size of the memory being copied.
+
+	  To use this feature, you also need to configure the data copy size.
+	  The file is in `/sys/c86_features/hygon_c86/nt_cpy_mini_len`. Please
+	  refer to configuration 4096 and above.
+
+config X86_HYGON_LMC_SSE2_ON
+	bool "Using sse2 nt copy for large memory copy"
+	help
+	  When this feature is enabled, the kernel will use the
+	  copy_user_sse2_opt_string function for large memory copy operations.
+
+	  SSE2 (Streaming SIMD Extensions 2) instructions support non-temporal
+	  (NT) stores that bypass the CPU cache and write data directly to
+	  memory. This can improve performance for large memory copies by reducing
+	  cache pollution and taking advantage of the write-combining buffer.
+
+	  However, using SSE2 NT copy may require saving and restoring MMX and
+	  SSE2 register contexts during thread switching if an interruption occurs.
+
+config X86_HYGON_LMC_AVX2_ON
+	bool "Using avx2 nt copy for large memory copy"
+	help
+	  When this feature is enabled, the kernel will use the
+	  copy_user_avx2_pf64_nt_string function for large memory copy operations.
+
+	  AVX2 (Advanced Vector Extensions 2) instructions provide enhanced
+	  vector processing capabilities and support for non-temporal (NT) stores,
+	  which can significantly improve memory copy performance for large blocks
+	  of data. By bypassing the cache and writing data directly to memory,
+	  AVX2 NT copy can achieve higher throughput than SSE2 NT copy.
+
+	  Similar to SSE2, using AVX2 NT copy may require saving and restoring
+	  AVX2 register contexts if an interruption occurs during large memory
+	  copying, to ensure the process continues smoothly after resuming.
+
+endchoice
+endif

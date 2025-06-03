@@ -133,6 +133,12 @@ static void __init fpu__init_system_generic(void)
 	fpu__init_system_mxcsr();
 }
 
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+unsigned int fpu_kernel_nonatomic_xstate_size;
+EXPORT_SYMBOL_GPL(fpu_kernel_nonatomic_xstate_size);
+#endif
+
 /*
  * Enforce that 'MEMBER' is the last field of 'TYPE'.
  *
@@ -161,6 +167,11 @@ static void __init fpu__init_task_struct_size(void)
 	 * size.
 	 */
 	task_size += fpu_kernel_cfg.default_size;
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		task_size += fpu_kernel_nonatomic_xstate_size;
+#endif
 
 	/*
 	 * We dynamically size 'struct fpu', so we require that
