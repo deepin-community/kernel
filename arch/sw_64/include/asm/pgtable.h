@@ -78,7 +78,9 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 /* Number of pointers that fit on a page:  this will go away. */
 #define PTRS_PER_PAGE	(1UL << (PAGE_SHIFT - 3))
 
-#define VMALLOC_START	(-2 * PGDIR_SIZE)
+#define MODULES_VADDR	0xfffff00000000000
+#define MODULES_END	0xfffff0007fffffff
+#define VMALLOC_START	0xfffff00080000000
 #ifndef CONFIG_SPARSEMEM_VMEMMAP
 #define VMALLOC_END	(-PGDIR_SIZE)
 #else
