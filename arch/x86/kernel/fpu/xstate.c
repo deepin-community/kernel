@@ -677,6 +677,11 @@ static unsigned int __init get_xsave_size_user(void)
 
 static int __init init_xstate_size(void)
 {
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+	extern unsigned int fpu_kernel_nonatomic_xstate_size;
+#endif
+
 	/* Recompute the context size for enabled features: */
 	unsigned int user_size, kernel_size, kernel_default_size;
 	bool compacted = cpu_feature_enabled(X86_FEATURE_XCOMPACTED);
@@ -710,6 +715,10 @@ static int __init init_xstate_size(void)
 	fpu_user_cfg.default_size =
 		xstate_calculate_size(fpu_user_cfg.default_features, false);
 
+#if defined(CONFIG_X86_HYGON_LMC_SSE2_ON) || \
+	defined(CONFIG_X86_HYGON_LMC_AVX2_ON)
+	fpu_kernel_nonatomic_xstate_size = KERNEL_FPU_NONATOMIC_SIZE;
+#endif
 	return 0;
 }
 
