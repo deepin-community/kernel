@@ -310,6 +310,7 @@ ____xchg(_u32, volatile int *m, unsigned long val)
 	".previous"
 	: [old_v]"=&r"(val), [tmp1]"=&r"(tmp1), [tmp2]"=&r"(tmp2)
 	: [new_v]"r"(val), [m]"r"(m)
+	: "memory"
 	);
 
 	return val;
@@ -332,6 +333,7 @@ ____xchg(_u64, volatile long *m, unsigned long val)
 	".previous"
 	: [old_v]"=&r"(val), [tmp1]"=&r"(tmp1), [tmp2]"=&r"(tmp2)
 	: [new_v]"r"(val), [m]"r"(m)
+	: "memory"
 	);
 
 	return val;
