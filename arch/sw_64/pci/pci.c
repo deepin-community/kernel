@@ -370,8 +370,10 @@ static void sunway_pci_root_bridge_prepare(struct pci_host_bridge *bridge)
 	bridge->swizzle_irq = pci_common_swizzle;
 	bridge->map_irq = sunway_pci_map_irq;
 
-	init_busnr = (0xff << 16) + ((last_bus + 1) << 8) + (last_bus);
-	writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
+	if (!is_guest_or_emul()) {
+		init_busnr = (0xff << 16) + ((last_bus + 1) << 8) + (last_bus);
+		writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
+	}
 
 	hose->first_busno = last_bus + (is_in_host() ? 1 : 0);
 
@@ -399,10 +401,12 @@ void sunway_pci_root_bridge_scan_finish(struct pci_host_bridge *bridge)
 	hose->last_busno = last_bus;
 	hose->busn_space->end = last_bus;
 
-	init_busnr = readl(hose->rc_config_space_base + RC_PRIMARY_BUS);
-	init_busnr &= ~(0xff << 16);
-	init_busnr |= last_bus << 16;
-	writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
+	if (!is_guest_or_emul()) {
+		init_busnr = readl(hose->rc_config_space_base + RC_PRIMARY_BUS);
+		init_busnr &= ~(0xff << 16);
+		init_busnr |= last_bus << 16;
+		writel(init_busnr, (hose->rc_config_space_base + RC_PRIMARY_BUS));
+	}
 
 	pci_bus_update_busn_res_end(bus, last_bus);
 	last_bus++;

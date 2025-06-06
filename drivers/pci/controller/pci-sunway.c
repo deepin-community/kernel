@@ -870,9 +870,13 @@ static int pci_prepare_controller(struct pci_controller *hose,
 	hose->dense_mem_base  = props[PROP_PCIE_IO_BASE];
 	hose->dense_io_base   = props[PROP_EP_IO_BASE];
 
-	hose->rc_config_space_base = ioremap(props[PROP_RC_CONFIG_BASE], SUNWAY_RC_SIZE);
-	hose->piu_ior0_base = ioremap(props[PROP_PIU_IOR0_BASE], SUNWAY_PIU_IOR0_SIZE);
-	hose->piu_ior1_base = ioremap(props[PROP_PIU_IOR1_BASE], SUNWAY_PIU_IOR1_SIZE);
+	if (!is_guest_or_emul()) {
+		hose->rc_config_space_base = ioremap(props[PROP_RC_CONFIG_BASE], SUNWAY_RC_SIZE);
+		hose->piu_ior0_base = ioremap(props[PROP_PIU_IOR0_BASE], SUNWAY_PIU_IOR0_SIZE);
+		hose->piu_ior1_base = ioremap(props[PROP_PIU_IOR1_BASE], SUNWAY_PIU_IOR1_SIZE);
+		hose->piu_ior0 = alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
+		hose->piu_ior1 = alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
+	}
 
 	if (is_junzhang_v3())
 		hose->devmn_base = ioremap(props[PROP_DEVMN_BASE], SUNWAY_DEVMN_SIZE);
@@ -882,9 +886,6 @@ static int pci_prepare_controller(struct pci_controller *hose,
 	hose->self_busno  = 0xff;
 
 	hose->need_domain_info = 0;
-
-	hose->piu_ior0 = alloc_piu_saved_data(PIU_IOR0_SAVE_REGS * sizeof(u64));
-	hose->piu_ior1 = alloc_piu_saved_data(PIU_IOR1_SAVE_REGS * sizeof(u64));
 
 #if IS_ENABLED(CONFIG_PCI_MSI)
 	if (is_in_host())

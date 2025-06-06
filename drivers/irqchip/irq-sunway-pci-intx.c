@@ -224,11 +224,9 @@ void setup_intx_irqs(struct pci_controller *hose)
 {
 	unsigned long irq, node, val_node;
 	struct intx_chip_data *chip_data;
-	void __iomem *piu_ior0_base;
 	int i = 0;
 
 	node = hose->node;
-	piu_ior0_base = hose->piu_ior0_base;
 
 	if (!node_online(node))
 		val_node = next_node_in(node, node_online_map);
@@ -259,7 +257,8 @@ void setup_intx_irqs(struct pci_controller *hose)
 	irq_set_chip_and_handler(irq + 1, &dummy_irq_chip, handle_level_irq);
 	hose->service_irq = irq + 1;
 
-	set_pcieport_service_irq(hose);
+	if (!is_guest_or_emul())
+		set_pcieport_service_irq(hose);
 }
 
 void __init sunway_init_pci_intx(void)
