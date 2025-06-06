@@ -443,7 +443,7 @@
 			#size-cells = <0>;
 			reg = <0x0 0x39000000 0x0 0x400>;
 			clocks = <&device_clk>, <&device_clk>;
-         	clock-names = "core-clk", "cfgr-clk";
+			clock-names = "core-clk", "cfgr-clk";
 			interrupt-parent = <0x01>;
 			interrupts = <152>;
 			#dma-cells = <1>;
