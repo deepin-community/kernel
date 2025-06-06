@@ -13,6 +13,7 @@ static const struct of_device_id ultrarisc_eth_plat_match[] = {
 	{ .compatible = "ultrarisc,dp1000-gmac", },
 	{ }
 };
+MODULE_DEVICE_TABLE(of, ultrarisc_eth_plat_match);
 
 static int ultrarisc_eth_plat_probe(struct platform_device *pdev)
 {
