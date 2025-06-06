@@ -1851,13 +1851,6 @@ static s8 rtw89_phy_txpwr_rf_to_mac(struct rtw89_dev *rtwdev, s8 txpwr_rf)
 	return txpwr_rf >> (chip->txpwr_factor_rf - chip->txpwr_factor_mac);
 }
 
-static s8 rtw89_phy_txpwr_dbm_to_mac(struct rtw89_dev *rtwdev, s8 dbm)
-{
-	const struct rtw89_chip_info *chip = rtwdev->chip;
-
-	return clamp_t(s16, dbm << chip->txpwr_factor_mac, -64, 63);
-}
-
 s8 rtw89_phy_read_txpwr_byrate(struct rtw89_dev *rtwdev, u8 band, u8 bw,
 			       const struct rtw89_rate_desc *rate_desc)
 {
@@ -1926,14 +1919,12 @@ s8 rtw89_phy_read_txpwr_limit(struct rtw89_dev *rtwdev, u8 band,
 	const struct rtw89_txpwr_rule_5ghz *rule_5ghz = &rfe_parms->rule_5ghz;
 	const struct rtw89_txpwr_rule_6ghz *rule_6ghz = &rfe_parms->rule_6ghz;
 	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
-	const struct rtw89_reg_6ghz_tpe *tpe6 = &regulatory->reg_6ghz_tpe;
 	enum nl80211_band nl_band = rtw89_hw_to_nl80211_band(band);
 	u32 freq = ieee80211_channel_to_frequency(ch, nl_band);
 	u8 ch_idx = rtw89_channel_to_idx(rtwdev, band, ch);
 	u8 regd = rtw89_regd_get(rtwdev, band);
 	u8 reg6 = regulatory->reg_6ghz_power;
 	s8 lmt = 0, sar;
-	s8 cstr;
 
 	switch (band) {
 	case RTW89_BAND_2G:
@@ -1965,12 +1956,6 @@ s8 rtw89_phy_read_txpwr_limit(struct rtw89_dev *rtwdev, u8 band,
 	}
 
 	lmt = rtw89_phy_txpwr_rf_to_mac(rtwdev, lmt);
-
-	if (band == RTW89_BAND_6G && tpe6->valid) {
-		cstr = rtw89_phy_txpwr_dbm_to_mac(rtwdev, tpe6->constraint);
-		lmt = min(lmt, cstr);
-	}
-
 	sar = rtw89_query_sar(rtwdev, freq);
 
 	return min(lmt, sar);
@@ -2191,14 +2176,12 @@ s8 rtw89_phy_read_txpwr_limit_ru(struct rtw89_dev *rtwdev, u8 band,
 	const struct rtw89_txpwr_rule_5ghz *rule_5ghz = &rfe_parms->rule_5ghz;
 	const struct rtw89_txpwr_rule_6ghz *rule_6ghz = &rfe_parms->rule_6ghz;
 	struct rtw89_regulatory_info *regulatory = &rtwdev->regulatory;
-	const struct rtw89_reg_6ghz_tpe *tpe6 = &regulatory->reg_6ghz_tpe;
 	enum nl80211_band nl_band = rtw89_hw_to_nl80211_band(band);
 	u32 freq = ieee80211_channel_to_frequency(ch, nl_band);
 	u8 ch_idx = rtw89_channel_to_idx(rtwdev, band, ch);
 	u8 regd = rtw89_regd_get(rtwdev, band);
 	u8 reg6 = regulatory->reg_6ghz_power;
 	s8 lmt_ru = 0, sar;
-	s8 cstr;
 
 	switch (band) {
 	case RTW89_BAND_2G:
@@ -2230,12 +2213,6 @@ s8 rtw89_phy_read_txpwr_limit_ru(struct rtw89_dev *rtwdev, u8 band,
 	}
 
 	lmt_ru = rtw89_phy_txpwr_rf_to_mac(rtwdev, lmt_ru);
-
-	if (band == RTW89_BAND_6G && tpe6->valid) {
-		cstr = rtw89_phy_txpwr_dbm_to_mac(rtwdev, tpe6->constraint);
-		lmt_ru = min(lmt_ru, cstr);
-	}
-
 	sar = rtw89_query_sar(rtwdev, freq);
 
 	return min(lmt_ru, sar);
