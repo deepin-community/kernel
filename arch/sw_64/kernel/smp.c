@@ -22,6 +22,7 @@
 #include "proto.h"
 
 struct smp_rcb_struct *smp_rcb;
+EXPORT_SYMBOL(smp_rcb);
 
 extern struct cpuinfo_sw64 cpu_data[NR_CPUS];
 
