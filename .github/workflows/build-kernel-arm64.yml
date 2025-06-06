@@ -37,5 +37,5 @@ jobs:
       - name: 'Clang build kernel'
         run: |
           # .config
-          make LLVM=18 deepin_arm64_desktop_defconfig
-          make LLVM=18 -j$(nproc)
+          make LLVM=-18 deepin_arm64_desktop_defconfig
+          make LLVM=-18 -j$(nproc)
