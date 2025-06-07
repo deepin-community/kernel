@@ -334,10 +334,10 @@ static const struct loongson_gpio_chip_data loongson_gpio_ls7a2000_data0 = {
 
 static const struct loongson_gpio_chip_data loongson_gpio_ls7a2000_data1 = {
 	.label = "ls7a2000_gpio",
-	.mode = BYTE_CTRL_MODE,
-	.conf_offset = 0x84,
-	.in_offset = 0x88,
-	.out_offset = 0x80,
+	.mode = BIT_CTRL_MODE,
+	.conf_offset = 0x4,
+	.in_offset = 0x8,
+	.out_offset = 0x0,
 };
 
 static const struct loongson_gpio_chip_data loongson_gpio_ls3a6000_data = {
