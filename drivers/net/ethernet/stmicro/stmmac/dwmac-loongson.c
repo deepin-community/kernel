@@ -83,6 +83,8 @@ struct stmmac_pci_info {
 static void loongson_default_data(struct pci_dev *pdev,
 				  struct plat_stmmacenet_data *plat)
 {
+	struct loongson_data *ld = plat->bsp_priv;
+
 	/* Get bus_id, this can be overwritten later */
 	plat->bus_id = pci_dev_id(pdev);
 
@@ -116,6 +118,20 @@ static void loongson_default_data(struct pci_dev *pdev,
 
 	plat->dma_cfg->pbl = 32;
 	plat->dma_cfg->pblx8 = true;
+
+	if (ld->loongson_id == DWMAC_CORE_LS2K2000) {
+		plat->rx_queues_to_use = CHANNEL_NUM;
+		plat->tx_queues_to_use = CHANNEL_NUM;
+
+		/* Only channel 0 supports checksum,
+		 * so turn off checksum to enable multiple channels.
+		 */
+		for (int i = 1; i < CHANNEL_NUM; i++)
+			plat->tx_queues_cfg[i].coe_unsupported = 1;
+	} else {
+		plat->tx_queues_to_use = 1;
+		plat->rx_queues_to_use = 1;
+	}
 }
 
 static int loongson_gmac_data(struct pci_dev *pdev,
@@ -527,17 +543,21 @@ static int loongson_dwmac_probe(struct pci_dev *pdev, const struct pci_device_id
 		break;
 	}
 
-	info = (struct stmmac_pci_info *)id->driver_data;
-	ret = info->setup(pdev, plat);
-	if (ret)
-		goto err_disable_device;
-
 	pci_set_master(pdev);
+
+	memset(&res, 0, sizeof(res));
+	res.addr = pcim_iomap_table(pdev)[0];
 
 	plat->bsp_priv = ld;
 	plat->setup = loongson_dwmac_setup;
 	plat->fix_soc_reset = loongson_dwmac_fix_reset;
 	ld->dev = &pdev->dev;
+	ld->loongson_id = readl(res.addr + GMAC_VERSION) & 0xff;
+
+	info = (struct stmmac_pci_info *)id->driver_data;
+	ret = info->setup(pdev, plat);
+	if (ret)
+		goto err_disable_device;
 
 	if (dev_of_node(&pdev->dev)) {
 		ret = loongson_dwmac_dt_config(pdev, plat, &res);
@@ -545,27 +565,10 @@ static int loongson_dwmac_probe(struct pci_dev *pdev, const struct pci_device_id
 			goto err_disable_device;
 	}
 
-	memset(&res, 0, sizeof(res));
-	res.addr = pcim_iomap_table(pdev)[0];
-	ld->loongson_id = readl(res.addr + GMAC_VERSION) & 0xff;
-
-	if (ld->loongson_id == DWMAC_CORE_LS2K2000) {
-		plat->rx_queues_to_use = CHANNEL_NUM;
-		plat->tx_queues_to_use = CHANNEL_NUM;
-
-		/* Only channel 0 supports checksum,
-		 * so turn off checksum to enable multiple channels.
-		 */
-		for (i = 1; i < CHANNEL_NUM; i++)
-			plat->tx_queues_cfg[i].coe_unsupported = 1;
-
+	if (ld->loongson_id == DWMAC_CORE_LS2K2000)
 		ret = loongson_dwmac_msi_config(pdev, plat, &res);
-	} else {
-		plat->tx_queues_to_use = 1;
-		plat->rx_queues_to_use = 1;
-
+	else
 		ret = loongson_dwmac_intx_config(pdev, plat, &res);
-	}
 	if (ret)
 		goto err_disable_device;
 
