@@ -756,6 +756,12 @@ L:	linux-crypto@vger.kernel.org
 S:	Maintained
 F:	drivers/crypto/allwinner/
 
+WST CRYPTO DRIVERS
+M:	Hongchen Zhang <zhanghongchen@loongson.cn>
+L:	linux-crypto@vger.kernel.org
+S:	Maintained
+F:	drivers/crypto/westone/
+
 ALLWINNER DMIC DRIVERS
 M:	Ban Tao <fengzheng923@gmail.com>
 L:	alsa-devel@alsa-project.org (moderated for non-subscribers)

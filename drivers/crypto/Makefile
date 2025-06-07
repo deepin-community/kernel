@@ -54,3 +54,4 @@ obj-$(CONFIG_CRYPTO_DEV_AMLOGIC_GXL) += amlogic/
 obj-y += intel/
 obj-y += starfive/
 obj-y += montage/
+obj-$(CONFIG_CRYPTO_DEV_WESTONE) += westone/

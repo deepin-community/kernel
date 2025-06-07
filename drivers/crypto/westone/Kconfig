@@ -1,0 +1,11 @@
+#
+# Westone crypto drivers configuration
+#
+config CRYPTO_DEV_WESTONE
+	tristate "Westone cryptographic engine driver"
+	depends on LOONGARCH
+	help
+	  If you have a wst security chip,
+	  say Yes and it will be accessible from within Linux.
+	  To compile this driver as a module, choose M here;
+	  If unsure, say N.
