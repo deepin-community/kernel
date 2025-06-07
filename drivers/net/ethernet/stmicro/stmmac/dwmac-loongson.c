@@ -66,10 +66,11 @@
 
 #define PCI_DEVICE_ID_LOONGSON_GMAC	0x7a03
 #define PCI_DEVICE_ID_LOONGSON_GNET	0x7a13
-#define DWMAC_CORE_LS2K2000		0x10	/* Loongson custom IP */
-#define CHANNEL_NUM			8
+#define DWMAC_CORE_MULTICHAN_V1	0x10	/* Loongson custom ID 0x10 */
+#define DWMAC_CORE_MULTICHAN_V2	0x12	/* Loongson custom ID 0x12 */
 
 struct loongson_data {
+	u32 multichan;
 	u32 loongson_id;
 	struct device *dev;
 };
@@ -119,18 +120,29 @@ static void loongson_default_data(struct pci_dev *pdev,
 	plat->dma_cfg->pbl = 32;
 	plat->dma_cfg->pblx8 = true;
 
-	if (ld->loongson_id == DWMAC_CORE_LS2K2000) {
-		plat->rx_queues_to_use = CHANNEL_NUM;
-		plat->tx_queues_to_use = CHANNEL_NUM;
+	switch (ld->loongson_id) {
+	case DWMAC_CORE_MULTICHAN_V1:
+		ld->multichan = 1;
+		plat->rx_queues_to_use = 8;
+		plat->tx_queues_to_use = 8;
 
 		/* Only channel 0 supports checksum,
 		 * so turn off checksum to enable multiple channels.
 		 */
-		for (int i = 1; i < CHANNEL_NUM; i++)
+		for (int i = 1; i < 8; i++)
 			plat->tx_queues_cfg[i].coe_unsupported = 1;
-	} else {
+
+		break;
+	case DWMAC_CORE_MULTICHAN_V2:
+		ld->multichan = 1;
+		plat->rx_queues_to_use = 4;
+		plat->tx_queues_to_use = 4;
+		break;
+	default:
+		ld->multichan = 0;
 		plat->tx_queues_to_use = 1;
 		plat->rx_queues_to_use = 1;
+		break;
 	}
 }
 
@@ -328,9 +340,11 @@ static int loongson_dwmac_msi_config(struct pci_dev *pdev,
 				     struct plat_stmmacenet_data *plat,
 				     struct stmmac_resources *res)
 {
-	int i, ret, vecs;
+	int i, ch_num, ret, vecs;
 
-	vecs = roundup_pow_of_two(CHANNEL_NUM * 2 + 1);
+	ch_num = min(plat->tx_queues_to_use, plat->rx_queues_to_use);
+
+	vecs = roundup_pow_of_two(ch_num * 2 + 1);
 	ret = pci_alloc_irq_vectors(pdev, 1, vecs, PCI_IRQ_MSI | PCI_IRQ_LEGACY);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to allocate PCI IRQs\n");
@@ -338,12 +352,12 @@ static int loongson_dwmac_msi_config(struct pci_dev *pdev,
 	}
 
 	if (ret >= vecs) {
-		for (i = 0; i < plat->rx_queues_to_use; i++) {
-			res->rx_irq[CHANNEL_NUM - 1 - i] =
+		for (i = 0; i < ch_num; i++) {
+			res->rx_irq[ch_num - 1 - i] =
 				pci_irq_vector(pdev, 1 + i * 2);
 		}
-		for (i = 0; i < plat->tx_queues_to_use; i++) {
-			res->tx_irq[CHANNEL_NUM - 1 - i] =
+		for (i = 0; i < ch_num; i++) {
+			res->tx_irq[ch_num - 1 - i] =
 				pci_irq_vector(pdev, 2 + i * 2);
 		}
 
@@ -381,14 +395,15 @@ static struct mac_device_info *loongson_dwmac_setup(void *apriv)
 	if (!dma)
 		return NULL;
 
-	/* The original IP-core version is v3.73a in all Loongson GNET
-	 * (LS2K2000 and LS7A2000), but the GNET HW designers have changed the
-	 * GMAC_VERSION.SNPSVER field to the custom 0x10 value on the Loongson
-	 * LS2K2000 MAC to emphasize the differences: multiple DMA-channels,
+	/* The Loongson GMAC and GNET devices are based on the DW GMAC
+	 * v3.50a and v3.73a IP-cores. But the HW designers have changed
+	 * the GMAC_VERSION.SNPSVER field to the custom 0x10/0x12 value
+	 * on the network controllers with the multi-channels feature
+	 * available to emphasize the differences: multiple DMA-channels,
 	 * AV feature and GMAC_INT_STATUS CSR flags layout. Get back the
 	 * original value so the correct HW-interface would be selected.
 	 */
-	if (ld->loongson_id == DWMAC_CORE_LS2K2000) {
+	if (ld->multichan) {
 		priv->synopsys_id = DWMAC_CORE_3_70;
 		*dma = dwmac1000_dma_ops;
 		dma->init_chan = loongson_gnet_dma_init_channel;
@@ -409,13 +424,13 @@ static struct mac_device_info *loongson_dwmac_setup(void *apriv)
 	if (mac->multicast_filter_bins)
 		mac->mcast_bits_log2 = ilog2(mac->multicast_filter_bins);
 
-	/* Loongson GMAC doesn't support the flow control. LS2K2000
-	 * GNET doesn't support the half-duplex link mode.
+	/* Loongson GMAC doesn't support the flow control. Loongson GNET
+	 * without multi-channel doesn't support the half-duplex link mode.
 	 */
 	if (pdev->device == PCI_DEVICE_ID_LOONGSON_GMAC) {
 		mac->link.caps = MAC_10 | MAC_100 | MAC_1000;
 	} else {
-		if (ld->loongson_id == DWMAC_CORE_LS2K2000)
+		if (ld->multichan)
 			mac->link.caps = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
 					 MAC_10 | MAC_100 | MAC_1000;
 		else
@@ -565,7 +580,7 @@ static int loongson_dwmac_probe(struct pci_dev *pdev, const struct pci_device_id
 			goto err_disable_device;
 	}
 
-	if (ld->loongson_id == DWMAC_CORE_LS2K2000)
+	if (ld->multichan)
 		ret = loongson_dwmac_msi_config(pdev, plat, &res);
 	else
 		ret = loongson_dwmac_intx_config(pdev, plat, &res);
@@ -589,6 +604,7 @@ static void loongson_dwmac_remove(struct pci_dev *pdev)
 {
 	struct net_device *ndev = dev_get_drvdata(&pdev->dev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
+	struct loongson_data *ld = priv->plat->bsp_priv;
 	int i;
 
 	of_node_put(priv->plat->mdio_node);
@@ -601,7 +617,8 @@ static void loongson_dwmac_remove(struct pci_dev *pdev)
 		break;
 	}
 
-	loongson_dwmac_msi_clear(pdev);
+	if (ld->multichan)
+		loongson_dwmac_msi_clear(pdev);
 	pci_disable_device(pdev);
 }
 
