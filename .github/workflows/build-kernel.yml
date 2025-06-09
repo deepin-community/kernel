@@ -26,6 +26,7 @@ jobs:
         run: |
           # .config
           make deepin_x86_desktop_defconfig
+          scripts/kconfig/merge_config.sh -m .config .github/workflows/ci.config
           make -j$(nproc)
 
       - name: 'Upload Kernel Artifact'
