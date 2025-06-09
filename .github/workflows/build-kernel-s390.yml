@@ -33,9 +33,3 @@ jobs:
         with:
           name: Kernel-ABI-s390
           path: "Module.symvers"
-
-      - name: 'Clang build kernel'
-        run: |
-          # .config
-          make LLVM=-19 deepin_s390x_z13_defconfig
-          make LLVM=-19 -j$(nproc)
