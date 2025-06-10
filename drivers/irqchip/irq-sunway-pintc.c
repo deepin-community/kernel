@@ -671,7 +671,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 	chip_data->mcu_irq_num = mcu->gsi_count;
 
 	chip_data->mcu_base = ioremap(mcu->address, mcu->size);
-	if (!chip_data->mcu_base) {
+	if (!chip_data->vt && !chip_data->mcu_base) {
 		pr_err("failed to map mcu base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_fwnode;
@@ -762,7 +762,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 	chip_data->version = pintc->version;
 
 	chip_data->pintc_base = ioremap(pintc->address, pintc->size);
-	if (!chip_data->pintc_base) {
+	if (!virtual && !chip_data->pintc_base) {
 		pr_err("failed to map pintc base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_chip_data;
