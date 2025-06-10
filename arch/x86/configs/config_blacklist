@@ -1,0 +1,2 @@
+# It will cause kernel panic on ANS-HG3000 device with Hygon C86 3250 CPU.
+CONFIG_SERIAL_8250_FINTEK
