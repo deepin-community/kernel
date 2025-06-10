@@ -289,6 +289,8 @@ struct irq_affinity {
 	unsigned int	set_size[IRQ_AFFINITY_MAX_SETS];
 	void		(*calc_sets)(struct irq_affinity *, unsigned int nvecs);
 	void		*priv;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

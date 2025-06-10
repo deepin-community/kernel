@@ -217,6 +217,9 @@ struct xt_target {
 	unsigned short proto;
 
 	unsigned short family;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /* Furniture shopping... */

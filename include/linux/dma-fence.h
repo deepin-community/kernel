@@ -277,6 +277,8 @@ struct dma_fence_ops {
 	 * This callback is optional.
 	 */
 	void (*set_deadline)(struct dma_fence *fence, ktime_t deadline);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 void dma_fence_init(struct dma_fence *fence, const struct dma_fence_ops *ops,

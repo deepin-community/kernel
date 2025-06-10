@@ -239,6 +239,8 @@ struct drm_private_state_funcs {
 	 */
 	void (*atomic_print_state)(struct drm_printer *p,
 				   const struct drm_private_state *state);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -338,6 +340,8 @@ struct drm_private_state {
 	 * @obj: backpointer to the private object
 	 */
 	struct drm_private_obj *obj;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct __drm_private_objs_state {

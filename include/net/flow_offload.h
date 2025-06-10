@@ -329,6 +329,11 @@ struct flow_action_entry {
 		} pppoe;
 	};
 	struct flow_action_cookie *user_cookie; /* user defined action cookie */
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct flow_action {

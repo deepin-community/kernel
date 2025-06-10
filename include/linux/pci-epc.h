@@ -89,6 +89,8 @@ struct pci_epc_ops {
 	const struct pci_epc_features* (*get_features)(struct pci_epc *epc,
 						       u8 func_no, u8 vfunc_no);
 	struct module *owner;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -150,6 +152,8 @@ struct pci_epc {
 	/* mutex to protect against concurrent access of EP controller */
 	struct mutex			lock;
 	unsigned long			function_num_map;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

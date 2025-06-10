@@ -22,6 +22,8 @@
 struct module_sect_attr {
 	struct bin_attribute battr;
 	unsigned long address;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct module_sect_attrs {

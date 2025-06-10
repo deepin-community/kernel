@@ -160,6 +160,9 @@ struct irq_common_data {
 #ifdef CONFIG_GENERIC_IRQ_IPI
 	unsigned int		ipi_offset;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -187,6 +190,11 @@ struct irq_data {
 	struct irq_data		*parent_data;
 #endif
 	void			*chip_data;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -548,6 +556,8 @@ struct irq_chip {
 	void		(*irq_nmi_teardown)(struct irq_data *data);
 
 	unsigned long	flags;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*
@@ -1023,6 +1033,8 @@ struct irq_chip_type {
 	u32			type;
 	u32			mask_cache_priv;
 	u32			*mask_cache;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

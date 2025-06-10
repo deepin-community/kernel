@@ -44,6 +44,11 @@ struct cpuidle_state_usage {
 	unsigned long long	s2idle_usage;
 	unsigned long long	s2idle_time; /* in US */
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct cpuidle_state {
@@ -74,6 +79,11 @@ struct cpuidle_state {
 	int (*enter_s2idle)(struct cpuidle_device *dev,
 			    struct cpuidle_driver *drv,
 			    int index);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /* Idle State Flags */
@@ -111,6 +121,11 @@ struct cpuidle_device {
 	cpumask_t		coupled_cpus;
 	struct cpuidle_coupled	*coupled;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 DECLARE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
@@ -165,6 +180,9 @@ struct cpuidle_driver {
 
 	/* preferred governor to switch at register time */
 	const char		*governor;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #ifdef CONFIG_CPU_IDLE

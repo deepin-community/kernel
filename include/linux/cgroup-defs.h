@@ -850,6 +850,8 @@ struct sock_cgroup_data {
 #ifdef CONFIG_CGROUP_NET_PRIO
 	u16		prioidx; /* v1 */
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 static inline u16 sock_cgroup_prioidx(const struct sock_cgroup_data *skcd)

@@ -51,6 +51,8 @@ struct lock_manager_operations {
 
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 struct lock_manager {
@@ -130,6 +132,8 @@ struct file_lock {
 			struct inode *inode;
 		} ceph;
 	} fl_u;
+
+	DEEPIN_KABI_RESERVE(1)
 } __randomize_layout;
 
 struct file_lock_context {

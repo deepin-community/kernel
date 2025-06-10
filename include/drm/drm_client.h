@@ -153,6 +153,8 @@ struct drm_client_buffer {
 	 * @fb: DRM framebuffer
 	 */
 	struct drm_framebuffer *fb;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct drm_client_buffer *

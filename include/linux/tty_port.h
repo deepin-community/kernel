@@ -44,6 +44,8 @@ struct tty_port_client_operations {
 	void (*lookahead_buf)(struct tty_port *port, const u8 *cp,
 			      const u8 *fp, size_t count);
 	void (*write_wakeup)(struct tty_port *port);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 extern const struct tty_port_client_operations tty_port_default_client_ops;
@@ -121,6 +123,10 @@ struct tty_port {
 	int			drain_delay;
 	struct kref		kref;
 	void			*client_data;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /* tty_port::iflags bits -- use atomic bit ops */

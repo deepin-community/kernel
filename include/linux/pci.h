@@ -539,6 +539,14 @@ struct pci_dev {
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
+	DEEPIN_KABI_RESERVE(13)
+	DEEPIN_KABI_RESERVE(14)
+	DEEPIN_KABI_RESERVE(15)
+	DEEPIN_KABI_RESERVE(16)
 };
 
 static inline struct pci_dev *pci_physfn(struct pci_dev *dev)
@@ -696,6 +704,7 @@ struct pci_bus {
 	DEEPIN_KABI_RESERVE(5)
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 #define to_pci_bus(n)	container_of(n, struct pci_bus, dev)

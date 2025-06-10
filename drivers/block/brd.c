@@ -44,6 +44,9 @@ struct brd_device {
 	 */
 	struct xarray	        brd_pages;
 	u64			brd_nr_pages;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*

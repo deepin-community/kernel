@@ -17,6 +17,9 @@ struct netns_unix {
 	struct unix_table	table;
 	int			sysctl_max_dgram_qlen;
 	struct ctl_table_header	*ctl;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif /* __NETNS_UNIX_H__ */

@@ -8,6 +8,7 @@
 #include <linux/scatterlist.h>
 #include <linux/prefetch.h>
 #include <linux/srcu.h>
+#include <linux/deepin_kabi.h>
 
 struct blk_mq_tags;
 struct blk_flush_queue;
@@ -429,6 +430,11 @@ struct blk_mq_hw_ctx {
 	 * q->unused_hctx_list.
 	 */
 	struct list_head	hctx_list;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
@@ -515,6 +521,11 @@ struct blk_mq_tag_set {
 	struct mutex		tag_list_lock;
 	struct list_head	tag_list;
 	struct srcu_struct	*srcu;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
@@ -526,6 +537,8 @@ struct blk_mq_tag_set {
 struct blk_mq_queue_data {
 	struct request *rq;
 	bool last;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 typedef bool (busy_tag_iter_fn)(struct request *, void *);
@@ -645,6 +658,11 @@ struct blk_mq_ops {
 	 */
 	void (*show_rq)(struct seq_file *m, struct request *rq);
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 enum {
@@ -749,6 +767,11 @@ struct blk_mq_tags {
 	 * request pool
 	 */
 	spinlock_t lock;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline struct request *blk_mq_tag_to_rq(struct blk_mq_tags *tags,

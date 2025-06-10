@@ -246,6 +246,7 @@ struct signal_struct {
 						 * and may have inconsistent
 						 * permissions.
 						 */
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)

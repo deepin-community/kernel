@@ -68,6 +68,9 @@ struct page_pool_params {
 /* private: used by test code only */
 	void (*init_callback)(struct page *page, void *arg);
 	void *init_arg;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #ifdef CONFIG_PAGE_POOL_STATS
@@ -180,6 +183,8 @@ struct page_pool {
 	refcount_t user_cnt;
 
 	u64 destroy_cnt;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct page *page_pool_alloc_pages(struct page_pool *pool, gfp_t gfp);

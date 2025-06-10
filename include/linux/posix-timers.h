@@ -2,6 +2,7 @@
 #ifndef _linux_POSIX_TIMERS_H
 #define _linux_POSIX_TIMERS_H
 
+#include <linux/deepin_kabi.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
@@ -145,6 +146,11 @@ struct posix_cputimers_work {
 	struct callback_head	work;
 	struct mutex		mutex;
 	unsigned int		scheduled;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline void posix_cputimers_init(struct posix_cputimers *pct)

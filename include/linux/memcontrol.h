@@ -66,6 +66,7 @@ struct mem_cgroup_reclaim_cookie {
 struct mem_cgroup_id {
 	int id;
 	refcount_t ref;
+
 	DEEPIN_KABI_RESERVE(1)
 };
 
@@ -348,6 +349,7 @@ struct mem_cgroup {
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
+
 	struct mem_cgroup_per_node *nodeinfo[];
 };
 

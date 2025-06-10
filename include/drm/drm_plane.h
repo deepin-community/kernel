@@ -772,6 +772,8 @@ struct drm_plane {
 	 * @hotspot_y_property: property to set mouse hotspot y offset.
 	 */
 	struct drm_property *hotspot_y_property;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define obj_to_plane(x) container_of(x, struct drm_plane, base)

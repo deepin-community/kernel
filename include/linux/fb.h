@@ -218,6 +218,8 @@ struct fb_deferred_io {
 	struct list_head pagereflist; /* list of pagerefs for touched pages */
 	/* callback */
 	void (*deferred_io)(struct fb_info *info, struct list_head *pagelist);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 #endif
 

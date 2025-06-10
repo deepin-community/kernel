@@ -570,6 +570,9 @@ struct bpf_prog_stats {
 	u64_stats_t nsecs;
 	u64_stats_t misses;
 	struct u64_stats_sync syncp;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } __aligned(2 * sizeof(u64));
 
 struct sk_filter {

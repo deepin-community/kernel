@@ -341,6 +341,8 @@ struct dw_pcie_ep_ops {
 	 * driver.
 	 */
 	unsigned int (*func_conf_select)(struct dw_pcie_ep *ep, u8 func_no);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct dw_pcie_ep_func {
@@ -364,6 +366,8 @@ struct dw_pcie_ep {
 	void __iomem		*msi_mem;
 	phys_addr_t		msi_mem_phys;
 	struct pci_epf_bar	*epf_bar[PCI_STD_NUM_BARS];
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct dw_pcie_ops {
@@ -378,6 +382,8 @@ struct dw_pcie_ops {
 	enum dw_pcie_ltssm (*get_ltssm)(struct dw_pcie *pcie);
 	int	(*start_link)(struct dw_pcie *pcie);
 	void	(*stop_link)(struct dw_pcie *pcie);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct dw_pcie {

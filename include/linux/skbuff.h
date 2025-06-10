@@ -1048,10 +1048,19 @@ struct sk_buff {
 
 	); /* end headers group */
 
+	/*
+	 * kABI: The kmem_caches of struct sk_buff are initialized with
+	 * SLAB_HWCACHE_ALIGN flag, such as skbuff_head_cache and
+	 * skbuff_fclone_cache, which causes each skb to be forcibly
+	 * aligned with cacheline size(64 bytes).
+	 * Reserve 24 bytes, total 256 bytes, this will not break
+	 * cacheline alignment.
+	 */
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
+
 	/* These elements must be at the end, see alloc_skb() for details.  */
 	sk_buff_data_t		tail;
 	sk_buff_data_t		end;

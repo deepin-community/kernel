@@ -2,7 +2,7 @@
 #ifndef _LINUX_STAT_H
 #define _LINUX_STAT_H
 
-
+#include <linux/deepin_kabi.h>
 #include <asm/stat.h>
 #include <uapi/linux/stat.h>
 
@@ -53,6 +53,9 @@ struct kstat {
 	u32		dio_mem_align;
 	u32		dio_offset_align;
 	u64		change_cookie;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /* These definitions are internal to the kernel for now. Mainly used by nfsd. */

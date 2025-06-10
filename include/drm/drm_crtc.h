@@ -385,6 +385,8 @@ struct drm_crtc_state {
 
 	/** @state: backpointer to global drm_atomic_state */
 	struct drm_atomic_state *state;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -1175,6 +1177,8 @@ struct drm_crtc {
 	 * Initialized via drm_self_refresh_helper_init().
 	 */
 	struct drm_self_refresh_data *self_refresh_data;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

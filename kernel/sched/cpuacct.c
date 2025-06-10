@@ -7,6 +7,8 @@
  * (balbir@in.ibm.com).
  */
 
+#include <linux/deepin_kabi.h>
+
 /* Time spent by the tasks of the CPU accounting group executing in ... */
 enum cpuacct_stat_index {
 	CPUACCT_STAT_USER,	/* ... user mode */
@@ -26,6 +28,11 @@ struct cpuacct {
 	/* cpuusage holds pointer to a u64-type object on every CPU */
 	u64 __percpu	*cpuusage;
 	struct kernel_cpustat __percpu	*cpustat;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline struct cpuacct *css_ca(struct cgroup_subsys_state *css)

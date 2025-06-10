@@ -90,6 +90,9 @@ struct shrinker {
 
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 #define DEFAULT_SEEKS 2 /* A good number if you don't know better. */
 

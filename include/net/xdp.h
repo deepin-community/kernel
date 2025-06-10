@@ -181,6 +181,8 @@ struct xdp_frame {
 	struct net_device *dev_rx; /* used by cpumap */
 	u32 frame_sz;
 	u32 flags; /* supported values defined in xdp_buff_flags */
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 static __always_inline bool xdp_frame_has_frags(struct xdp_frame *frame)

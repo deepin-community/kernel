@@ -1509,6 +1509,8 @@ struct drm_mode_config_helper_funcs {
 	 * This hook is optional.
 	 */
 	int (*atomic_commit_setup)(struct drm_atomic_state *state);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #endif

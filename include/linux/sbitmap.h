@@ -82,6 +82,8 @@ struct sbitmap {
 	 * cachelines until the map is exhausted.
 	 */
 	unsigned int __percpu *alloc_hint;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 #define SBQ_WAIT_QUEUES 8

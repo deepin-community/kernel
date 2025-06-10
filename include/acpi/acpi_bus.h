@@ -282,6 +282,8 @@ struct acpi_device_power {
 	struct acpi_device_power_flags flags;
 	struct acpi_device_power_state states[ACPI_D_STATE_COUNT];	/* Power states (D0-D3Cold) */
 	u8 state_for_enumeration; /* Deepest power state for enumeration */
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct acpi_dep_data {

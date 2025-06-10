@@ -60,6 +60,8 @@ struct xdp_dev_bulk_queue {
 	struct net_device *dev_rx;
 	struct bpf_prog *xdp_prog;
 	unsigned int count;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct bpf_dtab_netdev {

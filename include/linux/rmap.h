@@ -5,6 +5,7 @@
  * Declarations for Reverse Mapping functions in mm/rmap.c
  */
 
+#include <linux/deepin_kabi.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
@@ -64,6 +65,8 @@ struct anon_vma {
 
 	/* Interval tree of private "related" vmas */
 	struct rb_root_cached rb_root;
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*
