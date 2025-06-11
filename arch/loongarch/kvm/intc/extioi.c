@@ -24,6 +24,10 @@ static void extioi_update_irq(struct loongarch_extioi *s, int irq, int level)
 
 	cpu = s->sw_coremap[irq];
 	vcpu = kvm_get_vcpu(s->kvm, cpu);
+	if (vcpu == NULL) {
+		kvm_info("%s irq %d vcpu %d don't exist\n", __func__, irq, cpu);
+		return;
+	}
 	irq_index = irq / 32;
 	/* length of accessing core isr is 4 bytes */
 	irq_mask = 1 << (irq & 0x1f);
@@ -244,11 +248,10 @@ static int loongarch_extioi_writew(struct kvm_vcpu *vcpu,
 		 * update irq when isr is set.
 		 */
 		data = s->enable.reg_u32[index] & ~old_data & s->isr.reg_u32[index];
-		index = index << 2;
 		for (i = 0; i < sizeof(data); i++) {
 			u8 mask = (data >> (i * 8)) & 0xff;
 
-			extioi_enable_irq(vcpu, s, index + i, mask, 1);
+			extioi_enable_irq(vcpu, s, index * 4 + i, mask, 1);
 		}
 		/*
 		 * 0: disable irq.
@@ -258,7 +261,7 @@ static int loongarch_extioi_writew(struct kvm_vcpu *vcpu,
 		for (i = 0; i < sizeof(data); i++) {
 			u8 mask = (data >> (i * 8)) & 0xff;
 
-			extioi_enable_irq(vcpu, s, index, mask, 0);
+			extioi_enable_irq(vcpu, s, index * 4 + i, mask, 0);
 		}
 		break;
 	case EXTIOI_BOUNCE_START ... EXTIOI_BOUNCE_END:
@@ -331,11 +334,10 @@ static int loongarch_extioi_writel(struct kvm_vcpu *vcpu,
 		 * update irq when isr is set.
 		 */
 		data = s->enable.reg_u64[index] & ~old_data & s->isr.reg_u64[index];
-		index = index << 3;
 		for (i = 0; i < sizeof(data); i++) {
 			u8 mask = (data >> (i * 8)) & 0xff;
 
-			extioi_enable_irq(vcpu, s, index + i, mask, 1);
+			extioi_enable_irq(vcpu, s, index * 8 + i, mask, 1);
 		}
 		/*
 		 * 0: disable irq.
@@ -345,7 +347,7 @@ static int loongarch_extioi_writel(struct kvm_vcpu *vcpu,
 		for (i = 0; i < sizeof(data); i++) {
 			u8 mask = (data >> (i * 8)) & 0xff;
 
-			extioi_enable_irq(vcpu, s, index, mask, 0);
+			extioi_enable_irq(vcpu, s, index * 8 + i, mask, 0);
 		}
 		break;
 	case EXTIOI_BOUNCE_START ... EXTIOI_BOUNCE_END:
