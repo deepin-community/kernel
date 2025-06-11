@@ -1273,26 +1273,31 @@ skip_fix:
 static int rnpm_rx_ring_reinit(struct rnpm_adapter *adapter,
 			       struct rnpm_ring *rx_ring)
 {
-	struct rnpm_ring temp_ring;
+	struct rnpm_ring *temp_ring;
 	int err = 0;
 	struct rnpm_hw *hw = &adapter->hw;
 
 	if (rx_ring->count == rx_ring->reset_count)
 		return 0;
+	/* stop rx queue */
+	temp_ring = vmalloc(array_size(1, sizeof(struct rnpm_ring)));
+	if (!temp_ring)
+		return -1;
 
 	rnpm_disable_rx_queue(adapter, rx_ring);
-	memset(&temp_ring, 0x00, sizeof(struct rnpm_ring));
-	memcpy(&temp_ring, rx_ring, sizeof(struct rnpm_ring));
-	temp_ring.count = rx_ring->reset_count;
-	err = rnpm_setup_rx_resources(&temp_ring, adapter);
+	memset(temp_ring, 0x00, sizeof(struct rnpm_ring));
+	memcpy(temp_ring, rx_ring, sizeof(struct rnpm_ring));
+	temp_ring->count = rx_ring->reset_count;
+	err = rnpm_setup_rx_resources(temp_ring, adapter);
 	if (err) {
-		rnpm_free_rx_resources(&temp_ring);
+		rnpm_free_rx_resources(temp_ring);
 		goto err_setup;
 	}
 	rnpm_free_rx_resources(rx_ring);
-	memcpy(rx_ring, &temp_ring, sizeof(struct rnpm_ring));
+	memcpy(rx_ring, temp_ring, sizeof(struct rnpm_ring));
 	rnpm_configure_rx_ring(adapter, rx_ring);
 err_setup:
+	vfree(temp_ring);
 	/* start rx */
 	wr32(hw, RNPM_DMA_RX_START(rx_ring->rnpm_queue_idx), 1);
 	return 0;
