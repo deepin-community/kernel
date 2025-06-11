@@ -531,6 +531,95 @@ static inline unsigned int __arch_hweight8(unsigned int w)
 	return __arch_hweight64(w & 0xff);
 }
 
+#define find_next_bit_le find_next_bit_le
+#define find_next_bit __find_next_set_bit
+static inline unsigned long __find_next_set_bit(const unsigned long *addr,
+		unsigned long size,
+		unsigned long offset)
+{
+	unsigned long word;
+
+	if (unlikely(offset >= size))
+		return size;
+
+	word = addr[offset / BITS_PER_LONG];
+
+	/* Handle 1st word. */
+	word = word >> (offset % BITS_PER_LONG) << (offset % BITS_PER_LONG);
+
+	offset &= ~(BITS_PER_LONG - 1);
+
+	while (!word) {
+		offset += BITS_PER_LONG;
+		if (offset >= size)
+			return size;
+
+		word = addr[offset / BITS_PER_LONG];
+	}
+
+	return (offset + __ffs(word)) < size ? (offset + __ffs(word)) : size;
+}
+
+#define find_next_and_bit __find_next_and_bit
+static inline unsigned long __find_next_and_bit(const unsigned long *addr1,
+		const unsigned long *addr2, unsigned long size,
+		unsigned long offset)
+{
+	unsigned long word;
+
+	if (unlikely(offset >= size))
+		return size;
+
+	word = addr1[offset / BITS_PER_LONG];
+	word &= addr2[offset / BITS_PER_LONG];
+
+	/* Handle 1st word. */
+	word = word >> (offset % BITS_PER_LONG) << (offset % BITS_PER_LONG);
+
+	offset &= ~(BITS_PER_LONG - 1);
+
+	while (!word) {
+		offset += BITS_PER_LONG;
+		if (offset >= size)
+			return size;
+
+		word = addr1[offset / BITS_PER_LONG];
+		word &= addr2[offset / BITS_PER_LONG];
+	}
+
+	return (offset + __ffs(word)) < size ? (offset + __ffs(word)) : size;
+}
+
+#define find_next_zero_bit_le find_next_zero_bit_le
+#define find_next_zero_bit __find_next_zero_bit
+static inline unsigned long __find_next_zero_bit(const unsigned long *addr, unsigned
+		long size, unsigned long offset)
+{
+	unsigned long word;
+
+	if (unlikely(offset >= size))
+		return size;
+
+	word = addr[offset / BITS_PER_LONG];
+	word ^= ~(0UL);
+
+	/* Handle 1st word. */
+	word = word >> (offset % BITS_PER_LONG) << (offset % BITS_PER_LONG);
+
+	offset &= ~(BITS_PER_LONG - 1);
+
+	while (!word) {
+		offset += BITS_PER_LONG;
+		if (offset >= size)
+			return size;
+
+		word = addr[offset / BITS_PER_LONG];
+		word ^= ~(0UL);
+	}
+
+	return (offset + __ffs(word)) < size ? (offset + __ffs(word)) : size;
+}
+
 #include <asm-generic/bitops/const_hweight.h>
 
 #endif /* __KERNEL__ */
