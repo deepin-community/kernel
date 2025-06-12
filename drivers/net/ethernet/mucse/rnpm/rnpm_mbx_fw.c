@@ -468,11 +468,12 @@ int rnpm_mbx_fw_reset_phy(struct rnpm_hw *hw)
 
 int rnpm_maintain_req(struct rnpm_hw *hw, int cmd, int arg0,
 		      int req_data_bytes, int reply_bytes,
-		      dma_addr_t dma_phy_addr)
+		      dma_addr_t dma_phy)
 {
 	struct mbx_req_cookie *cookie = NULL;
 	struct mbx_fw_cmd_req req;
 	struct mbx_fw_cmd_reply reply;
+	u64 address;
 	int err;
 
 	cookie = mbx_cookie_zalloc(hw, 0);
@@ -482,10 +483,10 @@ int rnpm_maintain_req(struct rnpm_hw *hw, int cmd, int arg0,
 	memset(&req, 0, sizeof(req));
 	memset(&reply, 0, sizeof(reply));
 	cookie->timeout_jiffes = 60 * HZ;
-
+	address = dma_phy;
 	build_maintain_req(&req, cookie, cmd, arg0, req_data_bytes,
-			   reply_bytes, dma_phy_addr & 0xffffffff,
-			   (dma_phy_addr >> 32) & 0xffffffff);
+			   reply_bytes, dma_phy & 0xffffffff,
+			   (dma_phy >> 32) & 0xffffffff);
 
 	if (hw->mbx.irq_enabled) {
 		cookie->timeout_jiffes = 400 * HZ;
@@ -861,6 +862,7 @@ int rnpm_mbx_get_dump(struct rnpm_hw *hw, int flags, u8 *data_out,
 	struct get_dump_reply *get_dump;
 	void *dma_buf = NULL;
 	dma_addr_t dma_phy = 0;
+	u64 address;
 	int err;
 
 	cookie = mbx_cookie_zalloc(hw, sizeof(*get_dump));
@@ -879,9 +881,9 @@ int rnpm_mbx_get_dump(struct rnpm_hw *hw, int flags, u8 *data_out,
 			goto quit;
 		}
 	}
-
-	build_get_dump_req(&req, cookie, hw->nr_lane, dma_phy & 0xffffffff,
-			   (dma_phy >> 32) & 0xffffffff, bytes);
+	address = dma_phy;
+	build_get_dump_req(&req, cookie, hw->nr_lane, address & 0xffffffff,
+			   (address >> 32) & 0xffffffff, bytes);
 	if (hw->mbx.irq_enabled) {
 		err = rnpm_mbx_fw_post_req(hw, &req, cookie);
 	} else {
@@ -945,9 +947,10 @@ int rnpm_fw_update(struct rnpm_hw *hw, int partition, const u8 *fw_bin,
 	struct mbx_req_cookie *cookie = NULL;
 	struct mbx_fw_cmd_req req;
 	struct mbx_fw_cmd_reply reply;
-	int err;
 	void *dma_buf = NULL;
-	dma_addr_t dma_phy;
+	dma_addr_t dma_phy = 0;
+	u64 address;
+	int err;
 
 	cookie = mbx_cookie_zalloc(hw, 0);
 	if (!cookie)
@@ -964,8 +967,9 @@ int rnpm_fw_update(struct rnpm_hw *hw, int partition, const u8 *fw_bin,
 	}
 
 	memcpy(dma_buf, fw_bin, bytes);
-	build_fw_update_req(&req, cookie, partition, dma_phy & 0xffffffff,
-			    (dma_phy >> 32) & 0xffffffff, bytes);
+	address = dma_phy;
+	build_fw_update_req(&req, cookie, partition, address & 0xffffffff,
+			    (address >> 32) & 0xffffffff, bytes);
 	if (hw->mbx.irq_enabled) {
 		cookie->timeout_jiffes = 400 * HZ;
 		err = rnpm_mbx_fw_post_req(hw, &req, cookie);
@@ -1066,7 +1070,7 @@ int rnpm_mbx_lane_link_changed_event_enable(struct rnpm_hw *hw, int enable)
 	struct mbx_fw_cmd_req req;
 	int err;
 
-	if (!hw->single_lane_link_evt_ctrl_ablity == 0)
+	if (hw->single_lane_link_evt_ctrl_ablity == 0)
 		return rnpm_mbx_pf_link_event_enable(hw, enable);
 
 	memset(&req, 0, sizeof(req));
@@ -1733,7 +1737,7 @@ int rnpm_mbx_sdram_simm(struct rnpm_hw *hw, u32 flags, u32 offset,
 {
 	struct mbx_fw_cmd_reply reply;
 	struct mbx_fw_cmd_req req;
-	int err;
+	u64 address;
 
 	if (!dma_buf || dma_phy == 0) {
 		dev_err(&hw->pdev->dev, "%s: no memory:%d!", __func__,
@@ -1743,11 +1747,12 @@ int rnpm_mbx_sdram_simm(struct rnpm_hw *hw, u32 flags, u32 offset,
 
 	memset(&req, 0, sizeof(req));
 	memset(&reply, 0, sizeof(reply));
+	address = dma_phy;
 	build_comm_sdram_req(&req, NULL, flags, offset,
-			     dma_phy & 0xffffffff,
-			     (dma_phy >> 32) & 0xffffffff, len);
+			     address & 0xffffffff,
+			     (address >> 32) & 0xffffffff, len);
 
 	if (hw->mbx.irq_enabled)
 		rnpm_mbx_write_posted_locked(hw, &req);
-	return err ? -err : 0;
+	return 0;
 }

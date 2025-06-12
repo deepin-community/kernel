@@ -1184,6 +1184,8 @@ static inline void build_ddr_csl(struct mbx_fw_cmd_req *req, void *cookie,
 				 bool enable, dma_addr_t dma_phy,
 				 int bytes)
 {
+	u64 address;
+
 	req->flags = 0;
 	req->opcode = SET_DDR_CSL;
 	req->datalen = sizeof(req->ddr_csl);
@@ -1191,10 +1193,11 @@ static inline void build_ddr_csl(struct mbx_fw_cmd_req *req, void *cookie,
 	req->reply_lo = 0;
 	req->reply_hi = 0;
 	req->ddr_csl.enable = enable;
+	address = dma_phy;
 	if (enable) {
 		req->ddr_csl.bytes = bytes;
-		req->ddr_csl.ddr_phy_hi = (dma_phy >> 32);
-		req->ddr_csl.ddr_phy_lo = dma_phy & 0xffffffff;
+		req->ddr_csl.ddr_phy_hi = (address >> 32);
+		req->ddr_csl.ddr_phy_lo = address & 0xffffffff;
 	} else {
 		req->ddr_csl.bytes = 0;
 	}
