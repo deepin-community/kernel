@@ -1,0 +1,15 @@
+#SPDX-License-Identifier: GPL-2.0
+
+config CRYPTO_DEV_LOONGSON
+	tristate "Support for Loongson SE hardware crypto acceleration"
+	depends on LOONGSON_SE
+	select CRYPTO_SM3
+	select CRYPTO_SM4
+	select CRYPTO_RNG
+	select CRYPTO_ENGINE
+	help
+	  Enables the driver for the on-chip crypto accelerator
+	  of Loongson CPU. Use Loongson SE module as crypto accelerator.
+	  To compile this driver as a module, choose M here.
+	  Thanks.
+
