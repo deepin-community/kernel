@@ -35,9 +35,15 @@
 #define SE_CMD_SM2_SIGN			0x200
 #define SE_CMD_SM2_VSIGN		0x201
 
+
 #define SE_CMD_SM3_DIGEST		0x300
 #define SE_CMD_SM3_UPDATE		0x301
 #define SE_CMD_SM3_FINISH		0x302
+
+#define SE_CMD_SM3_HMAC_DIGEST		0x303
+#define SE_CMD_SM3_HMAC_INIT		0x304
+#define SE_CMD_SM3_HMAC_FINISH		0x305
+#define SE_CMD_SM3_HMAC_FINUP		0x306
 
 #define SE_CMD_SM4_ECB_ENCRY		0x400
 #define SE_CMD_SM4_ECB_DECRY		0x401
@@ -128,6 +134,7 @@ struct loongson_se {
 	struct lsse_ch chs[SE_CH_MAX];
 };
 
+unsigned int se_get_version(struct device *dev);
 struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_size,
 			   void *priv, void (*complete)(struct lsse_ch *se_ch));
 void se_deinit_ch(struct lsse_ch *ch);

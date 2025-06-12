@@ -213,6 +213,15 @@ static int loongson_se_set_msg(struct lsse_ch *ch)
 	return err;
 }
 
+unsigned int se_get_version(struct device *dev)
+{
+	struct loongson_se *se = dev_get_drvdata(dev);
+
+	return se->version;
+}
+EXPORT_SYMBOL_GPL(se_get_version);
+
+
 static irqreturn_t se_irq(int irq, void *dev_id)
 {
 	struct loongson_se *se = (struct loongson_se *)dev_id;
@@ -456,6 +465,7 @@ EXPORT_SYMBOL_GPL(se_deinit_ch);
 
 static const struct mfd_cell engines[] = {
 	{ .name = "loongson-tpm" },
+	{ .name = "loongson-se-crypto" },
 };
 
 static int loongson_se_probe(struct platform_device *pdev)
