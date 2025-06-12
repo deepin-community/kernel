@@ -16,7 +16,7 @@ static void loongson_se_update_irq(struct lsse_crypto *se,
 	struct se_alg_msg *alg_msg;
 
 	if (!sae) {
-		pr_info("Can not find Alg %d engine!\n", sae->type);
+		pr_info("Can not find algorithm engine! sae is NULL.\n");
 		return;
 	}
 
