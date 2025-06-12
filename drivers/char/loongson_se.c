@@ -14,6 +14,7 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mfd/core.h>
 #include <linux/platform_device.h>
 #include <soc/loongson/se.h>
 
@@ -309,19 +310,25 @@ int se_send_ch_request(struct lsse_ch *ch)
 {
 	struct loongson_se *se;
 	u32 status, int_bit;
+	int err;
 
 	se = ch->se;
 	int_bit = ch->int_bit;
+	mutex_lock(&se->ch_init_lock);
 	if ((se_readl(se, SE_L2SINT_STAT) & int_bit) ||
-	    !(se_readl(se, SE_L2SINT_EN) & int_bit))
+	    !(se_readl(se, SE_L2SINT_EN) & int_bit)) {
+		mutex_unlock(&se->ch_init_lock);
 		return -EBUSY;
+	}
 
 	se_enable_int(se, int_bit);
 	se_writel(se, int_bit, SE_L2SINT_SET);
 
-	return readl_relaxed_poll_timeout_atomic(se->base + SE_L2SINT_STAT, status,
+	err = readl_relaxed_poll_timeout_atomic(se->base + SE_L2SINT_STAT, status,
 						 !(status & int_bit), 10, 10000);
+	mutex_unlock(&se->ch_init_lock);
 
+	return err;
 }
 EXPORT_SYMBOL_GPL(se_send_ch_request);
 
@@ -337,7 +344,6 @@ struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_si
 {
 	struct loongson_se *se = dev_get_drvdata(dev);
 	struct lsse_ch *ch;
-	unsigned long flag;
 	int data_first, data_nr;
 	int msg_first, msg_nr;
 
@@ -356,8 +362,7 @@ struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_si
 		return NULL;
 	}
 
-	spin_lock_irqsave(&se->dev_lock, flag);
-
+	mutex_lock(&se->ch_init_lock);
 	ch = &se->chs[id];
 	ch->se = se;
 	ch->id = id;
@@ -369,7 +374,7 @@ struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_si
 						0, data_nr, 0);
 	if (data_first >= se->mem_map_pages) {
 		dev_err(se->dev, "Insufficient memory space\n");
-		spin_unlock_irqrestore(&se->dev_lock, flag);
+		mutex_unlock(&se->ch_init_lock);
 		return NULL;
 	}
 
@@ -384,7 +389,7 @@ struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_si
 	if (msg_first >= se->mem_map_pages) {
 		dev_err(se->dev, "Insufficient memory space\n");
 		bitmap_clear(se->mem_map, data_first, data_nr);
-		spin_unlock_irqrestore(&se->dev_lock, flag);
+		mutex_unlock(&se->ch_init_lock);
 		return NULL;
 	}
 
@@ -396,14 +401,15 @@ struct lsse_ch *se_init_ch(struct device *dev, int id, int data_size, int msg_si
 	ch->priv = priv;
 	spin_lock_init(&ch->ch_lock);
 
-	spin_unlock_irqrestore(&se->dev_lock, flag);
 
 	if (loongson_se_set_msg(ch)) {
 		dev_err(se->dev, "Channel %d setup message address failed\n", id);
+		mutex_unlock(&se->ch_init_lock);
 		return NULL;
 	}
 
 	se_enable_int(se, ch->int_bit);
+	mutex_unlock(&se->ch_init_lock);
 
 	return ch;
 }
@@ -448,6 +454,10 @@ void se_deinit_ch(struct lsse_ch *ch)
 }
 EXPORT_SYMBOL_GPL(se_deinit_ch);
 
+static const struct mfd_cell engines[] = {
+	{ .name = "loongson-tpm" },
+};
+
 static int loongson_se_probe(struct platform_device *pdev)
 {
 	struct loongson_se *se;
@@ -460,6 +470,7 @@ static int loongson_se_probe(struct platform_device *pdev)
 	se->dev = dev;
 	dev_set_drvdata(dev, se);
 	init_completion(&se->cmd_completion);
+	mutex_init(&se->ch_init_lock);
 	spin_lock_init(&se->cmd_lock);
 	spin_lock_init(&se->dev_lock);
 	/* Setup DMA buffer */
@@ -497,10 +508,12 @@ static int loongson_se_probe(struct platform_device *pdev)
 	}
 
 	err = se_init_hw(se, se->mem_addr, size);
-	if (err)
+	if (err) {
 		se_disable_hw(se);
+		return err;
+	}
 
-	return err;
+	return devm_mfd_add_devices(dev, 0, engines, ARRAY_SIZE(engines), NULL, 0, NULL);
 }
 
 static const struct acpi_device_id loongson_se_acpi_match[] = {

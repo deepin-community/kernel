@@ -7364,6 +7364,11 @@ F:	Documentation/networking/net_dim.rst
 F:	include/linux/dim.h
 F:	lib/dim/
 
+LOONGSON TPM DRIVER
+M:	Qunqin Zhao <zhaoqunqin@loongson.cn>
+S:	Maintained
+F:	drivers/char/tpm/tpm_loongson.c
+
 DYNAMIC THERMAL POWER MANAGEMENT (DTPM)
 M:	Daniel Lezcano <daniel.lezcano@kernel.org>
 L:	linux-pm@vger.kernel.org

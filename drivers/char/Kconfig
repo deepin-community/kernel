@@ -394,6 +394,7 @@ config UV_MMTIMER
 config LOONGSON_SE
 	tristate "LOONGSON SECURITY MODULE Interface"
 	depends on LOONGARCH
+	select MFD_CORE
 	default m
 	help
 	  If you have LOONGSON security module (SE) support say Yes and it
