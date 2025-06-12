@@ -109,6 +109,7 @@ struct loongson_se {
 	void __iomem *base;
 	u32 version;
 	u32 ch_status;
+	struct mutex ch_init_lock;
 	spinlock_t cmd_lock;
 	spinlock_t dev_lock;
 
