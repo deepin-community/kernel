@@ -17,3 +17,5 @@ CONFIG_FB_EFI
 CONFIG_CAN
 # driver for USB serial
 CONFIG_USB_SERIAL
+# compat for some ArrowLake laptop, see https://github.com/deepin-community/kernel/pull/870
+CONFIG_ACPI_DEBUG
