@@ -368,30 +368,34 @@ void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
 		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, asid);
 
 #ifdef CONFIG_IEE
-	if (iee_init_done) {
-		/*
-		 * IEE requires the reserved ASID stored in TTBR1 and User ASID stored
-		 * in TTBR0 to support ASID switch by changing TCR.A1.
-		 */
-		ttbr0 &= ~TTBR_ASID_MASK;
-		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, asid);
+	/* Set ASID in TTBR1 since TCR.A1 is set */
+	ttbr1 &= ~TTBR_ASID_MASK;
+	ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, asid);
 
-		cpu_set_reserved_ttbr0_nosync();
+	cpu_set_reserved_ttbr0_nosync();
+	/*
+	 * IEE requires the reserved IEE ASID stored in TTBR0_EL1 so that IEE can
+	 * switch the ASID by setting TCR_EL1.A1 from 1 to 0 in IEE gate to avoid
+	 * tlb entry disclosure when calling IEE functions.
+	 */
+	if (iee_init_done) {
 		#ifdef CONFIG_IEE_SIP
-		iee_rwx_gate(IEE_SI_CONTEXT_SWITCH, ttbr0);
+		iee_rwx_gate(IEE_SI_CONTEXT_SWITCH, ttbr1, ttbr0);
 		#else
+		ttbr0 &= ~TTBR_ASID_MASK;
+		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
+		write_sysreg(ttbr1, ttbr1_el1);
 		write_sysreg(ttbr0, ttbr0_el1);
 		isb();
 		#endif
 	} else {
-		/* Set ASID in TTBR1 since TCR.A1 is set */
-		ttbr1 &= ~TTBR_ASID_MASK;
-		ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, asid);
-
-		cpu_set_reserved_ttbr0_nosync();
+		#ifdef CONFIG_IEE_SIP
+		iee_rwx_gate(IEE_SI_CONTEXT_SWITCH_PRE_INIT, ttbr1, ttbr0);
+		#else
 		write_sysreg(ttbr1, ttbr1_el1);
 		write_sysreg(ttbr0, ttbr0_el1);
 		isb();
+		#endif
 	}
 #else
 	/* Set ASID in TTBR1 since TCR.A1 is set */
@@ -417,7 +421,7 @@ static int asids_update_limit(void)
 #ifdef CONFIG_IEE
 		if (haoc_enabled && pinned_asid_map) {
 			__set_bit(ctxid2asid(IEE_ASID), pinned_asid_map);
-			__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), pinned_asid_map);
+			__set_bit(ctxid2asid(IEE_ASID & ~ASID_BIT), pinned_asid_map);
 		}
 #endif
 	}
@@ -461,8 +465,8 @@ static int asids_init(void)
 #ifdef CONFIG_IEE
 	if (haoc_enabled) {
 		#ifdef CONFIG_UNMAP_KERNEL_AT_EL0
-		__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), asid_map);
-		__set_bit(ctxid2asid(IEE_ASID | ASID_BIT), pinned_asid_map);
+		__set_bit(ctxid2asid(IEE_ASID & ~ASID_BIT), asid_map);
+		__set_bit(ctxid2asid(IEE_ASID & ~ASID_BIT), pinned_asid_map);
 		#endif
 		__set_bit(ctxid2asid(IEE_ASID), asid_map);
 		__set_bit(ctxid2asid(IEE_ASID), pinned_asid_map);

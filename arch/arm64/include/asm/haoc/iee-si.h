@@ -13,6 +13,7 @@ enum {
 	IEE_SI_SET_VBAR,
 	IEE_SI_SET_TTBR0,
 	IEE_SI_CONTEXT_SWITCH,
+	IEE_SI_CONTEXT_SWITCH_PRE_INIT,
 	IEE_SI_FLAGS
 };
 
@@ -36,10 +37,5 @@ extern unsigned long iee_rwx_gate(int flag, ...);
 extern u64 __iee_si_text_start[];
 extern u64 __iee_si_text_end[];
 extern u64 iee_si_reserved_pg_dir;
-
-static inline void iee_si_setup_data(void)
-{
-	iee_si_reserved_pg_dir = phys_to_ttbr(__pa_symbol(reserved_pg_dir));
-}
 
 #endif

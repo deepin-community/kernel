@@ -50,7 +50,7 @@ SYM_FUNC_START(iee_protected_rw_gate)
 	/* entry gate */
 	mrs x12, tcr_el1
 	orr x12, x12, #TCR_HPD1
-	orr x12, x12, #TCR_A1
+	bic x12, x12, #TCR_A1
 	msr tcr_el1, x12
 	isb
 	/* Check TCR */
@@ -79,7 +79,7 @@ SYM_FUNC_START(iee_protected_rw_gate)
 	/* exit gate */
 	mrs x12, tcr_el1
 	bic x12, x12, #TCR_HPD1
-	bic x12, x12, #TCR_A1
+	orr x12, x12, #TCR_A1
 	msr tcr_el1, x12
 	isb
 	/* Check TCR */
