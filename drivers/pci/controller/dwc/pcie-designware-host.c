@@ -702,7 +702,7 @@ static int dw_pcie_iatu_setup(struct dw_pcie_rp *pp)
 			window_size = res_size > (pci->region_limit + 1) ?
 					(pci->region_limit + 1) : res_size;
 
-			ret = dw_pcie_prog_outbound_atu(pci, ++i, PCIE_ATU_TYPE_MEM,
+			ret = dw_pcie_prog_outbound_atu(pci, i++, PCIE_ATU_TYPE_MEM,
 							res_start,
 							res_start - entry->offset,
 							window_size);

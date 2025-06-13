@@ -96,6 +96,9 @@ static int ultrarisc_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &ultrarisc_pcie_ops;
 
+	/* Set a default value suitable for at most 16 in and 16 out windows */
+	pci->atu_size = SZ_8K;
+
 	ultrarisc_pcie->pci = pci;
 
 	pp = &pci->pp;
