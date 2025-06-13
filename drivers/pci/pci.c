@@ -5264,6 +5264,10 @@ void pci_reset_secondary_bus(struct pci_dev *dev)
 
 	ctrl &= ~PCI_BRIDGE_CTL_BUS_RESET;
 	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, ctrl);
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	phytium_clear_ctrl_prot(dev, PHYTIUM_PCIE_HOTRESET);
+#endif
 }
 
 void __weak pcibios_reset_secondary_bus(struct pci_dev *dev)
