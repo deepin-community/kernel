@@ -17,15 +17,9 @@
 
 #define ASID_BIT		(UL(1) << 48)
 /* 
- * We reserves the bigest ASID for IEE and always stores it in TTBR1. As KPTI also reserves
- * odd ASIDs for user-viewed TTBR1, we should use even number for IEE ASID to allow KPTI to
- * switch between them at kernel entry/exit.
+ * We reserves the bigest ASID for IEE and always stores it in TTBR0.
  */
-#ifdef CONFIG_UNMAP_KERNEL_AT_EL0
-#define IEE_ASID			0xfffe
-#else
 #define IEE_ASID			0xffff
-#endif
 #define IEE_ASM_ASID		(UL(IEE_ASID) << 48)
 
 #define TCR_HPD1		(UL(1) << 42)

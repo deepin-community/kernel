@@ -40,28 +40,12 @@ static void __init iee_stack_alloc(void)
 	flush_tlb_all();
 }
 
-/* Setup TCR for this cpu and move ASID from ttbr1 to ttbr0 */
 void iee_setup_asid(void)
 {
-	unsigned long asid, ttbr0, ttbr1;
-
-	ttbr1 = read_sysreg(ttbr1_el1);
-	asid = FIELD_GET(TTBR_ASID_MASK, ttbr1);
-	ttbr0 = read_sysreg(ttbr0_el1) | FIELD_PREP(TTBR_ASID_MASK, asid);
-	ttbr1 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
-	write_sysreg(ttbr1, ttbr1_el1);
+	unsigned long ttbr0 = read_sysreg(ttbr0_el1) | FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
+	/* Load IEE ASID into ttbr0 to use it in IEE. */
 	write_sysreg(ttbr0, ttbr0_el1);
-	write_sysreg(read_sysreg(tcr_el1) & ~TCR_A1, tcr_el1);
 	isb();
-
-	/* Flush tlb to enable IEE. */
-	local_flush_tlb_all();
-}
-
-static void iee_setup_init_data(void){
-	for (u64 addr = (u64)iee_init_data_begin; addr < (u64)iee_init_data_end;
-			addr += PAGE_SIZE)
-		iee_set_logical_mem(addr, 0, true);
 }
 
 void __init iee_init_post(void)
@@ -82,7 +66,6 @@ void __init iee_init_post(void)
 	extern void iee_si_init(void);
 	iee_si_init();
 #endif
-	iee_setup_init_data();
 }
 
 void __init iee_stack_init(void)

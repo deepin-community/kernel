@@ -60,12 +60,12 @@ void __init iee_init_tcr(void)
 
 	__set_fixmap(FIX_PTE, __pa_symbol(&kernel_tcr), FIXMAP_PAGE_NORMAL);
 	ptr += (unsigned long)(&kernel_tcr) & (PAGE_SIZE - 1);
-	*((u64 *)ptr) = read_sysreg(tcr_el1) & IEE_TCR_MASK & ~(TCR_HPD1 | TCR_A1);
+	*((u64 *)ptr) = read_sysreg(tcr_el1) & IEE_TCR_MASK & ~TCR_HPD1;
 	clear_fixmap(FIX_PTE);
 	ptr = (unsigned long)(fix_to_virt(FIX_PTE));
 	__set_fixmap(FIX_PTE, __pa_symbol(&iee_tcr), FIXMAP_PAGE_NORMAL);
 	ptr += (unsigned long)(&iee_tcr) & (PAGE_SIZE - 1);
-	*((u64 *)ptr) = kernel_tcr | TCR_HPD1 | TCR_A1;
+	*((u64 *)ptr) = (kernel_tcr | TCR_HPD1) & ~TCR_A1;
 	clear_fixmap(FIX_PTE);
 }
 
