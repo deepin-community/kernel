@@ -20,6 +20,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/pci.h>
 #include "pciehp.h"
+#ifdef CONFIG_ARCH_PHYTIUM
+#include "../pci.h"
+#endif
 
 /* The following routines constitute the bulk of the
    hotplug controller logic
@@ -282,6 +285,10 @@ void pciehp_handle_presence_or_link_change(struct controller *ctrl, u32 events)
 		if (link_active)
 			ctrl_info(ctrl, "Slot(%s): Link Up\n",
 				  slot_name(ctrl));
+#ifdef CONFIG_ARCH_PHYTIUM
+		if (present && link_active)
+			phytium_clear_ctrl_prot(ctrl->pcie->port, PHYTIUM_PCIE_HOTPLUG);
+#endif
 		ctrl->request_result = pciehp_enable_slot(ctrl);
 		break;
 	default:
