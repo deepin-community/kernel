@@ -655,8 +655,8 @@ static int realm_create_protected_data_granule(struct realm *realm,
 
 static int realm_create_protected_data_page(struct realm *realm,
 					    unsigned long ipa,
-					    kvm_pfn_t dst_pfn,
-					    kvm_pfn_t src_pfn,
+					    struct page *dst_page,
+					    struct page *src_page,
 					    unsigned long flags)
 {
 	unsigned long rd = virt_to_phys(realm->rd);
@@ -664,10 +664,12 @@ static int realm_create_protected_data_page(struct realm *realm,
 	bool undelegate_failed = false;
 	int ret, offset;
 
-	dst_phys = __pfn_to_phys(dst_pfn);
-	src_phys = __pfn_to_phys(src_pfn);
+	dst_phys = page_to_phys(dst_page);
+	src_phys = page_to_phys(src_page);
+	copy_page(page_address(src_page), page_address(dst_page));
 
 	for (offset = 0; offset < PAGE_SIZE; offset += RMM_PAGE_SIZE) {
+
 		ret = realm_create_protected_data_granule(realm,
 							  ipa,
 							  dst_phys,
@@ -705,7 +707,7 @@ err:
 		 * A granule could not be undelegated,
 		 * so the page has to be leaked
 		 */
-		get_page(pfn_to_page(dst_pfn));
+		get_page(dst_page);
 	}
 
 	return -ENXIO;
@@ -721,6 +723,7 @@ static int populate_region(struct kvm *kvm,
 	gfn_t base_gfn, end_gfn;
 	int idx;
 	phys_addr_t ipa = ipa_base;
+	struct page *tmp_page;
 	int ret = 0;
 
 	base_gfn = gpa_to_gfn(ipa_base);
@@ -739,19 +742,19 @@ static int populate_region(struct kvm *kvm,
 		goto out;
 	}
 
-	if (!kvm_slot_can_be_private(memslot)) {
-		ret = -EPERM;
+	tmp_page = alloc_page(GFP_KERNEL);
+	if (!tmp_page) {
+		ret = -ENOMEM;
 		goto out;
 	}
+
+	mmap_read_lock(current->mm);
 
 	while (ipa < ipa_end) {
 		struct vm_area_struct *vma;
 		unsigned long hva;
 		struct page *page;
-		bool writeable;
 		kvm_pfn_t pfn;
-		kvm_pfn_t priv_pfn;
-		struct page *gmem_page;
 
 		hva = gfn_to_hva_memslot(memslot, gpa_to_gfn(ipa));
 		vma = vma_lookup(current->mm, hva);
@@ -760,33 +763,30 @@ static int populate_region(struct kvm *kvm,
 			break;
 		}
 
-		pfn = __kvm_faultin_pfn(memslot, gpa_to_gfn(ipa), FOLL_WRITE,
-					&writeable, &page);
+		pfn = gfn_to_pfn_memslot(memslot, gpa_to_gfn(ipa));
 
 		if (is_error_pfn(pfn)) {
 			ret = -EFAULT;
 			break;
 		}
 
-		ret = kvm_gmem_get_pfn(kvm, memslot,
-				       ipa >> PAGE_SHIFT,
-				       &priv_pfn, &gmem_page, NULL);
-		if (ret)
-			break;
+		page = pfn_to_page(pfn);
 
 		ret = realm_create_protected_data_page(realm, ipa,
-						       priv_pfn,
-						       pfn,
+						       page,
+						       tmp_page,
 						       data_flags);
-
-		kvm_release_page_clean(page);
-
-		if (ret)
+		if (ret) {
+			kvm_release_page_clean(page);
 			break;
+		}
 
 		ipa += PAGE_SIZE;
+		kvm_release_pfn_dirty(pfn);
 	}
 
+	mmap_read_unlock(current->mm);
+	__free_page(tmp_page);
 out:
 	srcu_read_unlock(&kvm->srcu, idx);
 	return ret;
