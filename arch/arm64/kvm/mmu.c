@@ -1117,6 +1117,10 @@ int kvm_phys_addr_ioremap(struct kvm *kvm, phys_addr_t guest_ipa,
 	if (is_protected_kvm_enabled())
 		return -EPERM;
 
+	/* We don't support mapping special pages into a Realm */
+	if (kvm_is_realm(kvm))
+		return -EPERM;
+
 	size += offset_in_page(guest_ipa);
 	guest_ipa &= PAGE_MASK;
 
@@ -1610,6 +1614,16 @@ static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 
 	if (exec_fault && device)
 		return -ENOEXEC;
+
+	/*
+	 * Adapted from cca-v8
+	 * Since OLK-6.6 does not implement the private_memslot_fault()
+	 * that depends on the higher version feature guest memfd.
+	 * Here we should handle protected addresses fault expect protected devices.
+	 */
+	if (device && vcpu_is_rec(vcpu) &&
+	    kvm_gpa_from_fault(kvm, fault_ipa) == fault_ipa)
+		return -EINVAL;
 
 	read_lock(&kvm->mmu_lock);
 	pgt = vcpu->arch.hw_mmu->pgt;
