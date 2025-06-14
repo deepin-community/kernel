@@ -39,6 +39,7 @@
 #include <asm/kvm_nested.h>
 #include <asm/kvm_pkvm.h>
 #include <asm/kvm_emulate.h>
+#include <asm/kvm_rme.h>
 #include <asm/sections.h>
 
 #include <kvm/arm_hypercalls.h>
@@ -46,6 +47,8 @@
 #include <kvm/arm_psci.h>
 
 static enum kvm_mode kvm_mode = KVM_MODE_DEFAULT;
+
+DEFINE_STATIC_KEY_FALSE(kvm_rme_is_available);
 
 DECLARE_KVM_HYP_PER_CPU(unsigned long, kvm_hyp_vector);
 
@@ -2409,6 +2412,9 @@ static __init int kvm_arm_init(void)
 	}
 
 	in_hyp_mode = is_kernel_in_hyp_mode();
+
+	if (in_hyp_mode)
+		kvm_init_rme();
 
 	if (cpus_have_final_cap(ARM64_WORKAROUND_DEVICE_LOAD_ACQUIRE) ||
 	    cpus_have_final_cap(ARM64_WORKAROUND_1508412))
