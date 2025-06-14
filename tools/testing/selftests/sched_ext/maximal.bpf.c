@@ -121,6 +121,10 @@ void BPF_STRUCT_OPS(maximal_cgroup_cancel_move, struct task_struct *p,
 void BPF_STRUCT_OPS(maximal_cgroup_set_weight, struct cgroup *cgrp, u32 weight)
 {}
 
+void BPF_STRUCT_OPS(maximal_cgroup_set_bandwidth, struct cgroup *cgrp,
+		    u64 period_us, u64 quota_us, u64 burst_us)
+{}
+
 s32 BPF_STRUCT_OPS_SLEEPABLE(maximal_init)
 {
 	return 0;
@@ -157,7 +161,8 @@ struct sched_ext_ops maximal_ops = {
 	.cgroup_prep_move	= maximal_cgroup_prep_move,
 	.cgroup_move		= maximal_cgroup_move,
 	.cgroup_cancel_move	= maximal_cgroup_cancel_move,
-	.cgroup_set_weight	= maximal_cgroup_set_weight,
+	.cgroup_set_weight = maximal_cgroup_set_weight,
+	.cgroup_set_bandwidth = maximal_cgroup_set_bandwidth,
 	.init			= maximal_init,
 	.exit			= maximal_exit,
 	.name			= "maximal",

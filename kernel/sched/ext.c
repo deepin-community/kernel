@@ -159,6 +159,11 @@ struct scx_exit_task_args {
 struct scx_cgroup_init_args {
 	/* the weight of the cgroup [1..10000] */
 	u32			weight;
+
+	/* bandwidth control parameters from cpu.max and cpu.max.burst */
+	u64			bw_period_us;
+	u64			bw_quota_us;
+	u64			bw_burst_us;
 };
 
 enum scx_cpu_preempt_reason {
@@ -596,6 +601,27 @@ struct sched_ext_ops {
 	 * Update @tg's weight to @weight.
 	 */
 	void (*cgroup_set_weight)(struct cgroup *cgrp, u32 weight);
+
+	/**
+	 * cgroup_set_bandwidth - A cgroup's bandwidth is being changed
+	 * @cgrp: cgroup whose bandwidth is being updated
+	 * @period_us: bandwidth control period
+	 * @quota_us: bandwidth control quota
+	 * @burst_us: bandwidth control burst
+	 *
+	 * Update @cgrp's bandwidth control parameters. This is from the cpu.max
+	 * cgroup interface.
+	 *
+	 * @quota_us / @period_us determines the CPU bandwidth @cgrp is entitled
+	 * to. For example, if @period_us is 1_000_000 and @quota_us is
+	 * 2_500_000. @cgrp is entitled to 2.5 CPUs. @burst_us can be
+	 * interpreted in the same fashion and specifies how much @cgrp can
+	 * burst temporarily. The specific control mechanism and thus the
+	 * interpretation of @period_us and burstiness is upto to the BPF
+	 * scheduler.
+	 */
+	void (*cgroup_set_bandwidth)(struct cgroup *cgrp,
+				     u64 period_us, u64 quota_us, u64 burst_us);
 #endif	/* CONFIG_CGROUPS */
 
 	/*
@@ -3975,6 +4001,9 @@ static void scx_cgroup_warn_missing_idle(struct task_group *tg)
 void scx_tg_init(struct task_group *tg)
 {
 	tg->scx_weight = CGROUP_WEIGHT_DFL;
+	/* [ADAPT] 6.17+ uses default_bw_period_us() here */
+	tg->scx_bw_period_us = 100000ULL;
+	tg->scx_bw_quota_us = RUNTIME_INF;
 }
 
 int scx_tg_online(struct task_group *tg)
@@ -3990,7 +4019,10 @@ int scx_tg_online(struct task_group *tg)
 	if (scx_cgroup_enabled) {
 		if (SCX_HAS_OP(cgroup_init)) {
 			struct scx_cgroup_init_args args =
-				{ .weight = tg->scx_weight };
+				{ .weight = tg->scx_weight,
+				  .bw_period_us = tg->scx_bw_period_us,
+				  .bw_quota_us = tg->scx_bw_quota_us,
+				  .bw_burst_us = tg->scx_bw_burst_us };
 
 			ret = SCX_CALL_OP_RET(SCX_KF_UNLOCKED, cgroup_init,
 					      tg->css.cgroup, &args);
@@ -4129,6 +4161,25 @@ void scx_group_set_idle(struct task_group *tg, bool idle)
 {
 	percpu_down_read(&scx_cgroup_rwsem);
 	scx_cgroup_warn_missing_idle(tg);
+	percpu_up_read(&scx_cgroup_rwsem);
+}
+
+void scx_group_set_bandwidth(struct task_group *tg,
+			     u64 period_us, u64 quota_us, u64 burst_us)
+{
+	percpu_down_read(&scx_cgroup_rwsem);
+
+	if (scx_cgroup_enabled && SCX_HAS_OP(cgroup_set_bandwidth) &&
+	    (tg->scx_bw_period_us != period_us ||
+	     tg->scx_bw_quota_us != quota_us ||
+	     tg->scx_bw_burst_us != burst_us))
+		SCX_CALL_OP(SCX_KF_UNLOCKED, cgroup_set_bandwidth,
+			    tg_cgrp(tg), period_us, quota_us, burst_us);
+
+	tg->scx_bw_period_us = period_us;
+	tg->scx_bw_quota_us = quota_us;
+	tg->scx_bw_burst_us = burst_us;
+
 	percpu_up_read(&scx_cgroup_rwsem);
 }
 
@@ -4333,7 +4384,12 @@ static int scx_cgroup_init(void)
 	rcu_read_lock();
 	css_for_each_descendant_pre(css, &root_task_group.css) {
 		struct task_group *tg = css_tg(css);
-		struct scx_cgroup_init_args args = { .weight = tg->scx_weight };
+		struct scx_cgroup_init_args args = {
+			.weight = tg->scx_weight,
+			.bw_period_us = tg->scx_bw_period_us,
+			.bw_quota_us = tg->scx_bw_quota_us,
+			.bw_burst_us = tg->scx_bw_burst_us,
+		};
 
 		scx_cgroup_warn_missing_weight(tg);
 		scx_cgroup_warn_missing_idle(tg);
@@ -5828,6 +5884,8 @@ static s32 cgroup_prep_move_stub(struct task_struct *p, struct cgroup *from, str
 static void cgroup_move_stub(struct task_struct *p, struct cgroup *from, struct cgroup *to) {}
 static void cgroup_cancel_move_stub(struct task_struct *p, struct cgroup *from, struct cgroup *to) {}
 static void cgroup_set_weight_stub(struct cgroup *cgrp, u32 weight) {}
+static void cgroup_set_bandwidth_stub(struct cgroup *cgrp, u64 period_us,
+				      u64 quota_us, u64 burst_us) {}
 #endif
 static void cpu_online_stub(s32 cpu) {}
 static void cpu_offline_stub(s32 cpu) {}
@@ -5865,6 +5923,7 @@ static struct sched_ext_ops __bpf_ops_sched_ext_ops = {
 	.cgroup_move = cgroup_move_stub,
 	.cgroup_cancel_move = cgroup_cancel_move_stub,
 	.cgroup_set_weight = cgroup_set_weight_stub,
+	.cgroup_set_bandwidth = cgroup_set_bandwidth_stub,
 #endif
 	.cpu_online = cpu_online_stub,
 	.cpu_offline = cpu_offline_stub,

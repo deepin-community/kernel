@@ -9368,6 +9368,11 @@ static int tg_set_cfs_bandwidth(struct task_group *tg, u64 period, u64 quota,
 	if (runtime_was_enabled && !runtime_enabled)
 		cfs_bandwidth_usage_dec();
 
+	scx_group_set_bandwidth(tg, period / NSEC_PER_USEC,
+				quota == RUNTIME_INF ? RUNTIME_INF
+						    : quota / NSEC_PER_USEC,
+				burst / NSEC_PER_USEC);
+
 	return 0;
 }
 
