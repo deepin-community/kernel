@@ -404,6 +404,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu_clear_flag(vcpu, VCPU_INITIALIZED);
 	bitmap_zero(vcpu->arch.features, KVM_VCPU_MAX_FEATURES);
 
+	vcpu->arch.rec.mpidr = INVALID_HWID;
+
 	vcpu->arch.mmu_page_cache.gfp_zero = __GFP_ZERO;
 
 	/*
@@ -1220,12 +1222,15 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *irq_level,
 	return -EINVAL;
 }
 
-static unsigned long system_supported_vcpu_features(void)
+static unsigned long system_supported_vcpu_features(struct kvm *kvm)
 {
 	unsigned long features = KVM_VCPU_VALID_FEATURES;
 
 	if (!cpus_have_final_cap(ARM64_HAS_32BIT_EL1))
 		clear_bit(KVM_ARM_VCPU_EL1_32BIT, &features);
+
+	if (!kvm_is_realm(kvm))
+		clear_bit(KVM_ARM_VCPU_REC, &features);
 
 	return features;
 }
@@ -1244,7 +1249,7 @@ static int kvm_vcpu_init_check_features(struct kvm_vcpu *vcpu,
 			return -ENOENT;
 	}
 
-	if (features & ~system_supported_vcpu_features())
+	if (features & ~system_supported_vcpu_features(vcpu->kvm))
 		return -EINVAL;
 
 	if (!test_bit(KVM_ARM_VCPU_EL1_32BIT, &features))
@@ -1256,6 +1261,10 @@ static int kvm_vcpu_init_check_features(struct kvm_vcpu *vcpu,
 
 	/* NV is incompatible with AArch32 */
 	if (test_bit(KVM_ARM_VCPU_HAS_EL2, &features))
+		return -EINVAL;
+
+	/* RME is incompatible with AArch32 */
+	if (test_bit(KVM_ARM_VCPU_REC, &features))
 		return -EINVAL;
 
 	return 0;
