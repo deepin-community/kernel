@@ -44,6 +44,8 @@ void noinstr do_syscall(struct pt_regs *regs)
 	sys_call_fn syscall_fn;
 
 	nr = regs->regs[11];
+	// Move from handle_syscall macro to save a memio
+	regs->regs[0] = 0;
 	/* Set for syscall restarting */
 	if (nr < NR_syscalls)
 		regs->regs[0] = nr + 1;
