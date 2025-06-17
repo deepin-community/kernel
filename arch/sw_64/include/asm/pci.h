@@ -83,6 +83,8 @@ enum SUNWAY_RC {
 	SUNWAY_RC_SIZE =	0x82500UL,
 };
 
+#define SUNWAY_DEVMN_SIZE	0x3480UL
+
 struct pci_dev;
 struct pci_bus;
 struct resource;
@@ -108,11 +110,11 @@ struct pci_controller {
 	unsigned long sparse_io_base;
 	unsigned long dense_io_base;
 
-	/* This one's for the kernel only.  It's in KSEG somewhere.  */
 	void __iomem *ep_config_space_base;
 	void __iomem *rc_config_space_base;
 	void __iomem *piu_ior0_base;
 	void __iomem *piu_ior1_base;
+	void __iomem *devmn_base;
 
 	unsigned long index;
 	unsigned long node;
