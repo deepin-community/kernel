@@ -110,10 +110,10 @@ struct vcpucb {
 	unsigned long csr_earg2;
 	unsigned long csr_scratch;
 	unsigned long atc;
-	unsigned long reserved1[10];
-	/* Pending virtual interrupts */
-	DECLARE_BITMAP(irqs_pending, CORE4VM_IRQS);
-	unsigned long reserved2[31];
+	unsigned long reserved1[10];	/* USE IN HMCODE */
+	DECLARE_BITMAP(irqs_pending, CORE4VM_IRQS);	/* Pending virtual interrupts */
+	unsigned long irqs_addr;
+	unsigned long reserved2[30];
 };
 #endif
 

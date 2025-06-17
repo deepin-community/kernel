@@ -97,6 +97,8 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 		set_timer(vcpu, 200000000);
 		vcpu->arch.vcb.migration_mark = 0;
 	}
+
+	vcpu->arch.vcb.irqs_addr = (unsigned long)&vcpu->arch.vcb.irqs_pending;
 	return 0;
 }
 
