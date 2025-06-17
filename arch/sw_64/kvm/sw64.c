@@ -245,7 +245,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 		return -EINVAL;
 
 	feature_vint = (cpuid(GET_FEATURES, 0) & CPU_FEAT_VINT);
-	smp_rcb->feat_vint = 1;
+	smp_rcb->feat_vint = 2;
 	return kvm_sw64_init_vm(kvm);
 }
 
