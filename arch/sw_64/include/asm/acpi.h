@@ -15,6 +15,12 @@ extern int acpi_strict;
 extern int acpi_disabled;
 extern int acpi_pci_disabled;
 
+/*
+ * acpi_disable_cmcff is only used in IA-32 Architecture, this
+ * definition is only for compatibility.
+ */
+#define acpi_disable_cmcff 1
+
 /* _ASM_SW64_PDC_H */
 #define ACPI_PDC_P_FFH                  (0x0001)
 #define ACPI_PDC_C_C1_HALT              (0x0002)
