@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-kernel:
-    runs-on: [self-hosted, linux, loong64]
+    runs-on: [self-hosted, linux, x64]
     steps:
       - uses: actions/checkout@v3
       - name: "Install Deps"
@@ -25,8 +25,8 @@ jobs:
       - name: "Compile kernel"
         run: |
           # .config
-          make deepin_loongarch_desktop_defconfig
-          make -j$(nproc)
+          time make ARCH=loongarch CROSS_COMPILE=loongarch64-linux-gnu- deepin_loongarch_desktop_defconfig
+          time make ARCH=loongarch CROSS_COMPILE=loongarch64-linux-gnu- -j$(nproc)
 
       - name: 'Upload Kernel Artifact'
         uses: actions/upload-artifact@v4
