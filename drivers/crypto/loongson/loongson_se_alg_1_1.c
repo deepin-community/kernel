@@ -182,13 +182,6 @@ static int loongson_sm3_one_request(struct crypto_engine *engine, void *areq)
 	if (!sae)
 		return -ENODEV;
 
-	if (sae->rctx && sae->rctx != rctx) {
-		/* Should wait last request done */
-		crypto_finalize_hash_request(sae->engine, req, -EINPROGRESS);
-		err = loongson_sm3_enqueue(req, rctx->op);
-		return err == -EINPROGRESS ? 0 : err;
-	}
-
 	sae->rctx = rctx;
 	rctx->req = req;
 
