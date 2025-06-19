@@ -1,0 +1,30 @@
+name: build kernel riscv64
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  email: support@deepin.org
+
+permissions:
+  pull-requests: read
+
+jobs:
+  build-kernel:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
+      - name: "Compile kernel"
+        run: |
+          # .config
+          time make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- deepin_riscv64_desktop_defconfig
+          time make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- -j$(nproc)
+
