@@ -18,7 +18,7 @@
 #include "vram_common.h"
 
 #define HINIC3_NIC_DRV_NAME	"hinic3"
-#define HINIC3_NIC_DRV_VERSION	"17.7.8.1"
+#define HINIC3_NIC_DRV_VERSION	"17.7.8.101"
 
 #define HINIC3_FUNC_IS_VF(hwdev)	(hinic3_func_type(hwdev) == TYPE_VF)
 
