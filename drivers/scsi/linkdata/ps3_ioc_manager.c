@@ -595,7 +595,7 @@ static void ps3_ioc_init_cmd_prepare(struct ps3_instance *instance)
 #endif
 
 	init_frame_msg->dumpDmaBufAddr = cpu_to_le64(dump_context->dump_dma_addr);
-	init_frame_msg->dumpDmaBufLen = cpu_to_le64(PS3_DUMP_DMA_BUF_SIZE);
+	init_frame_msg->dumpDmaBufLen = cpu_to_le32(PS3_DUMP_DMA_BUF_SIZE);
 	init_frame_msg->dumpIsrSN = cpu_to_le32(irq_context->dump_isrSN);
 #ifndef _WINDOWS
 	init_frame_msg->debugMemArrayNum =
