@@ -39,6 +39,7 @@ struct loongson_gpio_chip_data {
 	unsigned int		intr_num;
 	irq_flow_handler_t	irq_handler;
 	const struct irq_chip	*girqchip;
+	bool			is_ls7a;
 };
 
 struct loongson_gpio_chip {
@@ -144,6 +145,9 @@ static int loongson_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
 	} else {
 		writeb(1, lgpio->reg_base + lgpio->chip_data->inten_offset + offset);
 	}
+
+	if (lgpio->chip_data->is_ls7a)
+		offset = MIN(offset, 4);
 
 	return platform_get_irq(pdev, offset);
 }
@@ -439,6 +443,7 @@ static const struct loongson_gpio_chip_data loongson_gpio_ls7a_data = {
 	.in_offset = 0xa00,
 	.out_offset = 0x900,
 	.inten_offset = 0xb00,
+	.is_ls7a = true,
 };
 
 /* LS7A2000 chipset GPIO */
