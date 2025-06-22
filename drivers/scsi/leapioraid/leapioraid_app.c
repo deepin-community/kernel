@@ -2188,6 +2188,33 @@ const struct attribute_group *leapioraid_dev_groups[] = {
 	NULL
 };
 
+static int my_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	struct LEAPIORAID_ADAPTER *ioc;
+	unsigned long pfn;
+	unsigned long length = vma->vm_end - vma->vm_start;
+
+	ioc = list_first_entry(&leapioraid_ioc_list,
+		 struct LEAPIORAID_ADAPTER, list);
+	if (length > (SYS_LOG_BUF_SIZE + SYS_LOG_BUF_RESERVE)) {
+		pr_err("Requested mapping size is too large\n");
+		return -EINVAL;
+	}
+	if (ioc->log_buffer == NULL) {
+		pr_err("no log buffer\n");
+		return -EINVAL;
+	}
+
+	pfn = virt_to_phys(ioc->log_buffer) >> PAGE_SHIFT;
+
+	if (remap_pfn_range(vma, vma->vm_start, pfn, length, vma->vm_page_prot)) {
+		pr_err("Failed to map memory to user space\n");
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static const struct
 file_operations leapioraid_ctl_fops = {
 	.owner = THIS_MODULE,
@@ -2197,6 +2224,7 @@ file_operations leapioraid_ctl_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = leapioraid_ctl_ioctl_compat,
 #endif
+	.mmap = my_mmap,
 };
 
 static struct miscdevice leapioraid_ctl_dev = {

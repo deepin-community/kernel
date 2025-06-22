@@ -61,7 +61,9 @@
 #define fallthrough
 #endif
 
-#define SYS_LOG_BUF_SIZE	(0x20000)
+#define SYS_LOG_BUF_SIZE	(0x200000) //2M
+#define SYS_LOG_BUF_RESERVE	(0x1000) //256
+
 #define MAX_UPD_PAYLOAD_SZ	(0x4000)
 
 #define LEAPIORAID_DRIVER_NAME		"LeapIoRaid"
@@ -76,6 +78,8 @@
 #define LEAPIORAID_VENDOR_ID		(0xD405)
 #define LEAPIORAID_DEVICE_ID_1		(0x1000)
 #define LEAPIORAID_DEVICE_ID_2		(0x1001)
+#define LEAPIORAID_HBA				(0x8200)
+#define LEAPIORAID_RAID				(0x8201)
 
 #define LEAPIORAID_MAX_PHYS_SEGMENTS	SG_CHUNK_SIZE
 

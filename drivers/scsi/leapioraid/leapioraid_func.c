@@ -315,66 +315,38 @@ leapioraid_udp_exit(void)
 		sock_release(sock);
 }
 
-static int
-leapioraid_send_udp_pkg(void *buf, U32 datasize)
+struct info
 {
-	int ret;
-	struct kvec vec;
-
-	vec.iov_len = datasize;
-	vec.iov_base = buf;
-	ret = kernel_sendmsg(sock, &msg, &vec, 1, vec.iov_len);
-	if (ret <= 0) {
-		pr_err_ratelimited("Sending UDP packet failed: errorno = %d",
-				   ret);
-		return 0;
-	} else {
-		return ret;
-	}
-}
+	u32 user_position;
+	u32 ioc_position;
+};
+int cooo;
 
 static void
 leapioraid_base_pcie_log_work(struct work_struct *work)
 {
 	struct LEAPIORAID_ADAPTER *ioc =
-	    container_of(work, struct LEAPIORAID_ADAPTER, pcie_log_work.work);
+		container_of(work,
+			struct LEAPIORAID_ADAPTER, pcie_log_work.work);
 	unsigned long flags;
-	u32 host_logbuf_position, ioc_logbuf_position;
-	u32 datasize, offset, send_sz, actual_send_sz;
+	struct info *infom = (struct info *)(ioc->log_buffer + SYS_LOG_BUF_SIZE);
 
-	while (true) {
-		host_logbuf_position =
-		    ioc->base_readl(&ioc->chip->HostLogBufPosition, 0);
-		ioc_logbuf_position =
-		    ioc->base_readl(&ioc->chip->IocLogBufPosition, 0);
-		datasize = ioc_logbuf_position - host_logbuf_position;
-		offset = host_logbuf_position % SYS_LOG_BUF_SIZE;
-		if (datasize == 0) {
-			goto rearm_timer;
-		} else if (datasize > SYS_LOG_BUF_SIZE) {
-			pr_err("log thread error:data size overflow\n");
-			return;
-		}
-
-		if (offset + datasize > SYS_LOG_BUF_SIZE)
-			send_sz = SYS_LOG_BUF_SIZE - offset;
-		else
-			send_sz = datasize;
-
-		if (send_sz > MAX_UPD_PAYLOAD_SZ)
-			send_sz = MAX_UPD_PAYLOAD_SZ;
-
-		actual_send_sz =
-		    leapioraid_send_udp_pkg(ioc->log_buffer + offset, send_sz);
-		host_logbuf_position += actual_send_sz;
-		writel(host_logbuf_position, &ioc->chip->HostLogBufPosition);
+	if (cooo == 0) {
+		infom->user_position =
+			 ioc->base_readl(&ioc->chip->HostLogBufPosition, 0);
+		infom->ioc_position =
+			 ioc->base_readl(&ioc->chip->IocLogBufPosition, 0);
+		cooo++;
 	}
-rearm_timer:
+
+	writel(infom->user_position, &ioc->chip->HostLogBufPosition);
+	infom->ioc_position = ioc->base_readl(&ioc->chip->IocLogBufPosition, 0);
+
 	spin_lock_irqsave(&ioc->ioc_reset_in_progress_lock, flags);
 	if (ioc->pcie_log_work_q)
 		queue_delayed_work(ioc->pcie_log_work_q,
-				   &ioc->pcie_log_work,
-				   msecs_to_jiffies(LEAPIORAID_LOG_POLLING_INTERVAL));
+				&ioc->pcie_log_work,
+				msecs_to_jiffies(LEAPIORAID_LOG_POLLING_INTERVAL));
 	spin_unlock_irqrestore(&ioc->ioc_reset_in_progress_lock, flags);
 }
 
@@ -4786,9 +4758,18 @@ leapioraid_base_trace_log_init(struct LEAPIORAID_ADAPTER *ioc)
 		    pr_info("%s %s\n", ioc->name, __func__));
 	if (ioc->log_buffer == NULL) {
 		ioc->log_buffer =
-		    dma_alloc_coherent(&ioc->pdev->dev, SYS_LOG_BUF_SIZE,
-				       &ioc->log_buffer_dma, GFP_KERNEL);
+			dma_alloc_coherent(&ioc->pdev->dev,
+				 (SYS_LOG_BUF_SIZE + SYS_LOG_BUF_RESERVE),
+				 &ioc->log_buffer_dma, GFP_KERNEL);
+		if (!ioc->log_buffer) {
+			pr_err("%s: Failed to allocate log_buffer at %s:%d/%s()!\n",
+				ioc->name, __FILE__, __LINE__, __func__);
+			return -ENOMEM;
+		}
+
 	}
+	memset(ioc->log_buffer, 0, (SYS_LOG_BUF_SIZE + SYS_LOG_BUF_RESERVE));
+
 	memset(&mpi_request, 0, sizeof(struct LeapioraidIOCLogReq_t));
 	mpi_request.Function = LEAPIORAID_FUNC_LOG_INIT;
 	mpi_request.BufAddr = ioc->log_buffer_dma;

@@ -852,8 +852,8 @@ out:
 	list_for_each_entry_safe(leapioraid_phy, next_phy,
 				 &leapioraid_port->phy_list, port_siblings) {
 		if ((ioc->logging_level & LEAPIORAID_DEBUG_TRANSPORT))
-			dev_info(&leapioraid_port->port->dev,
-				   "remove: sas_addr(0x%016llx), phy(%d)\n",
+			pr_info("%s %s: remove: sas_addr(0x%016llx), phy(%d)\n",
+				ioc->name, __func__,
 				   (unsigned long long)
 				   leapioraid_port->remote_identify.sas_address,
 				   leapioraid_phy->phy_id);
@@ -869,8 +869,8 @@ out:
 	       ioc->name, __func__, (unsigned long long)sas_address);
 #else
 	if ((ioc->logging_level & LEAPIORAID_DEBUG_TRANSPORT))
-		dev_info(&leapioraid_port->rphy->dev,
-			   "remove: sas_addr(0x%016llx)\n",
+		pr_info("%s %s: remove: sas_addr(0x%016llx)\n",
+			ioc->name, __func__,
 			   (unsigned long long)sas_address);
 	if (!ioc->remove_host)
 		sas_rphy_delete(leapioraid_port->rphy);
