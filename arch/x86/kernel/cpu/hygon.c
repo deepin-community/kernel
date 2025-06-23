@@ -18,6 +18,7 @@
 #include <asm/page.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <asm/resctrl.h>
 
 #include "cpu.h"
 
@@ -246,6 +247,8 @@ static void bsp_init_hygon(struct cpuinfo_x86 *c)
 			x86_amd_ls_cfg_ssbd_mask = 1ULL << 10;
 		}
 	}
+
+	resctrl_cpu_detect(c);
 }
 
 static void init_hygon_cap(struct cpuinfo_x86 *c)
