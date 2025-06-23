@@ -101,6 +101,7 @@ void kvm_vcpu_pmu_resync_el0(void);
 })
 
 u8 kvm_arm_pmu_get_pmuver_limit(void);
+u8 kvm_arm_pmu_get_max_counters(struct kvm *kvm);
 
 u64 kvm_vcpu_read_pmcr(struct kvm_vcpu *vcpu);
 #else
@@ -174,6 +175,11 @@ static inline u8 kvm_arm_pmu_get_pmuver_limit(void)
 	return 0;
 }
 static inline void kvm_vcpu_pmu_resync_el0(void) {}
+
+static inline u8 kvm_arm_pmu_get_max_counters(struct kvm *kvm)
+{
+	return 0;
+}
 
 static inline u64 kvm_vcpu_read_pmcr(struct kvm_vcpu *vcpu)
 {
