@@ -35,6 +35,7 @@ EXPORT_SYMBOL(__memcpy);
 extern void *____constant_c_memset_sisd(void *s, unsigned long c, size_t n);
 extern void *____constant_c_memset_simd(void *s, unsigned long c, size_t n);
 extern void *____constant_c_memset_simd_align(void *s, unsigned long c, size_t n);
+extern void *____memclr_simd(void *s, unsigned long c, size_t n);
 
 static inline void *____constant_c_memset(void *s, unsigned long c, size_t n)
 {
@@ -49,12 +50,18 @@ static inline void *____constant_c_memset(void *s, unsigned long c, size_t n)
 
 void * notrace __constant_c_memset(void *s, unsigned long c, size_t n)
 {
+	if (IS_ENABLED(CONFIG_DEEP_MEMSET) && static_branch_likely(&hw_una_enabled) && !c)
+		return ____memclr_simd(s, c, n);
+
 	return ____constant_c_memset(s, c, n);
 }
 
 void * notrace ___memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
+
+	if (IS_ENABLED(CONFIG_DEEP_MEMSET) && static_branch_likely(&hw_una_enabled) && !c)
+		return ____memclr_simd(s, c, n);
 
 	return ____constant_c_memset(s, c_ul, n);
 }
@@ -64,6 +71,9 @@ void * notrace __memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
 
+	if (IS_ENABLED(CONFIG_DEEP_MEMSET) && static_branch_likely(&hw_una_enabled) && !c)
+		return ____memclr_simd(s, c, n);
+
 	return ____constant_c_memset(s, c_ul, n);
 }
 EXPORT_SYMBOL(__memset);
@@ -72,6 +82,9 @@ void * notrace memset(void *s, int c, size_t n)
 {
 	unsigned long c_ul = (c & 0xff) * 0x0101010101010101UL;
 
+	if (IS_ENABLED(CONFIG_DEEP_MEMSET) && static_branch_likely(&hw_una_enabled) && !c)
+		return ____memclr_simd(s, c, n);
+
 	return ____constant_c_memset(s, c_ul, n);
 }
 EXPORT_SYMBOL(memset);
@@ -79,6 +92,9 @@ EXPORT_SYMBOL(memset);
 void * notrace __memsetw(void *dest, unsigned short c, size_t count)
 {
 	unsigned long c_ul = (c & 0xffff) * 0x0001000100010001UL;
+
+	if (IS_ENABLED(CONFIG_DEEP_MEMSET) && static_branch_likely(&hw_una_enabled) && !c)
+		return ____memclr_simd(dest, c, count);
 
 	return ____constant_c_memset(dest, c_ul, count);
 }
