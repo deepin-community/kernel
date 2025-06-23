@@ -31,7 +31,7 @@ lib-copy_user-y := copy_user.o copy_user_simd.o copy_user_simd_align.o
 
 lib-memcpy-y := memcpy.o memcpy_simd.o memcpy_simd_align.o
 
-lib-memset-y := memset.o memset_simd.o memset_simd_align.o
+lib-memset-y := memset.o memset_simd.o memset_simd_align.o memclr_simd.o
 
 lib-$(CONFIG_ARCH_HAS_UACCESS_FLUSHCACHE) += uaccess_flushcache.o
 
