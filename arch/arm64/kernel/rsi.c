@@ -6,6 +6,7 @@
 #include <linux/jump_label.h>
 #include <linux/memblock.h>
 #include <linux/psci.h>
+#include <linux/set_memory.h>
 #include <linux/swiotlb.h>
 #include <linux/cc_platform.h>
 
@@ -143,6 +144,10 @@ void __init arm64_rsi_init(void)
 		return;
 	if (!rsi_version_matches())
 		return;
+	if (!can_set_direct_map()) {
+		pr_err("RME: Cannot set the kernel direct map, consider CONFIG_RODATA_FULL_DEFAULT_ENABLED=y or rodata=full\n");
+		return;
+	}
 	if (WARN_ON(rsi_get_realm_config(&config)))
 		return;
 	prot_ns_shared = BIT(config.ipa_bits - 1);
