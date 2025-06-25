@@ -21,6 +21,7 @@
 #include <linux/swap.h>
 #include <linux/splice.h>
 #include <linux/sched.h>
+#include <linux/seq_file.h>
 
 MODULE_ALIAS_MISCDEV(FUSE_MINOR);
 MODULE_ALIAS("devname:fuse");
@@ -2292,6 +2293,17 @@ static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
 	return res;
 }
 
+#ifdef CONFIG_PROC_FS
+static void fuse_dev_show_fdinfo(struct seq_file *seq, struct file *file)
+{
+	struct fuse_dev *fud = fuse_get_dev(file);
+	if (!fud)
+		return;
+
+	seq_printf(seq, "fuse_connection:\t%u\n", fud->fc->dev);
+}
+#endif
+
 const struct file_operations fuse_dev_operations = {
 	.owner		= THIS_MODULE,
 	.open		= fuse_dev_open,
@@ -2305,6 +2317,9 @@ const struct file_operations fuse_dev_operations = {
 	.fasync		= fuse_dev_fasync,
 	.unlocked_ioctl = fuse_dev_ioctl,
 	.compat_ioctl   = compat_ptr_ioctl,
+#ifdef CONFIG_PROC_FS
+	.show_fdinfo	= fuse_dev_show_fdinfo,
+#endif
 };
 EXPORT_SYMBOL_GPL(fuse_dev_operations);
 

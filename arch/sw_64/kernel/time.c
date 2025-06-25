@@ -31,7 +31,7 @@ time_init(void)
 {
 	unsigned long cycle_freq;
 
-	cycle_freq = get_cpu_freq();
+	cycle_freq = sunway_max_cpu_freq();
 
 	pr_info("CPU Cycle frequency = %ld Hz\n", cycle_freq);
 

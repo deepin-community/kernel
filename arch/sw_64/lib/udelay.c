@@ -32,7 +32,7 @@ EXPORT_SYMBOL(__delay);
 
 void udelay(unsigned long usecs)
 {
-	unsigned long loops = usecs * get_cpu_freq() / 1000000;
+	unsigned long loops = usecs * get_cpu_freq(smp_processor_id()) / 1000000;
 	unsigned long tmp;
 
 	__asm__ __volatile__(
@@ -47,7 +47,7 @@ EXPORT_SYMBOL(udelay);
 
 void ndelay(unsigned long nsecs)
 {
-	unsigned long loops = nsecs * get_cpu_freq() / 1000000000;
+	unsigned long loops = nsecs * get_cpu_freq(smp_processor_id()) / 1000000000;
 	unsigned long tmp;
 
 	__asm__ __volatile__(

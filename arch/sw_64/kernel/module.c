@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/moduleloader.h>
 #include <linux/slab.h>
+#include <linux/elf.h>
+#include <linux/pgtable.h>
+#include <linux/vmalloc.h>
 
 #define DEBUGP(fmt...)
 
@@ -276,4 +279,11 @@ reloc_overflow:
 	}
 
 	return 0;
+}
+
+void *module_alloc(unsigned long size)
+{
+	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
+			GFP_KERNEL, PAGE_KERNEL_EXEC, VM_FLUSH_RESET_PERMS,
+			NUMA_NO_NODE, __builtin_return_address(0));
 }

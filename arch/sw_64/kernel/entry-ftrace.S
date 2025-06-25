@@ -341,6 +341,7 @@ ftrace_regs_call:
 	RESTORE_GRAPH_REG_ARGS
 	call    ftrace_graph_caller
 #endif
+	ldl     $2, PT_REGS_R2($sp)		// load direct call addr
 	RESTORE_PT_REGS
 	bne	$2, .Ldirect
 	ret	$31, ($28), 1

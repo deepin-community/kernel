@@ -133,7 +133,7 @@ EXPORT_SYMBOL(screen_info);
 #ifdef CONFIG_HARDLOCKUP_DETECTOR_PERF
 u64 hw_nmi_get_sample_period(int watchdog_thresh)
 {
-	return get_cpu_freq() * watchdog_thresh;
+	return sunway_max_cpu_freq() * watchdog_thresh;
 }
 #endif
 

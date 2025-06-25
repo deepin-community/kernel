@@ -126,6 +126,7 @@ int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
 
 static int feat_vcpu_interrupt_line(struct kvm_vcpu *vcpu, int number)
 {
+	int rcid;
 	int cpu = vcpu->cpu;
 	int me = smp_processor_id();
 
@@ -136,7 +137,9 @@ static int feat_vcpu_interrupt_line(struct kvm_vcpu *vcpu, int number)
 				&& cpu_online(cpu)) {
 			if (vcpu->arch.vcb.vcpu_irq_disabled)
 				return 0;
-			send_ipi(cpu, II_II1);
+			/* send_ipi */
+			rcid = cpu_to_rcid(cpu);
+			sendii(rcid, II_II1, 0);
 		}
 	} else
 		kvm_vcpu_kick(vcpu);

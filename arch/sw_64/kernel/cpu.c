@@ -2,6 +2,7 @@
 
 #include <linux/cacheinfo.h>
 #include <linux/cpu.h>
+#include <linux/cpufreq.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
@@ -40,24 +41,10 @@ EXPORT_SYMBOL(cpu_data);
 
 cpumask_t cpu_offline = CPU_MASK_NONE;
 
-static unsigned long cpu_freq;
 static unsigned long cpu_info;
 static __u16 family;
 static char vendor_id[64];
 static char model_id[64];
-
-unsigned long get_cpu_freq(void)
-{
-	if (likely(cpu_freq))
-		return cpu_freq;
-
-	return cpuid(GET_CPU_FREQ, 0) * 1000UL * 1000UL;
-}
-
-void update_cpu_freq(unsigned long khz)
-{
-	cpu_freq = khz * 1000;
-}
 
 /* Move global data into per-processor storage */
 void store_cpu_data(int cpu)
@@ -240,7 +227,7 @@ static int show_cpuinfo(struct seq_file *f, void *slot)
 	unsigned int l3_cache_size, l3_cachline_size;
 	unsigned long freq;
 
-	freq = cpuid(GET_CPU_FREQ, 0);
+	freq = sunway_max_cpu_freq() / MHZ;
 
 	for_each_online_cpu(i) {
 		l3_cache_size = get_cpu_cache_size(i, 3, CACHE_TYPE_UNIFIED);
@@ -267,7 +254,7 @@ static int show_cpuinfo(struct seq_file *f, void *slot)
 				"cache size\t: %u KB\n"
 				"physical id\t: %d\n"
 				"bogomips\t: %lu.%02lu\n",
-				get_cpu_freq() / 1000 / 1000, l3_cache_size >> 10,
+				get_cpu_freq(i) / 1000 / 1000, l3_cache_size >> 10,
 				cpu_topology[i].package_id,
 				loops_per_jiffy / (500000/HZ),
 				(loops_per_jiffy / (5000/HZ)) % 100);
@@ -313,3 +300,16 @@ bool arch_match_cpu_phys_id(int cpu, u64 phys_id)
 	return phys_id == cpu_physical_id(cpu);
 }
 
+#ifdef CONFIG_SW64_CPUFREQ
+
+unsigned long get_cpu_freq(unsigned int cpu)
+{
+	unsigned long freq = cpufreq_quick_get(cpu);
+
+	if (likely(freq))
+		return freq * KHZ;
+
+	return sunway_max_cpu_freq();
+}
+
+#endif

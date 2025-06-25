@@ -67,13 +67,15 @@
 #define OFFSET_ADR_INT_CONFIG        0x1580UL /* PINTC version >= 2 */
 #define OFFSET_DEVINTWK_INTEN        0x1600UL
 
-#define SW_PINTC_MCU_GSI_BASE  64
+#define PINTC_GSI_BASE(node)         (64 + 512 * (node))
 
 #define INTPU_BASE_V1 0x802a00000000
 #define INTPU_SIZE_V1 0x1680
 
 #define MCU_BASE_V1   0x803000000000
 #define MCU_SIZE_V1   0x8f00
+
+#define SUNWAY_MAX_NODES 8
 
 DECLARE_PER_CPU(unsigned long, hard_node_id);
 
@@ -89,13 +91,13 @@ struct pintc_chip_data {
 	raw_spinlock_t mcu_lock;
 };
 
-static struct pintc_chip_data *chip_datas[MAX_NUMNODES];
+static struct pintc_chip_data *chip_datas[SUNWAY_MAX_NODES];
 
 static struct pintc_chip_data *pintc_alloc_chip_data(u32 node)
 {
 	struct pintc_chip_data *chip_data;
 
-	if (WARN_ON(node >= MAX_NUMNODES))
+	if (WARN_ON(node >= SUNWAY_MAX_NODES))
 		return NULL;
 
 	chip_data = kzalloc_node(sizeof(struct pintc_chip_data),
@@ -111,7 +113,7 @@ static void pintc_free_chip_data(struct pintc_chip_data *chip_data)
 	if (!chip_data)
 		return;
 
-	if (WARN_ON((chip_data->node >= MAX_NUMNODES) ||
+	if (WARN_ON((chip_data->node >= SUNWAY_MAX_NODES) ||
 		(chip_datas[chip_data->node] != chip_data)))
 		return;
 
@@ -241,9 +243,10 @@ static void update_pintc_mcu_target(struct pintc_chip_data *chip_data,
 	raw_spin_unlock_irqrestore(&chip_data->pintc_lock, flags);
 }
 
-static int assign_mcu_irq_config(struct pintc_chip_data *chip_data,
+static int assign_mcu_irq_config(struct irq_data *irq_data,
 		cpumask_t *targets)
 {
+	struct pintc_chip_data *chip_data = irq_data->chip_data;
 	unsigned long dev_int_tar;
 	unsigned int cpu;
 	int rcid;
@@ -268,13 +271,14 @@ static int assign_mcu_irq_config(struct pintc_chip_data *chip_data,
 	dev_int_tar = make_pintc_int_target(chip_data->version, rcid);
 	update_pintc_mcu_target(chip_data, dev_int_tar);
 
+	irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
+
 	return 0;
 }
 
 static int mcu_irq_set_affinity(struct irq_data *irq_data,
 				 const struct cpumask *dest, bool force)
 {
-	struct pintc_chip_data *chip_data = irq_data->chip_data;
 	cpumask_t targets;
 
 	if (cpumask_any_and(dest, cpu_online_mask) >= nr_cpu_ids)
@@ -282,16 +286,17 @@ static int mcu_irq_set_affinity(struct irq_data *irq_data,
 
 	cpumask_and(&targets, dest, cpu_online_mask);
 
-	return assign_mcu_irq_config(chip_data, &targets);
+	return assign_mcu_irq_config(irq_data, &targets);
 }
 
-static struct irq_chip pintc_mcu_chip = {
-	.name			= "MCU-INT",
-	.irq_enable		= mcu_irq_enable,
-	.irq_disable		= mcu_irq_disable,
-	.irq_mask		= mcu_irq_disable,
-	.irq_unmask		= mcu_irq_enable,
-	.irq_set_affinity	= mcu_irq_set_affinity,
+static struct irq_chip pintc_mcu_chips[SUNWAY_MAX_NODES] = {
+	[0 ... SUNWAY_MAX_NODES - 1] = {
+		.irq_enable		= mcu_irq_enable,
+		.irq_disable		= mcu_irq_disable,
+		.irq_mask		= mcu_irq_disable,
+		.irq_unmask		= mcu_irq_enable,
+		.irq_set_affinity	= mcu_irq_set_affinity,
+	}
 };
 
 static struct irq_chip pintc_mcu_vt_chip = {
@@ -303,6 +308,9 @@ static int pintc_mcu_translate(struct irq_domain *domain,
 		unsigned long *hwirq,
 		unsigned int *type)
 {
+	struct pintc_chip_data *chip_data = domain->host_data;
+	u32 node = chip_data->node;
+
 	if (WARN_ON(fwspec->param_count < 1))
 		return -EINVAL;
 
@@ -315,9 +323,9 @@ static int pintc_mcu_translate(struct irq_domain *domain,
 
 	/* ACPI */
 	if (is_fwnode_irqchip(fwspec->fwnode)) {
-		if (WARN_ON(fwspec->param[0] < SW_PINTC_MCU_GSI_BASE))
+		if (WARN_ON(fwspec->param[0] < PINTC_GSI_BASE(node)))
 			return -EINVAL;
-		*hwirq = fwspec->param[0] - SW_PINTC_MCU_GSI_BASE;
+		*hwirq = fwspec->param[0] - PINTC_GSI_BASE(node);
 		*type = IRQ_TYPE_NONE;
 		return 0;
 	}
@@ -376,13 +384,14 @@ static const struct irq_domain_ops pintc_mcu_domain_ops = {
 	.free = pintc_mcu_free_irqs,
 };
 
-struct irq_domain *mcu_irq_domain;
-EXPORT_SYMBOL(mcu_irq_domain);
+static struct irq_domain *mcu_domains[SUNWAY_MAX_NODES];
 
 static int __init pintc_init_mcu(struct pintc_chip_data *chip_data,
 		struct fwnode_handle *handle)
 {
 	unsigned int mcu_irq_num = chip_data->mcu_irq_num;
+	u32 node = chip_data->node;
+	char *chip_name;
 
 	if (chip_data->vt) {
 		chip_data->mcu_chip = &pintc_mcu_vt_chip;
@@ -392,25 +401,37 @@ static int __init pintc_init_mcu(struct pintc_chip_data *chip_data,
 		 * "irq_domain_create_legacy", we have to call
 		 * "__irq_domain_add" directly.
 		 */
-		mcu_irq_domain = __irq_domain_add(handle, mcu_irq_num,
+		mcu_domains[node] = __irq_domain_add(handle, mcu_irq_num,
 				mcu_irq_num, 0, &pintc_mcu_domain_ops,
 				chip_data);
-		if (mcu_irq_domain)
-			irq_domain_associate_many(mcu_irq_domain,
+		if (mcu_domains[node])
+			irq_domain_associate_many(mcu_domains[node],
 					0, 0, mcu_irq_num);
 	} else {
-		chip_data->mcu_chip = &pintc_mcu_chip;
-		mcu_irq_domain = irq_domain_create_linear(handle, mcu_irq_num,
+		chip_data->mcu_chip = &pintc_mcu_chips[node];
+
+		chip_name = kzalloc_node(sizeof("MCUX-INT"), GFP_KERNEL, node);
+		if (!chip_name)
+			return -ENOMEM;
+
+		snprintf(chip_name, sizeof("MCUX-INT"), "MCU%u-INT", node);
+		chip_data->mcu_chip->name = chip_name;
+
+		mcu_domains[node] = irq_domain_create_linear(handle, mcu_irq_num,
 				&pintc_mcu_domain_ops, chip_data);
+
 		/* Mask all interrupts for now */
 		writeq(0x0, chip_data->mcu_base + OFFSET_MCU_DVC_INT_EN);
 
-		/* When building the root domain, move it to a better location */
-		if (mcu_irq_domain)
+		if (mcu_domains[node])
 			pintc_mcu_enable(chip_data->pintc_base);
+		else {
+			chip_data->mcu_chip->name = NULL;
+			kfree(chip_name);
+		}
 	}
 
-	if (!mcu_irq_domain) {
+	if (!mcu_domains[node]) {
 		pr_err("failed to create MCU irq domain\n");
 		return -ENOMEM;
 	}
@@ -424,24 +445,24 @@ static int __init pintc_init_mcu(struct pintc_chip_data *chip_data,
 	return 0;
 }
 
-/* Currently, only MCU controller on node 0 is supported */
 void handle_dev_int(struct pt_regs *regs)
 {
 	unsigned long stat, val;
 	unsigned int hwirq;
+	u32 node = __this_cpu_read(hard_node_id);
 
 	/* Disable global irq of MCU due to some hardware reasons */
-	val = pintc_mcu_disable_and_save(chip_datas[0]);
+	val = pintc_mcu_disable_and_save(chip_datas[node]);
 
-	stat = readq(chip_datas[0]->mcu_base + OFFSET_MCU_DVC_INT);
+	stat = readq(chip_datas[node]->mcu_base + OFFSET_MCU_DVC_INT);
 
 	while (stat) {
 		hwirq = ffs(stat) - 1;
-		generic_handle_domain_irq(mcu_irq_domain, hwirq);
+		generic_handle_domain_irq(mcu_domains[node], hwirq);
 		stat &= ~(1UL << hwirq);
 	}
 
-	pintc_mcu_restore(chip_datas[0], val);
+	pintc_mcu_restore(chip_datas[node], val);
 }
 
 void handle_fault_int(void)
@@ -487,13 +508,6 @@ void handle_fault_int(void)
 static int __init pintc_of_init_mcu(struct pintc_chip_data *chip_data,
 		struct device_node *pintc)
 {
-	/* Not yet supported */
-	if (chip_data->node > 0) {
-		pr_info("MCU version [%u] on node [%u] skipped\n",
-				chip_data->version, chip_data->node);
-		return 0;
-	}
-
 	return pintc_init_mcu(chip_data, of_node_to_fwnode(pintc));
 }
 
@@ -608,6 +622,7 @@ enum sw_pintc_sub_type {
 static int __init lpc_intc_parse_madt(union acpi_subtable_headers *header,
 		const unsigned long end)
 {
+	static bool initialized[SUNWAY_MAX_NODES];
 	struct acpi_madt_sw_lpc_intc *lpc_intc;
 
 	lpc_intc = (struct acpi_madt_sw_lpc_intc *)header;
@@ -616,13 +631,22 @@ static int __init lpc_intc_parse_madt(union acpi_subtable_headers *header,
 	if (lpc_intc->node > 0)
 		return 0;
 
+	if (initialized[lpc_intc->node])
+		return 0;
+
+	/* LPC controller is the child of MCU controller */
+	if (!mcu_domains[lpc_intc->node])
+		return 0;
+
 	if ((lpc_intc->version == ACPI_MADT_SW_LPC_INTC_VERSION_NONE) ||
 		(lpc_intc->version >= ACPI_MADT_SW_LPC_INTC_VERSION_RESERVED)) {
 		pr_err("invalid LPC-INTC version\n");
 		return -EINVAL;
 	}
 
-	return lpc_intc_acpi_init(mcu_irq_domain, lpc_intc);
+	initialized[lpc_intc->node] = true;
+
+	return lpc_intc_acpi_init(mcu_domains[lpc_intc->node], lpc_intc);
 }
 
 static bool __init
@@ -642,14 +666,8 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 		struct acpi_madt_sw_sub_pintc *mcu)
 {
 	struct fwnode_handle *handle;
+	u32 node = chip_data->node;
 	int ret;
-
-	/* Not yet supported */
-	if (chip_data->node > 0) {
-		pr_info("MCU version [%u] on node [%u] skipped\n",
-				chip_data->version, chip_data->node);
-		return 0;
-	}
 
 	if (!mcu->status) {
 		pr_info("MCU version [%u] on node [%u] disabled\n",
@@ -657,7 +675,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 		return 0;
 	}
 
-	if (mcu->gsi_base != SW_PINTC_MCU_GSI_BASE) {
+	if (mcu->gsi_base != PINTC_GSI_BASE(node)) {
 		pr_err("invalid MCU GSI\n");
 		return -EINVAL;
 	}
@@ -671,7 +689,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 	chip_data->mcu_irq_num = mcu->gsi_count;
 
 	chip_data->mcu_base = ioremap(mcu->address, mcu->size);
-	if (!chip_data->mcu_base) {
+	if (!chip_data->vt && !chip_data->mcu_base) {
 		pr_err("failed to map mcu base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_fwnode;
@@ -694,7 +712,7 @@ static int __init pintc_acpi_init_mcu(struct pintc_chip_data *chip_data,
 	return 0;
 
 out_acpi_free_mcu_domain:
-	irq_domain_remove(mcu_irq_domain);
+	irq_domain_remove(mcu_domains[node]);
 out_acpi_unmap_mcu:
 	iounmap(chip_data->mcu_base);
 out_acpi_free_fwnode:
@@ -762,7 +780,7 @@ int __init pintc_acpi_init(struct irq_domain *parent,
 	chip_data->version = pintc->version;
 
 	chip_data->pintc_base = ioremap(pintc->address, pintc->size);
-	if (!chip_data->pintc_base) {
+	if (!virtual && !chip_data->pintc_base) {
 		pr_err("failed to map pintc base address\n");
 		ret = -ENXIO;
 		goto out_acpi_free_chip_data;
