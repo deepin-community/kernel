@@ -152,6 +152,7 @@ void rtw89_chan_create(struct rtw89_chan *chan, u8 center_chan, u8 primary_chan,
 						    bandwidth);
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 static void _rtw89_chan_update_punctured(struct rtw89_dev *rtwdev,
 					 struct rtw89_vif_link *rtwvif_link,
 					 const struct cfg80211_chan_def *chandef)
@@ -193,6 +194,7 @@ static void rtw89_chan_update_punctured(struct rtw89_dev *rtwdev,
 		}
 	}
 }
+#endif
 
 bool rtw89_assign_entity_chan(struct rtw89_dev *rtwdev,
 			      enum rtw89_chanctx_idx idx,
@@ -3356,8 +3358,10 @@ void rtw89_chanctx_ops_change(struct rtw89_dev *rtwdev,
 		rtw89_set_channel(rtwdev);
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 	if (changed & IEEE80211_CHANCTX_CHANGE_PUNCTURING)
 		rtw89_chan_update_punctured(rtwdev, idx, &ctx->def);
+#endif
 }
 
 int rtw89_chanctx_ops_assign_vif(struct rtw89_dev *rtwdev,
@@ -3501,7 +3505,9 @@ assign:
 		return ret;
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
 	_rtw89_chan_update_punctured(rtwdev, rtwvif_link, &new_ctx->def);
+#endif
 
 	return 0;
 }
