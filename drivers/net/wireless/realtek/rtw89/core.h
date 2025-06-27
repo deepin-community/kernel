@@ -3614,6 +3614,7 @@ struct rtw89_efuse {
 	u8 addr[ETH_ALEN];
 	u8 rfe_type;
 	char country_code[2];
+	u8 adc_td;
 };
 
 struct rtw89_phy_rate_pattern {
