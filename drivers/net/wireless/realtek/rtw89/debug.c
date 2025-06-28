@@ -85,6 +85,7 @@ struct rtw89_debugfs {
 	struct rtw89_debugfs_priv phy_info;
 	struct rtw89_debugfs_priv stations;
 	struct rtw89_debugfs_priv disable_dm;
+	struct rtw89_debugfs_priv wifi_test_config;
 	struct rtw89_debugfs_priv mlo_mode;
 };
 
@@ -4317,21 +4318,12 @@ rtw89_debug_priv_mlo_mode_set(struct rtw89_dev *rtwdev,
 	return count;
 }
 
-static ssize_t rtw89_debug_wifi_test_config_set(struct file *filp,
-						const char __user *user_buf,
-						size_t count, loff_t *loff)
+static ssize_t
+rtw89_debug_priv_wifi_test_config_set(struct rtw89_dev *rtwdev,
+				      struct rtw89_debugfs_priv *debugfs_priv,
+				      const char *buf, size_t count)
 {
-	struct rtw89_debugfs_priv *debugfs_priv = filp->private_data;
-	struct rtw89_dev *rtwdev = debugfs_priv->rtwdev;
 	struct ieee80211_hw *hw = rtwdev->hw;
-	size_t buf_size;
-	char buf[32];
-
-	buf_size = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-
-	buf[buf_size] = '\0';
 
 	if (strncmp("addba_req_buf", buf, 13) == 0) {
 		/* Test items 5.71 in Wi-Fi CERTIFIED 6, it only
@@ -4347,8 +4339,6 @@ static ssize_t rtw89_debug_wifi_test_config_set(struct file *filp,
 			rtw89_core_custom_he_cap(rtwdev, NL80211_BAND_5GHZ);
 		if (support_bands & BIT(NL80211_BAND_6GHZ))
 			rtw89_core_custom_he_cap(rtwdev, NL80211_BAND_6GHZ);
-	} else if (strncmp("force_he_tb", buf, 11) == 0) {
-		set_bit(RTW89_TEST_CONFIG_FORCE_HE_TB, rtwdev->test_config);
 	} else {
 		return -EINVAL;
 	}
@@ -4382,10 +4372,6 @@ static ssize_t rtw89_debug_wifi_test_config_set(struct file *filp,
 	.opt = { opts },					\
 }
 
-static struct rtw89_debugfs_priv rtw89_debug_priv_wifi_test_config = {
-	.cb_write = rtw89_debug_wifi_test_config_set,
-};
-
 #define RSIZE_8K .rsize = 0x2000
 #define RSIZE_12K .rsize = 0x3000
 #define RSIZE_16K .rsize = 0x4000
@@ -4417,6 +4403,7 @@ static const struct rtw89_debugfs rtw89_debugfs_templ = {
 	.phy_info = rtw89_debug_priv_get(phy_info),
 	.stations = rtw89_debug_priv_get(stations, RLOCK),
 	.disable_dm = rtw89_debug_priv_set_and_get(disable_dm, RWLOCK),
+	.wifi_test_config = rtw89_debug_priv_set(wifi_test_config),
 	.mlo_mode = rtw89_debug_priv_set_and_get(mlo_mode, RWLOCK),
 };
 
