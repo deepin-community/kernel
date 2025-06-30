@@ -220,6 +220,8 @@ static int __init kvm_core4_init(void)
 	for (i = 0; i < NR_CPUS; i++)
 		last_vpn(i) = VPN_FIRST_VERSION;
 
+	kvm_register_perf_callbacks(NULL);
+
 	ret = kvm_init(sizeof(struct kvm_vcpu), 0, THIS_MODULE);
 
 	if (ret)

@@ -199,4 +199,14 @@ long kvm_sw64_get_vcb(struct file *filp, unsigned long arg);
 
 void update_aptp(unsigned long pgd);
 void vcpu_set_numa_affinity(struct kvm_vcpu *vcpu);
+
+/*
+ * Returns true if a Performance Monitoring Interrupt (PMI), a.k.a. perf event,
+ * arrived in guest context.
+ */
+static inline bool kvm_arch_pmi_in_guest(struct kvm_vcpu *vcpu)
+{
+	return IS_ENABLED(CONFIG_GUEST_PERF_EVENTS) && !!vcpu;
+}
+
 #endif /* _ASM_SW64_KVM_HOST_H */
