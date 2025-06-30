@@ -56,11 +56,8 @@
 #define __iftd
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0))
 #define str_disable_enable(v) str_enable_disable(!(v))
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 /**
  * DIV_U64_ROUND_UP - unsigned 64bit divide with 32bit divisor rounded up
  * @ll: unsigned 64bit dividend
@@ -88,22 +85,15 @@ static inline u64 roundup_u64(u64 x, u32 y)
 {
 	return DIV_U64_ROUND_UP(x, y) * y;
 }
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define ieee80211_csa_finish(vif, link_id) \
 	ieee80211_csa_finish(vif)
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define ieee80211_beacon_cntdwn_is_complete(vif, link_id) \
 	ieee80211_beacon_cntdwn_is_complete(vif)
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 #define ieee80211_gtk_rekey_add(vif, keyconf, link_id) \
 	ieee80211_gtk_rekey_add(vif, keyconf)
-#endif
 
 #define ieee80211_emulate_add_chanctx NULL
 #define ieee80211_emulate_remove_chanctx NULL
@@ -6099,11 +6089,7 @@ struct rtw89_dev {
 	struct rtw89_wow_param wow;
 
 	/* napi structure */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
-	struct net_device *netdev;
-#else
 	struct net_device netdev;
-#endif
 	struct napi_struct napi;
 	int napi_budget_countdown;
 

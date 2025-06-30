@@ -3003,21 +3003,11 @@ EXPORT_SYMBOL(rtw89_core_napi_stop);
 
 int rtw89_core_napi_init(struct rtw89_dev *rtwdev)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
-	rtwdev->netdev = alloc_netdev_dummy(0);
-	if (!rtwdev->netdev)
-		return -ENOMEM;
-
-	netif_napi_add(rtwdev->netdev, &rtwdev->napi,
-		       rtwdev->hci.ops->napi_poll);
-	return 0;
-#else
 	init_dummy_netdev(&rtwdev->netdev);
 	netif_napi_add(&rtwdev->netdev, &rtwdev->napi,
 		       rtwdev->hci.ops->napi_poll);
 
 	return 0;
-#endif
 }
 EXPORT_SYMBOL(rtw89_core_napi_init);
 
@@ -3025,9 +3015,6 @@ void rtw89_core_napi_deinit(struct rtw89_dev *rtwdev)
 {
 	rtw89_core_napi_stop(rtwdev);
 	netif_napi_del(&rtwdev->napi);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
-	free_netdev(rtwdev->netdev);
-#endif
 }
 EXPORT_SYMBOL(rtw89_core_napi_deinit);
 
@@ -3058,13 +3045,7 @@ static void rtw89_core_ba_work(struct work_struct *work)
 			goto skip_ba_work;
 		}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0))
-		if (0) {
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 		if (!vif->bss_conf.chandef.chan) {
-#else
-		if (!vif->bss_conf.chanreq.oper.chan) {
-#endif
 			/* ieee80211_start_tx_ba_session() dereferences chan->band from
 			 * `vif->bss_conf` directly. But in MLD connection, link_conf[]
 			 * won't point to vif->bss_conf. So, the chan under vif->bss_conf
@@ -3778,11 +3759,7 @@ select:
 		if (unlikely(!link_conf))
 			continue;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 		channel = link_conf->chandef.chan;
-#else
-		channel = link_conf->chanreq.oper.chan;
-#endif
 		if (unlikely(!channel))
 			continue;
 
