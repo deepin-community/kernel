@@ -54,7 +54,6 @@ FEATURE_TESTS_BASIC :=                  \
         libtracefs                      \
         libcrypto                       \
         libunwind                       \
-        libunwind-sw_64                 \
         pthread-attr-setaffinity-np     \
         pthread-barrier     		\
         reallocarray                    \
@@ -94,6 +93,7 @@ FEATURE_TESTS_EXTRA :=                  \
          libunwind-x86_64               \
          libunwind-arm                  \
          libunwind-aarch64              \
+         libunwind-sw_64                \
          libunwind-debug-frame          \
          libunwind-debug-frame-arm      \
          libunwind-debug-frame-aarch64  \
