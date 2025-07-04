@@ -69,7 +69,10 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 	unsigned long reg = regs->earg2;
 
 	if (reg == 29)
-		return;
+		goto out;
+
+	if (!irqs_disabled_flags(regs->ps & 7))
+		local_irq_enable();
 
 	insn = *(unsigned int *)pc;
 	fncode = (insn >> 12) & 0xf;
@@ -113,7 +116,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"1:	ldl_u	%1, 0(%6)\n"
@@ -144,7 +147,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
 
-			return;
+			goto out;
 		}
 
 	case 0x0d: /* vldd */
@@ -173,7 +176,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_d(reg, tmp1, tmp2, tmp3, tmp4);
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"1:	ldl_u	%1, 0(%6)\n"
@@ -232,7 +235,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			tmp2 = tmp5 | tmp3;			// f3
 
 			sw64_write_simd_fp_reg_d(reg, tmp7, tmp8, tmp, tmp2);
-			return;
+			goto out;
 		}
 
 	case 0x0e: /* vsts */
@@ -259,7 +262,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
@@ -364,7 +367,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 
-			return;
+			goto out;
 		}
 
 	case 0x0f: /* vstd */
@@ -412,7 +415,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
@@ -620,7 +623,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 
-			return;
+			goto out;
 		}
 
 	case 0x1e:
@@ -651,7 +654,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 				goto got_exception;
 			regs->regs[reg] = tmp1 | tmp2;
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 
 		case 0x2: /* ldw_a */
 			__asm__ __volatile__(
@@ -673,7 +676,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 				goto got_exception;
 			regs->regs[reg] = (int)(tmp1 | tmp2);
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 
 		case 0x3: /* ldl_a */
 			__asm__ __volatile__(
@@ -695,7 +698,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 				goto got_exception;
 			regs->regs[reg] = tmp1 | tmp2;
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 
 		case 0x7: /* sth_a */
 			if (!access_is_valid(va, 2))
@@ -720,7 +723,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 
 		case 0x8: /* stw_a */
 			if (!access_is_valid(va, 4))
@@ -756,7 +759,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 
 		case 0x9: /* stl_a */
 			if (!access_is_valid(va, 8))
@@ -812,9 +815,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			if (error)
 				goto got_exception;
 			regs->regs[rb] = regs->regs[rb] + disp;
-			return;
+			goto out;
 		}
-		return;
+		goto out;
 
 	case 0x21:
 		__asm__ __volatile__(
@@ -835,7 +838,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		if (error)
 			goto got_exception;
 		regs->regs[reg] = tmp1 | tmp2;
-		return;
+		goto out;
 
 	case 0x22:
 		__asm__ __volatile__(
@@ -856,7 +859,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		if (error)
 			goto got_exception;
 		regs->regs[reg] = (int)(tmp1 | tmp2);
-		return;
+		goto out;
 
 	case 0x23: /* ldl */
 		__asm__ __volatile__(
@@ -877,7 +880,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		if (error)
 			goto got_exception;
 		regs->regs[reg] = tmp1 | tmp2;
-		return;
+		goto out;
 
 	case 0x29: /* sth */
 		if (!access_is_valid(va, 2))
@@ -901,7 +904,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 		if (error)
 			goto got_exception;
-		return;
+		goto out;
 
 	case 0x2a: /* stw */
 		if (!access_is_valid(va, 4))
@@ -936,7 +939,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 		if (error)
 			goto got_exception;
-		return;
+		goto out;
 
 	case 0x2b: /* stl */
 		/* We worry about the cross-page unaligned write,
@@ -995,7 +998,7 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 
 		if (error)
 			goto got_exception;
-		return;
+		goto out;
 	}
 
 	pr_warn("Bad unaligned kernel access at %016lx: %p %lx %lu\n",
@@ -1009,7 +1012,7 @@ got_exception:
 	if (fixup_exception(regs, pc)) {
 		pr_info("Forwarding unaligned exception at %lx (%lx)\n",
 		       pc, regs->pc);
-		return;
+		goto out;
 	}
 
 	/*
@@ -1018,6 +1021,9 @@ got_exception:
 	 */
 
 	die("Unhandled unaligned exception", regs, error);
+
+out:
+	local_irq_disable();
 }
 
 /*
@@ -1058,6 +1064,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 	unsigned long opcode = regs->earg1;
 	unsigned long reg = regs->earg2;
 
+	if (!irqs_disabled_flags(regs->ps & 7))
+		local_irq_enable();
+
 #ifdef CONFIG_DEBUG_FS
 	/*
 	 * If command name is specified, record some information
@@ -1092,7 +1101,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		goto give_sigbus;
 	/* Not sure why you'd want to use this, but... */
 	if ((current_thread_info()->status & TS_UAC_NOFIX))
-		return;
+		goto out;
 
 	/* Don't bother reading ds in the access check since we already
 	 * know that this came from the user. Also rely on the fact that
@@ -1142,7 +1151,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"1:	ldl_u	%1, 0(%6)\n"
@@ -1173,7 +1182,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_s(reg, tmp1, tmp2);
 
-			return;
+			goto out;
 		}
 	case 0x0a: /* ldse */
 		__asm__ __volatile__(
@@ -1199,7 +1208,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 		sw64_write_simd_fp_reg_s(reg, tmp, tmp);
 
-		return;
+		goto out;
 
 	case 0x0d: /* vldd */
 		if ((unsigned long)va << 61 == 0) {
@@ -1227,7 +1236,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 			sw64_write_simd_fp_reg_d(reg, tmp1, tmp2, tmp3, tmp4);
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"1:	ldl_u	%1, 0(%6)\n"
@@ -1286,7 +1295,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			tmp2 = tmp5 | tmp3;			// f3
 
 			sw64_write_simd_fp_reg_d(reg, tmp7, tmp8, tmp, tmp2);
-			return;
+			goto out;
 		}
 
 	case 0x0b: /* ldde */
@@ -1311,7 +1320,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		tmp = tmp1 | tmp2;
 
 		sw64_write_simd_fp_reg_d(reg, tmp, tmp, tmp, tmp);
-		return;
+		goto out;
 
 	case 0x09: /* ldwe */
 		__asm__ __volatile__(
@@ -1334,7 +1343,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 		sw64_write_simd_fp_reg_ldwe(reg, (int)(tmp1 | tmp2));
 
-		return;
+		goto out;
 
 	case 0x0e: /* vsts */
 		if (!access_is_valid(va, 16))
@@ -1360,7 +1369,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			if (error)
 				goto give_sigsegv;
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
@@ -1465,7 +1474,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			if (error)
 				goto give_sigsegv;
 
-			return;
+			goto out;
 		}
 
 	case 0x0f: /* vstd */
@@ -1513,7 +1522,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			if (error)
 				goto give_sigsegv;
 
-			return;
+			goto out;
 		} else {
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
@@ -1721,7 +1730,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			if (error)
 				goto give_sigsegv;
 
-			return;
+			goto out;
 		}
 	}
 	switch (opcode) {
@@ -2003,7 +2012,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		if (error)
 			goto give_sigsegv;
 		sw64_write_fp_reg_s(reg, tmp1 | tmp2);
-		return;
+		goto out;
 
 	case 0x27: /* fldd */
 		__asm__ __volatile__(
@@ -2023,7 +2032,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		if (error)
 			goto give_sigsegv;
 		sw64_write_fp_reg(reg, tmp1 | tmp2);
-		return;
+		goto out;
 
 	case 0x22: /* ldw */
 		__asm__ __volatile__(
@@ -2091,7 +2100,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 		if (error)
 			goto give_sigsegv;
-		return;
+		goto out;
 
 	case 0x2e: /* fsts*/
 		fake_reg = sw64_read_fp_reg_s(reg);
@@ -2130,7 +2139,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 		if (error)
 			goto give_sigsegv;
-		return;
+		goto out;
 
 	case 0x2f: /* fstd */
 		fake_reg = sw64_read_fp_reg(reg);
@@ -2189,14 +2198,14 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 
 		if (error)
 			goto give_sigsegv;
-		return;
+		goto out;
 
 	default:
 		/* What instruction were you trying to use, exactly? */
 		goto give_sigbus;
 	}
 
-	return;
+	goto out;
 
 give_sigsegv:
 	regs->pc -= 4;  /* make pc point to faulting insn */
@@ -2218,9 +2227,12 @@ give_sigsegv:
 		up_read(&mm->mmap_lock);
 	}
 	force_sig_fault(SIGSEGV, si_code, va);
-	return;
+	goto out;
 
 give_sigbus:
 	regs->pc -= 4;
 	force_sig_fault(SIGBUS, BUS_ADRALN, va);
+
+out:
+	local_irq_disable();
 }
