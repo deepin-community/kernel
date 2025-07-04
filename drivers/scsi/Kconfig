@@ -485,12 +485,17 @@ config SCSI_ARCMSR
 	  To compile this driver as a module, choose M here: the
 	  module will be called arcmsr (modprobe arcmsr).
 
+config SCSI_SMARTPQI_MODULE
+	bool
+	default m if SCSI_SMARTPQI = m
+
 source "drivers/scsi/esas2r/Kconfig"
 source "drivers/scsi/megaraid/Kconfig.megaraid"
 source "drivers/scsi/mpt3sas/Kconfig"
 source "drivers/scsi/mpi3mr/Kconfig"
 source "drivers/scsi/leapioraid/Kconfig"
 source "drivers/scsi/smartpqi/Kconfig"
+source "drivers/scsi/trustraid/Kconfig"
 source "drivers/scsi/hisi_raid/Kconfig"
 
 config SCSI_HPTIOP
