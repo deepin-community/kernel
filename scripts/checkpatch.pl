@@ -75,6 +75,41 @@ my $git_command ='export LANGUAGE=en_US.UTF-8; git';
 my $tabsize = 8;
 my ${CONFIG_} = "CONFIG_";
 
+# Full-width character mappings (UTF-8 byte sequences to ASCII)
+my %fullwidth_chars = (
+	# Basic punctuation
+	"\xef\xbc\x9b" => [";", "semicolon", "；"],
+	"\xef\xbc\x8c" => [",", "comma", "，"],
+	"\xe3\x80\x82" => [".", "period", "。"],
+	"\xef\xbc\x88" => ["(", "opening parenthesis", "（"],
+	"\xef\xbc\x89" => [")", "closing parenthesis", "）"],
+	"\xef\xbc\x81" => ["!", "exclamation mark", "！"],
+	"\xef\xbc\x9f" => ["?", "question mark", "？"],
+	"\xef\xbc\x9a" => [":", "colon", "："],
+	"\xe3\x80\x80" => [" ", "space", "　"],
+	# Programming brackets
+	"\xef\xbc\xbb" => ["[", "left square bracket", "［"],
+	"\xef\xbc\xbd" => ["]", "right square bracket", "］"],
+	"\xef\xbd\x9b" => ["{", "left curly bracket", "｛"],
+	"\xef\xbd\x9d" => ["}", "right curly bracket", "｝"],
+	"\xef\xbc\x9c" => ["<", "less-than sign", "＜"],
+	"\xef\xbc\x9e" => [">", "greater-than sign", "＞"],
+	# Assignment and comparison
+	"\xef\xbc\x9d" => ["=", "equals sign", "＝"],
+	# Arithmetic operators
+	"\xef\xbc\x8b" => ["+", "plus sign", "＋"],
+	"\xef\xbc\x8d" => ["-", "minus sign", "－"],
+	"\xef\xbc\x8a" => ["*", "asterisk", "＊"],
+	"\xef\xbc\x8f" => ["/", "solidus", "／"],
+	"\xef\xbc\xbc" => ["\\", "reverse solidus", "＼"],
+	# Other programming symbols
+	"\xef\xbc\x85" => ["%", "percent sign", "％"],
+	"\xef\xbc\x83" => ["#", "number sign", "＃"],
+	"\xef\xbc\x86" => ["&", "ampersand", "＆"],
+	"\xef\xbd\x9c" => ["|", "vertical line", "｜"],
+);
+my $fullwidth_pattern = join('|', map { quotemeta($_) } keys %fullwidth_chars);
+
 my %maybe_linker_symbol; # for externs in c exceptions, when seen in *vmlinux.lds.h
 
 sub help {
@@ -1004,6 +1039,40 @@ sub read_words {
 	}
 
 	return 0;
+}
+
+# Check for full-width characters and optionally fix them
+sub check_fullwidth_chars {
+	my ($line, $context, $warning_type, $apply_fix, $fixlinenr, $fixed_ref, $herecurr) = @_;
+	my @found_chars = ();
+	my $fixed_line = $line;
+	my $has_fixes = 0;
+
+	return 0 unless $line =~ /$fullwidth_pattern/o;
+
+	if ($apply_fix) {
+		$fixed_line =~ s/($fullwidth_pattern)/$fullwidth_chars{$1}[0]/ge;
+		$has_fixes = ($fixed_line ne $line);
+	}
+
+	while ($line =~ /($fullwidth_pattern)/go) {
+		my $fullwidth_byte_seq = $1;
+		if (exists $fullwidth_chars{$fullwidth_byte_seq}) {
+			my ($ascii_char, $name, $fullwidth_char) = @{$fullwidth_chars{$fullwidth_byte_seq}};
+			push @found_chars, "Full-width $name ($fullwidth_char) found$context, use ASCII $name ($ascii_char) instead";
+		}
+	}
+
+	if (@found_chars) {
+		foreach my $msg (@found_chars) {
+			WARN($warning_type, $msg . "\n" . $herecurr);
+		}
+		if ($apply_fix && $has_fixes && defined $fixed_ref) {
+			$fixed_ref->[$fixlinenr] = $fixed_line;
+		}
+	}
+
+	return scalar @found_chars;
 }
 
 my $const_structs;
@@ -2948,6 +3017,11 @@ sub process {
 			$commit_log_has_diff = 1;
 		}
 
+# Check for full-width characters in commit message
+		if ($in_commit_log && show_type("FULLWIDTH_CHARS_COMMIT")) {
+			check_fullwidth_chars($rawline, " in commit message", "FULLWIDTH_CHARS_COMMIT", 0, 0, undef, $herecurr);
+		}
+
 # Check for incorrect file permissions
 		if ($line =~ /^new (file )?mode.*[7531]\d{0,2}$/) {
 			my $permhere = $here . "FILE: $realfile\n";
@@ -3251,6 +3325,11 @@ sub process {
 		    $line =~ /^Subject:.*\b(?:checkpatch|sparse|smatch)\b[^:]/i) {
 			WARN("EMAIL_SUBJECT",
 			     "A patch subject line should describe the change not the tool that found it\n" . $herecurr);
+		}
+
+# Check for full-width characters in Subject line
+		if ($in_header_lines && $line =~ /^Subject:/i && show_type("FULLWIDTH_CHARS_SUBJECT")) {
+			check_fullwidth_chars($rawline, " in subject line", "FULLWIDTH_CHARS_SUBJECT", 0, 0, undef, $herecurr);
 		}
 
 # Check for Gerrit Change-Ids not in any patch context
@@ -3960,6 +4039,11 @@ sub process {
 					$fixed[$fixlinenr] =~ s@(^\+\t+) +@$1 . "\t" x ($indent/$tabsize)@e;
 				}
 			}
+		}
+
+# check for full-width characters (full-width punctuation marks, etc.)
+		if ($rawline =~ /^\+/ && show_type("FULLWIDTH_CHARS")) {
+			check_fullwidth_chars($rawline, "", "FULLWIDTH_CHARS", $fix, $fixlinenr, \@fixed, $herecurr);
 		}
 
 # check multi-line statement indentation matches previous line
