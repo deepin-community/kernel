@@ -546,6 +546,14 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 	if (change == KVM_MR_FLAGS_ONLY && (!(old->flags & KVM_MEM_LOG_DIRTY_PAGES) &&
 				new->flags & KVM_MEM_LOG_DIRTY_PAGES)) {
 		kvm_mark_migration(kvm, 1);
+
+		/*
+		 * Initially-all-set does not require write protecting any page,
+		 * because they're all assumed to be dirty.
+		 */
+		if (kvm_dirty_log_manual_protect_and_init_set(kvm))
+			return;
+
 		kvm_mmu_wp_memory_region(kvm, new->id);
 	}
 
