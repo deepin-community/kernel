@@ -79,7 +79,7 @@ static inline int of_syscon_register_regmap(struct device_node *np,
 	return -EOPNOTSUPP;
 }
 
-extern struct regmap
+static inline struct regmap
 *device_syscon_regmap_lookup_by_property(struct device *dev,
 					 const char *property)
 {
