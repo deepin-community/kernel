@@ -14,7 +14,7 @@ static int kvm_set_ioapic_irq(struct kvm_kernel_irq_routing_entry *e,
 	/* ioapic pin (0 ~ 64) <---> gsi(0 ~ 64) */
 	pch_pic_set_irq(kvm->arch.pch_pic, e->irqchip.pin, level);
 
-	return 0;
+	return 1;
 }
 
 /*
@@ -83,5 +83,5 @@ int kvm_set_msi(struct kvm_kernel_irq_routing_entry *e,
 		return -1;
 
 	pch_msi_set_irq(kvm, e->msi.data, level);
-	return 0;
+	return 1;
 }
