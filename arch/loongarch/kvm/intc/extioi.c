@@ -599,45 +599,78 @@ static int kvm_loongarch_extioi_regs_access(struct kvm_device *dev,
 					struct kvm_device_attr *attr,
 					bool is_write)
 {
-	int len, addr;
+	int len, cpu, offset, addr;
 	void __user *data;
 	void *p = NULL;
 	struct loongarch_extioi *s;
 	unsigned long flags;
 
+	len = 4;
 	s = dev->kvm->arch.extioi;
 	addr = attr->attr;
+	cpu = addr >> 16;
+	addr &= 0xffff;
 	data = (void __user *)attr->addr;
-
 	loongarch_ext_irq_lock(s, flags);
 	switch (addr) {
 	case EXTIOI_NODETYPE_START:
 		p = s->nodetype.reg_u8;
 		len = sizeof(s->nodetype);
 		break;
+	case (EXTIOI_NODETYPE_START + 4) ... EXTIOI_NODETYPE_END:
+		offset = (addr - EXTIOI_NODETYPE_START) / 4;
+		p = &s->nodetype.reg_u32[offset];
+		break;
 	case EXTIOI_IPMAP_START:
 		p = s->ipmap.reg_u8;
 		len = sizeof(s->ipmap);
+		break;
+	case (EXTIOI_IPMAP_START + 4) ... EXTIOI_IPMAP_END:
+		offset = (addr - EXTIOI_IPMAP_START) / 4;
+		p = &s->ipmap.reg_u32[offset];
 		break;
 	case EXTIOI_ENABLE_START:
 		p = s->enable.reg_u8;
 		len = sizeof(s->enable);
 		break;
+	case (EXTIOI_ENABLE_START + 4) ... EXTIOI_ENABLE_END:
+		offset = (addr - EXTIOI_ENABLE_START) / 4;
+		p = &s->enable.reg_u32[offset];
+		break;
 	case EXTIOI_BOUNCE_START:
 		p = s->bounce.reg_u8;
 		len = sizeof(s->bounce);
+		break;
+	case (EXTIOI_BOUNCE_START + 4) ... EXTIOI_BOUNCE_END:
+		offset = (addr - EXTIOI_BOUNCE_START) / 4;
+		p = &s->bounce.reg_u32[offset];
 		break;
 	case EXTIOI_ISR_START:
 		p = s->isr.reg_u8;
 		len = sizeof(s->isr);
 		break;
+	case (EXTIOI_ISR_START + 4) ... EXTIOI_ISR_END:
+		offset = (addr - EXTIOI_ISR_START) / 4;
+		p = &s->isr.reg_u32[offset];
+		break;
 	case EXTIOI_COREISR_START:
 		p = s->coreisr.reg_u8;
 		len = sizeof(s->coreisr);
 		break;
+	case (EXTIOI_COREISR_START + 4) ... EXTIOI_COREISR_END:
+		if (cpu >= s->num_cpu)
+			return -EINVAL;
+
+		offset = (addr - EXTIOI_COREISR_START) / 4;
+		p = &s->coreisr.reg_u32[cpu][offset];
+		break;
 	case EXTIOI_COREMAP_START:
 		p = s->coremap.reg_u8;
 		len = sizeof(s->coremap);
+		break;
+	case (EXTIOI_COREMAP_START + 4) ... EXTIOI_COREMAP_END:
+		offset = (addr - EXTIOI_COREMAP_START) / 4;
+		p = &s->coremap.reg_u32[offset];
 		break;
 	case EXTIOI_SW_COREMAP_FLAG:
 		p = s->sw_coremap;

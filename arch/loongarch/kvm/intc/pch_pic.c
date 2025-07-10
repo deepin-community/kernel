@@ -341,7 +341,7 @@ static int kvm_loongarch_pch_pic_regs_access(struct kvm_device *dev,
 					struct kvm_device_attr *attr,
 					bool is_write)
 {
-	int addr, len = 8, ret = 0;
+	int addr, offset, len = 8, ret = 0;
 	void __user *data;
 	void *p = NULL;
 	struct loongarch_pch_pic *s;
@@ -372,9 +372,19 @@ static int kvm_loongarch_pch_pic_regs_access(struct kvm_device *dev,
 		p = s->route_entry;
 		len = 64;
 		break;
+	case (PCH_PIC_ROUTE_ENTRY_START + 1) ... PCH_PIC_ROUTE_ENTRY_END:
+		offset = addr - PCH_PIC_ROUTE_ENTRY_START;
+		p = &s->route_entry[offset];
+		len = 1;
+		break;
 	case PCH_PIC_HTMSI_VEC_START:
 		p = s->htmsi_vector;
 		len = 64;
+		break;
+	case (PCH_PIC_HTMSI_VEC_START + 1) ... PCH_PIC_HTMSI_VEC_END:
+		offset = addr - PCH_PIC_HTMSI_VEC_START;
+		p = &s->htmsi_vector[offset];
+		len = 1;
 		break;
 	case PCH_PIC_INT_IRR_START:
 		p = &s->irr;
@@ -391,10 +401,11 @@ static int kvm_loongarch_pch_pic_regs_access(struct kvm_device *dev,
 
 	/* write or read value according to is_write */
 	if (is_write) {
-		if (copy_from_user(p, data, len))
+
+		if (p && copy_from_user(p, data, len))
 			ret = -EFAULT;
 	} else {
-		if (copy_to_user(data, p, len))
+		if (p && copy_to_user(data, p, len))
 			ret = -EFAULT;
 	}
 

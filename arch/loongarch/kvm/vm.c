@@ -88,6 +88,7 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_MP_STATE:
 	case KVM_CAP_SET_GUEST_DEBUG:
 	case KVM_CAP_VM_ATTRIBUTES:
+	case KVM_CAP_DEVICE_CTRL:
 		r = 1;
 		break;
 	case KVM_CAP_NR_VCPUS:
@@ -186,33 +187,14 @@ int kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *data,
 			  bool line_status)
 {
-	bool level;
-	struct loongarch_pch_pic *s;
-	int type, vcpu, irq, vcpus, val, ret = 0;
+	if (!kvm_arch_irqchip_in_kernel(kvm))
+		return -ENXIO;
 
-	level = data->level;
-	val = data->irq;
-	s = kvm->arch.pch_pic;
-	vcpus = atomic_read(&kvm->online_vcpus);
+	data->status = kvm_set_irq(kvm, KVM_USERSPACE_IRQ_SOURCE_ID,
+				   (data->irq & KVM_LOONGARCH_IRQ_NUM_MASK),
+				   data->level, line_status);
 
-	type = (val >> KVM_LOONGARCH_IRQ_TYPE_SHIFT) & KVM_LOONGARCH_IRQ_TYPE_MASK;
-	vcpu = (val >> KVM_LOONGARCH_IRQ_VCPU_SHIFT) & KVM_LOONGARCH_IRQ_VCPU_MASK;
-	irq = (val >> KVM_LOONGARCH_IRQ_NUM_SHIFT) & KVM_LOONGARCH_IRQ_NUM_MASK;
-
-	switch (type) {
-	case KVM_LOONGARCH_IRQ_TYPE_IOAPIC:
-		if (irq < KVM_IRQCHIP_NUM_PINS)
-			pch_pic_set_irq(s, irq, level);
-		else if (irq < 256)
-			pch_msi_set_irq(kvm, irq, level);
-		else
-			ret = -EINVAL;
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
+	return 0;
 }
 
 bool kvm_arch_irqchip_in_kernel(struct kvm *kvm)
