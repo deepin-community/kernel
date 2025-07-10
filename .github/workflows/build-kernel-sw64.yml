@@ -1,4 +1,4 @@
-name: build kernel sw6b
+name: build kernel sw64
 on:
   push:
   pull_request:
@@ -13,7 +13,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  build-kernel:
+  build-kernel-sw6b:
     runs-on: [self-hosted, linux, x64]
     steps:
       - uses: actions/checkout@v3
@@ -32,4 +32,19 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Kernel-ABI-sw6b
+          path: "Module.symvers"
+
+  build-kernel-sw8a:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: "Compile kernel"
+        run: |
+          # .config
+          time swmk8a1230 junzhang_defconfig
+          time swmk8a1230 -j`nproc`
+
+      - name: 'Upload Kernel Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-ABI-sw8a
           path: "Module.symvers"
