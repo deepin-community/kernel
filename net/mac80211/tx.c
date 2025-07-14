@@ -2280,14 +2280,21 @@ bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
 		if (rate_flags & IEEE80211_TX_RC_MCS) {
 			/* reset antennas if not enough */
 			if (IEEE80211_HT_MCS_CHAINS(rate) >
-					hweight8(info->control.antennas))
+					hweight8(info->control.antennas)) {
+				WARN_ONCE(1, "Not enough antennas set for HT MCS chains (required: %d, set: %d), resetting antennas bitmap to 0\n",
+					  IEEE80211_HT_MCS_CHAINS(rate),
+					  hweight8(info->control.antennas));
 				info->control.antennas = 0;
+			}
 
 			info->control.rates[0].idx = rate;
 		} else if (rate_flags & IEEE80211_TX_RC_VHT_MCS) {
 			/* reset antennas if not enough */
-			if (vht_nss > hweight8(info->control.antennas))
+			if (vht_nss > hweight8(info->control.antennas)) {
+				WARN_ONCE(1, "Not enough antennas set for VHT MCS chains (required: %d, set: %d), resetting antennas bitmap to 0\n",
+					  vht_nss, hweight8(info->control.antennas));
 				info->control.antennas = 0;
+			}
 
 			ieee80211_rate_set_vht(info->control.rates, vht_mcs,
 					       vht_nss);
