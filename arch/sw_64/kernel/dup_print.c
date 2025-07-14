@@ -54,7 +54,7 @@ void sw64_rrk_store(const char *text, u16 text_len, u64 ts_nsec, int level,
 	max_offset_allowed = PRINTK_SIZE - text_len - header_len - (newline_first ? 1 : 0);
 	if (unlikely(sw64_printk_offset >= max_offset_allowed)) {
 		sw64_printk_offset = 0;
-		memset(sw64_printk_buf, 0, PRINTK_SIZE);
+		memset((void *)KERNEL_PRINTK_BUFF_BASE, 0, PRINTK_SIZE);
 		wrap = true;
 	}
 	sw64_printk_buf = (char *)(KERNEL_PRINTK_BUFF_BASE + sw64_printk_offset);
