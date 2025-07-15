@@ -175,6 +175,17 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
  * Turn on/off the call to ftrace_graph_caller() in ftrace_caller()
  * depending on @enable.
  */
+#ifdef CONFIG_HAVE_DYNAMIC_FTRACE_WITH_ARGS
+void ftrace_graph_func(unsigned long ip, unsigned long parent_ip,
+		       struct ftrace_ops *op, struct ftrace_regs *fregs)
+{
+	struct pt_regs *regs = arch_ftrace_get_regs(fregs);
+	unsigned long *parent = (unsigned long *)&regs->regs[26];
+	unsigned long frame_pointer = regs->regs[15];
+
+	prepare_ftrace_return(parent, ip, frame_pointer);
+}
+#else
 static int ftrace_modify_graph_caller(bool enable)
 {
 	unsigned long pc = (unsigned long)&ftrace_graph_call;
@@ -194,5 +205,6 @@ int ftrace_disable_ftrace_graph_caller(void)
 {
 	return ftrace_modify_graph_caller(false);
 }
+#endif /* CONFIG_HAVE_DYNAMIC_FTRACE_WITH_ARGS */
 #endif /* CONFIG_DYNAMIC_FTRACE */
 #endif /* CONFIG_FUNCTION_GRAPH_TRACER */
