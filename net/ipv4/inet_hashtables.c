@@ -76,8 +76,8 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
 		tb->port      = snum;
 		tb->fastreuse = 0;
 		tb->fastreuseport = 0;
-		INIT_HLIST_HEAD(&tb->owners);
-		hlist_add_head(&tb->node, &head->chain);
+		INIT_HLIST_HEAD(&tb->bhash2);
+		hlist_add_head_rcu(&tb->node, &head->chain);
 	}
 	return tb;
 }
@@ -85,11 +85,11 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
 /*
  * Caller must hold hashbucket lock for this tb with local BH disabled
  */
-void inet_bind_bucket_destroy(struct kmem_cache *cachep, struct inet_bind_bucket *tb)
+void inet_bind_bucket_destroy(struct inet_bind_bucket *tb)
 {
-	if (hlist_empty(&tb->owners)) {
-		__hlist_del(&tb->node);
-		kmem_cache_free(cachep, tb);
+	if (hlist_empty(&tb->bhash2)) {
+		hlist_del_rcu(&tb->node);
+		kfree_rcu(tb, rcu);
 	}
 }
 
@@ -100,47 +100,52 @@ bool inet_bind_bucket_match(const struct inet_bind_bucket *tb, const struct net 
 		tb->l3mdev == l3mdev;
 }
 
-static void inet_bind2_bucket_init(struct inet_bind2_bucket *tb,
+static void inet_bind2_bucket_init(struct inet_bind2_bucket *tb2,
 				   struct net *net,
 				   struct inet_bind_hashbucket *head,
-				   unsigned short port, int l3mdev,
+				   struct inet_bind_bucket *tb,
 				   const struct sock *sk)
 {
-	write_pnet(&tb->ib_net, net);
-	tb->l3mdev    = l3mdev;
-	tb->port      = port;
+	write_pnet(&tb2->ib_net, net);
+	tb2->l3mdev = tb->l3mdev;
+	tb2->port = tb->port;
 #if IS_ENABLED(CONFIG_IPV6)
-	tb->family    = sk->sk_family;
-	if (sk->sk_family == AF_INET6)
-		tb->v6_rcv_saddr = sk->sk_v6_rcv_saddr;
-	else
+	BUILD_BUG_ON(USHRT_MAX < (IPV6_ADDR_ANY | IPV6_ADDR_MAPPED));
+	if (sk->sk_family == AF_INET6) {
+		tb2->addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
+		tb2->v6_rcv_saddr = sk->sk_v6_rcv_saddr;
+	} else {
+		tb2->addr_type = IPV6_ADDR_MAPPED;
+		ipv6_addr_set_v4mapped(sk->sk_rcv_saddr, &tb2->v6_rcv_saddr);
+	}
+#else
+	tb2->rcv_saddr = sk->sk_rcv_saddr;
 #endif
-		tb->rcv_saddr = sk->sk_rcv_saddr;
-	INIT_HLIST_HEAD(&tb->owners);
-	INIT_HLIST_HEAD(&tb->deathrow);
-	hlist_add_head(&tb->node, &head->chain);
+	INIT_HLIST_HEAD(&tb2->owners);
+	hlist_add_head(&tb2->node, &head->chain);
+	hlist_add_head(&tb2->bhash_node, &tb->bhash2);
 }
 
 struct inet_bind2_bucket *inet_bind2_bucket_create(struct kmem_cache *cachep,
 						   struct net *net,
 						   struct inet_bind_hashbucket *head,
-						   unsigned short port,
-						   int l3mdev,
+						   struct inet_bind_bucket *tb,
 						   const struct sock *sk)
 {
-	struct inet_bind2_bucket *tb = kmem_cache_alloc(cachep, GFP_ATOMIC);
+	struct inet_bind2_bucket *tb2 = kmem_cache_alloc(cachep, GFP_ATOMIC);
 
-	if (tb)
-		inet_bind2_bucket_init(tb, net, head, port, l3mdev, sk);
+	if (tb2)
+		inet_bind2_bucket_init(tb2, net, head, tb, sk);
 
-	return tb;
+	return tb2;
 }
 
 /* Caller must hold hashbucket lock for this tb with local BH disabled */
 void inet_bind2_bucket_destroy(struct kmem_cache *cachep, struct inet_bind2_bucket *tb)
 {
-	if (hlist_empty(&tb->owners) && hlist_empty(&tb->deathrow)) {
+	if (hlist_empty(&tb->owners)) {
 		__hlist_del(&tb->node);
+		__hlist_del(&tb->bhash_node);
 		kmem_cache_free(cachep, tb);
 	}
 }
@@ -149,18 +154,11 @@ static bool inet_bind2_bucket_addr_match(const struct inet_bind2_bucket *tb2,
 					 const struct sock *sk)
 {
 #if IS_ENABLED(CONFIG_IPV6)
-	if (sk->sk_family != tb2->family) {
-		if (sk->sk_family == AF_INET)
-			return ipv6_addr_v4mapped(&tb2->v6_rcv_saddr) &&
-				tb2->v6_rcv_saddr.s6_addr32[3] == sk->sk_rcv_saddr;
-
-		return ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr) &&
-			sk->sk_v6_rcv_saddr.s6_addr32[3] == tb2->rcv_saddr;
-	}
-
 	if (sk->sk_family == AF_INET6)
-		return ipv6_addr_equal(&tb2->v6_rcv_saddr,
-				       &sk->sk_v6_rcv_saddr);
+		return ipv6_addr_equal(&tb2->v6_rcv_saddr, &sk->sk_v6_rcv_saddr);
+
+	if (tb2->addr_type != IPV6_ADDR_MAPPED)
+		return false;
 #endif
 	return tb2->rcv_saddr == sk->sk_rcv_saddr;
 }
@@ -169,10 +167,9 @@ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
 		    struct inet_bind2_bucket *tb2, unsigned short port)
 {
 	inet_sk(sk)->inet_num = port;
-	sk_add_bind_node(sk, &tb->owners);
 	inet_csk(sk)->icsk_bind_hash = tb;
-	sk_add_bind2_node(sk, &tb2->owners);
 	inet_csk(sk)->icsk_bind2_hash = tb2;
+	sk_add_bind_node(sk, &tb2->owners);
 }
 
 /*
@@ -192,21 +189,20 @@ static void __inet_put_port(struct sock *sk)
 
 	spin_lock(&head->lock);
 	tb = inet_csk(sk)->icsk_bind_hash;
-	__sk_del_bind_node(sk);
 	inet_csk(sk)->icsk_bind_hash = NULL;
 	inet_sk(sk)->inet_num = 0;
-	inet_bind_bucket_destroy(hashinfo->bind_bucket_cachep, tb);
 
 	spin_lock(&head2->lock);
 	if (inet_csk(sk)->icsk_bind2_hash) {
 		struct inet_bind2_bucket *tb2 = inet_csk(sk)->icsk_bind2_hash;
 
-		__sk_del_bind2_node(sk);
+		__sk_del_bind_node(sk);
 		inet_csk(sk)->icsk_bind2_hash = NULL;
 		inet_bind2_bucket_destroy(hashinfo->bind2_bucket_cachep, tb2);
 	}
 	spin_unlock(&head2->lock);
 
+	inet_bind_bucket_destroy(tb);
 	spin_unlock(&head->lock);
 }
 
@@ -275,8 +271,7 @@ bhash2_find:
 		tb2 = inet_bind2_bucket_find(head2, net, port, l3mdev, child);
 		if (!tb2) {
 			tb2 = inet_bind2_bucket_create(table->bind2_bucket_cachep,
-						       net, head2, port,
-						       l3mdev, child);
+						       net, head2, tb, child);
 			if (!tb2)
 				goto error;
 		}
@@ -291,7 +286,7 @@ bhash2_find:
 
 error:
 	if (created_inet_bind_bucket)
-		inet_bind_bucket_destroy(table->bind_bucket_cachep, tb);
+		inet_bind_bucket_destroy(tb);
 	spin_unlock(&head2->lock);
 	spin_unlock(&head->lock);
 	return -ENOMEM;
@@ -543,7 +538,8 @@ EXPORT_SYMBOL_GPL(__inet_lookup_established);
 /* called with local bh disabled */
 static int __inet_check_established(struct inet_timewait_death_row *death_row,
 				    struct sock *sk, __u16 lport,
-				    struct inet_timewait_sock **twp)
+				    struct inet_timewait_sock **twp,
+				    bool rcu_lookup)
 {
 	struct inet_hashinfo *hinfo = death_row->hashinfo;
 	struct inet_sock *inet = inet_sk(sk);
@@ -557,11 +553,24 @@ static int __inet_check_established(struct inet_timewait_death_row *death_row,
 	unsigned int hash = inet_ehashfn(net, daddr, lport,
 					 saddr, inet->inet_dport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
-	spinlock_t *lock = inet_ehash_lockp(hinfo, hash);
-	struct sock *sk2;
-	const struct hlist_nulls_node *node;
 	struct inet_timewait_sock *tw = NULL;
+	const struct hlist_nulls_node *node;
+	struct sock *sk2;
+	spinlock_t *lock;
 
+	if (rcu_lookup) {
+		sk_nulls_for_each(sk2, node, &head->chain) {
+			if (sk2->sk_hash != hash ||
+			    !inet_match(net, sk2, acookie, ports, dif, sdif))
+				continue;
+			if (sk2->sk_state == TCP_TIME_WAIT)
+				break;
+			return -EADDRNOTAVAIL;
+		}
+		return 0;
+	}
+
+	lock = inet_ehash_lockp(hinfo, hash);
 	spin_lock(lock);
 
 	sk_nulls_for_each(sk2, node, &head->chain) {
@@ -836,16 +845,15 @@ bool inet_bind2_bucket_match_addr_any(const struct inet_bind2_bucket *tb, const 
 		return false;
 
 #if IS_ENABLED(CONFIG_IPV6)
-	if (sk->sk_family != tb->family) {
-		if (sk->sk_family == AF_INET)
-			return ipv6_addr_any(&tb->v6_rcv_saddr) ||
-				ipv6_addr_v4mapped_any(&tb->v6_rcv_saddr);
+	if (tb->addr_type == IPV6_ADDR_ANY)
+		return true;
 
+	if (tb->addr_type != IPV6_ADDR_MAPPED)
 		return false;
-	}
 
-	if (sk->sk_family == AF_INET6)
-		return ipv6_addr_any(&tb->v6_rcv_saddr);
+	if (sk->sk_family == AF_INET6 &&
+	    !ipv6_addr_v4mapped(&sk->sk_v6_rcv_saddr))
+		return false;
 #endif
 	return tb->rcv_saddr == 0;
 }
@@ -942,7 +950,7 @@ static int __inet_bhash2_update_saddr(struct sock *sk, void *saddr, int family, 
 	spin_lock_bh(&head->lock);
 
 	spin_lock(&head2->lock);
-	__sk_del_bind2_node(sk);
+	__sk_del_bind_node(sk);
 	inet_bind2_bucket_destroy(hinfo->bind2_bucket_cachep, inet_csk(sk)->icsk_bind2_hash);
 	spin_unlock(&head2->lock);
 
@@ -957,10 +965,10 @@ static int __inet_bhash2_update_saddr(struct sock *sk, void *saddr, int family, 
 	tb2 = inet_bind2_bucket_find(head2, net, port, l3mdev, sk);
 	if (!tb2) {
 		tb2 = new_tb2;
-		inet_bind2_bucket_init(tb2, net, head2, port, l3mdev, sk);
+		inet_bind2_bucket_init(tb2, net, head2, inet_csk(sk)->icsk_bind_hash, sk);
 	}
-	sk_add_bind2_node(sk, &tb2->owners);
 	inet_csk(sk)->icsk_bind2_hash = tb2;
+	sk_add_bind_node(sk, &tb2->owners);
 	spin_unlock(&head2->lock);
 
 	spin_unlock_bh(&head->lock);
@@ -1000,7 +1008,8 @@ static u32 *table_perturb;
 int __inet_hash_connect(struct inet_timewait_death_row *death_row,
 		struct sock *sk, u64 port_offset,
 		int (*check_established)(struct inet_timewait_death_row *,
-			struct sock *, __u16, struct inet_timewait_sock **))
+			struct sock *, __u16, struct inet_timewait_sock **,
+			bool rcu_lookup))
 {
 	struct inet_hashinfo *hinfo = death_row->hashinfo;
 	struct inet_bind_hashbucket *head, *head2;
@@ -1017,7 +1026,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
 
 	if (port) {
 		local_bh_disable();
-		ret = check_established(death_row, sk, port, NULL);
+		ret = check_established(death_row, sk, port, NULL, false);
 		local_bh_enable();
 		return ret;
 	}
@@ -1050,6 +1059,21 @@ other_parity_scan:
 			continue;
 		head = &hinfo->bhash[inet_bhashfn(net, port,
 						  hinfo->bhash_size)];
+		rcu_read_lock();
+		hlist_for_each_entry_rcu(tb, &head->chain, node) {
+			if (!inet_bind_bucket_match(tb, net, port, l3mdev))
+				continue;
+			if (tb->fastreuse >= 0 || tb->fastreuseport >= 0) {
+				rcu_read_unlock();
+				goto next_port;
+			}
+			if (!check_established(death_row, sk, port, &tw, true))
+				break;
+			rcu_read_unlock();
+			goto next_port;
+		}
+		rcu_read_unlock();
+
 		spin_lock_bh(&head->lock);
 
 		/* Does not bother with rcv_saddr checks, because
@@ -1059,12 +1083,12 @@ other_parity_scan:
 			if (inet_bind_bucket_match(tb, net, port, l3mdev)) {
 				if (tb->fastreuse >= 0 ||
 				    tb->fastreuseport >= 0)
-					goto next_port;
-				WARN_ON(hlist_empty(&tb->owners));
+					goto next_port_unlock;
+				WARN_ON(hlist_empty(&tb->bhash2));
 				if (!check_established(death_row, sk,
-						       port, &tw))
+						       port, &tw, false))
 					goto ok;
-				goto next_port;
+				goto next_port_unlock;
 			}
 		}
 
@@ -1078,8 +1102,9 @@ other_parity_scan:
 		tb->fastreuse = -1;
 		tb->fastreuseport = -1;
 		goto ok;
-next_port:
+next_port_unlock:
 		spin_unlock_bh(&head->lock);
+next_port:
 		cond_resched();
 	}
 
@@ -1099,7 +1124,7 @@ ok:
 	tb2 = inet_bind2_bucket_find(head2, net, port, l3mdev, sk);
 	if (!tb2) {
 		tb2 = inet_bind2_bucket_create(hinfo->bind2_bucket_cachep, net,
-					       head2, port, l3mdev, sk);
+					       head2, tb, sk);
 		if (!tb2)
 			goto error;
 	}
@@ -1150,7 +1175,7 @@ error:
 
 	spin_unlock(&head2->lock);
 	if (tb_created)
-		inet_bind_bucket_destroy(hinfo->bind_bucket_cachep, tb);
+		inet_bind_bucket_destroy(tb);
 	spin_unlock(&head->lock);
 
 	if (tw)
