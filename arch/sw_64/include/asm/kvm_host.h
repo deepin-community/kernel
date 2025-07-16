@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/bitmap.h>
 #include <linux/compiler.h>
+#include <linux/perf_event.h>
 #include <asm/signal.h>
 #include <asm/vcpu.h>
 
