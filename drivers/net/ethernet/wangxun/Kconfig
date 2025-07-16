@@ -38,20 +38,9 @@ config NGBE
 	  will be called ngbe.
 
 config TXGBE
-	tristate "Wangxun(R) 10GbE PCI Express adapters support"
+	tristate "Wangxun(R) 10/25/40GbE PCI Express adapters support"
 	depends on PCI
-	depends on COMMON_CLK
-	select MARVELL_10G_PHY
-	select REGMAP
-	select I2C
-	select I2C_DESIGNWARE_PLATFORM
-	select PHYLINK
-	select HWMON if TXGBE=y
-	select SFP
-	select GPIOLIB
-	select GPIOLIB_IRQCHIP
-	select PCS_XPCS
-	select LIBWX
+	imply PTP_1588_CLOCK
 	help
 	  This driver supports Wangxun(R) 10GbE PCI Express family of
 	  adapters.
@@ -61,5 +50,5 @@ config TXGBE
 
 	  To compile this driver as a module, choose M here. The module
 	  will be called txgbe.
-
 endif # NET_VENDOR_WANGXUN
+
