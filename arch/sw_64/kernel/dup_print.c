@@ -8,12 +8,9 @@
 
 #ifdef CONFIG_SW64_RRK
 
-#define KERNEL_PRINTK_BUFF_BASE (0x700000UL + __START_KERNEL_map)
-
 static DEFINE_SPINLOCK(printk_lock);
 
 static unsigned long sw64_printk_offset;
-#define PRINTK_SIZE	0x100000UL
 
 static bool rrk_last_newline_end;
 static unsigned long rrk_last_id;
@@ -113,9 +110,6 @@ void sw64_rrk_store(const char *text, u16 text_len, u64 ts_nsec, int level,
 #include <linux/uaccess.h>
 
 static DEFINE_SPINLOCK(printf_lock);
-#define USER_PRINT_BUFF_BASE		(0x600000UL + __START_KERNEL_map)
-#define USER_PRINT_BUFF_LEN		0x100000UL
-#define USER_MESSAGE_MAX_LEN		0x100000UL
 unsigned long sw64_printf_offset;
 int sw64_user_printf(const char __user *buf, int len)
 {

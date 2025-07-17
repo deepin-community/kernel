@@ -23,26 +23,6 @@
 struct mm_struct;
 struct vm_area_struct;
 
-static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
-{
-	*pmdp = pmd;
-}
-
-static inline void set_pmd_at(struct mm_struct *mm, unsigned long addr,
-			      pmd_t *pmdp, pmd_t pmdval)
-{
-	set_pmd(pmdp, pmdval);
-}
-
-static inline void set_pud(pud_t *pudp, pud_t pud)
-{
-	*pudp = pud;
-}
-
-static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
-{
-	*p4dp = p4d;
-}
 /* PGDIR_SHIFT determines what a forth-level page table entry can map */
 #define PGDIR_SHIFT	(PAGE_SHIFT + 3 * (PAGE_SHIFT - 3))
 #define PGDIR_SIZE	(1UL << PGDIR_SHIFT)
@@ -196,7 +176,11 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define PAGE_NONE		__pgprot(__ACCESS_BITS | _PAGE_FOR | _PAGE_FOW | _PAGE_FOE | _PAGE_LEAF | _PAGE_PROTNONE)
 #define PAGE_KERNEL		__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF)
 #define _PAGE_NORMAL(x)		__pgprot(_PAGE_VALID | __ACCESS_BITS | _PAGE_LEAF | (x))
-#define _PAGE_IOREMAP		pgprot_val(PAGE_KERNEL)
+
+/* prot for kernel page table */
+#define PAGE_KERNEL_NOEXEC	__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF | _PAGE_FOE)
+#define PAGE_KERNEL_READONLY	__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF | _PAGE_FOW | _PAGE_FOE)
+#define PAGE_KERNEL_READONLY_EXEC	__pgprot(_PAGE_VALID | _PAGE_KERN | _PAGE_LEAF | _PAGE_FOW)
 
 #define page_valid_kern(x)	((x & (_PAGE_VALID | _PAGE_KERN)) == (_PAGE_VALID | _PAGE_KERN))
 #endif
@@ -227,6 +211,8 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define PAGE_COPY		PAGE_COPY_EXEC
 #define PAGE_SHARED		PAGE_SHARED_EXEC
 
+#define _PAGE_IOREMAP          pgprot_val(PAGE_KERNEL)
+
 /*
  * The hardware can handle write-only mappings, but as the sw64
  * architecture does byte-wide writes with a read-modify-write
@@ -251,6 +237,12 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define __S101		PAGE_READONLY_EXEC
 #define __S110		PAGE_SHARED_EXEC
 #define __S111		PAGE_SHARED_EXEC
+
+#define cont_pmd_addr_end(addr, end)	\
+({					\
+	unsigned long __boundary = ((addr) + CONT_PMD_SIZE) & CONT_PMD_MASK;\
+	(__boundary - 1 < (end) - 1) ? __boundary : (end);	\
+})
 
 /*
  * pgprot_noncached() is only for infiniband pci support, and a real
@@ -282,6 +274,38 @@ static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 	set_pte(ptep, pteval);
 }
 
+static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
+{
+	*pmdp = pmd;
+
+	if (page_valid_kern(pmd_val(pmd))) {
+		mb();
+		if ((pmd_val(pmd) & _PAGE_FOE) == 0)
+			imemb();
+	}
+}
+
+static inline void set_pmd_at(struct mm_struct *mm, unsigned long addr,
+			      pmd_t *pmdp, pmd_t pmdval)
+{
+	set_pmd(pmdp, pmdval);
+}
+
+static inline void set_pud(pud_t *pudp, pud_t pud)
+{
+	*pudp = pud;
+
+	if (page_valid_kern(pud_val(pud))) {
+		mb();
+		if ((pud_val(pud) & _PAGE_FOE) == 0)
+			imemb();
+	}
+}
+
+static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
+{
+	*p4dp = p4d;
+}
 #define pud_write pud_write
 static inline int pud_write(pud_t pud)
 {
@@ -400,6 +424,13 @@ static inline int pmd_none(pmd_t pmd)
 	return !pmd_val(pmd);
 }
 
+#define pmd_leaf	pmd_leaf
+static inline int pmd_leaf(pmd_t pmd)
+{
+	return !pmd_none(pmd) &&
+		(pmd_val(pmd) & (_PAGE_PRESENT|_PAGE_LEAF)) != _PAGE_PRESENT;
+}
+
 static inline int pmd_bad(pmd_t pmd)
 {
 	return (pmd_val(pmd) & ~_PFN_MASK) != _PAGE_TABLE;
@@ -503,6 +534,13 @@ static inline pmd_t pmd_mkcont(pmd_t pmd)
 static inline int pud_none(pud_t pud)
 {
 	return !pud_val(pud);
+}
+
+#define pud_leaf        pud_leaf
+static inline int pud_leaf(pud_t pud)
+{
+	return !pud_none(pud) &&
+		(pud_val(pud) & (_PAGE_PRESENT|_PAGE_LEAF)) != _PAGE_PRESENT;
 }
 
 static inline int pud_bad(pud_t pud)
@@ -838,6 +876,7 @@ static inline pte_t pte_swp_clear_exclusive(pte_t pte)
 	pr_err("%s: %d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
 #define pgd_ERROR(e) \
 	pr_err("%s: %d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
+extern void early_paging_init(void);
 extern void paging_init(void);
 
 #define HAVE_ARCH_UNMAPPED_AREA

@@ -186,6 +186,14 @@ void smp_callin(void)
 
 	complete(&cpu_running);
 
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	/* switch to paging mode */
+	if (sunway_support_kpt) {
+		set_atc(ATC_PAGE);
+		tbiv();
+	}
+#endif
+
 	/* Must have completely accurate bogos.  */
 	local_irq_enable();
 
@@ -256,12 +264,19 @@ static void __init process_nr_cpu_ids(void)
 	nr_cpu_ids = num_possible_cpus();
 }
 
+extern void * __init pgtable_alloc_fixmap(void);
+
 void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr)
 {
 	if (smp_rcb != NULL)
 		return;
 
 	smp_rcb = smp_rcb_base_addr;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	create_pgd_mapping((&init_mm)->pgd, (unsigned long)smp_rcb, __pa(smp_rcb),
+			   CONFIG_PHYSICAL_START - __pa(smp_rcb),
+			   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+#endif
 	memset(smp_rcb, 0, sizeof(struct smp_rcb_struct));
 	/* Setup SMP_RCB fields that uses to activate secondary CPU */
 	smp_rcb->restart_entry = __smp_callin;
