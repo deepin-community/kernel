@@ -22,6 +22,8 @@
 #include <asm/kexec.h>
 #include <asm/sw64_init.h>
 #include <asm/kvm_cma.h>
+#include <asm/fixmap.h>
+#include <asm/tlbflush.h>
 
 struct mem_desc_t mem_desc;
 #ifndef CONFIG_NUMA
@@ -42,6 +44,14 @@ static pud_t vmalloc_pud[1024]	__aligned(PAGE_SIZE);
 
 static phys_addr_t mem_start;
 static phys_addr_t mem_size_limit;
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+pgd_t early_pg_dir[1024] __initdata __attribute__((__aligned__(PAGE_SIZE)));
+
+pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
+pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
+pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
+#endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
 unsigned long memory_block_size_bytes(void)
@@ -141,6 +151,25 @@ void __init zone_sizes_init(void)
 
 	free_area_init(max_zone_pfns);
 }
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
+{
+	unsigned long addr = __fix_to_virt(idx);
+	pte_t *ptep;
+
+	BUG_ON(idx <= FIX_HOLE || idx >= __end_of_fixed_addresses);
+
+	ptep = &fixmap_pte[pte_index(addr)];
+
+	if (pgprot_val(prot))
+		set_pte(ptep, pfn_pte(PHYS_PFN(phys), prot));
+	else
+		pte_clear(&init_mm, addr, ptep);
+
+	local_flush_tlb_all();
+}
+#endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 /*
  * paging_init() sets up the memory map.
