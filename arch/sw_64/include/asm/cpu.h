@@ -71,4 +71,6 @@ static inline unsigned long get_cpu_freq(unsigned int cpu)
 }
 #endif
 
+extern bool sunway_support_kpt;
+
 #endif /* _ASM_SW64_CPU_H */

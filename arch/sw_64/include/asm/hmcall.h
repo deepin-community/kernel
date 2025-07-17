@@ -22,6 +22,7 @@
 #define HMC_mtinten		0x0F
 #define HMC_wrap_asid		0x10
 #define HMC_load_mm		0x11
+#define HMC_rwatc		0x12
 #define HMC_tbisasid		0x14
 #define HMC_tbivpn		0x19
 #define HMC_ret			0x1A
@@ -172,6 +173,8 @@ __CALL_HMC_R0(rdksp, unsigned long);
 __CALL_HMC_W1(wrksp, unsigned long);
 __CALL_HMC_R0(rdhtctl, unsigned long);
 
+__CALL_HMC_RW2(rwatc, unsigned long, unsigned long, unsigned long);
+
 /*
  * Load a mm context. This is needed when we change the page
  * table pointer(CSR:PTBR) or when we update the ASID.
@@ -252,6 +255,11 @@ static inline void wrap_asid(unsigned long asid, unsigned long ptbr)
 
 #define set_nmi(irq)	setup_nmi(1, (irq))
 #define clear_nmi(irq)	setup_nmi(0, (irq))
+
+#define ATC_PAGE	1
+#define ATC_KSEG	3
+#define set_atc(val)	rwatc(1, (val))
+#define get_atc()	rwatc(0, 0)
 
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
