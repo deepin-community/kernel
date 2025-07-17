@@ -294,6 +294,14 @@ config SW64_CPUAUTOPLUG
 	  Turns on the interface for SW64_CPU CPUAUTOPLUG.
 
 endmenu
+
+config SW64_KERNEL_PAGE_TABLE
+	bool "sw64 kernel page table"
+	depends on SUBARCH_C4
+	default y
+	help
+		Map the kernel and the memory by page table.
+
 # clear all implied options (don't want default values for those):
 # Most of these machines have ISA slots; not exactly sure which don't,
 # and this doesn't activate hordes of code, so do it always.

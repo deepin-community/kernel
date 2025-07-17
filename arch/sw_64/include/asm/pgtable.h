@@ -89,6 +89,12 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 #define VMALLOC_END	((unsigned long)vmemmap)
 #endif
 
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+#define FIXADDR_TOP	MODULES_VADDR
+#define FIXADDR_SIZE    SZ_8M
+#define FIXADDR_START   (FIXADDR_TOP - FIXADDR_SIZE)
+#endif
+
 /*
  * HMcode-imposed page table bits
  */
