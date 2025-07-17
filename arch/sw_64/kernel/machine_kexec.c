@@ -155,8 +155,10 @@ static void machine_crash_nonpanic_core(void *unused)
 	atomic_dec(&waiting_for_crash_ipi);
 	while (READ_ONCE(smp_rcb->ready) != 0)
 		mdelay(1);
-	if (cpu != 0)
-		reset_cpu(cpu);
+	if (cpu != 0) {
+		while (1)
+			cpu_relax();
+	}
 	else
 		machine_kexec(kexec_crash_image);
 }
@@ -209,8 +211,10 @@ void machine_crash_shutdown(struct pt_regs *regs)
 	pr_info("Loading crashdump kernel...\n");
 #ifdef CONFIG_SMP
 	WRITE_ONCE(smp_rcb->ready, 0);
-	if (cpu != 0)
-		reset_cpu(cpu);
+	if (cpu != 0) {
+		while (1)
+			cpu_relax();
+	}
 #endif
 }
 
