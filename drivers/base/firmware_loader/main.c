@@ -590,10 +590,6 @@ fw_get_filesystem_firmware(struct device *device, struct fw_priv *fw_priv,
 	}
 	__putname(path);
 
-	if (rc)
-		dev_info(device, "firmware: failed to load %s (%d)\n",
-			 fw_priv->fw_name, rc);
-
 	return rc;
 }
 
@@ -935,6 +931,10 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 #endif
 	if (ret == -ENOENT && nondirect)
 		ret = firmware_fallback_platform(fw->priv);
+
+	if (ret)
+		dev_info(device, "firmware: failed to load %s (%d)\n",
+			 name, ret);
 
 	if (ret) {
 		if (!(opt_flags & FW_OPT_NO_WARN))
