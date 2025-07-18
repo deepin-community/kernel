@@ -640,7 +640,7 @@ static int macb_usx_pcs_config(struct phylink_pcs *pcs,
 	struct macb *bp = container_of(pcs, struct macb, phylink_usx_pcs);
 
 	gem_writel(bp, USX_CONTROL, gem_readl(bp, USX_CONTROL) |
-		   GEM_BIT(SIGNAL_OK));
+		   GEM_BIT(SIGNAL_OK) | GEM_BIT(TX_EN));
 
 	return 0;
 }
