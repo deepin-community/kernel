@@ -54,15 +54,11 @@ static inline void cpu_set_reserved_ttbr0_nosync(void)
 {
 	unsigned long ttbr = phys_to_ttbr(__pa_symbol(reserved_pg_dir));
 
-#ifdef CONFIG_IEE_SIP
-	iee_rwx_gate(IEE_SI_SET_TTBR0, ttbr);
-#else
 #ifdef CONFIG_IEE
 	if (iee_init_done)
 		ttbr |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
 #endif
 	write_sysreg(ttbr, ttbr0_el1);
-#endif
 }
 
 static inline void cpu_set_reserved_ttbr0(void)
