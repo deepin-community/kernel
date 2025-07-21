@@ -733,21 +733,31 @@ void __init cred_init(void)
 {
 	#ifdef CONFIG_CREDP
 	if (haoc_enabled){
+		// 为IEE配置创建独立的缓存，使用SLAB_NO_MERGE确保不会合并
 		cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
-				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_RED_ZONE, NULL);
+				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_RED_ZONE|SLAB_NO_MERGE,
+				NULL);
 
-		rcu_jar = kmem_cache_create("rcu_jar", sizeof(struct rcu_head) + sizeof(struct cred *), 0,
-				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
-		// Map init_cred
+		// RCU缓存也创建为独立缓存
+		rcu_jar = kmem_cache_create("rcu_jar",
+				sizeof(struct rcu_head) + sizeof(struct cred *), 0,
+				SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_NO_MERGE,
+				NULL);
+
+		// 初始化init_cred的RCU部分
 		iee_set_cred_rcu(&init_cred, kmem_cache_zalloc(rcu_jar, GFP_KERNEL));
 		*(struct cred **)(((struct rcu_head *)(init_cred.rcu.func)) + 1) = &init_cred;
-		pr_info("HAOC: CONFIG_CREDP enabled.");
-	} else 
+
+		pr_info("HAOC: CONFIG_CREDP enabled with dedicated caches.");
+	} else {
 		cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
-			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_NO_MERGE,
+			NULL);
+	}
 	#else
 	cred_jar = kmem_cache_create("cred_jar", sizeof(struct cred), 0,
-			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT, NULL);
+			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_ACCOUNT|SLAB_NO_MERGE,
+			NULL);
 	#endif
 }
 
