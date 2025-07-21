@@ -791,10 +791,18 @@ static void __init map_kernel(pgd_t *pgdp)
 				   &vmlinux_initdata, 0, VM_NO_GUARD);
 #ifdef CONFIG_IEE
 		if (haoc_enabled) {
-			map_kernel_segment(pgdp, _data, iee_init_data_end, PAGE_KERNEL,
-					 &vmlinux_iee_init_data, NO_CONT_MAPPINGS | NO_BLOCK_MAPPINGS, VM_NO_GUARD);
-			map_kernel_segment(pgdp, iee_init_data_end, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
-			} else
+			unsigned long iee_data_size = (unsigned long)iee_init_data_end - (unsigned long)_data;
+
+			if (iee_data_size > 0) {
+				// 只有当IEE数据段非空时才创建分离的映射
+				map_kernel_segment(pgdp, _data, iee_init_data_end, PAGE_KERNEL,
+						 &vmlinux_iee_init_data, NO_CONT_MAPPINGS | NO_BLOCK_MAPPINGS, VM_NO_GUARD);
+				map_kernel_segment(pgdp, iee_init_data_end, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+			} else {
+				pr_info("IEE: No IEE init data, using standard data mapping\n");
+				map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+			}
+		} else
 			map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
 #else	
 		map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
