@@ -819,9 +819,9 @@ static __init void set_satp_mode(uintptr_t dtb_pa)
 	uintptr_t set_satp_mode_pmd = ((unsigned long)set_satp_mode) & PMD_MASK;
 	u64 satp_mode_cmdline = __pi_set_satp_mode_from_cmdline(dtb_pa);
 
-	if (satp_mode_cmdline == SATP_MODE_57) {
+	if (satp_mode_cmdline == SATP_MODE_48) {
 		disable_pgtable_l5();
-	} else if (satp_mode_cmdline == SATP_MODE_48) {
+	} else if (satp_mode_cmdline == SATP_MODE_39) {
 		disable_pgtable_l5();
 		disable_pgtable_l4();
 		return;
