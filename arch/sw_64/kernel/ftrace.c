@@ -77,10 +77,9 @@ int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 	insn[1] = SW64_CALL(R28, R28, 0);
 	insn[2] = SW64_NOP;
 
-	*((u32 *)pc) = insn[0];
-	mb();
-	*((u32 *)(pc + 4)) = insn[1];
-	*((u32 *)(pc + 8)) = insn[2];
+	ftrace_modify_code(pc, insn[0]);
+	ftrace_modify_code(pc + 4, insn[1]);
+	ftrace_modify_code(pc + 8, insn[2]);
 
 	return 0;
 }
@@ -94,10 +93,9 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
 	unsigned long pc = rec->ip + MCOUNT_LDGP_SIZE;
 	unsigned int insn[3] = {SW64_NOP, SW64_NOP, SW64_NOP};
 
-	*((u32 *)(pc + 8)) = insn[2];
-	*((u32 *)(pc + 4)) = insn[1];
-	mb();
-	*((u32 *)pc) = insn[0];
+	ftrace_modify_code(pc + 8, insn[2]);
+	ftrace_modify_code(pc + 4, insn[1]);
+	ftrace_modify_code(pc, insn[0]);
 
 	return 0;
 }
@@ -135,7 +133,7 @@ int ftrace_modify_call(struct dyn_ftrace *rec, unsigned long old_addr,
 
 	/* ldl r28,(ftrace_addr_offset)(r8) */
 	insn[0] = (0x23U << 26) | (28U << 21) | (8U << 16) | offset;
-	copy_to_kernel_nofault((void *)pc, insn, SW64_INSN_SIZE);
+	ftrace_modify_code(pc, insn[0]);
 
 	return 0;
 }
