@@ -15,6 +15,7 @@
 #include <linux/libfdt.h>
 #include <linux/initrd.h>
 #include <linux/genalloc.h>
+#include <linux/set_memory.h>
 
 #include <asm/pgalloc.h>
 #include <asm/mmu_context.h>
@@ -510,6 +511,17 @@ void __init paging_init(void)
 			     __pa((unsigned long)_end - sw64_reserve_start));
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 }
+
+#ifdef CONFIG_STRICT_KERNEL_RWX
+void mark_rodata_ro(void)
+{
+	unsigned long ro_start = (unsigned long)__start_rodata;
+	unsigned long ro_size = (unsigned long)__init_begin - ro_start;
+
+	if (sunway_support_kpt)
+		set_memory_ro(ro_start, PAGE_ALIGN(ro_size) >> PAGE_SHIFT);
+}
+#endif
 
 static void __init setup_socket_info(void)
 {
