@@ -56,6 +56,9 @@ extern unsigned int sw64_insn_nop(void);
 extern unsigned int sw64_insn_call(unsigned int ra, unsigned int rb);
 extern unsigned int sw64_insn_sys_call(unsigned int num);
 extern unsigned int sw64_insn_br(unsigned int ra, unsigned long pc, unsigned long new_pc);
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+extern int sw64_patch_text_nosync(void *addr, u32 insn);
+#endif
 
 #define SW64_OPCODE_RA(opcode)	((opcode >> 21) & 0x1f)
 

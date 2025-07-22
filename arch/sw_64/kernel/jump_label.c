@@ -18,7 +18,11 @@ void arch_jump_label_transform(struct jump_entry *entry,
 		insn = sw64_insn_nop();
 	}
 
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	sw64_patch_text_nosync(insnp, insn);
+#else
 	*insnp = insn;
+#endif
 
 	flush_icache_range(entry->code, entry->code + SW64_INSN_SIZE);
 }
