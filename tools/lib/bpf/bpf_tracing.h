@@ -450,30 +450,28 @@ struct pt_regs___arm64 {
 #elif defined(bpf_target_sw64)
 
 /* sw64 provides struct user_pt_regs instead of struct pt_regs to userspace */
-struct pt_regs;
-#define PT_REGS_SW64 const volatile struct user_pt_regs
-#define PT_REGS_PARM1(x) (((PT_REGS_SW64 *)(x))->regs[16])
-#define PT_REGS_PARM2(x) (((PT_REGS_SW64 *)(x))->regs[17])
-#define PT_REGS_PARM3(x) (((PT_REGS_SW64 *)(x))->regs[18])
-#define PT_REGS_PARM4(x) (((PT_REGS_SW64 *)(x))->regs[19])
-#define PT_REGS_PARM5(x) (((PT_REGS_SW64 *)(x))->regs[20])
-#define PT_REGS_RET(x) (((PT_REGS_SW64 *)(x))->regs[26])
-/* Works only with CONFIG_FRAME_POINTER */
-#define PT_REGS_FP(x) (((PT_REGS_SW64 *)(x))->regs[15])
-#define PT_REGS_RC(x) (((PT_REGS_SW64 *)(x))->regs[0])
-#define PT_REGS_SP(x) (((PT_REGS_SW64 *)(x))->regs[30])
-#define PT_REGS_IP(x) (((PT_REGS_SW64 *)(x))->pc)
+#define __PT_REGS_CAST(x) ((const struct user_pt_regs *)(x))
+#define __PT_PARM1_REG regs[16]
+#define __PT_PARM2_REG regs[17]
+#define __PT_PARM3_REG regs[18]
+#define __PT_PARM4_REG regs[19]
+#define __PT_PARM5_REG regs[20]
+#define __PT_PARM6_REG regs[21]
 
-#define PT_REGS_PARM1_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[16])
-#define PT_REGS_PARM2_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[17])
-#define PT_REGS_PARM3_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[18])
-#define PT_REGS_PARM4_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[19])
-#define PT_REGS_PARM5_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[20])
-#define PT_REGS_RET_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[26])
-#define PT_REGS_FP_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[15])
-#define PT_REGS_RC_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[0])
-#define PT_REGS_SP_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), regs[30])
-#define PT_REGS_IP_CORE(x) BPF_CORE_READ((PT_REGS_SW64 *)(x), pc)
+/* sw64 does not select ARCH_HAS_SYSCALL_WRAPPER. */
+#define PT_REGS_SYSCALL_REGS(ctx) ctx
+#define __PT_PARM1_SYSCALL_REG __PT_PARM1_REG
+#define __PT_PARM2_SYSCALL_REG __PT_PARM2_REG
+#define __PT_PARM3_SYSCALL_REG __PT_PARM3_REG
+#define __PT_PARM4_SYSCALL_REG __PT_PARM4_REG
+#define __PT_PARM5_SYSCALL_REG __PT_PARM5_REG
+#define __PT_PARM6_SYSCALL_REG __PT_PARM6_REG
+
+#define __PT_RET_REG regs[26]
+#define __PT_FP_REG regs[15]
+#define __PT_RC_REG regs[0]
+#define __PT_SP_REG regs[30]
+#define __PT_IP_REG pc
 
 #endif
 
