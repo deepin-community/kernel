@@ -5,6 +5,8 @@
 #include <asm/page.h>
 #include <asm/io.h>
 
+#ifndef CONFIG_GENERIC_EARLY_IOREMAP
+
 static inline void  __iomem *
 early_ioremap(unsigned long phys_addr, unsigned long size)
 {
@@ -25,5 +27,11 @@ static inline void early_iounmap(volatile void __iomem *addr, unsigned long size
 {
 }
 #define early_memunmap(addr, size)		early_iounmap(addr, size)
+
+#else
+
+#include <asm-generic/early_ioremap.h>
+
+#endif /* !CONFIG_GENERIC_EARLY_IOREMAP */
 
 #endif /* _ASM_SW64_EARLY_IOREMAP_H */
