@@ -481,6 +481,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		if (vcpu->arch.restart == 1) {
 			/* handle reset vCPU */
 			vcpu->arch.regs.pc = GUEST_RESET_PC;
+#ifdef CONFIG_SUBARCH_C4
+			vcpu->arch.vcb.atc = 3;
+#endif
 			vcpu->arch.restart = 0;
 		}
 
