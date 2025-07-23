@@ -435,20 +435,6 @@ static int rtw8852b_pwr_off_func(struct rtw89_dev *rtwdev)
 	return 0;
 }
 
-static inline
-void rtw8852bx_convert_rpl_to_rssi(struct rtw89_dev *rtwdev,
-				   struct rtw89_rx_phy_ppdu *phy_ppdu)
-{
-	u8 delta = phy_ppdu->rpl_avg - phy_ppdu->rssi_avg;
-	u8 *rssi = phy_ppdu->rssi;
-	u8 i;
-
-	for (i = 0; i < RF_PATH_NUM_8852B; i++)
-		rssi[i] += delta;
-
-	phy_ppdu->rssi_avg = phy_ppdu->rpl_avg;
-}
-
 static void rtw8852b_bb_reset_en(struct rtw89_dev *rtwdev, enum rtw89_band band,
 				 enum rtw89_phy_idx phy_idx, bool en)
 {
