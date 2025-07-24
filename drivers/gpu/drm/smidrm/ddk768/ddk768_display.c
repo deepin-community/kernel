@@ -18,7 +18,7 @@
  *
  * Output:
  *      0   - Success
- *      1   - Fail 
+ *      1   - Fail
  */
 long initDisplay()
 {
