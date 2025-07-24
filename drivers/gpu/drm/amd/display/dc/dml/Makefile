@@ -45,8 +45,12 @@ endif
 
 ifdef CONFIG_RISCV
 include $(srctree)/arch/riscv/Makefile.isa
+ifdef CONFIG_RISCV_ISA_V
 # Remove V from the ISA string, like in arch/riscv/Makefile, but keep F and D.
 dml_ccflags := -march=$(subst v,,$(riscv-march-y))
+else
+dml_ccflags := -march=$(riscv-march-y)
+endif
 endif
 
 ifdef CONFIG_CC_IS_GCC
