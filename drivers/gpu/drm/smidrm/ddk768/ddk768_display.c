@@ -558,7 +558,7 @@ long setCloneViewOn(disp_control_t dataPath)
 }
 
 /*
- * Convenient function to trun on dual view 
+ * Convenient function to turn on dual view 
  */
 long setDualViewOn()
 {
