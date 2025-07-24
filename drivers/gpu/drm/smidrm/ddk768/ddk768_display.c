@@ -569,7 +569,7 @@ long setDualViewOn()
 }
 
 /*
- * Convenient function to trun off all views
+ * Convenient function to turn off all views
  */
 long setAllViewOff()
 {
