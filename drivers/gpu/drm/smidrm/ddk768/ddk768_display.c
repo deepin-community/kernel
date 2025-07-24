@@ -80,7 +80,7 @@ void setDisplayDPMS(
 
 /* 
  * New for Falcon.
- * This funciton configures:
+ * This function configures:
  * 1. Output from channel 0 or channel 1 is 24 single or 48 double pixel.
  * 2. Output data comes from data path of channel 0 or channel 1.
  *
