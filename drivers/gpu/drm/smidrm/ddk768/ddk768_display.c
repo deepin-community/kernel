@@ -486,7 +486,7 @@ long ddk768_detectCRTMonitor(
 
 /*
  * This function controls monitor on/off and data path.
- * It can be used to set up any veiws: single view, clone view, dual view, output with channel swap, etc.
+ * It can be used to set up any views: single view, clone view, dual view, output with channel swap, etc.
  * However, it needs too many input parameter.
  * There are other set view functions with less parameters, but not as flexible as this one.
  *
