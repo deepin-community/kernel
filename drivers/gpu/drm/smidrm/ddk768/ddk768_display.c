@@ -255,17 +255,17 @@ void ddk768_swPanelPowerSequence(disp_control_t dispControl, disp_state_t dispSt
         /* Turn on FPVDDEN. */
         ulDispCtrlReg = FIELD_SET(ulDispCtrlReg, DISPLAY_CTRL, FPVDDEN, HIGH);
         pokeRegisterDWord(ulDispCtrlAddr, ulDispCtrlReg);
-		waitDispVerticalSync(dispControl, vSyncDelay);
+        waitDispVerticalSync(dispControl, vSyncDelay);
 
         /* Turn on FPDATA. */
         ulDispCtrlReg = FIELD_SET(ulDispCtrlReg, DISPLAY_CTRL, DATA, ENABLE);
         pokeRegisterDWord(ulDispCtrlAddr, ulDispCtrlReg);
-		waitDispVerticalSync(dispControl, vSyncDelay);
+        waitDispVerticalSync(dispControl, vSyncDelay);
 
         /* Turn on FPVBIAS. */
         ulDispCtrlReg = FIELD_SET(ulDispCtrlReg, DISPLAY_CTRL, VBIASEN, HIGH);
         pokeRegisterDWord(ulDispCtrlAddr, ulDispCtrlReg);
-		waitDispVerticalSync(dispControl, vSyncDelay);
+        waitDispVerticalSync(dispControl, vSyncDelay);
 
         /* Turn on FPEN. */
         ulDispCtrlReg = FIELD_SET(ulDispCtrlReg, DISPLAY_CTRL, FPEN, HIGH);
