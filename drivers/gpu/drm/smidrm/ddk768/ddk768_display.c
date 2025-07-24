@@ -40,8 +40,8 @@ long initDisplay()
 }
 
 /* New for Falcon: DPMS control is moved to display controller.
- * This function sets the display DPMS state 
- * It is used to set CRT monitor to On, off, or suspend states, 
+ * This function sets the display DPMS state
+ * It is used to set CRT monitor to On, off, or suspend states,
  * while display channel are still active.
  */
 void setDisplayDPMS(
