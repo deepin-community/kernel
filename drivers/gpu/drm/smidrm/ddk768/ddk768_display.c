@@ -538,7 +538,7 @@ long setSingleViewOff(disp_control_t dispOutput)
 }
 
 /*
- * Convenient function to trun on clone view 
+ * Convenient function to turn on clone view 
  */
 long setCloneViewOn(disp_control_t dataPath)
 {
