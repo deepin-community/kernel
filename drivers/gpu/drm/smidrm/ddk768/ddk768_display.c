@@ -510,7 +510,7 @@ long setDisplayView(
 }
 
 /*
- * Convenient function to trun on single view 
+ * Convenient function to turn on single view 
  */
 long setSingleViewOn(disp_control_t dispOutput)
 {
