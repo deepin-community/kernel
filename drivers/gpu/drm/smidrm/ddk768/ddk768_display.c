@@ -84,7 +84,7 @@ void setDisplayDPMS(
  * 1. Output from channel 0 or channel 1 is 24 single or 48 double pixel.
  * 2. Output data comes from data path of channel 0 or channel 1.
  *
- * Input: See the commnet in the input parameter below.
+ * Input: See the comment in the input parameter below.
  *
  * Return: 0 is OK, -1 is error.
  */
