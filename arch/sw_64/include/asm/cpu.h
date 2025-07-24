@@ -25,6 +25,7 @@ enum hmcall_cpuid_cmd {
 #define CPU_FEAT_SIMD	0x2
 #define CPU_FEAT_UNA	0x4
 #define CPU_FEAT_VINT	0x8
+#define CPU_FEAT_KPT	0x10
 #define CPU_FEAT_WP	0x20
 
 enum sunway_cpu_model {
@@ -72,5 +73,13 @@ static inline unsigned long get_cpu_freq(unsigned int cpu)
 #endif
 
 extern bool sunway_support_kpt;
+
+static inline void check_sunway_kpt_support(void)
+{
+	if (cpuid(GET_FEATURES, 0) & CPU_FEAT_KPT)
+		sunway_support_kpt = true;
+	else
+		sunway_support_kpt = false;
+}
 
 #endif /* _ASM_SW64_CPU_H */

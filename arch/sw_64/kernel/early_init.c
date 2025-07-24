@@ -8,6 +8,7 @@ bool sunway_support_kpt;
 
 asmlinkage __visible void __init sw64_start_kernel(void)
 {
+	check_sunway_kpt_support();
 	fixup_hmcall();
 	save_ktp();
 	start_kernel();
