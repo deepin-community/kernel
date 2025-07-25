@@ -2,7 +2,7 @@
 #include <asm/haoc/haoc-def.h>
 #include <asm/haoc/iee.h>
 #include <linux/cred.h>
-
+#include <asm/haoc/iee-token.h>
 #include <linux/mm.h>
 #include <asm/haoc/iee-func.h>
 #include <linux/slab.h>
@@ -163,15 +163,78 @@ void _iee_set_cred_suid(unsigned long __unused, struct cred *cred, kuid_t suid)
 	cred->suid = suid;
 }
 
-void _iee_copy_cred(unsigned long __unused, struct cred *old, struct cred *new)
-{
-	if (new == &init_cred)
-		panic("copy_cred for init_cred: %lx\n", (unsigned long)new);
-	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
+extern void _iee_memcpy(unsigned long __unused, void *dst, void *src, size_t n);
 
-	memcpy(new, old, sizeof(struct cred));
-	*(struct rcu_head **)(&(new->rcu.func)) = rcu;
-	*(struct rcu_head *)(new->rcu.func) = *(struct rcu_head *)(old->rcu.func);
+void _iee_copy_cred(unsigned long __unused, struct cred *new)
+{
+	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
+	struct cred *_new = __ptr_to_iee(new);
+	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	/* Get old cred inside IEE is safer. */
+	const struct cred *old = current_cred();
+	/* Would verify this field in commit_cred. */
+	token->new_cred = new;
+	_iee_memcpy(0, new, (struct cred *)old, sizeof(struct cred));
+	_new->non_rcu = 0;
+	atomic_long_set(&_new->usage, 1);
+	*(struct rcu_head **)(&(_new->rcu.func)) = rcu;
+	*(struct rcu_head *)(_new->rcu.func) = *(struct rcu_head *)(old->rcu.func);
+}
+
+/* Only used to copy privilege creds like init_cred. */
+void  _iee_copy_kernel_cred(unsigned long __unused, const struct cred *old,
+	struct cred *new)
+{
+	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
+	struct cred *_new = __ptr_to_iee(new);
+	/* Would verify this field in commit_cred. */
+	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+
+	if (!uid_eq(current_uid(), init_cred.uid))
+		panic("IEE: calling prepare_kernel_cred by unprivileged process.");
+
+	token->new_cred = new;
+	_iee_memcpy(0, new, (struct cred *)old, sizeof(struct cred));
+	_new->non_rcu = 0;
+	atomic_long_set(&_new->usage, 1);
+	*(struct rcu_head **)(&(_new->rcu.func)) = rcu;
+	*(struct rcu_head *)(_new->rcu.func) = *(struct rcu_head *)(old->rcu.func);
+}
+
+/* Used only inside copy_creds. */
+void  _iee_init_copied_cred(unsigned long __unused,
+		struct task_struct *new_task, struct cred *new)
+{
+	struct task_token *old_task_token = (struct task_token *)__addr_to_iee(current);
+
+	if (old_task_token->new_cred != new)
+		panic("IEE: (%s) token error. token new cred 0x%llx, new 0%llx", __func__,
+	(u64)old_task_token->new_cred, (u64)new);
+	/* Update token info of new task by current task token. */
+	old_task_token->new_cred = NULL;
+
+	new_task->cred = new_task->real_cred = new;
+}
+
+void _iee_commit_creds(unsigned long __unused, const struct cred *new)
+{
+	struct task_struct *task = current;
+	struct task_token *token = (struct task_token *)__addr_to_iee(task);
+
+	if (token->new_cred != new)
+		panic("IEE: (%s) Invalid cred 0x%llx.", __func__, (u64)new);
+	/* task->cred shall be updated once. */
+	token->new_cred = NULL;
+
+	rcu_assign_pointer(task->real_cred, new);
+	rcu_assign_pointer(task->cred, new);
+}
+
+void  _iee_abort_cred(unsigned long __unused, const struct cred *cred)
+{
+	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+
+	token->new_cred = NULL;
 }
 
 void _iee_set_cred_gid(unsigned long __unused, struct cred *cred, kgid_t gid)

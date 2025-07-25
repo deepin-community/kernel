@@ -18,7 +18,26 @@ extern unsigned long IEE_OFFSET;
 #define __page_to_phys(x) (page_to_pfn(x) << PAGE_SHIFT)
 #define __page_to_iee(x) ((unsigned long)(__phys_to_iee(__page_to_phys(x))))
 #define __slab_to_iee(x) (__page_to_iee(folio_page(slab_folio(x), 0)))
-#define __addr_to_iee(x) (__phys_to_iee(__pa(x)))
+//#define __addr_to_iee(x) (__phys_to_iee(__pa(x)))
+
+#define __virt_to_iee(x)	(((u64)x) + IEE_OFFSET)
+#define __kimg_to_iee(x)	(__phys_to_iee(__pa_symbol(x)))
+#define __ptr_to_iee(x)	({		\
+	typeof(x) __val;			\
+	if ((u64)x < VMALLOC_START)	\
+		__val = ((typeof(x))(__virt_to_iee((u64)x)));	\
+	else						\
+		__val = ((typeof(x))(__kimg_to_iee((u64)x)));	\
+	__val;						\
+})
+#define __addr_to_iee(x)	({		\
+	u64 __val;			\
+	if ((u64)x < VMALLOC_START)	\
+		__val = (u64)__virt_to_iee((u64)x);	\
+	else						\
+		__val = (u64)__kimg_to_iee((u64)x);	\
+	__val;						\
+})
 
 #define IEE_DATA_ORDER (PMD_SHIFT - PAGE_SHIFT)
 #define IEE_STACK_ORDER 0

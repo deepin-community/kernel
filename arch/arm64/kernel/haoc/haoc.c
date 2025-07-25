@@ -30,6 +30,10 @@ iee_func iee_funcs[] = {
 #endif
 #ifdef CONFIG_CREDP
 	(iee_func)_iee_copy_cred,
+	(iee_func)_iee_copy_kernel_cred,
+	(iee_func)_iee_init_copied_cred,
+	(iee_func)_iee_commit_creds,
+	(iee_func)_iee_abort_cred,
 	(iee_func)_iee_set_cred_uid,
 	(iee_func)_iee_set_cred_gid,
 	(iee_func)_iee_set_cred_suid,
