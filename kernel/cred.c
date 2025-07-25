@@ -300,9 +300,13 @@ struct cred *prepare_creds(void)
 
 	old = task->cred;
 	#ifdef CONFIG_CREDP
-	iee_copy_cred(old, new);
-	iee_set_cred_non_rcu(new, 0);
-	iee_set_cred_atomic_set_usage(new, 1);
+	if (haoc_enabled)
+		iee_copy_cred(new);
+	else {
+		memcpy(new, old, sizeof(struct cred));
+		new->non_rcu = 0;
+		atomic_long_set(&new->usage, 1);
+	}
 	#else
 	memcpy(new, old, sizeof(struct cred));
 
@@ -462,11 +466,21 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 	}
 #endif
 
-	p->cred = p->real_cred = get_cred(new);
+#ifdef CONFIG_CREDP
+	/* Update IEE token info here. */
+	if (haoc_enabled)
+		iee_init_copied_cred(p, get_cred(new));
+	else
+		p->cred = p->real_cred = get_cred(new);
+#endif
 	inc_rlimit_ucounts(task_ucounts(p), UCOUNT_RLIMIT_NPROC, 1);
 	return 0;
 
 error_put:
+#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_abort_creds(new);
+#endif
 	put_cred(new);
 	return ret;
 }
@@ -556,8 +570,17 @@ int commit_creds(struct cred *new)
 	 */
 	if (new->user != old->user || new->user_ns != old->user_ns)
 		inc_rlimit_ucounts(new->ucounts, UCOUNT_RLIMIT_NPROC, 1);
+#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_commit_creds(new);
+	else {
+		rcu_assign_pointer(task->real_cred, new);
+		rcu_assign_pointer(task->cred, new);
+	}
+#else
 	rcu_assign_pointer(task->real_cred, new);
 	rcu_assign_pointer(task->cred, new);
+#endif
 	if (new->user != old->user || new->user_ns != old->user_ns)
 		dec_rlimit_ucounts(old->ucounts, UCOUNT_RLIMIT_NPROC, 1);
 
@@ -595,6 +618,10 @@ void abort_creds(struct cred *new)
 
 	BUG_ON(atomic_long_read(&new->usage) < 1);
 	put_cred(new);
+#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_abort_creds(new);
+#endif
 }
 EXPORT_SYMBOL(abort_creds);
 
@@ -802,9 +829,13 @@ struct cred *prepare_kernel_cred(struct task_struct *daemon)
 	old = get_task_cred(daemon);
 
 	#ifdef CONFIG_CREDP
-	iee_copy_cred(old, new);
-	iee_set_cred_non_rcu(new, 0);
-	iee_set_cred_atomic_set_usage(new, 1);
+	if (haoc_enabled)
+		iee_copy_kernel_cred(old, new);
+	else {
+		*new = *old;
+		new->non_rcu = 0;
+		atomic_long_set(&new->usage, 1);
+	}
 	#else
 	*new = *old;
 	new->non_rcu = 0;

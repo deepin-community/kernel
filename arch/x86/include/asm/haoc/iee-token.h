@@ -19,10 +19,18 @@ extern struct slab *iee_alloc_task_token_slab(struct kmem_cache *s,
 					      struct slab *slab,
 					      unsigned int order);
 
+#ifdef CONFIG_IEE
 struct task_token {
-	pgd_t *pgd;
+	pgd_t *pgd; /* Logical VA */
+	void *iee_stack; /* VA */
+	void *tmp_page;
 	bool valid;
+	void *kernel_stack; /* VA */
+#ifdef CONFIG_CREDP
+	struct cred *new_cred;	/* The valid target for commit_creds. */
+#endif
 };
+#endif /* CONFIG_IEE */
 
 static inline void iee_verify_token_pgd(struct task_struct *tsk)
 {

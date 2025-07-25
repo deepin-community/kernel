@@ -7,14 +7,31 @@
 
 extern unsigned long long iee_rw_gate(int flag, ...);
 
-static void __maybe_unused iee_copy_cred(const struct cred *old, struct cred *new)
+static void __maybe_unused iee_copy_cred(struct cred *new)
 {
-    if(!haoc_enabled)
-    {
-        memcpy(new, old, sizeof(struct cred));
-        return;
-    }
-	iee_rw_gate(IEE_OP_COPY_CRED, old, new);
+	iee_rw_gate(IEE_OP_COPY_CRED, new);
+}
+
+static void __maybe_unused iee_copy_kernel_cred(const struct cred *old,
+								struct cred *new)
+{
+	iee_rw_gate(IEE_OP_COPY_KERNEL_CRED, old, new);
+}
+
+static void __maybe_unused iee_init_copied_cred(struct task_struct *new_task,
+								const struct cred *new)
+{
+	iee_rw_gate(IEE_OP_INIT_COPIED_CRED, new_task, new);
+}
+
+static void __maybe_unused iee_abort_creds(struct cred *cred)
+{
+	iee_rw_gate(IEE_OP_ABORT_CRED, cred);
+}
+
+static void __maybe_unused iee_commit_creds(const struct cred *new)
+{
+	iee_rw_gate(IEE_OP_COMMIT_CRED, new);
 }
 
 static void __maybe_unused iee_set_cred_uid(struct cred *cred, kuid_t uid)

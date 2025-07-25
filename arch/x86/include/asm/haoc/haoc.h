@@ -28,7 +28,12 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk);
 #ifdef CONFIG_CREDP
 #include <linux/cred.h>
 
-void _iee_copy_cred(unsigned long __unused, struct cred *old, struct cred *new);
+void _iee_copy_cred(unsigned long __unused, struct cred *new);
+void _iee_copy_kernel_cred(unsigned long iee_offset, const struct cred *old, struct cred *new);
+void _iee_abort_cred(unsigned long iee_offset, const struct cred *cred);
+void _iee_init_copied_cred(unsigned long iee_offset, struct task_struct *new_task,
+		struct cred *new);
+void _iee_commit_creds(unsigned long iee_offset, const struct cred *new);
 void _iee_set_cred_uid(unsigned long __unused, struct cred *cred, kuid_t uid);
 void _iee_set_cred_gid(unsigned long __unused, struct cred *cred, kgid_t gid);
 void _iee_set_cred_suid(unsigned long __unused, struct cred *cred, kuid_t suid);
