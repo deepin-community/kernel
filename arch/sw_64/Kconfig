@@ -147,6 +147,7 @@ config SW64
 	select SW64_TIMER
 	select SWIOTLB
 	select THREAD_INFO_IN_TASK
+	select CRYPTO_CRC32_SW64 if !SUBARCH_C3B
 
 config LOCKDEP_SUPPORT
 	def_bool y

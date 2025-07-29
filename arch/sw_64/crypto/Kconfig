@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menu "Accelerated Cryptographic Algorithms for CPU (SW64)"
+
+config CRYPTO_CRC32_SW64
+	tristate "CRC32c and CRC32"
+	depends on SW64 && !SUBARCH_C3B
+	select CRC32
+	select CRYPTO_HASH
+	help
+	  CRC32c and CRC32 CRC algorithms
+
+	  Architecture: SW64 with CRC32 instructions
+
+endmenu

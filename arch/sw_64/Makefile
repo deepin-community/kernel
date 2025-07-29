@@ -42,6 +42,7 @@ head-y := arch/sw_64/kernel/head.o
 core-y				+= arch/sw_64/
 drivers-$(CONFIG_PCI)           += arch/sw_64/pci/
 libs-y				+= arch/sw_64/lib/
+drivers-y			+= arch/sw_64/crypto/
 
 # export what is needed by arch/sw_64/boot/Makefile
 LIBS_Y := $(patsubst %/, %/lib.a, $(libs-y))
