@@ -1446,6 +1446,9 @@ endif
 if X86
 source "arch/x86/crypto/Kconfig"
 endif
+if SW64
+source "arch/sw_64/crypto/Kconfig"
+endif
 endif
 
 source "drivers/crypto/Kconfig"
