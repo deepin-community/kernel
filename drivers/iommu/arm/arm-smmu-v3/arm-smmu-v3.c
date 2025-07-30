@@ -1624,6 +1624,17 @@ static irqreturn_t arm_smmu_evtq_thread(int irq, void *dev)
 			ret = arm_smmu_handle_evt(smmu, evt);
 			if (!ret || !__ratelimit(&rs))
 				continue;
+#ifdef CONFIG_ARCH_PHYTIUM
+			if (read_cpuid_id() == MIDR_PHYTIUM_FTC862 &&
+			    read_sysreg_s(SYS_AIDR_EL1) == PHYTIUM_CPU_SOCID_PS24080) {
+				u8 type = FIELD_GET(EVTQ_0_ID, evt[0]);
+				u64 addr = FIELD_GET(EVTQ_2_ADDR, evt[2]);
+
+				if (type == EVT_ID_TRANSLATION_FAULT &&
+				    addr == TRANSLATE_INVALID_ADDR)
+					continue;
+			}
+#endif
 
 			dev_info(smmu->dev, "event 0x%02x received:\n", id);
 			for (i = 0; i < ARRAY_SIZE(evt); ++i)
