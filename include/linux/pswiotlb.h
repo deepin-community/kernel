@@ -86,6 +86,13 @@ struct pswiotlb_passthroughlist {
 	unsigned short device;
 	bool from_grub;
 };
+
+struct pswiotlb_bypass_rules {
+	unsigned short vendor_id;
+	bool dma_is_sg;
+	enum dma_data_direction dir;
+};
+
 /**
  * struct p_io_tlb_pool - Phytium IO TLB memory pool descriptor
  * @start:	The start address of the pswiotlb memory pool. Used to do a quick
@@ -226,7 +233,7 @@ static inline bool is_pswiotlb_buffer(struct device *dev, int nid, phys_addr_t p
 	struct p_io_tlb_mem *mem = &dev->dma_p_io_tlb_mem[nid];
 	struct page *page;
 
-	if (!paddr)
+	if (!paddr || (paddr == DMA_MAPPING_ERROR))
 		return false;
 
 	page = pfn_to_page(PFN_DOWN(paddr));
@@ -276,6 +283,26 @@ void __init pswiotlb_adjust_size(unsigned long size);
 phys_addr_t default_pswiotlb_base(struct device *dev);
 phys_addr_t default_pswiotlb_limit(struct device *dev);
 bool pswiotlb_is_dev_in_passthroughlist(struct pci_dev *dev);
+
+extern const struct pswiotlb_bypass_rules bypass_rules_list[];
+static inline bool pswiotlb_bypass_is_needed(struct device *dev, int nelems,
+			enum dma_data_direction dir)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	bool dma_is_sg = nelems ? true : false;
+	const struct pswiotlb_bypass_rules *list = bypass_rules_list;
+
+	while (list->vendor_id) {
+		if ((pdev->vendor == list->vendor_id) &&
+					(dma_is_sg == list->dma_is_sg) &&
+					(dir == list->dir))
+			return true;
+		list++;
+	}
+
+	return false;
+}
+
 #else
 static inline void pswiotlb_init(bool addressing_limited, unsigned int flags)
 {
@@ -324,6 +351,12 @@ static inline phys_addr_t default_pswiotlb_limit(struct device *dev)
 static inline bool pswiotlb_is_dev_in_passthroughlist(struct pci_dev *dev)
 {
 	return false;
+}
+
+static inline bool pswiotlb_bypass_is_needed(struct device *dev, int nelems,
+			enum dma_data_direction dir)
+{
+	return true;
 }
 #endif /* CONFIG_PSWIOTLB */
 

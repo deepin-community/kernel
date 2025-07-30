@@ -159,7 +159,8 @@ dma_addr_t dma_map_page_attrs(struct device *dev, struct page *page,
 		return DMA_MAPPING_ERROR;
 
 #ifdef CONFIG_PSWIOTLB
-	if (check_if_pswiotlb_is_applicable(dev)) {
+	if (check_if_pswiotlb_is_applicable(dev) &&
+				!pswiotlb_bypass_is_needed(dev, 0, dir)) {
 		addr = pswiotlb_dma_map_page_distribute(dev, page, offset, size, dir, attrs);
 		return addr;
 	}
@@ -206,7 +207,8 @@ static int __dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
 	if (WARN_ON_ONCE(!dev->dma_mask))
 		return 0;
 #ifdef CONFIG_PSWIOTLB
-	if (check_if_pswiotlb_is_applicable(dev)) {
+	if (check_if_pswiotlb_is_applicable(dev) &&
+				!pswiotlb_bypass_is_needed(dev, nents, dir)) {
 		ents = pswiotlb_dma_map_sg_attrs_distribute(dev, sg, nents, dir, attrs);
 		return ents;
 	}
@@ -552,6 +554,9 @@ void *dma_alloc_attrs(struct device *dev, size_t size, dma_addr_t *dma_handle,
 	if (WARN_ON_ONCE(flag & __GFP_COMP))
 		return NULL;
 
+#ifdef CONFIG_PSWIOTLB
+	check_if_pswiotlb_is_applicable(dev);
+#endif
 	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
 		return cpu_addr;
 

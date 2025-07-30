@@ -332,7 +332,9 @@ static void pswiotlb_init_io_tlb_pool(struct p_io_tlb_pool *mem, int nid, phys_a
  */
 static void add_mem_pool(struct p_io_tlb_mem *mem, struct p_io_tlb_pool *pool)
 {
-	spin_lock(&mem->lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&mem->lock, flags);
 	if (mem->capacity != mem->whole_size) {
 		mem->pool_addr[mem->whole_size] = mem->pool_addr[mem->capacity];
 		mem->pool_addr[mem->capacity] = pool;
@@ -344,7 +346,7 @@ static void add_mem_pool(struct p_io_tlb_mem *mem, struct p_io_tlb_pool *pool)
 	mem->capacity++;
 	mem->whole_size++;
 	mem->nslabs += pool->nslabs;
-	spin_unlock(&mem->lock);
+	spin_unlock_irqrestore(&mem->lock, flags);
 }
 
 static void __init *pswiotlb_memblock_alloc(unsigned long npslabs,
@@ -581,14 +583,15 @@ static void pswiotlb_prepare_release_pool(struct p_io_tlb_mem *mem,
 			struct p_io_tlb_pool *pool, int pool_idx)
 {
 	int capacity;
+	unsigned long flags;
 
-	spin_lock(&mem->lock);
+	spin_lock_irqsave(&mem->lock, flags);
 	capacity = mem->capacity;
 	mem->pool_addr[pool_idx] = mem->pool_addr[capacity - 1];
 	mem->pool_addr[capacity - 1] = pool;
 	mem->capacity--;
 	mem->nslabs -= pool->nslabs;
-	spin_unlock(&mem->lock);
+	spin_unlock_irqrestore(&mem->lock, flags);
 }
 static void pswiotlb_release_pool(struct p_io_tlb_mem *mem,
 			struct p_io_tlb_pool *pool, int pool_idx)
@@ -598,12 +601,13 @@ static void pswiotlb_release_pool(struct p_io_tlb_mem *mem,
 	struct page *page_start;
 	size_t slots_size = array_size(sizeof(*pool->slots), pool->nslabs);
 	int pool_idx1;
+	unsigned long flags;
 
-	spin_lock(&mem->lock);
+	spin_lock_irqsave(&mem->lock, flags);
 	pool_idx1 = mem->whole_size - 1;
 	mem->pool_addr[pool_idx] = mem->pool_addr[pool_idx1];
 	mem->whole_size--;
-	spin_unlock(&mem->lock);
+	spin_unlock_irqrestore(&mem->lock, flags);
 
 	bitmap_free(pool->busy_record);
 	free_pages((unsigned long)pool->slots, get_order(slots_size));
@@ -658,13 +662,13 @@ static struct p_io_tlb_pool *pswiotlb_formal_alloc(struct device *dev,
 	pool = pswiotlb_alloc_pool(dev, mem->numa_node_id,
 				P_IO_TLB_MIN_SLABS, dynamic_inc_thr_npslabs,
 				dynamic_inc_thr_npslabs, mem->phys_limit,
-				0, GFP_NOWAIT | __GFP_NOWARN);
+				0, GFP_ATOMIC | GFP_NOWAIT | __GFP_NOWARN);
 	if (!pool) {
 		pr_warn_once("Failed to allocate new formal pool");
 		return NULL;
 	}
 
-	pool->busy_record = bitmap_zalloc(pool->nareas, GFP_KERNEL);
+	pool->busy_record = bitmap_zalloc(pool->nareas, GFP_ATOMIC);
 	if (!pool->busy_record) {
 		pr_warn_ratelimited("%s: Failed to allocate pool busy record.\n", __func__);
 		return NULL;
@@ -881,7 +885,10 @@ void pswiotlb_store_local_node(struct pci_dev *dev, struct pci_bus *bus)
  */
 static unsigned int pswiotlb_align_offset(struct device *dev, u64 addr)
 {
-	return addr & dma_get_min_align_mask(dev) & (P_IO_TLB_SIZE - 1);
+	if (dma_get_min_align_mask(dev))
+		return addr & dma_get_min_align_mask(dev) & (P_IO_TLB_SIZE - 1);
+	else
+		return addr & (P_IO_TLB_SIZE - 1);
 }
 /*
  * Bounce: copy the pswiotlb buffer from or back to the original dma location
@@ -1487,6 +1494,12 @@ dma_addr_t pswiotlb_map(struct device *dev, int nid, phys_addr_t paddr, size_t s
 		arch_sync_dma_for_device(pswiotlb_addr, size, dir);
 	return dma_addr;
 }
+
+const struct pswiotlb_bypass_rules bypass_rules_list[] = {
+	{PCI_VENDOR_ID_MELLANOX, true, DMA_BIDIRECTIONAL},
+	{0, }
+};
+
 size_t pswiotlb_max_mapping_size(struct device *dev)
 {
 	int min_align_mask = dma_get_min_align_mask(dev);

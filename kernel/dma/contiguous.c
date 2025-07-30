@@ -419,8 +419,11 @@ void dma_free_contiguous(struct device *dev, struct page *page, size_t size)
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 
 #ifdef CONFIG_PSWIOTLB
-	if (check_if_pswiotlb_is_applicable(dev))
+	if (check_if_pswiotlb_is_applicable(dev)) {
 		__free_pages(page, get_order(size));
+
+		return;
+	}
 #endif
 	/* if dev has its own cma, free page from there */
 	if (dev->cma_area) {
