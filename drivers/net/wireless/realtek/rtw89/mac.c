@@ -2801,7 +2801,7 @@ static int ptcl_init_ax(struct rtw89_dev *rtwdev, u8 mac_idx)
 				  B_AX_SPE_RPT_PATH_MASK, FWD_TO_WLCPU);
 	}
 
-	if (chip_id == RTL8852A || chip_id == RTL8852B) {
+	if (chip_id == RTL8852A || rtw89_is_rtl885xb(rtwdev)) {
 		reg = rtw89_mac_reg_by_idx(rtwdev, R_AX_AGG_LEN_VHT_0, mac_idx);
 		rtw89_write32_mask(rtwdev, reg,
 				   B_AX_AMPDU_MAX_LEN_VHT_MASK, 0x3FF80);
