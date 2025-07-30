@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# SW64 CPU Idle drivers
+#
+config SW64_CPUIDLE
+	bool "Generic SW64 CPU idle Driver"
