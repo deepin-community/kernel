@@ -52,6 +52,10 @@
 #include <linux/cma.h>
 #include <linux/nospec.h>
 
+#ifdef CONFIG_PSWIOTLB
+#include "./phytium/pswiotlb-dma.h"
+#endif
+
 #ifdef CONFIG_CMA_SIZE_MBYTES
 #define CMA_SIZE_MBYTES CONFIG_CMA_SIZE_MBYTES
 #else
@@ -358,6 +362,10 @@ static struct page *cma_alloc_aligned(struct cma *cma, size_t size, gfp_t gfp)
  */
 struct page *dma_alloc_contiguous(struct device *dev, size_t size, gfp_t gfp)
 {
+#ifdef CONFIG_PSWIOTLB
+	if (check_if_pswiotlb_is_applicable(dev))
+		return NULL;
+#endif
 #ifdef CONFIG_DMA_NUMA_CMA
 	int nid = dev_to_node(dev);
 #endif
@@ -410,6 +418,10 @@ void dma_free_contiguous(struct device *dev, struct page *page, size_t size)
 {
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 
+#ifdef CONFIG_PSWIOTLB
+	if (check_if_pswiotlb_is_applicable(dev))
+		__free_pages(page, get_order(size));
+#endif
 	/* if dev has its own cma, free page from there */
 	if (dev->cma_area) {
 		if (cma_release(dev->cma_area, page, count))

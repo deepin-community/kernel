@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config PSWIOTLB
+	bool "Phytium software IO TLB"
+	select NEED_DMA_MAP_STATE
+	depends on ARCH_PHYTIUM && NUMA
+	help
+	  This enables phytium software IO TLB. You can disable phytium software
+	  IO TLB using "pswiotlb=forceoff" on the kernel command line if you do
+	  not need it when PSWIOTLB is Y.

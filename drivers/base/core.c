@@ -32,6 +32,10 @@
 #include <linux/sysfs.h>
 #include <linux/dma-map-ops.h> /* for dma_default_coherent */
 
+#ifdef CONFIG_PSWIOTLB
+#include <linux/pswiotlb.h>
+#endif
+
 #include "base.h"
 #include "physical_location.h"
 #include "power/power.h"
@@ -3168,6 +3172,11 @@ void device_initialize(struct device *dev)
 	dev->dma_coherent = dma_default_coherent;
 #endif
 	swiotlb_dev_init(dev);
+#ifdef CONFIG_PSWIOTLB
+	if ((pswiotlb_force_disable != true) &&
+		is_phytium_ps_socs())
+		pswiotlb_dev_init(dev);
+#endif
 }
 EXPORT_SYMBOL_GPL(device_initialize);
 
