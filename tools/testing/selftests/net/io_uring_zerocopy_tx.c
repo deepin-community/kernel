@@ -120,6 +120,16 @@ struct io_uring {
 # ifndef __NR_io_uring_register
 #  define __NR_io_uring_register	537
 # endif
+#elif defined(__sw_64__)
+# ifndef __NR_io_uring_setup
+#  define __NR_io_uring_setup           272
+# endif
+# ifndef __NR_io_uring_enter
+#  define __NR_io_uring_enter           273
+# endif
+# ifndef __NR_io_uring_register
+#  define __NR_io_uring_register        274
+# endif
 #else /* !__alpha__ */
 # ifndef __NR_io_uring_setup
 #  define __NR_io_uring_setup		425
