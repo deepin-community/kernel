@@ -324,7 +324,7 @@ static int __iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 static ssize_t __iommu_map_sg_dma(struct device *dev, struct iommu_domain *domain,
 		unsigned long iova, struct scatterlist *sg, unsigned int nents,
-		int prot, gfp_t gfp, unsigned long attrs)
+		int prot, gfp_t gfp, enum dma_data_direction dir, unsigned long attrs)
 {
 	const struct iommu_domain_ops *ops = domain->ops;
 	size_t mapped = 0;
@@ -333,7 +333,6 @@ static ssize_t __iommu_map_sg_dma(struct device *dev, struct iommu_domain *domai
 	struct iova_domain *iovad = &cookie->iovad;
 	size_t aligned_size;
 	int nid = dev->numa_node;
-	enum dma_data_direction dir = prot & (DMA_TO_DEVICE | DMA_FROM_DEVICE | DMA_BIDIRECTIONAL);
 	struct scatterlist *sg_orig = sg;
 	struct scatterlist *s;
 	int i;
@@ -390,9 +389,9 @@ out_err:
 static ssize_t pswiotlb_iommu_map_sg_atomic_dma(struct device *dev,
 			struct iommu_domain *domain, unsigned long iova,
 			struct scatterlist *sg, unsigned int nents, int prot,
-			unsigned long attrs)
+			enum dma_data_direction dir, unsigned long attrs)
 {
-	return __iommu_map_sg_dma(dev, domain, iova, sg, nents, prot, GFP_ATOMIC, attrs);
+	return __iommu_map_sg_dma(dev, domain, iova, sg, nents, prot, GFP_ATOMIC, dir, attrs);
 }
 
 static bool dev_is_untrusted(struct device *dev)
@@ -1127,7 +1126,8 @@ int pswiotlb_iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	 * implementation - it knows better than we do.
 	 */
 	if (dir != DMA_TO_DEVICE && is_pswiotlb_active(dev))
-		ret = pswiotlb_iommu_map_sg_atomic_dma(dev, domain, iova, sg, nents, prot, attrs);
+		ret = pswiotlb_iommu_map_sg_atomic_dma(dev, domain,
+					iova, sg, nents, prot, dir, attrs);
 	else
 		ret = iommu_map_sg(domain, iova, sg, nents, prot, GFP_ATOMIC);
 
