@@ -270,3 +270,5 @@ config DMA_MAP_BENCHMARK
 	  performance of dma_(un)map_page.
 
 	  See tools/testing/selftests/dma/dma_map_benchmark.c
+
+source "kernel/dma/phytium/Kconfig"
