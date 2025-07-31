@@ -2258,7 +2258,7 @@ int vprintk_store(int facility, int level,
 			}
 
 #ifdef CONFIG_SW64_RRK
-			sw64_rrk_store(&r.text_buf[r.info->text_len], text_len,
+			sw64_rrk_store(&r.text_buf[r.info->text_len - text_len], text_len,
 					r.info->ts_nsec, -1, e.id,
 					!!(flags & LOG_NEWLINE));
 #endif
