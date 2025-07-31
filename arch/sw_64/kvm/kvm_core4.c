@@ -226,15 +226,18 @@ static int __init kvm_core4_init(void)
 
 	ret = kvm_init(sizeof(struct kvm_vcpu), 0, THIS_MODULE);
 
-	if (ret)
-		return ret;
+	if (likely(!ret))
+		return 0;
 
-	return 0;
+	kvm_unregister_perf_callbacks();
+
+	return ret;
 }
 
 static void __exit kvm_core4_exit(void)
 {
 	kvm_exit();
+	kvm_unregister_perf_callbacks();
 }
 
 module_init(kvm_core4_init);

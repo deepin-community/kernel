@@ -383,6 +383,7 @@ static int __init kvm_core3_init(void)
 	if (likely(!ret))
 		return 0;
 
+	kvm_unregister_perf_callbacks();
 	vmem_exit();
 out:
 	bind_vcpu_exit();
@@ -392,6 +393,7 @@ out:
 static void __exit kvm_core3_exit(void)
 {
 	kvm_exit();
+	kvm_unregister_perf_callbacks();
 	vmem_exit();
 	bind_vcpu_exit();
 }
