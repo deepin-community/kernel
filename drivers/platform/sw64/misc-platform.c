@@ -163,6 +163,7 @@ void __iomem *misc_platform_get_intpu_base(unsigned long node)
 
 	return intpu_base;
 }
+EXPORT_SYMBOL(misc_platform_get_intpu_base);
 
 void __iomem *misc_platform_get_gpio_base(unsigned long node)
 {
