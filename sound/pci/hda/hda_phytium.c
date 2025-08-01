@@ -847,6 +847,7 @@ static int azx_first_init(struct azx *chip)
 	struct resource *res;
 	const struct acpi_device_id *match;
 
+	device_enable_async_suspend(hddev);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hda->regs = devm_ioremap_resource(hddev, res);
 	if (IS_ERR(hda->regs))
