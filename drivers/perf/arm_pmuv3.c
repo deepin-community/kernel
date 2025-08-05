@@ -1364,7 +1364,7 @@ static int __init armv8_pmu_driver_init(void)
 	else
 		ret = arm_pmu_acpi_probe(armv8_pmuv3_pmu_init);
 
-	if (!ret)
+	if (!ret && disable_sdei_nmi_watchdog)
 		lockup_detector_retry_init();
 
 	return ret;
