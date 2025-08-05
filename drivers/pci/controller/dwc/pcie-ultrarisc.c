@@ -33,7 +33,24 @@ struct ultrarisc_pcie {
 
 static const struct of_device_id ultrarisc_pcie_of_match[];
 
+static struct pci_ops ultrarisc_pci_ops = {
+	.map_bus = dw_pcie_own_conf_map_bus,
+	.read = pci_generic_config_read32,
+	.write = pci_generic_config_write32,
+};
+
+static int ultrarisc_pcie_host_init(struct dw_pcie_rp *pp)
+{
+	struct pci_host_bridge *bridge = pp->bridge;
+
+	/* Set the bus ops */
+	bridge->ops = &ultrarisc_pci_ops;
+
+	return 0;
+}
+
 static const struct dw_pcie_host_ops ultrarisc_pcie_host_ops = {
+	.host_init = ultrarisc_pcie_host_init,
 };
 
 static int ultrarisc_pcie_establish_link(struct dw_pcie *pci)
@@ -73,7 +90,7 @@ static int ultrarisc_pcie_establish_link(struct dw_pcie *pci)
 	return 0;
 }
 
-static const struct dw_pcie_ops ultrarisc_pcie_ops = {
+static const struct dw_pcie_ops dw_pcie_ops = {
 	.start_link = ultrarisc_pcie_establish_link,
 };
 
@@ -94,7 +111,7 @@ static int ultrarisc_pcie_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pci->dev = dev;
-	pci->ops = &ultrarisc_pcie_ops;
+	pci->ops = &dw_pcie_ops;
 
 	/* Set a default value suitable for at most 16 in and 16 out windows */
 	pci->atu_size = SZ_8K;
