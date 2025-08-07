@@ -33,6 +33,7 @@ enum blkg_iostat_type {
 	BLKG_IOSTAT_READ,
 	BLKG_IOSTAT_WRITE,
 	BLKG_IOSTAT_DISCARD,
+	BLKG_IOSTAT_DEEPIN_KABI_RESERVE,
 
 	BLKG_IOSTAT_NR,
 };
@@ -49,6 +50,12 @@ struct blkg_iostat_set {
 	int				lqueued;	/* queued in llist */
 	struct blkg_iostat		cur;
 	struct blkg_iostat		last;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 /* association between a blk cgroup and a request queue */
@@ -88,6 +95,12 @@ struct blkcg_gq {
 	int				last_use;
 
 	struct rcu_head			rcu_head;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 struct blkcg {
@@ -114,6 +127,12 @@ struct blkcg {
 #ifdef CONFIG_CGROUP_WRITEBACK
 	struct list_head		cgwb_list;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 static inline struct blkcg *css_to_blkcg(struct cgroup_subsys_state *css)
@@ -137,6 +156,9 @@ struct blkg_policy_data {
 	struct blkcg_gq			*blkg;
 	int				plid;
 	bool				online;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*
@@ -150,6 +172,9 @@ struct blkcg_policy_data {
 	/* the blkcg and policy id this per-policy data belongs to */
 	struct blkcg			*blkcg;
 	int				plid;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 typedef struct blkcg_policy_data *(blkcg_pol_alloc_cpd_fn)(gfp_t gfp);
@@ -183,6 +208,11 @@ struct blkcg_policy {
 	blkcg_pol_free_pd_fn		*pd_free_fn;
 	blkcg_pol_reset_pd_stats_fn	*pd_reset_stats_fn;
 	blkcg_pol_stat_pd_fn		*pd_stat_fn;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 extern struct blkcg blkcg_root;
