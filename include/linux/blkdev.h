@@ -48,7 +48,7 @@ extern struct class block_class;
  * Maximum number of blkcg policies allowed to be registered concurrently.
  * Defined here to simplify include dependency.
  */
-#define BLKCG_MAX_POLS		6
+#define BLKCG_MAX_POLS		10
 
 #define DISK_MAX_PARTS			256
 #define DISK_NAME_LEN			32
