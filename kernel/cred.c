@@ -472,6 +472,8 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 		iee_init_copied_cred(p, get_cred(new));
 	else
 		p->cred = p->real_cred = get_cred(new);
+#else
+	p->cred = p->real_cred = get_cred(new);
 #endif
 	inc_rlimit_ucounts(task_ucounts(p), UCOUNT_RLIMIT_NPROC, 1);
 	return 0;

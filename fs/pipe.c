@@ -76,18 +76,20 @@ static unsigned long pipe_user_pages_soft = PIPE_DEF_BUFFERS * INR_OPEN_CUR;
  * -- Manfred Spraul <manfred@colorfullife.com> 2002-05-09
  */
 
-static void pipe_lock_nested(struct pipe_inode_info *pipe, int subclass)
+#define cmp_int(l, r)		((l > r) - (l < r))
+
+#ifdef CONFIG_PROVE_LOCKING
+static int pipe_lock_cmp_fn(const struct lockdep_map *a,
+			    const struct lockdep_map *b)
 {
-	if (pipe->files)
-		mutex_lock_nested(&pipe->mutex, subclass);
+	return cmp_int((unsigned long) a, (unsigned long) b);
 }
+#endif
 
 void pipe_lock(struct pipe_inode_info *pipe)
 {
-	/*
-	 * pipe_lock() nests non-pipe inode locks (for writing to a file)
-	 */
-	pipe_lock_nested(pipe, I_MUTEX_PARENT);
+	if (pipe->files)
+		mutex_lock(&pipe->mutex);
 }
 EXPORT_SYMBOL(pipe_lock);
 
@@ -98,28 +100,16 @@ void pipe_unlock(struct pipe_inode_info *pipe)
 }
 EXPORT_SYMBOL(pipe_unlock);
 
-static inline void __pipe_lock(struct pipe_inode_info *pipe)
-{
-	mutex_lock_nested(&pipe->mutex, I_MUTEX_PARENT);
-}
-
-static inline void __pipe_unlock(struct pipe_inode_info *pipe)
-{
-	mutex_unlock(&pipe->mutex);
-}
-
 void pipe_double_lock(struct pipe_inode_info *pipe1,
 		      struct pipe_inode_info *pipe2)
 {
 	BUG_ON(pipe1 == pipe2);
 
-	if (pipe1 < pipe2) {
-		pipe_lock_nested(pipe1, I_MUTEX_PARENT);
-		pipe_lock_nested(pipe2, I_MUTEX_CHILD);
-	} else {
-		pipe_lock_nested(pipe2, I_MUTEX_PARENT);
-		pipe_lock_nested(pipe1, I_MUTEX_CHILD);
-	}
+	if (pipe1 > pipe2)
+		swap(pipe1, pipe2);
+
+	pipe_lock(pipe1);
+	pipe_lock(pipe2);
 }
 
 static void anon_pipe_buf_release(struct pipe_inode_info *pipe,
@@ -220,11 +210,10 @@ static const struct pipe_buf_operations anon_pipe_buf_ops = {
 /* Done while waiting without holding the pipe lock - thus the READ_ONCE() */
 static inline bool pipe_readable(const struct pipe_inode_info *pipe)
 {
-	unsigned int head = READ_ONCE(pipe->head);
-	unsigned int tail = READ_ONCE(pipe->tail);
+	union pipe_index idx = { .head_tail = READ_ONCE(pipe->head_tail) };
 	unsigned int writers = READ_ONCE(pipe->writers);
 
-	return !pipe_empty(head, tail) || !writers;
+	return !pipe_empty(idx.head, idx.tail) || !writers;
 }
 
 static inline unsigned int pipe_update_tail(struct pipe_inode_info *pipe,
@@ -263,7 +252,7 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 	size_t total_len = iov_iter_count(to);
 	struct file *filp = iocb->ki_filp;
 	struct pipe_inode_info *pipe = filp->private_data;
-	bool was_full, wake_next_reader = false;
+	bool wake_writer = false, wake_next_reader = false;
 	ssize_t ret;
 
 	/* Null read succeeds. */
@@ -271,17 +260,16 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 		return 0;
 
 	ret = 0;
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 
 	/*
-	 * We only wake up writers if the pipe was full when we started
-	 * reading in order to avoid unnecessary wakeups.
+	 * We only wake up writers if the pipe was full when we started reading
+	 * and it is no longer full after reading to avoid unnecessary wakeups.
 	 *
 	 * But when we do wake up writers, we do so using a sync wakeup
 	 * (WF_SYNC), because we want them to get going and generate more
 	 * data for us.
 	 */
-	was_full = pipe_full(pipe->head, pipe->tail, pipe->max_usage);
 	for (;;) {
 		/* Read ->head with a barrier vs post_one_notification() */
 		unsigned int head = smp_load_acquire(&pipe->head);
@@ -350,8 +338,10 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 				buf->len = 0;
 			}
 
-			if (!buf->len)
+			if (!buf->len) {
+				wake_writer |= pipe_full(head, tail, pipe->max_usage);
 				tail = pipe_update_tail(pipe, buf, tail);
+			}
 			total_len -= chars;
 			if (!total_len)
 				break;	/* common path: read succeeded */
@@ -368,7 +358,7 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 			ret = -EAGAIN;
 			break;
 		}
-		__pipe_unlock(pipe);
+		mutex_unlock(&pipe->mutex);
 
 		/*
 		 * We only get here if we didn't actually read anything.
@@ -387,7 +377,7 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 		 * _very_ unlikely case that the pipe was full, but we got
 		 * no data.
 		 */
-		if (unlikely(was_full))
+		if (unlikely(wake_writer))
 			wake_up_interruptible_sync_poll(&pipe->wr_wait, EPOLLOUT | EPOLLWRNORM);
 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
 
@@ -400,15 +390,15 @@ pipe_read(struct kiocb *iocb, struct iov_iter *to)
 		if (wait_event_interruptible_exclusive(pipe->rd_wait, pipe_readable(pipe)) < 0)
 			return -ERESTARTSYS;
 
-		__pipe_lock(pipe);
-		was_full = pipe_full(pipe->head, pipe->tail, pipe->max_usage);
+		wake_writer = false;
 		wake_next_reader = true;
+		mutex_lock(&pipe->mutex);
 	}
-	if (pipe_empty(pipe->head, pipe->tail))
+	if (pipe_is_empty(pipe))
 		wake_next_reader = false;
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 
-	if (was_full)
+	if (wake_writer)
 		wake_up_interruptible_sync_poll(&pipe->wr_wait, EPOLLOUT | EPOLLWRNORM);
 	if (wake_next_reader)
 		wake_up_interruptible_sync_poll(&pipe->rd_wait, EPOLLIN | EPOLLRDNORM);
@@ -426,11 +416,10 @@ static inline int is_packetized(struct file *file)
 /* Done while waiting without holding the pipe lock - thus the READ_ONCE() */
 static inline bool pipe_writable(const struct pipe_inode_info *pipe)
 {
-	unsigned int head = READ_ONCE(pipe->head);
-	unsigned int tail = READ_ONCE(pipe->tail);
+	union pipe_index idx = { .head_tail = READ_ONCE(pipe->head_tail) };
 	unsigned int max_usage = READ_ONCE(pipe->max_usage);
 
-	return !pipe_full(head, tail, max_usage) ||
+	return !pipe_full(idx.head, idx.tail, max_usage) ||
 		!READ_ONCE(pipe->readers);
 }
 
@@ -462,7 +451,7 @@ pipe_write(struct kiocb *iocb, struct iov_iter *from)
 	if (unlikely(total_len == 0))
 		return 0;
 
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 
 	if (!pipe->readers) {
 		send_sig(SIGPIPE, current, 0);
@@ -582,19 +571,19 @@ pipe_write(struct kiocb *iocb, struct iov_iter *from)
 		 * after waiting we need to re-check whether the pipe
 		 * become empty while we dropped the lock.
 		 */
-		__pipe_unlock(pipe);
+		mutex_unlock(&pipe->mutex);
 		if (was_empty)
 			wake_up_interruptible_sync_poll(&pipe->rd_wait, EPOLLIN | EPOLLRDNORM);
 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
 		wait_event_interruptible_exclusive(pipe->wr_wait, pipe_writable(pipe));
-		__pipe_lock(pipe);
-		was_empty = pipe_empty(pipe->head, pipe->tail);
+		mutex_lock(&pipe->mutex);
+		was_empty = pipe_is_empty(pipe);
 		wake_next_writer = true;
 	}
 out:
-	if (pipe_full(pipe->head, pipe->tail, pipe->max_usage))
+	if (pipe_is_full(pipe))
 		wake_next_writer = false;
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 
 	/*
 	 * If we do do a wakeup event, we do a 'sync' wakeup, because we
@@ -625,30 +614,29 @@ out:
 static long pipe_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct pipe_inode_info *pipe = filp->private_data;
-	unsigned int count, head, tail, mask;
+	unsigned int count, head, tail;
 
 	switch (cmd) {
 	case FIONREAD:
-		__pipe_lock(pipe);
+		mutex_lock(&pipe->mutex);
 		count = 0;
 		head = pipe->head;
 		tail = pipe->tail;
-		mask = pipe->ring_size - 1;
 
-		while (tail != head) {
-			count += pipe->bufs[tail & mask].len;
+		while (!pipe_empty(head, tail)) {
+			count += pipe_buf(pipe, tail)->len;
 			tail++;
 		}
-		__pipe_unlock(pipe);
+		mutex_unlock(&pipe->mutex);
 
 		return put_user(count, (int __user *)arg);
 
 #ifdef CONFIG_WATCH_QUEUE
 	case IOC_WATCH_QUEUE_SET_SIZE: {
 		int ret;
-		__pipe_lock(pipe);
+		mutex_lock(&pipe->mutex);
 		ret = watch_queue_set_size(pipe, arg);
-		__pipe_unlock(pipe);
+		mutex_unlock(&pipe->mutex);
 		return ret;
 	}
 
@@ -668,7 +656,7 @@ pipe_poll(struct file *filp, poll_table *wait)
 {
 	__poll_t mask;
 	struct pipe_inode_info *pipe = filp->private_data;
-	unsigned int head, tail;
+	union pipe_index idx;
 
 	/* Epoll has some historical nasty semantics, this enables them */
 	WRITE_ONCE(pipe->poll_usage, true);
@@ -689,19 +677,18 @@ pipe_poll(struct file *filp, poll_table *wait)
 	 * if something changes and you got it wrong, the poll
 	 * table entry will wake you up and fix it.
 	 */
-	head = READ_ONCE(pipe->head);
-	tail = READ_ONCE(pipe->tail);
+	idx.head_tail = READ_ONCE(pipe->head_tail);
 
 	mask = 0;
 	if (filp->f_mode & FMODE_READ) {
-		if (!pipe_empty(head, tail))
+		if (!pipe_empty(idx.head, idx.tail))
 			mask |= EPOLLIN | EPOLLRDNORM;
 		if (!pipe->writers && filp->f_version != pipe->w_counter)
 			mask |= EPOLLHUP;
 	}
 
 	if (filp->f_mode & FMODE_WRITE) {
-		if (!pipe_full(head, tail, pipe->max_usage))
+		if (!pipe_full(idx.head, idx.tail, pipe->max_usage))
 			mask |= EPOLLOUT | EPOLLWRNORM;
 		/*
 		 * Most Unices do not set EPOLLERR for FIFOs but on Linux they
@@ -734,7 +721,7 @@ pipe_release(struct inode *inode, struct file *file)
 {
 	struct pipe_inode_info *pipe = file->private_data;
 
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 	if (file->f_mode & FMODE_READ)
 		pipe->readers--;
 	if (file->f_mode & FMODE_WRITE)
@@ -747,7 +734,7 @@ pipe_release(struct inode *inode, struct file *file)
 		kill_fasync(&pipe->fasync_readers, SIGIO, POLL_IN);
 		kill_fasync(&pipe->fasync_writers, SIGIO, POLL_OUT);
 	}
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 
 	put_pipe_info(inode, pipe);
 	return 0;
@@ -759,7 +746,7 @@ pipe_fasync(int fd, struct file *filp, int on)
 	struct pipe_inode_info *pipe = filp->private_data;
 	int retval = 0;
 
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 	if (filp->f_mode & FMODE_READ)
 		retval = fasync_helper(fd, filp, on, &pipe->fasync_readers);
 	if ((filp->f_mode & FMODE_WRITE) && retval >= 0) {
@@ -768,7 +755,7 @@ pipe_fasync(int fd, struct file *filp, int on)
 			/* this can happen only if on == T */
 			fasync_helper(-1, filp, 0, &pipe->fasync_readers);
 	}
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 	return retval;
 }
 
@@ -834,6 +821,7 @@ struct pipe_inode_info *alloc_pipe_info(void)
 		pipe->nr_accounted = pipe_bufs;
 		pipe->user = user;
 		mutex_init(&pipe->mutex);
+		lock_set_cmp_fn(&pipe->mutex, pipe_lock_cmp_fn, NULL);
 		return pipe;
 	}
 
@@ -1144,7 +1132,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	filp->private_data = pipe;
 	/* OK, we have a pipe and it's pinned down */
 
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 
 	/* We can only do regular read/write on fifos */
 	stream_open(inode, filp);
@@ -1214,7 +1202,7 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	}
 
 	/* Ok! */
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 	return 0;
 
 err_rd:
@@ -1230,7 +1218,7 @@ err_wr:
 	goto err;
 
 err:
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 
 	put_pipe_info(inode, pipe);
 	return ret;
@@ -1411,7 +1399,7 @@ long pipe_fcntl(struct file *file, unsigned int cmd, unsigned int arg)
 	if (!pipe)
 		return -EBADF;
 
-	__pipe_lock(pipe);
+	mutex_lock(&pipe->mutex);
 
 	switch (cmd) {
 	case F_SETPIPE_SZ:
@@ -1425,7 +1413,7 @@ long pipe_fcntl(struct file *file, unsigned int cmd, unsigned int arg)
 		break;
 	}
 
-	__pipe_unlock(pipe);
+	mutex_unlock(&pipe->mutex);
 	return ret;
 }
 
