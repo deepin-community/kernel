@@ -14,7 +14,7 @@ config HSA_AMD
 
 config HSA_AMD_SVM
 	bool "Enable HMM-based shared virtual memory manager"
-	depends on HSA_AMD && DEVICE_PRIVATE
+	depends on HSA_AMD && DEVICE_PRIVATE && !LOONGARCH && !ARM64
 	default y
 	select HMM_MIRROR
 	select MMU_NOTIFIER
