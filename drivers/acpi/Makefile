@@ -134,3 +134,4 @@ obj-$(CONFIG_ACPI_VIOT)		+= viot.o
 
 obj-$(CONFIG_RISCV)		+= riscv/
 obj-$(CONFIG_X86)		+= x86/
+obj-$(CONFIG_LOONGARCH)		+= loongarch/

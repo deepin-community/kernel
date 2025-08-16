@@ -2834,6 +2834,7 @@ void __init acpi_scan_init(void)
 	acpi_pnp_init();
 	acpi_power_resources_init();
 	acpi_init_lpit();
+	acpi_ls7a_pwm_init();
 
 	acpi_scan_add_handler(&generic_device_handler);
 
