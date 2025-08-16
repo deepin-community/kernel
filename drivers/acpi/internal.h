@@ -76,6 +76,12 @@ void acpi_lpss_init(void);
 static inline void acpi_lpss_init(void) {}
 #endif
 
+#if IS_ENABLED(CONFIG_PWM_LOONGSON)
+void acpi_ls7a_pwm_init(void);
+#else
+static inline void acpi_ls7a_pwm_init(void) {}
+#endif
+
 void acpi_apd_init(void);
 
 acpi_status acpi_hotplug_schedule(struct acpi_device *adev, u32 src);
