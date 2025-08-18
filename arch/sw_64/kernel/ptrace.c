@@ -369,7 +369,7 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 long arch_ptrace(struct task_struct *child, long request,
 		unsigned long addr, unsigned long data)
 {
-	unsigned long tmp;
+	unsigned long tmp, *reg_addr;
 	size_t copied;
 	long ret;
 
@@ -388,8 +388,21 @@ long arch_ptrace(struct task_struct *child, long request,
 
 	/* Read register number ADDR. */
 	case PTRACE_PEEKUSR:
-		force_successful_syscall_return();
-		ret = get_reg(child, addr);
+		ret = 0;
+		/*
+		 * return zero value if we catch vectors of f31
+		 * v0 and v3 of f31 are not in this range so ignore them
+		 */
+		if (addr == PT_F31_V1 || addr == PT_F31_V2)
+			break;
+
+		reg_addr = get_reg_addr(child, addr);
+		if (unlikely(IS_ERR(reg_addr)))
+			ret = PTR_ERR(reg_addr);
+		else {
+			ret = *reg_addr;
+			force_successful_syscall_return();
+		}
 		break;
 
 	/* When I and D space are separate, this will have to be fixed.  */
