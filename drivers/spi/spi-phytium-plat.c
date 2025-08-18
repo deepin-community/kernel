@@ -28,6 +28,9 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME "phytium_spi"
+#define DRIVER_VERSION	"1.0.1"
+
+#define SPI_PHYTIUM_DEFAULT_CLK_RATE	50000000
 
 struct phytium_spi_clk {
 	struct phytium_spi  fts;
@@ -41,7 +44,8 @@ static int phytium_spi_probe(struct platform_device *pdev)
 	struct resource *mem;
 	int ret;
 	int num_cs;
-	int global_cs;
+	int global_cs = 1;
+	u32 clk_rate = SPI_PHYTIUM_DEFAULT_CLK_RATE;
 
 	ftsc = devm_kzalloc(&pdev->dev, sizeof(struct phytium_spi_clk),
 			GFP_KERNEL);
