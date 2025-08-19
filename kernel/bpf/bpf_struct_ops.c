@@ -13,6 +13,8 @@
 #include <linux/btf_ids.h>
 #include <linux/rcupdate_wait.h>
 
+#define ST_IMAGE_SIZE (PAGE_SIZE * 2)
+
 enum bpf_struct_ops_state {
 	BPF_STRUCT_OPS_STATE_INIT,
 	BPF_STRUCT_OPS_STATE_INUSE,
@@ -417,7 +419,7 @@ static long bpf_struct_ops_map_update_elem(struct bpf_map *map, void *key,
 	udata = &uvalue->data;
 	kdata = &kvalue->data;
 	image = st_map->image;
-	image_end = st_map->image + PAGE_SIZE;
+	image_end = st_map->image + ST_IMAGE_SIZE;
 
 	for_each_member(i, t, member) {
 		const struct btf_type *mtype, *ptype;
@@ -515,7 +517,7 @@ static long bpf_struct_ops_map_update_elem(struct bpf_map *map, void *key,
 			if (err)
 				goto reset_unlock;
 		}
-		set_memory_rox((long)st_map->image, 1);
+		set_memory_rox((long)st_map->image, ST_IMAGE_SIZE / PAGE_SIZE);
 		/* Let bpf_link handle registration & unregistration.
 		 *
 		 * Pair with smp_load_acquire() during lookup_elem().
@@ -524,7 +526,7 @@ static long bpf_struct_ops_map_update_elem(struct bpf_map *map, void *key,
 		goto unlock;
 	}
 
-	set_memory_rox((long)st_map->image, 1);
+	set_memory_rox((long)st_map->image, ST_IMAGE_SIZE / PAGE_SIZE);
 	err = st_ops->reg(kdata);
 	if (likely(!err)) {
 		/* This refcnt increment on the map here after
@@ -547,8 +549,8 @@ static long bpf_struct_ops_map_update_elem(struct bpf_map *map, void *key,
 	 * there was a race in registering the struct_ops (under the same name) to
 	 * a sub-system through different struct_ops's maps.
 	 */
-	set_memory_nx((long)st_map->image, 1);
-	set_memory_rw((long)st_map->image, 1);
+	set_memory_nx((long)st_map->image, ST_IMAGE_SIZE / PAGE_SIZE);
+	set_memory_rw((long)st_map->image, ST_IMAGE_SIZE / PAGE_SIZE);
 
 reset_unlock:
 	bpf_struct_ops_map_put_progs(st_map);
@@ -685,7 +687,7 @@ static struct bpf_map *bpf_struct_ops_map_alloc(union bpf_attr *attr)
 	st_map->links =
 		bpf_map_area_alloc(btf_type_vlen(t) * sizeof(struct bpf_links *),
 				   NUMA_NO_NODE);
-	st_map->image = bpf_jit_alloc_exec(PAGE_SIZE);
+	st_map->image = bpf_jit_alloc_exec(ST_IMAGE_SIZE);
 	if (!st_map->uvalue || !st_map->links || !st_map->image) {
 		__bpf_struct_ops_map_free(map);
 		return ERR_PTR(-ENOMEM);
