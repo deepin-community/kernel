@@ -72,7 +72,7 @@ enum {
  */
 static void apt_dissolve_pmd(struct kvm *kvm, pmd_t *pmd)
 {
-	if (!pmd_trans_huge(*pmd))
+	if (!pmd_thp_or_huge(*pmd))
 		return;
 
 	pmd_clear(pmd);
@@ -158,7 +158,7 @@ static void unmap_apt_pmds(struct kvm *kvm, pud_t *pud,
 	do {
 		next = pmd_addr_end(addr, end);
 		if (!pmd_none(*pmd)) {
-			if (pmd_trans_huge(*pmd)) {
+			if (pmd_thp_or_huge(*pmd)) {
 				if (pmd_cont(*pmd)) {
 					for (i = 0; i < CONT_PMDS; i++)
 						pmd_clear(pmd + i);
@@ -425,7 +425,7 @@ static void apt_wp_pmds(pud_t *pud, phys_addr_t addr, phys_addr_t end)
 	do {
 		next = pmd_addr_end(addr, end);
 		if (!pmd_none(*pmd)) {
-			if (pmd_trans_huge(*pmd)) {
+			if (pmd_thp_or_huge(*pmd)) {
 				if (!kvm_aptpmd_readonly(pmd))
 					kvm_set_aptpmd_readonly(pmd);
 			} else {
@@ -746,7 +746,7 @@ static bool apt_get_leaf_entry(struct kvm *kvm, phys_addr_t addr,
 	if (!pmdp || pmd_none(*pmdp) || !pmd_present(*pmdp))
 		return false;
 
-	if (pmd_trans_huge(*pmdp)) {
+	if (pmd_thp_or_huge(*pmdp)) {
 		*pmdpp = pmdp;
 		return true;
 	}
@@ -1028,7 +1028,7 @@ retry:
 		 * Normal THP split/merge follows mmu_notifier callbacks and do
 		 * get handled accordingly.
 		 */
-		if (!pmd_trans_huge(old_pmd)) {
+		if (!pmd_thp_or_huge(old_pmd)) {
 			unmap_apt_range(kvm, addr & PMD_MASK, PMD_SIZE);
 			goto retry;
 		}
