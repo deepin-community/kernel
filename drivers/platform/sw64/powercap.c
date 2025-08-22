@@ -243,6 +243,16 @@ static inline bool is_powercap_cpu_match(const struct sunway_powercap_cpu *data,
 	return true;
 }
 
+static inline bool is_powercap_enabled(const struct sunway_powercap_freq *freq)
+{
+	return !!(freq->flags & FREQ_FLAG_ENABLE);
+}
+
+static inline bool is_powercap_no_limit(const struct sunway_powercap_freq *freq)
+{
+	return !!(freq->flags & FREQ_FLAG_FREE);
+}
+
 static int sunway_powercap_validate_freq(const struct sunway_powercap_freq *freq,
 		struct sunway_powercap_ack *ack)
 {
@@ -268,6 +278,10 @@ static int sunway_powercap_validate_freq(const struct sunway_powercap_freq *freq
 		ack->flags |= ACK_FLAG_VALID_NODE;
 		ack->flags |= ACK_FLAG_VALID_CORE;
 
+		/* Make sure that the target freq field is meaningful */
+		if (!is_powercap_enabled(freq) || is_powercap_no_limit(freq))
+			return 0;
+
 		if (cpufreq_frequency_table_get_index(policy, target_freq) < 0) {
 			pr_err("invalid target freq %u\n", target_freq);
 			return -EINVAL;
@@ -282,16 +296,6 @@ out_validate_freq:
 	pr_err("invalid core %u on node %u\n", core, node);
 
 	return -EINVAL;
-}
-
-static inline bool is_powercap_enabled(const struct sunway_powercap_freq *freq)
-{
-	return !!(freq->flags & FREQ_FLAG_ENABLE);
-}
-
-static inline bool is_powercap_no_limit(const struct sunway_powercap_freq *freq)
-{
-	return !!(freq->flags & FREQ_FLAG_FREE);
 }
 
 static inline bool
