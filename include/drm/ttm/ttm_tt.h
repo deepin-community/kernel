@@ -29,6 +29,7 @@
 
 #include <linux/pagemap.h>
 #include <linux/types.h>
+#include <linux/deepin_kabi.h>
 #include <drm/ttm/ttm_caching.h>
 #include <drm/ttm/ttm_kmap_iter.h>
 
@@ -110,6 +111,8 @@ struct ttm_tt {
 	 * ttm_caching.
 	 */
 	enum ttm_caching caching;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
