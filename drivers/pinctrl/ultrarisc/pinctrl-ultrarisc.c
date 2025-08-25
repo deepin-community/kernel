@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/* UltraRisc pinctrl driver
+/* UltraRISC pinctrl driver
  *
- * Copyright(C) 2025 UltraRisc Technology Co., Ltd.
+ * Copyright(C) 2025 UltraRISC Technology Co., Ltd.
  *
  *  Author:  wangjia <wangjia@ultrarisc.com>
  */
@@ -59,9 +59,8 @@ static int ur_subnode_to_pin(struct pinctrl_dev *pctldev,
 	}
 
 	pin_vals = devm_kcalloc(pctldev->dev, rows, sizeof(*pin_vals), GFP_KERNEL);
-	if (!pin_vals) {
+	if (!pin_vals)
 		return -ENOMEM;
-	}
 
 	group_pins = devm_kcalloc(pctldev->dev, rows, sizeof(*group_pins), GFP_KERNEL);
 	if (!group_pins) {
@@ -198,7 +197,6 @@ static int ur_dt_node_to_map(struct pinctrl_dev *pctldev,
 	struct pinctrl_map *new_map;
 	unsigned int map_num = 0, prop_count = 0;
 
-	//device_get_named_child_node(pctldev->dev, np->name);
 	if (of_property_present(np, PINMUX_PROP_NAME)) {
 		mux_present = true;
 		prop_count++;
@@ -269,7 +267,6 @@ static const struct pinctrl_ops ur_pinctrl_ops = {
 static int ur_set_pin_mux(struct ur_pinctrl *pin_ctrl, struct ur_pin_val *pin_vals)
 {
 	unsigned long flag;
-	//bool clear_mode = false;
 	void __iomem *reg;
 	u32 val;
 	const struct ur_port_desc *port;
@@ -358,7 +355,7 @@ static int ur_pin_config_get(struct pinctrl_dev *pctldev,
 			unsigned long *config)
 {
 	dev_dbg(pctldev->dev, "%s(%d): pin=%d\n", __func__, __LINE__, pin);
-	// TODO: this is call by pinconf-generic
+
 	return -EOPNOTSUPP;
 }
 
@@ -382,7 +379,7 @@ static int ur_pin_config_set(struct pinctrl_dev *pctldev,
 }
 
 static int ur_pin_config_group_get(struct pinctrl_dev *pctldev,
-				unsigned selector,
+				unsigned int selector,
 				unsigned long *config)
 {
 	dev_dbg(pctldev->dev, "%s(%d): selector=%d, config=0x%lx\n",
@@ -439,14 +436,11 @@ int ur_pinctrl_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	ur_pinctrl_desc = devm_kzalloc(&pdev->dev, sizeof(*ur_pinctrl_desc), GFP_KERNEL);
-	if (!ur_pinctrl_desc) {
-		dev_err(&pdev->dev, "pinctrl desc alloc failed\n");
+	if (!ur_pinctrl_desc)
 		return -ENOMEM;
-	}
 
 	ur_pinctrl = devm_kzalloc(&pdev->dev, sizeof(*ur_pinctrl), GFP_KERNEL);
 	if (!ur_pinctrl) {
-		dev_err(&pdev->dev, "pinctrl alloc failed\n");
 		ret = -ENOMEM;
 		goto free_pinctrl_desc;
 	}
@@ -474,7 +468,7 @@ int ur_pinctrl_probe(struct platform_device *pdev)
 	ur_pinctrl->pctl_desc = ur_pinctrl_desc;
 	raw_spin_lock_init(&ur_pinctrl->lock);
 	mutex_init(&ur_pinctrl->mutex);
-	
+
 	ret = devm_pinctrl_register_and_init(&pdev->dev, ur_pinctrl_desc,
 			ur_pinctrl, &ur_pinctrl->pctl_dev);
 	if (ret) {
