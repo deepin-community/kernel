@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
-/* UltraRisc pinctrl driver
+/* SPDX-License-Identifier: GPL-2.0 */
+/* UltraRISC pinctrl driver
  *
- * Copyright(C) 2025 UltraRisc Technology Co., Ltd.
+ * Copyright(C) 2025 UltraRISC Technology Co., Ltd.
  *
  *  Author:  wangjia <wangjia@ultrarisc.com>
  */
@@ -50,7 +50,6 @@ struct ur_pinctrl_match_data {
 	const struct pinctrl_pin_desc *pins;
 	u32 npins;
 	u32 offset;
-	//u32 conf_offset[];
 	struct ur_port_desc ports[];
 };
 

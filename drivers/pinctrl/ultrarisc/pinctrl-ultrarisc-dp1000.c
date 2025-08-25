@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-/* UltraRisc DP1000 pinctrl driver
+/* UltraRISC DP1000 pinctrl driver
  *
- * Copyright(C) 2025 UltraRisc Technology Co., Ltd.
+ * Copyright(C) 2025 UltraRISC Technology Co., Ltd.
  *
  *  Author:  wangjia <wangjia@ultrarisc.com>
  */
