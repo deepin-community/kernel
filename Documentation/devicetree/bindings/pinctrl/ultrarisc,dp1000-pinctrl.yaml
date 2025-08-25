@@ -4,21 +4,21 @@
 $id: http://devicetree.org/schemas/pinctrl/ultrarisc,dp1000-pinctrl.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: UltraRisc DP1000 Pin Controller
+title: UltraRISC DP1000 Pin Controller
 maintainers:
   - Jia Wang <wangjia@ultrarisc.com>
 
 description: |
-  UltraRisc RISC-V SoC DP1000 pin controller.
+  UltraRISC RISC-V SoC DP1000 pin controller.
   <dt-bindings/pinctrl/ur-dp1000-pinctrl.h> contains the pinmux definitions.
 
 properties:
   compatible:
     const: ultrarisc,dp1000-pinctrl
-  
+
   reg:
     maxItems: 1
-  
+
   pinctrl-single,register-width:
     description:
       The width of the register used to configure the pinmux.
@@ -52,8 +52,7 @@ patternProperties:
           pinctrl-pins:
             description:
               The list of Pins and their mux settings that properties in the
-              node apply to. This should be set using the UR_DP1000_IOPAD 
-              macros.
+              node apply to. The format: `PORT  PIN  FUNCTION`.
             minItems: 1
             maxItems: 32
             items:
@@ -61,7 +60,8 @@ patternProperties:
           pinconf-pins:
             description:
               The list of Pins and their bias settings that properties in the
-              node apply to. This should be set using the UR_DP1000_BIAS macros.
+              node apply to. The format: `PORT  PIN  BIAS`.The BIAS should be
+              set using the UR_DP1000_BIAS macros.
             minItems: 1
             maxItems: 32
             items:
@@ -81,25 +81,25 @@ examples:
 
       i2c0_pins: i2c0_pins {
         pinctrl-pins = <
-          UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 12, UR_FUNC0)
-          UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 13, UR_FUNC0)
+          UR_DP1000_IOMUX_A  12  UR_FUNC0
+          UR_DP1000_IOMUX_A  13  UR_FUNC0
           >;
-          
+
         pinconf-pins = <
-          UR_DP1000_BIAS(UR_DP1000_IOMUX_A, 12, UR_PULL_UP, UR_DRIVE_DEF)
-          UR_DP1000_BIAS(UR_DP1000_IOMUX_A, 13, UR_PULL_UP, UR_DRIVE_DEF)
+          UR_DP1000_IOMUX_A  12  UR_DP1000_BIAS(UR_PULL_UP, UR_DRIVE_DEF)
+          UR_DP1000_IOMUX_A  13  UR_DP1000_BIAS(UR_PULL_UP, UR_DRIVE_DEF)
           >;
       };
 
       i2c1_pins: i2c1_pins {
         pinctrl-pins = <
-          UR_DP1000_IOPAD(UR_DP1000_IOMUX_B, 6, UR_FUNC0)
-          UR_DP1000_IOPAD(UR_DP1000_IOMUX_B, 7, UR_FUNC0)
+          UR_DP1000_IOMUX_B  6  UR_FUNC0
+          UR_DP1000_IOMUX_B  7  UR_FUNC0
           >;
-          
+
         pinconf-pins = <
-          UR_DP1000_BIAS(UR_DP1000_IOMUX_B, 6, UR_PULL_UP, UR_DRIVE_DEF)
-          UR_DP1000_BIAS(UR_DP1000_IOMUX_B, 7, UR_PULL_UP, UR_DRIVE_DEF)
+          UR_DP1000_IOMUX_B  6  UR_DP1000_BIAS(UR_PULL_UP, UR_DRIVE_DEF)
+          UR_DP1000_IOMUX_B  7  UR_DP1000_BIAS(UR_PULL_UP, UR_DRIVE_DEF)
           >;
       };
     };
