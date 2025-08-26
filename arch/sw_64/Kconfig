@@ -535,9 +535,7 @@ config RANDOMIZE_BASE_MAX_OFFSET
 
 	  This is limited by the size of KTEXT space, 512Mb. The default is 256MB.
 
-config HZ
-	int "HZ of the short timer"
-	default 500
+source "kernel/Kconfig.hz"
 
 source "drivers/eisa/Kconfig"
 
