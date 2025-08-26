@@ -236,10 +236,8 @@ static long hisi_soc_cache_mgmt_ioctl(struct file *file, u32 cmd, unsigned long 
 		kzalloc(sizeof(struct hisi_soc_cache_ioctl_param), GFP_KERNEL);
 	long ret;
 
-	if (!param) {
-		ret = -ENOMEM;
-		goto out;
-	}
+	if (!param)
+		return -ENOMEM;
 
 	if (copy_from_user(param, (void __user *)arg, sizeof(*param))) {
 		ret = -EFAULT;
