@@ -61,13 +61,18 @@ static int hisi_hha_cache_do_maintain(struct hisi_soc_comp *comp,
 {
 	struct hisi_soc_hha *soc_hha = container_of(comp, struct hisi_soc_hha,
 						    comp);
+	phys_addr_t top;
 	int ret = 0;
 	u32 reg;
 
 	if (!size)
 		return -EINVAL;
 
-	if (mnt_type < 0)
+	addr = ALIGN_DOWN(addr, HISI_HHA_MAINT_ALIGN);
+	top = ALIGN(addr + size, HISI_HHA_MAINT_ALIGN);
+	size = top - addr;
+
+	if (mnt_type < 0 || mnt_type >= HISI_CACHE_MAINT_MAX)
 		return -EOPNOTSUPP;
 
 	/*

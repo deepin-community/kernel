@@ -200,6 +200,10 @@ static int __hisi_soc_cache_maintain(unsigned long __user vaddr, size_t size,
 	struct vm_area_struct *vma;
 	int ret = 0;
 
+	/* MakeInvalid is not allowed for calls from userspace. */
+	if (mnt_type >= HISI_CACHE_MAINT_MAKEINVALID)
+		return -EINVAL;
+
 	mmap_read_lock_killable(current->mm);
 
 	vma = vma_lookup(current->mm, vaddr);
