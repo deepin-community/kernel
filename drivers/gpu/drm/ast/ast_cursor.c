@@ -285,7 +285,6 @@ static void ast_cursor_plane_destroy(struct drm_plane *plane)
 	struct iosys_map map = ast_plane->map;
 
 	drm_gem_vram_vunmap(gbo, &map);
-	drm_gem_vram_unpin(gbo);
 	drm_gem_vram_put(gbo);
 
 	drm_plane_cleanup(plane);
@@ -325,7 +324,6 @@ int ast_cursor_plane_init(struct ast_device *ast)
 		if (IS_ERR(gbo))
 			return PTR_ERR(gbo);
 
-		drm_gem_vram_pin(gbo, DRM_GEM_VRAM_PL_FLAG_VRAM | DRM_GEM_VRAM_PL_FLAG_TOPDOWN);
 		drm_gem_vram_vmap(gbo, &map);
 		offset = drm_gem_vram_offset(gbo);
 		ast_cursor_plane->base.gbo = gbo;
