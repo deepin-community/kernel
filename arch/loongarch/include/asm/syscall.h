@@ -58,7 +58,11 @@ static inline void syscall_get_arguments(struct task_struct *task,
 					 unsigned long *args)
 {
 	args[0] = regs->orig_a0;
-	memcpy(&args[1], &regs->regs[5], 5 * sizeof(long));
+	args[1] = regs->regs[5];
+	args[2] = regs->regs[6];
+	args[3] = regs->regs[7];
+	args[4] = regs->regs[8];
+	args[5] = regs->regs[9];
 }
 
 static inline int syscall_get_arch(struct task_struct *task)
