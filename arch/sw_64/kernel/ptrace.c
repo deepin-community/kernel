@@ -291,8 +291,13 @@ static int gpr_set(struct task_struct *target,
 			unsigned int pos, unsigned int count,
 			const void *kbuf, const void __user *ubuf)
 {
-	return user_regset_copyin(&pos, &count, &kbuf, &ubuf,
+	unsigned long ps = task_pt_regs(target)->ps;
+	int ret = user_regset_copyin(&pos, &count, &kbuf, &ubuf,
 				task_pt_regs(target), 0, sizeof(struct user_pt_regs));
+
+	/* users are not allowed to modify PS */
+	task_pt_regs(target)->ps = ps;
+	return ret;
 }
 
 static int fpr_get(struct task_struct *target,
