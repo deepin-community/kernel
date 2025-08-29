@@ -9,6 +9,8 @@
 #include <asm/unistd.h>
 #include <linux/filelock.h>
 
+#include "internal.h"
+
 static bool nsec_valid(long nsec)
 {
 	if (nsec == UTIME_OMIT || nsec == UTIME_NOW)
@@ -97,6 +99,10 @@ retry:
 		return error;
 
 	error = vfs_utimes(&path, times);
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
+		deepin_check_and_notify_ro_fs_err(&path, "utime");
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;

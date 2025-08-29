@@ -62,6 +62,14 @@ int do_mkdirat(int dfd, struct filename *name, umode_t mode);
 int do_symlinkat(struct filename *from, int newdfd, struct filename *to);
 int do_linkat(int olddfd, struct filename *old, int newdfd,
 			struct filename *new, int flags);
+int deepin_get_path_for_err_notify(int dfd, struct filename *name, struct path *result_path);
+
+/*
+ * deepin_err_notify.c
+ */
+int deepin_err_notify_enabled(void);
+void deepin_check_and_notify_ro_fs_err(const struct path *path, const char *func_name);
+void deepin_send_ro_fs_err_notification(const char *filename, const char *func_name);
 
 /*
  * namespace.c

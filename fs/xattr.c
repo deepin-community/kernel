@@ -658,6 +658,10 @@ retry:
 	if (!error) {
 		error = do_setxattr(mnt_idmap(path.mnt), path.dentry, &ctx);
 		mnt_drop_write(path.mnt);
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	} else if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		deepin_check_and_notify_ro_fs_err(&path, "setxattr");
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
@@ -928,6 +932,10 @@ retry:
 	if (!error) {
 		error = removexattr(mnt_idmap(path.mnt), path.dentry, kname);
 		mnt_drop_write(path.mnt);
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	} else if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		deepin_check_and_notify_ro_fs_err(&path, "removexattr");
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {

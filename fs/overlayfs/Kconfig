@@ -133,3 +133,14 @@ config OVERLAY_FS_DEBUG
 	  Say Y here to enable extra debugging checks in overlayfs.
 
 	  If unsure, say N.
+
+config DEEPIN_ERR_NOTIFY
+	bool "Enable deepin error notification"
+	default n
+	depends on OVERLAY_FS
+	help
+	  This option enables deepin error notification for read-only filesystem
+	  errors. When enabled, the kernel will send netlink notifications to
+	  userspace when read-only filesystem errors occur on overlay filesystems
+	  mounted on /usr, allowing the desktop environment to provide better
+	  user feedback and error handling.

@@ -267,6 +267,16 @@ static int ovl_statfs(struct dentry *dentry, struct kstatfs *buf)
 	return err;
 }
 
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+static bool ovl_deepin_should_notify_error(struct super_block *sb)
+{
+	struct ovl_fs *ofs = OVL_FS(sb);
+
+	/* Return true if deepin_err_notify mount option was set */
+	return ofs->config.deepin_err_notify;
+}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+
 static const struct super_operations ovl_super_operations = {
 	.alloc_inode	= ovl_alloc_inode,
 	.free_inode	= ovl_free_inode,
@@ -276,6 +286,9 @@ static const struct super_operations ovl_super_operations = {
 	.sync_fs	= ovl_sync_fs,
 	.statfs		= ovl_statfs,
 	.show_options	= ovl_show_options,
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	.deepin_should_notify_error = ovl_deepin_should_notify_error,
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 };
 
 #define OVL_WORKDIR_NAME "work"
