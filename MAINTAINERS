@@ -5787,6 +5787,11 @@ M:	"WangYuli" <wangyuli@uniontech.com>
 S:	Maintained
 F:	lib/fonts/font_cjk*
 
+DEEPIN ERR NOTIFY
+M:	"electricface" <songwentai@uniontech.com>
+S:	Maintained
+F:	fs/deepin_err_notify.c
+
 DEEPIN KABI-HELPERS
 M:	"Lugang He" <helugang@uniontech.com>
 M:	"WangYuli" <wangyuli@uniontech.com>

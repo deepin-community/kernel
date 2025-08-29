@@ -903,6 +903,11 @@ SYSCALL_DEFINE3(ioctl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
 	if (error == -ENOIOCTLCMD)
 		error = vfs_ioctl(f.file, cmd, arg);
 
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
+		deepin_check_and_notify_ro_fs_err(&f.file->f_path, "ioctl");
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+
 out:
 	fdput(f);
 	return error;

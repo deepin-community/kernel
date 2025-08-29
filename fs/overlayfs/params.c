@@ -59,6 +59,9 @@ enum ovl_opt {
 	Opt_metacopy,
 	Opt_verity,
 	Opt_volatile,
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	Opt_deepin_err_notify,
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 };
 
 static const struct constant_table ovl_parameter_bool[] = {
@@ -159,6 +162,9 @@ const struct fs_parameter_spec ovl_parameter_spec[] = {
 	fsparam_enum("metacopy",            Opt_metacopy, ovl_parameter_bool),
 	fsparam_enum("verity",              Opt_verity, ovl_parameter_verity),
 	fsparam_flag("volatile",            Opt_volatile),
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	fsparam_flag("deepin_err_notify",   Opt_deepin_err_notify),
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	{}
 };
 
@@ -600,6 +606,11 @@ static int ovl_parse_param(struct fs_context *fc, struct fs_parameter *param)
 	case Opt_userxattr:
 		config->userxattr = true;
 		break;
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	case Opt_deepin_err_notify:
+		config->deepin_err_notify = true;
+		break;
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	default:
 		pr_err("unrecognized mount option \"%s\" or missing value\n",
 		       param->key);
@@ -1011,5 +1022,9 @@ int ovl_show_options(struct seq_file *m, struct dentry *dentry)
 	if (ofs->config.verity_mode != ovl_verity_mode_def())
 		seq_printf(m, ",verity=%s",
 			   ovl_verity_mode(&ofs->config));
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (ofs->config.deepin_err_notify)
+		seq_puts(m, ",deepin_err_notify");
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	return 0;
 }

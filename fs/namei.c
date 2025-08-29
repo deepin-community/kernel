@@ -41,6 +41,10 @@
 #include <linux/bitops.h>
 #include <linux/init_task.h>
 #include <linux/uaccess.h>
+#include <net/netlink.h>
+#include <net/genetlink.h>
+#include <asm/syscall.h>
+#include <linux/ptrace.h>
 
 #include "internal.h"
 #include "mount.h"
@@ -4061,6 +4065,19 @@ out2:
 		goto retry;
 	}
 out1:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		struct path file_path;
+		int get_path_err;
+
+		get_path_err =
+			deepin_get_path_for_err_notify(dfd, name, &file_path);
+		if (!get_path_err) {
+			deepin_check_and_notify_ro_fs_err(&file_path, "mknod");
+			path_put(&file_path);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(name);
 	return error;
 }
@@ -4144,6 +4161,19 @@ retry:
 		goto retry;
 	}
 out_putname:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		struct path file_path;
+		int get_path_err;
+
+		get_path_err =
+			deepin_get_path_for_err_notify(dfd, name, &file_path);
+		if (!get_path_err) {
+			deepin_check_and_notify_ro_fs_err(&file_path, "mkdir");
+			path_put(&file_path);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(name);
 	return error;
 }
@@ -4261,6 +4291,21 @@ exit3:
 	inode_unlock(path.dentry->d_inode);
 	mnt_drop_write(path.mnt);
 exit2:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		dentry = lookup_one_qstr_excl(&last, path.dentry, 0);
+		if (!IS_ERR(dentry)) {
+			if (d_is_positive(dentry)) {
+				// dentry is positive, so we can get the path
+				struct path file_path = { .mnt = path.mnt,
+							  .dentry = dentry };
+				deepin_check_and_notify_ro_fs_err(&file_path,
+								  "rmdir");
+			}
+			dput(dentry);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
@@ -4406,6 +4451,21 @@ exit3:
 	}
 	mnt_drop_write(path.mnt);
 exit2:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		dentry = lookup_one_qstr_excl(&last, path.dentry, 0);
+		if (!IS_ERR(dentry)) {
+			if (d_is_positive(dentry)) {
+				// dentry is positive, so we can get the path
+				struct path file_path = { .mnt = path.mnt,
+							  .dentry = dentry };
+				deepin_check_and_notify_ro_fs_err(&file_path,
+								  "unlink");
+			}
+			dput(dentry);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
@@ -4506,6 +4566,20 @@ retry:
 		goto retry;
 	}
 out_putnames:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		struct path file_path;
+		int get_path_err;
+
+		get_path_err =
+			deepin_get_path_for_err_notify(newdfd, to, &file_path);
+		if (!get_path_err) {
+			deepin_check_and_notify_ro_fs_err(&file_path,
+							  "symlink");
+			path_put(&file_path);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(to);
 	putname(from);
 	return error;
@@ -4684,6 +4758,19 @@ out_dput:
 		goto retry;
 	}
 out_putpath:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		struct path file_path;
+		int get_path_err;
+
+		get_path_err =
+			deepin_get_path_for_err_notify(newdfd, new, &file_path);
+		if (!get_path_err) {
+			deepin_check_and_notify_ro_fs_err(&file_path, "link");
+			path_put(&file_path);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&old_path);
 out_putnames:
 	putname(old);
@@ -5038,6 +5125,22 @@ exit3:
 	}
 	mnt_drop_write(old_path.mnt);
 exit2:
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
+		old_dentry =
+			lookup_one_qstr_excl(&old_last, old_path.dentry, 0);
+		if (!IS_ERR(old_dentry)) {
+			if (d_is_positive(old_dentry)) {
+				struct path file_path = { .mnt = old_path.mnt,
+							  .dentry =
+								  old_dentry };
+				deepin_check_and_notify_ro_fs_err(&file_path,
+								  "rename");
+			}
+			dput(old_dentry);
+		}
+	}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	if (retry_estale(error, lookup_flags))
 		should_retry = true;
 	path_put(&new_path);
@@ -5255,3 +5358,40 @@ const struct inode_operations page_symlink_inode_operations = {
 	.get_link	= page_get_link,
 };
 EXPORT_SYMBOL(page_symlink_inode_operations);
+
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+int deepin_get_path_for_err_notify(int dfd, struct filename *name,
+				   struct path *result_path)
+{
+	struct qstr last;
+	struct path parent_path;
+	int type;
+	struct dentry *dentry;
+	int error;
+
+	error = filename_parentat(dfd, name, 0, &parent_path, &last, &type);
+	if (error)
+		return error;
+
+	dentry = lookup_one_qstr_excl(&last, parent_path.dentry, 0);
+	if (!IS_ERR(dentry)) {
+		result_path->mnt = parent_path.mnt;
+		result_path->dentry = dentry;
+		path_get(result_path); // Increment reference count
+		dput(dentry);
+	} else {
+		// If the file does not exist, use the parent directory
+		*result_path = parent_path;
+		path_get(result_path);
+	}
+
+	path_put(&parent_path);
+	return 0;
+}
+#else
+int deepin_get_path_for_err_notify(int dfd, struct filename *name,
+				   struct path *result_path)
+{
+	return -EOPNOTSUPP;
+}
+#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
