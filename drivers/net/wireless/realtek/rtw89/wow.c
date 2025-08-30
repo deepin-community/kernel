@@ -1074,7 +1074,7 @@ static void rtw89_wow_pattern_clear_cam(struct rtw89_dev *rtwdev)
 	for (i = 0; i < rtw_wow->pattern_cnt; i++) {
 		rtw_pattern = &rtw_wow->patterns[i];
 		rtw_pattern->valid = false;
-		rtw89_fw_h2c_wow_cam_update(rtwdev, rtw_pattern);
+		rtw89_chip_h2c_wow_cam_update(rtwdev, rtw_pattern);
 	}
 }
 
@@ -1085,7 +1085,7 @@ static void rtw89_wow_pattern_write(struct rtw89_dev *rtwdev)
 	int i;
 
 	for (i = 0; i < rtw_wow->pattern_cnt; i++)
-		rtw89_fw_h2c_wow_cam_update(rtwdev, rtw_pattern + i);
+		rtw89_chip_h2c_wow_cam_update(rtwdev, rtw_pattern + i);
 }
 
 static void rtw89_wow_pattern_clear(struct rtw89_dev *rtwdev)
