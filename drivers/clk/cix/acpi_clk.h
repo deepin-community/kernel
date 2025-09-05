@@ -37,5 +37,9 @@ struct acpi_clk_hw {
 
 int cix_acpi_parse_clkt(struct device *dev, const char *cname,
 		struct clk_hw *(*get_hw)(struct device *dev, int id));
+int cix_acpi_clks_parse(struct device *dev);
+int cix_acpi_parse_clkt_handle(acpi_handle handle, const char *name,
+			struct clk_hw *(*get_hw)(struct device *dev, int id),
+			void *data);
 
 #endif
