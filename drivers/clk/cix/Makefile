@@ -4,3 +4,4 @@
 obj-y += clk-sky1-audss.o
 obj-y += acpi_clk.o
 obj-y += clk.o
+obj-y += acpi_scmi_clk.o

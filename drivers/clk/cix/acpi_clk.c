@@ -408,6 +408,7 @@ out_free:
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(cix_acpi_parse_clkt_handle);
 
 int cix_acpi_parse_clkt(struct device *dev, const char *cname,
 		struct clk_hw *(get_hw)(struct device *, int))
