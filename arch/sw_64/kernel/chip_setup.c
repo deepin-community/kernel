@@ -90,6 +90,7 @@ static void i2c_srst(void)
 	writeq(0x1, spbu_base + OFFSET_I2C2_SRST_L);
 }
 
+#ifdef CONFIG_PCI
 static void pcie_save(void)
 {
 	struct pci_controller *hose;
@@ -130,6 +131,17 @@ static void pcie_restore(void)
 	}
 
 }
+#else
+static void pcie_save(void)
+{
+
+}
+
+static void pcie_restore(void)
+{
+
+}
+#endif
 
 static unsigned long saved_dvc_int, saved_long_time;
 
