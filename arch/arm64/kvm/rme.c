@@ -1470,10 +1470,24 @@ static void kvm_complete_ripas_change(struct kvm_vcpu *vcpu)
 	} while (top_ipa < top);
 }
 
-int kvm_rec_enter(struct kvm_vcpu *vcpu)
+/*
+ * kvm_rec_pre_enter - Complete operations before entering a REC
+ *
+ * Some operations require work to be completed before entering a realm. That
+ * work may require memory allocation so cannot be done in the kvm_rec_enter()
+ * call.
+ *
+ * Return: 1 if we should enter the guest
+ *	   0 if we should exit to userspace
+ *	   < 0 if we should exit to userspace, where the return value indicates
+ *	   an error
+ */
+int kvm_rec_pre_enter(struct kvm_vcpu *vcpu)
 {
 	struct realm_rec *rec = &vcpu->arch.rec;
 
+	if (kvm_realm_state(vcpu->kvm) != REALM_STATE_ACTIVE)
+		return -EINVAL;
 	switch (rec->run->exit.exit_reason) {
 	case RMI_EXIT_HOST_CALL:
 	case RMI_EXIT_PSCI:
@@ -1485,8 +1499,12 @@ int kvm_rec_enter(struct kvm_vcpu *vcpu)
 		break;
 	}
 
-	if (kvm_realm_state(vcpu->kvm) != REALM_STATE_ACTIVE)
-		return -EINVAL;
+	return 1;
+}
+
+int kvm_rec_enter(struct kvm_vcpu *vcpu)
+{
+	struct realm_rec *rec = &vcpu->arch.rec;
 
 	return rmi_rec_enter(virt_to_phys(rec->rec_page),
 			     virt_to_phys(rec->run));

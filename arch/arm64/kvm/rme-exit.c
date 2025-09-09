@@ -154,7 +154,7 @@ int handle_rec_exit(struct kvm_vcpu *vcpu, int rec_run_ret)
 	 * the VCPU as a result of KVM's PSCI handling.
 	 */
 	if (status == RMI_ERROR_REALM && index == 1) {
-		vcpu->run->exit_reason = KVM_EXIT_UNKNOWN;
+		vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
 		return 0;
 	}
 
@@ -163,7 +163,8 @@ int handle_rec_exit(struct kvm_vcpu *vcpu, int rec_run_ret)
 
 	vcpu->arch.fault.esr_el2 = rec->run->exit.esr;
 	vcpu->arch.fault.far_el2 = rec->run->exit.far;
-	vcpu->arch.fault.hpfar_el2 = rec->run->exit.hpfar;
+	/* HPFAR_EL2 is only valid for RMI_EXIT_SYNC */
+	vcpu->arch.fault.hpfar_el2 = 0;
 
 	update_arch_timer_irq_lines(vcpu);
 
@@ -172,6 +173,11 @@ int handle_rec_exit(struct kvm_vcpu *vcpu, int rec_run_ret)
 
 	switch (rec->run->exit.exit_reason) {
 	case RMI_EXIT_SYNC:
+	/*
+	 * HPFAR_EL2_NS is hijacked to indicate a valid HPFAR value,
+	 * see __get_fault_info()
+	 */
+	vcpu->arch.fault.hpfar_el2 = rec->run->exit.hpfar;
 		return rec_exit_handlers[esr_ec](vcpu);
 	case RMI_EXIT_IRQ:
 	case RMI_EXIT_FIQ:
