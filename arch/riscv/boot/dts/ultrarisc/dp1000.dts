@@ -1,9 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
-* SPDX-License-Identifier: GPL-2.0+
-*
-* Copyright (c) 2019-2022 UltraRisc,Inc
-*
-*/
+ * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
+ */
 
 /dts-v1/;
 
@@ -261,13 +259,6 @@
 			clock-names = "device_clk";
 			num-cs = <3>;
 			spi-max-frequency = <62500000>;
-			mmc0: mmc@0 {
-				compatible = "mmc-spi-slot";
-				spi-max-frequency = <15625000>;
-				reg = <0x00>;
-				voltage-ranges = <3300 3300>;
-				disable-wp;
-			};
 		};
 		
 		spi1: spi@20420000 {
