@@ -213,6 +213,7 @@ static int realm_rtt_fold(struct realm *realm,
 	unsigned long out_rtt;
 	int ret;
 
+	addr = ALIGN_DOWN(addr, rme_rtt_level_mapsize(level - 1));
 	ret = rmi_rtt_fold(virt_to_phys(realm->rd), addr, level, &out_rtt);
 
 	if (RMI_RETURN_STATUS(ret) == RMI_SUCCESS && rtt_granule)
@@ -283,6 +284,61 @@ static int realm_unmap_private_page(struct realm *realm,
 	return 0;
 }
 
+/*
+ * Returns 0 on successful fold, a negative value on error, a positive value if
+ * we were not able to fold all tables at this level.
+ */
+static int realm_fold_rtt_level(struct realm *realm, int level,
+				unsigned long start, unsigned long end)
+{
+	int not_folded = 0;
+	ssize_t map_size;
+	unsigned long addr, next_addr;
+
+	if (WARN_ON(level > RMM_RTT_MAX_LEVEL))
+		return -EINVAL;
+
+	map_size = rme_rtt_level_mapsize(level - 1);
+
+	for (addr = start; addr < end; addr = next_addr) {
+		phys_addr_t rtt_granule;
+		int ret;
+		unsigned long align_addr = ALIGN(addr, map_size);
+
+		next_addr = ALIGN(addr + 1, map_size);
+
+		ret = realm_rtt_fold(realm, align_addr, level, &rtt_granule);
+
+		switch (RMI_RETURN_STATUS(ret)) {
+		case RMI_SUCCESS:
+			free_delegated_granule(rtt_granule);
+			break;
+		case RMI_ERROR_RTT:
+			if (level == RMM_RTT_MAX_LEVEL ||
+			    RMI_RETURN_INDEX(ret) < level) {
+				not_folded++;
+				break;
+			}
+			/* Recurse a level deeper */
+			ret = realm_fold_rtt_level(realm,
+						   level + 1,
+						   addr,
+						   next_addr);
+			if (ret < 0)
+				return ret;
+			else if (ret == 0)
+				/* Try again at this level */
+				next_addr = addr;
+			break;
+		default:
+			WARN_ON(1);
+			return -ENXIO;
+		}
+	}
+
+	return not_folded;
+}
+
 static void realm_unmap_shared_range(struct kvm *kvm,
 				     int level,
 				     unsigned long start,
@@ -339,6 +395,7 @@ static void realm_unmap_shared_range(struct kvm *kvm,
 
 		cond_resched_rwlock_write(&kvm->mmu_lock);
 	}
+	realm_fold_rtt_level(realm, get_start_level(realm) + 1, start, end);
 }
 
 static int realm_init_sve_param(struct kvm *kvm, struct realm_params *params)
@@ -522,6 +579,7 @@ static int realm_create_rtt_levels(struct realm *realm,
 		if (RMI_RETURN_STATUS(ret) == RMI_ERROR_RTT &&
 		    RMI_RETURN_INDEX(ret) == level - 1) {
 			/* The RTT already exists, continue */
+			free_delegated_granule(rtt);
 			continue;
 		}
 		if (ret) {
@@ -623,61 +681,6 @@ static int realm_tear_down_rtt_range(struct realm *realm,
 {
 	return realm_tear_down_rtt_level(realm, get_start_level(realm) + 1,
 					 start, end);
-}
-
-/*
- * Returns 0 on successful fold, a negative value on error, a positive value if
- * we were not able to fold all tables at this level.
- */
-static int realm_fold_rtt_level(struct realm *realm, int level,
-				unsigned long start, unsigned long end)
-{
-	int not_folded = 0;
-	ssize_t map_size;
-	unsigned long addr, next_addr;
-
-	if (WARN_ON(level > RMM_RTT_MAX_LEVEL))
-		return -EINVAL;
-
-	map_size = rme_rtt_level_mapsize(level - 1);
-
-	for (addr = start; addr < end; addr = next_addr) {
-		phys_addr_t rtt_granule;
-		int ret;
-		unsigned long align_addr = ALIGN(addr, map_size);
-
-		next_addr = ALIGN(addr + 1, map_size);
-
-		ret = realm_rtt_fold(realm, align_addr, level, &rtt_granule);
-
-		switch (RMI_RETURN_STATUS(ret)) {
-		case RMI_SUCCESS:
-			free_delegated_granule(rtt_granule);
-			break;
-		case RMI_ERROR_RTT:
-			if (level == RMM_RTT_MAX_LEVEL ||
-			    RMI_RETURN_INDEX(ret) < level) {
-				not_folded++;
-				break;
-			}
-			/* Recurse a level deeper */
-			ret = realm_fold_rtt_level(realm,
-						   level + 1,
-						   addr,
-						   next_addr);
-			if (ret < 0)
-				return ret;
-			else if (ret == 0)
-				/* Try again at this level */
-				next_addr = addr;
-			break;
-		default:
-			WARN_ON(1);
-			return -ENXIO;
-		}
-	}
-
-	return not_folded;
 }
 
 void kvm_realm_destroy_rtts(struct kvm *kvm, u32 ia_bits)
@@ -1147,18 +1150,16 @@ static int realm_set_ipa_state(struct kvm_vcpu *vcpu,
 			 * If the RMM walk ended early then more tables are
 			 * needed to reach the required depth to set the RIPAS.
 			 */
-			if (walk_level < level) {
-				ret = realm_create_rtt_levels(realm, ipa,
+			if (walk_level >= level)
+				return -EINVAL;
+
+			ret = realm_create_rtt_levels(realm, ipa,
 							      walk_level,
 							      level,
 							      memcache);
-				/* Retry with RTTs created */
-				if (!ret)
-					continue;
-			} else {
-				ret = -EINVAL;
-			}
-
+			if (ret)
+				return ret;
+			/* Retry with the RTT levels in place */
 			break;
 		} else {
 			WARN(1, "Unexpected error in %s: %#x\n", __func__,
@@ -1467,7 +1468,8 @@ static void kvm_complete_ripas_change(struct kvm_vcpu *vcpu)
 			break;
 
 		base = top_ipa;
-	} while (top_ipa < top);
+	} while (base < top);
+	rec->run->exit.ripas_base = base;
 }
 
 /*
