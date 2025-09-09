@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
+ */
+
 #include <dt-bindings/pinctrl/ur-dp1000-pinctrl.h>
 
 / {
@@ -63,8 +68,8 @@
 
 			uart0_pins: uart0_pins {
 				pinctrl-pins = <
-					UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 8, UR_FUNC0)
-					UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 9, UR_FUNC0)
+					UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 8, UR_FUNC1)
+					UR_DP1000_IOPAD(UR_DP1000_IOMUX_A, 9, UR_FUNC1)
 				>;
 
 				pinconf-pins = <
