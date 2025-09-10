@@ -94,6 +94,12 @@
 #define DC395x_LOCK_IO(dev,flags)		spin_lock_irqsave(((struct Scsi_Host *)dev)->host_lock, flags)
 #define DC395x_UNLOCK_IO(dev,flags)		spin_unlock_irqrestore(((struct Scsi_Host *)dev)->host_lock, flags)
 
+/*
+ * read operations that may trigger side effects in the hardware,
+ * but the value can or should be discarded.
+ */
+#define DC395x_peek8(acb,address)		(void)(inb(acb->io_port_base + (address)))
+
 #define DC395x_read8(acb,address)		(u8)(inb(acb->io_port_base + (address)))
 #define DC395x_read16(acb,address)		(u16)(inw(acb->io_port_base + (address)))
 #define DC395x_read32(acb,address)		(u32)(inl(acb->io_port_base + (address)))
@@ -1000,7 +1006,7 @@ static int __dc395x_eh_bus_reset(struct scsi_cmnd *cmd)
 	DC395x_write8(acb, TRM_S1040_DMA_CONTROL, CLRXFIFO);
 	clear_fifo(acb, "eh_bus_reset");
 	/* Delete pending IRQ */
-	DC395x_read8(acb, TRM_S1040_SCSI_INTSTATUS);
+	DC395x_peek8(acb, TRM_S1040_SCSI_INTSTATUS);
 	set_basic_config(acb);
 
 	reset_dev_param(acb);
@@ -2029,8 +2035,8 @@ static void data_io_transfer(struct AdapterCtlBlk *acb,
 			DC395x_write8(acb, TRM_S1040_SCSI_CONFIG2,
 				      CFG2_WIDEFIFO);
 			if (io_dir & DMACMD_DIR) {
-				DC395x_read8(acb, TRM_S1040_SCSI_FIFO);
-				DC395x_read8(acb, TRM_S1040_SCSI_FIFO);
+				DC395x_peek8(acb, TRM_S1040_SCSI_FIFO);
+				DC395x_peek8(acb, TRM_S1040_SCSI_FIFO);
 			} else {
 				/* Danger, Robinson: If you find KGs
 				 * scattered over the wide disk, the driver
@@ -2044,7 +2050,7 @@ static void data_io_transfer(struct AdapterCtlBlk *acb,
 			/* Danger, Robinson: If you find a collection of Ks on your disk
 			 * something broke :-( */
 			if (io_dir & DMACMD_DIR)
-				DC395x_read8(acb, TRM_S1040_SCSI_FIFO);
+				DC395x_peek8(acb, TRM_S1040_SCSI_FIFO);
 			else
 				DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 'K');
 		}
@@ -2892,7 +2898,7 @@ static void set_basic_config(struct AdapterCtlBlk *acb)
 	    DMA_FIFO_HALF_HALF | DMA_ENHANCE /*| DMA_MEM_MULTI_READ */ ;
 	DC395x_write16(acb, TRM_S1040_DMA_CONFIG, wval);
 	/* Clear pending interrupt status */
-	DC395x_read8(acb, TRM_S1040_SCSI_INTSTATUS);
+	DC395x_peek8(acb, TRM_S1040_SCSI_INTSTATUS);
 	/* Enable SCSI interrupt    */
 	DC395x_write8(acb, TRM_S1040_SCSI_INTEN, 0x7F);
 	DC395x_write8(acb, TRM_S1040_DMA_INTEN, EN_SCSIINTR | EN_DMAXFERERROR
@@ -3799,7 +3805,7 @@ static void adapter_uninit_chip(struct AdapterCtlBlk *acb)
 		reset_scsi_bus(acb);
 
 	/* clear any pending interrupt state */
-	DC395x_read8(acb, TRM_S1040_SCSI_INTSTATUS);
+	DC395x_peek8(acb, TRM_S1040_SCSI_INTSTATUS);
 }
 
 
