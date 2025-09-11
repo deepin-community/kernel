@@ -5,12 +5,14 @@ menu "Cadence-based PCIe controllers"
 
 config PCIE_CADENCE
 	bool
+	default y
 
 config PCIE_CADENCE_HOST
 	bool
 	depends on OF
 	select IRQ_DOMAIN
 	select PCIE_CADENCE
+	default y
 
 config PCIE_CADENCE_EP
 	bool
