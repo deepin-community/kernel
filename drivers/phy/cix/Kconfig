@@ -26,3 +26,11 @@ config PHY_CIX_USB3
 	select GENERIC_PHY
 	help
 	  Enable this to support the CIX USB3 PHY for TYPEA Connection
+
+config PHY_CIX_PCIE
+        bool "Cix PCIE PHY Driver"
+        depends on OF && HAS_IOMEM && ARM64
+        select GENERIC_PHY
+	select GPIO_CADENCE
+        help
+          Enable this to support the CIX PCIE PHY
