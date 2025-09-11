@@ -238,8 +238,6 @@ static int scmi_clocks_probe(struct scmi_device *sdev)
 
 		err = scmi_clk_ops_init(dev, sclk, scmi_ops);
 		if (err) {
-			dev_err(dev, "failed to register clock %d,
-					err=%d, name=%s.\n", idx, err, sclk->info->name);
 			devm_kfree(dev, sclk);
 			hws[idx] = NULL;
 		} else {
