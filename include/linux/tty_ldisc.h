@@ -10,6 +10,7 @@ struct tty_struct;
 #include <linux/list.h>
 #include <linux/lockdep.h>
 #include <linux/seq_file.h>
+#include <linux/deepin_kabi.h>
 
 /*
  * the semaphore definition
@@ -264,6 +265,8 @@ struct tty_ldisc_ops {
 				 const u8 *fp, size_t count);
 
 	struct  module *owner;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct tty_ldisc {

@@ -87,6 +87,12 @@ static struct ctl_table user_table[] = {
 	UCOUNT_ENTRY("max_fanotify_groups"),
 	UCOUNT_ENTRY("max_fanotify_marks"),
 #endif
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
+	/* These corresponds to the reservation in enum ucount_type */
+	{ }, // UCOUNT_DEEPIN_KABI_RESERVE1
+	{ }, // UCOUNT_DEEPIN_KABI_RESERVE2
+	{ }, // UCOUNT_DEEPIN_KABI_RESERVE3
+#endif
 	{ }
 };
 #endif /* CONFIG_SYSCTL */
@@ -213,7 +219,7 @@ void put_ucounts(struct ucounts *ucounts)
 	}
 }
 
-static inline bool atomic_long_inc_below(atomic_long_t *v, int u)
+static inline bool atomic_long_inc_below(atomic_long_t *v, long u)
 {
 	long c, old;
 	c = atomic_long_read(v);

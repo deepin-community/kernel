@@ -12,6 +12,7 @@
 #include <linux/poll.h>
 #include <linux/posix-timers.h>
 #include <linux/rwsem.h>
+#include <linux/deepin_kabi.h>
 
 struct posix_clock;
 
@@ -62,6 +63,11 @@ struct posix_clock_operations {
 
 	ssize_t (*read)    (struct posix_clock *pc,
 			    uint flags, char __user *buf, size_t cnt);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
@@ -88,6 +94,11 @@ struct posix_clock {
 	struct device *dev;
 	struct rw_semaphore rwsem;
 	bool zombie;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**

@@ -72,7 +72,7 @@ enum {
  */
 static void apt_dissolve_pmd(struct kvm *kvm, pmd_t *pmd)
 {
-	if (!pmd_trans_huge(*pmd))
+	if (!pmd_thp_or_huge(*pmd))
 		return;
 
 	pmd_clear(pmd);
@@ -158,7 +158,7 @@ static void unmap_apt_pmds(struct kvm *kvm, pud_t *pud,
 	do {
 		next = pmd_addr_end(addr, end);
 		if (!pmd_none(*pmd)) {
-			if (pmd_trans_huge(*pmd)) {
+			if (pmd_thp_or_huge(*pmd)) {
 				if (pmd_cont(*pmd)) {
 					for (i = 0; i < CONT_PMDS; i++)
 						pmd_clear(pmd + i);
@@ -237,7 +237,7 @@ static void unmap_apt_range(struct kvm *kvm, phys_addr_t start, u64 size)
 	phys_addr_t addr = start, end = start + size;
 	phys_addr_t next;
 
-	assert_spin_locked(&kvm->mmu_lock);
+	lockdep_assert_held_write(&kvm->mmu_lock);
 	WARN_ON(size & ~PAGE_MASK);
 
 	pgd = kvm->arch.pgd + pgd_index(addr);
@@ -258,7 +258,7 @@ static void unmap_apt_range(struct kvm *kvm, phys_addr_t start, u64 size)
 		 * to prevent starvation and lockup detector warnings.
 		 */
 		if (next != end)
-			cond_resched_lock(&kvm->mmu_lock);
+			cond_resched_rwlock_write(&kvm->mmu_lock);
 	} while (p4d++, addr = next, addr != end);
 }
 
@@ -319,12 +319,12 @@ void apt_unmap_vm(struct kvm *kvm)
 
 	idx = srcu_read_lock(&kvm->srcu);
 	down_read(&current->mm->mmap_lock);
-	spin_lock(&kvm->mmu_lock);
+	write_lock(&kvm->mmu_lock);
 
 	slots = kvm_memslots(kvm);
 	kvm_for_each_memslot(memslot, bkt, slots)
 		apt_unmap_memslot(kvm, memslot);
-	spin_unlock(&kvm->mmu_lock);
+	write_unlock(&kvm->mmu_lock);
 	up_read(&current->mm->mmap_lock);
 	srcu_read_unlock(&kvm->srcu, idx);
 }
@@ -425,7 +425,7 @@ static void apt_wp_pmds(pud_t *pud, phys_addr_t addr, phys_addr_t end)
 	do {
 		next = pmd_addr_end(addr, end);
 		if (!pmd_none(*pmd)) {
-			if (pmd_trans_huge(*pmd)) {
+			if (pmd_thp_or_huge(*pmd)) {
 				if (!kvm_aptpmd_readonly(pmd))
 					kvm_set_aptpmd_readonly(pmd);
 			} else {
@@ -489,7 +489,7 @@ static void apt_wp_range(struct kvm *kvm, phys_addr_t addr, phys_addr_t end)
 		 * that the page tables are not freed while we released
 		 * the lock.
 		 */
-		cond_resched_lock(&kvm->mmu_lock);
+		cond_resched_rwlock_write(&kvm->mmu_lock);
 		if (!READ_ONCE(kvm->arch.pgd))
 			break;
 		next = p4d_addr_end(addr, end);
@@ -518,9 +518,9 @@ void kvm_mmu_wp_memory_region(struct kvm *kvm, int slot)
 	phys_addr_t start = memslot->base_gfn << PAGE_SHIFT;
 	phys_addr_t end = (memslot->base_gfn + memslot->npages) << PAGE_SHIFT;
 
-	spin_lock(&kvm->mmu_lock);
+	write_lock(&kvm->mmu_lock);
 	apt_wp_range(kvm, start, end);
-	spin_unlock(&kvm->mmu_lock);
+	write_unlock(&kvm->mmu_lock);
 	kvm_flush_remote_tlbs(kvm);
 }
 
@@ -572,10 +572,10 @@ void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
 	gpa_t gpa = slot->base_gfn << PAGE_SHIFT;
 	phys_addr_t size = slot->npages << PAGE_SHIFT;
 
-	spin_lock(&kvm->mmu_lock);
+	write_lock(&kvm->mmu_lock);
 //	flush_apt_tlbs(kvm);
 	unmap_apt_range(kvm, gpa, size);
-	spin_unlock(&kvm->mmu_lock);
+	write_unlock(&kvm->mmu_lock);
 }
 
 /**
@@ -618,13 +618,13 @@ void kvm_free_apt_pgd(struct kvm *kvm)
 {
 	void *pgd = NULL;
 
-	spin_lock(&kvm->mmu_lock);
+	write_lock(&kvm->mmu_lock);
 	if (kvm->arch.pgd) {
 		unmap_apt_range(kvm, 0, KVM_PHYS_SIZE);
 		pgd = READ_ONCE(kvm->arch.pgd);
 		kvm->arch.pgd = NULL;
 	}
-	spin_unlock(&kvm->mmu_lock);
+	write_unlock(&kvm->mmu_lock);
 
 	/* Free the HW pgd, one page at a time */
 	if (pgd)
@@ -746,7 +746,7 @@ static bool apt_get_leaf_entry(struct kvm *kvm, phys_addr_t addr,
 	if (!pmdp || pmd_none(*pmdp) || !pmd_present(*pmdp))
 		return false;
 
-	if (pmd_trans_huge(*pmdp)) {
+	if (pmd_thp_or_huge(*pmdp)) {
 		*pmdpp = pmdp;
 		return true;
 	}
@@ -778,6 +778,19 @@ static bool apt_is_exec(struct kvm *kvm, phys_addr_t addr)
 		return kvm_pte_exec(ptep);
 }
 
+static bool apt_is_pte(struct kvm *kvm, phys_addr_t addr)
+{
+	pud_t *pudp;
+	pmd_t *pmdp;
+	pte_t *ptep;
+
+	apt_get_leaf_entry(kvm, addr, &pudp, &pmdp, &ptep);
+	if (ptep)
+		return true;
+
+	return false;
+}
+
 static int apt_set_pte_fast(struct kvm_vcpu *vcpu,
 			    struct kvm_mmu_memory_cache *cache,
 			    const pte_t *new_pte, unsigned long flags)
@@ -785,7 +798,7 @@ static int apt_set_pte_fast(struct kvm_vcpu *vcpu,
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte, old_pte;
-	unsigned long as_info, inv_hpa;
+	unsigned long as_info, inv_hpa, cur_pte;
 	int inv_level;
 	struct kvm *kvm = vcpu->kvm;
 	bool logging_active = flags & KVM_APT_FLAG_LOGGING_ACTIVE;
@@ -882,15 +895,18 @@ find_pte:
 		if (pte_val(old_pte) == pte_val(*new_pte))
 			return 0;
 
-		/* Do we need WRITE_ONCE(pte, 0)? */
-		set_pte(pte, __pte(0));
+		cur_pte = cmpxchg(&pte->pte, pte_val(old_pte), pte_val(*new_pte));
+		if (cur_pte != pte_val(old_pte))
+			return 0;
+
 		kvm_flush_remote_tlbs(kvm);
 	} else {
 		get_page(virt_to_page(pte));
+
+		/* Do we need WRITE_ONCE(pte, new_pte)? */
+		set_pte(pte, *new_pte);
 	}
 
-	/* Do we need WRITE_ONCE(pte, new_pte)? */
-	set_pte(pte, *new_pte);
 	return 0;
 }
 
@@ -1012,7 +1028,7 @@ retry:
 		 * Normal THP split/merge follows mmu_notifier callbacks and do
 		 * get handled accordingly.
 		 */
-		if (!pmd_trans_huge(old_pmd)) {
+		if (!pmd_thp_or_huge(old_pmd)) {
 			unmap_apt_range(kvm, addr & PMD_MASK, PMD_SIZE);
 			goto retry;
 		}
@@ -1210,9 +1226,10 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	unsigned long as_info, access_type;
 	unsigned long mmu_seq, vma_pagesize, flags = 0;
 	struct kvm_mmu_memory_cache *memcache = &vcpu->arch.mmu_page_cache;
-	bool logging_active, write_fault, exec_fault, writable, force_pte;
+	bool logging_active, write_fault, exec_fault, writable, force_pte, use_read_lock;
 
 	force_pte = false;
+	use_read_lock = false;
 	logging_active = memslot_is_logging(kvm, memslot);
 	fault_gpa = vcpu->arch.vcb.fault_gpa;
 	gfn = fault_gpa >> PAGE_SHIFT;
@@ -1293,9 +1310,20 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 		 */
 		if (!write_fault)
 			writable = false;
+
+		/* Only acquire the read lock if the guest faults on a write to
+		 * a PAGE_SIZE granule when dirty logging is enabled.
+		 */
+		if (apt_is_pte(kvm, fault_gpa)) {
+			use_read_lock = (fault_status == AF_STATUS_FOW && write_fault);
+		}
 	}
 
-	spin_lock(&kvm->mmu_lock);
+	if (use_read_lock)
+		read_lock(&kvm->mmu_lock);
+	else
+		write_lock(&kvm->mmu_lock);
+
 	if (mmu_invalidate_retry(kvm, mmu_seq))
 		goto out_unlock;
 
@@ -1389,7 +1417,11 @@ static int user_mem_abort(struct kvm_vcpu *vcpu,
 	}
 
 out_unlock:
-	spin_unlock(&kvm->mmu_lock);
+	if (use_read_lock)
+		read_unlock(&kvm->mmu_lock);
+	else
+		write_unlock(&kvm->mmu_lock);
+
 	kvm_release_pfn_clean(pfn);
 	return ret;
 }

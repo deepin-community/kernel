@@ -9,6 +9,7 @@
 #include <linux/mutex.h>
 #include <linux/seq_file.h>
 #include <linux/blk-mq.h>
+#include <linux/deepin_kabi.h>
 #include <scsi/scsi.h>
 
 struct block_device;
@@ -497,6 +498,11 @@ struct scsi_host_template {
 
 	/* Delay for runtime autosuspend */
 	int rpm_autosuspend_delay;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -710,6 +716,15 @@ struct Scsi_Host {
 	 */
 	struct device *dma_dev;
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
 	/*
 	 * We should ensure that this is aligned, both for better performance
 	 * and also because some compilers (m68k) don't automatically force

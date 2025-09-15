@@ -89,6 +89,7 @@ struct neigh_parms {
 	DECLARE_BITMAP(data_state, NEIGH_VAR_DATA_MAX);
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline void neigh_var_set(struct neigh_parms *p, int index, int val)
@@ -165,6 +166,10 @@ struct neighbour {
 	struct rcu_head		rcu;
 	struct net_device	*dev;
 	netdevice_tracker	dev_tracker;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 	u8			primary_key[];
 } __randomize_layout;
 
@@ -183,6 +188,7 @@ struct pneigh_entry {
 	netdevice_tracker	dev_tracker;
 	u32			flags;
 	u8			protocol;
+	bool			permanent;
 	u32			key[];
 };
 
@@ -239,6 +245,7 @@ struct neigh_table {
 	struct pneigh_entry	**phash_buckets;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 enum {

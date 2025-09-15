@@ -11,6 +11,7 @@
  */
 
 #include <scsi/scsi_device.h>
+#include <linux/deepin_kabi.h>
 
 enum {
 	SCSI_DH_OK = 0,
@@ -60,6 +61,9 @@ struct scsi_device_handler {
 	blk_status_t (*prep_fn)(struct scsi_device *, struct request *);
 	int (*set_params)(struct scsi_device *, const char *);
 	void (*rescan)(struct scsi_device *);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #ifdef CONFIG_SCSI_DH

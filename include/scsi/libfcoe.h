@@ -16,6 +16,7 @@
 #include <linux/workqueue.h>
 #include <linux/local_lock.h>
 #include <linux/random.h>
+#include <linux/deepin_kabi.h>
 #include <scsi/fc/fc_fcoe.h>
 #include <scsi/libfc.h>
 #include <scsi/fcoe_sysfs.h>
@@ -329,6 +330,9 @@ struct fcoe_percpu_s {
 	struct page *crc_eof_page;
 	int crc_eof_offset;
 	local_lock_t lock;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**

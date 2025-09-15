@@ -27,6 +27,7 @@ struct rpc_stat {
 				rpcgarbage;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct svc_stat {
@@ -42,6 +43,7 @@ struct svc_stat {
 				rpcbadclnt;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct net;

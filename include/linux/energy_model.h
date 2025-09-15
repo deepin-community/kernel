@@ -9,6 +9,7 @@
 #include <linux/sched/cpufreq.h>
 #include <linux/sched/topology.h>
 #include <linux/types.h>
+#include <linux/deepin_kabi.h>
 
 /**
  * struct em_perf_state - Performance state of a performance domain
@@ -24,6 +25,8 @@ struct em_perf_state {
 	unsigned long power;
 	unsigned long cost;
 	unsigned long flags;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*
@@ -56,6 +59,8 @@ struct em_perf_domain {
 	struct em_perf_state *table;
 	int nr_perf_states;
 	unsigned long flags;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	unsigned long cpus[];
 };
 

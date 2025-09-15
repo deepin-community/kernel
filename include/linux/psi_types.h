@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #include <linux/kref.h>
 #include <linux/wait.h>
+#include <linux/deepin_kabi.h>
 
 #ifdef CONFIG_PSI
 
@@ -84,11 +85,9 @@ enum psi_aggregators {
 struct psi_group_cpu {
 	/* 1st cacheline updated by the scheduler */
 
-	/* Aggregator needs to know of concurrent changes */
-	seqcount_t seq ____cacheline_aligned_in_smp;
-
 	/* States of the tasks belonging to this group */
-	unsigned int tasks[NR_PSI_TASK_COUNTS];
+	unsigned int tasks[NR_PSI_TASK_COUNTS]
+			____cacheline_aligned_in_smp;
 
 	/* Aggregate pressure state derived from the tasks */
 	u32 state_mask;
@@ -104,6 +103,11 @@ struct psi_group_cpu {
 	/* Delta detection against the sampling buckets */
 	u32 times_prev[NR_PSI_AGGREGATORS][NR_PSI_STATES]
 			____cacheline_aligned_in_smp;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
 };
 
 /* PSI growth tracking window */
@@ -119,6 +123,9 @@ struct psi_window {
 
 	/* Value growth in the previous window */
 	u64 prev_growth;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 struct psi_trigger {
@@ -157,6 +164,9 @@ struct psi_trigger {
 
 	/* Trigger type - PSI_AVGS for unprivileged, PSI_POLL for RT */
 	enum psi_aggregators aggregator;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 struct psi_group {
@@ -205,6 +215,10 @@ struct psi_group {
 	u64 rtpoll_total[NR_PSI_STATES - 1];
 	u64 rtpoll_next_update;
 	u64 rtpoll_until;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 #else /* CONFIG_PSI */

@@ -56,6 +56,8 @@
 #define KVM_DIRTY_LOG_MANUAL_CAPS   (KVM_DIRTY_LOG_MANUAL_PROTECT_ENABLE | \
 				     KVM_DIRTY_LOG_INITIALLY_SET)
 
+#define KVM_HAVE_MMU_RWLOCK
+
 /* KVM Hugepage definitions for sw64 */
 #define KVM_NR_PAGE_SIZES   3
 #define KVM_HPAGE_GFN_SHIFT(x)  (((x) - 1) * 9)

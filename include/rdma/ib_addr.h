@@ -47,6 +47,7 @@ struct rdma_dev_addr {
 	int hoplimit;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**

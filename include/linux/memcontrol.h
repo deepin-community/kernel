@@ -67,6 +67,8 @@ struct mem_cgroup_id {
 	int id;
 	refcount_t ref;
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /*
@@ -88,6 +90,9 @@ struct mem_cgroup_reclaim_iter {
 	struct mem_cgroup *position;
 	/* scan generation, increased every round-trip */
 	unsigned int generation;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /*
@@ -99,6 +104,9 @@ struct shrinker_info {
 	atomic_long_t *nr_deferred;
 	unsigned long *map;
 	int map_nr_max;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 struct lruvec_stats_percpu {
@@ -118,6 +126,15 @@ struct lruvec_stats {
 
 	/* Pending child counts during tree propagation */
 	long state_pending[NR_VM_NODE_STAT_ITEMS];
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 /*
@@ -151,6 +168,9 @@ struct mem_cgroup_per_node {
 struct mem_cgroup_threshold {
 	struct eventfd_ctx *eventfd;
 	unsigned long threshold;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /* For threshold */
@@ -159,6 +179,9 @@ struct mem_cgroup_threshold_ary {
 	int current_threshold;
 	/* Size of entries[] */
 	unsigned int size;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 	/* Array of thresholds */
 	struct mem_cgroup_threshold entries[];
 };
@@ -172,6 +195,15 @@ struct mem_cgroup_thresholds {
 	 * It must be able to store at least primary->size - 1 entries.
 	 */
 	struct mem_cgroup_threshold_ary *spare;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
+	DEEPIN_KABI_RESERVE(7)
+	DEEPIN_KABI_RESERVE(8)
 };
 
 /*
@@ -189,6 +221,9 @@ struct memcg_cgwb_frn {
 	int memcg_id;			/* memcg->css.id of foreign inode */
 	u64 at;				/* jiffies_64 at the time of dirtying */
 	struct wb_completion done;	/* tracks in-flight foreign writebacks */
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 /*
@@ -205,6 +240,10 @@ struct obj_cgroup {
 		struct list_head list; /* protected by objcg_lock */
 		struct rcu_head rcu;
 	};
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*
@@ -358,6 +397,14 @@ struct mem_cgroup {
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
+	DEEPIN_KABI_RESERVE(9)
+	DEEPIN_KABI_RESERVE(10)
+	DEEPIN_KABI_RESERVE(11)
+	DEEPIN_KABI_RESERVE(12)
+	DEEPIN_KABI_RESERVE(13)
+	DEEPIN_KABI_RESERVE(14)
+	DEEPIN_KABI_RESERVE(15)
+	DEEPIN_KABI_RESERVE(16)
 	struct mem_cgroup_per_node *nodeinfo[];
 };
 

@@ -87,6 +87,9 @@ struct kernel_ethtool_ringparam {
 	u32	cqe_size;
 	u32	tx_push_buf_len;
 	u32	tx_push_buf_max_len;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -977,6 +980,9 @@ struct ethtool_phy_ops {
 	int (*start_cable_test_tdr)(struct phy_device *phydev,
 				    struct netlink_ext_ack *extack,
 				    const struct phy_tdr_config *config);
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**

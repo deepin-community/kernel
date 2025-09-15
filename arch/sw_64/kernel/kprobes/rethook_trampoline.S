@@ -98,10 +98,12 @@ ENTRY(arch_rethook_trampoline)
 	save_all_base_regs
 
 	mov	$sp, $16
+	br	$27, 1f
+1:	ldgp	$29, 0($27)
 	call	arch_rethook_trampoline_callback
 	mov	$0, $26
 
 	restore_all_base_regs
 
-	ret
+	ret	$31, ($26), 1
 ENDPROC(arch_rethook_trampoline)

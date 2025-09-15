@@ -6,6 +6,7 @@
 #include <linux/llist.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
+#include <linux/deepin_kabi.h>
 
 struct tty_buffer {
 	union {
@@ -18,6 +19,8 @@ struct tty_buffer {
 	unsigned int lookahead;		/* Lazy update on recv, can become less than "read" */
 	unsigned int read;
 	bool flags;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 	/* Data points here */
 	u8 data[] __aligned(sizeof(unsigned long));
 };
@@ -42,6 +45,8 @@ struct tty_bufhead {
 	atomic_t	   mem_used;    /* In-use buffers excluding free list */
 	int		   mem_limit;
 	struct tty_buffer *tail;	/* Active buffer */
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /*

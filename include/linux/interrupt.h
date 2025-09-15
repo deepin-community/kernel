@@ -13,6 +13,8 @@
 #include <linux/hrtimer.h>
 #include <linux/kref.h>
 #include <linux/workqueue.h>
+#include <linux/deepin_kabi.h>
+
 #include <linux/jump_label.h>
 
 #include <linux/atomic.h>
@@ -289,6 +291,8 @@ struct irq_affinity {
 	unsigned int	set_size[IRQ_AFFINITY_MAX_SETS];
 	void		(*calc_sets)(struct irq_affinity *, unsigned int nvecs);
 	void		*priv;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -650,6 +654,8 @@ struct tasklet_struct
 		void (*callback)(struct tasklet_struct *t);
 	};
 	unsigned long data;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #define DECLARE_TASKLET(name, _callback)		\

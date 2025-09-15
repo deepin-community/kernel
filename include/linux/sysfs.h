@@ -183,6 +183,8 @@ struct bin_attribute {
 			 char *, loff_t, size_t);
 	int (*mmap)(struct file *, struct kobject *, struct bin_attribute *attr,
 		    struct vm_area_struct *vma);
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**

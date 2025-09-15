@@ -564,7 +564,7 @@ acpi_walk_namespace(acpi_object_type type,
 
 	/* Parameter validation */
 
-	if ((type > ACPI_TYPE_LOCAL_MAX) ||
+	if ((type > ACPI_TYPE_LOCAL_MAX) || (start_object == NULL) ||
 	    (!max_depth) || (!descending_callback && !ascending_callback)) {
 		return_ACPI_STATUS(AE_BAD_PARAMETER);
 	}

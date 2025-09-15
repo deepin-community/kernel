@@ -19,6 +19,7 @@
 #include <linux/proc_fs.h>
 #include <linux/platform_device.h>
 #include <linux/ipmi.h>
+#include <linux/deepin_kabi.h>
 
 struct device;
 
@@ -123,6 +124,7 @@ struct ipmi_smi_msg {
 	 * (presumably to free it).
 	 */
 	void (*done)(struct ipmi_smi_msg *msg);
+	DEEPIN_KABI_RESERVE(0)
 };
 
 #define INIT_IPMI_SMI_MSG(done_handler) \
@@ -218,6 +220,7 @@ struct ipmi_smi_handlers {
 	 * block.
 	 */
 	void (*set_maintenance_mode)(void *send_info, bool enable);
+	DEEPIN_KABI_RESERVE(0)
 };
 
 struct ipmi_device_id {

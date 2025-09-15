@@ -11,6 +11,7 @@
 #define MFD_CORE_H
 
 #include <linux/platform_device.h>
+#include <linux/deepin_kabi.h>
 
 #define MFD_RES_SIZE(arr) (sizeof(arr) / sizeof(struct resource))
 
@@ -118,6 +119,11 @@ struct mfd_cell {
 	 */
 	int			num_parent_supplies;
 	const char * const	*parent_supplies;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*

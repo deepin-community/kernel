@@ -708,6 +708,8 @@ static inline int pgd_devmap(pgd_t pgd)
 #endif
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
+#define pmd_thp_or_huge(pmd)	(pmd_huge(pmd) || pmd_trans_huge(pmd))
+
 #define __HAVE_ARCH_PMDP_GET_AND_CLEAR
 static inline pmd_t pmdp_get_and_clear(struct mm_struct *mm,
 				       unsigned long addr, pmd_t *pmdp)

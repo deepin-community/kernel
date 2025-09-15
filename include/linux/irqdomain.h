@@ -36,6 +36,7 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
+#include <linux/deepin_kabi.h>
 
 struct device_node;
 struct fwnode_handle;
@@ -174,6 +175,8 @@ struct irq_domain {
 	irq_hw_number_t			hwirq_max;
 	unsigned int			revmap_size;
 	struct radix_tree_root		revmap_tree;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	struct irq_data __rcu		*revmap[];
 };
 

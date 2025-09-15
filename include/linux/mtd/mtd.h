@@ -13,6 +13,7 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/nvmem-provider.h>
+#include <linux/deepin_kabi.h>
 
 #include <mtd/mtd-abi.h>
 
@@ -77,6 +78,8 @@ struct mtd_oob_ops {
 	uint8_t		*datbuf;
 	uint8_t		*oobbuf;
 	struct mtd_req_stats *stats;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -215,6 +218,8 @@ struct mtd_part {
 	u64 offset;
 	u64 size;
 	u32 flags;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 /**
@@ -233,6 +238,8 @@ struct mtd_master {
 	struct mutex partitions_lock;
 	struct mutex chrdev_lock;
 	unsigned int suspended : 1;
+	DEEPIN_KABI_RESERVE(0)
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct mtd_info {
@@ -398,6 +405,10 @@ struct mtd_info {
 
 	struct mtd_part part;
 	struct mtd_master master;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 static inline struct mtd_info *mtd_get_master(struct mtd_info *mtd)

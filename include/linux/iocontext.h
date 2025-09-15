@@ -112,6 +112,8 @@ struct io_context {
 
 	struct work_struct release_work;
 #endif /* CONFIG_BLK_ICQ */
+
+	DEEPIN_KABI_RESERVE(1)
 };
 
 struct task_struct;

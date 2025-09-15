@@ -14,6 +14,7 @@
 #include <net/net_namespace.h>
 #include <net/rtnetlink.h>
 #include <rdma/ib_verbs.h>
+#include <linux/deepin_kabi.h>
 
 #include "netlink_gen.h"
 
@@ -55,6 +56,10 @@ struct devlink {
 	u8 reload_failed:1;
 	refcount_t refcount;
 	struct rcu_work rwork;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 	char priv[] __aligned(NETDEV_ALIGN);
 };
 

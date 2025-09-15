@@ -107,6 +107,8 @@ struct ip6_sf_list {
 	unsigned char		sf_oldin;	/* change state */
 	unsigned char		sf_crcount;	/* retrans. left to send */
 	struct rcu_head		rcu;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #define MAF_TIMER_RUNNING	0x01
@@ -131,6 +133,10 @@ struct ifmcaddr6 {
 	unsigned long		mca_cstamp;
 	unsigned long		mca_tstamp;
 	struct rcu_head		rcu;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /* Anycast stuff */
@@ -219,6 +225,8 @@ struct inet6_dev {
 	struct rcu_head		rcu;
 
 	unsigned int		ra_mtu;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline void ipv6_eth_mc_map(const struct in6_addr *addr, char *buf)

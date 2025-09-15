@@ -349,6 +349,7 @@ asmlinkage void noinstr do_entSys(struct pt_regs *regs)
 	nr = regs->regs[0];
 
 	if (ti_flags & _TIF_SYSCALL_WORK) {
+		nr = syscall_trace_enter();
 		/*
 		 * The de-facto standard way to skip a system call using ptrace
 		 * is to set the system call to -1 (NO_SYSCALL) and set r0 to a
@@ -364,9 +365,8 @@ asmlinkage void noinstr do_entSys(struct pt_regs *regs)
 		 * setting the return value is unlikely to do anything sensible
 		 * anyway.
 		 */
-		if (nr == NO_SYSCALL)
+		if (regs->orig_r0 == NO_SYSCALL)
 			syscall_set_return_value(current, regs, -ENOSYS, 0);
-		nr = syscall_trace_enter();
 		if (nr == NO_SYSCALL)
 			goto syscall_out;
 		regs->orig_r0 = regs->regs[0];
@@ -378,6 +378,9 @@ asmlinkage void noinstr do_entSys(struct pt_regs *regs)
 
 		ret = syscall_fn(regs->regs[16], regs->regs[17], regs->regs[18],
 				regs->regs[19], regs->regs[20], regs->regs[21]);
+	} else {
+		syscall_set_return_value(current, regs, -ENOSYS, 0);
+		goto syscall_out;
 	}
 
 	if ((nr != __NR_sigreturn) && (nr != __NR_rt_sigreturn)) {

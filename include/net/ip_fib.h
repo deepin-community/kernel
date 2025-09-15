@@ -22,6 +22,7 @@
 #include <linux/percpu.h>
 #include <linux/notifier.h>
 #include <linux/refcount.h>
+#include <linux/deepin_kabi.h>
 
 struct fib_config {
 	u8			fc_dst_len;
@@ -100,6 +101,9 @@ struct fib_nh_common {
 	struct rtable __rcu * __percpu *nhc_pcpu_rth_output;
 	struct rtable __rcu     *nhc_rth_input;
 	struct fnhe_hash_bucket	__rcu *nhc_exceptions;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct fib_nh {
@@ -157,6 +161,10 @@ struct fib_info {
 	bool			pfsrc_removed;
 	struct nexthop		*nh;
 	struct rcu_head		rcu;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+
 	struct fib_nh		fib_nh[];
 };
 

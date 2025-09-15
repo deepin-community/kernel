@@ -163,6 +163,8 @@ struct in_ifaddr {
 	__u32			ifa_preferred_lft;
 	unsigned long		ifa_cstamp; /* created timestamp */
 	unsigned long		ifa_tstamp; /* updated timestamp */
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct in_validator_info {

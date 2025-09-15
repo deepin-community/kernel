@@ -12,6 +12,7 @@
 #include <linux/if.h>
 #include <linux/percpu.h>
 #include <linux/refcount.h>
+#include <linux/deepin_kabi.h>
 
 #include <scsi/scsi_transport.h>
 #include <scsi/scsi_transport_fc.h>
@@ -358,6 +359,9 @@ struct libfc_cmd_priv {
 	struct fc_fcp_pkt *fsp;
 	u32 resid_len;
 	u8 status;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /*

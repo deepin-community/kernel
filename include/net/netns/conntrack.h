@@ -14,6 +14,7 @@
 #include <linux/netfilter/nf_conntrack_sctp.h>
 #endif
 #include <linux/seqlock.h>
+#include <linux/deepin_kabi.h>
 
 struct ctl_table_header;
 struct nf_conntrack_ecache;
@@ -31,6 +32,9 @@ struct nf_tcp_net {
 #if IS_ENABLED(CONFIG_NF_FLOW_TABLE)
 	unsigned int offload_timeout;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 enum udp_conntrack {

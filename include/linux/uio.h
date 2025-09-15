@@ -81,6 +81,10 @@ struct iov_iter {
 		unsigned long nr_segs;
 		loff_t xarray_start;
 	};
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
 };
 
 static inline const struct iovec *iter_iov(const struct iov_iter *iter)

@@ -16,6 +16,8 @@
 
 #include <net/nl802154.h>
 
+#include <linux/deepin_kabi.h>
+
 struct wpan_phy;
 struct wpan_phy_cca;
 struct cfg802154_scan_request;
@@ -241,6 +243,9 @@ struct wpan_phy {
 	 * Only allowed to be changed if phy is not operational.
 	 */
 	enum ieee802154_filtering_level filtering;
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	char priv[] __aligned(NETDEV_ALIGN);
 };
