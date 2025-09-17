@@ -301,6 +301,8 @@ int thermal_acpi_active_trip_temp(struct acpi_device *adev, int id, int *ret_tem
 int thermal_acpi_passive_trip_temp(struct acpi_device *adev, int *ret_temp);
 int thermal_acpi_hot_trip_temp(struct acpi_device *adev, int *ret_temp);
 int thermal_acpi_critical_trip_temp(struct acpi_device *adev, int *ret_temp);
+struct thermal_zone_device *thermal_acpi_get_thermal_zone_by_name(struct acpi_device
+					*dev, const char *thermal_name);
 #endif
 
 #ifdef CONFIG_THERMAL

@@ -515,6 +515,7 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 {
 	int i, last_active, last_passive;
 	bool found_first_passive;
+	int switch_on_temp, designed_temp;
 
 	found_first_passive = false;
 	last_active = INVALID_TRIP;
@@ -531,18 +532,21 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 				 ret);
 			continue;
 		}
-
+		pr_debug("Trip %d: type=%d, temp=%d, hysteresis=%d\n",
+			 i, trip.type, trip.temperature, trip.hysteresis);
 		if (trip.type == THERMAL_TRIP_PASSIVE) {
 			if (!found_first_passive) {
 				params->trip_switch_on = i;
 				found_first_passive = true;
+				switch_on_temp = trip.temperature;
 			} else  {
 				last_passive = i;
+				designed_temp = trip.temperature;
 			}
 		} else if (trip.type == THERMAL_TRIP_ACTIVE) {
 			last_active = i;
 		} else {
-			break;
+			continue;
 		}
 	}
 
@@ -554,6 +558,16 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 	} else {
 		params->trip_switch_on = INVALID_TRIP;
 		params->trip_max_desired_temperature = last_active;
+	}
+
+	/* reorder trip point if two trip pionts are not in order as expected */
+	if (params->trip_switch_on != INVALID_TRIP &&
+	    params->trip_max_desired_temperature != INVALID_TRIP &&
+	    switch_on_temp > designed_temp) {
+		pr_debug("Power allocator: trip points are not in order, switching them\n");
+		i = params->trip_max_desired_temperature;
+		params->trip_max_desired_temperature = params->trip_switch_on;
+		params->trip_switch_on = i;
 	}
 }
 
