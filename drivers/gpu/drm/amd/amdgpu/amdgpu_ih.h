@@ -73,6 +73,9 @@ struct amdgpu_ih_ring {
 	wait_queue_head_t wait_process;
 	uint64_t		processed_timestamp;
 	bool overflow;
+#ifdef CONFIG_LOONGARCH
+	struct work_struct      fix_work;
+#endif
 };
 
 /* return true if time stamp t2 is after t1 with 48bit wrap around */
@@ -121,4 +124,7 @@ void amdgpu_ih_decode_iv_helper(struct amdgpu_device *adev,
 uint64_t amdgpu_ih_decode_iv_ts_helper(struct amdgpu_ih_ring *ih, u32 rptr,
 				       signed int offset);
 const char *amdgpu_ih_ring_name(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih);
+#ifdef CONFIG_LOONGARCH
+int amdgpu_ih_fix_is_busy(struct amdgpu_device *adev);
+#endif
 #endif
