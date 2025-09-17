@@ -31,6 +31,7 @@
 #define CDNS_I2C_IMR_OFFSET		0x20 /* IRQ Mask Register, RO */
 #define CDNS_I2C_IER_OFFSET		0x24 /* IRQ Enable Register, WO */
 #define CDNS_I2C_IDR_OFFSET		0x28 /* IRQ Disable Register, WO */
+#define CDNS_I2C_GFCR_OFFSET		0x2C /* glitch filter Register, RW */
 
 /* Control Register Bit mask definitions */
 #define CDNS_I2C_CR_HOLD		BIT(4) /* Hold Bus bit */
@@ -113,7 +114,7 @@
 					 CDNS_I2C_IXR_DATA | \
 					 CDNS_I2C_IXR_COMP)
 
-#define CDNS_I2C_TIMEOUT		msecs_to_jiffies(1000)
+#define CDNS_I2C_TIMEOUT		msecs_to_jiffies(3000)
 /* timeout for pm runtime autosuspend */
 #define CNDS_I2C_PM_TIMEOUT		1000	/* ms */
 
@@ -132,6 +133,17 @@
 #define CDNS_I2C_BROKEN_HOLD_BIT	BIT(0)
 #define CDNS_I2C_POLL_US	100000
 #define CDNS_I2C_TIMEOUT_US	500000
+
+/* Notice that the false START condition usually appears at the output of glitch filter.
+ * The problems caused by slope shift must be properly handled by I2C core. The operation
+ * of GF for clock frequency lower than 60 MHz can lead in some cases toundesired behaviour.
+ * For that reason for Pclk frequency lower than 60MHz
+ * the glitch filter should be disabled (GFCR = 0).
+ */
+#define CDNS_I2C_GFCR_PCLK_LIMIT	(60 * 1000000) /* HZ */
+#define CDNS_I2C_GFCR_CLEAR	0x0
+#define CDNS_I2C_GFCR_LEN_LIMIT (50 * 1000) /* ps */
+#define CDNS_I2C_GFCR_PS_PRE_S 1000000000000 /* Total picoseconds per second */
 
 #define cdns_i2c_readreg(offset)       readl_relaxed(id->membase + offset)
 #define cdns_i2c_writereg(val, offset) writel_relaxed(val, id->membase + offset)
@@ -212,6 +224,7 @@ struct cdns_i2c {
 	struct reset_control *reset;
 	u32 quirks;
 	u32 ctrl_reg;
+	u32 gf_reg;
 	struct i2c_bus_recovery_info rinfo;
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
 	u16 ctrl_reg_diva_divb;
@@ -239,7 +252,6 @@ struct cdns_platform_data {
 static void cdns_i2c_clear_bus_hold(struct cdns_i2c *id)
 {
 	u32 reg = cdns_i2c_readreg(CDNS_I2C_CR_OFFSET);
-
 	if (reg & CDNS_I2C_CR_HOLD)
 		cdns_i2c_writereg(reg & ~CDNS_I2C_CR_HOLD, CDNS_I2C_CR_OFFSET);
 }
@@ -253,6 +265,8 @@ static inline bool cdns_is_holdquirk(struct cdns_i2c *id, bool hold_wrkaround)
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
 static void cdns_i2c_set_mode(enum cdns_i2c_mode mode, struct cdns_i2c *id)
 {
+	u32 ctrl_reg;
+
 	/* Disable all interrupts */
 	cdns_i2c_writereg(CDNS_I2C_IXR_ALL_INTR_MASK, CDNS_I2C_IDR_OFFSET);
 
@@ -286,6 +300,11 @@ static void cdns_i2c_set_mode(enum cdns_i2c_mode mode, struct cdns_i2c *id)
 		/* Setting slave address */
 		cdns_i2c_writereg(id->slave->addr & CDNS_I2C_ADDR_MASK,
 				  CDNS_I2C_ADDR_OFFSET);
+
+		/* setting hold bit */
+		ctrl_reg = cdns_i2c_readreg(CDNS_I2C_CR_OFFSET);
+		ctrl_reg |= CDNS_I2C_CR_HOLD;
+		cdns_i2c_writereg(ctrl_reg, CDNS_I2C_CR_OFFSET);
 
 		/* Enable slave send/receive interrupts */
 		cdns_i2c_writereg(CDNS_I2C_IXR_SLAVE_INTR_MASK,
@@ -344,6 +363,7 @@ static irqreturn_t cdns_i2c_slave_isr(void *ptr)
 {
 	struct cdns_i2c *id = ptr;
 	unsigned int isr_status, i2c_status;
+	unsigned int ctrl_reg;
 
 	/* Fetch the interrupt status */
 	isr_status = cdns_i2c_readreg(CDNS_I2C_ISR_OFFSET);
@@ -382,7 +402,9 @@ static irqreturn_t cdns_i2c_slave_isr(void *ptr)
 			  CDNS_I2C_IXR_RX_UNF | CDNS_I2C_IXR_TX_OVF)) {
 		id->slave_state = CDNS_I2C_SLAVE_STATE_IDLE;
 		i2c_slave_event(id->slave, I2C_SLAVE_STOP, NULL);
-		cdns_i2c_writereg(CDNS_I2C_CR_CLR_FIFO, CDNS_I2C_CR_OFFSET);
+		/* clear the FIFO */
+		ctrl_reg = cdns_i2c_readreg(CDNS_I2C_CR_OFFSET);
+		cdns_i2c_writereg(ctrl_reg | CDNS_I2C_CR_CLR_FIFO, CDNS_I2C_CR_OFFSET);
 	}
 
 	return IRQ_HANDLED;
@@ -795,7 +817,7 @@ static int cdns_i2c_process_msg(struct cdns_i2c *id, struct i2c_msg *msg,
 		cdns_i2c_master_reset(adap);
 		dev_err(id->adap.dev.parent,
 				"timeout waiting on completion\n");
-		return -ETIMEDOUT;
+		return -EAGAIN;
 	}
 
 	cdns_i2c_writereg(CDNS_I2C_IXR_ALL_INTR_MASK,
@@ -908,7 +930,10 @@ static int cdns_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 			cdns_i2c_master_reset(adap);
 
 			if (id->err_status & CDNS_I2C_IXR_NACK) {
-				ret = -ENXIO;
+				if (msgs->flags & I2C_M_RD)
+					ret = -EAGAIN;
+				else
+					ret = -ENXIO;
 				goto out;
 			}
 			ret = -EIO;
@@ -1156,12 +1181,45 @@ static int cdns_i2c_setclk(unsigned long clk_in, struct cdns_i2c *id)
 	ctrl_reg |= ((div_a << CDNS_I2C_CR_DIVA_SHIFT) |
 			(div_b << CDNS_I2C_CR_DIVB_SHIFT));
 	id->ctrl_reg = ctrl_reg;
-	cdns_i2c_writereg(ctrl_reg, CDNS_I2C_CR_OFFSET);
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
 	id->ctrl_reg_diva_divb = ctrl_reg & (CDNS_I2C_CR_DIVA_MASK |
 				 CDNS_I2C_CR_DIVB_MASK);
 #endif
 	return 0;
+}
+
+static int cdns_i2c_calc_nearest_multiple(int limt, int cycle)
+{
+	int quotient, nearest_multiple;
+
+	if (!cycle)
+		return 0;
+
+	quotient = limt / cycle;
+
+	if (limt - (cycle * quotient) > (cycle * (quotient + 1)) - limt)
+		nearest_multiple = quotient + 1;
+	else
+		nearest_multiple = quotient;
+
+	return nearest_multiple;
+}
+
+static void cdns_i2c_set_glitch_filter(struct cdns_i2c *id)
+{
+	unsigned int cycle = 0;
+	unsigned int cycle_num = 0;
+
+	/* pclk lower than 60MHz the glitch filter should be disabled */
+	if (id->input_clk < CDNS_I2C_GFCR_PCLK_LIMIT) {
+		id->gf_reg = CDNS_I2C_GFCR_CLEAR;
+		return;
+	}
+
+	cycle = CDNS_I2C_GFCR_PS_PRE_S / id->input_clk;
+	cycle_num = cdns_i2c_calc_nearest_multiple(CDNS_I2C_GFCR_LEN_LIMIT, cycle);
+
+	id->gf_reg = cycle_num;
 }
 
 /**
@@ -1253,6 +1311,7 @@ static int __maybe_unused cdns_i2c_runtime_suspend(struct device *dev)
 static void cdns_i2c_init(struct cdns_i2c *id)
 {
 	cdns_i2c_writereg(id->ctrl_reg, CDNS_I2C_CR_OFFSET);
+	cdns_i2c_writereg(id->gf_reg, CDNS_I2C_GFCR_OFFSET);
 	/*
 	 * Cadence I2C controller has a bug wherein it generates
 	 * invalid read transaction after HW timeout in master receiver mode.
@@ -1510,6 +1569,7 @@ static int cdns_i2c_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_clk_notifier_unregister;
 	}
+	cdns_i2c_set_glitch_filter(id);
 
 	ret = devm_request_irq(&pdev->dev, irq, cdns_i2c_isr, 0,
 				 DRIVER_NAME, id);
