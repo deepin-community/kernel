@@ -25,6 +25,7 @@ static int pdcv1_wakeup_source_save(void)
 
 static void pdcv1_wakeup_source_restore(void)
 {
+	return;
 }
 
 static struct syscore_ops sky1_pdc_syscore_ops = {
@@ -40,7 +41,7 @@ static int sky1_pdc_irq_set_wake(struct irq_data *d, unsigned int on)
 
 	raw_spin_lock_irqsave(&cd->rlock, flags);
 	arm_smccc_smc(SKY1_SIP_PDC, SKY1_SIP_CONFIG_PDC_SET_WAKE,
-		d->hwirq, on, 0, 0, 0, 0, &res);
+		d->hwirq - 32, on, 0, 0, 0, 0, &res);
 	raw_spin_unlock_irqrestore(&cd->rlock, flags);
 
 	return 0;
@@ -72,7 +73,7 @@ static int sky1_pdc_domain_translate(struct irq_domain *d,
 		if (fwspec->param[0] != 0)
 			return -EINVAL;
 
-		*hwirq = fwspec->param[1];
+		*hwirq = fwspec->param[1] + 32;
 		*type = fwspec->param[2];
 		return 0;
 	} else if (is_acpi_device_node(fwspec->fwnode)) {
@@ -84,8 +85,7 @@ static int sky1_pdc_domain_translate(struct irq_domain *d,
 			       fwspec->param[0]);
 			return -EINVAL;
 		}
-		/* In ACPI asl file, using GSI to configure interrupt resource. */
-		*hwirq = fwspec->param[0] - 32;
+		*hwirq = fwspec->param[0];
 		*type = fwspec->param[1];
 
 		WARN_ON(*type == IRQ_TYPE_NONE);
