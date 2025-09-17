@@ -108,6 +108,7 @@ struct rvt_ibport {
 	struct timer_list trap_timer;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #define RVT_CQN_MAX 16 /* maximum length of cq name */

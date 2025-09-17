@@ -26,6 +26,7 @@
 #include <linux/list.h>
 #include <linux/irq.h>
 #include <linux/bits.h>
+#include <linux/deepin_kabi.h>
 
 #include <asm/msi.h>
 
@@ -128,6 +129,8 @@ struct pci_msi_desc {
 		u8	mask_pos;
 		void __iomem *mask_base;
 	};
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -208,6 +211,10 @@ struct msi_desc {
 		struct pci_msi_desc	pci;
 		struct msi_desc_data	data;
 	};
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /*

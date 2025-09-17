@@ -31,6 +31,7 @@ struct nfnl_callback {
 	__u16			attr_count;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 enum nfnl_abort_action {
@@ -51,6 +52,7 @@ struct nfnetlink_subsystem {
 	bool (*valid_genid)(struct net *net, u32 genid);
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 int nfnetlink_subsys_register(const struct nfnetlink_subsystem *n);

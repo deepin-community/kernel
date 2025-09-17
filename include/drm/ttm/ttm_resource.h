@@ -30,6 +30,7 @@
 #include <linux/mutex.h>
 #include <linux/iosys-map.h>
 #include <linux/dma-fence.h>
+#include <linux/deepin_kabi.h>
 
 #include <drm/drm_print.h>
 #include <drm/ttm/ttm_caching.h>
@@ -132,6 +133,10 @@ struct ttm_resource_manager_func {
 	 */
 	void (*debug)(struct ttm_resource_manager *man,
 		      struct drm_printer *printer);
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
@@ -174,6 +179,8 @@ struct ttm_resource_manager {
 	 * bdev->lru_lock.
 	 */
 	uint64_t usage;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -191,6 +198,8 @@ struct ttm_bus_placement {
 	phys_addr_t		offset;
 	bool			is_iomem;
 	enum ttm_caching	caching;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -218,6 +227,10 @@ struct ttm_resource {
 	 * @lru: Least recently used list, see &ttm_resource_manager.lru
 	 */
 	struct list_head lru;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**

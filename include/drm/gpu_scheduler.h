@@ -29,6 +29,7 @@
 #include <linux/completion.h>
 #include <linux/xarray.h>
 #include <linux/workqueue.h>
+#include <linux/deepin_kabi.h>
 
 #define MAX_WAIT_SCHED_ENTITY_Q_EMPTY msecs_to_jiffies(1000)
 
@@ -238,6 +239,10 @@ struct drm_sched_entity {
 	 */
 	struct rb_node			rb_tree_node;
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 /**
@@ -259,6 +264,8 @@ struct drm_sched_rq {
 	struct list_head		entities;
 	struct drm_sched_entity		*current_entity;
 	struct rb_root_cached		rb_tree_root;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /**
@@ -308,6 +315,8 @@ struct drm_sched_fence {
          * @owner: job owner for debugging
          */
 	void				*owner;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct drm_sched_fence *to_drm_sched_fence(struct dma_fence *f);
@@ -371,6 +380,8 @@ struct drm_sched_job {
 	 * When the job was pushed into the entity queue.
 	 */
 	ktime_t                         submit_ts;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 static inline bool drm_sched_invalidate_job(struct drm_sched_job *s_job,
@@ -516,6 +527,10 @@ struct drm_gpu_scheduler {
 	bool				ready;
 	bool				free_guilty;
 	struct device			*dev;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
 };
 
 int drm_sched_init(struct drm_gpu_scheduler *sched,

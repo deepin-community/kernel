@@ -70,6 +70,7 @@ struct fib6_config {
 	bool		fc_is_fdb;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct fib6_node {
@@ -88,6 +89,7 @@ struct fib6_node {
 	struct rcu_head		rcu;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct fib6_gc_args {
@@ -209,6 +211,7 @@ struct fib6_info {
 	struct nexthop			*nh;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	struct fib6_nh			fib6_nh[];
 };
@@ -228,6 +231,7 @@ struct rt6_info {
 	unsigned short			rt6i_nfheader_len;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct fib6_result {

@@ -114,6 +114,7 @@ struct rpc_program {
 	const char *		pipe_dir_name;	/* path to rpc_pipefs dir */
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 struct rpc_version {

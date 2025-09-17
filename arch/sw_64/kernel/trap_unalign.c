@@ -23,6 +23,39 @@
 			 1L << 0x2 | 1L << 0x8 |   /* ldw_a stw_a */	\
 			 1L << 0x3 | 1L << 0x9)    /* ldl_a stl_a */
 
+static bool access_is_valid(void *va, unsigned int len)
+{
+	long error;
+	unsigned long tmp1, tmp2, vb;
+
+
+	vb = (unsigned long) va + len - 1;
+	/* It is ok in a page */
+	if (((unsigned long)va & ~0x1FFFUL) == (vb & ~0x1FFFUL))
+		return true;
+
+	__asm__ __volatile__(
+		"1:	ldbu	%1, 0(%3)\n"
+		"2:	stb	%1, 0(%3)\n"
+		"3:	ldbu	%2, 0(%4)\n"
+		"4:	stb	%2, 0(%4)\n"
+		"5:\n"
+		".section __ex_table, \"a\"\n\t"
+		"	.long	1b - .\n"
+		"	ldi	$31, 5b-1b(%0)\n"
+		"	.long	2b - .\n"
+		"	ldi	$31, 5b-2b(%0)\n"
+		"	.long	3b - .\n"
+		"	ldi	$31, 5b-3b(%0)\n"
+		"	.long	4b - .\n"
+		"	ldi	$31, 5b-4b(%0)\n"
+		".previous"
+		: "=r"(error), "=&r"(tmp1), "=&r"(tmp2)
+		: "r"(va), "r"(vb), "0"(0));
+
+	return !error;
+}
+
 asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 {
 	long error, disp;
@@ -203,6 +236,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		}
 
 	case 0x0e: /* vsts */
+		if (!access_is_valid(va, 16))
+			goto got_exception;
+
 		sw64_read_simd_fp_m_s(reg, fp);
 		if ((unsigned long)va<<61 == 0) {
 			__asm__ __volatile__(
@@ -332,6 +368,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		}
 
 	case 0x0f: /* vstd */
+		if (!access_is_valid(va, 32))
+			goto got_exception;
+
 		sw64_read_simd_fp_m_d(reg, fp);
 		if ((unsigned long)va<<61 == 0) {
 			__asm__ __volatile__(
@@ -659,6 +698,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			return;
 
 		case 0x7: /* sth_a */
+			if (!access_is_valid(va, 2))
+				goto got_exception;
+
 			__asm__ __volatile__(
 			"	zap	%6, 2, %1\n"
 			"	srl	%6, 8, %2\n"
@@ -681,6 +723,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			return;
 
 		case 0x8: /* stw_a */
+			if (!access_is_valid(va, 4))
+				goto got_exception;
+
 			__asm__ __volatile__(
 			"	zapnot	%6, 0x1, %1\n"
 			"	srl	%6, 8, %2\n"
@@ -714,6 +759,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			return;
 
 		case 0x9: /* stl_a */
+			if (!access_is_valid(va, 8))
+				goto got_exception;
+
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
 			"	srl	%10, 8, %2\n"
@@ -832,6 +880,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		return;
 
 	case 0x29: /* sth */
+		if (!access_is_valid(va, 2))
+			goto got_exception;
+
 		__asm__ __volatile__(
 		"	zap	%6, 2, %1\n"
 		"	srl	%6, 8, %2\n"
@@ -853,6 +904,9 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		return;
 
 	case 0x2a: /* stw */
+		if (!access_is_valid(va, 4))
+			goto got_exception;
+
 		__asm__ __volatile__(
 		"	zapnot	%6, 0x1, %1\n"
 		"	srl	%6, 8, %2\n"
@@ -885,6 +939,13 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 		return;
 
 	case 0x2b: /* stl */
+		/* We worry about the cross-page unaligned write,
+		 * so do the page check, if either of the pages is read-only,
+		 * reject the unaligned write.
+		 */
+		if (!access_is_valid(va, 8))
+			goto got_exception;
+
 		__asm__ __volatile__(
 		"	zapnot	%10, 0x1, %1\n"
 		"	srl	%10, 8, %2\n"
@@ -1276,6 +1337,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		return;
 
 	case 0x0e: /* vsts */
+		if (!access_is_valid(va, 16))
+			goto give_sigsegv;
+
 		sw64_read_simd_fp_m_s(reg, fp);
 		if ((unsigned long)va << 61 == 0) {
 			__asm__ __volatile__(
@@ -1405,6 +1469,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		}
 
 	case 0x0f: /* vstd */
+		if (!access_is_valid(va, 32))
+			goto give_sigsegv;
+
 		sw64_read_simd_fp_m_d(reg, fp);
 		if ((unsigned long)va << 61 == 0) {
 			__asm__ __volatile__(
@@ -1770,6 +1837,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			break;
 
 		case 0x7: /* sth_a */
+			if (!access_is_valid(va, 2))
+				goto give_sigsegv;
+
 			__asm__ __volatile__(
 			"	zap	%6, 2, %1\n"
 			"	srl	%6, 8, %2\n"
@@ -1797,6 +1867,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			break;
 			/* fallthrough; */
 		case 0x8: /* stw_a */
+			if (!access_is_valid(va, 4))
+				goto give_sigsegv;
+
 			__asm__ __volatile__(
 			"	zapnot	%6, 0x1, %1\n"
 			"	srl	%6, 8, %2\n"
@@ -1835,6 +1908,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 			break;
 			/* fallthrough; */
 		case 0x9: /* stl_a */
+			if (!access_is_valid(va, 8))
+				goto give_sigsegv;
+
 			__asm__ __volatile__(
 			"	zapnot	%10, 0x1, %1\n"
 			"	srl	%10, 8, %2\n"
@@ -1994,6 +2070,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 	 * (Otherwise we have other, much larger, problems.)
 	 */
 	case 0x29: /* sth with stb */
+		if (!access_is_valid(va, 2))
+			goto give_sigsegv;
+
 		__asm__ __volatile__(
 		"	zap	%6, 2, %1\n"
 		"	srl	%6, 8, %2\n"
@@ -2019,6 +2098,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		fallthrough;
 
 	case 0x2a: /* stw with stb*/
+		if (!access_is_valid(va, 4))
+			goto give_sigsegv;
+
 		__asm__ __volatile__(
 		"	zapnot	%6, 0x1, %1\n"
 		"	srl	%6, 8, %2\n"
@@ -2055,6 +2137,9 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		fallthrough;
 
 	case 0x2b: /* stl */
+		if (!access_is_valid(va, 8))
+			goto give_sigsegv;
+
 		__asm__ __volatile__(
 		"	zapnot	%10, 0x1, %1\n"
 		"	srl	%10, 8, %2\n"

@@ -8,6 +8,7 @@
 
 #include <drm/drm_legacy.h>
 #include <drm/drm_mode_config.h>
+#include <linux/deepin_kabi.h>
 
 struct drm_driver;
 struct drm_minor;
@@ -391,6 +392,9 @@ struct drm_device {
 	bool irq_enabled;
 	int irq;
 #endif
+
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 #endif

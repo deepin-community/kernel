@@ -55,6 +55,7 @@ struct inet_connection_sock_af_ops {
 	void	    (*mtu_reduced)(struct sock *sk);
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 };
 
 /** inet_connection_sock - INET connection oriented sock
@@ -143,6 +144,7 @@ struct inet_connection_sock {
 	u32			  icsk_user_timeout;
 
 	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	u64			  icsk_ca_priv[104 / sizeof(u64)];
 #define ICSK_CA_PRIV_SIZE	  sizeof_field(struct inet_connection_sock, icsk_ca_priv)
