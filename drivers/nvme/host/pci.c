@@ -10,6 +10,9 @@
 #include <linux/blk-mq.h>
 #include <linux/blk-mq-pci.h>
 #include <linux/blk-integrity.h>
+#ifdef CONFIG_LOONGARCH
+#include <linux/delay.h>
+#endif
 #include <linux/dmi.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -1078,6 +1081,14 @@ static irqreturn_t nvme_irq(int irq, void *data)
 {
 	struct nvme_queue *nvmeq = data;
 	DEFINE_IO_COMP_BATCH(iob);
+
+#ifdef CONFIG_LOONGARCH
+	/*
+	 * There is no guarantee of sequence between DMA
+	 * and interrupts on the Loongson platform.
+	 */
+	udelay(30);
+#endif
 
 	if (nvme_poll_cq(nvmeq, &iob)) {
 		if (!rq_list_empty(iob.req_list))
