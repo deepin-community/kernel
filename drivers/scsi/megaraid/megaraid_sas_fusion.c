@@ -3884,7 +3884,13 @@ static irqreturn_t megasas_isr_fusion(int irq, void *devp)
 		instance->instancet->clear_intr(instance);
 		return IRQ_HANDLED;
 	}
-
+#ifdef CONFIG_LOONGARCH
+	/*
+	 * There is no guarantee of sequence between DMA
+	 * and interrupts on the Loongson platform.
+	 */
+	udelay(30);
+#endif
 	return complete_cmd_fusion(instance, irq_context->MSIxIndex, irq_context)
 			? IRQ_HANDLED : IRQ_NONE;
 }
