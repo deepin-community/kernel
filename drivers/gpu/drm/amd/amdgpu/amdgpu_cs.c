@@ -1285,6 +1285,11 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
 	uint64_t seq;
 	int r;
 
+#ifdef CONFIG_LOONGARCH
+	while (amdgpu_ih_fix_is_busy(p->adev))
+		msleep(20);
+#endif
+
 	for (i = 0; i < p->gang_size; ++i)
 		drm_sched_job_arm(&p->jobs[i]->base);
 
