@@ -275,6 +275,10 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
 
 	spin_lock_init(&adev->irq.lock);
 
+#ifdef CONFIG_LOONGARCH
+	atomic_set(&adev->irq.cs_lock, 0);
+#endif
+
 	/* Enable MSI if not disabled by module parameter */
 	adev->irq.msi_enabled = false;
 

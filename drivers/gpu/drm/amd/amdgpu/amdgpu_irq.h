@@ -100,6 +100,9 @@ struct amdgpu_irq {
 	uint32_t                        srbm_soft_reset;
 	u32                             retry_cam_doorbell_index;
 	bool                            retry_cam_enabled;
+#ifdef CONFIG_LOONGARCH
+	atomic_t                        cs_lock;
+#endif
 };
 
 enum interrupt_node_id_per_aid {
