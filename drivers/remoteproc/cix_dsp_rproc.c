@@ -21,6 +21,11 @@
 #include "remoteproc_internal.h"
 #include "remoteproc_elf_helpers.h"
 
+#ifdef CONFIG_PLAT_BBOX
+#include <linux/soc/cix/rdr_pub.h>
+#include <mntn_public_interface.h>
+#endif
+
 /* DSP register define */
 #define SKY1_INFO_HIFI0				0x00
 #define SKY1_INFO_HIFI1				0x04
@@ -40,8 +45,8 @@
 #define CIX_AUD_CLK_NUM				(6)
 #define CIX_MEM_REG_NUM				(8)
 #define PM_COMP_TIMEOUT				(100)
-#define RPROC_READY_WAIT_MAX_CNT		(300)
-#define MBOX_SEND_TIMEROUT			(100)
+#define RPROC_READY_WAIT_MAX_CNT		(3000)
+#define MBOX_SEND_TIMEOUT			(100)
 #define MBOX_MSG_OFFSET				(1)
 #define MBOX_MSG_LEN				(2)
 
@@ -123,6 +128,178 @@ enum cix_dsp_mbox_messages {
 	MBOX_MSG_REPROC_STOP	= 0xFFF6,
 	MBOX_MSG_REPROC_STOP_ACK = 0xFFF7,
 };
+
+#ifdef CONFIG_PLAT_BBOX
+enum RDR_AUDIO_MODID {
+	RDR_AUDIO_MODID_START = PLAT_BB_MOD_HIFI_START,
+	RDR_AUDIO_SOC_WD_TIMEOUT_MODID,
+	RDR_AUDIO_MODID_END = PLAT_BB_MOD_HIFI_END,
+};
+
+static struct rdr_register_module_result g_current_info;
+
+static struct rdr_exception_info_s g_dsp_einfo[] = {
+	{ { 0, 0 }, RDR_AUDIO_SOC_WD_TIMEOUT_MODID, RDR_AUDIO_SOC_WD_TIMEOUT_MODID, RDR_ERR,
+	 RDR_REBOOT_NO, RDR_HIFI, RDR_HIFI, RDR_HIFI,
+	 (u32)RDR_REENTRANT_DISALLOW, AUDIO_CODEC_EXCEPTION, 0, (u32)RDR_UPLOAD_YES,
+	 "audio dsp", "audio dsp watchdog timeout", 0, 0, 0 },
+};
+
+struct rdr_dump_mem_region {
+	const char *name;
+	void *va;
+	u32 length;
+};
+#define RDR_DUMP_MEM_REGION_0_SIZE	5
+#define RDR_DUMP_MEM_REGION_1_SIZE	3
+static struct rdr_dump_mem_region g_rdr_dump_mem_region_0[RDR_DUMP_MEM_REGION_0_SIZE],
+				  g_rdr_dump_mem_region_1[RDR_DUMP_MEM_REGION_1_SIZE];
+static unsigned int g_rdr_dump_mem_region_index_0,
+		    g_rdr_dump_mem_region_index_1;
+
+#define RDR_DUMP_COMP_TIMEOUT		500
+static struct completion g_rdr_dump_comp;
+
+/*
+ * Description : Dump function of the AP when an exception occurs
+ */
+static void cix_dsp_rproc_rdr_dump(u32 modid, u32 etype, u64 coreid,
+				   char *log_path)
+{
+	unsigned int i;
+	int ret;
+
+	/* iram, dram0, dram1, ext-sram, dsp_reserved */
+	for (i = 0; i < g_rdr_dump_mem_region_index_0; i++) {
+		if (g_rdr_dump_mem_region_0[i].va) {
+			ret = rdr_savebuf2fs(log_path, g_rdr_dump_mem_region_0[i].name,
+					     g_rdr_dump_mem_region_0[i].va,
+					     g_rdr_dump_mem_region_0[i].length, 0);
+			if (ret < 0) {
+				pr_err("rdr_savelogbuf2fs region_0: name = %s, error = %d\n",
+				       g_rdr_dump_mem_region_0[i].name, ret);
+				return;
+			}
+
+			pr_debug("dump to file succeeded: path = %s, name = %s, len = 0x%x\n",
+				 log_path, g_rdr_dump_mem_region_0[i].name,
+						g_rdr_dump_mem_region_0[i].length);
+		}
+	}
+
+	/* vdev0vring0, vdev0vring1, vdev0buffer */
+	for (i = 0; i < g_rdr_dump_mem_region_index_1; i++) {
+		if (g_rdr_dump_mem_region_1[i].va) {
+			ret = rdr_savebuf2fs(log_path, g_rdr_dump_mem_region_1[i].name,
+					     g_rdr_dump_mem_region_1[i].va,
+					     g_rdr_dump_mem_region_1[i].length, 0);
+			if (ret < 0) {
+				pr_err("rdr_savelogbuf2fs region_1: name = %s, error = %d\n",
+				       g_rdr_dump_mem_region_1[i].name, ret);
+				return;
+			}
+
+			pr_debug("dump to file succeeded: path = %s, name = %s, len = 0x%x\n",
+				 log_path, g_rdr_dump_mem_region_1[i].name,
+						g_rdr_dump_mem_region_1[i].length);
+		}
+	}
+
+	complete(&g_rdr_dump_comp);
+}
+
+/*
+ * Description : register exception with the rdr
+ */
+static void cix_dsp_rproc_rdr_register_exception(void)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < sizeof(g_dsp_einfo) / sizeof(struct rdr_exception_info_s); i++) {
+		pr_debug("register exception:%u", g_dsp_einfo[i].e_exce_type);
+		ret = rdr_register_exception(&g_dsp_einfo[i]);
+		if (ret == 0) {
+			pr_err("rdr_register_exception fail, ret = [%d]\n", ret);
+			return;
+		}
+	}
+}
+
+static void cix_dsp_rproc_rdr_unregister_exception(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < sizeof(g_dsp_einfo) / sizeof(struct rdr_exception_info_s); i++) {
+		pr_debug("unregister exception:%u", g_dsp_einfo[i].e_exce_type);
+		rdr_unregister_exception(g_dsp_einfo[i].e_modid);
+	}
+}
+
+/*
+ * Description : Register the dump and reset functions to the rdr
+ */
+static int cix_dsp_rproc_rdr_register_core(void)
+{
+	struct rdr_module_ops_pub s_dsp_ops;
+	struct rdr_register_module_result retinfo;
+	u64 coreid = RDR_HIFI;
+	int ret;
+
+	s_dsp_ops.ops_dump = cix_dsp_rproc_rdr_dump;
+	s_dsp_ops.ops_reset = NULL;
+
+	ret = rdr_register_module_ops(coreid, &s_dsp_ops, &retinfo);
+	if (ret < 0) {
+		pr_err("rdr_register_module_ops fail, ret = [%d]\n", ret);
+		return ret;
+	}
+
+	g_current_info.log_addr = retinfo.log_addr;
+	g_current_info.log_len = retinfo.log_len;
+	g_current_info.nve = retinfo.nve;
+	pr_debug("%s,%d: addr=0x%llx, len=0x%x\n",
+		__func__, __LINE__, g_current_info.log_addr, g_current_info.log_len);
+
+	return ret;
+}
+
+static void cix_dsp_rproc_rdr_unregister_core(void)
+{
+	u64 coreid = RDR_HIFI;
+
+	rdr_unregister_module_ops(coreid);
+}
+
+static void cix_dsp_rproc_rdr_coredump(struct rproc *rproc)
+{
+	struct cix_dsp_rproc *rproc_priv = rproc->priv;
+	struct device *dev = rproc_priv->dev;
+	struct rproc_mem_entry *entry, *tmp;
+
+	g_rdr_dump_mem_region_index_1 = 0;
+
+	list_for_each_entry_safe(entry, tmp, &rproc->carveouts, node) {
+		g_rdr_dump_mem_region_1[g_rdr_dump_mem_region_index_1].name = entry->name;
+		g_rdr_dump_mem_region_1[g_rdr_dump_mem_region_index_1].va = entry->va;
+		g_rdr_dump_mem_region_1[g_rdr_dump_mem_region_index_1].length = entry->len;
+
+		dev_dbg(dev, "rdr_mem_region_1: index = %d, name = %s, va = %pS, len = %lu\n",
+			g_rdr_dump_mem_region_index_1, entry->name, entry->va, entry->len);
+
+		g_rdr_dump_mem_region_index_1++;
+	}
+
+	reinit_completion(&g_rdr_dump_comp);
+
+	/* asynchronous api */
+	rdr_system_error(RDR_AUDIO_SOC_WD_TIMEOUT_MODID, 0, 0);
+
+	if (!wait_for_completion_timeout(&g_rdr_dump_comp,
+					 msecs_to_jiffies(RDR_DUMP_COMP_TIMEOUT)))
+		dev_err(dev, "rdr dump file timeout");
+}
+#endif
 
 static int cix_dsp_rproc_mem_alloc(struct rproc *rproc,
 				 struct rproc_mem_entry *mem)
@@ -381,6 +558,26 @@ static int cix_dsp_rproc_start(struct rproc *rproc)
 	return -ETIMEDOUT;
 }
 
+static void cix_dsp_mbox_dump_regs(struct rproc *rproc)
+{
+	void __iomem *base;
+	struct cix_dsp_rproc *rproc_priv = rproc->priv;
+	int i;
+	u32 val;
+#define RCSU_MBOX_BASE		(0x070f0000)
+#define RCSU_MBOX_REG_SIZE	(0x10000)
+#define MBOX_RGE_DUMP_NUM	(7)
+#define MBOX_REG_OFFSET		(0xb4)
+
+	base = ioremap(RCSU_MBOX_BASE, RCSU_MBOX_REG_SIZE);
+	for (i = 0; i < MBOX_RGE_DUMP_NUM; i++) {
+		val = readl(base + MBOX_REG_OFFSET + 4*i);
+		dev_err(rproc_priv->dev, "[0x%x]: 0x%x\n",
+			MBOX_REG_OFFSET + 4*i, val);
+	}
+	iounmap(base);
+}
+
 static int cix_dsp_rproc_stop(struct rproc *rproc)
 {
 	struct cix_dsp_rproc *rproc_priv = rproc->priv;
@@ -392,11 +589,12 @@ static int cix_dsp_rproc_stop(struct rproc *rproc)
 	 * no ability to ack stop message.
 	 */
 	if (!rproc_priv->is_wdg_trigger) {
-		msg[0] = MBOX_MSG_LEN;
+		msg[0] = MBOX_MSG_LEN * sizeof(u32);
 		msg[MBOX_MSG_OFFSET] = MBOX_MSG_REPROC_STOP;
 		reinit_completion(&rproc_priv->rsp_comp);
-		ret = mbox_send_message(rproc_priv->tx_ch, (void *)&msg);
+		ret = mbox_send_message(rproc_priv->tx_ch, (void *)msg);
 		if (ret < 0) {
+			cix_dsp_mbox_dump_regs(rproc);
 			dev_err(rproc_priv->dev, "PM mbox_send_message failed: %d\n", ret);
 			return ret;
 		}
@@ -422,13 +620,15 @@ static void cix_dsp_rproc_kick(struct rproc *rproc, int vqid)
 		dev_err(rproc_priv->dev, "No initialized mbox tx channel\n");
 		return;
 	}
-	msg[0] = MBOX_MSG_LEN;
+	msg[0] = MBOX_MSG_LEN * sizeof(u32);
 	msg[MBOX_MSG_OFFSET] = vqid;
 
-	err = mbox_send_message(rproc_priv->tx_ch, (void *)&msg);
-	if (err < 0)
+	err = mbox_send_message(rproc_priv->tx_ch, (void *)msg);
+	if (err < 0) {
+		cix_dsp_mbox_dump_regs(rproc);
 		dev_err(rproc_priv->dev, "%s: failed (%d, err:%d)\n",
 			__func__, vqid, err);
+	}
 }
 
 static void *cix_dsp_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
@@ -454,7 +654,7 @@ static void *cix_dsp_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, boo
 		}
 	}
 
-	dev_dbg(priv->dev, "da = 0x%llx len = 0x%zx va = 0x%p\n",
+	dev_dbg(priv->dev, "da = 0x%llx len = 0x%zx va = 0x%px\n",
 		da, len, va);
 
 	return va;
@@ -591,12 +791,33 @@ static int cix_dsp_rproc_addr_init(struct cix_dsp_rproc *rproc_priv)
 		p_mem[i].bus_addr = mem_reg[i].sa;
 		p_mem[i].size = mem_reg[i].len;
 
-		dev_dbg(dev, " %s, priv->mem[%d] sys_addr: 0x%llx, cpu_addr: 0x%p, size 0x%lx\n",
+		dev_dbg(dev, " %s, priv->mem[%d] sys_addr: 0x%llx, cpu_addr: 0x%pS, size 0x%lx\n",
 			__func__, i, p_mem[i].bus_addr, p_mem[i].cpu_addr, p_mem[i].size);
 	}
 
 	rproc_priv->mem = p_mem;
 	rproc_priv->num_mem = CIX_MEM_REG_NUM;
+
+#ifdef CONFIG_PLAT_BBOX
+	g_rdr_dump_mem_region_index_0 = 0;
+
+	for (i = 0; i < CIX_MEM_REG_NUM; i++) {
+		if (p_mem[i].cpu_addr) {
+			g_rdr_dump_mem_region_0[g_rdr_dump_mem_region_index_0].name =
+						mem_reg[i].name;
+			g_rdr_dump_mem_region_0[g_rdr_dump_mem_region_index_0].va =
+						p_mem[i].cpu_addr;
+			g_rdr_dump_mem_region_0[g_rdr_dump_mem_region_index_0].length =
+						p_mem[i].size;
+
+			dev_dbg(dev, "rdr_mem_region_0 index = %d, name = %s, va = %p, len = %lu\n",
+			g_rdr_dump_mem_region_index_0, mem_reg[i].name,
+					p_mem[i].cpu_addr, p_mem[i].size);
+
+			g_rdr_dump_mem_region_index_0++;
+		}
+	}
+#endif
 
 	return 0;
 }
@@ -655,7 +876,7 @@ static int cix_dsp_rproc_request_mbox(struct cix_dsp_rproc *rproc_priv)
 	cl = &rproc_priv->cl;
 	cl->dev = dev;
 	cl->tx_block = true;
-	cl->tx_tout = MBOX_SEND_TIMEROUT;
+	cl->tx_tout = MBOX_SEND_TIMEOUT;
 	cl->knows_txdone = false;
 	cl->rx_callback = cix_dsp_rproc_rx_callback;
 
@@ -813,6 +1034,18 @@ static int cix_dsp_rproc_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 
+#ifdef CONFIG_PLAT_BBOX
+	init_completion(&g_rdr_dump_comp);
+
+	cix_dsp_rproc_rdr_register_exception();
+
+	ret = cix_dsp_rproc_rdr_register_core();
+	if (ret) {
+		dev_err(dev, "cix_dsp_rproc_rdr_register_core fail, ret = [%d]\n", ret);
+		goto err_rproc_add;
+	}
+#endif
+
 	return 0;
 
 err_rproc_add:
@@ -829,6 +1062,11 @@ static int cix_dsp_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
 	struct cix_dsp_rproc *rproc_priv = rproc->priv;
+
+#ifdef CONFIG_PLAT_BBOX
+	cix_dsp_rproc_rdr_unregister_core();
+	cix_dsp_rproc_rdr_unregister_exception();
+#endif
 
 	pm_runtime_disable(&pdev->dev);
 	rproc_del(rproc);
@@ -885,10 +1123,11 @@ static int cix_dsp_rproc_suspend(struct device *dev)
 	if (rproc->state == RPROC_RUNNING) {
 		reinit_completion(&rproc_priv->rsp_comp);
 
-		msg[0] = MBOX_MSG_LEN;
+		msg[0] = MBOX_MSG_LEN * sizeof(u32);
 		msg[MBOX_MSG_OFFSET] = MBOX_MSG_SYSTEM_SUSPEND;
-		ret = mbox_send_message(rproc_priv->tx_ch, (void *)&msg);
+		ret = mbox_send_message(rproc_priv->tx_ch, (void *)msg);
 		if (ret < 0) {
+			cix_dsp_mbox_dump_regs(rproc);
 			dev_err(dev, "PM mbox_send_message failed: %d\n", ret);
 			return ret;
 		}
