@@ -681,8 +681,9 @@ config ARCH_HIBERNATION_POSSIBLE
 
 config SW64_POWERCAP
 	bool "Sunway powercap driver"
+	select IPMI_HANDLER
 	select IPMI_SI
-	depends on SW64 && CPU_FREQ && ACPI && IPMI_HANDLER
+	depends on SW64_CPUFREQ && ACPI
 	help
 	  This enables support for the sunway powercap driver
 	  based on BMC and IPMI system interface.
