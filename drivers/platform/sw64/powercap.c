@@ -704,10 +704,10 @@ static int sunway_powercap_probe(struct platform_device *pdev)
 		struct freq_qos_request *req;
 
 		/* Initial state */
-		powercap_cpu_data[related_cpu].state = SUNWAY_POWERCAP_STATE_FREE;
+		powercap_cpu_data[cpu].state = SUNWAY_POWERCAP_STATE_FREE;
 
-		powercap_cpu_data[related_cpu].core = rcid_to_core_id(rcid);
-		powercap_cpu_data[related_cpu].node = rcid_to_domain_id(rcid);
+		powercap_cpu_data[cpu].core = rcid_to_core_id(rcid);
+		powercap_cpu_data[cpu].node = rcid_to_domain_id(rcid);
 
 		if (powercap_cpu_data[cpu].policy)
 			continue;
