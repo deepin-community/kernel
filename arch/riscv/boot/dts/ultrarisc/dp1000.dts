@@ -164,6 +164,7 @@
 				clock-frequency = <62500000>;
 				#clock-cells = <0>;
 			};
+
 			csr_clk: csr_clk {
 				compatible = "fixed-clock";
 				clock-frequency = <250000000>;
@@ -333,29 +334,7 @@
 			interrupts = <33>;
 			clocks = <&device_clk>;
 		};
-		
-		timer0: timer@20220000 {
-			compatible = "snps,dw-apb-timer";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0 0x20220000 0x0 0x100>;
-			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
-			interrupts = <35>;
-			status = "okay";
-		};
-		
-		timer1: timer@20230000 {
-			compatible = "snps,dw-apb-timer";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x0 0x20230000 0x0 0x100>;
-			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
-			interrupts = <36>;
-			status = "okay";
-		};
-		
+
 		gpio: gpio@20200000 {
 			compatible = "snps,dw-apb-gpio";
       			#address-cells = <1>;
