@@ -18,6 +18,8 @@
 
 #define SUNWAY_POWERCAP_ACPI_NOTIFY_VALUE 0x84
 
+#define POLL_INTERVAL_UNIT_10MS 10
+
 enum sunway_powercap_version {
 	SUNWAY_POWERCAP_V1 = 1,
 	SUNWAY_POWERCAP_VERSION_MAX,
@@ -531,7 +533,7 @@ static int sunway_powercap_setup_cfg(const struct sunway_powercap_cfg *cfg)
 
 	driver_data.version = cfg->version;
 	driver_data.mode = cfg->mode;
-	driver_data.poll_interval = cfg->poll_interval;
+	driver_data.poll_interval = cfg->poll_interval * POLL_INTERVAL_UNIT_10MS;
 
 	if (is_poll_mode) {
 		timer_setup(&driver_data.timer, sunway_powercap_poll_func, 0);
