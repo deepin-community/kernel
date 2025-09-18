@@ -39,6 +39,8 @@ struct akcipher_request {
 	struct scatterlist *dst;
 	unsigned int src_len;
 	unsigned int dst_len;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	void *__ctx[] CRYPTO_MINALIGN_ATTR;
 };
 
@@ -52,6 +54,8 @@ struct akcipher_request {
 struct crypto_akcipher {
 	unsigned int reqsize;
 
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 	struct crypto_tfm base;
 };
 
@@ -135,6 +139,8 @@ struct akcipher_alg {
 #ifdef CONFIG_CRYPTO_STATS
 	struct crypto_istat_akcipher stat;
 #endif
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	struct crypto_alg base;
 };

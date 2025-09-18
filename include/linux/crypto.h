@@ -16,6 +16,7 @@
 #include <linux/refcount.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/deepin_kabi.h>
 
 /*
  * Algorithm masks and types.
@@ -367,6 +368,8 @@ struct crypto_alg {
 	void (*cra_destroy)(struct crypto_alg *alg);
 	
 	struct module *cra_module;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 } CRYPTO_MINALIGN_ATTR;
 
 /*
@@ -429,6 +432,8 @@ struct crypto_tfm {
 	void (*exit)(struct crypto_tfm *tfm);
 	
 	struct crypto_alg *__crt_alg;
+	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_RESERVE(2)
 
 	void *__crt_ctx[] CRYPTO_MINALIGN_ATTR;
 };
