@@ -29,6 +29,57 @@
 #include <asm/efi.h>
 #include <asm/mmu.h>
 #include <asm/pgalloc.h>
+#include <asm/mmu_context.h>
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+
+DEFINE_PER_CPU(unsigned long, atc_state);
+
+static bool __init efi_virtmap_init(void)
+{
+	efi_memory_desc_t *md;
+
+	efi_mm.pgd = pgd_alloc(&efi_mm);
+	memcpy(efi_mm.pgd + USER_PTRS_PER_PGD,
+	       init_mm.pgd + USER_PTRS_PER_PGD,
+	       (PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
+	mm_init_cpumask(&efi_mm);
+	init_new_context(NULL, &efi_mm);
+
+	for_each_efi_memory_desc(md) {
+		phys_addr_t phys = md->phys_addr;
+		int ret;
+
+		if (!(md->attribute & EFI_MEMORY_RUNTIME))
+			continue;
+
+		ret = efi_create_mapping(&efi_mm, md);
+		if (ret) {
+			pr_warn("EFI remap %pa: failed to create mapping (%d)\n",
+				&phys, ret);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void efi_virtmap_load(void)
+{
+	preempt_disable();
+	update_ptbr_sys(virt_to_phys(efi_mm.pgd));
+	/* switch CSR_ATC for bios compatibility */
+	this_cpu_write(atc_state, get_atc());
+	set_atc(ATC_KSEG);
+}
+
+void efi_virtmap_unload(void)
+{
+	set_atc(this_cpu_read(atc_state));
+	update_ptbr_sys(virt_to_phys(init_mm.pgd));
+	preempt_enable();
+}
+#endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 /*
  * Enable the UEFI Runtime Services if all prerequisites are in place, i.e.,
@@ -63,6 +114,13 @@ static int __init sunway_enable_runtime_services(void)
 		return 0;
 	}
 
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	if (!efi_virtmap_init()) {
+		pr_err("UEFI virtual mapping missing or invalid -- runtime services will not be available\n");
+		return -ENOMEM;
+	}
+#endif
+
 	/* Set up runtime services function pointers */
 	efi_native_runtime_setup();
 	set_bit(EFI_RUNTIME_SERVICES, &efi.flags);
@@ -70,7 +128,6 @@ static int __init sunway_enable_runtime_services(void)
 	return 0;
 }
 early_initcall(sunway_enable_runtime_services);
-
 
 static int __init sunway_dmi_init(void)
 {
