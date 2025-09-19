@@ -401,7 +401,7 @@ static int iomap_readpage_iter(struct iomap_iter *iter,
 		ret = iomap_read_inline_data(iter, folio);
 		if (ret)
 			return ret;
-		return iomap_iter_advance(iter, &length);
+		return iomap_iter_advance(iter, length);
 	}
 
 	/* zero post-eof blocks as the page may be mapped */
@@ -462,7 +462,7 @@ done:
 	 * iteration.
 	 */
 	length = pos - iter->pos + plen;
-	return iomap_iter_advance(iter, &length);
+	return iomap_iter_advance(iter, length);
 }
 
 static int iomap_read_folio_iter(struct iomap_iter *iter,
@@ -1066,7 +1066,7 @@ retry:
 			}
 		} else {
 			total_written += written;
-			iomap_iter_advance(iter, &written);
+			iomap_iter_advance(iter, written);
 		}
 	} while (iov_iter_count(i) && iomap_length(iter));
 
@@ -1335,7 +1335,7 @@ static int iomap_unshare_iter(struct iomap_iter *iter,
 	int status;
 
 	if (!iomap_want_unshare_iter(iter))
-		return iomap_iter_advance(iter, &bytes);
+		return iomap_iter_advance(iter, bytes);
 
 	do {
 		struct folio *folio;
@@ -1359,10 +1359,10 @@ static int iomap_unshare_iter(struct iomap_iter *iter,
 
 		balance_dirty_pages_ratelimited(iter->inode->i_mapping);
 
-		status = iomap_iter_advance(iter, &bytes);
+		status = iomap_iter_advance(iter, bytes);
 		if (status)
 			break;
-	} while (bytes > 0);
+	} while ((bytes = iomap_length(iter)) > 0);
 
 	return status;
 }
@@ -1437,10 +1437,10 @@ static int iomap_zero_iter(struct iomap_iter *iter, bool *did_zero,
 		if (WARN_ON_ONCE(!ret))
 			return -EIO;
 
-		status = iomap_iter_advance(iter, &bytes);
+		status = iomap_iter_advance(iter, bytes);
 		if (status)
 			break;
-	} while (bytes > 0);
+	} while ((bytes = iomap_length(iter)) > 0);
 
 	if (did_zero)
 		*did_zero = true;
@@ -1551,7 +1551,7 @@ static int iomap_folio_mkwrite_iter(struct iomap_iter *iter,
 		folio_mark_dirty(folio);
 	}
 
-	return iomap_iter_advance(iter, &length);
+	return iomap_iter_advance(iter, length);
 }
 
 vm_fault_t iomap_page_mkwrite(struct vm_fault *vmf, const struct iomap_ops *ops,
