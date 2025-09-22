@@ -60,6 +60,7 @@ static int __assign_piu_intx_config(struct intx_chip_data *chip_data,
 	unsigned int cpu;
 	int thread, node, core, rcid;
 	unsigned int i;
+	struct irq_data *irq_data;
 
 	if (is_guest_or_emul())
 		return 0;
@@ -89,6 +90,9 @@ static int __assign_piu_intx_config(struct intx_chip_data *chip_data,
 					(i << PCI_INTXCONFIG_OFFSET));
 		chip_data->intxconfig[i] = intxconfig;
 	}
+	irq_data = irq_get_irq_data(hose->int_irq);
+	irq_data_update_effective_affinity(irq_data, cpumask_of(cpu));
+
 	return 0;
 }
 
