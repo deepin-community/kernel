@@ -28,12 +28,6 @@ jobs:
           time swmk1230 xuelang_defconfig
           time swmk1230 -j`nproc`
 
-      - name: 'Upload Kernel Artifact'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kernel-ABI-sw6b
-          path: "Module.symvers"
-
   build-kernel-sw8a:
     runs-on: [self-hosted, linux, x64]
     steps:
@@ -42,9 +36,3 @@ jobs:
           # .config
           time swmk8a1230 junzhang_defconfig
           time swmk8a1230 -j`nproc`
-
-      - name: 'Upload Kernel Artifact'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Kernel-ABI-sw8a
-          path: "Module.symvers"
