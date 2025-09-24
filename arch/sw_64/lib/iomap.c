@@ -262,8 +262,8 @@ EXPORT_SYMBOL(_memset_c_io);
 void __iomem *ioport_map(unsigned long port, unsigned int size)
 {
 	if (port >= 0x100000)
-		return ioremap(port, size);
+		return __va(port);
 
-	return ioremap((port << legacy_io_shift) | legacy_io_base, size);
+	return __va((port << legacy_io_shift) | legacy_io_base);
 }
 EXPORT_SYMBOL(ioport_map);
