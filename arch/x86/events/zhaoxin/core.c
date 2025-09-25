@@ -22,21 +22,19 @@
  * Zhaoxin PerfMon, used on Lujiazui and later.
  */
 static u64 zx_pmon_event_map[PERF_COUNT_HW_MAX] __read_mostly = {
-	[PERF_COUNT_HW_CPU_CYCLES]		= 0x0082,
-	[PERF_COUNT_HW_INSTRUCTIONS]		= 0x00c0,
-	[PERF_COUNT_HW_BUS_CYCLES]		= 0x0083,
-	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS]	= 0x0028,
-	[PERF_COUNT_HW_BRANCH_MISSES]		= 0x0029,
+	[PERF_COUNT_HW_CPU_CYCLES] = 0x0082,
+	[PERF_COUNT_HW_INSTRUCTIONS] = 0x00c0,
+	[PERF_COUNT_HW_BUS_CYCLES] = 0x0083,
+	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = 0x0028,
+	[PERF_COUNT_HW_BRANCH_MISSES] = 0x0029,
 };
 
 static struct event_constraint zxc_event_constraints[] __read_mostly = {
-
 	FIXED_EVENT_CONSTRAINT(0x0082, 1), /* unhalted core clock cycles */
 	EVENT_CONSTRAINT_END
 };
 
 static struct event_constraint wudaokou_event_constraints[] __read_mostly = {
-
 	FIXED_EVENT_CONSTRAINT(0x00c0, 0), /* retired instructions */
 	FIXED_EVENT_CONSTRAINT(0x0082, 1), /* unhalted core clock cycles */
 	FIXED_EVENT_CONSTRAINT(0x0083, 2), /* unhalted bus clock cycles */
@@ -445,9 +443,8 @@ static u64 zhaoxin_pmu_event_map(int hw_event)
 	return zx_pmon_event_map[hw_event];
 }
 
-static struct event_constraint *
-zhaoxin_get_event_constraints(struct cpu_hw_events *cpuc, int idx,
-			struct perf_event *event)
+static struct event_constraint *zhaoxin_get_event_constraints(struct cpu_hw_events *cpuc, int idx,
+							      struct perf_event *event)
 {
 	struct event_constraint *c;
 
@@ -461,11 +458,11 @@ zhaoxin_get_event_constraints(struct cpu_hw_events *cpuc, int idx,
 	return &unconstrained;
 }
 
-PMU_FORMAT_ATTR(event,	"config:0-7");
-PMU_FORMAT_ATTR(umask,	"config:8-15");
-PMU_FORMAT_ATTR(edge,	"config:18");
-PMU_FORMAT_ATTR(inv,	"config:23");
-PMU_FORMAT_ATTR(cmask,	"config:24-31");
+PMU_FORMAT_ATTR(event, "config:0-7");
+PMU_FORMAT_ATTR(umask, "config:8-15");
+PMU_FORMAT_ATTR(edge, "config:18");
+PMU_FORMAT_ATTR(inv, "config:23");
+PMU_FORMAT_ATTR(cmask, "config:24-31");
 
 static struct attribute *zx_arch_formats_attr[] = {
 	&format_attr_event.attr,
@@ -497,32 +494,34 @@ static struct perf_guest_switch_msr *zhaoxin_guest_get_msrs(int *nr, void *data)
 }
 
 static const struct x86_pmu zhaoxin_pmu __initconst = {
-	.name			= "zhaoxin",
-	.handle_irq		= zhaoxin_pmu_handle_irq,
-	.disable_all		= zhaoxin_pmu_disable_all,
-	.enable_all		= zhaoxin_pmu_enable_all,
-	.enable			= zhaoxin_pmu_enable_event,
-	.disable		= zhaoxin_pmu_disable_event,
-	.hw_config		= x86_pmu_hw_config,
-	.schedule_events	= x86_schedule_events,
-	.eventsel		= MSR_ARCH_PERFMON_EVENTSEL0,
-	.perfctr		= MSR_ARCH_PERFMON_PERFCTR0,
-	.event_map		= zhaoxin_pmu_event_map,
-	.max_events		= ARRAY_SIZE(zx_pmon_event_map),
-	.apic			= 1,
+	.name = "zhaoxin",
+	.handle_irq = zhaoxin_pmu_handle_irq,
+	.disable_all = zhaoxin_pmu_disable_all,
+	.enable_all = zhaoxin_pmu_enable_all,
+	.enable = zhaoxin_pmu_enable_event,
+	.disable = zhaoxin_pmu_disable_event,
+	.hw_config = x86_pmu_hw_config,
+	.schedule_events = x86_schedule_events,
+	.eventsel = MSR_ARCH_PERFMON_EVENTSEL0,
+	.perfctr = MSR_ARCH_PERFMON_PERFCTR0,
+	.event_map = zhaoxin_pmu_event_map,
+	.max_events = ARRAY_SIZE(zx_pmon_event_map),
+	.apic = 1,
 	/*
 	 * For wudaokou/lujiazui, read/write operation for PMCx MSR is 48 bits.
 	 */
-	.max_period		= (1ULL << 47) - 1,
-	.get_event_constraints	= zhaoxin_get_event_constraints,
+	.max_period = (1ULL << 47) - 1,
+	.get_event_constraints = zhaoxin_get_event_constraints,
 
-	.format_attrs		= zx_arch_formats_attr,
-	.events_sysfs_show	= zhaoxin_event_sysfs_show,
-
-	.guest_get_msrs		= zhaoxin_guest_get_msrs,
+	.format_attrs = zx_arch_formats_attr,
+	.events_sysfs_show = zhaoxin_event_sysfs_show,
+	.guest_get_msrs = zhaoxin_guest_get_msrs,
 };
 
-static const struct { int id; char *name; } zx_arch_events_map[] __initconst = {
+static  struct {
+	int id;
+	char *name;
+} const zx_arch_events_map[] __initconst = {
 	{ PERF_COUNT_HW_CPU_CYCLES, "cpu cycles" },
 	{ PERF_COUNT_HW_INSTRUCTIONS, "instructions" },
 	{ PERF_COUNT_HW_BUS_CYCLES, "bus cycles" },
@@ -539,8 +538,7 @@ static __init void zhaoxin_arch_events_quirk(void)
 	/* disable event that reported as not present by cpuid */
 	for_each_set_bit(bit, x86_pmu.events_mask, ARRAY_SIZE(zx_arch_events_map)) {
 		zx_pmon_event_map[zx_arch_events_map[bit].id] = 0;
-		pr_warn("CPUID marked event: \'%s\' unavailable\n",
-			zx_arch_events_map[bit].name);
+		pr_warn("CPUID marked event: \'%s\' unavailable\n", zx_arch_events_map[bit].name);
 	}
 }
 
@@ -571,12 +569,12 @@ __init int zhaoxin_pmu_init(void)
 	x86_pmu = zhaoxin_pmu;
 	pr_info("Version check pass!\n");
 
-	x86_pmu.version			= version;
-	x86_pmu.num_counters		= eax.split.num_counters;
-	x86_pmu.cntval_bits		= eax.split.bit_width;
-	x86_pmu.cntval_mask		= (1ULL << eax.split.bit_width) - 1;
-	x86_pmu.events_maskl		= ebx.full;
-	x86_pmu.events_mask_len		= eax.split.mask_length;
+	x86_pmu.version = version;
+	x86_pmu.num_counters = eax.split.num_counters;
+	x86_pmu.cntval_bits = eax.split.bit_width;
+	x86_pmu.cntval_mask = (1ULL << eax.split.bit_width) - 1;
+	x86_pmu.events_maskl = ebx.full;
+	x86_pmu.events_mask_len = eax.split.mask_length;
 
 	x86_pmu.num_counters_fixed = edx.split.num_counters_fixed;
 	x86_add_quirk(zhaoxin_arch_events_quirk);
@@ -589,8 +587,7 @@ __init int zhaoxin_pmu_init(void)
 		 * ZXC FMS: Family=6, Model=F, Stepping=E-F OR Family=6, Model=0x19, Stepping=0-3
 		 */
 		if ((boot_cpu_data.x86_model == 0x0f && boot_cpu_data.x86_stepping >= 0x0e) ||
-			boot_cpu_data.x86_model == 0x19) {
-
+		    boot_cpu_data.x86_model == 0x19) {
 			x86_pmu.max_period = x86_pmu.cntval_mask >> 1;
 
 			/* Clearing status works only if the global control is enable on zxc. */
@@ -644,6 +641,7 @@ __init int zhaoxin_pmu_init(void)
 			break;
 		case 0x5b:
 		case 0x6b:
+		case 0x7b:
 			zx_pmon_event_map[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] =
 				X86_CONFIG(.event = 0x02, .umask = 0x01, .inv = 0x01,
 					   .cmask = 0x01);
@@ -659,7 +657,7 @@ __init int zhaoxin_pmu_init(void)
 			if (boot_cpu_data.x86_model == 0x5b)
 				pr_cont("Yongfeng events, ");
 
-			if (boot_cpu_data.x86_model == 0x6b)
+			if (boot_cpu_data.x86_model == 0x6b || boot_cpu_data.x86_model == 0x7b)
 				pr_cont("Shijidadao events, ");
 
 			break;
@@ -673,7 +671,7 @@ __init int zhaoxin_pmu_init(void)
 	}
 
 	x86_pmu.intel_ctrl = (1 << (x86_pmu.num_counters)) - 1;
-	x86_pmu.intel_ctrl |= ((1LL << x86_pmu.num_counters_fixed)-1) << INTEL_PMC_IDX_FIXED;
+	x86_pmu.intel_ctrl |= ((1LL << x86_pmu.num_counters_fixed) - 1) << INTEL_PMC_IDX_FIXED;
 
 	if (x86_pmu.event_constraints) {
 		for_each_event_constraint(c, x86_pmu.event_constraints) {

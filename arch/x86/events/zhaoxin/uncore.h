@@ -7,24 +7,24 @@
 #include <linux/perf_event.h>
 #include "../perf_event.h"
 
-#define ZHAOXIN_FAM7_KX5000		0x1b
-#define ZHAOXIN_FAM7_KX6000		0x3b
-#define ZHAOXIN_FAM7_KH40000		0x5b
-#define ZHAOXIN_FAM7_KX7000		0x6b
+#define ZHAOXIN_FAM7_KX5000 0x1b
+#define ZHAOXIN_FAM7_KX6000 0x3b
+#define ZHAOXIN_FAM7_KH40000 0x5b
+#define ZHAOXIN_FAM7_KX7000 0x6b
 
-#define UNCORE_PMU_NAME_LEN		32
-#define UNCORE_PMU_HRTIMER_INTERVAL	(60LL * NSEC_PER_SEC)
+#define UNCORE_PMU_NAME_LEN 32
+#define UNCORE_PMU_HRTIMER_INTERVAL (60LL * NSEC_PER_SEC)
 
-#define UNCORE_FIXED_EVENT              0xff
-#define UNCORE_PMC_IDX_MAX_GENERIC      4
-#define UNCORE_PMC_IDX_MAX_FIXED        1
-#define UNCORE_PMC_IDX_FIXED            UNCORE_PMC_IDX_MAX_GENERIC
+#define UNCORE_FIXED_EVENT 0xff
+#define UNCORE_PMC_IDX_MAX_GENERIC 4
+#define UNCORE_PMC_IDX_MAX_FIXED 1
+#define UNCORE_PMC_IDX_FIXED UNCORE_PMC_IDX_MAX_GENERIC
 
-#define UNCORE_PMC_IDX_MAX              (UNCORE_PMC_IDX_FIXED + 1)
+#define UNCORE_PMC_IDX_MAX (UNCORE_PMC_IDX_FIXED + 1)
 
-#define UNCORE_PCI_DEV_DATA(type, idx)  ((type << 8) | idx)
-#define UNCORE_PCI_DEV_TYPE(data)       ((data >> 8) & 0xff)
-#define UNCORE_PCI_DEV_IDX(data)        (data & 0xff)
+#define UNCORE_PCI_DEV_DATA(type, idx) ((type << 8) | idx)
+#define UNCORE_PCI_DEV_TYPE(data) ((data >> 8) & 0xff)
+#define UNCORE_PCI_DEV_IDX(data) (data & 0xff)
 
 struct zhaoxin_uncore_ops;
 struct zhaoxin_uncore_pmu;
@@ -98,12 +98,12 @@ struct zhaoxin_uncore_extra_reg {
 
 struct zhaoxin_uncore_box {
 	int pci_phys_id;
-	int package_id;	/*Package ID */
+	int package_id; /*Package ID */
 	int cluster_id;
 	int subnode_id;
-	int n_active;	/* number of active events */
+	int n_active; /* number of active events */
 	int n_events;
-	int cpu;	/* cpu to collect events */
+	int cpu; /* cpu to collect events */
 	unsigned long flags;
 	atomic_t refcnt;
 	struct perf_event *events[UNCORE_PMC_IDX_MAX];
@@ -121,8 +121,7 @@ struct zhaoxin_uncore_box {
 	struct zhaoxin_uncore_extra_reg shared_regs[];
 };
 
-#define UNCORE_BOX_FLAG_INITIATED	0
-
+#define UNCORE_BOX_FLAG_INITIATED 0
 struct uncore_event_desc {
 	struct device_attribute attr;
 	const char *config;
@@ -135,22 +134,20 @@ struct hw_info {
 
 ssize_t zx_uncore_event_show(struct device *dev, struct device_attribute *attr, char *buf);
 
-#define ZHAOXIN_UNCORE_EVENT_DESC(_name, _config)			\
-{									\
-	.attr	= __ATTR(_name, 0444, zx_uncore_event_show, NULL),	\
-	.config	= _config,						\
-}
+#define ZHAOXIN_UNCORE_EVENT_DESC(_name, _config)                                           \
+	{                                                                                   \
+		.attr = __ATTR(_name, 0444, zx_uncore_event_show, NULL), .config = _config, \
+	}
 
-#define DEFINE_UNCORE_FORMAT_ATTR(_var, _name, _format)			\
-static ssize_t __uncore_##_var##_show(struct device *dev,		\
-				struct device_attribute *attr,		\
-				char *page)				\
-{									\
-	BUILD_BUG_ON(sizeof(_format) >= PAGE_SIZE);			\
-	return sprintf(page, _format "\n");				\
-}									\
-static struct device_attribute format_attr_##_var =			\
-	__ATTR(_name, 0444, __uncore_##_var##_show, NULL)
+#define DEFINE_UNCORE_FORMAT_ATTR(_var, _name, _format)                                          \
+	static ssize_t __uncore_##_var##_show(struct device *dev, struct device_attribute *attr, \
+					      char *page)                                        \
+	{                                                                                        \
+		BUILD_BUG_ON(sizeof(_format) >= PAGE_SIZE);                                      \
+		return sprintf(page, _format "\n");                                              \
+	}                                                                                        \
+	static struct device_attribute format_attr_##_var =                                      \
+		__ATTR(_name, 0444, __uncore_##_var##_show, NULL)
 
 static inline bool uncore_pmc_fixed(int idx)
 {
@@ -194,9 +191,8 @@ static inline unsigned int uncore_msr_box_offset(struct zhaoxin_uncore_box *box)
 {
 	struct zhaoxin_uncore_pmu *pmu = box->pmu;
 
-	return pmu->type->msr_offsets ?
-		pmu->type->msr_offsets[pmu->pmu_idx] :
-		pmu->type->msr_offset * pmu->pmu_idx;
+	return pmu->type->msr_offsets ? pmu->type->msr_offsets[pmu->pmu_idx] :
+					pmu->type->msr_offset * pmu->pmu_idx;
 }
 
 static inline unsigned int uncore_msr_box_ctl(struct zhaoxin_uncore_box *box)
@@ -226,9 +222,8 @@ static inline unsigned int uncore_msr_event_ctl(struct zhaoxin_uncore_box *box, 
 
 static inline unsigned int uncore_msr_perf_ctr(struct zhaoxin_uncore_box *box, int idx)
 {
-	return box->pmu->type->perf_ctr +
-		(box->pmu->type->pair_ctr_ctl ? 2 * idx : idx) +
-		uncore_msr_box_offset(box);
+	return box->pmu->type->perf_ctr + (box->pmu->type->pair_ctr_ctl ? 2 * idx : idx) +
+	       uncore_msr_box_offset(box);
 }
 
 static inline unsigned int uncore_fixed_ctl(struct zhaoxin_uncore_box *box)
