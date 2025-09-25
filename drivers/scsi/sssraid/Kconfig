@@ -1,0 +1,14 @@
+#
+# Kernel configuration file for the 3SNIC
+#
+
+config SCSI_3SNIC_SSSRAID
+	tristate "3SNIC sssraid Adapter"
+	depends on PCI && SCSI
+	select BLK_DEV_BSGLIB
+	depends on ARM64 || X86_64
+	help
+	This driver supports 3SNIC 3S5xx serial RAID controller, which has
+	PCI Express Gen4 interface with host and supports SAS/SATA HDD/SSD.
+	To compile this driver as a module, choose M here: the module will
+	be called sssraid.

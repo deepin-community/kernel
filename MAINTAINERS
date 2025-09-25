@@ -20408,6 +20408,13 @@ M:	Jan-Benedict Glaw <jbglaw@lug-owl.de>
 S:	Maintained
 F:	arch/alpha/kernel/srm_env.c
 
+SSSRAID SCSI/Raid DRIVERS
+M:	fei zhigang <feizg@3snic.com>
+L:	linux-scsi@vger.kernel.org
+S:	Maintained
+F:	Documentation/scsi/sssraid.rst
+F:	drivers/scsi/sssraid/
+
 ST LSM6DSx IMU IIO DRIVER
 M:	Lorenzo Bianconi <lorenzo@kernel.org>
 L:	linux-iio@vger.kernel.org
