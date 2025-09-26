@@ -15,9 +15,9 @@
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/platform_device.h>
+#include <linux/processor.h>
 #include <linux/cpu.h>
 #include <asm/msr.h>
-#include <asm/processor.h>
 #include <asm/cpu_device_id.h>
 
 #define DRVNAME "zhaoxin_cputemp"
@@ -33,7 +33,6 @@ struct zhaoxin_cputemp_data {
 	u32 msr_temp;
 	u32 msr_crit;
 	u32 msr_max;
-	u32 msr_index;
 };
 
 /* Sysfs stuff */
@@ -46,12 +45,11 @@ static ssize_t name_show(struct device *dev, struct device_attribute *devattr, c
 
 	if (attr->index == SHOW_NAME)
 		ret = sprintf(buf, "%s\n", data->name);
-	else    /* show label */
+	else /* show label */
 		ret = sprintf(buf, "Core %d\n", data->id);
 	return ret;
 }
 
-static int temperature_access(struct zhaoxin_cputemp_data *data, u32 *l, u32 *h);
 static ssize_t temp_show(struct device *dev, struct device_attribute *devattr, char *buf)
 {
 	struct zhaoxin_cputemp_data *data = dev_get_drvdata(dev);
@@ -110,28 +108,6 @@ static const struct attribute_group zhaoxin_cputemp_group = {
 	.attrs = zhaoxin_cputemp_attributes,
 };
 
-static int temperature_access(struct zhaoxin_cputemp_data *data, u32 *l, u32 *h)
-{
-	int err;
-	*l = 0x19;
-
-	if (data->msr_index) {
-		err = wrmsr_safe_on_cpu(data->id, data->msr_index, *l, *h);
-		if (err) {
-			pr_info("Unable to write TEMPERATURE INDEX MSR\n");
-			return err;
-		}
-	}
-
-	*l = 0;
-	err = rdmsr_safe_on_cpu(data->id, data->msr_temp, l, h);
-	if (err) {
-		pr_info("Unable to read TEMPERATURE DATA MSR\n");
-		return err;
-	}
-	return 0;
-}
-
 static int zhaoxin_cputemp_probe(struct platform_device *pdev)
 {
 	struct zhaoxin_cputemp_data *data;
@@ -145,20 +121,17 @@ static int zhaoxin_cputemp_probe(struct platform_device *pdev)
 
 	data->id = pdev->id;
 	data->name = "zhaoxin_cputemp";
-	if (c->x86_model == 0x6b) {
-		data->msr_index = 0x174c;
-		data->msr_temp  = 0x174d;
-		data->msr_crit  = 0x175b;
-		data->msr_max   = 0x175a;
+	data->msr_temp = 0x1423;
+	if (c->x86_model == 0x6b || c->x86_model == 0x7b) {
+		data->msr_crit = 0x175b;
+		data->msr_max = 0x175a;
 	} else {
-		data->msr_index = 0;
-		data->msr_temp = 0x1423;
 		data->msr_crit = 0x1416;
 		data->msr_max = 0x1415;
 	}
 
 	/* test if we can access the TEMPERATURE MSR */
-	err = temperature_access(data, &eax, &edx);
+	err = rdmsr_safe_on_cpu(data->id, data->msr_temp, &eax, &edx);
 	if (err) {
 		dev_err(&pdev->dev, "Unable to access TEMPERATURE MSR, giving up\n");
 		return err;
@@ -276,6 +249,8 @@ static const struct x86_cpu_id __initconst cputemp_ids[] = {
 	X86_MATCH_VENDOR_FAM_MODEL(ZHAOXIN, 7, 0x5b, NULL),
 	X86_MATCH_VENDOR_FAM_MODEL(CENTAUR, 7, 0x6b, NULL),
 	X86_MATCH_VENDOR_FAM_MODEL(ZHAOXIN, 7, 0x6b, NULL),
+	X86_MATCH_VENDOR_FAM_MODEL(CENTAUR, 7, 0x7b, NULL),
+	X86_MATCH_VENDOR_FAM_MODEL(ZHAOXIN, 7, 0x7b, NULL),
 	{}
 };
 MODULE_DEVICE_TABLE(x86cpu, cputemp_ids);
@@ -293,8 +268,8 @@ static int __init zhaoxin_cputemp_init(void)
 	if (err)
 		goto exit;
 
-	err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hwmon/zhaoxin:online",
-			zhaoxin_cputemp_online, zhaoxin_cputemp_down_prep);
+	err = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "hwmon/zhaoxin:online", zhaoxin_cputemp_online,
+				zhaoxin_cputemp_down_prep);
 	if (err < 0)
 		goto exit_driver_unreg;
 
@@ -326,8 +301,7 @@ static void __exit zhaoxin_cputemp_exit(void)
 
 MODULE_DESCRIPTION("Zhaoxin CPU temperature monitor");
 MODULE_LICENSE("GPL");
-
-module_init(zhaoxin_cputemp_init)
-module_exit(zhaoxin_cputemp_exit)
-
 MODULE_IMPORT_NS(HWMON_THERMAL);
+
+module_init(zhaoxin_cputemp_init);
+module_exit(zhaoxin_cputemp_exit);
