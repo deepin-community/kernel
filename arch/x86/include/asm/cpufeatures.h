@@ -502,6 +502,9 @@
 #define X86_FEATURE_CLEAR_CPU_BUF_VM   (21*32+13) /* "" Clear CPU buffers using VERW before VMRUN */
 #define X86_FEATURE_IBPB_EXIT_TO_USER  (21*32+14) /* Use IBPB on exit-to-userspace, see VMSCAPE bug */
 
+/* Zhaoxin/Centaur-defined CPU features, CPUID level 0xC0000006, word 22 */
+#define X86_FEATURE_PAUSEOPT		(22*32+ 0) /* ZHAOXIN PAUSEOPT */
+
 /* HYGON-defined CPU features, CPUID level 0x8c860000:0 (EDX), word 23 */
 #define X86_FEATURE_HYGON_SM3		(23*32 + 1) /* "sm3" SM3 instructions */
 #define X86_FEATURE_HYGON_SM4		(23*32 + 2) /* "sm4" SM4 instructions */
