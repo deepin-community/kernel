@@ -2488,7 +2488,7 @@ source "kernel/livepatch/Kconfig"
 
 config X86_BUS_LOCK_DETECT
 	bool "Split Lock Detect and Bus Lock Detect support"
-	depends on CPU_SUP_INTEL || CPU_SUP_AMD
+	depends on CPU_SUP_INTEL || CPU_SUP_AMD || CPU_SUP_ZHAOXIN || CPU_SUP_CENTAUR
 	default y
 	help
 	  Enable Split Lock Detect and Bus Lock Detect functionalities.

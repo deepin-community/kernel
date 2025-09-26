@@ -224,6 +224,8 @@ static void init_centaur(struct cpuinfo_x86 *c)
 #endif
 
 	init_ia32_feat_ctl(c);
+
+	split_lock_init();
 }
 
 #ifdef CONFIG_X86_32
