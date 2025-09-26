@@ -836,6 +836,12 @@ void kvm_set_cpu_caps(void)
 		kvm_cpu_cap_clear(X86_FEATURE_RDTSCP);
 		kvm_cpu_cap_clear(X86_FEATURE_RDPID);
 	}
+
+	/*
+	 * Do not hide any features supported by this leaf, allow the guest to see
+	 * the original information.Now leaf 0xC000_0006 EAX only supports PAUSEOPT.
+	 */
+	kvm_cpu_cap_mask(CPUID_C000_0006_EAX, F(PAUSEOPT));
 }
 EXPORT_SYMBOL_GPL(kvm_set_cpu_caps);
 
@@ -1356,17 +1362,21 @@ static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
 	}
 	/*Add support for Centaur's CPUID instruction*/
 	case 0xC0000000:
-		/*Just support up to 0xC0000004 now*/
-		entry->eax = min(entry->eax, 0xC0000004);
+		/* Extended to 0xC0000006 */
+		entry->eax = min(entry->eax, 0xC0000006);
 		break;
 	case 0xC0000001:
 		cpuid_entry_override(entry, CPUID_C000_0001_EDX);
+		break;
+	case 0xC0000006:
+		cpuid_entry_override(entry, CPUID_C000_0006_EAX);
 		break;
 	case 3: /* Processor serial number */
 	case 5: /* MONITOR/MWAIT */
 	case 0xC0000002:
 	case 0xC0000003:
 	case 0xC0000004:
+	case 0xC0000005:
 	default:
 		entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
 		break;

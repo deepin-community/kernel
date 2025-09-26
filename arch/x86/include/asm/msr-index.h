@@ -794,6 +794,13 @@
 #define MSR_VIA_RNG			0x0000110b
 #define MSR_VIA_BCR2			0x00001147
 
+/*
+ * Zhaoxin extend VMCS capabilities:
+ *	bit 0: exec-cntl3 VMCS field.
+ */
+#define MSR_ZX_EXT_VMCS_CAPS			0x1675
+#define MSR_ZX_VMCS_EXEC_CTL3			BIT(0)
+
 /* Transmeta defined MSRs */
 #define MSR_TMTA_LONGRUN_CTRL		0x80868010
 #define MSR_TMTA_LONGRUN_FLAGS		0x80868011
@@ -1129,6 +1136,9 @@
 #define MSR_IA32_VMX_TRUE_ENTRY_CTLS     0x00000490
 #define MSR_IA32_VMX_VMFUNC             0x00000491
 #define MSR_IA32_VMX_PROCBASED_CTLS3	0x00000492
+
+/* Zhaoxin VT MSRs */
+#define MSR_ZX_VMX_PROCBASED_CTLS3      0x12A7
 
 /* VMX_BASIC bits and bitmasks */
 #define VMX_BASIC_VMCS_SIZE_SHIFT	32

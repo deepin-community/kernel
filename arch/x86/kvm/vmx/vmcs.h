@@ -51,6 +51,7 @@ struct vmcs_controls_shadow {
 	u32 exec;
 	u32 secondary_exec;
 	u64 tertiary_exec;
+	u32 zx_tertiary_exec;
 };
 
 /*
