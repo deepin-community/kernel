@@ -1786,6 +1786,108 @@ static void ahci_intel_pcs_quirk(struct pci_dev *pdev, struct ahci_host_priv *hp
 	}
 }
 
+#ifdef CONFIG_X86
+static void ahci_zx_led_remove_quirk(struct pci_dev *pdev)
+{
+	struct ata_host *host = pci_get_drvdata(pdev);
+	struct ahci_host_priv *hpriv = host->private_data;
+	struct pci_dev *sata_pdev = NULL;
+	struct ata_host *sata_host = NULL;
+	struct ahci_host_priv *sata_hpriv = NULL;
+	void __iomem *p1_mmio_tmp = NULL;
+	struct pci_dev *target_p0_dev = NULL;
+
+	if (!hpriv->px_index || !hpriv->has_p0_p1)
+		return;
+
+	while ((sata_pdev = pci_get_device(PCI_VENDOR_ID_ZHAOXIN, 0x9083, sata_pdev)) != NULL) {
+		sata_host = pci_get_drvdata(sata_pdev);
+		sata_hpriv = sata_host ? sata_host->private_data : NULL;
+		if (!sata_hpriv)
+			continue;
+		if (sata_hpriv->sx_index == hpriv->sx_index) {
+			if (sata_hpriv->px_index == 1 &&
+			    PCI_FUNC(pdev->devfn) != PCI_FUNC(sata_pdev->devfn))
+				p1_mmio_tmp = sata_hpriv->mmio;
+			else if (sata_hpriv->px_index == 0)
+				target_p0_dev = sata_pdev;
+		}
+
+		if (target_p0_dev && p1_mmio_tmp)
+			break;
+	}
+	if (target_p0_dev) {
+		sata_host = pci_get_drvdata(target_p0_dev);
+		sata_hpriv = sata_host ? sata_host->private_data : NULL;
+		if (sata_hpriv)
+			sata_hpriv->p1_mmio = p1_mmio_tmp;
+	}
+}
+
+static void ahci_zx_led_init_quirk(struct pci_dev *pdev, struct ahci_host_priv *hpriv)
+{
+	int i, err;
+	u8 p0_bus_number, p1_bus_number, target_px_index;
+	u64 val;
+	struct pci_dev *sata_pdev = NULL;
+	struct ata_host *sata_host = NULL;
+	struct ahci_host_priv *sata_hpriv = NULL;
+
+	if (pdev->vendor != PCI_VENDOR_ID_ZHAOXIN || pdev->device != 0x9083 ||
+	    pdev->revision != 0x40)
+		return;
+
+	val = native_read_msr_safe(ZX_GET_BUS_NUMBER_QUIRK, &err);
+	if (err) /* MSR read failed */
+		return;
+
+	hpriv->sx_index = 0xFF;
+	hpriv->px_index = 0xFF;
+	hpriv->p1_mmio = NULL;
+	hpriv->has_p0_p1 = false;
+	for (i = 0; i < 4; i++) {
+		p0_bus_number = val & 0xFF;
+		p1_bus_number = (val >> 8) & 0xFF;
+		if (pdev->bus->number == p0_bus_number) {
+			hpriv->sx_index = i;
+			hpriv->px_index = 0;
+			break;
+		}
+		if (pdev->bus->number == p1_bus_number) {
+			hpriv->sx_index = i;
+			hpriv->px_index = 1;
+			break;
+		}
+		val >>= 16;
+	}
+	/* Exit if no matching bus number found */
+	if (hpriv->px_index == 0xFF || hpriv->sx_index == 0xFF)
+		return;
+
+	target_px_index = !hpriv->px_index;
+	while ((sata_pdev = pci_get_device(PCI_VENDOR_ID_ZHAOXIN, 0x9083, sata_pdev)) != NULL) {
+		sata_host = pci_get_drvdata(sata_pdev);
+		sata_hpriv = sata_host ? sata_host->private_data : NULL;
+		if (!sata_hpriv)
+			continue;
+
+		if (sata_hpriv->sx_index == hpriv->sx_index &&
+		    sata_hpriv->px_index == target_px_index) {
+			if (hpriv->px_index == 0)
+				hpriv->p1_mmio = sata_hpriv->mmio;
+			else
+				sata_hpriv->p1_mmio = hpriv->mmio;
+			hpriv->has_p0_p1 = true;
+			sata_hpriv->has_p0_p1 = true;
+			break;
+		}
+	}
+}
+#else
+static inline void ahci_zx_led_remove_quirk(struct pci_dev *pdev) { }
+static inline void ahci_zx_led_init_quirk(struct pci_dev *pdev, struct ahci_host_priv *hpriv) { }
+#endif /* CONFIG_X86 */
+
 static ssize_t remapped_nvme_show(struct device *dev,
 				  struct device_attribute *attr,
 				  char *buf)
@@ -1919,6 +2021,8 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* save initial config */
 	ahci_pci_save_initial_config(pdev, hpriv);
+
+	ahci_zx_led_init_quirk(pdev, hpriv);
 
 	/* prepare host */
 	if (hpriv->cap & HOST_CAP_NCQ) {
@@ -2071,6 +2175,7 @@ static void ahci_shutdown_one(struct pci_dev *pdev)
 
 static void ahci_remove_one(struct pci_dev *pdev)
 {
+	ahci_zx_led_remove_quirk(pdev);
 	sysfs_remove_file_from_group(&pdev->dev.kobj,
 				     &dev_attr_remapped_nvme.attr,
 				     NULL);
