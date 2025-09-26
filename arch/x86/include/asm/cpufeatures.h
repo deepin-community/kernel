@@ -501,8 +501,6 @@
 #define X86_FEATURE_TSA_L1_NO          (21*32+12) /* "" AMD CPU not vulnerable to TSA-L1 */
 #define X86_FEATURE_CLEAR_CPU_BUF_VM   (21*32+13) /* "" Clear CPU buffers using VERW before VMRUN */
 #define X86_FEATURE_IBPB_EXIT_TO_USER  (21*32+14) /* Use IBPB on exit-to-userspace, see VMSCAPE bug */
-/* VIA/Cyrix/Centaur-defined CPU features, CPUID level 0xC0000006, word 22 */
-#define X86_FEATURE_ZXPAUSE            (22*32+ 0) /* ZHAOXIN ZXPAUSE */
 
 /* HYGON-defined CPU features, CPUID level 0x8c860000:0 (EDX), word 23 */
 #define X86_FEATURE_HYGON_SM3		(23*32 + 1) /* "sm3" SM3 instructions */
