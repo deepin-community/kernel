@@ -557,6 +557,12 @@ int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_
 
 	unsigned long lo, hi;
 
+	if (!iovad->granule) {
+		unsigned long order = __ffs(domain->pgsize_bitmap);
+
+		iovad->granule = 1UL << order;
+	}
+
 	lo = iova_pfn(iovad, start);
 	hi = iova_pfn(iovad, end);
 
