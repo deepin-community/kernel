@@ -216,6 +216,13 @@ static int via_cputemp_online(unsigned int cpu)
 	struct platform_device *pdev;
 	struct pdev_entry *pdev_entry;
 
+	/*
+	 * Don't execute this on suspend as the device remove locks
+	 * up the machine.
+	 */
+	if (cpuhp_tasks_frozen)
+		return 0;
+
 	pdev = platform_device_alloc(DRVNAME, cpu);
 	if (!pdev) {
 		err = -ENOMEM;
@@ -254,6 +261,13 @@ exit:
 static int via_cputemp_down_prep(unsigned int cpu)
 {
 	struct pdev_entry *p;
+
+	/*
+	 * Don't execute this on suspend as the device remove locks
+	 * up the machine.
+	 */
+	if (cpuhp_tasks_frozen)
+		return 0;
 
 	mutex_lock(&pdev_list_mutex);
 	list_for_each_entry(p, &pdev_list, list) {
