@@ -84,6 +84,9 @@ static __init void x86_late_time_init(void)
 
 	if (static_cpu_has(X86_FEATURE_WAITPKG))
 		use_tpause_delay();
+
+	if (static_cpu_has(X86_FEATURE_PAUSEOPT))
+		use_pauseopt_delay();
 }
 
 /*

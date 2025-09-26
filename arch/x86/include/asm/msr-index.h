@@ -81,6 +81,13 @@
  */
 #define MSR_IA32_UMWAIT_CONTROL_TIME_MASK	(~0x03U)
 
+#define MSR_PAUSEOPT_CONTROL			0x187f
+/*
+ * The time field is bit[31:2], but representing a 32bit value with
+ * bit[1:0] zero.
+ */
+#define MSR_PAUSEOPT_CONTROL_TIME_MASK		(~0x03U)
+
 /* Abbreviated from Intel SDM name IA32_CORE_CAPABILITIES */
 #define MSR_IA32_CORE_CAPS			  0x000000cf
 #define MSR_IA32_CORE_CAPS_INTEGRITY_CAPS_BIT	  2
