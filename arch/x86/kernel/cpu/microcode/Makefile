@@ -3,3 +3,6 @@ microcode-y				:= core.o
 obj-$(CONFIG_MICROCODE)			+= microcode.o
 microcode-$(CONFIG_CPU_SUP_INTEL)	+= intel.o
 microcode-$(CONFIG_CPU_SUP_AMD)		+= amd.o
+ifneq ($(CONFIG_CPU_SUP_ZHAOXIN)$(CONFIG_CPU_SUP_CENTAUR),)
+microcode-y				+= zhaoxin.o
+endif
