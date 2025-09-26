@@ -1,4 +1,5 @@
-# zhaoxin pin control drivers
+# Zhaoxin pin control drivers
 
 obj-$(CONFIG_PINCTRL_ZHAOXIN)		+= pinctrl-zhaoxin.o
 obj-$(CONFIG_PINCTRL_KX7000)		+= pinctrl-kx7000.o
+obj-$(CONFIG_PINCTRL_KH50000)		+= pinctrl-kh50000.o

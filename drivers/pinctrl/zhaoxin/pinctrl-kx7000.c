@@ -1,42 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * zhaoxin KX7000 pinctrl/GPIO driver
+ * Zhaoxin KX7000 pinctrl/GPIO driver
  *
- * Copyright(c) 2023 Shanghai Zhaoxin Corporation. All rights reserved.
+ * Copyright(c) 2021 Shanghai Zhaoxin Corporation. All rights reserved.
  *
  */
 
-#define DRIVER_VERSION "1.0.0"
+#define DRIVER_VERSION "1.0.1"
 
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-
 #include <linux/pinctrl/pinctrl.h>
 
 #include "pinctrl-zhaoxin.h"
 
-#define ZX_CAL_ARRAY(a, b) \
-{ \
-	.pmio_offset = (a), \
-	.size = (b), \
-}
-
-#define PMIO_RX90 100
-#define PMIO_RX8C 200
-
-#define ZX_CAL_INDEX_ARRAY(a, b, c) \
-{ \
-	.reg_port_base = (PMIO_RX90), \
-	.reg_data_base = (PMIO_RX8C), \
-	.index = (a), \
-	.cal_array = (b), \
-	.size = (c), \
-}
-
 /* kx7000 pin define */
 static const struct pinctrl_pin_desc kx7000_pins[] = {
-
 	PINCTRL_PIN(0, "IOD_CPUTCK"),
 	PINCTRL_PIN(1, "IOD_CPUTMS"),
 	PINCTRL_PIN(2, "IOD_CPUTRST"),
@@ -51,7 +31,7 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(11, "IOD_PWORK"),
 	PINCTRL_PIN(12, "IOD_RSMRST"),
 	PINCTRL_PIN(13, "IOD_THRMTRIP"),
-	//GPIO range 0
+	/* GPIO range 0 */
 	PINCTRL_PIN(14, "USBHOC0"),
 	PINCTRL_PIN(15, "USBHOC1"),
 	PINCTRL_PIN(16, "USBHOC2"),
@@ -60,33 +40,33 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(19, "USBHOC5"),
 	PINCTRL_PIN(20, "USBHOC6"),
 	PINCTRL_PIN(21, "USBHOC7"),
-	//gpio range 1
+	/* GPIO range 1 */
 	PINCTRL_PIN(22, "USB4SBTX0"),
 	PINCTRL_PIN(23, "USB4SBRX0"),
 	PINCTRL_PIN(24, "USB4SBTX1"),
 	PINCTRL_PIN(25, "USB4SBRX1"),
-	//gpio range 2
+	/* GPIO range 2 */
 	PINCTRL_PIN(26, "I2C1DT"),
 	PINCTRL_PIN(27, "I2C1CK"),
 	PINCTRL_PIN(28, "I2C1INT"),
-	//gpio range 3
+	/* GPIO range 3 */
 	PINCTRL_PIN(29, "I2C2DT"),
 	PINCTRL_PIN(30, "I2C2CK"),
-	//gpio range 4
+	/* GPIO range 4 */
 	PINCTRL_PIN(31, "I2C2INT"),
-	//gpio range 5
+	/* GPIO range 5 */
 	PINCTRL_PIN(32, "SMBDT1"),
 	PINCTRL_PIN(33, "SMBCK1"),
 	PINCTRL_PIN(34, "SMBDT2"),
 	PINCTRL_PIN(35, "SMBCK2"),
 	PINCTRL_PIN(36, "SMBALRT"),
-	//gpio range 6
+	/* GPIO range 6 */
 	PINCTRL_PIN(37, "SME_I2CDT"),
 	PINCTRL_PIN(38, "SME_I2CCK"),
-	//gpio range 7
+	/* GPIO range 7 */
 	PINCTRL_PIN(39, "PWM"),
 	PINCTRL_PIN(40, "TACH"),
-	//gpio range 8
+	/* GPIO range 8 */
 	PINCTRL_PIN(41, "GPIO0"),
 	PINCTRL_PIN(42, "GPIO1"),
 	PINCTRL_PIN(43, "GPIO2"),
@@ -99,14 +79,14 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(50, "GPIO9"),
 	PINCTRL_PIN(51, "LPCCLK"),
 	PINCTRL_PIN(52, "LPCDRQ1"),
-	//gpio range 9
+	/* GPIO range 9 */
 	PINCTRL_PIN(53, "LPCDRQ0"),
 	PINCTRL_PIN(54, "LPCFRAME"),
 	PINCTRL_PIN(55, "LPCAD3"),
 	PINCTRL_PIN(56, "LPCAD2"),
 	PINCTRL_PIN(57, "LPCAD1"),
 	PINCTRL_PIN(58, "LPCAD0"),
-	//gpio range 10
+	/* GPIO range 10 */
 	PINCTRL_PIN(59, "SERIRQ"),
 	PINCTRL_PIN(60, "AZRST"),
 	PINCTRL_PIN(61, "AZBITCLK"),
@@ -114,14 +94,14 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(63, "AZSDIN1"),
 	PINCTRL_PIN(64, "AZSDOUT"),
 	PINCTRL_PIN(65, "AZSYNC"),
-	//gpio range 11
+	/* GPIO range 11 */
 	PINCTRL_PIN(66, "I2S1_SCLK"),
 	PINCTRL_PIN(67, "I2S1_TXD"),
 	PINCTRL_PIN(68, "I2S1_WS"),
 	PINCTRL_PIN(69, "I2S1_MCLK"),
-	//gpio range 12
+	/* GPIO range 12 */
 	PINCTRL_PIN(70, "I2S1_RXD"),
-	//gpio range 13
+	/* GPIO range 13 */
 	PINCTRL_PIN(71, "I2S1_INT"),
 	PINCTRL_PIN(72, "MSPIDI"),
 	PINCTRL_PIN(73, "MSPIDO"),
@@ -129,20 +109,20 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(75, "MSPIIO3"),
 	PINCTRL_PIN(76, "MSPICLK"),
 	PINCTRL_PIN(77, "MSPISS0"),
-	//gpio range 14
+	/* GPIO range 14 */
 	PINCTRL_PIN(78, "MSPISS1"),
 	PINCTRL_PIN(79, "MSPISS2"),
-	//gpio range 15
+	/* GPIO range 15 */
 	PINCTRL_PIN(80, "SPIDEVINT"),
 	PINCTRL_PIN(81, "BIOSSEL"),
-	//gpio range 16
+	/* GPIO range 16 */
 	PINCTRL_PIN(82, "THRM"),
 	PINCTRL_PIN(83, "PEXWAKE"),
 	PINCTRL_PIN(84, "PWRBTN"),
-	//gpio range 17
+	/* GPIO range 17 */
 	PINCTRL_PIN(85, "SPKR"),
 	PINCTRL_PIN(86, "PME"),
-	//gpio range 18
+	/* GPIO range 18 */
 	PINCTRL_PIN(87, "BATLOW"),
 	PINCTRL_PIN(88, "EXTSMI"),
 	PINCTRL_PIN(89, "SUSA"),
@@ -154,9 +134,9 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(95, "SLPS0"),
 	PINCTRL_PIN(96, "PCIRST"),
 	PINCTRL_PIN(97, "SVID_VREN"),
-	//gpio range 19
+	/* GPIO range 19 */
 	PINCTRL_PIN(98, "INTRUDER"),
-	//gpio range 20
+	/* GPIO range 20 */
 	PINCTRL_PIN(99, "GFX_I2CCLK0"),
 	PINCTRL_PIN(100, "GFX_I2CDAT0"),
 	PINCTRL_PIN(101, "GFX_I2CCLK1"),
@@ -173,22 +153,22 @@ static const struct pinctrl_pin_desc kx7000_pins[] = {
 	PINCTRL_PIN(112, "CRTVSYNC"),
 };
 
-#define NOT_DEFINE	-30000
+#define NOT_DEFINE -30000
 
 static int calibrate_int[] = {
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-	63, 64, 65, 66, 67, 68,
-	69, 70,
-	18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
-	34, 35, 36, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62
+	0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+	63, 64, 65, 66, 67, 68, 69, 70, 18, 19,
+	20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+	30, 31, 32, 33, 34, 35, 36, 50, 51, 52,
+	53, 54, 55, 56, 57, 58, 59, 60, 61, 62
 };
 
-static int calibrate_sattus[] = {
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-	63, 64, 65, 66, 67, 68,
-	69, 70,
-	18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
-	34, 35, 36, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62
+static int calibrate_status[] = {
+	0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+	63, 64, 65, 66, 67, 68, 69, 70, 18, 19,
+	20, 21, 22, 23, 24, 25,	26, 27, 28, 29,
+	30, 31, 32, 33, 34, 35, 36, 50, 51, 52,
+	53, 54, 55, 56, 57, 58, 59, 60, 61, 62
 };
 
 static const struct reg_cal_array kx7000_int_cal[] = {
@@ -204,6 +184,7 @@ static const struct reg_calibrate int_cal[] = {
 		.reg_cal_size = ARRAY_SIZE(kx7000_int_cal),
 		.cal_array = calibrate_int,
 		.size = ARRAY_SIZE(calibrate_int),
+		.is_pmio = true,
 	}
 };
 
@@ -218,8 +199,8 @@ static const struct reg_calibrate status_cal[] = {
 	{
 		.reg = kx7000_status_cal,
 		.reg_cal_size = ARRAY_SIZE(kx7000_status_cal),
-		.cal_array = calibrate_sattus,
-		.size = ARRAY_SIZE(calibrate_sattus),
+		.cal_array = calibrate_status,
+		.size = ARRAY_SIZE(calibrate_status),
 	}
 };
 
@@ -234,8 +215,8 @@ static const struct reg_calibrate mod_sel_cal[] = {
 	{
 		.reg = kx7000_mod_sel_cal,
 		.reg_cal_size = ARRAY_SIZE(kx7000_mod_sel_cal),
-		.cal_array = calibrate_sattus,
-		.size = ARRAY_SIZE(calibrate_sattus),
+		.cal_array = calibrate_status,
+		.size = ARRAY_SIZE(calibrate_status),
 	}
 };
 
@@ -248,22 +229,15 @@ static const struct index_cal_array kx7000_gpio_out_cal[] = {
 };
 
 static int calibrate_trigger[] = {
-	0, 1, 2, 3, 4, 5, 6, 7,
-	8, 9, 18, 19,
-	20, 21, 22, 23,
-	24, 25, 26, 27,
-	28, 29, 30, 31,
-	32, 33, 34, 35,
-	36, 50, 51, 52,
-	53, 54, 55, 56,
-	57, 58, 59, 60,
-	61, 62, 63, 64,
-	65, 66, 67, 68,
-	69, 70
+	0,  1,  2,  3,  4,  5,  6,  7,  8,  9,
+	18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+	28, 29, 30, 31, 32, 33, 34, 35, 36, 50,
+	51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+	61, 62, 63, 64, 65, 66, 67, 68, 69, 70
 };
 
 static const struct index_cal_array kx7000_trigger_cal[] = {
-	ZX_CAL_INDEX_ARRAY(0xA0, calibrate_trigger, 50),
+	ZX_CAL_INDEX_ARRAY_MASK(0xA0, calibrate_trigger, 50, 4, 0x7),
 };
 
 static const struct zhaoxin_pin_topology kx7000_pin_topologys[] = {
@@ -274,62 +248,89 @@ static const struct zhaoxin_pin_topology kx7000_pin_topologys[] = {
 		.gpio_in_cal = kx7000_gpio_in_cal,
 		.gpio_out_cal = kx7000_gpio_out_cal,
 		.trigger_cal = kx7000_trigger_cal,
-	}
+	},
 };
-
-#define KX7000_GPP(s, e, g) \
-{ \
-	.zhaoxin_range_pin_base = (s), \
-	.zhaoxin_range_pin_size = ((e) - (s) + 1), \
-	.zhaoxin_range_gpio_base = (g), \
-}
 
 static const struct zhaoxin_pin_map2_gpio kx7000_pinmap_gpps[] = {
-	KX7000_GPP(0, 13, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(14, 19, 10),
-	KX7000_GPP(20, 21, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(22, 25, 65),
-	KX7000_GPP(26, 28, 43),
-	KX7000_GPP(29, 30, 41),
-	KX7000_GPP(31, 31, 49),
-	KX7000_GPP(32, 36, 16),
-	KX7000_GPP(37, 38, 69),
-	KX7000_GPP(39, 40, 67),
-	KX7000_GPP(41, 50, 0),
-	KX7000_GPP(51, 52, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(53, 53, 39),
-	KX7000_GPP(54, 58, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(59, 59, 40),
-	KX7000_GPP(60, 65, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(66, 69, 35),
-	KX7000_GPP(70, 70, 46),
-	KX7000_GPP(71, 71, 64),
-	KX7000_GPP(72, 77, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(78, 78, 50),
-	KX7000_GPP(79, 79, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(80, 80, 51),
-	KX7000_GPP(81, 81, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(82, 82, 52),
-	KX7000_GPP(83, 84, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(85, 85, 53),
-	KX7000_GPP(86, 86, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(87, 95, 54),
-	KX7000_GPP(96, 97, ZHAOXIN_GPIO_BASE_NOMAP),
-	KX7000_GPP(98, 98, 63),
-	KX7000_GPP(99, 112, 21),
+	ZHAOXIN_GPP(0, 13, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(14, 19, 10),
+	ZHAOXIN_GPP(20, 21, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(22, 25, 65),
+	ZHAOXIN_GPP(26, 28, 43),
+	ZHAOXIN_GPP(29, 30, 41),
+	ZHAOXIN_GPP(31, 31, 49),
+	ZHAOXIN_GPP(32, 36, 16),
+	ZHAOXIN_GPP(37, 38, 69),
+	ZHAOXIN_GPP(39, 40, 67),
+	ZHAOXIN_GPP(41, 50, 0),
+	ZHAOXIN_GPP(51, 52, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(53, 53, 39),
+	ZHAOXIN_GPP(54, 58, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(59, 59, 40),
+	ZHAOXIN_GPP(60, 65, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(66, 69, 35),
+	ZHAOXIN_GPP(70, 70, 46),
+	ZHAOXIN_GPP(71, 71, 64),
+	ZHAOXIN_GPP(72, 77, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(78, 78, 50),
+	ZHAOXIN_GPP(79, 79, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(80, 80, 51),
+	ZHAOXIN_GPP(81, 81, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(82, 82, 52),
+	ZHAOXIN_GPP(83, 84, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(85, 85, 53),
+	ZHAOXIN_GPP(86, 86, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(87, 95, 54),
+	ZHAOXIN_GPP(96, 97, ZHAOXIN_GPIO_BASE_NOMAP),
+	ZHAOXIN_GPP(98, 98, 63),
+	ZHAOXIN_GPP(99, 112, 21),
 };
+
+static zx_gpio_type kx7000_gpio_type(struct zhaoxin_pinctrl *pctrl, unsigned int pin)
+{
+	if (pin >= 0xE && pin <= 0x13)
+		return ZX_TYPE_PGPIO;
+	else if (pin >= 0x16 && pin <= 0x28)
+		return ZX_TYPE_PGPIO;
+	else if (pin >= 0x29 && pin <= 0x32)
+		return ZX_TYPE_GPIO;
+	else if (pin == 0x35 || pin == 0x3B)
+		return ZX_TYPE_PGPIO;
+	else if (pin >= 0x42 && pin <= 0x47)
+		return ZX_TYPE_PGPIO;
+	else if (pin == 0x4E || pin == 0x50)
+		return ZX_TYPE_PGPIO;
+	else if (pin == 0x52 || pin == 0x55)
+		return ZX_TYPE_PGPIO;
+	else if (pin >= 0x57 && pin <= 0x5F)
+		return ZX_TYPE_PGPIO;
+	else if (pin >= 0x62 && pin <= 0x70)
+		return ZX_TYPE_PGPIO;
+	else
+		return ZX_TYPE_ERROR;
+}
+
+static void kx7000_gpio_init(struct zhaoxin_pinctrl *pctrl)
+{
+	pctrl->pmio_base = 0x800;
+	pctrl->pmio_rx90 = 0x90;
+	pctrl->pmio_rx8c = 0x8c;
+	dev_info(pctrl->dev, "kx7000 private init\n");
+}
 
 static const struct zhaoxin_pinctrl_soc_data kx7000_soc_data = {
 	.pins = kx7000_pins,
 	.npins = ARRAY_SIZE(kx7000_pins),
 	.pin_topologys = kx7000_pin_topologys,
+	.gpio_type = kx7000_gpio_type,
+	.private_init = kx7000_gpio_init,
 	.zhaoxin_pin_maps = kx7000_pinmap_gpps,
 	.pin_map_size = ARRAY_SIZE(kx7000_pinmap_gpps),
 };
 
 static const struct acpi_device_id kx7000_pinctrl_acpi_match[] = {
 	{ "KX8344B", (kernel_ulong_t)&kx7000_soc_data },
-	{ }
+	{}
 };
 MODULE_DEVICE_TABLE(acpi, kx7000_pinctrl_acpi_match);
 
@@ -345,7 +346,6 @@ static struct platform_driver kx7000_pinctrl_driver = {
 		.pm = &kx7000_pinctrl_pm_ops,
 	},
 };
-
 module_platform_driver(kx7000_pinctrl_driver);
 
 MODULE_AUTHOR("www.zhaoxin.com");
