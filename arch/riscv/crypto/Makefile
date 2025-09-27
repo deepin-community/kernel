@@ -21,3 +21,6 @@ sm3-riscv64-y := sm3-riscv64-glue.o sm3-riscv64-zvksh-zvkb.o
 
 obj-$(CONFIG_CRYPTO_SM4_RISCV64) += sm4-riscv64.o
 sm4-riscv64-y := sm4-riscv64-glue.o sm4-riscv64-zvksed-zvkb.o
+
+obj-$(CONFIG_CRYPTO_SHA3_RISCV64) += sha3-riscv64.o
+sha3-riscv64-y := sha3-riscv64-glue.o sha3-riscv64-zvkb.o

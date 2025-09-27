@@ -89,4 +89,15 @@ config CRYPTO_SM4_RISCV64
 	  - Zvksed vector crypto extension
 	  - Zvkb vector crypto extension
 
+config CRYPTO_SHA3_RISCV64
+	tristate "Ciphers: SHA3"
+	depends on 64BIT && RISCV_ISA_V && TOOLCHAIN_HAS_VECTOR_CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_SHA3
+	help
+	  RISC-V accelerated SHA-3 using Vector ISA
+
+	  Architecture: riscv64 using:
+	  - Zvkb vector crypto extension
+
 endmenu
