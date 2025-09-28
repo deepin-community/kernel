@@ -199,6 +199,7 @@ struct txgbe_tx_buffer {
 	union txgbe_tx_desc *next_to_watch;
 	u32 next_eop;
 	unsigned long time_stamp;
+	u64 done_time;
 	union {
 		struct sk_buff *skb;
 		/* XDP uses address ptr on irq_clean */
@@ -856,6 +857,7 @@ struct txgbe_adapter {
 	struct mutex e56_lock;
 
 	struct timer_list service_timer;
+	struct timer_list irq_timer;
 	struct work_struct service_task;
 	struct work_struct sfp_sta_task;
 	struct work_struct temp_task;

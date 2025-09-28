@@ -33,6 +33,7 @@
 #include <net/pkt_cls.h>
 #include <net/tc_act/tc_gact.h>
 #include <net/tc_act/tc_mirred.h>
+#include <linux/ktime.h>
 
 #include "txgbe.h"
 #include "txgbe_dcb.h"
@@ -674,11 +675,16 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 	u32 size;
 	unsigned int ntf;
 	struct txgbe_tx_buffer *free_tx_buffer;
-	u32 unmapped_descs = 0;
+	s32 unmapped_descs = 0;
 	bool first_dma;
+	ktime_t now;
+	u64 ms;
 
 	if (test_bit(__TXGBE_DOWN, &adapter->state))
 		return true;
+
+	now = ktime_get();
+	ms = ktime_to_ms(now);
 
 	tx_buffer = &tx_ring->tx_buffer_info[i];
 	tx_desc = TXGBE_TX_DESC(tx_ring, i);
@@ -712,6 +718,7 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 
 		/* clear next_to_watch to prevent false hangs */
 		tx_buffer->next_to_watch = NULL;
+		tx_buffer->done_time = ms;
 
 		/* update the statistics for this packet */
 		total_bytes += tx_buffer->bytecount;
@@ -734,6 +741,8 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 				tx_buffer = tx_ring->tx_buffer_info;
 				tx_desc = TXGBE_TX_DESC(tx_ring, 0);
 			}
+
+			tx_buffer->done_time = ms;
 		}
 		/* move us one more past the eop_desc for start of next pkt */
 		tx_buffer++;
@@ -744,7 +753,6 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 			tx_buffer = tx_ring->tx_buffer_info;
 			tx_desc = TXGBE_TX_DESC(tx_ring, 0);
 		}
-
 		/* issue prefetch for next Tx descriptor */
 		prefetch(tx_desc);
 
@@ -759,7 +767,8 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 	free_tx_buffer = &tx_ring->tx_buffer_info[ntf];
 	ntf -= tx_ring->count;
 	unmapped_descs = txgbe_desc_buf_unmapped(tx_ring, i, tx_ring->next_to_free);
-	while (unmapped_descs > adapter->desc_reserved) {
+	while ((unmapped_descs > adapter->desc_reserved) ||
+	       ((ms - free_tx_buffer->done_time >= 150) && (free_tx_buffer->done_time != 0))) {
 		if (ring_is_xdp(tx_ring)) {
 			if (free_tx_buffer->xdpf) {
 				xdp_return_frame(free_tx_buffer->xdpf);
@@ -788,6 +797,7 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 
 			dma_unmap_len_set(free_tx_buffer, len, 0);
 			free_tx_buffer->va = NULL;
+			free_tx_buffer->done_time = 0;
 			first_dma = false;
 		} else {
 			/* unmap any remaining paged data */
@@ -799,6 +809,7 @@ static bool txgbe_clean_tx_irq(struct txgbe_q_vector *q_vector,
 				dma_unmap_len_set(free_tx_buffer, len, 0);
 				free_tx_buffer->va = NULL;
 			}
+			free_tx_buffer->done_time = 0;
 		}
 
 		free_tx_buffer++;
@@ -5237,6 +5248,7 @@ static void txgbe_up_complete(struct txgbe_adapter *adapter)
 	adapter->link_check_timeout = jiffies;
 	hw->f2c_mod_status = false;
 	mod_timer(&adapter->service_timer, jiffies);
+	mod_timer(&adapter->irq_timer, jiffies);
 
 	/* PCIE recovery: record lan status */
 	if (hw->bus.lan_id == 0) {
@@ -5598,6 +5610,7 @@ static void txgbe_disable_device(struct txgbe_adapter *adapter)
 	adapter->flags &= ~TXGBE_FLAG_NEED_LINK_UPDATE;
 
 	del_timer_sync(&adapter->service_timer);
+	del_timer_sync(&adapter->irq_timer);
 	adapter->flags2 &= ~TXGBE_FLAG2_SERVICE_RUNNING;
 
 	hw->f2c_mod_status = false;
@@ -6912,8 +6925,7 @@ static void txgbe_fdir_reinit_subtask(struct txgbe_adapter *adapter)
 	}
 }
 
-void txgbe_irq_rearm_queues(struct txgbe_adapter *adapter,
-			    u64 qmask)
+static void txgbe_irq_rearm_queues(struct txgbe_adapter *adapter, u64 qmask)
 {
 	u32 mask;
 
@@ -6938,7 +6950,6 @@ void txgbe_irq_rearm_queues(struct txgbe_adapter *adapter,
 static void txgbe_check_hang_subtask(struct txgbe_adapter *adapter)
 {
 	int i;
-	u64 eics = 0;
 
 	/* If we're down or resetting, just bail */
 	if (test_bit(__TXGBE_DOWN, &adapter->state) ||
@@ -6953,6 +6964,18 @@ static void txgbe_check_hang_subtask(struct txgbe_adapter *adapter)
 		for (i = 0; i < adapter->num_xdp_queues; i++)
 			set_check_for_tx_hang(adapter->xdp_ring[i]);
 	}
+}
+
+static void txgbe_trigger_irq_subtask(struct txgbe_adapter *adapter)
+{
+	int i;
+	u64 eics = 0;
+
+	/* If we're down or resetting, just bail */
+	if (test_bit(__TXGBE_DOWN, &adapter->state) ||
+	    test_bit(__TXGBE_REMOVING, &adapter->state) ||
+	    test_bit(__TXGBE_RESETTING, &adapter->state))
+		return;
 
 	if (adapter->flags & TXGBE_FLAG_MSIX_ENABLED) {
 		/* get one bit for every active tx/rx interrupt vector */
@@ -7769,6 +7792,16 @@ static void txgbe_amlit_temp_subtask(struct txgbe_adapter *adapter)
 	else if (hw->mac.type == txgbe_mac_aml40)
 		txgbe_temp_track_seq_40g(hw, link_speed);
 	mutex_unlock(&adapter->e56_lock);
+}
+
+static void txgbe_irq_timer(struct timer_list *t)
+{
+	struct txgbe_adapter *adapter = from_timer(adapter, t, irq_timer);
+	unsigned long next_event_offset = HZ / 4;
+
+	mod_timer(&adapter->irq_timer, next_event_offset + jiffies);
+
+	txgbe_trigger_irq_subtask(adapter);
 }
 
 static void txgbe_reset_subtask(struct txgbe_adapter *adapter)
@@ -10532,6 +10565,7 @@ static int txgbe_probe(struct pci_dev *pdev,
 	       sizeof(struct txgbe_5tuple_filter_info));
 
 	timer_setup(&adapter->service_timer, txgbe_service_timer, 0);
+	timer_setup(&adapter->irq_timer, txgbe_irq_timer, 0);
 
 	if (TXGBE_REMOVED(hw->hw_addr)) {
 		err = -EIO;
