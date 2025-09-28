@@ -139,6 +139,34 @@ int txgbe_e56_get_temp(struct txgbe_hw *hw, int *temp)
 	return 0;
 }
 
+static void txgbe_e56_ovrd_symdata(struct txgbe_hw *hw)
+{
+	u32 addr;
+	u32 rdata = 0;
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		addr  = E56PHY_TXS_PIN_OVRDEN_0_ADDR + (E56PHY_TXS_OFFSET * i);
+		rdata = rd32_ephy(hw, addr);
+		txgbe_field_set(&rdata, E56PHY_TXS_PIN_OVRDEN_0_OVRD_EN_TX0_SYMDATA_I, 0x1);
+		txgbe_wr32_ephy(hw, addr, rdata);
+	}
+}
+
+static void txgbe_e56_clear_symdata(struct txgbe_hw *hw)
+{
+	u32 addr;
+	u32 rdata = 0;
+	int i;
+
+	for (i = 0; i < 4; i++) {
+		addr  = E56PHY_TXS_PIN_OVRDEN_0_ADDR + (E56PHY_TXS_OFFSET * i);
+		rdata = rd32_ephy(hw, addr);
+		txgbe_field_set(&rdata, E56PHY_TXS_PIN_OVRDEN_0_OVRD_EN_TX0_SYMDATA_I, 0x0);
+		txgbe_wr32_ephy(hw, addr, rdata);
+	}
+}
+
 u32 txgbe_e56_cfg_40g(struct txgbe_hw *hw)
 {
 	u32 addr;
@@ -2853,11 +2881,8 @@ static int txgbe_e56_rxs_calib_adapt_seq(struct txgbe_hw *hw, u32 speed)
 	u32 rdata = 0x0;
 	u32 bypass_ctle = true;
 
-	if (hw->phy.sfp_type == txgbe_sfp_type_da_cu_core0 ||
-	    hw->phy.sfp_type == txgbe_sfp_type_da_cu_core1)
+	if (hw->dac_sfp)
 		bypass_ctle = false;
-	else
-		bypass_ctle = true;
 
 	if (hw->mac.type == txgbe_mac_aml) {
 		msleep(350);
@@ -2945,15 +2970,8 @@ static int txgbe_e56_rxs_calib_adapt_seq(struct txgbe_hw *hw, u32 speed)
 		rdata = rd32_ephy(hw, addr);
 		usleep_range(500, 1000);
 		EPHY_RREG(E56G__PMD_CTRL_FSM_RX_STAT_0);
-		if (timer++ > PHYINIT_TIMEOUT) {
-			//Do SEQ::RX_DISABLE
-			rdata = 0;
-			addr = E56PHY_PMD_CFG_0_ADDR;
-			rdata = rd32_ephy(hw, addr);
-			txgbe_field_set(&rdata, E56PHY_PMD_CFG_0_RX_EN_CFG, 0x0);
-			txgbe_wr32_ephy(hw, addr, rdata);
+		if (timer++ > PHYINIT_TIMEOUT)
 			return TXGBE_ERR_TIMEOUT;
-		}
 	}
 
 	//RXS ADC adaptation sequence
@@ -3656,6 +3674,8 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 		goto out;
 	}
 
+	txgbe_e56_ovrd_symdata(hw);
+
 	value = txgbe_rd32_epcs(hw, SR_AN_CTRL);
 	txgbe_field_set(&value, 12, 12, 0);
 	txgbe_wr32_epcs(hw, SR_AN_CTRL, value);
@@ -3909,6 +3929,7 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 		txgbe_wr32_ephy(hw, PMD_CFG0, value);
 	}
 
+	txgbe_e56_clear_symdata(hw);
 	hw->mac.ops.enable_tx_laser(hw);
 
 	status = txgbe_e56_config_rx(hw, speed);
@@ -4024,16 +4045,19 @@ int txgbe_e56_fec_mode_polling(struct txgbe_hw *hw, bool *link_up)
 	u32 speed;
 
 	do {
-		if (!(adapter->fec_link_mode & BIT(j))) {
+		if (!(adapter->fec_link_mode & BIT(j % 3))) {
 			j += 1;
 			continue;
 		}
 
-		adapter->cur_fec_link = adapter->fec_link_mode & BIT(j);
+		adapter->cur_fec_link = adapter->fec_link_mode & BIT(j % 3);
 
 		mutex_lock(&adapter->e56_lock);
 		txgbe_e56_set_fec_mode(hw, adapter->cur_fec_link);
 		mutex_unlock(&adapter->e56_lock);
+
+		if (j == 3)
+			break;
 
 		for (i = 0; i < 4; i++) {
 			msleep(250);
@@ -4043,7 +4067,7 @@ int txgbe_e56_fec_mode_polling(struct txgbe_hw *hw, bool *link_up)
 		}
 
 		j += 1;
-	} while (j < 3);
+	} while (j < 4);
 
 	return 0;
 }

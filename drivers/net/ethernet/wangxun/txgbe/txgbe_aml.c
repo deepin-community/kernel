@@ -122,8 +122,11 @@ static s32 txgbe_setup_mac_link_aml(struct txgbe_hw *hw,
 		goto out;
 
 	if (ret_status == TXGBE_ERR_TIMEOUT) {
+		adapter->link_valid = false;
 		adapter->flags |= TXGBE_FLAG_NEED_LINK_CONFIG;
 		goto out;
+	} else {
+		adapter->link_valid = true;
 	}
 
 	if (speed == TXGBE_LINK_SPEED_25GB_FULL) {
