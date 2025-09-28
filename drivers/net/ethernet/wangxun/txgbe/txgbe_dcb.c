@@ -355,6 +355,9 @@ s32 txgbe_dcb_config_pfc(struct txgbe_hw *hw, u8 pfc_en, u8 *map)
 	for (i = 0; i < (TXGBE_DCB_MAX_TRAFFIC_CLASS / 2); i++)
 		wr32(hw, TXGBE_RDB_RFCV(i), reg);
 
+	if (hw->mac.type == txgbe_mac_aml || hw->mac.type == txgbe_mac_aml40)
+		wr32m(hw, TXGBE_PFC_DIS_MASK, TXGBE_PFC_DIS_MASK_VAL, ~pfc_en);
+
 	/* Configure flow control refresh threshold value */
 	wr32(hw, TXGBE_RDB_RFCRT, hw->fc.pause_time / 2);
 

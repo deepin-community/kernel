@@ -956,6 +956,8 @@ struct txgbe_thermal_sensor_data {
 #define TXGBE_RDB_PFCMACDAH         0x19214
 #define TXGBE_RDB_TXSWERR           0x1906C
 #define TXGBE_RDB_TXSWERR_TB_FREE   0x3FF
+#define TXGBE_PFC_DIS_MASK          0x11F6c
+#define TXGBE_PFC_DIS_MASK_VAL      0xff
 /* rdb_pl_cfg reg mask */
 #define TXGBE_RDB_PL_CFG_L4HDR          0x2
 #define TXGBE_RDB_PL_CFG_L3HDR          0x4
