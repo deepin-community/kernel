@@ -568,6 +568,9 @@ s32 txgbe_identify_sfp_module(struct txgbe_hw *hw)
 		if (status != 0)
 			goto err_read_i2c_eeprom;
 
+		hw->bypass_ctle = true;
+		hw->dac_sfp = false;
+
 		 /* ID Module
 		  * =========
 		  * 0   SFP_DA_CU
