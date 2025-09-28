@@ -81,6 +81,16 @@ enum board_ids {
 	board_ahci_mcp79	= board_ahci_mcp77,
 };
 
+static bool is_zhaoxin_cpu(void)
+{
+#ifdef CONFIG_X86
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN ||
+	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR)
+		return true;
+#endif
+	return false;
+}
+
 static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent);
 static void ahci_remove_one(struct pci_dev *dev);
 static void ahci_shutdown_one(struct pci_dev *dev);
@@ -1893,6 +1903,9 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* only some SB600s can do 64bit DMA */
 	if (ahci_sb600_enable_64bit(pdev))
 		hpriv->flags &= ~AHCI_HFLAG_32BIT_ONLY;
+
+	if (pdev->vendor == PCI_VENDOR_ID_ZHAOXIN && !is_zhaoxin_cpu())
+		hpriv->flags |= AHCI_HFLAG_32BIT_ONLY;
 
 	hpriv->mmio = pcim_iomap_table(pdev)[ahci_pci_bar];
 
