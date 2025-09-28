@@ -114,7 +114,7 @@ int spi_phytium_check_result(struct phytium_spi *fts)
 	struct msg *msg = (struct msg *)fts->tx_shmem_addr;
 
 	reinit_completion(&fts->cmd_completion);
-	ms = wait_for_completion_timeout(&fts->cmd_completion, msecs_to_jiffies(ms));
+	ms = wait_for_completion_interruptible_timeout(&fts->cmd_completion, msecs_to_jiffies(ms));
 
 	if (ms == 0) {
 		dev_err(&fts->master->dev, "SPI controller timed out\n");
