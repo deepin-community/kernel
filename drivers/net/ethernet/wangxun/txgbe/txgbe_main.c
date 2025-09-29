@@ -4376,7 +4376,14 @@ static void txgbe_scrub_vfta(struct txgbe_adapter *adapter)
 
 	/* extract values from vft_shadow and write back to VFTA */
 	for (i = 0; i < hw->mac.vft_size; i++) {
-		vfta = hw->mac.vft_shadow[i];
+#ifdef CONFIG_64BIT
+		if (i % 2)
+			vfta = (u32)((adapter->active_vlans[i / 2] >> 32) & U32_MAX);
+		else
+			vfta = (u32)((adapter->active_vlans[i / 2]) & U32_MAX);
+#else
+		vfta = (u32)((adapter->active_vlans[i]) & U32_MAX);
+#endif
 		wr32(hw, TXGBE_PSR_VLAN_TBL(i), vfta);
 	}
 }
