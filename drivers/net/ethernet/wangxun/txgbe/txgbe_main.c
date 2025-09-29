@@ -6413,6 +6413,20 @@ static void txgbe_close_suspend(struct txgbe_adapter *adapter)
 	txgbe_free_all_tx_resources(adapter);
 }
 
+static void txgbe_down_suspend(struct txgbe_adapter *adapter)
+{
+#ifdef HAVE_PTP_1588_CLOCK
+	txgbe_ptp_suspend(adapter);
+#endif
+
+	txgbe_down(adapter);
+	txgbe_free_irq(adapter);
+
+	txgbe_free_isb_resources(adapter);
+	txgbe_free_all_rx_resources(adapter);
+	txgbe_free_all_tx_resources(adapter);
+}
+
 /**
  * txgbe_close - Disables a network interface
  * @netdev: network interface device structure
@@ -6437,12 +6451,8 @@ int txgbe_close(struct net_device *netdev)
 
 	txgbe_ptp_stop(adapter);
 
-	txgbe_down(adapter);
-	txgbe_free_irq(adapter);
-
-	txgbe_free_isb_resources(adapter);
-	txgbe_free_all_rx_resources(adapter);
-	txgbe_free_all_tx_resources(adapter);
+	if (netif_device_present(netdev))
+		txgbe_down_suspend(adapter);
 
 	txgbe_fdir_filter_exit(adapter);
 	memset(&adapter->ft_filter_info, 0,
@@ -6492,14 +6502,11 @@ static int txgbe_resume(struct device *dev)
 	if (!err && netif_running(netdev))
 		err = txgbe_open(netdev);
 
+	if (!err)
+		netif_device_attach(netdev);
 	rtnl_unlock();
 
-	if (err)
-		return err;
-
-	netif_device_attach(netdev);
-
-	return 0;
+	return err;
 }
 
 /**
@@ -6565,16 +6572,16 @@ static int __txgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
 	int retval = 0;
 #endif
 
+	rtnl_lock();
 	netif_device_detach(netdev);
 	txgbe_mac_set_default_filter(adapter, hw->mac.perm_addr);
 
-	rtnl_lock();
 	if (netif_running(netdev))
 		txgbe_close_suspend(adapter);
-	rtnl_unlock();
 
 	txgbe_clear_interrupt_scheme(adapter);
 
+	rtnl_unlock();
 #ifdef CONFIG_PM
 	retval = pci_save_state(pdev);
 	if (retval)
@@ -8050,6 +8057,9 @@ static void txgbe_tx_queue_clear_error_task(struct txgbe_adapter *adapter)
 	struct txgbe_tx_buffer *tx_buffer;
 	u32 size;
 
+	if (test_bit(__TXGBE_DOWN, &adapter->state))
+		return;
+
 	for (i = 0; i < 4; i++)
 		desc_error[i] = rd32(hw, TXGBE_TDM_DESC_NONFATAL(i));
 
@@ -8063,6 +8073,8 @@ static void txgbe_tx_queue_clear_error_task(struct txgbe_adapter *adapter)
 			      rd32(&adapter->hw, TXGBE_PX_TR_RP(adapter->tx_ring[i]->reg_idx)));
 			for (j = 0; j < tx_ring->count; j++) {
 				tx_desc = TXGBE_TX_DESC(tx_ring, j);
+				if (!tx_desc)
+					return;
 				if (tx_desc->read.olinfo_status != 0x1)
 					e_warn(tx_err, "queue[%d][%d]:0x%llx, 0x%x, 0x%x\n",
 					       i, j, tx_desc->read.buffer_addr, tx_desc->read.cmd_type_len,
@@ -11070,13 +11082,13 @@ skip_bad_vf_detection:
 	rtnl_lock();
 	netif_device_detach(netdev);
 
+	if (netif_running(netdev))
+		txgbe_down_suspend(adapter);
+
 	if (state == pci_channel_io_perm_failure) {
 		rtnl_unlock();
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
-
-	if (netif_running(netdev))
-		txgbe_close(netdev);
 
 	if (!test_and_set_bit(__TXGBE_DISABLED, &adapter->state))
 		pci_disable_device(pdev);
