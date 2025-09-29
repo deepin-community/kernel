@@ -214,6 +214,9 @@ static int __assign_irq_vector(int virq, unsigned int nr_irqs,
 	if (irqd_affinity_is_managed(irq_data)) {
 		mask = irq_data_get_affinity_mask(irq_data);
 		cpumask_and(&searchmask, mask, cpu_online_mask);
+
+		if (cpumask_empty(&searchmask))
+			return -EINVAL;
 	} else {
 		node = irq_data_get_node(irq_data);
 		cpumask_copy(&searchmask, cpumask_of_node(node));
