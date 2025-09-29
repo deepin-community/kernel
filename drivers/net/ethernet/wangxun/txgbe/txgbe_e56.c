@@ -4056,8 +4056,6 @@ int txgbe_e56_fec_mode_polling(struct txgbe_hw *hw, bool *link_up)
 		txgbe_e56_set_fec_mode(hw, adapter->cur_fec_link);
 		mutex_unlock(&adapter->e56_lock);
 
-		if (j == 3)
-			break;
 
 		for (i = 0; i < 4; i++) {
 			msleep(250);

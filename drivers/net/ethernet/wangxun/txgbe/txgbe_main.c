@@ -7632,6 +7632,8 @@ static void txgbe_sfp_link_config_subtask(struct txgbe_adapter *adapter)
 				else if (speed & TXGBE_LINK_SPEED_10GB_FULL)
 					speed = TXGBE_LINK_SPEED_10GB_FULL;
 			}
+
+			adapter->autoneg = autoneg;
 		}
 	}
 
