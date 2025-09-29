@@ -1576,15 +1576,22 @@ static int txgbe_set_ringparam(struct net_device *netdev,
 {
 	struct txgbe_ring *tx_ring = NULL, *rx_ring = NULL;
 	struct txgbe_adapter *adapter = netdev_priv(netdev);
+	struct txgbe_hw *hw = &adapter->hw;
 	u32 new_rx_count, new_tx_count;
 	int i, j, err = 0;
 
 	if (ring->rx_mini_pending || ring->rx_jumbo_pending)
 		return -EINVAL;
 
-	new_tx_count = clamp_t(u32, ring->tx_pending,
-			       TXGBE_MIN_TXD, TXGBE_MAX_TXD);
-	new_tx_count = ALIGN(new_tx_count, TXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
+	if (hw->mac.type == txgbe_mac_aml || hw->mac.type == txgbe_mac_aml40) {
+		new_tx_count = clamp_t(u32, ring->tx_pending,
+				       TXGBE_MIN_TXD_AML, TXGBE_MAX_TXD);
+		new_tx_count = ALIGN(new_tx_count, TXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
+	} else {
+		new_tx_count = clamp_t(u32, ring->tx_pending,
+				       TXGBE_MIN_TXD, TXGBE_MAX_TXD);
+		new_tx_count = ALIGN(new_tx_count, TXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
+	}
 
 	new_rx_count = clamp_t(u32, ring->rx_pending,
 			       TXGBE_MIN_RXD, TXGBE_MAX_RXD);
