@@ -2542,7 +2542,7 @@ s32 txgbe_host_interface_command(struct txgbe_hw *hw, u32 *buffer,
 		buf[0] = rd32(hw, TXGBE_MNG_MBOX);
 
 		if ((buf[0] & 0xff0000) >> 16 == 0x80) {
-			ERROR_REPORT1(TXGBE_ERROR_CAUTION, "It's unknown cmd.\n");
+			ERROR_REPORT1(TXGBE_ERROR_UNSUPPORTED, "It's unknown cmd.\n");
 			status = TXGBE_ERR_MNG_ACCESS_FAILED;
 			goto rel_out;
 		}
