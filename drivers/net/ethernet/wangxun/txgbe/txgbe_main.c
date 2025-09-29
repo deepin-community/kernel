@@ -7398,6 +7398,36 @@ static void txgbe_spoof_check(struct txgbe_adapter *adapter)
  * txgbe_watchdog_subtask - check and bring link up
  * @adapter - pointer to the device adapter structure
  **/
+static void txgbe_linkdown_subtask(struct txgbe_adapter *adapter)
+{
+	u32 __maybe_unused value = 0;
+	struct txgbe_hw *hw = &adapter->hw;
+
+	/* if interface is down do nothing */
+	if (test_bit(__TXGBE_DOWN, &adapter->state) ||
+	    test_bit(__TXGBE_REMOVING, &adapter->state) ||
+	    test_bit(__TXGBE_RESETTING, &adapter->state))
+		return;
+
+	if (!(adapter->flags2 & TXGBE_FLAG2_LINK_DOWN))
+		txgbe_watchdog_update_link(adapter);
+
+	if (!adapter->link_up)
+		txgbe_watchdog_link_is_down(adapter);
+
+#ifdef CONFIG_PCI_IOV
+	txgbe_spoof_check(adapter);
+#endif /* CONFIG_PCI_IOV */
+
+	txgbe_update_stats(adapter);
+
+	txgbe_watchdog_flush_tx(adapter);
+}
+
+/**
+ * txgbe_watchdog_subtask - check and bring link up
+ * @adapter - pointer to the device adapter structure
+ **/
 static void txgbe_watchdog_subtask(struct txgbe_adapter *adapter)
 {
 	u32 __maybe_unused value = 0;
@@ -8094,7 +8124,7 @@ static void txgbe_service_task(struct work_struct *work)
 	      hw->phy.sfp_type == txgbe_qsfp_type_40g_cu_core0 ||
 	      hw->phy.sfp_type == txgbe_qsfp_type_40g_cu_core1 ||
 	      txgbe_is_backplane(hw)))
-		txgbe_watchdog_subtask(adapter);
+		txgbe_linkdown_subtask(adapter);
 	txgbe_sfp_link_config_subtask(adapter);
 	txgbe_sfp_reset_eth_phy_subtask(adapter);
 	txgbe_check_overtemp_subtask(adapter);
