@@ -337,9 +337,6 @@ static int txgbe_set_vf_multicasts(struct txgbe_adapter *adapter,
 	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
 	struct txgbe_hw *hw = &adapter->hw;
 	int i;
-	u32 vector_bit;
-	u32 vector_reg;
-	u32 mta_reg;
 	u32 vmolr = rd32(hw, TXGBE_PSR_VM_L2CTL(vf));
 
 	/* only so many hash values supported */
@@ -357,17 +354,11 @@ static int txgbe_set_vf_multicasts(struct txgbe_adapter *adapter,
 	for (i = 0; i < entries; i++)
 		vfinfo->vf_mc_hashes[i] = hash_list[i];
 
-	for (i = 0; i < vfinfo->num_vf_mc_hashes; i++) {
-		vector_reg = (vfinfo->vf_mc_hashes[i] >> 5) & 0x7F;
-		vector_bit = vfinfo->vf_mc_hashes[i] & 0x1F;
-		/* errata 5: maintain a copy of the register table conf */
-		mta_reg = hw->mac.mta_shadow[vector_reg];
-		mta_reg |= (1 << vector_bit);
-		hw->mac.mta_shadow[vector_reg] = mta_reg;
-		wr32(hw, TXGBE_PSR_MC_TBL(vector_reg), mta_reg);
-	}
 	vmolr |= TXGBE_PSR_VM_L2CTL_ROMPE;
 	wr32(hw, TXGBE_PSR_VM_L2CTL(vf), vmolr);
+
+	/* Sync up the PF and VF in the same MTA table */
+	txgbe_write_mc_addr_list(adapter->netdev);
 
 	return 0;
 }
@@ -379,6 +370,9 @@ void txgbe_restore_vf_multicasts(struct txgbe_adapter *adapter)
 	u32 i, j;
 	u32 vector_bit;
 	u32 vector_reg;
+
+	/* Clear mta_shadow */
+	memset(&hw->mac.mta_shadow, 0, sizeof(hw->mac.mta_shadow));
 
 	for (i = 0; i < adapter->num_vfs; i++) {
 		u32 vmolr = rd32(hw, TXGBE_PSR_VM_L2CTL(i));

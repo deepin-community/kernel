@@ -4063,16 +4063,21 @@ int txgbe_write_mc_addr_list(struct net_device *netdev)
 	struct netdev_hw_addr *ha;
 	u8  *addr_list = NULL;
 	int addr_count = 0;
+	bool clear = false;
 
 	if (!hw->mac.ops.update_mc_addr_list)
 		return -ENOMEM;
 
 	if (!netif_running(netdev))
 		return 0;
-
+#ifdef CONFIG_PCI_IOV
+	txgbe_restore_vf_multicasts(adapter);
+#else
+	clear = true;
+#endif
 	if (netdev_mc_empty(netdev)) {
 		hw->mac.ops.update_mc_addr_list(hw, NULL, 0,
-						txgbe_addr_list_itr, true);
+						txgbe_addr_list_itr, clear);
 	} else {
 		ha = list_first_entry(&netdev->mc.list,
 				      struct netdev_hw_addr, list);
@@ -4081,12 +4086,9 @@ int txgbe_write_mc_addr_list(struct net_device *netdev)
 		addr_count = netdev_mc_count(netdev);
 
 		hw->mac.ops.update_mc_addr_list(hw, addr_list, addr_count,
-						txgbe_addr_list_itr, true);
+						txgbe_addr_list_itr, clear);
 	}
 
-#ifdef CONFIG_PCI_IOV
-	txgbe_restore_vf_multicasts(adapter);
-#endif
 	return addr_count;
 }
 
