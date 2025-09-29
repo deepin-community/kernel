@@ -459,12 +459,20 @@ static void txgbe_update_xoff_received(struct txgbe_adapter *adapter)
 	for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
 		u32 pxoffrxc;
 
-		wr32m(hw, TXGBE_MMC_CONTROL, TXGBE_MMC_CONTROL_UP, i << 16);
-		pxoffrxc = rd32(hw, TXGBE_MAC_PXOFFRXC);
-		hwstats->pxoffrxc[i] += pxoffrxc;
-		/* Get the TC for given UP */
-		tc = netdev_get_prio_tc_map(adapter->netdev, i);
-		xoff[tc] += pxoffrxc;
+		if (hw->mac.type == txgbe_mac_aml || hw->mac.type == txgbe_mac_aml40) {
+			pxoffrxc = rd32(hw, TXGBE_AML_MAC_PXOFFRXC(i));
+			hwstats->pxoffrxc[i] = pxoffrxc;
+			/* Get the TC for given UP */
+			tc = netdev_get_prio_tc_map(adapter->netdev, i);
+			xoff[tc] = pxoffrxc;
+		} else {
+			wr32m(hw, TXGBE_MMC_CONTROL, TXGBE_MMC_CONTROL_UP, i << 16);
+			pxoffrxc = rd32(hw, TXGBE_MAC_PXOFFRXC);
+			hwstats->pxoffrxc[i] += pxoffrxc;
+			/* Get the TC for given UP */
+			tc = netdev_get_prio_tc_map(adapter->netdev, i);
+			xoff[tc] += pxoffrxc;
+		}
 	}
 
 	/* disarm tx queues that have received xoff frames */
@@ -2680,7 +2688,6 @@ static irqreturn_t txgbe_msix_other(int __always_unused irq, void *data)
 	u32 eicr;
 	u32 ecc;
 	u32 value = 0;
-	u16 vid;
 
 	eicr = txgbe_misc_isb(adapter, TXGBE_ISB_MISC);
 
@@ -2707,18 +2714,12 @@ static irqreturn_t txgbe_msix_other(int __always_unused irq, void *data)
 	if (eicr & TXGBE_PX_MISC_IC_PCIE_REQ_ERR) {
 		ERROR_REPORT1(TXGBE_ERROR_POLLING,
 			      "lan id %d, PCIe request error founded.\n", hw->bus.lan_id);
-		pci_read_config_word(adapter->pdev, PCI_VENDOR_ID, &vid);
-		if (vid == TXGBE_FAILED_READ_CFG_WORD) {
-			ERROR_REPORT1(TXGBE_ERROR_POLLING, "PCIe link is lost.\n");
-			/*when pci lose link, not check over heat*/
-			if (hw->bus.lan_id == 0) {
-				adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
-				txgbe_service_event_schedule(adapter);
-			} else {
-				wr32(&adapter->hw, TXGBE_MIS_PF_SM, 1);
-			}
+
+		if (hw->bus.lan_id == 0) {
+			adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
+			txgbe_service_event_schedule(adapter);
 		} else {
-			adapter->flags2 |= TXGBE_FLAG2_DMA_RESET_REQUESTED;
+			wr32(&adapter->hw, TXGBE_MIS_PF_SM, 1);
 		}
 	}
 
@@ -6799,7 +6800,10 @@ void txgbe_update_stats(struct txgbe_adapter *adapter)
 		hwstats->pxontxc[i] += rd32(hw, TXGBE_RDB_PXONTXC(i));
 		hwstats->pxofftxc[i] +=
 				rd32(hw, TXGBE_RDB_PXOFFTXC(i));
-		hwstats->pxonrxc[i] += rd32(hw, TXGBE_MAC_PXONRXC(i));
+		if (hw->mac.type == txgbe_mac_aml || hw->mac.type == txgbe_mac_aml40)
+			hwstats->pxonrxc[i] = rd32(hw, TXGBE_AML_MAC_PXONRXC(i));
+		else
+			hwstats->pxonrxc[i] += rd32(hw, TXGBE_MAC_PXONRXC(i));
 	}
 
 	hwstats->gprc += rd32(hw, TXGBE_PX_GPRC);
@@ -7401,7 +7405,6 @@ static void txgbe_spoof_check(struct txgbe_adapter *adapter)
 static void txgbe_linkdown_subtask(struct txgbe_adapter *adapter)
 {
 	u32 __maybe_unused value = 0;
-	struct txgbe_hw *hw = &adapter->hw;
 
 	/* if interface is down do nothing */
 	if (test_bit(__TXGBE_DOWN, &adapter->state) ||

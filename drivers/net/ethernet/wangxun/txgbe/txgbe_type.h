@@ -1636,6 +1636,8 @@ enum TXGBE_MSCA_CMD_value {
 #define TXGBE_MAC_LXOFFRXC              0x11988
 #define TXGBE_MAC_PXONRXC(_i)           (0x11E30 + ((_i) * 4)) /* 8 of these */
 #define TXGBE_MAC_PXOFFRXC              0x119DC
+#define TXGBE_AML_MAC_PXONRXC(_i)       (0x11FC0 + ((_i) * 4)) /* 8 of these */
+#define TXGBE_AML_MAC_PXOFFRXC(_i)      (0x11FA0 + ((_i) * 4)) /* 8 of these */
 #define TXGBE_RX_BC_FRAMES_GOOD_LOW     0x11918
 #define TXGBE_RX_CRC_ERROR_FRAMES_LOW   0x11928
 #define TXGBE_RX_LEN_ERROR_FRAMES_LOW   0x11978
@@ -1647,7 +1649,7 @@ enum TXGBE_MSCA_CMD_value {
 #define TXGBE_TX_BC_FRAMES_GOOD_LOW     0x11824
 #define TXGBE_MMC_CONTROL               0x11800
 #define TXGBE_MMC_CONTROL_RSTONRD       0x4 /* reset on read */
-#define TXGBE_MMC_CONTROL_UP            0x700
+#define TXGBE_MMC_CONTROL_UP            0x70000
 
 /********************************* BAR registers ***************************/
 /* Interrupt Registers */

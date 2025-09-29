@@ -186,8 +186,6 @@ s32 txgbe_clear_hw_cntrs(struct txgbe_hw *hw)
 	rd32(hw, TXGBE_MAC_LXOFFRXC);
 
 	for (i = 0; i < 8; i++) {
-		rd32(hw, TXGBE_RDB_PXONTXC(i));
-		rd32(hw, TXGBE_RDB_PXOFFTXC(i));
 		rd32(hw, TXGBE_MAC_PXONRXC(i));
 		wr32m(hw, TXGBE_MMC_CONTROL, TXGBE_MMC_CONTROL_UP, i << 16);
 		rd32(hw, TXGBE_MAC_PXOFFRXC);
