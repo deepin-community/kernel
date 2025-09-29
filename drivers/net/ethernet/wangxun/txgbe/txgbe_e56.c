@@ -3650,7 +3650,10 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 		      ~TXGBE_MAC_TX_CFG_TE);
 		wr32m(hw, TXGBE_MAC_RX_CFG, TXGBE_MAC_RX_CFG_RE,
 		      ~TXGBE_MAC_RX_CFG_RE);
+		hw->mac.ops.disable_sec_tx_path(hw);
 	}
+
+	hw->mac.ops.disable_tx_laser(hw);
 
 	if (hw->bus.lan_id == 0)
 		reset = TXGBE_MIS_RST_LAN0_EPHY_RST;
@@ -3670,7 +3673,7 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 	value = txgbe_rd32_epcs(hw, VR_PCS_DIG_CTRL1);
 	if ((value & 0x8000)) {
 		status = TXGBE_ERR_PHY_INIT_NOT_DONE;
-		;
+		hw->mac.ops.enable_tx_laser(hw);
 		goto out;
 	}
 
@@ -3930,6 +3933,13 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 	}
 
 	txgbe_e56_clear_symdata(hw);
+
+	if (adapter->fec_link_mode != TXGBE_PHY_FEC_AUTO &&
+	    speed == TXGBE_LINK_SPEED_25GB_FULL) {
+		adapter->cur_fec_link = adapter->fec_link_mode;
+		txgbe_e56_set_fec_mode(hw, adapter->cur_fec_link);
+	}
+
 	hw->mac.ops.enable_tx_laser(hw);
 
 	status = txgbe_e56_config_rx(hw, speed);
@@ -3945,11 +3955,6 @@ int txgbe_set_link_to_amlite(struct txgbe_hw *hw, u32 speed)
 			E56PHY_INTR_0_IDLE_ENTRY1);
 	txgbe_wr32_ephy(hw, E56PHY_INTR_1_ENABLE_ADDR,
 			E56PHY_INTR_1_IDLE_EXIT1);
-
-	if (adapter->fec_link_mode != TXGBE_PHY_FEC_AUTO) {
-		adapter->cur_fec_link = adapter->fec_link_mode;
-		txgbe_e56_set_fec_mode(hw, adapter->cur_fec_link);
-	}
 
 	if (status)
 		goto out;

@@ -129,7 +129,8 @@ static s32 txgbe_setup_mac_link_aml(struct txgbe_hw *hw,
 		adapter->link_valid = true;
 	}
 
-	if (speed == TXGBE_LINK_SPEED_25GB_FULL) {
+	if (speed == TXGBE_LINK_SPEED_25GB_FULL &&
+	    adapter->fec_link_mode == TXGBE_PHY_FEC_AUTO) {
 		txgbe_e56_fec_mode_polling(hw, &link_up);
 	} else {
 		for (i = 0; i < 4; i++) {
@@ -340,8 +341,22 @@ static s32 txgbe_setup_mac_link_multispeed_fiber_aml(struct txgbe_hw *hw,
 		txgbe_e56_check_phy_link(hw, &link_speed, &link_up);
 
 		if (link_up) {
-			adapter->flags &= ~TXGBE_FLAG_NEED_LINK_CONFIG;
-			goto out;
+			int i = 0;
+
+			for (; i < 10; i++) {
+				int rdata = rd32(hw, 0x14404);
+
+				if (rdata & 0x1) {
+					adapter->flags &= ~TXGBE_FLAG_NEED_LINK_CONFIG;
+					mutex_lock(&adapter->e56_lock);
+					txgbe_wr32_ephy(hw,
+							E56PHY_INTR_1_ADDR,
+						E56PHY_INTR_1_IDLE_EXIT1);
+					mutex_unlock(&adapter->e56_lock);
+					goto out;
+				}
+				msleep(100);
+			}
 		}
 	}
 
