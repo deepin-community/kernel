@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
+#include <linux/soc/cix/cpu.h>
 
 enum {
 	RESERVED_MEM_NOMAP = 0,
@@ -61,6 +62,9 @@ static acpi_status __init reserved_mem_handler(u32 event,
 
 static int __init acpi_reserved_memory_init(char *p)
 {
+	if (!cpu_is_cix_p1_family())
+		return 0;
+
 	if (!p || strcmp(p, "force"))
 		return 0;
 
