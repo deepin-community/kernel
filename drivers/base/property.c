@@ -543,6 +543,18 @@ int fwnode_property_get_reference_args(const struct fwnode_handle *fwnode,
 }
 EXPORT_SYMBOL_GPL(fwnode_property_get_reference_args);
 
+int fwnode_count_reference_with_args(const struct fwnode_handle *fwnode,
+			       const char *list_name, const char *cells_name)
+{
+
+	if (IS_ERR_OR_NULL(fwnode))
+		return -ENOENT;
+
+	return fwnode_call_int_op(fwnode,
+			property_count_reference_with_args, list_name, cells_name);
+}
+EXPORT_SYMBOL_GPL(fwnode_count_reference_with_args);
+
 /**
  * fwnode_find_reference - Find named reference to a fwnode_handle
  * @fwnode: Firmware node where to look for the reference

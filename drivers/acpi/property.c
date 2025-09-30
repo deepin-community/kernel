@@ -1009,6 +1009,64 @@ int __acpi_node_get_property_reference(const struct fwnode_handle *fwnode,
 }
 EXPORT_SYMBOL_GPL(__acpi_node_get_property_reference);
 
+int __acpi_node_count_property_reference(const struct fwnode_handle *fwnode,
+	const char *propname)
+{
+	const union acpi_object *element, *end;
+	const union acpi_object *obj;
+	const struct acpi_device_data *data;
+	struct acpi_device *device;
+	int ret, idx = 0;
+
+	data = acpi_device_data_of_node(fwnode);
+	if (!data)
+		return -ENOENT;
+
+	ret = acpi_data_get_property(data, propname, ACPI_TYPE_ANY, &obj);
+	if (ret)
+		return ret == -EINVAL ? -ENOENT : -EINVAL;
+
+	switch (obj->type) {
+	case ACPI_TYPE_LOCAL_REFERENCE:
+		return 1;
+	case ACPI_TYPE_PACKAGE:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	element = obj->package.elements;
+	end = element + obj->package.count;
+
+	while (element < end) {
+		switch (element->type) {
+		case ACPI_TYPE_LOCAL_REFERENCE:
+			device = acpi_fetch_acpi_dev(element->reference.handle);
+			if (!device)
+				return -EINVAL;
+
+			element++;
+
+			ret = acpi_get_ref_args(NULL, acpi_fwnode_handle(device),
+						&element, end, NR_FWNODE_REFERENCE_ARGS);
+			if (ret < 0)
+				return ret;
+
+			break;
+		case ACPI_TYPE_INTEGER:
+			element++;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		idx++;
+	}
+
+	return idx;
+}
+EXPORT_SYMBOL_GPL(__acpi_node_count_property_reference);
+
 static int acpi_data_prop_read_single(const struct acpi_device_data *data,
 				      const char *propname,
 				      enum dev_prop_type proptype, void *val)
@@ -1536,6 +1594,13 @@ acpi_fwnode_get_reference_args(const struct fwnode_handle *fwnode,
 						  args_count, args);
 }
 
+static int
+acpi_fwnode_count_reference_with_args(const struct fwnode_handle *fwnode,
+			       const char *list_name, const char *cells_name)
+{
+	return __acpi_node_count_property_reference(fwnode, list_name);
+}
+
 static const char *acpi_fwnode_get_name(const struct fwnode_handle *fwnode)
 {
 	const struct acpi_device *adev;
@@ -1641,6 +1706,7 @@ static int acpi_fwnode_irq_get(const struct fwnode_handle *fwnode,
 		.graph_get_port_parent = acpi_fwnode_get_parent,	\
 		.graph_parse_endpoint = acpi_fwnode_graph_parse_endpoint, \
 		.irq_get = acpi_fwnode_irq_get,				\
+		.property_count_reference_with_args = acpi_fwnode_count_reference_with_args, \
 	};								\
 	EXPORT_SYMBOL_GPL(ops)
 

@@ -1431,6 +1431,13 @@ static int of_fwnode_add_links(struct fwnode_handle *fwnode)
 	return 0;
 }
 
+static int of_count_phandle_with_fwnode_args(
+		const struct fwnode_handle *fwnode,
+		const char *list_name, const char *cells_name)
+{
+	return of_count_phandle_with_args(to_of_node(fwnode), list_name, cells_name);
+}
+
 const struct fwnode_operations of_fwnode_ops = {
 	.get = of_fwnode_get,
 	.put = of_fwnode_put,
@@ -1454,5 +1461,6 @@ const struct fwnode_operations of_fwnode_ops = {
 	.iomap = of_fwnode_iomap,
 	.irq_get = of_fwnode_irq_get,
 	.add_links = of_fwnode_add_links,
+	.property_count_reference_with_args = of_count_phandle_with_fwnode_args,
 };
 EXPORT_SYMBOL_GPL(of_fwnode_ops);
