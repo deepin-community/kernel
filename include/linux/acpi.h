@@ -1303,6 +1303,8 @@ int acpi_dev_get_property(const struct acpi_device *adev, const char *name,
 int __acpi_node_get_property_reference(const struct fwnode_handle *fwnode,
 				const char *name, size_t index, size_t num_args,
 				struct fwnode_reference_args *args);
+int __acpi_node_count_property_reference(const struct fwnode_handle *fwnode,
+	const char *name);
 
 static inline int acpi_node_get_property_reference(
 				const struct fwnode_handle *fwnode,
