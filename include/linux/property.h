@@ -129,6 +129,9 @@ int fwnode_property_get_reference_args(const struct fwnode_handle *fwnode,
 				       unsigned int nargs, unsigned int index,
 				       struct fwnode_reference_args *args);
 
+int fwnode_count_reference_with_args(const struct fwnode_handle *fwnode,
+			       const char *list_name, const char *cells_name);
+
 struct fwnode_handle *fwnode_find_reference(const struct fwnode_handle *fwnode,
 					    const char *name,
 					    unsigned int index);
