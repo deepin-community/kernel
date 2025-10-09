@@ -562,11 +562,10 @@ static int pci_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 	void __iomem *cfg_iobase = hose->rc_config_space_base;
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("rc read addr:%px bus %d, devfn %#x, where %#x size=%d\t",
-				cfg_iobase + ((where & ~3) << 5),
-				bus->number,
-				devfn, where, size);
+	dev_dbg(&bus->dev, "rc read addr:%px bus %d, devfn %#x, where %#x size=%d\t",
+			cfg_iobase + ((where & ~3) << 5),
+			bus->number,
+			devfn, where, size);
 
 	if ((uintptr_t)where & (size - 1)) {
 		*val = 0;
@@ -596,8 +595,7 @@ static int pci_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 		break;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("*val %#x\n ", *val);
+	dev_dbg(&bus->dev, "*val %#x\n ", *val);
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -632,11 +630,10 @@ static int pci_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 		break;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("rc write addr:%px bus %d, devfn %#x, where %#x *val %#x size %d\n",
-				cfg_iobase + ((where & ~3) << 5),
-				bus->number,
-				devfn, where, val, size);
+	dev_dbg(&bus->dev, "rc write addr:%px bus %d, devfn %#x, where %#x *val %#x size %d\n",
+			cfg_iobase + ((where & ~3) << 5),
+			bus->number,
+			devfn, where, val, size);
 
 	writel(data, cfg_iobase + ((where & ~3) << 5));
 
@@ -762,9 +759,8 @@ void __iomem *sunway_pci_map_bus(struct pci_bus *bus,
 
 	cfg_iobase = hose->ep_config_space_base + relbus;
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("addr:%px bus %d, devfn %d, where %d\n",
-				cfg_iobase, bus->number, devfn, where);
+	dev_dbg(&bus->dev, "addr:%px bus %d, devfn %d, where %d\n",
+			cfg_iobase, bus->number, devfn, where);
 	return cfg_iobase;
 }
 EXPORT_SYMBOL(sunway_pci_map_bus);
