@@ -36,6 +36,10 @@
 #define EM_MSG_LED_VALUE_ACTIVITY     0x00070000
 #define EM_MSG_LED_VALUE_OFF          0xfff80000
 #define EM_MSG_LED_VALUE_ON           0x00010000
+#ifdef CONFIG_X86
+/* fix zhaoxin Enclosure Management quirk */
+#define ZX_GET_BUS_NUMBER_QUIRK		0x000012B0
+#endif
 
 enum {
 	AHCI_MAX_PORTS		= 32,
@@ -379,6 +383,11 @@ struct ahci_host_priv {
 	/* only required for per-port MSI(-X) support */
 	int			(*get_irq_vector)(struct ata_host *host,
 						  int port);
+	/* fix zhaoxin Enclosure Management quirk */
+	void __iomem *p1_mmio;
+	u8 sx_index;
+	u8 px_index;
+	bool has_p0_p1;
 };
 
 extern int ahci_ignore_sss;
