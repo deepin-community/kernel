@@ -657,6 +657,15 @@ static inline pgprot_t pgprot_writecombine(pgprot_t _prot)
 }
 
 /*
+ * DMA allocations for non-coherent devices use what the RISC-V architecture
+ * call "Non-Cacheable" memory attribute, which permits idempotent, weakly-ordered
+ * (RVWMO), main memory. This is different from "I/O" memory attribute which is
+ * intended for MMIO access with Non-cacheable, non-idempotent, strongly-ordered
+ * (I/O ordering), I/O attributes.
+ */
+#define pgprot_dmacoherent pgprot_writecombine
+
+/*
  * THP functions
  */
 static inline pmd_t pte_pmd(pte_t pte)
