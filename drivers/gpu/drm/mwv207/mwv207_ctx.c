@@ -19,7 +19,10 @@
 #include "mwv207_drm.h"
 #include "mwv207_ctx.h"
 
+#ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 struct mwv207_ctx *mwv207_ctx_lookup(struct drm_device *dev,
 		struct drm_file *filp, u32 handle)
 {
