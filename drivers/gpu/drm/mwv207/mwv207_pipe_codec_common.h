@@ -14,7 +14,10 @@
  */
 #include "mwv207_sched.h"
 
+#ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
 #define JPIPE_WRITE_ENTRY_SIZE  16
 #define JPIPE_ENC_REG_NUM       500
 #define JPIPE_DEC_REG_NUM       503
