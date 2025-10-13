@@ -35,10 +35,6 @@ struct public_key {
 #define KEY_EFLAG_CA		0	/* set if the CA basic constraints is set */
 #define KEY_EFLAG_DIGITALSIG	1	/* set if the digitalSignature usage is set */
 #define KEY_EFLAG_KEYCERTSIGN	2	/* set if the keyCertSign usage is set */
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
-	DEEPIN_KABI_RESERVE(3)
-	DEEPIN_KABI_RESERVE(4)
 };
 
 extern void public_key_free(struct public_key *key);
