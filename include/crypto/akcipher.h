@@ -132,10 +132,6 @@ struct akcipher_alg {
 	int (*init)(struct crypto_akcipher *tfm);
 	void (*exit)(struct crypto_akcipher *tfm);
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
-	DEEPIN_KABI_RESERVE(3)
-
 #ifdef CONFIG_CRYPTO_STATS
 	struct crypto_istat_akcipher stat;
 #endif
