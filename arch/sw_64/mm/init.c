@@ -408,6 +408,35 @@ static void __init fixmap_init(pgd_t *pgdir)
 	if (pmd_none(*pmdp))
 		pmd_populate(NULL, pmdp, virt_to_page(fixmap_pte));
 }
+
+/*
+ * Map legacy io to K segmemt in advance.
+ */
+extern unsigned long legacy_io_base;
+extern unsigned long legacy_io_shift;
+static void __init map_legacy_io(pgd_t *pgdir)
+{
+	unsigned long pci_io_start;
+	unsigned long lpc_legacy_io_start = LPC_LEGACY_IO;
+	unsigned long legacy_io_start = legacy_io_base;
+	unsigned long size = 0x10000;
+	unsigned long i, j;
+	pgprot_t prot_none;
+
+	prot_none = __pgprot(pgprot_val(PAGE_KERNEL_READONLY) | _PAGE_FOW);
+
+	for (i = 0; i < 2; i++) {
+		for (j = 0; j < 6; j++) {
+			pci_io_start = SW64_PCI_IO_BASE(i, j) | PCI_LEGACY_IO;
+			create_pgd_mapping(pgdir, (unsigned long)__va(pci_io_start), pci_io_start,
+					   size, prot_none, pgtable_alloc_fixmap);
+		}
+	}
+	create_pgd_mapping(pgdir, (unsigned long)__va(legacy_io_start), legacy_io_start,
+			   size << legacy_io_shift, PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+	create_pgd_mapping(pgdir, (unsigned long)__va(lpc_legacy_io_start), lpc_legacy_io_start,
+			   size, PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+}
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 /*
@@ -473,6 +502,8 @@ void __init paging_init(void)
 	u64 i;
 
 	fixmap_init(pgdir);
+
+	map_legacy_io(pgdir);
 
 	create_pgd_mapping(pgdir, sw64_vcpucb_start, __pa(sw64_vcpucb_start),
 			   sw64_vcpucb_size, PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
