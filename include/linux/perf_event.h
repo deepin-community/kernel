@@ -150,6 +150,17 @@ struct hw_perf_event_extra {
 
 static_assert((PERF_EVENT_FLAG_USER_READ_CNT & PERF_EVENT_FLAG_ARCH) == 0);
 
+struct hw_perf_event_ext {
+#ifdef CONFIG_PERF_EVENTS
+	union {
+		struct {
+			u64 config1;
+			u64 dyn_constraint;
+		};
+	};
+#endif
+};
+
 /**
  * struct hw_perf_event - performance event hardware details:
  */
@@ -158,9 +169,7 @@ struct hw_perf_event {
 	union {
 		struct { /* hardware */
 			u64		config;
-			u64		config1;
 			u64		last_tag;
-			u64		dyn_constraint;
 			unsigned long	config_base;
 			unsigned long	event_base;
 			int		event_base_rdpmc;
@@ -854,7 +863,7 @@ struct perf_event {
 	 */
 	__u32				orig_type;
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, struct hw_perf_event_ext *hw_ext)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
