@@ -25,7 +25,7 @@ static inline void arch_dma_cache_wback(phys_addr_t paddr, size_t size)
 		return;
 	}
 #endif
-	ALT_CMO_OP_VPA(CLEAN, vaddr, paddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP(CLEAN, vaddr, size, riscv_cbom_block_size);
 }
 
 static inline void arch_dma_cache_inv(phys_addr_t paddr, size_t size)
@@ -39,7 +39,7 @@ static inline void arch_dma_cache_inv(phys_addr_t paddr, size_t size)
 	}
 #endif
 
-	ALT_CMO_OP_VPA(INVAL, vaddr, paddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP(INVAL, vaddr, size, riscv_cbom_block_size);
 }
 
 static inline void arch_dma_cache_wback_inv(phys_addr_t paddr, size_t size)
@@ -53,7 +53,7 @@ static inline void arch_dma_cache_wback_inv(phys_addr_t paddr, size_t size)
 	}
 #endif
 
-	ALT_CMO_OP_VPA(FLUSH, vaddr, paddr, size, riscv_cbom_block_size);
+	ALT_CMO_OP(FLUSH, vaddr, size, riscv_cbom_block_size);
 }
 
 static inline bool arch_sync_dma_clean_before_fromdevice(void)
