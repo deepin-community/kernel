@@ -18,6 +18,7 @@ enum HCALL_TYPE {
 	HCALL_SWNET		= 20,   /* guest request swnet service */
 	HCALL_SWNET_IRQ		= 21,   /* guest request swnet intr */
 	HCALL_FATAL_ERROR	= 22,   /* guest fatal error, issued by hmcode */
+	HCALL_SET_PVTIME_ST	= 23,   /* guest pvtime set gpa */
 	NR_HCALL
 };
 
