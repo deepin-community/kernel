@@ -42,6 +42,9 @@ time_init(void)
 	sw64_setup_timer();
 	/* Calibrate the delay loop directly */
 	lpj_fine = cycle_freq / HZ;
+
+	if (is_in_guest())
+		pv_steal_time_init();
 }
 
 void clocksource_arch_init(struct clocksource *cs)
