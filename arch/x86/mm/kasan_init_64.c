@@ -429,6 +429,41 @@ void __init kasan_init(void)
 	kasan_populate_early_shadow(kasan_mem_to_shadow((void *)MODULES_END),
 					(void *)KASAN_SHADOW_END);
 
+#ifdef CONFIG_IEE
+	/*
+	 * Mirror KASAN shadow for the IEE alias of the direct map (4-level only):
+	 * Map the shadow range corresponding to the upper 32TB of the direct
+	 * mapping to the same physical shadow pages as the lower 32TB range.
+	 *
+	 * Layout per Documentation/arch/x86/x86_64/mm.rst (4-level):
+	 *   - Low  32TB direct map: 0xffff888000000000 - 0xffffa88000000000
+	 *   - High 32TB direct map: 0xffffa88000000000 - 0xffffc87fffffffff
+	 * Shadow is 1/8 sized, so we can mirror by PGD entries (512GB each).
+	 */
+	if (!pgtable_l5_enabled()) {
+		/* Derive from current PAGE_OFFSET to handle dynamic layout. */
+		const unsigned long half_linear_size = (1UL << 45); /* 32TB */
+		unsigned long low_lin_start  = PAGE_OFFSET;
+		unsigned long high_lin_start = low_lin_start + half_linear_size;
+		unsigned long high_lin_end_exclusive = high_lin_start + half_linear_size; /* end+1 */
+
+		unsigned long src = (unsigned long)kasan_mem_to_shadow((void *)low_lin_start);
+		unsigned long dst = (unsigned long)kasan_mem_to_shadow((void *)high_lin_start);
+		unsigned long end = (unsigned long)kasan_mem_to_shadow((void *)high_lin_end_exclusive);
+
+		/* The ranges should be PGD-size aligned under 4-level paging. */
+		while (dst < end) {
+			pgd_t *src_pgd = pgd_offset_k(src);
+			pgd_t *dst_pgd = pgd_offset_k(dst);
+
+			set_pgd(dst_pgd, *src_pgd);
+
+			src += PGDIR_SIZE;
+			dst += PGDIR_SIZE;
+		}
+	}
+#endif /* CONFIG_IEE */
+
 	load_cr3(init_top_pgt);
 	__flush_tlb_all();
 
