@@ -22,13 +22,16 @@ static void __init get_vt_smp_info(void)
 {
 	unsigned long smp_info;
 	void __iomem *spbu_base = misc_platform_get_spbu_base(0);
+	unsigned long *smp_info_addr;
 
-	smp_info = readq(spbu_base + OFFSET_SMP_INFO);
+	smp_info_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_SMP_INFO), 0x80);
+	smp_info = *smp_info_addr;
 	if (smp_info == -1UL)
 		smp_info = 0;
 	topo_nr_threads = (smp_info >> VT_THREADS_SHIFT) & VT_THREADS_MASK;
 	topo_nr_cores = (smp_info >> VT_CORES_SHIFT) & VT_CORES_MASK;
 	topo_nr_maxcpus = (smp_info >> VT_MAX_CPUS_SHIFT) & VT_MAX_CPUS_MASK;
+	iounmap(smp_info_addr);
 }
 
 static void __init init_topo_threads(void)
