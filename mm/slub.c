@@ -2147,7 +2147,13 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		iee_allocate_slab_data(s, slab, oo_order(oo));
 #endif
 #ifdef CONFIG_CREDP
-	if (haoc_enabled && s == cred_jar)
+	/*
+	 * Under KASAN, slab/object metadata is written at allocation time
+	 * (e.g., __kasan_init_slab_obj, setup_object). Marking cred_jar
+	 * pages read-only here would trigger faults on those writes.
+	 * Skip enforcing RO for cred slabs when KASAN is enabled.
+	 */
+	if (haoc_enabled && s == cred_jar && !IS_ENABLED(CONFIG_KASAN))
 		set_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
 							oo_order(oo));
 #endif
@@ -2216,7 +2222,8 @@ static void __free_slab(struct kmem_cache *s, struct slab *slab)
 		iee_free_slab(s, slab, iee_free_cred_slab);
 		return;
 		#else
-		unset_iee_page((unsigned long)page_address(folio_page(folio, 0)), order);
+		if (!IS_ENABLED(CONFIG_KASAN))
+			unset_iee_page((unsigned long)page_address(folio_page(folio, 0)), order);
 		#endif
 	}
 #endif
