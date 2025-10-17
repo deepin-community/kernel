@@ -70,7 +70,7 @@ static int cpuinfo_cpu_online(unsigned int cpu)
 	return 0;
 }
 
-static const char * __init dmi_get_string(const struct dmi_header *dm, u8 s)
+static __maybe_unused const char * __init dmi_get_string(const struct dmi_header *dm, u8 s)
 {
 	const u8 *bp = ((u8 *) dm) + dm->length;
 	const u8 *nsp;
@@ -90,7 +90,7 @@ static const char * __init dmi_get_string(const struct dmi_header *dm, u8 s)
 	return "";
 }
 
-static void __init find_dmi_processor_version(const struct dmi_header *dm,
+static __maybe_unused void __init find_dmi_processor_version(const struct dmi_header *dm,
 		void *private)
 {
 	char *dmi_data = (char *)dm;
@@ -113,10 +113,12 @@ static void __init get_model_id(void)
 	int i;
 	unsigned long val;
 
+#ifdef CONFIG_EFI
 	/* Prefer model id from SMBIOS */
 	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
 			sunway_bios_version)
 		dmi_walk(find_dmi_processor_version, NULL);
+#endif
 
 	if (strlen(model_id) > 0)
 		return;
@@ -128,7 +130,7 @@ static void __init get_model_id(void)
 	}
 }
 
-static void __init find_dmi_processor_manufacturer(const struct dmi_header *dm,
+static __maybe_unused void __init find_dmi_processor_manufacturer(const struct dmi_header *dm,
 		void *private)
 {
 	char *dmi_data = (char *)dm;
@@ -151,10 +153,12 @@ static void __init get_vendor_id(void)
 	int i;
 	unsigned long val;
 
+#ifdef CONFIG_EFI
 	/* Prefer vendor id from SMBIOS */
 	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
 			sunway_bios_version)
 		dmi_walk(find_dmi_processor_manufacturer, NULL);
+#endif
 
 	if (strlen(vendor_id) > 0)
 		return;
@@ -166,7 +170,7 @@ static void __init get_vendor_id(void)
 	}
 }
 
-static void __init find_dmi_processor_family(const struct dmi_header *dm,
+static __maybe_unused void __init find_dmi_processor_family(const struct dmi_header *dm,
 		void *private)
 {
 	char *dmi_data = (char *)dm;
@@ -182,10 +186,12 @@ static void __init find_dmi_processor_family(const struct dmi_header *dm,
 
 static void __init get_family(void)
 {
+#ifdef CONFIG_EFI
 	/* Prefer processor family from SMBIOS */
 	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) &&
 			sunway_bios_version)
 		dmi_walk(find_dmi_processor_family, NULL);
+#endif
 
 	if (family)
 		return;
