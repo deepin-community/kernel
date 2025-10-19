@@ -123,6 +123,7 @@ static int sdei_watchdog_pm_notifier(struct notifier_block *nb,
 			rv = sdei_api_event_disable(sdei_watchdog_event_num);
 		break;
 	case CPU_PM_EXIT:
+	case CPU_PM_ENTER_FAILED:
 		if (per_cpu(sdei_usr_en, smp_processor_id()))
 			rv = sdei_api_event_enable(sdei_watchdog_event_num);
 		break;
