@@ -146,9 +146,10 @@ struct skcipher_alg {
 	struct crypto_istat_cipher stat;
 #endif
 
-	struct crypto_alg base;
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+
+	struct crypto_alg base;
 };
 
 #define MAX_SYNC_SKCIPHER_REQSIZE      384
