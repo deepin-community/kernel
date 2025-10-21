@@ -718,6 +718,17 @@ static void rtw89_ops_vif_cfg_changed(struct ieee80211_hw *hw,
 
 	if (changed & BSS_CHANGED_ARP_FILTER)
 		rtwvif->ip_addr = vif->cfg.arp_addr_list[0];
+
+	if (changed & BSS_CHANGED_MLD_VALID_LINKS) {
+		struct rtw89_vif_link *cur = rtw89_get_designated_link(rtwvif);
+
+		rtw89_chip_rfk_channel(rtwdev, cur);
+
+		if (hweight16(vif->active_links) == 1)
+			rtwvif->mlo_mode = RTW89_MLO_MODE_MLSR;
+		else
+			rtwvif->mlo_mode = RTW89_MLO_MODE_EMLSR;
+	}
 }
 
 static void rtw89_ops_link_info_changed(struct ieee80211_hw *hw,
@@ -1562,6 +1573,36 @@ static int __rtw89_ops_set_vif_links(struct rtw89_dev *rtwdev,
 	return 0;
 }
 
+static void rtw89_vif_cfg_fw_links(struct rtw89_dev *rtwdev,
+				   struct rtw89_vif *rtwvif,
+				   unsigned long links, bool en)
+{
+	struct rtw89_vif_link *rtwvif_link;
+	unsigned int link_id;
+
+	for_each_set_bit(link_id, &links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		rtwvif_link = rtwvif->links[link_id];
+		if (unlikely(!rtwvif_link))
+			continue;
+
+		rtw89_fw_h2c_mlo_link_cfg(rtwdev, rtwvif_link, en);
+	}
+}
+
+static void rtw89_vif_update_fw_links(struct rtw89_dev *rtwdev,
+				      struct rtw89_vif *rtwvif,
+				      u16 current_links)
+{
+	struct rtw89_vif_ml_trans *trans = &rtwvif->ml_trans;
+
+	/* Do follow-up when all updating links exist. */
+	if (current_links != trans->mediate_links)
+		return;
+
+	rtw89_vif_cfg_fw_links(rtwdev, rtwvif, trans->links_to_del, false);
+	rtw89_vif_cfg_fw_links(rtwdev, rtwvif, trans->links_to_add, true);
+}
+
 static
 int rtw89_ops_change_vif_links(struct ieee80211_hw *hw,
 			       struct ieee80211_vif *vif,
@@ -1602,6 +1643,8 @@ int rtw89_ops_change_vif_links(struct ieee80211_hw *hw,
 
 	if (rtwdev->scanning)
 		rtw89_hw_scan_abort(rtwdev, rtwdev->scan_info.scanning_vif);
+
+	rtw89_vif_update_fw_links(rtwdev, rtwvif, old_links);
 
 	if (!old_links)
 		__rtw89_ops_clr_vif_links(rtwdev, rtwvif,
