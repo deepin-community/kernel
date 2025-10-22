@@ -578,7 +578,7 @@ cmd_handle:
 
 static void __init setup_cpu_caps(void)
 {
-	if (!IS_ENABLED(CONFIG_SUBARCH_C3B) && !is_junzhang_v1())
+	if (cpuid(GET_FEATURES, 0) & CPU_FEAT_UNA)
 		static_branch_enable(&hw_una_enabled);
 }
 
