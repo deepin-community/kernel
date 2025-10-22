@@ -130,6 +130,12 @@ static void lapic_timer_check_state(int state, struct acpi_processor *pr,
 	if (cpu_has(&cpu_data(pr->id), X86_FEATURE_ARAT))
 		return;
 
+	/* On the KH-50000 platform, the local APIC stops in C3 state */
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) &&
+	    (boot_cpu_data.x86 == 0x7 && boot_cpu_data.x86_model == 0x7b))
+		type = ACPI_STATE_C3;
+
 	if (boot_cpu_has_bug(X86_BUG_AMD_APIC_C1E))
 		type = ACPI_STATE_C1;
 
