@@ -457,6 +457,15 @@ static void __init hpet_legacy_clockevent_register(struct hpet_channel *hc)
 	hc->evt.features		|= CLOCK_EVT_FEAT_PERIODIC;
 	hc->evt.set_state_periodic	= hpet_clkevt_set_state_periodic;
 
+	/*
+	 * On the KH-50000 platform, enable dynamic HPET interrupts
+	 * to prevent unnecessary wakeups of core 0 caused by broadcast timer events.
+	 */
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR ||
+	     boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN) &&
+	    (boot_cpu_data.x86 == 0x7 && boot_cpu_data.x86_model == 0x7b))
+		hc->evt.features |= CLOCK_EVT_FEAT_DYNIRQ;
+
 	/* Start HPET legacy interrupts */
 	hpet_enable_legacy_int();
 
