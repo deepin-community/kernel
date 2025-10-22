@@ -32,6 +32,7 @@
 #include <asm/efi.h>
 #include <asm/unistd.h>
 #include <asm/irq_impl.h>
+#include <asm/traps.h>
 
 #include "proto.h"
 
@@ -429,13 +430,13 @@ trap_init(void)
 	register unsigned long gptr __asm__("$29");
 	wrkgp(gptr);
 
-	wrent(entArith, 1);
-	wrent(entMM, 2);
-	wrent(entIF, 3);
-	wrent(entUna, 4);
-	wrent(entSys, 5);
+	wrent(entArith, ENT_IDX_ARITH);
+	wrent(entMM, ENT_IDX_MM);
+	wrent(entIF, ENT_IDX_IF);
+	wrent(entUna, ENT_IDX_UNA);
+	wrent(entSys, ENT_IDX_SYS);
 #ifdef CONFIG_EFI
 	if (smp_processor_id() == 0)
-		wrent((void *)entSuspend, 6);
+		wrent((void *)entSuspend, ENT_IDX_SUSPEND);
 #endif
 }

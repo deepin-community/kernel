@@ -11,6 +11,7 @@
 #include <asm/irq_impl.h>
 #include <asm/pmc.h>
 #include <asm/sw64_init.h>
+#include <asm/traps.h>
 
 /**
  * The topology of interrupt controllers of SW64 is as follows:
@@ -87,7 +88,7 @@ asmlinkage void noinstr do_entInt(struct pt_regs *regs)
 	/* restart idle routine if it is interrupted */
 	if (regs->pc > (u64)__idle_start && regs->pc < (u64)__idle_end)
 		regs->pc = (u64)__idle_start;
-	if (unlikely(regs->cause == -2 && IS_ENABLED(CONFIG_SUBARCH_C4)))
+	if (unlikely(regs->cause == TRAP_CAUSE_NMI && IS_ENABLED(CONFIG_SUBARCH_C4)))
 		nmi_enter();
 	else
 		irq_enter();
@@ -176,7 +177,7 @@ asmlinkage void noinstr do_entInt(struct pt_regs *regs)
 
 out:
 	set_irq_regs(old_regs);
-	if (unlikely(regs->cause == -2 && IS_ENABLED(CONFIG_SUBARCH_C4)))
+	if (unlikely(regs->cause == TRAP_CAUSE_NMI && IS_ENABLED(CONFIG_SUBARCH_C4)))
 		nmi_exit();
 	else
 		irq_exit();
