@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/ultrarisc,dp1000-gmac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Ultrarisc dp1000 glue layer
+
+maintainers:
+  - Han Gao <gaohan@iscas.ac.cn>
+
+select:
+  properties:
+    compatible:
+      contains:
+        enum:
+          - ultrarisc,dp1000-gmac
+  required:
+    - compatible
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: ultrarisc,dp1000-gmac
+          - const: snps,dwmac-5.10a
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: GMAC main clock
+      - description: PTP clock
+      - description: TX clock
+
+  clock-names:
+    items:
+      - const: stmmaceth
+
+  dma-noncoherent: true
+
+  interrupts:
+    maxItems: 1
+
+  interrupt-names:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - interrupts
+  - interrupt-names
+
+allOf:
+  - $ref: snps,dwmac.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    ethernet1@38000000 {
+      clocks = <&csr_clk>;
+      clock-names = "stmmaceth";
+      compatible = "ultrarisc,dp1000-gmac", "snps,dwmac-5.10a";
+      interrupt-parent = <0x01>;
+      interrupts = <84>;
+      interrupt-names = "macirq";
+      reg = <0x00 0x38000000 0x00 0x1000000>;
+      local-mac-address = [ff ff ff ff ff ff];
+      phy-mode = "rgmii";
+      max-speed = <1000>;
+      snps,txpbl = <8>;
+      snps,rxpbl = <8>;
+      phy-handle = <&phy0>;
+      mdio {
+        #address-cells = <0x01>;
+        #size-cells = <0x00>;
+        compatible = "snps,dwmac-mdio";
+        phy0: phy@0{
+          reg = <0x00>;
+          status = "okay";
+        };
+      };
+    };
