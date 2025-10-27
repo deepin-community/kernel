@@ -29,6 +29,7 @@
 
 struct ultrarisc_pcie {
 	struct dw_pcie  *pci;
+	u32 irq_mask[MAX_MSI_CTRLS];
 };
 
 static const struct of_device_id ultrarisc_pcie_of_match[];
@@ -138,6 +139,49 @@ static int ultrarisc_pcie_probe(struct platform_device *pdev)
 	return 0;
 }
 
+int ultrarisc_pcie_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct ultrarisc_pcie *ultrarisc_pcie = platform_get_drvdata(pdev);
+	struct dw_pcie *pci = ultrarisc_pcie->pci;
+	struct dw_pcie_rp *pp = &pci->pp;
+	int num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
+	unsigned long flags;
+	int ctrl;
+
+	raw_spin_lock_irqsave(&pp->lock, flags);
+
+	for (ctrl = 0; ctrl < num_ctrls; ctrl++)
+		ultrarisc_pcie->irq_mask[ctrl] = pp->irq_mask[ctrl];
+
+	raw_spin_unlock_irqrestore(&pp->lock, flags);
+
+	return 0;
+}
+
+int ultrarisc_pcie_resume(struct platform_device *pdev)
+{
+	struct ultrarisc_pcie *ultrarisc_pcie = platform_get_drvdata(pdev);
+	struct dw_pcie *pci = ultrarisc_pcie->pci;
+	struct dw_pcie_rp *pp = &pci->pp;
+	int num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
+	unsigned long flags;
+	int ctrl;
+
+	raw_spin_lock_irqsave(&pp->lock, flags);
+
+	for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
+		pp->irq_mask[ctrl] = ultrarisc_pcie->irq_mask[ctrl];
+		dw_pcie_writel_dbi(pci,
+				   PCIE_MSI_INTR0_MASK +
+				   ctrl * MSI_REG_CTRL_BLOCK_SIZE,
+				   pp->irq_mask[ctrl]);
+	}
+
+	raw_spin_unlock_irqrestore(&pp->lock, flags);
+
+	return 0;
+}
+
 static const struct of_device_id ultrarisc_pcie_of_match[] = {
 	{
 		.compatible = "ultrarisc,dw-pcie",
@@ -152,5 +196,7 @@ static struct platform_driver ultrarisc_pcie_driver = {
 		.suppress_bind_attrs = true,
 	},
 	.probe = ultrarisc_pcie_probe,
+	.suspend = ultrarisc_pcie_suspend,
+	.resume = ultrarisc_pcie_resume,
 };
 builtin_platform_driver(ultrarisc_pcie_driver);
