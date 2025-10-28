@@ -54,7 +54,7 @@ enum {
 static bool deepin_err_notify_initialized __read_mostly;
 
 /* Runtime control variable for deepin error notification */
-static int deepin_err_notify_enable __read_mostly = 1;
+static int deepin_err_notify_enable __read_mostly = 0;
 
 int deepin_err_notify_enabled(void)
 {
