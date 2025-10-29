@@ -268,7 +268,7 @@ static int plic_irq_set_type(struct irq_data *d, unsigned int type)
 	return IRQ_SET_MASK_OK;
 }
 
-static int plic_irq_suspend(void)
+static int plic_irq_suspend(void *data)
 {
 	struct plic_priv *priv = this_cpu_ptr(&plic_handlers)->priv;
 
@@ -280,7 +280,7 @@ static int plic_irq_suspend(void)
 	return 0;
 }
 
-static void plic_irq_resume(void)
+static void plic_irq_resume(void *data)
 {
 	struct plic_priv *priv = this_cpu_ptr(&plic_handlers)->priv;
 	unsigned int index, cpu;
@@ -308,9 +308,13 @@ static void plic_irq_resume(void)
 	}
 }
 
-static struct syscore_ops plic_irq_syscore_ops = {
+static const struct syscore_ops plic_irq_syscore_ops = {
 	.suspend	= plic_irq_suspend,
 	.resume		= plic_irq_resume,
+};
+
+static struct syscore plic_irq_syscore = {
+	.ops = &plic_irq_syscore_ops,
 };
 
 static int plic_irqdomain_map(struct irq_domain *d, unsigned int irq,
@@ -782,7 +786,7 @@ done:
 			cpuhp_setup_state(CPUHP_AP_IRQ_SIFIVE_PLIC_STARTING,
 					  "irqchip/sifive/plic:starting",
 					  plic_starting_cpu, plic_dying_cpu);
-			register_syscore_ops(&plic_irq_syscore_ops);
+			register_syscore(&plic_irq_syscore);
 			plic_global_setup_done = true;
 		}
 	}
