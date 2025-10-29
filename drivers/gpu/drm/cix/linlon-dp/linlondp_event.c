@@ -17,8 +17,8 @@ struct linlondp_str {
 
 /* return 0 on success,  < 0 on no space.
  */
-__printf(2, 3)
-static int linlondp_sprintf(struct linlondp_str *str, const char *fmt, ...)
+__printf(2, 3) static int linlondp_sprintf(struct linlondp_str *str,
+					   const char *fmt, ...)
 {
 	va_list args;
 	int num, free_sz;
@@ -86,14 +86,14 @@ static void evt_str(struct linlondp_str *str, u64 events)
 	evt_sprintf(str, events & LINLONDP_ERR_ACE2, "ACE2|");
 	evt_sprintf(str, events & LINLONDP_ERR_ACE3, "ACE3|");
 
-	/* LPU TBU errors */
+	/* LPU TBU errors*/
 	evt_sprintf(str, events & LINLONDP_ERR_TCF, "TCF|");
 	evt_sprintf(str, events & LINLONDP_ERR_TTNG, "TTNG|");
 	evt_sprintf(str, events & LINLONDP_ERR_TITR, "TITR|");
 	evt_sprintf(str, events & LINLONDP_ERR_TEMR, "TEMR|");
 	evt_sprintf(str, events & LINLONDP_ERR_TTF, "TTF|");
 
-	/* CU errors */
+	/* CU errors*/
 	evt_sprintf(str, events & LINLONDP_ERR_CPE, "COPROC|");
 	evt_sprintf(str, events & LINLONDP_ERR_ZME, "ZME|");
 	evt_sprintf(str, events & LINLONDP_ERR_CFGE, "CFGE|");
@@ -108,7 +108,7 @@ static void evt_str(struct linlondp_str *str, u64 events)
 static bool is_new_frame(struct linlondp_events *a)
 {
 	return (a->pipes[0] | a->pipes[1]) &
-	    (LINLONDP_EVENT_FLIP | LINLONDP_EVENT_EOW);
+	       (LINLONDP_EVENT_FLIP | LINLONDP_EVENT_EOW);
 }
 
 void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev)
@@ -122,8 +122,8 @@ void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev)
 	/* reduce the same msg print, only print the first evt for one frame */
 	if (evts->global || is_new_frame(evts))
 		en_print = true;
-	if (!(err_verbosity & LINLONDP_DEV_PRINT_DISABLE_RATELIMIT)
-	    && !en_print)
+	if (!(err_verbosity & LINLONDP_DEV_PRINT_DISABLE_RATELIMIT) &&
+	    !en_print)
 		return;
 
 	if (err_verbosity & LINLONDP_DEV_PRINT_ERR_EVENTS)

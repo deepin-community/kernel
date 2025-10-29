@@ -14,7 +14,7 @@
 /** linlondp_pipeline_add - Add a pipeline to &linlondp_dev */
 struct linlondp_pipeline *
 linlondp_pipeline_add(struct linlondp_dev *mdev, size_t size,
-		const struct linlondp_pipeline_funcs *funcs)
+		      const struct linlondp_pipeline_funcs *funcs)
 {
 	struct linlondp_pipeline *pipe;
 
@@ -55,7 +55,7 @@ void linlondp_pipeline_destroy(struct linlondp_dev *mdev,
 		linlondp_component_destroy(mdev, c);
 	}
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
-	devm_clk_put(mdev->dev, pipe->pxlclk);
+	clk_put(pipe->pxlclk);
 #endif
 	if (!has_acpi_companion(mdev->dev)) {
 		of_node_put(pipe->of_output_links[0]);
@@ -144,7 +144,7 @@ linlondp_pipeline_get_component(struct linlondp_pipeline *pipe, int id)
 
 struct linlondp_component *
 linlondp_pipeline_get_first_component(struct linlondp_pipeline *pipe,
-					u32 comp_mask)
+				      u32 comp_mask)
 {
 	struct linlondp_component *c = NULL;
 	unsigned long comp_mask_local = (unsigned long)comp_mask;
@@ -167,12 +167,11 @@ linlondp_component_pickup_input(struct linlondp_component *c, u32 avail_comps)
 
 /** linlondp_component_add - Add a component to &linlondp_pipeline */
 struct linlondp_component *
-linlondp_component_add(struct linlondp_pipeline *pipe,
-		size_t comp_sz, u32 id, u32 hw_id,
-		const struct linlondp_component_funcs *funcs,
-		u8 max_active_inputs, u32 supported_inputs,
-		u8 max_active_outputs, u32 __iomem *reg,
-		const char *name_fmt, ...)
+linlondp_component_add(struct linlondp_pipeline *pipe, size_t comp_sz, u32 id,
+		       u32 hw_id, const struct linlondp_component_funcs *funcs,
+		       u8 max_active_inputs, u32 supported_inputs,
+		       u8 max_active_outputs, u32 __iomem *reg,
+		       const char *name_fmt, ...)
 {
 	struct linlondp_component **pos;
 	struct linlondp_component *c;
@@ -258,36 +257,50 @@ static void linlondp_pipeline_dump(struct linlondp_pipeline *pipe)
 	int id;
 	unsigned long avail_comps = pipe->avail_comps;
 
-	DRM_INFO
-	    ("Pipeline-%d: n_layers: %d, n_scalers: %d, output: %s  %d PPC\n",
-	     pipe->id, pipe->n_layers, pipe->n_scalers,
-	     pipe->dual_link ? "dual-link" : "single-link", pipe->pixelPerClk);
+	DRM_INFO(
+		"Pipeline-%d: n_layers: %d, n_scalers: %d, output: %s  %d PPC\n",
+		pipe->id, pipe->n_layers, pipe->n_scalers,
+		pipe->dual_link ? "dual-link" : "single-link",
+		pipe->pixel_per_cycle);
+
 	if (pipe->fwnode && is_acpi_data_node(pipe->fwnode)) {
 		DRM_INFO("    pipe->fwnode: %s.\n",
-			 pipe->fwnode->ops->get_name(pipe->fwnode) ? : "none");
+			 pipe->fwnode->ops->get_name(pipe->fwnode) ?: "none");
 
-		if (pipe->fwnode_output_port
-		    && is_acpi_data_node(pipe->fwnode_output_port)) {
-			DRM_INFO("    pipe->fwnode_output_port: %s.\n",
-				pipe->fwnode_output_port->ops->get_name(pipe->fwnode_output_port) ? : "none");
+		if (pipe->fwnode_output_port &&
+		    is_acpi_data_node(pipe->fwnode_output_port)) {
+			DRM_INFO(
+				"    pipe->fwnode_output_port: %s.\n",
+				pipe->fwnode_output_port->ops->get_name(pipe->fwnode_output_port) ?:
+					"none");
 		}
 
-		if (pipe->fwnode_output_links[0]
-		    && is_acpi_device_node(pipe->fwnode_output_links[0])) {
-			DRM_INFO("    output_link[0]: %s.\n",
-				pipe->fwnode_output_links[0]->ops->get_name(pipe->fwnode_output_links[0]) ? : "none");
+		if (pipe->fwnode_output_links[0] &&
+		    is_acpi_device_node(pipe->fwnode_output_links[0])) {
+			DRM_INFO(
+				"    output_link[0]: %s.\n",
+				pipe->fwnode_output_links[0]->ops->get_name(
+					pipe->fwnode_output_links[0]) ?:
+					"none");
 		}
 
-		if (pipe->fwnode_output_links[1]
-		    && is_acpi_device_node(pipe->fwnode_output_links[1])) {
-			DRM_INFO("    output_link[1]: %s.\n",
-				pipe->fwnode_output_links[1]->ops->get_name(pipe->fwnode_output_links[1]) ? : "none");
+		if (pipe->fwnode_output_links[1] &&
+		    is_acpi_device_node(pipe->fwnode_output_links[1])) {
+			DRM_INFO(
+				"    output_link[1]: %s.\n",
+				pipe->fwnode_output_links[1]->ops->get_name(
+					pipe->fwnode_output_links[1]) ?:
+					"none");
 		}
 	} else {
 		DRM_INFO("    output_link[0]: %s.\n",
-			pipe->of_output_links[0] ? pipe->of_output_links[0]->full_name : "none");
+			 pipe->of_output_links[0] ?
+				 pipe->of_output_links[0]->full_name :
+				 "none");
 		DRM_INFO("    output_link[1]: %s.\n",
-			pipe->of_output_links[1] ? pipe->of_output_links[1]->full_name : "none");
+			 pipe->of_output_links[1] ?
+				 pipe->of_output_links[1]->full_name :
+				 "none");
 	}
 
 	for_each_set_bit(id, &avail_comps, 32) {
@@ -308,7 +321,9 @@ static void linlondp_component_verify_inputs(struct linlondp_component *c)
 		input = linlondp_pipeline_get_component(pipe, id);
 		if (!input) {
 			c->supported_inputs &= ~(BIT(id));
-			DRM_WARN("Can not find input(ID-%d) for component: %s.\n", id, c->name);
+			DRM_WARN(
+				"Can not find input(ID-%d) for component: %s.\n",
+				id, c->name);
 			continue;
 		}
 
@@ -318,7 +333,7 @@ static void linlondp_component_verify_inputs(struct linlondp_component *c)
 
 static struct linlondp_layer *
 linlondp_get_layer_split_right_layer(struct linlondp_pipeline *pipe,
-		struct linlondp_layer *left)
+				     struct linlondp_layer *left)
 {
 	int index = left->base.id - LINLONDP_COMPONENT_LAYER0;
 	int i;
@@ -344,12 +359,15 @@ static void linlondp_pipeline_assemble(struct linlondp_pipeline *pipe)
 	for (i = 0; i < pipe->n_layers; i++) {
 		layer = pipe->layers[i];
 
-		layer->right = linlondp_get_layer_split_right_layer(pipe, layer);
+		layer->right =
+			linlondp_get_layer_split_right_layer(pipe, layer);
 	}
 
 	if (pipe->dual_link && !pipe->ctrlr->supports_dual_link) {
 		pipe->dual_link = false;
-		DRM_WARN("PIPE-%d doesn't support dual-link, ignore DT dual-link configuration.\n", pipe->id);
+		DRM_WARN(
+			"PIPE-%d doesn't support dual-link, ignore DT dual-link configuration.\n",
+			pipe->id);
 	}
 }
 
@@ -396,12 +414,13 @@ static int linlondp_assemble_side_by_side(struct linlondp_dev *mdev)
 		DRM_ERROR("Current HW doesn't support side by side.\n");
 		return -EINVAL;
 	}
+
 	//SBS can work with image merge mode
 	/*
-	 *if (!master->dual_link) {
-	 *  DRM_DEBUG_ATOMIC("SBS can not work without dual link.\n");
-	 *  return -EINVAL;
-	 *  }
+	 * if (!master->dual_link) {
+	 * DRM_DEBUG_ATOMIC("SBS can not work without dual link.\n");
+	 * return -EINVAL;
+	 * }
 	 */
 	for (i = 0; i < master->n_layers; i++)
 		master->layers[i]->sbs_slave = slave->layers[i];

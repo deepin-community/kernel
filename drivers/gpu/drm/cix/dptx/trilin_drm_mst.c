@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 //------------------------------------------------------------------------------
-//      Trilinear Technologies DisplayPort DRM Driver
-//      Copyright (C) 2023 Trilinear Technologies
+//	Trilinear Technologies DisplayPort DRM Driver
+//	Copyright (C) 2023 Trilinear Technologies
 //
-//      This program is free software: you can redistribute it and/or modify
-//      it under the terms of the GNU General Public License as published by
-//      the Free Software Foundation, version 2.
+//	This program is free software: you can redistribute it and/or modify
+//	it under the terms of the GNU General Public License as published by
+//	the Free Software Foundation, version 2.
 //
-//      This program is distributed in the hope that it will be useful, but
-//      WITHOUT ANY WARRANTY; without even the implied warranty of
-//      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-//      General Public License for more details.
+//	This program is distributed in the hope that it will be useful, but
+//	WITHOUT ANY WARRANTY; without even the implied warranty of
+//	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+//	General Public License for more details.
 //
-//      You should have received a copy of the GNU General Public License
-//      along with this program. If not, see <http://www.gnu.org/licenses/>.
+//	You should have received a copy of the GNU General Public License
+//	along with this program. If not, see <http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc.h>
@@ -62,11 +62,11 @@ static const struct drm_connector_funcs trilin_dp_mst_connector_funcs;
 static const struct drm_connector_helper_funcs
 	trilin_dp_mst_connector_helper_funcs;
 
-static struct trilin_dp *topology_mgr_to_trilin(struct drm_dp_mst_topology_mgr
-						*mgr)
+static struct trilin_dp *
+topology_mgr_to_trilin(struct drm_dp_mst_topology_mgr *mgr)
 {
 	struct trilin_dp_mst_private *mst_private =
-	    container_of(mgr, struct trilin_dp_mst_private, mst_mgr);
+		container_of(mgr, struct trilin_dp_mst_private, mst_mgr);
 	return mst_private->dp;
 }
 
@@ -83,7 +83,7 @@ static void trilin_handle_mst_sideband_msg(struct drm_dp_mst_topology_mgr *mgr,
 	u8 retry;
 	struct trilin_dp *dp = topology_mgr_to_trilin(mgr);
 	struct trilin_dp_mst_private *mst = &dp->mst.private_info;
-
+	//DP_MST_DEBUG("enter\n");
 	mutex_lock(&mst->poll_irq_lock);
 
 	if (dp->dpcd[DP_DPCD_REV] < 0x12) {
@@ -97,30 +97,31 @@ static void trilin_handle_mst_sideband_msg(struct drm_dp_mst_topology_mgr *mgr,
 	}
 
 	while (process_count < max_process_count) {
-		u8 ack[DP_PSR_ERROR_STATUS - DP_SINK_COUNT_ESI] = { };
+		u8 ack[DP_PSR_ERROR_STATUS - DP_SINK_COUNT_ESI] = {};
 
 		process_count++;
-		ret = drm_dp_dpcd_read(&dp->aux,
-				       dpcd_addr, esi, dpcd_bytes_to_read);
+		ret = drm_dp_dpcd_read(&dp->aux, dpcd_addr, esi,
+				       dpcd_bytes_to_read);
 
 		if (ret != dpcd_bytes_to_read) {
 			DP_ERR("DPCD read bytes is not expected!");
 			break;
 		}
 
-		DP_MST_DEBUG("ESI %02x %02x %02x\n", esi[0], esi[1], esi[2]);
+		//DP_MST_DEBUG( "ESI %02x %02x %02x mst=%d\n"
+		//	, esi[0], esi[1], esi[2], dp->mst_mgr->mst_state);
 
 		switch (msg_rdy_type) {
 		case DOWN_REP_MSG_RDY_EVENT:
-			/* Only handle DOWN_REP_MSG_RDY case */
+			/* Only handle DOWN_REP_MSG_RDY case*/
 			esi[1] &= DP_DOWN_REP_MSG_RDY;
 			break;
 		case UP_REQ_MSG_RDY_EVENT:
-			/* Only handle UP_REQ_MSG_RDY case */
+			/* Only handle UP_REQ_MSG_RDY case*/
 			esi[1] &= DP_UP_REQ_MSG_RDY;
 			break;
 		default:
-			/* Handle both cases */
+			/* Handle both cases*/
 			esi[1] &= (DP_DOWN_REP_MSG_RDY | DP_UP_REQ_MSG_RDY);
 			break;
 		}
@@ -129,18 +130,18 @@ static void trilin_handle_mst_sideband_msg(struct drm_dp_mst_topology_mgr *mgr,
 			break;
 
 		/* handle MST irq */
-		if (dp->mst_mgr->mst_state)
+		if (dp->mst_mgr->mst_state) {
 			drm_dp_mst_hpd_irq_handle_event(dp->mst_mgr, esi, ack,
 							&new_irq_handled);
+		}
 
 		if (new_irq_handled) {
 			/* ACK at DPCD to notify down stream */
 			for (retry = 0; retry < 3; retry++) {
 				ssize_t wret;
 
-				wret =
-				    drm_dp_dpcd_writeb(&dp->aux, dpcd_addr + 1,
-						       ack[1]);
+				wret = drm_dp_dpcd_writeb(
+					&dp->aux, dpcd_addr + 1, ack[1]);
 				if (wret == 1)
 					break;
 			}
@@ -186,7 +187,7 @@ static void dp_mst_cbs_poll_hdp_irq(struct drm_dp_mst_topology_mgr *mgr)
 	struct trilin_dp *dp = topology_mgr_to_trilin(mgr);
 	struct trilin_dp_mst_private *mst = &dp->mst.private_info;
 
-	if (!mst->mst_session_state) {	//(dp->state & DP_STATE_SUSPENDED)
+	if (!mst->mst_session_state) { //(dp->state & DP_STATE_SUSPENDED)
 		DP_DEBUG("mst_hpd_irq received before mst session start\n");
 		return;
 	}
@@ -202,10 +203,10 @@ int trilin_dp_set_mst_mgr_state(struct trilin_dp *dp, bool state)
 	mst->mst_session_state = state;
 
 	rc = drm_dp_mst_topology_mgr_set_mst(dp->mst_mgr, state);
-	if (rc < 0) {
-		DP_ERR("failed to set topology mgr state to %d. rc %d\n",
-		       state, rc);
-	}
+	if (rc < 0)
+		DP_ERR("failed to set topology mgr state to %d. rc %d\n", state,
+		       rc);
+
 	DP_MST_DEBUG("mst mgr state:%d\n", state);
 	return rc;
 }
@@ -237,17 +238,14 @@ int trilin_dp_mst_resume(struct trilin_dp *dp)
 	return ret;
 }
 
-static struct drm_connector *trilin_dp_add_mst_connector(struct
-							 drm_dp_mst_topology_mgr
-							 *mgr,
-							 struct drm_dp_mst_port
-							 *port,
-							 const char *pathprop)
+static struct drm_connector *
+trilin_dp_add_mst_connector(struct drm_dp_mst_topology_mgr *mgr,
+			    struct drm_dp_mst_port *port, const char *pathprop)
 {
 	struct trilin_connector *conn;
 	struct drm_connector *connector;
 	struct trilin_dp *dp = topology_mgr_to_trilin(mgr);
-	struct drm_encoder *encorder;
+	struct trilin_encoder *mst_encoder;
 	int i, ret;
 
 	DP_MST_DEBUG("enter\n");
@@ -256,7 +254,7 @@ static struct drm_connector *trilin_dp_add_mst_connector(struct
 	if (!conn)
 		return NULL;
 
-	for (i = 0; i < MAX_DP_MST_DRM_ENCODERS; i++) {
+	for (i = 0; i < dp->max_mst_encoders; i++) {
 		if (!dp->mst.mst_panels[i].in_use) {
 			dp->mst.mst_panels[i].in_use = true;
 			dp->mst.mst_panels[i].panel.stream_id = i;
@@ -266,26 +264,28 @@ static struct drm_connector *trilin_dp_add_mst_connector(struct
 		}
 	}
 
-	if (i == MAX_DP_MST_DRM_ENCODERS) {
+	if (i == dp->max_mst_encoders) {
 		kfree(conn);
-		DP_INFO("Max support two streams, not support pathprop: %s\n",
-			pathprop);
+		DP_INFO("Max support %d streams, not support pathprop: %s\n",
+			dp->max_mst_encoders, pathprop);
 		return NULL;
 	}
 
 	conn->port = port;
 	conn->dp = dp;
 	conn->type = TRILIN_OUTPUT_DP_MST;
+	conn->drm = dp->drm[0];
+
+	if (dp->drm[1] != NULL && conn->dp_panel->stream_id >= 2)
+		conn->drm = dp->drm[1];
 
 	connector = &conn->base;
 
 	drm_dp_mst_get_port_malloc(port);
 
-	//connector->polled = DRM_CONNECTOR_POLL_HPD;
-	ret =
-	    drm_connector_init(dp->drm, connector,
-			       &trilin_dp_mst_connector_funcs,
-			       DRM_MODE_CONNECTOR_DisplayPort);
+	ret = drm_connector_init(conn->drm, connector,
+				 &trilin_dp_mst_connector_funcs,
+				 DRM_MODE_CONNECTOR_DisplayPort);
 	if (ret) {
 		drm_dp_mst_put_port_malloc(port);
 		kfree(conn);
@@ -295,22 +295,28 @@ static struct drm_connector *trilin_dp_add_mst_connector(struct
 	drm_connector_helper_add(connector,
 				 &trilin_dp_mst_connector_helper_funcs);
 
-	for (i = 0; i < MAX_DP_MST_DRM_ENCODERS; i++) {
-		encorder = &dp->mst.private_info.mst_encoders[i].base;
-		ret = drm_connector_attach_encoder(connector, encorder);
+	for (i = 0; i < dp->max_mst_encoders; i++) {
+		mst_encoder = &dp->mst.private_info.mst_encoders[i];
+		if (mst_encoder->drm != conn->drm)
+			continue;
+
+		ret = drm_connector_attach_encoder(connector, &mst_encoder->base);
 		if (ret) {
 			DP_ERR("drm_connector_attach_encoder failed..\n");
 			goto err;
 		}
 	}
 
-	if (connector->funcs->reset)
-		connector->funcs->reset(connector);
+	//Fixme: MST does not support yuv420 now
+	//if (!IS_ERR_OR_NULL(dp->rcsu_iomem))
+	//	connector->ycbcr_420_allowed = true;
+
+	drm_atomic_helper_connector_reset(connector);
 
 	drm_object_attach_property(&connector->base,
-				   dp->drm->mode_config.path_property, 0);
+				   conn->drm->mode_config.path_property, 0);
 	drm_object_attach_property(&connector->base,
-				   dp->drm->mode_config.tile_property, 0);
+				   conn->drm->mode_config.tile_property, 0);
 	drm_connector_set_path_property(connector, pathprop);
 	/*
 	 * Reuse the prop from the SST connector because we're
@@ -318,12 +324,12 @@ static struct drm_connector *trilin_dp_add_mst_connector(struct
 	 */
 	connector->max_bpc_property = dp->connector.base.max_bpc_property;
 	if (connector->max_bpc_property)
-		drm_connector_attach_max_bpc_property(connector, 8, 12);
+		drm_connector_attach_max_bpc_property(connector, 8, 10);
 
-	DP_MST_INFO
-	    ("Successfully create mst connector=%d pathprop=%s port=%d stream_id=%d\n",
-	     connector->base.id, pathprop, port->port_num,
-	     conn->dp_panel->stream_id);
+	DP_MST_INFO(
+		"Successfully create mst connector=%d pathprop=%s port=%d stream_id=%d\n",
+		connector->base.id, pathprop, port->port_num,
+		conn->dp_panel->stream_id);
 	return connector;
 
 err:
@@ -370,7 +376,7 @@ static void trilin_dp_mst_connector_destroy(struct drm_connector *connector)
 	DP_MST_DEBUG("enter: connector=%d stream%d port%d\n",
 		     connector->base.id, id, conn->port->port_num);
 
-	for (i = 0; i < MAX_DP_MST_DRM_ENCODERS; i++) {
+	for (i = 0; i < dp->max_mst_encoders; i++) {
 		if (dp->mst.mst_panels[i].panel.stream_id == id) {
 			dp->mst.mst_panels[i].in_use = false;
 			break;
@@ -403,6 +409,7 @@ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
 	struct edid *edid;
 
 	DP_MST_DEBUG("enter\n");
+
 	if (drm_connector_is_unregistered(connector))
 		return trilin_connector_update_modes(connector, NULL);
 
@@ -416,33 +423,33 @@ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
 enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
 					      struct drm_display_mode *mode)
 {
-	const int min_bpp = 8 * 3;	// fixme: 6 * 3
+	const int min_bpp = 6 * 3;
 	struct trilin_connector *conn = connector_to_trilin(connector);
 	struct trilin_dp *dp = conn->dp;
-	const int PBN = drm_dp_calc_pbn_mode(mode->clock, min_bpp);
+	const int PBN = drm_dp_calc_pbn_mode(mode->clock, min_bpp << 4);
 	enum drm_mode_status ret =
-	    trilin_dp_connector_mode_valid(connector, mode);
+		trilin_dp_connector_mode_valid(connector, mode);
 	//DP_MST_DEBUG("enter\n");
 	if (ret != MODE_OK)
 		return ret;
 
-	if (PBN > conn->port->full_pbn) {
-		DP_MST_DEBUG
-		    ("filter mode(%s) for port%d that pbn=%d > full_pbn=%d.\n",
-		     mode->name, conn->port->port_num, PBN,
-		     conn->port->full_pbn);
+	if (conn->port->full_pbn < PBN) {
+		DP_MST_DEBUG(
+			"filter mode(%s) for port%d that pbn=%d > full_pbn=%d.\n",
+			mode->name, conn->port->port_num, PBN,
+			conn->port->full_pbn);
 		drm_mode_debug_printmodeline(mode);
 		return MODE_CLOCK_HIGH;
 	}
 	return MODE_OK;
 }
 
-static struct drm_encoder *trilin_mst_atomic_best_encoder(
-		struct drm_connector *connector,
-		struct drm_atomic_state *state)
+static struct drm_encoder *
+trilin_mst_atomic_best_encoder(struct drm_connector *connector,
+			       struct drm_atomic_state *state)
 {
 	struct drm_connector_state *connector_state =
-	    drm_atomic_get_new_connector_state(state, connector);
+		drm_atomic_get_new_connector_state(state, connector);
 	struct trilin_connector *conn = connector_to_trilin(connector);
 	struct trilin_dp *dp = conn->dp;
 	struct trilin_encoder *mst_encoder;
@@ -462,33 +469,33 @@ static struct drm_encoder *trilin_mst_atomic_best_encoder(
 		     connector_state->crtc->name,
 		     crtc->master != NULL ? "true" : "false", pipe_id);
 
-	if (pipe_id >= MAX_DP_MST_DRM_ENCODERS) {
+	if (pipe_id >= dp->max_mst_encoders) {
 		DP_ERR("pipe_id %d too large...\n", pipe_id);
 		pipe_id = 0;
 	}
+	/*Todo..Fixme..*/
+	pipe_id = conn->dp_panel->stream_id;
 
 	mst_encoder = &mst->mst_encoders[pipe_id];
 	if (mst_encoder->id != pipe_id) {
-		DP_ERR
-		    ("Should not happen. encoder id %d != pipe_id %d , not config, abort",
-		     mst_encoder->id, pipe_id);
+		DP_ERR("Should not happen. encoder id %d != pipe_id %d , not config, abort",
+		       mst_encoder->id, pipe_id);
 		return NULL;
 	}
 
-	/* encoder can be choose from different connector */
+	/* encoder can be choose from different connector*/
 	if (conn->dp_panel->stream_id != pipe_id) {
-		DP_WARN
-		    ("conn->dp_panel->stream_id=%d but pipe=%d. align it to pipe_id",
-		     conn->dp_panel->stream_id, pipe_id);
+		DP_WARN("conn->dp_panel->stream_id=%d but pipe=%d. align it to pipe_id",
+			conn->dp_panel->stream_id, pipe_id);
 		conn->dp_panel->stream_id = pipe_id;
 	}
 
 	mst_encoder->connector = conn;
 	mst_encoder->dp_panel = conn->dp_panel;
-	DP_MST_DEBUG
-	    ("pipe=%d mst_encoder->id=%d stream=%d enable=%d connect_id=%d",
-	     pipe_id, mst_encoder->id, conn->dp_panel->stream_id,
-	     mst_encoder->enable, connector->base.id);
+	DP_MST_DEBUG(
+		"pipe=%d mst_encoder->id=%d stream=%d enable=%d connect_id=%d",
+		pipe_id, mst_encoder->id, conn->dp_panel->stream_id,
+		mst_encoder->enable, connector->base.id);
 	return &mst_encoder->base;
 }
 
@@ -503,9 +510,8 @@ static int trilin_dp_mst_conn_atomic_check(struct drm_connector *connector,
 	return drm_dp_atomic_release_time_slots(state, dp->mst_mgr, conn->port);
 }
 
-static int
-trilin_dp_mst_detect(struct drm_connector *connector,
-		     struct drm_modeset_acquire_ctx *ctx, bool force)
+static int trilin_dp_mst_detect(struct drm_connector *connector,
+				struct drm_modeset_acquire_ctx *ctx, bool force)
 {
 	struct trilin_connector *conn = connector_to_trilin(connector);
 	struct trilin_dp *dp = conn->dp;
@@ -513,6 +519,7 @@ trilin_dp_mst_detect(struct drm_connector *connector,
 	int status;
 
 	DP_MST_DEBUG("enter:\n");
+
 	if (drm_connector_is_unregistered(connector))
 		return connector_status_disconnected;
 
@@ -523,12 +530,12 @@ trilin_dp_mst_detect(struct drm_connector *connector,
 
 static const struct drm_connector_helper_funcs
 	trilin_dp_mst_connector_helper_funcs = {
-	.get_modes = trilin_dp_mst_get_modes,
-	.mode_valid = trilin_dp_mst_mode_valid,
-	.atomic_best_encoder = trilin_mst_atomic_best_encoder,
-	.atomic_check = trilin_dp_mst_conn_atomic_check,
-	.detect_ctx = trilin_dp_mst_detect,
-};
+		.get_modes = trilin_dp_mst_get_modes,
+		.mode_valid = trilin_dp_mst_mode_valid,
+		.atomic_best_encoder = trilin_mst_atomic_best_encoder,
+		.atomic_check = trilin_dp_mst_conn_atomic_check,
+		.detect_ctx = trilin_dp_mst_detect,
+	};
 
 /* -----------------------------------------------------------------------------
  * DRM Encoder
@@ -564,18 +571,17 @@ static void _dp_mst_get_vcpi_info(struct drm_dp_mst_topology_state *state,
 	}
 }
 
-static void trilin_dp_mst_update_timeslots(struct trilin_dp_mst_private *mst,
-					   struct drm_dp_mst_topology_state
-					   *mst_state,
-					   struct trilin_encoder
-					   *ext_mst_encoder)
+static void
+trilin_dp_mst_update_timeslots(struct trilin_dp_mst_private *mst,
+			       struct drm_dp_mst_topology_state *mst_state,
+			       struct trilin_encoder *ext_mst_encoder)
 {
 	int i;
 	struct trilin_encoder *mst_encoder = ext_mst_encoder;
 	int pbn = 0, start_slot = 0, num_slots = 0;
 	struct trilin_dp *dp = ext_mst_encoder->dp;
 
-	for (i = 0; i < MAX_DP_MST_DRM_ENCODERS; i++) {
+	for (i = 0; i < dp->max_mst_encoders; i++) {
 		mst_encoder = &mst->mst_encoders[i];
 
 		pbn = 0;
@@ -583,9 +589,8 @@ static void trilin_dp_mst_update_timeslots(struct trilin_dp_mst_private *mst,
 		num_slots = 0;
 
 		if (mst_encoder->vcpi) {
-			_dp_mst_get_vcpi_info(mst_state,
-					      mst_encoder->vcpi,
-					      &start_slot, &num_slots, &pbn);
+			_dp_mst_get_vcpi_info(mst_state, mst_encoder->vcpi,
+					&start_slot, &num_slots, &pbn);
 		}
 
 		if (mst_encoder == ext_mst_encoder) {
@@ -594,20 +599,19 @@ static void trilin_dp_mst_update_timeslots(struct trilin_dp_mst_private *mst,
 			mst_encoder->pbn = pbn;
 		}
 
-		trilin_dp_set_stream_info(mst->dp,
-					  mst_encoder->dp_panel,
-					  mst_encoder->id,
-					  start_slot, num_slots);
+		trilin_dp_set_stream_info(mst->dp, mst_encoder->dp_panel,
+					  mst_encoder->id, start_slot,
+					  num_slots);
 
-		DP_MST_DEBUG
-		    ("encoder:%d vcpi:%d start_slot:%d num_slots:%d, pbn:%d\n",
-		     mst_encoder->id, mst_encoder->vcpi, start_slot, num_slots,
-		     pbn);
+		DP_MST_DEBUG(
+			"encoder:%d vcpi:%d start_slot:%d num_slots:%d, pbn:%d\n",
+			mst_encoder->id, mst_encoder->vcpi, start_slot,
+			num_slots, pbn);
 	}
 }
 
-static void _dp_mst_encoders_pre_enable_part1(struct trilin_encoder
-					      *mst_encoder)
+static void
+_dp_mst_encoders_pre_enable_part1(struct trilin_encoder *mst_encoder)
 {
 	struct trilin_dp *dp = mst_encoder->dp;
 	struct trilin_connector *c_conn = mst_encoder->connector;
@@ -625,10 +629,9 @@ static void _dp_mst_encoders_pre_enable_part1(struct trilin_encoder
 	ret = drm_dp_add_payload_part1(mgr, mst_state, payload);
 
 	if (ret < 0) {
-		DP_ERR
-		    ("WHAT? mst:drm_dp_add_payload_part1 failed. encoder:%d payload(%d %d %d)\n",
-		     mst_encoder->id, payload->vcpi, payload->pbn,
-		     payload->time_slots);
+		DP_ERR("WHAT? mst:drm_dp_add_payload_part1 failed. encoder:%d payload(%d %d %d)\n",
+		       mst_encoder->id, payload->vcpi, payload->pbn,
+		       payload->time_slots);
 		return;
 	}
 
@@ -639,8 +642,8 @@ static void _dp_mst_encoders_pre_enable_part1(struct trilin_encoder
 	trilin_dp_mst_update_timeslots(mst, mst_state, mst_encoder);
 }
 
-static void _dp_mst_encoders_pre_enable_part2(struct trilin_encoder
-					      *mst_encoder)
+static void
+_dp_mst_encoders_pre_enable_part2(struct trilin_encoder *mst_encoder)
 {
 	struct trilin_dp *dp = mst_encoder->dp;
 	struct drm_dp_mst_topology_state *mst_state;
@@ -657,9 +660,9 @@ static void _dp_mst_encoders_pre_enable_part2(struct trilin_encoder
 	mst_state = to_drm_dp_mst_topology_state(mgr->base.state);
 	payload = drm_atomic_get_mst_payload_state(mst_state, port);
 	drm_dp_add_payload_part2(mgr, state, payload);
-	DP_MST_DEBUG
-	    ("mst encoder [%d] _pre enable part-2 complete [state=%p]\n",
-	     mst_encoder->id, state);
+	DP_MST_DEBUG(
+		"mst encoder [%d] _pre enable part-2 complete [state=%p]\n",
+		mst_encoder->id, state);
 }
 
 static void _dp_mst_encoders_pre_disable(struct trilin_encoder *mst_encoder)
@@ -670,7 +673,7 @@ static void _dp_mst_encoders_pre_disable(struct trilin_encoder *mst_encoder)
 	struct drm_dp_mst_topology_mgr *mgr = dp->mst_mgr;
 	struct drm_atomic_state *state = conn->state;
 	struct drm_dp_mst_topology_state *old_mst_state, *new_mst_state,
-	    *mst_state;
+		*mst_state;
 	struct drm_dp_mst_atomic_payload *old_payload, *new_payload;
 
 	DP_MST_DEBUG("enter\n");
@@ -683,17 +686,17 @@ static void _dp_mst_encoders_pre_disable(struct trilin_encoder *mst_encoder)
 	old_mst_state = drm_atomic_get_old_mst_topology_state(state, mgr);
 	new_mst_state = drm_atomic_get_new_mst_topology_state(state, mgr);
 
-	DP_MST_DEBUG
-	    ("state=%p old_mst_state=%p new_mst_state=%p mst_state=%p\n", state,
-	     old_mst_state, new_mst_state, mst_state);
+	DP_MST_DEBUG(
+		"state=%p old_mst_state=%p new_mst_state=%p mst_state=%p\n",
+		state, old_mst_state, new_mst_state, mst_state);
 
 	if (old_mst_state == NULL || new_mst_state == NULL)
 		return;
 
 	old_payload =
-	    drm_atomic_get_mst_payload_state(old_mst_state, conn->port);
+		drm_atomic_get_mst_payload_state(old_mst_state, conn->port);
 	new_payload =
-	    drm_atomic_get_mst_payload_state(new_mst_state, conn->port);
+		drm_atomic_get_mst_payload_state(new_mst_state, conn->port);
 
 	drm_dp_remove_payload(mgr, new_mst_state, old_payload, new_payload);
 	trilin_dp_mst_update_timeslots(mst, new_mst_state, mst_encoder);
@@ -715,10 +718,8 @@ static void trilin_mst_encoder_enable(struct drm_encoder *encoder)
 	int rc = 0;
 
 	DP_MST_DEBUG("enter panel=%p\n", dp_panel);
-
 	mutex_lock(&mst->mst_lock);
-
-	/*link trainning */
+	/*link trainning*/
 	rc = trilin_dp_prepare(dp);
 	if (rc) {
 		DP_ERR("[%d] DP display prepare failed, rc=%d\n",
@@ -729,7 +730,7 @@ static void trilin_mst_encoder_enable(struct drm_encoder *encoder)
 	drm_dp_send_power_updown_phy(dp->mst_mgr, conn->port, true);
 	_dp_mst_encoders_pre_enable_part1(mst_encoder);
 
-	/*stream on */
+	/*stream on*/
 	rc = trilin_dp_enable(dp, dp_panel);
 	if (rc) {
 		DP_ERR("[%d] DP display enable failed, rc=%d\n",
@@ -737,9 +738,8 @@ static void trilin_mst_encoder_enable(struct drm_encoder *encoder)
 		trilin_dp_unprepare(dp);
 		mutex_unlock(&mst->mst_lock);
 		return;
-	} else {
+	} else
 		_dp_mst_encoders_pre_enable_part2(mst_encoder);
-	}
 
 	mutex_unlock(&mst->mst_lock);
 
@@ -758,7 +758,6 @@ static void trilin_mst_encoder_disable(struct drm_encoder *encoder)
 	int rc = 0;
 
 	DP_MST_DEBUG("enter\n");
-
 	mutex_lock(&mst->mst_lock);
 
 	if (!(dp->state & DP_STATE_INITIALIZED)) {
@@ -797,9 +796,8 @@ static void trilin_mst_encoder_disable(struct drm_encoder *encoder)
 
 /*compupte and updata payload slots*/
 static int trilin_mst_encoder_atomic_check(struct drm_encoder *encoder,
-					   struct drm_crtc_state *crtc_state,
-					   struct drm_connector_state
-					   *conn_state)
+					  struct drm_crtc_state *crtc_state,
+					  struct drm_connector_state *conn_state)
 {
 	struct trilin_encoder *mst_encoder = encoder_to_trilin(encoder);
 	struct trilin_dp *dp = mst_encoder->dp;
@@ -811,14 +809,13 @@ static int trilin_mst_encoder_atomic_check(struct drm_encoder *encoder,
 	struct drm_dp_mst_topology_mgr *mst_mgr = &mst_private->mst_mgr;
 	struct drm_dp_mst_port *mst_port = conn->port;
 	struct drm_dp_mst_topology_state *mst_state;
-	int clock;
-	//enum dc_color_depth color_depth;
-	//bool is_y420 = false;
-	//u8 bpp = 24; //fixme
+	struct drm_display_mode *mode = &crtc_state->mode;
+
 	int ret = 0;
 	const u8 link_coding_cap = DP_CAP_ANSI_8B10B;
+	u8 suggest_bpc = 8, min_bpc = 6; //for mst
 
-	DP_MST_DEBUG("enter");
+	DP_MST_DEBUG("enter : clock=%d aj clock=%d ",  mode->clock, adjusted_mode->clock);
 
 	if (!mst_port || !mst_private->mst_session_state)
 		return 0;
@@ -826,45 +823,43 @@ static int trilin_mst_encoder_atomic_check(struct drm_encoder *encoder,
 	if (!crtc_state->connectors_changed && !crtc_state->mode_changed)
 		return 0;
 
-	ret = trilin_dp_encoder_atomic_check(encoder, crtc_state, conn_state);
-	if (ret < 0)
-		return ret;
-
 	mst_state = drm_atomic_get_mst_topology_state(state, mst_mgr);
 	if (IS_ERR(mst_state))
 		return PTR_ERR(mst_state);
 
-	if (!mst_state->pbn_div)
-		mst_state->pbn_div =
-		    drm_dp_get_vc_payload_bw(mst_mgr, dp->mode.link_rate,
-					     dp->mode.lane_cnt);
+	trilin_dp_encoder_atomic_adjust_mode(dp, mode, adjusted_mode);
 
-	/*Fixme: suspend & resume state->duplicated is 1 */
-	//if (!state->duplicated) {
-	clock = adjusted_mode->clock;
-	mst_encoder->pbn = drm_dp_calc_pbn_mode(clock, conn->config.bpp);
-	//}
+	while (true) {
+		ret = trilin_dp_encoder_compute_config(encoder,
+				crtc_state, conn_state, suggest_bpc);
+		if (ret < 0)
+			break;
+		if (!mst_state->pbn_div)
+			mst_state->pbn_div =
+				drm_dp_get_vc_payload_bw(mst_mgr,
+						dp->mode.link_rate, dp->mode.lane_cnt);
 
-	mst_encoder->num_slots =
-	    drm_dp_atomic_find_time_slots(state, mst_mgr, mst_port,
-					  mst_encoder->pbn);
-	if (mst_encoder->num_slots < 0) {
-		DP_MST_DEBUG("failed finding vcpi slots: %d\n",
-			     (int)mst_encoder->num_slots);
-		return mst_encoder->num_slots;
+		mst_encoder->pbn = drm_dp_calc_pbn_mode(adjusted_mode->clock,
+				conn->config.bpp << 4);
+		mst_encoder->num_slots = drm_dp_atomic_find_time_slots(state,
+				mst_mgr, mst_port, mst_encoder->pbn);
+		if (mst_encoder->num_slots < 0) {
+			DP_MST_DEBUG("failed finding vcpi slots: %d\n",
+					(int)mst_encoder->num_slots);
+			ret = mst_encoder->num_slots;
+		} else {
+			drm_dp_mst_update_slots(mst_state, link_coding_cap);
+			ret = drm_dp_mst_atomic_check(state);
+			if (ret == 0)
+				break;
+		}
+		min_bpc = (conn->config.format == TRILIN_DPSUB_FORMAT_RGB) ? 6 : 8;
+		if (suggest_bpc <= min_bpc)
+			break;
+		suggest_bpc -= 2;
 	}
-
-	drm_dp_mst_update_slots(mst_state, link_coding_cap);
-
-	ret = drm_dp_mst_atomic_check(state);
-	DP_MST_DEBUG("drm_dp_mst_atomic_check : %d pbn=%d num_slots=%d pbn_div=%d"
-			"clock=%d update state=%p (duplicated=%d)\n", ret,
-		     mst_encoder->pbn, mst_encoder->num_slots, mst_state->pbn_div, clock, state,
-		     state->duplicated);
 	return ret;
 }
-
-#define TRILIN_DPTX_MIN_H_BACKPORCH	20
 
 const struct drm_encoder_helper_funcs trilin_dp_encoder_helper_funcs = {
 	.enable = trilin_mst_encoder_enable,
@@ -889,25 +884,30 @@ int trilin_drm_mst_encoder_init(struct trilin_dp *dp, int conn_base_id)
 	mutex_init(&dp->mst.private_info.mst_lock);
 	mutex_init(&dp->mst.private_info.poll_irq_lock);
 	/* create fake encoders */
-	for (i = 0; i < MAX_DP_MST_DRM_ENCODERS; i++) {
+	for (i = 0; i < dp->max_mst_encoders; i++) {
 		mst_encoder = &dp->mst.private_info.mst_encoders[i];
 		encoder = &mst_encoder->base;
 		mst_encoder->id = i;
 		mst_encoder->dp = dp;
-		encoder->possible_crtcs = TRILIN_DPTX_POSSIBLE_CRTCS_MST;	//1 << i; // crtc0 only for encoder0
-		drm_encoder_init(dp->drm,
-				 encoder,
-				 &trilin_dp_mst_enc_funcs,
-				 DRM_MODE_ENCODER_DPMST,
-				 "DP-MST %c", pipe_name(i));
+		//fixme...
+		mst_encoder->drm = dp->drm[0];
+		if (dp->drm[1] != NULL && i >= 2) //fixme
+			mst_encoder->drm = dp->drm[1];
+		encoder->possible_crtcs =
+			TRILIN_DPTX_POSSIBLE_CRTCS_MST; //1 << i; // crtc0 only for encoder0
+
+		drm_encoder_init(mst_encoder->drm, encoder, &trilin_dp_mst_enc_funcs,
+				 DRM_MODE_ENCODER_DPMST, "DP-MST %c",
+				 pipe_name(i));
 		drm_encoder_helper_add(encoder,
 				       &trilin_dp_encoder_helper_funcs);
+		DP_DEBUG("create encoder%d success", i);
 	}
 
-	ret =
-	    drm_dp_mst_topology_mgr_init(&dp->mst.private_info.mst_mgr, dp->drm,
-					 &dp->aux, 16, MAX_DP_MST_DRM_ENCODERS,
-					 conn_base_id);
+	ret = drm_dp_mst_topology_mgr_init(&dp->mst.private_info.mst_mgr,
+					   dp->drm[0], &dp->aux, 16,
+					   dp->max_mst_encoders,
+					   conn_base_id);
 	if (ret) {
 		dp->mst.private_info.mst_mgr.cbs = NULL;
 		return ret;

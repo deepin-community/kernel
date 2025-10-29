@@ -36,9 +36,9 @@ static const struct drm_framebuffer_funcs linlondp_fb_funcs = {
 	.create_handle = linlondp_fb_create_handle,
 };
 
-static int
-linlondp_fb_afbc_size_check(struct linlondp_fb *kfb, struct drm_file *file,
-			    const struct drm_mode_fb_cmd2 *mode_cmd)
+static int linlondp_fb_afbc_size_check(struct linlondp_fb *kfb,
+				       struct drm_file *file,
+				       const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct drm_framebuffer *fb = &kfb->base;
 	const struct drm_format_info *info = fb->format;
@@ -85,17 +85,18 @@ linlondp_fb_afbc_size_check(struct linlondp_fb *kfb, struct drm_file *file,
 	}
 
 	n_blocks = (kfb->aligned_w * kfb->aligned_h) / AFBC_SUPERBLK_PIXELS;
-	kfb->offset_payload = ALIGN(n_blocks * AFBC_HEADER_SIZE,
-				    alignment_header);
+	kfb->offset_payload =
+		ALIGN(n_blocks * AFBC_HEADER_SIZE, alignment_header);
 
 	bpp = linlondp_get_afbc_format_bpp(info, fb->modifier);
-	kfb->afbc_size = kfb->offset_payload + n_blocks *
-	    ALIGN(bpp * AFBC_SUPERBLK_PIXELS / 8, AFBC_SUPERBLK_ALIGNMENT);
+	kfb->afbc_size = kfb->offset_payload +
+			 n_blocks * ALIGN(bpp * AFBC_SUPERBLK_PIXELS / 8,
+					  AFBC_SUPERBLK_ALIGNMENT);
 	min_size = kfb->afbc_size + fb->offsets[0];
 	if (min_size > obj->size) {
-		DRM_DEBUG_KMS
-		    ("afbc size check failed, obj_size: 0x%zx. min_size 0x%llx.\n",
-		     obj->size, min_size);
+		DRM_DEBUG_KMS(
+			"afbc size check failed, obj_size: 0x%zx. min_size 0x%llx.\n",
+			obj->size, min_size);
 		goto check_failed;
 	}
 
@@ -136,12 +137,12 @@ linlondp_fb_none_afbc_size_check(struct linlondp_dev *mdev,
 			return -EINVAL;
 		}
 
-		min_size = linlondp_fb_get_pixel_addr(kfb, 0, fb->height, i)
-		    - to_drm_gem_dma_obj(obj)->dma_addr;
+		min_size = linlondp_fb_get_pixel_addr(kfb, 0, fb->height, i) -
+			   to_drm_gem_dma_obj(obj)->dma_addr;
 		if (obj->size < min_size) {
-			DRM_DEBUG_KMS
-			    ("The fb->obj[%d] size: 0x%zx lower than the minimum requirement: 0x%llx.\n",
-			     i, obj->size, min_size);
+			DRM_DEBUG_KMS(
+				"The fb->obj[%d] size: 0x%zx lower than the minimum requirement: 0x%llx.\n",
+				i, obj->size, min_size);
 			return -EINVAL;
 		}
 	}
@@ -156,10 +157,9 @@ linlondp_fb_none_afbc_size_check(struct linlondp_dev *mdev,
 	return 0;
 }
 
-struct drm_framebuffer *linlondp_fb_create(struct drm_device *dev,
-					   struct drm_file *file,
-					   const struct drm_mode_fb_cmd2
-					   *mode_cmd)
+struct drm_framebuffer *
+linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
+		   const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct linlondp_dev *mdev = dev->dev_private;
 	struct linlondp_fb *kfb;
@@ -169,9 +169,8 @@ struct drm_framebuffer *linlondp_fb_create(struct drm_device *dev,
 	if (!kfb)
 		return ERR_PTR(-ENOMEM);
 
-	kfb->format_caps = linlondp_get_format_caps(&mdev->fmt_tbl,
-						    mode_cmd->pixel_format,
-						    mode_cmd->modifier[0]);
+	kfb->format_caps = linlondp_get_format_caps(
+		&mdev->fmt_tbl, mode_cmd->pixel_format, mode_cmd->modifier[0]);
 	if (!kfb->format_caps) {
 		DRM_DEBUG_KMS("FMT %x is not supported.\n",
 			      mode_cmd->pixel_format);
@@ -184,8 +183,8 @@ struct drm_framebuffer *linlondp_fb_create(struct drm_device *dev,
 	if (kfb->base.modifier)
 		ret = linlondp_fb_afbc_size_check(kfb, file, mode_cmd);
 	else
-		ret =
-		    linlondp_fb_none_afbc_size_check(mdev, kfb, file, mode_cmd);
+		ret = linlondp_fb_none_afbc_size_check(mdev, kfb, file,
+						       mode_cmd);
 	if (ret < 0)
 		goto err_cleanup;
 
@@ -208,8 +207,8 @@ err_cleanup:
 	return ERR_PTR(ret);
 }
 
-int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb,
-				 u32 src_x, u32 src_y, u32 src_w, u32 src_h)
+int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb, u32 src_x,
+				 u32 src_y, u32 src_w, u32 src_h)
 {
 	const struct drm_framebuffer *fb = &kfb->base;
 	const struct drm_format_info *info = fb->format;
@@ -223,25 +222,25 @@ int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb,
 
 	if ((src_x % info->hsub) || (src_w % info->hsub) ||
 	    (src_y % info->vsub) || (src_h % info->vsub)) {
-		DRM_DEBUG_ATOMIC
-		    ("Wrong subsampling dimension x:%d, y:%d, w:%d, h:%d for format: %x.\n",
-		     src_x, src_y, src_w, src_h, info->format);
+		DRM_DEBUG_ATOMIC(
+			"Wrong subsampling dimension x:%d, y:%d, w:%d, h:%d for format: %x.\n",
+			src_x, src_y, src_w, src_h, info->format);
 		return -EINVAL;
 	}
 
-	if ((src_x % block_w) || (src_w % block_w) ||
-	    (src_y % block_h) || (src_h % block_h)) {
-		DRM_DEBUG_ATOMIC
-		    ("x:%d, y:%d, w:%d, h:%d should be multiple of block_w/h for format: %x.\n",
-		     src_x, src_y, src_w, src_h, info->format);
+	if ((src_x % block_w) || (src_w % block_w) || (src_y % block_h) ||
+	    (src_h % block_h)) {
+		DRM_DEBUG_ATOMIC(
+			"x:%d, y:%d, w:%d, h:%d should be multiple of block_w/h for format: %x.\n",
+			src_x, src_y, src_w, src_h, info->format);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-dma_addr_t
-linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y, int plane)
+dma_addr_t linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y,
+				      int plane)
 {
 	struct drm_framebuffer *fb = &kfb->base;
 	const struct drm_gem_dma_object *obj;
@@ -261,8 +260,8 @@ linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y, int plane)
 		plane_x = x / (plane ? fb->format->hsub : 1);
 		plane_y = y / (plane ? fb->format->vsub : 1);
 
-		offset += (plane_x / block_w) * block_sz
-		    + plane_y * fb->pitches[plane];
+		offset += (plane_x / block_w) * block_sz +
+			  plane_y * fb->pitches[plane];
 	}
 
 	return obj->dma_addr + offset;
@@ -281,9 +280,9 @@ bool linlondp_fb_is_layer_supported(struct linlondp_fb *kfb, u32 layer_type,
 	supported = linlondp_format_mod_supported(&mdev->fmt_tbl, layer_type,
 						  fourcc, modifier, rot);
 	if (!supported)
-		DRM_DEBUG_ATOMIC
-		    ("Layer TYPE: %d doesn't support fb FMT: %p4cc with modifier: 0x%llx.\n",
-		     layer_type, &fourcc, modifier);
+		DRM_DEBUG_ATOMIC(
+			"Layer TYPE: %d doesn't support fb FMT: %p4cc with modifier: 0x%llx.\n",
+			layer_type, &fourcc, modifier);
 
 	return supported;
 }

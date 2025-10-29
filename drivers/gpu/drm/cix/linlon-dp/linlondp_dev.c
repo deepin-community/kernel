@@ -21,8 +21,9 @@
 
 #include "linlondp_dev.h"
 
-struct fwnode_handle *fwnode_graph_get_remote_node(
-	const struct fwnode_handle *fwnode, u32 port_id, u32 endpoint_id)
+struct fwnode_handle *
+fwnode_graph_get_remote_node(const struct fwnode_handle *fwnode, u32 port_id,
+			     u32 endpoint_id)
 {
 	struct fwnode_handle *endpoint = NULL;
 
@@ -81,27 +82,26 @@ static void linlondp_debugfs_init(struct linlondp_dev *mdev)
 	sprintf(dir_name, "linlondp%d", mdev->id);
 
 	mdev->debugfs_root = debugfs_create_dir(dir_name, NULL);
-	debugfs_create_file("register", 0444, mdev->debugfs_root,
-			    mdev, &linlondp_register_fops);
+	debugfs_create_file("register", 0444, mdev->debugfs_root, mdev,
+			    &linlondp_register_fops);
 	debugfs_create_x16("err_verbosity", 0664, mdev->debugfs_root,
 			   &mdev->err_verbosity);
 }
 #endif
 
-static ssize_t
-core_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t core_id_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "0x%08x\n", mdev->chip.core_id);
 }
-
 static DEVICE_ATTR_RO(core_id);
 
-static ssize_t
-config_id_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t config_id_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe = mdev->pipelines[0];
 	union linlondp_config_id config_id;
 	int i;
@@ -120,24 +120,22 @@ config_id_show(struct device *dev, struct device_attribute *attr, char *buf)
 	}
 	return sysfs_emit(buf, "0x%08x\n", config_id.value);
 }
-
 static DEVICE_ATTR_RO(config_id);
 
-static ssize_t
-aclk_hz_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t aclk_hz_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq);
 }
-
 static DEVICE_ATTR_RO(aclk_hz);
 
-static ssize_t
-aclk_freq_fixed_store(struct device *dev, struct device_attribute *attr,
-			const char *buf, size_t count)
+static ssize_t aclk_freq_fixed_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	long val;
 	int err;
 
@@ -146,7 +144,8 @@ aclk_freq_fixed_store(struct device *dev, struct device_attribute *attr,
 		return err;
 
 	if (val > 800000000) {
-		pr_err("specified frequency %lu exceeds the upper limit\n", val);
+		pr_err("specified frequency %lu exceeds the upper limit\n",
+		       val);
 		return -EINVAL;
 	}
 
@@ -156,21 +155,21 @@ aclk_freq_fixed_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t
-aclk_freq_fixed_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t aclk_freq_fixed_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%lu\n", mdev->aclk_freq_fixed);
 }
 
 static DEVICE_ATTR_RW(aclk_freq_fixed);
 
-static ssize_t
-smart_aclk_freq_store(struct device *dev, struct device_attribute *attr,
-		      const char *buf, size_t count)
+static ssize_t smart_aclk_freq_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	long val;
 	int err;
 
@@ -185,22 +184,21 @@ smart_aclk_freq_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t
-smart_aclk_freq_show(struct device *dev, struct device_attribute *attr,
-		     char *buf)
+static ssize_t smart_aclk_freq_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 
 	return sysfs_emit(buf, "%d\n", mdev->smart_aclk_freq ? 1 : 0);
 }
 
 static DEVICE_ATTR_RW(smart_aclk_freq);
 
-static ssize_t
-test_pattern_store(struct device *dev, struct device_attribute *attr,
-		   const char *buf, size_t count)
+static ssize_t test_pattern_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -218,11 +216,11 @@ test_pattern_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t
-test_pattern_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t test_pattern_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 
@@ -241,11 +239,11 @@ test_pattern_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 static DEVICE_ATTR_RW(test_pattern);
 
-static ssize_t
-crc_enable_store(struct device *dev, struct device_attribute *attr,
-		 const char *buf, size_t count)
+static ssize_t crc_enable_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -263,11 +261,11 @@ crc_enable_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t
-crc_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t crc_enable_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 
@@ -286,11 +284,11 @@ crc_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 
 static DEVICE_ATTR_RW(crc_enable);
 
-static ssize_t
-dither_enable_store(struct device *dev, struct device_attribute *attr,
-		    const char *buf, size_t count)
+static ssize_t dither_enable_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
 {
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 	long val;
@@ -308,11 +306,11 @@ dither_enable_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static ssize_t
-dither_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t dither_enable_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
 {
 	long val;
-	struct linlondp_dev *mdev = cix_dev_to_mdev(dev);
+	struct linlondp_dev *mdev = dev_to_mdev(dev);
 	struct linlondp_pipeline *pipe0 = mdev->pipelines[0];
 	struct linlondp_pipeline *pipe1 = mdev->pipelines[1];
 
@@ -350,9 +348,8 @@ static struct attribute_group linlondp_sysfs_attr_group = {
 static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
 {
 	struct device_node *np = pipe->of_node;
-#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
 	struct clk *clk;
-
+#if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
 	clk = of_clk_get_by_name(np, "pxclk");
 	if (IS_ERR(clk)) {
 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
@@ -362,15 +359,18 @@ static int linlondp_parse_pipe_dt(struct linlondp_pipeline *pipe)
 #endif
 	/* enum ports */
 	pipe->of_output_links[0] =
-	    of_graph_get_remote_node(np, LINLONDP_OF_PORT_OUTPUT, 0);
+		of_graph_get_remote_node(np, LINLONDP_OF_PORT_OUTPUT, 0);
 	pipe->of_output_links[1] =
-	    of_graph_get_remote_node(np, LINLONDP_OF_PORT_OUTPUT, 1);
+		of_graph_get_remote_node(np, LINLONDP_OF_PORT_OUTPUT, 1);
 	pipe->of_output_port =
-	    of_graph_get_port_by_id(np, LINLONDP_OF_PORT_OUTPUT);
+		of_graph_get_port_by_id(np, LINLONDP_OF_PORT_OUTPUT);
 
 	pipe->dual_link = pipe->of_output_links[0] && pipe->of_output_links[1];
-	if (of_property_read_u8(np, "pixel_per_clock", &pipe->pixelPerClk))
-		pipe->pixelPerClk = 1;
+
+	pipe->pixel_per_cycle = 1;
+	if (of_property_read_u8(np, "pixel_per_cycle",
+				&pipe->force_pixel_per_cycle))
+		pipe->force_pixel_per_cycle = 0;
 
 	/* enable dither by default */
 	pipe->en_dither = 1;
@@ -413,7 +413,9 @@ static int linlondp_parse_dt(struct device *dev, struct linlondp_dev *mdev)
 		if (of_node_name_eq(child, "pipeline")) {
 			of_property_read_u32(child, "reg", &pipe_id);
 			if (pipe_id >= mdev->n_pipelines) {
-				DRM_WARN("Skip the redundant DT node: pipeline-%u.\n", pipe_id);
+				DRM_WARN(
+					"Skip the redundant DT node: pipeline-%u.\n",
+					pipe_id);
 				continue;
 			}
 			mdev->pipelines[pipe_id]->of_node = of_node_get(child);
@@ -424,7 +426,8 @@ static int linlondp_parse_dt(struct device *dev, struct linlondp_dev *mdev)
 		pipe = mdev->pipelines[pipe_id];
 
 		if (!pipe->of_node) {
-			DRM_ERROR("Pipeline-%d doesn't have a DT node.\n", pipe->id);
+			DRM_ERROR("Pipeline-%d doesn't have a DT node.\n",
+				  pipe->id);
 			return -EINVAL;
 		}
 		ret = linlondp_parse_pipe_dt(pipe);
@@ -435,7 +438,8 @@ static int linlondp_parse_dt(struct device *dev, struct linlondp_dev *mdev)
 	mdev->side_by_side = !of_property_read_u32(np, "side_by_side_master",
 						   &mdev->side_by_side_master);
 
-	ret = of_property_read_u32(np, "aclk_freq_fixed", (u32 *) &mdev->aclk_freq_fixed);
+	ret = of_property_read_u32(np, "aclk_freq_fixed",
+				   (u32 *)&mdev->aclk_freq_fixed);
 	if (ret)
 		mdev->aclk_freq_fixed = 0;
 
@@ -444,14 +448,15 @@ static int linlondp_parse_dt(struct device *dev, struct linlondp_dev *mdev)
 	else
 		mdev->smart_aclk_freq = false;
 
-	ret = of_property_read_u32(np, "device-id", (u32 *) &mdev->id);
+	ret = of_property_read_u32(np, "device-id", (u32 *)&mdev->id);
 	if (ret)
 		mdev->id = 0;
 
 	return 0;
 }
 
-static struct fwnode_handle *fwnode_graph_get_port_by_id(struct fwnode_handle *parent, u32 id)
+static struct fwnode_handle *
+fwnode_graph_get_port_by_id(struct fwnode_handle *parent, u32 id)
 {
 	struct fwnode_handle *node, *port;
 
@@ -466,7 +471,6 @@ static struct fwnode_handle *fwnode_graph_get_port_by_id(struct fwnode_handle *p
 			if (strncmp(port->ops->get_name(port), "port", 4))
 				continue;
 		} else {
-			/*not acpi data node*/
 			continue;
 		}
 
@@ -485,9 +489,8 @@ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
 	struct fwnode_handle *np = pipe->fwnode;
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
 	struct clk *clk;
-
 	clk = devm_clk_get(to_acpi_data_node(pipe->fwnode)->parent->dev,
-			   pipe->fwnode->ops->get_name(pipe->fwnode));
+		pipe->fwnode->ops->get_name(pipe->fwnode));
 	if (IS_ERR(clk)) {
 		DRM_ERROR("get pxclk for pipeline %d failed!\n", pipe->id);
 		return PTR_ERR(clk);
@@ -496,18 +499,22 @@ static int linlondp_parse_pipe_acpi(struct linlondp_pipeline *pipe)
 #endif
 	/* enum ports */
 	pipe->fwnode_output_links[0] =
-	    fwnode_graph_get_remote_node(np, LINLONDP_ACPI_PORT_OUTPUT, 0);
+		fwnode_graph_get_remote_node(np, LINLONDP_ACPI_PORT_OUTPUT, 0);
 
 	pipe->fwnode_output_links[1] =
-	    fwnode_graph_get_remote_node(np, LINLONDP_ACPI_PORT_OUTPUT, 1);
+		fwnode_graph_get_remote_node(np, LINLONDP_ACPI_PORT_OUTPUT, 1);
 
 	pipe->fwnode_output_port =
-	    fwnode_graph_get_port_by_id(np, LINLONDP_ACPI_PORT_OUTPUT);
+		fwnode_graph_get_port_by_id(np, LINLONDP_ACPI_PORT_OUTPUT);
 
-	pipe->dual_link = pipe->fwnode_output_links[0] && pipe->fwnode_output_links[1];
+	pipe->dual_link = pipe->fwnode_output_links[0] &&
+			  pipe->fwnode_output_links[1];
 
-	if (device_property_read_u8(np->ops->get_parent(np)->dev, "pixel_per_clock", &pipe->pixelPerClk))
-		pipe->pixelPerClk = 1;
+	pipe->pixel_per_cycle = 1;
+	if (device_property_read_u8(np->ops->get_parent(np)->dev,
+				    "pixel_per_cycle",
+				    &pipe->force_pixel_per_cycle))
+		pipe->force_pixel_per_cycle = 0;
 
 	return 0;
 }
@@ -522,7 +529,7 @@ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
 	const char *tmp_name = NULL;
 	int ret = -1;
 
-	mdev->irq = platform_get_irq(pdev, 0);
+	mdev->irq  = platform_get_irq(pdev, 0);
 	if (mdev->irq < 0) {
 		DRM_ERROR("could not get IRQ number.\n");
 		return mdev->irq;
@@ -531,15 +538,14 @@ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
 	ret = 0;
 	fwnode_for_each_child_node(np, child) {
 		tmp_name = child->ops->get_name(child);
-		pr_info("%s node.name=%s\n", __func__, tmp_name);
 
 		if (strncmp(tmp_name, "pipeline", 8))
 			continue;
 
 		fwnode_property_read_u32(child, "reg", &pipe_id);
-		pr_info("%s pipeId=%d, n_pipelines=%d\n", __func__, pipe_id, mdev->n_pipelines);
 		if (pipe_id >= mdev->n_pipelines) {
-			DRM_WARN("Skip the redundant ACPI node: pipeline-%u.\n", pipe_id);
+			DRM_WARN("Skip the redundant ACPI node: pipeline-%u.\n",
+			pipe_id);
 			continue;
 		}
 		mdev->pipelines[pipe_id]->fwnode = child;
@@ -548,22 +554,22 @@ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
 	for (pipe_id = 0; pipe_id < mdev->n_pipelines; pipe_id++) {
 		pipe = mdev->pipelines[pipe_id];
 
-		if (!pipe->fwnode) {
-			DRM_ERROR("Pipeline-%d doesn't have a ACPI node.\n",
-				  pipe->id);
-			return -EINVAL;
-		}
-		ret = linlondp_parse_pipe_acpi(pipe);
-		if (ret)
-			return ret;
+	if (!pipe->fwnode) {
+		DRM_ERROR("Pipeline-%d doesn't have a ACPI node.\n",
+		pipe->id);
+	return -EINVAL;
+	}
+	ret = linlondp_parse_pipe_acpi(pipe);
+	if (ret)
+		return ret;
 	}
 
-	ret = device_property_read_u64(dev, "aclk_freq_fixed", (u64 *) &mdev->aclk_freq_fixed);
+	ret = device_property_read_u64(dev, "aclk_freq_fixed", (u64 *)&mdev->aclk_freq_fixed);
 	if (ret)
 		mdev->aclk_freq_fixed = 0;
 
 	mdev->side_by_side = !device_property_read_u32(dev, "side_by_side_master",
-				&mdev->side_by_side_master);
+		&mdev->side_by_side_master);
 
 	ret = device_property_read_u32(dev, "aclk_freq_fixed", (u32 *)&mdev->aclk_freq_fixed);
 	if (ret)
@@ -581,11 +587,37 @@ static int linlondp_parse_acpi(struct device *dev, struct linlondp_dev *mdev)
 	return 0;
 }
 
+static int linlondp_gop_get(void)
+{
+	struct arm_smccc_res res;
+	bool enabled_by_gop = 0;
+
+	arm_smccc_smc(CIX_SIP_DP_GOP_CTRL, SKY1_SIP_DP_GOP_GET, 0, 0, 0, 0, 0,
+		      0, &res);
+
+	if (res.a0 & DPU_GOP_MASK)
+		enabled_by_gop = true;
+	else
+		enabled_by_gop = false;
+
+	return enabled_by_gop;
+}
+
+static void __maybe_unused linlondp_gop_set(void)
+{
+	struct arm_smccc_res res;
+	int dpu_gop_bit = 1;
+
+	arm_smccc_smc(CIX_SIP_DP_GOP_CTRL, SKY1_SIP_DP_GOP_SET,
+		      dpu_gop_bit << DPU_GOP_SHIFT, 0, 0, 0, 0, 0, &res);
+}
+
 struct linlondp_dev *linlondp_dev_create(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	linlondp_identify_func linlondp_identify;
 	struct linlondp_dev *mdev;
+	u32 is_insmod = 0;
 	int err = 0;
 
 	linlondp_identify = device_get_match_data(dev);
@@ -602,8 +634,12 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
 	mdev->dev = dev;
 
 	err = device_property_read_u32(dev, "enabled_by_gop",
-			(u32 *)&mdev->enabled_by_gop);
+		(u32 *)&mdev->enabled_by_gop);
 	if (err)
+		mdev->enabled_by_gop = 0;
+
+	is_insmod = linlondp_gop_get();
+	if (is_insmod)
 		mdev->enabled_by_gop = 0;
 
 	mdev->reg_base = devm_platform_ioremap_resource(pdev, 0);
@@ -624,6 +660,7 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
 
 	clk_prepare_enable(mdev->aclk);
 #endif
+	pm_runtime_get_sync(mdev->dev);
 	mdev->funcs = linlondp_identify(mdev->reg_base, &mdev->chip);
 	if (!mdev->funcs) {
 		DRM_ERROR("Failed to identify the HW.\n");
@@ -674,7 +711,7 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
 	if (!mdev->iommu)
 		DRM_INFO("continue without IOMMU support!\n");
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
-    //clk_disable_unprepare(mdev->aclk);
+		//clk_disable_unprepare(mdev->aclk);
 #endif
 	err = sysfs_create_group(&dev->kobj, &linlondp_sysfs_attr_group);
 	if (err) {
@@ -694,6 +731,8 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
 		goto err_cleanup;
 	}
 
+	pm_runtime_put(mdev->dev);
+
 	return mdev;
 
 disable_clk:
@@ -701,6 +740,7 @@ disable_clk:
 	clk_disable_unprepare(mdev->aclk);
 #endif
 err_cleanup:
+	pm_runtime_put(mdev->dev);
 	linlondp_dev_destroy(mdev);
 	return ERR_PTR(err);
 }
@@ -772,6 +812,7 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
 
 int linlondp_dev_suspend(struct linlondp_dev *mdev)
 {
+
 	if (mdev->iommu && mdev->funcs->disconnect_iommu)
 		if (mdev->funcs->disconnect_iommu(mdev))
 			DRM_ERROR("disconnect iommu failed.\n");
