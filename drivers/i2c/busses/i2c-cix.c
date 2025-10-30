@@ -136,7 +136,7 @@
 
 /* Notice that the false START condition usually appears at the output of glitch filter.
  * The problems caused by slope shift must be properly handled by I2C core. The operation
- * of GF for clock frequency lower than 60 MHz can lead in some cases toundesired behaviour.
+ * of GF for clock frequency lower than 60 MHz can lead in some cases to undesired behaviour.
  * For that reason for Pclk frequency lower than 60MHz
  * the glitch filter should be disabled (GFCR = 0).
  */
