@@ -326,7 +326,7 @@ static void cix_mbox_isr_fifo(struct mbox_chan *chan)
 		if (int_status & FIFO_OFLOW_INT) {
 			status = cix_mbox_read(priv, FIFO_STAS);
 			dev_err(priv->dev,
-				"fifo overlow: int_stats %d\n",
+				"fifo overflow: int_stats %d\n",
 				status);
 			cix_mbox_write(priv, FIFO_OFLOW_INT, INT_CLEAR);
 		}
