@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * fs/deepin_ro_fs_err_notify.c - Deepin read-only filesystem error notification
+ * Deepin filesystem error notification
  *
- * This module provides notification functionality for read-only filesystem
- * errors, specifically targeting overlay filesystems mounted on /usr.
+ * This module provides notification functionality for filesystem errors,
+ * especially for read-only filesystem errors.
  */
 
-#include <linux/init.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/namei.h>
-#include <linux/mount.h>
-#include <linux/path.h>
-#include <linux/dcache.h>
-#include <linux/sched.h>
-#include <linux/printk.h>
-#include <linux/string.h>
-#include <linux/err.h>
-#include <linux/limits.h>
-#include <linux/sysctl.h>
-#include <linux/ratelimit.h>
 #include <linux/build_bug.h>
-#include <net/netlink.h>
+#include <linux/cgroup.h>
+#include <linux/dcache.h>
+#include <linux/err.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/mm.h>
+#include <linux/mount.h>
+#include <linux/namei.h>
+#include <linux/path.h>
+#include <linux/printk.h>
+#include <linux/sched.h>
+#include <linux/sched/mm.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+#include <linux/uaccess.h>
 #include <net/genetlink.h>
 
 #include "internal.h"
@@ -30,13 +30,23 @@
 /* Family name (max GENL_NAMSIZ characters, including null terminator) */
 #define DEEPIN_ERR_NOTIFY_FAMILY_NAME "DEEPIN_ENOTIFY"
 
+/* Multicast group name for error events (used in Netlink communication) */
+#define MULTICAST_GROUP_ERR_EVENTS "err_events"
+
 /* Define netlink message types and attributes */
 enum {
 	DEEPIN_ERR_NOTIFY_ATTR_UNSPEC,
-	DEEPIN_ERR_NOTIFY_ATTR_FILENAME, /* Filename */
-	DEEPIN_ERR_NOTIFY_ATTR_PID, /* Process ID */
-	DEEPIN_ERR_NOTIFY_ATTR_COMM, /* Process Name */
-	DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME, /* Function Name */
+	DEEPIN_ERR_NOTIFY_ATTR_FILENAME = 1, /* Filename (string) */
+	DEEPIN_ERR_NOTIFY_ATTR_INODE = 2, /* Inode (u64) */
+	DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT =
+		3, /* Bool: inode from parent (u8) */
+	DEEPIN_ERR_NOTIFY_ATTR_PID = 4, /* Process ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_PPID = 5, /* Parent Process ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_COMM =
+		6, /* Process Short Name (string, 15 chars max) */
+	DEEPIN_ERR_NOTIFY_ATTR_UID = 7, /* User ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_GID = 8, /* Group ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_STATUS = 9, /* Enable/Disable Status (u8) */
 	__DEEPIN_ERR_NOTIFY_ATTR_MAX,
 };
 
@@ -44,7 +54,11 @@ enum {
 
 enum {
 	DEEPIN_ERR_NOTIFY_CMD_UNSPEC,
-	DEEPIN_ERR_NOTIFY_CMD_NOTIFY, /* Error Notify Command */
+	DEEPIN_ERR_NOTIFY_CMD_ERR_ROFS =
+		1, /* Read Only Filesystem Error Notify Command */
+	DEEPIN_ERR_NOTIFY_CMD_ENABLE = 2, /* Enable error notification */
+	DEEPIN_ERR_NOTIFY_CMD_DISABLE = 3, /* Disable error notification */
+	DEEPIN_ERR_NOTIFY_CMD_GET_STATUS = 4, /* Get enable/disable status */
 	__DEEPIN_ERR_NOTIFY_CMD_MAX,
 };
 
@@ -54,68 +68,148 @@ enum {
 static bool deepin_err_notify_initialized __read_mostly;
 
 /* Runtime control variable for deepin error notification */
-static int deepin_err_notify_enable __read_mostly = 0;
+static int deepin_err_notify_enable __read_mostly;
 
-int deepin_err_notify_enabled(void)
+inline int deepin_err_notify_enabled(void)
 {
 	return deepin_err_notify_initialized && deepin_err_notify_enable;
 }
 
-/* Check if overlay filesystem is mounted on /usr and send read only error notification */
-void deepin_check_and_notify_ro_fs_err(const struct path *path,
-				       const char *func_name)
+/**
+ * deepin_err_notify_should_send - Check if error notification should be sent
+ *
+ * This function checks both the enable status and rate limiting to determine
+ * whether an error notification should be sent.
+ *
+ * Return: 1 if notification should be sent, 0 otherwise
+ */
+int deepin_err_notify_should_send(void)
 {
-	char *path_buf = NULL;
-	char *full_path = "";
-	/* Rate limiting: allow 100 calls per 5 seconds */
-	static DEFINE_RATELIMIT_STATE(deepin_ro_fs_err_ratelimit,
-				      5 * HZ, /* 5 seconds interval */
-				      100); /* 100 calls per interval */
+	/* Rate limiting: allow 20 calls per 5 seconds */
+	static DEFINE_RATELIMIT_STATE(deepin_err_notify_ratelimit, 5 * HZ, 20);
 
-	/* Check rate limit before proceeding */
-	if (!__ratelimit(&deepin_ro_fs_err_ratelimit))
-		return;
+	if (!deepin_err_notify_enabled())
+		return 0;
 
-	/* Early return if path or path->mnt is invalid */
-	if (!path || !path->mnt || !path->mnt->mnt_sb)
-		return;
-
-	/* Use filesystem callback to decide if notification should be sent.
-	 * If filesystem implements the callback, use it.
-	 */
-	if (path->mnt->mnt_sb->s_op &&
-	    path->mnt->mnt_sb->s_op->deepin_should_notify_error) {
-		if (!path->mnt->mnt_sb->s_op->deepin_should_notify_error(path->mnt->mnt_sb))
-			return;
-	} else {
-		/* If filesystem does not implement the callback, return immediately. */
-		return;
-	}
-
-	/* Attempt to get the full path.
-	 * Dynamic allocation is used to avoid excessive frame size.
-	 */
-	if (path->dentry) {
-		path_buf = kmalloc(PATH_MAX, GFP_KERNEL);
-		if (path_buf) {
-			char *p = NULL;
-
-			p = d_path(path, path_buf, PATH_MAX);
-			if (!IS_ERR(p))
-				full_path = p;
-		}
-	}
-
-	deepin_send_ro_fs_err_notification(full_path, func_name);
-
-	kfree(path_buf);
+	return __ratelimit(&deepin_err_notify_ratelimit);
 }
 
 /* Define multicast group */
 static const struct genl_multicast_group deepin_err_notify_nl_mcgrps[] = {
 	{
-		.name = "ro_fs_events",
-		.flags = GENL_UNS_ADMIN_PERM,
+		.name = MULTICAST_GROUP_ERR_EVENTS,
+		.flags = GENL_UNS_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+};
+
+/* Netlink attribute policy */
+static const struct nla_policy
+	deepin_err_notify_genl_policy[DEEPIN_ERR_NOTIFY_ATTR_MAX + 1] = {
+		[DEEPIN_ERR_NOTIFY_ATTR_FILENAME] = { .type = NLA_STRING },
+		[DEEPIN_ERR_NOTIFY_ATTR_INODE] = { .type = NLA_U64 },
+		[DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT] = { .type = NLA_U8 },
+		[DEEPIN_ERR_NOTIFY_ATTR_PID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_PPID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_COMM] = { .type = NLA_STRING },
+		[DEEPIN_ERR_NOTIFY_ATTR_UID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_GID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_STATUS] = { .type = NLA_U8 },
+	};
+
+/**
+ * deepin_err_notify_cmd_enable - Enable error notification via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success
+ */
+static int deepin_err_notify_cmd_enable(struct sk_buff *skb,
+					struct genl_info *info)
+{
+	deepin_err_notify_enable = 1;
+	pr_debug("deepin_err_notify: Error notification enabled via netlink\n");
+	return 0;
+}
+
+/**
+ * deepin_err_notify_cmd_disable - Disable error notification via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success
+ */
+static int deepin_err_notify_cmd_disable(struct sk_buff *skb,
+					 struct genl_info *info)
+{
+	deepin_err_notify_enable = 0;
+	pr_debug(
+		"deepin_err_notify: Error notification disabled via netlink\n");
+	return 0;
+}
+
+/* Forward declaration of Generic Netlink family */
+static struct genl_family deepin_err_notify_genl_family;
+
+/**
+ * deepin_err_notify_cmd_get_status - Get error notification status via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int deepin_err_notify_cmd_get_status(struct sk_buff *skb,
+					    struct genl_info *info)
+{
+	struct sk_buff *msg;
+	void *hdr;
+	int ret;
+
+	/* Allocate a new message */
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	/* Add Generic Netlink header */
+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
+			  &deepin_err_notify_genl_family, 0,
+			  DEEPIN_ERR_NOTIFY_CMD_GET_STATUS);
+	if (!hdr) {
+		ret = -EMSGSIZE;
+		goto err_free_msg;
+	}
+
+	/* Add status attribute */
+	ret = nla_put_u8(msg, DEEPIN_ERR_NOTIFY_ATTR_STATUS,
+			 deepin_err_notify_enable);
+	if (ret < 0)
+		goto err_free_msg;
+
+	genlmsg_end(msg, hdr);
+
+	/* Send unicast reply to the requester */
+	return genlmsg_reply(msg, info);
+
+err_free_msg:
+	nlmsg_free(msg);
+	return ret;
+}
+
+/* Define Generic Netlink operations */
+static const struct genl_ops deepin_err_notify_genl_ops[] = {
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_ENABLE,
+		.doit = deepin_err_notify_cmd_enable,
+		.flags = GENL_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_DISABLE,
+		.doit = deepin_err_notify_cmd_disable,
+		.flags = GENL_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_GET_STATUS,
+		.doit = deepin_err_notify_cmd_get_status,
+		.flags = 0, /* Allow any user to query status */
 	},
 };
 
@@ -126,93 +220,466 @@ static struct genl_family deepin_err_notify_genl_family __ro_after_init = {
 	.name = DEEPIN_ERR_NOTIFY_FAMILY_NAME,
 	.version = 1,
 	.maxattr = DEEPIN_ERR_NOTIFY_ATTR_MAX,
+	.policy = deepin_err_notify_genl_policy,
+	.ops = deepin_err_notify_genl_ops,
+	.n_ops = ARRAY_SIZE(deepin_err_notify_genl_ops),
 	.mcgrps = deepin_err_notify_nl_mcgrps,
 	.n_mcgrps = ARRAY_SIZE(deepin_err_notify_nl_mcgrps),
 };
 
-/* Send read only filesystem error notification */
-void deepin_send_ro_fs_err_notification(const char *filename,
-					const char *func_name)
+/**
+ * struct deepin_fs_err_event_data - Filesystem error event data for netlink
+ * @filenames: Array of filenames involved in the error
+ * @filename_count: Number of filenames in the array (also used for inode count)
+ * @inodes: Array of inode numbers corresponding to the filenames
+ * @inode_is_parent: Array of bool flags indicating if inode is from parent dentry
+ * @pid: Process ID that triggered the error
+ * @ppid: Parent Process ID
+ * @comm: Process short name (15 chars max)
+ * @uid: User ID
+ * @gid: Group ID
+ *
+ * This structure consolidates all the parameters needed for sending
+ * filesystem error notifications via netlink.
+ */
+struct deepin_fs_err_event_data {
+	const char **filenames;
+	int count;
+	const ino_t *inodes;
+	const bool *inode_is_parent;
+	pid_t pid;
+	pid_t ppid;
+	const char *comm;
+	uid_t uid;
+	gid_t gid;
+};
+
+/**
+ * notify_fs_error - Send filesystem error notification via netlink
+ * @event: Pointer to filesystem error event data structure
+ *
+ * This function constructs and sends a Generic Netlink message with
+ * filesystem error information to userspace listeners.
+ * Multiple filenames are sent as separate attributes.
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int notify_fs_error(const struct deepin_fs_err_event_data *event)
 {
-	pid_t pid = 0;
-	const char *comm = NULL;
-	int msg_size;
+	int msg_size = 0;
 	struct sk_buff *skb = NULL;
 	void *msg_head = NULL;
-	int error;
+	int error = 0;
+	int i = 0;
 
-	pid = current->pid;
-	comm = current->comm;
+	/* Validate input parameters */
+	if (!event || !event->filenames || event->count <= 0 || !event->comm) {
+		pr_debug("deepin_err_notify: Invalid event data (event=%p)\n",
+			 event);
+		return -EINVAL;
+	}
 
-	msg_size = nla_total_size(strlen(filename) + 1) +
-		   nla_total_size(sizeof(u32)) +
-		   nla_total_size(strlen(comm) + 1) +
-		   nla_total_size(strlen(func_name) + 1);
+	/* Calculate message size for all filenames and attributes */
+	msg_size = nla_total_size(sizeof(u32)) /* PID */
+		   + nla_total_size(sizeof(u32)) /* PPID */
+		   + nla_total_size(strlen(event->comm) + 1) /* COMM */
+		   + nla_total_size(sizeof(u32)) /* UID */
+		   + nla_total_size(sizeof(u32)); /* GID */
 
-	/* Use GFP_NOFS to avoid recursion in file system operations. */
-	skb = genlmsg_new(msg_size, GFP_NOFS);
+	for (i = 0; i < event->count; i++) {
+		if (event->filenames[i])
+			msg_size +=
+				nla_total_size(strlen(event->filenames[i]) + 1);
+	}
+
+	/* Add size for inode numbers and parent flags */
+	for (i = 0; i < event->count; i++) {
+		msg_size += nla_total_size(sizeof(u64)); /* INODE */
+		msg_size += nla_total_size(sizeof(u8)); /* INODE_PARENT */
+	}
+
+	/* Use GFP_ATOMIC because we might be called from atomic context */
+	skb = genlmsg_new(msg_size, GFP_ATOMIC);
 	if (!skb) {
-		pr_err("deepin_err_notify: Failed to allocate netlink message\n");
-		return;
+		pr_debug(
+			"deepin_err_notify: Failed to allocate netlink message\n");
+		return -ENOMEM;
 	}
 
 	msg_head = genlmsg_put(skb, 0, 0, &deepin_err_notify_genl_family, 0,
-			       DEEPIN_ERR_NOTIFY_CMD_NOTIFY);
+			       DEEPIN_ERR_NOTIFY_CMD_ERR_ROFS);
 	if (!msg_head) {
-		pr_err("deepin_err_notify: Failed to put netlink header\n");
+		pr_debug("deepin_err_notify: Failed to put netlink header\n");
+		error = -EMSGSIZE;
 		goto err_out;
 	}
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_FILENAME, filename);
+	/* Add all filenames as separate attributes */
+	for (i = 0; i < event->count; i++) {
+		if (event->filenames[i]) {
+			error = nla_put_string(skb,
+					       DEEPIN_ERR_NOTIFY_ATTR_FILENAME,
+					       event->filenames[i]);
+			if (error)
+				goto attr_err_out;
+		}
+	}
+
+	/* Add all inode numbers and parent flags as paired attributes */
+	for (i = 0; i < event->count; i++) {
+		error = nla_put_u64_64bit(skb, DEEPIN_ERR_NOTIFY_ATTR_INODE,
+					  event->inodes[i], 0);
+		if (error)
+			goto attr_err_out;
+
+		/* Add corresponding parent flag */
+		error = nla_put_u8(skb, DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT,
+				   event->inode_is_parent[i] ? 1 : 0);
+		if (error)
+			goto attr_err_out;
+	}
+
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PID, event->pid);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PID, pid);
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PPID, event->ppid);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_COMM, comm);
+	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_COMM, event->comm);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME,
-			       func_name);
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_UID, event->uid);
+	if (error)
+		goto attr_err_out;
+
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_GID, event->gid);
 	if (error)
 		goto attr_err_out;
 
 	genlmsg_end(skb, msg_head);
 
-	/* Send multicast message. */
-	genlmsg_multicast(&deepin_err_notify_genl_family, skb, 0, 0, GFP_NOFS);
-	return;
+	/*
+	 * Send multicast message
+	 *
+	 * IMPORTANT: genlmsg_multicast() consumes the skb on success or when
+	 * returning -ESRCH (no listeners). The skb ownership is transferred
+	 * to the network subsystem in these cases.
+	 *
+	 * For other error codes, the skb is NOT consumed and must be freed
+	 * by the caller.
+	 */
+	error = genlmsg_multicast(&deepin_err_notify_genl_family, skb, 0, 0,
+				  GFP_ATOMIC);
+	if (error) {
+		if (error == -ESRCH) {
+			/*
+			 * -ESRCH means no listeners registered.
+			 * The skb has been consumed, so we must NOT free it.
+			 */
+			return 0;
+		}
+		/*
+		 * Other errors: skb was not consumed, need to free it.
+		 * Jump to err_out for cleanup.
+		 */
+		pr_debug("deepin_err_notify: Multicast failed: %d\n", error);
+		goto err_out;
+	}
+
+	/*
+	 * Success: skb has been consumed by genlmsg_multicast().
+	 * Do NOT call kfree_skb() here, as it would cause a double free.
+	 */
+	pr_debug(
+		"deepin_err_notify: Notification sent (files=%d, pid=%d, comm=%s)\n",
+		event->count, event->pid, event->comm);
+	return 0;
 
 attr_err_out:
-	pr_err("deepin_err_notify: Failed to add netlink attributes\n");
+	pr_debug("deepin_err_notify: Failed to add netlink attributes: %d\n",
+		 error);
 err_out:
 	kfree_skb(skb);
+	return error;
 }
 
-/* sysctl table and initialization */
-#ifdef CONFIG_SYSCTL
-static struct ctl_table deepin_err_notify_sysctls[] = {
-	{
-		.procname = "deepin-err-notify-enable",
-		.data = &deepin_err_notify_enable,
-		.maxlen = sizeof(int),
-		.mode = 0644,
-		.proc_handler = proc_dointvec,
-	},
-};
+/**
+ * combine_path_and_last - Combine base path with last component
+ * @buffer: Pre-allocated buffer to store the combined path (size PATH_MAX)
+ * @path: The base path to combine
+ * @last: The last component to append
+ *
+ * This function combines a base path with a last component, constructing
+ * the full path: base_path + "/" + last. The result is stored in buffer.
+ *
+ * Returns: Pointer to the combined path string on success, NULL on failure
+ */
+static char *combine_path_and_last(char *buffer, const struct path *path,
+				   const char *last)
+{
+	char *base_path;
+	size_t base_len, last_len, total_len;
 
-static void __init deepin_err_notify_sysctl_init(void)
-{
-	register_sysctl_init("fs", deepin_err_notify_sysctls);
+	base_path = d_absolute_path(path, buffer, PATH_MAX);
+	if (IS_ERR(base_path))
+		return NULL;
+
+	/* Construct full path: base_path + "/" + last */
+	base_len = strlen(base_path);
+	last_len = strlen(last);
+	total_len = base_len + 1 + last_len + 1;
+
+	if (total_len > PATH_MAX)
+		return NULL;
+
+	/*
+	 * Move base_path to start of buffer if needed.
+	 * d_absolute_path() may return a pointer to the middle of the buffer,
+	 * not the start. We need the path at the beginning so we can
+	 * append "/" + last to it.
+	 */
+	if (base_path != buffer)
+		memmove(buffer, base_path, base_len);
+
+	/* Avoid appending an extra "/" after root directory "/" which would
+	 * result in "//filename".
+	 */
+	if (base_len > 0 && buffer[base_len - 1] != '/') {
+		buffer[base_len] = '/';
+		memcpy(buffer + base_len + 1, last, last_len + 1);
+	} else {
+		/* base_path is already "/" or ends with "/" (rare case) */
+		memcpy(buffer + base_len, last, last_len + 1);
+	}
+
+	return buffer;
 }
-#else
-static void __init deepin_err_notify_sysctl_init(void)
+
+/**
+ * deepin_put_path_last - Release resources held by deepin_path_last structure
+ * @path_last: Pointer to the deepin_path_last structure to release
+ *
+ * This function releases the path reference and frees the allocated filename
+ * string in the deepin_path_last structure.
+ */
+void deepin_put_path_last(struct deepin_path_last *path_last)
 {
+	if (path_last) {
+		path_put(&path_last->path);
+		kfree(path_last->last);
+		path_last->last = NULL;
+	}
 }
-#endif /* CONFIG_SYSCTL */
+
+/**
+ * prepare_and_notify_fs_error - Prepare and send filesystem error notification
+ * @path_lasts: Array of struct deepin_path_last that caused the error
+ * @path_last_count: Number of path_lasts in the array
+ *
+ * This function collects process context information, converts paths to
+ * filenames, and sends a Generic Netlink message with filesystem error
+ * information to userspace listeners.
+ * Multiple filenames are sent as separate attributes.
+ *
+ * If path_last->last is NULL, it means the complete path was obtained.
+ * If path_last->last is not NULL, it means the complete path was not obtained,
+ * and path_last->path + path_last->last does not exist as a file.
+ * In this case, inode_parent_flags[i] should be false, and inodes[i] should be
+ * the inode number of the dentry related to path_last->last, but filenames[i]
+ * should still be the complete path path_last->path + path_last->last.
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int
+prepare_and_notify_fs_error(const struct deepin_path_last *path_lasts,
+			    int path_last_count)
+{
+	/* Process information variables */
+	pid_t pid = 0, ppid = 0;
+	const char *comm = NULL;
+	uid_t uid = 0;
+	gid_t gid = 0;
+
+	/* Path conversion variables */
+	char *path_bufs[2] = { NULL, NULL };
+	const char *filenames[2] = { "", "" };
+	int count = 0;
+	unsigned long inodes[2] = { 0, 0 };
+	bool inode_parent_flags[2] = { false, false };
+	int i = 0;
+	int error = 0;
+
+	/* Validate input parameters */
+	if (!path_lasts || path_last_count <= 0) {
+		pr_debug(
+			"deepin_err_notify: Invalid parameters: path_lasts=%p, path_last_count=%d\n",
+			path_lasts, path_last_count);
+		return -EINVAL;
+	}
+
+	/* Only handle 1 or 2 path_lasts */
+	if (path_last_count > 2) {
+		pr_debug(
+			"deepin_err_notify: Invalid path_last_count=%d (must be 1 or 2)\n",
+			path_last_count);
+		return -EINVAL;
+	}
+
+	/* Get basic process information from current context */
+	pid = current->pid;
+	ppid = current->real_parent ? current->real_parent->pid : 0;
+	comm = current->comm; /* Short name, limited to 15 characters */
+
+	/* Get credentials */
+	uid = from_kuid(&init_user_ns, current_uid());
+	gid = from_kgid(&init_user_ns, current_gid());
+
+	/* Convert each path_last to a filename string and extract inode */
+	for (i = 0; i < path_last_count; i++) {
+		if (path_lasts[i].path.dentry) {
+			const struct deepin_path_last *pl = &path_lasts[i];
+			struct dentry *target_dentry = pl->path.dentry;
+
+			path_bufs[i] = kmalloc(PATH_MAX, GFP_ATOMIC);
+			if (!path_bufs[i])
+				continue;
+
+			/* Build the filename */
+			if (pl->last) {
+				/* Complete path not obtained, need to combine path + last */
+				char *combined_path = combine_path_and_last(
+					path_bufs[i], &pl->path, pl->last);
+				if (!combined_path) {
+					pr_debug(
+						"deepin_err_notify: combine_path_and_last failed for path_last[%d]\n",
+						i);
+					continue;
+				}
+
+				filenames[count] = combined_path;
+
+				/* File doesn't exist, use parent dentry's inode if available */
+				if (target_dentry && target_dentry->d_inode)
+					inodes[count] =
+						target_dentry->d_inode->i_ino;
+				inode_parent_flags[count] = true;
+				count++;
+			} else {
+				/* Complete path obtained */
+				char *p = d_absolute_path(
+					&pl->path, path_bufs[i], PATH_MAX);
+				if (!IS_ERR(p)) {
+					filenames[count] = p;
+				} else {
+					pr_debug(
+						"deepin_err_notify: d_absolute_path failed for path_last[%d]: %ld\n",
+						i, PTR_ERR(p));
+					continue;
+				}
+
+				/* File exists, use the file's own inode */
+				if (target_dentry->d_inode)
+					inodes[count] =
+						target_dentry->d_inode->i_ino;
+				count++;
+			}
+		}
+	}
+
+	/*
+	 * Send the notification if we got at least one valid filename.
+	 * If no valid filenames were extracted, return success anyway
+	 * since this is not a critical error (paths may be unmounted, etc).
+	 */
+	if (count > 0) {
+		struct deepin_fs_err_event_data event = {
+			.filenames = filenames,
+			.count = count,
+			.inodes = inodes,
+			.inode_is_parent = inode_parent_flags,
+			.pid = pid,
+			.ppid = ppid,
+			.comm = comm,
+			.uid = uid,
+			.gid = gid,
+		};
+
+		error = notify_fs_error(&event);
+		if (error < 0) {
+			pr_debug(
+				"deepin_err_notify: notify_fs_error failed: %d\n",
+				error);
+			goto cleanup;
+		}
+	} else {
+		pr_debug("deepin_err_notify: No valid filenames to send\n");
+	}
+
+	/* Success path: set return value to 0 */
+	error = 0;
+
+cleanup:
+	/*
+	 * Resource cleanup: free all allocated buffers.
+	 * kfree(NULL) is safe, so no need to check before freeing.
+	 */
+	for (i = 0; i < 2; i++)
+		kfree(path_bufs[i]);
+
+	return error;
+}
+
+/* Check if overlay filesystem is mounted on /usr and send read only error notification */
+void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
+				       const char *func_name)
+{
+	int ret;
+
+	/* Early return if path_last is invalid */
+	if (!path_last)
+		return;
+
+	ret = prepare_and_notify_fs_error(path_last, 1);
+
+	if (ret < 0) {
+		pr_debug(
+			"deepin_err_notify: Failed to send notification to userspace: %d\n",
+			ret);
+	}
+}
+
+/**
+ * deepin_notify_rename_ro_fs_err - Notify read-only filesystem errors during rename
+ * @old_last: qstr for old filename
+ * @new_last: qstr for new filename
+ * @old_path: path of old parent directory
+ * @new_path: path of new parent directory
+ *
+ * This function is called when a rename operation fails with EROFS error.
+ * It attempts to look up the old and new paths and send error notification
+ * if both paths are valid.
+ */
+void deepin_notify_rename_ro_fs_err(const struct qstr *old_last,
+				    const struct qstr *new_last,
+				    const struct path *old_path,
+				    const struct path *new_path)
+{
+	const struct deepin_path_last path_lasts[2] = {
+		{ .path = *old_path, .last = old_last->name },
+		{ .path = *new_path, .last = new_last->name }
+	};
+	int ret;
+
+	ret = prepare_and_notify_fs_error(path_lasts, 2);
+	if (ret < 0) {
+		pr_debug(
+			"deepin_err_notify: Failed to send notification to userspace: %d\n",
+			ret);
+	}
+}
 
 /* Deepin error notify initialization */
 static int __init deepin_err_notify_init(void)
@@ -222,6 +689,7 @@ static int __init deepin_err_notify_init(void)
 	/* Compile-time check for family name length */
 	BUILD_BUG_ON(sizeof(DEEPIN_ERR_NOTIFY_FAMILY_NAME) > GENL_NAMSIZ);
 
+	/* Register Generic Netlink family */
 	error = genl_register_family(&deepin_err_notify_genl_family);
 	if (error) {
 		pr_err("deepin_err_notify: Failed to register Generic Netlink family: %d\n",
@@ -232,10 +700,10 @@ static int __init deepin_err_notify_init(void)
 	/* Set initialization success flag */
 	deepin_err_notify_initialized = true;
 
-	/* Initialize sysctl interface */
-	deepin_err_notify_sysctl_init();
+	pr_debug(
+		"deepin_err_notify: Generic Netlink family '%s' registered successfully\n",
+		DEEPIN_ERR_NOTIFY_FAMILY_NAME);
 
-	pr_info("deepin_err_notify: Generic Netlink family registered successfully\n");
 	return 0;
 }
 

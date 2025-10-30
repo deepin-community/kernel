@@ -19,9 +19,6 @@ struct ovl_config {
 	bool metacopy;
 	bool userxattr;
 	bool ovl_volatile;
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	bool deepin_err_notify;
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 };
 
 struct ovl_sb {
