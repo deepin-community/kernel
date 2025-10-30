@@ -16,12 +16,16 @@
 #include "linlondp_dev.h"
 #include "linlondp_kms.h"
 
+static bool enable_fb = true;
+module_param_named(enable_fb, enable_fb, bool, 0644);
+MODULE_PARM_DESC(enable_fb, "Enable/Disable drm framebuffer support");
+
 struct linlondp_drv {
 	struct linlondp_dev *mdev;
 	struct linlondp_kms_dev *kms;
 };
 
-struct linlondp_dev *cix_dev_to_mdev(struct device *dev)
+struct linlondp_dev *dev_to_mdev(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
 
@@ -57,13 +61,13 @@ static int linlondp_bind(struct device *dev)
 	if (!mdrv)
 		return -ENOMEM;
 
+	pm_runtime_enable(dev);
 	mdrv->mdev = linlondp_dev_create(dev);
 	if (IS_ERR(mdrv->mdev)) {
 		err = PTR_ERR(mdrv->mdev);
 		goto free_mdrv;
 	}
 
-	pm_runtime_enable(dev);
 	if (!pm_runtime_enabled(dev))
 		linlondp_dev_resume(mdrv->mdev);
 
@@ -74,7 +78,7 @@ static int linlondp_bind(struct device *dev)
 	}
 
 	dev_set_drvdata(dev, mdrv);
-	if (!has_acpi_companion(dev) && !mdrv->mdev->enabled_by_gop)
+	if (enable_fb)
 		drm_fbdev_generic_setup(&mdrv->kms->base, 32);
 
 	if (mdrv->mdev->enabled_by_gop)
@@ -102,10 +106,14 @@ static const struct component_master_ops linlondp_master_ops = {
 
 static int compare_of(struct device *dev, void *data)
 {
+	int ret;
+
 	if (has_acpi_companion(dev))
-		return dev->fwnode == data;
+		ret = dev->fwnode == data;
 	else
-		return component_compare_of(dev, data);
+		ret = component_compare_of(dev, data);
+
+	return ret;
 }
 
 static void drm_release_fwnode(struct device *dev, void *data)
@@ -115,8 +123,8 @@ static void drm_release_fwnode(struct device *dev, void *data)
 
 static void linlondp_add_acpi_slave(struct device *master,
 				    struct component_match **match,
-				    struct fwnode_handle *np,
-				    u32 port, u32 endpoint)
+				    struct fwnode_handle *np, u32 port,
+				    u32 endpoint)
 {
 	struct fwnode_handle *remote;
 
@@ -153,7 +161,8 @@ static int linlondp_platform_probe(struct platform_device *pdev)
 	const char *tmp_name = NULL;
 
 	pr_info("%s enter. dev.name=%s\n", __func__, dev_name(dev));
-
+	pr_info("linlondp enable fb is %d", enable_fb);
+#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
 	if (has_acpi_companion(dev)) {
 		pr_info("%s via acpi.\n", __func__);
 		fwnode_for_each_child_node(dev->fwnode, acpi_child) {
@@ -181,30 +190,48 @@ static int linlondp_platform_probe(struct platform_device *pdev)
 					   LINLONDP_OF_PORT_OUTPUT, 1);
 		}
 	}
-
 	pr_info("%s end. match=%p\n", __func__, match);
 	return component_master_add_with_match(dev, &linlondp_master_ops,
 					       match);
+#else
+	return linlondp_bind(dev);
+#endif
 }
 
 static int linlondp_platform_remove(struct platform_device *pdev)
 {
+#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
 	component_master_del(&pdev->dev, &linlondp_master_ops);
+#else
+	linlondp_unbind(&pdev->dev);
+#endif
 	return 0;
 }
 
 static const struct of_device_id linlondp_of_match[] = {
-	{.compatible = "armchina,linlon-d8", .data = dp_identify, },
-	{.compatible = "armchina,linlon-d6", .data = dp_identify, },
-	{.compatible = "armchina,linlon-d2", .data = dp_identify, },
-	{ },
+	{
+		.compatible = "armchina,linlon-d8",
+		.data = dp_identify,
+	},
+	{
+		.compatible = "armchina,linlon-d6",
+		.data = dp_identify,
+	},
+	{
+		.compatible = "armchina,linlon-d2",
+		.data = dp_identify,
+	},
+	{},
 };
 
 MODULE_DEVICE_TABLE(of, linlondp_of_match);
 
 static const struct acpi_device_id linlondp_acpi_match[] = {
-	{.id = "CIXH5010", .driver_data = (kernel_ulong_t) dp_identify, },
-	{ },
+	{
+		.id = "CIXH5010",
+		.driver_data = (kernel_ulong_t)dp_identify,
+	},
+	{},
 };
 
 MODULE_DEVICE_TABLE(acpi, linlondp_acpi_match);
@@ -213,20 +240,26 @@ static int __maybe_unused linlondp_rt_pm_suspend(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
 
-	return mdrv ? linlondp_dev_suspend(mdrv->mdev) : 0;
+	if (mdrv)
+		return linlondp_dev_suspend(mdrv->mdev);
+	else
+		return 0;
 }
 
 static int __maybe_unused linlondp_rt_pm_resume(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
 
-	return mdrv ? linlondp_dev_resume(mdrv->mdev) : 0;
+	if (mdrv)
+		return linlondp_dev_resume(mdrv->mdev);
+	else
+		return 0;
 }
 
 static int __maybe_unused linlondp_pm_suspend(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
-	int res = 0;
+	int res;
 
 	if (!mdrv) {
 		dev_info(dev, "%s, mdrv is null\n", __func__);
@@ -243,9 +276,32 @@ static int __maybe_unused linlondp_pm_suspend(struct device *dev)
 	return res;
 }
 
+static int __maybe_unused linlondp_pm_prepare(struct device *dev)
+{
+	return 0;
+}
+
 static int __maybe_unused linlondp_pm_resume(struct device *dev)
 {
 	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+
+	if (!mdrv) {
+		dev_info(dev, "%s, mdrv is null\n", __func__);
+		return 0;
+	}
+
+	if (!pm_runtime_status_suspended(dev))
+		linlondp_dev_resume(mdrv->mdev);
+
+	return drm_mode_config_helper_resume(&mdrv->kms->base);
+}
+
+static int __maybe_unused linlondp_pm_restore(struct device *dev)
+{
+	struct linlondp_drv *mdrv = dev_get_drvdata(dev);
+
+	of_property_read_u32(dev->of_node, "enabled_by_gop",
+			     (u32 *)&mdrv->mdev->enabled_by_gop);
 
 	if (!pm_runtime_status_suspended(dev))
 		linlondp_dev_resume(mdrv->mdev);
@@ -255,11 +311,21 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
 
 static void linlondp_platform_shutdown(struct platform_device *pdev)
 {
+	struct linlondp_drv *mdrv = dev_get_drvdata(&pdev->dev);
+
 	linlondp_pm_suspend(&pdev->dev);
+
+	if (mdrv)
+		mdrv->mdev->shutdown = true;
 }
 
 static const struct dev_pm_ops linlondp_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(linlondp_pm_suspend, linlondp_pm_resume)
+	.suspend = linlondp_pm_suspend,
+	.resume = linlondp_pm_resume,
+	.prepare = linlondp_pm_prepare,
+	.restore = linlondp_pm_restore,
+	.freeze = linlondp_pm_suspend,
+	.thaw = linlondp_pm_resume,
 	SET_RUNTIME_PM_OPS(linlondp_rt_pm_suspend, linlondp_rt_pm_resume, NULL)
 };
 
@@ -268,11 +334,11 @@ static struct platform_driver linlondp_platform_driver = {
 	.remove = linlondp_platform_remove,
 	.shutdown = linlondp_platform_shutdown,
 	.driver = {
-		   .name = "linlondp",
-		   .of_match_table = linlondp_of_match,
-		   .acpi_match_table = ACPI_PTR(linlondp_acpi_match),
-		   .pm = &linlondp_pm_ops,
-		    },
+		.name = "linlondp",
+		.of_match_table = linlondp_of_match,
+		.acpi_match_table = ACPI_PTR(linlondp_acpi_match),
+		.pm = &linlondp_pm_ops,
+	},
 };
 
 drm_module_platform_driver(linlondp_platform_driver);

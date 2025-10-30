@@ -8,11 +8,10 @@
 #include "linlondp_dev.h"
 #include "linlondp_kms.h"
 
-static int
-linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
-			   struct drm_connector_state *conn_st,
-			   struct linlondp_crtc_state *kcrtc_st,
-			   struct linlondp_data_flow_cfg *dflow)
+static int linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
+				      struct drm_connector_state *conn_st,
+				      struct linlondp_crtc_state *kcrtc_st,
+				      struct linlondp_data_flow_cfg *dflow)
 {
 	struct drm_framebuffer *fb = conn_st->writeback_job->fb;
 	struct linlondp_wb_connector *wb_conn;
@@ -23,7 +22,7 @@ linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
 	dflow->out_h = fb->height;
 
 	/* the write back data comes from the compiz */
-	cix_pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
+	pipeline_composition_size(kcrtc_st, false, &dflow->in_w, &dflow->in_h,
 				  false);
 	dflow->input.component = &wb_layer->base.pipeline->compiz->base;
 	/* compiz doesn't output alpha */
@@ -38,10 +37,9 @@ linlondp_wb_init_data_flow(struct linlondp_layer *wb_layer,
 	return 0;
 }
 
-static int
-linlondp_wb_encoder_atomic_check(struct drm_encoder *encoder,
-				 struct drm_crtc_state *crtc_st,
-				 struct drm_connector_state *conn_st)
+static int linlondp_wb_encoder_atomic_check(struct drm_encoder *encoder,
+					    struct drm_crtc_state *crtc_st,
+					    struct drm_connector_state *conn_st)
 {
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc_st->crtc);
 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(crtc_st);
@@ -54,8 +52,8 @@ linlondp_wb_encoder_atomic_check(struct drm_encoder *encoder,
 		return 0;
 
 	if (!crtc_st->active) {
-		DRM_DEBUG_ATOMIC
-		    ("Cannot write the composition result out on a inactive CRTC.\n");
+		DRM_DEBUG_ATOMIC(
+			"Cannot write the composition result out on a inactive CRTC.\n");
 		return -EINVAL;
 	}
 
@@ -74,16 +72,14 @@ linlondp_wb_encoder_atomic_check(struct drm_encoder *encoder,
 		return err;
 
 	if (kcrtc->side_by_side)
-		err = linlondp_build_wb_sbs_data_flow(kcrtc,
-						      conn_st, kcrtc_st,
+		err = linlondp_build_wb_sbs_data_flow(kcrtc, conn_st, kcrtc_st,
 						      &dflow);
 	else if (dflow.en_split)
-		err = linlondp_build_wb_split_data_flow(wb_layer,
-							conn_st, kcrtc_st,
-							&dflow);
+		err = linlondp_build_wb_split_data_flow(wb_layer, conn_st,
+							kcrtc_st, &dflow);
 	else
-		err = linlondp_build_wb_data_flow(wb_layer,
-						  conn_st, kcrtc_st, &dflow);
+		err = linlondp_build_wb_data_flow(wb_layer, conn_st, kcrtc_st,
+						  &dflow);
 
 	return err;
 }
@@ -125,9 +121,8 @@ linlondp_wb_connector_detect(struct drm_connector *connector, bool force)
 	return connector_status_connected;
 }
 
-static int
-linlondp_wb_connector_fill_modes(struct drm_connector *connector,
-				 uint32_t maxX, uint32_t maxY)
+static int linlondp_wb_connector_fill_modes(struct drm_connector *connector,
+					    uint32_t maxX, uint32_t maxY)
 {
 	return 0;
 }
@@ -141,8 +136,7 @@ static void linlondp_wb_connector_destroy(struct drm_connector *connector)
 static int
 linlondp_wb_connector_get_property(struct drm_connector *connector,
 				   const struct drm_connector_state *state,
-				   struct drm_property *property,
-				   uint64_t *val)
+				   struct drm_property *property, uint64_t *val)
 {
 	struct linlondp_wb_connector *wb_conn = _drm_conn_to_kconn(connector);
 	struct linlondp_wb_connector_state *conn_st = to_kconn_st(state);
@@ -158,11 +152,10 @@ linlondp_wb_connector_get_property(struct drm_connector *connector,
 	return 0;
 }
 
-static int
-linlondp_wb_connector_set_property(struct drm_connector *connector,
-			struct drm_connector_state *state,
-			struct drm_property *property,
-			uint64_t val)
+static int linlondp_wb_connector_set_property(struct drm_connector *connector,
+					      struct drm_connector_state *state,
+					      struct drm_property *property,
+					      uint64_t val)
 {
 	struct linlondp_wb_connector *wb_conn = _drm_conn_to_kconn(connector);
 	struct linlondp_wb_connector_state *conn_st = to_kconn_st(state);
@@ -187,8 +180,7 @@ linlondp_wb_connector_destroy_state(struct drm_connector *connector,
 }
 
 #ifdef CONFIG_DEBUG_FS
-static int
-linlondp_wb_connector_debugfs_init(struct drm_connector *connector)
+static int linlondp_wb_connector_debugfs_init(struct drm_connector *connector)
 {
 	struct linlondp_wb_connector *wb_conn = _drm_conn_to_kconn(connector);
 
@@ -198,14 +190,13 @@ linlondp_wb_connector_debugfs_init(struct drm_connector *connector)
 
 	return 0;
 }
-#endif /*CONFIG_DEBUG_FS */
+#endif /*CONFIG_DEBUG_FS*/
 
-static int
-linlondp_wb_connector_late_register(struct drm_connector *connector)
+static int linlondp_wb_connector_late_register(struct drm_connector *connector)
 {
 #ifdef CONFIG_DEBUG_FS
 	linlondp_wb_connector_debugfs_init(connector);
-#endif /*CONFIG_DEBUG_FS */
+#endif /*CONFIG_DEBUG_FS*/
 
 	return 0;
 }
@@ -213,7 +204,7 @@ linlondp_wb_connector_late_register(struct drm_connector *connector)
 static void linlondp_wb_connector_reset(struct drm_connector *connector)
 {
 	struct linlondp_wb_connector_state *kc_state =
-	    kzalloc(sizeof(*kc_state), GFP_KERNEL);
+		kzalloc(sizeof(*kc_state), GFP_KERNEL);
 
 	if (connector->state) {
 		__drm_atomic_helper_connector_destroy_state(connector->state);
@@ -236,7 +227,7 @@ linlondp_wb_connector_duplicate_state(struct drm_connector *connector)
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (state) {
 		struct linlondp_wb_connector_state *old_state =
-		    to_kconn_st(connector->state);
+			to_kconn_st(connector->state);
 
 		__drm_atomic_helper_connector_duplicate_state(connector,
 							      &state->base);
@@ -288,9 +279,9 @@ linlondp_wb_connector_create_color_prop(struct linlondp_wb_connector *wb_conn)
 	struct drm_prop_enum_list enum_list[MAX_T(int, DRM_COLOR_ENCODING_MAX,
 						  DRM_COLOR_RANGE_MAX)];
 	u32 supported_encoding = BIT(DRM_COLOR_YCBCR_BT601) |
-	    BIT(DRM_COLOR_YCBCR_BT709);
+				 BIT(DRM_COLOR_YCBCR_BT709);
 	u32 supported_range = BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
-	    BIT(DRM_COLOR_YCBCR_FULL_RANGE);
+			      BIT(DRM_COLOR_YCBCR_FULL_RANGE);
 	int i, len;
 
 	len = 0;
@@ -301,8 +292,8 @@ linlondp_wb_connector_create_color_prop(struct linlondp_wb_connector *wb_conn)
 		enum_list[len].name = color_encoding_name[i];
 		len++;
 	}
-	prop = drm_property_create_enum(dev, 0, "COLOR_ENCODING",
-					enum_list, len);
+	prop = drm_property_create_enum(dev, 0, "COLOR_ENCODING", enum_list,
+					len);
 	if (!prop)
 		return -ENOMEM;
 	wb_conn->color_encoding_property = prop;
@@ -353,9 +344,8 @@ static int linlondp_wb_connector_add(struct linlondp_kms_dev *kms,
 
 	wb_conn = &kwb_conn->base;
 
-	formats = linlondp_get_layer_fourcc_list(&mdev->fmt_tbl,
-						 kwb_conn->wb_layer->layer_type,
-						 &n_formats);
+	formats = linlondp_get_layer_fourcc_list(
+		&mdev->fmt_tbl, kwb_conn->wb_layer->layer_type, &n_formats);
 
 	err = drm_writeback_connector_init(&kms->base, wb_conn,
 					   &linlondp_wb_connector_funcs,
@@ -368,7 +358,8 @@ static int linlondp_wb_connector_add(struct linlondp_kms_dev *kms,
 		return err;
 	}
 
-	drm_connector_helper_add(&wb_conn->base, &linlondp_wb_conn_helper_funcs);
+	drm_connector_helper_add(&wb_conn->base,
+				 &linlondp_wb_conn_helper_funcs);
 
 	info = &kwb_conn->base.base.display_info;
 	info->bpc = __fls(kcrtc->master->improc->supported_color_depths);

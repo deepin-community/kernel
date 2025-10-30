@@ -44,17 +44,15 @@ struct cix_acpi_display {
 };
 
 static const struct of_device_id cix_display_dt_ids[] = {
-	{.compatible = "cix,display", },
-	{ /* sentinel */  },
+	{ .compatible = "cix,display", },
+	{ /* sentinel */ },
 };
-
 MODULE_DEVICE_TABLE(of, cix_display_dt_ids);
 
 static const struct acpi_device_id cix_display_acpi_ids[] = {
-	{.id = "CIXH5008", .driver_data = 0, },
-	{ },
+	{ .id = "CIXH5008", .driver_data = 0, },
+	{},
 };
-
 MODULE_DEVICE_TABLE(acpi, cix_display_acpi_ids);
 
 static int cix_display_probe(struct platform_device *pdev)
@@ -69,7 +67,7 @@ static int cix_display_probe(struct platform_device *pdev)
 	if (!cix_display)
 		return -ENOMEM;
 
-	ret = device_property_read_u32(dev, "reset-control", (u32 *) &control);
+	ret = device_property_read_u32(dev, "reset-control", (u32 *)&control);
 	if (ret) {
 		control = 0;
 		dev_info(dev, "failed to get reset-control, use default value\n");
@@ -102,8 +100,10 @@ static int cix_display_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < 5; i++) {
-		if (cix_display->reset_need[i])
+		if (cix_display->reset_need[i]) {
 			value |= cix_display->reset_mask[i];
+		}
+	}
 
 	if (count) {
 		value |= MMHUB_RESET_MASK;
@@ -130,7 +130,6 @@ static int __init cix_acpi_display_probe(void)
 	int i, ret;
 	u32 control, value, count;
 	struct cix_acpi_display *cix_display = &cix_acpi_display;
-
 	memset(cix_display, 0, sizeof(*cix_display));
 	control = 4;
 
@@ -159,8 +158,10 @@ static int __init cix_acpi_display_probe(void)
 	}
 
 	for (i = 0; i < 5; i++) {
-		if (cix_display->reset_need[i])
+		if (cix_display->reset_need[i]) {
 			value |= cix_display->reset_mask[i];
+		}
+	}
 
 	if (count) {
 		value |= MMHUB_RESET_MASK;
@@ -184,13 +185,13 @@ static int cix_display_remove(struct platform_device *pdev)
 }
 
 struct platform_driver cix_display_driver = {
-	.probe = cix_display_probe,
+	.probe  = cix_display_probe,
 	.remove = cix_display_remove,
 	.driver = {
-		   .name = "cix-display",
-		   .of_match_table = of_match_ptr(cix_display_dt_ids),
-		   .acpi_match_table = ACPI_PTR(cix_display_acpi_ids),
-		    },
+		.name = "cix-display",
+		.of_match_table = of_match_ptr(cix_display_dt_ids),
+		.acpi_match_table = ACPI_PTR(cix_display_acpi_ids),
+	},
 };
 
 core_initcall(cix_acpi_display_probe);
@@ -198,3 +199,4 @@ core_initcall(cix_acpi_display_probe);
 MODULE_DESCRIPTION("Cix Display Driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:cix-display");
+

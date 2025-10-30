@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 //------------------------------------------------------------------------------
-//      Trilinear Technologies DisplayPort DRM Driver
-//      Copyright (C) 2023 Trilinear Technologies
+//	Trilinear Technologies DisplayPort DRM Driver
+//	Copyright (C) 2023 Trilinear Technologies
 //
-//      This program is free software: you can redistribute it and/or modify
-//      it under the terms of the GNU General Public License as published by
-//      the Free Software Foundation, version 2.
+//	This program is free software: you can redistribute it and/or modify
+//	it under the terms of the GNU General Public License as published by
+//	the Free Software Foundation, version 2.
 //
-//      This program is distributed in the hope that it will be useful, but
-//      WITHOUT ANY WARRANTY; without even the implied warranty of
-//      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-//      General Public License for more details.
+//	This program is distributed in the hope that it will be useful, but
+//	WITHOUT ANY WARRANTY; without even the implied warranty of
+//	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+//	General Public License for more details.
 //
-//      You should have received a copy of the GNU General Public License
-//      along with this program. If not, see <http://www.gnu.org/licenses/>.
+//	You should have received a copy of the GNU General Public License
+//	along with this program. If not, see <http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
 #include <drm/drm_atomic_helper.h>
@@ -42,7 +42,7 @@
 #include "trilin_edp_phy.h"
 
 //------------------------------------------------------------------------------
-//      local typedefs
+//	local typedefs
 //------------------------------------------------------------------------------
 typedef struct {
 	u32 hsclk_div;
@@ -53,7 +53,7 @@ typedef struct {
 } edp_phy_link_cfg_t;
 
 //------------------------------------------------------------------------------
-//      local data
+//	local data
 //------------------------------------------------------------------------------
 
 /* 5.4 Gbps by default */
@@ -187,16 +187,16 @@ static const struct reg_default edp_reg_conf[] = {
 };
 
 static const edp_phy_link_cfg_t link_cfg[] = {
-	{ 0x0002, 0x0f01, 0x0195, 0x0000, 0x010e },	// 1.62gbps
-	{ 0x0001, 0x0701, 0x0195, 0x0000, 0x010e },	// 2.43gpbs
-	{ 0x0001, 0x0701, 0x01c2, 0x0000, 0x012c },	// 2.70gbps
-	{ 0x0002, 0x0b00, 0x0195, 0x0000, 0x010e },	// 3.24gbps
-	{ 0x0000, 0x0301, 0x01c2, 0x0000, 0x012c },	// 5.40gbps
-	{ 0x0000, 0x0200, 0x0151, 0x8000, 0x00e2 },	// 8.10gbps
+	{ 0x0002, 0x0f01, 0x0195, 0x0000, 0x010e }, // 1.62gbps
+	{ 0x0001, 0x0701, 0x0195, 0x0000, 0x010e }, // 2.43gpbs
+	{ 0x0001, 0x0701, 0x01c2, 0x0000, 0x012c }, // 2.70gbps
+	{ 0x0002, 0x0b00, 0x0195, 0x0000, 0x010e }, // 3.24gbps
+	{ 0x0000, 0x0301, 0x01c2, 0x0000, 0x012c }, // 5.40gbps
+	{ 0x0000, 0x0200, 0x0151, 0x8000, 0x00e2 }, // 8.10gbps
 };
 
 //------------------------------------------------------------------------------
-//      local functions
+//	local functions
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_pll_disable(struct trilin_dp *dp);
 static trilin_phy_error_t edp_pll_enable(struct trilin_dp *dp);
@@ -208,13 +208,11 @@ static trilin_phy_error_t edp_pll_raw_ctrl_ack_disabled(struct trilin_dp *dp,
 							u32 delay_time,
 							u32 loop_ct);
 
-static trilin_phy_error_t edp_pll_raw_ctrl_ack_ready(struct trilin_dp *dp,
-						     u32 delay_time,
-						     u32 loop_ct);
+static trilin_phy_error_t
+edp_pll_raw_ctrl_ack_ready(struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
 
-static trilin_phy_error_t edp_lane_pll_ack_disabled(struct trilin_dp *dp,
-						    u32 delay_time,
-						    u32 loop_ct);
+static trilin_phy_error_t
+edp_lane_pll_ack_disabled(struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
 
 static trilin_phy_error_t edp_lane_pll_ack_ready(struct trilin_dp *dp,
 						 u32 delay_time, u32 loop_ct);
@@ -230,20 +228,18 @@ static u32 edp_phy_cdb_read(struct trilin_dp *dp, u32 offset);
 static trilin_phy_error_t edp_phy_cdb_write(struct trilin_dp *dp, u32 offset,
 					    uint16_t data);
 
-static trilin_phy_error_t trilin_edp_phy_power(struct trilin_dp *dp,
-					       trilin_phy_power_state_t
-					       pwr_state);
+static trilin_phy_error_t
+trilin_edp_phy_power(struct trilin_dp *dp, trilin_phy_power_state_t pwr_state);
 
 static trilin_phy_error_t trilin_edp_phy_set_link_rate(struct trilin_dp *dp,
 						       u32 link_rate);
 
-static trilin_phy_error_t trilin_edp_phy_set_lane_count(struct trilin_dp *dp,
-							trilin_phy_lane_en_t
-							lane_en);
+// static trilin_phy_error_t
+// trilin_edp_phy_set_lane_count(struct trilin_dp *dp,
+//			      trilin_phy_lane_en_t lane_en);
 
-static trilin_phy_error_t trilin_edp_phy_set_voltages(struct trilin_dp *dp,
-						      u32 lane_num, u32 vs,
-						      u32 pe);
+static trilin_phy_error_t
+trilin_edp_phy_set_voltages(struct trilin_dp *dp, u32 lane_num, u32 vs, u32 pe);
 
 static inline trilin_phy_error_t trilin_edp_delay(struct trilin_dp *dp,
 						  u32 delay_time)
@@ -255,13 +251,13 @@ static inline trilin_phy_error_t trilin_edp_delay(struct trilin_dp *dp,
 
 //------------------------------------------------------------------------------
 //  Function: trilin_edp_phy_prepare
-//              This function prepare the Cadence PHY.
+//		This function prepare the Cadence PHY.
 //
-//      Parameters:
+//	Parameters:
 //
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t trilin_edp_phy_prepare(struct trilin_dp *dp)
 {
@@ -270,7 +266,6 @@ static trilin_phy_error_t trilin_edp_phy_prepare(struct trilin_dp *dp)
 
 	if (phy->state == trilin_phy_prepared)
 		return status;
-
 	// enable PHY's local configuration bus
 	trilin_phy_write(dp, TRILIN_EDP_CDB_RSTN, 1);
 
@@ -308,18 +303,19 @@ static trilin_phy_error_t trilin_edp_phy_prepare(struct trilin_dp *dp)
 
 	phy->state = trilin_phy_prepared;
 
+	DP_DEBUG("end\n");
 	return trilin_phy_error_none;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_phy_init
-//              This function initializes the Cadence PHY.
+//		This function initializes the Cadence PHY.
 //
-//      Parameters:
-//      Reference clock - currently, only 24Mhz is supported
+//	Parameters:
+//	Reference clock - currently, only 24Mhz is supported
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t trilin_edp_phy_init(struct trilin_dp *dp,
 					      trilin_phy_ref_clk_t ref_clk)
@@ -356,18 +352,19 @@ static trilin_phy_error_t trilin_edp_phy_init(struct trilin_dp *dp,
 	trilin_phy_write(dp, TRILIN_EDP_PHY_DATA_ENABLE, 1);
 
 	phy->state = trilin_phy_power_on;
+	DP_DEBUG("end\n");
 	return status;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_phy_reset
-//              PHY reset function
+//		PHY reset function
 //
-//      Parameters:
-//      Reset type
+//	Parameters:
+//	Reset type
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t trilin_edp_phy_reset(struct trilin_dp *dp,
 					       trilin_phy_reset_t reset_type)
@@ -408,71 +405,58 @@ static trilin_phy_error_t trilin_edp_phy_reset(struct trilin_dp *dp,
 
 //------------------------------------------------------------------------------
 //  Function: trilin_phy_power
-//              Selects selected power state
+//		Selects selected power state
 //
-//              Notes:
-//              - State A1 is not a used power state for DisplayPort.
-//              - States A2 & A3 are configured identically for DisplayPort.
-//              - State A3 requires special handshaking for entry/exit.
+//		Notes:
+//		- State A1 is not a used power state for DisplayPort.
+//		- States A2 & A3 are configured identically for DisplayPort.
+//		- State A3 requires special handshaking for entry/exit.
 //
-//      Parameters:
-//      pwr_state - new selected power state
+//	Parameters:
+//	pwr_state - new selected power state
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_edp_phy_power(struct trilin_dp *dp,
-					       trilin_phy_power_state_t
-					       pwr_state)
+static trilin_phy_error_t
+trilin_edp_phy_power(struct trilin_dp *dp, trilin_phy_power_state_t pwr_state)
 {
 	trilin_phy_error_t status = trilin_phy_error_none;
 
 	switch (pwr_state) {
 	case trilin_power_a0:
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_A0_TXRX_ACTIVE);
-		status = edp_pwr_state_ack(dp,
-					   TRILIN_PHY_PWR_STATE_A0_TXRX_ACTIVE,
-					   1, 50);
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		status = edp_pwr_state_ack(
+			dp, TRILIN_PHY_PWR_STATE_A0_TXRX_ACTIVE, 1, 50);
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_IDLE);
 		break;
 
 	case trilin_power_a1:
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_A1_POWERDOWN1);
-		status = edp_pwr_state_ack(dp,
-					   TRILIN_PHY_PWR_STATE_A1_POWERDOWN1,
-					   1, 50);
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		status = edp_pwr_state_ack(
+			dp, TRILIN_PHY_PWR_STATE_A1_POWERDOWN1, 1, 50);
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_IDLE);
 		break;
 
 	case trilin_power_a2:
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_A2_POWERDOWN2);
-		status = edp_pwr_state_ack(dp,
-					   TRILIN_PHY_PWR_STATE_A2_POWERDOWN2,
-					   1, 50);
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		status = edp_pwr_state_ack(
+			dp, TRILIN_PHY_PWR_STATE_A2_POWERDOWN2, 1, 50);
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_IDLE);
 		break;
 
 	case trilin_power_a3:
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_A3_POWERDOWN3);
-		status = edp_pwr_state_ack(dp,
-					   TRILIN_PHY_PWR_STATE_A3_POWERDOWN3,
-					   1, 50);
-		trilin_phy_write(dp,
-				 TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
+		status = edp_pwr_state_ack(
+			dp, TRILIN_PHY_PWR_STATE_A3_POWERDOWN3, 1, 50);
+		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_REQ,
 				 TRILIN_PHY_PWR_STATE_IDLE);
 
 		break;
@@ -492,9 +476,8 @@ static trilin_phy_error_t trilin_edp_phy_exit(struct trilin_dp *dp)
 	return trilin_phy_error_none;
 }
 
-static trilin_phy_error_t trilin_edp_phy_configure(struct trilin_dp *dp,
-						   union phy_configure_opts
-						   *opts)
+static trilin_phy_error_t
+trilin_edp_phy_configure(struct trilin_dp *dp, union phy_configure_opts *opts)
 {
 	struct phy_configure_opts_dp *dp_opts = &opts->dp;
 
@@ -504,71 +487,69 @@ static trilin_phy_error_t trilin_edp_phy_configure(struct trilin_dp *dp,
 		trilin_edp_phy_set_link_rate(dp, dp_opts->link_rate);
 	}
 
-	/* set lane count */
-	if (0 && dp_opts->set_lanes)
-		trilin_edp_phy_set_lane_count(dp, dp_opts->lanes);
-
 	/* set voltage: swing and pre-emphasis */
 	if (dp_opts->set_voltages) {
 		dev_dbg(dp->dev, "set_voltages: lane %d, vs%d, pe %d\n",
 			dp_opts->lanes, dp_opts->voltage[0], dp_opts->pre[0]);
-		trilin_edp_phy_set_voltages(dp,
-					    dp_opts->lanes, dp_opts->voltage[0],
+		trilin_edp_phy_set_voltages(dp, dp_opts->lanes,
+					    dp_opts->voltage[0],
 					    dp_opts->pre[0]);
 	}
 
+	DP_DEBUG("end\n");
 	return trilin_phy_error_none;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_edp_phy_set_lane_count
 //
-//      Parameters:
-//      lane_ct - new lane count
+//	Parameters:
+//	lane_ct - new lane count
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_edp_phy_set_lane_count(struct trilin_dp *dp,
-							trilin_phy_lane_en_t
-							lane_en)
-{
-	trilin_phy_error_t status = trilin_phy_error_none;
-	struct trilin_phy_t *phy = &dp->phy;
+// static trilin_phy_error_t
+// trilin_edp_phy_set_lane_count(struct trilin_dp *dp,
+//			      trilin_phy_lane_en_t lane_en)
+// {
+//	trilin_phy_error_t status = trilin_phy_error_none;
+//	struct trilin_phy_t *phy = &dp->phy;
 
-	return trilin_phy_error_none;
-	status = edp_pll_disable(dp);
-	if (status != trilin_phy_error_none)
-		return status;
+//	return trilin_phy_error_none;
+//	status = edp_pll_disable(dp);
+//	if (status != trilin_phy_error_none) {
+//		return status;
+//	}
 
-	phy->lane_en = lane_en;
-	switch (lane_en) {
-	case trilin_lane_en_1:
-	case trilin_lane_en_2:
-	case trilin_lane_en_4:
-		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_RSTN_BITS, lane_en);
-		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_EN_BITS, lane_en);
-		break;
+//	phy->lane_en = lane_en;
+//	switch (lane_en) {
+//	case trilin_lane_en_1:
+//	case trilin_lane_en_2:
+//	case trilin_lane_en_4:
+//		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_RSTN_BITS, lane_en);
+//		trilin_phy_write(dp, TRILIN_EDP_PHY_LANE_EN_BITS, lane_en);
+//		break;
 
-	default:
-		status = trilin_phy_error_lane_count;
-		break;
-	}
+//	default:
+//		status = trilin_phy_error_lane_count;
+//		break;
+//	}
 
-	status = edp_pll_enable(dp);
+//	status = edp_pll_enable(dp);
 
-	dev_info(dp->dev, "%s lane_count %d\n", __func__, lane_en);
-	return status;
-}
+//	DP_INFO("lane_count %d\n", lane_en);
+//	return status;
+// }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_edp_phy_set_link_rate
 //
-//      Parameters:
-//      link_rate - new link rate
+//	Parameters:
+//	link_rate - new link rate
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t trilin_edp_phy_set_link_rate(struct trilin_dp *dp,
 						       u32 link_rate)
@@ -578,7 +559,7 @@ static trilin_phy_error_t trilin_edp_phy_set_link_rate(struct trilin_dp *dp,
 
 	status = edp_pll_disable(dp);
 	if (status != trilin_phy_error_none) {
-		dev_info(dp->dev, "%s 0 %d\n", __func__, link_rate);
+		DP_INFO("link_rate %d\n", link_rate);
 		return status;
 	}
 
@@ -632,6 +613,7 @@ static trilin_phy_error_t trilin_edp_phy_set_link_rate(struct trilin_dp *dp,
 	status = edp_pll_enable(dp);
 	if (status != trilin_phy_error_none) {
 		dev_err(dp->dev, "%s: rate %x failed\n", __func__, link_rate);
+		DP_ERR("rate %x failed\n", link_rate);
 		return status;
 	}
 
@@ -641,11 +623,11 @@ static trilin_phy_error_t trilin_edp_phy_set_link_rate(struct trilin_dp *dp,
 //------------------------------------------------------------------------------
 //  Function: trilin_phy_set_vswing
 //
-//      Parameters:
-//      None
+//	Parameters:
+//	None
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 
 typedef struct {
@@ -656,75 +638,75 @@ typedef struct {
 } phy_voltage_conf_t;
 
 static const phy_voltage_conf_t dp_volt_cfg[] = {
-	{ 0x08A4, 0x0003, 0x002a, 0x0000 },	// swing level == 0
+	{ 0x08A4, 0x0003, 0x002a, 0x0000 }, // swing level == 0
 	{ 0x08A4, 0x0003, 0x001f, 0x0014 },
 	{ 0x08A4, 0x0003, 0x0013, 0x0020 },
 	{ 0x08A4, 0x0003, 0x000a, 0x002a },
-	{ 0x08A4, 0x0003, 0x001f, 0x0000 },	// swing level == 1
+	{ 0x08A4, 0x0003, 0x001f, 0x0000 }, // swing level == 1
 	{ 0x08A4, 0x0003, 0x0013, 0x0012 },
 	{ 0x08A4, 0x0003, 0x0000, 0x001f },
 	{ 0x08A4, 0x0003, 0x0000, 0x001f },
-	{ 0x08A4, 0x0003, 0x0013, 0x0000 },	// swing level == 2
+	{ 0x08A4, 0x0003, 0x0013, 0x0000 }, // swing level == 2
 	{ 0x08A4, 0x0003, 0x0000, 0x0013 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0013 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0013 },
-	{ 0x08A4, 0x0003, 0x0000, 0x0000 },	// swing level == 3
+	{ 0x08A4, 0x0003, 0x0000, 0x0000 }, // swing level == 3
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 };
 
 static const phy_voltage_conf_t edp_volt_high_cfg[] = {
-	{ 0x08A4, 0x0003, 0x0027, 0x0000 },	// swing level == 0
+	{ 0x08A4, 0x0003, 0x0027, 0x0000 }, // swing level == 0
 	{ 0x08A4, 0x0003, 0x0023, 0x0009 },
 	{ 0x08A4, 0x0003, 0x001E, 0x0010 },
 	{ 0x08A4, 0x0003, 0x001A, 0x0015 },
-	{ 0x08A4, 0x0003, 0x0023, 0x0000 },	// swing level == 1
+	{ 0x08A4, 0x0003, 0x0023, 0x0000 }, // swing level == 1
 	{ 0x08A4, 0x0003, 0x001E, 0x0008 },
 	{ 0x08A4, 0x0003, 0x001A, 0x000E },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
-	{ 0x08A4, 0x0003, 0x001E, 0x0000 },	// swing level == 2
+	{ 0x08A4, 0x0003, 0x001E, 0x0000 }, // swing level == 2
 	{ 0x08A4, 0x0003, 0x001A, 0x0007 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
-	{ 0x08A4, 0x0003, 0x001A, 0x0000 },	// swing level == 3
+	{ 0x08A4, 0x0003, 0x001A, 0x0000 }, // swing level == 3
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 };
 
 static const phy_voltage_conf_t edp_volt_low_cfg[] = {
-	{ 0x08A4, 0x0003, 0x002F, 0x0000 },	// swing level == 0
+	{ 0x08A4, 0x0003, 0x002F, 0x0000 }, // swing level == 0
 	{ 0x08A4, 0x0003, 0x002A, 0x000D },
 	{ 0x08A4, 0x0003, 0x0026, 0x0015 },
 	{ 0x08A4, 0x0003, 0x0022, 0x001B },
-	{ 0x08A4, 0x0003, 0x002B, 0x0000 },	// swing level == 1
+	{ 0x08A4, 0x0003, 0x002B, 0x0000 }, // swing level == 1
 	{ 0x08A4, 0x0003, 0x0027, 0x000B },
 	{ 0x08A4, 0x0003, 0x0023, 0x0012 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
-	{ 0x08A4, 0x0003, 0x0027, 0x0000 },	// swing level == 2
+	{ 0x08A4, 0x0003, 0x0027, 0x0000 }, // swing level == 2
 	{ 0x08A4, 0x0003, 0x0023, 0x0009 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
-	{ 0x08A4, 0x0003, 0x0023, 0x0000 },	// swing level == 3
+	{ 0x08A4, 0x0003, 0x0023, 0x0000 }, // swing level == 3
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 	{ 0x08A4, 0x0003, 0x0000, 0x0000 },
 };
 
-static trilin_phy_error_t trilin_edp_phy_set_voltages(struct trilin_dp *dp,
-						      u32 lane_num, u32 vs,
-						      u32 pe)
+static trilin_phy_error_t
+trilin_edp_phy_set_voltages(struct trilin_dp *dp, u32 lane_num, u32 vs, u32 pe)
 {
 	struct trilin_phy_t *phy = &dp->phy;
 	const phy_voltage_conf_t *cfg;
 	u32 value, index;
 
 	index = vs * 4 + pe;
-	if (phy->is_edp)
+	if (phy->is_edp) {
 		cfg = &edp_volt_low_cfg[index];
-	else
+	} else {
 		cfg = &dp_volt_cfg[index];
+	}
 
 	switch (lane_num) {
 	case trilin_lane_en_1:
@@ -838,14 +820,14 @@ static trilin_phy_error_t trilin_edp_phy_set_voltages(struct trilin_dp *dp,
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_pll_disable
-//      Disable PLL0 (PLL1 is not used)
+//	Function: edp_pll_disable
+//	Disable PLL0 (PLL1 is not used)
 //
 // Inputs:
-//              None
+//		None
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_pll_disable(struct trilin_dp *dp)
 {
@@ -863,14 +845,14 @@ static trilin_phy_error_t edp_pll_disable(struct trilin_dp *dp)
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_pll_enable
-//      Enable PLL0 (PLL1 is not used)
+//	Function: edp_pll_enable
+//	Enable PLL0 (PLL1 is not used)
 //
 // Inputs:
-//              None
+//		None
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_pll_enable(struct trilin_dp *dp)
 {
@@ -894,16 +876,16 @@ static trilin_phy_error_t edp_pll_enable(struct trilin_dp *dp)
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_common_ready_ack
-//      Poll PHY common ready register.
-//              Wait until lane it is ready.
+//	Function: edp_common_ready_ack
+//	Poll PHY common ready register.
+//		Wait until lane it is ready.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct	   - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_common_ready_ack(struct trilin_dp *dp,
 					       u32 delay_time, u32 loop_ct)
@@ -925,25 +907,24 @@ static trilin_phy_error_t edp_common_ready_ack(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
 //-----------------------------------------------------------------------------
-//      Function: edp_pll_raw_ctrl_ack
-//      Poll PMA_CMN_CTRL2
-//              Wait until lane PLL 0 is disabled.
+//	Function: edp_pll_raw_ctrl_ack
+//	Poll PMA_CMN_CTRL2
+//		Wait until lane PLL 0 is disabled.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //-----------------------------------------------------------------------------
-static trilin_phy_error_t edp_pll_raw_ctrl_ack_disabled(struct trilin_dp *dp,
-							u32 delay_time,
-							u32 loop_ct)
+static trilin_phy_error_t
+edp_pll_raw_ctrl_ack_disabled(struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
@@ -962,13 +943,12 @@ static trilin_phy_error_t edp_pll_raw_ctrl_ack_disabled(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
-static trilin_phy_error_t edp_pll_raw_ctrl_ack_ready(struct trilin_dp *dp,
-						     u32 delay_time,
-						     u32 loop_ct)
+static trilin_phy_error_t
+edp_pll_raw_ctrl_ack_ready(struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
@@ -987,21 +967,21 @@ static trilin_phy_error_t edp_pll_raw_ctrl_ack_ready(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_lane_pll_ack
-//      Poll lane PLL clock enable ACK register
-//              Wait until lane PLL ACK is ready.
+//	Function: edp_lane_pll_ack
+//	Poll lane PLL clock enable ACK register
+//		Wait until lane PLL ACK is ready.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_lane_pll_ack_disabled(struct trilin_dp *dp,
 						    u32 delay_time, u32 loop_ct)
@@ -1012,7 +992,7 @@ static trilin_phy_error_t edp_lane_pll_ack_disabled(struct trilin_dp *dp,
 
 	for (idx = 0; idx < loop_ct; idx++) {
 		reg_val =
-		    trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PLLCLK_EN_ACK);
+			trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PLLCLK_EN_ACK);
 		reg_val &= 0x01;
 		if (reg_val == 0x0) {
 			status = trilin_phy_error_none;
@@ -1024,7 +1004,7 @@ static trilin_phy_error_t edp_lane_pll_ack_disabled(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
@@ -1037,7 +1017,7 @@ static trilin_phy_error_t edp_lane_pll_ack_ready(struct trilin_dp *dp,
 
 	for (idx = 0; idx < loop_ct; idx++) {
 		reg_val =
-		    trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PLLCLK_EN_ACK);
+			trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PLLCLK_EN_ACK);
 		reg_val &= 0x01;
 		if (reg_val == 0x01) {
 			status = trilin_phy_error_none;
@@ -1049,22 +1029,22 @@ static trilin_phy_error_t edp_lane_pll_ack_ready(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_pwr_state_ack
-//      Poll power state ack register.
-//              Wait until power state has been acquired.
+//	Function: edp_pwr_state_ack
+//	Poll power state ack register.
+//		Wait until power state has been acquired.
 //
 // Inputs:
-//              pwr_state  - New power state
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//		pwr_state  - New power state
+//	delay_time - poll / loop time
+//	loop_ct	   - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_pwr_state_ack(struct trilin_dp *dp, u32 pwr_state,
 					    u32 delay_time, u32 loop_ct)
@@ -1075,7 +1055,7 @@ static trilin_phy_error_t edp_pwr_state_ack(struct trilin_dp *dp, u32 pwr_state,
 
 	for (idx = 0; idx < loop_ct; idx++) {
 		reg_val =
-		    trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_ACK);
+			trilin_phy_read(dp, TRILIN_EDP_PHY_LANE_PWR_STATE_ACK);
 		reg_val &= 0x1f;
 		if (reg_val == pwr_state) {
 			status = trilin_phy_error_none;
@@ -1087,21 +1067,21 @@ static trilin_phy_error_t edp_pwr_state_ack(struct trilin_dp *dp, u32 pwr_state,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_phy_cdb_ready
-//      Poll config & debug bus ready register.
-//              Wait until CDB is ready.
+//	Function: edp_phy_cdb_ready
+//	Poll config & debug bus ready register.
+//		Wait until CDB is ready.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_phy_cdb_ready(struct trilin_dp *dp,
 					    u32 delay_time, u32 loop_ct)
@@ -1123,20 +1103,20 @@ static trilin_phy_error_t edp_phy_cdb_ready(struct trilin_dp *dp,
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: edp_phy_cdb_write
-//      Write to the Cadence configuration and debug bus (cdb)
+//	Function: edp_phy_cdb_write
+//	Write to the Cadence configuration and debug bus (cdb)
 //
 // Inputs:
-//      addr - configuration register address inside the PHY to write
-//      data - data value to write
+//	addr - configuration register address inside the PHY to write
+//	data - data value to write
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
 static trilin_phy_error_t edp_phy_cdb_write(struct trilin_dp *dp, u32 offset,
 					    uint16_t data)
@@ -1154,14 +1134,14 @@ static trilin_phy_error_t edp_phy_cdb_write(struct trilin_dp *dp, u32 offset,
 }
 
 //------------------------------------------------------------------------------
-//      Function: cdb_write
-//      Read from the Cadence configuration and debug bus (cdb)
+//	Function: cdb_write
+//	Read from the Cadence configuration and debug bus (cdb)
 //
 // Inputs:
-//      addr - configuration register address inside the PHY to write
+//	addr - configuration register address inside the PHY to write
 //
 // Outputs:
-//      data - read data value
+//	data - read data value
 //------------------------------------------------------------------------------
 static u32 edp_phy_cdb_read(struct trilin_dp *dp, u32 offset)
 {
@@ -1178,7 +1158,6 @@ static u32 edp_phy_cdb_read(struct trilin_dp *dp, u32 offset)
 		status = edp_phy_cdb_ready(dp, 5, 100);
 		if (status == trilin_phy_error_none)
 			data = trilin_phy_read(dp, TRILIN_EDP_CDB_RDATA);
-
 	}
 	return data;
 }
@@ -1201,5 +1180,6 @@ trilin_phy_error_t trilin_edp_phy_register(struct trilin_dp *dp)
 	if (reg_val == TRILIN_EDP_PHY_ID)
 		phy->phy_ops = &edp_phy_ops;
 
+	DP_INFO("end\n");
 	return trilin_phy_error_none;
 }

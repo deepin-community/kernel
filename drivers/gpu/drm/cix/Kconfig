@@ -4,8 +4,8 @@ config DRM_CIX
 	select DRM_KMS_HELPER
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_DMA_HELPER
-	depends on ARM64 || COMPILE_TEST
 	depends on DRM
+	depends on ARM64
 	help
 	  enable CiX DRM display support
 
@@ -46,5 +46,11 @@ config DRM_CIX_EDP_PANEL
 	tristate "DRM Support for edp panel on CiX platforms"
 	help
 	  Choose this if you want to use edp panel on CiX Socs
+
+config DRM_CIX_COMPONENT_BIND_BYPASSED
+	bool "DRM bypass component bind operation"
+	depends on DRM_CIX
+	help
+	  Choose this if you do not want to use drm component bind operation
 
 source "drivers/gpu/drm/cix/dptx/Kconfig"

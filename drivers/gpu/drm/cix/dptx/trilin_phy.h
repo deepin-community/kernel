@@ -19,18 +19,21 @@
 #ifndef _TRILIN_PHY_H_
 #define _TRILIN_PHY_H_
 
-#define TRILIN_PHY_ID_REV_REG                0xfc
-#define TRILIN_EDP_PHY_ID                    0x4d
-#define TRILIN_USBDP_PHY_ID                  0x54
+#define TRILIN_PHY_ID_REV_REG 0xfc
+#define TRILIN_EDP_PHY_ID 0x4d
+#define TRILIN_USBDP_PHY_ID 0x54
 
 //------------------------------------------------------------------------------
 //	power state defines
 //------------------------------------------------------------------------------
-#define TRILIN_PHY_PWR_STATE_IDLE            0x0000
-#define TRILIN_PHY_PWR_STATE_A0_TXRX_ACTIVE  0x0001
-#define TRILIN_PHY_PWR_STATE_A1_POWERDOWN1   0x0002 // A1 is not a used power state for DisplayPort
-#define TRILIN_PHY_PWR_STATE_A2_POWERDOWN2   0x0004 // A2 & A3 are configured identically for DisplayPort
-#define TRILIN_PHY_PWR_STATE_A3_POWERDOWN3   0x0008 // A3 requires special handshaking for entry/exit
+#define TRILIN_PHY_PWR_STATE_IDLE 0x0000
+#define TRILIN_PHY_PWR_STATE_A0_TXRX_ACTIVE 0x0001
+#define TRILIN_PHY_PWR_STATE_A1_POWERDOWN1 \
+	0x0002 // A1 is not a used power state for DisplayPort
+#define TRILIN_PHY_PWR_STATE_A2_POWERDOWN2 \
+	0x0004 // A2 & A3 are configured identically for DisplayPort
+#define TRILIN_PHY_PWR_STATE_A3_POWERDOWN3 \
+	0x0008 // A3 requires special handshaking for entry/exit
 
 //------------------------------------------------------------------------------
 //	driver typedefs
@@ -99,10 +102,14 @@ union phy_configure_opts;
 
 struct trilin_phy_ops {
 	trilin_phy_error_t (*prepare)(struct trilin_dp *dp);
-	trilin_phy_error_t (*init)(struct trilin_dp *dp, trilin_phy_ref_clk_t ref_clk);
-	trilin_phy_error_t (*reset)(struct trilin_dp *dp, trilin_phy_reset_t reset_type);
-	trilin_phy_error_t (*power)(struct trilin_dp *dp, trilin_phy_power_state_t state);
-	trilin_phy_error_t (*configure)(struct trilin_dp *dp, union phy_configure_opts *opts);
+	trilin_phy_error_t (*init)(struct trilin_dp *dp,
+				   trilin_phy_ref_clk_t ref_clk);
+	trilin_phy_error_t (*reset)(struct trilin_dp *dp,
+				    trilin_phy_reset_t reset_type);
+	trilin_phy_error_t (*power)(struct trilin_dp *dp,
+				    trilin_phy_power_state_t state);
+	trilin_phy_error_t (*configure)(struct trilin_dp *dp,
+					union phy_configure_opts *opts);
 	trilin_phy_error_t (*exit)(struct trilin_dp *dp);
 };
 

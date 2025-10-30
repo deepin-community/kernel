@@ -17,16 +17,25 @@ static unsigned int cix_hdcp_ioctl_cmds[] = {
 	HDCP2_IOCTL_RXSTATE,
 	HDCP2_IOCTL_TIMER_START,
 	HDCP2_IOCTL_TIMER_STOP,
-	HDCP2_IOCTL_DPCD_ACCESS
+	HDCP2_IOCTL_DPCD_ACCESS,
+	HDCP2_IOCTL_HWINIT,
+	HDCP2_IOCTL_CIPHER_ENABLE,
+	HDCP2_IOCTL_CIPHER_DISABLE,
+	HDCP2_IOCTL_GET_KD,
+	HDCP2_IOCTL_GET_DKEY2,
 };
 
-int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp,
-		bool plugged)
+int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp, bool plugged)
 {
 	struct hdcp_event *e;
 
-	if (!hdcp->opened)
+	if (!hdcp->opened) {
+		if (plugged == true)
+			hdcp->state = ST2_H1;
+		else
+			hdcp->state = ST2_H0;
 		return 0;
+	}
 
 	e = kmalloc(sizeof(struct hdcp_event), GFP_KERNEL);
 
@@ -44,8 +53,7 @@ int cix_hdcp_hpd_event_process(struct cix_hdcp *hdcp,
 	list_add_tail(&e->list, &hdcp->event_list);
 	spin_unlock_irq(&hdcp->event_lock);
 
-	wake_up_interruptible_poll(&hdcp->event_wait,
-		EPOLLIN | EPOLLRDNORM);
+	wake_up_interruptible_poll(&hdcp->event_wait, EPOLLIN | EPOLLRDNORM);
 
 	return 0;
 }
@@ -65,8 +73,7 @@ int cix_hdcp_timer_process(struct cix_hdcp *hdcp)
 	list_add_tail(&e->list, &hdcp->event_list);
 	spin_unlock_irq(&hdcp->event_lock);
 
-	wake_up_interruptible_poll(&hdcp->event_wait,
-		EPOLLIN | EPOLLRDNORM);
+	wake_up_interruptible_poll(&hdcp->event_wait, EPOLLIN | EPOLLRDNORM);
 
 	return 0;
 }
@@ -84,22 +91,26 @@ int cix_hdcp_cp_irq_process(struct cix_hdcp *hdcp, u8 rx_status)
 
 		if ((rx_status >> 0x1) & 0x1) {
 			e->event = EV2_TX_HPRIME_AVAILABLE;
-			dev_info(hdcp->aux->dev, "report event EV2_TX_HPRIME_AVAILABLE\n");
+			dev_info(hdcp->aux->dev,
+				 "report event EV2_TX_HPRIME_AVAILABLE\n");
 		}
 
 		if ((rx_status >> 0x2) & 0x1) {
 			e->event = EV2_TX_PAIRING_AVAILABLE;
-			dev_info(hdcp->aux->dev, "report event EV2_TX_PAIRING_AVAILABLE\n");
+			dev_info(hdcp->aux->dev,
+				 "report event EV2_TX_PAIRING_AVAILABLE\n");
 		}
 
 		if ((rx_status >> 0x3) & 0x1) {
 			e->event = EV2_TX_REAUTH_REQ;
-			dev_info(hdcp->aux->dev, "report event EV2_TX_REAUTH_REQ\n");
+			dev_info(hdcp->aux->dev,
+				 "report event EV2_TX_REAUTH_REQ\n");
 		}
 
 		if ((rx_status >> 0x4) & 0x1) {
 			e->event = EV2_TX_INTEGRITY_FAILURE;
-			dev_info(hdcp->aux->dev, "report event EV2_TX_INTEGRITY_FAILURE\n");
+			dev_info(hdcp->aux->dev,
+				 "report event EV2_TX_INTEGRITY_FAILURE\n");
 		}
 
 		spin_lock_irq(&hdcp->event_lock);
@@ -107,7 +118,7 @@ int cix_hdcp_cp_irq_process(struct cix_hdcp *hdcp, u8 rx_status)
 		spin_unlock_irq(&hdcp->event_lock);
 
 		wake_up_interruptible_poll(&hdcp->event_wait,
-			EPOLLIN | EPOLLRDNORM);
+					   EPOLLIN | EPOLLRDNORM);
 	}
 
 	return 0;
@@ -148,11 +159,12 @@ static int cix_hdcp_close(struct inode *inode, struct file *filp)
 		spin_lock_irq(&hdcp->event_lock);
 		if (!list_empty(&hdcp->event_list)) {
 			e = list_first_entry(&hdcp->event_list,
-						struct hdcp_event, list);
+					     struct hdcp_event, list);
 			list_del(&e->list);
 			kfree(e);
 		} else {
-			dev_info(hdcp->aux->dev, "event list is null and close\n");
+			dev_info(hdcp->aux->dev,
+				 "event list is null and close\n");
 			spin_unlock_irq(&hdcp->event_lock);
 			break;
 		}
@@ -165,7 +177,7 @@ static int cix_hdcp_close(struct inode *inode, struct file *filp)
 }
 
 static ssize_t cix_hdcp_read(struct file *filp, char __user *buffer,
-		size_t count, loff_t *offset)
+			     size_t count, loff_t *offset)
 {
 	struct cix_hdcp *hdcp = filp->private_data;
 	ssize_t ret;
@@ -180,7 +192,7 @@ static ssize_t cix_hdcp_read(struct file *filp, char __user *buffer,
 		spin_lock_irq(&hdcp->event_lock);
 		if (!list_empty(&hdcp->event_list)) {
 			e = list_first_entry(&hdcp->event_list,
-						struct hdcp_event, list);
+					     struct hdcp_event, list);
 			list_del(&e->list);
 		}
 		spin_unlock_irq(&hdcp->event_lock);
@@ -195,8 +207,9 @@ static ssize_t cix_hdcp_read(struct file *filp, char __user *buffer,
 			}
 
 			mutex_unlock(&hdcp->mutex);
-			ret = wait_event_interruptible(hdcp->event_wait,
-							!list_empty(&hdcp->event_list));
+			ret = wait_event_interruptible(
+				hdcp->event_wait,
+				!list_empty(&hdcp->event_list));
 			if (ret >= 0)
 				ret = mutex_lock_interruptible(&hdcp->mutex);
 			if (ret)
@@ -210,7 +223,8 @@ put_back_event:
 				list_add(&e->list, &hdcp->event_list);
 				spin_unlock_irq(&hdcp->event_lock);
 				wake_up_interruptible_poll(&hdcp->event_wait,
-								EPOLLIN | EPOLLRDNORM);
+							   EPOLLIN |
+								   EPOLLRDNORM);
 				break;
 			}
 
@@ -246,7 +260,7 @@ static __poll_t cix_hdcp_poll(struct file *filp, poll_table *wait)
 }
 
 static long cix_hdcp_ioctl(struct file *file, unsigned int ucmd,
-		unsigned long arg)
+			   unsigned long arg)
 {
 	char stack_kdata[128];
 	char *kdata = stack_kdata;
@@ -302,6 +316,21 @@ static long cix_hdcp_ioctl(struct file *file, unsigned int ucmd,
 	case HDCP2_IOCTL_DPCD_ACCESS:
 		ret = cix_hdcp2_ioctl_dpcd_access(hdcp, kdata);
 		break;
+	case HDCP2_IOCTL_HWINIT:
+		ret = cix_hdcp2_ioctl_hw_init(hdcp);
+		break;
+	case HDCP2_IOCTL_CIPHER_ENABLE:
+		ret = cix_hdcp2_ioctl_cipher_enable(hdcp, kdata);
+		break;
+	case HDCP2_IOCTL_CIPHER_DISABLE:
+		ret = cix_hdcp2_cix_ioctl_cipher_disable(hdcp);
+		break;
+	case HDCP2_IOCTL_GET_KD:
+		ret = cix_hdcp2_ioctl_get_kd(hdcp, kdata);
+		break;
+	case HDCP2_IOCTL_GET_DKEY2:
+		ret = cix_hdcp2_ioctl_get_dkey2(hdcp, kdata);
+		break;
 	default:
 		ret = -ENOTTY;
 	}
@@ -340,16 +369,17 @@ int cix_hdcp_init(struct cix_hdcp *hdcp)
 	spin_lock_init(&hdcp->event_lock);
 	INIT_LIST_HEAD(&hdcp->event_list);
 	init_waitqueue_head(&hdcp->event_wait);
-	hdcp->misc.minor  = MISC_DYNAMIC_MINOR;
-	hdcp->misc.name  = hdcp->name;
-	hdcp->misc.fops  = &hdcp_fops;
+	hdcp->misc.minor = MISC_DYNAMIC_MINOR;
+	hdcp->misc.name = hdcp->name;
+	hdcp->misc.fops = &hdcp_fops;
 
 	ret = misc_register(&hdcp->misc);
 	if (!ret) {
 		list_add(&hdcp->list, &cix_hdcp_list);
 		dev_info(dev, "succeed register hdcp misc device.\n");
 	} else {
-		dev_err(dev, "cannot register hdcp misc device, ret=%d.\n", ret);
+		dev_err(dev, "cannot register hdcp misc device, ret=%d.\n",
+			ret);
 		return ret;
 	}
 

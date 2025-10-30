@@ -29,10 +29,7 @@ enum dp_property_id {
 	TBU_DOUTSTDCAPB,
 };
 
-enum dp_property_type {
-	RANGE_PROP,
-	LIST_PROP
-};
+enum dp_property_type { RANGE_PROP, LIST_PROP };
 
 struct dp_property {
 	char *p_name;
@@ -50,17 +47,16 @@ struct dp_property {
 	};
 };
 
-#define DEFINE_LPU_LAYER_AxCACHE_ATTR(n, id)	\
-const struct dp_property n = {			\
-	.p_name = #n,				\
-	.p_id = id,				\
-	.default_val = 0x3,			\
-	.p_type = LIST_PROP,			\
-	.n_elements = 10,			\
-	.elements = (const u32[]) {		\
-		0x0, 0x1, 0x2, 0x3, 0x3, 0x7, 0xA, 0xB, 0xE, 0xF	\
-	},					\
-}
+#define DEFINE_LPU_LAYER_AxCACHE_ATTR(n, id)                                  \
+	const struct dp_property n = {                                        \
+		.p_name = #n,                                                 \
+		.p_id = id,                                                   \
+		.default_val = 0x3,                                           \
+		.p_type = LIST_PROP,                                          \
+		.n_elements = 10,                                             \
+		.elements = (const u32[]){ 0x0, 0x1, 0x2, 0x3, 0x3, 0x7, 0xA, \
+					   0xB, 0xE, 0xF },                   \
+	}
 
 static DEFINE_LPU_LAYER_AxCACHE_ATTR(lpu_lw_awcache, LW_AWCACHE);
 static DEFINE_LPU_LAYER_AxCACHE_ATTR(lpu_l0_arcache, L0_ARCACHE);
@@ -68,45 +64,45 @@ static DEFINE_LPU_LAYER_AxCACHE_ATTR(lpu_l1_arcache, L1_ARCACHE);
 static DEFINE_LPU_LAYER_AxCACHE_ATTR(lpu_l2_arcache, L2_ARCACHE);
 static DEFINE_LPU_LAYER_AxCACHE_ATTR(lpu_l3_arcache, L3_ARCACHE);
 
-#define DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(n, id, def, min, max)	\
-const struct dp_property n = {			\
-	.p_name = #n,				\
-	.p_id = id,				\
-	.default_val = def,			\
-	.p_type = RANGE_PROP,			\
-	.val_min = min,				\
-	.val_max = max,				\
-}
+#define DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(n, id, def, min, max) \
+	const struct dp_property n = {                            \
+		.p_name = #n,                                     \
+		.p_id = id,                                       \
+		.default_val = def,                               \
+		.p_type = RANGE_PROP,                             \
+		.val_min = min,                                   \
+		.val_max = max,                                   \
+	}
 
-#define DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(n, id, def)	\
-const struct dp_property n = {			\
-	.p_name = #n,				\
-	.p_id = id,				\
-	.default_val = def,			\
-	.p_type = LIST_PROP,			\
-	.n_elements = 4,			\
-	.elements = (const u32[]) {0x4, 0x8, 0x10, 0x20},	\
-}
+#define DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(n, id, def)             \
+	const struct dp_property n = {                             \
+		.p_name = #n,                                      \
+		.p_id = id,                                        \
+		.default_val = def,                                \
+		.p_type = LIST_PROP,                               \
+		.n_elements = 4,                                   \
+		.elements = (const u32[]){ 0x4, 0x8, 0x10, 0x20 }, \
+	}
 
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_aoutstdcapb,
-			RAXI_AOUTSTDCAPB, 0x20, 0x4, 0x80);
+					   RAXI_AOUTSTDCAPB, 0x20, 0x4, 0x80);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_boutstdcapb,
-			RAXI_BOUTSTDCAPB, 0x20, 0x4, 0x80);
+					   RAXI_BOUTSTDCAPB, 0x20, 0x4, 0x80);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_ben, RAXI_BEN, 0, 0, 1);
-static DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(lpu_raxi_burstlen,
-			RAXI_BURSTLEN, 0x10);
-static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_arqos, RAXI_AxQOS,
-			0xF, 0, 0xF);
+static DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(lpu_raxi_burstlen, RAXI_BURSTLEN,
+					  0x10);
+static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_arqos, RAXI_AxQOS, 0xF, 0,
+					   0xF);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_raxi_ord, RAXI_ORD, 0, 0, 1);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_waxi_outstdcapb, WAXI_OUTSTDCAPB,
-			0x10, 0x1, 0x20);
-static DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(lpu_waxi_burstlen,
-			WAXI_BURSTLEN, 0x10);
-static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_waxi_awqos, WAXI_AxQOS,
-			0xF, 0, 0xF);
+					   0x10, 0x1, 0x20);
+static DEFINE_LPU_xAXI_CTRL_ATTR_U32_LIST(lpu_waxi_burstlen, WAXI_BURSTLEN,
+					  0x10);
+static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_waxi_awqos, WAXI_AxQOS, 0xF, 0,
+					   0xF);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_waxi_ord, WAXI_ORD, 0, 0, 1);
 static DEFINE_LPU_xAXI_CTRL_ATTR_U32_RANGE(lpu_tbu_doutstdcapb, TBU_DOUTSTDCAPB,
-			8, 1, 16);
+					   8, 1, 16);
 
 static const struct dp_property *dp_lpu_properties[] = {
 	&lpu_lw_awcache,
@@ -128,8 +124,8 @@ static const struct dp_property *dp_lpu_properties[] = {
 	NULL,
 };
 
-static void commit_axi_property(const struct dp_property *p,
-		u32 val, u32 __iomem *reg)
+static void commit_axi_property(const struct dp_property *p, u32 val,
+				u32 __iomem *reg)
 {
 	u32 mask = 0, offset = 0;
 
@@ -196,7 +192,7 @@ static void commit_axi_property(const struct dp_property *p,
 }
 
 static void commit_axi_cache(struct linlondp_pipeline *pipe,
-		const struct dp_property *p, u32 val)
+			     const struct dp_property *p, u32 val)
 {
 	struct linlondp_layer *layer;
 
@@ -235,7 +231,8 @@ int dp_pipeline_config_axi(struct dp_pipeline *dp_pipe)
 
 		if (p->p_type == RANGE_PROP) {
 			if (val < p->val_min || val > p->val_max) {
-				DRM_ERROR("%s: property is out of range\n", p->p_name);
+				DRM_ERROR("%s: property is out of range\n",
+				p->p_name);
 				continue;
 			}
 		} else if (p->p_type == LIST_PROP) {
@@ -246,7 +243,8 @@ int dp_pipeline_config_axi(struct dp_pipeline *dp_pipe)
 					break;
 
 			if (j >= p->n_elements) {
-				DRM_ERROR("%s: property is not in the list!\n", p->p_name);
+				DRM_ERROR("%s: property is not in the list!\n",
+				p->p_name);
 				continue;
 			}
 		} else {
@@ -261,3 +259,4 @@ int dp_pipeline_config_axi(struct dp_pipeline *dp_pipe)
 	}
 	return 0;
 }
+
