@@ -55,7 +55,7 @@ void linlondp_pipeline_destroy(struct linlondp_dev *mdev,
 		linlondp_component_destroy(mdev, c);
 	}
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
-	clk_put(pipe->pxlclk);
+	devm_clk_put(mdev->dev, pipe->pxlclk);
 #endif
 	if (!has_acpi_companion(mdev->dev)) {
 		of_node_put(pipe->of_output_links[0]);
