@@ -32,17 +32,20 @@ struct trilin_dpsub;
 // bit 29   = Interrupt enable
 // bit 19:0 = Timer value (20-bits)
 //------------------------------------------------------------------------------
-#define DEV_TMR_FLAG_ENABLE             (1ul<<31)
-#define DEV_TMR_FLAG_AUTORELOAD         (1ul<<30)
-#define DEV_TMR_FLAG_INTERRUPT          (1ul<<29)
-#define DEV_TMR_MAX_CT                  ((1ul<<20)-1ul)
-#define DEV_TMR_FLAGS_ALL               (DEV_TMR_FLAG_ENABLE | DEV_TMR_FLAG_AUTORELOAD | DEV_TMR_FLAG_INTERRUPT)
+
+#define DEV_TMR_FLAG_ENABLE (1ul << 31)
+#define DEV_TMR_FLAG_AUTORELOAD (1ul << 30)
+#define DEV_TMR_FLAG_INTERRUPT (1ul << 29)
+#define DEV_TMR_MAX_CT ((1ul << 20) - 1ul)
+#define DEV_TMR_FLAGS_ALL \
+	(DEV_TMR_FLAG_ENABLE | DEV_TMR_FLAG_AUTORELOAD | DEV_TMR_FLAG_INTERRUPT)
 
 //------------------------------------------------------------------------------
 //  Public interface functions
 //------------------------------------------------------------------------------
+
 void trilin_host_tmr_init(struct trilin_dp *dp);
-u32  trilin_host_tmr_get_value(struct trilin_dp *dp);
+u32 trilin_host_tmr_get_value(struct trilin_dp *dp);
 
 void trilin_host_tmr_set_ct(struct trilin_dp *dp, u32 tmr_ct);
 void trilin_host_tmr_set_us(struct trilin_dp *dp, u32 tmr_us);

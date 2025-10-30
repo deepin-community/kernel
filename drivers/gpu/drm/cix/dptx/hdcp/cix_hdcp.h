@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0*/
 /*
  * display port hdcp driver for the cix ec
  *
@@ -34,19 +34,19 @@
 //  A9      Content Steam Management
 //------------------------------------------------------------------------------
 typedef enum {
-	ST2_H0,			//  H0: No RX Attached
-	ST2_H1,			//  H1: Transmit Low Value Content
-	ST2_A0,			//  A0: Determine Rx HDCP Capable
-	ST2_A1,			//  A1: Exchange km
-	ST2_A2,			//  A2: Locality Check
-	ST2_A3,			//  A3: Exchange ks
-	ST2_A4,			//  A4: Test for Repeater
-	ST2_A5,			//  A5: Authenticated
-	ST2_A6,			//  A6: Wait for Receiver ID list
-	ST2_A7,			//  A7: Verify Receiver ID List
-	ST2_A8,			//  A8: Send Receiver ID List acknowledgment
-	ST2_A9,			//  A9: Content Steam Management
-	ST2_TX_CT		//  state count (must be last)
+	ST2_H0, //  H0: No RX Attached
+	ST2_H1, //  H1: Transmit Low Value Content
+	ST2_A0, //  A0: Determine Rx HDCP Capable
+	ST2_A1, //  A1: Exchange km
+	ST2_A2, //  A2: Locality Check
+	ST2_A3, //  A3: Exchange ks
+	ST2_A4, //  A4: Test for Repeater
+	ST2_A5, //  A5: Authenticated
+	ST2_A6, //  A6: Wait for Receiver ID list
+	ST2_A7, //  A7: Verify Receiver ID List
+	ST2_A8, //  A8: Send Receiver ID List acknowledgment
+	ST2_A9, //  A9: Content Steam Management
+	ST2_TX_CT //  state count (must be last)
 } TX2_STATE_T;
 
 //------------------------------------------------------------------------------
@@ -81,31 +81,31 @@ typedef enum {
 //  A9          H1      EV2_TX_ROLL_OVER            seq_num_M roll-over
 //------------------------------------------------------------------------------
 typedef enum {
-	EV2_TX_TIMER,		//  Timer
-	EV2_TX_RESET,		//  Reset
-	EV2_TX_RX_DISCONNECT,	//  Receiver disconnect indication
-	EV2_TX_RX_CONNECT,	//  Receiver connect indication
-	EV2_TX_FAIL_AUTH,	//  Fail Authentication
-	EV2_TX_REAUTH_REQ,	//  Reauthorization request
-	EV2_TX_CP_DESIRED,	//  Content Protection desired
-	EV2_TX_HDCP_CAPABLE,	//  HDCP capable
-	EV2_TX_NOT_HDCP_CAPABLE,	//  Not HDCP capable
-	EV2_TX_HPRIME_AVAILABLE,	//  H' available
-	EV2_TX_PAIRING_AVAILABLE,	//  Pairing data available
-	EV2_TX_DONE,		//  Done
-	EV2_TX_REPEATER,	//  HDCP Repeater
-	EV2_TX_NOT_REPEATER,	//  Not HDCP Repeater
-	EV2_TX_READY,		//  Ready
-	EV2_TX_FAIL,		//  Fail
-	EV2_TX_TIMEOUT,		//  Timeout
-	EV2_TX_INTEGRITY_FAILURE,	//  Integrity Failure
-	EV2_TX_ABORT_AUTHENTICATION,	//  Abort authentication
-	EV2_TX_DPCD_WRITE_COMPLETE,	//  DPCD data write succeeded
-	EV2_TX_DPCD_WRITE_FAIL,	//  DPCD data write failed
-	EV2_TX_DPCD_READ_COMPLETE,	//  DPCD data read succeeded
-	EV2_TX_DPCD_READ_FAIL,	//  DPCD data write failed
-	EV2_TX_CP_IRQ,		//  Received a CP_IRQ
-	EV2_TX_CT		//  event count (must be last)
+	EV2_TX_TIMER, //  Timer
+	EV2_TX_RESET, //  Reset
+	EV2_TX_RX_DISCONNECT, //  Receiver disconnect indication
+	EV2_TX_RX_CONNECT, //  Receiver connect indication
+	EV2_TX_FAIL_AUTH, //  Fail Authentication
+	EV2_TX_REAUTH_REQ, //  Reauthorization request
+	EV2_TX_CP_DESIRED, //  Content Protection desired
+	EV2_TX_HDCP_CAPABLE, //  HDCP capable
+	EV2_TX_NOT_HDCP_CAPABLE, //  Not HDCP capable
+	EV2_TX_HPRIME_AVAILABLE, //  H' available
+	EV2_TX_PAIRING_AVAILABLE, //  Pairing data available
+	EV2_TX_DONE, //  Done
+	EV2_TX_REPEATER, //  HDCP Repeater
+	EV2_TX_NOT_REPEATER, //  Not HDCP Repeater
+	EV2_TX_READY, //  Ready
+	EV2_TX_FAIL, //  Fail
+	EV2_TX_TIMEOUT, //  Timeout
+	EV2_TX_INTEGRITY_FAILURE, //  Integrity Failure
+	EV2_TX_ABORT_AUTHENTICATION, //  Abort authentication
+	EV2_TX_DPCD_WRITE_COMPLETE, //  DPCD data write succeeded
+	EV2_TX_DPCD_WRITE_FAIL, //  DPCD data write failed
+	EV2_TX_DPCD_READ_COMPLETE, //  DPCD data read succeeded
+	EV2_TX_DPCD_READ_FAIL, //  DPCD data write failed
+	EV2_TX_CP_IRQ, //  Received a CP_IRQ
+	EV2_TX_CT //  event count (must be last)
 } TX2_EVENT_T;
 
 struct hdcp_event {

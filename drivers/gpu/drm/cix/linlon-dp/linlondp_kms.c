@@ -16,12 +16,17 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
+#include <drm/drm_self_refresh_helper.h>
 
 #include "linlondp_dev.h"
 #include "linlondp_framebuffer.h"
 #include "linlondp_kms.h"
 
 DEFINE_DRM_GEM_DMA_FOPS(linlondp_cma_fops);
+
+static bool enable_render = true;
+module_param(enable_render, bool, 0644);
+MODULE_PARM_DESC(enable_render, "Enable render node support (true/false)");
 
 static int linlondp_gem_dma_dumb_create(struct drm_file *file,
 					struct drm_device *dev,
@@ -57,9 +62,8 @@ static irqreturn_t linlondp_kms_irq_handler(int irq, void *data)
 	return status;
 }
 
-static const struct drm_driver linlondp_kms_driver = {
-	.driver_features =
-	    DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC | DRIVER_RENDER,
+static struct drm_driver linlondp_kms_driver = {
+	.driver_features = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
 	.lastclose = drm_fb_helper_lastclose,
 	DRM_GEM_DMA_DRIVER_OPS_WITH_DUMB_CREATE(linlondp_gem_dma_dumb_create),
 	.fops = &linlondp_cma_fops,
@@ -75,6 +79,7 @@ static void linlondp_kms_atomic_commit_hw_done(struct drm_atomic_state *state)
 	struct drm_device *dev = state->dev;
 	struct linlondp_kms_dev *kms = to_kdev(dev);
 	int i;
+	unsigned long flags;
 
 	for (i = 0; i < kms->n_crtcs; i++) {
 		struct linlondp_crtc *kcrtc = &kms->crtcs[i];
@@ -82,11 +87,15 @@ static void linlondp_kms_atomic_commit_hw_done(struct drm_atomic_state *state)
 		if (kcrtc->base.state->active) {
 			struct completion *flip_done = NULL;
 
+			spin_lock_irqsave(&dev->event_lock, flags);
 			if (kcrtc->base.state->event)
-				flip_done =
-				    kcrtc->base.state->event->base.completion;
-			linlondp_crtc_flush_and_wait_for_flip_done(kcrtc,
-								   flip_done);
+				flip_done = kcrtc->base.state->event->base
+						    .completion;
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			if (flip_done) {
+				linlondp_crtc_flush_and_wait_for_flip_done(kcrtc,
+									   flip_done, false);
+			}
 		}
 	}
 	drm_atomic_helper_commit_hw_done(state);
@@ -124,7 +133,8 @@ static int linlondp_plane_state_list_add(struct drm_plane_state *plane_st,
 	struct linlondp_plane_state *node, *last;
 
 	last = list_empty(zorder_list) ?
-	    NULL : list_last_entry(zorder_list, typeof(*last), zlist_node);
+		       NULL :
+		       list_last_entry(zorder_list, typeof(*last), zlist_node);
 
 	/* Considering the list sequence is zpos increasing, so if list is empty
 	 * or the zpos of new node bigger than the last node in list, no need
@@ -147,9 +157,9 @@ static int linlondp_plane_state_list_add(struct drm_plane_state *plane_st,
 			/* Linlondp doesn't support setting a same zpos for
 			 * different planes.
 			 */
-			DRM_DEBUG_ATOMIC
-			    ("PLANE: %s and PLANE: %s are configured same zpos: %d.\n",
-			     a->name, b->name, node->base.zpos);
+			DRM_DEBUG_ATOMIC(
+				"PLANE: %s and PLANE: %s are configured same zpos: %d.\n",
+				a->name, b->name, node->base.zpos);
 			return -EINVAL;
 		}
 	}
@@ -168,6 +178,7 @@ static int linlondp_crtc_normalize_zpos(struct drm_crtc *crtc,
 	struct drm_plane *plane;
 	struct list_head zorder_list;
 	int order = 0, err;
+	bool split = 0;
 
 	DRM_DEBUG_ATOMIC("[CRTC:%d:%s] calculating normalized zpos values\n",
 			 crtc->base.id, crtc->name);
@@ -199,18 +210,20 @@ static int linlondp_crtc_normalize_zpos(struct drm_crtc *crtc,
 		 * - zorder: for left_layer for left display part.
 		 * - zorder + 1: will be reserved for right layer.
 		 */
-		if (to_kplane_st(plane_st)->layer_split)
+		split = to_kplane_st(plane_st)->layer_split;
+		if (split)
 			order++;
 
 		DRM_DEBUG_ATOMIC("[PLANE:%d:%s] zpos:%d, normalized zpos: %d\n",
-				 plane->base.id, plane->name,
-				 plane_st->zpos, plane_st->normalized_zpos);
+				 plane->base.id, plane->name, plane_st->zpos,
+				 plane_st->normalized_zpos);
 
 		/* calculate max slave zorder */
 		if (has_bit(drm_plane_index(plane), kcrtc->slave_planes))
 			kcrtc_st->max_slave_zorder =
-			    max(plane_st->normalized_zpos,
-				kcrtc_st->max_slave_zorder);
+				max(!split ? plane_st->normalized_zpos :
+					     plane_st->normalized_zpos + 1,
+				    kcrtc_st->max_slave_zorder);
 	}
 
 	crtc_st->zpos_changed = true;
@@ -218,12 +231,41 @@ static int linlondp_crtc_normalize_zpos(struct drm_crtc *crtc,
 	return 0;
 }
 
+/**
+ * linlondp_vrr_match_mode - check if two modes are VRR-compatible.
+ * I.e. if both mode have the same timings except for VFP.
+ */
+static bool linlondp_vrr_match_mode(const struct drm_display_mode *mode1,
+				const struct drm_display_mode *mode2)
+{
+	return drm_mode_match(mode1, mode2,
+		DRM_MODE_MATCH_CLOCK |
+		DRM_MODE_MATCH_FLAGS |
+		DRM_MODE_MATCH_3D_FLAGS |
+		DRM_MODE_MATCH_ASPECT_RATIO) &&
+		mode1->hdisplay == mode2->hdisplay &&
+		mode1->hsync_start == mode2->hsync_start &&
+		mode1->hsync_end == mode2->hsync_end &&
+		mode1->htotal == mode2->htotal &&
+		mode1->hskew == mode2->hskew &&
+		mode1->vdisplay == mode2->vdisplay &&
+		mode1->vsync_end - mode1->vsync_start ==
+		mode2->vsync_end - mode2->vsync_start &&
+		mode1->vtotal - mode1->vsync_end ==
+		mode2->vtotal - mode2->vsync_end &&
+		mode1->vscan == mode2->vscan;
+}
+
 static int linlondp_kms_check(struct drm_device *dev,
 			      struct drm_atomic_state *state)
 {
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *new_crtc_st;
+	struct drm_crtc_state *old_crtc_st, *new_crtc_st;
 	int i, err;
+	struct linlondp_dev *mdev = dev->dev_private;
+
+	if (mdev->shutdown)
+		return -ENODEV;
 
 	err = drm_atomic_helper_check_modeset(dev, state);
 	if (err)
@@ -233,7 +275,14 @@ static int linlondp_kms_check(struct drm_device *dev,
 	 * so need to add all affected_planes (even unchanged) to
 	 * drm_atomic_state.
 	 */
-	for_each_new_crtc_in_state(state, crtc, new_crtc_st, i) {
+
+	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_st, new_crtc_st, i) {
+		if (new_crtc_st->mode_changed &&
+			(old_crtc_st->vrr_enabled || new_crtc_st->vrr_enabled) &&
+			linlondp_vrr_match_mode(&old_crtc_st->mode, &new_crtc_st->mode)) {
+			new_crtc_st->mode_changed = false;
+		}
+
 		err = drm_atomic_add_affected_planes(state, crtc);
 		if (err)
 			return err;
@@ -246,6 +295,8 @@ static int linlondp_kms_check(struct drm_device *dev,
 	err = drm_atomic_helper_check_planes(dev, state);
 	if (err)
 		return err;
+
+	drm_self_refresh_helper_alter_state(state);
 
 	return 0;
 }
@@ -281,6 +332,9 @@ struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev)
 	struct drm_device *drm;
 	int err;
 
+	if (enable_render)
+		linlondp_kms_driver.driver_features |= DRIVER_RENDER;
+
 	kms = devm_drm_dev_alloc(mdev->dev, &linlondp_kms_driver,
 				 struct linlondp_kms_dev, base);
 	if (IS_ERR(kms))
@@ -312,24 +366,25 @@ struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev)
 	if (err)
 		goto cleanup_mode_config;
 
+#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
 	err = component_bind_all(mdev->dev, kms);
 	if (err)
 		goto cleanup_mode_config;
 
 	drm_mode_config_reset(drm);
-
-	err = devm_request_irq(drm->dev, mdev->irq,
-			       linlondp_kms_irq_handler, IRQF_SHARED,
-			       dev_name(drm->dev), drm);
+#endif
+	err = devm_request_irq(drm->dev, mdev->irq, linlondp_kms_irq_handler,
+			       IRQF_SHARED, dev_name(drm->dev), drm);
 	if (err)
 		goto free_component_binding;
 
+#if !IS_ENABLED(CONFIG_DRM_CIX_COMPONENT_BIND_BYPASSED)
 	drm_kms_helper_poll_init(drm);
 
 	err = drm_dev_register(drm, 0);
 	if (err)
 		goto free_interrupts;
-
+#endif
 	return kms;
 
 free_interrupts:

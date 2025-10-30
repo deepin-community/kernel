@@ -11,6 +11,7 @@
 #include "linlondp_kms.h"
 #include "linlondp_pipeline.h"
 #include "linlondp_framebuffer.h"
+
 static inline bool is_switching_user(void *old, void *new)
 {
 	if (!old || !new)
@@ -19,8 +20,9 @@ static inline bool is_switching_user(void *old, void *new)
 	return old != new;
 }
 
-static struct linlondp_pipeline_state *linlondp_pipeline_get_state(
-		struct linlondp_pipeline *pipe, struct drm_atomic_state *state)
+static struct linlondp_pipeline_state *
+linlondp_pipeline_get_state(struct linlondp_pipeline *pipe,
+			    struct drm_atomic_state *state)
 {
 	struct drm_private_state *priv_st;
 
@@ -31,8 +33,9 @@ static struct linlondp_pipeline_state *linlondp_pipeline_get_state(
 	return priv_to_pipe_st(priv_st);
 }
 
-struct linlondp_pipeline_state *linlondp_pipeline_get_old_state(
-		struct linlondp_pipeline *pipe, struct drm_atomic_state *state)
+struct linlondp_pipeline_state *
+linlondp_pipeline_get_old_state(struct linlondp_pipeline *pipe,
+				struct drm_atomic_state *state)
 {
 	struct drm_private_state *priv_st;
 
@@ -42,8 +45,9 @@ struct linlondp_pipeline_state *linlondp_pipeline_get_old_state(
 	return NULL;
 }
 
-static struct linlondp_pipeline_state *linlondp_pipeline_get_new_state(
-		struct linlondp_pipeline *pipe, struct drm_atomic_state *state)
+static struct linlondp_pipeline_state *
+linlondp_pipeline_get_new_state(struct linlondp_pipeline *pipe,
+				struct drm_atomic_state *state)
 {
 	struct drm_private_state *priv_st;
 
@@ -54,8 +58,10 @@ static struct linlondp_pipeline_state *linlondp_pipeline_get_new_state(
 }
 
 /* Assign pipeline for crtc */
-static struct linlondp_pipeline_state *linlondp_pipeline_get_state_and_set_crtc(
-	struct linlondp_pipeline *pipe, struct drm_atomic_state *state, struct drm_crtc *crtc)
+static struct linlondp_pipeline_state *
+linlondp_pipeline_get_state_and_set_crtc(struct linlondp_pipeline *pipe,
+					 struct drm_atomic_state *state,
+					 struct drm_crtc *crtc)
 {
 	struct linlondp_pipeline_state *st;
 
@@ -80,8 +86,8 @@ static struct linlondp_pipeline_state *linlondp_pipeline_get_state_and_set_crtc(
 	if (crtc) {
 		struct linlondp_crtc_state *kcrtc_st;
 
-		kcrtc_st = to_kcrtc_st(drm_atomic_get_new_crtc_state(state,
-								     crtc));
+		kcrtc_st =
+			to_kcrtc_st(drm_atomic_get_new_crtc_state(state, crtc));
 
 		kcrtc_st->active_pipes |= BIT(pipe->id);
 		kcrtc_st->affected_pipes |= BIT(pipe->id);
@@ -89,8 +95,9 @@ static struct linlondp_pipeline_state *linlondp_pipeline_get_state_and_set_crtc(
 	return st;
 }
 
-static struct linlondp_component_state *linlondp_component_get_state(
-		struct linlondp_component *c, struct drm_atomic_state *state)
+static struct linlondp_component_state *
+linlondp_component_get_state(struct linlondp_component *c,
+			     struct drm_atomic_state *state)
 {
 	struct drm_private_state *priv_st;
 
@@ -103,8 +110,9 @@ static struct linlondp_component_state *linlondp_component_get_state(
 	return priv_to_comp_st(priv_st);
 }
 
-static struct linlondp_component_state *linlondp_component_get_old_state(
-		struct linlondp_component *c, struct drm_atomic_state *state)
+static struct linlondp_component_state *
+linlondp_component_get_old_state(struct linlondp_component *c,
+				 struct drm_atomic_state *state)
 {
 	struct drm_private_state *priv_st;
 
@@ -139,16 +147,17 @@ static struct linlondp_component_state *linlondp_component_get_old_state(
  * CRTC. if the pipeline is busy (assigned to another CRTC), even the required
  * component is free, the component still cannot be assigned to the direct user.
  */
-static struct linlondp_component_state *linlondp_component_get_state_and_set_user(
-		struct linlondp_component *c, struct drm_atomic_state *state,
-		void *user, struct drm_crtc *crtc)
+static struct linlondp_component_state *
+linlondp_component_get_state_and_set_user(struct linlondp_component *c,
+					  struct drm_atomic_state *state,
+					  void *user, struct drm_crtc *crtc)
 {
 	struct linlondp_pipeline_state *pipe_st;
 	struct linlondp_component_state *st;
 
 	/* First check if the pipeline is available */
-	pipe_st = linlondp_pipeline_get_state_and_set_crtc(c->pipeline,
-							   state, crtc);
+	pipe_st = linlondp_pipeline_get_state_and_set_crtc(c->pipeline, state,
+							   crtc);
 	if (IS_ERR(pipe_st))
 		return ERR_CAST(pipe_st);
 
@@ -205,9 +214,9 @@ linlondp_component_check_input(struct linlondp_component_state *state,
 	}
 
 	if (has_bit(idx, state->active_inputs)) {
-		DRM_DEBUG_ATOMIC
-		    ("%s required %s-input[%d] has been occupied already.\n",
-		     input->component->name, c->name, idx);
+		DRM_DEBUG_ATOMIC(
+			"%s required %s-input[%d] has been occupied already.\n",
+			input->component->name, c->name, idx);
 		return -EINVAL;
 	}
 
@@ -239,8 +248,9 @@ linlondp_component_validate_private(struct linlondp_component *c,
 }
 
 /* Get current available scaler from the component->supported_outputs */
-static struct linlondp_scaler *linlondp_component_get_avail_scaler(
-		struct linlondp_component *c, struct drm_atomic_state *state)
+static struct linlondp_scaler *
+linlondp_component_get_avail_scaler(struct linlondp_component *c,
+				    struct drm_atomic_state *state)
 {
 	struct linlondp_pipeline_state *pipe_st;
 	u32 avail_scalers;
@@ -250,15 +260,15 @@ static struct linlondp_scaler *linlondp_component_get_avail_scaler(
 		return NULL;
 
 	avail_scalers = (pipe_st->active_comps & LINLONDP_PIPELINE_SCALERS) ^
-	    LINLONDP_PIPELINE_SCALERS;
+			LINLONDP_PIPELINE_SCALERS;
 
 	c = linlondp_component_pickup_output(c, avail_scalers);
 
 	return to_scaler(c);
 }
 
-static void
-linlondp_rotate_data_flow(struct linlondp_data_flow_cfg *dflow, u32 rot)
+static void linlondp_rotate_data_flow(struct linlondp_data_flow_cfg *dflow,
+				      u32 rot)
 {
 	if (drm_rotation_90_or_270(rot)) {
 		swap(dflow->in_h, dflow->in_w);
@@ -266,11 +276,9 @@ linlondp_rotate_data_flow(struct linlondp_data_flow_cfg *dflow, u32 rot)
 	}
 }
 
-static int
-linlondp_validate_plane_color(struct linlondp_component *c,
-			      struct linlondp_color_manager *color_mgr,
-			      struct linlondp_color_state *color_st,
-			      struct drm_plane_state *plane_st)
+static int linlondp_validate_plane_color(
+	struct linlondp_component *c, struct linlondp_color_manager *color_mgr,
+	struct linlondp_color_state *color_st, struct drm_plane_state *plane_st)
 {
 	struct linlondp_plane_state *kplane_st = to_kplane_st(plane_st);
 	struct linlondp_component_state *old_st;
@@ -293,10 +301,9 @@ linlondp_validate_plane_color(struct linlondp_component *c,
 	return err;
 }
 
-static int
-linlondp_layer_check_cfg(struct linlondp_layer *layer,
-			 struct linlondp_fb *kfb,
-			 struct linlondp_data_flow_cfg *dflow)
+static int linlondp_layer_check_cfg(struct linlondp_layer *layer,
+				    struct linlondp_fb *kfb,
+				    struct linlondp_data_flow_cfg *dflow)
 {
 	u32 src_x, src_y, src_w, src_h;
 	u32 line_sz, max_line_sz;
@@ -340,19 +347,18 @@ linlondp_layer_check_cfg(struct linlondp_layer *layer,
 		max_line_sz = layer->line_sz;
 
 	if (line_sz > max_line_sz) {
-		DRM_DEBUG_ATOMIC
-		    ("Required line_sz: %d exceeds the max size %d\n", line_sz,
-		     max_line_sz);
+		DRM_DEBUG_ATOMIC(
+			"Required line_sz: %d exceeds the max size %d\n",
+			line_sz, max_line_sz);
 		return -EINVAL;
 	}
 
 	return 0;
 }
 
-static int
-linlondp_layer_validate(struct linlondp_layer *layer,
-			struct linlondp_plane_state *kplane_st,
-			struct linlondp_data_flow_cfg *dflow)
+static int linlondp_layer_validate(struct linlondp_layer *layer,
+				   struct linlondp_plane_state *kplane_st,
+				   struct linlondp_data_flow_cfg *dflow)
 {
 	struct drm_plane_state *plane_st = &kplane_st->base;
 	struct drm_framebuffer *fb = plane_st->fb;
@@ -365,8 +371,8 @@ linlondp_layer_validate(struct linlondp_layer *layer,
 	if (err)
 		return err;
 
-	c_st = linlondp_component_get_state_and_set_user(&layer->base,
-			plane_st->state, plane_st->plane, plane_st->crtc);
+	c_st = linlondp_component_get_state_and_set_user(
+		&layer->base, plane_st->state, plane_st->plane, plane_st->crtc);
 	if (IS_ERR(c_st))
 		return PTR_ERR(c_st);
 
@@ -415,10 +421,9 @@ linlondp_layer_validate(struct linlondp_layer *layer,
 	return 0;
 }
 
-static int
-linlondp_wb_layer_validate(struct linlondp_layer *wb_layer,
-			   struct drm_connector_state *conn_st,
-			   struct linlondp_data_flow_cfg *dflow)
+static int linlondp_wb_layer_validate(struct linlondp_layer *wb_layer,
+				      struct drm_connector_state *conn_st,
+				      struct linlondp_data_flow_cfg *dflow)
 {
 	struct linlondp_fb *kfb = to_kfb(conn_st->writeback_job->fb);
 	struct linlondp_component_state *c_st;
@@ -451,8 +456,8 @@ linlondp_wb_layer_validate(struct linlondp_layer *wb_layer,
 	return 0;
 }
 
-static bool scaling_ratio_valid(u32 size_in, u32 size_out,
-				u32 max_upscaling, u32 max_downscaling)
+static bool scaling_ratio_valid(u32 size_in, u32 size_out, u32 max_upscaling,
+				u32 max_downscaling)
 {
 	if (size_out > size_in * max_upscaling)
 		return false;
@@ -461,10 +466,9 @@ static bool scaling_ratio_valid(u32 size_in, u32 size_out,
 	return true;
 }
 
-static int
-linlondp_scaler_check_cfg(struct linlondp_scaler *scaler,
-			  struct linlondp_crtc_state *kcrtc_st,
-			  struct linlondp_data_flow_cfg *dflow)
+static int linlondp_scaler_check_cfg(struct linlondp_scaler *scaler,
+				     struct linlondp_crtc_state *kcrtc_st,
+				     struct linlondp_data_flow_cfg *dflow)
 {
 	u32 hsize_in, vsize_in, hsize_out, vsize_out;
 	u32 max_upscaling;
@@ -505,26 +509,27 @@ linlondp_scaler_check_cfg(struct linlondp_scaler *scaler,
 		DRM_DEBUG_ATOMIC("Invalid vertical scaling ratio");
 		return -EINVAL;
 	}
+
 	//FIXME
 	if (hsize_in > hsize_out || vsize_in > vsize_out) {
 		struct linlondp_pipeline *pipe = scaler->base.pipeline;
 		int err;
 
-		err = pipe->funcs->downscaling_clk_check(pipe, &kcrtc_st->base.adjusted_mode,
-				linlondp_crtc_get_aclk(kcrtc_st), dflow);
+		err = pipe->funcs->downscaling_clk_check(
+			pipe, &kcrtc_st->base.adjusted_mode,
+			linlondp_crtc_get_aclk(kcrtc_st), dflow);
 		if (err) {
-			DRM_DEBUG_ATOMIC
-			    ("aclk can't satisfy the clock requirement of the downscaling\n");
+			DRM_DEBUG_ATOMIC(
+				"aclk can't satisfy the clock requirement of the downscaling\n");
 			return err;
 		}
 	}
 	return 0;
 }
 
-static int
-linlondp_scaler_validate(void *user,
-			 struct linlondp_crtc_state *kcrtc_st,
-			 struct linlondp_data_flow_cfg *dflow)
+static int linlondp_scaler_validate(void *user,
+				    struct linlondp_crtc_state *kcrtc_st,
+				    struct linlondp_data_flow_cfg *dflow)
 {
 	struct drm_atomic_state *drm_st = kcrtc_st->base.state;
 	struct linlondp_component_state *c_st;
@@ -546,9 +551,8 @@ linlondp_scaler_validate(void *user,
 	if (err)
 		return err;
 
-	c_st = linlondp_component_get_state_and_set_user(&scaler->base,
-							 drm_st, user,
-							 kcrtc_st->base.crtc);
+	c_st = linlondp_component_get_state_and_set_user(
+		&scaler->base, drm_st, user, kcrtc_st->base.crtc);
 	if (IS_ERR(c_st))
 		return PTR_ERR(c_st);
 
@@ -581,12 +585,11 @@ static void linlondp_split_data_flow(struct linlondp_scaler *scaler,
 				     struct linlondp_data_flow_cfg *l_dflow,
 				     struct linlondp_data_flow_cfg *r_dflow);
 
-static int
-linlondp_splitter_validate(struct linlondp_splitter *splitter,
-			   struct drm_connector_state *conn_st,
-			   struct linlondp_data_flow_cfg *dflow,
-			   struct linlondp_data_flow_cfg *l_output,
-			   struct linlondp_data_flow_cfg *r_output)
+static int linlondp_splitter_validate(struct linlondp_splitter *splitter,
+				      struct drm_connector_state *conn_st,
+				      struct linlondp_data_flow_cfg *dflow,
+				      struct linlondp_data_flow_cfg *l_output,
+				      struct linlondp_data_flow_cfg *r_output)
 {
 	struct linlondp_component_state *c_st;
 	struct linlondp_splitter_state *st;
@@ -597,16 +600,16 @@ linlondp_splitter_validate(struct linlondp_splitter *splitter,
 	}
 
 	if (!linlon_in_range(&splitter->hsize, dflow->in_w)) {
-		DRM_DEBUG_ATOMIC
-		    ("split in_w:%d is out of the acceptable range.\n",
-		     dflow->in_w);
+		DRM_DEBUG_ATOMIC(
+			"split in_w:%d is out of the acceptable range.\n",
+			dflow->in_w);
 		return -EINVAL;
 	}
 
 	if (!linlon_in_range(&splitter->vsize, dflow->in_h)) {
-		DRM_DEBUG_ATOMIC
-		    ("split in_h: %d exceeds the acceptable range.\n",
-		     dflow->in_h);
+		DRM_DEBUG_ATOMIC(
+			"split in_h: %d exceeds the acceptable range.\n",
+			dflow->in_h);
 		return -EINVAL;
 	}
 
@@ -618,8 +621,8 @@ linlondp_splitter_validate(struct linlondp_splitter *splitter,
 	if (IS_ERR(c_st))
 		return PTR_ERR(c_st);
 
-	linlondp_split_data_flow(splitter->base.pipeline->scalers[0],
-				 dflow, l_output, r_output);
+	linlondp_split_data_flow(splitter->base.pipeline->scalers[0], dflow,
+				 l_output, r_output);
 
 	st = to_splitter_st(c_st);
 	st->hsize = dflow->in_w;
@@ -633,13 +636,11 @@ linlondp_splitter_validate(struct linlondp_splitter *splitter,
 	return 0;
 }
 
-static int
-linlondp_merger_validate(struct linlondp_merger *merger,
-			 void *user,
-			 struct linlondp_crtc_state *kcrtc_st,
-			 struct linlondp_data_flow_cfg *left_input,
-			 struct linlondp_data_flow_cfg *right_input,
-			 struct linlondp_data_flow_cfg *output)
+static int linlondp_merger_validate(struct linlondp_merger *merger, void *user,
+				    struct linlondp_crtc_state *kcrtc_st,
+				    struct linlondp_data_flow_cfg *left_input,
+				    struct linlondp_data_flow_cfg *right_input,
+				    struct linlondp_data_flow_cfg *output)
 {
 	struct linlondp_component_state *c_st;
 	struct linlondp_merger_state *st;
@@ -681,24 +682,24 @@ linlondp_merger_validate(struct linlondp_merger *merger,
 	return err;
 }
 
-void cix_pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
-	bool side_by_side, u16 *hsize, u16 *vsize, bool is_overlap)
+void pipeline_composition_size(struct linlondp_crtc_state *kcrtc_st,
+			       bool side_by_side, u16 *hsize, u16 *vsize,
+			       bool is_overlap)
 {
 	struct linlondp_crtc *kcrtc = to_kcrtc(kcrtc_st->base.crtc);
 	struct drm_display_mode *m = &kcrtc_st->base.adjusted_mode;
 	u16 overlap = is_overlap ? kcrtc->sbs_overlap : 0;
 
 	if (hsize)
-		*hsize = side_by_side ?
-		    (overlap + (m->hdisplay / 2)) : m->hdisplay;
+		*hsize = side_by_side ? (overlap + (m->hdisplay / 2)) :
+					m->hdisplay;
 	if (vsize)
 		*vsize = m->vdisplay;
 }
 
-static int
-linlondp_compiz_set_input(struct linlondp_compiz *compiz,
-			struct linlondp_crtc_state *kcrtc_st,
-			struct linlondp_data_flow_cfg *dflow)
+static int linlondp_compiz_set_input(struct linlondp_compiz *compiz,
+				     struct linlondp_crtc_state *kcrtc_st,
+				     struct linlondp_data_flow_cfg *dflow)
 {
 	struct drm_atomic_state *drm_st = kcrtc_st->base.state;
 	struct drm_crtc *crtc = kcrtc_st->base.crtc;
@@ -707,15 +708,16 @@ linlondp_compiz_set_input(struct linlondp_compiz *compiz,
 	u16 compiz_w, compiz_h;
 	int idx = dflow->blending_zorder;
 
-	cix_pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
+	pipeline_composition_size(kcrtc_st, to_kcrtc(crtc)->side_by_side,
 				  &compiz_w, &compiz_h, true);
 	/* check display rect */
 	//FIXME
 	//if ((dflow->out_x + dflow->out_w  - dflow->left_crop > compiz_w) ||
 	if ((dflow->out_x + dflow->out_w - dflow->left_crop -
-	     dflow->right_crop > compiz_w)
-	    || (dflow->out_y + dflow->out_h > compiz_h) || dflow->out_w == 0
-	    || dflow->out_h == 0) {
+		     dflow->right_crop >
+	     compiz_w) ||
+	    (dflow->out_y + dflow->out_h > compiz_h) || dflow->out_w == 0 ||
+	    dflow->out_h == 0) {
 		DRM_DEBUG_ATOMIC("invalid disp rect [x=%d, y=%d, w=%d, h=%d]\n",
 				 dflow->out_x, dflow->out_y, dflow->out_w,
 				 dflow->out_h);
@@ -736,7 +738,7 @@ linlondp_compiz_set_input(struct linlondp_compiz *compiz,
 	//FIXME
 	if (to_kcrtc(crtc)->side_by_side)
 		cin->hsize =
-		    dflow->out_w - dflow->left_crop - dflow->right_crop;
+			dflow->out_w - dflow->left_crop - dflow->right_crop;
 	else
 		cin->hsize = dflow->out_w;
 	cin->vsize = dflow->out_h;
@@ -758,10 +760,9 @@ linlondp_compiz_set_input(struct linlondp_compiz *compiz,
 	return 0;
 }
 
-static int
-linlondp_compiz_validate(struct linlondp_compiz *compiz,
-			 struct linlondp_crtc_state *state,
-			 struct linlondp_data_flow_cfg *dflow)
+static int linlondp_compiz_validate(struct linlondp_compiz *compiz,
+				    struct linlondp_crtc_state *state,
+				    struct linlondp_data_flow_cfg *dflow)
 {
 	struct drm_crtc *crtc = state->base.crtc;
 	struct linlondp_component_state *c_st;
@@ -776,7 +777,7 @@ linlondp_compiz_validate(struct linlondp_compiz *compiz,
 
 	st = to_compiz_st(c_st);
 
-	cix_pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
+	pipeline_composition_size(state, to_kcrtc(crtc)->side_by_side,
 				  &st->hsize, &st->vsize, true);
 
 	linlondp_component_set_output(&dflow->input, &compiz->base, 0);
@@ -800,20 +801,18 @@ linlondp_compiz_validate(struct linlondp_compiz *compiz,
 	return 0;
 }
 
-static int
-linlondp_improc_validate(struct linlondp_improc *improc,
-			 struct linlondp_crtc_state *kcrtc_st,
-			 struct linlondp_data_flow_cfg *m_dflow,
-			 struct linlondp_data_flow_cfg *s_dflow)
+static int linlondp_improc_validate(struct linlondp_improc *improc,
+				    struct linlondp_crtc_state *kcrtc_st,
+				    struct linlondp_data_flow_cfg *m_dflow,
+				    struct linlondp_data_flow_cfg *s_dflow)
 {
 	struct drm_crtc *crtc = kcrtc_st->base.crtc;
 	struct drm_crtc_state *crtc_st = &kcrtc_st->base;
 	struct linlondp_component_state *c_st;
 	struct linlondp_improc_state *st;
 
-	c_st = linlondp_component_get_state_and_set_user(&improc->base,
-							 kcrtc_st->base.state,
-							 crtc, crtc);
+	c_st = linlondp_component_get_state_and_set_user(
+		&improc->base, kcrtc_st->base.state, crtc, crtc);
 	if (IS_ERR(c_st))
 		return PTR_ERR(c_st);
 
@@ -831,36 +830,40 @@ linlondp_improc_validate(struct linlondp_improc *improc,
 
 		avail_depths = output_depths & improc->supported_color_depths;
 		if (avail_depths == 0) {
-			DRM_DEBUG_ATOMIC
-			    ("No available color depths, conn depths: 0x%x & display: 0x%x\n",
-			     output_depths, improc->supported_color_depths);
+			DRM_DEBUG_ATOMIC(
+				"No available color depths, conn depths: 0x%x & display: 0x%x\n",
+				output_depths, improc->supported_color_depths);
 			return -EINVAL;
 		}
 
 		avail_formats = output_formats &
-		    improc->supported_color_formats;
+				improc->supported_color_formats;
 		if (!avail_formats) {
-			DRM_DEBUG_ATOMIC
-			    ("No available color_formats, conn formats 0x%x & display: 0x%x\n",
-			     output_formats, improc->supported_color_formats);
+			DRM_DEBUG_ATOMIC(
+				"No available color_formats, conn formats 0x%x & display: 0x%x\n",
+				output_formats,
+				improc->supported_color_formats);
 			return -EINVAL;
 		}
 
 		st->color_depth = __fls(avail_depths);
 		st->color_format = BIT(__ffs(avail_formats));
 
+		if (kcrtc_st->output_format)
+			st->color_format = kcrtc_st->output_format;
+
 		if ((st->color_format == DRM_COLOR_FORMAT_YCBCR420) &&
-		    (improc->base.pipeline->pixelPerClk != 1)) {
-			DRM_DEBUG_ATOMIC
-			    ("420 with non-1ppc out is not supported\n");
+		    (improc->base.pipeline->pixel_per_cycle != 1)) {
+			DRM_DEBUG_ATOMIC(
+				"420 with non-1ppc out is not supported\n");
 			return -EINVAL;
 		}
 	}
 
 	if (kcrtc_st->base.color_mgmt_changed) {
-		cix_drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
+		drm_lut_to_fgamma_coeffs(kcrtc_st->base.gamma_lut,
 					 st->fgamma_coeffs);
-		cix_drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
+		drm_ctm_to_coeffs(kcrtc_st->base.ctm, st->ctm_coeffs);
 	}
 
 	linlondp_component_add_input(&st->base, &m_dflow->input, 0);
@@ -871,19 +874,17 @@ linlondp_improc_validate(struct linlondp_improc *improc,
 	return 0;
 }
 
-static int
-linlondp_timing_ctrlr_validate(struct linlondp_timing_ctrlr *ctrlr,
-			       struct linlondp_crtc_state *kcrtc_st,
-			       struct linlondp_data_flow_cfg *dflow,
-			       bool image_merged)
+static int linlondp_timing_ctrlr_validate(struct linlondp_timing_ctrlr *ctrlr,
+					  struct linlondp_crtc_state *kcrtc_st,
+					  struct linlondp_data_flow_cfg *dflow,
+					  bool image_merged)
 {
 	struct drm_crtc *crtc = kcrtc_st->base.crtc;
 	struct linlondp_timing_ctrlr_state *st;
 	struct linlondp_component_state *c_st;
 
-	c_st = linlondp_component_get_state_and_set_user(&ctrlr->base,
-							 kcrtc_st->base.state,
-							 crtc, crtc);
+	c_st = linlondp_component_get_state_and_set_user(
+		&ctrlr->base, kcrtc_st->base.state, crtc, crtc);
 	if (IS_ERR(c_st))
 		return PTR_ERR(c_st);
 
@@ -920,20 +921,20 @@ void linlondp_complete_data_flow_cfg(struct linlondp_layer *layer,
 
 	/* try to enable image enhancer if data flow is a 2x+ upscaling */
 	dflow->en_img_enhancement = dflow->out_w >= 2 * w ||
-	    dflow->out_h >= 2 * h;
+				    dflow->out_h >= 2 * h;
 	/* try to enable split if scaling exceed the scaler's acceptable
 	 * input/output range.
 	 */
 	if (dflow->en_scaling && scaler)
-		dflow->en_split = !linlon_in_range(&scaler->hsize, dflow->in_w)
-		    || !linlon_in_range(&scaler->hsize, dflow->out_w);
+		dflow->en_split = !linlon_in_range(&scaler->hsize, dflow->in_w) ||
+				  !linlon_in_range(&scaler->hsize, dflow->out_w);
 }
 
 static bool merger_is_available(struct linlondp_pipeline *pipe,
 				struct linlondp_data_flow_cfg *dflow)
 {
-	u32 avail_inputs = pipe->merger ?
-	    pipe->merger->base.supported_inputs : 0;
+	u32 avail_inputs = pipe->merger ? pipe->merger->base.supported_inputs :
+					  0;
 
 	return has_bit(dflow->input.component->id, avail_inputs);
 }
@@ -947,11 +948,11 @@ int linlondp_build_layer_data_flow(struct linlondp_layer *layer,
 	struct linlondp_pipeline *pipe = layer->base.pipeline;
 	int err;
 
-	DRM_DEBUG_ATOMIC
-	    ("%s handling [PLANE:%d:%s]: src[x/y:%d/%d, w/h:%d/%d] disp[x/y:%d/%d, w/h:%d/%d]",
-	     layer->base.name, plane->base.id, plane->name, dflow->in_x,
-	     dflow->in_y, dflow->in_w, dflow->in_h, dflow->out_x, dflow->out_y,
-	     dflow->out_w, dflow->out_h);
+	DRM_DEBUG_ATOMIC(
+		"%s handling [PLANE:%d:%s]: src[x/y:%d/%d, w/h:%d/%d] disp[x/y:%d/%d, w/h:%d/%d]",
+		layer->base.name, plane->base.id, plane->name, dflow->in_x,
+		dflow->in_y, dflow->in_w, dflow->in_h, dflow->out_x,
+		dflow->out_y, dflow->out_w, dflow->out_h);
 
 	err = linlondp_layer_validate(layer, kplane_st, dflow);
 	if (err)
@@ -971,7 +972,7 @@ int linlondp_build_layer_data_flow(struct linlondp_layer *layer,
 }
 
 /*
- * Split is introduced for workaround scaler's input/output size limitation.
+ * Split is introduced for fix scaler's input/output size limitation.
  * The idea is simple, if one scaler can not fit the requirement, use two.
  * So split splits the big source image to two half parts (left/right) and do
  * the scaling by two scaler separately and independently.
@@ -1041,12 +1042,12 @@ static void linlondp_split_data_flow(struct linlondp_scaler *scaler,
 	if (r90) {
 		if (dflow->en_scaling) {
 			l_dflow->in_h =
-			    ALIGN(dflow->in_h, 2) / 2 + l_dflow->overlap;
+				ALIGN(dflow->in_h, 2) / 2 + l_dflow->overlap;
 			r_dflow->in_h = l_dflow->in_h;
 		} else if (dflow->en_img_enhancement) {
 			/* enhancer only */
 			l_dflow->in_h =
-			    ALIGN(dflow->in_h, 2) / 2 + l_dflow->overlap;
+				ALIGN(dflow->in_h, 2) / 2 + l_dflow->overlap;
 			r_dflow->in_h = dflow->in_h / 2 + r_dflow->overlap;
 		} else {
 			/* split without scaler, no overlap */
@@ -1068,18 +1069,18 @@ static void linlondp_split_data_flow(struct linlondp_scaler *scaler,
 
 		if (flip_h)
 			l_dflow->in_y =
-			    dflow->in_y + dflow->in_h - l_dflow->in_h;
+				dflow->in_y + dflow->in_h - l_dflow->in_h;
 		else
 			r_dflow->in_y =
-			    dflow->in_y + dflow->in_h - r_dflow->in_h;
+				dflow->in_y + dflow->in_h - r_dflow->in_h;
 	} else {
 		if (dflow->en_scaling) {
 			l_dflow->in_w =
-			    ALIGN(dflow->in_w, 2) / 2 + l_dflow->overlap;
+				ALIGN(dflow->in_w, 2) / 2 + l_dflow->overlap;
 			r_dflow->in_w = l_dflow->in_w;
 		} else if (dflow->en_img_enhancement) {
 			l_dflow->in_w =
-			    ALIGN(dflow->in_w, 2) / 2 + l_dflow->overlap;
+				ALIGN(dflow->in_w, 2) / 2 + l_dflow->overlap;
 			r_dflow->in_w = dflow->in_w / 2 + r_dflow->overlap;
 		} else {
 			l_dflow->in_w = ALIGN(((dflow->in_w + 1) >> 1), 2);
@@ -1095,10 +1096,10 @@ static void linlondp_split_data_flow(struct linlondp_scaler *scaler,
 		/* on flip_h, the left display content from the right-source */
 		if (flip_h)
 			l_dflow->in_x =
-			    dflow->in_w + dflow->in_x - l_dflow->in_w;
+				dflow->in_w + dflow->in_x - l_dflow->in_w;
 		else
 			r_dflow->in_x =
-			    dflow->in_w + dflow->in_x - r_dflow->in_w;
+				dflow->in_w + dflow->in_x - r_dflow->in_w;
 	}
 
 	/* split the disp_rect */
@@ -1168,19 +1169,21 @@ int linlondp_build_layer_split_data_flow(struct linlondp_layer *left,
 
 	linlondp_split_data_flow(pipe->scalers[0], dflow, &l_dflow, &r_dflow);
 
-	DRM_DEBUG_ATOMIC(
-	"Assign %s + %s to [PLANE:%d:%s]:src[x/y:%d/%d, w/h:%d/%d] disp[x/y:%d/%d, w/h:%d/%d]",
-			left->base.name, right->base.name,
-			plane->base.id, plane->name,
-			dflow->in_x, dflow->in_y, dflow->in_w, dflow->in_h,
-			dflow->out_x, dflow->out_y, dflow->out_w,
-			dflow->out_h);
+	DRM_DEBUG_ATOMIC("Assign %s + %s to [PLANE:%d:%s]: ",
+			 left->base.name, right->base.name,
+			 plane->base.id, plane->name);
 
-	err = linlondp_build_layer_data_flow(left, kplane_st, kcrtc_st, &l_dflow);
+	DRM_DEBUG_ATOMIC("src[x/y:%d/%d, w/h:%d/%d] disp[x/y:%d/%d, w/h:%d/%d]",
+			 dflow->in_x, dflow->in_y, dflow->in_w, dflow->in_h,
+			 dflow->out_x, dflow->out_y, dflow->out_w, dflow->out_h);
+
+	err = linlondp_build_layer_data_flow(left, kplane_st, kcrtc_st,
+					     &l_dflow);
 	if (err)
 		return err;
 
-	err = linlondp_build_layer_data_flow(right, kplane_st, kcrtc_st, &r_dflow);
+	err = linlondp_build_layer_data_flow(right, kplane_st, kcrtc_st,
+					     &r_dflow);
 	if (err)
 		return err;
 
@@ -1194,8 +1197,8 @@ int linlondp_build_layer_split_data_flow(struct linlondp_layer *left,
 		return 0;
 
 	/* line merger path */
-	err = linlondp_merger_validate(pipe->merger, plane, kcrtc_st,
-				       &l_dflow, &r_dflow, dflow);
+	err = linlondp_merger_validate(pipe->merger, plane, kcrtc_st, &l_dflow,
+				       &r_dflow, dflow);
 	if (err)
 		return err;
 
@@ -1223,7 +1226,7 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 	u32 disp_end = master->out_x + master->out_w;
 	u16 boundary;
 
-	cix_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
 
 	if (disp_end <= boundary) {
 		/* the master viewport only located in master side, no need
@@ -1244,19 +1247,19 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 
 #ifdef SBS_NO_OVERLAP_SCALING
 		if (master->en_scaling || master->en_img_enhancement) {
-			DRM_DEBUG_ATOMIC
-			    ("sbs doesn't support to split a scaling image.\n");
+			DRM_DEBUG_ATOMIC(
+				"sbs doesn't support to split a scaling image.\n");
 			return -EINVAL;
 		}
 #else
 		master->overlap = 0;
 		if (master->en_scaling) {
 			master->overlap +=
-			    kcrtc->master->scalers[0]->scaling_split_overlap;
+				kcrtc->master->scalers[0]->scaling_split_overlap;
 		}
 		if (master->en_img_enhancement) {
 			master->overlap +=
-			    kcrtc->master->scalers[0]->enh_split_overlap;
+				kcrtc->master->scalers[0]->enh_split_overlap;
 		}
 #endif
 
@@ -1268,8 +1271,8 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 		slave->out_w = disp_end - boundary;
 		slave->out_x = 0;
 
-		/*When overlap is needed, ensure we don't fetch outside of the
-		 *layer when adding the overlap
+		/* When overlap is needed, ensure we don't fetch outside of the
+		 * layer when adding the overlap
 		 */
 		master_valid_w = master->out_w;
 		slave_valid_w = slave->out_w;
@@ -1293,16 +1296,16 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 #else
 			h_scaling_ratio = master->total_out_w * 1000 / src_w;
 			master->in_w =
-			    src_w * master->out_w / master->total_out_w;
+				src_w * master->out_w / master->total_out_w;
 			slave->in_w = src_w - master->in_w;
 
 			master->in_w += master->overlap;
 			slave->in_w += slave->overlap;
 
 			master->right_crop =
-			    master->overlap * h_scaling_ratio / 1000;
+				master->overlap * h_scaling_ratio / 1000;
 			slave->left_crop =
-			    master->overlap * h_scaling_ratio / 1000;
+				master->overlap * h_scaling_ratio / 1000;
 			master->left_crop = 0;
 			slave->right_crop = 0;
 			master->out_w += master->right_crop;
@@ -1315,7 +1318,6 @@ linlondp_split_sbs_master_data_flow(struct linlondp_crtc_state *kcrtc_st,
 				master->in_x = src_w + src_x - master->in_w;
 			else
 				slave->in_x = src_w + src_x - slave->in_w;
-
 		}
 	} else if (master->out_x >= boundary) {
 		/* disp_rect only locate in right part, move the dflow to slave */
@@ -1333,11 +1335,11 @@ linlondp_split_sbs_slave_data_flow(struct linlondp_crtc_state *kcrtc_st,
 {
 	u16 boundary;
 
-	cix_pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
+	pipeline_composition_size(kcrtc_st, true, &boundary, NULL, false);
 
 	if (slave->out_x < boundary) {
-		DRM_DEBUG_ATOMIC
-		    ("SBS Slave plane is only allowed to configure the right part frame.\n");
+		DRM_DEBUG_ATOMIC(
+			"SBS Slave plane is only allowed to configure the right part frame.\n");
 		return -EINVAL;
 	}
 
@@ -1389,18 +1391,16 @@ int linlondp_build_layer_sbs_data_flow(struct linlondp_layer *layer,
 	int err;
 
 	DRM_DEBUG_ATOMIC("SBS prepare %s-[PLANE:%d:%s]: %s.\n",
-			 master_plane ? "Master" : "Slave",
-			 plane->base.id, plane->name,
-			 linlondp_data_flow_msg(dflow));
+			 master_plane ? "Master" : "Slave", plane->base.id,
+			 plane->name, linlondp_data_flow_msg(dflow));
 
 	if (master_plane) {
 		master = layer;
 		slave = layer->sbs_slave;
 		master_dflow = dflow;
 		slave_dflow = &temp;
-		err = linlondp_split_sbs_master_data_flow(kcrtc_st,
-							  &master_dflow,
-							  &slave_dflow);
+		err = linlondp_split_sbs_master_data_flow(
+			kcrtc_st, &master_dflow, &slave_dflow);
 	} else {
 		master = NULL;
 		slave = layer;
@@ -1418,15 +1418,11 @@ int linlondp_build_layer_sbs_data_flow(struct linlondp_layer *layer,
 				 linlondp_data_flow_msg(master_dflow));
 
 		if (master_dflow->en_split)
-			err = linlondp_build_layer_split_data_flow(master,
-								   kplane_st,
-								   kcrtc_st,
-								   master_dflow);
+			err = linlondp_build_layer_split_data_flow(
+				master, kplane_st, kcrtc_st, master_dflow);
 		else
-			err = linlondp_build_layer_data_flow(master,
-							     kplane_st,
-							     kcrtc_st,
-							     master_dflow);
+			err = linlondp_build_layer_data_flow(
+				master, kplane_st, kcrtc_st, master_dflow);
 
 		if (err)
 			return err;
@@ -1438,15 +1434,11 @@ int linlondp_build_layer_sbs_data_flow(struct linlondp_layer *layer,
 				 linlondp_data_flow_msg(slave_dflow));
 
 		if (slave_dflow->en_split)
-			err = linlondp_build_layer_split_data_flow(slave,
-								   kplane_st,
-								   kcrtc_st,
-								   slave_dflow);
+			err = linlondp_build_layer_split_data_flow(
+				slave, kplane_st, kcrtc_st, slave_dflow);
 		else
-			err = linlondp_build_layer_data_flow(slave,
-							     kplane_st,
-							     kcrtc_st,
-							     slave_dflow);
+			err = linlondp_build_layer_data_flow(
+				slave, kplane_st, kcrtc_st, slave_dflow);
 		if (err)
 			return err;
 	}
@@ -1485,8 +1477,8 @@ int linlondp_build_wb_split_data_flow(struct linlondp_layer *wb_layer,
 	struct linlondp_data_flow_cfg l_dflow, r_dflow;
 	int err;
 
-	err = linlondp_splitter_validate(pipe->splitter, conn_st,
-					 dflow, &l_dflow, &r_dflow);
+	err = linlondp_splitter_validate(pipe->splitter, conn_st, dflow,
+					 &l_dflow, &r_dflow);
 	if (err)
 		return err;
 	err = linlondp_scaler_validate(conn, kcrtc_st, &l_dflow);
@@ -1555,8 +1547,8 @@ int linlondp_build_display_data_flow(struct linlondp_crtc *kcrtc,
 {
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct linlondp_pipeline *slave = kcrtc->slave;
-	struct linlondp_data_flow_cfg m_dflow;	/* master data flow */
-	struct linlondp_data_flow_cfg s_dflow;	/* slave data flow */
+	struct linlondp_data_flow_cfg m_dflow; /* master data flow */
+	struct linlondp_data_flow_cfg s_dflow; /* slave data flow */
 	int err;
 
 	memset(&m_dflow, 0, sizeof(m_dflow));
@@ -1567,8 +1559,8 @@ int linlondp_build_display_data_flow(struct linlondp_crtc *kcrtc,
 		/* on side by side, the slave data flows into the improc of
 		 * itself first, and then merge it into master's image processor
 		 */
-		err =
-		    linlondp_compiz_validate(slave->compiz, kcrtc_st, &s_dflow);
+		err = linlondp_compiz_validate(slave->compiz, kcrtc_st,
+					       &s_dflow);
 		if (err)
 			return err;
 
@@ -1577,8 +1569,8 @@ int linlondp_build_display_data_flow(struct linlondp_crtc *kcrtc,
 		if (err)
 			return err;
 	} else if (slave && has_bit(slave->id, kcrtc_st->active_pipes)) {
-		err =
-		    linlondp_compiz_validate(slave->compiz, kcrtc_st, &s_dflow);
+		err = linlondp_compiz_validate(slave->compiz, kcrtc_st,
+					       &s_dflow);
 		if (err)
 			return err;
 
@@ -1600,8 +1592,8 @@ int linlondp_build_display_data_flow(struct linlondp_crtc *kcrtc,
 		return err;
 
 	err = linlondp_timing_ctrlr_validate(master->ctrlr, kcrtc_st, &m_dflow,
-					     (kcrtc->side_by_side
-					      && (master->dual_link == false)));
+					     (kcrtc->side_by_side &&
+					      (master->dual_link == false)));
 	if (err)
 		return err;
 
@@ -1626,9 +1618,8 @@ linlondp_pipeline_unbound_components(struct linlondp_pipeline *pipe,
 	/* unbound all disabling component */
 	for_each_set_bit(id, &disabling_comps, 32) {
 		c = linlondp_pipeline_get_component(pipe, id);
-		c_st = linlondp_component_get_state_and_set_user(c,
-								 drm_st, NULL,
-								 new->crtc);
+		c_st = linlondp_component_get_state_and_set_user(
+			c, drm_st, NULL, new->crtc);
 		WARN_ON(IS_ERR(c_st));
 	}
 }
@@ -1680,14 +1671,14 @@ bool linlondp_pipeline_disable(struct linlondp_pipeline *pipe,
 	old = linlondp_pipeline_get_old_state(pipe, old_state);
 
 	disabling_comps = old->active_comps &
-	    (~pipe->standalone_disabled_comps);
+			  (~pipe->standalone_disabled_comps);
 	if (!disabling_comps)
 		disabling_comps = old->active_comps &
-		    pipe->standalone_disabled_comps;
+				  pipe->standalone_disabled_comps;
 
-	DRM_DEBUG_ATOMIC
-	    ("PIPE%d: active_comps: 0x%x, disabling_comps: 0x%lx.\n", pipe->id,
-	     old->active_comps, disabling_comps);
+	DRM_DEBUG_ATOMIC(
+		"PIPE%d: active_comps: 0x%x, disabling_comps: 0x%lx.\n",
+		pipe->id, old->active_comps, disabling_comps);
 
 	for_each_set_bit(id, &disabling_comps, 32) {
 		c = linlondp_pipeline_get_component(pipe, id);

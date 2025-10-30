@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-only
+#SPDX-License-Identifier: GPL-2.0-only
 config DRM_TRILIN_DPSUB
 	tristate "Trilinear Technologies DisplayPort Controller Driver"
 	depends on COMMON_CLK && DRM && OF
@@ -13,6 +13,11 @@ config DRM_TRILIN_DPSUB
 	  This is a DRM/KMS driver for Trilinear Technologies DisplayPort controller.
 	  Choose this option if you are using an SoC with a Trilinear Technologies
 	  DisplayPort subsystem.
+
+config TRILIN_DP_HDCP_VALIDATION
+	tristate "HDCP Validation for Trilinear DisplayPort on CiX platforms"
+	help
+	  Choose this if you want to validate DP HDCP on CiX Socs during presilicon
 
 config DRM_TRILIN_CADENCE_PHY
 	tristate "Trilinear DisplayPort Controller with Cadence PHY"
