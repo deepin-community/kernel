@@ -241,7 +241,7 @@ static bool linlondp_vrr_match_mode(const struct drm_display_mode *mode1,
 	return drm_mode_match(mode1, mode2,
 		DRM_MODE_MATCH_CLOCK |
 		DRM_MODE_MATCH_FLAGS |
-		DRM_MODE_MATCH_3D_FLAGS|
+		DRM_MODE_MATCH_3D_FLAGS |
 		DRM_MODE_MATCH_ASPECT_RATIO) &&
 		mode1->hdisplay == mode2->hdisplay &&
 		mode1->hsync_start == mode2->hsync_start &&
