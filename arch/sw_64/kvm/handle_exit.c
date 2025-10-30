@@ -73,6 +73,10 @@ int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		vcpu->run->exit_reason = KVM_EXIT_UNKNOWN;
 		vcpu->run->hw.hardware_exit_reason = hargs->arg0;
 		return 0;
+	case SW64_KVM_EXIT_SET_PVTIME_ST:
+		vcpu->arch.steal.base = hargs->arg0;
+		kvm_init_steal_time(vcpu);
+		return 1;
 	}
 
 	return 1;
