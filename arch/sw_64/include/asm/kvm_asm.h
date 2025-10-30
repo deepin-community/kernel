@@ -14,8 +14,8 @@
 #define SW64_KVM_EXIT_RESTART		17
 #define SW64_KVM_EXIT_APT_FAULT		18
 #define SW64_KVM_EXIT_FATAL_ERROR	22
+#define SW64_KVM_EXIT_SET_PVTIME_ST	23
 #define SW64_KVM_EXIT_DEBUG		24
-
 
 #define kvm_sw64_exception_type	\
 	{0, "HOST_INTR" },	\
@@ -28,6 +28,7 @@
 	{17, "RESTART" },	\
 	{18, "APT_FAULT" },	\
 	{22, "FATAL_ERROR" },	\
+	{23, "SET_PVTIME_ST" }, \
 	{24, "DEBUG" }
 
 
