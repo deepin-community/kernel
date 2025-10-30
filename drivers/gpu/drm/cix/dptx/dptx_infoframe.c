@@ -28,14 +28,16 @@
 #include "trilin_phy.h"
 #include "dptx_infoframe.h"
 
-#define DPTX_SDP_DB_MAX        32
-#define DPTX_MST_SOURCE_NUMBER  2
-#define DPTX_SDP_SELECT_NUMBER  7
+#define DPTX_SDP_DB_MAX 32
+#define DPTX_MST_SOURCE_NUMBER 2
+#define DPTX_SDP_SELECT_NUMBER 7
 
-static void dptx_infoframe_write_content(struct trilin_dp *dp, u32 source, u32 select, struct dp_sdp *sdp)
+static void dptx_infoframe_write_content(struct trilin_dp *dp, u32 source,
+					 u32 select, struct dp_sdp *sdp)
 {
 	int i;
-	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_DATA + TRILIN_DPTX_SOURCE_OFFSET * source;
+	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_DATA +
+			    TRILIN_DPTX_SOURCE_OFFSET * source;
 	/* Secondary-Data Packet ID = 0 */
 	trilin_dp_write(dp, CUR_REG, sdp->sdp_header.HB0);
 	/* Secondary-data Packet Type */
@@ -48,32 +50,35 @@ static void dptx_infoframe_write_content(struct trilin_dp *dp, u32 source, u32 s
 		trilin_dp_write(dp, CUR_REG, sdp->db[i]);
 }
 
-static void dptx_infoframe_select_buffer_pre(struct trilin_dp *dp, u32 source, u32 select)
+static void dptx_infoframe_select_buffer_pre(struct trilin_dp *dp, u32 source,
+					     u32 select)
 {
 	u32 curret_value;
 	const u32 CUR_REG_EANBLE = TRILIN_DPTX_SEC0_INFOFRAME_ENABLE +
-				TRILIN_DPTX_SOURCE_OFFSET * source;
+				   TRILIN_DPTX_SOURCE_OFFSET * source;
 	const u32 CUR_REG_SELECT = TRILIN_DPTX_SEC0_INFOFRAME_SELECT +
-				TRILIN_DPTX_SOURCE_OFFSET * source;
-
+				   TRILIN_DPTX_SOURCE_OFFSET * source;
 	curret_value = trilin_dp_read(dp, CUR_REG_EANBLE);
 	trilin_dp_write(dp, CUR_REG_EANBLE, (curret_value & ~(1 << select)));
 	trilin_dp_write(dp, CUR_REG_SELECT, select);
 }
 
-static void dptx_infoframe_select_buffer_end(struct trilin_dp *dp, u32 source, u32 select)
+static void dptx_infoframe_select_buffer_end(struct trilin_dp *dp, u32 source,
+					     u32 select)
 {
 	u32 curret_value;
-	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_ENABLE + TRILIN_DPTX_SOURCE_OFFSET * source;
-
+	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_ENABLE +
+			    TRILIN_DPTX_SOURCE_OFFSET * source;
 	curret_value = trilin_dp_read(dp, CUR_REG);
 	trilin_dp_write(dp, CUR_REG, (curret_value | (1 << select)));
 }
 
-static void dptx_infoframe_rate(struct trilin_dp *dp, u32 source, u32 select, u32 rate)
+static void dptx_infoframe_rate(struct trilin_dp *dp, u32 source, u32 select,
+				u32 rate)
 {
 	u32 curret_value;
-	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_RATE + TRILIN_DPTX_SOURCE_OFFSET * source;
+	const u32 CUR_REG = TRILIN_DPTX_SEC0_INFOFRAME_RATE +
+			    TRILIN_DPTX_SOURCE_OFFSET * source;
 
 	curret_value = trilin_dp_read(dp, CUR_REG);
 
@@ -95,8 +100,8 @@ static void dptx_infoframe_rate(struct trilin_dp *dp, u32 source, u32 select, u3
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void cix_infoframe_write_packet(struct trilin_dp *dp,
-		u32 source, u32 select, struct dp_sdp *sdp, u32 rate)
+void cix_infoframe_write_packet(struct trilin_dp *dp, u32 source, u32 select,
+				struct dp_sdp *sdp, u32 rate)
 {
 	if (source >= DPTX_MST_SOURCE_NUMBER)
 		return;
@@ -110,11 +115,9 @@ void cix_infoframe_write_packet(struct trilin_dp *dp,
 	dptx_infoframe_select_buffer_end(dp, source, select);
 }
 
-static void pack_avi_infoframe(
-		struct hdmi_avi_infoframe *frame,
-		enum trilin_dpsub_format format,
-		const struct drm_connector_state *conn_state
-)
+static void pack_avi_infoframe(struct hdmi_avi_infoframe *frame,
+			       enum trilin_dpsub_format format,
+			       const struct drm_connector_state *conn_state)
 {
 	hdmi_avi_infoframe_init(frame);
 
@@ -147,13 +150,12 @@ static void pack_avi_infoframe(
 	drm_hdmi_avi_infoframe_bars(frame, conn_state);
 }
 
-int cix_dptx_setup_avi_infoframe(
-		struct dp_sdp *sdp,
-		enum trilin_dpsub_format format,
-		const struct drm_connector_state *conn_state
-)
+int cix_dptx_setup_avi_infoframe(struct dp_sdp *sdp,
+				 enum trilin_dpsub_format format,
+				 const struct drm_connector_state *conn_state)
 {
-	const int infoframe_size = HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE;
+	const int infoframe_size =
+		HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE;
 	unsigned char buf[HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE];
 	struct hdmi_avi_infoframe frame;
 	size_t len;
@@ -188,14 +190,13 @@ int cix_dptx_setup_avi_infoframe(
 	 */
 	sdp->db[0] |= buf[HDMI_INFOFRAME_HEADER_SIZE];
 	sdp->db[1] |= buf[HDMI_INFOFRAME_HEADER_SIZE + 1];
-	memcpy(&sdp->db[2], &buf[HDMI_INFOFRAME_HEADER_SIZE + 2], HDMI_AVI_INFOFRAME_SIZE - 2);
+	memcpy(&sdp->db[2], &buf[HDMI_INFOFRAME_HEADER_SIZE + 2],
+	       HDMI_AVI_INFOFRAME_SIZE - 2);
 
 	return 0;
 }
 
-int cix_dptx_setup_vsc_sdp(
-		struct dp_sdp *sdp,
-		struct trilin_dp_config *config)
+int cix_dptx_setup_vsc_sdp(struct dp_sdp *sdp, struct trilin_dp_config *config)
 {
 	sdp->sdp_header.HB0 = 0;
 	sdp->sdp_header.HB1 = 0x7;
@@ -273,7 +274,7 @@ int cix_dptx_setup_vsc_sdp(
 
 	/* Dynamic Range and Component Bit Depth */
 	if (config->dynamic_range == DP_DYNAMIC_RANGE_CTA)
-		sdp->db[17] |= 0x80;  /* DB17[7] */
+		sdp->db[17] |= 0x80; /* DB17[7] */
 
 	/* Content Type */
 	sdp->db[18] = config->content_type & 0x7;
@@ -281,12 +282,13 @@ int cix_dptx_setup_vsc_sdp(
 	return 0;
 }
 
-ssize_t
-cix_dp_hdr_metadata_infoframe_sdp_pack(const struct hdmi_drm_infoframe *drm_infoframe,
-	struct dp_sdp *sdp, size_t size)
+ssize_t cix_dp_hdr_metadata_infoframe_sdp_pack(
+	const struct hdmi_drm_infoframe *drm_infoframe, struct dp_sdp *sdp,
+	size_t size)
 {
 	size_t length = sizeof(struct dp_sdp);
-	const int infoframe_size = HDMI_INFOFRAME_HEADER_SIZE + HDMI_DRM_INFOFRAME_SIZE;
+	const int infoframe_size =
+		HDMI_INFOFRAME_HEADER_SIZE + HDMI_DRM_INFOFRAME_SIZE;
 	unsigned char buf[HDMI_INFOFRAME_HEADER_SIZE + HDMI_DRM_INFOFRAME_SIZE];
 	ssize_t len;
 
@@ -302,7 +304,8 @@ cix_dp_hdr_metadata_infoframe_sdp_pack(const struct hdmi_drm_infoframe *drm_info
 	}
 
 	if (len != infoframe_size) {
-		pr_err("wrong static hdr metadata size (%d %d)\n", (int)len, infoframe_size);
+		pr_err("wrong static hdr metadata size (%d %d)\n", (int)len,
+		       infoframe_size);
 		return -ENOSPC;
 	}
 

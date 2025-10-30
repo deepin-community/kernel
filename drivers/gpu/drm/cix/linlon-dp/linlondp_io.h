@@ -25,8 +25,8 @@ static inline void linlondp_write64(u32 __iomem *base, u32 offset, u64 v)
 	writel(upper_32_bits(v), (base + (offset >> 2) + 1));
 }
 
-static inline void
-linlondp_write32_mask(u32 __iomem *base, u32 offset, u32 m, u32 v)
+static inline void linlondp_write32_mask(u32 __iomem *base, u32 offset, u32 m,
+					 u32 v)
 {
 	u32 tmp = linlondp_read32(base, offset);
 
@@ -34,9 +34,8 @@ linlondp_write32_mask(u32 __iomem *base, u32 offset, u32 m, u32 v)
 	linlondp_write32(base, offset, v | tmp);
 }
 
-static inline void
-linlondp_write_group(u32 __iomem *base, u32 offset, int num,
-		     const u32 *values)
+static inline void linlondp_write_group(u32 __iomem *base, u32 offset, int num,
+					const u32 *values)
 {
 	int i;
 

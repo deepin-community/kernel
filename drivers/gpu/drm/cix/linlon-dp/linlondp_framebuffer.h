@@ -33,12 +33,11 @@ struct linlondp_fb {
 	u32 offset_payload;
 };
 
-#define to_kfb(dfb)    container_of(dfb, struct linlondp_fb, base)
+#define to_kfb(dfb) container_of(dfb, struct linlondp_fb, base)
 
-struct drm_framebuffer *linlondp_fb_create(struct drm_device *dev,
-					   struct drm_file *file,
-					   const struct drm_mode_fb_cmd2
-					   *mode_cmd);
+struct drm_framebuffer *
+linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
+		   const struct drm_mode_fb_cmd2 *mode_cmd);
 int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb, u32 src_x,
 				 u32 src_y, u32 src_w, u32 src_h);
 dma_addr_t linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y,

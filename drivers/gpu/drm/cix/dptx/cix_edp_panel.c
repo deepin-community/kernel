@@ -131,9 +131,9 @@ static inline struct cix_edp_panel *to_cix_edp_panel(struct drm_panel *panel)
 	return container_of(panel, struct cix_edp_panel, base);
 }
 
-
-static unsigned int cix_edp_panel_get_timings_modes(struct cix_edp_panel *panel,
-						   struct drm_connector *connector)
+static unsigned int
+cix_edp_panel_get_timings_modes(struct cix_edp_panel *panel,
+				struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 	unsigned int i, num = 0;
@@ -164,8 +164,9 @@ static unsigned int cix_edp_panel_get_timings_modes(struct cix_edp_panel *panel,
 	return num;
 }
 
-static unsigned int cix_edp_panel_get_display_modes(struct cix_edp_panel *panel,
-						   struct drm_connector *connector)
+static unsigned int
+cix_edp_panel_get_display_modes(struct cix_edp_panel *panel,
+				struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 	unsigned int i, num = 0;
@@ -175,9 +176,9 @@ static unsigned int cix_edp_panel_get_display_modes(struct cix_edp_panel *panel,
 
 		mode = drm_mode_duplicate(connector->dev, m);
 		if (!mode) {
-			dev_err(panel->base.dev, "failed to add mode %ux%u@%u\n",
-				m->hdisplay, m->vdisplay,
-				drm_mode_vrefresh(m));
+			dev_err(panel->base.dev,
+				"failed to add mode %ux%u@%u\n", m->hdisplay,
+				m->vdisplay, drm_mode_vrefresh(m));
 			continue;
 		}
 
@@ -196,7 +197,7 @@ static unsigned int cix_edp_panel_get_display_modes(struct cix_edp_panel *panel,
 }
 
 static int cix_edp_panel_get_non_edid_modes(struct cix_edp_panel *panel,
-					   struct drm_connector *connector)
+					    struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
 	bool has_override = panel->override_mode.type;
@@ -212,7 +213,8 @@ static int cix_edp_panel_get_non_edid_modes(struct cix_edp_panel *panel,
 			drm_mode_probed_add(connector, mode);
 			num = 1;
 		} else {
-			dev_err(panel->base.dev, "failed to add override mode\n");
+			dev_err(panel->base.dev,
+				"failed to add override mode\n");
 		}
 	}
 
@@ -307,7 +309,8 @@ static int cix_edp_panel_unprepare(struct drm_panel *panel)
 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
 
 	if (!p->prepared) {
-		dev_info(panel->dev, "%s, panel has been unprepared\n", __func__);
+		dev_info(panel->dev, "%s, panel has been unprepared\n",
+			 __func__);
 		return 0;
 	}
 
@@ -329,7 +332,7 @@ static int cix_edp_panel_unprepare(struct drm_panel *panel)
 }
 
 static int cix_edp_panel_get_hpd_gpio(struct device *dev,
-				     struct cix_edp_panel *p, bool from_probe)
+				      struct cix_edp_panel *p, bool from_probe)
 {
 	int err;
 
@@ -389,14 +392,14 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
 		}
 
 		err = readx_poll_timeout(gpiod_get_value_cansleep, p->hpd_gpio,
-					 hpd_asserted, hpd_asserted,
-					 1000, 2000000);
+					 hpd_asserted, hpd_asserted, 1000,
+					 2000000);
 		if (hpd_asserted < 0)
 			err = hpd_asserted;
 
 		if (err) {
-			dev_err(panel->dev,
-				"error waiting for hpd GPIO: %d\n", err);
+			dev_err(panel->dev, "error waiting for hpd GPIO: %d\n",
+				err);
 			return err;
 		}
 	}
@@ -407,7 +410,6 @@ static int cix_edp_panel_prepare(struct drm_panel *panel)
 		msleep(p->desc->delay.reset);
 
 	gpiod_set_value_cansleep(p->reset_gpio, 0);
-
 
 	if (p->desc->delay.init)
 		msleep(p->desc->delay.init);
@@ -441,7 +443,7 @@ static int cix_edp_panel_enable(struct drm_panel *panel)
 }
 
 static int cix_edp_panel_get_modes(struct drm_panel *panel,
-				  struct drm_connector *connector)
+				   struct drm_connector *connector)
 {
 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
 	int num = 0;
@@ -456,8 +458,8 @@ static int cix_edp_panel_get_modes(struct drm_panel *panel,
 }
 
 static int cix_edp_panel_get_timings(struct drm_panel *panel,
-				    unsigned int num_timings,
-				    struct display_timing *timings)
+				     unsigned int num_timings,
+				     struct display_timing *timings)
 {
 	struct cix_edp_panel *p = to_cix_edp_panel(panel);
 	unsigned int i;
@@ -482,11 +484,12 @@ static const struct drm_panel_funcs cix_edp_panel_funcs = {
 };
 
 #define CIX_EDP_PANEL_BOUNDS_CHECK(to_check, bounds, field) \
-	(to_check->field.typ >= bounds->field.min && \
+	(to_check->field.typ >= bounds->field.min &&        \
 	 to_check->field.typ <= bounds->field.max)
-static void cix_edp_panel_parse_panel_timing_node(struct device *dev,
-						 struct cix_edp_panel *panel,
-						 const struct display_timing *ot)
+static void
+cix_edp_panel_parse_panel_timing_node(struct device *dev,
+				      struct cix_edp_panel *panel,
+				      const struct display_timing *ot)
 {
 	const struct panel_desc *desc = panel->desc;
 	struct videomode vm;
@@ -644,8 +647,9 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
 		return err;
 	}
 
-	panel->enable_gpio = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
-	if (IS_ERR_OR_NULL(panel->enable_gpio)) {
+	panel->enable_gpio =
+		devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_HIGH);
+	if (IS_ERR(panel->enable_gpio)) {
 		err = PTR_ERR(panel->enable_gpio);
 		if (err != -EPROBE_DEFER)
 			dev_err(dev, "failed to get enable GPIO: %d\n", err);
@@ -670,11 +674,11 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
 		return err;
 	}
 
-	panel->power_invert = device_property_read_bool(dev, "power-invert");
+	panel->power_invert =
+		device_property_read_bool(dev, "power-invert");
 
 	if (!of_get_display_timing(dev->of_node, "panel-timing", &dt))
 		cix_edp_panel_parse_panel_timing_node(dev, panel, &dt);
-
 
 	if (desc->bus_format == 0)
 		dev_warn(dev, "Specify missing bus_format\n");
@@ -682,12 +686,14 @@ static int cix_edp_panel_probe(struct device *dev, const struct panel_desc *desc
 	if (desc->bpc != 6 && desc->bpc != 8)
 		dev_warn(dev, "Expected bpc in {6,8} but got: %u\n", desc->bpc);
 
-	drm_panel_init(&panel->base, dev, &cix_edp_panel_funcs, DRM_MODE_CONNECTOR_eDP);
+	drm_panel_init(&panel->base, dev, &cix_edp_panel_funcs,
+		       DRM_MODE_CONNECTOR_eDP);
 
-	if (has_acpi_companion(dev))
+	if (has_acpi_companion(dev)) {
 		err = drm_panel_acpi_backlight(&panel->base);
-	else
+	} else {
 		err = drm_panel_of_backlight(&panel->base);
+	}
 
 	if (err) {
 		dev_err(dev, "failed to find backlight: %d\n", err);
@@ -729,7 +735,8 @@ static const struct of_device_id platform_of_match[] = {
 	{
 		.compatible = "cix-edp-panel",
 		.data = NULL,
-	}, {
+	},
+	{
 		/* sentinel */
 	}
 };
@@ -753,7 +760,7 @@ static bool of_child_node_is_present(const struct device_node *node,
 }
 
 static int cix_edp_panel_of_get_desc_data(struct device *dev,
-					 struct panel_desc *desc)
+					  struct panel_desc *desc)
 {
 	struct device_node *np = dev->of_node;
 	u32 bus_flags;

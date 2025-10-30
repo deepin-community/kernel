@@ -48,7 +48,7 @@ struct linlondp_plane {
 	 */
 	struct drm_property *layer_split_property;
 
-	/*
+	/**
 	 * @degamma_lut_property: Optional Plane property to set the LUT
 	 * used to convert the framebuffer's colors to linear gamma.
 	 */
@@ -96,7 +96,7 @@ struct linlondp_plane_state {
 	struct list_head zlist_node;
 
 	/** @layer_split: on/off layer_split */
-	u8 layer_split:1;
+	u8 layer_split : 1;
 
 	/* @degamma_lut:
 	 *
@@ -123,7 +123,16 @@ struct linlondp_plane_state {
 	 */
 	struct drm_property_blob *gamma_lut;
 
-	u8 color_mgmt_changed:1;
+	u8 color_mgmt_changed : 1;
+};
+
+/**
+ * struct linlondp_wb_timer_data
+ */
+struct linlondp_wb_timer_data {
+	struct timer_list timer;
+	bool timer_started;
+	void *param;
 };
 
 /**
@@ -161,12 +170,14 @@ struct linlondp_wb_connector {
 	 * for non RGB formats for writeback layer.
 	 */
 	struct drm_property *color_encoding_property;
-	/*
+	/**
 	 * @color_range_property: enum property for specifying color range for
 	 * non RGB formats for writeback layer.
 	 */
 	struct drm_property *color_range_property;
 
+	/* set timer to signal writeback job */
+	struct linlondp_wb_timer_data timer_data;
 };
 
 /**
@@ -189,6 +200,7 @@ struct linlondp_crtc {
 	struct linlondp_pipeline *master;
 	/**
 	 * @slave: optional
+	 *
 	 * Doesn't have its own display output, the handled data flow will
 	 * merge into the master.
 	 */
@@ -209,6 +221,7 @@ struct linlondp_crtc {
 	struct completion *disable_done;
 	/* protected mode property */
 	struct drm_property *protected_mode_property;
+	/* ctm ext properties */
 	struct drm_property *ctm_ext_property;
 };
 
@@ -227,8 +240,8 @@ struct linlondp_crtc_state {
 	 * the affected pipelines in once display instance
 	 */
 	u32 affected_pipes;
-	/*
-	 * @active_pipes
+	/**
+	 * @active_pipes:
 	 * the active pipelines in once display instance
 	 */
 	u32 active_pipes;
@@ -239,6 +252,8 @@ struct linlondp_crtc_state {
 	/** @max_slave_zorder: the maximum of slave zorder */
 	u32 max_slave_zorder;
 	bool en_protected_mode;
+	/* connector set format*/
+	u32 output_format;
 };
 
 /** struct linlondp_kms_dev - for gather KMS related things */
@@ -252,16 +267,16 @@ struct linlondp_kms_dev {
 	struct linlondp_crtc crtcs[LINLONDP_MAX_PIPELINES];
 };
 
-#define to_kplane(p)    container_of(p, struct linlondp_plane, base)
-#define to_kplane_st(p)    container_of(p, struct linlondp_plane_state, base)
-#define to_kconn(p)    container_of(p, struct linlondp_wb_connector, base)
-#define to_kcrtc(p)    container_of(p, struct linlondp_crtc, base)
-#define to_kcrtc_st(p)    container_of(p, struct linlondp_crtc_state, base)
-#define to_kdev(p)    container_of(p, struct linlondp_kms_dev, base)
-#define to_wb_conn(x)    container_of(x, struct drm_writeback_connector, base)
-#define to_kconn_st(p)    container_of(p, struct linlondp_wb_connector_state, base)
+#define to_kplane(p) container_of(p, struct linlondp_plane, base)
+#define to_kplane_st(p) container_of(p, struct linlondp_plane_state, base)
+#define to_kconn(p) container_of(p, struct linlondp_wb_connector, base)
+#define to_kcrtc(p) container_of(p, struct linlondp_crtc, base)
+#define to_kcrtc_st(p) container_of(p, struct linlondp_crtc_state, base)
+#define to_kdev(p) container_of(p, struct linlondp_kms_dev, base)
+#define to_wb_conn(x) container_of(x, struct drm_writeback_connector, base)
+#define to_kconn_st(p) container_of(p, struct linlondp_wb_connector_state, base)
 
-#define _drm_conn_to_kconn(c)   to_kconn(to_wb_conn((c)))
+#define _drm_conn_to_kconn(c) to_kconn(to_wb_conn((c)))
 
 static inline bool is_writeback_only(struct drm_crtc_state *st)
 {
@@ -271,8 +286,8 @@ static inline bool is_writeback_only(struct drm_crtc_state *st)
 	return conn && (st->connector_mask == BIT(drm_connector_index(conn)));
 }
 
-static inline bool
-is_only_changed_connector(struct drm_crtc_state *st, struct drm_connector *conn)
+static inline bool is_only_changed_connector(struct drm_crtc_state *st,
+					     struct drm_connector *conn)
 {
 	struct drm_crtc_state *old_st;
 	u32 changed_connectors;
@@ -285,10 +300,9 @@ is_only_changed_connector(struct drm_crtc_state *st, struct drm_connector *conn)
 
 static inline bool has_flip_h(u32 rot)
 {
-	u32 rotation = drm_rotation_simplify(rot,
-					     DRM_MODE_ROTATE_0 |
-					     DRM_MODE_ROTATE_90 |
-					     DRM_MODE_REFLECT_MASK);
+	u32 rotation = drm_rotation_simplify(
+		rot,
+		DRM_MODE_ROTATE_0 | DRM_MODE_ROTATE_90 | DRM_MODE_REFLECT_MASK);
 
 	if (rotation & DRM_MODE_ROTATE_90)
 		return !!(rotation & DRM_MODE_REFLECT_Y);
@@ -297,7 +311,7 @@ static inline bool has_flip_h(u32 rot)
 }
 
 void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
-				u32 *color_depths, u32 *color_formats);
+				    u32 *color_depths, u32 *color_formats);
 unsigned long linlondp_crtc_get_aclk(struct linlondp_crtc_state *kcrtc_st);
 
 int linlondp_kms_setup_crtcs(struct linlondp_kms_dev *kms,
@@ -315,8 +329,9 @@ void linlondp_kms_cleanup_private_objs(struct linlondp_kms_dev *kms);
 
 void linlondp_crtc_handle_event(struct linlondp_crtc *kcrtc,
 				struct linlondp_events *evts);
-void linlondp_crtc_flush_and_wait_for_flip_done(struct linlondp_crtc *kcrtc,
-				struct completion *input_flip_done);
+void linlondp_crtc_flush_and_wait_for_flip_done(
+	struct linlondp_crtc *kcrtc, struct completion *input_flip_done,
+	bool disable_crtc);
 
 struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev);
 void linlondp_kms_detach(struct linlondp_kms_dev *kms);
