@@ -41,10 +41,11 @@
 #define MAX_DESC_NUM 16
 #define MAX_CHAN_NUM 8
 #define RCSU_OFFSET 0x10000
-#define ARM_DMA350__PM_TIMEOUT_MS 500
+#define ARM_DMA350_PM_TIMEOUT_MS 500
 
 #define AUDSS_DMAC_INFO_AP_IRQ 0x54
 #define AUDSS_OFFSET  (0x30000000-0xc0000000)
+#define DMA350_DYNAMIC_CH(ch) (ch == 0xFF)
 
 enum arm_dma350_burst_width_t {
 	DMA350_DMA_WIDTH_8BIT = 0,
@@ -80,11 +81,13 @@ struct arm_dma350_chan {
 	u32 priority;
 	u32 cyclic;
 	u32 transize;
+	bool is_dynamic;
 	struct virt_dma_chan vc;
 	struct arm_dma350_phy *phy;
 	struct list_head node;
 	dma_addr_t dev_addr;
 	enum dma_status status;
+	bool is_used_runtime;
 };
 
 struct arm_dma350_phy {
@@ -130,10 +133,12 @@ struct arm_dma350_dev {
 static u32 dmachan[MAX_CHAN_NUM];
 static u32 desnum[MAX_CHAN_NUM];
 
-static struct dma350_cmdlink_gencfg_t cmdlink_cfg[MAX_CHAN_NUM][MAX_DESC_NUM];
+struct dma350_cmdlink_gencfg_t *cmdlink_cfg[MAX_CHAN_NUM];
 static u32 *cmd0[MAX_CHAN_NUM];
 
 static dma_addr_t phy_cmd0[MAX_CHAN_NUM];
+
+static atomic_t vaild_chan_id[MAX_CHAN_NUM];
 
 static struct arm_dma350_chan *to_dma350_chan(struct dma_chan *chan)
 {
@@ -382,8 +387,10 @@ static irqreturn_t arm_dma350_int_handler(int irq, void *dev_id)
 
 		arm_dma_ch_clrstatus(d, ch_idx);
 		p = &d->phy[ch_idx];
-		if (p == NULL)
+		if (p == NULL) {
+			ch_idx++;
 			continue;
+		}
 		c = p->vchan;
 		if (c) {
 			spin_lock(&c->vc.lock);
@@ -391,10 +398,14 @@ static irqreturn_t arm_dma350_int_handler(int irq, void *dev_id)
 				desnum[ch_idx]++;
 				if (dmachan[ch_idx] == (desnum[ch_idx] - 1))
 					desnum[ch_idx] = 1;
-				vchan_cyclic_callback(&p->ds_run->vd);
+				if (p->ds_run != NULL)
+					vchan_cyclic_callback(&p->ds_run->vd);
 			} else {
-				vchan_cookie_complete(&p->ds_run->vd);
-				p->ds_done = p->ds_run;
+				if (p->ds_run != NULL) {
+					vchan_cookie_complete(&p->ds_run->vd);
+					p->ds_done = p->ds_run;
+					p->ds_run = NULL;
+				}
 			}
 			spin_unlock(&c->vc.lock);
 		}
@@ -547,11 +558,17 @@ static int arm_dma350_pre_config_sg(struct arm_dma350_chan *c, enum dma_transfer
 	struct dma_slave_config *cfg = &c->slave_cfg;
 	u32 maxburst = 0, ret = 0;
 
-	ret = pm_runtime_resume_and_get(dev->slave.dev);
-	if (ret < 0) {
-		pr_err("%s,pm get err, %d\n", __func__, ret);
-		return ret;
+	if (!c->is_used_runtime) {
+		ret = pm_runtime_resume_and_get(dev->slave.dev);
+		if (!ret) {
+			c->is_used_runtime = true;
+		} else {
+			dev_err(dev->slave.dev, "%s, pm get err, %d, c->id = %d\n",
+				__func__, ret, c->id);
+			return ret;
+		}
 	}
+
 	arm_dma350_nonsec_intren(dev);
 	dma350_ch_set_xtype(p->base + DMA350_REG_CTRL, DMA350_CH_XTYPE_CONTINUE);
 
@@ -580,6 +597,8 @@ static int arm_dma350_pre_config_sg(struct arm_dma350_chan *c, enum dma_transfer
 
 		break;
 	case DMA_DEV_TO_MEM:
+		dma350_ch_enable_intr(p->base + DMA350_REG_INTREN,
+				DMA350_CH_INTREN_DONE | DMA350_CH_INTREN_ERR);
 		c->dev_addr = cfg->src_addr - RCSU_OFFSET;
 		c->transize = cfg->src_addr_width;
 		maxburst = cfg->src_maxburst - 1;
@@ -601,6 +620,7 @@ static int arm_dma350_pre_config_sg(struct arm_dma350_chan *c, enum dma_transfer
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -705,10 +725,15 @@ static struct dma_async_tx_descriptor *arm_dma350_prep_memcpy(struct dma_chan *c
 	if (!len)
 		return NULL;
 
-	ret = pm_runtime_resume_and_get(dev->slave.dev);
-	if (ret < 0) {
-		pr_err("%s,pm get err, %d\n", __func__, ret);
-		return ERR_PTR(ret);
+	if (!c->is_used_runtime) {
+		ret = pm_runtime_resume_and_get(dev->slave.dev);
+		if (!ret) {
+			c->is_used_runtime = true;
+		} else {
+			dev_err(dev->slave.dev, "%s, pm get err, %d, c->id = %d\n",
+				__func__, ret, c->id);
+			return NULL;
+		}
 	}
 
 	arm_dma350_nonsec_intren(dev);
@@ -791,31 +816,51 @@ static struct dma_async_tx_descriptor *arm_dma350_prep_slave_sg(
 static int arm_dma350_find_idle_channel(struct dma_chan *chan)
 {
 	u32 ch_idx = 0;
-	u32 enable_status = 0;
-	u32 cmdlink_status = 0;
 	struct arm_dma350_chan *c = to_dma350_chan(chan);
 	struct arm_dma350_dev *d = to_arm_dma350(chan->device);
-	struct arm_dma350_phy *phy = NULL;
 
 	for (ch_idx = 0; ch_idx < MAX_CHAN_NUM; ch_idx++) {
-		phy = &d->phy[ch_idx];
-		/*cyclic mode use cmd link，so should check dma_enable and linkaddr_en*/
-		enable_status = readl_relaxed(phy->base + DMA350_REG_CMD) & DMA350_CH_CMD_ENABLECMD;
-		cmdlink_status = readl_relaxed(phy->base + DMA350_REG_LINKADDR) & DMA350_CH_LINKADDR_LINKADDREN;
-		if ((enable_status) || (cmdlink_status))
+		if (atomic_read(&vaild_chan_id[ch_idx]) == 1)
 			continue;
-		else {
+
+		if (atomic_cmpxchg(&vaild_chan_id[ch_idx], 0, 1) == 0) {
 			dev_info(d->slave.dev, "use dynamic channel-%d\n", ch_idx);
 			c->id = ch_idx;
 			break;
 		}
 	}
+
 	if (c->id >= MAX_CHAN_NUM) {
 		dev_err(d->slave.dev, "there is no idle channel to alloc\n");
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+static int arm_dma350_cmdlink_cfg_create(u32 chan_id, u32 periods)
+{
+	if (chan_id < 0 || chan_id >= MAX_CHAN_NUM) {
+		pr_err("Invalid channel ID: %d\n", chan_id);
+		return -EINVAL;
+	}
+
+	cmdlink_cfg[chan_id] = kzalloc(
+		sizeof(struct dma350_cmdlink_gencfg_t) * periods, GFP_ATOMIC);
+	if (!cmdlink_cfg[chan_id])
+		return -ENOMEM;
+
+	pr_info("Channel %d initialized with %d periods\n", chan_id, periods);
+	return 0;
+}
+
+static void arm_dma350_cmdlink_cfg_destory(u32 chan_id)
+{
+	if (chan_id < 0 || chan_id >= MAX_CHAN_NUM || !cmdlink_cfg[chan_id])
+		return;
+
+	kfree(cmdlink_cfg[chan_id]);
+	cmdlink_cfg[chan_id] = NULL;
 }
 
 static struct dma_async_tx_descriptor *arm_dma350_prep_dma_cyclic(struct dma_chan *chan, dma_addr_t dma_addr,
@@ -825,8 +870,8 @@ static struct dma_async_tx_descriptor *arm_dma350_prep_dma_cyclic(struct dma_cha
 	struct arm_dma350_dev *d = to_arm_dma350(chan->device);
 	struct arm_dma350_desc_sw *ds;
 	dma_addr_t src = 0, dst = 0;
-	int num_periods = buf_len / period_len;
-	int buf = 0, cmd_num = 0;
+	size_t num_periods = buf_len / period_len;
+	size_t buf = 0, cmd_num = 0;
 	u32 offset = 0, bit = 0;
 	int ret = 0;
 
@@ -834,30 +879,41 @@ static struct dma_async_tx_descriptor *arm_dma350_prep_dma_cyclic(struct dma_cha
 		dev_err(chan->device->dev, "maximum period size exceeded\n");
 		return NULL;
 	}
-	if (c->id > MAX_CHAN_NUM) {
-		dev_err(chan->device->dev, "maximum chan num exceeded\n");
-		return NULL;
+
+	if (!c->is_used_runtime) {
+		ret = pm_runtime_resume_and_get(d->slave.dev);
+		if (!ret) {
+			c->is_used_runtime = true;
+		} else {
+			dev_err(d->slave.dev, "%s, pm get err, %d, c->id = %d\n",
+				__func__, ret, c->id);
+			return NULL;
+		}
 	}
 
-	ret = pm_runtime_resume_and_get(d->slave.dev);
-	if (ret < 0) {
-		pr_err("%s,pm get err, %d\n", __func__, ret);
-		return NULL;
-	}
 	/*if channel id is 0xFF,it means we should use dynamic channel*/
-	if ((c->id == 0xFF) && (arm_dma350_find_idle_channel(chan))) {
+	if ((DMA350_DYNAMIC_CH(c->id)) && (arm_dma350_find_idle_channel(chan))) {
 		pm_runtime_put_noidle(d->slave.dev);
 		return NULL;
 	}
+
+	ret = arm_dma350_cmdlink_cfg_create(c->id, num_periods);
+	if (ret) {
+		pr_err("cmdlink_cfg create failed\n");
+		return NULL;
+	}
+
 	if (arm_dma350_pre_config_cyclic(c, dir)) {
 		pm_runtime_put_noidle(d->slave.dev);
 		return NULL;
 	}
+
 	ds = arm_dma350_alloc_desc_resource(num_periods, chan);
 	if (!ds) {
 		pm_runtime_put_noidle(d->slave.dev);
 		return NULL;
 	}
+
 	c->cyclic = 1;
 	while (buf < buf_len) {
 		if (cmd_num > 0)
@@ -920,6 +976,7 @@ static struct dma_async_tx_descriptor *arm_dma350_prep_dma_cyclic(struct dma_cha
 	}
 	dmachan[c->id] = num_periods;
 	ds->size = buf_len;
+
 	return vchan_tx_prep(&c->vc, &ds->vd, flags);
 }
 
@@ -940,21 +997,24 @@ static int arm_dma350_terminate_all(struct dma_chan *chan)
 {
 	struct arm_dma350_chan *c = to_dma350_chan(chan);
 	struct arm_dma350_dev *d = to_arm_dma350(chan->device);
-	struct arm_dma350_phy *p = &d->phy[c->id];
+	struct arm_dma350_phy *p = NULL;
 	struct dma_slave_config *cfg = &c->slave_cfg;
-	bool runtimepm_flag = false;
-
+	int ret;
 	unsigned long flags;
 	LIST_HEAD(head);
 
 	dev_dbg(d->slave.dev, "channel-%d terminate all\n", c->id);
 
-	/*if dma prepare not call (which means dma not ready to use), c->phy is null,
-	 *then pm_runtime_resume_and_get should not call
-	 */
-	if (c->phy)
-		runtimepm_flag = true;
+	/* cannot find an idle channel when use channel dynamicly allocate */
+	if (c->id >= d->max_channels) {
+		dev_warn(d->slave.dev, "invalid c->id, c->id = %d\n", c->id);
+		return 0;
+	}
+
+	p = &d->phy[c->id];
+
 	desnum[c->id] = 0;
+
 	/* Prevent this channel being scheduled */
 	spin_lock(&d->lock);
 	list_del_init(&c->node);
@@ -971,21 +1031,49 @@ static int arm_dma350_terminate_all(struct dma_chan *chan)
 		if ((cfg->direction == DMA_DEV_TO_MEM) && !c->cyclic && p->ds_run)
 			vchan_vdesc_fini(&p->ds_run->vd);
 		c->phy = NULL;
+		if (c->cyclic)
+			c->vc.cyclic = NULL;
 		p->vchan = NULL;
-		p->ds_run = NULL;
+		if (p->ds_run) {
+			vchan_terminate_vdesc(&p->ds_run->vd);
+			p->ds_run = NULL;
+		}
 		p->ds_done = NULL;
 	}
 	spin_unlock_irqrestore(&c->vc.lock, flags);
-	if (c->cyclic)
-		dma_free_coherent(chan->device->dev, CMD_LINK_LEN * sizeof(u32), cmd0[c->id], phy_cmd0[c->id]);
-	vchan_dma_desc_free_list(&c->vc, &head);
 
-	if (runtimepm_flag) {
+	if (c->cyclic) {
+		dma_free_coherent(chan->device->dev, CMD_LINK_LEN * sizeof(u32), cmd0[c->id], phy_cmd0[c->id]);
+		arm_dma350_cmdlink_cfg_destory(c->id);
+	}
+
+	/*
+	 * dynamic channel should mark the flag is_dynamic,
+	 * at the same time,c->id should clear to 0xFF
+	 */
+	if ((c->is_dynamic) && (c->cyclic)) {
+		atomic_xchg(&vaild_chan_id[c->id], 0);
+		c->id = 0xFF;
+	}
+
+	if (c->is_used_runtime) {
 		pm_runtime_mark_last_busy(d->slave.dev);
-		pm_runtime_put_autosuspend(d->slave.dev);
+		ret = pm_runtime_put_autosuspend(d->slave.dev);
+		if (ret)
+			dev_warn(d->slave.dev, "%s pm_runtime_put_autosuspend failed, ret =%d,c->id =%d.\n",
+					__func__, ret, c->id);
+
+		c->is_used_runtime = false;
 	}
 
 	return 0;
+}
+
+static void arm_dma350_synchronize(struct dma_chan *chan)
+{
+	struct arm_dma350_chan *c = to_dma350_chan(chan);
+
+	vchan_synchronize(&c->vc);
 }
 
 static int arm_dma350_transfer_pause(struct dma_chan *chan)
@@ -995,6 +1083,8 @@ static int arm_dma350_transfer_pause(struct dma_chan *chan)
 	struct arm_dma350_phy *p = &d->phy[c->id];
 
 	dma350_ch_cmd(p->base + DMA350_REG_CMD, DMA350_CH_CMD_PAUSECMD);
+
+	c->status = DMA_PAUSED;
 
 	return 0;
 }
@@ -1007,6 +1097,8 @@ static int arm_dma350_transfer_resume(struct dma_chan *chan)
 
 	dma350_ch_cmd(p->base + DMA350_REG_CMD, DMA350_CH_CMD_RESUMECMD);
 
+	c->status = DMA_IN_PROGRESS;
+
 	return 0;
 }
 
@@ -1016,8 +1108,10 @@ static void arm_dma350_free_desc(struct virt_dma_desc *vd)
 	    container_of(vd, struct arm_dma350_desc_sw, vd);
 	struct arm_dma350_dev *d = to_arm_dma350(vd->tx.chan->device);
 
-	dma_pool_free(d->pool, ds->desc_hw, ds->desc_hw_lli);
-	kfree(ds);
+	if (ds != NULL) {
+		dma_pool_free(d->pool, ds->desc_hw, ds->desc_hw_lli);
+		kfree(ds);
+	}
 }
 
 static const struct arm_dma350_drvdata arm_dma350_no_pause = {
@@ -1067,8 +1161,13 @@ static struct dma_chan *arm_dma350_of_xlate(struct of_phandle_args *dma_spec,
 		dev_err(d->slave.dev, "para  invalid %s %d\n", __func__, __LINE__);
 	}
 
-	if ((request >= d->max_requests) || (channel_id >= d->max_channels)) {
-		dev_err(d->slave.dev, "para  invalid %s %d\n", __func__, __LINE__);
+	if ((!DMA350_DYNAMIC_CH(channel_id)) && (channel_id >= d->max_channels)) {
+		dev_err(d->slave.dev, "channel id invalid %s %d\n", __func__, __LINE__);
+		return NULL;
+	}
+
+	if (request >= d->max_requests) {
+		dev_err(d->slave.dev, "request id invalid %s %d\n", __func__, __LINE__);
 		return NULL;
 	}
 	chan = dma_get_any_slave_channel(&d->slave);
@@ -1080,6 +1179,10 @@ static struct dma_chan *arm_dma350_of_xlate(struct of_phandle_args *dma_spec,
 	c->id = channel_id;
 	c->req_line = request;
 	c->priority = channel_pri;
+	if (DMA350_DYNAMIC_CH(channel_id))
+		c->is_dynamic = true;
+	else
+		c->is_dynamic = false;
 	return chan;
 }
 
@@ -1116,9 +1219,10 @@ static int arm_dma350_probe(struct platform_device *op)
 {
 	struct arm_dma350_dev *d;
 	struct arm_dma350_drvdata *drvdata = NULL;
+	struct reset_control *dma_reset;
 	int i, ret = 0;
 	u32 out_val[2];
-	struct reset_control *dma_reset;
+	u32 autosuspend_delay = ARM_DMA350_PM_TIMEOUT_MS;
 
 	d = devm_kzalloc(&op->dev, sizeof(*d), GFP_KERNEL);
 	if (!d)
@@ -1241,6 +1345,7 @@ static int arm_dma350_probe(struct platform_device *op)
 	d->slave.device_issue_pending = arm_dma350_issue_pending;
 	d->slave.device_config = arm_dma350_config;
 	d->slave.device_terminate_all = arm_dma350_terminate_all;
+	d->slave.device_synchronize = arm_dma350_synchronize;
 	if (d->drvdata->is_exist_pause == true) {
 		d->slave.device_pause = arm_dma350_transfer_pause;
 		d->slave.device_resume = arm_dma350_transfer_resume;
@@ -1264,6 +1369,7 @@ static int arm_dma350_probe(struct platform_device *op)
 		INIT_LIST_HEAD(&c->node);
 		c->vc.desc_free = arm_dma350_free_desc;
 		vchan_init(&c->vc, &d->slave);
+		c->is_used_runtime = false;
 	}
 
 	spin_lock_init(&d->lock);
@@ -1273,8 +1379,12 @@ static int arm_dma350_probe(struct platform_device *op)
 	if (ret)
 		goto clk_dis;
 
-	pm_runtime_irq_safe(&op->dev);
-	pm_runtime_set_autosuspend_delay(&op->dev, ARM_DMA350__PM_TIMEOUT_MS);
+	if (d->is_clk_enable_atomic) {
+		autosuspend_delay = 0;
+		pm_runtime_irq_safe(&op->dev);
+	}
+
+	pm_runtime_set_autosuspend_delay(&op->dev, autosuspend_delay);
 	pm_runtime_use_autosuspend(&op->dev);
 	pm_runtime_get_noresume(&op->dev);
 	pm_runtime_set_active(&op->dev);
@@ -1298,7 +1408,10 @@ static int arm_dma350_probe(struct platform_device *op)
 of_dma_register_fail:
 	dma_async_device_unregister(&d->slave);
 clk_dis:
-	clk_disable_unprepare(d->clk);
+	if (d->is_clk_enable_atomic)
+		clk_disable(d->clk);
+	else
+		clk_disable_unprepare(d->clk);
 	return ret;
 }
 
@@ -1316,7 +1429,10 @@ static int arm_dma350_remove(struct platform_device *op)
 	list_for_each_entry_safe(c, cn, &d->slave.channels, vc.chan.device_node) {
 		list_del(&c->vc.chan.device_node);
 	}
-	clk_disable_unprepare(d->clk);
+	if (d->is_clk_enable_atomic)
+		clk_disable(d->clk);
+	else
+		clk_disable_unprepare(d->clk);
 
 	return 0;
 }
@@ -1347,6 +1463,12 @@ static int arm_dma350_runtime_resume_dev(struct device *dev)
 		return ret;
 	}
 
+	if (d->drvdata->is_exist_pause == false) {
+		reset_control_assert(d->dma_reset);
+		udelay(2);
+		reset_control_deassert(d->dma_reset);
+	}
+
 	return 0;
 }
 
@@ -1369,9 +1491,11 @@ static int arm_dma350_resume_dev(struct device *dev)
 	int ret = 0;
 	struct arm_dma350_dev *d = dev_get_drvdata(dev);
 
-	reset_control_assert(d->dma_reset);
-	udelay(2);
-	reset_control_deassert(d->dma_reset);
+	if (d->drvdata->is_exist_pause == true) {
+		reset_control_assert(d->dma_reset);
+		udelay(2);
+		reset_control_deassert(d->dma_reset);
+	}
 
 	ret = pm_runtime_force_resume(dev);
 	if (ret) {
