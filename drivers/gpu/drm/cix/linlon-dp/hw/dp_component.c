@@ -70,8 +70,8 @@ static u32 get_valid_inputs(struct block_header *blk)
 	return valid_inputs;
 }
 
-static void get_values_from_reg(void __iomem *reg, u32 offset,
-				u32 count, u32 *val)
+static void get_values_from_reg(void __iomem *reg, u32 offset, u32 count,
+				u32 *val)
 {
 	u32 i, addr;
 
@@ -98,8 +98,8 @@ static void dump_block_header(struct seq_file *sf, void __iomem *reg)
 	n_input = PIPELINE_INFO_N_VALID_INPUTS(hdr.pipeline_info);
 
 	for (i = 0; i < n_input; i++)
-		seq_printf(sf, "VALID_INPUT_ID%u:\t0x%X\n",
-			   i, hdr.input_ids[i]);
+		seq_printf(sf, "VALID_INPUT_ID%u:\t0x%X\n", i,
+			   hdr.input_ids[i]);
 
 	for (i = 0; i < n_output; i++)
 		seq_printf(sf, "OUTPUT_ID%u:\t\t0x%X\n", i, hdr.output_ids[i]);
@@ -209,8 +209,7 @@ static void dp_layer_disable(struct linlondp_component *c)
 	linlondp_write32_mask(c->reg, BLK_CONTROL, L_EN, 0);
 }
 
-static u32 dp_layer_update_color(struct drm_plane_state *st,
-				 u32 __iomem *reg,
+static u32 dp_layer_update_color(struct drm_plane_state *st, u32 __iomem *reg,
 				 struct linlondp_color_state *color_st,
 				 u32 *mask)
 {
@@ -233,10 +232,10 @@ static u32 dp_layer_update_color(struct drm_plane_state *st,
 	if (kplane_st->ctm) {
 		u32 ctm_coeffs[LINLONDP_N_CTM_COEFFS];
 
-		cix_drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
+		drm_ctm_to_coeffs(kplane_st->ctm, ctm_coeffs);
 		linlondp_write_group(reg, LAYER_RGB_RGB_COEFF0,
 				     ARRAY_SIZE(ctm_coeffs), ctm_coeffs);
-		ctrl |= L_R2R;	/* enable RGB2RGB conversion */
+		ctrl |= L_R2R; /* enable RGB2RGB conversion */
 	}
 
 	if (fgamma) {
@@ -269,9 +268,9 @@ static void dp_layer_update(struct linlondp_component *c,
 		u64 addr;
 
 		linlondp_write32(reg, LAYER_AD_H_CROP,
-				HV_CROP(st->afbc_crop_l, st->afbc_crop_r));
+				 HV_CROP(st->afbc_crop_l, st->afbc_crop_r));
 		linlondp_write32(reg, LAYER_AD_V_CROP,
-				HV_CROP(st->afbc_crop_t, st->afbc_crop_b));
+				 HV_CROP(st->afbc_crop_t, st->afbc_crop_b));
 		/* afbc 1.2 wants payload, afbc 1.0/1.1 wants end_addr */
 		if (fb->modifier & AFBC_FORMAT_MOD_TILED)
 			addr = st->addr[0] + kfb->offset_payload;
@@ -288,7 +287,7 @@ static void dp_layer_update(struct linlondp_component *c,
 		switch (kfb->format_caps->fourcc) {
 		case DRM_FORMAT_YUYV:
 			upsampling = fb->modifier ? LR_CHI422_BILINEAR :
-			    LR_CHI422_REPLICATION;
+						    LR_CHI422_REPLICATION;
 			break;
 		case DRM_FORMAT_UYVY:
 			upsampling = LR_CHI422_REPLICATION;
@@ -298,7 +297,7 @@ static void dp_layer_update(struct linlondp_component *c,
 		case DRM_FORMAT_YUV420_10BIT:
 		case DRM_FORMAT_YUV420:
 		case DRM_FORMAT_P010:
-			/* these fmt support MPGE/JPEG both, here perfer JPEG */
+			/* these fmt support MPGE/JPEG both, here perfer JPEG*/
 			upsampling = LR_CHI420_JPEG;
 			break;
 		case DRM_FORMAT_X0L2:
@@ -309,14 +308,14 @@ static void dp_layer_update(struct linlondp_component *c,
 		}
 
 		linlondp_write32(reg, LAYER_R_CONTROL, upsampling);
-		linlondp_write_group(reg, LAYER_YUV_RGB_COEFF0,
-				     LINLONDP_N_YUV2RGB_COEFFS,
-				     linlondp_select_yuv2rgb_coeffs(
-					     plane_st->color_encoding,
-					     plane_st->color_range));
+		linlondp_write_group(
+			reg, LAYER_YUV_RGB_COEFF0, LINLONDP_N_YUV2RGB_COEFFS,
+			linlondp_select_yuv2rgb_coeffs(plane_st->color_encoding,
+						       plane_st->color_range));
 	}
 
 	linlondp_write32(reg, BLK_IN_SIZE, HV_SIZE(st->hsize, st->vsize));
+	linlondp_write32(reg, LAYER_PALPHA, 0xffffffff);
 
 	ctrl |= dp_layer_update_color(plane_st, reg, &st->color_st, &ctrl_mask);
 
@@ -400,8 +399,8 @@ static int dp_layer_validate(struct linlondp_component *c,
 	struct drm_framebuffer *fb;
 	u32 fourcc, line_sz, max_line_sz;
 
-	plane_st = drm_atomic_get_new_plane_state(state->obj.state,
-						  state->plane);
+	plane_st =
+		drm_atomic_get_new_plane_state(state->obj.state, state->plane);
 	fb = plane_st->fb;
 	fourcc = fb->format->format;
 
@@ -418,25 +417,25 @@ static int dp_layer_validate(struct linlondp_component *c,
 			max_line_sz = layer->line_sz / 2;
 
 		if (line_sz > max_line_sz) {
-			DRM_DEBUG_ATOMIC
-			    ("afbc request line_sz: %d exceed the max afbc line_sz: %d.\n",
-			     line_sz, max_line_sz);
+			DRM_DEBUG_ATOMIC(
+				"afbc request line_sz: %d exceed the max afbc line_sz: %d.\n",
+				line_sz, max_line_sz);
 			return -EINVAL;
 		}
 	}
 
-	if (fourcc == DRM_FORMAT_YUV420_10BIT && line_sz > 2046
-	    && (st->afbc_crop_l % 4)) {
-		DRM_DEBUG_ATOMIC
-		    ("YUV420_10BIT input_hsize: %d exceed the max size 2046.\n",
-		     line_sz);
+	if (fourcc == DRM_FORMAT_YUV420_10BIT && line_sz > 2046 &&
+	    (st->afbc_crop_l % 4)) {
+		DRM_DEBUG_ATOMIC(
+			"YUV420_10BIT input_hsize: %d exceed the max size 2046.\n",
+			line_sz);
 		return -EINVAL;
 	}
 
 	if (fourcc == DRM_FORMAT_X0L2 && line_sz > 2046 && (st->addr[0] % 16)) {
-		DRM_DEBUG_ATOMIC
-		    ("X0L2 input_hsize: %d exceed the max size 2046.\n",
-		     line_sz);
+		DRM_DEBUG_ATOMIC(
+			"X0L2 input_hsize: %d exceed the max size 2046.\n",
+			line_sz);
 		return -EINVAL;
 	}
 
@@ -450,8 +449,8 @@ static const struct linlondp_component_funcs dp_layer_funcs = {
 	.dump_register = dp_layer_dump,
 };
 
-static int dp_layer_init(struct dp_dev *dp,
-			 struct block_header *blk, u32 __iomem *reg)
+static int dp_layer_init(struct dp_dev *dp, struct block_header *blk,
+			 u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_layer *layer;
@@ -461,9 +460,8 @@ static int dp_layer_init(struct dp_dev *dp,
 	c = linlondp_component_add(&dp->pipes[pipe_id]->base, sizeof(*layer),
 				   layer_id,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
-				   &dp_layer_funcs, 0,
-				   get_valid_inputs(blk),
-				   1, reg, "LPU%d_LAYER%d", pipe_id, layer_id);
+				   &dp_layer_funcs, 0, get_valid_inputs(blk), 1,
+				   reg, "LPU%d_LAYER%d", pipe_id, layer_id);
 	if (IS_ERR(c)) {
 		DRM_ERROR("Failed to add layer component\n");
 		return PTR_ERR(c);
@@ -530,11 +528,11 @@ static void dp_wb_layer_update(struct linlondp_component *c,
 
 	if (kfb->base.format->is_yuv) {
 		struct linlondp_wb_connector_state *kc_state =
-		    to_kconn_st(conn_st);
-		linlondp_write_group(reg, LAYER_WR_RGB_YUV_COEFF0,
-			LINLONDP_N_RGB2YUV_COEFFS,
+			to_kconn_st(conn_st);
+		linlondp_write_group(
+			reg, LAYER_WR_RGB_YUV_COEFF0, LINLONDP_N_RGB2YUV_COEFFS,
 			linlondp_select_rgb2yuv_coeffs(kc_state->color_encoding,
-							kc_state->color_range));
+						       kc_state->color_range));
 	}
 
 	if (kfb->is_va && dp->integrates_tbu)
@@ -586,8 +584,8 @@ static const struct linlondp_component_funcs dp_wb_layer_funcs = {
 	.dump_register = dp_wb_layer_dump,
 };
 
-static int dp_wb_layer_init(struct dp_dev *dp,
-			    struct block_header *blk, u32 __iomem *reg)
+static int dp_wb_layer_init(struct dp_dev *dp, struct block_header *blk,
+			    u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_layer *wb_layer;
@@ -631,14 +629,14 @@ static void dp_component_disable(struct linlondp_component *c)
 		 * cleared.
 		 */
 		if (has_bit(c->id, LINLONDP_PIPELINE_COMPIZS))
-			linlondp_write32(reg, CU_INPUT0_CONTROL +
-					 i * CU_PER_INPUT_REGS * 4,
+			linlondp_write32(reg,
+					 CU_INPUT0_CONTROL +
+						 i * CU_PER_INPUT_REGS * 4,
 					 CU_INPUT_CTRL_ALPHA(0xFF));
 	}
 }
 
-static void compiz_enable_input(u32 __iomem *id_reg,
-				u32 __iomem *cfg_reg,
+static void compiz_enable_input(u32 __iomem *id_reg, u32 __iomem *cfg_reg,
 				u32 input_hw_id,
 				struct linlondp_compiz_input_cfg *cin)
 {
@@ -669,20 +667,20 @@ static void dp_compiz_update(struct linlondp_component *c,
 	u32 __iomem *id_reg, *cfg_reg;
 	u32 index;
 
-	for (index = 0; index < state->component->max_active_inputs; index++)
-		if (has_bit((index), component_changed_inputs(state))) {
+	for (index = 0; index < state->component->max_active_inputs; index++) {
+		if (has_bit(index, component_changed_inputs(state))) {
 			id_reg = reg + index;
 			cfg_reg = reg + index * CU_PER_INPUT_REGS;
 			if (state->active_inputs & BIT(index)) {
 				compiz_enable_input(id_reg, cfg_reg,
-						    to_dp_input_id(state,
-								   index),
-						    &st->cins[index]);
+							to_dp_input_id(state, index),
+							&st->cins[index]);
 			} else {
 				linlondp_write32(id_reg, BLK_INPUT_ID0, 0);
 				linlondp_write32(cfg_reg, CU_INPUT0_CONTROL, 0);
 			}
 		}
+	}
 
 	linlondp_write32(reg, BLK_SIZE, HV_SIZE(st->hsize, st->vsize));
 }
@@ -729,8 +727,8 @@ static const struct linlondp_component_funcs dp_compiz_funcs = {
 	.dump_register = dp_compiz_dump,
 };
 
-static int dp_compiz_init(struct dp_dev *dp,
-			  struct block_header *blk, u32 __iomem *reg)
+static int dp_compiz_init(struct dp_dev *dp, struct block_header *blk,
+			  u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_compiz *compiz;
@@ -741,9 +739,9 @@ static int dp_compiz_init(struct dp_dev *dp,
 	c = linlondp_component_add(&dp->pipes[pipe_id]->base, sizeof(*compiz),
 				   comp_id,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
-				   &dp_compiz_funcs,
-				   CU_NUM_INPUT_IDS, get_valid_inputs(blk),
-				   CU_NUM_OUTPUT_IDS, reg, "CU%d", pipe_id);
+				   &dp_compiz_funcs, CU_NUM_INPUT_IDS,
+				   get_valid_inputs(blk), CU_NUM_OUTPUT_IDS,
+				   reg, "CU%d", pipe_id);
 	if (IS_ERR(c))
 		return PTR_ERR(c);
 
@@ -802,9 +800,10 @@ static void dp_scaler_update(struct linlondp_component *c,
 	if ((st->right_part) && (st->hsize_in != st->hsize_out)) {
 		if (st->en_img_enhancement) {
 			// 1 pixel for image enhancement
-			linlondp_write32(reg, SC_OUT_SIZE,
-					 HV_SIZE(st->hsize_out - st->left_crop +
-						 1, st->vsize_out));
+			linlondp_write32(
+				reg, SC_OUT_SIZE,
+				HV_SIZE(st->hsize_out - st->left_crop + 1,
+					st->vsize_out));
 			linlondp_write32(reg, SC_H_CROP,
 					 HV_CROP(1, st->right_crop));
 		} else {
@@ -820,7 +819,10 @@ static void dp_scaler_update(struct linlondp_component *c,
 		linlondp_write32(reg, SC_H_CROP,
 				 HV_CROP(st->left_crop, st->right_crop));
 	}
-
+	/*
+	 *linlondp_write32(reg, SC_OUT_SIZE, HV_SIZE(st->hsize_out, st->vsize_out));
+	 *linlondp_write32(reg, SC_H_CROP, HV_CROP(st->left_crop, st->right_crop));
+	 */
 	/* for right part, HW only sample the valid pixel which means the pixels
 	 * in left_crop will be jumpped, and the first sample pixel is:
 	 *
@@ -846,9 +848,10 @@ static void dp_scaler_update(struct linlondp_component *c,
 			dst_a -= 1;
 
 		init_ph = ((st->total_hsize_in * (2 * dst_a + 1) -
-			    2 * st->total_hsize_out * (st->total_hsize_in -
-						       st->hsize_in)) << 15) /
-		    st->total_hsize_out;
+			    2 * st->total_hsize_out *
+				    (st->total_hsize_in - st->hsize_in))
+			   << 15) /
+			  st->total_hsize_out;
 	} else {
 		init_ph = (st->total_hsize_in << 15) / st->total_hsize_out;
 	}
@@ -919,8 +922,8 @@ static const struct linlondp_component_funcs dp_scaler_funcs = {
 	.dump_register = dp_scaler_dump,
 };
 
-static int dp_scaler_init(struct dp_dev *dp,
-			  struct block_header *blk, u32 __iomem *reg)
+static int dp_scaler_init(struct dp_dev *dp, struct block_header *blk,
+			  u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_scaler *scaler;
@@ -991,7 +994,8 @@ static int dp_downscaling_clk_check(struct linlondp_pipeline *pipe,
 	}
 
 	return aclk_rate * denominator >= mode->crtc_clock * 1000 * fraction ?
-	    0 : -EINVAL;
+		       0 :
+		       -EINVAL;
 }
 
 static void dp_splitter_update(struct linlondp_component *c,
@@ -1027,8 +1031,8 @@ static const struct linlondp_component_funcs dp_splitter_funcs = {
 	.dump_register = dp_splitter_dump,
 };
 
-static int dp_splitter_init(struct dp_dev *dp,
-			    struct block_header *blk, u32 __iomem *reg)
+static int dp_splitter_init(struct dp_dev *dp, struct block_header *blk,
+			    u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_splitter *splitter;
@@ -1039,9 +1043,8 @@ static int dp_splitter_init(struct dp_dev *dp,
 	c = linlondp_component_add(&dp->pipes[pipe_id]->base, sizeof(*splitter),
 				   comp_id,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
-				   &dp_splitter_funcs,
-				   1, get_valid_inputs(blk), 2, reg,
-				   "CU%d_SPLITTER", pipe_id);
+				   &dp_splitter_funcs, 1, get_valid_inputs(blk),
+				   2, reg, "CU%d_SPLITTER", pipe_id);
 
 	if (IS_ERR(c)) {
 		DRM_ERROR("Failed to initialize splitter");
@@ -1062,14 +1065,17 @@ static void dp_merger_update(struct linlondp_component *c,
 	struct linlondp_merger_state *st = to_merger_st(state);
 	u32 __iomem *reg = c->reg;
 	u32 index;
+	u32 input_id;
 
-	for (index = 0; index < state->component->max_active_inputs; index++)
-		if (has_bit(index, component_changed_inputs(state)))
-			linlondp_write32(reg, MG_INPUT_ID0 + index * 4,
-					 to_dp_input_id(state, index));
+	for (index = 0; index < state->component->max_active_inputs; index++) {
+		if (has_bit(index, component_changed_inputs(state))) {
+			input_id = to_dp_input_id(state, index);
+			linlondp_write32(reg, MG_INPUT_ID0 + index * 4, input_id);
+		}
+	}
 
-	linlondp_write32(reg, MG_SIZE, HV_SIZE(st->hsize_merged,
-					       st->vsize_merged));
+	linlondp_write32(reg, MG_SIZE,
+			 HV_SIZE(st->hsize_merged, st->vsize_merged));
 	linlondp_write32(reg, BLK_CONTROL, BLK_CTRL_EN);
 }
 
@@ -1098,8 +1104,8 @@ static const struct linlondp_component_funcs dp_merger_funcs = {
 	.dump_register = dp_merger_dump,
 };
 
-static int dp_merger_init(struct dp_dev *dp,
-			  struct block_header *blk, u32 __iomem *reg)
+static int dp_merger_init(struct dp_dev *dp, struct block_header *blk,
+			  u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_merger *merger;
@@ -1110,10 +1116,9 @@ static int dp_merger_init(struct dp_dev *dp,
 	c = linlondp_component_add(&dp->pipes[pipe_id]->base, sizeof(*merger),
 				   comp_id,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
-				   &dp_merger_funcs,
-				   MG_NUM_INPUTS_IDS, get_valid_inputs(blk),
-				   MG_NUM_OUTPUTS_IDS, reg,
-				   "CU%d_MERGER", pipe_id);
+				   &dp_merger_funcs, MG_NUM_INPUTS_IDS,
+				   get_valid_inputs(blk), MG_NUM_OUTPUTS_IDS,
+				   reg, "CU%d_MERGER", pipe_id);
 
 	if (IS_ERR(c)) {
 		DRM_ERROR("Failed to initialize merger.\n");
@@ -1136,36 +1141,41 @@ static void dp_improc_update(struct linlondp_component *c,
 	struct dp_pipeline *pipe = to_dp_pipeline(c->pipeline);
 	u32 __iomem *reg = c->reg;
 	u32 index, mask = 0, ctrl = 0;
+	u32 input_id;
 
-	for (index = 0; index < state->component->max_active_inputs; index++)
-		if (has_bit(index, component_changed_inputs(state)))
-			linlondp_write32(reg, BLK_INPUT_ID0 + index * 4,
-					 to_dp_input_id(state, index));
+	for (index = 0; index < state->component->max_active_inputs; index++) {
+		if (has_bit(index, component_changed_inputs(state))) {
+			input_id = to_dp_input_id(state, index);
+			linlondp_write32(reg, BLK_INPUT_ID0 + index * 4, input_id);
+		}
+	}
 
 	linlondp_write32(reg, BLK_SIZE, HV_SIZE(st->hsize, st->vsize));
 	linlondp_write32(reg, IPS_DEPTH, st->color_depth);
 
 	if (crtc_st->color_mgmt_changed) {
-		mask |= IPS_CTRL_FT | IPS_CTRL_RGB;
+		mask |= IPS_CTRL_FT | IPS_CTRL_IT | IPS_CTRL_RGB;
+
+		if (crtc_st->degamma_lut)
+			ctrl |= IPS_CTRL_IT; /* enable degamma */
 
 		if (crtc_st->gamma_lut) {
 			linlondp_write_group(pipe->dou_ft_coeff_addr, FT_COEFF0,
 					     LINLONDP_N_GAMMA_COEFFS,
 					     st->fgamma_coeffs);
-			ctrl |= IPS_CTRL_FT;	/* enable gamma */
+			ctrl |= IPS_CTRL_FT; /* enable gamma */
 		}
 
 		if (crtc_st->ctm) {
 			linlondp_write_group(reg, IPS_RGB_RGB_COEFF0,
 					     LINLONDP_N_CTM_COEFFS,
 					     st->ctm_coeffs);
-			ctrl |= IPS_CTRL_RGB;	/* enable gamut */
+			ctrl |= IPS_CTRL_RGB; /* enable gamut */
 		}
 	}
 
-	mask |=
-	    IPS_CTRL_IM | IPS_CTRL_SBS | IPS_CTRL_YUV | IPS_CTRL_CHD422 |
-	    IPS_CTRL_CHD420 | IPS_CTRL_DITH;
+	mask |= IPS_CTRL_IM | IPS_CTRL_SBS | IPS_CTRL_YUV | IPS_CTRL_CHD422 |
+		IPS_CTRL_CHD420 | IPS_CTRL_DITH;
 
 	/* config color format */
 	if (st->color_format == DRM_COLOR_FORMAT_YCBCR420)
@@ -1184,9 +1194,9 @@ static void dp_improc_update(struct linlondp_component *c,
 	if (ctrl & IPS_CTRL_YUV) {
 		linlondp_write_group(reg, IPS_RGB_YUV_COEFF0,
 				     LINLONDP_N_RGB2YUV_COEFFS,
-				     linlondp_select_rgb2yuv_coeffs
-				     (DRM_COLOR_YCBCR_BT601,
-				      DRM_COLOR_YCBCR_LIMITED_RANGE));
+				     linlondp_select_rgb2yuv_coeffs(
+					     DRM_COLOR_YCBCR_BT601,
+					     DRM_COLOR_YCBCR_LIMITED_RANGE));
 	}
 	/* slave input enabled, means side by side */
 	if (has_bit(1, state->active_inputs)) {
@@ -1232,8 +1242,8 @@ static const struct linlondp_component_funcs dp_improc_funcs = {
 	.dump_register = dp_improc_dump,
 };
 
-static int dp_improc_init(struct dp_dev *dp,
-			  struct block_header *blk, u32 __iomem *reg)
+static int dp_improc_init(struct dp_dev *dp, struct block_header *blk,
+			  u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_improc *improc;
@@ -1245,9 +1255,8 @@ static int dp_improc_init(struct dp_dev *dp,
 				   comp_id,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
 				   &dp_improc_funcs, IPS_NUM_INPUT_IDS,
-				   get_valid_inputs(blk),
-				   IPS_NUM_OUTPUT_IDS, reg, "DOU%d_IPS",
-				   pipe_id);
+				   get_valid_inputs(blk), IPS_NUM_OUTPUT_IDS,
+				   reg, "DOU%d_IPS", pipe_id);
 	if (IS_ERR(c)) {
 		DRM_ERROR("Failed to add improc component\n");
 		return PTR_ERR(c);
@@ -1256,7 +1265,8 @@ static int dp_improc_init(struct dp_dev *dp,
 	improc = to_improc(c);
 	improc->supported_color_depths = BIT(8) | BIT(10);
 	improc->supported_color_formats = DRM_COLOR_FORMAT_RGB444 |
-	    DRM_COLOR_FORMAT_YCBCR444 | DRM_COLOR_FORMAT_YCBCR422;
+					  DRM_COLOR_FORMAT_YCBCR444 |
+					  DRM_COLOR_FORMAT_YCBCR422;
 	value = linlondp_read32(reg, BLK_INFO);
 	if (value & IPS_INFO_CHD420)
 		improc->supported_color_formats |= DRM_COLOR_FORMAT_YCBCR420;
@@ -1302,18 +1312,18 @@ static void dp_timing_ctrlr_update(struct linlondp_component *c,
 	 */
 	if (st->image_merged) {
 		//FIXME, check 4 ppc later once hardware spec ready
-		if (c->pipeline->pixelPerClk == 1)
+		if (c->pipeline->pixel_per_cycle == 1)
 			hactive = hactive / 2;
 	} else {
-		if (c->pipeline->pixelPerClk != 1)
+		if (c->pipeline->pixel_per_cycle != 1)
 			hactive = hactive * 2;
 	}
 
 	linlondp_write32(reg, BS_ACTIVESIZE, HV_SIZE(hactive, vactive));
-	linlondp_write32(reg, BS_HINTERVALS, BS_H_INTVALS(hfront_porch,
-							  hback_porch));
-	linlondp_write32(reg, BS_VINTERVALS, BS_V_INTVALS(vfront_porch,
-							  vback_porch));
+	linlondp_write32(reg, BS_HINTERVALS,
+			 BS_H_INTVALS(hfront_porch, hback_porch));
+	linlondp_write32(reg, BS_VINTERVALS,
+			 BS_V_INTVALS(vfront_porch, vback_porch));
 
 	value = BS_SYNC_VSW(vsync_len) | BS_SYNC_HSW(hsync_len);
 	value |= mode->flags & DRM_MODE_FLAG_PVSYNC ? BS_SYNC_VSP : 0;
@@ -1324,7 +1334,7 @@ static void dp_timing_ctrlr_update(struct linlondp_component *c,
 	linlondp_write32(reg, BS_PREFETCH_LINE, DP_DEFAULT_PREPRETCH_LINE);
 
 	/* configure bs control register */
-	value = BS_CTRL_EN | BS_CTRL_VM;
+	value = BS_CTRL_EN;
 
 	if (pipe->base.en_test_pattern)
 		value |= BS_CTRL_TM;
@@ -1337,9 +1347,11 @@ static void dp_timing_ctrlr_update(struct linlondp_component *c,
 		value |= BS_CTRL_DL;
 	}
 
+	value |= is_writeback_only(crtc_st) ? BS_CTRL_VD : BS_CTRL_VM;
+
 	value |= kcrtc_st->en_protected_mode ? BS_CTRL_PM : 0;
 
-	if (c->pipeline->pixelPerClk == 2)
+	if (c->pipeline->pixel_per_cycle == 2)
 		value |= BS_CTRL_PPC(1);
 	else
 		value |= BS_CTRL_PPC(0);
@@ -1390,8 +1402,8 @@ static const struct linlondp_component_funcs dp_timing_ctrlr_funcs = {
 	.dump_register = dp_timing_ctrlr_dump,
 };
 
-static int dp_timing_ctrlr_init(struct dp_dev *dp,
-				struct block_header *blk, u32 __iomem *reg)
+static int dp_timing_ctrlr_init(struct dp_dev *dp, struct block_header *blk,
+				u32 __iomem *reg)
 {
 	struct linlondp_component *c;
 	struct linlondp_timing_ctrlr *ctrlr;
@@ -1402,8 +1414,8 @@ static int dp_timing_ctrlr_init(struct dp_dev *dp,
 	c = linlondp_component_add(&dp->pipes[pipe_id]->base, sizeof(*ctrlr),
 				   LINLONDP_COMPONENT_TIMING_CTRLR,
 				   BLOCK_INFO_INPUT_ID(blk->block_info),
-				   &dp_timing_ctrlr_funcs,
-				   1, BIT(LINLONDP_COMPONENT_IPS0 + pipe_id),
+				   &dp_timing_ctrlr_funcs, 1,
+				   BIT(LINLONDP_COMPONENT_IPS0 + pipe_id),
 				   BS_NUM_OUTPUT_IDS, reg, "DOU%d_BS", pipe_id);
 	if (IS_ERR(c)) {
 		DRM_ERROR("Failed to add display_ctrl component\n");
@@ -1419,13 +1431,12 @@ static int dp_timing_ctrlr_init(struct dp_dev *dp,
 
 static void dp_gamma_update(struct linlondp_coeffs_table *table)
 {
-	linlondp_write_group(table->reg, GLB_LT_COEFF_DATA,
-			     GLB_LT_COEFF_NUM, table->coeffs);
+	linlondp_write_group(table->reg, GLB_LT_COEFF_DATA, GLB_LT_COEFF_NUM,
+			     table->coeffs);
 }
 
-static void
-dp_gamma_table_init(struct dp_dev *d71, struct block_header *blk,
-		    u32 __iomem *reg)
+static void dp_gamma_table_init(struct dp_dev *d71, struct block_header *blk,
+				u32 __iomem *reg)
 {
 	struct linlondp_coeffs_manager *mgr = NULL;
 	int hw_id = BLOCK_INFO_TYPE_ID(blk->block_info);
@@ -1445,8 +1456,8 @@ dp_gamma_table_init(struct dp_dev *d71, struct block_header *blk,
 	linlondp_coeffs_add(mgr, hw_id, reg, dp_gamma_update);
 }
 
-int dp_probe_block(struct dp_dev *dp,
-		   struct block_header *blk, u32 __iomem *reg)
+int dp_probe_block(struct dp_dev *dp, struct block_header *blk,
+		   u32 __iomem *reg)
 {
 	struct dp_pipeline *pipe;
 	int blk_id = BLOCK_INFO_BLK_ID(blk->block_info);
@@ -1456,44 +1467,56 @@ int dp_probe_block(struct dp_dev *dp,
 	switch (BLOCK_INFO_BLK_TYPE(blk->block_info)) {
 	case DP_BLK_TYPE_GCU:
 		break;
+
 	case DP_BLK_TYPE_LPU:
 		pipe = dp->pipes[blk_id];
 		pipe->lpu_addr = reg;
 		break;
+
 	case DP_BLK_TYPE_LPU_LAYER:
 		err = dp_layer_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_LPU_WB_LAYER:
 		err = dp_wb_layer_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_CU:
 		pipe = dp->pipes[blk_id];
 		pipe->cu_addr = reg;
 		err = dp_compiz_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_CU_SCALER:
 		err = dp_scaler_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_CU_SPLITTER:
 		err = dp_splitter_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_CU_MERGER:
 		err = dp_merger_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_DOU:
 		pipe = dp->pipes[blk_id];
 		pipe->dou_addr = reg;
 		break;
+
 	case DP_BLK_TYPE_DOU_IPS:
 		err = dp_improc_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_DOU_FT_COEFF:
 		pipe = dp->pipes[blk_id];
 		pipe->dou_ft_coeff_addr = reg;
 		break;
+
 	case DP_BLK_TYPE_DOU_BS:
 		err = dp_timing_ctrlr_init(dp, blk, reg);
 		break;
+
 	case DP_BLK_TYPE_GLB_LT_COEFF:
 		dp_gamma_table_init(dp, blk, reg);
 		break;
@@ -1607,7 +1630,8 @@ static void dp_wait_flip_done(struct linlondp_dev *mdev)
 	int ret;
 
 	ret = dp_wait_cond(((linlondp_read32(dp->gcu_addr, GCU_CONFIG_VALID0) &
-			   0x1) == 0x0), 50, 1000, 10000);
+			     0x1) == 0x0),
+			   50, 1000, 10000);
 	if (ret)
 		dev_err(mdev->dev, "%s timeout\n", __func__);
 }
@@ -1617,22 +1641,51 @@ void dp_close_gop(struct linlondp_dev *mdev)
 	u32 __iomem *base = mdev->reg_base;
 
 	/* disable needs two phase, firstly do first phase */
-	linlondp_write32(base, LPU0_LAYER0 + BLK_CONTROL, 0);	// disable lpu0_layer0
-	linlondp_write32(base, LPU0_LAYER2 + BLK_CONTROL, 0);	// disable lpu0_layer2
-	linlondp_write32(base, CU0 + CU_INPUT_ID0, 0);	// clear cu inputid0
-	linlondp_write32(base, CU0 + CU_INPUT_ID1, 0);	// clear cu inputid1
-	linlondp_write32(base, CU0_SCALER0 + BLK_CONTROL, 0);	// disable cu0_sclaer0
-	linlondp_write32(base, CU0_SCALER1 + BLK_CONTROL, 0);	// disable cu0_scaler1
-	linlondp_write32(base, CU0_MERGER + BLK_CONTROL, 0);	// disable cu0_merger
-	linlondp_write32(base, GCU_CONFIG_VALID0, 1);	// config valid
+	linlondp_write32(base, LPU0_LAYER0 + BLK_CONTROL,
+			 0); // disable lpu0_layer0
+	linlondp_write32(base, LPU0_LAYER2 + BLK_CONTROL,
+			 0); // disable lpu0_layer2
+	linlondp_write32(base, CU0 + CU_INPUT_ID0, 0); // clear cu inputid0
+	linlondp_write32(base, CU0 + CU_INPUT_ID1, 0); // clear cu inputid1
+	linlondp_write32(base, CU0_SCALER0 + BLK_CONTROL,
+			 0); // disable cu0_sclaer0
+	linlondp_write32(base, CU0_SCALER1 + BLK_CONTROL,
+			 0); // disable cu0_scaler1
+	linlondp_write32(base, CU0_MERGER + BLK_CONTROL,
+			 0); // disable cu0_merger
+	linlondp_write32(base, GCU_CONFIG_VALID0, 1); // config valid
 
 	dp_wait_flip_done(mdev);
 
 	/* do second phase */
-	linlondp_write32(base, DOU0_IPS + IPS_INPUT_ID0, 0);	// clear dou0_ips inputid0
-	linlondp_write32(base, DOU0_IPS + BLK_CONTROL, 0);	// disable dou0_ips
-	linlondp_write32(base, DOU0_BS + BLK_CONTROL, 0);	// disable dou0_bs
-	linlondp_write32(base, GCU_CONFIG_VALID0, 1);	//config valid
+	linlondp_write32(base, DOU0_IPS + IPS_INPUT_ID0,
+			 0); // clear dou0_ips inputid0
+	linlondp_write32(base, DOU0_IPS + BLK_CONTROL, 0); // disable dou0_ips
+	linlondp_write32(base, DOU0_BS + BLK_CONTROL, 0); // disable dou0_bs
+	linlondp_write32(base, GCU_CONFIG_VALID0, 1); //config valid
 
 	dp_wait_flip_done(mdev);
+}
+
+bool dp_gop_mode_changed(struct linlondp_dev *mdev, struct drm_display_mode *mode)
+{
+	u32 __iomem *base = mdev->reg_base;
+	u32 hv, hporch, vporch;
+	u32 hactive = mode->crtc_hdisplay;
+	u32 hfront_porch = mode->crtc_hsync_start - mode->crtc_hdisplay;
+	u32 hback_porch = mode->crtc_htotal - mode->crtc_hsync_end;
+	u32 vactive = mode->crtc_vdisplay;
+	u32 vfront_porch = mode->crtc_vsync_start - mode->crtc_vdisplay;
+	u32 vback_porch = mode->crtc_vtotal - mode->crtc_vsync_end;
+
+	hv = linlondp_read32(base, DOU0_BS + BS_ACTIVESIZE);
+	hporch = linlondp_read32(base, DOU0_BS + BS_HINTERVALS);
+	vporch = linlondp_read32(base, DOU0_BS + BS_VINTERVALS);
+
+	if (hv != HV_SIZE(hactive, vactive)
+		|| hporch != BS_H_INTVALS(hfront_porch, hback_porch)
+		|| vporch != BS_V_INTVALS(vfront_porch, vback_porch)) {
+		return true;
+	}
+	return false;
 }

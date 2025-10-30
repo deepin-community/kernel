@@ -5,15 +5,14 @@
 #include "trilin_dptx.h"
 
 /* dp audio */
-void dptx_audio_handle_plugged_change(struct dptx_audio *dp_audio,
-				      bool plugged)
+void dptx_audio_handle_plugged_change(struct dptx_audio *dp_audio, bool plugged)
 {
 	if (dp_audio->codec_dev && dp_audio->plugged_cb)
 		dp_audio->plugged_cb(dp_audio->codec_dev, plugged);
 }
 
-static void dptx_setup_audio(struct trilin_dp *dp, int source,
-		int freq, int sample_len, int channel_count)
+static void dptx_setup_audio(struct trilin_dp *dp, int source, int freq,
+			     int sample_len, int channel_count)
 {
 	unsigned int offset;
 	unsigned int cs_length_orig_freq;
@@ -22,14 +21,16 @@ static void dptx_setup_audio(struct trilin_dp *dp, int source,
 	if (!dp)
 		return;
 
-	offset = (TRILIN_DPTX_SEC1_AUDIO_ENABLE
-			- TRILIN_DPTX_SEC0_AUDIO_ENABLE) * source;
+	offset = (TRILIN_DPTX_SEC1_AUDIO_ENABLE -
+		  TRILIN_DPTX_SEC0_AUDIO_ENABLE) *
+		 source;
 
 	/* Bit 7:4 source number; Bit 3, '0' for linear PCM samples; */
 	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_SOURCE_FORMAT + offset,
 			(source << DPTX_CS_SOURCE_NUMBER_SHIFT));
 	/* Categroy code: 0, General. */
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_CATEGORY_CODE + offset, DPTX_CS_CATEGORY_CODE);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_CATEGORY_CODE + offset,
+			DPTX_CS_CATEGORY_CODE);
 	switch (sample_len) {
 	case 16:
 		cs_length_orig_freq = DPTX_CS_SAMPLE_WORD_LENGTH_16BITS;
@@ -48,27 +49,33 @@ static void dptx_setup_audio(struct trilin_dp *dp, int source,
 	/* clock accuracy: 00, level II, default; 10, level I; 01, level III */
 	switch (freq) {
 	case 32000:
-		cs_length_orig_freq |=  DPTX_CS_SAMPLING_ORIG_FREQ_32000HZ;
+		cs_length_orig_freq |= DPTX_CS_SAMPLING_ORIG_FREQ_32000HZ;
 		cs_freq_clock_accuracy = DPTX_CS_SAMPLING_FREQ_32000Hz;
 		break;
 	case 44100:
-		cs_length_orig_freq |=  DPTX_CS_SAMPLING_ORIG_FREQ_44100HZ;
+		cs_length_orig_freq |= DPTX_CS_SAMPLING_ORIG_FREQ_44100HZ;
 		cs_freq_clock_accuracy = DPTX_CS_SAMPLING_FREQ_44100Hz;
 		break;
 	case 48000:
 	default:
-		cs_length_orig_freq |=  DPTX_CS_SAMPLING_ORIG_FREQ_48000HZ;
+		cs_length_orig_freq |= DPTX_CS_SAMPLING_ORIG_FREQ_48000HZ;
 		cs_freq_clock_accuracy = DPTX_CS_SAMPLING_FREQ_48000Hz;
 		break;
 	}
 
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_LENGTH_ORIG_FREQ + offset, cs_length_orig_freq);
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_FREQ_CLOCK_ACCURACY + offset, cs_freq_clock_accuracy);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_LENGTH_ORIG_FREQ + offset,
+			cs_length_orig_freq);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_FREQ_CLOCK_ACCURACY + offset,
+			cs_freq_clock_accuracy);
 	/* copyright*/
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_COPYRIGHT + offset, DPTX_CS_COPYRIGHT);
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_TIMESTAMP_INTERVAL, DPTX_CS_TIMESTAMP_INTERVAL);
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_AUDIO_CHANNEL_MAP + offset, DPTX_CS_AUDIO_CHANNEL_MAP_DEFAULT);
-	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CHANNEL_COUNT + offset, channel_count);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CS_COPYRIGHT + offset,
+			DPTX_CS_COPYRIGHT);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_TIMESTAMP_INTERVAL,
+			DPTX_CS_TIMESTAMP_INTERVAL);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_AUDIO_CHANNEL_MAP + offset,
+			DPTX_CS_AUDIO_CHANNEL_MAP_DEFAULT);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_CHANNEL_COUNT + offset,
+			channel_count);
 	trilin_dp_write(dp, TRILIN_DPTX_SEC0_INPUT_SELECT + offset, source);
 }
 
@@ -99,8 +106,8 @@ static void dptx_audio_shutdown(struct device *dev, void *data)
 }
 
 static int dptx_audio_hw_params(struct device *dev, void *data,
-				  struct hdmi_codec_daifmt *daifmt,
-				  struct hdmi_codec_params *params)
+				struct hdmi_codec_daifmt *daifmt,
+				struct hdmi_codec_params *params)
 {
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
@@ -112,28 +119,28 @@ static int dptx_audio_hw_params(struct device *dev, void *data,
 	dp_audio->params.sample_rate = params->sample_rate;
 	dp_audio->params.channels = params->channels;
 
-	dev_dbg(dev, "%s, daifmt fmt:%d, bit_clk_inv:%d, frame_clk_inv:%d,"
-		"bit_clk_master:%d, frame_clk_master:%d, params sample_rate:%d,"
-		"sample_width:%d, channels:%d\n",
-		__func__,
-		daifmt->fmt, daifmt->bit_clk_inv, daifmt->frame_clk_inv,
-		daifmt->bit_clk_provider, daifmt->frame_clk_provider,
-		params->sample_rate, params->sample_width, params->channels);
+	dev_dbg(dev,
+		"%s, daifmt fmt:%d, bit_clk_inv:%d, frame_clk_inv:%d, bit_clk_master:%d, frame_clk_master:%d, params sample_rate:%d, sample_width:%d, channels:%d\n",
+		__func__, daifmt->fmt, daifmt->bit_clk_inv,
+		daifmt->frame_clk_inv, daifmt->bit_clk_provider,
+		daifmt->frame_clk_provider, params->sample_rate,
+		params->sample_width, params->channels);
 
-	dptx_setup_audio(dp, 0, params->sample_rate, params->sample_width, params->channels);
+	dptx_setup_audio(dp, 0, params->sample_rate, params->sample_width,
+			 params->channels);
 
 	return 0;
 }
 
 static int dptx_audio_get_dai_id(struct snd_soc_component *comment,
-				   struct device_node *endpoint)
+				 struct device_node *endpoint)
 {
 	return 0;
 }
 
 static int dptx_audio_hook_plugged_cb(struct device *dev, void *data,
-					hdmi_codec_plugged_cb fn,
-					struct device *codec_dev)
+				      hdmi_codec_plugged_cb fn,
+				      struct device *codec_dev)
 {
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
@@ -156,8 +163,7 @@ void dptx_audio_reconfig_and_enable(void *data)
 	if (!dp->plugin)
 		return;
 
-	dptx_setup_audio(dp, 0,
-			 dp_audio->params.sample_rate,
+	dptx_setup_audio(dp, 0, dp_audio->params.sample_rate,
 			 dp_audio->params.sample_width,
 			 dp_audio->params.channels);
 

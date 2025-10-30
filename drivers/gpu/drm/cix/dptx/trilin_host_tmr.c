@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 //------------------------------------------------------------------------------
-//      Trilinear Technologies DisplayPort DRM Driver
-//      Copyright (C) 2023 Trilinear Technologies
+//	Trilinear Technologies DisplayPort DRM Driver
+//	Copyright (C) 2023 Trilinear Technologies
 //
-//      This program is free software: you can redistribute it and/or modify
-//      it under the terms of the GNU General Public License as published by
-//      the Free Software Foundation, version 2.
+//	This program is free software: you can redistribute it and/or modify
+//	it under the terms of the GNU General Public License as published by
+//	the Free Software Foundation, version 2.
 //
-//      This program is distributed in the hope that it will be useful, but
-//      WITHOUT ANY WARRANTY; without even the implied warranty of
-//      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-//      General Public License for more details.
+//	This program is distributed in the hope that it will be useful, but
+//	WITHOUT ANY WARRANTY; without even the implied warranty of
+//	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+//	General Public License for more details.
 //
-//      You should have received a copy of the GNU General Public License
-//      along with this program. If not, see <http://www.gnu.org/licenses/>.
+//	You should have received a copy of the GNU General Public License
+//	along with this program. If not, see <http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
 #include <linux/clk.h>
@@ -36,7 +36,7 @@
 //  Microseconds    Timer clock is 1MHz
 //  Milliseconds    Microsecond time * 1000
 //------------------------------------------------------------------------------
-#define DEV_TMR_MS              1000
+#define DEV_TMR_MS 1000
 
 //------------------------------------------------------------------------------
 //  Function: trilin_host_tmr_init
@@ -90,7 +90,6 @@ void trilin_host_tmr_set_ct(struct trilin_dp *dp, u32 tmr_ct)
 	tmr_val = (tmr_val & DEV_TMR_FLAGS_ALL) | (DEV_TMR_MAX_CT & tmr_ct);
 	trilin_dp_write(dp, TRILIN_DPTX_HOST_TIMER, tmr_val);
 }
-
 void trilin_host_tmr_set_us(struct trilin_dp *dp, u32 tmr_us)
 {
 	u32 tmr_val = trilin_dp_read(dp, TRILIN_DPTX_HOST_TIMER);
@@ -98,12 +97,12 @@ void trilin_host_tmr_set_us(struct trilin_dp *dp, u32 tmr_us)
 	tmr_val = (tmr_val & DEV_TMR_FLAGS_ALL) | (DEV_TMR_MAX_CT & tmr_us);
 	trilin_dp_write(dp, TRILIN_DPTX_HOST_TIMER, tmr_val);
 }
-
 void trilin_host_tmr_set_ms(struct trilin_dp *dp, u32 tmr_ms)
 {
 	u32 tmr_val = trilin_dp_read(dp, TRILIN_DPTX_HOST_TIMER);
 
-	tmr_val = (tmr_val & DEV_TMR_FLAGS_ALL) | (DEV_TMR_MAX_CT & (tmr_ms * DEV_TMR_MS));
+	tmr_val = (tmr_val & DEV_TMR_FLAGS_ALL) |
+		  (DEV_TMR_MAX_CT & (tmr_ms * DEV_TMR_MS));
 	trilin_dp_write(dp, TRILIN_DPTX_HOST_TIMER, tmr_val);
 }
 

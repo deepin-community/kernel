@@ -15,11 +15,11 @@ static void linlondp_component_state_reset(struct linlondp_component_state *st)
 	st->changed_active_inputs = 0;
 }
 
-static struct drm_private_state *linlondp_layer_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_layer_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_layer_state *old =
-	    to_layer_st(priv_to_comp_st(obj->state));
+		to_layer_st(priv_to_comp_st(obj->state));
 	struct linlondp_layer_state *st;
 
 	st = kmemdup(obj->state, sizeof(*st), GFP_KERNEL);
@@ -34,9 +34,8 @@ static struct drm_private_state *linlondp_layer_atomic_duplicate_state(
 	return &st->base.obj;
 }
 
-static void
-linlondp_layer_atomic_destroy_state(struct drm_private_obj *obj,
-				    struct drm_private_state *state)
+static void linlondp_layer_atomic_destroy_state(struct drm_private_obj *obj,
+						struct drm_private_state *state)
 {
 	struct linlondp_layer_state *st = to_layer_st(priv_to_comp_st(state));
 
@@ -63,8 +62,8 @@ static int linlondp_layer_obj_add(struct linlondp_kms_dev *kms,
 	return 0;
 }
 
-static struct drm_private_state *linlondp_scaler_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_scaler_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_scaler_state *st;
 
@@ -100,14 +99,13 @@ static int linlondp_scaler_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &scaler->base;
-	drm_atomic_private_obj_init(&kms->base,
-				    &scaler->base.obj, &st->base.obj,
-				    &linlondp_scaler_obj_funcs);
+	drm_atomic_private_obj_init(&kms->base, &scaler->base.obj,
+				    &st->base.obj, &linlondp_scaler_obj_funcs);
 	return 0;
 }
 
-static struct drm_private_state *linlondp_compiz_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_compiz_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_compiz_state *st;
 
@@ -149,8 +147,8 @@ static int linlondp_compiz_obj_add(struct linlondp_kms_dev *kms,
 	return 0;
 }
 
-static struct drm_private_state *linlondp_splitter_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_splitter_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_splitter_state *st;
 
@@ -186,15 +184,15 @@ static int linlondp_splitter_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &splitter->base;
-	drm_atomic_private_obj_init(&kms->base,
-				    &splitter->base.obj, &st->base.obj,
+	drm_atomic_private_obj_init(&kms->base, &splitter->base.obj,
+				    &st->base.obj,
 				    &linlondp_splitter_obj_funcs);
 
 	return 0;
 }
 
-static struct drm_private_state *linlondp_merger_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_merger_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_merger_state *st;
 
@@ -208,8 +206,9 @@ static struct drm_private_state *linlondp_merger_atomic_duplicate_state(
 	return &st->base.obj;
 }
 
-static void linlondp_merger_atomic_destroy_state(struct drm_private_obj *obj,
-		struct drm_private_state *state)
+static void
+linlondp_merger_atomic_destroy_state(struct drm_private_obj *obj,
+				     struct drm_private_state *state)
 {
 	kfree(to_merger_st(priv_to_comp_st(state)));
 }
@@ -229,15 +228,14 @@ static int linlondp_merger_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &merger->base;
-	drm_atomic_private_obj_init(&kms->base,
-				    &merger->base.obj, &st->base.obj,
-				    &linlondp_merger_obj_funcs);
+	drm_atomic_private_obj_init(&kms->base, &merger->base.obj,
+				    &st->base.obj, &linlondp_merger_obj_funcs);
 
 	return 0;
 }
 
-static struct drm_private_state *linlondp_improc_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_improc_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_improc_state *st;
 
@@ -279,7 +277,8 @@ static int linlondp_improc_obj_add(struct linlondp_kms_dev *kms,
 	return 0;
 }
 
-static struct drm_private_state *linlondp_timing_ctrlr_atomic_duplicate_state(struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_timing_ctrlr_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_timing_ctrlr_state *st;
 
@@ -321,8 +320,8 @@ static int linlondp_timing_ctrlr_obj_add(struct linlondp_kms_dev *kms,
 	return 0;
 }
 
-static struct drm_private_state *linlondp_pipeline_atomic_duplicate_state(
-		struct drm_private_obj *obj)
+static struct drm_private_state *
+linlondp_pipeline_atomic_duplicate_state(struct drm_private_obj *obj)
 {
 	struct linlondp_pipeline_state *st;
 

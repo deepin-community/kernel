@@ -1,5 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
+/* SPDX-License-Identifier: GPL-2.0
+ *
  * (C) COPYRIGHT 2022-2023 Arm Technology (China) Co., Ltd.
  * ALL RIGHTS RESERVED
  *
@@ -27,7 +27,7 @@ struct linlondp_coeffs_table {
 };
 
 struct linlondp_coeffs_manager {
-	struct mutex mutex;	/* for tables accessing */
+	struct mutex mutex; /* for tables accessing */
 	u32 n_tables;
 	u32 coeffs_sz;
 	struct linlondp_coeffs_table *tables[8];
@@ -48,11 +48,11 @@ static inline void __linlondp_coeffs_put(struct linlondp_coeffs_table *table)
 		refcount_dec(&table->refcount);
 }
 
-#define linlondp_coeffs_put(table) \
-do { \
-	__linlondp_coeffs_put(table); \
-	(table) = NULL; \
-} while (0)
+#define linlondp_coeffs_put(table)            \
+	do {                                  \
+		__linlondp_coeffs_put(table); \
+		(table) = NULL;               \
+	} while (0)
 
 static inline void linlondp_coeffs_update(struct linlondp_coeffs_table *table)
 {
@@ -66,9 +66,9 @@ static inline void linlondp_coeffs_update(struct linlondp_coeffs_table *table)
 struct linlondp_coeffs_manager *linlondp_coeffs_create_manager(u32 coeffs_sz);
 void linlondp_coeffs_destroy_manager(struct linlondp_coeffs_manager *mgr);
 
-int linlondp_coeffs_add(struct linlondp_coeffs_manager *mgr,
-		u32 hw_id, u32 __iomem *reg,
-		void (*update)(struct linlondp_coeffs_table *table));
+int linlondp_coeffs_add(struct linlondp_coeffs_manager *mgr, u32 hw_id,
+			u32 __iomem *reg,
+			void (*update)(struct linlondp_coeffs_table *table));
 struct linlondp_coeffs_table *
 linlondp_coeffs_request(struct linlondp_coeffs_manager *mgr, void *coeffs);
 

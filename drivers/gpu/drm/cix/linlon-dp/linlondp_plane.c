@@ -14,16 +14,15 @@
 #include "linlondp_kms.h"
 #include "linlondp_framebuffer.h"
 
-static int
-linlondp_plane_init_data_flow(struct drm_plane_state *st,
-		struct linlondp_crtc_state *kcrtc_st,
-		struct linlondp_data_flow_cfg *dflow)
+static int linlondp_plane_init_data_flow(struct drm_plane_state *st,
+					 struct linlondp_crtc_state *kcrtc_st,
+					 struct linlondp_data_flow_cfg *dflow)
 {
 	struct linlondp_plane *kplane = to_kplane(st->plane);
 	struct drm_framebuffer *fb = st->fb;
 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
-	struct linlondp_dev *mdev = st->plane->dev->dev_private;
+	//struct linlondp_dev *mdev = st->plane->dev->dev_private;
 	struct drm_crtc_state *crtc_st;
 	struct drm_display_mode *mode;
 	struct drm_display_mode *adjusted_mode;
@@ -49,7 +48,7 @@ linlondp_plane_init_data_flow(struct drm_plane_state *st,
 	dflow->out_w = st->crtc_w;
 	dflow->out_h = st->crtc_h;
 
-	if (!mdev->side_by_side) {
+	if (pipe->pixel_per_cycle == 1) {
 		crtc_st = drm_atomic_get_new_crtc_state(st->state, st->crtc);
 		mode = &crtc_st->mode;
 		adjusted_mode = &crtc_st->adjusted_mode;
@@ -76,7 +75,8 @@ linlondp_plane_init_data_flow(struct drm_plane_state *st,
 
 	dflow->rot = drm_rotation_simplify(st->rotation, caps->supported_rots);
 	if (!has_bits(dflow->rot, caps->supported_rots)) {
-		DRM_DEBUG_ATOMIC("rotation(0x%x) isn't supported by %p4cc with modifier: 0x%llx.\n",
+		DRM_DEBUG_ATOMIC(
+			"rotation(0x%x) isn't supported by %p4cc with modifier: 0x%llx.\n",
 			dflow->rot, &caps->fourcc, fb->modifier);
 		return -EINVAL;
 	}
@@ -98,11 +98,11 @@ linlondp_plane_init_data_flow(struct drm_plane_state *st,
  * RETURNS:
  * Zero for success or -errno
  */
-static int
-linlondp_plane_atomic_check(struct drm_plane *plane,
-		struct drm_atomic_state *state)
+static int linlondp_plane_atomic_check(struct drm_plane *plane,
+				       struct drm_atomic_state *state)
 {
-	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state, plane);
+	struct drm_plane_state *new_plane_state =
+		drm_atomic_get_new_plane_state(state, plane);
 	struct linlondp_plane *kplane = to_kplane(plane);
 	struct linlondp_plane_state *kplane_st = to_kplane_st(new_plane_state);
 	struct linlondp_layer *layer = kplane->layer;
@@ -133,14 +133,14 @@ linlondp_plane_atomic_check(struct drm_plane *plane,
 		return err;
 
 	if (kcrtc->side_by_side)
-		err = linlondp_build_layer_sbs_data_flow(layer,
-			kplane_st, kcrtc_st, &dflow);
+		err = linlondp_build_layer_sbs_data_flow(layer, kplane_st,
+							 kcrtc_st, &dflow);
 	else if (dflow.en_split)
-		err = linlondp_build_layer_split_data_flow(layer,
-				kplane_st, kcrtc_st, &dflow);
+		err = linlondp_build_layer_split_data_flow(layer, kplane_st,
+							   kcrtc_st, &dflow);
 	else
-		err = linlondp_build_layer_data_flow(layer,
-				kplane_st, kcrtc_st, &dflow);
+		err = linlondp_build_layer_data_flow(layer, kplane_st, kcrtc_st,
+						     &dflow);
 
 	return err;
 }
@@ -148,9 +148,8 @@ linlondp_plane_atomic_check(struct drm_plane *plane,
 /* plane doesn't represent a real HW, so there is no HW update for plane.
  * linlondp handles all the HW update in crtc->atomic_flush
  */
-static void
-linlondp_plane_atomic_update(struct drm_plane *plane,
-			     struct drm_atomic_state *state)
+static void linlondp_plane_atomic_update(struct drm_plane *plane,
+					 struct drm_atomic_state *state)
 {
 }
 
@@ -215,9 +214,8 @@ linlondp_plane_atomic_duplicate_state(struct drm_plane *plane)
 	return &new->base;
 }
 
-static void
-linlondp_plane_atomic_destroy_state(struct drm_plane *plane,
-				    struct drm_plane_state *state)
+static void linlondp_plane_atomic_destroy_state(struct drm_plane *plane,
+						struct drm_plane_state *state)
 {
 	__drm_atomic_helper_plane_destroy_state(state);
 	kfree(to_kplane_st(state));
@@ -226,8 +224,7 @@ linlondp_plane_atomic_destroy_state(struct drm_plane *plane,
 static int
 linlondp_plane_atomic_get_property(struct drm_plane *plane,
 				   const struct drm_plane_state *state,
-				   struct drm_property *property,
-				   uint64_t *val)
+				   struct drm_property *property, uint64_t *val)
 {
 	struct linlondp_plane_state *st = to_kplane_st(state);
 	struct linlondp_plane *kplane = to_kplane(plane);
@@ -246,13 +243,10 @@ linlondp_plane_atomic_get_property(struct drm_plane *plane,
 	return 0;
 }
 
-int
-linlondp_atomic_replace_property_blob_from_id(struct drm_device *dev,
-					      struct drm_property_blob **blob,
-					      uint64_t blob_id,
-					      ssize_t expected_size,
-					      ssize_t expected_elem_size,
-					      bool *replaced)
+int linlondp_atomic_replace_property_blob_from_id(
+	struct drm_device *dev, struct drm_property_blob **blob,
+	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+	bool *replaced)
 {
 	struct drm_property_blob *new_blob = NULL;
 
@@ -261,13 +255,12 @@ linlondp_atomic_replace_property_blob_from_id(struct drm_device *dev,
 		if (new_blob == NULL)
 			return -EINVAL;
 
-		if (expected_size > 0 &&
-			new_blob->length != expected_size) {
+		if (expected_size > 0 && new_blob->length != expected_size) {
 			drm_property_blob_put(new_blob);
 			return -EINVAL;
 		}
 		if (expected_elem_size > 0 &&
-			new_blob->length % expected_elem_size != 0) {
+		    new_blob->length % expected_elem_size != 0) {
 			drm_property_blob_put(new_blob);
 			return -EINVAL;
 		}
@@ -279,11 +272,10 @@ linlondp_atomic_replace_property_blob_from_id(struct drm_device *dev,
 	return 0;
 }
 
-static int
-linlondp_plane_atomic_set_property(struct drm_plane *plane,
-		struct drm_plane_state *state,
-		struct drm_property *property,
-		uint64_t val)
+static int linlondp_plane_atomic_set_property(struct drm_plane *plane,
+					      struct drm_plane_state *state,
+					      struct drm_property *property,
+					      uint64_t val)
 {
 	struct drm_device *drm = plane->dev;
 	struct linlondp_plane *kplane = to_kplane(plane);
@@ -292,30 +284,24 @@ linlondp_plane_atomic_set_property(struct drm_plane *plane,
 	int ret = 0;
 
 	if (property == kplane->degamma_lut_property) {
-		ret = linlondp_atomic_replace_property_blob_from_id(drm,
-			&kplane_st->degamma_lut,
-			val, -1, sizeof(struct drm_color_lut),
-			&replaced);
+		ret = linlondp_atomic_replace_property_blob_from_id(
+			drm, &kplane_st->degamma_lut, val, -1,
+			sizeof(struct drm_color_lut), &replaced);
 		kplane_st->color_mgmt_changed |= replaced;
 	} else if (property == kplane->ctm_property) {
-		ret = linlondp_atomic_replace_property_blob_from_id(drm,
-			&kplane_st->ctm,
-			val,
-			sizeof(struct drm_color_ctm), -1,
-			&replaced);
+		ret = linlondp_atomic_replace_property_blob_from_id(
+			drm, &kplane_st->ctm, val, sizeof(struct drm_color_ctm),
+			-1, &replaced);
 		kplane_st->color_mgmt_changed |= replaced;
 	} else if (property == kplane->ctm_ext_property) {
-		ret = linlondp_atomic_replace_property_blob_from_id(drm,
-			&kplane_st->ctm,
-			val,
-			sizeof(struct color_ctm_ext), -1,
-			&replaced);
+		ret = linlondp_atomic_replace_property_blob_from_id(
+			drm, &kplane_st->ctm, val, sizeof(struct color_ctm_ext),
+			-1, &replaced);
 		kplane_st->color_mgmt_changed |= replaced;
 	} else if (property == kplane->gamma_lut_property) {
-		ret = linlondp_atomic_replace_property_blob_from_id(drm,
-			&kplane_st->gamma_lut,
-			val, -1, sizeof(struct drm_color_lut),
-			&replaced);
+		ret = linlondp_atomic_replace_property_blob_from_id(
+			drm, &kplane_st->gamma_lut, val, -1,
+			sizeof(struct drm_color_lut), &replaced);
 		kplane_st->color_mgmt_changed |= replaced;
 	} else if (property == kplane->layer_split_property) {
 		kplane_st->layer_split = !!val;
@@ -325,21 +311,19 @@ linlondp_plane_atomic_set_property(struct drm_plane *plane,
 	return ret;
 }
 
-static bool
-linlondp_plane_format_mod_supported(struct drm_plane *plane,
-				    u32 format, u64 modifier)
+static bool linlondp_plane_format_mod_supported(struct drm_plane *plane,
+						u32 format, u64 modifier)
 {
 	struct linlondp_dev *mdev = plane->dev->dev_private;
 	struct linlondp_plane *kplane = to_kplane(plane);
 	u32 layer_type = kplane->layer->layer_type;
 
-	return linlondp_format_mod_supported(&mdev->fmt_tbl, layer_type,
-					     format, modifier, 0);
+	return linlondp_format_mod_supported(&mdev->fmt_tbl, layer_type, format,
+					     modifier, 0);
 }
 
 #ifdef CONFIG_DEBUG_FS
-static int
-linlondp_plane_debugfs_init(struct drm_plane *plane)
+static int linlondp_plane_debugfs_init(struct drm_plane *plane)
 {
 	struct linlondp_plane *kplane = to_kplane(plane);
 	struct dentry *dir;
@@ -361,7 +345,7 @@ linlondp_plane_debugfs_init(struct drm_plane *plane)
 
 	return 0;
 }
-#endif /*CONFIG_DEBUG_FS */
+#endif /*CONFIG_DEBUG_FS*/
 
 static const struct drm_plane_funcs linlondp_plane_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
@@ -376,7 +360,7 @@ static const struct drm_plane_funcs linlondp_plane_funcs = {
 
 #ifdef CONFIG_DEBUG_FS
 	.late_register = linlondp_plane_debugfs_init,
-#endif /*CONFIG_DEBUG_FS */
+#endif /*CONFIG_DEBUG_FS*/
 };
 
 /* for linlondp, which is pipeline can be share between crtcs */
@@ -397,10 +381,9 @@ static u32 get_possible_crtcs(struct linlondp_kms_dev *kms,
 	return possible_crtcs;
 }
 
-static void
-linlondp_set_crtc_plane_mask(struct linlondp_kms_dev *kms,
-			     struct linlondp_pipeline *pipe,
-			     struct drm_plane *plane)
+static void linlondp_set_crtc_plane_mask(struct linlondp_kms_dev *kms,
+					 struct linlondp_pipeline *pipe,
+					 struct drm_plane *plane)
 {
 	struct linlondp_crtc *kcrtc;
 	int i;
@@ -422,7 +405,7 @@ static u32 get_plane_type(struct linlondp_kms_dev *kms,
 	return is_primary ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY;
 }
 
-/*
+/**
  * drm_plane_enable_color_mgmt - enable color management properties
  * @plane: DRM Plane
  * @plane_degamma_lut_size: the size of the degamma lut (before CSC)
@@ -453,8 +436,8 @@ static void drm_plane_enable_color_mgmt(struct linlondp_plane *kplane,
 	}
 
 	if (plane_has_ctm) {
-		drm_object_attach_property(&plane->base,
-					   kplane->ctm_property, 0);
+		drm_object_attach_property(&plane->base, kplane->ctm_property,
+					   0);
 		drm_object_attach_property(&plane->base,
 					   kplane->ctm_ext_property, 0);
 	}
@@ -468,7 +451,7 @@ static void drm_plane_enable_color_mgmt(struct linlondp_plane *kplane,
 	}
 }
 
-/*
+/**
  * DOC: Plane Color Properties
  *
  * Plane Color management or color space adjustments is supported
@@ -502,44 +485,40 @@ static int drm_plane_color_create_prop(struct drm_device *dev,
 {
 	struct drm_property *prop;
 
-	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
-				   "PLANE_DEGAMMA_LUT", 0);
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "PLANE_DEGAMMA_LUT",
+				   0);
 	if (!prop)
 		return -ENOMEM;
 
 	plane->degamma_lut_property = prop;
 
 	prop = drm_property_create_range(dev, DRM_MODE_PROP_IMMUTABLE,
-			"PLANE_DEGAMMA_LUT_SIZE", 0,
-			UINT_MAX);
+					 "PLANE_DEGAMMA_LUT_SIZE", 0, UINT_MAX);
 	if (!prop)
 		return -ENOMEM;
 	plane->degamma_lut_size_property = prop;
 
-	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
-			"PLANE_CTM", 0);
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "PLANE_CTM", 0);
 	if (!prop)
 		return -ENOMEM;
 
 	plane->ctm_property = prop;
 
-	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
-			"PLANE_CTM_EXT", 0);
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "PLANE_CTM_EXT", 0);
 	if (!prop)
 		return -ENOMEM;
 
 	plane->ctm_ext_property = prop;
 
-	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB,
-				   "PLANE_GAMMA_LUT", 0);
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB, "PLANE_GAMMA_LUT",
+				   0);
 	if (!prop)
 		return -ENOMEM;
 
 	plane->gamma_lut_property = prop;
 
 	prop = drm_property_create_range(dev, DRM_MODE_PROP_IMMUTABLE,
-			"PLANE_GAMMA_LUT_SIZE", 0,
-			UINT_MAX);
+					 "PLANE_GAMMA_LUT_SIZE", 0, UINT_MAX);
 	if (!prop)
 		return -ENOMEM;
 
@@ -548,13 +527,13 @@ static int drm_plane_color_create_prop(struct drm_device *dev,
 	return 0;
 }
 
-static int linlondp_plane_create_layer_split_property(struct linlondp_plane *kplane)
+static int
+linlondp_plane_create_layer_split_property(struct linlondp_plane *kplane)
 {
 	struct drm_plane *plane = &kplane->base;
 	struct drm_property *prop;
 
-	prop = drm_property_create_bool(plane->dev, 0,
-			"LAYER_SPLIT");
+	prop = drm_property_create_bool(plane->dev, 0, "LAYER_SPLIT");
 	if (!prop)
 		return -ENOMEM;
 
@@ -587,11 +566,10 @@ static int linlondp_plane_add(struct linlondp_kms_dev *kms,
 						 layer->layer_type, &n_formats);
 
 	err = drm_universal_plane_init(&kms->base, plane,
-		get_possible_crtcs(kms, c->pipeline),
-		&linlondp_plane_funcs,
-		formats, n_formats, linlondp_supported_modifiers,
-		get_plane_type(kms, c),
-		"%s", c->name);
+				       get_possible_crtcs(kms, c->pipeline),
+				       &linlondp_plane_funcs, formats,
+				       n_formats, linlondp_supported_modifiers,
+				       get_plane_type(kms, c), "%s", c->name);
 
 	linlondp_put_fourcc_list(formats);
 
@@ -609,21 +587,20 @@ static int linlondp_plane_add(struct linlondp_kms_dev *kms,
 	if (err)
 		goto cleanup;
 
-	err = drm_plane_create_blend_mode_property(plane,
-						   BIT(DRM_MODE_BLEND_PIXEL_NONE) |
-						   BIT(DRM_MODE_BLEND_PREMULTI) |
-						   BIT(DRM_MODE_BLEND_COVERAGE));
+	err = drm_plane_create_blend_mode_property(
+		plane, BIT(DRM_MODE_BLEND_PIXEL_NONE) |
+			       BIT(DRM_MODE_BLEND_PREMULTI) |
+			       BIT(DRM_MODE_BLEND_COVERAGE));
 	if (err)
 		goto cleanup;
 
-	err = drm_plane_create_color_properties(plane,
-						BIT(DRM_COLOR_YCBCR_BT601) |
-						BIT(DRM_COLOR_YCBCR_BT709) |
-						BIT(DRM_COLOR_YCBCR_BT2020),
-						BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
-						BIT(DRM_COLOR_YCBCR_FULL_RANGE),
-						DRM_COLOR_YCBCR_BT601,
-						DRM_COLOR_YCBCR_LIMITED_RANGE);
+	err = drm_plane_create_color_properties(
+		plane,
+		BIT(DRM_COLOR_YCBCR_BT601) | BIT(DRM_COLOR_YCBCR_BT709) |
+			BIT(DRM_COLOR_YCBCR_BT2020),
+		BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |
+			BIT(DRM_COLOR_YCBCR_FULL_RANGE),
+		DRM_COLOR_YCBCR_BT601, DRM_COLOR_YCBCR_LIMITED_RANGE);
 	if (err)
 		goto cleanup;
 
@@ -633,10 +610,10 @@ static int linlondp_plane_add(struct linlondp_kms_dev *kms,
 
 	color_mgr = &layer->color_mgr;
 
-	drm_plane_enable_color_mgmt(kplane,
-				    color_mgr->igamma_mgr ? LINLONDP_COLOR_LUT_SIZE : 0,
-				    color_mgr->has_ctm,
-				    color_mgr->fgamma_mgr ? LINLONDP_COLOR_LUT_SIZE : 0);
+	drm_plane_enable_color_mgmt(
+		kplane, color_mgr->igamma_mgr ? LINLONDP_COLOR_LUT_SIZE : 0,
+		color_mgr->has_ctm,
+		color_mgr->fgamma_mgr ? LINLONDP_COLOR_LUT_SIZE : 0);
 
 	err = drm_plane_create_zpos_property(plane, layer->base.id, 0, 8);
 	if (err)
@@ -654,7 +631,8 @@ cleanup:
 	return err;
 }
 
-int linlondp_kms_add_planes(struct linlondp_kms_dev *kms, struct linlondp_dev *mdev)
+int linlondp_kms_add_planes(struct linlondp_kms_dev *kms,
+			    struct linlondp_dev *mdev)
 {
 	struct linlondp_pipeline *pipe;
 	int i, j, err;

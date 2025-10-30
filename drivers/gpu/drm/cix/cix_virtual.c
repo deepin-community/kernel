@@ -144,11 +144,8 @@ static uint32_t drm_acpi_crtc_port_mask(struct drm_device *dev,
 	struct drm_crtc *tmp;
 
 	drm_for_each_crtc(tmp, dev) {
-		if ((struct fwnode_handle *)tmp->port == port) {
-			pr_info("cix_virtual.%s, port=%s\n", __func__,
-				port->ops->get_name(port));
+		if ((struct fwnode_handle *)tmp->port == port)
 			return 1 << index;
-		}
 
 		index++;
 	}
@@ -203,11 +200,9 @@ cix_virtual_bind(struct device *comp, struct device *master,
 	}
 
 	if (has_acpi_companion(comp)) {
-		pr_info("dwx: cix_virtual start to call %s via ACPI.\n", __func__);
 		np = comp->fwnode;
 		encoder->possible_crtcs = drm_acpi_find_possible_crtcs(drm, (struct fwnode_handle *)np);
 	} else {
-		pr_info("dwx: cix_virtual start to call %s via DT.\n", __func__);
 		np = comp->of_node;
 		encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, (struct device_node *)np);
 	}
@@ -272,7 +267,6 @@ static int cix_virtual_probe(struct platform_device *pdev)
 {
 	struct cix_virtual_dev *vd;
 	struct device *dev = &pdev->dev;
-
 	vd = devm_kzalloc(dev, sizeof(*vd), GFP_KERNEL);
 	if (!vd)
 		return -ENOMEM;

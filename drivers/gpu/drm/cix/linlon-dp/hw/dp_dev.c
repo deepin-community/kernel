@@ -175,8 +175,8 @@ static u64 get_pipeline_event(struct dp_pipeline *dp_pipeline, u32 gcu_status)
 	return evts;
 }
 
-static irqreturn_t
-dp_irq_handler(struct linlondp_dev *mdev, struct linlondp_events *evts)
+static irqreturn_t dp_irq_handler(struct linlondp_dev *mdev,
+				  struct linlondp_events *evts)
 {
 	struct dp_dev *dp = mdev->chip_data;
 	u32 status, gcu_status, raw_status;
@@ -193,7 +193,8 @@ dp_irq_handler(struct linlondp_dev *mdev, struct linlondp_events *evts)
 			status = linlondp_read32(dp->gcu_addr, BLK_STATUS);
 			if (status & GCU_STATUS_MERR) {
 				evts->global |= LINLONDP_ERR_MERR;
-				linlondp_write32_mask(dp->gcu_addr, BLK_STATUS, GCU_STATUS_MERR, 0);
+				linlondp_write32_mask(dp->gcu_addr, BLK_STATUS,
+						      GCU_STATUS_MERR, 0);
 			}
 		}
 
@@ -209,11 +210,11 @@ dp_irq_handler(struct linlondp_dev *mdev, struct linlondp_events *evts)
 	return IRQ_RETVAL(gcu_status);
 }
 
-#define ENABLED_GCU_IRQS    (GCU_IRQ_CVAL0 | GCU_IRQ_CVAL1 | \
-				GCU_IRQ_MODE | GCU_IRQ_ERR)
-#define ENABLED_LPU_IRQS    (LPU_IRQ_IBSY | LPU_IRQ_ERR | LPU_IRQ_EOW)
-#define ENABLED_CU_IRQS        (CU_IRQ_OVR | CU_IRQ_ERR)
-#define ENABLED_DOU_IRQS    (DOU_IRQ_UND | DOU_IRQ_ERR)
+#define ENABLED_GCU_IRQS \
+	(GCU_IRQ_CVAL0 | GCU_IRQ_CVAL1 | GCU_IRQ_MODE | GCU_IRQ_ERR)
+#define ENABLED_LPU_IRQS (LPU_IRQ_IBSY | LPU_IRQ_ERR | LPU_IRQ_EOW)
+#define ENABLED_CU_IRQS (CU_IRQ_OVR | CU_IRQ_ERR)
+#define ENABLED_DOU_IRQS (DOU_IRQ_UND | DOU_IRQ_ERR)
 
 static int dp_enable_irq(struct linlondp_dev *mdev)
 {
@@ -221,8 +222,8 @@ static int dp_enable_irq(struct linlondp_dev *mdev)
 	struct dp_pipeline *pipe;
 	u32 i;
 
-	linlondp_write32_mask(dp->gcu_addr, BLK_IRQ_MASK,
-			      ENABLED_GCU_IRQS, ENABLED_GCU_IRQS);
+	linlondp_write32_mask(dp->gcu_addr, BLK_IRQ_MASK, ENABLED_GCU_IRQS,
+			      ENABLED_GCU_IRQS);
 	for (i = 0; i < dp->num_pipelines; i++) {
 		pipe = dp->pipes[i];
 		linlondp_write32_mask(pipe->cu_addr, BLK_IRQ_MASK,
@@ -260,8 +261,8 @@ static void dp_on_off_vblank(struct linlondp_dev *mdev, int master_pipe,
 	struct dp_dev *dp = mdev->chip_data;
 	struct dp_pipeline *pipe = dp->pipes[master_pipe];
 
-	linlondp_write32_mask(pipe->dou_addr, BLK_IRQ_MASK,
-			      DOU_IRQ_PL0, on ? DOU_IRQ_PL0 : 0);
+	linlondp_write32_mask(pipe->dou_addr, BLK_IRQ_MASK, DOU_IRQ_PL0,
+			      on ? DOU_IRQ_PL0 : 0);
 }
 
 static int to_dp_opmode(int core_mode)
@@ -289,18 +290,19 @@ static int dp_change_opmode(struct linlondp_dev *mdev, int new_mode)
 
 	linlondp_write32_mask(dp->gcu_addr, BLK_CONTROL, 0x7, opmode);
 
-	ret = dp_wait_cond(((linlondp_read32(dp->gcu_addr, BLK_CONTROL) & 0x7) == opmode),
+	ret = dp_wait_cond(
+		((linlondp_read32(dp->gcu_addr, BLK_CONTROL) & 0x7) == opmode),
 		100, 1000, 10000);
 
 	return ret;
 }
 
-static void dp_flush(struct linlondp_dev *mdev,
-		     int master_pipe, u32 active_pipes)
+static void dp_flush(struct linlondp_dev *mdev, int master_pipe,
+		     u32 active_pipes)
 {
 	struct dp_dev *dp = mdev->chip_data;
-	u32 reg_offset = (master_pipe == 0) ?
-	    GCU_CONFIG_VALID0 : GCU_CONFIG_VALID1;
+	u32 reg_offset = (master_pipe == 0) ? GCU_CONFIG_VALID0 :
+					      GCU_CONFIG_VALID1;
 
 	linlondp_write32(dp->gcu_addr, reg_offset, GCU_CONFIG_CVAL);
 }
@@ -312,8 +314,9 @@ static int dp_reset(struct dp_dev *dp)
 
 	linlondp_write32(gcu, BLK_CONTROL, GCU_CONTROL_SRST);
 
-	ret = dp_wait_cond(!(linlondp_read32(gcu, BLK_CONTROL) & GCU_CONTROL_SRST),
-			 100, 1000, 10000);
+	ret = dp_wait_cond(!(linlondp_read32(gcu, BLK_CONTROL) &
+			     GCU_CONTROL_SRST),
+			   100, 1000, 10000);
 
 	return ret;
 }
@@ -330,7 +333,8 @@ void dp_read_block_header(u32 __iomem *reg, struct block_header *blk)
 
 	/* get valid input and output ids */
 	for (i = 0; i < PIPELINE_INFO_N_VALID_INPUTS(blk->pipeline_info); i++)
-		blk->input_ids[i] = linlondp_read32(reg + i, BLK_VALID_INPUT_ID0);
+		blk->input_ids[i] =
+			linlondp_read32(reg + i, BLK_VALID_INPUT_ID0);
 	for (i = 0; i < PIPELINE_INFO_N_OUTPUTS(blk->pipeline_info); i++)
 		blk->output_ids[i] = linlondp_read32(reg + i, BLK_OUTPUT_ID0);
 }
@@ -394,7 +398,8 @@ static int dp_enum_resources(struct linlondp_dev *mdev)
 
 	if (dp->periph_addr) {
 		/* probe PERIPHERAL in legacy HW */
-		value = linlondp_read32(dp->periph_addr, PERIPH_CONFIGURATION_ID);
+		value = linlondp_read32(dp->periph_addr,
+					PERIPH_CONFIGURATION_ID);
 
 		dp->max_line_size = value & PERIPH_MAX_LINE_SIZE ? 4096 : 2048;
 		dp->max_vsize = 4096;
@@ -425,13 +430,13 @@ static int dp_enum_resources(struct linlondp_dev *mdev)
 		 * together with display output disable by one flush or one
 		 * operation, the disable operation updated registers will not
 		 * be flush to or valid in HW, which may leads problem.
-		 * To workaround this problem, introduce a two phase disable.
+		 * To resolve this problem, introduce a two phase disable.
 		 * Phase1: Disabling components with display is on to make sure
 		 *       the disable can be flushed to HW.
 		 * Phase2: Only turn-off display output.
 		 */
 		value = LINLONDP_PIPELINE_IMPROCS |
-		    BIT(LINLONDP_COMPONENT_TIMING_CTRLR);
+			BIT(LINLONDP_COMPONENT_TIMING_CTRLR);
 
 		pipe->standalone_disabled_comps = value;
 
@@ -447,13 +452,14 @@ static int dp_enum_resources(struct linlondp_dev *mdev)
 	 * NOTE: dp->num_blocks includes reserved blocks.
 	 * dp->num_blocks = GCU + valid blocks + reserved blocks
 	 */
-	i = 1;			/* exclude GCU */
-	offset = DP_BLOCK_SIZE;	/* skip GCU */
+	i = 1; /* exclude GCU */
+	offset = DP_BLOCK_SIZE; /* skip GCU */
 	while (i < dp->num_blocks) {
 		blk_base = mdev->reg_base + (offset >> 2);
 
 		dp_read_block_header(blk_base, &blk);
-		if (BLOCK_INFO_BLK_TYPE(blk.block_info) != DP_BLK_TYPE_RESERVED) {
+		if (BLOCK_INFO_BLK_TYPE(blk.block_info) !=
+		    DP_BLK_TYPE_RESERVED) {
 			err = dp_probe_block(dp, &blk, blk_base);
 			if (err)
 				goto err_cleanup;
@@ -463,8 +469,8 @@ static int dp_enum_resources(struct linlondp_dev *mdev)
 		offset += DP_BLOCK_SIZE;
 	}
 
-	DRM_DEBUG("total %d (out of %d) blocks are found.\n",
-		  i, dp->num_blocks);
+	DRM_DEBUG("total %d (out of %d) blocks are found.\n", i,
+		  dp->num_blocks);
 
 	return 0;
 
@@ -473,38 +479,44 @@ err_cleanup:
 	return err;
 }
 
-#define __HW_ID(__group, __format) ((((__group) & 0x7) << 3) | ((__format) & 0x7))
+#define __HW_ID(__group, __format) ((((__group)&0x7) << 3) | ((__format)&0x7))
 
-#define RICH        LINLONDP_FMT_RICH_LAYER
-#define SIMPLE        LINLONDP_FMT_SIMPLE_LAYER
-#define RICH_SIMPLE    (LINLONDP_FMT_RICH_LAYER | LINLONDP_FMT_SIMPLE_LAYER)
-#define RICH_WB        (LINLONDP_FMT_RICH_LAYER | LINLONDP_FMT_WB_LAYER)
-#define RICH_SIMPLE_WB    (RICH_SIMPLE | LINLONDP_FMT_WB_LAYER)
+#define RICH LINLONDP_FMT_RICH_LAYER
+#define SIMPLE LINLONDP_FMT_SIMPLE_LAYER
+#define RICH_SIMPLE (LINLONDP_FMT_RICH_LAYER | LINLONDP_FMT_SIMPLE_LAYER)
+#define RICH_WB (LINLONDP_FMT_RICH_LAYER | LINLONDP_FMT_WB_LAYER)
+#define RICH_SIMPLE_WB (RICH_SIMPLE | LINLONDP_FMT_WB_LAYER)
 
-#define Rot_0        DRM_MODE_ROTATE_0
-#define Flip_H_V    (DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y | Rot_0)
-#define Rot_ALL_H_V    (DRM_MODE_ROTATE_MASK | Flip_H_V)
+#define Rot_0 DRM_MODE_ROTATE_0
+#define Flip_H_V (DRM_MODE_REFLECT_X | DRM_MODE_REFLECT_Y | Rot_0)
+#define Rot_ALL_H_V (DRM_MODE_ROTATE_MASK | Flip_H_V)
 
-#define LYT_NM        BIT(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)
-#define LYT_WB        BIT(AFBC_FORMAT_MOD_BLOCK_SIZE_32x8)
-#define LYT_NM_WB    (LYT_NM | LYT_WB)
+#define LYT_NM BIT(AFBC_FORMAT_MOD_BLOCK_SIZE_16x16)
+#define LYT_WB BIT(AFBC_FORMAT_MOD_BLOCK_SIZE_32x8)
+#define LYT_NM_WB (LYT_NM | LYT_WB)
 
-#define AFB_TH        AFBC(_TILED | _SPARSE)
-#define AFB_TH_SC_YTR    AFBC(_TILED | _SC | _SPARSE | _YTR)
+#define AFB_TH AFBC(_TILED | _SPARSE)
+#define AFB_TH_SC_YTR AFBC(_TILED | _SC | _SPARSE | _YTR)
 #define AFB_TH_SC_YTR_BS AFBC(_TILED | _SC | _SPARSE | _YTR | _SPLIT)
 
 static struct linlondp_format_caps dp_format_caps_table[] = {
 	/*   HW_ID    |        fourcc         |   layer_types |   rots    | afbc_layouts | afbc_features */
-	/* ABGR_2101010 */
-	{ __HW_ID(0, 0), DRM_FORMAT_ARGB2101010, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	{ __HW_ID(0, 1), DRM_FORMAT_ABGR2101010, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	{ __HW_ID(0, 1), DRM_FORMAT_ABGR2101010, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB, AFB_TH_SC_YTR_BS }, /*afbc*/
-	{ __HW_ID(0, 2), DRM_FORMAT_RGBA1010102, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	{ __HW_ID(0, 3), DRM_FORMAT_BGRA1010102, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	/* ABGR_8888 */
+	/* ABGR_2101010*/
+	{ __HW_ID(0, 0), DRM_FORMAT_ARGB2101010, RICH_SIMPLE_WB, Flip_H_V, 0,
+	  0 },
+	{ __HW_ID(0, 1), DRM_FORMAT_ABGR2101010, RICH_SIMPLE_WB, Flip_H_V, 0,
+	  0 },
+	{ __HW_ID(0, 1), DRM_FORMAT_ABGR2101010, RICH_SIMPLE, Rot_ALL_H_V,
+	  LYT_NM_WB, AFB_TH_SC_YTR_BS }, /* afbc */
+	{ __HW_ID(0, 2), DRM_FORMAT_RGBA1010102, RICH_SIMPLE_WB, Flip_H_V, 0,
+	  0 },
+	{ __HW_ID(0, 3), DRM_FORMAT_BGRA1010102, RICH_SIMPLE_WB, Flip_H_V, 0,
+	  0 },
+	/* ABGR_8888*/
 	{ __HW_ID(1, 0), DRM_FORMAT_ARGB8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
 	{ __HW_ID(1, 1), DRM_FORMAT_ABGR8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	{ __HW_ID(1, 1), DRM_FORMAT_ABGR8888, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB, AFB_TH_SC_YTR_BS },	/* afbc */
+	{ __HW_ID(1, 1), DRM_FORMAT_ABGR8888, RICH_SIMPLE, Rot_ALL_H_V,
+	  LYT_NM_WB, AFB_TH_SC_YTR_BS }, /* afbc */
 	{ __HW_ID(1, 2), DRM_FORMAT_RGBA8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
 	{ __HW_ID(1, 3), DRM_FORMAT_BGRA8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
 	/* XBGB_8888 */
@@ -512,28 +524,34 @@ static struct linlondp_format_caps dp_format_caps_table[] = {
 	{ __HW_ID(2, 1), DRM_FORMAT_XBGR8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
 	{ __HW_ID(2, 2), DRM_FORMAT_RGBX8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
 	{ __HW_ID(2, 3), DRM_FORMAT_BGRX8888, RICH_SIMPLE_WB, Flip_H_V, 0, 0 },
-	/* BGR_888 *//* none-afbc RGB888 doesn't support rotation and flip */
+	/* BGR_888 */ /* none-afbc RGB888 doesn't support rotation and flip */
 	{ __HW_ID(3, 0), DRM_FORMAT_RGB888, RICH_SIMPLE_WB, Rot_0, 0, 0 },
 	{ __HW_ID(3, 1), DRM_FORMAT_BGR888, RICH_SIMPLE_WB, Rot_0, 0, 0 },
-	{ __HW_ID(3, 1), DRM_FORMAT_BGR888, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB, AFB_TH_SC_YTR_BS },	/* afbc */
+	{ __HW_ID(3, 1), DRM_FORMAT_BGR888, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB,
+	  AFB_TH_SC_YTR_BS }, /* afbc */
 	/* BGR 16bpp */
 	{ __HW_ID(4, 0), DRM_FORMAT_RGBA5551, RICH_SIMPLE, Flip_H_V, 0, 0 },
 	{ __HW_ID(4, 1), DRM_FORMAT_ABGR1555, RICH_SIMPLE, Flip_H_V, 0, 0 },
-	{ __HW_ID(4, 1), DRM_FORMAT_ABGR1555, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB, AFB_TH_SC_YTR },	/* afbc */
+	{ __HW_ID(4, 1), DRM_FORMAT_ABGR1555, RICH_SIMPLE, Rot_ALL_H_V,
+	  LYT_NM_WB, AFB_TH_SC_YTR }, /* afbc */
 	{ __HW_ID(4, 2), DRM_FORMAT_RGB565, RICH_SIMPLE, Flip_H_V, 0, 0 },
 	{ __HW_ID(4, 3), DRM_FORMAT_BGR565, RICH_SIMPLE, Flip_H_V, 0, 0 },
-	{ __HW_ID(4, 3), DRM_FORMAT_BGR565, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB, AFB_TH_SC_YTR },	/* afbc */
+	{ __HW_ID(4, 3), DRM_FORMAT_BGR565, RICH_SIMPLE, Rot_ALL_H_V, LYT_NM_WB,
+	  AFB_TH_SC_YTR }, /* afbc */
 	/* YUV 444/422/420 8bit  */
-	{ __HW_ID(5, 1), DRM_FORMAT_YUYV, RICH, Rot_ALL_H_V, LYT_NM, AFB_TH },	/* afbc */
+	{ __HW_ID(5, 1), DRM_FORMAT_YUYV, RICH, Rot_ALL_H_V, LYT_NM,
+	  AFB_TH }, /* afbc */
 	{ __HW_ID(5, 2), DRM_FORMAT_YUYV, RICH, Flip_H_V, 0, 0 },
 	{ __HW_ID(5, 3), DRM_FORMAT_UYVY, RICH, Flip_H_V, 0, 0 },
-	{__HW_ID(5, 6), DRM_FORMAT_NV12, RICH_WB, Flip_H_V, 0, 0},
-	{ __HW_ID(5, 6), DRM_FORMAT_YUV420_8BIT, RICH, Rot_ALL_H_V, LYT_NM, AFB_TH },	/* afbc */
+	{ __HW_ID(5, 6), DRM_FORMAT_NV12, RICH_WB, Flip_H_V, 0, 0 },
+	{ __HW_ID(5, 6), DRM_FORMAT_YUV420_8BIT, RICH, Rot_ALL_H_V, LYT_NM,
+	  AFB_TH }, /* afbc */
 	{ __HW_ID(5, 7), DRM_FORMAT_YUV420, RICH, Flip_H_V, 0, 0 },
-	/* YUV 10bit */
+	/* YUV 10bit*/
 	{ __HW_ID(6, 6), DRM_FORMAT_X0L2, RICH, Flip_H_V, 0, 0 },
 	{ __HW_ID(6, 7), DRM_FORMAT_P010, RICH, Flip_H_V, 0, 0 },
-	{ __HW_ID(6, 7), DRM_FORMAT_YUV420_10BIT, RICH, Rot_ALL_H_V, LYT_NM, AFB_TH },
+	{ __HW_ID(6, 7), DRM_FORMAT_YUV420_10BIT, RICH, Rot_ALL_H_V, LYT_NM,
+	  AFB_TH },
 };
 
 static bool dp_format_mod_supported(const struct linlondp_format_caps *caps,
@@ -564,7 +582,8 @@ static int dp_connect_iommu(struct linlondp_dev *mdev)
 	struct dp_dev *dp = mdev->chip_data;
 	u32 __iomem *reg = dp->gcu_addr;
 	u32 check_bits = (dp->num_pipelines == 2) ?
-	    GCU_STATUS_TCS0 | GCU_STATUS_TCS1 : GCU_STATUS_TCS0;
+				 GCU_STATUS_TCS0 | GCU_STATUS_TCS1 :
+				 GCU_STATUS_TCS0;
 	int i, ret;
 
 	if (!dp->integrates_tbu) {
@@ -573,8 +592,9 @@ static int dp_connect_iommu(struct linlondp_dev *mdev)
 	}
 	linlondp_write32_mask(reg, BLK_CONTROL, 0x7, TBU_CONNECT_MODE);
 
-	ret = dp_wait_cond(has_bits(check_bits, linlondp_read32(reg, BLK_STATUS)),
-			100, 1000, 1000);
+	ret = dp_wait_cond(has_bits(check_bits,
+				    linlondp_read32(reg, BLK_STATUS)),
+			   100, 1000, 1000);
 	if (ret < 0) {
 		DRM_ERROR("timed out connecting to TCU!\n");
 		linlondp_write32_mask(reg, BLK_CONTROL, 0x7, INACTIVE_MODE);
@@ -592,7 +612,8 @@ static int dp_disconnect_iommu(struct linlondp_dev *mdev)
 	struct dp_dev *dp = mdev->chip_data;
 	u32 __iomem *reg = dp->gcu_addr;
 	u32 check_bits = (dp->num_pipelines == 2) ?
-	    GCU_STATUS_TCS0 | GCU_STATUS_TCS1 : GCU_STATUS_TCS0;
+				 GCU_STATUS_TCS0 | GCU_STATUS_TCS1 :
+				 GCU_STATUS_TCS0;
 	int ret;
 
 	if (!dp->integrates_tbu) {
@@ -602,8 +623,9 @@ static int dp_disconnect_iommu(struct linlondp_dev *mdev)
 
 	linlondp_write32_mask(reg, BLK_CONTROL, 0x7, TBU_DISCONNECT_MODE);
 
-	ret = dp_wait_cond(((linlondp_read32(reg, BLK_STATUS) & check_bits) == 0),
-			100, 1000, 1000);
+	ret = dp_wait_cond(((linlondp_read32(reg, BLK_STATUS) & check_bits) ==
+			    0),
+			   100, 1000, 1000);
 	if (ret < 0) {
 		DRM_ERROR("timed out disconnecting from TCU!\n");
 		linlondp_write32_mask(reg, BLK_CONTROL, 0x7, INACTIVE_MODE);
@@ -640,10 +662,11 @@ static const struct linlondp_dev_funcs dp_chip_funcs = {
 	.init_hw = dp_init_hw,
 	.dump_register = dp_dump,
 	.close_gop = dp_close_gop,
+	.gop_mode_changed = dp_gop_mode_changed,
 };
 
-const struct linlondp_dev_funcs *
-dp_identify(u32 __iomem *reg_base, struct linlondp_chip_info *chip)
+const struct linlondp_dev_funcs *dp_identify(u32 __iomem *reg_base,
+					     struct linlondp_chip_info *chip)
 {
 	const struct linlondp_dev_funcs *funcs;
 	u32 product_id;

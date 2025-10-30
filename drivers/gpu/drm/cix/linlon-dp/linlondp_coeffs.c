@@ -60,8 +60,8 @@ found:
 }
 
 /* Add a coeffs table to manager */
-int linlondp_coeffs_add(struct linlondp_coeffs_manager *mgr,
-			u32 hw_id, u32 __iomem *reg,
+int linlondp_coeffs_add(struct linlondp_coeffs_manager *mgr, u32 hw_id,
+			u32 __iomem *reg,
 			void (*update)(struct linlondp_coeffs_table *table))
 {
 	struct linlondp_coeffs_table *table;

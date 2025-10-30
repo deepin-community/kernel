@@ -10,8 +10,8 @@
 #include "linlondp_utils.h"
 
 const struct linlondp_format_caps *
-linlondp_get_format_caps(struct linlondp_format_caps_table *table,
-				u32 fourcc, u64 modifier)
+linlondp_get_format_caps(struct linlondp_format_caps_table *table, u32 fourcc,
+			 u64 modifier)
 {
 	const struct linlondp_format_caps *caps;
 	u64 afbc_features = modifier & ~(AFBC_FORMAT_MOD_BLOCK_SIZE_MASK);
@@ -65,37 +65,33 @@ u64 linlondp_supported_modifiers[] = {
 	/* SPARSE */
 	AFBC_16x16(_SPARSE),
 	/* YTR + (SPARSE) */
-	AFBC_16x16(_YTR | _SPARSE),
-	AFBC_16x16(_YTR),
+	AFBC_16x16(_YTR | _SPARSE), AFBC_16x16(_YTR),
 	/* SPLIT + SPARSE + YTR RGB only */
 	/* split mode is only allowed for sparse mode */
 	AFBC_16x16(_SPLIT | _SPARSE | _YTR),
 	/* TILED + (SPARSE) */
 	/* TILED YUV format only */
-	AFBC_16x16(_TILED | _SPARSE),
-	AFBC_16x16(_TILED),
+	AFBC_16x16(_TILED | _SPARSE), AFBC_16x16(_TILED),
 	/* TILED + SC + (SPLIT+SPARSE | SPARSE) + (YTR) */
 	AFBC_16x16(_TILED | _SC | _SPLIT | _SPARSE | _YTR),
 	AFBC_16x16(_TILED | _SC | _SPARSE | _YTR),
 	AFBC_16x16(_TILED | _SC | _YTR),
 	/* AFBC_32x8 + features: which are RGB formats only */
 	/* YTR + (SPARSE) */
-	AFBC_32x8(_YTR | _SPARSE),
-	AFBC_32x8(_YTR),
+	AFBC_32x8(_YTR | _SPARSE), AFBC_32x8(_YTR),
 	/* SPLIT + SPARSE + (YTR) */
 	/* split mode is only allowed for sparse mode */
 	AFBC_32x8(_SPLIT | _SPARSE | _YTR),
 	/* TILED + SC + (SPLIT+SPARSE | SPARSE) + YTR */
 	AFBC_32x8(_TILED | _SC | _SPLIT | _SPARSE | _YTR),
 	AFBC_32x8(_TILED | _SC | _SPARSE | _YTR),
-	AFBC_32x8(_TILED | _SC | _YTR),
-	DRM_FORMAT_MOD_LINEAR,
+	AFBC_32x8(_TILED | _SC | _YTR), DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
 };
 
 bool linlondp_format_mod_supported(struct linlondp_format_caps_table *table,
-				u32 layer_type, u32 fourcc, u64 modifier,
-				u32 rot)
+				   u32 layer_type, u32 fourcc, u64 modifier,
+				   u32 rot)
 {
 	const struct linlondp_format_caps *caps;
 

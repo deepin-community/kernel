@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 //------------------------------------------------------------------------------
-//      Trilinear Technologies DisplayPort DRM Driver
-//      Copyright (C) 2023~2024 Trilinear Technologies
+//	Trilinear Technologies DisplayPort DRM Driver
+//	Copyright (C) 2023~2024 Trilinear Technologies
 //
-//      This program is free software: you can redistribute it and/or modify
-//      it under the terms of the GNU General Public License as published by
-//      the Free Software Foundation, version 2.
+//	This program is free software: you can redistribute it and/or modify
+//	it under the terms of the GNU General Public License as published by
+//	the Free Software Foundation, version 2.
 //
-//      This program is distributed in the hope that it will be useful, but
-//      WITHOUT ANY WARRANTY; without even the implied warranty of
-//      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-//      General Public License for more details.
+//	This program is distributed in the hope that it will be useful, but
+//	WITHOUT ANY WARRANTY; without even the implied warranty of
+//	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+//	General Public License for more details.
 //
-//      You should have received a copy of the GNU General Public License
-//      along with this program. If not, see <http://www.gnu.org/licenses/>.
+//	You should have received a copy of the GNU General Public License
+//	along with this program. If not, see <http://www.gnu.org/licenses/>.
 //------------------------------------------------------------------------------
 
 #include <drm/drm_atomic_helper.h>
@@ -48,26 +48,30 @@
 static trilin_phy_error_t usbdp_phy_pll_disable(struct trilin_dp *dp);
 static trilin_phy_error_t usbdp_phy_pll_enable(struct trilin_dp *dp);
 
-static trilin_phy_error_t usbdp_phy_cmn_ready_ack(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
+static trilin_phy_error_t usbdp_phy_cmn_ready_ack(struct trilin_dp *dp,
+						  u32 delay_time, u32 loop_ct);
 
-static trilin_phy_error_t usbdp_phy_lane_pll_ack_disabled(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
+static trilin_phy_error_t usbdp_phy_lane_pll_ack_disabled(struct trilin_dp *dp,
+							  u32 delay_time,
+							  u32 loop_ct);
 
-static trilin_phy_error_t usbdp_phy_lane_pll_ack_ready(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
+static trilin_phy_error_t
+usbdp_phy_lane_pll_ack_ready(struct trilin_dp *dp, u32 delay_time, u32 loop_ct);
 
 static trilin_phy_error_t usbdp_phy_pwr_state_ack(struct trilin_dp *dp,
-		u32 pwr_state, u32 delay_time, u32 loop_ct);
+						  u32 pwr_state, u32 delay_time,
+						  u32 loop_ct);
 
-static trilin_phy_error_t trilin_usbdp_phy_power(
-	struct trilin_dp *dp, trilin_phy_power_state_t pwr_state);
+static trilin_phy_error_t
+trilin_usbdp_phy_power(struct trilin_dp *dp,
+		       trilin_phy_power_state_t pwr_state);
 
-static trilin_phy_error_t trilin_usbdp_phy_set_lane_count(
-	struct trilin_dp *dp, trilin_phy_lane_en_t lane_en);
+// static trilin_phy_error_t
+// trilin_usbdp_phy_set_lane_count(struct trilin_dp *dp,
+//				trilin_phy_lane_en_t lane_en);
 
-static inline trilin_phy_error_t trilin_usbdp_delay(
-	struct trilin_dp *dp, u32 delay_time)
+static inline trilin_phy_error_t trilin_usbdp_delay(struct trilin_dp *dp,
+						    u32 delay_time)
 {
 	trilin_host_tmr_init(dp);
 	trilin_host_tmr_wait_us(dp, delay_time);
@@ -125,27 +129,28 @@ static trilin_phy_error_t trilin_usbdp_phy_prepare(struct trilin_dp *dp)
 
 	phy->state = trilin_phy_prepared;
 
+	DP_DEBUG("end\n");
 	return status;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_usbdp_phy_init
-//              This function initializes the Cadence PHY.
+//		This function initializes the Cadence PHY.
 //
-//      Parameters:
-//      Reference clock - currently, only 24Mhz is supported
+//	Parameters:
+//	Reference clock - currently, only 24Mhz is supported
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_usbdp_phy_init(
-	struct trilin_dp *dp, trilin_phy_ref_clk_t ref_clk)
+static trilin_phy_error_t trilin_usbdp_phy_init(struct trilin_dp *dp,
+						trilin_phy_ref_clk_t ref_clk)
 {
 	int ret;
 	trilin_phy_error_t status = trilin_phy_error_none;
 	struct trilin_phy_t *phy = &dp->phy;
 
-	if (!IS_ERR(phy->base)) {
+	if (!IS_ERR_OR_NULL(phy->base)) {
 		ret = phy_power_on(phy->base);
 		if (ret)
 			dev_err(dp->dev, "failed to power phy on");
@@ -167,21 +172,22 @@ static trilin_phy_error_t trilin_usbdp_phy_init(
 	trilin_phy_write(dp, TRILIN_USBDP_PHY_DATA_ENABLE, 1);
 
 	phy->state = trilin_phy_power_on;
+	DP_DEBUG("end\n");
 	return status;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_usbdp_phy_reset
-//              PHY reset function
+//		PHY reset function
 //
-//      Parameters:
-//      Reset type
+//	Parameters:
+//	Reset type
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_usbdp_phy_reset(
-	struct trilin_dp *dp, trilin_phy_reset_t reset_type)
+static trilin_phy_error_t trilin_usbdp_phy_reset(struct trilin_dp *dp,
+						 trilin_phy_reset_t reset_type)
 {
 	trilin_phy_error_t status = trilin_phy_error_none;
 
@@ -214,6 +220,7 @@ static trilin_phy_error_t trilin_usbdp_phy_reset(
 		break;
 	}
 
+	DP_DEBUG("end\n");
 	return status;
 }
 
@@ -232,61 +239,53 @@ static trilin_phy_error_t trilin_usbdp_phy_reset(
 //  Returns:
 //	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_usbdp_phy_power(
-	struct trilin_dp *dp, trilin_phy_power_state_t pwr_state)
+static trilin_phy_error_t
+trilin_usbdp_phy_power(struct trilin_dp *dp, trilin_phy_power_state_t pwr_state)
 {
 	trilin_phy_error_t status = trilin_phy_error_none;
 
 	switch (pwr_state) {
 	case trilin_power_a0:
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_A0_TXRX_ACTIVE);
-		status = usbdp_phy_pwr_state_ack(dp,
-				TRILIN_USBDP_PHY_PWR_STATE_A0_TXRX_ACTIVE,
-				1, USBDP_POWER_STATE_TIMEOUT);
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_IDLE);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_A0_TXRX_ACTIVE);
+		status = usbdp_phy_pwr_state_ack(
+			dp, TRILIN_USBDP_PHY_PWR_STATE_A0_TXRX_ACTIVE, 1,
+			USBDP_POWER_STATE_TIMEOUT);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_IDLE);
 		ndelay(200);
 		break;
 
 	case trilin_power_a1:
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_A1_POWERDOWN1);
-		status = usbdp_phy_pwr_state_ack(dp,
-				TRILIN_USBDP_PHY_PWR_STATE_A1_POWERDOWN1,
-				1, USBDP_POWER_STATE_TIMEOUT);
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_IDLE);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_A1_POWERDOWN1);
+		status = usbdp_phy_pwr_state_ack(
+			dp, TRILIN_USBDP_PHY_PWR_STATE_A1_POWERDOWN1, 1,
+			USBDP_POWER_STATE_TIMEOUT);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_IDLE);
 		ndelay(200);
 		break;
 
 	case trilin_power_a2:
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_A2_POWERDOWN2);
-		status = usbdp_phy_pwr_state_ack(dp,
-				TRILIN_USBDP_PHY_PWR_STATE_A2_POWERDOWN2,
-				1, USBDP_POWER_STATE_TIMEOUT);
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_IDLE);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_A2_POWERDOWN2);
+		status = usbdp_phy_pwr_state_ack(
+			dp, TRILIN_USBDP_PHY_PWR_STATE_A2_POWERDOWN2, 1,
+			USBDP_POWER_STATE_TIMEOUT);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_IDLE);
 		ndelay(200);
 		break;
 
 	case trilin_power_a3:
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_A3_POWERDOWN3);
-		status = usbdp_phy_pwr_state_ack(dp,
-				TRILIN_USBDP_PHY_PWR_STATE_A3_POWERDOWN3,
-				1, USBDP_POWER_STATE_TIMEOUT);
-		trilin_phy_write(dp,
-				TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
-				TRILIN_USBDP_PHY_PWR_STATE_IDLE);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_A3_POWERDOWN3);
+		status = usbdp_phy_pwr_state_ack(
+			dp, TRILIN_USBDP_PHY_PWR_STATE_A3_POWERDOWN3, 1,
+			USBDP_POWER_STATE_TIMEOUT);
+		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_REQ,
+				 TRILIN_USBDP_PHY_PWR_STATE_IDLE);
 		ndelay(200);
 		break;
 
@@ -303,7 +302,7 @@ static trilin_phy_error_t trilin_usbdp_phy_exit(struct trilin_dp *dp)
 	int ret;
 
 	if (phy->state == trilin_phy_power_on) {
-		if (!IS_ERR(phy->base)) {
+		if (!IS_ERR_OR_NULL(phy->base)) {
 			ret = phy_power_off(phy->base);
 			if (ret)
 				dev_err(dp->dev, "failed to power phy off");
@@ -314,29 +313,24 @@ static trilin_phy_error_t trilin_usbdp_phy_exit(struct trilin_dp *dp)
 	return trilin_phy_error_none;
 }
 
-static trilin_phy_error_t trilin_usbdp_phy_configure(
-	struct trilin_dp *dp, union phy_configure_opts *opts)
+static trilin_phy_error_t
+trilin_usbdp_phy_configure(struct trilin_dp *dp, union phy_configure_opts *opts)
 {
-	struct phy_configure_opts_dp *dp_opts = &opts->dp;
 	trilin_phy_error_t status = trilin_phy_error_none;
 	struct trilin_phy_t *phy = &dp->phy;
 	int ret;
 
-	/* set lane count */
-	if (0 && dp_opts->set_lanes)
-		trilin_usbdp_phy_set_lane_count(dp, dp_opts->lanes);
-
-	if (!IS_ERR(phy->base)) {
+	if (!IS_ERR_OR_NULL(phy->base)) {
 		if (opts->dp.set_rate) {
 			status = usbdp_phy_pll_disable(dp);
 			if (status != trilin_phy_error_none) {
-				dev_err(dp->dev, "usbdp_phy_pll_disable\n");
+				DP_ERR("usbdp_phy_pll_disable\n");
 				return status;
 			}
 
 			ret = phy_configure(phy->base, opts);
 			if (ret)
-				dev_err(dp->dev, "failed to configure phy\n");
+				DP_ERR("failed to configure phy\n");
 
 			status = usbdp_phy_pll_enable(dp);
 			if (status != trilin_phy_error_none) {
@@ -346,52 +340,54 @@ static trilin_phy_error_t trilin_usbdp_phy_configure(
 		} else {
 			ret = phy_configure(phy->base, opts);
 			if (ret)
-				dev_err(dp->dev, "failed to configure phy\n");
+				DP_ERR("failed to configure phy\n");
 		}
 	}
 
+	DP_DEBUG("end\n");
 	return status;
 }
 
 //------------------------------------------------------------------------------
 //  Function: trilin_usbdp_phy_set_lane_count
 //
-//      Parameters:
-//      lane_ct - new lane count
+//	Parameters:
+//	lane_ct - new lane count
 //
 //  Returns:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t trilin_usbdp_phy_set_lane_count(
-	struct trilin_dp *dp, trilin_phy_lane_en_t lane_en)
-{
-	trilin_phy_error_t status = trilin_phy_error_none;
+// static trilin_phy_error_t
+// trilin_usbdp_phy_set_lane_count(struct trilin_dp *dp,
+//					trilin_phy_lane_en_t lane_en)
+//{
+//	trilin_phy_error_t status = trilin_phy_error_none;
 
-	switch (lane_en) {
-	case trilin_lane_en_1:
-	case trilin_lane_en_2:
-	case trilin_lane_en_4:
-		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_RSTN_BITS, lane_en);
-		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_EN_BITS, lane_en);
-		break;
+//	switch (lane_en) {
+//	case trilin_lane_en_1:
+//	case trilin_lane_en_2:
+//	case trilin_lane_en_4:
+//		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_RSTN_BITS, lane_en);
+//		trilin_phy_write(dp, TRILIN_USBDP_PHY_LANE_EN_BITS, lane_en);
+//		break;
 
-	default:
-		status = trilin_phy_error_lane_count;
-		break;
-	}
+//	default:
+//		status = trilin_phy_error_lane_count;
+//		break;
+//	}
 
-	return status;
-}
+//	return status;
+// }
 
 //----------------------------------------------------------------------------
-//      Function: usbdp_phy_pll_disable
-//      Disable PLL0 (PLL1 is not used)
+//	Function: usbdp_phy_pll_disable
+//	Disable PLL0 (PLL1 is not used)
 //
 // Inputs:
-//              None
+//		None
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //----------------------------------------------------------------------------
 static __maybe_unused trilin_phy_error_t usbdp_phy_pll_disable(struct trilin_dp *dp)
 {
@@ -409,14 +405,14 @@ static __maybe_unused trilin_phy_error_t usbdp_phy_pll_disable(struct trilin_dp 
 }
 
 //----------------------------------------------------------------------------
-//      Function: usbdp_phy_pll_enable
-//      Enable PLL0 (PLL1 is not used)
+//	Function: usbdp_phy_pll_enable
+//	Enable PLL0 (PLL1 is not used)
 //
 // Inputs:
-//              None
+//		None
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //----------------------------------------------------------------------------
 static __maybe_unused trilin_phy_error_t usbdp_phy_pll_enable(struct trilin_dp *dp)
 {
@@ -436,19 +432,19 @@ static __maybe_unused trilin_phy_error_t usbdp_phy_pll_enable(struct trilin_dp *
 }
 
 //----------------------------------------------------------------------------
-//      Function: usbdp_phy_cmn_ready_ack
-//      Poll PHY common ready register.
-//              Wait until lane it is ready.
+//	Function: usbdp_phy_cmn_ready_ack
+//	Poll PHY common ready register.
+//		Wait until lane it is ready.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t usbdp_phy_cmn_ready_ack(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
+static trilin_phy_error_t usbdp_phy_cmn_ready_ack(struct trilin_dp *dp,
+						  u32 delay_time, u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
@@ -467,32 +463,34 @@ static trilin_phy_error_t usbdp_phy_cmn_ready_ack(
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: usbdp_phy_lane_pll_ack
-//      Poll lane PLL clock enable ACK register
-//              Wait until lane PLL ACK is ready.
+//	Function: usbdp_phy_lane_pll_ack
+//	Poll lane PLL clock enable ACK register
+//		Wait until lane PLL ACK is ready.
 //
 // Inputs:
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t usbdp_phy_lane_pll_ack_disabled(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
+static trilin_phy_error_t usbdp_phy_lane_pll_ack_disabled(struct trilin_dp *dp,
+							  u32 delay_time,
+							  u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
 	trilin_phy_error_t status = trilin_phy_error_bus_not_idle;
 
 	for (idx = 0; idx < loop_ct; idx++) {
-		reg_val = trilin_phy_read(dp, TRILIN_USBDP_PHY_LANE_PLLCLK_EN_ACK);
+		reg_val = trilin_phy_read(dp,
+					  TRILIN_USBDP_PHY_LANE_PLLCLK_EN_ACK);
 		reg_val &= 0x01;
 		if (reg_val == 0x0) {
 			status = trilin_phy_error_none;
@@ -504,20 +502,21 @@ static trilin_phy_error_t usbdp_phy_lane_pll_ack_disabled(
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 
 	return status;
 }
 
-static trilin_phy_error_t usbdp_phy_lane_pll_ack_ready(
-	struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
+static trilin_phy_error_t
+usbdp_phy_lane_pll_ack_ready(struct trilin_dp *dp, u32 delay_time, u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
 	trilin_phy_error_t status = trilin_phy_error_bus_not_idle;
 
 	for (idx = 0; idx < loop_ct; idx++) {
-		reg_val = trilin_phy_read(dp, TRILIN_USBDP_PHY_LANE_PLLCLK_EN_ACK);
+		reg_val = trilin_phy_read(dp,
+					  TRILIN_USBDP_PHY_LANE_PLLCLK_EN_ACK);
 		reg_val &= 0x01;
 		if (reg_val == 0x1) {
 			status = trilin_phy_error_none;
@@ -529,33 +528,35 @@ static trilin_phy_error_t usbdp_phy_lane_pll_ack_ready(
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 
 	return status;
 }
 
 //------------------------------------------------------------------------------
-//      Function: usbdp_phy_pwr_state_ack
-//      Poll power state ack register.
-//              Wait until power state has been acquired.
+//	Function: usbdp_phy_pwr_state_ack
+//	Poll power state ack register.
+//		Wait until power state has been acquired.
 //
 // Inputs:
-//              pwr_state  - New power state
-//      delay_time - poll / loop time
-//      loop_ct    - poll / loop count
+//		pwr_state  - New power state
+//	delay_time - poll / loop time
+//	loop_ct    - poll / loop count
 //
 // Outputs:
-//      Appropriate DPTX PHY status
+//	Appropriate DPTX PHY status
 //------------------------------------------------------------------------------
-static trilin_phy_error_t usbdp_phy_pwr_state_ack(
-	struct trilin_dp *dp, u32 pwr_state, u32 delay_time, u32 loop_ct)
+static trilin_phy_error_t usbdp_phy_pwr_state_ack(struct trilin_dp *dp,
+						  u32 pwr_state, u32 delay_time,
+						  u32 loop_ct)
 {
 	int idx;
 	u32 reg_val;
 	trilin_phy_error_t status = trilin_phy_error_pwr_ack;
 
 	for (idx = 0; idx < loop_ct; idx++) {
-		reg_val = trilin_phy_read(dp, TRILIN_USBDP_PHY_LANE_PWR_STATE_ACK);
+		reg_val = trilin_phy_read(dp,
+					  TRILIN_USBDP_PHY_LANE_PWR_STATE_ACK);
 		reg_val &= 0x1f;
 		if (reg_val == pwr_state) {
 			status = trilin_phy_error_none;
@@ -567,7 +568,7 @@ static trilin_phy_error_t usbdp_phy_pwr_state_ack(
 	}
 
 	if (idx >= loop_ct)
-		dev_err(dp->dev, "%s timeout! loop_cn = %d\n", __func__, idx);
+		DP_ERR("timeout! loop_cn = %d\n", idx);
 
 	return status;
 }
