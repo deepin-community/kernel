@@ -589,7 +589,7 @@ static int cix_dsp_rproc_stop(struct rproc *rproc)
 	 * no ability to ack stop message.
 	 */
 	if (!rproc_priv->is_wdg_trigger) {
-		msg[0] = MBOX_MSG_LEN * sizeof(u32);
+		msg[0] = MBOX_MSG_LEN;
 		msg[MBOX_MSG_OFFSET] = MBOX_MSG_REPROC_STOP;
 		reinit_completion(&rproc_priv->rsp_comp);
 		ret = mbox_send_message(rproc_priv->tx_ch, (void *)msg);
