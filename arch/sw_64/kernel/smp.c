@@ -68,6 +68,8 @@ static void upshift_freq(void)
 {
 	int i, cpu_num;
 	void __iomem *spbu_base;
+	unsigned long *clu_lv2_selh_addr;
+	unsigned long *clu_lv2_sell_addr;
 
 	if (is_guest_or_emul())
 		return;
@@ -78,10 +80,14 @@ static void upshift_freq(void)
 	cpu_num = sw64_chip->get_cpu_num();
 	for (i = 0; i < cpu_num; i++) {
 		spbu_base = misc_platform_get_spbu_base(i);
-		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELH);
-		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELL);
+		clu_lv2_selh_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CLU_LV2_SELH), 0x8);
+		clu_lv2_sell_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CLU_LV2_SELL), 0x8);
+		writeq(-1UL, clu_lv2_selh_addr);
+		writeq(-1UL, clu_lv2_sell_addr);
 		udelay(1000);
 	}
+	iounmap(clu_lv2_selh_addr);
+	iounmap(clu_lv2_sell_addr);
 }
 
 static void downshift_freq(void)
