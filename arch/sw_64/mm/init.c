@@ -497,6 +497,8 @@ void __init paging_init(void)
 	unsigned long init_size = (unsigned long)__init_end - init_start;
 	unsigned long data_start = (unsigned long)_sdata;
 	unsigned long data_size = (unsigned long)_end - data_start;
+	unsigned long sw64_guest_reset_start = (unsigned long)(__va(0x10000));
+	unsigned long sw64_guest_reset_size = PAGE_SIZE;
 	pgd_t *pgdir = (&init_mm)->pgd;
 	phys_addr_t start, end;
 	u64 i;
@@ -527,6 +529,9 @@ void __init paging_init(void)
 			   PAGE_KERNEL, pgtable_alloc_fixmap);
 	create_pgd_mapping(pgdir, data_start, __pa(data_start), data_size,
 			   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+	if (is_in_guest())
+		create_pgd_mapping(pgdir, sw64_guest_reset_start, __pa(sw64_guest_reset_start), sw64_guest_reset_size,
+				   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
 
 	memblock_mark_nomap(__pa(sw64_reserve_start),
 			    __pa((unsigned long)_end - sw64_reserve_start));

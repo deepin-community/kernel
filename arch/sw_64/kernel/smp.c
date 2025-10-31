@@ -186,14 +186,6 @@ void smp_callin(void)
 
 	complete(&cpu_running);
 
-#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
-	/* switch to paging mode */
-	if (sunway_support_kpt) {
-		set_atc(ATC_PAGE);
-		tbiv();
-	}
-#endif
-
 	/* Must have completely accurate bogos.  */
 	local_irq_enable();
 
@@ -281,6 +273,12 @@ void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr)
 	/* Setup SMP_RCB fields that uses to activate secondary CPU */
 	smp_rcb->restart_entry = __smp_callin;
 	smp_rcb->init_done = 0xDEADBEEFUL;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	if (sunway_support_kpt) {
+		smp_rcb->init_done = 0x2025DEADBEEFUL;
+		smp_rcb->ptbr = virt_to_phys(init_mm.pgd);
+	}
+#endif
 	mb();
 }
 
