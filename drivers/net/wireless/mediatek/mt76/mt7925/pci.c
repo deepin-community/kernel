@@ -575,7 +575,7 @@ static int mt7925_pci_resume(struct device *device)
 	if (!pm->ds_enable)
 		mt7925_mcu_set_deep_sleep(dev, false);
 
-	mt7925_regd_update(dev);
+	mt7925_mcu_regd_update(dev, mdev->alpha2, dev->country_ie_env);
 failed:
 	pm->suspended = false;
 
