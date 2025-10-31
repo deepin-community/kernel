@@ -85,7 +85,7 @@ static struct resource bss_resource = {
 	.flags  = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
 };
 
-DEFINE_STATIC_KEY_TRUE(run_mode_host_key);
+DEFINE_STATIC_KEY_FALSE(run_mode_host_key);
 DEFINE_STATIC_KEY_FALSE(run_mode_guest_key);
 DEFINE_STATIC_KEY_FALSE(run_mode_emul_key);
 
