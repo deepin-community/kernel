@@ -46,7 +46,7 @@ void __init process_memmap(void);
 #define EMUL_FLAG	(0x1UL << 63)
 #define MM_SIZE_MASK	(EMUL_FLAG - 1)
 
-DECLARE_STATIC_KEY_TRUE(run_mode_host_key);
+DECLARE_STATIC_KEY_FALSE(run_mode_host_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_guest_key);
 DECLARE_STATIC_KEY_FALSE(run_mode_emul_key);
 
