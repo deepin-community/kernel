@@ -2120,7 +2120,7 @@ DEFINE_SHOW_ATTRIBUTE(total_idle_time);
 DEFINE_SHOW_ATTRIBUTE(devices);
 DEFINE_SHOW_ATTRIBUTE(perf_state);
 
-#ifdef CONFIG_ARCH_CIX
+#ifdef CONFIG_SOC_CIX
 static ssize_t genpd_control_store(struct file *file,
 				  const char __user *buffer,
 				  size_t count, loff_t *ppos)
@@ -2225,7 +2225,7 @@ static void genpd_debug_add(struct generic_pm_domain *genpd)
 			    d, genpd, &total_idle_time_fops);
 	debugfs_create_file("devices", 0444,
 			    d, genpd, &devices_fops);
-#ifdef CONFIG_ARCH_CIX
+#ifdef CONFIG_SOC_CIX
 	debugfs_create_file("on", 0444, d, genpd, &genpd_control_fops);
 	debugfs_create_file("always_on", 0444, d, genpd, &genpd_always_on_fops);
 #endif
@@ -2596,3 +2596,46 @@ struct device *fwnode_dev_pm_domain_attach_by_name(struct device *dev,
 	return fwnode_genpd_dev_pm_attach_by_name(dev, name);
 }
 EXPORT_SYMBOL_GPL(fwnode_dev_pm_domain_attach_by_name);
+
+/**
+ * cix_dev_pm_genpd_set_performance_state- Set performance state of device's power
+ * domain.
+ *
+ * @dev: Device for which the performance-state needs to be set.
+ * @state: Target performance state of the device. This can be set as 0 when the
+ *        device doesn't have any performance state constraints left (And so
+ *        the device wouldn't participate anymore to find the target
+ *        performance state of the genpd).
+ *
+ * It is assumed that the users guarantee that the genpd wouldn't be detached
+ * while this routine is getting called.
+ *
+ * Returns 0 on success and negative error values on failures.
+ */
+int cix_dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
+{
+	struct generic_pm_domain *genpd;
+	int ret = 0;
+
+	genpd = dev_to_genpd_safe(dev);
+	if (!genpd)
+		return -ENODEV;
+
+	if (WARN_ON(!dev->power.subsys_data ||
+		!dev->power.subsys_data->domain_data))
+		return -EINVAL;
+
+	genpd_lock(genpd);
+	if (pm_runtime_suspended(dev))
+		dev_gpd_data(dev)->rpm_pstate = state;
+	else {
+		ret = genpd_set_performance_state(dev, state);
+	if (!ret)
+		dev_gpd_data(dev)->rpm_pstate = 0;
+	}
+	genpd_unlock(genpd);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(cix_dev_pm_genpd_set_performance_state);
+
