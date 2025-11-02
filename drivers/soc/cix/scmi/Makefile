@@ -20,3 +20,4 @@ obj-y += shmem.o
 obj-y += domain.o
 obj-y += scmi_perf_domain.o
 obj-y += clk-scmi.o
+obj-y += cix_scmi_em.o

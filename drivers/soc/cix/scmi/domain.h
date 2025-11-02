@@ -28,9 +28,11 @@ void fwnode_genpd_del_provider(struct fwnode_handle *fwnode);
 struct device *fwnode_genpd_dev_pm_attach_by_id(struct device *dev,
 					 unsigned int index);
 struct device *fwnode_genpd_dev_pm_attach_by_name(struct device *dev, const char *name);
+struct device *fwnode_dev_pm_domain_attach_by_name(struct device *dev, const char *name);
 int scmi_device_set_freq(struct device *dev, unsigned long freq);
 unsigned long scmi_device_get_freq(struct device *dev);
 int scmi_device_opp_table_parse(struct device *dev);
+int cix_dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state);
 #else
 static inline int fwnode_pm_genpd_init(struct generic_pm_domain *genpd,
 				struct dev_power_governor *gov, bool is_off)
@@ -61,6 +63,11 @@ static inline struct device
 	return -EOPNOTSUPP;
 }
 
+static inline struct device *fwnode_dev_pm_domain_attach_by_name(struct device *dev, const char *name)
+{
+	return -EOPNOTSUPP;
+}
+
 static inline int scmi_device_set_freq(struct device *dev, unsigned long freq)
 {
 	return -EOPNOTSUPP;
@@ -75,5 +82,11 @@ static inline int scmi_device_opp_table_parse(struct device *dev)
 {
 	return -EOPNOTSUPP;
 }
+
+int cix_dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state)
+{
+	return -EOPNOTSUPP;
+}
+
 #endif
 
