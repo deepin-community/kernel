@@ -16,6 +16,7 @@
 #include <linux/fb.h>
 #include <linux/vt_kern.h>
 #include <linux/console.h>
+#include <linux/font.h>
 #include <asm/types.h>
 #include "fbcon.h"
 
@@ -40,6 +41,61 @@ static void update_attr(u8 *dst, const u8 *src, int attribute, struct vc_data *v
 			c = ~c;
 		dst[i] = c;
 	}
+}
+
+static u16 utf8_pos(struct vc_data *vc, const u16 *s)
+{
+	unsigned long p = (unsigned long) s;
+
+	if (p >= vc->vc_origin && p < vc->vc_scr_end)
+		return scr_readw((u16 *) (p + vc->vc_screenbuf_size));
+	else
+		return scr_readw(s + 1);
+}
+
+u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize, u16 charmask,
+	struct fbcon_par *ops)
+{
+	u8 *src;
+	u16 c_utf, ch;
+	u32 cellsize_utf = (cellsize < 64) ? 16 : 64;
+	unsigned int charcnt = vc->vc_font.charcount;
+	const void *fontdata;
+	char *fontname = (cellsize < 64) ? "CJK16x16" : "CJK32x32";
+	const struct font_desc *font;
+
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE_ROTATION
+	fontdata = ops ? ops->rotated.buf : vc->vc_font.data;
+#else
+	fontdata = vc->vc_font.data;
+#endif
+
+	ch = scr_readw(s) & charmask;
+	if (ch >= charcnt)
+		ch = 0;
+
+	src = (u8 *)fontdata + (unsigned int)ch * cellsize;
+	if ((scr_readw(s) & charmask) != 0xff && (scr_readw(s) & charmask) != 0xfe)
+		return src;
+
+	/* assume current font not support unicode */
+	if (vc->vc_font.charcount < 65536) {
+		if (ops)
+			fontdata = ops->fontbuffer_utf;
+		else {
+			font = find_font(fontname);
+			fontdata = (font && font->data) ? (const void *) font->data : NULL;
+		}
+	}
+	if (fontdata) {
+		c_utf = utf8_pos(vc, s);
+		if ((scr_readw(s) & charmask) == 0xff)
+			src = (u8 *)fontdata + (c_utf * cellsize_utf * 2);
+		else
+			src = (u8 *)fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
+	}
+
+	return src;
 }
 
 static void bit_bmove(struct vc_data *vc, struct fb_info *info, int sy,
@@ -78,16 +134,11 @@ static inline void bit_putcs_aligned(struct vc_data *vc, struct fb_info *info,
 				     struct fb_image *image, u8 *buf, u8 *dst)
 {
 	u16 charmask = vc->vc_hi_font_mask ? 0x1ff : 0xff;
-	unsigned int charcnt = vc->vc_font.charcount;
 	u32 idx = vc->vc_font.width >> 3;
 	const u8 *src;
 
 	while (cnt--) {
-		u16 ch = scr_readw(s++) & charmask;
-
-		if (ch >= charcnt)
-			ch = 0;
-		src = vc->vc_font.data + (unsigned int)ch * cellsize;
+		src = font_bits(vc, s++, cellsize, charmask, NULL);
 
 		if (attr) {
 			update_attr(buf, src, attr, vc);
@@ -115,18 +166,13 @@ static inline void bit_putcs_unaligned(struct vc_data *vc,
 				       u8 *dst)
 {
 	u16 charmask = vc->vc_hi_font_mask ? 0x1ff : 0xff;
-	unsigned int charcnt = vc->vc_font.charcount;
 	u32 shift_low = 0, mod = vc->vc_font.width % 8;
 	u32 shift_high = 8;
 	u32 idx = vc->vc_font.width >> 3;
 	const u8 *src;
 
 	while (cnt--) {
-		u16 ch = scr_readw(s++) & charmask;
-
-		if (ch >= charcnt)
-			ch = 0;
-		src = vc->vc_font.data + (unsigned int)ch * cellsize;
+		src = font_bits(vc, s++, cellsize, charmask, NULL);
 
 		if (attr) {
 			update_attr(buf, src, attr, vc);
@@ -280,7 +326,7 @@ static void bit_cursor(struct vc_data *vc, struct fb_info *info, bool enable,
 	/* Clamp to font size, same as bit_putcs_aligned() */
 	if (c >= vc->vc_font.charcount)
 		c = 0;
-	src = vc->vc_font.data + (c * (w * vc->vc_font.height));
+	src = font_bits(vc, (u16 *) vc->vc_pos, (w * vc->vc_font.height), charmask, NULL);
 
 	if (par->cursor_state.image.data != (const char *)src ||
 	    par->cursor_reset) {

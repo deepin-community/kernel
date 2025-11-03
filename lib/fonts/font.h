@@ -34,5 +34,8 @@ struct font_data {
 #define TER16x32_IDX	11
 #define FONT6x8_IDX	12
 #define TER10x18_IDX	13
+/* cjktty: appended after the mainline indices (13 is taken) */
+#define CJK16x16_IDX	14
+#define CJK32x32_IDX	15
 
 #endif
