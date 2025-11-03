@@ -39,6 +39,43 @@ struct devfreq_cooling_power {
 			      unsigned long freq, unsigned long voltage);
 };
 
+/**
+ * struct devfreq_cooling_device - Devfreq cooling device
+ *		devfreq_cooling_device registered.
+ * @cdev:	Pointer to associated thermal cooling device.
+ * @cooling_ops: devfreq callbacks to thermal cooling device ops
+ * @devfreq:	Pointer to associated devfreq device.
+ * @cooling_state:	Current cooling state.
+ * @freq_table:	Pointer to a table with the frequencies sorted in descending
+ *		order.  You can index the table by cooling device state
+ * @max_state:	It is the last index, that is, one less than the number of the
+ *		OPPs
+ * @power_ops:	Pointer to devfreq_cooling_power, a more precised model.
+ * @res_util:	Resource utilization scaling factor for the power.
+ *		It is multiplied by 100 to minimize the error. It is used
+ *		for estimation of the power budget instead of using
+ *		'utilization' (which is	'busy_time' / 'total_time').
+ *		The 'res_util' range is from 100 to power * 100	for the
+ *		corresponding 'state'.
+ * @capped_state:	index to cooling state with in dynamic power budget
+ * @req_max_freq:	PM QoS request for limiting the maximum frequency
+ *			of the devfreq device.
+ * @em_pd:		Energy Model for the associated Devfreq device
+ */
+struct devfreq_cooling_device {
+	struct thermal_cooling_device *cdev;
+	struct thermal_cooling_device_ops cooling_ops;
+	struct devfreq *devfreq;
+	unsigned long cooling_state;
+	u32 *freq_table;
+	size_t max_state;
+	struct devfreq_cooling_power *power_ops;
+	u32 res_util;
+	int capped_state;
+	struct dev_pm_qos_request req_max_freq;
+	struct em_perf_domain *em_pd;
+};
+
 #ifdef CONFIG_DEVFREQ_THERMAL
 
 struct thermal_cooling_device *
