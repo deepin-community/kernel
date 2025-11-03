@@ -128,6 +128,26 @@ config FONT_6x8
 	help
 	  This font is useful for small displays (OLED).
 
+config FONT_CJK_16x16
+	bool "CJK 16x16 font" if FONTS
+	depends on FRAMEBUFFER_CONSOLE && VT_CONSOLE
+	select CONSOLE_TRANSLATIONS
+	default y if !SPARC
+	help
+	  This is a high resolution console font that covers Unicode Basic
+	  Multilingual Plane (BMP), mostly is CJK font. If you want basic Unicode
+	  support on the VT console, say Y.
+
+config FONT_CJK_32x32
+	bool "CJK 32x32 font" if FONTS
+	depends on FRAMEBUFFER_CONSOLE && VT_CONSOLE
+	select CONSOLE_TRANSLATIONS
+	default y if !SPARC
+	help
+	  This is a more higher resolution console font that covers Unicode Basic
+	  Multilingual Plane (BMP), mostly is CJK font. If you want basic Unicode
+	  support on the VT console for a high res monitor, say Y.
+
 config FONT_AUTOSELECT
 	def_bool y
 	depends on !FONT_8x8
@@ -142,6 +162,8 @@ config FONT_AUTOSELECT
 	depends on !FONT_10x18
 	depends on !FONT_TER16x32
 	depends on !FONT_6x8
+	depends on !FONT_CJK_16x16
+	depends on !FONT_CJK_32x32
 	select FONT_8x16
 
 endif # FONT_SUPPORT
