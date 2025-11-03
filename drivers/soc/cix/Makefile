@@ -2,5 +2,6 @@
 obj-$(CONFIG_CIX_SKY1_SOCINFO) += cix-sky1-socinfo.o
 obj-$(CONFIG_CIX_SOC_ACPI) += acpi/
 obj-$(CONFIG_CIX_SOC_ACPI) += mailbox/
+obj-$(CONFIG_CIX_SOC_ACPI) += gpu/
 obj-$(CONFIG_CIX_SOC_ACPI) += scmi/
 obj-$(CONFIG_CIX_SOC_ACPI) += pcie/
