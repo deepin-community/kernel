@@ -15,6 +15,28 @@
 #include "fbcon.h"
 #include "fbcon_rotate.h"
 
+static int fbcon_rotate_font_utf(struct fb_info *info, struct vc_data *vc)
+{
+	struct fbcon_par *par = info->fbcon_par;
+	int cellsize = ((vc->vc_font.width + 7) / 8) * vc->vc_font.height;
+	const struct font_desc *font;
+	unsigned char *buf;
+
+	font = find_font(cellsize < 64 ? "CJK16x16" : "CJK32x32");
+	if (!font || !font->data)
+		return 0;
+
+	buf = font_data_rotate(font->data, font->width, font->height,
+			       font->charcount, par->rotate,
+			       par->fontbuffer_utf, &par->fd_size_utf);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	par->fontbuffer_utf = buf;
+
+	return 0;
+}
+
 int fbcon_rotate_font(struct fb_info *info, struct vc_data *vc)
 {
 	struct fbcon_par *par = info->fbcon_par;
@@ -40,6 +62,11 @@ int fbcon_rotate_font(struct fb_info *info, struct vc_data *vc)
 	}
 
 	par->rotated.buf = buf;
+
+	/* mirror font_bits(): the CJK font is only consulted for fonts that
+	 * do not cover the full BMP */
+	if (vc->vc_font.charcount < 65536)
+		fbcon_rotate_font_utf(info, vc);
 
 	return 0;
 

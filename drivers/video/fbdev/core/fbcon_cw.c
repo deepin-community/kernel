@@ -19,6 +19,8 @@
 #include "fbcon.h"
 #include "fbcon_rotate.h"
 
+extern u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize,
+		u16 charmask, struct fbcon_par *ops);
 /*
  * Rotation 90 degrees
  */
@@ -91,7 +93,7 @@ static inline void cw_putcs_aligned(struct vc_data *vc, struct fb_info *info,
 	u8 *src;
 
 	while (cnt--) {
-		src = par->rotated.buf + (scr_readw(s++) & charmask) * cellsize;
+		src = font_bits(vc, s++, cellsize, charmask, par);
 
 		if (attr) {
 			cw_update_attr(buf, src, attr, vc);
@@ -222,7 +224,7 @@ static void cw_cursor(struct vc_data *vc, struct fb_info *info, bool enable,
 
  	c = scr_readw((u16 *) vc->vc_pos);
 	attribute = get_attribute(info, c);
-	src = par->rotated.buf + ((c & charmask) * (w * vc->vc_font.width));
+	src = font_bits(vc, (u16 *) vc->vc_pos, (w * vc->vc_font.width), charmask, par);
 
 	if (par->cursor_state.image.data != src ||
 	    par->cursor_reset) {

@@ -95,8 +95,10 @@ struct fbcon_par {
 		int buf_rotate;         /* rotation of buf */
 	} rotated;
 #endif
+	u8    *fontbuffer_utf;
 	u8    *cursor_src;
 	u32    cursor_size;
+	size_t fd_size_utf;
 
 	const struct fbcon_bitops *bitops;
 };
@@ -281,6 +283,11 @@ static inline void fbcon_update_vcs(struct fb_info *info, bool all) {}
 static inline void fbcon_remap_all(struct fb_info *info) {}
 static inline int fbcon_set_con2fb_map_ioctl(void __user *argp) { return 0; }
 static inline int fbcon_get_con2fb_map_ioctl(void __user *argp) { return 0; }
+#endif
+
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+extern u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize,
+		     u16 charmask, struct fbcon_par *ops);
 #endif
 
 #endif /* _VIDEO_FBCON_H */
