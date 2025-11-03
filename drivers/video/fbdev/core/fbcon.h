@@ -82,10 +82,12 @@ struct fbcon_ops {
 	int    cur_rotate;
 	char  *cursor_data;
 	u8    *fontbuffer;
+	u8    *fontbuffer_utf;
 	u8    *fontdata;
 	u8    *cursor_src;
 	u32    cursor_size;
 	u32    fd_size;
+	u32    fd_size_utf;
 };
     /*
      *  Attribute Decoding
@@ -229,5 +231,10 @@ extern void fbcon_set_rotate(struct fbcon_ops *ops);
 #else
 #define fbcon_set_rotate(x) do {} while(0)
 #endif /* CONFIG_FRAMEBUFFER_CONSOLE_ROTATION */
+
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+extern u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize,
+		     u16 charmask, struct fbcon_ops *ops);
+#endif
 
 #endif /* _VIDEO_FBCON_H */
