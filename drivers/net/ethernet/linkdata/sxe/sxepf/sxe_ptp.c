@@ -566,7 +566,7 @@ l_ret:
 
 int sxe_ptp_hw_tstamp_config_set(struct sxe_adapter *adapter, struct ifreq *ifr)
 {
-	struct hwtstamp_config config;
+	struct hwtstamp_config config={0};
 	int ret;
 
 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config))) {
