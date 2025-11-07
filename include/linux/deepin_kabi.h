@@ -31,6 +31,7 @@
 #ifndef _LINUX_DEEPIN_KABI_H
 #define _LINUX_DEEPIN_KABI_H
 
+#include <linux/args.h>
 #include <linux/kconfig.h>
 #include <linux/compiler.h>
 #include <linux/stringify.h>
