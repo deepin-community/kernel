@@ -10,12 +10,7 @@
 	#size-cells = <0x02>;
 	compatible = "ultrarisc,dp1000";
 	model = "ultrarisc,dp1000";
-	
-	chosen {
-		bootargs = "earlycon=sbi console=ttyS1,115200";
-		stdout-path = &uart1;
-	};
-	
+
 	cpus {
 		#address-cells = <0x01>;
 		#size-cells = <0x00>;
