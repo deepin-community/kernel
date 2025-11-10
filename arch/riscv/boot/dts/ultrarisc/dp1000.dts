@@ -10,17 +10,12 @@
 	#size-cells = <0x02>;
 	compatible = "ultrarisc,dp1000";
 	model = "ultrarisc,dp1000";
-	
-	chosen {
-		bootargs = "earlycon=sbi console=ttyS1,115200";
-		stdout-path = &uart1;
-	};
-	
+
 	cpus {
 		#address-cells = <0x01>;
 		#size-cells = <0x00>;
 		timebase-frequency = <10000000>;
-		
+
 		cpu0: cpu@0 {
 			device_type = "cpu";
 			reg = <0x00>;
@@ -144,18 +139,18 @@
 			};
 		};
 	};
-	
+
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x00 0x80000000 0x4 0x00000000>;
 	};
-	
+
 	soc {
 		#address-cells = <0x02>;
 		#size-cells = <0x02>;
 		compatible = "simple-bus";
 		ranges;
-		
+
 		clocks {
 			compatible = "simple-bus";
 			u-boot,dm-pre-reloc;
@@ -171,7 +166,7 @@
 				#clock-cells = <0>;
 			};
 		};
-		
+
 		clint: clint@8000000 {
 			compatible = "riscv,clint0";
 			interrupts-extended = <&cpu0_intc 0x03>, <&cpu0_intc 0x07>,
@@ -184,7 +179,7 @@
 			<&cpu7_intc 0x03>, <&cpu7_intc 0x07>;
 			reg = <0x00 0x8000000 0x00 0x100000>;
 		};
-		
+
 		plic: plic@9000000 {
 			#interrupt-cells = <1>;
 			#address-cells = <0>;
@@ -203,7 +198,7 @@
 			riscv,max-priority = <0x07>;
 			riscv,ndev = <160>;
 		};
-		
+
 		uart0: serial@20300000 {
 			interrupt-parent = <0x01>;
 			interrupts = <17>;
@@ -214,7 +209,7 @@
 			reg-offset = <0x0>;
 			reg-shift = <0x02>;
 		};
-		
+
 		uart1: serial@20310000 {
 			interrupt-parent = <0x01>;
 			interrupts = <18>;
@@ -225,7 +220,7 @@
 			reg-offset = <0x0>;
 			reg-shift = <0x02>;
 		};
-		
+
 		uart2: serial@20400000 {
 			interrupt-parent = <0x01>;
 			interrupts = <25>;
@@ -236,7 +231,7 @@
 			reg-offset = <0x0>;
 			reg-shift = <0x02>;
 		};
-		
+
 		uart3: serial@20410000 {
 			interrupt-parent = <0x01>;
 			interrupts = <26>;
@@ -247,7 +242,7 @@
 			reg-offset = <0x0>;
 			reg-shift = <0x02>;
 		};
-		
+
 		spi0: spi@20320000 {
 			compatible = "baikal,bt1-ssi","snps,dw-apb-ssi";
 			status = "okay";
@@ -261,7 +256,7 @@
 			num-cs = <3>;
 			spi-max-frequency = <62500000>;
 		};
-		
+
 		spi1: spi@20420000 {
 			compatible = "baikal,bt1-ssi","snps,dw-apb-ssi";
 			status = "okay";
@@ -275,7 +270,7 @@
 			num-cs = <3>;
 			spi-max-frequency = <62500000>;
 		};
-		
+
 		i2c0: i2c@20330000{
 			compatible = "snps,designware-i2c";
 			status = "okay";
@@ -287,7 +282,7 @@
 			interrupt-parent = <0x01>;
 			interrupts = <20>;
 		};
-		
+
 		i2c1: i2c@20340000{
 			compatible = "snps,designware-i2c";
 			status = "okay";
@@ -299,7 +294,7 @@
 			interrupt-parent = <0x01>;
 			interrupts = <21>;
 		};
-		
+
 		i2c2: i2c@20430000{
 			compatible = "snps,designware-i2c";
 			status = "okay";
@@ -311,7 +306,7 @@
 			interrupt-parent = <0x01>;
 			interrupts = <28>;
 		};
-		
+
 		i2c3: i2c@20440000{
 			compatible = "snps,designware-i2c";
 			status = "okay";
@@ -323,7 +318,7 @@
 			interrupt-parent = <0x01>;
 			interrupts = <29>;
 		};
-		
+
 		wdt0: watchdog@20210000 {
 			compatible = "snps,dw-wdt";
 			status = "okay";
@@ -334,7 +329,7 @@
 			interrupts = <33>;
 			clocks = <&device_clk>;
 		};
-		
+
 		gpio: gpio@20200000 {
 			compatible = "snps,dw-apb-gpio";
       			#address-cells = <1>;
@@ -380,7 +375,7 @@
 				snps,nr-gpios = <8>;
 			};
 		};
-		
+
 		ethernet1@38000000 {
 			clocks = <&csr_clk>;
 			clock-names = "stmmaceth";
@@ -406,7 +401,7 @@
 				};
 			};
 		};
-		
+
 		dmac: dma-controller@39000000 {
 			compatible = "snps,axi-dma-1.01a";
 			#address-cells = <1>;
