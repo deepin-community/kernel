@@ -7,6 +7,13 @@
 #include "dp1000-evb-pinctrl.dtsi"
 #include <dt-bindings/iio/temperature/thermocouple.h>
 
+/ {
+	chosen {
+		bootargs = "earlycon=sbi console=ttyS1,115200";
+		stdout-path = &uart1;
+	};
+};
+
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pins>;
