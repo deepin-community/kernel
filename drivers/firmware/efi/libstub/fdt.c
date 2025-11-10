@@ -132,11 +132,13 @@ static efi_status_t update_fdt(void *orig_fdt, unsigned long orig_fdt_size,
 		}
 	}
 
+#ifndef CONFIG_SW64
 	fdt_val32 = cpu_to_fdt32(efi_get_secureboot());
 	status = fdt_setprop(fdt, node, "linux,uefi-secure-boot",
 			     &fdt_val32, sizeof(fdt_val32));
 	if (status)
 		goto fdt_set_fail;
+#endif
 
 	/* Shrink the FDT back to its minimum size: */
 	fdt_pack(fdt);
