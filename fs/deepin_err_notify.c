@@ -115,6 +115,7 @@ void deepin_check_and_notify_ro_fs_err(const struct path *path,
 static const struct genl_multicast_group deepin_err_notify_nl_mcgrps[] = {
 	{
 		.name = "ro_fs_events",
+		.flags = GENL_UNS_ADMIN_PERM,
 	},
 };
 
