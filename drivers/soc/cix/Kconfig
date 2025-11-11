@@ -27,5 +27,6 @@ config CIX_SOC_ACPI
 	  Say yes to support CIX SoC ACPI drivers.
 
 source "drivers/soc/cix/gpu/arm/Kconfig"
+source "drivers/soc/cix/npu/Kconfig"
 source "drivers/soc/cix/scmi/Kconfig"
 endmenu

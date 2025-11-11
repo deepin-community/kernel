@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# ArmChina Zhouyi NPU driver
+#
+
+config ENABLE_DEVFREQ
+	bool
+	default y
+config ARMCHINA_NPU
+	tristate "ArmChina Zhouyi NPU"
+	default m
+	help
+	  Say Y if you are using any Zhouyi NPU.
+
+	  For other cases, say N.
+
+config ARMCHINA_NPU_ARCH_V1
+	bool "ArmChina NPU architecture: v1"
+	select ARMCHINA_NPU
+	help
+	  Say Y if the NPU version on your SoC is Zhouyi V1.
+
+	  For other architecture versions, say N.
+
+config ARMCHINA_NPU_ARCH_V2
+	bool "ArmChina NPU architecture: v2"
+	select ARMCHINA_NPU
+	help
+	  Say Y if the NPU version on your SoC is Zhouyi V2 (i.e. Z2/Z3/X1).
+
+	  For other architecture versions, say N.
+
+config ARMCHINA_NPU_ARCH_V3
+	bool "ArmChina NPU architecture: v3"
+	default y
+	select ARMCHINA_NPU
+	help
+	  Say Y if the NPU version on your SoC is Zhouyi V3.
+
+	  For other architecture versions, say N.
+
+config ARMCHINA_NPU_ARCH_V3_1
+	bool "ArmChina NPU architecture: v3_1"
+	select ARMCHINA_NPU
+	help
+	  Say Y if the NPU version on your SoC is Zhouyi V3_1.
+
+	  For other architecture versions, say N.
+
+config ARMCHINA_NPU_SOC_DEFAULT
+	bool "Default SoC APIs"
+	help
+	  Say Y if you use the default SoC API implementations provided by ArmChina.
+
+	  For other SoCs, say N.
+
+config ARMCHINA_NPU_SOC_R329
+	bool "R329 SoC APIs"
+	help
+	  Say Y if you use the Allwinner R329 SoC API implementations.
+
+	  For other SoCs, say N.
+
+config ARMCHINA_NPU_SOC_SKY1
+	bool "SKY1 SoC APIs"
+	help
+	  Say Y if you use the CIX SKY1 SoC API implementations.
+
+	  For other SoCs, say N.
+
+config SKY1
+	bool
+	default y
+
