@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+#
+# (C) COPYRIGHT 2012, 2020-2021, 2024 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU license.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+
+# obj-y += armchina-npu/
+
+subdir-ccflags-y += -I$(src)
+subdir-ccflags-y += -I$(src)/armchina-npu
+subdir-ccflags-y += -I$(src)/armchina-npu/include
+subdir-ccflags-y += -I$(src)/armchina-npu/zhouyi
+subdir-ccflags-y += -I$(src)/armchina-npu/sky1
+
+obj-m := aipu.o
+aipu-objs := armchina-npu/aipu.o armchina-npu/aipu_common.o armchina-npu/aipu_io.o armchina-npu/aipu_irq.o  \
+		armchina-npu/aipu_job_manager.o armchina-npu/aipu_mm.o armchina-npu/aipu_dma_buf.o armchina-npu/aipu_priv.o \
+		armchina-npu/aipu_tcb.o armchina-npu/zhouyi/zhouyi.o armchina-npu/zhouyi/v3.o armchina-npu/zhouyi/v3_priv.o armchina-npu/sky1/sky1.o
