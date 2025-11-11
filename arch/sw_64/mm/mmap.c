@@ -113,7 +113,7 @@ arch_get_unmapped_area_topdown(struct file *filp, unsigned long addr,
 
 unsigned long arch_mmap_rnd(void)
 {
-	unsigned long rnd = get_random_long() & 0x7fffffful;
+	unsigned long rnd = get_random_long() & 0x7ffful;
 
 	return rnd << PAGE_SHIFT;
 }
