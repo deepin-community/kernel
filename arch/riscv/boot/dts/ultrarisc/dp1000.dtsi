@@ -330,6 +330,17 @@
 			clocks = <&device_clk>;
 		};
 
+		pmx0: pinmux@11081000 {
+			compatible = "ultrarisc,dp1000-pinctrl";
+			reg = <0x0 0x11081000  0x0 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#pinctrl-cells = <2>;
+			pinctrl-single,register-width = <32>;
+			pinctrl-single,function-mask = <0x3ff>;
+			pinctrl-use-default;
+		};
+
 		gpio: gpio@20200000 {
 			compatible = "snps,dw-apb-gpio";
       			#address-cells = <1>;
@@ -349,6 +360,7 @@
 				#interrupt-cells = <2>;
 				interrupt-parent = <0x01>;
 				interrupts = <34>;
+				gpio-ranges = <&pmx0 0 0 16>;
 			};
 
 			portb: gpio-port@1 {
@@ -357,6 +369,7 @@
 				gpio-controller;
 				#gpio-cells = <2>;
 				snps,nr-gpios = <8>;
+				gpio-ranges = <&pmx0 16 0 8>;
 			};
 
 			portc: gpio-port@2 {
@@ -365,6 +378,7 @@
 				gpio-controller;
 				#gpio-cells = <2>;
 				snps,nr-gpios = <8>;
+				gpio-ranges = <&pmx0 24 0 8>;
 			};
 
 			portd: gpio-port@3 {
@@ -373,6 +387,7 @@
 				gpio-controller;
 				#gpio-cells = <2>;
 				snps,nr-gpios = <8>;
+				gpio-ranges = <&pmx0 32 0 8>;
 			};
 		};
 		
