@@ -6,4 +6,4 @@ obj-$(CONFIG_CIX_SOC_ACPI) += gpu/
 obj-$(CONFIG_CIX_SOC_ACPI) += scmi/
 obj-$(CONFIG_CIX_SOC_ACPI) += pcie/
 obj-$(CONFIG_CIX_SOC_ACPI) += npu/
-
+obj-$(CONFIG_CIX_SOC_ACPI) += vpu/
