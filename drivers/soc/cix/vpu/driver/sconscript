@@ -1,0 +1,27 @@
+import os
+
+Import('env')
+
+# Get source path to current directory.
+path = env.Dir('.').srcnode().path
+
+prints = ""
+
+targets = [os.path.join('#', path, 'amvx.ko')]
+
+extra_ccflags=""
+if 'EXTRA_CCFLAGS' in os.environ:
+    extra_ccflags = os.environ['EXTRA_CCFLAGS']
+
+amvx = env.Command(targets, [],
+                   'make -C %s mono_v4l2 KDIR=%s EXTRA_CCFLAGS="%s" %s' %
+                   (path, env['KDIR'], extra_ccflags, prints))
+
+# Flag to always build.
+env.AlwaysBuild(amvx)
+
+# Install kernel module in bin directory.
+env.Install(env['BIN_DIR'], [amvx])
+
+# Install user space header files
+env.Install(env['INCLUDE_DIR'], ['linux/mvx-v4l2-controls.h', 'external/fw_v2/mve_protocol_def.h', 'mvx_log_ram.h'])

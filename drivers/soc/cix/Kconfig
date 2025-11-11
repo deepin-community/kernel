@@ -28,5 +28,6 @@ config CIX_SOC_ACPI
 
 source "drivers/soc/cix/gpu/arm/Kconfig"
 source "drivers/soc/cix/npu/Kconfig"
+source "drivers/soc/cix/vpu/Kconfig"
 source "drivers/soc/cix/scmi/Kconfig"
 endmenu
