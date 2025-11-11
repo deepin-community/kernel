@@ -3,7 +3,6 @@
  * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
  */
 
-#include "dp1000.dts"
 #include "dp1000-evb-pinctrl.dtsi"
 #include <dt-bindings/iio/temperature/thermocouple.h>
 
