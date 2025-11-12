@@ -86,6 +86,7 @@ static struct ur_pinctrl_match_data ur_dp1000_match_data = {
 	.pins = ur_dp1000_pins,
 	.npins = ARRAY_SIZE(ur_dp1000_pins),
 	.offset = 0x2c0,
+	.num_ports = 5,
 	.ports = {
 		{"A", 16, 0x2c0, 0x310},
 		{"B", 8, 0x2c4, 0x318},
