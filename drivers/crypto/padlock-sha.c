@@ -329,7 +329,17 @@ static int __init padlock_init(void)
 	struct shash_alg *sha1;
 	struct shash_alg *sha256;
 
-	if (!x86_match_cpu(padlock_sha_ids) || !boot_cpu_has(X86_FEATURE_PHE_EN))
+	/* On Zhaoxin KaiXian KX-6000/6000G series of processors, this crypto
+	 * module causes a null pointer dereference.
+	 *
+	 * Zhaoxin submitted upstream an implementation update but does not
+	 * specify a fix. Per our testing, blacklisting this module causes the
+	 * null pointer dereference to go away.
+	 *
+	 * Link: https://lore.kernel.org/all/20250114121301.156359-1-TonyWWang-oc%40zhaoxin.com/ */
+	if (!x86_match_cpu(padlock_sha_ids) ||
+	    !boot_cpu_has(X86_FEATURE_PHE_EN) ||
+	    (c->x86 == 7 && c->x86_model == 59))
 		return -ENODEV;
 
 	/*
