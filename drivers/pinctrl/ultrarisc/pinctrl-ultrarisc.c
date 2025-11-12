@@ -326,6 +326,58 @@ static const struct pinmux_ops ur_pinmux_ops = {
 
 #define UR_CONF_BIT_PER_PIN	(4)
 #define UR_CONF_PIN_PER_REG	(32/UR_CONF_BIT_PER_PIN)
+
+static int ur_pin_num_to_port_pin(const struct ur_pinctrl_match_data *match_data,
+				  struct ur_pin_val *pin_val, u32 pin_num)
+{
+	const struct ur_port_desc *port_desc;
+
+	for (int i = 0; i < match_data->num_ports; i++) {
+		port_desc = &match_data->ports[i];
+		if (pin_num < port_desc->npins) {
+			pin_val->port = i;
+			pin_val->pin = pin_num;
+			pin_val->conf = 0;
+			return 0;
+		}
+		pin_num -= port_desc->npins;
+	}
+	return -EINVAL;
+}
+
+static int ur_config_to_pin_val(struct ur_pinctrl *pin_ctrl,
+				struct ur_pin_val *pin_vals,
+				unsigned long *config)
+{
+	enum pin_config_param param = pinconf_to_config_param(*config);
+	u32 arg = pinconf_to_config_argument(*config);
+
+	dev_dbg(pin_ctrl->dev, "%s(%d): config_to_pin_val: param=%d, arg=0x%x\n",
+		__func__, __LINE__, param, arg);
+
+	switch (param) {
+	case PIN_CONFIG_BIAS_DISABLE:
+		pin_vals->conf &= ~UR_BIAS_MASK;
+		break;
+	case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
+		pin_vals->conf &= ~(UR_PULL_DOWN | UR_PULL_UP);
+		break;
+	case PIN_CONFIG_BIAS_PULL_PIN_DEFAULT:
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		pin_vals->conf |= UR_PULL_DOWN;
+		break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		pin_vals->conf |= UR_PULL_UP;
+		break;
+	case PIN_CONFIG_DRIVE_PUSH_PULL:
+	case PIN_CONFIG_PERSIST_STATE:
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+	return 0;
+}
+
 static int ur_set_pin_conf(struct ur_pinctrl *pin_ctrl, struct ur_pin_val *pin_vals)
 {
 	const struct ur_port_desc *port_desc;
@@ -334,8 +386,11 @@ static int ur_set_pin_conf(struct ur_pinctrl *pin_ctrl, struct ur_pin_val *pin_v
 	u32 val, conf;
 
 	port_desc = &pin_ctrl->match_data->ports[pin_vals->port];
+	dev_dbg(pin_ctrl->dev, "set pinconf port=%d pin=%d conf=0x%x\n",
+		pin_vals->port, pin_vals->pin, pin_vals->conf);
 	reg = pin_ctrl->base + port_desc->conf_offset;
-	dev_dbg(pin_ctrl->dev, "pinconf base=0x%llx, reg=0x%llx\n", (u64)pin_ctrl->base, (u64)reg);
+	dev_dbg(pin_ctrl->dev, "pinconf base=0x%llx, conf_offset=0x%x, reg=0x%llx\n",
+		(u64)pin_ctrl->base, port_desc->conf_offset, (u64)reg);
 	reg += (pin_vals->pin / UR_CONF_PIN_PER_REG) * UR_CONF_BIT_PER_PIN;
 	dev_dbg(pin_ctrl->dev, "pinconf pin=0x%llx\n", (u64)reg);
 
@@ -367,16 +422,28 @@ static int ur_pin_config_set(struct pinctrl_dev *pctldev,
 			unsigned long *configs,
 			unsigned int num_configs)
 {
-	struct ur_pin_val *pin_conf;
+	struct ur_pin_val pin_val;
 	struct ur_pinctrl *ur_pinctrl = pinctrl_dev_get_drvdata(pctldev);
+	int ret;
 
-	dev_dbg(pctldev->dev, "%s(%d): pin=%d, num_configs=%d\n",
-		__func__, __LINE__, pin, num_configs);
-	pin_conf = (struct ur_pin_val *)configs;
+	ret = ur_pin_num_to_port_pin(ur_pinctrl->match_data, &pin_val, pin);
+	if (ret < 0) {
+		dev_err(pctldev->dev, "invalid pin number %d\n", pin);
+		return ret;
+	}
+	dev_dbg(pctldev->dev, "%s(%d): pin=%d, num_configs=%d, port=%d, pin=%d\n",
+		__func__, __LINE__, pin, num_configs, pin_val.port, pin_val.pin);
+
 	for (int i = 0; i < num_configs; i++) {
-		dev_dbg(pctldev->dev, "pinconf[%d], port=%d, pin=%d, conf=0x%x\n",
-			i, pin_conf[i].port, pin_conf[i].pin, pin_conf[i].conf);
-		ur_set_pin_conf(ur_pinctrl, &pin_conf[i]);
+		ret = ur_config_to_pin_val(ur_pinctrl, &pin_val, &configs[i]);
+		if (ret < 0) {
+			dev_err(pctldev->dev, "invalid config 0x%lx\n", configs[i]);
+			return ret;
+		}
+
+		dev_dbg(pctldev->dev, "%s(%d): port=%d, pin=%d, conf=0x%x\n",
+			__func__, __LINE__, pin_val.port, pin_val.pin, pin_val.conf);
+		ur_set_pin_conf(ur_pinctrl, &pin_val);
 	}
 	return 0;
 }
