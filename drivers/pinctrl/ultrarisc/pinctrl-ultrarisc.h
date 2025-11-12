@@ -50,7 +50,7 @@ struct ur_pinctrl_match_data {
 	const struct pinctrl_pin_desc *pins;
 	u32 npins;
 	u32 offset;
-	//u32 conf_offset[];
+	u32 num_ports;
 	struct ur_port_desc ports[];
 };
 
