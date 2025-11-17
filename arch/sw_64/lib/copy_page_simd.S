@@ -6,21 +6,22 @@
  */
 #include <asm/export.h>
 #include <asm/csr.h>
+#include <asm/page.h>
 
 #ifndef CONFIG_SUBARCH_C3B
-# define VSTD_CPU	vstd_nc
-#else
 # define VSTD_CPU	vstd
+#else
+# define VSTD_CPU	vstd_nc
 #endif
 
 	.text
-	.align 4
+	.align 5
 	.global copy_page
 	.ent copy_page
 copy_page:
 	.prologue 0
 
-	ldi		$1, 0x2000($16)
+	ldi		$1, PAGE_SIZE($16)
 
 	subl		$sp, 64, $sp
 	bic		$sp, 0x1f, $3
@@ -46,16 +47,22 @@ copy_page:
 	addl		$16, 128, $16
 	addl		$17, 128, $17
 
+	.align 3
 	cmpeq		$16, $1, $2
 	beq		$2, 1b
 
 #ifdef CONFIG_SUBARCH_C4
 	csrw		$4, CSR_WR_FREGS
 #endif
+#ifdef CONFIG_SUBARCH_C3B
+	memb
+#endif
 
 	vldd		$f10, 0($3)
 	addl		$sp, 64, $sp
 
+	.align 4
+	nop
 	ret
 
 	.end copy_page
