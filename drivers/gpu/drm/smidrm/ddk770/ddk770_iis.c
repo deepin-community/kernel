@@ -98,7 +98,7 @@ void ddk770_iisOpen(
 /*
  *    Turn off I2S and close GPIO 
  */
-void ddk770_iisClose()
+void ddk770_iisClose(void)
 {
     unsigned long gpioPin;
 

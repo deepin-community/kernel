@@ -326,7 +326,7 @@ timer_interrupt_t;
 static timer_interrupt_t *timer_int_handlers = (timer_interrupt_t *)0;
 static void (*pfnOldTimerInterrupt)() = (void (*))0;
 
-static void timerHandler()
+static void timerHandler(void)
 {
     timer_interrupt_t *p;
 
@@ -517,7 +517,7 @@ int kbhit(void)
 }  
 
 /* Get current time in milliseconds. */
-unsigned long getCurrentTime()
+unsigned long getCurrentTime(void)
 {
     time_t   now; 
     struct   tm     *timenow;
@@ -534,7 +534,7 @@ unsigned long getCurrentTime()
     return milliseconds;
 }
 
-unsigned char getKeyInput()
+unsigned char getKeyInput(void)
 {
 	unsigned char key;
 	key = getSingleChar();

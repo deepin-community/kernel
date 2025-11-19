@@ -72,7 +72,7 @@ void iisOpen(
 /*
  *    Turn off I2S and close GPIO 
  */
-void iisClose()
+void iisClose(void)
 {
     unsigned long value;
 

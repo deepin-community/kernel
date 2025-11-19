@@ -29,7 +29,7 @@
  *      0   - Success
  *      1   - Fail 
  */
-long ddk770_initDisplay()
+long ddk770_initDisplay(void)
 {
 
 	ddk770_HDMI_Init(0);
@@ -398,7 +398,7 @@ long ddk770_setCloneViewOn(disp_control_t dataPath)
 /*
  * Convenient function to trun on dual view 
  */
-long ddk770_setDualViewOn()
+long ddk770_setDualViewOn(void)
 {
     ddk770_setSingleViewOn(CHANNEL0_CTRL);
     ddk770_setSingleViewOn(CHANNEL1_CTRL);
@@ -422,7 +422,7 @@ long ddk770_setDualViewOn()
 /*
  * Convenient function to trun off all views
  */
-long ddk770_setAllViewOff()
+long ddk770_setAllViewOff(void)
 {
     ddk770_setSingleViewOff(CHANNEL0_CTRL);    /* Turn Off monitor 0 */
     ddk770_setSingleViewOff(CHANNEL1_CTRL);    /* Turn Off monitor 1 */

@@ -46,7 +46,7 @@ unsigned int ddk768_getPixelType(void)
 /*
  * This function returns frame buffer memory size in Byte units.
  */
-unsigned long ddk768_getFrameBufSize()
+unsigned long ddk768_getFrameBufSize(void)
 {
 #if 0
 	return SMI_MEMORY_SIZE_SM768;
@@ -81,7 +81,7 @@ unsigned long ddk768_getFrameBufSize()
  * It is one of the following: SM501, SM502, SM107, SM718, SM 750 or
  * SM_UNKNOWN.
  */
-logical_chip_type_t ddk768_getChipType()
+logical_chip_type_t ddk768_getChipType(void)
 {
 
     logical_chip_type_t chip;
@@ -97,7 +97,7 @@ logical_chip_type_t ddk768_getChipType()
  * Return a char string name of the current chip.
  * It's convenient for application need to display the chip name.
  */
-char *ddk768_getChipTypeString()
+char *ddk768_getChipTypeString(void)
 {
     char * chipName;
 
@@ -165,7 +165,7 @@ long ddk768_initChipParamEx(initchip_param_t * pInitParam)
  * Return: 0 (or NO_ERROR) if successful.
  *        -1 if fail.
  */
-long ddk768_initChip()
+long ddk768_initChip(void)
 {
     initchip_param_t initParam;
     
@@ -184,7 +184,7 @@ long ddk768_initChip()
     Program DDR PHY register PIR to do DDR training.
     Other parameters for training are assumed well set before calling here.
 */
-void ddrTraining()
+void ddrTraining(void)
 {
     unsigned long ulTmp;
 

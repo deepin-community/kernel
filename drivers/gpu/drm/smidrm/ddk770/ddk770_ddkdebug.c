@@ -201,7 +201,7 @@ void ddkDebugPrint(unsigned long debugLevel, const char* pszFormat, ...)
  * This function cleans up (such as closing the debug file, etc...) when
  * exiting the debug module.      
  */
-void ddkDebugPrintExit()
+void ddkDebugPrintExit(void)
 {
     /* Clean up the debug print module */
     switch (gDebugOutput)

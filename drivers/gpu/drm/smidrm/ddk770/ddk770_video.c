@@ -56,7 +56,7 @@ unsigned long ddk770_videoGetBufferStatus(
  *      pitch   - Number of bytes per line of the video plane 
  *                specified in 128-bit aligned bytes.
  */
-unsigned short ddk770_videoGetPitch()
+unsigned short ddk770_videoGetPitch(void)
 {
     return (FIELD_VAL_GET(peekRegisterDWord(VIDEO_FB_WIDTH), VIDEO_FB_WIDTH, WIDTH));
 }
@@ -69,7 +69,7 @@ unsigned short ddk770_videoGetPitch()
  *      lineOffset  - Number of 128-bit aligned bytes per line 
  *                    of the video plane.
  */
-unsigned short ddk770_videoGetLineOffset()
+unsigned short ddk770_videoGetLineOffset(void)
 {
     return (FIELD_VAL_GET(peekRegisterDWord(VIDEO_FB_WIDTH), VIDEO_FB_WIDTH, OFFSET));
 }
@@ -710,7 +710,7 @@ void ddk770_videoSetGammaCtrl(
  *      0   - Disable
  *      1   - Enable
  */
-unsigned char ddk770_isVideoEnable()
+unsigned char ddk770_isVideoEnable(void)
 {
     unsigned long value;
     
@@ -1005,7 +1005,7 @@ void ddk770_stopVideo(unsigned dispCtrl)
 
 // Called by other function to get overlay's offset value in performance mode.
 // If return 0, it means performance mode disable.
-unsigned long videoPerformanceModeStride()
+unsigned long videoPerformanceModeStride(void)
 {
 	return gPerfModeStride;
 }

@@ -155,7 +155,7 @@ long ddk750_AdaptHWI2CInit(struct smi_connector *connector)
 /*
  *  This function closes the hardware i2c.
  */
-void ddk750_hwI2CClose()
+void ddk750_hwI2CClose(void)
 {
     unsigned long value;
     

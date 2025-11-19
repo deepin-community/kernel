@@ -20,7 +20,7 @@
  *      0   - Success
  *      1   - Fail
  */
-long initDisplay()
+long initDisplay(void)
 {
 
 #if 0
@@ -560,7 +560,7 @@ long setCloneViewOn(disp_control_t dataPath)
 /*
  * Convenient function to turn on dual view 
  */
-long setDualViewOn()
+long setDualViewOn(void)
 {
 	setSingleViewOn(CHANNEL0_CTRL);
 	setSingleViewOn(CHANNEL1_CTRL);
@@ -571,7 +571,7 @@ long setDualViewOn()
 /*
  * Convenient function to turn off all views
  */
-long setAllViewOff()
+long setAllViewOff(void)
 {
 	setSingleViewOff(CHANNEL0_CTRL);	/* Turn Off monitor 0 */
 	setSingleViewOff(CHANNEL1_CTRL);	/* Turn Off monitor 1 */

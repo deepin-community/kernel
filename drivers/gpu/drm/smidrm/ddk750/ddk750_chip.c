@@ -61,7 +61,7 @@ unsigned long ddk750_getFrameBufSize(void)
  * It is one of the following: SM501, SM502, SM107, SM718, SM 750 or
  * SM_UNKNOWN.
  */
-logical_chip_type_t ddk750_getChipType()
+logical_chip_type_t ddk750_getChipType(void)
 {
     return SM750;
 }
@@ -70,7 +70,7 @@ logical_chip_type_t ddk750_getChipType()
  *  ddk750_resetFrameBufferMemory
  *      This function resets the Frame Buffer Memory
  */
-void ddk750_resetFrameBufferMemory()
+void ddk750_resetFrameBufferMemory(void)
 {
     unsigned long ulReg;
 	logical_chip_type_t chipType = ddk750_getChipType();
@@ -202,7 +202,7 @@ long ddk750_initChipParamEx(initchip_param_t * pInitParam)
  *      This function initialize with a default set of parameters.
  *      Use initChipParam() if you don't want default parameters.
  */
-long ddk750_initChip()
+long ddk750_initChip(void)
 {
     initchip_param_t initParam;
     

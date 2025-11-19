@@ -161,7 +161,7 @@ unsigned char EP952_Reg_Clear_Bit(unsigned char ByteAddr, unsigned char BitMask)
 //--------------------------------------------------------------------------------------------------
 // Hardware Interface
 
-void EP952_IIC_Initial()
+void EP952_IIC_Initial(void)
 {
 	unsigned char Temp_Data[15] = {0};
     IIC_EP952_Addr = 0x52;	  // EP952 slave address

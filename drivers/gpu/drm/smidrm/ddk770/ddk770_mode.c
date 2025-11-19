@@ -346,7 +346,7 @@ static mode_parameter_t gChannel2CurrentModeParam;
  *      The signature to be filled in the user_data_mode_t structure to be considered
  *      a valid structure.
  */
-unsigned long ddk770_getUserDataSignature()
+unsigned long ddk770_getUserDataSignature(void)
 {
     return MODE_USER_DATA_SIGNATURE;
 }
@@ -508,7 +508,7 @@ mode_parameter_t *ddk770_findVesaModeParam(
  * Return a point to the gDefaultModeParamTable.
  * Function in other files used this to get the mode table pointer.
  */
-mode_parameter_t *ddk770_getStockModeParamTable()
+mode_parameter_t *ddk770_getStockModeParamTable(void)
 {
     return(gDefaultModeParamTable);
 }
@@ -517,7 +517,7 @@ mode_parameter_t *ddk770_getStockModeParamTable()
  * (Obsolete)
  * Return the size of the Stock Mode Param Table
  */
-unsigned long ddk770_getStockModeParamTableSize()
+unsigned long ddk770_getStockModeParamTableSize(void)
 {
     return (sizeof(gDefaultModeParamTable) / sizeof(mode_parameter_t) - 1);
 }
@@ -593,7 +593,7 @@ unsigned long ddk770_getStockModeParamTableSizeEx(
  *  Output:
  *      Total number of maximum entries
  */
-unsigned long ddk770_getMaximumModeEntries()
+unsigned long ddk770_getMaximumModeEntries(void)
 {
     return MAX_MODE_TABLE_ENTRIES;
 }

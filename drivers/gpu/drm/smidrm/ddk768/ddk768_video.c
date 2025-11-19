@@ -90,7 +90,7 @@ unsigned long videoGetBufferStatus(
  *      pitch   - Number of bytes per line of the video plane 
  *                specified in 128-bit aligned bytes.
  */
-unsigned short videoGetPitch()
+unsigned short videoGetPitch(void)
 {
     return (FIELD_VAL_GET(peekRegisterDWord(VIDEO_FB_WIDTH), VIDEO_FB_WIDTH, WIDTH));
 }
@@ -103,7 +103,7 @@ unsigned short videoGetPitch()
  *      lineOffset  - Number of 128-bit aligned bytes per line 
  *                    of the video plane.
  */
-unsigned short videoGetLineOffset()
+unsigned short videoGetLineOffset(void)
 {
     return (FIELD_VAL_GET(peekRegisterDWord(VIDEO_FB_WIDTH), VIDEO_FB_WIDTH, OFFSET));
 }
@@ -729,7 +729,7 @@ void videoSetGammaCtrl(
  *      0   - Disable
  *      1   - Enable
  */
-unsigned char isVideoEnable()
+unsigned char isVideoEnable(void)
 {
     unsigned long value;
     
