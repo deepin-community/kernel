@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config DRM_SMI
 	tristate "SiliconMotion SM750/SM768/SM770 DRM driver"
-	depends on DRM && PCI && MMU
-    	select DRM_CLIENT_SELECTION
+	depends on DRM && PCI && MMU && SND
+    select DRM_CLIENT_SELECTION
 	select DRM_GEM_SHMEM_HELPER
 	select DRM_KMS_HELPER
 	select SND_PCM
