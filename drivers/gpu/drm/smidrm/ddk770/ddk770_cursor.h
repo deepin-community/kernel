@@ -9,7 +9,7 @@
 *  This file contains the definitions for the cursor functions.
 * 
 *******************************************************************/
-#ifndef _DDk770_CURSOR_H_
+#ifndef _DDK770_CURSOR_H_
 #define _DDK770_CURSOR_H_
 
 #include "ddk770_mode.h"
