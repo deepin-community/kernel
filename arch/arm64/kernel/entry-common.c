@@ -342,7 +342,7 @@ asmlinkage void noinstr el##_##regsize##_##vector##_handler(struct pt_regs *regs
 #ifdef CONFIG_ARM64_ERRATUM_1463225
 static DEFINE_PER_CPU(int, __in_cortex_a76_erratum_1463225_wa);
 
-static void cortex_a76_erratum_1463225_svc_handler(void)
+static __always_inline void cortex_a76_erratum_1463225_svc_handler(void)
 {
 	u32 reg, val;
 
