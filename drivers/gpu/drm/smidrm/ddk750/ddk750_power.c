@@ -69,7 +69,7 @@ void setDPMS(DPMS_t state)
  * This function gets the power mode, one of three modes: 0, 1 or Sleep.
  * On hardware reset, power mode 0 is default.
  */
-unsigned long getPowerMode()
+unsigned long getPowerMode(void)
 {
 
     return (FIELD_VAL_GET(peekRegisterDWord(POWER_MODE_CTRL), POWER_MODE_CTRL, MODE));

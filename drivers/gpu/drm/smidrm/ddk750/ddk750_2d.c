@@ -54,7 +54,7 @@ void ddk750_deInit(void)
  * 1) Aborting the current 2D operation.
  * 2) Re-enable 2D engine to normal state.
  */
-void deReset()
+void deReset(void)
 {
     unsigned long sysCtrl;
 	logical_chip_type_t chipType = ddk750_getChipType();
@@ -2590,7 +2590,7 @@ long deNextLineStrip(
  * This function has to be called to end the Line Strip drawing.
  * Otherwise, the next 2D function might still use this function.
  */
-long deStopLineStrip()
+long deStopLineStrip(void)
 {
     if (deWaitForNotBusy() != 0)
     {

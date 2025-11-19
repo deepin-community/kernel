@@ -28,7 +28,7 @@
  * This function must be called before other 2D functions.
  * Assumption: A specific video mode has been properly set up.
  */
-void ddk768_deInit()
+void ddk768_deInit(void)
 {
     ddk768_enable2DEngine(1);
 
@@ -60,7 +60,7 @@ void ddk768_deInit()
  * 1) Aborting the current 2D operation.
  * 2) Re-enable 2D engine to normal state.
  */
-void ddk768_deReset()
+void ddk768_deReset(void)
 {
 #if 0 /* Cheok(2/11/2014): Not sure which registers are used for Falcon */
     unsigned long sysCtrl;
@@ -526,7 +526,7 @@ long ddk768_deNextTrapezoidFill(
  * This function has to be called to end the Trapezoid Fill drawing.
  * Otherwise, the next 2D function might still use this function.
  */
-long ddk768_deStopTrapezoidFill()
+long ddk768_deStopTrapezoidFill(void)
 {
     if (ddk768_deWaitForNotBusy() != 0)
     {

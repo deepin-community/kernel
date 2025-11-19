@@ -196,7 +196,7 @@ void *getFrameBufAddress(unsigned long offset /*Offset from base of frame buffer
 /*
  * How many devices of the same ID are there.
  */
-unsigned short getNumOfDevices()
+unsigned short getNumOfDevices(void)
 {
     return gwNumOfDev;
 }
@@ -222,7 +222,7 @@ long setCurrentDevice(unsigned short dev)
 /*
  * This function gets the current accessible device index.
  */
-unsigned short getCurrentDevice()
+unsigned short getCurrentDevice(void)
 {
     return gwCurDev;
 }
@@ -232,7 +232,7 @@ unsigned short getCurrentDevice()
  * This function uses strap pin to detect DDR size, and
  * set up DDR controller accordingly.
  */
-unsigned long setupMemController()
+unsigned long setupMemController(void)
 {
     unsigned long strapPin; 
 	unsigned long rValue;
