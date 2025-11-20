@@ -3065,6 +3065,9 @@
 	ltpc=		[NET]
 			Format: <io>,<irq>,<dma>
 
+	lse_disable_force [ARM64]
+			Force disable LSE without detect, default off.
+
 	lse_disable_on_uma [ARM64]
 			Disable LSE (Large System Extension) atomic instructions
 			on UMA (Uniform Memory Access) systems to improve

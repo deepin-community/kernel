@@ -1540,6 +1540,14 @@ static bool has_32bit_el0(const struct arm64_cpu_capabilities *entry, int scope)
 	return true;
 }
 
+static bool lse_disable_force __read_mostly;
+
+static int __init arm64_lse_disable_force_setup(char *str)
+{
+	return kstrtobool(str, &lse_disable_force);
+}
+early_param("lse_disable_force", arm64_lse_disable_force_setup);
+
 static bool lse_disable_on_uma __read_mostly = true;  // UMA decision enabled by default
 
 static int __init arm64_lse_disable_on_uma_setup(char *str)
@@ -1552,6 +1560,12 @@ static bool has_lse_capability_uma_aware(const struct arm64_cpu_capabilities *ca
 										 int scope)
 {
 	int num_nodes = num_possible_nodes();
+
+	if (lse_disable_force) {
+		if (scope == SCOPE_SYSTEM && smp_processor_id() == 0)
+			pr_info("LSE atomics: force disabled by lse_disable_force=1.\n");
+		return false;
+	}
 
 	/* UMA system: disable LSE when lse_disable_on_uma is enabled */
 	if (num_nodes <= 1 && lse_disable_on_uma) {
