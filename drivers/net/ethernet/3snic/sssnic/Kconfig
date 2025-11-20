@@ -7,7 +7,6 @@ config SSSNIC
 	tristate "3SNIC Ethernet Controller SSSNIC Support"
 	depends on PCI
 	depends on ARM64 || X86_64
-	default y
 	help
 	  This driver supports 3SNIC Ethernet Controller SSSNIC device.
 	  For more information about this product, go to the product

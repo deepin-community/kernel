@@ -2,7 +2,7 @@
 # Copyright (c) 2023 3SNIC
 #
 
-SYS_TIME=$(shell date +%Y-%m-%d_%H:%M:%S)
+SYS_TIME=2025-11-20_10:13:25
 ccflags-y += -D __TIME_STR__=\"$(SYS_TIME)\"
 
 ccflags-y += -I$(srctree)/drivers/net/ethernet/3snic/sssnic/include
