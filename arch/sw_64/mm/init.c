@@ -544,7 +544,7 @@ void __init paging_init(void)
 			   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
 	if (is_in_guest())
 		create_pgd_mapping(pgdir, sw64_guest_reset_start, __pa(sw64_guest_reset_start), sw64_guest_reset_size,
-				   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+				   PAGE_KERNEL_READONLY_EXEC, pgtable_alloc_fixmap);
 
 	memblock_mark_nomap(__pa(sw64_reserve_start),
 			    __pa((unsigned long)_end - sw64_reserve_start));
