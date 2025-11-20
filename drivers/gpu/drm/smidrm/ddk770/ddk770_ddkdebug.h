@@ -9,7 +9,7 @@
 *  This file contains the definitions for the SMI DDK debugging.
 * 
 *******************************************************************/
-#ifndef _DDk770_DDKDEBUG_H_
+#ifndef _DDK770_DDKDEBUG_H_
 #define _DDK770_DDKDEBUG_H_
 
 #ifdef DDKDEBUG
