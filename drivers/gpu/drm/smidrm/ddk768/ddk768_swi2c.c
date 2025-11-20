@@ -258,8 +258,12 @@ static void ddk768_swI2CSCL(unsigned char value)
         pokeRegisterDWord(g_i2cClkGPIODataDirReg, ulGPIODirection);
     }
 }
+#ifdef __clang__
+#pragma clang optimize off
+#else
 #pragma GCC push_options
 #pragma GCC optimize("O0")
+#endif
 /*
  *  This function sends ACK signal
  */
@@ -390,7 +394,11 @@ static long ddk768_swI2CWriteByte(unsigned char data)
         return (-1);
 }
 
+#ifdef __clang__
+#pragma clang optimize on
+#else
 #pragma GCC pop_options
+#endif
 
 static long ddk768_swI2CSetGPIO(
     unsigned char i2cClkGPIO,

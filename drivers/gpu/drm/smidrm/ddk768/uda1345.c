@@ -140,7 +140,7 @@ static int uda1345_write(unsigned int reg,
         addr = UDA1345_DATA_ADDR;
         break;
     default:
-        break;
+        return -1;
     }
 
     ret = l3_write(&falcon_uda1345.l3,
