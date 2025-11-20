@@ -1540,6 +1540,30 @@ static bool has_32bit_el0(const struct arm64_cpu_capabilities *entry, int scope)
 	return true;
 }
 
+static bool lse_disable_on_uma __read_mostly = true;  // UMA decision enabled by default
+
+static int __init arm64_lse_disable_on_uma_setup(char *str)
+{
+	return kstrtobool(str, &lse_disable_on_uma);
+}
+early_param("lse_disable_on_uma", arm64_lse_disable_on_uma_setup);
+
+static bool has_lse_capability_uma_aware(const struct arm64_cpu_capabilities *cap,
+										 int scope)
+{
+	int num_nodes = num_possible_nodes();
+
+	/* UMA system: disable LSE when lse_disable_on_uma is enabled */
+	if (num_nodes <= 1 && lse_disable_on_uma) {
+		if (scope == SCOPE_SYSTEM && smp_processor_id() == 0)
+			pr_info("LSE atomics: disabled on UMA, use lse_disable_on_uma=0 to enable.\n");
+		return false;
+	}
+
+	/* NUMA system or user disabled the feature, use hardware capability */
+	return has_cpuid_feature(cap, scope);
+}
+
 static bool has_useable_gicv3_cpuif(const struct arm64_cpu_capabilities *entry, int scope)
 {
 	bool has_sre;
@@ -2348,7 +2372,7 @@ static const struct arm64_cpu_capabilities arm64_features[] = {
 		.desc = "LSE atomic instructions",
 		.capability = ARM64_HAS_LSE_ATOMICS,
 		.type = ARM64_CPUCAP_SYSTEM_FEATURE,
-		.matches = has_cpuid_feature,
+		.matches = has_lse_capability_uma_aware,
 		ARM64_CPUID_FIELDS(ID_AA64ISAR0_EL1, ATOMIC, IMP)
 	},
 #endif /* CONFIG_ARM64_LSE_ATOMICS */

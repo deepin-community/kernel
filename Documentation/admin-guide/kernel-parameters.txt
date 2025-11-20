@@ -3065,6 +3065,27 @@
 	ltpc=		[NET]
 			Format: <io>,<irq>,<dma>
 
+	lse_disable_on_uma [ARM64]
+			Disable LSE (Large System Extension) atomic instructions
+			on UMA (Uniform Memory Access) systems to improve
+			performance of per-CPU atomic operations. LSE atomics can
+			exhibit significant overhead on certain microarchitectures
+			(e.g., Neoverse V2) due to "far atomic" implementations
+			bypassing L1 cache. LL/SC (Load-Link/Store-Conditional)
+			is substantially faster for uncontended per-CPU workloads
+			typical on UMA systems.
+
+			The default value is 1 (enabled), which automatically
+			disables LSE on single-node (UMA) systems. Set to 0 to
+			force LSE enablement on UMA systems regardless of
+			performance impact.
+
+			When this feature is active, the kernel logs:
+			"LSE atomics: disabled on UMA, use lse_disable_on_uma=0 to enable."
+
+			NUMA systems are unaffected and continue using hardware
+			detected LSE capability normally.
+
 	lsm.debug	[SECURITY] Enable LSM initialization debugging output.
 
 	lsm=lsm1,...,lsmN
