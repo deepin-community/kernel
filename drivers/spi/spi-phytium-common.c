@@ -114,6 +114,7 @@ int spi_phytium_check_result(struct phytium_spi *fts)
 	struct msg *msg = (struct msg *)fts->tx_shmem_addr;
 
 	reinit_completion(&fts->cmd_completion);
+	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	ms = wait_for_completion_interruptible_timeout(&fts->cmd_completion, msecs_to_jiffies(ms));
 
 	if (ms == 0) {
@@ -129,7 +130,6 @@ int spi_phytium_set(struct phytium_spi *fts)
 	int ret;
 
 	spi_phytium_show_msg(fts->msg);
-	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	ret = spi_phytium_check_result(fts);
 
 	return ret;
@@ -142,7 +142,6 @@ void spi_phytium_default(struct phytium_spi *fts)
 	fts->msg->cmd_id = PHYTSPI_MSG_CMD_DEFAULT;
 
 	spi_phytium_show_msg(fts->msg);
-	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_default);
@@ -160,7 +159,6 @@ void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	fts->msg->data[0] = data;
 	spi_phytium_show_msg(fts->msg);
-	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd8);
@@ -174,7 +172,6 @@ void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	*cp_data = data;
 	spi_phytium_show_msg(fts->msg);
-	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd16);
@@ -188,7 +185,6 @@ void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	*cp_data = data;
 	spi_phytium_show_msg(fts->msg);
-	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd32);
