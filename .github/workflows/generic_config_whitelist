@@ -7,6 +7,8 @@ CONFIG_USB_NET_RNDIS_HOST
 CONFIG_USB_IPHETH
 # CONFIG_USB_NET_RNDIS_HOST depend
 CONFIG_USB_USBNET
+# https://github.com/deepin-community/kernel/pull/1305
+CONFIG_USB_NET_CDC_MBIM
 # slabtop depends
 CONFIG_SLUB_DEBUG
 # see sched/debug: Make CONFIG_SCHED_DEBUG functionality unconditional
@@ -19,3 +21,11 @@ CONFIG_CAN
 CONFIG_USB_SERIAL
 # compat for some ArrowLake laptop, see https://github.com/deepin-community/kernel/pull/870
 CONFIG_ACPI_DEBUG
+# https://github.com/deepin-community/kernel/pull/857
+CONFIG_OVERLAY_FS
+# BPF CORE
+CONFIG_DEBUG_INFO_BTF
+# https://github.com/deepin-community/kernel/pull/1291
+CONFIG_PM_DEBUG
+# https://github.com/deepin-community/kernel/pull/952
+CONFIG_SECURITY_DMESG_RESTRICT
