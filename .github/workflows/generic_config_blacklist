@@ -2,3 +2,5 @@
 CONFIG_USB_ONBOARD_HUB
 # https://github.com/deepin-community/kernel/pull/249
 CONFIG_RT_GROUP_SCHED
+# https://github.com/deepin-community/kernel/pull/825
+CONFIG_IRQSOFF_TRACER
