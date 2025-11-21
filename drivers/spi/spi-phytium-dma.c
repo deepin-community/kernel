@@ -14,6 +14,8 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 #include "spi-phytium.h"
+#include <linux/acpi.h>
+#include <linux/acpi_dma.h>
 
 #define RX_BUSY		0
 #define RX_BURST_LEVEL	16
@@ -64,11 +66,18 @@ static void phytium_spi_dma_maxburst_init(struct phytium_spi *fts)
 static int phytium_spi_dma_init(struct device *dev,
 		struct phytium_spi *fts)
 {
-	fts->rxchan = dma_request_chan(dev, "rx");
+	/* Support ACPI (FixedDMA) and DT (dmas/dma-names) */
+	if (has_acpi_companion(dev))
+		fts->rxchan = acpi_dma_request_slave_chan_by_index(dev, 0);
+	else
+		fts->rxchan = dma_request_chan(dev, "rx");
 	if (IS_ERR_OR_NULL(fts->rxchan))
 		return -ENODEV;
 
-	fts->txchan = dma_request_chan(dev, "tx");
+	if (has_acpi_companion(dev))
+		fts->txchan = acpi_dma_request_slave_chan_by_index(dev, 1);
+	else
+		fts->txchan = dma_request_chan(dev, "tx");
 	if (IS_ERR_OR_NULL(fts->txchan)) {
 		dev_err(dev, "can't request chan\n");
 		dma_release_channel(fts->rxchan);
