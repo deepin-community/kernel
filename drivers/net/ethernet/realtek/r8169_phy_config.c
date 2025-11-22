@@ -1125,7 +1125,7 @@ static void rtl8125bp_hw_phy_config(struct rtl8169_private *tp,
 
 	rtl8125_legacy_force_mode(phydev);
 	rtl8168g_disable_aldps(phydev);
-	rtl8125_config_eee_phy(phydev);
+	rtl8125b_config_eee_phy(phydev);
 }
 
 static void rtl8126a_hw_phy_config(struct rtl8169_private *tp,
