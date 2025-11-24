@@ -668,7 +668,7 @@ long ddk770_HDMI_Read_EDID(hdmi_index index, u8 *pEDIDBuffer, u16* bufferSize)
 
 void ddk770_HDMI_Set_Channel(hdmi_index index, disp_control_t dc)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = HDMI0;
     if (index == INDEX_HDMI0)
     {
         disp_index = HDMI0;
@@ -685,7 +685,7 @@ void ddk770_HDMI_Set_Channel(hdmi_index index, disp_control_t dc)
 
 void ddk770_HDMI_Clear_Channel(hdmi_index index)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = HDMI0;
     if (index == INDEX_HDMI0)
     {
         disp_index = HDMI0;
@@ -702,7 +702,7 @@ void ddk770_HDMI_Clear_Channel(hdmi_index index)
 
 unsigned char ddk770_HDMI_Get_Channel(hdmi_index index)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = HDMI0;
     if (index == INDEX_HDMI0)
     {
         disp_index = HDMI0;
