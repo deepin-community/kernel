@@ -85,7 +85,7 @@ static unsigned long ddk770_videoGetBufferSize(
     unsigned long bufferIndex
 )
 {
-    unsigned long value;
+    unsigned long value = 0;
     
     if (bufferIndex == 0)
     {
