@@ -142,6 +142,8 @@ void smp_callin(void)
 	unsigned long __maybe_unused nmi_stack;
 
 	save_ktp();
+	/* update csr:ptbr */
+	update_ptbr_sys(virt_to_phys(init_mm.pgd));
 	upshift_freq();
 	cpuid = smp_processor_id();
 	WARN_ON_ONCE(!irqs_disabled());
@@ -163,8 +165,6 @@ void smp_callin(void)
 	/* All kernel threads share the same mm context.  */
 	mmgrab(&init_mm);
 	current->active_mm = &init_mm;
-	/* update csr:ptbr */
-	update_ptbr_sys(virt_to_phys(init_mm.pgd));
 #ifdef CONFIG_SUBARCH_C4
 	update_ptbr_usr(__pa_symbol(empty_zero_page));
 #endif
