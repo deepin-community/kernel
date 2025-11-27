@@ -1657,6 +1657,33 @@ static bool has_32bit_el0(const struct arm64_cpu_capabilities *entry, int scope)
 	return true;
 }
 
+static bool lse_disable_check __read_mostly;
+
+static int __init arm64_lse_disable_check(char *str)
+{
+	return kstrtobool(str, &lse_disable_check);
+}
+early_param("lse_disable_check", arm64_lse_disable_check);
+
+static bool has_lse_capability_check(const struct arm64_cpu_capabilities *cap,
+										 int scope)
+{
+	/* List of CPUs that LSE are slow more than llsc */
+	static const struct midr_range lse_disable_list[] = {
+		MIDR_ALL_VERSIONS(MIDR_HISI_TSV110),
+		{ /* sentinel */ }
+	};
+
+	/* Disable LSE when lse_disable_check is 0 and in lse_disable_list */
+	if (lse_disable_check == 0 && is_midr_in_range_list(read_cpuid_id(), lse_disable_list)) {
+		if (scope == SCOPE_SYSTEM)
+			pr_info("LSE atomics: use llsc for performance, use lse_disable_check=1 to disable the feature.\n");
+		return false;
+	}
+
+	return has_cpuid_feature(cap, scope);
+}
+
 static bool has_useable_gicv3_cpuif(const struct arm64_cpu_capabilities *entry, int scope)
 {
 	bool has_sre;
@@ -2438,7 +2465,7 @@ static const struct arm64_cpu_capabilities arm64_features[] = {
 		.desc = "LSE atomic instructions",
 		.capability = ARM64_HAS_LSE_ATOMICS,
 		.type = ARM64_CPUCAP_SYSTEM_FEATURE,
-		.matches = has_cpuid_feature,
+		.matches = has_lse_capability_check,
 		ARM64_CPUID_FIELDS(ID_AA64ISAR0_EL1, ATOMIC, IMP)
 	},
 #endif /* CONFIG_ARM64_LSE_ATOMICS */

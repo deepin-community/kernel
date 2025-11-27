@@ -3249,6 +3249,21 @@
 			unlikely, in the extreme case this might damage your
 			hardware.
 
+	lse_disable_check [ARM64]
+			Disable LSE (Large System Extensions) atomic instructions
+			on some systems to improve performance of per-CPU atomic
+			operations. LSE atomics can exhibit significant overhead
+			on certain microarchitectures (e.g., TSV110) due
+			to "far atomic" implementations bypassing L1 cache. LL/SC
+			(Load-Link/Store-Conditional) is substantially faster.
+
+			The default value is 0 (enabled), which automatically
+			disables LSE on some systems. Set to 1 to bypass
+			the automatic disabling of LSE on affected systems.
+
+			When this feature is active, the kernel logs:
+			"LSE atomics: use llsc for performance, use lse_disable_check=1 to disable the feature."
+
 	lsm.debug	[SECURITY] Enable LSM initialization debugging output.
 
 	lsm=lsm1,...,lsmN
