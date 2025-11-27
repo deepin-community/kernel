@@ -4073,19 +4073,14 @@ out2:
 		goto retry;
 	}
 out1:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		struct path file_path;
-		int get_path_err;
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
 
-		get_path_err =
-			deepin_get_path_for_err_notify(dfd, name, &file_path);
-		if (!get_path_err) {
-			deepin_check_and_notify_ro_fs_err(&file_path, "mknod");
-			path_put(&file_path);
+		if (!deepin_lookup_path_or_parent(dfd, name, lookup_flags, &path_last)) {
+			deepin_check_and_notify_ro_fs_err(&path_last, "mknod");
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(name);
 	return error;
 }
@@ -4169,19 +4164,14 @@ retry:
 		goto retry;
 	}
 out_putname:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		struct path file_path;
-		int get_path_err;
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
 
-		get_path_err =
-			deepin_get_path_for_err_notify(dfd, name, &file_path);
-		if (!get_path_err) {
-			deepin_check_and_notify_ro_fs_err(&file_path, "mkdir");
-			path_put(&file_path);
+		if (!deepin_lookup_path_or_parent(dfd, name, lookup_flags, &path_last)) {
+			deepin_check_and_notify_ro_fs_err(&path_last, "mkdir");
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(name);
 	return error;
 }
@@ -4299,21 +4289,18 @@ exit3:
 	inode_unlock(path.dentry->d_inode);
 	mnt_drop_write(path.mnt);
 exit2:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		dentry = lookup_one_qstr_excl(&last, path.dentry, 0);
-		if (!IS_ERR(dentry)) {
-			if (d_is_positive(dentry)) {
-				// dentry is positive, so we can get the path
-				struct path file_path = { .mnt = path.mnt,
-							  .dentry = dentry };
-				deepin_check_and_notify_ro_fs_err(&file_path,
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
+
+		if (!deepin_lookup_path_or_parent(dfd, name, lookup_flags, &path_last)) {
+			if (!path_last.last) {
+				/* File exists, notify error */
+				deepin_check_and_notify_ro_fs_err(&path_last,
 								  "rmdir");
 			}
-			dput(dentry);
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
@@ -4459,21 +4446,18 @@ exit3:
 	}
 	mnt_drop_write(path.mnt);
 exit2:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		dentry = lookup_one_qstr_excl(&last, path.dentry, 0);
-		if (!IS_ERR(dentry)) {
-			if (d_is_positive(dentry)) {
-				// dentry is positive, so we can get the path
-				struct path file_path = { .mnt = path.mnt,
-							  .dentry = dentry };
-				deepin_check_and_notify_ro_fs_err(&file_path,
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
+
+		if (!deepin_lookup_path_or_parent(dfd, name, lookup_flags, &path_last)) {
+			if (!path_last.last) {
+				/* File exists, notify error */
+				deepin_check_and_notify_ro_fs_err(&path_last,
 								  "unlink");
 			}
-			dput(dentry);
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
@@ -4574,20 +4558,15 @@ retry:
 		goto retry;
 	}
 out_putnames:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		struct path file_path;
-		int get_path_err;
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
 
-		get_path_err =
-			deepin_get_path_for_err_notify(newdfd, to, &file_path);
-		if (!get_path_err) {
-			deepin_check_and_notify_ro_fs_err(&file_path,
+		if (!deepin_lookup_path_or_parent(newdfd, to, lookup_flags, &path_last)) {
+			deepin_check_and_notify_ro_fs_err(&path_last,
 							  "symlink");
-			path_put(&file_path);
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	putname(to);
 	putname(from);
 	return error;
@@ -4766,19 +4745,14 @@ out_dput:
 		goto retry;
 	}
 out_putpath:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		struct path file_path;
-		int get_path_err;
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last path_last;
 
-		get_path_err =
-			deepin_get_path_for_err_notify(newdfd, new, &file_path);
-		if (!get_path_err) {
-			deepin_check_and_notify_ro_fs_err(&file_path, "link");
-			path_put(&file_path);
+		if (!deepin_lookup_path_or_parent(newdfd, new, how, &path_last)) {
+			deepin_check_and_notify_ro_fs_err(&path_last, "link");
+			deepin_put_path_last(&path_last);
 		}
 	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	path_put(&old_path);
 out_putnames:
 	putname(old);
@@ -5133,22 +5107,8 @@ exit3:
 	}
 	mnt_drop_write(old_path.mnt);
 exit2:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		old_dentry =
-			lookup_one_qstr_excl(&old_last, old_path.dentry, 0);
-		if (!IS_ERR(old_dentry)) {
-			if (d_is_positive(old_dentry)) {
-				struct path file_path = { .mnt = old_path.mnt,
-							  .dentry =
-								  old_dentry };
-				deepin_check_and_notify_ro_fs_err(&file_path,
-								  "rename");
-			}
-			dput(old_dentry);
-		}
-	}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+	if (deepin_should_notify_ro_fs_err(error))
+		deepin_notify_rename_ro_fs_err(&old_last, &new_last, &old_path, &new_path);
 	if (retry_estale(error, lookup_flags))
 		should_retry = true;
 	path_put(&new_path);
@@ -5368,37 +5328,76 @@ const struct inode_operations page_symlink_inode_operations = {
 EXPORT_SYMBOL(page_symlink_inode_operations);
 
 #ifdef CONFIG_DEEPIN_ERR_NOTIFY
-int deepin_get_path_for_err_notify(int dfd, struct filename *name,
-				   struct path *result_path)
+/**
+ * deepin_lookup_path_or_parent - Prepare path info for read-only FS error notification
+ * @dfd: Directory file descriptor used as lookup base
+ * @name: Filename to look up (struct filename)
+ * @flags: Lookup flags (e.g., LOOKUP_DIRECTORY, LOOKUP_FOLLOW)
+ * @result_path_last: Output structure carrying the resolved parent path and
+ *                    optionally the last component string
+ *
+ * Memory/Lifetime management:
+ * - result_path_last->path:
+ *   The path returned by filename_lookup() or filename_parentat() already
+ *   holds a reference count. You MUST release it after use. Preferred:
+ *   deepin_put_path_last(&pl), which will call path_put() for you.
+ *   Alternatively, call path_put() manually if you manage the string separately.
+ *
+ * - result_path_last->last:
+ *   In the -ENOENT (parent found) case, the last component string is duplicated
+ *   via kstrdup() and MUST be freed with kfree(). deepin_put_path_last(&pl)
+ *   will free it for you. If the full path was resolved, this field is set
+ *   to NULL and no extra string free is needed.
+ *
+ * Recommended usage pattern:
+ *   struct deepin_path_last pl;
+ *   if (!deepin_lookup_path_or_parent(dfd, name, lookup_flags, &pl)) {
+ *       deepin_check_and_notify_ro_fs_err(&pl, "op");
+ *       deepin_put_path_last(&pl); // releases path and frees pl.last if allocated
+ *   }
+ *
+ * Return: 0 on success, negative errno on failure.
+ */
+int deepin_lookup_path_or_parent(int dfd, struct filename *name,
+				 unsigned int flags,
+				 struct deepin_path_last *result_path_last)
 {
+	struct path result_path;
+	struct path parent;
 	struct qstr last;
-	struct path parent_path;
 	int type;
-	struct dentry *dentry;
 	int error;
 
-	error = filename_parentat(dfd, name, 0, &parent_path, &last, &type);
+	error = filename_lookup(dfd, name, flags, &result_path, NULL);
+	if (error == -ENOENT) {
+		error = filename_parentat(dfd, name, flags, &parent, &last, &type);
+		if (error)
+			return error;
+		if (unlikely(type != LAST_NORM)) {
+			path_put(&parent);
+			return -EINVAL;
+		}
+		/* Duplicate the filename string to avoid dangling pointer */
+		result_path_last->last = kstrdup((const char *)last.name, GFP_KERNEL);
+		if (!result_path_last->last) {
+			path_put(&parent);
+			return -ENOMEM;
+		}
+		result_path_last->path = parent;
+		return 0;
+	}
+
 	if (error)
 		return error;
 
-	dentry = lookup_one_qstr_excl(&last, parent_path.dentry, 0);
-	if (!IS_ERR(dentry)) {
-		result_path->mnt = parent_path.mnt;
-		result_path->dentry = dentry;
-		path_get(result_path); // Increment reference count
-		dput(dentry);
-	} else {
-		// If the file does not exist, use the parent directory
-		*result_path = parent_path;
-		path_get(result_path);
-	}
-
-	path_put(&parent_path);
+	result_path_last->last = NULL;
+	result_path_last->path = result_path;
 	return 0;
 }
 #else
-int deepin_get_path_for_err_notify(int dfd, struct filename *name,
-				   struct path *result_path)
+int deepin_lookup_path_or_parent(int dfd, struct filename *name,
+				 unsigned int flags,
+				 struct deepin_path_last *result_path_last)
 {
 	return -EOPNOTSUPP;
 }

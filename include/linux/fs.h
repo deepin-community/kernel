@@ -2143,10 +2143,6 @@ struct super_operations {
 				    struct shrink_control *);
 	void (*shutdown)(struct super_block *sb);
 
-	/* Check if filesystem wants to be notified of read-only errors */
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	bool (*deepin_should_notify_error)(struct super_block *sb);
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)

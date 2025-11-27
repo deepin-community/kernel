@@ -136,10 +136,13 @@ retry:
 	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
 	if (!error) {
 		error = vfs_truncate(&path, length);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-		if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
-			deepin_check_and_notify_ro_fs_err(&path, "truncate");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+		if (deepin_should_notify_ro_fs_err(error)) {
+			struct deepin_path_last tmp_path_last = {
+				.path = path,
+				.last = NULL
+			};
+			deepin_check_and_notify_ro_fs_err(&tmp_path_last, "truncate");
+		}
 		path_put(&path);
 	}
 	if (retry_estale(error, lookup_flags)) {
@@ -717,10 +720,13 @@ retry:
 	error = user_path_at(dfd, filename, lookup_flags, &path);
 	if (!error) {
 		error = chmod_common(&path, mode);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-		if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
-			deepin_check_and_notify_ro_fs_err(&path, "chmod");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+		if (deepin_should_notify_ro_fs_err(error)) {
+			struct deepin_path_last tmp_path_last = {
+				.path = path,
+				.last = NULL
+			};
+			deepin_check_and_notify_ro_fs_err(&tmp_path_last, "chmod");
+		}
 		path_put(&path);
 		if (retry_estale(error, lookup_flags)) {
 			lookup_flags |= LOOKUP_REVAL;
@@ -846,10 +852,13 @@ retry:
 	error = chown_common(&path, user, group);
 	mnt_drop_write(path.mnt);
 out_release:
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
-		deepin_check_and_notify_ro_fs_err(&path, "chown");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last tmp_path_last = {
+			.path = path,
+			.last = NULL
+		};
+		deepin_check_and_notify_ro_fs_err(&tmp_path_last, "chown");
+	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
@@ -1456,19 +1465,15 @@ static long do_sys_openat2(int dfd, const char __user *filename,
 		if (IS_ERR(f)) {
 			put_unused_fd(fd);
 			fd = PTR_ERR(f);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-			if (unlikely(fd == -EROFS) &&
-			    deepin_err_notify_enabled()) {
-				struct path file_path;
-				int get_path_err;
+			if (deepin_should_notify_ro_fs_err(fd)) {
+				struct deepin_path_last path_last;
 
-				get_path_err = deepin_get_path_for_err_notify(dfd, tmp, &file_path);
-				if (!get_path_err) {
-					deepin_check_and_notify_ro_fs_err(&file_path, "open");
-					path_put(&file_path);
+				if (!deepin_lookup_path_or_parent(dfd, tmp, op.lookup_flags,
+							    &path_last)) {
+					deepin_check_and_notify_ro_fs_err(&path_last, "open");
+					deepin_put_path_last(&path_last);
 				}
 			}
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 		} else {
 			fd_install(fd, f);
 		}
