@@ -99,10 +99,13 @@ retry:
 		return error;
 
 	error = vfs_utimes(&path, times);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	if (unlikely((error == -EROFS) && deepin_err_notify_enabled()))
-		deepin_check_and_notify_ro_fs_err(&path, "utime");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+	if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last tmp_path_last = {
+			.path = path,
+			.last = NULL
+		};
+		deepin_check_and_notify_ro_fs_err(&tmp_path_last, "utime");
+	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
