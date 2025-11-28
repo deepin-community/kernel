@@ -5822,6 +5822,7 @@ static int macb_remove(struct platform_device *pdev)
 
 	if (dev) {
 		bp = netdev_priv(dev);
+		unregister_netdev(dev);
 		phy_exit(bp->sgmii_phy);
 		unregister_netdev(dev);
 		mdiobus_unregister(bp->mii_bus);
