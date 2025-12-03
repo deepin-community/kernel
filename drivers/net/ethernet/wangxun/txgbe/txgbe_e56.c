@@ -3296,7 +3296,7 @@ static int txgbe_e56_disable_rx40G(struct txgbe_hw *hw)
 	unsigned int rdata, timer;
 	unsigned int addr, temp;
 	int i;
-	struct txgbe_adapter *adapter;
+	struct txgbe_adapter *adapter = hw->back;
 
 	for (i = 0; i < 4; i++) {
 		//1. Disable OVERRIDE on below aliases

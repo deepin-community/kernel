@@ -972,9 +972,13 @@ static int txgbe_update_vf_xcast_mode(struct txgbe_adapter *adapter,
 		/* promisc introduced in 1.3 version */
 		if (xcast_mode == TXGBEVF_XCAST_MODE_PROMISC)
 			return -EOPNOTSUPP;
+		fallthrough;
 	case txgbe_mbox_api_13:
+		fallthrough;
 	case txgbe_mbox_api_20:
+		fallthrough;
 	case txgbe_mbox_api_21:
+		fallthrough;
 	case txgbe_mbox_api_22:
 		break;
 	default:

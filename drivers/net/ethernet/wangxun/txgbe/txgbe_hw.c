@@ -6446,6 +6446,7 @@ s32 txgbe_fdir_set_input_mask(struct txgbe_hw *hw,
 	switch (input_mask->formatted.vm_pool & 0x7F) {
 	case 0x0:
 		fdirm |= TXGBE_RDB_FDIR_OTHER_MSK_POOL;
+		break;
 	case 0x7F:
 		break;
 	default:
@@ -6458,6 +6459,7 @@ s32 txgbe_fdir_set_input_mask(struct txgbe_hw *hw,
 		if (input_mask->formatted.dst_port ||
 		    input_mask->formatted.src_port)
 			return TXGBE_ERR_CONFIG;
+		break;
 	case TXGBE_ATR_L4TYPE_MASK:
 		break;
 	default:
