@@ -797,9 +797,9 @@ static int txgbe_set_link_ksettings(struct net_device *netdev,
 		   (hw->subsystem_device_id & 0xF0) == TXGBE_ID_MAC_SGMII) {
 		if (!cmd->base.autoneg) {
 			if (ethtool_link_ksettings_test_link_mode(cmd, advertising,
-								  10000baseKR_Full) &
+								  10000baseKR_Full) ||
 			    ethtool_link_ksettings_test_link_mode(cmd, advertising,
-								  1000baseKX_Full) &
+								  1000baseKX_Full) ||
 			    ethtool_link_ksettings_test_link_mode(cmd, advertising,
 								  10000baseKX4_Full))
 				return -EINVAL;

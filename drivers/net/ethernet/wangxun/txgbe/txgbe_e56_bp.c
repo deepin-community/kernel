@@ -334,20 +334,20 @@ static int txgbe_e56_rxs_post_cdr_lock_temp_track_seq(struct txgbe_adapter *adap
 	int FINE_CODE;
 	int ULTRAFINE_CODE;
 
-	int CMVAR_SEC_LOW_TH;
+	int CMVAR_SEC_LOW_TH = 0;
 	int CMVAR_UFINE_MAX = 0;
-	int CMVAR_FINE_MAX;
+	int CMVAR_FINE_MAX = 0;
 	int CMVAR_UFINE_UMAX_WRAP = 0;
-	int CMVAR_COARSE_MAX;
+	int CMVAR_COARSE_MAX = 0;
 	int CMVAR_UFINE_FMAX_WRAP = 0;
 	int CMVAR_FINE_FMAX_WRAP = 0;
-	int CMVAR_SEC_HIGH_TH;
-	int CMVAR_UFINE_MIN;
-	int CMVAR_FINE_MIN;
-	int CMVAR_UFINE_UMIN_WRAP;
-	int CMVAR_COARSE_MIN;
-	int CMVAR_UFINE_FMIN_WRAP;
-	int CMVAR_FINE_FMIN_WRAP;
+	int CMVAR_SEC_HIGH_TH = 0;
+	int CMVAR_UFINE_MIN = 0;
+	int CMVAR_FINE_MIN = 0;
+	int CMVAR_UFINE_UMIN_WRAP = 0;
+	int CMVAR_COARSE_MIN = 0;
+	int CMVAR_UFINE_FMIN_WRAP = 0;
+	int CMVAR_FINE_FMIN_WRAP = 0;
 
 	if (speed == 10) {
 		CMVAR_SEC_LOW_TH = S10G_CMVAR_SEC_LOW_TH;
