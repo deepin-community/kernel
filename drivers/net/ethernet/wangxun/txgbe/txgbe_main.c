@@ -49,7 +49,7 @@ char txgbe_driver_name[32] = TXGBE_NAME;
 static const char txgbe_driver_string[] =
 			"WangXun RP1000/RP2000/FF50XX PCI Express Network Driver";
 
-#define DRV_VERSION     __stringify(2.1.1oe)
+#define DRV_VERSION     __stringify(2.1.1.3oe)
 
 const char txgbe_driver_version[32] = DRV_VERSION;
 static const char txgbe_copyright[] =
@@ -166,10 +166,10 @@ static void txgbe_dump_all_ring_desc(struct txgbe_adapter *adapter)
 	if (!netif_msg_tx_err(adapter))
 		return;
 
-	e_warn(tx_err, "Dump desc base addr\n");
+	e_warn(tx_err, "Dump desc base addr.\n");
 
 	for (i = 0; i < adapter->num_tx_queues; i++)
-		e_warn(tx_err, "q_%d:0x%x%x\n", i, rd32(hw, TXGBE_PX_TR_BAH(i)),
+		e_warn(tx_err, "txq_%d:0x%x%x\n", i, rd32(hw, TXGBE_PX_TR_BAH(i)),
 		       rd32(hw, TXGBE_PX_TR_BAL(i)));
 
 	for (i = 0; i < adapter->num_tx_queues; i++) {
@@ -182,6 +182,12 @@ static void txgbe_dump_all_ring_desc(struct txgbe_adapter *adapter)
 						tx_desc->read.cmd_type_len,
 						tx_desc->read.olinfo_status);
 		}
+
+		e_warn(drv, "tx ring %d next_to_use is %d, next_to_clean is %d\n",
+		       i, tx_ring->next_to_use, tx_ring->next_to_clean);
+		e_warn(drv, "tx ring %d hw rp is 0x%x, wp is 0x%x\n",
+		       i, rd32(hw, TXGBE_PX_TR_RP(tx_ring->reg_idx)),
+			rd32(hw, TXGBE_PX_TR_WP(tx_ring->reg_idx)));
 	}
 }
 
@@ -548,12 +554,7 @@ static inline bool txgbe_check_tx_hang(struct txgbe_ring *tx_ring)
 
 static void txgbe_tx_timeout_dorecovery(struct txgbe_adapter *adapter)
 {
-	/* schedule immediate reset if we believe we hung */
-
-	if (adapter->hw.bus.lan_id == 0)
-		adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
-	else
-		wr32(&adapter->hw, TXGBE_MIS_PF_SM, 1);
+	adapter->flags2 |= TXGBE_FLAG2_RING_DUMP;
 	txgbe_service_event_schedule(adapter);
 }
 
@@ -2675,7 +2676,6 @@ static void txgbe_tx_ring_recovery(struct txgbe_adapter *adapter)
 
 	for (i = 0; i < adapter->num_tx_queues; i++) {
 		if (desc_error[i / 32] & (1 << i % 32)) {
-			adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_Q_RESET;
 			e_err(drv, "TDM non-fatal error, queue[%d]", i);
 		}
 	}
@@ -2715,12 +2715,7 @@ static irqreturn_t txgbe_msix_other(int __always_unused irq, void *data)
 		ERROR_REPORT1(TXGBE_ERROR_POLLING,
 			      "lan id %d, PCIe request error founded.\n", hw->bus.lan_id);
 
-		if (hw->bus.lan_id == 0) {
-			adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
-			txgbe_service_event_schedule(adapter);
-		} else {
-			wr32(&adapter->hw, TXGBE_MIS_PF_SM, 1);
-		}
+		txgbe_tx_timeout_dorecovery(adapter);
 	}
 
 	if (eicr & TXGBE_PX_MISC_IC_INT_ERR) {
@@ -5292,8 +5287,6 @@ void txgbe_reinit_locked(struct txgbe_adapter *adapter)
 	/* put off any impending NetWatchDogTimeout */
 	netif_trans_update(adapter->netdev);
 
-	adapter->flags2 |= TXGBE_FLAG2_SERVICE_RUNNING;
-
 	while (test_and_set_bit(__TXGBE_RESETTING, &adapter->state))
 		usleep_range(1000, 2000);
 	txgbe_down(adapter);
@@ -5394,7 +5387,8 @@ void txgbe_reset(struct txgbe_adapter *adapter)
 		break;
 	case TXGBE_ERR_MASTER_REQUESTS_PENDING:
 		e_dev_err("master disable timed out\n");
-		txgbe_tx_timeout_dorecovery(adapter);
+		if (!adapter->io_err)
+			txgbe_tx_timeout_dorecovery(adapter);
 		break;
 	case TXGBE_ERR_EEPROM_VERSION:
 		/* We are running on a pre-production device, log a warning */
@@ -5621,7 +5615,6 @@ static void txgbe_disable_device(struct txgbe_adapter *adapter)
 
 	del_timer_sync(&adapter->service_timer);
 	del_timer_sync(&adapter->irq_timer);
-	adapter->flags2 &= ~TXGBE_FLAG2_SERVICE_RUNNING;
 
 	hw->f2c_mod_status = false;
 	cancel_work_sync(&adapter->sfp_sta_task);
@@ -8022,15 +8015,44 @@ unlock:
 	rtnl_unlock();
 }
 
+static void txgbe_check_ring_dump_subtask(struct txgbe_adapter *adapter)
+{
+	struct txgbe_hw *hw = &adapter->hw;
+	u32 val;
+
+	if (!(adapter->flags2 & TXGBE_FLAG2_RING_DUMP))
+		return;
+
+	txgbe_print_tx_hang_status(adapter);
+	txgbe_dump_all_ring_desc(adapter);
+	wr32(&adapter->hw, TXGBE_MIS_PF_SM, 1);
+	adapter->flags2 &= ~TXGBE_FLAG2_RING_DUMP;
+
+	/* record which func to provoke PCIE recovery */
+	if (rd32(&adapter->hw, TXGBE_MIS_PF_SM) == 1) {
+		val = rd32m(&adapter->hw,
+			    TXGBE_MIS_PRB_CTL,
+				TXGBE_MIS_PRB_CTL_LAN0_UP | TXGBE_MIS_PRB_CTL_LAN1_UP);
+		if (val & TXGBE_MIS_PRB_CTL_LAN0_UP) {
+			if (hw->bus.lan_id == 0) {
+				adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
+				e_info(probe, "check_ring_dump_subtask: set recover on Lan0\n");
+				}
+		} else if (val & TXGBE_MIS_PRB_CTL_LAN1_UP) {
+			if (hw->bus.lan_id == 1) {
+				adapter->flags2 |= TXGBE_FLAG2_PCIE_NEED_RECOVER;
+				e_info(probe, "check_ring_dump_subtask: set recover on Lan1\n");
+			}
+		}
+	}
+}
+
 static void txgbe_check_pcie_subtask(struct txgbe_adapter *adapter)
 {
 	bool status;
 
 	if (!(adapter->flags2 & TXGBE_FLAG2_PCIE_NEED_RECOVER))
 		return;
-
-	txgbe_print_tx_hang_status(adapter);
-	txgbe_dump_all_ring_desc(adapter);
 
 	wr32m(&adapter->hw, TXGBE_MIS_PF_SM, TXGBE_MIS_PF_SM_SM, 0);
 
@@ -8138,6 +8160,7 @@ static void txgbe_service_task(struct work_struct *work)
 		return;
 	}
 
+	txgbe_check_ring_dump_subtask(adapter);
 	txgbe_check_pcie_subtask(adapter);
 	txgbe_reset_subtask(adapter);
 	txgbe_phy_event_subtask(adapter);
@@ -11082,6 +11105,8 @@ skip_bad_vf_detection:
 	rtnl_lock();
 	netif_device_detach(netdev);
 
+	adapter->io_err = true;
+
 	if (netif_running(netdev))
 		txgbe_down_suspend(adapter);
 
@@ -11166,6 +11191,8 @@ static void txgbe_io_resume(struct pci_dev *pdev)
 	rtnl_lock();
 	if (netif_running(netdev))
 		txgbe_open(netdev);
+
+	adapter->io_err = false;
 
 	netif_device_attach(netdev);
 	rtnl_unlock();

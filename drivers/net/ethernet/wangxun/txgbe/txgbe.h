@@ -680,6 +680,7 @@ struct txgbe_therm_proc_data {
  **/
 #define TXGBE_FLAG2_RSC_CAPABLE                 BIT(0)
 #define TXGBE_FLAG2_RSC_ENABLED                 BIT(1)
+#define TXGBE_FLAG2_DMA_RESET_REQUESTED         BIT(2)
 #define TXGBE_FLAG2_TEMP_SENSOR_CAPABLE         BIT(3)
 #define TXGBE_FLAG2_TEMP_SENSOR_EVENT           BIT(4)
 #define TXGBE_FLAG2_SEARCH_FOR_SFP              BIT(5)
@@ -688,8 +689,9 @@ struct txgbe_therm_proc_data {
 #define TXGBE_FLAG2_FDIR_REQUIRES_REINIT        BIT(8)
 #define TXGBE_FLAG2_RSS_FIELD_IPV4_UDP          BIT(9)
 #define TXGBE_FLAG2_RSS_FIELD_IPV6_UDP          BIT(10)
-#define TXGBE_FLAG2_RSS_ENABLED                 BIT(12)
 #define TXGBE_FLAG2_PTP_PPS_ENABLED             BIT(11)
+#define TXGBE_FLAG2_RSS_ENABLED                 BIT(12)
+#define TXGBE_FLAG2_RING_DUMP                   BIT(13)
 #define TXGBE_FLAG2_EEE_CAPABLE                 BIT(14)
 #define TXGBE_FLAG2_EEE_ENABLED                 BIT(15)
 #define TXGBE_FLAG2_VXLAN_REREG_NEEDED          BIT(16)
@@ -707,11 +709,6 @@ struct txgbe_therm_proc_data {
 #define TXGBE_FLAG2_ECC_ERR_RESET               BIT(29)
 #define TXGBE_FLAG2_RX_LEGACY					BIT(30)
 #define TXGBE_FLAG2_PCIE_NEED_RECOVER           BIT(31)
-#define TXGBE_FLAG2_PCIE_NEED_Q_RESET           BIT(30)
-#define TXGBE_FLAG2_SERVICE_RUNNING             BIT(13)
-
-/* amlite: dma reset */
-#define TXGBE_FLAG2_DMA_RESET_REQUESTED         BIT(2)
 
 #define TXGBE_FLAG3_PHY_EVENT                   BIT(0)
 #define TXGBE_FLAG3_TEMP_SENSOR_INPROGRESS      BIT(1)
@@ -966,6 +963,7 @@ struct txgbe_adapter {
 	u16 num_xsk_pools;
 
 	bool cmplt_to_dis;
+	bool io_err;
 	u8 i2c_eeprom[512];
 	u32 eeprom_len;
 	u32 eeprom_type;
