@@ -56,18 +56,23 @@
 #define SPI_DMA_TDMAE		(1 << 1)
 #define SPI_WAIT_RETRIES	5
 
-#define SPI_REGFILE_SIZE		(0x48)
 #define SPI_REGFILE_AP2RV_INTR_STATE	(0x24)
 #define SPI_REGFILE_RV2AP_INTR_STATE	(0x2c)
-#define SPI_REGFILE_RV2AP_INT_CLEAN	(0x74)
-#define SPI_REGFILE_DEBUG		(0x58)
+#define SPI_REGFILE_SIZE		(0x48)
+#define SPI_REGFILE_DDR_HIGH_REG	(0x4c)
 
-#define SPI_REGFILE_DEBUG_VAL		BIT(0)
-#define SPI_REGFILE_ALIVE_VAL		BIT(1)
-#define SPI_REGFILE_HEARTBIT_VAL	BIT(2)
-#define SPI_REGFILE_HAVE_LOG		BIT(3)
-#define SPI_REGFILE_SIZE_MASK		GENMASK(7, 4)
-#define SPI_REGFILE_ADDR_MASK		GENMASK(27, 8)
+#define SPI_REGFILE_SOFTWARE2		(0x54)
+#define  SPI_REGFILE_FULL_DUPLEX	BIT(9)
+
+#define SPI_REGFILE_DEBUG		(0x58)
+#define  SPI_REGFILE_DEBUG_VAL		BIT(0)
+#define  SPI_REGFILE_ALIVE_VAL		BIT(1)
+#define  SPI_REGFILE_HEARTBIT_VAL	BIT(2)
+#define  SPI_REGFILE_HAVE_LOG		BIT(3)
+#define  SPI_REGFILE_SIZE_MASK		GENMASK(7, 4)
+#define  SPI_REGFILE_ADDR_MASK		GENMASK(27, 8)
+
+#define SPI_REGFILE_RV2AP_INT_CLEAN	(0x74)
 
 #define SPI_DDR_ADDR_HIGH		12
 #define SPI_DEBUG_LOG_SIZE		4096
@@ -120,6 +125,8 @@ enum phytspi_data_subid {
 	PHYTSPI_MSG_CMD_DATA_DMA_TX,
 	PHYTSPI_MSG_CMD_DATA_DMA_RX,
 	PHYTSPI_MSG_CMD_DATA_FLASH_DMA_TX,
+	PHYTSPI_MSG_CMD_DATA_XFER,
+	PHYTSPI_MSG_CMD_DATA_DMA_XFER,
 };
 
 struct msg {
@@ -312,6 +319,39 @@ static inline void spi_shutdown_chip(struct phytium_spi *fts)
 	spi_set_clk(fts, 0);
 	fts->current_freq = 0;
 }
+
+static inline u32 phytium_read_regfile(struct phytium_spi *fts, u32 reg_off)
+{
+	return readl_relaxed(fts->regfile + reg_off);
+}
+
+static inline void phytium_write_regfile(struct phytium_spi *fts, u32 reg_off, u32 val)
+{
+	writel_relaxed(val, fts->regfile + reg_off);
+}
+
+extern void spi_phytium_default(struct phytium_spi *fts);
+extern void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd, u8 data);
+extern void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd, u16 data);
+extern void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd, u32 data);
+extern void spi_phytium_data_cmd_write(struct phytium_spi *fts, u16 sub_cmd);
+extern void spi_phytium_data_cmd_read(struct phytium_spi *fts, u16 sub_cmd);
+extern void spi_phytium_write_pre(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode, u8 tmode,
+		u8 flags, u8 spi_write_flag);
+extern int spi_phytium_flash_erase(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
+		u8 tmode, u8 flags, u8 cmd);
+extern int spi_phytium_flash_write(struct phytium_spi *fts, u8 cmd);
+extern int spi_phytium_write(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
+		u8 tmode, u8 flags, u8 spi_write_flag);
+extern int spi_phytium_read(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
+		u8 tmode, u8 flags);
+extern int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
+		u8 tmode, u8 flags);
+extern int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts);
+extern void spi_phyt_remove_host(struct phytium_spi *fts);
+extern int spi_phyt_suspend_host(struct phytium_spi *fts);
+extern int spi_phyt_resume_host(struct phytium_spi *fts);
+
 extern int phytium_spi_add_host(struct device *dev, struct phytium_spi *fts);
 extern void phytium_spi_remove_host(struct phytium_spi *fts);
 extern int phytium_spi_suspend_host(struct phytium_spi *fts);
