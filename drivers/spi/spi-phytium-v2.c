@@ -110,18 +110,18 @@ static void spi_phyt_set_cs(struct spi_device *spi, bool enable)
 		chip->cs_control(!enable);
 
 	if (!enable) {
-		cs = BIT(spi->chip_select);
+		cs = BIT(spi_get_chipselect(spi, 0));
 		spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_CS, cs);
 		if (fts->global_cs) {
 			origin = (GENMASK(fts->num_cs-1, 0) << fts->num_cs)
-				| (1 << spi->chip_select);
+				| (1 << spi_get_chipselect(spi, 0));
 			cs = (0x1 << 8) | origin;
 			spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_CS, cs);
 		}
 	} else {
 		if (fts->global_cs) {
 			origin = (GENMASK(fts->num_cs-1, 0) << fts->num_cs)
-				& ~(1 << spi->chip_select);
+				& ~(1 << spi_get_chipselect(spi, 0));
 			cs = (0x1 << 8) | origin;
 			spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_CS, cs);
 		}
@@ -145,7 +145,12 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 {
 	struct phytium_spi *fts = spi_master_get_devdata(master);
 	struct chip_data *chip = spi_get_ctldata(spi);
+	struct spi_mem *mem = spi_get_drvdata(spi);
+	struct spi_nor *nor = NULL;
 	int ret;
+
+	if (mem)
+		nor = spi_mem_get_drvdata(mem);
 
 	fts->tx = (void *)transfer->tx_buf;
 	fts->tx_end = fts->tx + transfer->len;
@@ -162,9 +167,19 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			chip->tmode = TMOD_TO;
 	}
 
-	if (fts->tx && fts->len == 1) {
+	if (fts->tx && fts->rx) {
+		if (fts->half_duplex) {
+			dev_err(&master->dev, "SPI-V2 not support full duplex\n");
+			return -EPERM;
+		}
+		ret = spi_phytium_xfer(fts, spi_get_chipselect(spi, 0), transfer->bits_per_word,
+				spi->mode, chip->tmode, 0);
+		return ret;
+	}
+
+	if (mem != NULL && nor != NULL && mem == nor->spimem && fts->tx && fts->len == 1) {
 		if ((*(u8 *)fts->tx == SPINOR_OP_WREN) && fts->spi_write_flag == 0) {
-			spi_phytium_write_pre(fts, spi->chip_select,
+			spi_phytium_write_pre(fts, spi_get_chipselect(spi, 0),
 					transfer->bits_per_word, spi->mode,
 					chip->tmode, 3, fts->spi_write_flag);
 			fts->spi_write_flag++;
@@ -180,7 +195,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 
 		if ((*(u8 *)fts->tx == SPINOR_OP_CHIP_ERASE) && (fts->spi_write_flag == 1) &&
 				fts->flash_read == 0 && fts->flash_erase == 0) {
-			ret = spi_phytium_flash_erase(fts, spi->chip_select,
+			ret = spi_phytium_flash_erase(fts, spi_get_chipselect(spi, 0),
 					transfer->bits_per_word,
 					spi->mode, chip->tmode, 3, SPINOR_OP_CHIP_ERASE);
 			fts->spi_write_flag = 0;
@@ -227,7 +242,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 
 	if (fts->tx) {
 		if (fts->flash_erase == 1) {
-			ret = spi_phytium_flash_erase(fts, spi->chip_select,
+			ret = spi_phytium_flash_erase(fts, spi_get_chipselect(spi, 0),
 					transfer->bits_per_word,
 					spi->mode, chip->tmode, 3, SPINOR_OP_BE_4K);
 			if (ret) {
@@ -237,7 +252,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			fts->spi_write_flag = 0;
 			fts->flash_erase++;
 		} else if (fts->flash_read) {
-			ret = spi_phytium_flash_erase(fts, spi->chip_select,
+			ret = spi_phytium_flash_erase(fts, spi_get_chipselect(spi, 0),
 					transfer->bits_per_word,
 					spi->mode, chip->tmode, 1, fts->flash_cmd);
 			if (ret) {
@@ -254,7 +269,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 				return ret;
 			}
 		} else if (fts->flash_erase == 2 && (*(u8 *)fts->tx == SPINOR_OP_WRDI)) {
-			ret = spi_phytium_write(fts, spi->chip_select, transfer->bits_per_word,
+			ret = spi_phytium_write(fts, spi_get_chipselect(spi, 0), transfer->bits_per_word,
 					spi->mode, chip->tmode, 3, fts->spi_write_flag);
 			if (ret) {
 				dev_err(&master->dev, "transfer disable-command failed\n");
@@ -268,7 +283,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 					&& *(u8 *)(fts->tx) != MCP251x_READ_RXB1)
 				fts->flags = 3;
 
-			ret = spi_phytium_write(fts, spi->chip_select, transfer->bits_per_word,
+			ret = spi_phytium_write(fts, spi_get_chipselect(spi, 0), transfer->bits_per_word,
 					spi->mode, chip->tmode, fts->flags, fts->spi_write_flag);
 			if (ret) {
 				dev_err(&master->dev, "write command failed\n");
@@ -281,7 +296,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 	}
 
 	if (fts->rx) {
-		ret = spi_phytium_read(fts, spi->chip_select, transfer->bits_per_word,
+		ret = spi_phytium_read(fts, spi_get_chipselect(spi, 0), transfer->bits_per_word,
 				spi->mode, chip->tmode, 2);
 		if (ret) {
 			dev_err(&master->dev, "read data failed\n");
@@ -493,7 +508,14 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	master->dev.of_node = dev->of_node;
 	master->dev.fwnode = dev->fwnode;
 	master->flags = SPI_CONTROLLER_GPIO_SS;
-	master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
+
+	fts->half_duplex = false;
+	if (!(phytium_read_regfile(fts, SPI_REGFILE_SOFTWARE2)
+				& SPI_REGFILE_FULL_DUPLEX)) {
+		dev_warn(dev, "SPI-V2 only support half duplex\n");
+		fts->half_duplex = true;
+		master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
+	}
 
 	spi_master_set_devdata(master, fts);
 
