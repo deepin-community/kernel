@@ -2923,7 +2923,11 @@ static int arm_smmu_def_domain_type(struct device *dev)
 
 		if (IS_HISI_PTT_DEVICE(pdev))
 			return IOMMU_DOMAIN_IDENTITY;
-	}
+	} else {
+			if (acpi_check_oem_id(dev, "CIXTEK"))
+				return IOMMU_DOMAIN_DMA;
+		}
+
 
 	return 0;
 }
