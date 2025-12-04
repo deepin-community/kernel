@@ -2881,6 +2881,34 @@ static int arm_smmu_dev_disable_feature(struct device *dev,
 }
 
 /*
+ * Check OEM_ID with a specific OEM provider.
+ */
+#ifdef CONFIG_ACPI
+static bool acpi_check_oem_id(struct device *dev, const char *oem_id)
+{
+	if (oem_id && has_acpi_companion(dev)) {
+		struct acpi_table_header *iort_table;
+
+		acpi_status status = acpi_get_table(ACPI_SIG_IORT, 0, &iort_table);
+
+		if (ACPI_FAILURE(status)) {
+			if (status != AE_NOT_FOUND) {
+				const char *msg = acpi_format_exception(status);
+
+				pr_warn("Failed to get table, %s\n", msg);
+			}
+			return false;
+		}
+
+		if (!strncmp(iort_table->oem_id, oem_id, 6))
+			return true;
+
+	}
+	return false;
+}
+#endif
+
+/*
  * HiSilicon PCIe tune and trace device can be used to trace TLP headers on the
  * PCIe link and save the data to memory by DMA. The hardware is restricted to
  * use identity mapping only.
