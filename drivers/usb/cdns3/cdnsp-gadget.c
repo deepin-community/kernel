@@ -2075,3 +2075,4 @@ int cdnsp_gadget_init(struct cdns *cdns)
 
 	return 0;
 }
+EXPORT_SYMBOL(cdnsp_gadget_init);
