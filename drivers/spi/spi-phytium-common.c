@@ -451,6 +451,76 @@ int spi_phytium_read(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 }
 EXPORT_SYMBOL_GPL(spi_phytium_read);
 
+int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
+		u8 tmode, u8 flags)
+{
+	int ret;
+	u32 len;
+	u64 smem_tx, smem_rx;
+	u8 first = 1;
+	u64 tx_addr, rx_addr;
+	u64 *data = (u64 *)fts->tx;
+
+	do {
+		if (fts->dma_get_ddrdata)
+			len = min_t(u32, (u32)(fts->rx_end - fts->rx),
+					(u32)(fts->rx_end - fts->rx));
+		else
+			len = min_t(u32, (u32)(fts->rx_end - fts->rx), 128);
+
+		fts->msg->cmd_id = PHYTSPI_MSG_CMD_DATA;
+
+		smem_tx = (u64)fts->msg + sizeof(struct msg);
+		smem_rx = (u64)fts->msg + sizeof(struct msg) + 128;
+
+		if (len > 16 && fts->dma_get_ddrdata) {
+			fts->msg->cmd_subid = PHYTSPI_MSG_CMD_DATA_DMA_XFER;
+			tx_addr = __virt_to_phys((u64)fts->tx);
+			if (!tx_addr) {
+				dev_err(&fts->master->dev, "tx address translation failed\n");
+				return -1;
+			}
+			rx_addr = __virt_to_phys((u64)fts->rx);
+			if (!rx_addr) {
+				dev_err(&fts->master->dev, "rx address translation failed\n");
+				return -1;
+			}
+
+			*(u64 *)&fts->msg->data[0] = tx_addr;
+			*(u64 *)&fts->msg->data[8] = rx_addr;
+		} else {
+			fts->msg->cmd_subid = PHYTSPI_MSG_CMD_DATA_XFER;
+			memcpy_byte((void *)smem_tx, fts->tx, len);
+			*(u64 *)&fts->msg->data[0] = sizeof(struct msg);
+			*(u64 *)&fts->msg->data[8] = sizeof(struct msg) + 128;
+		}
+
+		*(u32 *)&fts->msg->data[16] = len;
+		fts->msg->data[20] = cs;
+		fts->msg->data[21] = dfs;
+		fts->msg->data[22] = mode;
+		fts->msg->data[23] = tmode;
+		if (first == 1)
+			fts->msg->data[24] = 1;
+		else
+			fts->msg->data[24] = flags;
+		fts->msg->data[24] = first;
+		ret = spi_phytium_set(fts);
+		if (ret) {
+			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
+			return ret;
+		}
+		if (len <= 16 || !fts->dma_get_ddrdata)
+			memcpy_byte(fts->rx, (void *)smem_rx, len);
+
+		fts->rx += len;
+		first = 0;
+	} while (fts->rx_end > fts->rx);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(spi_phytium_xfer);
+
 MODULE_AUTHOR("Peng Min <pengmin1540@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium SPI adapter core");
 MODULE_LICENSE("GPL");

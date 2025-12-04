@@ -158,7 +158,17 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			chip->tmode = TMOD_TO;
 	}
 
-	if (mem == nor->spimem && fts->tx && fts->len == 1) {
+	if (fts->tx && fts->rx) {
+		if (fts->half_duplex) {
+			dev_err(&master->dev, "SPI-V2 not support full duplex\n");
+			return -EPERM;
+		}
+		ret = spi_phytium_xfer(fts, spi->chip_select, transfer->bits_per_word,
+				spi->mode, chip->tmode, 0);
+		return ret;
+	}
+
+	if (mem != NULL && nor != NULL && mem == nor->spimem && fts->tx && fts->len == 1) {
 		if ((*(u8 *)fts->tx == SPINOR_OP_WREN) && fts->spi_write_flag == 0) {
 			spi_phytium_write_pre(fts, spi->chip_select,
 					transfer->bits_per_word, spi->mode,
@@ -483,7 +493,14 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	master->dev.of_node = dev->of_node;
 	master->dev.fwnode = dev->fwnode;
 	master->flags = SPI_CONTROLLER_GPIO_SS;
-	master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
+
+	fts->half_duplex = false;
+	if (!(phytium_read_regfile(fts, SPI_REGFILE_SOFTWARE2)
+				& SPI_REGFILE_FULL_DUPLEX)) {
+		dev_warn(dev, "SPI-V2 only support half duplex\n");
+		fts->half_duplex = true;
+		master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
+	}
 
 	spi_master_set_devdata(master, fts);
 

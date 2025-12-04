@@ -26,7 +26,7 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME_PHYT "phytium_spi_2.0"
-#define DRIVER_VERSION	"1.0.13"
+#define DRIVER_VERSION	"1.0.14"
 
 #define PHYTIUM_CPU_PART_FTC872		0x872
 
