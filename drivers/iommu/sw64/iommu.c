@@ -739,7 +739,7 @@ struct syscore_ops iommu_cpu_syscore_ops = {
 
 static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type);
 
-static struct sunway_iommu *sunway_iommu_early_init(struct pci_controller *hose)
+static struct sunway_iommu *iommu_early_init(struct pci_controller *hose)
 {
 	struct sunway_iommu *iommu;
 	struct page *page;
@@ -805,7 +805,7 @@ static int sunway_iommu_init(void)
 		if (hose->iommu_enable)
 			continue;
 
-		iommu = sunway_iommu_early_init(hose);
+		iommu = iommu_early_init(hose);
 		if (!iommu) {
 			pr_err("Allocating sunway_iommu failed\n");
 			hose->iommu_enable = false;

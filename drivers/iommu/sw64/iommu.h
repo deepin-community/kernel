@@ -21,7 +21,7 @@ struct sunway_iommu {
 	unsigned long *iommu_dtbr;
 	spinlock_t dt_lock;		/* Device Table Lock */
 
-	struct pci_controller *hose_pt;
+	struct pci_controller *hose;
 	struct iommu_device iommu;	/* IOMMU core code handle */
 	struct list_head list;
 };
@@ -85,3 +85,5 @@ struct sunway_iommu_group {
 #define PAGE_SIZE_IOMMU		(_AC(1, UL) << PAGE_SHIFT_IOMMU)
 
 #define PCACHE_FLUSHPADDR_MASK		0xffffffffff80UL
+
+extern int sunway_pci_init_iommu(struct pci_controller *hose);
