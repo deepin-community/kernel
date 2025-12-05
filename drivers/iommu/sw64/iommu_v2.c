@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/pci.h>
+#include <linux/pci-ecam.h>
 #include <linux/gfp.h>
 #include <linux/export.h>
 #include <linux/scatterlist.h>
@@ -26,9 +27,8 @@
 #include <linux/module.h>
 #include <linux/acpi.h>
 #include <linux/io.h>
+
 #include <asm/dma.h>
-#include <asm/sw64io.h>
-#include <asm/hw_init.h>
 
 #include "iommu.h"
 #include "../dma-iommu.h"
@@ -57,7 +57,7 @@ struct acpi_table_header *dmar_tbl;
 
 #define MAX_NR_IOMMU_PER_NODE 16
 
-LIST_HEAD(iommu_list);
+static LIST_HEAD(iommu_list);
 
 /* IOMMU Exceptional Status */
 enum exceptype {
@@ -565,54 +565,6 @@ static struct sunway_iommu_dev *search_dev_data(u16 devid)
 	return NULL;
 }
 
-/**********************************************************************
- *
- * Following functions describe IOMMU init ops
- *
- **********************************************************************/
-
-static struct sunway_iommu *sunway_iommu_early_init(struct pci_controller *hose)
-{
-	struct sunway_iommu *iommu;
-	struct page *page;
-	unsigned long base;
-	int ret = 0;
-	int node;
-
-	iommu = kzalloc(sizeof(struct sunway_iommu), GFP_KERNEL);
-	if (!iommu) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	spin_lock_init(&iommu->dt_lock);
-
-	iommu->node = hose->node;
-	iommu->index = hose->index;
-
-	node = node_online(iommu->node) ? iommu->node : NUMA_NO_NODE;
-	page = alloc_pages_node(node, __GFP_ZERO, get_order(PAGE_SIZE));
-	if (!page) {
-		ret = -ENOMEM;
-		goto free_iommu;
-	}
-
-	iommu->iommu_dtbr = page_address(page);
-	base = __pa(iommu->iommu_dtbr) & PAGE_MASK;
-	iommu->reg_base_addr = hose->piu_ior0_base;
-	writeq(base, iommu->reg_base_addr + DTBASEADDR);
-
-	hose->pci_iommu = iommu;
-	iommu->enabled = true;
-
-	return iommu;
-
-free_iommu:
-	kfree(iommu);
-out:
-	return ERR_PTR(ret);
-}
-
 unsigned long fetch_dte(struct sunway_iommu *iommu, unsigned long devid,
 			enum exceptype type)
 {
@@ -802,30 +754,27 @@ struct irqaction iommu_irqaction = {
 	.name = "sunway_iommu",
 };
 
-void sunway_enable_iommu_func(struct pci_controller *hose)
+static void sunway_enable_iommu_func(struct sunway_iommu *iommu)
 {
-	struct sunway_iommu *iommu;
+	struct pci_controller *hose = iommu->hose;
 	unsigned int iommu_irq, err;
 	unsigned long iommu_conf, iommu_ctrl;
 
 	iommu_irq = hose->int_irq;
-	pr_debug("%s node %ld rc %ld iommu_irq %d\n",
-			__func__, hose->node, hose->index, iommu_irq);
 	err = request_irq(iommu_irq, iommu_interrupt,
 			IRQF_SHARED, "sunway_iommu", hose);
 	if (err < 0)
 		pr_info("sw iommu request irq failed!\n");
 
-	iommu = hose->pci_iommu;
 	iommu_ctrl = (1UL << 63) | (0x100UL << 10);
 	writeq(iommu_ctrl, iommu->reg_base_addr + IOMMUEXCPT_CTRL);
 	iommu_conf = readq(iommu->reg_base_addr + PIUCONFIG0);
 	iommu_conf = iommu_conf | (0x3 << 7);
 	writeq(iommu_conf, iommu->reg_base_addr + PIUCONFIG0);
 	writeq(0xf, iommu->reg_base_addr + TIMEOUT_CONFIG);
-	iommu_conf = readq(iommu->reg_base_addr + PIUCONFIG0);
-	pr_debug("SW arch configure node %ld hose-%ld iommu_conf = %#lx\n",
-			hose->node, hose->index, iommu_conf);
+
+	iommu->enabled = true;
+	hose->iommu_enable = true;
 }
 
 /* iommu cpu syscore ops */
@@ -844,248 +793,223 @@ struct syscore_ops iommu_cpu_syscore_ops = {
 	.resume = iommu_cpu_resume,
 };
 
-static struct iommu_domain *sunway_iommu_domain_alloc(unsigned int type);
-
-/* Init functions */
-static int do_detect(void)
+static bool sunway_iommu_is_enabled(unsigned long pnode, unsigned long index)
 {
-	acpi_status status = AE_OK;
+	unsigned long which_iommu = MAX_NR_IOMMU_PER_NODE * pnode + index;
 
-	status = acpi_get_table(ACPI_SIG_DMAR, 0, &dmar_tbl);
+	return test_bit(which_iommu, iommu_bitmap);
+}
 
-	if (ACPI_SUCCESS(status) && !dmar_tbl) {
-		pr_warn("No DMAR found!\n");
-		status = AE_NOT_FOUND;
+#ifdef CONFIG_ACPI
+static const struct acpi_dmar_sw_hardware_unit *
+find_dmar_entry(unsigned long pnode, unsigned long index)
+{
+	struct acpi_table_header *dmar_header;
+	struct acpi_table_sw_dmar *dmar;
+	const struct acpi_sw_dmar_header *entry, *start, *end;
+	const struct acpi_dmar_sw_hardware_unit *unit;
+	size_t len;
+	u16 iommu_index = ((u16)pnode << 8) | ((u16)index);
+
+	acpi_get_table(ACPI_SIG_DMAR, 0, &dmar_header);
+	if (!dmar_header) {
+		pr_warn("No DMAR table found\n");
+		return NULL;
 	}
 
-	return ACPI_SUCCESS(status) ? 0 : -ENOENT;
+	dmar = (struct acpi_table_sw_dmar *)dmar_header;
+	len = dmar->header.length - sizeof(*dmar);
+	entry = start = (struct acpi_sw_dmar_header *)(dmar + 1);
+	end = (void *)start + len;
+
+	for (; entry < end; entry = (void *)entry + entry->length) {
+		unit = (const struct acpi_dmar_sw_hardware_unit *)entry;
+
+		if (!entry->length ||
+			(entry->type >= ACPI_SW_DMAR_TYPE_RESERVED)) {
+			pr_err(FW_BUG "Invalid DMAR table\n");
+			acpi_put_table(dmar_header);
+			return NULL;
+		}
+
+		if (unit->index == iommu_index)
+			break;
+	}
+
+	acpi_put_table(dmar_header);
+
+	return (entry < end) ? unit : NULL;
 }
 
-static struct pci_controller *find_hose_by_rcid(int node, int index)
+static int pci_acpi_init_iommu(struct pci_controller *hose)
 {
-	struct pci_controller *hose;
+	struct pci_config_window *cfg;
+	struct device *dev;
+	struct acpi_device *adev;
+	unsigned long long pxm;
+	acpi_status status;
+	const struct acpi_dmar_sw_hardware_unit *entry;
 
-	for (hose = hose_head; hose; hose = hose->next)
-		if (hose->node == node && hose->index == index)
-			return hose;
+	cfg = hose->bus->sysdata;
+	dev = cfg->parent;
+	adev = to_acpi_device(dev);
 
-	return NULL;
+	status = acpi_evaluate_integer(acpi_device_handle(adev),
+			"_PXM", NULL, &pxm);
+	if (ACPI_FAILURE(status)) {
+		dev_err(dev, "failed to retrieve _PXM\n");
+		return -EINVAL;
+	}
+
+	entry = find_dmar_entry((unsigned long)pxm, hose->index);
+	if (!entry) {
+		dev_err(dev, "failed to find dmar entry\n");
+		return -ENODEV;
+	}
+
+	if (!entry->enable) {
+		dev_info(dev, "IOMMU disabled by firmware\n");
+		return -ENODEV;
+	}
+
+	if (!sunway_iommu_is_enabled((unsigned long)pxm, hose->index)) {
+		dev_info(dev, "IOMMU disabled by cmdline\n");
+		return -ENODEV;
+	}
+
+	dev_info(dev, "IOMMU with physical node %llu index %lu enabled\n",
+			pxm, hose->index);
+
+	return 0;
+}
+#endif /* CONFIG_ACPI */
+
+#ifdef CONFIG_OF
+static int pci_of_init_iommu(struct pci_controller *hose)
+{
+	struct pci_config_window *cfg;
+	struct device *dev;
+	struct device_node *np;
+	u32 pnode = NUMA_NO_NODE, enable, width;
+
+	cfg = hose->bus->sysdata;
+	dev = cfg->parent;
+
+	np = of_node_get(dev->of_node);
+
+	of_property_read_u32(np, "numa-node-id", &pnode);
+	if (pnode == NUMA_NO_NODE) {
+		dev_err(dev, "failed to retrieve numa-node-id\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32(np, "sunway,iommu-width", &width))
+		width = 42; // Backward compatibility
+
+	if (of_property_read_u32(np, "sunway,iommu-enable", &enable))
+		enable = 1; // Backward compatibility
+
+	of_node_put(np);
+
+	if (!enable) {
+		dev_info(dev, "IOMMU disabled by firmware\n");
+		return -ENODEV;
+	}
+
+	if (!sunway_iommu_is_enabled(pnode, hose->index)) {
+		dev_info(dev, "IOMMU disabled by cmdline\n");
+		return -ENODEV;
+	}
+
+	dev_info(dev, "IOMMU with physical node %u index %lu enabled\n",
+			pnode, hose->index);
+
+	return 0;
+}
+#endif /* CONFIG_OF */
+
+static int pci_init_iommu(struct pci_controller *hose)
+{
+#ifdef CONFIG_OF
+	if (acpi_disabled)
+		return pci_of_init_iommu(hose);
+#endif
+
+#ifdef CONFIG_ACPI
+	if (!acpi_disabled)
+		return pci_acpi_init_iommu(hose);
+#endif
+
+	return -EINVAL;
 }
 
-static int parse_one_drhd_unit(struct acpi_sw_dmar_header *header)
+int sunway_iommu_early_init(struct pci_controller *hose)
 {
-	struct acpi_dmar_sw_hardware_unit *drhd;
 	struct sunway_iommu *iommu;
-	struct pci_controller *hose;
 	struct page *page;
 	unsigned long base;
-	int cmdline_enabled;
-	int rc_mask, ret, node;
-	int rc_node, rc_index;
+	int ret, node;
 
-	drhd = (struct acpi_dmar_sw_hardware_unit *)header;
-	if (!drhd->enable)
-		return 0;
+	ret = pci_init_iommu(hose);
+	if (ret)
+		return ret;
 
-	rc_node = (drhd->index >> 8) & 0xff;
-	rc_index = drhd->index & 0xff;
-
-	hose = find_hose_by_rcid(rc_node, rc_index);
-	if (!hose)
-		return 0;
-
-	iommu = kzalloc(sizeof(struct sunway_iommu), GFP_KERNEL);
+	iommu = kzalloc_node(sizeof(struct sunway_iommu), GFP_KERNEL,
+			hose->node);
 	if (!iommu)
 		return -ENOMEM;
 
-	iommu->node = rc_node;
-	iommu->index = rc_index;
-	iommu->reg_base_addr = ioremap(drhd->address, drhd->size);
-
-	rc_mask = MAX_NR_IOMMU_PER_NODE * iommu->node + iommu->index;
-	cmdline_enabled = test_bit(rc_mask, iommu_bitmap);
-	if (!cmdline_enabled) {
-		iommu->enabled = false;
-		ret = 0;
-		goto free_iommu;
-	}
+	iommu->node = hose->node;
+	iommu->index = hose->index;
 
 	node = node_online(iommu->node) ? iommu->node : NUMA_NO_NODE;
 	page = alloc_pages_node(node, __GFP_ZERO, get_order(PAGE_SIZE));
 	if (!page) {
-		ret = -ENOMEM;
-		goto free_iommu;
+		kfree(iommu);
+		return -ENOMEM;
 	}
 
 	iommu->iommu_dtbr = page_address(page);
 	base = __pa(iommu->iommu_dtbr) & PAGE_MASK;
+	iommu->reg_base_addr = hose->piu_ior0_base;
 	writeq(base, iommu->reg_base_addr + DTBASEADDR);
 
-	list_add(&iommu->list, &iommu_list);
-	iommu->enabled = true;
-
 	hose->pci_iommu = iommu;
+	iommu->hose = hose;
 
-	pr_info("iommu: node: %ld index: %ld IOMMU enabled!\n",
-			iommu->node, iommu->index);
-	return 0;
-
-free_iommu:
-	kfree(iommu);
-	return ret;
-}
-
-static int parse_drhd_units(struct acpi_table_sw_dmar *dmar)
-{
-	struct acpi_sw_dmar_header *iter, *start, *next, *end;
-	size_t len = dmar->header.length - sizeof(*dmar);
-	int ret, count = 0;
-
-	/* Skip DMAR table, point to first DRHD table. */
-	start = (struct acpi_sw_dmar_header *)(dmar + 1);
-	end = ((void *)start) + len;
-
-	for (iter = start; iter < end; iter = next) {
-		next = (void *)iter + iter->length;
-		if (iter->length == 0) {
-			pr_warn(FW_BUG "Invalid 0-length structure\n");
-			break;
-		} else if (next > end) {
-			pr_warn(FW_BUG "Record passes table end\n");
-			return -EINVAL;
-		}
-
-		if (iter->type >= ACPI_SW_DMAR_TYPE_RESERVED) {
-			pr_info("Unknown DMAR structure type %d\n",
-					iter->type);
-		} else if (iter->type == 0) {
-			ret = parse_one_drhd_unit(iter);
-			if (ret)
-				return ret;
-		}
-		count++;
-	}
-
-	return 0;
-}
-
-static int sunway_iommu_acpi_early_init(void)
-{
-	int ret;
-
-	struct acpi_table_sw_dmar *dmar;
-
-	ret = do_detect();
-	if (ret)
-		return ret;
-
-	dmar = (struct acpi_table_sw_dmar *)dmar_tbl;
-	if (!dmar)
-		return -ENODEV;
-
-	if (dmar->width < 42) {
-		pr_warn("Invalid DMAR haw\n");
-		return -EINVAL;
-	}
-	pr_info("Host address width: %d\n", dmar->width);
-
-	ret = parse_drhd_units(dmar);
-
-	return ret;
-}
-
-static int sunway_iommu_acpi_init(void)
-{
-	struct sunway_iommu *iommu;
-	struct pci_controller *hose;
-	int iommu_index = 0;
-	int ret;
-
-	ret = sunway_iommu_acpi_early_init();
-	if (ret)
-		return ret;
-
-	for_each_iommu(iommu) {
-		hose = find_hose_by_rcid(iommu->node, iommu->index);
-		if (!hose)
-			continue;
-
-		if (!iommu->enabled || hose->iommu_enable)
-			continue;
-
-		sunway_enable_iommu_func(hose);
-		hose->iommu_enable = true;
-		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
-				iommu_index);
-		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
-		iommu_index++;
-		piu_flush_all(iommu);
-	}
-
-	ret = iova_cache_get();
-	if (ret)
-		return ret;
-
-	register_syscore_ops(&iommu_cpu_syscore_ops);
-
-	return 0;
-}
-
-static int sunway_iommu_legacy_init(void)
-{
-	struct pci_controller *hose;
-	struct sunway_iommu *iommu;
-	unsigned long rc_mask;
-	int iommu_index = 0;
-	int ret;
-
-	/* Do the loop */
-	for (hose = hose_head; hose; hose = hose->next) {
-		rc_mask = MAX_NR_IOMMU_PER_NODE * hose->node + hose->index;
-		if (!test_bit(rc_mask, iommu_bitmap)) {
-			hose->iommu_enable = false;
-			continue;
-		}
-
-		if (hose->iommu_enable)
-			continue;
-
-		iommu = sunway_iommu_early_init(hose);
-		sunway_enable_iommu_func(hose);
-		hose->iommu_enable = true;
-		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
-				       iommu_index);
-		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
-		iommu_index++;
-		piu_flush_all(iommu);
-	}
-
-	ret = iova_cache_get();
-	if (ret)
-		return ret;
-
-	register_syscore_ops(&iommu_cpu_syscore_ops);
+	list_add(&iommu->list, &iommu_list);
 
 	return 0;
 }
 
 static int sunway_iommu_init(void)
 {
-	int ret;
+	struct sunway_iommu *iommu;
+	int iommu_index = 0, ret = 0;
 
 	sunway_iommu_domain_bitmap =
 	       (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
 				get_order(MAX_DOMAIN_NUM / 8));
 	if (!sunway_iommu_domain_bitmap)
-		return 0;
+		return -ENOMEM;
+
 	__set_bit(0, sunway_iommu_domain_bitmap);
 
-	if (!acpi_disabled)
-		ret = sunway_iommu_acpi_init();
-	else
-		ret = sunway_iommu_legacy_init();
+	for_each_iommu(iommu) {
+		sunway_enable_iommu_func(iommu);
+		iommu_device_sysfs_add(&iommu->iommu, NULL, NULL, "%d",
+				iommu_index++);
+		iommu_device_register(&iommu->iommu, &sunway_iommu_ops, NULL);
+		piu_flush_all(iommu);
+	}
 
-	return ret;
+	ret = iova_cache_get();
+	if (ret)
+		return ret;
+
+	register_syscore_ops(&iommu_cpu_syscore_ops);
+
+	return 0;
 }
 subsys_initcall_sync(sunway_iommu_init);
 
