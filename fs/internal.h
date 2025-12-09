@@ -67,9 +67,32 @@ int deepin_get_path_for_err_notify(int dfd, struct filename *name, struct path *
 /*
  * deepin_err_notify.c
  */
+struct deepin_path_last {
+	struct path path;
+	const char *last;
+};
+
+int deepin_lookup_path_or_parent(int dfd, struct filename *name,
+				 unsigned int flags,
+				 struct deepin_path_last *result_path_last);
+
 int deepin_err_notify_enabled(void);
-void deepin_check_and_notify_ro_fs_err(const struct path *path, const char *func_name);
+int deepin_err_notify_should_send(void);
+void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
+					const char *func_name);
+void deepin_notify_rename_ro_fs_err(const struct qstr *old_last,
+				    const struct qstr *new_last,
+				    const struct path *old_path,
+				    const struct path *new_path);
+void deepin_put_path_last(struct deepin_path_last *path_last);
 void deepin_send_ro_fs_err_notification(const char *filename, const char *func_name);
+
+#ifdef CONFIG_DEEPIN_ERR_NOTIFY
+#define deepin_should_notify_ro_fs_err(error) \
+	unlikely(((error) == -EROFS) && deepin_err_notify_should_send())
+#else
+#define deepin_should_notify_ro_fs_err(error) 0
+#endif
 
 /*
  * namespace.c

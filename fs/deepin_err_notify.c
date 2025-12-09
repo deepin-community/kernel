@@ -61,54 +61,56 @@ int deepin_err_notify_enabled(void)
 	return deepin_err_notify_initialized && deepin_err_notify_enable;
 }
 
+/**
+ * deepin_err_notify_should_send - Check if error notification should be sent
+ *
+ * This function checks both the enable status and rate limiting to determine
+ * whether an error notification should be sent.
+ *
+ * Return: 1 if notification should be sent, 0 otherwise
+ */
+int deepin_err_notify_should_send(void)
+{
+
+	/*
+	 * Rate limiting: Allow 20 calls per 5 seconds.
+	 * Rationale: Prevent excessive error notifications under high load,
+	 * which could overwhelm the monitoring system or cause log flooding.
+	 * 20 notifications per 5 seconds is sufficient to capture relevant
+	 * filesystem errors without missing critical events.
+	 */
+	static DEFINE_RATELIMIT_STATE(deepin_err_notify_ratelimit, 5 * HZ, 20);
+
+	if (!deepin_err_notify_enabled())
+		return 0;
+
+	return __ratelimit(&deepin_err_notify_ratelimit);
+}
+
+static int
+prepare_and_notify_fs_error(const struct deepin_path_last *path_lasts,
+			    int path_last_count)
+{
+	/* TODO: Implement in next commit */
+	return -EOPNOTSUPP;
+}
+
 /* Check if overlay filesystem is mounted on /usr and send read only error notification */
-void deepin_check_and_notify_ro_fs_err(const struct path *path,
+void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
 				       const char *func_name)
 {
-	char *path_buf = NULL;
-	char *full_path = "";
-	/* Rate limiting: allow 100 calls per 5 seconds */
-	static DEFINE_RATELIMIT_STATE(deepin_ro_fs_err_ratelimit,
-				      5 * HZ, /* 5 seconds interval */
-				      100); /* 100 calls per interval */
+	int ret;
 
-	/* Check rate limit before proceeding */
-	if (!__ratelimit(&deepin_ro_fs_err_ratelimit))
+	/* Early return if path_last is invalid */
+	if (!path_last)
 		return;
+	ret = prepare_and_notify_fs_error(path_last, 1);
 
-	/* Early return if path or path->mnt is invalid */
-	if (!path || !path->mnt || !path->mnt->mnt_sb)
-		return;
-
-	/* Use filesystem callback to decide if notification should be sent.
-	 * If filesystem implements the callback, use it.
-	 */
-	if (path->mnt->mnt_sb->s_op &&
-	    path->mnt->mnt_sb->s_op->deepin_should_notify_error) {
-		if (!path->mnt->mnt_sb->s_op->deepin_should_notify_error(path->mnt->mnt_sb))
-			return;
-	} else {
-		/* If filesystem does not implement the callback, return immediately. */
-		return;
+	if (ret < 0) {
+		pr_err(
+			"deepin_err_notify: Failed to send notification to userspace: %d\n",
+			ret);
 	}
-
-	/* Attempt to get the full path.
-	 * Dynamic allocation is used to avoid excessive frame size.
-	 */
-	if (path->dentry) {
-		path_buf = kmalloc(PATH_MAX, GFP_KERNEL);
-		if (path_buf) {
-			char *p = NULL;
-
-			p = d_path(path, path_buf, PATH_MAX);
-			if (!IS_ERR(p))
-				full_path = p;
-		}
-	}
-
-	deepin_send_ro_fs_err_notification(full_path, func_name);
-
-	kfree(path_buf);
 }
 
 /* Define multicast group */
@@ -192,6 +194,22 @@ err_out:
 	kfree_skb(skb);
 }
 
+/**
+ * deepin_put_path_last - Release resources held by deepin_path_last structure
+ * @path_last: Pointer to the deepin_path_last structure to release
+ *
+ * This function releases the path reference and frees the allocated filename
+ * string in the deepin_path_last structure.
+ */
+void deepin_put_path_last(struct deepin_path_last *path_last)
+{
+	if (path_last) {
+		path_put(&path_last->path);
+		kfree(path_last->last);
+		path_last->last = NULL;
+	}
+}
+
 /* sysctl table and initialization */
 #ifdef CONFIG_SYSCTL
 static struct ctl_table deepin_err_notify_sysctls[] = {
@@ -237,6 +255,23 @@ static int __init deepin_err_notify_init(void)
 
 	pr_info("deepin_err_notify: Generic Netlink family registered successfully\n");
 	return 0;
+}
+
+/**
+ * deepin_notify_rename_ro_fs_err - Notify read-only filesystem errors during rename
+ * @old_last: qstr for old filename
+ * @new_last: qstr for new filename
+ * @old_path: path of old parent directory
+ * @new_path: path of new parent directory
+ *
+ * This function is called when a rename operation fails with EROFS error.
+ */
+void deepin_notify_rename_ro_fs_err(const struct qstr *old_last,
+				    const struct qstr *new_last,
+				    const struct path *old_path,
+				    const struct path *new_path)
+{
+	/* Simplified implementation - will be enhanced in next commit */
 }
 
 /* Use fs_initcall to ensure initialization before file system operations */
