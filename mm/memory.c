@@ -67,7 +67,9 @@
 #include <linux/gfp.h>
 #include <linux/migrate.h>
 #include <linux/string.h>
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 #include <linux/shmem_fs.h>
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
 #include <linux/memory-tiers.h>
 #include <linux/debugfs.h>
 #include <linux/userfaultfd_k.h>
@@ -4478,6 +4480,9 @@ static bool vmf_pte_changed(struct vm_fault *vmf)
  *
  * Return: %0 on success, %VM_FAULT_ code in case of error.
  */
+#ifdef CONFIG_DEEPIN_KABI_RESERVE
+#include <linux/shmem_fs.h>
+#endif /* CONFIG_DEEPIN_KABI_RESERVE */
 vm_fault_t finish_fault(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
