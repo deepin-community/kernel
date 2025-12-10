@@ -47,7 +47,24 @@ struct netpoll_info {
 
 	struct delayed_work tx_work;
 
-	struct netpoll *netpoll;
+	/* !!! Kernel Internal USE */
+	DEEPIN_KABI_BROKEN_REPLACE(
+	struct netpoll {
+		struct net_device *dev;
+		netdevice_tracker dev_tracker;
+		char dev_name[IFNAMSIZ];
+		const char *name;
+		union inet_addr local_ip;
+		union inet_addr remote_ip;
+		bool ipv6;
+		u16 local_port;
+		u16 remote_port;
+		u8 remote_mac[ETH_ALEN];
+
+		DEEPIN_KABI_RESERVE(1)
+		DEEPIN_KABI_RESERVE(2)
+	} *netpoll,
+	struct netpoll *netpoll)
 	struct rcu_head rcu;
 };
 
