@@ -33,6 +33,9 @@
 /* Multicast group name for error events (used in Netlink communication) */
 #define MULTICAST_GROUP_ERR_EVENTS "err_events"
 
+/* Maximum number of path_last structures that can be processed */
+#define MAX_PATH_LASTS 2
+
 /* Define netlink message types and attributes */
 enum {
 	DEEPIN_ERR_NOTIFY_ATTR_UNSPEC,
@@ -65,16 +68,47 @@ enum {
 
 #define DEEPIN_ERR_NOTIFY_CMD_MAX (__DEEPIN_ERR_NOTIFY_CMD_MAX - 1)
 
+/**
+ * struct deepin_fs_err_event_data - Filesystem error event data for netlink
+ * @filenames: Array of filenames involved in the error
+ * @count: Number of filenames in the array (also used for inode count)
+ * @inodes: Array of inode numbers corresponding to the filenames
+ * @inode_is_parent: Array of bool flags indicating if inode is from parent dentry
+ * @pid: Process ID that triggered the error
+ * @ppid: Parent Process ID
+ * @comm: Process short name (15 chars max)
+ * @uid: User ID
+ * @gid: Group ID
+ *
+ * This structure consolidates all the parameters needed for sending
+ * filesystem error notifications via netlink.
+ */
+struct deepin_fs_err_event_data {
+	const char **filenames;
+	int count;
+	const ino_t *inodes;
+	const bool *inode_is_parent;
+	pid_t pid;
+	pid_t ppid;
+	const char *comm;
+	uid_t uid;
+	gid_t gid;
+};
+
 /* Track deepin error notification initialization status */
 static bool deepin_err_notify_initialized __read_mostly;
 
 /* Runtime control variable for deepin error notification */
-static int deepin_err_notify_enable __read_mostly = 0;
+static int deepin_err_notify_enable __read_mostly;
 
 /* Forward declaration of Generic Netlink family */
 static struct genl_family deepin_err_notify_genl_family;
 
-inline int deepin_err_notify_enabled(void)
+static int
+prepare_and_notify_fs_error(const struct deepin_path_last *path_lasts,
+			    int path_last_count);
+
+static inline int deepin_err_notify_enabled(void)
 {
 	return deepin_err_notify_initialized && deepin_err_notify_enable;
 }
@@ -105,12 +139,11 @@ int deepin_err_notify_should_send(void)
 	return __ratelimit(&deepin_err_notify_ratelimit);
 }
 
-static int
-prepare_and_notify_fs_error(const struct deepin_path_last *path_lasts,
-			    int path_last_count)
+static char *combine_path_and_last(char *buffer, const struct path *path,
+				   const char *last)
 {
 	/* TODO: Implement in next commit */
-	return -EOPNOTSUPP;
+	return NULL;
 }
 
 /* Check if overlay filesystem is mounted on /usr and send read only error notification */
@@ -261,66 +294,334 @@ static struct genl_family deepin_err_notify_genl_family __ro_after_init = {
 	.n_mcgrps = ARRAY_SIZE(deepin_err_notify_nl_mcgrps),
 };
 
-/* Send read only filesystem error notification */
-void deepin_send_ro_fs_err_notification(const char *filename,
-					const char *func_name)
+/**
+ * get_inode_from_path - Get inode number from path using vfs_getattr
+ * @path: The path to get inode from
+ * @fallback_dentry: Fallback dentry if vfs_getattr fails
+ * @inode_out: Output parameter for inode number
+ *
+ * Use vfs_getattr to ensure we get the current inode information.
+ * This is critical for overlay filesystems where the dentry may be stale
+ * after copy-up. vfs_getattr forces the filesystem to return the current
+ * inode information.
+ *
+ * If vfs_getattr fails, falls back to using the dentry's inode directly.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int get_inode_from_path(const struct path *path,
+			       struct dentry *fallback_dentry,
+			       ino_t *inode_out)
 {
-	pid_t pid = 0;
-	const char *comm = NULL;
-	int msg_size;
+	struct kstat stat;
+	int ret = vfs_getattr(path, &stat, STATX_INO, AT_STATX_SYNC_AS_STAT);
+
+	if (ret == 0) {
+		*inode_out = stat.ino;
+	} else if (fallback_dentry && fallback_dentry->d_inode) {
+		/* Fallback to dentry inode if vfs_getattr fails */
+		*inode_out = fallback_dentry->d_inode->i_ino;
+	} else {
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * notify_fs_error - Send filesystem error notification via netlink
+ * @event: Pointer to filesystem error event data structure
+ *
+ * This function constructs and sends a Generic Netlink message with
+ * filesystem error information to userspace listeners.
+ * Multiple filenames are sent as separate attributes.
+ *
+ * Returns: 0 on success (including when there are no listeners to receive
+ * the notification, i.e., when -ESRCH occurs), negative error code on
+ * other failures.
+ */
+static int notify_fs_error(const struct deepin_fs_err_event_data *event)
+{
+	int msg_size = 0;
 	struct sk_buff *skb = NULL;
 	void *msg_head = NULL;
-	int error;
+	int error = 0;
+	int i = 0;
 
-	pid = current->pid;
-	comm = current->comm;
+	/* Validate input parameters */
+	if (!event || !event->filenames || event->count <= 0 || !event->comm ||
+	    !event->inodes || !event->inode_is_parent) {
+		pr_warn("deepin_err_notify: Invalid event data (event=%p)\n",
+			 event);
+		return -EINVAL;
+	}
 
-	msg_size = nla_total_size(strlen(filename) + 1) +
-		   nla_total_size(sizeof(u32)) +
-		   nla_total_size(strlen(comm) + 1) +
-		   nla_total_size(strlen(func_name) + 1);
+	/* Calculate message size for all filenames and attributes */
+	msg_size = nla_total_size(sizeof(u32)) /* PID */
+		   + nla_total_size(sizeof(u32)) /* PPID */
+		   + nla_total_size(strlen(event->comm) + 1) /* COMM */
+		   + nla_total_size(sizeof(u32)) /* UID */
+		   + nla_total_size(sizeof(u32)); /* GID */
 
-	/* Use GFP_NOFS to avoid recursion in file system operations. */
-	skb = genlmsg_new(msg_size, GFP_NOFS);
+	for (i = 0; i < event->count; i++) {
+		if (event->filenames[i])
+			msg_size +=
+				nla_total_size(strlen(event->filenames[i]) + 1);
+	}
+
+	/* Add size for inode numbers and parent flags */
+	for (i = 0; i < event->count; i++) {
+		msg_size += nla_total_size(sizeof(u64)); /* INODE */
+		msg_size += nla_total_size(sizeof(u8)); /* INODE_PARENT */
+	}
+
+	skb = genlmsg_new(msg_size, GFP_KERNEL);
 	if (!skb) {
-		pr_err("deepin_err_notify: Failed to allocate netlink message\n");
-		return;
+		pr_err(
+			"deepin_err_notify: Failed to allocate netlink message\n");
+		return -ENOMEM;
 	}
 
 	msg_head = genlmsg_put(skb, 0, 0, &deepin_err_notify_genl_family, 0,
 			       DEEPIN_ERR_NOTIFY_CMD_ERR_ROFS);
 	if (!msg_head) {
-		pr_err("deepin_err_notify: Failed to put netlink header\n");
+		error = -EMSGSIZE;
+		pr_err("deepin_err_notify: Failed to put netlink header (error: %d)\n",
+		       error);
 		goto err_out;
 	}
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_FILENAME, filename);
+	/* Add all filenames as separate attributes */
+	for (i = 0; i < event->count; i++) {
+		if (event->filenames[i]) {
+			error = nla_put_string(skb,
+					       DEEPIN_ERR_NOTIFY_ATTR_FILENAME,
+					       event->filenames[i]);
+			if (error)
+				goto attr_err_out;
+		}
+	}
+
+	/* Add all inode numbers and parent flags as paired attributes */
+	for (i = 0; i < event->count; i++) {
+		error = nla_put_u64_64bit(skb, DEEPIN_ERR_NOTIFY_ATTR_INODE,
+					  event->inodes[i], 0);
+		if (error)
+			goto attr_err_out;
+
+		/* Add corresponding parent flag */
+		error = nla_put_u8(skb, DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT,
+				   event->inode_is_parent[i] ? 1 : 0);
+		if (error)
+			goto attr_err_out;
+	}
+
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PID, event->pid);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PID, pid);
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_PPID, event->ppid);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_COMM, comm);
+	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_COMM, event->comm);
 	if (error)
 		goto attr_err_out;
 
-	error = nla_put_string(skb, DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME,
-			       func_name);
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_UID, event->uid);
+	if (error)
+		goto attr_err_out;
+
+	error = nla_put_u32(skb, DEEPIN_ERR_NOTIFY_ATTR_GID, event->gid);
 	if (error)
 		goto attr_err_out;
 
 	genlmsg_end(skb, msg_head);
 
-	/* Send multicast message. */
-	genlmsg_multicast(&deepin_err_notify_genl_family, skb, 0, 0, GFP_NOFS);
-	return;
+	/*
+	 * Send multicast message
+	 *
+	 * IMPORTANT: genlmsg_multicast() consumes the skb on success or when
+	 * returning -ESRCH (no listeners). The skb ownership is transferred
+	 * to the network subsystem in these cases.
+	 *
+	 * For other error codes, the skb is NOT consumed and must be freed
+	 * by the caller.
+	 */
+	error = genlmsg_multicast(&deepin_err_notify_genl_family, skb, 0, 0,
+				  GFP_KERNEL);
+	if (error) {
+		if (error == -ESRCH) {
+			/*
+			 * -ESRCH means no listeners registered.
+			 * The skb has been consumed, so we must NOT free it.
+			 */
+			return 0;
+		}
+		/*
+		 * Other errors: skb was not consumed, need to free it.
+		 * Jump to err_out for cleanup.
+		 */
+		pr_err("deepin_err_notify: Multicast failed: %d\n", error);
+		goto err_out;
+	}
+
+	/*
+	 * Success: skb has been consumed by genlmsg_multicast().
+	 * Do NOT call kfree_skb() here, as it would cause a double free.
+	 */
+	pr_debug(
+		"deepin_err_notify: Notification sent (files=%d, pid=%d, comm=%s)\n",
+		event->count, event->pid, event->comm);
+	return 0;
 
 attr_err_out:
-	pr_err("deepin_err_notify: Failed to add netlink attributes\n");
+	pr_err("deepin_err_notify: Failed to add netlink attributes: %d\n",
+		 error);
 err_out:
 	kfree_skb(skb);
+	return error;
+}
+
+static int
+prepare_and_notify_fs_error(const struct deepin_path_last *path_lasts,
+			    int path_last_count)
+{
+	/* Process information variables */
+	pid_t pid = 0, ppid = 0;
+	const char *comm = NULL;
+	uid_t uid = 0;
+	gid_t gid = 0;
+
+	/* Path conversion variables */
+	char *path_bufs[MAX_PATH_LASTS] = { NULL, NULL };
+	const char *filenames[MAX_PATH_LASTS] = { "", "" };
+	int count = 0;
+	unsigned long inodes[MAX_PATH_LASTS] = { 0, 0 };
+	bool inode_parent_flags[MAX_PATH_LASTS] = { false, false };
+	int i = 0;
+	int error = 0;
+
+	/* Validate input parameters */
+	if (!path_lasts || path_last_count <= 0) {
+		pr_warn(
+			"deepin_err_notify: Invalid parameters: path_lasts=%p, path_last_count=%d\n",
+			path_lasts, path_last_count);
+		return -EINVAL;
+	}
+
+	/* Only handle up to MAX_PATH_LASTS path_lasts */
+	if (path_last_count > MAX_PATH_LASTS) {
+		pr_warn(
+			"deepin_err_notify: Invalid path_last_count=%d (must be 1-%d)\n",
+			path_last_count, MAX_PATH_LASTS);
+		return -EINVAL;
+	}
+
+	/* Get basic process information from current context */
+	pid = current->pid;
+	ppid = current->real_parent ? current->real_parent->pid : 0;
+	comm = current->comm; /* Short name, limited to 15 characters */
+
+	/* Get credentials */
+	uid = from_kuid(&init_user_ns, current_uid());
+	gid = from_kgid(&init_user_ns, current_gid());
+
+	/* Convert each path_last to a filename string and extract inode */
+	for (i = 0; i < path_last_count; i++) {
+		if (path_lasts[i].path.dentry) {
+			const struct deepin_path_last *pl = &path_lasts[i];
+			struct dentry *target_dentry = pl->path.dentry;
+
+			path_bufs[i] = __getname();
+			if (!path_bufs[i])
+				continue;
+
+			/* Build the filename */
+			if (pl->last) {
+				/* Complete path not obtained, need to combine path + last */
+				char *combined_path = combine_path_and_last(
+					path_bufs[i], &pl->path, pl->last);
+				if (!combined_path) {
+					pr_warn(
+						"deepin_err_notify: combine_path_and_last failed for path_last[%d]\n",
+						i);
+					continue;
+				}
+
+				filenames[count] = combined_path;
+
+				/*
+				 * Use parent directory's inode since target doesn't exist.
+				 */
+				get_inode_from_path(&pl->path, target_dentry,
+						    &inodes[count]);
+				inode_parent_flags[count] = true;
+				count++;
+			} else {
+				/* Complete path obtained */
+				char *p = d_absolute_path(
+					&pl->path, path_bufs[i], PATH_MAX);
+				if (!IS_ERR(p)) {
+					filenames[count] = p;
+				} else {
+					pr_warn(
+						"deepin_err_notify: d_absolute_path failed for path_last[%d]: %ld\n",
+						i, PTR_ERR(p));
+					continue;
+				}
+
+				/*
+				 * File exists, get the real inode number.
+				 */
+				get_inode_from_path(&pl->path, target_dentry,
+						    &inodes[count]);
+				inode_parent_flags[count] = false;
+				count++;
+			}
+		}
+	}
+
+	/*
+	 * Send the notification if we got at least one valid filename.
+	 * If no valid filenames were extracted, return success anyway
+	 * since this is not a critical error (paths may be unmounted, etc).
+	 */
+	if (count > 0) {
+		struct deepin_fs_err_event_data event = {
+			.filenames = filenames,
+			.count = count,
+			.inodes = inodes,
+			.inode_is_parent = inode_parent_flags,
+			.pid = pid,
+			.ppid = ppid,
+			.comm = comm,
+			.uid = uid,
+			.gid = gid,
+		};
+
+		error = notify_fs_error(&event);
+		if (error < 0) {
+			pr_debug(
+				"deepin_err_notify: notify_fs_error failed: %d\n",
+				error);
+			goto cleanup;
+		}
+	} else {
+		pr_warn("deepin_err_notify: No valid filenames to send\n");
+	}
+
+	/* Success path: set return value to 0 */
+	error = 0;
+
+cleanup:
+	/* Resource cleanup: free all allocated path buffers */
+	for (i = 0; i < MAX_PATH_LASTS; i++) {
+		if (path_bufs[i])
+			__putname(path_bufs[i]);
+	}
+
+	return error;
 }
 
 /**
