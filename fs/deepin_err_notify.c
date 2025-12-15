@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * fs/deepin_ro_fs_err_notify.c - Deepin read-only filesystem error notification
+ * Deepin filesystem error notification
  *
- * This module provides notification functionality for read-only filesystem
- * errors, specifically targeting overlay filesystems mounted on /usr.
+ * This module provides notification functionality for filesystem errors,
+ * especially for read-only filesystem errors.
  */
 
 #include <linux/init.h>
@@ -30,13 +30,24 @@
 /* Family name (max GENL_NAMSIZ characters, including null terminator) */
 #define DEEPIN_ERR_NOTIFY_FAMILY_NAME "DEEPIN_ENOTIFY"
 
+/* Multicast group name for error events (used in Netlink communication) */
+#define MULTICAST_GROUP_ERR_EVENTS "err_events"
+
 /* Define netlink message types and attributes */
 enum {
 	DEEPIN_ERR_NOTIFY_ATTR_UNSPEC,
-	DEEPIN_ERR_NOTIFY_ATTR_FILENAME, /* Filename */
-	DEEPIN_ERR_NOTIFY_ATTR_PID, /* Process ID */
-	DEEPIN_ERR_NOTIFY_ATTR_COMM, /* Process Name */
-	DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME, /* Function Name */
+	DEEPIN_ERR_NOTIFY_ATTR_FILENAME = 1, /* Filename (string) */
+	DEEPIN_ERR_NOTIFY_ATTR_INODE = 2, /* Inode (u64) */
+	DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT =
+		3, /* Bool: inode from parent (u8) */
+	DEEPIN_ERR_NOTIFY_ATTR_PID = 4, /* Process ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_PPID = 5, /* Parent Process ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_COMM =
+		6, /* Process Short Name (string, 15 chars max) */
+	DEEPIN_ERR_NOTIFY_ATTR_UID = 7, /* User ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_GID = 8, /* Group ID (u32) */
+	DEEPIN_ERR_NOTIFY_ATTR_STATUS = 9, /* Enable/Disable Status (u8) */
+	DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME = 10, /* Function Name (string) */
 	__DEEPIN_ERR_NOTIFY_ATTR_MAX,
 };
 
@@ -44,7 +55,11 @@ enum {
 
 enum {
 	DEEPIN_ERR_NOTIFY_CMD_UNSPEC,
-	DEEPIN_ERR_NOTIFY_CMD_NOTIFY, /* Error Notify Command */
+	DEEPIN_ERR_NOTIFY_CMD_ERR_ROFS =
+		1, /* Read Only Filesystem Error Notify Command */
+	DEEPIN_ERR_NOTIFY_CMD_ENABLE = 2, /* Enable error notification */
+	DEEPIN_ERR_NOTIFY_CMD_DISABLE = 3, /* Disable error notification */
+	DEEPIN_ERR_NOTIFY_CMD_GET_STATUS = 4, /* Get enable/disable status */
 	__DEEPIN_ERR_NOTIFY_CMD_MAX,
 };
 
@@ -56,7 +71,10 @@ static bool deepin_err_notify_initialized __read_mostly;
 /* Runtime control variable for deepin error notification */
 static int deepin_err_notify_enable __read_mostly = 0;
 
-int deepin_err_notify_enabled(void)
+/* Forward declaration of Generic Netlink family */
+static struct genl_family deepin_err_notify_genl_family;
+
+inline int deepin_err_notify_enabled(void)
 {
 	return deepin_err_notify_initialized && deepin_err_notify_enable;
 }
@@ -116,8 +134,116 @@ void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
 /* Define multicast group */
 static const struct genl_multicast_group deepin_err_notify_nl_mcgrps[] = {
 	{
-		.name = "ro_fs_events",
-		.flags = GENL_UNS_ADMIN_PERM,
+		.name = MULTICAST_GROUP_ERR_EVENTS,
+		.flags = GENL_UNS_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+};
+
+/* Netlink attribute policy */
+static const struct nla_policy
+	deepin_err_notify_genl_policy[DEEPIN_ERR_NOTIFY_ATTR_MAX + 1] = {
+		[DEEPIN_ERR_NOTIFY_ATTR_FILENAME] = { .type = NLA_STRING },
+		[DEEPIN_ERR_NOTIFY_ATTR_INODE] = { .type = NLA_U64 },
+		[DEEPIN_ERR_NOTIFY_ATTR_INODE_PARENT] = { .type = NLA_U8 },
+		[DEEPIN_ERR_NOTIFY_ATTR_PID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_PPID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_COMM] = { .type = NLA_STRING },
+		[DEEPIN_ERR_NOTIFY_ATTR_UID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_GID] = { .type = NLA_U32 },
+		[DEEPIN_ERR_NOTIFY_ATTR_STATUS] = { .type = NLA_U8 },
+	};
+
+/**
+ * deepin_err_notify_cmd_enable - Enable error notification via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success
+ */
+static int deepin_err_notify_cmd_enable(struct sk_buff *skb,
+					struct genl_info *info)
+{
+	deepin_err_notify_enable = 1;
+	pr_debug("deepin_err_notify: Error notification enabled via netlink\n");
+	return 0;
+}
+
+/**
+ * deepin_err_notify_cmd_disable - Disable error notification via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success
+ */
+static int deepin_err_notify_cmd_disable(struct sk_buff *skb,
+					 struct genl_info *info)
+{
+	deepin_err_notify_enable = 0;
+	pr_debug(
+		"deepin_err_notify: Error notification disabled via netlink\n");
+	return 0;
+}
+
+/**
+ * deepin_err_notify_cmd_get_status - Get error notification status via netlink
+ * @skb: Socket buffer (unused)
+ * @info: Generic netlink info structure
+ *
+ * Returns: 0 on success, negative error code on failure
+ */
+static int deepin_err_notify_cmd_get_status(struct sk_buff *skb,
+					    struct genl_info *info)
+{
+	struct sk_buff *msg;
+	void *hdr;
+	int ret;
+
+	/* Allocate a new message */
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return -ENOMEM;
+
+	/* Add Generic Netlink header */
+	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
+			  &deepin_err_notify_genl_family, 0,
+			  DEEPIN_ERR_NOTIFY_CMD_GET_STATUS);
+	if (!hdr) {
+		ret = -EMSGSIZE;
+		goto err_free_msg;
+	}
+
+	/* Add status attribute */
+	ret = nla_put_u8(msg, DEEPIN_ERR_NOTIFY_ATTR_STATUS,
+			 deepin_err_notify_enable);
+	if (ret < 0)
+		goto err_free_msg;
+
+	genlmsg_end(msg, hdr);
+
+	/* Send unicast reply to the requester */
+	return genlmsg_reply(msg, info);
+
+err_free_msg:
+	nlmsg_free(msg);
+	return ret;
+}
+
+/* Define Generic Netlink operations */
+static const struct genl_ops deepin_err_notify_genl_ops[] = {
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_ENABLE,
+		.doit = deepin_err_notify_cmd_enable,
+		.flags = GENL_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_DISABLE,
+		.doit = deepin_err_notify_cmd_disable,
+		.flags = GENL_ADMIN_PERM, /* Require CAP_NET_ADMIN */
+	},
+	{
+		.cmd = DEEPIN_ERR_NOTIFY_CMD_GET_STATUS,
+		.doit = deepin_err_notify_cmd_get_status,
+		.flags = 0, /* Allow any user to query status */
 	},
 };
 
@@ -128,6 +254,9 @@ static struct genl_family deepin_err_notify_genl_family __ro_after_init = {
 	.name = DEEPIN_ERR_NOTIFY_FAMILY_NAME,
 	.version = 1,
 	.maxattr = DEEPIN_ERR_NOTIFY_ATTR_MAX,
+	.policy = deepin_err_notify_genl_policy,
+	.ops = deepin_err_notify_genl_ops,
+	.n_ops = ARRAY_SIZE(deepin_err_notify_genl_ops),
 	.mcgrps = deepin_err_notify_nl_mcgrps,
 	.n_mcgrps = ARRAY_SIZE(deepin_err_notify_nl_mcgrps),
 };
@@ -159,7 +288,7 @@ void deepin_send_ro_fs_err_notification(const char *filename,
 	}
 
 	msg_head = genlmsg_put(skb, 0, 0, &deepin_err_notify_genl_family, 0,
-			       DEEPIN_ERR_NOTIFY_CMD_NOTIFY);
+			       DEEPIN_ERR_NOTIFY_CMD_ERR_ROFS);
 	if (!msg_head) {
 		pr_err("deepin_err_notify: Failed to put netlink header\n");
 		goto err_out;
@@ -210,28 +339,6 @@ void deepin_put_path_last(struct deepin_path_last *path_last)
 	}
 }
 
-/* sysctl table and initialization */
-#ifdef CONFIG_SYSCTL
-static struct ctl_table deepin_err_notify_sysctls[] = {
-	{
-		.procname = "deepin-err-notify-enable",
-		.data = &deepin_err_notify_enable,
-		.maxlen = sizeof(int),
-		.mode = 0644,
-		.proc_handler = proc_dointvec,
-	},
-};
-
-static void __init deepin_err_notify_sysctl_init(void)
-{
-	register_sysctl_init("fs", deepin_err_notify_sysctls);
-}
-#else
-static void __init deepin_err_notify_sysctl_init(void)
-{
-}
-#endif /* CONFIG_SYSCTL */
-
 /* Deepin error notify initialization */
 static int __init deepin_err_notify_init(void)
 {
@@ -240,6 +347,7 @@ static int __init deepin_err_notify_init(void)
 	/* Compile-time check for family name length */
 	BUILD_BUG_ON(sizeof(DEEPIN_ERR_NOTIFY_FAMILY_NAME) > GENL_NAMSIZ);
 
+	/* Register Generic Netlink family */
 	error = genl_register_family(&deepin_err_notify_genl_family);
 	if (error) {
 		pr_err("deepin_err_notify: Failed to register Generic Netlink family: %d\n",
@@ -250,10 +358,9 @@ static int __init deepin_err_notify_init(void)
 	/* Set initialization success flag */
 	deepin_err_notify_initialized = true;
 
-	/* Initialize sysctl interface */
-	deepin_err_notify_sysctl_init();
-
-	pr_info("deepin_err_notify: Generic Netlink family registered successfully\n");
+	pr_debug(
+		"deepin_err_notify: Generic Netlink family '%s' registered successfully\n",
+		DEEPIN_ERR_NOTIFY_FAMILY_NAME);
 	return 0;
 }
 
