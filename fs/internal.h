@@ -62,7 +62,6 @@ int do_mkdirat(int dfd, struct filename *name, umode_t mode);
 int do_symlinkat(struct filename *from, int newdfd, struct filename *to);
 int do_linkat(int olddfd, struct filename *old, int newdfd,
 			struct filename *new, int flags);
-int deepin_get_path_for_err_notify(int dfd, struct filename *name, struct path *result_path);
 
 /*
  * deepin_err_notify.c
@@ -76,7 +75,6 @@ int deepin_lookup_path_or_parent(int dfd, struct filename *name,
 				 unsigned int flags,
 				 struct deepin_path_last *result_path_last);
 
-int deepin_err_notify_enabled(void);
 int deepin_err_notify_should_send(void);
 void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
 					const char *func_name);
@@ -85,7 +83,6 @@ void deepin_notify_rename_ro_fs_err(const struct qstr *old_last,
 				    const struct path *old_path,
 				    const struct path *new_path);
 void deepin_put_path_last(struct deepin_path_last *path_last);
-void deepin_send_ro_fs_err_notification(const char *filename, const char *func_name);
 
 #ifdef CONFIG_DEEPIN_ERR_NOTIFY
 #define deepin_should_notify_ro_fs_err(error) \
