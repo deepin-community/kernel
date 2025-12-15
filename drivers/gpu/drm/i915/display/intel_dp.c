@@ -1738,7 +1738,7 @@ static bool is_bw_sufficient_for_dsc_config(u16 compressed_bpp, u32 link_clock,
 	available_bw = (link_clock * lane_count * timeslots)  / 8;
 	required_bw = compressed_bpp * (intel_dp_mode_to_fec_clock(mode_clock));
 
-	return available_bw > required_bw;
+	return available_bw >= required_bw;
 }
 
 static int dsc_compute_link_config(struct intel_dp *intel_dp,
