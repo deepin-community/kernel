@@ -1392,8 +1392,10 @@ void __init mem_init(void)
 	 * The upper region becomes the IEE linear mapping area.
 	 * Note that the IEE mapping region is mapped with read-only permissions.
 	 */
-	if (haoc_enabled)
+	if (haoc_enabled) {
+		pr_info("HAOC is enabled by kernel command line.");
 		iee_init();
+	}
 	#endif
 	preallocate_vmalloc_pages();
 }
