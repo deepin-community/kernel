@@ -3844,6 +3844,7 @@ S:	Maintained
 F:	Documentation/bpf/prog_lsm.rst
 F:	include/linux/bpf_lsm.h
 F:	kernel/bpf/bpf_lsm.c
+F:	kernel/bpf/bpf_lsm_proto.c
 F:	security/bpf/
 
 BPF [SELFTESTS] (Test Runners & Infrastructure)
