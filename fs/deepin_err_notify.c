@@ -9,6 +9,7 @@
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
+#include <linux/stat.h>
 #include <linux/namei.h>
 #include <linux/mount.h>
 #include <linux/path.h>
@@ -50,7 +51,6 @@ enum {
 	DEEPIN_ERR_NOTIFY_ATTR_UID = 7, /* User ID (u32) */
 	DEEPIN_ERR_NOTIFY_ATTR_GID = 8, /* Group ID (u32) */
 	DEEPIN_ERR_NOTIFY_ATTR_STATUS = 9, /* Enable/Disable Status (u8) */
-	DEEPIN_ERR_NOTIFY_ATTR_FUNC_NAME = 10, /* Function Name (string) */
 	__DEEPIN_ERR_NOTIFY_ATTR_MAX,
 };
 
@@ -139,11 +139,56 @@ int deepin_err_notify_should_send(void)
 	return __ratelimit(&deepin_err_notify_ratelimit);
 }
 
+/**
+ * combine_path_and_last - Combine base path with last component
+ * @buffer: Pre-allocated buffer to store the combined path (size PATH_MAX)
+ * @path: The base path to combine
+ * @last: The last component to append
+ *
+ * This function combines a base path with a last component, constructing
+ * the full path: base_path + "/" + last. The result is stored in buffer.
+ *
+ * Returns: Pointer to the combined path string on success, NULL on failure
+ */
 static char *combine_path_and_last(char *buffer, const struct path *path,
 				   const char *last)
 {
-	/* TODO: Implement in next commit */
-	return NULL;
+	char *base_path;
+	size_t base_len, last_len, total_len;
+
+	base_path = d_absolute_path(path, buffer, PATH_MAX);
+	if (IS_ERR(base_path))
+		return NULL;
+
+	/* Construct full path: base_path + "/" + last */
+	base_len = strlen(base_path);
+	last_len = strlen(last);
+	total_len = base_len + 1 + last_len + 1;
+
+	if (total_len > PATH_MAX)
+		return NULL;
+
+	/*
+	 * Move base_path to start of buffer if needed.
+	 * d_absolute_path() may return a pointer to the middle of the buffer,
+	 * not the start. We need the path at the beginning so we can
+	 * append "/" + last to it.
+	 */
+	if (base_path != buffer)
+		memmove(buffer, base_path, base_len);
+
+	/* Avoid appending an extra "/" after root directory "/" which would
+	 * result in "//filename".
+	 */
+	if (base_len > 0 && buffer[base_len - 1] != '/') {
+		buffer[base_len] = '/';
+		memcpy(buffer + base_len + 1, last, last_len + 1);
+	} else {
+		/* base_path is already "/" or ends with "/" (rare case) */
+		memcpy(buffer + base_len, last, last_len + 1);
+	}
+
+	return buffer;
 }
 
 /* Check if overlay filesystem is mounted on /usr and send read only error notification */
@@ -158,7 +203,7 @@ void deepin_check_and_notify_ro_fs_err(const struct deepin_path_last *path_last,
 	ret = prepare_and_notify_fs_error(path_last, 1);
 
 	if (ret < 0) {
-		pr_err(
+		pr_debug(
 			"deepin_err_notify: Failed to send notification to userspace: %d\n",
 			ret);
 	}
@@ -673,13 +718,26 @@ static int __init deepin_err_notify_init(void)
  * @new_path: path of new parent directory
  *
  * This function is called when a rename operation fails with EROFS error.
+ * It attempts to look up the old and new paths and send error notification
+ * if both paths are valid.
  */
 void deepin_notify_rename_ro_fs_err(const struct qstr *old_last,
 				    const struct qstr *new_last,
 				    const struct path *old_path,
 				    const struct path *new_path)
 {
-	/* Simplified implementation - will be enhanced in next commit */
+	const struct deepin_path_last path_lasts[2] = {
+		{ .path = *old_path, .last = old_last->name },
+		{ .path = *new_path, .last = new_last->name }
+	};
+	int ret;
+
+	ret = prepare_and_notify_fs_error(path_lasts, 2);
+	if (ret < 0) {
+		pr_debug(
+			"deepin_err_notify: Failed to send notification to userspace: %d\n",
+			ret);
+	}
 }
 
 /* Use fs_initcall to ensure initialization before file system operations */
