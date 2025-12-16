@@ -67,7 +67,12 @@
 #include <net/dst.h>
 #include <net/sock.h>
 #include <net/checksum.h>
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 #include <net/gro.h>
+#else  /* !CONFIG_DEEPIN_KABI_RESERVE */
+/* This should be increased if a protocol with a bigger head is added. */
+#define GRO_MAX_HEAD (MAX_HEADER + 128)
+#endif /* CONFIG_DEEPIN_KABI_RESERVE */
 #include <net/gso.h>
 #include <net/ip6_checksum.h>
 #include <net/xfrm.h>
