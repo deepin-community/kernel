@@ -729,9 +729,10 @@ void vgic_v3_load(struct kvm_vcpu *vcpu)
 	if (likely(cpu_if->vgic_sre))
 		kvm_call_hyp(__vgic_v3_write_vmcr, cpu_if->vgic_vmcr);
 
-	kvm_call_hyp(__vgic_v3_restore_aprs, cpu_if);
+	if (!vcpu_is_rec(vcpu))
+		kvm_call_hyp(__vgic_v3_restore_aprs, cpu_if);
 
-	if (has_vhe())
+	if (has_vhe() && !vcpu_is_rec(vcpu))
 		__vgic_v3_activate_traps(cpu_if);
 
 	WARN_ON(vgic_v4_load(vcpu));
@@ -755,6 +756,6 @@ void vgic_v3_put(struct kvm_vcpu *vcpu)
 
 	kvm_call_hyp(__vgic_v3_save_aprs, cpu_if);
 
-	if (has_vhe())
+	if (has_vhe() && !vcpu_is_rec(vcpu))
 		__vgic_v3_deactivate_traps(cpu_if);
 }
