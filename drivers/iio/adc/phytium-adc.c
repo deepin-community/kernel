@@ -300,8 +300,8 @@ static int phytium_adc_single_conv(struct iio_dev *indio_dev, u8 ch)
 	struct phytium_adc *adc = iio_priv(indio_dev);
 	int ret;
 
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
+	ret = iio_device_claim_direct(indio_dev);
+	if (!ret)
 		return ret;
 	mutex_lock(&adc->lock);
 
@@ -317,7 +317,7 @@ static int phytium_adc_single_conv(struct iio_dev *indio_dev, u8 ch)
 	phytium_adc_intrmask_setup(adc, BIT(ch), false);
 
 	mutex_unlock(&adc->lock);
-	iio_device_release_direct_mode(indio_dev);
+	iio_device_release_direct(indio_dev);
 
 	return ret;
 }
