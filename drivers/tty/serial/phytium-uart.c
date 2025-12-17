@@ -831,7 +831,7 @@ static int phytium_uart_probe(struct pci_dev *pdev,
 	if (rc)
 		return rc;
 
-	rc = pcim_iomap_regions_request_all(pdev, 0x01, pci_name(pdev));
+	rc = pcim_request_all_regions(pdev, pci_name(pdev));
 	if (rc)
 		return rc;
 
