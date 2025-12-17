@@ -637,7 +637,7 @@ static void phytium_can_tx_interrupt(struct net_device *ndev, u32 isr)
 
 	cdev->is_tx_done = true;
 	cdev->is_need_stop_xmit = false;
-	del_timer(&cdev->timer);
+	timer_delete(&cdev->timer);
 
 	netdev_dbg(ndev, "Finish transform packets %lu\n", stats->tx_packets);
 
@@ -647,7 +647,7 @@ static void phytium_can_tx_interrupt(struct net_device *ndev, u32 isr)
 
 static void phytium_can_tx_done_timeout(struct timer_list *t)
 {
-	struct phytium_can_dev *priv = from_timer(priv, t, timer);
+	struct phytium_can_dev *priv = timer_container_of(priv, t, timer);
 	struct net_device *ndev = priv->net;
 
 	if (!priv->is_tx_done) {
@@ -825,7 +825,7 @@ static int phytium_can_set_bittiming(struct net_device *dev)
 {
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 	const struct can_bittiming *bt = &cdev->can.bittiming;
-	const struct can_bittiming *dbt = &cdev->can.data_bittiming;
+	const struct can_bittiming *dbt = &cdev->can.fd.data_bittiming;
 	u32 btr, dbtr;
 	u32 is_config_mode;
 
@@ -944,7 +944,7 @@ static void phytium_can_stop(struct net_device *dev)
 	ctrl &= ~(CTRL_XFER | CTRL_TXREQ);
 	phytium_can_write(cdev, CAN_CTRL, ctrl);
 
-	del_timer(&cdev->timer);
+	timer_delete(&cdev->timer);
 
 	/* Set the state as STOPPED */
 	cdev->can.state = CAN_STATE_STOPPED;
@@ -1136,7 +1136,7 @@ static int phytium_can_dev_setup(struct phytium_can_dev *cdev)
 		cdev->can.ctrlmode_supported |= CAN_CTRLMODE_FD;
 		dev->mtu = CANFD_MTU;
 		cdev->can.ctrlmode = CAN_CTRLMODE_FD;
-		cdev->can.data_bittiming_const = cdev->bit_timing;
+		cdev->can.fd.data_bittiming_const = cdev->bit_timing;
 	}
 	spin_lock_init(&cdev->lock);
 	return 0;
