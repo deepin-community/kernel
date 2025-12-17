@@ -1174,6 +1174,8 @@ static inline bool kvm_vm_is_protected(struct kvm *kvm)
 int kvm_arm_vcpu_finalize(struct kvm_vcpu *vcpu, int feature);
 bool kvm_arm_vcpu_is_finalized(struct kvm_vcpu *vcpu);
 
+#define kvm_arch_has_private_mem(kvm) ((kvm)->arch.is_realm)
+
 #define kvm_arm_vcpu_sve_finalized(vcpu) vcpu_get_flag(vcpu, VCPU_SVE_FINALIZED)
 
 #define kvm_has_mte(kvm)					\
