@@ -135,7 +135,7 @@ static void phytium_mci_pci_remove(struct pci_dev *pdev)
 		return;
 	}
 
-	del_timer(&host->hotplug_timer);
+	timer_delete(&host->hotplug_timer);
 
 	mmc_remove_host(host->mmc);
 
