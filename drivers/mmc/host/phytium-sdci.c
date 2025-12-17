@@ -898,7 +898,7 @@ static void hotplug_timer_func(struct timer_list *t)
 	struct phytium_sdci_host *host;
 	u32 status;
 
-	host = from_timer(host, t, hotplug_timer);
+	host = timer_container_of(host, t, hotplug_timer);
 	if (!host)
 		dev_err(host->dev, "%s: Not find host!\n", __func__);
 	status = readl(host->base + SDCI_STATUS);
