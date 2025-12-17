@@ -144,7 +144,7 @@ static void phytium_mci_remove(struct platform_device *pdev)
 		mmc_free_host(mmc);
 		return;
 	}
-	del_timer(&host->hotplug_timer);
+	timer_delete(&host->hotplug_timer);
 	mmc_remove_host(host->mmc);
 
 	if (host->dma.adma_table) {

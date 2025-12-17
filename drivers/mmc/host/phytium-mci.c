@@ -1055,7 +1055,7 @@ static void hotplug_timer_func(struct timer_list *t)
 	struct phytium_mci_host *host;
 	u32 status;
 
-	host = from_timer(host, t, hotplug_timer);
+	host = timer_container_of(host, t, hotplug_timer);
 	if (!host)
 		return;
 
