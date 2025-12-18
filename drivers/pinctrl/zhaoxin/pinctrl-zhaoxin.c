@@ -246,7 +246,7 @@ static int zhaoxin_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return !!value;
 }
 
-static void zhaoxin_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
+static int zhaoxin_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct zhaoxin_pinctrl *pctrl = gpiochip_get_data(chip);
 	const struct index_cal_array *gpio_out_cal;
@@ -268,6 +268,7 @@ static void zhaoxin_gpio_set(struct gpio_chip *chip, unsigned int offset, int va
 		org &= (~(1<<bit));
 	zx_pad_write16(pctrl, gpio_out_cal->index+gap, org);
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+	return 0;
 }
 
 static int zhaoxin_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
