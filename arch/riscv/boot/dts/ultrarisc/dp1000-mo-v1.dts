@@ -5,11 +5,28 @@
 
 #include "dp1000-mo-pinctrl.dtsi"
 #include <dt-bindings/iio/temperature/thermocouple.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	chosen {
 		bootargs = "earlycon=sbi console=ttyS0,115200";
 		stdout-path = &uart0;
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&portb 0 GPIO_ACTIVE_HIGH>;
+		active-delay-ms = <100>;
+		line-name = "power-off";
+		status = "okay";
+	};
+
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&portb 1 GPIO_ACTIVE_HIGH>;
+		active-delay-ms = <100>;
+		line-name = "reset-system";
+		status = "okay";
 	};
 };
 
@@ -63,4 +80,18 @@
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
+};
+
+&ethernet {
+	phy-handle = <&phy0>;
+	mdio {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		compatible = "snps,dwmac-mdio";
+		phy0: phy@0{
+			phandle = <0x04>;
+			reg = <0x00>;
+			status = "okay";
+		};
+	};
 };
