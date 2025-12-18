@@ -69,7 +69,7 @@ struct phytium_gpio {
 };
 
 int phytium_gpio_get(struct gpio_chip *gc, unsigned int offset);
-void phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value);
+int phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value);
 
 int phytium_gpio_get_direction(struct gpio_chip *gc, unsigned int offset);
 int phytium_gpio_direction_input(struct gpio_chip *gc, unsigned int offset);

@@ -71,7 +71,7 @@ int phytium_gpio_get(struct gpio_chip *gc, unsigned int offset)
 }
 EXPORT_SYMBOL_GPL(phytium_gpio_get);
 
-void phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
+int phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 {
 	struct phytium_gpio *gpio = gpiochip_get_data(gc);
 	struct pin_loc loc;
@@ -80,7 +80,7 @@ void phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 	u32 mask;
 
 	if (get_pin_location(gpio, offset, &loc))
-		return;
+		return 0;
 	dr = gpio->regs + GPIO_SWPORTA_DR + (loc.port * GPIO_PORT_STRIDE);
 
 	raw_spin_lock_irqsave(&gpio->lock, flags);
@@ -93,6 +93,7 @@ void phytium_gpio_set(struct gpio_chip *gc, unsigned int offset, int value)
 	writel(mask, dr);
 
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(phytium_gpio_set);
 
