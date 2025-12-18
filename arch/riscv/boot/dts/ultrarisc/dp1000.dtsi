@@ -567,6 +567,75 @@
 			riscv,ndev = <160>;
 		};
 
+		core_pvt: pvt@110D0000 {
+			compatible = "ultrarisc,dp1000-pvt";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x00 0x110D0000 0x00 0x0000D000>;
+			clock-frequency = <250000000>;
+			channels = <13>;
+			#thermal-sensor-cells = <1>;
+
+			pvt_channel0: channel@0 {
+				label = "Core temp0";
+				reg = <0>;
+			};
+
+			pvt_channel1: channel@1 {
+				label = "Core temp1";
+				reg = <1>;
+			};
+
+			pvt_channel2: channel@2 {
+				label = "Core temp2";
+				reg = <2>;
+			};
+
+			pvt_channel3: channel@3 {
+				label = "Core temp3";
+				reg = <3>;
+			};
+
+			pvt_channel4: channel@4 {
+				label = "Core temp4";
+				reg = <4>;
+			};
+
+			pvt_channel5: channel@5 {
+				label = "Core temp5";
+				reg = <5>;
+			};
+			pvt_channel6: channel@6 {
+				label = "Core temp6";
+				reg = <6>;
+			};
+			pvt_channel7: channel@7 {
+				label = "Core temp7";
+				reg = <7>;
+			};
+			pvt_channel8: channel@8 {
+				label = "Core temp8";
+				reg = <8>;
+			};
+
+			pvt_channel9: channel@9 {
+				label = "Core temp9";
+				reg = <9>;
+			};
+			pvt_channel10: channel@10 {
+				label = "Core temp10";
+				reg = <10>;
+			};
+			pvt_channel11: channel@11 {
+				label = "Cluster0 voltage";
+				reg = <11>;
+			};
+			pvt_channel12: channel@12 {
+				label = "Cluster1 voltage";
+				reg = <12>;
+			};
+		};
+
 		uart0: serial@20300000 {
 			interrupt-parent = <0x01>;
 			interrupts = <17>;
