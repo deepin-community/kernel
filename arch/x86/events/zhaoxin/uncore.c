@@ -1562,8 +1562,7 @@ static void uncore_pmu_cancel_hrtimer(struct zhaoxin_uncore_box *box)
 
 static void uncore_pmu_init_hrtimer(struct zhaoxin_uncore_box *box)
 {
-	hrtimer_init(&box->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	box->hrtimer.function = uncore_pmu_hrtimer;
+	hrtimer_setup(&box->hrtimer, uncore_pmu_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 }
 
 static struct zhaoxin_uncore_box *uncore_alloc_box(struct zhaoxin_uncore_type *type, int node)
