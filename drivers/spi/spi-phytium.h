@@ -72,6 +72,13 @@
 #define  SPI_REGFILE_SIZE_MASK		GENMASK(7, 4)
 #define  SPI_REGFILE_ADDR_MASK		GENMASK(27, 8)
 
+#define SPI_REGFILE_DDR_HIGH_REG	(0x4c)
+#define SPI_REGFILE_VERSION_REG		(0x700)
+#define SPI_REGFILE_VERSION_SUB		GENMASK(7, 0)
+#define SPI_REGFILE_VERSION		GENMASK(15, 8)
+#define SPI_REGFILE_VERSION_DMA		BIT(16)
+#define SPI_REGFILE_VERSION_DDR		BIT(17)
+
 #define SPI_REGFILE_RV2AP_INT_CLEAN	(0x74)
 
 #define SPI_DDR_ADDR_HIGH		12
@@ -219,6 +226,7 @@ struct phytium_spi {
 	u32			log_size;
 	void			(*watchdog)(struct phytium_spi *fts);
 	void			(*handle_debug_err)(struct phytium_spi *fts);
+	u32			regfile_version;
 
 	/* DMA info */
 	u32			current_freq; /* frequency in hz */

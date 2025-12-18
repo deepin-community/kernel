@@ -28,9 +28,7 @@
 #define DRIVER_NAME_PHYT "phytium_spi_2.0"
 #define DRIVER_VERSION	"1.0.14"
 
-#define PHYTIUM_CPU_PART_FTC872		0x872
 
-#define MIDR_PHYTIUM_FTC872 MIDR_CPU_MODEL(ARM_CPU_IMP_PHYTIUM, PHYTIUM_CPU_PART_FTC872)
 
 static ssize_t debug_show(struct device *dev,
 		struct device_attribute *da,
@@ -247,9 +245,11 @@ static int spi_phyt_probe(struct platform_device *pdev)
 	device_property_read_u32(&pdev->dev, "global-cs", &global_cs);
 	fts->global_cs = global_cs;
 
-	fts->dma_get_ddrdata = false;
-	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_FTC872)
+	fts->regfile_version = phytium_read_regfile(fts, SPI_REGFILE_VERSION_REG);
+	if (fts->regfile_version & SPI_REGFILE_VERSION_DMA)
 		fts->dma_get_ddrdata = true;
+	else
+		fts->dma_get_ddrdata = false;
 
 	ret = spi_phyt_add_host(&pdev->dev, fts);
 	if (ret)
