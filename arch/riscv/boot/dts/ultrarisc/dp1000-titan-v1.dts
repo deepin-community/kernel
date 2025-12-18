@@ -34,7 +34,7 @@
 	gpio-keys {
 		compatible = "gpio-keys";
 
-		key-wakeup {
+		key-wakeup@0 {
 			label = "Wake-Up";
 			gpios = <&porta 14 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_WAKEUP>;
@@ -42,6 +42,26 @@
 			debounce-interval = <10>;
 			wakeup-source;
 			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+
+		key-wakeup@1 {
+			label = "Power";
+			gpios = <&porta 11 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <10>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+
+		key-wakeup@2 {
+			label = "Wake-Up-by-USB";
+			gpios = <&porta 4 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WAKEUP>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <10>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_ANY>;
 		};
 	};
 };
@@ -135,5 +155,19 @@
 		 */
 		output-high;
 		line-name = "gpio-mux-debug";
+	};
+};
+
+&ethernet {
+	phy-handle = <&phy0>;
+	mdio {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		compatible = "snps,dwmac-mdio";
+		phy0: phy@0{
+			phandle = <0x04>;
+			reg = <0x00>;
+			status = "okay";
+		};
 	};
 };
