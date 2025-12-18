@@ -27,19 +27,19 @@ void kvm_sw64_record_steal_time(struct kvm_vcpu *vcpu)
 	hva = kvm_vcpu_gfn_to_hva(vcpu, gfn);
 	if (WARN_ON(kvm_is_error_hva(hva))) {
 		vcpu->arch.steal.base = INVALID_GPA;
-		return;
+		goto out_unlock;
 	}
 
 	steal_ptr = (__u64 __user *)(hva + offset_in_page(base) + offset_s);
 	version_ptr = (__u32 __user *)(hva + offset_in_page(base) + offset_v);
 
 	if (WARN_ON(get_user(version, version_ptr)))
-		return;
+		goto out_unlock;
 
 	version += 1;
 
 	if (WARN_ON(put_user(version, version_ptr)))
-		return;
+		goto out_unlock;
 
 	if (!WARN_ON(get_user(steal, steal_ptr))) {
 		vcpu->arch.steal.last_steal = READ_ONCE(current->sched_info.run_delay);
@@ -54,6 +54,8 @@ void kvm_sw64_record_steal_time(struct kvm_vcpu *vcpu)
 	WARN_ON(put_user(version, version_ptr));
 
 	kvm_vcpu_mark_page_dirty(vcpu, gfn);
+
+out_unlock:
 	srcu_read_unlock(&kvm->srcu, idx);
 }
 
