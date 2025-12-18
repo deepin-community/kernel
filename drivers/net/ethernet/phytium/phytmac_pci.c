@@ -175,7 +175,6 @@ static void phytmac_pci_remove(struct pci_dev *pdev)
 
 	phytmac_free_pdata(pdata);
 	bar_mask = pci_select_bars(pdev, IORESOURCE_MEM);
-	pcim_iounmap_regions(pdev, bar_mask);
 
 	pci_disable_device(pdev);
 }
