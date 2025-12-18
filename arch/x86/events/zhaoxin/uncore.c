@@ -512,17 +512,17 @@ again:
 static void kx5000_uncore_msr_disable_event(struct zhaoxin_uncore_box *box,
 					    struct perf_event *event)
 {
-	wrmsrl(event->hw.config_base, 0);
+	wrmsrq(event->hw.config_base, 0);
 }
 
 static void kx5000_uncore_msr_disable_box(struct zhaoxin_uncore_box *box)
 {
-	wrmsrl(KX5000_UNC_PERF_GLOBAL_CTL, 0);
+	wrmsrq(KX5000_UNC_PERF_GLOBAL_CTL, 0);
 }
 
 static void kx5000_uncore_msr_enable_box(struct zhaoxin_uncore_box *box)
 {
-	wrmsrl(KX5000_UNC_PERF_GLOBAL_CTL,
+	wrmsrq(KX5000_UNC_PERF_GLOBAL_CTL,
 	       KX5000_UNC_GLOBAL_CTL_EN_PC_ALL | KX5000_UNC_GLOBAL_CTL_EN_FC);
 }
 
@@ -531,9 +531,9 @@ static void kx5000_uncore_msr_enable_event(struct zhaoxin_uncore_box *box, struc
 	struct hw_perf_event *hwc = &event->hw;
 
 	if (hwc->idx < UNCORE_PMC_IDX_FIXED)
-		wrmsrl(hwc->config_base, hwc->config | KX5000_UNC_CTL_EN);
+		wrmsrq(hwc->config_base, hwc->config | KX5000_UNC_CTL_EN);
 	else
-		wrmsrl(hwc->config_base, KX5000_UNC_FIXED_CTR_CTL_EN);
+		wrmsrq(hwc->config_base, KX5000_UNC_FIXED_CTR_CTL_EN);
 }
 
 static struct attribute *kx5000_uncore_formats_attr[] = {
@@ -590,7 +590,7 @@ static void kh40000_uncore_msr_disable_event(struct zhaoxin_uncore_box *box,
 {
 	struct hw_perf_event *hwc = &event->hw;
 
-	wrmsrl(hwc->config_base, hwc->config);
+	wrmsrq(hwc->config_base, hwc->config);
 }
 
 static void kh40000_uncore_msr_enable_event(struct zhaoxin_uncore_box *box,
@@ -598,7 +598,7 @@ static void kh40000_uncore_msr_enable_event(struct zhaoxin_uncore_box *box,
 {
 	struct hw_perf_event *hwc = &event->hw;
 
-	wrmsrl(hwc->config_base, hwc->config | KH40000_PMON_CTL_EN);
+	wrmsrq(hwc->config_base, hwc->config | KH40000_PMON_CTL_EN);
 }
 
 static void kh40000_uncore_msr_disable_box(struct zhaoxin_uncore_box *box)
@@ -610,7 +610,7 @@ static void kh40000_uncore_msr_disable_box(struct zhaoxin_uncore_box *box)
 	if (msr) {
 		rdmsrq(msr, config);
 		config |= KH40000_PMON_BOX_CTL_FRZ;
-		wrmsrl(msr, config);
+		wrmsrq(msr, config);
 	}
 }
 
@@ -623,7 +623,7 @@ static void kh40000_uncore_msr_enable_box(struct zhaoxin_uncore_box *box)
 	if (msr) {
 		rdmsrq(msr, config);
 		config &= ~KH40000_PMON_BOX_CTL_FRZ;
-		wrmsrl(msr, config);
+		wrmsrq(msr, config);
 	}
 }
 
@@ -632,8 +632,8 @@ static void kh40000_uncore_msr_init_box(struct zhaoxin_uncore_box *box)
 	unsigned int msr = uncore_msr_box_ctl(box);
 
 	if (msr) {
-		wrmsrl(msr, KH40000_PMON_BOX_CTL_INT);
-		wrmsrl(msr, 0);
+		wrmsrq(msr, KH40000_PMON_BOX_CTL_INT);
+		wrmsrq(msr, 0);
 	}
 }
 
@@ -2835,7 +2835,7 @@ static void kx7000_uncore_cpu_init(void)
 	for_each_present_cpu(cpu) {
 		rdmsrq_on_cpu(cpu, 0x1877, &val);
 		val = val & 0xfffffffffffeffffULL;
-		wrmsrl_on_cpu(cpu, 0x1877, val);
+		wrmsrq_on_cpu(cpu, 0x1877, val);
 	}
 }
 
