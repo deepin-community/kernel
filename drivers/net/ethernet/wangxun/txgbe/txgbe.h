@@ -1041,8 +1041,9 @@ struct txgbe_cb {
 /* ESX txgbe CIM IOCTL definition */
 void txgbe_sysfs_exit(struct txgbe_adapter *adapter);
 int txgbe_sysfs_init(struct txgbe_adapter *adapter);
-
+#if IS_ENABLED(CONFIG_DCB)
 extern struct dcbnl_rtnl_ops dcbnl_ops;
+#endif /* CONFIG_DCB */
 int txgbe_copy_dcb_cfg(struct txgbe_adapter *adapter, int tc_max);
 
 u8 txgbe_dcb_txq_to_tc(struct txgbe_adapter *adapter, u8 index);
@@ -1125,7 +1126,7 @@ void txgbe_free_fcoe_ddp_resources(struct txgbe_adapter *adapter);
 int txgbe_fcoe_enable(struct net_device *netdev);
 int txgbe_fcoe_disable(struct net_device *netdev);
 #endif /* CONFIG_FCOE */
-#if IS_ENABLED(CONFIG_DCB)
+#if IS_ENABLED(CONFIG_FCOE)
 u8 txgbe_fcoe_getapp(struct net_device *netdev);
 u8 txgbe_fcoe_get_tc(struct txgbe_adapter *adapter);
 int txgbe_fcoe_get_wwn(struct net_device *netdev, u64 *wwn, int type);
@@ -1144,10 +1145,6 @@ static inline struct netdev_queue *txring_txq(const struct txgbe_ring *ring)
 {
 	return netdev_get_tx_queue(ring->netdev, ring->queue_index);
 }
-
-#if IS_ENABLED(CONFIG_DCB)
-s32 txgbe_dcb_hw_ets(struct txgbe_hw *hw, struct ieee_ets *ets, int max_frame);
-#endif /* CONFIG_DCB */
 
 int txgbe_wol_supported(struct txgbe_adapter *adapter);
 int txgbe_get_settings(struct net_device *netdev,

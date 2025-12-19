@@ -11,10 +11,7 @@ txgbe-objs := txgbe_main.o \
               txgbe_phy.o \
               txgbe_ethtool.o \
 			  txgbe_bp.o \
-			  txgbe_dcb_nl.o \
-			  txgbe_dcb.o \
 			  txgbe_debugfs.o \
-			  txgbe_fcoe.o \
 			  txgbe_mbx.o \
 			  txgbe_mtd.o \
 			  txgbe_e56.o \
@@ -29,9 +26,7 @@ txgbe-objs := txgbe_main.o \
 			  txgbe_pcierr.o \
 			  txgbe_e56_bp.o
 
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-all:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
-	rm -rf *.${MANSECTION}.gz *.ko
+txgbe-$(CONFIG_DCB) += txgbe_dcb_nl.o txgbe_dcb.o
+txgbe-$(CONFIG_FCOE:m=y) += txgbe_fcoe.o
+txgbe-$(CONFIG_SYSFS) += txgbe_sysfs.o
+txgbe-$(CONFIG_DEBUG_FS) += txgbe_debugfs.o

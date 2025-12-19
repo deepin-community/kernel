@@ -364,6 +364,39 @@ s32 txgbe_dcb_config_pfc(struct txgbe_hw *hw, u8 pfc_en, u8 *map)
 	return ret;
 }
 
+s32 txgbe_dcb_hw_ets(struct txgbe_hw *hw, struct ieee_ets *ets, int max_frame)
+{
+	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
+	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
+	int i;
+
+	/* naively give each TC a bwg to map onto CEE hardware */
+	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
+
+	/* Map TSA onto CEE prio type */
+	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+		switch (ets->tc_tsa[i]) {
+		case IEEE_8021QAZ_TSA_STRICT:
+			prio_type[i] = 2;
+			break;
+		case IEEE_8021QAZ_TSA_ETS:
+			prio_type[i] = 0;
+			break;
+		default:
+			/* Hardware only supports priority strict or
+			 * ETS transmission selection algorithms if
+			 * we receive some other value from dcbnl
+			 * throw an error
+			 */
+			return -EINVAL;
+		}
+	}
+
+	txgbe_dcb_calculate_tc_credits(ets->tc_tx_bw, refill, max, max_frame);
+	return txgbe_dcb_hw_config(hw, refill, max,
+				   bwg_id, prio_type, ets->prio_tc);
+}
+
 s32 txgbe_dcb_hw_config(struct txgbe_hw *hw, u16 *refill, u16 *max,
 			u8 *bwg_id, u8 *tsa, u8 *map)
 {
