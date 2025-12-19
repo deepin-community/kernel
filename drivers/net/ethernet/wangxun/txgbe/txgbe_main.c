@@ -4528,39 +4528,6 @@ static void txgbe_napi_disable_all(struct txgbe_adapter *adapter)
 	}
 }
 
-s32 txgbe_dcb_hw_ets(struct txgbe_hw *hw, struct ieee_ets *ets, int max_frame)
-{
-	__u16 refill[IEEE_8021QAZ_MAX_TCS], max[IEEE_8021QAZ_MAX_TCS];
-	__u8 prio_type[IEEE_8021QAZ_MAX_TCS];
-	int i;
-
-	/* naively give each TC a bwg to map onto CEE hardware */
-	__u8 bwg_id[IEEE_8021QAZ_MAX_TCS] = {0, 1, 2, 3, 4, 5, 6, 7};
-
-	/* Map TSA onto CEE prio type */
-	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
-		switch (ets->tc_tsa[i]) {
-		case IEEE_8021QAZ_TSA_STRICT:
-			prio_type[i] = 2;
-			break;
-		case IEEE_8021QAZ_TSA_ETS:
-			prio_type[i] = 0;
-			break;
-		default:
-			/* Hardware only supports priority strict or
-			 * ETS transmission selection algorithms if
-			 * we receive some other value from dcbnl
-			 * throw an error
-			 */
-			return -EINVAL;
-		}
-	}
-
-	txgbe_dcb_calculate_tc_credits(ets->tc_tx_bw, refill, max, max_frame);
-	return txgbe_dcb_hw_config(hw, refill, max,
-				   bwg_id, prio_type, ets->prio_tc);
-}
-
 void txgbe_clear_vxlan_port(struct txgbe_adapter *adapter)
 {
 	if (!(adapter->flags & TXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
@@ -4586,6 +4553,7 @@ static inline unsigned long txgbe_tso_features(void)
 	return features;
 }
 
+#if IS_ENABLED(CONFIG_DCB)
 static void txgbe_configure_dcb(struct txgbe_adapter *adapter)
 {
 	struct txgbe_hw *hw = &adapter->hw;
@@ -4637,6 +4605,7 @@ static void txgbe_configure_dcb(struct txgbe_adapter *adapter)
 	/* write msb to all 8 TCs in one write */
 	wr32(hw, TXGBE_RDB_RSS_TC, msb * 0x11111111);
 }
+#endif /* CONFIG_DCB */
 
 static void txgbe_configure_lli(struct txgbe_adapter *adapter)
 {
@@ -4967,8 +4936,9 @@ static void txgbe_configure(struct txgbe_adapter *adapter)
 	struct txgbe_hw *hw = &adapter->hw;
 
 	txgbe_configure_pb(adapter);
+#if IS_ENABLED(CONFIG_DCB)
 	txgbe_configure_dcb(adapter);
-
+#endif
 	/* We must restore virtualization before VLANs or else
 	 * the VLVF registers will not be populated
 	 */
@@ -7120,8 +7090,8 @@ static void txgbe_watchdog_update_link(struct txgbe_adapter *adapter)
 
 static void txgbe_update_default_up(struct txgbe_adapter *adapter)
 {
+#if IS_ENABLED(CONFIG_DCB)
 	u8 up = 0;
-
 	struct net_device *netdev = adapter->netdev;
 	struct dcb_app app = {
 			      .selector = DCB_APP_IDTYPE_ETHTYPE,
@@ -7133,6 +7103,7 @@ static void txgbe_update_default_up(struct txgbe_adapter *adapter)
 	adapter->default_up = (up > 1) ? (ffs(up) - 1) : 0;
 #else
 	adapter->default_up = up;
+#endif
 #endif
 }
 
@@ -9787,6 +9758,7 @@ static int txgbe_siocdevprivate(struct net_device *netdev, struct ifreq *ifr,
 	return txgbe_ioctl(netdev, ifr, cmd);
 }
 
+#if IS_ENABLED(CONFIG_DCB)
 /* txgbe_validate_rtr - verify 802.1Qp to Rx packet buffer mapping is valid.
  * @adapter: pointer to txgbe_adapter
  * @tc: number of traffic classes currently enabled
@@ -9839,6 +9811,7 @@ static void txgbe_set_prio_tc_map(struct txgbe_adapter *adapter)
 		netdev_set_prio_tc_map(dev, prio, tc);
 	}
 }
+#endif /* CONFIG_DCB */
 
 /**
  * txgbe_setup_tc - routine to configure net_device for multiple traffic
@@ -9879,6 +9852,7 @@ int txgbe_setup_tc(struct net_device *dev, u8 tc)
 
 	txgbe_clear_interrupt_scheme(adapter);
 
+#if IS_ENABLED(CONFIG_DCB)
 	if (tc) {
 		netdev_set_num_tc(dev, tc);
 		txgbe_set_prio_tc_map(adapter);
@@ -9895,7 +9869,7 @@ int txgbe_setup_tc(struct net_device *dev, u8 tc)
 	}
 
 	txgbe_validate_rtr(adapter, tc);
-
+#endif
 	txgbe_init_interrupt_scheme(adapter);
 	if (netif_running(dev))
 		txgbe_open(dev);

@@ -4,6 +4,7 @@
 #ifndef _TXGBE_DCB_H_
 #define _TXGBE_DCB_H_
 
+#include <linux/dcbnl.h>
 #include "txgbe_type.h"
 
 /* DCB defines */
@@ -181,7 +182,7 @@ void txgbe_dcb_unpack_map_cee(struct txgbe_dcb_config *cfg, int direction,
 s32 txgbe_dcb_config_tc_stats(struct txgbe_hw __always_unused *hw,
 			      struct txgbe_dcb_config __always_unused *dcb_config);
 u8 txgbe_dcb_get_tc_from_up(struct txgbe_dcb_config *cfg, int direction, u8 up);
-
+s32 txgbe_dcb_hw_ets(struct txgbe_hw *hw, struct ieee_ets *ets, int max_frame);
 /* DCB initialization */
 s32 txgbe_dcb_config(struct txgbe_hw *hw,
 		     struct txgbe_dcb_config *dcb_config);

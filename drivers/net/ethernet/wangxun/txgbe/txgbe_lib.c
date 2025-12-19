@@ -4,6 +4,7 @@
 #include "txgbe.h"
 #include "txgbe_sriov.h"
 
+#if IS_ENABLED(CONFIG_DCB)
 /**
  * txgbe_cache_ring_dcb_vmdq - Descriptor ring to register mapping for VMDq
  * @adapter: board private structure to initialize
@@ -147,6 +148,7 @@ static bool txgbe_cache_ring_dcb(struct txgbe_adapter *adapter)
 
 	return true;
 }
+#endif /* CONFIG_DCB */
 
 /**
  * txgbe_cache_ring_vmdq - Descriptor ring to register mapping for VMDq
@@ -248,12 +250,13 @@ static bool txgbe_cache_ring_rss(struct txgbe_adapter *adapter)
  **/
 static void txgbe_cache_ring_register(struct txgbe_adapter *adapter)
 {
+#if IS_ENABLED(CONFIG_DCB)
 	if (txgbe_cache_ring_dcb_vmdq(adapter))
 		return;
 
 	if (txgbe_cache_ring_dcb(adapter))
 		return;
-
+#endif /* CONFIG_DCB */
 	if (txgbe_cache_ring_vmdq(adapter))
 		return;
 
@@ -267,6 +270,7 @@ static void txgbe_cache_ring_register(struct txgbe_adapter *adapter)
 #define TXGBE_RSS_2Q_MASK       0x1
 #define TXGBE_RSS_DISABLED_MASK 0x0
 
+#if IS_ENABLED(CONFIG_DCB)
 /**
  * txgbe_set_dcb_vmdq_queues: Allocate queues for VMDq devices w/ DCB
  * @adapter: board private structure to initialize
@@ -441,6 +445,7 @@ static bool txgbe_set_dcb_queues(struct txgbe_adapter *adapter)
 
 	return true;
 }
+#endif /* CONFIG_DCB */
 
 static u16 txgbe_xdp_queues(struct txgbe_adapter *adapter)
 {
@@ -642,11 +647,13 @@ static void txgbe_set_num_queues(struct txgbe_adapter *adapter)
 	adapter->num_rx_pools = adapter->num_rx_queues;
 	adapter->num_rx_queues_per_pool = 1;
 
+#if IS_ENABLED(CONFIG_DCB)
 	if (txgbe_set_dcb_vmdq_queues(adapter))
 		return;
 
 	if (txgbe_set_dcb_queues(adapter))
 		return;
+#endif /* CONFIG_DCB */
 
 	if (txgbe_set_vmdq_queues(adapter))
 		return;
