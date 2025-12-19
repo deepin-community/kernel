@@ -566,14 +566,14 @@ static int es8388_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	u8 adc_mode = 0;
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
+	case SND_SOC_DAIFMT_CBP_CFP:
 		/* Master serial port mode, with BCLK generated automatically */
 		snd_soc_component_update_bits(component, ES8388_MASTERMODE,
 				    ES8388_MASTERMODE_MSC,
 				    ES8388_MASTERMODE_MSC);
 		es8388->master = true;
 		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_CBC_CFC:
 		/* Slave serial port mode */
 		snd_soc_component_update_bits(component, ES8388_MASTERMODE,
 				    ES8388_MASTERMODE_MSC, 0);

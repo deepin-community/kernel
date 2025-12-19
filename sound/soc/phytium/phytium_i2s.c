@@ -95,7 +95,7 @@ static void stream_update(struct i2sc_bus *bus, struct i2s_stream *s)
 	}
 }
 
-int snd_i2s_bus_handle_stream_irq(struct i2sc_bus *bus, unsigned int status,
+static int snd_i2s_bus_handle_stream_irq(struct i2sc_bus *bus, unsigned int status,
 				  void (*ack)(struct i2sc_bus *, struct i2s_stream *))
 {
 	struct i2s_stream *azx_dev;
@@ -121,7 +121,7 @@ int snd_i2s_bus_handle_stream_irq(struct i2sc_bus *bus, unsigned int status,
 	return handled;
 }
 
-irqreturn_t azx_i2s_interrupt(int irq, void *dev_id)
+static irqreturn_t azx_i2s_interrupt(int irq, void *dev_id)
 {
 	struct azx *chip = dev_id;
 	struct i2sc_bus *bus = azx_bus(chip);
@@ -332,8 +332,8 @@ static int phytium_i2s_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 		else
 			ret = -EINVAL;
 		break;
-	case SND_SOC_DAIFMT_CBM_CFS:
-	case SND_SOC_DAIFMT_CBS_CFM:
+	case SND_SOC_DAIFMT_CBP_CFC:
+	case SND_SOC_DAIFMT_CBC_CFP:
 		ret = -EINVAL;
 		break;
 	default:
@@ -430,7 +430,7 @@ static const struct snd_pcm_hardware phytium_pcm_hardware = {
 	.fifo_size = 16,
 };
 
-struct i2s_stream *snd_i2s_stream_assign(struct i2sc_bus *bus,
+static struct i2s_stream *snd_i2s_stream_assign(struct i2sc_bus *bus,
 					 struct snd_pcm_substream *substream)
 {
 	struct i2s_stream *azx_dev;
@@ -618,7 +618,7 @@ static int setup_bdle(struct i2sc_bus *bus,
 	return ofs;
 }
 
-int snd_i2s_stream_setup_periods(struct i2s_stream *azx_dev)
+static int snd_i2s_stream_setup_periods(struct i2s_stream *azx_dev)
 {
 	struct i2sc_bus *bus = azx_dev->bus;
 	struct snd_pcm_substream *substream = azx_dev->substream;
@@ -686,7 +686,7 @@ int snd_i2s_stream_setup_periods(struct i2s_stream *azx_dev)
 	return -EINVAL;
 }
 
-int snd_i2s_stream_set_params(struct i2s_stream *azx_dev,
+static int snd_i2s_stream_set_params(struct i2s_stream *azx_dev,
 			      unsigned int format_val)
 {
 	unsigned int bufsize, period_bytes;
@@ -714,7 +714,7 @@ int snd_i2s_stream_set_params(struct i2s_stream *azx_dev,
 	return 0;
 }
 
-int snd_i2s_stream_setup(struct i2s_stream *azx_dev, int pcie, u32 paddr)
+static int snd_i2s_stream_setup(struct i2s_stream *azx_dev, int pcie, u32 paddr)
 {
 	struct snd_pcm_runtime *runtime;
 
@@ -800,7 +800,7 @@ static int phytium_pcm_prepare(struct snd_soc_component *component,
 	return err;
 }
 
-void snd_i2s_stream_clear(struct i2s_stream *azx_dev)
+static void snd_i2s_stream_clear(struct i2s_stream *azx_dev)
 {
 	if (azx_dev->direction == SNDRV_PCM_STREAM_PLAYBACK)
 		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_CTL(1), 0x0);
@@ -810,12 +810,12 @@ void snd_i2s_stream_clear(struct i2s_stream *azx_dev)
 	azx_dev->running = false;
 }
 
-void snd_i2s_stream_stop(struct i2s_stream *azx_dev)
+static void snd_i2s_stream_stop(struct i2s_stream *azx_dev)
 {
 	snd_i2s_stream_clear(azx_dev);
 }
 
-void snd_i2s_stream_start(struct i2s_stream *azx_dev, bool fresh_start)
+static void snd_i2s_stream_start(struct i2s_stream *azx_dev, bool fresh_start)
 {
 	if (azx_dev->direction == SNDRV_PCM_STREAM_PLAYBACK)
 		i2s_write_reg(azx_dev->sd_addr, DMA_CHALX_CTL(1), 0x1);
@@ -882,7 +882,7 @@ static int phytium_pcm_trigger(struct snd_soc_component *component,
 	return 0;
 }
 
-void snd_i2s_stream_cleanup(struct i2s_stream *azx_dev)
+static void snd_i2s_stream_cleanup(struct i2s_stream *azx_dev)
 {
 	int cnt = 10;
 	u32 mask;
@@ -976,7 +976,7 @@ static const u32 fifo_width[COMP_MAX_WORDSIZE] = {
 };
 
 /* Width of (DMA) bus */
-static const u32 bus_widths[COMP_MAX_DATA_WIDTH] = {
+static const u32 __maybe_unused bus_widths[COMP_MAX_DATA_WIDTH] = {
 	DMA_SLAVE_BUSWIDTH_1_BYTE,
 	DMA_SLAVE_BUSWIDTH_2_BYTES,
 	DMA_SLAVE_BUSWIDTH_4_BYTES,
@@ -984,7 +984,7 @@ static const u32 bus_widths[COMP_MAX_DATA_WIDTH] = {
 };
 
 /* PCM format to support channel resolution */
-static const u32 formats[COMP_MAX_WORDSIZE] = {
+static const u32 __maybe_unused formats[COMP_MAX_WORDSIZE] = {
 	SNDRV_PCM_FMTBIT_S16_LE,
 	SNDRV_PCM_FMTBIT_S16_LE,
 	SNDRV_PCM_FMTBIT_S24_LE,
@@ -1069,7 +1069,7 @@ static int phytium_i2s_dma_alloc_pages(struct i2sc_bus *bus, int type, size_t si
 	return 0;
 }
 
-int snd_i2s_bus_alloc_stream_pages(struct i2sc_bus *bus)
+static int snd_i2s_bus_alloc_stream_pages(struct i2sc_bus *bus)
 {
 	struct i2s_stream *s;
 	int num_streams = 0;
@@ -1105,7 +1105,7 @@ static int stream_direction(struct azx *chip, unsigned char index)
 	return SNDRV_PCM_STREAM_CAPTURE;
 }
 
-void snd_i2s_stream_init(struct i2sc_bus *bus, struct i2s_stream *azx_dev,
+static void snd_i2s_stream_init(struct i2sc_bus *bus, struct i2s_stream *azx_dev,
 			 int idx, int direction, int tag)
 {
 	azx_dev->bus = bus;
@@ -1123,7 +1123,7 @@ void snd_i2s_stream_init(struct i2sc_bus *bus, struct i2s_stream *azx_dev,
 	list_add_tail(&azx_dev->list, &bus->stream_list);
 }
 
-int azx_i2s_init_streams(struct azx *chip)
+static int azx_i2s_init_streams(struct azx *chip)
 {
 	int i;
 
@@ -1221,7 +1221,7 @@ static void azx_probe_work(struct work_struct *work)
 	azx_probe_continue(&i2s->chip);
 }
 
-int azx_i2s_bus_init(struct azx *chip,
+static int azx_i2s_bus_init(struct azx *chip,
 		     const struct i2s_io_ops *io_ops)
 {
 	struct i2s_bus *bus = &chip->bus;
@@ -1395,10 +1395,9 @@ failed_get_dai_name:
 	return ret;
 }
 
-static int phytium_i2s_remove(struct platform_device *pdev)
+static void phytium_i2s_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-	return 0;
 }
 
 static const struct of_device_id phytium_i2s_of_match[] = {
