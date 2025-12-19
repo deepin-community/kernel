@@ -398,7 +398,7 @@ int thc_dma_set_max_packet_sizes(struct thc_device *dev, size_t mps_read1,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_set_max_packet_sizes, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_set_max_packet_sizes, INTEL_THC);
 
 /**
  * thc_dma_allocate - Allocate DMA buffers for all DMA engines
@@ -428,7 +428,7 @@ release_bufs:
 
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_allocate, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_allocate, INTEL_THC);
 
 /**
  * thc_dma_release - Release DMA buffers for all DMA engines
@@ -442,7 +442,7 @@ void thc_dma_release(struct thc_device *dev)
 	for (chan = 0; chan < MAX_THC_DMA_CHANNEL; chan++)
 		release_dma_buffers(dev, &dev->dma_ctx->dma_config[chan]);
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_release, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_release, INTEL_THC);
 
 static int calc_prd_entries_num(struct thc_prd_table *prd_tbl,
 				size_t mes_len, u8 *nent)
@@ -506,7 +506,7 @@ int thc_dma_configure(struct thc_device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_configure, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_configure, INTEL_THC);
 
 /**
  * thc_dma_unconfigure - Unconfigure DMA settings for all DMA engines
@@ -528,7 +528,7 @@ void thc_dma_unconfigure(struct thc_device *dev)
 	regmap_write_bits(dev->thc_regmap, THC_M_PRT_READ_DMA_CNTRL_2_OFFSET,
 			  THC_M_PRT_READ_DMA_CNTRL_START, 0);
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_unconfigure, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_unconfigure, INTEL_THC);
 
 static int thc_wait_for_dma_pause(struct thc_device *dev, enum thc_dma_channel channel)
 {
@@ -695,7 +695,7 @@ int thc_rxdma_read(struct thc_device *dev, enum thc_dma_channel dma_channel,
 
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_rxdma_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_rxdma_read, INTEL_THC);
 
 static int thc_swdma_read_start(struct thc_device *dev, void *write_buff,
 				size_t write_len, u32 *prd_tbl_len)
@@ -857,7 +857,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_swdma_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_swdma_read, INTEL_THC);
 
 static int write_dma_buffer(struct thc_device *dev,
 			    void *buffer, size_t buf_len)
@@ -1006,4 +1006,4 @@ end:
 
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dma_write, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dma_write, INTEL_THC);

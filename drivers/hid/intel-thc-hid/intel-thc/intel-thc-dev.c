@@ -223,7 +223,7 @@ struct thc_device *thc_dev_init(struct device *device, void __iomem *mem_addr)
 
 	return thc_dev;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dev_init, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dev_init, INTEL_THC);
 
 static int prepare_pio(const struct thc_device *dev, const u8 pio_op,
 		       const u32 address, const u32 size)
@@ -361,7 +361,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_read, INTEL_THC);
 
 /**
  * thc_tic_pio_write - Write data to touch device by PIO
@@ -407,7 +407,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write, INTEL_THC);
 
 /**
  * thc_tic_pio_write_and_read - Write data followed by read data by PIO
@@ -464,7 +464,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write_and_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write_and_read, INTEL_THC);
 
 /**
  * thc_interrupt_config - Configure THC interrupts
@@ -598,7 +598,7 @@ void thc_interrupt_config(struct thc_device *dev)
 				  mask, mbits);
 	}
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_config, INTEL_THC);
 
 /**
  * thc_int_trigger_type_select - Select THC interrupt trigger type
@@ -612,7 +612,7 @@ void thc_int_trigger_type_select(struct thc_device *dev, bool edge_trigger)
 			  THC_M_PRT_TSEQ_CNTRL_1_INT_EDG_DET_EN,
 			  edge_trigger ? THC_M_PRT_TSEQ_CNTRL_1_INT_EDG_DET_EN : 0);
 }
-EXPORT_SYMBOL_NS_GPL(thc_int_trigger_type_select, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_int_trigger_type_select, INTEL_THC);
 
 /**
  * thc_interrupt_enable - Enable or disable THC interrupt
@@ -626,7 +626,7 @@ void thc_interrupt_enable(struct thc_device *dev, bool int_enable)
 			  THC_M_PRT_INT_EN_GBL_INT_EN,
 			  int_enable ? THC_M_PRT_INT_EN_GBL_INT_EN : 0);
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_enable, INTEL_THC);
 
 /**
  * thc_interrupt_quiesce - Quiesce or unquiesce external touch device interrupt
@@ -675,7 +675,7 @@ int thc_interrupt_quiesce(const struct thc_device *dev, bool int_quiesce)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_quiesce, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_quiesce, INTEL_THC);
 
 /**
  * thc_set_pio_interrupt_support - Determine PIO interrupt is supported or not
@@ -687,7 +687,7 @@ void thc_set_pio_interrupt_support(struct thc_device *dev, bool supported)
 {
 	dev->pio_int_supported = supported;
 }
-EXPORT_SYMBOL_NS_GPL(thc_set_pio_interrupt_support, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_set_pio_interrupt_support, INTEL_THC);
 
 /**
  * thc_ltr_config - Configure THC Latency Tolerance Reporting(LTR) settings
@@ -755,7 +755,7 @@ void thc_ltr_config(struct thc_device *dev, u32 active_ltr_us, u32 lp_ltr_us)
 
 	regmap_write(dev->thc_regmap, THC_M_CMN_LTR_CTRL_OFFSET, tmp);
 }
-EXPORT_SYMBOL_NS_GPL(thc_ltr_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_ltr_config, INTEL_THC);
 
 /**
  * thc_change_ltr_mode - Change THC LTR mode
@@ -780,7 +780,7 @@ void thc_change_ltr_mode(struct thc_device *dev, u32 ltr_mode)
 			  THC_M_CMN_LTR_CTRL_LP_LTR_EN,
 			  THC_M_CMN_LTR_CTRL_LP_LTR_EN);
 }
-EXPORT_SYMBOL_NS_GPL(thc_change_ltr_mode, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_change_ltr_mode, INTEL_THC);
 
 /**
  * thc_ltr_unconfig - Unconfigure THC Latency Tolerance Reporting(LTR) settings
@@ -801,7 +801,7 @@ void thc_ltr_unconfig(struct thc_device *dev)
 
 	regmap_write(dev->thc_regmap, THC_M_CMN_LTR_CTRL_OFFSET, ltr_ctrl);
 }
-EXPORT_SYMBOL_NS_GPL(thc_ltr_unconfig, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_ltr_unconfig, INTEL_THC);
 
 /**
  * thc_int_cause_read - Read interrupt cause register value
@@ -819,7 +819,7 @@ u32 thc_int_cause_read(struct thc_device *dev)
 
 	return int_cause;
 }
-EXPORT_SYMBOL_NS_GPL(thc_int_cause_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_int_cause_read, INTEL_THC);
 
 static void thc_print_txn_error_cause(const struct thc_device *dev)
 {
@@ -1060,7 +1060,7 @@ int thc_interrupt_handler(struct thc_device *dev)
 
 	return interrupt_type;
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_handler, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_handler, INTEL_THC);
 
 /**
  * thc_port_select - Set THC port type
@@ -1108,7 +1108,7 @@ int thc_port_select(struct thc_device *dev, enum thc_port_type port_type)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_port_select, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_port_select, INTEL_THC);
 
 #define THC_SPI_FREQUENCY_7M	7812500
 #define THC_SPI_FREQUENCY_15M	15625000
@@ -1213,7 +1213,7 @@ int thc_spi_read_config(struct thc_device *dev, u32 spi_freq_val,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_read_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_read_config, INTEL_THC);
 
 /**
  * thc_spi_write_config - Configure SPI bus write attributes
@@ -1267,7 +1267,7 @@ int thc_spi_write_config(struct thc_device *dev, u32 spi_freq_val,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_write_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_write_config, INTEL_THC);
 
 /**
  * thc_spi_input_output_address_config - Configure SPI input and output addresses
@@ -1289,7 +1289,7 @@ void thc_spi_input_output_address_config(struct thc_device *dev, u32 input_hdr_a
 	regmap_write(dev->thc_regmap,
 		     THC_M_PRT_WR_BULK_ADDR_OFFSET, output_addr);
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_input_output_address_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_input_output_address_config, INTEL_THC);
 
 static int thc_i2c_subip_pio_read(struct thc_device *dev, const u32 address,
 				  u32 *size, u32 *buffer)
@@ -1524,7 +1524,7 @@ int thc_i2c_subip_init(struct thc_device *dev, const u32 target_address,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_init, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_init, INTEL_THC);
 
 /**
  * thc_i2c_subip_regs_save - Save THC I2C sub-subsystem register values to THC device context
@@ -1547,7 +1547,7 @@ int thc_i2c_subip_regs_save(struct thc_device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_save, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_save, INTEL_THC);
 
 /**
  * thc_i2c_subip_regs_restore - Restore THC I2C subsystem registers from THC device context
@@ -1570,7 +1570,7 @@ int thc_i2c_subip_regs_restore(struct thc_device *dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_restore, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_restore, INTEL_THC);
 
 /**
  * thc_i2c_set_rx_max_size - Set I2C Rx transfer max input size
@@ -1606,7 +1606,7 @@ int thc_i2c_set_rx_max_size(struct thc_device *dev, u32 max_rx_size)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_max_size, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_max_size, INTEL_THC);
 
 /**
  * thc_i2c_rx_max_size_enable - Enable I2C Rx max input size control
@@ -1639,7 +1639,7 @@ int thc_i2c_rx_max_size_enable(struct thc_device *dev, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_max_size_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_max_size_enable, INTEL_THC);
 
 /**
  * thc_i2c_set_rx_int_delay - Set I2C Rx input interrupt delay value
@@ -1676,7 +1676,7 @@ int thc_i2c_set_rx_int_delay(struct thc_device *dev, u32 delay_us)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_int_delay, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_int_delay, INTEL_THC);
 
 /**
  * thc_i2c_rx_int_delay_enable - Enable I2C Rx interrupt delay
@@ -1709,7 +1709,7 @@ int thc_i2c_rx_int_delay_enable(struct thc_device *dev, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_int_delay_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_int_delay_enable, INTEL_THC);
 
 MODULE_AUTHOR("Xinpeng Sun <xinpeng.sun@intel.com>");
 MODULE_AUTHOR("Even Xu <even.xu@intel.com>");
