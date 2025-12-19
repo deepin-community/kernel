@@ -28,7 +28,7 @@ module_param(zhaoxin_em_type, int, 0644);
 MODULE_PARM_DESC(zhaoxin_em_type,
 	"AHCI Enclosure Management Message type control (1 = led on, 2 = sgpio on,3 = sgpio gp on)");
 
-int ahci_wait_em_reset(struct sgpio_zhaoxin *sgpio_zhaoxin, u32 retry)
+static int ahci_wait_em_reset(struct sgpio_zhaoxin *sgpio_zhaoxin, u32 retry)
 {
 	void __iomem *mmio = sgpio_zhaoxin->mmio;
 	u32 em_ctl;
@@ -52,7 +52,7 @@ int ahci_wait_em_reset(struct sgpio_zhaoxin *sgpio_zhaoxin, u32 retry)
 	return 0;
 }
 
-void ahci_zhaoxin_set_em_sgpio(struct sgpio_zhaoxin *sgpio_zhaoxin)
+static void ahci_zhaoxin_set_em_sgpio(struct sgpio_zhaoxin *sgpio_zhaoxin)
 {
 	void __iomem *mmio = sgpio_zhaoxin->mmio;
 	void __iomem *em_mmio = mmio + SGPIO_OFFSET;
@@ -96,7 +96,7 @@ void ahci_zhaoxin_set_em_sgpio(struct sgpio_zhaoxin *sgpio_zhaoxin)
 	writel(read, em_mmio);
 }
 
-void ahci_zhaoxin_set_em_sgpio_gpmode(struct sgpio_zhaoxin *sgpio_zhaoxin)
+static void ahci_zhaoxin_set_em_sgpio_gpmode(struct sgpio_zhaoxin *sgpio_zhaoxin)
 {
 	void __iomem *mmio = sgpio_zhaoxin->mmio;
 	void __iomem *em_mmio = mmio + SGPIO_OFFSET;
@@ -598,7 +598,7 @@ const struct kobj_type sgpio_zhaoxin_ktype = {
 	.default_groups = sgpio_groups,
 };
 
-void set_em_messages(struct sgpio_zhaoxin *sgpio_zhaoxin)
+static void set_em_messages(struct sgpio_zhaoxin *sgpio_zhaoxin)
 {
 	void __iomem *mmio = sgpio_zhaoxin->mmio;
 	u32 em_loc = readl(mmio + HOST_EM_LOC);
@@ -618,7 +618,7 @@ void set_em_messages(struct sgpio_zhaoxin *sgpio_zhaoxin)
 	}
 }
 
-int add_sgpio_zhaoxin(void)
+static int add_sgpio_zhaoxin(void)
 {
 	struct pci_dev *pdev_cur = pci_get_device(PCI_VENDOR_ID_ZHAOXIN, 0x9083, NULL);
 	struct pci_dev *pdev_next = pdev_cur;
@@ -670,7 +670,7 @@ int add_sgpio_zhaoxin(void)
 }
 
 
-void remove_sgpio_zhaoxin(void)
+static void remove_sgpio_zhaoxin(void)
 {
 	struct sgpio_zhaoxin *cur = NULL, *next = NULL;
 
