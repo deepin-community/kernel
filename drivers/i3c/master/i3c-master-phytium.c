@@ -1649,7 +1649,7 @@ static int phytium_i3c_master_probe(struct platform_device *pdev)
 			goto err_disable_sysclk;
 
 		master->base.bus.scl_rate.i2c = I3C_CONTROL_DEFAULT_I2C_SCL;
-		master->base.bus.scl_rate.i3c = I3C_BUS_MAX_I3C_SCL_RATE;
+		master->base.bus.scl_rate.i3c = I3C_BUS_I3C_SCL_MAX_RATE;
 		ACPI_COMPANION_SET(master->dev, ACPI_COMPANION(&pdev->dev));
 #endif
 	}
