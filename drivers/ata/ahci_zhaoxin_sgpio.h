@@ -216,6 +216,4 @@ struct sgpio_zhaoxin_sysfs_attr {
 	ssize_t (*store)(struct sgpio_zhaoxin *sgpio_zhaoxin, const char *buf, size_t count);
 };
 
-int get_ahci_em_messages(void);
-
 #endif /* _ACHI_ZHAOXIN_SGPIO_H */
