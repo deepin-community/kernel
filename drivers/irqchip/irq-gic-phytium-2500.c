@@ -21,6 +21,7 @@
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-common.h>
 #include <linux/irqchip/arm-gic-phytium-2500.h>
+#include <linux/irqchip/arm-gic-v3-prio.h>
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -39,8 +40,6 @@ struct gic_dist_desc {
 	unsigned long		size;
 };
 
-#define GICD_INT_NMI_PRI	(GICD_INT_DEF_PRI & ~0x80)
-
 #define FLAGS_WORKAROUND_GICR_WAKER_MSM8996	(1ULL << 0)
 #define FLAGS_WORKAROUND_CAVIUM_ERRATUM_38539	(1ULL << 1)
 
@@ -55,6 +54,9 @@ static struct gic_dist_desc mars3_gic_dists[MAX_MARS3_SOC_COUNT] __read_mostly;
 static unsigned int mars3_sockets_bitmap = 0x1;
 
 #define mars3_irq_to_skt(hwirq)	(((hwirq) - 32) % 8)
+
+static u8 gic_dist_prio_irq __ro_after_init = GICV3_PRIO_IRQ;
+static u8 gic_dist_prio_nmi __ro_after_init = GICV3_PRIO_NMI;
 
 struct gic_chip_data {
 	struct fwnode_handle	*fwnode;
@@ -99,33 +101,6 @@ static DEFINE_STATIC_KEY_TRUE(supports_deactivate_key);
  */
 static DEFINE_STATIC_KEY_FALSE(supports_pseudo_nmis);
 
-#ifndef CONFIG_ARM_GIC_V3
-DEFINE_STATIC_KEY_FALSE(gic_nonsecure_priorities);
-EXPORT_SYMBOL(gic_nonsecure_priorities);
-#else
-extern struct static_key_false gic_nonsecure_priorities;
-#endif
-
-/*
- * When the Non-secure world has access to group 0 interrupts (as a
- * consequence of SCR_EL3.FIQ == 0), reading the ICC_RPR_EL1 register will
- * return the Distributor's view of the interrupt priority.
- *
- * When GIC security is enabled (GICD_CTLR.DS == 0), the interrupt priority
- * written by software is moved to the Non-secure range by the Distributor.
- *
- * If both are true (which is when gic_nonsecure_priorities gets enabled),
- * we need to shift down the priority programmed by software to match it
- * against the value returned by ICC_RPR_EL1.
- */
-#define GICD_INT_RPR_PRI(priority)					\
-	({								\
-		u32 __priority = (priority);				\
-		if (static_branch_unlikely(&gic_nonsecure_priorities))	\
-			__priority = 0x80 | (__priority >> 1);		\
-									\
-		__priority;						\
-	})
 
 
 static struct gic_kvm_info gic_v3_kvm_info __initdata;
@@ -548,7 +523,7 @@ static int gic_irq_nmi_setup(struct irq_data *d)
 	if (!gic_irq_in_rdist(d))
 		desc->handle_irq = handle_fasteoi_nmi;
 
-	gic_irq_set_prio(d, GICD_INT_NMI_PRI);
+	gic_irq_set_prio(d, gic_dist_prio_nmi);
 
 	return 0;
 }
@@ -576,7 +551,7 @@ static void gic_irq_nmi_teardown(struct irq_data *d)
 	if (!gic_irq_in_rdist(d))
 		desc->handle_irq = handle_fasteoi_irq;
 
-	gic_irq_set_prio(d, GICD_INT_DEF_PRI);
+	gic_irq_set_prio(d, gic_dist_prio_irq);
 }
 
 static void gic_eoi_irq(struct irq_data *d)
@@ -716,7 +691,7 @@ static bool gic_rpr_is_nmi_prio(void)
 	if (!gic_supports_nmi())
 		return false;
 
-	return unlikely(gic_read_rpr() == GICD_INT_RPR_PRI(GICD_INT_NMI_PRI));
+	return unlikely(gic_read_rpr() == GICV3_PRIO_NMI);
 }
 
 static bool gic_irqnr_is_special(u32 irqnr)
@@ -906,10 +881,10 @@ static void __init gic_dist_init(void)
 			writel_relaxed(0, base + GICD_ICFGRnE + i / 4);
 
 		for (i = 0; i < GIC_ESPI_NR; i += 4)
-			writel_relaxed(REPEAT_BYTE_U32(GICD_INT_DEF_PRI), base + GICD_IPRIORITYRnE + i);
+			writel_relaxed(REPEAT_BYTE_U32(gic_dist_prio_irq), base + GICD_IPRIORITYRnE + i);
 
 		/* Now do the common stuff, and wait for the distributor to drain */
-		gic_dist_config(base, GIC_LINE_NR, GICD_INT_DEF_PRI);
+		gic_dist_config(base, GIC_LINE_NR, gic_dist_prio_irq);
 		gic_do_wait_for_rwp(base, GICD_CTLR_RWP);      // do sync outside of gic_dist_config
 
 		val = GICD_CTLR_ARE_NS | GICD_CTLR_ENABLE_G1A | GICD_CTLR_ENABLE_G1;
@@ -1123,22 +1098,7 @@ static void gic_cpu_sys_reg_init(void)
 	/* Set priority mask register */
 	if (!gic_prio_masking_enabled()) {
 		write_gicreg(DEFAULT_PMR_VALUE, ICC_PMR_EL1);
-	} else if (gic_supports_nmi()) {
-		/*
-		 * Mismatch configuration with boot CPU, the system is likely
-		 * to die as interrupt masking will not work properly on all
-		 * CPUs
-		 *
-		 * The boot CPU calls this function before enabling NMI support,
-		 * and as a result we'll never see this warning in the boot path
-		 * for that CPU.
-		 */
-		if (static_branch_unlikely(&gic_nonsecure_priorities))
-			WARN_ON(!group0 || gic_dist_security_disabled());
-		else
-			WARN_ON(group0 && !gic_dist_security_disabled());
 	}
-
 	/*
 	 * Some firmwares hand over to the kernel with the BPR changed from
 	 * its reset value (and with a value large enough to prevent
@@ -1256,7 +1216,7 @@ static void gic_cpu_init(void)
 	for (i = 0; i < gic_data.ppi_nr + 16; i += 32)
 		writel_relaxed(~0, rbase + GICR_IGROUPR0 + i / 8);
 
-	gic_cpu_config(rbase, gic_data.ppi_nr + 16, GICD_INT_DEF_PRI);
+	gic_cpu_config(rbase, gic_data.ppi_nr + 16, gic_dist_prio_irq);
 	gic_redist_wait_for_rwp();
 
 	mpidr = (unsigned long)cpu_logical_map(smp_processor_id());
@@ -1713,42 +1673,57 @@ static void gic_enable_nmi_support(void)
 	pr_info("Pseudo-NMIs enabled using %s ICC_PMR_EL1 synchronisation\n",
 		gic_has_relaxed_pmr_sync() ? "relaxed" : "forced");
 
-	/*
-	 * How priority values are used by the GIC depends on two things:
-	 * the security state of the GIC (controlled by the GICD_CTRL.DS bit)
-	 * and if Group 0 interrupts can be delivered to Linux in the non-secure
-	 * world as FIQs (controlled by the SCR_EL3.FIQ bit). These affect the
-	 * ICC_PMR_EL1 register and the priority that software assigns to
-	 * interrupts:
-	 *
-	 * GICD_CTRL.DS | SCR_EL3.FIQ | ICC_PMR_EL1 | Group 1 priority
-	 * -----------------------------------------------------------
-	 *      1       |      -      |  unchanged  |    unchanged
-	 * -----------------------------------------------------------
-	 *      0       |      1      |  non-secure |    non-secure
-	 * -----------------------------------------------------------
-	 *      0       |      0      |  unchanged  |    non-secure
-	 *
-	 * where non-secure means that the value is right-shifted by one and the
-	 * MSB bit set, to make it fit in the non-secure priority range.
-	 *
-	 * In the first two cases, where ICC_PMR_EL1 and the interrupt priority
-	 * are both either modified or unchanged, we can use the same set of
-	 * priorities.
-	 *
-	 * In the last case, where only the interrupt priorities are modified to
-	 * be in the non-secure range, we use a different PMR value to mask IRQs
-	 * and the rest of the values that we use remain unchanged.
-	 */
-	if (gic_has_group0() && !gic_dist_security_disabled())
-		static_branch_enable(&gic_nonsecure_priorities);
-
 	static_branch_enable(&supports_pseudo_nmis);
 
 	if (static_branch_likely(&supports_deactivate_key))
 		gic_eoimode1_chip.flags |= IRQCHIP_SUPPORTS_NMI;
 	else
 		gic_chip.flags |= IRQCHIP_SUPPORTS_NMI;
+}
+
+static void __init gic_prio_init(void)
+{
+	bool cpus_have_security_disabled = gic_dist_security_disabled();
+	bool cpus_have_group0 = gic_has_group0();
+
+	/*
+	 * How priority values are used by the GIC depends on two things:
+	 * the security state of the GIC (controlled by the GICD_CTRL.DS bit)
+	 * and if Group 0 interrupts can be delivered to Linux in the non-secure
+	 * world as FIQs (controlled by the SCR_EL3.FIQ bit). These affect the
+	 * way priorities are presented in ICC_PMR_EL1 and in the distributor:
+	 *
+	 * GICD_CTRL.DS | SCR_EL3.FIQ | ICC_PMR_EL1 | Distributor
+	 * -------------------------------------------------------
+	 *      1       |      -      |  unchanged  |  unchanged
+	 * -------------------------------------------------------
+	 *      0       |      1      |  non-secure |  non-secure
+	 * -------------------------------------------------------
+	 *      0       |      0      |  unchanged  |  non-secure
+	 *
+	 * In the non-secure view reads and writes are modified:
+	 *
+	 * - A value written is right-shifted by one and the MSB is set,
+	 *   forcing the priority into the non-secure range.
+	 *
+	 * - A value read is left-shifted by one.
+	 *
+	 * In the first two cases, where ICC_PMR_EL1 and the interrupt priority
+	 * are both either modified or unchanged, we can use the same set of
+	 * priorities.
+	 *
+	 * In the last case, where only the interrupt priorities are modified to
+	 * be in the non-secure range, we program the non-secure values into
+	 * the distributor to match the PMR values we want.
+	 */
+	if (cpus_have_group0 && !cpus_have_security_disabled) {
+		gic_dist_prio_irq = __gicv3_prio_to_ns(gic_dist_prio_irq); // 0x80
+		gic_dist_prio_nmi = __gicv3_prio_to_ns(gic_dist_prio_nmi); // 0x00
+	}
+
+	pr_info("GIC-2500: DS=%d, FIQ=%d, dist_irq_prio=0x%x, dist_nmi_prio=0x%x\n",
+			cpus_have_security_disabled, cpus_have_group0,
+			gic_dist_prio_irq, gic_dist_prio_nmi);
 }
 
 static int __init gic_init_bases(void __iomem *dist_base,
@@ -1809,6 +1784,7 @@ static int __init gic_init_bases(void __iomem *dist_base,
 	set_handle_irq(gic_handle_irq);
 
 	gic_update_rdist_properties();
+	gic_prio_init();
 
 	gic_dist_init();
 	gic_cpu_init();
