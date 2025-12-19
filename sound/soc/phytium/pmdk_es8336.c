@@ -34,7 +34,7 @@ static const struct snd_soc_dapm_route pmdk_es8336_audio_map[] = {
 };
 
 #define PMDK_DAI_FMT (SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF | \
-	SND_SOC_DAIFMT_CBS_CFS)
+	SND_SOC_DAIFMT_CBC_CFC)
 
 SND_SOC_DAILINK_DEFS(pmdk_es8366,
 	DAILINK_COMP_ARRAY(COMP_CPU("phytium-i2s-lsd")),
