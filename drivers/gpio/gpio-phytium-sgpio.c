@@ -161,7 +161,7 @@ err:
 	return rc;
 }
 
-static void phytium_sgpio_set(struct gpio_chip *gc, unsigned int offset, int val)
+static int phytium_sgpio_set(struct gpio_chip *gc, unsigned int offset, int val)
 {
 	struct phytium_sgpio *gpio = gpiochip_get_data(gc);
 
@@ -170,6 +170,8 @@ static void phytium_sgpio_set(struct gpio_chip *gc, unsigned int offset, int val
 	sgpio_set_value(gc, offset, val);
 
 	mutex_unlock(&gpio->lock);
+
+	return 0;
 }
 
 static irqreturn_t phytium_sgpio_irq_handler(int irq, void *data)
