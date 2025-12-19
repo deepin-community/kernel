@@ -826,7 +826,7 @@ static int phytium_i3c_master_i3c_xfers(struct i3c_dev_desc *dev,
 }
 
 static int phytium_i3c_master_i2c_xfers(struct i2c_dev_desc *dev,
-				     const struct i2c_msg *xfers, int nxfers)
+				     struct i2c_msg *xfers, int nxfers)
 {
 	struct i3c_master_controller *m = i2c_dev_get_master(dev);
 	struct phytium_i3c_master *master = to_phytium_i3c_master(m);
@@ -1675,7 +1675,7 @@ err_disable_pclk:
 	return ret;
 }
 
-static int phytium_i3c_master_remove(struct platform_device *pdev)
+static void phytium_i3c_master_remove(struct platform_device *pdev)
 {
 	struct phytium_i3c_master *master = platform_get_drvdata(pdev);
 
@@ -1683,8 +1683,6 @@ static int phytium_i3c_master_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(master->sysclk);
 	clk_disable_unprepare(master->pclk);
-
-	return 0;
 }
 
 static struct platform_driver phytium_i3c_master = {
