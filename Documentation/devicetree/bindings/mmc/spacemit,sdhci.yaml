@@ -32,12 +32,24 @@ properties:
       - const: core
       - const: io
 
+  resets:
+    items:
+      - description: axi reset, connect to AXI bus, shared by all controllers
+      - description: sdh reset, connect to individual controller separately
+
+  reset-names:
+    items:
+      - const: axi
+      - const: sdh
+
 required:
   - compatible
   - reg
   - interrupts
   - clocks
   - clock-names
+  - resets
+  - reset-names
 
 unevaluatedProperties: false
 
@@ -50,4 +62,6 @@ examples:
       interrupt-parent = <&plic>;
       clocks = <&clk_apmu 10>, <&clk_apmu 13>;
       clock-names = "core", "io";
+      resets = <&syscon_apmu 2>, <&syscon_apmu 5>;
+      reset-names = "axi", "sdh";
     };
