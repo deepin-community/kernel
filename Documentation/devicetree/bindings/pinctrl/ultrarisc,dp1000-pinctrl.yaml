@@ -10,7 +10,7 @@ maintainers:
 
 description: |
   UltraRISC RISC-V SoC DP1000 pin controller.
-  <dt-bindings/pinctrl/ur-dp1000-pinctrl.h> contains the pinmux definitions.
+  <dt-bindings/pinctrl/ultrarisc,dp1000-pinctrl.h> contains the pinmux definitions.
 
 properties:
   compatible:
