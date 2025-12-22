@@ -21,10 +21,10 @@ struct hygon_psp_hooks_table hygon_psp_hooks;
 int fixup_hygon_psp_caps(struct psp_device *psp)
 {
 	/* the hygon psp is unavailable if bit0 is cleared in feature reg */
-	if (!(psp->capability & PSP_CAPABILITY_SEV))
+	if (!psp->capability.sev)
 		return -ENODEV;
 
-	psp->capability &= ~(PSP_CAPABILITY_TEE |
-			     PSP_CAPABILITY_PSP_SECURITY_REPORTING);
+	psp->capability.tee = 0;
+	psp->capability.security_reporting = 0;
 	return 0;
 }
