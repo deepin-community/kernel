@@ -1328,7 +1328,7 @@ fixup_usb_xhci_reset(struct pci_dev *dev)
 	if (offset == 0)
 		return;
 
-	base = ioremap(SW64_PCI_IO_BASE(hose->node, hose->index) | offset, SZ_8K);
+	base = ioremap(hose->dense_mem_base | offset, SZ_8K);
 
 	ext_cap_offset = xhci_find_next_ext_cap(base, 0, XHCI_EXT_CAPS_LEGACY);
 	if (!ext_cap_offset)
