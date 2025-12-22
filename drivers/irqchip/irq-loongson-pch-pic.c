@@ -62,12 +62,6 @@ static inline u8 hwirq_to_bit(struct pch_pic *priv, int hirq)
 	return priv->table[hirq];
 }
 
-extern struct irq_domain *get_pchpic_irq_domain(void);
-struct irq_domain *get_pchpic_irq_domain(void)
-{
-	return pch_pic_priv[0]->pic_domain;
-}
-
 static void pch_pic_bitset(struct pch_pic *priv, int offset, int bit)
 {
 	u32 reg;
