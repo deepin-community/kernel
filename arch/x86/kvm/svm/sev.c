@@ -2997,7 +2997,7 @@ out:
 
 #ifdef CONFIG_HYGON_CSV
 /* Code to set all of the function and vaiable pointers */
-void sev_install_hooks(void)
+static void sev_install_hooks(void)
 {
 	hygon_kvm_hooks.sev_enabled = &sev_enabled;
 	hygon_kvm_hooks.sev_me_mask = &sev_me_mask;
