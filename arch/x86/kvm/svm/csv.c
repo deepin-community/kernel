@@ -35,10 +35,10 @@ static int __csv_issue_ringbuf_cmds(int fd, int *psp_ret)
 	int ret;
 
 	f = fdget(fd);
-	if (!f.file)
+	if (!fd_file(f))
 		return -EBADF;
 
-	ret = csv_issue_ringbuf_cmds_external_user(f.file, psp_ret);
+	ret = csv_issue_ringbuf_cmds_external_user(fd_file(f), psp_ret);
 
 	fdput(f);
 	return ret;
