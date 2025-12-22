@@ -49,8 +49,7 @@ void machine_power_off(void)
 #endif
 	do_kernel_power_off();
 #ifdef CONFIG_EFI
-	if (efi.reset_system)
-		efi.reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
+	efi.reset_system(EFI_RESET_SHUTDOWN, EFI_SUCCESS, 0, NULL);
 #endif
 
 	while (true) {
