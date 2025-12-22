@@ -19,7 +19,6 @@
 #include <asm/io.h>
 #include <asm/numa.h>
 #include <asm/loongson.h>
-#include "legacy_boot.h"
 
 int acpi_disabled;
 EXPORT_SYMBOL(acpi_disabled);
@@ -61,7 +60,7 @@ void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size)
 }
 
 #ifdef CONFIG_SMP
-int set_processor_mask(u32 id, u32 pass)
+static int set_processor_mask(u32 id, u32 pass)
 {
 	int cpu = -1, cpuid = id;
 
@@ -161,10 +160,6 @@ static void __init acpi_process_madt(void)
 		__cpu_logical_map[i] = -1;
 	}
 #endif
-
-	if (efi_bp && bpi_version <= BPI_VERSION_V1)
-		legacy_madt_table_init();
-
 	acpi_table_parse_madt(ACPI_MADT_TYPE_CORE_PIC,
 			acpi_parse_p1_processor, MAX_CORE_PIC);
 
