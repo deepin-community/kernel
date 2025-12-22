@@ -10,6 +10,9 @@
 #include <dt-bindings/input/gpio-keys.h>
 
 / {
+	model = "MilkV Titan V1.2";
+	compatible = "milkv,titan-v1.2", "ultrarisc,dp1000";
+
 	chosen {
 		bootargs = "earlycon=sbi console=ttyS0,115200";
 		stdout-path = &uart0;
@@ -165,7 +168,6 @@
 		#size-cells = <0x00>;
 		compatible = "snps,dwmac-mdio";
 		phy0: phy@0{
-			phandle = <0x04>;
 			reg = <0x00>;
 			status = "okay";
 		};

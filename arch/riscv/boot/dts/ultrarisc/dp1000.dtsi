@@ -24,13 +24,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -56,7 +56,7 @@
 			l2_cache0: l2-cache0 {
 				/* L2 cache:
 				 * cache-unified, block-size 64B
-				 * 8-way set associative，size 512KB
+				 * 8-way set associative, size 512KB
 				 * per-core.
 				 */
 				compatible = "cache";
@@ -76,13 +76,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -108,7 +108,7 @@
 			l2_cache1: l2-cache1 {
 				/* L2 cache:
 				 * cache-unified, block-size 64B
-				 * 8-way set associative，size 512KB
+				 * 8-way set associative, size 512KB
 				 * per-core.
 				 */
 				compatible = "cache";
@@ -128,13 +128,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -180,13 +180,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -232,13 +232,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -284,13 +284,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -336,13 +336,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -388,13 +388,13 @@
 			riscv,isa = "rv64imafdcbh";
 			riscv,isa-base = "rv64i";
 			riscv,isa-extensions = "i","m","a","f","d","c","h","zba",
-						"zbb","zbc","zbs","zicntr","zicsr",
-						"zifencei","zihpm","ziccif","ziccrse",
-						"ziccamoa","za64rs","zic64b","zicbom",
-						"zicbop","zicboz","zkt","zama16b",
-						"svade","ssccptr","sstvecd","sscounterenw",
-						"shcounterenw","shtvala","shvstvecd",
-						"shvsatpa","ssstrict","svvptc";
+					       "zbb","zbc","zbs","zicntr","zicsr",
+					       "zifencei","zihpm","ziccif","ziccrse",
+					       "ziccamoa","za64rs","zic64b","zicbom",
+					       "zicbop","zicboz","zkt","zama16b",
+					       "svade","ssccptr","sstvecd","sscounterenw",
+					       "shcounterenw","shtvala","shvstvecd",
+					       "shvsatpa","ssstrict","svvptc";
 			mmu-type = "riscv,sv48";
 			clock-frequency = <2000000000>;
 			/* L1 I-cache and D-cache:
@@ -551,7 +551,6 @@
 		plic: plic@9000000 {
 			#interrupt-cells = <1>;
 			#address-cells = <0>;
-			phandle = <0x01>;
 			compatible = "ultrarisc,cp100-plic", "ultrarisc,dp1000-plic";
 			interrupt-controller;
 			interrupts-extended = <&cpu0_intc 0xb>, <&cpu0_intc 0x9>, <&cpu0_intc 0xa>,
@@ -637,7 +636,7 @@
 		};
 
 		uart0: serial@20300000 {
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <17>;
 			clock-frequency = <62500000>;
 			current-speed = <115200>;
@@ -648,7 +647,7 @@
 		};
 
 		uart1: serial@20310000 {
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <18>;
 			clock-frequency = <62500000>;
 			current-speed = <115200>;
@@ -659,7 +658,7 @@
 		};
 
 		uart2: serial@20400000 {
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <25>;
 			clock-frequency = <62500000>;
 			current-speed = <115200>;
@@ -670,7 +669,7 @@
 		};
 
 		uart3: serial@20410000 {
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <26>;
 			clock-frequency = <62500000>;
 			current-speed = <115200>;
@@ -686,7 +685,7 @@
 			#address-cells = <0x01>;
 			#size-cells = <0x00>;
 			reg = <0x0 0x20320000 0x0 0x1000>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <19>;
 			clocks = <&device_clk>;
 			clock-names = "device_clk";
@@ -700,7 +699,7 @@
 			#address-cells = <0x01>;
 			#size-cells = <0x00>;
 			reg = <0x0 0x20420000 0x0 0x1000>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <27>;
 			clocks = <&device_clk>;
 			clock-names = "device_clk";
@@ -716,7 +715,7 @@
 			reg = <0x0 0x20330000 0x0 0x100>;
 			clock-frequency = <400000>;
 			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <20>;
 		};
 
@@ -728,7 +727,7 @@
 			reg = <0x0 0x20340000 0x0 0x100>;
 			clock-frequency = <400000>;
 			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <21>;
 		};
 
@@ -740,7 +739,7 @@
 			reg = <0x0 0x20430000 0x0 0x100>;
 			clock-frequency = <400000>;
 			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <28>;
 		};
 
@@ -752,7 +751,7 @@
 			reg = <0x0 0x20440000 0x0 0x100>;
 			clock-frequency = <400000>;
 			clocks = <&device_clk>;
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <29>;
 		};
 
@@ -784,7 +783,7 @@
 				snps,nr-gpios = <16>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupt-parent = <0x01>;
+				interrupt-parent = <&plic>;
 				interrupts = <34>;
 				gpio-ranges = <&pmx0 0 0 16>;
 			};
@@ -821,7 +820,7 @@
 			clocks = <&csr_clk>;
 			clock-names = "stmmaceth";
 			compatible = "ultrarisc,dp1000-gmac", "snps,dwmac-5.10a";
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <84>;
 			interrupt-names = "macirq";
 			reg = <0x00 0x38000000 0x00 0x1000000>;
@@ -839,7 +838,7 @@
 			reg = <0x0 0x39000000 0x0 0x400>;
 			clocks = <&device_clk>, <&device_clk>;
 			clock-names = "core-clk", "cfgr-clk";
-			interrupt-parent = <0x01>;
+			interrupt-parent = <&plic>;
 			interrupts = <152>;
 			#dma-cells = <1>;
 			dma-channels = <8>;
@@ -862,18 +861,23 @@
 			dma-coherent;
 			bus-range = <0x0 0xff>;
 			num-lanes = <16>;
-			ranges = <0x81000000  0x0 0x4fbf0000  0x0 0x4fbf0000  0x0 0x00400000>, /* io */
-				 <0x82000000  0x0 0x40000000  0x0 0x40000000  0x0 0x0fbf0000>, /* mem32 */
-				 <0xc3000000 0x40 0x00000000 0x40 0x00000000  0xd 0x00000000>; /* mem64 prefetchable */
+			/* ranges:
+			 *   io
+			 *   mem32
+			 *   mem64 prefetchable
+			 */
+			ranges = <0x81000000  0x0 0x4fbf0000  0x0 0x4fbf0000  0x0 0x00400000>,
+				 <0x82000000  0x0 0x40000000  0x0 0x40000000  0x0 0x0fbf0000>,
+				 <0xc3000000 0x40 0x00000000 0x40 0x00000000  0xd 0x00000000>;
 			max-link-speed = <4>;
 			interrupt-parent = <&plic>;
 			interrupts = <43>, <44>, <45>, <46>, <47>;
 			interrupt-names = "msi", "inta", "intb", "intc", "intd";
 			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
 			interrupt-map = <0x0 0x0 0x0 0x1 &plic 44>,
-			                <0x0 0x0 0x0 0x2 &plic 45>,
-			                <0x0 0x0 0x0 0x3 &plic 46>,
-			                <0x0 0x0 0x0 0x4 &plic 47>;
+					<0x0 0x0 0x0 0x2 &plic 45>,
+					<0x0 0x0 0x0 0x3 &plic 46>,
+					<0x0 0x0 0x0 0x4 &plic 47>;
 		};
 
 		pcie_x4a: pcie@23000000 {
@@ -888,18 +892,23 @@
 			dma-coherent;
 			bus-range = <0x0 0xff>;
 			num-lanes = <4>;
-			ranges = <0x81000000  0x0 0x6fbf0000  0x0 0x6fbf0000  0x0 0x00400000>, /* io */
-				 <0x82000000  0x0 0x60000000  0x0 0x60000000  0x0 0x0fbf0000>, /* mem32 */
-				 <0xc3000000 0x80 0x00000000 0x80 0x00000000  0xd 0x00000000>; /* mem64 prefetchable */
+			/* ranges:
+			 *   io
+			 *   mem32
+			 *   mem64 prefetchable
+			 */
+			ranges = <0x81000000  0x0 0x6fbf0000  0x0 0x6fbf0000  0x0 0x00400000>,
+				 <0x82000000  0x0 0x60000000  0x0 0x60000000  0x0 0x0fbf0000>,
+				 <0xc3000000 0x80 0x00000000 0x80 0x00000000  0xd 0x00000000>;
 			max-link-speed = <4>;
 			interrupt-parent = <&plic>;
 			interrupts = <63>, <64>, <65>, <66>, <67>;
 			interrupt-names = "msi", "inta", "intb", "intc", "intd";
 			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
 			interrupt-map = <0x0 0x0 0x0 0x1 &plic 64>,
-			                <0x0 0x0 0x0 0x2 &plic 65>,
-			                <0x0 0x0 0x0 0x3 &plic 66>,
-			                <0x0 0x0 0x0 0x4 &plic 67>;
+					<0x0 0x0 0x0 0x2 &plic 65>,
+					<0x0 0x0 0x0 0x3 &plic 66>,
+					<0x0 0x0 0x0 0x4 &plic 67>;
 		};
 
 		pcie_x4b: pcie@24000000 {
@@ -914,18 +923,23 @@
 			dma-coherent;
 			bus-range = <0x0 0xff>;
 			num-lanes = <4>;
-			ranges = <0x81000000  0x0 0x7fbf0000  0x0 0x7fbf0000 0x0 0x00400000>, /* io */
-				 <0x82000000  0x0 0x70000000  0x0 0x70000000 0x0 0x0fbf0000>, /* mem32 */
-				 <0xc3000000 0xc0 0x00000000 0xc0 0x00000000 0xd 0x00000000>; /* mem64 prefetchable */
+			/* ranges:
+			 *   io
+			 *   mem32
+			 *   mem64 prefetchable
+			 */
+			ranges = <0x81000000  0x0 0x7fbf0000  0x0 0x7fbf0000 0x0 0x00400000>,
+				 <0x82000000  0x0 0x70000000  0x0 0x70000000 0x0 0x0fbf0000>,
+				 <0xc3000000 0xc0 0x00000000 0xc0 0x00000000 0xd 0x00000000>;
 			max-link-speed = <4>;
 			interrupt-parent = <&plic>;
 			interrupts = <73>, <74>, <75>, <76>, <77>;
 			interrupt-names = "msi", "inta", "intb", "intc", "intd";
 			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
 			interrupt-map = <0x0 0x0 0x0 0x1 &plic 74>,
-			                <0x0 0x0 0x0 0x2 &plic 75>,
-			                <0x0 0x0 0x0 0x3 &plic 76>,
-			                <0x0 0x0 0x0 0x4 &plic 77>;
+					<0x0 0x0 0x0 0x2 &plic 75>,
+					<0x0 0x0 0x0 0x3 &plic 76>,
+					<0x0 0x0 0x0 0x4 &plic 77>;
 		};
 	};
 };

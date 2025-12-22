@@ -3,7 +3,7 @@
  * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
  */
 
-#include "dp1000-mo-pinctrl.dtsi"
+#include "dp1000-m0-pinctrl.dtsi"
 #include <dt-bindings/iio/temperature/thermocouple.h>
 #include <dt-bindings/gpio/gpio.h>
 

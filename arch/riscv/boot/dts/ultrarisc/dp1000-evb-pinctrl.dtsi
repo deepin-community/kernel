@@ -3,7 +3,7 @@
  * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
  */
 
-#include <dt-bindings/pinctrl/ur-dp1000-pinctrl.h>
+#include <dt-bindings/pinctrl/ultrarisc,dp1000-pinctrl.h>
 #include "dp1000.dtsi"
 
 &pmx0 {
