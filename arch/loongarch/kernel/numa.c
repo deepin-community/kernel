@@ -26,12 +26,12 @@
 #include <asm/pgalloc.h>
 #include <asm/sections.h>
 #include <asm/time.h>
-#include "legacy_boot.h"
 
 int numa_off;
 cpumask_t cpus_on_node[MAX_NUMNODES];
 cpumask_t phys_cpus_on_node[MAX_NUMNODES];
 EXPORT_SYMBOL(cpus_on_node);
+
 /*
  * apicid, cpu, node mappings
  */
@@ -162,48 +162,9 @@ static unsigned long num_physpages;
 
 static void __init info_node_memblock(void)
 {
-	u32 i, mem_type;
+	u32 mem_type;
 	u64 mem_end, mem_start, mem_size;
 	efi_memory_desc_t *md;
-
-	if (g_mmap) {
-		for (i = 0; i < g_mmap->map_count; i++) {
-			mem_type = g_mmap->map[i].mem_type;
-			mem_start = g_mmap->map[i].mem_start;
-			mem_size = g_mmap->map[i].mem_size;
-			mem_end = g_mmap->map[i].mem_start + mem_size;
-
-			switch (mem_type) {
-			case ADDRESS_TYPE_SYSRAM:
-				mem_start = PFN_ALIGN(mem_start);
-				mem_end = PFN_ALIGN(mem_end - PAGE_SIZE + 1);
-				if (mem_start >= mem_end)
-					break;
-				num_physpages += (mem_size >> PAGE_SHIFT);
-				pr_info("Node%d: mem_type:%d, mem_start:0x%llx, mem_size:0x%llx Bytes\n",
-					(u32)pa_to_nid(mem_start), mem_type, mem_start, mem_size);
-				pr_info("       start_pfn:0x%llx, end_pfn:0x%llx, num_physpages:0x%lx\n",
-					mem_start >> PAGE_SHIFT, mem_end >> PAGE_SHIFT, num_physpages);
-				break;
-
-			case ADDRESS_TYPE_ACPI:
-				mem_start = PFN_ALIGN(mem_start - PAGE_SIZE + 1);
-				mem_end = PFN_ALIGN(mem_end);
-				mem_size = mem_end - mem_start;
-				memblock_add(mem_start, mem_size);
-				memblock_mark_nomap(mem_start, mem_size);
-				memblock_set_node(mem_start, mem_size,
-						&memblock.memory, 0);
-				memblock_reserve(mem_start, mem_size);
-				break;
-
-			case ADDRESS_TYPE_RESERVED:
-				memblock_reserve(mem_start, mem_size);
-				break;
-			}
-		}
-		return;
-	}
 
 	/* Parse memory information and activate */
 	for_each_efi_memory_desc(md) {
