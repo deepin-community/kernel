@@ -68,10 +68,8 @@ static int __init efimap_populate_hugepages(
 		if (pud_none(*pud)) {
 			void *p = memblock_alloc_low(PAGE_SIZE, PAGE_SIZE);
 
-			if (!p) {
-				pr_err("can not alloc efimap huge pages!\n");
+			if (!p)
 				return -1;
-			}
 			pmd_init(p);
 			pud_populate(&init_mm, pud, p);
 		}
@@ -89,8 +87,7 @@ static void __init efi_map_pgt(void)
 {
 	unsigned long node;
 	unsigned long start, end;
-	efi_memory_desc_t *md;
-	u32 mem_type;
+	unsigned long start_pfn, end_pfn;
 
 	pgd_efi = memblock_alloc_low(PAGE_SIZE, PAGE_SIZE);
 	if (!pgd_efi) {
@@ -107,33 +104,13 @@ static void __init efi_map_pgt(void)
 		/* MMIO Registers, Uncached */
 		efimap_populate_hugepages(SZ_256M | (node << 44),
 				SZ_512M | (node << 44), PAGE_KERNEL_SUC);
-	}
 
-	/* Parse memory information */
-	for_each_efi_memory_desc(md) {
-		mem_type = md->type;
-		start = ALIGN_DOWN(md->phys_addr, PMD_SIZE);
-		end = ALIGN(start + (md->num_pages << EFI_PAGE_SHIFT), PMD_SIZE);
-		node = start >> 44;
+		get_pfn_range_for_nid(node, &start_pfn, &end_pfn);
+		start = ALIGN_DOWN(start_pfn << PAGE_SHIFT, PMD_SIZE);
+		end = ALIGN(end_pfn << PAGE_SHIFT, PMD_SIZE);
 
-		switch (mem_type) {
-		case EFI_LOADER_CODE:
-		case EFI_LOADER_DATA:
-		case EFI_BOOT_SERVICES_CODE:
-		case EFI_BOOT_SERVICES_DATA:
-		case EFI_PAL_CODE:
-		case EFI_UNUSABLE_MEMORY:
-		case EFI_ACPI_RECLAIM_MEMORY:
-		case EFI_RESERVED_TYPE:
-		case EFI_RUNTIME_SERVICES_CODE:
-		case EFI_RUNTIME_SERVICES_DATA:
-			efimap_populate_hugepages(node ? start : SZ_512M, end, PAGE_KERNEL);
-			break;
-		case EFI_MEMORY_MAPPED_IO:
-		case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
-			efimap_populate_hugepages(node ? start : SZ_512M, end, PAGE_KERNEL_SUC);
-			break;
-		}
+		/* System memory, Cached */
+		efimap_populate_hugepages(node ? start : SZ_512M, end, PAGE_KERNEL);
 	}
 }
 
