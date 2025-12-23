@@ -831,6 +831,20 @@ static int __init debugfs_mclk_init(void)
 	return 0;
 }
 late_initcall(debugfs_mclk_init);
+
+static int __init debugfs_watchpoint_init(void)
+{
+	struct dentry *dir = sw64_debugfs_dir;
+	static u64 feature_wp;
+
+	feature_wp = (cpuid(GET_FEATURES, 0) & CPU_FEAT_WP);
+	if (feature_wp) {
+		debugfs_create_u64("watchpoint", 0644, dir, &feature_wp);
+	}
+
+	return 0;
+}
+late_initcall(debugfs_watchpoint_init);
 #endif
 
 #ifdef CONFIG_OF
