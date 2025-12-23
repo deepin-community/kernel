@@ -102,6 +102,24 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 	return 0;
 }
 
+void kvm_sw64_set_guest_debug(struct kvm_vcpu *vcpu, struct kvm_guest_debug *dbg)
+{
+	uint64_t match_ctl, match_ctl_mode;
+	vcpu->guest_debug = dbg->control;
+	if (!(vcpu->guest_debug & KVM_GUESTDBG_ENABLE)) {
+		vcpu->guest_debug = 0;
+	} else {
+		vcpu->arch.guest_debug_state = dbg->arch;
+		match_ctl_mode = (vcpu->arch.guest_debug_state.ctl >> 8) & 0x3;
+		match_ctl = sw64_read_csr(CSR_DC_CTLP);
+		match_ctl &= ~((0x1UL << 3) | (0x3UL << DA_MATCH_EN_S) |
+				(0x1UL << DV_MATCH_EN_S) | (0x1UL << DAV_MATCH_EN_S));
+		match_ctl |= (match_ctl_mode << DA_MATCH_EN_S) | (0x1UL << DPM_MATCH_EN_S) |
+				(0x2UL << DPM_MATCH);
+		vcpu->arch.guest_debug_state.ctl = match_ctl;
+	}
+}
+
 int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
 {
 	if (feature_vint)

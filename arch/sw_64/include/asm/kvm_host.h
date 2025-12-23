@@ -119,6 +119,10 @@ struct kvm_vcpu_arch {
 	/* Don't run the guest (internal implementation need) */
 	bool pause;
 
+	/* vcpu debug state */
+	struct kvm_guest_debug_arch host_debug_state;
+	struct kvm_guest_debug_arch guest_debug_state;
+
 	struct kvm_decode mmio_decode;
 
 	/* Cache some mmu pages needed inside spinlock regions */
@@ -211,6 +215,7 @@ void kvm_sw64_destroy_vm(struct kvm *kvm);
 int kvm_sw64_vcpu_reset(struct kvm_vcpu *vcpu);
 long kvm_sw64_set_vcb(struct file *filp, unsigned long arg);
 long kvm_sw64_get_vcb(struct file *filp, unsigned long arg);
+void kvm_sw64_set_guest_debug(struct kvm_vcpu *vcpu, struct kvm_guest_debug *dbg);
 
 void update_aptp(unsigned long pgd);
 void vcpu_set_numa_affinity(struct kvm_vcpu *vcpu);
