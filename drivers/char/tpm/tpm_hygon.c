@@ -63,7 +63,7 @@ out:
 	return ret;
 }
 
-static int tpm_c_send(struct tpm_chip *chip, u8 *buf, size_t count)
+static int tpm_c_send(struct tpm_chip *chip, u8 *buf, size_t bufsiz, size_t count)
 {
 	int ret, error;
 	struct tpm_hygon_priv *priv = dev_get_drvdata(&chip->dev);
