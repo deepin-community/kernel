@@ -222,6 +222,34 @@ static int __init fake_numa_init(void)
 	return numa_add_memblk(0, start, end + 1);
 }
 
+/*
+ * add_numamem_region
+ *
+ * Add a uasable memory region described by BIOS. The
+ * routine gets each intersection between BIOS's region
+ * and node's region, and adds them into node's memblock
+ * pool.
+ *
+ */
+static void __init add_numamem_region(u64 start, u64 end, u32 type)
+{
+       u32 node = pa_to_nid(start);
+       u64 size = end - start;
+       static unsigned long num_physpages;
+
+       if (start >= end) {
+               pr_debug("Invalid region: %016llx-%016llx\n", start, end);
+               return;
+       }
+
+       num_physpages += (size >> PAGE_SHIFT);
+       pr_info("Node%d: mem_type:%d, mem_start:0x%llx, mem_size:0x%llx Bytes\n",
+               node, type, start, size);
+       pr_info("       start_pfn:0x%llx, end_pfn:0x%llx, num_physpages:0x%lx\n",
+               start >> PAGE_SHIFT, end >> PAGE_SHIFT, num_physpages);
+       memblock_set_node(start, size, &memblock.memory, node);
+}
+
 int __init init_numa_memory(void)
 {
 	int i;
