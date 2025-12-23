@@ -59,7 +59,7 @@ out:
 	return ret;
 }
 
-static int tcm_c_send(struct tpm_chip *chip, u8 *buf, size_t count)
+static int tcm_c_send(struct tpm_chip *chip, u8 *buf, size_t bufsiz, size_t count)
 {
 	int ret, error;
 	struct tcm_hygon_priv *priv = dev_get_drvdata(&chip->dev);
@@ -96,24 +96,7 @@ static const struct tpm_class_ops tcm_c_ops = {
 
 static void tcm_bios_log_teardown(struct tpm_chip *chip)
 {
-	int i;
-	struct inode *inode;
-
-	/* securityfs_remove currently doesn't take care of handling sync
-	 * between removal and opening of pseudo files. To handle this, a
-	 * workaround is added by making i_private = NULL here during removal
-	 * and to check it during open(), both within inode_lock()/unlock().
-	 * This design ensures that open() either safely gets kref or fails.
-	 */
-	for (i = (TPM_NUM_EVENT_LOG_FILES - 1); i >= 0; i--) {
-		if (chip->bios_dir[i]) {
-			inode = d_inode(chip->bios_dir[i]);
-			inode_lock(inode);
-			inode->i_private = NULL;
-			inode_unlock(inode);
-			securityfs_remove(chip->bios_dir[i]);
-		}
-	}
+	securityfs_remove(chip->bios_dir);
 }
 
 static void tcm_chip_unregister(struct tpm_chip *chip)
