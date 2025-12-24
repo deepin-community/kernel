@@ -50,12 +50,12 @@ struct vpsp_dev_ctrl {
 	} data;
 };
 
-uint64_t atomic64_exchange(uint64_t *dst, uint64_t val)
+static uint64_t atomic64_exchange(uint64_t *dst, uint64_t val)
 {
 	return xchg(dst, val);
 }
 
-int psp_mutex_init(struct psp_mutex *mutex)
+static int psp_mutex_init(struct psp_mutex *mutex)
 {
 	if (!mutex)
 		return -1;
@@ -185,7 +185,7 @@ static void swap_vid_entries(void *a, void *b, int size)
  * in the absence of a valid 'vid' setting.
  */
 uint32_t allow_default_vid = 1;
-void vpsp_set_default_vid_permission(uint32_t is_allow)
+static void vpsp_set_default_vid_permission(uint32_t is_allow)
 {
 	allow_default_vid = is_allow;
 }
