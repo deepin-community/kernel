@@ -105,7 +105,7 @@ struct vpsp_hbuf_wrapper {
 struct vpsp_hbuf_wrapper
 g_hbuf_wrap[CSV_COMMAND_PRIORITY_NUM][CSV_RING_BUFFER_SIZE / CSV_RING_BUFFER_ESIZE] = {0};
 
-void __maybe_unused map_tbl_dump(const char *title, struct addr_map_tbls *tbls)
+static void __maybe_unused map_tbl_dump(const char *title, struct addr_map_tbls *tbls)
 {
 	int i;
 
@@ -118,7 +118,7 @@ void __maybe_unused map_tbl_dump(const char *title, struct addr_map_tbls *tbls)
 	pr_info("\n");
 }
 
-void __maybe_unused g2h_tbl_dump(const char *title, struct gpa2hva_tbls *tbls)
+static void __maybe_unused g2h_tbl_dump(const char *title, struct gpa2hva_tbls *tbls)
 {
 	int i;
 

@@ -67,6 +67,7 @@ int hygon_psp_additional_setup(struct sp_device *sp);
 void hygon_psp_exit(struct kref *ref);
 int psp_mutex_lock_timeout(struct psp_mutex *mutex, uint64_t ms);
 int psp_mutex_unlock(struct psp_mutex *mutex);
+int __vpsp_do_cmd_locked(uint32_t vid, int cmd, void *data, int *psp_ret);
 int fixup_hygon_psp_caps(struct psp_device *psp);
 int sp_request_hygon_psp_irq(struct sp_device *sp, irq_handler_t handler,
 			     const char *name, void *data);
