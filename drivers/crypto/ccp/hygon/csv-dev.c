@@ -949,7 +949,6 @@ end:
 	return rb_supported;
 }
 
-int __vpsp_do_cmd_locked(uint32_t vid, int cmd, void *data, int *psp_ret);
 /*
  * Try to obtain the result again by the command index, this
  * interface is used in ringbuffer mode
