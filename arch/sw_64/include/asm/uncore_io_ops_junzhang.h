@@ -3,6 +3,8 @@
 #define _ASM_SW64_UNCORE_IO_OPS_JUNZHANG_H
 
 #define OFFSET_CFG_INFO	0x1100UL
+#define OFFSET_FAULT_SOURCE 0xb00UL
+#define OFFSET_MC_ONLINE 0x3780UL
 
 static inline int __get_cpu_nums(void)
 {
