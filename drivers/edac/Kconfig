@@ -578,4 +578,11 @@ config EDAC_NPCM
 	  error detection (in-line ECC in which a section 1/8th of the memory
 	  device used to store data is used for ECC storage).
 
+config EDAC_SW64
+	tristate "SW64 UNCORE_JUNZHANG"
+	depends on SW64 && SUBARCH_C4
+	help
+	  Support for error detection and correction on the
+	  UNCORE_JUNZHANG chipsets.
+
 endif # EDAC
