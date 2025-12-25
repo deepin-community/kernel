@@ -305,7 +305,7 @@ void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size)
                * crash dump kernel possibly excludes some ACPI (reclaim)
                * regions from memblock list.
                */
-               return ioremap_prot(phys, size, pgprot_val(__acpi_get_mem_attribute(phys)));
+               return ioremap_prot(phys, size, __acpi_get_mem_attribute(phys));
        }
 #endif
 	efi_memory_desc_t *md, *region = NULL;
