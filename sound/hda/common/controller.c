@@ -88,7 +88,7 @@ static u64 azx_adjust_codec_delay(struct snd_pcm_substream *substream,
 	return (nsec > codec_nsecs) ? nsec - codec_nsecs : 0;
 }
 
-int gf_setup_bdle(struct snd_pcm_substream *substream)
+static int gf_setup_bdle(struct snd_pcm_substream *substream)
 {
 	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
 	struct azx *chip = apcm->chip;
@@ -128,7 +128,7 @@ int gf_setup_bdle(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
+static int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
 	struct azx *chip = apcm->chip;
@@ -150,7 +150,7 @@ int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
-int gf_update_stream(struct snd_pcm_substream *substream)
+static int gf_update_stream(struct snd_pcm_substream *substream)
 {
 	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
 	struct azx *chip = apcm->chip;
