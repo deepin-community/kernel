@@ -66,6 +66,7 @@ u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize, u16 charmask,
 	u16 ch = scr_readw(s) & charmask;
 	const struct font_desc *font;
 
+	fontdata = ops ? ops->fontbuffer : vc->vc_font.data;
 	if (ch == 0xff || ch == 0xfe) {
 		/* assume current font not support unicode */
 		if (charcnt < 65536) {
@@ -75,22 +76,21 @@ u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize, u16 charmask,
 				font = find_font(fontname);
 				fontdata = (font && font->data) ? (void *) font->data : NULL;
 			}
-			if (fontdata) {
-				c_utf = utf8_pos(vc, s);
-				if (ch == 0xff)
-					src = fontdata + (c_utf * cellsize_utf * 2);
-				else
-					src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
-				return src;
-			}
-			/* ch=0 for fontdata=0 */
-			ch = 0;
 		}
+		if (fontdata) {
+			c_utf = utf8_pos(vc, s);
+			if (ch == 0xff)
+				src = fontdata + (c_utf * cellsize_utf * 2);
+			else
+				src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
+			return src;
+		}
+		/* ch=0 for fontdata=0 */
+		ch = 0;
 	} else if (ch >= charcnt) {
 		ch = 0;
 	}
 
-	fontdata = ops ? ops->fontbuffer : vc->vc_font.data;
 	src = fontdata + (unsigned int)ch * cellsize;
 	return src;
 }
