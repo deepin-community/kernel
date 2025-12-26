@@ -156,7 +156,7 @@ version=$KERNELRELEASE
 if [ "${KDEB_PKGVERSION:+set}" ]; then
 	packageversion=$KDEB_PKGVERSION
 else
-	packageversion=$($srctree/scripts/build-version)
+	packageversion=$($srctree/init/build-version)
 fi
 sourcename=${KDEB_SOURCENAME:-linux-upstream}
 
