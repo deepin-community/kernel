@@ -208,6 +208,7 @@ void put_ipc_ns(struct ipc_namespace *ns)
 			schedule_work(&free_ipc_work);
 	}
 }
+EXPORT_SYMBOL_GPL(put_ipc_ns);
 
 static struct ns_common *ipcns_get(struct task_struct *task)
 {
