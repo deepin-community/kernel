@@ -30,6 +30,7 @@ struct ipc_namespace init_ipc_ns = {
 	.ns = NS_COMMON_INIT(init_ipc_ns),
 	.user_ns = &init_user_ns,
 };
+EXPORT_SYMBOL_GPL(init_ipc_ns);
 
 struct msg_msgseg {
 	struct msg_msgseg *next;
