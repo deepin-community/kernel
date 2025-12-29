@@ -183,9 +183,8 @@ int ultrarisc_pcie_resume(struct platform_device *pdev)
 }
 
 static const struct of_device_id ultrarisc_pcie_of_match[] = {
-	{
-		.compatible = "ultrarisc,dw-pcie",
-	},
+	{ .compatible = "ultrarisc,dp1000-pcie", },
+	{ .compatible = "ultrarisc,dw-pcie", },
 	{},
 };
 
