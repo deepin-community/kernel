@@ -6666,6 +6666,13 @@ bool btf_ctx_access(int off, int size, enum bpf_access_type type,
 	if (btf_param_match_suffix(btf, &args[arg], "__nullable"))
 		info->reg_type |= PTR_MAYBE_NULL;
 
+	/* a temporary workaround for bpf_lsm_mmap_file null pointer access,
+	 * urgly but effective, should be removed while BTF weak symbol is
+	 * supported by pahole
+	 */
+	if (!strcmp(tname, "bpf_lsm_mmap_file") && arg == 0)
+		info->reg_type |= PTR_MAYBE_NULL;
+
 	if (prog->expected_attach_type == BPF_TRACE_RAW_TP) {
 		struct btf *btf = prog->aux->attach_btf;
 		const struct btf_type *t;
