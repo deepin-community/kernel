@@ -232,6 +232,10 @@ static void fixup_root_complex(struct pci_dev *dev)
 	}
 
 	dev->no_msi = 1;
+
+#ifdef CONFIG_HOTPLUG_PCI_PCIE
+	dev->broken_cmd_compl = 1;
+#endif
 }
 
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_JN, PCI_DEVICE_ID_SW64_ROOT_BRIDGE, fixup_root_complex);
