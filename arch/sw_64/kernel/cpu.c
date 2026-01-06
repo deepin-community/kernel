@@ -10,6 +10,7 @@
 
 #include <asm/cache.h>
 #include <asm/cpu.h>
+#include <asm/cpufeature.h>
 #include <asm/mmu_context.h>
 #include <asm/efi.h>
 
@@ -266,7 +267,7 @@ static int show_cpuinfo(struct seq_file *f, void *slot)
 				(loops_per_jiffy / (5000/HZ)) % 100);
 
 		seq_printf(f, "flags\t\t: fpu simd vpn upn cpuid%s\n",
-				(cpuid(GET_FEATURES, 0) & CPU_FEAT_UNA) ? " una" : "");
+				(cpu_have_named_feature(HWUNA)) ? " una" : "");
 		seq_printf(f, "page size\t: %d\n", 8192);
 		seq_printf(f, "cache_alignment\t: %d\n", l3_cachline_size);
 		seq_printf(f, "address sizes\t: %u bits physical, %u bits virtual\n\n",
