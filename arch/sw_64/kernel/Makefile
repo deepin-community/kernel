@@ -23,7 +23,7 @@ obj-y    := fpu.o traps.o process.o sys_sw64.o irq.o cpu.o \
 	    systbls.o dup_print.o chip_setup.o \
 	    insn.o early_init.o topology.o cacheinfo.o \
 	    vdso.o vdso/ hmcall.o stacktrace.o idle.o reset.o \
-	    head.o termios.o trap_unalign.o
+	    head.o termios.o trap_unalign.o cpufeature.o
 
 obj-$(CONFIG_SUBARCH_C3B) += entry_c3.o tc.o
 obj-$(CONFIG_SUBARCH_C4) += entry_c4.o

@@ -136,8 +136,8 @@ do {								\
  * This yields a mask that user programs can use to figure out what
  * instruction set this CPU supports.
  */
-
-#define ELF_HWCAP	0
+#define ELF_HWCAP		(elf_hwcap)
+extern unsigned long elf_hwcap;
 
 /*
  * This yields a string that ld.so will use to load implementation
