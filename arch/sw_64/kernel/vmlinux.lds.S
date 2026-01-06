@@ -53,6 +53,13 @@ SECTIONS
 	}
 	PERCPU_SECTION(L1_CACHE_BYTES)
 
+	. = ALIGN(4);
+	.altinstructions : {
+		__alt_instructions = .;
+		*(.altinstructions)
+		__alt_instructions_end = .;
+	}
+
 	/*
 	 * Align to THREAD_SIZE rather than PAGE_SIZE here so any padding page
 	 * needed for the THREAD_SIZE aligned init_task gets freed after init

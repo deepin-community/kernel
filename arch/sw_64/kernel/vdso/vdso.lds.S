@@ -48,6 +48,11 @@ SECTIONS
 	PROVIDE (_etext = .);
 	PROVIDE (etext = .);
 
+	. = ALIGN(4);
+	.altinstructions : {
+		*(.altinstructions)
+	}
+
 	.eh_frame_hdr	: { *(.eh_frame_hdr) }		:text	:eh_frame_hdr
 	.eh_frame	: { KEEP (*(.eh_frame)) }	:text
 

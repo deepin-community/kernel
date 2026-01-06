@@ -23,6 +23,7 @@
 #include <linux/acpi.h>
 #include <linux/cpu.h>
 
+#include <asm/alternative.h>
 #include <asm/cpufeature.h>
 #include <asm/efi.h>
 #include <asm/mmu_context.h>
@@ -675,6 +676,8 @@ setup_arch(char **cmdline_p)
 	trap_init();
 
 	setup_cpu_features();
+
+	apply_alternatives_all();
 
 	jump_label_init();
 
