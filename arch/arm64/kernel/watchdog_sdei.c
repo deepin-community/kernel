@@ -114,9 +114,27 @@ static int sdei_watchdog_pm_notifier(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
 	int rv = 0;
+	u64 result;
 
 	WARN_ON_ONCE(preemptible());
 
+	/*
+	 * Judge event status before disable or enable to prevent
+	 * incorrect state transitions, e.g., disabling after
+	 * unregistering.
+	 */
+	rv = sdei_api_event_status(sdei_watchdog_event_num, &result);
+	if (rv)
+		goto error;
+	if (!result)
+		goto success;
+
+	/*
+	 * After powering on/off the LPI (Low Power Idle),
+	 * the enable function must be called to enable the
+	 * EL3 Secure Timer, ensuring proper handling of
+	 * secure timer functionality.
+	 */
 	switch (action) {
 	case CPU_PM_ENTER:
 		if (per_cpu(sdei_usr_en, smp_processor_id()))
@@ -131,9 +149,10 @@ static int sdei_watchdog_pm_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 	}
 
+error:
 	if (rv)
 		return notifier_from_errno(rv);
-
+success:
 	return NOTIFY_OK;
 }
 
