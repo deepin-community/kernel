@@ -2649,7 +2649,14 @@ static inline unsigned long get_mm_counter(struct mm_struct *mm, int member)
 	if (percpu_counter_initialized(fbc))
 		return percpu_counter_read_positive(fbc);
 
-	return percpu_counter_atomic_read(fbc);
+	long val = percpu_counter_atomic_read(fbc);
+	/*
+	 * counter is updated in asynchronous manner and may go to minus.
+	 * But it's never be expected number for users.
+	 */
+	if (val < 0)
+		return 0;
+	return (unsigned long)val;
 }
 
 static inline unsigned long get_mm_counter_sum(struct mm_struct *mm, int member)
