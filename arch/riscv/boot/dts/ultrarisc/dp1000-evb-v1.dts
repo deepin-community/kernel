@@ -12,8 +12,7 @@
 	compatible = "ultrarisc,evb-v1", "ultrarisc,dp1000";
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS1,115200";
-		stdout-path = &uart1;
+		stdout-path = "serial1:115200n8";
 	};
 };
 
