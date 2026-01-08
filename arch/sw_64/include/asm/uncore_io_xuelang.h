@@ -67,6 +67,10 @@
 #define DLI_PHY_CTL		(0x10UL << 24)
 #define PCI_VT_LEGACY_IO	(IO_BASE | PCI_BASE | PCI_LEGACY_IO)
 
+#define SPBU_SIZE		0x8f00
+#define INTPU_SIZE		0x1680
+#define GPIO_SIZE		0x3c00
+
 #define CORE0_CID		(rcid_to_domain_id(cpu_to_rcid(0)) << 6 | \
 				rcid_to_core_id(cpu_to_rcid(0)))
 #define PME_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x1UL << 10 | CORE0_CID)
