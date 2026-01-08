@@ -12,8 +12,14 @@
 	compatible = "rongda,m0-v1", "ultrarisc,dp1000";
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200";
-		stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
 	};
 
 	gpio-poweroff {
