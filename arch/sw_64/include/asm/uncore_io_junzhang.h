@@ -62,6 +62,10 @@
 #define LPC_FIRMWARE_IO		(0x3UL << 28 | IO_BASE | LPC_BASE)
 #define PCI_VT_LEGACY_IO	(IO_BASE | PCI_BASE | PCI_LEGACY_IO)
 
+#define SPBU_SIZE		0xe000
+#define INTPU_SIZE		0x1900
+#define GPIO_SIZE		0x4000
+
 #define CORE0_CID		(rcid_to_domain_id(cpu_to_rcid(0)) << 7 | \
 				rcid_to_thread_id(cpu_to_rcid(0)) << 6 | \
 				rcid_to_core_id(cpu_to_rcid(0)))
