@@ -8,6 +8,9 @@
 #include <dt-bindings/gpio/gpio.h>
 
 / {
+	model = "UltraRISC EVB v1";
+	compatible = "ultrarisc,evb-v1", "ultrarisc,dp1000";
+
 	chosen {
 		bootargs = "earlycon=sbi console=ttyS1,115200";
 		stdout-path = &uart1;
