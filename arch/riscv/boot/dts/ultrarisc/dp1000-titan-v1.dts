@@ -170,6 +170,29 @@
 		phy0: phy@0{
 			reg = <0x00>;
 			status = "okay";
+
+			leds {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				led@1 {
+					label = "eth-link";
+					reg = <0x01>;
+					color = <LED_COLOR_ID_YELLOW>;
+					function = LED_FUNCTION_INDICATOR;
+					default-state = "keep";
+					linux,default-trigger = "netdev";
+				};
+
+				led@2 {
+					label = "eth-activity";
+					reg = <0x02>;
+					color = <LED_COLOR_ID_GREEN>;
+					function = LED_FUNCTION_ACTIVITY;
+					default-state = "keep";
+					linux,default-trigger = "netdev";
+				};
+			};
 		};
 	};
 };
