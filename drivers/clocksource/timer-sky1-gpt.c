@@ -225,9 +225,6 @@ static int sky1_tick_resume(struct clock_event_device *ced)
 {
 	struct sky1_timer *sky1tm = to_sky1_timer(ced);
 
-	/* reset timer */
-	reset_control_reset(sky1tm->func_reset);
-
 	sky1_gpt_setup_tctl(sky1tm);
 
 	sky1_shutdown(ced);
