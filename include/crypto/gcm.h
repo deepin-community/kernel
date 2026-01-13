@@ -9,6 +9,7 @@
 #define GCM_AES_IV_SIZE 12
 #define GCM_RFC4106_IV_SIZE 8
 #define GCM_RFC4543_IV_SIZE 8
+#define GCM_SM4_IV_SIZE 12
 
 /*
  * validate authentication tag for GCM

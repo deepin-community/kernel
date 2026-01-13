@@ -551,6 +551,20 @@ config CRYPTO_CRCT10DIF_PCLMUL
 	  Architecture: x86_64 using:
 	  - PCLMULQDQ (carry-less multiplication)
 
+config CRYPTO_SM4_CIS_X86_64
+	tristate "Ciphers: SM4 (Hygon CIS)"
+	depends on X86 && 64BIT
+	select CRYPTO_SKCIPHER
+	select CRYPTO_AEAD
+	select CRYPTO_SIMD
+	select CRYPTO_GHASH_CLMUL_NI_INTEL
+	help
+	  Length-preserving ciphers: SM4 cipher algorithms
+	  (OSCCA GB/T 32907-2016) with ECB, CBC, CFB, OFB, CTR, XTS and GCM modes
+
+	  Architecture: x86_64 using:
+	  - CIS (Crypto Instruction Set)
+
 config CRYPTO_SM2_ZHAOXIN_GMI
 	tristate "SM2 Cipher algorithm (Zhaoxin GMI Instruction)"
 	depends on X86 && (CPU_SUP_CENTAUR || CPU_SUP_ZHAOXIN)
