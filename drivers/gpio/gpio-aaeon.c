@@ -50,7 +50,7 @@ static int aaeon_gpio_input_set_direction(struct gpio_chip *chip,
 				 unsigned int offset);
 static int aaeon_gpio_get(struct gpio_chip *chip,
 				 unsigned int offset);
-static void aaeon_gpio_set(struct gpio_chip *chip, unsigned int offset,
+static int aaeon_gpio_set(struct gpio_chip *chip, unsigned int offset,
 				 int value);
 
 #define AAEON_GPIO_BANK(_base, _ngpio, _regbase)			\
@@ -131,16 +131,20 @@ static int aaeon_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return retval;
 }
 
-static void aaeon_gpio_set(struct gpio_chip *chip, unsigned int offset,
+static int aaeon_gpio_set(struct gpio_chip *chip, unsigned int offset,
 			   int value)
 {
-	int retval;
+	int err, retval;
 	u32 dev_id = offset;
 
 	if (value)
 		dev_id = BIT(16) | dev_id;
 
-	asus_wmi_evaluate_method(SET_LEVEL_METHOD_ID, dev_id, 0, &retval);
+	err = asus_wmi_evaluate_method(SET_LEVEL_METHOD_ID, dev_id, 0, &retval);
+	if (err)
+		return err;
+
+	return retval;
 }
 
 static int aaeon_gpio_get_number(void)
