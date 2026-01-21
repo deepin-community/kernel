@@ -849,9 +849,6 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
 			continue;
 		}
 
-		if (ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
-			ieee80211_handle_mu_mimo_mon(sdata, origskb, rtap_space);
-
 		if (!monskb)
 			monskb = ieee80211_make_monitor_skb(local, &origskb,
 							    rate, rtap_space,
