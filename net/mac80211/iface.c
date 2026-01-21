@@ -722,11 +722,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 		ieee80211_recalc_idle(local);
 		ieee80211_recalc_offload(local);
 
-		if (!(sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE) &&
-		    !ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
+		if (!(sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE))
 			break;
 
-		ieee80211_link_release_channel(&sdata->deflink);
 		fallthrough;
 	default:
 		if (!going_down)
@@ -1161,8 +1159,7 @@ int ieee80211_add_virtual_monitor(struct ieee80211_local *local)
 	ASSERT_RTNL();
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	if (local->monitor_sdata ||
-	    ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
+	if (local->monitor_sdata)
 		return 0;
 
 	sdata = kzalloc(sizeof(*sdata) + local->hw.vif_data_size, GFP_KERNEL);
@@ -1223,9 +1220,6 @@ int ieee80211_add_virtual_monitor(struct ieee80211_local *local)
 void ieee80211_del_virtual_monitor(struct ieee80211_local *local)
 {
 	struct ieee80211_sub_if_data *sdata;
-
-	if (ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
-		return;
 
 	ASSERT_RTNL();
 	lockdep_assert_wiphy(local->hw.wiphy);
@@ -1372,8 +1366,7 @@ int ieee80211_do_open(struct wireless_dev *wdev, bool coming_up)
 			break;
 		}
 
-		if ((sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE) ||
-		    ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR)) {
+		if (sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE) {
 			res = drv_add_interface(local, sdata);
 			if (res)
 				goto err_stop;

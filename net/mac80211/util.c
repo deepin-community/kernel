@@ -740,8 +740,7 @@ static void __iterate_interfaces(struct ieee80211_local *local,
 				lockdep_is_held(&local->hw.wiphy->mtx)) {
 		switch (sdata->vif.type) {
 		case NL80211_IFTYPE_MONITOR:
-			if (!(sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE) &&
-			    !ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
+			if (!(sdata->u.mntr.flags & MONITOR_FLAG_ACTIVE))
 				continue;
 			break;
 		case NL80211_IFTYPE_AP_VLAN:
@@ -1861,10 +1860,8 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	}
 
 	list_for_each_entry(sdata, &local->interfaces, list) {
-		if (sdata->vif.type == NL80211_IFTYPE_MONITOR &&
-		    !ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
-			continue;
 		if (sdata->vif.type != NL80211_IFTYPE_AP_VLAN &&
+		    sdata->vif.type != NL80211_IFTYPE_MONITOR &&
 		    ieee80211_sdata_running(sdata)) {
 			res = drv_add_interface(local, sdata);
 			if (WARN_ON(res))
@@ -1877,14 +1874,11 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	 */
 	if (res) {
 		list_for_each_entry_continue_reverse(sdata, &local->interfaces,
-						     list) {
-			if (sdata->vif.type == NL80211_IFTYPE_MONITOR &&
-			    !ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR))
-				continue;
+						     list)
 			if (sdata->vif.type != NL80211_IFTYPE_AP_VLAN &&
+			    sdata->vif.type != NL80211_IFTYPE_MONITOR &&
 			    ieee80211_sdata_running(sdata))
 				drv_remove_interface(local, sdata);
-		}
 		ieee80211_handle_reconfig_failure(local);
 		return res;
 	}
