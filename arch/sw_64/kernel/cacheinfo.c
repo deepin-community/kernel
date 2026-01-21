@@ -131,7 +131,7 @@ static void setup_shared_cpu_map(unsigned int cpu)
 			struct cpu_cacheinfo *sib_cpu_ci = get_cpu_cacheinfo(i);
 
 			if ((rcid_to_domain_id(sib_rcid) != rcid_to_domain_id(rcid)) ||
-					(i == cpu))
+					(i == cpu) || !sib_cpu_ci->info_list)
 				continue;
 
 			sib_leaf = sib_cpu_ci->info_list + index;
