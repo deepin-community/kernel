@@ -186,8 +186,6 @@ struct fib6_info {
 	refcount_t			fib6_ref;
 	unsigned long			expires;
 
-	struct hlist_node		gc_link;
-
 	struct dst_metrics		*fib6_metrics;
 #define fib6_pmtu		fib6_metrics->metrics[RTAX_MTU-1]
 
@@ -213,8 +211,7 @@ struct fib6_info {
 	struct rcu_head			rcu;
 	struct nexthop			*nh;
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, 2, struct hlist_node		gc_link)
 
 	struct fib6_nh			fib6_nh[];
 };
@@ -414,7 +411,7 @@ struct fib6_table {
 	struct inet_peer_base	tb6_peers;
 	unsigned int		flags;
 	unsigned int		fib_seq;
-	struct hlist_head       tb6_gc_hlist;	/* GC candidates */
+	DEEPIN_KABI_EXTEND(struct hlist_head       tb6_gc_hlist)	/* GC candidates */
 #define RT6_TABLE_HAS_DFLT_ROUTER	BIT(0)
 };
 
