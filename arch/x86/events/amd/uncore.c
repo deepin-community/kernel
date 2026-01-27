@@ -742,10 +742,8 @@ static int __init amd_uncore_init(void)
 			if (boot_cpu_data.x86_model == 0x4 ||
 			    boot_cpu_data.x86_model == 0x5)
 				*df_attr++ = &format_attr_umask10f18h.attr;
-			else if (boot_cpu_data.x86_model == 0x6 ||
-				 boot_cpu_data.x86_model == 0x7 ||
-				 boot_cpu_data.x86_model == 0x8 ||
-				 boot_cpu_data.x86_model == 0x10)
+			else if (boot_cpu_data.x86_model >= 0x6 &&
+				 boot_cpu_data.x86_model <= 0x18)
 				*df_attr++ = &format_attr_umask12f18h.attr;
 		}
 
