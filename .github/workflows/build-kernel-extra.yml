@@ -1,0 +1,58 @@
+name: build kernel extra
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  email: support@deepin.org
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  build-kernel-extra:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
+      - name: "Compile kernel x86_64_defconfig"
+        run: |
+          # .config
+          make x86_64_defconfig
+          make -j$(nproc)
+
+      - name: "Clang build kernel x86_64_defconfig"
+        run: |
+          # .config
+          make LLVM=-18 x86_64_defconfig
+          make LLVM=-18 -j$(nproc)
+
+      - name: "Clang build kernel arm64 defconfig"
+        run: |
+          # .config
+          make LLVM=-18 ARCH=arm64 defconfig
+          make LLVM=-18 ARCH=arm64 -j$(nproc)
+
+      - name: "Clang build kernel loongarch loongson3_defconfig"
+        run: |
+          # .config
+          make LLVM=-18 ARCH=loongarch loongson3_defconfig
+          make LLVM=-18 ARCH=loongarch -j$(nproc)
+
+      - name: "Clang build kernel riscv rv32_defconfig"
+        run: |
+          # .config
+          make LLVM=-18 ARCH=riscv rv32_defconfig
+          make LLVM=-18 ARCH=riscv -j$(nproc)
+
