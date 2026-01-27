@@ -12,6 +12,10 @@ typedef struct {
 void create_pgd_mapping(pgd_t *pgdir, unsigned long virt, unsigned long phys,
 			unsigned long size, pgprot_t prot,
 			void *(*pgtable_alloc)(void));
+
+void * __init pgtable_alloc_fixmap(void);
+void *pgtable_alloc_late(void);
+
 #endif
 
 #endif /* _ASM_SW64_MMU_H */

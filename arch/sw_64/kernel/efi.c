@@ -42,11 +42,6 @@ static __init pgprot_t create_mapping_protection(efi_memory_desc_t *md)
 	return PAGE_KERNEL;
 }
 
-static void * __init pgtable_alloc_late(void)
-{
-	return (void *)__get_free_page(GFP_KERNEL);
-}
-
 int __init efi_create_mapping(struct mm_struct *mm, efi_memory_desc_t *md)
 {
 	pgprot_t prot = create_mapping_protection(md);

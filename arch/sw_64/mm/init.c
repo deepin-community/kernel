@@ -180,19 +180,19 @@ void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot)
 	local_flush_tlb_all();
 }
 
-static pte_t *__init get_pte_virt_fixmap(phys_addr_t phys)
+static pte_t *get_pte_virt_fixmap(phys_addr_t phys)
 {
 	clear_fixmap(FIX_PTE);
 	return (pte_t *)set_fixmap_offset(FIX_PTE, phys);
 }
 
-static pmd_t *__init get_pmd_virt_fixmap(phys_addr_t phys)
+static pmd_t *get_pmd_virt_fixmap(phys_addr_t phys)
 {
 	clear_fixmap(FIX_PMD);
 	return (pmd_t *)set_fixmap_offset(FIX_PMD, phys);
 }
 
-static pud_t *__init get_pud_virt_fixmap(phys_addr_t phys)
+static pud_t *get_pud_virt_fixmap(phys_addr_t phys)
 {
 	clear_fixmap(FIX_PUD);
 	return (pud_t *)set_fixmap_offset(FIX_PUD, phys);
@@ -203,7 +203,12 @@ void * __init pgtable_alloc_fixmap(void)
 	return (void *)__va(memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE));
 }
 
-static void __init
+void *pgtable_alloc_late(void)
+{
+	return (void *)__get_free_page(GFP_KERNEL);
+}
+
+static void
 create_pte_mapping(pte_t *pte_first, unsigned long virt, unsigned long phys,
 		   unsigned long size, pgprot_t prot)
 {
@@ -222,7 +227,7 @@ create_pte_mapping(pte_t *pte_first, unsigned long virt, unsigned long phys,
 	}
 }
 
-static void __init
+static void
 create_pmd_mapping(pmd_t *pmd_first, unsigned long virt, unsigned long phys,
 		   unsigned long size, pgprot_t prot,
 		   void *(*pgtable_alloc)(void))
@@ -256,7 +261,7 @@ create_pmd_mapping(pmd_t *pmd_first, unsigned long virt, unsigned long phys,
 	}
 }
 
-static void __init
+static void
 create_cont_pmd_mapping(pmd_t *pmd_first, unsigned long virt,
 			unsigned long phys, unsigned long size, pgprot_t prot,
 			void *(*pgtable_alloc)(void))
@@ -285,7 +290,7 @@ create_cont_pmd_mapping(pmd_t *pmd_first, unsigned long virt,
 	}
 }
 
-static void __init
+static void
 create_pud_mapping(pud_t *pud_first, unsigned long virt, unsigned long phys,
 		   unsigned long size, pgprot_t prot,
 		   void *(*pgtable_alloc)(void))
@@ -319,8 +324,8 @@ create_pud_mapping(pud_t *pud_first, unsigned long virt, unsigned long phys,
 	}
 }
 
-void __init
-create_pgd_mapping(pgd_t *pgdir, unsigned long virt, unsigned long phys,
+static void
+__create_pgd_mapping(pgd_t *pgdir, unsigned long virt, unsigned long phys,
 		   unsigned long size, pgprot_t prot,
 		   void *(*pgtable_alloc)(void))
 {
@@ -351,6 +356,14 @@ create_pgd_mapping(pgd_t *pgdir, unsigned long virt, unsigned long phys,
 	clear_fixmap(FIX_PTE);
 	clear_fixmap(FIX_PMD);
 	clear_fixmap(FIX_PUD);
+}
+
+void __init
+create_pgd_mapping(pgd_t *pgdir, unsigned long virt, unsigned long phys,
+		   unsigned long size, pgprot_t prot,
+		   void *(*pgtable_alloc)(void))
+{
+	__create_pgd_mapping(pgdir, virt, phys, size, prot, pgtable_alloc);
 }
 
 static void __init early_create_pmd(pgd_t *pgdir, pud_t *pud, pmd_t *pmd,
