@@ -41,7 +41,9 @@ struct processor_state {
 	unsigned long ktp;
 #ifdef CONFIG_HIBERNATION
 	unsigned long sp;
+	unsigned long gp;
 	struct vcpucb vcb;
+	struct soft_csrs sc;
 #endif
 };
 

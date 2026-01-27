@@ -22,6 +22,7 @@
 #include <linux/libfdt.h>
 #include <linux/acpi.h>
 #include <linux/cpu.h>
+#include <linux/suspend.h>
 
 #include <asm/alternative.h>
 #include <asm/cpufeature.h>
@@ -331,6 +332,21 @@ int __init add_memmap_region(u64 addr, u64 size, enum memmap_types type)
 	process_memmap();
 
 	return 0;
+}
+
+static void __init memmap_nosave_init(void)
+{
+	int i;
+	phys_addr_t start, end;
+
+	for (i = 0; i < memmap_nr; i++) {
+		if (memmap_map[i].type == memmap_reserved ||
+		    memmap_map[i].type == memmap_pci) {
+			start = memmap_map[i].addr;
+			end = start + memmap_map[i].size;
+			register_nosave_region(PFN_DOWN(start), PFN_UP(end));
+		}
+	}
 }
 
 static struct resource* __init
@@ -731,6 +747,12 @@ setup_arch(char **cmdline_p)
 	paging_init();
 
 	callback_init();
+
+	/*
+	 * After linear mapping is established, register no-save regions to ensure
+	 * these spaces are unsaveable during hibernation.
+	 */
+	memmap_nosave_init();
 
 	/* Try to upgrade ACPI tables via initrd */
 	acpi_table_upgrade();
