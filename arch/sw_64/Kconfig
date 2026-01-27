@@ -702,6 +702,9 @@ config ARCH_HIBERNATION_POSSIBLE
 	depends on SW64
 	def_bool y
 
+config ARCH_HIBERNATION_HEADER
+	def_bool HIBERNATION
+
 config SW64_POWERCAP
 	bool "Sunway powercap driver"
 	select IPMI_HANDLER
