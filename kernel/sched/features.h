@@ -122,9 +122,11 @@ SCHED_FEAT(UTIL_EST, true)
 
 SCHED_FEAT(LATENCY_WARN, false)
 
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 /*
  * Do newidle balancing proportional to its success rate using randomization.
  */
 SCHED_FEAT(NI_RANDOM, true)
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
 
 SCHED_FEAT(HZ_BW, true)

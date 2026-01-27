@@ -11923,6 +11923,7 @@ void update_max_interval(void)
 
 static inline void update_newidle_stats(struct sched_domain *sd, unsigned int success)
 {
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 	sd->newidle_call++;
 	sd->newidle_success += success;
 
@@ -11931,6 +11932,7 @@ static inline void update_newidle_stats(struct sched_domain *sd, unsigned int su
 		sd->newidle_call /= 2;
 		sd->newidle_success /= 2;
 	}
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
 }
 
 static inline bool
@@ -12629,6 +12631,7 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
 		if (sd->flags & SD_BALANCE_NEWIDLE) {
 			unsigned int weight = 1;
 
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 			if (sched_feat(NI_RANDOM)) {
 				/*
 				 * Throw a 1k sided dice; and only run
@@ -12643,6 +12646,7 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
 				}
 				weight = (1024 + weight/2) / weight;
 			}
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
 
 			pulled_task = load_balance(this_cpu, this_rq,
 						   sd, CPU_NEWLY_IDLE,

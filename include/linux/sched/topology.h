@@ -5,7 +5,7 @@
 #include <linux/topology.h>
 
 #include <linux/sched/idle.h>
-
+#include <linux/deepin_kabi.h>
 /*
  * sched-domains (multiprocessor balancing) declarations:
  */
@@ -106,9 +106,12 @@ struct sched_domain {
 	unsigned int nr_balance_failed; /* initialise to 0 */
 
 	/* idle_balance() stats */
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 	unsigned int newidle_call;
 	unsigned int newidle_success;
 	unsigned int newidle_ratio;
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
+
 	u64 max_newidle_lb_cost;
 	unsigned long last_decay_max_lb_cost;
 

@@ -1616,10 +1616,12 @@ sd_init(struct sched_domain_topology_level *tl,
 		.last_balance		= jiffies,
 		.balance_interval	= sd_weight,
 
+#ifndef CONFIG_DEEPIN_KABI_RESERVE
 		/* 50% success rate */
 		.newidle_call		= 512,
 		.newidle_success	= 256,
 		.newidle_ratio		= 512,
+#endif  /* !CONFIG_DEEPIN_KABI_RESERVE */
 
 		.max_newidle_lb_cost	= 0,
 		.last_decay_max_lb_cost	= jiffies,
