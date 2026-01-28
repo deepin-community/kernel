@@ -32,8 +32,28 @@ jobs:
           make deepin_x86_desktop_defconfig
           make -j$(nproc)
 
+      - name: "Boot kernel Test"
+        run: |
+          # mkinitrd
+          mkdir -p initrd/bin && cp /bin/busybox initrd/bin/
+          for cmd in sh uname poweroff; do ln -sf busybox initrd/bin/$cmd; done
+          echo -e '#!/bin/sh\nuname -a\npoweroff -f' > initrd/init && chmod +x initrd/init
+          (cd initrd && find . | cpio -o -H newc | gzip > ../initrd.cpio.gz)
+          # boot kernel and shutdown
+          timeout 10 qemu-system-x86_64  -kernel arch/x86/boot/bzImage   -initrd initrd.cpio.gz   -append "console=ttyS0 loglevel=7"   -serial stdio -display none && echo -e "\n[CI PASS]" || { echo -e "\n[CI FAIL]"; exit 1; }
+          # boot kernel with kvm
+          timeout 10 qemu-system-x86_64 --enable-kvm  -kernel arch/x86/boot/bzImage   -initrd initrd.cpio.gz   -append "console=ttyS0 loglevel=7"   -serial stdio -display none && echo -e "\n[CI PASS]" || { echo -e "\n[CI FAIL]"; exit 1; }
+
       - name: "Clang build kernel"
         run: |
           # .config
           make LLVM=-18 deepin_x86_desktop_defconfig
           make LLVM=-18 -j$(nproc)
+
+      - name: "Boot kernel Test"
+        run: |
+          #  reuse initrd and boot kernel and shutdown
+          timeout 10 qemu-system-x86_64  -kernel arch/x86/boot/bzImage   -initrd initrd.cpio.gz   -append "console=ttyS0 loglevel=7"   -serial stdio -display none && echo -e "\n[CI PASS]" || { echo -e "\n[CI FAIL]"; exit 1; }
+          # boot kernel with kvm
+          timeout 10 qemu-system-x86_64 --enable-kvm  -kernel arch/x86/boot/bzImage   -initrd initrd.cpio.gz   -append "console=ttyS0 loglevel=7"   -serial stdio -display none && echo -e "\n[CI PASS]" || { echo -e "\n[CI FAIL]"; exit 1; }
+
