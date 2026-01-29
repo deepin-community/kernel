@@ -1071,7 +1071,10 @@ static void init_speculation_control(struct cpuinfo_x86 *c)
 	 * Intel CPUs, for finer-grained selection of what's available.
 	 */
 	if (cpu_has(c, X86_FEATURE_SPEC_CTRL)) {
-		set_cpu_cap(c, X86_FEATURE_IBRS);
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+			set_cpu_cap(c, X86_FEATURE_IBRS_ENHANCED);
+		else
+			set_cpu_cap(c, X86_FEATURE_IBRS);
 		set_cpu_cap(c, X86_FEATURE_IBPB);
 		set_cpu_cap(c, X86_FEATURE_MSR_SPEC_CTRL);
 	}
@@ -1084,7 +1087,10 @@ static void init_speculation_control(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_SSBD);
 
 	if (cpu_has(c, X86_FEATURE_AMD_IBRS)) {
-		set_cpu_cap(c, X86_FEATURE_IBRS);
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+			set_cpu_cap(c, X86_FEATURE_IBRS_ENHANCED);
+		else
+			set_cpu_cap(c, X86_FEATURE_IBRS);
 		set_cpu_cap(c, X86_FEATURE_MSR_SPEC_CTRL);
 	}
 
