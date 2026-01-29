@@ -4210,28 +4210,31 @@ static int per_family_init(struct amd64_pvt *pvt)
 		break;
 
 	case 0x18:
-		if (pvt->model == 0x4) {
+		switch (pvt->model) {
+		case 0x4:
 			pvt->ctl_name			= "F18h_M04h";
 			pvt->max_mcs			= 3;
 			break;
-		} else if (pvt->model == 0x5) {
+		case 0x5:
 			pvt->ctl_name			= "F18h_M05h";
 			pvt->max_mcs			= 1;
 			break;
-		} else if (pvt->model == 0x6) {
+		case 0x6:
 			pvt->ctl_name			= "F18h_M06h";
 			break;
-		} else if (pvt->model == 0x7) {
+		case 0x7:
 			pvt->ctl_name			= "F18h_M07h";
 			break;
-		} else if (pvt->model == 0x8) {
+		case 0x8:
 			pvt->ctl_name			= "F18h_M08h";
 			break;
-		} else if (pvt->model == 0x10) {
+		case 0x10:
 			pvt->ctl_name			= "F18h_M10h";
 			break;
+		default:
+			pvt->ctl_name			= "F18h";
+			break;
 		}
-		pvt->ctl_name				= "F18h";
 		break;
 
 	case 0x19:
