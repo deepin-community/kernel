@@ -1118,6 +1118,19 @@ do_cmd_auto:
 		break;
 	}
 
+	/* Enhanced IBRS (eIBRS) is preferred on HYGON processors. */
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) {
+		switch (spectre_v2_enabled) {
+		case SPECTRE_V2_EIBRS:
+		case SPECTRE_V2_EIBRS_RETPOLINE:
+		case SPECTRE_V2_EIBRS_LFENCE:
+			retbleed_mitigation = RETBLEED_MITIGATION_EIBRS;
+			break;
+		default:
+			break;
+		}
+	}
+
 	switch (retbleed_mitigation) {
 	case RETBLEED_MITIGATION_UNRET:
 		setup_force_cpu_cap(X86_FEATURE_RETHUNK);
@@ -2561,6 +2574,48 @@ int arch_prctl_spec_ctrl_get(struct task_struct *task, unsigned long which)
 	}
 }
 
+/**
+ * enum ibpb_brtype_cmd - IBPB action control flag
+ * @IBPB_FLUSH_IND:IBPB command only flushes indirect branches in branch target buffer
+ * @IBPB_FLUSH_ALL:IBPB command flushes all types of branches in branch target buffer
+ */
+enum ibpb_brtype_cmd {
+	IBPB_FLUSH_IND,
+	IBPB_FLUSH_ALL,
+};
+static enum ibpb_brtype_cmd ibpb_brtype __ro_after_init = IBPB_FLUSH_ALL;
+/**
+ * The kernel parameter ibpb_brtype is used to control
+ * whether IBPB flushes all branches or indirect branches:
+ * ibpb_brtype=     [X86, HYGON only]
+ *                IBPB action control flag
+ *                Format: { ibpb-all | ibpb-ind }
+ *                ibpb-all -- IBPB flushes all types of branches,this is the default value.
+ *                ibpb-ind -- IBPB flushes only indirect branches.
+ */
+static int __init ibpb_brtype_cmdline(char *str)
+{
+	if (boot_cpu_data.x86_vendor != X86_VENDOR_HYGON)
+		return 0;
+
+	if (!str)
+		return -EINVAL;
+
+	if (!strcmp(str, "ibpb-all")) {
+		ibpb_brtype = IBPB_FLUSH_ALL;
+		pr_info("IBPB flushes all branches.\n");
+	} else if (!strcmp(str, "ibpb-ind")) {
+		ibpb_brtype = IBPB_FLUSH_IND;
+		pr_info("IBPB flushes only indirect branches.\n");
+	} else
+		pr_err("Ignoring unknown ibpb branch type option (%s).", str);
+
+	return 0;
+}
+early_param("ibpb_brtype", ibpb_brtype_cmdline);
+
+#define IBPB_FLUSH_ALL_BIT 55
+
 void x86_spec_ctrl_setup_ap(void)
 {
 	if (boot_cpu_has(X86_FEATURE_MSR_SPEC_CTRL))
@@ -2568,6 +2623,13 @@ void x86_spec_ctrl_setup_ap(void)
 
 	if (ssb_mode == SPEC_STORE_BYPASS_DISABLE)
 		x86_amd_ssb_disable();
+
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) &&
+		(boot_cpu_data.x86 == 0x18)) {
+		if ((boot_cpu_data.x86_model > 0x3) &&
+			(ibpb_brtype == IBPB_FLUSH_ALL))
+			msr_set_bit(MSR_ZEN4_BP_CFG, IBPB_FLUSH_ALL_BIT);
+	}
 }
 
 bool itlb_multihit_kvm_mitigation;
@@ -2706,6 +2768,7 @@ enum srso_mitigation {
 	SRSO_MITIGATION_SAFE_RET,
 	SRSO_MITIGATION_IBPB,
 	SRSO_MITIGATION_IBPB_ON_VMEXIT,
+	SRSO_MITIGATION_EIBRS,
 };
 
 enum srso_mitigation_cmd {
@@ -2723,7 +2786,8 @@ static const char * const srso_strings[] = {
 	[SRSO_MITIGATION_MICROCODE]		= "Vulnerable: Microcode, no safe RET",
 	[SRSO_MITIGATION_SAFE_RET]		= "Mitigation: Safe RET",
 	[SRSO_MITIGATION_IBPB]			= "Mitigation: IBPB",
-	[SRSO_MITIGATION_IBPB_ON_VMEXIT]	= "Mitigation: IBPB on VMEXIT only"
+	[SRSO_MITIGATION_IBPB_ON_VMEXIT]	= "Mitigation: IBPB on VMEXIT only",
+	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS"
 };
 
 static enum srso_mitigation srso_mitigation __ro_after_init = SRSO_MITIGATION_NONE;
@@ -2753,9 +2817,35 @@ early_param("spec_rstack_overflow", srso_parse_cmdline);
 
 #define SRSO_NOTICE "WARNING: See https://kernel.org/doc/html/latest/admin-guide/hw-vuln/srso.html for mitigation options."
 
+/*
+ * ibpb_can_flush_all() - set IBPB flush type according to the cmdline param
+ *                      - and check whether IBPB can flush all branches
+ * @return: true when IBPB can flush all types of branches and
+ *          false when IBPB can flush only indirect branches.
+ */
+bool ibpb_can_flush_all(void)
+{
+	if ((boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) &&
+		(boot_cpu_data.x86 == 0x18)) {
+		if (boot_cpu_data.x86_model <= 0x3) {
+			return true;
+		} else if (ibpb_brtype == IBPB_FLUSH_ALL) {
+			msr_set_bit(MSR_ZEN4_BP_CFG, IBPB_FLUSH_ALL_BIT);
+			return true;
+		}
+		return false;
+	}
+
+	pr_err("WARNING: this ibpb check is only used for HYGON.\n");
+	return false;
+}
+
 static void __init srso_select_mitigation(void)
 {
 	bool has_microcode = boot_cpu_has(X86_FEATURE_IBPB_BRTYPE);
+
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		has_microcode = ibpb_can_flush_all();
 
 	if (!boot_cpu_has_bug(X86_BUG_SRSO) || cpu_mitigations_off())
 		goto pred_cmd;
@@ -2782,6 +2872,20 @@ static void __init srso_select_mitigation(void)
 		srso_mitigation = SRSO_MITIGATION_UCODE_NEEDED;
 	}
 
+	/* Enhanced IBRS (eIBRS) is preferred on HYGON processors. */
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) {
+		switch (spectre_v2_enabled) {
+		case SPECTRE_V2_EIBRS:
+		case SPECTRE_V2_EIBRS_RETPOLINE:
+		case SPECTRE_V2_EIBRS_LFENCE:
+			srso_mitigation = SRSO_MITIGATION_EIBRS;
+			pr_info("%s%s\n", srso_strings[srso_mitigation],
+				(has_microcode ? "" : ", no microcode"));
+			goto pred_cmd;
+		default:
+			break;
+		}
+	}
 	switch (srso_cmd) {
 	case SRSO_CMD_OFF:
 		goto pred_cmd;
@@ -3254,11 +3358,21 @@ static ssize_t retbleed_show_state(char *buf)
 		    boot_cpu_data.x86_vendor != X86_VENDOR_HYGON)
 			return sysfs_emit(buf, "Vulnerable: untrained return thunk / IBPB on non-AMD based uarch\n");
 
-		return sysfs_emit(buf, "%s; SMT %s\n", retbleed_strings[retbleed_mitigation],
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) {
+			return sysfs_emit(buf, "%s; SMT %s\n",
+				  retbleed_strings[retbleed_mitigation],
 				  !sched_smt_active() ? "disabled" :
+				  spectre_v2_in_eibrs_mode(spectre_v2_enabled) ||
 				  spectre_v2_user_stibp == SPECTRE_V2_USER_STRICT ||
 				  spectre_v2_user_stibp == SPECTRE_V2_USER_STRICT_PREFERRED ?
 				  "enabled with STIBP protection" : "vulnerable");
+		}
+
+		return sysfs_emit(buf, "%s; SMT %s\n", retbleed_strings[retbleed_mitigation],
+			  !sched_smt_active() ? "disabled" :
+			  spectre_v2_user_stibp == SPECTRE_V2_USER_STRICT ||
+			  spectre_v2_user_stibp == SPECTRE_V2_USER_STRICT_PREFERRED ?
+			  "enabled with STIBP protection" : "vulnerable");
 	}
 
 	return sysfs_emit(buf, "%s\n", retbleed_strings[retbleed_mitigation]);
