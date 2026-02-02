@@ -213,7 +213,11 @@ static int ntfs_file_fsync(struct file *filp, loff_t start, loff_t end,
 			if (IS_ERR(attr_vi))
 				continue;
 			spin_lock(&attr_vi->i_lock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 			if (inode_state_read_once(attr_vi) & I_DIRTY_PAGES) {
+#else
+			if (attr_vi->i_state & I_DIRTY_PAGES) {
+#endif
 				spin_unlock(&attr_vi->i_lock);
 				filemap_write_and_wait(attr_vi->i_mapping);
 			} else
@@ -654,7 +658,15 @@ static int ntfs_file_mmap_prepare(struct vm_area_desc *desc)
 	if (NInoCompressed(NTFS_I(inode)))
 		return -EOPNOTSUPP;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
 	if (vma_desc_test_flags(desc, VMA_WRITE_BIT)) {
+#else
+	if (desc->vm_flags & VM_WRITE) {
+#endif
+#else
+	if (vma->vm_flags & VM_WRITE) {
+#endif
 		struct inode *inode = file_inode(file);
 		loff_t from, to;
 		int err;

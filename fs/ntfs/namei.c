@@ -504,7 +504,11 @@ static struct ntfs_inode *__ntfs_create(struct mnt_idmap *idmap, struct inode *d
 	 * Caller must call d_instantiate_new instead of d_instantiate.
 	 */
 	spin_lock(&vi->i_lock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	inode_state_set(vi, I_NEW | I_CREATING);
+#else
+	vi->i_state = I_NEW | I_CREATING;
+#endif
 	spin_unlock(&vi->i_lock);
 
 	/* Add the inode to the inode hash for the superblock. */

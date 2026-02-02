@@ -168,7 +168,11 @@ struct inode *ntfs_iget(struct super_block *sb, unsigned long mft_no)
 	err = 0;
 
 	/* If this is a freshly allocated inode, need to read it now. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	if (inode_state_read_once(vi) & I_NEW) {
+#else
+	if (vi->i_state & I_NEW) {
+#endif
 		err = ntfs_read_locked_inode(vi);
 		unlock_new_inode(vi);
 	}
@@ -228,7 +232,11 @@ struct inode *ntfs_attr_iget(struct inode *base_vi, __le32 type,
 	err = 0;
 
 	/* If this is a freshly allocated inode, need to read it now. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	if (inode_state_read_once(vi) & I_NEW) {
+#else
+	if (vi->i_state & I_NEW) {
+#endif
 		err = ntfs_read_locked_attr_inode(base_vi, vi);
 		unlock_new_inode(vi);
 	}
@@ -283,7 +291,11 @@ struct inode *ntfs_index_iget(struct inode *base_vi, __le16 *name,
 	err = 0;
 
 	/* If this is a freshly allocated inode, need to read it now. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	if (inode_state_read_once(vi) & I_NEW) {
+#else
+	if (vi->i_state & I_NEW) {
+#endif
 		err = ntfs_read_locked_index_inode(base_vi, vi);
 		unlock_new_inode(vi);
 	}
@@ -375,7 +387,11 @@ int ntfs_drop_big_inode(struct inode *inode)
 {
 	struct ntfs_inode *ni = NTFS_I(inode);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	if (!inode_unhashed(inode) && inode_state_read_once(inode) & I_SYNC) {
+#else
+	if (!inode_unhashed(inode) && inode->i_state & I_SYNC) {
+#endif
 		if (ni->type == AT_DATA || ni->type == AT_INDEX_ALLOCATION) {
 			if (!inode->i_nlink) {
 				struct ntfs_inode *ni = NTFS_I(inode);
