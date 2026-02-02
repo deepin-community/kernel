@@ -658,7 +658,11 @@ static int ntfs_test_inode_wb(struct inode *vi, unsigned long ino, void *data)
 	 * called
 	 */
 	spin_lock(&vi->i_lock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 	if (inode_state_read_once(vi) & I_CREATING) {
+#else
+	if (vi->i_state & I_CREATING) {
+#endif
 		spin_unlock(&vi->i_lock);
 		na->state = NI_BeingCreated;
 		return -1;
