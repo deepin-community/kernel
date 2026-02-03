@@ -388,7 +388,7 @@ EXPORT_SYMBOL(cna_queued_spin_lock_slowpath);
  * Constant (boot-param configurable) flag selecting the NUMA-aware variant
  * of spinlock.  Possible values: -1 (off) / 0 (auto, default) / 1 (on).
  */
-static int numa_spinlock_flag = -1;
+static int numa_spinlock_flag;
 
 static int __init numa_spinlock_setup(char *str)
 {
