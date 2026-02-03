@@ -5347,7 +5347,7 @@ static void leapraid_request_descript_handler(struct leapraid_adapter *adapter,
 	case LEAPRAID_RPY_DESC_FLG_ADDRESS_REPLY:
 		rep = le32_to_cpu(rpf->addr_rep.rep_frame_addr);
 		if (rep > ((u32)adapter->mem_desc.rep_msg_dma +
-			   adapter->adapter_attr.rep_msg_qd * LEAPRAID_REPLY_SIEZ) ||
+			   adapter->adapter_attr.rep_msg_qd * LEAPRAID_REPLY_SIZE) ||
 		    rep < ((u32)adapter->mem_desc.rep_msg_dma))
 			rep = 0;
 		if (taskid) {
@@ -7292,7 +7292,7 @@ static void leapraid_free_host_memory(struct leapraid_adapter *adapter)
 	if (adapter->mem_desc.rep_msg) {
 		dma_free_coherent(
 			&adapter->pdev->dev,
-			adapter->adapter_attr.rep_msg_qd * LEAPRAID_REPLY_SIEZ,
+			adapter->adapter_attr.rep_msg_qd * LEAPRAID_REPLY_SIZE,
 			adapter->mem_desc.rep_msg,
 			adapter->mem_desc.rep_msg_dma);
 		adapter->mem_desc.rep_msg = NULL;
@@ -7545,7 +7545,7 @@ try_again:
 	adapter->mem_desc.rep_msg =
 		 dma_alloc_coherent(&adapter->pdev->dev,
 				    adapter->adapter_attr.rep_msg_qd *
-				    LEAPRAID_REPLY_SIEZ,
+				    LEAPRAID_REPLY_SIZE,
 				    &adapter->mem_desc.rep_msg_dma,
 				    GFP_KERNEL);
 	if (!adapter->mem_desc.rep_msg) {
@@ -7556,7 +7556,7 @@ try_again:
 	}
 	if (!leapraid_is_in_same_4g_seg(adapter->mem_desc.rep_msg_dma,
 					adapter->adapter_attr.rep_msg_qd *
-					LEAPRAID_REPLY_SIEZ)) {
+					LEAPRAID_REPLY_SIZE)) {
 		dev_warn(&adapter->pdev->dev,
 			 "use 32 bit dma due to rep msg is not in same 4g!\n");
 		rc = -EAGAIN;
@@ -8125,7 +8125,7 @@ static void leapraid_init_rep_msg_addr(struct leapraid_adapter *adapter)
 
 	for (i = 0, reply_address = (u32)adapter->mem_desc.rep_msg_dma;
 	     i < adapter->adapter_attr.rep_msg_qd;
-	     i++, reply_address += LEAPRAID_REPLY_SIEZ) {
+	     i++, reply_address += LEAPRAID_REPLY_SIZE) {
 		adapter->mem_desc.rep_msg_addr[i] = cpu_to_le32(reply_address);
 	}
 }
