@@ -305,7 +305,7 @@ static long leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 
 	adapter->driver_cmds.ctl_cmd.status = LEAPRAID_CMD_PENDING;
 	memset((void *)(&adapter->driver_cmds.ctl_cmd.reply), 0,
-	       LEAPRAID_REPLY_SIEZ);
+	       LEAPRAID_REPLY_SIZE);
 	ctl_sp_mpi_req = leapraid_get_task_desc(adapter, taskid);
 	memset(ctl_sp_mpi_req, 0, LEAPRAID_REQUEST_SIZE);
 	memcpy(ctl_sp_mpi_req,
@@ -428,7 +428,7 @@ static long leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		}
 	}
 	if (karg->max_rep_bytes) {
-		sz = min_t(u32, karg->max_rep_bytes, LEAPRAID_REPLY_SIEZ);
+		sz = min_t(u32, karg->max_rep_bytes, LEAPRAID_REPLY_SIZE);
 		if (copy_to_user(karg->rep_msg_buf_ptr,
 				 (void *)&adapter->driver_cmds.ctl_cmd.reply,
 				 sz)) {
