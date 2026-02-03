@@ -29,7 +29,7 @@
 
 /* some requset and reply buffer size */
 #define LEAPRAID_REQUEST_SIZE                   128
-#define LEAPRAID_REPLY_SIEZ                     128
+#define LEAPRAID_REPLY_SIZE                     128
 #define LEAPRAID_CHAIN_SEG_SIZE                 128
 #define LEAPRAID_MAX_SGES_IN_CHAIN              7
 #define LEAPRAID_DEFAULT_CHAINS_PER_IO          19
@@ -425,7 +425,7 @@ enum LEAPRAID_CB_INDEX {
 };
 
 struct leapraid_default_reply {
-	u8 pad[LEAPRAID_REPLY_SIEZ];
+	u8 pad[LEAPRAID_REPLY_SIZE];
 };
 
 struct leapraid_sense_buffer {
