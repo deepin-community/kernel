@@ -27,6 +27,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #endif /* !__ASSEMBLY__ */
 
 #define PAGE_OFFSET	0xfff0000000000000
+#define PAGE_END	0xfff07fffffffffff
 
 #endif
 #endif /* _ASM_SW64_PGTABLE_4LEVEL_H */
