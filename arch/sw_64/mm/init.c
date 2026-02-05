@@ -450,6 +450,75 @@ static void __init map_legacy_io(pgd_t *pgdir)
 	create_pgd_mapping(pgdir, (unsigned long)__va(lpc_legacy_io_start), lpc_legacy_io_start,
 			   size, PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
 }
+
+static bool check_present(pgd_t *pgdir, unsigned long addr)
+{
+	pgd_t *pgd;
+	p4d_t *p4d;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	bool ret;
+
+	if (!addr)
+		return false;
+
+	pgd = pgd_offset_pgd(pgdir, addr);
+	p4d = p4d_offset(pgd, addr);
+	if (p4d_none(*p4d))
+		return false;
+
+	pud = pud_offset(p4d, addr);
+	pud = get_pud_virt_fixmap(__pa(pud));
+	if (pud_none(*pud)) {
+		ret = false;
+		goto out;
+	}
+	if (pud_leaf(*pud)) {
+		ret = true;
+		goto out;
+	}
+
+	pmd = pmd_offset(pud, addr);
+	pmd = get_pmd_virt_fixmap(__pa(pmd));
+	if (!pmd_present(*pmd)) {
+		ret = false;
+		goto out;
+	}
+	if (pmd_leaf(*pmd)) {
+		ret = true;
+		goto out;
+	}
+
+	pte = pte_offset_kernel(pmd, addr);
+	pte = get_pte_virt_fixmap(__pa(pte));
+	if (pte_none(*pte))
+		ret = false;
+	else
+		ret = true;
+
+out:
+	clear_fixmap(FIX_PTE);
+	clear_fixmap(FIX_PMD);
+	clear_fixmap(FIX_PUD);
+
+	return ret;
+}
+
+static void __init map_fdt(pgd_t *pgdir)
+{
+	unsigned long dtb_size = 0;
+
+	/*
+	 * If sunway_dtb_address is not included in the memory mapping, create a mapping
+	 * for it.
+	 */
+	if (!check_present(pgdir, sunway_dtb_address)) {
+		dtb_size = (unsigned long)fdt_totalsize((void *)sunway_dtb_address);
+		create_pgd_mapping(pgdir, sunway_dtb_address, __pa(sunway_dtb_address),
+				   dtb_size, PAGE_KERNEL_READONLY, pgtable_alloc_fixmap);
+	}
+}
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 /*
@@ -461,7 +530,7 @@ void __init early_paging_init(void)
 	unsigned long img_start, img_size;
 	unsigned long dtb_start, dtb_size = 0;
 
-	img_start = (unsigned long)(KERNEL_START_PHYS + __START_KERNEL_map);
+	img_start = (unsigned long)_text - TEXT_OFFSET;
 	img_size = (unsigned long)_end - img_start;
 	dtb_start = sunway_dtb_address;
 
@@ -500,9 +569,9 @@ void __init paging_init(void)
 #ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
 	unsigned long sw64_vcpucb_start = PAGE_OFFSET + 0x20000;
 	unsigned long sw64_vcpucb_size = 0x60000;
-	unsigned long sw64_reserve_start = CONFIG_PHYSICAL_START + PAGE_OFFSET;
-	unsigned long sw64_reserve_size = (unsigned long)_stext - sw64_reserve_start;
-	unsigned long text_start = (unsigned long)_stext;
+	unsigned long sw64_reserve_start = (unsigned long)_text - TEXT_OFFSET;
+	unsigned long sw64_reserve_size = (unsigned long)_text - sw64_reserve_start;
+	unsigned long text_start = (unsigned long)_text;
 	unsigned long text_size = (unsigned long)_etext - text_start;
 	unsigned long ro_start = (unsigned long)__start_rodata;
 	unsigned long ro_size = (unsigned long)__init_begin - ro_start;
@@ -558,6 +627,8 @@ void __init paging_init(void)
 	}
 	memblock_clear_nomap(__pa(sw64_reserve_start),
 			     __pa((unsigned long)_end - sw64_reserve_start));
+
+	map_fdt(pgdir);
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 }
 

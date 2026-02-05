@@ -289,6 +289,58 @@ static inline void restore_all_soft_csrs(struct soft_csrs *sc)
 	sw64_write_csr(sc->sc[46], SOFTCSR46);
 	sw64_write_csr(sc->sc[47], SOFTCSR47);
 }
+
+static inline void clear_soft_csrs(void)
+{
+	sw64_write_csr_imb(0, SOFTCSR0);
+	sw64_write_csr_imb(0, SOFTCSR1);
+	sw64_write_csr_imb(0, SOFTCSR2);
+	sw64_write_csr_imb(0, SOFTCSR3);
+	sw64_write_csr_imb(0, SOFTCSR4);
+	sw64_write_csr_imb(0, SOFTCSR5);
+	sw64_write_csr_imb(0, SOFTCSR6);
+	sw64_write_csr_imb(0, SOFTCSR7);
+	sw64_write_csr_imb(0, SOFTCSR8);
+	sw64_write_csr_imb(0, SOFTCSR9);
+	sw64_write_csr_imb(0, SOFTCSR10);
+	sw64_write_csr_imb(0, SOFTCSR11);
+	sw64_write_csr_imb(0, SOFTCSR12);
+	sw64_write_csr_imb(0, SOFTCSR13);
+	sw64_write_csr_imb(0, SOFTCSR14);
+	sw64_write_csr_imb(0, SOFTCSR15);
+	sw64_write_csr_imb(0, SOFTCSR16);
+	sw64_write_csr_imb(0, SOFTCSR17);
+	sw64_write_csr_imb(0, SOFTCSR18);
+	sw64_write_csr_imb(0, SOFTCSR19);
+	sw64_write_csr_imb(0, SOFTCSR20);
+	sw64_write_csr_imb(0, SOFTCSR21);
+	sw64_write_csr_imb(0, SOFTCSR22);
+	sw64_write_csr_imb(0, SOFTCSR23);
+	sw64_write_csr_imb(0, SOFTCSR24);
+	sw64_write_csr_imb(0, SOFTCSR25);
+	sw64_write_csr_imb(0, SOFTCSR26);
+	sw64_write_csr_imb(0, SOFTCSR27);
+	sw64_write_csr_imb(0, SOFTCSR28);
+	sw64_write_csr_imb(0, SOFTCSR29);
+	sw64_write_csr_imb(0, SOFTCSR30);
+	sw64_write_csr_imb(0, SOFTCSR31);
+	sw64_write_csr_imb(0, SOFTCSR32);
+	sw64_write_csr_imb(0, SOFTCSR33);
+	sw64_write_csr_imb(0, SOFTCSR34);
+	sw64_write_csr_imb(0, SOFTCSR35);
+	sw64_write_csr_imb(0, SOFTCSR36);
+	sw64_write_csr_imb(0, SOFTCSR37);
+	sw64_write_csr_imb(0, SOFTCSR38);
+	sw64_write_csr_imb(0, SOFTCSR39);
+	sw64_write_csr_imb(0, SOFTCSR40);
+	sw64_write_csr_imb(0, SOFTCSR41);
+	sw64_write_csr_imb(0, SOFTCSR42);
+	sw64_write_csr_imb(0, SOFTCSR43);
+	sw64_write_csr_imb(0, SOFTCSR44);
+	sw64_write_csr_imb(0, SOFTCSR45);
+	sw64_write_csr_imb(0, SOFTCSR46);
+	sw64_write_csr_imb(0, SOFTCSR47);
+}
 #endif
 
 #endif /* _ASM_SW64_CSR_H */

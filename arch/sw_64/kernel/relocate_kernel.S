@@ -120,16 +120,6 @@ kexec_flag:
 	.quad 0x1
 #endif
 
-kexec_start_address:
-	.globl kexec_start_address
-	.quad 0x0
-	.size kexec_start_address, 8
-
-kexec_indirection_page:
-	.globl kexec_indirection_page
-	.quad 0
-	.size kexec_indirection_page, 8
-
 relocate_new_kernel_end:
 
 relocate_new_kernel_size:
