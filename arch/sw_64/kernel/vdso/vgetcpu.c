@@ -27,12 +27,16 @@ static void __getcpu(unsigned int *cpu, unsigned int *node,
 		      "mov $0, %0\n"
 		      : "=&r"(cpuid)
 		      : "i"(HMC_uwhami));
-	*cpu =	data->vdso_whami_to_cpu[cpuid];
-	*node = data->vdso_whami_to_node[cpuid];
+	if (cpu)
+		*cpu =	data->vdso_whami_to_cpu[cpuid];
+	if (node)
+		*node = data->vdso_whami_to_node[cpuid];
 #else
 	asm volatile ("csrr %0, %1" : "=&r"(cpuid) : "i"(CSR_SOFTCID));
-	*cpu = cpuid;
-	*node = data->vdso_cpu_to_node[*cpu];
+	if (cpu)
+		*cpu = cpuid;
+	if (node)
+		*node = data->vdso_cpu_to_node[*cpu];
 #endif
 }
 
