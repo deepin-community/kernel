@@ -2,8 +2,6 @@ name: check depend all
 on:
   pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: "0 2 * * *"
 
 env:
   KBUILD_BUILD_USER: deepin-kernel-sig
