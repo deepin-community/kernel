@@ -258,7 +258,7 @@ static inline void wrap_asid(unsigned long asid, unsigned long ptbr)
 
 #define ATC_PAGE	1
 #define ATC_KSEG	3
-#define set_atc(val)	rwatc(1, (val))
+#define set_atc(val)	({mb(); imemb(); rwatc(1, (val)); tbiv(); imemb(); })
 #define get_atc()	rwatc(0, 0)
 
 #endif /* !__ASSEMBLY__ */
