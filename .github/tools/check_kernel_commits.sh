@@ -11,9 +11,9 @@ log_error() { echo -e "\033[31m[ERROR]\033[0m $*" >&2; }
 
 main() {
     [ $# -lt 1 ] && { echo "Usage: $0 <range> [branch]" >&2; exit 1; }
-    
+
     local range="$1"
-    
+
     if ! git remote get-url torvalds >/dev/null 2>&1; then
         git remote add torvalds "${REMOTE_URL}"
     else
@@ -64,10 +64,6 @@ main() {
         # 处理完一个commit
         if (hash != "") {
             processed++
-            if (processed % 10 == 0) {
-                printf "\r[INFO] 进度: %d/%d | 匹配:%d 重复:%d 无Fixes:%d 缺依赖:%d", 
-                       processed, total, matched, dup, no_fixes, no_ref > "/dev/stderr"
-            }
             
             # 条件1：标题是否已存在？
             if (subject in target) {
@@ -112,7 +108,6 @@ main() {
                 } else {
                     # 符合条件：有Fixes且引用存在，且标题不重复
                     matched++
-                    printf "\r\033[K" > "/dev/stderr"  # 清行
                     print hash " " subject
                 }
             }
