@@ -556,8 +556,6 @@ void __init early_paging_init(void)
 		pr_info("SW64 kernel page table enabled\n");
 		set_atc(ATC_PAGE);
 	}
-
-	tbiv();
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 }
 
