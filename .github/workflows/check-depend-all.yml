@@ -1,0 +1,36 @@
+name: check depend all
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  email: support@deepin.org
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-depend-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: '0'
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
+      - name: "Check Depend for all commit"
+        run: |
+          # Use commits in v6.6..torvalds which has Fixes Tag to check (0,pr_sha) to checkdepends
+          bash .github/tools/check_kernel_commits.sh v6.6..torvalds/master ${{ github.event.pull_request.head.sha }}
+
