@@ -171,10 +171,11 @@ struct fwnode_operations {
 	void __iomem *(*iomap)(struct fwnode_handle *fwnode, int index);
 	int (*irq_get)(const struct fwnode_handle *fwnode, unsigned int index);
 	int (*add_links)(struct fwnode_handle *fwnode);
-
-	DEEPIN_KABI_USE(1, int (*property_count_reference_with_args)(
+	int (*property_count_reference_with_args)(
 		const struct fwnode_handle *fwnode, const char *list_name,
-		const char *cells_name))
+		const char *cells_name);
+
+	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
