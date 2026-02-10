@@ -2927,7 +2927,6 @@ static void intel_pmu_config_acr(int idx, u64 mask, u32 reload)
 static void intel_pmu_enable_acr(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
-	struct hw_perf_event_ext *hw_ext = event->hw_ext;
 
 	if (!is_acr_event_group(event) || !event->attr.config2) {
 		/*
@@ -2938,7 +2937,7 @@ static void intel_pmu_enable_acr(struct perf_event *event)
 		return;
 	}
 
-	intel_pmu_config_acr(hwc->idx, hw_ext->config1, -hwc->sample_period);
+	intel_pmu_config_acr(hwc->idx, hwc->config1, -hwc->sample_period);
 }
 
 DEFINE_STATIC_CALL_NULL(intel_pmu_enable_acr_event, intel_pmu_enable_acr);
@@ -2999,7 +2998,7 @@ static void intel_pmu_acr_late_setup(struct cpu_hw_events *cpuc)
 				if (i + idx >= cpuc->n_events ||
 				    !is_acr_event_group(cpuc->event_list[i + idx]))
 					return;
-				__set_bit(cpuc->assign[i + idx], (unsigned long *)&event->hw_ext->config1);
+				__set_bit(cpuc->assign[i + idx], (unsigned long *)&event->hw.config1);
 			}
 		}
 		i = j - 1;
@@ -3845,9 +3844,9 @@ intel_get_event_constraints(struct cpu_hw_events *cpuc, int idx,
 	if (cpuc->excl_cntrs)
 		return intel_get_excl_constraints(cpuc, event, idx, c2);
 
-	if (event->hw_ext->dyn_constraint != ~0ULL) {
+	if (event->hw.dyn_constraint != ~0ULL) {
 		c2 = dyn_constraint(cpuc, c2, idx);
-		c2->idxmsk64 &= event->hw_ext->dyn_constraint;
+		c2->idxmsk64 &= event->hw.dyn_constraint;
 		c2->weight = hweight64(c2->idxmsk64);
 	}
 
@@ -4211,7 +4210,7 @@ static bool intel_pmu_is_acr_group(struct perf_event *event)
 static inline void intel_pmu_set_acr_cntr_constr(struct perf_event *event,
 						 u64 *cause_mask, int *num)
 {
-	event->hw_ext->dyn_constraint &= hybrid(event->pmu, acr_cntr_mask64);
+	event->hw.dyn_constraint &= hybrid(event->pmu, acr_cntr_mask64);
 	*cause_mask |= event->attr.config2;
 	*num += 1;
 }
@@ -4220,7 +4219,7 @@ static inline void intel_pmu_set_acr_caused_constr(struct perf_event *event,
 						   int idx, u64 cause_mask)
 {
 	if (test_bit(idx, (unsigned long *)&cause_mask))
-		event->hw_ext->dyn_constraint &= hybrid(event->pmu, acr_cause_mask64);
+		event->hw.dyn_constraint &= hybrid(event->pmu, acr_cause_mask64);
 }
 
 static int intel_pmu_hw_config(struct perf_event *event)
@@ -4286,7 +4285,7 @@ static int intel_pmu_hw_config(struct perf_event *event)
 			return -EINVAL;
 		if (branch_sample_counters(leader)) {
 			num++;
-			leader->hw_ext->dyn_constraint &= x86_pmu.lbr_counters;
+			leader->hw.dyn_constraint &= x86_pmu.lbr_counters;
 		}
 		leader->hw.flags |= PERF_X86_EVENT_BRANCH_COUNTERS;
 
@@ -4295,7 +4294,7 @@ static int intel_pmu_hw_config(struct perf_event *event)
 				return -EINVAL;
 			if (branch_sample_counters(sibling)) {
 				num++;
-				sibling->hw_ext->dyn_constraint &= x86_pmu.lbr_counters;
+				sibling->hw.dyn_constraint &= x86_pmu.lbr_counters;
 			}
 		}
 
