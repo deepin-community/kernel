@@ -304,6 +304,8 @@ static int cdns_pcie_host_init_address_translation(struct cdns_pcie_rc *rc)
 
 static void cdns_pcie_host_deinit(struct cdns_pcie_rc *rc)
 {
+	if (rc->ops->deinit)
+		rc->ops->deinit(rc);
 	cdns_pcie_host_deinit_address_translation(rc);
 	cdns_pcie_host_deinit_root_port(rc);
 }
@@ -316,7 +318,11 @@ int cdns_pcie_host_init(struct cdns_pcie_rc *rc)
 	if (err)
 		return err;
 
-	return cdns_pcie_host_init_address_translation(rc);
+	err = cdns_pcie_host_init_address_translation(rc);
+	if (err)
+		return err;
+
+	return rc->ops->init ? rc->ops->init(rc) : 0;
 }
 EXPORT_SYMBOL_GPL(cdns_pcie_host_init);
 
