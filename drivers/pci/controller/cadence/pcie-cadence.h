@@ -102,6 +102,11 @@ struct cdns_pcie {
 	int				     max_link_speed;
 };
 
+struct cdns_pcie_rc_ops {
+	int	(*init)(struct cdns_pcie_rc *rc);
+	void	(*deinit)(struct cdns_pcie_rc *rc);
+};
+
 /**
  * struct cdns_pcie_rc - private data for this PCIe Root Complex driver
  * @pcie: Cadence PCIe controller
@@ -119,6 +124,7 @@ struct cdns_pcie {
  * @no_inbound_map: Whether inbound mapping is supported
  * @quirk_broken_aspm_l0s: Disable ASPM L0s support as quirk
  * @quirk_broken_aspm_l1: Disable ASPM L1 support as quirk
+ * @ops: Platform-specific hooks to initialize/de-initialize PCIe Root Complex
  */
 struct cdns_pcie_rc {
 	struct cdns_pcie	pcie;
@@ -133,6 +139,7 @@ struct cdns_pcie_rc {
 	unsigned int            no_inbound_map:1;
 	unsigned int            quirk_broken_aspm_l0s:1;
 	unsigned int            quirk_broken_aspm_l1:1;
+	const struct cdns_pcie_rc_ops *ops;
 };
 
 /**
