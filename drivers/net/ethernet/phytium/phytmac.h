@@ -12,10 +12,12 @@
 #include <linux/phylink.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <net/xdp.h>
 
-#define PHYTMAC_DRV_NAME		"phytium-mac"
+#define PHYTMAC_PCI_DRV_NAME		"phytmac_pci"
+#define PHYTMAC_PLAT_DRV_NAME		"phytmac_platform"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.29"
+#define PHYTMAC_DRIVER_VERSION		"1.0.50"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
@@ -53,6 +55,8 @@
 
 #define DEFAULT_MSG_RING_SIZE	16
 
+#define PHYTMAC_MDIO_TIMEOUT	1000000 /* in usecs */
+
 #define PHYTMAC_CAPS_JUMBO			0x00000001
 #define PHYTMAC_CAPS_PTP			0x00000002
 #define PHYTMAC_CAPS_BD_RD_PREFETCH		0x00000004
@@ -72,7 +76,8 @@
 #define PHYTMAC_TX			0x1
 #define PHYTMAC_RX			0x2
 
-#define PHYTMAC_GREGS_LEN	16
+#define PHYTMAC_ETHTOOLD_REGS_LEN	64
+#define PHYTMAC_STATIS_REG_NUM		45
 
 #define PHYTMAC_MTU_MIN_SIZE	ETH_MIN_MTU
 
@@ -110,9 +115,6 @@
 #define PHYTMAC_MSG_READ(_pdata, _reg)					\
 	__raw_readl((_pdata)->mac_regs + (_reg))
 
-#define PHYTMAC_WRITE(_pdata, _reg, _val)				\
-	__raw_writel((_val), (_pdata)->mac_regs + (_reg))
-
 #define LSO_UFO		1
 #define LSO_TSO		2
 
@@ -129,6 +131,14 @@
 #define PHYTMAC_WAKE_ARP		0x00000002
 #define PHYTMAC_WAKE_UCAST		0x00000004
 #define PHYTMAC_WAKE_MCAST		0x00000008
+
+/* XDP */
+#define PHYTMAC_XDP_PASS		0
+#define PHYTMAC_XDP_CONSUMED		BIT(0)
+#define PHYTMAC_XDP_TX			BIT(1)
+#define PHYTMAC_XDP_REDIR		BIT(2)
+
+#define PHYTMAC_DESC_NEEDED (MAX_SKB_FRAGS + 4)
 
 enum phytmac_interface {
 	PHYTMAC_PHY_INTERFACE_MODE_NA,
@@ -334,8 +344,20 @@ struct phytmac_dma_desc {
 };
 #endif
 
+/* TX resources are shared between XDP and netstack
+ * and we need to tag the buffer type to distinguish them
+ */
+enum phytmac_tx_buf_type {
+	PHYTMAC_TYPE_SKB = 0,
+	PHYTMAC_TYPE_XDP,
+};
+
 struct phytmac_tx_skb {
-	struct sk_buff		*skb;
+	union {
+		struct sk_buff		*skb;
+		struct xdp_frame		*xdpf;
+	};
+	enum phytmac_tx_buf_type type;
 	dma_addr_t		addr;
 	size_t			length;
 	bool			mapped_as_page;
@@ -358,6 +380,7 @@ struct phytmac_queue {
 	struct phytmac				*pdata;
 	int					irq;
 	int					index;
+	struct bpf_prog				*xdp_prog;
 
 	/* tx queue info */
 	unsigned int				tx_head;
@@ -380,6 +403,7 @@ struct phytmac_queue {
 	struct phytmac_rx_buffer		*rx_buffer_info;
 	struct napi_struct			rx_napi;
 	struct phytmac_queue_stats		stats;
+	struct xdp_rxq_info			xdp_rxq;
 
 #ifdef CONFIG_PHYTMAC_ENABLE_PTP
 	struct work_struct			tx_ts_task;
@@ -404,11 +428,12 @@ struct phytmac_msg {
 	u32			tx_msg_ring_size;
 	u32			rx_msg_ring_size;
 	u32			tx_msg_head;
-	u32			tx_msg_tail;
+	u32			tx_msg_wr_tail;
+	u32			tx_msg_rd_tail;
 	u32			rx_msg_head;
 	u32			rx_msg_tail;
-	/*use msg_mutex to protect msg */
-	struct mutex		msg_mutex;
+	/*use msg_lock to protect msg */
+	spinlock_t			msg_lock;
 };
 
 struct ts_ctrl {
@@ -425,6 +450,7 @@ struct phytmac {
 	struct platform_device		*platdev;
 	struct net_device		*ndev;
 	struct device			*dev;
+	struct bpf_prog			*xdp_prog;
 	struct ncsi_dev			*ncsidev;
 	struct fwnode_handle		*fwnode;
 	struct phytmac_hw_if		*hw_if;
@@ -445,8 +471,6 @@ struct phytmac {
 	struct work_struct		restart_task;
 	/* Lock to protect mac config */
 	spinlock_t			lock;
-	/* Lock to protect msg tx */
-	spinlock_t			msg_lock;
 	u32				rx_ring_size;
 	u32				tx_ring_size;
 	u32				dma_data_width;
@@ -487,7 +511,25 @@ struct phytmac {
 	spinlock_t			rx_fs_lock;
 	unsigned int			max_rx_fs;
 	u32						version;
+	char				fw_version[32];
 };
+
+/* phytmac_desc_unused - calculate if we have unused descriptors */
+static inline int phytmac_txdesc_unused(struct phytmac_queue *queue)
+{
+	struct phytmac *pdata = queue->pdata;
+
+	if (queue->tx_head > queue->tx_tail)
+		return queue->tx_head - queue->tx_tail - 1;
+
+	return pdata->tx_ring_size + queue->tx_head - queue->tx_tail - 1;
+}
+
+static inline struct netdev_queue *phytmac_get_txq(const struct phytmac *pdata,
+						   struct phytmac_queue *queue)
+{
+	return netdev_get_tx_queue(pdata->ndev, queue->index);
+}
 
 struct phytmac_hw_if {
 	int (*init_msg_ring)(struct phytmac *pdata);
@@ -534,6 +576,7 @@ struct phytmac_hw_if {
 	int (*mdio_read)(struct phytmac *pdata, int mii_id, int regnum);
 	int (*mdio_write)(struct phytmac *pdata, int mii_id,
 			  int regnum, u16 data);
+	int (*mdio_idle)(struct phytmac *pdata);
 	int (*mdio_read_c45)(struct phytmac *pdata, int mii_id, int devad, int regnum);
 	int (*mdio_write_c45)(struct phytmac *pdata, int mii_id, int devad,
 			      int regnum, u16 data);
@@ -627,6 +670,7 @@ struct phytmac_hw_if {
 #define PHYTMAC_RX_DMA_ATTR \
 	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
 #define PHYTMAC_SKB_PAD		(NET_SKB_PAD)
+#define PHYTMAC_ETH_PKT_HDR_PAD		(ETH_HLEN + ETH_FCS_LEN + (VLAN_HLEN * 2))
 
 #define PHYTMAC_RXBUFFER_2048	2048
 #define PHYTMAC_MAX_FRAME_BUILD_SKB \
@@ -635,6 +679,8 @@ struct phytmac_hw_if {
 #define PHYTMAC_RX_PAGE_ORDER	0
 #define PHYTMAC_RX_PAGE_SIZE	(PAGE_SIZE << PHYTMAC_RX_PAGE_ORDER)
 
+void __iomem *
+phytmac_devm_ioremap_resource_np(struct device *dev, const struct resource *res);
 struct phytmac_tx_skb *phytmac_get_tx_skb(struct phytmac_queue *queue,
 					  unsigned int index);
 inline struct phytmac_dma_desc *phytmac_get_tx_desc(struct phytmac_queue *queue,
