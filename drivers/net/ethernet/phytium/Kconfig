@@ -5,6 +5,7 @@
 
 config NET_VENDOR_PHYTIUM
 	bool "Phytium devices"
+	depends on ARCH_PHYTIUM
 	depends on HAS_IOMEM
 	default y
 	help
