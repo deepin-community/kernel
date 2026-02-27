@@ -32,6 +32,25 @@ static struct pci_ops sg2042_pcie_child_ops = {
 	.write		= pci_generic_config_write,
 };
 
+static int sg2042_pcie_disable_l0s_l1(struct cdns_pcie_rc *rc)
+{
+	struct cdns_pcie *pcie = &rc->pcie;
+	u32 pcie_lnkcap_off;
+	u32 lnkcap;
+
+	pcie_lnkcap_off = CDNS_PCIE_RP_CAP_OFFSET + PCI_EXP_LNKCAP;
+
+	lnkcap = cdns_pcie_rp_readw(pcie, pcie_lnkcap_off);
+	lnkcap &= ~PCI_EXP_LNKCAP_ASPMS;
+	cdns_pcie_rp_writew(pcie, pcie_lnkcap_off, lnkcap);
+
+	return 0;
+}
+
+static const struct cdns_pcie_rc_ops sg2042_pcie_rc_ops = {
+	.init	= sg2042_pcie_disable_l0s_l1,
+};
+
 static int sg2042_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -48,6 +67,7 @@ static int sg2042_pcie_probe(struct platform_device *pdev)
 	bridge->child_ops = &sg2042_pcie_child_ops;
 
 	rc = pci_host_bridge_priv(bridge);
+	rc->ops = &sg2042_pcie_rc_ops;
 	pcie = &rc->pcie;
 	pcie->dev = dev;
 
