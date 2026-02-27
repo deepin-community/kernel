@@ -20,48 +20,84 @@
 #include "phytmac_v2.h"
 
 static int phytmac_v2_msg_send(struct phytmac *pdata, u16 cmd_id,
-			       u16 cmd_subid, void *data, int len, int wait)
+			    u16 cmd_subid, void *data, int len, int wait)
 {
-	int index = 0;
+	u32 tx_head, tx_tail, ring_size;
 	struct phytmac_msg_info msg;
 	struct phytmac_msg_info msg_rx;
+	unsigned long flags;
+	u32 retry = 0;
 	int ret = 0;
 
-	mutex_lock(&pdata->msg_ring.msg_mutex);
-	++pdata->msg_ring.tx_msg_tail;
-	if (pdata->msg_ring.tx_msg_tail > pdata->msg_ring.tx_msg_ring_size)
-		pdata->msg_ring.tx_msg_tail = 1;
-	index = pdata->msg_ring.tx_msg_tail;
+	spin_lock_irqsave(&pdata->msg_ring.msg_lock, flags);
+	tx_head = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_HEAD) & 0xff;
+	tx_tail = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_wr_tail);
+	pdata->msg_ring.tx_msg_rd_tail = tx_tail;
+	ring_size = pdata->msg_ring.tx_msg_ring_size;
 
+	while ((tx_tail + 1) % ring_size == tx_head) {
+		udelay(1);
+		tx_head = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_HEAD) & 0xff;
+		retry++;
+		if (retry >= PHYTMAC_RETRY_TIMES) {
+			netdev_err(pdata->ndev,
+				   "Time out waiting for Tx msg ring free, tx_tail:0x%x, tx_head:0x%x",
+				   tx_tail, tx_head);
+			ret = -EINVAL;
+			goto err_out;
+		}
+	}
+
+	retry = 0;
 	wait = 1;
 	memset(&msg, 0, sizeof(msg));
 	memset(&msg_rx, 0, sizeof(msg_rx));
 	msg.cmd_type = cmd_id;
 	msg.cmd_subid = cmd_subid;
-	msg.status0 = PHYTMAC_FLAGS_MSG_NOINT;
-
-	if (len)
+	if (len > 0 && len <= PHYTMAC_MSG_PARA_LEN) {
 		memcpy(&msg.para[0], data, len);
-
-	if (netif_msg_hw(pdata)) {
-		netdev_info(pdata->ndev, "tx msg: cmdid:%d, subid:%d, status0:%d, len:%d, tail:%d\n",
-			    msg.cmd_type, msg.cmd_subid, msg.status0, len,
-			    pdata->msg_ring.tx_msg_tail);
+	} else if (len > PHYTMAC_MSG_PARA_LEN) {
+		netdev_err(pdata->ndev, "Tx msg para len %d is greater than the max len %d",
+			   len, PHYTMAC_MSG_PARA_LEN);
+		ret = -EINVAL;
+		goto err_out;
 	}
 
-	memcpy(pdata->msg_regs + PHYTMAC_MSG(index), &msg, sizeof(msg));
-	PHYTMAC_WRITE(pdata, PHYTMAC_TX_MSG_TAIL,
-		      pdata->msg_ring.tx_msg_tail | PHYTMAC_BIT(TX_MSG_INT));
+	if (netif_msg_hw(pdata)) {
+		netdev_info(pdata->ndev, "Tx msg: cmdid:%d, subid:%d, status0:%d, len:%d, tail:%d",
+			    msg.cmd_type, msg.cmd_subid, msg.status0, len, tx_tail);
+	}
+
+	memcpy(pdata->msg_regs + PHYTMAC_MSG(tx_tail), &msg, sizeof(msg));
+	tx_tail = phytmac_v2_tx_ring_wrap(pdata, ++tx_tail);
+	PHYTMAC_WRITE(pdata, PHYTMAC_TX_MSG_TAIL, tx_tail | PHYTMAC_BIT(TX_MSG_INT));
+	pdata->msg_ring.tx_msg_wr_tail = tx_tail;
 
 	if (wait) {
-		memcpy(&msg_rx, pdata->msg_regs + PHYTMAC_MSG(index), MSG_HDR_LEN);
-		while (!(msg_rx.status0 & PHYTMAC_CMD_PRC_COMPLETED)) {
-			cpu_relax();
-			memcpy(&msg_rx, pdata->msg_regs + PHYTMAC_MSG(index), MSG_HDR_LEN);
+		tx_head = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_HEAD) & 0xff;
+		while (tx_head != tx_tail) {
+			udelay(1);
+			tx_head = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_HEAD) & 0xff;
+			retry++;
+			if (retry >= PHYTMAC_RETRY_TIMES) {
+				netdev_err(pdata->ndev, "Msg process time out!");
+				ret = -EINVAL;
+				goto err_out;
+			}
+		}
+
+		memcpy(&msg_rx, pdata->msg_regs + PHYTMAC_MSG(pdata->msg_ring.tx_msg_rd_tail),
+		       PHYTMAC_MSG_HDR_LEN);
+		if (!(msg_rx.status0 & PHYTMAC_CMD_PRC_SUCCESS)) {
+			netdev_err(pdata->ndev, "Msg process error, cmdid:%d, subid:%d, status0:%d, tail:%d",
+				   msg.cmd_type, msg.cmd_subid, msg.status0, tx_tail);
+			ret = -EINVAL;
+			goto err_out;
 		}
 	}
 
-	mutex_unlock(&pdata->msg_ring.msg_mutex);
+err_out:
+	spin_unlock_irqrestore(&pdata->msg_ring.msg_lock, flags);
 	return ret;
 }
 
@@ -105,10 +141,8 @@ static int phytmac_v2_get_mac_addr(struct phytmac *pdata, u8 *addr)
 	cmd_subid = PHYTMAC_MSG_CMD_GET_ADDR;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
 
-	index = pdata->msg_ring.tx_msg_tail;
-	if (index <= 0)
-		index += pdata->msg_ring.tx_msg_ring_size;
-	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + MSG_HDR_LEN,
+	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
+	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
 	       sizeof(struct phytmac_mac));
 
 	addr[0] = para.addrl & 0xff;
@@ -149,7 +183,7 @@ static int phytmac_v2_pcs_software_reset(struct phytmac *pdata, int reset)
 	else
 		cmd_subid = PHYTMAC_MSG_CMD_SET_DISABLE_PCS_RESET;
 
-	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 0);
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
 
 	return 0;
 }
@@ -159,7 +193,15 @@ static int phytmac_v2_init_hw(struct phytmac *pdata)
 	u16 cmd_id, cmd_subid;
 	struct phytmac_dma_info dma;
 	struct phytmac_eth_info eth;
+	u32 ptrconfig = 0;
 	u8 mdc;
+
+	if (pdata->capacities & PHYTMAC_CAPS_TAILPTR)
+		ptrconfig |= PHYTMAC_BIT(TXTAIL_EN);
+	if (pdata->capacities & PHYTMAC_CAPS_RXPTR)
+		ptrconfig |= PHYTMAC_BIT(RXTAIL_EN);
+
+	PHYTMAC_WRITE(pdata, PHYTMAC_TAILPTR_ENABLE, ptrconfig);
 
 	if (pdata->mii_bus) {
 		cmd_id = PHYTMAC_MSG_CMD_SET;
@@ -217,7 +259,7 @@ static int phytmac_v2_init_hw(struct phytmac *pdata)
 
 	cmd_subid = PHYTMAC_MSG_CMD_SET_MDC;
 	mdc = PHYTMAC_CLK_DIV96;
-	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&mdc), sizeof(mdc), 1);
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&mdc), sizeof(mdc), 0);
 
 	memset(&eth, 0, sizeof(eth));
 	cmd_subid = PHYTMAC_MSG_CMD_SET_ETH_MATCH;
@@ -294,25 +336,23 @@ static int phytmac_v2_init_ring_hw(struct phytmac *pdata)
 
 	cmd_id = PHYTMAC_MSG_CMD_SET;
 	cmd_subid = PHYTMAC_MSG_CMD_SET_INIT_RX_RING;
-	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&rxring), sizeof(rxring), 0);
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&rxring), sizeof(rxring), 1);
 
 	return 0;
 }
 
 static int phytmac_v2_init_msg_ring(struct phytmac *pdata)
 {
-	u32 size = 0;
+	u32 tx_msg_tail;
 
-	pdata->msg_ring.tx_msg_tail = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_TAIL) & 0xff;
-	size = PHYTMAC_READ_BITS(pdata, PHYTMAC_SIZE, TXRING_SIZE);
-	pdata->msg_ring.tx_msg_ring_size = size;
-	if (pdata->msg_ring.tx_msg_tail == size)
-		pdata->msg_ring.tx_msg_tail = 0;
-
+	pdata->msg_ring.tx_msg_ring_size = PHYTMAC_READ_BITS(pdata, PHYTMAC_SIZE, TXRING_SIZE);
+	tx_msg_tail = PHYTMAC_READ(pdata, PHYTMAC_TX_MSG_TAIL) & 0xff;
+	pdata->msg_ring.tx_msg_wr_tail = phytmac_v2_tx_ring_wrap(pdata, tx_msg_tail);
+	pdata->msg_ring.tx_msg_rd_tail = pdata->msg_ring.tx_msg_wr_tail;
 	PHYTMAC_WRITE(pdata, PHYTMAC_MSG_IMR, 0xfffffffe);
 	if (netif_msg_hw(pdata))
-		netdev_info(pdata->ndev, "mac msg ring: tx_msg_ring_size=%d, tx_msg_tail=%d\n",
-			    size, pdata->msg_ring.tx_msg_tail);
+		netdev_info(pdata->ndev, "Msg ring size:%d, tx msg tail=%d\n",
+			    pdata->msg_ring.tx_msg_ring_size, tx_msg_tail);
 
 	return 0;
 }
@@ -327,12 +367,8 @@ static int phytmac_v2_get_feature_all(struct phytmac *pdata)
 	cmd_id = PHYTMAC_MSG_CMD_GET;
 	cmd_subid = PHYTMAC_MSG_CMD_GET_CAPS;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
-
-	index = pdata->msg_ring.tx_msg_tail;
-	if (index <= 0)
-		index += pdata->msg_ring.tx_msg_ring_size;
-
-	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + MSG_HDR_LEN,
+	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
+	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
 	       sizeof(struct phytmac_feature));
 
 	pdata->queues_max_num = para.queue_num;
@@ -342,10 +378,13 @@ static int phytmac_v2_get_feature_all(struct phytmac *pdata)
 		pdata->dma_addr_width = 32;
 	pdata->dma_data_width = para.dma_data_width;
 	pdata->max_rx_fs = para.max_rx_fs;
-	pdata->tx_bd_prefetch = (2 << (para.tx_bd_prefetch - 1)) *
-				sizeof(struct phytmac_dma_desc);
-	pdata->rx_bd_prefetch = (2 << (para.rx_bd_prefetch - 1)) *
-				sizeof(struct phytmac_dma_desc);
+
+	if (para.tx_bd_prefetch)
+		pdata->tx_bd_prefetch = (2 << (para.tx_bd_prefetch - 1)) *
+					sizeof(struct phytmac_dma_desc);
+	if (para.rx_bd_prefetch)
+		pdata->rx_bd_prefetch = (2 << (para.rx_bd_prefetch - 1)) *
+					sizeof(struct phytmac_dma_desc);
 
 	if (netif_msg_hw(pdata)) {
 		netdev_info(pdata->ndev, "feature qnum=%d, daw=%d, dbw=%d, rxfs=%d, rxbd=%d, txbd=%d\n",
@@ -360,46 +399,38 @@ static void phytmac_v2_get_regs(struct phytmac *pdata, u32 *reg_buff)
 {
 	u16 cmd_id, cmd_subid;
 	int index;
-	u8 interface;
+	struct phytmac_ethtool_reg msg;
 
+	memset(&msg, 0, sizeof(msg));
 	cmd_id = PHYTMAC_MSG_CMD_GET;
 	cmd_subid = PHYTMAC_MSG_CMD_GET_REGS_FOR_ETHTOOL;
-	interface = pdata->phytmac_v2_interface;
-	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&interface), sizeof(interface), 1);
+	msg.interface = pdata->phytmac_v2_interface;
+	/* There are 16 regs in total, read 14 regs at first time, read 2 regs at last time */
+	msg.cnt = 0;
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&msg), sizeof(msg), 1);
+	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
+	memcpy(reg_buff, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+	       PHYTMAC_MSG_PARA_LEN);
 
-	index = pdata->msg_ring.tx_msg_tail;
-	if (index <= 0)
-		index += pdata->msg_ring.tx_msg_ring_size;
-
-	memcpy(reg_buff, pdata->msg_regs + PHYTMAC_MSG(index) + MSG_HDR_LEN,
-	       READ_REG_NUM_MAX * sizeof(u32));
+	msg.cnt = 1;
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&msg), sizeof(msg), 1);
+	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
+	memcpy(reg_buff + PHYTMAC_MSG_PARA_LEN / sizeof(u32), pdata->msg_regs +
+		   PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+		   PHYTMAC_ETHTOOLD_REGS_LEN - PHYTMAC_MSG_PARA_LEN);
 }
 
 static void phytmac_v2_get_hw_stats(struct phytmac *pdata)
 {
-	u16 cmd_id, cmd_subid;
-	u8 count;
-	int i, j, index;
-	u32 stats[48];
+	u32 stats[PHYTMAC_STATIS_REG_NUM];
+	int i, j;
 	u64 val;
 	u64 *p = &pdata->stats.tx_octets;
 
-	cmd_id = PHYTMAC_MSG_CMD_GET;
-	cmd_subid = PHYTMAC_MSG_CMD_GET_STATS;
-	/* There are 45 registers in total, read 16 regs at a time, read 13 regs at last time */
-	for (i = 1; i <= 3; i++) {
-		count = i;
-		phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)&count, sizeof(count), 1);
+	for (i = 0 ; i < PHYTMAC_STATIS_REG_NUM; i++)
+		stats[i] = PHYTMAC_READ(pdata, PHYTMAC_OCT_TX + i * 4);
 
-		index = pdata->msg_ring.tx_msg_tail;
-		if (index <= 0)
-			index += pdata->msg_ring.tx_msg_ring_size;
-
-		memcpy(&stats[(i - 1) * READ_REG_NUM_MAX], pdata->msg_regs + PHYTMAC_MSG(index) +
-				MSG_HDR_LEN, sizeof(u32) * READ_REG_NUM_MAX);
-	}
-
-	for (i = 0, j = 0; i < 45; i++) {
+	for (i = 0, j = 0; i < PHYTMAC_STATIS_REG_NUM; i++) {
 		if (i == 0 || i == 20) {
 			val = (u64)stats[i + 1] << 32 | stats[i];
 			*p += val;
@@ -418,16 +449,18 @@ static void phytmac_v2_get_hw_stats(struct phytmac *pdata)
 	}
 }
 
-static void phytmac_v2_mdio_idle(struct phytmac *pdata)
+static int phytmac_v2_mdio_idle(struct phytmac *pdata)
 {
 	u32 val;
+	int ret;
 
 	/* wait for end of transfer */
-	val = PHYTMAC_READ(pdata, PHYTMAC_NETWORK_STATUS);
-	while (!(val & PHYTMAC_BIT(MIDLE))) {
-		cpu_relax();
-		val = PHYTMAC_READ(pdata, PHYTMAC_NETWORK_STATUS);
-	}
+	ret = readx_poll_timeout(PHYTMAC_READ_NSR, pdata, val, val & PHYTMAC_BIT(MIDLE),
+				 1, PHYTMAC_MDIO_TIMEOUT);
+	if (ret)
+		netdev_err(pdata->ndev, "mdio wait for idle time out!");
+
+	return ret;
 }
 
 static int phytmac_v2_mdio_data_read_c22(struct phytmac *pdata, int mii_id, int regnum)
@@ -446,7 +479,7 @@ static int phytmac_v2_mdio_data_read_c22(struct phytmac *pdata, int mii_id, int 
 }
 
 static int phytmac_v2_mdio_data_write_c22(struct phytmac *pdata, int mii_id,
-					  int regnum, u16 data)
+				   int regnum, u16 data)
 {
 	PHYTMAC_WRITE(pdata, PHYTMAC_MDIO, (PHYTMAC_BITS(CLAUSESEL, PHYTMAC_C22)
 		      | PHYTMAC_BITS(MDCOPS, PHYTMAC_C22_WRITE)
@@ -483,7 +516,7 @@ static int phytmac_v2_mdio_data_read_c45(struct phytmac *pdata, int mii_id, int 
 }
 
 static int phytmac_v2_mdio_data_write_c45(struct phytmac *pdata, int mii_id, int devad,
-					  int regnum, u16 data)
+				   int regnum, u16 data)
 {
 	PHYTMAC_WRITE(pdata, PHYTMAC_MDIO, (PHYTMAC_BITS(CLAUSESEL, PHYTMAC_C45)
 		      | PHYTMAC_BITS(MDCOPS, PHYTMAC_C45_ADDR)
@@ -525,7 +558,7 @@ static int phytmac_v2_powerup_hw(struct phytmac *pdata, int on)
 		handle = ACPI_HANDLE(pdata->dev);
 
 		netdev_info(pdata->ndev, "set gmac power %s\n",
-			    on == PHYTMAC_POWERON ? "on" : "off");
+			on == PHYTMAC_POWERON ? "on" : "off");
 		args[0].type = ACPI_TYPE_INTEGER;
 		args[0].integer.value = PHYTMAC_PWCTL_GMAC_ID;
 		args[1].type = ACPI_TYPE_INTEGER;
@@ -584,10 +617,10 @@ static int phytmac_v2_powerup_hw(struct phytmac *pdata, int on)
 		rdata1 = PHYTMAC_MHU_READ(pdata, PHYTMAC_MHU_CPP_DATA1);
 		if (rdata1 == data1)
 			netdev_err(pdata->ndev, "gmac power %s success, data1 = %x, rdata1=%x\n",
-				   on == PHYTMAC_POWERON ? "up" : "down", data1, rdata1);
+					   on == PHYTMAC_POWERON ? "up" : "down", data1, rdata1);
 		else
 			netdev_err(pdata->ndev, "gmac power %s failed, data1 = %x, rdata1=%x\n",
-				   on == PHYTMAC_POWERON ? "up" : "down", data1, rdata1);
+					   on == PHYTMAC_POWERON ? "up" : "down", data1, rdata1);
 	}
 
 	pdata->power_state = on;
@@ -819,7 +852,7 @@ static u32 phytmac_v2_get_irq_status(u32 value)
 }
 
 static void phytmac_v2_enable_irq(struct phytmac *pdata,
-				  int queue_index, u32 mask)
+			       int queue_index, u32 mask)
 {
 	u32 value;
 
@@ -828,7 +861,7 @@ static void phytmac_v2_enable_irq(struct phytmac *pdata,
 }
 
 static void phytmac_v2_disable_irq(struct phytmac *pdata,
-				   int queue_index, u32 mask)
+				int queue_index, u32 mask)
 {
 	u32 value;
 
@@ -837,7 +870,7 @@ static void phytmac_v2_disable_irq(struct phytmac *pdata,
 }
 
 static void phytmac_v2_clear_irq(struct phytmac *pdata,
-				 int queue_index, u32 mask)
+			      int queue_index, u32 mask)
 {
 	u32 value;
 
@@ -857,7 +890,7 @@ static unsigned int phytmac_v2_get_irq(struct phytmac *pdata, int queue_index)
 }
 
 static void phytmac_v2_interface_config(struct phytmac *pdata, unsigned int mode,
-					const struct phylink_link_state *state)
+				     const struct phylink_link_state *state)
 {
 	struct phytmac_interface_info para;
 	u16 cmd_id, cmd_subid;
@@ -887,7 +920,7 @@ static void phytmac_v2_interface_config(struct phytmac *pdata, unsigned int mode
 }
 
 static int phytmac_v2_interface_linkup(struct phytmac *pdata, phy_interface_t interface,
-				       int speed, int duplex)
+				    int speed, int duplex)
 {
 	struct phytmac_interface_info para;
 	u16 cmd_id, cmd_subid;
@@ -915,7 +948,7 @@ static int phytmac_v2_interface_linkdown(struct phytmac *pdata)
 }
 
 static int phytmac_v2_pcs_linkup(struct phytmac *pdata, phy_interface_t interface,
-				 int speed, int duplex)
+			      int speed, int duplex)
 {
 	u16 cmd_id, cmd_subid;
 
@@ -924,7 +957,7 @@ static int phytmac_v2_pcs_linkup(struct phytmac *pdata, phy_interface_t interfac
 		cmd_id = PHYTMAC_MSG_CMD_SET;
 		cmd_subid = PHYTMAC_MSG_CMD_SET_PCS_LINK_UP;
 
-		phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 0);
+		phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
 	}
 
 	return 0;
@@ -949,7 +982,7 @@ static unsigned int phytmac_v2_pcs_get_link(struct phytmac *pdata, phy_interface
 }
 
 static unsigned int phytmac_v2_tx_map_desc(struct phytmac_queue *queue,
-					   u32 tx_tail, struct packet_info *packet)
+					 u32 tx_tail, struct packet_info *packet)
 {
 	unsigned int i, ctrl;
 	struct phytmac *pdata = queue->pdata;
@@ -993,7 +1026,7 @@ static unsigned int phytmac_v2_tx_map_desc(struct phytmac_queue *queue,
 }
 
 static void phytmac_v2_init_rx_map_desc(struct phytmac_queue *queue,
-					u32 index)
+				     u32 index)
 {
 	struct phytmac_dma_desc *desc;
 
@@ -1035,7 +1068,7 @@ static unsigned int phytmac_v2_rx_map_desc(struct phytmac_queue *queue, u32 inde
 static unsigned int phytmac_v2_zero_rx_desc_addr(struct phytmac_dma_desc *desc)
 {
 	desc->desc2 = 0;
-	desc->desc0 = PHYTMAC_BIT(RXUSED);
+	desc->desc0 = (desc->desc0 & PHYTMAC_BIT(RXTSVALID)) | PHYTMAC_BIT(RXUSED);
 
 	return 0;
 }
@@ -1317,6 +1350,7 @@ struct phytmac_hw_if phytmac_2p0_hw = {
 	.get_stats = phytmac_v2_get_hw_stats,
 	.set_mac_address = phytmac_v2_set_mac_addr,
 	.get_mac_address = phytmac_v2_get_mac_addr,
+	.mdio_idle = phytmac_v2_mdio_idle,
 	.mdio_read = phytmac_v2_mdio_data_read_c22,
 	.mdio_write = phytmac_v2_mdio_data_write_c22,
 	.mdio_read_c45 = phytmac_v2_mdio_data_read_c45,

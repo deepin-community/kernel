@@ -558,16 +558,18 @@ static int phytmac_set_wake(struct phytmac *pdata, int wake)
 	return 0;
 }
 
-static void phytmac_mdio_idle(struct phytmac *pdata)
+static int phytmac_mdio_idle(struct phytmac *pdata)
 {
 	u32 val;
+	int ret;
 
 	/* wait for end of transfer */
-	val = PHYTMAC_READ(pdata, PHYTMAC_NSTATUS);
-	while (!(val & PHYTMAC_BIT(MDIO_IDLE))) {
-		cpu_relax();
-		val = PHYTMAC_READ(pdata, PHYTMAC_NSTATUS);
-	}
+	ret = readx_poll_timeout(PHYTMAC_READ_NSTATUS, pdata, val, val & PHYTMAC_BIT(MDIO_IDLE),
+				 1, PHYTMAC_MDIO_TIMEOUT);
+	if (ret)
+		netdev_err(pdata->ndev, "mdio wait for idle time out!");
+
+	return ret;
 }
 
 static int phytmac_mdio_data_read_c22(struct phytmac *pdata, int mii_id, int regnum)
@@ -1003,7 +1005,7 @@ static unsigned int phytmac_rx_map_desc(struct phytmac_queue *queue,
 static unsigned int phytmac_zero_rx_desc_addr(struct phytmac_dma_desc *desc)
 {
 	desc->desc2 = 0;
-	desc->desc0 = PHYTMAC_BIT(RX_USED);
+	desc->desc0 = (desc->desc0 & PHYTMAC_BIT(RX_TS_VALID)) | PHYTMAC_BIT(RX_USED);
 
 	return 0;
 }
@@ -1224,15 +1226,15 @@ static void phytmac_clear_tx_desc(struct phytmac_queue *queue)
 
 static void phytmac_get_hw_stats(struct phytmac *pdata)
 {
-	u32 stats[45];
+	u32 stats[PHYTMAC_STATIS_REG_NUM];
 	int i, j;
 	u64 val;
 	u64 *p = &pdata->stats.tx_octets;
 
-	for (i = 0 ; i < 45; i++)
+	for (i = 0 ; i < PHYTMAC_STATIS_REG_NUM; i++)
 		stats[i] = PHYTMAC_READ(pdata, PHYTMAC_OCTTX + i * 4);
 
-	for (i = 0, j = 0; i < 45; i++) {
+	for (i = 0, j = 0; i < PHYTMAC_STATIS_REG_NUM; i++) {
 		if (i == 0 || i == 20) {
 			val = (u64)stats[i + 1] << 32 | stats[i];
 			*p += val;
@@ -1416,6 +1418,7 @@ struct phytmac_hw_if phytmac_1p0_hw = {
 	.get_stats = phytmac_get_hw_stats,
 	.set_mac_address = phytmac_set_mac_addr,
 	.get_mac_address = phytmac_get_mac_addr,
+	.mdio_idle = phytmac_mdio_idle,
 	.mdio_read = phytmac_mdio_data_read_c22,
 	.mdio_write = phytmac_mdio_data_write_c22,
 	.mdio_read_c45 = phytmac_mdio_data_read_c45,
