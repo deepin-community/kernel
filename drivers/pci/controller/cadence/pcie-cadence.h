@@ -100,6 +100,11 @@ struct cdns_pcie {
 	const  struct cdns_plat_pcie_of_data *cdns_pcie_reg_offsets;
 };
 
+struct cdns_pcie_rc_ops {
+	int	(*init)(struct cdns_pcie_rc *rc);
+	void	(*deinit)(struct cdns_pcie_rc *rc);
+};
+
 /**
  * struct cdns_pcie_rc - private data for this PCIe Root Complex driver
  * @pcie: Cadence PCIe controller
@@ -115,6 +120,7 @@ struct cdns_pcie {
  * @quirk_detect_quiet_flag: LTSSM Detect Quiet min delay set as quirk
  * @ecam_supported: Whether the ECAM is supported
  * @no_inbound_map: Whether inbound mapping is supported
+ * @ops: Platform-specific hooks to initialize/de-initialize PCIe Root Complex
  */
 struct cdns_pcie_rc {
 	struct cdns_pcie	pcie;
@@ -127,6 +133,7 @@ struct cdns_pcie_rc {
 	unsigned int		quirk_detect_quiet_flag:1;
 	unsigned int            ecam_supported:1;
 	unsigned int            no_inbound_map:1;
+	const struct cdns_pcie_rc_ops *ops;
 };
 
 /**
