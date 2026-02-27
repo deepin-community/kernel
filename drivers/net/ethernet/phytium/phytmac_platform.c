@@ -32,7 +32,6 @@ static const struct phytmac_config phytium_2p0_config = {
 	.hw_if = &phytmac_2p0_hw,
 	.caps = PHYTMAC_CAPS_TAILPTR
 			| PHYTMAC_CAPS_RXPTR
-			| PHYTMAC_CAPS_PWCTRL
 			| PHYTMAC_CAPS_LSO
 			| PHYTMAC_CAPS_MSG
 			| PHYTMAC_CAPS_JUMBO,
@@ -206,7 +205,8 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 	}
 
 	i = 0;
-	pdata->mac_regs = devm_platform_get_and_ioremap_resource(pdev, i, &regs);
+	regs = platform_get_resource(pdev, IORESOURCE_MEM, i);
+	pdata->mac_regs = phytmac_devm_ioremap_resource_np(&pdev->dev, regs);
 	if (IS_ERR(pdata->mac_regs)) {
 		dev_err(&pdev->dev, "mac_regs ioremap failed\n");
 		ret = PTR_ERR(pdata->mac_regs);
@@ -233,7 +233,6 @@ static int phytmac_plat_probe(struct platform_device *pdev)
 			pdata->msg_regs = ioremap_wt(regs->start, MEMORY_SIZE);
 			if (!pdata->msg_regs) {
 				dev_err(&pdev->dev, "msg_regs ioremap failed, i=%d\n", i);
-				ret = PTR_ERR(pdata->mac_regs);
 				goto err_mem;
 			}
 		}
@@ -357,7 +356,7 @@ static struct platform_driver phytmac_driver = {
 	.probe = phytmac_plat_probe,
 	.remove = phytmac_plat_remove,
 	.driver = {
-		.name = PHYTMAC_DRV_NAME,
+		.name = PHYTMAC_PLAT_DRV_NAME,
 		.of_match_table = of_match_ptr(phytmac_dt_ids),
 		.acpi_match_table = phytmac_acpi_ids,
 		.pm = &phytmac_plat_pm_ops,
