@@ -19,5 +19,6 @@ static inline cycles_t get_cycles(void)
 {
 	return rdtc();
 }
+#define get_cycles get_cycles
 
 #endif /* _ASM_SW64_TIMEX_H */
