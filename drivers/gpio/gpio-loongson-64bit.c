@@ -47,14 +47,14 @@ static inline struct loongson_gpio_chip *to_loongson_gpio_chip(struct gpio_chip 
 static inline void loongson_commit_direction_bit(struct loongson_gpio_chip *lgpio,
 						unsigned int pin, int input)
 {
-	u64 temp;
+	u8 temp;
 
-	temp = readq(lgpio->reg_base + lgpio->chip_data->conf_offset);
+	temp = readb(lgpio->reg_base + lgpio->chip_data->conf_offset + (pin / 8));
 	if (input)
-		temp |= 1ULL << pin;
+		temp |= 1 << (pin % 8);
 	else
-		temp &= ~(1ULL << pin);
-	writeq(temp, lgpio->reg_base + lgpio->chip_data->conf_offset);
+		temp &= ~(1 << (pin % 8));
+	writeb(temp, lgpio->reg_base + lgpio->chip_data->conf_offset + (pin / 8));
 }
 
 static inline void loongson_commit_direction_byte(struct loongson_gpio_chip *lgpio,
@@ -67,14 +67,14 @@ static inline void loongson_commit_direction_byte(struct loongson_gpio_chip *lgp
 
 static void loongson_commit_level_bit(struct loongson_gpio_chip *lgpio, unsigned int pin, int high)
 {
-	u64 temp;
+	u8 temp;
 
-	temp = readq(lgpio->reg_base + lgpio->chip_data->out_offset);
+	temp = readb(lgpio->reg_base + lgpio->chip_data->out_offset + (pin / 8));
 	if (high)
-		temp |= 1ULL << pin;
+		temp |= 1 << (pin % 8);
 	else
-		temp &= ~(1ULL << pin);
-	writeq(temp, lgpio->reg_base + lgpio->chip_data->out_offset);
+		temp &= ~(1 << (pin % 8));
+	writeb(temp, lgpio->reg_base + lgpio->chip_data->out_offset + (pin / 8));
 }
 
 static void loongson_commit_level_byte(struct loongson_gpio_chip *lgpio, unsigned int pin, int high)
@@ -119,14 +119,13 @@ static int loongson_gpio_direction_output(struct gpio_chip *chip, unsigned int p
 
 static int loongson_gpio_get(struct gpio_chip *chip, unsigned int pin)
 {
-	u8  bval;
-	u64 qval;
+	u8 bval;
 	int val;
 	struct loongson_gpio_chip *lgpio = to_loongson_gpio_chip(chip);
 
 	if (lgpio->chip_data->mode == BIT_CTRL_MODE) {
-		qval = readq(lgpio->reg_base + lgpio->chip_data->in_offset);
-		val = ((qval & (1ULL << pin)) != 0);
+		bval = readb(lgpio->reg_base + lgpio->chip_data->in_offset + (pin / 8));
+		val = ((bval & (1 << (pin % 8))) != 0);
 	} else {
 		bval = readb(lgpio->reg_base + lgpio->chip_data->in_offset + pin);
 		val = (bval & 1);
@@ -137,14 +136,13 @@ static int loongson_gpio_get(struct gpio_chip *chip, unsigned int pin)
 
 static int loongson_gpio_get_direction(struct gpio_chip *chip, unsigned int pin)
 {
-	u8  bval;
-	u64 qval;
+	u8 bval;
 	int val;
 	struct loongson_gpio_chip *lgpio = to_loongson_gpio_chip(chip);
 
 	if (lgpio->chip_data->mode == BIT_CTRL_MODE) {
-		qval = readq(lgpio->reg_base + lgpio->chip_data->conf_offset);
-		val = ((qval & (1ULL << pin)) != 0);
+		bval = readb(lgpio->reg_base + lgpio->chip_data->conf_offset + (pin / 8));
+		val = ((bval & (1 << (pin % 8))) != 0);
 	} else {
 		bval = readb(lgpio->reg_base + lgpio->chip_data->conf_offset + pin);
 		val = bval & 1;
@@ -171,15 +169,15 @@ static void loongson_gpio_set(struct gpio_chip *chip, unsigned int pin, int valu
 
 static int loongson_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
 {
-	unsigned int u;
+	u8 u;
 	struct platform_device *pdev = to_platform_device(chip->parent);
 	struct loongson_gpio_chip *lgpio = to_loongson_gpio_chip(chip);
 
 	if (lgpio->chip_data->mode == BIT_CTRL_MODE) {
 		/* Get the register index from offset then multiply by bytes per register */
-		u = readl(lgpio->reg_base + lgpio->chip_data->inten_offset + (offset / 32) * 4);
-		u |= BIT(offset % 32);
-		writel(u, lgpio->reg_base + lgpio->chip_data->inten_offset + (offset / 32) * 4);
+		u = readb(lgpio->reg_base + lgpio->chip_data->inten_offset + (offset / 8));
+		u |= BIT(offset % 8);
+		writeb(u, lgpio->reg_base + lgpio->chip_data->inten_offset + (offset / 8));
 	} else {
 		writeb(1, lgpio->reg_base + lgpio->chip_data->inten_offset + offset);
 	}
