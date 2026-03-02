@@ -77,13 +77,6 @@ int amdgpu_ih_ring_init(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih,
 		ih->rptr_addr = dma_addr + ih->ring_size + 4;
 		ih->rptr_cpu = &ih->ring[(ih->ring_size / 4) + 1];
 
-	#ifdef CONFIG_LOONGARCH
-		INIT_WORK(&adev->irq.ih.fix_work, amdgpu_ih_handle_fix_work);
-		for (r = 0; r < (adev->irq.ih.ring_size >> 2); r++)
-			adev->irq.ih.ring[r] = 0xDEADBEFF;
-		/* memory barrier for writing into ih ring */
-		mb();
-	#endif
 
 	} else {
 		unsigned wptr_offs, rptr_offs;
@@ -113,16 +106,17 @@ int amdgpu_ih_ring_init(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih,
 		ih->rptr_addr = adev->wb.gpu_addr + rptr_offs * 4;
 		ih->rptr_cpu = &adev->wb.wb[rptr_offs];
 
-	#ifdef CONFIG_LOONGARCH
-		INIT_WORK(&adev->irq.ih.fix_work, amdgpu_ih_handle_fix_work);
-		for (r = 0; r < (adev->irq.ih.ring_size >> 2); r++)
-			adev->irq.ih.ring[r] = 0xDEADBEFF;
-		/* memory barrier for writing into ih ring */
-		mb();
-	#endif
-
 	}
 
+#ifdef CONFIG_LOONGARCH
+	INIT_WORK(&ih->fix_work, amdgpu_ih_handle_fix_work);
+	ih->adev = adev;
+	atomic_set(&ih->lock, 0);
+	for (r = 0; r < (ih->ring_size >> 2); r++)
+		ih->ring[r] = 0xDEADBEFF;
+	/* ensure data active */
+	mb();
+#endif
 	init_waitqueue_head(&ih->wait_process);
 	return 0;
 }
@@ -143,7 +137,7 @@ void amdgpu_ih_ring_fini(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 		return;
 
 #ifdef CONFIG_LOONGARCH
-	cancel_work_sync(&adev->irq.ih.fix_work);
+	cancel_work_sync(&ih->fix_work);
 #endif
 
 	if (ih->use_bus_addr) {
@@ -173,7 +167,7 @@ static int amdgpu_ih_fix_loongarch_pcie_order_start(struct amdgpu_ih_ring *ih,
 						u32 rptr, u32 wptr,
 						bool forever)
 {
-	int i;
+	int i, j;
 	int check_cnt = 0;
 	u32 ring_end = ih->ring_size >> 2;
 
@@ -193,13 +187,19 @@ restart_check:
 		msleep(20);
 
 	for (i = rptr; i < wptr; i += 1) {
-		if (le32_to_cpu(ih->ring[i]) == 0xDEADBEFF && (i % 4) != 3)
+		j = i + 1;
+		j = (j < wptr) ? j : rptr;
+		if (le32_to_cpu(ih->ring[i]) == 0xDEADBEFF &&
+		    le32_to_cpu(ih->ring[j]) == 0xDEADBEFF)
 			goto restart_check;
 	}
 
 	if (rptr > wptr) {
 		for (i = 0; i < wptr; i += 1) {
-			if (le32_to_cpu(ih->ring[i]) == 0xDEADBEFF && (i % 4) != 3)
+			j = i + 1;
+			j = (j < wptr) ? j : 0;
+			if (le32_to_cpu(ih->ring[i]) == 0xDEADBEFF &&
+			    le32_to_cpu(ih->ring[j]) == 0xDEADBEFF)
 				goto restart_check;
 		}
 	}
@@ -235,35 +235,42 @@ static int amdgpu_ih_fix_loongarch_pcie_order_end(struct amdgpu_ih_ring *ih,
 
 static void amdgpu_ih_handle_fix_work(struct work_struct *work)
 {
-	struct amdgpu_device *adev =
-		container_of(work, struct amdgpu_device, irq.ih.fix_work);
-	struct amdgpu_ih_ring *ih = &adev->irq.ih;
+	struct amdgpu_ih_ring *ih =
+		container_of(work, struct amdgpu_ih_ring, fix_work);
+	struct amdgpu_device *adev = ih->adev;
 
 	u32 wptr;
 	u32 old_rptr;
+	int restart_fg = 0;
 
 restart:
+	if (restart_fg && atomic_xchg(&ih->lock, 1)) {
+		atomic_set(&adev->irq.cs_lock, 0);
+		return;
+	}
 
 	wptr = amdgpu_ih_get_wptr(adev, ih);
 	/* Order reading of wptr vs. reading of IH ring data */
 	rmb();
 
 	old_rptr = ih->rptr;
-	amdgpu_ih_fix_loongarch_pcie_order_start(&adev->irq.ih, old_rptr, wptr, true);
+	amdgpu_ih_fix_loongarch_pcie_order_start(ih, old_rptr, wptr, true);
 
-	while (adev->irq.ih.rptr != wptr) {
+	while (ih->rptr != wptr) {
 		amdgpu_irq_dispatch(adev, ih);
 		ih->rptr &= ih->ptr_mask;
 	}
 
-	amdgpu_ih_fix_loongarch_pcie_order_end(&adev->irq.ih, old_rptr, adev->irq.ih.rptr);
+	amdgpu_ih_fix_loongarch_pcie_order_end(ih, old_rptr, ih->rptr);
 
 	amdgpu_ih_set_rptr(adev, ih);
-	/* memory barrier for setting rptr */
+	atomic_set(&ih->lock, 0);
 	mb();
 
-	if (ih->rptr != amdgpu_ih_get_wptr(adev, ih))
+	if (ih->rptr != amdgpu_ih_get_wptr(adev, ih)) {
+		restart_fg = 1;
 		goto restart;
+	}
 
 	atomic_set(&adev->irq.cs_lock, 0);
 }
@@ -354,6 +361,11 @@ int amdgpu_ih_process(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 	wptr = amdgpu_ih_get_wptr(adev, ih);
 
 restart_ih:
+#ifdef CONFIG_LOONGARCH
+	/* is somebody else already processing irqs? */
+	if (atomic_xchg(&ih->lock, 1))
+		return IRQ_NONE;
+#endif
 	count  = AMDGPU_IH_MAX_NUM_IVS;
 	dev_dbg(adev->dev, "%s: rptr %d, wptr %d\n", __func__, ih->rptr, wptr);
 
@@ -361,15 +373,16 @@ restart_ih:
 	rmb();
 
 #ifdef CONFIG_LOONGARCH
-	old_rptr = adev->irq.ih.rptr;
-	r = amdgpu_ih_fix_loongarch_pcie_order_start(&adev->irq.ih, old_rptr, wptr, false);
+	old_rptr = ih->rptr;
+	r = amdgpu_ih_fix_loongarch_pcie_order_start(ih, old_rptr, wptr, false);
 	if (r) {
-		if (old_rptr == ((wptr + 16) & adev->irq.ih.ptr_mask) ||
-		    old_rptr == ((wptr + 32) & adev->irq.ih.ptr_mask))
+		if (old_rptr == ((wptr + 16) & ih->ptr_mask) ||
+		    old_rptr == ((wptr + 32) & ih->ptr_mask)) {
+			atomic_set(&ih->lock, 0);
 			return IRQ_NONE;
-
+		}
 		atomic_xchg(&adev->irq.cs_lock, 1);
-		schedule_work(&adev->irq.ih.fix_work);
+		schedule_work(&ih->fix_work);
 		return IRQ_NONE;
 	}
 #endif
@@ -380,12 +393,15 @@ restart_ih:
 	}
 
 #ifdef CONFIG_LOONGARCH
-	amdgpu_ih_fix_loongarch_pcie_order_end(&adev->irq.ih, old_rptr, adev->irq.ih.rptr);
+	amdgpu_ih_fix_loongarch_pcie_order_end(ih, old_rptr, ih->rptr);
 #endif
 
 	if (!ih->overflow)
 		amdgpu_ih_set_rptr(adev, ih);
 
+#ifdef CONFIG_LOONGARCH
+	atomic_set(&ih->lock, 0);
+#endif
 	wake_up_all(&ih->wait_process);
 
 	/* make sure wptr hasn't changed while processing */
