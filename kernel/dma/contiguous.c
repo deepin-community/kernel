@@ -362,12 +362,12 @@ static struct page *cma_alloc_aligned(struct cma *cma, size_t size, gfp_t gfp)
  */
 struct page *dma_alloc_contiguous(struct device *dev, size_t size, gfp_t gfp)
 {
+#ifdef CONFIG_DMA_NUMA_CMA
+	int nid = dev_to_node(dev);
+#endif
 #ifdef CONFIG_PSWIOTLB
 	if (check_if_pswiotlb_is_applicable(dev))
 		return NULL;
-#endif
-#ifdef CONFIG_DMA_NUMA_CMA
-	int nid = dev_to_node(dev);
 #endif
 
 	/* CMA can be used only in the context which permits sleeping */

@@ -32,6 +32,9 @@
 #include <linux/suspend.h>
 #include <linux/switchtec.h>
 #include "pci.h"
+#ifdef CONFIG_PSWIOTLB
+#include <linux/pswiotlb.h>
+#endif
 
 /*
  * Retrain the link of a downstream PCIe port by hand if necessary.
@@ -6469,6 +6472,17 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0xa76e, dpc_log_size);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_XILINX, 0x5020, of_pci_make_dev_node);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_XILINX, 0x5021, of_pci_make_dev_node);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_REDHAT, 0x0005, of_pci_make_dev_node);
+
+void pci_configure_pswiotlb(struct pci_dev *dev, struct pci_bus *bus)
+{
+#ifdef CONFIG_PSWIOTLB
+       if ((pswiotlb_force_disable != true) &&
+               is_phytium_ps_socs()) {
+               pswiotlb_store_local_node(dev, bus);
+               dma_set_seg_boundary(&dev->dev, 0xffffffffffff);
+       }
+#endif
+}
 
 /*
  * Devices known to require a longer delay before first config space access

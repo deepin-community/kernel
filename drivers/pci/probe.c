@@ -20,9 +20,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/bitfield.h>
 #include "pci.h"
-#ifdef CONFIG_PSWIOTLB
-#include <linux/pswiotlb.h>
-#endif
 
 #define CARDBUS_LATENCY_TIMER	176	/* secondary latency timer */
 #define CARDBUS_RESERVE_BUSNR	3
@@ -2579,13 +2576,8 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
 
 	dma_set_max_seg_size(&dev->dev, 65536);
 	dma_set_seg_boundary(&dev->dev, 0xffffffff);
-#ifdef CONFIG_PSWIOTLB
-	if ((pswiotlb_force_disable != true) &&
-		is_phytium_ps_socs()) {
-		pswiotlb_store_local_node(dev, bus);
-		dma_set_seg_boundary(&dev->dev, 0xffffffffffff);
-	}
-#endif
+
+	pci_configure_pswiotlb(dev, bus);
 
 	pcie_failed_link_retrain(dev);
 
