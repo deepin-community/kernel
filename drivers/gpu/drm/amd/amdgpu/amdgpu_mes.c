@@ -1050,9 +1050,39 @@ int amdgpu_mes_add_ring(struct amdgpu_device *adev, int gang_id,
 	default:
 		BUG();
 	}
-
-	r = amdgpu_ring_init(adev, ring, 1024, NULL, 0,
-			     AMDGPU_RING_PRIO_DEFAULT, NULL);
+#ifdef CONFIG_LOONGARCH
+	if (queue_type != AMDGPU_RING_TYPE_SDMA) {
+		switch (adev->ip_versions[GC_HWIP][0]) {
+		case IP_VERSION(10, 1, 10):
+		case IP_VERSION(10, 1, 2):
+		case IP_VERSION(10, 1, 1):
+		case IP_VERSION(10, 1, 3):
+		case IP_VERSION(10, 1, 4):
+		case IP_VERSION(10, 3, 0):
+		case IP_VERSION(10, 3, 2):
+		case IP_VERSION(10, 3, 1):
+		case IP_VERSION(10, 3, 4):
+		case IP_VERSION(10, 3, 5):
+		case IP_VERSION(10, 3, 6):
+		case IP_VERSION(10, 3, 3):
+		case IP_VERSION(10, 3, 7):
+		case IP_VERSION(11, 0, 0):
+		case IP_VERSION(11, 0, 1):
+		case IP_VERSION(11, 0, 2):
+		case IP_VERSION(11, 0, 3):
+		case IP_VERSION(11, 0, 4):
+			r = amdgpu_ring_init(adev, ring, 1024 * 2, NULL, 0,
+					     AMDGPU_RING_PRIO_DEFAULT, NULL);
+			break;
+		default:
+			r = amdgpu_ring_init(adev, ring, 1024, NULL, 0,
+					     AMDGPU_RING_PRIO_DEFAULT, NULL);
+			break;
+		}
+	} else
+#endif
+		r = amdgpu_ring_init(adev, ring, 1024, NULL, 0,
+				     AMDGPU_RING_PRIO_DEFAULT, NULL);
 	if (r) {
 		amdgpu_mes_unlock(&adev->mes);
 		goto clean_up_memory;
