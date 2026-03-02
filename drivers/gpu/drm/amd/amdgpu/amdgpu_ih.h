@@ -74,7 +74,9 @@ struct amdgpu_ih_ring {
 	uint64_t		processed_timestamp;
 	bool overflow;
 #ifdef CONFIG_LOONGARCH
+	atomic_t		lock;
 	struct work_struct      fix_work;
+	struct amdgpu_device    *adev;
 #endif
 };
 
