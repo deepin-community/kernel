@@ -1182,8 +1182,13 @@ static int gfx_v11_0_gfx_ring_init(struct amdgpu_device *adev, int ring_id,
 	irq_type = AMDGPU_CP_IRQ_GFX_ME0_PIPE0_EOP + ring->pipe;
 	hw_prio = amdgpu_gfx_is_high_priority_graphics_queue(adev, ring) ?
 		AMDGPU_GFX_PIPE_PRIO_HIGH : AMDGPU_GFX_PIPE_PRIO_NORMAL;
+#ifdef CONFIG_LOONGARCH
+	return amdgpu_ring_init(adev, ring, 1024*2, &adev->gfx.eop_irq, irq_type,
+				hw_prio, NULL);
+#else
 	return amdgpu_ring_init(adev, ring, 1024, &adev->gfx.eop_irq, irq_type,
 				hw_prio, NULL);
+#endif
 }
 
 static int gfx_v11_0_compute_ring_init(struct amdgpu_device *adev, int ring_id,
@@ -1215,8 +1220,13 @@ static int gfx_v11_0_compute_ring_init(struct amdgpu_device *adev, int ring_id,
 	hw_prio = amdgpu_gfx_is_high_priority_compute_queue(adev, ring) ?
 			AMDGPU_GFX_PIPE_PRIO_HIGH : AMDGPU_GFX_PIPE_PRIO_NORMAL;
 	/* type-2 packets are deprecated on MEC, use type-3 instead */
+#ifdef CONFIG_LOONGARCH
+	r = amdgpu_ring_init(adev, ring, 1024*2, &adev->gfx.eop_irq, irq_type,
+			     hw_prio, NULL);
+#else
 	r = amdgpu_ring_init(adev, ring, 1024, &adev->gfx.eop_irq, irq_type,
 			     hw_prio, NULL);
+#endif
 	if (r)
 		return r;
 
@@ -6067,7 +6077,33 @@ static void gfx_v11_0_ring_emit_fence(struct amdgpu_ring *ring, u64 addr,
 {
 	bool write64bit = flags & AMDGPU_FENCE_FLAG_64BIT;
 	bool int_sel = flags & AMDGPU_FENCE_FLAG_INT;
+#ifdef CONFIG_LOONGARCH
+	int i;
 
+	for (i = 0; i < 10; i++) {
+		/* RELEASE_MEM - flush caches, send int */
+		amdgpu_ring_write(ring, PACKET3(PACKET3_RELEASE_MEM, 6));
+		amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM_GCR_SEQ |
+					 PACKET3_RELEASE_MEM_GCR_GL2_WB |
+					 PACKET3_RELEASE_MEM_GCR_GL2_INV |
+					 PACKET3_RELEASE_MEM_GCR_GL2_US |
+					 PACKET3_RELEASE_MEM_GCR_GL1_INV |
+					 PACKET3_RELEASE_MEM_GCR_GLV_INV |
+					 PACKET3_RELEASE_MEM_GCR_GLM_INV |
+					 PACKET3_RELEASE_MEM_GCR_GLM_WB |
+					 PACKET3_RELEASE_MEM_CACHE_POLICY(3) |
+					 PACKET3_RELEASE_MEM_EVENT_TYPE(
+						 CACHE_FLUSH_AND_INV_TS_EVENT) |
+					 PACKET3_RELEASE_MEM_EVENT_INDEX(5)));
+		amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM_DATA_SEL(
+						 write64bit ? 2 : 1) |
+					 PACKET3_RELEASE_MEM_INT_SEL(0)));
+		amdgpu_ring_write(ring, lower_32_bits(addr));
+		amdgpu_ring_write(ring, upper_32_bits(addr));
+		amdgpu_ring_write(ring, lower_32_bits(seq));
+		amdgpu_ring_write(ring, upper_32_bits(seq));
+	}
+#endif
 	/* RELEASE_MEM - flush caches, send int */
 	amdgpu_ring_write(ring, PACKET3(PACKET3_RELEASE_MEM, 6));
 	amdgpu_ring_write(ring, (PACKET3_RELEASE_MEM_GCR_SEQ |
@@ -7307,7 +7343,11 @@ static const struct amdgpu_ring_funcs gfx_v11_0_ring_funcs_gfx = {
 		SOC15_FLUSH_GPU_TLB_NUM_WREG * 5 +
 		SOC15_FLUSH_GPU_TLB_NUM_REG_WAIT * 7 +
 		4 + /* VM_FLUSH */
+#ifdef CONFIG_LOONGARCH
+		8*11 + /* FENCE for VM_FLUSH */
+#else
 		8 + /* FENCE for VM_FLUSH */
+#endif
 		20 + /* GDS switch */
 		5 + /* COND_EXEC */
 		7 + /* HDP_flush */
@@ -7316,7 +7356,11 @@ static const struct amdgpu_ring_funcs gfx_v11_0_ring_funcs_gfx = {
 		3 + /* CNTX_CTRL */
 		5 + /* HDP_INVL */
 		22 + /* SET_Q_PREEMPTION_MODE */
+#ifdef CONFIG_LOONGARCH
+		8*11 + 8*11 + /* FENCE x2 */
+#else
 		8 + 8 + /* FENCE x2 */
+#endif
 		8 + /* gfx_v11_0_emit_mem_sync */
 		2, /* gfx_v11_0_ring_emit_cleaner_shader */
 	.emit_ib_size =	4, /* gfx_v11_0_ring_emit_ib_gfx */
@@ -7362,7 +7406,11 @@ static const struct amdgpu_ring_funcs gfx_v11_0_ring_funcs_compute = {
 		SOC15_FLUSH_GPU_TLB_NUM_WREG * 5 +
 		SOC15_FLUSH_GPU_TLB_NUM_REG_WAIT * 7 +
 		2 + /* gfx_v11_0_ring_emit_vm_flush */
+#ifdef CONFIG_LOONGARCH
+		8*11 + 8*11 + 8*11 + /* gfx_v11_0_ring_emit_fence x3 for user fence, vm fence */
+#else
 		8 + 8 + 8 + /* gfx_v11_0_ring_emit_fence x3 for user fence, vm fence */
+#endif
 		8 + /* gfx_v11_0_emit_mem_sync */
 		2, /* gfx_v11_0_ring_emit_cleaner_shader */
 	.emit_ib_size =	7, /* gfx_v11_0_ring_emit_ib_compute */
