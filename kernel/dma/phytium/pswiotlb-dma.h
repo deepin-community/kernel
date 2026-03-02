@@ -13,6 +13,69 @@
 #include <linux/pswiotlb.h>
 
 extern bool pswiotlb_force_disable;
+struct pswiotlb_dma_map_ops {
+	unsigned int flags;
+
+	void *(*alloc)(struct device *dev, size_t size,
+			dma_addr_t *dma_handle, gfp_t gfp,
+			unsigned long attrs);
+	void (*free)(struct device *dev, size_t size, void *vaddr,
+			dma_addr_t dma_handle, unsigned long attrs);
+	struct page *(*alloc_pages)(struct device *dev, size_t size,
+			dma_addr_t *dma_handle, enum dma_data_direction dir,
+			gfp_t gfp);
+	void (*free_pages)(struct device *dev, size_t size, struct page *vaddr,
+			dma_addr_t dma_handle, enum dma_data_direction dir);
+	struct sg_table *(*alloc_noncontiguous)(struct device *dev, size_t size,
+			enum dma_data_direction dir, gfp_t gfp,
+			unsigned long attrs);
+	void (*free_noncontiguous)(struct device *dev, size_t size,
+			struct sg_table *sgt, enum dma_data_direction dir);
+	int (*mmap)(struct device *dev, struct vm_area_struct *vma,
+			void *cpu_addr, dma_addr_t dma_addr, size_t size, unsigned long attrs);
+
+	int (*get_sgtable)(struct device *dev, struct sg_table *sgt,
+			void *cpu_addr, dma_addr_t dma_addr, size_t size,
+			unsigned long attrs);
+
+	dma_addr_t (*map_page)(struct device *dev, struct page *page,
+			unsigned long offset, size_t size,
+			enum dma_data_direction dir, unsigned long attrs);
+	void (*unmap_page)(struct device *dev, dma_addr_t dma_handle,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs);
+	/*
+	 * map_sg should return a negative error code on error. See
+	 * dma_map_sgtable() for a list of appropriate error codes
+	 * and their meanings.
+	 */
+	int (*map_sg)(struct device *dev, struct scatterlist *sg, int nents,
+			enum dma_data_direction dir, unsigned long attrs);
+	void (*unmap_sg)(struct device *dev, struct scatterlist *sg, int nents,
+			enum dma_data_direction dir, unsigned long attrs);
+	dma_addr_t (*map_resource)(struct device *dev, phys_addr_t phys_addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs);
+	void (*unmap_resource)(struct device *dev, dma_addr_t dma_handle,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs);
+	void (*sync_single_for_cpu)(struct device *dev, dma_addr_t dma_handle,
+			size_t size, enum dma_data_direction dir);
+	void (*sync_single_for_device)(struct device *dev,
+			dma_addr_t dma_handle, size_t size,
+			enum dma_data_direction dir);
+	void (*sync_sg_for_cpu)(struct device *dev, struct scatterlist *sg,
+			int nents, enum dma_data_direction dir);
+	void (*sync_sg_for_device)(struct device *dev, struct scatterlist *sg,
+			int nents, enum dma_data_direction dir);
+	void (*cache_sync)(struct device *dev, void *vaddr, size_t size,
+			enum dma_data_direction direction);
+	int (*dma_supported)(struct device *dev, u64 mask);
+	u64 (*get_required_mask)(struct device *dev);
+	size_t (*max_mapping_size)(struct device *dev);
+	size_t (*opt_mapping_size)(void);
+	unsigned long (*get_merge_boundary)(struct device *dev);
+};
 #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
 	defined(CONFIG_PSWIOTLB)
 void pswiotlb_dma_direct_sync_sg_for_device(struct device *dev,
@@ -46,7 +109,7 @@ static inline void pswiotlb_dma_direct_sync_sg_for_cpu(struct device *dev,
 #ifdef CONFIG_PSWIOTLB
 int pswiotlb_dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
 			int nents, enum dma_data_direction dir, unsigned long attrs);
-dma_addr_t pswiotlb_dma_map_page_distribute(struct device *dev, struct page *page,
+dma_addr_t pswiotlb_dma_map_page_attrs_distribute(struct device *dev, struct page *page,
 			size_t offset, size_t size, enum dma_data_direction dir,
 			unsigned long attrs);
 void pswiotlb_dma_unmap_page_attrs_distribute(struct device *dev, dma_addr_t addr,
@@ -80,11 +143,13 @@ void pswiotlb_iommu_dma_sync_sg_for_cpu(struct device *dev,
 			struct scatterlist *sgl, int nelems, enum dma_data_direction dir);
 void pswiotlb_iommu_dma_sync_sg_for_device(struct device *dev,
 			struct scatterlist *sgl, int nelems, enum dma_data_direction dir);
+void pswiotlb_iommu_dma_free(struct device *dev, size_t size, void *cpu_addr,
+			dma_addr_t handle, unsigned long attrs);
 
 static inline bool check_if_pswiotlb_is_applicable(struct device *dev)
 {
-	if (dev && dev->can_use_pswiotlb && is_phytium_ps_socs()
-				&& !pswiotlb_force_disable) {
+	if (!pswiotlb_force_disable && is_phytium_ps_socs()
+				&& dev && dev->can_use_pswiotlb) {
 		if (dev->numa_node == NUMA_NO_NODE ||
 			dev->numa_node != dev->local_node)
 			dev->numa_node = dev->local_node;
@@ -212,7 +277,7 @@ static inline int pswiotlb_dma_direct_map_sg(struct device *dev, struct scatterl
 	return 0;
 }
 
-static inline dma_addr_t pswiotlb_dma_map_page_distribute(struct device *dev,
+static inline dma_addr_t pswiotlb_dma_map_page_attrs_distribute(struct device *dev,
 			struct page *page, size_t offset, size_t size, enum dma_data_direction dir,
 			unsigned long attrs)
 {
@@ -301,6 +366,11 @@ static inline void pswiotlb_iommu_dma_sync_sg_for_cpu(struct device *dev,
 
 static inline void pswiotlb_iommu_dma_sync_sg_for_device(struct device *dev,
 			struct scatterlist *sgl, int nelems, enum dma_data_direction dir)
+{
+}
+
+static inline void pswiotlb_iommu_dma_free(struct device *dev, size_t size,
+			void *cpu_addr, dma_addr_t handle, unsigned long attrs)
 {
 }
 

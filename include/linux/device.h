@@ -658,7 +658,10 @@ struct device_physical_location {
  * @dma_io_tlb_lock:	Protects changes to the list of active pools.
  * @dma_uses_io_tlb: %true if device has used the software IO TLB.
  * @dma_p_io_tlb_mem: Phytium Software IO TLB allocator.  Not for driver use.
+ * @orig_dma_ops:    Original DMA mapping operations for this device.
+ * @local_node:	NUMA node this device is really belong to.
  * @dma_uses_p_io_tlb: %true if device has used the Phytium software IO TLB.
+ * @can_use_pswiotlb: %true if device can use the Phytium software IO TLB.
  * @archdata:	For arch-specific additions.
  * @of_node:	Associated device tree node.
  * @fwnode:	Associated device node supplied by platform firmware.
@@ -767,8 +770,16 @@ struct device {
 #endif
 #ifdef CONFIG_PSWIOTLB
 	struct p_io_tlb_mem *dma_p_io_tlb_mem;
-	bool dma_uses_p_io_tlb;
-	bool can_use_pswiotlb;
+#ifdef CONFIG_DMA_OPS
+	const struct dma_map_ops *orig_dma_ops;
+#endif
+	struct {
+#ifdef CONFIG_NUMA
+		int local_node;
+#endif
+		bool dma_uses_p_io_tlb;
+		bool can_use_pswiotlb;
+	};
 #endif
 #ifdef CONFIG_SWIOTLB_DYNAMIC
 	struct list_head dma_io_tlb_pools;
@@ -783,9 +794,6 @@ struct device {
 
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
-#ifdef CONFIG_PSWIOTLB
-	int     local_node; /* NUMA node this device is really belong to */
-#endif
 #endif
 	dev_t			devt;	/* dev_t, creates the sysfs "dev" */
 	u32			id;	/* device instance */

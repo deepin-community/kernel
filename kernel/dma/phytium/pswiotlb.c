@@ -77,7 +77,7 @@ struct p_io_tlb_slot {
 	unsigned int list;
 };
 
-bool pswiotlb_force_disable;
+bool __ro_after_init pswiotlb_force_disable;
 
 static struct page *alloc_dma_pages(int nid, gfp_t gfp, size_t bytes);
 
@@ -1720,7 +1720,8 @@ static int __init pswiotlb_create_default_debugfs(void)
 {
 	char name[20] = "";
 
-	if (!pswiotlb_mtimer_alive && !pswiotlb_force_disable) {
+	if (!pswiotlb_mtimer_alive && !pswiotlb_force_disable
+				&& is_phytium_ps_socs()) {
 		pr_info("setup pswiotlb monitor timer service\n");
 		timer_setup(&service_timer, pswiotlb_monitor_service, 0);
 		pswiotlb_mtimer_alive = true;
@@ -1729,7 +1730,7 @@ static int __init pswiotlb_create_default_debugfs(void)
 		mod_timer(&service_timer, jiffies + 2 * HZ);
 	}
 
-	if (!pswiotlb_force_disable) {
+	if (!pswiotlb_force_disable && is_phytium_ps_socs()) {
 		sprintf(name, "%s", "pswiotlb");
 		pswiotlb_create_pswiotlb_debugfs_files(name);
 	}

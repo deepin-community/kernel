@@ -1313,6 +1313,16 @@ config SOCIONEXT_SYNQUACER_PREITS
 
 	  If unsure, say Y.
 
+config PHYTIUM_ERRATUM_FT3386
+	bool "FT3386: enable Phytium FT3386 pswiotlb can improve dma performance"
+	depends on PSWIOTLB
+	default y
+	help
+	  Phytium FT3386 pswiotlb can improve D2H dma performance and
+	  should be enabled by default.
+
+	  If unsure, say Y.
+
 endmenu # "ARM errata workarounds via the alternatives framework"
 
 choice
