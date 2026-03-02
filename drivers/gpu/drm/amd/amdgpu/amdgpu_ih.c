@@ -169,14 +169,14 @@ static int amdgpu_ih_fix_loongarch_pcie_order_start(struct amdgpu_ih_ring *ih,
 {
 	int i, j;
 	int check_cnt = 0;
-	u32 ring_end = ih->ring_size >> 2;
+	u32 old_wptr, ring_end = ih->ring_size >> 2;
 
 	if (rptr == wptr)
 		return 0;
 
 	rptr = rptr >> 2;
 	wptr = wptr >> 2;
-
+	old_wptr = wptr;
 	wptr = (rptr > wptr) ? ring_end : wptr;
 
 restart_check:
@@ -194,10 +194,10 @@ restart_check:
 			goto restart_check;
 	}
 
-	if (rptr > wptr) {
-		for (i = 0; i < wptr; i += 1) {
+	if (rptr > old_wptr) {
+		for (i = 0; i < old_wptr; i += 1) {
 			j = i + 1;
-			j = (j < wptr) ? j : 0;
+			j = (j < old_wptr) ? j : 0;
 			if (le32_to_cpu(ih->ring[i]) == 0xDEADBEFF &&
 			    le32_to_cpu(ih->ring[j]) == 0xDEADBEFF)
 				goto restart_check;
@@ -211,21 +211,21 @@ static int amdgpu_ih_fix_loongarch_pcie_order_end(struct amdgpu_ih_ring *ih,
 						u32 rptr, u32 wptr)
 {
 	int i;
-	u32 ring_end = ih->ring_size >> 2;
+	u32 old_wptr, ring_end = ih->ring_size >> 2;
 
 	if (rptr == wptr)
 		return 0;
 
 	rptr = rptr >> 2;
 	wptr = wptr >> 2;
-
+	old_wptr = wptr;
 	wptr = (rptr > wptr) ? ring_end : wptr;
 
 	for (i = rptr; i < wptr; i += 1)
 		ih->ring[i] = 0xDEADBEFF;
 
-	if (rptr > wptr) {
-		for (i = 0; i < wptr; i += 1)
+	if (rptr > old_wptr) {
+		for (i = 0; i < old_wptr; i += 1)
 			ih->ring[i] = 0xDEADBEFF;
 	}
 	/* memory barrier for writing into ih ring */
