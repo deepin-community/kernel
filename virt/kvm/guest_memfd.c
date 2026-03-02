@@ -589,7 +589,8 @@ __kvm_gmem_get_pfn(struct file *file, struct kvm_memory_slot *slot,
 }
 
 int kvm_gmem_get_pfn(struct kvm *kvm, struct kvm_memory_slot *slot,
-		     gfn_t gfn, kvm_pfn_t *pfn, int *max_order)
+		     gfn_t gfn, kvm_pfn_t *pfn, struct page **page,
+		     int *max_order)
 {
 	struct file *file = kvm_gmem_get_file(slot);
 	struct folio *folio;
@@ -601,6 +602,8 @@ int kvm_gmem_get_pfn(struct kvm *kvm, struct kvm_memory_slot *slot,
 	fput(file);
 	if (IS_ERR(folio))
 		return PTR_ERR(folio);
+
+	*page = folio_file_page(folio, gfn - slot->base_gfn);
 
 	return 0;
 }
