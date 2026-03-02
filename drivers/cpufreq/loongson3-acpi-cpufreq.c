@@ -57,7 +57,6 @@ MODULE_LICENSE("GPL");
 #define FACTOR				(0xeac0c6e8)
 #define BOOST_THRESHOLD			(900)
 #define MAX_CORES_PER_PACKAGE		64
-#define CPU_ID_FIELD			0xf
 #define VOLTAGE_COMMAND			0x21
 #define MAX_READY_TIMEOUT		200000000
 #define RESERVED_FREQ			3
@@ -405,6 +404,7 @@ static void do_set_freq_level(int cpu, int freq_level)
 	uint32_t val;
 
 	message = (0 << 31) | (VOLTAGE_COMMAND << 24)
+		| (((cpu >> 4) & CPU_ID_FIELD) << 8)
 		| ((uint32_t)freq_level << 4)
 		| (cpu & CPU_ID_FIELD);
 	iocsr_write32(message, 0x51c);
