@@ -408,8 +408,21 @@ static __init void parse_cmdline(const void *fdt, int chosen)
 	 * firmware, notably W510.  Use "aosc.try_mpam=1" if you really need
 	 * MPAM on AOSC.
 	 */
-	if (!arm64_apply_feature_override(0, 0, 4, &aosc_feature_override))
-		__parse_cmdline("arm64.nompam", true);
+	static const struct midr_range mpam_disable_list[] __initconst = {
+		MIDR_ALL_VERSIONS(MIDR_HISI_TSV110),
+		{ /* sentinel */ }
+	};
+
+	for (const struct midr_range *r = mpam_disable_list; r->model; r++) {
+		if (midr_is_cpu_model_range(read_cpuid_id(), r->model,
+					    r->rv_min, r->rv_max)) {
+			if (!arm64_apply_feature_override(0, 0, 4, &aosc_feature_override)) {
+				__parse_cmdline("arm64.nompam", true);
+				break;
+			}
+		}
+	}
+
 }
 
 void __init init_feature_override(u64 boot_status, const void *fdt,
