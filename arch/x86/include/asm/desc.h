@@ -261,7 +261,15 @@ static inline void native_idt_invalidate(void)
 		.size = 0
 	};
 
+#ifdef CONFIG_IEE_SIP
+	// The native_idt_invalidate() is only called by machine_kexec(). 
+	// In the kdump path, IEE_SIP should not be used, so we directly
+	// call iee_load_idt_early(), which is the original version of
+	// native_load_idt() to load an invalid IDT.
+	iee_load_idt_early(&invalid_idt);
+#else
 	native_load_idt(&invalid_idt);
+#endif
 }
 
 /*
