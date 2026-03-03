@@ -463,12 +463,12 @@ static void emac_free_tx_resources(struct emac_priv *priv)
 
 	emac_clean_tx_desc_ring(priv);
 
-	kfree(tr->tx_desc_buf);
-	tr->tx_desc_buf = NULL;
-
 	dma_free_coherent(dev, tr->total_size, tr->desc_addr,
 			  tr->desc_dma_addr);
 	tr->desc_addr = NULL;
+
+	kfree(tr->tx_desc_buf);
+	tr->tx_desc_buf = NULL;
 }
 
 static void emac_free_rx_resources(struct emac_priv *priv)
@@ -478,12 +478,12 @@ static void emac_free_rx_resources(struct emac_priv *priv)
 
 	emac_clean_rx_desc_ring(priv);
 
-	kfree(rr->rx_desc_buf);
-	rr->rx_desc_buf = NULL;
-
 	dma_free_coherent(dev, rr->total_size, rr->desc_addr,
 			  rr->desc_dma_addr);
 	rr->desc_addr = NULL;
+
+	kfree(rr->rx_desc_buf);
+	rr->rx_desc_buf = NULL;
 }
 
 static int emac_tx_clean_desc(struct emac_priv *priv)
