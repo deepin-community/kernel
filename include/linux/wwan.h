@@ -211,4 +211,14 @@ static inline struct dentry *wwan_get_debugfs_dir(struct device *parent)
 static inline void wwan_put_debugfs_dir(struct dentry *dir) {}
 #endif
 
+/**
+ * mhi_wwan_dtr_set - Setting DTR and RTS for port, used for mhi_wwan_ctrl.c
+ * @port: WWAN port
+ * @dtr: Set 1 when start, 0 when stop
+ * @rts: Set 1 when start, 0 when stop
+ *
+ * Return: 0
+ */
+int mhi_wwan_dtr_set(struct wwan_port *port, int dtr, int rts);
+
 #endif /* __WWAN_H */

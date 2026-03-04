@@ -103,8 +103,6 @@ static void mhi_wwan_ctrl_refill_work(struct work_struct *work)
 	}
 }
 
-int mhi_wwan_dtr_set(struct wwan_port *port, int dtr, int rts);
-
 static int mhi_wwan_ctrl_start(struct wwan_port *port)
 {
 	struct mhi_wwan_dev *mhiwwan = wwan_port_get_drvdata(port);
