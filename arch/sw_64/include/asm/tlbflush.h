@@ -91,4 +91,28 @@ extern void flush_tlb_kernel_range(unsigned long start, unsigned long end);
 
 #endif /* CONFIG_SMP */
 
+
+static inline bool arch_tlbbatch_should_defer(struct mm_struct *mm)
+{
+	bool should_defer = false;
+
+    /* If remote CPUs need to be flushed then defer batch the flush */
+	if (cpumask_any_but(mm_cpumask(mm), get_cpu()) < nr_cpu_ids)
+		should_defer = true;
+	put_cpu();
+
+	return should_defer;
+}
+
+static inline void arch_flush_tlb_batched_pending(struct mm_struct *mm)
+{
+	flush_tlb_mm(mm);
+}
+
+extern void arch_tlbbatch_add_pending(struct arch_tlbflush_unmap_batch *batch,
+				struct mm_struct *mm,
+					unsigned long uaddr);
+extern void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch);
+
+
 #endif /* _ASM_SW64_TLBFLUSH_H */

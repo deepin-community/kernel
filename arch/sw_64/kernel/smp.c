@@ -10,6 +10,7 @@
 #include <linux/cpu.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
+#include <linux/mmu_notifier.h>
 
 #include <asm/irq_impl.h>
 #include <asm/mmu.h>
@@ -820,6 +821,23 @@ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
 	on_each_cpu(ipi_flush_tlb_kernel_range, &info, 1);
 }
 EXPORT_SYMBOL(flush_tlb_kernel_range);
+
+void arch_tlbbatch_add_pending(struct arch_tlbflush_unmap_batch *batch,
+					struct mm_struct *mm,
+					unsigned long uaddr)
+{
+	cpumask_or(&batch->cpumask, &batch->cpumask, mm_cpumask(mm));
+
+	mmu_notifier_arch_invalidate_secondary_tlbs(mm, 0, -1UL);
+}
+
+void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+{
+	if (!cpumask_empty(&batch->cpumask)) {
+		on_each_cpu_mask(&batch->cpumask, ipi_flush_tlb_all, NULL, 1);
+		cpumask_clear(&batch->cpumask);
+	}
+}
 
 #ifdef CONFIG_HOTPLUG_CPU
 extern int can_unplug_cpu(void);
