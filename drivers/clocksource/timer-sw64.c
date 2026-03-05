@@ -384,6 +384,15 @@ static void sw64_update_clockevents(void *data)
 	clockevents_update_freq(swevt, freqs->new * 1000);
 }
 
+void sw64_cpuidle_updatevents(int freq)
+{
+
+	struct clock_event_device *swevt = this_cpu_ptr(&timer_events);
+
+	clockevents_update_freq(swevt, freq * 1000);
+
+}
+
 static int sw64_cpufreq_notifier(struct notifier_block *nb,
 					unsigned long val, void *data)
 {

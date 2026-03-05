@@ -38,15 +38,21 @@ static bool can_switch_freq(int cpu_sibling)
  * Handles frequency scaling by writing specific bits to
  * CLU_LV2_SEL when CPU core wants a deeper idle state.
  */
+extern unsigned int cpufreq_quick_get(unsigned int cpu);
+extern void sw64_cpuidle_updatevents(int freq);
+
 static void sw64_do_deeper_idle(int cpu)
 {
 	int core_id, node_id, cpu_sibling;
+	int cur_freq, downshift_freq = 200000;
 	unsigned long flags;
 	u64 freq_scaling;
 
 	core_id = rcid_to_core_id(cpu_to_rcid(cpu));
 	node_id = rcid_to_domain_id(cpu_to_rcid(cpu));
 	cpu_sibling = cpu_siblings[cpu];
+
+	cur_freq = cpufreq_quick_get(cpu);
 
 	/* downshift frequency before idle if possible*/
 	spin_lock_irqsave(&per_core_lock[node_id][core_id], flags);
@@ -55,15 +61,23 @@ static void sw64_do_deeper_idle(int cpu)
 		freq_scaling = 0x1UL << (2 * (core_id & CORE_ID_BITMASK));
 		writeq(freq_scaling, spbu_base[node_id] + OFFSET_CLU_LV2(core_id));
 	}
+
+	sw64_cpuidle_updatevents(downshift_freq);
+
 	spin_unlock_irqrestore(&per_core_lock[node_id][core_id], flags);
 
+	rcu_idle_enter();
 	arch_cpu_idle();
+	local_irq_disable();
+	rcu_idle_exit();
+	local_irq_enable();
 
 	/* upshift frequency after idle */
 	spin_lock_irqsave(&per_core_lock[node_id][core_id], flags);
 	cpu_deeper_states[cpu] = false;
 	freq_scaling = 0x3UL << (2 * (core_id & CORE_ID_BITMASK));
 	writeq(freq_scaling, spbu_base[node_id] + OFFSET_CLU_LV2(core_id));
+	sw64_cpuidle_updatevents(cur_freq);
 	spin_unlock_irqrestore(&per_core_lock[node_id][core_id], flags);
 }
 
@@ -117,21 +131,21 @@ static struct cpuidle_driver sw64_idle_driver = {
 	 * be unavailable.
 	 */
 	.states[0] = {
-		.name = "idle0",
-		.desc = "sw64 idle 0",
+		.name = "C1",
+		.desc = "halt",
 		.exit_latency = 1,
 		.target_residency = 1,
 		.enter = sw64_idle_enter,
 	},
 	.states[1] = {
-		.name = "idle1",
-		.desc = "sw64 idle 1",
-		.exit_latency = 100,
-		.target_residency = 100,
+		.name = "C6",
+		.desc = "freq downshift",
+		.exit_latency = 200,
+		.target_residency = 200,
 		.enter = sw64_idle_enter,
+		.flags = CPUIDLE_FLAG_RCU_IDLE,
 	},
 	.state_count = 2,
-	.cpumask = (struct cpumask *) cpu_possible_mask,
 };
 
 static int get_sibling_cpu(int cpu)
