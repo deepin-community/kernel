@@ -187,7 +187,6 @@ int phytium_dwmac_probe(struct platform_device *pdev, bool quirk)
 		return -ENXIO;
 	}
 	stmmac_res.wol_irq = stmmac_res.irq;
-	stmmac_res.lpi_irq = -1;
 
 	return  stmmac_dvr_probe(&pdev->dev, plat, &stmmac_res);
 }
