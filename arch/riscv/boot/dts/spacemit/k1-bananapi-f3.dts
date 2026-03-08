@@ -87,6 +87,38 @@
 	status = "okay";
 };
 
+&cpu_0 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_1 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_2 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_3 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_4 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_5 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_6 {
+	cpu-supply = <&buck1_3v45>;
+};
+
+&cpu_7 {
+	cpu-supply = <&buck1_3v45>;
+};
+
 &emmc {
 	bus-width = <8>;
 	mmc-hs400-1_8v;
@@ -202,7 +234,7 @@
 		dldoin2-supply = <&buck5>;
 
 		regulators {
-			buck1 {
+			buck1_3v45: buck1 {
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3450000>;
 				regulator-ramp-delay = <5000>;
