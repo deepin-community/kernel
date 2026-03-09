@@ -20,6 +20,7 @@ struct vs_chip_identity {
 	u32 customer_id;
 
 	u32 display_count;
+	int32_t max_cursor_size;
 	const struct vs_formats *formats;
 };
 
