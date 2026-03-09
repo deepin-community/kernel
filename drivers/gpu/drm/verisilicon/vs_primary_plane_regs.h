@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (C) 2025 Icenowy Zheng <uwu@icenowy.me>
+ * Copyright (C) 2026 Institute of Software, Chinese Academy of Sciences (ISCAS)
  *
  * Based on vs_dc_hw.h, which is:
  *   Copyright (C) 2023 VeriSilicon Holdings Co., Ltd.
+ *
+ * Authors:
+ * Icenowy Zheng <zhengxingda@iscas.ac.cn>
  */
 
 #ifndef _VS_PRIMARY_PLANE_REGS_H_
