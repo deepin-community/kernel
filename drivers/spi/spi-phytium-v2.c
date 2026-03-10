@@ -168,7 +168,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 		}
 
 		if ((*(u8 *)fts->tx == SPINOR_OP_BE_4K) && (fts->spi_write_flag == 1) &&
-				fts->flash_read == 0 && fts->flash_erase == 0) {
+				fts->flash_read == 0 && fts->flash_erase != 1) {
 			fts->spi_write_flag++;
 			fts->flash_erase = 1;
 			return 0;
