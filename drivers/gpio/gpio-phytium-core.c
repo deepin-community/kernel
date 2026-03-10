@@ -382,8 +382,14 @@ int phytium_gpio_irq_set_affinity(struct irq_data *d, const struct cpumask *mask
 {
 	int hwirq = irqd_to_hwirq(d);
 	struct gpio_chip *chip_data = irq_data_get_irq_chip_data(d);
-	struct irq_chip *chip = irq_get_chip(chip_data->irq.parents[hwirq]);
-	struct irq_data *data = irq_get_irq_data(chip_data->irq.parents[hwirq]);
+	struct irq_chip *chip;
+	struct irq_data *data;
+
+	if ((chip_data->irq.num_parents) == 1)
+		hwirq = 0;
+
+	chip = irq_get_chip(chip_data->irq.parents[hwirq]);
+	data = irq_get_irq_data(chip_data->irq.parents[hwirq]);
 
 	if (chip && chip->irq_set_affinity)
 		return chip->irq_set_affinity(data, mask_val, force);
