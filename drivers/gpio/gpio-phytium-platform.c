@@ -91,6 +91,9 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	/* irq_chip support */
 	raw_spin_lock_init(&gpio->lock);
 
+	writel(0, gpio->regs + GPIO_INTEN);
+	writel(0xffffffff, gpio->regs + GPIO_PORTA_EOI);
+
 	gpio->gc.base = -1;
 	gpio->gc.get_direction = phytium_gpio_get_direction;
 	gpio->gc.direction_input = phytium_gpio_direction_input;
