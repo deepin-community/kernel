@@ -385,6 +385,7 @@ int phytium_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
 	struct phytium_gpio *gpio = gpiochip_get_data(gc);
 	struct phytium_gpio_ctx *ctx = &gpio->ctx;
 	irq_hw_number_t bit = irqd_to_hwirq(d);
+	unsigned long flags;
 	int ret;
 
 	if (gpio->irq[bit])
@@ -395,6 +396,8 @@ int phytium_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
 	if (ret < 0)
 		dev_err(gc->parent, "set gpio irq wake failed!\n");
 
+	raw_spin_lock_irqsave(&gpio->lock, flags);
+
 	if (enable) {
 		ctx->wake_en |= BIT(bit);
 		if (gpio->is_resuming == 1) {
@@ -403,6 +406,8 @@ int phytium_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
 		}
 	} else
 		ctx->wake_en &= ~BIT(bit);
+
+	raw_spin_unlock_irqrestore(&gpio->lock, flags);
 
 	return 0;
 }
