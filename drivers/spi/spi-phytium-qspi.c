@@ -793,7 +793,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		goto probe_setup_failed;
 	}
 
-	if (!qspi->nodirmap) {
+	if (!qspi->nodirmap && qspi->fnum != 0) {
 		/*
 		 * The controller supports direct mapping access only if all
 		 * flashes are of same size.
