@@ -97,7 +97,7 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 
 	plat->phy_addr = -1;
 	plat->clk_csr = -1;
-	plat->has_gmac = 1;
+	plat->core_type = DWMAC_CORE_GMAC;
 	plat->enh_desc = 1;
 	plat->bugged_jumbo = 1;
 	plat->pmt = 1;
