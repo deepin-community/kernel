@@ -33,6 +33,8 @@
 #define NGPIO_MAX		32
 #define GPIO_PORT_STRIDE	(GPIO_EXT_PORTB - GPIO_EXT_PORTA)
 
+#define PHYTIUM_GPIO_DRIVER_VERSION "1.1.1"
+
 struct pin_loc {
 	unsigned int port;
 	unsigned int offset;

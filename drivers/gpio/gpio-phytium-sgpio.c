@@ -49,6 +49,8 @@
 #define GPIO_OFFSET(x)	((x) & GENMASK(5, 0))
 #define GPIO_BIT(x)	BIT(GPIO_OFFSET(x) >> 1)
 
+#define GPIO_SGPIO_DRIVER_VERSION "1.1.0"
+
 struct phytium_sgpio {
 	struct gpio_chip gc;
 	void __iomem *regs;
@@ -317,3 +319,4 @@ module_platform_driver(phytium_sgpio_driver);
 MODULE_AUTHOR("Chen Baozi <chenbaozi@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium SGPIO driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(GPIO_SGPIO_DRIVER_VERSION);
