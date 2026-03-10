@@ -197,3 +197,4 @@ module_pci_driver(phytium_gpio_pci_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Cheng Quan <chengquan@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium GPIO PCI Driver");
+MODULE_VERSION(PHYTIUM_GPIO_DRIVER_VERSION);

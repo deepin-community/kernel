@@ -214,3 +214,4 @@ module_platform_driver(phytium_gpio_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Baozi <chenbaozi@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium GPIO driver");
+MODULE_VERSION(PHYTIUM_GPIO_DRIVER_VERSION);
