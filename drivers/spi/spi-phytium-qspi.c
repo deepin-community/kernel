@@ -21,6 +21,11 @@
 #include <linux/spi/spi-mem.h>
 #include <linux/mtd/spi-nor.h>
 
+#define DRIVER_VERSION	"1.0.3"
+
+#define PHYTIUM_CPU_PART_FTC862		0x862
+
+#define MIDR_PHYTIUM_FTC862 MIDR_CPU_MODEL(ARM_CPU_IMP_PHYTIUM, PHYTIUM_CPU_PART_FTC862)
 
 #define QSPI_FLASH_CAP_REG		0x00
 #define  QSPI_FLASH_CAP_NUM_SHIFT	3
@@ -433,8 +438,8 @@ static int phytium_qspi_exec_op(struct spi_mem *mem,
 
 	if (op->dummy.nbytes) {
 		cmd |= QSPI_CMD_PORT_LATENCY_MASK;
-		cmd |= ((op->dummy.nbytes * 8) / op->dummy.buswidth) <<
-			QSPI_CMD_PORT_LATENCY_SHIFT;
+		cmd |= ((op->dummy.nbytes * 8 - 1) / op->dummy.buswidth) <<
+			QSPI_CMD_PORT_DUMMY_SHIFT;
 	}
 
 	if (op->data.nbytes) {
