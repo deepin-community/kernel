@@ -194,6 +194,7 @@ struct phytium_spi {
 	u32			cur_tx_tail;
 	struct completion	cmd_completion;
 
+	u8			flags;
 	u8			spi_write_flag;
 	u8			flash_erase;
 	u8			flash_read;
