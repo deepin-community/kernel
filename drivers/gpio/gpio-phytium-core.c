@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/seq_file.h>
+#include <linux/interrupt.h>
 
 #include "gpio-phytium-core.h"
 
@@ -377,6 +378,35 @@ int phytium_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 	return !(readl(ddr) & BIT(loc.offset));
 }
 EXPORT_SYMBOL_GPL(phytium_gpio_get_direction);
+
+int phytium_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct phytium_gpio *gpio = gpiochip_get_data(gc);
+	struct phytium_gpio_ctx *ctx = &gpio->ctx;
+	irq_hw_number_t bit = irqd_to_hwirq(d);
+	int ret;
+
+	if (gpio->irq[bit])
+		ret = irq_set_irq_wake(gpio->irq[bit], enable);
+	else
+		ret = irq_set_irq_wake(gpio->irq[0], enable);
+
+	if (ret < 0)
+		dev_err(gc->parent, "set gpio irq wake failed!\n");
+
+	if (enable) {
+		ctx->wake_en |= BIT(bit);
+		if (gpio->is_resuming == 1) {
+			writel(~ctx->wake_en, gpio->regs + GPIO_INTMASK);
+			writel(ctx->wake_en, gpio->regs + GPIO_INTEN);
+		}
+	} else
+		ctx->wake_en &= ~BIT(bit);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(phytium_gpio_irq_set_wake);
 
 int phytium_gpio_irq_set_affinity(struct irq_data *d, const struct cpumask *mask_val, bool force)
 {
