@@ -74,7 +74,7 @@ static int phytium_gpio_pci_probe(struct pci_dev *pdev, const struct pci_device_
 	raw_spin_lock_init(&gpio->lock);
 
 	writel(0, gpio->regs + GPIO_INTEN);
-	writel(0xffffffff, gpio->regs + GPIO_PORTA_EOI);
+	writel(GPIO_CLEAR_IRQ, gpio->regs + GPIO_PORTA_EOI);
 
 	gpio->gc.base = -1;
 	gpio->gc.get_direction = phytium_gpio_get_direction;
@@ -90,7 +90,6 @@ static int phytium_gpio_pci_probe(struct pci_dev *pdev, const struct pci_device_
 	girq = &gpio->gc.irq;
 	girq->handler = handle_bad_irq;
 	girq->default_type = IRQ_TYPE_NONE;
-	gpio->is_resuming = 0;
 
 	girq->num_parents = 1;
 	girq->parents = devm_kcalloc(&pdev->dev, girq->num_parents,
@@ -171,7 +170,7 @@ static int phytium_gpio_pci_resume(struct device *dev)
 	writel(gpio->ctx.int_polarity, gpio->regs + GPIO_INT_POLARITY);
 	writel(gpio->ctx.debounce, gpio->regs + GPIO_DEBOUNCE);
 
-	writel(0xffffffff, gpio->regs + GPIO_PORTA_EOI);
+	writel(GPIO_CLEAR_IRQ, gpio->regs + GPIO_PORTA_EOI);
 
 	writel(gpio->ctx.inten, gpio->regs + GPIO_INTEN);
 	gpio->is_resuming = 0;
