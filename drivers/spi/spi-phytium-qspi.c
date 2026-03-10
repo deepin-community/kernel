@@ -267,28 +267,28 @@ static int phytium_qspi_flash_capacity_encode_new(u32 size,
 
 	switch (size) {
 	case SZ_4M:
-		*cap |= (0x0 >> (4 * i));
+		*cap |= (0x0 << (4 * i));
 		break;
 	case SZ_8M:
-		*cap |= (0x1 >> (4 * i));
+		*cap |= (0x1 << (4 * i));
 		break;
 	case SZ_16M:
-		*cap |= (0x2 >> (4 * i));
+		*cap |= (0x2 << (4 * i));
 		break;
 	case SZ_32M:
-		*cap |= (0x3 >> (4 * i));
+		*cap |= (0x3 << (4 * i));
 		break;
 	case SZ_64M:
-		*cap |= (0x4 >> (4 * i));
+		*cap |= (0x4 << (4 * i));
 		break;
 	case SZ_128M:
-		*cap |= (0x5 >> (4 * i));
+		*cap |= (0x5 << (4 * i));
 		break;
 	case SZ_256M:
-		*cap |= (0x6 >> (4 * i));
+		*cap |= (0x6 << (4 * i));
 		break;
 	case SZ_512M:
-		*cap |= (0x7 >> (4 * i));
+		*cap |= (0x7 << (4 * i));
 		break;
 	default:
 		ret = -EINVAL;
