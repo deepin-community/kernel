@@ -18,6 +18,9 @@ SCHED_FEAT(PLACE_REL_DEADLINE, true)
  * 0-lag point or until is has exhausted it's slice.
  */
 SCHED_FEAT(RUN_TO_PARITY, true)
+#ifdef CONFIG_SCHED_BORE
+SCHED_FEAT(RUN_TO_PARITY_BORE, false)
+#endif /* CONFIG_SCHED_BORE */
 /*
  * Allow wakeup of tasks with a shorter slice to cancel RUN_TO_PARITY for
  * current.

@@ -147,7 +147,7 @@ static void __unhash_process(struct release_task_post *post, struct task_struct 
 		detach_pid(post->pids, p, PIDTYPE_SID);
 
 		list_del_rcu(&p->tasks);
-		list_del_init(&p->sibling);
+		list_del_rcu(&p->sibling);
 		__this_cpu_dec(process_counts);
 	}
 	list_del_rcu(&p->thread_node);
