@@ -55,6 +55,90 @@
 #define SPI_DMA_RDMAE		(1 << 0)
 #define SPI_DMA_TDMAE		(1 << 1)
 #define SPI_WAIT_RETRIES	5
+
+#define SPI_REGFILE_SIZE		(0x48)
+#define SPI_REGFILE_AP2RV_INTR_STATE	(0x24)
+#define SPI_REGFILE_RV2AP_INTR_STATE	(0x2c)
+#define SPI_REGFILE_RV2AP_INT_CLEAN	(0x74)
+#define SPI_REGFILE_DEBUG		(0x58)
+
+#define SPI_REGFILE_DEBUG_VAL		BIT(0)
+#define SPI_REGFILE_ALIVE_VAL		BIT(1)
+#define SPI_REGFILE_HEARTBIT_VAL	BIT(2)
+#define SPI_REGFILE_HAVE_LOG		BIT(3)
+#define SPI_REGFILE_SIZE_MASK		GENMASK(7, 4)
+#define SPI_REGFILE_ADDR_MASK		GENMASK(27, 8)
+
+#define SPI_DDR_ADDR_HIGH		12
+#define SPI_DEBUG_LOG_SIZE		4096
+
+#define SPI_LOG_LINE_MAX_LEN		400
+
+#define SPI_MODULE_OPT_CMD		0x20
+
+#define SPI_TRANS_DATA_SIZE		1024
+#define FLASH_PAGE_SIZE			256
+
+#define SPI_MSG_COMPLETE_OK		1
+#define SPI_MSG_COMPLETE_KO		0
+
+#define SPI_RESULT_IGNORE_LVL		(0)
+#define SPI_RESULT_WRITE_ISR_LVL	(1)
+#define SPI_RESULT_READ_ISR_LVL		(2)
+
+#define SPI_SHMEM_TX_MSG_MAX_CNT	1
+
+#define SPI_MASTER_TIMEOUT		8
+
+#define SPI_DEFAULT_CLK			50000000
+
+enum phytspi_msg_cmd_id {
+	PHYTSPI_MSG_CMD_DEFAULT = 0,
+	PHYTSPI_MSG_CMD_SET,
+	PHYTSPI_MSG_CMD_GET,
+	PHYTSPI_MSG_CMD_DATA,
+	PHYTSPI_MSG_CMD_REPORT,
+};
+
+enum phytspi_set_subid {
+	PHYTSPI_MSG_CMD_SET_MODULE_EN = 0,
+	PHYTSPI_MSG_CMD_SET_DATA_WIDTH,
+	PHYTSPI_MSG_CMD_SET_MODE,
+	PHYTSPI_MSG_CMD_SET_TMOD,
+	PHYTSPI_MSG_CMD_SET_BAUDR,
+	PHYTSPI_MSG_CMD_SET_INT_TI,
+	PHYTSPI_MSG_CMD_SET_NDF,
+	PHYTSPI_MSG_CMD_SET_CS,
+	PHYTSPI_MSG_CMD_SET_DMA_RESET,
+};
+
+enum phytspi_data_subid {
+	PHYTSPI_MSG_CMD_DATA_TX = 0,
+	PHYTSPI_MSG_CMD_DATA_RX,
+	PHYTSPI_MSG_CMD_DATA_FLASH_TX,
+	PHYTSPI_MSG_CMD_FLASH_ERASE,
+	PHYTSPI_MSG_CMD_DATA_DMA_TX,
+	PHYTSPI_MSG_CMD_DATA_DMA_RX,
+	PHYTSPI_MSG_CMD_DATA_FLASH_DMA_TX,
+};
+
+struct msg {
+	u8 reserved;
+	u8 seq;
+	u8 cmd_id;
+	u8 cmd_subid;
+	u16 len;
+	u8 status1;
+	u8 status0;
+	u8 data[56];
+};
+
+struct spi_trans_msg_info {
+	u32 msg_total_num;
+	u32 shmem_data_addr;
+	int result;
+};
+
 struct phytium_spi;
 struct phytium_spi_dma_ops {
 	int (*dma_init)(struct device *dev, struct phytium_spi *fts);
@@ -71,8 +155,22 @@ struct phytium_spi {
 	char			name[16];
 
 	void __iomem		*regs;
+	void __iomem		*regfile;
+	void __iomem		*tx_shmem_addr;
+	void			*rx_shmem_addr;
+
+	struct msg		*msg;
+	u32			mem_tx_physic;
+	u32			mem_rx_physic;
+	u64			mem_tx;
+	u64			mem_rx;
+
+	u16			clk_div;
+	int			module;
+
 	bool			global_cs;
 	bool			dma_en;
+	bool			half_duplex;
 	unsigned long		paddr;
 	int			irq;
 	u32			fifo_len;
@@ -90,7 +188,31 @@ struct phytium_spi {
 	void			*rx_end;
 	u8			n_bytes;
 	int			dma_mapped;
+	struct clk		*clk;
 	irqreturn_t		(*transfer_handler)(struct phytium_spi *fts);
+
+	int			cmd_err;
+	u32			cur_tx_tail;
+	struct completion	cmd_completion;
+
+	u8			flags;
+	u8			spi_write_flag;
+	u8			flash_erase;
+	u8			flash_read;
+	u8			flash_write;
+	u8			read_sr;
+	u8			flash_cmd;
+
+	bool			debug_enabled;
+	bool			alive_enabled;
+	struct timer_list	timer;
+	u32			runtimes; // for debug
+	u64			ddr_paddr;
+	char			*log;
+	u32			log_size;
+	void			(*watchdog)(struct phytium_spi *fts);
+	void			(*handle_debug_err)(struct phytium_spi *fts);
+
 	/* DMA info */
 	u32			current_freq; /* frequency in hz */
 	struct dma_chan		*txchan;
@@ -102,6 +224,8 @@ struct phytium_spi {
 	dma_addr_t		dma_addr; /* phy address of the Data register */
 	const struct phytium_spi_dma_ops *dma_ops;
 	struct completion	dma_completion;
+
+	bool			dma_get_ddrdata;
 };
 
 static inline u32 phytium_readl(struct phytium_spi *fts, u32 offset)
