@@ -15,6 +15,8 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-mem.h>
+#include <linux/mtd/spi-nor.h>
 #include <linux/scatterlist.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -24,10 +26,6 @@
 #include <linux/acpi.h>
 #include <linux/mtd/spi-nor.h>
 #include "spi-phytium.h"
-
-#define MCP251x_READ		0x03
-#define MCP251x_READ_RXB0	0x90
-#define MCP251x_READ_RXB1	0x94
 
 static inline void spi_phyt_enable_chip(struct phytium_spi *fts, u8 enable)
 {
@@ -99,13 +97,6 @@ static void spi_phyt_set_cs(struct spi_device *spi, bool enable)
 	u32 origin;
 	u16 cs;
 
-	if (fts->tx || fts->rx)
-		return;
-
-	if (fts->msg->cmd_id == PHYTSPI_MSG_CMD_DATA &&
-			fts->msg->cmd_subid == PHYTSPI_MSG_CMD_DATA_TX)
-		return;
-
 	if (chip && chip->cs_control)
 		chip->cs_control(!enable);
 
@@ -145,7 +136,12 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 {
 	struct phytium_spi *fts = spi_master_get_devdata(master);
 	struct chip_data *chip = spi_get_ctldata(spi);
+	struct spi_mem *mem = spi_get_drvdata(spi);
+	struct spi_nor *nor = NULL;
 	int ret;
+
+	if (mem)
+		nor = spi_mem_get_drvdata(mem);
 
 	fts->tx = (void *)transfer->tx_buf;
 	fts->tx_end = fts->tx + transfer->len;
@@ -162,7 +158,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			chip->tmode = TMOD_TO;
 	}
 
-	if (fts->tx && fts->len == 1) {
+	if (mem == nor->spimem && fts->tx && fts->len == 1) {
 		if ((*(u8 *)fts->tx == SPINOR_OP_WREN) && fts->spi_write_flag == 0) {
 			spi_phytium_write_pre(fts, spi->chip_select,
 					transfer->bits_per_word, spi->mode,
@@ -262,11 +258,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			}
 			fts->flash_erase = 0;
 		} else {
-			fts->flags = 1;
-			if (fts->spi_write_flag == 0 && *(u8 *)(fts->tx) != MCP251x_READ
-					&& *(u8 *)(fts->tx) != MCP251x_READ_RXB0
-					&& *(u8 *)(fts->tx) != MCP251x_READ_RXB1)
-				fts->flags = 3;
+			fts->flags = 0;
 
 			ret = spi_phytium_write(fts, spi->chip_select, transfer->bits_per_word,
 					spi->mode, chip->tmode, fts->flags, fts->spi_write_flag);
