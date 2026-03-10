@@ -25,6 +25,10 @@
 #include <linux/mtd/spi-nor.h>
 #include "spi-phytium.h"
 
+#define MCP251x_READ		0x03
+#define MCP251x_READ_RXB0	0x90
+#define MCP251x_READ_RXB1	0x94
+
 static inline void spi_phyt_enable_chip(struct phytium_spi *fts, u8 enable)
 {
 	u8 val = enable ? 1 : 2;
@@ -158,7 +162,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			chip->tmode = TMOD_TO;
 	}
 
-	if (fts->tx) {
+	if (fts->tx && fts->len == 1) {
 		if ((*(u8 *)fts->tx == SPINOR_OP_WREN) && fts->spi_write_flag == 0) {
 			spi_phytium_write_pre(fts, spi->chip_select,
 					transfer->bits_per_word, spi->mode,
@@ -258,8 +262,14 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 			}
 			fts->flash_erase = 0;
 		} else {
+			fts->flags = 1;
+			if (fts->spi_write_flag == 0 && *(u8 *)(fts->tx) != MCP251x_READ
+					&& *(u8 *)(fts->tx) != MCP251x_READ_RXB0
+					&& *(u8 *)(fts->tx) != MCP251x_READ_RXB1)
+				fts->flags = 3;
+
 			ret = spi_phytium_write(fts, spi->chip_select, transfer->bits_per_word,
-					spi->mode, chip->tmode, 1, fts->spi_write_flag);
+					spi->mode, chip->tmode, fts->flags, fts->spi_write_flag);
 			if (ret) {
 				dev_err(&master->dev, "write command failed\n");
 				return ret;
@@ -483,6 +493,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	master->dev.of_node = dev->of_node;
 	master->dev.fwnode = dev->fwnode;
 	master->flags = SPI_CONTROLLER_GPIO_SS;
+	master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
 
 	spi_master_set_devdata(master, fts);
 
