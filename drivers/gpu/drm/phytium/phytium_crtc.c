@@ -599,6 +599,12 @@ phytium_crtc_atomic_enable(struct drm_crtc *crtc,
 	else
 		phytium_crtc_gamma_init(crtc);
 
+	/* enable dither*/
+	DRM_DEBUG_KMS("Enable dither on DC-%d\n", phys_pipe);
+	phytium_writel_reg(priv, DITHER_TABLE_LOW, group_offset, DC_DITHER_TABLE_LOW);
+	phytium_writel_reg(priv, DITHER_TABLE_HIGH, group_offset, DC_DITHER_TABLE_HIGH);
+	phytium_writel_reg(priv, ENABLE, group_offset, DC_DITHER_CONFIG);
+
 	phytium_writel_reg(priv, config, group_offset, PHYTIUM_DC_FRAMEBUFFER_CONFIG);
 	drm_crtc_vblank_on(crtc);
 }

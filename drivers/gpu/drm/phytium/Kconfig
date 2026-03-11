@@ -5,6 +5,7 @@ config DRM_PHYTIUM
 	select DRM_DISPLAY_HELPER
 	select DRM_DISPLAY_DP_HELPER
 	select DRM_DISPLAY_HDCP_HELPER
+	select BACKLIGHT_CLASS_DEVICE
 	help
 	  Choose this option if you have a phytium graphics card.
 	  This driver provides kernel mode setting and buffer management to userspace.
