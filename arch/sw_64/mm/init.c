@@ -613,8 +613,7 @@ void __init paging_init(void)
 		create_pgd_mapping(pgdir, sw64_guest_reset_start, __pa(sw64_guest_reset_start), sw64_guest_reset_size,
 				   PAGE_KERNEL_READONLY_EXEC, pgtable_alloc_fixmap);
 
-	memblock_mark_nomap(__pa(sw64_reserve_start),
-			    __pa((unsigned long)_end - sw64_reserve_start));
+	memblock_mark_nomap(__pa(sw64_reserve_start), (unsigned long)_end - sw64_reserve_start);
 	for_each_mem_range(i, &start, &end) {
 		if (start >= end)
 			break;
@@ -623,8 +622,7 @@ void __init paging_init(void)
 				   (unsigned long)(end - start),
 				   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
 	}
-	memblock_clear_nomap(__pa(sw64_reserve_start),
-			     __pa((unsigned long)_end - sw64_reserve_start));
+	memblock_clear_nomap(__pa(sw64_reserve_start), (unsigned long)_end - sw64_reserve_start);
 
 	map_fdt(pgdir);
 #endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
