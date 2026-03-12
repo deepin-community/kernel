@@ -926,7 +926,6 @@ static void phytium_gem1p0_sel_clk(struct macb *bp, int speed)
 							gem_readl(bp, HS_MAC_CONFIG)));
 }
 
-#if defined(CONFIG_OF)
 static void phytium_gem2p0_sel_clk(struct macb *bp, int speed)
 {
 	if (bp->phy_interface == PHY_INTERFACE_MODE_SGMII) {
@@ -946,7 +945,6 @@ static void phytium_gem2p0_sel_clk(struct macb *bp, int speed)
 		gem_writel(bp, HS_MAC_CONFIG, GEM_BFINS(HS_MAC_SPEED, HS_SPEED_2500M,
 							gem_readl(bp, HS_MAC_CONFIG)));
 }
-#endif /* CONFIG_OF */
 
 static void macb_mac_link_up(struct phylink_config *config,
 			     struct phy_device *phy,
