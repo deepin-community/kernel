@@ -19,6 +19,8 @@
 /*------------------------------------------------------*/
 /* Common Definition					*/
 /*------------------------------------------------------*/
+#define PHYTIUM_MMC_V2_DRIVER_VERSION "1.1.0"
+
 #define SD_BLOCK_SIZE		512
 #define MAX_BD_NUM		128
 #define MCI_CLK			1200000000
