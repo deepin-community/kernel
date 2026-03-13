@@ -1074,3 +1074,4 @@ EXPORT_SYMBOL(phyt_mci_common_probe);
 MODULE_DESCRIPTION("Phytium Multimedia Card Interface driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lai Xueyu <laixueyu1280@phytium.com.cn>");
+MODULE_VERSION(PHYTIUM_MMC_V2_DRIVER_VERSION);
