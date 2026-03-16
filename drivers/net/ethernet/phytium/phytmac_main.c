@@ -1247,7 +1247,7 @@ static int phytmac_rx(struct phytmac_queue *queue, struct napi_struct *napi,
 	}
 
 	if (xdp_xmit & PHYTMAC_XDP_REDIR)
-		xdp_do_flush_map();
+		xdp_do_flush();
 
 	phytmac_rx_clean(queue);
 
