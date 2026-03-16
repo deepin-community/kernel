@@ -257,6 +257,8 @@ static int sunway_cpufreq_init(struct cpufreq_policy *policy)
 
 	/* LV2 MUX select the clock output by LV1 MUXB as working freq */
 	writeq(~0ULL, spbu_base + OFFSET_CLU_LV2_SEL_L);
+
+	/* junzhang_v3 doesn't have CLU_LV2_SEL_H */
 	if (is_junzhang_v1() || is_junzhang_v2())
 		writeq(~0ULL, spbu_base + OFFSET_CLU_LV2_SEL_H);
 
