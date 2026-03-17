@@ -27,7 +27,7 @@
 #include "amdgpu_ih.h"
 #include "amdgpu_reset.h"
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 static void amdgpu_ih_handle_fix_work(struct work_struct *work);
 #endif
 
@@ -108,7 +108,7 @@ int amdgpu_ih_ring_init(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih,
 
 	}
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	INIT_WORK(&ih->fix_work, amdgpu_ih_handle_fix_work);
 	ih->adev = adev;
 	atomic_set(&ih->lock, 0);
@@ -136,7 +136,7 @@ void amdgpu_ih_ring_fini(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 	if (!ih->ring)
 		return;
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	cancel_work_sync(&ih->fix_work);
 #endif
 
@@ -156,7 +156,7 @@ void amdgpu_ih_ring_fini(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 	}
 }
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 
 int amdgpu_ih_fix_is_busy(struct amdgpu_device *adev)
 {
@@ -350,7 +350,7 @@ int amdgpu_ih_process(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 {
 	unsigned int count;
 	u32 wptr;
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	u32 old_rptr;
 	int r;
 #endif
@@ -361,7 +361,7 @@ int amdgpu_ih_process(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih)
 	wptr = amdgpu_ih_get_wptr(adev, ih);
 
 restart_ih:
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	/* is somebody else already processing irqs? */
 	if (atomic_xchg(&ih->lock, 1))
 		return IRQ_NONE;
@@ -372,7 +372,7 @@ restart_ih:
 	/* Order reading of wptr vs. reading of IH ring data */
 	rmb();
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	old_rptr = ih->rptr;
 	r = amdgpu_ih_fix_loongarch_pcie_order_start(ih, old_rptr, wptr, false);
 	if (r) {
@@ -392,14 +392,14 @@ restart_ih:
 		ih->rptr &= ih->ptr_mask;
 	}
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	amdgpu_ih_fix_loongarch_pcie_order_end(ih, old_rptr, ih->rptr);
 #endif
 
 	if (!ih->overflow)
 		amdgpu_ih_set_rptr(adev, ih);
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	atomic_set(&ih->lock, 0);
 #endif
 	wake_up_all(&ih->wait_process);

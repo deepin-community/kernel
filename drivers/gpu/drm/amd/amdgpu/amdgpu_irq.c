@@ -276,7 +276,7 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
 
 	spin_lock_init(&adev->irq.lock);
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	atomic_set(&adev->irq.cs_lock, 0);
 #endif
 

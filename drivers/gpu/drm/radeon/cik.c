@@ -3554,7 +3554,7 @@ void cik_fence_gfx_ring_emit(struct radeon_device *rdev,
 	radeon_ring_write(ring, addr & 0xfffffffc);
 	radeon_ring_write(ring, (upper_32_bits(addr) & 0xffff) |
 				DATA_SEL(1) | INT_SEL(0));
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	radeon_ring_write(ring, fence->seq);
 #else
 	radeon_ring_write(ring, fence->seq - 1);
@@ -8097,7 +8097,7 @@ restart_ih:
 	if (queue_thermal)
 		schedule_work(&rdev->pm.dpm.thermal.work);
 	rdev->ih.rptr = rptr;
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	WREG32(IH_RB_RPTR, rptr);
 #endif
 	atomic_set(&rdev->ih.lock, 0);
