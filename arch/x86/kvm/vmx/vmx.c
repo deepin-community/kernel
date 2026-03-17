@@ -2664,7 +2664,7 @@ static int setup_zhaoxin_vmcs_controls(struct vmcs_config *vmcs_conf)
 	 * control, rather than a bit in the 2nd CPU-based control.
 	 */
 	rdmsr_safe(MSR_ZX_EXT_VMCS_CAPS, &zx_ext_vmcs_cap, &ign);
-	if (!(zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3))
+	if (!(zx_ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3_EN))
 		return 0;
 
 	ret = rdmsr_safe(MSR_ZX_VMX_PROCBASED_CTLS3, &ign, &msr_high);
@@ -5023,6 +5023,9 @@ static void vmx_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 
 	vmx->rmode.vm86_active = 0;
 	vmx->spec_ctrl = 0;
+	vmx->msr_pauseopt_control = 0;
+	vmx->pauseopt_in_progress = false;
+	vmx->pauseopt_rip = 0;
 
 	vmx->msr_ia32_umwait_control = 0;
 
@@ -7508,36 +7511,14 @@ out:
 	guest_state_exit_irqoff();
 }
 
-static bool is_vmexit_during_pauseopt(struct kvm_vcpu *vcpu)
-{
-	uint8_t opcode[4];
-	gpa_t gpa;
-	unsigned long rip;
-	const u32 pauseopt_opcode = 0xD0A60FF2;
-	u32 code;
-
-	rip = kvm_rip_read(vcpu);
-	gpa = kvm_mmu_gva_to_gpa_read(vcpu, (gva_t)rip, NULL);
-	if (gpa == INVALID_GPA)
-		return false;
-
-	if (kvm_vcpu_read_guest(vcpu, gpa, opcode, 4) != 0)
-		return false;
-
-	code = le32_to_cpu(*(u32 *)opcode);
-	if (code == pauseopt_opcode)
-		return true;
-
-	return false;
-}
-
 static void zx_vmx_vcpu_run_pre(struct kvm_vcpu *vcpu)
 {
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	unsigned long new_rip;
 
-	if (vcpu->arch.pauseopt_interrupted) {
+	if (vmx->pauseopt_in_progress) {
 		new_rip = kvm_rip_read(vcpu);
-		if (new_rip != vcpu->arch.pauseopt_rip) {
+		if (new_rip != vmx->pauseopt_rip) {
 			/*
 			 * When the execution of PAUSEOPT in the guest is interrupted by
 			 * other events, causing a vmexit, the pauseopt target tsc should be
@@ -7545,17 +7526,19 @@ static void zx_vmx_vcpu_run_pre(struct kvm_vcpu *vcpu)
 			 * avoiding re-enter pauseopt optimized state after enter guest.
 			 */
 			vmcs_write64(PAUSEOPT_TARGET_TSC, 0);
-			vcpu->arch.pauseopt_interrupted = false;
-			vcpu->arch.pauseopt_rip = 0;
+			vmx->pauseopt_in_progress = false;
+			vmx->pauseopt_rip = 0;
 		}
 	}
 }
 
 static void zx_vmx_vcpu_run_post(struct kvm_vcpu *vcpu)
 {
-	if (cpu_has_vmx_pauseopt() && is_vmexit_during_pauseopt(vcpu)) {
-		vcpu->arch.pauseopt_interrupted = true;
-		vcpu->arch.pauseopt_rip = kvm_rip_read(vcpu);
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (cpu_has_vmx_pauseopt() && vmcs_read64(PAUSEOPT_TARGET_TSC)) {
+		vmx->pauseopt_in_progress = true;
+		vmx->pauseopt_rip = kvm_rip_read(vcpu);
 	}
 }
 

@@ -1016,17 +1016,6 @@ struct kvm_vcpu_arch {
 #if IS_ENABLED(CONFIG_HYPERV)
 	hpa_t hv_root_tdp;
 #endif
-
-	/*
-	 * Zhaoxin/Centaur extended software managed vcpu states.
-	 * - pauseopt_interrupted: set when pauseopt optimized state interrupted
-	 *   by some vmexit.
-	 * - pauseopt_rip: stores the guest RIP at the time of vmexit if the vmexit
-	 *   occurred during pauseopt optimized state.
-	 * We will move these definitions to zhaoxin specific arch in the future.
-	 */
-	bool pauseopt_interrupted;
-	unsigned long pauseopt_rip;
 };
 
 struct kvm_lpage_info {
