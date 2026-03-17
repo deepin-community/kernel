@@ -4927,7 +4927,7 @@ restart_ih:
 	if (queue_thermal && rdev->pm.dpm_enabled)
 		schedule_work(&rdev->pm.dpm.thermal.work);
 	rdev->ih.rptr = rptr;
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	WREG32(IH_RB_RPTR, rptr);
 #endif
 	atomic_set(&rdev->ih.lock, 0);

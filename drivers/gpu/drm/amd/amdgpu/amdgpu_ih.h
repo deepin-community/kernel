@@ -73,7 +73,7 @@ struct amdgpu_ih_ring {
 	wait_queue_head_t wait_process;
 	uint64_t		processed_timestamp;
 	bool overflow;
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	atomic_t		lock;
 	struct work_struct      fix_work;
 	struct amdgpu_device    *adev;
@@ -126,7 +126,7 @@ void amdgpu_ih_decode_iv_helper(struct amdgpu_device *adev,
 uint64_t amdgpu_ih_decode_iv_ts_helper(struct amdgpu_ih_ring *ih, u32 rptr,
 				       signed int offset);
 const char *amdgpu_ih_ring_name(struct amdgpu_device *adev, struct amdgpu_ih_ring *ih);
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 int amdgpu_ih_fix_is_busy(struct amdgpu_device *adev);
 #endif
 #endif

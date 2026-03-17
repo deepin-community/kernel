@@ -101,7 +101,7 @@ struct amdgpu_irq {
 	uint32_t                        srbm_soft_reset;
 	u32                             retry_cam_doorbell_index;
 	bool                            retry_cam_enabled;
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	atomic_t                        cs_lock;
 #endif
 };
