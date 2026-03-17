@@ -1297,7 +1297,7 @@ static int amdgpu_cs_submit(struct amdgpu_cs_parser *p,
 	uint64_t seq;
 	int r;
 
-#ifdef CONFIG_LOONGARCH
+#ifdef CONFIG_MACH_LOONGSON64
 	while (amdgpu_ih_fix_is_busy(p->adev))
 		msleep(20);
 #endif
