@@ -813,7 +813,7 @@
  *	bit 0: exec-cntl3 VMCS field.
  */
 #define MSR_ZX_EXT_VMCS_CAPS			0x1675
-#define MSR_ZX_VMCS_EXEC_CTL3			BIT(0)
+#define MSR_ZX_VMCS_EXEC_CTL3_EN		BIT(0)
 
 /* Transmeta defined MSRs */
 #define MSR_TMTA_LONGRUN_CTRL		0x80868010

@@ -36,7 +36,7 @@ static void init_zhaoxin_ext_capabilities(struct cpuinfo_x86 *c)
 
 	err = rdmsr_safe(MSR_ZX_EXT_VMCS_CAPS, &ext_vmcs_cap, &ign);
 
-	if (!(ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3))
+	if (!(ext_vmcs_cap & MSR_ZX_VMCS_EXEC_CTL3_EN))
 		return;
 
 	err = rdmsr_safe(MSR_ZX_VMX_PROCBASED_CTLS3, &ign, &msr_high);

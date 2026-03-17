@@ -281,7 +281,9 @@ struct vcpu_vmx {
 
 	u64		      spec_ctrl;
 	u32		      msr_ia32_umwait_control;
-	u32			  msr_pauseopt_control;
+	u32 msr_pauseopt_control;
+	bool pauseopt_in_progress;
+	unsigned long pauseopt_rip;
 
 	/*
 	 * loaded_vmcs points to the VMCS currently used in this vcpu. For a
