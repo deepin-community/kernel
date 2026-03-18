@@ -184,7 +184,7 @@ static int i2c_phytium_pci_probe(struct pci_dev *pdev,
 	dev->flags |= controller->flags;
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
-	dev->slave_state = SLAVE_STATE_IDLE;
+	dev->slave_status = SLAVE_STATE_IDLE;
 #endif
 	spin_lock_init(&dev->i2c_lock);
 	dev->functionality = controller->functionality | IC_DEFAULT_FUNCTIONALITY;
