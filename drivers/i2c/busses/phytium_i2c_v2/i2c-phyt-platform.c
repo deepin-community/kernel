@@ -305,6 +305,7 @@ static int i2c_phyt_plat_probe(struct platform_device *pdev)
 			    dev->mng.tx_ring_cnt * sizeof(struct phyt_msg_info);
 
 	dev->dev = &pdev->dev;
+	spin_lock_init(&dev->i2c_lock);
 	platform_set_drvdata(pdev, dev);
 
 	ret = i2c_phyt_malloc_log_mem(dev);
