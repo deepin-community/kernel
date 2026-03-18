@@ -444,7 +444,7 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 {
 	struct i2c_phyt_dev *dev = (struct i2c_phyt_dev *)dev_id;
 	struct phyt_msg_info *rx_msg = (struct phyt_msg_info *)dev->rx_shmem_addr;
-	u32 stat;
+	u32 stat, head, tail;
 	int ret;
 
 	stat = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_RV2AP_INTR_STAT);
@@ -456,21 +456,31 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 
 	i2c_phyt_common_regfile_clear_rv2ap_int(dev, stat);
 
-	if (dev->complete_flag) {
-		if (rx_msg->head.cmd_type == PHYTI2C_MSG_CMD_REPORT)
-			goto done;
-
-		ret = i2c_phyt_master_handle(dev);
-		if (ret == FT_I2C_RUNNING)
-			return IRQ_HANDLED;
-
-		dev->complete_flag = false;
-		dev->mng.cur_cmd_cnt = 0;
-		i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
-		i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL, 0);
-		complete(&dev->cmd_complete);
-		return IRQ_HANDLED;
+	if (!dev->mng.tx_ring_cnt) {
+		dev_err(dev->dev, "tx_ring_cnt is zero\n");
+		return IRQ_NONE;
 	}
+	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD) % dev->mng.tx_ring_cnt;
+	tail = dev->mng.cur_cmd_cnt % dev->mng.tx_ring_cnt;
+	do {
+		tail++;
+		tail %= dev->mng.tx_ring_cnt;
+		if (dev->complete_flag) {
+			if (rx_msg->head.cmd_type == PHYTI2C_MSG_CMD_REPORT)
+				goto done;
+
+			ret = i2c_phyt_master_handle(dev);
+			if (ret == FT_I2C_RUNNING)
+				continue;
+
+			dev->complete_flag = false;
+			dev->mng.cur_cmd_cnt = 0;
+			i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
+			i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL, 0);
+			complete(&dev->cmd_complete);
+			return IRQ_HANDLED;
+		}
+	} while (tail != head);
 done:
 	i2c_phyt_master_isr_handle(dev);
 

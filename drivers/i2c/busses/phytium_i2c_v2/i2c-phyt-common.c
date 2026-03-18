@@ -159,7 +159,7 @@ void i2c_phyt_show_log(struct i2c_phyt_dev *dev)
 		dev_info(dev->dev, "log len :%d,addr: 0x%llx,size:%d\n", len, (u64)dev->log_addr,
 					dev->log_size);
 		if (len > FT_LOG_LINE_MAX_LEN) {
-			for (i = 0; i < len; i += FT_LOG_LINE_MAX_LEN)
+			for (i = 0; i + FT_LOG_LINE_MAX_LEN < len; i += FT_LOG_LINE_MAX_LEN)
 				dev_info(dev->dev, "(log)%.*s\n", FT_LOG_LINE_MAX_LEN, &plog[i]);
 		} else {
 			dev_info(dev->dev, "(log)%.*s\n", FT_LOG_LINE_MAX_LEN, &plog[0]);

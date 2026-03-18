@@ -14,7 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 
-#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.1"
+#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.2"
 
 #define FT_I2C_MSG_UNIT_SIZE			10
 #define FT_I2C_DATA_RESV_LEN			2
