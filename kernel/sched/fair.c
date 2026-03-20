@@ -55,6 +55,7 @@
 #include <uapi/linux/sched/types.h>
 
 #include "sched.h"
+#include "sparsemask.h"
 #include "stats.h"
 #include "autogroup.h"
 
@@ -5217,6 +5218,33 @@ static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 	rq->misfit_task_load = max_t(unsigned long, task_h_load(p), 1);
 }
 
+#ifdef CONFIG_SMP
+static void overload_clear(struct rq *rq)
+{
+	struct sparsemask *overload_cpus;
+
+	rcu_read_lock();
+	overload_cpus = rcu_dereference(rq->cfs_overload_cpus);
+	if (overload_cpus)
+		sparsemask_clear_elem(overload_cpus, rq->cpu);
+	rcu_read_unlock();
+}
+
+static void overload_set(struct rq *rq)
+{
+	struct sparsemask *overload_cpus;
+
+	rcu_read_lock();
+	overload_cpus = rcu_dereference(rq->cfs_overload_cpus);
+	if (overload_cpus)
+		sparsemask_set_elem(overload_cpus, rq->cpu);
+	rcu_read_unlock();
+}
+#else /* CONFIG_SMP */
+static inline void overload_clear(struct rq *rq) {}
+static inline void overload_set(struct rq *rq) {}
+#endif
+
 void __setparam_fair(struct task_struct *p, const struct sched_attr *attr)
 {
 	struct sched_entity *se = &p->se;
@@ -6128,6 +6156,7 @@ static bool throttle_cfs_rq(struct cfs_rq *cfs_rq)
 
 	if (!dequeue)
 		return false;  /* Throttle no longer required. */
+
 
 	/* freeze hierarchy runnable averages while throttled */
 	rcu_read_lock();
@@ -7057,6 +7086,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	int h_nr_idle = task_has_idle_policy(p);
 	int h_nr_runnable = 1;
 	int task_new = !(flags & ENQUEUE_WAKEUP);
+	unsigned int prev_nr = rq->cfs.h_nr_runnable;
 	int rq_h_nr_queued = rq->cfs.h_nr_queued;
 	u64 slice = 0;
 
@@ -7074,6 +7104,10 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (flags & ENQUEUE_DELAYED) {
 		requeue_delayed_entity(se, flags);
+
+		if (prev_nr <= 1 && rq->cfs.h_nr_runnable >= 2)
+			overload_set(rq);
+
 		return;
 	}
 
@@ -7147,6 +7181,8 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	/* At this point se is NULL and we are at root level*/
 	add_nr_running(rq, 1);
+	if (prev_nr <= 1 && rq->cfs.h_nr_runnable >= 2)
+		overload_set(rq);
 
 	/*
 	 * Since new tasks are assigned an initial util_avg equal to
@@ -7191,6 +7227,7 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	int h_nr_idle = 0;
 	int h_nr_queued = 0;
 	int h_nr_runnable = 0;
+	unsigned int prev_nr = rq->cfs.h_nr_runnable;
 	struct cfs_rq *cfs_rq;
 	u64 slice = 0;
 
@@ -7206,8 +7243,12 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 		cfs_rq = cfs_rq_of(se);
 
 		if (!dequeue_entity(cfs_rq, se, flags)) {
-			if (p && &p->se == se)
+			if (p && &p->se == se) {
+				if (prev_nr >= 2 && rq->cfs.h_nr_runnable <= 1)
+					overload_clear(rq);
+
 				return -1;
+			}
 
 			slice = cfs_rq_min_slice(cfs_rq);
 			break;
@@ -7265,6 +7306,8 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	}
 
 	sub_nr_running(rq, h_nr_queued);
+	if (prev_nr >= 2 && rq->cfs.h_nr_runnable <= 1)
+		overload_clear(rq);
 
 	/* balance early to pull high priority tasks */
 	if (unlikely(!was_sched_idle && sched_idle_rq(rq)))
