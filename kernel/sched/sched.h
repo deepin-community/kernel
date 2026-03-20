@@ -82,6 +82,7 @@ struct cfs_rq;
 struct rt_rq;
 struct sched_group;
 struct cpuidle_state;
+struct sparsemask;
 
 #ifdef CONFIG_PARAVIRT
 # include <asm/paravirt.h>
@@ -1172,6 +1173,7 @@ struct rq {
 	struct cfs_rq		cfs;
 	struct rt_rq		rt;
 	struct dl_rq		dl;
+	struct sparsemask	*cfs_overload_cpus;
 #ifdef CONFIG_SCHED_CLASS_EXT
 	struct scx_rq		scx;
 #endif
