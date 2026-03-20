@@ -3082,6 +3082,14 @@ static void macb_init_tieoff(struct macb *bp)
 	desc->ctrl = 0;
 }
 
+static void gem_init_rx_ring(struct macb_queue *queue)
+{
+	queue->rx_tail = 0;
+	queue->rx_prepared_head = 0;
+
+	gem_rx_refill(queue);
+}
+
 static void gem_init_rings(struct macb *bp)
 {
 	struct macb_queue *queue;
@@ -3108,10 +3116,8 @@ static void gem_init_rings(struct macb *bp)
 			dma_wmb();
 			desc->addr |= MACB_BIT(RX_USED);
 		}
-		queue->rx_tail = 0;
-		queue->rx_prepared_head = 0;
 
-		gem_rx_refill(queue);
+		gem_init_rx_ring(queue);
 	}
 
 	macb_init_tieoff(bp);
