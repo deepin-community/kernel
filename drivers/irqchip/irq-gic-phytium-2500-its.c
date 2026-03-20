@@ -4955,7 +4955,7 @@ static void its_restore_enable(void *data __maybe_unused)
 	raw_spin_unlock(&its_lock);
 }
 
-static struct syscore_ops its_syscore_ops = {
+static const struct syscore_ops its_syscore_ops = {
 	.suspend = its_save_disable,
 	.resume = its_restore_enable,
 };
