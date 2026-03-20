@@ -5219,6 +5219,16 @@ static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 }
 
 #ifdef CONFIG_SMP
+static inline void rq_idle_stamp_update(struct rq *rq)
+{
+	rq->idle_stamp = rq_clock(rq);
+}
+
+static inline void rq_idle_stamp_clear(struct rq *rq)
+{
+	rq->idle_stamp = 0;
+}
+
 static void overload_clear(struct rq *rq)
 {
 	struct sparsemask *overload_cpus;
@@ -5241,6 +5251,8 @@ static void overload_set(struct rq *rq)
 	rcu_read_unlock();
 }
 #else /* CONFIG_SMP */
+static inline void rq_idle_stamp_update(struct rq *rq) {}
+static inline void rq_idle_stamp_clear(struct rq *rq) {}
 static inline void overload_clear(struct rq *rq) {}
 static inline void overload_set(struct rq *rq) {}
 #endif
@@ -9115,7 +9127,16 @@ simple:
 
 idle:
 	if (rf) {
+		/*
+		 * We must set idle_stamp _before_ calling idle_balance(), such that we
+		 * measure the duration of idle_balance() as idle time.
+		 */
+		rq_idle_stamp_update(rq);
+
 		new_tasks = sched_balance_newidle(rq, rf);
+
+		if (new_tasks)
+			rq_idle_stamp_clear(rq);
 
 		/*
 		 * Because sched_balance_newidle() releases (and re-acquires)
@@ -13018,13 +13039,6 @@ static int sched_balance_newidle(struct rq *this_rq, struct rq_flags *rf)
 		return 0;
 
 	/*
-	 * We must set idle_stamp _before_ calling sched_balance_rq()
-	 * for CPU_NEWLY_IDLE, such that we measure the this duration
-	 * as idle time.
-	 */
-	this_rq->idle_stamp = rq_clock(this_rq);
-
-	/*
 	 * Do not pull tasks towards !active CPUs...
 	 */
 	if (!cpu_active(this_cpu))
@@ -13133,9 +13147,7 @@ out:
 	if (time_after(this_rq->next_balance, next_balance))
 		this_rq->next_balance = next_balance;
 
-	if (pulled_task)
-		this_rq->idle_stamp = 0;
-	else
+	if (!pulled_task)
 		nohz_newidle_balance(this_rq);
 
 	rq_repin_lock(this_rq, rf);
