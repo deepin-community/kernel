@@ -465,6 +465,8 @@ void handle_dev_int(struct pt_regs *regs)
 	pintc_mcu_restore(chip_datas[node], val);
 }
 
+void __weak sunway_fault_report(int node) {}
+
 void handle_fault_int(void)
 {
 	int node;
@@ -483,6 +485,8 @@ void handle_fault_int(void)
 
 	pr_info("Enter fault int, si_fault_stat = %#llx\n",
 			readq(mcu_base + OFFSET_SI_FAULT_STAT));
+
+	sunway_fault_report(node);
 
 	writeq(0, mcu_base + OFFSET_SI_FAULT_INT_EN);
 	writeq(0, mcu_base + OFFSET_DLI_RLTD_FAULT_INTEN);

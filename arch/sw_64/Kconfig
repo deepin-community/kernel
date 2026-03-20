@@ -286,6 +286,15 @@ config MIGHT_HAVE_PC_SERIO
 	select ARCH_MIGHT_HAVE_PC_SERIO
 	default n
 
+config SW64_FAULT_REPORT
+	bool "Sunway fault report driver"
+	depends on PLATFORM_JUNZHANG
+	select IPMI_HANDLER
+	select IPMI_SI
+	help
+	  This enables support for the sunway fault report driver
+	  based on BMC and IPMI system interface.
+
 endmenu
 
 menu "CPU Power Management"
