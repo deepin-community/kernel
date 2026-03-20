@@ -9720,6 +9720,17 @@ static void detach_task(struct task_struct *p, struct lb_env *env)
 }
 
 /*
+ * detach_task_steal() -- detach the task for the migration from @src_rq to @dst_cpu.
+ */
+static void detach_task_steal(struct task_struct *p, struct rq *src_rq, int dst_cpu)
+{
+	lockdep_assert_rq_held(src_rq);
+
+	deactivate_task(src_rq, p, DEQUEUE_NOCLOCK);
+	set_task_cpu(p, dst_cpu);
+}
+
+/*
  * detach_one_task() -- tries to dequeue exactly one task from env->src_rq, as
  * part of active balancing operations within "domain".
  *
