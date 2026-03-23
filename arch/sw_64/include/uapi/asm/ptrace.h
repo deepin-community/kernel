@@ -31,6 +31,7 @@ struct user_fpsimd_state {
 
 #define PT_REG_BASE		0
 #define PT_REG_END		30
+#define PT_R31			31
 #define PT_FPREG_BASE		32
 #define PT_FPREG_END		62
 #define PT_FPCR			63
