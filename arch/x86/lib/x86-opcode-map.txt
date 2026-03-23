@@ -812,8 +812,8 @@ f3: Grp17 (1A)
 f5: BZHI Gy,Ey,By (v) | PEXT Gy,By,Ey (F3),(v) | PDEP Gy,By,Ey (F2),(v) | WRUSSD/Q My,Gy (66)
 f6: ADCX Gy,Ey (66) | ADOX Gy,Ey (F3) | MULX By,Gy,rDX,Ey (F2),(v) | WRSSD/Q My,Gy
 f7: BEXTR Gy,Ey,By (v) | SHLX Gy,Ey,By (66),(v) | SARX Gy,Ey,By (F3),(v) | SHRX Gy,Ey,By (F2),(v)
-f8: MOVDIR64B Gv,Mdqq (66) | ENQCMD Gv,Mdqq (F2) | ENQCMDS Gv,Mdqq (F3)
-f9: MOVDIRI My,Gy
+f8: MOVDIR64B Gv,Mdqq (66) | ENQCMD Gv,Mdqq (F2) | ENQCMDS Gv,Mdqq (F3) | vsm3rndb Vx,Hx,Wx (66),(v1)
+f9: MOVDIRI My,Gy | vsm3msgb Vx,Hx,Wx (66),(v1)
 EndTable
 
 Table: 3-byte opcode 2 (0x0f 0x3a)
@@ -889,6 +889,10 @@ AVXcode: 3
 71: vpshldd/q Vx,Hx,Wx,Ib (66),(ev)
 72: vpshrdw Vx,Hx,Wx,Ib (66),(ev)
 73: vpshrdd/q Vx,Hx,Wx,Ib (66),(ev)
+88: vsm3randa Vx,Hx,Wx,Ib (66),(v1)
+89: vsm3msga Vx,Hx,Wx,Ib (66),(v1)
+8a: vsm4rand Vx,Hx,Wx,Ib (66),(v1) | sm4rand Vk,Wx,Ib (66)
+8b: vsm4rk Vx,Hx,Wx,Ib (66),(v1) | sm4rk Vk,Wx,Ib (66)
 c2: vcmpph Vx,Hx,Wx,Ib (ev) | vcmpsh Vx,Hx,Wx,Ib (F3),(ev)
 cc: sha1rnds4 Vdq,Wdq,Ib
 ce: vgf2p8affineqb Vx,Wx,Ib (66)
