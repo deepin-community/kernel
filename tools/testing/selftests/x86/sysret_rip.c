@@ -33,6 +33,39 @@ extern const char test_page[];
 
 static const void *current_test_page_addr = test_page;
 
+static void empty_handler(int sig, siginfo_t *info, void *ctx_void)
+{
+}
+
+static bool is_fred_enabled(void)
+{
+	unsigned short gs_val;
+
+	sethandler(SIGTRAP, empty_handler, 0);
+
+	/*
+	 * Distinguish IDT and FRED mode by loading GS with a non-zero RPL and
+	 * triggering an exception:
+	 * IDT (IRET) clears RPL bits of NULL selectors.
+	 * FRED (ERETU) preserves them.
+	 *
+	 * If GS is loaded with 3 (Index=0, RPL=3), trigger an exception:
+	 * IDT should restore GS as 0.
+	 * FRED should preserve GS as 3.
+	 */
+	asm volatile (
+		"mov %[rpl3], %%gs\n\t"
+		"int3\n\t"
+		"mov %%gs, %[res]"
+		: [res] "=r" (gs_val)
+		: [rpl3] "r" (3)
+	);
+
+	clearhandler(SIGTRAP);
+
+	return gs_val == 3;
+}
+
 /* State used by our signal handlers. */
 static gregset_t initial_regs;
 
@@ -64,9 +97,15 @@ static void sigusr1(int sig, siginfo_t *info, void *ctx_void)
 	ctx->uc_mcontext.gregs[REG_RIP] = rip;
 	ctx->uc_mcontext.gregs[REG_RCX] = rip;
 
-	/* R11 and EFLAGS should already match. */
-	assert(ctx->uc_mcontext.gregs[REG_EFL] ==
-	       ctx->uc_mcontext.gregs[REG_R11]);
+	/*
+	 * SYSCALL works differently on FRED, it does not save RIP and RFLAGS
+	 * to RCX and R11.
+	 */
+	if (!is_fred_enabled()) {
+		/* R11 and EFLAGS should already match. */
+		assert(ctx->uc_mcontext.gregs[REG_EFL] ==
+		       ctx->uc_mcontext.gregs[REG_R11]);
+	}
 
 	sethandler(SIGSEGV, sigsegv_for_sigreturn_test, SA_RESETHAND);
 }
