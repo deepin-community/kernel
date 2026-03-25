@@ -38,4 +38,13 @@ static inline void invlpg(unsigned long addr)
 {
 	asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
 }
+
+#ifdef CONFIG_PTP
+#include <linux/ptp-cache.h>
+static inline void __ptp_tlb_remove_table(void *table)
+{
+	iee_cache_free(&pg_cache, page_to_virt((struct page *)table));
+}
+#endif
+
 #endif /* _ASM_X86_TLB_H */
