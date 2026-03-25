@@ -406,7 +406,7 @@ static int scmi_base_protocol_init(const struct scmi_protocol_handle *ph)
 	dev_info(dev, "SCMI Protocol v%d.%d '%s:%s' Firmware version 0x%x\n",
 		 rev->major_ver, rev->minor_ver, rev->vendor_id,
 		 rev->sub_vendor_id, rev->impl_ver);
-	dev_dbg(dev, "Found %d protocol(s) %d agent(s)\n", rev->num_protocols,
+	dev_info(dev, "CIX Found %d protocol(s) %d agent(s)\n", rev->num_protocols,
 		rev->num_agents);
 
 	for (id = 0; id < rev->num_agents; id++) {
