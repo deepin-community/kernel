@@ -25,6 +25,9 @@ void iee_set_token_page_valid(unsigned long token, unsigned long token_page,
 	pmd_t *token_page_pmdp = pmd_offset(pudp, token_page);
 	pte_t *token_page_ptep = pte_offset_kernel(token_page_pmdp, token_page);
 
+#ifdef CONFIG_PTP
+	iee_rw_gate(IEE_OP_SET_TOKEN, token_ptep, token_page_ptep, token_page, order);
+#else
 	for (int i = 0; i < (0x1 << order); i++) {
 		pte_t pte = READ_ONCE(*token_ptep);
 
@@ -38,6 +41,7 @@ void iee_set_token_page_valid(unsigned long token, unsigned long token_page,
 		token_ptep++;
 		token_page_ptep++;
 	}
+#endif
 
 	flush_tlb_kernel_range(token, token + (PAGE_SIZE * (1 << order)));
 	flush_tlb_kernel_range(token_page,
@@ -65,6 +69,9 @@ void iee_set_token_page_invalid(unsigned long token, unsigned long __unused,
 	pmd_t *token_page_pmdp = pmd_offset(pudp, token_page);
 	pte_t *token_page_ptep = pte_offset_kernel(token_page_pmdp, token_page);
 
+#ifdef CONFIG_PTP
+	iee_rw_gate(IEE_OP_UNSET_TOKEN, token_ptep, token_page_ptep, token, order);
+#else
 	for (int i = 0; i < (0x1 << order); i++) {
 		pte_t pte = READ_ONCE(*token_ptep);
 
@@ -78,6 +85,7 @@ void iee_set_token_page_invalid(unsigned long token, unsigned long __unused,
 		token_ptep++;
 		token_page_ptep++;
 	}
+#endif
 	free_pages(token_page, order);
 	flush_tlb_kernel_range(token, token + (PAGE_SIZE * (1 << order)));
 	flush_tlb_kernel_range(token_page,
@@ -148,3 +156,45 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk)
 #endif
 	token->valid = true;
 }
+
+#ifdef CONFIG_PTP
+void _iee_unset_token(unsigned long __unused, pte_t *token_ptep,
+	pte_t *token_page_ptep, unsigned long token, unsigned int order)
+{
+	token_ptep = (pte_t *)__addr_to_iee(token_ptep);
+	token_page_ptep = (pte_t *)__addr_to_iee(token_page_ptep);
+
+	for (int i = 0; i < (0x1 << order); i++) {
+		pte_t pte = READ_ONCE(*token_ptep);
+
+		pte = __pte((pte_val(pte) & ~PTE_PFN_MASK) |
+			(__phys_to_pfn(__iee_pa(token + i * PAGE_SIZE)) << PAGE_SHIFT));
+		WRITE_ONCE(*token_ptep, pte);
+		pte = READ_ONCE(*token_page_ptep);
+		pte = __pte(pte_val(pte) | ___D | __RW);
+		WRITE_ONCE(*token_page_ptep, pte);
+		token_ptep++;
+		token_page_ptep++;
+	}
+}
+
+void _iee_set_token(unsigned long __unused, pte_t *token_ptep,
+	pte_t *token_page_ptep, unsigned long token_page, unsigned int order)
+{
+	token_ptep = (pte_t *)__addr_to_iee(token_ptep);
+	token_page_ptep = (pte_t *)__addr_to_iee(token_page_ptep);
+
+	for (int i = 0; i < (0x1 << order); i++) {
+		pte_t pte = READ_ONCE(*token_ptep);
+
+		pte = __pte(((pte_val(pte) & ~PTE_PFN_MASK)) |
+			(__phys_to_pfn(__pa(token_page + i * PAGE_SIZE)) << PAGE_SHIFT));
+		WRITE_ONCE(*token_ptep, pte);
+		pte = READ_ONCE(*token_page_ptep);
+		pte = __pte((pte_val(pte) & ~__RW) & ~___D);
+		WRITE_ONCE(*token_page_ptep, pte);
+		token_ptep++;
+		token_page_ptep++;
+	}
+}
+#endif

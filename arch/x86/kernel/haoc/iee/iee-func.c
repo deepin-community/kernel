@@ -15,26 +15,26 @@
 #endif
 extern bool haoc_enabled;
 
-void set_iee_pages(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
+void set_iee_page(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
 {
 	set_memory_ro(addr, num_pages);
 	iee_set_bitmap_type(__pa(addr), num_pages, type);
 }
 
-void unset_iee_pages(unsigned long addr, int num_pages)
+void unset_iee_page(unsigned long addr, int num_pages)
 {
 	iee_set_bitmap_type(__pa(addr), num_pages, IEE_NORMAL);
 	set_memory_rw(addr, num_pages);
 }
 
-void set_iee_page(unsigned long addr, unsigned int order)
+void set_iee_pages(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
 {
-	set_memory_ro(addr, 1 << order);
+	set_iee_page(addr, num_pages, type);
 }
 
-void unset_iee_page(unsigned long addr, unsigned int order)
+void unset_iee_pages(unsigned long addr, int num_pages)
 {
-	set_memory_rw(addr, 1 << order);
+	unset_iee_page(addr, num_pages);
 }
 
 struct iee_free_slab_work {

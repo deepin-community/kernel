@@ -117,6 +117,9 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
 
 /*
  * Minimum number of threads to boot the kernel
@@ -2917,6 +2920,11 @@ struct task_struct *create_io_thread(int (*fn)(void *), void *arg, int node)
 	return copy_process(NULL, 0, node, &args);
 }
 
+#ifdef CONFIG_PTP
+void __weak ptp_disable_wp(unsigned long *cr0) { }
+void __weak ptp_restore_wp(unsigned long cr0) { }
+#endif
+
 /*
  *  Ok, this is the main fork-routine.
  *
@@ -2933,6 +2941,9 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 	struct task_struct *p;
 	int trace = 0;
 	pid_t nr;
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	unsigned long cr0;
+#endif
 
 	/*
 	 * For legacy clone() calls, CLONE_PIDFD uses the parent_tid argument
@@ -2966,7 +2977,13 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 			trace = 0;
 	}
 
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_disable_wp(&cr0);
+#endif
 	p = copy_process(NULL, trace, NUMA_NO_NODE, args);
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_restore_wp(cr0);
+#endif
 	add_latent_entropy();
 
 	if (IS_ERR(p))

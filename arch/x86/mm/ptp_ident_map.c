@@ -4,6 +4,40 @@
  * included by both the compressed kernel and the regular kernel.
  */
 
+static inline void ptp_set_pte_pre_init(pte_t *ptep, pte_t pte)
+{
+	WRITE_ONCE(*ptep, pte);
+}
+
+static inline void ptp_set_pmd_pre_init(pmd_t *pmdp, pmd_t pmd)
+{
+	WRITE_ONCE(*pmdp, pmd);
+}
+
+static inline void ptp_set_pud_pre_init(pud_t *pudp, pud_t pud)
+{
+	WRITE_ONCE(*pudp, pud);
+}
+
+static inline void ptp_set_p4d_pre_init(p4d_t *p4dp, p4d_t p4d)
+{
+	pgd_t pgd;
+
+	if (pgtable_l5_enabled() || !IS_ENABLED(CONFIG_PAGE_TABLE_ISOLATION)) {
+		WRITE_ONCE(*p4dp, p4d);
+		return;
+	}
+
+	pgd = native_make_pgd(native_p4d_val(p4d));
+	pgd = pti_set_user_pgtbl((pgd_t *)p4dp, pgd);
+	WRITE_ONCE(*p4dp, native_make_p4d(native_pgd_val(pgd)));
+}
+
+static inline void ptp_set_pgd_pre_init(pgd_t *pgdp, pgd_t pgd)
+{
+	WRITE_ONCE(*pgdp, pti_set_user_pgtbl(pgdp, pgd));
+}
+
 static void ident_pmd_init(struct x86_mapping_info *info, pmd_t *pmd_page,
 			   unsigned long addr, unsigned long end)
 {
@@ -14,11 +48,7 @@ static void ident_pmd_init(struct x86_mapping_info *info, pmd_t *pmd_page,
 		if (pmd_present(*pmd))
 			continue;
 
-#ifdef CONFIG_PTP
-		ptp_set_pmd_ident(pmd, __pmd((addr - info->offset) | info->page_flag));
-#else
-		set_pmd(pmd, __pmd((addr - info->offset) | info->page_flag));
-#endif
+		ptp_set_pmd_pre_init(pmd, __pmd((addr - info->offset) | info->page_flag));
 	}
 }
 
@@ -30,37 +60,20 @@ static int ident_pud_init(struct x86_mapping_info *info, pud_t *pud_page,
 	for (; addr < end; addr = next) {
 		pud_t *pud = pud_page + pud_index(addr);
 		pmd_t *pmd;
-		bool use_gbpage;
 
 		next = (addr & PUD_MASK) + PUD_SIZE;
 		if (next > end)
 			next = end;
 
-		/* if this is already a gbpage, this portion is already mapped */
-		if (pud_leaf(*pud))
-			continue;
-
-		/* Is using a gbpage allowed? */
-		use_gbpage = info->direct_gbpages;
-
-		/* Don't use gbpage if it maps more than the requested region. */
-		/* at the begining: */
-		use_gbpage &= ((addr & ~PUD_MASK) == 0);
-		/* ... or at the end: */
-		use_gbpage &= ((next & ~PUD_MASK) == 0);
-
-		/* Never overwrite existing mappings */
-		use_gbpage &= !pud_present(*pud);
-
-		if (use_gbpage) {
+		if (info->direct_gbpages) {
 			pud_t pudval;
 
+			if (pud_present(*pud))
+				continue;
+
+			addr &= PUD_MASK;
 			pudval = __pud((addr - info->offset) | info->page_flag);
-#ifdef CONFIG_PTP
-			ptp_set_pud_ident(pud, pudval);
-#else
-			set_pud(pud, pudval);
-#endif
+			ptp_set_pud_pre_init(pud, pudval);
 			continue;
 		}
 
@@ -73,11 +86,7 @@ static int ident_pud_init(struct x86_mapping_info *info, pud_t *pud_page,
 		if (!pmd)
 			return -ENOMEM;
 		ident_pmd_init(info, pmd, addr, next);
-#ifdef CONFIG_PTP
-		ptp_set_pud_ident(pud, __pud(__pa(pmd) | info->kernpg_flag));
-#else
-		set_pud(pud, __pud(__pa(pmd) | info->kernpg_flag));
-#endif
+		ptp_set_pud_pre_init(pud, __pud(__pa(pmd) | info->kernpg_flag));
 	}
 
 	return 0;
@@ -113,13 +122,13 @@ static int ident_p4d_init(struct x86_mapping_info *info, p4d_t *p4d_page,
 		if (result)
 			return result;
 
-		set_p4d(p4d, __p4d(__pa(pud) | info->kernpg_flag | _PAGE_NOPTISHADOW));
+		ptp_set_p4d_pre_init(p4d, __p4d(__pa(pud) | info->kernpg_flag));
 	}
 
 	return 0;
 }
 
-int kernel_ident_mapping_init(struct x86_mapping_info *info, pgd_t *pgd_page,
+int ptp_kernel_ident_mapping_init(struct x86_mapping_info *info, pgd_t *pgd_page,
 			      unsigned long pstart, unsigned long pend)
 {
 	unsigned long addr = pstart + info->offset;
@@ -157,14 +166,15 @@ int kernel_ident_mapping_init(struct x86_mapping_info *info, pgd_t *pgd_page,
 		if (result)
 			return result;
 		if (pgtable_l5_enabled()) {
-			set_pgd(pgd, __pgd(__pa(p4d) | info->kernpg_flag | _PAGE_NOPTISHADOW));
+			ptp_set_pgd_pre_init(pgd, __pgd(__pa(p4d) | info->kernpg_flag));
 		} else {
 			/*
 			 * With p4d folded, pgd is equal to p4d.
 			 * The pgd entry has to point to the pud page table in this case.
 			 */
 			pud_t *pud = pud_offset(p4d, 0);
-			set_pgd(pgd, __pgd(__pa(pud) | info->kernpg_flag | _PAGE_NOPTISHADOW));
+
+			ptp_set_pgd_pre_init(pgd, __pgd(__pa(pud) | info->kernpg_flag));
 		}
 	}
 

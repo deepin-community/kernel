@@ -17,8 +17,9 @@
 extern void set_iee_pages(unsigned long addr, int num_pages,
 			  enum HAOC_BITMAP_TYPE type);
 extern void unset_iee_pages(unsigned long addr, int num_pages);
-extern void set_iee_page(unsigned long addr, unsigned int order);
-extern void unset_iee_page(unsigned long addr, unsigned int order);
+extern void set_iee_page(unsigned long addr, int num_pages,
+			 enum HAOC_BITMAP_TYPE type);
+extern void unset_iee_page(unsigned long addr, int num_pages);
 extern bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab, unsigned int order);
 extern unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order);
 
