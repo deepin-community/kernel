@@ -437,7 +437,11 @@ static void __init pmd_huge_tests(struct pgtable_debug_args *args)
 	 * X86 defined pmd_set_huge() verifies that the given
 	 * PMD is not a populated non-leaf entry.
 	 */
+#ifdef CONFIG_PTP
+	set_pmd(args->pmdp, __pmd(0));
+#else
 	WRITE_ONCE(*args->pmdp, __pmd(0));
+#endif
 	WARN_ON(!pmd_set_huge(args->pmdp, __pfn_to_phys(args->fixed_pmd_pfn), args->page_prot));
 	WARN_ON(!pmd_clear_huge(args->pmdp));
 	pmd = READ_ONCE(*args->pmdp);
@@ -457,7 +461,11 @@ static void __init pud_huge_tests(struct pgtable_debug_args *args)
 	 * X86 defined pud_set_huge() verifies that the given
 	 * PUD is not a populated non-leaf entry.
 	 */
+#ifdef CONFIG_PTP
+	set_pud(args->pudp, __pud(0));
+#else
 	WRITE_ONCE(*args->pudp, __pud(0));
+#endif
 	WARN_ON(!pud_set_huge(args->pudp, __pfn_to_phys(args->fixed_pud_pfn), args->page_prot));
 	WARN_ON(!pud_clear_huge(args->pudp));
 	pud = READ_ONCE(*args->pudp);

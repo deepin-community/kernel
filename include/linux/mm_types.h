@@ -1259,6 +1259,9 @@ extern void tlb_gather_mmu(struct mmu_gather *tlb, struct mm_struct *mm);
 extern void tlb_gather_mmu_fullmm(struct mmu_gather *tlb, struct mm_struct *mm);
 void tlb_gather_mmu_vma(struct mmu_gather *tlb, struct vm_area_struct *vma);
 extern void tlb_finish_mmu(struct mmu_gather *tlb);
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+extern void ptp_tlb_finish_mmu(struct mmu_gather *tlb);
+#endif
 
 struct vm_fault;
 

@@ -15,6 +15,9 @@
 #include <linux/bitops.h>
 #include <linux/threads.h>
 #include <asm/fixmap.h>
+#ifdef CONFIG_PTP
+#include <asm/haoc/ptp.h>
+#endif
 
 extern p4d_t level4_kernel_pgt[512];
 extern p4d_t level4_ident_pgt[512];
@@ -64,7 +67,12 @@ void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte);
 
 static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
+#ifdef CONFIG_PTP
+	compiletime_assert_rwonce_type(*ptep);
+	ptp_set_pte(ptep, pte);
+#else
 	WRITE_ONCE(*ptep, pte);
+#endif
 }
 
 static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr,
@@ -80,7 +88,12 @@ static inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)
 
 static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
+#ifdef CONFIG_PTP
+	compiletime_assert_rwonce_type(*pmdp);
+	ptp_set_pmd(pmdp, pmd);
+#else
 	WRITE_ONCE(*pmdp, pmd);
+#endif
 }
 
 static inline void native_pmd_clear(pmd_t *pmd)
@@ -91,7 +104,11 @@ static inline void native_pmd_clear(pmd_t *pmd)
 static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 {
 #ifdef CONFIG_SMP
+#ifdef CONFIG_PTP
+	return native_make_pte(ptp_xchg((pgprotval_t *)xp, 0));
+#else
 	return native_make_pte(xchg(&xp->pte, 0));
+#endif
 #else
 	/* native_local_ptep_get_and_clear,
 	   but duplicated because of cyclic dependency */
@@ -104,7 +121,11 @@ static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 static inline pmd_t native_pmdp_get_and_clear(pmd_t *xp)
 {
 #ifdef CONFIG_SMP
+#ifdef CONFIG_PTP
+	return native_make_pmd(ptp_xchg((pgprotval_t *)xp, 0));
+#else
 	return native_make_pmd(xchg(&xp->pmd, 0));
+#endif
 #else
 	/* native_local_pmdp_get_and_clear,
 	   but duplicated because of cyclic dependency */
@@ -116,7 +137,12 @@ static inline pmd_t native_pmdp_get_and_clear(pmd_t *xp)
 
 static inline void native_set_pud(pud_t *pudp, pud_t pud)
 {
+#ifdef CONFIG_PTP
+	compiletime_assert_rwonce_type(*pudp);
+	ptp_set_pud(pudp, pud);
+#else
 	WRITE_ONCE(*pudp, pud);
+#endif
 }
 
 static inline void native_pud_clear(pud_t *pud)
@@ -127,7 +153,11 @@ static inline void native_pud_clear(pud_t *pud)
 static inline pud_t native_pudp_get_and_clear(pud_t *xp)
 {
 #ifdef CONFIG_SMP
+#ifdef CONFIG_PTP
+	return native_make_pud(ptp_xchg((pgprotval_t *)xp, 0));
+#else
 	return native_make_pud(xchg(&xp->pud, 0));
+#endif
 #else
 	/* native_local_pudp_get_and_clear,
 	 * but duplicated because of cyclic dependency
@@ -144,13 +174,23 @@ static inline void native_set_p4d(p4d_t *p4dp, p4d_t p4d)
 	pgd_t pgd;
 
 	if (pgtable_l5_enabled() || !IS_ENABLED(CONFIG_PAGE_TABLE_ISOLATION)) {
+#ifdef CONFIG_PTP
+		compiletime_assert_rwonce_type(*p4dp);
+		ptp_set_p4d(p4dp, p4d);
+#else
 		WRITE_ONCE(*p4dp, p4d);
+#endif
 		return;
 	}
 
 	pgd = native_make_pgd(native_p4d_val(p4d));
 	pgd = pti_set_user_pgtbl((pgd_t *)p4dp, pgd);
+#ifdef CONFIG_PTP
+	compiletime_assert_rwonce_type(*p4dp);
+	ptp_set_p4d(p4dp, native_make_p4d(native_pgd_val(pgd)));
+#else
 	WRITE_ONCE(*p4dp, native_make_p4d(native_pgd_val(pgd)));
+#endif
 }
 
 static inline void native_p4d_clear(p4d_t *p4d)
@@ -160,7 +200,12 @@ static inline void native_p4d_clear(p4d_t *p4d)
 
 static inline void native_set_pgd(pgd_t *pgdp, pgd_t pgd)
 {
+#ifdef CONFIG_PTP
+	compiletime_assert_rwonce_type(*pgdp);
+	ptp_set_pgd(pgdp, pti_set_user_pgtbl(pgdp, pgd));
+#else
 	WRITE_ONCE(*pgdp, pti_set_user_pgtbl(pgdp, pgd));
+#endif
 }
 
 static inline void native_pgd_clear(pgd_t *pgd)

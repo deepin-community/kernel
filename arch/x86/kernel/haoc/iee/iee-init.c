@@ -21,8 +21,15 @@
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#ifdef CONFIG_PTP
+#include <asm/haoc/ptp.h>
+#include <linux/ptp-cache.h>
+#endif
 #ifdef CONFIG_CREDP
 extern void credp_init(void);
+#endif
+#ifdef CONFIG_PTP
+extern void haoc_ptp_init(void);
 #endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
@@ -214,8 +221,19 @@ void __init iee_early_init(void)
 	if (!cmd_haoc_enabled)
 		return;
 
-	if (!check_haoc_hardware_support())
+	if (!check_haoc_hardware_support()) {
 		pr_info("HAOC disabled because SMAP or SMEP is not available");
+		return;
+	}
+
+#ifdef CONFIG_PTP
+	iee_cache_init(&pgd_cache, PGD_ALLOCATION_ORDER, 1, IEE_PGTABLE,
+		       CONFIG_PTP_RESERVE_ORDER);
+	if (pgtable_l5_enabled())
+		iee_cache_init(&pg_cache, 0, 4, IEE_PGTABLE, CONFIG_PTP_RESERVE_ORDER);
+	else
+		iee_cache_init(&pg_cache, 0, 3, IEE_PGTABLE, CONFIG_PTP_RESERVE_ORDER);
+#endif
 }
 
 void __init iee_init(void)
@@ -250,6 +268,9 @@ void __init iee_post_init(void)
 		return;
 
 	iee_stack_set_ro();
+#ifdef CONFIG_PTP
+	haoc_ptp_init();
+#endif
 #ifdef CONFIG_IEE_SIP
 	iee_sip_init();
 #endif
