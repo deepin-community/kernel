@@ -42,6 +42,7 @@ struct user_fpsimd_state {
 #define PT_VECREG_END		161
 #define PT_F31_V1		98
 #define PT_F31_V2		130
+#define PT_F31_V3		162
 #define PT_DA_MATCH		163
 #define PT_DA_MASK		164
 #define PT_DV_MATCH		165

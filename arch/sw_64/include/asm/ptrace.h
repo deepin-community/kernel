@@ -92,6 +92,13 @@ static inline void regs_set_return_value(struct pt_regs *regs, unsigned long rc)
 	regs->regs[0] = rc;
 }
 
+static inline bool is_zero_reg(unsigned long regno)
+{
+	if (regno == PT_F31_V1 || regno == PT_F31_V2 || regno == PT_F31_V3 || regno == PT_R31)
+		return true;
+	else
+		return false;
+}
 #endif /* !__ASSEMBLY__ */
 #endif /* __KERNEL__ */
 
