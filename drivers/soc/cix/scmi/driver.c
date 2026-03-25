@@ -33,6 +33,7 @@
 #include <linux/processor.h>
 #include <linux/refcount.h>
 #include <linux/slab.h>
+#include <linux/acpi.h>
 
 #include "raw_mode.h"
 
@@ -1630,7 +1631,7 @@ out:
 	mutex_unlock(&info->protocols_mtx);
 }
 
-static bool
+static bool __maybe_unused
 scmi_is_protocol_implemented(const struct scmi_handle *handle, u8 prot_id)
 {
 	int i;
@@ -2327,6 +2328,47 @@ static int scmi_debugfs_raw_mode_setup(struct scmi_info *info)
 	return ret;
 }
 
+int scan_scmi_child_dev(struct device *dev, void *data)
+{
+	struct scmi_info *info = data;
+	struct fwnode_handle *child;
+	u32 prot_id, ret;
+
+	/*make sure child dev is acpi_device*/
+	if (!dev->bus || strcmp(dev->bus->name, "acpi"))
+		return 0;
+
+	child = &(to_acpi_device(dev)->fwnode);
+	if (fwnode_property_read_u32(child, "reg", &prot_id))
+		return 0;
+
+	if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id)) {
+		dev_err(dev, "Out of range protocol %d\n", prot_id);
+		return 0;
+	}
+
+	if (!scmi_is_protocol_implemented(&info->handle, prot_id)) {
+		dev_err(dev, "SCMI protocol %d not implemented\n", prot_id);
+		return 0;
+	}
+
+	/*
+	 * Save this valid DT protocol descriptor amongst
+	 * @active_protocols for this SCMI instance/
+	 */
+	ret = idr_alloc(&info->active_protocols, child, prot_id, prot_id + 1, GFP_KERNEL);
+	if (ret != prot_id) {
+		dev_err(dev, "SCMI protocol %d already activated. Skip\n", prot_id);
+		return 0;
+	}
+
+	fwnode_handle_get(child);
+	scmi_txrx_setup(info, child, prot_id); //for create scmi_chan_info
+	scmi_create_protocol_devices(child, info, prot_id, NULL);
+
+	return 0;
+}
+
 static int scmi_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -2335,7 +2377,8 @@ static int scmi_probe(struct platform_device *pdev)
 	struct scmi_info *info;
 	bool coex = IS_ENABLED(CONFIG_ARM_SCMI_RAW_MODE_SUPPORT_COEX);
 	struct device *dev = &pdev->dev;
-	struct fwnode_handle *child, *np = dev->fwnode;
+	struct fwnode_handle *np = dev->fwnode;
+	struct acpi_device *adev = to_acpi_device_node(np);
 
 	desc = device_get_match_data(dev);
 	if (!desc)
@@ -2447,36 +2490,8 @@ static int scmi_probe(struct platform_device *pdev)
 	list_add_tail(&info->node, &scmi_list);
 	mutex_unlock(&scmi_list_mutex);
 
-	fwnode_for_each_child_node(np, child) {
-		u32 prot_id;
-
-		if (fwnode_property_read_u32(child, "reg", &prot_id))
-			continue;
-
-		if (!FIELD_FIT(MSG_PROTOCOL_ID_MASK, prot_id))
-			dev_err(dev, "Out of range protocol %d\n", prot_id);
-
-		if (!scmi_is_protocol_implemented(handle, prot_id)) {
-			dev_err(dev, "SCMI protocol %d not implemented\n",
-				prot_id);
-			continue;
-		}
-
-		/*
-		 * Save this valid DT protocol descriptor amongst
-		 * @active_protocols for this SCMI instance/
-		 */
-		ret = idr_alloc(&info->active_protocols, child,
-				prot_id, prot_id + 1, GFP_KERNEL);
-		if (ret != prot_id) {
-			dev_err(dev, "SCMI protocol %d already activated. Skip\n",
-				prot_id);
-			continue;
-		}
-
-		fwnode_handle_get(child);
-		scmi_create_protocol_devices(child, info, prot_id, NULL);
-	}
+	if (adev)
+		device_for_each_child(&adev->dev, info, scan_scmi_child_dev);
 
 	return 0;
 
