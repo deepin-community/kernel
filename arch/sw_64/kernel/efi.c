@@ -42,6 +42,8 @@ static __init pgprot_t create_mapping_protection(efi_memory_desc_t *md)
 	return PAGE_KERNEL;
 }
 
+extern bool is_legacy_io(unsigned long start, unsigned long end);
+
 int __init efi_create_mapping(struct mm_struct *mm, efi_memory_desc_t *md)
 {
 	pgprot_t prot = create_mapping_protection(md);
@@ -49,9 +51,18 @@ int __init efi_create_mapping(struct mm_struct *mm, efi_memory_desc_t *md)
 
 	start = (unsigned long)__va(md->phys_addr);
 	size = (unsigned long)(md->num_pages << EFI_PAGE_SHIFT);
-	create_pgd_mapping(mm->pgd, start, (unsigned long)md->phys_addr, size,
-			   prot, pgtable_alloc_late);
-
+	/*
+	 * create_pgd_mapping prohibits overlapping in the mapped address space.
+	 * However, for junzhang_v1 and junzhang_v2, the existing legacy_io may
+	 * conflict with the efi io space. Therefore, skip this case.
+	 */
+	if (is_junzhang_v1() || is_junzhang_v2()) {
+		if (!is_legacy_io(start, start + size))
+			create_pgd_mapping(mm->pgd, start, (unsigned long)md->phys_addr,
+					   size, prot, pgtable_alloc_late);
+	} else
+		create_pgd_mapping(mm->pgd, start, (unsigned long)md->phys_addr, size,
+				   prot, pgtable_alloc_late);
 	return 0;
 }
 #endif

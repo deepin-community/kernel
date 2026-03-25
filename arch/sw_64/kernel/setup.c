@@ -114,6 +114,7 @@ EXPORT_SYMBOL(sunway_dtb_address);
 
 unsigned long legacy_io_base;
 unsigned long legacy_io_shift;
+unsigned long legacy_io_size;
 
 u64 sunway_mclk_hz;
 u64 sunway_extclk_hz;
@@ -622,6 +623,24 @@ static void __init setup_legacy_io(void)
 	} else {
 		legacy_io_base = LPC_LEGACY_IO;
 		legacy_io_shift = 0;
+	}
+
+	legacy_io_size = 0x10000;
+}
+
+bool is_legacy_io(unsigned long start, unsigned long end)
+{
+	unsigned long legacy_start = (unsigned long)__va(legacy_io_base);
+	unsigned long legacy_end = legacy_start + (legacy_io_size << legacy_io_shift);
+
+	if (end <= legacy_start || start >= legacy_end)
+		return false;
+	else if (start >= legacy_start && end <= legacy_end)
+		return true;
+	else {
+		pr_warn("[0x%lx - 0x%lx] partial overlap with legacy_io: [0x%lx - 0x%lx]\n",
+			start, end, legacy_start, legacy_end);
+		return false;
 	}
 }
 
