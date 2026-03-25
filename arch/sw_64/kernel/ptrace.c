@@ -121,9 +121,9 @@ get_reg(struct task_struct *task, unsigned long regno)
 
 	/*
 	 * return zero value if we catch vectors of f31
-	 * v0 and v3 of f31 are not in this range so ignore them
+	 * v0 of f31 is not in this range so ignore them
 	 */
-	if (regno == PT_F31_V1 || regno == PT_F31_V2 || regno == PT_R31)
+	if (is_zero_reg(regno))
 		return 0;
 
 	addr = get_reg_addr(task, regno);
@@ -138,7 +138,7 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 {
 	unsigned long *addr;
 
-	if (regno == PT_F31_V1 || regno == PT_F31_V2 || regno == PT_R31)
+	if (is_zero_reg(regno))
 		return 0;
 
 	addr = get_reg_addr(task, regno);
@@ -410,9 +410,9 @@ long arch_ptrace(struct task_struct *child, long request,
 		ret = 0;
 		/*
 		 * return zero value if we catch vectors of f31
-		 * v0 and v3 of f31 are not in this range so ignore them
+		 * v0 of f31 is not in this range so ignore them
 		 */
-		if (addr == PT_F31_V1 || addr == PT_F31_V2 || addr == PT_R31)
+		if (is_zero_reg(addr))
 			break;
 
 		reg_addr = get_reg_addr(child, addr);
