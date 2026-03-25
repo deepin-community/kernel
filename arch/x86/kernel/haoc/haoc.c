@@ -59,5 +59,20 @@ iee_func iee_funcs[] = {
 	(iee_func)_iee_set_cred_rcu,
 	(iee_func)_iee_set_cred_ucounts,
 #endif
+#ifdef CONFIG_PTP
+#ifdef CONFIG_IEE_PTRP
+	(iee_func)_iee_unset_token,
+	(iee_func)_iee_set_token,
+#endif
+	(iee_func)_iee_set_pte,
+	(iee_func)_iee_set_pmd,
+	(iee_func)_iee_set_pud,
+	(iee_func)_iee_set_p4d,
+	(iee_func)_iee_set_pgd,
+	(iee_func)_iee_set_pte_text_poke,
+	(iee_func)_iee_set_pmd_ident,
+	(iee_func)_iee_set_pud_ident,
+	(iee_func)_iee_set_sx_pte,
+#endif
 	NULL
 };

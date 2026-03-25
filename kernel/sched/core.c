@@ -100,6 +100,9 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpu);
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpumask);
@@ -5164,6 +5167,11 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
 	calculate_sigpending();
 }
 
+#ifdef CONFIG_PTP
+void __weak ptp_context_enable_wp(int *wp_disabled_cnt, unsigned long *cr0) { }
+void __weak ptp_context_restore_wp(int wp_disabled_cnt, unsigned long cr0) { }
+#endif
+
 /*
  * context_switch - switch to the new MM and the new thread's register state.
  */
@@ -5228,8 +5236,20 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	prepare_lock_switch(rq, next, rf);
 
 	/* Here we just switch the register state and the stack. */
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	int wp_disabled_cnt = 0;
+	unsigned long cr0 = 0;
+
+	ptp_context_enable_wp(&wp_disabled_cnt, &cr0);
+#endif
+
+	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 	barrier();
+
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_context_restore_wp(wp_disabled_cnt, cr0);
+#endif
 
 	return finish_task_switch(prev);
 }

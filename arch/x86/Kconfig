@@ -1556,6 +1556,20 @@ config IEE
 		Could isolate kernel critical data and enforce all write access made and
 		verified in IEE APIs.
 
+config PTP
+	bool "Page Table Protection(PTP)"
+	depends on IEE
+	help
+		Protect page tables by routing page-table modification paths
+		through the IEE gate. This keeps page table updates mediated by
+		the isolated execution environment instead of allowing direct
+		writes from normal kernel code.
+
+config PTP_RESERVE_ORDER
+	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
+	depends on PTP
+	range 9 15
+
 config IEE_PTRP
 	bool "Pointer Protection for IEE(IEE_PTRP)"
 	depends on IEE

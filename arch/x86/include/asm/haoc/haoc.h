@@ -28,6 +28,24 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk);
 void _iee_set_bitmap_type(unsigned long __unused, uint8_t *bitmap_ptr,
 		enum HAOC_BITMAP_TYPE type, int num_pages);
 
+#ifdef CONFIG_PTP
+#ifdef CONFIG_IEE_PTRP
+void _iee_unset_token(unsigned long __unused, pte_t *token_ptep,
+	pte_t *token_page_ptep, unsigned long token, unsigned int order);
+void _iee_set_token(unsigned long __unused, pte_t *token_ptep,
+	pte_t *token_page_ptep, unsigned long token_page, unsigned int order);
+#endif
+void _iee_set_pte(unsigned long __unused, pte_t *ptep, pte_t pte);
+void _iee_set_pmd(unsigned long __unused, pmd_t *pmdp, pmd_t pmd);
+void _iee_set_pud(unsigned long __unused, pud_t *pudp, pud_t pud);
+void _iee_set_p4d(unsigned long __unused, p4d_t *p4dp, p4d_t p4d);
+void _iee_set_pgd(unsigned long __unused, pgd_t *pgdp, pgd_t pgd);
+void _iee_set_pte_text_poke(unsigned long __unused, pte_t *ptep, pte_t pte);
+void _iee_set_pmd_ident(unsigned long __unused, pmd_t *pmdp, pmd_t pmd);
+void _iee_set_pud_ident(unsigned long __unused, pud_t *pudp, pud_t pud);
+void _iee_set_sx_pte(unsigned long __unused, pte_t *ptep, pte_t pte);
+#endif
+
 #ifdef CONFIG_CREDP
 #include <linux/cred.h>
 
