@@ -99,7 +99,7 @@ static int __init sm3_cis_init(void)
 {
 #ifdef CONFIG_X86_64
 	if (!boot_cpu_has(X86_FEATURE_HYGON_SM3)) {
-		pr_err("CIS SM3 Not Support");
+		pr_info("CIS SM3 are not detected.\n");
 		return -ENODEV;
 	}
 #endif /* CONFIG_X86_64 */
