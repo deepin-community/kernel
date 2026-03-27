@@ -275,6 +275,7 @@ Hardware Monitoring Kernel Drivers
    xdp710
    xdpe12284
    xdpe152c4
+   yogafan
    zl6100
 
 .. only::  subproject and html
