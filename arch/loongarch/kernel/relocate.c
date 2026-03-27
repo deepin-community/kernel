@@ -191,6 +191,9 @@ static inline __init bool kaslr_disabled(void)
 		pr_info(KASLR_DISABLED_MESSAGE, "\'resume=\'", "bootloader");
 		return true;
 	}
+
+	pr_info("KASLR is disabled by hibernate enabled.\n");
+	return true;
 #endif
 
 	str = strstr(boot_command_line, "kexec_file");
