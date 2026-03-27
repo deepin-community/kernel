@@ -238,6 +238,7 @@ Hardware Monitoring Kernel Drivers
    xgene-hwmon
    xdpe12284
    xdpe152c4
+   yogafan
    zl6100
 
 .. only::  subproject and html
