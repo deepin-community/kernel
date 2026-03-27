@@ -903,7 +903,7 @@ static int __init cis_sm4_init(void)
 	int err = 0;
 #ifdef CONFIG_X86_64
 	if (!boot_cpu_has(X86_FEATURE_HYGON_SM4)) {
-		pr_err("CIS SM4 Not Support");
+		pr_info("CIS SM4 are not detected.\n");
 		return -ENODEV;
 	}
 #endif /* CONFIG_X86_64 */
