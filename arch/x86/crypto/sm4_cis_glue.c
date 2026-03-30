@@ -773,12 +773,11 @@ static int sm4_gcm_do_crypt(struct aead_request *req, bool encrypt)
 		if (zfilled)
 			crypto_shash_update(cis_ctx->ghash_desc, pad, zfilled);
 
+		if (!assocmem)
+			scatterwalk_unmap(assoc);
+		else
+			kfree(assocmem);
 	}
-
-	if (!assocmem)
-		scatterwalk_unmap(assoc);
-	else
-		kfree(assocmem);
 
 	err = encrypt ? skcipher_walk_aead_encrypt(&walk, req, false)
 		  : skcipher_walk_aead_decrypt(&walk, req, false);
