@@ -5,27 +5,6 @@
 #include <asm-generic/access_ok.h>
 
 /*
- * The fs value determines whether argument validity checking should be
- * performed or not.  If get_fs() == USER_DS, checking is performed, with
- * get_fs() == KERNEL_DS, checking is bypassed.
- *
- * Or at least it did once upon a time.  Nowadays it is a mask that
- * defines which bits of the address space are off limits.  This is a
- * wee bit faster than the above.
- *
- * For historical reasons, these macros are grossly misnamed.
- */
-
-#define KERNEL_DS	((mm_segment_t) { 0UL })
-#define USER_DS		((mm_segment_t) { -0x10000000000000UL  })
-
-#define get_fs()	(current_thread_info()->addr_limit)
-#define get_ds()	(KERNEL_DS)
-#define set_fs(x)	(current_thread_info()->addr_limit = (x))
-
-#define uaccess_kernel()       (get_fs().seg == KERNEL_DS.seg)
-
-/*
  * These are the main single-value transfer routines.  They automatically
  * use the right size if we just have the right pointer type.
  *
@@ -285,8 +264,6 @@ clear_user(void __user *to, long len)
 		len = __clear_user(to, len);
 	return len;
 }
-
-#define user_addr_max()	(uaccess_kernel() ? ~0UL : TASK_SIZE)
 
 extern long strncpy_from_user(char *dest, const char __user *src, long count);
 extern __must_check long strlen_user(const char __user *str);

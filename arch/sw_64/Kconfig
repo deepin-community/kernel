@@ -147,7 +147,6 @@ config SW64
 	select PCI_ECAM if (ACPI && PCI)
 	select PCI_MSI_ARCH_FALLBACKS if PCI_MSI
 	select PCI_SW64 if PCI
-	select SET_FS
 	select SPARSEMEM_EXTREME if SPARSEMEM
 	select SW64_IRQ_CPU
 	select SW64_PCI_INTX if PCI
