@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/console.h>
 #include <linux/kernel.h>
+#include <linux/serial_core.h>
 
 #include <asm/cpu.h>
 #include <asm/early_ioremap.h>
@@ -189,3 +190,29 @@ static int __init setup_early_printk(char *buf)
 }
 
 early_param("earlyprintk", setup_early_printk);
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+static __init void early_serial_set_init(unsigned long base, unsigned int baud)
+{
+	early_serial_base = base;
+
+	serial_in = mem32_serial_in;
+	serial_out = mem32_serial_out;
+
+	if (baud == 0)
+		baud = DEFAULT_BAUD;
+	early_serial_hw_init(baud);
+}
+
+static int __init early_serial_set(struct earlycon_device *device, const char *opt)
+{
+	if (!device->port.membase)
+		return -ENODEV;
+
+	early_serial_set_init((unsigned long)device->port.membase, device->baud);
+	device->con->write = early_serial_write;
+
+	return 0;
+}
+EARLYCON_DECLARE(sunway_uart, early_serial_set);
+#endif
