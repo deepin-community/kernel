@@ -26,6 +26,7 @@ fwnode_graph_get_remote_node(const struct fwnode_handle *fwnode, u32 port_id,
 			     u32 endpoint_id)
 {
 	struct fwnode_handle *endpoint = NULL;
+	struct fwnode_reference_args args;
 
 	while ((endpoint = fwnode_graph_get_next_endpoint(fwnode, endpoint))) {
 		struct fwnode_endpoint fwnode_ep;
@@ -39,10 +40,17 @@ fwnode_graph_get_remote_node(const struct fwnode_handle *fwnode, u32 port_id,
 		if (fwnode_ep.port != port_id || fwnode_ep.id != endpoint_id)
 			continue;
 
+		memset(&args, 0, sizeof(args));
+		ret = acpi_node_get_property_reference(endpoint, "remote-endpoint", 0, &args);
+		if (!ret && is_acpi_device_node(args.fwnode)) {
+			pr_info("%s:%d get remote-endpoint device %s\n", __func__, __LINE__,
+					dev_name(&to_acpi_device_node(args.fwnode)->dev));
+			return args.fwnode;
+		}
+
 		remote = fwnode_graph_get_remote_port_parent(endpoint);
 		if (!remote)
 			return NULL;
-
 		return fwnode_device_is_available(remote) ? remote : NULL;
 	}
 
