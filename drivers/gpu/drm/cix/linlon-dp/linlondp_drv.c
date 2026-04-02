@@ -190,7 +190,10 @@ static int linlondp_platform_probe(struct platform_device *pdev)
 					   LINLONDP_OF_PORT_OUTPUT, 1);
 		}
 	}
-	pr_info("%s end. match=%p\n", __func__, match);
+	if (!match) {
+		pr_err("%s end. add slave component_match failed!\n", __func__);
+		return -EINVAL;
+	}
 	return component_master_add_with_match(dev, &linlondp_master_ops,
 					       match);
 #else
