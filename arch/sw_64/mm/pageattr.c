@@ -86,7 +86,7 @@ static int __set_memory(unsigned long addr, int numpages, pgprot_t set_mask,
 				    &masks);
 	mmap_write_unlock(&init_mm);
 
-	local_flush_tlb_all();
+	flush_tlb_all();
 
 	return ret;
 }
