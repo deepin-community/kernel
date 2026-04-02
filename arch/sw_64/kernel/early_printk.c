@@ -102,6 +102,7 @@ static __init void early_serial_hw_init(unsigned long baud)
 static __init void early_serial_init(char *s)
 {
 	unsigned long baud = DEFAULT_BAUD;
+	char *opt;
 	int err;
 
 	if (*s == ',')
@@ -112,9 +113,10 @@ static __init void early_serial_init(char *s)
 		static const long bases[] __initconst = { 0xfff0803300000000ULL,
 			0xfff0903300000000ULL };
 
-		if (!strncmp(s, "ttyS", 4))
-			s += 4;
-		err = kstrtouint(s, 10, &port);
+		opt = strsep(&s, ",");
+		if (!strncmp(opt, "ttyS", 4))
+			opt += 4;
+		err = kstrtouint(opt, 10, &port);
 		if (err || port > 1)
 			port = 0;
 #ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
@@ -123,14 +125,11 @@ static __init void early_serial_init(char *s)
 #else
 		early_serial_base = bases[port];
 #endif
-		s += strcspn(s, ",");
-		if (*s == ',')
-			s++;
 	}
 
-	if (*s) {
-		err = kstrtoul(s, 0, &baud);
-		if (err || baud == 0)
+	if (s && *s) {
+		opt = strsep(&s, ",");
+		if (kstrtoul(opt, 10, &baud) || baud == 0)
 			baud = DEFAULT_BAUD;
 	}
 
