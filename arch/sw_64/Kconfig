@@ -366,6 +366,11 @@ config GENERIC_HWEIGHT
 	bool
 	default y
 
+config FIX_EARLYCON_MEM
+	bool
+	depends on SW64_KERNEL_PAGE_TABLE
+	default y
+
 config SMP
 	bool "Symmetric multi-processing support"
 	depends on SW64
