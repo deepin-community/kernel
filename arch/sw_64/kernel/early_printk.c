@@ -2,6 +2,9 @@
 #include <linux/console.h>
 #include <linux/kernel.h>
 
+#include <asm/cpu.h>
+#include <asm/early_ioremap.h>
+#include <asm/fixmap.h>
 #include <asm/io.h>
 
 static unsigned long early_serial_base;  /* ttyS0 */
@@ -113,7 +116,12 @@ static __init void early_serial_init(char *s)
 		err = kstrtouint(s, 10, &port);
 		if (err || port > 1)
 			port = 0;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+		early_serial_base = set_fixmap_offset_io(FIX_EARLYCON_MEM_BASE,
+							 bases[port] & PAGE_MASK);
+#else
 		early_serial_base = bases[port];
+#endif
 		s += strcspn(s, ",");
 		if (*s == ',')
 			s++;
