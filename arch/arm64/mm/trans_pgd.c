@@ -252,7 +252,11 @@ int trans_pgd_idmap_page(struct trans_pgd_info *info, phys_addr_t *trans_ttbr0,
 		level_mask = GENMASK_ULL(level_msb, level_lsb);
 
 		index = (dst_addr & level_mask) >> level_lsb;
+		#ifdef CONFIG_PTP
+		set_pte((pte_t *)(levels[this_level] + index), __pte(prev_level_entry));
+		#else
 		*(levels[this_level] + index) = prev_level_entry;
+		#endif
 
 		pfn = virt_to_pfn(levels[this_level]);
 		prev_level_entry = pte_val(pfn_pte(pfn,

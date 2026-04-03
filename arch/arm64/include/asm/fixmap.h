@@ -109,6 +109,10 @@ void __init fixmap_copy(pgd_t *pgdir);
 
 extern void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot);
 
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-ptp-init.h>
+#endif
+
 #include <asm-generic/fixmap.h>
 
 #endif /* !__ASSEMBLY__ */

@@ -2247,7 +2247,12 @@ static void __split_huge_zero_page_pmd(struct vm_area_struct *vma,
 	old_pmd = pmdp_huge_clear_flush(vma, haddr, pmd);
 
 	pgtable = pgtable_trans_huge_withdraw(mm, pmd);
+	#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+	WRITE_ONCE(*(&_pmd), __pmd(__phys_to_pmd_val(page_to_phys(pgtable))
+					| (PMD_TYPE_TABLE | PMD_TABLE_PXN)));
+	#else
 	pmd_populate(mm, &_pmd, pgtable);
+	#endif
 
 	pte = pte_offset_map(&_pmd, haddr);
 	VM_BUG_ON(!pte);
@@ -2421,7 +2426,12 @@ static void __split_huge_pmd_locked(struct vm_area_struct *vma, pmd_t *pmd,
 	 * This's critical for some architectures (Power).
 	 */
 	pgtable = pgtable_trans_huge_withdraw(mm, pmd);
+	#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+	WRITE_ONCE(*(&_pmd), __pmd(__phys_to_pmd_val(page_to_phys(pgtable))
+					| (PMD_TYPE_TABLE | PMD_TABLE_PXN)));
+	#else
 	pmd_populate(mm, &_pmd, pgtable);
+	#endif
 
 	pte = pte_offset_map(&_pmd, haddr);
 	VM_BUG_ON(!pte);

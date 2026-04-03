@@ -47,11 +47,12 @@ static pte_t * __init haoc_bitmap_pte_populate(pmd_t *pmd, unsigned long addr)
 		if (!p)
 			return NULL;
 
-		entry = pfn_pte(__pa(p) >> PAGE_SHIFT, PAGE_KERNEL);
+		entry = pfn_pte(__pa(p) >> PAGE_SHIFT, SET_NG(PAGE_KERNEL));
 		#ifdef CONFIG_PTP
 		write_sysreg((read_sysreg(TCR_EL1) | TCR_HPD1) & ~TCR_A1, tcr_el1);
 		isb();
 		WRITE_ONCE(*__ptr_to_iee(pte), entry);
+		dsb(ishst);
 		write_sysreg((read_sysreg(TCR_EL1) & ~TCR_HPD1) | TCR_A1, tcr_el1);
 		isb();
 		#else

@@ -42,11 +42,15 @@
 #include <asm/kfence.h>
 #ifdef CONFIG_IEE
 #include <asm/haoc/iee.h>
+#include <asm/haoc/iee-access.h>
 #include <asm/haoc/iee-mmu.h>
 #include <asm/haoc/iee-init.h>
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#endif
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-ptp-init.h>
 #endif
 
 #define NO_BLOCK_MAPPINGS	BIT(0)
@@ -82,7 +86,9 @@ unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] __page_aligned_
 EXPORT_SYMBOL(empty_zero_page);
 
 static DEFINE_SPINLOCK(swapper_pgdir_lock);
+#ifndef CONFIG_IEE
 static DEFINE_MUTEX(fixmap_lock);
+#endif
 
 void set_swapper_pgd(pgd_t *pgdp, pgd_t pgd)
 {
@@ -114,6 +120,11 @@ EXPORT_SYMBOL(phys_mem_access_prot);
 static phys_addr_t __init early_pgtable_alloc(int shift)
 {
 	phys_addr_t phys;
+
+#ifdef CONFIG_PTP
+	if (haoc_enabled)
+		return early_iee_pgtable_alloc(shift);
+#endif
 
 	phys = memblock_phys_alloc_range(PAGE_SIZE, PAGE_SIZE, 0,
 					 MEMBLOCK_ALLOC_NOLEAKTRACE);
@@ -421,7 +432,7 @@ static void __create_pgd_mapping(pgd_t *pgdir, phys_addr_t phys,
 {
 	mutex_lock(&fixmap_lock);
 	#ifdef CONFIG_IEE
-	if (haoc_enabled)
+	if (haoc_enabled && !iee_init_done)
 		__iee_create_pgd_mapping_locked(pgdir, phys, virt, size, prot,
 				pgtable_alloc, flags);
 	else
@@ -443,10 +454,15 @@ void create_kpti_ng_temp_pgd(pgd_t *pgdir, phys_addr_t phys, unsigned long virt,
 
 static phys_addr_t __pgd_pgtable_alloc(int shift)
 {
-	/* Page is zeroed by init_clear_pgtable() so don't duplicate effort. */
-	void *ptr = (void *)__get_free_page(GFP_PGTABLE_KERNEL & ~__GFP_ZERO);
-
+	#ifdef CONFIG_PTP
+	void *ptr = iee_cache_alloc(&pg_cache, GFP_PGTABLE_KERNEL);
+	#else
+	void *ptr = (void *)__get_free_page(GFP_PGTABLE_KERNEL);
+	#endif
 	BUG_ON(!ptr);
+
+	/* Ensure the zeroed page is visible to the page table walker */
+	dsb(ishst);
 	return __pa(ptr);
 }
 
@@ -484,8 +500,13 @@ void __init create_mapping_noalloc(phys_addr_t phys, unsigned long virt,
 			&phys, virt);
 		return;
 	}
+	#ifdef CONFIG_PTP
+	__create_pgd_mapping_pre_init(init_mm.pgd, phys, virt, size, prot, NULL,
+			     NO_CONT_MAPPINGS);
+	#else
 	__create_pgd_mapping(init_mm.pgd, phys, virt, size, prot, NULL,
 			     NO_CONT_MAPPINGS);
+	#endif
 }
 
 void __init create_pgd_mapping(struct mm_struct *mm, phys_addr_t phys,
@@ -522,6 +543,14 @@ static void update_mapping_prot(phys_addr_t phys, unsigned long virt,
 static void __init __map_memblock(pgd_t *pgdp, phys_addr_t start,
 				  phys_addr_t end, pgprot_t prot, int flags)
 {
+#ifdef CONFIG_PTP
+	if (haoc_enabled) {
+		__create_pgd_mapping_pre_init(pgdp, start, __phys_to_virt(start),
+					      end - start, prot,
+					      early_pgtable_alloc, flags);
+		return;
+	}
+#endif
 	__create_pgd_mapping(pgdp, start, __phys_to_virt(start), end - start,
 			     prot, early_pgtable_alloc, flags);
 }
@@ -534,6 +563,12 @@ void __init mark_linear_text_alias_ro(void)
 	update_mapping_prot(__pa_symbol(_stext), (unsigned long)lm_alias(_stext),
 			    (unsigned long)__init_begin - (unsigned long)_stext,
 			    PAGE_KERNEL_RO);
+	#ifdef CONFIG_PTP
+	if (haoc_enabled)
+		update_mapping_prot(__pa_symbol(init_pg_dir), (unsigned long)lm_alias(init_pg_dir),
+				    (unsigned long)init_pg_end - (unsigned long)init_pg_dir,
+				    PAGE_KERNEL_RO);
+	#endif
 }
 
 #ifdef CONFIG_KFENCE
@@ -595,6 +630,10 @@ static void __init map_mem(pgd_t *pgdp)
 	static const u64 direct_map_end = _PAGE_END(VA_BITS_MIN);
 	phys_addr_t kernel_start = __pa_symbol(_stext);
 	phys_addr_t kernel_end = __pa_symbol(__init_begin);
+#ifdef CONFIG_PTP
+	phys_addr_t init_pgtable_start = __pa_symbol(init_pg_dir);
+	phys_addr_t init_pgtable_end = __pa_symbol(init_pg_end);
+#endif
 	phys_addr_t start, end;
 	phys_addr_t early_kfence_pool;
 	int flags = NO_EXEC_MAPPINGS;
@@ -621,6 +660,9 @@ static void __init map_mem(pgd_t *pgdp)
 	 * the following for-loop
 	 */
 	memblock_mark_nomap(kernel_start, kernel_end - kernel_start);
+	#ifdef CONFIG_PTP
+	memblock_mark_nomap(init_pgtable_start, init_pgtable_end - init_pgtable_start);
+	#endif
 
 	/* map all the memory banks */
 	for_each_mem_range(i, &start, &end) {
@@ -648,6 +690,11 @@ static void __init map_mem(pgd_t *pgdp)
 	__map_memblock(pgdp, kernel_start, kernel_end,
 		       PAGE_KERNEL, NO_CONT_MAPPINGS);
 	memblock_clear_nomap(kernel_start, kernel_end - kernel_start);
+	#ifdef CONFIG_PTP
+	__map_memblock(pgdp, init_pgtable_start, init_pgtable_end,
+		       PAGE_KERNEL, NO_CONT_MAPPINGS);
+	memblock_clear_nomap(init_pgtable_start, init_pgtable_end - init_pgtable_start);
+	#endif
 	arm64_kfence_map_pool(early_kfence_pool, pgdp);
 }
 
@@ -662,6 +709,13 @@ void mark_rodata_ro(void)
 	section_size = (unsigned long)__init_begin - (unsigned long)__start_rodata;
 	update_mapping_prot(__pa_symbol(__start_rodata), (unsigned long)__start_rodata,
 			    section_size, PAGE_KERNEL_RO);
+	#ifdef CONFIG_PTP
+	if (haoc_enabled) {
+		section_size = (unsigned long)init_pg_end - (unsigned long)init_pg_dir;
+		update_mapping_prot(__pa_symbol(init_pg_dir), (unsigned long)init_pg_dir,
+				    section_size, PAGE_KERNEL_RO);
+	}
+	#endif
 
 	debug_checkwx();
 }
@@ -708,7 +762,14 @@ static int __init map_entry_trampoline(void)
 	pgprot_val(prot) &= ~PTE_NG;
 
 	/* Map only the text into the trampoline page table */
+	#ifdef CONFIG_PTP
+	if (haoc_enabled)
+		iee_memset(__va(__pa_symbol(tramp_pg_dir)), 0, PGD_SIZE);
+	else
+		memset(tramp_pg_dir, 0, PGD_SIZE);
+	#else
 	memset(tramp_pg_dir, 0, PGD_SIZE);
+	#endif
 	__create_pgd_mapping(tramp_pg_dir, pa_start, TRAMP_VALIAS,
 			     entry_tramp_text_size(), prot,
 			     __pgd_pgtable_alloc, NO_BLOCK_MAPPINGS);
@@ -807,7 +868,8 @@ static void __init map_kernel(pgd_t *pgdp)
 				// 只有当IEE数据段非空时才创建分离的映射
 				map_kernel_segment(pgdp, _data, iee_init_data_end, PAGE_KERNEL,
 						 &vmlinux_iee_init_data, NO_CONT_MAPPINGS | NO_BLOCK_MAPPINGS, VM_NO_GUARD);
-				map_kernel_segment(pgdp, iee_init_data_end, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
+				map_kernel_segment(pgdp, iee_init_data_end, _end, PAGE_KERNEL,
+						   &vmlinux_data, NO_CONT_MAPPINGS, 0);
 			} else {
 				pr_info("IEE: No IEE init data, using standard data mapping\n");
 				map_kernel_segment(pgdp, _data, _end, PAGE_KERNEL, &vmlinux_data, 0, 0);
@@ -879,8 +941,11 @@ void __init paging_init(void)
 	init_early_iee_data();
 	#endif
 
-	memblock_phys_free(__pa_symbol(init_pg_dir),
-			   __pa_symbol(init_pg_end) - __pa_symbol(init_pg_dir));
+	#ifdef CONFIG_IEE
+	if (!haoc_enabled)
+	#endif
+		memblock_phys_free(__pa_symbol(init_pg_dir),
+				   __pa_symbol(init_pg_end) - __pa_symbol(init_pg_dir));
 
 	memblock_allow_resize();
 
@@ -905,7 +970,11 @@ static void free_hotplug_page_range(struct page *page, size_t size,
 
 static void free_hotplug_pgtable_page(struct page *page)
 {
+#ifdef CONFIG_PTP
+	pagetable_free(virt_to_ptdesc(page_to_virt(page)));
+#else
 	free_hotplug_page_range(page, PAGE_SIZE, NULL);
+#endif
 }
 
 static bool pgtable_range_aligned(unsigned long start, unsigned long end,

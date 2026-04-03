@@ -94,7 +94,11 @@ static int __init arm_enable_runtime_services(void)
 		return 0;
 	}
 
+	#ifdef CONFIG_PTP
+	efi_memmap_unmap_after_init();
+	#else
 	efi_memmap_unmap();
+	#endif
 
 	mapsize = efi.memmap.desc_size * efi.memmap.nr_map;
 

@@ -40,7 +40,11 @@ static void __iomem * __init earlycon_map(resource_size_t paddr, size_t size)
 {
 	void __iomem *base;
 #ifdef CONFIG_FIX_EARLYCON_MEM
+	#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+	__iee_set_fixmap_pre_init(FIX_EARLYCON_MEM_BASE, paddr & PAGE_MASK, FIXMAP_PAGE_IO);
+	#else
 	set_fixmap_io(FIX_EARLYCON_MEM_BASE, paddr & PAGE_MASK);
+	#endif
 	base = (void __iomem *)__fix_to_virt(FIX_EARLYCON_MEM_BASE);
 	base += paddr & ~PAGE_MASK;
 #else

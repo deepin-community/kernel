@@ -238,7 +238,11 @@ int __ptep_set_access_flags(struct vm_area_struct *vma,
 		pteval ^= PTE_RDONLY;
 		pteval |= pte_val(entry);
 		pteval ^= PTE_RDONLY;
+		#ifdef CONFIG_PTP
+		pteval = iee_set_cmpxchg_relaxed(ptep, old_pteval, pteval);
+		#else
 		pteval = cmpxchg_relaxed(&pte_val(*ptep), old_pteval, pteval);
+		#endif
 	} while (pteval != old_pteval);
 
 	/* Invalidate a stale read-only entry */
