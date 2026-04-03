@@ -17,6 +17,7 @@
 
 struct iee_cache pg_cache;
 
+int expend_num;
 #ifdef CONFIG_X86_64
 static LIST_HEAD(iee_cache_pending_protect_list);
 static DEFINE_SPINLOCK(iee_cache_pending_protect_lock);
@@ -72,6 +73,9 @@ static void __ptp_set_iee_pages(unsigned long start_addr, unsigned long end_addr
 				struct iee_cache *cache)
 {
 	unsigned long addr;
+
+	if (!haoc_enabled)
+		return;
 
 	if (start_addr != ALIGN(start_addr, PMD_SIZE))
 		panic("IEE: pool (HAOC_BITMAP_TYPE %u) not PMD-aligned.",
@@ -150,7 +154,7 @@ void __init iee_cache_init(struct iee_cache *cache, unsigned long object_order,
 
 #ifdef CONFIG_ARM64
 /* Expand the cache pool with PMD_SIZE for each time. */
-static int __ref iee_cache_expand(struct iee_cache *cache, gfp_t gfp)
+static __maybe_unused int __ref iee_cache_expand(struct iee_cache *cache, gfp_t gfp)
 {
 	unsigned long addr;
 	unsigned long addr_next;
@@ -201,6 +205,9 @@ redo:
 	if (unlikely(!__update_freelist(cache, freelist, (void *)start_addr, tid)))
 		goto redo;
 
+	expend_num++;
+	pr_alert("gwm %s num %d , start_addr: 0x%lx, end_addr: 0x%lx, start_addr-end_addr: 0x%lx\n",
+		 __func__, expend_num, start_addr, end_addr, start_addr - end_addr);
 	return 1;
 }
 #endif
@@ -223,8 +230,8 @@ redo:
 	if (unlikely(!object)) {
 		// slow path alloc
 #ifdef CONFIG_ARM64
-		if (iee_cache_expand(cache, gfp) || READ_ONCE(cache->freelist))
-			goto redo;
+		// if (iee_cache_expand(cache, gfp) || READ_ONCE(cache->freelist))
+		// goto redo;
 
 		/* If the expandsion failed, alloc a singel object without RO protection to
 		 * avoid block spliting.
@@ -233,13 +240,13 @@ redo:
 		if (!object)
 			return NULL;
 		set_iee_address_valid((unsigned long)object, cache->object_order);
-		iee_set_bitmap_type((unsigned long)object, 1 << cache->object_order, cache->name);
+		iee_set_bitmap_type((unsigned long)object, 1 << cache->object_order, IEE_PGTABLE);
 #ifdef DEBUG
 		WARN_ONCE(1, "IEE: Failed on HAOC_BITMAP_TYPE %u expansion.",
 			  (unsigned int)cache->name);
 		atomic_add(1 << cache->object_order, &cache->fail_count);
 		#endif
-		#else
+#else
 		if (!preemptible())
 			return iee_cache_alloc_pending_protect(cache, gfp);
 		object = (void *)__get_free_pages(gfp, cache->object_order);
@@ -402,12 +409,25 @@ void iee_cache_free(struct iee_cache *cache, void *object)
 	}
 #endif
 
+#ifdef CONFIG_ARM64
+	if (unlikely((unsigned long)object < cache->reserve_start_addr
+		|| (unsigned long)object >= cache->reserve_end_addr)) {
+
+		set_iee_address_invalid((unsigned long)object, cache->object_order);
+		iee_set_bitmap_type((unsigned long)object, 1 << cache->object_order, IEE_NORMAL);
+		free_pages((unsigned long)object, cache->object_order);
+		return;
+	}
+#endif
 	// fast path free
 redo:
 	tid = READ_ONCE(cache->tid);
 	barrier();
 	freelist = READ_ONCE(cache->freelist);
 	__iee_set_freepointer(object, freelist);
+#ifdef CONFIG_ARM64
+	dsb(sy);
+#endif
 	if (unlikely(!__update_freelist(cache, freelist, object, tid)))
 		goto redo;
 }
