@@ -14,6 +14,9 @@
 #include <asm/tlbflush.h>
 
 #define __HAVE_ARCH_PGD_FREE
+#if CONFIG_PGTABLE_LEVELS > 3
+#define __HAVE_ARCH_PUD_FREE
+#endif
 #include <asm-generic/pgalloc.h>
 
 #define PGD_SIZE	(PTRS_PER_PGD * sizeof(pgd_t))
@@ -52,6 +55,18 @@ static inline void p4d_populate(struct mm_struct *mm, p4d_t *p4dp, pud_t *pudp)
 
 	p4dval |= (mm == &init_mm) ? P4D_TABLE_UXN : P4D_TABLE_PXN;
 	__p4d_populate(p4dp, __pa(pudp), p4dval);
+}
+
+static inline void pud_free(struct mm_struct *mm, pud_t *pud)
+{
+	if (!pgtable_l4_enabled())
+		return;
+	BUG_ON((unsigned long)pud & (PAGE_SIZE-1));
+#ifdef CONFIG_PTP
+	pagetable_free(virt_to_ptdesc(pud));
+#else
+	free_page((unsigned long)pud);
+#endif
 }
 #else
 static inline void __p4d_populate(p4d_t *p4dp, phys_addr_t pudp, p4dval_t prot)

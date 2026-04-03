@@ -1,13 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/*
- * Copyright (C) 2012 ARM Ltd.
- */
-#ifndef __ASM_PGTABLE_H
-#define __ASM_PGTABLE_H
-
-#ifdef CONFIG_PTP
-#include <asm/haoc/iee-pgtable.h>
-#else
+/* SPDX-License-Identifier: GPL-2.0 */
+#ifndef __ASM_IEE_PGTABLE_H
+#define __ASM_IEE_PGTABLE_H
 
 #include <asm/bug.h>
 #include <asm/proc-fns.h>
@@ -29,7 +22,8 @@
 #define VMALLOC_END		(VMEMMAP_START - SZ_8M)
 #else
 #define VMEMMAP_UNUSED_NPAGES	((_PAGE_OFFSET(vabits_actual) - PAGE_OFFSET) >> PAGE_SHIFT)
-#define VMALLOC_END		(VMEMMAP_START + VMEMMAP_UNUSED_NPAGES * sizeof(struct page) - SZ_8M)
+#define VMALLOC_END		(VMEMMAP_START + VMEMMAP_UNUSED_NPAGES * \
+				 sizeof(struct page) - SZ_8M)
 #endif
 
 #define vmemmap			((struct page *)VMEMMAP_START - (memstart_addr >> PAGE_SHIFT))
@@ -42,6 +36,203 @@
 #include <linux/mm_types.h>
 #include <linux/sched.h>
 #include <linux/page_table_check.h>
+#include <asm/haoc/iee-fixmap.h>
+#include <asm/haoc/haoc-def.h>
+
+#ifndef CYDP_CLEAR_YOUNG
+typedef unsigned int cydp_t;
+#define CYDP_CLEAR_YOUNG	(1U << 0)
+#define CYDP_CLEAR_DIRTY	(1U << 1)
+#endif
+
+extern pgd_t tramp_pg_dir[];
+extern pgd_t idmap_pg_dir[];
+extern pgd_t init_pg_dir[];
+extern pgd_t init_pg_end[];
+
+extern int __pmdp_set_access_flags(struct vm_area_struct *vma,
+					 unsigned long address, pmd_t *pmdp,
+					 pmd_t entry, int dirty);
+extern bool haoc_enabled;
+extern bool iee_init_done;
+
+static inline bool iee_pgtable_ready(void)
+{
+	return haoc_enabled && iee_init_done;
+}
+
+static inline bool in_swapper_pgdir(void *addr);
+static void iee_set_swapper_pgd_pre_init(pgd_t *pgdp, pgd_t pgd);
+
+static inline bool in_tramp_pgdir(void *addr)
+{
+	return ((unsigned long)addr & PAGE_MASK) ==
+			((unsigned long)tramp_pg_dir & PAGE_MASK);
+}
+
+static inline bool in_idmap_pgdir(void *addr)
+{
+	return ((unsigned long)addr & PAGE_MASK) ==
+			((unsigned long)idmap_pg_dir & PAGE_MASK);
+}
+
+static inline void iee_set_pte_pre_init(pte_t *ptep, pte_t pte)
+{
+	WRITE_ONCE(*ptep, pte);
+
+	/*
+	 * Only if the new pte is valid and kernel, otherwise TLB maintenance
+	 * or update_mmu_cache() have the necessary barriers.
+	 */
+	dsb(ishst);
+	isb();
+}
+
+static inline void iee_set_pmd_pre_init(pmd_t *pmdp, pmd_t pmd)
+{
+#ifdef __PAGETABLE_PMD_FOLDED
+	if (in_swapper_pgdir(pmdp)) {
+		iee_set_swapper_pgd_pre_init((pgd_t *)pmdp, __pgd(pmd_val(pmd)));
+		return;
+	}
+#endif /* __PAGETABLE_PMD_FOLDED */
+
+	WRITE_ONCE(*pmdp, pmd);
+
+	dsb(ishst);
+	isb();
+}
+
+static inline void iee_set_pud_pre_init(pud_t *pudp, pud_t pud)
+{
+	#ifdef __PAGETABLE_PUD_FOLDED
+	if (in_swapper_pgdir(pudp)) {
+		iee_set_swapper_pgd_pre_init((pgd_t *)pudp, __pgd(pud_val(pud)));
+		return;
+	}
+	#endif
+
+	WRITE_ONCE(*pudp, pud);
+
+	dsb(ishst);
+	isb();
+}
+
+static inline void __maybe_unused iee_set_p4d_pre_init(p4d_t *p4dp, p4d_t p4d)
+{
+	if (in_swapper_pgdir(p4dp)) {
+		iee_set_swapper_pgd_pre_init((pgd_t *)p4dp, __pgd(p4d_val(p4d)));
+		return;
+	}
+
+	WRITE_ONCE(*p4dp, p4d);
+	dsb(ishst);
+	isb();
+}
+
+static inline void iee_set_pgd_pre_init(pgd_t *pgdp, pgd_t pgd)
+{
+	if (in_swapper_pgdir(pgdp)) {
+		iee_set_swapper_pgd_pre_init(pgdp, __pgd(pgd_val(pgd)));
+		return;
+	}
+
+	WRITE_ONCE(*pgdp, pgd);
+	dsb(ishst);
+	isb();
+}
+
+#define pte_set_fixmap_pre_init(addr)	\
+	((pte_t *)iee_set_fixmap_offset_pre_init(FIX_PTE, addr))
+#define pte_set_fixmap_offset_pre_init(pmd, addr)	\
+	pte_set_fixmap_pre_init(pte_offset_phys(pmd, addr))
+#define pte_clear_fixmap_pre_init()		clear_fixmap_pre_init(FIX_PTE)
+
+#define pmd_set_fixmap_pre_init(addr)	\
+	((pmd_t *)iee_set_fixmap_offset_pre_init(FIX_PMD, addr))
+#define pmd_set_fixmap_offset_pre_init(pud, addr)	\
+	pmd_set_fixmap_pre_init(pmd_offset_phys(pud, addr))
+#define pmd_clear_fixmap_pre_init()		clear_fixmap_pre_init(FIX_PMD)
+
+#define pud_set_fixmap_pre_init(addr)	\
+	((pud_t *)iee_set_fixmap_offset_pre_init(FIX_PUD, addr))
+#define pud_set_fixmap_offset_pre_init(p4d, addr)\
+	pud_set_fixmap_pre_init(pud_offset_phys(p4d, addr))
+#define pud_clear_fixmap_pre_init()		clear_fixmap_pre_init(FIX_PUD)
+
+#define pgd_set_fixmap_pre_init(addr)	\
+	((pgd_t *)iee_set_fixmap_offset_pre_init(FIX_PGD, addr))
+#define pgd_clear_fixmap_pre_init()		clear_fixmap_pre_init(FIX_PGD)
+
+static void iee_set_swapper_pgd_pre_init(pgd_t *pgdp, pgd_t pgd)
+{
+	WRITE_ONCE(*pgdp, pgd);
+	dsb(ishst);
+	isb();
+}
+
+static inline pteval_t iee_set_xchg_relaxed(pte_t *ptep, pteval_t pteval)
+{
+	pteval_t ret;
+
+	if (iee_pgtable_ready())
+		ret = iee_rw_gate(IEE_OP_SET_XCHG, ptep, pteval);
+	else
+		ret = xchg_relaxed((pteval_t *)ptep, pteval);
+	return (pteval_t)ret;
+}
+
+static inline pmdval_t iee_set_pmd_xchg_relaxed(pmd_t *pmdp, pmdval_t pmdval)
+{
+	pmdval_t ret;
+
+	if (iee_pgtable_ready())
+		ret = iee_rw_gate(IEE_OP_SET_PMD_XCHG, pmdp, pmdval);
+	else
+		ret = xchg_relaxed((pmdval_t *)pmdp, pmdval);
+	return (pmdval_t)ret;
+}
+
+static inline pteval_t iee_set_cmpxchg_relaxed(pte_t *ptep, pteval_t old_pteval,
+			pteval_t new_pteval)
+{
+	pteval_t ret;
+
+	if (iee_pgtable_ready())
+		ret = iee_rw_gate(IEE_OP_SET_CMPXCHG, ptep, old_pteval, new_pteval);
+	else
+		ret = cmpxchg_relaxed((pteval_t *)ptep, old_pteval, new_pteval);
+	return ret;
+}
+
+static inline pmdval_t iee_set_pmd_cmpxchg_relaxed(pmd_t *pmdp, pmdval_t old_pmdval,
+			pmdval_t new_pmdval)
+{
+	pmdval_t ret;
+
+	if (iee_pgtable_ready())
+		ret = iee_rw_gate(IEE_OP_SET_PMD_CMPXCHG, pmdp, old_pmdval, new_pmdval);
+	else
+		ret = cmpxchg_relaxed((pmdval_t *)pmdp, old_pmdval, new_pmdval);
+	return ret;
+}
+
+static inline void iee_set_static_pgd(pgd_t *pgdp, pgd_t pgd)
+{
+	iee_rw_gate(IEE_OP_SET_TRAMP_PGD, pgdp, pgd);
+}
+
+static inline void iee_set_bm_pte(pte_t *ptep, pte_t pte)
+{
+	iee_rw_gate(IEE_OP_SET_BM_PTE, ptep, pte);
+
+	/*
+	 * Only if the new pte is valid and kernel, otherwise TLB maintenance
+	 * or update_mmu_cache() have the necessary barriers.
+	 */
+	dsb(ishst);
+	isb();
+}
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 #define __HAVE_ARCH_FLUSH_PMD_TLB_RANGE
@@ -52,12 +243,6 @@
 #define flush_pud_tlb_range(vma, addr, end)	\
 	__flush_tlb_range(vma, addr, end, PUD_SIZE, false, 1)
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
-
-static inline bool arch_thp_swp_supported(void)
-{
-	return !system_supports_mte();
-}
-#define arch_thp_swp_supported arch_thp_swp_supported
 
 /*
  * Outside of a few very special situations (e.g. hibernation), we always
@@ -84,6 +269,7 @@ extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
 #ifdef CONFIG_ARM64_PA_BITS_52
 static inline phys_addr_t __pte_to_phys(pte_t pte)
 {
+	pte_val(pte) &= ~PTE_MAYBE_SHARED;
 	return (pte_val(pte) & PTE_ADDR_LOW) |
 		((pte_val(pte) & PTE_ADDR_HIGH) << PTE_ADDR_HIGH_SHIFT);
 }
@@ -97,7 +283,7 @@ static inline pteval_t __phys_to_pte_val(phys_addr_t phys)
 #endif
 
 #define pte_pfn(pte)		(__pte_to_phys(pte) >> PAGE_SHIFT)
-#define pfn_pte(pfn,prot)	\
+#define pfn_pte(pfn, prot)	\
 	__pte(__phys_to_pte_val((phys_addr_t)(pfn) << PAGE_SHIFT) | pgprot_val(prot))
 
 #define pte_none(pte)		(!pte_val(pte))
@@ -164,7 +350,8 @@ static inline pteval_t __phys_to_pte_val(phys_addr_t phys)
  * PTE_VALID bit set.
  */
 #define pte_access_permitted(pte, write) \
-	(((pte_val(pte) & (PTE_VALID | PTE_USER)) == (PTE_VALID | PTE_USER)) && (!(write) || pte_write(pte)))
+	(((pte_val(pte) & (PTE_VALID | PTE_USER)) ==\
+			(PTE_VALID | PTE_USER)) && (!(write) || pte_write(pte)))
 #define pmd_access_permitted(pmd, write) \
 	(pte_access_permitted(pmd_pte(pmd), (write)))
 #define pud_access_permitted(pud, write) \
@@ -197,7 +384,8 @@ static inline pmd_t set_pmd_bit(pmd_t pmd, pgprot_t prot)
 static inline pte_t pte_mkwrite_novma(pte_t pte)
 {
 	pte = set_pte_bit(pte, __pgprot(PTE_WRITE));
-	pte = clear_pte_bit(pte, __pgprot(PTE_RDONLY));
+	if (pte_sw_dirty(pte))
+		pte = clear_pte_bit(pte, __pgprot(PTE_RDONLY));
 	return pte;
 }
 
@@ -274,23 +462,20 @@ static inline pte_t pte_mkdevmap(pte_t pte)
 	return set_pte_bit(pte, __pgprot(PTE_DEVMAP | PTE_SPECIAL));
 }
 
-static inline void __set_pte_nosync(pte_t *ptep, pte_t pte)
+static inline void set_pte_nosync(pte_t *ptep, pte_t pte)
 {
 	WRITE_ONCE(*ptep, pte);
 }
 
 static inline void __set_pte(pte_t *ptep, pte_t pte)
 {
-	__set_pte_nosync(ptep, pte);
+	if (iee_pgtable_ready())
+		iee_rw_gate(IEE_OP_SET_PTE, ptep, pte);
+	else
+		WRITE_ONCE(*ptep, pte);
 
-	/*
-	 * Only if the new pte is valid and kernel, otherwise TLB maintenance
-	 * or update_mmu_cache() have the necessary barriers.
-	 */
-	if (pte_valid_not_user(pte)) {
-		dsb(ishst);
-		isb();
-	}
+	dsb(ishst);
+	isb();
 }
 
 static inline pte_t __ptep_get(pte_t *ptep)
@@ -367,6 +552,7 @@ static inline void __sync_cache_and_tags(pte_t pte, unsigned int nr_pages)
 /*
  * Select all bits except the pfn
  */
+#define pte_pgprot pte_pgprot
 static inline pgprot_t pte_pgprot(pte_t pte)
 {
 	unsigned long pfn = pte_pfn(pte);
@@ -539,11 +725,20 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 	return pte_pmd(set_pte_bit(pmd_pte(pmd), __pgprot(PTE_DEVMAP)));
 }
 
+#ifdef CONFIG_ARCH_SUPPORTS_PMD_PFNMAP
+#define pmd_special(pte)	(!!((pmd_val(pte) & PTE_SPECIAL)))
+static inline pmd_t pmd_mkspecial(pmd_t pmd)
+{
+	return set_pmd_bit(pmd, __pgprot(PTE_SPECIAL));
+}
+#endif
+
 #define __pmd_to_phys(pmd)	__pte_to_phys(pmd_pte(pmd))
 #define __phys_to_pmd_val(phys)	__phys_to_pte_val(phys)
 #define pmd_pfn(pmd)		((__pmd_to_phys(pmd) & PMD_MASK) >> PAGE_SHIFT)
-#define pfn_pmd(pfn,prot)	__pmd(__phys_to_pmd_val((phys_addr_t)(pfn) << PAGE_SHIFT) | pgprot_val(prot))
-#define mk_pmd(page,prot)	pfn_pmd(page_to_pfn(page),prot)
+#define pfn_pmd(pfn, prot)	__pmd(__phys_to_pmd_val((phys_addr_t)(pfn) << PAGE_SHIFT)\
+				| pgprot_val(prot))
+#define mk_pmd(page, prot)	pfn_pmd(page_to_pfn(page), prot)
 
 #define pud_young(pud)		pte_young(pud_pte(pud))
 #define pud_mkyoung(pud)	pte_pud(pte_mkyoung(pud_pte(pud)))
@@ -554,7 +749,24 @@ static inline pmd_t pmd_mkdevmap(pmd_t pmd)
 #define __pud_to_phys(pud)	__pte_to_phys(pud_pte(pud))
 #define __phys_to_pud_val(phys)	__phys_to_pte_val(phys)
 #define pud_pfn(pud)		((__pud_to_phys(pud) & PUD_MASK) >> PAGE_SHIFT)
-#define pfn_pud(pfn,prot)	__pud(__phys_to_pud_val((phys_addr_t)(pfn) << PAGE_SHIFT) | pgprot_val(prot))
+#define pfn_pud(pfn, prot)	__pud(__phys_to_pud_val((phys_addr_t)(pfn) << PAGE_SHIFT)\
+			| pgprot_val(prot))
+
+#define pmd_pgprot pmd_pgprot
+static inline pgprot_t pmd_pgprot(pmd_t pmd)
+{
+	unsigned long pfn = pmd_pfn(pmd);
+
+	return __pgprot(pmd_val(pfn_pmd(pfn, __pgprot(0))) ^ pmd_val(pmd));
+}
+
+#define pud_pgprot pud_pgprot
+static inline pgprot_t pud_pgprot(pud_t pud)
+{
+	unsigned long pfn = pud_pfn(pud);
+
+	return __pgprot(pud_val(pfn_pud(pfn, __pgprot(0))) ^ pud_val(pud));
+}
 
 static inline void __set_pte_at(struct mm_struct *mm,
 				unsigned long __always_unused addr,
@@ -587,11 +799,18 @@ static inline void set_pud_at(struct mm_struct *mm, unsigned long addr,
 #define __pgd_to_phys(pgd)	__pte_to_phys(pgd_pte(pgd))
 #define __phys_to_pgd_val(phys)	__phys_to_pte_val(phys)
 
-#define __pgprot_modify(prot,mask,bits) \
+#define __pgprot_modify(prot, mask, bits) \
 	__pgprot((pgprot_val(prot) & ~(mask)) | (bits))
 
 #define pgprot_nx(prot) \
 	__pgprot_modify(prot, PTE_MAYBE_GP, PTE_PXN)
+
+#ifdef PROT_NS_SHARED
+#define pgprot_decrypted(prot) \
+	__pgprot_modify(prot, PROT_NS_SHARED, PROT_NS_SHARED)
+#define pgprot_encrypted(prot) \
+	__pgprot_modify(prot, PROT_NS_SHARED, 0)
+#endif
 
 /*
  * Mark the prot value as uncacheable and unbufferable.
@@ -656,7 +875,7 @@ extern void set_swapper_pgd(pgd_t *pgdp, pgd_t pgd);
 static inline bool in_swapper_pgdir(void *addr)
 {
 	return ((unsigned long)addr & PAGE_MASK) ==
-	        ((unsigned long)swapper_pg_dir & PAGE_MASK);
+			((unsigned long)swapper_pg_dir & PAGE_MASK);
 }
 
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
@@ -668,7 +887,10 @@ static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 	}
 #endif /* __PAGETABLE_PMD_FOLDED */
 
-	WRITE_ONCE(*pmdp, pmd);
+	if (iee_pgtable_ready())
+		iee_rw_gate(IEE_OP_SET_PMD, pmdp, pmd);
+	else
+		WRITE_ONCE(*pmdp, pmd);
 
 	if (pmd_valid(pmd)) {
 		dsb(ishst);
@@ -692,7 +914,8 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 }
 
 /* Find an entry in the third-level page table. */
-#define pte_offset_phys(dir,addr)	(pmd_page_paddr(READ_ONCE(*(dir))) + pte_index(addr) * sizeof(pte_t))
+#define pte_offset_phys(dir, addr)	(pmd_page_paddr(READ_ONCE(*(dir)))	\
+			+ pte_index(addr) * sizeof(pte_t))
 
 #define pte_set_fixmap(addr)		((pte_t *)set_fixmap_offset(FIX_PTE, addr))
 #define pte_set_fixmap_offset(pmd, addr)	pte_set_fixmap(pte_offset_phys(pmd, addr))
@@ -701,13 +924,13 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 #define pmd_page(pmd)			phys_to_page(__pmd_to_phys(pmd))
 
 /* use ONLY for statically allocated translation tables */
-#define pte_offset_kimg(dir,addr)	((pte_t *)__phys_to_kimg(pte_offset_phys((dir), (addr))))
+#define pte_offset_kimg(dir, addr)	((pte_t *)__phys_to_kimg(pte_offset_phys((dir), (addr))))
 
 /*
  * Conversion functions: convert a page and protection to a page entry,
  * and a page entry and page directory to the page they refer to.
  */
-#define mk_pte(page,prot)	pfn_pte(page_to_pfn(page),prot)
+#define mk_pte(page, prot)	pfn_pte(page_to_pfn(page), prot)
 
 #if CONFIG_PGTABLE_LEVELS > 2
 
@@ -715,8 +938,7 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 	pr_err("%s:%d: bad pmd %016llx.\n", __FILE__, __LINE__, pmd_val(e))
 
 #define pud_none(pud)		(!pud_val(pud))
-#define pud_bad(pud)		((pud_val(pud) & PUD_TYPE_MASK) != \
-				 PUD_TYPE_TABLE)
+#define pud_bad(pud)		(!pud_table(pud))
 #define pud_present(pud)	pte_present(pud_pte(pud))
 #define pud_leaf(pud)		(pud_present(pud) && !pud_table(pud))
 #define pud_valid(pud)		pte_valid(pud_pte(pud))
@@ -732,7 +954,10 @@ static inline void set_pud(pud_t *pudp, pud_t pud)
 	}
 #endif /* __PAGETABLE_PUD_FOLDED */
 
-	WRITE_ONCE(*pudp, pud);
+	if (iee_pgtable_ready())
+		iee_rw_gate(IEE_OP_SET_PUD, pudp, pud);
+	else
+		WRITE_ONCE(*pudp, pud);
 
 	if (pud_valid(pud)) {
 		dsb(ishst);
@@ -756,7 +981,8 @@ static inline pmd_t *pud_pgtable(pud_t pud)
 }
 
 /* Find an entry in the second-level page table. */
-#define pmd_offset_phys(dir, addr)	(pud_page_paddr(READ_ONCE(*(dir))) + pmd_index(addr) * sizeof(pmd_t))
+#define pmd_offset_phys(dir, addr)	(pud_page_paddr(READ_ONCE(*(dir)))	\
+			+ pmd_index(addr) * sizeof(pmd_t))
 
 #define pmd_set_fixmap(addr)		((pmd_t *)set_fixmap_offset(FIX_PMD, addr))
 #define pmd_set_fixmap_offset(pud, addr)	pmd_set_fixmap(pmd_offset_phys(pud, addr))
@@ -765,7 +991,7 @@ static inline pmd_t *pud_pgtable(pud_t pud)
 #define pud_page(pud)			phys_to_page(__pud_to_phys(pud))
 
 /* use ONLY for statically allocated translation tables */
-#define pmd_offset_kimg(dir,addr)	((pmd_t *)__phys_to_kimg(pmd_offset_phys((dir), (addr))))
+#define pmd_offset_kimg(dir, addr)	((pmd_t *)__phys_to_kimg(pmd_offset_phys((dir), (addr))))
 
 #else
 
@@ -777,19 +1003,38 @@ static inline pmd_t *pud_pgtable(pud_t pud)
 #define pmd_set_fixmap_offset(pudp, addr)	((pmd_t *)pudp)
 #define pmd_clear_fixmap()
 
-#define pmd_offset_kimg(dir,addr)	((pmd_t *)dir)
+#define pmd_offset_kimg(dir, addr)	((pmd_t *)dir)
 
 #endif	/* CONFIG_PGTABLE_LEVELS > 2 */
 
 #if CONFIG_PGTABLE_LEVELS > 3
 
+static __always_inline bool pgtable_l4_enabled(void)
+{
+#if defined(CONFIG_ARM64_LPA2) && defined(ARM64_HAS_VA52)
+	if (CONFIG_PGTABLE_LEVELS > 4 || !IS_ENABLED(CONFIG_ARM64_LPA2))
+		return true;
+	if (!alternative_has_cap_likely(ARM64_ALWAYS_BOOT))
+		return vabits_actual == VA_BITS;
+	return alternative_has_cap_unlikely(ARM64_HAS_VA52);
+#else
+	return true;
+#endif
+}
+
+static inline bool mm_pud_folded(const struct mm_struct *mm)
+{
+	return !pgtable_l4_enabled();
+}
+#define mm_pud_folded  mm_pud_folded
+
 #define pud_ERROR(e)	\
 	pr_err("%s:%d: bad pud %016llx.\n", __FILE__, __LINE__, pud_val(e))
 
-#define p4d_none(p4d)		(!p4d_val(p4d))
-#define p4d_bad(p4d)		(!(p4d_val(p4d) & 2))
-#define p4d_present(p4d)	(p4d_val(p4d))
-
+#define p4d_none(p4d)		(pgtable_l4_enabled() && !p4d_val(p4d))
+#define p4d_bad(p4d)		(pgtable_l4_enabled() && !(p4d_val(p4d) & 2))
+#define p4d_present(p4d)	(!p4d_none(p4d))
+extern bool check_addr_in_iee_valid(unsigned long addr);
 static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 {
 	if (in_swapper_pgdir(p4dp)) {
@@ -797,19 +1042,53 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 		return;
 	}
 
-	WRITE_ONCE(*p4dp, p4d);
+	if (in_tramp_pgdir(p4dp)) {
+		if (iee_pgtable_ready())
+			iee_set_static_pgd((pgd_t *)p4dp, __pgd(p4d_val(p4d)));
+		else {
+			WRITE_ONCE(*(pgd_t *)p4dp, __pgd(p4d_val(p4d)));
+			dsb(ishst);
+			isb();
+		}
+		return;
+	}
+
+	if (in_idmap_pgdir(p4dp)) {
+		if (iee_pgtable_ready())
+			iee_set_static_pgd((pgd_t *)p4dp, __pgd(p4d_val(p4d)));
+		else {
+			WRITE_ONCE(*(pgd_t *)p4dp, __pgd(p4d_val(p4d)));
+			dsb(ishst);
+			isb();
+		}
+		return;
+	}
+
+	if (iee_pgtable_ready())
+		iee_rw_gate(IEE_OP_SET_P4D, p4dp, p4d);
+	else
+		WRITE_ONCE(*p4dp, p4d);
+
 	dsb(ishst);
 	isb();
 }
 
 static inline void p4d_clear(p4d_t *p4dp)
 {
-	set_p4d(p4dp, __p4d(0));
+	if (pgtable_l4_enabled())
+		set_p4d(p4dp, __p4d(0));
 }
 
 static inline phys_addr_t p4d_page_paddr(p4d_t p4d)
 {
 	return __p4d_to_phys(p4d);
+}
+
+#define pud_index(addr)		(((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
+
+static inline pud_t *p4d_to_folded_pud(p4d_t *p4dp, unsigned long addr)
+{
+	return (pud_t *)PTR_ALIGN_DOWN(p4dp, PAGE_SIZE) + pud_index(addr);
 }
 
 static inline pud_t *p4d_pgtable(p4d_t p4d)
@@ -818,30 +1097,215 @@ static inline pud_t *p4d_pgtable(p4d_t p4d)
 }
 
 /* Find an entry in the first-level page table. */
-#define pud_offset_phys(dir, addr)	(p4d_page_paddr(READ_ONCE(*(dir))) + pud_index(addr) * sizeof(pud_t))
+static inline phys_addr_t pud_offset_phys(p4d_t *p4dp, unsigned long addr)
+{
+	BUG_ON(!pgtable_l4_enabled());
 
-#define pud_set_fixmap(addr)		((pud_t *)set_fixmap_offset(FIX_PUD, addr))
-#define pud_set_fixmap_offset(p4d, addr)	pud_set_fixmap(pud_offset_phys(p4d, addr))
-#define pud_clear_fixmap()		clear_fixmap(FIX_PUD)
+	return p4d_page_paddr(READ_ONCE(*p4dp)) + pud_index(addr) * sizeof(pud_t);
+}
+
+static inline
+pud_t *pud_offset_lockless(p4d_t *p4dp, p4d_t p4d, unsigned long addr)
+{
+	if (!pgtable_l4_enabled())
+		return p4d_to_folded_pud(p4dp, addr);
+	return (pud_t *)__va(p4d_page_paddr(p4d)) + pud_index(addr);
+}
+#define pud_offset_lockless pud_offset_lockless
+
+static inline pud_t *pud_offset(p4d_t *p4dp, unsigned long addr)
+{
+	return pud_offset_lockless(p4dp, READ_ONCE(*p4dp), addr);
+}
+#define pud_offset	pud_offset
+
+static inline pud_t *pud_set_fixmap(unsigned long addr)
+{
+	if (!pgtable_l4_enabled())
+		return NULL;
+	return (pud_t *)set_fixmap_offset(FIX_PUD, addr);
+}
+
+static inline pud_t *pud_set_fixmap_offset(p4d_t *p4dp, unsigned long addr)
+{
+	if (!pgtable_l4_enabled())
+		return p4d_to_folded_pud(p4dp, addr);
+	return pud_set_fixmap(pud_offset_phys(p4dp, addr));
+}
+
+static inline void pud_clear_fixmap(void)
+{
+	if (pgtable_l4_enabled())
+		clear_fixmap(FIX_PUD);
+}
 
 #define p4d_page(p4d)		pfn_to_page(__phys_to_pfn(__p4d_to_phys(p4d)))
 
 /* use ONLY for statically allocated translation tables */
-#define pud_offset_kimg(dir,addr)	((pud_t *)__phys_to_kimg(pud_offset_phys((dir), (addr))))
+static inline pud_t *pud_offset_kimg(p4d_t *p4dp, u64 addr)
+{
+	if (!pgtable_l4_enabled())
+		return p4d_to_folded_pud(p4dp, addr);
+	return (pud_t *)__phys_to_kimg(pud_offset_phys(p4dp, addr));
+}
 
 #else
 
-#define p4d_page_paddr(p4d)	({ BUILD_BUG(); 0;})
-#define pgd_page_paddr(pgd)	({ BUILD_BUG(); 0;})
+static inline bool pgtable_l4_enabled(void) { return false; }
+
+#define p4d_page_paddr(p4d)	({ BUILD_BUG(); 0; })
+#define pgd_page_paddr(pgd)	({ BUILD_BUG(); 0; })
 
 /* Match pud_offset folding in <asm/generic/pgtable-nopud.h> */
 #define pud_set_fixmap(addr)		NULL
 #define pud_set_fixmap_offset(pgdp, addr)	((pud_t *)pgdp)
 #define pud_clear_fixmap()
 
-#define pud_offset_kimg(dir,addr)	((pud_t *)dir)
+#define pud_offset_kimg(dir, addr)	((pud_t *)dir)
 
 #endif  /* CONFIG_PGTABLE_LEVELS > 3 */
+
+#if CONFIG_PGTABLE_LEVELS > 4
+
+static __always_inline bool pgtable_l5_enabled(void)
+{
+#if defined(ARM64_HAS_VA52)
+	if (!alternative_has_cap_likely(ARM64_ALWAYS_BOOT))
+		return vabits_actual == VA_BITS;
+	return alternative_has_cap_unlikely(ARM64_HAS_VA52);
+#else
+	return true;
+#endif
+}
+
+static inline bool mm_p4d_folded(const struct mm_struct *mm)
+{
+	return !pgtable_l5_enabled();
+}
+#define mm_p4d_folded  mm_p4d_folded
+
+#define p4d_ERROR(e)	\
+	pr_err("%s:%d: bad p4d %016llx.\n", __FILE__, __LINE__, p4d_val(e))
+
+#define pgd_none(pgd)		(pgtable_l5_enabled() && !pgd_val(pgd))
+#define pgd_bad(pgd)		(pgtable_l5_enabled() && !(pgd_val(pgd) & 2))
+#define pgd_present(pgd)	(!pgd_none(pgd))
+
+static inline void set_pgd(pgd_t *pgdp, pgd_t pgd)
+{
+	if (in_swapper_pgdir(pgdp)) {
+		set_swapper_pgd(pgdp, __pgd(pgd_val(pgd)));
+		return;
+	}
+
+	WRITE_ONCE(*pgdp, pgd);
+	dsb(ishst);
+	isb();
+}
+
+static inline void pgd_clear(pgd_t *pgdp)
+{
+	if (pgtable_l5_enabled())
+		set_pgd(pgdp, __pgd(0));
+}
+
+static inline phys_addr_t pgd_page_paddr(pgd_t pgd)
+{
+	return __pgd_to_phys(pgd);
+}
+
+#define p4d_index(addr)		(((addr) >> P4D_SHIFT) & (PTRS_PER_P4D - 1))
+
+static inline p4d_t *pgd_to_folded_p4d(pgd_t *pgdp, unsigned long addr)
+{
+	return (p4d_t *)PTR_ALIGN_DOWN(pgdp, PAGE_SIZE) + p4d_index(addr);
+}
+
+static inline phys_addr_t p4d_offset_phys(pgd_t *pgdp, unsigned long addr)
+{
+	BUG_ON(!pgtable_l5_enabled());
+
+	return pgd_page_paddr(READ_ONCE(*pgdp)) + p4d_index(addr) * sizeof(p4d_t);
+}
+
+static inline
+p4d_t *p4d_offset_lockless(pgd_t *pgdp, pgd_t pgd, unsigned long addr)
+{
+	if (!pgtable_l5_enabled())
+		return pgd_to_folded_p4d(pgdp, addr);
+	return (p4d_t *)__va(pgd_page_paddr(pgd)) + p4d_index(addr);
+}
+#define p4d_offset_lockless p4d_offset_lockless
+
+static inline p4d_t *p4d_offset(pgd_t *pgdp, unsigned long addr)
+{
+	return p4d_offset_lockless(pgdp, READ_ONCE(*pgdp), addr);
+}
+
+static inline p4d_t *p4d_set_fixmap(unsigned long addr)
+{
+	if (!pgtable_l5_enabled())
+		return NULL;
+	return (p4d_t *)set_fixmap_offset(FIX_P4D, addr);
+}
+
+static inline p4d_t *p4d_set_fixmap_offset(pgd_t *pgdp, unsigned long addr)
+{
+	if (!pgtable_l5_enabled())
+		return pgd_to_folded_p4d(pgdp, addr);
+	return p4d_set_fixmap(p4d_offset_phys(pgdp, addr));
+}
+
+static inline void p4d_clear_fixmap(void)
+{
+	if (pgtable_l5_enabled())
+		clear_fixmap(FIX_P4D);
+}
+
+/* use ONLY for statically allocated translation tables */
+static inline p4d_t *p4d_offset_kimg(pgd_t *pgdp, u64 addr)
+{
+	if (!pgtable_l5_enabled())
+		return pgd_to_folded_p4d(pgdp, addr);
+	return (p4d_t *)__phys_to_kimg(p4d_offset_phys(pgdp, addr));
+}
+
+#define pgd_page(pgd)		pfn_to_page(__phys_to_pfn(__pgd_to_phys(pgd)))
+
+#else
+
+static inline bool pgtable_l5_enabled(void) { return false; }
+
+/* Match p4d_offset folding in <asm/generic/pgtable-nop4d.h> */
+#define p4d_set_fixmap(addr)		NULL
+#define p4d_set_fixmap_offset(p4dp, addr)	((p4d_t *)p4dp)
+#define p4d_clear_fixmap()
+
+#define p4d_offset_kimg(dir, addr)	((p4d_t *)dir)
+
+static inline
+p4d_t *p4d_offset_lockless_folded(pgd_t *pgdp, pgd_t pgd, unsigned long addr)
+{
+	/*
+	 * With runtime folding of the pud, pud_offset_lockless() passes
+	 * the 'pgd_t *' we return here to p4d_to_folded_pud(), which
+	 * will offset the pointer assuming that it points into
+	 * a page-table page. However, the fast GUP path passes us a
+	 * pgd_t allocated on the stack and so we must use the original
+	 * pointer in 'pgdp' to construct the p4d pointer instead of
+	 * using the generic p4d_offset_lockless() implementation.
+	 *
+	 * Note: reusing the original pointer means that we may
+	 * dereference the same (live) page-table entry multiple times.
+	 * This is safe because it is still only loaded once in the
+	 * context of each level and the CPU guarantees same-address
+	 * read-after-read ordering.
+	 */
+	return p4d_offset(pgdp, addr);
+}
+#define p4d_offset_lockless p4d_offset_lockless_folded
+
+#endif  /* CONFIG_PGTABLE_LEVELS > 4 */
 
 #define pgd_ERROR(e)	\
 	pr_err("%s:%d: bad pgd %016llx.\n", __FILE__, __LINE__, pgd_val(e))
@@ -887,8 +1351,8 @@ static inline int pmdp_set_access_flags(struct vm_area_struct *vma,
 					unsigned long address, pmd_t *pmdp,
 					pmd_t entry, int dirty)
 {
-	return __ptep_set_access_flags(vma, address, (pte_t *)pmdp,
-							pmd_pte(entry), dirty);
+	return __pmdp_set_access_flags(vma, address, pmdp,
+							entry, dirty);
 }
 
 static inline int pud_devmap(pud_t pud)
@@ -932,7 +1396,7 @@ static inline int __ptep_test_and_clear_young(struct vm_area_struct *vma,
 	do {
 		old_pte = pte;
 		pte = pte_mkold(pte);
-		pte_val(pte) = cmpxchg_relaxed(&pte_val(*ptep),
+		pte_val(pte) = iee_set_cmpxchg_relaxed(ptep,
 					       pte_val(old_pte), pte_val(pte));
 	} while (pte_val(pte) != pte_val(old_pte));
 
@@ -959,6 +1423,36 @@ static inline int __ptep_clear_flush_young(struct vm_area_struct *vma,
 	return young;
 }
 
+static inline int __pmdp_test_and_clear_young(struct vm_area_struct *vma,
+					      unsigned long address,
+					      pmd_t *pmdp)
+{
+	pmd_t old_pmd, pmd;
+
+	pmd = READ_ONCE(*pmdp);
+	do {
+		old_pmd = pmd;
+		pmd = __pmd(pmd_val(pmd) & ~PTE_AF);
+		pmd_val(pmd) = iee_set_pmd_cmpxchg_relaxed(pmdp,
+					       pmd_val(old_pmd), pmd_val(pmd));
+	} while (pmd_val(pmd) != pmd_val(old_pmd));
+
+	return pmd_young(pmd);
+}
+
+static inline void __pmdp_set_wrprotect(struct mm_struct *mm,
+					unsigned long address, pmd_t *pmdp,
+					pmd_t pmd)
+{
+	pmd_t old_pmd;
+
+	do {
+		old_pmd = pmd;
+		pmd = pmd_wrprotect(pmd);
+		pmd_val(pmd) = iee_set_pmd_cmpxchg_relaxed(pmdp, pmd_val(old_pmd), pmd_val(pmd));
+	} while (pmd_val(pmd) != pmd_val(old_pmd));
+}
+
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG)
 #define __HAVE_ARCH_PMDP_TEST_AND_CLEAR_YOUNG
 static inline int pmdp_test_and_clear_young(struct vm_area_struct *vma,
@@ -967,14 +1461,15 @@ static inline int pmdp_test_and_clear_young(struct vm_area_struct *vma,
 {
 	/* Operation applies to PMD table entry only if FEAT_HAFT is enabled */
 	VM_WARN_ON(pmd_table(READ_ONCE(*pmdp)) && !system_supports_haft());
-	return __ptep_test_and_clear_young(vma, address, (pte_t *)pmdp);
+	return __pmdp_test_and_clear_young(vma, address, pmdp);
 }
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE || CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG */
 
 static inline pte_t __ptep_get_and_clear(struct mm_struct *mm,
 				       unsigned long address, pte_t *ptep)
 {
-	pte_t pte = __pte(xchg_relaxed(&pte_val(*ptep), 0));
+	pteval_t pteval = iee_set_xchg_relaxed((pte_t *)&pte_val(*ptep), (pteval_t)0);
+	pte_t pte = __pte(pteval);
 
 	page_table_check_pte_clear(mm, pte);
 
@@ -1017,7 +1512,8 @@ static inline pte_t __get_and_clear_full_ptes(struct mm_struct *mm,
 static inline pmd_t pmdp_huge_get_and_clear(struct mm_struct *mm,
 					    unsigned long address, pmd_t *pmdp)
 {
-	pmd_t pmd = __pmd(xchg_relaxed(&pmd_val(*pmdp), 0));
+	pteval_t pteval = iee_set_xchg_relaxed((pte_t *)&pmd_val(*pmdp), (pteval_t)0);
+	pmd_t pmd = __pmd(pteval);
 
 	page_table_check_pmd_clear(mm, pmd);
 
@@ -1033,9 +1529,9 @@ static inline void ___ptep_set_wrprotect(struct mm_struct *mm,
 
 	do {
 		old_pte = pte;
+
 		pte = pte_wrprotect(pte);
-		pte_val(pte) = cmpxchg_relaxed(&pte_val(*ptep),
-					       pte_val(old_pte), pte_val(pte));
+		pte_val(pte) = iee_set_cmpxchg_relaxed(ptep, pte_val(old_pte), pte_val(pte));
 	} while (pte_val(pte) != pte_val(old_pte));
 }
 
@@ -1058,12 +1554,52 @@ static inline void __wrprotect_ptes(struct mm_struct *mm, unsigned long address,
 		__ptep_set_wrprotect(mm, address, ptep);
 }
 
+static inline void __clear_young_dirty_pte(struct vm_area_struct *vma,
+					   unsigned long addr, pte_t *ptep,
+					   pte_t pte, cydp_t flags)
+{
+	pte_t old_pte;
+
+	do {
+		old_pte = pte;
+
+		if (flags & CYDP_CLEAR_YOUNG)
+			pte = pte_mkold(pte);
+		if (flags & CYDP_CLEAR_DIRTY)
+			pte = pte_mkclean(pte);
+
+		pte_val(pte) = cmpxchg_relaxed(&pte_val(*ptep),
+					       pte_val(old_pte), pte_val(pte));
+	} while (pte_val(pte) != pte_val(old_pte));
+}
+
+static inline void __clear_young_dirty_ptes(struct vm_area_struct *vma,
+					    unsigned long addr, pte_t *ptep,
+					    unsigned int nr, cydp_t flags)
+{
+	pte_t pte;
+
+	for (;;) {
+		pte = __ptep_get(ptep);
+
+		if (flags == (CYDP_CLEAR_YOUNG | CYDP_CLEAR_DIRTY))
+			__set_pte(ptep, pte_mkclean(pte_mkold(pte)));
+		else
+			__clear_young_dirty_pte(vma, addr, ptep, pte, flags);
+
+		if (--nr == 0)
+			break;
+		ptep++;
+		addr += PAGE_SIZE;
+	}
+}
+
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 #define __HAVE_ARCH_PMDP_SET_WRPROTECT
 static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 				      unsigned long address, pmd_t *pmdp)
 {
-	__ptep_set_wrprotect(mm, address, (pte_t *)pmdp);
+	__pmdp_set_wrprotect(mm, address, pmdp, READ_ONCE(*pmdp));
 }
 
 #define pmdp_establish pmdp_establish
@@ -1071,7 +1607,7 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 		unsigned long address, pmd_t *pmdp, pmd_t pmd)
 {
 	page_table_check_pmd_set(vma->vm_mm, pmdp, pmd);
-	return __pmd(xchg_relaxed(&pmd_val(*pmdp), pmd_val(pmd)));
+	return __pmd(iee_set_pmd_xchg_relaxed((pmd_t *)&pmd_val(*pmdp), pmd_val(pmd)));
 }
 #endif
 
@@ -1092,7 +1628,8 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 
 #define __swp_type(x)		(((x).val >> __SWP_TYPE_SHIFT) & __SWP_TYPE_MASK)
 #define __swp_offset(x)		(((x).val >> __SWP_OFFSET_SHIFT) & __SWP_OFFSET_MASK)
-#define __swp_entry(type,offset) ((swp_entry_t) { ((type) << __SWP_TYPE_SHIFT) | ((offset) << __SWP_OFFSET_SHIFT) })
+#define __swp_entry(type, offset)	((swp_entry_t) { ((type) << __SWP_TYPE_SHIFT)	\
+			| ((offset) << __SWP_OFFSET_SHIFT) })
 
 #define __pte_to_swp_entry(pte)	((swp_entry_t) { pte_val(pte) })
 #define __swp_entry_to_pte(swp)	((pte_t) { (swp).val })
@@ -1182,6 +1719,18 @@ static inline void update_mmu_cache_range(struct vm_fault *vmf,
  */
 #define arch_wants_old_prefaulted_pte	cpu_has_hw_af
 
+/*
+ * Request exec memory is read into pagecache in at least 64K folios. The
+ * trade-off here is performance improvement due to storing translations more
+ * effciently in the iTLB vs the potential for read amplification due to reading
+ * data from disk that won't be used. The latter is independent of base page
+ * size, so we set a page-size independent block size of 64K. This size can be
+ * contpte-mapped when 4K base pages are in use (16 pages into 1 iTLB entry),
+ * and HPA can coalesce it (4 pages into 1 TLB entry) when 16K base pages are in
+ * use.
+ */
+#define arch_wants_exec_folio_order() ilog2(SZ_64K >> PAGE_SHIFT)
+
 static inline bool pud_sect_supported(void)
 {
 	return PAGE_SIZE == SZ_4K;
@@ -1197,6 +1746,16 @@ extern pte_t ptep_modify_prot_start(struct vm_area_struct *vma,
 extern void ptep_modify_prot_commit(struct vm_area_struct *vma,
 				    unsigned long addr, pte_t *ptep,
 				    pte_t old_pte, pte_t new_pte);
+
+#define modify_prot_start_ptes modify_prot_start_ptes
+extern pte_t modify_prot_start_ptes(struct vm_area_struct *vma,
+				    unsigned long addr, pte_t *ptep,
+				    unsigned int nr);
+
+#define modify_prot_commit_ptes modify_prot_commit_ptes
+extern void modify_prot_commit_ptes(struct vm_area_struct *vma, unsigned long addr,
+				    pte_t *ptep, pte_t old_pte, pte_t pte,
+				    unsigned int nr);
 
 #ifdef CONFIG_ARM64_CONTPTE
 
@@ -1227,6 +1786,9 @@ extern void contpte_wrprotect_ptes(struct mm_struct *mm, unsigned long addr,
 extern int contpte_ptep_set_access_flags(struct vm_area_struct *vma,
 				unsigned long addr, pte_t *ptep,
 				pte_t entry, int dirty);
+extern void contpte_clear_young_dirty_ptes(struct vm_area_struct *vma,
+				unsigned long addr, pte_t *ptep,
+				unsigned int nr, cydp_t flags);
 
 static __always_inline void contpte_try_fold(struct mm_struct *mm,
 				unsigned long addr, pte_t *ptep, pte_t pte)
@@ -1451,6 +2013,17 @@ static inline int ptep_set_access_flags(struct vm_area_struct *vma,
 	return contpte_ptep_set_access_flags(vma, addr, ptep, entry, dirty);
 }
 
+#define clear_young_dirty_ptes clear_young_dirty_ptes
+static inline void clear_young_dirty_ptes(struct vm_area_struct *vma,
+					  unsigned long addr, pte_t *ptep,
+					  unsigned int nr, cydp_t flags)
+{
+	if (likely(nr == 1 && !pte_cont(__ptep_get(ptep))))
+		__clear_young_dirty_ptes(vma, addr, ptep, nr, flags);
+	else
+		contpte_clear_young_dirty_ptes(vma, addr, ptep, nr, flags);
+}
+
 #else /* CONFIG_ARM64_CONTPTE */
 
 #define ptep_get				__ptep_get
@@ -1470,11 +2043,17 @@ static inline int ptep_set_access_flags(struct vm_area_struct *vma,
 #define wrprotect_ptes				__wrprotect_ptes
 #define __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 #define ptep_set_access_flags			__ptep_set_access_flags
+#define clear_young_dirty_ptes			__clear_young_dirty_ptes
 
 #endif /* CONFIG_ARM64_CONTPTE */
 
-#endif /* !__ASSEMBLY__ */
+#ifdef CONFIG_HUGETLB_PAGE_OPTIMIZE_VMEMMAP
+void vmemmap_update_pmd(unsigned long addr, pmd_t *pmdp, pte_t *ptep);
+#define vmemmap_update_pmd vmemmap_update_pmd
+void vmemmap_update_pte(unsigned long addr, pte_t *ptep, pte_t pte);
+#define vmemmap_update_pte vmemmap_update_pte
+#endif
 
-#endif /* !CONFIG_PTP */
+#endif /* !__ASSEMBLY__ */
 
 #endif /* __ASM_PGTABLE_H */

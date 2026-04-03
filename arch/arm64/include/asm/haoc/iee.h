@@ -34,19 +34,27 @@ extern bool haoc_enabled;
 /* Support conversion from both kernel and linear addresses. */
 #define __ptr_to_iee(x)	({		\
 	typeof(x) __val;			\
-	if (__is_lm_address((u64)x))	\
+	if (!haoc_enabled)			\
+		__val = x;			\
+	else if (__is_lm_address((u64)x))	\
 		__val = ((typeof(x))(__virt_to_iee((u64)x)));	\
-	else						\
+	else if ((u64)x < (u64)KERNEL_END && (u64)x >= (u64)KERNEL_START)	\
 		__val = ((typeof(x))(__kimg_to_iee((u64)x)));	\
+	else						\
+		__val = x;				\
 	__val;						\
 })
 
 #define __addr_to_iee(x)	({		\
 	u64 __val;			\
-	if (__is_lm_address((u64)x))	\
+	if (!haoc_enabled)			\
+		__val = (u64)x;			\
+	else if (__is_lm_address((u64)x))	\
 		__val = __virt_to_iee((u64)x);	\
-	else						\
+	else if ((u64)x < (u64)KERNEL_END && (u64)x >= (u64)KERNEL_START)	\
 		__val = __kimg_to_iee((u64)x);	\
+	else						\
+		__val = (u64)x;			\
 	__val;						\
 })
 
