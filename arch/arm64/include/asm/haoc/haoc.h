@@ -91,4 +91,28 @@ void _iee_set_cred_rcu(unsigned long __unused, struct cred *cred, struct rcu_hea
 void _iee_set_cred_ucounts(unsigned long __unused, struct cred *cred,
 			struct ucounts *ucounts);
 #endif
+
+#ifdef CONFIG_PTP
+#include <linux/hugetlb.h>
+
+void __iee_code _iee_set_static_pgd(int flag, pgd_t *pgdp, pgd_t pgd);
+void __iee_code _iee_set_bm_pte(int flag, pte_t *ptep, pte_t pte);
+void __iee_code _iee_set_pte(int flag, pte_t *ptep, pte_t pte);
+void __iee_code _iee_set_pmd(int flag, pmd_t *pmdp, pmd_t pmd);
+void __iee_code _iee_set_pud(int flag, pud_t *pudp, pud_t pud);
+void __iee_code _iee_set_p4d(int flag, p4d_t *p4dp, p4d_t p4d);
+void __iee_code _iee_set_swapper_pgd(int flag, pgd_t *pgdp, pgd_t pgd);
+pteval_t __iee_code _iee_set_xchg_relaxed(int flag, pte_t *ptep,
+			pteval_t pteval);
+pmdval_t __iee_code _iee_set_pmd_xchg_relaxed(int flag, pmd_t *pmdp,
+			pmdval_t pmdval);
+pteval_t __iee_code _iee_set_cmpxchg_relaxed(int flag, pte_t *ptep,
+			pteval_t old_pteval, pteval_t new_pteval);
+pmdval_t __iee_code _iee_set_pmd_cmpxchg_relaxed(int flag, pmd_t *pmdp,
+			pmdval_t old_pmdval, pmdval_t new_pmdval);
+void __iee_code _iee_set_sensitive_pte(int flag, pte_t *lm_ptep,
+			pte_t *iee_ptep, int order, int use_block_pmd);
+void __iee_code _iee_unset_sensitive_pte(int flag, pte_t *lm_ptep,
+			pte_t *iee_ptep, int order, int use_block_pmd);
+#endif
 #endif

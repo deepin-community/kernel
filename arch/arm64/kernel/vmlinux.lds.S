@@ -148,6 +148,17 @@ jiffies = jiffies_64;
 #define IEE_TEXT
 #endif
 
+#ifdef CONFIG_PTP
+#define PTP_DATA				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_ptp_data_start = .;	\
+	*(.iee.ptp)			\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_ptp_data_end = .;
+#else
+#define PTP_DATA
+#endif
+
 #ifdef CONFIG_CREDP
 #define CRED_DATA				\
 	. = ALIGN(PAGE_SIZE);		\
@@ -165,6 +176,7 @@ jiffies = jiffies_64;
 	.iee.data : {		\
 	. = ALIGN(PAGE_SIZE);		\
 	iee_init_data_begin = .;	\
+	PTP_DATA	\
 	CRED_DATA	\
 	. = ALIGN(PAGE_SIZE);	\
 	iee_init_data_end = .;	\

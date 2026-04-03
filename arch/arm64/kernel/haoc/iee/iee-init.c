@@ -91,7 +91,6 @@ void __init iee_init_post(void)
 	iee_si_init();
 #endif
 }
-
 void __init iee_stack_init(void)
 {
 	if (!haoc_enabled)

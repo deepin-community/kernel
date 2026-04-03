@@ -50,6 +50,9 @@
 #include <asm/tlb.h>
 #include <asm/alternative.h>
 #include <asm/xen/swiotlb-xen.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 
 /*
  * We need to be able to catch inadvertent references to memstart_addr
@@ -549,6 +552,9 @@ void __init mem_init(void)
 
 void free_initmem(void)
 {
+	#ifdef CONFIG_IEE
+	if (!haoc_enabled)
+	#endif
 	free_reserved_area(lm_alias(__init_begin),
 			   lm_alias(__init_end),
 			   POISON_FREE_INITMEM, "unused kernel");

@@ -67,5 +67,20 @@ iee_func iee_funcs[] = {
 	(iee_func)_iee_set_cred_rcu,
 	(iee_func)_iee_set_cred_ucounts,
 #endif
+#ifdef CONFIG_PTP
+	(iee_func)_iee_set_static_pgd,
+	(iee_func)_iee_set_bm_pte,
+	(iee_func)_iee_set_pte,
+	(iee_func)_iee_set_pmd,
+	(iee_func)_iee_set_pud,
+	(iee_func)_iee_set_p4d,
+	(iee_func)_iee_set_swapper_pgd,
+	(iee_func)_iee_set_xchg_relaxed,
+	(iee_func)_iee_set_pmd_xchg_relaxed,
+	(iee_func)_iee_set_cmpxchg_relaxed,
+	(iee_func)_iee_set_pmd_cmpxchg_relaxed,
+	(iee_func)_iee_set_sensitive_pte,
+	(iee_func)_iee_unset_sensitive_pte,
+#endif
 	NULL
 };

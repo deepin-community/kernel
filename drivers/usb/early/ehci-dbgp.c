@@ -879,7 +879,11 @@ int __init early_dbgp_init(char *s)
 	 * FIXME I don't have the bar size so just guess PAGE_SIZE is more
 	 * than enough.  1K is the biggest I have seen.
 	 */
+	#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+	__iee_set_fixmap_pre_init(FIX_DBGP_BASE, bar_val & PAGE_MASK, FIXMAP_PAGE_NOCACHE);
+	#else
 	set_fixmap_nocache(FIX_DBGP_BASE, bar_val & PAGE_MASK);
+	#endif
 	ehci_bar = (void __iomem *)__fix_to_virt(FIX_DBGP_BASE);
 	ehci_bar += bar_val & ~PAGE_MASK;
 	dbgp_printk("ehci_bar: %p\n", ehci_bar);
