@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
+
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/init.h>
@@ -28,7 +31,13 @@
 #include "grtnic_macphy.h"
 
 /* only works for sizes that are powers of 2 */
-#define GRTNIC_ROUNDUP_SIZE(i, size) (  (size) - ((i) & ((size) - 1)) )
+#define GRTNIC_ROUNDUP_SIZE(i, size) ((size) - ((i) & ((size) - 1)))
+
+static void grtnic_rx_skb(struct grtnic_q_vector *q_vector, struct grtnic_ring *rx_ring,
+			  union grtnic_rx_desc *rx_desc, struct sk_buff *skb);
+
+static void grtnic_reinit_locked(struct grtnic_adapter *adapter);
+static void update_mc_addr_list(struct net_device *netdev, u8 *mc_addr_list, u32 mc_addr_count);
 
 static void grtnic_clean_tx_ring(struct grtnic_ring *tx_ring);
 static void grtnic_clean_rx_ring(struct grtnic_ring *rx_ring);
@@ -36,7 +45,7 @@ static void grtnic_clean_rx_ring(struct grtnic_ring *rx_ring);
 #ifdef NETIF_F_RXHASH
 static inline void grtnic_rx_hash(struct grtnic_ring *ring, union grtnic_rx_desc *rx_desc, struct sk_buff *skb)
 {
-	u16 rss_type; 
+	u16 rss_type;
 
 	if (!(netdev_ring(ring)->features & NETIF_F_RXHASH))
 		return;
@@ -48,7 +57,7 @@ static inline void grtnic_rx_hash(struct grtnic_ring *ring, union grtnic_rx_desc
 
 	skb_set_hash(skb, le32_to_cpu(rx_desc->wb.lower.hi_dword.rss),
 		     (rss_type & 0xc0) ? //tcp or udp
-		     PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
+		PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3);
 }
 #endif /* NETIF_F_RXHASH */
 
@@ -68,39 +77,37 @@ static inline void grtnic_release_rx_desc(struct grtnic_ring *rx_ring, u32 val)
 	/* update next to alloc since we have filled the ring */
 	rx_ring->next_to_alloc = val;
 #endif
-	/*
-	 * Force memory writes to complete before letting h/w
+	/* Force memory writes to complete before letting h/w
 	 * know there are new descriptors to fetch.  (Only
 	 * applicable for weak-ordered memory model archs,
 	 * such as IA-64).
 	 */
-  wmb();
-  writel(val, rx_ring->tail); //rx_ring->tail, 这个地方别忘记设置，desc要在clean_rx_irq里面清0
+	wmb(); /* Force memory writes to complete before letting h/w know */
+	writel(val, rx_ring->tail);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
 static bool grtnic_alloc_mapped_skb(struct grtnic_ring *rx_ring, struct grtnic_rx_buffer *buffer_info)
 {
-  struct sk_buff *skb = buffer_info->skb;
-  dma_addr_t dma = buffer_info->dma;
+	struct sk_buff *skb = buffer_info->skb;
+	dma_addr_t dma = buffer_info->dma;
 
 	if (unlikely(dma))
 		return true;
 
-  if (likely(!skb)) {
-    skb = netdev_alloc_skb_ip_align(netdev_ring(rx_ring), rx_ring->rx_buffer_len); 
+	if (likely(!skb)) {
+		skb = netdev_alloc_skb_ip_align(netdev_ring(rx_ring), rx_ring->rx_buffer_len);
 
 		if (unlikely(!skb)) {
 			rx_ring->rx_stats.alloc_rx_buff_failed++;
 			return false;
 		}
-    buffer_info->skb = skb;
-  }
+		buffer_info->skb = skb;
+	}
 
-  dma = dma_map_single(rx_ring->dev, skb->data, rx_ring->rx_buffer_len, DMA_FROM_DEVICE);
-	/*
-	 * if mapping failed free memory back to system since
+	dma = dma_map_single(rx_ring->dev, skb->data, rx_ring->rx_buffer_len, DMA_FROM_DEVICE);
+	/* if mapping failed free memory back to system since
 	 * there isn't much point in holding memory we can't use
 	 */
 	if (dma_mapping_error(rx_ring->dev, dma)) {
@@ -111,9 +118,9 @@ static bool grtnic_alloc_mapped_skb(struct grtnic_ring *rx_ring, struct grtnic_r
 		return false;
 	}
 
-  buffer_info->dma = dma;
-  buffer_info->length = rx_ring->rx_buffer_len;
-  return true;
+	buffer_info->dma = dma;
+	buffer_info->length = rx_ring->rx_buffer_len;
+	return true;
 }
 
 #else /* CONFIG_DISABLE_PACKET_SPLIT */
@@ -125,8 +132,8 @@ static inline unsigned int grtnic_rx_offset(struct grtnic_ring *rx_ring)
 
 static bool grtnic_alloc_mapped_page(struct grtnic_ring *rx_ring, struct grtnic_rx_buffer *buffer_info)
 {
-  struct page *page = buffer_info->page;
-  dma_addr_t dma;
+	struct page *page = buffer_info->page;
+	dma_addr_t dma;
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
 	DEFINE_DMA_ATTRS(attrs);
 
@@ -134,28 +141,26 @@ static bool grtnic_alloc_mapped_page(struct grtnic_ring *rx_ring, struct grtnic_
 	dma_set_attr(DMA_ATTR_WEAK_ORDERING, &attrs);
 #endif
 
-  /* since we are recycling buffers we should seldom need to alloc */
-  if (likely(page))
-    return true;
+	/* since we are recycling buffers we should seldom need to alloc */
+	if (likely(page))
+		return true;
 
-  /* alloc new page for storage */
+	/* alloc new page for storage */
 	page = dev_alloc_pages(grtnic_rx_pg_order(rx_ring));
 	if (unlikely(!page)) {
 		rx_ring->rx_stats.alloc_rx_page_failed++;
 		return false;
 	}
 
-  /* map page for use */
-	dma = dma_map_page_attrs(rx_ring->dev, page, 0, grtnic_rx_pg_size(rx_ring),
-				 DMA_FROM_DEVICE,
+	/* map page for use */
+	dma = dma_map_page_attrs(rx_ring->dev, page, 0, grtnic_rx_pg_size(rx_ring), DMA_FROM_DEVICE,
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
-				 &attrs);
+		&attrs);
 #else
-				 GRTNIC_RX_DMA_ATTR);
+		GRTNIC_RX_DMA_ATTR);
 #endif
 
-	/*
-	 * if mapping failed free memory back to system since
+	/* if mapping failed free memory back to system since
 	 * there isn't much point in holding memory we can't use
 	 */
 	if (dma_mapping_error(rx_ring->dev, dma)) {
@@ -165,9 +170,9 @@ static bool grtnic_alloc_mapped_page(struct grtnic_ring *rx_ring, struct grtnic_
 		return false;
 	}
 
-  buffer_info->dma = dma;
-  buffer_info->page = page;
-  buffer_info->page_offset = grtnic_rx_offset(rx_ring);
+	buffer_info->dma = dma;
+	buffer_info->page = page;
+	buffer_info->page_offset = grtnic_rx_offset(rx_ring);
 #ifdef HAVE_PAGE_COUNT_BULK_UPDATE
 	page_ref_add(page, USHRT_MAX - 1);
 	buffer_info->pagecnt_bias = USHRT_MAX;
@@ -176,82 +181,84 @@ static bool grtnic_alloc_mapped_page(struct grtnic_ring *rx_ring, struct grtnic_
 #endif
 	rx_ring->rx_stats.alloc_rx_page++;
 //  buffer_info->length = grtnic_rx_bufsz(rx_ring);
-//  buffer_info->length = GRTNIC_RX_BUFSZ; //注意，这里告知asic缓冲区大小不是整个page，因为整个page可能有几个缓冲区
+//	注意,这里告知asic缓冲区大小不是整个page,因为整个page
+//	可能有几个缓冲区
+//  buffer_info->length = GRTNIC_RX_BUFSZ;
 
 //  printk("offset = %d, length = %d\n", buffer_info->page_offset, buffer_info->length);
 
-  return true;
+	return true;
 }
 #endif /* CONFIG_DISABLE_PACKET_SPLIT */
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void grtnic_alloc_rx_buffers(struct grtnic_ring *rx_ring, u16 cleaned_count)
 {
-  union grtnic_rx_desc *rx_desc;
-  struct grtnic_rx_buffer *buffer_info;
-  u16 i = rx_ring->next_to_use;
+	union grtnic_rx_desc *rx_desc;
+	struct grtnic_rx_buffer *buffer_info;
+	u16 i = rx_ring->next_to_use;
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
 	u16 bufsz;
 #endif
 
-  /* nothing to do */
-  if (!cleaned_count)
-    return;
+	/* nothing to do */
+	if (!cleaned_count)
+		return;
 
-  rx_desc = GRTNIC_RX_DESC(*rx_ring, i);
-  buffer_info = &rx_ring->rx_buffer_info[i];
-  i -= rx_ring->count;
+	rx_desc = GRTNIC_RX_DESC(*rx_ring, i);
+	buffer_info = &rx_ring->rx_buffer_info[i];
+	i -= rx_ring->count;
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
 	bufsz = grtnic_rx_bufsz(rx_ring);
 #endif
 
-  do {
+	do {
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
-    if (!grtnic_alloc_mapped_skb(rx_ring, buffer_info))
-      break;
+		if (!grtnic_alloc_mapped_skb(rx_ring, buffer_info))
+			break;
 #else
-    if (!grtnic_alloc_mapped_page(rx_ring, buffer_info))
+		if (!grtnic_alloc_mapped_page(rx_ring, buffer_info))
 			break;
 
 		/* sync the buffer for use by the device */
 		dma_sync_single_range_for_device(rx_ring->dev, buffer_info->dma,
-						 buffer_info->page_offset, bufsz,
-						 DMA_FROM_DEVICE);
+			buffer_info->page_offset, bufsz,
+			DMA_FROM_DEVICE);
 #endif /* CONFIG_DISABLE_PACKET_SPLIT */
 
-    /*
-     * Refresh the desc even if buffer_addrs didn't change
-     * because each write-back erases this info.
-     */
+		/* Refresh the desc even if buffer_addrs didn't change
+		 * because each write-back erases this info.
+		 */
+
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
-    rx_desc->read.src_addr = cpu_to_le64(buffer_info->dma);
-    rx_desc->read.len_ctl.len = cpu_to_le16(buffer_info->length);
+		rx_desc->read.src_addr = cpu_to_le64(buffer_info->dma);
+		rx_desc->read.len_ctl.len = cpu_to_le16(buffer_info->length);
 #else
-    rx_desc->read.src_addr = cpu_to_le64(buffer_info->dma + buffer_info->page_offset);
-    rx_desc->read.len_ctl.len = cpu_to_le16(bufsz);
+		rx_desc->read.src_addr = cpu_to_le64(buffer_info->dma + buffer_info->page_offset);
+		rx_desc->read.len_ctl.len = cpu_to_le16(bufsz);
 #endif
-    rx_desc->read.len_ctl.desc_num = 0;
-    rx_desc->read.len_ctl.chl = 0;
-    rx_desc->read.len_ctl.cmp = 0;
-    rx_desc->read.len_ctl.sop = 0;
-    rx_desc->read.len_ctl.eop = 0;
+		rx_desc->read.len_ctl.desc_num = 0;
+		rx_desc->read.len_ctl.chl = 0;
+		rx_desc->read.len_ctl.cmp = 0;
+		rx_desc->read.len_ctl.sop = 0;
+		rx_desc->read.len_ctl.eop = 0;
 
-    rx_desc++;
-    buffer_info++;
-    i++;
+		rx_desc++;
+		buffer_info++;
+		i++;
 
-    if (unlikely(!i)) {
-      rx_desc = GRTNIC_RX_DESC(*rx_ring, 0);
-      buffer_info = &rx_ring->rx_buffer_info[0];
-      i -= rx_ring->count;
-    }
+		if (unlikely(!i)) {
+			rx_desc = GRTNIC_RX_DESC(*rx_ring, 0);
+			buffer_info = &rx_ring->rx_buffer_info[0];
+			i -= rx_ring->count;
+		}
 
-    cleaned_count--;
-  } while (cleaned_count);
+		cleaned_count--;
+	} while (cleaned_count);
 
-  i += rx_ring->count;
+	i += rx_ring->count;
 
-  if (rx_ring->next_to_use != i)
+	if (rx_ring->next_to_use != i)
 		grtnic_release_rx_desc(rx_ring, i);
 }
 
@@ -259,8 +266,8 @@ static inline bool grtnic_container_is_rx(struct grtnic_q_vector *q_vector, stru
 {
 	return &q_vector->rx == rc;
 }
-/**
- * ixgbe_update_itr - update the dynamic ITR value based on statistics
+
+/* grtnic_update_itr - update the dynamic ITR value based on statistics
  * @q_vector: structure containing interrupt and ring information
  * @ring_container: structure containing ring performance data
  *
@@ -422,7 +429,7 @@ adjust_for_speed:
 	 * in so that our number of interrupts is no more than 2x the number
 	 * of packets for the least busy workload. So for example in the case
 	 * of a TCP worload the ack packets being received would set the
-	 * the interrupt rate as they are a latency specific workload.
+	 * interrupt rate as they are a latency specific workload.
 	 */
 	if ((itr & ITR_ADAPTIVE_LATENCY) && itr < ring_container->itr)
 		itr = ring_container->itr - ITR_ADAPTIVE_MIN_INC;
@@ -438,16 +445,15 @@ clear_counts:
 	ring_container->total_packets = 0;
 }
 
-void grtnic_write_itr (struct grtnic_q_vector *q_vector)
+void grtnic_write_itr(struct grtnic_q_vector *q_vector)
 {
 	struct grtnic_adapter *adapter = q_vector->adapter;
 	struct grtnic_hw *hw = &adapter->hw;
 	int v_idx = q_vector->v_idx;
 	u32 itr_reg = q_vector->itr & MAX_EITR;
 
-	GRTNIC_WRITE_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_ITR*4), (v_idx<<16 | itr_reg), 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_ITR * 4), (v_idx << 16 | itr_reg), 1);
 }
-
 
 static void grtnic_set_itr(struct grtnic_q_vector *q_vector)
 {
@@ -472,8 +478,7 @@ static void grtnic_set_itr(struct grtnic_q_vector *q_vector)
 }
 
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
-/**
- * ixgbe_merge_active_tail - merge active tail into lro skb
+/* grtnic_merge_active_tail - merge active tail into lro skb
  * @tail: pointer to active tail in frag_list
  *
  * This function merges the length and data of an active tail into the
@@ -496,14 +501,13 @@ static inline struct sk_buff *grtnic_merge_active_tail(struct sk_buff *tail)
 	return head;
 }
 
-/**
- * ixgbe_add_active_tail - adds an active tail into the skb frag_list
+/* grtnic_add_active_tail - adds an active tail into the skb frag_list
  * @head: pointer to the start of the skb
  * @tail: pointer to active tail to add to frag_list
  *
  * This function adds an active tail to the end of the frag list.  This tail
  * will still be receiving data so we cannot yet ad it's stats to the main
- * skb.  That is done via ixgbe_merge_active_tail.
+ * skb.  That is done via grtnic_add_active_tail.
  **/
 static inline void grtnic_add_active_tail(struct sk_buff *head, struct sk_buff *tail)
 {
@@ -520,8 +524,7 @@ static inline void grtnic_add_active_tail(struct sk_buff *head, struct sk_buff *
 	GRTNIC_CB(head)->tail = tail;
 }
 
-/**
- * ixgbe_close_active_frag_list - cleanup pointers on a frag_list skb
+/* grtnic_close_active_frag_list - cleanup pointers on a frag_list skb
  * @head: pointer to head of an active frag list
  *
  * This function will clear the frag_tail_tracker pointer on an active
@@ -543,47 +546,37 @@ static inline bool grtnic_close_active_frag_list(struct sk_buff *head)
 
 #endif
 
-
 static void grtnic_process_skb_fields(struct grtnic_ring *rx_ring, union grtnic_rx_desc *rx_desc, struct sk_buff *skb)
 {
-  struct net_device *netdev = netdev_ring(rx_ring);
-  u8 TCPCS, UDPCS, IPCS, CSUM_OK, UDP_CSUM_FLAG;
+	struct net_device *netdev = netdev_ring(rx_ring);
+	u8 TCPCS, UDPCS, IPCS, CSUM_OK, UDP_CSUM_FLAG;
 
 #ifdef NETIF_F_RXHASH
 	grtnic_rx_hash(rx_ring, rx_desc, skb);
 #endif /* NETIF_F_RXHASH */
 
-  CSUM_OK       = rx_desc->wb.upper.rx_info.csum_ok;
-  IPCS          = rx_desc->wb.upper.rx_info.ipcs;
-  TCPCS         = rx_desc->wb.upper.rx_info.tcpcs;
-  UDPCS         = rx_desc->wb.upper.rx_info.udpcs;
-  UDP_CSUM_FLAG = rx_desc->wb.upper.rx_info.udp_csum_flag;
+	CSUM_OK       = rx_desc->wb.upper.rx_info.csum_ok;
+	IPCS          = rx_desc->wb.upper.rx_info.ipcs;
+	TCPCS         = rx_desc->wb.upper.rx_info.tcpcs;
+	UDPCS         = rx_desc->wb.upper.rx_info.udpcs;
+	UDP_CSUM_FLAG = rx_desc->wb.upper.rx_info.udp_csum_flag;
 
-//  printk("CSUM_OK=%d, IPCS=%d, TCPCS=%d, UDPCS=%d, UDP_CSUM_FLAG=%d\n", CSUM_OK, IPCS, TCPCS, UDPCS, UDP_CSUM_FLAG);
+	if ((netdev->features & NETIF_F_RXCSUM) && IPCS) {	//is ip protocol
+		//UDP_CSUM_FLAG means: udp checksum not is 0
+		if ((TCPCS & CSUM_OK) || (UDPCS & CSUM_OK & UDP_CSUM_FLAG))
+			skb->ip_summed = CHECKSUM_UNNECESSARY;
+		else if (TCPCS || (UDPCS & UDP_CSUM_FLAG))
+			rx_ring->rx_stats.csum_err++;
+	}
 
-  if((netdev->features & NETIF_F_RXCSUM) && IPCS) //is ip protocol
-  {
-    if((TCPCS & CSUM_OK) || (UDPCS & CSUM_OK & UDP_CSUM_FLAG)) //UDP_CSUM_FLAG means: udp checksum not is 0
-    {
-        skb->ip_summed = CHECKSUM_UNNECESSARY;
-    }
-    else if(TCPCS || (UDPCS & UDP_CSUM_FLAG))
-    {
-				printk("CSUM_OK=%d, IPCS=%d, TCPCS=%d, UDPCS=%d, UDP_CSUM_FLAG=%d\n", CSUM_OK, IPCS, TCPCS, UDPCS, UDP_CSUM_FLAG);
-				rx_ring->rx_stats.csum_err++;
-    }
-  }
-
- 	skb_record_rx_queue(skb, ring_queue_index(rx_ring));
-
-  skb->protocol = eth_type_trans(skb, netdev_ring(rx_ring));
+	skb_record_rx_queue(skb, ring_queue_index(rx_ring));
+	skb->protocol = eth_type_trans(skb, netdev_ring(rx_ring));
 }
 
-
-void grtnic_rx_skb(struct grtnic_q_vector *q_vector,
-		  struct grtnic_ring *rx_ring,
-		  union grtnic_rx_desc *rx_desc,
-		  struct sk_buff *skb)
+static void grtnic_rx_skb(struct grtnic_q_vector *q_vector,
+			  struct grtnic_ring *rx_ring,
+	union grtnic_rx_desc *rx_desc,
+	struct sk_buff *skb)
 {
 #ifdef HAVE_NDO_BUSY_POLL
 	skb_mark_napi_id(skb, &q_vector->napi);
@@ -602,25 +595,24 @@ void grtnic_rx_skb(struct grtnic_q_vector *q_vector,
 #endif
 }
 
-
 static bool grtnic_is_non_eop(struct grtnic_ring *rx_ring, union grtnic_rx_desc *rx_desc, struct sk_buff *skb)
 {
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
 	struct sk_buff *next_skb;
 #endif
 
-  u32 ntc = rx_ring->next_to_clean + 1;
+	u32 ntc = rx_ring->next_to_clean + 1;
 
-  rx_desc->wb.upper.len_ctl.cmp = 0;
+	rx_desc->wb.upper.len_ctl.cmp = 0;
 
-  /* fetch, update, and store next to clean */
-  ntc = (ntc < rx_ring->count) ? ntc : 0;
-  rx_ring->next_to_clean = ntc;
+	/* fetch, update, and store next to clean */
+	ntc = (ntc < rx_ring->count) ? ntc : 0;
+	rx_ring->next_to_clean = ntc;
 
-  prefetch(GRTNIC_RX_DESC(*rx_ring, ntc));
+	prefetch(GRTNIC_RX_DESC(*rx_ring, ntc));
 
-  if (likely(rx_desc->wb.upper.len_ctl.eop))
-    return false;
+	if (likely(rx_desc->wb.upper.len_ctl.eop))
+		return false;
 
 	/* place skb in next buffer to be received */
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
@@ -648,11 +640,11 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 //	unsigned int mss = 0;
 //#endif /* CONFIG_FCOE */
 	u16 len = 0;
-  u16 cleaned_count = grtnic_desc_unused(rx_ring);
+	u16 cleaned_count = grtnic_desc_unused(rx_ring);
 
 	while (likely(total_rx_packets < budget)) {
-    struct grtnic_rx_buffer *rx_buffer;
-    union grtnic_rx_desc *rx_desc;
+		struct grtnic_rx_buffer *rx_buffer;
+		union grtnic_rx_desc *rx_desc;
 		struct sk_buff *skb;
 		u16 ntc;
 
@@ -663,11 +655,11 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 		}
 
 		ntc = rx_ring->next_to_clean;
-    rx_desc = GRTNIC_RX_DESC(*rx_ring, ntc);
+		rx_desc = GRTNIC_RX_DESC(*rx_ring, ntc);
 		rx_buffer = &rx_ring->rx_buffer_info[ntc];
 
-    if (!rx_desc->wb.upper.len_ctl.cmp)
-      break;
+		if (!rx_desc->wb.upper.len_ctl.cmp)
+			break;
 
 //		printk("rx len = %d, desc_num = %d, chl = %d, cmp = %d, rs = %d, irq = %d, eop = %d, sop = %d\n", rx_desc->len_ctl.len,
 //						rx_desc->len_ctl.desc_num,rx_desc->len_ctl.chl,rx_desc->len_ctl.cmp,rx_desc->len_ctl.rs,rx_desc->len_ctl.irq,
@@ -688,8 +680,7 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 		__skb_put(skb, len);
 
 //		printk("rx len = %d\n", len);
-		/*
-		 * Delay unmapping of the first packet. It carries the
+		/* Delay unmapping of the first packet. It carries the
 		 * header information, HW may still access the header after
 		 * the writeback.  Only unmap it when EOP is reached
 		 */
@@ -721,14 +712,14 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 		/* probably a little skewed due to removing CRC */
 		total_rx_bytes += skb->len;
 
-    /* populate checksum, timestamp, VLAN, and protocol */
-    grtnic_process_skb_fields(rx_ring, rx_desc, skb);
+		/* populate checksum, timestamp, VLAN, and protocol */
+		grtnic_process_skb_fields(rx_ring, rx_desc, skb);
 
 		grtnic_rx_skb(q_vector, rx_ring, rx_desc, skb);
 
 		/* update budget accounting */
 		total_rx_packets++;
-  }
+	}
 
 	rx_ring->stats.packets += total_rx_packets;
 	rx_ring->stats.bytes += total_rx_bytes;
@@ -745,14 +736,14 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 
 static void grtnic_reuse_rx_page(struct grtnic_ring *rx_ring, struct grtnic_rx_buffer *old_buff)
 {
-  struct grtnic_rx_buffer *new_buff;
-  u16 nta = rx_ring->next_to_alloc;
+	struct grtnic_rx_buffer *new_buff;
+	u16 nta = rx_ring->next_to_alloc;
 
-  new_buff = &rx_ring->rx_buffer_info[nta];
+	new_buff = &rx_ring->rx_buffer_info[nta];
 
-  /* update, and store next to alloc */
-  nta++;
-  rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
+	/* update, and store next to alloc */
+	nta++;
+	rx_ring->next_to_alloc = (nta < rx_ring->count) ? nta : 0;
 
 	/* Transfer page from old buffer to new buffer.
 	 * Move each member individually to avoid possible store
@@ -826,8 +817,8 @@ static void grtnic_add_rx_frag(struct grtnic_ring *rx_ring, struct grtnic_rx_buf
 	unsigned int truesize = grtnic_rx_pg_size(rx_ring) / 2;
 #else
 	unsigned int truesize = ring_uses_build_skb(rx_ring) ?
-				SKB_DATA_ALIGN(GRTNIC_SKB_PAD + size) :
-				SKB_DATA_ALIGN(size);
+		SKB_DATA_ALIGN(GRTNIC_SKB_PAD + size) :
+		SKB_DATA_ALIGN(size);
 #endif
 
 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, rx_buffer->page,
@@ -853,40 +844,39 @@ static void grtnic_dma_sync_frag(struct grtnic_ring *rx_ring, struct sk_buff *sk
 	if (unlikely(GRTNIC_CB(skb)->page_released)) {
 		dma_unmap_page_attrs(rx_ring->dev, GRTNIC_CB(skb)->dma,
 				     grtnic_rx_pg_size(rx_ring),
-				     DMA_FROM_DEVICE,
+			DMA_FROM_DEVICE,
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
-				     &attrs);
+			&attrs);
 #else
-				     GRTNIC_RX_DMA_ATTR);
+			GRTNIC_RX_DMA_ATTR);
 #endif
 	} else if (ring_uses_build_skb(rx_ring)) {
 		unsigned long offset = (unsigned long)(skb->data) & ~PAGE_MASK;
 
 		dma_sync_single_range_for_cpu(rx_ring->dev,
 					      GRTNIC_CB(skb)->dma,
-					      offset,
-					      skb_headlen(skb),
-					      DMA_FROM_DEVICE);
+			offset,
+			skb_headlen(skb),
+			DMA_FROM_DEVICE);
 	}	else {
 		skb_frag_t *frag = &skb_shinfo(skb)->frags[0];
 
 		dma_sync_single_range_for_cpu(rx_ring->dev,
 					      GRTNIC_CB(skb)->dma,
-					      skb_frag_off(frag),
-					      skb_frag_size(frag),
-					      DMA_FROM_DEVICE);
+			skb_frag_off(frag),
+			skb_frag_size(frag),
+			DMA_FROM_DEVICE);
 	}
 }
-
 
 ///////////////////////////////////////////////////////////////
 
 static struct grtnic_rx_buffer *grtnic_get_rx_buffer(struct grtnic_ring *rx_ring,
-		   union grtnic_rx_desc *rx_desc, struct sk_buff **skb, const unsigned int size)
+	union grtnic_rx_desc *rx_desc, struct sk_buff **skb, const unsigned int size)
 {
 	struct grtnic_rx_buffer *rx_buffer;
 
-  rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
+	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
 	prefetchw(rx_buffer->page);
 	*skb = rx_buffer->skb;
 
@@ -905,8 +895,8 @@ static struct grtnic_rx_buffer *grtnic_get_rx_buffer(struct grtnic_ring *rx_ring
 	/* we are reusing so sync this buffer for CPU use */
 	dma_sync_single_range_for_cpu(rx_ring->dev, rx_buffer->dma,
 				      rx_buffer->page_offset,
-				      size,
-				      DMA_FROM_DEVICE);
+		size,
+		DMA_FROM_DEVICE);
 skip_sync:
 	rx_buffer->pagecnt_bias--;
 
@@ -933,11 +923,11 @@ static void grtnic_put_rx_buffer(struct grtnic_ring *rx_ring, struct grtnic_rx_b
 			/* we are not reusing the buffer so unmap it */
 			dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
 					     grtnic_rx_pg_size(rx_ring),
-					     DMA_FROM_DEVICE,
+				DMA_FROM_DEVICE,
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
-					     &attrs);
+				&attrs);
 #else
-					     GRTNIC_RX_DMA_ATTR);
+				GRTNIC_RX_DMA_ATTR);
 #endif
 		}
 		__page_frag_cache_drain(rx_buffer->page, rx_buffer->pagecnt_bias);
@@ -949,11 +939,10 @@ static void grtnic_put_rx_buffer(struct grtnic_ring *rx_ring, struct grtnic_rx_b
 }
 
 static struct sk_buff *grtnic_construct_skb(struct grtnic_ring *rx_ring,
-					   struct grtnic_rx_buffer *rx_buffer,
-					   union grtnic_rx_desc *rx_desc,
-					   unsigned int size)
+					    struct grtnic_rx_buffer *rx_buffer,
+	union grtnic_rx_desc *rx_desc,
+	unsigned int size)
 {
-
 	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
 #if (PAGE_SIZE < 8192)
 	unsigned int truesize = grtnic_rx_pg_size(rx_ring) / 2;
@@ -993,9 +982,9 @@ static struct sk_buff *grtnic_construct_skb(struct grtnic_ring *rx_ring,
 
 #ifdef HAVE_SWIOTLB_SKIP_CPU_SYNC
 static struct sk_buff *grtnic_build_skb(struct grtnic_ring *rx_ring,
-				       struct grtnic_rx_buffer *rx_buffer,
-				       union grtnic_rx_desc *rx_desc,
-				       unsigned int size)
+					struct grtnic_rx_buffer *rx_buffer,
+	union grtnic_rx_desc *rx_desc,
+	unsigned int size)
 {
 	void *va = page_address(rx_buffer->page) + rx_buffer->page_offset;
 #if (PAGE_SIZE < 8192)
@@ -1043,15 +1032,13 @@ static void grtnic_pull_tail(struct sk_buff *skb)
 	unsigned char *va;
 	unsigned int pull_len;
 
-	/*
-	 * it is valid to use page_address instead of kmap since we are
+	/* it is valid to use page_address instead of kmap since we are
 	 * working with pages allocated out of the lomem pool per
 	 * alloc_page(GFP_ATOMIC)
 	 */
 	va = skb_frag_address(frag);
 
-	/*
-	 * we need the header to contain the greater of either ETH_HLEN or
+	/* we need the header to contain the greater of either ETH_HLEN or
 	 * 60 bytes if the skb->len is less than 60 for skb_pad.
 	 */
 	pull_len = eth_get_headlen(skb->dev, va, GRTNIC_RX_HDR_SIZE);
@@ -1069,7 +1056,6 @@ static void grtnic_pull_tail(struct sk_buff *skb)
 
 static bool grtnic_cleanup_headers(struct grtnic_ring *rx_ring, union grtnic_rx_desc *rx_desc, struct sk_buff *skb)
 {
-
 	/* place header in linear portion of buffer */
 	if (!skb_headlen(skb))
 		grtnic_pull_tail(skb);
@@ -1090,23 +1076,38 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 //	int ddp_bytes;
 //	unsigned int mss = 0;
 //#endif /* CONFIG_FCOE */
-  u16 cleaned_count = grtnic_desc_unused(rx_ring);
+	u16 cleaned_count = grtnic_desc_unused(rx_ring);
+	union grtnic_rx_desc *rx_desc;
 
 	while (likely(total_rx_packets < budget)) {
-    union grtnic_rx_desc *rx_desc;
 		struct grtnic_rx_buffer *rx_buffer;
 		struct sk_buff *skb;
 		unsigned int size;
 
 		/* return some buffers to hardware, one at a time is too slow */
 		if (cleaned_count >= GRTNIC_RX_BUFFER_WRITE) {
-      grtnic_alloc_rx_buffers(rx_ring, cleaned_count);
+			grtnic_alloc_rx_buffers(rx_ring, cleaned_count);
 			cleaned_count = 0;
 		}
 
-    rx_desc = GRTNIC_RX_DESC(*rx_ring, rx_ring->next_to_clean);
-    if (!rx_desc->wb.upper.len_ctl.cmp)
-      break;
+		rx_desc = GRTNIC_RX_DESC(*rx_ring, rx_ring->next_to_clean);
+		if (!rx_desc->wb.upper.len_ctl.cmp)
+			break;
+
+		// rx_call_cnt++;
+
+		// /* ===== 打印 RX 状态 ===== */
+		// printk("RX POLL[%d]: queue=%d, next_to_clean=%d, next_to_use=%d, "
+			//    "cmp=%d, len=%d, eop=%d, sop=%d, reversed = 0x%08x\n",
+			//    rx_call_cnt,
+			//    rx_ring->queue_index,
+			//    rx_ring->next_to_clean,
+			//    rx_ring->next_to_use,
+			//    rx_desc->wb.upper.len_ctl.cmp,
+			//    rx_desc->wb.upper.len_ctl.len,
+			//    rx_desc->wb.upper.len_ctl.eop,
+			//    rx_desc->wb.upper.len_ctl.sop,
+			//    rx_desc->wb.upper.rx_info.reserved>>3);
 
 		/* This memory barrier is needed to keep us from reading
 		 * any other fields out of the rx_desc until we know the
@@ -1114,7 +1115,7 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 		 */
 		dma_rmb();
 
-  	size = le16_to_cpu(rx_desc->wb.upper.len_ctl.len);
+		size = le16_to_cpu(rx_desc->wb.upper.len_ctl.len);
 		rx_buffer = grtnic_get_rx_buffer(rx_ring, rx_desc, &skb, size);
 
 		/* retrieve a buffer from the ring */
@@ -1165,6 +1166,8 @@ static int grtnic_clean_rx_irq(struct grtnic_q_vector *q_vector, int budget)
 	q_vector->rx.total_packets += total_rx_packets;
 	q_vector->rx.total_bytes += total_rx_bytes;
 
+	// printk("%s: cleaned %d packets\n", __func__, total_rx_packets);
+
 	return total_rx_packets;
 }
 
@@ -1207,7 +1210,7 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 {
 	struct grtnic_adapter *adapter = q_vector->adapter;
 	struct grtnic_ring *tx_ring = q_vector->tx.ring;
-  struct grtnic_tx_buffer *tx_buffer;
+	struct grtnic_tx_buffer *tx_buffer;
 	union grtnic_tx_desc *tx_desc;
 	unsigned int total_bytes = 0, total_packets = 0;
 	unsigned int budget = q_vector->tx.work_limit;
@@ -1230,13 +1233,8 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 		/* prevent any other reads prior to eop_desc */
 		smp_rmb();
 
-    if (!eop_desc->wb.len_ctl.cmp)
-      break;
-
-//		printk("tx len = %d, desc_num = %d, chl = %d, cmp = %d, rs = %d, irq = %d, eop = %d, sop = %d\n", tx_desc->len_ctl.len,
-//						tx_desc->len_ctl.desc_num,tx_desc->len_ctl.chl,tx_desc->len_ctl.cmp,tx_desc->len_ctl.rs,tx_desc->len_ctl.irq,
-//						tx_desc->len_ctl.eop,tx_desc->len_ctl.sop);
-
+		if (!eop_desc->wb.len_ctl.cmp)
+			break;
 
 		/* clear next_to_watch to prevent false hangs */
 		tx_buffer->next_to_watch = NULL;
@@ -1272,8 +1270,8 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 			if (dma_unmap_len(tx_buffer, len)) {
 				dma_unmap_page(tx_ring->dev,
 					       dma_unmap_addr(tx_buffer, dma),
-					       dma_unmap_len(tx_buffer, len),
-					       DMA_TO_DEVICE);
+					dma_unmap_len(tx_buffer, len),
+					DMA_TO_DEVICE);
 				dma_unmap_len_set(tx_buffer, len, 0);
 			}
 		}
@@ -1298,8 +1296,6 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 	i += tx_ring->count;
 	tx_ring->next_to_clean = i;
 
-//	printk("next_to_clean = %d\n", i);
-
 	u64_stats_update_begin(&tx_ring->syncp);
 	tx_ring->stats.bytes += total_bytes;
 	tx_ring->stats.packets += total_packets;
@@ -1318,8 +1314,8 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 		smp_mb();
 #ifdef HAVE_TX_MQ
 		if (__netif_subqueue_stopped(netdev_ring(tx_ring),
-					     ring_queue_index(tx_ring))
-		    && !test_bit(__GRTNIC_DOWN, &q_vector->adapter->state)) {
+					     ring_queue_index(tx_ring)) &&
+				!test_bit(__GRTNIC_DOWN, &q_vector->adapter->state)) {
 			netif_wake_subqueue(netdev_ring(tx_ring),
 					    ring_queue_index(tx_ring));
 			++tx_ring->tx_stats.restart_queue;
@@ -1335,7 +1331,6 @@ static bool grtnic_clean_tx_irq_reg(struct grtnic_q_vector *q_vector, int napi_b
 
 	return !!budget;
 }
-
 
 /**
  *  grtnic_poll - NAPI Rx polling callback
@@ -1355,16 +1350,14 @@ int grtnic_poll(struct napi_struct *napi, int budget)
 //	int work_done = 0;
 //	int cleaned = 0;
 
-#if 0
-//#if IS_ENABLED(CONFIG_DCA)
-	if (adapter->flags & GRTNIC_FLAG_DCA_ENABLED)
-		grtnic_update_dca(q_vector);
-#endif /* CONFIG_DCA */
+//#if 0
+////#if IS_ENABLED(CONFIG_DCA)
+//	if (adapter->flags & GRTNIC_FLAG_DCA_ENABLED)
+//		grtnic_update_dca(q_vector);
+//#endif /* CONFIG_DCA */
 
-
-	if (q_vector->tx.ring)
-	{
-		if(!grtnic_clean_tx_irq_reg(q_vector, budget))
+	if (q_vector->tx.ring) {
+		if (!grtnic_clean_tx_irq_reg(q_vector, budget))
 			clean_complete = false;
 	}
 
@@ -1381,15 +1374,13 @@ int grtnic_poll(struct napi_struct *napi, int budget)
 		return budget;
 #endif
 
-	if (q_vector->rx.ring)
-	{
+	if (q_vector->rx.ring) {
 		int cleaned = grtnic_clean_rx_irq(q_vector, budget);
-		work_done += cleaned;
 
+		work_done += cleaned;
 		if (cleaned >= budget)
 			clean_complete = false;
 	}
-
 
 #ifdef HAVE_NDO_BUSY_POLL
 	grtnic_qv_unlock_napi(q_vector);
@@ -1406,25 +1397,26 @@ int grtnic_poll(struct napi_struct *napi, int budget)
 	if (likely(napi_complete_done(napi, work_done))) {
 		if (adapter->rx_itr_setting == 1)
 			grtnic_set_itr(q_vector);
-		if (!test_bit(__GRTNIC_DOWN, &adapter->state))
-		{
+		if (!test_bit(__GRTNIC_DOWN, &adapter->state)) {
 			if (adapter->flags & GRTNIC_FLAG_MSIX_ENABLED)
 				var = q_vector->eims_value;
 			else
 				var = ~0;
-	
-			GRTNIC_WRITE_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_IMS*4), var, 1);
+
+			GRTNIC_WRITE_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_IMS * 4), var, 1);
 		}
 	}
 	return min(work_done, budget - 1);
 }
 
-
 static void grtnic_trigger_lsc(struct grtnic_adapter *adapter)
 {
 	struct grtnic_hw *hw = &adapter->hw;
-	GRTNIC_WRITE_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_ICS*4), adapter->eims_other, 1); //trigger user interrupt
+
+	//trigger user interrupt
+	GRTNIC_WRITE_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_ICS * 4), adapter->eims_other, 1);
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 int grtnic_setup_tx_resources(struct grtnic_ring *tx_ring)
 {
@@ -1451,15 +1443,14 @@ int grtnic_setup_tx_resources(struct grtnic_ring *tx_ring)
 	set_dev_node(dev, node);
 	tx_ring->desc = dma_alloc_coherent(dev,
 					   tx_ring->size,
-					   &tx_ring->dma,
-					   GFP_KERNEL);
+		&tx_ring->dma,
+		GFP_KERNEL);
 	set_dev_node(dev, orig_node);
 	if (!tx_ring->desc)
 		tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
 						   &tx_ring->dma, GFP_KERNEL);
 	if (!tx_ring->desc)
 		goto err_tx_ring_dma;
-
 
 	set_dev_node(dev, node);
 	tx_ring->desc_wb = dma_alloc_coherent(dev, sizeof(struct grtnic_desc_wb), &tx_ring->desc_wb_dma, GFP_KERNEL);
@@ -1470,9 +1461,9 @@ int grtnic_setup_tx_resources(struct grtnic_ring *tx_ring)
 	if (!tx_ring->desc_wb)
 		goto err_tx_ring_wb;
 
-	((struct grtnic_desc_wb *) tx_ring->desc_wb)->desc_hw_ptr = 0;
+	((struct grtnic_desc_wb *)tx_ring->desc_wb)->desc_hw_ptr = 0;
 
-//	tx_ring->next_to_use = 0; 	//检查一下这里，其他地方设置了，这里就不需要了
+//	tx_ring->next_to_use = 0;
 //	tx_ring->next_to_clean = 0;
 //
 //#ifndef CONFIG_DISABLE_PACKET_SPLIT
@@ -1485,8 +1476,8 @@ err_tx_ring_wb:
 err_tx_ring_dma:
 	vfree(tx_ring->tx_buffer_info);
 	tx_ring->tx_buffer_info = NULL;
-err_tx_buffer:	
-	printk("Unable to allocate memory for the transmit descriptor ring\n");
+err_tx_buffer:
+//	e_err(probe, "Unable to allocate memory for the transmit descriptor ring\n");
 	return -ENOMEM;
 }
 
@@ -1515,8 +1506,8 @@ int grtnic_setup_rx_resources(struct grtnic_ring *rx_ring)
 	set_dev_node(dev, node);
 	rx_ring->desc = dma_alloc_coherent(dev,
 					   rx_ring->size,
-					   &rx_ring->dma,
-					   GFP_KERNEL);
+		&rx_ring->dma,
+		GFP_KERNEL);
 	set_dev_node(dev, orig_node);
 	if (!rx_ring->desc)
 		rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
@@ -1524,7 +1515,7 @@ int grtnic_setup_rx_resources(struct grtnic_ring *rx_ring)
 	if (!rx_ring->desc)
 		goto err_rx_ring_dma;
 
-//	rx_ring->next_to_clean = 0; //检查一下这里，其他地方设置了，这里就不需要了
+//	rx_ring->next_to_clean = 0; //检查一下这里,其他地方设置了,这里就不需要了
 //	rx_ring->next_to_use = 0;
 //
 //#ifndef CONFIG_DISABLE_PACKET_SPLIT
@@ -1537,10 +1528,9 @@ err_rx_ring_dma:
 	vfree(rx_ring->rx_buffer_info);
 	rx_ring->rx_buffer_info = NULL;
 err_rx_buffer:
-	printk("Unable to allocate memory for the receive descriptor ring\n");
+//	e_err(probe, "Unable to allocate memory for the receive descriptor ring\n");
 	return -ENOMEM;
 }
-
 
 void grtnic_free_tx_resources(struct grtnic_ring *tx_ring)
 {
@@ -1592,8 +1582,6 @@ static int grtnic_setup_all_tx_resources(struct grtnic_adapter *adapter)
 	int i, err = 0;
 
 	for (i = 0; i < adapter->num_tx_queues; i++) {
-
-
 		err = grtnic_setup_tx_resources(adapter->tx_ring[i]);
 		if (!err)
 			continue;
@@ -1642,7 +1630,6 @@ err_setup_rx:
 	return err;
 }
 
-
 /**
  * grtnic_free_all_tx_resources - Free Tx Resources for All Queues
  * @adapter: board private structure
@@ -1656,7 +1643,6 @@ static void grtnic_free_all_tx_resources(struct grtnic_adapter *adapter)
 	for (i = 0; i < adapter->num_tx_queues; i++)
 		grtnic_free_tx_resources(adapter->tx_ring[i]);
 }
-
 
 /**
  * grtnic_free_all_rx_resources - Free Rx Resources for All Queues
@@ -1687,38 +1673,42 @@ void grtnic_configure_tx_ring(struct grtnic_adapter *adapter, struct grtnic_ring
 	u32 txdctl = (1u << 25);			/* LWTHRESH */
 	u8 reg_idx = ring->reg_idx;
 
-  /* flush pending descriptor writebacks to memory */
+	/* flush pending descriptor writebacks to memory */
 //	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), (TX_INT_DELAY | GRTNIC_TIDV_FPD), 1);
-  /* execute the writes immediately */
+	/* execute the writes immediately */
 	GRTNIC_WRITE_FLUSH(hw);
 
 	/* write lower 32-bit of bus address of transfer first descriptor */
 	w = cpu_to_le32(PCI_DMA_L(ring->dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_SG_ADDRLO*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_SG_ADDRLO * 4), w, 1);
 	/* write upper 32-bit of bus address of transfer first descriptor */
 	w = cpu_to_le32(PCI_DMA_H(ring->dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_SG_ADDRHI*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_SG_ADDRHI * 4), w, 1);
 	/* write lower 32-bit of bus address of desc write back address*/
 	w = cpu_to_le32(PCI_DMA_L(ring->desc_wb_dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_SG_WBADDRLO*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_SG_WBADDRLO * 4), w, 1);
 	/* write upper 32-bit of bus address of desc write back address*/
 	w = cpu_to_le32(PCI_DMA_H(ring->desc_wb_dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_SG_WBADDRHI*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_SG_WBADDRHI * 4), w, 1);
 
 	/* setup max SG num */
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_SG_MAXNUM*4), ring->count, 1);
-//  /* Set the Tx Interrupt Delay register  TIDV */ 前面为了flush，已经设置过了，这里就不用了
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), TX_INT_DELAY, 1);
-//  write_register(tx_int_delay, adapter->dma_bar+ (TARGET_H2C<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_SG_MAXNUM * 4),
+		ring->count, 1);
+	/* Set the Tx Interrupt Delay register  TIDV 前面为了flush,
+	 *已经设置过了,这里就不用了
+	 */
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_INT_DELAY * 4),
+		TX_INT_DELAY, 1);
+//	write_register(tx_int_delay, adapter->dma_bar+ (TARGET_H2C<<12) +
+//		(reg_idx<<8) + ADDR_INT_DELAY*4);
 
-	ring->tail = hw->dma_bar + (TARGET_H2C<<12) + (reg_idx <<8) + (ADDR_SG_SWPT*4);
+	ring->tail = hw->dma_bar + (TARGET_H2C << 12) + (reg_idx << 8) + (ADDR_SG_SWPT * 4);
 
 	/* reset ntu and ntc to place SW in sync with hardwdare */
 	ring->next_to_clean = 0;
 	ring->next_to_use = 0;
 
-	/*
-	 * set WTHRESH to encourage burst writeback, it should not be set
+	/* set WTHRESH to encourage burst writeback, it should not be set
 	 * higher than 1 when:
 	 * - ITR is 0 as it could cause false TX hangs
 	 * - ITR is set to > 100k int/sec and BQL is enabled
@@ -1732,17 +1722,19 @@ void grtnic_configure_tx_ring(struct grtnic_adapter *adapter, struct grtnic_ring
 	else
 		txdctl |= (8 << 16);	/* WTHRESH = 8 */
 
-	/*
-	 * Setting PTHRESH to 32 both improves performance
+	/* Setting PTHRESH to 32 both improves performance
 	 * and avoids a TX hang with DFP enabled
 	 */
 	txdctl |= (1 << 8) |	/* HTHRESH = 1 */
-		   32;		/* PTHRESH = 32 */
+			 32;		/* PTHRESH = 32 */
 
-  //PTHRESH=32, HTHRESH=1, WTHRESH=1,LWTHRESH=1 预读的方式就是等待其它都不忙的时候才进行描述符指令发出
-//  write_register(GRTNIC_TXDCTL_DMA_BURST_ENABLE, adapter->dma_bar+ (TARGET_H2C<<12) + (reg_idx<<8) + ADDR_DESC_CTRL*4);
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_DESC_CTRL*4), txdctl, 1);
-//	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_DESC_CTRL*4), GRTNIC_TXDCTL_DMA_BURST_ENABLE, 1);
+//PTHRESH=32, HTHRESH=1, WTHRESH=1,LWTHRESH=1 预读的方式就是
+//等待其它都不忙的时候才进行描述符指令发出
+//write_register(GRTNIC_TXDCTL_DMA_BURST_ENABLE, adapter->dma_bar+ (TARGET_H2C<<12) +
+//	(reg_idx<<8) + ADDR_DESC_CTRL*4);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_DESC_CTRL * 4), txdctl, 1);
+//	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_DESC_CTRL*4),
+//		GRTNIC_TXDCTL_DMA_BURST_ENABLE, 1);
 
 	/* initialize XPS */
 	if (!test_and_set_bit(__GRTNIC_TX_XPS_INIT_DONE, &ring->state)) {
@@ -1760,11 +1752,10 @@ void grtnic_configure_tx_ring(struct grtnic_adapter *adapter, struct grtnic_ring
 	       sizeof(struct grtnic_tx_buffer) * ring->count);
 
 	/* TX dma engine start */
-	GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_ENGINE_CTRL*4), 0x01, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_ENGINE_CTRL * 4), 0x01, 1);
 }
 
-/**
- * grtnic_configure_tx - Configure 8259x Transmit Unit after Reset
+/* grtnic_configure_tx - Configure 8259x Transmit Unit after Reset
  * @adapter: board private structure
  *
  * Configure the Tx unit of the MAC after a reset.
@@ -1779,7 +1770,6 @@ static void grtnic_configure_tx(struct grtnic_adapter *adapter)
 		grtnic_configure_tx_ring(adapter, adapter->tx_ring[i]);
 }
 
-
 void grtnic_configure_rx_ring(struct grtnic_adapter *adapter, struct grtnic_ring *ring)
 {
 	struct grtnic_hw *hw = &adapter->hw;
@@ -1787,26 +1777,30 @@ void grtnic_configure_rx_ring(struct grtnic_adapter *adapter, struct grtnic_ring
 	u32 rxdctl = (1u << 25);			/* LWTHRESH */
 	u8 reg_idx = ring->reg_idx;
 
-  union grtnic_rx_desc *rx_desc;
+	union grtnic_rx_desc *rx_desc;
 
-  /* flush pending descriptor writebacks to memory */
+	/* flush pending descriptor writebacks to memory */
 //	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), (RX_INT_DELAY | GRTNIC_RDTR_FPD), 1);
-  /* execute the writes immediately */
+	/* execute the writes immediately */
 	GRTNIC_WRITE_FLUSH(hw);
 
 	w = cpu_to_le32(PCI_DMA_L(ring->dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_SG_ADDRLO*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_SG_ADDRLO * 4), w, 1);
 	/* write upper 32-bit of bus address of transfer first descriptor */
 	w = cpu_to_le32(PCI_DMA_H(ring->dma));
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_SG_ADDRHI*4), w, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_SG_ADDRHI * 4), w, 1);
 
 	/* setup max SG num */
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_SG_MAXNUM*4), ring->count, 1);
-//  /* set the Receive Delay Timer Register RDTR  #define BURST_RDTR      0x20 */ /*前面为了flush，已经执行过了，这些就不再执行了*/
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), RX_INT_DELAY, 1);
-//  write_register(rx_int_delay, adapter->dma_bar+ (TARGET_C2H<<12) + (channel<<8) + ADDR_INT_DELAY*4);
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_SG_MAXNUM * 4),
+		ring->count, 1);
+//  /* set the Receive Delay Timer Register RDTR  #define BURST_RDTR      0x20 */
+	/*前面为了flush,已经执行过了,这些就不再执行了*/
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_INT_DELAY * 4),
+		RX_INT_DELAY, 1);
+//  write_register(rx_int_delay, adapter->dma_bar+ (TARGET_C2H<<12) +
+//		(channel<<8) + ADDR_INT_DELAY*4);
 
-	ring->tail = hw->dma_bar + (TARGET_C2H<<12) + (reg_idx <<8) + (ADDR_SG_SWPT*4);
+	ring->tail = hw->dma_bar + (TARGET_C2H << 12) + (reg_idx << 8) + (ADDR_SG_SWPT * 4);
 
 	/* reset ntu and ntc to place SW in sync with hardwdare */
 	ring->next_to_clean = 0;
@@ -1820,32 +1814,35 @@ void grtnic_configure_rx_ring(struct grtnic_adapter *adapter, struct grtnic_ring
 	       sizeof(struct grtnic_rx_buffer) * ring->count);
 
 	/* initialize Rx descriptor 0 */
-  rx_desc = GRTNIC_RX_DESC(*ring, 0);
-  rx_desc->wb.upper.len_ctl.cmp = 0;
+	rx_desc = GRTNIC_RX_DESC(*ring, 0);
+	rx_desc->wb.upper.len_ctl.cmp = 0;
 
 	rxdctl = GRTNIC_RXDCTL_DMA_BURST_ENABLE;
-  //PTHRESH=32, HTHRESH=4, WTHRESH=4, LWTHRESH=1 这与intel功能不同，当描述符数量低于LWTHRESH时候，优先级最高，立刻进行读描述符，不关系bus是不是busy，否则采取预读的方式，优先级最低
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_DESC_CTRL*4), rxdctl, 1);
+	/* PTHRESH=32, HTHRESH=4, WTHRESH=4, LWTHRESH=1 这与intel功能不同,
+	 * 当描述符数量低于LWTHRESH时候,优先级最高,立刻进行读描述符,
+	 * 不关系bus是不是busy,否则采取预读的方式,优先级最低
+	 */
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_DESC_CTRL * 4), rxdctl, 1);
 
 	/* RX dma engine start */
-	GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_ENGINE_CTRL*4), 0x01, 1);
+	GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_ENGINE_CTRL * 4), 0x01, 1);
 
 	grtnic_alloc_rx_buffers(ring, grtnic_desc_unused(ring));
 }
-
 
 static void grtnic_set_rx_buffer_len(struct grtnic_adapter *adapter)
 {
 	struct grtnic_ring *rx_ring;
 	int i;
 
-#if defined(CONFIG_DISABLE_PACKET_SPLIT) || (defined (HAVE_SWIOTLB_SKIP_CPU_SYNC) && (PAGE_SIZE < 8192)) 
+#if defined(CONFIG_DISABLE_PACKET_SPLIT) || \
+	(defined(HAVE_SWIOTLB_SKIP_CPU_SYNC) && (PAGE_SIZE < 8192))
 	int max_frame	= adapter->max_frame_size;
-#endif	
+#endif
 
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
 	max_frame += VLAN_HLEN;
-	if(max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
+	if (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE)
 		max_frame = MAXIMUM_ETHERNET_VLAN_SIZE;
 	else
 		max_frame = ALIGN(max_frame, 1024);
@@ -1863,22 +1860,21 @@ static void grtnic_set_rx_buffer_len(struct grtnic_adapter *adapter)
 		set_bit(__GRTNIC_RX_BUILD_SKB_ENABLED, &rx_ring->state);
 
 #if (PAGE_SIZE < 8192)
-		if (GRTNIC_2K_TOO_SMALL_WITH_PADDING || (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
-		{
+		if (GRTNIC_2K_TOO_SMALL_WITH_PADDING ||
+			(max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN))) {
 			set_bit(__GRTNIC_RX_3K_BUFFER, &rx_ring->state);
 			rx_ring->rx_buffer_len = GRTNIC_RXBUFFER_3K;
 		}
 
 #endif /* PAGE_SIZE < 8192*/
 #endif /* HAVE_SWIOTLB_SKIP_CPU_SYNC */
-#else /* CONFIG_IXGBE_DISABLE_PACKET_SPLIT */
+#else /* CONFIG_DISABLE_PACKET_SPLIT */
 		rx_ring->rx_buffer_len = max_frame;
 #endif /*!CONFIG_DISABLE_PACKET_SPLIT*/
 	}
 }
 
-/**
- * grtnic_configure_rx - Configure 8259x Receive Unit after Reset
+/* grtnic_configure_rx - Configure 8259x Receive Unit after Reset
  * @adapter: board private structure
  *
  * Configure the Rx unit of the MAC after a reset.
@@ -1893,20 +1889,99 @@ static void grtnic_configure_rx(struct grtnic_adapter *adapter)
 	/* set_rx_buffer_len must be called before ring initialization */
 	grtnic_set_rx_buffer_len(adapter);
 
-	/*
-	 * Setup the HW Rx Head and Tail Descriptor Pointers and
+	/* Setup the HW Rx Head and Tail Descriptor Pointers and
 	 * the Base and Length of the Rx Descriptor Ring
 	 */
 	for (i = 0; i < adapter->num_rx_queues; i++)
 		grtnic_configure_rx_ring(adapter, adapter->rx_ring[i]);
 
 	/* enable all receives */
-	grtnic_SetRx(adapter->netdev, 1); 	//start rx
+	grtnic_SetRx(adapter->netdev, 1);	//start rx
 }
 
+static void grtnic_set_wol_address(struct grtnic_adapter *adapter, const u8 *addr)
+{
+	u32 phy_addr = adapter->hw.phy_addr;
+
+	if (adapter->wol_supported & adapter->wol_enabled) {
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1E, 0xA007);
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1F, (addr[0] << 8 | addr[1]));
+
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1E, 0xA008);
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1F, (addr[2] << 8 | addr[3]));
+
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1E, 0xA009);
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1F, (addr[4] << 8 | addr[5]));
+
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1E, 0xA00A);
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1F, 0x0000);
+
+		//wol cfg
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1E, 0xA00A);
+		//PME_N+WOL EN+PLUSE+168ms
+		grtnic_PhyWrite(adapter->netdev, phy_addr, 0x1F, 0x004B);
+	}
+}
 
 static void grtnic_configure(struct grtnic_adapter *adapter)
 {
+	struct grtnic_hw *hw = &adapter->hw;
+	struct net_device *netdev = adapter->netdev;
+	struct device *dev = adapter->dev;
+	int card_type = adapter->ei->type;
+	int csum_tx_mode = 0, csum_rx_mode = 0;
+	u32 phy_addr = hw->phy_addr;
+
+	grtnic_PhySetMdioDivisor(netdev, 24);
+
+	if ((card_type == board_902T_GRT_FF) && (hw->revision == 0)) {	//FF902T old version
+		u16 temp;
+
+		grtnic_PhyRead(netdev, phy_addr, 0x00, &temp);
+		grtnic_PhyWrite(netdev, phy_addr, 0x00, temp | PHY_RESET); //rst phy
+
+		//clear EEE LED
+		grtnic_PhyWrite(netdev, phy_addr, 0x1F, 0xd04); //1F:change page, d04:ExtPage
+		grtnic_PhyWrite(netdev, phy_addr, 0x11, 0x00); //EEELCR
+		//grtnic_PhyWrite(netdev[i], 0x01, 0x10, 0x207B); // LED config
+		grtnic_PhyWrite(netdev, phy_addr, 0x10, 0x0D1B); // LED config
+
+		//page 0
+		grtnic_PhyWrite(netdev, phy_addr, 0x1F, 0x00);
+		//1 is phy add, 0d is MACR reg, 7 is device address
+		grtnic_PhyWrite(netdev, phy_addr, 0x0D, 0x07);
+		//1 is phy add, 0e is MAADR reg, 0x3C is reg address
+		grtnic_PhyWrite(netdev, phy_addr, 0x0E, 0x3C);
+		//1 is phy add, 0d is MACR reg, 4007 get data from device add 7 & reg 14
+		grtnic_PhyWrite(netdev, phy_addr, 0x0D, 0x4007);
+		// EEEAR
+		grtnic_PhyWrite(netdev, phy_addr, 0x0E, 0x00);
+	}
+
+	if (adapter->flags & GRTNIC_FLAG_TXCSUM_CAPABLE)
+		csum_tx_mode = 1;
+	if (adapter->flags & GRTNIC_FLAG_RXCSUM_CAPABLE)
+		csum_rx_mode = 1;
+
+	//告诉asic, tx checksum offload
+	GRTNIC_WRITE_REG(hw, CSUM_ENABLE, (csum_rx_mode << 1 | csum_tx_mode), 0);
+	//200 is delay time and 1 is pkt number
+	GRTNIC_WRITE_REG(hw, MAX_LED_PKT_NUM, (100 << 16 | 1), 0);
+
+	grtnic_SetMacAddress(netdev, netdev->dev_addr); //refresh add register
+
+	grtnic_SetMacPauseAddress(netdev, netdev->dev_addr);
+
+	grtnic_SetPause(netdev, 1); //rx pause, tx off
+
+	grtnic_set_wol_address(adapter, netdev->dev_addr);
+
+	dev_info(dev, "add=%02x:%02x:%02x:%02x:%02x:%02x\n", netdev->dev_addr[5],
+		netdev->dev_addr[4], netdev->dev_addr[3], netdev->dev_addr[2],
+		netdev->dev_addr[1], netdev->dev_addr[0]);
+
+	/* power down the optics for 82599 SFP+ fiber */
+	GRTNIC_WRITE_REG(hw, PHY_TX_DISABLE, 0x01, 0); //disable laser;
 
 //#if IS_ENABLED(CONFIG_DCA)
 //	/* configure DCA */
@@ -1920,76 +1995,92 @@ static void grtnic_configure(struct grtnic_adapter *adapter)
 
 static void grtnic_up_complete(struct grtnic_adapter *adapter)
 {
+	struct net_device *netdev = adapter->netdev;
 	struct grtnic_hw *hw = &adapter->hw;
 	u32 phy_addr = hw->phy_addr;
 	u16 temp;
-
-//	ixgbe_get_hw_control(adapter);
-//	ixgbe_setup_gpie(adapter);
+	int i;
 
 	if (adapter->flags & GRTNIC_FLAG_MSIX_ENABLED)
 		grtnic_configure_msix(adapter);
 	else
 		grtnic_configure_msi_and_legacy(adapter);
 
-	if(adapter->ei->type == board_902T_GRT_FF)
-	{
-		grtnic_PhyRead(adapter->netdev, phy_addr, 0x00, &temp); //prtad_reg
-	  grtnic_PhyWrite(adapter->netdev, phy_addr, 0x00, temp | PHY_RESET); //rst phy
+	if (hw->is_qsgmii) {	//FF904T bypass (use qsgmii phy)
+		if (!hw->is_individual_mdio) {	//共享port 0口的mdio
+			for (i = 0; i < 4; i++) {	//get fun0 netdev
+				if (AdapterInfo[i].in_use && AdapterInfo[i].slot == adapter->slot) {
+					netdev = AdapterInfo[i].adapter->netdev;
+					break;
+				}
+			}
+		}
+		grtnic_PhyWrite(netdev, phy_addr, 0x1E, 0xA000);
+		//写通用扩展寄存器 0xa000 为 0x0,选择 UTP 空间
+		grtnic_PhyWrite(netdev, phy_addr, 0x1F, 0x00);
+		//更改utp的地址为对应口的地址
+		phy_addr = phy_addr + adapter->func;
 	}
-	else
-	{
+
+	if (adapter->type == 1) {	//copper
+		//prtad_reg
+		grtnic_PhyRead(netdev, phy_addr, 0x00, &temp);
+		//rst phy
+		grtnic_PhyWrite(netdev, phy_addr, 0x00, (temp & ~PHY_POWER_DOWN) | PHY_RESET);
+	} else {
 		/* enable the optics for 82599 SFP+ fiber */
 		GRTNIC_WRITE_REG(hw, PHY_TX_DISABLE, 0x00, 0); //enable laser;
 	}
 
+	netdev = adapter->netdev;
+
+	/* smp */
 	smp_mb__before_atomic();
+
 	clear_bit(__GRTNIC_DOWN, &adapter->state);
 	grtnic_napi_enable_all(adapter);
-//#ifndef IXGBE_NO_LLI
-//	grtnic_configure_lli(adapter);
-//#endif
 
 	/* clear any pending interrupts, may auto mask */
-	GRTNIC_READ_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_VECTOR*4), 1);
+	GRTNIC_READ_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_VECTOR * 4), 1);
 	grtnic_irq_enable(adapter);
 
 	/* enable transmits */
-	netif_tx_start_all_queues(adapter->netdev);
+	netif_tx_start_all_queues(netdev);
 
-	/* bring the link up in the watchdog, this could race with our first
-	 * link up interrupt but shouldn't be a problem */
+	/* bring the link up in the watchdog, this could race with our first */
+	/* link up interrupt but shouldn't be a problem */
 	adapter->flags |= GRTNIC_FLAG_NEED_LINK_UPDATE;
 	adapter->link_check_timeout = jiffies;
 	mod_timer(&adapter->service_timer, jiffies);
-
-//
-//	ixgbe_clear_vf_stats_counters(adapter);
-//	/* Set PF Reset Done bit so PF/VF Mail Ops can work */
-//	ctrl_ext = IXGBE_READ_REG(hw, IXGBE_CTRL_EXT);
-//	ctrl_ext |= IXGBE_CTRL_EXT_PFRSTD;
-//	IXGBE_WRITE_REG(hw, IXGBE_CTRL_EXT, ctrl_ext);
-//
-//	/* update setting rx tx for all active vfs */
-//	ixgbe_set_all_vfs(adapter);
 }
 
 void grtnic_reset(struct grtnic_adapter *adapter)
 {
 	struct grtnic_hw *hw = &adapter->hw;
-	GRTNIC_READ_REG(hw, ((TARGET_CONFIG<<12) + ADDR_FUNC_RST*4), 1); //function reset;
+
+	GRTNIC_READ_REG(hw, ((TARGET_CONFIG << 12) + ADDR_FUNC_RST * 4), 1); //function reset;
 }
 
-int grtnic_open(struct net_device *netdev)
+int __grtnic_open(struct net_device *netdev, bool resuming)
 {
 	struct grtnic_adapter *adapter = netdev_priv(netdev);
+	struct grtnic_hw_stats *hwstats = &adapter->stats;
+
+#ifdef CONFIG_PM_RUNTIME
+	struct pci_dev *pdev = adapter->pdev;
+#endif /* CONFIG_PM_RUNTIME */
 	int err;
 
 	/* disallow open during test */
 	if (test_bit(__GRTNIC_TESTING, &adapter->state))
 		return -EBUSY;
 
-	grtnic_SetRx(netdev, 0); 	//stop rx
+#ifdef CONFIG_PM_RUNTIME
+	if (!resuming)
+		pm_runtime_get_sync(&pdev->dev);
+#endif /* CONFIG_PM_RUNTIME */
+
+	grtnic_SetRx(netdev, 0);	//stop rx
 
 	netif_carrier_off(netdev);
 
@@ -2009,7 +2100,6 @@ int grtnic_open(struct net_device *netdev)
 	if (err)
 		goto err_req_irq;
 
-
 	/* Notify the stack of the actual queue counts. */
 	err = netif_set_real_num_tx_queues(netdev, adapter->num_tx_queues);
 	if (err)
@@ -2019,14 +2109,13 @@ int grtnic_open(struct net_device *netdev)
 	if (err)
 		goto err_set_queues;
 
-
 	grtnic_up_complete(adapter);
+	hwstats->mpc = 0;
 
-	grtnic_SetTx(netdev, 1); 	//start tx
+	grtnic_SetTx(netdev, 1);	//start tx
 	grtnic_trigger_lsc(adapter); //Fire a link status change interrupt to start the watchdog.
 
 	return GRTNIC_SUCCESS;
-
 
 err_set_queues:
 	grtnic_free_irq(adapter);
@@ -2037,10 +2126,20 @@ err_setup_rx:
 err_setup_tx:
 	grtnic_reset(adapter);
 
+#ifdef CONFIG_PM_RUNTIME
+	if (!resuming)
+		pm_runtime_put(&pdev->dev);
+#endif /* CONFIG_PM_RUNTIME */
+
 	return err;
 }
-///////////////////////////////////////////////////////////////////////////////
 
+int grtnic_open(struct net_device *netdev)
+{
+	return __grtnic_open(netdev, false);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 void grtnic_disable_rx_queue(struct grtnic_adapter *adapter)
 {
@@ -2049,16 +2148,18 @@ void grtnic_disable_rx_queue(struct grtnic_adapter *adapter)
 	int i;
 
 	/* disable receives */
-	grtnic_SetRx(netdev, 0); 	//stop rx
+	grtnic_SetRx(netdev, 0);	//stop rx
 
 	/* disable all enabled Rx queues */
 	for (i = 0; i < adapter->num_rx_queues; i++) {
 		struct grtnic_ring *ring = adapter->rx_ring[i];
 		u8 reg_idx = ring->reg_idx;
-	  /* flush pending descriptor writebacks to memory */
-		GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), (RX_INT_DELAY | GRTNIC_RDTR_FPD), 1);
+		/* flush pending descriptor writebacks to memory */
+		GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_INT_DELAY * 4),
+			(RX_INT_DELAY | GRTNIC_RDTR_FPD), 1);
 		/* channel stop */
-		GRTNIC_WRITE_REG(hw, ((TARGET_C2H<<12) + (reg_idx<<8) + ADDR_ENGINE_CTRL*4), 0x00, 1);
+		GRTNIC_WRITE_REG(hw, ((TARGET_C2H << 12) + (reg_idx << 8) + ADDR_ENGINE_CTRL * 4),
+			0x00, 1);
 	}
 }
 
@@ -2072,10 +2173,12 @@ void grtnic_disable_tx_queue(struct grtnic_adapter *adapter)
 		struct grtnic_ring *ring = adapter->tx_ring[i];
 		u8 reg_idx = ring->reg_idx;
 
-	  /* flush pending descriptor writebacks to memory */
-		GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_INT_DELAY*4), (TX_INT_DELAY | GRTNIC_TIDV_FPD), 1);
+		/* flush pending descriptor writebacks to memory */
+		GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_INT_DELAY * 4),
+			(TX_INT_DELAY | GRTNIC_TIDV_FPD), 1);
 		/* channel stop */
-		GRTNIC_WRITE_REG(hw, ((TARGET_H2C<<12) + (reg_idx<<8) + ADDR_ENGINE_CTRL*4), 0x00, 1);
+		GRTNIC_WRITE_REG(hw, ((TARGET_H2C << 12) + (reg_idx << 8) + ADDR_ENGINE_CTRL * 4),
+			0x00, 1);
 	}
 }
 
@@ -2089,7 +2192,6 @@ static void grtnic_clean_tx_ring(struct grtnic_ring *tx_ring)
 	struct grtnic_tx_buffer *tx_buffer = &tx_ring->tx_buffer_info[i];
 	unsigned int size;
 
-
 	while (i != tx_ring->next_to_use) {
 		union grtnic_tx_desc *eop_desc, *tx_desc;
 
@@ -2102,7 +2204,7 @@ static void grtnic_clean_tx_ring(struct grtnic_ring *tx_ring)
 		/* check for eop_desc to determine the end of the packet */
 		eop_desc = tx_buffer->next_to_watch;
 		tx_desc = GRTNIC_TX_DESC(*tx_ring, i);
-	
+
 		/* unmap remaining buffers */
 		while (tx_desc != eop_desc) {
 			tx_buffer++;
@@ -2140,7 +2242,6 @@ static void grtnic_clean_tx_ring(struct grtnic_ring *tx_ring)
 	tx_ring->next_to_clean = 0;
 }
 
-
 /**
  *  grtnic_clean_rx_ring - Free Rx Buffers per Queue
  *  @rx_ring: ring to free buffers from
@@ -2157,7 +2258,6 @@ static void grtnic_clean_rx_ring(struct grtnic_ring *rx_ring)
 	dma_set_attr(DMA_ATTR_WEAK_ORDERING, &attrs);
 #endif
 
-
 	/* Free all the Rx ring sk_buffs */
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
 	while (i != rx_ring->next_to_use) {
@@ -2170,12 +2270,12 @@ static void grtnic_clean_rx_ring(struct grtnic_ring *rx_ring)
 			if (GRTNIC_CB(skb)->page_released)
 				dma_unmap_page_attrs(rx_ring->dev,
 						     GRTNIC_CB(skb)->dma,
-						     grtnic_rx_pg_size(rx_ring),
-						     DMA_FROM_DEVICE,
+					grtnic_rx_pg_size(rx_ring),
+					DMA_FROM_DEVICE,
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
-						     &attrs);
+					&attrs);
 #else
-						     GRTNIC_RX_DMA_ATTR);
+					GRTNIC_RX_DMA_ATTR);
 #endif
 #else
 			/* We need to clean up RSC frag lists */
@@ -2194,18 +2294,18 @@ static void grtnic_clean_rx_ring(struct grtnic_ring *rx_ring)
 		 */
 		dma_sync_single_range_for_cpu(rx_ring->dev,
 					      rx_buffer->dma,
-					      rx_buffer->page_offset,
-					      grtnic_rx_bufsz(rx_ring),
-					      DMA_FROM_DEVICE);
+			rx_buffer->page_offset,
+			grtnic_rx_bufsz(rx_ring),
+			DMA_FROM_DEVICE);
 
 		/* free resources associated with mapping */
 		dma_unmap_page_attrs(rx_ring->dev, rx_buffer->dma,
 				     grtnic_rx_pg_size(rx_ring),
-				     DMA_FROM_DEVICE,
+			DMA_FROM_DEVICE,
 #if defined(HAVE_STRUCT_DMA_ATTRS) && defined(HAVE_SWIOTLB_SKIP_CPU_SYNC)
-				     &attrs);
+			&attrs);
 #else
-				     GRTNIC_RX_DMA_ATTR);
+			GRTNIC_RX_DMA_ATTR);
 #endif
 
 		__page_frag_cache_drain(rx_buffer->page,
@@ -2262,13 +2362,14 @@ static void grtnic_clean_all_rx_rings(struct grtnic_adapter *adapter)
 		grtnic_clean_rx_ring(adapter->rx_ring[i]);
 }
 
-
 void grtnic_down(struct grtnic_adapter *adapter)
 {
 	struct net_device *netdev = adapter->netdev;
 	struct grtnic_hw *hw = &adapter->hw;
+	struct grtnic_hw_stats *hwstats = &adapter->stats;
 	u32 phy_addr = hw->phy_addr;
 	u16 temp;
+	int i;
 
 	/* signal that we are down to the interrupt handler */
 	if (test_and_set_bit(__GRTNIC_DOWN, &adapter->state))
@@ -2280,7 +2381,6 @@ void grtnic_down(struct grtnic_adapter *adapter)
 	/* call carrier off first to avoid false dev_watchdog timeouts */
 	netif_carrier_off(netdev);
 	netif_tx_disable(netdev);
-
 
 	/* Disable Rx */
 	grtnic_disable_rx_queue(adapter);
@@ -2302,32 +2402,54 @@ void grtnic_down(struct grtnic_adapter *adapter)
 #endif
 		grtnic_reset(adapter);
 
-	if(adapter->ei->type == board_902T_GRT_FF)
-	{
-		grtnic_PhyRead(netdev, phy_addr, 0x00, &temp); //prtad_reg
-	  grtnic_PhyWrite(netdev, phy_addr, 0x00, temp | PHY_POWER_DOWN); //power down
-	}
-	else
-	{
-	/* power down the optics for 82599 SFP+ fiber */
-		GRTNIC_WRITE_REG(hw, PHY_TX_DISABLE, 0x01, 0); //disable laser;
+	GRTNIC_WRITE_REG(hw, ASIC_RX_FIFO_RST, 0xff, 0); //reset all channel rx fifo data
+	GRTNIC_WRITE_REG(hw, ASIC_TX_FIFO_RST, 0xff, 0); //reset all channel tx fifo data
+
+	hwstats->mpc = 0;
+
+	//wol disable,关闭端口状态.如果支持wol,不能关闭端口,否则无法唤醒
+	if (!adapter->wol_enabled) {
+		if (hw->is_qsgmii) {  //FF904T bypass (use qsgmii phy)
+			if (!hw->is_individual_mdio) {  //共享port 0口的mdio
+				for (i = 0; i < 4; i++) { //get fun0 netdev
+					if (AdapterInfo[i].in_use && AdapterInfo[i].slot ==
+						adapter->slot) {
+						netdev = AdapterInfo[i].adapter->netdev;
+						break;
+					}
+				}
+			}
+
+			grtnic_PhyWrite(netdev, phy_addr, 0x1E, 0xA000);
+			//写通用扩展寄存器 0xa000 为 0x0,选择 UTP 空间
+			grtnic_PhyWrite(netdev, phy_addr, 0x1F, 0x00);
+			//更改utp的地址为对应口的地址
+			phy_addr = phy_addr + adapter->func;
+		}
+
+		if (adapter->type == 1) { //copper
+			grtnic_PhyRead(netdev, phy_addr, 0x00, &temp); //prtad_reg
+			grtnic_PhyWrite(netdev, phy_addr, 0x00, temp | PHY_RESET); //pre disable led
+			grtnic_PhyWrite(netdev, phy_addr, 0x00, temp | PHY_POWER_DOWN); //power down
+		} else {
+			/* power down the optics for 82599 SFP+ fiber */
+			GRTNIC_WRITE_REG(hw, PHY_TX_DISABLE, 0x01, 0); //disable laser;
+		}
 	}
 
 	grtnic_clean_all_tx_rings(adapter);
 	grtnic_clean_all_rx_rings(adapter);
 }
 
-
 void grtnic_up(struct grtnic_adapter *adapter)
 {
-
 	/* hardware has been reset, we need to reload some things */
 	grtnic_configure(adapter);
 
 	grtnic_up_complete(adapter);
 }
 
-void grtnic_reinit_locked(struct grtnic_adapter *adapter)
+static void grtnic_reinit_locked(struct grtnic_adapter *adapter)
 {
 	WARN_ON(in_interrupt());
 	/* put off any impending NetWatchDogTimeout */
@@ -2362,24 +2484,41 @@ void grtnic_do_reset(struct net_device *netdev)
  * This function should contain the necessary work common to both suspending
  * and closing of the device.
  */
-void grtnic_close_suspend(struct grtnic_adapter *adapter)
+int __grtnic_close(struct net_device *netdev, bool suspending)
 {
+	struct grtnic_adapter *adapter = netdev_priv(netdev);
+
+#ifdef CONFIG_PM_RUNTIME
+	struct pci_dev *pdev = adapter->pdev;
+#endif /* CONFIG_PM_RUNTIME */
+
+//	WARN_ON(test_bit(__IGB_RESETTING, &adapter->state));
+
+#ifdef CONFIG_PM_RUNTIME
+	if (!suspending)
+		pm_runtime_get_sync(&pdev->dev);
+#endif /* CONFIG_PM_RUNTIME */
+
 	grtnic_down(adapter);
 	grtnic_free_irq(adapter);
 
 	grtnic_free_all_rx_resources(adapter);
 	grtnic_free_all_tx_resources(adapter);
-}
 
+#ifdef CONFIG_PM_RUNTIME
+	if (!suspending)
+		pm_runtime_put_sync(&pdev->dev);
+#endif /* CONFIG_PM_RUNTIME */
+
+	return 0;
+}
 
 int grtnic_close(struct net_device *netdev)
 {
-  struct grtnic_adapter *adapter        = netdev_priv(netdev);
-
 	if (netif_device_present(netdev))
-		grtnic_close_suspend(adapter);
-
-	return 0;
+		return __grtnic_close(netdev, false);
+	else
+		return 0;
 }
 
 static int __grtnic_maybe_stop_tx(struct grtnic_ring *tx_ring, u16 size)
@@ -2412,14 +2551,12 @@ static inline int grtnic_maybe_stop_tx(struct grtnic_ring *tx_ring, u16 size)
 	return __grtnic_maybe_stop_tx(tx_ring, size);
 }
 
-
-netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
-	struct grtnic_adapter __maybe_unused *adapter,
+netdev_tx_t grtnic_xmit_frame_ring(struct sk_buff *skb,
+				   struct grtnic_adapter __maybe_unused *adapter,
 	struct grtnic_ring *tx_ring)
-
 {
 	struct grtnic_tx_buffer *first, *tx_buffer;
-  union grtnic_tx_desc *tx_desc;
+	union grtnic_tx_desc *tx_desc;
 	unsigned int i, f;
 	skb_frag_t *frag;
 	dma_addr_t dma;
@@ -2427,11 +2564,21 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
 	unsigned int csum_info = 0;
 
+	// static int tx_cnt = 0;
+
+	// if (skb->len >= 14) {
+	//	u16 ethertype = (skb->data[12] << 8) | skb->data[13];
+	//	// if (ethertype == 0x88B5) {
+	//		printk("=== TX TEST FRAME ===\n");
+	//		printk("skb->len = %d, headlen = %d\n", skb->len, skb_headlen(skb));
+	//		print_hex_dump(KERN_INFO, "TX DATA: ", DUMP_PREFIX_OFFSET,
+	//		               16, 1, skb->data, skb_headlen(skb), true);
+	//	// }
+	// }
 ////////////////////////////////////////////////////////
 
-	/*
-	 * need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
-	 *       + 1 desc for skb_headlen/IXGBE_MAX_DATA_PER_TXD,
+	/* need: 1 descriptor per page * PAGE_SIZE/GRTNIC_MAX_DATA_PER_TXD,
+	 *       + 1 desc for skb_headlen/GRTNIC_MAX_DATA_PER_TXD,
 	 *       + 2 desc gap to keep tail from touching head,
 	 *       + 1 desc for context descriptor,
 	 * otherwise try next time
@@ -2441,6 +2588,7 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 
 	if (grtnic_maybe_stop_tx(tx_ring, count + 3)) {
 		tx_ring->tx_stats.tx_busy++;
+		// printk("%s: NETDEV_TX_BUSY", __func__);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -2456,25 +2604,17 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 
 	memset(&tx_desc->read.len_ctl, 0, sizeof(tx_desc->read.len_ctl));
 
-	if (skb->ip_summed == CHECKSUM_PARTIAL)
-	{
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		unsigned int csum_start = skb_checksum_start_offset(skb);
 		unsigned int csum_offset = skb->csum_offset;
 
-		if (csum_start > 255 || csum_offset > 127)
-		{
+		if (csum_start > 255 || csum_offset > 127) {
 			if (skb_checksum_help(skb)) //soft calc csum
-			csum_info = 0; //disable hw csum
-		}
-		else
-		{
+				csum_info = 0; //disable hw csum
+		} else
 			csum_info = (csum_offset << 8) | (csum_start);
-		}
-	}
-	else
-	{
+	} else
 		csum_info = 0;
-	}
 
 	tx_desc->read.len_ctl.sop = 1;
 	tx_desc->read.tx_info.csum_info = csum_info;
@@ -2496,10 +2636,10 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 		dma_unmap_len_set(tx_buffer, len, size);
 		dma_unmap_addr_set(tx_buffer, dma, dma);
 
-		tx_desc->read.src_addr 	 = cpu_to_le64(dma);
+		tx_desc->read.src_addr = cpu_to_le64(dma);
 
 		while (unlikely(size > GRTNIC_MAX_DATA_PER_TXD)) {
-	    tx_desc->read.len_ctl.len = cpu_to_le32(GRTNIC_MAX_DATA_PER_TXD);
+			tx_desc->read.len_ctl.len = cpu_to_le32(GRTNIC_MAX_DATA_PER_TXD);
 
 			i++;
 			tx_desc++;
@@ -2513,13 +2653,13 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 			dma += GRTNIC_MAX_DATA_PER_TXD;
 			size -= GRTNIC_MAX_DATA_PER_TXD;
 
-			tx_desc->read.src_addr 	 = cpu_to_le64(dma);
+			tx_desc->read.src_addr = cpu_to_le64(dma);
 		}
 
 		if (likely(!data_len))
 			break;
 
-    tx_desc->read.len_ctl.len = cpu_to_le32(size);
+		tx_desc->read.len_ctl.len = cpu_to_le32(size);
 
 		i++;
 		tx_desc++;
@@ -2542,8 +2682,7 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 	tx_desc->read.len_ctl.eop = 1;
 	tx_desc->read.len_ctl.irq = 1;
 	tx_desc->read.len_ctl.rs  = 1;
-  tx_desc->read.len_ctl.len = cpu_to_le32(size);
-
+	tx_desc->read.len_ctl.len = cpu_to_le32(size);
 
 	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
 
@@ -2554,9 +2693,7 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 	netdev_ring(tx_ring)->trans_start = first->time_stamp;
 #endif
 
-
-	/*
-	 * Force memory writes to complete before letting h/w know there
+	/* Force memory writes to complete before letting h/w know there
 	 * are new descriptors to fetch.  (Only applicable for weak-ordered
 	 * memory model archs, such as IA-64).
 	 *
@@ -2578,8 +2715,6 @@ netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb,
 
 	if (netif_xmit_stopped(txring_txq(tx_ring)) || !netdev_xmit_more()) {
 		writel(i, tx_ring->tail);
-	
-//		printk("next_to_use = %d\n", i);
 
 #ifndef SPIN_UNLOCK_IMPLIES_MMIOWB
 
@@ -2607,8 +2742,8 @@ dma_error:
 		if (dma_unmap_len(tx_buffer, len))
 			dma_unmap_page(tx_ring->dev,
 				       dma_unmap_addr(tx_buffer, dma),
-				       dma_unmap_len(tx_buffer, len),
-				       DMA_TO_DEVICE);
+				dma_unmap_len(tx_buffer, len),
+				DMA_TO_DEVICE);
 		dma_unmap_len_set(tx_buffer, len, 0);
 		if (tx_buffer == first)
 			break;
@@ -2638,7 +2773,7 @@ static netdev_tx_t grtnic_xmit_frame(struct sk_buff *skb, struct net_device *net
 		return NETDEV_TX_OK;
 	}
 
-	if (skb_put_padto(skb, ETH_ZLEN)) 
+	if (skb_put_padto(skb, ETH_ZLEN))
 		return NETDEV_TX_OK;
 
 #ifdef HAVE_TX_MQ
@@ -2650,7 +2785,6 @@ static netdev_tx_t grtnic_xmit_frame(struct sk_buff *skb, struct net_device *net
 #endif
 
 	return grtnic_xmit_frame_ring(skb, adapter, tx_ring);
-
 }
 
 static void grtnic_check_lsc(struct grtnic_adapter *adapter)
@@ -2663,8 +2797,7 @@ static void grtnic_check_lsc(struct grtnic_adapter *adapter)
 		grtnic_service_event_schedule(adapter);
 }
 
-
-irqreturn_t grtnic_isr (int __always_unused irq, void *data)
+irqreturn_t grtnic_isr(int __always_unused irq, void *data)
 {
 	struct grtnic_adapter *adapter  = data;
 	struct grtnic_hw *hw = &adapter->hw;
@@ -2672,22 +2805,20 @@ irqreturn_t grtnic_isr (int __always_unused irq, void *data)
 	u32 irq_vector;
 
 	/* read ICR disables interrupts using IAM */
-	irq_vector = GRTNIC_READ_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_VECTOR*4), 1);
+	irq_vector = GRTNIC_READ_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_VECTOR * 4), 1);
 
-	if (!(adapter->flags & GRTNIC_FLAG_MSI_CAPABLE)) //legacy int
-	{
-		if(!(irq_vector & (1<<31)))
+	if (!(adapter->flags & GRTNIC_FLAG_MSI_CAPABLE)) {	//legacy int
+		if (!(irq_vector & (1 << 31)))
 			return IRQ_NONE;	/* Not our interrupt */
 	}
 
-  if (irq_vector & adapter->eims_other) //link status change
+	if (irq_vector & adapter->eims_other) //link status change
 		grtnic_check_lsc(adapter);
-
-  else if (((irq_vector & 0x7FFFFFFF) & ~(adapter->eims_other)) == 0)
-  {
- 		GRTNIC_WRITE_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_IMS*4), ~0, 1); //打开所有的中断
-    goto exit_int;
-  }
+	else if (((irq_vector & 0x7FFFFFFF) & ~(adapter->eims_other)) == 0) {
+		//打开所有的中断
+		GRTNIC_WRITE_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_IMS * 4), ~0, 1);
+		goto exit_int;
+	}
 
 	/* would disable interrupts here but EIAM disabled it */
 	napi_schedule_irqoff(&q_vector->napi);
@@ -2705,7 +2836,9 @@ irqreturn_t grtnic_msix_other(int __always_unused irq, void *data)
 
 	/* re-enable the original interrupt state, no lsc, no queues */
 	if (!test_bit(__GRTNIC_DOWN, &adapter->state))
-		GRTNIC_WRITE_REG(hw, ((TARGET_IRQ<<12) + ADDR_INTR_IMS*4), adapter->eims_other, 1); //打开相应的中断,user_interrupt
+		//打开相应的中断,user_interrupt
+		GRTNIC_WRITE_REG(hw, ((TARGET_IRQ << 12) + ADDR_INTR_IMS * 4),
+			adapter->eims_other, 1);
 
 	return IRQ_HANDLED;
 }
@@ -2723,8 +2856,8 @@ irqreturn_t grtnic_msix_ring(int __always_unused irq, void *data)
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
-static int grtnic_mdio_read(struct net_device *netdev, int prtad, int devad,
-			   u16 addr)
+u16 grtnic_mdio_read(struct net_device *netdev, int prtad, int devad,
+		     u16 addr)
 {
 	struct grtnic_adapter *adapter = netdev_priv(netdev);
 	struct grtnic_hw *hw = &adapter->hw;
@@ -2733,21 +2866,17 @@ static int grtnic_mdio_read(struct net_device *netdev, int prtad, int devad,
 	if (prtad != hw->phy_addr)
 		return -EINVAL;
 
-	if(adapter->speed) //10G
-	{
+	if (adapter->speed) {	//10G
 		grtnic_SetPhyAddr(netdev, prtad, devad, addr); //only for 10G phy
 		grtnic_PhyRead(netdev, prtad, devad, &value);
-	}
-	else
-	{
+	}	else
 		grtnic_PhyRead(netdev, prtad, addr, &value);
-	}
 
 	return value;
 }
 
-static int grtnic_mdio_write(struct net_device *netdev, int prtad, int devad,
-			    u16 addr, u16 value)
+int grtnic_mdio_write(struct net_device *netdev, int prtad, int devad,
+		      u16 addr, u16 value)
 {
 	struct grtnic_adapter *adapter = netdev_priv(netdev);
 	struct grtnic_hw *hw = &adapter->hw;
@@ -2755,22 +2884,19 @@ static int grtnic_mdio_write(struct net_device *netdev, int prtad, int devad,
 	if (prtad != hw->phy_addr)
 		return -EINVAL;
 
-	if(adapter->speed) //10G
-	{
+	if (adapter->speed) {	//10G
 		grtnic_SetPhyAddr(netdev, prtad, devad, addr); //only for 10G phy
 		grtnic_PhyWrite(netdev, prtad, devad, value);
-	}
-	else
-	{
+	} else
 		grtnic_PhyWrite(netdev, prtad, addr, value);
-	}
+
 	return 0;
 }
 
 static int grtnic_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
-			   int cmd)
+			    int cmd)
 {
-	struct mii_ioctl_data *mii = (struct mii_ioctl_data *) &ifr->ifr_data;
+	struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&ifr->ifr_data;
 	int prtad, devad, ret;
 
 	prtad = (mii->phy_id & MDIO_PHY_ID_PRTAD) >> 5;
@@ -2833,7 +2959,8 @@ static int grtnic_change_mtu(struct net_device *netdev, int new_mtu)
 
 #ifndef HAVE_NETDEVICE_MIN_MAX_MTU
 	/* MTU < 68 is an error and causes problems on some kernels */
-	if ((new_mtu < 68) || (max_frame > GRTNIC_MAX_JUMBO_FRAME_SIZE))
+	if ((new_mtu < 68) || (max_frame > (adapter->speed ? GRTNIC_MAX_JUMBO_FRAME_10G_SIZE :
+		GRTNIC_MAX_JUMBO_FRAME_1G_SIZE)))
 		return -EINVAL;
 
 #endif
@@ -2853,12 +2980,11 @@ static int grtnic_change_mtu(struct net_device *netdev, int new_mtu)
 	return 0;
 }
 
-
 static u32 hash_mc_addr(struct net_device *netdev, u8 *mc_addr)
 {
-	struct grtnic_adapter *adapter 		= netdev_priv(netdev);
-	struct grtnic_hw *hw 							= &adapter->hw;
-	struct grtnic_mac_info *mac 			= &hw->mac;
+	struct grtnic_adapter *adapter		= netdev_priv(netdev);
+	struct grtnic_hw *hw							= &adapter->hw;
+	struct grtnic_mac_info *mac				= &hw->mac;
 
 	u32 hash_value, hash_mask;
 	u8 bit_shift = 0;
@@ -2898,8 +3024,7 @@ static u32 hash_mc_addr(struct net_device *netdev, u8 *mc_addr)
 	 * case 1: hash_value = ((0x34 >> 3) | (0x56 << 5)) & 0xFFF = 0xAC6
 	 * case 2: hash_value = ((0x34 >> 2) | (0x56 << 6)) & 0xFFF = 0x163
 	 * case 3: hash_value = ((0x34 >> 0) | (0x56 << 8)) & 0xFFF = 0x634
-	 */
-/*	switch (hw->mac.mc_filter_type) {
+	switch (hw->mac.mc_filter_type) {
 	default:
 	case 0:
 		break;
@@ -2912,18 +3037,19 @@ static u32 hash_mc_addr(struct net_device *netdev, u8 *mc_addr)
 	case 3:
 		bit_shift += 4;
 		break;
-	}*/
+	}
+*/
 
 	hash_value = hash_mask & (((mc_addr[4] >> (8 - bit_shift)) | (((u16)mc_addr[5]) << bit_shift)));
 
 	return hash_value;
 }
 
-void update_mc_addr_list(struct net_device *netdev, u8 *mc_addr_list, u32 mc_addr_count)
+static void update_mc_addr_list(struct net_device *netdev, u8 *mc_addr_list, u32 mc_addr_count)
 {
-	struct grtnic_adapter *adapter 		= netdev_priv(netdev);
-	struct grtnic_hw *hw 							= &adapter->hw;
-	struct grtnic_mac_info *mac 			= &hw->mac;
+	struct grtnic_adapter *adapter		= netdev_priv(netdev);
+	struct grtnic_hw *hw							= &adapter->hw;
+	struct grtnic_mac_info *mac				= &hw->mac;
 
 	u32 hash_value, hash_bit, hash_reg;
 	int i;
@@ -2947,15 +3073,12 @@ void update_mc_addr_list(struct net_device *netdev, u8 *mc_addr_list, u32 mc_add
 	GRTNIC_WRITE_REG(hw, MAC_HASH_TABLE_START, 0, 0);
 
 	/* replace the entire MTA table */
-	for (i = 0; i< mac->mta_reg_count; i++)
+	for (i = 0; i < mac->mta_reg_count; i++)
 		GRTNIC_WRITE_REG(hw, MAC_HASH_TABLE_WR, mac->mta_shadow[i], 0);
 }
 
-
-
 static int grtnic_write_mc_addr_list(struct net_device *netdev)
 {
-
 #ifdef NETDEV_HW_ADDR_T_MULTICAST
 	struct netdev_hw_addr *ha;
 #else
@@ -2978,9 +3101,9 @@ static int grtnic_write_mc_addr_list(struct net_device *netdev)
 	i = 0;
 	netdev_for_each_mc_addr(ha, netdev)
 #ifdef NETDEV_HW_ADDR_T_MULTICAST
-	    memcpy(mta_list + (i++ * ETH_ALEN), ha->addr, ETH_ALEN);
+		memcpy(mta_list + (i++ * ETH_ALEN), ha->addr, ETH_ALEN);
 #else
-	    memcpy(mta_list + (i++ * ETH_ALEN), ha->dmi_addr, ETH_ALEN);
+		memcpy(mta_list + (i++ * ETH_ALEN), ha->dmi_addr, ETH_ALEN);
 #endif
 
 	update_mc_addr_list(netdev, mta_list, i);
@@ -2995,42 +3118,34 @@ static void grtnic_set_rx_mode(struct net_device *netdev)
 	int count;
 	u32 rctl, multicast_mode, all_multicast_mode, promisc_mode;
 
-  promisc_mode        = 1;
-  all_multicast_mode  = 2;
+	promisc_mode        = 1;
+	all_multicast_mode  = 2;
 	multicast_mode      = 4;
 
 	rctl = grtnic_GetAdrsFilter(netdev);
 	rctl &= 0x0000000f;
 
 	/* clear the affected bits */
-	rctl &= ~(multicast_mode | all_multicast_mode| promisc_mode); //muliticast & all multicast & promisc
+	//muliticast & all multicast & promisc
+	rctl &= ~(multicast_mode | all_multicast_mode | promisc_mode);
 
 	/* Check for Promiscuous and All Multicast modes */
 
 	if (netdev->flags & IFF_PROMISC)
-	{
 		rctl |= promisc_mode; //promisc
-	}
-
-	else
-	{
+	else {
 		if (netdev->flags & IFF_ALLMULTI)
-		{
 			rctl |= all_multicast_mode;
-		} 
-		else if (!netdev_mc_empty(netdev))
-		{
-      count = netdev_mc_count(netdev);
-      rctl |= multicast_mode;
-      count = grtnic_write_mc_addr_list(netdev);
-      if (count < 0)
+		else if (!netdev_mc_empty(netdev)) {
+			count = netdev_mc_count(netdev);
+			rctl |= multicast_mode;
+			count = grtnic_write_mc_addr_list(netdev);
+			if (count < 0)
 				rctl |= all_multicast_mode;
 		}
 	}
 	grtnic_SetAdrsFilter(netdev, rctl);
 }
-
-
 
 /**
  *  grtnic_update_stats - Update the board statistics counters
@@ -3059,6 +3174,7 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 
 	for (i = 0; i < adapter->num_rx_queues; i++) {
 		struct grtnic_ring *rx_ring = adapter->rx_ring[i];
+
 		non_eop_descs += rx_ring->rx_stats.non_eop_descs;
 		alloc_rx_page += rx_ring->rx_stats.alloc_rx_page;
 		alloc_rx_page_failed += rx_ring->rx_stats.alloc_rx_page_failed;
@@ -3066,7 +3182,6 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 		hw_csum_rx_error += rx_ring->rx_stats.csum_err;
 		bytes += rx_ring->stats.bytes;
 		packets += rx_ring->stats.packets;
-
 	}
 	adapter->non_eop_descs = non_eop_descs;
 	adapter->alloc_rx_page = alloc_rx_page;
@@ -3081,6 +3196,7 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 	/* gather some stats to the adapter struct that are per queue */
 	for (i = 0; i < adapter->num_tx_queues; i++) {
 		struct grtnic_ring *tx_ring = adapter->tx_ring[i];
+
 		restart_queue += tx_ring->tx_stats.restart_queue;
 		tx_busy += tx_ring->tx_stats.tx_busy;
 		bytes += tx_ring->stats.bytes;
@@ -3093,13 +3209,13 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	temp_val = GRTNIC_READ_REG(&adapter->hw, MAC_RX_OVERFLOW_FRAME, 0);
-	if(temp_val < hwstats->mpc)
+	if (temp_val < hwstats->mpc)
 		hwstats->mpc = 0x100000000 + temp_val;
 	else
 		hwstats->mpc = temp_val;
 
 	net_stats->rx_missed_errors = hwstats->mpc;
-	
+
 	hwstats->ruc = grtnic_get_statistics_cnt(adapter, 0x210, hwstats->ruc);
 	hwstats->roc = grtnic_get_statistics_cnt(adapter, 0x250, hwstats->roc);
 	hwstats->rfc = grtnic_get_statistics_cnt(adapter, 0x218, hwstats->rfc); //crc error(<64)
@@ -3108,14 +3224,14 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 	hwstats->badopcode = grtnic_get_statistics_cnt(adapter, 0x2D0, hwstats->badopcode);
 	hwstats->algnerrc = grtnic_get_statistics_cnt(adapter, 0x340, hwstats->algnerrc);
 
-	net_stats->rx_errors = hwstats->rfc + 
-		hwstats->crcerrs + 
-		hwstats->algnerrc + 
-		hwstats->ruc + 
-		hwstats->roc + 
+	net_stats->rx_errors = hwstats->rfc +
+		hwstats->crcerrs +
+		hwstats->algnerrc +
+		hwstats->ruc +
+		hwstats->roc +
 		hwstats->rlec +
 		hwstats->badopcode;
-	
+
 	net_stats->rx_length_errors = hwstats->ruc + hwstats->roc + hwstats->rlec;
 	net_stats->rx_crc_errors = hwstats->rfc + hwstats->crcerrs;
 	net_stats->rx_frame_errors = hwstats->algnerrc;
@@ -3134,34 +3250,37 @@ void grtnic_update_stats(struct grtnic_adapter *adapter)
 	hwstats->bprc = grtnic_get_statistics_cnt(adapter, 0x2A0, hwstats->bprc);
 	hwstats->mprc = grtnic_get_statistics_cnt(adapter, 0x2A8, hwstats->mprc);
 
-	hwstats->prc64 	= grtnic_get_statistics_cnt(adapter, 0x220, 	hwstats->prc64);
-	hwstats->prc127 	= grtnic_get_statistics_cnt(adapter, 0x228, hwstats->prc127);
-	hwstats->prc255 	= grtnic_get_statistics_cnt(adapter, 0x230, hwstats->prc255);
-	hwstats->prc511 	= grtnic_get_statistics_cnt(adapter, 0x238, hwstats->prc511);
-	hwstats->prc1023 = grtnic_get_statistics_cnt(adapter, 0x240, 	hwstats->prc1023);
-	hwstats->prc1522 = grtnic_get_statistics_cnt(adapter, 0x248, 	hwstats->prc1522);
+	hwstats->prc64	= grtnic_get_statistics_cnt(adapter, 0x220, hwstats->prc64);
+	hwstats->prc127	= grtnic_get_statistics_cnt(adapter, 0x228, hwstats->prc127);
+	hwstats->prc255	= grtnic_get_statistics_cnt(adapter, 0x230, hwstats->prc255);
+	hwstats->prc511	= grtnic_get_statistics_cnt(adapter, 0x238, hwstats->prc511);
+	hwstats->prc1023 = grtnic_get_statistics_cnt(adapter, 0x240, hwstats->prc1023);
+	hwstats->prc1522 = grtnic_get_statistics_cnt(adapter, 0x248, hwstats->prc1522);
 	hwstats->prcoversize = grtnic_get_statistics_cnt(adapter, 0x250, hwstats->prcoversize);
 
-	hwstats->scc 		= grtnic_get_statistics_cnt(adapter, 0x310, 	hwstats->scc);
-	hwstats->mcc 		= grtnic_get_statistics_cnt(adapter, 0x318, 	hwstats->mcc);
-	hwstats->dc 			= grtnic_get_statistics_cnt(adapter, 0x320, hwstats->dc);
-	hwstats->rxpause 	= grtnic_get_statistics_cnt(adapter, 0x2C8, hwstats->rxpause);
-	hwstats->txpause 	= grtnic_get_statistics_cnt(adapter, 0x308, hwstats->txpause);
+	hwstats->scc	= grtnic_get_statistics_cnt(adapter, 0x310,  hwstats->scc);
+	hwstats->mcc	= grtnic_get_statistics_cnt(adapter, 0x318,	 hwstats->mcc);
+	hwstats->dc		= grtnic_get_statistics_cnt(adapter, 0x320,  hwstats->dc);
 
-	hwstats->gptc 		= grtnic_get_statistics_cnt(adapter, 0x2D8, 	hwstats->gptc);
-	hwstats->gotc 		= grtnic_get_statistics_cnt(adapter, 0x208, 	hwstats->gotc);
-	hwstats->bptc 			= grtnic_get_statistics_cnt(adapter, 0x2E0, hwstats->bptc);
-	hwstats->mptc 			= grtnic_get_statistics_cnt(adapter, 0x2E8, hwstats->mptc);
+	hwstats->rvlanc	= grtnic_get_statistics_cnt(adapter, 0x2C0,  hwstats->rvlanc);
+	hwstats->tvlanc	= grtnic_get_statistics_cnt(adapter, 0x300,  hwstats->tvlanc);
 
-	hwstats->ptc64 			= grtnic_get_statistics_cnt(adapter, 0x258, hwstats->ptc64);
-	hwstats->ptc127 		= grtnic_get_statistics_cnt(adapter, 0x260, hwstats->ptc127);
-	hwstats->ptc255 		= grtnic_get_statistics_cnt(adapter, 0x268, hwstats->ptc255);
-	hwstats->ptc511 		= grtnic_get_statistics_cnt(adapter, 0x270, hwstats->ptc511);
-	hwstats->ptc1023 		= grtnic_get_statistics_cnt(adapter, 0x278, hwstats->ptc1023);
-	hwstats->ptc1522 		= grtnic_get_statistics_cnt(adapter, 0x280, hwstats->ptc1522);
-	hwstats->ptcoversize 		= grtnic_get_statistics_cnt(adapter, 0x288, hwstats->ptcoversize);
+	hwstats->rxpause	= grtnic_get_statistics_cnt(adapter, 0x2C8,  hwstats->rxpause);
+	hwstats->txpause	= grtnic_get_statistics_cnt(adapter, 0x308,  hwstats->txpause);
+
+	hwstats->gptc	= grtnic_get_statistics_cnt(adapter, 0x2D8, hwstats->gptc);
+	hwstats->gotc	= grtnic_get_statistics_cnt(adapter, 0x208, hwstats->gotc);
+	hwstats->bptc	= grtnic_get_statistics_cnt(adapter, 0x2E0, hwstats->bptc);
+	hwstats->mptc	= grtnic_get_statistics_cnt(adapter, 0x2E8, hwstats->mptc);
+
+	hwstats->ptc64		= grtnic_get_statistics_cnt(adapter, 0x258, hwstats->ptc64);
+	hwstats->ptc127		= grtnic_get_statistics_cnt(adapter, 0x260, hwstats->ptc127);
+	hwstats->ptc255		= grtnic_get_statistics_cnt(adapter, 0x268, hwstats->ptc255);
+	hwstats->ptc511		= grtnic_get_statistics_cnt(adapter, 0x270, hwstats->ptc511);
+	hwstats->ptc1023	= grtnic_get_statistics_cnt(adapter, 0x278, hwstats->ptc1023);
+	hwstats->ptc1522	= grtnic_get_statistics_cnt(adapter, 0x280, hwstats->ptc1522);
+	hwstats->ptcoversize = grtnic_get_statistics_cnt(adapter, 0x288, hwstats->ptcoversize);
 }
-
 
 #ifdef HAVE_NDO_GET_STATS64
 static void grtnic_get_ring_stats64(struct rtnl_link_stats64 *stats, struct grtnic_ring *ring)
@@ -3186,7 +3305,7 @@ static void grtnic_get_ring_stats64(struct rtnl_link_stats64 *stats, struct grtn
  * @stats: storage space for 64bit statistics
  *
  * Returns 64bit statistics, for use in the ndo_get_stats64 callback. This
- * function replaces ixgbe_get_stats for kernels which support it.
+ * function replaces grtnic_get_stats for kernels which support it.
  */
 #ifdef HAVE_VOID_NDO_GET_STATS64
 static void grtnic_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *stats)
@@ -3267,36 +3386,34 @@ static struct net_device_stats *grtnic_get_stats(struct net_device *netdev)
 
 #if defined(HAVE_NDO_SELECT_QUEUE_FALLBACK_REMOVED)
 static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb,
-			      struct net_device *sb_dev)
+			       struct net_device *sb_dev)
 #elif defined(HAVE_NDO_SELECT_QUEUE_SB_DEV)
 static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb,
-			      __always_unused struct net_device *sb_dev,
-			      select_queue_fallback_t fallback)
+			       __always_unused struct net_device *sb_dev,
+						select_queue_fallback_t fallback)
 #elif defined(HAVE_NDO_SELECT_QUEUE_ACCEL_FALLBACK)
 static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb,
-			      __always_unused void *accel,
-			      select_queue_fallback_t fallback)
+			       __always_unused void *accel,
+						select_queue_fallback_t fallback)
 #elif defined(HAVE_NDO_SELECT_QUEUE_ACCEL)
 static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb,
-			      __always_unused void *accel)
+			       __always_unused void *accel)
 #else
 static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb)
 #endif /* HAVE_NDO_SELECT_QUEUE_ACCEL_FALLBACK */
 {
-	struct grtnic_adapter *adapter 	= netdev_priv(dev);
-	int card_type 									= adapter->ei->type;
-	struct sock *sk 								= skb->sk;
-	int queue_index 								= sk_tx_queue_get(sk);
-	int new_index 									= -1;
+	struct grtnic_adapter *adapter	= netdev_priv(dev);
+	int card_type		= adapter->ei->type;
+	struct sock *sk	= skb->sk;
+	int queue_index	= sk_tx_queue_get(sk);
+	int new_index		= -1;
 
-	if (queue_index < 0 || skb->ooo_okay || queue_index >= dev->real_num_tx_queues)
-	{
-		if (skb_rx_queue_recorded(skb))
-		{
+	if (queue_index < 0 || skb->ooo_okay || queue_index >= dev->real_num_tx_queues)	{
+		if (skb_rx_queue_recorded(skb))	{
 			new_index = skb_get_rx_queue(skb);
 			while (unlikely(new_index >= dev->real_num_tx_queues))
 				new_index -= dev->real_num_tx_queues;
-		
+
 			if (queue_index != new_index && sk && sk_fullsock(sk) && rcu_access_pointer(sk->sk_dst_cache))
 				sk_tx_queue_set(sk, new_index);
 
@@ -3319,8 +3436,7 @@ static u16 grtnic_select_queue(struct net_device *dev, struct sk_buff *skb)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
-/*
- * Polling 'interrupt' - used by things like netconsole to send skbs
+/* Polling 'interrupt' - used by things like netconsole to send skbs
  * without having to re-enable interrupts. It's not called while
  * the interrupt routine is executing.
  */
@@ -3334,6 +3450,7 @@ static void grtnic_netpoll(struct net_device *netdev)
 
 	if (adapter->flags & GRTNIC_FLAG_MSIX_ENABLED) {
 		int i;
+
 		for (i = 0; i < adapter->num_q_vectors; i++) {
 			adapter->q_vector[i]->netpoll_rx = true;
 			grtnic_msix_ring(0, adapter->q_vector[i]);
@@ -3344,7 +3461,6 @@ static void grtnic_netpoll(struct net_device *netdev)
 	}
 }
 #endif /* CONFIG_NET_POLL_CONTROLLER */
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3376,7 +3492,7 @@ static const struct net_device_ops grtnic_netdev_ops = {
 #endif /* HAVE_RHEL7_EXTENDED_MIN_MAX_MTU */
 
 #ifdef HAVE_NDO_ETH_IOCTL
-	.ndo_eth_ioctl 		= grtnic_ioctl,
+	.ndo_eth_ioctl		= grtnic_ioctl,
 #else
 	.ndo_do_ioctl			= grtnic_ioctl,
 #endif /* HAVE_NDO_ETH_IOCTL */
@@ -3390,11 +3506,11 @@ static const struct net_device_ops grtnic_netdev_ops = {
 	.ndo_size		= sizeof(const struct net_device_ops),
 #endif
 
-	.ndo_set_rx_mode    = grtnic_set_rx_mode,
-	.ndo_set_mac_address= grtnic_set_mac,
+	.ndo_set_rx_mode     = grtnic_set_rx_mode,
+	.ndo_set_mac_address = grtnic_set_mac,
 #ifdef HAVE_NETDEV_SELECT_QUEUE
 #ifdef CONFIG_USER_QUEUE
-	.ndo_select_queue   = grtnic_select_queue,
+	.ndo_select_queue    = grtnic_select_queue,
 #else
 #ifndef HAVE_MQPRIO
 	.ndo_select_queue	= __netdev_pick_tx,
@@ -3423,7 +3539,7 @@ void grtnic_assign_netdev_ops(struct net_device *netdev)
 	netdev->set_multicast_list = &grtnic_set_rx_mode;
 
 	netdev->set_mac_address = &grtnic_set_mac;
-	netdev->change_mtu 		= &grtnic_change_mtu;
+	netdev->change_mtu			= &grtnic_change_mtu;
 //	netdev->tx_timeout = &xdmanet_tx_timeout;
 	netdev->do_ioctl = &grtnic_ioctl;
 

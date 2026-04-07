@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 1999 - 2021 Intel Corporation. */
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
 
 #include <linux/types.h>
 #include <linux/module.h>
@@ -29,7 +29,7 @@
 /* Module Parameters are always initialized to -1, so that the driver
  * can tell the difference between no user specified value or the
  * user asking for the default value.
- * The true default values are loaded in when ixgbe_check_options is called.
+ * The true default values are loaded in when grtnic_check_options is called.
  *
  * This is a GCC extension to ANSI C.
  * See the item "Labelled Elements in Initializers" in the section
@@ -37,15 +37,15 @@
  */
 
 #define GRTNIC_PARAM(X, desc) \
-	static const int __devinitdata X[GRTNIC_MAX_NIC+1] = GRTNIC_PARAM_INIT; \
+	static const int X[GRTNIC_MAX_NIC + 1] = GRTNIC_PARAM_INIT; \
 	MODULE_PARM(X, "1-" __MODULE_STRING(GRTNIC_MAX_NIC) "i"); \
-	MODULE_PARM_DESC(X, desc);
+	MODULE_PARM_DESC(X, desc)
 #else
 #define GRTNIC_PARAM(X, desc) \
-	static int X[GRTNIC_MAX_NIC+1] = GRTNIC_PARAM_INIT; \
+	static int X[GRTNIC_MAX_NIC + 1] = GRTNIC_PARAM_INIT; \
 	static unsigned int num_##X; \
 	module_param_array_named(X, X, int, &num_##X, 0); \
-	MODULE_PARM_DESC(X, desc);
+	MODULE_PARM_DESC(X, desc)
 #endif //module_param_array
 
 /* IntMode (Interrupt Mode)
@@ -57,15 +57,16 @@
  *
  * Default Value: 2
  */
-GRTNIC_PARAM(IntMode, "Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), "
-	    "default 2");
+GRTNIC_PARAM(IntMode,
+		"Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), "
+		"default 2");
 #define GRTNIC_INT_LEGACY		0
 #define GRTNIC_INT_MSI			1
 #define GRTNIC_INT_MSIX			2
 
-GRTNIC_PARAM(InterruptType, "Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), "
-	    "default IntMode (deprecated)");
-
+GRTNIC_PARAM(InterruptType,
+		"Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), "
+		"default IntMode (deprecated)");
 
 /* Interrupt Throttle Rate (interrupts/sec)
  *
@@ -74,16 +75,18 @@ GRTNIC_PARAM(InterruptType, "Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), "
  * Default Value: 1
  */
 #define DEFAULT_ITR		1
-GRTNIC_PARAM(InterruptThrottleRate, "Maximum interrupts per second, per vector, "
-	    "(0,1,956-488281), default 1");
+GRTNIC_PARAM(InterruptThrottleRate,
+		"Maximum interrupts per second, per vector, (0,1,956-488281), "
+		"default 1");
 #define MAX_ITR		488281
 #define MIN_ITR		956
 
-
-GRTNIC_PARAM(csum_tx_mode, "Disable or enable tx hecksum offload, default 1");
-GRTNIC_PARAM(csum_rx_mode, "Disable or enable rx hecksum offload, default 1");
-
-
+GRTNIC_PARAM(csum_tx_mode,
+		"Disable or enable tx hecksum offload, "
+		"default 1");
+GRTNIC_PARAM(csum_rx_mode,
+		"Disable or enable rx hecksum offload, "
+		"default 1");
 
 struct grtnic_option {
 	enum { enable_option, range_option, list_option } type;
@@ -107,7 +110,7 @@ struct grtnic_option {
 };
 
 static int grtnic_validate_option(struct net_device *netdev,
-				 unsigned int *value,
+				  unsigned int *value,
 				 struct grtnic_option *opt)
 {
 	if (*value == OPTION_UNSET) {
@@ -145,6 +148,7 @@ static int grtnic_validate_option(struct net_device *netdev,
 
 		for (i = 0; i < opt->arg.l.nr; i++) {
 			const struct grtnic_opt_list *ent = &opt->arg.l.p[i];
+
 			if (*value == ent->i) {
 				if (ent->str[0] != '\0')
 					netdev_info(netdev, "%s\n", ent->str);
@@ -163,7 +167,7 @@ static int grtnic_validate_option(struct net_device *netdev,
 	return -1;
 }
 
-#define LIST_LEN(l) (sizeof(l) / sizeof(l[0]))
+#define LIST_LEN(l) (ARRAY_SIZE(l))
 #define PSTR_LEN 10
 
 /**
@@ -190,14 +194,13 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 #endif
 	}
 
-
 	{ /* Interrupt Mode */
 		unsigned int int_mode;
 		static struct grtnic_option opt = {
 			.type = range_option,
 			.name = "Interrupt Mode",
 			.err =
-			  "using default of " __MODULE_STRING(GRTNIC_INT_MSIX),
+				"using default of " __MODULE_STRING(GRTNIC_INT_MSIX),
 			.def = GRTNIC_INT_MSIX,
 			.arg = { .r = { .min = GRTNIC_INT_LEGACY,
 					.max = GRTNIC_INT_MSIX} }
@@ -210,19 +213,19 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 			if (int_mode == OPTION_UNSET)
 				int_mode = InterruptType[bd];
 			grtnic_validate_option(adapter->netdev,
-					      &int_mode, &opt);
+					       &int_mode, &opt);
 			switch (int_mode) {
 			case GRTNIC_INT_MSIX:
 				if (!(*aflags & GRTNIC_FLAG_MSIX_CAPABLE))
 					netdev_info(adapter->netdev,
 						    "Ignoring MSI-X setting; "
-						    "support unavailable\n");
+								"support unavailable\n");
 				break;
 			case GRTNIC_INT_MSI:
 				if (!(*aflags & GRTNIC_FLAG_MSI_CAPABLE)) {
 					netdev_info(adapter->netdev,
 						    "Ignoring MSI setting; "
-						    "support unavailable\n");
+								"support unavailable\n");
 				} else {
 					*aflags &= ~GRTNIC_FLAG_MSIX_CAPABLE;
 				}
@@ -250,7 +253,7 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 		static struct grtnic_option opt = {
 			.type = range_option,
 			.name = "Interrupt Throttling Rate (ints/sec)",
-			.err  = "using default of "__MODULE_STRING(DEFAULT_ITR),
+			.err  = "using default of " __MODULE_STRING(DEFAULT_ITR),
 			.def  = DEFAULT_ITR,
 			.arg  = { .r = { .min = MIN_ITR,
 					 .max = MAX_ITR } }
@@ -260,6 +263,7 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 		if (num_InterruptThrottleRate > bd) {
 #endif
 			u32 itr = InterruptThrottleRate[bd];
+
 			switch (itr) {
 			case 0:
 				DPRINTK(PROBE, INFO, "%s turned off\n",
@@ -267,15 +271,14 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 				adapter->rx_itr_setting = 0;
 				break;
 			case 1:
-				DPRINTK(PROBE, INFO, "dynamic interrupt "
-					"throttling enabled\n");
+				DPRINTK(PROBE, INFO, "dynamic interrupt throttling enabled\n");
 				adapter->rx_itr_setting = 1;
 				break;
 			default:
 				grtnic_validate_option(adapter->netdev,
-						      &itr, &opt);
+						       &itr, &opt);
 				/* the first bit is used as control */
-				adapter->rx_itr_setting = (1000000/itr) << 2;
+				adapter->rx_itr_setting = (1000000 / itr) << 2;
 				break;
 			}
 			adapter->tx_itr_setting = adapter->rx_itr_setting;
@@ -299,6 +302,7 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 		if (num_csum_tx_mode > bd) {
 #endif
 			unsigned int csum_tx = csum_tx_mode[bd];
+
 			grtnic_validate_option(adapter->netdev, &csum_tx, &opt);
 			if (csum_tx)
 				*aflags |= GRTNIC_FLAG_TXCSUM_CAPABLE;
@@ -323,6 +327,7 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 		if (num_csum_rx_mode > bd) {
 #endif
 			unsigned int csum_rx = csum_rx_mode[bd];
+
 			grtnic_validate_option(adapter->netdev, &csum_rx, &opt);
 			if (csum_rx)
 				*aflags |= GRTNIC_FLAG_RXCSUM_CAPABLE;
@@ -334,6 +339,4 @@ void grtnic_check_options(struct grtnic_adapter *adapter)
 		}
 #endif
 	}
-
-
 }

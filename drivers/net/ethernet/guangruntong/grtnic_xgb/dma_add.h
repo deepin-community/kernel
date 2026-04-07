@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
+
 #ifndef GRTDMA_H
 #define GRTDMA_H
 
@@ -38,9 +41,9 @@
 #define ADDR_INTR_MODE      4 //中断模式c2s:s2c 前16位的4位为channel，后面的16位的2位为模式c2s:s2c 1:c2s eop interrupt 0:s2c normal interrupt
 
 #define ADDR_INTR_ITR       5 //msix,多少个中断就有多少个,channel*2(RXTX) + 1(Other) ,32bit数据，前面16位（用了4位，总共32个中断）为vector，后面为ITR数据。如果不支持msix，那么数据就在第一个vector上面
-                              //The interval is specified in 256 ns increments. Zero disables interrupt throttling logic.
+//The interval is specified in 256 ns increments. Zero disables interrupt throttling logic.
 
-#define ADD_INTR_IVAR				6
+#define ADD_INTR_IVAR		6
 #define ADD_INTR_IVAR_MISC	7
 
 
@@ -51,7 +54,7 @@
 #define ADDR_CORESETTINGS   0
 #define ADDR_FPGA_NAME      1
 
-#define ADDR_DCA_GTCL      	3
-#define ADDR_FUNC_RST      	4
+#define ADDR_DCA_GTCL       3
+#define ADDR_FUNC_RST       4
 
 #endif /* GRTDMA_H */

@@ -1,26 +1,6 @@
-/*
-
-Copyright (c) 2018 Alex Forencich
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-*/
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
+/* Copyright(c) Alex Forencich. */
 
 #ifndef GRTNIC_CORE_H
 #define GRTNIC_CORE_H
@@ -55,7 +35,7 @@ THE SOFTWARE.
 #define GRTNIC_NO_LRO
 
 #define DRIVER_NAME     "grtnic_xgb"
-#define DRIVER_VERSION  "1.24.0711"
+#define DRIVER_VERSION  "1.26.0403"
 
 #define CHANNEL0_PORT_MASK 0x03
 
@@ -94,8 +74,8 @@ THE SOFTWARE.
 //#define MAC0_ADRS_LOW     (0x0018) //redefine in macphy.h XXGE_MACADDR_OFFSET
 
 #define MAC_ADRS_ID       (0x0020)
-#define MAC_ADRS_LOW     	(0x0024)
-#define MAC_ADRS_HIGH    	(0x0028)
+#define MAC_ADRS_LOW      (0x0024)
+#define MAC_ADRS_HIGH     (0x0028)
 
 #define PHY_TX_DISABLE    (0x0040)
 #define MAC_LED_CTL       (0x0044)
@@ -117,35 +97,39 @@ THE SOFTWARE.
 #define MAC_RX_OVERFLOW_FRAME (0x0210)
 
 
-#define RSS_KEY_BEGIN  		(0x0300)
-#define RSS_KEY_END     	(0x0324)
+#define RSS_KEY_BEGIN				(0x0300)
+#define RSS_KEY_END					(0x0324)
 
-#define RSS_RETA_BEGIN  	(0x0330)
-#define RSS_RETA_END     	(0x03AC)
+#define RSS_RETA_BEGIN			(0x0330)
+#define RSS_RETA_END				(0x03AC)
 
-#define FIRMWARE_CMD      (0x040C)
+#define FIRMWARE_CMD				(0x040C)
 
-#define ETH_HIGH_MARK     (96)
-#define ETH_LOW_MARK      (32)
+#define AUTO_NEG_REG				(0x0600)
+#define PG_LOOPBACK					(0x0604)
+#define PG_PCSRESET					(0x0608)
+
+#define ETH_HIGH_MARK				(96)
+#define ETH_LOW_MARK				(32)
 
 //////////////////////////////////////////////////
 #define MAX_JUMBO_FRAME_SIZE		0x3F00
 /* The datasheet maximum supported RX size is 9.5KB (9728 bytes) */
-#define MAX_RX_JUMBO_FRAME_SIZE		0x2600
+#define MAX_RX_JUMBO_FRAME_SIZE	0x2600
 
 
 /* Supported Rx Buffer Sizes */
-#define GRTNIC_RXBUFFER_256       256  /* Used for skb receive header */
-#define GRTNIC_RXBUFFER_1536 1536
-#define GRTNIC_RXBUFFER_2K 2048
-#define GRTNIC_RXBUFFER_3K 3072
-#define GRTNIC_RXBUFFER_4K 4096
+#define GRTNIC_RXBUFFER_256		256  /* Used for skb receive header */
+#define GRTNIC_RXBUFFER_1536	1536
+#define GRTNIC_RXBUFFER_2K		2048
+#define GRTNIC_RXBUFFER_3K		3072
+#define GRTNIC_RXBUFFER_4K		4096
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
-#define GRTNIC_RXBUFFER_7K 7168
-#define GRTNIC_RXBUFFER_8K 8192
-#define GRTNIC_RXBUFFER_15K  15360
+#define GRTNIC_RXBUFFER_7K		7168
+#define GRTNIC_RXBUFFER_8K		8192
+#define GRTNIC_RXBUFFER_15K		15360
 #endif /* CONFIG_DISABLE_PACKET_SPLIT */
-#define GRTNIC_MAX_RXBUFFER  16384  /* largest size for single descriptor */
+#define GRTNIC_MAX_RXBUFFER		16384  /* largest size for single descriptor */
 
 /* Attempt to maximize the headroom available for incoming frames.  We
  * use a 2K buffer for receives and need 1536/1534 to store the data for
@@ -164,40 +148,40 @@ THE SOFTWARE.
 
 static inline int grtnic_compute_pad(int rx_buf_len)
 {
-  int page_size, pad_size;
+	int page_size, pad_size;
 
-  page_size = ALIGN(rx_buf_len, PAGE_SIZE / 2);
-  pad_size = SKB_WITH_OVERHEAD(page_size) - rx_buf_len;
+	page_size = ALIGN(rx_buf_len, PAGE_SIZE / 2);
+	pad_size = SKB_WITH_OVERHEAD(page_size) - rx_buf_len;
 
-  return pad_size;
+	return pad_size;
 }
 
 static inline int grtnic_skb_pad(void)
 {
-  int rx_buf_len;
+	int rx_buf_len;
 
-  /* If a 2K buffer cannot handle a standard Ethernet frame then
-   * optimize padding for a 3K buffer instead of a 1.5K buffer.
-   *
-   * For a 3K buffer we need to add enough padding to allow for
-   * tailroom due to NET_IP_ALIGN possibly shifting us out of
-   * cache-line alignment.
-   */
-  if (GRTNIC_2K_TOO_SMALL_WITH_PADDING)
-    rx_buf_len = GRTNIC_RXBUFFER_3K + SKB_DATA_ALIGN(NET_IP_ALIGN);
-  else
-    rx_buf_len = GRTNIC_RXBUFFER_1536;
+	/* If a 2K buffer cannot handle a standard Ethernet frame then
+	 * optimize padding for a 3K buffer instead of a 1.5K buffer.
+	 *
+	 * For a 3K buffer we need to add enough padding to allow for
+	 * tailroom due to NET_IP_ALIGN possibly shifting us out of
+	 * cache-line alignment.
+	 */
+	if (GRTNIC_2K_TOO_SMALL_WITH_PADDING)
+		rx_buf_len = GRTNIC_RXBUFFER_3K + SKB_DATA_ALIGN(NET_IP_ALIGN);
+	else
+		rx_buf_len = GRTNIC_RXBUFFER_1536;
 
-  /* if needed make room for NET_IP_ALIGN */
-  rx_buf_len -= NET_IP_ALIGN;
+	/* if needed make room for NET_IP_ALIGN */
+	rx_buf_len -= NET_IP_ALIGN;
 
-  return grtnic_compute_pad(rx_buf_len);
+	return grtnic_compute_pad(rx_buf_len);
 }
 
 #define GRTNIC_SKB_PAD grtnic_skb_pad()
 #else //(PAGE_SIZE < 8192)
 #define GRTNIC_SKB_PAD (NET_SKB_PAD + NET_IP_ALIGN)
-#endif //!(PAGE_SIZE < 8192) 
+#endif //!(PAGE_SIZE < 8192)
 
 /*
  * NOTE: netdev_alloc_skb reserves up to 64 bytes, NET_IP_ALIGN means we
@@ -215,7 +199,7 @@ static inline int grtnic_skb_pad(void)
 #define GRTNIC_RX_DMA_ATTR NULL
 #else
 #define GRTNIC_RX_DMA_ATTR \
-  (DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
+	(DMA_ATTR_SKIP_CPU_SYNC | DMA_ATTR_WEAK_ORDERING)
 #endif
 
 
@@ -252,26 +236,30 @@ static inline int grtnic_skb_pad(void)
 #define RX_INT_DELAY 32
 
 #define GRTNIC_TXDCTL_DMA_BURST_ENABLE                          \
-   (0x00000000 | /* set descriptor granularity */         \
-   (1u << 25) | /* LWTHRESH */                            \
-   (8u << 16) | /* wthresh must be +1 more than desired */\
-   (1u << 8)  | /* hthresh */                             \
-   0x20)        /* pthresh */
+	(0x00000000 | /* set descriptor granularity */         \
+	(1u << 25) | /* LWTHRESH */                            \
+	(8u << 16) | /* wthresh must be +1 more than desired */\
+	(1u << 8)  | /* hthresh */                             \
+	0x20)        /* pthresh */
 
 #define GRTNIC_RXDCTL_DMA_BURST_ENABLE                          \
-   (0x00000000 | /* set descriptor granularity */         \
-   (1u << 25) | /* LWTHRESH */                            \
-   (8u << 16) | /* set writeback threshold    */          \
-   (4u << 8)  | /* set Hrefetch threshold     */          \
-   0x20)        /* set Pthresh                */
+	(0x00000000 | /* set descriptor granularity */         \
+	(1u << 25) | /* LWTHRESH */                            \
+	(8u << 16) | /* set writeback threshold    */          \
+	(4u << 8)  | /* set Hrefetch threshold     */          \
+	0x20)        /* set Pthresh                */
 
 enum grt_gigeth_boards {
-  board_902E_GRT_FF,
-  board_902T_GRT_FF,
-  board_901ELR_GRT_FF,
+	board_901E_GRT_FF,
+	board_902E_GRT_FF,
+	board_904E_GRT_FF,
+	board_901T_GRT_FF,
+	board_902T_GRT_FF,
+	board_904T_GRT_FF,
+	board_901ELR_GRT_FF,
 	board_1001E_GRT_FF,
 	board_1001E_QM_FF,
-  board_1002E_GRT_FF,
+	board_1002E_GRT_FF,
 	board_1005E_GRT_FX
 };
 
@@ -279,16 +267,28 @@ struct grt_gigeth_info {
 	enum grt_gigeth_boards type;
 	int dma_channel_max;
 	unsigned char port_type;	//0 for FIBER; 1 for COPPER
-  unsigned char port_speed;  //0 for 1G; 1 for 10G
+	unsigned char port_speed;  //0 for 1G; 1 for 10G
 };
 
+struct AdapterInfoS {
+	bool in_use;
+	u16  slot;
+	struct grtnic_adapter *adapter;
+};
+
+extern const struct grt_gigeth_info grt_901eff_info;
 extern const struct grt_gigeth_info grt_902eff_info;
+extern const struct grt_gigeth_info grt_904eff_info;
+extern const struct grt_gigeth_info grt_901tff_info;
 extern const struct grt_gigeth_info grt_902tff_info;
+extern const struct grt_gigeth_info grt_904tff_info;
 extern const struct grt_gigeth_info grt_901elr_info;
 extern const struct grt_gigeth_info grt_1001eff_info;
 extern const struct grt_gigeth_info qm_1001eff_info;
 extern const struct grt_gigeth_info grt_1002eff_info;
 extern const struct grt_gigeth_info grt_1005efx_info;
+
+extern struct AdapterInfoS AdapterInfo[];
 
 /* Direct Cache Access (DCA) definitions */
 #define GRTNIC_DCA_CTRL_DCA_ENABLE	0x00000000 /* DCA Enable */
@@ -315,7 +315,7 @@ extern const struct grt_gigeth_info grt_1005efx_info;
 
 /* iterator for handling rings in ring container */
 #define grtnic_for_each_ring(pos, head) \
-  for (pos = (head).ring; pos != NULL; pos = pos->next)
+	for (pos = (head).ring; pos != NULL; pos = pos->next)
 
 #define GRTNIC_TIDV_FPD BIT(31)
 #define GRTNIC_RDTR_FPD BIT(31)
@@ -324,7 +324,8 @@ extern const struct grt_gigeth_info grt_1005efx_info;
 #define GRTNIC_TX_DESC(R, i)   GRTNIC_GET_DESC(R, i, grtnic_tx_desc)
 #define GRTNIC_RX_DESC(R, i)   GRTNIC_GET_DESC(R, i, grtnic_rx_desc)
 
-#define GRTNIC_MAX_JUMBO_FRAME_SIZE  65536+18
+#define GRTNIC_MAX_JUMBO_FRAME_10G_SIZE  (32000+18)
+#define GRTNIC_MAX_JUMBO_FRAME_1G_SIZE  (9100+18)
 
 #define GRTNIC_DEAD_READ_RETRIES 10
 #define GRTNIC_DEAD_READ_REG 0xdeadbeefU
@@ -344,196 +345,200 @@ extern const struct grt_gigeth_info grt_1005efx_info;
 
 static inline bool grtnic_removed(void __iomem *addr)
 {
-  return unlikely(!addr);
+	return unlikely(!addr);
 }
+
 #define GRTNIC_REMOVED(a) grtnic_removed(a)
 
 //////////////////////////////////////////////////////////////////////////////
 /* wrapper around a pointer to a socket buffer,
- * so a DMA handle can be stored along with the buffer */
+ * so a DMA handle can be stored along with the buffer
+ */
 struct grtnic_tx_buffer {
-  union grtnic_tx_desc *next_to_watch;
-  unsigned long time_stamp;
-  struct sk_buff *skb;
-  unsigned int bytecount;
-  unsigned short gso_segs;
-  __be16 protocol;
-  DEFINE_DMA_UNMAP_ADDR(dma);
-  DEFINE_DMA_UNMAP_LEN(len);
-  u32 tx_flags;
+	union grtnic_tx_desc *next_to_watch;
+	unsigned long time_stamp;
+	struct sk_buff *skb;
+	unsigned int bytecount;
+	unsigned short gso_segs;
+	__be16 protocol;
+	DEFINE_DMA_UNMAP_ADDR(dma);
+	DEFINE_DMA_UNMAP_LEN(len);
+	u32 tx_flags;
 };
 
 struct grtnic_rx_buffer {
-  struct sk_buff *skb;
-  dma_addr_t dma;
-  unsigned int in_port;
-  u32 length;
+	struct sk_buff *skb;
+	dma_addr_t dma;
+	unsigned int in_port;
+	u32 length;
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
-  struct page *page;
+	struct page *page;
 #if (BITS_PER_LONG > 32) || (PAGE_SIZE >= 65536)
-  __u32 page_offset;
+	__u32 page_offset;
 #else
-  __u16 page_offset;
+	__u16 page_offset;
 #endif
-  __u16 pagecnt_bias;
+	__u16 pagecnt_bias;
 #endif
 };
 
 struct grtnic_queue_stats {
-  u64 packets;
-  u64 bytes;
+	u64 packets;
+	u64 bytes;
 #ifdef BP_EXTENDED_STATS
-  u64 yields;
-  u64 misses;
-  u64 cleaned;
+	u64 yields;
+	u64 misses;
+	u64 cleaned;
 #endif  /* BP_EXTENDED_STATS */
 };
 
 struct grtnic_tx_queue_stats {
-  u64 restart_queue;
-  u64 tx_busy;
-  u64 tx_done_old;
+	u64 restart_queue;
+	u64 tx_busy;
+	u64 tx_done_old;
 };
 
 struct grtnic_rx_queue_stats {
-  u64 rsc_count;
-  u64 rsc_flush;
-  u64 non_eop_descs;
-  u64 alloc_rx_page;
-  u64 alloc_rx_page_failed;
-  u64 alloc_rx_buff_failed;
-  u64 csum_err;
+	u64 rsc_count;
+	u64 rsc_flush;
+	u64 non_eop_descs;
+	u64 alloc_rx_page;
+	u64 alloc_rx_page_failed;
+	u64 alloc_rx_buff_failed;
+	u64 csum_err;
 };
 
 /* Statistics counters collected by the MAC */
 struct grtnic_hw_stats {
-  u64 crcerrs;
-  u64 algnerrc;
-  u64 scc;
-  u64 mcc;
-  u64 mpc;
-  u64 ecol;
-  u64 latecol;
-  u64 dc;
-  u64 rlec;
-  u64 rxpause;
-  u64 txpause;
-  u64 tx_underrun;
-  u64 badopcode;
-  u64 prc64;
-  u64 prc127;
-  u64 prc255;
-  u64 prc511;
-  u64 prc1023;
-  u64 prc1522;
-  u64 prcoversize;
-  u64 gprc;
-  u64 bprc;
-  u64 mprc;
-  u64 gptc;
-  u64 gorc;
-  u64 gotc;
-  u64 ruc;
-  u64 rfc;
-  u64 roc;
-  u64 ptc64;
-  u64 ptc127;
-  u64 ptc255;
-  u64 ptc511;
-  u64 ptc1023;
-  u64 ptc1522;
-  u64 ptcoversize;
-  u64 mptc;
-  u64 bptc;
+	u64 crcerrs;
+	u64 algnerrc;
+	u64 scc;
+	u64 mcc;
+	u64 mpc;
+	u64 ecol;
+	u64 latecol;
+	u64 dc;
+	u64 rlec;
+	u64 rvlanc;
+	u64 tvlanc;
+	u64 rxpause;
+	u64 txpause;
+	u64 tx_underrun;
+	u64 badopcode;
+	u64 prc64;
+	u64 prc127;
+	u64 prc255;
+	u64 prc511;
+	u64 prc1023;
+	u64 prc1522;
+	u64 prcoversize;
+	u64 gprc;
+	u64 bprc;
+	u64 mprc;
+	u64 gptc;
+	u64 gorc;
+	u64 gotc;
+	u64 ruc;
+	u64 rfc;
+	u64 roc;
+	u64 ptc64;
+	u64 ptc127;
+	u64 ptc255;
+	u64 ptc511;
+	u64 ptc1023;
+	u64 ptc1522;
+	u64 ptcoversize;
+	u64 mptc;
+	u64 bptc;
 };
 
 enum grtnic_ring_state_t {
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
-  __GRTNIC_RX_3K_BUFFER,
-  __GRTNIC_RX_BUILD_SKB_ENABLED,
+	__GRTNIC_RX_3K_BUFFER,
+	__GRTNIC_RX_BUILD_SKB_ENABLED,
 #endif
-  __GRTNIC_RX_RSC_ENABLED,
-  __GRTNIC_RX_CSUM_UDP_ZERO_ERR,
+	__GRTNIC_RX_RSC_ENABLED,
+	__GRTNIC_RX_CSUM_UDP_ZERO_ERR,
 #if IS_ENABLED(CONFIG_FCOE)
-  __GRTNIC_RX_FCOE,
+	__GRTNIC_RX_FCOE,
 #endif
-  __GRTNIC_TX_FDIR_INIT_DONE,
-  __GRTNIC_TX_XPS_INIT_DONE,
-  __GRTNIC_TX_DETECT_HANG,
-  __GRTNIC_HANG_CHECK_ARMED,
-  __GRTNIC_TX_XDP_RING,
+	__GRTNIC_TX_FDIR_INIT_DONE,
+	__GRTNIC_TX_XPS_INIT_DONE,
+	__GRTNIC_TX_DETECT_HANG,
+	__GRTNIC_HANG_CHECK_ARMED,
+	__GRTNIC_TX_XDP_RING,
 #ifdef HAVE_AF_XDP_ZC_SUPPORT
-  __GRTNIC_TX_DISABLED,
+	__GRTNIC_TX_DISABLED,
 #endif
 };
 
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
 
 #define ring_uses_build_skb(ring) \
-  test_bit(__GRTNIC_RX_BUILD_SKB_ENABLED, &(ring)->state)
+	test_bit(__GRTNIC_RX_BUILD_SKB_ENABLED, &(ring)->state)
 #endif
 
 #define check_for_tx_hang(ring) \
-  test_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
+	test_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
 #define set_check_for_tx_hang(ring) \
-  set_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
+	set_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
 #define clear_check_for_tx_hang(ring) \
-  clear_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
+	clear_bit(__GRTNIC_TX_DETECT_HANG, &(ring)->state)
 #define ring_is_rsc_enabled(ring) \
-  test_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
+	test_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
 #define set_ring_rsc_enabled(ring) \
-  set_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
+	set_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
 #define clear_ring_rsc_enabled(ring) \
-  clear_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
+	clear_bit(__GRTNIC_RX_RSC_ENABLED, &(ring)->state)
 #define netdev_ring(ring) (ring->netdev)
 #define ring_queue_index(ring) (ring->queue_index)
 
 struct grtnic_ring {
-  struct grtnic_ring *next;  /* pointer to next ring in q_vector */
-  struct grtnic_q_vector *q_vector;  /* backlink to q_vector */
-  struct net_device     *netdev;      /* back pointer to net_device */
-  struct device         *dev;             /* device for dma mapping */
+	struct grtnic_ring *next;  /* pointer to next ring in q_vector */
+	struct grtnic_q_vector *q_vector;  /* backlink to q_vector */
+	struct net_device     *netdev;      /* back pointer to net_device */
+	struct device         *dev;             /* device for dma mapping */
 
-  void                  *desc;      /* pointer to ring memory  */
-  dma_addr_t            dma;        /* phys address of ring    */
+	void                  *desc;      /* pointer to ring memory  */
+	dma_addr_t            dma;        /* phys address of ring    */
 
-  void                  *desc_wb;   /* pointer to desc writeback memory  */
-  dma_addr_t            desc_wb_dma;/* phys address of desc writeback memory */
+	void                  *desc_wb;   /* pointer to desc writeback memory  */
+	dma_addr_t            desc_wb_dma;/* phys address of desc writeback memory */
 
-  struct sk_buff        *skb;
-  
-  union {
-    struct grtnic_tx_buffer *tx_buffer_info;
-    struct grtnic_rx_buffer *rx_buffer_info;
-  };
-  unsigned long         state;
-  u8 __iomem *tail;
- 
-  unsigned int          size;       /* length of ring in bytes */
-  u16                   count;      /* number of desc. in ring */
+	struct sk_buff        *skb;
 
-  u8                    queue_index; /* logical index of the ring*/
-  u8                    reg_idx;     /* physical index of the ring */
+	union {
+		struct grtnic_tx_buffer *tx_buffer_info;
+		struct grtnic_rx_buffer *rx_buffer_info;
+	};
+	unsigned long         state;
+	u8 __iomem *tail;
 
-  u16                   next_to_use;
-  u16                   next_to_clean;
+	unsigned int          size;       /* length of ring in bytes */
+	u16                   count;      /* number of desc. in ring */
+
+	u8                    queue_index; /* logical index of the ring*/
+	u8                    reg_idx;     /* physical index of the ring */
+
+	u16                   next_to_use;
+	u16                   next_to_clean;
 
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
-  u16                   next_to_alloc;
+	u16                   next_to_alloc;
 #endif
 
 //#ifdef CONFIG_DISABLE_PACKET_SPLIT
-  u16                   rx_buffer_len;
+	u16                   rx_buffer_len;
 //#endif
 
-  struct grtnic_queue_stats stats;
+	struct grtnic_queue_stats stats;
 #ifdef HAVE_NDO_GET_STATS64
-  struct u64_stats_sync syncp;
+	struct u64_stats_sync syncp;
 #endif
-  union {
-    struct grtnic_tx_queue_stats tx_stats;
-    struct grtnic_rx_queue_stats rx_stats;
-  };
+	union {
+		struct grtnic_tx_queue_stats tx_stats;
+		struct grtnic_rx_queue_stats rx_stats;
+	};
 
 } ____cacheline_internodealigned_in_smp;
 
@@ -547,25 +552,25 @@ struct grtnic_ring {
 static inline unsigned int grtnic_rx_bufsz(struct grtnic_ring __maybe_unused *ring)
 {
 #if MAX_SKB_FRAGS < 8
-  return ALIGN(GRTNIC_MAX_RXBUFFER / MAX_SKB_FRAGS, 1024);
+	return ALIGN(GRTNIC_MAX_RXBUFFER / MAX_SKB_FRAGS, 1024);
 #else
-  if (test_bit(__GRTNIC_RX_3K_BUFFER, &ring->state))
-    return GRTNIC_RXBUFFER_3K;
+	if (test_bit(__GRTNIC_RX_3K_BUFFER, &ring->state))
+		return GRTNIC_RXBUFFER_3K;
 #if (PAGE_SIZE < 8192)
-  if (ring_uses_build_skb(ring))
-    return GRTNIC_MAX_2K_FRAME_BUILD_SKB;
+	if (ring_uses_build_skb(ring))
+		return GRTNIC_MAX_2K_FRAME_BUILD_SKB;
 #endif
-  return GRTNIC_RXBUFFER_2K;
+	return GRTNIC_RXBUFFER_2K;
 #endif
 }
 
 static inline unsigned int grtnic_rx_pg_order(struct grtnic_ring __maybe_unused *ring)
 {
 #if (PAGE_SIZE < 8192)
-  if (test_bit(__GRTNIC_RX_3K_BUFFER, &ring->state))
-    return 1;
+	if (test_bit(__GRTNIC_RX_3K_BUFFER, &ring->state))
+		return 1;
 #endif
-  return 0;
+	return 0;
 }
 #define grtnic_rx_pg_size(_ring) (PAGE_SIZE << grtnic_rx_pg_order(_ring))
 
@@ -579,273 +584,267 @@ static inline unsigned int grtnic_rx_pg_order(struct grtnic_ring __maybe_unused 
 #define ITR_ADAPTIVE_MASK_USECS (ITR_ADAPTIVE_LATENCY - ITR_ADAPTIVE_MIN_INC)
 
 struct grtnic_ring_container {
-  struct grtnic_ring *ring;    /* pointer to linked list of rings */
-  unsigned long next_update;  /* jiffies value of last update */
-  unsigned int total_bytes; /* total bytes processed this int */
-  unsigned int total_packets; /* total packets processed this int */
-  u16 work_limit;     /* total work allowed per interrupt */
-  u8 count;     /* total number of rings in vector */
-  u8 itr;       /* current ITR setting for ring */
+	struct grtnic_ring *ring;    /* pointer to linked list of rings */
+	unsigned long next_update;  /* jiffies value of last update */
+	unsigned int total_bytes; /* total bytes processed this int */
+	unsigned int total_packets; /* total packets processed this int */
+	u16 work_limit;     /* total work allowed per interrupt */
+	u8 count;     /* total number of rings in vector */
+	u8 itr;       /* current ITR setting for ring */
 };
 
 
-/* MAX_MSIX_Q_VECTORS of these are allocated,
- * but we only use one per queue-specific vector.
- */
+/* MAX_MSIX_Q_VECTORS of these are allocated, */
+/* but we only use one per queue-specific vector. */
 struct grtnic_q_vector {
-  struct grtnic_adapter *adapter;
-  int cpu;  /* CPU for DCA */
-  u16 v_idx;  /* index of q_vector within array, also used for
-       * finding the bit in EICR and friends that
-       * represents the vector for this ring */
+	struct grtnic_adapter *adapter;
+	int cpu;  /* CPU for DCA */
+	u16 v_idx;  /* index of q_vector within array, also used for */
+       /* finding the bit in EICR and friends that */
+       /* represents the vector for this ring */
 
-  u32 eims_value;     /* EIMS mask value */
-  u16 itr;  /* Interrupt throttle rate written to EITR */
-  struct grtnic_ring_container rx, tx;
+	u32 eims_value;     /* EIMS mask value */
+	u16 itr;  /* Interrupt throttle rate written to EITR */
+	struct grtnic_ring_container rx, tx;
 
-  struct napi_struct napi;
+	struct napi_struct napi;
 #ifndef HAVE_NETDEV_NAPI_LIST
-  struct net_device poll_dev;
+	struct net_device poll_dev;
 #endif
 #ifdef HAVE_IRQ_AFFINITY_HINT
-  cpumask_t affinity_mask;
+	cpumask_t affinity_mask;
 #endif
-  int node;
-  struct rcu_head rcu;  /* to avoid race with update stats on free */
-  char name[IFNAMSIZ + 9];
-  bool netpoll_rx;
+	int node;
+	struct rcu_head rcu;  /* to avoid race with update stats on free */
+	char name[IFNAMSIZ + 9];
+	bool netpoll_rx;
 
 #ifdef HAVE_NDO_BUSY_POLL
-  atomic_t state;
+	atomic_t state;
 #endif  /* HAVE_NDO_BUSY_POLL */
 
   /* for dynamic allocation of rings associated with this q_vector */
-  struct grtnic_ring ring[0] ____cacheline_internodealigned_in_smp;
+	struct grtnic_ring ring[0] ____cacheline_internodealigned_in_smp;
 };
 
 
 #ifdef HAVE_NDO_BUSY_POLL
 enum grtnic_qv_state_t {
-  GRTNIC_QV_STATE_IDLE = 0,
-  GRTNIC_QV_STATE_NAPI,
-  GRTNIC_QV_STATE_POLL,
-  GRTNIC_QV_STATE_DISABLE
+	GRTNIC_QV_STATE_IDLE = 0,
+	GRTNIC_QV_STATE_NAPI,
+	GRTNIC_QV_STATE_POLL,
+	GRTNIC_QV_STATE_DISABLE
 };
 
 static inline void grtnic_qv_init_lock(struct grtnic_q_vector *q_vector)
 {
-  /* reset state to idle */
-  atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
+	/* reset state to idle */
+	atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
 }
 
 /* called from the device poll routine to get ownership of a q_vector */
 static inline bool grtnic_qv_lock_napi(struct grtnic_q_vector *q_vector)
 {
-  int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_NAPI);
+	int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_NAPI);
 #ifdef BP_EXTENDED_STATS
-  if (rc != GRTNIC_QV_STATE_IDLE)
-    q_vector->tx.ring->stats.yields++;
+	if (rc != GRTNIC_QV_STATE_IDLE)
+		q_vector->tx.ring->stats.yields++;
 #endif
 
-  return rc == GRTNIC_QV_STATE_IDLE;
+	return rc == GRTNIC_QV_STATE_IDLE;
 }
 
 /* returns true is someone tried to get the qv while napi had it */
 static inline void grtnic_qv_unlock_napi(struct grtnic_q_vector *q_vector)
 {
-  WARN_ON(atomic_read(&q_vector->state) != GRTNIC_QV_STATE_NAPI);
+	WARN_ON(atomic_read(&q_vector->state) != GRTNIC_QV_STATE_NAPI);
 
-  /* flush any outstanding Rx frames */
-  if (q_vector->napi.gro_list)
-    napi_gro_flush(&q_vector->napi, false);
+	/* flush any outstanding Rx frames */
+	if (q_vector->napi.gro_list)
+		napi_gro_flush(&q_vector->napi, false);
 
-  /* reset state to idle */
-  atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
+	/* reset state to idle */
+	atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
 }
 
 /* called from ixgbe_low_latency_poll() */
 static inline bool grtnic_qv_lock_poll(struct grtnic_q_vector *q_vector)
 {
-  int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_POLL);
+	int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_POLL);
 #ifdef BP_EXTENDED_STATS
-  if (rc != GRTNIC_QV_STATE_IDLE)
-    q_vector->rx.ring->stats.yields++;
+	if (rc != GRTNIC_QV_STATE_IDLE)
+		q_vector->rx.ring->stats.yields++;
 #endif
-  return rc == GRTNIC_QV_STATE_IDLE;
+	return rc == GRTNIC_QV_STATE_IDLE;
 }
 
 /* returns true if someone tried to get the qv while it was locked */
 static inline void grtnic_qv_unlock_poll(struct grtnic_q_vector *q_vector)
 {
-  WARN_ON(atomic_read(&q_vector->state) != GRTNIC_QV_STATE_POLL);
+	WARN_ON(atomic_read(&q_vector->state) != GRTNIC_QV_STATE_POLL);
 
-  /* reset state to idle */
-  atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
+	/* reset state to idle */
+	atomic_set(&q_vector->state, GRTNIC_QV_STATE_IDLE);
 }
 
 /* true if a socket is polling, even if it did not get the lock */
 static inline bool grtnic_qv_busy_polling(struct grtnic_q_vector *q_vector)
 {
-  return atomic_read(&q_vector->state) == GRTNIC_QV_STATE_POLL;
+	return atomic_read(&q_vector->state) == GRTNIC_QV_STATE_POLL;
 }
 
 /* false if QV is currently owned */
 static inline bool grtnic_qv_disable(struct grtnic_q_vector *q_vector)
 {
-  int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_DISABLE);
+	int rc = atomic_cmpxchg(&q_vector->state, GRTNIC_QV_STATE_IDLE, GRTNIC_QV_STATE_DISABLE);
 
-  return rc == GRTNIC_QV_STATE_IDLE;
+	return rc == GRTNIC_QV_STATE_IDLE;
 }
 
 #endif /* HAVE_NDO_BUSY_POLL */
 
 enum grtnic_state_t {
-  __GRTNIC_TESTING,
-  __GRTNIC_RESETTING,
-  __GRTNIC_DOWN,
-  __GRTNIC_DISABLED,
-  __GRTNIC_REMOVING,
-  __GRTNIC_SERVICE_SCHED,
-  __GRTNIC_SERVICE_INITED,
-  __GRTNIC_IN_SFP_INIT,
+	__GRTNIC_TESTING,
+	__GRTNIC_RESETTING,
+	__GRTNIC_DOWN,
+	__GRTNIC_DISABLED,
+	__GRTNIC_REMOVING,
+	__GRTNIC_SERVICE_SCHED,
+	__GRTNIC_SERVICE_INITED,
+	__GRTNIC_IN_SFP_INIT,
 #ifdef HAVE_PTP_1588_CLOCK
-  __GRTNIC_PTP_RUNNING,
-  __GRTNIC_PTP_TX_IN_PROGRESS,
+	__GRTNIC_PTP_RUNNING,
+	__GRTNIC_PTP_TX_IN_PROGRESS,
 #endif
-  __GRTNIC_RESET_REQUESTED,
+	__GRTNIC_RESET_REQUESTED,
 };
 
 struct grtnic_cb {
 #ifdef CONFIG_DISABLE_PACKET_SPLIT
-  union {       /* Union defining head/tail partner */
-    struct sk_buff *head;
-    struct sk_buff *tail;
-  };
+	union {       /* Union defining head/tail partner */
+		struct sk_buff *head;
+		struct sk_buff *tail;
+	};
 #endif
-  dma_addr_t dma;
+	dma_addr_t dma;
 #ifdef HAVE_VLAN_RX_REGISTER
-  u16 vid;      /* VLAN tag */
+	u16 vid;      /* VLAN tag */
 #endif
-  u16 append_cnt;   /* number of skb's appended */
+	u16 append_cnt;   /* number of skb's appended */
 #ifndef CONFIG_DISABLE_PACKET_SPLIT
-  bool  page_released;
+	bool  page_released;
 #endif
 };
 #define GRTNIC_CB(skb) ((struct grtnic_cb *)(skb)->cb)
 
 enum latency_range {
-  lowest_latency = 0,
-  low_latency = 1,
-  bulk_latency = 2,
-  latency_invalid = 255
+	lowest_latency = 0,
+	low_latency = 1,
+	bulk_latency = 2,
+	latency_invalid = 255
 };
 
 struct grtnic_ps_page {
-  struct page *page;
-  u64 dma; /* must be u64 - written to hw */
+	struct page *page;
+	u64 dma; /* must be u64 - written to hw */
 };
 
 
 union grtnic_tx_desc {
-  struct {
-    __le64 src_addr; /* Address of descriptor's data buf */
-    struct
-    {
-      u32 len:20;
-      u32 desc_num:4;
-      u32 chl     :3;
-      u32 cmp:1;
-      u32 rs :1;
-      u32 irq:1;
-      u32 eop:1;
-      u32 sop:1;
-    }len_ctl;
-    struct
-    {
-      u32 csum_info:16;
-      u32 reserved:12;
-      u32 port:4;
-    } tx_info;    /*user data */
-  } read;
+	struct {
+		__le64 src_addr; /* Address of descriptor's data buf */
+		struct {
+			u32 len:20;
+			u32 desc_num:4;
+			u32 chl     :3;
+			u32 cmp:1;
+			u32 rs :1;
+			u32 irq:1;
+			u32 eop:1;
+			u32 sop:1;
+		} len_ctl;
 
-  struct {
-    __le64 rsvd0; /* Reserved */
-    struct
-    {
-      u32 len:20;
-      u32 desc_num:4;
-      u32 chl     :3;
-      u32 cmp:1;
-      u32 rs :1;
-      u32 irq:1;
-      u32 eop:1;
-      u32 sop:1;
-    }len_ctl;
-    __le32 rsvd1;
-  } wb;
+		struct {
+			u32 csum_info:16;
+			u32 reserved:12;
+			u32 port:4;
+		} tx_info; /*user data */
+	} read;
+
+	struct {
+		__le64 rsvd0; /* Reserved */
+		struct {
+			u32 len:20;
+			u32 desc_num:4;
+			u32 chl     :3;
+			u32 cmp:1;
+			u32 rs :1;
+			u32 irq:1;
+			u32 eop:1;
+			u32 sop:1;
+		} len_ctl;
+		__le32 rsvd1;
+	} wb;
 };
 
 
 union grtnic_rx_desc {
-  struct {
-    __le64 src_addr; /* Packet buffer address */
-    struct
-    {
-      u32 len:20;
-      u32 desc_num:4;
-      u32 chl     :3;
-      u32 cmp:1;
-      u32 rs :1;
-      u32 irq:1;
-      u32 eop:1;
-      u32 sop:1;
-    }len_ctl;
-    __le32 rsvd;
-  } read;
+	struct {
+		__le64 src_addr; /* Packet buffer address */
+		struct {
+			u32 len:20;
+			u32 desc_num:4;
+			u32 chl     :3;
+			u32 cmp:1;
+			u32 rs :1;
+			u32 irq:1;
+			u32 eop:1;
+			u32 sop:1;
+		} len_ctl;
+		__le32 rsvd;
+	} read;
 
-  struct {
-    struct {
-      union {
-        __le32 data;
-        struct {
-          __le16 pkt_info; /* RSS, Pkt type */
-          __le16 hdr_info; /* Splithdr, hdrlen */
-        } hs_rss;
-      } lo_dword;
-      union {
-        __le32 rss; /* RSS Hash */
-        struct {
-          __le16 ip_id; /* IP id */
-          __le16 csum; /* Packet Checksum */
-        } csum_ip;
-      } hi_dword;
-    } lower;
-    
-    struct
-    {
-      struct
-      {
-        u32 len:20;
-        u32 desc_num:4;
-        u32 chl     :3;
-        u32 cmp:1;
-        u32 rs :1;
-        u32 irq:1;
-        u32 eop:1;
-        u32 sop:1;
-      }len_ctl;
+	struct {
+		struct {
+			union {
+				__le32 data;
+				struct {
+					__le16 pkt_info; /* RSS, Pkt type */
+					__le16 hdr_info; /* Splithdr, hdrlen */
+				} hs_rss;
+			} lo_dword;
 
-      struct
-      {
-        u32 csum_ok:1;
-        u32 ipcs:1;
-        u32 tcpcs:1;
-        u32 udpcs:1;
-        u32 udp_csum_flag:1;
-        u32 reserved:27;
-      } rx_info;
-    } upper;
-  } wb;  /* writeback */
+			union {
+				__le32 rss; /* RSS Hash */
+				struct {
+					__le16 ip_id; /* IP id */
+					__le16 csum; /* Packet Checksum */
+				} csum_ip;
+			} hi_dword;
+		} lower;
+
+		struct {
+			struct {
+				u32 len:20;
+				u32 desc_num:4;
+				u32 chl     :3;
+				u32 cmp:1;
+				u32 rs :1;
+				u32 irq:1;
+				u32 eop:1;
+				u32 sop:1;
+			} len_ctl;
+
+			struct {
+				u32 csum_ok:1;
+				u32 ipcs:1;
+				u32 tcpcs:1;
+				u32 udpcs:1;
+				u32 udp_csum_flag:1;
+				u32 reserved:27;
+			} rx_info;
+		} upper;
+	} wb;  /* writeback */
 };
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -885,55 +884,62 @@ union grtnic_rx_desc {
 //};
 
 struct grtnic_desc_wb {
-  u32 desc_hw_ptr;
+	u32 desc_hw_ptr;
 } __packed;
 
 ////////////////////////////////////////////////////////////////////////////////////
 enum fc_mode {
-  fc_none = 0,
-  fc_rx_pause,
-  fc_tx_pause,
-  fc_full,
-  fc_default = 0xFF
+	fc_none = 0,
+	fc_rx_pause,
+	fc_tx_pause,
+	fc_full,
+	fc_default = 0xFF
 };
 
 struct fc_info {
-  u32 high_water;   /* Flow control high-water mark */
-  u32 low_water;    /* Flow control low-water mark */
-  u16 pause_time;   /* Flow control pause timer */
-  u16 refresh_time; /* Flow control refresh timer */
-  bool send_xon;    /* Flow control send XON */
-  bool strict_ieee; /* Strict IEEE mode */
-  bool fc_autoneg;
-  enum fc_mode current_mode;  /* FC mode in effect */
-  enum fc_mode requested_mode;  /* FC mode requested by caller */
+	u32 high_water;   /* Flow control high-water mark */
+	u32 low_water;    /* Flow control low-water mark */
+	u16 pause_time;   /* Flow control pause timer */
+	u16 refresh_time; /* Flow control refresh timer */
+	bool send_xon;    /* Flow control send XON */
+	bool strict_ieee; /* Strict IEEE mode */
+	bool fc_autoneg;
+	enum fc_mode current_mode;  /* FC mode in effect */
+	enum fc_mode requested_mode;  /* FC mode requested by caller */
 };
 
 struct grtnic_mac_info {
-  u8 addr[ETH_ALEN];
-  u8 perm_addr[ETH_ALEN];
+	u8 addr[ETH_ALEN];
+	u8 perm_addr[ETH_ALEN];
 
-  u32 mc_filter_type;
-  u16 mta_reg_count;
+	u32 mc_filter_type;
+	u16 mta_reg_count;
 
-  struct fc_info fc;
+	struct fc_info fc;
 
   /* Maximum size of the MTA register table in all supported adapters */
 #define MAX_MTA_REG 128
-  u32 mta_shadow[MAX_MTA_REG];
-  u16 rar_entry_count;
+	u32 mta_shadow[MAX_MTA_REG];
+	u16 rar_entry_count;
 };
 
 struct grtnic_hw {
-  // BAR pointers
-  void * __iomem dma_bar;
-  void * __iomem user_bar;
-  resource_size_t dma_bar_len;
-  resource_size_t user_bar_len;
-  void *back;
-  struct grtnic_mac_info  mac;
-  bool adapter_stopped;
-  u32 phy_addr;
+	// BAR pointers
+	void * __iomem dma_bar;
+	void * __iomem user_bar;
+	resource_size_t dma_bar_len;
+	resource_size_t user_bar_len;
+	void *back;
+	struct grtnic_mac_info  mac;
+	bool adapter_stopped;
+	u32 phy_addr;
+	u16 vendor_id;
+	u16 device_id;
+	u16 subsystem_vendor_id;
+	u16 subsystem_device_id;
+	u8  revision;
+	bool is_qsgmii;
+	bool is_individual_mdio;
 };
 
 /* default to trying for four seconds */
@@ -944,7 +950,8 @@ struct grtnic_adapter {
 	struct pci_dev *pdev;
 	struct net_device *netdev;
 
-  int func;
+	int func;
+	int slot;
 
 	/* Tx fast path data */
 	int num_tx_queues;
@@ -957,70 +964,71 @@ struct grtnic_adapter {
 	u16 rx_work_limit;
 
 	/* TX */
-  struct grtnic_ring *tx_ring[MAX_TX_QUEUES] ____cacheline_aligned_in_smp;
+	struct grtnic_ring *tx_ring[MAX_TX_QUEUES] ____cacheline_aligned_in_smp;
 
 	u64 restart_queue;
 	u64 lsc_int;
 	u32 tx_timeout_count;
-  u64 tx_busy;
+	u64 tx_busy;
 
 	/* RX */
-  struct grtnic_ring *rx_ring[MAX_RX_QUEUES];
-  u64 hw_csum_rx_error;
-  u64 non_eop_descs;
-  u32 alloc_rx_page;
-  u32 alloc_rx_page_failed;
-  u32 alloc_rx_buff_failed;
+	struct grtnic_ring *rx_ring[MAX_RX_QUEUES];
+	u64 hw_csum_rx_error;
+	u64 non_eop_descs;
+	u32 alloc_rx_page;
+	u32 alloc_rx_page_failed;
+	u32 alloc_rx_buff_failed;
 
 	const struct grt_gigeth_info *ei;
 
-  int rss_queues;
-  int num_q_vectors;
+	int rss_queues;
+	int num_q_vectors;
 
-  u8 ivar[MAX_Q_VECTORS];
-  struct grtnic_q_vector *q_vector[MAX_Q_VECTORS];
-  u32 eims_enable_mask;
-  u32 eims_other;
+	u8 ivar[MAX_Q_VECTORS];
+	struct grtnic_q_vector *q_vector[MAX_Q_VECTORS];
+	u32 eims_enable_mask;
+	u32 eims_other;
 
 
 	unsigned int id;
 
-  struct proc_dir_entry *proc_dir; //for test
-  u32 tx_count0;
-  u32 tx_count1;
-  u32 rx_count;
+	struct proc_dir_entry *proc_dir; //for test
+	u32 tx_count0;
+	u32 tx_count1;
+	u32 rx_count;
 
 	struct msix_entry *msix_entries;
 	int int_mode;
 
 #ifdef ETHTOOL_TEST
-  u32 test_icr;
-  struct grtnic_ring test_tx_ring;
-  struct grtnic_ring test_rx_ring;
+	u32 test_icr;
+	struct grtnic_ring test_tx_ring;
+	struct grtnic_ring test_rx_ring;
 #endif
 
-  struct grtnic_hw hw;
-  u16 msg_enable;
+	struct grtnic_hw hw;
+	u16 msg_enable;
 
 	unsigned int tx_ring_count;
 	unsigned int rx_ring_count;
 
-  u32 link_speed;
-  bool link_up;
+	u32 link_speed;
+	bool link_up;
+	bool link_duplex;
 
-  unsigned long link_check_timeout;
+	unsigned long link_check_timeout;
 
-  struct timer_list service_timer;
-  struct work_struct service_task;
+	struct timer_list service_timer;
+	struct work_struct service_task;
 
-  u32 max_frame_size;
-  u32 min_frame_size;
+	u32 max_frame_size;
+	u32 min_frame_size;
 
 #ifndef HAVE_NETDEV_STATS_IN_NETDEV
-  struct net_device_stats net_stats;
+	struct net_device_stats net_stats;
 #endif
 
-  struct grtnic_hw_stats stats;
+	struct grtnic_hw_stats stats;
 
 //#ifdef ETHTOOL_GRXFHINDIR
 //  u32 rss_indir_tbl_init;
@@ -1028,65 +1036,70 @@ struct grtnic_adapter {
 //#endif
 
 #define GRTNIC_MAX_RETA_ENTRIES 512
-  u8 rss_indir_tbl[GRTNIC_MAX_RETA_ENTRIES];
+	u8 rss_indir_tbl[GRTNIC_MAX_RETA_ENTRIES];
 
 #define GRTNIC_RSS_KEY_SIZE     40  /* size of RSS Hash Key in bytes */
-  u32 *rss_key;
+	u32 *rss_key;
 
-  unsigned long         state;
+	unsigned long         state;
 
-  /* Some features need tri-state capability,
-   * thus the additional *_CAPABLE flags.
-   */
-  u32 flags;
-#define GRTNIC_FLAG_MSI_CAPABLE       (u32)(1 << 0)
-#define GRTNIC_FLAG_MSI_ENABLED       (u32)(1 << 1)
-#define GRTNIC_FLAG_MSIX_CAPABLE      (u32)(1 << 2)
-#define GRTNIC_FLAG_MSIX_ENABLED      (u32)(1 << 3)
+	/* Some features need tri-state capability, */
+	/* thus the additional *_CAPABLE flags. */
+	u32 flags;
+#define GRTNIC_FLAG_MSI_CAPABLE				((u32)(1 << 0))
+#define GRTNIC_FLAG_MSI_ENABLED				((u32)(1 << 1))
+#define GRTNIC_FLAG_MSIX_CAPABLE			((u32)(1 << 2))
+#define GRTNIC_FLAG_MSIX_ENABLED			((u32)(1 << 3))
 
-#define GRTNIC_FLAG_TXCSUM_CAPABLE    (u32)(1 << 4)
-#define GRTNIC_FLAG_RXCSUM_CAPABLE    (u32)(1 << 5)
+#define GRTNIC_FLAG_TXCSUM_CAPABLE		((u32)(1 << 4))
+#define GRTNIC_FLAG_RXCSUM_CAPABLE		((u32)(1 << 5))
 
-#if defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE)
-#define GRTNIC_FLAG_DCA_ENABLED       (u32)(1 << 6)
-#define GRTNIC_FLAG_DCA_CAPABLE       (u32)(1 << 7)
-#define GRTNIC_FLAG_DCA_ENABLED_DATA  (u32)(1 << 8)
+#if (defined(CONFIG_DCA) || defined(CONFIG_DCA_MODULE))
+#define GRTNIC_FLAG_DCA_ENABLED				((u32)(1 << 6))
+#define GRTNIC_FLAG_DCA_CAPABLE				((u32)(1 << 7))
+#define GRTNIC_FLAG_DCA_ENABLED_DATA	((u32)(1 << 8))
 #else
-#define GRTNIC_FLAG_DCA_ENABLED       (u32)0
-#define GRTNIC_FLAG_DCA_CAPABLE       (u32)0
-#define GRTNIC_FLAG_DCA_ENABLED_DATA  (u32)0
+#define GRTNIC_FLAG_DCA_ENABLED				((u32)0)
+#define GRTNIC_FLAG_DCA_CAPABLE				((u32)0)
+#define GRTNIC_FLAG_DCA_ENABLED_DATA	((u32)0)
 #endif
-#define GRTNIC_FLAG_MQ_CAPABLE        (u32)(1 << 9)
-#define GRTNIC_FLAG_DCB_ENABLED       (u32)(1 << 10)
-#define GRTNIC_FLAG_VMDQ_ENABLED      (u32)(1 << 11)
-#define GRTNIC_FLAG_FAN_FAIL_CAPABLE  (u32)(1 << 12)
-#define GRTNIC_FLAG_NEED_LINK_UPDATE  (u32)(1 << 13)
-#define GRTNIC_FLAG_NEED_LINK_CONFIG  (u32)(1 << 14)
-#define GRTNIC_FLAG_FDIR_HASH_CAPABLE (u32)(1 << 15)
-#define GRTNIC_FLAG_FDIR_PERFECT_CAPABLE   (u32)(1 << 16)
+#define GRTNIC_FLAG_MQ_CAPABLE				((u32)(1 <<  9))
+#define GRTNIC_FLAG_DCB_ENABLED				((u32)(1 << 10))
+#define GRTNIC_FLAG_VMDQ_ENABLED			((u32)(1 << 11))
+#define GRTNIC_FLAG_FAN_FAIL_CAPABLE	((u32)(1 << 12))
+#define GRTNIC_FLAG_NEED_LINK_UPDATE	((u32)(1 << 13))
+#define GRTNIC_FLAG_NEED_LINK_CONFIG	((u32)(1 << 14))
+#define GRTNIC_FLAG_FDIR_HASH_CAPABLE	((u32)(1 << 15))
+#define GRTNIC_FLAG_FDIR_PERFECT_CAPABLE	((u32)(1 << 16))
 #if IS_ENABLED(CONFIG_FCOE)
-#define GRTNIC_FLAG_FCOE_CAPABLE      (u32)(1 << 17)
-#define GRTNIC_FLAG_FCOE_ENABLED      (u32)(1 << 18)
+#define GRTNIC_FLAG_FCOE_CAPABLE			((u32)(1 << 17))
+#define GRTNIC_FLAG_FCOE_ENABLED			((u32)(1 << 18))
 #endif /* CONFIG_FCOE */
-#define GRTNIC_FLAG_SRIOV_CAPABLE     (u32)(1 << 19)
-#define GRTNIC_FLAG_SRIOV_ENABLED     (u32)(1 << 20)
-#define GRTNIC_FLAG_SRIOV_REPLICATION_ENABLE  (u32)(1 << 21)
-#define GRTNIC_FLAG_SRIOV_L2SWITCH_ENABLE     (u32)(1 << 22)
-#define GRTNIC_FLAG_SRIOV_VEPA_BRIDGE_MODE    (u32)(1 << 23)
-#define GRTNIC_FLAG_RX_HWTSTAMP_ENABLED       (u32)(1 << 24)
-#define GRTNIC_FLAG_VXLAN_OFFLOAD_CAPABLE     (u32)(1 << 25)
-#define GRTNIC_FLAG_VXLAN_OFFLOAD_ENABLE      (u32)(1 << 26)
-#define GRTNIC_FLAG_RX_HWTSTAMP_IN_REGISTER   (u32)(1 << 27)
-#define GRTNIC_FLAG_MDD_ENABLED               (u32)(1 << 29)
-#define GRTNIC_FLAG_DCB_CAPABLE               (u32)(1 << 30)
-#define GRTNIC_FLAG_GENEVE_OFFLOAD_CAPABLE    BIT(31)
+#define GRTNIC_FLAG_SRIOV_CAPABLE			((u32)(1 << 19))
+#define GRTNIC_FLAG_SRIOV_ENABLED			((u32)(1 << 20))
+#define GRTNIC_FLAG_SRIOV_REPLICATION_ENABLE	((u32)(1 << 21))
+#define GRTNIC_FLAG_SRIOV_L2SWITCH_ENABLE			((u32)(1 << 22))
+#define GRTNIC_FLAG_SRIOV_VEPA_BRIDGE_MODE		((u32)(1 << 23))
+#define GRTNIC_FLAG_RX_HWTSTAMP_ENABLED				((u32)(1 << 24))
+#define GRTNIC_FLAG_VXLAN_OFFLOAD_CAPABLE			((u32)(1 << 25))
+#define GRTNIC_FLAG_VXLAN_OFFLOAD_ENABLE			((u32)(1 << 26))
+#define GRTNIC_FLAG_RX_HWTSTAMP_IN_REGISTER		((u32)(1 << 27))
+#define GRTNIC_FLAG_MDD_ENABLED		((u32)(1 << 29))
+#define GRTNIC_FLAG_DCB_CAPABLE		((u32)(1 << 30))
+#define GRTNIC_FLAG_GENEVE_OFFLOAD_CAPABLE		BIT(31)
 
 //  struct grtnic_mac_info  mac;
-  int                     type;
-  int                     speed;
+	int						type;
+	int						speed;
 
-  u16 bd_number;
-  bool netdev_registered;
+	bool					wol_supported;
+	u32						wol_enabled;
+	u16						bd_number;
+	u32						firmware_version;
+	bool					netdev_registered;
+
+	u32						autoneg_enabled;
+	u32						autoneg_advertised;
 };
 
 /* Error Codes */
@@ -1096,39 +1109,39 @@ struct grtnic_adapter {
 
 ////////////////////////////////////////////////////////////////
 #define DPRINTK(nlevel, klevel, fmt, args...) \
-  ((NETIF_MSG_##nlevel & adapter->msg_enable) ? \
-  (void)(netdev_printk(KERN_##klevel, adapter->netdev, \
-  "%s: " fmt, __func__, ## args)) : NULL)
+	((NETIF_MSG_##nlevel & adapter->msg_enable) ? \
+	(void)(netdev_printk(KERN_##klevel, adapter->netdev, \
+	"%s: " fmt, __func__, ## args)) : NULL)
 
 #define hw_err(hw, format, arg...) \
-  netdev_err(ixgbe_hw_to_netdev(hw), format, ## arg)
+	netdev_err(ixgbe_hw_to_netdev(hw), format, ## arg)
 #define e_dev_info(format, arg...) \
-  dev_info(pci_dev_to_dev(adapter->pdev), format, ## arg)
+	dev_info(pci_dev_to_dev(adapter->pdev), format, ## arg)
 #define e_dev_warn(format, arg...) \
-  dev_warn(pci_dev_to_dev(adapter->pdev), format, ## arg)
+	dev_warn(pci_dev_to_dev(adapter->pdev), format, ## arg)
 #define e_dev_err(format, arg...) \
-  dev_err(pci_dev_to_dev(adapter->pdev), format, ## arg)
+	dev_err(pci_dev_to_dev(adapter->pdev), format, ## arg)
 #define e_dev_notice(format, arg...) \
-  dev_notice(pci_dev_to_dev(adapter->pdev), format, ## arg)
+	dev_notice(pci_dev_to_dev(adapter->pdev), format, ## arg)
 #define e_dbg(msglvl, format, arg...) \
-  netif_dbg(adapter, msglvl, adapter->netdev, format, ## arg)
+	netif_dbg(adapter, msglvl, adapter->netdev, format, ## arg)
 #define e_info(msglvl, format, arg...) \
-  netif_info(adapter, msglvl, adapter->netdev, format, ## arg)
+	netif_info(adapter, msglvl, adapter->netdev, format, ## arg)
 #define e_err(msglvl, format, arg...) \
-  netif_err(adapter, msglvl, adapter->netdev, format, ## arg)
+	netif_err(adapter, msglvl, adapter->netdev, format, ## arg)
 #define e_warn(msglvl, format, arg...) \
-  netif_warn(adapter, msglvl, adapter->netdev, format, ## arg)
+	netif_warn(adapter, msglvl, adapter->netdev, format, ## arg)
 #define e_crit(msglvl, format, arg...) \
-  netif_crit(adapter, msglvl, adapter->netdev, format, ## arg)
+	netif_crit(adapter, msglvl, adapter->netdev, format, ## arg)
 
 static inline void GRTNIC_WRITE_REG(struct grtnic_hw *hw, u32 reg, u32 value, u8 bar)
 {
-  u8 __iomem *reg_addr;
+	u8 __iomem *reg_addr;
 
-  reg_addr = bar ? hw->dma_bar : hw->user_bar;
-  if (GRTNIC_REMOVED(reg_addr))
-    return;
-  writel(value, reg_addr + reg);
+	reg_addr = bar ? hw->dma_bar : hw->user_bar;
+	if (GRTNIC_REMOVED(reg_addr))
+		return;
+	writel(value, reg_addr + reg);
 }
 
 #define GRTNIC_READ_REG(h, r, b) grtnic_read_reg(h, r, b) //hw, reg, bar
@@ -1139,7 +1152,7 @@ static inline void GRTNIC_WRITE_REG(struct grtnic_hw *hw, u32 reg, u32 value, u8
 //#ifdef CONFIG_BQL
 static inline struct netdev_queue *txring_txq(const struct grtnic_ring *ring)
 {
-  return netdev_get_tx_queue(ring->netdev, ring->queue_index);
+	return netdev_get_tx_queue(ring->netdev, ring->queue_index);
 }
 //#endif /* CONFIG_BQL */
 
@@ -1153,19 +1166,21 @@ void grtnic_procfs_topdir_exit(void);
 #endif /* GRTNIC_PROCFS */
 
   //main.c
-void grtnic_write_itr (struct grtnic_q_vector *q_vector);
+void grtnic_write_itr(struct grtnic_q_vector *q_vector);
 void grtnic_update_stats(struct grtnic_adapter *adapter);
 void grtnic_down(struct grtnic_adapter *adapter);
 void grtnic_assign_netdev_ops(struct net_device *netdev);
 irqreturn_t grtnic_msix_other(int __always_unused irq, void *data);
 irqreturn_t grtnic_msix_ring(int __always_unused irq, void *data);
-irqreturn_t grtnic_isr (int __always_unused irq, void *data);
+irqreturn_t grtnic_isr(int __always_unused irq, void *data);
 int grtnic_poll(struct napi_struct *napi, int budget);
-void grtnic_close_suspend(struct grtnic_adapter *adapter);
+//void grtnic_close_suspend(struct grtnic_adapter *adapter);
 
 void grtnic_check_options(struct grtnic_adapter *adapter); //in param.c
 
   //netdev.c
+int __grtnic_open(struct net_device *netdev, bool resuming);
+int __grtnic_close(struct net_device *netdev, bool suspending);
 void grtnic_setup_mrqc(struct grtnic_adapter *adapter);
 void grtnic_configure_msix(struct grtnic_adapter *adapter);
 void grtnic_configure_msi_and_legacy(struct grtnic_adapter *adapter);
@@ -1191,7 +1206,8 @@ void grtnic_do_reset(struct net_device *netdev);
 void grtnic_configure_tx_ring(struct grtnic_adapter *adapter, struct grtnic_ring *ring);
 void grtnic_configure_rx_ring(struct grtnic_adapter *adapter, struct grtnic_ring *ring);
 void grtnic_alloc_rx_buffers(struct grtnic_ring *rx_ring, u16 cleaned_count);
-netdev_tx_t grtnic_xmit_frame_ring (struct sk_buff *skb, struct grtnic_adapter __maybe_unused *adapter, struct grtnic_ring *tx_ring);
+netdev_tx_t grtnic_xmit_frame_ring(struct sk_buff *skb,
+	struct grtnic_adapter __maybe_unused *adapter, struct grtnic_ring *tx_ring);
 
 int grtnic_close(struct net_device *netdev);
 int grtnic_open(struct net_device *netdev);
@@ -1205,5 +1221,11 @@ void grtnic_store_reta(struct grtnic_adapter *adapter);
 
 u32 grtnic_rss_indir_tbl_entries(struct grtnic_adapter *adapter);
 void grtnic_store_key(struct grtnic_adapter *adapter);
+
+u16 grtnic_mdio_read(struct net_device *netdev, int prtad, int devad,
+			   u16 addr);
+
+int grtnic_mdio_write(struct net_device *netdev, int prtad, int devad,
+			    u16 addr, u16 value);
 
 #endif /* GRTNIC_CORE_H */

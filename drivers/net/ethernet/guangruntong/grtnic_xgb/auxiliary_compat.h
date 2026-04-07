@@ -1,5 +1,5 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (C) 1999 - 2024 Intel Corporation */
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2007 - 2024 Intel Corporation. */
 
 #ifndef _AUXILIARY_COMPAT_H_
 #define _AUXILIARY_COMPAT_H_

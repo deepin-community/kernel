@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (C) 1999 - 2024 Intel Corporation */
+/* Copyright (C) 1999 - 2023 Intel Corporation */
+/* Copyright (C) 2019 - 2026 Beijing GuangRunTong Corporation. */
 
 #ifndef _KCOMPAT_IMPL_H_
 #define _KCOMPAT_IMPL_H_
@@ -7,7 +8,7 @@
 /* devlink support */
 #if IS_ENABLED(CONFIG_NET_DEVLINK)
 
-/*
+/**
  * This change is adding buffer in enum value for ice_devlink_param_id.
  *
  * In upstream / OOT compiled from source it is safe to use
@@ -155,7 +156,7 @@ static inline void skb_frag_off_add(skb_frag_t *frag, int delta)
 }
 #endif /* NEED_SKB_FRAG_OFF_ADD */
 
-/*
+/**
  * NEED_DMA_ATTRS, NEED_DMA_ATTRS_PTR and related functions
  *
  * dma_map_page_attrs and dma_unmap_page_attrs were added in upstream commit
@@ -193,6 +194,7 @@ dma_addr_t __kc_dma_map_page_attrs(struct device *dev, struct page *page,
 {
 	return dma_map_page(dev, page, offset, size, dir);
 }
+
 #define dma_map_page_attrs __kc_dma_map_page_attrs
 
 static inline
@@ -203,6 +205,7 @@ void __kc_dma_unmap_page_attrs(struct device *dev,
 {
 	dma_unmap_page(dev, addr, size, dir);
 }
+
 #define dma_unmap_page_attrs __kc_dma_unmap_page_attrs
 
 static inline void __page_frag_cache_drain(struct page *page,
@@ -223,7 +226,7 @@ static inline void __page_frag_cache_drain(struct page *page,
 #elif defined(NEED_DMA_ATTRS_PTR)
 static inline
 dma_addr_t __kc_dma_map_page_attrs_long(struct device *dev, struct page *page,
-				   size_t offset, size_t size,
+					size_t offset, size_t size,
 				   enum dma_data_direction dir,
 				   unsigned long attrs)
 {
@@ -237,18 +240,20 @@ dma_addr_t __kc_dma_map_page_attrs_long(struct device *dev, struct page *page,
 
 	return dma_map_page_attrs(dev, page, offset, size, dir, &dmaattrs);
 }
+
 #define dma_map_page_attrs __kc_dma_map_page_attrs_long
 /* there is a nasty macro buried in dma-mapping.h which reroutes dma_map_page
  * and dma_unmap_page to attribute versions, so take control of that macro and
- * fix it here. */
+ * fix it here.
+ */
 #ifdef dma_map_page
 #undef dma_map_page
-#define dma_map_page(a,b,c,d,r) dma_map_page_attrs(a,b,c,d,r,0)
+#define dma_map_page(a, b, c, d, r) dma_map_page_attrs(a, b, c, d, r, 0)
 #endif
 
 static inline
 void __kc_dma_unmap_page_attrs_long(struct device *dev,
-			       dma_addr_t addr, size_t size,
+				    dma_addr_t addr, size_t size,
 			       enum dma_data_direction dir,
 			       unsigned long attrs)
 {
@@ -262,14 +267,15 @@ void __kc_dma_unmap_page_attrs_long(struct device *dev,
 
 	dma_unmap_page_attrs(dev, addr, size, dir, &dmaattrs);
 }
+
 #define dma_unmap_page_attrs __kc_dma_unmap_page_attrs_long
 #ifdef dma_unmap_page
 #undef dma_unmap_page
-#define dma_unmap_page(a,b,c,r) dma_unmap_page_attrs(a,b,c,r,0)
+#define dma_unmap_page(a, b, c, r) dma_unmap_page_attrs(a, b, c, r, 0)
 #endif
 #endif /* NEED_DMA_ATTRS_PTR */
 
-/*
+/**
  * NETIF_F_HW_L2FW_DOFFLOAD related functions
  *
  * Support for NETIF_F_HW_L2FW_DOFFLOAD was first introduced upstream by
@@ -461,16 +467,17 @@ devlink_flash_update_timeout_notify(struct devlink *devlink,
 #ifdef NEED_DEVLINK_HEALTH_DEFAULT_AUTO_RECOVER
 static inline struct devlink_health_reporter *
 _kc_devlink_health_reporter_create(struct devlink *devlink,
-				  const struct devlink_health_reporter_ops *ops,
+				   const struct devlink_health_reporter_ops *ops,
 				  u64 graceful_period, void *priv)
 {
 	return devlink_health_reporter_create(devlink, ops, graceful_period,
 					      !!ops->recover, priv);
 }
+
 #define devlink_health_reporter_create _kc_devlink_health_reporter_create
 #endif /* NEED_DEVLINK_HEALTH_DEFAULT_AUTO_RECOVER */
 
-/*
+/**
  * NEED_DEVLINK_PORT_ATTRS_SET_STRUCT
  *
  * HAVE_DEVLINK_PORT_ATTRS_SET_PORT_FLAVOUR
@@ -562,7 +569,7 @@ _kc_devlink_port_attrs_set(struct devlink_port *devlink_port,
 
 #endif /* NEED_DEVLINK_PORT_ATTRS_SET_STRUCT */
 
-/*
+/**
  * NEED_DEVLINK_ALLOC_SETS_DEV
  *
  * Since commit 919d13a7e455 ("devlink: Set device as early as possible"), the
@@ -589,12 +596,13 @@ _kc_devlink_alloc(const struct devlink_ops *ops, size_t priv_size,
 {
 	return devlink_alloc(ops, priv_size);
 }
+
 #define devlink_alloc _kc_devlink_alloc
 #endif /* NEED_DEVLINK_ALLOC_SETS_DEV */
 
 #ifdef HAVE_DEVLINK_RELOAD_ACTION_AND_LIMIT
 #ifdef NEED_DEVLINK_UNLOCKED_RESOURCE
-/*
+/**
  * NEED_DEVLINK_UNLOCKED_RESOURCE
  *
  * Handle devlink API change introduced in:
@@ -624,7 +632,7 @@ static inline int devl_resource_size_get(struct devlink *devlink,
 #endif /* NEED_DEVLINK_UNLOCKED_RESOURCE */
 
 #ifdef NEED_DEVLINK_RESOURCES_UNREGISTER_NO_RESOURCE
-/*
+/**
  * NEED_DEVLINK_RESOURCES_UNREGISTER_NO_RESOURCE
  *
  * Commit 4c897cfc46 ("devlink: Simplify devlink resources unregister call")
@@ -645,7 +653,7 @@ _kc_devlink_resources_unregister(struct devlink *devlink)
 #endif /* HAVE_DEVLINK_RELOAD_ACTION_AND_LIMIT */
 
 #ifdef NEED_DEVLINK_TO_DEV
-/*
+/**
  * Commit 2131463 ("devlink: Reduce struct devlink exposure")
  * removed devlink struct fields from header to avoid exposure
  * and added devlink_to_dev and related functions to access
@@ -876,7 +884,7 @@ static inline struct system_counterval_t convert_art_ns_to_tsc(u64 art_ns)
 
 #endif /* CONFIG_PTP_1588_CLOCK */
 
-/*
+/**
  * NEED_PTP_SYSTEM_TIMESTAMP
  *
  * Upstream commit 361800876f80 ("ptp: add PTP_SYS_OFFSET_EXTENDED
@@ -1118,6 +1126,35 @@ static inline void eth_hw_addr_set(struct net_device *dev, const u8 *addr)
 }
 #endif /* NEED_ETH_HW_ADDR_SET */
 
+/* NEED_ETH_GET_HEADLEN_NET_DEVICE_ARG
+ *
+ *
+ * eth_get_headlen was modified by upstream commit
+ * 59753ce8b196 ("ethernet: constify eth_get_headlen()'s data argument")
+ * c43f1255b866 ("net: pass net_device argument to the eth_get_headlen")
+ *
+ * This allows core driver code to simply call eth_get_headlen with all
+ * 3 parameters, and have kcompat automatically drop it depending on what
+ * the kernel supports.
+
+ * For kernels older than 3.18, eth_get_headlen didn't exist.
+ */
+
+#ifdef NEED_ETH_GET_HEADLEN_NET_DEVICE_ARG
+static inline u32
+__kc_eth_get_headlen(const struct net_device __always_unused *dev,
+		     void *data, unsigned int len)
+{
+	return eth_get_headlen(data, len);
+}
+
+#define eth_get_headlen(dev, data, len) __kc_eth_get_headlen(dev, data, len)
+#endif /* NEED_ETH_GET_HEADLEN_NET_DEVICE_ARG */
+
+#ifdef NEED_ETH_GET_HEADLEN_FUN //sam added
+#define eth_get_headlen(dev, data, len) __kc_eth_get_headlen(dev, data, len)
+#endif
+
 #ifdef NEED_JIFFIES_64_TIME_IS_MACROS
 /* NEED_JIFFIES_64_TIME_IS_MACROS
  *
@@ -1234,21 +1271,6 @@ static inline u32 _xsk_umem_get_rx_frame_size(struct xdp_umem *umem)
 #endif /* HAVE_AF_XDP_ZC_SUPPORT */
 #endif
 
-#ifdef NEED_XSK_BUFF_DMA_SYNC_FOR_CPU
-#ifdef HAVE_MEM_TYPE_XSK_BUFF_POOL
-#include <net/xdp_sock_drv.h>
-static inline void
-_kc_xsk_buff_dma_sync_for_cpu(struct xdp_buff *xdp,
-			      void __always_unused *pool)
-{
-	xsk_buff_dma_sync_for_cpu(xdp);
-}
-
-#define xsk_buff_dma_sync_for_cpu(xdp, pool) \
-	_kc_xsk_buff_dma_sync_for_cpu(xdp, pool)
-#endif /* HAVE_MEM_TYPE_XSK_BUFF_POOL */
-#endif /* NEED_XSK_BUFF_DMA_SYNC_FOR_CPU */
-
 #ifdef NEED_XSK_BUFF_POOL_RENAME
 #define XDP_SETUP_XSK_POOL XDP_SETUP_XSK_UMEM
 #define xsk_get_pool_from_qid xdp_get_umem_from_qid
@@ -1281,6 +1303,24 @@ int _kc_pci_iov_vf_id(struct pci_dev *dev);
 u64 mul_u64_u64_div_u64(u64 a, u64 mul, u64 div);
 #endif /* NEED_MUL_U64_U64_DIV_U64 */
 
+/* NEED_ROUNDUP_U64 and NEED_DIV_U64_ROUND_UP
+ *
+ * roundup_u64 and DIV_U64_ROUND_UP were introduced by commit 1d4ce389da2b
+ * ("ice: add and use roundup_u64 instead of open coding equivalent"). They
+ * are straight forward to re-implement here.
+ */
+#ifdef NEED_DIV_U64_ROUND_UP
+#define DIV_U64_ROUND_UP(ll, d)		\
+	({ u32 _tmp = (d); div_u64((ll) + _tmp - 1, _tmp); })
+#endif /* NEED_DIV_U64_ROUND_UP */
+
+#ifdef NEED_ROUNDUP_U64
+static inline u64 roundup_u64(u64 x, u32 y)
+{
+	return DIV_U64_ROUND_UP(x, y) * y;
+}
+#endif /* NEED_ROUNDUP_U64 */
+
 #ifndef HAVE_LINKMODE
 static inline void linkmode_set_bit(int nr, volatile unsigned long *addr)
 {
@@ -1291,9 +1331,19 @@ static inline void linkmode_zero(unsigned long *dst)
 {
 	bitmap_zero(dst, __ETHTOOL_LINK_MODE_MASK_NBITS);
 }
+
+static inline void linkmode_copy(unsigned long *dst, const unsigned long *src)
+{
+	bitmap_copy(dst, src, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
+
+static inline bool linkmode_empty(const unsigned long *src)
+{
+	return bitmap_empty(src, __ETHTOOL_LINK_MODE_MASK_NBITS);
+}
 #endif /* !HAVE_LINKMODE */
 
-#ifndef ETHTOOL_GLINKSETTINGS
+#ifdef NEED_ETHTOOL_LINK_MODE_BIT_INDICES
 /* Link mode bit indices */
 enum ethtool_link_mode_bit_indices {
 	ETHTOOL_LINK_MODE_10baseT_Half_BIT      = 0,
@@ -1327,6 +1377,33 @@ enum ethtool_link_mode_bit_indices {
 	ETHTOOL_LINK_MODE_56000baseCR4_Full_BIT = 28,
 	ETHTOOL_LINK_MODE_56000baseSR4_Full_BIT = 29,
 	ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT = 30,
+#ifdef ETHTOOL_GLINKSETTINGS
+	ETHTOOL_LINK_MODE_25000baseCR_Full_BIT	= 31,
+	ETHTOOL_LINK_MODE_25000baseKR_Full_BIT	= 32,
+	ETHTOOL_LINK_MODE_25000baseSR_Full_BIT	= 33,
+	ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT	= 34,
+	ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT	= 35,
+	ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT	= 36,
+	ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT	= 37,
+	ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT	= 38,
+	ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT	= 39,
+	ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT		= 40,
+	ETHTOOL_LINK_MODE_1000baseX_Full_BIT	= 41,
+	ETHTOOL_LINK_MODE_10000baseCR_Full_BIT	= 42,
+	ETHTOOL_LINK_MODE_10000baseSR_Full_BIT	= 43,
+	ETHTOOL_LINK_MODE_10000baseLR_Full_BIT	= 44,
+	ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT	= 45,
+	ETHTOOL_LINK_MODE_10000baseER_Full_BIT	= 46,
+	ETHTOOL_LINK_MODE_2500baseT_Full_BIT	= 47,
+	ETHTOOL_LINK_MODE_5000baseT_Full_BIT	= 48,
+
+	ETHTOOL_LINK_MODE_FEC_NONE_BIT	= 49,
+	ETHTOOL_LINK_MODE_FEC_RS_BIT	= 50,
+	ETHTOOL_LINK_MODE_FEC_BASER_BIT	= 51,
+
+	__ETHTOOL_LINK_MODE_LAST =
+	  ETHTOOL_LINK_MODE_FEC_BASER_BIT,
+#else
 
 	/* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
 	 * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
@@ -1334,10 +1411,11 @@ enum ethtool_link_mode_bit_indices {
 	 * use the new ETHTOOL_GLINKSETTINGS/ETHTOOL_SLINKSETTINGS API.
 	 */
 
-	__ETHTOOL_LINK_MODE_LAST
-	  = ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
-};
+	__ETHTOOL_LINK_MODE_LAST =
+	  ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
 #endif /* !ETHTOOL_GLINKSETTINGS */
+};
+#endif /* NEED_ETHTOOL_LINK_MODE_BIT_INDICES */
 
 #if defined(NEED_FLOW_MATCH) && defined(HAVE_TC_SETUP_CLSFLOWER)
 /* NEED_FLOW_MATCH
@@ -1428,7 +1506,7 @@ static inline bool flow_rule_match_key(const struct flow_rule *rule,
 	struct flow_dissector *__d = (__m)->dissector;				\
 										\
 	(__out)->key = skb_flow_dissector_target(__d, __type, (__m)->key);	\
-	(__out)->mask = skb_flow_dissector_target(__d, __type, (__m)->mask);	\
+	(__out)->mask = skb_flow_dissector_target(__d, __type, (__m)->mask)
 
 static inline void
 flow_rule_match_basic(const struct flow_rule *rule,
@@ -1574,9 +1652,9 @@ static inline void bitmap_from_arr32(unsigned long *bitmap, const u32 *buf,
 
 	halfwords = DIV_ROUND_UP(nbits, 32);
 	for (i = 0; i < halfwords; i++) {
-		bitmap[i/2] = (unsigned long) buf[i];
+		bitmap[i / 2] = (unsigned long)buf[i];
 		if (++i < halfwords)
-			bitmap[i/2] |= ((unsigned long) buf[i]) << 32;
+			bitmap[i / 2] |= ((unsigned long)buf[i]) << 32;
 	}
 
 	/* Clear tail bits in last word beyond nbits. */
@@ -1584,13 +1662,13 @@ static inline void bitmap_from_arr32(unsigned long *bitmap, const u32 *buf,
 		bitmap[(halfwords - 1) / 2] &= BITMAP_LAST_WORD_MASK(nbits);
 }
 #else /* BITS_PER_LONG == 64 */
-/*
+/**
  * On 32-bit systems bitmaps are represented as u32 arrays internally, and
  * therefore conversion is not needed when copying data from/to arrays of u32.
  */
 #define bitmap_from_arr32(bitmap, buf, nbits)			\
-	bitmap_copy_clear_tail((unsigned long *) (bitmap),	\
-			       (const unsigned long *) (buf), (nbits))
+	bitmap_copy_clear_tail((unsigned long *)(bitmap),	\
+			       (const unsigned long *)(buf), (nbits))
 #endif /* BITS_PER_LONG == 64 */
 #endif /* NEED_BITMAP_FROM_ARR32 */
 
@@ -1614,23 +1692,23 @@ static inline void bitmap_to_arr32(u32 *buf, const unsigned long *bitmap,
 
 	halfwords = DIV_ROUND_UP(nbits, 32);
 	for (i = 0; i < halfwords; i++) {
-		buf[i] = (u32) (bitmap[i/2] & UINT_MAX);
+		buf[i] = (u32)(bitmap[i / 2] & UINT_MAX);
 		if (++i < halfwords)
-			buf[i] = (u32) (bitmap[i/2] >> 32);
+			buf[i] = (u32)(bitmap[i / 2] >> 32);
 	}
 
 	/* Clear tail bits in last element of array beyond nbits. */
 	if (nbits % BITS_PER_LONG)
-		buf[halfwords - 1] &= (u32) (UINT_MAX >> ((-nbits) & 31));
+		buf[halfwords - 1] &= (u32)(UINT_MAX >> ((-nbits) & 31));
 }
 #else
-/*
+/**
  * On 32-bit systems bitmaps are represented as u32 arrays internally, and
  * therefore conversion is not needed when copying data from/to arrays of u32.
  */
 #define bitmap_to_arr32(buf, bitmap, nbits)			\
-	bitmap_copy_clear_tail((unsigned long *) (buf),		\
-			       (const unsigned long *) (bitmap), (nbits))
+	bitmap_copy_clear_tail((unsigned long *)(buf),		\
+			       (const unsigned long *)(bitmap), (nbits))
 #endif /* BITS_PER_LONG == 64 */
 #endif /* NEED_BITMAP_TO_ARR32 */
 
@@ -1722,9 +1800,9 @@ static inline void bitmap_to_arr32(u32 *buf, const unsigned long *bitmap,
  * 00b0c9b82663 ("Add primitives for manipulating bitfields both in host and fixed-endian.")
  *
  */
-extern void __compiletime_error("value doesn't fit into mask")
+void __compiletime_error("value doesn't fit into mask")
 __field_overflow(void);
-extern void __compiletime_error("bad bitfield mask")
+void __compiletime_error("bad bitfield mask")
 __bad_mask(void);
 static __always_inline u64 field_multiplier(u64 field)
 {
@@ -1732,11 +1810,13 @@ static __always_inline u64 field_multiplier(u64 field)
 		__bad_mask();
 	return field & -field;
 }
+
 static __always_inline u64 field_mask(u64 field)
 {
 	return field / field_multiplier(field);
 }
-#define ____MAKE_OP(type,base,to,from)					\
+
+#define ____MAKE_OP(type, base, to, from)					\
 static __always_inline __##type type##_encode_bits(base v, base field)	\
 {									\
 	if (__builtin_constant_p(v) && (v & ~field_mask(field)))	\
@@ -1755,12 +1835,13 @@ static __always_inline void type##p_replace_bits(__##type *p,		\
 }									\
 static __always_inline base type##_get_bits(__##type v, base field)	\
 {									\
-	return (from(v) & field)/field_multiplier(field);		\
+	return (from(v) & field) / field_multiplier(field);		\
 }
+
 #define __MAKE_OP(size)							\
-	____MAKE_OP(le##size,u##size,cpu_to_le##size,le##size##_to_cpu)	\
-	____MAKE_OP(be##size,u##size,cpu_to_be##size,be##size##_to_cpu)	\
-	____MAKE_OP(u##size,u##size,,)
+	____MAKE_OP(le##size, u##size, cpu_to_le##size, le##size##_to_cpu)	\
+	____MAKE_OP(be##size, u##size, cpu_to_be##size, be##size##_to_cpu)	\
+	____MAKE_OP(u##size, u##size, ,)
 __MAKE_OP(16)
 __MAKE_OP(32)
 __MAKE_OP(64)
@@ -1801,7 +1882,7 @@ __MAKE_OP(64)
 				 in_serving_softirq()))
 #endif /* NEED_IN_TASK */
 
-/*
+/**
  * NEED_NETIF_NAPI_ADD_NO_WEIGHT
  *
  * Upstream commit b48b89f9c189 ("net: drop the weight argument from
@@ -1828,7 +1909,7 @@ _kc_netif_napi_add(struct net_device *dev, struct napi_struct *napi,
 #define netif_napi_add _kc_netif_napi_add
 #endif /* NEED_NETIF_NAPI_ADD_NO_WEIGHT */
 
-/*
+/**
  * NEED_ETHTOOL_SPRINTF
  *
  * Upstream commit 7888fe53b706 ("ethtool: Add common function for filling out
@@ -1842,7 +1923,7 @@ _kc_netif_napi_add(struct net_device *dev, struct napi_struct *napi,
 __printf(2, 3) void ethtool_sprintf(u8 **data, const char *fmt, ...);
 #endif /* NEED_ETHTOOL_SPRINTF */
 
-/*
+/**
  * NEED_SYSFS_MATCH_STRING
  *
  * Upstream commit e1fe7b6a7b37 ("lib/string: add sysfs_match_string helper")
@@ -1851,7 +1932,7 @@ __printf(2, 3) void ethtool_sprintf(u8 **data, const char *fmt, ...);
  * Instead of covering sysfs_streq() by yet another flag just copy it.
  */
 #ifdef NEED_SYSFS_MATCH_STRING
-/*
+/**
  * sysfs_streq - return true if strings are equal, modulo trailing newline
  * @s1: one string
  * @s2: another string
@@ -1877,7 +1958,7 @@ static inline bool _kc_sysfs_streq(const char *s1, const char *s2)
 	return false;
 }
 
-/*
+/**
  * __sysfs_match_string - matches given string in an array
  * @array: array of strings
  * @n: number of strings in the array or -1 for NULL terminated arrays
@@ -1916,7 +1997,7 @@ static inline int _kc___sysfs_match_string(const char * const *array, size_t n,
 
 #endif /* NEED_SYSFS_MATCH_STRING */
 
-/*
+/**
  * NEED_SYSFS_EMIT
  *
  * Upstream introduced following function in
@@ -1930,7 +2011,7 @@ static inline int _kc___sysfs_match_string(const char * const *array, size_t n,
 __printf(2, 3) int sysfs_emit(char *buf, const char *fmt, ...);
 #endif /* NEED_SYSFS_EMIT */
 
-/*
+/**
  * HAVE_U64_STATS_FETCH_BEGIN_IRQ
  * HAVE_U64_STATS_FETCH_RETRY_IRQ
  *
@@ -1968,7 +2049,7 @@ _kc_u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
 }
 #endif /* HAVE_U64_STATS_FETCH_RETRY_IRQ */
 
-/*
+/**
  * NEED_U64_STATS_READ
  * NEED_U64_STATS_SET
  *
@@ -2039,7 +2120,7 @@ static inline void u64_stats_set(u64_stats_t *p, u64 val)
 #endif /* BITS_PER_LONG == 64 */
 #endif /* NEED_U64_STATS_SET */
 
-/*
+/**
  * NEED_DEVM_KFREE
  * NEED_DEVM_KZALLOC
  *
@@ -2063,6 +2144,7 @@ static inline void _kc_devm_kfree(struct device *dev, const void *p)
 	if (p)
 		devm_kfree(dev, (void *)p);
 }
+
 #define devm_kfree _kc_devm_kfree
 #endif /* NEED_DEVM_KFREE */
 
@@ -2210,6 +2292,7 @@ static inline int _kc_pcie_flr(struct pci_dev *dev)
 	pcie_flr(dev);
 	return 0;
 }
+
 #define pcie_flr(dev) _kc_pcie_flr((dev))
 #endif /* NEED_PCIE_FLR_RETVAL */
 
@@ -2227,6 +2310,16 @@ static inline bool dev_page_is_reusable(struct page *page)
 		      !page_is_pfmemalloc(page));
 }
 #endif /* NEED_DEV_PAGE_IS_REUSABLE */
+
+#ifdef NEED_NAPI_ALLOC_SKB
+static inline
+struct sk_buff *kc_napi_alloc_skb(struct napi_struct *napi, unsigned int len)
+{
+	return __napi_alloc_skb(napi, len, GFP_ATOMIC | __GFP_NOWARN);
+}
+
+#define napi_alloc_skb(napi, len) kc_napi_alloc_skb(napi, len)
+#endif /* NEED_NAPI_ALLOC_SKB */
 
 /* NEED_NAPI_BUILD_SKB
  *
@@ -2300,7 +2393,7 @@ static inline struct dentry *file_dentry(const struct file *file)
 }
 #endif /* NEED_FS_FILE_DENTRY */
 
-/* NEED_CLASS_CREATE_WITH_MODULE_PARAM
+/* NEED_CLASS_CREATE_WITHOUT_OWNER
  *
  * Upstream removed owner argument form helper macro class_create in
  * 1aaba11da9aa ("remove module * from class_create()")
@@ -2310,16 +2403,17 @@ static inline struct dentry *file_dentry(const struct file *file)
  *
  * class_create no longer has owner/module param as it was not used.
  */
-#ifdef NEED_CLASS_CREATE_WITH_MODULE_PARAM
+#ifdef NEED_CLASS_CREATE_WITHOUT_OWNER
 static inline struct class *_kc_class_create(const char *name)
 {
 	return class_create(THIS_MODULE, name);
 }
+
 #ifdef class_create
 #undef class_create
 #endif
 #define class_create _kc_class_create
-#endif /* NEED_CLASS_CREATE_WITH_MODULE_PARAM */
+#endif /* NEED_CLASS_CREATE_WITHOUT_OWNER */
 
 /* NEED_LOWER_16_BITS and NEED_UPPER_16_BITS
  *
@@ -2360,7 +2454,7 @@ static inline void assign_bit(long nr, unsigned long *addr, bool value)
 }
 #endif /* NEED_ASSIGN_BIT */
 
-/*
+/**
  * __has_builtin is supported on gcc >= 10, clang >= 3 and icc >= 21.
  * In the meantime, to support gcc < 10, we implement __has_builtin
  * by hand.
@@ -2375,7 +2469,7 @@ static inline void assign_bit(long nr, unsigned long *addr, bool value)
  * has added two following macros, one of them used by DEFINE_FLEX()
  */
 #ifdef NEED___STRUCT_SIZE
-/*
+/**
  * When the size of an allocated object is needed, use the best available
  * mechanism to find it. (For cases where sizeof() cannot be used.)
  */
@@ -2414,7 +2508,7 @@ static inline void *__must_check krealloc_array(void *p,
  *
  * Upstream commit 1d233886dd90 ("xdp: Use bulking for non-map XDP_REDIRECT
  * and consolidate code paths") replaced xdp_do_flush_map with xdp_do_flush
- * and 7f04bd109d4c ("net: Tree wide: Replace xdp_do_flush_map() with 
+ * and 7f04bd109d4c ("net: Tree wide: Replace xdp_do_flush_map() with
  * xdp_do_flush()") cleaned up related code.
  */
 #ifdef NEED_XDP_DO_FLUSH
@@ -2490,7 +2584,7 @@ unsigned long find_next_bit_wrap(const unsigned long *addr,
  * commit f747e6667ebb ("linux/bits.h: fix compilation error with GENMASK")
  * moved it to its current location of const.h
  */
-/*
+/**
  * This returns a constant expression while determining if an argument is
  * a constant expression, most importantly without evaluating the argument.
  * Glory to Martin Uecker <Martin.Uecker@med.uni-goettingen.de>
@@ -2532,7 +2626,7 @@ static inline size_t list_count_nodes(struct list_head *head)
 }
 #endif /* NEED_LIST_COUNT_NODES */
 #ifdef NEED_STATIC_ASSERT
-/*
+/**
  * NEED_STATIC_ASSERT Introduced with upstream commit 6bab69c6501
  * ("build_bug.h: add wrapper for _Static_assert")
  *  * Available for kernels >= 5.1
@@ -2624,7 +2718,7 @@ static inline bool eth_type_vlan(__be16 ethertype)
 #endif /* NEED_STRUCT_GROUP */
 
 #ifdef NEED_READ_POLL_TIMEOUT
-/*
+/**
  * 5f5323a14cad ("iopoll: introduce read_poll_timeout macro")
  * Added in kernel 5.8
  */
@@ -2652,9 +2746,44 @@ static inline bool eth_type_vlan(__be16 ethertype)
 	} \
 	(cond) ? 0 : -ETIMEDOUT; \
 })
-#else
-#include <linux/iopoll.h>
+
 #endif /* NEED_READ_POLL_TIMEOUT */
+#ifdef NEED_READ_POLL_TIMEOUT_ATOMIC
+#define read_poll_timeout_atomic(op, val, cond, delay_us, timeout_us, \
+					delay_before_read, args...) \
+({ \
+	u64 __timeout_us = (timeout_us); \
+	s64 __left_ns = __timeout_us * NSEC_PER_USEC; \
+	unsigned long __delay_us = (delay_us); \
+	u64 __delay_ns = __delay_us * NSEC_PER_USEC; \
+	if (delay_before_read && __delay_us) { \
+		udelay(__delay_us); \
+		if (__timeout_us) \
+			__left_ns -= __delay_ns; \
+	} \
+	for (;;) { \
+		(val) = op(args); \
+		if (cond) \
+			break; \
+		if (__timeout_us && __left_ns < 0) { \
+			(val) = op(args); \
+			break; \
+		} \
+		if (__delay_us) { \
+			udelay(__delay_us); \
+			if (__timeout_us) \
+				__left_ns -= __delay_ns; \
+		} \
+		cpu_relax(); \
+		if (__timeout_us) \
+			__left_ns--; \
+	} \
+	(cond) ? 0 : -ETIMEDOUT; \
+})
+#endif /* NEED_READ_POLL_TIMEOUT_ATOMIC */
+#if !defined(NEED_READ_POLL_TIMEOUT) || !defined(NEED_READ_POLL_TIMEOUT_ATOMIC)
+#include <linux/iopoll.h>
+#endif /* !NEED_READ_POLL_TIMEOUT || !NEED_READ_POLL_TIMEOUT_ATOMIC */
 
 #ifndef HAVE_DPLL_LOCK_STATUS_ERROR
 /* Copied from include/uapi/linux/dpll.h to have common dpll status enums
@@ -2675,10 +2804,10 @@ enum dpll_lock_status_error {
 
 #endif /* HAVE_DPLL_LOCK_STATUS_ERROR */
 
-#ifndef NEED_DPLL_NETDEV_PIN_SET
-#define netdev_dpll_pin_set dpll_netdev_pin_set
-#define netdev_dpll_pin_clear dpll_netdev_pin_clear
-#endif /* HAVE_DPLL_NETDEV_PIN_SET */
+#ifdef NEED_DPLL_NETDEV_PIN_SET
+#define dpll_netdev_pin_set netdev_dpll_pin_set
+#define dpll_netdev_pin_clear netdev_dpll_pin_clear
+#endif /* NEED_DPLL_NETDEV_PIN_SET */
 
 #ifdef NEED_RADIX_TREE_EMPTY
 static inline bool radix_tree_empty(struct radix_tree_root *root)
@@ -2688,7 +2817,7 @@ static inline bool radix_tree_empty(struct radix_tree_root *root)
 #endif /* NEED_RADIX_TREE_EMPTY */
 
 #ifdef NEED_SET_SCHED_FIFO
-/*
+/**
  * 7318d4cc14c8 ("sched: Provide sched_set_fifo()")
  * Added in kernel 5.9,
  * converted to a macro for kcompat
@@ -2707,8 +2836,108 @@ static inline bool radix_tree_empty(struct radix_tree_root *root)
 ({									   \
 	struct sched_param sp = { .sched_priority = MAX_RT_PRIO / 2 };	   \
 									   \
-	WARN_ON_ONCE(sched_setscheduler_nocheck((p), SCHED_FIFO,&sp) != 0);\
+	WARN_ON_ONCE(sched_setscheduler_nocheck((p), SCHED_FIFO, &sp) != 0);\
 })
 #endif /* NEED_SET_SCHED_FIFO */
+
+#ifndef HAVE_ETHTOOL_KEEE
+#ifndef __ETHTOOL_DECLARE_LINK_MODE_MASK
+#define __ETHTOOL_DECLARE_LINK_MODE_MASK(name)		\
+	DECLARE_BITMAP(name, __ETHTOOL_LINK_MODE_MASK_NBITS)
+#endif /* __ETHTOOL_DECLARE_LINK_MODE_MASK */
+struct ethtool_keee {
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(supported);
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertised);
+	__ETHTOOL_DECLARE_LINK_MODE_MASK(lp_advertised);
+	u32	tx_lpi_timer;
+	bool	tx_lpi_enabled;
+	bool	eee_active;
+	bool	eee_enabled;
+};
+
+void eee_to_keee(struct ethtool_keee *keee,
+		 const struct ethtool_eee *eee);
+
+void ethtool_convert_legacy_u32_to_link_mode(unsigned long *dst,
+					     u32 legacy_u32);
+bool ethtool_convert_link_mode_to_legacy_u32(u32 *legacy_u32,
+					     const unsigned long *src);
+bool ethtool_eee_use_linkmodes(const struct ethtool_keee *eee);
+
+void keee_to_eee(struct ethtool_eee *eee,
+		 const struct ethtool_keee *keee);
+
+#ifndef HAVE_MII_EEE_CAP1_MOD_LINKMODE
+#include <linux/mdio.h>
+#define _kc_linkmode_mod_bit(_nr, _addr, set) do {\
+		const int nr = _nr;		\
+		unsigned long  *addr = _addr;	\
+		if (set)			\
+			set_bit(nr, addr);	\
+		else				\
+			clear_bit(nr, addr);	\
+	} while (false)
+
+static inline void mii_eee_cap1_mod_linkmode_t(unsigned long *adv, u32 val)
+{
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT,
+			     adv, val & MDIO_EEE_100TX);
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+			     adv, val & MDIO_EEE_1000T);
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
+			     adv, val & MDIO_EEE_10GT);
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
+			     adv, val & MDIO_EEE_1000KX);
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
+			     adv, val & MDIO_EEE_10GKX4);
+	_kc_linkmode_mod_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
+			     adv, val & MDIO_EEE_10GKR);
+}
+
+static inline u32 linkmode_to_mii_eee_cap1_t(unsigned long *adv)
+{
+	u32 result = 0;
+
+	if (test_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT, adv))
+		result |= MDIO_EEE_100TX;
+	if (test_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT, adv))
+		result |= MDIO_EEE_1000T;
+	if (test_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT, adv))
+		result |= MDIO_EEE_10GT;
+	if (test_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT, adv))
+		result |= MDIO_EEE_1000KX;
+	if (test_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT, adv))
+		result |= MDIO_EEE_10GKX4;
+	if (test_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT, adv))
+		result |= MDIO_EEE_10GKR;
+
+	return result;
+}
+#endif /* !HAVE_MII_EEE_CAP1_MOD_LINKMODE */
+#endif /* !HAVE_ETHTOOL_KEEE */
+
+#ifdef HAVE_ASSIGN_STR_2_PARAMS
+#define _kc__assign_str(dst, src) __assign_str(dst, src)
+#else
+#define _kc__assign_str(dst, src) __assign_str(dst)
+#endif
+
+#ifdef NEED_XSK_BUFF_DMA_SYNC_FOR_CPU_NO_POOL
+#include <net/xdp_sock_drv.h>
+static inline void
+_kc_xsk_buff_dma_sync_for_cpu(struct xdp_buff *xdp)
+{
+	struct xdp_buff_xsk *xskb = container_of(xdp, struct xdp_buff_xsk, xdp);
+
+	xsk_buff_dma_sync_for_cpu(xdp, xskb->pool);
+}
+
+#define xsk_buff_dma_sync_for_cpu(xdp) \
+	_kc_xsk_buff_dma_sync_for_cpu(xdp)
+#endif /* NEED_XSK_BUFF_DMA_SYNC_FOR_CPU_NO_POOL */
+
+#ifdef NEED_XDP_CONVERT_BUFF_TO_FRAME
+#define xdp_convert_buff_to_frame convert_to_xdp_frame
+#endif
 
 #endif /* _KCOMPAT_IMPL_H_ */

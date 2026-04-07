@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (C) 1999 - 2023 Intel Corporation */
+/* Copyright (C) 2019 - 2026 Beijing GuangRunTong Corporation. */
 
 #ifndef _KCOMPAT_DEFS_H_
 #define _KCOMPAT_DEFS_H_
@@ -8,20 +9,20 @@
 #include <linux/version.h>
 #else
 #ifndef KERNEL_VERSION
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 #endif
 #endif /* LINUX_VERSION_CODE */
 
 #ifndef UTS_RELEASE
 /* utsrelease.h changed locations in 2.6.33 */
-#if ( LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33) )       //sam
+#if (KERNEL_VERSION(2, 6, 33) > LINUX_VERSION_CODE)       //sam
 #include <linux/utsrelease.h>
 #else
 #include <generated/utsrelease.h>
 #endif
 #endif
 
-/*
+/**
  * Include the definitions file for HAVE/NEED flags for the standard upstream
  * kernels.
  *
@@ -37,8 +38,8 @@
 #include "kcompat_ubuntu_defs.h"
 #elif RHEL_RELEASE_CODE
 #include "kcompat_rhel_defs.h"
-#elif defined(UEK_RELEASE_NUMBER)
-#include "kcompat_oracle_defs.h"
 #endif
+
+#include "kcompat_generated_defs.h"
 
 #endif /* _KCOMPAT_DEFS_H_ */
