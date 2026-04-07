@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (C) 1999 - 2023 Intel Corporation */
+/* Copyright (C) 2019 - 2026 Beijing GuangRunTong Corporation. */
 
 #ifndef _KCOMPAT_UBUNTU_DEFS_H_
 #define _KCOMPAT_UBUNTU_DEFS_H_
@@ -26,8 +27,8 @@
 #endif
 
 /*****************************************************************************/
-#if (UBUNTU_VERSION_CODE >= UBUNTU_VERSION(4,15,0,159) && \
-     UBUNTU_VERSION_CODE < UBUNTU_VERSION(4,15,0,999))
+#if (UBUNTU_VERSION(4, 15, 0, 159) <= UBUNTU_VERSION_CODE && \
+		UBUNTU_VERSION(4, 15, 0, 999) > UBUNTU_VERSION_CODE)
 #undef NEED_SKB_FRAG_OFF
 #endif
 

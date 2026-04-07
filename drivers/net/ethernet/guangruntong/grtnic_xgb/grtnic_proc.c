@@ -1,11 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
+
 #include <linux/proc_fs.h>
-//#include <linux/version.h>
+#include <linux/version.h>
 #include "grtnic.h"
 #ifdef GRTNIC_PROCFS
 
-struct proc_dir_entry *grtnic_top_dir = NULL;
+struct proc_dir_entry *grtnic_top_dir;
 
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0) )
+#if (KERNEL_VERSION(3, 9, 0) <= LINUX_VERSION_CODE)
 //ssize_t update_firmware(struct file *file, const char __user *buffer, size_t count, loff_t *pos);
 
 //static int grtnic_driver_generic_read(struct seq_file *m, void *v)
@@ -31,6 +34,7 @@ static int grtnic_driver_pktcnt_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, grtnic_driver_pktcnt_read, PDE_DATA(inode));
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 static int grtnic_hardware_pktcnt_read(struct seq_file *m, void *v)
 {
@@ -50,6 +54,7 @@ static int grtnic_hardware_pktcnt_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, grtnic_hardware_pktcnt_read, PDE_DATA(inode));
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 static int grtnic_hardware_error(struct seq_file *m, void *v)
@@ -75,25 +80,53 @@ static int grtnic_hardware_error_open(struct inode *inode, struct file *file)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
+#if (KERNEL_VERSION(5, 6, 0) <= LINUX_VERSION_CODE)
+#define GRTNIC_PROC_OPS(_name, _open_func, _write_func) \
+static const struct proc_ops _name##_ops = { \
+	.proc_open    = _open_func, \
+	.proc_read    = seq_read, \
+	.proc_lseek   = seq_lseek, \
+	.proc_release = single_release, \
+	.proc_write   = _write_func, \
+}
+#else
+#define GRTNIC_PROC_OPS(_name, _open_func, _write_func) \
+static const struct file_operations _name##_ops = { \
+	.owner   = THIS_MODULE, \
+	.open    = _open_func, \
+	.read    = seq_read, \
+	.llseek  = seq_lseek, \
+	.release = single_release, \
+	.write   = _write_func, \
+}
+#endif
+
+// 静态定义各个文件的操作集
+GRTNIC_PROC_OPS(pktcnt, grtnic_driver_pktcnt_open, NULL);
+GRTNIC_PROC_OPS(fpktcnt, grtnic_hardware_pktcnt_open, NULL);
+GRTNIC_PROC_OPS(fharderr, grtnic_hardware_error_open, NULL);
+// GRTNIC_PROC_OPS(update, grtnic_driver_generic_open, update_firmware);
+
 struct grtnic_proc_type {
 	char *name;
-	int (*open)(struct inode *inode, struct file *file);
-	int (*read)(struct seq_file *m, void *v);
-	ssize_t (*write)(struct file *file, const char __user *buffer, size_t count, loff_t *pos);
+#if (KERNEL_VERSION(5, 6, 0) <= LINUX_VERSION_CODE)
+	const struct proc_ops *ops;
+#else
+	const struct file_operations *ops;
+#endif
 };
 
 struct grtnic_proc_type grtnic_proc_entries[] = {
-	{"pktcnt", 		&grtnic_driver_pktcnt_open, NULL, NULL},
-	{"fpktcnt", 	&grtnic_hardware_pktcnt_open, NULL, NULL},
-	{"fharderr", 	&grtnic_hardware_error_open, NULL, NULL},
-//	{"update", 		&grtnic_driver_generic_open, NULL, &update_firmware},
-	{NULL, NULL, NULL, NULL}
+	{"pktcnt",		&pktcnt_ops},
+	{"fpktcnt",		&fpktcnt_ops},
+	{"fharderr",	&fharderr_ops},
+//	{"update",   &update_ops},
+	{NULL, NULL}
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-#else //LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+#else //LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
 //int update_firmware(struct file *file, const char *buffer, unsigned long count, void *data);
 
 static int grtnic_driver_pktcnt_read(char *page, char **start, off_t off, int count, int *eof, void *data)
@@ -140,90 +173,79 @@ struct grtnic_proc_type {
 };
 
 struct grtnic_proc_type grtnic_proc_entries[] = {
-	{"pktcnt", &grtnic_driver_pktcnt_read, NULL},
-	{"fpktcnt", &grtnic_hardware_pktcnt_read, NULL},
-	{"fharderr", &grtnic_hardware_error, NULL},
-//	{"update", NULL, &update_firmware},
-	{NULL, NULL, NULL}
+	{"pktcnt",		&grtnic_driver_pktcnt_read, NULL},
+	{"fpktcnt",		&grtnic_hardware_pktcnt_read, NULL},
+	{"fharderr",	&grtnic_hardware_error, NULL},
+//	{"update",	NULL,	&update_firmware},
+	{NULL,	NULL,	NULL}
 };
 
 #endif
 
-
-int grtnic_procfs_topdir_init()
+int grtnic_procfs_topdir_init(void)
 {
 	grtnic_top_dir = proc_mkdir("driver/grtnic", NULL);
-	if (grtnic_top_dir == NULL)
+	if (!grtnic_top_dir)
 		return -ENOMEM;
 
 	return 0;
 }
 
-void grtnic_procfs_topdir_exit()
+void grtnic_procfs_topdir_exit(void)
 {
 	remove_proc_entry("driver/grtnic", NULL);
 }
 
-
 int grtnic_procfs_init(struct grtnic_adapter *adapter)
 {
 	int index;
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0) )
-	struct file_operations *fops;
-#else
+
+#if (KERNEL_VERSION(3, 9, 0) > LINUX_VERSION_CODE)
 	struct proc_dir_entry *p;
 	mode_t mode = 0;
 #endif
 
 	adapter->proc_dir = proc_mkdir(pci_name(adapter->pdev), grtnic_top_dir);
+	if (!adapter->proc_dir)
+		return -ENOMEM;
 
-#if ( LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0) )
 	for (index = 0; grtnic_proc_entries[index].name; index++) {
-		fops = kmalloc(sizeof(struct file_operations), GFP_KERNEL);
-		fops->open = grtnic_proc_entries[index].open;
-		fops->read = seq_read;
-		fops->write = grtnic_proc_entries[index].write;
-		fops->llseek = seq_lseek;
-		fops->release = single_release;
-    proc_create_data(grtnic_proc_entries[index].name, 0644, adapter->proc_dir, fops, adapter);
-	}
-
+#if (KERNEL_VERSION(3, 9, 0) <= LINUX_VERSION_CODE)
+		proc_create_data(grtnic_proc_entries[index].name, 0644,
+				 adapter->proc_dir, grtnic_proc_entries[index].ops, adapter);
 #else
-	for (index = 0; grtnic_proc_entries[index].name; index++) {
 		if (grtnic_proc_entries[index].read)
-			mode = S_IFREG | S_IRUGO;
+			mode = S_IFREG | 0444;
 		if (grtnic_proc_entries[index].write)
-			mode |= S_IFREG | S_IWUSR;
+			mode |= S_IFREG | 0200;
 
 		p = create_proc_entry(grtnic_proc_entries[index].name, mode, adapter->proc_dir);
-    p->read_proc = grtnic_proc_entries[index].read;
-    p->write_proc = grtnic_proc_entries[index].write;
-    p->data = adapter;
-	}
+		if (p) {
+			p->read_proc = grtnic_proc_entries[index].read;
+			p->write_proc = grtnic_proc_entries[index].write;
+			p->data = adapter;
+		}
 #endif
-
+	}
 	return 0;
 }
-
 
 void grtnic_del_proc_entries(struct grtnic_adapter *adapter)
 {
 	int index;
 
-	if (grtnic_top_dir == NULL)
+	if (!grtnic_top_dir)
 		return;
 
-	for (index = 0; ; index++)
-	{
-		if(grtnic_proc_entries[index].name == NULL)
+	for (index = 0; ; index++) {
+		if (!grtnic_proc_entries[index].name)
 			break;
 		remove_proc_entry(grtnic_proc_entries[index].name, adapter->proc_dir);
 	}
 
-	if (adapter->proc_dir != NULL)
+	if (adapter->proc_dir)
 		remove_proc_entry(pci_name(adapter->pdev), grtnic_top_dir);
 }
-
 
 void grtnic_procfs_exit(struct grtnic_adapter *adapter)
 {

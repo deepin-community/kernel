@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright(c) 2019 - 2026 Beijing GuangRunTong Corporation. */
+
 #ifndef _GRTNICMACPHY_H_
 #define _GRTNICMACPHY_H_
 
@@ -22,7 +25,7 @@ void grtnic_SetJumbo(struct net_device *netdev, int onoff);
 
 void grtnic_SetAdrsFilter(struct net_device *netdev, int filter);
 int  grtnic_GetAdrsFilter(struct net_device *netdev);
-u32  grtnic_GetSFP_Reg(struct net_device *netdev, struct sfp_info* sfc_info);
+u32  grtnic_GetSFP_Reg(struct net_device *netdev, struct sfp_info *sfc_info);
 
 void grtnic_SetMacAddress(struct net_device *netdev, const u8 *AddressPtr);
 void grtnic_GetMacAddress(struct net_device *netdev, void *AddressPtr);
@@ -33,8 +36,8 @@ void grtnic_SetPhyAddr(struct net_device *netdev, u32 Prtad, u32 Devad, u32 Regi
 void grtnic_PhyRead(struct net_device *netdev, u32 PhyAddress, u32 RegisterNum, u16 *PhyDataPtr);
 void grtnic_PhyWrite(struct net_device *netdev, u32 PhyAddress, u32 RegisterNum, u16 PhyData);
 
-void grtnic_SetPause (struct net_device *netdev, u8 flowctl);
-void grtnic_set_fc_watermarks (struct net_device *netdev);
+void grtnic_SetPause(struct net_device *netdev, u8 flowctl);
+void grtnic_set_fc_watermarks(struct net_device *netdev);
 void grtnic_SetMacPauseAddress(struct net_device *netdev, const u8 *AddressPtr);
 void grtnic_GetMacPauseAddress(struct net_device *netdev, void *AddressPtr);
 u64 grtnic_get_statistics_cnt(struct grtnic_adapter *adapter, u32 reg, u32 old_cnt);
@@ -75,30 +78,31 @@ s32 grtnic_read_i2c_sff8472(struct grtnic_hw *hw, u8 byte_offset, u8 *sff8472_da
  */
 #define XXGE_RCW1_RST_MASK		0x80000000 /**< Reset */
 #define XXGE_RCW1_JUM_MASK		0x40000000 /**< Jumbo frame enable */
-#define XXGE_RCW1_FCS_MASK		0x20000000 /**< In-Band FCS enable
-					     *  (FCS not stripped) */
-#define XXGE_RCW1_RX_MASK		0x10000000 /**< Receiver enable */
+#define XXGE_RCW1_FCS_MASK		0x20000000 /**< In-Band FCS enable (FCS not stripped) */
+#define XXGE_RCW1_RX_MASK			0x10000000 /**< Receiver enable */
 #define XXGE_RCW1_VLAN_MASK		0x08000000 /**< VLAN frame enable */
-#define XXGE_RCW1_HD_MASK		0x04000000 /**< Receiver Preserve Preamble Enable !!chng... change HD<->PP */
+
+/**< Receiver Preserve Preamble Enable !!chng... change HD<->PP */
+#define XXGE_RCW1_HD_MASK			0x04000000
 #define XXGE_RCW1_LT_DIS_MASK	0x02000000 /**< Length/type field valid check
 					     *  disable
 					     */
 #define XXGE_RCW1_CL_DIS_MASK	0x01000000 /**< Control frame Length check
 					     *  disable
 					     */
-#define XXGE_RCW1_PAUSEADDR_MASK 0x0000FFFF /**< Pause frame source
-					     *  address bits [47:32].Bits
-					     *	[31:0] are stored in register
-					     *  RCW0
-					     */
+#define XXGE_RCW1_PAUSEADDR_MASK 0x0000FFFF	/*< Pause frame source
+						 *  address bits [47:32].Bits
+						 *	[31:0] are stored in register
+						 *  RCW0
+						 */
 /** @name Transmitter Configuration (TC) Register bit definitions
  *  @{
  */
 #define XXGE_TC_RST_MASK		0x80000000 /**< Reset */
 #define XXGE_TC_JUM_MASK		0x40000000 /**< Jumbo frame enable */
-#define XXGE_TC_FCS_MASK		0x20000000 /**< In-Band FCS enable
-					     *  (FCS not generated)
-					     */
+#define XXGE_TC_FCS_MASK		0x20000000 /*< In-Band FCS enable
+						    *  (FCS not generated)
+						    */
 #define XXGE_TC_TX_MASK		0x10000000 /**< Transmitter enable */
 #define XXGE_TC_VLAN_MASK	0x08000000 /**< VLAN frame enable */
 #define XXGE_TC_HD_MASK		0x04000000 /**< WAN Mode Enable !!chng...bit-26 we may NOT use*/
@@ -139,7 +143,7 @@ s32 grtnic_read_i2c_sff8472(struct grtnic_hw *hw, u8 byte_offset, u8 *sff8472_da
 #define XXGE_MDIO_RX_DATA_MASK		0x0000FFFF /**< MDIO RX Data ...b15:0 */
 
 
-//user define 
+//user define
 #define XXGE_RST_DELAY_LOOPCNT_VAL	4	/**< Timeout in ticks used
 						  *  while checking if the core
 						  *  had come out of reset. The
@@ -166,19 +170,94 @@ s32 grtnic_read_i2c_sff8472(struct grtnic_hw *hw, u8 byte_offset, u8 *sff8472_da
 #define PHY_SPEED_100	0x2000
 #define PHY_SPEED_10		0x0000
 
+/* PHY Basic Control Register 0x00*/
+#define PHY_BMCR_RESET			BIT(15)  /* bits 15, 1: PHY Software Reset.*/
+#define PHY_BMCR_LOOPBACK		BIT(14)  /* bits 14, Internal loopback control*/
+#define PHY_BMCR_AUTO_NEG		BIT(12)  /* bits 12, 1: to enable auto-negotiation*/
+#define PHY_BMCR_POWER_DOWN	BIT(11)  /* bits 11, 1: Power down */
+#define PHY_BMCR_ISOLATE		BIT(10)  /* bits 10, 1: Isolate mode */
+#define PHY_BMCR_RE_AUTONEG	BIT(9)  /* bits 9, 1: Restart Auto-Negotiation Process  */
+#define PHY_BMCR_DUPLEX			BIT(8)  /* bits 8, 1: Full Duplex  */
+#define PHY_BMCR_SPEED_MASK	(BIT(6) | BIT(13))  /* bits 6,13 Speed_Selection  */
+#define PHY_BMCR_SPEED_LSB	BIT(13)  /* bits 6,13 Speed_Selection  */
+#define PHY_BMCR_SPEED_MSB	BIT(6)  /* bits 6,13 Speed_Selection  */
+
+/* PHY Auto-Negotiation advertisement Register 0x04*/
+/* bits 15, 1: Advertise Next_page*/
+#define PHY_NEXT_Page				BIT(15)
+/* bits 12, 1: Extended nEXT page enable control bit*/
+#define PHY_XNP							BIT(12)
+/* bits 8, 1: Advertise support of 100Base-TX full-duplex mode*/
+#define PHY_100Base_TX_Full	BIT(8)
+/* bits 7, 1: Advertise support of 100Base-TX half-duplex mode*/
+#define PHY_100Base_TX_Half	BIT(7)
+/* bits 6, 1: Advertise support of 10Base-TX full-duplex mode*/
+#define PHY_10Base_TX_Full	BIT(6)
+/* bits 5, 1: Advertise support of 10Base-TX half-duplex mode*/
+#define PHY_10Base_TX_Half	BIT(5)
+
+/* PHY Auto-Negotiation link partner ability Register 0x05*/
+/* bits 14, 1: Link partner has received link code word */
+#define PHY_LP_LPACK						BIT(14)
+/* bits 11, 1: Link partner requests asymmetric pause*/
+#define PHY_LP_ASYM_PAUSE				BIT(11)
+/* bits 10, 1: Link partner supports pause operation*/
+#define PHY_LP_PAUSE						BIT(10)
+/* bits 8, 1: Link Partner support of 100Base-TX full-duplex mode*/
+#define PHY_LP_100Base_TX_Full	BIT(8)
+/* bits 7, 1: Link Partner support of 100Base-TX half-duplex mode*/
+#define PHY_LP_100Base_TX_Half	BIT(7)
+/* bits 6, 1: Link Partner support of 10Base-TX full-duplex mode*/
+#define PHY_LP_10Base_TX_Full		BIT(6)
+/* bits 5, 1: Link Partner support of 10Base-TX half-duplex mode*/
+#define PHY_LP_10Base_TX_Half		BIT(5)
+
+/* PHY Auto-Negotiation NEXT Page register (0x07)*/
+/* bits 15, 1: The page is not the last page  */
+#define PHY_NP_NEXT_Page		BIT(15)
+/* bits 13, 1: Message Page  */
+#define PHY_NP_MessagePage	BIT(13)
+/* bits 12, 1: Comply with message  */
+#define PHY_NP_Ack2					BIT(12)
+/* bits 11, 1: This bit in the previously exchanged Code Word is logic 0  */
+#define PHY_NP_Toggle				BIT(11)
+/* bits 10:0, These bits are encoded as Message Code Field when bit[13] is set to 1,
+ *or as Unformatted Code Field when bit[13] is set to 0.
+ */
+#define PHY_NP_MESSAGE_MASK	0x07FF
+
+/* PHY MASTER-SLAVE control register 0x09*/
+/* bits 9, 1: Advertise support of 1000Base-T full-duplex mode*/
+#define PHY_1000Base_T_Full		BIT(9)
+/* bits 8, 1: Advertise support of 1000Base-T full-duplex mode*/
+#define PHY_1000Base_T_Half		BIT(8)
+
+/* PHY MASTER-SLAVE status register 0x0A*/
+/* bits 11, 1: Link Partner supports 1000BASE-T Full duplex*/
+#define PHY_LP_1000Base_T_Full	BIT(11)
+/* bits 10, 1: Link Partner supports 1000BASE-T half duplex*/
+#define PHY_LP_1000Base_T_Half	BIT(10)
+
+/* PHY Multi-GBASE-T AN control 1 register (MMD7,0x20)*/
+/* bits 7, 1: Advertise PHY as 2.5G BASE-T */
+#define PHY_2500Base_T_Full			BIT(7)
+
+/* PHY Multi-GBASE-T AN status 1 register (MMD7,0x21)*/
+/* bits 5, 1: link partner is able to operate as 2.5G BASE-T*/
+#define PHY_LP_2500Base_T_Full	BIT(5)
 
 /* SFP I2C */
-#define GRTNIC_I2C_CLOCK_STRETCHING_TIMEOUT  500
+#define GRTNIC_I2C_CLOCK_STRETCHING_TIMEOUT	500
 #define GRTNIC_ERR_PHY_ADDR_INVALID		-17
-#define GRTNIC_ERR_I2C       -18
+#define GRTNIC_ERR_I2C								-18
 
 #define GRTNIC_I2C_EEPROM_DEV_ADDR	0xA0
 #define GRTNIC_I2C_EEPROM_DEV_ADDR2	0xA2
 #define GRTNIC_I2C_EEPROM_BANK_LEN	0xFF
 
 /* EEPROM byte offsets */
-#define GRTNIC_SFF_IDENTIFIER		0x0
-#define GRTNIC_SFF_IDENTIFIER_SFP	0x3
+#define GRTNIC_SFF_IDENTIFIER				0x0
+#define GRTNIC_SFF_IDENTIFIER_SFP		0x3
 #define GRTNIC_SFF_VENDOR_OUI_BYTE0	0x25
 #define GRTNIC_SFF_VENDOR_OUI_BYTE1	0x26
 #define GRTNIC_SFF_VENDOR_OUI_BYTE2	0x27
@@ -194,9 +273,9 @@ s32 grtnic_read_i2c_sff8472(struct grtnic_hw *hw, u8 byte_offset, u8 *sff8472_da
 #define GRTNIC_SFF_QSFP_VENDOR_OUI_BYTE0	0xA5
 #define GRTNIC_SFF_QSFP_VENDOR_OUI_BYTE1	0xA6
 #define GRTNIC_SFF_QSFP_VENDOR_OUI_BYTE2	0xA7
-#define GRTNIC_SFF_QSFP_CONNECTOR	0x82
+#define GRTNIC_SFF_QSFP_CONNECTOR		0x82
 #define GRTNIC_SFF_QSFP_10GBE_COMP	0x83
-#define GRTNIC_SFF_QSFP_1GBE_COMP	0x86
+#define GRTNIC_SFF_QSFP_1GBE_COMP		0x86
 #define GRTNIC_SFF_QSFP_CABLE_LENGTH	0x92
 #define GRTNIC_SFF_QSFP_DEVICE_TECH	0x93
 
@@ -212,12 +291,12 @@ s32 grtnic_read_i2c_sff8472(struct grtnic_hw *hw, u8 byte_offset, u8 *sff8472_da
 #define GRTNIC_SFF_SOFT_RS_SELECT_MASK	0x8
 #define GRTNIC_SFF_SOFT_RS_SELECT_10G	0x8
 #define GRTNIC_SFF_SOFT_RS_SELECT_1G	0x0
-#define GRTNIC_SFF_ADDRESSING_MODE	0x4
-#define GRTNIC_SFF_QSFP_DA_ACTIVE_CABLE	0x1
+#define GRTNIC_SFF_ADDRESSING_MODE		0x4
+#define GRTNIC_SFF_QSFP_DA_ACTIVE_CABLE		0x1
 #define GRTNIC_SFF_QSFP_DA_PASSIVE_CABLE	0x8
 #define GRTNIC_SFF_QSFP_CONNECTOR_NOT_SEPARABLE	0x23
 #define GRTNIC_SFF_QSFP_TRANSMITER_850NM_VCSEL	0x0
-#define GRTNIC_I2C_EEPROM_READ_MASK	0x100
+#define GRTNIC_I2C_EEPROM_READ_MASK		0x100
 #define GRTNIC_I2C_EEPROM_STATUS_MASK	0x3
 #define GRTNIC_I2C_EEPROM_STATUS_NO_OPERATION	0x0
 #define GRTNIC_I2C_EEPROM_STATUS_PASS	0x1
