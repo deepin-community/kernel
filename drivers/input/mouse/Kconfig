@@ -72,7 +72,7 @@ config MOUSE_PS2_LOGIPS2PP
 config MOUSE_PS2_PIXART
 	bool "PixArt PS/2 touchpad protocol extension" if EXPERT
 	default y
-	depends on MOUSE_PS2
+	depends on MOUSE_PS2 && (MACH_LOONGSON32 || MACH_LOONGSON64 || COMPILE_TEST)
 	help
 	  This driver supports the PixArt PS/2 touchpad found in some
 	  laptops.
