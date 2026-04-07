@@ -413,6 +413,7 @@ void update_vcpu_stat_time(struct kvm_vcpu_stat *vcpu_stat)
 
 void kvm_sw64_switch_debug_state_pre_run(struct kvm_vcpu *vcpu)
 {
+#if KVM_SW64_WATCHPOINT_ENABLED
 	vcpu->arch.host_debug_state.addr = sw64_read_csr(CSR_DA_MATCH);
 	vcpu->arch.host_debug_state.mask = sw64_read_csr(CSR_DA_MASK);
 	vcpu->arch.host_debug_state.ctl = sw64_read_csr(CSR_DC_CTLP);
@@ -420,10 +421,12 @@ void kvm_sw64_switch_debug_state_pre_run(struct kvm_vcpu *vcpu)
 	sw64_write_csr(vcpu->arch.guest_debug_state.addr, CSR_DA_MATCH);
 	sw64_write_csr(vcpu->arch.guest_debug_state.mask, CSR_DA_MASK);
 	sw64_write_csr(vcpu->arch.guest_debug_state.ctl, CSR_DC_CTLP);
+#endif
 }
 
 void kvm_sw64_switch_debug_state_post_run(struct kvm_vcpu *vcpu)
 {
+#if KVM_SW64_WATCHPOINT_ENABLED
 	vcpu->arch.guest_debug_state.addr = sw64_read_csr(CSR_DA_MATCH);
 	vcpu->arch.guest_debug_state.mask = sw64_read_csr(CSR_DA_MASK);
 	vcpu->arch.guest_debug_state.ctl = sw64_read_csr(CSR_DC_CTLP);
@@ -431,6 +434,7 @@ void kvm_sw64_switch_debug_state_post_run(struct kvm_vcpu *vcpu)
 	sw64_write_csr(vcpu->arch.host_debug_state.addr, CSR_DA_MATCH);
 	sw64_write_csr(vcpu->arch.host_debug_state.mask, CSR_DA_MASK);
 	sw64_write_csr(vcpu->arch.host_debug_state.ctl,  CSR_DC_CTLP);
+#endif
 }
 
 /*
