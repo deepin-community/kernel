@@ -104,6 +104,7 @@ long kvm_sw64_set_vcb(struct file *filp, unsigned long arg)
 
 void kvm_sw64_set_guest_debug(struct kvm_vcpu *vcpu, struct kvm_guest_debug *dbg)
 {
+#if KVM_SW64_WATCHPOINT_ENABLED
 	uint64_t match_ctl, match_ctl_mode;
 	vcpu->guest_debug = dbg->control;
 	if (!(vcpu->guest_debug & KVM_GUESTDBG_ENABLE)) {
@@ -118,6 +119,7 @@ void kvm_sw64_set_guest_debug(struct kvm_vcpu *vcpu, struct kvm_guest_debug *dbg
 				(0x2UL << DPM_MATCH);
 		vcpu->arch.guest_debug_state.ctl = match_ctl;
 	}
+#endif
 }
 
 int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
