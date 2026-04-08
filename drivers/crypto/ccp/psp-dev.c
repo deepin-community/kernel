@@ -361,15 +361,15 @@ void psp_dev_destroy(struct sp_device *sp)
 		tdm_dev_destroy();
 #endif
 
-	sev_dev_destroy(psp);
-
-	tee_dev_destroy(psp);
-
-	sfs_dev_destroy(psp);
-
 	dbc_dev_destroy(psp);
 
 	platform_access_dev_destroy(psp);
+
+	sfs_dev_destroy(psp);
+
+	tee_dev_destroy(psp);
+
+	sev_dev_destroy(psp);
 
 	sp_free_psp_irq(sp, psp);
 
