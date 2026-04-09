@@ -37,6 +37,7 @@ mkdir -p "${destdir}"
 	echo include/config/auto.conf
 	echo include/config/kernel.release
 	echo include/generated
+	echo .config
 	find_in_scripts
 
 	if is_enabled CONFIG_GCC_PLUGINS; then
