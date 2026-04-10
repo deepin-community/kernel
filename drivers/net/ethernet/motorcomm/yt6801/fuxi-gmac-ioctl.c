@@ -3,145 +3,37 @@
 
 #include "fuxi-gmac.h"
 #include "fuxi-gmac-reg.h"
-#ifdef HAVE_FXGMAC_DEBUG_FS
-#include <linux/debugfs.h>
-#endif
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/types.h>
-#include <linux/sched.h>
-#include <linux/mm.h>
-#include <linux/fcntl.h>
-#include <linux/socket.h>
-#include <linux/in.h>
-#include <linux/inet.h>
-#include <linux/skbuff.h>
-#include <linux/if_arp.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/ip.h>
-#include <linux/udp.h>
-
-#define TEST_MAC_HEAD 14
-#define TEST_TCP_HEAD_LEN_OFFSET 12
-#define TEST_TCP_OFFLOAD_LEN_OFFSET 48
-#define TEST_TCP_FIX_HEAD_LEN 24
-#define TEST_TCP_MSS_OFFSET 56
-
-#define DF_MAX_NIC_NUM 16
-
-#ifdef HAVE_FXGMAC_DEBUG_FS
-
-/**
- * fxgmac_dbg_netdev_ops_read - read for netdev_ops datum
- * @filp: the opened file
- * @buffer: where to write the data for the user to read
- * @count: the size of the user's buffer
- * @ppos: file position offset
- **/
-static ssize_t fxgmac_dbg_netdev_ops_read(struct file *filp,
-					  char __user *buffer, size_t count,
-					  loff_t *ppos)
-{
-	struct fxgmac_pdata *pdata = filp->private_data;
-	char *buf;
-	int len;
-
-	/* don't allow partial reads */
-	if (*ppos != 0)
-		return 0;
-
-	buf = kasprintf(GFP_KERNEL, "%s: %s\n", pdata->netdev->name,
-			pdata->expansion.fxgmac_dbg_netdev_ops_buf);
-	if (!buf)
-		return -ENOMEM;
-
-	if (count < strlen(buf)) {
-		kfree(buf);
-		return -ENOSPC;
-	}
-
-	len = simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
-
-	kfree(buf);
-	return len;
-}
-
-/**
- * fxgmac_dbg_netdev_ops_write - write into netdev_ops datum
- * @filp: the opened file
- * @buffer: where to find the user's data
- * @count: the length of the user's data
- * @ppos: file position offset
- **/
-static ssize_t fxgmac_dbg_netdev_ops_write(struct file *filp,
-					   const char __user *buffer,
-					   size_t count, loff_t *ppos)
-{
-	struct fxgmac_pdata *pdata = filp->private_data;
-	int len;
-
-	/* don't allow partial writes */
-	if (*ppos != 0)
-		return 0;
-	if (count >= sizeof(pdata->expansion.fxgmac_dbg_netdev_ops_buf))
-		return -ENOSPC;
-
-	len = simple_write_to_buffer(
-		pdata->expansion.fxgmac_dbg_netdev_ops_buf,
-		sizeof(pdata->expansion.fxgmac_dbg_netdev_ops_buf) - 1, ppos,
-		buffer, count);
-	if (len < 0)
-		return len;
-
-	pdata->expansion.fxgmac_dbg_netdev_ops_buf[len] = '\0';
-
-	if (strncmp(pdata->expansion.fxgmac_dbg_netdev_ops_buf, "tx_timeout",
-		    10) == 0) {
-		DPRINTK("tx_timeout called\n");
-	} else {
-		FXGMAC_PR("Unknown command: %s\n",
-			  pdata->expansion.fxgmac_dbg_netdev_ops_buf);
-		FXGMAC_PR("Available commands:\n");
-		FXGMAC_PR("    tx_timeout\n");
-	}
-	return count;
-}
-#endif
 
 static void fxgmac_dbg_tx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 {
-	unsigned int pktLen = 0;
+	unsigned int pkt_len = 0;
 	struct sk_buff *skb;
-	pfxgmac_test_packet pPkt;
-	u8 *pTx_data = NULL;
-	u8 *pSkb_data = NULL;
+	pfxgmac_test_packet pkt;
+	u8 *tx_data = NULL;
+	u8 *skb_data = NULL;
 	u32 offload_len = 0;
-	u8 ipHeadLen, tcpHeadLen, headTotalLen;
-	static u32 lastGsoSize = 806; /* initial default value */
+	u8 ip_head_len, tcp_head_len, head_total_len;
+	static u32 last_gso_size = 806; //initial default value
+	//int i = 0;
 
 	/* get fxgmac_test_packet */
-	pPkt = (pfxgmac_test_packet)(pcmd_data + sizeof(struct ext_ioctl_data));
-	pktLen = pPkt->length;
+	pkt = (pfxgmac_test_packet)(pcmd_data + sizeof(struct ext_ioctl_data));
+	pkt_len = pkt->length;
 
 	/* get pkt data */
-	pTx_data = (u8 *)pPkt + sizeof(fxgmac_test_packet);
+	tx_data = (u8 *)pkt + sizeof(fxgmac_test_packet);
 
 	/* alloc sk_buff */
-	skb = alloc_skb(pktLen, GFP_ATOMIC);
+	skb = alloc_skb(pkt_len, GFP_ATOMIC);
 	if (!skb) {
 		DPRINTK("alloc skb fail\n");
 		return;
 	}
 
 	/* copy data to skb */
-	pSkb_data = skb_put(skb, pktLen);
-	memset(pSkb_data, 0, pktLen);
-	memcpy(pSkb_data, pTx_data, pktLen);
+	skb_data = skb_put(skb, pkt_len);
+	memset(skb_data, 0, pkt_len);
+	memcpy(skb_data, tx_data, pkt_len);
 
 	/* set skb parameters */
 	skb->dev = pdata->netdev;
@@ -155,59 +47,62 @@ static void fxgmac_dbg_tx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 		pdata->expansion.fxgmac_test_tso_flag = true;
 
 		/* get protocol head length */
-		ipHeadLen = (pSkb_data[TEST_MAC_HEAD] & 0xF) * 4;
-		tcpHeadLen = (pSkb_data[TEST_MAC_HEAD + ipHeadLen +
-					TEST_TCP_HEAD_LEN_OFFSET] >>
-				      4 &
-			      0xF) *
-			     4;
-		headTotalLen = TEST_MAC_HEAD + ipHeadLen + tcpHeadLen;
-		offload_len = (pSkb_data[TEST_TCP_OFFLOAD_LEN_OFFSET] << 8 |
-			       pSkb_data[TEST_TCP_OFFLOAD_LEN_OFFSET + 1]) &
+		ip_head_len = (skb_data[TEST_MAC_HEAD] & 0xF) * 4;
+		tcp_head_len = (skb_data[TEST_MAC_HEAD + ip_head_len +
+					 TEST_TCP_HEAD_LEN_OFFSET] >>
+					4 &
+				0xF) *
+			       4;
+		head_total_len = TEST_MAC_HEAD + ip_head_len + tcp_head_len;
+		offload_len = (skb_data[TEST_TCP_OFFLOAD_LEN_OFFSET] << 8 |
+			       skb_data[TEST_TCP_OFFLOAD_LEN_OFFSET + 1]) &
 			      0xFFFF;
 		/* set tso skb parameters */
-		skb->transport_header = ipHeadLen + TEST_MAC_HEAD;
+		//skb->ip_summed = CHECKSUM_PARTIAL;
+		skb->transport_header = ip_head_len + TEST_MAC_HEAD;
 		skb->network_header = TEST_MAC_HEAD;
 		skb->inner_network_header = TEST_MAC_HEAD;
 		skb->mac_len = TEST_MAC_HEAD;
 
 		/* set skb_shinfo parameters */
-		if (tcpHeadLen > TEST_TCP_FIX_HEAD_LEN) {
+		if (tcp_head_len > TEST_TCP_FIX_HEAD_LEN) {
 			skb_shinfo(skb)->gso_size =
-				(pSkb_data[TEST_TCP_MSS_OFFSET] << 8 |
-				 pSkb_data[TEST_TCP_MSS_OFFSET + 1]) &
+				(skb_data[TEST_TCP_MSS_OFFSET] << 8 |
+				 skb_data[TEST_TCP_MSS_OFFSET + 1]) &
 				0xFFFF;
 		} else {
 			skb_shinfo(skb)->gso_size = 0;
 		}
 		if (skb_shinfo(skb)->gso_size != 0) {
-			lastGsoSize = skb_shinfo(skb)->gso_size;
+			last_gso_size = skb_shinfo(skb)->gso_size;
 		} else {
-			skb_shinfo(skb)->gso_size = lastGsoSize;
+			skb_shinfo(skb)->gso_size = last_gso_size;
 		}
+
 		/* get segment size */
 		if (offload_len % skb_shinfo(skb)->gso_size == 0) {
 			skb_shinfo(skb)->gso_segs =
 				offload_len / skb_shinfo(skb)->gso_size;
 			pdata->expansion.fxgmac_test_last_tso_len =
-				skb_shinfo(skb)->gso_size + headTotalLen;
+				skb_shinfo(skb)->gso_size + head_total_len;
 		} else {
 			skb_shinfo(skb)->gso_segs =
 				offload_len / skb_shinfo(skb)->gso_size + 1;
 			pdata->expansion.fxgmac_test_last_tso_len =
 				offload_len % skb_shinfo(skb)->gso_size +
-				headTotalLen;
+				head_total_len;
 		}
 		pdata->expansion.fxgmac_test_tso_seg_num =
 			skb_shinfo(skb)->gso_segs;
 
 		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
 		skb_shinfo(skb)->frag_list = NULL;
-		skb->csum_start = skb_headroom(skb) + TEST_MAC_HEAD + ipHeadLen;
-		skb->csum_offset = skb->len - TEST_MAC_HEAD - ipHeadLen;
+		skb->csum_start =
+			skb_headroom(skb) + TEST_MAC_HEAD + ip_head_len;
+		skb->csum_offset = skb->len - TEST_MAC_HEAD - ip_head_len;
 
 		pdata->expansion.fxgmac_test_packet_len =
-			skb_shinfo(skb)->gso_size + headTotalLen;
+			skb_shinfo(skb)->gso_size + head_total_len;
 	} else {
 		/* set non-TSO packet parameters */
 		pdata->expansion.fxgmac_test_packet_len = skb->len;
@@ -221,14 +116,15 @@ static void fxgmac_dbg_tx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 
 static void fxgmac_dbg_rx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 {
-	unsigned int totalLen = 0;
+	unsigned int total_len = 0;
 	struct sk_buff *rx_skb;
 	struct ext_ioctl_data *pcmd;
 	fxgmac_test_packet pkt;
 	void *addr = 0;
-	u8 *rx_data = (u8 *)kzalloc(FXGMAC_MAX_DBG_RX_DATA, GFP_KERNEL);
+	u8 *rx_data = kzalloc(FXGMAC_MAX_DBG_RX_DATA, GFP_KERNEL);
 	if (!rx_data)
 		return;
+	//int i;
 
 	/* initial dest data region */
 	pcmd = (struct ext_ioctl_data *)pcmd_data;
@@ -240,15 +136,16 @@ static void fxgmac_dbg_rx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 			pdata->expansion.fxgmac_test_skb_array
 				[pdata->expansion.fxgmac_test_skb_arr_out_index];
 
-		if (rx_skb->len + sizeof(fxgmac_test_packet) + totalLen <
+		if (rx_skb->len + sizeof(fxgmac_test_packet) + total_len <
 		    64000) {
 			pkt.length = rx_skb->len;
 			pkt.type = 0x80;
 			pkt.buf[0].offset =
-				totalLen + sizeof(fxgmac_test_packet);
+				total_len + sizeof(fxgmac_test_packet);
 			pkt.buf[0].length = rx_skb->len;
 
 			/* get data from skb */
+			//DPRINTK("FXG:rx_skb->len=%d", rx_skb->len);
 			memcpy(rx_data, rx_skb->data, rx_skb->len);
 
 			/* update next pointer */
@@ -258,25 +155,26 @@ static void fxgmac_dbg_rx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 				pkt.next = NULL;
 			} else {
 				pkt.next =
-					(pfxgmac_test_packet)(addr + totalLen +
+					(pfxgmac_test_packet)(addr + total_len +
 							      sizeof(fxgmac_test_packet) +
 							      pkt.length);
 			}
 
 			/* copy data to user space */
-			if (copy_to_user((void *)(addr + totalLen),
-					 (void *)(&pkt),
+			if (copy_to_user((void *)(addr + total_len),
+					 (void *)&pkt,
 					 sizeof(fxgmac_test_packet))) {
 				DPRINTK("cppy pkt data to user fail...");
 			}
-			if (copy_to_user((void *)(addr + totalLen +
+			//FXGMAC_PR("FXG:rx_skb->len=%d", rx_skb->len);
+			if (copy_to_user((void *)(addr + total_len +
 						  sizeof(fxgmac_test_packet)),
 					 (void *)rx_data, rx_skb->len)) {
 				DPRINTK("cppy data to user fail...");
 			}
 
 			/* update total length */
-			totalLen += (sizeof(fxgmac_test_packet) + rx_skb->len);
+			total_len += (sizeof(fxgmac_test_packet) + rx_skb->len);
 
 			/* free skb */
 			kfree_skb(rx_skb);
@@ -299,11 +197,10 @@ static void fxgmac_dbg_rx_pkt(struct fxgmac_pdata *pdata, u8 *pcmd_data)
 		kfree(rx_data);
 }
 
-/* Based on the current application scenario, we only use CMD_DATA for data.
- * if you use other struct, you should recalculate in_total_size
- */
-long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
-				 unsigned long arg)
+// Based on the current application scenario,we only use CMD_DATA for data.
+// if you use other struct, you should recalculate in_total_size
+long fxgmac_netdev_ops_ioctl(struct file *file, unsigned int cmd,
+			     unsigned long arg)
 {
 	bool ret = true;
 	int regval = 0;
@@ -333,11 +230,12 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 
 	/* check command number*/
 	if (_IOC_NR(cmd) > IOC_MAXNR) {
-		DPRINTK("[%s] command numer [%d] exceeded!\n", __func__,
+		DPRINTK("[%s] command number [%d] exceeded!\n", __func__,
 			_IOC_NR(cmd));
 		goto err;
 	}
 
+	//buf = (u8*)kzalloc(FXGMAC_MAX_DBG_BUF_LEN, GFP_KERNEL);
 	if (copy_from_user(&pcmd, (void *)arg, ioctl_cmd_size)) {
 		DPRINTK("copy data from user fail... \n");
 		goto err;
@@ -360,8 +258,11 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 	if (arg != 0) {
 		switch (pcmd.cmd_type) {
 		/* ioctl diag begin */
-		case FUXI_DFS_IOCTL_DIAG_BEGIN:
+		case FXGMAC_DFS_IOCTL_DIAG_BEGIN:
 			DPRINTK("Debugfs received diag begin command.\n");
+#ifdef FXGMAC_EPHY_LOOPBACK_DETECT_ENABLED
+			pdata->expansion.lb_test_flag = 1;
+#endif
 			if (netif_running(pdata->netdev)) {
 				fxgmac_restart_dev(pdata);
 			}
@@ -395,25 +296,28 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			break;
 
 		/* ioctl diag end */
-		case FUXI_DFS_IOCTL_DIAG_END:
+		case FXGMAC_DFS_IOCTL_DIAG_END:
 			DPRINTK("Debugfs received diag end command.\n");
 			if (netif_running(pdata->netdev)) {
 				fxgmac_restart_dev(pdata);
 			}
+#ifdef FXGMAC_EPHY_LOOPBACK_DETECT_ENABLED
+			pdata->expansion.lb_test_flag = 0;
+#endif
 			break;
 
 		/* ioctl diag tx pkt */
-		case FUXI_DFS_IOCTL_DIAG_TX_PKT:
+		case FXGMAC_DFS_IOCTL_DIAG_TX_PKT:
 			fxgmac_dbg_tx_pkt(pdata, buf);
 			break;
 
 		/* ioctl diag rx pkt */
-		case FUXI_DFS_IOCTL_DIAG_RX_PKT:
+		case FXGMAC_DFS_IOCTL_DIAG_RX_PKT:
 			fxgmac_dbg_rx_pkt(pdata, buf);
 			break;
 
 		/* ioctl device reset */
-		case FUXI_DFS_IOCTL_DEVICE_RESET:
+		case FXGMAC_DFS_IOCTL_DEVICE_RESET:
 			DPRINTK("Debugfs received device reset command.\n");
 			if (netif_running(pdata->netdev)) {
 				fxgmac_restart_dev(pdata);
@@ -451,8 +355,6 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ret = hw_ops->read_efuse_data(pdata, ex_data.val0,
 						      &ex_data.val1);
-			DPRINTK("FXGMAC_EFUSE_READ_REGIONABC, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -465,8 +367,6 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 
 		case FXGMAC_EFUSE_WRITE_PATCH_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
-			DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_REG, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
 			ret = hw_ops->write_patch_to_efuse(pdata, ex_data.val0,
 							   ex_data.val1);
 			break;
@@ -475,8 +375,6 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ret = hw_ops->read_patch_from_efuse(pdata, ex_data.val0,
 							    &ex_data.val1);
-			DPRINTK("FXGMAC_EFUSE_READ_PATCH_REG, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1);
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -492,8 +390,6 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			ret = hw_ops->write_patch_to_efuse_per_index(
 				pdata, ex_data.val0, ex_data.val1,
 				ex_data.val2);
-			DPRINTK("FXGMAC_EFUSE_WRITE_PATCH_PER_INDEX, index = %d, address = 0x%x, val = 0x%x\n",
-				ex_data.val0, ex_data.val1, ex_data.val2);
 			break;
 
 		case FXGMAC_EFUSE_READ_PATCH_PER_INDEX:
@@ -501,8 +397,6 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			ret = hw_ops->read_patch_from_efuse_per_index(
 				pdata, ex_data.val0, &ex_data.val1,
 				&ex_data.val2);
-			DPRINTK("FXGMAC_EFUSE_READ_PATCH_PER_INDEX, address = 0x%x, val = 0x%x\n",
-				ex_data.val1, ex_data.val2);
 			if (ret) {
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
@@ -539,6 +433,7 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			if (ret) {
 				eth_hw_addr_set(pdata->netdev, mac);
 				memcpy(pdata->mac_addr, mac, ETH_ALEN);
+
 				hw_ops->set_mac_address(pdata, mac);
 				hw_ops->set_mac_hash(pdata);
 			}
@@ -549,7 +444,7 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 			ret = hw_ops->read_mac_subsys_from_efuse(
 				pdata, NULL, &ex_data.val0, NULL);
 			if (ret) {
-				ex_data.val1 = 0xFFFF; /* invalid value */
+				ex_data.val1 = 0xFFFF; // invalid value
 				memcpy(data, &ex_data, sizeof(CMD_DATA));
 				out_total_size =
 					ioctl_cmd_size + sizeof(CMD_DATA);
@@ -565,10 +460,10 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 				pdata, NULL, &ex_data.val0, NULL);
 			break;
 
-		case FXGMAC_GET_GMAC_REG:
+		case FXGMAC_GET_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			ex_data.val1 = hw_ops->get_gmac_register(
-				pdata, (u8 *)(pdata->mac_regs + ex_data.val0));
+				pdata, (u8 *)(pdata->base_mem + ex_data.val0));
 			memcpy(data, &ex_data, sizeof(CMD_DATA));
 			out_total_size = ioctl_cmd_size + sizeof(CMD_DATA);
 			if (copy_to_user((void *)arg, (void *)buf,
@@ -576,10 +471,10 @@ long fxgmac_dbg_netdev_ops_ioctl(struct file *file, unsigned int cmd,
 				goto err;
 			break;
 
-		case FXGMAC_SET_GMAC_REG:
+		case FXGMAC_SET_REG:
 			memcpy(&ex_data, data, sizeof(CMD_DATA));
 			regval = hw_ops->set_gmac_register(
-				pdata, (u8 *)(pdata->mac_regs + ex_data.val0),
+				pdata, (u8 *)(pdata->base_mem + ex_data.val0),
 				ex_data.val1);
 			ret = (regval == 0 ? true : false);
 			break;
@@ -684,104 +579,3 @@ err:
 		kfree(buf);
 	return FXGMAC_FAIL;
 }
-
-#ifdef HAVE_FXGMAC_DEBUG_FS
-
-static struct file_operations fxgmac_dbg_netdev_ops_fops = {
-	.owner = THIS_MODULE,
-	.open = simple_open,
-	.read = fxgmac_dbg_netdev_ops_read,
-	.write = fxgmac_dbg_netdev_ops_write,
-	.unlocked_ioctl = fxgmac_dbg_netdev_ops_ioctl,
-};
-
-/**
- * fxgmac_dbg_adapter_init - setup the debugfs directory for the adapter
- * @adapter: the adapter that is starting up
- **/
-void fxgmac_dbg_adapter_init(struct fxgmac_pdata *pdata)
-{
-	const char *name = pdata->drv_name;
-	struct dentry *pfile;
-
-	pdata->expansion.dbg_adapter =
-		debugfs_create_dir(name, pdata->expansion.fxgmac_dbg_root);
-	if (pdata->expansion.dbg_adapter) {
-		pfile = debugfs_create_file("netdev_ops", 0600,
-					    pdata->expansion.dbg_adapter, pdata,
-					    &fxgmac_dbg_netdev_ops_fops);
-		if (!pfile)
-			DPRINTK("debugfs netdev_ops for %s failed\n", name);
-	} else {
-		DPRINTK("debugfs entry for %s failed\n", name);
-	}
-}
-
-/**
- * fxgmac_dbg_adapter_exit - clear out the adapter's debugfs entries
- * @adapter: board private structure
- **/
-void fxgmac_dbg_adapter_exit(struct fxgmac_pdata *pdata)
-{
-	if (pdata->expansion.dbg_adapter)
-		debugfs_remove_recursive(pdata->expansion.dbg_adapter);
-	pdata->expansion.dbg_adapter = NULL;
-}
-
-/**
- * fxgmac_dbg_init - start up debugfs for the driver
- **/
-void fxgmac_dbg_init(struct fxgmac_pdata *pdata)
-{
-	unsigned int i;
-	char num[3];
-	const char debug_path[] = "/sys/kernel/debug/";
-	const char file_prefix[] = "fuxi_";
-	char file_path[50];
-	char file_name[8];
-
-	/* init file_path */
-	memset(file_path, '\0', sizeof(file_path));
-	memcpy(file_path, debug_path, sizeof(debug_path));
-
-	for (i = 0; i < DF_MAX_NIC_NUM; i++) {
-		/* init num and filename */
-		memset(num, '\0', sizeof(num));
-		memset(file_name, '\0', sizeof(file_name));
-
-		/* int to string */
-		sprintf(num, "%d", i);
-
-		/* file name */
-		memcpy(file_name, file_prefix, sizeof(file_prefix));
-		memcpy(file_name + strlen(file_prefix), num, sizeof(num));
-
-		/* file path */
-		memcpy(file_path + sizeof(debug_path) - 1, file_name,
-		       sizeof(file_name));
-
-		/* whether file exist */
-		pdata->expansion.fxgmac_dbg_root =
-			debugfs_lookup(file_name, NULL);
-		if (!pdata->expansion.fxgmac_dbg_root) {
-			/* create file */
-			pdata->expansion.fxgmac_dbg_root =
-				debugfs_create_dir(file_name, NULL);
-			if (IS_ERR(pdata->expansion.fxgmac_dbg_root))
-				DPRINTK("fxgmac init of debugfs failed\n");
-
-			break;
-		}
-	}
-}
-
-/**
- * fxgmac_dbg_exit - clean out the driver's debugfs entries
- **/
-void fxgmac_dbg_exit(struct fxgmac_pdata *pdata)
-{
-	if (pdata->expansion.fxgmac_dbg_root)
-		debugfs_remove_recursive(pdata->expansion.fxgmac_dbg_root);
-}
-
-#endif /* HAVE_XLGMAC_DEBUG_FS */

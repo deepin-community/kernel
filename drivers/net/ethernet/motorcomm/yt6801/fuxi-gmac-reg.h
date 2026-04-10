@@ -4,20 +4,23 @@
 #ifndef __FUXI_GMAC_REG_H__
 #define __FUXI_GMAC_REG_H__
 
-#define  AISC_MODE
+#define ASIC_MODE
 
-#define FUXI_REV_01                             0x01    /* The first NTO version. */
-#define FUXI_REV_03                             0x03    /* ECO back on 07/2023. */
+#define YT6801_NTO_VER 0x01      /* The first NTO version. */
+#define YT6801_ECO1_VER 0x03     /* ECO back on 07/2023. */
+#define YT6801_ECO2_VER 0x04     /* ECO2 back on 01/2026. */
 
 /* MAC register offsets */
 #define MAC_OFFSET                              0x2000
 #define MAC_CR                                  0x0000  /* The MAC Configuration Register */
 #define MAC_ECR                                 0x0004
 #define MAC_PFR                                 0x0008
+#define MAC_WTR                                 0x000c
 #define MAC_HTR0                                0x0010
 #define MAC_VLANTR                              0x0050
 #define MAC_VLANHTR                             0x0058
 #define MAC_VLANIR                              0x0060
+#define MAC_IVLANIR                              0x0064
 #define MAC_Q0TFCR                              0x0070
 #define MAC_RFCR                                0x0090
 #define MAC_RQC0R                               0x00a0
@@ -36,8 +39,12 @@
 #define MAC_LPI_CONTROL                         0x00d4
 #define MAC_LPI_TIMER                           0x00d8
 #define MAC_MS_TIC_COUNTER                      0x00dc
-#define MAC_AN_SR                               0x00E4
-#define MAC_PHYIF_STA                           0x00F8
+#define MAC_AN_CR                              0x00e0
+#define MAC_AN_SR                              0x00e4
+#define MAC_AN_ADV                             0x00e8
+#define MAC_AN_LPA                             0x00ec
+#define MAC_AN_EXP                             0x00f0
+#define MAC_PHYIF_STA                           0x00f8
 #define MAC_VR                                  0x0110
 #define MAC_DBG_STA                             0x0114
 #define MAC_HWF0R                               0x011c
@@ -46,6 +53,7 @@
 #define MAC_HWF3R                               0x0128
 #define MAC_MDIO_ADDRESS                        0x0200
 #define MAC_MDIO_DATA                           0x0204
+#define MAC_GPIOCR                              0x0208
 #define MAC_GPIO_SR                             0x020c
 #define MAC_ARP_PROTO_ADDR                      0x0210
 #define MAC_CSR_SW_CTRL                         0x0230
@@ -406,7 +414,7 @@
 #define MMC_CR_MCF_POS				3
 #define MMC_CR_MCF_LEN				1
 #define MMC_RIER_ALL_INTERRUPTS_POS		0
-#define MMC_RIER_ALL_INTERRUPTS_LEN		26
+#define MMC_RIER_ALL_INTERRUPTS_LEN		28
 #define MMC_RISR_RXFRAMECOUNT_GB_POS		0
 #define MMC_RISR_RXFRAMECOUNT_GB_LEN		1
 #define MMC_RISR_RXOCTETCOUNT_GB_POS		1
@@ -465,7 +473,7 @@
 #define MMC_RISR_RXLPITRANSITION_LEN		1
 
 #define MMC_TIER_ALL_INTERRUPTS_POS		0
-#define MMC_TIER_ALL_INTERRUPTS_LEN		26
+#define MMC_TIER_ALL_INTERRUPTS_LEN		28
 #define MMC_TISR_TXOCTETCOUNT_GB_POS		0
 #define MMC_TISR_TXOCTETCOUNT_GB_LEN		1
 #define MMC_TISR_TXFRAMECOUNT_GB_POS		1
@@ -525,10 +533,12 @@
 
 /* MTL register offsets */
 #define MTL_OMR				0x0c00
-#define MTL_FDDR			0x0c10
+#define MTL_FDCR				0x0c08
+#define MTL_FDSR				0x0c0c
+#define MTL_FDDR				0x0c10
 #define MTL_INT_SR			0x0c20
 #define MTL_RQDCM0R			0x0c30
-#define MTL_ECC_INT_SR	    0x0ccc
+#define MTL_ECC_INT_SR			0x0ccc
 
 #define MTL_RQDCM_INC			4
 #define MTL_RQDCM_Q_PER_REG		4
@@ -549,10 +559,13 @@
 #define MTL_Q_INT_CTL_SR	0x0d2c
 
 #define MTL_Q_TQOMR			0x00
+#define MTL_Q_TQUR			0x04
 #define MTL_Q_RQOMR			0x30
+#define MTL_Q_RQMPOCR			0x34
 #define MTL_Q_RQDR			0x38
-#define MTL_Q_IER			0x2c
-#define MTL_Q_ISR			0x2c /* no isr register */
+#define MTL_Q_RQCR			0x3c
+#define MTL_Q_IER				0x2c
+#define MTL_Q_ISR				0x2c /* no isr register */
 #define MTL_TXQ_DEG			0x08 /* transmit  debug */
 
 /* MTL queue register entry bit positions and sizes */
@@ -652,9 +665,18 @@
 #define MTL_TC_BASE			MTL_Q_BASE
 #define MTL_TC_INC			MTL_Q_INC
 
+#define MTL_TC_TQDR			0x08
 #define MTL_TC_ETSCR			0x10
 #define MTL_TC_ETSSR			0x14
 #define MTL_TC_QWR			0x18
+
+/* The Queue 0 Transmit Debug register gives the debug status of various blocks
+ * related to the Transmit queue
+ */
+#define MTL_TC_TQDR_TRCSTS_POS		1
+#define MTL_TC_TQDR_TRCSTS_LEN		2
+#define MTL_TC_TQDR_TXQSTS_POS		4
+#define MTL_TC_TQDR_TXQSTS_LEN		1
 
 /* MTL traffic class register entry bit positions and sizes */
 #define MTL_TC_ETSCR_TSA_POS		0
@@ -673,28 +695,45 @@
 #define DMA_DSR0			0x100c
 #define DMA_DSR1			0x1010
 #define DMA_DSR2			0x1014
+#define DMA_AXIARCR		0x1020
+#define DMA_AXIAWCR		0x1024
+#define DMA_AXIAWRCR		0x1028
+#define DMA_SAFE_ISR		0x1080
+#define DMA_ECC_IE		0x1084
 #define DMA_ECC_INT_SR		0x1088
 
 /* DMA register entry bit positions and sizes */
 #define DMA_ISR_MACIS_POS		17
 #define DMA_ISR_MACIS_LEN		1
 #define DMA_ISR_MTLIS_POS		16
-#define DMA_ISR_MTLIS_LEN		1
+#define DMA_ISR_MTLIS_LEN			1
 #define DMA_MR_SWR_POS			0
 #define DMA_MR_SWR_LEN			1
+#define DMA_MR_TXPR_POS			11
+#define DMA_MR_TXPR_LEN			1
 #define DMA_MR_INTM_POS			16
 #define DMA_MR_INTM_LEN			2
+#define DMA_MA_INTM_EDGE		0
+#define DMA_MA_INTM_LEVEL		1
+#define DMA_MA_INTM_LEVLE_ENHANCE	2
 #define DMA_MR_QUREAD_POS              19
 #define DMA_MR_QUREAD_LEN               1
+#define DMA_MR_QUREAD_EN		1
+#define DMA_MR_TNDF_POS			20
+#define DMA_MR_TNDF_LEN			2
+#define DMA_MR_RNDF_POS			22
+#define DMA_MR_RNDF_LEN			2
 
-#define DMA_SBMR_EN_LPI_POS         31
-#define DMA_SBMR_EN_LPI_LEN         1
-#define DMA_SBMR_LPI_XIT_PKT_POS    30
-#define DMA_SBMR_LPI_XIT_PKT_LEN    1
+#define DMA_SBMR_EN_LPI_POS		31
+#define DMA_SBMR_EN_LPI_LEN		1
+#define DMA_SBMR_LPI_XIT_PKT_POS		30
+#define DMA_SBMR_LPI_XIT_PKT_LEN		1
 #define DMA_SBMR_WR_OSR_LMT_POS		24
 #define DMA_SBMR_WR_OSR_LMT_LEN		6
 #define DMA_SBMR_RD_OSR_LMT_POS		16
 #define DMA_SBMR_RD_OSR_LMT_LEN	        8
+#define DMA_SBMR_AAL_POS		12
+#define DMA_SBMR_AAL_LEN		1
 #define DMA_SBMR_EAME_POS		11
 #define DMA_SBMR_EAME_LEN		1
 #define DMA_SBMR_AALE_POS       10
@@ -749,6 +788,12 @@
 #define DMA_CH_RDRLR			0x30
 #define DMA_CH_IER			0x34
 #define DMA_CH_RIWT			0x38
+#define DMA_CH_CATDR_LO			0x44
+#define DMA_CH_CARDR_LO			0x4c
+#define DMA_CH_CATBR_HI			0x50
+#define DMA_CH_CATBR_LO			0x54
+#define DMA_CH_CARBR_HI			0x58
+#define DMA_CH_CARBR_LO			0x5c
 #define DMA_CH_SR			0x60
 
 /* DMA channel register entry bit positions and sizes */
@@ -861,6 +906,8 @@
 #define RX_NORMAL_DESC3_INTE_POS		30
 #define RX_NORMAL_DESC3_INTE_LEN		1
 #define RX_NORMAL_DESC3_L34T_LEN		4
+#define RX_NORMAL_DESC3_RSV_POS		26
+#define RX_NORMAL_DESC3_RSV_LEN		1
 #define RX_NORMAL_DESC3_LD_POS			28
 #define RX_NORMAL_DESC3_LD_LEN			1
 #define RX_NORMAL_DESC3_OWN_POS			31
@@ -909,6 +956,8 @@
  */
 #define RX_NORMAL_DESC2_WB_DAF_POS          17
 #define RX_NORMAL_DESC2_WB_DAF_LEN          1
+#define RX_NORMAL_DESC2_WB_RAPARSER_POS    11
+#define RX_NORMAL_DESC2_WB_RAPARSER_LEN     3
 
 #define RX_NORMAL_DESC3_WB_LD_POS           28
 #define RX_NORMAL_DESC3_WB_LD_LEN           1
@@ -923,6 +972,59 @@
  */
 #define RX_NORMAL_DESC3_WB_CE_POS	        24
 #define RX_NORMAL_DESC3_WB_CE_LEN           1
+
+/* When this bit is set, it indicates that the packet length exceeds
+ * the specified maximum Ethernet size of 1518, 1522, or 2000 bytes
+ * (9018 or 9022 bytes if jumbo packet enable is set). Note: Giant packet
+ * indicates only the packet length. It does not cause any packet truncation.
+ */
+#define RX_NORMAL_DESC3_WB_GP_POS 23
+#define RX_NORMAL_DESC3_WB_GP_LEN 1
+
+/* When this bit is set, it indicates that the Receive Watchdog Timer has expired
+ * while receiving the current packet. The current packet is truncated after
+ * watchdog timeout.
+ */
+#define RX_NORMAL_DESC3_WB_RWT_POS 22
+#define RX_NORMAL_DESC3_WB_RWT_LEN 1
+
+/* When this bit is set, it indicates that the received packet is damaged because
+ * of buffer overflow in Rx FIFO.
+ * Note: This bit is set only when the DMA transfers a partial packet to the
+ * application. This happens only when the Rx FIFO is operating in the threshold
+ * mode. In the store-and-forward mode, all partial packets are dropped completely
+ * in Rx FIFO.
+ */
+#define RX_NORMAL_DESC3_WB_OE_POS 21
+#define RX_NORMAL_DESC3_WB_OE_LEN 1
+
+/* When this bit is set, it indicates that the gmii_rxer_i signal is asserted while
+ * the gmii_rxdv_i signal is asserted during packet reception. This error also
+ * includes carrier extension error in the GMII and half-duplex mode. Error can be
+ * of less or no extension, or error (rxd!= 0f) during extension
+ */
+#define RX_NORMAL_DESC3_WB_RE_POS 20
+#define RX_NORMAL_DESC3_WB_RE_LEN 1
+
+/* When this bit is set, it indicates that the received packet has a non-integer
+ * multiple of bytes(odd nibbles). This bit is valid only in the MII Mode
+ */
+#define RX_NORMAL_DESC3_WB_DE_POS 19
+#define RX_NORMAL_DESC3_WB_DE_LEN 1
+
+/* When this bit is set, it indicates the logical OR of the following bits:
+ *	RDES3[24]: CRC Error
+ *	RDES3[19]: Dribble Error
+ *	RDES3[20]: Receive Error
+ *	RDES3[22]: Watchdog Timeout
+ *	RDES3[21]: Overflow Error
+ *	RDES3[23]: Giant Packet
+ *	RDES2[17]: Destination Address Filter Fail, when Flexible RX Parser is enabled
+ *	RDES2[16]: SA Address Filter Fail, when Flexible RX Parser is enabled
+ * This field is valid only when the LD bit of RDES3 is set
+ */
+#define RX_NORMAL_DESC3_WB_ES_POS 15
+#define RX_NORMAL_DESC3_WB_ES_LEN 1
 
 #define RX_DESC3_L34T_IPV4_TCP			1
 #define RX_DESC3_L34T_IPV4_UDP			2
@@ -1037,6 +1139,8 @@
 #define PHY_CR_SPEED_SEL_L_LEN          1
 #define PHY_CR_AUTOENG_POS              12
 #define PHY_CR_AUTOENG_LEN              1
+#define PHY_CR_POWER_POS               11
+#define PHY_CR_POWER_LEN                1
 #define PHY_CR_RE_AUTOENG_POS           9
 #define PHY_CR_RE_AUTOENG_LEN           1
 #define PHY_CR_DUPLEX_POS               8
@@ -1060,6 +1164,10 @@
 #define PHY_MII_ADVERTISE_10HALF_POS         5
 #define PHY_MII_ADVERTISE_10HALF_LEN         1
 #define REG_MII_LPA           0x05    /* Link partner ability reg    */
+#define PHY_MII_LINK_PARNTNER_10FULL_POS 6
+#define PHY_MII_LINK_PARNTNER_10FULL_LEN 1
+#define PHY_MII_LINK_PARNTNER_10HALF_POS 5
+#define PHY_MII_LINK_PARNTNER_10HALF_LEN 1
 #define REG_MII_EXPANSION     0x06    /* Expansion register          */
 #define REG_MII_NEXT_PAGE     0x07    /* Next page register          */
 #define REG_MII_LPR_NEXT_PAGE 0x08    /* LPR next page register      */
@@ -1085,7 +1193,7 @@
 #define PHY_MII_SPEC_DUPLEX_LEN     1
 #define REG_MII_INT_MASK      0x12    /* Interrupt mask register     */
 
-#ifdef AISC_MODE
+#ifdef ASIC_MODE
 #define PHY_INT_MASK_LINK_UP_POS        10
 #define PHY_INT_MASK_LINK_UP_LEN        1
 #define PHY_INT_MASK_LINK_DOWN_POS      11
@@ -1096,12 +1204,21 @@
 #define PHY_INT_MASK_LINK_DOWN_POS      0
 #define PHY_INT_MASK_LINK_DOWN_LEN      1
 #endif
-#define REG_MII_INT_STATUS              0x13    /* Interrupt status register   */
+#define REG_MII_INT_STATUS 0x13 /* Interrupt status register   */
+#ifdef ASIC_MODE
+#define PHY_INT_STAT_LINK_UP_POS        10
+#define PHY_INT_STAT_LINK_UP_LEN        1
+#define PHY_INT_STAT_LINK_DOWN_POS     11
+#define PHY_INT_STAT_LINK_DOWN_LEN     1
+#else
 #define PHY_INT_STAT_LINK_UP_POS        1
 #define PHY_INT_STAT_LINK_UP_LEN        1
 #define PHY_INT_STAT_LINK_DOWN_POS      0
 #define PHY_INT_STAT_LINK_DOWN_LEN      1
+#endif
 #define REG_MII_DOWNG_CTRL              0x14    /* Speed auto downgrade control*/
+#define REG_SMART_SPEED_POS            5
+#define REG_SMART_SPEED_LEN            1
 #define REG_MII_RERRCOUNTER             0x15    /* Receive error counter       */
 
 #define REG_MII_EXT_ADDR                0x1E    /* Extended reg's address      */
@@ -1112,11 +1229,10 @@
 /* for ephy link capability
  * Advertisement control register(0x04)
  */
-	/* Advertisement control register(0x04) */
+/* Advertisement control register(0x04) */
 #define FXGMAC_ADVERTISE_SLCT           0x001f  /* Selector bits               */
 #define FXGMAC_ADVERTISE_CSMA           0x0001  /* Only selector supported     */
-#define FXGMAC_ADVERTISE_1000FULL    	0x0004  /* trt fir 1000BASE-T full duplex */
-#define FXGMAC_ADVERTISE_1000HALF    	0x0008  /* try for 1000BASE-T half duplex */
+
 #define FXGMAC_ADVERTISE_10HALF         0x0020  /* Try for 10mbps half-duplex  */
 #define FXGMAC_ADVERTISE_10FULL         0x0040  /* Try for 10mbps full-duplex  */
 #define FXGMAC_ADVERTISE_100HALF        0x0080  /* Try for 100mbps half-duplex */
@@ -1130,11 +1246,14 @@
 #define FXGMAC_ADVERTISE_NPAGE          0x8000  /* Next page bit               */
 
 /* 1000BASE-T Control register(0x09) */
-#define REG_BIT_ADVERTISE_1000FULL      0x0200  /* Advertise 1000BASE-T full duplex */
-#define REG_BIT_ADVERTISE_1000HALF      0x0100  /* Advertise 1000BASE-T half duplex */
+#define FXGMAC_ADVERTISE_1000FULL       0x0200 /* Advertise 1000BASE-T full duplex */
+#define FXGMAC_ADVERTISE_1000HALF     0x0100 /* Advertise 1000BASE-T half duplex */
 
-#define REG_BIT_ADVERTISE_1000_CAP		(REG_BIT_ADVERTISE_1000FULL | REG_BIT_ADVERTISE_1000HALF)
-#define REG_BIT_ADVERTISE_100_10_CAP	(FXGMAC_ADVERTISE_100FULL | FXGMAC_ADVERTISE_100HALF | FXGMAC_ADVERTISE_10FULL | FXGMAC_ADVERTISE_10HALF)
+#define REG_BIT_ADVERTISE_1000_CAP \
+	(FXGMAC_ADVERTISE_1000FULL | FXGMAC_ADVERTISE_1000HALF)
+#define REG_BIT_ADVERTISE_100_10_CAP                           \
+	(FXGMAC_ADVERTISE_100FULL | FXGMAC_ADVERTISE_100HALF | \
+	 FXGMAC_ADVERTISE_10FULL | FXGMAC_ADVERTISE_10HALF)
 
 #ifndef SPEED_1000M
 #define SPEED_1000M     1000
@@ -1161,19 +1280,23 @@
 #define BIT(n) (0x1<<(n))
 #endif
 
-#ifndef FUXI_EPHY_SPEED_MODE_BIT
-#define FUXI_EPHY_SPEED_MODE		0xc000
-#define FUXI_EPHY_DUPLEX			0x2000
-#define FUXI_EPHY_SPEED_MODE_BIT		14
-#define FUXI_EPHY_DUPLEX_BIT		13
-#define FUXI_EPHY_LINK_STATUS_BIT		10
+#ifndef FXGMAC_EPHY_SPEED_MODE_BIT
+#define FXGMAC_EPHY_SPEED_MODE		0xc000
+#define FXGMAC_EPHY_DUPLEX		0x2000
+#define FXGMAC_EPHY_SPEED_MODE_BIT	14
+#define FXGMAC_EPHY_DUPLEX_BIT		13
+#define FXGMAC_EPHY_LINK_STATUS_BIT	10
 
 #endif
 
-#define FUXI_EPHY_SMI_SEL_PHY        0x0
-#define FUXI_EPHY_SMI_SEL_SDS_QSGMII 0x02
-#define FUXI_EPHY_SMI_SEL_SDS_SGMII  0x03
+#define FXGMAC_EPHY_SMI_SEL_PHY		0x0
+#define FXGMAC_EPHY_SMI_SEL_SDS_QSGMII	0x02
+#define FXGMAC_EPHY_SMI_SEL_SDS_SGMII	0x03
 
+#define REG_MII_EXT_AFE_CONTROL_REGISTER3		0x12
+#define REG_MII_EXT_AFE_CONTROL_CLKDAC_AON_POS	13
+#define REG_MII_EXT_AFE_CONTROL_CLKDAC_AON_LEN	1
+#define REG_MII_EXT_AFE_CONTROL_CLKDAC_AON_ON	1
 #define REG_MII_EXT_ANALOG_CFG3                          0x52
 #define MII_EXT_ANALOG_CFG3_ADC_START_CFG_POS            14
 #define MII_EXT_ANALOG_CFG3_ADC_START_CFG_LEN            2
@@ -1209,69 +1332,70 @@
 #define REG_MII_EXT_SLEEP_REG_ENABLE_LOOPBACK            0x6812
 #define REG_MII_EXT_SLEEP_REG_CLEAN_LOOPBACK             0xe812
 
-#define REG_MII_EXT_ANALOG_CFG2                                           0x51
-#define REG_MII_EXT_ANALOG_CFG2_LED_VALUE                                 0x4a9
-#define REG_MII_EXT_ANALOG_CFG8                                           0x57
-#define REG_MII_EXT_ANALOG_CFG8_LED_VALUE                                 0x274c
+#define REG_MII_EXT_ANALOG_CFG2 0x51
+#define REG_MII_EXT_ANALOG_CFG2_VALUE 0x4a9
+#define REG_MII_EXT_ANALOG_CFG8 0x57
+#define REG_MII_EXT_ANALOG_CFG8_VALUE 0x274c
+#define REG_MII_EXT_ANALOG_CFG8_137D1D05_VALUE 0x264c
 
-#define REG_MII_EXT_COMMON_LED_CFG                                        0xA00B
-#define REG_MII_EXT_COMMON_LED0_CFG                                       0xA00C
-#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION0                       0x2600
-#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION1                       0x00
-#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION2                       0x20
-#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION3                       0x2600
-#define REG_MII_EXT_COMMON_LED1_CFG                                       0xA00D
-#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION0                       0x1800
-#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION1                       0x00
-#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION2                       0x40
-#define REG_MII_EXT_COMMON_LED2_CFG                                       0xA00E
-#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION0                       0x00
-#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION2                       0x07
-#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION3                       0x20
-#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION4                       0x1800
-#define REG_MII_EXT_COMMON_LED_BLINK_CFG                                  0xA00F
-#define REG_MII_EXT_COMMON_LED_BLINK_CFG_SOLUTION2                        0x0F
+#define REG_MII_EXT_COMMON_LED_CFG 0xa00b
+#define REG_MII_EXT_COMMON_LED0_CFG 0xa00c
+#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION0 0x2600
+#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION1 0x00
+#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION2 0x20
+#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SOLUTION3 0x2600
+#define REG_MII_EXT_COMMON_LED1_CFG 0xa00d
+#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION0 0x1800
+#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION1 0x00
+#define REG_MII_EXT_COMMON_LED1_CFG_VALUE_SOLUTION2 0x40
+#define REG_MII_EXT_COMMON_LED2_CFG 0xa00e
+#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION0 0x00
+#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION2 0x07
+#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION3 0x20
+#define REG_MII_EXT_COMMON_LED2_CFG_VALUE_SOLUTION4 0x1800
+#define REG_MII_EXT_COMMON_LED_BLINK_CFG 0xa00f
+#define REG_MII_EXT_COMMON_LED_BLINK_CFG_SOLUTION2 0x0f
 
-#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SLEEP_SOLUTION3                 0x2600
+#define REG_MII_EXT_COMMON_LED0_CFG_VALUE_SLEEP_SOLUTION3 0x2600
 
-#define REG_MII_EXT_PKG_CFG0                                              0xA0
-#define REG_MII_EXT_PKG_CHECK_POS                                         14
-#define REG_MII_EXT_PKG_CHECK_LEN                                         2
-#define REG_MII_EXT_PKG_ENABLE_CHECK                                      0x2
-#define REG_MII_EXT_PKG_DISABLE_CHECK                                     0x1
-#define REG_MII_EXT_SLEEP_CONTROL1                                        0x27
-#define MII_EXT_SLEEP_CONTROL1_EN_POS                                     15
-#define MII_EXT_SLEEP_CONTROL1_EN_LEN                                     1
-#define MII_EXT_SLEEP_CONTROL1_PLLON_IN_SLP_POS                           14
-#define MII_EXT_SLEEP_CONTROL1_PLLON_IN_SLP_LEN                           1
-#define REG_MII_EXT_PKG_RX_VALID0                                         0xA3
-#define REG_MII_EXT_REG_RX_VALID1                                         0xA4
-#define REG_MII_EXT_REG_RX_OS0                                            0xA5
-#define REG_MII_EXT_REG_RX_OS1                                            0xA6
-#define REG_MII_EXT_REG_RX_US0                                            0xA7
-#define REG_MII_EXT_REG_RX_US1                                            0xA8
-#define REG_MII_EXT_REG_RX_ERR                                            0xA9
-#define REG_MII_EXT_REG_RX_0S_BAD                                         0xAA
-#define REG_MII_EXT_REG_RX_FRAGMENT                                       0xAB
-#define REG_MII_EXT_REG_RX_NOSFD                                          0xAC
-#define REG_MII_EXT_REG_TX_VALID0                                         0xAD
-#define REG_MII_EXT_REG_TX_VALID1                                         0xAE
-#define REG_MII_EXT_REG_TX_OS0                                            0xAF
-#define REG_MII_EXT_REG_TX_OS1                                            0xB0
-#define REG_MII_EXT_REG_TX_US0                                            0xB1
-#define REG_MII_EXT_REG_TX_US1                                            0xB2
-#define REG_MII_EXT_REG_TX_ERR                                            0xB3
-#define REG_MII_EXT_REG_TX_OS_BAD                                         0xB4
-#define REG_MII_EXT_REG_TX_FRAGMENT                                       0xB5
-#define REG_MII_EXT_REG_TX_NOSFD                                          0xB6
-#define REG_MII_EXT_REG_PMA_DBG0_ADC                                      0x13
-#define REG_MII_EXT_ENABLE_GIGA_POWER_SAVING_FOR_SHORT_CABLE              0x3538
-#define REG_MII_EXT_REG_CLD_REG0                                          0x3A0
-#define REG_MII_EXT_ENABLE_CLD_NP_WP                                      0xEB24
-#define REG_MII_EXT_REG_CLD_REG1                                          0x3CC
-#define REG_MII_EXT_ENABLE_CLD_GT_HT_BT                                   0x7001
-#define REG_MMD_EEE_ABILITY_REG                                           0x3C
-#define REG_MMD_EEE_ABILITY_VALUE                                         0x06
+#define REG_MII_EXT_PKG_CFG0 0xa0
+#define REG_MII_EXT_PKG_CHECK_POS 14
+#define REG_MII_EXT_PKG_CHECK_LEN 2
+#define REG_MII_EXT_PKG_ENABLE_CHECK 0x2
+#define REG_MII_EXT_PKG_DISABLE_CHECK 0x1
+#define REG_MII_EXT_SLEEP_CONTROL1 0x27
+#define MII_EXT_SLEEP_CONTROL1_EN_POS 15
+#define MII_EXT_SLEEP_CONTROL1_EN_LEN 1
+#define MII_EXT_SLEEP_CONTROL1_PLLON_IN_SLP_POS 14
+#define MII_EXT_SLEEP_CONTROL1_PLLON_IN_SLP_LEN 1
+#define REG_MII_EXT_PKG_RX_VALID0 0xa3
+#define REG_MII_EXT_REG_RX_VALID1 0xa4
+#define REG_MII_EXT_REG_RX_OS0 0xa5
+#define REG_MII_EXT_REG_RX_OS1 0xa6
+#define REG_MII_EXT_REG_RX_US0 0xa7
+#define REG_MII_EXT_REG_RX_US1 0xa8
+#define REG_MII_EXT_REG_RX_ERR 0xa9
+#define REG_MII_EXT_REG_RX_0S_BAD 0xaa
+#define REG_MII_EXT_REG_RX_FRAGMENT 0xab
+#define REG_MII_EXT_REG_RX_NOSFD 0xac
+#define REG_MII_EXT_REG_TX_VALID0 0xad
+#define REG_MII_EXT_REG_TX_VALID1 0xae
+#define REG_MII_EXT_REG_TX_OS0 0xaf
+#define REG_MII_EXT_REG_TX_OS1 0xb0
+#define REG_MII_EXT_REG_TX_US0 0xb1
+#define REG_MII_EXT_REG_TX_US1 0xb2
+#define REG_MII_EXT_REG_TX_ERR 0xb3
+#define REG_MII_EXT_REG_TX_OS_BAD 0xb4
+#define REG_MII_EXT_REG_TX_FRAGMENT 0xb5
+#define REG_MII_EXT_REG_TX_NOSFD 0xb6
+#define REG_MII_EXT_REG_PMA_DBG0_ADC 0x13
+#define REG_MII_EXT_ENABLE_GIGA_POWER_SAVING_FOR_SHORT_CABLE 0x3538
+#define REG_MII_EXT_REG_CLD_REG0 0x3a0
+#define REG_MII_EXT_ENABLE_CLD_NP_WP 0xeb24
+#define REG_MII_EXT_REG_CLD_REG1 0x3cc
+#define REG_MII_EXT_ENABLE_CLD_GT_HT_BT 0x7001
+#define REG_MMD_EEE_ABILITY_REG 0x3c
+#define REG_MMD_EEE_ABILITY_VALUE 0x06
 
 /* Below registers don't belong to GMAC, it has zero offset, not 0x2000 offset. mem_base + REG_XXX. */
 /***When issue happens, driver write this register to trigger pcie sniffer. ***/
@@ -1302,7 +1426,7 @@
 #define MGMT_EPHY_CTRL_STA_SPEED_LEN	        2
 #define MGMT_EPHY_CTRL_STA_SPEED_MASK           0x18
 
-#define MGMT_EPHY_CTRL_ERROR_VAULE              0xFFFFFFFF
+#define MGMT_EPHY_CTRL_ERROR_VALUE              0xFFFFFFFF
 
 #define MGMT_PCIE_EP_CTRL                       0x1008
 
@@ -1323,11 +1447,14 @@
 /* set means  link change wakeup  enable */
 #define WOL_LINKCHG_EN_POS                      0
 #define WOL_LINKCHG_EN_LEN                      1
+#define WOL_WAIT_TIME_POS                       2
+#define WOL_WAIT_TIME_LEN                       13
 
 #define OOB_WOL_CTRL                            0x1010
 #define OOB_WOL_CTRL_DIS_POS                    0
 #define OOB_WOL_CTRL_DIS_LEN                    1
 
+#define MGMT_INT_CTRL0 0x1100
 /* b3:0 per rx ch interrupt
  * b7:4 per tx ch interrupt
  * b8 	Safety interrupt signal for un-correctable error
@@ -1352,9 +1479,9 @@
 #define MGMT_INT_CTRL0_INT_STATUS_MASK      0xFFFF
 #define MGMT_INT_CTRL0_INT_STATUS_RX        0x0001
 #define MGMT_INT_CTRL0_INT_STATUS_TX        0x0010
-#define MGMT_INI_CTRL0_INT_STATUS_TX_INVERSE 0xFFEF
-#define MGMG_INT_CTRL0_INT_STATUS_PHY_INVERSE 0xFFDF
-#define MGMT_INT_CTRL0_INT_STATUS_PHY         0x0020
+#define MGMT_INT_CTRL0_INT_STATUS_TX_INVERSE 0xffef
+#define MGMT_INT_CTRL0_INT_STATUS_MISC_INVERSE 0xffdf
+#define MGMT_INT_CTRL0_INT_STATUS_MISC     0x0020
 
 #define MGMT_INT_CTRL0_INT_MASK_RXCH_POS    16
 #define MGMT_INT_CTRL0_INT_STATUS_RXCH_POS  0
@@ -1362,13 +1489,26 @@
 #define MGMT_INT_CTRL0_INT_STATUS_RXCH_MASK 0xF
 #define MGMT_INT_CTRL0_INT_STATUS_RXTX_LEN	5
 #define MGMT_INT_CTRL0_INT_STATUS_RXTX_MASK	0x1F
-#define MGMT_INT_CTRL0_INT_STATUS_RXTXPHY_MASK	0x3F
+#define MGMT_INT_CTRL0_INT_STATUS_RXTXMISC_MASK	0x3F
 
 #define MGMT_INT_CTRL0_INT_MASK_TXCH_POS	20
 #define MGMT_INT_CTRL0_INT_STATUS_TXCH_POS	4
 #define MGMT_INT_CTRL0_INT_STATUS_TXCH_LEN	1
 #define MGMT_INT_CTRL0_INT_STATUS_TXCH_MASK	0x1
 
+#define MGMT_MAC_PHYIF_STA_POS		0
+#define MGMT_MAC_AN_SR0_POS		1
+#define MGMT_MAC_AN_SR1_POS		2
+#define MGMT_MAC_AN_SR2_POS		3
+#define MGMT_MAC_PMT_STA_POS		4
+#define MGMT_MAC_LPI_STA_POS		5
+#define MGMT_MAC_MMC_STA_POS		8
+#define MGMT_MAC_RX_MMC_STA_POS	9
+#define MGMT_MAC_TX_MMC_STA_POS	10
+#define MGMT_MMC_IPCRXINT_POS		11
+#define MGMT_MAC_TX_RX_STA0_POS		13
+#define MGMT_MAC_TX_RX_STA1_POS		14
+#define MGMT_MAC_GPIO_SR_POS		15
 
 /* Interrupt Ctrl1 */
 #define INT_CTRL1                               0x1104
@@ -1414,10 +1554,13 @@ system exit idle state, send out one LTR exit message.
 #define  LTR_IDLE_ENTER                         0x113C  /* LTR_CTRL3, LTR latency message, only for System IDLE Start. */
 #define  LTR_IDLE_ENTER_POS                     0
 #define  LTR_IDLE_ENTER_LEN                     10
-#define  LTR_IDLE_ENTER_USVAL                   900
+#define LTR_IDLE_ENTER_VAL                      1
 #define  LTR_IDLE_ENTER_SCALE_POS               10
 #define  LTR_IDLE_ENTER_SCALE_LEN               5
 #define  LTR_IDLE_ENTER_SCALE                   2       /* 0-1ns, 1-32ns, 2-1024ns, 3-32,768ns, 4-1,048,576ns, 5-33,554,432ns, 110-111-Not Permitted.*/
+
+#define LTR_IDLE_ENTER_SCALE_32US			3
+#define LTR_IDLE_ENTER_SCALE_1MS			4
 #define  LTR_IDLE_ENTER_REQUIRE_POS             15
 #define  LTR_IDLE_ENTER_REQUIRE_LEN             1
 #define  LTR_IDLE_ENTER_REQUIRE                 1
@@ -1425,10 +1568,11 @@ system exit idle state, send out one LTR exit message.
 #define  LTR_IDLE_EXIT                          0x1140  /* LTR_CTRL4, LTR latency message, only for System IDLE End. */
 #define  LTR_IDLE_EXIT_POS                      0
 #define  LTR_IDLE_EXIT_LEN                      10
-#define  LTR_IDLE_EXIT_USVAL                    2
-#define  LTR_IDLE_EXIT_SCALE_POS                10
-#define  LTR_IDLE_EXIT_SCALE_LEN                5
-#define  LTR_IDLE_EXIT_SCALE                    2
+#define LTR_IDLE_EXIT_VAL                        288
+#define LTR_IDLE_EXIT_SCALE_POS                 10
+#define LTR_IDLE_EXIT_SCALE_LEN                 5
+#define LTR_IDLE_EXIT_SCALE_1US                 2
+#define LTR_IDLE_EXIT_SCALE_32US                3
 #define  LTR_IDLE_EXIT_REQUIRE_POS              15
 #define  LTR_IDLE_EXIT_REQUIRE_LEN              1
 #define  LTR_IDLE_EXIT_REQUIRE                  1
@@ -1466,6 +1610,8 @@ system exit idle state, send out one LTR exit message.
 #define  SYS_RESET_REG                          0x152C
 #define  SYS_RESET_POS                          31
 #define  SYS_RESET_LEN                          1
+#define SYS_RESET_BYPASS_POS                   0
+#define SYS_RESET_BYPASS_LEN                   1
 
 #define  REG_PCIE_PSM_STATE                     0x1994  /* PCIe PHY power state. */
 #define  PCIE_PSM_STATE_POS                     0
@@ -1595,6 +1741,8 @@ system exit idle state, send out one LTR exit message.
 #define MGMT_RSS_CTRL_TBL_SIZE_LEN	3
 #define MGMT_RSS_CTRL_TBL_SIZE_MASK	0x7
 
+#define MAC_RSSCR_IP2TE_POS		1
+#define MAC_RSSCR_IP2TE_LEN		1
 #define MAC_RSSCR_RSSE_POS		31
 #define MAC_RSSCR_RSSE_LEN		1
 
@@ -1653,6 +1801,16 @@ system exit idle state, send out one LTR exit message.
 
 #define MGMT_RMK_CTRL				0x1400
 
+#define MGMT_SIGDET_DEGLITCH			0x17f0
+#define MGMT_SIGDET_DEGLITCH_DISABLE_POS		2 /* sigdet deglitch disable ,active low */
+#define MGMT_SIGDET_DEGLITCH_DISABLE_LEN		1
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_POS	3 /* sigdet deglitch time windows filter seltion */
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_LEN	2
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_10ns	0
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_20ns	1
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_30ns	2
+#define MGMT_SIGDET_DEGLITCH_TIME_WIN_40ns	3
+
 #define MGMT_SIGDET                 0x17F8
 #define MGMT_SIGDET_POS             13
 #define MGMT_SIGDET_LEN             3
@@ -1676,25 +1834,12 @@ system exit idle state, send out one LTR exit message.
 #define MSI_ID_RXQ3                     	3
 #define MSI_ID_TXQ0                     	4
 
-#if  1/* msi table  modify  to 6  0~3  rx  4  tx  5  phy/other */
+/* msi table  modify  to 6  0~3  rx  4  tx  5  phy/other */
 #define MSI_ID_PHY_OTHER           5
 
 #define MSIX_TBL_MAX_NUM		      6
 #define MSIX_TBL_RXTX_NUM		      5
 
-#else
-#define MSI_ID_TXQ1                     	5
-#define MSI_ID_TXQ2                     	6
-#define MSI_ID_TXQ3                     	7
-#define MSI_ID_SFTUE                     	8
-#define MSI_ID_SFTCE                     	9
-#define MSI_ID_SBD                     	10
-#define MSI_ID_PMT                     	11
-#define MSI_ID_PHY                     	12
-
-#define MSIX_TBL_MAX_NUM		16
-#define MSIX_TBL_RXTX_NUM		 8
-#endif
 #define MSIX_TBL_BASE_ADDR      0x1200
 #define MSIX_TBL_MASK_OFFSET    0xC
 #define MSIX_TBL_DATA_OFFSET   	0x8
@@ -1738,8 +1883,8 @@ system exit idle state, send out one LTR exit message.
 /* efuse layout refer to http://redmine.motor-comm.com/issues/3856 */
 #define EFUSE_FISRT_UPDATE_ADDR         255
 #define EFUSE_SECOND_UPDATE_ADDR        209
-#define FUXI_EFUSE_MAX_ENTRY            39
-#define FUXI_EFUSE_MAX_ENTRY_UNDER_LED_COMMON 24
+#define FXGMAC_EFUSE_MAX_ENTRY           39
+#define FXGMAC_EFUSE_MAX_ENTRY_UNDER_LED_COMMON 24
 #define EFUSE_PATCH_ADDR_START_BYTE     0
 #define EFUSE_PATCH_DATA_START_BYTE     2
 #define EFUSE_REGION_A_B_LENGTH         18
@@ -1815,7 +1960,15 @@ system exit idle state, send out one LTR exit message.
 #define PM_CTRLSTAT_PME_STAT_POS                15
 #define PM_CTRLSTAT_PME_STAT_LEN                1
 
-#define REG_DEVICE_CTRL1                        0x78
+#define REG_DEVICE_CTRL1 0x78
+#define DEVICE_CTRL1_MPS_POS                   5 /* MPS: max payload size */
+#define DEVICE_CTRL1_MPS_LEN                   3
+#define DEVICE_CTRL1_MPS_128B                   0
+#define DEVICE_CTRL1_MPS_256B                   1
+#define DEVICE_CTRL1_MPS_512B                   2
+#define DEVICE_CTRL1_MPS_1024B                  3
+#define DEVICE_CTRL1_MPS_2048B                  4
+#define DEVICE_CTRL1_MPS_4096B                  5
 #define DEVICE_CTRL1_CONTROL_POS                0
 #define DEVICE_CTRL1_CONTROL_LEN                16
 #define DEVICE_CTRL1_STATUS_POS                 16
@@ -1890,5 +2043,23 @@ system exit idle state, send out one LTR exit message.
 #define REG_POWER_EIOS                          0x710
 #define POWER_EIOS_POS                          7
 #define POWER_EIOS_LEN                          1
+
+#define REG_ACK_LATENCY_RELAY_TIMER             0x700
+#define REG_ACK_LATENCY_TIMER_POS             0
+#define REG_ACK_LATENCY_TIMER_LEN             16
+#define REG_ACK_LATENCY_TIMER_VAL             0x20
+
+#define REG_L1SUB_TIMING                          0xb44
+#define L1SUB_T_PCLKACK_LOW_POS             6
+#define L1SUB_T_PCLKACK_LOW_LEN             2
+#define L1SUB_T_PCLKACK_HIGH_POS             9
+#define L1SUB_T_PCLKACK_HIGH_LEN             5
+
+#define REG_CORRECTABLE_ERROR_MASK_REG    0x114
+#define REG_CORRECTABLE_ERROR_MASK_POS    0
+#define REG_CORRECTABLE_ERROR_MASK_LEN    16
+
+#define AISTONEID_137D1D05_ADJUST_SI             0x137d1d05
+#define KX_SERIAL_CPU_TX_PATCH                  0x00011F0A
 
 #endif /* __FUXI_GMAC_REG_H__ */
