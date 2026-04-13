@@ -42,7 +42,7 @@ struct sparsemask_chunk {
 struct sparsemask {
 	short nelems;		/* current number of elements */
 	short density;		/* store 2^density elements per chunk */
-	struct sparsemask_chunk chunks[0];  /* embedded array of chunks */
+	struct sparsemask_chunk chunks[];  /* embedded array of chunks */
 };
 
 #define _SMASK_INDEX(density, elem)	((elem) >> (density))
