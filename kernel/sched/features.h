@@ -91,7 +91,7 @@ SCHED_FEAT(SIS_UTIL, true)
  * Steal a CFS task from another CPU when going idle.
  * Improves CPU utilization.
  */
-SCHED_FEAT(STEAL, true)
+SCHED_FEAT(STEAL, false)
 
 /*
  * Issue a WARN when we do multiple update_rq_clock() calls
