@@ -92,13 +92,6 @@ void sw64_rrk_store(const char *text, u16 text_len, u64 ts_nsec, int level,
 		sw64_printk_offset++;
 	}
 
-	if (is_in_emul()) {
-		void __iomem *addr = __va(QEMU_PRINTF_BUFF_BASE);
-		u64 data = ((u64)sw64_printk_buf & 0xffffffffUL)
-			| ((u64)text_len << 32);
-		*(u64 *)addr = data;
-	}
-
 	rrk_last_id = id;
 	rrk_last_newline_end = newline_end;
 
