@@ -26,6 +26,18 @@ jobs:
           git config --global user.email $email
           git config --global user.name $KBUILD_BUILD_USER
 
+      - name: "Compile kernel i386_defconfig"
+        run: |
+          # .config
+          make i386_defconfig
+          make -j$(nproc)
+
+      - name: "Clang build kernel i386_defconfig"
+        run: |
+          # .config
+          make LLVM=-18 i386_defconfig
+          make LLVM=-18 -j$(nproc)
+
       - name: "Compile kernel x86_64_defconfig"
         run: |
           # .config
