@@ -9,7 +9,7 @@
 
 #include <asm/sw64io.h>
 
-#define OFFSET_EMUL_POWER_CONTROL 0x50000UL
+#define EMUL_POWER_CONTROL (IO_BASE | SPBU_BASE | 0x50000UL)
 
 struct misc_platform {
 	void __iomem *spbu_base;
@@ -66,18 +66,22 @@ static int misc_platform_get_node(struct device *dev)
 
 static int emul_restart(struct sys_off_data *data)
 {
-	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+	void __iomem *addr = ioremap(EMUL_POWER_CONTROL, sizeof(unsigned long));
+	if (!addr)
+		panic("Fail to restart emulator");
 
-	writeq(2, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+	writeq(2, addr);
 
 	return NOTIFY_DONE;
 }
 
 static int emul_power_off(struct sys_off_data *data)
 {
-	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+	void __iomem *addr = ioremap(EMUL_POWER_CONTROL, sizeof(unsigned long));
+	if (!addr)
+		panic("Fail to poweroff emulator");
 
-	writeq(1, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+	writeq(1, addr);
 
 	return NOTIFY_DONE;
 }
