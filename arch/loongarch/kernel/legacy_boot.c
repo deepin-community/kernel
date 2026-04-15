@@ -718,3 +718,47 @@ void __init acpi_arch_init (void){
 int loongarch_have_legacy_bpi (void){
 	return have_bpi;
 }
+
+static int __init add_legacy_isa_io(struct fwnode_handle *fwnode, unsigned long isa_base)
+{
+	int ret = 0;
+	unsigned long vaddr;
+	struct logic_pio_hwaddr *range;
+	range = kzalloc(sizeof(*range), GFP_ATOMIC);
+	if (!range)
+			return -ENOMEM;
+	range->fwnode = fwnode;
+	range->size = ISA_IOSIZE;
+	range->hw_start = isa_base;
+	range->flags = LOGIC_PIO_CPU_MMIO;
+	ret = logic_pio_register_range(range);
+	if (ret) {
+			kfree(range);
+			return ret;
+	}
+	if (range->io_start != 0) {
+			logic_pio_unregister_range(range);
+			kfree(range);
+			return -EINVAL;
+	}
+	vaddr = (unsigned long)(PCI_IOBASE + range->io_start);
+	ret = ioremap_page_range(vaddr, vaddr + range->size, range->hw_start,
+									pgprot_device(PAGE_KERNEL));
+	return ret;
+}
+
+#define ISA_PHY_IOBASE  LOONGSON_LIO_BASE
+static int __init acpi_register_legacy_isa_io(void)
+{
+	struct fwnode_handle *fwnode;
+	u64 cpu_addr;
+	if (!acpi_disabled) {
+			cpu_addr = ISA_PHY_IOBASE;
+			fwnode = kzalloc(sizeof(*fwnode), GFP_ATOMIC);
+	}
+
+	if (fwnode)
+			add_legacy_isa_io(fwnode, cpu_addr);
+	return 0;
+}
+arch_initcall(acpi_register_legacy_isa_io);
