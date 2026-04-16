@@ -114,20 +114,20 @@ static u32 get_umc_base_f18h_m18h(u8 channel)
 
 static u32 hygon_get_umc_base(struct amd64_pvt *pvt, u8 channel)
 {
-        u32 umc_base;
+	u32 umc_base;
 
-        if (hygon_f18h_m4h())
-                umc_base = get_umc_base_f18h_m4h(pvt->mc_node_id, channel);
-        /*
-         * For Hygon family 18h model 0x18h-0x1fh processors, the UMC base
-         * are identical.
-         */
-        else if (hygon_f18h_m10h() && boot_cpu_data.x86_model >= 0x18)
-                umc_base = get_umc_base_f18h_m18h(channel);
-        else
-                umc_base = get_umc_base(channel);
+	if (hygon_f18h_m4h())
+		umc_base = get_umc_base_f18h_m4h(pvt->mc_node_id, channel);
+	/*
+	 * For Hygon family 18h model 0x18h-0x1fh processors, the UMC base
+	 * are identical.
+	 */
+	else if (hygon_f18h_m10h() && boot_cpu_data.x86_model >= 0x18)
+		umc_base = get_umc_base_f18h_m18h(channel);
+	else
+		umc_base = get_umc_base(channel);
 
-        return umc_base;
+	return umc_base;
 }
 
 /*
