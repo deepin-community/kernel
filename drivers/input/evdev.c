@@ -383,7 +383,13 @@ static void evdev_detach_client(struct evdev *evdev,
 	spin_lock(&evdev->client_lock);
 	list_del_rcu(&client->node);
 	spin_unlock(&evdev->client_lock);
-	synchronize_rcu();
+
+	if (system_state == SYSTEM_HALT ||
+		system_state == SYSTEM_POWER_OFF ||
+		system_state == SYSTEM_RESTART)
+		synchronize_rcu_expedited();
+	else
+		synchronize_rcu();
 }
 
 static int evdev_open_device(struct evdev *evdev)
