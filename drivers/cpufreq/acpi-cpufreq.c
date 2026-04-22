@@ -627,6 +627,7 @@ static int acpi_cpufreq_blacklist(struct cpuinfo_x86 *c)
 }
 #endif
 
+#ifdef CONFIG_ACPI_CPPC_LIB
 /* The work item is needed to avoid CPU hotplug locking issues */
 static void sched_itmt_work_fn(struct work_struct *work)
 {
@@ -640,7 +641,6 @@ static void sched_set_itmt(void)
 	schedule_work(&sched_itmt_work);
 }
 
-#ifdef CONFIG_ACPI_CPPC_LIB
 /*
  * get_max_boost_ratio: Computes the max_boost_ratio as the ratio
  * between the highest_perf and the nominal_perf.
