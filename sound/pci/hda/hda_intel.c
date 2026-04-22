@@ -423,7 +423,7 @@ static int gf_init_pci(struct azx *chip)
 			gf_chip->diu_fb_bdl_ofs[1] = diu_fb_bdl[1] - diu_fb_base; // stream offset = fb_size -4M-16M+7M*2+4K
 			gf_chip->diu_fb_bdl_vaddr[1] = ioremap_wc(diu_fb_bdl[1], BDL_SIZE); // size = 4K
 
-			dev_info(chip->card->dev, "gf_hda diu fb base=0x%llx, size=%dM.\n", diu_fb_base, (unsigned int)(fb_size >> 20));
+			dev_info(chip->card->dev, "gf_hda diu fb base=%pa, size=%dM.\n", &diu_fb_base, (unsigned int)(fb_size >> 20));
 		}
 	}
 	return 0;
