@@ -34,33 +34,39 @@
 #define DW_SPI_CAP_DFS32		BIT(1)
 
 /* Register offsets (Generic for both DWC APB SSI and DWC SSI IP-cores) */
-#define DW_SPI_CTRLR0			0x00
-#define DW_SPI_CTRLR1			0x04
-#define DW_SPI_SSIENR			0x08
-#define DW_SPI_MWCR			0x0c
-#define DW_SPI_SER			0x10
-#define DW_SPI_BAUDR			0x14
-#define DW_SPI_TXFTLR			0x18
-#define DW_SPI_RXFTLR			0x1c
-#define DW_SPI_TXFLR			0x20
-#define DW_SPI_RXFLR			0x24
-#define DW_SPI_SR			0x28
-#define DW_SPI_IMR			0x2c
-#define DW_SPI_ISR			0x30
-#define DW_SPI_RISR			0x34
-#define DW_SPI_TXOICR			0x38
-#define DW_SPI_RXOICR			0x3c
-#define DW_SPI_RXUICR			0x40
-#define DW_SPI_MSTICR			0x44
-#define DW_SPI_ICR			0x48
-#define DW_SPI_DMACR			0x4c
-#define DW_SPI_DMATDLR			0x50
-#define DW_SPI_DMARDLR			0x54
-#define DW_SPI_IDR			0x58
-#define DW_SPI_VERSION			0x5c
-#define DW_SPI_DR			0x60
-#define DW_SPI_RX_SAMPLE_DLY		0xf0
-#define DW_SPI_CS_OVERRIDE		0xf4
+#ifdef CONFIG_SW64
+#define DW_SPI_REG_OFFSET(addr) ((addr) << 7)
+#else
+#define DW_SPI_REG_OFFSET(addr) (addr)
+#endif
+
+#define DW_SPI_CTRLR0			DW_SPI_REG_OFFSET(0x00)
+#define DW_SPI_CTRLR1			DW_SPI_REG_OFFSET(0x04)
+#define DW_SPI_SSIENR			DW_SPI_REG_OFFSET(0x08)
+#define DW_SPI_MWCR			DW_SPI_REG_OFFSET(0x0c)
+#define DW_SPI_SER			DW_SPI_REG_OFFSET(0x10)
+#define DW_SPI_BAUDR			DW_SPI_REG_OFFSET(0x14)
+#define DW_SPI_TXFTLR			DW_SPI_REG_OFFSET(0x18)
+#define DW_SPI_RXFTLR			DW_SPI_REG_OFFSET(0x1c)
+#define DW_SPI_TXFLR			DW_SPI_REG_OFFSET(0x20)
+#define DW_SPI_RXFLR			DW_SPI_REG_OFFSET(0x24)
+#define DW_SPI_SR			DW_SPI_REG_OFFSET(0x28)
+#define DW_SPI_IMR			DW_SPI_REG_OFFSET(0x2c)
+#define DW_SPI_ISR			DW_SPI_REG_OFFSET(0x30)
+#define DW_SPI_RISR			DW_SPI_REG_OFFSET(0x34)
+#define DW_SPI_TXOICR			DW_SPI_REG_OFFSET(0x38)
+#define DW_SPI_RXOICR			DW_SPI_REG_OFFSET(0x3c)
+#define DW_SPI_RXUICR			DW_SPI_REG_OFFSET(0x40)
+#define DW_SPI_MSTICR			DW_SPI_REG_OFFSET(0x44)
+#define DW_SPI_ICR			DW_SPI_REG_OFFSET(0x48)
+#define DW_SPI_DMACR			DW_SPI_REG_OFFSET(0x4c)
+#define DW_SPI_DMATDLR			DW_SPI_REG_OFFSET(0x50)
+#define DW_SPI_DMARDLR			DW_SPI_REG_OFFSET(0x54)
+#define DW_SPI_IDR			DW_SPI_REG_OFFSET(0x58)
+#define DW_SPI_VERSION			DW_SPI_REG_OFFSET(0x5c)
+#define DW_SPI_DR			DW_SPI_REG_OFFSET(0x60)
+#define DW_SPI_RX_SAMPLE_DLY		DW_SPI_REG_OFFSET(0xf0)
+#define DW_SPI_CS_OVERRIDE		DW_SPI_REG_OFFSET(0xf4)
 
 /* Bit fields in CTRLR0 (DWC APB SSI) */
 #define DW_PSSI_CTRLR0_DFS_MASK			GENMASK(3, 0)
