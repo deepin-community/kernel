@@ -343,21 +343,6 @@ config SPI_DW_BT1_DIRMAP
 
 endif
 
-config SPI_SUNWAY
-	tristate "Sunway SPI controller support"
-	depends on SW64
-	imply SPI_MEM
-	help
-	  general driver for Sunway SPI controller
-
-if SPI_SUNWAY
-
-config SPI_SUNWAY_MMIO
-	tristate "Memory-mapped io interface driver for Sunway SPI controller"
-	depends on HAS_IOMEM
-
-endif
-
 config SPI_DLN2
        tristate "Diolan DLN-2 USB SPI adapter"
        depends on MFD_DLN2
