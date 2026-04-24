@@ -43,6 +43,11 @@ struct scsi_eh_save {
 	struct scsi_data_buffer sdb;
 	struct scatterlist sense_sgl;
 
+	/* struct request fields */
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	struct bio_crypt_ctx *rq_crypt_ctx;
+	struct blk_crypto_keyslot *rq_crypt_keyslot;
+#endif
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 };

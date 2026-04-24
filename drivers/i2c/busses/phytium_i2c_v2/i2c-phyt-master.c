@@ -345,9 +345,11 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 {
 	struct i2c_phyt_dev *dev = i2c_get_adapdata(adapter);
 	int ret;
+	unsigned long flags;
 
 	pm_runtime_get_sync(dev->dev);
 
+	spin_lock_irqsave(&dev->i2c_lock, flags);
 	dev->msgs = msgs;
 	dev->msgs_num = num;
 	dev->msg_err = 0;
@@ -356,12 +358,13 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 	dev->mng.tx_cmd_cnt = 0;
 	dev->mng.cur_cmd_cnt = 0;
 	dev->mng.is_last_frame = false;
+	dev->flags = ~FT_I2C_TRANS_WAIT;
 
 	i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
 	i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL, 0);
 
 	i2c_phyt_master_xfer_single_frame(dev);
-
+	spin_unlock_irqrestore(&dev->i2c_lock, flags);
 	ret = i2c_phyt_check_result(dev);
 	if (!ret) {
 		ret = num;
@@ -369,7 +372,8 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 		if (dev->abort_source != FT_I2C_SUCCESS) {
 			i2c_phyt_handle_tx_abort(dev);
 			if ((dev->abort_source & BIT(FT_I2C_TIMEOUT)) ||
-			    (dev->abort_source & BIT(FT_I2C_TRANS_PACKET_FAIL))) {
+			    (dev->abort_source & BIT(FT_I2C_TRANS_PACKET_FAIL)) ||
+			    (dev->abort_source & BIT(FT_I2C_INTR_XFER_INIT))) {
 				i2c_phyt_set_module_en(
 					dev, FT_I2C_ADAPTER_MODULE_RESET);
 				i2c_phyt_check_result(dev);
@@ -444,36 +448,54 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 {
 	struct i2c_phyt_dev *dev = (struct i2c_phyt_dev *)dev_id;
 	struct phyt_msg_info *rx_msg = (struct phyt_msg_info *)dev->rx_shmem_addr;
-	u32 stat;
+	u32 stat, head, tail;
 	int ret;
 
+	spin_lock(&dev->i2c_lock);
 	stat = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_RV2AP_INTR_STAT);
 
 	if (!(stat & FT_I2C_RV2AP_INTR_BIT4)) {
 		dev_warn(dev->dev, "unexpect i2c_phyt regfile intr, stat:%#x\n", stat);
+		spin_unlock(&dev->i2c_lock);
 		return IRQ_NONE;
 	}
 
 	i2c_phyt_common_regfile_clear_rv2ap_int(dev, stat);
 
-	if (dev->complete_flag) {
-		if (rx_msg->head.cmd_type == PHYTI2C_MSG_CMD_REPORT)
-			goto done;
-
-		ret = i2c_phyt_master_handle(dev);
-		if (ret == FT_I2C_RUNNING)
-			return IRQ_HANDLED;
-
-		dev->complete_flag = false;
-		dev->mng.cur_cmd_cnt = 0;
-		i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
-		i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL, 0);
-		complete(&dev->cmd_complete);
-		return IRQ_HANDLED;
+	if (!dev->mng.tx_ring_cnt) {
+		dev_err(dev->dev, "tx_ring_cnt is zero\n");
+		spin_unlock(&dev->i2c_lock);
+		return IRQ_NONE;
 	}
-done:
-	i2c_phyt_master_isr_handle(dev);
+	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD) % dev->mng.tx_ring_cnt;
+	tail = dev->mng.cur_cmd_cnt % dev->mng.tx_ring_cnt;
+	do {
+		tail++;
+		tail %= dev->mng.tx_ring_cnt;
+		if (rx_msg->head.cmd_type == PHYTI2C_MSG_CMD_REPORT)
+			i2c_phyt_master_isr_handle(dev);
 
+		if (dev->complete_flag) {
+			ret = i2c_phyt_master_handle(dev);
+			if (ret == FT_I2C_RUNNING)
+				continue;
+
+			dev->complete_flag = false;
+			dev->mng.cur_cmd_cnt = 0;
+			i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
+			i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_TAIL, 0);
+			complete(&dev->cmd_complete);
+			spin_unlock(&dev->i2c_lock);
+			return IRQ_HANDLED;
+		}
+	} while (tail != head);
+
+	if (dev->flags == FT_I2C_TRANS_WAIT) {
+		dev->flags = ~FT_I2C_TRANS_WAIT;
+		i2c_phyt_trig_rv_intr(dev);
+	}
+
+	spin_unlock(&dev->i2c_lock);
 	return IRQ_HANDLED;
 }
 

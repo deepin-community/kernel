@@ -24,13 +24,18 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/printk.h>
+#include <linux/memory.h>
 
 #include <asm/cacheflush.h>
+#include <asm/insn.h>
+#include <asm/ftrace.h>
 
 #include "bpf_jit.h"
 
 #define TCALL_CNT (MAX_BPF_JIT_REG + 0)
-
+#define SW64_FENTRY_NINSNS 5
+#define SW64_MAX_REG_ARGS  6
+#define STACK_ALIGN 16
 static const int bpf2sw64[] = {
 	/* return value from in-kernel function, and exit value from eBPF */
 	[BPF_REG_0] = SW64_BPF_REG_V0,
@@ -61,6 +66,7 @@ struct jit_ctx {
 	int *insn_offset;	// [bpf_insn_idx] = jited_insn_idx
 	int exentry_idx;
 	u32 *image;		// JITed instruction
+	u32 *ro_image;
 	u32 stack_size;
 };
 
@@ -486,16 +492,21 @@ static int offset_to_epilogue(const struct jit_ctx *ctx)
 }
 
 /* For tail call, jump to set up function call stack */
-#define PROLOGUE_OFFSET	11
+#define PROLOGUE_OFFSET	(11 + SW64_FENTRY_NINSNS)
 
 static void build_prologue(struct jit_ctx *ctx, bool was_classic)
 {
+	int i;
 	const u8 r6 = bpf2sw64[BPF_REG_6];
 	const u8 r7 = bpf2sw64[BPF_REG_7];
 	const u8 r8 = bpf2sw64[BPF_REG_8];
 	const u8 r9 = bpf2sw64[BPF_REG_9];
 	const u8 fp = bpf2sw64[BPF_REG_FP];
 	const u8 tcc = bpf2sw64[TCALL_CNT];
+
+	/* nops reserved for fentry call */
+	for (i = 0; i < SW64_FENTRY_NINSNS; i++)
+		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
 
 	/* Save callee-saved registers */
 	emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, -64), ctx);
@@ -1368,6 +1379,578 @@ static int validate_code(struct jit_ctx *ctx)
 static inline void bpf_flush_icache(void *start, void *end)
 {
 	flush_icache_range((unsigned long)start, (unsigned long)end);
+}
+
+static int __patch_insn_write(void *addr, const void *insn, size_t len)
+{
+	return copy_to_kernel_nofault(addr, insn, len);
+}
+
+int patch_insn_write(void *addr, const void *insn, size_t len)
+{
+	size_t size;
+	int ret;
+
+	while (len) {
+		size = min(len, PAGE_SIZE - offset_in_page(addr));
+
+		ret = __patch_insn_write(addr, insn, size);
+		if (ret)
+			return ret;
+
+		addr += size;
+		insn += size;
+		len -= size;
+	}
+
+	return 0;
+}
+
+int sw64_insn_copy(void *addr, const void *insns, size_t len)
+{
+	int ret;
+
+	ret = patch_insn_write(addr, insns, len);
+	if (!ret) {
+		flush_icache_range((unsigned long)addr, (unsigned long)addr + len);
+		mb();
+	}
+
+	return ret;
+}
+
+static int gen_call_or_nops(void *target, void *ip, u32 *insns, bool is_call)
+{
+	int i;
+	s64 offset;
+	s32 jmp_offset;
+	struct jit_ctx ctx = {
+		.image = insns,
+		.idx = 0,
+	};
+
+	if (!target) {
+		for (i = 0; i < SW64_FENTRY_NINSNS; i++)
+			emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR,
+					SW64_BPF_REG_ZR), &ctx);
+		return 0;
+	}
+	offset = (s64)((unsigned long)target - (unsigned long)ip);
+	if (offset >= -0x100000 && offset <= 0xfffff) {
+		jmp_offset = (s32)offset;
+		/* we must remember br in sw is 4 * disp， and -1 is for pc will add 1 when exec */
+		jmp_offset = jmp_offset/4 - 1;
+		emit(SW64_BPF_BR(is_call ? SW64_BPF_REG_AT : SW64_BPF_REG_ZR, jmp_offset), &ctx);
+	} else {
+		pr_err("bpf-jit: target offset 0x%llx is out of range\n", offset);
+		return -ERANGE;
+	}
+	return 0;
+}
+
+static void set_sw_nops(u32 *insns, int num)
+{
+	int i;
+	struct jit_ctx ctx = {
+		.image = insns,
+		.idx = 0,
+	};
+
+	for (i = 0; i < num; i++)
+		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), &ctx);
+
+	return;
+
+}
+
+int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type poke_type,
+		       void *old_addr, void *new_addr)
+{
+
+	u32 old_insns[SW64_FENTRY_NINSNS], new_insns[SW64_FENTRY_NINSNS];
+	bool is_call = poke_type == BPF_MOD_CALL;
+	int ret;
+
+	if (!is_kernel_text((unsigned long)ip) &&
+	    !is_bpf_text_address((unsigned long)ip))
+		return -EOPNOTSUPP;
+
+	set_sw_nops(old_insns, SW64_FENTRY_NINSNS);
+	set_sw_nops(new_insns, SW64_FENTRY_NINSNS);
+
+	ret = gen_call_or_nops(old_addr, ip, old_insns, is_call);
+	if (ret)
+		return ret;
+	/* if not same, old addr is wrong, maybe change illegal */
+	if (memcmp(ip, old_insns, SW64_FENTRY_NINSNS * 4))
+		return -EFAULT;
+
+	ret = gen_call_or_nops(new_addr, ip, new_insns, is_call);
+	if (ret)
+		return ret;
+
+	cpus_read_lock();
+	mutex_lock(&text_mutex);
+	if (memcmp(ip, new_insns, SW64_FENTRY_NINSNS * 4))
+		ret = sw64_insn_copy(ip, new_insns, SW64_FENTRY_NINSNS * 4);
+	mutex_unlock(&text_mutex);
+	cpus_read_unlock();
+
+	return ret;
+}
+
+static int btf_func_model_nregs(const struct btf_func_model *m)
+{
+	int nregs = m->nr_args;
+	int i;
+
+	/* extra registers needed for struct argument */
+	for (i = 0; i < MAX_BPF_FUNC_ARGS; i++) {
+		/* The arg_size is at most 16 bytes, enforced by the verifier. */
+		if (m->arg_flags[i] & BTF_FMODEL_STRUCT_ARG)
+			nregs += (m->arg_size[i] + 7) / 8 - 1;
+	}
+
+	return nregs;
+}
+
+static void emit_sw64_call(u64 target, struct jit_ctx *ctx)
+{
+	unsigned long ip = (unsigned long)(ctx->ro_image + ctx->idx);
+	s64 offset = (s64)((unsigned long)target - (unsigned long)ip);
+
+	if (offset >= -0x100000 && offset <= 0xfffff) {
+		s32 jmp_offset = (s32)offset;
+		/* we must remember br in sw is 4 * disp， and -1 is for pc will add 1 when exec */
+		jmp_offset = jmp_offset/4 - 1;
+		emit(SW64_BPF_BR(SW64_BPF_REG_RA, jmp_offset), ctx);
+	} else {
+		emit_sw64_load_call_addr(SW64_BPF_REG_PV, target, ctx);
+		emit(SW64_BPF_CALL(SW64_BPF_REG_RA, SW64_BPF_REG_PV), ctx);
+	}
+
+}
+
+static void save_args(struct jit_ctx *ctx, int args_off, int nregs)
+{
+	int i;
+
+	for (i = 0; i < nregs; i++) {
+		if (i < SW64_MAX_REG_ARGS) {
+			emit(SW64_BPF_STL(i + SW64_BPF_REG_A0, SW64_BPF_REG_FP, -args_off), ctx);
+		} else {
+			emit(SW64_BPF_LDL(SW64_BPF_REG_T0,
+					SW64_BPF_REG_FP, 16 + (i - SW64_MAX_REG_ARGS) * 8), ctx);
+			emit(SW64_BPF_STL(SW64_BPF_REG_T0, SW64_BPF_REG_FP, -args_off), ctx);
+		}
+		args_off -= 8;
+	}
+}
+
+static void restore_args(struct jit_ctx *ctx, int args_off, int nr_reg_args)
+{
+	int i;
+
+	for (i = 0; i < nr_reg_args; i++) {
+		emit(SW64_BPF_LDL(i + SW64_BPF_REG_A0, SW64_BPF_REG_FP, -args_off), ctx);
+		args_off -= 8;
+	}
+}
+
+static void restore_stack_args(int nr_stack_args, int args_off, int stk_arg_off,
+			       struct jit_ctx *ctx)
+{
+	int i;
+
+	for (i = 0; i < nr_stack_args; i++) {
+		emit(SW64_BPF_LDL(SW64_BPF_REG_T0,
+				SW64_BPF_REG_FP, -(args_off - SW64_MAX_REG_ARGS * 8)), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_T0, SW64_BPF_REG_FP, -stk_arg_off), ctx);
+		args_off -= 8;
+		stk_arg_off -= 8;
+	}
+}
+
+void *bpf_arch_text_copy(void *dst, void *src, size_t len)
+{
+	int ret;
+
+	mutex_lock(&text_mutex);
+	ret = sw64_insn_copy(dst, src, len);
+	mutex_unlock(&text_mutex);
+
+	if (ret)
+		return ERR_PTR(-EINVAL);
+
+	return dst;
+}
+
+int bpf_arch_text_invalidate(void *dst, size_t len)
+{
+	int ret;
+	void *image = kzalloc(len, GFP_KERNEL);
+
+	mutex_lock(&text_mutex);
+	ret = sw64_insn_copy(dst, image, len);
+	mutex_unlock(&text_mutex);
+
+	kfree(image);
+	return ret;
+}
+
+static void sw64_invoke_bpf_prog(struct jit_ctx *ctx, struct bpf_tramp_link *l,
+	int args_off, int retval_off, int run_ctx_off, bool save_ret)
+{
+	u32 *branch;
+	u64 enter_prog;
+	u64 exit_prog;
+	struct bpf_prog *p = l->link.prog;
+	int cookie_off = offsetof(struct bpf_tramp_run_ctx, bpf_cookie);
+
+	enter_prog = (u64)bpf_trampoline_enter(p);
+	exit_prog = (u64)bpf_trampoline_exit(p);
+
+	if (l->cookie == 0) {
+		/* if cookie is zero, one instruction is enough to store it */
+		emit(SW64_BPF_STL(SW64_BPF_REG_ZR,
+				SW64_BPF_REG_FP, -run_ctx_off + cookie_off), ctx);
+	} else {
+		emit_sw64_ldu64(SW64_BPF_REG_T0, l->cookie, ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_T0,
+				SW64_BPF_REG_FP, -run_ctx_off + cookie_off), ctx);
+	}
+
+	/* arg1: prog */
+	emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)p, ctx);
+	/* arg2: &run_ctx */
+	emit(SW64_BPF_LDI(SW64_BPF_REG_A1, SW64_BPF_REG_FP, -run_ctx_off), ctx);
+	emit_sw64_call(enter_prog, ctx);
+
+	/* save return value to callee saved register S0 , V0 is return value for sw64 */
+	emit(SW64_BPF_LDI(SW64_BPF_REG_S0, SW64_BPF_REG_V0, 0), ctx);
+
+	/* if (__bpf_prog_enter(prog) == 0)
+	 *         goto skip_exec_of_prog;
+	 */
+	branch = ctx->image + ctx->idx;
+	/* nop reserved for conditional jump */
+	emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
+
+	/*  must use BPF_REG_1(SW64_BPF_REG_A0), this is defined in clang */
+	emit(SW64_BPF_LDI(SW64_BPF_REG_A0, SW64_BPF_REG_FP, -args_off), ctx);
+	if (!p->jited)
+		emit_sw64_ldu64(SW64_BPF_REG_A1, (const u64)p->insnsi, ctx);
+	emit_sw64_call((const u64)p->bpf_func, ctx);
+
+	if (save_ret)
+		emit(SW64_BPF_STL(SW64_BPF_REG_V0, SW64_BPF_REG_FP, -retval_off), ctx);
+
+	if (ctx->image) {
+		/* we must remember pc will add 1 when exec in sw */
+		int offset = ctx->image + ctx->idx - branch - 1;
+		*branch = SW64_BPF_BEQ(SW64_BPF_REG_V0, offset);
+	}
+
+	/* arg1: prog */
+	emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)p, ctx);
+	/* arg2: start time */
+	emit(SW64_BPF_LDI(SW64_BPF_REG_A1, SW64_BPF_REG_S0, 0), ctx);
+	/* arg3: &run_ctx */
+	emit(SW64_BPF_LDI(SW64_BPF_REG_A2, SW64_BPF_REG_FP, -run_ctx_off), ctx);
+	emit_sw64_call(exit_prog, ctx);
+}
+
+static void sw64_invoke_bpf_mod_ret(struct jit_ctx *ctx, struct bpf_tramp_links *tl,
+	int args_off, int retval_off, int run_ctx_off, u32 **branches)
+{
+	int i;
+
+	/*
+	 * The first fmod_ret program will receive a garbage return value.
+	 * Set this to 0 to avoid confusing the program.
+	 */
+	emit(SW64_BPF_STL(SW64_BPF_REG_ZR, SW64_BPF_REG_FP, -retval_off), ctx);
+	for (i = 0; i < tl->nr_links; i++) {
+		sw64_invoke_bpf_prog(ctx, tl->links[i], args_off, retval_off,
+				run_ctx_off, true);
+		/* if (*(u64 *)(sp + retval_off) !=  0)
+		 *	goto do_fexit;
+		 */
+		emit(SW64_BPF_LDL(SW64_BPF_REG_T0, SW64_BPF_REG_FP, -retval_off), ctx);
+		/*
+		 * Save the location of branch, and generate a nop.
+		 * This nop will be replaced with a BNE later.
+		 */
+		branches[i] = ctx->image + ctx->idx;
+		emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR, SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
+	}
+}
+
+static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_image *im,
+	struct bpf_tramp_links *tlinks, void *func_addr,
+	int nregs, u32 flags)
+{
+	int i, offset;
+	u32 **branches = NULL;
+	int stack_size = 0;
+	int retval_off, args_off, nregs_off, ip_off, run_ctx_off, sreg_off, stk_arg_off;
+	struct bpf_tramp_links *fentry = &tlinks[BPF_TRAMP_FENTRY];
+	struct bpf_tramp_links *fexit = &tlinks[BPF_TRAMP_FEXIT];
+	struct bpf_tramp_links *fmod_ret = &tlinks[BPF_TRAMP_MODIFY_RETURN];
+	bool save_ret;
+	void *orig_call = func_addr;
+
+	/* Two types of generated trampoline stack layout:
+	 *
+	 * 1. trampoline called from function entry
+	 * --------------------------------------
+	 * FP + 8	    [ RA to parent func	] return address to parent
+	 *					  function
+	 * FP + 0	    [ FP of parent func ] frame pointer of parent
+	 *					  function
+	 * FP - 8       [ R28 (BPF_AT) to traced func ] return address of traced
+	 *					  function
+	 * FP - 16	    [ FP of traced func ] frame pointer of traced
+	 *					  function
+	 * FP - 24	    [ GP of traced func ] global pointer of traced
+	 *					  function
+	 * --------------------------------------
+	 *
+	 * 2. trampoline called directly
+	 * --------------------------------------
+	 * FP - 8	    [ RA to caller func ] return address to caller
+	 *					  function
+	 * FP - 16	    [ FP of caller func	] frame pointer of caller
+	 *					  function
+	 * FP - 24	    [ GP of caller func	] global pointer of caller
+	 *					  function
+	 * --------------------------------------
+	 *
+	 * FP - retval_off  [ return value      ] BPF_TRAMP_F_CALL_ORIG or
+	 *					  BPF_TRAMP_F_RET_FENTRY_RET
+	 *                  [ argN              ]
+	 *                  [ ...               ]
+	 * FP - args_off    [ arg1              ]
+	 *
+	 * FP - nregs_off   [ regs count        ]
+	 *
+	 * FP - ip_off      [ traced func	] BPF_TRAMP_F_IP_ARG
+	 *
+	 * FP - run_ctx_off [ bpf_tramp_run_ctx ]
+	 *
+	 * FP - sreg_off    [ callee saved reg	]
+	 *
+	 *		    [ pads              ] pads for 16 bytes alignment
+	 *
+	 *		    [ stack_argN        ]
+	 *		    [ ...               ]
+	 * FP - stk_arg_off [ stack_arg1        ] BPF_TRAMP_F_CALL_ORIG
+	 */
+
+	if (flags & (BPF_TRAMP_F_ORIG_STACK | BPF_TRAMP_F_SHARE_IPMODIFY))
+		return -EOPNOTSUPP;
+
+	/* room of trampoline frame to store return address, frame pointer and GP */
+	stack_size += 24;
+
+	save_ret = flags & (BPF_TRAMP_F_CALL_ORIG | BPF_TRAMP_F_RET_FENTRY_RET);
+	if (save_ret) {
+		stack_size += 8; /* Save (BPF R0) or SW A0, in sw64, they are the same */
+		retval_off = stack_size;
+	}
+
+	stack_size += nregs * 8;
+	args_off = stack_size;
+
+	stack_size += 8;
+	nregs_off = stack_size;
+
+	if (flags & BPF_TRAMP_F_IP_ARG) {
+		stack_size += 8;
+		ip_off = stack_size;
+	}
+
+	stack_size += round_up(sizeof(struct bpf_tramp_run_ctx), 8);
+	run_ctx_off = stack_size;
+
+	stack_size += 8;
+	sreg_off = stack_size;
+
+	if ((flags & BPF_TRAMP_F_CALL_ORIG) && (nregs - SW64_MAX_REG_ARGS > 0))
+		stack_size += (nregs - SW64_MAX_REG_ARGS) * 8;
+
+	stack_size = round_up(stack_size, STACK_ALIGN);
+
+	/* room for args on stack must be at the top of stack */
+	stk_arg_off = stack_size;
+
+	if (func_addr) {
+		/* For the trampoline called from function entry,
+		 * the frame of traced function and the frame of
+		 * trampoline need to be considered.
+		 */
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, -16), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_RA, SW64_BPF_REG_SP, 8), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, 0), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_FP, SW64_BPF_REG_SP, 16), ctx);
+
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, -stack_size), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_AT, SW64_BPF_REG_SP, stack_size - 8), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size - 16), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_GP, SW64_BPF_REG_SP, stack_size - 24), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size), ctx);
+	} else {
+		/* For the trampoline called directly, just handle
+		 * the frame of trampoline.
+		 */
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, -stack_size), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_RA, SW64_BPF_REG_SP, stack_size - 8), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size - 16), ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_GP, SW64_BPF_REG_SP, stack_size - 24), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size), ctx);
+	}
+
+	/*
+	 * callee saved register S0 to pass start time,
+	 * we need to remember it in invoke_bpf_prog
+	 */
+	emit(SW64_BPF_STL(SW64_BPF_REG_S0, SW64_BPF_REG_FP, -sreg_off), ctx);
+
+	/* store ip address of the traced function */
+	if (flags & BPF_TRAMP_F_IP_ARG) {
+		emit_sw64_ldu64(SW64_BPF_REG_T0, (const u64)func_addr, ctx);
+		emit(SW64_BPF_STL(SW64_BPF_REG_T0, SW64_BPF_REG_FP, -ip_off), ctx);
+	}
+
+	emit(SW64_BPF_LDI(SW64_BPF_REG_T0, SW64_BPF_REG_ZR, nregs), ctx);
+	emit(SW64_BPF_STL(SW64_BPF_REG_T0, SW64_BPF_REG_FP, -nregs_off), ctx);
+
+	save_args(ctx, args_off, nregs);
+
+	if (flags & BPF_TRAMP_F_SKIP_FRAME)
+		orig_call += MCOUNT_INSN_SIZE;
+
+	if (flags & BPF_TRAMP_F_CALL_ORIG) {
+		emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)im, ctx);
+		emit_sw64_call((const u64)__bpf_tramp_enter, ctx);
+	}
+
+	for (i = 0; i < fentry->nr_links; i++)
+		sw64_invoke_bpf_prog(ctx, fentry->links[i], args_off, retval_off,
+				run_ctx_off, flags & BPF_TRAMP_F_RET_FENTRY_RET);
+
+	if (fmod_ret->nr_links) {
+		branches = kcalloc(fmod_ret->nr_links, sizeof(u32 *), GFP_KERNEL);
+		if (!branches)
+			return -ENOMEM;
+
+		sw64_invoke_bpf_mod_ret(ctx, fmod_ret, args_off, retval_off, run_ctx_off, branches);
+	}
+
+	if (flags & BPF_TRAMP_F_CALL_ORIG) {
+		restore_args(ctx, args_off, min_t(int, nregs, SW64_MAX_REG_ARGS));
+		restore_stack_args(nregs - SW64_MAX_REG_ARGS, args_off, stk_arg_off, ctx);
+		/* call original func */
+		emit_sw64_call((const u64)orig_call, ctx);
+		/* store return value */
+		emit(SW64_BPF_STL(SW64_BPF_REG_V0, SW64_BPF_REG_FP, -retval_off), ctx);
+		/* reserve a nop for bpf_tramp_image_put */
+		im->ip_after_call = ctx->image + ctx->idx;
+		/* reserved 16 nop for long jmp, that is enough */
+		for (i = 0; i < 16; i++)
+			emit(SW64_BPF_BIS_REG(SW64_BPF_REG_ZR,
+					SW64_BPF_REG_ZR, SW64_BPF_REG_ZR), ctx);
+	}
+
+	for (i = 0; i < fmod_ret->nr_links && ctx->image != NULL; i++) {
+		/* we must remember pc will add 1 when exec in sw */
+		offset = ctx->image + ctx->idx - branches[i] - 1;
+		*branches[i] = SW64_BPF_BNE(SW64_BPF_REG_T0, offset);
+	}
+
+	for (i = 0; i < fexit->nr_links; i++)
+		sw64_invoke_bpf_prog(ctx, fexit->links[i], args_off,
+				retval_off, run_ctx_off, false);
+
+	if (flags & BPF_TRAMP_F_CALL_ORIG) {
+		im->ip_epilogue = ctx->image + ctx->idx;
+		/* for the first pass, assume the worst case */
+		emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)im, ctx);
+		emit_sw64_call((const u64)__bpf_tramp_exit, ctx);
+	}
+
+	if (flags & BPF_TRAMP_F_RESTORE_REGS)
+		restore_args(ctx, args_off, min_t(int, nregs, SW64_MAX_REG_ARGS));
+
+	if (save_ret)
+		emit(SW64_BPF_LDL(SW64_BPF_REG_V0, SW64_BPF_REG_FP, -retval_off), ctx);
+
+	/* callee saved register S0 to transmit start time, so use this reg, now we restore it  */
+	emit(SW64_BPF_LDL(SW64_BPF_REG_S0, SW64_BPF_REG_FP, -sreg_off), ctx);
+
+	if (func_addr) {
+		/* trampoline called from function entry */
+		emit(SW64_BPF_LDL(SW64_BPF_REG_AT, SW64_BPF_REG_SP, stack_size - 8), ctx);
+		emit(SW64_BPF_LDL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size - 16), ctx);
+		emit(SW64_BPF_LDL(SW64_BPF_REG_GP, SW64_BPF_REG_SP, stack_size - 24), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, stack_size), ctx);
+
+		emit(SW64_BPF_LDL(SW64_BPF_REG_RA, SW64_BPF_REG_SP, 8), ctx);
+		emit(SW64_BPF_LDL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, 0), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, 16), ctx);
+
+		if (flags & BPF_TRAMP_F_SKIP_FRAME)
+			/* return to parent function */
+			emit(SW64_BPF_RET(SW64_BPF_REG_RA), ctx);
+		else
+			/* return to traced function */
+			emit(SW64_BPF_RET(SW64_BPF_REG_AT), ctx);
+	} else {
+		/* trampoline called directly */
+		emit(SW64_BPF_LDL(SW64_BPF_REG_RA, SW64_BPF_REG_SP, stack_size - 8), ctx);
+		emit(SW64_BPF_LDL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size - 16), ctx);
+		emit(SW64_BPF_LDL(SW64_BPF_REG_GP, SW64_BPF_REG_SP, stack_size - 24), ctx);
+		emit(SW64_BPF_LDI(SW64_BPF_REG_SP, SW64_BPF_REG_SP, stack_size), ctx);
+
+		emit(SW64_BPF_RET(SW64_BPF_REG_RA), ctx);
+	}
+
+	kfree(branches);
+
+	return ctx->idx;
+}
+
+int arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image, void *image_end,
+	const struct btf_func_model *m, u32 flags,
+	struct bpf_tramp_links *tlinks,
+	void *func_addr)
+{
+	int ret;
+	int nregs;
+	struct jit_ctx ctx = {
+		.image = NULL,
+		.ro_image = image,
+		.idx = 0,
+	};
+
+	nregs = btf_func_model_nregs(m);
+
+	ret = __arch_prepare_bpf_trampoline(&ctx, im, tlinks, func_addr, nregs, flags);
+	if (ret < 0)
+		return ret;
+
+	if (ret * SW64_INSN_SIZE > (long)image_end - (long)image)
+		return -EFBIG;
+
+	ctx.image = image;
+	ctx.idx = 0;
+
+	ret = __arch_prepare_bpf_trampoline(&ctx, im, tlinks, func_addr, nregs, flags);
+	if (ret < 0)
+		goto out;
+
+out:
+	return ret < 0 ? ret : ret * SW64_INSN_SIZE;
 }
 
 struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)

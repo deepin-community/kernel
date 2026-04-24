@@ -3,19 +3,24 @@
 #define _ASM_SW64_UNCORE_IO_OPS_JUNZHANG_H
 
 #define OFFSET_CFG_INFO	0x1100UL
+#define OFFSET_FAULT_SOURCE 0xb00UL
+#define OFFSET_MC_ONLINE 0x3780UL
 
 static inline int __get_cpu_nums(void)
 {
 	int cpus;
 	unsigned long cfg_info;
 	void __iomem *spbu_base;
+	unsigned long *cfg_info_addr;
 
 	spbu_base = misc_platform_get_spbu_base(0);
 
-	cfg_info = readq(spbu_base + OFFSET_CFG_INFO);
+	cfg_info_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CFG_INFO), 0x8);
+	cfg_info = readq(cfg_info_addr);
 	cfg_info = (cfg_info >> 33) & 0x3;
 	cpus = 1 << cfg_info;
 
+	iounmap(cfg_info_addr);
 	return cpus;
 }
 
@@ -24,13 +29,16 @@ static inline unsigned long __get_node_mem(int node)
 	unsigned long node_mem;
 	unsigned long total_mem;
 	void __iomem *spbu_base;
+	unsigned long *cfg_info_addr;
 
 	spbu_base = misc_platform_get_spbu_base(node);
 
-	total_mem = readq(spbu_base + OFFSET_CFG_INFO) >> 3;
+	cfg_info_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CFG_INFO), 0x8);
+	total_mem = readq(cfg_info_addr) >> 3;
 	total_mem = (total_mem & 0xffff) << 28;
 	node_mem = total_mem / __get_cpu_nums();
 
+	iounmap(cfg_info_addr);
 	return node_mem;
 }
 

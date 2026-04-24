@@ -423,7 +423,7 @@ static int gf_init_pci(struct azx *chip)
 			gf_chip->diu_fb_bdl_ofs[1] = diu_fb_bdl[1] - diu_fb_base; // stream offset = fb_size -4M-16M+7M*2+4K
 			gf_chip->diu_fb_bdl_vaddr[1] = ioremap_wc(diu_fb_bdl[1], BDL_SIZE); // size = 4K
 
-			dev_info(chip->card->dev, "gf_hda diu fb base=0x%llx, size=%dM.\n", diu_fb_base, (unsigned int)(fb_size >> 20));
+			dev_info(chip->card->dev, "gf_hda diu fb base=%pa, size=%dM.\n", &diu_fb_base, (unsigned int)(fb_size >> 20));
 		}
 	}
 	return 0;
@@ -1984,6 +1984,8 @@ static int azx_first_init(struct azx *chip)
 		bus->polling_mode = 1;
 		bus->not_use_interrupts = 1;
 		bus->access_sdnctl_in_dword = 1;
+		if (!chip->jackpoll_interval)
+			chip->jackpoll_interval = msecs_to_jiffies(1500);
 	}
 
 	if (chip->driver_type == AZX_DRIVER_HYGON &&
@@ -2924,6 +2926,8 @@ static const struct pci_device_id azx_ids[] = {
 	  .driver_data = AZX_DRIVER_HYGON | AZX_DCAPS_POSFIX_LPIB | AZX_DCAPS_NO_MSI },
 	{ PCI_VDEVICE(HYGON, PCI_DEVICE_ID_HYGON_18H_M10H_HDA),
 	  .driver_data = AZX_DRIVER_HYGON },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HYGON, PCI_DEVICE_ID_HYGON_18H_M18H_HDA),
+	  .driver_data = AZX_DRIVER_HYGON | AZX_DCAPS_POSFIX_LPIB },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, azx_ids);

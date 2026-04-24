@@ -12,7 +12,7 @@
 #include <asm/hwcap.h>
 #include <asm/sysreg.h>
 
-#define MAX_CPU_FEATURES	128
+#define MAX_CPU_FEATURES	192
 #define cpu_feature(x)		KERNEL_HWCAP_ ## x
 
 #define ARM64_SW_FEATURE_OVERRIDE_NOKASLR	0
@@ -434,6 +434,7 @@ void cpu_set_feature(unsigned int num);
 bool cpu_have_feature(unsigned int num);
 unsigned long cpu_get_elf_hwcap(void);
 unsigned long cpu_get_elf_hwcap2(void);
+unsigned long cpu_get_elf_hwcap3(void);
 
 #define cpu_set_named_feature(name) cpu_set_feature(cpu_feature(name))
 #define cpu_have_named_feature(name) cpu_have_feature(cpu_feature(name))
@@ -808,6 +809,12 @@ static __always_inline bool system_uses_irq_prio_masking(void)
 	       cpus_have_const_cap(ARM64_HAS_GIC_PRIO_MASKING);
 }
 
+static __always_inline bool system_uses_nmi(void)
+{
+	return IS_ENABLED(CONFIG_ARM64_NMI) &&
+		cpus_have_const_cap(ARM64_USES_NMI);
+}
+
 static inline bool system_supports_mte(void)
 {
 	return IS_ENABLED(CONFIG_ARM64_MTE) &&
@@ -829,6 +836,12 @@ static inline bool system_supports_tlb_range(void)
 {
 	return IS_ENABLED(CONFIG_ARM64_TLB_RANGE) &&
 		cpus_have_const_cap(ARM64_HAS_TLB_RANGE);
+}
+
+static inline bool system_supports_haft(void)
+{
+	return IS_ENABLED(CONFIG_ARM64_HAFT) &&
+		cpus_have_final_cap(ARM64_HAFT);
 }
 
 int do_emulate_mrs(struct pt_regs *regs, u32 sys_reg, u32 rt);

@@ -116,16 +116,24 @@ struct iova_fq {
  * The following functions are ported from
  * ./drivers/iommu/dma-iommu.c
  * ./drivers/iommu/iommu.c
+ * static inline bool fq_full(struct iova_fq *fq);
+ * static void fq_flush_iotlb(struct iommu_dma_cookie *cookie);
+ * static inline unsigned int fq_ring_add(struct iova_fq *fq);
+ * static void fq_ring_free(struct iommu_dma_cookie *cookie, struct iova_fq *fq);
  * static size_t iommu_pgsize(struct iommu_domain *domain, unsigned long iova,
  *		phys_addr_t paddr, size_t size, size_t *count);
  * static int __iommu_map_pages(struct iommu_domain *domain, unsigned long iova,
- *		phys_addr_t paddr, size_t size, int prot,
- *		gfp_t gfp, size_t *mapped);
+ *		phys_addr_t paddr, size_t size, int prot, gfp_t gfp, size_t *mapped);
  * static int __iommu_map(struct iommu_domain *domain, unsigned long iova,
  *		phys_addr_t paddr, size_t size, int prot, gfp_t gfp);
+ * static bool dev_use_swiotlb(struct device *dev, size_t size,
+ *		enum dma_data_direction dir);
  * static bool dev_is_untrusted(struct device *dev);
  * static int dma_info_to_prot(enum dma_data_direction dir, bool coherent,
  *		unsigned long attrs);
+ * static void queue_iova(struct iommu_dma_cookie *cookie,
+ *		unsigned long pfn, unsigned long pages,
+ *		struct list_head *freelist);
  * static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
  *		size_t size, u64 dma_limit, struct device *dev);
  * static void iommu_dma_free_iova(struct iommu_dma_cookie *cookie,

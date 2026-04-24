@@ -102,6 +102,9 @@ int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
 		break;
 	}
 
+	if (fts->debug_enabled)
+		fts->handle_debug_err(fts);
+
 	return -1;
 }
 

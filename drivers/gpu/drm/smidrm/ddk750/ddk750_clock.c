@@ -252,7 +252,7 @@ void setChipClock(unsigned long frequency)
  * Output:
  *      The Actual Main Chip clock value.
  */
-unsigned long getChipClock()
+unsigned long getChipClock(void)
 {
     pll_value_t pll;
 
@@ -376,7 +376,7 @@ void setMasterClock(unsigned long frequency)
  * Output:
  *      The Primary Display Control Pixel Clock value in whole number.
  */
-unsigned long getPrimaryDispCtrlClock()
+unsigned long getPrimaryDispCtrlClock(void)
 {
     pll_value_t pll;
     return getPllValue(PRIMARY_PLL, &pll);
@@ -388,7 +388,7 @@ unsigned long getPrimaryDispCtrlClock()
  * Output:
  *      The Secondary Display Control Pixel Clock value in whole number.
  */
-unsigned long getSecondaryDispCtrlClock()
+unsigned long getSecondaryDispCtrlClock(void)
 {
     pll_value_t pll;
     return getPllValue(SECONDARY_PLL, &pll);
@@ -400,7 +400,7 @@ unsigned long getSecondaryDispCtrlClock()
  * Output:
  *      The Master Clock value in whole number.
  */
-unsigned long getMasterClock()
+unsigned long getMasterClock(void)
 {
     unsigned long value, divisor;
 
@@ -438,7 +438,7 @@ unsigned long getMasterClock()
  * Output:
  *      The Memory Clock value in whole number.
  */
-unsigned long getMemoryClock()
+unsigned long getMemoryClock(void)
 {
     unsigned long value, divisor;
 
@@ -476,7 +476,7 @@ unsigned long getMemoryClock()
  * Output:
  *      The list of Master Clock divider values.
  */
-unsigned char *getMasterClockDivider()
+unsigned char *getMasterClockDivider(void)
 {
     return g_ucMasterClockDivider;
 }
@@ -484,7 +484,7 @@ unsigned char *getMasterClockDivider()
 /*
  * This function gets the total number of Master Clock Divider Values.
  */
-unsigned long getTotalMasterClockDivider()
+unsigned long getTotalMasterClockDivider(void)
 {
     return (sizeof(g_ucMasterClockDivider)/sizeof(unsigned char));
 }
@@ -495,7 +495,7 @@ unsigned long getTotalMasterClockDivider()
  * Output:
  *      The list of Memory Clock divider values.
  */
-unsigned char *getMemoryClockDivider()
+unsigned char *getMemoryClockDivider(void)
 {
     return g_ucMemoryClockDivider;
 }
@@ -503,7 +503,7 @@ unsigned char *getMemoryClockDivider()
 /*
  * This function gets the total number of Memory Clock Divider Values.
  */
-unsigned long getTotalMemoryClockDivider()
+unsigned long getTotalMemoryClockDivider(void)
 {
     return (sizeof(g_ucMemoryClockDivider)/sizeof(unsigned char));
 }

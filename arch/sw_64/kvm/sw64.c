@@ -129,6 +129,9 @@ static int check_vcpu_requests(struct kvm_vcpu *vcpu)
 			tbivpn(0, 0, vpn);
 		}
 
+		if (kvm_check_request(KVM_REQ_RECORD_STEAL, vcpu))
+			kvm_sw64_record_steal_time(vcpu);
+
 		if (kvm_dirty_ring_check_request(vcpu))
 			return 0;
 	}
@@ -288,6 +291,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.tsk = current;
 	vcpu->arch.pcpu_id = -1; /* force flush tlb for the first time */
 
+	kvm_sw64_pvtime_vcpu_init(&vcpu->arch);
+
 	return 0;
 }
 
@@ -348,6 +353,10 @@ static void update_steal_time(struct kvm_vcpu *vcpu)
 void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	vcpu->cpu = cpu;
+
+	if (kvm_sw64_is_pvtime_enabled(&vcpu->arch))
+		kvm_make_request(KVM_REQ_RECORD_STEAL, vcpu);
+
 	update_steal_time(vcpu);
 }
 
@@ -389,6 +398,9 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
 						struct kvm_guest_debug *dbg)
 {
 	trace_kvm_set_guest_debug(vcpu, dbg->control);
+#ifdef CONFIG_SUBARCH_C4
+	kvm_sw64_set_guest_debug(vcpu, dbg);
+#endif
 	return 0;
 }
 
@@ -397,6 +409,28 @@ void update_vcpu_stat_time(struct kvm_vcpu_stat *vcpu_stat)
 	vcpu_stat->utime = current->utime;
 	vcpu_stat->stime = current->stime;
 	vcpu_stat->gtime = current->gtime;
+}
+
+void kvm_sw64_switch_debug_state_pre_run(struct kvm_vcpu *vcpu)
+{
+	vcpu->arch.host_debug_state.addr = sw64_read_csr(CSR_DA_MATCH);
+	vcpu->arch.host_debug_state.mask = sw64_read_csr(CSR_DA_MASK);
+	vcpu->arch.host_debug_state.ctl = sw64_read_csr(CSR_DC_CTLP);
+
+	sw64_write_csr(vcpu->arch.guest_debug_state.addr, CSR_DA_MATCH);
+	sw64_write_csr(vcpu->arch.guest_debug_state.mask, CSR_DA_MASK);
+	sw64_write_csr(vcpu->arch.guest_debug_state.ctl, CSR_DC_CTLP);
+}
+
+void kvm_sw64_switch_debug_state_post_run(struct kvm_vcpu *vcpu)
+{
+	vcpu->arch.guest_debug_state.addr = sw64_read_csr(CSR_DA_MATCH);
+	vcpu->arch.guest_debug_state.mask = sw64_read_csr(CSR_DA_MASK);
+	vcpu->arch.guest_debug_state.ctl = sw64_read_csr(CSR_DC_CTLP);
+
+	sw64_write_csr(vcpu->arch.host_debug_state.addr, CSR_DA_MATCH);
+	sw64_write_csr(vcpu->arch.host_debug_state.mask, CSR_DA_MASK);
+	sw64_write_csr(vcpu->arch.host_debug_state.ctl,  CSR_DC_CTLP);
 }
 
 /*
@@ -447,6 +481,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		if (vcpu->arch.restart == 1) {
 			/* handle reset vCPU */
 			vcpu->arch.regs.pc = GUEST_RESET_PC;
+#ifdef CONFIG_SUBARCH_C4
+			vcpu->arch.vcb.atc = 3;
+#endif
 			vcpu->arch.restart = 0;
 		}
 
@@ -468,6 +505,10 @@ exit:
 		/* update aptp before the guest runs */
 		update_aptp((unsigned long)vcpu->kvm->arch.pgd);
 
+		if (vcpu->guest_debug) {
+			kvm_sw64_switch_debug_state_pre_run(vcpu);
+		}
+
 		/* Enter the guest */
 		trace_kvm_sw64_entry(vcpu->vcpu_id, vcpu->arch.regs.pc);
 		vcpu->mode = IN_GUEST_MODE;
@@ -482,6 +523,10 @@ exit:
 		guest_exit_irqoff();
 
 		trace_kvm_sw64_exit(ret, vcpu->arch.regs.pc);
+
+		if (vcpu->guest_debug) {
+			kvm_sw64_switch_debug_state_post_run(vcpu);
+		}
 
 		preempt_enable();
 

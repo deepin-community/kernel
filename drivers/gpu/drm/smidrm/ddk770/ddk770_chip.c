@@ -23,7 +23,7 @@
 /*
  * This function returns frame buffer memory size in Byte units.
  */
-unsigned long ddk770_getFrameBufSize()
+unsigned long ddk770_getFrameBufSize(void)
 {
 
 #if 1
@@ -61,7 +61,7 @@ unsigned long ddk770_getFrameBufSize()
  * This function returns the logical chip type defined in chip.h.
  * Currently, it's either SM768 or unknown.
  */
-logical_chip_type_t ddk770_getChipType()
+logical_chip_type_t ddk770_getChipType(void)
 {
     logical_chip_type_t chip;
 
@@ -74,7 +74,7 @@ logical_chip_type_t ddk770_getChipType()
  * Return a char string name of the current chip.
  * It's convenient for application need to display the chip name.
  */
-char *ddk770_getChipTypeString()
+char *ddk770_getChipTypeString(void)
 {
     char * chipName;
 
@@ -173,7 +173,7 @@ long ddk770_initChip(void)
     Just during validation, we want the code able to work
     dynamically in both FPGA and ASIC.
 */
-unsigned long isFPGA()
+unsigned long isFPGA(void)
 {
 
     return 0;

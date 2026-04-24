@@ -39,6 +39,8 @@
 
 #include "phytium-sdci.h"
 
+#define PHYTIUM_SDCI_DRIVER_VERSION "1.0.0"
+
 static const u32 cmd_ints_mask = SDCI_SDCI_NORMAL_ISER_ECC_EN | SDCI_SDCI_NORMAL_ISER_EEI_EN;
 static const u32 data_ints_mask = SDCI_BD_ISER_ETRS_EN;
 static const u32 err_ints_mask = SDCI_ERROR_ISER_ECTE_EN | SDCI_ERROR_ISR_CCRCE_EN |
@@ -1438,3 +1440,4 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Cheng Quan <chengquan@phytium.com.cn>");
 MODULE_AUTHOR("Chen Baozi <chenbaozi@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium SD Card Interface driver");
+MODULE_VERSION(PHYTIUM_SDCI_DRIVER_VERSION);

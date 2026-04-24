@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/bitops.h>
 #include <linux/seq_file.h>
+#include <linux/interrupt.h>
 
 #include "gpio-phytium-core.h"
 
@@ -378,12 +379,52 @@ int phytium_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 }
 EXPORT_SYMBOL_GPL(phytium_gpio_get_direction);
 
+int phytium_gpio_irq_set_wake(struct irq_data *d, unsigned int enable)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct phytium_gpio *gpio = gpiochip_get_data(gc);
+	struct phytium_gpio_ctx *ctx = &gpio->ctx;
+	irq_hw_number_t bit = irqd_to_hwirq(d);
+	unsigned long flags;
+	int ret;
+
+	if (gpio->irq[bit])
+		ret = irq_set_irq_wake(gpio->irq[bit], enable);
+	else
+		ret = irq_set_irq_wake(gpio->irq[0], enable);
+
+	if (ret < 0)
+		dev_err(gc->parent, "set gpio irq wake failed!\n");
+
+	raw_spin_lock_irqsave(&gpio->lock, flags);
+
+	if (enable) {
+		ctx->wake_en |= BIT(bit);
+		if (gpio->is_resuming == 1) {
+			writel(~ctx->wake_en, gpio->regs + GPIO_INTMASK);
+			writel(ctx->wake_en, gpio->regs + GPIO_INTEN);
+		}
+	} else
+		ctx->wake_en &= ~BIT(bit);
+
+	raw_spin_unlock_irqrestore(&gpio->lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(phytium_gpio_irq_set_wake);
+
 int phytium_gpio_irq_set_affinity(struct irq_data *d, const struct cpumask *mask_val, bool force)
 {
 	int hwirq = irqd_to_hwirq(d);
 	struct gpio_chip *chip_data = irq_data_get_irq_chip_data(d);
-	struct irq_chip *chip = irq_get_chip(chip_data->irq.parents[hwirq]);
-	struct irq_data *data = irq_get_irq_data(chip_data->irq.parents[hwirq]);
+	struct irq_chip *chip;
+	struct irq_data *data;
+
+	if ((chip_data->irq.num_parents) == 1)
+		hwirq = 0;
+
+	chip = irq_get_chip(chip_data->irq.parents[hwirq]);
+	data = irq_get_irq_data(chip_data->irq.parents[hwirq]);
 
 	if (chip && chip->irq_set_affinity)
 		return chip->irq_set_affinity(data, mask_val, force);

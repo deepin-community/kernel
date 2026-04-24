@@ -20,7 +20,7 @@ TRACE_EVENT(pswiotlb_bounced,
 		__field(u64,	dma_mask)
 		__field(dma_addr_t,	dev_addr)
 		__field(size_t,	size)
-		__field(bool,	force)
+		__field(bool,	forceoff)
 	),
 
 	TP_fast_assign(
@@ -28,6 +28,7 @@ TRACE_EVENT(pswiotlb_bounced,
 		__entry->dma_mask = (dev->dma_mask ? *dev->dma_mask : 0);
 		__entry->dev_addr = dev_addr;
 		__entry->size = size;
+		__entry->forceoff = pswiotlb_force_disable;
 	),
 
 	TP_printk("dev_name: %s dma_mask=%llx dev_addr=%llx size=%zu %s",
@@ -35,7 +36,7 @@ TRACE_EVENT(pswiotlb_bounced,
 		__entry->dma_mask,
 		(unsigned long long)__entry->dev_addr,
 		__entry->size,
-		__entry->force ? "NORMAL" : "FORCEOFF")
+		__entry->forceoff ? "FORCEOFF" : "NORMAL")
 );
 
 #endif /*  _TRACE_PSWIOTLB_H */

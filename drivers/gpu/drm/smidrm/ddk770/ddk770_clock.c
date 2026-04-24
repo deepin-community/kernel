@@ -510,7 +510,7 @@ static void Sys_PLL_Setting(ddr_type_t type){
        Set_Sys_PLL3_800();
 
     }
-    else if( DDR4_2P4K_FD == type  ||  DDR4_2P4K_HD == type  ||  LPDDR4_2P4K_FD  ||  LPDDR4_2P4K_HD){
+    else if( DDR4_2P4K_FD == type  ||  DDR4_2P4K_HD == type  ||  LPDDR4_2P4K_FD == type ||  LPDDR4_2P4K_HD == type){
         //system/DDR: 800MHz@3200   CPU: 400MHz   APB: 200MHz   ESM: 200MHz   USB RAM: 400MHz   PCIe AXI: 400MHz   VPU bclk: 400MHz)
 
 		 ulTmpValue = peekRegisterDWord(0x3b0);

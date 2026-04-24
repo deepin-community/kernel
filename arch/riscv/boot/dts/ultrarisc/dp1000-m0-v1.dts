@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
+ */
+
+#include "dp1000-m0-pinctrl.dtsi"
+#include <dt-bindings/iio/temperature/thermocouple.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Rongda M0 Board v1";
+	compatible = "rongda,m0-v1", "ultrarisc,dp1000";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&portb 0 GPIO_ACTIVE_HIGH>;
+		active-delay-ms = <100>;
+		line-name = "power-off";
+		status = "okay";
+	};
+
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&portb 1 GPIO_ACTIVE_HIGH>;
+		active-delay-ms = <100>;
+		line-name = "reset-system";
+		status = "okay";
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	rtc@32 {
+		compatible = "whwave,sd3078";
+		reg = <0x32>;
+	};
+};
+
+&i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+};
+
+&spi1 {
+	num-cs = <1>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+};
+
+&ethernet {
+	phy-handle = <&phy0>;
+	mdio {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		compatible = "snps,dwmac-mdio";
+		phy0: phy@0{
+			phandle = <0x04>;
+			reg = <0x00>;
+			status = "okay";
+		};
+	};
+};

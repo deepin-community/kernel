@@ -22,8 +22,12 @@
 #include <linux/libfdt.h>
 #include <linux/acpi.h>
 #include <linux/cpu.h>
+#include <linux/suspend.h>
 
+#include <asm/alternative.h>
+#include <asm/cpufeature.h>
 #include <asm/efi.h>
+#include <asm/early_ioremap.h>
 #include <asm/mmu_context.h>
 #include <asm/sw64_init.h>
 #include <asm/timer.h>
@@ -42,7 +46,7 @@
 DEFINE_PER_CPU(unsigned long, hard_node_id) = { 0 };
 static DEFINE_PER_CPU(struct cpu, cpu_devices);
 
-static inline int phys_addr_valid(unsigned long addr)
+inline int phys_addr_valid(unsigned long addr)
 {
 	/*
 	 * At this point memory probe has not been done such that max_pfn
@@ -330,6 +334,21 @@ int __init add_memmap_region(u64 addr, u64 size, enum memmap_types type)
 	return 0;
 }
 
+static void __init memmap_nosave_init(void)
+{
+	int i;
+	phys_addr_t start, end;
+
+	for (i = 0; i < memmap_nr; i++) {
+		if (memmap_map[i].type == memmap_reserved ||
+		    memmap_map[i].type == memmap_pci) {
+			start = memmap_map[i].addr;
+			end = start + memmap_map[i].size;
+			register_nosave_region(PFN_DOWN(start), PFN_UP(end));
+		}
+	}
+}
+
 static struct resource* __init
 insert_ram_resource(u64 start, u64 end, bool reserved)
 {
@@ -578,7 +597,7 @@ cmd_handle:
 
 static void __init setup_cpu_caps(void)
 {
-	if (cpuid(GET_FEATURES, 0) & CPU_FEAT_UNA)
+	if (cpu_have_named_feature(HWUNA))
 		static_branch_enable(&hw_una_enabled);
 }
 
@@ -673,6 +692,15 @@ setup_arch(char **cmdline_p)
 	 */
 	trap_init();
 
+	early_paging_init();
+#ifdef CONFIG_GENERIC_EARLY_IOREMAP
+	early_ioremap_setup();
+#endif
+
+	setup_cpu_features();
+
+	apply_alternatives_all();
+
 	jump_label_init();
 
 #ifdef CONFIG_SUBARCH_C3B
@@ -695,8 +723,6 @@ setup_arch(char **cmdline_p)
 	atomic_notifier_chain_register(&panic_notifier_list,
 			&sw64_panic_block);
 
-	callback_init();
-
 	/*
 	 * Process command-line arguments.
 	 */
@@ -718,6 +744,16 @@ setup_arch(char **cmdline_p)
 
 	sw64_memblock_init();
 
+	paging_init();
+
+	callback_init();
+
+	/*
+	 * After linear mapping is established, register no-save regions to ensure
+	 * these spaces are unsaveable during hibernation.
+	 */
+	memmap_nosave_init();
+
 	/* Try to upgrade ACPI tables via initrd */
 	acpi_table_upgrade();
 
@@ -726,6 +762,10 @@ setup_arch(char **cmdline_p)
 
 	if (acpi_disabled)
 		device_tree_init();
+
+#ifdef CONFIG_GENERIC_EARLY_IOREMAP
+	early_ioremap_reset();
+#endif
 
 	setup_smp();
 
@@ -736,8 +776,6 @@ setup_arch(char **cmdline_p)
 	sparse_init();
 
 	zone_sizes_init();
-
-	paging_init();
 
 	kexec_control_page_init();
 
@@ -831,6 +869,20 @@ static int __init debugfs_mclk_init(void)
 	return 0;
 }
 late_initcall(debugfs_mclk_init);
+
+static int __init debugfs_watchpoint_init(void)
+{
+	struct dentry *dir = sw64_debugfs_dir;
+	static u64 feature_wp;
+
+	feature_wp = (cpuid(GET_FEATURES, 0) & CPU_FEAT_WP);
+	if (feature_wp) {
+		debugfs_create_u64("watchpoint", 0644, dir, &feature_wp);
+	}
+
+	return 0;
+}
+late_initcall(debugfs_watchpoint_init);
 #endif
 
 #ifdef CONFIG_OF

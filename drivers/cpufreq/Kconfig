@@ -203,6 +203,26 @@ config CPU_FREQ_GOV_SCHEDUTIL
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_SEEP
+	tristate "'seep' cpufreq policy governor"
+	depends on ACPI_CPPC_CPUFREQ && ARM64
+	select CPPC_CPUFREQ_SYSFS_INTERFACE
+	select CPU_FREQ_GOV_COMMON
+	help
+	  'seep' - This governor is designed for platforms with hardware-managed
+	  P-states through CPPC (Collaborative Processor Performance Control).
+	  It enables the hardware's autonomous frequency selection capability,
+	  allowing the processor to manage its own frequency based on workload.
+
+	  This governor requires the cppc_cpufreq driver and platform support
+	  for CPPC features including auto-selection, autonomous activity window,
+	  and energy-performance preference.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_seep.
+
+	  If in doubt, say N.
+
 comment "CPU frequency scaling drivers"
 
 config CPUFREQ_DT

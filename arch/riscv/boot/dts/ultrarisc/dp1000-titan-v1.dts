@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
+ */
+
+#include "dp1000-titan-pinctrl.dtsi"
+#include <dt-bindings/iio/temperature/thermocouple.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/input/gpio-keys.h>
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "MilkV Titan V1.2";
+	compatible = "milkv,titan-v1.2", "ultrarisc,dp1000";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&portb 0 GPIO_ACTIVE_LOW>;
+		active-delay-ms = <100>;
+		line-name = "power-off";
+		status = "okay";
+	};
+
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&portb 1 GPIO_ACTIVE_LOW>;
+		active-delay-ms = <100>;
+		line-name = "reset-system";
+		status = "okay";
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		key-wakeup@0 {
+			label = "Wake-Up";
+			gpios = <&porta 14 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WAKEUP>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <10>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+
+		key-wakeup@1 {
+			label = "Power";
+			gpios = <&porta 11 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <10>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+
+		key-wakeup@2 {
+			label = "Wake-Up-by-USB";
+			gpios = <&porta 4 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_WAKEUP>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <10>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_ANY>;
+		};
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+
+	rtc@68 {
+		compatible = "st,m41t11";
+		reg = <0x68>;
+	};
+};
+
+&i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pins>;
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+};
+
+&spi1 {
+	num-cs = <1>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+};
+
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pins>;
+};
+
+&porta {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpios_pin>;
+
+	i2c1-mux-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		/* LOW: DCDC(U6) connect MCU(EC)
+		 * HIGH: DCDC(U6) connect CPU
+		 */
+		output-low;
+		line-name = "gpio-mux-dcdc";
+	};
+
+	i2c3-mux-hog {
+		gpio-hog;
+		gpios = <6 GPIO_ACTIVE_LOW>;
+		/* LOW: CPU i2c3 connect nvme
+		 * HIGH: CPU i2c3 connect pciex16
+		 */
+		output-low;
+		line-name = "gpio-mux-i2c3";
+	};
+
+	uart0-mux-hog {
+		gpio-hog;
+		gpios = <7 GPIO_ACTIVE_HIGH>;
+		/* LOW: uart_debug connect BMC
+		 * HIGH: uart_debug connect CPU
+		 */
+		output-high;
+		line-name = "gpio-mux-debug";
+	};
+};
+
+&ethernet {
+	phy-handle = <&phy0>;
+	mdio {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		compatible = "snps,dwmac-mdio";
+		phy0: phy@0{
+			reg = <0x00>;
+			status = "okay";
+
+			leds {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				led@1 {
+					label = "eth-link";
+					reg = <0x01>;
+					color = <LED_COLOR_ID_YELLOW>;
+					function = LED_FUNCTION_INDICATOR;
+					default-state = "keep";
+					linux,default-trigger = "netdev";
+				};
+
+				led@2 {
+					label = "eth-activity";
+					reg = <0x02>;
+					color = <LED_COLOR_ID_GREEN>;
+					function = LED_FUNCTION_ACTIVITY;
+					default-state = "keep";
+					linux,default-trigger = "netdev";
+				};
+			};
+		};
+	};
+};

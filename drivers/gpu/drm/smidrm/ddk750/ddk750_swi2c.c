@@ -184,8 +184,12 @@ static unsigned char swI2CReadSDA(void)
         return 0;
 }
 
+#ifdef __clang__
+#pragma clang optimize off
+#else
 #pragma GCC push_options
 #pragma GCC optimize("O0")
+#endif
 
 /*
  *  This function sends ACK signal
@@ -336,7 +340,12 @@ static unsigned char swI2CReadByte(unsigned char ack)
 
     return data;
 }
+
+#ifdef __clang__
+#pragma clang optimize on
+#else
 #pragma GCC pop_options
+#endif
 
 /*
  * This function initializes the i2c attributes and bus

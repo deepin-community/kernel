@@ -60,32 +60,38 @@ u8 *font_bits(struct vc_data *vc, const u16 *s, u32 cellsize, u16 charmask,
 	u8 *src;
 	u16 c_utf;
 	u32 cellsize_utf = (cellsize < 64) ? 16 : 64;
-	void *fontdata;
+	void *fontdata = NULL;
 	char *fontname = (cellsize < 64) ? "CJK16x16" : "CJK32x32";
+	unsigned int charcnt = vc->vc_font.charcount;
+	u16 ch = scr_readw(s) & charmask;
 	const struct font_desc *font;
 
 	fontdata = ops ? ops->fontbuffer : vc->vc_font.data;
-	src = fontdata + (scr_readw(s) & charmask) * cellsize;
-	if ((scr_readw(s) & charmask) != 0xff && (scr_readw(s) & charmask) != 0xfe)
-		return src;
-
-	/* assume current font not support unicode */
-	if (vc->vc_font.charcount < 65536) {
-		if (ops)
-			fontdata = ops->fontbuffer_utf;
-		else {
-			font = find_font(fontname);
-			fontdata = (font && font->data) ? (void *) font->data : NULL;
+	if (ch == 0xff || ch == 0xfe) {
+		/* assume current font not support unicode */
+		if (charcnt < 65536) {
+			if (ops)
+				fontdata = ops->fontbuffer_utf;
+			else {
+				font = find_font(fontname);
+				fontdata = (font && font->data) ? (void *) font->data : NULL;
+			}
 		}
-	}
-	if (fontdata) {
-		c_utf = utf8_pos(vc, s);
-		if ((scr_readw(s) & charmask) == 0xff)
-			src = fontdata + (c_utf * cellsize_utf * 2);
-		else
-			src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
+		if (fontdata) {
+			c_utf = utf8_pos(vc, s);
+			if (ch == 0xff)
+				src = fontdata + (c_utf * cellsize_utf * 2);
+			else
+				src = fontdata + (c_utf * cellsize_utf * 2 + cellsize_utf);
+			return src;
+		}
+		/* ch=0 for fontdata=0 */
+		ch = 0;
+	} else if (ch >= charcnt) {
+		ch = 0;
 	}
 
+	src = fontdata + (unsigned int)ch * cellsize;
 	return src;
 }
 
@@ -204,6 +210,11 @@ static void bit_putcs(struct vc_data *vc, struct fb_info *info,
 	image.height = vc->vc_font.height;
 	image.depth = 1;
 
+	if (image.dy >= info->var.yres)
+		return;
+
+	image.height = min(image.height, info->var.yres - image.dy);
+
 	if (attribute) {
 		buf = kmalloc(cellsize, GFP_ATOMIC);
 		if (!buf)
@@ -217,6 +228,18 @@ static void bit_putcs(struct vc_data *vc, struct fb_info *info,
 			cnt = count;
 
 		image.width = vc->vc_font.width * cnt;
+
+		if (image.dx >= info->var.xres)
+			break;
+
+		if (image.dx + image.width > info->var.xres) {
+			image.width = info->var.xres - image.dx;
+			cnt = image.width / vc->vc_font.width;
+			if (cnt == 0)
+				break;
+			image.width = cnt * vc->vc_font.width;
+		}
+
 		pitch = DIV_ROUND_UP(image.width, 8) + scan_align;
 		pitch &= ~scan_align;
 		size = pitch * image.height + buf_align;

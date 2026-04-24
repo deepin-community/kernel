@@ -14,9 +14,9 @@
 #include <linux/acpi.h>
 #include <linux/arch_topology.h>
 #include <linux/cacheinfo.h>
-#include <linux/cpufreq.h>
 #include <linux/init.h>
 #include <linux/percpu.h>
+#include <linux/xarray.h>
 
 #include <asm/cpu.h>
 #include <asm/cputype.h>
@@ -43,10 +43,15 @@ static bool __init acpi_cpu_is_threaded(int cpu)
  */
 int __init parse_acpi_topology(void)
 {
+	int thread_num, max_smt_thread_num = 1;
+	struct xarray core_threads;
 	int cpu, topology_id;
+	void *entry;
 
 	if (acpi_disabled)
 		return 0;
+
+	xa_init(&core_threads);
 
 	for_each_possible_cpu(cpu) {
 		topology_id = find_acpi_cpu_topology(cpu, 0);
@@ -57,6 +62,20 @@ int __init parse_acpi_topology(void)
 			cpu_topology[cpu].thread_id = topology_id;
 			topology_id = find_acpi_cpu_topology(cpu, 1);
 			cpu_topology[cpu].core_id   = topology_id;
+
+			entry = xa_load(&core_threads, topology_id);
+			if (!entry) {
+				xa_store(&core_threads, topology_id,
+					 xa_mk_value(1), GFP_KERNEL);
+			} else {
+				thread_num = xa_to_value(entry);
+				thread_num++;
+				xa_store(&core_threads, topology_id,
+					 xa_mk_value(thread_num), GFP_KERNEL);
+
+				if (thread_num > max_smt_thread_num)
+					max_smt_thread_num = thread_num;
+			}
 		} else {
 			cpu_topology[cpu].thread_id  = -1;
 			cpu_topology[cpu].core_id    = topology_id;
@@ -67,6 +86,9 @@ int __init parse_acpi_topology(void)
 		cpu_topology[cpu].package_id = topology_id;
 	}
 
+	topology_smt_set_num_threads(max_smt_thread_num);
+
+	xa_destroy(&core_threads);
 	return 0;
 }
 #endif
@@ -189,51 +211,27 @@ static struct scale_freq_data amu_sfd = {
 	.set_freq_scale = amu_scale_freq_tick,
 };
 
-static void amu_fie_setup(const struct cpumask *cpus)
+static void amu_fie_setup(unsigned int cpu)
 {
-	int cpu;
-
-	/* We are already set since the last insmod of cpufreq driver */
-	if (unlikely(cpumask_subset(cpus, amu_fie_cpus)))
+	if (cpumask_test_cpu(cpu, amu_fie_cpus))
 		return;
 
-	for_each_cpu(cpu, cpus) {
-		if (!freq_counters_valid(cpu))
-			return;
-	}
+	if (!freq_counters_valid(cpu))
+		return;
 
-	cpumask_or(amu_fie_cpus, amu_fie_cpus, cpus);
+	cpumask_set_cpu(cpu, amu_fie_cpus);
 
 	topology_set_scale_freq_source(&amu_sfd, amu_fie_cpus);
 
-	pr_debug("CPUs[%*pbl]: counters will be used for FIE.",
-		 cpumask_pr_args(cpus));
+	pr_debug("CPUs[%u]: counters will be used for FIE.", cpu);
 }
 
-static int init_amu_fie_callback(struct notifier_block *nb, unsigned long val,
-				 void *data)
+static int cpuhp_topology_online(unsigned int cpu)
 {
-	struct cpufreq_policy *policy = data;
-
-	if (val == CPUFREQ_CREATE_POLICY)
-		amu_fie_setup(policy->related_cpus);
-
-	/*
-	 * We don't need to handle CPUFREQ_REMOVE_POLICY event as the AMU
-	 * counters don't have any dependency on cpufreq driver once we have
-	 * initialized AMU support and enabled invariance. The AMU counters will
-	 * keep on working just fine in the absence of the cpufreq driver, and
-	 * for the CPUs for which there are no counters available, the last set
-	 * value of arch_freq_scale will remain valid as that is the frequency
-	 * those CPUs are running at.
-	 */
+	amu_fie_setup(cpu);
 
 	return 0;
 }
-
-static struct notifier_block init_amu_fie_notifier = {
-	.notifier_call = init_amu_fie_callback,
-};
 
 static int __init init_amu_fie(void)
 {
@@ -242,12 +240,16 @@ static int __init init_amu_fie(void)
 	if (!zalloc_cpumask_var(&amu_fie_cpus, GFP_KERNEL))
 		return -ENOMEM;
 
-	ret = cpufreq_register_notifier(&init_amu_fie_notifier,
-					CPUFREQ_POLICY_NOTIFIER);
-	if (ret)
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN,
+				"arm64/topology:online",
+				cpuhp_topology_online,
+				NULL);
+	if (ret < 0) {
 		free_cpumask_var(amu_fie_cpus);
+		return ret;
+	}
 
-	return ret;
+	return 0;
 }
 core_initcall(init_amu_fie);
 

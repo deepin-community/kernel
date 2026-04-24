@@ -35,6 +35,7 @@ config ARM64
 	select ARCH_HAS_MEMBARRIER_SYNC_CORE
 	select ARCH_HAS_NMI_SAFE_THIS_CPU_OPS
 	select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
+	select ARCH_HAS_NONLEAF_PMD_YOUNG if ARM64_HAFT
 	select ARCH_HAS_PTE_DEVMAP
 	select ARCH_HAS_PTE_SPECIAL
 	select ARCH_HAS_SETUP_DMA_OPS
@@ -116,6 +117,7 @@ config ARM64
 	select ARM_GIC_V3
 	select ARM_GIC_V3_ITS if PCI
 	select ARM_PSCI_FW
+	select ARM64_LS64 if !FUNCTION_ALIGNMENT_64B
 	select BUILDTIME_TABLE_SORT
 	select CLONE_BACKWARDS
 	select COMMON_CLK
@@ -220,7 +222,7 @@ config ARM64
 	select HAVE_MOD_ARCH_SPECIFIC
 	select HAVE_NMI
 	select HAVE_PERF_EVENTS
-	select HAVE_PERF_EVENTS_NMI if ARM64_PSEUDO_NMI
+	select HAVE_PERF_EVENTS_NMI if ARM64_PSEUDO_NMI || ARM64_NMI
 	select HAVE_PERF_REGS
 	select HAVE_PERF_USER_STACK_DUMP
 	select HAVE_PREEMPT_DYNAMIC_KEY
@@ -235,6 +237,7 @@ config ARM64
 	select HAVE_KRETPROBES
 	select HAVE_GENERIC_VDSO
 	select HOTPLUG_CORE_SYNC_DEAD if HOTPLUG_CPU
+	select HOTPLUG_SMT if (SMP && HOTPLUG_CPU)
 	select IRQ_DOMAIN
 	select IRQ_FORCED_THREADING
 	select KASAN_VMALLOC if KASAN
@@ -1217,6 +1220,28 @@ config HISILICON_ERRATUM_161600802
 
 	  If unsure, say Y.
 
+config HISILICON_ERRATUM_165010801
+	bool "Hisilicon erratum 165010801"
+	depends on ARCH_HISI
+	default y
+	help
+	  On HIP12, when GIC receives multiple interrupts of the same priority and
+	  different types, the interrupts are selected in the following sequence:
+	  SPI > LPI > SGI > PPI. This scheduling rule may cause PPI starvation.
+	  To prevent starvation from triggering system watchdog hardlockup, the
+	  interrupt priority is explicitly increased in the arch_timer driver.
+
+config HISILICON_ERRATUM_162102203
+	bool "Hisilicon erratum 162102203"
+	default n
+	help
+	  On HIP09, SMS_ATN bit may be cleared by hardware before it is driven
+	  to process. This will causes bridge commands timeout. Avoid these issues
+	  by modifying the IPMI driver to use variables to store SMS_ATNs that may
+	  be lost.
+
+	  If unsure, say N.
+
 config QCOM_FALKOR_ERRATUM_1003
 	bool "Falkor E1003: Incorrect translation due to ASID change"
 	default y
@@ -1285,6 +1310,16 @@ config SOCIONEXT_SYNQUACER_PREITS
 	help
 	  Socionext Synquacer SoCs implement a separate h/w block to generate
 	  MSI doorbell writes with non-zero values for the device ID.
+
+	  If unsure, say Y.
+
+config PHYTIUM_ERRATUM_FT3386
+	bool "FT3386: enable Phytium FT3386 pswiotlb can improve dma performance"
+	depends on PSWIOTLB
+	default y
+	help
+	  Phytium FT3386 pswiotlb can improve D2H dma performance and
+	  should be enabled by default.
 
 	  If unsure, say Y.
 
@@ -1500,6 +1535,21 @@ config NODES_SHIFT
 	help
 	  Specify the maximum number of NUMA Nodes available on the target
 	  system.  Increases memory reserved to accommodate various tables.
+
+config NUMA_AWARE_SPINLOCKS
+	bool "Numa-aware spinlocks"
+	depends on NUMA
+	depends on QUEUED_SPINLOCKS
+	default n
+	help
+	  Introduce NUMA (Non Uniform Memory Access) awareness into
+	  the slow path of spinlocks.
+
+	  In this variant of qspinlock, the kernel will try to keep the lock
+	  on the same node, thus reducing the number of remote cache misses,
+	  while trading some of the short term fairness for better performance.
+
+	  Say N if you want absolute first come first serve fairness.
 
 source "kernel/Kconfig.hz"
 
@@ -2120,6 +2170,13 @@ config ARM64_MTE
 
 endmenu # "ARMv8.5 architectural features"
 
+menu "ARMv8.6 architectural features"
+
+config ARM64_LS64
+	bool
+
+endmenu # "ARMv8.6 architectural features"
+
 menu "ARMv8.7 architectural features"
 
 config ARM64_EPAN
@@ -2133,6 +2190,38 @@ config ARM64_EPAN
 	  The feature is detected at runtime, and will remain disabled
 	  if the cpu does not implement the feature.
 endmenu # "ARMv8.7 architectural features"
+
+menu "ARMv8.8 architectural features"
+
+config ARM64_NMI
+	bool "Enable support for Non-maskable Interrupts (NMI)"
+	default y
+	help
+	  Non-maskable interrupts are an architecture and GIC feature
+	  which allow the system to configure some interrupts to be
+	  configured to have superpriority, allowing them to be handled
+	  before other interrupts and masked for shorter periods of time.
+
+	  The feature is detected at runtime, and will remain disabled
+	  if the cpu does not implement the feature. It will also be
+	  disabled if pseudo NMIs are enabled at runtime.
+
+config ARM64_HAFT
+	bool "Support for Hardware managed Access Flag for Table Descriptors"
+	depends on ARM64_HW_AFDBM
+	default y
+	help
+	  The ARMv8.9/ARMv9.5 introduces the feature Hardware managed Access
+	  Flag for Table descriptors. When enabled an architectural executed
+	  memory access will update the Access Flag in each Table descriptor
+	  which is accessed during the translation table walk and for which
+	  the Access Flag is 0. The Access Flag of the Table descriptor use
+	  the same bit of PTE_AF.
+
+	  The feature will only be enabled if all the CPUs in the system
+	  support this feature. If unsure, say Y.
+
+endmenu # "ARMv8.8 architectural features"
 
 config ARM64_SVE
 	bool "ARM Scalable Vector Extension support"

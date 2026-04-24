@@ -479,20 +479,26 @@ static void arm_smmu_cmdq_skip_err(struct arm_smmu_device *smmu)
  */
 static void arm_smmu_cmdq_shared_lock(struct arm_smmu_cmdq *cmdq)
 {
-	int val;
-
 	/*
-	 * We can try to avoid the cmpxchg() loop by simply incrementing the
-	 * lock counter. When held in exclusive state, the lock counter is set
-	 * to INT_MIN so these increments won't hurt as the value will remain
-	 * negative.
+	 * When held in exclusive state, the lock counter is set to INT_MIN
+	 * so these increments won't hurt as the value will remain negative.
+	 * The increment will also signal the exclusive locker that there are
+	 * shared waiters.
 	 */
 	if (atomic_fetch_inc_relaxed(&cmdq->lock) >= 0)
 		return;
 
-	do {
-		val = atomic_cond_read_relaxed(&cmdq->lock, VAL >= 0);
-	} while (atomic_cmpxchg_relaxed(&cmdq->lock, val, val + 1) != val);
+	/*
+	 * Someone else is holding the lock in exclusive state, so wait
+	 * for them to finish. Since we already incremented the lock counter,
+	 * no exclusive lock can be acquired until we finish. We don't need
+	 * the return value since we only care that the exclusive lock is
+	 * released (i.e. the lock counter is non-negative).
+	 * Once the exclusive locker releases the lock, the sign bit will
+	 * be cleared and our increment will make the lock counter positive,
+	 * allowing us to proceed.
+	 */
+	atomic_cond_read_relaxed(&cmdq->lock, VAL > 0);
 }
 
 static void arm_smmu_cmdq_shared_unlock(struct arm_smmu_cmdq *cmdq)
@@ -519,9 +525,14 @@ static bool arm_smmu_cmdq_shared_tryunlock(struct arm_smmu_cmdq *cmdq)
 	__ret;								\
 })
 
+/*
+ * Only clear the sign bit when releasing the exclusive lock this will
+ * allow any shared_lock() waiters to proceed without the possibility
+ * of entering the exclusive lock in a tight loop.
+ */
 #define arm_smmu_cmdq_exclusive_unlock_irqrestore(cmdq, flags)		\
 ({									\
-	atomic_set_release(&cmdq->lock, 0);				\
+	atomic_fetch_andnot_release(INT_MIN, &cmdq->lock);		\
 	local_irq_restore(flags);					\
 })
 
@@ -2881,6 +2892,34 @@ static int arm_smmu_dev_disable_feature(struct device *dev,
 }
 
 /*
+ * Check OEM_ID with a specific OEM provider.
+ */
+#ifdef CONFIG_ACPI
+static bool acpi_check_oem_id(struct device *dev, const char *oem_id)
+{
+	if (oem_id && has_acpi_companion(dev)) {
+		struct acpi_table_header *iort_table;
+
+		acpi_status status = acpi_get_table(ACPI_SIG_IORT, 0, &iort_table);
+
+		if (ACPI_FAILURE(status)) {
+			if (status != AE_NOT_FOUND) {
+				const char *msg = acpi_format_exception(status);
+
+				pr_warn("Failed to get table, %s\n", msg);
+			}
+			return false;
+		}
+
+		if (!strncmp(iort_table->oem_id, oem_id, 6))
+			return true;
+
+	}
+	return false;
+}
+#endif
+
+/*
  * HiSilicon PCIe tune and trace device can be used to trace TLP headers on the
  * PCIe link and save the data to memory by DMA. The hardware is restricted to
  * use identity mapping only.
@@ -2895,7 +2934,11 @@ static int arm_smmu_def_domain_type(struct device *dev)
 
 		if (IS_HISI_PTT_DEVICE(pdev))
 			return IOMMU_DOMAIN_IDENTITY;
-	}
+	} else {
+			if (acpi_check_oem_id(dev, "CIXTEK"))
+				return IOMMU_DOMAIN_DMA;
+		}
+
 
 	return 0;
 }

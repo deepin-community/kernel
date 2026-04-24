@@ -56,7 +56,11 @@ static __initconst const struct {
 			[MMSIZE] = "linux,uefi-mmap-size",
 			[DCSIZE] = "linux,uefi-mmap-desc-size",
 			[DCVERS] = "linux,uefi-mmap-desc-ver",
+#ifndef CONFIG_SW64
 			[SBMODE] = "linux,uefi-secure-boot",
+#else
+			[SBMODE] = "",
+#endif
 		}
 	}
 };

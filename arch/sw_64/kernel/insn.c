@@ -17,7 +17,38 @@
 #include <linux/spinlock.h>
 #include <linux/kprobes.h>
 
-//static DEFINE_RAW_SPINLOCK(patch_lock);
+#include <asm/fixmap.h>
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+static DEFINE_RAW_SPINLOCK(patch_lock);
+
+static void __kprobes *patch_map(void *addr, int fixmap)
+{
+	unsigned long uintaddr = (uintptr_t)addr;
+	struct page *page;
+
+	if (core_kernel_text((unsigned long)addr))
+		page = pfn_to_page(PHYS_PFN(__pa(addr)));
+	else if (IS_ENABLED(CONFIG_STRICT_MODULE_RWX))
+		page = vmalloc_to_page(addr);
+	else
+		return addr;
+
+	BUG_ON(!page);
+	return (void *)set_fixmap_offset(fixmap, page_to_pa(page) +
+					 (uintaddr & ~PAGE_MASK));
+}
+
+static void __kprobes patch_unmap(int fixmap)
+{
+	clear_fixmap(fixmap);
+}
+
+int __kprobes sw64_patch_text_nosync(void *addr, u32 insn)
+{
+	return sw64_insn_write(addr, insn);
+}
+#endif /* CONFIG_SW64_KERNEL_PAGE_TABLE */
 
 int __kprobes sw64_insn_read(void *addr, u32 *insnp)
 {
@@ -33,30 +64,37 @@ int __kprobes sw64_insn_read(void *addr, u32 *insnp)
 
 static int __kprobes __sw64_insn_write(void *addr, __le32 insn)
 {
-	void *waddr = addr;
 	int ret;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	void *waddr;
+	unsigned long flags = 0;
 
-	//raw_spin_lock_irqsave(&patch_lock, flags);
-
+	raw_spin_lock_irqsave(&patch_lock, flags);
+	waddr = patch_map(addr, FIX_TEXT_POKE0);
 	ret = copy_to_kernel_nofault(waddr, &insn, SW64_INSN_SIZE);
-
-	//raw_spin_unlock_irqrestore(&patch_lock, flags);
-
+	patch_unmap(FIX_TEXT_POKE0);
+	raw_spin_unlock_irqrestore(&patch_lock, flags);
+#else
+	ret = copy_to_kernel_nofault(addr, &insn, SW64_INSN_SIZE);
+#endif
 	return ret;
 }
 
 static int __kprobes __sw64_insn_double_write(void *addr, __le64 insn)
 {
-	void *waddr = addr;
-	//unsigned long flags = 0;
 	int ret;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	void *waddr;
+	unsigned long flags = 0;
 
-	//raw_spin_lock_irqsave(&patch_lock, flags);
-
+	raw_spin_lock_irqsave(&patch_lock, flags);
+	waddr = patch_map(addr, FIX_TEXT_POKE0);
 	ret = copy_to_kernel_nofault(waddr, &insn, 2 * SW64_INSN_SIZE);
-
-	//raw_spin_unlock_irqrestore(&patch_lock, flags);
-
+	patch_unmap(FIX_TEXT_POKE0);
+	raw_spin_unlock_irqrestore(&patch_lock, flags);
+#else
+	ret = copy_to_kernel_nofault(addr, &insn, 2 * SW64_INSN_SIZE);
+#endif
 	return ret;
 }
 
@@ -77,6 +115,7 @@ int __kprobes sw64_insn_double_write(void *addr, u64 insn)
 		return -EINVAL;
 	return __sw64_insn_double_write(addr, cpu_to_le64(insn));
 }
+
 unsigned int __kprobes sw64_insn_nop(void)
 {
 	return SW64_BIS(R31, R31, R31);

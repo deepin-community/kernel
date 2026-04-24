@@ -102,16 +102,28 @@ static int misc_platform_probe(struct platform_device *pdev)
 	gpio_base = __va(SW64_IO_BASE(node) | GPIO_BASE);
 
 	if (!device_property_read_u64(dev, "sunway,spbu_base",
-				&base_address))
-		spbu_base = __va(base_address);
+				&base_address)) {
+		if (is_junzhang_v1() || is_junzhang_v2())
+			spbu_base = ioremap(base_address, SPBU_SIZE);
+		else
+			spbu_base = __va(base_address);
+	}
 
 	if (!device_property_read_u64(dev, "sunway,intpu_base",
-				&base_address))
-		intpu_base = __va(base_address);
+				&base_address)) {
+		if (is_junzhang_v1() || is_junzhang_v2())
+			intpu_base = ioremap(base_address, INTPU_SIZE);
+		else
+			intpu_base = __va(base_address);
+	}
 
 	if (!device_property_read_u64(dev, "sunway,gpio_base",
-				&base_address))
-		gpio_base = __va(base_address);
+				&base_address)) {
+		if (is_junzhang_v1() || is_junzhang_v2())
+			gpio_base = ioremap(base_address, GPIO_SIZE);
+		else
+			gpio_base = __va(base_address);
+	}
 
 	misc_platform_devices[node].spbu_base = spbu_base;
 	misc_platform_devices[node].intpu_base = intpu_base;

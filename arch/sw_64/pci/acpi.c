@@ -173,6 +173,11 @@ static int pci_acpi_prepare_root_resources(struct acpi_pci_root_info *ci)
 	return status;
 }
 
+int __weak sunway_iommu_early_init(struct pci_controller *hose)
+{
+	return -ENOENT;
+}
+
 /**
  * This function is called from ACPI code and used to
  * setup PCI host controller.
@@ -228,6 +233,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
 		list_for_each_entry(child, &bus->children, node)
 			pcie_bus_configure_settings(child);
 	}
+
+	sunway_iommu_early_init(pci_bus_to_pci_controller(bus));
 
 	return bus;
 

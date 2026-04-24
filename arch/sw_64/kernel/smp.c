@@ -10,8 +10,10 @@
 #include <linux/cpu.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
+#include <linux/mmu_notifier.h>
 
 #include <asm/irq_impl.h>
+#include <asm/mmu.h>
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
 #include <asm/sw64_init.h>
@@ -68,6 +70,8 @@ static void upshift_freq(void)
 {
 	int i, cpu_num;
 	void __iomem *spbu_base;
+	unsigned long *clu_lv2_selh_addr;
+	unsigned long *clu_lv2_sell_addr;
 
 	if (is_guest_or_emul())
 		return;
@@ -78,10 +82,14 @@ static void upshift_freq(void)
 	cpu_num = sw64_chip->get_cpu_num();
 	for (i = 0; i < cpu_num; i++) {
 		spbu_base = misc_platform_get_spbu_base(i);
-		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELH);
-		writeq(-1UL, spbu_base + OFFSET_CLU_LV2_SELL);
+		clu_lv2_selh_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CLU_LV2_SELH), 0x8);
+		clu_lv2_sell_addr = ioremap((phys_addr_t)(__pa(spbu_base) + OFFSET_CLU_LV2_SELL), 0x8);
+		writeq(-1UL, clu_lv2_selh_addr);
+		writeq(-1UL, clu_lv2_sell_addr);
 		udelay(1000);
 	}
+	iounmap(clu_lv2_selh_addr);
+	iounmap(clu_lv2_sell_addr);
 }
 
 static void downshift_freq(void)
@@ -135,6 +143,8 @@ void smp_callin(void)
 	unsigned long __maybe_unused nmi_stack;
 
 	save_ktp();
+	/* update csr:ptbr */
+	update_ptbr_sys(virt_to_phys(init_mm.pgd));
 	upshift_freq();
 	cpuid = smp_processor_id();
 	WARN_ON_ONCE(!irqs_disabled());
@@ -156,8 +166,6 @@ void smp_callin(void)
 	/* All kernel threads share the same mm context.  */
 	mmgrab(&init_mm);
 	current->active_mm = &init_mm;
-	/* update csr:ptbr */
-	update_ptbr_sys(virt_to_phys(init_mm.pgd));
 #ifdef CONFIG_SUBARCH_C4
 	update_ptbr_usr(__pa_symbol(empty_zero_page));
 #endif
@@ -262,10 +270,21 @@ void __init smp_rcb_init(struct smp_rcb_struct *smp_rcb_base_addr)
 		return;
 
 	smp_rcb = smp_rcb_base_addr;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	create_pgd_mapping((&init_mm)->pgd, (unsigned long)smp_rcb, __pa(smp_rcb),
+			   CONFIG_PHYSICAL_START - __pa(smp_rcb),
+			   PAGE_KERNEL_NOEXEC, pgtable_alloc_fixmap);
+#endif
 	memset(smp_rcb, 0, sizeof(struct smp_rcb_struct));
 	/* Setup SMP_RCB fields that uses to activate secondary CPU */
 	smp_rcb->restart_entry = __smp_callin;
 	smp_rcb->init_done = 0xDEADBEEFUL;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	if (sunway_support_kpt) {
+		smp_rcb->init_done = 0x2025DEADBEEFUL;
+		smp_rcb->ptbr = virt_to_phys(init_mm.pgd);
+	}
+#endif
 	mb();
 }
 
@@ -802,6 +821,23 @@ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
 	on_each_cpu(ipi_flush_tlb_kernel_range, &info, 1);
 }
 EXPORT_SYMBOL(flush_tlb_kernel_range);
+
+void arch_tlbbatch_add_pending(struct arch_tlbflush_unmap_batch *batch,
+					struct mm_struct *mm,
+					unsigned long uaddr)
+{
+	cpumask_or(&batch->cpumask, &batch->cpumask, mm_cpumask(mm));
+
+	mmu_notifier_arch_invalidate_secondary_tlbs(mm, 0, -1UL);
+}
+
+void arch_tlbbatch_flush(struct arch_tlbflush_unmap_batch *batch)
+{
+	if (!cpumask_empty(&batch->cpumask)) {
+		on_each_cpu_mask(&batch->cpumask, ipi_flush_tlb_all, NULL, 1);
+		cpumask_clear(&batch->cpumask);
+	}
+}
 
 #ifdef CONFIG_HOTPLUG_CPU
 extern int can_unplug_cpu(void);

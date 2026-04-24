@@ -20,7 +20,7 @@
 #include "i2c-phyt-core.h"
 
 #define FT_LOG_LINE_MAX_LEN		400
-#define FT_LOG_MAX_SIZE			8192
+#define FT_LOG_MAX_SIZE			32768
 
 static void i2c_phyt_send_msg(struct i2c_phyt_dev *dev,
 				struct phyt_msg_info *set_msg, bool complete_flag);
@@ -32,6 +32,11 @@ static char *i2c_ft_abort_sources[] = {
 	[FT_I2C_INT_ERR] = "Interrupt error",
 	[FT_I2C_BLOCK_SIZE] = "smbus block error",
 	[FT_I2C_INVALID_ADDR] = "slave address invalid",
+	[FT_I2C_TRANS_PACKET_FAIL] = "Packet transfer fail",
+	[FT_I2C_PACKET_NOT_START] = "Packet not start",
+	[FT_I2C_PARA_ERR] = "Para error",
+	[FT_I2C_INTR_XFER_INIT] = "Intr mode xfer init",
+	[FT_I2C_TRANS_WAIT] = "Trans wait",
 	[FT_I2C_CHECK_STATUS_ERR] = "Uncomplete status",
 };
 
@@ -159,7 +164,7 @@ void i2c_phyt_show_log(struct i2c_phyt_dev *dev)
 		dev_info(dev->dev, "log len :%d,addr: 0x%llx,size:%d\n", len, (u64)dev->log_addr,
 					dev->log_size);
 		if (len > FT_LOG_LINE_MAX_LEN) {
-			for (i = 0; i < len; i += FT_LOG_LINE_MAX_LEN)
+			for (i = 0; i + FT_LOG_LINE_MAX_LEN < len; i += FT_LOG_LINE_MAX_LEN)
 				dev_info(dev->dev, "(log)%.*s\n", FT_LOG_LINE_MAX_LEN, &plog[i]);
 		} else {
 			dev_info(dev->dev, "(log)%.*s\n", FT_LOG_LINE_MAX_LEN, &plog[0]);
@@ -183,7 +188,7 @@ int  i2c_phyt_malloc_log_mem(struct i2c_phyt_dev *dev)
 	reg = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_DEBUG);
 	phy_addr = ((reg & FT_I2C_LOG_ADDR_MASK) >> FT_I2C_LOG_ADDR_LOW_SHIFT) <<
 							FT_I2C_LOG_ADDR_SHIFT;
-	dev->log_size = ((reg & FT_I2C_LOG_SIZE_MASK) >> FT_I2C_LOG_SIZE_LOW_SHIFT) * 1024;
+	dev->log_size = ((reg & FT_I2C_LOG_SIZE_MASK) >> FT_I2C_LOG_SIZE_LOW_SHIFT) * 4096;
 
 	dev->log_addr = devm_ioremap(dev->dev, phy_addr, dev->log_size);
 
@@ -293,6 +298,7 @@ void i2c_phyt_default_cfg(struct i2c_phyt_dev *dev,
 	struct phyt_msg_info i2c_mng_msg;
 
 	memset(&i2c_mng_msg, 0, sizeof(i2c_mng_msg));
+	memset(dev->rx_shmem_addr, 0xFF, sizeof(struct phyt_msg_info));
 
 	i2c_phyt_common_set_cmd(dev, &i2c_mng_msg, PHYTI2C_MSG_CMD_DEFAULT,
 					PHYTI2C_MSG_CMD_DEFAULT_RESUME);
@@ -370,9 +376,12 @@ int i2c_phyt_check_status(struct i2c_phyt_dev *dev,
 	if (msg->head.status0 != FT_I2C_MSG_COMPLETE_UNKNOW) {
 		if (!dev->mng.is_need_check ||
 		    ((msg->head.status0 == FT_I2C_MSG_COMPLETE_OK) &&
-		     (msg->head.status1 == FT_I2C_SUCCESS))) {
+		    ((msg->head.status1 == FT_I2C_SUCCESS) ||
+		     (msg->head.status1 == FT_I2C_TRANS_WAIT)))) {
 			dev->abort_source = 0;
 			result = FT_I2C_SUCCESS;
+			if (msg->head.status1 == FT_I2C_TRANS_WAIT)
+				dev->flags = FT_I2C_TRANS_WAIT;
 		} else {
 			i2c_phyt_show_log(dev);
 			dev->abort_source = 1 << msg->head.status1;

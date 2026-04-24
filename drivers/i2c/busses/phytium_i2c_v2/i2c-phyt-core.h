@@ -14,7 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 
-#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.1"
+#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.3"
 
 #define FT_I2C_MSG_UNIT_SIZE			10
 #define FT_I2C_DATA_RESV_LEN			2
@@ -38,9 +38,9 @@
 #define FT_I2C_REGFILE_HEARTBIT_VAL		BIT(2)
 #define FT_I2C_LOG_SIZE_LOW_SHIFT		4
 #define FT_I2C_LOG_SIZE_MASK			GENMASK(7, FT_I2C_LOG_SIZE_LOW_SHIFT)
-#define FT_I2C_LOG_ADDR_SHIFT			10
+#define FT_I2C_LOG_ADDR_SHIFT			12
 #define FT_I2C_LOG_ADDR_LOW_SHIFT		8
-#define FT_I2C_LOG_ADDR_MASK			GENMASK(29, FT_I2C_LOG_ADDR_LOW_SHIFT)
+#define FT_I2C_LOG_ADDR_MASK			GENMASK(27, FT_I2C_LOG_ADDR_LOW_SHIFT)
 #define FT_I2C_LOG_ADDR_LOCK_VAL		BIT(31)
 #define FT_I2C_LOG_ADDR_LOG_FLAG		BIT(3)
 #define FT_I2C_LOG_ADDR_LOG_ALIVE		BIT(1)
@@ -267,6 +267,10 @@ enum phyti2c_status_code {
 	FT_I2C_BLOCK_SIZE,
 	FT_I2C_INVALID_ADDR,
 	FT_I2C_TRANS_PACKET_FAIL,
+	FT_I2C_PACKET_NOT_START,
+	FT_I2C_PARA_ERR,
+	FT_I2C_INTR_XFER_INIT,
+	FT_I2C_TRANS_WAIT,
 	/*The RV result must put above*/
 	FT_I2C_RUNNING,
 	FT_I2C_CHECK_STATUS_ERR
@@ -389,6 +393,7 @@ struct i2c_phyt_dev {
 	u32 master_cfg;
 	u32 slave_cfg;
 	u32 functionality;
+	spinlock_t	i2c_lock;
 
 	u8 real_index[FT_I2C_SINGLE_FRAME_CNT];
 	struct i2c_timings timings;
@@ -509,4 +514,5 @@ void i2c_phyt_notify_rv(struct i2c_phyt_dev *dev, bool need_check);
 int i2c_phyt_check_status(struct i2c_phyt_dev *dev, struct phyt_msg_info *msg);
 void i2c_phyt_set_int_interrupt(struct i2c_phyt_dev *dev,
 				u32 is_enable, u32 intr_mask);
+void i2c_phyt_trig_rv_intr(struct i2c_phyt_dev *dev);
 #endif

@@ -56,6 +56,9 @@ extern unsigned int sw64_insn_nop(void);
 extern unsigned int sw64_insn_call(unsigned int ra, unsigned int rb);
 extern unsigned int sw64_insn_sys_call(unsigned int num);
 extern unsigned int sw64_insn_br(unsigned int ra, unsigned long pc, unsigned long new_pc);
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+extern int sw64_patch_text_nosync(void *addr, u32 insn);
+#endif
 
 #define SW64_OPCODE_RA(opcode)	((opcode >> 21) & 0x1f)
 
@@ -77,6 +80,7 @@ SW64_INSN(imemb,	0x18000001, 0xfc00ffff);
 SW64_INSN(rtc,		0x18000020, 0xfc00ffff);
 SW64_INSN(halt,		0x18000080, 0xfc00ffff);
 SW64_INSN(rd_f,		0x18001000, 0xfc00ffff);
+SW64_INSN(lbr,		0x74000000, 0xfc000000);
 SW64_INSN(beq,		0xc0000000, 0xfc000000);
 SW64_INSN(bne,		0xc4000000, 0xfc000000);
 SW64_INSN(blt,		0xc8000000, 0xfc000000);
@@ -93,5 +97,13 @@ SW64_INSN(fbgt,		0xf0000000, 0xfc000000);
 SW64_INSN(fbge,		0xf4000000, 0xfc000000);
 SW64_INSN(lldw,		0x20000000, 0xfc00f000);
 SW64_INSN(lldl,		0x20001000, 0xfc00f000);
+
+static  inline  bool sw64_insn_is_branch(u32 insn)
+{
+	bool is_branch = ((insn & 0xfc000000) >= 0x10000000 && (insn & 0xfc000000) <= 0x14000000) ||	\
+			 ((insn & 0xfc000000) >= 0xc0000000 && (insn & 0xfc000000) <= 0xf4000000) ||	\
+			 ((insn & 0xfc000000) == 0x74000000);
+	return is_branch;
+}
 
 #endif /* _ASM_SW64_INSN_H */

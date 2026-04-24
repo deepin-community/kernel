@@ -32,7 +32,8 @@
 #define INITRD_SIZE		(*(unsigned long *)(PARAM + 0x108))
 #define DTB_START		(*(unsigned long *)(PARAM + 0x118))
 
-#define _TEXT_START		(KERNEL_START + 0x10000)
+#define TEXT_OFFSET		0x10000
+#define _TEXT_START		(KERNEL_START + TEXT_OFFSET)
 
 #define COMMAND_LINE_OFF	(0x10000UL - 0xB000UL)
 #define INITRD_START_OFF	(0x10000UL - 0xA100UL)

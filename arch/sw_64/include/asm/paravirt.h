@@ -3,13 +3,11 @@
 #define _ASM_SW64_PARAVIRT_H
 
 #ifdef CONFIG_PARAVIRT
+#include <linux/static_call_types.h>
+
 struct static_key;
 extern struct static_key paravirt_steal_enabled;
 extern struct static_key paravirt_steal_rq_enabled;
-
-struct pv_time_ops {
-	unsigned long long (*steal_clock)(int cpu);
-};
 
 struct pv_lock_ops {
 	void (*wait)(u8 *ptr, u8 val);
@@ -20,16 +18,21 @@ struct pv_lock_ops {
 };
 
 struct paravirt_patch_template {
-	struct pv_time_ops time;
 	struct pv_lock_ops lock;
 };
 
 extern struct paravirt_patch_template pv_ops;
 
+u64 dummy_steal_clock(int cpu);
+
+DECLARE_STATIC_CALL(pv_steal_clock, dummy_steal_clock);
+
 static inline u64 paravirt_steal_clock(int cpu)
 {
-	return pv_ops.time.steal_clock(cpu);
+	return static_call(pv_steal_clock)(cpu);
 }
+
+int __init pv_steal_time_init(void);
 
 __visible bool __native_vcpu_is_preempted(int cpu);
 
@@ -66,6 +69,7 @@ static inline void pv_queued_spin_unlock(struct qspinlock *lock)
 #else
 
 #define pv_qspinlock_init() do {} while (0)
+#define pv_steal_time_init() do {} while (0)
 
 #endif /* CONFIG_PARAVIRT */
 

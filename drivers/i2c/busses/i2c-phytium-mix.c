@@ -24,6 +24,9 @@
 #define I2C_QUICK_CMD_BIT_SET			BIT(13)
 #define DEFAULT_TIMEOUT				(DEFAULT_CLOCK_FREQUENCY / 1000 * 35)
 
+static int i2c_phytium_init_master(struct phytium_i2c_dev *dev);
+static void i2c_phytium_change_mode(int target_mode, struct phytium_i2c_dev *dev);
+
 static int i2c_phytium_recover_controller(struct phytium_i2c_dev *dev)
 {
 	unsigned long flags;
@@ -31,14 +34,20 @@ static int i2c_phytium_recover_controller(struct phytium_i2c_dev *dev)
 	spin_lock_irqsave(&dev->i2c_lock, flags);
 
 	reset_control_reset(dev->rst);
-#if IS_ENABLED(CONFIG_I2C_SLAVE)
-	dev->slave_state = SLAVE_STATE_IDLE;
-	dev->status = STATUS_IDLE;
-	if (dev->slave)
-		phytium_writel(dev, dev->slave->addr, IC_SAR);
-#endif
 
+	if (!dev->slave) {
+		i2c_phytium_init_master(dev);
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	} else {
+		dev->slave_status = SLAVE_STATE_IDLE;
+		phytium_writel(dev, dev->slave->addr, IC_SAR);
+		i2c_phytium_change_mode(PHYTIUM_IC_SLAVE, dev);
+#endif
+	}
+
+	dev->status = STATUS_IDLE;
 	spin_unlock_irqrestore(&dev->i2c_lock, flags);
+
 	return 0;
 }
 
@@ -131,7 +140,6 @@ static int i2c_phytium_init_master(struct phytium_i2c_dev *dev)
 static void i2c_phytium_change_mode(int target_mode, struct phytium_i2c_dev *dev)
 {
 	if (target_mode == PHYTIUM_IC_MASTER) {
-		dev->disable_int(dev);
 		dev->disable(dev);
 		i2c_phytium_init_master(dev);
 	} else {
@@ -371,30 +379,40 @@ static int i2c_phytium_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[],
 	ret = pm_runtime_get_sync(dev->dev);
 	if (ret < 0) {
 		dev_err(dev->dev, "pm runtime get sync err.\n");
-		goto pm_exit;
+		goto done;
 	}
 
 	spin_lock_irqsave(&dev->i2c_lock, flags);
-	reinit_completion(&dev->cmd_complete);
 
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	if (dev->slave && dev->slave_status != SLAVE_STATE_IDLE) {
+		reinit_completion(&dev->slave_complete);
+		spin_unlock_irqrestore(&dev->i2c_lock, flags);
+
+		/* Waiting for slave to complete. */
+		if (!wait_for_completion_timeout(&dev->slave_complete,
+				adapter->timeout)) {
+			dev_err(dev->dev, "Slave is timeout, recover\n");
+			i2c_phytium_recover_controller(dev);
+			ret = -ETIMEDOUT;
+			goto done;
+		}
+		spin_lock_irqsave(&dev->i2c_lock, flags);
+	}
+
+	if (dev->mode == PHYTIUM_IC_SLAVE)
+		i2c_phytium_change_mode(PHYTIUM_IC_MASTER, dev);
+#endif
+
+	reinit_completion(&dev->cmd_complete);
 	dev->msgs = msgs;
 	dev->msgs_num = num;
 	dev->cmd_err = 0;
 	dev->msg_write_idx = 0;
 	dev->msg_read_idx = 0;
 	dev->msg_err = 0;
-	dev->status = STATUS_IDLE;
 	dev->abort_source = 0;
 	dev->rx_outstanding = 0;
-
-	ret = i2c_phytium_check_bus_not_busy(dev);
-	if (ret < 0)
-		goto done;
-
-#if IS_ENABLED(CONFIG_I2C_SLAVE)
-	if (dev->slave_cfg)
-		i2c_phytium_change_mode(PHYTIUM_IC_MASTER, dev);
-#endif
 
 	/* Start the transfers */
 	i2c_phytium_xfer_init(dev);
@@ -404,15 +422,19 @@ static int i2c_phytium_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[],
 					 adapter->timeout)) {
 		dev_err(dev->dev, "controller timed out\n");
 		i2c_phytium_recover_controller(dev);
-		spin_lock_irqsave(&dev->i2c_lock, flags);
-		if (!dev->slave_cfg)
-			i2c_phytium_init_master(dev);
 		ret = -ETIMEDOUT;
 		goto done;
 	}
-	spin_lock_irqsave(&dev->i2c_lock, flags);
-	__i2c_phytium_disable_nowait(dev);
 
+	if (!dev->slave)
+		__i2c_phytium_disable_nowait(dev);
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	/* Do nothing. */
+	if (dev->slave && dev->msgs->len >= REQ_MIN_LEN) {
+		reinit_completion(&dev->slave_complete);
+		wait_for_completion_timeout(&dev->slave_complete, adapter->timeout);
+	}
+#endif
 	if (dev->msg_err) {
 		ret = dev->msg_err;
 		goto done;
@@ -425,25 +447,13 @@ static int i2c_phytium_xfer(struct i2c_adapter *adapter, struct i2c_msg msgs[],
 
 	/* We have got an error */
 	if (dev->cmd_err == IC_ERR_TX_ABRT) {
-		spin_unlock_irqrestore(&dev->i2c_lock, flags);
 		ret = i2c_phytium_handle_tx_abort(dev);
-		spin_lock_irqsave(&dev->i2c_lock, flags);
 		goto done;
 	}
 
 	ret = -EIO;
 
 done:
-#if IS_ENABLED(CONFIG_I2C_SLAVE)
-	if (dev->slave_cfg)
-		i2c_phytium_change_mode(PHYTIUM_IC_SLAVE, dev);
-	dev->status = STATUS_IDLE;
-	dev->slave_state = SLAVE_STATE_IDLE;
-#endif
-	spin_unlock_irqrestore(&dev->i2c_lock, flags);
-
-pm_exit:
-
 	pm_runtime_mark_last_busy(dev->dev);
 	pm_runtime_put_autosuspend(dev->dev);
 
@@ -483,7 +493,7 @@ static int i2c_phytium_reg_slave(struct i2c_client *slave)
 	dev->msg_write_idx = 0;
 	dev->msg_read_idx = 0;
 	dev->msg_err = 0;
-	dev->status = STATUS_IDLE;
+	dev->slave_status = SLAVE_STATE_IDLE;
 	dev->abort_source = 0;
 	dev->rx_outstanding = 0;
 
@@ -603,8 +613,7 @@ static int i2c_phytium_irq_handler_master(struct phytium_i2c_dev *dev)
 			phytium_readl(dev, IC_CLR_TX_ABRT);
 			phytium_writel(dev, 0, IC_INTR_MASK);
 
-			complete(&dev->cmd_complete);
-			return 0;
+			goto abort;
 		}
 	}
 
@@ -617,6 +626,10 @@ static int i2c_phytium_irq_handler_master(struct phytium_i2c_dev *dev)
 abort:
 	if ((stat & IC_INTR_TX_ABRT) || (stat & IC_INTR_STOP_DET) || dev->msg_err) {
 		complete(&dev->cmd_complete);
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+		if (dev->slave)
+			i2c_phytium_change_mode(PHYTIUM_IC_SLAVE, dev);
+#endif
 	} else if (unlikely(dev->flags & ACCESS_INTR_MASK)) {
 		/* Workaround to trigger pending interrupt */
 		stat = phytium_readl(dev, IC_INTR_MASK);
@@ -644,11 +657,10 @@ static int i2c_phytium_irq_handler_slave(struct phytium_i2c_dev *dev)
 	stat = i2c_phytium_read_clear_intrbits(dev);
 
 	if (stat & IC_INTR_RX_FULL) {
-		if (dev->status != STATUS_WRITE_IN_PROGRESS) {
-			dev->status = STATUS_WRITE_IN_PROGRESS;
+		if (dev->slave_status != SLAVE_WRITE_IN_PROGRESS) {
+			dev->slave_status = SLAVE_WRITE_IN_PROGRESS;
 			i2c_slave_event(dev->slave, I2C_SLAVE_WRITE_REQUESTED,
 					&val);
-			dev->slave_state = SLAVE_STATE_RECV;
 		}
 		do {
 			val = phytium_readl(dev, IC_DATA_CMD);
@@ -662,13 +674,11 @@ static int i2c_phytium_irq_handler_slave(struct phytium_i2c_dev *dev)
 		if (slave_activity) {
 			phytium_readl(dev, IC_CLR_RD_REQ);
 
-			if (!(dev->status & STATUS_READ_IN_PROGRESS)) {
+			if (!(dev->slave_status & SLAVE_READ_IN_PROGRESS)) {
 				i2c_slave_event(dev->slave,
 						I2C_SLAVE_READ_REQUESTED, &val);
-				dev->status |= STATUS_READ_IN_PROGRESS;
-				dev->status &= ~STATUS_WRITE_IN_PROGRESS;
-				dev->slave_state = SLAVE_STATE_SEND;
-
+				dev->slave_status |= SLAVE_READ_IN_PROGRESS;
+				dev->slave_status &= ~SLAVE_WRITE_IN_PROGRESS;
 			} else {
 				i2c_slave_event(dev->slave,
 						I2C_SLAVE_READ_PROCESSED, &val);
@@ -680,8 +690,8 @@ static int i2c_phytium_irq_handler_slave(struct phytium_i2c_dev *dev)
 	if (stat & IC_INTR_STOP_DET) {
 		i2c_slave_event(dev->slave, I2C_SLAVE_STOP, &val);
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
-		dev->status = STATUS_IDLE;
-		dev->slave_state = SLAVE_STATE_IDLE;
+		dev->slave_status = SLAVE_STATE_IDLE;
+		complete(&dev->slave_complete);
 #endif
 	}
 
@@ -697,6 +707,8 @@ static irqreturn_t i2c_phytium_isr(int this_irq, void *dev_id)
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
 	if (dev->mode == PHYTIUM_IC_SLAVE) {
+		if (dev->slave_status == SLAVE_STATE_IDLE)
+			dev->slave_status = SLAVE_STATE_ACTIVE;
 		i2c_phytium_irq_handler_slave(dev);
 		spin_unlock(&dev->i2c_lock);
 		return IRQ_HANDLED;
@@ -829,6 +841,10 @@ int i2c_phytium_probe(struct phytium_i2c_dev *dev)
 					"Phytium I2C Slave Adapter");
 		dev->init = i2c_phytium_init_slave;
 	}
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
+	init_completion(&dev->slave_complete);
+	dev->slave_status = SLAVE_STATE_IDLE;
+#endif
 
 	dev->disable = i2c_phytium_disable;
 	dev->disable_int = i2c_phytium_disable_int;

@@ -4,6 +4,7 @@
 #include <linux/mm.h>
 #include <asm/page.h>
 
+extern int phys_addr_valid(unsigned long);
 unsigned long __phys_addr(unsigned long addr)
 {
 	VIRTUAL_BUG_ON(addr < PAGE_OFFSET);

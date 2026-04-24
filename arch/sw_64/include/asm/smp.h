@@ -35,6 +35,7 @@ struct smp_rcb_struct {
 	unsigned long ready;
 	unsigned long init_done;
 	unsigned long feat_vint;
+	unsigned long ptbr;
 };
 
 extern bool __init is_rcid_duplicate(int rcid);

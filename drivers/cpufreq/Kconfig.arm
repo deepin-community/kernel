@@ -19,6 +19,17 @@ config ACPI_CPPC_CPUFREQ
 
 	  If in doubt, say N.
 
+config CPPC_CPUFREQ_SYSFS_INTERFACE
+    bool "Enable CPPC CPUFreq sysfs tuning interfaces"
+    depends on ACPI_CPPC_CPUFREQ && ARM64
+    default n
+    help
+      This enables sysfs interfaces for CPPC CPUFreq driver including
+      auto_act_window and energy_perf. These interfaces allow users
+      to tune CPPC parameters at runtime.
+
+      If unsure, say N.
+
 config ACPI_CPPC_CPUFREQ_FIE
 	bool "Frequency Invariance support for CPPC cpufreq driver"
 	depends on ACPI_CPPC_CPUFREQ && GENERIC_ARCH_TOPOLOGY

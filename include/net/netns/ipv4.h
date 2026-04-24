@@ -75,6 +75,12 @@ struct netns_ipv4 {
 	int sysctl_tcp_rmem[3];
 	__cacheline_group_end(netns_ipv4_read_rx);
 
+	/* ICMP rate limiter hot cache line. */
+	__cacheline_group_begin_aligned(icmp);
+	atomic_t	icmp_global_credit;
+	u32		icmp_global_stamp;
+	__cacheline_group_end_aligned(icmp);
+
 	struct inet_timewait_death_row tcp_death_row;
 	struct udp_table *udp_table;
 
@@ -117,6 +123,8 @@ struct netns_ipv4 {
 	u8 sysctl_icmp_errors_use_inbound_ifaddr;
 	int sysctl_icmp_ratelimit;
 	int sysctl_icmp_ratemask;
+	int sysctl_icmp_msgs_per_sec;
+	int sysctl_icmp_msgs_burst;
 
 	u32 ip_rt_min_pmtu;
 	int ip_rt_mtu_expires;
@@ -161,8 +169,8 @@ struct netns_ipv4 {
 	u8 sysctl_tcp_syncookies;
 	u8 sysctl_tcp_migrate_req;
 	u8 sysctl_tcp_comp_sack_nr;
-	u8 sysctl_tcp_backlog_ack_defer; // reserved
-	u8 sysctl_tcp_pingpong_thresh; // reserved
+	u8 sysctl_tcp_backlog_ack_defer;
+	u8 sysctl_tcp_pingpong_thresh;
 
 	u8 sysctl_tcp_retries1;
 	u8 sysctl_tcp_retries2;

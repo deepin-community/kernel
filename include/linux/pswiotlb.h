@@ -18,15 +18,11 @@ struct scatterlist;
 extern bool pswiotlb_force_disable;
 struct p_io_tlb_pool;
 
-#define SOC_ID_PS23064	0x8
-#define SOC_ID_PS24080	0x6
-#define MIDR_PS    0x700F8620
-#define SYS_AIDR_EL1    sys_reg(3, 1, 0, 0, 7)
 #define PSWIOTLB_VERBOSE	(1 << 0) /* verbose initialization */
 #define PSWIOTLB_FORCEOFF	(1 << 1) /* force phytium bounce buffering off*/
 #define PSWIOTLB_ANY	(1 << 2) /* allow any memory for the buffer */
 #define PSWIOTLB_FREE_THRESHOLD 30
-static bool is_ps_socs;
+extern bool __read_mostly is_ps_socs;
 
 /*
  * Maximum allowable number of contiguous slabs to map,
@@ -79,6 +75,7 @@ dma_addr_t pswiotlb_map(struct device *dev, int nid, phys_addr_t phys,
 void pswiotlb_store_local_node(struct pci_dev *dev, struct pci_bus *bus);
 void iommu_dma_unmap_sg_pswiotlb(struct device *dev, struct scatterlist *sg, unsigned long iova,
 			size_t mapped, int nents, enum dma_data_direction dir, unsigned long attrs);
+void pswiotlb_setup_dma_ops(struct device *dev);
 #ifdef CONFIG_PSWIOTLB
 struct pswiotlb_passthroughlist {
 	struct list_head node;
@@ -211,19 +208,9 @@ struct p_io_tlb_pool *pswiotlb_find_pool(struct device *dev, int nid, phys_addr_
 
 static inline bool is_phytium_ps_socs(void)
 {
-	unsigned int soc_id;
-	unsigned int midr;
-
 	if (likely(is_ps_socs))
 		return true;
-
-	soc_id = read_sysreg_s(SYS_AIDR_EL1);
-	midr = read_cpuid_id();
-	if ((soc_id == SOC_ID_PS23064 || soc_id == SOC_ID_PS24080)
-				&& midr == MIDR_PS) {
-		is_ps_socs = true;
-		return true;
-	} else
+	else
 		return false;
 }
 

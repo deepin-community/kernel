@@ -1,23 +1,29 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 #
-# Guangruntong network device configuration
+# grt network device configuration
 #
 
 config NET_VENDOR_GRT
-        bool "Guanruntong devices"
-        depends on PCI
-        default y
-        help
-          If you have a network (Ethernet) card belonging to this class, say Y.
+	bool "GuangRunTong(GRT) devices"
+	default y
+	help
+	  If you have a network (Ethernet) card belonging to this class, say Y.
 
-          Note that the answer to this question doesn't directly affect the
-          kernel: saying N will just cause the configurator to skip all
-          the questions about Intel cards. If you say Y, you will be asked for
-          your specific card in the following questions.
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about GuangRunTong(GRT) cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
 
-config GRTNIC
-        tristate "Guangruntong PCI Express adapters support"
-        depends on NET_VENDOR_GRT
-        help
-          This driver supports Guangruntong PCI Express family of
-          adapters.
+if NET_VENDOR_GRT
+
+config GRTNIC_XGB
+	tristate "GRT(R) 1-10GbE PCI Express adapters support"
+	depends on PCI
+	help
+	  This driver supports GRT(R) 1-10GbE PCI Express family of
+	  adapters.
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called grtnic_xgb.
+
+endif # NET_VENDOR_GRT

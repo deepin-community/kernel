@@ -107,6 +107,29 @@ static u32 get_umc_base_f18h_m4h(u16 node, u8 channel)
 	return get_umc_base(channel) + (0x80000000 + (0x10000000 * df_id));
 }
 
+static u32 get_umc_base_f18h_m18h(u8 channel)
+{
+	return 0x70000000 + (channel << 20);
+}
+
+static u32 hygon_get_umc_base(struct amd64_pvt *pvt, u8 channel)
+{
+	u32 umc_base;
+
+	if (hygon_f18h_m4h())
+		umc_base = get_umc_base_f18h_m4h(pvt->mc_node_id, channel);
+	/*
+	 * For Hygon family 18h model 0x18h-0x1fh processors, the UMC base
+	 * are identical.
+	 */
+	else if (hygon_f18h_m10h() && boot_cpu_data.x86_model >= 0x18)
+		umc_base = get_umc_base_f18h_m18h(channel);
+	else
+		umc_base = get_umc_base(channel);
+
+	return umc_base;
+}
+
 /*
  * Select DCT to which PCI cfg accesses are routed
  */
@@ -1812,8 +1835,8 @@ static void umc_read_base_mask(struct amd64_pvt *pvt)
 		if (!hygon_umc_channel_enabled(pvt, umc))
 			continue;
 
-		if (hygon_f18h_m4h())
-			umc_base = get_umc_base_f18h_m4h(pvt->mc_node_id, umc);
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+			umc_base = hygon_get_umc_base(pvt, umc);
 		else
 			umc_base = get_umc_base(umc);
 
@@ -3286,8 +3309,8 @@ static void umc_read_mc_regs(struct amd64_pvt *pvt)
 		if (!hygon_umc_channel_enabled(pvt, i))
 			continue;
 
-		if (hygon_f18h_m4h())
-			umc_base = get_umc_base_f18h_m4h(pvt->mc_node_id, i);
+		if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+			umc_base = hygon_get_umc_base(pvt, i);
 		else
 			umc_base = get_umc_base(i);
 
@@ -4210,28 +4233,35 @@ static int per_family_init(struct amd64_pvt *pvt)
 		break;
 
 	case 0x18:
-		if (pvt->model == 0x4) {
+		switch (pvt->model) {
+		case 0x4:
 			pvt->ctl_name			= "F18h_M04h";
 			pvt->max_mcs			= 3;
 			break;
-		} else if (pvt->model == 0x5) {
+		case 0x5:
 			pvt->ctl_name			= "F18h_M05h";
 			pvt->max_mcs			= 1;
 			break;
-		} else if (pvt->model == 0x6) {
+		case 0x6:
 			pvt->ctl_name			= "F18h_M06h";
 			break;
-		} else if (pvt->model == 0x7) {
+		case 0x7:
 			pvt->ctl_name			= "F18h_M07h";
 			break;
-		} else if (pvt->model == 0x8) {
+		case 0x8:
 			pvt->ctl_name			= "F18h_M08h";
 			break;
-		} else if (pvt->model == 0x10) {
+		case 0x10:
 			pvt->ctl_name			= "F18h_M10h";
 			break;
+		case 0x18:
+			pvt->ctl_name			= "F18h_M18h";
+			pvt->max_mcs			= 1;
+			break;
+		default:
+			pvt->ctl_name			= "F18h";
+			break;
 		}
-		pvt->ctl_name				= "F18h";
 		break;
 
 	case 0x19:
@@ -4287,6 +4317,26 @@ static int per_family_init(struct amd64_pvt *pvt)
 			break;
 		case 0x40 ... 0x4f:
 			pvt->ctl_name           = "F1Ah_M40h";
+			pvt->flags.zn_regs_v2   = 1;
+			break;
+		case 0x50 ... 0x57:
+			pvt->ctl_name           = "F1Ah_M50h";
+			pvt->max_mcs            = 16;
+			pvt->flags.zn_regs_v2   = 1;
+			break;
+		case 0x90 ... 0x9f:
+			pvt->ctl_name           = "F1Ah_M90h";
+			pvt->max_mcs            = 8;
+			pvt->flags.zn_regs_v2   = 1;
+			break;
+		case 0xa0 ... 0xaf:
+			pvt->ctl_name           = "F1Ah_MA0h";
+			pvt->max_mcs            = 8;
+			pvt->flags.zn_regs_v2   = 1;
+			break;
+		case 0xc0 ... 0xc7:
+			pvt->ctl_name           = "F1Ah_MC0h";
+			pvt->max_mcs            = 16;
 			pvt->flags.zn_regs_v2   = 1;
 			break;
 		}

@@ -159,6 +159,9 @@
 #define INTEL_FAM6_GRANITERAPIDS_D	0xAE
 #define INTEL_GRANITERAPIDS_D		IFM(6, 0xAE)
 
+/* Family 19 */
+#define INTEL_DIAMONDRAPIDS_X		IFM(19, 0x01) /* Panther Cove */
+
 #define INTEL_BARTLETTLAKE		IFM(6, 0xD7) /* Raptor Cove */
 
 /* "Hybrid" Processors (P-Core/E-Core) */
@@ -192,6 +195,8 @@
 
 #define INTEL_FAM6_LUNARLAKE_M		0xBD
 #define INTEL_LUNARLAKE_M		IFM(6, 0xBD)
+
+#define INTEL_PANTHERLAKE_L		IFM(6, 0xCC)
 
 /* "Small Core" Processors (Atom/E-Core) */
 

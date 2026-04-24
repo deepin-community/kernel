@@ -65,6 +65,11 @@ static int probe_only[SNDRV_CARDS];
 static int jackpoll_ms[SNDRV_CARDS];
 static int single_cmd = -1;
 static int enable_msi = -1;
+#ifdef CONFIG_PM
+static int power_save = 1;
+#else
+#define power_save	0
+#endif
 #ifdef CONFIG_SND_HDA_INPUT_BEEP
 static bool beep_mode[SNDRV_CARDS] = {[0 ... (SNDRV_CARDS-1)] =
 					CONFIG_SND_HDA_INPUT_BEEP_MODE};
@@ -97,7 +102,17 @@ module_param_array(beep_mode, bool, NULL, 0444);
 MODULE_PARM_DESC(beep_mode, "Select HDA Beep registration mode (0=off, 1=on) (default=1).");
 #endif
 
-#define power_save 0
+#ifdef CONFIG_PM
+static int param_set_xint(const char *val, const struct kernel_param *kp);
+static const struct kernel_param_ops param_ops_xint = {
+	.set = param_set_xint,
+	.get = param_get_int,
+};
+#define param_check_xint param_check_int
+
+module_param(power_save, xint, 0644);
+MODULE_PARM_DESC(power_save, "Automatic power-saving timeout (in second, 0 = disable).");
+#endif /* CONFIG_PM */
 
 static int align_buffer_size = -1;
 module_param(align_buffer_size, bint, 0644);
@@ -413,6 +428,28 @@ static void azx_del_card_list(struct azx *chip)
 	mutex_lock(&card_list_lock);
 	list_del_init(&hda->list);
 	mutex_unlock(&card_list_lock);
+}
+
+/* trigger power-save check at writing parameter */
+static int param_set_xint(const char *val, const struct kernel_param *kp)
+{
+	struct hda_ft *hda;
+	struct azx *chip;
+	int prev = power_save;
+	int ret = param_set_int(val, kp);
+
+	if (ret || prev == power_save)
+		return ret;
+
+	mutex_lock(&card_list_lock);
+	list_for_each_entry(hda, &card_list, list) {
+		chip = &hda->chip;
+		if (!hda->probe_continued || chip->disabled)
+			continue;
+		snd_hda_set_power_save(&chip->bus, power_save * 1000);
+	}
+	mutex_unlock(&card_list_lock);
+	return 0;
 }
 
 #else
@@ -810,6 +847,7 @@ static int azx_first_init(struct azx *chip)
 	struct resource *res;
 	const struct acpi_device_id *match;
 
+	device_enable_async_suspend(hddev);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hda->regs = devm_ioremap_resource(hddev, res);
 	if (IS_ERR(hda->regs))
@@ -915,6 +953,51 @@ static const struct hda_controller_ops axi_hda_ops = {
 	.link_power = azx_ft_link_power,
 };
 
+static ssize_t runtime_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	struct azx *chip = card->private_data;
+	struct hdac_bus *bus = azx_bus(chip);
+	unsigned int cmd = 0x001f0500;
+	unsigned int res = -1;
+	char *status;
+
+	dev_info(dev, "Inquire codec status!\n");
+	mutex_lock(&bus->cmd_mutex);
+	snd_hdac_bus_send_cmd(bus, cmd);
+	snd_hdac_bus_get_response(bus, 0, &res);
+	mutex_unlock(&bus->cmd_mutex);
+
+	switch (res & 0x3) {
+	case 0x0:
+		status = "D0";
+		break;
+	case 0x1:
+		status = "D1";
+		break;
+	case 0x2:
+		status = "D2";
+		break;
+	case 0x3:
+		status = "D3";
+		break;
+	}
+
+	return sprintf(buf, "%s\n", status);
+}
+
+static DEVICE_ATTR_RO(runtime_status);
+
+static struct attribute *runtime_status_attrs[] = {
+	&dev_attr_runtime_status.attr,
+	NULL,
+};
+
+static const struct attribute_group hda_ft_runtime_status_group = {
+	.attrs = runtime_status_attrs,
+};
+
 static DECLARE_BITMAP(probed_devs, SNDRV_CARDS);
 
 static int hda_ft_probe(struct platform_device *pdev)
@@ -966,7 +1049,6 @@ out_free:
 	return err;
 }
 
-#define codec_power_count(codec) codec->core.dev.power.usage_count.counter
 /* number of codec slots for each chipset: 0 = default slots (i.e. 4) */
 static unsigned int azx_max_codecs[AZX_NUM_DRIVERS] = {
 	[AZX_DRIVER_FT] = 4,
@@ -979,7 +1061,6 @@ static int azx_probe_continue(struct azx *chip)
 	int dev = chip->dev_index;
 	int err;
 	struct hdac_bus *bus = azx_bus(chip);
-	struct hda_codec *codec;
 
 	hda->probe_continued = 1;
 
@@ -1013,15 +1094,14 @@ static int azx_probe_continue(struct azx *chip)
 	if (azx_has_pm_runtime(chip))
 		pm_runtime_put_noidle(hddev);
 
-	list_for_each_codec(codec, &chip->bus) {
-		if (codec_power_count(codec) > 0) {
-			pm_runtime_mark_last_busy(&codec->core.dev);
-			pm_runtime_put_autosuspend(&codec->core.dev);
-		}
+	if (sysfs_create_group(&hda->dev->kobj, &hda_ft_runtime_status_group)) {
+		dev_warn(hda->dev, "failed create sysfs\n");
+		goto err_sysfs;
 	}
-
 	return err;
 
+err_sysfs:
+	sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 out_free:
 	if (bus->irq >= 0) {
 		free_irq(bus->irq, (void *)chip);
@@ -1042,6 +1122,7 @@ static int hda_ft_remove(struct platform_device *pdev)
 		hda = container_of(chip, struct hda_ft, chip);
 		cancel_work_sync(&hda->probe_work);
 		clear_bit(chip->dev_index, probed_devs);
+		sysfs_remove_group(&hda->dev->kobj, &hda_ft_runtime_status_group);
 
 		snd_card_free(card);
 		return 0;

@@ -38,6 +38,81 @@
 #include "cached_dir.h"
 
 /*
+ * Allocate a bio_vec array and extract up to sg_max pages from a KVEC-type
+ * iterator and add them to the array.  This can deal with vmalloc'd buffers as
+ * well as kmalloc'd or static buffers.  The pages are not pinned.
+ */
+static ssize_t extract_kvec_to_bvec(struct iov_iter *iter, ssize_t maxsize,
+					unsigned int bc_max,
+					struct bio_vec **_bv, unsigned int *_bc)
+{
+	const struct kvec *kv = iter->kvec;
+	struct bio_vec *bv;
+	unsigned long start = iter->iov_offset;
+	unsigned int i, bc = 0;
+	ssize_t ret = 0;
+
+	bc_max = iov_iter_npages(iter, bc_max);
+	if (bc_max == 0) {
+		*_bv = NULL;
+		*_bc = 0;
+		return 0;
+	}
+
+	bv = kvmalloc(array_size(bc_max, sizeof(*bv)), GFP_NOFS);
+	if (!bv) {
+		*_bv = NULL;
+		*_bc = 0;
+		return -ENOMEM;
+	}
+	*_bv = bv;
+
+	for (i = 0; i < iter->nr_segs; i++) {
+		struct page *page;
+		unsigned long kaddr;
+		size_t off, len, seg;
+
+		len = kv[i].iov_len;
+		if (start >= len) {
+			start -= len;
+			continue;
+		}
+
+		kaddr = (unsigned long)kv[i].iov_base + start;
+		off = kaddr & ~PAGE_MASK;
+		len = min_t(size_t, maxsize, len - start);
+		kaddr &= PAGE_MASK;
+
+		maxsize -= len;
+		ret += len;
+		do {
+			seg = umin(len, PAGE_SIZE - off);
+			if (is_vmalloc_or_module_addr((void *)kaddr))
+				page = vmalloc_to_page((void *)kaddr);
+			else
+				page = virt_to_page((void *)kaddr);
+
+			bvec_set_page(bv, page, len, off);
+			bv++;
+			bc++;
+
+			len -= seg;
+			kaddr += PAGE_SIZE;
+			off = 0;
+		} while (len > 0 && bc < bc_max);
+
+		if (maxsize <= 0 || bc >= bc_max)
+			break;
+		start = 0;
+	}
+
+	if (ret > 0)
+		iov_iter_advance(iter, ret);
+	*_bc = bc;
+	return ret;
+}
+
+/*
  * Remove the dirty flags from a span of pages.
  */
 static void cifs_undirty_folios(struct inode *inode, loff_t start, unsigned int len)
@@ -384,15 +459,8 @@ static int cifs_nt_open(const char *full_path, struct inode *inode, struct cifs_
  *********************************************************************/
 
 	disposition = cifs_get_disposition(f_flags);
-
 	/* BB pass O_SYNC flag through on file attributes .. BB */
-
-	/* O_SYNC also has bit for O_DSYNC so following check picks up either */
-	if (f_flags & O_SYNC)
-		create_options |= CREATE_WRITE_THROUGH;
-
-	if (f_flags & O_DIRECT)
-		create_options |= CREATE_NO_BUFFER;
+	create_options |= cifs_open_create_options(f_flags, create_options);
 
 retry_open:
 	oparms = (struct cifs_open_parms) {
@@ -511,8 +579,6 @@ struct cifsFileInfo *cifs_new_fileinfo(struct cifs_fid *fid, struct file *file,
 	mutex_init(&cfile->fh_mutex);
 	spin_lock_init(&cfile->file_info_lock);
 
-	cifs_sb_active(inode->i_sb);
-
 	/*
 	 * If the server returned a read oplock and we have mandatory brlocks,
 	 * set oplock level to None.
@@ -567,7 +633,6 @@ static void cifsFileInfo_put_final(struct cifsFileInfo *cifs_file)
 	struct inode *inode = d_inode(cifs_file->dentry);
 	struct cifsInodeInfo *cifsi = CIFS_I(inode);
 	struct cifsLockInfo *li, *tmp;
-	struct super_block *sb = inode->i_sb;
 
 	/*
 	 * Delete any outstanding lock records. We'll lose them when the file
@@ -585,7 +650,6 @@ static void cifsFileInfo_put_final(struct cifsFileInfo *cifs_file)
 
 	cifs_put_tlink(cifs_file->tlink);
 	dput(cifs_file->dentry);
-	cifs_sb_deactive(sb);
 	kfree(cifs_file->symlink_target);
 	kfree(cifs_file);
 }
@@ -1042,13 +1106,8 @@ cifs_reopen_file(struct cifsFileInfo *cfile, bool can_flush)
 		rdwr_for_fscache = 1;
 
 	desired_access = cifs_convert_flags(cfile->f_flags, rdwr_for_fscache);
-
-	/* O_SYNC also has bit for O_DSYNC so following check picks up either */
-	if (cfile->f_flags & O_SYNC)
-		create_options |= CREATE_WRITE_THROUGH;
-
-	if (cfile->f_flags & O_DIRECT)
-		create_options |= CREATE_NO_BUFFER;
+	create_options |= cifs_open_create_options(cfile->f_flags,
+						   create_options);
 
 	if (server->ops->get_lease_key)
 		server->ops->get_lease_key(inode, &cfile->fid);
@@ -2747,8 +2806,10 @@ static void cifs_extend_writeback(struct address_space *mapping,
 				  loff_t start,
 				  int max_pages,
 				  loff_t max_len,
-				  size_t *_len)
+				  size_t *_len,
+				  unsigned long long i_size)
 {
+	struct inode *inode = mapping->host;
 	struct folio_batch batch;
 	struct folio *folio;
 	unsigned int nr_pages;
@@ -2779,7 +2840,7 @@ static void cifs_extend_writeback(struct address_space *mapping,
 
 			if (!folio_try_get(folio)) {
 				xas_reset(xas);
-				continue;
+				break;
 			}
 			nr_pages = folio_nr_pages(folio);
 			if (nr_pages > max_pages) {
@@ -2799,6 +2860,15 @@ static void cifs_extend_writeback(struct address_space *mapping,
 				xas_reset(xas);
 				break;
 			}
+
+			/* if file size is changing, stop extending */
+			if (i_size_read(inode) != i_size) {
+				folio_unlock(folio);
+				folio_put(folio);
+				xas_reset(xas);
+				break;
+			}
+
 			if (!folio_test_dirty(folio) ||
 			    folio_test_writeback(folio)) {
 				folio_unlock(folio);
@@ -2934,7 +3004,8 @@ static ssize_t cifs_write_back_from_locked_folio(struct address_space *mapping,
 
 			if (max_pages > 0)
 				cifs_extend_writeback(mapping, xas, &count, start,
-						      max_pages, max_len, &len);
+						      max_pages, max_len, &len,
+						      i_size);
 		}
 	}
 	len = min_t(unsigned long long, len, i_size - start);
@@ -4318,11 +4389,27 @@ static ssize_t __cifs_readv(
 		ctx->bv = (void *)ctx->iter.bvec;
 		ctx->bv_need_unpin = iov_iter_extract_will_pin(to);
 		ctx->should_dirty = true;
-	} else if ((iov_iter_is_bvec(to) || iov_iter_is_kvec(to)) &&
-		   !is_sync_kiocb(iocb)) {
+	} else if (iov_iter_is_kvec(to)) {
+		/*
+		 * Extract a KVEC-type iterator into a BVEC-type iterator.  We
+		 * assume that the storage will be retained by the caller; in
+		 * any case, we may or may not be able to pin the pages, so we
+		 * don't try.
+		 */
+		unsigned int bc;
+
+		rc = extract_kvec_to_bvec(to, iov_iter_count(to), INT_MAX,
+					&ctx->bv, &bc);
+		if (rc < 0) {
+			kref_put(&ctx->refcount, cifs_aio_ctx_release);
+			return rc;
+		}
+
+		iov_iter_bvec(&ctx->iter, ITER_DEST, ctx->bv, bc, rc);
+	} else if (iov_iter_is_bvec(to) && !is_sync_kiocb(iocb)) {
 		/*
 		 * If the op is asynchronous, we need to copy the list attached
-		 * to a BVEC/KVEC-type iterator, but we assume that the storage
+		 * to a BVEC-type iterator, but we assume that the storage
 		 * will be retained by the caller; in any case, we may or may
 		 * not be able to pin the pages, so we don't try.
 		 */
@@ -5063,12 +5150,6 @@ void cifs_oplock_break(struct work_struct *work)
 	__u64 persistent_fid, volatile_fid;
 	__u16 net_fid;
 
-	/*
-	 * Hold a reference to the superblock to prevent it and its inodes from
-	 * being freed while we are accessing cinode. Otherwise, _cifsFileInfo_put()
-	 * may release the last reference to the sb and trigger inode eviction.
-	 */
-	cifs_sb_active(sb);
 	wait_on_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS,
 			TASK_UNINTERRUPTIBLE);
 
@@ -5141,7 +5222,6 @@ oplock_break_ack:
 	cifs_put_tlink(tlink);
 out:
 	cifs_done_oplock_break(cinode);
-	cifs_sb_deactive(sb);
 }
 
 /*

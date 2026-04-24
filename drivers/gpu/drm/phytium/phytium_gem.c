@@ -432,6 +432,8 @@ struct phytium_gem_object *phytium_gem_create_object(struct drm_device *dev, uns
 		goto failed_object_init;
 	}
 
+	phytium_gem_obj->base.funcs = &phytium_drm_gem_object_funcs;
+
 	if (priv->support_memory_type & (MEMORY_TYPE_VRAM_WC | MEMORY_TYPE_VRAM_DEVICE)) {
 		ret = phytium_memory_pool_alloc(priv, &phytium_gem_obj->vaddr,
 						&phytium_gem_obj->phys_addr, size);
@@ -474,8 +476,6 @@ struct phytium_gem_object *phytium_gem_create_object(struct drm_device *dev, uns
 		ret = -ENOMEM;
 		goto failed_dma_alloc;
 	}
-
-	phytium_gem_obj->base.funcs = &phytium_drm_gem_object_funcs;
 
 	phytium_gem_obj->size = size;
 	list_add_tail(&phytium_gem_obj->list, &priv->gem_list_head);

@@ -367,10 +367,6 @@ struct ath11k_vif {
 	struct ath11k_rekey_data rekey_data;
 	u32 num_stations;
 	bool reinstall_group_keys;
-
-#ifdef CONFIG_ATH11K_DEBUGFS
-	struct dentry *debugfs_twt;
-#endif /* CONFIG_ATH11K_DEBUGFS */
 };
 
 struct ath11k_vif_iter {

@@ -267,12 +267,12 @@ config SENSORS_ADT7475
 	  will be called adt7475.
 
 config SENSORS_AHT10
-	tristate "Aosong AHT10, AHT20"
+	tristate "Aosong AHT10, AHT20, DHT20"
 	depends on I2C
 	select CRC8
 	help
-	  If you say yes here, you get support for the Aosong AHT10 and AHT20
-	  temperature and humidity sensors
+	  If you say yes here, you get support for the Aosong AHT10, AHT20 and
+	  DHT20 temperature and humidity sensors
 
 	  This driver can also be built as a module. If so, the module
 	  will be called aht10.
@@ -457,6 +457,15 @@ config SENSORS_BT1_PVT
 
 	  This driver can also be built as a module. If so, the module will be
 	  called bt1-pvt.
+
+config SENSORS_COREPVT_ULTRARISC
+	tristate "UltraRISC Core Voltage, Temperature sensor driver"
+	help
+	  If you say yes here you get support for UltraRISC Core PVT sensor
+	  embedded into the SoC.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called corepvt-ultrarisc.
 
 config SENSORS_BT1_PVT_ALARMS
 	bool "Enable Baikal-T1 PVT sensor alarms"
@@ -2398,6 +2407,18 @@ config SENSORS_XGENE
 	help
 	  If you say yes here you get support for the temperature
 	  and power sensors for APM X-Gene SoC.
+
+config SENSORS_YOGAFAN
+	tristate "Lenovo Yoga Fan Hardware Monitoring"
+	depends on ACPI && HWMON && DMI
+	help
+	  If you say yes here you get support for fan speed monitoring
+	  on Lenovo Yoga, Legion, IdeaPad, Slim and LOQ laptops.
+	  The driver interfaces with the Embedded Controller via ACPI
+	  and uses a Rate-Limited Lag filter to smooth RPM readings.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called yogafan.
 
 config SENSORS_INTEL_M10_BMC_HWMON
 	tristate "Intel MAX10 BMC Hardware Monitoring"

@@ -2143,10 +2143,6 @@ struct super_operations {
 				    struct shrink_control *);
 	void (*shutdown)(struct super_block *sb);
 
-	/* Check if filesystem wants to be notified of read-only errors */
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	bool (*deepin_should_notify_error)(struct super_block *sb);
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -3310,7 +3306,7 @@ struct offset_ctx {
 void simple_offset_init(struct offset_ctx *octx);
 int simple_offset_add(struct offset_ctx *octx, struct dentry *dentry);
 void simple_offset_remove(struct offset_ctx *octx, struct dentry *dentry);
-int simple_offset_rename(struct inode *old_dir, struct dentry *old_dentry,
+void simple_offset_rename(struct inode *old_dir, struct dentry *old_dentry,
 			 struct inode *new_dir, struct dentry *new_dentry);
 int simple_offset_rename_exchange(struct inode *old_dir,
 				  struct dentry *old_dentry,

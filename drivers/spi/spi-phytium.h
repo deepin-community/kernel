@@ -65,6 +65,14 @@
 #define SPI_REGFILE_DEBUG_VAL		BIT(0)
 #define SPI_REGFILE_ALIVE_VAL		BIT(1)
 #define SPI_REGFILE_HEARTBIT_VAL	BIT(2)
+#define SPI_REGFILE_HAVE_LOG		BIT(3)
+#define SPI_REGFILE_SIZE_MASK		GENMASK(7, 4)
+#define SPI_REGFILE_ADDR_MASK		GENMASK(27, 8)
+
+#define SPI_DDR_ADDR_HIGH		12
+#define SPI_DEBUG_LOG_SIZE		4096
+
+#define SPI_LOG_LINE_MAX_LEN		400
 
 #define SPI_MODULE_OPT_CMD		0x20
 
@@ -186,6 +194,7 @@ struct phytium_spi {
 	u32			cur_tx_tail;
 	struct completion	cmd_completion;
 
+	u8			flags;
 	u8			spi_write_flag;
 	u8			flash_erase;
 	u8			flash_read;
@@ -197,7 +206,11 @@ struct phytium_spi {
 	bool			alive_enabled;
 	struct timer_list	timer;
 	u32			runtimes; // for debug
+	u64			ddr_paddr;
+	char			*log;
+	u32			log_size;
 	void			(*watchdog)(struct phytium_spi *fts);
+	void			(*handle_debug_err)(struct phytium_spi *fts);
 
 	/* DMA info */
 	u32			current_freq; /* frequency in hz */

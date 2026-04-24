@@ -5,6 +5,8 @@
  * Copyright (c) 2023-2024 Phytium Technology Co., Ltd.
  */
 
+#include <linux/acpi.h>
+#include <linux/acpi_dma.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -29,7 +31,7 @@
 #include <asm/barrier.h>
 #include "phytium-gdmac.h"
 
-#define PHYTIUM_GDMA_DRIVER_VERSION	"1.0.1"
+#define PHYTIUM_GDMA_DRIVER_VERSION	"1.0.2"
 
 static inline struct phytium_gdma_device *to_gdma_device(struct dma_chan *chan)
 {
@@ -788,6 +790,32 @@ static struct dma_chan *phytium_gdma_of_xlate(struct of_phandle_args *dma_spec,
 	return c;
 }
 
+static struct dma_chan *phytium_gdma_acpi_xlate(struct acpi_dma_spec *dma_spec,
+						struct acpi_dma *acpidma)
+{
+	struct phytium_gdma_device *gdma = (struct phytium_gdma_device *)acpidma->data;
+	struct device *dev = gdma->dev;
+	struct phytium_gdma_chan *chan = NULL;
+	struct dma_chan *c = NULL;
+	u32 channel_id = 0;
+
+	channel_id = dma_spec->chan_id;
+
+	if (channel_id >= gdma->dma_channels) {
+		dev_err(dev, "bad channel %d\n", channel_id);
+		return NULL;
+	}
+
+	chan = &gdma->chan[channel_id];
+	c = &chan->vchan.chan;
+	if (!c) {
+		dev_err(dev, "no more channels available\n");
+		return NULL;
+	}
+
+	return c;
+}
+
 static int phytium_gdma_probe(struct platform_device *pdev)
 {
 	struct phytium_gdma_device *gdma;
@@ -826,8 +854,8 @@ static int phytium_gdma_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	ret = of_property_read_u32(pdev->dev.of_node, "dma-channels",
-				   &nr_channels);
+	ret = device_property_read_u32(&pdev->dev, "dma-channels",
+					   &nr_channels);
 	if (ret < 0) {
 		dev_err(&pdev->dev,
 			"can't get the number of dma channels: %d\n", ret);
@@ -835,8 +863,8 @@ static int phytium_gdma_probe(struct platform_device *pdev)
 	}
 	gdma->dma_channels = nr_channels;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "max-outstanding",
-				   &max_outstanding);
+	ret = device_property_read_u32(&pdev->dev, "max-outstanding",
+					   &max_outstanding);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "can't get max outstanding %d\n", ret);
 		goto out;
@@ -917,8 +945,11 @@ static int phytium_gdma_probe(struct platform_device *pdev)
 	if (ret)
 		goto out;
 
-	ret = of_dma_controller_register(pdev->dev.of_node,
-			phytium_gdma_of_xlate, gdma);
+	if (has_acpi_companion(&pdev->dev))
+		ret = acpi_dma_controller_register(&pdev->dev, phytium_gdma_acpi_xlate, gdma);
+	else
+		ret = of_dma_controller_register(pdev->dev.of_node,
+				phytium_gdma_of_xlate, gdma);
 	if (ret < 0) {
 		dev_err(&pdev->dev,
 			"phytium gdma of register failed %d\n", ret);
@@ -999,12 +1030,19 @@ static const struct of_device_id phytium_dma_of_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, phytium_dma_of_id_table);
 
+static const struct acpi_device_id phytium_gdma_acpi_match[] = {
+	{ "PHYT0026", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, phytium_gdma_acpi_match);
+
 static struct platform_driver phytium_gdma_driver = {
 	.probe		= phytium_gdma_probe,
 	.remove		= phytium_gdma_remove,
 	.driver = {
 		.name	= "phytium-gdma",
 		.of_match_table = of_match_ptr(phytium_dma_of_id_table),
+		.acpi_match_table = ACPI_PTR(phytium_gdma_acpi_match),
 		.pm = &phytium_gdma_pm_ops,
 	},
 };

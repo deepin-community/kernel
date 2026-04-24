@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 
-subdir-ccflags-y += -I$(src)
-subdir-ccflags-y += -I$(src)/include
-subdir-ccflags-y += -I$(src)/zhouyi
-subdir-ccflags-y += -I$(src)/sky1
+subdir-ccflags-y += -I$(srctree)/$(src)
+subdir-ccflags-y += -I$(srctree)/$(src)/include
+subdir-ccflags-y += -I$(srctree)/$(src)/zhouyi
+subdir-ccflags-y += -I$(srctree)/$(src)/sky1
 
 # obj-$(CONFIG_ARMCHINA_NPU) += armchina_npu.o
 aipu-objs := aipu.o aipu_common.o aipu_io.o aipu_irq.o  \

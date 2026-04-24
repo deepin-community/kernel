@@ -5,8 +5,9 @@
 
 #ccflags-y := -Werror
 
-obj-y	:= init.o fault.o  physaddr.o mmap.o extable.o
+obj-y	:= init.o fault.o  physaddr.o mmap.o extable.o pgtable.o
 
+obj-$(CONFIG_SW64_KERNEL_PAGE_TABLE)   += pageattr.o
 obj-$(CONFIG_NUMA)	+= numa.o
 ifeq ($(CONFIG_SUBARCH_C4),y)
 obj-$(CONFIG_HUGETLB_PAGE)	+= hugetlbpage_c4.o

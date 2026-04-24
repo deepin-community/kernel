@@ -23,8 +23,8 @@
 /* Use early IO mappings for DMI because it's initialized early */
 #define dmi_early_remap(x, l)		early_ioremap(x, l)
 #define dmi_early_unmap(x, l)		early_iounmap(x, l)
-#define dmi_remap(x, l)			early_ioremap(x, l)
-#define dmi_unmap(x)			early_iounmap(x, 0)
+#define dmi_remap(x, l)			ioremap(x, l)
+#define dmi_unmap(x)			iounmap(x)
 #define dmi_alloc(l)			kzalloc(l, GFP_KERNEL)
 
 #endif /* _ASM_SW64_DMI_H */

@@ -38,6 +38,7 @@ void foo(void)
 	OFFSET(PSTATE_KTP, processor_state, ktp);
 #ifdef CONFIG_HIBERNATION
 	OFFSET(PSTATE_SP, processor_state, sp);
+	OFFSET(PSTATE_GP, processor_state, gp);
 #endif
 	OFFSET(PBE_ADDR, pbe, address);
 	OFFSET(PBE_ORIG_ADDR, pbe, orig_address);

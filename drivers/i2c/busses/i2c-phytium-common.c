@@ -117,7 +117,7 @@ EXPORT_SYMBOL_GPL(i2c_phytium_prepare_clk);
 
 int i2c_phytium_check_bus_not_busy(struct phytium_i2c_dev *dev)
 {
-	if (dev->slave_state != SLAVE_STATE_IDLE)
+	if (dev->slave_status != SLAVE_STATE_IDLE)
 		return -EAGAIN;
 	if (phytium_readl(dev, IC_STATUS) & IC_STATUS_ACTIVITY)
 		return -ETIMEDOUT;

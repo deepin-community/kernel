@@ -939,8 +939,9 @@ static int DP_Sink_Power_Ctrl(dp_index index, bool power_on)
     value |= (power_on ? DP_SET_POWER_D0 : DP_SET_POWER_D3);
     
     err = DP_DPCD_Write(index, DP_SET_POWER, &value, 1);
-    if (err < 0)
+    if (err < 0) {
         goto END;
+    }
 
     /* According to the DP 1.1 specification, a "Sink Device must exit the
 	 * power saving state within 1 ms" (Section 2.5.3.1, Table 5-52, "Sink
@@ -1177,7 +1178,7 @@ ERR:
 
 void DP_Set_Channel(dp_index index, disp_control_t dc)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = DP0;
 
     if (index == INDEX_DP0)
     {
@@ -1191,7 +1192,7 @@ void DP_Set_Channel(dp_index index, disp_control_t dc)
 
 void DP_Clear_Channel(dp_index index)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = DP0;
 
     if (index == INDEX_DP0)
     {
@@ -1205,7 +1206,7 @@ void DP_Clear_Channel(dp_index index)
 
 unsigned char DP_Get_Channel(dp_index index)
 {
-    disp_output_t disp_index;
+    disp_output_t disp_index = DP0;
 
     if (index == INDEX_DP0)
     {

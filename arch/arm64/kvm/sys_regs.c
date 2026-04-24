@@ -752,8 +752,12 @@ static u64 reset_pmevcntr(struct kvm_vcpu *vcpu, const struct sys_reg_desc *r)
 
 static u64 reset_pmevtyper(struct kvm_vcpu *vcpu, const struct sys_reg_desc *r)
 {
+	/* This thing will UNDEF, who cares about the reset value? */
+	if (!kvm_vcpu_has_pmu(vcpu))
+		return 0;
+
 	reset_unknown(vcpu, r);
-	__vcpu_sys_reg(vcpu, r->reg) &= ARMV8_PMU_EVTYPE_MASK;
+	__vcpu_sys_reg(vcpu, r->reg) &= kvm_pmu_evtyper_mask(vcpu->kvm);
 
 	return __vcpu_sys_reg(vcpu, r->reg);
 }
@@ -994,7 +998,7 @@ static bool access_pmu_evtyper(struct kvm_vcpu *vcpu, struct sys_reg_params *p,
 		kvm_pmu_set_counter_event_type(vcpu, p->regval, idx);
 		kvm_vcpu_pmu_restore_guest(vcpu);
 	} else {
-		p->regval = __vcpu_sys_reg(vcpu, reg) & ARMV8_PMU_EVTYPE_MASK;
+		p->regval = __vcpu_sys_reg(vcpu, reg);
 	}
 
 	return true;
@@ -1108,6 +1112,11 @@ static bool access_pmuserenr(struct kvm_vcpu *vcpu, struct sys_reg_params *p,
 
 	return true;
 }
+
+#define BRB_INF_SRC_TGT_EL1(n)             \
+	{ SYS_DESC(SYS_BRBINF_EL1(n)), undef_access },  \
+	{ SYS_DESC(SYS_BRBSRC_EL1(n)), undef_access },  \
+	{ SYS_DESC(SYS_BRBTGT_EL1(n)), undef_access }   \
 
 /* Silly macro to expand the DBG{BCR,BVR,WVR,WCR}n_EL1 registers in one go */
 #define DBG_BCR_BVR_WCR_WVR_EL1(n)					\
@@ -1334,6 +1343,7 @@ static u64 __kvm_read_sanitised_id_reg(const struct kvm_vcpu *vcpu,
 			val &= ~ARM64_FEATURE_MASK(ID_AA64PFR1_EL1_MTE);
 
 		val &= ~ARM64_FEATURE_MASK(ID_AA64PFR1_EL1_SME);
+		val &= ~ARM64_FEATURE_MASK(ID_AA64PFR1_EL1_NMI);
 		val &= ~ARM64_FEATURE_MASK(ID_AA64PFR1_EL1_MPAM_frac);
 		break;
 	case SYS_ID_AA64ISAR1_EL1:
@@ -1506,6 +1516,9 @@ static u64 read_sanitised_id_aa64dfr0_el1(struct kvm_vcpu *vcpu,
 
 	/* Hide SPE from guests */
 	val &= ~ID_AA64DFR0_EL1_PMSVer_MASK;
+
+	/* Hide BRBE from guests */
+	val &= ~ID_AA64DFR0_EL1_BRBE_MASK;
 
 	return val;
 }
@@ -1980,6 +1993,8 @@ static const struct sys_reg_desc sys_reg_descs[] = {
 	{ SYS_DESC(SYS_DC_CISW), access_dcsw },
 	{ SYS_DESC(SYS_DC_CIGSW), access_dcgsw },
 	{ SYS_DESC(SYS_DC_CIGDSW), access_dcgsw },
+	{ SYS_DESC(OP_BRB_IALL), undef_access },
+	{ SYS_DESC(OP_BRB_INJ), undef_access },
 
 	DBG_BCR_BVR_WCR_WVR_EL1(0),
 	DBG_BCR_BVR_WCR_WVR_EL1(1),
@@ -2009,6 +2024,52 @@ static const struct sys_reg_desc sys_reg_descs[] = {
 	{ SYS_DESC(SYS_DBGCLAIMSET_EL1), trap_raz_wi },
 	{ SYS_DESC(SYS_DBGCLAIMCLR_EL1), trap_raz_wi },
 	{ SYS_DESC(SYS_DBGAUTHSTATUS_EL1), trap_dbgauthstatus_el1 },
+
+	/*
+	 * BRBE branch record sysreg address space is interleaved between
+	 * corresponding BRBINF<N>_EL1, BRBSRC<N>_EL1, and BRBTGT<N>_EL1.
+	 */
+	BRB_INF_SRC_TGT_EL1(0),
+	BRB_INF_SRC_TGT_EL1(16),
+	BRB_INF_SRC_TGT_EL1(1),
+	BRB_INF_SRC_TGT_EL1(17),
+	BRB_INF_SRC_TGT_EL1(2),
+	BRB_INF_SRC_TGT_EL1(18),
+	BRB_INF_SRC_TGT_EL1(3),
+	BRB_INF_SRC_TGT_EL1(19),
+	BRB_INF_SRC_TGT_EL1(4),
+	BRB_INF_SRC_TGT_EL1(20),
+	BRB_INF_SRC_TGT_EL1(5),
+	BRB_INF_SRC_TGT_EL1(21),
+	BRB_INF_SRC_TGT_EL1(6),
+	BRB_INF_SRC_TGT_EL1(22),
+	BRB_INF_SRC_TGT_EL1(7),
+	BRB_INF_SRC_TGT_EL1(23),
+	BRB_INF_SRC_TGT_EL1(8),
+	BRB_INF_SRC_TGT_EL1(24),
+	BRB_INF_SRC_TGT_EL1(9),
+	BRB_INF_SRC_TGT_EL1(25),
+	BRB_INF_SRC_TGT_EL1(10),
+	BRB_INF_SRC_TGT_EL1(26),
+	BRB_INF_SRC_TGT_EL1(11),
+	BRB_INF_SRC_TGT_EL1(27),
+	BRB_INF_SRC_TGT_EL1(12),
+	BRB_INF_SRC_TGT_EL1(28),
+	BRB_INF_SRC_TGT_EL1(13),
+	BRB_INF_SRC_TGT_EL1(29),
+	BRB_INF_SRC_TGT_EL1(14),
+	BRB_INF_SRC_TGT_EL1(30),
+	BRB_INF_SRC_TGT_EL1(15),
+	BRB_INF_SRC_TGT_EL1(31),
+
+	/* Remaining BRBE sysreg addresses space */
+	{ SYS_DESC(SYS_BRBCR_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBFCR_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBTS_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBINFINJ_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBSRCINJ_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBTGTINJ_EL1), undef_access },
+	{ SYS_DESC(SYS_BRBIDR0_EL1), undef_access },
 
 	{ SYS_DESC(SYS_MDCCSR_EL0), trap_raz_wi },
 	{ SYS_DESC(SYS_DBGDTR_EL0), trap_raz_wi },

@@ -2,7 +2,7 @@
 # Set the include-path according to the defined interface.
 ###########################################################
 
-ccflags-y += -I$(src) -I$(src)/if -I$(src)/dev -I$(src)/if/v4l2 -I$(src)/external
+ccflags-y += -I$(srctree)/$(src) -I$(srctree)/$(src)/if -I$(srctree)/$(src)/dev -I$(srctree)/$(src)/if/v4l2 -I$(srctree)/$(src)/external
 ccflags-$(CONFIG_VIDEO_LINLON_FTRACE) += -DMVX_LOG_FTRACE_ENABLE
 ccflags-$(CONFIG_VIDEO_LINLON_PRINT_FILE) += -DMVX_LOG_PRINT_FILE_ENABLE
 ccflags-y += $(EXTRA_CCFLAGS)

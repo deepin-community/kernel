@@ -1,835 +1,1545 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2015 - 2023 Beijing WangXun Technology Co., Ltd. */
+/* Copyright (c) 2019 - 2022 Beijing WangXun Technology Co., Ltd. */
 
-#include <linux/gpio/machine.h>
-#include <linux/gpio/driver.h>
-#include <linux/gpio/property.h>
-#include <linux/clk-provider.h>
-#include <linux/clkdev.h>
-#include <linux/i2c.h>
-#include <linux/pci.h>
-#include <linux/platform_device.h>
-#include <linux/regmap.h>
-#include <linux/pcs/pcs-xpcs.h>
-#include <linux/phylink.h>
-
-#include "../libwx/wx_type.h"
-#include "../libwx/wx_lib.h"
-#include "../libwx/wx_hw.h"
-#include "txgbe_type.h"
 #include "txgbe_phy.h"
-#include "txgbe_hw.h"
+#include "txgbe_mtd.h"
+#include "txgbe.h"
 
-static int txgbe_swnodes_register(struct txgbe *txgbe)
+/**
+ * txgbe_check_reset_blocked - check status of MNG FW veto bit
+ * @hw: pointer to the hardware structure
+ *
+ * This function checks the MMNGC.MNG_VETO bit to see if there are
+ * any constraints on link from manageability.  For MAC's that don't
+ * have this bit just return faluse since the link can not be blocked
+ * via this method.
+ **/
+s32 txgbe_check_reset_blocked(struct txgbe_hw *hw)
 {
-	struct txgbe_nodes *nodes = &txgbe->nodes;
-	struct pci_dev *pdev = txgbe->wx->pdev;
-	struct software_node *swnodes;
-	u32 id;
+	u32 mmngc;
 
-	id = pci_dev_id(pdev);
+	mmngc = rd32(hw, TXGBE_MIS_ST);
+	if (mmngc & TXGBE_MIS_ST_MNG_VETO)
+		return true;
 
-	snprintf(nodes->gpio_name, sizeof(nodes->gpio_name), "txgbe_gpio-%x", id);
-	snprintf(nodes->i2c_name, sizeof(nodes->i2c_name), "txgbe_i2c-%x", id);
-	snprintf(nodes->sfp_name, sizeof(nodes->sfp_name), "txgbe_sfp-%x", id);
-	snprintf(nodes->phylink_name, sizeof(nodes->phylink_name), "txgbe_phylink-%x", id);
-
-	swnodes = nodes->swnodes;
-
-	/* GPIO 0: tx fault
-	 * GPIO 1: tx disable
-	 * GPIO 2: sfp module absent
-	 * GPIO 3: rx signal lost
-	 * GPIO 4: rate select, 1G(0) 10G(1)
-	 * GPIO 5: rate select, 1G(0) 10G(1)
-	 */
-	nodes->gpio_props[0] = PROPERTY_ENTRY_STRING("pinctrl-names", "default");
-	swnodes[SWNODE_GPIO] = NODE_PROP(nodes->gpio_name, nodes->gpio_props);
-	nodes->gpio0_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 0, GPIO_ACTIVE_HIGH);
-	nodes->gpio1_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 1, GPIO_ACTIVE_HIGH);
-	nodes->gpio2_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 2, GPIO_ACTIVE_LOW);
-	nodes->gpio3_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 3, GPIO_ACTIVE_HIGH);
-	nodes->gpio4_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 4, GPIO_ACTIVE_HIGH);
-	nodes->gpio5_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_GPIO], 5, GPIO_ACTIVE_HIGH);
-
-	nodes->i2c_props[0] = PROPERTY_ENTRY_STRING("compatible", "snps,designware-i2c");
-	nodes->i2c_props[1] = PROPERTY_ENTRY_BOOL("wx,i2c-snps-model");
-	nodes->i2c_props[2] = PROPERTY_ENTRY_U32("clock-frequency", I2C_MAX_STANDARD_MODE_FREQ);
-	swnodes[SWNODE_I2C] = NODE_PROP(nodes->i2c_name, nodes->i2c_props);
-	nodes->i2c_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_I2C]);
-
-	nodes->sfp_props[0] = PROPERTY_ENTRY_STRING("compatible", "sff,sfp");
-	nodes->sfp_props[1] = PROPERTY_ENTRY_REF_ARRAY("i2c-bus", nodes->i2c_ref);
-	nodes->sfp_props[2] = PROPERTY_ENTRY_REF_ARRAY("tx-fault-gpios", nodes->gpio0_ref);
-	nodes->sfp_props[3] = PROPERTY_ENTRY_REF_ARRAY("tx-disable-gpios", nodes->gpio1_ref);
-	nodes->sfp_props[4] = PROPERTY_ENTRY_REF_ARRAY("mod-def0-gpios", nodes->gpio2_ref);
-	nodes->sfp_props[5] = PROPERTY_ENTRY_REF_ARRAY("los-gpios", nodes->gpio3_ref);
-	nodes->sfp_props[6] = PROPERTY_ENTRY_REF_ARRAY("rate-select1-gpios", nodes->gpio4_ref);
-	nodes->sfp_props[7] = PROPERTY_ENTRY_REF_ARRAY("rate-select0-gpios", nodes->gpio5_ref);
-	swnodes[SWNODE_SFP] = NODE_PROP(nodes->sfp_name, nodes->sfp_props);
-	nodes->sfp_ref[0] = SOFTWARE_NODE_REFERENCE(&swnodes[SWNODE_SFP]);
-
-	nodes->phylink_props[0] = PROPERTY_ENTRY_STRING("managed", "in-band-status");
-	nodes->phylink_props[1] = PROPERTY_ENTRY_REF_ARRAY("sfp", nodes->sfp_ref);
-	swnodes[SWNODE_PHYLINK] = NODE_PROP(nodes->phylink_name, nodes->phylink_props);
-
-	nodes->group[SWNODE_GPIO] = &swnodes[SWNODE_GPIO];
-	nodes->group[SWNODE_I2C] = &swnodes[SWNODE_I2C];
-	nodes->group[SWNODE_SFP] = &swnodes[SWNODE_SFP];
-	nodes->group[SWNODE_PHYLINK] = &swnodes[SWNODE_PHYLINK];
-
-	return software_node_register_node_group(nodes->group);
+	return false;
 }
 
-static int txgbe_pcs_read(struct mii_bus *bus, int addr, int devnum, int regnum)
+/**
+ * txgbe_get_phy_id - Get the phy type
+ * @hw: pointer to hardware structure
+ **/
+s32 txgbe_get_phy_id(struct txgbe_hw *hw)
 {
-	struct wx *wx  = bus->priv;
-	u32 offset, val;
+	u32 status;
+	u16 phy_id_high = 0;
+	u16 phy_id_low = 0;
+	u8 numport, thisport;
+	u32 i = 0;
+	struct txgbe_adapter *adapter = hw->back;
 
-	if (addr)
-		return -EOPNOTSUPP;
+	if (hw->mac.type == txgbe_mac_aml) {
+		hw->phy.addr = 0;
 
-	offset = devnum << 16 | regnum;
+		for (i = 0; i < 32; i++) {
+			hw->phy.addr = i;
+			status = txgbe_read_phy_reg_mdi(hw, TXGBE_MDIO_PHY_ID_HIGH,
+							0, &phy_id_high);
+			if (status) {
+				e_info(drv, "txgbe_read_phy_reg_mdi failed 1\n");
+				return status;
+			}
+			e_info(drv, "%d: phy_id_high 0x%x\n", i, phy_id_high);
+			if ((phy_id_high & 0xFFFF) == 0x0141)
+				break;
+		}
 
-	/* Set the LAN port indicator to IDA_ADDR */
-	wr32(wx, TXGBE_XPCS_IDA_ADDR, offset);
+		if (i == 32) {
+			e_info(drv, "txgbe_read_phy_reg_mdi failed\n");
+			return TXGBE_ERR_PHY;
+		}
 
-	/* Read the data from IDA_DATA register */
-	val = rd32(wx, TXGBE_XPCS_IDA_DATA);
+		status = txgbe_read_phy_reg_mdi(hw, TXGBE_MDIO_PHY_ID_LOW,
+						0, &phy_id_low);
+		if (status) {
+			e_info(drv, "txgbe_read_phy_reg_mdi failed 2\n");
+			return status;
+		}
+		hw->phy.id = (u32)(phy_id_high & 0xFFFF) << 6;
+		hw->phy.id |= (u32)((phy_id_low & 0xFC00) >> 10);
 
-	return (u16)val;
+		e_info(drv, "%s: phy_id 0x%x", __func__, hw->phy.id);
+
+		return status;
+	}
+
+	status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				       TXGBE_MDIO_PMA_PMD_DEV_TYPE,
+				TXGBE_MDIO_PHY_ID_HIGH, &phy_id_high);
+
+	if (status == 0) {
+		hw->phy.id = (u32)(phy_id_high << 16);
+		status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+					       TXGBE_MDIO_PMA_PMD_DEV_TYPE,
+				TXGBE_MDIO_PHY_ID_LOW, &phy_id_low);
+		hw->phy.id |= (u32)(phy_id_low & TXGBE_PHY_REVISION_MASK);
+	}
+
+	if (status == 0) {
+		status = txgbe_mtd_get_phy_revision(&hw->phy_dev, hw->phy.addr,
+						    (enum txgbe_mtd_dev_id *)&hw->phy.revision,
+			&numport, &thisport);
+		if (status == MTD_FAIL) {
+			ERROR_REPORT1(TXGBE_ERROR_INVALID_STATE,
+				      "Error in txgbe_mtd_get_phy_revision()\n");
+		}
+	}
+	return status;
 }
 
-static int txgbe_pcs_write(struct mii_bus *bus, int addr, int devnum, int regnum, u16 val)
+/**
+ * txgbe_get_phy_type_from_id - Get the phy type
+ * @phy_id: PHY ID information
+ **/
+enum txgbe_phy_type txgbe_get_phy_type_from_id(struct txgbe_hw *hw)
 {
-	struct wx *wx = bus->priv;
-	u32 offset;
+	enum txgbe_phy_type phy_type;
+	u16 ext_ability = 0;
 
-	if (addr)
-		return -EOPNOTSUPP;
-
-	offset = devnum << 16 | regnum;
-
-	/* Set the LAN port indicator to IDA_ADDR */
-	wr32(wx, TXGBE_XPCS_IDA_ADDR, offset);
-
-	/* Write the data to IDA_DATA register */
-	wr32(wx, TXGBE_XPCS_IDA_DATA, val);
-
-	return 0;
-}
-
-static int txgbe_mdio_pcs_init(struct txgbe *txgbe)
-{
-	struct mii_bus *mii_bus;
-	struct dw_xpcs *xpcs;
-	struct pci_dev *pdev;
-	struct wx *wx;
-	int ret = 0;
-
-	wx = txgbe->wx;
-	pdev = wx->pdev;
-
-	mii_bus = devm_mdiobus_alloc(&pdev->dev);
-	if (!mii_bus)
-		return -ENOMEM;
-
-	mii_bus->name = "txgbe_pcs_mdio_bus";
-	mii_bus->read_c45 = &txgbe_pcs_read;
-	mii_bus->write_c45 = &txgbe_pcs_write;
-	mii_bus->parent = &pdev->dev;
-	mii_bus->phy_mask = ~0;
-	mii_bus->priv = wx;
-	snprintf(mii_bus->id, MII_BUS_ID_SIZE, "txgbe_pcs-%x",
-		 pci_dev_id(pdev));
-
-	ret = devm_mdiobus_register(&pdev->dev, mii_bus);
-	if (ret)
-		return ret;
-
-	xpcs = xpcs_create_mdiodev(mii_bus, 0, PHY_INTERFACE_MODE_10GBASER);
-	if (IS_ERR(xpcs))
-		return PTR_ERR(xpcs);
-
-	txgbe->xpcs = xpcs;
-
-	return 0;
-}
-
-static struct phylink_pcs *txgbe_phylink_mac_select(struct phylink_config *config,
-						    phy_interface_t interface)
-{
-	struct txgbe *txgbe = netdev_to_txgbe(to_net_dev(config->dev));
-
-	if (interface == PHY_INTERFACE_MODE_10GBASER)
-		return &txgbe->xpcs->pcs;
-
-	return NULL;
-}
-
-static void txgbe_mac_config(struct phylink_config *config, unsigned int mode,
-			     const struct phylink_link_state *state)
-{
-}
-
-static void txgbe_mac_link_down(struct phylink_config *config,
-				unsigned int mode, phy_interface_t interface)
-{
-	struct wx *wx = netdev_priv(to_net_dev(config->dev));
-
-	wr32m(wx, WX_MAC_TX_CFG, WX_MAC_TX_CFG_TE, 0);
-}
-
-static void txgbe_mac_link_up(struct phylink_config *config,
-			      struct phy_device *phy,
-			      unsigned int mode, phy_interface_t interface,
-			      int speed, int duplex,
-			      bool tx_pause, bool rx_pause)
-{
-	struct wx *wx = netdev_priv(to_net_dev(config->dev));
-	u32 txcfg, wdg;
-
-	txcfg = rd32(wx, WX_MAC_TX_CFG);
-	txcfg &= ~WX_MAC_TX_CFG_SPEED_MASK;
-
-	switch (speed) {
-	case SPEED_10000:
-		txcfg |= WX_MAC_TX_CFG_SPEED_10G;
+	switch (hw->phy.id) {
+	case TN1010_PHY_ID:
+		phy_type = txgbe_phy_tn;
 		break;
-	case SPEED_1000:
-	case SPEED_100:
-	case SPEED_10:
-		txcfg |= WX_MAC_TX_CFG_SPEED_1G;
+	case QT2022_PHY_ID:
+		phy_type = txgbe_phy_qt;
+		break;
+	case ATH_PHY_ID:
+		phy_type = txgbe_phy_nl;
 		break;
 	default:
+		phy_type = txgbe_phy_unknown;
+		break;
+	}
+	if (phy_type == txgbe_phy_unknown) {
+		txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				      TXGBE_MDIO_PMA_PMD_DEV_TYPE,
+				TXGBE_MDIO_PHY_EXT_ABILITY, &ext_ability);
+
+		if (ext_ability & (TXGBE_MDIO_PHY_10GBASET_ABILITY |
+			TXGBE_MDIO_PHY_1000BASET_ABILITY))
+			phy_type = txgbe_phy_cu_unknown;
+		else
+			phy_type = txgbe_phy_generic;
+	}
+	return phy_type;
+}
+
+/**
+ * txgbe_reset_phy - Performs a PHY reset
+ * @hw: pointer to hardware structure
+ **/
+s32 txgbe_reset_phy(struct txgbe_hw *hw)
+{
+	s32 status = 0;
+
+	if (status != 0 || hw->phy.type == txgbe_phy_none)
+		goto out;
+
+	/* Don't reset PHY if it's shut down due to overtemp. */
+	if (!hw->phy.reset_if_overtemp &&
+	    hw->phy.ops.check_overtemp(hw) == TXGBE_ERR_OVERTEMP)
+		goto out;
+
+	/* Blocked by MNG FW so bail */
+	txgbe_check_reset_blocked(hw);
+	if (((hw->subsystem_device_id & TXGBE_NCSI_MASK) == TXGBE_NCSI_SUP) ||
+	    ((hw->subsystem_device_id & TXGBE_WOL_MASK) == TXGBE_WOL_SUP))
+		goto out;
+
+	status = txgbe_mtd_hw_rst(&hw->phy_dev, hw->phy.addr, 1000);
+
+out:
+	return status;
+}
+
+/**
+ * txgbe_read_phy_mdi - Reads a value from a specified PHY register without
+ * the SWFW lock
+ * @hw: pointer to hardware structure
+ * @reg_addr: 32 bit address of PHY register to read
+ * @phy_data: Pointer to read data from PHY register
+ **/
+s32 txgbe_read_phy_reg_mdi(struct txgbe_hw *hw, u32 reg_addr, u32 device_type,
+			   u16 *phy_data)
+{
+	u32 command;
+	s32 status = 0;
+
+	/* setup and write the address cycle command */
+	command = TXGBE_MSCA_RA(reg_addr) |
+		TXGBE_MSCA_PA(hw->phy.addr) |
+		TXGBE_MSCA_DA(device_type);
+	wr32(hw, TXGBE_MSCA, command);
+
+	command = TXGBE_MSCC_CMD(TXGBE_MSCA_CMD_READ) | TXGBE_MSCC_BUSY;
+	wr32(hw, TXGBE_MSCC, command);
+
+	/* wait to complete */
+	status = po32m(hw, TXGBE_MSCC,
+		       TXGBE_MSCC_BUSY, ~TXGBE_MSCC_BUSY,
+		TXGBE_MDIO_TIMEOUT, 10);
+	if (status != 0) {
+		ERROR_REPORT1(TXGBE_ERROR_POLLING,
+			      "PHY address command did not complete.\n");
+		return TXGBE_ERR_PHY;
+	}
+
+	/* read data from MSCC */
+	*phy_data = 0xFFFF & rd32(hw, TXGBE_MSCC);
+
+	return 0;
+}
+
+/**
+ *  txgbe_read_phy_reg - Reads a value from a specified PHY register
+ *  using the SWFW lock - this function is needed in most cases
+ *  @hw: pointer to hardware structure
+ *  @reg_addr: 32 bit address of PHY register to read
+ *  @phy_data: Pointer to read data from PHY register
+ **/
+s32 txgbe_read_phy_reg(struct txgbe_hw *hw, u32 reg_addr,
+		       u32 device_type, u16 *phy_data)
+{
+	s32 status;
+	u32 gssr = hw->phy.phy_semaphore_mask;
+
+	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
+		status = txgbe_read_phy_reg_mdi(hw, reg_addr, device_type,
+						phy_data);
+		hw->mac.ops.release_swfw_sync(hw, gssr);
+	} else {
+		status = TXGBE_ERR_SWFW_SYNC;
+	}
+
+	return status;
+}
+
+/**
+ * txgbe_write_phy_reg_mdi - Writes a value to specified PHY register
+ * without SWFW lock
+ * @hw: pointer to hardware structure
+ * @reg_addr: 32 bit PHY register to write
+ * @device_type: 5 bit device type
+ * @phy_data: Data to write to the PHY register
+ **/
+s32 txgbe_write_phy_reg_mdi(struct txgbe_hw *hw, u32 reg_addr,
+			    u32 device_type, u16 phy_data)
+{
+	u32 command;
+	s32 status = 0;
+
+	/* setup and write the address cycle command */
+	command = TXGBE_MSCA_RA(reg_addr) |
+		TXGBE_MSCA_PA(hw->phy.addr) |
+		TXGBE_MSCA_DA(device_type);
+	wr32(hw, TXGBE_MSCA, command);
+
+	command = phy_data | TXGBE_MSCC_CMD(TXGBE_MSCA_CMD_WRITE) |
+		  TXGBE_MSCC_BUSY;
+	wr32(hw, TXGBE_MSCC, command);
+
+	/* wait to complete */
+	status = po32m(hw, TXGBE_MSCC,
+		       TXGBE_MSCC_BUSY, ~TXGBE_MSCC_BUSY,
+		TXGBE_MDIO_TIMEOUT, 10);
+	if (status != 0) {
+		ERROR_REPORT1(TXGBE_ERROR_POLLING,
+			      "PHY address command did not complete.\n");
+		return TXGBE_ERR_PHY;
+	}
+
+	return 0;
+}
+
+/**
+ *  txgbe_write_phy_reg - Writes a value to specified PHY register
+ *  using SWFW lock- this function is needed in most cases
+ *  @hw: pointer to hardware structure
+ *  @reg_addr: 32 bit PHY register to write
+ *  @device_type: 5 bit device type
+ *  @phy_data: Data to write to the PHY register
+ **/
+s32 txgbe_write_phy_reg(struct txgbe_hw *hw, u32 reg_addr,
+			u32 device_type, u16 phy_data)
+{
+	s32 status;
+	u32 gssr = hw->phy.phy_semaphore_mask;
+
+	if (hw->mac.ops.acquire_swfw_sync(hw, gssr) == 0) {
+		status = txgbe_write_phy_reg_mdi(hw, reg_addr, device_type,
+						 phy_data);
+		hw->mac.ops.release_swfw_sync(hw, gssr);
+	} else {
+		status = TXGBE_ERR_SWFW_SYNC;
+	}
+
+	return status;
+}
+
+u32 txgbe_read_mdio(struct mtd_dev *dev,
+		    u16 port,
+						u16 mmd,
+						u16 reg,
+						u16 *value)
+{
+	struct txgbe_hw *hw = (struct txgbe_hw *)(dev->app_data);
+
+	if (hw->phy.addr != port)
+		return MTD_FAIL;
+	return txgbe_read_phy_reg(hw, reg, mmd, value);
+}
+
+u32 txgbe_write_mdio(struct mtd_dev *dev,
+		     u16 port,
+						u16 mmd,
+						u16 reg,
+						u16 value)
+{
+	struct txgbe_hw *hw = (struct txgbe_hw *)(dev->app_data);
+
+	if (hw->phy.addr != port)
+		return MTD_FAIL;
+
+	return txgbe_write_phy_reg(hw, reg, mmd, value);
+}
+
+/**
+ *  txgbe_setup_phy_link - Set and restart auto-neg
+ *  @hw: pointer to hardware structure
+ *
+ *  Restart auto-negotiation and PHY and waits for completion.
+ **/
+u32 txgbe_setup_phy_link(struct txgbe_hw *hw, u32 speed_set, bool autoneg_wait_to_complete)
+{
+	u16 speed = MTD_ADV_NONE;
+	struct mtd_dev *devptr = &hw->phy_dev;
+	u16 port = hw->phy.addr;
+	int i = 0;
+	bool link_up = false;
+	u16 link_speed = MTD_ADV_NONE;
+
+	if (hw->phy.autoneg_advertised & TXGBE_LINK_SPEED_10GB_FULL)
+		speed |= MTD_SPEED_10GIG_FD;
+	if (hw->phy.autoneg_advertised & TXGBE_LINK_SPEED_1GB_FULL)
+		speed |= MTD_SPEED_1GIG_FD;
+	if (hw->phy.autoneg_advertised & TXGBE_LINK_SPEED_100_FULL)
+		speed |= MTD_SPEED_100M_FD;
+	if (hw->phy.autoneg_advertised & TXGBE_LINK_SPEED_10_FULL)
+		speed |= MTD_SPEED_10M_FD;
+	if (!autoneg_wait_to_complete) {
+		txgbe_mtd_get_autoneg_res(devptr, port, &link_speed);
+		if (link_speed & speed) {
+			speed = link_speed;
+			goto out;
+		}
+	}
+
+	txgbe_mtd_enable_speeds(devptr, port, speed, true);
+	usleep_range(10000, 20000);
+	speed = MTD_ADV_NONE;
+	for (i = 0; i < 300; i++) {
+		txgbe_mtd_is_baset_up(devptr, port, &speed, &link_up);
+		if (link_up)
+			break;
+
+		usleep_range(10000, 20000);
+	}
+
+out:
+	switch (speed) {
+	case MTD_SPEED_10GIG_FD:
+		return TXGBE_LINK_SPEED_10GB_FULL;
+	case MTD_SPEED_1GIG_FD:
+		return TXGBE_LINK_SPEED_1GB_FULL;
+	case MTD_SPEED_100M_FD:
+		return TXGBE_LINK_SPEED_100_FULL;
+	case MTD_SPEED_10M_FD:
+		return TXGBE_LINK_SPEED_10_FULL;
+	default:
+		return TXGBE_LINK_SPEED_UNKNOWN;
+	}
+}
+
+/**
+ *  txgbe_setup_phy_link_speed - Sets the auto advertised capabilities
+ *  @hw: pointer to hardware structure
+ *  @speed: new link speed
+ **/
+u32 txgbe_setup_phy_link_speed(struct txgbe_hw *hw,
+			       u32 speed,
+				       bool autoneg_wait_to_complete)
+{
+	/* Clear autoneg_advertised and set new values based on input link
+	 * speed.
+	 */
+	hw->phy.autoneg_advertised = 0;
+
+	if (speed & TXGBE_LINK_SPEED_10GB_FULL)
+		hw->phy.autoneg_advertised |= TXGBE_LINK_SPEED_10GB_FULL;
+
+	if (speed & TXGBE_LINK_SPEED_1GB_FULL)
+		hw->phy.autoneg_advertised |= TXGBE_LINK_SPEED_1GB_FULL;
+
+	if (speed & TXGBE_LINK_SPEED_100_FULL)
+		hw->phy.autoneg_advertised |= TXGBE_LINK_SPEED_100_FULL;
+
+	if (speed & TXGBE_LINK_SPEED_10_FULL)
+		hw->phy.autoneg_advertised |= TXGBE_LINK_SPEED_10_FULL;
+
+	/* Setup link based on the new speed settings */
+	return txgbe_setup_phy_link(hw, speed, autoneg_wait_to_complete);
+}
+
+/**
+ *  txgbe_get_copper_link_capabilities - Determines link capabilities
+ *  @hw: pointer to hardware structure
+ *  @speed: pointer to link speed
+ *  @autoneg: boolean auto-negotiation value
+ *
+ *  Determines the supported link capabilities by reading the PHY auto
+ *  negotiation register.
+ **/
+s32 txgbe_get_copper_link_capabilities(struct txgbe_hw *hw,
+				       u32 *speed,
+					       bool *autoneg)
+{
+	s32 status;
+	u16 speed_ability;
+	*speed = 0;
+	*autoneg = true;
+
+	status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				       TXGBE_MDIO_PMA_PMD_DEV_TYPE,
+				TXGBE_MDIO_PHY_SPEED_ABILITY, &speed_ability);
+
+	if (status == 0) {
+		if (speed_ability & TXGBE_MDIO_PHY_SPEED_10G)
+			*speed |= TXGBE_LINK_SPEED_10GB_FULL;
+		if (speed_ability & TXGBE_MDIO_PHY_SPEED_1G)
+			*speed |= TXGBE_LINK_SPEED_1GB_FULL;
+		if (speed_ability & TXGBE_MDIO_PHY_SPEED_100M)
+			*speed |= TXGBE_LINK_SPEED_100_FULL;
+		if (speed_ability & TXGBE_MDIO_PHY_SPEED_10M)
+			*speed |= TXGBE_LINK_SPEED_10_FULL;
+	}
+
+	return status;
+}
+
+/**
+ *  txgbe_get_phy_firmware_version - Gets the PHY Firmware Version
+ *  @hw: pointer to hardware structure
+ *  @firmware_version: pointer to the PHY Firmware Version
+ **/
+s32 txgbe_get_phy_firmware_version(struct txgbe_hw *hw,
+				   u16 *firmware_version)
+{
+	s32 status;
+	u8 major, minor, inc, test;
+
+	status = txgbe_mtd_get_firmver(&hw->phy_dev, hw->phy.addr,
+				       &major, &minor, &inc, &test);
+	if (status == 0)
+		*firmware_version = (major << 8) | minor;
+	return status;
+}
+
+/**
+ *  txgbe_identify_module - Identifies module type
+ *  @hw: pointer to hardware structure
+ *
+ *  Determines HW type and calls appropriate function.
+ **/
+s32 txgbe_identify_module(struct txgbe_hw *hw)
+{
+	s32 status = TXGBE_ERR_SFP_NOT_PRESENT;
+
+	switch (hw->mac.ops.get_media_type(hw)) {
+	case txgbe_media_type_fiber_qsfp:
+		status = txgbe_identify_qsfp_module(hw);
+		break;
+	case txgbe_media_type_fiber:
+		status = txgbe_identify_sfp_module(hw);
+		break;
+	default:
+		hw->phy.sfp_type = txgbe_sfp_type_not_present;
+		status = TXGBE_ERR_SFP_NOT_PRESENT;
 		break;
 	}
 
-	wr32(wx, WX_MAC_TX_CFG, txcfg | WX_MAC_TX_CFG_TE);
-
-	/* Re configure MAC Rx */
-	wr32m(wx, WX_MAC_RX_CFG, WX_MAC_RX_CFG_RE, WX_MAC_RX_CFG_RE);
-	wr32(wx, WX_MAC_PKT_FLT, WX_MAC_PKT_FLT_PR);
-	wdg = rd32(wx, WX_MAC_WDG_TIMEOUT);
-	wr32(wx, WX_MAC_WDG_TIMEOUT, wdg);
+	return status;
 }
 
-static int txgbe_mac_prepare(struct phylink_config *config, unsigned int mode,
-			     phy_interface_t interface)
+/**
+ *  txgbe_identify_sfp_module - Identifies SFP modules
+ *  @hw: pointer to hardware structure
+ *
+ *  Searches for and identifies the SFP module and assigns appropriate PHY type.
+ **/
+s32 txgbe_identify_sfp_module(struct txgbe_hw *hw)
 {
-	struct wx *wx = netdev_priv(to_net_dev(config->dev));
+	s32 status = TXGBE_ERR_PHY_ADDR_INVALID;
+	u32 vendor_oui = 0;
+	enum txgbe_sfp_type stored_sfp_type = hw->phy.sfp_type;
+	struct txgbe_adapter *adapter = hw->back;
+	u8 identifier = 0;
+	u8 comp_codes_1g = 0;
+	u8 comp_codes_10g = 0;
+	u8 comp_codes_25g = 0;
+	u8 comp_copper_len = 0;
+	u8 oui_bytes[3] = {0, 0, 0};
+	u8 cable_tech = 0;
+	u8 cable_spec = 0;
+	u8 vendor_name[3] = {0, 0, 0};
+	u16 phy_data = 0;
+	u8 sff8472_rev, addr_mode, databyte;
+	bool page_swap = false;
+	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+	u32 value;
+	int i;
 
-	wr32m(wx, WX_MAC_TX_CFG, WX_MAC_TX_CFG_TE, 0);
-	wr32m(wx, WX_MAC_RX_CFG, WX_MAC_RX_CFG_RE, 0);
-
-	return txgbe_disable_sec_tx_path(wx);
-}
-
-static int txgbe_mac_finish(struct phylink_config *config, unsigned int mode,
-			    phy_interface_t interface)
-{
-	struct wx *wx = netdev_priv(to_net_dev(config->dev));
-
-	txgbe_enable_sec_tx_path(wx);
-	wr32m(wx, WX_MAC_RX_CFG, WX_MAC_RX_CFG_RE, WX_MAC_RX_CFG_RE);
-
-	return 0;
-}
-
-static const struct phylink_mac_ops txgbe_mac_ops = {
-	.mac_select_pcs = txgbe_phylink_mac_select,
-	.mac_prepare = txgbe_mac_prepare,
-	.mac_finish = txgbe_mac_finish,
-	.mac_config = txgbe_mac_config,
-	.mac_link_down = txgbe_mac_link_down,
-	.mac_link_up = txgbe_mac_link_up,
-};
-
-static int txgbe_phylink_init(struct txgbe *txgbe)
-{
-	struct fwnode_handle *fwnode = NULL;
-	struct phylink_config *config;
-	struct wx *wx = txgbe->wx;
-	phy_interface_t phy_mode;
-	struct phylink *phylink;
-
-	config = devm_kzalloc(&wx->pdev->dev, sizeof(*config), GFP_KERNEL);
-	if (!config)
-		return -ENOMEM;
-
-	config->dev = &wx->netdev->dev;
-	config->type = PHYLINK_NETDEV;
-	config->mac_capabilities = MAC_10000FD | MAC_1000FD | MAC_100FD |
-				   MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
-
-	if (wx->media_type == sp_media_copper) {
-		phy_mode = PHY_INTERFACE_MODE_XAUI;
-		__set_bit(PHY_INTERFACE_MODE_XAUI, config->supported_interfaces);
-	} else {
-		phy_mode = PHY_INTERFACE_MODE_10GBASER;
-		fwnode = software_node_fwnode(txgbe->nodes.group[SWNODE_PHYLINK]);
-		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_SGMII, config->supported_interfaces);
-	}
-
-	phylink = phylink_create(config, fwnode, phy_mode, &txgbe_mac_ops);
-	if (IS_ERR(phylink))
-		return PTR_ERR(phylink);
-
-	if (wx->phydev) {
-		int ret;
-
-		ret = phylink_connect_phy(phylink, wx->phydev);
-		if (ret) {
-			phylink_destroy(phylink);
-			return ret;
+	if (hw->mac.type == txgbe_mac_aml) {
+		value = rd32(hw, TXGBE_GPIO_EXT);
+		if (value & TXGBE_SFP1_MOD_ABS_LS) {
+			hw->phy.sfp_type = txgbe_sfp_type_not_present;
+			return TXGBE_ERR_SFP_NOT_PRESENT;
 		}
 	}
 
-	txgbe->phylink = phylink;
+	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask) != 0)
+		return TXGBE_ERR_SWFW_SYNC;
 
-	return 0;
-}
-
-static int txgbe_gpio_get(struct gpio_chip *chip, unsigned int offset)
-{
-	struct wx *wx = gpiochip_get_data(chip);
-	int val;
-
-	val = rd32m(wx, WX_GPIO_EXT, BIT(offset));
-
-	return !!(val & BIT(offset));
-}
-
-static int txgbe_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
-{
-	struct wx *wx = gpiochip_get_data(chip);
-	u32 val;
-
-	val = rd32(wx, WX_GPIO_DDR);
-	if (BIT(offset) & val)
-		return GPIO_LINE_DIRECTION_OUT;
-
-	return GPIO_LINE_DIRECTION_IN;
-}
-
-static int txgbe_gpio_direction_in(struct gpio_chip *chip, unsigned int offset)
-{
-	struct wx *wx = gpiochip_get_data(chip);
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-	wr32m(wx, WX_GPIO_DDR, BIT(offset), 0);
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
-
-	return 0;
-}
-
-static int txgbe_gpio_direction_out(struct gpio_chip *chip, unsigned int offset,
-				    int val)
-{
-	struct wx *wx = gpiochip_get_data(chip);
-	unsigned long flags;
-	u32 set;
-
-	set = val ? BIT(offset) : 0;
-
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-	wr32m(wx, WX_GPIO_DR, BIT(offset), set);
-	wr32m(wx, WX_GPIO_DDR, BIT(offset), BIT(offset));
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
-
-	return 0;
-}
-
-static void txgbe_gpio_irq_ack(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	struct wx *wx = gpiochip_get_data(gc);
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-	wr32(wx, WX_GPIO_EOI, BIT(hwirq));
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
-}
-
-static void txgbe_gpio_irq_mask(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	struct wx *wx = gpiochip_get_data(gc);
-	unsigned long flags;
-
-	gpiochip_disable_irq(gc, hwirq);
-
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-	wr32m(wx, WX_GPIO_INTMASK, BIT(hwirq), BIT(hwirq));
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
-}
-
-static void txgbe_gpio_irq_unmask(struct irq_data *d)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	struct wx *wx = gpiochip_get_data(gc);
-	unsigned long flags;
-
-	gpiochip_enable_irq(gc, hwirq);
-
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-	wr32m(wx, WX_GPIO_INTMASK, BIT(hwirq), 0);
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
-}
-
-static void txgbe_toggle_trigger(struct gpio_chip *gc, unsigned int offset)
-{
-	struct wx *wx = gpiochip_get_data(gc);
-	u32 pol, val;
-
-	pol = rd32(wx, WX_GPIO_POLARITY);
-	val = rd32(wx, WX_GPIO_EXT);
-
-	if (val & BIT(offset))
-		pol &= ~BIT(offset);
-	else
-		pol |= BIT(offset);
-
-	wr32(wx, WX_GPIO_POLARITY, pol);
-}
-
-static int txgbe_gpio_set_type(struct irq_data *d, unsigned int type)
-{
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	struct wx *wx = gpiochip_get_data(gc);
-	u32 level, polarity, mask;
-	unsigned long flags;
-
-	mask = BIT(hwirq);
-
-	if (type & IRQ_TYPE_LEVEL_MASK) {
-		level = 0;
-		irq_set_handler_locked(d, handle_level_irq);
-	} else {
-		level = mask;
-		irq_set_handler_locked(d, handle_edge_irq);
+	if (hw->mac.ops.get_media_type(hw) != txgbe_media_type_fiber) {
+		hw->phy.sfp_type = txgbe_sfp_type_not_present;
+		status = TXGBE_ERR_SFP_NOT_PRESENT;
+		goto out;
 	}
 
-	if (type == IRQ_TYPE_EDGE_RISING || type == IRQ_TYPE_LEVEL_HIGH)
-		polarity = mask;
-	else
-		polarity = 0;
+	/* LAN ID is needed for I2C access */
+	txgbe_init_i2c(hw);
+	status = hw->phy.ops.read_i2c_eeprom(hw,
+					     TXGBE_SFF_IDENTIFIER,
+					     &identifier);
 
-	raw_spin_lock_irqsave(&wx->gpio_lock, flags);
+	if (status != 0)
+		goto err_read_i2c_eeprom;
 
-	wr32m(wx, WX_GPIO_INTEN, mask, mask);
-	wr32m(wx, WX_GPIO_INTTYPE_LEVEL, mask, level);
-	if (type == IRQ_TYPE_EDGE_BOTH)
-		txgbe_toggle_trigger(gc, hwirq);
-	else
-		wr32m(wx, WX_GPIO_POLARITY, mask, polarity);
+	if (identifier != TXGBE_SFF_IDENTIFIER_SFP) {
+		hw->phy.type = txgbe_phy_sfp_unsupported;
+		status = TXGBE_ERR_SFP_NOT_SUPPORTED;
+	} else {
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_1GBE_COMP_CODES,
+						     &comp_codes_1g);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
 
-	raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_10GBE_COMP_CODES,
+						     &comp_codes_10g);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
 
-	return 0;
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_25GBE_COMP_CODES,
+						     &comp_codes_25g);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_COPPER_LENGTH,
+						     &comp_copper_len);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_CABLE_TECHNOLOGY,
+						     &cable_tech);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		hw->bypass_ctle = true;
+		hw->dac_sfp = false;
+
+		 /* ID Module
+		  * =========
+		  * 0   SFP_DA_CU
+		  * 1   SFP_SR
+		  * 2   SFP_LR
+		  * 3   SFP_DA_CORE0
+		  * 4   SFP_DA_CORE1
+		  * 5   SFP_SR/LR_CORE0
+		  * 6   SFP_SR/LR_CORE1
+		  * 7   SFP_act_lmt_DA_CORE0
+		  * 8   SFP_act_lmt_DA_CORE1
+		  * 9   SFP_1g_cu_CORE0
+		  * 10  SFP_1g_cu_CORE1
+		  * 11  SFP_1g_sx_CORE0
+		  * 12  SFP_1g_sx_CORE1
+		  */
+		{
+			if (cable_tech & TXGBE_SFF_DA_PASSIVE_CABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						     txgbe_sfp_type_da_cu_core0;
+				else
+					hw->phy.sfp_type =
+						     txgbe_sfp_type_da_cu_core1;
+
+				if (hw->phy.sfp_type == txgbe_sfp_type_da_cu_core0 ||
+				    hw->phy.sfp_type == txgbe_sfp_type_da_cu_core1) {
+					hw->dac_sfp = true;
+				}
+
+				if (comp_copper_len == 0x1)
+					hw->bypass_ctle = true;
+				else
+					hw->bypass_ctle = false;
+
+				if (comp_codes_25g == TXGBE_SFF_25GBASECR_91FEC ||
+				    comp_codes_25g == TXGBE_SFF_25GBASECR_74FEC ||
+				    comp_codes_25g == TXGBE_SFF_25GBASECR_NOFEC) {
+					hw->phy.fiber_suppport_speed =
+						TXGBE_LINK_SPEED_25GB_FULL |
+						TXGBE_LINK_SPEED_10GB_FULL;
+				} else {
+					hw->phy.fiber_suppport_speed |=
+						TXGBE_LINK_SPEED_10GB_FULL;
+				}
+			} else if (cable_tech & TXGBE_SFF_DA_ACTIVE_CABLE) {
+				hw->dac_sfp = false;
+				hw->phy.ops.read_i2c_eeprom(hw,
+						TXGBE_SFF_CABLE_SPEC_COMP,
+						&cable_spec);
+				if (cable_spec &
+				    TXGBE_SFF_DA_SPEC_ACTIVE_LIMITING) {
+					if (hw->bus.lan_id == 0)
+						hw->phy.sfp_type =
+						txgbe_sfp_type_da_act_lmt_core0;
+					else
+						hw->phy.sfp_type =
+						txgbe_sfp_type_da_act_lmt_core1;
+				} else {
+					hw->phy.sfp_type = txgbe_sfp_type_unknown;
+				}
+
+				if (comp_codes_25g == TXGBE_SFF_25GAUI_C2M_AOC_BER_5 ||
+				    comp_codes_25g == TXGBE_SFF_25GAUI_C2M_ACC_BER_5 ||
+					comp_codes_25g == TXGBE_SFF_25GAUI_C2M_AOC_BER_12 ||
+					comp_codes_25g == TXGBE_SFF_25GAUI_C2M_ACC_BER_12) {
+					if (hw->bus.lan_id == 0)
+						hw->phy.sfp_type =
+						txgbe_sfp_type_25g_aoc_core0;
+					else
+						hw->phy.sfp_type =
+						txgbe_sfp_type_25g_aoc_core1;
+				}
+			} else if (comp_codes_25g == TXGBE_SFF_25GAUI_C2M_AOC_BER_5 ||
+					comp_codes_25g == TXGBE_SFF_25GAUI_C2M_ACC_BER_5 ||
+					comp_codes_25g == TXGBE_SFF_25GAUI_C2M_AOC_BER_12 ||
+					comp_codes_25g == TXGBE_SFF_25GAUI_C2M_ACC_BER_12) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type = txgbe_sfp_type_25g_aoc_core0;
+				else
+					hw->phy.sfp_type = txgbe_sfp_type_25g_aoc_core1;
+			} else if (comp_codes_25g == TXGBE_SFF_25GBASESR_CAPABLE ||
+					comp_codes_25g == TXGBE_SFF_25GBASEER_CAPABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type = txgbe_sfp_type_25g_sr_core0;
+				else
+					hw->phy.sfp_type = txgbe_sfp_type_25g_sr_core1;
+			} else if (comp_codes_25g == TXGBE_SFF_25GBASELR_CAPABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type = txgbe_sfp_type_25g_lr_core0;
+				else
+					hw->phy.sfp_type = txgbe_sfp_type_25g_lr_core1;
+			} else if (comp_codes_10g &
+				   (TXGBE_SFF_10GBASESR_CAPABLE |
+				    TXGBE_SFF_10GBASELR_CAPABLE)) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						      txgbe_sfp_type_srlr_core0;
+				else
+					hw->phy.sfp_type =
+						      txgbe_sfp_type_srlr_core1;
+			} else if (comp_codes_1g & TXGBE_SFF_1GBASET_CAPABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_cu_core0;
+				else
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_cu_core1;
+			} else if (comp_codes_1g & TXGBE_SFF_1GBASESX_CAPABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_sx_core0;
+				else
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_sx_core1;
+			} else if (comp_codes_1g & TXGBE_SFF_1GBASELX_CAPABLE) {
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_lx_core0;
+				else
+					hw->phy.sfp_type =
+						txgbe_sfp_type_1g_lx_core1;
+			} else {
+				hw->phy.sfp_type = txgbe_sfp_type_unknown;
+			}
+		}
+
+		if (hw->phy.sfp_type != stored_sfp_type)
+			hw->phy.sfp_setup_needed = true;
+
+		/* Determine if the SFP+ PHY is dual speed or not. */
+		hw->phy.multispeed_fiber = false;
+		if (hw->mac.type == txgbe_mac_aml) {
+			if ((comp_codes_25g == TXGBE_SFF_25GBASESR_CAPABLE ||
+			     comp_codes_25g == TXGBE_SFF_25GBASELR_CAPABLE ||
+				comp_codes_25g == TXGBE_SFF_25GBASEER_CAPABLE) &&
+			   ((comp_codes_10g & TXGBE_SFF_10GBASESR_CAPABLE) ||
+			   (comp_codes_10g & TXGBE_SFF_10GBASELR_CAPABLE)))
+				hw->phy.multispeed_fiber = true;
+		} else {
+			if (((comp_codes_1g & TXGBE_SFF_1GBASESX_CAPABLE) &&
+			     (comp_codes_10g & TXGBE_SFF_10GBASESR_CAPABLE)) ||
+			   ((comp_codes_1g & TXGBE_SFF_1GBASELX_CAPABLE) &&
+			   (comp_codes_10g & TXGBE_SFF_10GBASELR_CAPABLE)))
+				hw->phy.multispeed_fiber = true;
+		}
+		/* Determine PHY vendor */
+		if (hw->phy.type != txgbe_phy_nl) {
+			hw->phy.id = identifier;
+			status = hw->phy.ops.read_i2c_eeprom(hw,
+						    TXGBE_SFF_VENDOR_OUI_BYTE0,
+						    &oui_bytes[0]);
+
+			if (status != 0)
+				goto err_read_i2c_eeprom;
+
+			status = hw->phy.ops.read_i2c_eeprom(hw,
+						    TXGBE_SFF_VENDOR_OUI_BYTE1,
+						    &oui_bytes[1]);
+
+			if (status != 0)
+				goto err_read_i2c_eeprom;
+
+			status = hw->phy.ops.read_i2c_eeprom(hw,
+						    TXGBE_SFF_VENDOR_OUI_BYTE2,
+						    &oui_bytes[2]);
+
+			if (status != 0)
+				goto err_read_i2c_eeprom;
+
+			vendor_oui =
+			  ((oui_bytes[0] << TXGBE_SFF_VENDOR_OUI_BYTE0_SHIFT) |
+			   (oui_bytes[1] << TXGBE_SFF_VENDOR_OUI_BYTE1_SHIFT) |
+			   (oui_bytes[2] << TXGBE_SFF_VENDOR_OUI_BYTE2_SHIFT));
+
+			switch (vendor_oui) {
+			case TXGBE_SFF_VENDOR_OUI_TYCO:
+				if (cable_tech & TXGBE_SFF_DA_PASSIVE_CABLE)
+					hw->phy.type =
+						    txgbe_phy_sfp_passive_tyco;
+				break;
+			case TXGBE_SFF_VENDOR_OUI_FTL:
+				if (cable_tech & TXGBE_SFF_DA_ACTIVE_CABLE)
+					hw->phy.type = txgbe_phy_sfp_ftl_active;
+				else
+					hw->phy.type = txgbe_phy_sfp_ftl;
+				break;
+			case TXGBE_SFF_VENDOR_OUI_AVAGO:
+				hw->phy.type = txgbe_phy_sfp_avago;
+				break;
+			case TXGBE_SFF_VENDOR_OUI_INTEL:
+				hw->phy.type = txgbe_phy_sfp_intel;
+				break;
+			default:
+				if (cable_tech & TXGBE_SFF_DA_PASSIVE_CABLE)
+					hw->phy.type =
+						 txgbe_phy_sfp_passive_unknown;
+				else if (cable_tech & TXGBE_SFF_DA_ACTIVE_CABLE)
+					hw->phy.type =
+						txgbe_phy_sfp_active_unknown;
+				else
+					hw->phy.type = txgbe_phy_sfp_unknown;
+				break;
+			}
+		}
+
+		/* vendor name match QAX and can access sfp internal phy */
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_CABLE_VENDOR_NAME1,
+						     &vendor_name[0]);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_CABLE_VENDOR_NAME2,
+						     &vendor_name[1]);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_SFF_CABLE_VENDOR_NAME3,
+						     &vendor_name[2]);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		if (vendor_name[0] == 0x51 &&
+		    vendor_name[1] == 0x41 &&
+			vendor_name[2] == 0x58) {
+			status = hw->phy.ops.read_i2c_sfp_phy(hw,
+							    0x8008,
+							    &phy_data);
+			if (status == 0 || phy_data != 0xffff) {
+				hw->phy.multispeed_fiber = false;
+				if (hw->bus.lan_id == 0)
+					hw->phy.sfp_type =
+						     txgbe_sfp_type_10g_cu_core0;
+				else
+					hw->phy.sfp_type =
+						     txgbe_sfp_type_10g_cu_core1;
+			}
+		}
+
+		/* Allow any DA cable vendor */
+		if (cable_tech & (TXGBE_SFF_DA_PASSIVE_CABLE |
+		    TXGBE_SFF_DA_ACTIVE_CABLE)) {
+			status = 0;
+			goto sp_record;
+		}
+
+		/* Verify supported 1G SFP modules */
+		if (comp_codes_10g == 0 && comp_codes_25g == 0 &&
+		    !(hw->phy.sfp_type == txgbe_sfp_type_1g_cu_core1 ||
+		      hw->phy.sfp_type == txgbe_sfp_type_1g_cu_core0 ||
+		      hw->phy.sfp_type == txgbe_sfp_type_1g_lx_core0 ||
+		      hw->phy.sfp_type == txgbe_sfp_type_1g_lx_core1 ||
+		      hw->phy.sfp_type == txgbe_sfp_type_1g_sx_core0 ||
+		      hw->phy.sfp_type == txgbe_sfp_type_1g_sx_core1)) {
+			hw->phy.type = txgbe_phy_sfp_unsupported;
+			status = TXGBE_ERR_SFP_NOT_SUPPORTED;
+			goto out;
+		}
+	}
+sp_record:
+	if (hw->mac.type == txgbe_mac_sp &&
+	    !test_bit(__TXGBE_DOWN, &adapter->state)) {
+		/*record eeprom info*/
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+				TXGBE_SFF_SFF_8472_COMP,
+				&sff8472_rev);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		/* addressing mode is not supported */
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+							TXGBE_SFF_SFF_8472_SWAP,
+							&addr_mode);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		if (addr_mode & TXGBE_SFF_ADDRESSING_MODE) {
+			e_err(drv, "Address change required to access page 0xA2,");
+			e_err(drv, "but not supported. Please report the module type to the driver maintainers.\n");
+			page_swap = true;
+		}
+
+		if (sff8472_rev == TXGBE_SFF_SFF_8472_UNSUP || page_swap ||
+		    !(addr_mode & TXGBE_SFF_DDM_IMPLEMENTED)) {
+			/* We have a SFP, but it does not support SFF-8472 */
+			adapter->eeprom_type = ETH_MODULE_SFF_8079;
+			adapter->eeprom_len = ETH_MODULE_SFF_8079_LEN;
+		} else {
+			/* We have a SFP which supports a revision of SFF-8472. */
+			adapter->eeprom_type = ETH_MODULE_SFF_8472;
+			adapter->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+		}
+		for (i = 0; i < adapter->eeprom_len; i++) {
+			if (i < ETH_MODULE_SFF_8079_LEN)
+				status = hw->phy.ops.read_i2c_eeprom(hw, i,
+						&databyte);
+			else
+				status = hw->phy.ops.read_i2c_sff8472(hw, i,
+						&databyte);
+
+			if (status != 0)
+				goto err_read_i2c_eeprom;
+
+			adapter->i2c_eeprom[i] = databyte;
+		}
+	}
+out:
+	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
+
+	return status;
+
+err_read_i2c_eeprom:
+	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
+
+	hw->phy.sfp_type = txgbe_sfp_type_not_present;
+	if (hw->phy.type != txgbe_phy_nl) {
+		hw->phy.id = 0;
+		hw->phy.type = txgbe_phy_unknown;
+	}
+	return TXGBE_ERR_SFP_NOT_PRESENT;
 }
 
-static const struct irq_chip txgbe_gpio_irq_chip = {
-	.name = "txgbe_gpio_irq",
-	.irq_ack = txgbe_gpio_irq_ack,
-	.irq_mask = txgbe_gpio_irq_mask,
-	.irq_unmask = txgbe_gpio_irq_unmask,
-	.irq_set_type = txgbe_gpio_set_type,
-	.flags = IRQCHIP_IMMUTABLE,
-	GPIOCHIP_IRQ_RESOURCE_HELPERS,
-};
-
-static void txgbe_irq_handler(struct irq_desc *desc)
+s32 txgbe_identify_qsfp_module(struct txgbe_hw *hw)
 {
-	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct wx *wx = irq_desc_get_handler_data(desc);
-	struct txgbe *txgbe = wx->priv;
-	irq_hw_number_t hwirq;
-	unsigned long gpioirq;
-	struct gpio_chip *gc;
-	unsigned long flags;
-	u32 eicr;
+	s32 status = TXGBE_ERR_PHY_ADDR_INVALID;
+	u8 identifier = 0, transceiver_type = 0;
+	u32 swfw_mask = hw->phy.phy_semaphore_mask;
+	u32 value;
 
-	eicr = wx_misc_isb(wx, WX_ISB_MISC);
-
-	chained_irq_enter(chip, desc);
-
-	gpioirq = rd32(wx, WX_GPIO_INTSTATUS);
-
-	gc = txgbe->gpio;
-	for_each_set_bit(hwirq, &gpioirq, gc->ngpio) {
-		int gpio = irq_find_mapping(gc->irq.domain, hwirq);
-		u32 irq_type = irq_get_trigger_type(gpio);
-
-		generic_handle_domain_irq(gc->irq.domain, hwirq);
-
-		if ((irq_type & IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH) {
-			raw_spin_lock_irqsave(&wx->gpio_lock, flags);
-			txgbe_toggle_trigger(gc, hwirq);
-			raw_spin_unlock_irqrestore(&wx->gpio_lock, flags);
+	if (hw->mac.type == txgbe_mac_aml40) {
+		value = rd32(hw, TXGBE_GPIO_EXT);
+		if (value & TXGBE_SFP1_MOD_PRST_LS) {
+			hw->phy.sfp_type = txgbe_sfp_type_not_present;
+			return TXGBE_ERR_SFP_NOT_PRESENT;
 		}
 	}
 
-	chained_irq_exit(chip, desc);
+	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask) != 0)
+		return TXGBE_ERR_SWFW_SYNC;
 
-	if (eicr & (TXGBE_PX_MISC_ETH_LK | TXGBE_PX_MISC_ETH_LKDN |
-		    TXGBE_PX_MISC_ETH_AN)) {
-		u32 reg = rd32(wx, TXGBE_CFG_PORT_ST);
-
-		phylink_mac_change(txgbe->phylink, !!(reg & TXGBE_CFG_PORT_ST_LINK_UP));
+	if (hw->mac.ops.get_media_type(hw) != txgbe_media_type_fiber_qsfp) {
+		hw->phy.sfp_type = txgbe_sfp_type_not_present;
+		status = TXGBE_ERR_SFP_NOT_PRESENT;
+		goto out;
 	}
 
-	/* unmask interrupt */
-	wx_intr_enable(wx, TXGBE_INTR_MISC(wx));
+	/* LAN ID is needed for I2C access */
+	txgbe_init_i2c(hw);
+	status = hw->phy.ops.read_i2c_eeprom(hw,
+					     TXGBE_SFF_IDENTIFIER,
+					     &identifier);
+
+	if (status != 0)
+		goto err_read_i2c_eeprom;
+
+	if (identifier == TXGBE_SFF_IDENTIFIER_QSFP ||
+	    identifier == TXGBE_SFF_IDENTIFIER_QSFP_PLUS) {
+		hw->phy.type = txgbe_phy_sfp_unknown;
+
+		status = hw->phy.ops.read_i2c_eeprom(hw,
+						     TXGBE_ETHERNET_COMP_OFFSET,
+						     &transceiver_type);
+		if (status != 0)
+			goto err_read_i2c_eeprom;
+
+		if (transceiver_type & TXGBE_SFF_ETHERNET_40G_CR4) {
+			if (hw->bus.lan_id == 0)
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_cu_core0;
+			else
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_cu_core1;
+			hw->phy.fiber_suppport_speed =
+						TXGBE_LINK_SPEED_40GB_FULL |
+						TXGBE_LINK_SPEED_10GB_FULL;
+		}
+
+		if (transceiver_type & TXGBE_SFF_ETHERNET_40G_SR4) {
+			if (hw->bus.lan_id == 0)
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_sr_core0;
+			else
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_sr_core1;
+		}
+
+		if (transceiver_type & TXGBE_SFF_ETHERNET_40G_LR4) {
+			if (hw->bus.lan_id == 0)
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_lr_core0;
+			else
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_lr_core1;
+		}
+
+		if (transceiver_type & TXGBE_SFF_ETHERNET_40G_ACTIVE) {
+			if (hw->bus.lan_id == 0)
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_active_core0;
+			else
+				hw->phy.sfp_type = txgbe_qsfp_type_40g_active_core1;
+		}
+
+	} else {
+		hw->phy.type = txgbe_phy_sfp_unsupported;
+		status = TXGBE_ERR_SFP_NOT_SUPPORTED;
+	}
+out:
+	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
+
+	return status;
+
+err_read_i2c_eeprom:
+	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
+
+	hw->phy.sfp_type = txgbe_sfp_type_not_present;
+	hw->phy.id = 0;
+	hw->phy.type = txgbe_phy_unknown;
+
+	return TXGBE_ERR_SFP_NOT_PRESENT;
 }
 
-static int txgbe_gpio_init(struct txgbe *txgbe)
+s32 txgbe_init_i2c(struct txgbe_hw *hw)
 {
-	struct gpio_irq_chip *girq;
-	struct gpio_chip *gc;
-	struct device *dev;
-	struct wx *wx;
-	int ret;
+	wr32(hw, TXGBE_I2C_ENABLE, 0);
 
-	wx = txgbe->wx;
-	dev = &wx->pdev->dev;
+	wr32(hw, TXGBE_I2C_CON,
+	     (TXGBE_I2C_CON_MASTER_MODE |
+		TXGBE_I2C_CON_SPEED(1) |
+		TXGBE_I2C_CON_RESTART_EN |
+		TXGBE_I2C_CON_SLAVE_DISABLE));
+	/* Default addr is 0xA0 ,bit 0 is configure for read/write! */
+	wr32(hw, TXGBE_I2C_TAR, TXGBE_I2C_SLAVE_ADDR);
 
-	raw_spin_lock_init(&wx->gpio_lock);
+	/* ic_clk = 1/156.25MHz
+	 * SCL_High_time = [(HCNT + IC_*_SPKLEN + 7) * ic_clk] + SCL_Fall_time
+	 * SCL_Low_time = [(LCNT + 1) * ic_clk] - SCL_Fall_time + SCL_Rise_time
+	 * set I2C Frequency to Standard Speed Mode 100KHz
+	 */
+	if (hw->mac.type == txgbe_mac_aml || hw->mac.type == txgbe_mac_aml40) {
+		wr32(hw, TXGBE_I2C_SS_SCL_HCNT, 2000);
+		wr32(hw, TXGBE_I2C_SS_SCL_LCNT, 2000);
 
-	gc = devm_kzalloc(dev, sizeof(*gc), GFP_KERNEL);
-	if (!gc)
-		return -ENOMEM;
+		wr32m(hw, TXGBE_I2C_SDA_HOLD,
+		      TXGBE_I2C_SDA_RX_HOLD | TXGBE_I2C_SDA_TX_HOLD, 0x640064);
+	} else if (hw->mac.type == txgbe_mac_sp) {
+		wr32(hw, TXGBE_I2C_SS_SCL_HCNT, 780);
+		wr32(hw, TXGBE_I2C_SS_SCL_LCNT, 780);
+	}
 
-	gc->label = devm_kasprintf(dev, GFP_KERNEL, "txgbe_gpio-%x",
-				   pci_dev_id(wx->pdev));
-	if (!gc->label)
-		return -ENOMEM;
+	wr32(hw, TXGBE_I2C_RX_TL, 0); /* 1byte for rx full signal */
+	wr32(hw, TXGBE_I2C_TX_TL, 4);
 
-	gc->base = -1;
-	gc->ngpio = 6;
-	gc->owner = THIS_MODULE;
-	gc->parent = dev;
-	gc->fwnode = software_node_fwnode(txgbe->nodes.group[SWNODE_GPIO]);
-	gc->get = txgbe_gpio_get;
-	gc->get_direction = txgbe_gpio_get_direction;
-	gc->direction_input = txgbe_gpio_direction_in;
-	gc->direction_output = txgbe_gpio_direction_out;
+	wr32(hw, TXGBE_I2C_SCL_STUCK_TIMEOUT, 0xFFFFFF);
+	wr32(hw, TXGBE_I2C_SDA_STUCK_TIMEOUT, 0xFFFFFF);
 
-	girq = &gc->irq;
-	gpio_irq_chip_set_chip(girq, &txgbe_gpio_irq_chip);
-	girq->parent_handler = txgbe_irq_handler;
-	girq->parent_handler_data = wx;
-	girq->num_parents = 1;
-	girq->parents = devm_kcalloc(dev, girq->num_parents,
-				     sizeof(*girq->parents), GFP_KERNEL);
-	if (!girq->parents)
-		return -ENOMEM;
-	girq->parents[0] = wx->msix_entries[wx->num_q_vectors].vector;
-	girq->default_type = IRQ_TYPE_NONE;
-	girq->handler = handle_bad_irq;
-
-	ret = devm_gpiochip_add_data(dev, gc, wx);
-	if (ret)
-		return ret;
-
-	txgbe->gpio = gc;
+	wr32(hw, TXGBE_I2C_INTR_MASK, 0);
+	wr32(hw, TXGBE_I2C_ENABLE, 1);
 
 	return 0;
 }
 
-static int txgbe_clock_register(struct txgbe *txgbe)
+static s32 txgbe_init_i2c_sfp_phy(struct txgbe_hw *hw)
 {
-	struct pci_dev *pdev = txgbe->wx->pdev;
-	struct clk_lookup *clock;
-	char clk_name[32];
-	struct clk *clk;
+	wr32(hw, TXGBE_I2C_ENABLE, 0);
 
-	snprintf(clk_name, sizeof(clk_name), "i2c_designware.%d",
-		 pci_dev_id(pdev));
+	wr32(hw, TXGBE_I2C_CON,
+	     (TXGBE_I2C_CON_MASTER_MODE |
+		TXGBE_I2C_CON_SPEED(1) |
+		TXGBE_I2C_CON_RESTART_EN |
+		TXGBE_I2C_CON_SLAVE_DISABLE));
+	/* Default addr is 0xA0 ,bit 0 is configure for read/write! */
+	wr32(hw, TXGBE_I2C_TAR, TXGBE_I2C_SLAVE_ADDR);
+	wr32(hw, TXGBE_I2C_SS_SCL_HCNT, 600);
+	wr32(hw, TXGBE_I2C_SS_SCL_LCNT, 600);
 
-	clk = clk_register_fixed_rate(NULL, clk_name, NULL, 0, 156250000);
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
+	wr32(hw, TXGBE_I2C_RX_TL, 1); /* 2bytes for rx full signal */
+	wr32(hw, TXGBE_I2C_TX_TL, 4);
 
-	clock = clkdev_create(clk, NULL, clk_name);
-	if (!clock) {
-		clk_unregister(clk);
-		return -ENOMEM;
-	}
+	wr32(hw, TXGBE_I2C_SCL_STUCK_TIMEOUT, 0xFFFFFF);
+	wr32(hw, TXGBE_I2C_SDA_STUCK_TIMEOUT, 0xFFFFFF);
 
-	txgbe->clk = clk;
-	txgbe->clock = clock;
+	wr32(hw, TXGBE_I2C_INTR_MASK, 0);
+	wr32(hw, TXGBE_I2C_ENABLE, 1);
 
 	return 0;
 }
 
-static int txgbe_i2c_read(void *context, unsigned int reg, unsigned int *val)
+s32 txgbe_clear_i2c(struct txgbe_hw *hw)
 {
-	struct wx *wx = context;
+	s32 status = 0;
 
-	*val = rd32(wx, reg + TXGBE_I2C_BASE);
+	/* wait for completion */
+	status = po32m(hw, TXGBE_I2C_STATUS,
+		       TXGBE_I2C_STATUS_MST_ACTIVITY, ~TXGBE_I2C_STATUS_MST_ACTIVITY,
+		TXGBE_I2C_TIMEOUT, 10);
+	if (status != 0)
+		goto out;
 
+	wr32(hw, TXGBE_I2C_ENABLE, 0);
+
+out:
+	return status;
+}
+
+/**
+ *  txgbe_read_i2c_eeprom - Reads 8 bit EEPROM word over I2C interface
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: EEPROM byte offset to read
+ *  @eeprom_data: value read
+ *
+ *  Performs byte read operation to SFP module's EEPROM over I2C interface.
+ **/
+s32 txgbe_read_i2c_eeprom(struct txgbe_hw *hw, u8 byte_offset,
+			  u8 *eeprom_data)
+{
+	txgbe_init_i2c(hw);
+	return hw->phy.ops.read_i2c_byte(hw, byte_offset,
+					 TXGBE_I2C_EEPROM_DEV_ADDR,
+					 eeprom_data);
+}
+
+/**
+ *  txgbe_read_i2c_sff8472 - Reads 8 bit word over I2C interface
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset at address 0xA2
+ *  @eeprom_data: value read
+ *
+ *  Performs byte read operation to SFP module's SFF-8472 data over I2C
+ **/
+s32 txgbe_read_i2c_sff8472(struct txgbe_hw *hw, u8 byte_offset,
+			   u8 *sff8472_data)
+{
+	txgbe_init_i2c(hw);
+	return hw->phy.ops.read_i2c_byte(hw, byte_offset,
+					 TXGBE_I2C_EEPROM_DEV_ADDR2,
+					 sff8472_data);
+}
+
+/**
+ *  txgbe_read_i2c_sff8636 - Reads 8 bit word over I2C interface
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset at address 0xA2
+ *  @eeprom_data: value read
+ *
+ *  Performs byte read operation to SFP module's SFF-8472 data over I2C
+ **/
+s32 txgbe_read_i2c_sff8636(struct txgbe_hw *hw, u8 page, u8 byte_offset,
+			   u8 *sff8636_data)
+{
+	txgbe_init_i2c(hw);
+	hw->phy.ops.write_i2c_byte(hw, TXGBE_SFF_QSFP_PAGE_SELECT,
+					 TXGBE_I2C_EEPROM_DEV_ADDR,
+					 page);
+
+	return hw->phy.ops.read_i2c_byte(hw, byte_offset,
+					 TXGBE_I2C_EEPROM_DEV_ADDR,
+					 sff8636_data);
+}
+
+/**
+ *  txgbe_read_i2c_sfp_phy - Reads 16 bit word over I2C interface
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset at address 0xAC
+ *  @eeprom_data: value read
+ *
+ *  Performs byte read operation to Fiber to Copper SFP module
+ *  internal phy over I2C
+ **/
+s32 txgbe_read_i2c_sfp_phy(struct txgbe_hw *hw, u16 byte_offset,
+			   u16 *data)
+{
+	txgbe_init_i2c_sfp_phy(hw);
+
+	return txgbe_read_i2c_word(hw, byte_offset,
+					 TXGBE_I2C_EEPROM_DEV_ADDR3,
+					 data);
+}
+
+/**
+ *  txgbe_write_i2c_eeprom - Writes 8 bit EEPROM word over I2C interface
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: EEPROM byte offset to write
+ *  @eeprom_data: value to write
+ *
+ *  Performs byte write operation to SFP module's EEPROM over I2C interface.
+ **/
+s32 txgbe_write_i2c_eeprom(struct txgbe_hw *hw, u8 byte_offset,
+			   u8 eeprom_data)
+{
+	txgbe_init_i2c(hw);
+	return hw->phy.ops.write_i2c_byte(hw, byte_offset,
+					  TXGBE_I2C_EEPROM_DEV_ADDR,
+					  eeprom_data);
+}
+
+/**
+ *  txgbe_read_i2c_byte_int - Reads 8 bit word over I2C
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset to read
+ *  @data: value read
+ *  @lock: true if to take and release semaphore
+ *
+ *  Performs byte read operation to SFP module's EEPROM over I2C interface at
+ *  a specified device address.
+ **/
+static s32 txgbe_read_i2c_byte_int(struct txgbe_hw *hw, u8 byte_offset,
+				   u8 __always_unused dev_addr, u8 *data, bool __always_unused lock)
+{
+	s32 status = 0;
+
+	/* wait tx empty */
+	status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+		       TXGBE_I2C_INTR_STAT_TX_EMPTY, TXGBE_I2C_INTR_STAT_TX_EMPTY,
+		TXGBE_I2C_TIMEOUT, 10);
+	if (status != 0)
+		goto out;
+
+	/* read data */
+	wr32(hw, TXGBE_I2C_DATA_CMD,
+	     byte_offset | TXGBE_I2C_DATA_CMD_STOP);
+	wr32(hw, TXGBE_I2C_DATA_CMD, TXGBE_I2C_DATA_CMD_READ);
+
+	/* wait for read complete */
+	status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+		       TXGBE_I2C_INTR_STAT_RX_FULL, TXGBE_I2C_INTR_STAT_RX_FULL,
+		TXGBE_I2C_TIMEOUT, 100);
+	if (status != 0)
+		goto out;
+
+	*data = 0xFF & rd32(hw, TXGBE_I2C_DATA_CMD);
+
+out:
+	return status;
+}
+
+/**
+ * txgbe_read_i2c_word_int - Reads 16 bit word over I2C
+ * @hw: pointer to hardware structure
+ * @byte_offset: byte offset to read
+ * @data: value read
+ * @lock: true if to take and release semaphore
+ * Performs byte read operation to SFP module's EEPROM over I2C interface at
+ * a specified device address.
+ **/
+static s32 txgbe_read_i2c_word_int(struct txgbe_hw *hw, u16 byte_offset,
+				   u8 __always_unused dev_addr,
+									u16 *data,
+									bool __always_unused lock)
+{
+	s32 status = 0;
+
+	if (hw->phy.sfp_type == txgbe_sfp_type_1g_cu_core0 ||
+	    hw->phy.sfp_type == txgbe_sfp_type_1g_cu_core1) {
+		/* reg offset format 0x000yyyyy */
+		byte_offset &= 0x1f;
+
+		/* wait tx empty */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_TX_EMPTY, TXGBE_I2C_INTR_STAT_TX_EMPTY,
+		   TXGBE_I2C_TIMEOUT, 10);
+		if (status != 0)
+			goto out;
+
+		/* write reg_offset */
+		wr32(hw, TXGBE_I2C_DATA_CMD, (u8)byte_offset | TXGBE_I2C_DATA_CMD_STOP);
+
+		usec_delay(TXGBE_I2C_TIMEOUT);
+		/* wait tx empty */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_TX_EMPTY, TXGBE_I2C_INTR_STAT_TX_EMPTY,
+		   TXGBE_I2C_TIMEOUT, 10);
+		if (status != 0)
+			goto out;
+
+		/* read data */
+		wr32(hw, TXGBE_I2C_DATA_CMD, TXGBE_I2C_DATA_CMD_READ);
+		wr32(hw, TXGBE_I2C_DATA_CMD, TXGBE_I2C_DATA_CMD_READ |
+				TXGBE_I2C_DATA_CMD_STOP);
+
+		/* wait for read complete */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_RX_FULL, TXGBE_I2C_INTR_STAT_RX_FULL,
+		   TXGBE_I2C_TIMEOUT, 10);
+		if (status != 0)
+			goto out;
+
+		*data = 0xFF & rd32(hw, TXGBE_I2C_DATA_CMD);
+		*data <<= 8;
+		*data += 0xFF & rd32(hw, TXGBE_I2C_DATA_CMD);
+	} else if ((hw->phy.sfp_type == txgbe_sfp_type_10g_cu_core0) ||
+		(hw->phy.sfp_type == txgbe_sfp_type_10g_cu_core1)) {
+		/* wait tx empty */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_TX_EMPTY,
+							TXGBE_I2C_INTR_STAT_TX_EMPTY,
+							TXGBE_I2C_TIMEOUT, 10);
+		if (status != 0)
+			goto out;
+
+		/* write reg_offset */
+		wr32(hw, TXGBE_I2C_DATA_CMD, 0x23);
+		wr32(hw, TXGBE_I2C_DATA_CMD, byte_offset >> 8);
+		wr32(hw, TXGBE_I2C_DATA_CMD, (u8)byte_offset | TXGBE_I2C_DATA_CMD_STOP);
+
+		/* wait tx empty */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_TX_EMPTY,
+							TXGBE_I2C_INTR_STAT_TX_EMPTY,
+							TXGBE_I2C_TIMEOUT, 10);
+		if (status != 0)
+			goto out;
+
+		/* delay for mcu access sfp internal phy through MDIO
+		 * delay time need larger than 1ms
+		 */
+		mdelay(5);
+
+		/* read data */
+		wr32(hw, TXGBE_I2C_DATA_CMD, TXGBE_I2C_DATA_CMD_READ);
+		wr32(hw, TXGBE_I2C_DATA_CMD, TXGBE_I2C_DATA_CMD_READ |
+				TXGBE_I2C_DATA_CMD_STOP);
+
+		/* wait for read complete */
+		status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+			       TXGBE_I2C_INTR_STAT_RX_FULL, TXGBE_I2C_INTR_STAT_RX_FULL,
+						TXGBE_I2C_TIMEOUT, 100);
+		if (status != 0)
+			goto out;
+
+		/* fixme LSB data is the data of the duplicate MSB */
+		*data = 0xFF & rd32(hw, TXGBE_I2C_DATA_CMD);
+		*data <<= 8;
+		*data += 0xFF & rd32(hw, TXGBE_I2C_DATA_CMD);
+	}
+
+out:
+	return status;
+}
+
+/**
+ * txgbe_switch_i2c_slave_addr - Switch I2C slave address
+ * @hw: pointer to hardware structure
+ * @dev_addr: slave addr to switch
+ **/
+s32 txgbe_switch_i2c_slave_addr(struct txgbe_hw *hw, u8 dev_addr)
+{
+	wr32(hw, TXGBE_I2C_ENABLE, 0);
+	wr32(hw, TXGBE_I2C_TAR, dev_addr >> 1);
+	wr32(hw, TXGBE_I2C_ENABLE, 1);
 	return 0;
 }
 
-static int txgbe_i2c_write(void *context, unsigned int reg, unsigned int val)
+/**
+ *  txgbe_read_i2c_byte - Reads 8 bit word over I2C
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset to read
+ *  @data: value read
+ *
+ *  Performs byte read operation to SFP module's EEPROM over I2C interface at
+ *  a specified device address.
+ **/
+s32 txgbe_read_i2c_byte(struct txgbe_hw *hw, u8 byte_offset,
+			u8 dev_addr, u8 *data)
 {
-	struct wx *wx = context;
+	txgbe_switch_i2c_slave_addr(hw, dev_addr);
 
-	wr32(wx, reg + TXGBE_I2C_BASE, val);
-
-	return 0;
+	return txgbe_read_i2c_byte_int(hw, byte_offset, dev_addr,
+					       data, true);
 }
 
-static const struct regmap_config i2c_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_read = txgbe_i2c_read,
-	.reg_write = txgbe_i2c_write,
-	.fast_io = true,
-};
-
-static int txgbe_i2c_register(struct txgbe *txgbe)
+/**
+ *	txgbe_read_i2c_word - Reads 16 bit word over I2C
+ *	@hw: pointer to hardware structure
+ *	@byte_offset: byte offset to read
+ *	@data: value read
+ *
+ *	Performs byte read operation to SFP module's EEPROM over I2C interface at
+ *	a specified device address.
+ **/
+s32 txgbe_read_i2c_word(struct txgbe_hw *hw, u16 byte_offset,
+			u8 dev_addr, u16 *data)
 {
-	struct platform_device_info info = {};
-	struct platform_device *i2c_dev;
-	struct regmap *i2c_regmap;
-	struct pci_dev *pdev;
-	struct wx *wx;
+	txgbe_switch_i2c_slave_addr(hw, dev_addr);
 
-	wx = txgbe->wx;
-	pdev = wx->pdev;
-	i2c_regmap = devm_regmap_init(&pdev->dev, NULL, wx, &i2c_regmap_config);
-	if (IS_ERR(i2c_regmap)) {
-		wx_err(wx, "failed to init I2C regmap\n");
-		return PTR_ERR(i2c_regmap);
-	}
-
-	info.parent = &pdev->dev;
-	info.fwnode = software_node_fwnode(txgbe->nodes.group[SWNODE_I2C]);
-	info.name = "i2c_designware";
-	info.id = pci_dev_id(pdev);
-
-	info.res = &DEFINE_RES_IRQ(pdev->irq);
-	info.num_res = 1;
-	i2c_dev = platform_device_register_full(&info);
-	if (IS_ERR(i2c_dev))
-		return PTR_ERR(i2c_dev);
-
-	txgbe->i2c_dev = i2c_dev;
-
-	return 0;
+	return txgbe_read_i2c_word_int(hw, byte_offset, dev_addr,
+						   data, true);
 }
 
-static int txgbe_sfp_register(struct txgbe *txgbe)
+/**
+ *  txgbe_write_i2c_byte_int - Writes 8 bit word over I2C
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset to write
+ *  @data: value to write
+ *  @lock: true if to take and release semaphore
+ *
+ *  Performs byte write operation to SFP module's EEPROM over I2C interface at
+ *  a specified device address.
+ **/
+static s32 txgbe_write_i2c_byte_int(struct txgbe_hw *hw, u8 byte_offset,
+				    u8 __always_unused dev_addr, u8 data)
 {
-	struct pci_dev *pdev = txgbe->wx->pdev;
-	struct platform_device_info info = {};
-	struct platform_device *sfp_dev;
+	s32 status = 0;
 
-	info.parent = &pdev->dev;
-	info.fwnode = software_node_fwnode(txgbe->nodes.group[SWNODE_SFP]);
-	info.name = "sfp";
-	info.id = pci_dev_id(pdev);
-	sfp_dev = platform_device_register_full(&info);
-	if (IS_ERR(sfp_dev))
-		return PTR_ERR(sfp_dev);
+	/* wait tx empty */
+	status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+		       TXGBE_I2C_INTR_STAT_TX_EMPTY, TXGBE_I2C_INTR_STAT_TX_EMPTY,
+		TXGBE_I2C_TIMEOUT, 10);
+	if (status != 0)
+		goto out;
 
-	txgbe->sfp_dev = sfp_dev;
+	wr32(hw, TXGBE_I2C_DATA_CMD, byte_offset);
+	wr32(hw, TXGBE_I2C_DATA_CMD,
+	     data | TXGBE_I2C_DATA_CMD_WRITE);
 
-	return 0;
+	/* wait for write complete */
+	status = po32m(hw, TXGBE_I2C_RAW_INTR_STAT,
+		       TXGBE_I2C_INTR_STAT_RX_FULL, TXGBE_I2C_INTR_STAT_RX_FULL,
+		TXGBE_I2C_TIMEOUT, 10);
+out:
+	return status;
 }
 
-static int txgbe_phy_read(struct mii_bus *bus, int phy_addr,
-			  int devnum, int regnum)
+/**
+ *  txgbe_write_i2c_byte - Writes 8 bit word over I2C
+ *  @hw: pointer to hardware structure
+ *  @byte_offset: byte offset to write
+ *  @data: value to write
+ *
+ *  Performs byte write operation to SFP module's EEPROM over I2C interface at
+ *  a specified device address.
+ **/
+s32 txgbe_write_i2c_byte(struct txgbe_hw *hw, u8 byte_offset,
+			 u8 dev_addr, u8 data)
 {
-	struct wx *wx = bus->priv;
-	u32 val, command;
-	int ret;
-
-	/* setup and write the address cycle command */
-	command = WX_MSCA_RA(regnum) |
-		  WX_MSCA_PA(phy_addr) |
-		  WX_MSCA_DA(devnum);
-	wr32(wx, WX_MSCA, command);
-
-	command = WX_MSCC_CMD(WX_MSCA_CMD_READ) | WX_MSCC_BUSY;
-	wr32(wx, WX_MSCC, command);
-
-	/* wait to complete */
-	ret = read_poll_timeout(rd32, val, !(val & WX_MSCC_BUSY), 1000,
-				100000, false, wx, WX_MSCC);
-	if (ret) {
-		wx_err(wx, "Mdio read c45 command did not complete.\n");
-		return ret;
-	}
-
-	return (u16)rd32(wx, WX_MSCC);
+	return txgbe_write_i2c_byte_int(hw, byte_offset, dev_addr,
+						data);
 }
 
-static int txgbe_phy_write(struct mii_bus *bus, int phy_addr,
-			   int devnum, int regnum, u16 value)
+/**
+ *  txgbe_tn_check_overtemp - Checks if an overtemp occurred.
+ *  @hw: pointer to hardware structure
+ *
+ *  Checks if the LASI temp alarm status was triggered due to overtemp
+ **/
+s32 txgbe_tn_check_overtemp(struct txgbe_hw *hw)
 {
-	struct wx *wx = bus->priv;
-	int ret, command;
-	u16 val;
+	s32 status = 0;
+	u32 ts_state;
 
-	/* setup and write the address cycle command */
-	command = WX_MSCA_RA(regnum) |
-		  WX_MSCA_PA(phy_addr) |
-		  WX_MSCA_DA(devnum);
-	wr32(wx, WX_MSCA, command);
+	if (hw->mac.type == txgbe_mac_aml ||
+	    hw->mac.type == txgbe_mac_aml40) {
+		ts_state = rd32(hw, TXGBE_AML_INTR_HIGH_STS);
+		if (ts_state) {
+			wr32(hw, TXGBE_AML_INTR_RAW_HI, TXGBE_AML_INTR_CL_HI);
+			wr32(hw, TXGBE_AML_INTR_RAW_LO, TXGBE_AML_INTR_CL_LO);
+			status = TXGBE_ERR_OVERTEMP;
+		} else {
+			ts_state = rd32(hw, TXGBE_AML_INTR_LOW_STS);
+			if (ts_state)
+				status = TXGBE_ERR_UNDERTEMP;
+		}
+	} else {
+		/* Check that the LASI temp alarm status was triggered */
+		ts_state = rd32(hw, TXGBE_TS_ALARM_ST);
 
-	command = value | WX_MSCC_CMD(WX_MSCA_CMD_WRITE) | WX_MSCC_BUSY;
-	wr32(wx, WX_MSCC, command);
-
-	/* wait to complete */
-	ret = read_poll_timeout(rd32, val, !(val & WX_MSCC_BUSY), 1000,
-				100000, false, wx, WX_MSCC);
-	if (ret)
-		wx_err(wx, "Mdio write c45 command did not complete.\n");
-
-	return ret;
+		if (ts_state & TXGBE_TS_ALARM_ST_DALARM)
+			status = TXGBE_ERR_UNDERTEMP;
+		else if (ts_state & TXGBE_TS_ALARM_ST_ALARM)
+			status = TXGBE_ERR_OVERTEMP;
+	}
+	return status;
 }
 
-static int txgbe_ext_phy_init(struct txgbe *txgbe)
+s32 txgbe_init_external_phy(struct txgbe_hw *hw)
 {
-	struct phy_device *phydev;
-	struct mii_bus *mii_bus;
-	struct pci_dev *pdev;
-	struct wx *wx;
-	int ret = 0;
+	s32 status = 0;
 
-	wx = txgbe->wx;
-	pdev = wx->pdev;
+	struct mtd_dev *devptr = &hw->phy_dev;
 
-	mii_bus = devm_mdiobus_alloc(&pdev->dev);
-	if (!mii_bus)
-		return -ENOMEM;
+	hw->phy.addr = 0;
 
-	mii_bus->name = "txgbe_mii_bus";
-	mii_bus->read_c45 = &txgbe_phy_read;
-	mii_bus->write_c45 = &txgbe_phy_write;
-	mii_bus->parent = &pdev->dev;
-	mii_bus->phy_mask = GENMASK(31, 1);
-	mii_bus->priv = wx;
-	snprintf(mii_bus->id, MII_BUS_ID_SIZE, "txgbe-%x",
-		 (pdev->bus->number << 8) | pdev->devfn);
-
-	ret = devm_mdiobus_register(&pdev->dev, mii_bus);
-	if (ret) {
-		wx_err(wx, "failed to register MDIO bus: %d\n", ret);
-		return ret;
+	devptr->app_data = hw;
+	status = txgbe_mtd_load_driver(txgbe_read_mdio,
+				       txgbe_write_mdio,
+		false,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		hw->phy.addr,
+		devptr);
+	if (status != 0) {
+		ERROR_REPORT1(TXGBE_ERROR_INVALID_STATE,
+			      "External PHY initialization failed.\n");
+		return TXGBE_ERR_PHY;
 	}
 
-	phydev = phy_find_first(mii_bus);
-	if (!phydev) {
-		wx_err(wx, "no PHY found\n");
-		return -ENODEV;
-	}
-
-	phy_attached_info(phydev);
-
-	wx->link = 0;
-	wx->speed = 0;
-	wx->duplex = 0;
-	wx->phydev = phydev;
-
-	ret = txgbe_phylink_init(txgbe);
-	if (ret) {
-		wx_err(wx, "failed to init phylink: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
+	return status;
 }
 
-int txgbe_init_phy(struct txgbe *txgbe)
+s32 txgbe_uninit_external_phy(struct txgbe_hw *hw)
 {
-	int ret;
-
-	if (txgbe->wx->media_type == sp_media_copper)
-		return txgbe_ext_phy_init(txgbe);
-
-	ret = txgbe_swnodes_register(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to register software nodes\n");
-		return ret;
-	}
-
-	ret = txgbe_mdio_pcs_init(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to init mdio pcs: %d\n", ret);
-		goto err_unregister_swnode;
-	}
-
-	ret = txgbe_phylink_init(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to init phylink\n");
-		goto err_destroy_xpcs;
-	}
-
-	ret = txgbe_gpio_init(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to init gpio\n");
-		goto err_destroy_phylink;
-	}
-
-	ret = txgbe_clock_register(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to register clock: %d\n", ret);
-		goto err_destroy_phylink;
-	}
-
-	ret = txgbe_i2c_register(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to init i2c interface: %d\n", ret);
-		goto err_unregister_clk;
-	}
-
-	ret = txgbe_sfp_register(txgbe);
-	if (ret) {
-		wx_err(txgbe->wx, "failed to register sfp\n");
-		goto err_unregister_i2c;
-	}
-
-	return 0;
-
-err_unregister_i2c:
-	platform_device_unregister(txgbe->i2c_dev);
-err_unregister_clk:
-	clkdev_drop(txgbe->clock);
-	clk_unregister(txgbe->clk);
-err_destroy_phylink:
-	phylink_destroy(txgbe->phylink);
-err_destroy_xpcs:
-	xpcs_destroy(txgbe->xpcs);
-err_unregister_swnode:
-	software_node_unregister_node_group(txgbe->nodes.group);
-
-	return ret;
+	return txgbe_mtd_unload_driver(&hw->phy_dev);
 }
 
-void txgbe_remove_phy(struct txgbe *txgbe)
+s32 txgbe_set_phy_pause_advertisement(struct txgbe_hw *hw, u32 pause_bit)
 {
-	if (txgbe->wx->media_type == sp_media_copper) {
-		phylink_disconnect_phy(txgbe->phylink);
-		phylink_destroy(txgbe->phylink);
-		return;
-	}
-
-	platform_device_unregister(txgbe->sfp_dev);
-	platform_device_unregister(txgbe->i2c_dev);
-	clkdev_drop(txgbe->clock);
-	clk_unregister(txgbe->clk);
-	phylink_destroy(txgbe->phylink);
-	xpcs_destroy(txgbe->xpcs);
-	software_node_unregister_node_group(txgbe->nodes.group);
+	return txgbe_mtd_set_pause_adver(&hw->phy_dev, hw->phy.addr,
+						(pause_bit >> 10) & 0x3, false);
 }
+
+s32 txgbe_get_phy_advertised_pause(struct txgbe_hw *hw, u8 *pause_bit)
+{
+	u16 value;
+	s32 status = 0;
+
+	status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				       TXGBE_MDIO_AUTO_NEG_DEV_TYPE,
+				TXGBE_MDIO_AUTO_NEG_ADVT, &value);
+	*pause_bit = (u8)((value >> 10) & 0x3);
+	return status;
+}
+
+s32 txgbe_get_lp_advertised_pause(struct txgbe_hw *hw, u8 *pause_bit)
+{
+	return txgbe_mtd_get_lp_adver_pause(&hw->phy_dev,
+				hw->phy.addr, pause_bit);
+}
+
+s32 txgbe_external_phy_suspend(struct txgbe_hw *hw)
+{
+	s32 status = 0;
+	u16 value = 0;
+
+	status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				       TXGBE_MDIO_VENDOR_SPECIFIC_2_DEV_TYPE,
+				TXGBE_MDIO_VENDOR_SPECIFIC_2_PORT_CTRL, &value);
+
+	if (status)
+		goto out;
+
+	value |= TXGBE_MDIO_VENDOR_SPECIFIC_2_POWER;
+
+	status = txgbe_mtd_xmdio_wr(&hw->phy_dev, hw->phy.addr,
+				    TXGBE_MDIO_VENDOR_SPECIFIC_2_DEV_TYPE,
+				TXGBE_MDIO_VENDOR_SPECIFIC_2_PORT_CTRL, value);
+
+out:
+	return status;
+}
+
+s32 txgbe_external_phy_resume(struct txgbe_hw *hw)
+{
+	s32 status = 0;
+	u16 value = 0;
+
+	status = txgbe_mtd_hw_xmdio_rd(&hw->phy_dev, hw->phy.addr,
+				       TXGBE_MDIO_VENDOR_SPECIFIC_2_DEV_TYPE,
+				TXGBE_MDIO_VENDOR_SPECIFIC_2_PORT_CTRL, &value);
+
+	if (status)
+		goto out;
+
+	if (!(value & ~TXGBE_MDIO_VENDOR_SPECIFIC_2_POWER))
+		goto out;
+
+	value |= TXGBE_MDIO_VENDOR_SPECIFIC_2_SW_RST;
+	value &= ~TXGBE_MDIO_VENDOR_SPECIFIC_2_POWER;
+
+	status = txgbe_mtd_xmdio_wr(&hw->phy_dev, hw->phy.addr,
+				    TXGBE_MDIO_VENDOR_SPECIFIC_2_DEV_TYPE,
+				TXGBE_MDIO_VENDOR_SPECIFIC_2_PORT_CTRL, value);
+
+out:
+	return status;
+}
+

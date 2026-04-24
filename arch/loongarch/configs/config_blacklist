@@ -1,0 +1,4 @@
+# it breaks install in some platform
+CONFIG_USB_ONBOARD_HUB
+# never use it
+CONFIG_PATA_LEGACY

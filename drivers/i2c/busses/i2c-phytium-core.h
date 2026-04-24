@@ -11,7 +11,7 @@
 
 #include <linux/types.h>
 
-#define I2C_PHYTIUM_DRV_VERSION "1.0.0"
+#define I2C_PHYTIUM_DRV_VERSION "1.0.1"
 
 #define IC_DEFAULT_FUNCTIONALITY (I2C_FUNC_I2C |		\
 				  I2C_FUNC_SMBUS_BYTE |		\
@@ -141,13 +141,13 @@
 #define PHYTIUM_IC_SLAVE		1
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
-enum i2c_slave_state {
-	SLAVE_STATE_IDLE,
-	SLAVE_STATE_RECV,
-	SLAVE_STATE_SEND,
-	SLAVE_STATE_REQUEST,
-	SLAVE_STATE_RESPONSE
-};
+/* Slave status */
+#define	SLAVE_STATE_IDLE		0x0
+#define	SLAVE_WRITE_IN_PROGRESS		BIT(0)
+#define	SLAVE_READ_IN_PROGRESS		BIT(1)
+#define	SLAVE_STATE_ACTIVE		BIT(2)
+
+#define REQ_MIN_LEN			6
 #endif
 #define ABRT_7B_ADDR_NOACK		0
 #define ABRT_10ADDR1_NOACK		1
@@ -199,7 +199,8 @@ struct phytium_i2c_dev {
 
 	u32			capability;
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
-	enum i2c_slave_state	slave_state;
+	u32			slave_status;
+	struct completion	slave_complete;
 #endif
 	spinlock_t		i2c_lock;
 	struct i2c_client	*slave;

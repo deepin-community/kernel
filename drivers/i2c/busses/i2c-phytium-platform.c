@@ -153,7 +153,7 @@ static int phytium_i2c_plat_probe(struct platform_device *pdev)
 	dev->irq = irq;
 	dev->first_time_init_master = false;
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
-	dev->slave_state = SLAVE_STATE_IDLE;
+	dev->slave_status = SLAVE_STATE_IDLE;
 #endif
 	spin_lock_init(&dev->i2c_lock);
 	platform_set_drvdata(pdev, dev);

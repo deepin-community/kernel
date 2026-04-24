@@ -26,7 +26,7 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME_PHYT "phytium_spi_2.0"
-#define DRIVER_VERSION	"1.0.6"
+#define DRIVER_VERSION	"1.0.8"
 
 #define PHYTIUM_CPU_PART_FTC872		0x872
 
@@ -130,7 +130,7 @@ static int spi_phyt_probe(struct platform_device *pdev)
 	int ret;
 	int num_cs;
 	int cs_gpio;
-	int global_cs = 0;
+	int global_cs = 1;
 	int i;
 	u32 clk_rate = SPI_DEFAULT_CLK;
 

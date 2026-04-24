@@ -61,7 +61,13 @@ int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	case SW64_KVM_EXIT_DEBUG:
 		vcpu->stat.debug_exits++;
 		vcpu->run->exit_reason = KVM_EXIT_DEBUG;
-		vcpu->run->debug.arch.epc = vcpu->arch.regs.pc;
+		/* hargs-arg0 is assigned in hmcode to indicate qemu-gdb watchpoint */
+		if (hargs->arg0 == 2) {
+			vcpu->run->debug.arch.epc = hargs->arg2;
+			vcpu->run->debug.arch.reason = hargs->arg0;
+		} else {
+			vcpu->run->debug.arch.epc = vcpu->arch.regs.pc;
+		}
 		return 0;
 #ifdef CONFIG_SUBARCH_C4
 	case SW64_KVM_EXIT_APT_FAULT:
@@ -73,6 +79,10 @@ int handle_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 		vcpu->run->exit_reason = KVM_EXIT_UNKNOWN;
 		vcpu->run->hw.hardware_exit_reason = hargs->arg0;
 		return 0;
+	case SW64_KVM_EXIT_SET_PVTIME_ST:
+		vcpu->arch.steal.base = hargs->arg0;
+		kvm_init_steal_time(vcpu);
+		return 1;
 	}
 
 	return 1;

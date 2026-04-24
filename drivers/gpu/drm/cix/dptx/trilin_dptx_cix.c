@@ -95,7 +95,7 @@ static uint32_t drm_acpi_crtc_port_mask(struct drm_device *dev,
 	return 0;
 }
 
-static uint32_t drm_acpi_find_possible_crtcs(struct drm_device *dev,
+static uint32_t __maybe_unused drm_acpi_find_possible_crtcs(struct drm_device *dev,
 					     struct fwnode_handle *port)
 {
 	struct fwnode_handle *remote_port, *ep;
@@ -133,7 +133,7 @@ static int trilin_dptx_cix_bind(struct device *comp, struct device *master,
 	encoder = &cix_dptx->encoder;
 	if (has_acpi_companion(comp)) {
 		np = comp->fwnode;
-		encoder->possible_crtcs = drm_acpi_find_possible_crtcs(drm, np);
+		encoder->possible_crtcs = 0x3; // always port@0,port@1 possible
 	} else {
 		np = comp->of_node;
 		encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, np);

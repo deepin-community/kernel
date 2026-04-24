@@ -1628,11 +1628,6 @@ static void tegra_msi_irq_unmask(struct irq_data *d)
 	}
 }
 
-static int tegra_msi_set_affinity(struct irq_data *d, const struct cpumask *mask, bool force)
-{
-	return -EINVAL;
-}
-
 static void tegra_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 {
 	struct tegra_msi *msi = irq_data_get_irq_chip_data(data);
@@ -1647,7 +1642,6 @@ static struct irq_chip tegra_msi_bottom_chip = {
 	.irq_ack		= tegra_msi_irq_ack,
 	.irq_mask		= tegra_msi_irq_mask,
 	.irq_unmask		= tegra_msi_irq_unmask,
-	.irq_set_affinity 	= tegra_msi_set_affinity,
 	.irq_compose_msi_msg	= tegra_compose_msi_msg,
 };
 
@@ -1696,8 +1690,8 @@ static const struct irq_domain_ops tegra_msi_domain_ops = {
 };
 
 static struct msi_domain_info tegra_msi_info = {
-	.flags	= (MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
-		   MSI_FLAG_PCI_MSIX),
+	.flags	= MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		  MSI_FLAG_NO_AFFINITY | MSI_FLAG_PCI_MSIX,
 	.chip	= &tegra_msi_top_chip,
 };
 

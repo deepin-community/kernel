@@ -1123,8 +1123,8 @@ static int phytium_jpeg_parser_timer31_irq(struct phytium_jpeg_dev *jpeg_dev)
 		return -ENODEV;
 	}
 
-	ret = devm_request_threaded_irq(dev, irq, NULL, phytium_jpeg_timer31_irq,
-			IRQF_ONESHOT, PHYTIUM_JPEG_NAME, jpeg_dev);
+	ret = devm_request_irq(dev, irq, phytium_jpeg_timer31_irq,
+			IRQF_TIMER, PHYTIUM_JPEG_NAME, jpeg_dev);
 	if (ret < 0)
 		dev_err(dev, "Failed to request timer31 IRQ %d\n", irq);
 
@@ -1177,8 +1177,8 @@ static int phytium_jpeg_parser_timer30_irq(struct phytium_jpeg_dev *jpeg_dev)
 		return -ENODEV;
 	}
 
-	ret = devm_request_threaded_irq(dev, irq, NULL, phytium_jpeg_timer30_irq,
-			IRQF_ONESHOT, PHYTIUM_JPEG_NAME, jpeg_dev);
+	ret = devm_request_irq(dev, irq, phytium_jpeg_timer30_irq,
+			IRQF_TIMER, PHYTIUM_JPEG_NAME, jpeg_dev);
 	if (ret < 0)
 		dev_err(dev, "Failed to request timer30 IRQ %d\n", irq);
 

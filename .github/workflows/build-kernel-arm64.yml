@@ -9,6 +9,10 @@ env:
   KBUILD_BUILD_HOST: deepin-kernel-builder
   email: support@deepin.org
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   pull-requests: read
 

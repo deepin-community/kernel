@@ -113,7 +113,9 @@ struct vcpucb {
 	unsigned long reserved1[10];	/* USE IN HMCODE */
 	DECLARE_BITMAP(irqs_pending, CORE4VM_IRQS);	/* Pending virtual interrupts */
 	unsigned long irqs_addr;
-	unsigned long reserved2[30];
+	unsigned long reserved2[3];	/* USE IN HMCODE */
+	unsigned long watchpoint_in_use;
+	unsigned long reserved3[26];
 };
 #endif
 

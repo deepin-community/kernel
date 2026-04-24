@@ -258,3 +258,4 @@ module_platform_driver(phytium_mci_driver);
 MODULE_DESCRIPTION("Phytium Multimedia Card Interface driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lai Xueyu <laixueyu1280@phytium.com.cn>");
+MODULE_VERSION(PHYTIUM_MMC_V2_DRIVER_VERSION);

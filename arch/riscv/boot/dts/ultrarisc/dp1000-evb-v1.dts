@@ -3,9 +3,25 @@
  * Copyright(C) 2025 UltraRISC Technology (Shanghai) Co., Ltd.
  */
 
-#include "dp1000.dts"
 #include "dp1000-evb-pinctrl.dtsi"
 #include <dt-bindings/iio/temperature/thermocouple.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "UltraRISC EVB v1";
+	compatible = "ultrarisc,evb-v1", "ultrarisc,dp1000";
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+};
 
 &i2c0 {
 	pinctrl-names = "default";
@@ -15,6 +31,16 @@
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
+
+	rtc@68 {
+		compatible = "dallas,ds1339";
+		reg = <0x68>;
+	};
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
 };
 
 &i2c3 {
@@ -25,14 +51,6 @@
 &spi0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi0_pins>;
-
-	mmc0: mmc@0 {
-		compatible = "mmc-spi-slot";
-		spi-max-frequency = <15625000>;
-		reg = <0x00>;
-		voltage-ranges = <3300 3300>;
-		disable-wp;
-	};
 };
 
 &spi1 {
@@ -55,4 +73,18 @@
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pins>;
+};
+
+&ethernet {
+	phy-handle = <&phy0>;
+	mdio {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		compatible = "snps,dwmac-mdio";
+		phy0: phy@0{
+			phandle = <0x04>;
+			reg = <0x00>;
+			status = "okay";
+		};
+	};
 };

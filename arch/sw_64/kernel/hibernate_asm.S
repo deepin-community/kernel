@@ -26,6 +26,7 @@ ENTRY(swsusp_arch_suspend)
 	stl	$14, CALLEE_R14($1)
 	stl	$15, CALLEE_R15($1)
 	stl	$26, CALLEE_RA($1)
+
 	/* SIMD-FP */
 	ldi	$1, PSTATE_FPREGS($16)
 	vstd	$f2, CALLEE_F2($1)
@@ -41,6 +42,7 @@ ENTRY(swsusp_arch_suspend)
 
 	stl	$8, PSTATE_KTP($16)
 	stl	sp, PSTATE_SP($16)
+	stl	gp, PSTATE_GP($16)
 	call	swsusp_save
 	ldi	$16, hibernate_state
 	ldi	$1, PSTATE_REGS($16)
@@ -50,6 +52,7 @@ ENTRY(swsusp_arch_suspend)
 	ret
 END(swsusp_arch_suspend)
 
+/* The restore_image code will be copied to a 'safe' page and executed there. */
 ENTRY(restore_image)
 	/* prepare to copy image data to their original locations */
 	ldi	t0, restore_pblist
@@ -74,13 +77,11 @@ $cpyloop:
 	ldl	t0, PBE_NEXT(t0)
 	bne	t0, $loop
 $done:
-
 	/* tell the hibernation core that we've just restored the memory */
 	ldi	$0, in_suspend
 	stl	$31, 0($0)
 
-	ldi	$16, hibernate_state
-	ldi	$1, PSTATE_REGS($16)
+	ldi     $1, PSTATE_REGS($17)
 
 	ldl	$9, CALLEE_R9($1)
 	ldl	$10, CALLEE_R10($1)
@@ -91,7 +92,7 @@ $done:
 	ldl	$15, CALLEE_R15($1)
 	ldl	$26, CALLEE_RA($1)
 	/* SIMD-FP */
-	fldd	$f0, PSTATE_FPCR($16)
+	fldd	$f0, PSTATE_FPCR($17)
 	wfpcr	$f0
 	fimovd	$f0, $2
 	and	$2, 0x3, $2
@@ -111,7 +112,7 @@ $hibernate_setfpec_1:
 $hibernate_setfpec_2:
 	setfpec2
 $hibernate_setfpec_over:
-	ldi	$1, PSTATE_FPREGS($16)
+	ldi	$1, PSTATE_FPREGS($17)
 	vldd	$f2, CALLEE_F2($1)
 	vldd	$f3, CALLEE_F3($1)
 	vldd	$f4, CALLEE_F4($1)
@@ -121,10 +122,15 @@ $hibernate_setfpec_over:
 	vldd	$f8, CALLEE_F8($1)
 	vldd	$f9, CALLEE_F9($1)
 
-	ldl	sp, PSTATE_SP($16)
-	ldl	$8, PSTATE_KTP($16)
+	ldl	sp, PSTATE_SP($17)
+	ldl	gp, PSTATE_GP($17)
+	ldl	$8, PSTATE_KTP($17)
 	SAVE_KTP
 	ldi	$0, 0($31)
 
 	ret
 END(restore_image)
+
+ENTRY(trampoline_restore_image)
+	call    $26, ($16)
+END(trampoline_restore_image)

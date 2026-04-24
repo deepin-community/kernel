@@ -15,6 +15,7 @@
 #include <linux/of_fdt.h>
 #include <linux/efi.h>
 #include <linux/memblock.h>
+#include <linux/set_memory.h>
 
 #include <asm/cacheflush.h>
 #include <asm/platform.h>
@@ -22,8 +23,8 @@
 extern const unsigned char relocate_new_kernel[];
 extern const size_t relocate_new_kernel_size;
 
-extern unsigned long kexec_start_address;
-extern unsigned long kexec_indirection_page;
+unsigned long kexec_start_address;
+unsigned long kexec_indirection_page;
 
 static atomic_t waiting_for_crash_ipi;
 static void *kexec_control_page;
@@ -346,6 +347,8 @@ void machine_kexec(struct kimage *image)
 	unsigned long *ptr;
 
 	reboot_code_buffer = kexec_control_page;
+	/* Since we do not have kimg, use set_memory to add exec_prot. */
+	set_memory_x((unsigned long)reboot_code_buffer, 1);
 	pr_info("reboot_code_buffer = %px\n", reboot_code_buffer);
 	kexec_start_address = phys_to_ktext(image->start);
 	pr_info("kexec_start_address = %#lx\n", kexec_start_address);
@@ -383,6 +386,14 @@ void machine_kexec(struct kimage *image)
 
 	pr_info("Will call new kernel at %08lx\n", image->start);
 	pr_info("Bye ...\n");
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	/*
+	 * We will jump directly instead of following the full reboot
+	 * path, so softcsrs and CSR_ATC needs to be reseted here.
+	 */
+	clear_soft_csrs();
+	set_atc(ATC_KSEG);
+#endif
 	smp_wmb();
 	((noretfun_t) reboot_code_buffer)(sunway_boot_magic,
 		sunway_dtb_address);

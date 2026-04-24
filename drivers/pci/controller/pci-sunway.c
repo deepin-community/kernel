@@ -6,6 +6,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/set_memory.h>
 
 #include <asm/sw64_init.h>
 
@@ -562,11 +563,10 @@ static int pci_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 	struct pci_controller *hose = pci_bus_to_pci_controller(bus);
 	void __iomem *cfg_iobase = hose->rc_config_space_base;
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("rc read addr:%px bus %d, devfn %#x, where %#x size=%d\t",
-				cfg_iobase + ((where & ~3) << 5),
-				bus->number,
-				devfn, where, size);
+	dev_dbg(&bus->dev, "rc read addr:%px bus %d, devfn %#x, where %#x size=%d\t",
+			cfg_iobase + ((where & ~3) << 5),
+			bus->number,
+			devfn, where, size);
 
 	if ((uintptr_t)where & (size - 1)) {
 		*val = 0;
@@ -596,8 +596,7 @@ static int pci_read_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 		break;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("*val %#x\n ", *val);
+	dev_dbg(&bus->dev, "*val %#x\n ", *val);
 
 	return PCIBIOS_SUCCESSFUL;
 }
@@ -632,11 +631,10 @@ static int pci_write_rc_cfg(struct pci_bus *bus, unsigned int devfn,
 		break;
 	}
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("rc write addr:%px bus %d, devfn %#x, where %#x *val %#x size %d\n",
-				cfg_iobase + ((where & ~3) << 5),
-				bus->number,
-				devfn, where, val, size);
+	dev_dbg(&bus->dev, "rc write addr:%px bus %d, devfn %#x, where %#x *val %#x size %d\n",
+			cfg_iobase + ((where & ~3) << 5),
+			bus->number,
+			devfn, where, val, size);
 
 	writel(data, cfg_iobase + ((where & ~3) << 5));
 
@@ -762,9 +760,8 @@ void __iomem *sunway_pci_map_bus(struct pci_bus *bus,
 
 	cfg_iobase = hose->ep_config_space_base + relbus;
 
-	if (IS_ENABLED(CONFIG_PCI_DEBUG))
-		pr_debug("addr:%px bus %d, devfn %d, where %d\n",
-				cfg_iobase, bus->number, devfn, where);
+	dev_dbg(&bus->dev, "addr:%px bus %d, devfn %d, where %d\n",
+			cfg_iobase, bus->number, devfn, where);
 	return cfg_iobase;
 }
 EXPORT_SYMBOL(sunway_pci_map_bus);
@@ -869,6 +866,9 @@ static int pci_prepare_controller(struct pci_controller *hose,
 	hose->sparse_io_base  = 0;
 	hose->dense_mem_base  = props[PROP_PCIE_IO_BASE];
 	hose->dense_io_base   = props[PROP_EP_IO_BASE];
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+	set_memory_rw((unsigned long)__va(hose->dense_io_base), 0x10000 >> PAGE_SHIFT);
+#endif
 
 	if (!is_guest_or_emul()) {
 		hose->rc_config_space_base = ioremap(props[PROP_RC_CONFIG_BASE], SUNWAY_RC_SIZE);
@@ -1062,6 +1062,11 @@ static struct pci_host_bridge *sunway_pcie_of_init(struct platform_device *pdev)
 	return bridge;
 }
 
+int __weak sunway_iommu_early_init(struct pci_controller *hose)
+{
+	return -ENOENT;
+}
+
 static int sunway_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1098,6 +1103,8 @@ static int sunway_pcie_probe(struct platform_device *pdev)
 		pcie_bus_configure_settings(child);
 
 	pci_bus_add_devices(bus);
+
+	sunway_iommu_early_init(pci_bus_to_pci_controller(bus));
 
 	return 0;
 }

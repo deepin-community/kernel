@@ -658,10 +658,12 @@ retry:
 	if (!error) {
 		error = do_setxattr(mnt_idmap(path.mnt), path.dentry, &ctx);
 		mnt_drop_write(path.mnt);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	} else if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		deepin_check_and_notify_ro_fs_err(&path, "setxattr");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+	} else if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last tmp_path_last = {
+			.path = path,
+			.last = NULL
+		};
+		deepin_check_and_notify_ro_fs_err(&tmp_path_last, "setxattr");
 	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
@@ -702,9 +704,9 @@ SYSCALL_DEFINE5(fsetxattr, int, fd, const char __user *, name,
 	int error;
 
 	CLASS(fd, f)(fd);
+
 	if (!f.file)
 		return -EBADF;
-
 	audit_file(f.file);
 	error = setxattr_copy(name, &ctx);
 	if (error)
@@ -814,16 +816,13 @@ SYSCALL_DEFINE4(lgetxattr, const char __user *, pathname,
 SYSCALL_DEFINE4(fgetxattr, int, fd, const char __user *, name,
 		void __user *, value, size_t, size)
 {
-	struct fd f = fdget(fd);
-	ssize_t error = -EBADF;
+	CLASS(fd, f)(fd);
 
 	if (!f.file)
-		return error;
+		return -EBADF;
 	audit_file(f.file);
-	error = getxattr(file_mnt_idmap(f.file), f.file->f_path.dentry,
+	return getxattr(file_mnt_idmap(f.file), f.file->f_path.dentry,
 			 name, value, size);
-	fdput(f);
-	return error;
 }
 
 /*
@@ -890,15 +889,12 @@ SYSCALL_DEFINE3(llistxattr, const char __user *, pathname, char __user *, list,
 
 SYSCALL_DEFINE3(flistxattr, int, fd, char __user *, list, size_t, size)
 {
-	struct fd f = fdget(fd);
-	ssize_t error = -EBADF;
+	CLASS(fd, f)(fd);
 
 	if (!f.file)
-		return error;
+		return -EBADF;
 	audit_file(f.file);
-	error = listxattr(f.file->f_path.dentry, list, size);
-	fdput(f);
-	return error;
+	return  listxattr(f.file->f_path.dentry, list, size);
 }
 
 /*
@@ -932,10 +928,12 @@ retry:
 	if (!error) {
 		error = removexattr(mnt_idmap(path.mnt), path.dentry, kname);
 		mnt_drop_write(path.mnt);
-#ifdef CONFIG_DEEPIN_ERR_NOTIFY
-	} else if (unlikely((error == -EROFS) && deepin_err_notify_enabled())) {
-		deepin_check_and_notify_ro_fs_err(&path, "removexattr");
-#endif /* CONFIG_DEEPIN_ERR_NOTIFY */
+	} else if (deepin_should_notify_ro_fs_err(error)) {
+		struct deepin_path_last tmp_path_last = {
+			.path = path,
+			.last = NULL
+		};
+		deepin_check_and_notify_ro_fs_err(&tmp_path_last, "removexattr");
 	}
 	path_put(&path);
 	if (retry_estale(error, lookup_flags)) {
@@ -959,12 +957,12 @@ SYSCALL_DEFINE2(lremovexattr, const char __user *, pathname,
 
 SYSCALL_DEFINE2(fremovexattr, int, fd, const char __user *, name)
 {
-	struct fd f = fdget(fd);
+	CLASS(fd, f)(fd);
 	char kname[XATTR_NAME_MAX + 1];
-	int error = -EBADF;
+	int error;
 
 	if (!f.file)
-		return error;
+		return -EBADF;
 	audit_file(f.file);
 
 	error = strncpy_from_user(kname, name, sizeof(kname));
@@ -979,7 +977,6 @@ SYSCALL_DEFINE2(fremovexattr, int, fd, const char __user *, name)
 				    f.file->f_path.dentry, kname);
 		mnt_drop_write_file(f.file);
 	}
-	fdput(f);
 	return error;
 }
 

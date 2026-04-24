@@ -22,6 +22,7 @@
 
 #include "cpu.h"
 
+#define IBRS_FLUSH_RAS_BIT 56
 #define APICID_SOCKET_ID_BIT 6
 
 /*
@@ -67,8 +68,6 @@ static void hygon_get_topology_early(struct cpuinfo_x86 *c)
  */
 static void hygon_get_topology(struct cpuinfo_x86 *c)
 {
-	int cpu = smp_processor_id();
-
 	/* get information required for multi-node processors */
 	if (boot_cpu_has(X86_FEATURE_TOPOEXT)) {
 		int err;
@@ -76,9 +75,9 @@ static void hygon_get_topology(struct cpuinfo_x86 *c)
 
 		cpuid(0x8000001e, &eax, &ebx, &ecx, &edx);
 
-		c->cpu_die_id  = ecx & 0xff;
+		c->topo.die_id  = ecx & 0xff;
 
-		c->cpu_core_id = ebx & 0xff;
+		c->topo.core_id = ebx & 0xff;
 
 		if (smp_num_siblings > 1)
 			c->x86_max_cores /= smp_num_siblings;
@@ -98,16 +97,15 @@ static void hygon_get_topology(struct cpuinfo_x86 *c)
 		 * when running on host.
 		 */
 		if (!boot_cpu_has(X86_FEATURE_HYPERVISOR) && c->x86_model <= 0x3)
-			c->phys_proc_id = c->apicid >> APICID_SOCKET_ID_BIT;
+			c->topo.pkg_id = c->topo.apicid >> APICID_SOCKET_ID_BIT;
 
-		cacheinfo_hygon_init_llc_id(c, cpu);
+		cacheinfo_hygon_init_llc_id(c);
 	} else if (cpu_has(c, X86_FEATURE_NODEID_MSR)) {
 		u64 value;
 
 		rdmsrl(MSR_FAM10H_NODE_ID, value);
-		c->cpu_die_id = value & 7;
-
-		per_cpu(cpu_llc_id, cpu) = c->cpu_die_id;
+		c->topo.die_id = value & 7;
+		c->topo.llc_id = c->topo.die_id;
 	} else
 		return;
 
@@ -122,15 +120,14 @@ static void hygon_get_topology(struct cpuinfo_x86 *c)
 static void hygon_detect_cmp(struct cpuinfo_x86 *c)
 {
 	unsigned int bits;
-	int cpu = smp_processor_id();
 
 	bits = c->x86_coreid_bits;
 	/* Low order bits define the core id (index of core in socket) */
-	c->cpu_core_id = c->initial_apicid & ((1 << bits)-1);
+	c->topo.core_id = c->topo.initial_apicid & ((1 << bits)-1);
 	/* Convert the initial APIC ID into the socket ID */
-	c->phys_proc_id = c->initial_apicid >> bits;
-	/* use socket ID also for last level cache */
-	per_cpu(cpu_llc_id, cpu) = c->cpu_die_id = c->phys_proc_id;
+	c->topo.pkg_id = c->topo.initial_apicid >> bits;
+	/* Use package ID also for last level cache */
+	c->topo.llc_id = c->topo.die_id = c->topo.pkg_id;
 }
 
 static void srat_detect_node(struct cpuinfo_x86 *c)
@@ -138,11 +135,11 @@ static void srat_detect_node(struct cpuinfo_x86 *c)
 #ifdef CONFIG_NUMA
 	int cpu = smp_processor_id();
 	int node;
-	unsigned int apicid = c->apicid;
+	unsigned int apicid = c->topo.apicid;
 
 	node = numa_cpu_node(cpu);
 	if (node == NUMA_NO_NODE)
-		node = per_cpu(cpu_llc_id, cpu);
+		node = c->topo.llc_id;
 
 	/*
 	 * On multi-fabric platform (e.g. Numascale NumaChip) a
@@ -171,7 +168,7 @@ static void srat_detect_node(struct cpuinfo_x86 *c)
 		 * through CPU mapping may alter the outcome, directly
 		 * access __apicid_to_node[].
 		 */
-		int ht_nodeid = c->initial_apicid;
+		int ht_nodeid = c->topo.initial_apicid;
 
 		if (__apicid_to_node[ht_nodeid] != NUMA_NO_NODE)
 			node = __apicid_to_node[ht_nodeid];
@@ -246,6 +243,7 @@ static void bsp_init_hygon(struct cpuinfo_x86 *c)
 			x86_amd_ls_cfg_ssbd_mask = 1ULL << 10;
 		}
 	}
+
 	resctrl_cpu_detect(c);
 }
 
@@ -310,11 +308,28 @@ clear_csv:
 	setup_clear_cpu_cap(X86_FEATURE_CSV3);
 }
 
+/*
+ * cpu_vul_mitigation() - set the basic configuration to mitigate CPU vulnerabilities
+ */
+static void cpu_vul_mitigation(void)
+{
+	/*
+	 * Automatically flush RAS upon protection level changes from low to high.
+	 * it's used as rsb mitigation instead of RSB filling.
+	 */
+	if ((boot_cpu_data.x86 == 0x18) &&
+		(boot_cpu_data.x86_model > 0x3)) {
+		msr_set_bit(MSR_ZEN4_BP_CFG, IBRS_FLUSH_RAS_BIT);
+	}
+}
+
 static void early_init_hygon(struct cpuinfo_x86 *c)
 {
 	u32 dummy;
 
 	early_init_hygon_mc(c);
+
+	cpu_vul_mitigation();
 
 	set_cpu_cap(c, X86_FEATURE_K8);
 
@@ -375,7 +390,7 @@ static void init_hygon(struct cpuinfo_x86 *c)
 	set_cpu_cap(c, X86_FEATURE_REP_GOOD);
 
 	/* get apicid instead of initial apic id from cpuid */
-	c->apicid = read_apic_id();
+	c->topo.apicid = read_apic_id();
 
 	/*
 	 * XXX someone from Hygon needs to confirm this DTRT

@@ -41,6 +41,7 @@ static const struct irq_chip phytium_gpio_irq_chip = {
 	.irq_print_chip		= phytium_gpio_irq_print_chip,
 	.irq_enable		= phytium_gpio_irq_enable,
 	.irq_disable		= phytium_gpio_irq_disable,
+	.irq_set_wake		= phytium_gpio_irq_set_wake,
 	.irq_set_affinity	= phytium_gpio_irq_set_affinity,
 	.flags			= IRQCHIP_IMMUTABLE,
 	GPIOCHIP_IRQ_RESOURCE_HELPERS,
@@ -91,6 +92,9 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	/* irq_chip support */
 	raw_spin_lock_init(&gpio->lock);
 
+	writel(0, gpio->regs + GPIO_INTEN);
+	writel(GPIO_CLEAR_IRQ, gpio->regs + GPIO_PORTA_EOI);
+
 	gpio->gc.base = -1;
 	gpio->gc.get_direction = phytium_gpio_get_direction;
 	gpio->gc.direction_input = phytium_gpio_direction_input;
@@ -105,7 +109,6 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	girq = &gpio->gc.irq;
 	girq->handler = handle_bad_irq;
 	girq->default_type = IRQ_TYPE_NONE;
-	gpio->is_resuming = 0;
 
 	for (irq_count = 0; irq_count < platform_irq_count(pdev); irq_count++) {
 		gpio->irq[irq_count] = -ENXIO;
@@ -156,7 +159,8 @@ static int phytium_gpio_suspend(struct device *dev)
 	gpio->ctx.int_polarity = readl(gpio->regs + GPIO_INT_POLARITY);
 	gpio->ctx.debounce = readl(gpio->regs + GPIO_DEBOUNCE);
 
-	writel(0, gpio->regs + GPIO_INTEN);
+	writel(~gpio->ctx.wake_en, gpio->regs + GPIO_INTMASK);
+	writel(gpio->ctx.wake_en, gpio->regs + GPIO_INTEN);
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
 
 	return 0;
@@ -182,7 +186,7 @@ static int phytium_gpio_resume(struct device *dev)
 	writel(gpio->ctx.int_polarity, gpio->regs + GPIO_INT_POLARITY);
 	writel(gpio->ctx.debounce, gpio->regs + GPIO_DEBOUNCE);
 
-	writel(0xffffffff, gpio->regs + GPIO_PORTA_EOI);
+	writel(GPIO_CLEAR_IRQ, gpio->regs + GPIO_PORTA_EOI);
 
 	writel(gpio->ctx.inten, gpio->regs + GPIO_INTEN);
 	gpio->is_resuming = 0;
@@ -211,3 +215,4 @@ module_platform_driver(phytium_gpio_driver);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Baozi <chenbaozi@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium GPIO driver");
+MODULE_VERSION(PHYTIUM_GPIO_DRIVER_VERSION);

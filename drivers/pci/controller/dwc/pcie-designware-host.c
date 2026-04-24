@@ -45,14 +45,12 @@ static struct irq_chip dw_pcie_msi_irq_chip = {
 	.irq_ack = dw_msi_ack_irq,
 	.irq_mask = dw_msi_mask_irq,
 	.irq_unmask = dw_msi_unmask_irq,
-#if defined CONFIG_SMP && defined CONFIG_PCIE_ULTRARISC
-	.irq_set_affinity = irq_chip_set_affinity_parent,
-#endif
 };
 
 static struct msi_domain_info dw_pcie_msi_domain_info = {
-	.flags	= (MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
-		   MSI_FLAG_PCI_MSIX | MSI_FLAG_MULTI_PCI_MSI),
+	.flags	= MSI_FLAG_USE_DEF_DOM_OPS | MSI_FLAG_USE_DEF_CHIP_OPS |
+		  MSI_FLAG_NO_AFFINITY | MSI_FLAG_PCI_MSIX |
+		  MSI_FLAG_MULTI_PCI_MSI,
 	.chip	= &dw_pcie_msi_irq_chip,
 };
 
@@ -119,24 +117,6 @@ static void dw_pci_setup_msi_msg(struct irq_data *d, struct msi_msg *msg)
 		(int)d->hwirq, msg->address_hi, msg->address_lo);
 }
 
-static int dw_pci_msi_set_affinity(struct irq_data *d,
-				   const struct cpumask *mask, bool force)
-{
-#ifdef CONFIG_PCIE_ULTRARISC
-	struct irq_domain *domain = d->domain;
-	struct dw_pcie_rp *pp = domain->host_data;
-	struct irq_desc *desc;
-	struct irq_data *data;
-
-	desc = irq_to_desc(pp->msi_irq[0]);
-	data = &(desc->irq_data);
-
-	if (data->chip->irq_set_affinity)
-		return data->chip->irq_set_affinity(data, mask, force);
-#endif
-	return -EINVAL;
-}
-
 static void dw_pci_bottom_mask(struct irq_data *d)
 {
 	struct dw_pcie_rp *pp = irq_data_get_irq_chip_data(d);
@@ -192,7 +172,6 @@ static struct irq_chip dw_pci_msi_bottom_irq_chip = {
 	.name = "DWPCI-MSI",
 	.irq_ack = dw_pci_bottom_ack,
 	.irq_compose_msi_msg = dw_pci_setup_msi_msg,
-	.irq_set_affinity = dw_pci_msi_set_affinity,
 	.irq_mask = dw_pci_bottom_mask,
 	.irq_unmask = dw_pci_bottom_unmask,
 };

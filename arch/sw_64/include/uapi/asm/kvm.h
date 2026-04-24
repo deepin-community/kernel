@@ -98,10 +98,14 @@ struct kvm_fpu {
 
 struct kvm_debug_exit_arch {
 	unsigned long epc;
+	unsigned long reason;//indicate breakpoint or watchpoint
 };
 
 /* for KVM_SET_GUEST_DEBUG */
 struct kvm_guest_debug_arch {
+	uint64_t addr;
+	uint64_t mask;
+	uint64_t ctl;
 };
 
 /* definition of registers in kvm_run */

@@ -62,6 +62,10 @@
 #define LPC_FIRMWARE_IO		(0x3UL << 28 | IO_BASE | LPC_BASE)
 #define PCI_VT_LEGACY_IO	(IO_BASE | PCI_BASE | PCI_LEGACY_IO)
 
+#define SPBU_SIZE		0xe000
+#define INTPU_SIZE		0x1900
+#define GPIO_SIZE		0x4000
+
 #define CORE0_CID		(rcid_to_domain_id(cpu_to_rcid(0)) << 7 | \
 				rcid_to_thread_id(cpu_to_rcid(0)) << 6 | \
 				rcid_to_core_id(cpu_to_rcid(0)))
@@ -70,5 +74,29 @@
 #define HP_ENABLE_INTD_CORE0	(0x1UL << 62 | 0x8UL << 10 | CORE0_CID)
 
 #define PIUCONFIG0_INIT_VAL	0x38016
+
+/* MC IO REG */
+enum {
+	CFGDEC =                0x400UL,
+	CFGCR =                 0x480UL,
+	INIT_CTRL =             0x580UL,
+	CFGERR =                0xd00UL,
+	FSMSTAT =               0xe00UL,
+	PUB_INTERFACE =         0x1000UL,
+	POWERCTRL =             0x1080UL,
+	CFGMR0 =                0x1280UL,
+	CFGMR1 =                0x1300UL,
+	CFGMR2 =                0x1380UL,
+	CFGMR3 =                0x1400UL,
+	PERF_CTRL =             0x1480UL,
+	MC_PERF0 =              0x1500UL,
+	CFGMR4 =                0x1800UL,
+	CFGMR5 =                0x1880UL,
+	CFGMR6 =                0x1900UL,
+	MC_CTRL =               0x1c00UL,
+	MEMSERR_P =             0x1c80UL,
+	MEMSERR =               0x1d00UL,
+	MERRADDR =              0x2280UL,
+};
 
 #endif /* _ASM_SW64_UNCORE_IO_JUNZHANG_H */
