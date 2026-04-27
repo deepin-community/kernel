@@ -527,7 +527,8 @@ static int phyt_pcm_resume(struct snd_soc_component *component)
 			}
 		}
 	}
-	phyt_i2s_enable_gpio(priv);
+	if (priv->insert >= 0)
+		phyt_i2s_enable_gpio(priv);
 error:
 	return ret;
 }
