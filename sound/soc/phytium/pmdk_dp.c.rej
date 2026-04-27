@@ -1,41 +1,33 @@
 --- sound/soc/phytium/pmdk_dp.c
 +++ sound/soc/phytium/pmdk_dp.c
-@@ -167,20 +167,35 @@ static int pmdk_sound_probe(struct platform_device *pdev)
- 	struct pmdk_dp_private *priv;
- 	struct snd_soc_dai_link *pmdk_dai;
- 	int num_dp = 2;
-+	int dp_mask = 3;
- 
- 	card->dev = &pdev->dev;
- 	device_property_read_u32(&pdev->dev, "num-dp", &num_dp);
-+	device_property_read_u32(&pdev->dev, "dp-mask", &dp_mask);
- 	pmdk_dai = devm_kzalloc(&pdev->dev, num_dp * sizeof(*pmdk_dai), GFP_KERNEL);
- 	if (!pmdk_dai)
- 		return -ENOMEM;
+@@ -178,23 +178,23 @@ static int pmdk_sound_probe(struct platform_device *pdev)
  
  	switch (num_dp) {
  	case 1:
--		pmdk_dai[0] = pmdk_dai0;
-+		if (dp_mask == 1)
+-		if (dp_mask == 1)
+-			pmdk_dai[0] = pmdk_dai0;
+-		else if (dp_mask == 2)
++		if (dp_mask == 2)
+ 			pmdk_dai[0] = pmdk_dai1;
+ 		else if (dp_mask == 4)
+ 			pmdk_dai[0] = pmdk_dai2;
++		else
 +			pmdk_dai[0] = pmdk_dai0;
-+		else if (dp_mask == 2)
-+			pmdk_dai[0] = pmdk_dai1;
-+		else if (dp_mask == 4)
-+			pmdk_dai[0] = pmdk_dai2;
  		break;
  	case 2:
--		pmdk_dai[0] = pmdk_dai0;
--		pmdk_dai[1] = pmdk_dai1;
-+		if (dp_mask == 3) {
+-		if (dp_mask == 3) {
+-			pmdk_dai[0] = pmdk_dai0;
+-			pmdk_dai[1] = pmdk_dai1;
+-		} else if (dp_mask == 5) {
++		if (dp_mask == 5) {
+ 			pmdk_dai[0] = pmdk_dai0;
+ 			pmdk_dai[1] = pmdk_dai2;
+ 		} else if (dp_mask == 6) {
+ 			pmdk_dai[0] = pmdk_dai1;
+ 			pmdk_dai[1] = pmdk_dai2;
++		} else {
 +			pmdk_dai[0] = pmdk_dai0;
 +			pmdk_dai[1] = pmdk_dai1;
-+		} else if (dp_mask == 5) {
-+			pmdk_dai[0] = pmdk_dai0;
-+			pmdk_dai[1] = pmdk_dai2;
-+		} else if (dp_mask == 6) {
-+			pmdk_dai[0] = pmdk_dai1;
-+			pmdk_dai[1] = pmdk_dai2;
-+		}
+ 		}
  		break;
  	case 3:
- 		pmdk_dai[0] = pmdk_dai0;

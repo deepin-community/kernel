@@ -1,12 +1,19 @@
 --- sound/soc/phytium/phytium-i2s-v2.c
 +++ sound/soc/phytium/phytium-i2s-v2.c
-@@ -527,7 +527,8 @@ static int phyt_pcm_resume(struct snd_soc_component *component)
- 			}
- 		}
- 	}
--	phyt_i2s_enable_gpio(priv);
-+	if (priv->insert >= 0)
-+		phyt_i2s_enable_gpio(priv);
- error:
- 	return ret;
- }
+@@ -157,7 +157,7 @@ static int phyt_pcm_hw_params(struct snd_soc_component *component,
+ {
+ 	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+ 	struct phytium_i2s *priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
+-	int ret;
++	int ret = 0;
+ 	uint32_t format_val;
+ 
+ 	switch (params_format(hw_params)) {
+@@ -359,7 +357,6 @@ static snd_pcm_uframes_t phyt_pcm_pointer(struct snd_soc_component *component,
+ {
+ 	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+ 	struct phytium_i2s *priv = snd_soc_dai_get_drvdata(asoc_rtd_to_cpu(rtd, 0));
+-
+ 	uint32_t pos = 0;
+ 
+ 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)

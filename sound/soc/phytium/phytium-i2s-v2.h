@@ -2,7 +2,7 @@
  *
  * Phytium I2S ASoC driver
  *
- * Copyright (C) 2024, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  *
  */
 
@@ -174,7 +174,7 @@ struct phyti2s_cmd {
 #define PHYTIUM_DMA_BDLPU(x)		(0x40 * x + 0x0040)
 #define PHYTIUM_DMA_BDLPL(x)		(0x40 * x + 0x0044)
 #define PHYTIUM_DMA_CHALX_DEV_ADDR(x)	(0x40 * x + 0x0048)
-	#define E2000_LSD_I2S_BASE		0x28009000
+	#define LSD_I2S_BASE		0x18009000
 	#define PLAYBACK_ADDRESS_OFFSET		0x1c8
 	#define CAPTRUE_ADDRESS_OFFSET		0x1c0
 #define PHYTIUM_DMA_CHALX_LVI(x)	(0x40 * x + 0x004c)

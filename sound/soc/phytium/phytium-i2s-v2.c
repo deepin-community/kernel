@@ -2,7 +2,7 @@
 /*
  * Phytium I2S ASoC driver
  *
- * Copyright (C) 2024, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  *
  */
 
@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.5"
+#define PHYT_I2S_V2_VERSION "1.0.6"
 
 static struct snd_soc_jack hs_jack;
 static irqreturn_t phyt_i2s_gpio_interrupt(int irq, void *dev_id);
@@ -185,10 +185,8 @@ static int phyt_pcm_hw_params(struct snd_soc_component *component,
 		priv->pcm_config[DIRECTION_CAPTURE].format_val = format_val;
 
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
-	if (ret < 0)
-		return ret;
 
-	return 0;
+	return ret;
 }
 
 static void phyt_bdl_entry_setup(dma_addr_t addr, uint32_t **pbdl,
@@ -273,7 +271,7 @@ static int phyt_pcm_prepare(struct snd_soc_component *component,
 	else
 		config = CAPTRUE_ADDRESS_OFFSET;
 	phyt_writel_reg(priv->dma_reg_base, PHYTIUM_DMA_CHALX_DEV_ADDR(direction),
-			E2000_LSD_I2S_BASE + config);
+			LSD_I2S_BASE + config);
 	phyt_writel_reg(priv->dma_reg_base, PHYTIUM_DMA_CHALX_LVI(direction), frags - 1);
 	phyt_writel_reg(priv->dma_reg_base, PHYTIUM_DMA_CHALX_CBL(direction),
 			pcm_config->buffer_size);
@@ -372,10 +370,10 @@ static snd_pcm_uframes_t phyt_pcm_pointer(struct snd_soc_component *component,
 	return bytes_to_frames(substream->runtime, pos);
 }
 
-int phyt_i2s_msg_set_cmd(struct phytium_i2s *priv, bool is_gpio)
+static int phyt_i2s_msg_set_cmd(struct phytium_i2s *priv, bool is_gpio)
 {
 	struct phyti2s_cmd *ans_msg;
-	int timeout = 40, ret = 0;
+	int timeout = 100, ret = 0;
 
 	if (is_gpio) {
 		phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_AP2RV_INT_STATE,
@@ -690,6 +688,9 @@ static void phyt_i2s_gpio_jack_work(struct work_struct *work)
 	int ret = 0;
 	u32 unplug = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_HPDET);
 
+	if (!hs_jack.card->snd_card)
+		return;
+
 	if (unplug & 0x1) {
 		if (hs_jack.jack) {
 			snd_soc_jack_report(&hs_jack, HEADPHONE_DISABLE, SND_JACK_HEADSET);
@@ -836,7 +837,7 @@ void phyt_i2s_show_log(struct phytium_i2s *priv)
 {
 	u32 reg, len;
 	u8 *plog;
-	int i;
+	int i, cur_len;
 
 	if (!priv->log_addr)
 		return;
@@ -847,12 +848,12 @@ void phyt_i2s_show_log(struct phytium_i2s *priv)
 		len = strnlen((char *)priv->log_addr, LOG_SIZE_MAX);
 		dev_info(priv->dev, "log len :%d, addr:0x%llx, size:%d\n", len,
 				(u64)priv->log_addr, priv->log_size);
-		if (len > LOG_LINE_MAX_LEN) {
-			for (i = 0; i < len; i += LOG_LINE_MAX_LEN)
-				dev_info(priv->dev, "(DEV)%.*s\n", LOG_LINE_MAX_LEN, &plog[i]);
-		} else {
-			dev_info(priv->dev, "(DDR)%.*s\n", LOG_LINE_MAX_LEN, &plog[i]);
+
+		for (i = 0; i < len; i += LOG_LINE_MAX_LEN) {
+			cur_len = (((len - i) < LOG_LINE_MAX_LEN) ? (len - i) : LOG_LINE_MAX_LEN);
+			dev_info(priv->dev, "(DEV)%.*s\n", cur_len, &plog[i]);
 		}
+
 		for (i = 0; i < priv->log_size; i++)
 			plog[i] = 0;
 	}
@@ -860,12 +861,13 @@ void phyt_i2s_show_log(struct phytium_i2s *priv)
 	phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG, reg);
 }
 
-int phyt_i2s_alloc_log_mem(struct phytium_i2s *priv)
+int phyt_i2s_init_log(struct phytium_i2s *priv)
 {
 	u32 reg;
 	u64 phy_addr;
 
 	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG);
+	reg = reg | DEBUG_ENABLE;
 	phy_addr = ((reg & ADDR_MASK) >> ADDR_LOW_SHIFT) << ADDR_SHIFT;
 
 	priv->log_size = ((reg & LOG_SIZE_MASK) >> LOG_SIZE_LOW_SHIFT) * 1024;
@@ -883,6 +885,8 @@ static ssize_t phyt_i2s_debug_show(struct device *dev,
 	struct phytium_i2s *priv = dev_get_drvdata(dev);
 	u32 debug_reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG);
 
+	dev_info(dev, "echo debug(1)/alive(0) enable(1)/disable(0) > debug\n");
+
 	return sprintf(buf, "%x\n", debug_reg);
 }
 
@@ -896,8 +900,6 @@ static ssize_t phyt_i2s_debug_store(struct device *dev,
 	u8 loc, dis_en;
 	int ret;
 	long value;
-
-	dev_info(dev, "echo debug(1)/alive(0) enable(1)/disable(0) > debug\n");
 
 	p = kmalloc(size, GFP_KERNEL);
 	if (p == NULL)
@@ -1007,10 +1009,10 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 		goto failed_ioremap_res2;
 	}
 
-	ret = phyt_i2s_alloc_log_mem(priv);
+	ret = phyt_i2s_init_log(priv);
 	if (ret != 0) {
-		dev_err(&pdev->dev, "failed to alloc log mem\n");
-		goto failed_alloc_log_mem;
+		dev_err(&pdev->dev, "failed to init log\n");
+		goto failed_init_log;
 	}
 
 	status = readl(priv->dma_reg_base + PHYTIUM_DMA_STS);
@@ -1093,7 +1095,7 @@ failed_register_com:
 failed_get_dai_name:
 failed_request_irq:
 failed_disable_gpioint:
-failed_alloc_log_mem:
+failed_init_log:
 failed_ioremap_res2:
 failed_ioremap_res1:
 failed_ioremap_res0:
