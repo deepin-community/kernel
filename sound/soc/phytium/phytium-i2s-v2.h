@@ -34,6 +34,8 @@ struct phytium_i2s {
 	struct phytium_pcm_config pcm_config[2];
 	struct delayed_work i2s_playback_stop_work;
 	struct delayed_work i2s_capture_stop_work;
+	struct delayed_work i2s_playback_elapsed_work;
+	struct delayed_work i2s_capture_elapsed_work;
 	struct delayed_work phyt_i2s_gpio_work;
 	struct phyti2s_cmd *msg;
 	int interrupt;
