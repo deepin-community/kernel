@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.4"
+#define PHYT_I2S_V2_VERSION "1.0.3"
 
 static struct snd_soc_jack hs_jack;
 
@@ -42,7 +42,7 @@ static struct snd_soc_jack_pin hs_jack_pins[] = {
 	},
 };
 
-static struct snd_pcm_hardware phytium_pcm_hardware = {
+static const struct snd_pcm_hardware phytium_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_INTERLEAVED |
 		SNDRV_PCM_INFO_MMAP |
 		SNDRV_PCM_INFO_MMAP_VALID |
@@ -56,7 +56,8 @@ static struct snd_pcm_hardware phytium_pcm_hardware = {
 	.formats = (SNDRV_PCM_FMTBIT_S8 |
 		SNDRV_PCM_FMTBIT_S16_LE |
 		SNDRV_PCM_FMTBIT_S20_LE |
-		SNDRV_PCM_FMTBIT_S24_LE),
+		SNDRV_PCM_FMTBIT_S24_LE |
+		SNDRV_PCM_FMTBIT_S32_LE),
 	.channels_min = 2,
 	.channels_max = 4,
 	.buffer_bytes_max = 4096*16,
@@ -123,8 +124,6 @@ static int phyt_pcm_open(struct snd_soc_component *component,
 	struct phytium_i2s *priv = snd_soc_dai_get_drvdata(snd_soc_rtd_to_cpu(rtd, 0));
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
-	if (!priv->i2s_dp)
-		phytium_pcm_hardware.formats |= SNDRV_PCM_FMTBIT_S32_LE;
 	snd_soc_set_runtime_hwparams(substream, &phytium_pcm_hardware);
 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	snd_pcm_hw_constraint_step(runtime, 0, SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 128);
@@ -755,14 +754,8 @@ static int phyt_configure_dai_driver(struct phytium_i2s *priv,
 	dai_driver->playback.formats = SNDRV_PCM_FMTBIT_S8 |
 				       SNDRV_PCM_FMTBIT_S16_LE |
 				       SNDRV_PCM_FMTBIT_S20_LE |
-				       SNDRV_PCM_FMTBIT_S24_LE;
-
-	dai_driver->symmetric_rate = 1;
-	dai_driver->ops = &phytium_i2s_dai_ops;
-	if (priv->i2s_dp)
-		return 0;
-
-	dai_driver->playback.formats |= SNDRV_PCM_FMTBIT_S32_LE;
+				       SNDRV_PCM_FMTBIT_S24_LE |
+				       SNDRV_PCM_FMTBIT_S32_LE;
 	dai_driver->capture.stream_name = "i2s-Capture";
 	dai_driver->capture.channels_min = 2;
 	dai_driver->capture.channels_max = 4;
@@ -772,6 +765,8 @@ static int phyt_configure_dai_driver(struct phytium_i2s *priv,
 				      SNDRV_PCM_FMTBIT_S20_LE |
 				      SNDRV_PCM_FMTBIT_S24_LE |
 				      SNDRV_PCM_FMTBIT_S32_LE;
+	dai_driver->symmetric_rate = 1;
+	dai_driver->ops = &phytium_i2s_dai_ops;
 
 	return 0;
 }
@@ -979,6 +974,8 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 		goto failed_alloc_dai_driver;
 	}
 
+	phyt_configure_dai_driver(priv, dai_driver);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	priv->regfile_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(priv->regfile_base)) {
@@ -1060,12 +1057,6 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 			goto failed_get_dai_name;
 		}
 	}
-
-	if (strstr(dai_driver->name, "dp"))
-		priv->i2s_dp = 1;
-	else
-		priv->i2s_dp = 0;
-	phyt_configure_dai_driver(priv, dai_driver);
 
 	ret = devm_snd_soc_register_component(&pdev->dev, &phytium_i2s_component,
 					      dai_driver, 1);

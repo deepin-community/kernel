@@ -40,6 +40,7 @@ struct phytium_i2s {
 	uint32_t data_width;
 	uint32_t sample_rate;
 	int insert;
+	bool i2s_dp;
 	void __iomem *log_addr;
 	u32 log_size;
 };
