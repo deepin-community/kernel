@@ -1051,7 +1051,11 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 	}
 
 	if (pdev->dev.of_node) {
-		device_property_read_string(&pdev->dev, "dai-name", &dai_driver->name);
+		ret = device_property_read_string(&pdev->dev, "dai-name", &dai_driver->name);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "missing dai-name property from device tree\n");
+			goto failed_get_dai_name;
+		}
 		clk = devm_clk_get(&pdev->dev, NULL);
 		priv->clk_base = clk_get_rate(clk);
 	} else if (has_acpi_companion(&pdev->dev)) {

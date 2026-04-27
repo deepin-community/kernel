@@ -1506,7 +1506,11 @@ static int phytium_i2s_probe(struct platform_device *pdev)
 		i2s->clk_base = pdata->clk_base;
 		i2s->pcie = 1;
 	} else if (pdev->dev.of_node) {
-		device_property_read_string(&pdev->dev, "dai-name", &dai_drv->name);
+		ret = device_property_read_string(&pdev->dev, "dai-name", &dai_drv->name);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "missing dai-name property from device tree\n");
+			goto failed_get_dai_name;
+		}
 		i2s->pdev = &pdev->dev;
 		clk = devm_clk_get(&pdev->dev, NULL);
 		i2s->clk_base = clk_get_rate(clk);
