@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.1"
+#define PHYT_I2S_V2_VERSION "1.0.2"
 
 static struct snd_soc_jack hs_jack;
 
@@ -115,25 +115,6 @@ static void phyt_pcm_free(struct snd_soc_component *component,
 	snd_dma_free_pages(&priv->pcm_config[1].bdl_dmab);
 	snd_dma_free_pages(&priv->pcm_config[0].bdl_dmab);
 	snd_pcm_lib_preallocate_free_for_all(pcm);
-}
-
-static int phyt_pcm_component_probe(struct snd_soc_component *component)
-{
-	struct phytium_i2s *priv = snd_soc_component_get_drvdata(component);
-	struct snd_soc_card *card = component->card;
-	int ret;
-
-	if (priv->insert < 0)
-		return 0;
-
-	ret = snd_soc_card_jack_new_pins(card, "Headset Jack", SND_JACK_HEADSET,
-				    &hs_jack, hs_jack_pins,
-				    ARRAY_SIZE(hs_jack_pins));
-	if (ret < 0) {
-		dev_err(component->dev, "Cannot create jack\n");
-		return ret;
-	}
-	return 0;
 }
 
 static int phyt_pcm_open(struct snd_soc_component *component,
@@ -530,6 +511,30 @@ error:
 	return ret;
 }
 
+static int phyt_pcm_component_probe(struct snd_soc_component *component)
+{
+	struct phytium_i2s *priv = snd_soc_component_get_drvdata(component);
+	struct snd_soc_card *card = component->card;
+	int ret;
+
+	if (priv->insert < 0)
+		return 0;
+
+	ret = snd_soc_card_jack_new_pins(card, "Headset Jack", SND_JACK_HEADSET,
+				&hs_jack, hs_jack_pins,
+				ARRAY_SIZE(hs_jack_pins));
+	if (ret < 0) {
+		dev_err(component->dev, "Cannot create jack\n");
+		return ret;
+	}
+	ret = phyt_i2s_enable_gpio(priv);
+	if (ret < 0) {
+		dev_err(component->dev, "failed to enable gpio\n");
+		return ret;
+	}
+	return 0;
+}
+
 static const struct snd_soc_component_driver phytium_i2s_component = {
 	.name = "phytium-i2s",
 	.pcm_construct = phyt_pcm_new,
@@ -756,10 +761,12 @@ static void phyt_i2s_gpio_jack_work(struct work_struct *work)
 	int ret = 0;
 
 	if (priv->insert == 1) {
-		snd_soc_jack_report(&hs_jack, HEADPHONE_DISABLE, SND_JACK_HEADSET);
+		if (hs_jack.jack)
+			snd_soc_jack_report(&hs_jack, HEADPHONE_DISABLE, SND_JACK_HEADSET);
 		priv->insert = 0;
 	} else {
-		snd_soc_jack_report(&hs_jack, HEADPHONE_ENABLE, SND_JACK_HEADSET);
+		if (hs_jack.jack)
+			snd_soc_jack_report(&hs_jack, HEADPHONE_ENABLE, SND_JACK_HEADSET);
 		priv->insert = 1;
 	}
 
@@ -1119,6 +1126,7 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 	gpio_irq = platform_get_irq_optional(pdev, 1);
 	priv->insert = -1;
 	if (gpio_irq > 0) {
+		INIT_DELAYED_WORK(&priv->phyt_i2s_gpio_work, phyt_i2s_gpio_jack_work);
 		phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_GPIO_PORTA_EOI, BIT(0));
 		ret = phyt_i2s_disable_gpioint(priv);
 		if (ret < 0) {
@@ -1132,12 +1140,6 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "failed to request gpio irq\n");
 			goto failed_request_irq;
 		}
-		ret = phyt_i2s_enable_gpio(priv);
-		if (ret < 0) {
-			dev_err(&pdev->dev, "failed to enable gpio\n");
-			goto failed_enable_gpio;
-		}
-		INIT_DELAYED_WORK(&priv->phyt_i2s_gpio_work, phyt_i2s_gpio_jack_work);
 	}
 
 	if (pdev->dev.of_node) {
@@ -1185,7 +1187,6 @@ failed_register_com:
 failed_get_dai_name:
 failed_request_irq:
 failed_disable_gpioint:
-failed_enable_gpio:
 failed_alloc_log_mem:
 failed_ioremap_res2:
 failed_ioremap_res1:
