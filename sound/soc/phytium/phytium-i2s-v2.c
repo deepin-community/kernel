@@ -405,10 +405,7 @@ int phyt_i2s_msg_set_cmd(struct phytium_i2s *priv, struct phyti2s_cmd *msg)
 	while ((ans_msg->complete == PHYTI2S_COMPLETE_NONE
 			|| ans_msg->complete == PHYTI2S_COMPLETE_GOING)
 			&& timeout) {
-		if (preempt_count() != 0)
-			udelay(500);
-		else
-			usleep_range(500, 1000);
+		usleep_range(500, 1000);
 		timeout--;
 	}
 
