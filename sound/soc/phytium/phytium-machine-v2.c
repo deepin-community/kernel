@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- *  Copyright (c) 2024, Phytium Techonology Co., Ltd.
+ *  Copyright (c) 2023-2024, Phytium Techonology Co., Ltd.
  */
 
 #include <linux/module.h>
