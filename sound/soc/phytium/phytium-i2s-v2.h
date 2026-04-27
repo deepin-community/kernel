@@ -40,6 +40,7 @@ struct phytium_i2s {
 	uint32_t data_width;
 	uint32_t sample_rate;
 	int insert;
+	int gpio_irq;
 	bool i2s_dp;
 	void __iomem *log_addr;
 	u32 log_size;
@@ -149,7 +150,7 @@ struct phyti2s_cmd {
 	#define ADDR_MASK				GENMASK(27, 8)
 	#define ADDR_SHIFT			12
 	#define LOG_LINE_MAX_LEN		400
-
+#define PHYTIUM_REGFILE_HPDET	0x34
 #define PHYTIUM_REGFILE_IRER	0x38
 #define RX_EN 1
 #define RX_DIS 0

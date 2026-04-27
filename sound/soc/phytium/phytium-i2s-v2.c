@@ -30,10 +30,10 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.4"
+#define PHYT_I2S_V2_VERSION "1.0.5"
 
 static struct snd_soc_jack hs_jack;
-
+static irqreturn_t phyt_i2s_gpio_interrupt(int irq, void *dev_id);
 /* Headset jack detection DAPM pins */
 static struct snd_soc_jack_pin hs_jack_pins[] = {
 	{
@@ -535,6 +535,7 @@ static int phyt_pcm_component_probe(struct snd_soc_component *component)
 		dev_err(component->dev, "failed to enable gpio\n");
 		return ret;
 	}
+	phyt_i2s_gpio_interrupt(priv->gpio_irq, priv);
 	return 0;
 }
 
@@ -687,15 +688,18 @@ static void phyt_i2s_gpio_jack_work(struct work_struct *work)
 	struct phyti2s_cmd *msg = priv->sharemem_base + PHYTIUM_GPIO_OFFSET;
 	struct gpio_i2s_data *data;
 	int ret = 0;
+	u32 unplug = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_HPDET);
 
-	if (priv->insert == 1) {
-		if (hs_jack.jack)
+	if (unplug & 0x1) {
+		if (hs_jack.jack) {
 			snd_soc_jack_report(&hs_jack, HEADPHONE_DISABLE, SND_JACK_HEADSET);
-		priv->insert = 0;
+			priv->insert = 0;
+		}
 	} else {
-		if (hs_jack.jack)
+		if (hs_jack.jack) {
 			snd_soc_jack_report(&hs_jack, HEADPHONE_ENABLE, SND_JACK_HEADSET);
-		priv->insert = 1;
+			priv->insert = 1;
+		}
 	}
 
 	data = &msg->cmd_para.gpio_i2s_data;
@@ -1027,6 +1031,7 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 	gpio_irq = platform_get_irq_optional(pdev, 1);
 	priv->insert = -1;
 	if (gpio_irq > 0) {
+		priv->gpio_irq = gpio_irq;
 		INIT_DELAYED_WORK(&priv->phyt_i2s_gpio_work, phyt_i2s_gpio_jack_work);
 		phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_GPIO_PORTA_EOI, BIT(0));
 		ret = phyt_i2s_disable_gpioint(priv);
