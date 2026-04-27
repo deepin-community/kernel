@@ -32,13 +32,7 @@ struct phytium_i2s {
 	struct snd_pcm_substream *substream_capture;
 	u32 clk_base;
 	struct phytium_pcm_config pcm_config[2];
-	struct delayed_work i2s_playback_stop_work;
-	struct delayed_work i2s_capture_stop_work;
-	struct delayed_work i2s_playback_elapsed_work;
-	struct delayed_work i2s_capture_elapsed_work;
 	struct delayed_work phyt_i2s_gpio_work;
-	struct phyti2s_cmd *msg;
-	int interrupt;
 	int running;
 	struct timer_list timer;
 	bool heart_enable;
@@ -46,7 +40,6 @@ struct phytium_i2s {
 	uint32_t data_width;
 	uint32_t sample_rate;
 	int insert;
-	struct mutex sharemem_mutex;
 	void __iomem *log_addr;
 	u32 log_size;
 };
@@ -141,6 +134,7 @@ struct phyti2s_cmd {
 #define PHYTIUM_REGFILE_AP2RV_INT_MASK	0x20
 #define PHYTIUM_REGFILE_AP2RV_INT_STATE	0x24
 	#define SEND_INTR		(1 << 4)
+	#define SEND_GPIO_INTR		(1 << 8)
 #define PHYTIUM_REGFILE_GPIO_PORTA_EOI		0x30
 #define PHYTIUM_REGFILE_DEBUG			0x58
 	#define DEBUG_ENABLE	(1 << 0)
@@ -154,6 +148,16 @@ struct phyti2s_cmd {
 	#define ADDR_MASK				GENMASK(27, 8)
 	#define ADDR_SHIFT			12
 	#define LOG_LINE_MAX_LEN		400
+
+#define PHYTIUM_REGFILE_IRER	0x38
+#define RX_EN 1
+#define RX_DIS 0
+#define PHYTIUM_REGFILE_ITER	0x3c
+#define TX_EN 1
+#define TX_DIS 0
+
+/*gpio share memory*/
+#define PHYTIUM_GPIO_OFFSET 0x40
 
 /* DMA register */
 #define PHYTIUM_DMA_CTL			0x0000
