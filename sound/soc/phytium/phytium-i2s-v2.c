@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.0"
+#define PHYT_I2S_V2_VERSION "1.0.1"
 
 static struct snd_soc_jack hs_jack;
 
@@ -791,6 +791,22 @@ static irqreturn_t phyt_i2s_gpio_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void phyt_i2s_playback_elapsed_work(struct work_struct *work)
+{
+	struct phytium_i2s *priv = container_of(work, struct phytium_i2s,
+		i2s_playback_elapsed_work.work);
+
+	snd_pcm_period_elapsed(priv->substream_playback);
+}
+
+static void phyt_i2s_capture_elapsed_work(struct work_struct *work)
+{
+	struct phytium_i2s *priv = container_of(work, struct phytium_i2s,
+		i2s_capture_elapsed_work.work);
+
+	snd_pcm_period_elapsed(priv->substream_capture);
+}
+
 static irqreturn_t phyt_i2s_interrupt(int irq, void *dev_id)
 {
 	struct phytium_i2s *priv = dev_id;
@@ -801,13 +817,13 @@ static irqreturn_t phyt_i2s_interrupt(int irq, void *dev_id)
 	status = readl(priv->dma_reg_base + PHYTIUM_DMA_STS);
 
 	if (status & DMA_TX_DONE) {
-		snd_pcm_period_elapsed(priv->substream_playback);
+		queue_delayed_work(system_wq, &priv->i2s_playback_elapsed_work, 0);
 		writel(DMA_TX_DONE, priv->dma_reg_base + PHYTIUM_DMA_STS);
 		ret = IRQ_HANDLED;
 	}
 
 	if (status & DMA_RX_DONE) {
-		snd_pcm_period_elapsed(priv->substream_capture);
+		queue_delayed_work(system_wq, &priv->i2s_capture_elapsed_work, 0);
 		writel(DMA_RX_DONE, priv->dma_reg_base + PHYTIUM_DMA_STS);
 		ret = IRQ_HANDLED;
 	}
@@ -1151,6 +1167,8 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&priv->i2s_playback_stop_work, i2s_interrupt_playback_stop_work);
 	INIT_DELAYED_WORK(&priv->i2s_capture_stop_work, i2s_interrupt_capture_stop_work);
+	INIT_DELAYED_WORK(&priv->i2s_playback_elapsed_work, phyt_i2s_playback_elapsed_work);
+	INIT_DELAYED_WORK(&priv->i2s_capture_elapsed_work, phyt_i2s_capture_elapsed_work);
 	mutex_init(&priv->sharemem_mutex);
 
 	if (sysfs_create_group(&priv->dev->kobj, &phyt_i2s_device_group))
