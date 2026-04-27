@@ -45,6 +45,8 @@ struct phytium_i2s {
 	uint32_t sample_rate;
 	int insert;
 	struct mutex sharemem_mutex;
+	void __iomem *log_addr;
+	u32 log_size;
 };
 
 struct pdata_pd230x_mfd {
@@ -142,6 +144,14 @@ struct phyti2s_cmd {
 	#define DEBUG_ENABLE	(1 << 0)
 	#define HEART_ENABLE	(1 << 1)
 	#define HEARTBEAT		(1 << 2)
+	#define LOG_MASK		(1 << 3)
+	#define LOG_SIZE_LOW_SHIFT	4
+	#define LOG_SIZE_MASK			GENMASK(7, 4)
+	#define LOG_SIZE_MAX		8192
+	#define ADDR_LOW_SHIFT		8
+	#define ADDR_MASK				GENMASK(27, 8)
+	#define ADDR_SHIFT			12
+	#define LOG_LINE_MAX_LEN		400
 
 /* DMA register */
 #define PHYTIUM_DMA_CTL			0x0000

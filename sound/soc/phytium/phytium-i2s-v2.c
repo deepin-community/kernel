@@ -896,6 +896,51 @@ static void phyt_i2s_timer_handler(struct timer_list *timer)
 	mod_timer(&priv->timer, jiffies + msecs_to_jiffies(2000));
 }
 
+void phyt_i2s_show_log(struct phytium_i2s *priv)
+{
+	u32 reg, len;
+	u8 *plog;
+	int i;
+
+	if (!priv->log_addr)
+		return;
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG);
+
+	plog = priv->log_addr;
+	if (reg & LOG_MASK) {
+		len = strnlen((char *)priv->log_addr, LOG_SIZE_MAX);
+		dev_info(priv->dev, "log len :%d, addr:0x%llx, size:%d\n", len,
+				(u64)priv->log_addr, priv->log_size);
+		if (len > LOG_LINE_MAX_LEN) {
+			for (i = 0; i < len; i += LOG_LINE_MAX_LEN)
+				dev_info(priv->dev, "(DEV)%.*s\n", LOG_LINE_MAX_LEN, &plog[i]);
+		} else {
+			dev_info(priv->dev, "(DDR)%.*s\n", LOG_LINE_MAX_LEN, &plog[i]);
+		}
+		for (i = 0; i < priv->log_size; i++)
+			plog[i] = 0;
+	}
+	reg &= ~LOG_MASK;
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG, reg);
+}
+
+int phyt_i2s_alloc_log_mem(struct phytium_i2s *priv)
+{
+	u32 reg;
+	u64 phy_addr;
+
+	reg = phyt_readl_reg(priv->regfile_base, PHYTIUM_REGFILE_DEBUG);
+	phy_addr = ((reg & ADDR_MASK) >> ADDR_LOW_SHIFT) << ADDR_SHIFT;
+
+	priv->log_size = ((reg & LOG_SIZE_MASK) >> LOG_SIZE_LOW_SHIFT) * 1024;
+	priv->log_addr = devm_ioremap_wc(priv->dev, phy_addr, priv->log_size);
+	if (IS_ERR(priv->log_addr)) {
+		dev_err(priv->dev, "log_addr alloc failed\n");
+		return -ENOMEM;
+	}
+	return 0;
+}
+
 static ssize_t phyt_i2s_debug_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -946,10 +991,12 @@ static ssize_t phyt_i2s_debug_store(struct device *dev,
 	dis_en = value;
 
 	if (loc == 1) {
-		if (dis_en)
+		if (dis_en) {
 			phyt_i2s_enable_debug(priv);
-		else
+			phyt_i2s_show_log(priv);
+		} else {
 			phyt_i2s_disable_debug(priv);
+		}
 	} else if (loc == 0) {
 		if (dis_en)
 			phyt_i2s_enable_heartbeat(priv);
@@ -1030,6 +1077,12 @@ static int phyt_i2s_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to ioremap resource2\n");
 		ret = PTR_ERR(priv->dma_reg_base);
 		goto failed_ioremap_res2;
+	}
+
+	ret = phyt_i2s_alloc_log_mem(priv);
+	if (ret != 0) {
+		dev_err(&pdev->dev, "failed to alloc log mem\n");
+		goto failed_alloc_log_mem;
 	}
 
 	status = readl(priv->dma_reg_base + PHYTIUM_DMA_STS);
@@ -1115,6 +1168,7 @@ failed_get_dai_name:
 failed_request_irq:
 failed_disable_gpioint:
 failed_enable_gpio:
+failed_alloc_log_mem:
 failed_ioremap_res2:
 failed_ioremap_res1:
 failed_ioremap_res0:
