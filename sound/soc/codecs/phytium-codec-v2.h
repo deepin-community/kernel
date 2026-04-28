@@ -56,6 +56,8 @@ enum phytcodec_msg_cmd_id {
 
 enum phytcodec_get_subid {
 	PHYTCODEC_MSG_CMD_GET_CHANNELS = 0,
+	PHYTCODEC_MSG_CMD_GET_ONE_REG,
+	PHYTCODEC_MSG_CMD_GET_ALL_REGS,
 };
 
 enum phytcodec_set_subid {
@@ -74,6 +76,7 @@ enum phytcodec_set_subid {
 	PHYTCODEC_MSG_CMD_SET_BIAS_STANDBY,
 	PHYTCODEC_MSG_CMD_SET_SHUTDOWN,
 	PHYTCODEC_MSG_CMD_SET_SHUTDOWN_RC,
+	PHYTCODEC_MSG_CMD_SET_ONE_REG,
 };
 
 enum phytcodec_complete {
@@ -84,6 +87,12 @@ enum phytcodec_complete {
 	PHYTCODEC_COMPLETE_TYPE_NOT_SUPPORTED,
 	PHYTCODEC_COMPLETE_CMD_NOT_SUPPORTED,
 	PHYTCODEC_COMPLETE_INVALID_PARAMETERS,
+};
+
+struct phytcodec_rw_data {
+	uint8_t addr;
+	uint8_t reg;
+	uint16_t val;
 };
 
 struct phytcodec_reg {
@@ -104,6 +113,7 @@ struct phytcodec_cmd {
 	union {
 		uint8_t para[56];
 		struct phytcodec_reg phytcodec_reg;
+		struct phytcodec_rw_data rw_data;
 	} cmd_para;
 };
 
