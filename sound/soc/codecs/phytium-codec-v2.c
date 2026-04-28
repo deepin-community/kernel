@@ -2,7 +2,7 @@
 /*
  * Phytium CODEC ALSA SoC Audio driver
  *
- * Copyright (C) 2024, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  *
  */
 
@@ -32,7 +32,7 @@
 
 #include "phytium-codec-v2.h"
 
-#define PHYT_CODEC_V2_VERSION "1.1.0"
+#define PHYT_CODEC_V2_VERSION "1.1.1"
 #define PHYTIUM_RATES (SNDRV_PCM_RATE_192000 | \
 		SNDRV_PCM_RATE_96000 | \
 		SNDRV_PCM_RATE_88200 | \
@@ -146,11 +146,12 @@ int phyt_codec_msg_set_cmd(struct phytium_codec *priv)
 			return -EINVAL;
 		}
 	} else if (ans_msg->complete != PHYTCODEC_COMPLETE_SUCCESS) {
+		phyt_codec_show_status(ans_msg->status);
 		dev_err(priv->dev, "receive msg; error code:%d\n",
 					ans_msg->complete);
 		ret = -EINVAL;
 	} else {
-		dev_err(priv->dev, "unkonwn error");
+		dev_err(priv->dev, "unknown error");
 		ret = -EINVAL;
 	}
 
@@ -456,19 +457,19 @@ static int phyt_hw_params(struct snd_pcm_substream *substream,
 
 	priv->channels = params_channels(params);
 	switch (params_width(params)) {
-	case 16:
+	case PHYTCODEC_FORMAT_S16:
 		wl = 3;
 		break;
-	case 18:
+	case PHYTCODEC_FORMAT_S18:
 		wl = 2;
 		break;
-	case 20:
+	case PHYTCODEC_FORMAT_S20:
 		wl = 1;
 		break;
-	case 24:
+	case PHYTCODEC_FORMAT_S24:
 		wl = 0;
 		break;
-	case 32:
+	case PHYTCODEC_FORMAT_S32:
 		wl = 4;
 		break;
 	default:
@@ -786,6 +787,27 @@ static int phyt_get_channels(struct phytium_codec *priv)
 	return channels;
 }
 
+static void phyt_codec_init(struct phytium_codec *priv)
+{
+	phyt_disable_debug(priv);
+	phyt_disable_alive(priv);
+	priv->debug_enabled = false;
+	priv->alive_enabled = false;
+	priv->heartbeat = phyt_heartbeat;
+	priv->timer.expires = jiffies + msecs_to_jiffies(10000);
+	timer_setup(&priv->timer, phyt_timer_handle, 0);
+	add_timer(&priv->timer);
+
+	if (sysfs_create_group(&priv->dev->kobj, &phyt_codec_device_group))
+		dev_warn(priv->dev, "failed to create sysfs\n");
+
+	phyt_dai.playback.channels_max = phyt_get_channels(priv);
+	phyt_dai.capture.channels_max = phyt_dai.playback.channels_max;
+
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_MASK, 0x0);
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_ENABLE, 0x1);
+}
+
 static int phyt_codec_probe(struct platform_device *pdev)
 {
 	struct phytium_codec *priv;
@@ -828,23 +850,7 @@ static int phyt_codec_probe(struct platform_device *pdev)
 		goto failed_regmap_init;
 	}
 
-	phyt_disable_debug(priv);
-	phyt_disable_alive(priv);
-	priv->debug_enabled = false;
-	priv->alive_enabled = false;
-	priv->heartbeat = phyt_heartbeat;
-	priv->timer.expires = jiffies + msecs_to_jiffies(10000);
-	timer_setup(&priv->timer, phyt_timer_handle, 0);
-	add_timer(&priv->timer);
-
-	if (sysfs_create_group(&pdev->dev.kobj, &phyt_codec_device_group))
-		dev_warn(dev, "failed to create sysfs\n");
-
-	phyt_dai.playback.channels_max = phyt_get_channels(priv);
-	phyt_dai.capture.channels_max = phyt_dai.playback.channels_max;
-
-	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_MASK, 0x0);
-	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_ENABLE, 0x1);
+	phyt_codec_init(priv);
 
 	ret = devm_snd_soc_register_component(dev, &phyt_component_driver,
 					      &phyt_dai, 1);
