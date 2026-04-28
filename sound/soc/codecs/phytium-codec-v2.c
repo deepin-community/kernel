@@ -189,8 +189,11 @@ static int phyt_pm_cmd(struct snd_soc_component *component,
 	msg->cmd_subid = cmd;
 	msg->complete = 0;
 	msg->cmd_para.phytcodec_reg.cnt = 0;
-	if (cmd == PHYTCODEC_MSG_CMD_SET_RESUME)
+	if (cmd == PHYTCODEC_MSG_CMD_SET_RESUME) {
 		memcpy(msg->cmd_para.phytcodec_reg.regs, priv->regs, REG_SH_LEN);
+		phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_MASK, 0x0);
+		phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_ENABLE, 0x1);
+	}
 	ret = phyt_codec_msg_set_cmd(priv);
 	if (ret < 0) {
 		dev_err(priv->dev, "set cmd_subid 0x%x failed\n", cmd);
@@ -684,6 +687,9 @@ static int phyt_codec_probe(struct platform_device *pdev)
 
 	phyt_dai.playback.channels_max = phyt_get_channels(priv);
 	phyt_dai.capture.channels_max = phyt_dai.playback.channels_max;
+
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_MASK, 0x0);
+	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_ENABLE, 0x1);
 
 	ret = devm_snd_soc_register_component(dev, &phyt_component_driver,
 					      &phyt_dai, 1);
