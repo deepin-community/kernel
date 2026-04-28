@@ -2,7 +2,7 @@
  *
  * Phytium CODEC ASoC driver
  *
- * Copyright (C) 2024, Phytium Technology Co., Ltd.
+ * Copyright (C) 2023-2024, Phytium Technology Co., Ltd.
  *
  */
 
@@ -42,6 +42,12 @@
 #define REG_SH_LEN	52
 
 /****************register end *****************/
+
+#define	PHYTCODEC_FORMAT_S16	16
+#define	PHYTCODEC_FORMAT_S18	18
+#define	PHYTCODEC_FORMAT_S20	20
+#define	PHYTCODEC_FORMAT_S24	24
+#define	PHYTCODEC_FORMAT_S32	32
 
 #define PHYTIUM_CODEC_LSD_ID		0x701
 
