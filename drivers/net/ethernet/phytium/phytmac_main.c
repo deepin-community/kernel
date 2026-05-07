@@ -1131,7 +1131,7 @@ static struct sk_buff *phytmac_rx_mbuffer(struct phytmac_queue *queue)
 	for (rx_tail = queue->rx_tail; ; rx_tail++) {
 		desc = phytmac_get_rx_desc(queue, rx_tail);
 		if (!hw_if->rx_complete(desc))
-			return NULL;
+			return ERR_PTR(-EAGAIN);
 
 		if (hw_if->rx_pkt_start(desc)) {
 			if (first_frag != -1)
@@ -1218,6 +1218,9 @@ static int phytmac_rx(struct phytmac_queue *queue, struct napi_struct *napi,
 			if (pdata->xdp_prog)
 				netdev_warn(pdata->ndev, "xdp does not support multiple buffers!!\n");
 			skb = phytmac_rx_mbuffer(queue);
+			if (PTR_ERR(skb) == -EAGAIN) {
+				break;
+			}
 		}
 
 		if (!skb) {

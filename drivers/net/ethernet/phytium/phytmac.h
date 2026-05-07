@@ -17,7 +17,7 @@
 #define PHYTMAC_PCI_DRV_NAME		"phytmac_pci"
 #define PHYTMAC_PLAT_DRV_NAME		"phytmac_platform"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.52"
+#define PHYTMAC_DRIVER_VERSION		"1.0.53"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
