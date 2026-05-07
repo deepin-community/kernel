@@ -41,7 +41,7 @@
 #define LBC_FTIM1_CS_GPCM(n)		(0x1a0+0xc*n)
 #define LBC_FTIM2_CS_GPCM(n)		(0x1a4+0xc*n)
 
-#define LBC_DEVICE_ADDR			0x10000000
+static uint64_t LBC_DEVICE_ADDR;
 #define PHYTIUM_MAX_SRAM_BLOCK		8
 
 #define PHYTIUM_LOCALBUS_DRIVER_VERSION	"1.0.0"
@@ -106,14 +106,58 @@ static void lbc_copy_to(struct map_info *map, unsigned long to,
 
 static int phytium_lbc_calc_device_size(int device_size)
 {
-	int ret = 0;
 	u32 value;
 
-	if (device_size%SZ_16K == 0) {
-		value = device_size/SZ_16K - 1;
-	} else {
-		ret = -EINVAL;
-		return ret;
+	switch (device_size) {
+	case SZ_16K:
+		value = 0x0;
+		break;
+	case SZ_32K:
+		value = 0x1;
+		break;
+	case SZ_64K:
+		value = 0x2;
+		break;
+	case SZ_128K:
+		value = 0x3;
+		break;
+	case SZ_256K:
+		value = 0x4;
+		break;
+	case SZ_512K:
+		value = 0x5;
+		break;
+	case SZ_1M:
+		value = 0x6;
+		break;
+	case SZ_2M:
+		value = 0x7;
+		break;
+	case SZ_4M:
+		value = 0x8;
+		break;
+	case SZ_8M:
+		value = 0x9;
+		break;
+	case SZ_16M:
+		value = 0xa;
+		break;
+	case SZ_32M:
+		value = 0xb;
+		break;
+	case SZ_64M:
+		value = 0xc;
+		break;
+	case SZ_128M:
+		value = 0xd;
+		break;
+	case SZ_256M:
+		value = 0xe;
+		break;
+	default:
+		value = -EINVAL;
+		pr_err("lbc: device size is invalid or not supported.\n");
+		break;
 	}
 
 	return value;
@@ -269,7 +313,7 @@ static int phytium_lbc_of_setup(struct phytium_lbc *lbc,
 	}
 
 	if (!lbc->dev[dev_num].mtd) {
-		dev_err(&pdev->dev, "probing failed\n");
+		dev_err(&pdev->dev, "device tree probing failed\n");
 		return -ENXIO;
 	}
 
@@ -381,7 +425,7 @@ static int phytium_lbc_acpi_setup(struct phytium_lbc *lbc,
 	}
 
 	if (!lbc->dev[dev_num].mtd) {
-		dev_err(&pdev->dev, "probing failed\n");
+		dev_err(&pdev->dev, "acpi probing failed\n");
 		return -ENXIO;
 	}
 
@@ -456,7 +500,7 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-
+	LBC_DEVICE_ADDR = res->start;
 	lbc->mm_size = resource_size(res);
 	lbc->total_device_size = 0;
 
