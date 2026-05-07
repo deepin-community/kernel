@@ -1381,6 +1381,7 @@ config SND_SOC_PEB2466
 
 config SND_SOC_PHYTIUM_CODEC_V2
 	tristate "Phytium Codec V2 driver"
+	depends on ARCH_PHYTIUM
 	help
 	  Select Y if you want to add Phytium codec V2 driver.
 
