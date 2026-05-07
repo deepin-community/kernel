@@ -328,6 +328,9 @@ error:
 static int phyt_probe(struct snd_soc_component *component)
 {
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	return phyt_set_cmd(priv, PHYTCODEC_MSG_CMD_SET_PROBE);
 }
@@ -335,6 +338,9 @@ static int phyt_probe(struct snd_soc_component *component)
 static void phyt_remove(struct snd_soc_component *component)
 {
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	phyt_set_cmd(priv, PHYTCODEC_MSG_CMD_SET_REMOVE);
 }
@@ -342,6 +348,9 @@ static void phyt_remove(struct snd_soc_component *component)
 static int phyt_suspend(struct snd_soc_component *component)
 {
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	return phyt_pm_cmd(priv, PHYTCODEC_MSG_CMD_SET_SUSPEND);
 }
@@ -349,6 +358,9 @@ static int phyt_suspend(struct snd_soc_component *component)
 static int phyt_resume(struct snd_soc_component *component)
 {
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	return phyt_pm_cmd(priv, PHYTCODEC_MSG_CMD_SET_RESUME);
 }
@@ -428,6 +440,9 @@ static int phyt_startup(struct snd_pcm_substream *substream,
 	int ret;
 	struct snd_soc_component *component = dai->component;
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		ret = phyt_set_cmd(priv, PHYTCODEC_MSG_CMD_SET_STARTUP);
@@ -443,6 +458,9 @@ static void phyt_shutdown(struct snd_pcm_substream *substream,
 	int ret;
 	struct snd_soc_component *component = dai->component;
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		ret = phyt_set_cmd(priv, PHYTCODEC_MSG_CMD_SET_SHUTDOWN);
@@ -495,6 +513,9 @@ static int phyt_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	int ret;
 	struct snd_soc_component *component = codec_dai->component;
 	struct phytium_codec *priv = snd_soc_component_get_drvdata(component);
+	struct phytcodec_cmd *msg = priv->sharemem_base;
+
+	memset(msg, 0, sizeof(struct phytcodec_cmd));
 
 	if ((fmt & SND_SOC_DAIFMT_MASTER_MASK) != SND_SOC_DAIFMT_CBS_CFS)
 		return -EINVAL;
@@ -745,6 +766,7 @@ static ssize_t debug_store(struct device *dev, struct device_attribute *da,
 			dev_err(dev, "dump command requires one argument\n");
 			goto error;
 		}
+		memset(priv->sharemem_base, 0, sizeof(struct phytcodec_cmd));
 		phyt_get_cmd(priv, PHYTCODEC_MSG_CMD_GET_ALL_REGS);
 	} else if (strcmp(cmd, "help") == 0) {
 		dev_info(dev, "Available commands:\n"
@@ -804,8 +826,9 @@ static void phyt_codec_init(struct phytium_codec *priv)
 	if (sysfs_create_group(&priv->dev->kobj, &phyt_codec_device_group))
 		dev_warn(priv->dev, "failed to create sysfs\n");
 
-	phyt_dai.playback.channels_max = phyt_get_channels(priv);
-	phyt_dai.capture.channels_max = phyt_dai.playback.channels_max;
+	priv->channels = phyt_get_channels(priv);
+	phyt_dai.playback.channels_max = priv->channels;
+	phyt_dai.capture.channels_max = priv->channels;
 
 	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_MASK, 0x0);
 	phyt_writel_reg(priv->regfile_base, PHYTIUM_CODEC_INT_ENABLE, 0x1);
