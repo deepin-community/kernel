@@ -767,7 +767,7 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 
 	/* Tx clean */
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
-		spin_lock(&queue->tx_ptr_lock);
+		spin_lock_bh(&queue->tx_ptr_lock);
 		for (i = 0; i < bp->tx_ring_size; i++) {
 			tx_skb = macb_tx_skb(queue, i);
 			/* free unsent skb buffers */
@@ -778,7 +778,7 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 			macb_set_addr(bp, tx_desc, 0);
 			tx_desc->ctrl &= ~MACB_BIT(TX_USED);
 		}
-		spin_unlock(&queue->tx_ptr_lock);
+		spin_unlock_bh(&queue->tx_ptr_lock);
 	}
 
 	netif_tx_stop_all_queues(ndev);
