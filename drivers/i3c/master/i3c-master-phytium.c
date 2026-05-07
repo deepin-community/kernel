@@ -26,6 +26,7 @@
 #include <linux/pm_runtime.h>
 #include "../i3c_master_acpi.h"
 
+#define I3C_PHYTIUM_DRV_VERSION		"1.0.0"
 #define DEV_ID				0x0
 #define DEV_ID_I3C_MASTER		0x5034
 
@@ -1847,3 +1848,4 @@ MODULE_AUTHOR("Feng Jun <fengjun@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium I3C master driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:phytium-i3c-master");
+MODULE_VERSION(I3C_PHYTIUM_DRV_VERSION);
