@@ -2368,7 +2368,7 @@ static netdev_features_t phytmac_features_check(struct sk_buff *skb,
 	hdrlen = skb_transport_offset(skb);
 
 	if (!IS_ALIGNED(skb_headlen(skb) - hdrlen, PHYTMAC_TX_LEN_ALIGN))
-		return features & ~NETIF_F_TSO;
+		return features & ~(NETIF_F_TSO | NETIF_F_TSO6);
 
 	nr_frags = skb_shinfo(skb)->nr_frags;
 	/* No need to check last fragment */
@@ -2377,7 +2377,7 @@ static netdev_features_t phytmac_features_check(struct sk_buff *skb,
 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
 
 		if (!IS_ALIGNED(skb_frag_size(frag), PHYTMAC_TX_LEN_ALIGN))
-			return features & ~NETIF_F_TSO;
+			return features & ~(NETIF_F_TSO | NETIF_F_TSO6);
 	}
 	return features;
 }
@@ -2667,7 +2667,7 @@ void phytmac_default_config(struct phytmac *pdata)
 	ndev->hw_features = NETIF_F_SG;
 
 	if (pdata->capacities & PHYTMAC_CAPS_LSO)
-		ndev->hw_features |= NETIF_F_TSO;
+		ndev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
 
 	if (pdata->use_ncsi) {
 		ndev->hw_features &= ~(NETIF_F_HW_CSUM | NETIF_F_RXCSUM);
