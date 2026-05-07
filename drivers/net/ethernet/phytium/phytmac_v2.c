@@ -195,7 +195,6 @@ static int phytmac_v2_init_hw(struct phytmac *pdata)
 	struct phytmac_dma_info dma;
 	struct phytmac_eth_info eth;
 	u32 ptrconfig = 0;
-	u8 mdc;
 
 	if (pdata->capacities & PHYTMAC_CAPS_TAILPTR)
 		ptrconfig |= PHYTMAC_BIT(TXTAIL_EN);
@@ -257,10 +256,6 @@ static int phytmac_v2_init_hw(struct phytmac *pdata)
 	if (pdata->dma_data_width == PHYTMAC_DBW128)
 		dma.hw_dma_cap |= HW_DMA_CAP_DDW128;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)&dma, sizeof(dma), 0);
-
-	cmd_subid = PHYTMAC_MSG_CMD_SET_MDC;
-	mdc = PHYTMAC_CLK_DIV96;
-	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&mdc), sizeof(mdc), 0);
 
 	memset(&eth, 0, sizeof(eth));
 	cmd_subid = PHYTMAC_MSG_CMD_SET_ETH_MATCH;
@@ -706,8 +701,13 @@ static int phytmac_v2_enable_txcsum(struct phytmac *pdata, int enable)
 static int phytmac_v2_enable_mdio(struct phytmac *pdata, int enable)
 {
 	u16 cmd_id, cmd_subid;
+	u8 mdc;
 
 	cmd_id = PHYTMAC_MSG_CMD_SET;
+	cmd_subid = PHYTMAC_MSG_CMD_SET_MDC;
+	mdc = PHYTMAC_CLK_DIV96;
+	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&mdc), sizeof(mdc), 0);
+
 	if (enable)
 		cmd_subid = PHYTMAC_MSG_CMD_SET_ENABLE_MDIO;
 	else
