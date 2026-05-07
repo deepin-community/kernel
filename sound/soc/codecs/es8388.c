@@ -720,7 +720,12 @@ static int es8388_resume(struct snd_soc_component *component)
 
 static int es8388_component_probe(struct snd_soc_component *component)
 {
-	snd_soc_component_write(component, ES8388_ADCPOWER, 0xf0);
+	int ret = 0;
+
+	ret = snd_soc_component_write(component, ES8388_ADCPOWER, 0xf0);
+	if (ret)
+		return ret;
+
 	snd_soc_component_write(component, ES8388_CONTROL1, 0x20);
 	snd_soc_component_write(component, ES8388_DACCONTROL21, 0x80);
 	snd_soc_component_write(component, ES8388_ADCCONTROL10, 0xda);
