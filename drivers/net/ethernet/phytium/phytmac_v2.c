@@ -68,7 +68,7 @@ static int phytmac_v2_msg_send(struct phytmac *pdata, u16 cmd_id,
 			    msg.cmd_type, msg.cmd_subid, msg.status0, len, tx_tail);
 	}
 
-	memcpy(pdata->msg_regs + PHYTMAC_MSG(tx_tail), &msg, sizeof(msg));
+	memcpy_toio(pdata->msg_regs + PHYTMAC_MSG(tx_tail), &msg, sizeof(msg));
 	tx_tail = phytmac_v2_tx_ring_wrap(pdata, ++tx_tail);
 	PHYTMAC_WRITE(pdata, PHYTMAC_TX_MSG_TAIL, tx_tail | PHYTMAC_BIT(TX_MSG_INT));
 	pdata->msg_ring.tx_msg_wr_tail = tx_tail;
@@ -86,8 +86,9 @@ static int phytmac_v2_msg_send(struct phytmac *pdata, u16 cmd_id,
 			}
 		}
 
-		memcpy(&msg_rx, pdata->msg_regs + PHYTMAC_MSG(pdata->msg_ring.tx_msg_rd_tail),
-		       PHYTMAC_MSG_HDR_LEN);
+		memcpy_fromio(&msg_rx, pdata->msg_regs +
+			      PHYTMAC_MSG(pdata->msg_ring.tx_msg_rd_tail),
+			      PHYTMAC_MSG_HDR_LEN);
 		if (!(msg_rx.status0 & PHYTMAC_CMD_PRC_SUCCESS)) {
 			netdev_err(pdata->ndev, "Msg process error, cmdid:%d, subid:%d, status0:%d, tail:%d",
 				   msg.cmd_type, msg.cmd_subid, msg.status0, tx_tail);
@@ -142,8 +143,8 @@ static int phytmac_v2_get_mac_addr(struct phytmac *pdata, u8 *addr)
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
 
 	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
-	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
-	       sizeof(struct phytmac_mac));
+	memcpy_fromio(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+		      sizeof(struct phytmac_mac));
 
 	addr[0] = para.addrl & 0xff;
 	addr[1] = (para.addrl >> 8) & 0xff;
@@ -368,8 +369,8 @@ static int phytmac_v2_get_feature_all(struct phytmac *pdata)
 	cmd_subid = PHYTMAC_MSG_CMD_GET_CAPS;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, NULL, 0, 1);
 	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
-	memcpy(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
-	       sizeof(struct phytmac_feature));
+	memcpy_fromio(&para, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+		      sizeof(struct phytmac_feature));
 
 	pdata->queues_max_num = para.queue_num;
 	if (para.dma_addr_width)
@@ -409,15 +410,15 @@ static void phytmac_v2_get_regs(struct phytmac *pdata, u32 *reg_buff)
 	msg.cnt = 0;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&msg), sizeof(msg), 1);
 	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
-	memcpy(reg_buff, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
-	       PHYTMAC_MSG_PARA_LEN);
+	memcpy_fromio(reg_buff, pdata->msg_regs + PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+		      PHYTMAC_MSG_PARA_LEN);
 
 	msg.cnt = 1;
 	phytmac_v2_msg_send(pdata, cmd_id, cmd_subid, (void *)(&msg), sizeof(msg), 1);
 	index = phytmac_v2_tx_ring_wrap(pdata, pdata->msg_ring.tx_msg_rd_tail);
-	memcpy(reg_buff + PHYTMAC_MSG_PARA_LEN / sizeof(u32), pdata->msg_regs +
-		   PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
-		   PHYTMAC_ETHTOOLD_REGS_LEN - PHYTMAC_MSG_PARA_LEN);
+	memcpy_fromio(reg_buff + PHYTMAC_MSG_PARA_LEN / sizeof(u32), pdata->msg_regs +
+		      PHYTMAC_MSG(index) + PHYTMAC_MSG_HDR_LEN,
+		      PHYTMAC_ETHTOOLD_REGS_LEN - PHYTMAC_MSG_PARA_LEN);
 }
 
 static void phytmac_v2_get_hw_stats(struct phytmac *pdata)
