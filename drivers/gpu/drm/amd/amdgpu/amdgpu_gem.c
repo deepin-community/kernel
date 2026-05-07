@@ -43,6 +43,10 @@
 #include "amdgpu_hmm.h"
 #include "amdgpu_xgmi.h"
 
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
+
 static const struct drm_gem_object_funcs amdgpu_gem_object_funcs;
 
 static vm_fault_t amdgpu_gem_fault(struct vm_fault *vmf)
@@ -258,6 +262,11 @@ static int amdgpu_gem_object_mmap(struct drm_gem_object *obj, struct vm_area_str
 	    !(vma->vm_flags & VM_ACCESS_FLAGS))
 		vm_flags_clear(vma, VM_MAYWRITE);
 
+#ifdef CONFIG_ARCH_PHYTIUM
+	/*lt: workaround for bad address error with d3d11 api remoting*/
+	if (is_phytium_soc())
+		vm_flags_set(vma, VM_ALLOW_ANY_UNCACHED);
+#endif
 	return drm_gem_ttm_mmap(obj, vma);
 }
 
