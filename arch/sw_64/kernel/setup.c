@@ -604,6 +604,8 @@ static void __init setup_cpu_caps(void)
 
 static void __init setup_legacy_io(void)
 {
+	legacy_io_size = 0x10000;
+
 	if (is_guest_or_emul()) {
 		legacy_io_base = PCI_VT_LEGACY_IO;
 		legacy_io_shift = 0;
@@ -624,8 +626,6 @@ static void __init setup_legacy_io(void)
 		legacy_io_base = LPC_LEGACY_IO;
 		legacy_io_shift = 0;
 	}
-
-	legacy_io_size = 0x10000;
 }
 
 bool is_legacy_io(unsigned long start, unsigned long end)
