@@ -746,6 +746,11 @@ static struct platform_driver sunway_powercap_driver = {
 
 static int __init sunway_powercap_driver_init(void)
 {
+	if (!is_in_host()) {
+		pr_warn("Sunway powercap driver is only supported in host mode\n");
+		return -ENODEV;
+	}
+
 	return platform_driver_register(&sunway_powercap_driver);
 }
 late_initcall(sunway_powercap_driver_init);

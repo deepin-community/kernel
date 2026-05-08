@@ -502,6 +502,11 @@ static int __init cpuautoplug_init(void)
 	int i, ret, delay;
 	struct device *dev_root;
 
+	if (!is_in_host()) {
+		pr_warn("cpuautoplug: SW64 CPU autoplug driver is only supported in host mode\n");
+		return -ENODEV;
+	}
+
 	dev_root = bus_get_dev_root(&cpu_subsys);
 	if (dev_root) {
 		ret = sysfs_create_group(&dev_root->kobj,
