@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.8"
+#define PHYT_I2S_V2_VERSION "1.0.9"
 
 static struct snd_soc_jack hs_jack;
 static irqreturn_t phyt_i2s_gpio_interrupt(int irq, void *dev_id);
@@ -540,6 +540,7 @@ static int phyt_pcm_component_probe(struct snd_soc_component *component)
 static const struct snd_soc_component_driver phytium_i2s_component = {
 	.name = "phytium-i2s",
 	.use_dai_pcm_id = true,
+	.probe_order = SND_SOC_COMP_ORDER_LATE,
 	.pcm_construct = phyt_pcm_new,
 	.pcm_destruct = phyt_pcm_free,
 	.suspend = phyt_pcm_suspend,
