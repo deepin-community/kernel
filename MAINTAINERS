@@ -17548,6 +17548,7 @@ F:	Documentation/devicetree/bindings/usb/phytium,usb2-2.0.yaml
 F:	Documentation/devicetree/bindings/usb/phytium,usb2.yaml
 F:	Documentation/devicetree/bindings/usb/phytium.role-sw.yaml
 F:	drivers/usb/phytium/*
+F:     drivers/perf/phytium/phytium_dmu_pmu_pd2408.c
 F:	drivers/usb/phytium/phytium_usb_v2*
 F:	drivers/usb/typec/role-switch-phytium.c
 F:	arch/arm64/boot/dts/phytium/*
