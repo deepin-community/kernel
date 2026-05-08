@@ -32,7 +32,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_ddr_pmu: " fmt
 #define PHYTIUM_DDR_MAX_COUNTERS 8
-#define DDR_PERF_DRIVER_VERSION "1.3.2"
+#define DDR_PERF_DRIVER_VERSION "1.3.3"
 
 #define DDR_START_TIMER		0x000
 #define DDR_STOP_TIMER		0x004
@@ -157,9 +157,9 @@ static struct attribute *phytium_ddr_pmu_events_attr[] = {
 	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq, 0x01),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(rxdat, 0x02),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(txdat, 0x03),
-	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_RNS, 0x04),
-	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_WNSP, 0x05),
-	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_WNSF, 0x06),
+	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_rns, 0x04),
+	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_wnsp, 0x05),
+	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq_wnsf, 0x06),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(bandwidth, 0x07),
 	NULL,
 };
