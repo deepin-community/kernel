@@ -24,6 +24,7 @@
 #include <linux/smp.h>
 #include <linux/types.h>
 #include <linux/version.h>
+#include <linux/arm-smccc.h>
 
 #include <asm/cputype.h>
 #include <asm/local64.h>
@@ -31,7 +32,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_ddr_pmu: " fmt
 #define PHYTIUM_DDR_MAX_COUNTERS 8
-#define DDR_PERF_DRIVER_VERSION "1.3.1"
+#define DDR_PERF_DRIVER_VERSION "1.3.2"
 
 #define DDR_START_TIMER		0x000
 #define DDR_STOP_TIMER		0x004
@@ -56,6 +57,8 @@
 #define DDR_DATA_WIDTH		0xe04
 
 #define DDR_PMU_OFL_STOP_TYPE_VAL 0x10
+#define PBFVER_FUNC_ID         0x82000001
+
 #define to_phytium_ddr_pmu(p) (container_of(p, struct phytium_ddr_pmu, pmu))
 enum {
 	DDRV1P0 = 0x01,
@@ -468,6 +471,30 @@ static irqreturn_t phytium_ddr_pmu_overflow_handler(int irq, void *dev_id)
 	return IRQ_NONE;
 }
 
+static int phytium_verify_pbf_version(struct platform_device *pdev)
+{
+	struct arm_smccc_res res;
+	unsigned long major_ver, minor_ver;
+
+	arm_smccc_smc(PBFVER_FUNC_ID, 0, 0, 0, 0, 0, 0, 0, &res);
+	if (res.a0 <= 0) {
+		dev_warn(&pdev->dev, "Can not recognize PBF Firmware version!\n");
+		return -EINVAL;
+	}
+
+	minor_ver = res.a0 & 0xFFFF;
+	major_ver = (res.a0 >> 16) & 0xFFFF;
+
+	if (major_ver < 1 || (major_ver == 1 && minor_ver < 20)) {
+		dev_err(&pdev->dev,
+			"Driver load failed, Please upgrade PBF Firmware version to 1.20 or later!\n");
+		return -EINVAL;
+	}
+
+	return 0;
+
+}
+
 static int phytium_ddr_pmu_version(struct platform_device *pdev,
 		struct phytium_ddr_pmu *ddr_pmu)
 {
@@ -583,6 +610,12 @@ static int phytium_ddr_pmu_dev_probe(struct platform_device *pdev,
 	ret = phytium_ddr_pmu_version(pdev, ddr_pmu);
 	if (ret)
 		return ret;
+
+	if (ddr_pmu->ver == DDRV1P0) {
+		ret = phytium_verify_pbf_version(pdev);
+		if (ret)
+			return ret;
+	}
 
 	ret = phytium_ddr_pmu_init_data(pdev, ddr_pmu);
 	if (ret)
