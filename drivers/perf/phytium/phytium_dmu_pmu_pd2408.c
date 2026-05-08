@@ -31,7 +31,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "pd2408_dmu_pmu: " fmt
 
-#define DMU_PERF_DRIVER_VERSION "1.0.1"
+#define DMU_PERF_DRIVER_VERSION "1.0.2"
 
 #define DMU_PMU_TIMER_START     0x0
 #define DMU_PMU_TIMER_STOP      0x4
@@ -652,11 +652,13 @@ int pd2408_dmu_pmu_offline_cpu(unsigned int cpu, struct hlist_node *node)
 	struct pd2408_dmu_pmu *dmu_pmu =
 		hlist_entry_safe(node, struct pd2408_dmu_pmu, node);
 	unsigned int target;
+	cpumask_t available_cpus;
 
 	if (dmu_pmu->on_cpu != cpu)
 		return 0;
 
-	target = cpumask_last(cpu_online_mask);
+	cpumask_andnot(&available_cpus, cpu_online_mask, cpumask_of(cpu));
+	target = cpumask_last(&available_cpus);
 
 	if (target >= nr_cpu_ids) {
 		dev_err(dmu_pmu->dev, "offline cpu%d with no target to migrate.\n",
