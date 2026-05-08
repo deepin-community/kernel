@@ -31,7 +31,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "pd2408_dmu_pmu: " fmt
 
-#define DMU_PERF_DRIVER_VERSION "1.0.0"
+#define DMU_PERF_DRIVER_VERSION "1.0.1"
 
 #define DMU_PMU_TIMER_START     0x0
 #define DMU_PMU_TIMER_STOP      0x4
@@ -151,7 +151,7 @@ static const struct attribute_group pd2408_dmu_pmu_format_group = {
 };
 
 static struct attribute *pd2408_dmu_pmu_events_attr[] = {
-	PHYTIUM_DMU_PMU_EVENT_ATTR(cycles, 0x00),
+	PHYTIUM_DMU_PMU_EVENT_ATTR(dmu_axi_cycles, 0x00),
 	PHYTIUM_DMU_PMU_EVENT_ATTR(axi_write_flux, 0x01),
 	PHYTIUM_DMU_PMU_EVENT_ATTR(axi_read_flux, 0x02),
 	PHYTIUM_DMU_PMU_EVENT_ATTR(axi_write_cmd, 0x03),
