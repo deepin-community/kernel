@@ -23,38 +23,46 @@
 #include <linux/platform_device.h>
 #include <linux/smp.h>
 #include <linux/types.h>
+#include <linux/version.h>
 
 #include <asm/cputype.h>
 #include <asm/local64.h>
 
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_ddr_pmu: " fmt
-#define DDR_PERF_DRIVER_VERSION "1.2.1"
-
 #define PHYTIUM_DDR_MAX_COUNTERS 8
-#define DDR_START_TIMER 0x000
-#define DDR_STOP_TIMER 0x004
-#define DDR_CLEAR_EVENT 0x008
-#define DDR_SET_TIMER_L 0x00c
-#define DDR_SET_TIMER_H 0x010
-#define DDR_TRIG_MODE 0x014
-#define DDR_NOW_STATE 0x0e0
-#define DDR_EVENT_CYCLES 0x0e4
-#define DDR_TPOINT_END_L 0x0e4
-#define DDR_TPOINT_END_H 0x0e8
-#define DDR_STATE_STOP 0x0ec
-#define DDR_EVENT_RXREQ 0x100
-#define DDR_EVENT_RXDAT 0x104
-#define DDR_EVENT_TXDAT 0x108
-#define DDR_EVENT_RXREQ_RNS 0x10c
-#define DDR_EVENT_RXREQ_WNSP 0x110
-#define DDR_EVENT_RXREQ_WNSF 0x114
-#define DDR_EVENT_BANDWIDTH 0x200
-#define DDR_W_DATA_BASE 0x200
-#define DDR_CLK_FRE 0xe00
-#define DDR_DATA_WIDTH 0xe04
 
+#define DDR_PERF_DRIVER_VERSION "1.3.0"
+
+#define DDR_START_TIMER		0x000
+#define DDR_STOP_TIMER		0x004
+#define DDR_CLEAR_EVENT		0x008
+#define DDR_SET_TIMER_L		0x00c
+#define DDR_SET_TIMER_H		0x010
+#define DDR_TRIG_MODE		0x014
+#define DDR_NOW_STATE		0x0e0
+#define DDR_EVENT_CYCLES	0x0e4
+#define DDR_TPOINT_END_L	0x0e4
+#define DDR_TPOINT_END_H	0x0e8
+#define DDR_STATE_STOP		0x0ec
+#define DDR_EVENT_RXREQ		0x100
+#define DDR_EVENT_RXDAT		0x104
+#define DDR_EVENT_TXDAT		0x108
+#define DDR_EVENT_RXREQ_RNS	0x10c
+#define DDR_EVENT_RXREQ_WNSP	0x110
+#define DDR_EVENT_RXREQ_WNSF	0x114
+#define DDR_EVENT_BANDWIDTH	0x200
+#define DDR_W_DATA_BASE		0x200
+#define DDR_CLK_FRE		0xe00
+#define DDR_DATA_WIDTH		0xe04
+
+#define DDR_PMU_OFL_STOP_TYPE_VAL 0x10
 #define to_phytium_ddr_pmu(p) (container_of(p, struct phytium_ddr_pmu, pmu))
+enum {
+	DDRV1P0 = 0x01,
+	DDRV1P5 = 0x02,
+};
+
 static int phytium_ddr_pmu_hp_state;
 
 struct phytium_ddr_pmu_hwevents {
@@ -65,15 +73,17 @@ struct phytium_ddr_pmu_hwevents {
 struct phytium_ddr_pmu {
 	struct device *dev;
 	void __iomem *base;
-	void __iomem *csr_base;
+	void __iomem *cfg_base;
+	void __iomem *irq_reg;
 	struct pmu pmu;
 	struct phytium_ddr_pmu_hwevents pmu_events;
 	u32 die_id;
 	u32 ddr_id;
 	u32 pmu_id;
-	int bit_idx;
+	int irq_bit;
 	int on_cpu;
 	int irq;
+	int ver;
 	struct hlist_node node;
 };
 
@@ -86,7 +96,6 @@ static const u32 ddr_counter_reg_offset[] = {
 	DDR_EVENT_RXREQ_WNSF, DDR_EVENT_BANDWIDTH
 };
 
-
 ssize_t phytium_ddr_pmu_format_sysfs_show(struct device *dev,
 				  struct device_attribute *attr,
 				  char *buf)
@@ -94,6 +103,7 @@ ssize_t phytium_ddr_pmu_format_sysfs_show(struct device *dev,
 	struct dev_ext_attribute *eattr;
 
 	eattr = container_of(attr, struct dev_ext_attribute, attr);
+
 	return sprintf(buf, "%s\n", (char *)eattr->var);
 }
 
@@ -109,7 +119,7 @@ ssize_t phytium_ddr_pmu_event_sysfs_show(struct device *dev,
 }
 
 static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr,
-			     char *buf)
+		     char *buf)
 {
 	struct phytium_ddr_pmu *ddr_pmu =
 		to_phytium_ddr_pmu(dev_get_drvdata(dev));
@@ -117,22 +127,21 @@ static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr,
 	return cpumap_print_to_pagebuf(true, buf, cpumask_of(ddr_pmu->on_cpu));
 }
 
-#define PHYTIUM_PMU_ATTR(_name, _func, _config)				    \
-	(&((struct dev_ext_attribute[]){				    \
+#define PHYTIUM_PMU_ATTR(_name, _func, _config)                             \
+		(&((struct dev_ext_attribute[]){                                    \
 		{ __ATTR(_name, 0444, _func, NULL), (void *)_config } })[0] \
 		  .attr.attr)
 
-#define PHYTIUM_DDR_PMU_FORMAT_ATTR(_name, _config)		   \
-	PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_format_sysfs_show, \
+#define PHYTIUM_DDR_PMU_FORMAT_ATTR(_name, _config)                \
+		PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_format_sysfs_show, \
 			 (void *)_config)
 
-#define PHYTIUM_DDR_PMU_EVENT_ATTR(_name, _config)		  \
-	PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_event_sysfs_show, \
-			 (unsigned long)_config)
+#define PHYTIUM_DDR_PMU_EVENT_ATTR(_name, _config)                \
+		PHYTIUM_PMU_ATTR(_name, phytium_ddr_pmu_event_sysfs_show, \
+				 (unsigned long)_config)
 
 static struct attribute *phytium_ddr_pmu_format_attr[] = {
 	PHYTIUM_DDR_PMU_FORMAT_ATTR(event, "config:0-2"),
-	PHYTIUM_DDR_PMU_FORMAT_ATTR(timer, "config1:0-31"),
 	NULL,
 };
 
@@ -176,11 +185,6 @@ static const struct attribute_group *phytium_ddr_pmu_attr_groups[] = {
 	NULL,
 };
 
-static u32 phytium_ddr_pmu_get_event_timer(struct perf_event *event)
-{
-	return FIELD_GET(GENMASK(31, 0), event->attr.config1);
-}
-
 static u64 phytium_ddr_pmu_read_counter(struct phytium_ddr_pmu *ddr_pmu,
 					   struct hw_perf_event *hwc)
 {
@@ -220,18 +224,24 @@ static void phytium_ddr_pmu_enable_clk(struct phytium_ddr_pmu *ddr_pmu)
 {
 	u32 val;
 
-	val = readl(ddr_pmu->csr_base);
+	if (ddr_pmu->ver == DDRV1P5)
+		return;
+
+	val = readl(ddr_pmu->cfg_base);
 	val |= 0xF;
-	writel(val, ddr_pmu->csr_base);
+	writel(val, ddr_pmu->cfg_base);
 }
 
 static void phytium_ddr_pmu_disable_clk(struct phytium_ddr_pmu *ddr_pmu)
 {
 	u32 val;
 
-	val = readl(ddr_pmu->csr_base);
+	if (ddr_pmu->ver == DDRV1P5)
+		return;
+
+	val = readl(ddr_pmu->cfg_base);
 	val &= ~(0xF);
-	writel(val, ddr_pmu->csr_base);
+	writel(val, ddr_pmu->cfg_base);
 }
 
 static void phytium_ddr_pmu_clear_all_counters(struct phytium_ddr_pmu *ddr_pmu)
@@ -249,29 +259,6 @@ static void phytium_ddr_pmu_stop_all_counters(struct phytium_ddr_pmu *ddr_pmu)
 	writel(0x1, ddr_pmu->base + DDR_STOP_TIMER);
 }
 
-static void phytium_ddr_pmu_set_timer(struct phytium_ddr_pmu *ddr_pmu,
-				      u32 th_val)
-{
-	u32 val;
-
-	val = readl(ddr_pmu->base + DDR_SET_TIMER_L);
-	val = readl(ddr_pmu->base + DDR_SET_TIMER_H);
-
-	writel(th_val, ddr_pmu->base + DDR_SET_TIMER_L);
-	writel(0, ddr_pmu->base + DDR_SET_TIMER_H);
-}
-
-static void phytium_ddr_pmu_reset_timer(struct phytium_ddr_pmu *ddr_pmu)
-{
-	u32 val;
-
-	val = readl(ddr_pmu->base + DDR_SET_TIMER_L);
-	val = readl(ddr_pmu->base + DDR_SET_TIMER_H);
-
-	writel(0xFFFFFFFF, ddr_pmu->base + DDR_SET_TIMER_L);
-	writel(0xFFFFFFFF, ddr_pmu->base + DDR_SET_TIMER_H);
-}
-
 static unsigned long
 phytium_ddr_pmu_get_stop_state(struct phytium_ddr_pmu *ddr_pmu)
 {
@@ -286,7 +273,7 @@ phytium_ddr_pmu_get_irq_flag(struct phytium_ddr_pmu *ddr_pmu)
 {
 	unsigned long val;
 
-	val = (unsigned long)readl(ddr_pmu->csr_base + 4);
+	val = (unsigned long)readl(ddr_pmu->irq_reg);
 	return val;
 }
 
@@ -321,7 +308,6 @@ int phytium_ddr_pmu_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
 	struct phytium_ddr_pmu *ddr_pmu;
-	u32 event_timer;
 
 	if (event->attr.type != event->pmu->type)
 		return -ENOENT;
@@ -341,10 +327,6 @@ int phytium_ddr_pmu_event_init(struct perf_event *event)
 
 	if (ddr_pmu->on_cpu == -1)
 		return -EINVAL;
-
-	event_timer = phytium_ddr_pmu_get_event_timer(event);
-	if (event_timer != 0)
-		phytium_ddr_pmu_set_timer(ddr_pmu, event_timer);
 
 	hwc->idx = -1;
 	hwc->config_base = event->attr.config;
@@ -404,17 +386,10 @@ void phytium_ddr_pmu_event_del(struct perf_event *event, int flags)
 {
 	struct phytium_ddr_pmu *ddr_pmu = to_phytium_ddr_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
-	unsigned long val;
-	u32 event_timer;
 
 	phytium_ddr_pmu_event_stop(event, PERF_EF_UPDATE);
-	val = phytium_ddr_pmu_get_irq_flag(ddr_pmu);
-	val = phytium_ddr_pmu_get_stop_state(ddr_pmu);
-	phytium_ddr_pmu_unmark_event(ddr_pmu, hwc->idx);
 
-	event_timer = phytium_ddr_pmu_get_event_timer(event);
-	if (event_timer != 0)
-		phytium_ddr_pmu_reset_timer(ddr_pmu);
+	phytium_ddr_pmu_unmark_event(ddr_pmu, hwc->idx);
 
 	perf_event_update_userpage(event);
 	ddr_pmu->pmu_events.hw_events[hwc->idx] = NULL;
@@ -442,10 +417,15 @@ void phytium_ddr_pmu_disable(struct pmu *pmu)
 		phytium_ddr_pmu_stop_all_counters(ddr_pmu);
 }
 
+void phytium_ddr_pmu_reset(struct phytium_ddr_pmu *ddr_pmu)
+{
+	phytium_ddr_pmu_disable_clk(ddr_pmu);
+	phytium_ddr_pmu_clear_all_counters(ddr_pmu);
+}
+
 static const struct acpi_device_id phytium_ddr_pmu_acpi_match[] = {
-	{
-		"PHYT0043",
-	},
+	{ "PHYT0043", },
+	{ "PHYT0067", },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, phytium_ddr_pmu_acpi_match);
@@ -455,14 +435,13 @@ static irqreturn_t phytium_ddr_pmu_overflow_handler(int irq, void *dev_id)
 	struct phytium_ddr_pmu *ddr_pmu = dev_id;
 	struct perf_event *event;
 	unsigned long overflown, stop_state;
-	int idx;
 	unsigned long *used_mask = ddr_pmu->pmu_events.used_mask;
-
+	int idx;
 	int event_added = bitmap_weight(used_mask, PHYTIUM_DDR_MAX_COUNTERS);
 
 	overflown = phytium_ddr_pmu_get_irq_flag(ddr_pmu);
 
-	if (!test_bit(ddr_pmu->bit_idx, &overflown))
+	if (!test_bit(ddr_pmu->irq_bit, &overflown))
 		return IRQ_NONE;
 
 	stop_state = phytium_ddr_pmu_get_stop_state(ddr_pmu);
@@ -474,8 +453,10 @@ static irqreturn_t phytium_ddr_pmu_overflow_handler(int irq, void *dev_id)
 				continue;
 			phytium_ddr_pmu_event_update(event);
 		}
+
 		phytium_ddr_pmu_clear_all_counters(ddr_pmu);
-		phytium_ddr_pmu_start_all_counters(ddr_pmu);
+		if ((stop_state & DDR_PMU_OFL_STOP_TYPE_VAL) == 0)
+			phytium_ddr_pmu_start_all_counters(ddr_pmu);
 
 		return IRQ_HANDLED;
 	}
@@ -486,6 +467,24 @@ static irqreturn_t phytium_ddr_pmu_overflow_handler(int irq, void *dev_id)
 	}
 
 	return IRQ_NONE;
+}
+
+static int phytium_ddr_pmu_version(struct platform_device *pdev,
+		struct phytium_ddr_pmu *ddr_pmu)
+{
+	struct acpi_device *acpi_dev;
+
+	acpi_dev = ACPI_COMPANION(&pdev->dev);
+	if (!strcmp(acpi_device_hid(acpi_dev), "PHYT0043")) {
+		ddr_pmu->ver = DDRV1P0;
+	} else if (!strcmp(acpi_device_hid(acpi_dev), "PHYT0067")) {
+		ddr_pmu->ver = DDRV1P5;
+	} else {
+		dev_err(&pdev->dev, "The current driver does not support this device.\n");
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 static int phytium_ddr_pmu_init_irq(struct phytium_ddr_pmu *ddr_pmu,
@@ -515,7 +514,7 @@ static int phytium_ddr_pmu_init_irq(struct phytium_ddr_pmu *ddr_pmu,
 static int phytium_ddr_pmu_init_data(struct platform_device *pdev,
 					struct phytium_ddr_pmu *ddr_pmu)
 {
-	struct resource *res, *clkres;
+	struct resource *res, *clkres, *irqres;
 
 	if (device_property_read_u32(&pdev->dev, "phytium,die-id",
 				     &ddr_pmu->die_id)) {
@@ -535,7 +534,7 @@ static int phytium_ddr_pmu_init_data(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	ddr_pmu->bit_idx = ddr_pmu->ddr_id * 2 + ddr_pmu->pmu_id;
+	ddr_pmu->irq_bit = ddr_pmu->ddr_id * 2 + ddr_pmu->pmu_id;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	ddr_pmu->base = devm_ioremap_resource(&pdev->dev, res);
@@ -551,14 +550,28 @@ static int phytium_ddr_pmu_init_data(struct platform_device *pdev,
 		dev_err(&pdev->dev, "failed for get ddr_pmu clk resource.\n");
 		return -EINVAL;
 	}
-
-	ddr_pmu->csr_base =
-		devm_ioremap(&pdev->dev, clkres->start, resource_size(clkres));
-	if (IS_ERR(ddr_pmu->csr_base)) {
-		dev_err(&pdev->dev,
-			"ioremap failed for ddr_pmu csr resource\n");
-		return PTR_ERR(ddr_pmu->csr_base);
+	ddr_pmu->cfg_base = devm_ioremap(&pdev->dev, clkres->start, resource_size(clkres));
+	if (IS_ERR(ddr_pmu->cfg_base)) {
+		dev_err(&pdev->dev, "ioremap failed for ddr_pmu clk resource\n");
+		return PTR_ERR(ddr_pmu->cfg_base);
 	}
+
+	if (ddr_pmu->ver == DDRV1P5) {
+		irqres = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (!irqres) {
+			dev_err(&pdev->dev, "failed for get ddr_pmu irq resource.\n");
+			return -EINVAL;
+		}
+		ddr_pmu->irq_reg = devm_ioremap(&pdev->dev, irqres->start, resource_size(irqres));
+		if (IS_ERR(ddr_pmu->irq_reg)) {
+			dev_err(&pdev->dev, "ioremap failed for ddr_pmu irq resource\n");
+			return PTR_ERR(ddr_pmu->irq_reg);
+		}
+	} else {
+		ddr_pmu->irq_reg = ddr_pmu->cfg_base + 0x4;
+	}
+
+	phytium_ddr_pmu_reset(ddr_pmu);
 
 	return 0;
 }
@@ -567,6 +580,10 @@ static int phytium_ddr_pmu_dev_probe(struct platform_device *pdev,
 					struct phytium_ddr_pmu *ddr_pmu)
 {
 	int ret;
+
+	ret = phytium_ddr_pmu_version(pdev, ddr_pmu);
+	if (ret)
+		return ret;
 
 	ret = phytium_ddr_pmu_init_data(pdev, ddr_pmu);
 	if (ret)
@@ -598,8 +615,8 @@ static int phytium_ddr_pmu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = cpuhp_state_add_instance(
-		phytium_ddr_pmu_hp_state, &ddr_pmu->node);
+	ret = cpuhp_state_add_instance(phytium_ddr_pmu_hp_state,
+					&ddr_pmu->node);
 	if (ret) {
 		dev_err(&pdev->dev, "Error %d registering hotplug;\n", ret);
 		return ret;
@@ -621,22 +638,19 @@ static int phytium_ddr_pmu_probe(struct platform_device *pdev)
 		.stop = phytium_ddr_pmu_event_stop,
 		.read = phytium_ddr_pmu_event_update,
 		.attr_groups = phytium_ddr_pmu_attr_groups,
-		.capabilities = PERF_PMU_CAP_NO_EXCLUDE,
 	};
 
 	ret = perf_pmu_register(&ddr_pmu->pmu, name, -1);
 	if (ret) {
 		dev_err(ddr_pmu->dev, "DDR PMU register failed!\n");
-		cpuhp_state_remove_instance_nocalls(
-			phytium_ddr_pmu_hp_state,
+		cpuhp_state_remove_instance_nocalls(phytium_ddr_pmu_hp_state,
 			&ddr_pmu->node);
 	}
 
 	phytium_ddr_pmu_enable_clk(ddr_pmu);
 
-	pr_info("Phytium DDR PMU: ");
-	pr_info(" die_id = %d ddr_id = %d pmu_id = %d.\n", ddr_pmu->die_id,
-		ddr_pmu->ddr_id, ddr_pmu->pmu_id);
+	pr_info("die%d_ddr%d_pmu%d on cpu%d.\n", ddr_pmu->die_id,
+		ddr_pmu->ddr_id, ddr_pmu->pmu_id, ddr_pmu->on_cpu);
 
 	return ret;
 }
@@ -648,8 +662,8 @@ static int phytium_ddr_pmu_remove(struct platform_device *pdev)
 	phytium_ddr_pmu_disable_clk(ddr_pmu);
 
 	perf_pmu_unregister(&ddr_pmu->pmu);
-	cpuhp_state_remove_instance_nocalls(
-		phytium_ddr_pmu_hp_state, &ddr_pmu->node);
+	cpuhp_state_remove_instance_nocalls(phytium_ddr_pmu_hp_state,
+					&ddr_pmu->node);
 
 	return 0;
 }
@@ -751,3 +765,4 @@ MODULE_DESCRIPTION("Phytium DDR PMU driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(DDR_PERF_DRIVER_VERSION);
 MODULE_AUTHOR("Hu Xianghua <huxianghua@phytium.com.cn>");
+MODULE_AUTHOR("Tan Rui <tanrui2142@phytium.com.cn>");
