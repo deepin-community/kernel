@@ -7,6 +7,14 @@ menuconfig PHYTIUM_PMU
 
 if PHYTIUM_PMU
 
+config PHYT_DMU_PMU_PD2408
+        tristate "Phytium PD2408 SoC DDR PMU driver"
+        depends on (ARCH_PHYTIUM && ACPI && ARM_PHYTIUM_DMU_DEVFREQ) || COMPILE_TEST || (ARCH_PHYTIUM && ACPI && !ARM_PHYTIUM_DMU_DEVFREQ)
+	default m
+        help
+          Provides support for Phytium PD2408 SoC DDR Controller performance
+	  monitoring unit (PMU).
+
 config PHYT_DDR_PMU
         tristate "Phytium SoC DDR PMU driver"
         depends on (ARCH_PHYTIUM && ACPI) || COMPILE_TEST
