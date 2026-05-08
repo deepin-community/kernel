@@ -48,6 +48,7 @@ SND_SOC_DAILINK_DEFS(phyt_machine,
 static struct snd_soc_dai_link phyt_machine_dai[] = {
 	{
 		.name = "PHYTIUM HIFI V2",
+		.id = 0,
 		.stream_name = "PHYTIUM HIFT V2",
 		.dai_fmt = PMDK_DAI_FMT,
 		SND_SOC_DAILINK_REG(phyt_machine),

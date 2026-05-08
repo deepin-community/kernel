@@ -30,7 +30,7 @@
 #include <sound/jack.h>
 #include "phytium-i2s-v2.h"
 
-#define PHYT_I2S_V2_VERSION "1.0.6"
+#define PHYT_I2S_V2_VERSION "1.0.8"
 
 static struct snd_soc_jack hs_jack;
 static irqreturn_t phyt_i2s_gpio_interrupt(int irq, void *dev_id);
@@ -539,6 +539,7 @@ static int phyt_pcm_component_probe(struct snd_soc_component *component)
 
 static const struct snd_soc_component_driver phytium_i2s_component = {
 	.name = "phytium-i2s",
+	.use_dai_pcm_id = true,
 	.pcm_construct = phyt_pcm_new,
 	.pcm_destruct = phyt_pcm_free,
 	.suspend = phyt_pcm_suspend,
@@ -951,8 +952,54 @@ error:
 
 static DEVICE_ATTR_RW(phyt_i2s_debug);
 
+static ssize_t phyt_i2s_control_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	struct phytium_i2s *priv = dev_get_drvdata(dev);
+	char *p, *token;
+	u8 loc;
+	int ret;
+	long value;
+
+	p = kmalloc(size, GFP_KERNEL);
+	if (p == NULL)
+		return -EINVAL;
+	strscpy(p, buf, sizeof(p));
+
+	token = strsep(&p, " ");
+	if (!token) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	ret = kstrtol(token, 0, &value);
+	if (ret)
+		goto error;
+	loc = (u8)value;
+
+	if (loc == 1) {
+		//Enable I2S and DMA
+		phyt_writel_reg(priv->dma_reg_base, PHYTIUM_DMA_CTL, 1);
+		phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_ITER, TX_EN);
+	} else if (loc == 0) {
+		//Disable I2S and DMA
+		phyt_writel_reg(priv->regfile_base, PHYTIUM_REGFILE_ITER, TX_DIS);
+		phyt_writel_reg(priv->dma_reg_base, PHYTIUM_DMA_CTL, 0);
+	}
+
+	kfree(p);
+	return size;
+error:
+	kfree(p);
+	return ret;
+}
+
+static DEVICE_ATTR_WO(phyt_i2s_control);
+
 static struct attribute *phyt_i2s_device_attrs[] = {
 	&dev_attr_phyt_i2s_debug.attr,
+	&dev_attr_phyt_i2s_control.attr,
 	NULL,
 };
 
