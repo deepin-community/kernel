@@ -246,9 +246,10 @@
 #define PHYTIUM_DDR_PMUV1_COUNTERS_NUM		8
 #define PHYTIUM_DDR_PMUV2_COUNTERS_NUM		5
 #define PHYTIUM_DDR_PMUV3_COUNTERS_NUM		165
-#define PHYTIUM_DDR_EVENTS_MAX_MASKi		0x7
+#define PHYTIUM_DDR_PMUV1V2_EVENTS_MAX_MASK		0x7
+#define PHYTIUM_DDR_PMUV3_EVENTS_MAX_MASK		0xA5
 
-#define GET_DDR_PMUV1V2_EVENTID(hwc) (hwc->config_base & PHYTIUM_DDR_EVENTS_MAX_MASK)
+#define GET_DDR_PMUV1V2_EVENTID(hwc) (hwc->config_base & PHYTIUM_DDR_PMUV1V2_EVENTS_MAX_MASK)
 #define EVENT_VALID_V1(idx) ((idx >= 0) && (idx < PHYTIUM_DDR_PMUV1_COUNTERS_NUM))
 #define EVENT_VALID_V2(idx) ((idx >= 0) && (idx < PHYTIUM_DDR_PMUV2_COUNTERS_NUM))
 #define EVENT_VALID_V3(idx) ((idx >= 0) && (idx < PHYTIUM_DDR_PMUV3_COUNTERS_NUM))
@@ -1512,10 +1513,10 @@ int phytium_ddr_pmu_event_init(struct perf_event *event)
 	}
 
 	if (ddr_pmu->ver <= DDR_PMUV2P0) {
-		if ((event->attr.config & PHYTIUM_DDR_EVENTS_MAX_MASK) > ddr_pmu->cnts_num)
+		if ((event->attr.config & PHYTIUM_DDR_PMUV1V2_EVENTS_MAX_MASK) > ddr_pmu->cnts_num)
 			return -EINVAL;
 	} else if (ddr_pmu->ver == DDR_PMUV3P0) {
-		if (event->attr.config > PHYTIUM_DDR_MAX_COUNTERS)
+		if ((event->attr.config & PHYTIUM_DDR_PMUV3_EVENTS_MAX_MASK) > ddr_pmu->cnts_num)
 			return -EINVAL;
 	}
 
@@ -1613,7 +1614,7 @@ int phytium_ddr_pmu_event_add(struct perf_event *event, int flags)
 			phytium_ddr_pmu_v2_notifier_chain_trigger(ddr_pmu, DDR_PMUV2_NOTICE_START);
 		#endif
 	} else if (ddr_pmu->ver == DDR_PMUV3P0) {
-		if (!EVENT_VALID_V3(idx)) {
+		if (!EVENT_VALID_V3(phytium_ddr_pmu_v3_get_event_idx(event))) {
 			dev_err(ddr_pmu->dev, "Unsupported event index:%d!\n", idx);
 			return idx;
 		}
