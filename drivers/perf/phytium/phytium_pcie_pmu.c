@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/smp.h>
 #include <linux/types.h>
+#include <linux/version.h>
 
 #if IS_ENABLED(CONFIG_ARM || CONFIG_ARM64)
 #include <asm/cputype.h>
@@ -32,51 +33,53 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_pcie_pmu: " fmt
 
-#define PCIE_PERF_DRIVER_VERSION "1.2.1"
+#define PCIE_PERF_DRIVER_VERSION "1.3.0"
 
 #define PHYTIUM_PCIE_MAX_COUNTERS 18
 
-#define PCIE_START_TIMER 0x000
-#define PCIE_STOP_TIMER 0x004
-#define PCIE_CLEAR_EVENT 0x008
-#define PCIE_SET_TIMER_L 0x00c
-#define PCIE_SET_TIMER_H 0x010
-#define PCIE_TRIG_MODE 0x014
+#define	PCIE_START_TIMER	0x000
+#define	PCIE_STOP_TIMER		0x004
+#define	PCIE_CLEAR_EVENT	0x008
 
-#define PCIE_NOW_STATE 0x0e0
-#define PCIE_EVENT_CYCLES 0x0e4
-#define PCIE_TPOINT_END_L 0x0e4
-#define PCIE_TPOINT_END_H 0x0e8
-#define PCIE_STATE_STOP 0x0ec
+#define	PCIE_EVENT_CYCLES	0x0e4
+#define	PCIE_TPOINT_END_L	0x0e4
+#define PCIE_TPOINT_END_H	0x0e8
+#define	PCIE_STATE_STOP		0x0ec
 
-#define PCIE_EVENT_AW 0x100
-#define PCIE_EVENT_W_LAST 0x104
-#define PCIE_EVENT_B 0x108
-#define PCIE_EVENT_AR 0x10c
-#define PCIE_EVENT_R_LAST 0x110
-#define PCIE_EVENT_R_FULL 0x114
-#define PCIE_EVENT_R_ERR 0x118
-#define PCIE_EVENT_W_ERR 0x11c
-#define PCIE_EVENT_DELAY_RD 0x120
-#define PCIE_EVENT_DELAY_WR 0x124
-#define PCIE_EVENT_RD_MAX 0x128
-#define PCIE_EVENT_RD_MIN 0x12c
-#define PCIE_EVENT_WR_MAX 0x130
-#define PCIE_EVENT_WR_MIN 0x134
+#define	PCIE_EVENT_AW		0x100
+#define	PCIE_EVENT_W_LAST	0x104
+#define	PCIE_EVENT_B		0x108
+#define PCIE_EVENT_AR		0x10c
+#define	PCIE_EVENT_R_LAST	0x110
+#define	PCIE_EVENT_R_FULL	0x114
+#define	PCIE_EVENT_R_ERR	0x118
+#define	PCIE_EVENT_W_ERR	0x11c
+#define	PCIE_EVENT_DELAY_RD	0x120
+#define	PCIE_EVENT_DELAY_WR	0x124
+#define	PCIE_EVENT_RD_MAX	0x128
+#define	PCIE_EVENT_RD_MIN	0x12c
+#define	PCIE_EVENT_WR_MAX	0x130
+#define	PCIE_EVENT_WR_MIN	0x134
 
-#define PCIE_EVENT_W_DATA 0x200
-#define PCIE_W_DATA_BASE 0x200
+#define	PCIE_EVENT_W_DATA	0x200
+#define	PCIE_W_DATA_BASE	0x200
 
-#define PCIE_EVENT_RDELAY_TIME 0x300
-#define PCIE_RDELAY_TIME_BASE 0x300
+#define PCIE_EVENT_RDELAY_TIME	0x300
+#define	PCIE_RDELAY_TIME_BASE	0x300
 
-#define PCIE_EVENT_WDELAY_TIME 0x700
-#define PCIE_WDELAY_TIME_BASE 0x700
+#define	PCIE_EVENT_WDELAY_TIME	0x700
+#define	PCIE_WDELAY_TIME_BASE	0x700
 
-#define PCIE_CLK_FRE 0xe00
-#define PCIE_DATA_WIDTH 0xe04
+#define	PCIE_DATA_WIDTH			0xe04
+#define	PCIE_PMU_OFL_STOP_TYPE_VAL	0x10
 
 #define to_phytium_pcie_pmu(p) (container_of(p, struct phytium_pcie_pmu, pmu))
+
+enum {
+	PCIEV1P0 = 0x1,
+	PCIEV1P5 = 0x2,
+};
+
 
 static int phytium_pcie_pmu_hp_state;
 
@@ -88,17 +91,20 @@ struct phytium_pcie_pmu_hwevents {
 struct phytium_pcie_pmu {
 	struct device *dev;
 	void __iomem *base;
-	void __iomem *csr_base;
+	void __iomem *cfg_base;
 	void __iomem *irq_reg;
 	struct pmu pmu;
 	struct phytium_pcie_pmu_hwevents pmu_events;
 	u32 die_id;
+	u32 pcie_id;
 	u32 pmu_id;
 	int on_cpu;
 	int irq;
+	int irq_bit;
 	struct hlist_node node;
 	int ctrler_id;
 	int real_ctrler;
+	int ver;
 	u32 clk_bits;
 };
 
@@ -162,7 +168,6 @@ static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr,
 static struct attribute *phytium_pcie_pmu_format_attr[] = {
 	PHYTIUM_PCIE_PMU_FORMAT_ATTR(event, "config:0-4"),
 	PHYTIUM_PCIE_PMU_FORMAT_ATTR(ctrler, "config:8-10"),
-	PHYTIUM_PCIE_PMU_FORMAT_ATTR(timer, "config1:0-31"),
 	NULL,
 };
 
@@ -221,11 +226,6 @@ static u32 phytium_pcie_pmu_get_event_ctrler(struct perf_event *event)
 	return FIELD_GET(GENMASK(10, 8), event->attr.config);
 }
 
-static u32 phytium_pcie_pmu_get_event_timer(struct perf_event *event)
-{
-	return FIELD_GET(GENMASK(31, 0), event->attr.config1);
-}
-
 static u64 phytium_pcie_pmu_read_counter(struct phytium_pcie_pmu *pcie_pmu,
 					 struct hw_perf_event *hwc)
 {
@@ -235,11 +235,15 @@ static u64 phytium_pcie_pmu_read_counter(struct phytium_pcie_pmu *pcie_pmu,
 	u64 val64 = 0;
 	int i;
 	u32 counter_offset = pcie_counter_reg_offset[idx];
+	u32 rdelay_num = 127;
 
 	if (!EVENT_VALID(idx)) {
 		dev_err(pcie_pmu->dev, "Unsupported event index:%d!\n", idx);
 		return 0;
 	}
+
+	if (pcie_pmu->ver == PCIEV1P5 && pcie_pmu->pmu_id == 3)
+		rdelay_num = 63;
 
 	switch (idx) {
 	case 0:
@@ -255,7 +259,7 @@ static u64 phytium_pcie_pmu_read_counter(struct phytium_pcie_pmu *pcie_pmu,
 		}
 		break;
 	case 16:
-		for (i = 0; i <= 127; i = i + 2) {
+		for (i = 0; i <= rdelay_num; i = i + 2) {
 			rdelay_l =
 				readl(pcie_pmu->base + counter_offset + 4 * i);
 			rdelay_h = readl(pcie_pmu->base + counter_offset +
@@ -283,38 +287,40 @@ static void phytium_pcie_pmu_enable_clk(struct phytium_pcie_pmu *pcie_pmu)
 {
 	u32 val;
 
-	val = readl(pcie_pmu->csr_base);
+	val = readl(pcie_pmu->cfg_base);
 	val |= (pcie_pmu->clk_bits);
-	writel(val, pcie_pmu->csr_base);
+	writel(val, pcie_pmu->cfg_base);
 }
 
 static void phytium_pcie_pmu_disable_clk(struct phytium_pcie_pmu *pcie_pmu)
 {
 	u32 val;
 
-	val = readl(pcie_pmu->csr_base);
+	val = readl(pcie_pmu->cfg_base);
 	val &= ~(pcie_pmu->clk_bits);
-	writel(val, pcie_pmu->csr_base);
+	writel(val, pcie_pmu->cfg_base);
 }
 
 static void phytium_pcie_pmu_select_ctrler(struct phytium_pcie_pmu *pcie_pmu)
 {
-	u32 val, offset = 0;
+	u32 val, offset;
+	u32 mask = 0xfffffffc;
 
-	if (pcie_pmu->pmu_id != 2)
-		offset = 0xc;
-
-	val = readl(pcie_pmu->csr_base + offset);
-
-	if (pcie_pmu->pmu_id == 2) {
-		val &= 0xffffffcf;
-		val |= pcie_pmu->real_ctrler;
+	if (pcie_pmu->ver == PCIEV1P0) {
+		if (pcie_pmu->pmu_id == 2) {
+			mask = 0xffffffcf;
+			offset = 0x0;
+		} else
+			offset = 0xc;
 	} else {
-		val &= 0xfffffffc;
-		val |= pcie_pmu->real_ctrler;
+		offset = 0x170;
 	}
 
-	writel(val, pcie_pmu->csr_base + offset);
+	val = readl(pcie_pmu->cfg_base + offset);
+	val &= mask;
+	val |= pcie_pmu->real_ctrler;
+	writel(val, pcie_pmu->cfg_base + offset);
+
 }
 
 static void
@@ -333,29 +339,6 @@ static void
 phytium_pcie_pmu_stop_all_counters(struct phytium_pcie_pmu *pcie_pmu)
 {
 	writel(0x1, pcie_pmu->base + PCIE_STOP_TIMER);
-}
-
-static void phytium_pcie_pmu_set_timer(struct phytium_pcie_pmu *pcie_pmu,
-					u32 th_val)
-{
-	u32 val;
-
-	val = readl(pcie_pmu->base + PCIE_SET_TIMER_L);
-	val = readl(pcie_pmu->base + PCIE_SET_TIMER_H);
-
-	writel(th_val, pcie_pmu->base + PCIE_SET_TIMER_L);
-	writel(0, pcie_pmu->base + PCIE_SET_TIMER_H);
-}
-
-static void phytium_pcie_pmu_reset_timer(struct phytium_pcie_pmu *pcie_pmu)
-{
-	u32 val;
-
-	val = readl(pcie_pmu->base + PCIE_SET_TIMER_L);
-	val = readl(pcie_pmu->base + PCIE_SET_TIMER_H);
-
-	writel(0xFFFFFFFF, pcie_pmu->base + PCIE_SET_TIMER_L);
-	writel(0xFFFFFFFF, pcie_pmu->base + PCIE_SET_TIMER_H);
 }
 
 static unsigned long
@@ -407,7 +390,7 @@ int phytium_pcie_pmu_event_init(struct perf_event *event)
 {
 	struct hw_perf_event *hwc = &event->hw;
 	struct phytium_pcie_pmu *pcie_pmu;
-	u32 event_ctrler, event_timer;
+	u32 event_ctrler;
 
 	if (event->attr.type != event->pmu->type)
 		return -ENOENT;
@@ -428,57 +411,83 @@ int phytium_pcie_pmu_event_init(struct perf_event *event)
 	if (pcie_pmu->on_cpu == -1)
 		return -EINVAL;
 
-	event_timer = phytium_pcie_pmu_get_event_timer(event);
-	if (event_timer != 0)
-		phytium_pcie_pmu_set_timer(pcie_pmu, event_timer);
+	if (pcie_pmu->ver == PCIEV1P5) {
+		event_ctrler = phytium_pcie_pmu_get_event_ctrler(event);
+		if (pcie_pmu->pmu_id == 2) {
+			if (event_ctrler == 0)
+				event_ctrler = 2;
+			else if ((event_ctrler < 2) || (event_ctrler > 3)) {
+				dev_warn(pcie_pmu->dev, "Wrong ctrler id(%d) for pcie-pmu2!\n",
+						event_ctrler);
+				return -EINVAL;
+			}
+			if (pcie_pmu->ctrler_id != event_ctrler) {
+				pcie_pmu->ctrler_id = event_ctrler;
+				pcie_pmu->real_ctrler = pcie_pmu->ctrler_id;
+				phytium_pcie_pmu_select_ctrler(pcie_pmu);
+			}
+		} else {
+			if (event_ctrler != 0) {
+				dev_warn(pcie_pmu->dev, "Don't need to set ctrler id(%d) for pcie-pmu%d!\n",
+						event_ctrler, pcie_pmu->pmu_id);
+				return -EINVAL;
+			}
+			pcie_pmu->ctrler_id = pcie_pmu->pmu_id;
+			pcie_pmu->real_ctrler = pcie_pmu->ctrler_id;
+		}
+	} else {
+		event_ctrler = phytium_pcie_pmu_get_event_ctrler(event);
+		switch (pcie_pmu->pmu_id) {
+		case 0:
+			if (event_ctrler != 0) {
+				dev_warn(pcie_pmu->dev,
+					"Wrong ctrler id(%d) for pcie-pmu0!\n",
+					event_ctrler);
+				return -EINVAL;
+			}
+			break;
+		case 1:
+			if (event_ctrler == 0)
+				event_ctrler = 1;
+			else if ((event_ctrler < 1) || (event_ctrler > 3)) {
+				dev_warn(pcie_pmu->dev,
+					"Wrong ctrler id(%d) for pcie-pmu1!\n",
+					event_ctrler);
+				return -EINVAL;
+			}
+			break;
+		case 2:
+			if (event_ctrler == 0)
+				event_ctrler = 4;
+			else if ((event_ctrler < 4) || (event_ctrler > 7)) {
+				dev_warn(pcie_pmu->dev,
+					"Wrong ctrler id(%d) for pcie-pmu2!\n",
+					event_ctrler);
+				return -EINVAL;
+			}
+			break;
+		default:
+			dev_err(pcie_pmu->dev, "Unsupported pmu id:%d!\n",
+				pcie_pmu->pmu_id);
+			return -EINVAL;
+		}
 
-	event_ctrler = phytium_pcie_pmu_get_event_ctrler(event);
-	switch (pcie_pmu->pmu_id) {
-	case 0:
-		if (event_ctrler != 0) {
-			dev_warn(pcie_pmu->dev,
-				 "Wrong ctrler id(%d) for pcie-pmu0!\n",
-				 event_ctrler);
+		pcie_pmu->ctrler_id = event_ctrler;
+		switch (pcie_pmu->pmu_id) {
+		case 0:
+		case 1:
+			pcie_pmu->real_ctrler = pcie_pmu->ctrler_id;
+			break;
+		case 2:
+			pcie_pmu->real_ctrler = (pcie_pmu->ctrler_id - 4) * 16;
+			break;
+		default:
+			dev_err(pcie_pmu->dev, "Unsupported pmu id:%d!\n",
+				pcie_pmu->pmu_id);
 			return -EINVAL;
 		}
-		break;
-	case 1:
-		if ((event_ctrler < 1) || (event_ctrler > 3)) {
-			dev_warn(pcie_pmu->dev,
-				 "Wrong ctrler id(%d) for pcie-pmu1!\n",
-				 event_ctrler);
-			return -EINVAL;
-		}
-		break;
-	case 2:
-		if ((event_ctrler < 4) || (event_ctrler > 7)) {
-			dev_warn(pcie_pmu->dev,
-				 "Wrong ctrler id(%d) for pcie-pmu2!\n",
-				 event_ctrler);
-			return -EINVAL;
-		}
-		break;
-	default:
-		dev_err(pcie_pmu->dev, "Unsupported pmu id:%d!\n",
-			pcie_pmu->pmu_id);
-		return -EINVAL;
+		phytium_pcie_pmu_select_ctrler(pcie_pmu);
 	}
-
-	pcie_pmu->ctrler_id = event_ctrler;
-	switch (pcie_pmu->pmu_id) {
-	case 0:
-	case 1:
-		pcie_pmu->real_ctrler = pcie_pmu->ctrler_id;
-		break;
-	case 2:
-		pcie_pmu->real_ctrler = (pcie_pmu->ctrler_id - 4) * 16;
-		break;
-	default:
-		dev_err(pcie_pmu->dev, "Unsupported pmu id:%d!\n",
-			pcie_pmu->pmu_id);
-		return -EINVAL;
-	}
-	phytium_pcie_pmu_select_ctrler(pcie_pmu);
 
 	hwc->idx = -1;
 	hwc->config_base = event->attr.config;
@@ -537,17 +546,10 @@ void phytium_pcie_pmu_event_del(struct perf_event *event, int flags)
 {
 	struct phytium_pcie_pmu *pcie_pmu = to_phytium_pcie_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
-	unsigned long val;
-	u32 event_timer;
 
 	phytium_pcie_pmu_event_stop(event, PERF_EF_UPDATE);
-	val = phytium_pcie_pmu_get_irq_flag(pcie_pmu);
-	val = phytium_pcie_pmu_get_stop_state(pcie_pmu);
-	phytium_pcie_pmu_unmark_event(pcie_pmu, hwc->idx);
 
-	event_timer = phytium_pcie_pmu_get_event_timer(event);
-	if (event_timer != 0)
-		phytium_pcie_pmu_reset_timer(pcie_pmu);
+	phytium_pcie_pmu_unmark_event(pcie_pmu, hwc->idx);
 
 	perf_event_update_userpage(event);
 	pcie_pmu->pmu_events.hw_events[hwc->idx] = NULL;
@@ -575,10 +577,15 @@ void phytium_pcie_pmu_disable(struct pmu *pmu)
 		phytium_pcie_pmu_stop_all_counters(pcie_pmu);
 }
 
+void phytium_pcie_pmu_reset(struct phytium_pcie_pmu *pcie_pmu)
+{
+	phytium_pcie_pmu_disable_clk(pcie_pmu);
+	phytium_pcie_pmu_clear_all_counters(pcie_pmu);
+}
+
 static const struct acpi_device_id phytium_pcie_pmu_acpi_match[] = {
-	{
-		"PHYT0044",
-	},
+	{ "PHYT0044", },
+	{ "PHYT0068", },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, phytium_pcie_pmu_acpi_match);
@@ -594,7 +601,7 @@ static irqreturn_t phytium_pcie_pmu_overflow_handler(int irq, void *dev_id)
 
 	overflown = phytium_pcie_pmu_get_irq_flag(pcie_pmu);
 
-	if (!test_bit(pcie_pmu->pmu_id + 4, &overflown))
+	if (!test_bit(pcie_pmu->irq_bit, &overflown))
 		return IRQ_NONE;
 
 	stop_state = phytium_pcie_pmu_get_stop_state(pcie_pmu);
@@ -607,7 +614,8 @@ static irqreturn_t phytium_pcie_pmu_overflow_handler(int irq, void *dev_id)
 			phytium_pcie_pmu_event_update(event);
 		}
 		phytium_pcie_pmu_clear_all_counters(pcie_pmu);
-		phytium_pcie_pmu_start_all_counters(pcie_pmu);
+		if ((stop_state & PCIE_PMU_OFL_STOP_TYPE_VAL) == 0)
+			phytium_pcie_pmu_start_all_counters(pcie_pmu);
 
 		return IRQ_HANDLED;
 	}
@@ -616,6 +624,25 @@ static irqreturn_t phytium_pcie_pmu_overflow_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 	return IRQ_NONE;
+}
+
+static int phytium_pcie_pmu_version(struct platform_device *pdev,
+		struct phytium_pcie_pmu *pcie_pmu)
+{
+	struct acpi_device *acpi_dev;
+
+	acpi_dev = ACPI_COMPANION(&pdev->dev);
+	if (!strcmp(acpi_device_hid(acpi_dev), "PHYT0044")) {
+		pcie_pmu->ver = PCIEV1P0;
+	} else if (!strcmp(acpi_device_hid(acpi_dev), "PHYT0068")) {
+		pcie_pmu->ver = PCIEV1P5;
+	} else {
+		dev_err(&pdev->dev, "The current driver does not support this device.\n");
+		return -ENODEV;
+
+	}
+
+	return 0;
 }
 
 static int phytium_pcie_pmu_init_irq(struct phytium_pcie_pmu *pcie_pmu,
@@ -643,7 +670,7 @@ static int phytium_pcie_pmu_init_irq(struct phytium_pcie_pmu *pcie_pmu,
 }
 
 static int phytium_pcie_pmu_init_data(struct platform_device *pdev,
-				      struct phytium_pcie_pmu *pcie_pmu)
+		struct phytium_pcie_pmu *pcie_pmu)
 {
 	struct resource *res, *clkres, *irqres;
 
@@ -659,20 +686,46 @@ static int phytium_pcie_pmu_init_data(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	switch (pcie_pmu->pmu_id) {
-	case 0:
-		pcie_pmu->clk_bits = 0x1;
-		break;
-	case 1:
-		pcie_pmu->clk_bits = 0xe;
-		break;
-	case 2:
-		pcie_pmu->clk_bits = 0xf;
-		break;
-	default:
-		dev_err(&pdev->dev, "Unsupported pmu id:%d!\n",
-			pcie_pmu->pmu_id);
-		break;
+	if (pcie_pmu->ver == PCIEV1P0) {
+		switch (pcie_pmu->pmu_id) {
+		case 0:
+			pcie_pmu->clk_bits = 0x1;
+			break;
+		case 1:
+			pcie_pmu->clk_bits = 0xe;
+			break;
+		case 2:
+			pcie_pmu->clk_bits = 0xf;
+			break;
+		default:
+			dev_err(&pdev->dev, "Unsupported pmu id:%d!\n", pcie_pmu->pmu_id);
+			break;
+		}
+
+		pcie_pmu->irq_bit = pcie_pmu->pmu_id + 4;
+	} else {
+		if (device_property_read_u32(&pdev->dev, "phytium,pcie-id", &pcie_pmu->pcie_id)) {
+			dev_err(&pdev->dev, "Can not read phytium,pcie-id!\n");
+			return -EINVAL;
+		}
+
+		switch (pcie_pmu->pmu_id) {
+		case 0:
+		case 3:
+			pcie_pmu->clk_bits = 0x1;
+			break;
+		case 1:
+			pcie_pmu->clk_bits = 0x2;
+			break;
+		case 2:
+			pcie_pmu->clk_bits = 0xc;
+			break;
+		default:
+			dev_err(&pdev->dev, "Unsupported pmu id:%d!\n", pcie_pmu->pmu_id);
+			break;
+		}
+
+		pcie_pmu->irq_bit = pcie_pmu->pcie_id * 4 + pcie_pmu->pmu_id + 16;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -688,12 +741,12 @@ static int phytium_pcie_pmu_init_data(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	pcie_pmu->csr_base =
+	pcie_pmu->cfg_base =
 		devm_ioremap(&pdev->dev, clkres->start, resource_size(clkres));
-	if (IS_ERR(pcie_pmu->csr_base)) {
+	if (IS_ERR(pcie_pmu->cfg_base)) {
 		dev_err(&pdev->dev,
 			"ioremap failed for pcie_pmu csr resource\n");
-		return PTR_ERR(pcie_pmu->csr_base);
+		return PTR_ERR(pcie_pmu->cfg_base);
 	}
 
 	irqres = platform_get_resource(pdev, IORESOURCE_MEM, 2);
@@ -711,13 +764,19 @@ static int phytium_pcie_pmu_init_data(struct platform_device *pdev,
 		return PTR_ERR(pcie_pmu->irq_reg);
 	}
 
+	phytium_pcie_pmu_reset(pcie_pmu);
+
 	return 0;
 }
 
 static int phytium_pcie_pmu_dev_probe(struct platform_device *pdev,
-				      struct phytium_pcie_pmu *pcie_pmu)
+		struct phytium_pcie_pmu *pcie_pmu)
 {
 	int ret;
+
+	ret = phytium_pcie_pmu_version(pdev, pcie_pmu);
+	if (ret)
+		return ret;
 
 	ret = phytium_pcie_pmu_init_data(pdev, pcie_pmu);
 	if (ret)
@@ -756,8 +815,12 @@ static int phytium_pcie_pmu_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "phyt%u_pcie_pmu%u",
-			      pcie_pmu->die_id, pcie_pmu->pmu_id);
+	if (pcie_pmu->ver == PCIEV1P0)
+		name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "phyt%u_pcie_pmu%u",
+					pcie_pmu->die_id, pcie_pmu->pmu_id);
+	else
+		name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "phyt%u_pcie%u_pmu%u",
+					pcie_pmu->die_id, pcie_pmu->pcie_id, pcie_pmu->pmu_id);
 	pcie_pmu->pmu = (struct pmu){
 		.name = name,
 		.module = THIS_MODULE,
@@ -771,7 +834,6 @@ static int phytium_pcie_pmu_probe(struct platform_device *pdev)
 		.stop = phytium_pcie_pmu_event_stop,
 		.read = phytium_pcie_pmu_event_update,
 		.attr_groups = phytium_pcie_pmu_attr_groups,
-		.capabilities = PERF_PMU_CAP_NO_EXCLUDE,
 	};
 
 	ret = perf_pmu_register(&pcie_pmu->pmu, name, -1);
@@ -784,9 +846,12 @@ static int phytium_pcie_pmu_probe(struct platform_device *pdev)
 
 	phytium_pcie_pmu_enable_clk(pcie_pmu);
 
-	pr_info("Phytium PCIe PMU: ");
-	pr_info("die_id = %d pmu_id = %d.\n", pcie_pmu->die_id,
-		pcie_pmu->pmu_id);
+	if (pcie_pmu->ver == PCIEV1P0)
+		pr_info("die%d_pcie_pmu%d on cpu%d.\n",
+			pcie_pmu->die_id, pcie_pmu->pmu_id, pcie_pmu->on_cpu);
+	else
+		pr_info("die%d_pcie%d_pmu%d on cpu%d.\n",
+			pcie_pmu->die_id, pcie_pmu->pcie_id, pcie_pmu->pmu_id, pcie_pmu->on_cpu);
 
 	return ret;
 }
@@ -828,6 +893,7 @@ int phytium_pcie_pmu_online_cpu(unsigned int cpu, struct hlist_node *node)
 			pcie_pmu->on_cpu = cpu;
 			WARN_ON(irq_set_affinity_hint(pcie_pmu->irq, cpumask_of(cpu)));
 		}
+
 		return 0;
 	}
 
@@ -874,8 +940,8 @@ static int __init phytium_pcie_pmu_module_init(void)
 
 	phytium_pcie_pmu_hp_state =
 		cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN,
-					"perf/phytium/pciepmu:online",
-					phytium_pcie_pmu_online_cpu, phytium_pcie_pmu_offline_cpu);
+					"perf/phytium/pciepmu:online", phytium_pcie_pmu_online_cpu,
+					phytium_pcie_pmu_offline_cpu);
 	if (phytium_pcie_pmu_hp_state < 0) {
 		pr_err("PCIE PMU: setup hotplug, ret = %d\n",
 			phytium_pcie_pmu_hp_state);
@@ -902,3 +968,4 @@ MODULE_DESCRIPTION("Phytium PCIe PMU driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(PCIE_PERF_DRIVER_VERSION);
 MODULE_AUTHOR("Hu Xianghua <huxianghua@phytium.com.cn>");
+MODULE_AUTHOR("Tan Rui <tanrui2142@phytium.com.cn>");
