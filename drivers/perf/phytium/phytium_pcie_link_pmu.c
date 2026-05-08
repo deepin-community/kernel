@@ -571,18 +571,30 @@ static void phytium_pcie_link_pmu_disable_all_counters(struct phytium_pcie_link_
 	writel(0x0, pcie_link_pmu->base + REG_ENABLE_BUFFER);
 }
 
-static void phytium_pcie_link_pmu_start_all_counters(struct phytium_pcie_link_pmu *pcie_link_pmu)
+static void phytium_pcie_link_pmu_start_all_counters(struct perf_event *event)
 {
-	writel(0x1, pcie_link_pmu->base + REG_START_TYPE_CNT);
-	writel(0x1, pcie_link_pmu->base + REG_START_TLP_PERFORMANCE);
-	writel(0x1, pcie_link_pmu->base + REG_START_BUFFER);
+	struct phytium_pcie_link_pmu *pcie_link_pmu = to_phytium_pcie_link_pmu(event->pmu);
+	u32 idx = get_eventid(event);
+
+	if (idx >= TLP_TYPE_CLASSIFY_0 && idx <= TLP_TYPE_CLASSIFY_1)
+		writel(0x1, pcie_link_pmu->base + REG_START_TYPE_CNT);
+	else if (idx >= TLP_PERFORM_TYPE_1 && idx < BUFFER_USAGE_TYPE_0)
+		writel(0x1, pcie_link_pmu->base + REG_START_TLP_PERFORMANCE);
+	else if (idx >= BUFFER_USAGE_TYPE_0)
+		writel(0x1, pcie_link_pmu->base + REG_START_BUFFER);
 }
 
-static void phytium_pcie_link_pmu_stop_all_counters(struct phytium_pcie_link_pmu *pcie_link_pmu)
+static void phytium_pcie_link_pmu_stop_all_counters(struct perf_event *event)
 {
-	writel(0x0, pcie_link_pmu->base + REG_START_TYPE_CNT);
-	writel(0x0, pcie_link_pmu->base + REG_START_TLP_PERFORMANCE);
-	writel(0x0, pcie_link_pmu->base + REG_START_BUFFER);
+	struct phytium_pcie_link_pmu *pcie_link_pmu = to_phytium_pcie_link_pmu(event->pmu);
+	u32 idx = get_eventid(event);
+
+	if (idx >= TLP_TYPE_CLASSIFY_0 && idx <= TLP_TYPE_CLASSIFY_1)
+		writel(0x0, pcie_link_pmu->base + REG_START_TYPE_CNT);
+	else if (idx >= TLP_PERFORM_TYPE_1 && idx < BUFFER_USAGE_TYPE_0)
+		writel(0x0, pcie_link_pmu->base + REG_START_TLP_PERFORMANCE);
+	else if (idx >= BUFFER_USAGE_TYPE_0)
+		writel(0x0, pcie_link_pmu->base + REG_START_BUFFER);
 }
 
 static void phytium_pcie_link_pmu_set_timer(struct perf_event *event, u64 th_val)
@@ -606,7 +618,7 @@ static void phytium_pcie_link_pmu_set_timer(struct perf_event *event, u64 th_val
 	} else if (idx >= BUFFER_USAGE_TYPE_0) {
 		writel(0x1, pcie_link_pmu->base + REG_CONTROL_TIME_MODE_BUFFER);
 		writel(val_l, pcie_link_pmu->base + REG_TIMER_BUFFER_0);
-		writel(val_h, pcie_link_pmu->base + REG_TIMER_BUFFER_0);
+		writel(val_h, pcie_link_pmu->base + REG_TIMER_BUFFER_1);
 	}
 }
 
@@ -627,7 +639,7 @@ static void phytium_pcie_link_pmu_reset_timer(struct perf_event *event)
 	} else if (idx >= BUFFER_USAGE_TYPE_0) {
 		writel(0x0, pcie_link_pmu->base + REG_CONTROL_TIME_MODE_BUFFER);
 		writel(0xFFFFFFFF, pcie_link_pmu->base + REG_TIMER_BUFFER_0);
-		writel(0xFFFFFFFF, pcie_link_pmu->base + REG_TIMER_BUFFER_0);
+		writel(0xFFFFFFFF, pcie_link_pmu->base + REG_TIMER_BUFFER_1);
 	}
 }
 
@@ -688,6 +700,7 @@ static void phytium_pcie_link_pmu_set_reg_err_sig(struct phytium_pcie_link_pmu *
 	else
 		err_reg_mask &= err_id;
 	val |= err_reg_mask;
+
 	writel(val, pcie_link_pmu->base + REG_ERRO_SIG_SEL);
 }
 
@@ -768,6 +781,8 @@ int phytium_pcie_link_pmu_event_add(struct perf_event *event, int flags)
 
 	if (event_timer != 0 && time_mode != 0)
 		phytium_pcie_link_pmu_set_timer(event, event_timer);
+	else
+		phytium_pcie_link_pmu_start_all_counters(event);
 
 	hwc->state |= PERF_HES_STOPPED;
 
@@ -790,6 +805,8 @@ void phytium_pcie_link_pmu_event_del(struct perf_event *event, int flags)
 	phytium_pcie_link_pmu_event_stop(event, PERF_EF_UPDATE);
 	if (event_timer != 0)
 		phytium_pcie_link_pmu_reset_timer(event);
+	else
+		phytium_pcie_link_pmu_stop_all_counters(event);
 
 	phytium_pcie_link_pmu_unmark_event(pcie_link_pmu, hwc->idx);
 
@@ -808,7 +825,6 @@ void phytium_pcie_link_pmu_enable(struct pmu *pmu)
 	if (event_added) {
 		phytium_pcie_link_pmu_clear_all_counters(pcie_link_pmu);
 		phytium_pcie_link_pmu_enable_all_counters(pcie_link_pmu);
-		phytium_pcie_link_pmu_start_all_counters(pcie_link_pmu);
 	}
 }
 
@@ -821,8 +837,6 @@ void phytium_pcie_link_pmu_disable(struct pmu *pmu)
 					PHYTIUM_PCIE_LINK_MAX_COUNTERS);
 
 	if (event_added)
-		phytium_pcie_link_pmu_stop_all_counters(pcie_link_pmu);
-	else
 		phytium_pcie_link_pmu_disable_all_counters(pcie_link_pmu);
 }
 
@@ -862,11 +876,13 @@ static int phytium_pcie_link_pmu_init_data(struct platform_device *pdev,
 		dev_err(&pdev->dev, "Can not read phytium,die-id!\n");
 		return -EINVAL;
 	}
+
 	if (device_property_read_u32(&pdev->dev, "phytium,pcie-id",
 					&pcie_link_pmu->pcie_id)) {
 		dev_err(&pdev->dev, "Can not read phytium,pcie-id!\n");
 		return -EINVAL;
 	}
+
 	if (device_property_read_u32(&pdev->dev, "phytium,pmu-id",
 					&pcie_link_pmu->pmu_id)) {
 		dev_err(&pdev->dev, "Can not read pcie link pmu-id!\n");
