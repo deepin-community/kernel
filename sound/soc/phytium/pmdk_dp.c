@@ -67,7 +67,8 @@ static int pmdk_dp0_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(card->dev, "Jack creation failed %d\n", ret);
 		return ret;
 	}
-	snd_soc_component_set_jack(component, &priv->jack0, NULL);
+	ret = snd_soc_component_set_jack(component, &priv->jack0, NULL);
+
 	return ret;
 }
 
@@ -85,7 +86,8 @@ static int pmdk_dp1_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(card->dev, "Jack creation failed %d\n", ret);
 		return ret;
 	}
-	snd_soc_component_set_jack(component, &priv->jack1, NULL);
+	ret = snd_soc_component_set_jack(component, &priv->jack1, NULL);
+
 	return ret;
 }
 
@@ -103,7 +105,8 @@ static int pmdk_dp2_init(struct snd_soc_pcm_runtime *runtime)
 		dev_err(card->dev, "Jack creation failed %d\n", ret);
 		return ret;
 	}
-	snd_soc_component_set_jack(component, &priv->jack2, NULL);
+	ret = snd_soc_component_set_jack(component, &priv->jack2, NULL);
+
 	return ret;
 }
 
@@ -124,6 +127,7 @@ SND_SOC_DAILINK_DEFS(pmdk_dp2_dai,
 
 static struct snd_soc_dai_link pmdk_dai0 = {
 	.name = "Phytium dp0-audio",
+	.id = 0,
 	.stream_name = "Playback",
 	.dai_fmt = SMDK_DAI_FMT,
 	.init = pmdk_dp0_init,
@@ -133,6 +137,7 @@ static struct snd_soc_dai_link pmdk_dai0 = {
 
 static struct snd_soc_dai_link pmdk_dai1 = {
 	.name = "Phytium dp1-audio",
+	.id = 1,
 	.stream_name = "Playback",
 	.dai_fmt = SMDK_DAI_FMT,
 	.init = pmdk_dp1_init,
@@ -142,6 +147,7 @@ static struct snd_soc_dai_link pmdk_dai1 = {
 
 static struct snd_soc_dai_link pmdk_dai2 = {
 	.name = "Phytium dp2-audio",
+	.id = 2,
 	.stream_name = "Playback",
 	.dai_fmt = SMDK_DAI_FMT,
 	.init = pmdk_dp2_init,
