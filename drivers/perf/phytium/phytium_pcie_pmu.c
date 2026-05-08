@@ -33,7 +33,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_pcie_pmu: " fmt
 
-#define PCIE_PERF_DRIVER_VERSION "1.3.0"
+#define PCIE_PERF_DRIVER_VERSION "1.3.1"
 
 #define PHYTIUM_PCIE_MAX_COUNTERS 18
 
@@ -177,7 +177,7 @@ static const struct attribute_group phytium_pcie_pmu_format_group = {
 };
 
 static struct attribute *phytium_pcie_pmu_events_attr[] = {
-	PHYTIUM_PCIE_PMU_EVENT_ATTR(cycles, 0x00),
+	PHYTIUM_PCIE_PMU_EVENT_ATTR(pcie_cycles, 0x00),
 	PHYTIUM_PCIE_PMU_EVENT_ATTR(aw, 0x01),
 	PHYTIUM_PCIE_PMU_EVENT_ATTR(w_last, 0x02),
 	PHYTIUM_PCIE_PMU_EVENT_ATTR(b, 0x03),
