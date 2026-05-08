@@ -45,5 +45,13 @@ config PHYT_PCIE_LINK_PMU
 	  Provides support for Phytium SoC PCIe LINK performance
 	  monitoring unit (PMU).
 
+config PHYT_MSI_PMU
+	tristate "Phytium SoC MSI PMU driver"
+	depends on ARCH_PHYTIUM && ACPI
+	default m
+	help
+	  Provides support for Phytium SoC MSI performance
+	  monitoring unit (PMU).
+
 endif
 
