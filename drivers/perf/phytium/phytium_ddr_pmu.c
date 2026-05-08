@@ -31,8 +31,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "phytium_ddr_pmu: " fmt
 #define PHYTIUM_DDR_MAX_COUNTERS 8
-
-#define DDR_PERF_DRIVER_VERSION "1.3.0"
+#define DDR_PERF_DRIVER_VERSION "1.3.1"
 
 #define DDR_START_TIMER		0x000
 #define DDR_STOP_TIMER		0x004
@@ -151,7 +150,7 @@ static const struct attribute_group phytium_ddr_pmu_format_group = {
 };
 
 static struct attribute *phytium_ddr_pmu_events_attr[] = {
-	PHYTIUM_DDR_PMU_EVENT_ATTR(cycles, 0x00),
+	PHYTIUM_DDR_PMU_EVENT_ATTR(ddr_cycles, 0x00),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(rxreq, 0x01),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(rxdat, 0x02),
 	PHYTIUM_DDR_PMU_EVENT_ATTR(txdat, 0x03),
