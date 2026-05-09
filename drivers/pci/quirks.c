@@ -5391,11 +5391,9 @@ static const struct pci_dev_acs_enabled {
 	{ PCI_VENDOR_ID_MUCSE, 0x1061, pci_quirk_mf_endpoint_acs },
 	{ PCI_VENDOR_ID_MUCSE, 0x1c61, pci_quirk_mf_endpoint_acs },
 	/* Phytium Technology */
-#ifdef CONFIG_ARCH_PHYTIUM
-	{ PCI_VENDOR_ID_PLX, PCI_ANY_ID, pci_quirk_xgene_acs },
-	{ PCI_VENDOR_ID_CDNS, PCI_ANY_ID, pci_quirk_xgene_acs },
-#endif /* CONFIG_ARCH_PHYTIUM */
-	{ PCI_VENDOR_ID_PHYTIUM, PCI_ANY_ID, pci_quirk_xgene_acs },
+	{ 0x10b5, PCI_ANY_ID, pci_quirk_xgene_acs },
+	{ 0x17cd, PCI_ANY_ID, pci_quirk_xgene_acs },
+	{ 0x1db7, PCI_ANY_ID, pci_quirk_xgene_acs },
 	{ 0 }
 };
 
