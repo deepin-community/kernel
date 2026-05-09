@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/ptp_clock_kernel.h>
 #include <linux/acpi.h>
+#include <linux/arm-smccc.h>
 #include "phytmac.h"
 #include "phytmac_v1.h"
 
@@ -505,14 +506,6 @@ static int phytmac_powerup_hw(struct phytmac *pdata, int on)
 {
 	u32 status, data0, data1, rdata1;
 	int ret;
-	acpi_handle handle;
-	union acpi_object args[3];
-	struct acpi_object_list arg_list = {
-		.pointer = args,
-		.count = ARRAY_SIZE(args),
-	};
-	acpi_status acpi_sts;
-	unsigned long long rv;
 
 	if (!(pdata->capacities & PHYTMAC_CAPS_PWCTRL)) {
 		pdata->power_state = on;
@@ -520,6 +513,16 @@ static int phytmac_powerup_hw(struct phytmac *pdata, int on)
 	}
 
 	if (has_acpi_companion(pdata->dev)) {
+#ifdef CONFIG_ACPI
+		acpi_handle handle;
+		union acpi_object args[3];
+		struct acpi_object_list arg_list = {
+			.pointer = args,
+			.count = ARRAY_SIZE(args),
+		};
+		acpi_status acpi_sts;
+		unsigned long long rv;
+
 		handle = ACPI_HANDLE(pdata->dev);
 
 		netdev_info(pdata->ndev, "set gmac power %s\n",
@@ -544,6 +547,7 @@ static int phytmac_powerup_hw(struct phytmac *pdata, int on)
 			if (rv)
 				netdev_err(pdata->ndev, "Failed to power off\n");
 		}
+#endif
 	} else {
 		ret = readx_poll_timeout(PHYTMAC_READ_STAT, pdata, status, !status,
 					 1, PHYTMAC_TIMEOUT);
