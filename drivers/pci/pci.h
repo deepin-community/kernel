@@ -914,4 +914,46 @@ static inline void phytium_clear_ctrl_prot(struct pci_dev *pdev, int op)
 }
 #endif
 
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <linux/arm-smccc.h>
+
+#define PHYTIUM_PCIE_HOTRESET 0
+#define PHYTIUM_PCIE_HOTPLUG 1
+#define PHYTIUM_PCI_VENDOR_ID	0x1DB7
+#define PHYTIUM_PCI_CTRL_ID	0x0100
+#define PHYTIUM_PCIE_CLEAR_CTRL_PROT_SMC_FUNC_ID	0xC2000020
+
+static inline void phytium_clear_ctrl_prot(struct pci_dev *pdev, int op)
+{
+	int socket;
+	u8 bus = pdev->bus->number;
+	u8 device = PCI_SLOT(pdev->devfn);
+	u8 function = PCI_FUNC(pdev->devfn);
+	u16 vendor_id = pdev->vendor;
+	u16 device_id = pdev->device;
+	struct arm_smccc_res res;
+	u32 arg;
+
+	if (vendor_id != PHYTIUM_PCI_VENDOR_ID ||
+		device_id != PHYTIUM_PCI_CTRL_ID ||
+		pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT)
+		return;
+
+	socket = dev_to_node(&pdev->dev);
+	if (socket < 0) {
+		pci_err(pdev, "Cannot find socket, stop clean pcie protection\n");
+		return;
+	}
+
+	arg = (socket << 16) | (bus << 8) | (device << 3) | function;
+	arm_smccc_smc(PHYTIUM_PCIE_CLEAR_CTRL_PROT_SMC_FUNC_ID, arg, op, 0, 0, 0, 0, 0, &res);
+	if (res.a0 != 0)
+		pci_err(pdev, "Error: Firmware call PCIE protection clear Failed: %d, sbdf: 0x%x\n",
+				(int)res.a0, arg);
+	else
+		pci_info(pdev, "%s : Clear pcie protection successfully\n",
+				op ? "HotPlug" : "HotReset");
+}
+#endif
+
 #endif /* DRIVERS_PCI_H */
