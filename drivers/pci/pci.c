@@ -48,6 +48,9 @@ EXPORT_SYMBOL_GPL(pci_power_names);
 int isa_dma_bridge_buggy;
 EXPORT_SYMBOL(isa_dma_bridge_buggy);
 #endif
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
 
 int pci_pci_problems;
 EXPORT_SYMBOL(pci_pci_problems);
@@ -5358,6 +5361,17 @@ void __weak pcibios_reset_secondary_bus(struct pci_dev *dev)
  */
 int pci_bridge_secondary_bus_reset(struct pci_dev *dev)
 {
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (is_pd2308()) {
+		int ret = 0;
+
+		pci_save_state(dev);
+		pcibios_reset_secondary_bus(dev);
+		ret = pci_bridge_wait_for_secondary_bus(dev, "bus reset");
+		pci_restore_state(dev);
+		return ret;
+	}
+#endif
 	pcibios_reset_secondary_bus(dev);
 
 	return pci_bridge_wait_for_secondary_bus(dev, "bus reset");
