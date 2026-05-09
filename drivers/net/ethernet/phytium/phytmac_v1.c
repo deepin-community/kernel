@@ -178,20 +178,6 @@ static int phytmac_pcs_software_reset(struct phytmac *pdata, int reset)
 	return 0;
 }
 
-static int phytmac_pcs_software_reset(struct phytmac *pdata, int reset)
-{
-	u32 value = PHYTMAC_READ(pdata, PHYTMAC_PCSCTRL);
-
-	if (reset)
-		value |= PHYTMAC_BIT(PCS_RESET);
-	else
-		value &= ~PHYTMAC_BIT(PCS_RESET);
-
-	PHYTMAC_WRITE(pdata, PHYTMAC_PCSCTRL, value);
-
-	return 0;
-}
-
 static void phytmac_phy_speed_switch(struct phytmac *pdata, int speed)
 {
 	struct arm_smccc_res res;

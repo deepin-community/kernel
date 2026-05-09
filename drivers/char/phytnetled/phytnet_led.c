@@ -137,7 +137,7 @@ of_ndev_init(struct led_data *phytnet_led)
 	return 0;
 }
 
-
+#ifdef CONFIG_ACPI
 static int
 acpi_ndev_init(struct led_data *phytnet_led)
 {
@@ -188,6 +188,7 @@ acpi_ndev_init(struct led_data *phytnet_led)
 
 	return 0;
 }
+#endif
 
 static int
 gpio_init(struct led_data *phytnet_led)
@@ -235,10 +236,13 @@ led_init_and_control(struct work_struct *work)
 	int err = -1;
 	struct led_data *phytnet_led = container_of(work, struct led_data, led_control_work.work);
 
-	if (phytnet_led->pdev->dev.of_node)
+	if (phytnet_led->pdev->dev.of_node) {
 		err = of_ndev_init(phytnet_led);
-	else if (has_acpi_companion(&phytnet_led->pdev->dev))
+	} else if (has_acpi_companion(&phytnet_led->pdev->dev)) {
+#ifdef CONFIG_ACPI
 		err = acpi_ndev_init(phytnet_led);
+#endif
+	}
 
 	if (err) {
 		dev_err(&phytnet_led->pdev->dev, "ndev init wrong\n");
