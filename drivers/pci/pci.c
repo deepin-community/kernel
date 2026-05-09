@@ -5352,6 +5352,55 @@ void __weak pcibios_reset_secondary_bus(struct pci_dev *dev)
 	pci_reset_secondary_bus(dev);
 }
 
+#ifdef CONFIG_ARCH_PHYTIUM
+/**
+ * phytium_pci_bridge_secondary_bus_reset - Reset the secondary bus
+ * on Phytium bridges.
+ * @dev: Bridge device
+ *
+ * Workaround: Perform a PCIe secondary-bus reset again when
+ * the link is degraded on the Phytium platform.
+ */
+static int phytium_pci_bridge_secondary_bus_reset(struct pci_dev *dev)
+{
+	u16 lnksta, reset_cnt = 0;
+	u16 cur_speed, cur_width;
+	u16 next_speed, next_width;
+	int ret;
+
+	pcie_capability_read_word(dev, PCI_EXP_LNKSTA, &lnksta);
+	cur_speed = lnksta & PCI_EXP_LNKSTA_CLS;
+	cur_width = (lnksta & PCI_EXP_LNKSTA_NLW) >>
+		     PCI_EXP_LNKSTA_NLW_SHIFT;
+
+retry:
+	reset_cnt++;
+	pcibios_reset_secondary_bus(dev);
+	ret = pci_bridge_wait_for_secondary_bus(dev, "bus reset");
+
+	pcie_capability_read_word(dev, PCI_EXP_LNKSTA, &lnksta);
+	next_speed = lnksta & PCI_EXP_LNKSTA_CLS;
+	next_width = (lnksta & PCI_EXP_LNKSTA_NLW) >>
+		      PCI_EXP_LNKSTA_NLW_SHIFT;
+
+	/* if link degraded, allow one more retry */
+	if ((next_speed < cur_speed) || (next_width < cur_width)) {
+		if (reset_cnt >= 2) {
+			pci_err(dev, "phytium: link degraded - pre Gen%u/x%u post Gen%u/x%u\n",
+				cur_speed, cur_width, next_speed, next_width);
+			goto out;
+		}
+
+		pci_info(dev, "phytium: link degraded - pre Gen%u/x%u post Gen%u/x%u, reset again\n",
+			 cur_speed, cur_width, next_speed, next_width);
+		goto retry;
+	}
+
+out:
+	return ret;
+}
+#endif
+
 /**
  * pci_bridge_secondary_bus_reset - Reset the secondary bus on a PCI bridge.
  * @dev: Bridge device
@@ -5370,6 +5419,8 @@ int pci_bridge_secondary_bus_reset(struct pci_dev *dev)
 		ret = pci_bridge_wait_for_secondary_bus(dev, "bus reset");
 		pci_restore_state(dev);
 		return ret;
+	} else if (is_ps24080()) {
+		return phytium_pci_bridge_secondary_bus_reset(dev);
 	}
 #endif
 	pcibios_reset_secondary_bus(dev);
