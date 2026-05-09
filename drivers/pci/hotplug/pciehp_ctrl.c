@@ -287,7 +287,7 @@ void pciehp_handle_presence_or_link_change(struct controller *ctrl, u32 events)
 				  slot_name(ctrl));
 #ifdef CONFIG_ARCH_PHYTIUM
 		if (present && link_active)
-			phytium_clear_ctrl_prot(ctrl->pcie->port, PHYTIUM_PCIE_HOTPLUG);
+			phytium_pcie_ctrl_smc_op(ctrl->pcie->port, PHYTIUM_PCIE_HOTPLUG);
 #endif
 		ctrl->request_result = pciehp_enable_slot(ctrl);
 		break;
