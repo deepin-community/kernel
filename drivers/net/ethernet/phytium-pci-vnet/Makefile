@@ -4,3 +4,4 @@
 # Makefile for the Phytium PCI virtual network device drivers.
 
 obj-$(CONFIG_PHYTIUM_PCI_EPF_VNET) += pci-ep-net/
+obj-$(CONFIG_PHYTIUM_PCI_RC_VNET) += pci-rc-net/

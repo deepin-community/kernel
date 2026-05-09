@@ -5,7 +5,7 @@
 
 menu "Phytium PCI Virtual Ethernet Drivers"
 config VNET_VENDOR_PHYTIUM
-	bool "Phytium devices"
+	bool "Phytium Virtual Ethernet devices"
 	depends on ARCH_PHYTIUM
 	depends on HAS_IOMEM
 	default y
@@ -20,6 +20,7 @@ config VNET_VENDOR_PHYTIUM
 if VNET_VENDOR_PHYTIUM
 
 source "drivers/net/ethernet/phytium-pci-vnet/pci-ep-net/Kconfig"
+source "drivers/net/ethernet/phytium-pci-vnet/pci-rc-net/Kconfig"
 
 endif #VNET_VENDOR_PHYTIUM
 endmenu
