@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Phytium PCI EP virtual network device configuration
+#
+
+config PHYTIUM_PCI_EPF_VNET
+	tristate "Phytium PCI Endpoint Virtual Ethernet Device"
+	depends on PCI_ENDPOINT
+	depends on PCIE_PHYTIUM_EP
+	help
+	  This option enables support for the Phytium PCI Endpoint Virtual Ethernet function
+	  driver. It allows the device to appear as a network interface to a PCIe root complex.
+
+	  Typically used in conjunction with a Phytium PCIe Root Complex host that supports
+	  the corresponding RC virtual network function.
+
+	  If you want this endpoint to provide virtual networking over PCIe, say Y or M.
+
+	  If unsure, say N.
