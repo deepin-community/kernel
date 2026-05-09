@@ -5343,7 +5343,7 @@ void pci_reset_secondary_bus(struct pci_dev *dev)
 	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, ctrl);
 
 #ifdef CONFIG_ARCH_PHYTIUM
-	phytium_clear_ctrl_prot(dev, PHYTIUM_PCIE_HOTRESET);
+	phytium_pcie_ctrl_smc_op(dev, PHYTIUM_PCIE_HOTRESET);
 #endif
 }
 
