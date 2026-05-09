@@ -19,17 +19,23 @@
 #include "pcie-phytium-ep.h"
 #include "pcie-phytium-register.h"
 
-#define PHYTIUM_PCIE_RP_DRIVER_VERSION		"1.1.1"
+#define PHYTIUM_PCIE_EP_DRIVER_VERSION		"1.1.1"
 
 #define PHYTIUM_PCIE_EP_IRQ_PCI_ADDR_NONE	0x0
 #define PHYTIUM_PCIE_EP_IRQ_PCI_ADDR_LEGACY	0x1
+
+#define PHYTIUM_PCIE_EP_ADDR_LO_MASK		0xffffffff
+#define PHYTIUM_PCIE_EP_DMA_CONTROL_VALUE	0x18017e1
+#define PHYTIUM_PCIE_EP_PCIE_INTERFACE_ID	0x0
+#define PHYTIUM_PCIE_EP_AXI_MASTER_INTERFACE_ID	0x4
+#define PHYTIUM_PCIE_EP_DMA_SHARE_ACCESS	0x3
 
 static int phytium_pcie_ep_write_header(struct pci_epc *epc, unsigned char fn, u8 vfn,
 					struct pci_epf_header *hdr)
 {
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
 	u16 tmp = 0;
-
+	fn++;
 	phytium_pcie_writew(priv, fn, PHYTIUM_PCI_VENDOR_ID, hdr->vendorid);
 	phytium_pcie_writew(priv, fn, PHYTIUM_PCI_DEVICE_ID, hdr->deviceid);
 	phytium_pcie_writeb(priv, fn, PHYTIUM_PCI_REVISION_ID, hdr->revid);
@@ -53,71 +59,75 @@ static int phytium_pcie_ep_write_header(struct pci_epc *epc, unsigned char fn, u
 }
 
 static int phytium_pcie_ep_set_bar(struct pci_epc *epc, u8 fn, u8 vfn,
-					    struct pci_epf_bar *epf_bar)
+				   struct pci_epf_bar *epf_bar)
 {
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
-	u64 sz = 0, sz_mask, atr_size;
+	u64 base, sz_mask, atr_size, sz = 0;
 	int flags = epf_bar->flags;
-	u32 setting, src_addr0, src_addr1, trsl_addr0, trsl_addr1, trsl_param;
 	enum pci_barno barno = epf_bar->barno;
 	struct pci_epc_mem *mem = epc->mem;
+	u32 setting, src_addr0, trsl_param;
 
+	fn++;
 	if ((flags & PCI_BASE_ADDRESS_MEM_TYPE_64) && (barno & 1)) {
 		dev_err(&epc->dev, "bar %d do not support mem64\n", barno);
 		return -EINVAL;
 	}
 
-	if (barno & 1) {
-		dev_err(&epc->dev, "not support bar 1/3/5\n");
-		return -EINVAL;
-	}
-	dev_dbg(epc->dev.parent, "set bar%d mapping address 0x%pa size 0x%lx\n",
+	if (barno == 0 || barno == 3 || barno == 5)
+		return 0;
+
+	dev_dbg(&epc->dev, "set bar%d mapping address 0x%pa size 0x%zx\n",
 		barno, &(epf_bar->phys_addr), epf_bar->size);
 
 	if ((flags & PCI_BASE_ADDRESS_SPACE) == PCI_BASE_ADDRESS_SPACE_IO) {
 		setting = BAR_IO_TYPE;
-		sz = max_t(size_t, epf_bar->size, BAR_IO_MIN_APERTURE);
-		sz = 1 << fls64(sz - 1);
-		sz_mask = ~(sz - 1);
+		sz_mask = ~(epf_bar->size / 2 - 1);
 		setting |= sz_mask;
 		trsl_param = TRSL_ID_IO;
 	} else {
 		setting = BAR_MEM_TYPE;
-		sz = max_t(size_t, epf_bar->size, BAR_MEM_MIN_APERTURE);
-		sz = 1 << fls64(sz - 1);
-		sz_mask = ~(sz - 1);
-		setting |= lower_32_bits(sz_mask);
 
 		if (flags & PCI_BASE_ADDRESS_MEM_TYPE_64)
 			setting |= BAR_MEM_64BIT;
 
 		if (flags & PCI_BASE_ADDRESS_MEM_PREFETCH)
 			setting |= BAR_MEM_PREFETCHABLE;
-
+		sz_mask = ~(epf_bar->size / 2 - 1);
+		setting |= lower_32_bits(sz_mask);
 		trsl_param = TRSL_ID_MASTER;
 	}
 
-	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR(barno), setting);
-	if (flags & PCI_BASE_ADDRESS_MEM_TYPE_64)
-		phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR(barno + 1),
-				    upper_32_bits(sz_mask));
-	dev_dbg(epc->dev.parent, "set bar%d mapping address 0x%pa size 0x%llx 0x%x\n",
-		barno, &(epf_bar->phys_addr), sz, lower_32_bits(epf_bar->phys_addr));
+	sz = max_t(size_t, epf_bar->size / 2, BAR_MEM_MIN_APERTURE);
+	sz = 1 << fls64(sz - 1);
 	sz = ALIGN(sz, mem->window.page_size);
 	atr_size = fls64(sz - 1) - 1;
+
+	base = 0xE00 + fn * 0x40 + (barno - 1) * 0x8;
+	phytium_hpb_writel(priv, base, upper_32_bits(epf_bar->phys_addr));
+	phytium_hpb_writel(priv, (base + 0x4), (lower_32_bits(epf_bar->phys_addr) |  (atr_size)));
+
+	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR(barno), setting);
+	if (flags & PCI_BASE_ADDRESS_MEM_TYPE_64)
+		phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR((barno + 1)),
+				    upper_32_bits(sz_mask));
+
+	if (barno == 2) {
+		phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR((barno + 1)), 0);
+		return 0;
+	}
 	src_addr0 = ATR_IMPL | ((atr_size & ATR_SIZE_MASK) << ATR_SIZE_SHIFT);
-	src_addr1 = 0;
-	trsl_addr0 = (lower_32_bits(epf_bar->phys_addr) & TRSL_ADDR_32_12_MASK);
-	trsl_addr1 = upper_32_bits(epf_bar->phys_addr);
 
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_WIN0_SRC_ADDR0(barno),
 			    src_addr0);
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_WIN0_SRC_ADDR1(barno),
-			    src_addr1);
+			    0x0);
+
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_WIN0_TRSL_ADDR0(barno),
-			    trsl_addr0);
+			    (barno == 1) ? lower_32_bits(epf_bar->phys_addr) : 0);
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_WIN0_TRSL_ADDR1(barno),
-			    trsl_addr1);
+			    (barno == 1) ? upper_32_bits(epf_bar->phys_addr) : barno << 10);
+
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_WIN0_TRSL_PARAM(barno),
 			    trsl_param);
 
@@ -130,7 +140,7 @@ static void phytium_pcie_ep_clear_bar(struct pci_epc *epc, u8 fn, u8 vfn,
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
 	int flags = epf_bar->flags;
 	enum pci_barno barno = epf_bar->barno;
-
+	fn++;
 	phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR(barno), 0);
 	if (flags & PCI_BASE_ADDRESS_MEM_TYPE_64)
 		phytium_pcie_writel(priv, fn, PHYTIUM_PCI_BAR(barno + 1), 0);
@@ -151,7 +161,7 @@ static int phytium_pcie_ep_map_addr(struct pci_epc *epc, u8 fn, u8 vfn,
 	u64 sz = 0;
 	u32 r;
 	struct pci_epc_mem *mem = epc->mem;
-
+	fn++;
 	r = find_first_zero_bit(&priv->ob_region_map,
 				sizeof(priv->ob_region_map) * BITS_PER_LONG);
 	if (r >= priv->max_regions) {
@@ -192,7 +202,7 @@ static void phytium_pcie_ep_unmap_addr(struct pci_epc *epc, u8 fn, u8 vfn,
 {
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
 	u32 r;
-
+	fn++;
 	for (r = 0; r < priv->max_regions; r++)
 		if (priv->ob_addr[r] == addr)
 			break;
@@ -216,7 +226,7 @@ static int phytium_pcie_ep_set_msi(struct pci_epc *epc, u8 fn, u8 vfn, u8 mmc)
 {
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
 	u16 flags = 0;
-
+	fn++;
 	flags = (mmc & MSI_NUM_MASK) << MSI_NUM_SHIFT;
 	flags &= ~MSI_MASK_SUPPORT;
 	phytium_pcie_writew(priv, fn, PHYTIUM_PCI_INTERRUPT_PIN, flags);
@@ -229,7 +239,7 @@ static int phytium_pcie_ep_get_msi(struct pci_epc *epc, u8 fn, u8 vfn)
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
 	u16 flags, mme;
 	u32 cap = PHYTIUM_PCI_CF_MSI_BASE;
-
+	fn++;
 	flags = phytium_pcie_readw(priv, fn, cap + PCI_MSI_FLAGS);
 	if (!(flags & PCI_MSI_FLAGS_ENABLE))
 		return -EINVAL;
@@ -247,7 +257,7 @@ static int phytium_pcie_ep_send_msi_irq(struct phytium_pcie_ep *priv, u8 fn,
 	u8 msi_count;
 	u64 pci_addr, pci_addr_mask = IRQ_MAPPING_SIZE - 1;
 	u32 src_addr0, src_addr1, trsl_addr0, trsl_addr1, trsl_param, atr_size;
-
+	fn++;
 	flags = phytium_pcie_readw(priv, fn, cap + PCI_MSI_FLAGS);
 	if (!(flags & PCI_MSI_FLAGS_ENABLE))
 		return -EINVAL;
@@ -302,7 +312,7 @@ static int phytium_pcie_ep_raise_irq(struct pci_epc *epc, u8 fn, u8 vfn,
 				     u16 interrupt_num)
 {
 	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
-
+	fn++;
 	switch (type) {
 	case PCI_EPC_IRQ_MSI:
 		return phytium_pcie_ep_send_msi_irq(priv, fn, interrupt_num);
@@ -326,6 +336,68 @@ static int phytium_pcie_ep_start(struct pci_epc *epc)
 	return 0;
 }
 
+static int phytium_pcie_ep_start_dma(struct pci_epc *epc, u8 func_no, u64 cpu_addr, u64 pci_addr,
+				     size_t size, u8 mode)
+{
+	u32 value;
+	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
+
+	func_no++;
+	dev_dbg(&epc->dev, "%s func_no %d cpu_addr %llu pci_addr %llu size %zu mode %d\n",
+		__func__, func_no, cpu_addr, pci_addr, size, mode);
+
+	u64 base = 0xE00 + func_no * 0x40;
+
+	phytium_hpb_writel(priv, base, upper_32_bits(cpu_addr));
+	phytium_hpb_writel(priv, (base + 0x4),
+			   (lower_32_bits(cpu_addr) & (~0x3f)) | (fls64(size - 1)));
+	cpu_addr = 0x40000000000 | (cpu_addr & 0x3f);
+
+	phytium_pcie_writel(priv, func_no, DMA_SHARE_ACCESS(mode),
+			    PHYTIUM_PCIE_EP_DMA_SHARE_ACCESS);
+	if (mode == DMA_READ_ENGINE) {
+		phytium_pcie_writel(priv, func_no, DMA_SRCPARAM(mode),
+				    PHYTIUM_PCIE_EP_PCIE_INTERFACE_ID);
+		phytium_pcie_writel(priv, func_no, DMA_DSTPARAM(mode),
+				    PHYTIUM_PCIE_EP_AXI_MASTER_INTERFACE_ID);
+		value = pci_addr & PHYTIUM_PCIE_EP_ADDR_LO_MASK;
+		phytium_pcie_writel(priv, func_no, DMA_SRCADDR_LO(mode), value);
+		value = (pci_addr >> 32);
+		phytium_pcie_writel(priv, func_no, DMA_SRCADDR_UP(mode), value);
+
+		value = cpu_addr & PHYTIUM_PCIE_EP_ADDR_LO_MASK;
+		phytium_pcie_writel(priv, func_no, DMA_DESTADDR_LO(mode), value);
+		value = ((cpu_addr >> 32) | 0x400);
+		phytium_pcie_writel(priv, func_no, DMA_DESTADDR_UP(mode), value);
+	} else {
+		phytium_pcie_writel(priv, func_no, DMA_SRCPARAM(mode),
+				    PHYTIUM_PCIE_EP_AXI_MASTER_INTERFACE_ID);
+		phytium_pcie_writel(priv, func_no, DMA_DSTPARAM(mode),
+				    PHYTIUM_PCIE_EP_PCIE_INTERFACE_ID);
+		value = cpu_addr & PHYTIUM_PCIE_EP_ADDR_LO_MASK;
+		phytium_pcie_writel(priv, func_no, DMA_SRCADDR_LO(mode), value);
+		value = ((cpu_addr >> 32) | 0x400);
+		phytium_pcie_writel(priv, func_no, DMA_SRCADDR_UP(mode), value);
+
+		value = pci_addr & PHYTIUM_PCIE_EP_ADDR_LO_MASK;
+		phytium_pcie_writel(priv, func_no, DMA_DESTADDR_LO(mode), value);
+		value = (pci_addr >> 32);
+		phytium_pcie_writel(priv, func_no, DMA_DESTADDR_UP(mode), value);
+	}
+	phytium_pcie_writel(priv, func_no, DMA_LENGTH(mode), size);
+	phytium_pcie_writel(priv, func_no, DMA_CONTROL(mode), PHYTIUM_PCIE_EP_DMA_CONTROL_VALUE);
+
+	return 0;
+}
+
+static int phytium_pcie_ep_dma_status(struct pci_epc *epc, u8 func_no, u8 mode)
+{
+	struct phytium_pcie_ep *priv = epc_get_drvdata(epc);
+
+	func_no++;
+	return phytium_pcie_readl(priv, func_no, DMA_STATUS(mode));
+}
+
 static const struct pci_epc_ops phytium_pcie_epc_ops = {
 	.write_header	= phytium_pcie_ep_write_header,
 	.set_bar	= phytium_pcie_ep_set_bar,
@@ -336,9 +408,9 @@ static const struct pci_epc_ops phytium_pcie_epc_ops = {
 	.get_msi	= phytium_pcie_ep_get_msi,
 	.raise_irq	= phytium_pcie_ep_raise_irq,
 	.start		= phytium_pcie_ep_start,
+	.start_dma	= phytium_pcie_ep_start_dma,
+	.dma_status	= phytium_pcie_ep_dma_status,
 };
-
-
 
 static int phytium_pcie_ep_probe(struct platform_device *pdev)
 {
@@ -348,10 +420,32 @@ static int phytium_pcie_ep_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	struct pci_epc *epc;
 	int ret = 0, value;
+	const char *compatible;
+	u32 hpb_c0_pref_base_limit;
+	u32 hpb_c0_pref_base_limit_up32;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	compatible = of_get_property(np, "compatible", NULL);
+	if (!compatible) {
+		dev_err(dev, "Compatible property not found\n");
+		return -EINVAL;
+	}
+
+	if (strcmp(compatible, "phytium,pd2008-pcie-ep") == 0) {
+		hpb_c0_pref_base_limit = PHYTIUM_PD2008_HPB_C0_PREF_BASE_LIMIT;
+		hpb_c0_pref_base_limit_up32 =
+			PHYTIUM_PD2008_HPB_C0_PREF_BASE_LIMIT_UP32;
+	} else if (strcmp(compatible, "phytium,pe2201-pcie-ep") == 0) {
+		hpb_c0_pref_base_limit = PHYTIUM_PE2201_HPB_C0_PREF_BASE_LIMIT;
+		hpb_c0_pref_base_limit_up32 =
+			PHYTIUM_PE2201_HPB_C0_PREF_BASE_LIMIT_UP32;
+	} else {
+		dev_err(dev, "Unsupported chip model\n");
+		return -ENODEV;
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "reg");
 	priv->reg_base = devm_ioremap_resource(dev, res);
@@ -397,6 +491,8 @@ static int phytium_pcie_ep_probe(struct platform_device *pdev)
 	priv->epc = epc;
 	epc_set_drvdata(epc, priv);
 
+	priv->pdev = pdev;
+
 	if (of_property_read_u8(np, "max-functions", &epc->max_functions) < 0)
 		epc->max_functions = 1;
 	dev_info(dev, "%s epc->max_functions %d\n", __func__, epc->max_functions);
@@ -424,13 +520,13 @@ static int phytium_pcie_ep_probe(struct platform_device *pdev)
 		& C0_PREF_BASE_MASK) << C0_PREF_BASE_SHIFT;
 	value |= (((lower_32_bits(priv->mem_res->end) >> C0_PREF_VALUE_SHIFT)
 		& C0_PREF_LIMIT_MASK) << C0_PREF_LIMIT_SHIFT);
-	phytium_hpb_writel(priv, PHYTIUM_HPB_C0_PREF_BASE_LIMIT, value);
+	phytium_hpb_writel(priv, hpb_c0_pref_base_limit, value);
 
 	value = ((upper_32_bits(priv->mem_res->start) >> C0_PREF_UP32_VALUE_SHIFT)
 		& C0_PREF_BASE_UP32_MASK) << C0_PREF_BASE_UP32_SHIFT;
 	value |= (((upper_32_bits(priv->mem_res->end) >> C0_PREF_UP32_VALUE_SHIFT)
 		 & C0_PREF_LIMIT_UP32_MASK) << C0_PREF_LIMIT_UP32_SHIFT);
-	phytium_hpb_writel(priv, PHYTIUM_HPB_C0_PREF_BASE_LIMIT_UP32, value);
+	phytium_hpb_writel(priv, hpb_c0_pref_base_limit_up32, value);
 
 	dev_dbg(dev, "exit %s successful\n", __func__);
 	return 0;
@@ -453,6 +549,7 @@ static int phytium_pcie_ep_remove(struct platform_device *pdev)
 
 static const struct of_device_id phytium_pcie_ep_of_match[] = {
 	{ .compatible = "phytium,pd2008-pcie-ep" },
+	{ .compatible = "phytium,pe2201-pcie-ep" },
 	{ },
 };
 
@@ -468,6 +565,6 @@ MODULE_DEVICE_TABLE(of, phytium_pcie_ep_of_match);
 module_platform_driver(phytium_pcie_ep_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_VERSION(PHYTIUM_PCIE_RP_DRIVER_VERSION);
+MODULE_VERSION(PHYTIUM_PCIE_EP_DRIVER_VERSION);
 MODULE_AUTHOR("Yang Xun <yangxun@phytium.com.cn>");
 MODULE_DESCRIPTION("Phytium PCIe Controller Endpoint driver");

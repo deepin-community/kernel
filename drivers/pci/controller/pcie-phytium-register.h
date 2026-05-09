@@ -63,18 +63,36 @@
 #define	PHYTIUM_PCI_CF_MSI_BASE			0x10e0
 #define	PHYTIUM_PCI_CF_MSI_CONTROL		0x10e2
 
-#define	PHYTIUM_HPB_C0_PREF_BASE_LIMIT	0xa30
+#define PHYTIUM_PD2008_HPB_C0_PREF_BASE_LIMIT		0xa30
+#define PHYTIUM_PE2201_HPB_C0_PREF_BASE_LIMIT		0xa40
 #define C0_PREF_LIMIT_MASK		0xfff
 #define C0_PREF_LIMIT_SHIFT		20
 #define C0_PREF_BASE_MASK		0xfff
 #define C0_PREF_BASE_SHIFT		4
 #define C0_PREF_VALUE_SHIFT		20
 #define	PHYTIUM_HPB_C0_PREF_BASE_LIMIT_UP32	0xa34
+#define PHYTIUM_PD2008_HPB_C0_PREF_BASE_LIMIT_UP32	0xa34
+#define PHYTIUM_PE2201_HPB_C0_PREF_BASE_LIMIT_UP32	0xa44
 #define C0_PREF_LIMIT_UP32_MASK	0xff
 #define C0_PREF_LIMIT_UP32_SHIFT	8
 #define C0_PREF_BASE_UP32_MASK	0xff
 #define C0_PREF_BASE_UP32_SHIFT	0
 #define C0_PREF_UP32_VALUE_SHIFT	0
 #endif
+
+#define DMA_READ_ENGINE                 0
+#define DMA_WRITE_ENGINE                1
+#define DMA_ENGINE0_BASE		0x400
+
+#define DMA_SHARE_ACCESS(engnum)  (DMA_ENGINE0_BASE + 0x40 * engnum + 0x28)  // 0x468
+#define DMA_SRCPARAM(engnum)      (DMA_ENGINE0_BASE + 0x40 * engnum + 0x0)   // 0x440
+#define DMA_DSTPARAM(engnum)      (DMA_ENGINE0_BASE + 0x40 * engnum + 0x4)   // 0x444
+#define DMA_SRCADDR_LO(engnum)    (DMA_ENGINE0_BASE + 0x40 * engnum + 0x8)   // 0x448
+#define DMA_SRCADDR_UP(engnum)    (DMA_ENGINE0_BASE + 0x40 * engnum + 0xc)   // 0x44C
+#define DMA_DESTADDR_LO(engnum)   (DMA_ENGINE0_BASE + 0x40 * engnum + 0x10)  // 0x450
+#define DMA_DESTADDR_UP(engnum)   (DMA_ENGINE0_BASE + 0x40 * engnum + 0x14)  // 0x454
+#define DMA_LENGTH(engnum)        (DMA_ENGINE0_BASE + 0x40 * engnum + 0x18)  // 0x458
+#define DMA_CONTROL(engnum)       (DMA_ENGINE0_BASE + 0x40 * engnum + 0x1c)  // 0x45C
+#define DMA_STATUS(engnum)        (DMA_ENGINE0_BASE + 0x40 * engnum + 0x20)  // 0x460
 
 

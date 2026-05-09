@@ -217,6 +217,7 @@ config PCIE_MT7621
 
 config PCIE_PHYTIUM_EP
 	tristate "Phytium PCIe endpoint controller"
+	depends on ARCH_PHYTIUM
 	depends on OF
 	depends on PCI_ENDPOINT
 	help
