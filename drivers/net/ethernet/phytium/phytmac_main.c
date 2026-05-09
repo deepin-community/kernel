@@ -1852,6 +1852,36 @@ static int phytmac_phylink_connect(struct phytmac *pdata)
 	return 0;
 }
 
+static void phytmac_sgmii_speed_switch(struct phytmac *pdata, int speed)
+{
+	struct phytmac_hw_if *hw_if = pdata->hw_if;
+	int ori_speed = pdata->ori_speed;
+
+	pdata->ori_speed = speed;
+
+	if (pdata->phy_interface != PHY_INTERFACE_MODE_SGMII)
+		goto out;
+
+	if (pdata->version != VERSION_V0)
+		goto out;
+
+	if (ori_speed == speed)
+		goto out;
+
+	/* Reject switching between 1G/100M/10M, since these share the same
+	 * internal PHY speed mode.
+	 */
+	if ((ori_speed == SPEED_1000 || ori_speed == SPEED_100 || ori_speed == SPEED_10) &&
+	    (speed == SPEED_1000 || speed == SPEED_100 || speed == SPEED_10))
+		goto out;
+
+	if (hw_if->phy_speed_switch)
+		hw_if->phy_speed_switch(pdata, speed);
+
+out:
+	return;
+}
+
 int phytmac_pcs_config(struct phylink_pcs *pcs, unsigned int mode,
 		       phy_interface_t interface,
 		       const unsigned long *advertising,
@@ -1979,7 +2009,10 @@ static void phytmac_mac_link_up(struct phylink_config *config,
 
 	spin_lock_irqsave(&pdata->lock, flags);
 
-	hw_if->mac_linkup(pdata, interface, speed, duplex);
+	if (phy)
+		phytmac_sgmii_speed_switch(pdata, speed);
+
+	hw_if->mac_linkup(pdata, pdata->phy_interface, speed, duplex);
 
 	if (rx_pause != pdata->pause) {
 		hw_if->enable_pause(pdata, rx_pause);

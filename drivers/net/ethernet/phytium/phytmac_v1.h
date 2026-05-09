@@ -9,6 +9,9 @@ extern struct phytmac_hw_if phytmac_1p0_hw;
 #define PHYTMAC_FRAME_MASK		0x1fff
 #define PHYTMAC_JUMBO_FRAME_MASK	0x3fff
 
+#define MAC0_ADDR_BASE		0x36ce0000
+#define MAC1_ADDR_BASE		0x36ce2000
+
 #define PHYTMAC_SPEED_100M		0
 #define PHYTMAC_SPEED_1000M		1
 #define PHYTMAC_SPEED_2500M		2

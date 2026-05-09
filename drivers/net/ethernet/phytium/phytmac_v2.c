@@ -929,6 +929,8 @@ static int phytmac_v2_interface_linkup(struct phytmac *pdata, phy_interface_t in
 	if (interface == PHY_INTERFACE_MODE_SGMII) {
 		if (speed == SPEED_2500)
 			pdata->autoneg = 0;
+		else
+			pdata->autoneg = 1;
 	}
 
 	memset(&para, 0, sizeof(para));

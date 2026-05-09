@@ -17,7 +17,7 @@
 #define PHYTMAC_PCI_DRV_NAME		"phytmac_pci"
 #define PHYTMAC_PLAT_DRV_NAME		"phytmac_platform"
 #define PHYTMAC_DRV_DESC		"PHYTIUM Ethernet Driver"
-#define PHYTMAC_DRIVER_VERSION		"1.0.54"
+#define PHYTMAC_DRIVER_VERSION		"1.0.55"
 #define PHYTMAC_DEFAULT_MSG_ENABLE	  \
 		(NETIF_MSG_DRV		| \
 		NETIF_MSG_PROBE	| \
@@ -29,6 +29,14 @@
 #define IRQ_TYPE_INT			0
 #define IRQ_TYPE_MSI			1
 #define IRQ_TYPE_INTX			2
+
+#define PHY_INIT_SMC_ID			0xc2000015
+#define PHY_SLOT(i)			((i) * 4)
+#define PHY_INIT(i)			(0x1U << (i))
+#define	PHY_MULTIPLEX_GMAC(i)		(0x2U << PHY_SLOT(i))
+#define	PHY_MODE_SGMII(i)		(0x3U << PHY_SLOT(i))
+#define	PHY_SPEED_1000(i)		(0x3U << PHY_SLOT(i))
+#define	PHY_SPEED_2500(i)		(0x4U << PHY_SLOT(i))
 
 #define PHYTMAC_MAX_QUEUES		8
 #define DEFAULT_DMA_BURST_LENGTH	16
@@ -180,6 +188,13 @@ struct packet_info {
 	int nocrc;
 	u32 mss;
 	u32 seq;
+};
+
+struct phyinit_cfg {
+	u64 phy_domain;
+	u64 phy_multiplex;
+	u64 phy_mode;
+	u64 phy_speed;
 };
 
 #define DEV_TYPE_PLATFORM	0
@@ -494,6 +509,7 @@ struct phytmac {
 	int				pause;
 	phy_interface_t			phy_interface;
 	enum phytmac_interface	phytmac_v2_interface;
+	int				ori_speed;
 	int				speed;
 	int				duplex;
 	int				autoneg;
@@ -572,6 +588,7 @@ struct phytmac_hw_if {
 	int (*del_fdir_entry)(struct phytmac *pdata, struct ethtool_rx_flow_spec *rx_flow);
 
 	/* mido ops */
+	void (*phy_speed_switch)(struct phytmac *pdata, int speed);
 	int (*enable_mdio_control)(struct phytmac *pdata, int enable);
 	int (*mdio_read)(struct phytmac *pdata, int mii_id, int regnum);
 	int (*mdio_write)(struct phytmac *pdata, int mii_id,
