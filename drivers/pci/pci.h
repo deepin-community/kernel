@@ -886,105 +886,63 @@ static inline pci_power_t mid_pci_get_power_state(struct pci_dev *pdev)
 
 static inline int phytium_pcie_ctrl_smc_op(struct pci_dev *pdev, int op)
 {
-	int socket;
-	u8 bus = pdev->bus->number;
-	u8 device = PCI_SLOT(pdev->devfn);
-	u8 function = PCI_FUNC(pdev->devfn);
-	u16 vendor_id = pdev->vendor;
-	u16 device_id = pdev->device;
-	struct arm_smccc_res res;
-	u32 arg;
+        int socket;
+        u8 bus = pdev->bus->number;
+        u8 device = PCI_SLOT(pdev->devfn);
+        u8 function = PCI_FUNC(pdev->devfn);
+        u16 vendor_id = pdev->vendor;
+        u16 device_id = pdev->device;
+        struct arm_smccc_res res;
+        const char *op_str;
+        u16 link_status = 0;
+        u32 arg;
 
-	if (vendor_id != PHYTIUM_PCI_VENDOR_ID ||
-	    device_id != PHYTIUM_PCI_CTRL_ID ||
-	    pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT)
-		return;
+        switch (op) {
+        case PHYTIUM_PCIE_HOTRESET:
+                op_str = "hotreset";
+                break;
+        case PHYTIUM_PCIE_HOTPLUG:
+                op_str = "hotplug";
+                break;
+        case PHYTIUM_PCIE_GET_LNKSTA:
+                op_str = "get-link-status";
+                break;
+        default:
+                op_str = "unknown";
+                break;
+        }
 
-	socket = dev_to_node(&pdev->dev);
-	if (socket < 0) {
-		pci_err(pdev, "Cannot find socket, stop clean pcie protection\n");
-		return;
-	}
+        if (vendor_id != PCI_VENDOR_ID_PHYTIUM ||
+                device_id != PHYTIUM_PCI_CTRL_ID ||
+                pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT)
+                return -ENOENT;
 
-	arg = (socket << 16) | (bus << 8) | (device << 3) | function;
-	arm_smccc_smc(PHYTIUM_PCIE_CLEAR_CTRL_PROT_SMC_FUNC_ID, arg, op, 0, 0, 0, 0, 0, &res);
-	if (res.a0 != 0)
-		pci_err(pdev, "Error: Firmware call PCIE protection clear Failed: %d, sbdf: 0x%x\n",
-			(int)res.a0, arg);
-	else
-		pci_info(pdev, "%s : Clear pcie protection successfully\n",
-			 op ? "HotPlug" : "HotReset");
-}
-#endif
+        socket = dev_to_node(&pdev->dev);
+        if (socket < 0) {
+                pci_err(pdev, "no socket found, stop calling SMC 0x%x (%s)\n",
+                        PHYTIUM_PCIE_CTRL_SMC_FUNC_ID, op_str);
+                return -ENOENT;
+        }
 
-#ifdef CONFIG_ARCH_PHYTIUM
-#include <linux/arm-smccc.h>
+        arg = (socket << 16) | (bus << 8) | (device << 3) | function;
+        arm_smccc_smc(PHYTIUM_PCIE_CTRL_SMC_FUNC_ID, arg, op, 0, 0, 0, 0, 0, &res);
+        if (res.a0 != 0) {
+                pci_err(pdev, "Error: %s call SMC 0x%x failed (%d), sbdf: 0x%x\n",
+                        op_str, PHYTIUM_PCIE_CTRL_SMC_FUNC_ID,
+                        (int)res.a0, arg);
+                return -ENOENT;
+        }
+        pci_info(pdev, "%s: call SMC completed successfully\n", op_str);
 
-#define PHYTIUM_PCIE_HOTRESET 0
-#define PHYTIUM_PCIE_HOTPLUG 1
-#define PHYTIUM_PCI_VENDOR_ID	0x1DB7
-#define PHYTIUM_PCI_CTRL_ID	0x0100
-#define PHYTIUM_PCIE_CLEAR_CTRL_PROT_SMC_FUNC_ID	0xC2000020
+        /* Update link_status bit if op == get-link-status */
+        if (op == PHYTIUM_PCIE_GET_LNKSTA) {
+                if (res.a1 == PHYTIUM_PCIE_LINKUP)
+                        link_status |= PCI_EXP_LNKSTA_DLLLA;
+                else if (res.a1 == PHYTIUM_PCIE_LINKDOWN)
+                        link_status &= ~PCI_EXP_LNKSTA_DLLLA;
+        }
 
-static inline void phytium_clear_ctrl_prot(struct pci_dev *pdev, int op)
-{
-	int socket;
-	u8 bus = pdev->bus->number;
-	u8 device = PCI_SLOT(pdev->devfn);
-	u8 function = PCI_FUNC(pdev->devfn);
-	u16 vendor_id = pdev->vendor;
-	u16 device_id = pdev->device;
-	struct arm_smccc_res res;
-	const char *op_str;
-	u16 link_status = 0;
-	u32 arg;
-
-	switch (op) {
-	case PHYTIUM_PCIE_HOTRESET:
-		op_str = "hotreset";
-		break;
-	case PHYTIUM_PCIE_HOTPLUG:
-		op_str = "hotplug";
-		break;
-	case PHYTIUM_PCIE_GET_LNKSTA:
-		op_str = "get-link-status";
-		break;
-	default:
-		op_str = "unknown";
-		break;
-	}
-
-	if (vendor_id != PCI_VENDOR_ID_PHYTIUM ||
-		device_id != PHYTIUM_PCI_CTRL_ID ||
-		pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT)
-		return -ENOENT;
-
-	socket = dev_to_node(&pdev->dev);
-	if (socket < 0) {
-		pci_err(pdev, "no socket found, stop calling SMC 0x%x (%s)\n",
-			PHYTIUM_PCIE_CTRL_SMC_FUNC_ID, op_str);
-		return -ENOENT;
-	}
-
-	arg = (socket << 16) | (bus << 8) | (device << 3) | function;
-	arm_smccc_smc(PHYTIUM_PCIE_CTRL_SMC_FUNC_ID, arg, op, 0, 0, 0, 0, 0, &res);
-	if (res.a0 != 0) {
-		pci_err(pdev, "Error: %s call SMC 0x%x failed (%d), sbdf: 0x%x\n",
-			op_str, PHYTIUM_PCIE_CTRL_SMC_FUNC_ID,
-			(int)res.a0, arg);
-		return -ENOENT;
-	}
-	pci_info(pdev, "%s: call SMC completed successfully\n", op_str);
-
-	/* Update link_status bit if op == get-link-status */
-	if (op == PHYTIUM_PCIE_GET_LNKSTA) {
-		if (res.a1 == PHYTIUM_PCIE_LINKUP)
-			link_status |= PCI_EXP_LNKSTA_DLLLA;
-		else if (res.a1 == PHYTIUM_PCIE_LINKDOWN)
-			link_status &= ~PCI_EXP_LNKSTA_DLLLA;
-	}
-
-	return link_status;
+        return link_status;
 }
 #endif
 
