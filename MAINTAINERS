@@ -17547,6 +17547,7 @@ F:	Documentation/devicetree/bindings/gpio/phytium,gpio.yaml
 F:	Documentation/devicetree/bindings/usb/phytium,usb2-2.0.yaml
 F:	Documentation/devicetree/bindings/usb/phytium,usb2.yaml
 F:	Documentation/devicetree/bindings/usb/phytium.role-sw.yaml
+F:	Documentation/devicetree/bindings/pci/phytium,pe2201-pcie-ep.yaml
 F:	drivers/usb/phytium/*
 F:	drivers/perf/phytium/phytium_ddr_pmu.c
 F:	drivers/perf/phytium/phytium_msi_pmu.c
