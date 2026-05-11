@@ -423,8 +423,7 @@ void spi_handle_debug_err(struct phytium_spi *fts)
 			dev_info(dev, "(log)%.*s\n", SPI_LOG_LINE_MAX_LEN, &fts->log[0]);
 		}
 
-		for (i = 0; i < fts->log_size; i++)
-			fts->log[i] = 0;
+		memset(fts->log, 0, fts->log_size);
 	}
 
 	reg &= ~SPI_REGFILE_HAVE_LOG;
@@ -440,15 +439,14 @@ static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 	reg = phytium_read_regfile(fts, SPI_REGFILE_DEBUG);
 	fts->ddr_paddr = ((reg & SPI_REGFILE_ADDR_MASK) >> 8) << SPI_DDR_ADDR_HIGH;
 	fts->log_size = ((reg & SPI_REGFILE_SIZE_MASK) >> 4) * SPI_DEBUG_LOG_SIZE;
-	fts->log = devm_ioremap(dev, fts->ddr_paddr, fts->log_size);
+	fts->log = devm_ioremap_wc(dev, fts->ddr_paddr, fts->log_size);
 
 	if (IS_ERR(fts->log)) {
 		dev_err(dev, "log_addr is err\n");
 		return;
 	}
 
-	for (i = 0; i < fts->log_size; i++)
-		fts->log[i] = 0;
+	memset(fts->log, 0, fts->log_size);
 }
 
 int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
