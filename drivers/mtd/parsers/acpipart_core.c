@@ -24,7 +24,7 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 	const char *partname;
 	int nr_parts, i, ret = 0;
 	struct acpi_device *adev;
-	struct fwnode_handle *child_handle;
+	struct fwnode_handle *child_handle = NULL;
 	bool dedicated = true;
 	struct device *dev;
 
