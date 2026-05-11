@@ -831,13 +831,14 @@ config SPI_PHYTIUM_QSPI
 
 config SPI_PHYTIUM_V2
 	tristate "spi phytium v2"
-	depends on ARCH_PHYTIUM || COMPILE_TEST
+	depends on ARCH_PHYTIUM
 	help
 	  This config is similar to the "SPI_PHYTIUM" config.
 
 config SPI_PHYTIUM_PLAT_V2
 	tristate "Phytium SPI-v2 controller platform support"
 	select SPI_PHYTIUM_V2
+	depends on ARCH_PHYTIUM
 	help
 	  This config is similar to the "SPI_PHYTIUM_PLAT" config.
 
