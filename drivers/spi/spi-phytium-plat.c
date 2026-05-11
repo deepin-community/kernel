@@ -29,7 +29,7 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME "phytium_spi"
-#define DRIVER_VERSION	"1.0.1"
+#define DRIVER_VERSION	"1.0.2"
 
 #define SPI_PHYTIUM_DEFAULT_CLK_RATE	50000000
 
@@ -37,6 +37,39 @@ struct phytium_spi_clk {
 	struct phytium_spi  fts;
 	struct clk     *clk;
 };
+
+static bool phytium_acpi_has_FixedDMA(struct device *dev)
+{
+	struct acpi_device *adev;
+	struct acpi_resource *res;
+	struct acpi_buffer buf = { ACPI_ALLOCATE_BUFFER, NULL };
+	bool found = false;
+	acpi_status status;
+
+	if (!dev)
+		return false;
+
+	adev = ACPI_COMPANION(dev);
+	if (!adev || !adev->handle)
+		return false;
+
+	/* Get _CRS resource block (kernel allocates buffer) */
+	status = acpi_get_current_resources(adev->handle, &buf);
+	if (ACPI_FAILURE(status) || !buf.pointer)
+		return false;
+
+	/* Traverse resource list, exit and return true if FixedDMA is found */
+	for (res = buf.pointer; res && res->type != ACPI_RESOURCE_TYPE_END_TAG;
+			res = ACPI_NEXT_RESOURCE(res)) {
+		if (res->type == ACPI_RESOURCE_TYPE_FIXED_DMA) {
+			found = true;
+			break;
+		}
+	}
+
+	kfree(buf.pointer);
+	return found;
+}
 
 static int phytium_spi_probe(struct platform_device *pdev)
 {
@@ -102,8 +135,10 @@ static int phytium_spi_probe(struct platform_device *pdev)
 
 	/* check is use dma transfer */
 	if ((device_property_read_string_array(&pdev->dev, "dma-names",
-			NULL, 0) > 0) &&
-		device_property_present(&pdev->dev, "dmas")) {
+					NULL, 0 > 0) &&
+		device_property_present(&pdev->dev, "dmas")) ||
+		(has_acpi_companion(&pdev->dev) &&
+		phytium_acpi_has_FixedDMA(dev))) {
 		fts->dma_en = true;
 		phytium_spi_dmaops_set(fts);
 	}
