@@ -26,7 +26,7 @@
 #include "spi-phytium.h"
 
 #define DRIVER_NAME_PHYT "phytium_spi_2.0"
-#define DRIVER_VERSION	"1.0.14"
+#define DRIVER_VERSION	"1.0.15"
 
 
 
@@ -198,49 +198,6 @@ static int spi_phyt_probe(struct platform_device *pdev)
 	device_property_read_u32(&pdev->dev, "num-cs", &num_cs);
 
 	fts->num_cs = num_cs;
-
-	if (pdev->dev.of_node) {
-		int i;
-
-		for (i = 0; i < fts->num_cs; i++) {
-			cs_gpio = of_get_named_gpio(pdev->dev.of_node,
-					"cs-gpios", i);
-
-			if (cs_gpio == -EPROBE_DEFER) {
-				ret = cs_gpio;
-				goto out;
-			}
-
-			if (gpio_is_valid(cs_gpio)) {
-				ret = devm_gpio_request(&pdev->dev, cs_gpio,
-						dev_name(&pdev->dev));
-				if (ret)
-					goto out;
-			}
-		}
-	} else if (has_acpi_companion(&pdev->dev)) {
-		int n;
-		int *cs;
-		struct gpio_desc *gpiod;
-
-		n =  gpiod_count(&pdev->dev, "cs");
-
-		cs = devm_kcalloc(&pdev->dev, n, sizeof(int), GFP_KERNEL);
-		fts->cs = cs;
-
-		for (i = 0; i < n; i++) {
-			gpiod = devm_gpiod_get_index_optional(&pdev->dev, "cs", i,
-							      GPIOD_OUT_LOW);
-
-			if (IS_ERR(gpiod)) {
-				ret = PTR_ERR(gpiod);
-				goto out;
-			}
-
-			cs_gpio = desc_to_gpio(gpiod);
-			cs[i] = cs_gpio;
-		}
-	}
 
 	device_property_read_u32(&pdev->dev, "global-cs", &global_cs);
 	fts->global_cs = global_cs;

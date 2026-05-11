@@ -805,7 +805,7 @@ config SPI_PHYTIUM_PLAT
 
 config SPI_PHYTIUM_PCI
 	tristate "Phytium SPI controller PCI support"
-	depends on PCI && SPI_PHYTIUM
+	depends on PCI && ARCH_PHYTIUM
 	select SPI_PHYTIUM
 	help
 	  This selects a PCI driver for Phytium SPI controller.

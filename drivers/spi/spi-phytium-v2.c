@@ -140,7 +140,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 	struct spi_nor *nor = NULL;
 	int ret;
 
-	if (mem)
+	if (mem && (mem->spi == spi))
 		nor = spi_mem_get_drvdata(mem);
 
 	fts->tx = (void *)transfer->tx_buf;
@@ -488,6 +488,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		goto err_free_master;
 	}
 
+	master->use_gpio_descriptors = true;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
 	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(16);
 	master->bus_num = fts->bus_num;
