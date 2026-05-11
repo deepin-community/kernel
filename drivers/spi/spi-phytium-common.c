@@ -110,8 +110,11 @@ int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
 
 int spi_phytium_check_result(struct phytium_spi *fts)
 {
-	unsigned long long ms = 300000;
+	unsigned long long ms = 20000;
 	struct msg *msg = (struct msg *)fts->tx_shmem_addr;
+
+	if (fts->flash_erase == 2)
+		ms = 200000;
 
 	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
