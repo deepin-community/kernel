@@ -161,12 +161,15 @@ static netdev_tx_t pci_rc_vnet_start_xmit(struct sk_buff *skb, struct net_device
 	data = skb->data;
 	len = skb->len;
 
-	if (unlikely(tp->tx_reclaim_num >= PCI_RC_VNET_TX_QUEUE_STOP_THRESHOLD)) {
+	if (unlikely(tx_queue->nb_desc - tp->tx_reclaim_num <=
+		     PCI_RC_VNET_TX_QUEUE_STOP_THRESHOLD)) {
 		netif_stop_queue(tp->netdev);
 		netdev_info(tp->netdev,
 			    "desc queue reclaim is not finished\n");
 		return NETDEV_TX_BUSY;
 	}
+
+	spin_lock_irqsave(&tp->tx_lock, tx_lock_flags);
 
 	tail = READ_ONCE(tx_queue->tail);
 	head = READ_ONCE(tx_queue->head);
@@ -174,10 +177,9 @@ static netdev_tx_t pci_rc_vnet_start_xmit(struct sk_buff *skb, struct net_device
 	crc32 = crc32_le(~0, data, len);
 
 	phys_addr = dma_map_single(dev, data, mul32(len), DMA_TO_DEVICE);
-
 	if (dma_mapping_error(dev, phys_addr)) {
+		spin_unlock_irqrestore(&tp->tx_lock, tx_lock_flags);
 		netdev_err(tp->netdev, "tx map failed\n");
-		tp->netdev->stats.tx_errors++;
 		return NETDEV_TX_BUSY;
 	}
 
@@ -187,7 +189,6 @@ static netdev_tx_t pci_rc_vnet_start_xmit(struct sk_buff *skb, struct net_device
 	       PCI_RC_VNET_DMA_DESC_SET(PKT_LEN, len) |
 	       PCI_RC_VNET_DMA_DESC_SET(CHECKSUM, crc32);
 
-	spin_lock_irqsave(&tp->tx_lock, tx_lock_flags);
 
 	if (unlikely(head == (tail + 1) % tx_queue->nb_desc)) {
 		spin_unlock_irqrestore(&tp->tx_lock, tx_lock_flags);
@@ -203,11 +204,6 @@ static netdev_tx_t pci_rc_vnet_start_xmit(struct sk_buff *skb, struct net_device
 	/* Make descriptor updates visible to device */
 	wmb();
 
-	tail = (tail + 1) % ring_size;
-	WRITE_ONCE(tx_queue->tail, tail);
-
-	spin_unlock_irqrestore(&tp->tx_lock, tx_lock_flags);
-
 	spin_lock_irqsave(&tp->tx_reclaim_lock, tx_reclaim_lock_flags);
 	tp->tx_reclaim_num++;
 	spin_unlock_irqrestore(&tp->tx_reclaim_lock, tx_reclaim_lock_flags);
@@ -215,7 +211,12 @@ static netdev_tx_t pci_rc_vnet_start_xmit(struct sk_buff *skb, struct net_device
 	tp->tx_skbuff[tail] = skb;
 	tp->tx_phys_addr_list[tail] = phys_addr;
 
+	tail = (tail + 1) % ring_size;
+	WRITE_ONCE(tx_queue->tail, tail);
+
 	writel(SEND_MSI_IRQ, tp->msi_irq_addr);
+
+	spin_unlock_irqrestore(&tp->tx_lock, tx_lock_flags);
 
 	return NETDEV_TX_OK;
 }
