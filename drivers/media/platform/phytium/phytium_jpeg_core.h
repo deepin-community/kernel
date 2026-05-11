@@ -53,6 +53,10 @@
 #define INVALID_RESOLUTION_RETRIES   2
 #define CAPTURE_BUF_NUMBER           3  /* using how many buffers */
 #define VB_BUF_NO                    0  /* there are 16 buffer, use which one */
+#define VB_BUF_LAST                  15 /* Use the last one to identify no signal */
+#define HAVE_SIGNAL                  0xCDDCDCCD   /* VGA output signal */
+#define HOST_POWER_ON                0x0          /* Host is poweron */
+#define HOST_POWER_OFF               0xDEADBEEF   /* Host is poweroff */
 
 /* The below macros are defined for the JPEG header of the phytium JPEG Engine */
 #define PHYTIUM_JPEG_HEADER_LEN		(256 * 3)
@@ -123,13 +127,14 @@ struct phytium_jpeg_dev {
 	unsigned int sequence;
 	unsigned int max_compressed_size;
 	struct phytium_jpeg_addr src_addrs[OCM_BUF_NUM];
-	struct phytium_jpeg_addr dst_addrs[16];
+	struct phytium_jpeg_addr dst_addrs[VB_BUF_LAST + 1];
 
 	bool yuv420;
 	unsigned int frame_rate;
 	void __iomem *timer30_addr;
 	void __iomem *timer31_addr;
 	struct v4l2_ctrl_handler ctrl_handler;
+	bool once_poweroff;
 };
 
 struct phytium_jpeg_config {

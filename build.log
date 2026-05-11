@@ -1,0 +1,9 @@
+***
+*** Configuration file ".config" not found!
+***
+*** Please run some configurator (e.g. "make oldconfig" or
+*** "make menuconfig" or "make xconfig").
+***
+/home/user/deepin-kernel/Makefile:775: include/config/auto.conf.cmd: 没有那个文件或目录
+make[1]: *** [/home/user/deepin-kernel/Makefile:784：.config] 错误 1
+make: *** [Makefile:234：__sub-make] 错误 2

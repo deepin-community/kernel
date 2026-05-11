@@ -1,0 +1,66 @@
+[33mcommit 02ced38ea255f262806c92e557bddc5e17a71410[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmedia-6.6.y[m[33m, [m[1;31morigin/linux-6.6.y[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mlinux-6.6.y[m[33m)[m
+Author: Hyunwoo Kim <imv4bel@gmail.com>
+Date:   Fri May 8 17:53:09 2026 +0900
+
+    FROMLIST: rxrpc: Also unshare DATA/RESPONSE packets when paged frags are present
+    
+    maillist inclusion
+    category: bugfix
+    
+    The DATA-packet handler in rxrpc_input_call_event() and the RESPONSE
+    handler in rxrpc_verify_response() copy the skb to a linear one before
+    calling into the security ops only when skb_cloned() is true.  An skb
+    that is not cloned but still carries externally-owned paged fragments
+    (e.g. SKBFL_SHARED_FRAG set by splice() into a UDP socket via
+    __ip_append_data, or a chained skb_has_frag_list()) falls through to
+    the in-place decryption path, which binds the frag pages directly into
+    the AEAD/skcipher SGL via skb_to_sgvec().
+    
+    Extend the gate to also unshare when skb_has_frag_list() or
+    skb_has_shared_frag() is true.  This catches the splice-loopback vector
+    and other externally-shared frag sources while preserving the
+    zero-copy fast path for skbs whose frags are kernel-private (e.g. NIC
+    page_pool RX, GRO).  The OOM/trace handling already in place is reused.
+    
+    Fixes: d0d5c0cd1e71 ("rxrpc: Use skb_unshare() rather than skb_cow_data()")
+    Cc: stable@vger.kernel.org
+    Signed-off-by: Hyunwoo Kim <imv4bel@gmail.com>
+    Signed-off-by: Wentao Guan <guanwentao@uniontech.com>
+
+ net/rxrpc/call_event.c | 4 [32m+++[m[31m-[m
+ net/rxrpc/conn_event.c | 3 [32m++[m[31m-[m
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+[33mcommit 79d762c30c5a37252749488c83d258a5410a70fa[m
+Author: David Howells <dhowells@redhat.com>
+Date:   Thu Apr 23 21:09:06 2026 +0100
+
+    BACKPORT: rxrpc: Fix rxrpc_input_call_event() to only unshare DATA packets
+    
+    mainline inclusion
+    from mainline-v7.1-rc1
+    category: bugfix
+    
+    commit 55b2984c96c37f909bbfe8851f13152693951382 upstream.
+    
+    Fix rxrpc_input_call_event() to only unshare DATA packets and not ACK,
+    ABORT, etc..
+    
+    And with that, rxrpc_input_packet() doesn't need to take a pointer to the
+    pointer to the packet, so change that to just a pointer.
+    
+    Fixes: 1f2740150f90 ("rxrpc: Fix potential UAF after skb_unshare() failure")
+    Closes: https://sashiko.dev/#/patchset/20260422161438.2593376-4-dhowells@redhat.com
+    Signed-off-by: David Howells <dhowells@redhat.com>
+    cc: Marc Dionne <marc.dionne@auristor.com>
+    cc: Jeffrey Altman <jaltman@auristor.com>
+    cc: Simon Horman <horms@kernel.org>
+    cc: linux-afs@lists.infradead.org
+    cc: stable@kernel.org
+    Link: https://patch.msgid.link/20260423200909.3049438-2-dhowells@redhat.com
+    Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+    Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+    Signed-off-by: Wentao Guan <guanwentao@uniontech.com>
+
+ net/rxrpc/call_event.c | 4 [32m+++[m[31m-[m
+ 1 file changed, 3 insertions(+), 1 deletion(-)
