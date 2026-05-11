@@ -442,12 +442,20 @@ void spi_handle_debug_err(struct phytium_spi *fts)
 
 static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 {
-	u32 reg, i;
+	u32 reg, i, reg_ddr_high;
 
 	spi_phytium_default(fts);
 
 	reg = phytium_read_regfile(fts, SPI_REGFILE_DEBUG);
-	fts->ddr_paddr = ((reg & SPI_REGFILE_ADDR_MASK) >> 8) << SPI_DDR_ADDR_HIGH;
+
+	if (fts->regfile_version & SPI_REGFILE_VERSION_DDR) {
+		fts->ddr_paddr = ((reg & SPI_REGFILE_ADDR_MASK) >> 8);
+		reg_ddr_high = phytium_read_regfile(fts, SPI_REGFILE_DDR_HIGH_REG);
+		fts->ddr_paddr |= ((u64)reg_ddr_high << 20);
+	} else {
+		fts->ddr_paddr = ((reg & SPI_REGFILE_ADDR_MASK) >> 8) << SPI_DDR_ADDR_HIGH;
+	}
+
 	fts->log_size = ((reg & SPI_REGFILE_SIZE_MASK) >> 4) * SPI_DEBUG_LOG_SIZE;
 	fts->log = devm_ioremap_wc(dev, fts->ddr_paddr, fts->log_size);
 
