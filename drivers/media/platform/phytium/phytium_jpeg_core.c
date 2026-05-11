@@ -186,9 +186,6 @@ static void phytium_jpeg_off(struct phytium_jpeg_dev *jpeg_dev)
 	}
 
 	clear_bit(VIDEO_CLOCKS_ON, &jpeg_dev->status);
-	/* wait 50 ms */
-	mdelay(50);
-	/* C08 bit7 1:busy */
 }
 
 static inline void phytium_jpeg_enable_source_detecting(struct phytium_jpeg_dev *jpeg_dev)
