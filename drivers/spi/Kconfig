@@ -791,7 +791,7 @@ config SPI_PCI1XXXX
 
 config SPI_PHYTIUM
 	tristate
-	depends on ARCH_PHYTIUM || COMPILE_TEST
+	depends on ARCH_PHYTIUM
 
 config SPI_PHYTIUM_PLAT
 	tristate "Phytium SPI controller platform support"
