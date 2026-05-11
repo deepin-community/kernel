@@ -1306,7 +1306,7 @@ static int pci_epf_vnet_probe(struct pci_epf *epf,
 	/* cdev register */
 	err = alloc_chrdev_region(&epf_cdev_mdata.dev_num, 0, 1, DEVICE_NAME);
 	if (err < 0)
-		goto err_unregister_chrdev;
+		goto err_unregister_netdev;
 
 	epf_cdev_mdata.epf_cdev = cdev_alloc();
 	if (!epf_cdev_mdata.epf_cdev) {
@@ -1352,6 +1352,8 @@ err_cdev_del:
 	cdev_del(epf_cdev_mdata.epf_cdev);
 err_unregister_chrdev:
 	unregister_chrdev_region(epf_cdev_mdata.dev_num, 1);
+err_unregister_netdev:
+	unregister_netdev(netdev);
 netdev_reg_failed:
 	free_netdev(netdev);
 	return err;
@@ -1464,6 +1466,9 @@ static int pci_epf_vnet_bind(struct pci_epf *epf)
 	struct ep_queue *tx_queue;
 
 	if (WARN_ON_ONCE(!epc))
+		return -EINVAL;
+
+	if (!vnet)
 		return -EINVAL;
 
 	vnet->vnet_reg_barno = BAR_2;
