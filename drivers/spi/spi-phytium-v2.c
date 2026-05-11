@@ -124,9 +124,9 @@ static irqreturn_t spi_phyt_irq(int irq, void *dev_id)
 	struct spi_master *master = dev_id;
 	struct phytium_spi *fts = spi_master_get_devdata(master);
 
-	complete(&fts->cmd_completion);
 	writel_relaxed(0, fts->regfile + SPI_REGFILE_RV2AP_INTR_STATE);
 	writel_relaxed(0x10, fts->regfile + SPI_REGFILE_RV2AP_INT_CLEAN);
+	complete(&fts->cmd_completion);
 
 	return IRQ_HANDLED;
 }
