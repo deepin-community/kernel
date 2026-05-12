@@ -17,6 +17,7 @@
 	.macro SAVE_ALL_NMI
 	csrw	$sp, CSR_NMI_SCRATCH
 	csrr	$sp, CSR_NMI_STACK
+	csrr	$sp, CSR_NMI_STACK
 
 	ldi	$sp, -PT_REGS_SIZE($sp)
 	stl	$0, PT_REGS_R0($sp)
@@ -58,10 +59,16 @@
 	csrr	$1, CSR_NMI_SCRATCH
 	csrr	$1, CSR_NMI_SCRATCH
 	csrr	$2, CSR_PS
+	csrr	$2, CSR_PS
+	csrr	$3, CSR_PC
 	csrr	$3, CSR_PC
 	csrr    $4, CSR_CAUSE
+	csrr    $4, CSR_CAUSE
+	csrr	$16, CSR_EARG0
 	csrr	$16, CSR_EARG0
 	csrr	$17, CSR_EARG1
+	csrr	$17, CSR_EARG1
+	csrr	$18, CSR_EARG2
 	csrr	$18, CSR_EARG2
 	stl	$16, PT_REGS_EARG0($sp)
 	stl	$17, PT_REGS_EARG1($sp)
@@ -73,6 +80,7 @@
 	stl     $4, PT_REGS_CAUSE($sp)
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
+	csrr	$8, CSR_KTP
 	csrr	$8, CSR_KTP
 #ifdef CONFIG_FRAME_POINTER
 	ldi	$sp, -STACKFRAME_SIZE($sp)
@@ -135,8 +143,10 @@
 	csrw	$sp, CSR_SP
 	csrw	$1, CSR_SCRATCH
 	csrr	$1, CSR_PS
+	csrr	$1, CSR_PS
 	and	$1, 8, $1
 	beq	$1, 1f
+	csrr	$1, CSR_KTP
 	csrr	$1, CSR_KTP
 	ldl	$sp, TI_PCB_KSP($1)
 1:
@@ -182,10 +192,16 @@
 	csrr	$1, CSR_SP
 	csrr	$1, CSR_SP
 	csrr	$2, CSR_PS
+	csrr	$2, CSR_PS
+	csrr	$3, CSR_PC
 	csrr	$3, CSR_PC
 	csrr	$4, CSR_CAUSE
+	csrr	$4, CSR_CAUSE
+	csrr	$16, CSR_EARG0
 	csrr	$16, CSR_EARG0
 	csrr	$17, CSR_EARG1
+	csrr	$17, CSR_EARG1
+	csrr	$18, CSR_EARG2
 	csrr	$18, CSR_EARG2
 	stl	$16, PT_REGS_EARG0($sp)
 	stl	$17, PT_REGS_EARG1($sp)
@@ -197,6 +213,7 @@
 	stl	$4, PT_REGS_CAUSE($sp)
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
+	csrr	$8, CSR_KTP
 	csrr	$8, CSR_KTP
 #ifdef CONFIG_FRAME_POINTER
 	ldi	$sp, -STACKFRAME_SIZE($sp)
