@@ -16,166 +16,184 @@
 
 #include "pinctrl-zhaoxin.h"
 
+#define KH50000_SOCKET_PINS(sock)						\
+	SOCKET_PINCTRL_PIN(sock, 0, "IOD_CLK27M_G0"),				\
+	SOCKET_PINCTRL_PIN(sock, 1, "IOD_CLK27M_G1"),				\
+	SOCKET_PINCTRL_PIN(sock, 2, "IOD_CLK27M_G2"),				\
+	SOCKET_PINCTRL_PIN(sock, 3, "IOD_CLK27M_G3"),				\
+	SOCKET_PINCTRL_PIN(sock, 4, "IOD_CPURST_G0"),				\
+	SOCKET_PINCTRL_PIN(sock, 5, "IOD_CPURST_G1"),				\
+	SOCKET_PINCTRL_PIN(sock, 6, "IOD_CPURST_G2"),				\
+	SOCKET_PINCTRL_PIN(sock, 7, "IOD_CPURST_G3"),				\
+	SOCKET_PINCTRL_PIN(sock, 8, "IOD_RSMRST_G0"),				\
+	SOCKET_PINCTRL_PIN(sock, 9, "IOD_RSMRST_G1"),				\
+	SOCKET_PINCTRL_PIN(sock, 10, "IOD_RSMRST_G2"),				\
+	SOCKET_PINCTRL_PIN(sock, 11, "IOD_RSMRST_G3"),				\
+	SOCKET_PINCTRL_PIN(sock, 12, "IOD_PWROK_G0"),				\
+	SOCKET_PINCTRL_PIN(sock, 13, "IOD_PWROK_G1"),				\
+	SOCKET_PINCTRL_PIN(sock, 14, "IOD_PWROK_G2"),				\
+	SOCKET_PINCTRL_PIN(sock, 15, "IOD_PWROK_G3"),				\
+	SOCKET_PINCTRL_PIN(sock, 16, "IOD_THRMTRIP_G0"),			\
+	SOCKET_PINCTRL_PIN(sock, 17, "IOD_THRMTRIP_G1"),			\
+	SOCKET_PINCTRL_PIN(sock, 18, "IOD_THRMTRIP_G2"),			\
+	SOCKET_PINCTRL_PIN(sock, 19, "IOD_THRMTRIP_G3"),			\
+	SOCKET_PINCTRL_PIN(sock, 20, "IOD_CLK50M_G0"),				\
+	SOCKET_PINCTRL_PIN(sock, 21, "IOD_CLK50M_G1"),				\
+	SOCKET_PINCTRL_PIN(sock, 22, "IOD_CLK50M_G2"),				\
+	SOCKET_PINCTRL_PIN(sock, 23, "IOD_CLK50M_G3"),				\
+	/*GPIO range 0 */							\
+	SOCKET_PINCTRL_PIN(sock, 24, "USBHOC0"),	/*PGPIO0------gpio36*/	\
+	SOCKET_PINCTRL_PIN(sock, 25, "USBHOC1"),	/*PGPIO1------gpio37*/	\
+	SOCKET_PINCTRL_PIN(sock, 26, "USBHOC2"),	/*PGPIO2------gpio38*/	\
+	SOCKET_PINCTRL_PIN(sock, 27, "USBHOC3"),	/*PGPIO3------gpio39*/	\
+	SOCKET_PINCTRL_PIN(sock, 28, "I3C0DT"),					\
+	SOCKET_PINCTRL_PIN(sock, 29, "I3C0CK"),					\
+	SOCKET_PINCTRL_PIN(sock, 30, "I3C1DT"),					\
+	SOCKET_PINCTRL_PIN(sock, 31, "I3C1CK"),					\
+	SOCKET_PINCTRL_PIN(sock, 32, "I3C2DT"),					\
+	SOCKET_PINCTRL_PIN(sock, 33, "I3C2CK"),					\
+	SOCKET_PINCTRL_PIN(sock, 34, "I3C3DT"),					\
+	SOCKET_PINCTRL_PIN(sock, 35, "I3C3CK"),					\
+	SOCKET_PINCTRL_PIN(sock, 36, "SMBDT0"),					\
+	/*GPIO range 1*/							\
+	SOCKET_PINCTRL_PIN(sock, 37, "SMBCK0"),		/*PGPIO11------gpio47*/	\
+	SOCKET_PINCTRL_PIN(sock, 38, "SMBDT1"),		/*PGPIO12------gpio48*/	\
+	SOCKET_PINCTRL_PIN(sock, 39, "SMBCK1"),		/*PGPIO13------gpio49*/	\
+	SOCKET_PINCTRL_PIN(sock, 40, "SMBDT2"),		/*PGPIO7------gpio43*/	\
+	SOCKET_PINCTRL_PIN(sock, 41, "SMBCK2"),		/*PGPIO8------gpio44*/	\
+	SOCKET_PINCTRL_PIN(sock, 42, "SMBALRT"),	/*PGPIO14------gpio50*/	\
+	SOCKET_PINCTRL_PIN(sock, 43, "SME_I2CDT_S"),				\
+	SOCKET_PINCTRL_PIN(sock, 44, "SME_I2CCK_S"),				\
+	/*GPIO range 2*/							\
+	SOCKET_PINCTRL_PIN(sock, 45, "GPIO0"),		/*GPIO0--------gpio0*/	\
+	SOCKET_PINCTRL_PIN(sock, 46, "GPIO1"),		/*GPIO1--------gpio1*/	\
+	SOCKET_PINCTRL_PIN(sock, 47, "GPIO2"),		/*GPIO2--------gpio2*/	\
+	SOCKET_PINCTRL_PIN(sock, 48, "GPIO3"),		/*GPIO3--------gpio3*/	\
+	SOCKET_PINCTRL_PIN(sock, 49, "GPIO4"),		/*GPIO4--------gpio4*/	\
+	SOCKET_PINCTRL_PIN(sock, 50, "GPIO5"),		/*GPIO5--------gpio5*/	\
+	SOCKET_PINCTRL_PIN(sock, 51, "GPIO6"),		/*GPIO6--------gpio6*/	\
+	SOCKET_PINCTRL_PIN(sock, 52, "GPIO7"),		/*GPIO7--------gpio7*/	\
+	SOCKET_PINCTRL_PIN(sock, 53, "GPIO8"),		/*GPIO8--------gpio8*/	\
+	SOCKET_PINCTRL_PIN(sock, 54, "GPIO9"),		/*GPIO9--------gpio9*/	\
+	SOCKET_PINCTRL_PIN(sock, 55, "GPIO10"),		/*GPIO10-------gpio10*/	\
+	SOCKET_PINCTRL_PIN(sock, 56, "GPIO11"),		/*GPIO11-------gpio11*/	\
+	SOCKET_PINCTRL_PIN(sock, 57, "GPIO12"),		/*GPIO12-------gpio12*/	\
+	SOCKET_PINCTRL_PIN(sock, 58, "GPIO13"),		/*GPIO13-------gpio13*/	\
+	SOCKET_PINCTRL_PIN(sock, 59, "GPIO14"),		/*GPIO14-------gpio14*/	\
+	SOCKET_PINCTRL_PIN(sock, 60, "GPIO15"),		/*GPIO15-------gpio15*/	\
+	SOCKET_PINCTRL_PIN(sock, 61, "GPIO16"),		/*GPIO16-------gpio16*/	\
+	SOCKET_PINCTRL_PIN(sock, 62, "GPIO17"),		/*GPIO17-------gpio17*/	\
+	SOCKET_PINCTRL_PIN(sock, 63, "GPIO18"),		/*GPIO18-------gpio18*/	\
+	SOCKET_PINCTRL_PIN(sock, 64, "GPIO19"),		/*GPIO19-------gpio19*/	\
+	SOCKET_PINCTRL_PIN(sock, 65, "GPIO20"),		/*GPIO20-------gpio20*/	\
+	SOCKET_PINCTRL_PIN(sock, 66, "GPIO21"),		/*GPIO21-------gpio21*/	\
+	SOCKET_PINCTRL_PIN(sock, 67, "GPIO22"),		/*GPIO22-------gpio22*/	\
+	SOCKET_PINCTRL_PIN(sock, 68, "GPIO23"),		/*GPIO23-------gpio23*/	\
+	SOCKET_PINCTRL_PIN(sock, 69, "GPIO24"),		/*GPIO24-------gpio24*/	\
+	SOCKET_PINCTRL_PIN(sock, 70, "GPIO25"),		/*GPIO25-------gpio25*/	\
+	SOCKET_PINCTRL_PIN(sock, 71, "GPIO26"),		/*GPIO26-------gpio26*/	\
+	SOCKET_PINCTRL_PIN(sock, 72, "GPIO27"),		/*GPIO27-------gpio27*/	\
+	SOCKET_PINCTRL_PIN(sock, 73, "GPIO28"),		/*GPIO28-------gpio28*/	\
+	SOCKET_PINCTRL_PIN(sock, 74, "GPIO29"),		/*GPIO29-------gpio29*/	\
+	SOCKET_PINCTRL_PIN(sock, 75, "GPIO30"),		/*GPIO30-------gpio30*/	\
+	SOCKET_PINCTRL_PIN(sock, 76, "GPIO31"),		/*GPIO31-------gpio31*/	\
+	SOCKET_PINCTRL_PIN(sock, 77, "GPIO32"),		/*GPIO32-------gpio32*/	\
+	SOCKET_PINCTRL_PIN(sock, 78, "GPIO33"),		/*GPIO33-------gpio33*/	\
+	SOCKET_PINCTRL_PIN(sock, 79, "GPIO34"),		/*GPIO34-------gpio34*/	\
+	SOCKET_PINCTRL_PIN(sock, 80, "GPIO35"),		/*GPIO35-------gpio35*/	\
+	/*GPIO range 3*/							\
+	SOCKET_PINCTRL_PIN(sock, 81, "LPCCLK"),		/*PGPIO16------gpio52*/	\
+	SOCKET_PINCTRL_PIN(sock, 82, "LPCDRQ1"),	/*PGPIO17------gpio53*/	\
+	SOCKET_PINCTRL_PIN(sock, 83, "LPCDRQ0"),	/*PGPIO18------gpio54*/	\
+	SOCKET_PINCTRL_PIN(sock, 84, "LPCFRAME"),	/*PGPIO19------gpio55*/	\
+	SOCKET_PINCTRL_PIN(sock, 85, "LPCAD3"),		/*PGPIO20------gpio56*/	\
+	SOCKET_PINCTRL_PIN(sock, 86, "LPCAD2"),		/*PGPIO21------gpio57*/	\
+	SOCKET_PINCTRL_PIN(sock, 87, "LPCAD1"),		/*PGPIO22------gpio58*/	\
+	SOCKET_PINCTRL_PIN(sock, 88, "LPCAD0"),		/*PGPIO23------gpio59*/	\
+	SOCKET_PINCTRL_PIN(sock, 89, "SERIRQ"),		/*PGPIO24------gpio60*/	\
+	/*GPIO range 4*/							\
+	SOCKET_PINCTRL_PIN(sock, 90, "ESPICLK"),	/*PGPIO15------gpio51*/	\
+	/*GPIO range 5*/							\
+	SOCKET_PINCTRL_PIN(sock, 91, "ESPIRST"),	/*PGPIO29------gpio65*/	\
+	SOCKET_PINCTRL_PIN(sock, 92, "ESPICS"),		/*PGPIO30------gpio66*/	\
+	SOCKET_PINCTRL_PIN(sock, 93, "ESPIIO3"),	/*PGPIO31------gpio67*/	\
+	/*GPIO range 6*/							\
+	SOCKET_PINCTRL_PIN(sock, 94, "ESPIIO2"),	/*PGPIO4------gpio40*/	\
+	SOCKET_PINCTRL_PIN(sock, 95, "ESPIIO1"),	/*PGPIO5------gpio41*/	\
+	SOCKET_PINCTRL_PIN(sock, 96, "ESPIIO0"),	/*PGPIO6------gpio42*/	\
+	/* jump */								\
+	SOCKET_PINCTRL_PIN(sock, 97, "SPIDI"),					\
+	SOCKET_PINCTRL_PIN(sock, 98, "SPIDO"),					\
+	SOCKET_PINCTRL_PIN(sock, 99, "SPICLK"),					\
+	SOCKET_PINCTRL_PIN(sock, 100, "SPISS"),					\
+	SOCKET_PINCTRL_PIN(sock, 101, "TPMRST"),				\
+	SOCKET_PINCTRL_PIN(sock, 102, "TPMIRQ"),				\
+	SOCKET_PINCTRL_PIN(sock, 103, "MSPIDI"),				\
+	SOCKET_PINCTRL_PIN(sock, 104, "MSPIDO"),				\
+	SOCKET_PINCTRL_PIN(sock, 105, "MSPIIO2"),				\
+	SOCKET_PINCTRL_PIN(sock, 106, "MSPIIO3"),				\
+	SOCKET_PINCTRL_PIN(sock, 107, "MSPICLK"),				\
+	SOCKET_PINCTRL_PIN(sock, 108, "MSPISS0"),				\
+	/*GPIO range 7*/							\
+	SOCKET_PINCTRL_PIN(sock, 109, "MSPISS1"),	/*PGPIO9------gpio45*/	\
+	/*GPIO range 8 */							\
+	SOCKET_PINCTRL_PIN(sock, 110, "MSPISS2"),	/*PGPIO22------gpio58*/	\
+	/*GPIO range 9*/							\
+	SOCKET_PINCTRL_PIN(sock, 111, "SPIDEVINT"),	/*PGPIO25------gpio61*/	\
+	/*jump*/								\
+	SOCKET_PINCTRL_PIN(sock, 112, "ZLSDATA_TX_P0"),				\
+	SOCKET_PINCTRL_PIN(sock, 113, "ZLSDATA_RX_P0"),				\
+	SOCKET_PINCTRL_PIN(sock, 114, "ZLSDATA_TX_P1"),				\
+	SOCKET_PINCTRL_PIN(sock, 115, "ZLSDATA_RX_P1"),				\
+	SOCKET_PINCTRL_PIN(sock, 116, "ZLSDATA_TX_P2"),				\
+	SOCKET_PINCTRL_PIN(sock, 117, "ZLSDATA_RX_P2"),				\
+	SOCKET_PINCTRL_PIN(sock, 118, "BOOT_EN"),				\
+	SOCKET_PINCTRL_PIN(sock, 119, "BOOT_DONE"),				\
+	SOCKET_PINCTRL_PIN(sock, 120, "MST_SKT"),				\
+	SOCKET_PINCTRL_PIN(sock, 121, "HRX_BEVO_CLK"),				\
+	SOCKET_PINCTRL_PIN(sock, 122, "HRX_BEVO_DATA"),				\
+	SOCKET_PINCTRL_PIN(sock, 123, "HTX_BEVO_CLK"),				\
+	SOCKET_PINCTRL_PIN(sock, 124, "HTX_BEVO_DATA"),				\
+	SOCKET_PINCTRL_PIN(sock, 125, "THRMTRIP_I"),				\
+	SOCKET_PINCTRL_PIN(sock, 126, "CLK50M_I"),				\
+	SOCKET_PINCTRL_PIN(sock, 127, "CLK50M_O"),				\
+	SOCKET_PINCTRL_PIN(sock, 128, "PCIRST_IO"),				\
+	SOCKET_PINCTRL_PIN(sock, 129, "RSMRST_IO"),				\
+	SOCKET_PINCTRL_PIN(sock, 130, "PWRGD_IO"),				\
+	SOCKET_PINCTRL_PIN(sock, 131, "CLK32K_IO"),				\
+	SOCKET_PINCTRL_PIN(sock, 132, "BIOSSEL"),				\
+	SOCKET_PINCTRL_PIN(sock, 133, "THRMRIP"),				\
+	/*GPIO range 10 */							\
+	SOCKET_PINCTRL_PIN(sock, 134, "THRM"),		/*PGPIO26------gpio62*/	\
+	/*GPIO range 11*/							\
+	SOCKET_PINCTRL_PIN(sock, 135, "PEXWAKE"),	/*PGPIO10------gpio46*/	\
+	/*jump*/								\
+	SOCKET_PINCTRL_PIN(sock, 136, "PWRBTN"),				\
+	SOCKET_PINCTRL_PIN(sock, 137, "PCIRST"),				\
+	/*GPIO range 12*/							\
+	SOCKET_PINCTRL_PIN(sock, 138, "SPKR"),		/*PGPIO27------gpio63*/	\
+	SOCKET_PINCTRL_PIN(sock, 139, "PME"),		/*PGPIO28------gpio64*/	\
+	SOCKET_PINCTRL_PIN(sock, 140, "SUSA"),					\
+	SOCKET_PINCTRL_PIN(sock, 141, "SUSB"),					\
+	SOCKET_PINCTRL_PIN(sock, 142, "SUSC"),					\
+	SOCKET_PINCTRL_PIN(sock, 143, "SVID0_VREN"),				\
+	SOCKET_PINCTRL_PIN(sock, 144, "SVID1_VREN"),
+
 /* kh50000 pin define */
-static const struct pinctrl_pin_desc kh50000_pins[] = {
-	PINCTRL_PIN(0, "IOD_CLK27M_G0"),
-	PINCTRL_PIN(1, "IOD_CLK27M_G1"),
-	PINCTRL_PIN(2, "IOD_CLK27M_G2"),
-	PINCTRL_PIN(3, "IOD_CLK27M_G3"),
-	PINCTRL_PIN(4, "IOD_CPURST_G0"),
-	PINCTRL_PIN(5, "IOD_CPURST_G1"),
-	PINCTRL_PIN(6, "IOD_CPURST_G2"),
-	PINCTRL_PIN(7, "IOD_CPURST_G3"),
-	PINCTRL_PIN(8, "IOD_RSMRST_G0"),
-	PINCTRL_PIN(9, "IOD_RSMRST_G1"),
-	PINCTRL_PIN(10, "IOD_RSMRST_G2"),
-	PINCTRL_PIN(11, "IOD_RSMRST_G3"),
-	PINCTRL_PIN(12, "IOD_PWROK_G0"),
-	PINCTRL_PIN(13, "IOD_PWROK_G1"),
-	PINCTRL_PIN(14, "IOD_PWROK_G2"),
-	PINCTRL_PIN(15, "IOD_PWROK_G3"),
-	PINCTRL_PIN(16, "IOD_THRMTRIP_G0"),
-	PINCTRL_PIN(17, "IOD_THRMTRIP_G1"),
-	PINCTRL_PIN(18, "IOD_THRMTRIP_G2"),
-	PINCTRL_PIN(19, "IOD_THRMTRIP_G3"),
-	PINCTRL_PIN(20, "IOD_CLK50M_G0"),
-	PINCTRL_PIN(21, "IOD_CLK50M_G1"),
-	PINCTRL_PIN(22, "IOD_CLK50M_G2"),
-	PINCTRL_PIN(23, "IOD_CLK50M_G3"),
-	/* GPIO range 0 */
-	PINCTRL_PIN(24, "USBHOC0"),
-	PINCTRL_PIN(25, "USBHOC1"),
-	PINCTRL_PIN(26, "USBHOC2"),
-	PINCTRL_PIN(27, "USBHOC3"),
-	PINCTRL_PIN(28, "I3C0DT"),
-	PINCTRL_PIN(29, "I3C0CK"),
-	PINCTRL_PIN(30, "I3C1DT"),
-	PINCTRL_PIN(31, "I3C1CK"),
-	PINCTRL_PIN(32, "I3C2DT"),
-	PINCTRL_PIN(33, "I3C2CK"),
-	PINCTRL_PIN(34, "I3C3DT"),
-	PINCTRL_PIN(35, "I3C3CK"),
-	PINCTRL_PIN(36, "SMBDT0"),
-	/* GPIO range 1 */
-	PINCTRL_PIN(37, "SMBCK0"),
-	PINCTRL_PIN(38, "SMBDT1"),
-	PINCTRL_PIN(39, "SMBCK1"),
-	PINCTRL_PIN(40, "SMBDT2"),
-	PINCTRL_PIN(41, "SMBCK2"),
-	PINCTRL_PIN(42, "SMBALRT"),
-	PINCTRL_PIN(43, "SME_I2CDT_S"),
-	PINCTRL_PIN(44, "SME_I2CCK_S"),
-	/* GPIO range 2 */
-	PINCTRL_PIN(45, "GPIO0"),
-	PINCTRL_PIN(46, "GPIO1"),
-	PINCTRL_PIN(47, "GPIO2"),
-	PINCTRL_PIN(48, "GPIO3"),
-	PINCTRL_PIN(49, "GPIO4"),
-	PINCTRL_PIN(50, "GPIO5"),
-	PINCTRL_PIN(51, "GPIO6"),
-	PINCTRL_PIN(52, "GPIO7"),
-	PINCTRL_PIN(53, "GPIO8"),
-	PINCTRL_PIN(54, "GPIO9"),
-	PINCTRL_PIN(55, "GPIO10"),
-	PINCTRL_PIN(56, "GPIO11"),
-	PINCTRL_PIN(57, "GPIO12"),
-	PINCTRL_PIN(58, "GPIO13"),
-	PINCTRL_PIN(59, "GPIO14"),
-	PINCTRL_PIN(60, "GPIO15"),
-	PINCTRL_PIN(61, "GPIO16"),
-	PINCTRL_PIN(62, "GPIO17"),
-	PINCTRL_PIN(63, "GPIO18"),
-	PINCTRL_PIN(64, "GPIO19"),
-	PINCTRL_PIN(65, "GPIO20"),
-	PINCTRL_PIN(66, "GPIO21"),
-	PINCTRL_PIN(67, "GPIO22"),
-	PINCTRL_PIN(68, "GPIO23"),
-	PINCTRL_PIN(69, "GPIO24"),
-	PINCTRL_PIN(70, "GPIO25"),
-	PINCTRL_PIN(71, "GPIO26"),
-	PINCTRL_PIN(72, "GPIO27"),
-	PINCTRL_PIN(73, "GPIO28"),
-	PINCTRL_PIN(74, "GPIO29"),
-	PINCTRL_PIN(75, "GPIO30"),
-	PINCTRL_PIN(76, "GPIO31"),
-	PINCTRL_PIN(77, "GPIO32"),
-	PINCTRL_PIN(78, "GPIO33"),
-	PINCTRL_PIN(79, "GPIO34"),
-	PINCTRL_PIN(80, "GPIO35"),
-	/* GPIO range 3 */
-	PINCTRL_PIN(81, "LPCCLK"),
-	PINCTRL_PIN(82, "LPCDRQ1"),
-	PINCTRL_PIN(83, "LPCDRQ0"),
-	PINCTRL_PIN(84, "LPCFRAME"),
-	PINCTRL_PIN(85, "LPCAD3"),
-	PINCTRL_PIN(86, "LPCAD2"),
-	PINCTRL_PIN(87, "LPCAD1"),
-	PINCTRL_PIN(88, "LPCAD0"),
-	PINCTRL_PIN(89, "SERIRQ"),
-	/* GPIO range 4 */
-	PINCTRL_PIN(90, "ESPICLK"),
-	/* GPIO range 5 */
-	PINCTRL_PIN(91, "ESPIRST"),
-	PINCTRL_PIN(92, "ESPICS"),
-	PINCTRL_PIN(93, "ESPIIO3"),
-	/* GPIO range 6 */
-	PINCTRL_PIN(94, "ESPIIO2"),
-	PINCTRL_PIN(95, "ESPIIO1"),
-	PINCTRL_PIN(96, "ESPIIO0"),
-	PINCTRL_PIN(97, "SPIDI"),
-	PINCTRL_PIN(98, "SPIDO"),
-	PINCTRL_PIN(99, "SPICLK"),
-	PINCTRL_PIN(100, "SPISS"),
-	PINCTRL_PIN(101, "TPMRST"),
-	PINCTRL_PIN(102, "TPMIRQ"),
-	PINCTRL_PIN(103, "MSPIDI"),
-	PINCTRL_PIN(104, "MSPIDO"),
-	PINCTRL_PIN(105, "MSPIIO2"),
-	PINCTRL_PIN(106, "MSPIIO3"),
-	PINCTRL_PIN(107, "MSPICLK"),
-	PINCTRL_PIN(108, "MSPISS0"),
-	/* GPIO range 7 */
-	PINCTRL_PIN(109, "MSPISS1"),
-	/* GPIO range 8 */
-	PINCTRL_PIN(110, "MSPISS2"),
-	/* GPIO range 9 */
-	PINCTRL_PIN(111, "SPIDEVINT"),
-	PINCTRL_PIN(112, "ZLSDATA_TX_P0"),
-	PINCTRL_PIN(113, "ZLSDATA_RX_P0"),
-	PINCTRL_PIN(114, "ZLSDATA_TX_P1"),
-	PINCTRL_PIN(115, "ZLSDATA_RX_P1"),
-	PINCTRL_PIN(116, "ZLSDATA_TX_P2"),
-	PINCTRL_PIN(117, "ZLSDATA_RX_P2"),
-	PINCTRL_PIN(118, "BOOT_EN"),
-	PINCTRL_PIN(119, "BOOT_DONE"),
-	PINCTRL_PIN(120, "MST_SKT"),
-	PINCTRL_PIN(121, "HRX_BEVO_CLK"),
-	PINCTRL_PIN(122, "HRX_BEVO_DATA"),
-	PINCTRL_PIN(123, "HTX_BEVO_CLK"),
-	PINCTRL_PIN(124, "HTX_BEVO_DATA"),
-	PINCTRL_PIN(125, "THRMTRIP_I"),
-	PINCTRL_PIN(126, "CLK50M_I"),
-	PINCTRL_PIN(127, "CLK50M_O"),
-	PINCTRL_PIN(128, "PCIRST_IO"),
-	PINCTRL_PIN(129, "RSMRST_IO"),
-	PINCTRL_PIN(130, "PWRGD_IO"),
-	PINCTRL_PIN(131, "CLK32K_IO"),
-	PINCTRL_PIN(132, "BIOSSEL"),
-	PINCTRL_PIN(133, "THRMRIP"),
-	/* GPIO range 10 */
-	PINCTRL_PIN(134, "THRM"),
-	/* GPIO range 11 */
-	PINCTRL_PIN(135, "PEXWAKE"),
-	PINCTRL_PIN(136, "PWRBTN"),
-	PINCTRL_PIN(137, "PCIRST"),
-	/* GPIO range 12 */
-	PINCTRL_PIN(138, "SPKR"),
-	PINCTRL_PIN(139, "PME"),
-	PINCTRL_PIN(140, "SUSA"),
-	PINCTRL_PIN(141, "SUSB"),
-	PINCTRL_PIN(142, "SUSC"),
-	PINCTRL_PIN(143, "SVID0_VREN"),
-	PINCTRL_PIN(144, "SVID1_VREN"),
+static const struct pinctrl_pin_desc kh50000_pins_0[] = {
+	KH50000_SOCKET_PINS(0)
+};
+
+static const struct pinctrl_pin_desc kh50000_pins_1[] = {
+	KH50000_SOCKET_PINS(1)
+};
+
+static const struct pinctrl_pin_desc kh50000_pins_2[] = {
+	KH50000_SOCKET_PINS(2)
+};
+
+static const struct pinctrl_pin_desc kh50000_pins_3[] = {
+	KH50000_SOCKET_PINS(3)
 };
 
 #define NOT_DEFINE -30000
@@ -326,22 +344,74 @@ static zx_gpio_type kh50000_gpio_type(struct zhaoxin_pinctrl *pctrl, unsigned in
 
 static void kh50000_gpio_init(struct zhaoxin_pinctrl *pctrl)
 {
-	pctrl->pmio_base = 0x800;
-	pctrl->pmio_rx90 = 0x90;
-	pctrl->pmio_rx8c = 0x8c;
+	struct resource *res_pmio;
+	struct platform_device *pdev = to_platform_device(pctrl->dev);
 
+	res_pmio = platform_get_resource(pdev, IORESOURCE_IO, 0);
+	if (!res_pmio) {
+		dev_err(&pdev->dev, "can't fetch device pmio resource info\n");
+		return;
+	}
+
+	if (!request_region(res_pmio->start, resource_size(res_pmio), pdev->name)) {
+		dev_err(&pdev->dev, "can't request region\n");
+		return;
+	}
+
+	pctrl->pmio_base = res_pmio->start;
+	pctrl->pmio_rx90 = 4;
+	pctrl->pmio_rx8c = 0;
 	zx_pad_write16(pctrl, 0xF8, 0x7F);
 	dev_info(pctrl->dev, "KH50000 private init\n");
 }
 
-static const struct zhaoxin_pinctrl_soc_data kh50000_soc_data = {
-	.pins = kh50000_pins,
-	.npins = ARRAY_SIZE(kh50000_pins),
+static const struct zhaoxin_pinctrl_soc_data socket_0_soc_data = {
+	.uid = "0",
+	.pins = kh50000_pins_0,
+	.npins = ARRAY_SIZE(kh50000_pins_0),
 	.pin_topologys = kh50000_pin_topologys,
 	.gpio_type = kh50000_gpio_type,
 	.private_init = kh50000_gpio_init,
 	.zhaoxin_pin_maps = kh50000_pinmap_gpps,
 	.pin_map_size = ARRAY_SIZE(kh50000_pinmap_gpps),
+};
+static const struct zhaoxin_pinctrl_soc_data socket_1_soc_data = {
+	.uid = "1",
+	.pins = kh50000_pins_1,
+	.npins = ARRAY_SIZE(kh50000_pins_1),
+	.pin_topologys = kh50000_pin_topologys,
+	.gpio_type = kh50000_gpio_type,
+	.private_init = kh50000_gpio_init,
+	.zhaoxin_pin_maps = kh50000_pinmap_gpps,
+	.pin_map_size = ARRAY_SIZE(kh50000_pinmap_gpps),
+};
+static const struct zhaoxin_pinctrl_soc_data socket_2_soc_data = {
+	.uid = "2",
+	.pins = kh50000_pins_2,
+	.npins = ARRAY_SIZE(kh50000_pins_2),
+	.pin_topologys = kh50000_pin_topologys,
+	.gpio_type = kh50000_gpio_type,
+	.private_init = kh50000_gpio_init,
+	.zhaoxin_pin_maps = kh50000_pinmap_gpps,
+	.pin_map_size = ARRAY_SIZE(kh50000_pinmap_gpps),
+};
+static const struct zhaoxin_pinctrl_soc_data socket_3_soc_data = {
+	.uid = "3",
+	.pins = kh50000_pins_3,
+	.npins = ARRAY_SIZE(kh50000_pins_3),
+	.pin_topologys = kh50000_pin_topologys,
+	.gpio_type = kh50000_gpio_type,
+	.private_init = kh50000_gpio_init,
+	.zhaoxin_pin_maps = kh50000_pinmap_gpps,
+	.pin_map_size = ARRAY_SIZE(kh50000_pinmap_gpps),
+};
+
+static const struct zhaoxin_pinctrl_soc_data *kh50000_soc_data[] = {
+	&socket_0_soc_data,
+	&socket_1_soc_data,
+	&socket_2_soc_data,
+	&socket_3_soc_data,
+	NULL,
 };
 
 static const struct acpi_device_id kh50000_pinctrl_acpi_match[] = {
@@ -355,7 +425,7 @@ static const struct dev_pm_ops kh50000_pinctrl_pm_ops = {
 };
 
 static struct platform_driver kh50000_pinctrl_driver = {
-	.probe = zhaoxin_pinctrl_probe_by_hid,
+	.probe = zhaoxin_pinctrl_probe_by_uid,
 	.driver = {
 		.name = "kh50000-pinctrl",
 		.acpi_match_table = kh50000_pinctrl_acpi_match,
