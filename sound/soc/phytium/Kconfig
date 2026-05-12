@@ -27,18 +27,19 @@ config SND_PMDK_ES8336
 	 ES8336 codecs.
 
 config SND_SOC_PHYTIUM_I2S_V2
-        tristate "Phytium I2S V2 Device Driver"
-        help
-         Say Y or M if you want to add support for I2S v2 driver for
-         Phytium I2S device . The device supports 2 channels each
-         for play and record.
+	tristate "Phytium I2S V2 Device Driver"
+	depends on ARCH_PHYTIUM
+	help
+	 Say Y or M if you want to add support for I2S v2 driver for
+	 Phytium I2S device . The device supports 2 channels each
+	 for play and record.
 
 config SND_SOC_PHYTIUM_MACHINE_V2
-        tristate "Phytium Machine V2 Driver"
-        depends on SND_SOC_PHYTIUM_I2S_V2
-        help
-         Say Y or M if you want to add Phytium machine v2 support for
-         codecs.
+	tristate "Phytium Machine V2 Driver"
+	depends on SND_SOC_PHYTIUM_I2S_V2
+	help
+	 Say Y or M if you want to add Phytium machine v2 support for
+	 codecs.
 
 config SND_PMDK_DP
 	tristate "Phytium machine support with DP"
