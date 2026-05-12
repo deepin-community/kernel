@@ -42,6 +42,18 @@ struct phytium_nocfreq_info {
 
 /* v2 Register definition */
 #define V2_REG_NOC_STATUS   0x0
+#define V2_BUSY_CODE_MASK   0x1f
+#define V2_BUSY_CODE_MAX    16
+
+/* Fast ramp-up thresholds on each level (busy code out of 16) */
+#define V2_UP_225_TO_450_BUSY    4
+#define V2_UP_450_TO_900_BUSY    8
+#define V2_UP_900_TO_1800_BUSY   12
+
+/* Hysteresis hold/down thresholds */
+#define V2_DOWN_450_TO_225_BUSY  2
+#define V2_DOWN_900_TO_450_BUSY  6
+#define V2_DOWN_1800_TO_900_BUSY 10
 
 struct phytium_nocfreq {
 	struct device *dev;
@@ -57,6 +69,7 @@ struct phytium_nocfreq {
 	/* v2 only */
 	void __iomem *reg_noc_v2;
 	unsigned int uid;
+	unsigned int v2_busy_code;
 
 	struct mutex lock;
 
@@ -105,6 +118,49 @@ static void phytium_nocfreq_restart_handshark_counters_v1(struct phytium_nocfreq
 static u32 phytium_nocfreq_get_peak_bw_v2(struct phytium_nocfreq *priv)
 {
 	return readl_relaxed(priv->reg_noc_v2 + V2_REG_NOC_STATUS);
+}
+
+static unsigned long phytium_nocfreq_min_rate(struct phytium_nocfreq *priv)
+{
+	unsigned long min_rate = priv->freq_table[0];
+	int i;
+
+	for (i = 1; i < priv->freq_count; i++) {
+		if (priv->freq_table[i] < min_rate)
+			min_rate = priv->freq_table[i];
+	}
+
+	return min_rate;
+}
+
+static unsigned long phytium_nocfreq_max_rate(struct phytium_nocfreq *priv)
+{
+	unsigned long max_rate = priv->freq_table[0];
+	int i;
+
+	for (i = 1; i < priv->freq_count; i++) {
+		if (priv->freq_table[i] > max_rate)
+			max_rate = priv->freq_table[i];
+	}
+
+	return max_rate;
+}
+
+static unsigned long phytium_nocfreq_next_higher_rate(struct phytium_nocfreq *priv,
+						       unsigned long rate)
+{
+	unsigned long next_rate = ~0UL;
+	int i;
+
+	for (i = 0; i < priv->freq_count; i++) {
+		if (priv->freq_table[i] > rate && priv->freq_table[i] < next_rate)
+			next_rate = priv->freq_table[i];
+	}
+
+	if (next_rate == ~0UL)
+		return rate;
+
+	return next_rate;
 }
 
 /* v1/v2 General frequency setting */
@@ -165,6 +221,36 @@ static int phytium_noc_target(struct device *dev, unsigned long *freq, u32 flags
 
 	target_rate = dev_pm_opp_get_freq(opp);
 	dev_pm_opp_put(opp);
+
+	if (priv->info->type == PHYTIUM_NOC_V2) {
+		unsigned long low = phytium_nocfreq_min_rate(priv);
+		unsigned long mid1 = phytium_nocfreq_next_higher_rate(priv, low);
+		unsigned long mid2 = phytium_nocfreq_next_higher_rate(priv, mid1);
+		unsigned long high = phytium_nocfreq_max_rate(priv);
+
+		if (old_freq == low) {
+			if (priv->v2_busy_code >= V2_UP_225_TO_450_BUSY && mid1 > low &&
+			    target_rate < mid1)
+				target_rate = mid1;
+		} else if (old_freq == mid1) {
+			if (priv->v2_busy_code >= V2_UP_450_TO_900_BUSY && mid2 > mid1 &&
+			    target_rate < mid2)
+				target_rate = mid2;
+			else if (priv->v2_busy_code > V2_DOWN_450_TO_225_BUSY &&
+				 priv->v2_busy_code < V2_UP_450_TO_900_BUSY)
+				target_rate = mid1;
+		} else if (old_freq == mid2) {
+			if (priv->v2_busy_code >= V2_UP_900_TO_1800_BUSY && high > mid2 &&
+			    target_rate < high)
+				target_rate = high;
+			else if (priv->v2_busy_code > V2_DOWN_900_TO_450_BUSY &&
+				 priv->v2_busy_code < V2_UP_900_TO_1800_BUSY)
+				target_rate = mid2;
+		} else if (old_freq == high) {
+			if (priv->v2_busy_code > V2_DOWN_1800_TO_900_BUSY)
+				target_rate = high;
+		}
+	}
 
 	if (target_rate == old_freq)
 		return 0;
@@ -309,8 +395,15 @@ static int phytium_noc_get_dev_status(struct device *dev, struct devfreq_dev_sta
 
 		phytium_nocfreq_restart_handshark_counters_v1(priv);
 	} else {
-		stat->busy_time = phytium_nocfreq_get_peak_bw_v2(priv);
-		stat->total_time = 15 * DIV_ROUND_CLOSEST(priv->rate, priv->freq_table[0]);
+		u32 raw_busy = phytium_nocfreq_get_peak_bw_v2(priv);
+		u32 busy_code = raw_busy & V2_BUSY_CODE_MASK;
+
+		if (busy_code > V2_BUSY_CODE_MAX)
+			busy_code = V2_BUSY_CODE_MAX;
+
+		priv->v2_busy_code = busy_code;
+		stat->busy_time = busy_code;
+		stat->total_time = V2_BUSY_CODE_MAX;
 		stat->current_frequency = priv->rate;
 	}
 	return 0;
@@ -439,8 +532,8 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 		priv->ondemand_data.upthreshold		= 80;
 		priv->ondemand_data.downdifferential	= 10;
 	} else {
-		priv->ondemand_data.upthreshold		= 95;
-		priv->ondemand_data.downdifferential	= 5;
+		priv->ondemand_data.upthreshold		= 80;
+		priv->ondemand_data.downdifferential	= 10;
 	}
 
 	for (i = 0; i < max_state; ++i) {
