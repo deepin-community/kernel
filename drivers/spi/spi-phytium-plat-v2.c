@@ -127,9 +127,7 @@ static int spi_phyt_probe(struct platform_device *pdev)
 	struct resource *regfile_mem, *share_mem;
 	int ret;
 	int num_cs;
-	int cs_gpio;
 	int global_cs = 1;
-	int i;
 	u32 clk_rate = SPI_DEFAULT_CLK;
 
 	fts = devm_kzalloc(&pdev->dev, sizeof(struct phytium_spi),

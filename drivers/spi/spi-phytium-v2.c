@@ -442,7 +442,7 @@ void spi_handle_debug_err(struct phytium_spi *fts)
 
 static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 {
-	u32 reg, i, reg_ddr_high;
+	u32 reg, reg_ddr_high;
 
 	spi_phytium_default(fts);
 
