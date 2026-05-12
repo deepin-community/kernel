@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (C) 2025 ARM Ltd.
+ * Copyright (C) 2025, Phytium Technology Co., Ltd.
  */
 #ifndef __ASM_PHYTIUM_CPUTYPE_H
 #define __ASM_PHYTIUM_CPUTYPE_H
@@ -98,7 +98,7 @@ static enum phyt_soc_type do_read_mpidr(void)
 	u32 part_id = read_cpuid_part_number();
 
 	switch (part_id) {
-	case PHYTIUM_CPU_PART_FTC303:
+	case PHYTIUM_CPU_PART_FTC310:
 		return PE220X;
 	case PHYTIUM_CPU_PART_FTC660:
 		return PS15016;
