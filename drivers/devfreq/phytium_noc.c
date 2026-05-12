@@ -117,7 +117,7 @@ static int phytium_noc_set_freq(struct device *dev, unsigned long freq)
 		dev_err(dev, "Failed to set the freq to %lu\n", freq);
 		return -EIO;
 	}
-	dev_info(dev, "set target_freq = %lu khz\n", freq);
+	dev_dbg(dev, "set target_freq = %lu khz\n", freq);
 	return 0;
 }
 
@@ -290,7 +290,7 @@ static int phytium_noc_get_dev_status(struct device *dev,
 	stat->current_frequency	= priv->rate;
 
 	phytium_nocfreq_restart_handshark_counters(priv);
-	dev_info(dev, "Using %lu/%lu (%lu%%) at %lu KHz\n",
+	dev_dbg(dev, "Using %lu/%lu (%lu%%) at %lu KHz\n",
 		stat->busy_time, stat->total_time,
 		DIV_ROUND_CLOSEST(stat->busy_time * 100, stat->total_time),
 		stat->current_frequency);
@@ -308,6 +308,8 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 	unsigned int max_state;
 
 	max_state = get_freq_count(dev);
+
+	dev->init_name = "nocfreq";
 
 	priv = devm_kzalloc(dev, struct_size(priv, freq_table, max_state), GFP_KERNEL);
 	if (!priv)
@@ -372,6 +374,7 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 
 err:
 	dev_pm_opp_of_remove_table(dev);
+	kfree(priv);
 	return ret;
 }
 
@@ -398,9 +401,12 @@ static int phytium_nocfreq_remove(struct platform_device *pdev)
 
 	iounmap(priv->reg_noc);
 
-	devfreq_remove_device(priv->devfreq);
+	if (!priv->devfreq)
+		return 0;
+
 	dev_pm_opp_remove_all_dynamic(dev);
 
+	kfree(priv);
 	return 0;
 }
 

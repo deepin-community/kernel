@@ -325,6 +325,7 @@ static int phytium_dmufreq_probe(struct platform_device *pdev)
 
 err:
 	dev_pm_opp_of_remove_table(dev);
+	kfree(priv);
 	return ret;
 }
 
@@ -333,9 +334,15 @@ static int phytium_dmufreq_remove(struct platform_device *pdev)
 	struct phytium_dmufreq *priv = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
 
-	devfreq_remove_device(priv->devfreq);
+
+	if (!priv->devfreq)
+		return 0;
+	flush_work(&priv->work);
+	del_timer_sync(&priv->sampling);
 
 	dev_pm_opp_remove_all_dynamic(dev);
+
+	kfree(priv);
 
 	return 0;
 }
