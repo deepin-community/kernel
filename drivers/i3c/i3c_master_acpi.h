@@ -9,7 +9,6 @@
 #define __I3C_MASTER_ACPI_H
 
 #include <linux/acpi.h>
-#include <acpi/acpi_bus.h>
 
 int i3c_master_acpi_get_params(acpi_handle handle, char *method, u32 *value);
 void i3c_master_acpi_clk_params(acpi_handle handle, char *method,
