@@ -46,7 +46,7 @@
 #define MAX_PIXEL_CLOCK         (1920 * 1080 * 60)   /* 1920 x 1080 x 60Hz */
 
 #define SOURCE_RESOLUTION_DETECT_TIMEOUT    msecs_to_jiffies(500)
-#define RESOLUTION_CHANGE_DELAY             msecs_to_jiffies(250)
+#define RESOLUTION_CHANGE_DELAY             msecs_to_jiffies(150)
 #define INVALID_RESOLUTION_DELAY            msecs_to_jiffies(250)
 #define STOP_TIMEOUT                        msecs_to_jiffies(1000)
 
