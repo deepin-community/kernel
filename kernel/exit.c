@@ -562,6 +562,7 @@ static void exit_mm(void)
 	 */
 	smp_mb__after_spinlock();
 	local_irq_disable();
+	current->user_dumpable = (get_dumpable(mm) == SUID_DUMP_USER);
 	current->mm = NULL;
 #ifdef CONFIG_IEE_PTRP
 	if(haoc_enabled)
