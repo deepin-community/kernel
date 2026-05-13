@@ -6,7 +6,6 @@
  */
 
 #include <linux/acpi.h>
-#include <acpi/acpi_bus.h>
 #include <linux/atomic.h>
 #include <linux/bug.h>
 #include <linux/device.h>

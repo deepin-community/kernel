@@ -17551,6 +17551,7 @@ F:	drivers/usb/phytium/*
 F:	drivers/usb/phytium/phytium_usb_v2*
 F:	drivers/usb/typec/role-switch-phytium.c
 F:	arch/arm64/boot/dts/phytium/*
+F:	arch/arm64/include/asm/phytium_cputype.h
 F:	drivers/gpio/gpio-phytium*
 
 QAT DRIVER

@@ -30,10 +30,16 @@ jobs:
         run: |
           # .config
           make deepin_arm64_desktop_defconfig
+          scripts/config --enable CONFIG_DEBUG_INFO_NONE
+          scripts/config --disable CONFIG_DEBUG_INFO_DWARF5
+          make olddefconfig
           make -j$(nproc)
 
       - name: 'Clang build kernel'
         run: |
           # .config
           make LLVM=-18 deepin_arm64_desktop_defconfig
+          scripts/config --enable CONFIG_DEBUG_INFO_NONE
+          scripts/config --disable CONFIG_DEBUG_INFO_DWARF5
+          make LLVM=-18 olddefconfig
           make LLVM=-18 -j$(nproc)
