@@ -210,22 +210,47 @@ static void phytium_jpeg_get_resolution(struct phytium_jpeg_dev *jpeg_dev)
 	u32 width;
 	u32 height;
 	struct v4l2_bt_timings *detected_timings = &jpeg_dev->detected_timings;
+	u32 input_signal;
 
 	/* Before get a new resolution, maybe need to wait 10 us */
 	detected_timings->width = MIN_WIDTH;
 	detected_timings->height = MIN_HEIGHT;
 	jpeg_dev->v4l2_input_status = V4L2_IN_ST_NO_SIGNAL;
 
-
 	phytium_jpeg_enable_source_detecting(jpeg_dev);
 	source_info = phytium_jpeg_read(jpeg_dev, SRC_VGA_INFO_REG);
 	width = (source_info & SRC_HOR_PIXELS) >> SRC_WIDTH_SHIFT;
 	height = (source_info & SRC_VER_PIXELS) >> SRC_HEIGHT_SHIFT;
 
+	input_signal = phytium_jpeg_read(jpeg_dev, BUF_LIST_INDEX_ADDR(VB_BUF_LAST));
+	dev_dbg(jpeg_dev->dev, "get resolution: %uX%u, power 0x%x, once_power %u.\n",
+			width, height, input_signal, jpeg_dev->once_poweroff);
+	/* The resolution is 640*480 and V4L2_IN_ST_NO_SIGNAL in the case that host is poweroff. */
+	if (input_signal == HOST_POWER_OFF) {
+		dev_dbg(jpeg_dev->dev, "Host is poweroff.\n");
+		jpeg_dev->once_poweroff = true;
+		return;
+	}
+
+	/* Host machine has never been poweroff since JPEG driver starts running */
+	if (jpeg_dev->once_poweroff == false) {
+		input_signal = HAVE_SIGNAL;
+		phytium_jpeg_write(jpeg_dev, BUF_LIST_INDEX_ADDR(VB_BUF_LAST), HAVE_SIGNAL);
+	} else if (input_signal == HOST_POWER_ON) {
+		dev_dbg(jpeg_dev->dev, "No signal on KVM.\n");
+		return;
+	}
+
+	if ((input_signal == HAVE_SIGNAL && width * height != 0) ||
+		test_bit(VIDEO_RES_CHANGE, &jpeg_dev->status)) {
+		jpeg_dev->v4l2_input_status = 0;
+		dev_dbg(jpeg_dev->dev, "output signal, status 0x%lx.\n", jpeg_dev->status);
+	}
+
+
 	if (width * height != 0) {
 		detected_timings->width = width;
 		detected_timings->height = height;
-		jpeg_dev->v4l2_input_status = 0;
 		cur_non_zero = true;
 	} else {
 		/* filter some repeated log-print lines */
@@ -492,11 +517,8 @@ static int phytium_jpeg_query_dv_timings(struct file *file, void *priv,
 					 struct v4l2_dv_timings *timings)
 {
 	int ret;
-	u32 source_info;
-	u32 width;
-	u32 height;
 	struct phytium_jpeg_dev *jpeg_dev = video_drvdata(file);
-
+	u32 input_signal;
 	/*
 	 * This blocks only if the driver is currently in the process of
 	 * detecting a new resolution; in the event of no signal or timeout
@@ -516,13 +538,9 @@ static int phytium_jpeg_query_dv_timings(struct file *file, void *priv,
 	timings->type = V4L2_DV_BT_656_1120;
 	timings->bt = jpeg_dev->detected_timings;
 
-	/* Get resolution from SRC_VGA_INFO_REG */
-	source_info = phytium_jpeg_read(jpeg_dev, SRC_VGA_INFO_REG);
-	width = (source_info & SRC_HOR_PIXELS) >> SRC_WIDTH_SHIFT;
-	height = (source_info & SRC_VER_PIXELS) >> SRC_HEIGHT_SHIFT;
-
-	/* Check if that the current resolution is zero. */
-	if (width == 0 || height == 0)
+	input_signal = phytium_jpeg_read(jpeg_dev, BUF_LIST_INDEX_ADDR(VB_BUF_LAST));
+	/* Check if that the power status of the host machine resolution */
+	if (input_signal != HAVE_SIGNAL)
 		jpeg_dev->v4l2_input_status = V4L2_IN_ST_NO_SIGNAL;
 
 	return jpeg_dev->v4l2_input_status ? -ENOLINK : 0;
@@ -820,7 +838,13 @@ static void phytium_jpeg_resolution_work(struct work_struct *work)
 		goto done;
 
 	phytium_jpeg_init_regs(jpeg_dev);
+	/* It is evident that the host remains powered on during the
+	 * resolution switch process, so restore the JPEG configuration.
+	 */
+	phytium_jpeg_write(jpeg_dev, BUF_LIST_INDEX_ADDR(VB_BUF_LAST), HAVE_SIGNAL);
+	jpeg_dev->once_poweroff = false;
 	phytium_jpeg_get_resolution(jpeg_dev);
+
 
 	/* if source's resolution is changed, the event should be enqueued */
 	if (jpeg_dev->detected_timings.width != jpeg_dev->active_timings.width ||
@@ -833,7 +857,7 @@ static void phytium_jpeg_resolution_work(struct work_struct *work)
 		};
 		v4l2_event_queue(&jpeg_dev->vdev, &event);
 		clear_bit(VIDEO_FRAME_INPRG, &jpeg_dev->status);
-		dev_info(jpeg_dev->dev, "event notifies changing resolution\n");
+		dev_info(jpeg_dev->dev, "event notifies changing resolution.\n");
 	} else if (test_bit(VIDEO_STREAMING, &jpeg_dev->status)) {
 		/* No resolution change so just restart streaming */
 		dev_info(jpeg_dev->dev, "resolution doesn't change\n");
@@ -1178,7 +1202,7 @@ static int phytium_jpeg_parser_timer30_irq(struct phytium_jpeg_dev *jpeg_dev)
 	}
 
 	ret = devm_request_irq(dev, irq, phytium_jpeg_timer30_irq,
-			IRQF_TIMER, PHYTIUM_JPEG_NAME, jpeg_dev);
+				IRQF_TIMER, PHYTIUM_JPEG_NAME, jpeg_dev);
 	if (ret < 0)
 		dev_err(dev, "Failed to request timer30 IRQ %d\n", irq);
 
@@ -1231,7 +1255,8 @@ static int phytium_jpeg_init(struct phytium_jpeg_dev *jpeg_dev)
 		dev_err(dev, "Failed to set DMA mask\n");
 		return ret;
 	}
-
+	/* Initialize the value of buffer_list_address15 register to identify having signal */
+	phytium_jpeg_write(jpeg_dev, BUF_LIST_INDEX_ADDR(VB_BUF_LAST), HAVE_SIGNAL);
 	/* Initializing JPEG Y and CbCr quantization table */
 	phytium_jpeg_init_jpeg_quant(jpeg_dev);
 
@@ -1287,6 +1312,7 @@ static int phytium_jpeg_setup_video(struct phytium_jpeg_dev *jpeg_dev)
 	jpeg_dev->pix_fmt.colorspace = V4L2_COLORSPACE_SRGB; /* maybe ARGB */
 	jpeg_dev->pix_fmt.quantization =  V4L2_QUANTIZATION_FULL_RANGE;
 	jpeg_dev->v4l2_input_status = V4L2_IN_ST_NO_SIGNAL;
+	jpeg_dev->once_poweroff = false;
 
 	ret = v4l2_device_register(jpeg_dev->dev, v4l2_dev);
 	if (ret != 0) {
