@@ -198,6 +198,14 @@ enum {
 	GUID_INIT(0x036F84E1, 0x7F37, 0x428c, 0xA7, 0x9E, 0x57, 0x5F,	\
 		  0xDF, 0xAA, 0x84, 0xEC)
 
+#define CPER_SEC_SVID							\
+	GUID_INIT(0x3B1E4A7C, 0x9F82, 0x4E3D, 0x8A, 0x5B, 0x1C, 0x7D,	\
+		  0x3F, 0x6E, 0x8A, 0x2C)
+
+#define CPER_SEC_HIF							\
+	GUID_INIT(0x137B5703, 0xFD9C, 0x4C3F, 0xA2, 0x75, 0x3E, 0x00,	\
+		  0x2A, 0xDF, 0x7B, 0x04)
+
 #define CPER_PROC_VALID_TYPE			0x0001
 #define CPER_PROC_VALID_ISA			0x0002
 #define CPER_PROC_VALID_ERROR_TYPE		0x0004
@@ -253,6 +261,21 @@ enum {
 #define CPER_PCIE_VALID_AER_INFO		0x0080
 
 #define CPER_PCIE_SLOT_SHIFT			3
+
+#define CPER_SVID_VALID_SOCKET_ID		0x1
+#define CPER_SVID_VALID_SVID_ID			0x2
+#define CPER_SVID_VALID_VRM_NUM			0x4
+#define CPER_SVID_VALID_ERROR_TYPE		0x8
+
+#define CPER_HIF_VALID_DVAD_CHANNEL0		0x1
+#define CPER_HIF_VALID_DVAD_CHANNEL1		0x2
+#define CPER_HIF_VALID_DVAD_CHANNEL2		0x4
+#define CPER_HIF_VALID_DVAD_CHANNEL3		0x8
+#define CPER_HIF_VALID_DVAD_CHANNEL4		0x10
+#define CPER_HIF_VALID_DVAD_CHANNEL5		0x20
+#define CPER_HIF_VALID_SNT			0x40
+#define CPER_HIF_VALID_CXL_PORT0		0x80
+#define CPER_HIF_VALID_CXL_PORT1		0x100
 
 #define CPER_ARM_VALID_MPIDR			BIT(0)
 #define CPER_ARM_VALID_AFFINITY_LEVEL		BIT(1)
@@ -540,6 +563,28 @@ struct cper_sec_pcie {
 	u8	capability[60];
 	u8	aer_info[96];
 };
+
+struct cper_sec_svid {
+	u8	validation_bits;
+	u8	socket_id;
+	u8	svid_id;
+	u8	vrm_number;
+	u16	error_type;
+	u16	reserved;
+} __packed;
+
+struct cper_sec_hif {
+	u16	validation_bits;
+	u8	socket_id;
+	u8	hnod_id;
+	u8	snt_location;
+	u8	snt_error_type;
+	u8	snt_error_data[5];
+	u8	snt_error_addr[5];
+	u64	dvad_error_addr[6];
+	u64	cxl_decode_error_addr[2];
+	u8	cxl_error_type[2];
+} __packed;
 
 /* Firmware Error Record Reference, UEFI v2.7 sec N.2.10  */
 struct cper_sec_fw_err_rec_ref {
