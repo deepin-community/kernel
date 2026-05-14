@@ -310,19 +310,25 @@ static int phytium_connector_add_common_modes(struct phytium_dp_device *phytium_
 
 static int phytium_connector_get_modes(struct drm_connector *connector)
 {
+	struct drm_device *dev = connector->dev;
+	struct phytium_display_private *priv = dev->dev_private;
 	struct phytium_dp_device *phytium_dp = connector_to_dp_device(connector);
 	struct edid *edid;
 	int ret = 0;
 
-	if (phytium_dp->is_edp)
+	if (phytium_dp->is_edp) {
 		edid = phytium_dp->edp_edid;
-	else
+	} else if (priv->info.bmc_mode) {
 		edid = drm_get_edid(connector, &phytium_dp->aux.ddc);
+	} else {
+		edid = phytium_dp->detect_edid;
+	}
 
 	if (edid && drm_edid_is_valid(edid)) {
 		drm_connector_update_edid_property(connector, edid);
 		ret = drm_add_edid_modes(connector, edid);
-		phytium_dp->has_audio = drm_detect_monitor_audio(edid);
+		if (priv->info.bmc_mode)
+			phytium_dp->has_audio = drm_detect_monitor_audio(edid);
 		phytium_get_native_mode(phytium_dp);
 		if (dc_fake_mode_enable)
 			ret += phytium_connector_add_common_modes(phytium_dp);
@@ -331,7 +337,7 @@ static int phytium_connector_get_modes(struct drm_connector *connector)
 		phytium_dp->has_audio = false;
 	}
 
-	if (!phytium_dp->is_edp)
+	if (priv->info.bmc_mode)
 		kfree(edid);
 
 	return ret;
@@ -1723,8 +1729,33 @@ update_status:
 
 }
 
+static void phytium_dp_unset_edid(struct drm_connector *connector)
+{
+	struct phytium_dp_device *phytium_dp = connector_to_dp_device(connector);
+
+	kfree(phytium_dp->detect_edid);
+	phytium_dp->detect_edid = NULL;
+	phytium_dp->has_audio = false;
+}
+
+static enum drm_connector_status phytium_dp_set_edid(struct drm_connector *connector)
+{
+	struct phytium_dp_device *phytium_dp = connector_to_dp_device(connector);
+
+	phytium_dp_unset_edid(connector);
+	phytium_dp->detect_edid = drm_get_edid(connector, &phytium_dp->aux.ddc);
+	if (!phytium_dp->detect_edid)
+		return connector_status_disconnected;
+
+	phytium_dp->has_audio = drm_detect_monitor_audio(phytium_dp->detect_edid);
+
+	return connector_status_connected;
+}
+
 static int phytium_dp_long_pulse(struct drm_connector *connector, bool hpd_raw_state)
 {
+	struct drm_device *dev = connector->dev;
+	struct phytium_display_private *priv = dev->dev_private;
 	struct phytium_dp_device *phytium_dp = connector_to_dp_device(connector);
 	enum drm_connector_status status = connector->status;
 	bool video_enable = false;
@@ -1758,6 +1789,12 @@ static int phytium_dp_long_pulse(struct drm_connector *connector, bool hpd_raw_s
 
 		video_enable = phytium_dp_hw_video_is_enable(phytium_dp);
 		phytium_dp_start_link_train(phytium_dp);
+
+		if (!priv->info.bmc_mode) {
+			status = phytium_dp_set_edid(connector);
+			if (status == connector_status_disconnected)
+				goto out;
+		}
 
 		if (video_enable) {
 			mdelay(2);
