@@ -323,6 +323,75 @@ static void cper_print_proc_generic_zdi_zpi(const char *pfx,
 		}
 	}
 }
+
+static const char * const zx_micro_arch_cpu_err_type_strs[] = {
+	"unknown error",
+	"unknown error",
+	"machine hang",
+	"undefined ucode address",
+};
+
+static const char * const zx_micro_arch_shutdown_err_type_strs[] = {
+	"unknown error",
+	"#PF happened again when handle #DF caused by #PF",
+	"MCE happened when handle #DF",
+	"#GP happened again when handle #DF caused by #GP",
+	"exit smm mode if already shutdown before enter smm mode",
+	"exit smm mode if CR0.CD bit is 0 and CR0.NW bit is 1 stored in SMRAM and in smm mode",
+	"exit smm mode if CR0.PE bit is 0 and CR0.PG bit is 1 stored in SMRAM and in smm mode",
+	"exit smm mode if the reserved bits in CR4 are writed to 1 in smm mode",
+	"exit smm mode if CR4.VMXE bit is writed to 1 in smm mode",
+	"exit smm mode if CR4.PCIDE bit is writed to 1 and EFER.LMA bit is writed to 0 in smm mode",
+	"software inject an UC error after MCE changed to SMI happened",
+	"reserved",
+	"MCE happened when CR4 MCE is 0",
+	"MCE happened again when didn't clear MCIP in the first MCE handler",
+	"using vmentry to enter guest mode",
+	"configuration for VM-exit MSR-store and load address is wrong when vmexit caused by VMX guest mode",
+	"TXT check fail",
+};
+
+static void cper_print_proc_generic_zx_micro_arch(const char *pfx,
+						  const struct cper_sec_proc_generic *arch)
+{
+	u8 etype = arch->responder_id;
+
+	if (!(arch->validation_bits & CPER_PROC_VALID_REQUESTOR_ID) ||
+	    !(arch->validation_bits & CPER_PROC_VALID_RESPONDER_ID))
+		return;
+
+	if (arch->requestor_id == 0x1)
+		pr_info("%s CPU Error, error type: %d, %s\n",
+			pfx,
+			etype,
+			etype < ARRAY_SIZE(zx_micro_arch_cpu_err_type_strs) ?
+				zx_micro_arch_cpu_err_type_strs[etype] :
+				"unknown error");
+	else if (arch->requestor_id == 0x2)
+		pr_info("%s Shutdown Error, error type: %d, %s\n",
+			pfx,
+			etype,
+			etype < ARRAY_SIZE(zx_micro_arch_shutdown_err_type_strs) ?
+				zx_micro_arch_shutdown_err_type_strs[etype] :
+				"unknown error");
+}
+
+static void cper_print_proc_generic_zx(const char *pfx,
+				       const struct cper_sec_proc_generic *proc)
+{
+	if (proc->validation_bits & CPER_PROC_VALID_ERROR_TYPE) {
+		switch (proc->proc_error_type) {
+		case 0x4:
+			cper_print_proc_generic_zdi_zpi(pfx, proc);
+			break;
+		case 0x8:
+			cper_print_proc_generic_zx_micro_arch(pfx, proc);
+			break;
+		default:
+			break;
+		}
+	}
+}
 #endif
 
 static void cper_print_proc_generic(const char *pfx,
@@ -371,7 +440,7 @@ static void cper_print_proc_generic(const char *pfx,
 #ifdef CONFIG_X86
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN ||
 	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR)
-		cper_print_proc_generic_zdi_zpi(pfx, proc);
+		cper_print_proc_generic_zx(pfx, proc);
 #endif
 }
 
