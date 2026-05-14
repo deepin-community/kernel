@@ -176,7 +176,6 @@ static int zhaoxin_microcode_sanity_check(void *mc, bool print_err, int hdr_type
 static void save_microcode_patch(struct microcode_zhaoxin *patch)
 {
 	unsigned int size = patch->hdr.total_size;
-	struct microcode_zhaoxin *mc = NULL;
 	struct page *pg = NULL;
 	void *dst = NULL;
 
@@ -186,18 +185,14 @@ static void save_microcode_patch(struct microcode_zhaoxin *patch)
 	 * the memory allocation to this range.
 	 */
 	pg = alloc_pages(GFP_DMA32 | GFP_KERNEL, get_order(size));
-
-	if (pg) {
-		dst = page_address(pg);
-		memcpy(dst, patch, size);
-		mc = dst;
-		if (mc) {
-			zhaoxin_ucode_patch = mc;
-			return;
-		}
+	if (!pg) {
+		pr_err("Unable to allocate microcode memory size: %u\n", size);
+		return;
 	}
 
-	pr_err("Unable to allocate microcode memory size: %u\n", size);
+	dst = page_address(pg);
+	memcpy(dst, patch, size);
+	zhaoxin_ucode_patch = dst;
 }
 
 static inline u32
