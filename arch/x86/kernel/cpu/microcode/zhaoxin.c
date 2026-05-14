@@ -495,6 +495,7 @@ void __init load_ucode_zhaoxin_bsp(struct early_load_data *ed)
 
 	if (uci.mc && apply_microcode_early(&uci) == UCODE_UPDATED) {
 		zhaoxin_ucode_patch = UCODE_BSP_LOADED;
+		x86_cpuinit.parallel_bringup = false;
 		ed->new_rev = uci.cpu_sig.rev;
 	} else if (uci.mc) {
 		pr_debug("%s: BSP CPU %d early update failed due to application failure\n",
