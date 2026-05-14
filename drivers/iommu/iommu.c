@@ -32,6 +32,9 @@
 #include <trace/events/iommu.h>
 #include <linux/sched/mm.h>
 #include <linux/msi.h>
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/cputype.h>
+#endif
 
 #include "dma-iommu.h"
 #include "iommu-priv.h"
@@ -198,6 +201,15 @@ static int __init iommu_subsys_init(void)
 			iommu_set_default_passthrough(false);
 		else
 			iommu_set_default_translated(false);
+#ifdef CONFIG_ARCH_PHYTIUM
+		/*
+		 * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
+		 * on Phytium Ps17064 SoC to avoid unnecessary troubles
+		 * introduced by the SMMU workaround.
+		 */
+		if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064)
+			iommu_set_default_passthrough(true);
+#endif
 
 		if (iommu_default_passthrough() && cc_platform_has(CC_ATTR_MEM_ENCRYPT)) {
 			pr_info("Memory encryption detected - Disabling default IOMMU Passthrough\n");
@@ -659,6 +671,19 @@ static int __init iommu_set_def_domain_type(char *str)
 	ret = kstrtobool(str, &pt);
 	if (ret)
 		return ret;
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	/*
+	 * Always set default iommu type to IOMMU_DOMAIN_IDENTITY
+	 * on Phytium Ps17064 SoC to avoid unnecessary troubles
+	 * introduced by the SMMU workaround.
+	 */
+	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064) {
+		iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
+		iommu_set_default_passthrough(true);
+		return 0;
+	}
+#endif
 
 	if (pt)
 		iommu_set_default_passthrough(true);
