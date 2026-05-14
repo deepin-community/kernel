@@ -222,17 +222,39 @@ static const char * const zdi_zpi_err_type_strs[] = {
 	"ZPI Gen2 Link Speed Unreliable Status",
 	"ZDI Gen3 Link Speed Unreliable Status",
 	"ZDI Gen4 Link Speed Unreliable Status",
+	"SL_NA_CYCLE Status",
+	"8.0GT/s Link Speed Unreliable Status",
+	"16.0GT/s Link Speed Unreliable Status",
+	"32.0GT/s Link Speed Unreliable Status",
+	"X2 Link Width Unreliable Status",
+	"X4 Link Width Unreliable Status",
+	"X8 Link Width Unreliable Status",
+	"X16X12 Link Width Unreliable Status",
+	"X32X24 Link Width Unreliable Status",
 };
 
 const char *cper_zdi_zpi_err_type_str(unsigned int etype)
 {
+	switch (boot_cpu_data.x86_model) {
+	case 0x5b:
+		if (etype >= 0x13)
+			return "unknown error";
+		break;
+	case 0x7b:
+		if (etype == 0x6 || (etype >= 0xb && etype <= 0x12))
+			return "unknown error";
+		break;
+	default:
+		return "unknown error";
+	}
 	return etype < ARRAY_SIZE(zdi_zpi_err_type_strs) ?
-			zdi_zpi_err_type_strs[etype] : "unknown error";
+			zdi_zpi_err_type_strs[etype] :
+			"unknown error";
 }
 EXPORT_SYMBOL_GPL(cper_zdi_zpi_err_type_str);
 
-static void cper_print_proc_generic_zdi_zpi(const char *pfx,
-					    const struct cper_sec_proc_generic *zdi_zpi)
+static void cper_print_proc_generic_zdi_zpi_kh40000(const char *pfx,
+						    const struct cper_sec_proc_generic *zdi_zpi)
 {
 	if ((zdi_zpi->requestor_id & 0xff) == 7) {
 		pr_info("%s general processor error(zpi error)\n", pfx);
@@ -246,6 +268,60 @@ static void cper_print_proc_generic_zdi_zpi(const char *pfx,
 		pfx, ((zdi_zpi->requestor_id) >> 8) & 0xff, zdi_zpi->requestor_id & 0xff);
 	pr_info("%s apic id %lld error_type: %s\n",
 		pfx, zdi_zpi->proc_id, cper_zdi_zpi_err_type_str(zdi_zpi->responder_id));
+}
+
+static void cper_print_proc_generic_zdi_zpi_kh50000(const char *pfx,
+						    const struct cper_sec_proc_generic *zdi_zpi)
+{
+	u8 etype = (zdi_zpi->requestor_id & 0xff) >> 4;
+	const char *zdi_etype_str;
+
+	if (!(zdi_zpi->validation_bits & CPER_PROC_VALID_REQUESTOR_ID) ||
+	    !(zdi_zpi->validation_bits & CPER_PROC_VALID_RESPONDER_ID))
+		return;
+
+	if (etype == 0xf) {
+		pr_info("%s general processor error(zpi port 0x%llx error)\n",
+			pfx, zdi_zpi->requestor_id & 0xf);
+	} else if (etype >= 0x0 && etype <= 0xb) {
+		switch (zdi_zpi->requestor_id & 0xf) {
+		case 0x0:
+			zdi_etype_str = "ccdzdi";
+			break;
+		case 0x1:
+			zdi_etype_str = "iodzdi";
+			break;
+		default:
+			zdi_etype_str = "unknown";
+		}
+		pr_info("%s general processor error(zdi port 0x%x %s error)\n",
+			pfx, etype, zdi_etype_str);
+	} else {
+		pr_info("%s general processor error(unknown error)\n", pfx);
+		return;
+	}
+
+	pr_info("%s socket id %lld error_type: %s\n",
+		pfx,
+		(zdi_zpi->requestor_id & 0xfff) >> 8,
+		cper_zdi_zpi_err_type_str(zdi_zpi->responder_id));
+}
+
+static void cper_print_proc_generic_zdi_zpi(const char *pfx,
+					    const struct cper_sec_proc_generic *zdi_zpi)
+{
+	if (boot_cpu_data.x86 == 0x7) {
+		switch (boot_cpu_data.x86_model) {
+		case 0x5b:
+			cper_print_proc_generic_zdi_zpi_kh40000(pfx, zdi_zpi);
+			break;
+		case 0x7b:
+			cper_print_proc_generic_zdi_zpi_kh50000(pfx, zdi_zpi);
+			break;
+		default:
+			return;
+		}
+	}
 }
 #endif
 
