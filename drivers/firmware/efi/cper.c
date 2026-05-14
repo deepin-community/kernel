@@ -376,11 +376,39 @@ static void cper_print_proc_generic_zx_micro_arch(const char *pfx,
 				"unknown error");
 }
 
+static const char * const zx_cache_err_type_strs[] = {
+	"unknown error",
+	"single bit ECC for data part in the same line",
+	"single bit ECC for different line",
+	"multi bit ECC for data part",
+};
+
+static void cper_print_proc_generic_zx_cache(const char *pfx,
+					     const struct cper_sec_proc_generic *cache)
+{
+	u8 etype = cache->responder_id;
+	const char *etype_str = etype < ARRAY_SIZE(zx_cache_err_type_strs) ?
+				zx_cache_err_type_strs[etype] :
+				"unknown error";
+
+	if (!(cache->validation_bits & CPER_PROC_VALID_LEVEL) ||
+	    !(cache->validation_bits & CPER_PROC_VALID_RESPONDER_ID))
+		return;
+
+	if (cache->level == 0x2)
+		pr_info("%s PL2 Error, error type: %d, %s\n", pfx, etype, etype_str);
+	else if (cache->level == 0x3)
+		pr_info("%s LLC Error, error type: %d, %s\n", pfx, etype, etype_str);
+}
+
 static void cper_print_proc_generic_zx(const char *pfx,
 				       const struct cper_sec_proc_generic *proc)
 {
 	if (proc->validation_bits & CPER_PROC_VALID_ERROR_TYPE) {
 		switch (proc->proc_error_type) {
+		case 0x1:
+			cper_print_proc_generic_zx_cache(pfx, proc);
+			break;
 		case 0x4:
 			cper_print_proc_generic_zdi_zpi(pfx, proc);
 			break;
