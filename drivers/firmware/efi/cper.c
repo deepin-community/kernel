@@ -420,6 +420,49 @@ static void cper_print_proc_generic_zx(const char *pfx,
 		}
 	}
 }
+
+static const char * const zx_mem_err_type_strs[] = {
+	"reserved",
+	"reserved",
+	"correctable write CRC error",
+	"uncorrectable write CRC error",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"single device error",
+	"multi devices error",
+	"correctable read CRC error",
+	"uncorrectable read CRC error",
+	"rank counter overflow",
+	"UC occurred after mirror broken",
+	"sPPR done",
+};
+
+static void cper_print_mem_zx(const char *pfx, const struct cper_sec_mem_err *mem)
+{
+	u8 etype;
+
+	if (boot_cpu_data.x86 != 0x7 || boot_cpu_data.x86_model != 0x7b)
+		return;
+
+	if (!(mem->validation_bits & CPER_MEM_VALID_REQUESTOR_ID))
+		return;
+
+	etype = mem->requestor_id;
+	if (etype < 0x2 || (etype > 0x3 && etype < 0x10) || etype > 0x16)
+		return;
+
+	pr_info("%s Specific error type: %d, %s\n", pfx, etype, zx_mem_err_type_strs[etype]);
+}
 #endif
 
 static void cper_print_proc_generic(const char *pfx,
@@ -669,6 +712,12 @@ static void cper_print_mem(const char *pfx, const struct cper_sec_mem_err *mem,
 	}
 	if (cper_dimm_err_location(&cmem, rcd_decode_str))
 		printk("%s%s\n", pfx, rcd_decode_str);
+
+#ifdef CONFIG_X86
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_ZHAOXIN ||
+	    boot_cpu_data.x86_vendor == X86_VENDOR_CENTAUR)
+		cper_print_mem_zx(pfx, mem);
+#endif
 }
 
 static const char * const pcie_port_type_strs[] = {
