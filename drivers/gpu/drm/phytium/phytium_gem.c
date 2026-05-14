@@ -36,7 +36,8 @@ int phytium_memory_pool_alloc(struct phytium_display_private *priv, void **pvadd
 
 void phytium_memory_pool_free(struct phytium_display_private *priv, void *vaddr, uint64_t size)
 {
-	gen_pool_free(priv->memory_pool, (unsigned long)vaddr, size);
+	if (priv->memory_pool)
+		gen_pool_free(priv->memory_pool, (unsigned long)vaddr, size);
 }
 
 int phytium_memory_pool_init(struct device *dev, struct phytium_display_private *priv)
@@ -69,7 +70,8 @@ failed_create_pool:
 
 void phytium_memory_pool_fini(struct device *dev, struct phytium_display_private *priv)
 {
-	gen_pool_destroy(priv->memory_pool);
+	if (priv->memory_pool)
+		gen_pool_destroy(priv->memory_pool);
 }
 
 struct sg_table *

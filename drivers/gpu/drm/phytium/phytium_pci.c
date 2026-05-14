@@ -327,6 +327,14 @@ failed_enable_device:
 	return -1;
 }
 
+static void phytium_pci_shutdown(struct pci_dev *pdev)
+{
+	struct drm_device *dev = pci_get_drvdata(pdev);
+	struct phytium_display_private *priv = dev->dev_private;
+
+	priv->display_shutdown(dev);
+}
+
 static void phytium_pci_remove(struct pci_dev *pdev)
 {
 	struct drm_device *dev = pci_get_drvdata(pdev);
@@ -334,6 +342,7 @@ static void phytium_pci_remove(struct pci_dev *pdev)
 
 	phytium_dp_hpd_irq_setup(dev, false);
 	cancel_work_sync(&priv->hotplug_work);
+	phytium_pci_shutdown(pdev);
 	drm_dev_unregister(dev);
 	phytium_pci_vram_fini(pdev, priv);
 	phytium_pci_private_fini(pdev, priv);
@@ -342,14 +351,6 @@ static void phytium_pci_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 	pci_set_drvdata(pdev, NULL);
 	drm_dev_put(dev);
-}
-
-static void phytium_pci_shutdown(struct pci_dev *pdev)
-{
-	struct drm_device *dev = pci_get_drvdata(pdev);
-	struct phytium_display_private *priv = dev->dev_private;
-
-	priv->display_shutdown(dev);
 }
 
 static int phytium_pci_pm_suspend(struct device *dev)
