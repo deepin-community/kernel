@@ -701,6 +701,121 @@ static void cper_print_fw_err(const char *pfx,
 	print_hex_dump(pfx, "", DUMP_PREFIX_OFFSET, 16, 4, buf, length, true);
 }
 
+static const char *const svid_error_type_strs[] = {
+	"reserved",
+	"SVID resend fail error",
+	"VRM over current error",
+	"VRM over temperature error",
+	"VRM parity error",
+};
+
+static void cper_print_svid_err(const char *pfx, const struct cper_sec_svid *svid)
+{
+	if (svid->validation_bits & CPER_SVID_VALID_SOCKET_ID)
+		pr_info("%s socket id : %d\n", pfx, svid->socket_id);
+	if (svid->validation_bits & CPER_SVID_VALID_SVID_ID)
+		pr_info("%s svid id : %d\n", pfx, svid->svid_id);
+	if (svid->validation_bits & CPER_SVID_VALID_VRM_NUM)
+		pr_info("%s vrm number : %d\n", pfx, svid->vrm_number);
+	if (svid->validation_bits & CPER_SVID_VALID_ERROR_TYPE)
+		pr_info("%s error type: %d, %s\n", pfx, svid->error_type,
+			svid->error_type < ARRAY_SIZE(svid_error_type_strs) ?
+			svid_error_type_strs[svid->error_type] : "unknown");
+}
+
+static const char *const cxl_error_type_strs[] = {
+	"reserved",
+	"reserved",
+	"reserved",
+	"reserved",
+	"decode poison UC error",
+	"decode poison CE error",
+	"parity error",
+	"reserved",
+	"timeout error",
+};
+
+static const char *const snt_error_type_strs[] = {
+	"no error",
+	"correctable error",
+	"uncorrectable error",
+	"multi correctable error",
+	"multi Uncorrectable error",
+	"uncorrectable + correctable error",
+};
+
+static void dump_cxl_error_type(const char *pfx, u8 port, u64 decode_addr, u8 type)
+{
+	pr_info("%s CXL Port%d Error Type: %d, %s\n",
+		pfx,
+		port,
+		type,
+		type < ARRAY_SIZE(cxl_error_type_strs) ?
+				cxl_error_type_strs[type] :
+				"unknown");
+	if (type == 0x4 || type == 0x5)
+		pr_info("%s CXL Decode Error Address: 0x%llx\n", pfx, decode_addr);
+}
+
+static void dump_hif_error_type(const char *pfx, const struct cper_sec_hif *hif)
+{
+	u64 data, addr;
+
+	data = (u64)hif->snt_error_data[0] |
+		(u64)hif->snt_error_data[1] << 8 |
+		(u64)hif->snt_error_data[2] << 16 |
+		(u64)hif->snt_error_data[3] << 24 |
+		(u64)hif->snt_error_data[4] << 32;
+	addr = (u64)hif->snt_error_addr[0] |
+		(u64)hif->snt_error_addr[1] << 8 |
+		(u64)hif->snt_error_addr[2] << 16 |
+		(u64)hif->snt_error_addr[3] << 24 |
+		(u64)hif->snt_error_addr[4] << 32;
+	pr_info("%s SNT Location, Way: %d Bank Number: %d Channel: %d\n",
+		pfx,
+		(hif->snt_location >> 4) & 0x7,
+		(hif->snt_location >> 2) & 0x3,
+		hif->snt_location & 0x3);
+	pr_info("%s SNT Error Type: %d, %s\n",
+		pfx,
+		hif->snt_error_type,
+		hif->snt_error_type < ARRAY_SIZE(snt_error_type_strs) ?
+			snt_error_type_strs[hif->snt_error_type] :
+			"unknown");
+	pr_info("%s SNT Error Data: 0x%llx, Error Address: 0x%llx\n", pfx, data, addr);
+}
+
+static void cper_print_hif_err(const char *pfx, const struct cper_sec_hif *hif)
+{
+	pr_info("%s Error occurred at Socket %d, Hnode %d\n", pfx, hif->socket_id, hif->hnod_id);
+
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL0)
+		pr_info("%s Sub channel 0 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[0]);
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL1)
+		pr_info("%s Sub channel 1 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[1]);
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL2)
+		pr_info("%s Sub channel 2 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[2]);
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL3)
+		pr_info("%s Sub channel 3 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[3]);
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL4)
+		pr_info("%s Sub channel 4 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[4]);
+	if (hif->validation_bits & CPER_HIF_VALID_DVAD_CHANNEL5)
+		pr_info("%s Sub channel 5 DVAD Error Address : %llx\n",
+			pfx, hif->dvad_error_addr[5]);
+	if (hif->validation_bits & CPER_HIF_VALID_SNT)
+		dump_hif_error_type(pfx, hif);
+
+	if (hif->validation_bits & CPER_HIF_VALID_CXL_PORT0)
+		dump_cxl_error_type(pfx, 0, hif->cxl_decode_error_addr[0], hif->cxl_error_type[0]);
+	if (hif->validation_bits & CPER_HIF_VALID_CXL_PORT1)
+		dump_cxl_error_type(pfx, 1, hif->cxl_decode_error_addr[1], hif->cxl_error_type[1]);
+}
+
 static void cper_print_tstamp(const char *pfx,
 				   struct acpi_hest_generic_data_v300 *gdata)
 {
@@ -805,6 +920,22 @@ cper_estatus_print_section(const char *pfx, struct acpi_hest_generic_data *gdata
 		printk("%ssection_type: CXL Protocol Error\n", newpfx);
 		if (gdata->error_data_length >= sizeof(*prot_err))
 			cper_print_prot_err(newpfx, prot_err);
+		else
+			goto err_section_too_small;
+	} else if (guid_equal(sec_type, &CPER_SEC_SVID)) {
+		struct cper_sec_svid *svid_err = acpi_hest_get_payload(gdata);
+
+		printk("%ssection_type: SVID Error\n", newpfx);
+		if (gdata->error_data_length >= sizeof(*svid_err))
+			cper_print_svid_err(newpfx, svid_err);
+		else
+			goto err_section_too_small;
+	} else if (guid_equal(sec_type, &CPER_SEC_HIF)) {
+		struct cper_sec_hif *hif_err = acpi_hest_get_payload(gdata);
+
+		printk("%ssection_type: HIF Error\n", newpfx);
+		if (gdata->error_data_length >= sizeof(*hif_err))
+			cper_print_hif_err(newpfx, hif_err);
 		else
 			goto err_section_too_small;
 	} else {
