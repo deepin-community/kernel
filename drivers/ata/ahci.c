@@ -1840,12 +1840,16 @@ static void ahci_zx_led_remove_quirk(struct pci_dev *pdev)
 		if (target_p0_dev && p1_mmio_tmp)
 			break;
 	}
+
 	if (target_p0_dev) {
 		sata_host = pci_get_drvdata(target_p0_dev);
 		sata_hpriv = sata_host ? sata_host->private_data : NULL;
 		if (sata_hpriv)
 			sata_hpriv->p1_mmio = p1_mmio_tmp;
 	}
+
+	if (sata_pdev)
+		pci_dev_put(sata_pdev);
 }
 
 static void ahci_zx_led_init_quirk(struct pci_dev *pdev, struct ahci_host_priv *hpriv)
@@ -1864,6 +1868,8 @@ static void ahci_zx_led_init_quirk(struct pci_dev *pdev, struct ahci_host_priv *
 	val = native_read_msr_safe(ZX_GET_BUS_NUMBER_QUIRK, &err);
 	if (err) /* MSR read failed */
 		return;
+
+	pr_info("ahci: zx led quirk init\n");
 
 	hpriv->sx_index = 0xFF;
 	hpriv->px_index = 0xFF;
@@ -1906,6 +1912,8 @@ static void ahci_zx_led_init_quirk(struct pci_dev *pdev, struct ahci_host_priv *
 			break;
 		}
 	}
+	if (sata_pdev)
+		pci_dev_put(sata_pdev);
 }
 #else
 static inline void ahci_zx_led_remove_quirk(struct pci_dev *pdev) { }
