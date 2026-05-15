@@ -181,8 +181,8 @@ struct phytium_qspi {
 	u8 fnum;
 	bool nodirmap;
 
-	u32 wr_cfg_reg;
-	u32 rd_cfg_reg;
+	u32 wr_cfg_reg[PHYTIUM_QSPI_MAX_NORCHIP];
+	u32 rd_cfg_reg[PHYTIUM_QSPI_MAX_NORCHIP];
 	u32 flash_cap;
 };
 
@@ -538,7 +538,7 @@ static int phytium_qspi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 		cmd |= flash->clk_div & QSPI_RD_CFG_RD_SCK_SEL_MASK;
 
 		writel_relaxed(cmd, qspi->io_base + QSPI_RD_CFG_REG);
-		qspi->rd_cfg_reg = cmd;
+		qspi->rd_cfg_reg[spi->chip_select] = cmd;
 
 		dev_dbg(qspi->dev, "Create read dirmap and setup RD_CFG_REG [%#x].\n", cmd);
 	} else if (desc->info.op_tmpl.data.dir == SPI_MEM_DATA_OUT) {
@@ -555,7 +555,7 @@ static int phytium_qspi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 
 		cmd |= QSPI_WR_CFG_WR_MODE_MASK;
 		cmd |= flash->clk_div & QSPI_WR_CFG_WR_SCK_SEL_MASK;
-		qspi->wr_cfg_reg = cmd;
+		qspi->wr_cfg_reg[spi->chip_select] = cmd;
 	} else {
 		ret = -EINVAL;
 	}
@@ -574,6 +574,7 @@ static ssize_t phytium_qspi_dirmap_read(struct spi_mem_dirmap_desc *desc,
 	void __iomem *src = flash->base + offs;
 	u8 *buf_rx = buf;
 
+	writel_relaxed(qspi->rd_cfg_reg[spi->chip_select], qspi->io_base + QSPI_RD_CFG_REG);
 	memcpy_fromio(buf_rx, src, len);
 
 	return len;
@@ -593,7 +594,7 @@ static ssize_t phytium_qspi_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	u_char tmp[4] = {0};
 
 	/* set wr_cfg for drimap write */
-	writel_relaxed(qspi->wr_cfg_reg, qspi->io_base + QSPI_WR_CFG_REG);
+	writel_relaxed(qspi->wr_cfg_reg[spi->chip_select], qspi->io_base + QSPI_WR_CFG_REG);
 
 	if (offs & 0x03) {
 		dev_err(qspi->dev, "Addr not four-byte aligned!\n");
@@ -889,7 +890,6 @@ static int __maybe_unused phytium_qspi_resume(struct device *dev)
 
 	if (!qspi->nodirmap) {
 		/* set rd_cfg reg and flash_capacity reg after resume */
-		writel_relaxed(qspi->rd_cfg_reg, qspi->io_base + QSPI_RD_CFG_REG);
 		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
 	} else {
 		writel_relaxed(WR_CFG_NODIR_VALUE, qspi->io_base + QSPI_WR_CFG_REG);
