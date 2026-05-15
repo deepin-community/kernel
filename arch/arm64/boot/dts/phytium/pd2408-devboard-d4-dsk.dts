@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium Pd2408 Development Board
+ *
+ * Copyright (C) 2018-2023, Phytium Technology Co., Ltd.
+ */
+
+/dts-v1/;
+/memreserve/ 0x80000000 0x10000;
+
+#include "pd2408-generic-psci-soc.dtsi"
+
+/{
+	model = "Phytium Pd2408 Development Board";
+	compatible = "phytium,pd2408-devboard", "phytium,pd2408";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		stdout-path = "uart1:115200n8";
+	};
+
+	memory@00{
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+};
+
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&mmc0 {
+	bus-width = <0x00000008>;
+	max-frequency = <1000000>;
+	cap-mmc-hw-reset;
+	cap-mmc-highspeed;
+	no-sdio;
+	no-sd;
+	non-removable;
+	status = "okay";
+};
+
+&i2c0 {
+	status = "ok";
+};
+
+&i2c1 {
+	status = "ok";
+};
+
+&i2c2 {
+	status = "ok";
+};
+
+&i2c3 {
+	status = "ok";
+};
+
+&sata {
+	status = "ok";
+};
+
+&usb3_0 {
+	status = "ok";
+};
+
+&usb3_1 {
+	status = "ok";
+};
+
+&usb3_2 {
+	status = "ok";
+};
+
+&usb3_3 {
+	status = "ok";
+};
+
+&usb3_4 {
+	status = "ok";
+};
+
+&usb2_0 {
+	status = "ok";
+};
+
+&usb2_1 {
+	status = "ok";
+};
+
+&pcie {
+	status = "ok";
+};
+
+&qspi0 {
+	status = "ok";
+};
+
+&spi0 {
+	status = "ok";
+};
+
+&spi1 {
+	status = "ok";
+};
+
+&gpio0 {
+	status = "ok";
+};
+
+&gpio1 {
+	status = "ok";
+};
+
+&pwm0 {
+	phytium,db = <0 0 0 1000 1000 0>;
+	status = "ok";
+};
+
+&i2s0 {
+	status = "ok";
+};
+
+&gmac0 {
+	status = "ok";
+};
+
+&npu {
+	status = "ok";
+};
+
+&virt_gmac0 {
+	status = "ok";
+};
+
+&virt_i2s0 {
+	status = "ok";
+};
+
+&virt_gmac0 {
+	status = "ok";
+};
+
+&virt_uart0 {
+	status = "ok";
+};
+
+&virt_uart1 {
+	status = "ok";
+};
+
+&virt_uart2 {
+	status = "ok";
+};
+
+&virt_mmc0 {
+	bus-width = <0x00000008>;
+	max-frequency = <1000000>;
+	cap-mmc-hw-reset;
+	cap-mmc-highspeed;
+	no-sdio;
+	no-sd;
+	non-removable;
+	status = "ok";
+};
+
+&virt_i2c0 {
+	status = "ok";
+};
+
+&virt_i2c1 {
+	status = "ok";
+};
+
+&virt_i2c2 {
+	status = "ok";
+};
+
+&virt_i2c3 {
+	status = "ok";
+};
+
+&virt_spi0 {
+	status = "ok";
+};
+
+&virt_spi1 {
+	status = "ok";
+};
+

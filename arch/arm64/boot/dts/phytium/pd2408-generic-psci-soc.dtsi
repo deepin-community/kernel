@@ -1,0 +1,1046 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Phytium Pd2408 SoC
+ *
+ * Copyright (C) 2018-2023, Phytium Technology Co., Ltd.
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	compatible = "phytium,pd2408";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	reserved-memory {
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+		ranges;
+
+		buffer@0 {
+			no-map;
+			reg = <0x21 0x10000000 0x0 0x8000000>;
+			phandle = <0x19>;
+		};
+
+		buffer@10 {
+			no-map;
+			reg = <0x21 0x20000000 0x0 0x40000000>;
+			phandle = <0x18>;
+		};
+
+		buffer@20 {
+			no-map;
+			reg = <0x21 0x60000000 0x0 0x40000000>;
+			phandle = <0x20>;
+		};
+	};
+
+	psci {
+		compatible   = "arm,psci-1.0";
+		method	   = "smc";
+		cpu_suspend  = <0xc4000001>;
+		cpu_off	  = <0x84000002>;
+		cpu_on	   = <0xc4000003>;
+		sys_poweroff = <0x84000008>;
+		sys_reset	= <0x84000009>;
+	};
+
+	virt_sound_card: virt-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "phytium,e2000-i2s-audio";
+		simple-audio-card,pin-switches = "mic-in";
+		simple-audio-card,widgets = "Microphone","mic-in";
+//		simple-audio-card,routing = "MIC2","mic-in";
+		simple-audio-card,cpu {
+			sound-dai = <&virt_i2s0>;
+		};
+		simple-audio-card,codec{
+			sound-dai = <&virt_codec0>;
+		};
+	};
+
+	sound_card: sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,name = "phytium,e2000-i2s-audio";
+		simple-audio-card,pin-switches = "mic-in";
+		simple-audio-card,widgets = "Microphone","mic-in";
+		//simple-audio-card,routing = "MIC2","mic-in";
+		simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+		simple-audio-card,codec{
+			sound-dai = <&codec0>;
+		};
+	};
+
+	cpus {
+		#address-cells = <0x2>;
+		#size-cells = <0x0>;
+
+		cpu-map {
+			cluster0 {
+
+				core0 {
+					cpu = <&cpu_l0>;
+				};
+
+				core1 {
+					cpu = <&cpu_l1>;
+				};
+
+				core2 {
+					cpu = <&cpu_l2>;
+				};
+
+				core3 {
+					cpu = <&cpu_b0>;
+				};
+
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu_l3>;
+				};
+
+				core1 {
+					cpu = <&cpu_l4>;
+				};
+
+				core2 {
+					cpu = <&cpu_l5>;
+				};
+
+				core3 {
+					cpu = <&cpu_b1>;
+				};
+			};
+
+		};
+
+		cpu_l0: cpu@0 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x000>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 0>;
+			};
+
+		cpu_l1: cpu@100 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x100>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 1>;
+			};
+
+		cpu_l2: cpu@200 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x200>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 2>;
+			};
+
+		cpu_b0: cpu@300 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x300>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 3>;
+			};
+
+		cpu_l3: cpu@10000 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x10000>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 4>;
+			};
+
+		cpu_l4: cpu@10100 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x10100>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 5>;
+			};
+
+		cpu_l5: cpu@10200 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x10200>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 6>;
+			};
+
+		cpu_b1: cpu@10300 {
+				device_type = "cpu";
+				compatible = "arm,armv8";
+				reg = <0x0 0x10300>;
+				enable-method = "psci";
+				numa-node-id = <0>;
+				clocks = <&scmi_dvfs 7>;
+			};
+	};
+
+	firmware {
+		scmi: scmi {
+			compatible = "arm,scmi";
+			mboxes = <&mbox 0>;
+			mbox-names = "tx";
+			shmem = <&cpu_scp_hpri>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_dvfs: protocol@13 {
+				reg = <0x13>;
+				#clock-cells = <1>;
+			};
+
+			scmi_sensors0: protocol@15 {
+				reg = <0x15>;
+				#thermal-sensor-cells = <1>;
+			};
+		};
+	};
+
+	thermal_zones: thermal-zones {
+		sensor0 {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&scmi_sensors0 0>;
+
+			trips {
+				threshod: trip-point@0 {
+					temperature = <75000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				target: trip-point@1 {
+					temperature = <90000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				cpu_crit: cpu_crit {
+					temperature = <100000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+
+		sensor1 {
+			polling-delay-passive = <100>;
+			polling-delay = <1000>;
+			thermal-sensors = <&scmi_sensors0 1>;
+
+			trips {
+				threshod1: trip-point@0 {
+					temperature = <75000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				target1: trip-point@1 {
+					temperature = <90000>;
+					hysteresis = <0>;
+					type = "passive";
+				};
+				cpu_crit1: cpu_crit {
+					temperature = <100000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+		};
+	};
+
+	gic: interrupt-controller@26800000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		interrupt-controller;
+		reg = <0x0 0x26800000 0 0x10000>,	   /* GICD */
+			  <0x0 0x26860000 0 0x100000>,	   /* GICR */
+			  <0x0 0x26970000 0 0x10000>,	/* GICC */
+			  <0x0 0x26980000 0 0x10000>,	/* GICH */
+			  <0x0 0x26990000 0 0x10000>;	/* GICV */
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+
+		its: gic-its@26840000 {
+			compatible = "arm,gic-v3-its";
+			msi-controller;
+			reg = <0x0 0x26840000 0x0 0x20000>;
+		};
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+				 <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+				 <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+				 <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+		clock-frequency = <48000000>;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	clocks {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		clk250mhz: clk250mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <250000000>;
+		};
+
+		sysclk_48mhz: clk48mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <48000000>;
+		};
+
+		sysclk_50mhz: clk50mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <50000000>;
+		};
+
+		sysclk_100mhz: clk100mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <100000000>;
+		};
+
+		sysclk_600mhz: clk600mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <600000000>;
+		};
+
+		sysclk_1200mhz: clk1200mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <1200000000>;
+		};
+
+	};
+
+	smmu: iommu@26000000 {
+		compatible = "arm,smmu-v3";
+		reg = <0x0 0x26000000 0x0 0x800000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_EDGE_RISING>,
+				 <GIC_SPI 98 IRQ_TYPE_EDGE_RISING>,
+				 <GIC_SPI 96 IRQ_TYPE_EDGE_RISING>,
+				 <GIC_SPI 101 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "eventq", "priq", "cmdq-sync", "gerror";
+		dma-coherent;
+		#iommu-cells = <1>;
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		dma-coherent;
+		ranges;
+
+		uart0: uart@18001000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x0 0x18001000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		uart1: uart@18002000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x0 0x18002000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		uart2: uart@18003000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x0 0x18003000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		virt_uart0: uart@27011000 {
+			compatible = "phytium,ftd35";
+			reg = <0x0 0x27011000 0x0 0x1000>,
+				  <0x0 0x26fe4000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		virt_uart1: uart@27012000 {
+			compatible = "phytium,ftd35";
+			reg = <0x0 0x27012000 0x0 0x1000>,
+				  <0x0 0x26fe5000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		virt_uart2: uart@27013000 {
+			compatible = "phytium,ftd35";
+			reg = <0x0 0x27013000 0x0 0x1000>,
+				  <0x0 0x26fe6000 0x0 0x1000>;
+			baud = <3000000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz &sysclk_100mhz>;
+			clock-names = "uartclk", "apb_pclk";
+			status = "disabled";
+		};
+
+		mmc0: mmc@18005000 {
+			compatible = "phytium,mci";
+			reg = <0x0 0x18005000 0x0 0x1000>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_1200mhz>;
+			clock-names = "phytium_mci_clk";
+			status = "disabled";
+		};
+
+		virt_mmc0: mmc@27018000 {
+			compatible = "phytium,mci_iop";
+			reg = <0x0 0x27018000 0x0 0x1000>,
+				  <0x0 0x26fea000 0x0 0x1000>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_1200mhz>;
+			clock-names = "phytium_mci_clk";
+			status = "disabled";
+		};
+
+		i2c0: i2c@1800a000 {  //smbus0
+			compatible = "phytium,i2c";
+			reg = <0x0 0x1800a000 0x0 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@1800b000 {   //smbus1
+			compatible = "phytium,i2c";
+			reg = <0x0 0x1800b000 0x0 0x1000>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@1800c000 {   //pmbus0
+			compatible = "phytium,i2c";
+			reg = <0x0 0x1800c000 0x0 0x1000>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			anx7411@2c {
+				compatible = "analogix,anx7411";
+				reg = <0x2c>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupt-gpios = <0xf 0x00 0x4>;
+				port@0 {
+					reg = <0>;
+					con_usb_c_ep:endpoint{
+					remote-endpoint = < &usb_ep>;
+					};
+				};
+				orientation_switch {
+					status = "okay";
+					orientation-switch;
+					port {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					anx7411_orientation_switch: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&anx7411_switch>;
+						};
+					};
+				};
+				mode_switch {
+					status = "okay";
+					mode-switch;
+					port {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						anx7411_dp_altmode_switch: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&anx7411_mux>;
+						};
+					};
+				};
+				 usb_c0: connector@0 {
+					compatible = "usb-c-connector";
+					reg = <0>;
+					power-role = "dual";
+					data-role = "host";
+					try-power-role = "source";
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+						port@0 {
+							reg = <0>;
+							anx7411_switch: endpoint {
+								remote-endpoint = <&anx7411_orientation_switch>;
+							};
+						};
+
+						port@1 {
+							reg = <1>;
+							anx7411_mux: endpoint {
+							remote-endpoint = <&anx7411_dp_altmode_switch>;
+							};
+						};
+					};
+				};
+
+			};
+			codec0: es8336@10 {
+				#sound-dai-cells = <0>;
+				compatible = "everest,es8336";
+				reg = <0x10>;
+			};
+		};
+
+		i2c3: i2c@1800d000 {	//pmbus1
+			compatible = "phytium,i2c";
+			reg = <0x0 0x1800d000 0x0 0x1000>;
+			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_i2c0: i2c@27019000 {  //smbus0
+			compatible = "phytium,i2c_iop";
+			reg = <0x0 0x27019000 0x0 0x1000>,
+				  <0x0 0x26feB000 0x0 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_i2c1: i2c@2701a000 {   //smbus1
+			compatible = "phytium,i2c_iop";
+			reg = <0x0 0x2701a000 0x0 0x1000>,
+				  <0x0 0x26fec000 0x0 0x1000>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_i2c2: i2c@2701b000 {   //pmbus0
+			compatible = "phytium,i2c_iop";
+			reg = <0x0 0x2701b000 0x0 0x1000>,
+				  <0x0 0x26feD000 0x0 0x1000>;
+			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+		};
+
+		virt_i2c3: i2c@2701c000 {	//pmbus1
+			compatible = "phytium,i2c_iop";
+			reg = <0x0 0x2701c000 0x0 0x1000>,
+				  <0x0 0x26fee000 0x0 0x1000>;
+			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_100mhz>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+
+		sata: sata@26fd4000 {
+			compatible = "generic-ahci";
+			reg = <0x0 0x26fd4000 0x0 0x1000>;
+			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+			iommus = <&smmu 0xf000>;
+			status = "disabled";
+		};
+
+//PGU USB3
+
+		usb3_0: usb0@26ee8000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26ee8000 0x0 0x18000>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		usb3_1: usb2@26f08000 {
+			compatible = "phytium,usb2_xhci";
+			reg = <0x0 0x26f00000 0x0 0x4000>,
+				  <0x0 0x26f04000 0x0 0x4000>,
+				  <0x0 0x26f08000 0x0 0x18000>;
+			reg-names = "otg", "dev", "xhci";
+			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>,  //host & device interrupt
+					 <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>; //otg interrupt
+			interrupt-names = "generic","otg";
+			status = "disabled";
+			usb-role-switch;
+			port{
+				usb_ep:endpoint {
+					remote-endpoint= <&con_usb_c_ep>;
+				};
+			};
+		};
+
+		usb3_2: usb1@26f28000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26f28000 0x0 0x18000>;
+			interrupts = <GIC_SPI 21 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+
+		usb3_3: usb3@26f48000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26f48000 0x0 0x18000>;
+			interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		usb3_4: usb4@26f68000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26f68000 0x0 0x18000>;
+			interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		usb2_0: usb0@26f88000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26f88000 0x0 0x18000>;
+			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		usb2_1: usb1@26fa8000 {
+			compatible = "phytium,pe220x-xhci";
+			reg = <0x0 0x26fa8000 0x0 0x18000>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		qspi0: qspi@18006000 {
+			compatible = "phytium,qspi-nor";
+			reg = <0x0 0x18006000 0x0	 0x1000>,
+				  <0x0		0x0 0x0 0x0fffffff>;
+			reg-names = "qspi", "qspi_mm";
+			clocks = <&sysclk_600mhz>;
+			status = "disabled";
+
+			flash@0 {
+				compatible = "jedec,spi-nor";
+				reg = <0x00>;
+				spi-rx-bus-width = <1>;
+				spi-max-frequency = <50000000>;
+			};
+		};
+
+		spi0: spi@18010000 {
+			compatible = "phytium,spi";
+			reg = <0x0 0x18010000 0x0 0x1000>;
+			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_50mhz>;
+			num-cs = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi1: spi@18011000 {
+			compatible = "phytium,spi";
+			reg = <0x0 0x18011000 0x0 0x1000>;
+			interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_50mhz>;
+			num-cs = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_spi0: spi@27014000 {
+			compatible = "phytium,spi-iop";
+			reg = <0x0 0x27014000 0x0 0x1000>,
+				  <0x0 0x26fe7000 0x0 0x1000>;
+			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_50mhz>;
+			num-cs = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_spi1: spi@27015000 {
+			compatible = "phytium,spi-iop";
+			reg = <0x0 0x27015000 0x0 0x1000>,
+				  <0x0 0x26fe8000 0x0 0x1000>;
+			interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_50mhz>;
+			num-cs = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		watchdog0: watchdog@18012000 {
+			compatible = "arm,sbsa-gwdt";
+			reg = <0x0 0x18013000 0x0 0x1000>,
+				  <0x0 0x18012000 0x0 0x1000>;
+			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
+			timeout-sec = <30>;
+			status = "disabled";
+		};
+
+		watchdog1: watchdog@18014000 {
+			compatible = "arm,sbsa-gwdt";
+			reg = <0x0 0x18015000 0x0 0x1000>,
+				  <0x0 0x18014000 0x0 0x1000>;
+			interrupts = <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
+			timeout-sec = <30>;
+			status = "disabled";
+		};
+
+
+		mbox: mailbox@26fc0000 {
+			compatible = "phytium,mbox";
+			reg = <0x0 0x26fc0000 0x0 0x4000>;
+			interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <1>;
+		};
+
+		sram: sram@26fc4000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x26fc4000 0x0 0x2000>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x26fc4000 0x2000>;
+
+			cpu_scp_lpri: scp-shmem@0 {
+				compatible = "arm,scmi-shmem";
+				reg = <0x1000 0x400>;
+			};
+
+			cpu_scp_hpri: scp-shmem@1 {
+				compatible = "arm,scmi-shmem";
+				reg = <0x1400 0x400>;
+			};
+		};
+
+		gpio0: gpio@18007000 {
+			compatible = "phytium,gpio";
+			reg = <0x0 0x18007000 0x0 0x1000>;
+			interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			porta {
+				compatible = "phytium,gpio-port";
+				reg = <0>;
+				ngpios = <16>;
+			};
+		};
+
+		gpio1: gpio@18008000 {
+			compatible = "phytium,gpio";
+			reg = <0x0 0x18008000 0x0 0x1000>;
+			interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 129 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			porta {
+				compatible = "phytium,gpio-port";
+				reg = <0>;
+				ngpios = <16>;
+			};
+		};
+
+		pwm0: pwm@1800e000 {
+			compatible = "phytium,pwm";
+			reg = <0x0 0x1800e000 0x0 0x1000>;
+			interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_50mhz>;
+			status = "disabled";
+		};
+
+		gpu@26c00000 {
+			compatible = "phytium,ftg340";
+			interrupts = <0x0 0x1a 0x4>;
+			interrupt-names = "core_major";
+			reg = <0x0 0x26c00000 0x0 0x40000>;
+			memory-region = <0x18>;
+		};
+
+		dcFTD330@0x26ca0000 {
+			compatible = "phytium,dc-1.0";
+			reg = <0x0 0x26ca0000 0x0 0x1e000 0x00 0x26fcc080 0x00 0x20>;
+			interrupts = <0x0 0x37 0x4 0x0 0x3a 0x4 0x0 0x41 0x4 0x0 0x42 0x4 0x0 0x43 0x4 0x0 0x6a 0x4 0x0 0x6b 0x4 0x0 0x6c 0x4>;
+			pipe_mask = [03];
+			edp_mask = [00];
+			overlay_enable = <0x00>;
+			memory-region = <0x19>;
+			water_mark = <0x5666 0x5666 0x5666>;
+			qos = <0xf0 0xf0 0xf0>;
+			phy_mode = <0x01 0x01 0x01>;
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+		};
+
+		vpu {
+			compatible = "phytium,vpu";
+			reg = <0x0 0x26c88000 0x0 0x10000 0x0 0x26fcc0a0 0x0 0x40>;
+			interrupts = <0x0 0x1c 0x4>, <0x0 0x1d 0x4>;
+			memory-region = <0x20>;
+		};
+
+
+		i2s_dp0@26cbe000 {
+			compatible = "phytium,i2s";
+			reg = <0x0 0x26cbe000 0x0 0x1000 0x0 0x26cbf000 0x0 0x1000>;
+			interrupts = <0 68 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp0";
+		};
+
+		i2s_dp1@0x26cc0000 {
+			compatible = "phytium,i2s";
+			reg = <0x0 0x26cc0000 0x0 0x1000 0x0 0x26cc1000 0x0 0x1000>;
+			interrupts = <0 69 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp1";
+		};
+
+		i2s_dp0@0x26cc2000 {
+			compatible = "phytium,i2s";
+			reg = <0x0 0x26cc2000 0x0 0x1000 0x0 0x26cc3000 0x0 0x1000>;
+			interrupts = <0 70 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp2";
+		};
+
+		virt_i2s_dp0@0x2701f000 {
+			compatible = "phytium,virt-i2s";
+			reg = <0x0 0x2701f000 0x0 0x1000>,
+			    <0x0 0x26fe0000 0x0 0x1000>,
+			    <0x0 0x26cbf000 0x0 0x1000>;
+			interrupts = <0 68 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp0";
+		};
+
+		virt_i2s_dp1@0x27020000 {
+			compatible = "phytium,virt-i2s";
+			reg = <0x0 0x27020000 0x0 0x1000>,
+			    <0x0 0x26fe1000 0x0 0x1000>,
+			    <0x0 0x26cc1000 0x0 0x1000>;
+			interrupts = <0 69 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp1";
+		};
+
+		virt_i2s_dp2@0x27021000 {
+			compatible = "phytium,virt-i2s";
+			reg = <0x0 0x27021000 0x0 0x1000>,
+			    <0x0 0x26fe2000 0x0 0x1000>,
+			    <0x0 0x26cc3000 0x0 0x1000>;
+			interrupts = <0 70 4>;
+			clocks = <&sysclk_600mhz>;
+			clock-names = "i2s_clk";
+			dai-name = "phytium-i2s-dp2";
+		};
+
+		pmdk_dp {
+			compatible = "phytium,pmdk-dp";
+			num-dp = <0x00000003>;
+		};
+
+		i2s0: i2s@18009000 {
+			compatible = "phytium,i2s";
+			reg = <0x0 0x18009000 0x0 0x1000>,
+				  <0x0 0x18000000 0x0 0x1000>;
+			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_1200mhz>;
+			clock-names = "i2s_clk";
+			#sound-dai-cells = <0>;
+			status = "disabled";
+		};
+
+		virt_i2s0: i2s@27010000 {
+			compatible = "phytium,virt-i2s";
+			#sound-dai-cells = <0x0>;
+			reg = <0x0 0x27010000 0x0 0x800>,
+				  <0x0 0x26fe3000 0x0 0x100>,
+				  <0x0 0x18000000 0x0 0x1000>;
+			interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sysclk_1200mhz>;
+			clock-names = "i2s_clk";
+			status = "disabled";
+		};
+
+		virt_codec0: codec@27010800 {
+			compatible = "phytium,virt-codec";
+			#sound-dai-cells = <0x0>;
+			reg = <0x0 0x27010800 0x0 0x800>,
+				< 0x0 0x26fe3100 0x0 0x100>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
+		virt_gmac0: eth0@2701d000 {
+			compatible = "phytium,gmac-2.0";
+			reg = <0x0 0x2701d000 0x0 0x2000>,
+				  <0x0 0x26fef000 0x0 0x1000>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			queue-number = <0x2>;
+			phy-mode = "sgmii";
+			use-mii;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		gmac0: eth0@26fd0000 {
+			compatible = "phytium,gmac-1.1";
+			reg = <0x0 0x26fd0000 0x0 0x2000>;
+			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI 16 IRQ_TYPE_LEVEL_HIGH>;
+			queue-number = <0x2>;
+			phy-mode = "sgmii";
+			use-mii;
+			dma-coherent;
+			status = "disabled";
+		};
+
+		npu:npu@26d00000 {
+			compatible = "phytium,npu";
+			reg = <0x0 0x26d00000 0x0 0x80000
+				   0x0 0x26fcc060 0x0 0x20>;//power manage
+			interrupts = <0 74 4>;
+			dma-mask=<0xff 0xffffffff>;
+			status = "disabled";
+		};
+
+		pcie: pcie@40000000 {
+			compatible = "pci-host-ecam-generic";
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			#interrupt-cells = <1>;
+			reg = <0x0 0x40000000 0x0 0x10000000>;
+			msi-parent = <&its>;
+			bus-range = <0x0 0xff>;
+			interrupt-map-mask = <0x0 0x0 0x0 0x7>;
+			interrupt-map = <0x0 0x0 0x0 0x1 &gic 0x0 0x0 GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+					<0x0 0x0 0x0 0x2 &gic 0x0 0x0 GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
+					<0x0 0x0 0x0 0x3 &gic 0x0 0x0 GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
+					<0x0 0x0 0x0 0x4 &gic 0x0 0x0 GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			ranges = <0x01000000 0x00 0x00000000 0x0  0x44000000  0x0  0x01000000>,
+				 <0x02000000 0x00 0x58000000 0x0  0x58000000  0x0  0x28000000>,
+				 <0x03000000 0x10 0x00000000 0x10 0x00000000 0x10  0x00000000>;
+			iommu-map = <0x0 &smmu 0x0 0x10000>;
+			status = "disabled";
+		};
+	};
+};
