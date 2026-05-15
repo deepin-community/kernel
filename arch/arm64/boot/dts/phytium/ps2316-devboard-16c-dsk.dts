@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium Ps2316 devboard
+ *
+ * Copyright (C) 2023, Phytium Technology Co., Ltd.
+ */
+
+/dts-v1/;
+/memreserve/ 0x80000000 0x10000;
+
+#include "ps2316-generic-psci-soc.dtsi"
+
+/{
+	model = "Ps2316 Development Board";
+	compatible = "phytium,ps2316";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		stdout-path = "uart1:115200n8";
+	};
+
+	memory@00{
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x1 0x00000000>; /* Updated by bootloader */
+	};
+};
+
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&i2c0 {
+	status = "ok";
+};
+
+&i2c1 {
+	status = "ok";
+};
+
+&i2c2 {
+	status = "ok";
+};
+
+&i3c {
+	status = "ok";
+};
+
+&watchdog0 {
+	status = "ok";
+};
+
+&watchdog1 {
+	status = "ok";
+};
