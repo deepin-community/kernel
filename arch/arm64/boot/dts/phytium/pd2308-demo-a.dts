@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DTS file for Phytium pd2308 devboard
+ *
+ * Copyright (C) 2023, Phytium Technology Co., Ltd.
+ */
+
+/dts-v1/;
+/memreserve/ 0x80000000 0x10000;
+
+#include "pd2308.dtsi"
+
+/{
+	model = "Pd2308 DEMO";
+	compatible = "phytium,pd2308";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		stdout-path = "uart1:115200n8";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x00 0x80000000 0x00 0x7b000000>;
+		numa-node-id = <0x00>;
+	};
+
+	memory@01{
+		device_type = "memory";
+		reg = <0x20 0x00000000 0x0f 0x80000000>;
+		numa-node-id = <0x00>;
+	};
+};
+
+&uart0 {
+	status = "ok";
+};
+
+&uart1 {
+	status = "ok";
+};
+
+&uart2 {
+	status = "ok";
+};
+
+&uart3 {
+	status = "ok";
+};
+
+&sata0 {
+	status = "ok";
+};
+
+&mmc0 {
+	bus-width = <0x04>;
+	max-frequency = <50000000>;
+	cap-sdio-irq;
+	cap-sd-highspeed;
+	sd-uhs-sdr25;
+	no-mmc;
+	status = "okay";
+};
+
+&qspi {
+	status = "ok";
+};
+
+&hda {
+	status = "ok";
+};
+
+&can0 {
+	status = "ok";
+};
+
+&can1 {
+	status = "ok";
+};
+
+&i2c0 {
+	status = "ok";
+};
+
+&i2c1 {
+	status = "ok";
+};
+
+&i2c2 {
+	status = "ok";
+};
+
+&gpio0 {
+	status = "ok";
+};
+
+&gpio1 {
+	status = "ok";
+};
+
+&gpio2 {
+	status = "ok";
+};
+
+&gpio3 {
+	status = "ok";
+};
+
+&spi0 {
+	status = "ok";
+};
+
+&spi1 {
+	status = "ok";
+};
+
+&i3c0 {
+	status = "ok";
+};
+
+&i3c1 {
+	status = "ok";
+};
+
+&pwm0 {
+	phytium,db = <0 0 0 1000 1000 0>;
+	status = "ok";
+};
+
+&pwm1 {
+	phytium,db = <0 0 0 1000 1000 0>;
+	status = "ok";
+};
+
+&lpc {
+	status = "ok";
+};
+
+&phytmac0 {
+	phy-mode = "sgmii";
+	use-mii;
+	status = "ok";
+};
+
+&phytmac1 {
+	phy-mode = "usxgmii";
+	status = "ok";
+	fixed-link {
+		speed = <0x2710>;
+		full-duplex;
+	};
+};
