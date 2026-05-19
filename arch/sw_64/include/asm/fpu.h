@@ -240,6 +240,19 @@ extern void sw64_write_simd_fp_reg_d(unsigned long reg,
 extern void sw64_write_simd_fp_reg_ldwe(unsigned long reg, int a);
 extern void sw64_read_simd_fp_m_s(unsigned long reg, unsigned long *fp_value);
 extern void sw64_read_simd_fp_m_d(unsigned long reg, unsigned long *fp_value);
+extern int sw64_write_simd_fp_reg_vldwu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstwu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_write_simd_fp_reg_vldsu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstsu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_write_simd_fp_reg_vlddu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstdu(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstwul(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstwuh(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstsul(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstsuh(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstdul(unsigned long reg, unsigned long aligned_va);
+extern int sw64_store_simd_fp_reg_vstduh(unsigned long reg, unsigned long aligned_va);
+
 
 #endif /* __KERNEL__ */
 
