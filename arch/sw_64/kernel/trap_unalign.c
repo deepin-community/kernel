@@ -59,6 +59,7 @@ static bool access_is_valid(void *va, unsigned int len)
 asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 {
 	long error, disp;
+	unsigned long aligned_va;
 	unsigned int insn, fncode, rb;
 	unsigned long tmp, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, vb;
 	unsigned long fp[4];
@@ -626,6 +627,110 @@ asmlinkage void noinstr do_entUna(struct pt_regs *regs)
 			goto out;
 		}
 
+	case 0x1c:
+		aligned_va = (unsigned long)va;
+		insn = *(unsigned int *)pc;
+		fncode = (insn >> 12) & 0xf;
+
+		switch (fncode) {
+		case 0x0: /* vldw_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_write_simd_fp_reg_vldwu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x1: /* vstw_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x2: /* vlds_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_write_simd_fp_reg_vldsu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x3: /* vsts_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x4: /* vldd_u */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_write_simd_fp_reg_vlddu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x5: /* vstd_u */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstdu(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x8: /* vstw_ul */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwul(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0x9: /* vstw_uh */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwuh(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0xa: /* vsts_ul */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsul(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0xb: /* vsts_uh */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsuh(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0xc: /* vstd_ul */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstdul(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		case 0xd: /* vstd_uh */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstduh(reg, aligned_va);
+
+			if (error)
+				goto got_exception;
+
+			goto out;
+		}
+		goto out;
 	case 0x1e:
 		insn = *(unsigned int *)pc;
 		fncode = (insn >> 12) & 0xf;
@@ -1061,6 +1166,7 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 	unsigned int rb = -1U;
 	long disp;
 	void __user *va = (void *)regs->earg0;
+	unsigned long aligned_va;
 	unsigned long opcode = regs->earg1;
 	unsigned long reg = regs->earg2;
 
@@ -1734,6 +1840,108 @@ asmlinkage void noinstr do_entUnaUser(struct pt_regs *regs)
 		}
 	}
 	switch (opcode) {
+	case 0x1c:
+		aligned_va = (unsigned long)va;
+
+		switch (fncode) {
+		case 0x0: /* vldw_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_write_simd_fp_reg_vldwu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x1: /* vstw_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x2: /* vlds_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_write_simd_fp_reg_vldsu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x3: /* vsts_u */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x4: /* vldd_u */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_write_simd_fp_reg_vlddu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x5: /* vstd_u */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstdu(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x8: /* vstw_ul */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwul(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0x9: /* vstw_uh */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstwuh(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0xa: /* vsts_ul */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsul(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0xb: /* vsts_uh */
+			aligned_va = aligned_va & ~0x03UL;
+			error = sw64_store_simd_fp_reg_vstsuh(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0xc: /* vstd_ul */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstdul(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		case 0xd: /* vstd_uh */
+			aligned_va = aligned_va & ~0x07UL;
+			error = sw64_store_simd_fp_reg_vstduh(reg, aligned_va);
+
+			if (error)
+				goto give_sigsegv;
+
+			goto out;
+		}
+		goto out;
 	case 0x1e:
 		rb = (instr >> 16) & 0x1f;
 		disp = instr & 0xfff;
