@@ -110,6 +110,9 @@ enum {
 	IEE_OP_SET_PUD_IDENT,
 	IEE_OP_SET_SX_PTE,
 #endif
+#ifdef CONFIG_VARP
+	IEE_OP_SET_VARP_MODPROBE_PATH,
+#endif
 	IEE_FLAG_END
 };
 

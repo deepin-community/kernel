@@ -110,5 +110,8 @@ iee_func iee_funcs[] = {
 	(iee_func)_iee_set_pud_ident,
 	(iee_func)_iee_set_sx_pte,
 #endif
+#ifdef CONFIG_VARP
+	(iee_func)_iee_set_varp_modprobe_path,
+#endif
 	NULL
 };

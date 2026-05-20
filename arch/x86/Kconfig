@@ -1622,6 +1622,16 @@ config IEE_SELINUX_P
 	depends on SECURITY_SELINUX
 	depends on IEE
 
+config VARP
+	bool "variable protection for IEE"
+	depends on IEE
+	help
+		Protect variables with IEE. At present, only modprobe_path is
+		covered. Writes to protected variables are routed through IEE
+		interfaces instead of direct kernel stores.
+		Enable this option when modprobe_path must be protected by the
+		isolated execution environment.
+
 config PTP_RESERVE_ORDER
 	depends on PTP
 	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
