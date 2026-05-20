@@ -32,6 +32,10 @@
 #include <trace/events/module.h>
 #include "internal.h"
 
+#ifdef CONFIG_VARP
+#include <asm/haoc/iee-varp.h>
+#endif
+
 /*
  * Assuming:
  *
@@ -61,7 +65,11 @@ static DEFINE_SEMAPHORE(kmod_concurrent_max, MAX_KMOD_CONCURRENT);
 /*
 	modprobe_path is set via /proc/sys.
 */
+#ifdef CONFIG_VARP
+char modprobe_path[KMOD_PATH_LEN] __iee_varp_data = CONFIG_MODPROBE_PATH;
+#else
 char modprobe_path[KMOD_PATH_LEN] = CONFIG_MODPROBE_PATH;
+#endif
 
 static void free_modprobe_argv(struct subprocess_info *info)
 {

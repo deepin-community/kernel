@@ -35,6 +35,9 @@ extern void iee_selinuxp_init(void);
 #ifdef CONFIG_PTP
 extern void haoc_ptp_init(void);
 #endif
+#ifdef CONFIG_VARP
+extern void varp_init(void);
+#endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
 unsigned long IEE_OFFSET = 0x200000000000;
@@ -283,6 +286,10 @@ void __init iee_post_init(void)
 #endif
 #ifdef CONFIG_IEE_SELINUX_P
 	iee_selinuxp_init();
+#endif
+
+#ifdef CONFIG_VARP
+	varp_init();
 #endif
 	haoc_init_done = true;
 }
