@@ -162,4 +162,10 @@ void _iee_set_sel_policy_cap(unsigned long __unused, unsigned int idx, int cap);
 void _iee_sel_rcu_assign_policy(unsigned long __unused,
 			struct selinux_policy *new_policy, struct selinux_policy *iee_new_policy);
 #endif
+
+#ifdef CONFIG_VARP
+void _iee_set_varp_modprobe_path(unsigned long __unused, char *data, int maxlen, size_t len,
+		char *buffer, size_t *lenp);
+#endif
+
 #endif
