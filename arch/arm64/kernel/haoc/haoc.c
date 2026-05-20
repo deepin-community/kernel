@@ -118,5 +118,8 @@ iee_func iee_funcs[] = {
 		(iee_func)_iee_set_sel_policy_cap,
 		(iee_func)_iee_sel_rcu_assign_policy,
 #endif
-		NULL
+#ifdef CONFIG_VARP
+	(iee_func)_iee_set_varp_modprobe_path,
+#endif
+	NULL
 };
