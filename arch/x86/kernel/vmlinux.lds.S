@@ -135,6 +135,15 @@ __iee_si_data_end = .;
 	__iee_selinux_data_end = .;
 #endif
 
+#ifdef CONFIG_VARP
+#define VARP_DATA                \
+    . = ALIGN(PAGE_SIZE);        \
+    __iee_varp_data_start = .;    \
+    *(.iee.varp)                \
+    . = ALIGN(PAGE_SIZE);        \
+    __iee_varp_data_end = .;
+#endif
+
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
 	data PT_LOAD FLAGS(6);          /* RW_ */
@@ -228,6 +237,9 @@ SECTIONS
 #endif
 #ifdef CONFIG_IEE_SELINUX_P
 		IEE_SELINUX_DATA
+#endif
+#ifdef CONFIG_VARP
+		VARP_DATA
 #endif
 		CONSTRUCTORS
 

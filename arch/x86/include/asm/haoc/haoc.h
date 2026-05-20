@@ -111,6 +111,16 @@ void _iee_set_cred_rcu(unsigned long __unused, struct cred *cred, struct rcu_hea
 void _iee_set_cred_ucounts(unsigned long __unused, struct cred *cred, struct ucounts *ucounts);
 #endif
 
+#ifdef CONFIG_VARP
+void _iee_set_varp_modprobe_path(unsigned long __unused, char *data, int maxlen, size_t len,
+		char *buffer, size_t *lenp);
+#endif
+
+#ifdef CONFIG_VARP
+void _iee_set_varp_modprobe_path(unsigned long __unused, char *data, int maxlen, size_t len,
+		char *buffer, size_t *lenp);
+#endif
+
 #ifdef CONFIG_KEYP
 #include <linux/key.h>
 struct watch_list;
