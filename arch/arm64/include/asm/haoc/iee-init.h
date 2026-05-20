@@ -31,6 +31,11 @@ extern char __iee_cred_data_end[];
 extern char __iee_selinux_data_start[];
 extern char __iee_selinux_data_end[];
 #endif
+#ifdef CONFIG_VARP
+extern char __iee_varp_data_start[];
+extern char __iee_varp_data_end[];
+#endif
+
 extern struct mutex fixmap_lock;
 
 #endif

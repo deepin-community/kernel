@@ -131,4 +131,15 @@ config IEE_SELINUX_P
 		If unsure, say N.
 	depends on SECURITY_SELINUX
 	depends on IEE
+
+config VARP
+	bool "Variable Protection(VARP)"
+	depends on IEE
+	help
+		Protect variables with IEE. At present, only modprobe_path is
+		covered. Writes to protected variables are routed through IEE
+		interfaces instead of direct kernel stores.
+		Enable this option when modprobe_path must be protected by the
+		isolated execution environment.
+
 endmenu # HAOC
