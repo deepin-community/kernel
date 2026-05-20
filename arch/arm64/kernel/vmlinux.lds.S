@@ -182,6 +182,17 @@ jiffies = jiffies_64;
 #define IEE_SELINUX_DATA
 #endif
 
+#ifdef CONFIG_VARP
+#define VARP_DATA				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_varp_data_start = .;	\
+	*(.iee.varp)				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_varp_data_end = .;
+#else
+#define VARP_DATA
+#endif
+
 #ifdef CONFIG_IEE
 #define IEE_INIT_DATA \
 	.iee.data : {		\
@@ -190,6 +201,7 @@ jiffies = jiffies_64;
 	PTP_DATA	\
 	CRED_DATA	\
 	IEE_SELINUX_DATA	\
+	VARP_DATA	\
 	. = ALIGN(PAGE_SIZE);	\
 	iee_init_data_end = .;	\
 	}
