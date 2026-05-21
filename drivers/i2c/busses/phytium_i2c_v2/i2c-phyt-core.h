@@ -14,7 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 
-#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.3"
+#define I2C_PHYTIUM_V2_DRV_VERSION		"1.0.4"
 
 #define FT_I2C_MSG_UNIT_SIZE			10
 #define FT_I2C_DATA_RESV_LEN			2
@@ -348,6 +348,7 @@ struct i2c_phyt_tranfer {
 	u32 tx_cmd_cnt;
 	u32 cur_cmd_cnt;
 	u32 cur_index;
+	u32 last_index;
 	u32 opt_finish_len;
 	u32 tx_ring_cnt;
 	bool is_need_check;
