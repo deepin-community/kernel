@@ -398,7 +398,7 @@ static int i2c_phyt_plat_probe(struct platform_device *pdev)
 	adap->class = I2C_CLASS_DEPRECATED;
 	ACPI_COMPANION_SET(&adap->dev, ACPI_COMPANION(&pdev->dev));
 	adap->dev.of_node = pdev->dev.of_node;
-	adap->timeout = HZ;
+	adap->timeout = 2 * HZ;
 	adap->dev.fwnode = pdev->dev.fwnode;
 	dev_pm_set_driver_flags(&pdev->dev,
 				DPM_FLAG_SMART_PREPARE |

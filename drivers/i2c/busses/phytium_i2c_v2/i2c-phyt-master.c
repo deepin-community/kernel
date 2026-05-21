@@ -358,6 +358,7 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 	dev->mng.tx_cmd_cnt = 0;
 	dev->mng.cur_cmd_cnt = 0;
 	dev->mng.is_last_frame = false;
+	dev->mng.last_index = 0xffffffff;
 	dev->flags = ~FT_I2C_TRANS_WAIT;
 
 	i2c_phyt_write_reg(dev, FT_I2C_REGFILE_TX_HEAD, 0);
@@ -369,6 +370,7 @@ static int i2c_phyt_master_xfer(struct i2c_adapter *adapter,
 	if (!ret) {
 		ret = num;
 	} else {
+		dev->mng.cur_cmd_cnt = 0;
 		if (dev->abort_source != FT_I2C_SUCCESS) {
 			i2c_phyt_handle_tx_abort(dev);
 			if ((dev->abort_source & BIT(FT_I2C_TIMEOUT)) ||
@@ -460,20 +462,29 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD) % dev->mng.tx_ring_cnt;
 	i2c_phyt_common_regfile_clear_rv2ap_int(dev, stat);
-
 	if (!dev->mng.tx_ring_cnt) {
 		dev_err(dev->dev, "tx_ring_cnt is zero\n");
 		spin_unlock(&dev->i2c_lock);
 		return IRQ_NONE;
 	}
-	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD) % dev->mng.tx_ring_cnt;
+
 	tail = dev->mng.cur_cmd_cnt % dev->mng.tx_ring_cnt;
 	do {
 		tail++;
 		tail %= dev->mng.tx_ring_cnt;
 		if (rx_msg->head.cmd_type == PHYTI2C_MSG_CMD_REPORT)
 			i2c_phyt_master_isr_handle(dev);
+		/*
+		 *cur_cmd_cnt > 0 means in data transfer,when this contion happens,this data
+		 *has been processed in last interrupt handler,so do nothing this time.
+		 */
+		if (dev->mng.cur_cmd_cnt && dev->mng.last_index == head) {
+			dev_info(dev->dev, "===RV dose not update==\n");
+			spin_unlock(&dev->i2c_lock);
+			return IRQ_HANDLED;
+		}
 
 		if (dev->complete_flag) {
 			ret = i2c_phyt_master_handle(dev);
@@ -490,6 +501,7 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 		}
 	} while (tail != head);
 
+	dev->mng.last_index = head;
 	if (dev->flags == FT_I2C_TRANS_WAIT) {
 		dev->flags = ~FT_I2C_TRANS_WAIT;
 		i2c_phyt_trig_rv_intr(dev);
