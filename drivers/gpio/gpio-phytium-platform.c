@@ -146,7 +146,6 @@ static void phytium_set_irq_chained_handler(struct phytium_gpio *gpio)
 		if (gpio->irq[i] >= 0) {
 			irq_set_chained_handler_and_data(gpio->irq[i],
 			phytium_gpio_irq_handler, &gpio->gc);
-			enable_irq(gpio->irq[i]);
 		}
 	}
 }
