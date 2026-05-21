@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/reserved-memory/phytium-jpeg-vram.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Phytium JPEG VRAM Engine
+
+maintainers:
+  - Wang Hao <wanghao1851@phytium.com.cn>
+
+description: |
+  The JPEG VRAM Engine embedded in the Phytium SOCs can capture
+  and compress video data from digital or analog sources.
+
+properties:
+  compatible:
+    const: "phytium,jpeg-vram"
+
+  reg:
+    maxItems: 1
+    description: |
+      Contains the offset and length of the JPEG Engine memory region.
+
+  interrupts:
+    maxItems: 1
+    description: >
+      The interrupt associated with the VE on this platform.
+
+  ddr-mode:
+    type: object
+    description: >
+      Additional properties for DDR mode configuration.
+
+    properties:
+      phytium,dc-reg:
+        $ref: "/schemas/types.yaml#/definitions/uint64-array"
+        description: >
+          Address and size of the DC (Display Controller) register region.
+
+      phytium,dc-vram:
+        $ref: "/schemas/types.yaml#/definitions/uint64-array"
+        description: >
+          Address and size of the DC framebuffer region.
+
+      phytium,jpeg-vram:
+        $ref: "/schemas/types.yaml#/definitions/uint64-array"
+        description: >
+          Address and size of the JPEG-specific framebuffer region.
+
+      phytium,trans-reg:
+        $ref: "/schemas/types.yaml#/definitions/uint64-array"
+        description: >
+          Address and size of the transaction register region.
+
+    required:
+      - phytium,dc-reg
+      - phytium,dc-vram
+      - phytium,jpeg-vram
+      - phytium,trans-reg
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - ddr-mode
+
+additionalProperties: false
+
+examples:
+  - |
+    jpeg_vram0: jpeg_vram@32b32000 {
+      compatible = "phytium,jpeg-vram";
+      reg = <0x0 0x32b32000 0 0x1000>,
+            <0x0 0x32000000 0 0x8000>;
+      interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+      status = "disabled";
+      ddr-mode {
+        phytium,dc-reg = <0x32000000 0x2000>;
+        phytium,dc-vram = <0xf4000000 0x4000000>;
+        phytium,jpeg-vram = <0xf9000000 0x1000000>;
+        phytium,trans-reg = <0x32b3a000 0x1000>;
+      };
+    };
