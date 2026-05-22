@@ -673,7 +673,7 @@ static void __vm_mem_region_delete(struct kvm_vm *vm,
 		TEST_ASSERT(!ret, __KVM_SYSCALL_ERROR("munmap()", ret));
 		close(region->fd);
 	}
-	if (region->region.guest_memfd >= 0)
+	if ((int)region->region.guest_memfd >= 0)
 		close(region->region.guest_memfd);
 
 	free(region);
