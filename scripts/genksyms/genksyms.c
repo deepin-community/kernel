@@ -116,8 +116,40 @@ static const uint32_t crctab32[] = {
 	0x2d02ef8dU
 };
 
+/*
+ * Architecture-specific CRC32 hardware acceleration.
+ */
+static int crc32_hw_available;
+
+#ifdef __aarch64__
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+
+static void crc32_check_hw(void)
+{
+	crc32_hw_available = (getauxval(AT_HWCAP) & HWCAP_CRC32) != 0;
+}
+
+static inline uint32_t crc32_hw_byte(uint8_t c, uint32_t crc)
+{
+	asm volatile(".arch_extension crc\n\t"
+				"crc32b %w0, %w0, %w1" : "+r"(crc) : "r"(c));
+	return crc;
+}
+
+#else
+static void crc32_check_hw(void)
+{
+	crc32_hw_available = 0;
+}
+#endif
+
 static uint32_t partial_crc32_one(uint8_t c, uint32_t crc)
 {
+#if defined(__aarch64__)
+	if (__builtin_expect(crc32_hw_available, 0))
+		return crc32_hw_byte(c, crc);
+#endif
 	return crctab32[(crc ^ c) & 0xff] ^ (crc >> 8);
 }
 
@@ -739,6 +771,8 @@ int main(int argc, char **argv)
 {
 	FILE *dumpfile = NULL, *ref_file = NULL;
 	int o;
+
+	crc32_check_hw();
 
 	struct option long_opts[] = {
 		{"debug", 0, 0, 'd'},
