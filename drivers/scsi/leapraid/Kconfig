@@ -5,7 +5,7 @@ config SCSI_LEAPRAID
 	depends on PCI && SCSI
 	select SCSI_SAS_ATTRS
 	help
-	  This driver supports LeapIO PCIe-based Storage
+	  This driver supports LeapIO PCIe-based storage
 	  and RAID controllers.
 
 	  <http://www.leap-io.com>
