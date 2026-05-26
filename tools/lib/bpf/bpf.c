@@ -61,6 +61,8 @@
 #  define __NR_bpf 5315
 # elif defined(__sw_64__)
 #  define __NR_bpf 170
+# elif defined(__loongarch__)
+#  define __NR_bpf 280
 # else
 #  error __NR_bpf not defined. libbpf does not support your arch.
 # endif
