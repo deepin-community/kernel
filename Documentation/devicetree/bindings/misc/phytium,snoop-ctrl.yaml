@@ -36,9 +36,8 @@ required:
 examples:
   - |
       snoop: snoop@28010000 {
-          compatible = "phytium,snoop-ctrl";
-          reg = <0x0 0x28010000 0x1000>;
+          compatible = "phytium,snoop-ctrl", "syscon";
+          reg = <0x0 0x28010000 0x0 0x1000>;
           interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>;
-
-          snoop-ports = <0x80>;
+          snoop-ports = <0x80 0x81>;
       };
