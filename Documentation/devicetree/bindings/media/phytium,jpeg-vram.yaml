@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: "http://devicetree.org/schemas/reserved-memory/phytium-jpeg-vram.yaml#"
+$id: "http://devicetree.org/schemas/media/phytium,jpeg-vram.yaml#"
 $schema: "http://devicetree.org/meta-schemas/core.yaml#"
 
 title: Phytium JPEG VRAM Engine
@@ -18,9 +18,9 @@ properties:
     const: "phytium,jpeg-vram"
 
   reg:
-    maxItems: 1
+    maxItems: 2
     description: |
-      Contains the offset and length of the JPEG Engine memory region.
+      Contains the offset and length of the JPEG Engine memory regions.
 
   interrupts:
     maxItems: 1
