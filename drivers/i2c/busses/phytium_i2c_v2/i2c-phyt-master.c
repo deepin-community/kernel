@@ -462,13 +462,14 @@ static irqreturn_t i2c_phyt_master_regfile_isr(int this_irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD) % dev->mng.tx_ring_cnt;
+	head = i2c_phyt_read_reg(dev, FT_I2C_REGFILE_TX_HEAD);
 	i2c_phyt_common_regfile_clear_rv2ap_int(dev, stat);
 	if (!dev->mng.tx_ring_cnt) {
 		dev_err(dev->dev, "tx_ring_cnt is zero\n");
 		spin_unlock(&dev->i2c_lock);
 		return IRQ_NONE;
 	}
+	head = head % dev->mng.tx_ring_cnt;
 
 	tail = dev->mng.cur_cmd_cnt % dev->mng.tx_ring_cnt;
 	do {
