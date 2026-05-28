@@ -795,9 +795,15 @@ static int directed_pkg_intr_syscore_suspend(void *data)
 	return 0;
 }
 
+static void directed_pkg_intr_syscore_shutdown(void *data)
+{
+	disable_all_directed_thermal_pkg_intr();
+}
+
 static const struct syscore_ops directed_pkg_intr_pm_ops = {
 	.resume = directed_pkg_intr_syscore_resume,
 	.suspend = directed_pkg_intr_syscore_suspend,
+	.shutdown = directed_pkg_intr_syscore_shutdown,
 };
 
 static struct syscore directed_pkg_intr_pm = {
