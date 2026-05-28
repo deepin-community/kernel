@@ -14,6 +14,7 @@
  * Credits: Adapted from Zwane Mwaikambo's original code in mce_intel.c.
  *          Inspired by Ross Biro's and Al Borchers' counter code.
  */
+#include <linux/syscore_ops.h>
 #include <linux/interrupt.h>
 #include <linux/notifier.h>
 #include <linux/jiffies.h>
@@ -569,7 +570,10 @@ static void config_directed_thermal_pkg_intr(void *info)
 	wrmsrl(MSR_IA32_THERM_INTERRUPT, msr_val);
 }
 
-/* Only accessed from CPU hotplug callbacks. No extra locking needed. */
+/*
+ * Only accessed from CPU hotplug and syscore callbacks. No extra locking
+ * needed.
+ */
 static unsigned int *directed_intr_handler_cpus;
 
 static bool directed_thermal_pkg_intr_supported(void)
@@ -587,6 +591,10 @@ static bool directed_thermal_pkg_intr_supported(void)
  * Must be called with cpu_hotplug_lock held to prevent CPUs from going offline
  * while iterating through packages. Also, interrupts must be enabled to avoid
  * deadlocks in SMP function calls.
+ *
+ * The syscore resume callback may call this function but CPU hotplug is disabled
+ * in that context. It also runs with interrupts disabled, but no SMP function
+ * calls are issued because the directed interrupt was torn down before suspend.
  */
 static void disable_all_directed_thermal_pkg_intr(void)
 {
@@ -678,6 +686,10 @@ static void disable_directed_thermal_pkg_intr(unsigned int cpu)
 		 * We are here via CPU hotplug. Since we are holding the
 		 * cpu_hotplug_lock, @new_cpu cannot go offline and interrupts
 		 * are enabled, so the SMP function call is safe.
+		 *
+		 * The syscore suspend callback runs with interrupts disabled,
+		 * but it does not reach this path because all the secondary
+		 * CPUs are offline.
 		 */
 		smp_call_function_single(new_cpu, config_directed_thermal_pkg_intr,
 					 &enable, true);
@@ -767,6 +779,31 @@ static int thermal_throttle_offline(unsigned int cpu)
 	return 0;
 }
 
+/*
+ * CPU0 may be handling the directed interrupt, but the CPU hotplug callbacks
+ * are not called for CPU0 during suspend and resume.
+ */
+static void directed_pkg_intr_syscore_resume(void *data)
+{
+	enable_directed_thermal_pkg_intr(0);
+}
+
+static int directed_pkg_intr_syscore_suspend(void *data)
+{
+	disable_directed_thermal_pkg_intr(0);
+
+	return 0;
+}
+
+static const struct syscore_ops directed_pkg_intr_pm_ops = {
+	.resume = directed_pkg_intr_syscore_resume,
+	.suspend = directed_pkg_intr_syscore_suspend,
+};
+
+static struct syscore directed_pkg_intr_pm = {
+	.ops = &directed_pkg_intr_pm_ops,
+};
+
 static __init void init_directed_pkg_intr(void)
 {
 	int i;
@@ -782,6 +819,8 @@ static __init void init_directed_pkg_intr(void)
 
 	for (i = 0; i < topology_max_packages(); i++)
 		directed_intr_handler_cpus[i] = nr_cpu_ids;
+
+	register_syscore(&directed_pkg_intr_pm);
 }
 
 static __init int thermal_throttle_init_device(void)
