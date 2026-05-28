@@ -2,17 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
-/* Simulate the coalesced MMIO ring entry data field size as in KVM */
-#define KVM_COALESCED_MMIO_DATA_SIZE 8
-
-/* Simulated ring entry structure matching KVM's coalesced_mmio struct */
-struct coalesced_mmio_entry {
-    uint64_t phys_addr;
-    uint32_t len;
-    uint32_t pad;
-    uint8_t  data[KVM_COALESCED_MMIO_DATA_SIZE];
-};
+#include <linux/kvm.h>
 
 /*
  * Simulates the vulnerable pattern: only 'len' bytes are written,
@@ -21,12 +11,12 @@ struct coalesced_mmio_entry {
  * The SECURE version must zero-initialize the entire data field before
  * copying, ensuring no kernel memory leakage.
  */
-static void secure_coalesced_mmio_write(struct coalesced_mmio_entry *entry,
+static void secure_coalesced_mmio_write(struct kvm_coalesced_mmio *entry,
                                          const uint8_t *val, uint32_t len)
 {
     /* Security invariant: zero the entire data field before partial write */
-    memset(entry->data, 0, KVM_COALESCED_MMIO_DATA_SIZE);
-    if (len > 0 && len <= KVM_COALESCED_MMIO_DATA_SIZE) {
+    memset(entry->data, 0, sizeof(entry->data));
+    if (len > 0 && len <= sizeof(entry->data)) {
         memcpy(entry->data, val, len);
     }
 }
@@ -35,11 +25,11 @@ static void secure_coalesced_mmio_write(struct coalesced_mmio_entry *entry,
  * Simulates the VULNERABLE pattern for comparison:
  * only copies 'len' bytes, leaving remainder uninitialized.
  */
-static void vulnerable_coalesced_mmio_write(struct coalesced_mmio_entry *entry,
+static void vulnerable_coalesced_mmio_write(struct kvm_coalesced_mmio *entry,
                                              const uint8_t *val, uint32_t len)
 {
     /* BUG: does NOT zero the data field first */
-    if (len > 0 && len <= KVM_COALESCED_MMIO_DATA_SIZE) {
+    if (len > 0 && len <= sizeof(entry->data)) {
         memcpy(entry->data, val, len);
     }
 }
@@ -79,7 +69,7 @@ START_TEST(test_no_kernel_memory_leak_in_mmio_ring)
     int num_payloads = sizeof(payloads) / sizeof(payloads[0]);
 
     for (int i = 0; i < num_payloads; i++) {
-        struct coalesced_mmio_entry entry;
+        struct kvm_coalesced_mmio entry;
 
         /* Pre-poison the entry with "kernel memory" pattern to simulate
          * stale heap data that could be leaked */
@@ -89,8 +79,8 @@ START_TEST(test_no_kernel_memory_leak_in_mmio_ring)
         secure_coalesced_mmio_write(&entry, payloads[i].data, payloads[i].len);
 
         uint32_t write_len = payloads[i].len;
-        if (write_len > KVM_COALESCED_MMIO_DATA_SIZE)
-            write_len = KVM_COALESCED_MMIO_DATA_SIZE;
+        if (write_len > sizeof(entry.data))
+            write_len = sizeof(entry.data);
 
         /* Verify written bytes match the input */
         for (uint32_t j = 0; j < write_len; j++) {
@@ -103,7 +93,7 @@ START_TEST(test_no_kernel_memory_leak_in_mmio_ring)
 
         /* SECURITY INVARIANT: bytes beyond 'len' MUST be zero,
          * not contain stale/uninitialized kernel memory */
-        for (uint32_t j = write_len; j < KVM_COALESCED_MMIO_DATA_SIZE; j++) {
+        for (uint32_t j = write_len; j < sizeof(entry.data); j++) {
             ck_assert_msg(entry.data[j] == 0x00,
                 "SECURITY VIOLATION - Payload[%d] (%s): "
                 "data[%u] beyond write length contains non-zero byte 0x%02X "
@@ -125,8 +115,8 @@ START_TEST(test_vulnerable_pattern_demonstrates_leak)
     const uint8_t write_val[] = { 0xAB };
     uint32_t write_len = 1;
 
-    struct coalesced_mmio_entry vuln_entry;
-    struct coalesced_mmio_entry secure_entry;
+    struct kvm_coalesced_mmio vuln_entry;
+    struct kvm_coalesced_mmio secure_entry;
 
     /* Poison both entries with "kernel memory" */
     memset(&vuln_entry, 0xCC, sizeof(vuln_entry));
@@ -140,7 +130,7 @@ START_TEST(test_vulnerable_pattern_demonstrates_leak)
 
     /* Vulnerable entry SHOULD have stale bytes (0xCC) beyond write_len */
     int vuln_has_stale = 0;
-    for (uint32_t j = write_len; j < KVM_COALESCED_MMIO_DATA_SIZE; j++) {
+    for (uint32_t j = write_len; j < sizeof(vuln_entry.data); j++) {
         if (vuln_entry.data[j] != 0x00) {
             vuln_has_stale = 1;
             break;
@@ -151,7 +141,7 @@ START_TEST(test_vulnerable_pattern_demonstrates_leak)
         "Expected vulnerable pattern to leave stale bytes (test setup issue)");
 
     /* Secure entry MUST NOT have stale bytes beyond write_len */
-    for (uint32_t j = write_len; j < KVM_COALESCED_MMIO_DATA_SIZE; j++) {
+    for (uint32_t j = write_len; j < sizeof(secure_entry.data); j++) {
         ck_assert_msg(secure_entry.data[j] == 0x00,
             "SECURITY VIOLATION: secure write left non-zero byte 0x%02X "
             "at data[%u] - potential kernel memory leak",
@@ -163,28 +153,28 @@ END_TEST
 START_TEST(test_boundary_write_lengths)
 {
     /*
-     * Invariant: For all valid write lengths (0 to KVM_COALESCED_MMIO_DATA_SIZE),
+     * Invariant: For all valid write lengths (0 to sizeof(entry.data)),
      * the secure write must never leave uninitialized bytes in the data field.
      */
-    uint8_t pattern[KVM_COALESCED_MMIO_DATA_SIZE];
-    for (int k = 0; k < KVM_COALESCED_MMIO_DATA_SIZE; k++) {
+    struct kvm_coalesced_mmio entry;
+    uint8_t pattern[sizeof(entry.data)];
+
+    for (int k = 0; k < (int)sizeof(entry.data); k++) {
         pattern[k] = (uint8_t)(0x41 + k); /* 'A', 'B', 'C', ... */
     }
 
-    for (uint32_t len = 0; len <= KVM_COALESCED_MMIO_DATA_SIZE; len++) {
-        struct coalesced_mmio_entry entry;
-
+    for (uint32_t len = 0; len <= sizeof(entry.data); len++) {
         /* Poison with adversarial "kernel memory" patterns */
         memset(&entry, 0xFF, sizeof(entry));
         /* Also sprinkle in kernel-pointer-like values */
-        for (int k = 0; k < KVM_COALESCED_MMIO_DATA_SIZE; k++) {
+        for (int k = 0; k < (int)sizeof(entry.data); k++) {
             entry.data[k] = (uint8_t)(0xC0 + k);
         }
 
         secure_coalesced_mmio_write(&entry, pattern, len);
 
         /* All bytes beyond 'len' must be zero */
-        for (uint32_t j = len; j < KVM_COALESCED_MMIO_DATA_SIZE; j++) {
+        for (uint32_t j = len; j < sizeof(entry.data); j++) {
             ck_assert_msg(entry.data[j] == 0x00,
                 "SECURITY VIOLATION: len=%u, data[%u]=0x%02X (should be 0x00) "
                 "- uninitialized kernel memory exposed to userspace",
@@ -204,20 +194,19 @@ END_TEST
 START_TEST(test_no_sensitive_data_in_padding)
 {
     /*
-     * Invariant: The pad field and other fields must not inadvertently
-     * carry sensitive data. The data field specifically must be clean
-     * after a secure write operation regardless of prior entry state.
+     * Invariant: The data field must not inadvertently carry sensitive data.
+     * The data field specifically must be clean after a secure write operation
+     * regardless of prior entry state.
      */
-    struct coalesced_mmio_entry entry;
+    struct kvm_coalesced_mmio entry;
 
     /* Simulate entry previously used with sensitive kernel data */
     uint8_t fake_kernel_ptr[] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0xFF, 0xFF  /* kernel addr */
     };
-    memcpy(entry.data, fake_kernel_ptr, KVM_COALESCED_MMIO_DATA_SIZE);
+    memcpy(entry.data, fake_kernel_ptr, sizeof(entry.data));
     entry.phys_addr = 0xFFFFFFFF00000000ULL;
     entry.len = 8;
-    entry.pad = 0xDEADBEEF;
 
     /* Now perform a small write (simulating 1-byte MMIO write) */
     uint8_t new_val = 0x42;
@@ -228,7 +217,7 @@ START_TEST(test_no_sensitive_data_in_padding)
         "Written byte incorrect: expected 0x42, got 0x%02X", entry.data[0]);
 
     /* All remaining bytes must be zeroed - no kernel pointer leakage */
-    for (int j = 1; j < KVM_COALESCED_MMIO_DATA_SIZE; j++) {
+    for (int j = 1; j < (int)sizeof(entry.data); j++) {
         ck_assert_msg(entry.data[j] == 0x00,
             "SECURITY VIOLATION: data[%d]=0x%02X contains stale kernel data "
             "(was 0x%02X before write) - kernel memory leak to userspace",
