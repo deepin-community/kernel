@@ -84,10 +84,10 @@ static int coalesced_mmio_write(struct kvm_vcpu *vcpu,
 	/* copy data in first free entry of the ring */
 
 	ring->coalesced_mmio[insert].phys_addr = addr;
-	ring->coalesced_mmio[insert].len = len;
-	memset(ring->coalesced_mmio[insert].data, 0, sizeof(ring->coalesced_mmio[insert].data));
 	if (len > (int)sizeof(ring->coalesced_mmio[insert].data))
 		len = sizeof(ring->coalesced_mmio[insert].data);
+	ring->coalesced_mmio[insert].len = len;
+	memset(ring->coalesced_mmio[insert].data, 0, sizeof(ring->coalesced_mmio[insert].data));
 	memcpy(ring->coalesced_mmio[insert].data, val, len);
 	ring->coalesced_mmio[insert].pio = dev->zone.pio;
 	smp_wmb();
