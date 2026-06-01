@@ -105,6 +105,10 @@ static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 {
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	if (ptp_is_user_pgtable(xp))
+		return native_make_pte(xchg(&xp->pte, 0));
+#endif
 	return native_make_pte(ptp_xchg((pgprotval_t *)xp, 0));
 #else
 	return native_make_pte(xchg(&xp->pte, 0));
@@ -122,6 +126,10 @@ static inline pmd_t native_pmdp_get_and_clear(pmd_t *xp)
 {
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	if (ptp_is_user_pgtable(xp))
+		return native_make_pmd(xchg(&xp->pmd, 0));
+#endif
 	return native_make_pmd(ptp_xchg((pgprotval_t *)xp, 0));
 #else
 	return native_make_pmd(xchg(&xp->pmd, 0));
@@ -154,6 +162,10 @@ static inline pud_t native_pudp_get_and_clear(pud_t *xp)
 {
 #ifdef CONFIG_SMP
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	if (ptp_is_user_pgtable(xp))
+		return native_make_pud(xchg(&xp->pud, 0));
+#endif
 	return native_make_pud(ptp_xchg((pgprotval_t *)xp, 0));
 #else
 	return native_make_pud(xchg(&xp->pud, 0));

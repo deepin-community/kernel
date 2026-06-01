@@ -288,6 +288,56 @@ static inline void check_pt_integrity(pte_t *ptep, pte_t pte)
 				old_pte.pte, pte.pte);
 }
 
+#ifdef CONFIG_PTP_S
+bool ptp_is_user_pgtable(const void *ptp)
+{
+	if (!haoc_enabled)
+		return false;
+
+	if (unlikely(!haoc_init_done))
+		return false;
+
+	if (unlikely(!virt_addr_valid(ptp)))
+		return false;
+
+	return iee_get_bitmap_type(__pa((unsigned long)ptp)) == IEE_USER_PGTABLE;
+}
+EXPORT_SYMBOL(ptp_is_user_pgtable);
+
+void ptp_user_check_pte_update(pte_t *ptep, pte_t pte)
+{
+	if (!(pte_val(pte) & _PAGE_PRESENT))
+		return;
+
+	check_alias_mapping(__pte_to_phys(pte), __pte_to_phys(pte) + PAGE_SIZE,
+			    pte_write(pte), preserves_existing_writable_mapping(ptep, pte));
+	check_pt_integrity(ptep, pte);
+}
+EXPORT_SYMBOL(ptp_user_check_pte_update);
+
+void ptp_user_check_pmd_update(pmd_t *pmdp, pmd_t pmd)
+{
+	if (!(pmd_val(pmd) & _PAGE_PRESENT))
+		return;
+
+	if (pmd_leaf(pmd))
+		check_alias_mapping(__pmd_to_phys(pmd), __pmd_to_phys(pmd) + PMD_SIZE,
+				    pmd_write(pmd),
+				    pmd_preserves_existing_writable_mapping(pmdp, pmd));
+}
+
+void ptp_user_check_pud_update(pud_t *pudp, pud_t pud)
+{
+	if (!(pud_val(pud) & _PAGE_PRESENT))
+		return;
+
+	if (pud_leaf(pud))
+		check_alias_mapping(__pud_to_phys(pud), __pud_to_phys(pud) + PUD_SIZE,
+				    pud_write(pud),
+				    pud_preserves_existing_writable_mapping(pudp, pud));
+}
+#endif
+
 void _iee_set_pte(unsigned long __unused, pte_t *ptep, pte_t pte)
 {
 	if (!(pte_val(pte) & _PAGE_PRESENT)) {
@@ -454,6 +504,21 @@ void __init haoc_ptp_init(void)
 {
 	int cpu;
 	struct iee_cr0 *iee_cr0;
+
+	set_iee_page(pg_cache.reserve_start_addr,
+		     (1 << pg_cache.reserve_order) * pg_cache.levels, IEE_PGTABLE);
+
+	set_iee_page(pgd_cache.reserve_start_addr,
+		     (1 << pgd_cache.reserve_order) * pgd_cache.levels, IEE_PGTABLE);
+
+#ifdef CONFIG_PTP_S
+	if (!pg_user_cache.init)
+		panic("PTP_S: pg_user_cache is not initialized");
+
+	set_iee_page(pg_user_cache.reserve_start_addr,
+		     (1 << pg_user_cache.reserve_order) * pg_user_cache.levels,
+		     IEE_USER_PGTABLE);
+#endif
 
 	for_each_possible_cpu(cpu) {
 		iee_cr0 = per_cpu_ptr(&iee_cr0s, cpu);
