@@ -1622,6 +1622,16 @@ config IEE_SELINUX_P
 	depends on SECURITY_SELINUX
 	depends on IEE
 
+config PTP_S
+	bool "Page Table Protection - Separation (PTP_S)"
+	depends on PTP
+	help
+		PTP_S (kernel/user page separation). Split PTP write paths so user page
+		tables can use direct writes while kernel tables stay on ptp gate paths,
+		with user-side safety checks for alias/integrity.
+		Enable this option when user page-table writes should avoid the PTP
+		gate while kernel page-table writes remain protected by PTP.
+
 config VARP
 	bool "variable protection for IEE"
 	depends on IEE

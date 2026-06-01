@@ -31,6 +31,9 @@ struct iee_cache {
 };
 
 extern struct iee_cache pg_cache;
+#ifdef CONFIG_PTP_S
+extern struct iee_cache pg_user_cache;
+#endif
 extern void iee_cache_init(struct iee_cache *cache, unsigned long object_order,
 				int levels, enum HAOC_BITMAP_TYPE bitmap_type,
 				unsigned long reserve_order);
