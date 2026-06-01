@@ -240,6 +240,9 @@ void __init iee_early_init(void)
 		iee_cache_init(&pg_cache, 0, 4, IEE_PGTABLE, CONFIG_PTP_RESERVE_ORDER);
 	else
 		iee_cache_init(&pg_cache, 0, 3, IEE_PGTABLE, CONFIG_PTP_RESERVE_ORDER);
+#ifdef CONFIG_PTP_S
+	iee_cache_init(&pg_user_cache, 0, 3, IEE_USER_PGTABLE, CONFIG_PTP_RESERVE_ORDER);
+#endif /* CONFIG_PTP_S */
 #endif
 }
 

@@ -17,6 +17,11 @@ extern bool haoc_enabled;
 
 void set_iee_page(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
 {
+#ifdef CONFIG_PTP_S
+	if (type == IEE_USER_PGTABLE)
+		set_memory_rw(addr, num_pages);
+	else
+#endif
 	set_memory_ro(addr, num_pages);
 	iee_set_bitmap_type(__pa(addr), num_pages, type);
 }
