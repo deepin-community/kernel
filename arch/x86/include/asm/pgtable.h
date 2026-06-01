@@ -25,6 +25,10 @@
 #include <linux/page_table_check.h>
 #ifdef CONFIG_PTP
 #include <asm/haoc/iee-access.h>
+#include <asm/haoc/ptp.h>
+#ifdef CONFIG_PTP_S
+#include <asm/haoc/haoc-bitmap.h>
+#endif
 #endif
 
 extern pgd_t early_top_pgt[PTRS_PER_PGD];
@@ -1305,10 +1309,24 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
 
 	old_pte = READ_ONCE(*ptep);
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	do {
+		new_pte = pte_wrprotect(old_pte);
+		if (ptp_is_user_pgtable(ptep)) {
+			if (try_cmpxchg((long *)&ptep->pte, (long *)&old_pte,
+					*(long *)&new_pte))
+				break;
+		} else if (ptp_try_cmpxchg((long *)ptep, pte_val(old_pte),
+					pte_val(new_pte))) {
+			break;
+		}
+	} while (1);
+#else  /* CONFIG_PTP && !CONFIG_PTP_S */
 	do {
 		new_pte = pte_wrprotect(old_pte);
 	} while (!ptp_try_cmpxchg((long *)ptep, pte_val(old_pte), pte_val(new_pte)));
-#else
+#endif  /* CONFIG_PTP_S */
+#else  /* !CONFIG_PTP */
 	do {
 		new_pte = pte_wrprotect(old_pte);
 	} while (!try_cmpxchg((long *)&ptep->pte, (long *)&old_pte, *(long *)&new_pte));
@@ -1373,9 +1391,23 @@ static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 
 	old_pmd = READ_ONCE(*pmdp);
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	do {
+		new_pmd = pmd_wrprotect(old_pmd);
+		if (ptp_is_user_pgtable(pmdp)) {
+			if (try_cmpxchg((long *)pmdp, (long *)&old_pmd,
+					*(long *)&new_pmd))
+				break;
+		} else if ((ptp_try_cmpxchg((long *)pmdp, pmd_val(old_pmd),
+					pmd_val(new_pmd)))) {
+			break;
+		}
+	} while (1);
+#else  /* CONFIG_PTP && !CONFIG_PTP_S */
 	do {
 		new_pmd = pmd_wrprotect(old_pmd);
 	} while (!ptp_try_cmpxchg((long *)pmdp, pmd_val(old_pmd), pmd_val(new_pmd)));
+#endif  /* CONFIG_PTP_S */
 #else
 	do {
 		new_pmd = pmd_wrprotect(old_pmd);
@@ -1391,6 +1423,12 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 	page_table_check_pmd_set(vma->vm_mm, pmdp, pmd);
 	if (IS_ENABLED(CONFIG_SMP)) {
 #ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pmdp)) {
+			ptp_user_check_pmd_update(pmdp, pmd);
+			return xchg(pmdp, pmd);
+		}
+#endif
 		return native_make_pmd(ptp_xchg((pgprotval_t *)pmdp, pmd_val(pmd)));
 #else
 		return xchg(pmdp, pmd);

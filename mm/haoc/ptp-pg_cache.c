@@ -14,8 +14,14 @@
 #include <asm/haoc/iee-access.h>
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-func.h>
+#ifdef CONFIG_PTP_S
+#include <asm/haoc/ptp.h>
+#endif
 
 struct iee_cache pg_cache;
+#ifdef CONFIG_PTP_S
+struct iee_cache pg_user_cache;
+#endif
 
 int expend_num;
 #ifdef CONFIG_X86_64
@@ -101,6 +107,13 @@ void __init iee_cache_init(struct iee_cache *cache, unsigned long object_order,
 	unsigned long end_addr;
 	unsigned long object_size;
 	struct page *page;
+
+	if (!haoc_enabled && bitmap_type != IEE_PGTABLE
+#ifdef CONFIG_PTP_S
+	    && bitmap_type != IEE_USER_PGTABLE
+#endif
+	)
+		return;
 
 	object_size = (1 << object_order) * PAGE_SIZE;
 	while (1) {
@@ -219,6 +232,12 @@ void *iee_cache_alloc(struct iee_cache *cache, gfp_t gfp)
 	void *object;
 	void *next_object;
 
+#ifdef CONFIG_PTP_S
+	if (haoc_enabled && haoc_init_done)
+		if ((gfp & __GFP_ACCOUNT) && cache == &pg_cache)
+			cache = &pg_user_cache;
+#endif
+
 	if (!cache->init)
 		return (void *)__get_free_pages(gfp, cache->object_order);
 
@@ -260,8 +279,14 @@ redo:
 		if (unlikely(!__update_freelist(cache, object, next_object, tid)))
 			goto redo;
 		prefetchw(next_object);
-		if (gfp & __GFP_ZERO)
+		if (gfp & __GFP_ZERO) {
+#ifdef CONFIG_PTP_S
+			if (cache == &pg_user_cache)
+				clear_page(object);
+			else
+#endif
 			iee_memset(object, 0, object_size);
+		}
 	}
 	return object;
 };
@@ -394,6 +419,13 @@ void iee_cache_free(struct iee_cache *cache, void *object)
 	unsigned long tid;
 	void **freelist;
 
+#ifdef CONFIG_PTP_S
+	if (cache == &pg_cache) {
+		if (ptp_is_user_pgtable(object))
+			cache = &pg_user_cache;
+	}
+#endif
+
 	if (!cache->init) {
 		free_pages((unsigned long)object, cache->object_order);
 		return;
@@ -424,6 +456,11 @@ redo:
 	tid = READ_ONCE(cache->tid);
 	barrier();
 	freelist = READ_ONCE(cache->freelist);
+#ifdef CONFIG_PTP_S
+	if (cache == &pg_user_cache)
+		__set_freepointer(object, freelist);
+	else
+#endif
 	__iee_set_freepointer(object, freelist);
 #ifdef CONFIG_ARM64
 	dsb(sy);
