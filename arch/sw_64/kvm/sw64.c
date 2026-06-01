@@ -447,7 +447,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	struct vcpucb *vcb = &(vcpu->arch.vcb);
 	struct hcall_args hargs;
 	int ret;
-	sigset_t sigsaved;
 
 	/* Set guest vcb */
 	/* vpn will update later when vcpu is running */
@@ -455,8 +454,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 #ifdef CONFIG_PERF_EVENTS
 	vcpu_load(vcpu);
 #endif
-	if (vcpu->sigset_active)
-		sigprocmask(SIG_SETMASK, &vcpu->sigset, &sigsaved);
+	kvm_sigset_activate(vcpu);
 
 	if (run->exit_reason == KVM_EXIT_MMIO)
 		kvm_handle_mmio_return(vcpu, run);
@@ -539,8 +537,7 @@ exit:
 		update_vcpu_stat_time(&vcpu->stat);
 	}
 
-	if (vcpu->sigset_active)
-		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
+	kvm_sigset_deactivate(vcpu);
 
 #ifdef CONFIG_PERF_EVENTS
 	vcpu_put(vcpu);
