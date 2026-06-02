@@ -34,7 +34,7 @@
 #define GPIO_PORT_STRIDE	(GPIO_EXT_PORTB - GPIO_EXT_PORTA)
 #define GPIO_CLEAR_IRQ		0xffffffff
 
-#define PHYTIUM_GPIO_DRIVER_VERSION "1.1.2"
+#define PHYTIUM_GPIO_DRIVER_VERSION "1.1.3"
 
 struct pin_loc {
 	unsigned int port;

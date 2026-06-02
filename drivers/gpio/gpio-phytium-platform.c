@@ -136,6 +136,21 @@ static int phytium_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
+/* Rebind parent-to-child dispatch chain and enable parent IRQ lines. */
+static void phytium_set_irq_chained_handler(struct phytium_gpio *gpio)
+{
+	struct gpio_irq_chip *girq = &gpio->gc.irq;
+	int i;
+
+	for (i = 0; i < girq->num_parents; i++) {
+		if (gpio->irq[i] >= 0) {
+			irq_set_chained_handler_and_data(gpio->irq[i],
+			phytium_gpio_irq_handler, &gpio->gc);
+			enable_irq(gpio->irq[i]);
+		}
+	}
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int phytium_gpio_suspend(struct device *dev)
 {
@@ -192,6 +207,8 @@ static int phytium_gpio_resume(struct device *dev)
 	gpio->is_resuming = 0;
 
 	raw_spin_unlock_irqrestore(&gpio->lock, flags);
+
+	phytium_set_irq_chained_handler(gpio);
 
 	return 0;
 }
