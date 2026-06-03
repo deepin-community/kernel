@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2025 LeapIO Tech Inc.
+ * Copyright (C) 2026 LeapIO Tech Inc.
  *
- * LeapRAID Storage and RAID Controller driver.
+ * LeapRAID storage and RAID controller driver.
  */
-
 #include <scsi/scsi_host.h>
 
 #include "leapraid_func.h"
@@ -16,10 +15,8 @@ static struct leapraid_topo_node *leapraid_transport_topo_node_by_sas_addr(
 {
 	if (adapter->dev_topo.card.sas_address == sas_addr)
 		return &adapter->dev_topo.card;
-	else
-		return leapraid_exp_find_by_sas_address(adapter,
-							sas_addr,
-							card_port);
+
+	return leapraid_exp_find_by_sas_address(adapter, sas_addr, card_port);
 }
 
 static u8 leapraid_get_port_id_by_expander(struct leapraid_adapter *adapter,
@@ -49,7 +46,8 @@ static u8 leapraid_get_port_id_by_end_dev(struct leapraid_adapter *adapter,
 	u8 port_id = 0xFF;
 
 	spin_lock_irqsave(&adapter->dev_topo.sas_dev_lock, flags);
-	sas_dev = leapraid_hold_lock_get_sas_dev_by_addr_and_rphy(adapter,
+	sas_dev = leapraid_hold_lock_get_sas_dev_by_addr_and_rphy(
+			adapter,
 			rphy->identify.sas_address,
 			rphy);
 	if (sas_dev) {
@@ -131,10 +129,9 @@ static enum sas_linkrate leapraid_transport_convert_phy_link_rate(u8 link_rate)
 		},
 	};
 
-	for (i = 0; i < ARRAY_SIZE(linkrate_table); i++) {
+	for (i = 0; i < ARRAY_SIZE(linkrate_table); i++)
 		if (linkrate_table[i].in == link_rate)
 			return linkrate_table[i].out;
-	}
 
 	return SAS_LINK_RATE_UNKNOWN;
 }
@@ -192,7 +189,7 @@ static void leapraid_set_identify_protocol_flags(u32 dev_info,
 	};
 
 	for (i = 0; i < ARRAY_SIZE(mappings); i++)
-		if ((dev_info & mappings[i].mask) && mappings[i].target)
+		if (dev_info & mappings[i].mask && mappings[i].target)
 			*mappings[i].target |= mappings[i].protocol;
 }
 
@@ -207,13 +204,19 @@ static int leapraid_transport_set_identify(struct leapraid_adapter *adapter,
 
 	if ((adapter->access_ctrl.shost_recovering &&
 	     !adapter->scan_dev_desc.driver_loading) ||
-	    adapter->access_ctrl.pcie_recovering)
+	    adapter->access_ctrl.pcie_recovering) {
+		dev_warn(&adapter->pdev->dev,
+			 "%s: Failed, shost_recovering=%d pcie_recovering=%d\n",
+			 __func__,
+			 adapter->access_ctrl.shost_recovering,
+			 adapter->access_ctrl.pcie_recovering);
 		return -EFAULT;
+	}
 
 	cfgp1.form = LEAPRAID_SAS_DEV_CFG_PGAD_HDL;
 	cfgp2.handle = hdl;
-	if ((leapraid_op_config_page(adapter, &sas_dev_pg0, cfgp1,
-				     cfgp2, GET_SAS_DEVICE_PG0)))
+	if (leapraid_op_config_page(adapter, &sas_dev_pg0, cfgp1,
+				    cfgp2, GET_SAS_DEVICE_PG0))
 		return -ENXIO;
 
 	memset(identify, 0, sizeof(struct sas_identify));
@@ -248,27 +251,34 @@ static void leapraid_transport_exp_set_edev(struct leapraid_adapter *adapter,
 	struct leapraid_smp_passthrough_rep *smp_passthrough_rep;
 	struct leapraid_rep_manu_reply *rep_manu_reply;
 	u8 *component_id;
-	ssize_t __maybe_unused ret;
 
 	smp_passthrough_rep =
-		(void *)(&adapter->driver_cmds.transport_cmd.reply);
+		(void *)&adapter->driver_cmds.transport_cmd.reply;
 	if (le16_to_cpu(smp_passthrough_rep->resp_data_len) !=
 	    sizeof(struct leapraid_rep_manu_reply))
 		return;
 
 	rep_manu_reply = data_out + sizeof(struct leapraid_rep_manu_request);
-	ret = strscpy(edev->vendor_id, rep_manu_reply->vendor_identification,
-		      SAS_EXPANDER_VENDOR_ID_LEN);
-	ret = strscpy(edev->product_id, rep_manu_reply->product_identification,
-		      SAS_EXPANDER_PRODUCT_ID_LEN);
-	ret = strscpy(edev->product_rev,
-		      rep_manu_reply->product_revision_level,
-		      SAS_EXPANDER_PRODUCT_REV_LEN);
+
+	memcpy(edev->vendor_id, rep_manu_reply->vendor_identification,
+	       SAS_EXPANDER_VENDOR_ID_LEN);
+	edev->vendor_id[SAS_EXPANDER_VENDOR_ID_LEN] = '\0';
+
+	memcpy(edev->product_id, rep_manu_reply->product_identification,
+	       SAS_EXPANDER_PRODUCT_ID_LEN);
+	edev->product_id[SAS_EXPANDER_PRODUCT_ID_LEN] = '\0';
+
+	memcpy(edev->product_rev, rep_manu_reply->product_revision_level,
+	       SAS_EXPANDER_PRODUCT_REV_LEN);
+	edev->product_rev[SAS_EXPANDER_PRODUCT_REV_LEN] = '\0';
+
 	edev->level = rep_manu_reply->sas_format & 1;
 	if (edev->level) {
-		ret = strscpy(edev->component_vendor_id,
-			      rep_manu_reply->component_vendor_identification,
-			      SAS_EXPANDER_COMPONENT_VENDOR_ID_LEN);
+		memcpy(edev->component_vendor_id,
+		       rep_manu_reply->comp_vendor_identification,
+		       SAS_EXPANDER_COMPONENT_VENDOR_ID_LEN);
+		edev->component_vendor_id[
+			SAS_EXPANDER_COMPONENT_VENDOR_ID_LEN] = '\0';
 
 		component_id = (u8 *)&rep_manu_reply->component_id;
 		edev->component_id = component_id[0] << 8 | component_id[1];
@@ -291,18 +301,24 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 	size_t c2h_size;
 	size_t h2c_size;
 	void *psge;
-	int rc = 0;
+	int rc;
 
 	if (adapter->access_ctrl.shost_recovering ||
 	    adapter->access_ctrl.pcie_recovering) {
+		dev_warn(&adapter->pdev->dev,
+			 "%s: Failed, shost_recovering=%d pcie_recovering=%d\n",
+			 __func__,
+			 adapter->access_ctrl.shost_recovering,
+			 adapter->access_ctrl.pcie_recovering);
 		return -EFAULT;
 	}
 
 	mutex_lock(&adapter->driver_cmds.transport_cmd.mutex);
 	adapter->driver_cmds.transport_cmd.status = LEAPRAID_CMD_PENDING;
-	rc = leapraid_check_adapter_is_op(adapter);
+	rc = leapraid_check_adapter_is_op(adapter, LEAPRAID_DB_WAIT_OP_SHORT,
+					  __func__);
 	if (rc)
-		goto out;
+		goto out_cleanup;
 
 	h2c_size = sizeof(struct leapraid_rep_manu_request);
 	c2h_size = sizeof(struct leapraid_rep_manu_reply);
@@ -312,7 +328,7 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 				      GFP_ATOMIC);
 	if (!data_out) {
 		rc = -ENOMEM;
-		goto out;
+		goto out_cleanup;
 	}
 
 	rep_manu_request = data_out;
@@ -323,8 +339,9 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 	rep_manu_request->request_length = 0;
 
 	smp_passthrough_req =
-		leapraid_get_task_desc(adapter,
-				       adapter->driver_cmds.transport_cmd.inter_taskid);
+		leapraid_get_task_desc(
+			adapter,
+			adapter->driver_cmds.transport_cmd.inter_taskid);
 	memset(smp_passthrough_req, 0,
 	       sizeof(struct leapraid_smp_passthrough_req));
 	smp_passthrough_req->func = LEAPRAID_FUNC_SMP_PASSTHROUGH;
@@ -342,11 +359,13 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 	wait_for_completion_timeout(&adapter->driver_cmds.transport_cmd.done,
 				    LEAPRAID_TRANSPORT_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.transport_cmd.status & LEAPRAID_CMD_DONE)) {
+		rc = -ETIMEDOUT;
 		dev_err(&adapter->pdev->dev,
-			"%s: smp passthrough to exp timeout\n",
-			__func__);
+			"%s: SMP passthrough timeout, st=0x%x\n",
+			__func__, adapter->driver_cmds.transport_cmd.status);
+		leapraid_log_req_context(adapter, smp_passthrough_req);
 		if (!(adapter->driver_cmds.transport_cmd.status &
-		    LEAPRAID_CMD_RESET))
+		      LEAPRAID_CMD_RESET))
 			issue_reset = true;
 
 		goto hard_reset;
@@ -358,11 +377,11 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 
 hard_reset:
 	if (issue_reset) {
-		dev_info(&adapter->pdev->dev, "%s:%d call hard_reset\n",
+		dev_info(&adapter->pdev->dev, "%s:%d: call hard_reset\n",
 			 __func__, __LINE__);
-		leapraid_hard_reset_handler(adapter, FULL_RESET);
+		rc = leapraid_hard_reset_handler(adapter, FULL_RESET);
 	}
-out:
+out_cleanup:
 	adapter->driver_cmds.transport_cmd.status = LEAPRAID_CMD_NOT_USED;
 	if (data_out)
 		dma_free_coherent(&adapter->pdev->dev, h2c_size + c2h_size,
@@ -376,13 +395,14 @@ static void leapraid_transport_del_port(struct leapraid_adapter *adapter,
 					struct leapraid_sas_port *sas_port)
 {
 	dev_info(&sas_port->port->dev,
-		 "remove port: sas addr=0x%016llx\n",
+		 "Remove port: SAS addr=0x%016llx\n",
 		 (unsigned long long)sas_port->remote_identify.sas_address);
 	switch (sas_port->remote_identify.device_type) {
 	case SAS_END_DEVICE:
-		leapraid_sas_dev_remove_by_sas_address(adapter,
-						       sas_port->remote_identify.sas_address,
-						       sas_port->card_port);
+		leapraid_sas_dev_remove_by_sas_address(
+			adapter,
+			sas_port->remote_identify.sas_address,
+			sas_port->card_port);
 		break;
 	case SAS_EDGE_EXPANDER_DEVICE:
 	case SAS_FANOUT_EXPANDER_DEVICE:
@@ -399,13 +419,13 @@ static void leapraid_transport_del_phy(struct leapraid_adapter *adapter,
 				       struct leapraid_card_phy *card_phy)
 {
 	dev_info(&card_phy->phy->dev,
-		 "remove phy: sas addr=0x%016llx, phy=%d\n",
+		 "Remove PHY: SAS addr=0x%016llx, phy=%d\n",
 		 (unsigned long long)sas_port->remote_identify.sas_address,
 		 card_phy->phy_id);
 	list_del(&card_phy->port_siblings);
 	sas_port->phys_num--;
 	sas_port_delete_phy(sas_port->port, card_phy->phy);
-	card_phy->phy_is_assigned = false;
+	card_phy->phy_is_assigned = 0;
 }
 
 static void leapraid_transport_add_phy(struct leapraid_adapter *adapter,
@@ -413,16 +433,17 @@ static void leapraid_transport_add_phy(struct leapraid_adapter *adapter,
 				       struct leapraid_card_phy *card_phy)
 {
 	dev_info(&card_phy->phy->dev,
-		 "add phy: sas addr=0x%016llx, phy=%d\n",
+		 "Add PHY: SAS addr=0x%016llx, phy=%d\n",
 		 (unsigned long long)sas_port->remote_identify.sas_address,
 		 card_phy->phy_id);
 	list_add_tail(&card_phy->port_siblings, &sas_port->phy_list);
 	sas_port->phys_num++;
 	sas_port_add_phy(sas_port->port, card_phy->phy);
-	card_phy->phy_is_assigned = true;
+	card_phy->phy_is_assigned = 1;
 }
 
-void leapraid_transport_attach_phy_to_port(struct leapraid_adapter *adapter,
+void leapraid_transport_attach_phy_to_port(
+		struct leapraid_adapter *adapter,
 		struct leapraid_topo_node *topo_node,
 		struct leapraid_card_phy *card_phy,
 		u64 sas_address,
@@ -454,7 +475,8 @@ void leapraid_transport_attach_phy_to_port(struct leapraid_adapter *adapter,
 	}
 }
 
-void leapraid_transport_detach_phy_to_port(struct leapraid_adapter *adapter,
+void leapraid_transport_detach_phy_to_port(
+		struct leapraid_adapter *adapter,
 		struct leapraid_topo_node *topo_node,
 		struct leapraid_card_phy *target_card_phy)
 {
@@ -482,7 +504,8 @@ void leapraid_transport_detach_phy_to_port(struct leapraid_adapter *adapter,
 	}
 }
 
-static void leapraid_detach_phy_from_old_port(struct leapraid_adapter *adapter,
+static void leapraid_detach_phy_from_old_port(
+		struct leapraid_adapter *adapter,
 		struct leapraid_topo_node *topo_node,
 		u64 sas_address,
 		struct leapraid_card_port *card_port)
@@ -495,9 +518,10 @@ static void leapraid_detach_phy_from_old_port(struct leapraid_adapter *adapter,
 		    topo_node->card_phy[i].card_port != card_port)
 			continue;
 		if (topo_node->card_phy[i].phy_is_assigned)
-			leapraid_transport_detach_phy_to_port(adapter,
-							      topo_node,
-							      &topo_node->card_phy[i]);
+			leapraid_transport_detach_phy_to_port(
+				adapter,
+				topo_node,
+				&topo_node->card_phy[i]);
 	}
 }
 
@@ -512,8 +536,11 @@ static struct leapraid_sas_port *leapraid_prepare_sas_port(
 	unsigned long flags;
 
 	sas_port = kzalloc(sizeof(*sas_port), GFP_KERNEL);
-	if (!sas_port)
+	if (!sas_port) {
+		dev_warn(&adapter->pdev->dev,
+			 "%s: Failed alloc sas_port\n", __func__);
 		return NULL;
+	}
 
 	INIT_LIST_HEAD(&sas_port->port_list);
 	INIT_LIST_HEAD(&sas_port->phy_list);
@@ -526,27 +553,30 @@ static struct leapraid_sas_port *leapraid_prepare_sas_port(
 
 	if (!topo_node) {
 		dev_err(&adapter->pdev->dev,
-			"%s: failed to find parent node for sas addr 0x%016llx!\n",
+			"%s: Failed to locate parent for SAS 0x%016llx!\n",
 			__func__, sas_address);
-		kfree(sas_port);
-		return NULL;
+		goto out_cleanup;
 	}
 
 	if (leapraid_transport_set_identify(adapter, handle,
-					    &sas_port->remote_identify)) {
-		kfree(sas_port);
-		return NULL;
-	}
+					    &sas_port->remote_identify))
+		goto out_cleanup;
 
 	if (sas_port->remote_identify.device_type == SAS_PHY_UNUSED) {
-		kfree(sas_port);
-		return NULL;
+		dev_warn(&adapter->pdev->dev,
+			 "%s: Failed, device type is SAS_PHY_UNUSED\n",
+			 __func__);
+		goto out_cleanup;
 	}
 
 	sas_port->card_port = card_port;
 	*out_topo_node = topo_node;
 
 	return sas_port;
+
+out_cleanup:
+	kfree(sas_port);
+	return NULL;
 }
 
 static int leapraid_bind_phys_and_vphy(struct leapraid_adapter *adapter,
@@ -576,12 +606,12 @@ static int leapraid_bind_phys_and_vphy(struct leapraid_adapter *adapter,
 
 			vphy = leapraid_get_vphy_by_phy(card_port, i);
 			if (!vphy)
-				return -1;
+				return LEAPRAID_OPERATION_FAILED;
 		}
 	}
 
 	*out_vphy = vphy;
-	return sas_port->phys_num ? 0 : -1;
+	return sas_port->phys_num ? 0 : LEAPRAID_OPERATION_FAILED;
 }
 
 static struct sas_rphy *leapraid_create_and_register_rphy(
@@ -596,26 +626,42 @@ static struct sas_rphy *leapraid_create_and_register_rphy(
 	struct sas_port *port;
 	struct sas_rphy *rphy;
 
-	if (!topo_node->parent_dev)
-		return NULL;
-
-	port = sas_port_alloc_num(topo_node->parent_dev);
-	if (sas_port_add(port))
-		return NULL;
-
-	list_for_each_entry(card_phy, &sas_port->phy_list, port_siblings) {
-		sas_port_add_phy(port, card_phy->phy);
-		card_phy->phy_is_assigned = true;
-		card_phy->card_port = card_port;
-	}
-
 	if (sas_port->remote_identify.device_type == SAS_END_DEVICE) {
-		sas_dev = leapraid_get_sas_dev_by_addr(adapter,
+		sas_dev = leapraid_get_sas_dev_by_addr(
+				adapter,
 				sas_port->remote_identify.sas_address,
 				card_port);
 		if (!sas_dev)
 			return NULL;
 		sas_dev->pend_sas_rphy_add = 1;
+	}
+
+	if (!topo_node->parent_dev) {
+		dev_warn(&adapter->pdev->dev,
+			 "%s: topo_node parent device is NULL\n",  __func__);
+		goto cleanup_sas_dev;
+	}
+
+	port = sas_port_alloc_num(topo_node->parent_dev);
+	if (!port) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed to allocate SAS port\n", __func__);
+		goto cleanup_sas_dev;
+	}
+
+	if (sas_port_add(port)) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed to add SAS port\n", __func__);
+		goto out_delete_port;
+	}
+
+	list_for_each_entry(card_phy, &sas_port->phy_list, port_siblings) {
+		sas_port_add_phy(port, card_phy->phy);
+		card_phy->phy_is_assigned = 1;
+		card_phy->card_port = card_port;
+	}
+
+	if (sas_dev) {
 		rphy = sas_end_device_alloc(port);
 		sas_dev->rphy = rphy;
 
@@ -625,28 +671,63 @@ static struct sas_rphy *leapraid_create_and_register_rphy(
 			else
 				vphy->sas_address = sas_dev->sas_addr;
 		}
-
 	} else {
-		rphy = sas_expander_alloc(port,
-					  sas_port->remote_identify.device_type);
+		rphy = sas_expander_alloc(
+				port,
+				sas_port->remote_identify.device_type);
 		if (topo_node->hdl <= adapter->dev_topo.card.phys_num)
 			card_port->sas_address =
 				sas_port->remote_identify.sas_address;
 	}
 
+	if (!rphy) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed to allocate RPHY\n", __func__);
+		goto cleanup_card_phy;
+	}
+
 	rphy->identify = sas_port->remote_identify;
 
-	if (sas_rphy_add(rphy))
+	if (sas_rphy_add(rphy)) {
 		dev_err(&adapter->pdev->dev,
-			"%s: failed to add rphy\n", __func__);
+			"%s: Failed to add RPHY\n", __func__);
+		if (sas_dev)
+			sas_dev->rphy = NULL;
+
+		sas_rphy_free(rphy);
+		goto cleanup_card_phy;
+	}
+	sas_port->port = port;
 
 	if (sas_dev) {
 		sas_dev->pend_sas_rphy_add = 0;
 		leapraid_sdev_put(sas_dev);
 	}
 
-	sas_port->port = port;
 	return rphy;
+
+cleanup_card_phy:
+	if (topo_node->hdl <= adapter->dev_topo.card.phys_num) {
+		if (!vphy)
+			card_port->sas_address = 0;
+		else
+			vphy->sas_address = 0;
+	}
+
+	list_for_each_entry(card_phy, &sas_port->phy_list, port_siblings) {
+		card_phy->phy_is_assigned = 0;
+		card_phy->card_port = NULL;
+	}
+
+out_delete_port:
+	sas_port_delete(port);
+
+cleanup_sas_dev:
+	if (sas_dev) {
+		sas_dev->pend_sas_rphy_add = 0;
+		leapraid_sdev_put(sas_dev);
+	}
+	return NULL;
 }
 
 struct leapraid_sas_port *leapraid_transport_port_add(
@@ -656,35 +737,45 @@ struct leapraid_sas_port *leapraid_transport_port_add(
 {
 	struct leapraid_card_phy *card_phy, *card_phy_next;
 	struct leapraid_topo_node *topo_node = NULL;
-	struct leapraid_sas_port *sas_port = NULL;
+	struct leapraid_sas_port *sas_port;
 	struct leapraid_vphy *vphy = NULL;
-	struct sas_rphy *rphy = NULL;
+	struct sas_rphy *rphy;
 	unsigned long flags;
 
-	if (!card_port)
+	if (!card_port) {
+		dev_warn(&adapter->pdev->dev,
+			 "%s: Invalid card_port\n", __func__);
 		return NULL;
+	}
 
 	sas_port = leapraid_prepare_sas_port(adapter, hdl, sas_address,
 					     card_port, &topo_node);
 	if (!sas_port)
 		return NULL;
 
-	leapraid_detach_phy_from_old_port(adapter,
-					  topo_node,
-					  sas_port->remote_identify.sas_address,
-					  card_port);
+	leapraid_detach_phy_from_old_port(
+		adapter,
+		topo_node,
+		sas_port->remote_identify.sas_address,
+		card_port);
 
 	if (leapraid_bind_phys_and_vphy(adapter, sas_port, topo_node,
-					card_port, &vphy))
+					card_port, &vphy)) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed to bind phy to vphy\n", __func__);
 		goto out_fail;
+	}
 
 	rphy = leapraid_create_and_register_rphy(adapter, sas_port, topo_node,
 						 card_port, vphy);
-	if (!rphy)
+	if (!rphy) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed to create rphy\n", __func__);
 		goto out_fail;
+	}
 
 	dev_info(&rphy->dev,
-		 "%s: added dev: hdl=0x%04x, sas addr=0x%016llx\n",
+		 "%s: Added dev: hdl=0x%04x, SAS addr=0x%016llx\n",
 		 __func__, hdl,
 		 (unsigned long long)sas_port->remote_identify.sas_address);
 
@@ -695,20 +786,27 @@ struct leapraid_sas_port *leapraid_transport_port_add(
 	spin_unlock_irqrestore(&adapter->dev_topo.topo_node_lock, flags);
 
 	if (sas_port->remote_identify.device_type ==
-		LEAPRAID_DEVTYP_EDGE_EXPANDER ||
+	    SAS_EDGE_EXPANDER_DEVICE ||
 	    sas_port->remote_identify.device_type ==
-		LEAPRAID_DEVTYP_FANOUT_EXPANDER)
-		leapraid_transport_exp_report_manu(adapter,
-				sas_port->remote_identify.sas_address,
-				rphy_to_expander_device(rphy),
-				card_port->port_id);
+	    SAS_FANOUT_EXPANDER_DEVICE)
+		leapraid_transport_exp_report_manu(
+			adapter,
+			sas_port->remote_identify.sas_address,
+			rphy_to_expander_device(rphy),
+			card_port->port_id);
 
 	return sas_port;
 
 out_fail:
 	list_for_each_entry_safe(card_phy, card_phy_next,
-				 &sas_port->phy_list, port_siblings)
-		list_del(&card_phy->port_siblings);
+				 &sas_port->phy_list, port_siblings) {
+		if (topo_node->hdl <= adapter->dev_topo.card.phys_num &&
+		    !card_phy->vphy)
+			card_port->phy_mask &= ~BIT(card_phy->phy_id);
+
+		list_del_init(&card_phy->port_siblings);
+	}
+
 	kfree(sas_port);
 	return NULL;
 }
@@ -750,10 +848,10 @@ static void leapraid_cleanup_card_port_and_vphys(
 			if (vphy->sas_address != sas_address)
 				continue;
 
-			dev_info(&adapter->pdev->dev,
-				 "%s: remove vphy: %p from port: %p, port_id=%d\n",
-				 __func__, vphy, remove_card_port,
-				 remove_card_port->port_id);
+			dev_dbg(&adapter->pdev->dev,
+				"%s: Remove vphy=%p from port=%p port_id=%d\n",
+				__func__, vphy, remove_card_port,
+				remove_card_port->port_id);
 
 			remove_card_port->vphys_mask &= ~vphy->phy_mask;
 			list_del(&vphy->list);
@@ -762,11 +860,11 @@ static void leapraid_cleanup_card_port_and_vphys(
 
 		if (!remove_card_port->vphys_mask &&
 		    !remove_card_port->sas_address) {
-			dev_info(&adapter->pdev->dev,
-				 "%s: remove empty hba_port: %p, port_id=%d\n",
-				 __func__,
-				 remove_card_port,
-				 remove_card_port->port_id);
+			dev_dbg(&adapter->pdev->dev,
+				"%s: Remove empty hba_port: %p, port_id=%d\n",
+				__func__,
+				remove_card_port,
+				remove_card_port->port_id);
 			list_del(&remove_card_port->list);
 			kfree(remove_card_port);
 			remove_card_port = NULL;
@@ -782,15 +880,15 @@ static void leapraid_cleanup_card_port_and_vphys(
 			continue;
 
 		if (!remove_card_port->vphys_mask) {
-			dev_info(&adapter->pdev->dev,
-				 "%s: remove hba_port: %p, port_id=%d\n",
-				 __func__, card_port, card_port->port_id);
+			dev_dbg(&adapter->pdev->dev,
+				"%s: Remove hba_port: %p, port_id=%d\n",
+				__func__, card_port, card_port->port_id);
 			list_del(&card_port->list);
 			kfree(card_port);
 		} else {
-			dev_info(&adapter->pdev->dev,
-				 "%s: clear sas_address of hba_port: %p, port_id=%d\n",
-				 __func__, card_port, card_port->port_id);
+			dev_dbg(&adapter->pdev->dev,
+				"Clear sas_address of port=%p, port_id=%d\n",
+				card_port, card_port->port_id);
 			remove_card_port->sas_address = 0;
 		}
 		break;
@@ -802,22 +900,23 @@ static void leapraid_clear_topo_node_phys(struct leapraid_topo_node *topo_node,
 {
 	int i;
 
-	for (i = 0; i < topo_node->phys_num; i++) {
+	for (i = 0; i < topo_node->phys_num; i++)
 		if (topo_node->card_phy[i].remote_identify.sas_address ==
 		    sas_address) {
 			memset(&topo_node->card_phy[i].remote_identify, 0,
 			       sizeof(struct sas_identify));
-			topo_node->card_phy[i].vphy = false;
+			topo_node->card_phy[i].vphy = 0;
 		}
-	}
 }
 
-void leapraid_transport_port_remove(struct leapraid_adapter *adapter,
-		u64 sas_address, u64 sas_address_parent,
+void leapraid_transport_port_remove(
+		struct leapraid_adapter *adapter,
+		u64 sas_address,
+		u64 sas_address_parent,
 		struct leapraid_card_port *remove_card_port)
 {
 	struct leapraid_card_phy *card_phy, *card_phy_next;
-	struct leapraid_sas_port *sas_port = NULL;
+	struct leapraid_sas_port *sas_port;
 	struct leapraid_topo_node *topo_node;
 	unsigned long flags;
 	bool found = false;
@@ -855,7 +954,7 @@ void leapraid_transport_port_remove(struct leapraid_adapter *adapter,
 
 	list_for_each_entry_safe(card_phy, card_phy_next,
 				 &sas_port->phy_list, port_siblings) {
-		card_phy->phy_is_assigned = false;
+		card_phy->phy_is_assigned = 0;
 		if (!adapter->access_ctrl.host_removing)
 			sas_port_delete_phy(sas_port->port, card_phy->phy);
 
@@ -865,9 +964,9 @@ void leapraid_transport_port_remove(struct leapraid_adapter *adapter,
 	if (!adapter->access_ctrl.host_removing)
 		sas_port_delete(sas_port->port);
 
-	dev_info(&adapter->pdev->dev,
-		 "%s: removed sas_port for sas addr=0x%016llx\n",
-		 __func__, (unsigned long long)sas_address);
+	dev_dbg(&adapter->pdev->dev,
+		"%s: Removed sas_port for SAS addr=0x%016llx\n",
+		__func__, (unsigned long long)sas_address);
 
 	kfree(sas_port);
 }
@@ -902,9 +1001,11 @@ static void leapraid_init_sas_or_exp_phy(struct leapraid_adapter *adapter,
 			LEAPRAID_SAS_HWRATE_MIN_RATE_MASK);
 	phy->maximum_linkrate_hw = phy_pg0 ?
 		 leapraid_transport_convert_phy_link_rate(
-			phy_pg0->hw_link_rate >> 4) :
+			phy_pg0->hw_link_rate >>
+			 LEAPRAID_SAS_NEG_LINK_RATE_SHIFT) :
 		 leapraid_transport_convert_phy_link_rate(
-			exp_pg1->hw_link_rate >> 4);
+			exp_pg1->hw_link_rate >>
+			 LEAPRAID_SAS_NEG_LINK_RATE_SHIFT);
 	phy->minimum_linkrate = phy_pg0 ?
 		 leapraid_transport_convert_phy_link_rate(
 			phy_pg0->p_link_rate &
@@ -914,9 +1015,11 @@ static void leapraid_init_sas_or_exp_phy(struct leapraid_adapter *adapter,
 			LEAPRAID_SAS_PRATE_MIN_RATE_MASK);
 	phy->maximum_linkrate = phy_pg0 ?
 		 leapraid_transport_convert_phy_link_rate(
-			phy_pg0->p_link_rate >> 4) :
+			phy_pg0->p_link_rate >>
+			 LEAPRAID_SAS_NEG_LINK_RATE_SHIFT) :
 		 leapraid_transport_convert_phy_link_rate(
-			exp_pg1->p_link_rate >> 4);
+			exp_pg1->p_link_rate >>
+			 LEAPRAID_SAS_NEG_LINK_RATE_SHIFT);
 	phy->hostdata = card_phy->card_port;
 }
 
@@ -926,30 +1029,33 @@ void leapraid_transport_add_card_phy(struct leapraid_adapter *adapter,
 				     struct device *parent_dev)
 {
 	struct sas_phy *phy;
+	int ret;
 
 	INIT_LIST_HEAD(&card_phy->port_siblings);
 	phy = sas_phy_alloc(parent_dev, card_phy->phy_id);
 	if (!phy) {
 		dev_err(&adapter->pdev->dev,
-			"%s sas_phy_alloc failed!\n", __func__);
+			"%s: sas_phy_alloc failed!\n", __func__);
 		return;
 	}
 
-	if ((leapraid_transport_set_identify(adapter, card_phy->hdl,
-					     &card_phy->identify))) {
+	if (leapraid_transport_set_identify(adapter, card_phy->hdl,
+					    &card_phy->identify)) {
 		dev_err(&adapter->pdev->dev,
-			"%s set phy handle identify failed!\n", __func__);
+			"%s: Set PHY handle identify failed!\n", __func__);
 		sas_phy_free(phy);
 		return;
 	}
 
 	card_phy->attached_hdl = le16_to_cpu(phy_pg0->attached_dev_hdl);
 	if (card_phy->attached_hdl) {
-		if (leapraid_transport_set_identify(adapter,
-						    card_phy->attached_hdl,
-						    &card_phy->remote_identify)) {
+		ret = leapraid_transport_set_identify(
+				adapter,
+				card_phy->attached_hdl,
+				&card_phy->remote_identify);
+		if (ret) {
 			dev_err(&adapter->pdev->dev,
-				"%s set phy attached handle identify failed!\n",
+				"%s: Set PHY attached hdl identify failed!\n",
 				__func__);
 			sas_phy_free(phy);
 			return;
@@ -958,7 +1064,9 @@ void leapraid_transport_add_card_phy(struct leapraid_adapter *adapter,
 
 	leapraid_init_sas_or_exp_phy(adapter, card_phy, phy, phy_pg0, NULL);
 
-	if ((sas_phy_add(phy))) {
+	if (sas_phy_add(phy)) {
+		dev_err(&adapter->pdev->dev,
+			"%s: SAS PHY add failed!\n", __func__);
 		sas_phy_free(phy);
 		return;
 	}
@@ -972,38 +1080,41 @@ int leapraid_transport_add_exp_phy(struct leapraid_adapter *adapter,
 				   struct device *parent_dev)
 {
 	struct sas_phy *phy;
+	int ret;
 
 	INIT_LIST_HEAD(&card_phy->port_siblings);
 	phy = sas_phy_alloc(parent_dev, card_phy->phy_id);
 	if (!phy) {
 		dev_err(&adapter->pdev->dev,
-			"%s sas_phy_alloc failed!\n", __func__);
+			"%s: sas_phy_alloc failed!\n", __func__);
 		return -EFAULT;
 	}
 
-	if ((leapraid_transport_set_identify(adapter, card_phy->hdl,
-					     &card_phy->identify))) {
+	if (leapraid_transport_set_identify(adapter, card_phy->hdl,
+					    &card_phy->identify)) {
 		dev_err(&adapter->pdev->dev,
-			"%s set phy hdl identify failed!\n", __func__);
+			"%s: Set PHY hdl identify failed!\n", __func__);
 		sas_phy_free(phy);
 		return -EFAULT;
 	}
 
 	card_phy->attached_hdl = le16_to_cpu(exp_pg1->attached_dev_hdl);
 	if (card_phy->attached_hdl) {
-		if (leapraid_transport_set_identify(adapter,
-						    card_phy->attached_hdl,
-						    &card_phy->remote_identify)) {
-			dev_err(&adapter->pdev->dev,
-				"%s set phy attached hdl identify failed!\n",
-				__func__);
-			sas_phy_free(phy);
-		}
+		ret = leapraid_transport_set_identify(
+				adapter,
+				card_phy->attached_hdl,
+				&card_phy->remote_identify);
+		if (ret)
+			dev_warn(&adapter->pdev->dev,
+				 "%s: Set PHY attached hdl identify failed!\n",
+				 __func__);
 	}
 
 	leapraid_init_sas_or_exp_phy(adapter, card_phy, phy, NULL, exp_pg1);
 
-	if ((sas_phy_add(phy))) {
+	if (sas_phy_add(phy)) {
+		dev_err(&adapter->pdev->dev,
+			"%s: SAS PHY add failed!\n", __func__);
 		sas_phy_free(phy);
 		return -EFAULT;
 	}
@@ -1012,13 +1123,14 @@ int leapraid_transport_add_exp_phy(struct leapraid_adapter *adapter,
 	return 0;
 }
 
-void leapraid_transport_update_links(struct leapraid_adapter *adapter,
+void leapraid_transport_update_links(
+		struct leapraid_adapter *adapter,
 		u64 sas_address, u16 hdl, u8 phy_index,
 		u8 link_rate, struct leapraid_card_port *target_card_port)
 {
 	struct leapraid_topo_node *topo_node;
 	struct leapraid_card_phy *card_phy;
-	struct leapraid_card_port *card_port = NULL;
+	struct leapraid_card_port *card_port;
 	unsigned long flags;
 
 	if (adapter->access_ctrl.shost_recovering ||
@@ -1053,10 +1165,12 @@ void leapraid_transport_update_links(struct leapraid_adapter *adapter,
 						BIT(card_phy->phy_id);
 			}
 		}
-		leapraid_transport_attach_phy_to_port(adapter, topo_node,
-						      card_phy,
-						      card_phy->remote_identify.sas_address,
-						      target_card_port);
+		leapraid_transport_attach_phy_to_port(
+			adapter,
+			topo_node,
+			card_phy,
+			card_phy->remote_identify.sas_address,
+			target_card_port);
 	} else {
 		memset(&card_phy->remote_identify, 0,
 		       sizeof(struct sas_identify));
@@ -1079,8 +1193,12 @@ static int leapraid_dma_map_buffer(struct device *dev, struct bsg_buffer *buf,
 
 		*dma_len = buf->payload_len;
 	} else {
-		if (!dma_map_sg(dev, buf->sg_list, 1, DMA_BIDIRECTIONAL))
+		if (!dma_map_sg(dev, buf->sg_list, 1, DMA_BIDIRECTIONAL)) {
+			dev_err(dev,
+				"%s: Failed to map sg buffer for dma\n",
+				__func__);
 			return -ENOMEM;
+		}
 
 		*dma_addr = sg_dma_address(buf->sg_list);
 		*dma_len = sg_dma_len(buf->sg_list);
@@ -1106,11 +1224,11 @@ static void leapraid_build_smp_task(struct leapraid_adapter *adapter,
 				    dma_addr_t c2h_dma_addr, size_t c2h_size)
 {
 	struct leapraid_smp_passthrough_req *smp_passthrough_req;
+	u16 inter_taskid;
 	void *psge;
 
-	smp_passthrough_req =
-		leapraid_get_task_desc(adapter,
-				       adapter->driver_cmds.transport_cmd.inter_taskid);
+	inter_taskid = adapter->driver_cmds.transport_cmd.inter_taskid;
+	smp_passthrough_req = leapraid_get_task_desc(adapter, inter_taskid);
 	memset(smp_passthrough_req, 0, sizeof(*smp_passthrough_req));
 
 	smp_passthrough_req->func = LEAPRAID_FUNC_SMP_PASSTHROUGH;
@@ -1130,30 +1248,36 @@ static void leapraid_build_smp_task(struct leapraid_adapter *adapter,
 
 static int leapraid_send_smp_req(struct leapraid_adapter *adapter)
 {
-	dev_info(&adapter->pdev->dev,
-		 "%s: sending smp request\n", __func__);
+	const struct leapraid_smp_passthrough_req *smp_passthrough_req;
+
+	dev_dbg(&adapter->pdev->dev,
+		"%s: Sending smp request\n", __func__);
+	smp_passthrough_req = leapraid_get_task_desc(
+		adapter, adapter->driver_cmds.transport_cmd.inter_taskid);
 	init_completion(&adapter->driver_cmds.transport_cmd.done);
 	leapraid_fire_task(adapter,
 			   adapter->driver_cmds.transport_cmd.inter_taskid);
 	wait_for_completion_timeout(&adapter->driver_cmds.transport_cmd.done,
 				    LEAPRAID_TRANSPORT_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.transport_cmd.status & LEAPRAID_CMD_DONE)) {
-		dev_err(&adapter->pdev->dev, "%s: timeout\n", __func__);
+		dev_err(&adapter->pdev->dev, "%s: timeout, st=0x%x\n",
+			__func__, adapter->driver_cmds.transport_cmd.status);
+		leapraid_log_req_context(adapter, smp_passthrough_req);
 		if (!(adapter->driver_cmds.transport_cmd.status &
 		      LEAPRAID_CMD_RESET)) {
-			dev_info(&adapter->pdev->dev,
-				 "%s:%d call hard_reset\n",
-				 __func__, __LINE__);
+			dev_dbg(&adapter->pdev->dev,
+				"%s:%d: call hard_reset\n",
+				__func__, __LINE__);
 			leapraid_hard_reset_handler(adapter, FULL_RESET);
 			return -ETIMEDOUT;
 		}
 	}
 
-	dev_info(&adapter->pdev->dev, "%s: smp request complete\n", __func__);
+	dev_dbg(&adapter->pdev->dev, "%s: SMP request complete\n", __func__);
 	if (!(adapter->driver_cmds.transport_cmd.status &
 	      LEAPRAID_CMD_REPLY_VALID)) {
 		dev_err(&adapter->pdev->dev,
-			"%s: smp request no reply\n", __func__);
+			"%s: SMP request no reply\n", __func__);
 		return -ENXIO;
 	}
 
@@ -1167,10 +1291,10 @@ static void leapraid_handle_smp_rep(struct leapraid_adapter *adapter,
 	struct leapraid_smp_passthrough_rep *smp_passthrough_rep;
 
 	smp_passthrough_rep =
-		(void *)(&adapter->driver_cmds.transport_cmd.reply);
+		(void *)&adapter->driver_cmds.transport_cmd.reply;
 
-	dev_info(&adapter->pdev->dev, "%s: response data len=%d\n",
-		 __func__, le16_to_cpu(smp_passthrough_rep->resp_data_len));
+	dev_dbg(&adapter->pdev->dev, "%s: Response data len=%d\n",
+		__func__, le16_to_cpu(smp_passthrough_rep->resp_data_len));
 
 	memcpy(job->reply, smp_passthrough_rep, sizeof(*smp_passthrough_rep));
 	job->reply_len = sizeof(*smp_passthrough_rep);
@@ -1198,13 +1322,19 @@ static void leapraid_transport_smp_handler(struct bsg_job *job,
 
 	if (adapter->access_ctrl.shost_recovering ||
 	    adapter->access_ctrl.pcie_recovering) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Failed, shost_recovering=%d pcie_recovering=%d\n",
+			__func__,
+			adapter->access_ctrl.shost_recovering,
+			adapter->access_ctrl.pcie_recovering);
 		rc = -EFAULT;
-		goto done;
+		goto exit_bsg_job;
 	}
 
-	rc = mutex_lock_interruptible(&adapter->driver_cmds.transport_cmd.mutex);
+	rc = mutex_lock_interruptible(&adapter->driver_cmds
+				      .transport_cmd.mutex);
 	if (rc)
-		goto done;
+		goto exit_bsg_job;
 
 	adapter->driver_cmds.transport_cmd.status = LEAPRAID_CMD_PENDING;
 	rc = leapraid_dma_map_buffer(&adapter->pdev->dev,
@@ -1223,7 +1353,8 @@ static void leapraid_transport_smp_handler(struct bsg_job *job,
 	if (rc)
 		goto free_req_buf;
 
-	rc = leapraid_check_adapter_is_op(adapter);
+	rc = leapraid_check_adapter_is_op(adapter, LEAPRAID_DB_WAIT_OP_SHORT,
+					  __func__);
 	if (rc)
 		goto free_rep_buf;
 
@@ -1245,7 +1376,7 @@ free_req_buf:
 release_lock:
 	adapter->driver_cmds.transport_cmd.status = LEAPRAID_CMD_NOT_USED;
 	mutex_unlock(&adapter->driver_cmds.transport_cmd.mutex);
-done:
+exit_bsg_job:
 	bsg_job_done(job, rc, reslen);
 }
 
