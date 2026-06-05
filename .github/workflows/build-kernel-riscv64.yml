@@ -20,7 +20,7 @@ jobs:
   build-kernel:
     runs-on: [self-hosted, linux, x64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: "Install Deps"
         run: |
           git config --global user.email $email
