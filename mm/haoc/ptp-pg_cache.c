@@ -14,7 +14,7 @@
 #include <asm/haoc/iee-access.h>
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-func.h>
-#ifdef CONFIG_PTP_S
+#if defined(CONFIG_PTP_S) && defined(CONFIG_X86_64)
 #include <asm/haoc/ptp.h>
 #endif
 
@@ -214,6 +214,11 @@ redo:
 	tid = READ_ONCE(cache->tid);
 	barrier();
 	freelist = READ_ONCE(cache->freelist);
+#ifdef CONFIG_PTP_S
+	if (cache->name == IEE_USER_PGTABLE)
+		__set_freepointer((void *)(end_addr - object_size), freelist);
+	else
+#endif
 	__iee_set_freepointer((void *)(end_addr - object_size), freelist);
 	if (unlikely(!__update_freelist(cache, freelist, (void *)start_addr, tid)))
 		goto redo;
@@ -233,7 +238,11 @@ void *iee_cache_alloc(struct iee_cache *cache, gfp_t gfp)
 	void *next_object;
 
 #ifdef CONFIG_PTP_S
+#ifdef CONFIG_ARM64
+	if (haoc_enabled && iee_init_done)
+#else
 	if (haoc_enabled && haoc_init_done)
+#endif
 		if ((gfp & __GFP_ACCOUNT) && cache == &pg_cache)
 			cache = &pg_user_cache;
 #endif
@@ -259,7 +268,7 @@ redo:
 		if (!object)
 			return NULL;
 		set_iee_address_valid((unsigned long)object, cache->object_order);
-		iee_set_bitmap_type((unsigned long)object, 1 << cache->object_order, IEE_PGTABLE);
+		iee_set_bitmap_type((unsigned long)object, 1 << cache->object_order, cache->name);
 #ifdef DEBUG
 		WARN_ONCE(1, "IEE: Failed on HAOC_BITMAP_TYPE %u expansion.",
 			  (unsigned int)cache->name);
@@ -274,7 +283,7 @@ redo:
 		set_iee_page((unsigned long)object, 1 << cache->object_order, cache->name);
 #endif
 	} else {
-		// fast path alloc
+		/* fast path alloc */
 		next_object = __get_freepointer(object);
 		if (unlikely(!__update_freelist(cache, object, next_object, tid)))
 			goto redo;
