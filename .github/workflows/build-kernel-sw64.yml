@@ -20,7 +20,7 @@ jobs:
   build-kernel-sw6b:
     runs-on: [self-hosted, linux, x64]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: "Install Deps"
         run: |
           git config --global user.email $email
@@ -35,6 +35,12 @@ jobs:
   build-kernel-sw8a:
     runs-on: [self-hosted, linux, x64]
     steps:
+      - uses: actions/checkout@v6
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
       - name: "Compile kernel"
         run: |
           # .config
