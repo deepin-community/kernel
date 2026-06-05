@@ -152,49 +152,6 @@ void rtw89_chan_create(struct rtw89_chan *chan, u8 center_chan, u8 primary_chan,
 						    bandwidth);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
-static void _rtw89_chan_update_punctured(struct rtw89_dev *rtwdev,
-					 struct rtw89_vif_link *rtwvif_link,
-					 const struct cfg80211_chan_def *chandef)
-{
-	struct ieee80211_bss_conf *bss_conf;
-
-	if (rtwvif_link->wifi_role != RTW89_WIFI_ROLE_STATION &&
-	    rtwvif_link->wifi_role != RTW89_WIFI_ROLE_P2P_CLIENT)
-		return;
-
-	rcu_read_lock();
-
-	bss_conf = rtw89_vif_rcu_dereference_link(rtwvif_link, true);
-	if (!bss_conf->eht_support) {
-		rcu_read_unlock();
-		return;
-	}
-
-	rcu_read_unlock();
-
-	rtw89_chip_h2c_punctured_cmac_tbl(rtwdev, rtwvif_link, chandef->punctured);
-}
-
-static void rtw89_chan_update_punctured(struct rtw89_dev *rtwdev,
-					enum rtw89_chanctx_idx idx,
-					const struct cfg80211_chan_def *chandef)
-{
-	struct rtw89_vif_link *rtwvif_link;
-	struct rtw89_vif *rtwvif;
-	unsigned int link_id;
-
-	rtw89_for_each_rtwvif(rtwdev, rtwvif) {
-		rtw89_vif_for_each_link(rtwvif, rtwvif_link, link_id) {
-			if (!rtwvif_link->chanctx_assigned ||
-			    rtwvif_link->chanctx_idx != idx)
-				continue;
-
-			_rtw89_chan_update_punctured(rtwdev, rtwvif_link, chandef);
-		}
-	}
-}
-#endif
 
 bool rtw89_assign_entity_chan(struct rtw89_dev *rtwdev,
 			      enum rtw89_chanctx_idx idx,
@@ -3358,10 +3315,6 @@ void rtw89_chanctx_ops_change(struct rtw89_dev *rtwdev,
 		rtw89_set_channel(rtwdev);
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
-	if (changed & IEEE80211_CHANCTX_CHANGE_PUNCTURING)
-		rtw89_chan_update_punctured(rtwdev, idx, &ctx->def);
-#endif
 }
 
 int rtw89_chanctx_ops_assign_vif(struct rtw89_dev *rtwdev,
@@ -3505,9 +3458,6 @@ assign:
 		return ret;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0))
-	_rtw89_chan_update_punctured(rtwdev, rtwvif_link, &new_ctx->def);
-#endif
 
 	return 0;
 }

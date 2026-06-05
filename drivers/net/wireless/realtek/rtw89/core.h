@@ -102,9 +102,7 @@ static inline u64 roundup_u64(u64 x, u32 y)
 
 #define WIPHY_FLAG_DISABLE_WEXT 0
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0))
 #define BSS_CHANGED_MLD_VALID_LINKS BIT_ULL(33)
-#endif
 
 /**
  * napi_is_scheduled - test if NAPI is scheduled

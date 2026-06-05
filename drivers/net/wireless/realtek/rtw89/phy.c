@@ -232,16 +232,7 @@ static u64 rtw89_phy_ra_mask_cfg(struct rtw89_dev *rtwdev,
 		return -1;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
-	if (link_sta->eht_cap.has_eht) {
-		cfg_mask |= u64_encode_bits(mask->control[band].eht_mcs[0],
-					    RA_MASK_EHT_1SS_RATES);
-		cfg_mask |= u64_encode_bits(mask->control[band].eht_mcs[1],
-					    RA_MASK_EHT_2SS_RATES);
-	} else if (link_sta->he_cap.has_he) {
-#else
 	if (link_sta->he_cap.has_he) {
-#endif
 		cfg_mask |= u64_encode_bits(mask->control[band].he_mcs[0],
 					    RA_MASK_HE_1SS_RATES);
 		cfg_mask |= u64_encode_bits(mask->control[band].he_mcs[1],
@@ -300,24 +291,12 @@ static void rtw89_phy_ra_gi_ltf(struct rtw89_dev *rtwdev,
 	if (!rtwsta_link->use_cfg_mask)
 		return;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
-	if (link_sta->eht_cap.has_eht) {
-		ltf = mask->control[nl_band].eht_ltf;
-		gi = mask->control[nl_band].eht_gi;
-	} else if (link_sta->he_cap.has_he) {
-		ltf = mask->control[nl_band].he_ltf;
-		gi = mask->control[nl_band].he_gi;
-	} else {
-		return;
-	}
-#else
 	if (link_sta->he_cap.has_he) {
 		ltf = mask->control[nl_band].he_ltf;
 		gi = mask->control[nl_band].he_gi;
 	} else {
 		return;
 	}
-#endif
 
 	if (ltf == 2 && gi == 2)
 		*fix_giltf = RTW89_GILTF_LGI_4XHE32;
@@ -612,14 +591,6 @@ void __rtw89_phy_rate_pattern_vif(struct rtw89_dev *rtwdev,
 	struct rtw89_phy_rate_pattern next_pattern = {0};
 	const struct rtw89_chan *chan = rtw89_chan_get(rtwdev,
 						       rtwvif_link->chanctx_idx);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
-	static const u16 hw_rate_eht[][RTW89_CHIP_GEN_NUM] = {
-		RTW89_HW_RATE_BY_CHIP_GEN(EHT_NSS1_MCS0),
-		RTW89_HW_RATE_BY_CHIP_GEN(EHT_NSS2_MCS0),
-		RTW89_HW_RATE_BY_CHIP_GEN(EHT_NSS3_MCS0),
-		RTW89_HW_RATE_BY_CHIP_GEN(EHT_NSS4_MCS0),
-	};
-#endif
 	static const u16 hw_rate_he[][RTW89_CHIP_GEN_NUM] = {
 		RTW89_HW_RATE_BY_CHIP_GEN(HE_NSS1_MCS0),
 		RTW89_HW_RATE_BY_CHIP_GEN(HE_NSS2_MCS0),
@@ -644,19 +615,6 @@ void __rtw89_phy_rate_pattern_vif(struct rtw89_dev *rtwdev,
 	u8 tx_nss = rtwdev->hal.tx_nss;
 	u8 i;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0))
-	if (chip_gen == RTW89_CHIP_AX)
-		goto rs_11ax;
-
-	for (i = 0; i < tx_nss; i++)
-		if (!__check_rate_pattern(&next_pattern, hw_rate_eht[i][chip_gen],
-					  RA_MASK_EHT_RATES, RTW89_RA_MODE_EHT,
-					  mask->control[nl_band].eht_mcs[i],
-					  0, true))
-			goto out;
-
-rs_11ax:
-#endif
 	for (i = 0; i < tx_nss; i++)
 		if (!__check_rate_pattern(&next_pattern, hw_rate_he[i][chip_gen],
 					  RA_MASK_HE_RATES, RTW89_RA_MODE_HE,
