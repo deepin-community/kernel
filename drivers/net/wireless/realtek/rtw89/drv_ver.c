@@ -1,4 +1,4 @@
-#define VERSTR  "v6.16-backport-6.6-g722e3d06b"
+#define VERSTR "v6.18-backport-6.6-ac17d40858"
 
 static char drv_ver[] = VERSTR;
 #include <linux/module.h>
