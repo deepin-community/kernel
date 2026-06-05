@@ -6442,25 +6442,24 @@ static int rtw89_chip_board_info_setup(struct rtw89_dev *rtwdev)
 
 static bool rtw89_chip_has_rfkill(struct rtw89_dev *rtwdev)
 {
-	return !!rtwdev->chip->rfkill_init.mask;
+	return !!rtwdev->chip->rfkill_init;
 }
 
 static void rtw89_core_rfkill_init(struct rtw89_dev *rtwdev)
 {
-	const struct rtw89_reg3_def reg = rtwdev->chip->rfkill_init;
-	u16 val;
+	const struct rtw89_rfkill_regs *regs = rtwdev->chip->rfkill_init;
 
-	val = rtw89_read16(rtwdev, reg.addr);
-	val &= ~reg.mask;
-	val |= reg.data;
-	rtw89_write16(rtwdev, reg.addr, val);
+	rtw89_write16_mask(rtwdev, regs->pinmux.addr,
+			   regs->pinmux.mask, regs->pinmux.data);
+	rtw89_write16_mask(rtwdev, regs->mode.addr,
+			   regs->mode.mask, regs->mode.data);
 }
 
 static bool rtw89_core_rfkill_get(struct rtw89_dev *rtwdev)
 {
-	const struct rtw89_reg_def reg = rtwdev->chip->rfkill_get;
+	const struct rtw89_reg_def *reg = &rtwdev->chip->rfkill_get;
 
-	return !rtw89_read8_mask(rtwdev, reg.addr, reg.mask);
+	return !rtw89_read8_mask(rtwdev, reg->addr, reg->mask);
 }
 
 static void rtw89_rfkill_polling_init(struct rtw89_dev *rtwdev)
