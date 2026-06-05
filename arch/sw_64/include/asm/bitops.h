@@ -561,6 +561,14 @@ sched_find_first_bit(const unsigned long b[2])
 
 #include <asm-generic/bitops/ext2-atomic-setbit.h>
 
+#define clear_bit_unlock          __sw64_clear_bit_unlock
+#define __clear_bit_unlock        __sw64___clear_bit_unlock
+#define test_and_set_bit_lock     __sw64_test_and_set_bit_lock
+#include <asm-generic/bitops/lock.h>
+#undef clear_bit_unlock
+#undef __clear_bit_unlock
+#undef test_and_set_bit_lock
+
 #endif /* __KERNEL__ */
 
 #endif /* _ASM_SW64_BITOPS_H */
