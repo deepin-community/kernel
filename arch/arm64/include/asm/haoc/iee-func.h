@@ -17,6 +17,8 @@ extern void set_iee_address_valid(unsigned long lm_addr, unsigned int order);
 extern void set_iee_address_invalid(unsigned long lm_addr, unsigned int order);
 extern void iee_set_logical_mem(unsigned long addr, unsigned int order, bool prot);
 extern void put_pages_into_iee(unsigned long addr, int order);
+extern void put_pages_into_iee_rw(unsigned long addr, int order);
+extern void remove_pages_from_iee(unsigned long addr, int order);
 extern void set_iee_page_type(unsigned long addr, int order,
 			      enum HAOC_BITMAP_TYPE type);
 extern void set_iee_page(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type);

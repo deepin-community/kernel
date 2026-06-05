@@ -89,6 +89,37 @@ config IEE_SIP
 		such as writing system control registers. These instructions would
 		be executated inside IEE.
 
+config IEE_SIP
+	bool "Sensitive Instruction Protection for IEE(IEE_SIP)"
+	help
+		Protects critical instructions that may break the isolation of IEE,
+		such as writing system control registers. These instructions would
+		be executated inside IEE.
+	depends on IEE
+
+config PTP
+	bool "Page Table Protection(PTP)"
+	depends on IEE
+	help
+		Protect page tables by routing page-table modification paths
+		through the IEE gate. This keeps page table updates mediated by
+		the isolated execution environment instead of allowing direct
+		writes from normal kernel code.
+
+config PTP_RESERVE_ORDER
+	depends on PTP
+	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
+	range 9 15
+	default 12
+
+config PTP_S
+	bool "Page Table Protection - Separation (PTP_S)"
+	help
+		PTP_S (kernel/user page separation). Split PTP write paths so user page
+		tables can use direct writes while kernel tables stay on ptp gate paths,
+		with user-side safety checks for alias/integrity.
+	depends on PTP
+
 config CREDP
 	bool "Struct cred protection(CREDP)"
 	depends on IEE

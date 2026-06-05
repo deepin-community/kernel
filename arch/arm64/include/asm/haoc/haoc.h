@@ -111,7 +111,7 @@ pteval_t __iee_code _iee_set_cmpxchg_relaxed(int flag, pte_t *ptep,
 pmdval_t __iee_code _iee_set_pmd_cmpxchg_relaxed(int flag, pmd_t *pmdp,
 			pmdval_t old_pmdval, pmdval_t new_pmdval);
 void __iee_code _iee_set_sensitive_pte(int flag, pte_t *lm_ptep,
-			pte_t *iee_ptep, int order, int use_block_pmd);
+			pte_t *iee_ptep, int order, int use_block_pmd, bool writable);
 void __iee_code _iee_unset_sensitive_pte(int flag, pte_t *lm_ptep,
 			pte_t *iee_ptep, int order, int use_block_pmd);
 #endif

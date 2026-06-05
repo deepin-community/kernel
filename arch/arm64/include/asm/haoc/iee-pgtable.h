@@ -45,6 +45,14 @@ typedef unsigned int cydp_t;
 #define CYDP_CLEAR_DIRTY	(1U << 1)
 #endif
 
+#ifdef CONFIG_PTP_S
+extern void ptp_user_check_pte_update(pte_t *ptep, pte_t pte);
+extern void ptp_user_check_pmd_update(pmd_t *pmdp, pmd_t pmd);
+extern void ptp_user_check_pud_update(pud_t *pudp, pud_t pud);
+extern void ptp_user_check_p4d_update(p4d_t *p4dp, p4d_t p4d);
+extern bool ptp_is_user_pgtable(const void *ptp);
+#endif
+
 extern pgd_t tramp_pg_dir[];
 extern pgd_t idmap_pg_dir[];
 extern pgd_t init_pg_dir[];
@@ -175,10 +183,17 @@ static inline pteval_t iee_set_xchg_relaxed(pte_t *ptep, pteval_t pteval)
 {
 	pteval_t ret;
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(ptep)) {
+			ptp_user_check_pte_update(ptep, __pte(pteval));
+			return xchg_relaxed((pteval_t *)ptep, pteval);
+		}
+#endif
 		ret = iee_rw_gate(IEE_OP_SET_XCHG, ptep, pteval);
-	else
+	} else {
 		ret = xchg_relaxed((pteval_t *)ptep, pteval);
+	}
 	return (pteval_t)ret;
 }
 
@@ -186,10 +201,17 @@ static inline pmdval_t iee_set_pmd_xchg_relaxed(pmd_t *pmdp, pmdval_t pmdval)
 {
 	pmdval_t ret;
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pmdp)) {
+			ptp_user_check_pmd_update(pmdp, __pmd(pmdval));
+			return xchg_relaxed((pmdval_t *)pmdp, pmdval);
+		}
+#endif
 		ret = iee_rw_gate(IEE_OP_SET_PMD_XCHG, pmdp, pmdval);
-	else
+	} else {
 		ret = xchg_relaxed((pmdval_t *)pmdp, pmdval);
+	}
 	return (pmdval_t)ret;
 }
 
@@ -198,10 +220,17 @@ static inline pteval_t iee_set_cmpxchg_relaxed(pte_t *ptep, pteval_t old_pteval,
 {
 	pteval_t ret;
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(ptep)) {
+			ptp_user_check_pte_update(ptep, __pte(new_pteval));
+			return cmpxchg_relaxed((pteval_t *)ptep, old_pteval, new_pteval);
+		}
+#endif
 		ret = iee_rw_gate(IEE_OP_SET_CMPXCHG, ptep, old_pteval, new_pteval);
-	else
+	} else {
 		ret = cmpxchg_relaxed((pteval_t *)ptep, old_pteval, new_pteval);
+	}
 	return ret;
 }
 
@@ -210,10 +239,17 @@ static inline pmdval_t iee_set_pmd_cmpxchg_relaxed(pmd_t *pmdp, pmdval_t old_pmd
 {
 	pmdval_t ret;
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pmdp)) {
+			ptp_user_check_pmd_update(pmdp, __pmd(new_pmdval));
+			return cmpxchg_relaxed((pmdval_t *)pmdp, old_pmdval, new_pmdval);
+		}
+#endif
 		ret = iee_rw_gate(IEE_OP_SET_PMD_CMPXCHG, pmdp, old_pmdval, new_pmdval);
-	else
+	} else {
 		ret = cmpxchg_relaxed((pmdval_t *)pmdp, old_pmdval, new_pmdval);
+	}
 	return ret;
 }
 
@@ -477,10 +513,17 @@ static inline void __set_pte_nosync(pte_t *ptep, pte_t pte)
 
 static inline void __set_pte(pte_t *ptep, pte_t pte)
 {
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(ptep)) {
+			ptp_user_check_pte_update(ptep, pte);
+			WRITE_ONCE(*ptep, pte);
+		} else
+#endif
 		iee_rw_gate(IEE_OP_SET_PTE, ptep, pte);
-	else
+	} else {
 		WRITE_ONCE(*ptep, pte);
+	}
 
 	dsb(ishst);
 	isb();
@@ -895,10 +938,17 @@ static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 	}
 #endif /* __PAGETABLE_PMD_FOLDED */
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pmdp)) {
+			ptp_user_check_pmd_update(pmdp, pmd);
+			WRITE_ONCE(*pmdp, pmd);
+		} else
+#endif
 		iee_rw_gate(IEE_OP_SET_PMD, pmdp, pmd);
-	else
+	} else {
 		WRITE_ONCE(*pmdp, pmd);
+	}
 
 	if (pmd_valid(pmd)) {
 		dsb(ishst);
@@ -962,10 +1012,17 @@ static inline void set_pud(pud_t *pudp, pud_t pud)
 	}
 #endif /* __PAGETABLE_PUD_FOLDED */
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pudp)) {
+			ptp_user_check_pud_update(pudp, pud);
+			WRITE_ONCE(*pudp, pud);
+		} else
+#endif
 		iee_rw_gate(IEE_OP_SET_PUD, pudp, pud);
-	else
+	} else {
 		WRITE_ONCE(*pudp, pud);
+	}
 
 	if (pud_valid(pud)) {
 		dsb(ishst);
@@ -1072,10 +1129,17 @@ static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 		return;
 	}
 
-	if (iee_pgtable_ready())
+	if (iee_pgtable_ready()) {
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(p4dp)) {
+			ptp_user_check_p4d_update(p4dp, p4d);
+			WRITE_ONCE(*p4dp, p4d);
+		} else
+#endif
 		iee_rw_gate(IEE_OP_SET_P4D, p4dp, p4d);
-	else
+	} else {
 		WRITE_ONCE(*p4dp, p4d);
+	}
 
 	dsb(ishst);
 	isb();
