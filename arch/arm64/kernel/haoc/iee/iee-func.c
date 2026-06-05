@@ -224,18 +224,21 @@ void set_iee_address_invalid(unsigned long lm_addr, unsigned int order)
  * synchronization problems.
  */
 static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
-				int use_block_pmd)
+				int use_block_pmd, bool writable)
 {
 #ifdef CONFIG_PTP
 	iee_rw_gate(IEE_OP_SET_SENSITIVE_PTE, lm_ptep, iee_ptep, order,
-		     use_block_pmd);
+		     use_block_pmd, writable);
 #else
 	int i;
 
 	if (use_block_pmd) {
 		pmd_t pmd = __pmd(pte_val(__ptep_get(lm_ptep)));
 
-		pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
+		if (writable)
+			pmd = __pmd((pmd_val(pmd) & ~PMD_SECT_RDONLY) | PTE_DBM);
+		else
+			pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
 		WRITE_ONCE(*lm_ptep, __pte(pmd_val(pmd)));
 		for (i = 0; i < (1 << order); i++) {
 			pte_t pte = __ptep_get(iee_ptep);
@@ -248,7 +251,10 @@ static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
 		for (i = 0; i < (1 << order); i++) {
 			pte_t pte = __ptep_get(lm_ptep);
 
-			pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
+			if (writable)
+				pte = __pte((pte_val(pte) & ~PTE_RDONLY) | PTE_DBM);
+			else
+				pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
 			WRITE_ONCE(*lm_ptep, pte);
 			pte = __ptep_get(iee_ptep);
 			pte = __pte(pte_val(pte) | PTE_VALID);
@@ -349,7 +355,7 @@ void put_pages_into_iee_block(unsigned long addr, int order)
 	pmdp = pmd_offset(pudp, iee_addr);
 	iee_ptep = pte_offset_kernel(pmdp, iee_addr);
 	/* Valid the IEE mappings of these pages to enable IEE access. */
-	iee_set_sensitive_pte(lm_ptep, iee_ptep, order, use_block_pmd);
+	iee_set_sensitive_pte(lm_ptep, iee_ptep, order, use_block_pmd, false);
 	flush_tlb_kernel_range(addr, addr+PAGE_SIZE*(1 << order));
 	isb();
 }
@@ -382,10 +388,15 @@ void put_pages_into_iee(unsigned long addr, int order)
 	}
 }
 
+void put_pages_into_iee_rw(unsigned long addr, int order)
+{
+	set_iee_address_valid(addr, order);
+}
+
 /* The reverse operation of put_pages_into_iee().
  * Call this function when you are returning pages back to kernel.
  */
-static void remove_pages_from_iee(unsigned long addr, int order)
+void remove_pages_from_iee(unsigned long addr, int order)
 {
 	pgd_t *pgdir = swapper_pg_dir;
 	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
@@ -425,6 +436,9 @@ void set_iee_page_type(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type
 /* See put_pages_into_iee(). */
 void set_iee_page(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type)
 {
+	if (type == IEE_USER_PGTABLE)
+		put_pages_into_iee_rw(addr, order);
+	else
 	put_pages_into_iee(addr, order);
 	iee_set_bitmap_type(addr, 1UL << order, type);
 }
