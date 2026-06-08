@@ -24,7 +24,7 @@ menuconfig MALI_MIDGARD
 	select PM_DEVFREQ
 	select DEVFREQ_THERMAL
 	select FW_LOADER
-	select THERMAL_ACPI
+	select THERMAL_ACPI if ACPI
 	depends on ARM64
 	default y
 	help
