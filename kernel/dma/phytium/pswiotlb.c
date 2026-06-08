@@ -871,6 +871,9 @@ void pswiotlb_store_local_node(struct pci_dev *dev, struct pci_bus *bus)
 	struct p_io_tlb_mem *mem;
 
 	dev->dev.local_node = pcibus_to_node(bus);
+	if (dev->dev.local_node == NUMA_NO_NODE)
+		return;
+
 	/* register pswiotlb resources */
 	dev->dev.dma_p_io_tlb_mem = p_io_tlb_default_mem;
 	nid = dev->dev.local_node;

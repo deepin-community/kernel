@@ -419,6 +419,13 @@ void pswiotlb_setup_dma_ops(struct device *dev)
 	if (dev && dev_is_pci(dev) && (pswiotlb_force_disable != true) &&
 			is_phytium_ps_socs()) {
 		pdev = to_pci_dev(dev);
+		if (pdev->dev.local_node == NUMA_NO_NODE) {
+			pdev->dev.can_use_pswiotlb = false;
+			dev_info(&pdev->dev, "The device %s use pswiotlb because it does NOT belong to a valid NUMA node\n",
+						pdev->dev.can_use_pswiotlb ? "would" : "would NOT");
+			return;
+		}
+
 		pdev->dev.can_use_pswiotlb = pswiotlb_is_dev_in_passthroughlist(pdev);
 		dev_info(&pdev->dev, "The device %s use pswiotlb because vendor 0x%04x %s in pswiotlb passthroughlist\n",
 					pdev->dev.can_use_pswiotlb ? "would" : "would NOT",
