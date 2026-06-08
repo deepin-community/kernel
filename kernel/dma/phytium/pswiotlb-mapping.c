@@ -417,7 +417,7 @@ void pswiotlb_setup_dma_ops(struct device *dev)
 	struct pci_dev *pdev;
 
 	if (dev && dev_is_pci(dev) && (pswiotlb_force_disable != true) &&
-			is_phytium_ps_socs()) {
+			is_phytium_ps_socs() && is_pswiotlb_active(dev)) {
 		pdev = to_pci_dev(dev);
 		if (pdev->dev.local_node == NUMA_NO_NODE) {
 			pdev->dev.can_use_pswiotlb = false;
