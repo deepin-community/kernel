@@ -1123,10 +1123,10 @@ static int pswiotlb_pool_find_slots(struct device *dev, int nid, struct p_io_tlb
 		index = pswiotlb_area_find_slots(dev, nid, pool, i, orig_addr,
 						alloc_size, alloc_align_mask);
 		if (index >= 0) {
-			if ((pool != &p_io_tlb_default_mem[nid].defpool) &&
-						!pool->transient) {
-				bitmap_set(pool->busy_record, i, 1);
-			}
+			if ((pool != &p_io_tlb_default_mem[nid].defpool)
+						&& !pool->transient
+						&& !test_bit(i, pool->busy_record))
+				set_bit(i, pool->busy_record);
 			return index;
 		}
 		if (++i >= pool->nareas)
@@ -1428,8 +1428,9 @@ static void pswiotlb_release_slots(struct device *dev, int nid, phys_addr_t tlb_
 	     i--)
 		mem->slots[i].list = ++count;
 	area->used -= nslots;
-	if ((mem != &p_io_tlb_default_mem[nid].defpool) && (area->used == 0))
-		bitmap_clear(mem->busy_record, aindex, 1);
+	if ((mem != &p_io_tlb_default_mem[nid].defpool) && (area->used == 0)
+				&& test_bit(aindex, mem->busy_record))
+		clear_bit(aindex, mem->busy_record);
 	clear_bit(PG_pswiotlb, &page->flags);
 	spin_unlock_irqrestore(&area->lock, flags);
 }
