@@ -111,3 +111,4 @@ obj-$(CONFIG_NET_VENDOR_PHYTIUM) += phytium/
 obj-$(CONFIG_NET_VENDOR_GRT) += guangruntong/
 obj-$(CONFIG_NET_VENDOR_BZWX) += bzwx/
 obj-$(CONFIG_NET_VENDOR_LINKDATA) += linkdata/
+obj-$(CONFIG_NET_VENDOR_XEL) += xel/

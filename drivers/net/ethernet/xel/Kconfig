@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Xel network device configuration
+#
+
+config NET_VENDOR_XEL
+	bool "Xel devices"
+	default y
+	help
+	  If you have a network (Ethernet) card belonging to this class, say Y.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all
+	  the questions about Xel cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
+
+if NET_VENDOR_XEL
+
+
+config XLNID
+	tristate "Xel(R) 82102/82101 PCI-Express Gigabit Ethernet adapters support"
+	depends on PCI
+	depends on PTP_1588_CLOCK_OPTIONAL
+	select MDIO
+	select PHYLIB
+	help
+	  This driver supports Xel(R) PCI Express family of
+	  adapters.  For more information on how to identify your adapter, go
+	  to the Adapter & Driver ID Guide that can be located at:
+
+	  <http://www.xel-tech.com/>
+
+	  To compile this driver as a module, choose M here. The module
+	  will be called xlnid.
+
+config XLNID_AUTO_MEDIA
+	bool "Auto Media Support"
+	default y
+	depends on XLNID
+	help
+	  Say Y here if you want to use auto media in the driver.
+
+	  If unsure, say Y.
+
+endif # NET_VENDOR_XEL
