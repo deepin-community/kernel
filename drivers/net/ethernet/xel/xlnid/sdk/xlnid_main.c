@@ -9299,7 +9299,7 @@ csum_failed:
 	case offsetof(struct tcphdr, check):
 		type_tucmd = XLNID_ADVTXD_TUCMD_L4T_TCP;
 
-		/* fall through */
+		fallthrough;
 	case offsetof(struct udphdr, check):
 		break;
 #if 0
