@@ -1278,7 +1278,6 @@ EXPORT_SYMBOL_NS_GPL(cxl_mem_create_range_info, CXL);
 
 int cxl_get_dirty_count(struct cxl_memdev_state *mds, u32 *count)
 {
-	struct cxl_mailbox *cxl_mbox = &mds->cxlds.cxl_mbox;
 	struct cxl_mbox_get_health_info_out hi;
 	struct cxl_mbox_cmd mbox_cmd;
 	int rc;
@@ -1289,7 +1288,7 @@ int cxl_get_dirty_count(struct cxl_memdev_state *mds, u32 *count)
 		.payload_out = &hi,
 	};
 
-	rc = cxl_internal_send_cmd(cxl_mbox, &mbox_cmd);
+	rc = cxl_internal_send_cmd(mds, &mbox_cmd);
 	if (!rc)
 		*count = le32_to_cpu(hi.dirty_shutdown_cnt);
 
