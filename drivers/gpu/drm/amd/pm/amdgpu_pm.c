@@ -328,6 +328,17 @@ static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 	return count;
 }
 
+#if defined(CONFIG_LOONGARCH)
+ssize_t amdgpu_set_high_power_dpm_force_performance_level(struct amdgpu_device *adev)
+{
+	if (adev->pm.sysfs_initialized)
+		return amdgpu_set_power_dpm_force_performance_level(adev->dev, NULL, "high", 0);
+
+	DRM_INFO("Failed to config dpm to high performance level\n");
+	return -EINVAL;
+}
+#endif
+
 static ssize_t amdgpu_get_pp_num_states(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)

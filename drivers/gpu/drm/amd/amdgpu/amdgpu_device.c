@@ -3937,6 +3937,9 @@ fence_driver_init:
 	if (r)
 		goto failed;
 
+#if defined(CONFIG_LOONGARCH)
+	amdgpu_set_high_power_dpm_force_performance_level(adev);
+#endif
 	return 0;
 
 release_ras_con:
