@@ -1890,7 +1890,11 @@ static int gfx_v8_0_compute_ring_init(struct amdgpu_device *adev, int ring_id,
 	hw_prio = amdgpu_gfx_is_high_priority_compute_queue(adev, ring) ?
 			AMDGPU_RING_PRIO_2 : AMDGPU_RING_PRIO_DEFAULT;
 	/* type-2 packets are deprecated on MEC, use type-3 instead */
+#ifdef CONFIG_LOONGARCH
+	r = amdgpu_ring_init(adev, ring, 1024*2, &adev->gfx.eop_irq, irq_type,
+#else
 	r = amdgpu_ring_init(adev, ring, 1024, &adev->gfx.eop_irq, irq_type,
+#endif
 			     hw_prio, NULL);
 	if (r)
 		return r;
@@ -1992,7 +1996,11 @@ static int gfx_v8_0_sw_init(void *handle)
 			ring->doorbell_index = adev->doorbell_index.gfx_ring0;
 		}
 
+#ifdef CONFIG_LOONGARCH
+		r = amdgpu_ring_init(adev, ring, 1024*2, &adev->gfx.eop_irq,
+#else
 		r = amdgpu_ring_init(adev, ring, 1024, &adev->gfx.eop_irq,
+#endif
 				     AMDGPU_CP_IRQ_GFX_ME0_PIPE0_EOP,
 				     AMDGPU_RING_PRIO_DEFAULT, NULL);
 		if (r)
@@ -6199,6 +6207,20 @@ static void gfx_v8_0_ring_emit_fence_gfx(struct amdgpu_ring *ring, u64 addr,
 				DATA_SEL(write64bit ? 2 : 1) | INT_SEL(0));
 	amdgpu_ring_write(ring, lower_32_bits(seq));
 	amdgpu_ring_write(ring, upper_32_bits(seq));
+	int i;
+	for (i = 0; i < 9; i++) {
+		amdgpu_ring_write(ring, PACKET3(PACKET3_EVENT_WRITE_EOP, 4));
+		amdgpu_ring_write(ring, (EOP_TCL1_ACTION_EN |
+					EOP_TC_ACTION_EN |
+					EOP_TC_WB_ACTION_EN |
+					EVENT_TYPE(CACHE_FLUSH_AND_INV_TS_EVENT) |
+					EVENT_INDEX(5)));
+		amdgpu_ring_write(ring, addr & 0xfffffffc);
+		amdgpu_ring_write(ring, (upper_32_bits(addr) & 0xffff) |
+					DATA_SEL(write64bit ? 2 : 1) | INT_SEL(0));
+		amdgpu_ring_write(ring, lower_32_bits(seq));
+		amdgpu_ring_write(ring, upper_32_bits(seq));
+	}
 #else
 				DATA_SEL(1) | INT_SEL(0));
 	amdgpu_ring_write(ring, lower_32_bits(seq - 1));
@@ -6940,7 +6962,11 @@ static const struct amdgpu_ring_funcs gfx_v8_0_ring_funcs_gfx = {
 		5 +  /* COND_EXEC */
 		7 +  /* PIPELINE_SYNC */
 		VI_FLUSH_GPU_TLB_NUM_WREG * 5 + 9 + /* VM_FLUSH */
+#ifdef CONFIG_LOONGARCH
+		66 +  /* FENCE for VM_FLUSH */
+#else
 		12 +  /* FENCE for VM_FLUSH */
+#endif
 		20 + /* GDS switch */
 		4 + /* double SWITCH_BUFFER,
 		       the first COND_EXEC jump to the place just
@@ -6952,7 +6978,11 @@ static const struct amdgpu_ring_funcs gfx_v8_0_ring_funcs_gfx = {
 		31 + /*	DE_META */
 		3 + /* CNTX_CTRL */
 		5 + /* HDP_INVL */
+#ifdef CONFIG_LOONGARCH
+		66 + 66 + /* FENCE x2 */
+#else
 		12 + 12 + /* FENCE x2 */
+#endif
 		2 + /* SWITCH_BUFFER */
 		5, /* SURFACE_SYNC */
 	.emit_ib_size =	4, /* gfx_v8_0_ring_emit_ib_gfx */
