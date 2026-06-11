@@ -84,5 +84,7 @@ void amdgpu_pm_sysfs_fini(struct amdgpu_device *adev);
 void amdgpu_pm_virt_sysfs_fini(struct amdgpu_device *adev);
 
 void amdgpu_debugfs_pm_init(struct amdgpu_device *adev);
-
+#if defined(CONFIG_LOONGARCH)
+ssize_t amdgpu_set_high_power_dpm_force_performance_level(struct amdgpu_device *adev);
+#endif
 #endif
