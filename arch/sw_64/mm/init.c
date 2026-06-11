@@ -37,8 +37,6 @@ struct numa_node_desc_t numa_nodes_desc[1];
  */
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] __page_aligned_bss;
 EXPORT_SYMBOL(empty_zero_page);
-pg_data_t *node_data[MAX_NUMNODES] __read_mostly;
-EXPORT_SYMBOL(node_data);
 
 pgd_t swapper_pg_dir[1024]	__aligned(PAGE_SIZE);
 static pud_t vmalloc_pud[1024]	__aligned(PAGE_SIZE);

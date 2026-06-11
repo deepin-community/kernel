@@ -3,6 +3,7 @@
 generic-$(CONFIG_SW64_KERNEL_PAGE_TABLE) += early_ioremap.h
 generic-y += clkdev.h
 generic-y += export.h
+generic-y += mmzone.h
 generic-y += mcs_spinlock.h
 generic-y += param.h
 generic-y += qrwlock.h
