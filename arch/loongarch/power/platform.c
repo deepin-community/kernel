@@ -9,15 +9,38 @@
 #include <asm/bootinfo.h>
 #include <asm/loongson.h>
 
+#include "../drivers/acpi/acpica/aclocal.h"
+
+extern struct acpi_gpe_event_info *gpe_info;
+
 void enable_gpe_wakeup(void)
 {
+	struct list_head *node, *next;
+	u32 data = 0;
+
 	if (acpi_disabled)
 	       return;
 
 	if (acpi_gbl_reduced_hardware)
 	       return;
 
-	acpi_hw_enable_all_wakeup_gpes();
+	if (!gpe_info)
+		return;
+
+	data = readl((void *)gpe_info->register_info->enable_address.address);
+	list_for_each_safe(node, next, &acpi_wakeup_device_list) {
+		struct acpi_device *dev =
+			container_of(node, struct acpi_device, wakeup_list);
+
+		if (!dev->wakeup.flags.valid
+			|| ACPI_STATE_S3 > (u32) dev->wakeup.sleep_state
+			|| !(device_may_wakeup(&dev->dev)
+			|| dev->wakeup.prepare_count))
+			continue;
+
+		data |= (1 << dev->wakeup.gpe_number);
+	}
+	writel(data, (void *)gpe_info->register_info->enable_address.address);
 }
 
 void enable_pci_wakeup(void)

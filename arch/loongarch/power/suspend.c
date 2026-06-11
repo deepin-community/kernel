@@ -15,7 +15,11 @@
 #include <asm/time.h>
 #include <asm/tlbflush.h>
 
+#include "../drivers/acpi/acpica/aclocal.h"
+
 u64 loongarch_suspend_addr;
+static u32 gpe_en_init;
+struct acpi_gpe_event_info *gpe_info;
 
 struct saved_registers {
 	u32 ecfg;
@@ -71,3 +75,60 @@ int loongarch_acpi_suspend(void)
 
 	return 0;
 }
+
+extern struct acpi_gpe_event_info *acpi_ev_get_gpe_event_info(acpi_handle gpe_device,
+							      u32 gpe_number);
+
+static int plat_pm_callback(struct notifier_block *nb, unsigned long action, void *ptr)
+{
+	int ret = 0;
+	u32 data, gpe_en;
+	acpi_event_status gpe_status = 0;
+
+	switch (action) {
+	case PM_POST_SUSPEND:
+		if (!gpe_info)
+			break;
+
+		enable_gpe_wakeup();
+		data = readl((void *)gpe_info->register_info->enable_address.address);
+		gpe_en = gpe_en_init;
+		while (gpe_en) {
+			int bit = __ffs(gpe_en);
+
+			gpe_en &= ~BIT(bit);
+
+			if (acpi_get_gpe_status(NULL, bit, &gpe_status) != AE_OK)
+				continue;
+
+			if (gpe_status & ACPI_EVENT_FLAG_ENABLED)
+				data |= BIT(bit);
+		}
+
+		writel(data, (void *)gpe_info->register_info->enable_address.address);
+
+		break;
+	default:
+		break;
+	}
+
+	return notifier_from_errno(ret);
+}
+
+static int __init plat_pm_post_init(void)
+{
+
+	if (acpi_disabled || acpi_gbl_reduced_hardware)
+		return 0;
+
+	gpe_info = acpi_ev_get_gpe_event_info(NULL, 0);
+	if (!gpe_info)
+		return 0;
+	gpe_en_init = readl((void *)gpe_info->register_info->enable_address.address);
+
+	enable_gpe_wakeup();
+	pm_notifier(plat_pm_callback, -INT_MAX);
+
+	return 0;
+}
+late_initcall_sync(plat_pm_post_init);
