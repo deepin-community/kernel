@@ -716,6 +716,9 @@ struct Scsi_Host {
 	 */
 	struct device *dma_dev;
 
+	/* Used for an rcu-synchronizing eh wakeup */
+	struct work_struct eh_work;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -725,6 +728,7 @@ struct Scsi_Host {
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
 	DEEPIN_KABI_RESERVE(9)
+
 	/*
 	 * We should ensure that this is aligned, both for better performance
 	 * and also because some compilers (m68k) don't automatically force
