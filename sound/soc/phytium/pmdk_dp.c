@@ -31,21 +31,21 @@ static const struct snd_soc_dapm_route pmdk_dp_audio_map[] = {
 
 static struct snd_soc_jack_pin dp0_pins[] = {
 	{
-		.pin	= "DP/HDMI 0",
+		.pin	= "HDMI/DP,pcm=0",
 		.mask	= SND_JACK_LINEOUT,
 	},
 };
 
 static struct snd_soc_jack_pin dp1_pins[] = {
 	{
-		.pin	= "DP/HDMI 1",
+		.pin	= "HDMI/DP,pcm=1",
 		.mask	= SND_JACK_LINEOUT,
 	},
 };
 
 static struct snd_soc_jack_pin dp2_pins[] = {
 	{
-		.pin	= "DP/HDMI 2",
+		.pin	= "HDMI/DP,pcm=2",
 		.mask	= SND_JACK_LINEOUT,
 	},
 };
@@ -60,7 +60,7 @@ static int pmdk_dp0_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(runtime, 0)->component;
 	int ret;
 
-	ret = snd_soc_card_jack_new_pins(card, "DP/HDMI 0",
+	ret = snd_soc_card_jack_new_pins(card, "HDMI/DP,pcm=0",
 					 SND_JACK_LINEOUT, &priv->jack0,
 					 dp0_pins, ARRAY_SIZE(dp0_pins));
 	if (ret) {
@@ -79,7 +79,7 @@ static int pmdk_dp1_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(runtime, 0)->component;
 	int ret;
 
-	ret = snd_soc_card_jack_new_pins(card, "DP/HDMI 1",
+	ret = snd_soc_card_jack_new_pins(card, "HDMI/DP,pcm=1",
 					 SND_JACK_LINEOUT, &priv->jack1,
 					 dp1_pins, ARRAY_SIZE(dp1_pins));
 	if (ret) {
@@ -98,7 +98,7 @@ static int pmdk_dp2_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(runtime, 0)->component;
 	int ret;
 
-	ret = snd_soc_card_jack_new_pins(card, "DP/HDMI 2",
+	ret = snd_soc_card_jack_new_pins(card, "HDMI/DP,pcm=2",
 					 SND_JACK_LINEOUT, &priv->jack2,
 					 dp2_pins, ARRAY_SIZE(dp2_pins));
 	if (ret) {
