@@ -754,13 +754,17 @@ void mlock_drain_remote(int cpu);
 
 extern pmd_t maybe_pmd_mkwrite(pmd_t pmd, struct vm_area_struct *vma);
 
-/*
- * Return the start of user virtual address at the specific offset within
- * a vma.
+/**
+ * vma_address - Find the virtual address a page range is mapped at
+ * @vma: The vma which maps this object.
+ * @pgoff: The page offset within its object.
+ * @nr_pages: The number of pages to consider.
+ *
+ * If any page in this range is mapped by this VMA, return the first address
+ * where any of these pages appear.  Otherwise, return -EFAULT.
  */
-static inline unsigned long
-vma_pgoff_address(pgoff_t pgoff, unsigned long nr_pages,
-		  struct vm_area_struct *vma)
+static inline unsigned long vma_address(struct vm_area_struct *vma,
+		pgoff_t pgoff, unsigned long nr_pages)
 {
 	unsigned long address;
 
@@ -777,18 +781,6 @@ vma_pgoff_address(pgoff_t pgoff, unsigned long nr_pages,
 		address = -EFAULT;
 	}
 	return address;
-}
-
-/*
- * Return the start of user virtual address of a page within a vma.
- * Returns -EFAULT if all of the page is outside the range of vma.
- * If page is a compound head, the entire compound page is considered.
- */
-static inline unsigned long
-vma_address(struct page *page, struct vm_area_struct *vma)
-{
-	VM_BUG_ON_PAGE(PageKsm(page), page);	/* KSM page->index unusable */
-	return vma_pgoff_address(page_to_pgoff(page), compound_nr(page), vma);
 }
 
 /*
@@ -912,6 +904,9 @@ static inline int find_next_best_node(int node, nodemask_t *used_node_mask)
 /*
  * mm/memory-failure.c
  */
+#ifdef CONFIG_MEMORY_FAILURE
+void unmap_poisoned_folio(struct folio *folio, enum ttu_flags ttu);
+void shake_folio(struct folio *folio);
 extern int hwpoison_filter(struct page *p);
 
 extern u32 hwpoison_filter_dev_major;
@@ -920,6 +915,12 @@ extern u64 hwpoison_filter_flags_mask;
 extern u64 hwpoison_filter_flags_value;
 extern u64 hwpoison_filter_memcg;
 extern u32 hwpoison_filter_enable;
+
+#else
+static inline void unmap_poisoned_folio(struct folio *folio, enum ttu_flags ttu)
+{
+}
+#endif
 
 extern unsigned long  __must_check vm_mmap_pgoff(struct file *, unsigned long,
         unsigned long, unsigned long,
