@@ -42,6 +42,7 @@
 #include <linux/file.h>
 #include <linux/module.h>
 #include <linux/atomic.h>
+#include <linux/cgroup_dmem.h>
 #include <linux/dma-resv.h>
 
 #include "ttm_module.h"
@@ -662,7 +663,239 @@ int ttm_mem_evict_first(struct ttm_device *bdev,
 }
 
 /**
- * ttm_bo_pin - Pin the buffer object.
+ * struct ttm_bo_alloc_state - State for a TTM BO allocation attempt
+ *
+ * @charge_pool: The memory pool the resource is charged to
+ * @limit_pool: Which pool limit we should test against
+ * @in_evict: Whether we are currently evicting buffers
+ * @may_try_low: If only unprotected BOs should be considered for eviction
+ */
+struct ttm_bo_alloc_state {
+	struct dmem_cgroup_pool_state *charge_pool;
+	struct dmem_cgroup_pool_state *limit_pool;
+	bool in_evict;
+	bool may_try_low;
+};
+
+/**
+ * ttm_bo_alloc_at_place - Attempt allocating a BO's backing store in a place
+ *
+ * @bo: The buffer to allocate the backing store of
+ * @place: The place to attempt allocation in
+ * @ctx: ttm_operation_ctx associated with this allocation
+ * @force_space: If we should evict buffers to force space
+ * @res: On allocation success, the resulting struct ttm_resource.
+ * @alloc_state: Object holding allocation state such as charged cgroups.
+ *
+ * Returns:
+ * -EBUSY: No space available, but allocation should be retried with eviction.
+ * -ENOSPC: No space available, allocation should not be retried.
+ * -ERESTARTSYS: An interruptible sleep was interrupted by a signal.
+ */
+static int ttm_bo_alloc_at_place(struct ttm_buffer_object *bo,
+				 const struct ttm_place *place,
+				 struct ttm_operation_ctx *ctx,
+				 bool force_space,
+				 struct ttm_resource **res,
+				 struct ttm_bo_alloc_state *alloc_state)
+{
+	bool may_evict;
+	int ret;
+
+	may_evict = !alloc_state->in_evict && force_space &&
+		    place->mem_type != TTM_PL_SYSTEM;
+
+	if (!alloc_state->charge_pool) {
+		ret = ttm_resource_try_charge(bo, place, &alloc_state->charge_pool,
+					      force_space ? &alloc_state->limit_pool
+							  : NULL);
+		if (ret) {
+			if (ret == -EAGAIN)
+				ret = may_evict ? -EBUSY : -ENOSPC;
+			return ret;
+		}
+	}
+
+	/*
+	 * When the cgroup's memory usage is below the low/min limit,
+	 * try evicting unprotected buffers to make space. Otherwise,
+	 * application buffers may be forced to go into GTT even though
+	 * usage is below the corresponding low/min limit.
+	 */
+	if (!alloc_state->in_evict) {
+		may_evict |= dmem_cgroup_below_min(NULL, alloc_state->charge_pool);
+		alloc_state->may_try_low = may_evict;
+
+		may_evict |= dmem_cgroup_below_low(NULL, alloc_state->charge_pool);
+	}
+
+	ret = ttm_resource_alloc(bo, place, res, alloc_state->charge_pool);
+	if (ret) {
+		if (ret == -ENOSPC && may_evict)
+			ret = -EBUSY;
+		return ret;
+	}
+
+	/* Ownership of charge_pool has been transferred to the TTM resource */
+	alloc_state->charge_pool = NULL;
+	return 0;
+}
+
+/**
+ * ttm_bo_evict_valuable_dmem - Check if BO eviction is valuable considering dmem cgroup
+ *
+ * @bo: The buffer object being considered for eviction
+ * @alloc_state: State of the allocation attempt
+ * @try_low: Whether to consider low-protected BOs
+ * @hit_low: Set to true if we skipped a low-protected BO
+ *
+ * Returns true if the BO should be considered for eviction.
+ */
+static bool ttm_bo_evict_valuable_dmem(struct ttm_buffer_object *bo,
+					struct ttm_bo_alloc_state *alloc_state,
+					bool try_low, bool *hit_low)
+{
+	struct dmem_cgroup_pool_state *limit_pool, *ancestor = NULL;
+	bool evict_valuable;
+
+	if (!alloc_state)
+		return true;
+
+	/* Skip BOs from the same cgroup when not trying low-protected ones */
+	if (!alloc_state->may_try_low &&
+	    bo->resource->css == alloc_state->charge_pool)
+		return false;
+
+	limit_pool = alloc_state->limit_pool;
+	/*
+	 * If there is no explicit limit pool, find the root of the shared
+	 * subtree between evictor and evictee for correct protection
+	 * calculation.
+	 */
+	if (!limit_pool) {
+		ancestor = dmem_cgroup_get_common_ancestor(bo->resource->css,
+							   alloc_state->charge_pool);
+		limit_pool = ancestor;
+	}
+
+	evict_valuable = dmem_cgroup_state_evict_valuable(limit_pool,
+							  bo->resource->css,
+							  try_low, hit_low);
+	if (ancestor)
+		dmem_cgroup_pool_state_put(ancestor);
+
+	return evict_valuable;
+}
+
+/**
+ * ttm_mem_evict_first_dmem - Evict first BO considering dmem cgroup protection
+ *
+ * Same as ttm_mem_evict_first but skips BOs protected by dmem cgroup.
+ */
+static int ttm_mem_evict_first_dmem(struct ttm_device *bdev,
+				    struct ttm_resource_manager *man,
+				    const struct ttm_place *place,
+				    struct ttm_operation_ctx *ctx,
+				    struct ww_acquire_ctx *ticket,
+				    struct ttm_bo_alloc_state *alloc_state)
+{
+	struct ttm_buffer_object *bo = NULL, *busy_bo = NULL;
+	struct ttm_resource_cursor cursor;
+	struct ttm_resource *res;
+	bool locked = false;
+	bool hit_low = false;
+	int ret;
+
+	spin_lock(&bdev->lru_lock);
+	ttm_resource_manager_for_each_res(man, &cursor, res) {
+		bool busy;
+
+		if (!ttm_bo_evict_swapout_allowable(res->bo, ctx, place,
+						    &locked, &busy)) {
+			if (busy && !busy_bo && ticket !=
+			    dma_resv_locking_ctx(res->bo->base.resv))
+				busy_bo = res->bo;
+			continue;
+		}
+
+		/* Check dmem cgroup protection */
+		if (!ttm_bo_evict_valuable_dmem(res->bo, alloc_state,
+						false, &hit_low)) {
+			if (locked) {
+				dma_resv_unlock(res->bo->base.resv);
+				locked = false;
+			}
+			continue;
+		}
+
+		if (ttm_bo_get_unless_zero(res->bo)) {
+			bo = res->bo;
+			break;
+		}
+		if (locked)
+			dma_resv_unlock(res->bo->base.resv);
+	}
+
+	/* If we hit low-protected BOs and may_try_low, retry with try_low */
+	if (!bo && hit_low && alloc_state && alloc_state->may_try_low) {
+		ttm_resource_cursor_fini(&cursor);
+		ttm_resource_manager_for_each_res(man, &cursor, res) {
+			bool busy;
+
+			if (!ttm_bo_evict_swapout_allowable(res->bo, ctx, place,
+							    &locked, &busy)) {
+				if (busy && !busy_bo && ticket !=
+				    dma_resv_locking_ctx(res->bo->base.resv))
+					busy_bo = res->bo;
+				continue;
+			}
+
+			if (!ttm_bo_evict_valuable_dmem(res->bo, alloc_state,
+							true, &hit_low)) {
+				if (locked) {
+					dma_resv_unlock(res->bo->base.resv);
+					locked = false;
+				}
+				continue;
+			}
+
+			if (ttm_bo_get_unless_zero(res->bo)) {
+				bo = res->bo;
+				break;
+			}
+			if (locked)
+				dma_resv_unlock(res->bo->base.resv);
+		}
+	}
+
+	if (!bo) {
+		if (busy_bo && !ttm_bo_get_unless_zero(busy_bo))
+			busy_bo = NULL;
+		spin_unlock(&bdev->lru_lock);
+		ret = ttm_mem_evict_wait_busy(busy_bo, ctx, ticket);
+		if (busy_bo)
+			ttm_bo_put(busy_bo);
+		return ret;
+	}
+
+	if (bo->deleted) {
+		ret = ttm_bo_cleanup_refs(bo, ctx->interruptible,
+					  ctx->no_wait_gpu, locked);
+		ttm_bo_put(bo);
+		return ret;
+	}
+
+	spin_unlock(&bdev->lru_lock);
+
+	ret = ttm_bo_evict(bo, ctx);
+	if (locked)
+		ttm_bo_unreserve(bo);
+	else
+		ttm_bo_move_to_lru_tail_unlocked(bo);
+
+	ttm_bo_put(bo);
+	return ret;
+}
  * @bo: The buffer object to pin
  *
  * Make sure the buffer is not evicted any more during memory pressure.
@@ -740,7 +973,8 @@ static int ttm_bo_add_move_fence(struct ttm_buffer_object *bo,
 static int ttm_bo_mem_force_space(struct ttm_buffer_object *bo,
 				  const struct ttm_place *place,
 				  struct ttm_resource **mem,
-				  struct ttm_operation_ctx *ctx)
+				  struct ttm_operation_ctx *ctx,
+				  struct ttm_bo_alloc_state *alloc_state)
 {
 	struct ttm_device *bdev = bo->bdev;
 	struct ttm_resource_manager *man;
@@ -749,19 +983,38 @@ static int ttm_bo_mem_force_space(struct ttm_buffer_object *bo,
 
 	man = ttm_manager_type(bdev, place->mem_type);
 	ticket = dma_resv_locking_ctx(bo->base.resv);
+
+	if (alloc_state)
+		alloc_state->in_evict = true;
+
 	do {
-		ret = ttm_resource_alloc(bo, place, mem);
-		if (likely(!ret))
+		ret = ttm_resource_alloc(bo, place, mem,
+					 alloc_state ? alloc_state->charge_pool : NULL);
+		if (likely(!ret)) {
+			if (alloc_state)
+				alloc_state->charge_pool = NULL;
 			break;
+		}
 		if (unlikely(ret != -ENOSPC))
-			return ret;
-		ret = ttm_mem_evict_first(bdev, man, place, ctx,
-					  ticket);
+			goto out;
+		if (alloc_state && man->cg) {
+			ret = ttm_mem_evict_first_dmem(bdev, man, place, ctx,
+						       ticket, alloc_state);
+		} else {
+			ret = ttm_mem_evict_first(bdev, man, place, ctx,
+						  ticket);
+		}
 		if (unlikely(ret != 0))
-			return ret;
+			goto out;
 	} while (1);
 
+	if (alloc_state)
+		alloc_state->in_evict = false;
 	return ttm_bo_add_move_fence(bo, man, *mem, ctx->no_wait_gpu);
+out:
+	if (alloc_state)
+		alloc_state->in_evict = false;
+	return ret;
 }
 
 /**
@@ -797,6 +1050,7 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 
 	for (i = 0; i < placement->num_placement; ++i) {
 		const struct ttm_place *place = &placement->placement[i];
+		struct ttm_bo_alloc_state alloc_state = {};
 		struct ttm_resource_manager *man;
 
 		man = ttm_manager_type(bdev, place->mem_type);
@@ -804,11 +1058,32 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 			continue;
 
 		type_found = true;
-		ret = ttm_resource_alloc(bo, place, mem);
-		if (ret == -ENOSPC)
+		ret = ttm_bo_alloc_at_place(bo, place, ctx, false, mem,
+					    &alloc_state);
+		if (ret == -ENOSPC) {
+			dmem_cgroup_uncharge(alloc_state.charge_pool, bo->base.size);
+			dmem_cgroup_pool_state_put(alloc_state.limit_pool);
 			continue;
-		if (unlikely(ret))
+		}
+		if (ret == -EBUSY) {
+			/* Allocation below protection limit or force_space needed */
+			ret = ttm_bo_mem_force_space(bo, place, mem, ctx,
+						     &alloc_state);
+			dmem_cgroup_pool_state_put(alloc_state.limit_pool);
+			if (ret) {
+				dmem_cgroup_uncharge(alloc_state.charge_pool,
+						     bo->base.size);
+				if (ret == -EBUSY)
+					continue;
+				goto error;
+			}
+			return 0;
+		}
+		if (unlikely(ret)) {
+			dmem_cgroup_uncharge(alloc_state.charge_pool, bo->base.size);
+			dmem_cgroup_pool_state_put(alloc_state.limit_pool);
 			goto error;
+		}
 
 		ret = ttm_bo_add_move_fence(bo, man, *mem, ctx->no_wait_gpu);
 		if (unlikely(ret)) {
@@ -823,6 +1098,7 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 
 	for (i = 0; i < placement->num_busy_placement; ++i) {
 		const struct ttm_place *place = &placement->busy_placement[i];
+		struct ttm_bo_alloc_state alloc_state = {};
 		struct ttm_resource_manager *man;
 
 		man = ttm_manager_type(bdev, place->mem_type);
@@ -830,12 +1106,15 @@ int ttm_bo_mem_space(struct ttm_buffer_object *bo,
 			continue;
 
 		type_found = true;
-		ret = ttm_bo_mem_force_space(bo, place, mem, ctx);
-		if (likely(!ret))
+		ret = ttm_bo_mem_force_space(bo, place, mem, ctx, &alloc_state);
+		dmem_cgroup_pool_state_put(alloc_state.limit_pool);
+		if (ret) {
+			dmem_cgroup_uncharge(alloc_state.charge_pool, bo->base.size);
+			if (ret != -EBUSY)
+				goto error;
+		} else {
 			return 0;
-
-		if (ret && ret != -EBUSY)
-			goto error;
+		}
 	}
 
 	ret = -ENOSPC;
@@ -1184,7 +1463,7 @@ int ttm_bo_swapout(struct ttm_buffer_object *bo, struct ttm_operation_ctx *ctx,
 
 		memset(&hop, 0, sizeof(hop));
 		place.mem_type = TTM_PL_SYSTEM;
-		ret = ttm_resource_alloc(bo, &place, &evict_mem);
+		ret = ttm_resource_alloc(bo, &place, &evict_mem, NULL);
 		if (unlikely(ret))
 			goto out;
 
