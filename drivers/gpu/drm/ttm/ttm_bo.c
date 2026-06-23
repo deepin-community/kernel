@@ -580,6 +580,7 @@ static int ttm_bo_alloc_at_place(struct ttm_buffer_object *bo,
 	 * 'min' protections.
 	 */
 	if (!alloc_state->in_evict) {
+		if (alloc_state->charge_pool) {
 		may_evict |= dmem_cgroup_below_min(NULL, alloc_state->charge_pool);
 		alloc_state->may_try_low = may_evict;
 
@@ -640,8 +641,9 @@ static s64 ttm_bo_evict_cb(struct ttm_lru_walk *walk, struct ttm_buffer_object *
 	 * even though dmem_cgroup_state_evict_valuable would allow the eviction because a
 	 * cgroup is always allowed to evict from itself even if it is protected.
 	 */
-	if (!evict_walk->alloc_state->may_try_low &&
-			bo->resource->css == evict_walk->alloc_state->charge_pool)
+	if (evict_walk->alloc_state->charge_pool &&
+	    !evict_walk->alloc_state->may_try_low &&
+	    bo->resource->css == evict_walk->alloc_state->charge_pool)
 		return 0;
 
 	limit_pool = evict_walk->alloc_state->limit_pool;
@@ -664,9 +666,13 @@ static s64 ttm_bo_evict_cb(struct ttm_lru_walk *walk, struct ttm_buffer_object *
 		limit_pool = ancestor;
 	}
 
-	evict_valuable = dmem_cgroup_state_evict_valuable(limit_pool, bo->resource->css,
-							  evict_walk->try_low,
-							  &evict_walk->hit_low);
+	if (!bo->resource->css) {
+		evict_valuable = true;
+	} else {
+		evict_valuable = dmem_cgroup_state_evict_valuable(limit_pool, bo->resource->css,
+								  evict_walk->try_low,
+								  &evict_walk->hit_low);
+	}
 	if (ancestor)
 		dmem_cgroup_pool_state_put(ancestor);
 
