@@ -231,15 +231,13 @@ struct ttm_resource {
 	struct ttm_buffer_object *bo;
 
 	/**
-	 * @css: cgroup state this resource is charged to
-	 */
-	struct dmem_cgroup_pool_state *css;
-
-	/**
 	 * @lru: Least recently used list, see &ttm_resource_manager.lru
 	 */
 	struct list_head lru;
-	DEEPIN_KABI_RESERVE(2)
+	/**
+	 * @css: cgroup state this resource is charged to
+	 */
+	struct dmem_cgroup_pool_state *css;
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 };

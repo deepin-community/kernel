@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright © 2023-2024 Intel Corporation
  */

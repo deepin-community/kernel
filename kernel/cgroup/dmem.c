@@ -552,6 +552,7 @@ get_cg_pool_unlocked(struct dmemcg_state *cg, struct dmem_cgroup_region *region)
 				pool = NULL;
 				continue;
 			}
+				return ERR_PTR(-ENOMEM);
 		}
 	}
 
@@ -592,7 +593,7 @@ EXPORT_SYMBOL_GPL(dmem_cgroup_uncharge);
  *
  * When this function fails with -EAGAIN and @ret_limit_pool is non-null, it
  * will be set to the pool for which the limit is hit. This can be used for
- * eviction as argument to dmem_cgroup_evict_valuable(). This reference must be freed
+ * eviction as argument to dmem_cgroup_state_evict_valuable(). This reference must be freed
  * with @dmem_cgroup_pool_state_put().
  *
  * Return: 0 on success, -EAGAIN on hitting a limit, or a negative errno on failure.
@@ -652,6 +653,9 @@ EXPORT_SYMBOL_GPL(dmem_cgroup_try_charge);
 bool dmem_cgroup_below_min(struct dmem_cgroup_pool_state *root,
 			   struct dmem_cgroup_pool_state *test)
 {
+	if (!test)
+		return false;
+
 	if (root == test || !pool_parent(test))
 		return false;
 
@@ -683,6 +687,9 @@ EXPORT_SYMBOL_GPL(dmem_cgroup_below_min);
 bool dmem_cgroup_below_low(struct dmem_cgroup_pool_state *root,
 			   struct dmem_cgroup_pool_state *test)
 {
+	if (!test)
+		return false;
+
 	if (root == test || !pool_parent(test))
 		return false;
 
@@ -706,7 +713,7 @@ EXPORT_SYMBOL_GPL(dmem_cgroup_below_low);
 /**
  * dmem_cgroup_get_common_ancestor(): Find the first common ancestor of two pools.
  * @a: First pool to find the common ancestor of.
- * @b: First pool to find the common ancestor of.
+ * @b: Second pool to find the common ancestor of.
  *
  * Return: The first pool that is a parent of both @a and @b, or NULL if either @a or @b are NULL,
  * or if such a pool does not exist. A reference to the returned pool is grabbed and must be
@@ -717,6 +724,7 @@ struct dmem_cgroup_pool_state *dmem_cgroup_get_common_ancestor(struct dmem_cgrou
 {
 	struct cgroup *ancestor_cgroup;
 	struct cgroup_subsys_state *ancestor_css;
+	struct dmem_cgroup_pool_state *pool;
 
 	if (!a || !b)
 		return NULL;
@@ -728,7 +736,12 @@ struct dmem_cgroup_pool_state *dmem_cgroup_get_common_ancestor(struct dmem_cgrou
 	ancestor_css = cgroup_e_css(ancestor_cgroup, &dmem_cgrp_subsys);
 	css_get(ancestor_css);
 
-	return get_cg_pool_unlocked(css_to_dmemcs(ancestor_css), a->region);
+	pool = get_cg_pool_unlocked(css_to_dmemcs(ancestor_css), a->region);
+	if (IS_ERR_OR_NULL(pool)) {
+		css_put(ancestor_css);
+		return NULL;
+	}
+	return pool;
 }
 EXPORT_SYMBOL_GPL(dmem_cgroup_get_common_ancestor);
 
@@ -787,6 +800,8 @@ static ssize_t dmemcg_limit_write(struct kernfs_open_file *of,
 			continue;
 
 		region_name = strsep(&options, " \t");
+		if (!options)
+			return -EINVAL;
 		if (!region_name[0])
 			continue;
 
@@ -833,7 +848,7 @@ static int dmemcg_limit_show(struct seq_file *sf, void *v,
 
 		val = fn(pool);
 		if (val < PAGE_COUNTER_MAX)
-			seq_printf(sf, " %lld\n", val);
+			seq_printf(sf, " %llu\n", val);
 		else
 			seq_puts(sf, " max\n");
 	}

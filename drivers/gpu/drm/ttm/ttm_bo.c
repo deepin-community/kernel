@@ -722,7 +722,7 @@ static int ttm_bo_alloc_at_place(struct ttm_buffer_object *bo,
 	 * application buffers may be forced to go into GTT even though
 	 * usage is below the corresponding low/min limit.
 	 */
-	if (!alloc_state->in_evict) {
+	if (!alloc_state->in_evict && alloc_state->charge_pool) {
 		may_evict |= dmem_cgroup_below_min(NULL, alloc_state->charge_pool);
 		alloc_state->may_try_low = may_evict;
 
@@ -762,7 +762,8 @@ static bool ttm_bo_evict_valuable_dmem(struct ttm_buffer_object *bo,
 		return true;
 
 	/* Skip BOs from the same cgroup when not trying low-protected ones */
-	if (!alloc_state->may_try_low &&
+	if (alloc_state->charge_pool &&
+	    !alloc_state->may_try_low &&
 	    bo->resource->css == alloc_state->charge_pool)
 		return false;
 
@@ -984,8 +985,19 @@ static int ttm_bo_mem_force_space(struct ttm_buffer_object *bo,
 	man = ttm_manager_type(bdev, place->mem_type);
 	ticket = dma_resv_locking_ctx(bo->base.resv);
 
-	if (alloc_state)
+	if (alloc_state) {
 		alloc_state->in_evict = true;
+		/* Ensure we have a charge_pool for this allocation */
+		if (man->cg && !alloc_state->charge_pool) {
+			ret = ttm_resource_try_charge(bo, place,
+						      &alloc_state->charge_pool,
+						      &alloc_state->limit_pool);
+			if (ret) {
+				alloc_state->in_evict = false;
+				return ret;
+			}
+		}
+	}
 
 	do {
 		ret = ttm_resource_alloc(bo, place, mem,
