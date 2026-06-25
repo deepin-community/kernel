@@ -951,22 +951,20 @@ static void fill_cred_for_session_keyring(struct cred *new,
 	new->process_keyring	= key_get(old->process_keyring);
 }
 
-/*
- * Replace a process's session keyring on behalf of one of its children when
- * the target  process is about to resume userspace execution.
- */
 void key_change_session_keyring(struct callback_head *twork)
 {
 	const struct cred *old = current_cred();
-	#ifdef CONFIG_CREDP
-	struct cred *new =NULL;
-	if(haoc_enabled)
+
+#ifdef CONFIG_CREDP
+	struct cred *new = NULL;
+
+	if (haoc_enabled)
 		new = *(struct cred **)(twork + 1);
 	else
 		new = container_of(twork, struct cred, rcu);
-	#else
+#else
 	struct cred *new = container_of(twork, struct cred, rcu);
-	#endif
+#endif
 
 	if (unlikely(current->flags & PF_EXITING)) {
 		put_cred(new);
@@ -980,11 +978,11 @@ void key_change_session_keyring(struct callback_head *twork)
 		return;
 	}
 
-	#ifdef CONFIG_CREDP
+#ifdef CONFIG_CREDP
 	if (haoc_enabled)
 		iee_fill_cred_for_session_keyring(new, old);
 	else
-	#endif
+#endif
 		fill_cred_for_session_keyring(new, old);
 
 	security_transfer_creds(new, old);

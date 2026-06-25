@@ -211,7 +211,7 @@ void __iee_code _iee_copy_kernel_cred(unsigned long __unused, const struct cred 
 	struct cred *_new = __ptr_to_iee(new);
 	//struct task_struct *task = current;
 	/* Would verify this field in commit_cred. */
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = iee_get_task_token(current);
 
 	if (!uid_eq(current_uid(), init_cred.uid))
 		panic("IEE: calling prepare_kernel_cred by unprivileged process.");
@@ -228,7 +228,7 @@ void __iee_code _iee_copy_kernel_cred(unsigned long __unused, const struct cred 
 void _iee_init_copied_cred(unsigned long __unused,
 		struct task_struct *new_task, struct cred *new)
 {
-	struct task_token *old_task_token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *old_task_token = iee_get_task_token(current);
 	//struct task_token *new_task_token = (struct task_token *)__addr_to_iee(new_task);
 
 	if (old_task_token->new_cred != new)
@@ -243,7 +243,7 @@ void _iee_init_copied_cred(unsigned long __unused,
 void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 {
 	struct task_struct *task = current;
-	struct task_token *token = (struct task_token *)__addr_to_iee(task);
+	struct task_token *token = iee_get_task_token(task);
 
 	if (token->new_cred != new)
 		panic("IEE: (%s) Invalid cred 0x%llx. token->new_cred 0x%llx",
@@ -257,7 +257,7 @@ void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 
 void _iee_abort_cred(unsigned long __unused, const struct cred *cred)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = iee_get_task_token(current);
 
 	token->new_cred = NULL;
 }
@@ -267,7 +267,7 @@ void __iee_code _iee_fill_cred_for_session_keyring(unsigned long __unused,
 						   const struct cred *old)
 {
 	struct cred *_new = __ptr_to_iee(new);
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = iee_get_task_token(current);
 
 	token->new_cred = new;
 	_new->uid = old->uid;
@@ -299,7 +299,7 @@ void _iee_copy_cred(unsigned long __unused, struct cred *new)
 {
 	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
 	struct cred *_new = __ptr_to_iee(new);
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = iee_get_task_token(current);
 	/* Get old cred inside IEE is safer. */
 	const struct cred *old = current_cred();
 	/* Would verify this field in commit_cred. */

@@ -40,6 +40,9 @@ extern bool haoc_init_done;
 		__val = (u64)__kimg_to_iee((u64)x);	\
 	__val;						\
 })
+#ifdef CONFIG_IEE_PTRP
+#define __addr_to_token(x) iee_get_task_token(x)
+#endif
 
 #define IEE_DATA_ORDER (PMD_SHIFT - PAGE_SHIFT)
 #define IEE_STACK_ORDER 0
@@ -54,4 +57,9 @@ extern void iee_early_init(void);
 extern void iee_init(void);
 extern void iee_post_init(void);
 extern bool iee_init_done;
+#ifdef CONFIG_IEE_PTRP
+struct task_struct;
+struct task_token;
+extern struct task_token *iee_get_task_token(struct task_struct *task);
+#endif
 #endif
