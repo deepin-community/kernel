@@ -59,6 +59,10 @@
 #ifdef CONFIG_IEE
 #include <asm/haoc/iee.h>
 #endif
+#ifdef CONFIG_IEE_SIP
+#include <asm/haoc/iee-access.h>
+#include <asm/haoc/iee-si.h>
+#endif
 #include "mm_internal.h"
 
 #include "ident_map.c"
@@ -1408,7 +1412,11 @@ int __init deferred_page_init_max_threads(const struct cpumask *node_cpumask)
 }
 #endif
 
+#ifdef CONFIG_IEE_SIP
+int kernel_set_to_readonly __iee_si_data;
+#else
 int kernel_set_to_readonly;
+#endif
 
 void mark_rodata_ro(void)
 {
@@ -1418,12 +1426,17 @@ void mark_rodata_ro(void)
 	unsigned long text_end = PFN_ALIGN(_etext);
 	unsigned long rodata_end = PFN_ALIGN(__end_rodata);
 	unsigned long all_end;
+#ifdef CONFIG_IEE_SIP
+	int kernel_set_to_readonly_value = 1;
+#endif
 
 	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n",
 	       (end - start) >> 10);
 	set_memory_ro(start, (end - start) >> PAGE_SHIFT);
 
+#ifndef CONFIG_IEE_SIP
 	kernel_set_to_readonly = 1;
+#endif
 
 	/*
 	 * The rodata/data/bss/brk section (but not the kernel text!)
@@ -1456,6 +1469,10 @@ void mark_rodata_ro(void)
 				(void *)rodata_end, (void *)_sdata);
 
 	debug_checkwx();
+#ifdef CONFIG_IEE_SIP
+	iee_memcpy(&kernel_set_to_readonly, &kernel_set_to_readonly_value,
+		   sizeof(int));
+#endif
 }
 
 /*
