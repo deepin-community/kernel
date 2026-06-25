@@ -8,6 +8,7 @@
  */
 
 #include <asm/haoc/haoc-def.h>
+#include <asm/haoc/haoc-bitmap.h>
 #include <asm/haoc/iee.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
@@ -398,6 +399,13 @@ static void remove_pages_from_iee(unsigned long addr, int order)
 	flush_tlb_kernel_range(addr, addr+PAGE_SIZE*(1 << order));
 	flush_tlb_kernel_range(iee_addr, iee_addr+PAGE_SIZE*(1 << order));
 	isb();
+}
+
+/* See put_pages_into_iee(). */
+void set_iee_page_type(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type)
+{
+	put_pages_into_iee(addr, order);
+	iee_set_bitmap_type(addr, 1UL << order, type);
 }
 
 /* See put_pages_into_iee(). */

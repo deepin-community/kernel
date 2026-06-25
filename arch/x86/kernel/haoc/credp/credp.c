@@ -2,6 +2,7 @@
 #include <asm/haoc/haoc-def.h>
 #include <asm/haoc/iee.h>
 #include <linux/cred.h>
+#include <linux/key.h>
 #include <asm/haoc/iee-token.h>
 #include <linux/mm.h>
 #include <asm/haoc/iee-func.h>
@@ -235,6 +236,37 @@ void  _iee_abort_cred(unsigned long __unused, const struct cred *cred)
 	struct task_token *token = (struct task_token *)__addr_to_iee(current);
 
 	token->new_cred = NULL;
+}
+
+void _iee_fill_cred_for_session_keyring(unsigned long __unused, struct cred *new,
+					const struct cred *old)
+{
+	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+
+	token->new_cred = new;
+	new->uid = old->uid;
+	new->euid = old->euid;
+	new->suid = old->suid;
+	new->fsuid = old->fsuid;
+	new->gid = old->gid;
+	new->egid = old->egid;
+	new->sgid = old->sgid;
+	new->fsgid = old->fsgid;
+	new->user = get_uid(old->user);
+	new->ucounts = old->ucounts;
+	new->user_ns = get_user_ns(old->user_ns);
+	new->group_info = get_group_info(old->group_info);
+
+	new->securebits = old->securebits;
+	new->cap_inheritable = old->cap_inheritable;
+	new->cap_permitted = old->cap_permitted;
+	new->cap_effective = old->cap_effective;
+	new->cap_ambient = old->cap_ambient;
+	new->cap_bset = old->cap_bset;
+
+	new->jit_keyring = old->jit_keyring;
+	new->thread_keyring = key_get(old->thread_keyring);
+	new->process_keyring = key_get(old->process_keyring);
 }
 
 void _iee_set_cred_gid(unsigned long __unused, struct cred *cred, kgid_t gid)

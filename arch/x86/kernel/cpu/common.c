@@ -2644,8 +2644,4 @@ void __init arch_cpu_finalize_init(void)
 	 * hypercalls work when the SWIOTLB bounce buffers are decrypted.
 	 */
 	mem_encrypt_init();
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-		iee_sip_init();
-	#endif
 }
