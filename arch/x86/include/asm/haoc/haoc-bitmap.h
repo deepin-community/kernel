@@ -20,6 +20,7 @@ enum HAOC_BITMAP_TYPE {
 	IEE_SIP_DATA,
 	IEE_BITMAP,
 	IEE_VARP,
+	IEE_CRED,
 };
 
 extern void iee_init_bitmap(void);

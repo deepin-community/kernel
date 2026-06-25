@@ -650,7 +650,14 @@ const struct cred *override_creds(const struct cred *new)
 	 * visible to other threads under RCU.
 	 */
 	get_new_cred((struct cred *)new);
+#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_override_creds(new);
+	else
+		rcu_assign_pointer(current->cred, new);
+#else
 	rcu_assign_pointer(current->cred, new);
+#endif
 
 	kdebug("override_creds() = %p{%ld}", old,
 	       atomic_long_read(&old->usage));
@@ -672,7 +679,14 @@ void revert_creds(const struct cred *old)
 	kdebug("revert_creds(%p{%ld})", old,
 	       atomic_long_read(&old->usage));
 
+#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_revert_creds(old);
+	else
+		rcu_assign_pointer(current->cred, old);
+#else
 	rcu_assign_pointer(current->cred, old);
+#endif
 	put_cred(override);
 }
 EXPORT_SYMBOL(revert_creds);
