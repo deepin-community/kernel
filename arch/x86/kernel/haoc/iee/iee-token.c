@@ -91,9 +91,11 @@ struct slab *iee_alloc_task_token_slab(struct kmem_cache *s, struct slab *slab,
 		return slab;
 
 	struct folio *folio = slab_folio(slab);
+	unsigned int task_order = order;
+	unsigned int token_order = IEE_TOKEN_ORDER(task_order);
 	unsigned long token_addr = __slab_to_iee(slab);
 	unsigned long alloc_token =
-		__get_free_pages(GFP_KERNEL | __GFP_ZERO, order);
+		__get_free_pages(GFP_KERNEL | __GFP_ZERO, token_order);
 
 	/* Allocation of task_struct and token pages must be done at the same time. */
 	if (!alloc_token) {
@@ -105,26 +107,26 @@ struct slab *iee_alloc_task_token_slab(struct kmem_cache *s, struct slab *slab,
 		/* Make the mapping reset visible before clearing the flag */
 		smp_wmb();
 		__folio_clear_slab(folio);
-		__free_pages((struct page *)folio, order);
+		__free_pages((struct page *)folio, task_order);
 		return NULL;
 	}
 
 	/* Map allocated token pages to token addresses. */
-	iee_set_token_page_valid(token_addr, alloc_token, order);
+	iee_set_token_page_valid(token_addr, alloc_token, token_order);
 	return slab;
 }
 
 void _iee_set_token_pgd(unsigned long __unused, struct task_struct *tsk,
 			pgd_t *pgd)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)__addr_to_token(tsk);
 
 	token->pgd = pgd;
 }
 
 void _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)__addr_to_token(tsk);
 
 	token->pgd = NULL;
 	token->valid = false;
@@ -132,7 +134,7 @@ void _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
 
 void _iee_validate_token(unsigned long __unused, struct task_struct *tsk)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)__addr_to_token(tsk);
 
 	if (token->valid)
 		pr_err("IEE: validate token for multiple times.");
