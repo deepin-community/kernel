@@ -4,6 +4,7 @@
 #include <asm/haoc/haoc-def.h>
 #include <asm/set_memory.h>
 #include <asm/haoc/iee.h>
+#include <asm/haoc/iee-func.h>
 
 unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 {
@@ -36,9 +37,21 @@ unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 			break;
 		}
 		case IEE_WRITE_CR4: {
+			unsigned long bits_changed = 0;
+
 			val = va_arg(pArgs, u64);
 			val &= ~(X86_CR4_SMEP);
+set_register_cr4:
 			asm volatile("mov %0,%%cr4" : "+r" (val) : : "memory");
+			if (static_branch_likely(&cr_pinning)) {
+				if (unlikely((val & cr4_pinned_mask) != cr4_pinned_bits)) {
+					bits_changed = (val & cr4_pinned_mask) ^ cr4_pinned_bits;
+					val = (val & ~cr4_pinned_mask) | cr4_pinned_bits;
+					goto set_register_cr4;
+				}
+				WARN_ONCE(bits_changed, "pinned CR4 bits changed: 0x%lx!?\n",
+					bits_changed);
+			}
 			break;
 		}
 		case IEE_LOAD_IDT: {
@@ -104,11 +117,11 @@ void __init iee_sip_init(void)
 		_iee_set_kernel_upage((unsigned long)__va(__pa(addr)));
 	}
 	iee_init_done = true;
-	/* Map .iee.data as RO pages */
+	/* Map .iee.si_data as IEE SIP data pages. */
 	start = (unsigned long)__iee_si_data_start;
 	end = (unsigned long)__iee_si_data_end;
 	num_pages = (end - start) / PAGE_SIZE;
-	set_memory_ro(start, num_pages);
+	set_iee_pages(start, num_pages, IEE_SIP_DATA);
 	/* All initialization is done. Do some simple tests. */
 	pr_info("IEE: testing iee_exec_entry si_test...");
 	iee_sip_test();

@@ -200,12 +200,9 @@ static bool __init check_haoc_hardware_support(void)
 }
 
 #ifdef CONFIG_IEE_SIP
-extern unsigned long cr4_pinned_mask;
-
-static void __init iee_setup_cr4_pinning(void)
+static void __init iee_setup_sip_cr4_pinning(void)
 {
-	cr4_pinned_mask = X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
-			  X86_CR4_FSGSBASE | X86_CR4_CET;
+	cr4_pinned_mask &= ~(X86_CR4_SMEP | X86_CR4_SMAP);
 }
 #endif
 
@@ -239,7 +236,7 @@ void __init iee_init(void)
 
 	haoc_enabled = true;
 #ifdef CONFIG_IEE_SIP
-	iee_setup_cr4_pinning();
+	iee_setup_sip_cr4_pinning();
 #endif
 	pr_info("HAOC initialized");
 }
