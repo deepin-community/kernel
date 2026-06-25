@@ -920,12 +920,40 @@ error:
 }
 
 /*
- * Copy the credential fields that a session keyring change needs,
- * reusing cred_alloc_blank()'s blank allocation.
+ * Replace a process's session keyring on behalf of one of its children when
+ * the target  process is about to resume userspace execution.
  */
-static void fill_cred_for_session_keyring(struct cred *new,
-					  const struct cred *old)
+void key_change_session_keyring(struct callback_head *twork)
 {
+	const struct cred *old = current_cred();
+	#ifdef CONFIG_CREDP
+	struct cred *new =NULL;
+	if(haoc_enabled)
+		new = *(struct cred **)(twork + 1);
+	else
+		new = container_of(twork, struct cred, rcu);
+	#else
+	struct cred *new = container_of(twork, struct cred, rcu);
+	#endif
+
+	if (unlikely(current->flags & PF_EXITING)) {
+		put_cred(new);
+		return;
+	}
+
+	/* If get_ucounts fails more bits are needed in the refcount */
+	if (unlikely(!get_ucounts(old->ucounts))) {
+		WARN_ONCE(1, "In %s get_ucounts failed\n", __func__);
+		put_cred(new);
+		return;
+	}
+
+	#ifdef CONFIG_CREDP
+	if (haoc_enabled)
+		iee_fill_cred_for_session_keyring(new, old);
+	else
+	#endif
+	{
 	new->  uid	= old->  uid;
 	new-> euid	= old-> euid;
 	new-> suid	= old-> suid;
@@ -949,41 +977,7 @@ static void fill_cred_for_session_keyring(struct cred *new,
 	new->jit_keyring	= old->jit_keyring;
 	new->thread_keyring	= key_get(old->thread_keyring);
 	new->process_keyring	= key_get(old->process_keyring);
-}
-
-void key_change_session_keyring(struct callback_head *twork)
-{
-	const struct cred *old = current_cred();
-
-#ifdef CONFIG_CREDP
-	struct cred *new = NULL;
-
-	if (haoc_enabled)
-		new = *(struct cred **)(twork + 1);
-	else
-		new = container_of(twork, struct cred, rcu);
-#else
-	struct cred *new = container_of(twork, struct cred, rcu);
-#endif
-
-	if (unlikely(current->flags & PF_EXITING)) {
-		put_cred(new);
-		return;
 	}
-
-	/* If get_ucounts fails more bits are needed in the refcount */
-	if (unlikely(!get_ucounts(old->ucounts))) {
-		WARN_ONCE(1, "In %s get_ucounts failed\n", __func__);
-		put_cred(new);
-		return;
-	}
-
-#ifdef CONFIG_CREDP
-	if (haoc_enabled)
-		iee_fill_cred_for_session_keyring(new, old);
-	else
-#endif
-		fill_cred_for_session_keyring(new, old);
 
 	security_transfer_creds(new, old);
 

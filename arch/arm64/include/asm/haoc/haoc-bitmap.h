@@ -15,6 +15,7 @@ enum HAOC_BITMAP_TYPE {
 	IEE_KEY,
 	IEE_SELINUX,
 	IEE_VARP,
+	IEE_CRED,
 };
 
 #include <linux/mm.h>

@@ -21,6 +21,9 @@
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#ifdef CONFIG_CREDP
+extern void credp_init(void);
+#endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
 unsigned long IEE_OFFSET = 0x200000000000;
@@ -249,6 +252,9 @@ void __init iee_post_init(void)
 	iee_stack_set_ro();
 #ifdef CONFIG_IEE_SIP
 	iee_sip_init();
+#endif
+#ifdef CONFIG_CREDP
+	credp_init();
 #endif
 	haoc_init_done = true;
 }
