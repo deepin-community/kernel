@@ -13,6 +13,7 @@
 #include <linux/hugetlb.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
+#include <asm/haoc/haoc-bitmap.h>
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-asm.h>
 #include <asm/haoc/iee-init.h>
@@ -201,30 +202,22 @@ phys_addr_t __init early_iee_data_alloc(int shift)
 	return iee_early_alloc(&iee_data, 0);
 }
 
+static void iee_clear_pgtable(phys_addr_t phys)
+{
+	void *table = pte_set_fixmap(phys);
+
+	clear_page(table);
+	pte_clear_fixmap();
+}
+
 static phys_addr_t __init early_pgtable_alloc(int shift)
 {
 	phys_addr_t phys;
-	void *ptr;
 
 	phys = memblock_phys_alloc_range(PAGE_SIZE, PAGE_SIZE, 0,
 					 MEMBLOCK_ALLOC_NOLEAKTRACE);
 	if (!phys)
 		panic("Failed to allocate page table page\n");
-
-	/*
-	 * The FIX_{PGD,PUD,PMD} slots may be in active use, but the FIX_PTE
-	 * slot will be free, so we can (ab)use the FIX_PTE slot to initialise
-	 * any level of table.
-	 */
-	ptr = pte_set_fixmap(phys);
-
-	memset(ptr, 0, PAGE_SIZE);
-
-	/*
-	 * Implicit barriers also ensure the zeroed page is visible to the page
-	 * table walker
-	 */
-	pte_clear_fixmap();
 
 	return phys;
 }
@@ -271,6 +264,7 @@ static void iee_alloc_init_cont_pte(pmd_t *pmdp, unsigned long addr,
 			pmdval |= PMD_TABLE_PXN;
 		IEE_CHECK(!pgtable_alloc);
 		pte_phys = pgtable_alloc(PAGE_SHIFT);
+		iee_clear_pgtable(pte_phys);
 		__pmd_populate(pmdp, pte_phys, pmdval);
 		pmd = READ_ONCE(*pmdp);
 	}
@@ -349,6 +343,7 @@ static void iee_alloc_init_cont_pmd(pud_t *pudp, unsigned long addr,
 			pudval |= PUD_TABLE_PXN;
 		IEE_CHECK(!pgtable_alloc);
 		pmd_phys = pgtable_alloc(PMD_SHIFT);
+		iee_clear_pgtable(pmd_phys);
 		__pud_populate(pudp, pmd_phys, pudval);
 		pud = READ_ONCE(*pudp);
 	}
@@ -388,6 +383,7 @@ static void iee_alloc_init_pud(pgd_t *pgdp, unsigned long addr, unsigned long en
 			p4dval |= P4D_TABLE_PXN;
 		IEE_CHECK(!pgtable_alloc);
 		pud_phys = pgtable_alloc(PUD_SHIFT);
+		iee_clear_pgtable(pud_phys);
 		__p4d_populate(p4dp, pud_phys, p4dval);
 		p4d = READ_ONCE(*p4dp);
 	}
@@ -548,6 +544,23 @@ void __init iee_init_mappings(pgd_t *pgdp)
 
 	iee_init_tcr();
 	iee_setup_bootcpu_stack();
+}
+
+static void setup_iee_data_cache_bitmap(struct iee_early_alloc *cache,
+					enum HAOC_BITMAP_TYPE type)
+{
+	int block_nr = cache->curr_block_nr + 1;
+
+	for (int j = 0; j < block_nr; j++) {
+		iee_set_bitmap_type((unsigned long)__va(cache->blocks[j].start),
+				1 << cache->blocks[j].order, type);
+	}
+}
+
+void __init setup_iee_early_data_bitmap(void)
+{
+	setup_iee_data_cache_bitmap(&iee_data, IEE_DATA);
+	setup_iee_data_cache_bitmap(&iee_stack, IEE_DATA);
 }
 
 static void prot_iee_early_data_cache(struct iee_early_alloc *cache)

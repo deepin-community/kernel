@@ -36,6 +36,12 @@ static void __maybe_unused iee_abort_creds(struct cred *cred)
 	iee_rw_gate(IEE_OP_ABORT_CRED, cred);
 }
 
+static void __maybe_unused iee_fill_cred_for_session_keyring(struct cred *new,
+							     const struct cred *old)
+{
+	iee_rw_gate(IEE_OP_FILL_SESSION_KEYRING_CRED, new, old);
+}
+
 static void __maybe_unused iee_commit_creds(const struct cred *new)
 {
 	iee_rw_gate(IEE_OP_COMMIT_CRED, new);

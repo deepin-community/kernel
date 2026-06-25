@@ -3,6 +3,8 @@
 #include <asm/haoc/haoc.h>
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-cred.h>
+#include <linux/key.h>
+#include <linux/user_namespace.h>
 extern struct cred init_cred;
 
 void __iee_code _iee_set_cred_rcu(unsigned long __unused, struct cred *cred,
@@ -258,6 +260,39 @@ void _iee_abort_cred(unsigned long __unused, const struct cred *cred)
 	struct task_token *token = (struct task_token *)__addr_to_iee(current);
 
 	token->new_cred = NULL;
+}
+
+void __iee_code _iee_fill_cred_for_session_keyring(unsigned long __unused,
+						   struct cred *new,
+						   const struct cred *old)
+{
+	struct cred *_new = __ptr_to_iee(new);
+	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+
+	token->new_cred = new;
+	_new->uid = old->uid;
+	_new->euid = old->euid;
+	_new->suid = old->suid;
+	_new->fsuid = old->fsuid;
+	_new->gid = old->gid;
+	_new->egid = old->egid;
+	_new->sgid = old->sgid;
+	_new->fsgid = old->fsgid;
+	_new->user = get_uid(old->user);
+	_new->ucounts = old->ucounts;
+	_new->user_ns = get_user_ns(old->user_ns);
+	_new->group_info = get_group_info(old->group_info);
+
+	_new->securebits = old->securebits;
+	_new->cap_inheritable = old->cap_inheritable;
+	_new->cap_permitted = old->cap_permitted;
+	_new->cap_effective = old->cap_effective;
+	_new->cap_ambient = old->cap_ambient;
+	_new->cap_bset = old->cap_bset;
+
+	_new->jit_keyring = old->jit_keyring;
+	_new->thread_keyring = key_get(old->thread_keyring);
+	_new->process_keyring = key_get(old->process_keyring);
 }
 
 void _iee_copy_cred(unsigned long __unused, struct cred *new)
