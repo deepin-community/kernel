@@ -36,6 +36,8 @@ iee_func iee_funcs[] = {
 	(iee_func)_iee_commit_creds,
 	(iee_func)_iee_abort_cred,
 	(iee_func)_iee_fill_cred_for_session_keyring,
+	(iee_func)_iee_override_creds,
+	(iee_func)_iee_revert_creds,
 	(iee_func)_iee_set_cred_uid,
 	(iee_func)_iee_set_cred_gid,
 	(iee_func)_iee_set_cred_suid,

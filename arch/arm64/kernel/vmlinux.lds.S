@@ -151,7 +151,10 @@ jiffies = jiffies_64;
 #ifdef CONFIG_CREDP
 #define CRED_DATA				\
 	. = ALIGN(PAGE_SIZE);		\
+	__iee_cred_data_start = .;	\
 	*(.iee.cred)				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_cred_data_end = .;		\
 	. = ALIGN(PAGE_SIZE);
 #else
 #define CRED_DATA

@@ -194,6 +194,12 @@ void __init haoc_bitmap_setup(void)
 	num_pages = (end - start) / PAGE_SIZE;
 	iee_set_bitmap_type(start, num_pages, IEE_SELINUX);
 	#endif
+	#ifdef CONFIG_CREDP
+	start = (unsigned long)__iee_cred_data_start;
+	end = (unsigned long)__iee_cred_data_end;
+	num_pages = (end - start) / PAGE_SIZE;
+	iee_set_bitmap_type(start, num_pages, IEE_CRED);
+	#endif
 	#ifdef CONFIG_VARP
 	/* Map .iee.varp as RO pages, the variable need to be protected can be added */
 	start = (unsigned long)__iee_varp_data_start;

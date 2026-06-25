@@ -2168,9 +2168,15 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	 * pages read-only here would trigger faults on those writes.
 	 * Skip enforcing RO for cred slabs when KASAN is enabled.
 	 */
-	if (haoc_enabled && s == cred_jar && !IS_ENABLED(CONFIG_KASAN))
-		set_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
-							oo_order(oo));
+	if (haoc_enabled && s == cred_jar && !IS_ENABLED(CONFIG_KASAN)) {
+	#ifdef CONFIG_X86_64
+		set_iee_pages((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+			      1 << oo_order(oo), IEE_CRED);
+	#else
+		set_iee_page_type((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+				  oo_order(oo), IEE_CRED);
+	#endif
+	}
 #endif
 	account_slab(slab, oo_order(oo), s, flags);
 
@@ -2237,8 +2243,11 @@ static void __free_slab(struct kmem_cache *s, struct slab *slab)
 		iee_free_slab(s, slab, iee_free_cred_slab);
 		return;
 		#else
-		if (!IS_ENABLED(CONFIG_KASAN))
+		if (!IS_ENABLED(CONFIG_KASAN)) {
+			iee_set_bitmap_type((unsigned long)page_address(folio_page(folio, 0)),
+					    pages, IEE_NORMAL);
 			unset_iee_page((unsigned long)page_address(folio_page(folio, 0)), order);
+		}
 		#endif
 	}
 #endif

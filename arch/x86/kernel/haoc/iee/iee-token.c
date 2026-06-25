@@ -129,6 +129,10 @@ void _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
 	struct task_token *token = (struct task_token *)__addr_to_token(tsk);
 
 	token->pgd = NULL;
+#ifdef CONFIG_CREDP
+	token->new_cred = NULL;
+	token->curr_cred = NULL;
+#endif
 	token->valid = false;
 }
 
@@ -138,5 +142,9 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk)
 
 	if (token->valid)
 		pr_err("IEE: validate token for multiple times.");
+#ifdef CONFIG_CREDP
+	token->new_cred = NULL;
+	token->curr_cred = tsk->cred;
+#endif
 	token->valid = true;
 }
