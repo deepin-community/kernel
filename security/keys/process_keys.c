@@ -920,6 +920,38 @@ error:
 }
 
 /*
+ * Copy the credential fields that a session keyring change needs,
+ * reusing cred_alloc_blank()'s blank allocation.
+ */
+static void fill_cred_for_session_keyring(struct cred *new,
+					  const struct cred *old)
+{
+	new->  uid	= old->  uid;
+	new-> euid	= old-> euid;
+	new-> suid	= old-> suid;
+	new->fsuid	= old->fsuid;
+	new->  gid	= old->  gid;
+	new-> egid	= old-> egid;
+	new-> sgid	= old-> sgid;
+	new->fsgid	= old->fsgid;
+	new->user	= get_uid(old->user);
+	new->ucounts	= old->ucounts;
+	new->user_ns	= get_user_ns(old->user_ns);
+	new->group_info	= get_group_info(old->group_info);
+
+	new->securebits	= old->securebits;
+	new->cap_inheritable	= old->cap_inheritable;
+	new->cap_permitted	= old->cap_permitted;
+	new->cap_effective	= old->cap_effective;
+	new->cap_ambient	= old->cap_ambient;
+	new->cap_bset		= old->cap_bset;
+
+	new->jit_keyring	= old->jit_keyring;
+	new->thread_keyring	= key_get(old->thread_keyring);
+	new->process_keyring	= key_get(old->process_keyring);
+}
+
+/*
  * Replace a process's session keyring on behalf of one of its children when
  * the target  process is about to resume userspace execution.
  */
@@ -949,54 +981,11 @@ void key_change_session_keyring(struct callback_head *twork)
 	}
 
 	#ifdef CONFIG_CREDP
-	iee_set_cred_uid(new, old->uid);
-	iee_set_cred_euid(new, old->euid);
-	iee_set_cred_suid(new, old->suid);
-	iee_set_cred_fsuid(new, old->fsuid);
-	iee_set_cred_gid(new, old->gid);
-	iee_set_cred_egid(new, old->egid);
-	iee_set_cred_sgid(new, old->sgid);
-	iee_set_cred_fsgid(new, old->fsgid);
-	iee_set_cred_user(new, get_uid(old->user));
-	iee_set_cred_ucounts(new, old->ucounts);
-	iee_set_cred_user_ns(new, get_user_ns(old->user_ns));
-	iee_set_cred_group_info(new, get_group_info(old->group_info));
-
-	iee_set_cred_securebits(new, old->securebits);
-	iee_set_cred_cap_inheritable(new, old->cap_inheritable);
-	iee_set_cred_cap_permitted(new, old->cap_permitted);
-	iee_set_cred_cap_effective(new, old->cap_effective);
-	iee_set_cred_cap_ambient(new, old->cap_ambient);
-	iee_set_cred_cap_bset(new, old->cap_bset);
-
-	iee_set_cred_jit_keyring(new, old->jit_keyring);
-	iee_set_cred_thread_keyring(new, key_get(old->thread_keyring));
-	iee_set_cred_process_keyring(new, key_get(old->process_keyring));
-	#else
-	new->  uid	= old->  uid;
-	new-> euid	= old-> euid;
-	new-> suid	= old-> suid;
-	new->fsuid	= old->fsuid;
-	new->  gid	= old->  gid;
-	new-> egid	= old-> egid;
-	new-> sgid	= old-> sgid;
-	new->fsgid	= old->fsgid;
-	new->user	= get_uid(old->user);
-	new->ucounts	= old->ucounts;
-	new->user_ns	= get_user_ns(old->user_ns);
-	new->group_info	= get_group_info(old->group_info);
-
-	new->securebits	= old->securebits;
-	new->cap_inheritable	= old->cap_inheritable;
-	new->cap_permitted	= old->cap_permitted;
-	new->cap_effective	= old->cap_effective;
-	new->cap_ambient	= old->cap_ambient;
-	new->cap_bset		= old->cap_bset;
-
-	new->jit_keyring	= old->jit_keyring;
-	new->thread_keyring	= key_get(old->thread_keyring);
-	new->process_keyring	= key_get(old->process_keyring);
+	if (haoc_enabled)
+		iee_fill_cred_for_session_keyring(new, old);
+	else
 	#endif
+		fill_cred_for_session_keyring(new, old);
 
 	security_transfer_creds(new, old);
 

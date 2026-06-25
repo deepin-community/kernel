@@ -14,6 +14,26 @@ config IEE
 		verified in IEE APIs.
 		Needs hardware support FEAT_HPDS.
 
+config IEE_ALLOW_SPLIT_LM
+	bool "Allow IEE split linear mapping"
+	depends on IEE
+	def_bool n
+	help
+		Allow the IEE initialization path to split arm64 linear-map block
+		mappings when a protected range cannot be described safely at the
+		current table level. This is mainly useful for bring-up on layouts
+		where protected code or data crosses an existing block boundary.
+
+config IEE_DEBUG
+	bool "Skip IEE stack switch for debug"
+	depends on IEE
+	def_bool n
+	help
+		Build the arm64 IEE gate with a debug path that skips the IEE stack
+		switch and clears HPD before reporting bad gate state. This keeps
+		early gate failures easier to inspect while debugging IEE bring-up
+		code, and should remain disabled for normal kernels.
+
 config IEE_PTRP
 	bool "Pointer Protection for IEE(IEE_PTRP)"
 	depends on IEE

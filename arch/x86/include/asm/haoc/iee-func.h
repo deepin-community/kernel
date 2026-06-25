@@ -12,7 +12,11 @@
 
 #define HUGE_PMD_ORDER 9
 
+#include <asm/haoc/haoc-bitmap.h>
 #include <linux/slab.h>
+extern void set_iee_pages(unsigned long addr, int num_pages,
+			  enum HAOC_BITMAP_TYPE type);
+extern void unset_iee_pages(unsigned long addr, int num_pages);
 extern void set_iee_page(unsigned long addr, unsigned int order);
 extern void unset_iee_page(unsigned long addr, unsigned int order);
 extern bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab, unsigned int order);

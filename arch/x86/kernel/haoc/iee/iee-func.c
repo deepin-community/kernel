@@ -15,6 +15,18 @@
 #endif
 extern bool haoc_enabled;
 
+void set_iee_pages(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
+{
+	set_memory_ro(addr, num_pages);
+	iee_set_bitmap_type(__pa(addr), num_pages, type);
+}
+
+void unset_iee_pages(unsigned long addr, int num_pages)
+{
+	iee_set_bitmap_type(__pa(addr), num_pages, IEE_NORMAL);
+	set_memory_rw(addr, num_pages);
+}
+
 void set_iee_page(unsigned long addr, unsigned int order)
 {
 	set_memory_ro(addr, 1 << order);
@@ -34,10 +46,13 @@ struct iee_free_slab_work {
 void iee_free_slab(struct kmem_cache *s, struct slab *slab,
 		   void (*do_free_slab)(struct work_struct *work))
 {
-	if(haoc_enabled)
-	return;
 	struct iee_free_slab_work *iee_free_slab_work =
 		kmalloc(sizeof(struct iee_free_slab_work), GFP_ATOMIC);
+
+	if (!iee_free_slab_work) {
+		pr_warn("HAOC: failed to allocate deferred slab free work\n");
+		return;
+	}
 
 	iee_free_slab_work->s = s;
 	iee_free_slab_work->slab = slab;

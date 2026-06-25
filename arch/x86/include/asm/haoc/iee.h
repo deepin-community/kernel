@@ -13,6 +13,8 @@
 #include <linux/percpu.h>
 
 extern unsigned long IEE_OFFSET;
+extern bool haoc_enabled;
+extern bool haoc_init_done;
 #define __iee_pa(x) (__pa(x - IEE_OFFSET))
 #define __phys_to_iee(x) ((void *)(__va(x) + IEE_OFFSET))
 #define __page_to_phys(x) (page_to_pfn(x) << PAGE_SHIFT)
@@ -48,7 +50,8 @@ struct iee_stack {
 DECLARE_PER_CPU(struct iee_stack, iee_stacks);
 
 extern void *alloc_low_pages(unsigned int num);
+extern void iee_early_init(void);
 extern void iee_init(void);
-extern bool haoc_enabled;
+extern void iee_post_init(void);
 extern bool iee_init_done;
 #endif
