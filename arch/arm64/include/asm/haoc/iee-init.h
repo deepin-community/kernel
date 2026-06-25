@@ -16,5 +16,9 @@
 
 extern char iee_init_data_begin[];
 extern char iee_init_data_end[];
+#ifdef CONFIG_CREDP
+extern char __iee_cred_data_start[];
+extern char __iee_cred_data_end[];
+#endif
 
 #endif

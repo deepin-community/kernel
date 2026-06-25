@@ -39,7 +39,8 @@ struct task_token {
 	bool valid;
 	void *kernel_stack; /* VA */
 #ifdef CONFIG_CREDP
-	struct cred *new_cred;	/* The valid target for commit_creds. */
+	const struct cred *new_cred;	/* The valid target for commit_creds. */
+	const struct cred *curr_cred;	/* The current subjective credentials. */
 #endif
 };
 #endif /* CONFIG_IEE */
