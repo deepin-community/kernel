@@ -5210,7 +5210,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 		 */
 #ifdef CONFIG_IEE_PTRP
 		if(haoc_enabled)
-			iee_verify_token_pgd(next);
+			iee_verify_pgd(next);
 #endif
 		switch_mm_irqs_off(prev->active_mm, next->mm, next);
 		lru_gen_use_mm(next->mm);

@@ -27,7 +27,7 @@ static inline void iee_si_check_ttbr0(void)
 {
 	u64 old_ttbr0 = read_sysreg(ttbr0_el1);
 	u64 old_phys = (old_ttbr0 & PAGE_MASK) & ~TTBR_ASID_MASK;
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = (struct task_token *)iee_get_task_token(current);
 	/* Phys in TTBR0 shall be the same with current->mm->pgd. */
 	if (!(current == &init_task) && token->pgd
 		&& old_phys != iee_si_reserved_pg_dir) {

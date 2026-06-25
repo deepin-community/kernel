@@ -9,6 +9,7 @@
 
 #include <asm/haoc/haoc-def.h>
 #include <asm/haoc/haoc-bitmap.h>
+#include <asm/haoc/iee-token.h>
 #include <asm/haoc/iee.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
@@ -436,6 +437,16 @@ unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 	return order;
 }
 
+bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab,
+			unsigned int order)
+{
+#ifdef CONFIG_IEE_PTRP
+	if (s == task_struct_cachep)
+		iee_free_task_token_slab(s, slab, order);
+#endif
+	return false;
+}
+
 void iee_set_min_partial(struct kmem_cache *s)
 {
 	if (!haoc_enabled) {
@@ -478,3 +489,22 @@ asmlinkage void notrace iee_bad_mode(struct pt_regs *regs, int reason,
 
 	panic("bad mode");
 }
+
+#ifdef CONFIG_IEE_PTRP
+struct task_token *iee_get_task_token(struct task_struct *task)
+{
+	unsigned long slab_addr;
+	unsigned long task_addr;
+	unsigned int index;
+
+	if (!__is_lm_address((u64)task))
+		return (struct task_token *)__kimg_to_iee(task);
+
+	slab_addr = (unsigned long)page_to_virt(virt_to_head_page(task));
+	task_addr = (unsigned long)page_to_virt(virt_to_page(task));
+	index = (task_addr - slab_addr) / PAGE_SIZE;
+
+	return (struct task_token *)(__virt_to_iee(slab_addr) +
+				     index * IEE_TOKEN_BLOCK_SIZE);
+}
+#endif

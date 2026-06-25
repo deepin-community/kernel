@@ -67,11 +67,12 @@ static void iee_free_task_struct_slab(struct work_struct *work)
 		container_of(work, struct iee_free_slab_work, work);
 	struct slab *slab = iee_free_slab_work->slab;
 	struct folio *folio = slab_folio(slab);
-	unsigned int order = folio_order(folio);
+	unsigned int task_order = folio_order(folio);
+	unsigned int token_order = IEE_TOKEN_ORDER(task_order);
 	unsigned long token = __slab_to_iee(slab);
-	// Free token.
-	iee_set_token_page_invalid(token, 0, order);
-	__free_pages(&folio->page, order);
+
+	iee_set_token_page_invalid(token, 0, token_order);
+	__free_pages(&folio->page, task_order);
 	kfree(iee_free_slab_work);
 }
 #endif

@@ -11,6 +11,15 @@
 
 extern struct cred init_cred;
 
+static inline struct task_token *credp_task_token(struct task_struct *task)
+{
+#ifdef CONFIG_IEE_PTRP
+	if (haoc_init_done)
+		return (struct task_token *)__addr_to_token(task);
+#endif
+	return (struct task_token *)__addr_to_iee(task);
+}
+
 void _iee_set_cred_rcu(unsigned long __unused, struct cred *cred, struct rcu_head *rcu)
 {
 	*((struct rcu_head **)(&(cred->rcu.func))) = rcu;
@@ -170,7 +179,7 @@ void _iee_copy_cred(unsigned long __unused, struct cred *new)
 {
 	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
 	struct cred *_new = __ptr_to_iee(new);
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = credp_task_token(current);
 	/* Get old cred inside IEE is safer. */
 	const struct cred *old = current_cred();
 	/* Would verify this field in commit_cred. */
@@ -189,7 +198,7 @@ void  _iee_copy_kernel_cred(unsigned long __unused, const struct cred *old,
 	struct rcu_head *rcu = (struct rcu_head *)(new->rcu.func);
 	struct cred *_new = __ptr_to_iee(new);
 	/* Would verify this field in commit_cred. */
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = credp_task_token(current);
 
 	if (!uid_eq(current_uid(), init_cred.uid))
 		panic("IEE: calling prepare_kernel_cred by unprivileged process.");
@@ -206,7 +215,7 @@ void  _iee_copy_kernel_cred(unsigned long __unused, const struct cred *old,
 void  _iee_init_copied_cred(unsigned long __unused,
 		struct task_struct *new_task, struct cred *new)
 {
-	struct task_token *old_task_token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *old_task_token = credp_task_token(current);
 
 	if (old_task_token->new_cred != new)
 		panic("IEE: (%s) token error. token new cred 0x%llx, new 0%llx", __func__,
@@ -220,7 +229,7 @@ void  _iee_init_copied_cred(unsigned long __unused,
 void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 {
 	struct task_struct *task = current;
-	struct task_token *token = (struct task_token *)__addr_to_iee(task);
+	struct task_token *token = credp_task_token(task);
 
 	if (token->new_cred != new)
 		panic("IEE: (%s) Invalid cred 0x%llx.", __func__, (u64)new);
@@ -233,7 +242,7 @@ void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 
 void  _iee_abort_cred(unsigned long __unused, const struct cred *cred)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = credp_task_token(current);
 
 	token->new_cred = NULL;
 }
@@ -241,7 +250,7 @@ void  _iee_abort_cred(unsigned long __unused, const struct cred *cred)
 void _iee_fill_cred_for_session_keyring(unsigned long __unused, struct cred *new,
 					const struct cred *old)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = credp_task_token(current);
 
 	token->new_cred = new;
 	new->uid = old->uid;
