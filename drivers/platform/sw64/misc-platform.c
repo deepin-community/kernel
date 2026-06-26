@@ -9,7 +9,7 @@
 
 #include <asm/sw64io.h>
 
-#define OFFSET_EMUL_POWER_CONTROL 0x50000UL
+#define EMUL_POWER_CONTROL (IO_BASE | SPBU_BASE | 0x50000UL)
 
 struct misc_platform {
 	void __iomem *spbu_base;
@@ -66,18 +66,22 @@ static int misc_platform_get_node(struct device *dev)
 
 static int emul_restart(struct sys_off_data *data)
 {
-	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+	void __iomem *addr = ioremap(EMUL_POWER_CONTROL, sizeof(unsigned long));
+	if (!addr)
+		panic("Fail to restart emulator");
 
-	writeq(2, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+	writeq(2, addr);
 
 	return NOTIFY_DONE;
 }
 
 static int emul_power_off(struct sys_off_data *data)
 {
-	void __iomem *spbu_base = misc_platform_devices[0].spbu_base;
+	void __iomem *addr = ioremap(EMUL_POWER_CONTROL, sizeof(unsigned long));
+	if (!addr)
+		panic("Fail to poweroff emulator");
 
-	writeq(1, spbu_base + OFFSET_EMUL_POWER_CONTROL);
+	writeq(1, addr);
 
 	return NOTIFY_DONE;
 }
@@ -102,28 +106,16 @@ static int misc_platform_probe(struct platform_device *pdev)
 	gpio_base = __va(SW64_IO_BASE(node) | GPIO_BASE);
 
 	if (!device_property_read_u64(dev, "sunway,spbu_base",
-				&base_address)) {
-		if (is_junzhang_v1() || is_junzhang_v2())
-			spbu_base = ioremap(base_address, SPBU_SIZE);
-		else
-			spbu_base = __va(base_address);
-	}
+				&base_address))
+		spbu_base = ioremap(base_address, SPBU_SIZE);
 
 	if (!device_property_read_u64(dev, "sunway,intpu_base",
-				&base_address)) {
-		if (is_junzhang_v1() || is_junzhang_v2())
-			intpu_base = ioremap(base_address, INTPU_SIZE);
-		else
-			intpu_base = __va(base_address);
-	}
+				&base_address))
+		intpu_base = ioremap(base_address, INTPU_SIZE);
 
 	if (!device_property_read_u64(dev, "sunway,gpio_base",
-				&base_address)) {
-		if (is_junzhang_v1() || is_junzhang_v2())
-			gpio_base = ioremap(base_address, GPIO_SIZE);
-		else
-			gpio_base = __va(base_address);
-	}
+				&base_address))
+		gpio_base = ioremap(base_address, GPIO_SIZE);
 
 	misc_platform_devices[node].spbu_base = spbu_base;
 	misc_platform_devices[node].intpu_base = intpu_base;

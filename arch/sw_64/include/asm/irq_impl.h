@@ -7,12 +7,6 @@
 #ifndef _ASM_SW64_IRQ_IMPL_H
 #define _ASM_SW64_IRQ_IMPL_H
 
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/profile.h>
-
-#include <asm/sw64io.h>
-
 #define SW64_PCIE0_INT_BASE 17
 #define SW64_PCIE0_MSI_BASE 21
 
@@ -21,6 +15,14 @@
 
 #define RTC_IRQ		8
 #define SWI2C_IRQ	14
+#define ADR_IRQ		63	// NEVER disable this
+
+#ifndef __ASSEMBLY__
+#include <linux/interrupt.h>
+#include <linux/irq.h>
+#include <linux/profile.h>
+
+#include <asm/sw64io.h>
 
 enum sw64_irq_type {
 	INT_IPI		= 1,
@@ -46,5 +48,6 @@ extern void handle_irq(int irq);
 extern void handle_ipi(struct pt_regs *regs);
 extern void __init sunway_init_pci_intx(void);
 extern irqreturn_t timer_interrupt(int irq, void *dev);
+#endif /* !__ASSEMBLY__ */
 
 #endif /* _ASM_SW64_IRQ_IMPL_H */

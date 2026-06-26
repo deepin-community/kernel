@@ -1724,6 +1724,7 @@ config GPIO_PCIE_IDIO_24
 
 config GPIO_PHYTIUM_PCI
 	tristate "Phytium GPIO PCI support"
+	depends on PCI && ARCH_PHYTIUM
 	select GPIO_PHYTIUM_CORE
 	select IRQ_DOMAIN
 	select GENERIC_IRQ_CHIP

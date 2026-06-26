@@ -425,12 +425,13 @@ static void __init fixmap_init(pgd_t *pgdir)
  */
 extern unsigned long legacy_io_base;
 extern unsigned long legacy_io_shift;
+extern unsigned long legacy_io_size;
 static void __init map_legacy_io(pgd_t *pgdir)
 {
 	unsigned long pci_io_start;
 	unsigned long lpc_legacy_io_start = LPC_LEGACY_IO;
 	unsigned long legacy_io_start = legacy_io_base;
-	unsigned long size = 0x10000;
+	unsigned long size = legacy_io_size;
 	unsigned long i, j;
 	pgprot_t prot_none;
 

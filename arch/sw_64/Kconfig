@@ -147,7 +147,6 @@ config SW64
 	select PCI_ECAM if (ACPI && PCI)
 	select PCI_MSI_ARCH_FALLBACKS if PCI_MSI
 	select PCI_SW64 if PCI
-	select SET_FS
 	select SPARSEMEM_EXTREME if SPARSEMEM
 	select SW64_IRQ_CPU
 	select SW64_PCI_INTX if PCI
@@ -287,6 +286,15 @@ config MIGHT_HAVE_PC_SERIO
 	select ARCH_MIGHT_HAVE_PC_SERIO
 	default n
 
+config SW64_FAULT_REPORT
+	bool "Sunway fault report driver"
+	depends on PLATFORM_JUNZHANG
+	select IPMI_HANDLER
+	select IPMI_SI
+	help
+	  This enables support for the sunway fault report driver
+	  based on BMC and IPMI system interface.
+
 endmenu
 
 menu "CPU Power Management"
@@ -365,6 +373,11 @@ config SECCOMP
 
 config GENERIC_HWEIGHT
 	bool
+	default y
+
+config FIX_EARLYCON_MEM
+	bool
+	depends on SW64_KERNEL_PAGE_TABLE
 	default y
 
 config SMP

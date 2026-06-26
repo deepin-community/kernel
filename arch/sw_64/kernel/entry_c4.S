@@ -17,6 +17,7 @@
 	.macro SAVE_ALL_NMI
 	csrw	$sp, CSR_NMI_SCRATCH
 	csrr	$sp, CSR_NMI_STACK
+	csrr	$sp, CSR_NMI_STACK
 
 	ldi	$sp, -PT_REGS_SIZE($sp)
 	stl	$0, PT_REGS_R0($sp)
@@ -58,10 +59,16 @@
 	csrr	$1, CSR_NMI_SCRATCH
 	csrr	$1, CSR_NMI_SCRATCH
 	csrr	$2, CSR_PS
+	csrr	$2, CSR_PS
+	csrr	$3, CSR_PC
 	csrr	$3, CSR_PC
 	csrr    $4, CSR_CAUSE
+	csrr    $4, CSR_CAUSE
+	csrr	$16, CSR_EARG0
 	csrr	$16, CSR_EARG0
 	csrr	$17, CSR_EARG1
+	csrr	$17, CSR_EARG1
+	csrr	$18, CSR_EARG2
 	csrr	$18, CSR_EARG2
 	stl	$16, PT_REGS_EARG0($sp)
 	stl	$17, PT_REGS_EARG1($sp)
@@ -73,6 +80,7 @@
 	stl     $4, PT_REGS_CAUSE($sp)
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
+	csrr	$8, CSR_KTP
 	csrr	$8, CSR_KTP
 #ifdef CONFIG_FRAME_POINTER
 	ldi	$sp, -STACKFRAME_SIZE($sp)
@@ -135,8 +143,10 @@
 	csrw	$sp, CSR_SP
 	csrw	$1, CSR_SCRATCH
 	csrr	$1, CSR_PS
+	csrr	$1, CSR_PS
 	and	$1, 8, $1
 	beq	$1, 1f
+	csrr	$1, CSR_KTP
 	csrr	$1, CSR_KTP
 	ldl	$sp, TI_PCB_KSP($1)
 1:
@@ -182,10 +192,16 @@
 	csrr	$1, CSR_SP
 	csrr	$1, CSR_SP
 	csrr	$2, CSR_PS
+	csrr	$2, CSR_PS
+	csrr	$3, CSR_PC
 	csrr	$3, CSR_PC
 	csrr	$4, CSR_CAUSE
+	csrr	$4, CSR_CAUSE
+	csrr	$16, CSR_EARG0
 	csrr	$16, CSR_EARG0
 	csrr	$17, CSR_EARG1
+	csrr	$17, CSR_EARG1
+	csrr	$18, CSR_EARG2
 	csrr	$18, CSR_EARG2
 	stl	$16, PT_REGS_EARG0($sp)
 	stl	$17, PT_REGS_EARG1($sp)
@@ -198,6 +214,7 @@
 	ldi	$1, NO_SYSCALL
 	stl	$1, PT_REGS_ORIG_R0($sp)
 	csrr	$8, CSR_KTP
+	csrr	$8, CSR_KTP
 #ifdef CONFIG_FRAME_POINTER
 	ldi	$sp, -STACKFRAME_SIZE($sp)
 	stl	$3, STACKFRAME_PC($sp)
@@ -207,9 +224,6 @@
 	.endm
 
 	.macro RESTORE_ALL
-	ldi     $16, 7
-	sys_call HMC_swpipl
-
 	ldi	$sp, STACKFRAME_SIZE($sp)
 
 	ldl	$1, PT_REGS_PS($sp)
@@ -254,11 +268,6 @@
 	ldl	$sp, PT_REGS_R30($sp)
 	.endm
 
-	.macro RESTORE_IRQ
-	csrr	$16, CSR_PS
-	sys_call HMC_swpipl
-	ldl	$16, (PT_REGS_EARG0 + STACKFRAME_SIZE)($sp)
-	.endm
 /*
  * Non-syscall kernel entry points.
  */
@@ -298,7 +307,6 @@ entArith:
 	stl     $1, (PT_REGS_PC + STACKFRAME_SIZE)($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entArith
 	br	ret_from_sys_call
@@ -311,7 +319,6 @@ entMM:
 	SAVE_ALL
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_page_fault
 	br	ret_from_sys_call
@@ -327,7 +334,6 @@ entIF:
 	stl     $1, (PT_REGS_PC + STACKFRAME_SIZE)($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entIF
 	br	ret_from_sys_call
@@ -349,7 +355,6 @@ entUna:
 	stl     $1, (PT_REGS_PC + STACKFRAME_SIZE)($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
 	ldl	$9, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
 	and	$9, 8, $9		/* user mode ? */
@@ -382,7 +387,6 @@ entSys:
 	stl     $1, (PT_REGS_PC + STACKFRAME_SIZE)($sp)
 	br      $27, 1f
 1:      ldgp    $29, 0($27)
-	RESTORE_IRQ
 	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_entSys
 	br	ret_from_sys_call
@@ -402,12 +406,6 @@ ret_from_nmi:
 	.globl ret_from_sys_call
 	.ent ret_from_sys_call
 ret_from_sys_call:
-	br	$27, 1f
-1:	ldgp	$29, 0($27)
-	/* Make sure need_resched and sigpending don't change between
-		sampling and the rti.  */
-	ldi	$16, 7
-	sys_call HMC_swpipl
 	ldl	$0, (PT_REGS_PS + STACKFRAME_SIZE)($sp)
 	and	$0, 8, $0
 	beq	$0, restore_all
@@ -415,6 +413,8 @@ ret_to_user:
 	ldw	$17, TI_FLAGS($8)
 	and	$17, _TIF_WORK_MASK, $2
 	beq	$2, restore_all
+	addpi	0, $27
+	ldgp	$29, 0($27)
 	ldi	$16, STACKFRAME_SIZE($sp)
 	call	$26, do_notify_resume
 restore_all:
@@ -471,7 +471,12 @@ __switch_to:
 	.align 4
 	.ent ret_from_fork
 ret_from_fork:
+	addpi	0, $27
+	ldgp	$29, 0($27)
 	call	$26, schedule_tail
+	ldgp	$29, 0($26)
+	ldi	$16, STACKFRAME_SIZE($sp)
+	call	$26, ret_from_fork_user
 	br	ret_from_sys_call
 	.end ret_from_fork
 
@@ -482,10 +487,14 @@ ret_from_fork:
 	.globl ret_from_kernel_thread
 	.ent ret_from_kernel_thread
 ret_from_kernel_thread:
+	addpi	0, $27
+	ldgp	$29, 0($27)
 	call	$26, schedule_tail
-	mov	$9, $27
-	mov	$10, $16
-	call	$26, ($9)
+	ldgp	$29, 0($26)
+	ldi	$16, STACKFRAME_SIZE($sp)
+	mov	$9, $17
+	mov	$10, $18
+	call	$26, ret_from_fork_kernel
 	br	ret_to_user
 	.end ret_from_kernel_thread
 	.popsection

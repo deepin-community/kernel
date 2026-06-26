@@ -41,7 +41,7 @@ static bool can_switch_freq(int cpu_sibling)
 extern unsigned int cpufreq_quick_get(unsigned int cpu);
 extern void sw64_cpuidle_updatevents(int freq);
 
-static void sw64_do_deeper_idle(int cpu)
+noinstr static void sw64_do_deeper_idle(int cpu)
 {
 	int core_id, node_id, cpu_sibling;
 	int cur_freq, downshift_freq = 200000;
@@ -66,11 +66,9 @@ static void sw64_do_deeper_idle(int cpu)
 
 	spin_unlock_irqrestore(&per_core_lock[node_id][core_id], flags);
 
-	rcu_idle_enter();
+	ct_cpuidle_enter();
 	arch_cpu_idle();
-	local_irq_disable();
-	rcu_idle_exit();
-	local_irq_enable();
+	ct_cpuidle_exit();
 
 	/* upshift frequency after idle */
 	spin_lock_irqsave(&per_core_lock[node_id][core_id], flags);
@@ -91,7 +89,7 @@ static void sw64_do_deeper_idle(int cpu)
  * Called from the cpuidle framework to program the device to the
  * specified target state selected by the governor.
  */
-static int sw64_idle_enter(struct cpuidle_device *dev,
+noinstr static int sw64_idle_enter(struct cpuidle_device *dev,
 			   struct cpuidle_driver *drv,
 			   int index)
 {

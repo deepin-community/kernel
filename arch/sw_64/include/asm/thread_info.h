@@ -8,11 +8,6 @@
 #include <asm/types.h>
 #include <asm/sysinfo.h>
 
-typedef struct {
-	unsigned long seg;
-} mm_segment_t;
-
-
 struct pcb_struct {
 	unsigned long ksp;
 	unsigned long tp;
@@ -33,7 +28,6 @@ struct thread_info {
 	unsigned int		flags;		/* low level flags */
 	unsigned int		ieee_state;	/* see fpu.h */
 
-	mm_segment_t		addr_limit;	/* thread address space */
 	unsigned int		cpu;		/* current CPU */
 	int			preempt_count;	/* 0 => preemptible, <0 => BUG */
 	unsigned int		status;		/* thread-synchronous flags */
@@ -62,7 +56,6 @@ static __always_inline u64 rtid(void)
  */
 #define INIT_THREAD_INFO(tsk)				\
 {							\
-	.addr_limit	= KERNEL_DS,			\
 	.preempt_count	= INIT_PREEMPT_COUNT,		\
 }
 

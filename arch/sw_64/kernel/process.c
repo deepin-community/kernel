@@ -110,6 +110,17 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
 	return 0;
 }
 
+asmlinkage void ret_from_fork_kernel(struct pt_regs *regs, void (*fn)(void *args), void *fn_args)
+{
+	fn(fn_args);
+	local_irq_disable();
+}
+
+asmlinkage void ret_from_fork_user(struct pt_regs *regs)
+{
+	local_irq_disable();
+}
+
 unsigned long arch_randomize_brk(struct mm_struct *mm)
 {
 	return randomize_page(mm->brk, 0x02000000);

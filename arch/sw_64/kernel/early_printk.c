@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/console.h>
 #include <linux/kernel.h>
+#include <linux/serial_core.h>
 
+#include <asm/cpu.h>
+#include <asm/early_ioremap.h>
+#include <asm/fixmap.h>
 #include <asm/io.h>
 
 static unsigned long early_serial_base;  /* ttyS0 */
@@ -98,6 +102,7 @@ static __init void early_serial_hw_init(unsigned long baud)
 static __init void early_serial_init(char *s)
 {
 	unsigned long baud = DEFAULT_BAUD;
+	char *opt;
 	int err;
 
 	if (*s == ',')
@@ -108,20 +113,23 @@ static __init void early_serial_init(char *s)
 		static const long bases[] __initconst = { 0xfff0803300000000ULL,
 			0xfff0903300000000ULL };
 
-		if (!strncmp(s, "ttyS", 4))
-			s += 4;
-		err = kstrtouint(s, 10, &port);
+		opt = strsep(&s, ",");
+		if (!strncmp(opt, "ttyS", 4))
+			opt += 4;
+		err = kstrtouint(opt, 10, &port);
 		if (err || port > 1)
 			port = 0;
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+		early_serial_base = set_fixmap_offset_io(FIX_EARLYCON_MEM_BASE,
+							 bases[port] & PAGE_MASK);
+#else
 		early_serial_base = bases[port];
-		s += strcspn(s, ",");
-		if (*s == ',')
-			s++;
+#endif
 	}
 
-	if (*s) {
-		err = kstrtoul(s, 0, &baud);
-		if (err || baud == 0)
+	if (s && *s) {
+		opt = strsep(&s, ",");
+		if (kstrtoul(opt, 10, &baud) || baud == 0)
 			baud = DEFAULT_BAUD;
 	}
 
@@ -181,3 +189,29 @@ static int __init setup_early_printk(char *buf)
 }
 
 early_param("earlyprintk", setup_early_printk);
+
+#ifdef CONFIG_SW64_KERNEL_PAGE_TABLE
+static __init void early_serial_set_init(unsigned long base, unsigned int baud)
+{
+	early_serial_base = base;
+
+	serial_in = mem32_serial_in;
+	serial_out = mem32_serial_out;
+
+	if (baud == 0)
+		baud = DEFAULT_BAUD;
+	early_serial_hw_init(baud);
+}
+
+static int __init early_serial_set(struct earlycon_device *device, const char *opt)
+{
+	if (!device->port.membase)
+		return -ENODEV;
+
+	early_serial_set_init((unsigned long)device->port.membase, device->baud);
+	device->con->write = early_serial_write;
+
+	return 0;
+}
+EARLYCON_DECLARE(sunway_uart, early_serial_set);
+#endif

@@ -20,6 +20,7 @@
 
 #include <asm/cpu.h>
 #include <asm/irq_impl.h>
+#include <asm/traps.h>
 
 volatile unsigned long irq_err_count;
 DEFINE_PER_CPU(unsigned long, irq_pmi_count);
@@ -173,10 +174,10 @@ void __init init_IRQ(void)
 	unsigned long nmi_stack __maybe_unused = nmi_stack_page ?
 		(unsigned long)page_address(nmi_stack_page) : 0;
 
-	wrent(entInt, 0);
+	wrent(entInt, ENT_IDX_INT);
 	if (IS_ENABLED(CONFIG_SUBARCH_C4) && is_in_host()) {
 		sw64_write_csr_imb(nmi_stack + THREAD_SIZE, CSR_NMI_STACK);
-		wrent(entNMI, 6);
+		wrent(entNMI, ENT_IDX_NMI);
 		set_nmi(INT_PC);
 	}
 

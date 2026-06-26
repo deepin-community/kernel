@@ -101,11 +101,14 @@ struct kvm_debug_exit_arch {
 	unsigned long reason;//indicate breakpoint or watchpoint
 };
 
+#define KVM_SW64_WATCHPOINT_ENABLED	0
 /* for KVM_SET_GUEST_DEBUG */
 struct kvm_guest_debug_arch {
+#if KVM_SW64_WATCHPOINT_ENABLED
 	uint64_t addr;
 	uint64_t mask;
 	uint64_t ctl;
+#endif
 };
 
 /* definition of registers in kvm_run */

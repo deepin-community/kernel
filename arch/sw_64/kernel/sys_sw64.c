@@ -344,6 +344,8 @@ asmlinkage void noinstr do_entSys(struct pt_regs *regs)
 	unsigned long nr;
 	unsigned long ti_flags = current_thread_info()->flags;
 
+	local_irq_enable();
+
 	regs->orig_r0 = regs->regs[0];
 	regs->orig_r19 = regs->regs[19];
 	nr = regs->orig_r0;
@@ -393,4 +395,6 @@ syscall_out:
 
 	if (ti_flags & _TIF_SYSCALL_WORK)
 		syscall_trace_leave();
+
+	local_irq_disable();
 }

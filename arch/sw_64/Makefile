@@ -18,11 +18,15 @@ archheaders:
 
 NM := $(NM) -B
 CCVERSION := $(shell $(CC) -dumpversion)
-LDFLAGS_vmlinux	:= -static -N #-relax
+LDFLAGS_vmlinux	:= -static -N
 CHECKFLAGS	+= -D__sw__
 
 ifeq ($(CONFIG_RELOCATABLE),y)
 LDFLAGS_vmlinux                        += --emit-relocs
+endif
+
+ifeq ($(CONFIG_FUNCTION_TRACER),y)
+	LDFLAGS_vmlinux += -relax
 endif
 
 CHECKFLAGS	+= -D__sw__
@@ -30,6 +34,9 @@ cflags-y	:= -pipe -ffixed-8 -mno-fp-regs #-msmall-data
 ifneq ($(CONFIG_SUBARCH_C3B),y)
 	cflags-y += -fsw-rev -fsw-unalign-byte
 endif
+cflags-y	+= $(call cc-option, -fsw-memcpy)
+cflags-y	+= $(call cc-option, -fsw-memclr)
+cflags-y	+= $(call cc-option, -fsw-leaf-optimize-fp)
 cflags-y	+= $(call cc-option, -fno-jump-tables)
 
 cflags-y				+= $(cpuflags-y)
