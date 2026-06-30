@@ -1,0 +1,43 @@
+name: check depend all daily
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  email: support@deepin.org
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-depend-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: '0'
+      - name: "Install Deps"
+        run: |
+          git config --global user.email $email
+          git config --global user.name $KBUILD_BUILD_USER
+
+      - name: "Check Depend for all commit"
+        run: |
+          # Use commits in v6.6..torvalds which has Fixes Tag to check (0,pr_sha) to checkdepends
+          bash .github/tools/check_kernel_commits.sh v6.6..torvalds/master linux-6.6.y > deepin-6.6.y.txt
+          if ! git remote get-url gregkh >/dev/null 2>&1; then
+              git remote add gregkh https://github.com/gregkh/linux.git
+          else
+              git remote set-url gregkh https://github.com/gregkh/linux.git
+          fi
+          git fetch gregkh
+          bash .github/tools/check_kernel_commits.sh v6.6..torvalds/master gregkh/linux-6.6.y > stable-6.6.y.txt
+          diff deepin-6.6.y.txt stable-6.6.y.txt
+
