@@ -839,7 +839,6 @@ static int ttm_mem_evict_first_dmem(struct ttm_device *bdev,
 
 	/* If we hit low-protected BOs and may_try_low, retry with try_low */
 	if (!bo && hit_low && alloc_state && alloc_state->may_try_low) {
-		ttm_resource_cursor_fini(&cursor);
 		ttm_resource_manager_for_each_res(man, &cursor, res) {
 			bool busy;
 
@@ -897,6 +896,9 @@ static int ttm_mem_evict_first_dmem(struct ttm_device *bdev,
 	ttm_bo_put(bo);
 	return ret;
 }
+
+/**
+ * ttm_bo_pin - Pin the buffer object.
  * @bo: The buffer object to pin
  *
  * Make sure the buffer is not evicted any more during memory pressure.
