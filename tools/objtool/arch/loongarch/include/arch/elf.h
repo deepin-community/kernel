@@ -21,6 +21,18 @@
 #ifndef R_LARCH_64_PCREL
 #define R_LARCH_64_PCREL	109
 #endif
+#ifndef R_LARCH_ABS_HI20
+#define R_LARCH_ABS_HI20	67
+#endif
+#ifndef R_LARCH_ABS_LO12
+#define R_LARCH_ABS_LO12	68
+#endif
+#ifndef R_LARCH_ABS64_LO20
+#define R_LARCH_ABS64_LO20	69
+#endif
+#ifndef R_LARCH_ABS64_HI12
+#define R_LARCH_ABS64_HI12	70
+#endif
 
 #ifndef EM_LOONGARCH
 #define EM_LOONGARCH		258

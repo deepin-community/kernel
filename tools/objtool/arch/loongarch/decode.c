@@ -34,9 +34,44 @@ s64 arch_insn_adjusted_addend(struct instruction *insn, struct reloc *reloc)
 	return reloc_addend(reloc);
 }
 
+u64 arch_adjusted_addend(struct reloc *reloc)
+{
+	return reloc_addend(reloc);
+}
+
 bool arch_pc_relative_reloc(struct reloc *reloc)
 {
+	/*
+	 * LoongArch is a pure RELA architecture: every relocation entry
+	 * carries its addend explicitly in r_addend, already in its final
+	 * form.  Neither klp-diff.c nor arch_insn_adjusted_addend() on
+	 * LoongArch require PC-relative classification — klp-diff.c does
+	 * not call this hook at all, and the RELA addend needs no
+	 * instruction-level PC compensation.
+	 *
+	 * The check.c alternative-section validator (the sole caller)
+	 * would benefit from a full PC-relative type list
+	 * (R_LARCH_PCALA_*, R_LARCH_GOT_PC_*, R_LARCH_*_PCREL, etc.),
+	 * but that requires defining ~15 additional relocation-type
+	 * macros in arch/elf.h.  Defer until a concrete LoongArch
+	 * alternative pattern actually triggers the validator.
+	 */
 	return false;
+}
+
+bool arch_absolute_reloc(struct elf *elf, struct reloc *reloc)
+{
+	switch (reloc_type(reloc)) {
+	case R_LARCH_32:
+	case R_LARCH_64:
+	case R_LARCH_ABS_HI20:
+	case R_LARCH_ABS_LO12:
+	case R_LARCH_ABS64_LO20:
+	case R_LARCH_ABS64_HI12:
+		return true;
+	default:
+		return false;
+	}
 }
 
 bool arch_callee_saved_reg(unsigned char reg)
