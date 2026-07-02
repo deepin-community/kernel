@@ -174,10 +174,6 @@ struct kvm_vcpu_stat {
 	u64 gtime;
 };
 
-#ifdef CONFIG_SUBARCH_C4
-#define KVM_ARCH_WANT_MMU_NOTIFIER
-#endif
-
 void update_vcpu_stat_time(struct kvm_vcpu_stat *vcpu_stat);
 void sw64_kvm_switch_vpn(struct kvm_vcpu *vcpu);
 int vmem_init(void);
