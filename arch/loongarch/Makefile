@@ -150,6 +150,62 @@ KBUILD_RUSTFLAGS_KERNEL		+= -Crelocation-model=pie
 LDFLAGS_vmlinux			+= -static -pie --no-dynamic-linker -z notext $(call ld-option, --apply-dynamic-relocs)
 endif
 
+#
+# When building for klp-build (livepatch module generation), override the
+# normal kernel code model to force all global data accesses through the GOT.
+# This is required for klp-diff to properly redirect data references in
+# livepatch modules.
+#
+# These flags are guarded by KLP_REBUILD (passed on the make command line
+# by scripts/livepatch/klp-build) rather than CONFIG_KLP_BUILD, so that
+# they are active *only* during the klp-build internal rebuild and never
+# affect the bootable production kernel.
+#
+# klp-build's find_objects() collects both vmlinux.o (built-in) and all
+# module .ko archives (converted to .o) for comparison.  Both categories
+# must use a consistent GOT-based data access model so that klp-diff can
+# redirect all global data references.  Built-in objects need -fPIC to
+# override -fPIE; module objects, compiled separately with KBUILD_CFLAGS_MODULE,
+# similarly need -fPIC to guarantee GOT indirection for same-TU data.
+#
+# For built-in objects:
+#   -fPIC overrides -fPIE (appended later, so it wins), ensuring same-TU
+#   global data also uses GOT indirection rather than direct PC-relative access.
+#   -mno-direct-extern-access (GCC) / -fno-direct-access-external-data (Clang)
+#   override the kernel default of -mdirect-extern-access /
+#   -fdirect-access-external-data, restoring GOT-based access for cross-TU
+#   data references.
+#
+# -fPIC is added to both KBUILD_CFLAGS_KERNEL (built-in objects) and
+# KBUILD_CFLAGS_MODULE (module objects), rather than the broader
+# KBUILD_CFLAGS, for two reasons:
+#   1. Flag ordering: KBUILD_CFLAGS appears before KBUILD_CFLAGS_KERNEL in
+#      the compile command (c_flags = $(_c_flags) $(modkern_cflags)), so
+#      -fPIC placed there would be overridden by the later -fPIE.
+#   2. Semantic precision: these variables exist to separate flags that
+#      apply to different object categories.
+#
+# Rust kernel objects compiled with -Crelocation-model=pie and
+# -Zdirect-access-external-data=yes suffer from the same GOT bypass as
+# their C counterparts: pie keeps same-translation-unit data references
+# direct, and direct-access-external-data=yes bypasses the GOT for
+# cross-TU data.  Override both with -Crelocation-model=pic and
+# -Zdirect-access-external-data=no under KLP_REBUILD so that klp-diff
+# can redirect all Rust global data references.
+#
+ifdef KLP_REBUILD
+KBUILD_CFLAGS_KERNEL		+= -fPIC
+KBUILD_CFLAGS_MODULE		+= -fPIC
+KBUILD_CFLAGS_KERNEL		+= $(call cc-option,-mno-direct-extern-access)
+KBUILD_CFLAGS_MODULE		+= $(call cc-option,-mno-direct-extern-access)
+KBUILD_CFLAGS_KERNEL		+= $(call cc-option,-fno-direct-access-external-data)
+KBUILD_CFLAGS_MODULE		+= $(call cc-option,-fno-direct-access-external-data)
+KBUILD_RUSTFLAGS_KERNEL	+= -Crelocation-model=pic
+KBUILD_RUSTFLAGS_MODULE	+= -Crelocation-model=pic
+KBUILD_RUSTFLAGS_KERNEL	+= -Zdirect-access-external-data=no
+KBUILD_RUSTFLAGS_MODULE	+= -Zdirect-access-external-data=no
+endif
+
 cflags-y += $(call cc-option, -mno-check-zero-division -fno-isolate-erroneous-paths-dereference)
 
 ifndef CONFIG_KASAN

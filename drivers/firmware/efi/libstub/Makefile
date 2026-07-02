@@ -58,8 +58,13 @@ KBUILD_CFLAGS := $(filter-out $(CC_FLAGS_CFI), $(KBUILD_CFLAGS))
 KBUILD_CFLAGS := $(filter-out $(CC_FLAGS_LTO), $(KBUILD_CFLAGS))
 
 # The .data section would be renamed to .data.efistub, therefore, remove
-# `-fdata-sections` flag from KBUILD_CFLAGS_KERNEL
-KBUILD_CFLAGS_KERNEL := $(filter-out -fdata-sections, $(KBUILD_CFLAGS_KERNEL))
+# `-fdata-sections` flag from KBUILD_CFLAGS_KERNEL.
+# Also remove KLP code model flags which leak through KBUILD_CFLAGS_KERNEL
+# when KLP_REBUILD=1; the EFI stub is a freestanding binary that explicitly
+# selects its own code model and must not be affected by klp-build flags.
+KBUILD_CFLAGS_KERNEL := $(filter-out -fdata-sections -fPIC \
+	-mno-direct-extern-access -fno-direct-access-external-data, \
+	$(KBUILD_CFLAGS_KERNEL))
 
 KBUILD_AFLAGS			:= $(KBUILD_CFLAGS) -D__ASSEMBLY__
 

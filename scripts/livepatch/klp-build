@@ -562,6 +562,7 @@ build_kernel() {
 	fi
 	cmd+=("-j$JOBS")
 	cmd+=("KCFLAGS=-ffunction-sections -fdata-sections")
+	cmd+=("KLP_REBUILD=1")
 	cmd+=("vmlinux")
 	cmd+=("modules")
 
