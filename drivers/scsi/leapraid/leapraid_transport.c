@@ -298,6 +298,7 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 	dma_addr_t c2h_dma_addr;
 	bool issue_reset = false;
 	void *data_out = NULL;
+	u16 inter_taskid;
 	size_t c2h_size;
 	size_t h2c_size;
 	void *psge;
@@ -338,10 +339,8 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 	rep_manu_request->allocated_response_length = 0;
 	rep_manu_request->request_length = 0;
 
-	smp_passthrough_req =
-		leapraid_get_task_desc(
-			adapter,
-			adapter->driver_cmds.transport_cmd.inter_taskid);
+	inter_taskid = adapter->driver_cmds.transport_cmd.inter_taskid;
+	smp_passthrough_req = leapraid_get_task_desc(adapter, inter_taskid);
 	memset(smp_passthrough_req, 0,
 	       sizeof(struct leapraid_smp_passthrough_req));
 	smp_passthrough_req->func = LEAPRAID_FUNC_SMP_PASSTHROUGH;
@@ -354,8 +353,7 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 			       c2h_dma_addr, c2h_size);
 
 	init_completion(&adapter->driver_cmds.transport_cmd.done);
-	leapraid_fire_task(adapter,
-			   adapter->driver_cmds.transport_cmd.inter_taskid);
+	leapraid_fire_task(adapter, inter_taskid);
 	wait_for_completion_timeout(&adapter->driver_cmds.transport_cmd.done,
 				    LEAPRAID_TRANSPORT_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.transport_cmd.status & LEAPRAID_CMD_DONE)) {
@@ -363,7 +361,8 @@ static int leapraid_transport_exp_report_manu(struct leapraid_adapter *adapter,
 		dev_err(&adapter->pdev->dev,
 			"%s: SMP passthrough timeout, st=0x%x\n",
 			__func__, adapter->driver_cmds.transport_cmd.status);
-		leapraid_log_req_context(adapter, smp_passthrough_req);
+		leapraid_log_req_context(adapter, inter_taskid,
+					 smp_passthrough_req);
 		if (!(adapter->driver_cmds.transport_cmd.status &
 		      LEAPRAID_CMD_RESET))
 			issue_reset = true;
@@ -1249,20 +1248,21 @@ static void leapraid_build_smp_task(struct leapraid_adapter *adapter,
 static int leapraid_send_smp_req(struct leapraid_adapter *adapter)
 {
 	const struct leapraid_smp_passthrough_req *smp_passthrough_req;
+	u16 inter_taskid;
 
 	dev_dbg(&adapter->pdev->dev,
 		"%s: Sending smp request\n", __func__);
-	smp_passthrough_req = leapraid_get_task_desc(
-		adapter, adapter->driver_cmds.transport_cmd.inter_taskid);
+	inter_taskid = adapter->driver_cmds.transport_cmd.inter_taskid;
+	smp_passthrough_req = leapraid_get_task_desc(adapter, inter_taskid);
 	init_completion(&adapter->driver_cmds.transport_cmd.done);
-	leapraid_fire_task(adapter,
-			   adapter->driver_cmds.transport_cmd.inter_taskid);
+	leapraid_fire_task(adapter, inter_taskid);
 	wait_for_completion_timeout(&adapter->driver_cmds.transport_cmd.done,
 				    LEAPRAID_TRANSPORT_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.transport_cmd.status & LEAPRAID_CMD_DONE)) {
 		dev_err(&adapter->pdev->dev, "%s: timeout, st=0x%x\n",
 			__func__, adapter->driver_cmds.transport_cmd.status);
-		leapraid_log_req_context(adapter, smp_passthrough_req);
+		leapraid_log_req_context(adapter, inter_taskid,
+					 smp_passthrough_req);
 		if (!(adapter->driver_cmds.transport_cmd.status &
 		      LEAPRAID_CMD_RESET)) {
 			dev_dbg(&adapter->pdev->dev,

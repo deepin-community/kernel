@@ -157,9 +157,8 @@ static int leapraid_tm_post_processing(struct leapraid_adapter *adapter,
 	leapraid_sync_irqs(adapter, true);
 	leapraid_unmask_int(adapter);
 
-	rc = leapraid_tm_cmd_map_status(adapter, channel, id, lun, type,
-					taskid_task);
-	return rc;
+	return leapraid_tm_cmd_map_status(adapter, channel, id, lun, type,
+					  taskid_task);
 }
 
 static void leapraid_build_tm_req(struct leapraid_scsi_tm_req *scsi_tm_req,
@@ -185,6 +184,7 @@ int leapraid_issue_tm(struct leapraid_adapter *adapter, u16 hdl, uint channel,
 	struct leapraid_scsiio_req *scsiio_req;
 	struct leapraid_io_req_tracker *io_req_tracker = NULL;
 	u16 msix_task;
+	u16 taskid;
 	bool issue_reset = false;
 	u32 db;
 	int rc;
@@ -239,16 +239,15 @@ int leapraid_issue_tm(struct leapraid_adapter *adapter, u16 hdl, uint channel,
 		msix_task = io_req_tracker->msix_io;
 	else
 		msix_task = 0;
-	leapraid_fire_hpr_task(adapter,
-			       adapter->driver_cmds.tm_cmd.hp_taskid,
-			       msix_task);
+	taskid = adapter->driver_cmds.tm_cmd.hp_taskid;
+	leapraid_fire_hpr_task(adapter, taskid, msix_task);
 	wait_for_completion_timeout(&adapter->driver_cmds.tm_cmd.done,
 				    LEAPRAID_TM_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.tm_cmd.status & LEAPRAID_CMD_DONE)) {
 		dev_err(&adapter->pdev->dev,
 			"%s: TM cmd timeout, status=0x%x\n",
 			__func__, adapter->driver_cmds.tm_cmd.status);
-		leapraid_log_req_context(adapter, scsi_tm_req);
+		leapraid_log_req_context(adapter, taskid, scsi_tm_req);
 		issue_reset =
 			leapraid_check_reset(
 				adapter->driver_cmds.tm_cmd.status);
@@ -644,7 +643,6 @@ static void leapraid_probe_sas(struct leapraid_adapter *adapter)
 						    sas_dev->hdl,
 						    sas_dev->parent_sas_addr,
 						    sas_dev->card_port);
-
 		if (!added)
 			goto remove_dev;
 
@@ -805,10 +803,7 @@ static inline bool leapraid_is_scmd_permitted(struct leapraid_adapter *adapter,
 			return false;
 
 		opcode = scmd->cmnd[0];
-		if (opcode == SYNCHRONIZE_CACHE || opcode == START_STOP)
-			return true;
-
-		return false;
+		return opcode == SYNCHRONIZE_CACHE || opcode == START_STOP;
 	}
 	return true;
 }
@@ -1101,13 +1096,15 @@ static int leapraid_error_handler(struct scsi_cmnd *scmd,
 
 out_eh_done:
 	if (type == LEAPRAID_TM_TASKTYPE_ABORT_TASK) {
-		dev_info(&adapter->pdev->dev,
-			 "EH ABORT result: %s, scmd=0x%p\n",
-			 rc == SUCCESS ? "success" : "failed", scmd);
+		if (rc)
+			dev_err(&adapter->pdev->dev,
+				"EH ABORT result: failed, scmd=0x%p\n",
+				scmd);
 	} else {
-		dev_info(&adapter->pdev->dev,
-			 "EH %s result: %s, scmd=0x%p\n",
-			 str, rc == SUCCESS ? "success" : "failed", scmd);
+		if (rc)
+			dev_err(&adapter->pdev->dev,
+				"EH %s result: failed, scmd=0x%p\n",
+				str, scmd);
 		if (sas_dev)
 			leapraid_sdev_put(sas_dev);
 	}
@@ -1161,8 +1158,10 @@ static int leapraid_eh_host_reset_handler(struct scsi_cmnd *scmd)
 		rc = SUCCESS;
 
 out_host_reset_done:
-	dev_info(&adapter->pdev->dev, "EH HOST RESET result: %s, scmd=0x%p\n",
-		 rc == SUCCESS ? "success" : "failed", scmd);
+	if (rc)
+		dev_err(&adapter->pdev->dev,
+			"EH HOST RESET result: failed, scmd=0x%p\n",
+			scmd);
 	return rc;
 }
 
@@ -1227,8 +1226,8 @@ static int leapraid_sdev_init(struct scsi_device *sdev)
 	return 0;
 }
 
-static int leapraid_slave_cfg_volume(struct scsi_device *sdev,
-				     struct queue_limits *lim)
+static bool leapraid_slave_cfg_volume(struct scsi_device *sdev,
+				      struct queue_limits *lim)
 {
 	struct Scsi_Host *shost = sdev->host;
 	struct leapraid_adapter *adapter = shost_priv(shost);
@@ -1276,10 +1275,10 @@ static int leapraid_slave_cfg_volume(struct scsi_device *sdev,
 	return 0;
 }
 
-static int leapraid_slave_configure_extra(struct scsi_device *sdev,
-					  struct leapraid_sas_dev **psas_dev,
-					  u16 vol_hdl, u64 volume_wwid,
-					  bool *is_target_ssp, int *qd)
+static bool leapraid_slave_configure_extra(struct scsi_device *sdev,
+					   struct leapraid_sas_dev **psas_dev,
+					   u16 vol_hdl, u64 volume_wwid,
+					   bool *is_target_ssp, int *qd)
 {
 	struct leapraid_sas_dev *sas_dev;
 	struct leapraid_sdev_priv *sdev_priv;
@@ -1587,11 +1586,9 @@ static bool leapraid_scan_check_status(struct leapraid_adapter *adapter,
 		wake_up(&adapter->scan_dev_desc.wait_driver_loading);
 		adapter->scan_dev_desc.wait_scan_dev_done = 0;
 		adapter->access_ctrl.host_removing = 1;
-		wake_up(&adapter->access_ctrl.recovery_waitq);
 		return true;
 	}
 
-	dev_info(&adapter->pdev->dev, "Device scan: SUCCESS\n");
 	adapter->driver_cmds.scan_dev_cmd.status = LEAPRAID_CMD_NOT_USED;
 	leapraid_scan_dev_done(adapter);
 	return true;
@@ -2209,7 +2206,6 @@ static void leapraid_remove(struct pci_dev *pdev)
 		   !atomic_read(&adapter->overheat_desc.thermal_alert));
 
 	adapter->access_ctrl.host_removing = 1;
-	wake_up(&adapter->access_ctrl.recovery_waitq);
 
 	leapraid_wait_cmds_done(adapter);
 
@@ -2250,7 +2246,6 @@ static void leapraid_shutdown(struct pci_dev *pdev)
 	}
 
 	adapter->access_ctrl.host_removing = 1;
-	wake_up(&adapter->access_ctrl.recovery_waitq);
 	leapraid_wait_cmds_done(adapter);
 	leapraid_clean_active_fw_evt(adapter);
 	leapraid_overheat_cleanup(adapter);
@@ -2337,7 +2332,6 @@ static pci_ers_result_t leapraid_pci_slot_reset(struct pci_dev *pdev)
 	dev_err(&pdev->dev, "%s PCI error slot reset\n",
 		adapter->adapter_attr.name);
 
-	adapter->access_ctrl.pcie_recovering = 0;
 	adapter->pdev = pdev;
 	pci_restore_state(pdev);
 	if (leapraid_set_pcie_and_notification(adapter)) {
@@ -2347,13 +2341,15 @@ static pci_ers_result_t leapraid_pci_slot_reset(struct pci_dev *pdev)
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 
+	adapter->access_ctrl.pcie_recovering = 0;
 	dev_info(&pdev->dev, "%s: Hard reset triggered by PCI slot reset\n",
 		 adapter->adapter_attr.name);
 	dev_info(&adapter->pdev->dev, "%s: %d: call hard_reset\n",
 		 __func__, __LINE__);
 	rc = leapraid_hard_reset_handler(adapter, FULL_RESET);
-	dev_info(&pdev->dev, "%s hard reset: %s\n",
-		 adapter->adapter_attr.name, rc == 0 ? "success" : "failed");
+	if (rc)
+		dev_err(&pdev->dev, "%s hard reset: failed\n",
+			adapter->adapter_attr.name);
 
 	return rc == 0 ? PCI_ERS_RESULT_RECOVERED :
 		 PCI_ERS_RESULT_DISCONNECT;
@@ -2370,6 +2366,7 @@ static void leapraid_pci_resume(struct pci_dev *pdev)
 	}
 
 	dev_err(&pdev->dev, "PCI error resume!\n");
+
 	pci_aer_clear_nonfatal_status(pdev);
 	leapraid_check_scheduled_fault_start(adapter);
 	leapraid_fw_log_start(adapter);

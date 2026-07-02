@@ -27,8 +27,6 @@
 /* Maximum number of retries waiting for doorbell to become operational. */
 #define LEAPRAID_DB_WAIT_OP_SHORT   10
 #define LEAPRAID_DB_WAIT_OP_LONG   200
-/* Sleep interval (in seconds) between doorbell polls. */
-#define LEAPRAID_DB_POLL_INTERVAL_S    1
 
 /* Maximum number of retries waiting for host to end recovery. */
 #define LEAPRAID_WAIT_SHOST_RECOVERY   400
@@ -180,7 +178,6 @@
 #define LEAPRAID_CFG_PAGE_NUM_DEV0      0x0
 
 /* SAS device page 0 flags. */
-#define LEAPRAID_SAS_DEV_P0_FLG_FP_CAP          0x2000
 #define LEAPRAID_SAS_DEV_P0_FLG_SATA_SMART      0x0040
 #define LEAPRAID_SAS_DEV_P0_FLG_ENC_LEVEL_VALID 0x0002
 #define LEAPRAID_SAS_DEV_P0_FLG_DEV_PRESENT     0x0001
@@ -207,15 +204,9 @@
 /* Physical disk page number. */
 #define LEAPRAID_CFG_PAGE_NUM_PD0       0x0
 
-/* Adapter page number. */
-#define LEAPRAID_CFG_PAGE_NUM_ADAPTER1  0x1
-
 #define LEAPRAID_CFG_UNIT_SIZE  4
 
 /* Raid volume type and state. */
-#define LEAPRAID_VOL_STATE_MISSING      0x00
-#define LEAPRAID_VOL_STATE_FAILED       0x01
-#define LEAPRAID_VOL_STATE_INITIALIZING 0x02
 #define LEAPRAID_VOL_STATE_ONLINE       0x03
 #define LEAPRAID_VOL_STATE_DEGRADED     0x04
 #define LEAPRAID_VOL_STATE_OPTIMAL      0x05
@@ -230,10 +221,6 @@
 #define LEAPRAID_RAIDCFG_P0_EFLG_VOL_PHYS_DISK_ELEMENT  0x0001
 #define LEAPRAID_RAIDCFG_P0_EFLG_HOT_SPARE_ELEMENT      0x0002
 #define LEAPRAID_RAIDCFG_P0_EFLG_OCE_ELEMENT            0x0003
-
-/* Raid action. */
-#define LEAPRAID_RAID_ACT_SYSTEM_SHUTDOWN_INITIATED     0x20
-#define LEAPRAID_RAID_ACT_PHYSDISK_HIDDEN               0x24
 
 /* SAS negotiated link rates. */
 #define LEAPRAID_SAS_NEG_LINK_RATE_MASK_PHYSICAL        0x0F
@@ -290,8 +277,6 @@
 
 #define LEAPRAID_TM_MSGFLAGS_LINK_RESET         0x00
 #define LEAPRAID_TM_RSP_INVALID_FRAME           0x02
-#define LEAPRAID_TM_RSP_TM_SUCCEEDED            0x08
-#define LEAPRAID_TM_RSP_IO_QUEUED_ON_ADAPTER    0x80
 
 /* SCSI enclosure processor request defines. */
 #define LEAPRAID_SEP_REQ_ACT_WRITE_STATUS               0x00
@@ -301,8 +286,6 @@
 
 /* The capabilities of the adapter. */
 #define LEAPRAID_ADAPTER_FEATURES_CAP_ATOMIC_REQ                0x00080000
-#define LEAPRAID_ADAPTER_FEATURES_CAP_RDPQ_ARRAY_CAPABLE        0x00040000
-#define LEAPRAID_ADAPTER_FEATURES_CAP_EVENT_REPLAY              0x00002000
 #define LEAPRAID_ADAPTER_FEATURES_CAP_INTEGRATED_RAID           0x00001000
 
 /* Event code definitions for the firmware. */
@@ -337,10 +320,6 @@
 #define LEAPRAID_EVT_SAS_TOPO_RC_MASK                   0x0F
 #define LEAPRAID_EVT_SAS_TOPO_RC_TARG_ADDED             0x01
 #define LEAPRAID_EVT_SAS_TOPO_RC_TARG_NOT_RESPONDING    0x02
-
-/* SAS discovery event defines. */
-#define LEAPRAID_EVT_SAS_DISC_RC_STARTED        0x01
-#define LEAPRAID_EVT_SAS_DISC_RC_COMPLETED      0x02
 
 /* Enclosure device status change event. */
 #define LEAPRAID_EVT_SAS_ENCL_RC_ADDED          0x01

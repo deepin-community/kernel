@@ -388,6 +388,7 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		dev_err(&adapter->pdev->dev,
 			"%s: ctl_cmd timeout, status=0x%x\n",
 			__func__, adapter->driver_cmds.ctl_cmd.status);
+		leapraid_log_req_context(adapter, taskid, ctl_sp_mpi_req);
 	}
 
 	if ((leap_mpi_req->func == LEAPRAID_FUNC_SMP_PASSTHROUGH ||
@@ -590,7 +591,7 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 			break;
 		}
 
-		if (karg.hdr.adapter_id  != ioctl_header.adapter_id) {
+		if (karg.hdr.adapter_id != ioctl_header.adapter_id) {
 			rc = -EINVAL;
 			break;
 		}
@@ -619,11 +620,6 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 unlock:
 	mutex_unlock(&adapter->access_ctrl.pci_access_lock);
 	return rc;
-}
-
-static long bad_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	return -ENOTTY;
 }
 
 static long leapraid_ctl_ioctl(struct file *file, unsigned int cmd,
@@ -679,7 +675,6 @@ static const struct file_operations leapraid_ctl_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = leapraid_ctl_ioctl,
 	.mmap = leapraid_fw_mmap,
-	.compat_ioctl = bad_ioctl,
 };
 
 static struct miscdevice leapraid_ctl_dev = {
