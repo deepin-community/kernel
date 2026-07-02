@@ -47,6 +47,17 @@ static bool leapraid_should_skip_poll_work(struct leapraid_adapter *adapter);
 static int leapraid_make_adapter_ready(struct leapraid_adapter *adapter,
 				       enum reset_type type);
 
+static noinline bool leapraid_shost_in_recovery(struct Scsi_Host *shost)
+{
+	enum scsi_host_state state;
+
+	state = READ_ONCE(shost->shost_state);
+	return state == SHOST_RECOVERY ||
+	       state == SHOST_CANCEL_RECOVERY ||
+	       state == SHOST_DEL_RECOVERY ||
+	       shost->tmf_in_progress;
+}
+
 static void leapraid_debug_log_info(struct leapraid_adapter *adapter)
 {
 	struct leapraid_reg_base __iomem *iomem_base = adapter->iomem_base;
@@ -81,6 +92,7 @@ static void leapraid_debug_log_info(struct leapraid_adapter *adapter)
 			 debug_log[i + 2],
 			 debug_log[i + 3]);
 }
+
 static inline bool leapraid_is_end_dev(u32 dev_type)
 {
 	return (dev_type & LEAPRAID_DEVTYP_END_DEV) &&
@@ -171,7 +183,6 @@ static void leapraid_overheat_suspend(struct leapraid_adapter *adapter)
 
 	pdev = adapter->pdev;
 	shost = pci_get_drvdata(pdev);
-
 	if (!shost) {
 		dev_warn(&pdev->dev,
 			 "Overheat suspend failed, invalid host or adapter\n");
@@ -1948,7 +1959,7 @@ static const char *leapraid_tm_type_name(u8 task_type)
 	}
 }
 
-void leapraid_log_req_context(struct leapraid_adapter *adapter,
+void leapraid_log_req_context(struct leapraid_adapter *adapter, u16 smid,
 			      const void *req_data)
 {
 	const struct leapraid_req *req = req_data;
@@ -1961,8 +1972,8 @@ void leapraid_log_req_context(struct leapraid_adapter *adapter,
 		const struct leapraid_cfg_req *cfg_req = req_data;
 
 		dev_err(&adapter->pdev->dev,
-			"cfg-req: func=0x%02x(%s) act=0x%02x(%s)\n",
-			req->func, leapraid_func_name(req->func),
+			"cfg-req: smid=%u func=0x%02x(%s) action=0x%02x(%s)\n",
+			smid, req->func, leapraid_func_name(req->func),
 			cfg_req->action,
 			leapraid_cfg_action_name(cfg_req->action));
 		dev_err(&adapter->pdev->dev,
@@ -1984,12 +1995,12 @@ void leapraid_log_req_context(struct leapraid_adapter *adapter,
 		const struct leapraid_scsi_tm_req *tm_req = req_data;
 
 		dev_err(&adapter->pdev->dev,
-			"scsi_tm: func=0x%02x(%s) task=0x%02x(%s)\n",
-			req->func, leapraid_func_name(req->func),
+			"scsi_tm:: smid=%u func=0x%02x(%s) task=0x%02x(%s)\n",
+			smid, req->func, leapraid_func_name(req->func),
 			tm_req->task_type,
 			leapraid_tm_type_name(tm_req->task_type));
 		dev_err(&adapter->pdev->dev,
-			"scsi_tm: dev_hdl=0x%04x task_mid=%u\n",
+			"scsi_tm:: dev_hdl=0x%04x task_mid=%u\n",
 			le16_to_cpu(tm_req->dev_hdl),
 			le16_to_cpu(tm_req->task_mid));
 		break;
@@ -1998,8 +2009,8 @@ void leapraid_log_req_context(struct leapraid_adapter *adapter,
 		const struct leapraid_sep_req *sep_req = req_data;
 
 		dev_err(&adapter->pdev->dev,
-			"sep: func=0x%02x(%s) act=0x%02x(%s)\n",
-			req->func, leapraid_func_name(req->func),
+			"sep: smid=%u func=0x%02x(%s) action=0x%02x(%s)\n",
+			smid, req->func, leapraid_func_name(req->func),
 			sep_req->act,
 			leapraid_sep_action_name(sep_req->act));
 		dev_err(&adapter->pdev->dev,
@@ -2013,11 +2024,11 @@ void leapraid_log_req_context(struct leapraid_adapter *adapter,
 		const struct leapraid_io_unit_ctrl_req *io_req = req_data;
 
 		dev_err(&adapter->pdev->dev,
-			"timestamp sync: func=0x%02x(%s) op=0x%02x(%s)\n",
-			req->func, leapraid_func_name(req->func),
+			"ctl_cmd: smid=%u func=0x%02x(%s) action=0x%02x(%s)\n",
+			smid, req->func, leapraid_func_name(req->func),
 			io_req->op, leapraid_sas_op_name(io_req->op));
 		dev_err(&adapter->pdev->dev,
-			"timestamp sync: dev_hdl=0x%04x param=0x%02x(%s)\n",
+			"ctl_cmd: dev_hdl=0x%04x param=0x%02x(%s)\n",
 			le16_to_cpu(io_req->dev_hdl),
 			io_req->adapter_para,
 			leapraid_io_param_name(io_req->adapter_para));
@@ -2027,18 +2038,21 @@ void leapraid_log_req_context(struct leapraid_adapter *adapter,
 		const struct leapraid_smp_passthrough_req *smp_req = req_data;
 
 		dev_err(&adapter->pdev->dev,
-			"transport: func=0x%02x(%s) port=%u req_len=%u\n",
-			req->func, leapraid_func_name(req->func),
+			"smp_cmd: smid=%u func=0x%02x(%s) action=0x%02x\n",
+			smid, req->func, leapraid_func_name(req->func),
+			smp_req->passthrough_flg);
+		dev_err(&adapter->pdev->dev,
+			"smp_cmd: port=%u req_len=%u\n",
 			smp_req->physical_port,
 			le16_to_cpu(smp_req->req_data_len));
-		dev_err(&adapter->pdev->dev, "transport: sas_addr=0x%016llx\n",
+		dev_err(&adapter->pdev->dev, "smp_cmd: sas_addr=0x%016llx\n",
 			(unsigned long long)le64_to_cpu(smp_req->sas_address));
 		break;
 	}
 	default:
 		dev_err(&adapter->pdev->dev,
-			"%s: func=0x%02x(%s)\n",
-			__func__, req->func, leapraid_func_name(req->func));
+			"cmd: smid=%u func=0x%02x(%s)\n",
+			smid, req->func, leapraid_func_name(req->func));
 		break;
 	}
 }
@@ -2049,19 +2063,18 @@ static void leapraid_build_and_fire_cfg_req(
 		struct leapraid_cfg_rep *leap_mpi_cfgp_rep)
 {
 	struct leapraid_cfg_req *local_leap_cfg_req;
+	u16 smid;
 
 	memset(leap_mpi_cfgp_rep, 0, sizeof(struct leapraid_cfg_rep));
 	memset(&adapter->driver_cmds.cfg_op_cmd.reply, 0,
 	       sizeof(struct leapraid_cfg_rep));
 	adapter->driver_cmds.cfg_op_cmd.status = LEAPRAID_CMD_PENDING;
-	local_leap_cfg_req = leapraid_get_task_desc(
-				adapter,
-				adapter->driver_cmds.cfg_op_cmd.inter_taskid);
+	smid = adapter->driver_cmds.cfg_op_cmd.inter_taskid;
+	local_leap_cfg_req = leapraid_get_task_desc(adapter, smid);
 	memcpy(local_leap_cfg_req, leap_mpi_cfgp_req,
 	       sizeof(struct leapraid_cfg_req));
 	init_completion(&adapter->driver_cmds.cfg_op_cmd.done);
-	leapraid_fire_task(adapter,
-			   adapter->driver_cmds.cfg_op_cmd.inter_taskid);
+	leapraid_fire_task(adapter, smid);
 	wait_for_completion_timeout(&adapter->driver_cmds.cfg_op_cmd.done,
 				    LEAPRAID_CFG_OP_TIMEOUT * HZ);
 }
@@ -2074,11 +2087,13 @@ static int leapraid_req_cfg_func(struct leapraid_adapter *adapter,
 {
 	u32 adapter_status = UINT_MAX;
 	bool issue_reset = false;
+	u16 smid;
 	u8 retry_cnt;
 	int rc;
 
 	retry_cnt = 0;
 	mutex_lock(&adapter->driver_cmds.cfg_op_cmd.mutex);
+	smid = adapter->driver_cmds.cfg_op_cmd.inter_taskid;
 retry:
 	if (retry_cnt) {
 		if (retry_cnt > LEAPRAID_CFG_REQ_RETRY_TIMES) {
@@ -2115,14 +2130,16 @@ retry:
 				adapter->access_ctrl.shost_recovering ?
 				"shost recovery" : "pcie recovery",
 				adapter->driver_cmds.cfg_op_cmd.status);
-			leapraid_log_req_context(adapter, leap_mpi_cfgp_req);
+			leapraid_log_req_context(adapter, smid,
+						 leap_mpi_cfgp_req);
 			issue_reset = false;
 			rc = -EFAULT;
 		} else {
 			dev_err(&adapter->pdev->dev,
 				"cfg-req: timeout, status=0x%x, reset\n",
 				adapter->driver_cmds.cfg_op_cmd.status);
-			leapraid_log_req_context(adapter, leap_mpi_cfgp_req);
+			leapraid_log_req_context(adapter, smid,
+						 leap_mpi_cfgp_req);
 			issue_reset = true;
 		}
 
@@ -2162,7 +2179,7 @@ out_cleanup:
 	mutex_unlock(&adapter->driver_cmds.cfg_op_cmd.mutex);
 	if (issue_reset) {
 		if (adapter->scan_dev_desc.first_scan_dev_fired) {
-			dev_info(&adapter->pdev->dev,
+			dev_warn(&adapter->pdev->dev,
 				 "%s:%d cfg-req: Failure, issuing reset\n",
 				 __func__, __LINE__);
 			leapraid_hard_reset_handler(adapter, FULL_RESET);
@@ -2433,14 +2450,12 @@ static int leapraid_cfg_find_vol_in_page(
 			u16 phys_hdl;
 
 			phys_hdl = le16_to_cpu(elem->phys_disk_dev_hdl);
-
 			if (phys_hdl == pd_hdl) {
 				*vol_hdl = le16_to_cpu(elem->vol_dev_hdl);
 				return 0;
 			}
 			break;
 		}
-
 		case LEAPRAID_RAIDCFG_P0_EFLG_HOT_SPARE_ELEMENT:
 			*vol_hdl = 0;
 			return 0;
@@ -2607,7 +2622,6 @@ static int leapraid_cfg_get_number_pds(struct leapraid_adapter *adapter,
 	cfgp2.handle = hdl;
 	rc = leapraid_op_config_page(adapter, &raidvol_p0, cfgp1,
 				     cfgp2, GET_RAID_VOLUME_PG0);
-
 	if (!rc)
 		*num_pds = raidvol_p0.num_phys_disks;
 
@@ -2827,13 +2841,12 @@ static void leapraid_timestamp_sync(struct leapraid_adapter *adapter)
 	ktime_t current_time;
 	bool issue_reset = false;
 	u64 time_stamp;
+	u16 smid;
 
 	mutex_lock(&adapter->driver_cmds.timestamp_sync_cmd.mutex);
 	adapter->driver_cmds.timestamp_sync_cmd.status = LEAPRAID_CMD_PENDING;
-	io_unit_ctrl_req =
-		leapraid_get_task_desc(
-			adapter,
-			adapter->driver_cmds.timestamp_sync_cmd.inter_taskid);
+	smid = adapter->driver_cmds.timestamp_sync_cmd.inter_taskid;
+	io_unit_ctrl_req = leapraid_get_task_desc(adapter, smid);
 	memset(io_unit_ctrl_req, 0, sizeof(struct leapraid_io_unit_ctrl_req));
 	io_unit_ctrl_req->func = LEAPRAID_FUNC_SAS_IO_UNIT_CTRL;
 	io_unit_ctrl_req->op = LEAPRAID_SAS_OP_SET_PARAMETER;
@@ -2847,9 +2860,7 @@ static void leapraid_timestamp_sync(struct leapraid_adapter *adapter)
 	io_unit_ctrl_req->adapter_para_value2 =
 		cpu_to_le32(time_stamp >> 32);
 	init_completion(&adapter->driver_cmds.timestamp_sync_cmd.done);
-	leapraid_fire_task(
-		adapter,
-		adapter->driver_cmds.timestamp_sync_cmd.inter_taskid);
+	leapraid_fire_task(adapter, smid);
 	leapraid_debug_log_info(adapter);
 	wait_for_completion_timeout(&adapter->driver_cmds
 					.timestamp_sync_cmd.done,
@@ -2860,7 +2871,7 @@ static void leapraid_timestamp_sync(struct leapraid_adapter *adapter)
 			"%s: timestamp sync timeout, status=0x%x\n",
 			__func__,
 			adapter->driver_cmds.timestamp_sync_cmd.status);
-		leapraid_log_req_context(adapter, io_unit_ctrl_req);
+		leapraid_log_req_context(adapter, smid, io_unit_ctrl_req);
 		issue_reset =
 			leapraid_check_reset(
 				adapter->driver_cmds.timestamp_sync_cmd.status);
@@ -2891,15 +2902,16 @@ static void leapraid_check_scheduled_fault_work(struct work_struct *work)
 
 	adapter_state = leapraid_get_adapter_state(adapter);
 	if (adapter_state != LEAPRAID_DB_OPERATIONAL) {
-		dev_info(&adapter->pdev->dev, "%s:%d: call hard_reset\n",
-			 __func__, __LINE__);
+		dev_info(&adapter->pdev->dev, "%s:%d: call hard_reset 0x%x\n",
+			 __func__, __LINE__, adapter_state);
 		rc = leapraid_hard_reset_handler(adapter, FULL_RESET);
-		dev_warn(&adapter->pdev->dev, "%s: Hard reset %s\n",
-			 __func__, rc == 0 ? "success" : "failed");
-
 		adapter_state = leapraid_get_adapter_state(adapter);
-		if (rc && adapter_state != LEAPRAID_DB_OPERATIONAL)
+		if (rc && adapter_state != LEAPRAID_DB_OPERATIONAL) {
+			dev_err(&adapter->pdev->dev,
+				"%s: Hard reset failed, state=0x%x rc=%d\n",
+				__func__, adapter_state, rc);
 			return;
+		}
 	}
 
 	if (++adapter->timestamp_sync_cnt >=
@@ -3262,7 +3274,6 @@ void leapraid_smart_polling_stop(struct leapraid_adapter *adapter)
 
 	wq = desc->smart_poll_wq;
 	desc->smart_poll_wq = NULL;
-
 	if (wq) {
 		if (!cancel_delayed_work_sync(&desc->smart_poll_work))
 			flush_workqueue(wq);
@@ -3304,7 +3315,6 @@ static void leapraid_overheat_work(struct work_struct *work)
 	adapter->scan_dev_desc.scan_start = 0;
 	adapter->scan_dev_desc.wait_scan_dev_done = 0;
 	adapter->scan_dev_desc.driver_loading = 0;
-	wake_up(&adapter->access_ctrl.recovery_waitq);
 	wake_up(&adapter->access_ctrl.shost_recover_wq);
 	wake_up(&adapter->scan_dev_desc.wait_driver_loading);
 
@@ -3393,10 +3403,10 @@ static struct leapraid_fw_evt_work *leapraid_alloc_fw_evt_work(void)
 {
 	struct leapraid_fw_evt_work *fw_evt =
 		kzalloc(sizeof(*fw_evt), GFP_ATOMIC);
-	if (!fw_evt)
-		return NULL;
 
-	kref_init(&fw_evt->refcnt);
+	if (fw_evt)
+		kref_init(&fw_evt->refcnt);
+
 	return fw_evt;
 }
 
@@ -3467,7 +3477,6 @@ void leapraid_clean_active_fw_evt(struct leapraid_adapter *adapter)
 		return;
 
 	adapter->fw_evt_s.fw_evt_cleanup = 1;
-	wake_up(&adapter->access_ctrl.recovery_waitq);
 	if (adapter->access_ctrl.shost_recovering &&
 	    adapter->fw_evt_s.cur_evt)
 		adapter->fw_evt_s.cur_evt->ignore = 1;
@@ -4382,7 +4391,7 @@ void leapraid_exp_rm(struct leapraid_adapter *adapter, u64 sas_addr,
 		leapraid_exp_node_rm(adapter, topo_node_exp);
 }
 
-static int leapraid_internal_sas_topo_chg_evt(
+static void leapraid_internal_sas_topo_chg_evt(
 		struct leapraid_adapter *adapter,
 		struct leapraid_card_port *card_port,
 		struct leapraid_topo_node *topo_node_exp,
@@ -4399,11 +4408,11 @@ static int leapraid_internal_sas_topo_chg_evt(
 	evt_data = fw_evt->evt_data;
 	for (i = 0; i < evt_data->entry_num; i++) {
 		if (fw_evt->ignore)
-			return 0;
+			return;
 
 		if (adapter->access_ctrl.host_removing ||
 		    adapter->access_ctrl.pcie_recovering)
-			return 0;
+			return;
 
 		phy_number = evt_data->start_phy_num + i;
 		if (phy_number >= max_phys)
@@ -4441,12 +4450,10 @@ static int leapraid_internal_sas_topo_chg_evt(
 	if (evt_data->exp_status == LEAPRAID_EVT_SAS_TOPO_ES_NOT_RESPONDING &&
 	    topo_node_exp)
 		leapraid_exp_rm(adapter, sas_addr, card_port);
-
-	return 0;
 }
 
-static int leapraid_sas_topo_chg_evt(struct leapraid_adapter *adapter,
-				     struct leapraid_fw_evt_work *fw_evt)
+static void leapraid_sas_topo_chg_evt(struct leapraid_adapter *adapter,
+				      struct leapraid_fw_evt_work *fw_evt)
 {
 	struct leapraid_topo_node *topo_node_exp;
 	struct leapraid_card_port *card_port;
@@ -4459,13 +4466,13 @@ static int leapraid_sas_topo_chg_evt(struct leapraid_adapter *adapter,
 	if (adapter->access_ctrl.shost_recovering ||
 	    adapter->access_ctrl.host_removing ||
 	    adapter->access_ctrl.pcie_recovering)
-		return 0;
+		return;
 
 	evt_data = fw_evt->evt_data;
 	leapraid_sas_host_add(adapter, adapter->dev_topo.card.phys_num > 0);
 
 	if (fw_evt->ignore)
-		return 0;
+		return;
 
 	phdl = le16_to_cpu(evt_data->exp_dev_hdl);
 	card_port = leapraid_get_port_by_id(adapter,
@@ -4473,7 +4480,7 @@ static int leapraid_sas_topo_chg_evt(struct leapraid_adapter *adapter,
 					    false);
 	if (evt_data->exp_status == LEAPRAID_EVT_SAS_TOPO_ES_ADDED &&
 	    leapraid_exp_add(adapter, phdl) != 0)
-		return 0;
+		return;
 
 	spin_lock_irqsave(&adapter->dev_topo.topo_node_lock, flags);
 	topo_node_exp = leapraid_exp_find_by_hdl(adapter, phdl);
@@ -4487,13 +4494,13 @@ static int leapraid_sas_topo_chg_evt(struct leapraid_adapter *adapter,
 	} else {
 		spin_unlock_irqrestore(&adapter->dev_topo.topo_node_lock,
 				       flags);
-		return 0;
+		return;
 	}
 	spin_unlock_irqrestore(&adapter->dev_topo.topo_node_lock, flags);
 
-	return leapraid_internal_sas_topo_chg_evt(adapter, card_port,
-						  topo_node_exp, fw_evt,
-						  sas_addr, max_phys);
+	leapraid_internal_sas_topo_chg_evt(adapter, card_port,
+					   topo_node_exp, fw_evt,
+					   sas_addr, max_phys);
 }
 
 static void leapraid_reprobe_lun(struct scsi_device *sdev, void *no_uld_attach)
@@ -4603,7 +4610,6 @@ static void leapraid_sas_pd_hide(
 	}
 	spin_unlock_irqrestore(&adapter->dev_topo.sas_dev_lock, flags);
 	if (starget) {
-		dev_info(&adapter->pdev->dev, "hide sas_dev, hdl=0x%x\n", hdl);
 		starget_for_each_device(starget,
 					(void *)LEAPRAID_NO_ULD_ATTACH_FLAG,
 					leapraid_reprobe_lun);
@@ -4623,7 +4629,6 @@ static void leapraid_sas_pd_expose(
 	u16 hdl;
 
 	hdl = le16_to_cpu(evt_data->phys_disk_dev_hdl);
-
 	if (!hdl || hdl > adapter->adapter_attr.features.max_dev_handle) {
 		dev_warn(&adapter->pdev->dev,
 			 "%s: Invalid device handle\n", __func__);
@@ -4652,8 +4657,6 @@ static void leapraid_sas_pd_expose(
 	spin_unlock_irqrestore(&adapter->dev_topo.sas_dev_lock, flags);
 
 	if (starget) {
-		dev_info(&adapter->pdev->dev,
-			 "expose sas_dev, hdl=0x%x\n", hdl);
 		starget_for_each_device(starget,
 					LEAPRAID_ULD_ATTACH_FLAG,
 					leapraid_reprobe_lun);
@@ -4986,7 +4989,7 @@ static void leapraid_remove_unresp_sas_end_dev(
 		leapraid_sdev_put(sas_dev);
 	}
 
-	dev_info(&adapter->pdev->dev,
+	dev_warn(&adapter->pdev->dev,
 		 "Unresponsive SAS end devices removed\n");
 }
 
@@ -5011,7 +5014,7 @@ static void leapraid_remove_unresp_raid_volumes(
 		leapraid_sas_volume_delete_by_ptr(adapter, raid_volume);
 	}
 
-	dev_info(&adapter->pdev->dev,
+	dev_warn(&adapter->pdev->dev,
 		 "Unresponsive RAID volumes removed\n");
 }
 
@@ -5035,7 +5038,7 @@ static void leapraid_remove_unresp_sas_exp(struct leapraid_adapter *adapter)
 				 &head, list)
 		leapraid_exp_node_rm(adapter, topo_node_exp);
 
-	dev_info(&adapter->pdev->dev,
+	dev_warn(&adapter->pdev->dev,
 		 "Unresponsive SAS expanders removed\n");
 }
 
@@ -5153,8 +5156,6 @@ static void leapraid_scan_exp_after_reset(struct leapraid_adapter *adapter)
 	u16 hdl;
 	u8 port_id;
 
-	dev_info(&adapter->pdev->dev, "Begin scanning expanders\n");
-
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (hdl = 0xFFFF, cfgp2.handle = hdl;
 	     !leapraid_op_config_page(adapter, &exp_p0, cfgp1, cfgp2,
@@ -5185,8 +5186,6 @@ static void leapraid_scan_exp_after_reset(struct leapraid_adapter *adapter)
 					exp_p0.sas_address));
 		}
 	}
-
-	dev_info(&adapter->pdev->dev, "Expanders scan complete\n");
 }
 
 static void leapraid_scan_phy_disks_after_reset(
@@ -5202,8 +5201,6 @@ static void leapraid_scan_phy_disks_after_reset(
 	u8 phys_disk_num, port_id;
 	u16 hdl, parent_hdl;
 	u64 sas_addr;
-
-	dev_info(&adapter->pdev->dev, "Begin scanning phys disk\n");
 
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (phys_disk_num = 0xFF, cfgp2.form_specific = phys_disk_num;
@@ -5253,8 +5250,6 @@ static void leapraid_scan_phy_disks_after_reset(
 			}
 		}
 	}
-
-	dev_info(&adapter->pdev->dev, "PHYs disk scan complete\n");
 }
 
 static void leapraid_scan_vol_after_reset(struct leapraid_adapter *adapter)
@@ -5279,7 +5274,6 @@ static void leapraid_scan_vol_after_reset(struct leapraid_adapter *adapter)
 		return;
 	}
 
-	dev_info(&adapter->pdev->dev, "Begin scanning volumes\n");
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (hdl = 0xFFFF, cfgp2.handle = hdl;
 	     !leapraid_op_config_page(adapter, vol_p1, cfgp1,
@@ -5316,8 +5310,6 @@ static void leapraid_scan_vol_after_reset(struct leapraid_adapter *adapter)
 
 	kfree(vol_p0);
 	kfree(vol_p1);
-
-	dev_info(&adapter->pdev->dev, "Volumes scan complete\n");
 }
 
 static void leapraid_scan_sas_dev_after_reset(struct leapraid_adapter *adapter)
@@ -5329,9 +5321,6 @@ static void leapraid_scan_sas_dev_after_reset(struct leapraid_adapter *adapter)
 	u16 hdl, parent_hdl;
 	u64 sas_address;
 	u8 port_id;
-
-	dev_info(&adapter->pdev->dev,
-		 "Begin scanning SAS end devices\n");
 
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (hdl = 0xFFFF, cfgp2.handle = hdl;
@@ -5382,14 +5371,10 @@ static void leapraid_scan_sas_dev_after_reset(struct leapraid_adapter *adapter)
 					sas_dev_p0.sas_address));
 		}
 	}
-
-	dev_info(&adapter->pdev->dev, "SAS end devices scan complete\n");
 }
 
 static void leapraid_scan_all_dev_after_reset(struct leapraid_adapter *adapter)
 {
-	dev_info(&adapter->pdev->dev, "Begin scanning devices\n");
-
 	leapraid_sas_host_add(adapter, adapter->dev_topo.card.phys_num > 0);
 	leapraid_scan_exp_after_reset(adapter);
 	if (adapter->adapter_attr.raid_support) {
@@ -5397,8 +5382,6 @@ static void leapraid_scan_all_dev_after_reset(struct leapraid_adapter *adapter)
 		leapraid_scan_vol_after_reset(adapter);
 	}
 	leapraid_scan_sas_dev_after_reset(adapter);
-
-	dev_info(&adapter->pdev->dev, "Devices scan complete\n");
 }
 
 static void leapraid_hardreset_async_logic(struct leapraid_adapter *adapter)
@@ -5426,6 +5409,7 @@ static int leapraid_send_enc_cmd(struct leapraid_adapter *adapter,
 	void *req;
 	bool reset_flg = false;
 	int rc;
+	u16 smid;
 
 	mutex_lock(&adapter->driver_cmds.enc_cmd.mutex);
 	rc = leapraid_check_adapter_is_op(adapter, LEAPRAID_DB_WAIT_OP_SHORT,
@@ -5434,21 +5418,19 @@ static int leapraid_send_enc_cmd(struct leapraid_adapter *adapter,
 		goto unlock;
 
 	adapter->driver_cmds.enc_cmd.status = LEAPRAID_CMD_PENDING;
-	req = leapraid_get_task_desc(
-			adapter,
-			adapter->driver_cmds.enc_cmd.inter_taskid);
+	smid = adapter->driver_cmds.enc_cmd.inter_taskid;
+	req = leapraid_get_task_desc(adapter, smid);
 	memset(req, 0, LEAPRAID_REQUEST_SIZE);
 	memcpy(req, sep_req, sizeof(struct leapraid_sep_req));
 	init_completion(&adapter->driver_cmds.enc_cmd.done);
-	leapraid_fire_task(adapter,
-			   adapter->driver_cmds.enc_cmd.inter_taskid);
+	leapraid_fire_task(adapter, smid);
 	wait_for_completion_timeout(&adapter->driver_cmds.enc_cmd.done,
 				    LEAPRAID_ENC_CMD_TIMEOUT * HZ);
 	if (!(adapter->driver_cmds.enc_cmd.status & LEAPRAID_CMD_DONE)) {
 		dev_err(&adapter->pdev->dev,
 			"%s: SEP command timeout, status=0x%x\n",
 			__func__, adapter->driver_cmds.enc_cmd.status);
-		leapraid_log_req_context(adapter, sep_req);
+		leapraid_log_req_context(adapter, smid, sep_req);
 		reset_flg =
 			leapraid_check_reset(
 				adapter->driver_cmds.enc_cmd.status);
@@ -5512,10 +5494,10 @@ static int leapraid_wait_adapter_recovery(struct leapraid_adapter *adapter)
 {
 	unsigned long flags;
 
-	while (scsi_host_in_recovery(adapter->shost) ||
-	       adapter->access_ctrl.shost_recovering) {
-		if (adapter->access_ctrl.host_removing ||
-		    adapter->fw_evt_s.fw_evt_cleanup) {
+	while (leapraid_shost_in_recovery(adapter->shost) ||
+	       READ_ONCE(adapter->access_ctrl.shost_recovering)) {
+		if (READ_ONCE(adapter->access_ctrl.host_removing) ||
+		    READ_ONCE(adapter->fw_evt_s.fw_evt_cleanup)) {
 			spin_lock_irqsave(
 				&adapter->reset_desc.adapter_reset_lock,
 				flags);
@@ -5535,12 +5517,13 @@ static int leapraid_wait_adapter_recovery(struct leapraid_adapter *adapter)
 			return -EFAULT;
 		}
 
-		wait_event_timeout(adapter->access_ctrl.recovery_waitq,
-				   !adapter->access_ctrl.shost_recovering ||
-				   adapter->access_ctrl.host_removing ||
-				   adapter->fw_evt_s.fw_evt_cleanup,
-				   msecs_to_jiffies(1000));
+		wait_event_timeout(
+			adapter->access_ctrl.recovery_waitq,
+			(!leapraid_shost_in_recovery(adapter->shost) &&
+			 !READ_ONCE(adapter->access_ctrl.shost_recovering)),
+			msecs_to_jiffies(1000));
 	}
+
 	return 0;
 }
 
@@ -5625,7 +5608,6 @@ static void leapraid_sas_dev_stat_chg_evt(
 			leapraid_get_port_by_id(adapter,
 						event_data->physical_port,
 						false));
-
 	if (!sas_dev || !sas_dev->starget)
 		goto out_unlock;
 
@@ -5895,9 +5877,9 @@ static void leapraid_scan_dev_complete(struct leapraid_adapter *adapter)
 	leapraid_fw_evt_put(fw_evt);
 }
 
-static u8 leapraid_handle_scan_cb(struct leapraid_adapter *adapter,
-				  struct leapraid_driver_cmd *cmd,
-				  struct leapraid_rep *rep)
+static void leapraid_handle_scan_cb(struct leapraid_adapter *adapter,
+				    struct leapraid_driver_cmd *cmd,
+				    struct leapraid_rep *rep)
 {
 	u16 status;
 
@@ -5905,21 +5887,18 @@ static u8 leapraid_handle_scan_cb(struct leapraid_adapter *adapter,
 
 	status = le16_to_cpu(rep->adapter_status) &
 		 LEAPRAID_ADAPTER_STATUS_MASK;
-
 	if (status != LEAPRAID_ADAPTER_STATUS_SUCCESS)
 		adapter->scan_dev_desc.scan_dev_failed = 1;
 
 	if (!cmd->async_scan_dev) {
 		complete(&cmd->done);
-		return 1;
+		return;
 	}
 
 	if (status == LEAPRAID_ADAPTER_STATUS_SUCCESS)
 		leapraid_scan_dev_complete(adapter);
 	else
 		adapter->scan_dev_desc.scan_start_failed = status;
-
-	return 1;
 }
 
 static void leapraid_handle_ctl_cb(struct leapraid_adapter *adapter,
@@ -5933,7 +5912,6 @@ static void leapraid_handle_ctl_cb(struct leapraid_adapter *adapter,
 		return;
 
 	scsiio_reply = (struct leapraid_scsiio_rep *)rep;
-
 	if (!(scsiio_reply->scsi_state &
 	      LEAPRAID_SCSI_STATE_AUTOSENSE_VALID))
 		return;
@@ -5976,10 +5954,11 @@ static bool leapraid_driver_cmds_done(struct leapraid_adapter *adapter,
 		memcpy(&_sp_cmd->reply, leap_mpi_rep, reply_len);
 		_sp_cmd->status |= LEAPRAID_CMD_REPLY_VALID;
 
-		if (_sp_cmd->cb_idx == LEAPRAID_SCAN_DEV_CB_IDX)
-			return leapraid_handle_scan_cb(adapter,
-						       _sp_cmd,
-						       leap_mpi_rep);
+		if (_sp_cmd->cb_idx == LEAPRAID_SCAN_DEV_CB_IDX) {
+			leapraid_handle_scan_cb(adapter, _sp_cmd,
+						leap_mpi_rep);
+			return true;
+		}
 
 		if (_sp_cmd->cb_idx == LEAPRAID_CTL_CB_IDX)
 			leapraid_handle_ctl_cb(adapter, leap_mpi_rep, taskid);
@@ -6245,7 +6224,6 @@ static int leapraid_host_diag_reset(struct leapraid_adapter *adapter)
 {
 	u32 host_diag;
 
-	dev_info(&adapter->pdev->dev, "Entering host diag reset!\n");
 	pci_cfg_access_lock(adapter->pdev);
 
 	mutex_lock(&adapter->reset_desc.host_diag_mutex);
@@ -6269,14 +6247,13 @@ static int leapraid_host_diag_reset(struct leapraid_adapter *adapter)
 		goto out_failed;
 
 	pci_cfg_access_unlock(adapter->pdev);
-	dev_info(&adapter->pdev->dev, "Host diag success!\n");
 	return 0;
 
 out_cleanup:
 	mutex_unlock(&adapter->reset_desc.host_diag_mutex);
 out_failed:
 	pci_cfg_access_unlock(adapter->pdev);
-	dev_info(&adapter->pdev->dev, "Host diag failed!\n");
+	dev_err(&adapter->pdev->dev, "Host diag failed\n");
 	return -EFAULT;
 }
 
@@ -6791,11 +6768,8 @@ static void leapraid_search_resp_sas_dev(struct leapraid_adapter *adapter)
 	struct leapraid_sas_dev_p0 sas_dev_p0;
 	u32 device_info;
 
-	dev_info(&adapter->pdev->dev,
-		 "Begin searching for SAS end devices\n");
-
 	if (list_empty(&adapter->dev_topo.sas_dev_list))
-		goto exit_search;
+		return;
 
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (cfgp2.handle = 0xFFFF;
@@ -6808,9 +6782,6 @@ static void leapraid_search_resp_sas_dev(struct leapraid_adapter *adapter)
 
 		leapraid_mark_resp_sas_dev(adapter, &sas_dev_p0);
 	}
-exit_search:
-	dev_info(&adapter->pdev->dev,
-		 "SAS end devices searching complete\n");
 }
 
 static void leapraid_mark_resp_raid_volume(struct leapraid_adapter *adapter,
@@ -6879,14 +6850,11 @@ static void leapraid_search_resp_raid_volume(struct leapraid_adapter *adapter)
 	if (!adapter->adapter_attr.raid_support)
 		return;
 
-	dev_info(&adapter->pdev->dev,
-		 "Begin searching for RAID volumes\n");
-
 	spin_lock_irqsave(&adapter->dev_topo.raid_volume_lock, flags);
 	is_empty = list_empty(&adapter->dev_topo.raid_volume_list);
 	spin_unlock_irqrestore(&adapter->dev_topo.raid_volume_lock, flags);
 	if (is_empty)
-		goto exit_search;
+		return;
 
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (hdl = 0xFFFF, cfgp2.handle = hdl;
@@ -6924,9 +6892,6 @@ static void leapraid_search_resp_raid_volume(struct leapraid_adapter *adapter)
 		else
 			set_bit(hdl, adapter->dev_topo.pd_hdls);
 	}
-exit_search:
-	dev_info(&adapter->pdev->dev,
-		 "RAID volumes searching complete\n");
 }
 
 static void leapraid_mark_resp_exp(struct leapraid_adapter *adapter,
@@ -6987,10 +6952,8 @@ static void leapraid_search_resp_exp(struct leapraid_adapter *adapter)
 	u16 hdl;
 	u8 port;
 
-	dev_dbg(&adapter->pdev->dev,
-		"Begin searching for expanders\n");
 	if (list_empty(&adapter->dev_topo.exp_list))
-		goto exit_search;
+		return;
 
 	cfgp1.form = LEAPRAID_SAS_CFG_PGAD_GET_NEXT_LOOP;
 	for (hdl = 0xFFFF, cfgp2.handle = hdl;
@@ -7008,9 +6971,6 @@ static void leapraid_search_resp_exp(struct leapraid_adapter *adapter)
 				LEAPRAID_DISABLE_MP_PORT_ID);
 		leapraid_mark_resp_exp(adapter, &exp_p0);
 	}
-exit_search:
-	dev_dbg(&adapter->pdev->dev,
-		"Expander searching complete\n");
 }
 
 void leapraid_wait_cmds_done(struct leapraid_adapter *adapter)
@@ -7099,7 +7059,6 @@ int leapraid_hard_reset_handler(struct leapraid_adapter *adapter,
 		dev_err(&adapter->pdev->dev,
 			"Previous device scan failed or driver loading\n");
 		adapter->access_ctrl.host_removing = 1;
-		wake_up(&adapter->access_ctrl.recovery_waitq);
 		rc = -EFAULT;
 		goto out_cleanup;
 	}
@@ -7120,8 +7079,8 @@ int leapraid_hard_reset_handler(struct leapraid_adapter *adapter,
 		leapraid_hardreset_barrier(adapter);
 	}
 out_cleanup:
-	dev_info(&adapter->pdev->dev, "Hard reset %s\n",
-		 rc == 0 ? "SUCCESS" : "FAILED");
+	if (rc)
+		dev_err(&adapter->pdev->dev, "Hard reset failed\n");
 
 	spin_lock_irqsave(&adapter->reset_desc.adapter_reset_lock, flags);
 	adapter->reset_desc.adapter_reset_results = rc;
@@ -7358,8 +7317,8 @@ static void leapraid_map_msix_to_cpu(struct leapraid_adapter *adapter)
 {
 	struct leapraid_int_rq *int_rq;
 	const cpumask_t *affinity_mask;
+	int cpu;
 	u32 i;
-	u16 cpu;
 
 	if (!adapter->adapter_attr.rq_cnt)
 		return;
@@ -7383,6 +7342,7 @@ static void leapraid_map_msix_to_cpu(struct leapraid_adapter *adapter)
 				int_rq->rq.msix_idx;
 		}
 	}
+	return;
 out_apply_irq_affinity:
 	leapraid_cpus_on_irq(adapter);
 }
@@ -7445,7 +7405,6 @@ static int leapraid_setup_irqs(struct leapraid_adapter *adapter)
 			adapter->notification_desc.iopoll_qdex,
 			adapter->notification_desc.iopoll_qdex,
 			PCI_IRQ_MSIX | PCI_IRQ_AFFINITY, NULL);
-
 		if (rc < 0) {
 			dev_err(&adapter->pdev->dev,
 				"%d MSI/MSIX vectors allocated failed!\n",
@@ -7478,7 +7437,6 @@ static int leapraid_setup_irqs(struct leapraid_adapter *adapter)
 				 IRQF_SHARED,
 				 adapter->notification_desc.int_rqs[i].rq.name,
 				 &adapter->notification_desc.int_rqs[i].rq);
-
 		if (rc) {
 			dev_err(&adapter->pdev->dev,
 				"MSI/MSIx: request_irq %s failed!\n",
@@ -7536,8 +7494,6 @@ static int leapraid_setup_legacy_int(struct leapraid_adapter *adapter)
 
 static int leapraid_set_legacy_int(struct leapraid_adapter *adapter)
 {
-	int rc;
-
 	adapter->notification_desc.msix_cpu_map_sz = num_online_cpus();
 	adapter->notification_desc.msix_cpu_map =
 		kzalloc(adapter->notification_desc.msix_cpu_map_sz,
@@ -7560,9 +7516,7 @@ static int leapraid_set_legacy_int(struct leapraid_adapter *adapter)
 	if (!adapter->notification_desc.int_rqs)
 		return -ENOMEM;
 
-	rc = leapraid_setup_legacy_int(adapter);
-
-	return rc;
+	return leapraid_setup_legacy_int(adapter);
 }
 
 static int leapraid_set_msix(struct leapraid_adapter *adapter)
@@ -7670,9 +7624,7 @@ static int leapraid_set_msix(struct leapraid_adapter *adapter)
 	return 0;
 
 apply_legacy_int:
-	rc = leapraid_set_legacy_int(adapter);
-
-	return rc;
+	return leapraid_set_legacy_int(adapter);
 }
 
 static int leapraid_set_msi(struct leapraid_adapter *adapter)
@@ -7801,9 +7753,7 @@ static int leapraid_set_msi(struct leapraid_adapter *adapter)
 	return 0;
 
 apply_legacy_int:
-	rc = leapraid_set_legacy_int(adapter);
-
-	return rc;
+	return leapraid_set_legacy_int(adapter);
 }
 
 static int leapraid_set_notification(struct leapraid_adapter *adapter)
@@ -7886,18 +7836,16 @@ static int leapraid_adapter_unit_reset(struct leapraid_adapter *adapter)
 {
 	int rc = 0;
 
-	dev_info(&adapter->pdev->dev, "fire unit reset\n");
 	writel(LEAPRAID_FUNC_ADAPTER_UNIT_RESET << LEAPRAID_DB_FUNC_SHIFT,
 	       &adapter->iomem_base->db);
 	if (leapraid_db_wait_ack_and_clear_int(adapter))
 		rc = -EFAULT;
 
 	if (!leapraid_wait_adapter_ready(adapter)) {
-		dev_info(&adapter->pdev->dev, "unit reset: FAILED\n");
+		dev_err(&adapter->pdev->dev, "unit reset failed\n");
 		return -EFAULT;
 	}
 
-	dev_info(&adapter->pdev->dev, "unit reset: SUCCESS\n");
 	return rc;
 }
 
@@ -7905,7 +7853,6 @@ static int leapraid_make_adapter_ready(struct leapraid_adapter *adapter,
 				       enum reset_type type)
 {
 	u32 db;
-	int rc;
 	int count;
 
 	if (!leapraid_pci_active(adapter))
@@ -7944,8 +7891,7 @@ static int leapraid_make_adapter_ready(struct leapraid_adapter *adapter,
 		return 0;
 
 full_reset:
-	rc = leapraid_host_diag_reset(adapter);
-	return rc;
+	return leapraid_host_diag_reset(adapter);
 }
 
 static void leapraid_fw_log_exit(struct leapraid_adapter *adapter)
@@ -8116,15 +8062,13 @@ int leapraid_internal_init_cmd_priv(struct leapraid_adapter *adapter,
 	return 0;
 }
 
-int leapraid_internal_exit_cmd_priv(struct leapraid_adapter *adapter,
-				    struct leapraid_io_req_tracker *io_tracker)
+void leapraid_internal_exit_cmd_priv(struct leapraid_adapter *adapter,
+				     struct leapraid_io_req_tracker *io_tracker)
 {
 	if (io_tracker && io_tracker->chain)
 		dma_pool_free(adapter->mem_desc.sg_chain_pool,
 			      io_tracker->chain,
 			      io_tracker->chain_dma);
-
-	return 0;
 }
 
 static int leapraid_request_host_memory(struct leapraid_adapter *adapter)
@@ -8405,9 +8349,10 @@ static int leapraid_alloc_dev_topo_bitmaps(struct leapraid_adapter *adapter)
 {
 	u16 pd_hdls_sz;
 
-	pd_hdls_sz = adapter->adapter_attr.features.max_dev_handle /
-		     LEAPRAID_BITS_PER_BYTE;
-	pd_hdls_sz++;
+	pd_hdls_sz =
+		BITS_TO_LONGS(
+			adapter->adapter_attr.features.max_dev_handle + 1) *
+		sizeof(unsigned long);
 
 	adapter->dev_topo.pd_hdls_sz = pd_hdls_sz;
 	adapter->dev_topo.pd_hdls =
@@ -8643,48 +8588,52 @@ static int leapraid_cfg_pages(struct leapraid_adapter *adapter)
 {
 	union cfg_param_1 cfgp1 = {0};
 	union cfg_param_2 cfgp2 = {0};
-	struct leapraid_manufacturing_p0 manufacturing_page0;
-	struct leapraid_bios_page3 bios_page3;
-	struct leapraid_bios_page2 bios_page2;
+	union {
+		struct leapraid_manufacturing_p0 manufacturing_page0;
+		struct leapraid_bios_page3 bios_page3;
+		struct leapraid_bios_page2 bios_page2;
+	} cfg_page;
 	int rc;
 
-	rc = leapraid_op_config_page(adapter, &bios_page3, cfgp1,
+	rc = leapraid_op_config_page(adapter, &cfg_page.bios_page3, cfgp1,
 				     cfgp2, GET_BIOS_PG3);
 	if (rc)
 		return rc;
 
-	rc = leapraid_op_config_page(adapter, &bios_page2, cfgp1,
+	adapter->adapter_attr.bios_version =
+		le32_to_cpu(cfg_page.bios_page3.bios_version);
+
+	rc = leapraid_op_config_page(adapter, &cfg_page.bios_page2, cfgp1,
 				     cfgp2, GET_BIOS_PG2);
 	if (rc)
 		return rc;
 
-	rc = leapraid_op_config_page(adapter, &manufacturing_page0, cfgp1,
-				     cfgp2, GET_MANUFACTURING_PG0);
+	adapter->boot_devs.requested_boot_dev.form =
+		cfg_page.bios_page2.requested_boot_dev_form;
+	memcpy(adapter->boot_devs.requested_boot_dev.pg_dev,
+	       &cfg_page.bios_page2.requested_boot_dev,
+	       LEAPRAID_BOOT_DEV_SIZE);
+	adapter->boot_devs.requested_alt_boot_dev.form =
+		cfg_page.bios_page2.requested_alt_boot_dev_form;
+	memcpy(adapter->boot_devs.requested_alt_boot_dev.pg_dev,
+	       &cfg_page.bios_page2.requested_alt_boot_dev,
+	       LEAPRAID_BOOT_DEV_SIZE);
+	adapter->boot_devs.current_boot_dev.form =
+		cfg_page.bios_page2.current_boot_dev_form;
+	memcpy(adapter->boot_devs.current_boot_dev.pg_dev,
+	       &cfg_page.bios_page2.current_boot_dev,
+	       LEAPRAID_BOOT_DEV_SIZE);
+
+	rc = leapraid_op_config_page(adapter, &cfg_page.manufacturing_page0,
+				     cfgp1, cfgp2, GET_MANUFACTURING_PG0);
 	if (rc)
 		return rc;
 
-	adapter->adapter_attr.bios_version =
-		le32_to_cpu(bios_page3.bios_version);
 	snprintf(adapter->adapter_attr.board_name,
 		 sizeof(adapter->adapter_attr.board_name),
 		 "%.*s",
-		 (int)sizeof(manufacturing_page0.board_name),
-		 manufacturing_page0.board_name);
-	adapter->boot_devs.requested_boot_dev.form =
-		bios_page2.requested_boot_dev_form;
-	memcpy(adapter->boot_devs.requested_boot_dev.pg_dev,
-	       &bios_page2.requested_boot_dev,
-	       LEAPRAID_BOOT_DEV_SIZE);
-	adapter->boot_devs.requested_alt_boot_dev.form =
-		bios_page2.requested_alt_boot_dev_form;
-	memcpy(adapter->boot_devs.requested_alt_boot_dev.pg_dev,
-	       &bios_page2.requested_alt_boot_dev,
-	       LEAPRAID_BOOT_DEV_SIZE);
-	adapter->boot_devs.current_boot_dev.form =
-		bios_page2.current_boot_dev_form;
-	memcpy(adapter->boot_devs.current_boot_dev.pg_dev,
-	       &bios_page2.current_boot_dev,
-	       LEAPRAID_BOOT_DEV_SIZE);
+		 (int)sizeof(cfg_page.manufacturing_page0.board_name),
+		 cfg_page.manufacturing_page0.board_name);
 	return rc;
 }
 
@@ -8793,8 +8742,6 @@ int leapraid_scan_dev(struct leapraid_adapter *adapter, bool async_scan_dev)
 
 out_cleanup:
 	adapter->driver_cmds.scan_dev_cmd.status = LEAPRAID_CMD_NOT_USED;
-	dev_info(&adapter->pdev->dev,
-		 "Device scan %s\n", rc == 0 ? "SUCCESS" : "FAILED");
 	return rc;
 }
 
@@ -8936,11 +8883,7 @@ static int leapraid_make_adapter_available(struct leapraid_adapter *adapter)
 		return 0;
 	}
 
-	rc = leapraid_scan_dev(adapter, false);
-	if (rc)
-		return rc;
-
-	return rc;
+	return leapraid_scan_dev(adapter, false);
 }
 
 int leapraid_ctrl_init(struct leapraid_adapter *adapter)
@@ -9006,7 +8949,6 @@ int leapraid_ctrl_init(struct leapraid_adapter *adapter)
 
 out_free:
 	adapter->access_ctrl.host_removing = 1;
-	wake_up(&adapter->access_ctrl.recovery_waitq);
 	leapraid_fw_log_exit(adapter);
 	leapraid_free_internal_scsi_cmd(adapter);
 	leapraid_disable_controller(adapter);
