@@ -51,11 +51,11 @@
 #define LEAPRAID_BOARD_NAME_LENGTH      17
 #define LEAPRAID_AUTHOR                 "LeapIO Inc."
 #define LEAPRAID_DESCRIPTION            "LeapRAID Driver"
-#define LEAPRAID_DRIVER_VERSION         "2.00.01.02"
+#define LEAPRAID_DRIVER_VERSION         "2.00.01.05"
 #define LEAPRAID_MAJOR_VERSION          2
 #define LEAPRAID_MINOR_VERSION          00
 #define LEAPRAID_BUILD_VERSION          01
-#define LEAPRAID_RELEASE_VERSION        02
+#define LEAPRAID_RELEASE_VERSION        05
 #define LEAPRAID_MSG_VERSION            0x1021
 #define LEAPRAID_HEADER_VERSION         0x0000
 
@@ -127,7 +127,6 @@
 
 /* SMP (Serial Management Protocol). */
 #define LEAPRAID_SMP_PT_FLAG_SGL_PTR            0x80
-#define LEAPRAID_SMP_FN_REPORT_PHY_ERR_LOG      0x91
 #define LEAPRAID_SMP_FRAME_HEADER_SIZE          4
 #define LEAPRAID_SCSI_HOST_SHIFT                16
 #define LEAPRAID_SCSI_DRIVER_SHIFT              24
@@ -171,13 +170,9 @@
 
 /* Basic constants and limits.   */
 #define LEAPRAID_BUSY_LIMIT             1
-#define LEAPRAID_INDEX_FIRST            0
-#define LEAPRAID_BITS_PER_BYTE          8
 #define LEAPRAID_INVALID_HOST_DIAG_VAL  0xFFFFFFFF
 
 /* Retry/Sleep configuration. */
-#define LEAPRAID_WRITE_SEQUENCE_OFFSET  0x4
-#define LEAPRAID_WRSEQ_KEY_VALUE_MASK   0xF
 #define LEAPRAID_WRSEQ_FLUSH_KEY_VALUE  0x0
 #define LEAPRAID_WRSEQ_1ST_KEY_VALUE    0xF
 #define LEAPRAID_WRSEQ_2ND_KEY_VALUE    0x4
@@ -187,7 +182,6 @@
 #define LEAPRAID_WRSEQ_6TH_KEY_VALUE    0xD
 #define LEAPRAID_UNLOCK_RETRY_LIMIT     20
 #define LEAPRAID_UNLOCK_SLEEP_MS        100
-#define LEAPRAID_MSLEEP_SHORT_MS        50
 #define LEAPRAID_MSLEEP_NORMAL_MS       100
 #define LEAPRAID_MSLEEP_EXTRA_LONG_MS   500
 #define LEAPRAID_IO_POLL_DELAY_US       500
@@ -198,7 +192,6 @@
 #define LEAPRAID_INVALID_DEV_HANDLE     0xFFFF
 
 /* Commands queue depth. */
-#define LEAPRAID_COALESCING_DEPTH_MAX   256
 #define LEAPRAID_DEFAULT_CMD_QD_OFFSET  64
 #define LEAPRAID_REPLY_QD_ALIGNMENT     16
 /* Task ID offset. */
@@ -224,7 +217,6 @@
 #define LEAPRAID_CTL_CMD_TIMEOUT               LEAPRAID_UNIFIED_TIMEOUT
 #define LEAPRAID_SCAN_DEV_CMD_TIMEOUT          300
 #define LEAPRAID_TIMESTAMP_SYNC_CMD_TIMEOUT    LEAPRAID_UNIFIED_TIMEOUT
-#define LEAPRAID_RAID_ACTION_CMD_TIMEOUT       LEAPRAID_UNIFIED_TIMEOUT
 #define LEAPRAID_ENC_CMD_TIMEOUT               LEAPRAID_UNIFIED_TIMEOUT
 #define LEAPRAID_IO_CMD_TIMEOUT                LEAPRAID_UNIFIED_TIMEOUT
 #define LEAPRAID_NOTIFY_EVENT_CMD_TIMEOUT      LEAPRAID_UNIFIED_TIMEOUT
@@ -599,6 +591,7 @@ struct leapraid_fw_evt_work {
  * @leapraid_evt_masks: Array of event masks for filtering firmware events.
  */
 struct leapraid_fw_evt_struct {
+	u32 leapraid_evt_masks[4];
 	char fw_evt_name[48];
 	struct workqueue_struct *fw_evt_thread;
 	spinlock_t fw_evt_lock; /* protects firmware event */
@@ -606,7 +599,6 @@ struct leapraid_fw_evt_struct {
 	struct leapraid_fw_evt_work *cur_evt;
 	struct task_struct *cur_evt_task;
 	u8 fw_evt_cleanup;
-	u32 leapraid_evt_masks[4];
 };
 
 /**
@@ -1446,7 +1438,7 @@ int leapraid_get_volume_cap(struct leapraid_adapter *adapter,
 int leapraid_internal_init_cmd_priv(
 		struct leapraid_adapter *adapter,
 		struct leapraid_io_req_tracker *io_tracker);
-int leapraid_internal_exit_cmd_priv(
+void leapraid_internal_exit_cmd_priv(
 		struct leapraid_adapter *adapter,
 		struct leapraid_io_req_tracker *io_tracker);
 void leapraid_clean_active_fw_evt(struct leapraid_adapter *adapter);
@@ -1517,7 +1509,7 @@ int leapraid_op_config_page(struct leapraid_adapter *adapter,
 			    void *cfgp, union cfg_param_1 cfgp1,
 			    union cfg_param_2 cfgp2,
 			    enum config_page_action cfg_op);
-void leapraid_log_req_context(struct leapraid_adapter *adapter,
+void leapraid_log_req_context(struct leapraid_adapter *adapter, u16 smid,
 			      const void *req_data);
 
 int leapraid_change_queue_depth(struct scsi_device *sdev, int qdepth);
