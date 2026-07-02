@@ -307,6 +307,7 @@ int page_counter_memparse(const char *buf, const char *max,
  * against immediate siblings whereas 5. is about protecting against
  * neighboring subtrees.
  */
+#if IS_ENABLED(CONFIG_MEMCG) || IS_ENABLED(CONFIG_CGROUP_DMEM)
 static unsigned long effective_protection(unsigned long usage,
 					  unsigned long parent_usage,
 					  unsigned long setting,
@@ -381,6 +382,7 @@ static unsigned long effective_protection(unsigned long usage,
 
 	return ep;
 }
+#endif
 
 /**
  * page_counter_calculate_protection - check if memory consumption is in the normal range

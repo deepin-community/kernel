@@ -339,7 +339,7 @@ alloc_pool_single(struct dmemcg_state *dmemcs, struct dmem_cgroup_region *region
 		ppool = find_cg_pool_locked(parent, region);
 
 	page_counter_init(&pool->cnt,
-			  ppool ? &ppool->cnt : NULL, true);
+			  ppool ? &ppool->cnt : NULL);
 	reset_all_resource_limits(pool);
 
 	list_add_tail_rcu(&pool->css_node, &dmemcs->pools);
