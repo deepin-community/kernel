@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 #
-# Makefile for the Phytium notebook EC/laptop drivers.
+# Makefile for Phytium platform drivers.
 #
 
 obj-$(CONFIG_PHYTIUM_EC)		+= ec_it8528.o
