@@ -11,8 +11,12 @@
  * the section .altinstructions, see below). This entry contains
  * enough information for the alternatives patching code to patch an
  * instruction. See apply_alternatives().
+ *
+ * klp-build normalizes local-label relocations to section-relative
+ * relocations before deciding whether to keep special section entries.
  */
 .macro altinstruction_entry orig alt feature orig_len alt_len
+	ANNOTATE_DATA_SPECIAL
 	.long \orig - .
 	.long \alt - .
 	.short \feature
@@ -37,11 +41,12 @@
 	altinstruction_entry 140b, 143f, \feature, 142b-140b, 144f-143f
 	.popsection
 
-	.subsection 1
+	.pushsection .altinstr_replacement, "ax"
+	ANNOTATE_DATA_SPECIAL
 143 :
 	\newinstr
 144 :
-	.previous
+	.popsection
 .endm
 
 #define old_len			(141b-140b)
@@ -68,13 +73,15 @@
 	altinstruction_entry 140b, 144f, \feature2, 142b-140b, 145f-144f, 142b-141b
 	.popsection
 
-	.subsection 1
+	.pushsection .altinstr_replacement, "ax"
+	ANNOTATE_DATA_SPECIAL
 143 :
 	\newinstr1
 144 :
+	ANNOTATE_DATA_SPECIAL
 	\newinstr2
 145 :
-	.previous
+	.popsection
 .endm
 
 #endif  /*  __ASSEMBLER__  */

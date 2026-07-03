@@ -13,6 +13,8 @@
 #ifndef __ASM_ASM_H
 #define __ASM_ASM_H
 
+#include <linux/annotate.h>
+
 /* LoongArch pref instruction. */
 #ifdef CONFIG_CPU_HAS_PREFETCH
 

@@ -27,6 +27,7 @@
 #define JUMP_TABLE_ENTRY(key, label)			\
 	 ".pushsection	__jump_table, \"aw\"	\n\t"	\
 	 ".align	" __stringify(PTRLOG) "	\n\t"	\
+	 ANNOTATE_DATA_SPECIAL "\n\t"			\
 	 ".long		1b - ., " label " - .	\n\t"	\
 	 JUMP_LABEL_TYPE  key " - .		\n\t"	\
 	 ".popsection				\n\t"

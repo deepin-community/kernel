@@ -57,14 +57,20 @@ extern void apply_alternatives(struct alt_instr *start, struct alt_instr *end);
 		"4, 0x03400000\n"	\
 	alt_end_marker ":\n"
 
+/*
+ * klp-build normalizes local-label relocations to section-relative
+ * relocations before deciding whether to keep special section entries.
+ */
 #define ALTINSTR_ENTRY(feature, num)					      \
+	ANNOTATE_DATA_SPECIAL "\n"					      \
 	" .long 661b - .\n"				/* label           */ \
-	" .long " b_replacement(num)"f - .\n"		/* new instruction */ \
+	" .long " b_replacement(num)"f - .\n"	/* new instruction */ \
 	" .short " __stringify(feature) "\n"		/* feature bit     */ \
 	" .byte " alt_total_slen "\n"			/* source len      */ \
 	" .byte " alt_rlen(num) "\n"			/* replacement len */
 
 #define ALTINSTR_REPLACEMENT(newinstr, feature, num)	/* replacement */     \
+	ANNOTATE_DATA_SPECIAL "\n\t"					      \
 	b_replacement(num)":\n\t" newinstr "\n" e_replacement(num) ":\n\t"
 
 /* alternative assembly primitive: */
@@ -73,9 +79,9 @@ extern void apply_alternatives(struct alt_instr *start, struct alt_instr *end);
 	".pushsection .altinstructions,\"a\"\n"				\
 	ALTINSTR_ENTRY(feature, 1)					\
 	".popsection\n"							\
-	".subsection 1\n" \
+	".pushsection .altinstr_replacement, \"ax\"\n" \
 	ALTINSTR_REPLACEMENT(newinstr, feature, 1)			\
-	".previous\n"
+	".popsection\n"
 
 #define ALTERNATIVE_2(oldinstr, newinstr1, feature1, newinstr2, feature2)\
 	OLDINSTR_2(oldinstr, 1, 2)					\
@@ -83,10 +89,10 @@ extern void apply_alternatives(struct alt_instr *start, struct alt_instr *end);
 	ALTINSTR_ENTRY(feature1, 1)					\
 	ALTINSTR_ENTRY(feature2, 2)					\
 	".popsection\n"							\
-	".subsection 1\n" \
+	".pushsection .altinstr_replacement, \"ax\"\n" \
 	ALTINSTR_REPLACEMENT(newinstr1, feature1, 1)			\
 	ALTINSTR_REPLACEMENT(newinstr2, feature2, 2)			\
-	".previous\n"
+	".popsection\n"
 
 /*
  * Alternative instructions for different CPU types or capabilities.

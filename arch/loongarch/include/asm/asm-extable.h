@@ -7,19 +7,27 @@
 #define EX_TYPE_UACCESS_ERR_ZERO	2
 #define EX_TYPE_BPF			3
 
+#include <linux/annotate.h>
+
 #ifdef __ASSEMBLER__
 
-#define __ASM_EXTABLE_RAW(insn, fixup, type, data)	\
-	.pushsection	__ex_table, "a";		\
-	.balign		4;				\
-	.long		((insn) - .);			\
-	.long		((fixup) - .);			\
-	.short		(type);				\
-	.short		(data);				\
-	.popsection;
+/*
+ * klp-build normalizes local-label relocations to section-relative
+ * relocations before deciding whether to keep special section entries.
+ */
+	.macro	__ASM_EXTABLE_RAW insn, fixup, type, data
+	.pushsection	__ex_table, "a"
+	.balign		4
+	ANNOTATE_DATA_SPECIAL
+	.long		\insn - .
+	.long		\fixup - .
+	.short		\type
+	.short		\data
+	.popsection
+	.endm
 
 	.macro		_asm_extable, insn, fixup
-	__ASM_EXTABLE_RAW(\insn, \fixup, EX_TYPE_FIXUP, 0)
+	__ASM_EXTABLE_RAW \insn, \fixup, EX_TYPE_FIXUP, 0
 	.endm
 
 #else /* __ASSEMBLER__ */
@@ -31,6 +39,7 @@
 #define __ASM_EXTABLE_RAW(insn, fixup, type, data)	\
 	".pushsection	__ex_table, \"a\"\n"		\
 	".balign	4\n"				\
+	ANNOTATE_DATA_SPECIAL "\n"			\
 	".long		((" insn ") - .)\n"		\
 	".long		((" fixup ") - .)\n"		\
 	".short		(" type ")\n"			\

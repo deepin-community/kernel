@@ -22,10 +22,21 @@
 #ifndef CONFIG_GENERIC_BUG
 #define __BUG_ENTRY(cond_str, flags)
 #else
+
+/*
+ * __bug_table entries are writable, so use a raw ANNOTYPE_DATA_SPECIAL
+ * annotation instead of SHF_MERGE to let klp-build discover individual
+ * entries.  This macro is stringified for C inline asm, so keep the
+ * annotation in assembler syntax rather than using ANNOTATE_DATA_SPECIAL,
+ * which is already a C string literal there.
+ */
 #define __BUG_ENTRY(cond_str, flags)				\
 		.pushsection __bug_table, "aw";			\
 		.align 2;					\
 	10000:	.long 10001f - .;				\
+		.pushsection .discard.annotate_data, "M", @progbits, 8; \
+		.long 10000b - ., ANNOTYPE_DATA_SPECIAL;		\
+		.popsection;					\
 		_BUGVERBOSE_LOCATION(WARN_CONDITION_STR(cond_str) __FILE__, __LINE__) \
 		.short flags;					\
 		.popsection;					\
