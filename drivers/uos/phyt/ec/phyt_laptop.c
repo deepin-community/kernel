@@ -33,8 +33,7 @@ static inline u16 ec_read16(u8 high, u8 low)
 static bool ft_display_state = true;
 static unsigned int ft_display_level;
 static int ft_set_display_on(bool on);
-
-extern struct kset *devices_kset;
+static int ec_gsonsor_init(struct platform_device *pdev);
 
 #define EC_LPC_DEV	"ec"
 
@@ -1126,7 +1125,7 @@ static struct attribute_group gsensor_attr_group = {
 static struct kobject *gsensor_kobj;
 
 /* Gsensor device init */
-int ec_gsonsor_init(void)
+int ec_gsonsor_init(struct platform_device *pdev)
 {
 	int ret;
 
@@ -1140,6 +1139,7 @@ int ec_gsonsor_init(void)
 	ec_gsensor_dev->name = "EC_Gsensor";
 	ec_gsensor_dev->uniq = "EC_Gsensor";
 	ec_gsensor_dev->id.bustype = BUS_HOST;
+	ec_gsensor_dev->dev.parent = &pdev->dev;
 
 	set_bit(EV_SYN, ec_gsensor_dev->evbit);
 	set_bit(EV_ABS, ec_gsensor_dev->evbit);
@@ -1160,7 +1160,7 @@ int ec_gsonsor_init(void)
 		return ret;
 	}
 
-	gsensor_kobj = kobject_create_and_add("gsensor", &devices_kset->kobj);
+	gsensor_kobj = kobject_create_and_add("gsensor", &pdev->dev.kobj);
 	if (!gsensor_kobj)
 		return -ENOMEM;
 	ret = sysfs_create_group(gsensor_kobj, &gsensor_attr_group);
@@ -1256,11 +1256,11 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 
 	/* Regist backlight */
 	if (chassis_types_is_laptop() || chassis_types_is_allinone()) {
-		ft_backlight_dev = backlight_device_register("phytium", NULL, NULL,
-				&ft_backlight_ops, NULL);
+		ft_backlight_dev = devm_backlight_device_register(&dev->dev, "phytium",
+				&dev->dev, NULL, &ft_backlight_ops, NULL);
 		if (IS_ERR(ft_backlight_dev)) {
 			ret = PTR_ERR(ft_backlight_dev);
-			goto fail_backlight_device_register;
+			return ret;
 		}
 		ft_backlight_dev->props.max_brightness = 100;
 
@@ -1279,21 +1279,21 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	ret = ft_hotkey_init();
 	if (ret) {
 		pr_err("phytium Platform Driver: Hotkey init fail.\n");
-		goto fail_hotkey_init;
+		return ret;
 	}
 
-	ret = ec_gsonsor_init();
+	ret = ec_gsonsor_init(dev);
 	if (ret) {
 		pr_err("phytium Platform Driver: Gsensor init fail.\n");
-		goto fail_gsensor_init;
+		ft_hotkey_exit();
+		return ret;
 	}
 
-
 	/* Register power supply START */
-	power_info = kzalloc(sizeof(struct ft_power_info), GFP_KERNEL);
+	power_info = devm_kzalloc(&dev->dev, sizeof(struct ft_power_info), GFP_KERNEL);
 	if (!power_info) {
 		ret = -ENOMEM;
-		goto fail_power_info_alloc;
+		goto fail_after_gsensor;
 	}
 
 	ft_power_battery_info_init();
@@ -1307,16 +1307,16 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	}
 
 	if (chassis_types_is_laptop() && power_info->bat_in) {
-		ec_bat = power_supply_register(NULL, &ft_bat, NULL);
+		ec_bat = devm_power_supply_register(&dev->dev, &ft_bat, NULL);
 		if (IS_ERR(ec_bat)) {
 			ret = -ENOMEM;
-			goto fail_bat_power_supply_register;
+			goto fail_after_gsensor;
 		}
 
-		ec_ac = power_supply_register(NULL, &ft_ac, NULL);
+		ec_ac = devm_power_supply_register(&dev->dev, &ft_ac, NULL);
 		if (IS_ERR(ec_ac)) {
 			ret = -ENOMEM;
-			goto fail_ac_power_supply_register;
+			goto fail_after_gsensor;
 		}
 	}
 	/* Register power supply END */
@@ -1330,24 +1330,22 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 		ret = gpio_driver_init(gpio_irq);
 		if (ret) {
 			pr_err("phytium ec: gpio driver init fail.\n");
-			goto fail_gpio_pci_driver_init;
+			goto fail_after_gsensor;
 		}
 	} else {
 		/* LPC Driver Init Start */
 		ret = lpc_driver_init();
 		if (ret) {
 			pr_err("phytium: LPC driver init fail.\n");
-			goto fail_lpc_pci_driver_init;
+			goto fail_after_gsensor;
 		}
 	}
-
-
 
 	/* clean ec evnet queue*/
 	ret = it8528_query_clean_event();
 	if (ret) {
 		pr_err("EC clean event fail.\n");
-		goto fail_lpc_pci_driver_init;
+		goto fail_after_gsensor;
 	}
 
 	/* enable ec event interrupt */
@@ -1356,20 +1354,10 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	pr_debug("phytium: ec event driver init done...\n");
 
 	return 0;
-fail_gsensor_init:
+
+fail_after_gsensor:
 	ec_gsensor_exit();
-fail_hotkey_init:
-fail_lpc_pci_driver_init:
-fail_gpio_pci_driver_init:
 	ft_hotkey_exit();
-fail_ac_power_supply_register:
-	power_supply_unregister(ec_bat);
-fail_bat_power_supply_register:
-	kfree(power_info);
-fail_power_info_alloc:
-	backlight_device_unregister(ft_backlight_dev);
-fail_backlight_device_register:
-	platform_driver_unregister(&ft_ec_pdriver);
 	return ret;
 }
 
