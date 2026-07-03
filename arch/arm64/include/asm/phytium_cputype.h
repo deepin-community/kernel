@@ -28,7 +28,7 @@
 #define SMCCC_FAILURE		(-1)
 #define FUNC_ID_GET_CPU_VERSION 0xc2000002
 
-enum phyt_cpu_type {
+enum phyt_soc_type {
 	PE1702 = 1,
 	PS17064,
 	PD1904,
@@ -44,7 +44,9 @@ enum phyt_cpu_type {
 	UNKNOWN_SOC
 };
 
-static enum phyt_cpu_type do_smccc_res(struct arm_smccc_res res)
+extern enum phyt_soc_type phyt_soc_type_t;
+
+static enum phyt_soc_type do_smccc_res(struct arm_smccc_res res)
 {
 	unsigned long smc_cpu_ver = res.a1;
 
@@ -77,7 +79,7 @@ static enum phyt_cpu_type do_smccc_res(struct arm_smccc_res res)
 	}
 }
 
-static enum phyt_cpu_type do_read_sysreg(void)
+static enum phyt_soc_type do_read_sysreg(void)
 {
 	u32 aidr_reg_val = read_sysreg(aidr_el1);
 
@@ -91,7 +93,7 @@ static enum phyt_cpu_type do_read_sysreg(void)
 	}
 }
 
-static enum phyt_cpu_type do_read_mpidr(void)
+static enum phyt_soc_type do_read_mpidr(void)
 {
 	u32 part_id = read_cpuid_part_number();
 
@@ -120,9 +122,9 @@ static inline bool is_phytium_soc(void)
 	return false;
 }
 
-static inline enum phyt_cpu_type phyt_read_cpu_type(void)
+static inline enum phyt_soc_type phyt_read_soc_type(void)
 {
-	enum phyt_cpu_type ctype;
+	enum phyt_soc_type ctype;
 	struct arm_smccc_res res;
 
 	if (!is_phytium_soc())
@@ -147,49 +149,90 @@ static inline enum phyt_cpu_type phyt_read_cpu_type(void)
 	return ctype;
 }
 
+static inline void phyt_soc_type_init(void)
+{
+	enum phyt_soc_type ctype = phyt_read_soc_type();
+
+	switch (ctype) {
+	case PE1702:
+		phyt_soc_type_t = PE1702;
+		break;
+	case PS17064:
+		phyt_soc_type_t = PS17064;
+		break;
+	case PD1904:
+		phyt_soc_type_t = PD1904;
+		break;
+	case PS20064:
+		phyt_soc_type_t = PS20064;
+		break;
+	case PD2008:
+		phyt_soc_type_t = PD2008;
+		break;
+	case PS21064:
+		phyt_soc_type_t = PS21064;
+		break;
+	case PE220X:
+		phyt_soc_type_t = PE220X;
+		break;
+	case PS23064:
+		phyt_soc_type_t = PS23064;
+		break;
+	case PD2308:
+		phyt_soc_type_t = PD2308;
+		break;
+	case PS24080:
+		phyt_soc_type_t = PS24080;
+		break;
+	case PD2408:
+		phyt_soc_type_t = PD2408;
+		break;
+	case PS15016:
+		phyt_soc_type_t = PS15016;
+		break;
+	default:
+		phyt_soc_type_t = UNKNOWN_SOC;
+		break;
+	}
+}
+
 static inline bool is_pd2408(void)
 {
-	enum phyt_cpu_type ctype = phyt_read_cpu_type();
 
-	if (ctype == PD2408)
+	if (phyt_soc_type_t == PD2408)
 		return true;
 	return false;
 }
 
 static inline bool is_ps23064(void)
 {
-	enum phyt_cpu_type ctype = phyt_read_cpu_type();
 
-	if (ctype == PS23064)
+	if (phyt_soc_type_t == PS23064)
 		return true;
 	return false;
 }
 
 static inline bool is_ps24080(void)
 {
-	enum phyt_cpu_type ctype = phyt_read_cpu_type();
 
-	if (ctype == PS24080)
+	if (phyt_soc_type_t == PS24080)
 		return true;
 	return false;
 }
 
 static inline bool is_pd2308(void)
 {
-	enum phyt_cpu_type ctype = phyt_read_cpu_type();
 
-	if (ctype == PD2308)
+	if (phyt_soc_type_t == PD2308)
 		return true;
 	return false;
 }
 
 static inline bool is_pe220x(void)
 {
-	enum phyt_cpu_type ctype = phyt_read_cpu_type();
 
-	if (ctype == PE220X)
+	if (phyt_soc_type_t == PE220X)
 		return true;
-
 	return false;
 }
 
