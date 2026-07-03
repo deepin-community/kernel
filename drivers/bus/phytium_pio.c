@@ -6,6 +6,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/cputypes.h>
 #include <linux/io.h>
 #include <linux/logic_pio.h>
 #include <linux/module.h>
@@ -19,9 +20,16 @@
 #define PHYT_PIO_DRV_VER	"1.1.0"
 
 static struct phytium_pio *ppio;
+int phytium_pio_int_state;
+int phytium_pio_clr_int;
 
 bool check_cpu_type(void)
 {
+	/* Only support Phytium CPU except ft2004 */
+	if (cpu_is_ft2004()) {
+		pr_notice_once("PHYT_PIO %s cannot support ft2004\n", PHYT_PIO_DRV_VER);
+		return false;
+	}
 	if (read_cpuid_implementor() == ARM_CPU_IMP_PHYTIUM)
 		return true;
 	return false;
@@ -35,10 +43,25 @@ void phytium_pio_clear_interrupt(u32 val)
 	if (!ppio)
 		return;
 	spin_lock_irqsave(&ppio->lock, flags);
-	writew(val, ppio->membase + PHYTIUM_PIO_CLR_INT);
+	writel(val, ppio->membase + phytium_pio_clr_int);
 	spin_unlock_irqrestore(&ppio->lock, flags);
 }
 EXPORT_SYMBOL(phytium_pio_clear_interrupt);
+
+u32 phytium_pio_get_int_status(void)
+{
+	unsigned long flags;
+	u32 ret = 0;
+
+	if (!ppio)
+		return ret;
+	spin_lock_irqsave(&ppio->lock, flags);
+	ret = readl(ppio->membase + phytium_pio_int_state);
+	spin_unlock_irqrestore(&ppio->lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL(phytium_pio_get_int_status);
 
 int phytium_pio_get_irq(void)
 {
@@ -192,16 +215,37 @@ static int phytium_pio_probe(struct platform_device *pdev)
 		return pio->irq;
 	}
 
+	{
+		struct resource *res;
+		resource_size_t size;
+		u64 offset_from_end;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (res) {
+			size = resource_size(res);
+
+			offset_from_end = PHYTIUM_PIO_LENGTH_LONG - phytium_pio_int_state;
+			if (offset_from_end <= size && offset_from_end > 0)
+				phytium_pio_int_state = size - offset_from_end;
+
+			offset_from_end = PHYTIUM_PIO_LENGTH_LONG - phytium_pio_clr_int;
+			if (offset_from_end <= size && offset_from_end > 0)
+				phytium_pio_clr_int = size - offset_from_end;
+		}
+	}
+
 	ret = device_property_read_u32(&pdev->dev, "int_state",
 			&pio->int_status_reg);
 	if (ret)
-		pio->int_status_reg = PHYTIUM_PIO_INT_STATE;
+		pio->int_status_reg = phytium_pio_int_state;
 
 	ret = device_property_read_u32(&pdev->dev, "clr_int",
 			&pio->int_clear_reg);
 	if (ret)
-		pio->int_clear_reg = PHYTIUM_PIO_CLR_INT;
+		pio->int_clear_reg = phytium_pio_clr_int;
 
+	dev_dbg(dev, "phytium_pio: int_status_reg=0x%x, int_clear_reg=0x%x\n",
+		pio->int_status_reg, pio->int_clear_reg);
 	range = devm_kzalloc(dev, sizeof(*range), GFP_KERNEL);
 	if (!range)
 		return -ENOMEM;
@@ -211,12 +255,12 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	range->hostdata = pio;
 	range->ops = &phytium_pio_ops;
 	pio->range = range;
-	ppio = pio;
 	ret = logic_pio_register_range(range);
 	if (ret) {
 		dev_err(dev, "Failed to register logic pio range (%d)!\n", ret);
 		goto out;
 	}
+	ppio = pio;
 	spin_lock_init(&pio->lock);
 	dev_set_drvdata(dev, pio);
 out:
@@ -238,6 +282,7 @@ static int phytium_pio_remove(struct platform_device *pdev)
 
 static const struct acpi_device_id phytium_pio_acpi_match[] = {
 	{ "PHYT0007", },
+	{ "LPC0001", },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, phytium_pio_acpi_match);
@@ -254,6 +299,21 @@ static struct platform_driver phytium_pio_driver = {
 
 static int __init phytium_pio_init(void)
 {
+	if (unlikely(!check_cpu_type())) {
+		pr_info("Not running on Phytium CPU\n");
+		return -ENODEV;
+	}
+	if (cpu_is_ft_d2000()) {
+		phytium_pio_int_state = FT2000_PIO_INT_STATE;
+		phytium_pio_clr_int = FT2000_PIO_CLR_INT;
+	} else if (cpu_is_ft_d3000() || cpu_is_ft_d3000m()) {
+		phytium_pio_int_state = FT3000_PIO_INT_STATE;
+		phytium_pio_clr_int = FT3000_PIO_CLR_INT;
+	} else {
+		phytium_pio_int_state = FT3000_PIO_INT_STATE;
+		phytium_pio_clr_int = FT3000_PIO_CLR_INT;
+		pr_notice("Unknown Phytium CPU, use D3000 regs (C0,C4).\n");
+	}
 	return platform_driver_register(&phytium_pio_driver);
 }
 arch_initcall(phytium_pio_init);
