@@ -1,0 +1,35 @@
+menuconfig UOS_PHYTIUM_DESKTOP_SUPPORT
+	bool "phytium desktop drivers/fixups provided by UOS"
+	default n
+	help
+	  This option enables a collection of UOS-supplied drivers and
+	  quirks for Phytium desktop and laptop platforms.  These drivers
+	  are not part of the standard upstream kernel and should only be
+	  enabled when running on supported Phytium systems.
+
+if UOS_PHYTIUM_DESKTOP_SUPPORT
+
+config PHYTIUM_EC
+	bool "phytium ec support"
+	depends on PHYTIUM_PIO
+	default n
+	help
+	  Enable support for the IT8528 Embedded Controller found on some
+	  Phytium laptop platforms.  This driver communicates with the EC
+	  over the Phytium PIO (Programmed I/O) path and is required by the
+	  Phytium laptop driver for battery, lid and hotkey support.
+
+config PHYTIUM_LAPTOP
+	bool "phytium laptop support"
+	depends on PHYTIUM_EC
+	select POWER_SUPPLY
+	select BACKLIGHT_CLASS_DEVICE
+	select INPUT_SPARSEKMAP
+	select HWMON
+	help
+	  Enable laptop-specific support for Phytium platforms.  This
+	  provides power-supply reporting (AC and battery), backlight
+	  control, lid status and Fn hotkey handling through the IT8528
+	  embedded controller.
+
+endif

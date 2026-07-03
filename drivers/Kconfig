@@ -245,4 +245,6 @@ source "drivers/cdx/Kconfig"
 
 source "drivers/cpuinspect/Kconfig"
 
+source "drivers/uos/Kconfig"
+
 endmenu
