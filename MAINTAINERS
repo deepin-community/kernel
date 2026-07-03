@@ -17581,9 +17581,8 @@ PHYTIUM EC SUPPORT
 M:	Wentao Guan <guanwentao@uniontech.com>
 M:	Lunpeng Wen <wenlunpeng@uniontech.com>
 M:	Bibo Huang <huangbibo@uniontech.com>
-F:	drivers/uos/*
-F:	drivers/uos/phyt/*
-F:	drivers/uos/phyt/ec/*
+F:	drivers/platform/arm64/
+F:	drivers/platform/arm64/phytium/*
 F:	include/linux/classtypes.h
 F:	include/linux/cputypes.h
 F:	lib/classtypes.c
