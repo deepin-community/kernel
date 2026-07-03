@@ -172,14 +172,14 @@ static int ft_bat_get_property(struct power_supply *pws,
 static int ft_ac_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val);
 /* LPC device AC event handler */
-static int ft_ac_handler(int status);
+static void ft_ac_handler(int status);
 /* LPC device Battery event handler */
-static int ft_bat_handler(int status);
+static void ft_bat_handler(int status);
 
 /* <<<End power management operation */
 
 /* LPC device LID event handler */
-static int ft_lid_handler(int status);
+static void ft_lid_handler(int status);
 
 /* Platform device suspend handler */
 static int ft_laptop_suspend(struct device *dev);
@@ -439,34 +439,38 @@ void ft_ec_screen_rotation_event(void)
 	input_sync(ec_gsensor_dev);
 }
 
+static void ft_ec_powerbtn_event_handler(int event)
+{
+	ft_ec_powerbtn_event();
+}
+
+static void ft_ec_screen_rotation_event_handler(int event)
+{
+	ft_ec_screen_rotation_event();
+}
+
 /* LPC device event handler */
+static const struct {
+	int event;
+	void (*handler)(int event);
+} ec_event_table[] = {
+	{ EC_EVENT_NUM_LID, ft_lid_handler },
+	{ EC_EVENT_NUM_AC, ft_ac_handler },
+	{ EC_EVENT_NUM_BAT, ft_bat_handler },
+	{ EC_EVENT_NUM_POWERBTN, ft_ec_powerbtn_event_handler },
+	{ EC_EVENT_NUM_GSENSOR, ft_ec_screen_rotation_event_handler },
+};
+
 void ft_ec_event_handler(int event)
 {
-	switch (event) {
-	case EC_EVENT_NUM_LID:
-			ft_lid_handler(event);
-			break;
+	int i;
 
-	case EC_EVENT_NUM_AC:
-			ft_ac_handler(event);
-			break;
-
-	case EC_EVENT_NUM_BAT:
-			ft_bat_handler(event);
-			break;
-
-	case EC_EVENT_NUM_POWERBTN:
-			ft_ec_powerbtn_event();
-			break;
-
-	case EC_EVENT_NUM_GSENSOR:
-			ft_ec_screen_rotation_event();
-			break;
-
-	default:
-			break;
+	for (i = 0; i < ARRAY_SIZE(ec_event_table); i++) {
+		if (ec_event_table[i].event == event) {
+			ec_event_table[i].handler(event);
+			return;
+		}
 	}
-
 }
 
 
@@ -500,15 +504,6 @@ exit_event_action:
 	spin_unlock_irqrestore(&i8042_lock, flags);
 	return IRQ_HANDLED;
 }
-
-irqreturn_t ft_ec_irq_hanlde(void)
-{
-	int event = 0;
-
-	ft_ac_handler(event);
-	return IRQ_HANDLED;
-}
-EXPORT_SYMBOL(ft_ec_irq_hanlde);
 
 /* LPC driver init */
 static int lpc_int_init(void)
@@ -715,77 +710,103 @@ static int ft_get_brightness(struct backlight_device *pdev)
 	return it8528_read(INDEX_DISPLAY_BRIGHTNESS_GET);
 }
 
+static void ft_bat_update_temp(void)
+{
+	int bat_info_value;
+
+	ft_power_info_power_status_update();
+	bat_info_value = ec_read16(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW);
+	power_info->temperature = power_info->bat_in ? (bat_info_value - 2730) : 0;
+}
+
+static void ft_bat_update_voltage(void)
+{
+	int bat_info_value = ec_read16(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW);
+
+	power_info->voltage_now = power_info->bat_in ? bat_info_value : 0;
+}
+
+static void ft_bat_update_current(void)
+{
+	int bat_info_value =
+		ec_read16(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW);
+
+	power_info->current_now = power_info->bat_in ? bat_info_value : 0;
+}
+
+static void ft_bat_update_ac(void)
+{
+	int bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+
+	ft_power_info_power_status_update();
+	power_info->current_average = power_info->bat_in ? bat_info_value : 0;
+}
+
+static void ft_bat_update_rc(void)
+{
+	power_info->remain_capacity =
+		ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
+}
+
+static void ft_bat_update_fcc(void)
+{
+	power_info->full_charged_capacity =
+		ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW);
+}
+
+static void ft_bat_update_atte(void)
+{
+	int bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+
+	bat_info_value = bat_info_value > 0 ? bat_info_value : -bat_info_value;
+	if (bat_info_value)
+		power_info->remain_time = 60 *
+			ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW) /
+			bat_info_value;
+}
+
+static void ft_bat_update_attf(void)
+{
+	int bat_info_value =
+		ec_read16(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW) -
+		ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
+	int bat_info_value_ac =
+		ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+
+	if (bat_info_value_ac > 0)
+		power_info->fullchg_time = 60 * bat_info_value / bat_info_value_ac;
+}
+
+static void ft_bat_update_rsoc(void)
+{
+	power_info->remain_capacity_percent = it8528_read(INDEX_BATTERY_CAPACITY);
+}
+
+static void ft_bat_update_cyclcnt(void)
+{
+	power_info->cycle_count =
+		ec_read16(INDEX_BATTERY_CYCLECNT_HIGH, INDEX_BATTERY_CYCLECNT_LOW);
+}
+
+static void (* const bat_update_table[])(void) = {
+	ft_bat_update_temp,
+	ft_bat_update_voltage,
+	ft_bat_update_current,
+	ft_bat_update_ac,
+	ft_bat_update_rc,
+	ft_bat_update_fcc,
+	ft_bat_update_atte,
+	ft_bat_update_attf,
+	ft_bat_update_rsoc,
+	ft_bat_update_cyclcnt,
+};
+
 /* Update battery information handle function. */
 static void ft_power_battery_info_update(unsigned char bat_reg_flag)
 {
-	short bat_info_value = 0, bat_info_value_ac = 0;
-
-	switch (bat_reg_flag) {
-		/* Update power_info->temperature value */
-	case BAT_REG_TEMP_FLAG:
-			ft_power_info_power_status_update();
-			bat_info_value = ec_read16(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW);
-			power_info->temperature = power_info->bat_in ?
-				(bat_info_value - 2730) : 0;
-			break;
-		/* Update power_info->voltage value */
-	case BAT_REG_VOLTAGE_FLAG:
-			bat_info_value = ec_read16(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW);
-			power_info->voltage_now = (power_info->bat_in) ? bat_info_value : 0;
-			break;
-		/* Update power_info->current_now value */
-	case BAT_REG_CURRENT_FLAG:
-			bat_info_value =
-				ec_read16(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW);
-			power_info->current_now = (power_info->bat_in) ? bat_info_value : 0;
-			break;
-		/* Update power_info->current_avg value */
-	case BAT_REG_AC_FLAG:
-			ft_power_info_power_status_update();
-			bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
-			power_info->current_average = (power_info->bat_in) ? bat_info_value : 0;
-			break;
-		/* Update power_info->remain_capacity value */
-	case BAT_REG_RC_FLAG:
-			power_info->remain_capacity =
-				ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
-			break;
-		/* Update power_info->full_charged_capacity value */
-	case BAT_REG_FCC_FLAG:
-			power_info->full_charged_capacity =
-				ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW);
-			break;
-		/* Update power_info->remain_time value */
-	case BAT_REG_ATTE_FLAG:
-			bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
-			bat_info_value = bat_info_value > 0 ? bat_info_value : (-bat_info_value);
-			if (bat_info_value)
-				power_info->remain_time = 60 *
-				ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW) /
-				bat_info_value;
-			break;
-		/* Update power_info->fullchg_time value */
-	case BAT_REG_ATTF_FLAG:
-			bat_info_value = ec_read16(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW);
-			bat_info_value -= ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
-			bat_info_value_ac =
-				ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
-			if (bat_info_value_ac > 0)
-				power_info->fullchg_time = 60 * bat_info_value / bat_info_value_ac;
-			break;
-		/* Update power_info->curr_cap value */
-	case BAT_REG_RSOC_FLAG:
-			power_info->remain_capacity_percent = it8528_read(INDEX_BATTERY_CAPACITY);
-			break;
-		/* Update power_info->cycle_count value */
-	case BAT_REG_CYCLCNT_FLAG:
-			power_info->cycle_count =
-				ec_read16(INDEX_BATTERY_CYCLECNT_HIGH, INDEX_BATTERY_CYCLECNT_LOW);
-			break;
-
-	default:
-			break;
-	}
+	if (bat_reg_flag < BAT_REG_TEMP_FLAG || bat_reg_flag > BAT_REG_CYCLCNT_FLAG)
+		return;
+	bat_update_table[bat_reg_flag - 1]();
 }
 
 /* Update battery information handle function. */
@@ -995,12 +1016,10 @@ static int ft_ac_get_property(struct power_supply *pws,
 }
 
 /* EC device AC event handler */
-static int ft_ac_handler(int status)
+static void ft_ac_handler(int status)
 {
 	/* Report status changed */
 	power_supply_changed(ec_ac);
-
-	return 0;
 }
 
 /* EC device AC event handler */
@@ -1014,7 +1033,7 @@ int ft_ac_handler_test(void)
 EXPORT_SYMBOL(ft_ac_handler_test);
 
 /* LPC device Battery event handler */
-static int ft_bat_handler(int status)
+static void ft_bat_handler(int status)
 {
 	/* Battery insert/pull-out to handle battery static information. */
 	if (status & MASK(BIT_POWER_BATPRES)) {
@@ -1026,15 +1045,12 @@ static int ft_bat_handler(int status)
 	}
 	/* Report status changed */
 	power_supply_changed(ec_bat);
-
-	return 0;
 }
 
 /* LPC device LID event handler */
-static int ft_lid_handler(int status)
+static void ft_lid_handler(int status)
 {
 	ft_ec_lid_event();
-	return 1;
 }
 
 /* Hotkey device init */

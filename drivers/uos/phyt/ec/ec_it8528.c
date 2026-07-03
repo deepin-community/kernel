@@ -17,187 +17,127 @@
 /* This spinlock is dedicated for 62&66 ports and super io port access. */
 DEFINE_SPINLOCK(index_access_lock);
 
-static int send_ec_command(unsigned char command)
+static int ec_wait_ibf_clear(void)
 {
-	int timeout, ret = 0;
+	unsigned int timeout = EC_SEND_TIMEOUT;
 
-	timeout = EC_SEND_TIMEOUT;
 	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
 		udelay(1);
 	if (!timeout) {
-		pr_err("Timeout while sending command 0x%02x to EC!\n", command);
-		ret = -1;
-		goto out;
+		pr_err("Timeout waiting for EC IBF clear (status 0x%x)\n",
+			inb(EC_STS_PORT));
+		return -ETIMEDOUT;
 	}
-
-	outb(command, EC_CMD_PORT);
-
-out:
-	return ret;
+	return 0;
 }
 
-static int send_ec_data(unsigned char data)
+static int ec_wait_obf_set(u8 *data)
 {
-	int timeout, ret = 0;
+	unsigned int timeout = EC_RECV_TIMEOUT;
 
-	timeout = EC_SEND_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
-		udelay(1);
-	if (!timeout) {
-		pr_err("Timeout while sending data 0x%02x to EC!\n", data);
-		ret = -1;
-		goto out;
-	}
-
-	outb(data, EC_DAT_PORT);
-
-out:
-	return ret;
-}
-
-static unsigned char recv_ec_data(void)
-{
-	int timeout;
-	unsigned char data;
-
-	timeout = EC_RECV_TIMEOUT;
 	while (!(inb(EC_STS_PORT) & EC_OBF) && --timeout)
 		udelay(1);
 	if (!timeout) {
-		pr_err("Timeout while receiving data from EC! status 0x%x.\n", inb(EC_STS_PORT));
-		data = 0;
-		goto skip_data;
+		pr_err("Timeout waiting for EC OBF set (status 0x%x)\n",
+			inb(EC_STS_PORT));
+		return -ETIMEDOUT;
+	}
+	*data = inb(EC_DAT_PORT);
+	return 0;
+}
+
+static int ec_send_byte(u8 byte, u16 port)
+{
+	int ret = ec_wait_ibf_clear();
+
+	if (ret)
+		return ret;
+	outb(byte, port);
+	return 0;
+}
+
+/*
+ * One EC transaction: command + optional write data + optional read data.
+ * The whole sequence is protected by index_access_lock.
+ */
+static int it8528_transaction(u8 command, const u8 *wdata, int wlen,
+			      u8 *rdata, int rlen)
+{
+	unsigned long flags;
+	int i, ret;
+	u8 val;
+
+	spin_lock_irqsave(&index_access_lock, flags);
+
+	ret = ec_send_byte(command, EC_CMD_PORT);
+	if (ret)
+		goto out;
+
+	for (i = 0; i < wlen; i++) {
+		ret = ec_send_byte(wdata[i], EC_DAT_PORT);
+		if (ret)
+			goto out;
 	}
 
-	data = inb(EC_DAT_PORT);
+	for (i = 0; i < rlen; i++) {
+		ret = ec_wait_obf_set(&val);
+		if (ret)
+			goto out;
+		rdata[i] = val;
+	}
 
-skip_data:
-	return data;
+out:
+	spin_unlock_irqrestore(&index_access_lock, flags);
+	return ret;
 }
 
 unsigned char it8528_read(unsigned char index)
 {
-	unsigned char value = 0;
-	unsigned long flags;
-	int ret = 0;
+	u8 value = 0;
 
-	spin_lock_irqsave(&index_access_lock, flags);
-	ret = send_ec_command(CMD_READ_EC);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
-		value = 0;
-		goto out;
-	}
-	ret = send_ec_data(index);
-	if (ret < 0) {
-		pr_err("Send data fail!\n");
-		value = 0;
-		goto out;
-	}
-	value = recv_ec_data();
-out:
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
+	it8528_transaction(CMD_READ_EC, &index, 1, &value, 1);
 	return value;
 }
 EXPORT_SYMBOL(it8528_read);
 
 unsigned char it8528_read_all(unsigned char command, unsigned char index)
 {
-	unsigned char value = 0;
-	unsigned long flags;
-	int ret = 0;
+	u8 value = 0;
 
-	spin_lock_irqsave(&index_access_lock, flags);
-	ret = send_ec_command(command);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
-		goto out;
-	}
-	ret = send_ec_data(index);
-	if (ret < 0) {
-		pr_err("Send data fail!\n");
-		goto out;
-	}
-	value = recv_ec_data();
-out:
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
+	it8528_transaction(command, &index, 1, &value, 1);
 	return value;
 }
 EXPORT_SYMBOL(it8528_read_all);
 
 unsigned char it8528_read_noindex(unsigned char command)
 {
-	unsigned char value = 0;
-	unsigned long flags;
-	int ret = 0;
+	u8 value = 0;
 
-	spin_lock_irqsave(&index_access_lock, flags);
-	ret = send_ec_command(command);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
-		goto out;
-	}
-	value = recv_ec_data();
-out:
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
+	it8528_transaction(command, NULL, 0, &value, 1);
 	return value;
 }
 EXPORT_SYMBOL(it8528_read_noindex);
 
 int it8528_write(unsigned char index, unsigned char data)
 {
-	int ret = 0;
-	unsigned long flags;
+	u8 wdata[2] = { index, data };
 
-	spin_lock_irqsave(&index_access_lock, flags);
-	ret = send_ec_command(CMD_WRITE_EC);
-	if (ret < 0) {
-		pr_err("Send command 0x81 fail!\n");
-		goto out;
-	}
-	ret = send_ec_data(index);
-	if (ret < 0) {
-		pr_err("Send index 0x%x fail!\n", index);
-		goto out;
-	}
-
-	ret = send_ec_data(data);
-	if (ret < 0)
-		pr_err("Send data 0x%x fail!\n", data);
-out:
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
-	return ret;
+	return it8528_transaction(CMD_WRITE_EC, wdata, 2, NULL, 0);
 }
 EXPORT_SYMBOL(it8528_write);
 
-int it8528_write_all(unsigned char command, unsigned char index, unsigned char data)
+int it8528_write_all(unsigned char command, unsigned char index,
+		     unsigned char data)
 {
-	unsigned long flags;
+	u8 wdata[2] = { index, data };
 
-	spin_lock_irqsave(&index_access_lock, flags);
-	send_ec_command(command);
-	send_ec_data(index);
-	send_ec_data(data);
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
-	return 0;
+	return it8528_transaction(command, wdata, 2, NULL, 0);
 }
 EXPORT_SYMBOL(it8528_write_all);
 
 int it8528_write_noindex(unsigned char command, unsigned char data)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&index_access_lock, flags);
-	send_ec_command(command);
-	send_ec_data(data);
-	spin_unlock_irqrestore(&index_access_lock, flags);
-
-	return 0;
+	return it8528_transaction(command, &data, 1, NULL, 0);
 }
 EXPORT_SYMBOL(it8528_write_noindex);
 
@@ -221,34 +161,31 @@ EXPORT_SYMBOL(it8528_get_ec_evt_flags);
 
 int it8528_query_get_event_num(void)
 {
-	unsigned char value = 0;
 	unsigned long flags;
-	int ret = 0;
 	unsigned int timeout;
+	u8 value = 0;
+	int ret;
 
 	spin_lock_irqsave(&index_access_lock, flags);
-	ret = send_ec_command(CMD_GET_EVENT_NUM);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
-		goto out;
-	}
 
-	/* check if the command is received by ec */
+	ret = ec_send_byte(CMD_GET_EVENT_NUM, EC_CMD_PORT);
+	if (ret)
+		goto out;
+
+	/* Give the EC a moment to consume the command. */
 	timeout = EC_CMD_TIMEOUT;
 	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
 		udelay(1);
-	if (timeout <= 0) {
-		pr_err("EC QUERY SEQ: deadable error : timeout...\n");
-		ret = -EINVAL;
+	if (!timeout) {
+		pr_err("EC QUERY SEQ: timeout\n");
+		ret = -ETIMEDOUT;
 		goto out;
 	}
 
-	value = recv_ec_data();
-	spin_unlock_irqrestore(&index_access_lock, flags);
-	return value;
+	ret = ec_wait_obf_set(&value);
 out:
 	spin_unlock_irqrestore(&index_access_lock, flags);
-	return ret;
+	return ret ? ret : value;
 }
 EXPORT_SYMBOL(it8528_query_get_event_num);
 
@@ -271,26 +208,21 @@ EXPORT_SYMBOL(it8528_query_clean_event);
 void it8528_ec_event_int_enable(void)
 {
 	unsigned long flags;
-	int ret = 0;
 	unsigned int timeout;
+	int ret;
 
 	spin_lock_irqsave(&index_access_lock, flags);
 
-	ret = send_ec_command(CMD_ENABLE_EVENT_EC);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
+	ret = ec_send_byte(CMD_ENABLE_EVENT_EC, EC_CMD_PORT);
+	if (ret)
 		goto out;
-	}
 
-	/* check if the command is received by ec */
 	timeout = EC_CMD_TIMEOUT;
 	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
 		udelay(1);
-	if (timeout <= 0) {
-		pr_err("EC ENABLE EVENT INTERRUPT: deadable error : timeout...\n");
-		ret = -EINVAL;
-		goto out;
-	}
+	if (!timeout)
+		pr_err("EC ENABLE EVENT INTERRUPT: timeout\n");
+
 out:
 	spin_unlock_irqrestore(&index_access_lock, flags);
 }
@@ -299,27 +231,20 @@ EXPORT_SYMBOL(it8528_ec_event_int_enable);
 void it8528_ec_event_int_disable(void)
 {
 	unsigned long flags;
-	int ret = 0;
 	unsigned int timeout;
+	int ret;
 
 	spin_lock_irqsave(&index_access_lock, flags);
 
-	ret = send_ec_command(CMD_DISABLE_EVENT_EC);
-	if (ret < 0) {
-		pr_err("Send command fail!\n");
+	ret = ec_send_byte(CMD_DISABLE_EVENT_EC, EC_CMD_PORT);
+	if (ret)
 		goto out;
-	}
 
-	/* check if the command is received by ec */
 	timeout = EC_CMD_TIMEOUT;
 	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
 		udelay(1);
-
-	if (timeout <= 0) {
-		pr_err("EC ENABLE EVENT INTERRUPT: deadable error : timeout...\n");
-		ret = -EINVAL;
-		goto out;
-	}
+	if (!timeout)
+		pr_err("EC DISABLE EVENT INTERRUPT: timeout\n");
 
 out:
 	spin_unlock_irqrestore(&index_access_lock, flags);
