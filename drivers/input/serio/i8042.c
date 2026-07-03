@@ -538,6 +538,18 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 
 	spin_lock_irqsave(&i8042_lock, flags);
 
+#ifdef CONFIG_PHYTIUM_PIO
+	if (check_cpu_type()) {
+		/* No (KBD | TP) interrupt, return */
+		if (i8042_write_lpc_interrupt_clear()) {
+			spin_unlock_irqrestore(&i8042_lock, flags);
+			dbg(" No (KBD | TP) in int_status, return\n");
+			ret = 0;
+			goto out;
+		}
+	}
+#endif
+
 	str = i8042_read_status();
 	if (unlikely(~str & I8042_STR_OBF)) {
 		spin_unlock_irqrestore(&i8042_lock, flags);
