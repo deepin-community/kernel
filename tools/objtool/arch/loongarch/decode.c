@@ -122,6 +122,7 @@ static bool is_loongarch(const struct elf *elf)
 static bool decode_insn_reg0i26_fomat(union loongarch_instruction inst,
 				      struct instruction *insn)
 {
+	/* New branch opcodes: also update arch_jump_opcode_bytes() */
 	switch (inst.reg0i26_format.opcode) {
 	case b_op:
 		insn->type = INSN_JUMP_UNCONDITIONAL;
@@ -143,6 +144,7 @@ static bool decode_insn_reg0i26_fomat(union loongarch_instruction inst,
 static bool decode_insn_reg1i21_fomat(union loongarch_instruction inst,
 				      struct instruction *insn)
 {
+	/* New branch opcodes: also update arch_jump_opcode_bytes() */
 	switch (inst.reg1i21_format.opcode) {
 	case beqz_op:
 	case bnez_op:
@@ -273,6 +275,7 @@ static bool decode_insn_reg2i14_fomat(union loongarch_instruction inst,
 static bool decode_insn_reg2i16_fomat(union loongarch_instruction inst,
 				      struct instruction *insn)
 {
+	/* New branch opcodes: also update arch_jump_opcode_bytes() */
 	switch (inst.reg2i16_format.opcode) {
 	case jirl_op:
 		if (inst.reg2i16_format.rd == 0 &&
@@ -395,6 +398,77 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 	}
 
 	return 0;
+}
+
+size_t arch_jump_opcode_bytes(struct objtool_file *file, struct instruction *insn,
+			      unsigned char *buf)
+{
+	union loongarch_instruction inst;
+	u32 opcode;
+	u32 mask;
+
+	/*
+	 * LoongArch branch immediates are not x86-style trailing byte fields.
+	 * Keep the opcode and operand fields which define the branch semantics,
+	 * and clear only the PC-relative immediate bits:
+	 *
+	 * format   branch opcodes              cleared bits          kept bits
+	 * reg0i26  b, bl                       [25:0]                opcode
+	 * reg1i21  beqz, bnez, bceqz/bcnez     [25:10], [4:0]        opcode, rj
+	 * reg2i16  jirl, beq, bne, blt, bge,   [25:10]               opcode,
+	 *          bltu, bgeu                                        rd, rj
+	 *
+	 * bceqz and bcnez share opcode 0x12.  Their condition selector lives in
+	 * reg1i21.rj bits, so preserve the whole rj field.
+	 *
+	 * When adding new branch/call/jump opcode decode support in
+	 * arch_decode_instruction(), you MUST also add the corresponding
+	 * mask case here.  Otherwise KLP checksums will include PC-relative
+	 * displacement bits and become unstable across recompilation.
+	 * The WARN_FUNC fallback fires at runtime but is not a substitute
+	 * for correct masking.
+	 */
+	memcpy(&inst, insn->sec->data->d_buf + insn->offset, sizeof(inst));
+
+	/*
+	 * Opcode is always in bits[31:26] across all LoongArch instruction
+	 * formats.  Extract it once and dispatch on the numeric value so
+	 * that the full set of handled branch opcodes is visible in one
+	 * place.
+	 */
+	opcode = inst.word >> 26;
+
+	switch (opcode) {
+	case b_op:		/* 0x14: b   (reg0i26) */
+	case bl_op:		/* 0x15: bl  (reg0i26) */
+		mask = 0xfc000000;
+		break;
+
+	case beqz_op:		/* 0x10: beqz              (reg1i21) */
+	case bnez_op:		/* 0x11: bnez              (reg1i21) */
+	case bceqz_op:		/* 0x12: bceqz / bcnez     (reg1i21) */
+		mask = 0xfc0003e0;
+		break;
+
+	case jirl_op:		/* 0x13: jirl              (reg2i16) */
+	case beq_op:		/* 0x16: beq               (reg2i16) */
+	case bne_op:		/* 0x17: bne               (reg2i16) */
+	case blt_op:		/* 0x18: blt               (reg2i16) */
+	case bge_op:		/* 0x19: bge               (reg2i16) */
+	case bltu_op:		/* 0x1a: bltu              (reg2i16) */
+	case bgeu_op:		/* 0x1b: bgeu              (reg2i16) */
+		mask = 0xfc0003ff;
+		break;
+
+	default:
+		WARN_FUNC(insn->sec, insn->offset, "unexpected jump/call instruction");
+		mask = ~0U;
+		break;
+	}
+
+	inst.word &= mask;
+	memcpy(buf, &inst, LOONGARCH_INSN_SIZE);
+	return LOONGARCH_INSN_SIZE;
 }
 
 const char *arch_nop_insn(int len)
