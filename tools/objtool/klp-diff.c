@@ -282,14 +282,35 @@ static bool is_uncorrelated_static_local(struct symbol *sym)
 }
 
 /*
- * .L symbols are assembler-local labels not present in kallsyms.  They must
- * never become KLP relocations; instead their data is cloned into the patch
- * module.  This covers .Ltmp* (Clang temp labels), .L__const.* (Clang local
- * constants), and any other assembler-local pattern.
+ * GAS paired-relocation anchor markers embedded in symbol names.
+ * \001 (SOH, ^A): regular local label anchors (e.g. L0^A)
+ * \002 (STX, ^B): dollar local label anchors  (e.g. .L1^B1)
+ */
+#define GAS_PAIRED_ANCHOR_SOH  ('\001')
+#define GAS_PAIRED_ANCHOR_STX  ('\002')
+
+/*
+ * Assembler-local labels are not present in kallsyms.  They must never
+ * become KLP relocations; instead their data is cloned into the patch
+ * module.  This covers .Ltmp* (Clang temp labels), .L__const.* (Clang
+ * local constants), and GAS-generated paired-relocation anchors whose
+ * names start with 'L' and contain GAS anchor control characters
+ * (e.g. LoongArch L0^A, .L1^B1).  Requiring the leading 'L' avoids
+ * misidentifying unrelated NOTYPE symbols that happen to contain
+ * those bytes.
  */
 static bool is_local_label(struct symbol *sym)
 {
-	return strstarts(sym->name, ".L");
+	return is_local_sym(sym) && is_notype_sym(sym) && sym->sec &&
+	       (strstarts(sym->name, ".L") ||
+		(sym->name[0] == 'L' &&
+		 (strchr(sym->name, GAS_PAIRED_ANCHOR_SOH) ||
+		  strchr(sym->name, GAS_PAIRED_ANCHOR_STX))));
+}
+
+static s64 reloc_target_offset(struct reloc *reloc)
+{
+	return (s64)reloc->sym->offset + reloc_addend(reloc);
 }
 
 static bool is_special_section(struct section *sec)
@@ -1233,11 +1254,12 @@ static bool klp_reloc_needed(struct reloc *patched_reloc)
 	return true;
 }
 
-/* Return -1 error, 0 success, 1 skip */
+/* Return -1 error, 0 success */
 static int convert_reloc_sym_to_secsym(struct elf *elf, struct reloc *reloc)
 {
 	struct symbol *sym = reloc->sym;
 	struct section *sec = sym->sec;
+	s64 target;
 
 	if (is_sec_sym(sym))
 		return 0;
@@ -1245,10 +1267,22 @@ static int convert_reloc_sym_to_secsym(struct elf *elf, struct reloc *reloc)
 	if (!sec->sym && !elf_create_section_symbol(elf, sec))
 		return -1;
 
+	target = reloc_target_offset(reloc);
 	reloc->sym = sec->sym;
 	set_reloc_sym(elf, reloc, sec->sym->idx);
-	set_reloc_addend(elf, reloc, sym->offset + reloc_addend(reloc));
+	set_reloc_addend(elf, reloc, target);
 	return 0;
+}
+
+/* Return -1 error, 0 success */
+static int convert_reloc_local_label_to_secsym(struct elf *elf, struct reloc *reloc)
+{
+	struct symbol *sym = reloc->sym;
+
+	if (!is_local_label(sym))
+		return 0;
+
+	return convert_reloc_sym_to_secsym(elf, reloc);
 }
 
 /* Return -1 error, 0 success, 1 skip */
@@ -1319,9 +1353,16 @@ static bool is_uncorrelated_section(struct section *sec)
 static int convert_reloc_sym(struct elf *elf, struct reloc *reloc)
 {
 	struct section *sec = reloc->sym->sec;
+	int ret;
 
 	if (reloc_type(reloc) == R_NONE)
 		return 1;
+
+	ret = convert_reloc_local_label_to_secsym(elf, reloc);
+	if (ret)
+		return ret;
+
+	sec = reloc->sym->sec;
 
 	if (is_uncorrelated_section(sec))
 		return convert_reloc_sym_to_secsym(elf, reloc);
@@ -1662,7 +1703,7 @@ static int create_fake_symbols(struct elf *elf)
 		if (annotype(elf, sec, reloc) != ANNOTYPE_DATA_SPECIAL)
 			continue;
 
-		offset = reloc_addend(reloc);
+		offset = reloc_target_offset(reloc);
 
 		size = 0;
 		next_reloc = reloc;
@@ -1671,7 +1712,7 @@ static int create_fake_symbols(struct elf *elf)
 			    next_reloc->sym->sec != reloc->sym->sec)
 				continue;
 
-			size = reloc_addend(next_reloc) - offset;
+			size = reloc_target_offset(next_reloc) - offset;
 			break;
 		}
 
