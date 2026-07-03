@@ -17577,6 +17577,18 @@ F:	drivers/usb/typec/role-switch-phytium.c
 F:	arch/arm64/boot/dts/phytium/*
 F:	drivers/gpio/gpio-phytium*
 
+PHYTIUM EC SUPPORT
+M:	Wentao Guan <guanwentao@uniontech.com>
+M:	Lunpeng Wen <wenlunpeng@uniontech.com>
+M:	Bibo Huang <huangbibo@uniontech.com>
+F:	drivers/uos/*
+F:	drivers/uos/phyt/*
+F:	drivers/uos/phyt/ec/*
+F:	include/linux/classtypes.h
+F:	include/linux/cputypes.h
+F:	lib/classtypes.c
+F:	lib/cputypes.c
+
 QAT DRIVER
 M:	Giovanni Cabiddu <giovanni.cabiddu@intel.com>
 L:	qat-linux@intel.com
