@@ -26,6 +26,7 @@
 #define HOST_ESHUTDOWN	4
 
 #define HOST_EP_NUM	16
+#define FORCE_PORT_RESET 0x60
 
 static void dump_ep_remap_pool(struct HOST_CTRL *priv, bool dirIn)
 {
@@ -2332,6 +2333,7 @@ static void HubPortReset(struct HOST_CTRL *priv, uint8_t on)
 		phytium_write8(&priv->regs->ep0fifoctrl, FIFOCTRL_FIFOAUTO |
 				FIFOCTRL_IO_TX | 0 | 0x04);
 
+		phytium_write8(&priv->regs->portctrl, FORCE_PORT_RESET);
 		priv->portStatus |= USB_PORT_STAT_RESET;
 		priv->portStatus &= ~USB_PORT_STAT_ENABLE;
 		priv->port_resetting = 0;
