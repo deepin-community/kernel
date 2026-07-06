@@ -1,5 +1,6 @@
 choice
 	prompt "Choose kernel unwinder"
+	default UNWINDER_ORC if LIVEPATCH
 	default UNWINDER_PROLOGUE if KALLSYMS
 	help
 	  This determines which method will be used for unwinding kernel stack
@@ -37,5 +38,9 @@ config UNWINDER_ORC
 
 	  Enabling this option will increase the kernel's runtime memory usage
 	  by roughly 2-4MB, depending on your kernel config.
+
+	  This unwinder is automatically selected as the default when
+	  CONFIG_LIVEPATCH is enabled, because livepatch with klp-build
+	  requires objtool --orc support.
 
 endchoice
