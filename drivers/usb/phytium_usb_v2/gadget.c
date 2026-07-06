@@ -563,6 +563,7 @@ static int gadget_ep_dequeue(struct usb_ep *ep, struct usb_request *request)
 		return -EINVAL;
 
 	pep = to_gadget_ep(ep);
+	pdev = pep->pdev;
 	if (!pep->endpoint.desc) {
 		dev_err(pdev->dev, "%s: can't dequeue to disabled endpoint\n", pep->name);
 		return -ESHUTDOWN;
