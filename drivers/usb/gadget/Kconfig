@@ -222,6 +222,9 @@ config USB_F_PRINTER
 config USB_F_TCM
 	tristate
 
+config USB_F_USB_TCM
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -235,6 +238,15 @@ config USB_CONFIGFS
 	  Associating functions with configurations is done by creating
 	  appropriate symbolic links.
 	  For more information see Documentation/usb/gadget_configfs.rst.
+
+config USB_CONFIGFS_USB_TCM
+	bool "PHYTIUM USB TCM"
+	depends on USB_CONFIGFS
+	depends on ARCH_PHYTIUM
+	select USB_LIBCOMPOSITE
+	select USB_F_USB_TCM
+	help
+	  This feature is used to support USB_TCM transmission.
 
 config USB_CONFIGFS_SERIAL
 	bool "Generic serial bulk in/out"
