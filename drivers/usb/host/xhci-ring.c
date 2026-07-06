@@ -2329,6 +2329,13 @@ static int finish_td(struct xhci_hcd *xhci, struct xhci_virt_ep *ep,
 						 td->start_seg, td->first_trb));
 				return 0;
 			}
+#ifdef CONFIG_ARCH_PHYTIUM
+			if (is_pd2408() || is_pe220x()) {
+				xhci_clear_hub_tt_buffer(xhci, td, ep);
+				xhci_handle_halted_endpoint(xhci, ep, td, EP_SOFT_RESET);
+				return 0;
+			}
+#endif
 			/* endpoint not halted, don't reset it */
 			break;
 		}
