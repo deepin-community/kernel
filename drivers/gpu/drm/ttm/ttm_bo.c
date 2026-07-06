@@ -761,6 +761,9 @@ static bool ttm_bo_evict_valuable_dmem(struct ttm_buffer_object *bo,
 	if (!alloc_state)
 		return true;
 
+	if (!bo->resource->css)
+		return true;
+
 	/* Skip BOs from the same cgroup when not trying low-protected ones */
 	if (alloc_state->charge_pool &&
 	    !alloc_state->may_try_low &&
