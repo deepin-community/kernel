@@ -49,7 +49,12 @@ static void xhci_delay_work_func(struct work_struct *work)
 	pdev = to_platform_device(hcd->self.controller);
 
 	xhci_plat_remove(pdev);
-	xhci_generic_plat_probe(pdev);
+	if (xhci_generic_plat_probe(pdev) != 0) {
+		struct device *dev = &pdev->dev;
+		struct platform_driver *drv = to_platform_driver(dev->driver);
+
+		drv->shutdown = NULL;
+	}
 }
 #endif
 
