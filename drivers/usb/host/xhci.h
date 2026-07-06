@@ -18,6 +18,9 @@
 #include <linux/usb/hcd.h>
 #include <linux/io-64-nonatomic-lo-hi.h>
 #include <linux/io-64-nonatomic-hi-lo.h>
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
 
 /* Code sharing between pci-quirks and xhci hcd */
 #include	"xhci-ext-caps.h"
@@ -1565,6 +1568,10 @@ struct xhci_hcd {
 	struct list_head        cmd_list;
 	unsigned int		cmd_ring_reserved_trbs;
 	struct delayed_work	cmd_timer;
+#ifdef CONFIG_ARCH_PHYTIUM
+	struct delayed_work	xhci_delay_wq;
+	struct workqueue_struct* (*get_xhci_wq)(void);
+#endif
 	struct completion	cmd_ring_stop_completion;
 	struct xhci_command	*current_cmd;
 

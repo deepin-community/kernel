@@ -1357,6 +1357,13 @@ void xhci_hc_died(struct xhci_hcd *xhci)
 	/* inform usb core hc died if PCI remove isn't already handling it */
 	if (notify)
 		usb_hc_died(xhci_to_hcd(xhci));
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (is_pe220x() || is_pd2408()) {
+		if (xhci->get_xhci_wq && (xhci->quirks & XHCI_S1_SUSPEND_WAKEUP))
+			mod_delayed_work(xhci->get_xhci_wq(), &xhci->xhci_delay_wq, 1000);
+	}
+#endif
 }
 
 static void update_ring_for_set_deq_completion(struct xhci_hcd *xhci,
