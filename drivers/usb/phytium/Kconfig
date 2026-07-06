@@ -1,7 +1,7 @@
 config USB_PHYTIUM
 	tristate "Phytium USB Support"
 	depends on USB
-	depends on USB_GADGET
+	depends on USB_GADGET && ARCH_PHYTIUM
 	help
 	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
 	  like Pe220x.
@@ -13,7 +13,7 @@ config USB_PHYTIUM_PCI
 	tristate "Phytium PCI USB Support"
 	default n
 	depends on USB
-	depends on USB_GADGET
+	depends on USB_GADGET && ARCH_PHYTIUM
 	help
 	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
 	  like Pe220x.
