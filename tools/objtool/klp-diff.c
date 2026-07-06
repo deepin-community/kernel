@@ -281,33 +281,6 @@ static bool is_uncorrelated_static_local(struct symbol *sym)
 	return false;
 }
 
-/*
- * GAS paired-relocation anchor markers embedded in symbol names.
- * \001 (SOH, ^A): regular local label anchors (e.g. L0^A)
- * \002 (STX, ^B): dollar local label anchors  (e.g. .L1^B1)
- */
-#define GAS_PAIRED_ANCHOR_SOH  ('\001')
-#define GAS_PAIRED_ANCHOR_STX  ('\002')
-
-/*
- * Assembler-local labels are not present in kallsyms.  They must never
- * become KLP relocations; instead their data is cloned into the patch
- * module.  This covers .Ltmp* (Clang temp labels), .L__const.* (Clang
- * local constants), and GAS-generated paired-relocation anchors whose
- * names start with 'L' and contain GAS anchor control characters
- * (e.g. LoongArch L0^A, .L1^B1).  Requiring the leading 'L' avoids
- * misidentifying unrelated NOTYPE symbols that happen to contain
- * those bytes.
- */
-static bool is_local_label(struct symbol *sym)
-{
-	return is_local_sym(sym) && is_notype_sym(sym) && sym->sec &&
-	       (strstarts(sym->name, ".L") ||
-		(sym->name[0] == 'L' &&
-		 (strchr(sym->name, GAS_PAIRED_ANCHOR_SOH) ||
-		  strchr(sym->name, GAS_PAIRED_ANCHOR_STX))));
-}
-
 static s64 reloc_target_offset(struct reloc *reloc)
 {
 	return (s64)reloc->sym->offset + reloc_addend(reloc);

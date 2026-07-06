@@ -129,12 +129,55 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 		goto alts;
 	}
 
-	if (is_sec_sym(sym)) {
-		sym = find_symbol_containing(reloc->sym->sec, offset);
-		if (!sym)
-			goto alts;
+	/*
+	 * Normalize an assembler-local label (.L*) to its containing
+	 * function or object symbol.  Without this a .L* label would
+	 * be hashed by its unstable name and raw section offset.
+	 */
+	if (is_local_label(sym)) {
+		struct section *sec = sym->sec;
 
+		offset += sym->offset;
+		sym = find_symbol_containing_inclusive(sec, offset);
+		if (!sym) {
+			WARN("can't find containing symbol for local label in section %s",
+			     sec->name);
+			__checksum_update_insn(func, insn, sec->name,
+					       strlen(sec->name));
+			__checksum_update_insn(func, insn, &offset,
+					       sizeof(offset));
+			goto alts;
+		}
 		offset -= sym->offset;
+	}
+
+	if (is_sec_sym(sym)) {
+		struct symbol *containing;
+
+		containing = find_symbol_containing_inclusive(sym->sec, offset);
+		if (containing) {
+			sym = containing;
+			offset -= sym->offset;
+		} else if (!sym->sec->sh.sh_size) {
+			/*
+			 * Empty section (e.g. .altinstr_replacement with
+			 * only zero-length replacements).  Skip silently,
+			 * matching the diff path's
+			 * convert_reloc_secsym_to_sym().
+			 */
+			goto alts;
+		} else if (!is_rodata_sec(sym->sec)) {
+			/*
+			 * Non-.rodata, non-empty section with an
+			 * unresolvable section symbol.  The diff path
+			 * would error out here; emit a warning for
+			 * visibility but keep the section symbol for
+			 * stable checksum hashing.
+			 */
+			WARN("can't resolve section symbol %s+%llx to a named symbol",
+			     sym->sec->name, (unsigned long long)offset);
+		}
+		/* else: .rodata -- keep section symbol for stable hashing */
 	}
 
 	__checksum_update_insn(func, insn, sym->demangled_name,
@@ -198,12 +241,58 @@ static void checksum_update_object(struct objtool_file *file, struct symbol *sym
 			continue;
 		}
 
-		if (is_sec_sym(target)) {
-			target = find_symbol_containing(reloc->sym->sec, offset);
-			if (!target)
-				continue;
+		/*
+		 * Normalize an assembler-local label (.L*) to its
+		 * containing function or object symbol
+		 * (see checksum_update_insn).
+		 */
+		if (is_local_label(target)) {
+			struct section *sec = target->sec;
 
+			offset += (s64)target->offset;
+			target = find_symbol_containing_inclusive(sec, offset);
+			if (!target) {
+				WARN("can't find containing symbol for local label in section %s",
+				     sec->name);
+				__checksum_update_object(sym, sym_offset,
+							 "reloc name", sec->name,
+							 strlen(sec->name));
+				__checksum_update_object(sym, sym_offset,
+							 "reloc addend", &offset,
+							 sizeof(offset));
+				continue;
+			}
 			offset -= target->offset;
+		}
+
+		if (is_sec_sym(target)) {
+			struct symbol *containing;
+
+			containing = find_symbol_containing_inclusive(target->sec, offset);
+			if (containing) {
+				target = containing;
+				offset -= target->offset;
+			} else if (!target->sec->sh.sh_size) {
+				/*
+				 * Empty section (e.g. .altinstr_replacement
+				 * with only zero-length replacements).
+				 * Skip silently, matching the diff path's
+				 * convert_reloc_secsym_to_sym().
+				 */
+				continue;
+			} else if (!is_rodata_sec(target->sec)) {
+				/*
+				 * Non-.rodata, non-empty section with an
+				 * unresolvable section symbol.  The diff
+				 * path would error out here; emit a
+				 * warning for visibility but keep the
+				 * section symbol for stable checksum
+				 * hashing.
+				 */
+				WARN("can't resolve section symbol %s+%llx to a named symbol",
+				     target->sec->name, (unsigned long long)offset);
+			}
+			/* else: .rodata -- keep section symbol for stable hashing */
 		}
 
 		__checksum_update_object(sym, sym_offset, "reloc name",
