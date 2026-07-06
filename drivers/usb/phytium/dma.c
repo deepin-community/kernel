@@ -64,6 +64,8 @@ static int32_t phytium_dma_probe(struct DMA_CFG *config, struct DMA_SYSREQ *sysR
 static int32_t phytium_dma_init(struct DMA_CONTROLLER *priv,
 		const struct DMA_CFG *config, struct DMA_CALLBACKS *callbacks)
 {
+	int i = 0;
+
 	if (!priv || !config || !callbacks)
 		return -EINVAL;
 
@@ -72,6 +74,11 @@ static int32_t phytium_dma_init(struct DMA_CONTROLLER *priv,
 
 	memset((void *)priv, 0, sizeof(struct DMA_CONTROLLER));
 	memset((void *)config->trbAddr, 0, TRB_POOL_SIZE);
+
+	for (i = 0; i < MAX_DMA_CHANNELS; i++) {
+		INIT_LIST_HEAD(&priv->rx[i].trbChainDescList);
+		INIT_LIST_HEAD(&priv->tx[i].trbChainDescList);
+	}
 
 	priv->trbDMAPoolAddr = config->trbDmaAddr;
 	priv->trbPoolAddr = config->trbAddr;
@@ -251,6 +258,10 @@ static void phytium_dma_isr(struct DMA_CONTROLLER *priv)
 					& DMARF_EP_IOC) || (channel->dmultGuard & DMARF_EP_ISP)) {
 retransmit:
 			phytium_write32(&priv->regs->ep_sts, DMARF_EP_IOC | DMARF_EP_ISP);
+
+			if (list_empty(&channel->trbChainDescList))
+				break;
+
 			trbChainDesc = GetTrbChainDescEntry(channel->trbChainDescList.next);
 			if (!(ep_sts & DMARF_EP_TRBERR) && channel->dmultEnabled
 					&& !trbChainDesc->lastTrbIsLink) {
@@ -351,7 +362,6 @@ static void *phytium_dma_channelAlloc(struct DMA_CONTROLLER *priv,
 	if (isIsoc)
 		channel->isIsoc = 1;
 
-	INIT_LIST_HEAD(&channel->trbChainDescList);
 	channel->numOfTrbChain = 0;
 	channel->controller = priv;
 	channel->dmultGuard = 0;
