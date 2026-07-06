@@ -1492,38 +1492,12 @@ static void gadget_free_endpoints(struct phytium_device *pdev)
 {
 }
 
-static int gadget_restart(void *data, struct phytium_device *pdev)
-{
-	struct phytium_usb *phytium_usb = (struct phytium_usb *)data;
-	int ret;
-	u32 reg;
-
-	if (!phytium_usb)
-		return 0;
-
-	ret = gadget_mem_init((void *)pdev);
-	if (ret)
-		return ret;
-
-	reg = readl(&pdev->port3x_regs->mode_2);
-	reg &= ~CFG_3XPORT_U1_PIPE_CLK_GATE_EN;
-	writel(reg, &pdev->port3x_regs->mode_2);
-
-	ret = gadget_init_endpoints(pdev);
-	if (ret) {
-		dev_err(pdev->dev, "gadget_init_endpoints failed\n");
-		return ret;
-	}
-
-	return 0;
-}
-
 static int gadget_start(void *data)
 {
 	struct phytium_device *pdev;
 	struct phytium_usb *phytium_usb = (struct phytium_usb *)data;
 	u32 max_speed;
-	int ret = -ENOMEM;
+	int ret = 0;
 
 	if (!phytium_usb)
 		return 0;
@@ -1640,7 +1614,6 @@ static int gadget_suspend(void *data, bool do_wakeup)
 	spin_lock_irqsave(&pdev->lock, flags);
 	disconnect_gadget(pdev);
 	stop(pdev);
-	gadget_mem_cleanup((void *)pdev);
 	spin_unlock_irqrestore(&pdev->lock, flags);
 
 	return 0;
@@ -1655,8 +1628,6 @@ static int gadget_resume(void *data, bool hibernated)
 	int ret;
 
 	spin_lock_irqsave(&pdev->lock, flags);
-	gadget_restart(phytium_usb, pdev);
-
 	if (!pdev->gadget_driver) {
 		spin_unlock_irqrestore(&pdev->lock, flags);
 		return 0;
@@ -1666,7 +1637,6 @@ static int gadget_resume(void *data, bool hibernated)
 	max_speed = min(max_speed, pdev->gadget.max_speed);
 
 	ret = gadget_run(pdev, max_speed);
-	phytium_usb_otg_gadget_on((void *)phytium_usb);
 
 	if (pdev->link_state == XDEV_U3)
 		__gadget_wakeup(pdev);

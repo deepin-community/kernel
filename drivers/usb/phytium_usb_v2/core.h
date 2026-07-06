@@ -11,7 +11,7 @@
 
 #define ROLE_STATE_INACTIVE	0
 #define ROLE_STATE_ACTIVE	1
-#define PHYTIUM_USB_DRIVER_V2_VERSION "1.0.0"
+#define PHYTIUM_USB_DRIVER_V2_VERSION "1.0.1"
 
 struct phytium_usb_platform_data {
 	int (*platform_suspend)(struct device *dev, bool suspend, bool wakeup);

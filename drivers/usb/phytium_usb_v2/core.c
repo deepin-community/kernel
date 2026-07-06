@@ -349,9 +349,7 @@ int phytium_usb_resume(struct phytium_usb *phytium_usb, u8 set_active)
 	int ret = 0;
 
 	if (phytium_usb_otg_power_is_lost((void *)phytium_usb)) {
-		if (phytium_usb->role_sw) {
-			phytium_usb->role = role_get(phytium_usb->role_sw);
-		} else {
+		if (!phytium_usb->role_sw) {
 			real_role = hw_role_state_machine(phytium_usb);
 			if (real_role != phytium_usb->role) {
 				ret = phytium_usb_hw_role_switch(phytium_usb);
