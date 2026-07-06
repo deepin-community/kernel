@@ -445,4 +445,10 @@ config ADI
 
 source "drivers/char/phytnetled/Kconfig"
 
+config PHYTIUM_USB_TCM
+	tristate "Phytium usb tcm"
+	depends on ARCH_PHYTIUM
+	help
+	  This driver is used for communication with the PHYTIUM USB TCM.
+	  This driver is only applicable to the PHYTIUM SOC.
 endmenu
