@@ -2,7 +2,7 @@
 
 config USB_PHYTIUM_PCI_V2
 	tristate "PHYTIUM USB V2 Support for PCI"
-	depends on USB && USB_GADGET && USB_ROLE_SWITCH
+	depends on USB && USB_GADGET && USB_ROLE_SWITCH && ARCH_PHYTIUM
 	help
 	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
 
@@ -11,7 +11,7 @@ config USB_PHYTIUM_PCI_V2
 
 config USB_PHYTIUM_V2
 	tristate "PHYTIUM USB V2 Support for Platform"
-	depends on USB && USB_GADGET && USB_ROLE_SWITCH
+	depends on USB && USB_GADGET && USB_ROLE_SWITCH && ARCH_PHYTIUM
 	help
 	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
 
