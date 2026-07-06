@@ -115,10 +115,10 @@ static void host_stop(void *data)
 	struct phytium_usb *phytium_usb = (struct phytium_usb *)data;
 
 	if (phytium_usb) {
-		phytium_usb_otg_host_off((void *)phytium_usb);
 		kfree(phytium_usb->host_plat_data);
 		platform_device_unregister(phytium_usb->host_dev);
 		phytium_usb->host_dev = NULL;
+		phytium_usb_otg_host_off((void *)phytium_usb);
 	}
 }
 
