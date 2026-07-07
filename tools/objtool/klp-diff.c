@@ -1624,6 +1624,24 @@ static int create_fake_symbol(struct elf *elf, struct section *sec,
 	return elf_create_symbol(elf, name, sec, STB_LOCAL, type, offset, size) ? 0 : -1;
 }
 
+struct data_special_entry {
+	struct section *target_sec;
+	unsigned long offset;
+};
+
+static int cmp_data_special_entry(const void *a, const void *b)
+{
+	const struct data_special_entry *ea = a, *eb = b;
+
+	if (ea->target_sec->idx != eb->target_sec->idx)
+		return ea->target_sec->idx < eb->target_sec->idx ? -1 : 1;
+	if (ea->offset < eb->offset)
+		return -1;
+	if (ea->offset > eb->offset)
+		return 1;
+	return 0;
+}
+
 /*
  * Special sections (alternatives, etc) are basically arrays of structs.
  * For all the special sections, create a symbol for each struct entry.  This
@@ -1669,31 +1687,67 @@ static int create_fake_symbols(struct elf *elf)
 	if (!sec || !sec->rsec)
 		goto entsize;
 
-	for_each_reloc(sec->rsec, reloc) {
-		unsigned long offset, size;
-		struct reloc *next_reloc;
+	/*
+	 * Collect all ANNOTYPE_DATA_SPECIAL relocations, sort them by
+	 * target section and offset, then compute entry sizes from
+	 * consecutive offsets.  Sorting avoids relying on relocation
+	 * table order, which is not guaranteed by any specification.
+	 */
+	{
+		struct data_special_entry *annots;
+		int i, nr_annots = 0;
 
-		if (annotype(elf, sec, reloc) != ANNOTYPE_DATA_SPECIAL)
-			continue;
-
-		offset = reloc_target_offset(reloc);
-
-		size = 0;
-		next_reloc = reloc;
-		for_each_reloc_continue(sec->rsec, next_reloc) {
-			if (annotype(elf, sec, next_reloc) != ANNOTYPE_DATA_SPECIAL ||
-			    next_reloc->sym->sec != reloc->sym->sec)
-				continue;
-
-			size = reloc_target_offset(next_reloc) - offset;
-			break;
+		for_each_reloc(sec->rsec, reloc) {
+			if (annotype(elf, sec, reloc) == ANNOTYPE_DATA_SPECIAL)
+				nr_annots++;
 		}
 
-		if (!size)
-			size = sec_size(reloc->sym->sec) - offset;
+		if (nr_annots) {
+			annots = calloc(nr_annots, sizeof(*annots));
+			if (!annots) {
+				ERROR_GLIBC("calloc");
+				return -1;
+			}
 
-		if (create_fake_symbol(elf, reloc->sym->sec, offset, size))
-			return -1;
+			i = 0;
+			for_each_reloc(sec->rsec, reloc) {
+				if (annotype(elf, sec, reloc) != ANNOTYPE_DATA_SPECIAL)
+					continue;
+				annots[i].target_sec = reloc->sym->sec;
+				annots[i].offset = reloc_target_offset(reloc);
+				i++;
+			}
+
+			qsort(annots, nr_annots, sizeof(*annots),
+			      cmp_data_special_entry);
+
+			for (i = 0; i < nr_annots; i++) {
+				unsigned long offset = annots[i].offset;
+				unsigned long size;
+
+				if (i + 1 < nr_annots &&
+				    annots[i + 1].target_sec == annots[i].target_sec) {
+					size = annots[i + 1].offset - offset;
+				} else {
+					if (offset > sec_size(annots[i].target_sec)) {
+						ERROR("%s: offset 0x%lx > size 0x%lx",
+						      annots[i].target_sec->name, offset,
+						      sec_size(annots[i].target_sec));
+						free(annots);
+						return -1;
+					}
+					size = sec_size(annots[i].target_sec) - offset;
+				}
+
+				if (create_fake_symbol(elf, annots[i].target_sec,
+						       offset, size)) {
+					free(annots);
+					return -1;
+				}
+			}
+
+			free(annots);
+		}
 	}
 
 	/*
