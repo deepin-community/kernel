@@ -604,6 +604,20 @@ out:
 }
 
 #ifdef CONFIG_GENERIC_BUG
+/*
+ * Verify that struct bug_entry size matches the assembly layout in
+ * arch/loongarch/include/asm/bug.h.  The __BUG_ENTRY macro emits
+ * bug_addr_disp (4 bytes) + optional file_disp/line (0 or 6 bytes)
+ * + flags (2 bytes), with .align 2 ensuring 4-byte stride.
+ * sizeof(struct bug_entry) must match because the kernel walks the
+ * table with C pointer arithmetic.
+ */
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+static_assert(sizeof(struct bug_entry) == 12);
+#else
+static_assert(sizeof(struct bug_entry) == 8);
+#endif
+
 int is_valid_bugaddr(unsigned long addr)
 {
 	return 1;
