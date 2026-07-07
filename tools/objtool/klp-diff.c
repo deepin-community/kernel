@@ -296,6 +296,7 @@ static bool is_special_section(struct section *sec)
 		"__ex_table",
 		"__jump_table",
 		"__mcount_loc",
+		"__patchable_function_entries",
 
 		/*
 		 * Extract .static_call_sites here to inherit non-module
