@@ -2491,8 +2491,6 @@ static int classify_symbols(struct objtool_file *file)
 	size_t len;
 
 	for_each_sym(file->elf, func) {
-		if (is_notype_sym(func) && strstarts(func->name, ".L"))
-			func->local_label = true;
 
 		if (!is_global_sym(func))
 			continue;
