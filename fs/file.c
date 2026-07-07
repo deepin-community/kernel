@@ -807,6 +807,20 @@ struct file *file_close_fd(unsigned int fd)
 }
 EXPORT_SYMBOL_GPL(file_close_fd);
 
+/**
+ * close_fd_get_file - return file associated with fd
+ * @fd: file descriptor to retrieve file for
+ *
+ * Doesn't take a separate reference count.
+ *
+ * Returns: The file associated with @fd (NULL if @fd is not open)
+ */
+struct file *close_fd_get_file(unsigned int fd)
+{
+	return file_close_fd(fd);
+}
+EXPORT_SYMBOL_GPL(close_fd_get_file);
+
 void do_close_on_exec(struct files_struct *files)
 {
 	unsigned i;
