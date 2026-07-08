@@ -101,17 +101,20 @@ static const struct snd_soc_dapm_route phyt_dapm_routes[] = {
 static void phyt_codec_show_status(uint8_t status)
 {
 	switch (status) {
-	case 0:
+	case ERR_CODEC_SUCCESS:
 		pr_err("success\n");
 		break;
-	case 2:
+	case ERR_CODEC_DEV_BUSY:
 		pr_err("device busy\n");
 		break;
-	case 3:
+	case ERR_CODEC_RW_ERROR:
 		pr_err("read/write error\n");
 		break;
-	case 4:
-		pr_err("no device\n");
+	case ERR_CODEC_NODEV:
+		pr_err("no hw device\n");
+		break;
+	case ERR_CODEC_NO_INIT:
+		pr_err("no init\n");
 		break;
 	default:
 		pr_err("unknown error: %d\n", status);
