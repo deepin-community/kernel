@@ -53,6 +53,36 @@
 #define KLP_SYSCALL_DEFINE5(name, ...) KLP_SYSCALL_DEFINEx(5, _##name, __VA_ARGS__)
 #define KLP_SYSCALL_DEFINE6(name, ...) KLP_SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
 
+#ifdef CONFIG_LOONGARCH
+/*
+ * LoongArch uses pt_regs-based syscall wrappers (ARCH_HAS_SYSCALL_WRAPPER).
+ * The syscall table entry is __loongarch_sys_*(), which extracts arguments
+ * from pt_regs before calling the sign-extension sanitizer __se_sys_*().
+ * KLP replacements must provide the same __loongarch_sys_*() entry point,
+ * delegating the real work to __klp_do_sys_*() to avoid colliding with
+ * the original __do_sys_*().
+ */
+#define KLP_SYSCALL_DEFINE0(sname)						\
+	__LOONGARCH_SYS_STUB0(sname)						\
+	static inline long __klp_do_sys##sname(void);				\
+	asmlinkage long __loongarch_sys_##sname(const struct pt_regs *__unused)\
+	{									\
+		return __klp_do_sys##sname();					\
+	}									\
+	static inline long __klp_do_sys##sname(void)
+#else
+#define KLP_SYSCALL_DEFINE0(sname)					\
+	asmlinkage long sys_##sname(void)				\
+		__attribute__((alias(__stringify(__se_sys##sname))));	\
+	ALLOW_ERROR_INJECTION(sys_##sname, ERRNO);			\
+	static inline long __klp_do_sys##sname(void);			\
+	asmlinkage long __se_sys##sname(void)				\
+	{								\
+		return __klp_do_sys##sname();				\
+	}								\
+	static inline long __klp_do_sys##sname(void)
+#endif
+
 #define KLP_SYSCALL_DEFINEx(x, sname, ...)				\
 	__KLP_SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 
@@ -73,5 +103,26 @@
 	static inline long __klp_do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
 #endif
+
+#ifdef CONFIG_LOONGARCH
+/*
+ * Generate pt_regs-based KLP syscall stubs that match the LoongArch
+ * ARCH_HAS_SYSCALL_WRAPPER convention: __loongarch_sys_*(regs) extracts
+ * arguments from regs, passes them through the sanitizer __se_sys_*(),
+ * and calls the KLP override body __klp_do_sys_*().
+ */
+#define __KLP_SYSCALL_DEFINEx(x, name, ...)					\
+	static long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));		\
+	static inline long __klp_do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+	__LOONGARCH_SYS_STUBx(x, name, __VA_ARGS__)				\
+	static long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))		\
+	{									\
+		long ret = __klp_do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
+		__MAP(x,__SC_TEST,__VA_ARGS__);					\
+		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));		\
+		return ret;							\
+	}									\
+	static inline long __klp_do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+#endif /* CONFIG_LOONGARCH */
 
 #endif /* _LINUX_LIVEPATCH_HELPERS_H */
