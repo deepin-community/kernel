@@ -95,6 +95,15 @@ enum phytcodec_complete {
 	PHYTCODEC_COMPLETE_INVALID_PARAMETERS,
 };
 
+enum phytcodec_status {
+	ERR_CODEC_SUCCESS = 0,
+	ERR_CODEC_BUS_BUSY,
+	ERR_CODEC_DEV_BUSY,
+	ERR_CODEC_RW_ERROR,
+	ERR_CODEC_NODEV,	//HW
+	ERR_CODEC_NO_INIT,	//SW
+};
+
 struct phytcodec_rw_data {
 	uint8_t addr;
 	uint8_t reg;

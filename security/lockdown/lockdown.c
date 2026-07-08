@@ -99,10 +99,12 @@ static ssize_t lockdown_read(struct file *filp, char __user *buf, size_t count,
 		if (lockdown_reasons[level]) {
 			const char *label = lockdown_reasons[level];
 
+			if (offset >= sizeof(temp) - 1)
+				break;
 			if (kernel_locked_down == level)
-				offset += sprintf(temp+offset, "[%s] ", label);
+				offset += scnprintf(temp + offset, sizeof(temp) - (size_t)offset, "[%s] ", label);
 			else
-				offset += sprintf(temp+offset, "%s ", label);
+				offset += scnprintf(temp + offset, sizeof(temp) - (size_t)offset, "%s ", label);
 		}
 	}
 
