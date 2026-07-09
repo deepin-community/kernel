@@ -111,5 +111,12 @@ iee_func iee_funcs[] = {
 		(iee_func)_iee_set_key_restrict_link,
 		(iee_func)_iee_set_key_flag_bit,
 #endif
+#ifdef CONFIG_IEE_SELINUX_P
+		(iee_func)_iee_set_selinux_status_pg,
+		(iee_func)_iee_set_selinux_enforcing,
+		(iee_func)_iee_mark_selinux_initialized,
+		(iee_func)_iee_set_sel_policy_cap,
+		(iee_func)_iee_sel_rcu_assign_policy,
+#endif
 		NULL
 };
