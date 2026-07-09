@@ -39,5 +39,11 @@ static inline void iee_load_idt(void *ptr)
 {
 	iee_rwx_gate(IEE_LOAD_IDT, ptr);
 }
+extern bool iee_init_done;
+
+#ifdef CONFIG_IEE_SELINUX_P
+extern unsigned long __iee_selinux_data_start[];
+extern unsigned long __iee_selinux_data_end[];
+#endif
 
 #endif

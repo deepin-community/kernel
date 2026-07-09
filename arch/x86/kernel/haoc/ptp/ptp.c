@@ -186,6 +186,16 @@ static inline void check_dep_and_ro(unsigned long image_addr, unsigned long size
 (unsigned long)_stext, (unsigned long)_etext, pte, "text");
 	check_addr_range_ro(image_addr, image_addr + size,
 (unsigned long)__start_rodata, (unsigned long)__end_rodata, pte, "rodata");
+#ifdef CONFIG_IEE_SIP
+	check_addr_range_ro(image_addr, image_addr + size,
+(unsigned long)__iee_si_text_start, (unsigned long)__iee_si_text_end, pte, "iee_si_text");
+	check_addr_range_ro(image_addr, image_addr + size,
+(unsigned long)__iee_si_data_start, (unsigned long)__iee_si_data_end, pte, "iee_si_data");
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	check_addr_range_ro(image_addr, image_addr + size,
+(unsigned long)__iee_selinux_data_start, (unsigned long)__iee_selinux_data_end, pte, "iee_si_data");
+#endif
 }
 
 static inline bool preserves_existing_writable_mapping(pte_t *ptep, pte_t pte)
@@ -376,6 +386,14 @@ static inline void check_text_poke_ro(unsigned long image_addr, unsigned long si
 
 	check_addr_range_ro(image_addr, image_addr + size,
 (unsigned long)__start_rodata, (unsigned long)__end_rodata, pte, "rodata");
+#ifdef CONFIG_IEE_SIP
+	check_addr_range_ro(image_addr, image_addr + size,
+(unsigned long)__iee_si_data_start, (unsigned long)__iee_si_data_end, pte, "iee_si_data");
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	check_addr_range_ro(image_addr, image_addr + size,
+(unsigned long)__iee_selinux_data_start, (unsigned long)__iee_selinux_data_end, pte, "iee_si_data");
+#endif
 }
 
 void _iee_set_pte_text_poke(unsigned long __unused, pte_t *ptep, pte_t pte)

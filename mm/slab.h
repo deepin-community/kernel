@@ -35,6 +35,10 @@ extern struct kmem_cache *key_struct_jar;
 extern struct kmem_cache *key_payload_jar;
 #endif
 
+#ifdef CONFIG_IEE_SELINUX_P
+extern struct kmem_cache *policy_jar;
+#endif
+
 /*
  * Freelist pointer and counter to cmpxchg together, avoids the typical ABA
  * problems with cmpxchg of just a pointer.

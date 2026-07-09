@@ -28,6 +28,16 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk);
 void _iee_set_bitmap_type(unsigned long __unused, uint8_t *bitmap_ptr,
 		enum HAOC_BITMAP_TYPE type, int num_pages);
 
+#ifdef CONFIG_IEE_SELINUX_P
+#include <asm/haoc/iee-selinux.h>
+void _iee_set_selinux_status_pg(unsigned long iee_offset, struct page *new_page);
+void _iee_set_selinux_enforcing(unsigned long iee_offset, bool value);
+void _iee_mark_selinux_initialized(unsigned long iee_offset);
+void _iee_set_sel_policy_cap(unsigned long iee_offset, unsigned int idx, int cap);
+void _iee_sel_rcu_assign_policy(unsigned long iee_offset,
+			struct selinux_policy *new_policy, struct selinux_policy *iee_new_policy);
+#endif
+
 #ifdef CONFIG_PTP
 #ifdef CONFIG_IEE_PTRP
 void _iee_unset_token(unsigned long __unused, pte_t *token_ptep,
