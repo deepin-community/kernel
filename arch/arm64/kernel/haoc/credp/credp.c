@@ -6,7 +6,114 @@
 #include <linux/key.h>
 #include <linux/user_namespace.h>
 #include <linux/user_namespace.h>
+#ifdef CONFIG_IEE_PTRP
+#include <linux/sched.h>
+#include <linux/sched/signal.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+#include <linux/err.h>
+#endif
 extern struct cred init_cred;
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+void iee_cycle_verify_cred(struct task_struct *current_task)
+{
+	struct task_struct *task = current_task;
+	struct task_token *token = (struct task_token *)iee_get_task_token(task);
+	const struct cred *old_cred;
+	const struct cred *token_cred;
+	bool valid;
+	unsigned int seq;
+
+	do {
+		seq = read_seqcount_begin(&token->seq);
+		valid = token->valid;
+		old_cred = task->cred;
+		token_cred = token->curr_cred;
+	} while (read_seqcount_retry(&token->seq, seq));
+
+	if (!valid)
+		panic("IEE: check_all_threads (%s) Invalid Token.", __func__);
+	if (task != &init_task && token_cred != old_cred)
+		panic("IEE: check_all_threads (%s) Task cred corruptted! token cred 0x%llx, curr 0x%llx",
+		      __func__, (u64)token_cred, (u64)old_cred);
+}
+
+static int iee_cycle_verify_cred_in_thread(struct task_struct *current_task)
+{
+	struct task_struct *task = current_task;
+	const struct cred *old_cred = task->cred;
+	struct task_token *token = (struct task_token *)iee_get_task_token(task);
+
+	if (!token->valid)
+		return 1;
+	if (task != &init_task && token->curr_cred != old_cred)
+		return 2;
+	return 0;
+}
+
+#ifdef CONFIG_IEE_CYCLE_CHECK
+static void check_all_threads(void)
+{
+	struct task_struct *task;
+
+	rcu_read_lock();
+	for_each_process(task) {
+		unsigned int seq;
+		int ret;
+		struct task_token *token = iee_get_task_token(task);
+
+		if (!token)
+			continue;
+
+		do {
+			seq = read_seqcount_begin(&token->seq);
+			ret = iee_cycle_verify_cred_in_thread(task);
+		} while (read_seqcount_retry(&token->seq, seq));
+
+		if (ret == 1)
+			panic("IEE: check_all_threads (%s) Invalid Token.", __func__);
+		if (ret == 2)
+			panic("IEE: check_all_threads (%s) Task cred corruptted! token cred 0x%llx, curr 0x%llx",
+			      __func__, (u64)token->curr_cred, (u64)task->cred);
+	}
+	rcu_read_unlock();
+}
+
+static int checker_thread(void *data)
+{
+	int check_interval_ms = 500;
+
+	while (!kthread_should_stop()) {
+		check_all_threads();
+		msleep_interruptible(check_interval_ms);
+	}
+	pr_info("[IEE] Kernel thread exiting\n");
+	return 0;
+}
+
+static int __init thread_checker_init(void)
+{
+	struct task_struct *checker_task;
+
+	if (!haoc_enabled)
+		return 0;
+
+	pr_info("IEE: Initializing thread checker\n");
+	checker_task = kthread_run(checker_thread, NULL, "thread_credp_cycle");
+	if (IS_ERR(checker_task)) {
+		pr_err("IEE: Failed to create thread checker task: %ld\n",
+		       PTR_ERR(checker_task));
+		return PTR_ERR(checker_task);
+	}
+
+	pr_info("IEE: Thread checker started successfully\n");
+	return 0;
+}
+
+late_initcall(thread_checker_init);
+#endif
+#endif
 
 static inline void iee_verify_cred_type(const struct cred *cred)
 {
@@ -325,7 +432,12 @@ void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 			      __func__, (u64)new, (u64)token->new_cred);
 		/* task->cred shall be updated once. */
 		token->new_cred = NULL;
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = new;
+		rcu_assign_pointer(task->real_cred, new);
+		rcu_assign_pointer(task->cred, new);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 
@@ -439,7 +551,11 @@ void __iee_code _iee_override_creds(unsigned long __unused, const struct cred *n
 	if (haoc_enabled) {
 		struct task_token *token = (struct task_token *)iee_get_task_token(current);
 
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = new;
+		rcu_assign_pointer(current->cred, new);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 
@@ -455,7 +571,11 @@ void __iee_code _iee_revert_creds(unsigned long __unused, const struct cred *old
 	if (haoc_enabled) {
 		struct task_token *token = (struct task_token *)iee_get_task_token(current);
 
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = old;
+		rcu_assign_pointer(current->cred, old);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 

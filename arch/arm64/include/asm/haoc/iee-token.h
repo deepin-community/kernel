@@ -4,6 +4,7 @@
 
 #include <asm/haoc/haoc-def.h>
 #include <linux/log2.h>
+#include <linux/seqlock.h>
 
 #ifdef CONFIG_IEE_PTRP
 extern struct kmem_cache *task_struct_cachep;
@@ -40,6 +41,9 @@ struct task_token {
 #ifdef CONFIG_CREDP
 	const struct cred *new_cred;	/* The valid target for commit_creds. */
 	const struct cred *curr_cred;	/* The current subjective credentials. */
+#endif
+#ifdef CONFIG_IEE_PTRP
+	seqcount_t seq;
 #endif
 };
 #endif /* CONFIG_IEE */
