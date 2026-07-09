@@ -279,8 +279,13 @@ static int rxrpc_process_event(struct rxrpc_connection *conn,
 		if (ret < 0)
 			return ret;
 
+#ifdef CONFIG_KEYP
+		ret = conn->security->init_connection_security(conn,
+				((union key_payload *)(conn->key->name_link.next))->data[0]);
+#else
 		ret = conn->security->init_connection_security(
 			conn, conn->key->payload.data[0]);
+#endif
 		if (ret < 0)
 			return ret;
 

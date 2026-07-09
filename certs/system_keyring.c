@@ -93,9 +93,15 @@ int restrict_link_by_builtin_and_secondary_trusted(
 	/* If we have a secondary trusted keyring, then that contains a link
 	 * through to the builtin keyring and the search will follow that link.
 	 */
+#ifdef CONFIG_KEYP
+	if (type == &key_type_keyring &&
+	    dest_keyring == secondary_trusted_keys &&
+	    payload == (union key_payload *)(builtin_trusted_keys->name_link.next))
+#else
 	if (type == &key_type_keyring &&
 	    dest_keyring == secondary_trusted_keys &&
 	    payload == &builtin_trusted_keys->payload)
+#endif
 		/* Allow the builtin keyring to be added to the secondary */
 		return 0;
 
@@ -122,9 +128,15 @@ int restrict_link_by_digsig_builtin_and_secondary(struct key *dest_keyring,
 	/* If we have a secondary trusted keyring, then that contains a link
 	 * through to the builtin keyring and the search will follow that link.
 	 */
+#ifdef CONFIG_KEYP
+	if (type == &key_type_keyring &&
+	    dest_keyring == secondary_trusted_keys &&
+	    payload == (union key_payload *)(builtin_trusted_keys->name_link.next))
+#else
 	if (type == &key_type_keyring &&
 	    dest_keyring == secondary_trusted_keys &&
 	    payload == &builtin_trusted_keys->payload)
+#endif
 		/* Allow the builtin keyring to be added to the secondary */
 		return 0;
 
@@ -209,9 +221,15 @@ int restrict_link_by_builtin_secondary_and_machine(
 	const union key_payload *payload,
 	struct key *restrict_key)
 {
+#ifdef CONFIG_KEYP
+	if (machine_trusted_keys && type == &key_type_keyring &&
+	    dest_keyring == secondary_trusted_keys &&
+	    payload == (union key_payload *)(machine_trusted_keys->name_link.next))
+#else
 	if (machine_trusted_keys && type == &key_type_keyring &&
 	    dest_keyring == secondary_trusted_keys &&
 	    payload == &machine_trusted_keys->payload)
+#endif
 		/* Allow the machine keyring to be added to the secondary */
 		return 0;
 

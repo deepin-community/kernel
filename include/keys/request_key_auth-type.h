@@ -28,7 +28,11 @@ struct request_key_auth {
 
 static inline struct request_key_auth *get_request_key_auth(const struct key *key)
 {
+#ifdef CONFIG_KEYP
+	return ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	return key->payload.data[0];
+#endif
 }
 
 
