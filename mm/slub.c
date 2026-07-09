@@ -2149,6 +2149,11 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		slab = iee_alloc_task_token_slab(s, slab, oo_order(oo));
 #endif
 	if (unlikely(!slab)) {
+#ifdef CONFIG_KEYP
+		if (haoc_enabled && s == key_jar &&
+		    !IS_ENABLED(CONFIG_IEE_ALLOW_SPLIT_LM))
+			return NULL;
+#endif
 		oo = s->min;
 		alloc_gfp = flags;
 		/*
