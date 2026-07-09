@@ -117,8 +117,15 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 #ifdef CONFIG_PTP
 #include <linux/haoc-ptp.h>
+#endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
 #endif
 
 /*
@@ -2392,8 +2399,14 @@ __latent_entropy struct task_struct *copy_process(
 	if (!p)
 		goto fork_out;
 #ifdef CONFIG_IEE_PTRP
-	if(haoc_enabled)
+	if (haoc_enabled)
 		iee_validate_token(p);
+#endif
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
 #endif
 	p->flags &= ~PF_KTHREAD;
 	if (args->kthread)
