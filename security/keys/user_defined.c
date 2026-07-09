@@ -12,6 +12,9 @@
 #include <linux/err.h>
 #include <keys/user-type.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "internal.h"
 
 static int logon_vet_description(const char *desc);
@@ -109,7 +112,11 @@ int user_update(struct key *key, struct key_preparsed_payload *prep)
 		return ret;
 
 	/* attach the new data, displacing the old */
+#ifdef CONFIG_KEYP
+	iee_set_key_expiry(key, prep->expiry);
+#else
 	key->expiry = prep->expiry;
+#endif
 	if (key_is_positive(key))
 		zap = dereference_key_locked(key);
 	rcu_assign_keypointer(key, prep->payload.data[0]);
@@ -145,7 +152,11 @@ EXPORT_SYMBOL(user_revoke);
  */
 void user_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	struct user_key_payload *upayload = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	struct user_key_payload *upayload = key->payload.data[0];
+#endif
 
 	kfree_sensitive(upayload);
 }

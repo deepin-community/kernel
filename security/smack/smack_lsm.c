@@ -44,6 +44,9 @@
 #include <linux/fs_parser.h>
 #include <linux/watch_queue.h>
 #include <linux/io_uring.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "smack.h"
 
 #define TRANS_TRUE	"TRUE"
@@ -4426,7 +4429,11 @@ static int smack_key_alloc(struct key *key, const struct cred *cred,
 {
 	struct smack_known *skp = smk_of_task(smack_cred(cred));
 
+#ifdef CONFIG_KEYP
+	iee_set_key_security(key, skp);
+#else
 	key->security = skp;
+#endif
 	return 0;
 }
 
@@ -4438,7 +4445,11 @@ static int smack_key_alloc(struct key *key, const struct cred *cred,
  */
 static void smack_key_free(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	iee_set_key_security(key, NULL);
+#else
 	key->security = NULL;
+#endif
 }
 
 /**

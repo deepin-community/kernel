@@ -100,7 +100,11 @@ static void rxrpc_free_preparse_s(struct key_preparsed_payload *prep)
 
 static void rxrpc_destroy_s(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	const struct rxrpc_security *sec = ((union key_payload *)(key->name_link.next))->data[1];
+#else
 	const struct rxrpc_security *sec = key->payload.data[1];
+#endif
 
 	if (sec && sec->destroy_server_key)
 		sec->destroy_server_key(key);
@@ -108,7 +112,11 @@ static void rxrpc_destroy_s(struct key *key)
 
 static void rxrpc_describe_s(const struct key *key, struct seq_file *m)
 {
+#ifdef CONFIG_KEYP
+	const struct rxrpc_security *sec = ((union key_payload *)(key->name_link.next))->data[1];
+#else
 	const struct rxrpc_security *sec = key->payload.data[1];
+#endif
 
 	seq_puts(m, key->description);
 	if (sec && sec->describe_server_key)

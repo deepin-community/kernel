@@ -20,6 +20,9 @@
 #ifdef CONFIG_CREDP
 #include <asm/haoc/iee-cred.h>
 #endif
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "internal.h"
 
 /* Session keyring create vs join semaphore */
@@ -393,9 +396,15 @@ void key_fsuid_changed(struct cred *new_cred)
 {
 	/* update the ownership of the thread keyring */
 	if (new_cred->thread_keyring) {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(new_cred->thread_keyring));
+		iee_set_key_uid(new_cred->thread_keyring, new_cred->fsuid);
+		up_write(&KEY_SEM(new_cred->thread_keyring));
+#else
 		down_write(&new_cred->thread_keyring->sem);
 		new_cred->thread_keyring->uid = new_cred->fsuid;
 		up_write(&new_cred->thread_keyring->sem);
+#endif
 	}
 }
 
@@ -406,9 +415,15 @@ void key_fsgid_changed(struct cred *new_cred)
 {
 	/* update the ownership of the thread keyring */
 	if (new_cred->thread_keyring) {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(new_cred->thread_keyring));
+		iee_set_key_gid(new_cred->thread_keyring, new_cred->fsgid);
+		up_write(&KEY_SEM(new_cred->thread_keyring));
+#else
 		down_write(&new_cred->thread_keyring->sem);
 		new_cred->thread_keyring->gid = new_cred->fsgid;
 		up_write(&new_cred->thread_keyring->sem);
+#endif
 	}
 }
 
@@ -572,7 +587,14 @@ key_ref_t search_process_keyrings_rcu(struct keyring_search_context *ctx)
 		const struct cred *cred = ctx->cred;
 
 		if (key_validate(cred->request_key_auth) == 0) {
+#ifdef CONFIG_KEYP
+			union key_payload *tmp =
+			   (union key_payload *)(ctx->cred->request_key_auth->name_link.next);
+
+			rka = tmp->data[0];
+#else
 			rka = ctx->cred->request_key_auth->payload.data[0];
+#endif
 
 			//// was search_process_keyrings() [ie. recursive]
 			ctx->cred = rka->cred;
@@ -740,17 +762,30 @@ try_again:
 		if (!ctx.cred->request_key_auth)
 			goto error;
 
+#ifdef CONFIG_KEYP
+		down_read(&KEY_SEM(ctx.cred->request_key_auth));
+#else
 		down_read(&ctx.cred->request_key_auth->sem);
+#endif
 		if (test_bit(KEY_FLAG_REVOKED,
 			     &ctx.cred->request_key_auth->flags)) {
 			key_ref = ERR_PTR(-EKEYREVOKED);
 			key = NULL;
 		} else {
+#ifdef CONFIG_KEYP
+			rka = ((union key_payload *)(ctx.cred->request_key_auth->name_link.next))
+						->data[0];
+#else
 			rka = ctx.cred->request_key_auth->payload.data[0];
+#endif
 			key = rka->dest_keyring;
 			__key_get(key);
 		}
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(ctx.cred->request_key_auth));
+#else
 		up_read(&ctx.cred->request_key_auth->sem);
+#endif
 		if (!key)
 			goto error;
 		key_ref = make_key_ref(key, 1);
@@ -819,7 +854,11 @@ try_again:
 	if (ret < 0)
 		goto invalid_key;
 
+#ifdef CONFIG_KEYP
+	iee_set_key_last_used_at(key, ktime_get_real_seconds());
+#else
 	key->last_used_at = ktime_get_real_seconds();
+#endif
 
 error:
 	put_cred(ctx.cred);

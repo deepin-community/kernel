@@ -512,7 +512,11 @@ ecryptfs_find_global_auth_tok_for_sig(
 			goto out_invalid_auth_tok;
 		}
 
+#ifdef CONFIG_KEYP
+		down_write(&(KEY_SEM(walker->global_auth_tok_key)));
+#else
 		down_write(&(walker->global_auth_tok_key->sem));
+#endif
 		rc = ecryptfs_verify_auth_tok_from_key(
 				walker->global_auth_tok_key, auth_tok);
 		if (rc)
@@ -525,7 +529,11 @@ ecryptfs_find_global_auth_tok_for_sig(
 	rc = -ENOENT;
 	goto out;
 out_invalid_auth_tok_unlock:
+#ifdef CONFIG_KEYP
+	up_write(&(KEY_SEM(walker->global_auth_tok_key)));
+#else
 	up_write(&(walker->global_auth_tok_key->sem));
+#endif
 out_invalid_auth_tok:
 	printk(KERN_WARNING "Invalidating auth tok with sig = [%s]\n", sig);
 	walker->flags |= ECRYPTFS_AUTH_TOK_INVALID;
@@ -846,7 +854,11 @@ out_unlock:
 	mutex_unlock(s->tfm_mutex);
 out:
 	if (auth_tok_key) {
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 	}
 	skcipher_request_free(s->skcipher_req);
@@ -1088,7 +1100,11 @@ out:
 		(*filename) = NULL;
 	}
 	if (auth_tok_key) {
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 	}
 	skcipher_request_free(s->skcipher_req);
@@ -1625,10 +1641,18 @@ int ecryptfs_keyring_auth_tok_for_sig(struct key **auth_tok_key,
 			goto out;
 		}
 	}
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM((*auth_tok_key)));
+#else
 	down_write(&(*auth_tok_key)->sem);
+#endif
 	rc = ecryptfs_verify_auth_tok_from_key(*auth_tok_key, auth_tok);
 	if (rc) {
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM((*auth_tok_key)));
+#else
 		up_write(&(*auth_tok_key)->sem);
+#endif
 		key_put(*auth_tok_key);
 		(*auth_tok_key) = NULL;
 		goto out;
@@ -1901,7 +1925,11 @@ found_matching_auth_tok:
 		memcpy(&(candidate_auth_tok->token.private_key),
 		       &(matching_auth_tok->token.private_key),
 		       sizeof(struct ecryptfs_private_key));
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 		rc = decrypt_pki_encrypted_session_key(candidate_auth_tok,
 						       crypt_stat);
@@ -1909,12 +1937,20 @@ found_matching_auth_tok:
 		memcpy(&(candidate_auth_tok->token.password),
 		       &(matching_auth_tok->token.password),
 		       sizeof(struct ecryptfs_password));
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 		rc = decrypt_passphrase_encrypted_session_key(
 			candidate_auth_tok, crypt_stat);
 	} else {
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 		rc = -EINVAL;
 	}
@@ -1976,7 +2012,11 @@ pki_encrypt_session_key(struct key *auth_tok_key,
 					 crypt_stat->cipher,
 					 crypt_stat->key_size),
 				 crypt_stat, &payload, &payload_len);
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(auth_tok_key));
+#else
 	up_write(&(auth_tok_key->sem));
+#endif
 	key_put(auth_tok_key);
 	if (rc) {
 		ecryptfs_printk(KERN_ERR, "Error generating tag 66 packet\n");
@@ -2040,7 +2080,11 @@ write_tag_1_packet(char *dest, size_t *remaining_bytes,
 		memcpy(key_rec->enc_key,
 		       auth_tok->session_key.encrypted_key,
 		       auth_tok->session_key.encrypted_key_size);
+#ifdef CONFIG_KEYP
+		up_write(&KEY_SEM(auth_tok_key));
+#else
 		up_write(&(auth_tok_key->sem));
+#endif
 		key_put(auth_tok_key);
 		goto encrypted_session_key_set;
 	}
@@ -2438,7 +2482,11 @@ ecryptfs_generate_key_packet_set(char *dest_base,
 						&max, auth_tok,
 						crypt_stat, key_rec,
 						&written);
+#ifdef CONFIG_KEYP
+			up_write(&KEY_SEM(auth_tok_key));
+#else
 			up_write(&(auth_tok_key->sem));
+#endif
 			key_put(auth_tok_key);
 			if (rc) {
 				ecryptfs_printk(KERN_WARNING, "Error "
@@ -2467,7 +2515,11 @@ ecryptfs_generate_key_packet_set(char *dest_base,
 			}
 			(*len) += written;
 		} else {
+#ifdef CONFIG_KEYP
+			up_write(&KEY_SEM(auth_tok_key));
+#else
 			up_write(&(auth_tok_key->sem));
+#endif
 			key_put(auth_tok_key);
 			ecryptfs_printk(KERN_WARNING, "Unsupported "
 					"authentication token type\n");
