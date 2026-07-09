@@ -1586,7 +1586,6 @@ config IEE_SIP
 		Protects critical instructions that may break the isolation of IEE,
 		such as writing system control registers. These instructions would
 		be executated inside IEE.
-
 config CREDP
 	bool "Struct cred protection(CREDP)"
 	depends on IEE
@@ -1604,6 +1603,21 @@ config KEYP
 		of keys must be made and verified by IEE APIs to defend memory corruptions.
 
 		If unsure, say N.
+
+config IEE_SELINUX_P
+	bool "SELinux Protection(IEE_SELINUX_P)"
+	help
+		Simple enhancement of the famous linux security module SELinux by putting
+		several critical data, like selinux policy, into the IEE region.
+
+		If unsure, say N.
+	depends on SECURITY_SELINUX
+	depends on IEE
+
+config PTP_RESERVE_ORDER
+	depends on PTP
+	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
+	range 9 15
 
 # Common NUMA Features
 config NUMA

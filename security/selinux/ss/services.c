@@ -49,6 +49,9 @@
 #include <linux/vmalloc.h>
 #include <linux/lsm_hooks.h>
 #include <net/netlabel.h>
+#ifdef CONFIG_IEE_SELINUX_P
+#include <asm/haoc/iee-selinux.h>
+#endif
 
 #include "flask.h"
 #include "avc.h"
@@ -2114,9 +2117,14 @@ static void security_load_policycaps(struct selinux_policy *policy)
 
 	p = &policy->policydb;
 
+#ifdef CONFIG_IEE_SELINUX_P
+	for (i = 0; i < ARRAY_SIZE(selinux_state.policycap); i++)
+		iee_set_sel_policy_cap(i, ebitmap_get_bit(&p->policycaps, i));
+#else
 	for (i = 0; i < ARRAY_SIZE(selinux_state.policycap); i++)
 		WRITE_ONCE(selinux_state.policycap[i],
 			ebitmap_get_bit(&p->policycaps, i));
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(selinux_policycap_names); i++)
 		pr_info("SELinux:  policy capability %s=%d\n",
@@ -2179,6 +2187,9 @@ void selinux_policy_commit(struct selinux_load_state *load_state)
 {
 	struct selinux_state *state = &selinux_state;
 	struct selinux_policy *oldpolicy, *newpolicy = load_state->policy;
+#ifdef CONFIG_IEE_SELINUX_P
+	struct selinux_policy *temppolicy;
+#endif
 	unsigned long flags;
 	u32 seqno;
 
@@ -2203,10 +2214,20 @@ void selinux_policy_commit(struct selinux_load_state *load_state)
 	/* Install the new policy. */
 	if (oldpolicy) {
 		sidtab_freeze_begin(oldpolicy->sidtab, &flags);
+#ifdef CONFIG_IEE_SELINUX_P
+		iee_sel_rcu_assign_policy(newpolicy, kmem_cache_alloc(policy_jar, GFP_KERNEL));
+		kfree(newpolicy);
+#else
 		rcu_assign_pointer(state->policy, newpolicy);
+#endif
 		sidtab_freeze_end(oldpolicy->sidtab, &flags);
 	} else {
+#ifdef CONFIG_IEE_SELINUX_P
+		iee_sel_rcu_assign_policy(newpolicy, kmem_cache_alloc(policy_jar, GFP_KERNEL));
+		kfree(newpolicy);
+#else
 		rcu_assign_pointer(state->policy, newpolicy);
+#endif
 	}
 
 	/* Load the policycaps from the new policy */
@@ -2224,7 +2245,20 @@ void selinux_policy_commit(struct selinux_load_state *load_state)
 
 	/* Free the old policy */
 	synchronize_rcu();
+#ifdef CONFIG_IEE_SELINUX_P
+	/*
+	 * Normal free process includes setting freed objects pointers to be NULL, however it
+	 * would be hard as old policy is already inside IEE. So Make a kernel copy of the old
+	 * policy to free objects it points to.
+	 */
+	if (oldpolicy) {
+		temppolicy = kmemdup(oldpolicy, sizeof(*temppolicy), GFP_KERNEL);
+		selinux_policy_free(temppolicy);
+		kfree(oldpolicy);
+	}
+#else
 	selinux_policy_free(oldpolicy);
+#endif
 	kfree(load_state->convert_data);
 
 	/* Notify others of the policy change */
@@ -3022,6 +3056,9 @@ int security_set_bools(u32 len, int *values)
 {
 	struct selinux_state *state = &selinux_state;
 	struct selinux_policy *newpolicy, *oldpolicy;
+#ifdef CONFIG_IEE_SELINUX_P
+	struct selinux_policy *temppolicy;
+#endif
 	int rc;
 	u32 i, seqno = 0;
 
@@ -3075,7 +3112,12 @@ int security_set_bools(u32 len, int *values)
 	seqno = newpolicy->latest_granting;
 
 	/* Install the new policy */
+#ifdef CONFIG_IEE_SELINUX_P
+	iee_sel_rcu_assign_policy(newpolicy, kmem_cache_alloc(policy_jar, GFP_KERNEL));
+	kfree(newpolicy);
+#else
 	rcu_assign_pointer(state->policy, newpolicy);
+#endif
 
 	/*
 	 * Free the conditional portions of the old policydb
@@ -3083,7 +3125,20 @@ int security_set_bools(u32 len, int *values)
 	 * structure itself but not what it references.
 	 */
 	synchronize_rcu();
+#ifdef CONFIG_IEE_SELINUX_P
+	/*
+	 * Normal free process includes setting freed objects pointers to be NULL, however it
+	 * would be hard as old policy is already inside IEE. So Make a kernel copy of the old
+	 * policy to free objects it points to.
+	 */
+	temppolicy = kmemdup(oldpolicy, sizeof(*temppolicy), GFP_KERNEL);
+	if (!temppolicy)
+		return -ENOMEM;
+	selinux_policy_cond_free(temppolicy);
+	kfree(oldpolicy);
+#else
 	selinux_policy_cond_free(oldpolicy);
+#endif
 
 	/* Notify others of the policy change */
 	selinux_notify_policy_change(seqno);
