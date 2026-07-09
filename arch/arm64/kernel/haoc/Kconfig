@@ -83,4 +83,14 @@ config KEYP
 		of keys must be made and verified by IEE APIs to defend memory corruptions.
 
 		If unsure, say N.
+
+config IEE_SELINUX_P
+	bool "SELinux Protection(IEE_SELINUX_P)"
+	help
+		Simple enhancement of the famous linux security module SELinux by putting
+		several critical data, like selinux policy, into the IEE region.
+
+		If unsure, say N.
+	depends on SECURITY_SELINUX
+	depends on IEE
 endmenu # HAOC

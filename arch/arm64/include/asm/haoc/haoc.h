@@ -150,4 +150,16 @@ void _iee_set_key_restrict_link(unsigned long __unused, struct key *key,
 					struct key_restriction *restrict_link);
 unsigned long _iee_set_key_flag_bit(unsigned long __unused, struct key *key, long nr, int flag);
 #endif
+
+#ifdef CONFIG_IEE_SELINUX_P
+struct page;
+struct selinux_policy;
+
+void _iee_set_selinux_status_pg(unsigned long __unused, struct page *new_page);
+void _iee_set_selinux_enforcing(unsigned long __unused, bool value);
+void _iee_mark_selinux_initialized(unsigned long __unused);
+void _iee_set_sel_policy_cap(unsigned long __unused, unsigned int idx, int cap);
+void _iee_sel_rcu_assign_policy(unsigned long __unused,
+			struct selinux_policy *new_policy, struct selinux_policy *iee_new_policy);
+#endif
 #endif

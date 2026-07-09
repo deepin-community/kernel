@@ -27,6 +27,10 @@ extern char __iee_ptp_data_end[];
 extern char __iee_cred_data_start[];
 extern char __iee_cred_data_end[];
 #endif
+#ifdef CONFIG_IEE_SELINUX_P
+extern char __iee_selinux_data_start[];
+extern char __iee_selinux_data_end[];
+#endif
 extern struct mutex fixmap_lock;
 
 #endif

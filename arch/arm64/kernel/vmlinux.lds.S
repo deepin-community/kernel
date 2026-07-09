@@ -171,6 +171,17 @@ jiffies = jiffies_64;
 #define CRED_DATA
 #endif
 
+#ifdef CONFIG_IEE_SELINUX_P
+#define IEE_SELINUX_DATA		\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_selinux_data_start = .;	\
+	*(.iee.selinux)				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_selinux_data_end = .;
+#else
+#define IEE_SELINUX_DATA
+#endif
+
 #ifdef CONFIG_IEE
 #define IEE_INIT_DATA \
 	.iee.data : {		\
@@ -178,6 +189,7 @@ jiffies = jiffies_64;
 	iee_init_data_begin = .;	\
 	PTP_DATA	\
 	CRED_DATA	\
+	IEE_SELINUX_DATA	\
 	. = ALIGN(PAGE_SIZE);	\
 	iee_init_data_end = .;	\
 	}
