@@ -222,7 +222,8 @@ void __iee_code _iee_validate_token(unsigned long __unused, struct task_struct *
 	token->new_cred = NULL;
 	token->curr_cred = tsk->cred;
 #endif
-	token->valid = true;
+	seqcount_init(&token->seq);
+	smp_store_release(&token->valid, true);
 }
 
 void __iee_code _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
@@ -234,5 +235,6 @@ void __iee_code _iee_invalidate_token(unsigned long __unused, struct task_struct
 	token->new_cred = NULL;
 	token->curr_cred = NULL;
 #endif
+	seqcount_init(&token->seq);
 	token->valid = false;
 }

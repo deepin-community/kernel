@@ -20,7 +20,7 @@ static inline void iee_detect_cred_uaf(struct cred *cred, const char *caller)
 		      atomic_long_read(&cred->usage));
 }
 
-#ifdef CONFIG_IEE_PTRP
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
 static inline void iee_verify_cred(void)
 {
 	struct task_struct *curr_task;
