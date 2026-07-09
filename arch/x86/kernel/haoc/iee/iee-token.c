@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <asm/set_memory.h>
 #include <asm/haoc/iee-token.h>
+#include <linux/mm.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+#include <linux/sched/signal.h>
+#include <asm/haoc/iee-func.h>
 #include "slab.h"
 
 void iee_set_token_page_valid(unsigned long token, unsigned long token_page,
@@ -141,6 +146,7 @@ void _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
 	token->new_cred = NULL;
 	token->curr_cred = NULL;
 #endif
+	seqcount_init(&token->seq);
 	token->valid = false;
 }
 
@@ -154,6 +160,7 @@ void _iee_validate_token(unsigned long __unused, struct task_struct *tsk)
 	token->new_cred = NULL;
 	token->curr_cred = tsk->cred;
 #endif
+	seqcount_init(&token->seq);
 	token->valid = true;
 }
 
@@ -198,3 +205,98 @@ void _iee_set_token(unsigned long __unused, pte_t *token_ptep,
 	}
 }
 #endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+void iee_verify_token(struct task_struct *tsk)
+{
+	struct task_token *token;
+#ifdef CONFIG_CREDP
+	const struct cred *old_cred;
+	const struct cred *token_cred;
+#endif
+	bool valid;
+	unsigned int seq;
+
+	if (unlikely(!haoc_init_done))
+		return;
+
+	if (!haoc_enabled)
+		return;
+
+	if (tsk == &init_task)
+		return;
+
+	token = (struct task_token *)__addr_to_token(tsk);
+	do {
+		seq = read_seqcount_begin(&token->seq);
+		valid = token->valid;
+#ifdef CONFIG_CREDP
+		old_cred = tsk->cred;
+		token_cred = token->curr_cred;
+#endif
+	} while (read_seqcount_retry(&token->seq, seq));
+
+	if (!valid)
+		panic("IEE: (%s) Invalid Token.", __func__);
+#ifdef CONFIG_CREDP
+	if (token_cred != old_cred)
+		panic("IEE: (%s) Task cred corruptted! token cred 0x%llx, curr 0x%llx",
+		      __func__, (u64)token_cred, (u64)old_cred);
+#endif
+}
+
+static void check_all_threads(void)
+{
+	struct task_struct *task;
+
+	rcu_read_lock();
+	for_each_process(task)
+		iee_verify_token(task);
+	rcu_read_unlock();
+}
+
+static int checker_thread(void *data)
+{
+	int check_interval_ms = 500;
+
+	while (!kthread_should_stop()) {
+		check_all_threads();
+		msleep_interruptible(check_interval_ms);
+	}
+	pr_info("[IEE] Kernel thread exiting\n");
+	return 0;
+}
+
+static int __init thread_checker_init(void)
+{
+	struct task_struct *checker_task;
+
+	if (!haoc_enabled)
+		return 0;
+
+	pr_info("IEE: Initializing thread checker\n");
+	checker_task = kthread_run(checker_thread, NULL, "thread_credp_cycle");
+	if (IS_ERR(checker_task)) {
+		pr_err("IEE: Failed to create thread checker task: %ld\n",
+		       PTR_ERR(checker_task));
+		return PTR_ERR(checker_task);
+	}
+
+	pr_info("IEE: Thread checker started successfully\n");
+	return 0;
+}
+
+late_initcall(thread_checker_init);
+
+void iee_verify_pgd(struct task_struct *next)
+{
+	if (haoc_enabled && next != &init_task) {
+		struct task_token *token;
+
+		token = (struct task_token *)__addr_to_token(next);
+		if (token->pgd != next->mm->pgd)
+			panic("IEE Pgd Error: next_pgd: 0x%lx, token_pgd: 0x%lx",
+				(unsigned long)next->mm->pgd, (unsigned long)token->pgd);
+	}
+}
+#endif /* CONFIG_IEE_PTRP && !CONFIG_IEE_PTRP_W */

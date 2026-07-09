@@ -22,7 +22,7 @@ static inline void iee_detect_cred_uaf(struct cred *cred, const char *caller)
 		      atomic_long_read(&cred->usage));
 }
 
-#ifdef CONFIG_IEE_PTRP
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
 static inline void __iee_verify_cred(void)
 {
 	struct task_struct *curr_task;
@@ -64,10 +64,10 @@ static inline void iee_verify_update_cred(struct cred *new)
 	if (token->new_cred != new)
 		panic("IEE: (%s) Invalid cred 0x%llx.", __func__, (u64)new);
 }
-#else
+#else /* !CONFIG_IEE_PTRP || CONFIG_IEE_PTRP_W */
 static inline void iee_verify_cred(void) { }
 static inline void iee_verify_update_cred(struct cred *new) { }
-#endif
+#endif /* CONFIG_IEE_PTRP && !CONFIG_IEE_PTRP_W */
 
 static void __maybe_unused iee_copy_cred(struct cred *new)
 {

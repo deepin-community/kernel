@@ -6,6 +6,7 @@
 #include <linux/log2.h>
 #include <linux/sched/task.h>
 #include <linux/sched.h>
+#include <linux/seqlock.h>
 
 extern unsigned long long iee_rw_gate(int flag, ...);
 
@@ -42,23 +43,13 @@ struct task_token {
 	const struct cred *new_cred;	/* The valid target for commit_creds. */
 	const struct cred *curr_cred;	/* The current subjective credentials. */
 #endif
+#ifdef CONFIG_IEE_PTRP
+	seqcount_t seq;
+#endif
 };
 #endif /* CONFIG_IEE */
 
 #ifdef CONFIG_IEE_PTRP
-static inline void iee_verify_pgd(struct task_struct *tsk)
-{
-	struct task_token *token;
-
-	if (tsk == &init_task)
-		return;
-
-	token = (struct task_token *)__addr_to_token(tsk);
-	if (token->pgd != tsk->mm->pgd)
-		panic("IEE Pgd Error: tsk_pgd: 0x%lx, token_pgd: 0x%lx",
-		      (unsigned long)tsk->mm->pgd, (unsigned long)token->pgd);
-}
-
 static inline void iee_set_token_pgd(struct task_struct *tsk, pgd_t *pgd)
 {
 	iee_rw_gate(IEE_OP_SET_TOKEN_PGD, tsk, pgd);
@@ -73,6 +64,12 @@ static inline void iee_validate_token(struct task_struct *tsk)
 {
 	iee_rw_gate(IEE_OP_VALIDATE_TOKEN, tsk);
 }
+
+#if !defined(CONFIG_IEE_PTRP_W)
+void iee_verify_pgd(struct task_struct *next);
+void iee_verify_token(struct task_struct *tsk);
+#endif
+
 #endif /* CONFIG_IEE_PTRP */
 
-#endif
+#endif /* _LINUX_IEE_TOKEN_H */

@@ -27,6 +27,14 @@
 
 #include <asm/ioctls.h>
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#include <asm/haoc/iee.h>
+#endif
+
 /* So that the fiemap access checks can't overflow on 32 bit machines. */
 #define FIEMAP_MAX_EXTENTS	(UINT_MAX / sizeof(struct fiemap_extent))
 
@@ -43,6 +51,12 @@
  */
 long vfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	int error = -ENOTTY;
 
 	if (!filp->f_op->unlocked_ioctl)

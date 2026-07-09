@@ -84,6 +84,10 @@
 #ifdef CONFIG_CREDP
 #include <asm/haoc/iee-cred.h>
 #endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
 #ifdef CONFIG_PTP
 #include <linux/haoc-ptp.h>
 #endif
@@ -1975,6 +1979,12 @@ static int do_execveat_common(int fd, struct filename *filename,
 	ptp_disable_wp(&cr0);
 #endif
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from
 	 * set*uid() to execve() because too many poorly written programs

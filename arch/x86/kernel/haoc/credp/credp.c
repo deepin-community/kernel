@@ -310,7 +310,12 @@ void _iee_commit_creds(unsigned long __unused, const struct cred *new)
 			panic("IEE: (%s) Invalid cred 0x%llx.", __func__, (u64)new);
 		/* task->cred shall be updated once. */
 		token->new_cred = NULL;
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = new;
+		rcu_assign_pointer(task->real_cred, new);
+		rcu_assign_pointer(task->cred, new);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 
@@ -393,7 +398,11 @@ void _iee_override_creds(unsigned long __unused, const struct cred *new)
 	if (haoc_init_done) {
 		struct task_token *token = (struct task_token *)__addr_to_token(current);
 
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = new;
+		rcu_assign_pointer(current->cred, new);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 
@@ -409,7 +418,11 @@ void _iee_revert_creds(unsigned long __unused, const struct cred *old)
 	if (haoc_init_done) {
 		struct task_token *token = (struct task_token *)__addr_to_token(current);
 
+		write_seqcount_begin(&token->seq);
 		token->curr_cred = old;
+		rcu_assign_pointer(current->cred, old);
+		write_seqcount_end(&token->seq);
+		return;
 	}
 #endif
 
