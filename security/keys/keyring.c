@@ -19,6 +19,10 @@
 #include <linux/assoc_array_priv.h>
 #include <linux/uaccess.h>
 #include <net/net_namespace.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#include <asm/haoc/iee-access.h>
+#endif
 #include "internal.h"
 
 /*
@@ -112,7 +116,12 @@ static void keyring_publish_name(struct key *keyring)
 	    keyring->description[0] &&
 	    keyring->description[0] != '.') {
 		write_lock(&keyring_name_lock);
+#ifdef CONFIG_KEYP
+		list_add_tail(&(((struct key_struct *)(keyring->name_link.prev))->name_link),
+					&ns->keyring_name_list);
+#else
 		list_add_tail(&keyring->name_link, &ns->keyring_name_list);
+#endif
 		write_unlock(&keyring_name_lock);
 	}
 }
@@ -140,7 +149,11 @@ static void keyring_free_preparse(struct key_preparsed_payload *prep)
 static int keyring_instantiate(struct key *keyring,
 			       struct key_preparsed_payload *prep)
 {
+#ifdef CONFIG_KEYP
+	assoc_array_init(&((struct key_struct *)(keyring->name_link.prev))->keys);
+#else
 	assoc_array_init(&keyring->keys);
+#endif
 	/* make the keyring available by name if it has one */
 	keyring_publish_name(keyring);
 	return 0;
@@ -207,13 +220,91 @@ static void hash_key_type_and_desc(struct keyring_index_key *index_key)
 	index_key->hash = hash;
 }
 
+#ifdef CONFIG_KEYP
+static void iee_hash_key_type_and_desc(struct keyring_index_key *index_key)
+{
+	const unsigned int level_shift = ASSOC_ARRAY_LEVEL_STEP;
+	const unsigned long fan_mask = ASSOC_ARRAY_FAN_MASK;
+	const char *description = index_key->description;
+	unsigned long hash, type;
+	u32 piece;
+	u64 acc;
+	int n, desc_len = index_key->desc_len;
+
+	type = (unsigned long)index_key->type;
+	acc = mult_64x32_and_fold(type, desc_len + 13);
+	acc = mult_64x32_and_fold(acc, 9207);
+	piece = (unsigned long)index_key->domain_tag;
+	acc = mult_64x32_and_fold(acc, piece);
+	acc = mult_64x32_and_fold(acc, 9207);
+
+	for (;;) {
+		n = desc_len;
+		if (n <= 0)
+			break;
+		if (n > 4)
+			n = 4;
+		piece = 0;
+		memcpy(&piece, description, n);
+		description += n;
+		desc_len -= n;
+		acc = mult_64x32_and_fold(acc, piece);
+		acc = mult_64x32_and_fold(acc, 9207);
+	}
+
+	/* Fold the hash down to 32 bits if need be. */
+	hash = acc;
+	if (ASSOC_ARRAY_KEY_CHUNK_SIZE == 32)
+		hash ^= acc >> 32;
+
+	/* Squidge all the keyrings into a separate part of the tree to
+	 * ordinary keys by making sure the lowest level segment in the hash is
+	 * zero for keyrings and non-zero otherwise.
+	 */
+	if (index_key->type != &key_type_keyring && (hash & fan_mask) == 0)
+		hash |= (hash >> (ASSOC_ARRAY_KEY_CHUNK_SIZE - level_shift)) | 1;
+	else if (index_key->type == &key_type_keyring && (hash & fan_mask) != 0)
+		hash = (hash + (hash << level_shift)) & ~fan_mask;
+	struct keyring_index_key tmp = *index_key;
+
+	tmp.hash = hash;
+	iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
+}
+
+static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
+
+void iee_key_set_index_key(struct keyring_index_key *index_key)
+{
+	size_t n = min_t(size_t, index_key->desc_len, sizeof(index_key->desc));
+	struct keyring_index_key tmp;
+
+	iee_memcpy(index_key->desc, index_key->description, n);
+
+	if (!index_key->domain_tag) {
+		if (index_key->type->flags & KEY_TYPE_NET_DOMAIN) {
+			tmp = *index_key;
+			tmp.domain_tag = current->nsproxy->net_ns->key_domain;
+			iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
+		} else {
+			tmp = *index_key;
+			tmp.domain_tag = &default_domain_tag;
+			iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
+		}
+	}
+
+	iee_hash_key_type_and_desc(index_key);
+}
+#endif
+
 /*
  * Finalise an index key to include a part of the description actually in the
  * index key, to set the domain tag and to calculate the hash.
  */
 void key_set_index_key(struct keyring_index_key *index_key)
 {
+#ifndef CONFIG_KEYP
 	static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
+#endif
 	size_t n = min_t(size_t, index_key->desc_len, sizeof(index_key->desc));
 
 	memcpy(index_key->desc, index_key->description, n);
@@ -416,9 +507,15 @@ static void keyring_destroy(struct key *keyring)
 	if (keyring->description) {
 		write_lock(&keyring_name_lock);
 
+#ifdef CONFIG_KEYP
+		if (((struct key_struct *)(keyring->name_link.prev))->name_link.next != NULL &&
+			!list_empty(&(((struct key_struct *)(keyring->name_link.prev))->name_link)))
+			list_del(&(((struct key_struct *)(keyring->name_link.prev))->name_link));
+#else
 		if (keyring->name_link.next != NULL &&
 		    !list_empty(&keyring->name_link))
 			list_del(&keyring->name_link);
+#endif
 
 		write_unlock(&keyring_name_lock);
 	}
@@ -430,7 +527,12 @@ static void keyring_destroy(struct key *keyring)
 		kfree(keyres);
 	}
 
+#ifdef CONFIG_KEYP
+	assoc_array_destroy(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				&keyring_assoc_array_ops);
+#else
 	assoc_array_destroy(&keyring->keys, &keyring_assoc_array_ops);
+#endif
 }
 
 /*
@@ -444,8 +546,14 @@ static void keyring_describe(const struct key *keyring, struct seq_file *m)
 		seq_puts(m, "[anon]");
 
 	if (key_is_positive(keyring)) {
+#ifdef CONFIG_KEYP
+		if (((struct key_struct *)(keyring->name_link.prev))->keys.nr_leaves_on_tree != 0)
+			seq_printf(m, ": %lu", ((struct key_struct *)(keyring->name_link.prev))->
+					keys.nr_leaves_on_tree);
+#else
 		if (keyring->keys.nr_leaves_on_tree != 0)
 			seq_printf(m, ": %lu", keyring->keys.nr_leaves_on_tree);
+#endif
 		else
 			seq_puts(m, ": empty");
 	}
@@ -496,8 +604,13 @@ static long keyring_read(const struct key *keyring,
 		ctx.buffer = (key_serial_t *)buffer;
 		ctx.buflen = buflen;
 		ctx.count = 0;
+#ifdef CONFIG_KEYP
+		ret = assoc_array_iterate(&((struct key_struct *)(keyring->name_link.prev))->keys,
+					  keyring_read_iterator, &ctx);
+#else
 		ret = assoc_array_iterate(&keyring->keys,
 					  keyring_read_iterator, &ctx);
+#endif
 		if (ret < 0) {
 			kleave(" = %ld [iterate]", ret);
 			return ret;
@@ -505,7 +618,12 @@ static long keyring_read(const struct key *keyring,
 	}
 
 	/* Return the size of the buffer needed */
+#ifdef CONFIG_KEYP
+	ret = ((struct key_struct *)(keyring->name_link.prev))->keys.nr_leaves_on_tree *
+				sizeof(key_serial_t);
+#else
 	ret = keyring->keys.nr_leaves_on_tree * sizeof(key_serial_t);
+#endif
 	if (ret <= buflen)
 		kleave("= %ld [ok]", ret);
 	else
@@ -650,12 +768,23 @@ static int search_keyring(struct key *keyring, struct keyring_search_context *ct
 	if (ctx->match_data.lookup_type == KEYRING_SEARCH_LOOKUP_DIRECT) {
 		const void *object;
 
+#ifdef CONFIG_KEYP
+		object = assoc_array_find(&((struct key_struct *)(keyring->name_link.prev))->keys,
+					  &keyring_assoc_array_ops,
+					  &ctx->index_key);
+#else
 		object = assoc_array_find(&keyring->keys,
 					  &keyring_assoc_array_ops,
 					  &ctx->index_key);
+#endif
 		return object ? ctx->iterator(object, ctx) : 0;
 	}
+#ifdef CONFIG_KEYP
+	return assoc_array_iterate(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				ctx->iterator, ctx);
+#else
 	return assoc_array_iterate(&keyring->keys, ctx->iterator, ctx);
+#endif
 }
 
 /*
@@ -731,7 +860,11 @@ descend_to_keyring:
 	if (!(ctx->flags & KEYRING_SEARCH_RECURSE))
 		goto not_this_keyring;
 
+#ifdef CONFIG_KEYP
+	ptr = READ_ONCE(((struct key_struct *)(keyring->name_link.prev))->keys.root);
+#else
 	ptr = READ_ONCE(keyring->keys.root);
+#endif
 	if (!ptr)
 		goto not_this_keyring;
 
@@ -858,10 +991,17 @@ found:
 	key = key_ref_to_ptr(ctx->result);
 	key_check(key);
 	if (!(ctx->flags & KEYRING_SEARCH_NO_UPDATE_TIME)) {
+#ifdef CONFIG_KEYP
+		iee_set_key_last_used_at(key, ctx->now);
+		iee_set_key_last_used_at(keyring, ctx->now);
+		while (sp > 0)
+			iee_set_key_last_used_at(stack[--sp].keyring, ctx->now);
+#else
 		key->last_used_at = ctx->now;
 		keyring->last_used_at = ctx->now;
 		while (sp > 0)
 			stack[--sp].keyring->last_used_at = ctx->now;
+#endif
 	}
 	kleave(" = true");
 	return true;
@@ -1058,7 +1198,11 @@ int keyring_restrict(key_ref_t keyring_ref, const char *type,
 		goto error;
 	}
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+#else
 	down_write(&keyring->sem);
+#endif
 	down_write(&keyring_serialise_restrict_sem);
 
 	if (keyring->restrict_link) {
@@ -1066,12 +1210,20 @@ int keyring_restrict(key_ref_t keyring_ref, const char *type,
 	} else if (keyring_detect_restriction_cycle(keyring, restrict_link)) {
 		ret = -EDEADLK;
 	} else {
+#ifdef CONFIG_KEYP
+		iee_set_key_restrict_link(keyring, restrict_link);
+#else
 		keyring->restrict_link = restrict_link;
+#endif
 		notify_key(keyring, NOTIFY_KEY_SETATTR, 0);
 	}
 
 	up_write(&keyring_serialise_restrict_sem);
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(keyring));
+#else
 	up_write(&keyring->sem);
+#endif
 
 	if (ret < 0) {
 		key_put(restrict_link->key);
@@ -1112,8 +1264,13 @@ key_ref_t find_key_to_update(key_ref_t keyring_ref,
 	       keyring->serial, index_key->type->name, index_key->description);
 
 	guard(rcu)();
+#ifdef CONFIG_KEYP
+	object = assoc_array_find(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				&keyring_assoc_array_ops, index_key);
+#else
 	object = assoc_array_find(&keyring->keys, &keyring_assoc_array_ops,
 				  index_key);
+#endif
 
 	if (object)
 		goto found;
@@ -1157,7 +1314,14 @@ struct key *find_keyring_by_name(const char *name, bool uid_keyring)
 	/* Search this hash bucket for a keyring with a matching name that
 	 * grants Search permission and that hasn't been revoked
 	 */
+#ifdef CONFIG_KEYP
+	struct key_struct *key_struct;
+
+	list_for_each_entry(key_struct, &ns->keyring_name_list, name_link) {
+		keyring = key_struct->key;
+#else
 	list_for_each_entry(keyring, &ns->keyring_name_list, name_link) {
+#endif
 		if (!kuid_has_mapping(ns, keyring->user->uid))
 			continue;
 
@@ -1180,9 +1344,15 @@ struct key *find_keyring_by_name(const char *name, bool uid_keyring)
 		/* we've got a match but we might end up racing with
 		 * key_cleanup() if the keyring is currently 'dead'
 		 * (ie. it has a zero usage count) */
+#ifdef CONFIG_KEYP
+		if (!iee_set_key_usage(keyring, 0, REFCOUNT_INC_NOT_ZERO))
+			continue;
+		iee_set_key_last_used_at(keyring, ktime_get_real_seconds());
+#else
 		if (!refcount_inc_not_zero(&keyring->usage))
 			continue;
 		keyring->last_used_at = ktime_get_real_seconds();
+#endif
 		goto out;
 	}
 
@@ -1241,13 +1411,21 @@ static int keyring_detect_cycle(struct key *A, struct key *B)
  */
 int __key_link_lock(struct key *keyring,
 		    const struct keyring_index_key *index_key)
+#ifdef CONFIG_KEYP
+	__acquires(&KEY_SEM(keyring))
+#else
 	__acquires(&keyring->sem)
+#endif
 	__acquires(&keyring_serialise_link_lock)
 {
 	if (keyring->type != &key_type_keyring)
 		return -ENOTDIR;
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+#else
 	down_write(&keyring->sem);
+#endif
 
 	/* Serialise link/link calls to prevent parallel calls causing a cycle
 	 * when linking two keyring in opposite orders.
@@ -1263,8 +1441,13 @@ int __key_link_lock(struct key *keyring,
  */
 int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
 		    const struct keyring_index_key *index_key)
+#ifdef CONFIG_KEYP
+	__acquires(&KEY_SEM(l_keyring))
+	__acquires(&KEY_SEM(u_keyring))
+#else
 	__acquires(&l_keyring->sem)
 	__acquires(&u_keyring->sem)
+#endif
 	__acquires(&keyring_serialise_link_lock)
 {
 	if (l_keyring->type != &key_type_keyring ||
@@ -1276,11 +1459,21 @@ int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
 	 * move operation.
 	 */
 	if (l_keyring < u_keyring) {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(l_keyring));
+		down_write_nested(&KEY_SEM(u_keyring), 1);
+#else
 		down_write(&l_keyring->sem);
 		down_write_nested(&u_keyring->sem, 1);
+#endif
 	} else {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(u_keyring));
+		down_write_nested(&KEY_SEM(l_keyring), 1);
+#else
 		down_write(&u_keyring->sem);
 		down_write_nested(&l_keyring->sem, 1);
+#endif
 	}
 
 	/* Serialise link/link calls to prevent parallel calls causing a cycle
@@ -1317,10 +1510,17 @@ int __key_link_begin(struct key *keyring,
 	/* Create an edit script that will insert/replace the key in the
 	 * keyring tree.
 	 */
+#ifdef CONFIG_KEYP
+	edit = assoc_array_insert(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				  &keyring_assoc_array_ops,
+				  index_key,
+				  NULL);
+#else
 	edit = assoc_array_insert(&keyring->keys,
 				  &keyring_assoc_array_ops,
 				  index_key,
 				  NULL);
+#endif
 	if (IS_ERR(edit)) {
 		ret = PTR_ERR(edit);
 		goto error;
@@ -1388,7 +1588,11 @@ void __key_link(struct key *keyring, struct key *key,
 void __key_link_end(struct key *keyring,
 		    const struct keyring_index_key *index_key,
 		    struct assoc_array_edit *edit)
+#ifdef CONFIG_KEYP
+	__releases(&KEY_SEM(keyring))
+#else
 	__releases(&keyring->sem)
+#endif
 	__releases(&keyring_serialise_link_lock)
 {
 	BUG_ON(index_key->type == NULL);
@@ -1401,7 +1605,11 @@ void __key_link_end(struct key *keyring,
 		}
 		assoc_array_cancel_edit(edit);
 	}
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(keyring));
+#else
 	up_write(&keyring->sem);
+#endif
 
 	if (index_key->type == &key_type_keyring)
 		mutex_unlock(&keyring_serialise_link_lock);
@@ -1414,8 +1622,13 @@ static int __key_link_check_restriction(struct key *keyring, struct key *key)
 {
 	if (!keyring->restrict_link || !keyring->restrict_link->check)
 		return 0;
+#ifdef CONFIG_KEYP
+	return keyring->restrict_link->check(keyring, key->type,
+		((union key_payload *)(key->name_link.next)), keyring->restrict_link->key);
+#else
 	return keyring->restrict_link->check(keyring, key->type, &key->payload,
 					     keyring->restrict_link->key);
+#endif
 }
 
 /**
@@ -1475,12 +1688,20 @@ EXPORT_SYMBOL(key_link);
  * Lock a keyring for unlink.
  */
 static int __key_unlink_lock(struct key *keyring)
+#ifdef CONFIG_KEYP
+	__acquires(&KEY_SEM(keyring))
+#else
 	__acquires(&keyring->sem)
+#endif
 {
 	if (keyring->type != &key_type_keyring)
 		return -ENOTDIR;
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+#else
 	down_write(&keyring->sem);
+#endif
 	return 0;
 }
 
@@ -1494,8 +1715,13 @@ static int __key_unlink_begin(struct key *keyring, struct key *key,
 
 	BUG_ON(*_edit != NULL);
 
+#ifdef CONFIG_KEYP
+	edit = assoc_array_delete(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				  &keyring_assoc_array_ops, &key->index_key);
+#else
 	edit = assoc_array_delete(&keyring->keys, &keyring_assoc_array_ops,
 				  &key->index_key);
+#endif
 	if (IS_ERR(edit))
 		return PTR_ERR(edit);
 
@@ -1524,11 +1750,19 @@ static void __key_unlink(struct key *keyring, struct key *key,
 static void __key_unlink_end(struct key *keyring,
 			     struct key *key,
 			     struct assoc_array_edit *edit)
+#ifdef CONFIG_KEYP
+	__releases(&KEY_SEM(keyring))
+#else
 	__releases(&keyring->sem)
+#endif
 {
 	if (edit)
 		assoc_array_cancel_edit(edit);
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(keyring));
+#else
 	up_write(&keyring->sem);
+#endif
 }
 
 /**
@@ -1658,9 +1892,16 @@ int keyring_clear(struct key *keyring)
 	if (keyring->type != &key_type_keyring)
 		return -ENOTDIR;
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+
+	edit = assoc_array_clear(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				&keyring_assoc_array_ops);
+#else
 	down_write(&keyring->sem);
 
 	edit = assoc_array_clear(&keyring->keys, &keyring_assoc_array_ops);
+#endif
 	if (IS_ERR(edit)) {
 		ret = PTR_ERR(edit);
 	} else {
@@ -1671,7 +1912,11 @@ int keyring_clear(struct key *keyring)
 		ret = 0;
 	}
 
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(keyring));
+#else
 	up_write(&keyring->sem);
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(keyring_clear);
@@ -1685,7 +1930,12 @@ static void keyring_revoke(struct key *keyring)
 {
 	struct assoc_array_edit *edit;
 
+#ifdef CONFIG_KEYP
+	edit = assoc_array_clear(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				&keyring_assoc_array_ops);
+#else
 	edit = assoc_array_clear(&keyring->keys, &keyring_assoc_array_ops);
+#endif
 	if (!IS_ERR(edit)) {
 		if (edit)
 			assoc_array_apply_edit(edit);
@@ -1731,8 +1981,13 @@ void keyring_gc(struct key *keyring, time64_t limit)
 
 	/* scan the keyring looking for dead keys */
 	rcu_read_lock();
+#ifdef CONFIG_KEYP
+	result = assoc_array_iterate(&((struct key_struct *)(keyring->name_link.prev))->keys,
+				     keyring_gc_check_iterator, &limit);
+#else
 	result = assoc_array_iterate(&keyring->keys,
 				     keyring_gc_check_iterator, &limit);
+#endif
 	rcu_read_unlock();
 	if (result == true)
 		goto do_gc;
@@ -1742,10 +1997,17 @@ dont_gc:
 	return;
 
 do_gc:
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+	assoc_array_gc(&((struct key_struct *)(keyring->name_link.prev))->keys,
+			   &keyring_assoc_array_ops, keyring_gc_select_iterator, &limit);
+	up_write(&KEY_SEM(keyring));
+#else
 	down_write(&keyring->sem);
 	assoc_array_gc(&keyring->keys, &keyring_assoc_array_ops,
 		       keyring_gc_select_iterator, &limit);
 	up_write(&keyring->sem);
+#endif
 	kleave(" [gc]");
 }
 
@@ -1784,7 +2046,11 @@ void keyring_restriction_gc(struct key *keyring, struct key_type *dead_type)
 	}
 
 	/* Lock the keyring to ensure that a link is not in progress */
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(keyring));
+#else
 	down_write(&keyring->sem);
+#endif
 
 	keyres = keyring->restrict_link;
 
@@ -1794,7 +2060,11 @@ void keyring_restriction_gc(struct key *keyring, struct key_type *dead_type)
 	keyres->key = NULL;
 	keyres->keytype = NULL;
 
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(keyring));
+#else
 	up_write(&keyring->sem);
+#endif
 
 	kleave(" [restriction gc]");
 }

@@ -14,6 +14,9 @@
 #include <linux/keyctl.h>
 #include <linux/slab.h>
 #include <net/net_namespace.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "internal.h"
 #include <keys/request_key_auth-type.h>
 
@@ -285,13 +288,21 @@ static int construct_get_dest_keyring(struct key **_dest_keyring)
 		case KEY_REQKEY_DEFL_REQUESTOR_KEYRING:
 			if (cred->request_key_auth) {
 				authkey = cred->request_key_auth;
+#ifdef CONFIG_KEYP
+				down_read(&KEY_SEM(authkey));
+#else
 				down_read(&authkey->sem);
+#endif
 				rka = get_request_key_auth(authkey);
 				if (!test_bit(KEY_FLAG_REVOKED,
 					      &authkey->flags))
 					dest_keyring =
 						key_get(rka->dest_keyring);
+#ifdef CONFIG_KEYP
+				up_read(&KEY_SEM(authkey));
+#else
 				up_read(&authkey->sem);
+#endif
 				if (dest_keyring) {
 					do_perm_check = false;
 					break;
@@ -398,7 +409,11 @@ static int construct_alloc_key(struct keyring_search_context *ctx,
 	if (IS_ERR(key))
 		goto alloc_failed;
 
+#ifdef CONFIG_KEYP
+	iee_set_key_flag_bit(key, KEY_FLAG_USER_CONSTRUCT, SET_BIT_OP);
+#else
 	set_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags);
+#endif
 
 	if (dest_keyring) {
 		ret = __key_link_lock(dest_keyring, &key->index_key);

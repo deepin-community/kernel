@@ -51,8 +51,13 @@ int query_asymmetric_key(const struct kernel_pkey_params *params,
 	if (key->type != &key_type_asymmetric)
 		return -EINVAL;
 	subtype = asymmetric_key_subtype(key);
+#ifdef CONFIG_KEYP
+	if (!subtype ||
+	    !((union key_payload *)(key->name_link.next))->data[0])
+#else
 	if (!subtype ||
 	    !key->payload.data[0])
+#endif
 		return -EINVAL;
 	if (!subtype->query)
 		return -ENOTSUPP;
@@ -145,8 +150,13 @@ int verify_signature(const struct key *key,
 	if (key->type != &key_type_asymmetric)
 		return -EINVAL;
 	subtype = asymmetric_key_subtype(key);
+#ifdef CONFIG_KEYP
+	if (!subtype ||
+	    !((union key_payload *)(key->name_link.next))->data[0])
+#else
 	if (!subtype ||
 	    !key->payload.data[0])
+#endif
 		return -EINVAL;
 	if (!subtype->verify_signature)
 		return -ENOTSUPP;

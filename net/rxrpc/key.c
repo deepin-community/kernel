@@ -418,7 +418,11 @@ static void rxrpc_free_preparse(struct key_preparsed_payload *prep)
  */
 static void rxrpc_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	rxrpc_free_token_list(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 	rxrpc_free_token_list(key->payload.data[0]);
+#endif
 }
 
 /*
@@ -431,7 +435,12 @@ static void rxrpc_describe(const struct key *key, struct seq_file *m)
 
 	seq_puts(m, key->description);
 
+#ifdef CONFIG_KEYP
+	for (token = ((union key_payload *)(key->name_link.next))->data[0];
+			token; token = token->next) {
+#else
 	for (token = key->payload.data[0]; token; token = token->next) {
+#endif
 		seq_puts(m, sep);
 
 		switch (token->security_index) {
@@ -589,7 +598,12 @@ static long rxrpc_read(const struct key *key,
 	size += 1 * 4;	/* token count */
 
 	ntoks = 0;
+#ifdef CONFIG_KEYP
+	for (token = ((union key_payload *)(key->name_link.next))->data[0];
+			token; token = token->next) {
+#else
 	for (token = key->payload.data[0]; token; token = token->next) {
+#endif
 		toksize = 4;	/* sec index */
 
 		switch (token->security_index) {
@@ -659,7 +673,12 @@ static long rxrpc_read(const struct key *key,
 	ENCODE(ntoks);
 
 	tok = 0;
+#ifdef CONFIG_KEYP
+	for (token = ((union key_payload *)(key->name_link.next))->data[0];
+			token; token = token->next) {
+#else
 	for (token = key->payload.data[0]; token; token = token->next) {
+#endif
 		toksize = toksizes[tok++];
 		ENCODE(toksize);
 		oldxdr = xdr;

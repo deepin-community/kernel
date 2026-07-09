@@ -16,6 +16,9 @@
 #include <linux/ctype.h>
 #include <keys/system_keyring.h>
 #include <keys/user-type.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "asymmetric_keys.h"
 
 
@@ -473,6 +476,18 @@ static void asymmetric_key_free_preparse(struct key_preparsed_payload *prep)
 static void asymmetric_key_destroy(struct key *key)
 {
 	struct asymmetric_key_subtype *subtype = asymmetric_key_subtype(key);
+#ifdef CONFIG_KEYP
+	struct asymmetric_key_ids *kids =
+				((union key_payload *)(key->name_link.next))->data[asym_key_ids];
+	union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+	void *data = ((union key_payload *)(key->name_link.next))->data[asym_crypto];
+	void *auth = ((union key_payload *)(key->name_link.next))->data[asym_auth];
+
+	key_payload->data[asym_crypto] = NULL;
+	key_payload->data[asym_subtype] = NULL;
+	key_payload->data[asym_key_ids] = NULL;
+	key_payload->data[asym_auth] = NULL;
+#else
 	struct asymmetric_key_ids *kids = key->payload.data[asym_key_ids];
 	void *data = key->payload.data[asym_crypto];
 	void *auth = key->payload.data[asym_auth];
@@ -481,6 +496,7 @@ static void asymmetric_key_destroy(struct key *key)
 	key->payload.data[asym_subtype] = NULL;
 	key->payload.data[asym_key_ids] = NULL;
 	key->payload.data[asym_auth] = NULL;
+#endif
 
 	if (subtype) {
 		subtype->destroy(data, auth);
@@ -586,8 +602,13 @@ int asymmetric_key_eds_op(struct kernel_pkey_params *params,
 	if (key->type != &key_type_asymmetric)
 		return -EINVAL;
 	subtype = asymmetric_key_subtype(key);
+#ifdef CONFIG_KEYP
+	if (!subtype ||
+	    !((union key_payload *)(key->name_link.next))->data[0])
+#else
 	if (!subtype ||
 	    !key->payload.data[0])
+#endif
 		return -EINVAL;
 	if (!subtype->eds_op)
 		return -ENOTSUPP;

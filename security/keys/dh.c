@@ -32,7 +32,11 @@ static ssize_t dh_data_from_key(key_serial_t keyid, const void **data)
 
 	ret = -EOPNOTSUPP;
 	if (key->type == &key_type_user) {
+#ifdef CONFIG_KEYP
+		down_read(&KEY_SEM(key));
+#else
 		down_read(&key->sem);
+#endif
 		status = key_validate(key);
 		if (status == 0) {
 			const struct user_key_payload *payload;
@@ -49,7 +53,11 @@ static ssize_t dh_data_from_key(key_serial_t keyid, const void **data)
 				ret = -ENOMEM;
 			}
 		}
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(key));
+#else
 		up_read(&key->sem);
+#endif
 	}
 
 	key_put(key);

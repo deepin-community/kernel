@@ -587,7 +587,11 @@ rxrpc_new_client_call_for_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg,
 	}
 
 	key = rx->key;
+#ifdef CONFIG_KEYP
+	if (key && !((union key_payload *)rx->key->name_link.next)->data[0])
+#else
 	if (key && !rx->key->payload.data[0])
+#endif
 		key = NULL;
 
 	memset(&cp, 0, sizeof(cp));
