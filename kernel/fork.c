@@ -2403,7 +2403,12 @@ __latent_entropy struct task_struct *copy_process(
 		iee_validate_token(p);
 #endif
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif

@@ -461,7 +461,12 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	ssize_t ret;
 
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif
@@ -581,7 +586,12 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 	ssize_t ret;
 
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif
@@ -927,7 +937,12 @@ static ssize_t vfs_readv(struct file *file, const struct iovec __user *vec,
 		  unsigned long vlen, loff_t *pos, rwf_t flags)
 {
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif
@@ -950,7 +965,12 @@ static ssize_t vfs_writev(struct file *file, const struct iovec __user *vec,
 		   unsigned long vlen, loff_t *pos, rwf_t flags)
 {
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif

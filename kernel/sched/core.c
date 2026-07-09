@@ -5172,6 +5172,10 @@ void __weak ptp_context_enable_wp(int *wp_disabled_cnt, unsigned long *cr0) { }
 void __weak ptp_context_restore_wp(int wp_disabled_cnt, unsigned long cr0) { }
 #endif
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
+
 /*
  * context_switch - switch to the new MM and the new thread's register state.
  */
@@ -5180,7 +5184,14 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next, struct rq_flags *rf)
 {
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_CS_CHECK
+	if (haoc_enabled) {
+		pr_info_once("HAOC: CONFIG_IEE_CS_CHECK enabled.");
+		iee_cycle_verify_cred(next);
+	}
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(next);
 # endif

@@ -42,6 +42,9 @@
 #include <asm/system_misc.h>
 #include <asm/tlbflush.h>
 #include <asm/traps.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/haoc-bitmap.h>
+#endif
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
@@ -318,7 +321,10 @@ static void die_kernel_fault(const char *msg, unsigned long addr,
 
 	pr_alert("Unable to handle kernel %s at virtual address %016lx\n", msg,
 		 addr);
-
+#ifdef CONFIG_IEE
+	if (__is_lm_address((u64)addr))
+		pr_alert("iee_get_bitmap_type(addr) : %d\n", iee_get_bitmap_type(addr));
+#endif
 	kasan_non_canonical_hook(addr);
 
 	mem_abort_decode(esr);
