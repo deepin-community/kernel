@@ -126,6 +126,15 @@ __iee_si_data_end = .;
 #define CRED_DATA
 #endif
 
+#ifdef CONFIG_IEE_SELINUX_P
+#define IEE_SELINUX_DATA		\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_selinux_data_start = .;	\
+	*(.iee.selinux)				\
+	. = ALIGN(PAGE_SIZE);		\
+	__iee_selinux_data_end = .;
+#endif
+
 PHDRS {
 	text PT_LOAD FLAGS(5);          /* R_E */
 	data PT_LOAD FLAGS(6);          /* RW_ */
@@ -216,6 +225,9 @@ SECTIONS
 #endif
 #ifdef CONFIG_CREDP
 		CRED_DATA
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+		IEE_SELINUX_DATA
 #endif
 		CONSTRUCTORS
 

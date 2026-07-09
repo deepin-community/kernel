@@ -122,6 +122,12 @@ void __init iee_sip_init(void)
 	end = (unsigned long)__iee_si_data_end;
 	num_pages = (end - start) / PAGE_SIZE;
 	set_iee_pages(start, num_pages, IEE_SIP_DATA);
+#ifdef CONFIG_IEE_SELINUX_P
+	start = (unsigned long)__iee_selinux_data_start;
+	end = (unsigned long)__iee_selinux_data_end;
+	num_pages = (end - start) / PAGE_SIZE;
+	set_iee_pages(start, num_pages, IEE_SIP_DATA);
+#endif
 	/* All initialization is done. Do some simple tests. */
 	pr_info("IEE: testing iee_exec_entry si_test...");
 	iee_sip_test();
