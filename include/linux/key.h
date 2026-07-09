@@ -303,13 +303,27 @@ struct key_struct {
 };
 #define KEY_SEM(KEY) (((struct key_union *)(KEY->graveyard_link.next))->sem)
 #include <asm/haoc/haoc-def.h>
+extern bool haoc_enabled;
 extern unsigned long long iee_rw_gate(int flag, ...);
 static bool iee_set_key_usage(struct key *key, int n, int flag)
 {
-	bool ret;
+	if (!haoc_enabled) {
+		switch (flag) {
+		case REFCOUNT_INC:
+			refcount_inc(&key->usage);
+			break;
+		case REFCOUNT_SET:
+			refcount_set(&key->usage, n);
+			break;
+		case REFCOUNT_DEC_AND_TEST:
+			return refcount_dec_and_test(&key->usage);
+		case REFCOUNT_INC_NOT_ZERO:
+			return refcount_inc_not_zero(&key->usage);
+		}
+		return false;
+	}
 
-	ret = iee_rw_gate(IEE_OP_SET_KEY_USAGE, key, n, flag);
-	return ret;
+	return iee_rw_gate(IEE_OP_SET_KEY_USAGE, key, n, flag);
 }
 #endif
 
