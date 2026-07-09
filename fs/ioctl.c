@@ -52,7 +52,12 @@ extern void iee_cycle_verify_cred(struct task_struct *current_task);
 long vfs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 #if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
-# if defined(CONFIG_X86_64)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
 	if (haoc_enabled)
 		iee_verify_token(current);
 # endif
