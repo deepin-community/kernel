@@ -566,8 +566,13 @@ static void fscrypt_provisioning_key_describe(const struct key *key,
 {
 	seq_puts(m, key->description);
 	if (key_is_positive(key)) {
+#ifdef CONFIG_KEYP
+		const struct fscrypt_provisioning_key_payload *payload =
+			((union key_payload *)(key->name_link.next))->data[0];
+#else
 		const struct fscrypt_provisioning_key_payload *payload =
 			key->payload.data[0];
+#endif
 
 		seq_printf(m, ": %u [%u]", key->datalen, payload->type);
 	}
@@ -575,7 +580,11 @@ static void fscrypt_provisioning_key_describe(const struct key *key,
 
 static void fscrypt_provisioning_key_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	kfree_sensitive(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 	kfree_sensitive(key->payload.data[0]);
+#endif
 }
 
 static struct key_type key_type_fscrypt_provisioning = {
@@ -617,7 +626,11 @@ static int get_keyring_key(u32 key_id, u32 type,
 
 	if (key->type != &key_type_fscrypt_provisioning)
 		goto bad_key;
+#ifdef CONFIG_KEYP
+	payload = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	payload = key->payload.data[0];
+#endif
 
 	/* Don't allow fscrypt v1 keys to be used as v2 keys and vice versa. */
 	if (payload->type != type)

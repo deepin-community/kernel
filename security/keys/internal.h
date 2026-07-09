@@ -83,12 +83,20 @@ extern unsigned key_quota_maxbytes;
 
 
 extern struct kmem_cache *key_jar;
+#ifdef CONFIG_KEYP
+extern struct kmem_cache *key_union_jar;
+extern struct kmem_cache *key_struct_jar;
+extern struct kmem_cache *key_payload_jar;
+#endif
 extern struct rb_root key_serial_tree;
 extern spinlock_t key_serial_lock;
 extern struct mutex key_construction_mutex;
 extern wait_queue_head_t request_key_conswq;
 
 extern void key_set_index_key(struct keyring_index_key *index_key);
+#ifdef CONFIG_KEYP
+extern void iee_key_set_index_key(struct keyring_index_key *index_key);
+#endif
 extern struct key_type *key_type_lookup(const char *type);
 extern void key_type_put(struct key_type *ktype);
 

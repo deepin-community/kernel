@@ -385,7 +385,11 @@ static int get_secret(struct ceph_crypto_key *dst, const char *name,
 		goto out;
 	}
 
+#ifdef CONFIG_KEYP
+	ckey = ((union key_payload *)(ukey->name_link.next))->data[0];
+#else
 	ckey = ukey->payload.data[0];
+#endif
 	err = ceph_crypto_key_clone(dst, ckey);
 	if (err)
 		goto out_key;

@@ -1596,6 +1596,15 @@ config CREDP
 		by IEE either.
 		If unsure, say N.
 
+config KEYP
+	bool "Struct Key protection(KEYP)"
+	depends on IEE
+	help
+		This option enables protection for the kernel's struct key. All modifications
+		of keys must be made and verified by IEE APIs to defend memory corruptions.
+
+		If unsure, say N.
+
 # Common NUMA Features
 config NUMA
 	bool "NUMA Memory Allocation and Scheduler Support"

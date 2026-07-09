@@ -150,6 +150,12 @@ int slab_unmergeable(struct kmem_cache *s)
 		return 1;
 #endif
 
+#ifdef CONFIG_KEYP
+	if (strcmp(s->name, "key_jar") == 0 || strcmp(s->name, "key_union_jar") == 0 ||
+	    strcmp(s->name, "key_struct_jar") == 0 || strcmp(s->name, "key_payload_jar") == 0)
+		return 1;
+#endif
+
 	/*
 	 * We may have set a slab to be unmergeable during bootstrap.
 	 */
@@ -169,6 +175,12 @@ struct kmem_cache *find_mergeable(unsigned int size, unsigned int align,
 
 	if (ctor)
 		return NULL;
+
+#ifdef CONFIG_KEYP
+	if (strcmp(name, "key_jar") == 0 || strcmp(name, "key_union_jar") == 0 ||
+	    strcmp(name, "key_struct_jar") == 0 || strcmp(name, "key_payload_jar") == 0)
+		return NULL;
+#endif
 
 	size = ALIGN(size, sizeof(void *));
 	align = calculate_alignment(flags, align, size);
