@@ -74,4 +74,13 @@ config PTP_RESERVE_ORDER
 	depends on PTP
 	range 9 15
 	default 12
+
+config KEYP
+	bool "Struct Key protection(KEYP)"
+	depends on IEE
+	help
+		This option enables protection for the kernel's struct key. All modifications
+		of keys must be made and verified by IEE APIs to defend memory corruptions.
+
+		If unsure, say N.
 endmenu # HAOC
