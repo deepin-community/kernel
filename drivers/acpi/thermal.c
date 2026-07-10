@@ -1013,7 +1013,7 @@ static int acpi_thermal_add(struct acpi_device *device)
 	int result;
 
 	if (!device)
-		return -EINVAL;
+		return -ENODEV;
 
 	tz = kzalloc(sizeof(struct acpi_thermal), GFP_KERNEL);
 	if (!tz)
