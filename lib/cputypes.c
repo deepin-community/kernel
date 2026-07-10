@@ -53,13 +53,6 @@ static void detect_phytium_models(void)
 			pr_info("%s: core_count:%d from SMBIOS is invalid!\n",
 				__func__, get_core_count());
 		}
-	} else if (model == MIDR_PHYTIUM_FT3000) {
-		if (strstr(name, "D3000M"))
-			system_cpu.model_bits = PHYTIUM_MODEL_D3000M;
-		else if (strstr(name, "D3000"))
-			system_cpu.model_bits = PHYTIUM_MODEL_D3000;
-		else
-			system_cpu.model_bits = PHYTIUM_MODEL_D3000;
 	} else {
 		pr_info("%s: unknown model %x", __func__, model);
 	}
@@ -106,15 +99,3 @@ bool cpu_is_ft_d2000(void)
 	return cpu_match(CPU_VENDOR_PHYTIUM, PHYTIUM_MODEL_D2000);
 }
 EXPORT_SYMBOL(cpu_is_ft_d2000);
-
-bool cpu_is_ft_d3000(void)
-{
-	return cpu_match(CPU_VENDOR_PHYTIUM, PHYTIUM_MODEL_D3000);
-}
-EXPORT_SYMBOL(cpu_is_ft_d3000);
-
-bool cpu_is_ft_d3000m(void)
-{
-	return cpu_match(CPU_VENDOR_PHYTIUM, PHYTIUM_MODEL_D3000M);
-}
-EXPORT_SYMBOL(cpu_is_ft_d3000m);

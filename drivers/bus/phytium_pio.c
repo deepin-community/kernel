@@ -15,6 +15,9 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include "phytium_pio.h"
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
 
 #define PHYT_PIO_DRIVER_NAME	"phytium-pio"
 #define PHYT_PIO_DRV_VER	"1.1.0"
@@ -306,7 +309,7 @@ static int __init phytium_pio_init(void)
 	if (cpu_is_ft_d2000()) {
 		phytium_pio_int_state = FT2000_PIO_INT_STATE;
 		phytium_pio_clr_int = FT2000_PIO_CLR_INT;
-	} else if (cpu_is_ft_d3000() || cpu_is_ft_d3000m()) {
+	} else if (is_pd2408()) {
 		phytium_pio_int_state = FT3000_PIO_INT_STATE;
 		phytium_pio_clr_int = FT3000_PIO_CLR_INT;
 	} else {
