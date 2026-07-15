@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <linux/slab.h>
+#include <linux/hrtimer.h>
 #include <linux/pid.h>
 #include <linux/sched/rt.h>
 #include <linux/sched/task.h>
