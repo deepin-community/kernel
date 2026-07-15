@@ -114,7 +114,7 @@ int mfill_atomic_install_pte(pmd_t *dst_pmd,
 		/* Usually, cache pages are already added to LRU */
 		if (newly_allocated)
 			folio_add_lru(folio);
-		page_add_file_rmap(page, dst_vma, false);
+		folio_add_file_rmap_pte(folio, page, dst_vma);
 	} else {
 		folio_add_new_anon_rmap(folio, dst_vma, dst_addr);
 		folio_add_lru_vma(folio, dst_vma);
@@ -124,7 +124,7 @@ int mfill_atomic_install_pte(pmd_t *dst_pmd,
 	 * Must happen after rmap, as mm_counter() checks mapping (via
 	 * PageAnon()), which is set by __page_set_anon_rmap().
 	 */
-	inc_mm_counter(dst_mm, mm_counter(page));
+	inc_mm_counter(dst_mm, mm_counter(folio));
 
 	set_pte_at(dst_mm, dst_addr, dst_pte, _dst_pte);
 

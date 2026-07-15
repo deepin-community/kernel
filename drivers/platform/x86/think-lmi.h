@@ -7,7 +7,7 @@
 
 #define TLMI_SETTINGS_COUNT  256
 #define TLMI_SETTINGS_MAXLEN 512
-#define TLMI_PWD_BUFSIZE     129
+#define TLMI_PWD_BUFSIZE     256
 #define TLMI_LANG_MAXLEN       4
 #define TLMI_INDEX_MAX        32
 

@@ -1761,10 +1761,10 @@ static void __update_and_free_hugetlb_folio(struct hstate *h,
 
 	/*
 	 * If folio is not vmemmap optimized (!clear_dtor), then the folio
-	 * is no longer identified as a hugetlb page.  hugetlb_vmemmap_restore
+	 * is no longer identified as a hugetlb page.  hugetlb_vmemmap_restore_folio
 	 * can only be passed hugetlb pages and will BUG otherwise.
 	 */
-	if (clear_dtor && hugetlb_vmemmap_restore(h, &folio->page)) {
+	if (clear_dtor && hugetlb_vmemmap_restore_folio(h, folio)) {
 		spin_lock_irq(&hugetlb_lock);
 		/*
 		 * If we cannot allocate vmemmap pages, just refuse to free the
@@ -1908,7 +1908,7 @@ static void bulk_vmemmap_restore_error(struct hstate *h,
 		 * quit processing the list to retry the bulk operation.
 		 */
 		list_for_each_entry_safe(folio, t_folio, folio_list, lru)
-			if (hugetlb_vmemmap_restore(h, &folio->page)) {
+			if (hugetlb_vmemmap_restore_folio(h, folio)) {
 				list_del(&folio->lru);
 				spin_lock_irq(&hugetlb_lock);
 				add_hugetlb_folio(h, folio, true);
@@ -2066,7 +2066,7 @@ static void init_new_hugetlb_folio(struct hstate *h, struct folio *folio)
 static void __prep_new_hugetlb_folio(struct hstate *h, struct folio *folio)
 {
 	init_new_hugetlb_folio(h, folio);
-	hugetlb_vmemmap_optimize(h, &folio->page);
+	hugetlb_vmemmap_optimize_folio(h, folio);
 }
 
 static void prep_new_hugetlb_folio(struct hstate *h, struct folio *folio, int nid)
@@ -2459,7 +2459,7 @@ retry:
 		 * non-vmemmap optimized hugetlb folios.
 		 */
 		if (folio_test_hugetlb(folio)) {
-			rc = hugetlb_vmemmap_restore(h, &folio->page);
+			rc = hugetlb_vmemmap_restore_folio(h, folio);
 			if (rc) {
 				spin_lock_irq(&hugetlb_lock);
 				add_hugetlb_folio(h, folio, false);
@@ -3951,11 +3951,11 @@ static int demote_free_hugetlb_folio(struct hstate *h, struct folio *folio)
 	/*
 	 * If vmemmap already existed for folio, the remove routine above would
 	 * have cleared the hugetlb folio flag.  Hence the folio is technically
-	 * no longer a hugetlb folio.  hugetlb_vmemmap_restore can only be
+	 * no longer a hugetlb folio.  hugetlb_vmemmap_restore_folio can only be
 	 * passed hugetlb folios and will BUG otherwise.
 	 */
 	if (folio_test_hugetlb(folio)) {
-		rc = hugetlb_vmemmap_restore(h, &folio->page);
+		rc = hugetlb_vmemmap_restore_folio(h, folio);
 		if (rc) {
 			/* Allocation of vmemmmap failed, we can not demote folio */
 			spin_lock_irq(&hugetlb_lock);
@@ -5357,7 +5357,7 @@ hugetlb_install_folio(struct vm_area_struct *vma, pte_t *ptep, unsigned long add
 	pte_t newpte = make_huge_pte(vma, &new_folio->page, 1);
 
 	__folio_mark_uptodate(new_folio);
-	hugepage_add_new_anon_rmap(new_folio, vma, addr);
+	hugetlb_add_new_anon_rmap(new_folio, vma, addr);
 	if (userfaultfd_wp(vma) && huge_pte_uffd_wp(old))
 		newpte = huge_pte_mkuffd_wp(newpte);
 	set_huge_pte_at(vma->vm_mm, addr, ptep, newpte, sz);
@@ -5475,9 +5475,8 @@ again:
 			 * sleep during the process.
 			 */
 			if (!folio_test_anon(pte_folio)) {
-				page_dup_file_rmap(&pte_folio->page, true);
-			} else if (page_try_dup_anon_rmap(&pte_folio->page,
-							  true, src_vma)) {
+				hugetlb_add_file_rmap(pte_folio);
+			} else if (hugetlb_try_dup_anon_rmap(pte_folio, src_vma)) {
 				pte_t src_pte_old = entry;
 				struct folio *new_folio;
 
@@ -5742,7 +5741,7 @@ void __unmap_hugepage_range(struct mmu_gather *tlb, struct vm_area_struct *vma,
 					make_pte_marker(PTE_MARKER_UFFD_WP),
 					sz);
 		hugetlb_count_sub(pages_per_huge_page(h), mm);
-		page_remove_rmap(page, vma, true);
+		hugetlb_remove_rmap(page_folio(page));
 
 		spin_unlock(ptl);
 		tlb_remove_page_size(tlb, page, huge_page_size(h));
@@ -6039,8 +6038,8 @@ retry_avoidcopy:
 
 		/* Break COW or unshare */
 		huge_ptep_clear_flush(vma, haddr, ptep);
-		page_remove_rmap(&old_folio->page, vma, true);
-		hugepage_add_new_anon_rmap(new_folio, vma, haddr);
+		hugetlb_remove_rmap(old_folio);
+		hugetlb_add_new_anon_rmap(new_folio, vma, haddr);
 		if (huge_pte_uffd_wp(pte))
 			newpte = huge_pte_mkuffd_wp(newpte);
 		set_huge_pte_at(mm, haddr, ptep, newpte, huge_page_size(h));
@@ -6329,9 +6328,9 @@ static vm_fault_t hugetlb_no_page(struct mm_struct *mm,
 		goto backout;
 
 	if (anon_rmap)
-		hugepage_add_new_anon_rmap(folio, vma, haddr);
+		hugetlb_add_new_anon_rmap(folio, vma, haddr);
 	else
-		page_dup_file_rmap(&folio->page, true);
+		hugetlb_add_file_rmap(folio);
 	new_pte = make_huge_pte(vma, &folio->page, ((vma->vm_flags & VM_WRITE)
 				&& (vma->vm_flags & VM_SHARED)));
 	/*
@@ -6783,9 +6782,9 @@ int hugetlb_mfill_atomic_pte(pte_t *dst_pte,
 		goto out_release_unlock;
 
 	if (folio_in_pagecache)
-		page_dup_file_rmap(&folio->page, true);
+		hugetlb_add_file_rmap(folio);
 	else
-		hugepage_add_new_anon_rmap(folio, dst_vma, dst_addr);
+		hugetlb_add_new_anon_rmap(folio, dst_vma, dst_addr);
 
 	/*
 	 * For either: (1) CONTINUE on a non-shared VMA, or (2) UFFDIO_COPY

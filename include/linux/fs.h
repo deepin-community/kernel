@@ -1139,7 +1139,7 @@ extern int send_sigurg(struct fown_struct *fown);
 #define SB_NOATIME      BIT(10)	/* Do not update access times. */
 #define SB_NODIRATIME   BIT(11)	/* Do not update directory access times */
 #define SB_SILENT       BIT(15)
-#define SB_POSIXACL     BIT(16)	/* VFS does not apply the umask */
+#define SB_POSIXACL     BIT(16)	/* Supports POSIX ACLs */
 #define SB_INLINECRYPT  BIT(17)	/* Use blk-crypto for encrypted files */
 #define SB_KERNMOUNT    BIT(22)	/* this is a kern_mount call */
 #define SB_I_VERSION    BIT(23)	/* Update inode I_version field */
@@ -1186,6 +1186,7 @@ extern int send_sigurg(struct fown_struct *fown);
 #define SB_I_PERSB_BDI	0x00000200	/* has a per-sb bdi */
 #define SB_I_TS_EXPIRY_WARNED 0x00000400 /* warned about timestamp range expiry */
 #define SB_I_RETIRED	0x00000800	/* superblock shouldn't be reused */
+#define SB_I_NOUMASK	0x00001000	/* VFS does not apply umask */
 
 /* Possible states of 'frozen' field */
 enum {
@@ -2620,10 +2621,23 @@ struct file *dentry_open(const struct path *path, int flags,
 			 const struct cred *creds);
 struct file *dentry_create(const struct path *path, int flags, umode_t mode,
 			   const struct cred *cred);
-struct file *backing_file_open(const struct path *path, int flags,
+struct file *backing_file_open(const struct file *user_file, int flags,
 			       const struct path *real_path,
 			       const struct cred *cred);
 struct path *backing_file_real_path(struct file *f);
+
+#ifdef CONFIG_SECURITY
+void *backing_file_security(const struct file *f);
+void backing_file_set_security(struct file *f, void *security);
+#else
+static inline void *backing_file_security(const struct file *f)
+{
+	return NULL;
+}
+static inline void backing_file_set_security(struct file *f, void *security)
+{
+}
+#endif /* CONFIG_SECURITY */
 
 /*
  * file_real_path - get the path corresponding to f_inode

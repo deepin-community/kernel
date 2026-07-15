@@ -147,9 +147,28 @@ described as 'basic' will be available.
 The new VM has no virtual cpus and no memory.
 You probably want to use 0 as machine type.
 
+X86:
+^^^^
+
+Supported X86 VM types can be queried via KVM_CAP_VM_TYPES.
+
+S390:
+^^^^^
+
 In order to create user controlled virtual machines on S390, check
 KVM_CAP_S390_UCONTROL and use the flag KVM_VM_S390_UCONTROL as
 privileged user (CAP_SYS_ADMIN).
+
+MIPS:
+^^^^^
+
+To use hardware assisted virtualization on MIPS (VZ ASE) rather than
+the default trap & emulate implementation (which changes the virtual
+memory layout to fit in user mode), check KVM_CAP_MIPS_VZ and use the
+flag KVM_VM_MIPS_VZ.
+
+ARM64:
+^^^^^^
 
 On arm64, the physical address size for a VM (IPA Size limit) is limited
 to 40bits by default. The limit can be configured if the host supports the
@@ -6131,6 +6150,15 @@ applied.
 :Parameters: struct kvm_userspace_memory_region2 (in)
 :Returns: 0 on success, -1 on error
 
+KVM_SET_USER_MEMORY_REGION2 is an extension to KVM_SET_USER_MEMORY_REGION that
+allows mapping guest_memfd memory into a guest.  All fields shared with
+KVM_SET_USER_MEMORY_REGION identically.  Userspace can set KVM_MEM_GUEST_MEMFD
+in flags to have KVM bind the memory region to a given guest_memfd range of
+[guest_memfd_offset, guest_memfd_offset + memory_size].  The target guest_memfd
+must point at a file created via KVM_CREATE_GUEST_MEMFD on the current VM, and
+the target range must not be bound to any other memory region.  All standard
+bounds checks apply (use common sense).
+
 ::
 
   struct kvm_userspace_memory_region2 {
@@ -6139,10 +6167,24 @@ applied.
 	__u64 guest_phys_addr;
 	__u64 memory_size; /* bytes */
 	__u64 userspace_addr; /* start of the userspace allocated memory */
-	__u64 pad[16];
+	__u64 guest_memfd_offset;
+	__u32 guest_memfd;
+	__u32 pad1;
+	__u64 pad2[14];
   };
 
-See KVM_SET_USER_MEMORY_REGION.
+A KVM_MEM_GUEST_MEMFD region _must_ have a valid guest_memfd (private memory) and
+userspace_addr (shared memory).  However, "valid" for userspace_addr simply
+means that the address itself must be a legal userspace address.  The backing
+mapping for userspace_addr is not required to be valid/populated at the time of
+KVM_SET_USER_MEMORY_REGION2, e.g. shared memory can be lazily mapped/allocated
+on-demand.
+
+When mapping a gfn into the guest, KVM selects shared vs. private, i.e consumes
+userspace_addr vs. guest_memfd, based on the gfn's KVM_MEMORY_ATTRIBUTE_PRIVATE
+state.  At VM creation time, all memory is shared, i.e. the PRIVATE attribute
+is '0' for all gfns.  Userspace can control whether memory is shared/private by
+toggling KVM_MEMORY_ATTRIBUTE_PRIVATE via KVM_SET_MEMORY_ATTRIBUTES as needed.
 
 4.141 KVM_SET_MEMORY_ATTRIBUTES
 -------------------------------
@@ -6179,6 +6221,49 @@ Note, there is no "get" API.  Userspace is responsible for explicitly tracking
 the state of a gfn/page as needed.
 
 The "flags" field is reserved for future extensions and must be '0'.
+
+4.142 KVM_CREATE_GUEST_MEMFD
+----------------------------
+
+:Capability: KVM_CAP_GUEST_MEMFD
+:Architectures: none
+:Type: vm ioctl
+:Parameters: struct kvm_create_guest_memfd(in)
+:Returns: A file descriptor on success, <0 on error
+
+KVM_CREATE_GUEST_MEMFD creates an anonymous file and returns a file descriptor
+that refers to it.  guest_memfd files are roughly analogous to files created
+via memfd_create(), e.g. guest_memfd files live in RAM, have volatile storage,
+and are automatically released when the last reference is dropped.  Unlike
+"regular" memfd_create() files, guest_memfd files are bound to their owning
+virtual machine (see below), cannot be mapped, read, or written by userspace,
+and cannot be resized  (guest_memfd files do however support PUNCH_HOLE).
+
+::
+
+  struct kvm_create_guest_memfd {
+	__u64 size;
+	__u64 flags;
+	__u64 reserved[6];
+  };
+
+Conceptually, the inode backing a guest_memfd file represents physical memory,
+i.e. is coupled to the virtual machine as a thing, not to a "struct kvm".  The
+file itself, which is bound to a "struct kvm", is that instance's view of the
+underlying memory, e.g. effectively provides the translation of guest addresses
+to host memory.  This allows for use cases where multiple KVM structures are
+used to manage a single virtual machine, e.g. when performing intrahost
+migration of a virtual machine.
+
+KVM currently only supports mapping guest_memfd via KVM_SET_USER_MEMORY_REGION2,
+and more specifically via the guest_memfd and guest_memfd_offset fields in
+"struct kvm_userspace_memory_region2", where guest_memfd_offset is the offset
+into the guest_memfd instance.  For a given guest_memfd file, there can be at
+most one mapping per page, i.e. binding multiple memory regions to a single
+guest_memfd range is not allowed (any number of memory regions can be bound to
+a single guest_memfd file, but the bound ranges must not overlap).
+
+See KVM_SET_USER_MEMORY_REGION2 for additional details.
 
 5. The kvm_run structure
 ========================
@@ -6816,6 +6901,7 @@ spec refer, https://github.com/riscv/riscv-sbi-doc.
 
 		/* KVM_EXIT_MEMORY_FAULT */
 		struct {
+  #define KVM_MEMORY_EXIT_FLAG_PRIVATE	(1ULL << 3)
 			__u64 flags;
 			__u64 gpa;
 			__u64 size;
@@ -6824,8 +6910,11 @@ spec refer, https://github.com/riscv/riscv-sbi-doc.
 KVM_EXIT_MEMORY_FAULT indicates the vCPU has encountered a memory fault that
 could not be resolved by KVM.  The 'gpa' and 'size' (in bytes) describe the
 guest physical address range [gpa, gpa + size) of the fault.  The 'flags' field
-describes properties of the faulting access that are likely pertinent.
-Currently, no flags are defined.
+describes properties of the faulting access that are likely pertinent:
+
+ - KVM_MEMORY_EXIT_FLAG_PRIVATE - When set, indicates the memory fault occurred
+   on a private memory access.  When clear, indicates the fault occurred on a
+   shared access.
 
 Note!  KVM_EXIT_MEMORY_FAULT is unique among all KVM exit reasons in that it
 accompanies a return code of '-1', not '0'!  errno will always be set to EFAULT
@@ -8624,6 +8713,24 @@ The chunk size needs to be a valid block size. The list of acceptable
 block sizes is exposed in KVM_CAP_ARM_SUPPORTED_BLOCK_SIZES as a
 64-bit bitmap (each bit describing a block size). The default value is
 0, to disable the eager page splitting.
+
+8.41 KVM_CAP_VM_TYPES
+---------------------
+
+:Capability: KVM_CAP_MEMORY_ATTRIBUTES
+:Architectures: x86
+:Type: system ioctl
+
+This capability returns a bitmap of support VM types.  The 1-setting of bit @n
+means the VM type with value @n is supported.  Possible values of @n are::
+
+  #define KVM_X86_DEFAULT_VM	0
+  #define KVM_X86_SW_PROTECTED_VM	1
+
+Note, KVM_X86_SW_PROTECTED_VM is currently only for development and testing.
+Do not use KVM_X86_SW_PROTECTED_VM for "real" VMs, and especially not in
+production.  The behavior and effective ABI for software-protected VMs is
+unstable.
 
 9. Known KVM API problems
 =========================

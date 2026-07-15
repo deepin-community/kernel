@@ -940,7 +940,7 @@ static int do_dentry_open(struct file *f,
 		error = get_write_access(inode);
 		if (unlikely(error))
 			goto cleanup_file;
-		error = __mnt_want_write(f->f_path.mnt);
+		error = mnt_get_write_access(f->f_path.mnt);
 		if (unlikely(error)) {
 			put_write_access(inode);
 			goto cleanup_file;
@@ -1220,18 +1220,19 @@ EXPORT_SYMBOL_GPL(kernel_file_open);
  * the backing inode on the underlying filesystem, which can be
  * retrieved using backing_file_real_path().
  */
-struct file *backing_file_open(const struct path *path, int flags,
+struct file *backing_file_open(const struct file *user_file, int flags,
 			       const struct path *real_path,
 			       const struct cred *cred)
 {
+	const struct path *user_path = &user_file->f_path;
 	struct file *f;
 	int error;
 
-	f = alloc_empty_backing_file(flags, cred);
+	f = alloc_empty_backing_file(flags, cred, user_file);
 	if (IS_ERR(f))
 		return f;
 
-	f->f_path = *path;
+	f->f_path = *user_path;
 	path_get(real_path);
 	*backing_file_real_path(f) = *real_path;
 	error = do_dentry_open(f, d_inode(real_path->dentry), NULL);
@@ -1614,7 +1615,7 @@ SYSCALL_DEFINE1(close, unsigned int, fd)
 	int retval;
 	struct file *file;
 
-	file = close_fd_get_file(fd);
+	file = file_close_fd(fd);
 	if (!file)
 		return -EBADF;
 
