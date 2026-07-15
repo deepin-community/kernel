@@ -348,11 +348,16 @@ static void phytium_crtc_gamma_set(struct drm_crtc *crtc)
 	uint32_t active_line = 0, timeout = 500;
 	int i;
 
+	if (!state)
+		return;
+
 	if (state->gamma_lut) {
 		if (WARN((state->gamma_lut->length/sizeof(struct drm_color_lut) != GAMMA_INDEX_MAX),
 			"gamma size is not match\n"))
 			return;
 		lut = (struct drm_color_lut *)state->gamma_lut->data;
+		if (!lut)
+			return;
 
 		config = phytium_readl_reg(priv, group_offset, PHYTIUM_DC_FRAMEBUFFER_CONFIG);
 		if (config & FRAMEBUFFER_OUTPUT) {
@@ -360,6 +365,8 @@ static void phytium_crtc_gamma_set(struct drm_crtc *crtc)
 			uint32_t frame_time;
 			uint32_t value_a, value_b;
 
+			if (!mode)
+				return;
 			frame_time = mode->crtc_vtotal * mode->crtc_htotal / mode->crtc_clock;
 			value_b = (frame_time - 2) * mode->crtc_vtotal;
 			local_irq_save(flags);
