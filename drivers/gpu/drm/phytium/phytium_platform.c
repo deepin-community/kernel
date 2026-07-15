@@ -290,6 +290,14 @@ failed_platform_private_init:
 	return -1;
 }
 
+static void phytium_platform_shutdown(struct platform_device *pdev)
+{
+	struct drm_device *dev = dev_get_drvdata(&pdev->dev);
+	struct phytium_display_private *priv = dev->dev_private;
+
+	priv->display_shutdown(dev);
+}
+
 static int phytium_platform_remove(struct platform_device *pdev)
 {
 	struct drm_device *dev = dev_get_drvdata(&pdev->dev);
@@ -297,20 +305,13 @@ static int phytium_platform_remove(struct platform_device *pdev)
 
 	phytium_dp_hpd_irq_setup(dev, false);
 	cancel_work_sync(&priv->hotplug_work);
+	phytium_platform_shutdown(pdev);
 	drm_dev_unregister(dev);
 	phytium_platform_private_fini(pdev);
 	dev_set_drvdata(&pdev->dev, NULL);
 	drm_dev_put(dev);
 
 	return 0;
-}
-
-static void phytium_platform_shutdown(struct platform_device *pdev)
-{
-	struct drm_device *dev = dev_get_drvdata(&pdev->dev);
-	struct phytium_display_private *priv = dev->dev_private;
-
-	priv->display_shutdown(dev);
 }
 
 static int phytium_platform_pm_suspend(struct device *dev)
