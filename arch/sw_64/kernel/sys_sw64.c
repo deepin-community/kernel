@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 
 #include <linux/syscalls.h>
+#include <linux/rseq.h>
 
 #include <asm/fpu.h>
 #include <asm/syscall.h>
