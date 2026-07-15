@@ -11,6 +11,7 @@
 #ifndef _ASM_X86_FPU_API_H
 #define _ASM_X86_FPU_API_H
 #include <linux/bottom_half.h>
+#include <linux/thread_info.h>
 
 #include <asm/fpu/types.h>
 
