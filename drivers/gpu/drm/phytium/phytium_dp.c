@@ -20,6 +20,7 @@
 #include "pe220x_dp.h"
 #include "phytium_panel.h"
 #include "phytium_reg.h"
+#include "phytium_crtc.h"
 
 static void phytium_dp_aux_init(struct phytium_dp_device *phytium_dp);
 static void handle_plugged_change(struct phytium_dp_device *phytium_dp, bool plugged);
@@ -2177,6 +2178,99 @@ void phytium_dp_adjust_link_train_parameter(struct phytium_dp_device *phytium_dp
 		       phytium_dp->link_rate, phytium_dp->link_lane_count);
 }
 
+static void
+phytium_dp_modify_dc_hsync_time(struct phytium_dp_device *phytium_dp)
+{
+	struct drm_device *dev = NULL;
+	struct phytium_display_private *priv = NULL;
+	struct drm_connector *connector = NULL;
+	struct drm_crtc *crtc = NULL;
+	struct phytium_crtc *phytium_crtc = NULL;
+	struct drm_display_mode temp_mode = phytium_dp->mode;
+	int phys_pipe = 0, back_porch = 0, lines_add = 0;
+	int config = 0, fifo_value = 0;
+	uint32_t group_offset;
+
+	dev = phytium_dp->dev;
+	if (!dev) {
+		DRM_INFO("%s: dev is null\n", __func__);
+		return;
+	}
+
+	priv = dev->dev_private;
+	if (!priv) {
+		DRM_INFO("%s: priv is null\n", __func__);
+		return;
+	}
+
+	connector = &phytium_dp->connector;
+	if (!connector) {
+		DRM_INFO("%s: connector is null\n", __func__);
+		return;
+	}
+
+	crtc = connector->state->crtc;
+	if (!crtc)
+		return;
+
+	group_offset = priv->dp_reg_base[phytium_dp->port];
+	fifo_value = phytium_readl_reg(priv, group_offset, PHYTIUM_DP_DATA_CONTROL);
+	if (fifo_value != PHYTIUM_DP_DEFAULT_FIFO_VALUE) {
+		pr_info("fifo value changed,no hsync change\n");
+		return;
+	}
+
+
+	DRM_DEBUG_KMS("before modify hdisplay:%d,h_start:%d,h_end:%d,h_total:%d\n",
+				temp_mode.crtc_hdisplay, temp_mode.crtc_hsync_start,
+				temp_mode.crtc_hsync_end, temp_mode.crtc_htotal);
+
+
+	phytium_crtc = to_phytium_crtc(crtc);
+	phys_pipe = phytium_crtc->phys_pipe;
+	group_offset = priv->dc_reg_base[phys_pipe];
+	back_porch = temp_mode.crtc_htotal - temp_mode.crtc_hsync_end;
+	lines_add = phytium_dp->link_lane_count * HSYNC_LANE_COUNT_MULTI -
+			(temp_mode.crtc_hsync_end - temp_mode.crtc_hsync_start);
+
+	if (lines_add > 0) {
+		if (lines_add < back_porch) {
+			temp_mode.crtc_hsync_end += lines_add;
+		} else {
+			temp_mode.crtc_hsync_end += (back_porch - HSYNC_MIN_ADJ_OFFSET);
+			temp_mode.crtc_hsync_start -=
+				(lines_add - back_porch + HSYNC_MIN_ADJ_OFFSET);
+
+			if (temp_mode.crtc_hsync_start < temp_mode.crtc_hdisplay)
+				temp_mode.crtc_hsync_start =
+					temp_mode.crtc_hdisplay + HSYNC_MIN_ADJ_OFFSET;
+		}
+	} else {
+		if ((temp_mode.crtc_hsync_end + lines_add) > temp_mode.crtc_hsync_start) {
+			temp_mode.crtc_hsync_end += lines_add;
+		} else {
+			if ((temp_mode.crtc_hsync_end + lines_add) > temp_mode.crtc_hdisplay)
+				temp_mode.crtc_hsync_start = temp_mode.crtc_hsync_end + lines_add;
+			else
+				temp_mode.crtc_hsync_start =
+					temp_mode.crtc_hdisplay + HSYNC_MIN_ADJ_OFFSET;
+			temp_mode.crtc_hsync_end =
+				temp_mode.crtc_hsync_start + HSYNC_MIN_ADJ_OFFSET;
+		}
+	}
+
+	config = ((temp_mode.crtc_hsync_start & HSYNC_START_MASK) << HSYNC_START_SHIFT)
+			| ((temp_mode.crtc_hsync_end & HSYNC_END_MASK) << HSYNC_END_SHIFT)
+			| HSYNC_PULSE_ENABLED;
+	config |= (temp_mode.flags & DRM_MODE_FLAG_PHSYNC) ? 0 : HSYNC_NEGATIVE;
+	phytium_writel_reg(priv, config, group_offset, PHYTIUM_DC_HSYNC);
+
+	DRM_DEBUG_KMS("after modify hdisplay:%d,h_start:%d,h_end:%d,h_total:%d\n",
+			temp_mode.crtc_hdisplay, temp_mode.crtc_hsync_start,
+			temp_mode.crtc_hsync_end, temp_mode.crtc_htotal);
+
+}
+
 static void phytium_encoder_enable(struct drm_encoder *encoder)
 {
 	struct phytium_dp_device *phytium_dp = encoder_to_dp_device(encoder);
@@ -2197,6 +2291,9 @@ static void phytium_encoder_enable(struct drm_encoder *encoder)
 		ret = phytium_dp_start_link_train(phytium_dp);
 		mdelay(2);
 	}
+
+	if (!phytium_dp->is_edp)
+		phytium_dp_modify_dc_hsync_time(phytium_dp);
 
 	phytium_dp_hw_config_video(phytium_dp);
 	if (ret == 0) {
@@ -2246,12 +2343,6 @@ phytium_encoder_mode_valid(struct drm_encoder *encoder, const struct drm_display
 		(phytium_dp->native_mode.htotal == mode->htotal) &&
 		(phytium_dp->native_mode.vtotal == mode->vtotal))
 		return MODE_OK;
-
-	if ((mode->hdisplay == 1600) && (mode->vdisplay == 900))
-		return MODE_BAD_HVALUE;
-
-	if ((mode->hdisplay == 1024) && (mode->clock > 78000))
-		return MODE_BAD_HVALUE;
 
 	if ((mode->hdisplay < 640) || (mode->vdisplay < 480))
 		return MODE_BAD_HVALUE;
