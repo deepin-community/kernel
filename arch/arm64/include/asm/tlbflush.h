@@ -411,7 +411,7 @@ do {									\
 	while (__flush_pages > 0) {					\
 		if (!system_supports_tlb_range() ||			\
 		    __flush_pages == 1 ||				\
-		    (lpa2 && start != ALIGN(__flush_start, SZ_64K))) {		\
+		    (lpa2 && __flush_start != ALIGN(__flush_start, SZ_64K))) {	\
 			addr = __TLBI_VADDR(__flush_start, asid);		\
 			__tlbi_level(op, addr, tlb_level);		\
 			if (tlbi_user)					\
