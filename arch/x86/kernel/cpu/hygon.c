@@ -22,7 +22,8 @@
 
 #include "cpu.h"
 
-#define IBRS_FLUSH_RAS_BIT 56
+#define MSR_HYGON_BP_CFG_IBRS_RAS_FLUSH_LEGACY_BIT 56
+#define MSR_HYGON_BP_CFG_IBRS_RAS_FLUSH_BIT 60
 #define APICID_SOCKET_ID_BIT 6
 
 /*
@@ -317,9 +318,21 @@ static void cpu_vul_mitigation(void)
 	 * Automatically flush RAS upon protection level changes from low to high.
 	 * it's used as rsb mitigation instead of RSB filling.
 	 */
-	if ((boot_cpu_data.x86 == 0x18) &&
-		(boot_cpu_data.x86_model > 0x3)) {
-		msr_set_bit(MSR_ZEN4_BP_CFG, IBRS_FLUSH_RAS_BIT);
+	if ((boot_cpu_data.x86_vendor != X86_VENDOR_HYGON) ||
+		(boot_cpu_data.x86 != 0x18))
+		return;
+
+	switch (boot_cpu_data.x86_model) {
+	case 0x4 ... 0x6:
+	case 0xC:
+	case 0x10:
+		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_HYGON_BP_CFG_IBRS_RAS_FLUSH_LEGACY_BIT);
+		break;
+	case 0x7 ... 0x9:
+		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_HYGON_BP_CFG_IBRS_RAS_FLUSH_BIT);
+		break;
+	default:
+		return;
 	}
 }
 

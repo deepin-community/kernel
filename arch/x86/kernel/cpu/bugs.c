@@ -52,6 +52,7 @@ static void __init gds_select_mitigation(void);
 static void __init its_select_mitigation(void);
 static void __init tsa_select_mitigation(void);
 static void __init vmscape_select_mitigation(void);
+static bool ibpb_flush_all_check_set(void);
 
 /* The base value of the SPEC_CTRL MSR without task-specific bits set */
 u64 x86_spec_ctrl_base;
@@ -2614,8 +2615,6 @@ static int __init ibpb_brtype_cmdline(char *str)
 }
 early_param("ibpb_brtype", ibpb_brtype_cmdline);
 
-#define IBPB_FLUSH_ALL_BIT 55
-
 void x86_spec_ctrl_setup_ap(void)
 {
 	if (boot_cpu_has(X86_FEATURE_MSR_SPEC_CTRL))
@@ -2624,11 +2623,9 @@ void x86_spec_ctrl_setup_ap(void)
 	if (ssb_mode == SPEC_STORE_BYPASS_DISABLE)
 		x86_amd_ssb_disable();
 
-	if ((boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) &&
-		(boot_cpu_data.x86 == 0x18)) {
-		if ((boot_cpu_data.x86_model > 0x3) &&
-			(ibpb_brtype == IBPB_FLUSH_ALL))
-			msr_set_bit(MSR_ZEN4_BP_CFG, IBPB_FLUSH_ALL_BIT);
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) {
+		if (!ibpb_flush_all_check_set())
+			pr_info_once("Hygon: IBPB only flushes indirect branches\n");
 	}
 }
 
@@ -2817,27 +2814,41 @@ early_param("spec_rstack_overflow", srso_parse_cmdline);
 
 #define SRSO_NOTICE "WARNING: See https://kernel.org/doc/html/latest/admin-guide/hw-vuln/srso.html for mitigation options."
 
+#define MSR_HYGON_BP_CFG_IBPB_FLUSH_ALL_LEGACY_BIT 55
+#define MSR_HYGON_BP_CFG_IBPB_FLUSH_ALL_BIT 59
+
 /*
- * ibpb_can_flush_all() - set IBPB flush type according to the cmdline param
- *                      - and check whether IBPB can flush all branches
- * @return: true when IBPB can flush all types of branches and
- *          false when IBPB can flush only indirect branches.
+ * ibpb_flush_all_check_set() - Configure IBPB flush type based on kernel cmdline parameter
+ *                              Verify whether IBPB is capable of flushing all branches
+ *
+ * Return: false if IBPB only flushes indirect branches;
+ *         true if IBPB can flush all branch types, or other scenarios
  */
-bool ibpb_can_flush_all(void)
+static bool ibpb_flush_all_check_set(void)
 {
-	if ((boot_cpu_data.x86_vendor == X86_VENDOR_HYGON) &&
-		(boot_cpu_data.x86 == 0x18)) {
-		if (boot_cpu_data.x86_model <= 0x3) {
-			return true;
-		} else if (ibpb_brtype == IBPB_FLUSH_ALL) {
-			msr_set_bit(MSR_ZEN4_BP_CFG, IBPB_FLUSH_ALL_BIT);
-			return true;
-		}
-		return false;
+	if (boot_cpu_data.x86 != 0x18)
+		return true;
+
+	switch (boot_cpu_data.x86_model) {
+	case 0x4 ... 0x6:
+	case 0xC:
+	case 0x10:
+		if (ibpb_brtype != IBPB_FLUSH_ALL)
+			return false;
+
+		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_HYGON_BP_CFG_IBPB_FLUSH_ALL_LEGACY_BIT);
+		break;
+	case 0x7 ... 0x9:
+		if (ibpb_brtype != IBPB_FLUSH_ALL)
+			return false;
+
+		msr_set_bit(MSR_ZEN4_BP_CFG, MSR_HYGON_BP_CFG_IBPB_FLUSH_ALL_BIT);
+		break;
+	default:
+		return true;
 	}
 
-	pr_err("WARNING: this ibpb check is only used for HYGON.\n");
-	return false;
+	return true;
 }
 
 static void __init srso_select_mitigation(void)
@@ -2845,7 +2856,7 @@ static void __init srso_select_mitigation(void)
 	bool has_microcode = boot_cpu_has(X86_FEATURE_IBPB_BRTYPE);
 
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
-		has_microcode = ibpb_can_flush_all();
+		has_microcode = ibpb_flush_all_check_set();
 
 	if (!boot_cpu_has_bug(X86_BUG_SRSO) || cpu_mitigations_off())
 		goto pred_cmd;
@@ -2886,6 +2897,7 @@ static void __init srso_select_mitigation(void)
 			break;
 		}
 	}
+
 	switch (srso_cmd) {
 	case SRSO_CMD_OFF:
 		goto pred_cmd;
