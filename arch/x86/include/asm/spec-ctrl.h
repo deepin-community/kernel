@@ -96,6 +96,4 @@ extern void speculation_ctrl_update_current(void);
 
 extern bool itlb_multihit_kvm_mitigation;
 
-extern bool ibpb_can_flush_all(void);
-
 #endif
