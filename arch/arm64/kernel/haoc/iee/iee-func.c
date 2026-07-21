@@ -68,7 +68,7 @@ static void iee_may_split_pmd(pud_t *pudp, unsigned long addr, unsigned int orde
 				pgprot = __pgprot(pgprot_val(pgprot) | PTE_CONT);
 
 				entry = mk_pte(page + i, pgprot);
-				set_pte(ptep, entry);
+				__set_pte(ptep, entry);
 			}
 		}
 
@@ -125,21 +125,25 @@ void iee_set_logical_mem(unsigned long addr, unsigned int order, bool prot)
 		/* Protect addresses one by one on this pte table.*/
 		for (int i = 0; i < (1UL << order); i++) {
 			/* Clear continuous bits first. */
-			if (pte_val(*ptep) & PTE_CONT && !iee_support_cont_pte(addr, order)) {
+			if (pte_val(__ptep_get(ptep)) & PTE_CONT &&
+					!iee_support_cont_pte(addr, order)) {
 				pte_t *cont_ptep = pte_offset_kernel(pmdp, addr & CONT_PTE_MASK);
 
 				for (int j = 0; j < CONT_PTES; j++) {
-					set_pte(cont_ptep, __pte(pte_val(*cont_ptep) & ~PTE_CONT));
+					pte_t cont_pte = __ptep_get(cont_ptep);
+
+					__set_pte(cont_ptep,
+						  __pte(pte_val(cont_pte) & ~PTE_CONT));
 					cont_ptep++;
 				}
 			}
 
-			pte = READ_ONCE(*ptep);
+			pte = __ptep_get(ptep);
 			if (prot)
 				pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
 			else
 				pte = __pte(pte_val(pte) & ~PTE_RDONLY);
-			set_pte(ptep, pte);
+			__set_pte(ptep, pte);
 
 			ptep++;
 		}
@@ -186,14 +190,14 @@ void set_iee_address(unsigned long addr, unsigned int order, bool valid)
 				addr, end_addr);
 
 	for (int i = 0; i < (1UL << order); i++) {
-		pte_t pte = READ_ONCE(*ptep);
+		pte_t pte = __ptep_get(ptep);
 
 		if (valid)
 			pte = __pte(pte_val(pte) | PTE_VALID);
 		else
 			pte = __pte(pte_val(pte) & ~PTE_VALID);
 
-		set_pte(ptep, pte);
+		__set_pte(ptep, pte);
 		ptep++;
 	}
 }
@@ -219,12 +223,12 @@ static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
 	int i;
 
 	if (use_block_pmd) {
-		pmd_t pmd = __pmd(pte_val(READ_ONCE(*lm_ptep)));
+		pmd_t pmd = __pmd(pte_val(__ptep_get(lm_ptep)));
 
 		pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
 		WRITE_ONCE(*lm_ptep, __pte(pmd_val(pmd)));
 		for (i = 0; i < (1 << order); i++) {
-			pte_t pte = READ_ONCE(*iee_ptep);
+			pte_t pte = __ptep_get(iee_ptep);
 
 			pte = __pte(pte_val(pte) | PTE_VALID);
 			WRITE_ONCE(*iee_ptep, pte);
@@ -232,11 +236,11 @@ static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
 		}
 	} else {
 		for (i = 0; i < (1 << order); i++) {
-			pte_t pte = READ_ONCE(*lm_ptep);
+			pte_t pte = __ptep_get(lm_ptep);
 
 			pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
 			WRITE_ONCE(*lm_ptep, pte);
-			pte = READ_ONCE(*iee_ptep);
+			pte = __ptep_get(iee_ptep);
 			pte = __pte(pte_val(pte) | PTE_VALID);
 			WRITE_ONCE(*iee_ptep, pte);
 			lm_ptep++;
@@ -252,12 +256,12 @@ static void iee_unset_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order, 
 	int i;
 
 	if (use_block_pmd) {
-		pmd_t pmd = __pmd(pte_val(READ_ONCE(*lm_ptep)));
+		pmd_t pmd = __pmd(pte_val(__ptep_get(lm_ptep)));
 
 		pmd = __pmd(pmd_val(pmd) | PTE_DBM);
 		WRITE_ONCE(*lm_ptep, __pte(pmd_val(pmd)));
 		for (i = 0; i < (1 << order); i++) {
-			pte_t pte = READ_ONCE(*iee_ptep);
+			pte_t pte = __ptep_get(iee_ptep);
 
 			pte = __pte(pte_val(pte) & ~PTE_VALID);
 			WRITE_ONCE(*iee_ptep, pte);
@@ -265,11 +269,11 @@ static void iee_unset_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order, 
 		}
 	} else {
 		for (i = 0; i < (1 << order); i++) {
-			pte_t pte = READ_ONCE(*lm_ptep);
+			pte_t pte = __ptep_get(lm_ptep);
 
 			pte = __pte(pte_val(pte) | PTE_DBM);
 			WRITE_ONCE(*lm_ptep, pte);
-			pte = READ_ONCE(*iee_ptep);
+			pte = __ptep_get(iee_ptep);
 			pte = __pte(pte_val(pte) & ~PTE_VALID);
 			WRITE_ONCE(*iee_ptep, pte);
 			lm_ptep++;
@@ -306,14 +310,17 @@ void put_pages_into_iee_block(unsigned long addr, int order)
 		lm_ptep = pte_offset_kernel(pmdp, addr);
 
 	// Handling cont mapping.
-	if (((1 << order) < CONT_PTES) && (pte_val(*lm_ptep) & PTE_CONT)) {
+	if (((1 << order) < CONT_PTES) &&
+			(pte_val(__ptep_get(lm_ptep)) & PTE_CONT)) {
 		// The beginning of cont mapping.
 		int i;
 		pte_t *ptep = pte_offset_kernel(pmdp, addr & CONT_PTE_MASK);
 
 		if (order < CONFIG_ARM64_CONT_PTE_SHIFT) {
 			for (i = 0; i < CONT_PTES; i++) {
-				set_pte(ptep, __pte(pte_val(*ptep) & ~PTE_CONT));
+				pte_t pte = __ptep_get(ptep);
+
+				__set_pte(ptep, __pte(pte_val(pte) & ~PTE_CONT));
 				ptep++;
 			}
 		}
