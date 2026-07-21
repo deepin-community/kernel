@@ -30,7 +30,7 @@ void __init iee_prepare_init_task_token(void)
 		pud_t *pudp = pud_offset(p4dp, init_token_addr);
 		pmd_t *pmdp = pmd_offset(pudp, init_token_addr);
 		pte_t *ptep = pte_offset_kernel(pmdp, init_token_addr);
-		pte_t pte = READ_ONCE(*ptep);
+		pte_t pte = __ptep_get(ptep);
 
 		pte = __pte(((pte_val(pte) | PTE_VALID) & ~PTE_ADDR_MASK)
 					| __phys_to_pte_val(init_token_page));
@@ -42,7 +42,7 @@ void __init iee_prepare_init_task_token(void)
 		write_sysreg(read_sysreg(TCR_EL1) & ~(TCR_HPD1 | TCR_A1), tcr_el1);
 		isb();
 		#else
-		set_pte(ptep, pte);
+		__set_pte(ptep, pte);
 		#endif
 
 		init_token_addr += PAGE_SIZE;
@@ -83,7 +83,7 @@ static inline void iee_set_token(unsigned long token_addr, unsigned long token_p
 
 	/* map new pages to IEE addresses one by one or clear them. */
 	for (int i = 0; i < (1UL << order); i++) {
-		pte_t pte = READ_ONCE(*ptep);
+		pte_t pte = __ptep_get(ptep);
 
 		if (prot) {
 			/* rewrite physical address on pte. */
@@ -97,7 +97,7 @@ static inline void iee_set_token(unsigned long token_addr, unsigned long token_p
 			curr_addr += PAGE_SIZE;
 		}
 
-		set_pte(ptep, pte);
+		__set_pte(ptep, pte);
 		ptep++;
 	}
 
