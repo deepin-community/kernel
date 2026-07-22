@@ -290,6 +290,9 @@ static int sdf_probe(struct platform_device *pdev)
 	struct sdf_dev *sdf;
 	int msg_size, ret, ch;
 
+	if (!dev_get_drvdata(pdev->dev.parent))
+		return -ENODEV;
+
 	sdf = devm_kzalloc(&pdev->dev, sizeof(*sdf), GFP_KERNEL);
 	if (!sdf)
 		return -ENOMEM;
