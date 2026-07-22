@@ -2,56 +2,44 @@
 /* Copyright (c) 2025 Loongson Technology Corporation Limited. */
 
 #include <linux/device.h>
-#include <soc/loongson/se.h>
+#include <linux/mfd/loongson-se.h>
 #include <linux/platform_device.h>
 #include <linux/wait.h>
 
 #include "tpm.h"
 
-struct tpm_loongson_msg {
-	u32 cmd;
+struct tpm_loongson_cmd {
+	u32 cmd_id;
 	u32 data_off;
 	u32 data_len;
-	u32 info[5];
+	u32 pad[5];
 };
-
-struct tpm_loongson_dev {
-	struct lsse_ch *se_ch;
-	struct completion tpm_loongson_completion;
-};
-
-static void tpm_loongson_complete(struct lsse_ch *ch)
-{
-	struct tpm_loongson_dev *td = ch->priv;
-
-	complete(&td->tpm_loongson_completion);
-}
 
 static int tpm_loongson_recv(struct tpm_chip *chip, u8 *buf, size_t count)
 {
-	struct tpm_loongson_dev *td = dev_get_drvdata(&chip->dev);
-	struct tpm_loongson_msg *rmsg;
-	int sig;
+	struct loongson_se_engine *tpm_engine = dev_get_drvdata(&chip->dev);
+	struct tpm_loongson_cmd *cmd_ret = tpm_engine->command_ret;
 
-	sig = wait_for_completion_interruptible(&td->tpm_loongson_completion);
-	if (sig)
-		return sig;
+	if (cmd_ret->data_len > count)
+		return -EIO;
 
-	rmsg = td->se_ch->rmsg;
-	memcpy(buf, td->se_ch->data_buffer, rmsg->data_len);
+	memcpy(buf, tpm_engine->data_buffer, cmd_ret->data_len);
 
-	return rmsg->data_len;
+	return cmd_ret->data_len;
 }
 
 static int tpm_loongson_send(struct tpm_chip *chip, u8 *buf, size_t count)
 {
-	struct tpm_loongson_dev *td = dev_get_drvdata(&chip->dev);
-	struct tpm_loongson_msg *smsg = td->se_ch->smsg;
+	struct loongson_se_engine *tpm_engine = dev_get_drvdata(&chip->dev);
+	struct tpm_loongson_cmd *cmd = tpm_engine->command;
 
-	memcpy(td->se_ch->data_buffer, buf, count);
-	smsg->data_len = count;
+	if (count > tpm_engine->buffer_size)
+		return -E2BIG;
 
-	return se_send_ch_request(td->se_ch);
+	cmd->data_len = count;
+	memcpy(tpm_engine->data_buffer, buf, count);
+
+	return loongson_se_send_engine_cmd(tpm_engine);
 }
 
 static const struct tpm_class_ops tpm_loongson_ops = {
@@ -62,42 +50,35 @@ static const struct tpm_class_ops tpm_loongson_ops = {
 
 static int tpm_loongson_probe(struct platform_device *pdev)
 {
+	struct loongson_se_engine *tpm_engine;
 	struct device *dev = &pdev->dev;
-	struct tpm_loongson_msg *smsg;
-	struct tpm_loongson_dev *td;
+	struct tpm_loongson_cmd *cmd;
 	struct tpm_chip *chip;
 
-	td = devm_kzalloc(dev, sizeof(struct tpm_loongson_dev), GFP_KERNEL);
-	if (!td)
-		return -ENOMEM;
-
-	init_completion(&td->tpm_loongson_completion);
-	td->se_ch = se_init_ch(dev->parent, SE_CH_TPM, PAGE_SIZE,
-			       2 * sizeof(struct tpm_loongson_msg), td,
-			       tpm_loongson_complete);
-	if (!td->se_ch)
+	tpm_engine = loongson_se_init_engine(dev->parent, SE_ENGINE_TPM);
+	if (!tpm_engine)
 		return -ENODEV;
-	smsg = td->se_ch->smsg;
-	smsg->cmd = SE_CMD_TPM;
-	smsg->data_off = td->se_ch->data_buffer - td->se_ch->se->mem_base;
+	cmd = tpm_engine->command;
+	cmd->cmd_id = SE_CMD_TPM;
+	cmd->data_off = tpm_engine->buffer_off;
 
 	chip = tpmm_chip_alloc(dev, &tpm_loongson_ops);
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 	chip->flags = TPM_CHIP_FLAG_TPM2 | TPM_CHIP_FLAG_IRQ;
-	dev_set_drvdata(&chip->dev, td);
+	dev_set_drvdata(&chip->dev, tpm_engine);
 
 	return tpm_chip_register(chip);
 }
 
-static struct platform_driver tpm_loongson_driver = {
+static struct platform_driver tpm_loongson = {
 	.probe   = tpm_loongson_probe,
 	.driver  = {
-		.name  = "loongson-tpm",
+		.name  = "tpm_loongson",
 	},
 };
-module_platform_driver(tpm_loongson_driver);
+module_platform_driver(tpm_loongson);
 
-MODULE_ALIAS("platform:loongson-tpm");
+MODULE_ALIAS("platform:tpm_loongson");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Loongson TPM driver");
