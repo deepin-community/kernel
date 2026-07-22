@@ -26,6 +26,7 @@ properties:
       - loongson,ls2k0500-mmc
       - loongson,ls2k1000-mmc
       - loongson,ls2k2000-mmc
+      - loongson,ls2k_sdio_1.2
 
   reg:
     minItems: 1
