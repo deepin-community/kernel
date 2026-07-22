@@ -176,7 +176,7 @@ config TCG_IBMVTPM
 
 config TCG_LOONGSON
 	tristate "Loongson TPM Interface"
-	depends on LOONGSON_SE
+	depends on MFD_LOONGSON_SE
 	help
 	  If you want to make Loongson TPM support available, say Yes and
 	  it will be accessible from within Linux. To compile this

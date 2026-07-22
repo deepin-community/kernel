@@ -16,20 +16,17 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
-#include <soc/loongson/se.h>
+#include <linux/mfd/loongson-se.h>
 
+#define SE_CMD_SDF			0x700
 #define SE_SDF_BUFSIZE			(PAGE_SIZE * 2)
 #define SDF_OPENSESSION			(0x204)
 #define SDF_CLOSESESSION		(0x205)
 
 struct sdf_dev {
 	struct miscdevice miscdev;
-	struct lsse_ch *se_ch;
+	struct loongson_se_engine *se_ch;
 	struct mutex data_lock;
-	bool processing_cmd;
-
-	/* Synchronous CMD */
-	wait_queue_head_t wq;
 };
 
 struct se_sdf_msg {
@@ -65,63 +62,36 @@ struct sdf_file_pvt_data {
 	struct sdf_handle *ph;
 };
 
-static void sdf_complete(struct lsse_ch *ch)
+static int se_send_sdf_cmd(struct sdf_dev *se, int len)
 {
-	struct sdf_dev *se = (struct sdf_dev *)ch->priv;
+	struct se_sdf_msg *command = (struct se_sdf_msg *)se->se_ch->command;
 
-	se->processing_cmd = false;
-	wake_up(&se->wq);
-}
-
-static int se_send_sdf_cmd(struct sdf_dev *se, int len, int retry)
-{
-	struct se_sdf_msg *smsg = (struct se_sdf_msg *)se->se_ch->smsg;
-	int err;
-
-	spin_lock_irq(&se->se_ch->ch_lock);
-
-	smsg->cmd = SE_CMD_SDF;
+	command->cmd = SE_CMD_SDF;
 	/* One time one cmd */
-	smsg->data_off = se->se_ch->data_buffer - se->se_ch->se->mem_base;
-	smsg->data_len = len;
+	command->data_off = se->se_ch->buffer_off;
+	command->data_len = len;
 
-try_again:
-	if (!retry--)
-		goto out;
-
-	err = se_send_ch_request(se->se_ch);
-	if (err) {
-		udelay(5);
-		goto try_again;
-	}
-
-out:
-	spin_unlock_irq(&se->se_ch->ch_lock);
-
-	return err;
+	return loongson_se_send_engine_cmd(se->se_ch);
 }
 
 static int sdf_recvu(struct sdf_file_pvt_data *pvt, char __user *buf, int *se_ret)
 {
 	struct sdf_dev *se = pvt->se;
 	struct sdf_kernel_command *skc;
-	struct se_sdf_msg *rmsg;
+	struct se_sdf_msg *command_ret;
 	struct sdf_handle *ph;
 	int ret;
 
-	if (!wait_event_timeout(se->wq, !se->processing_cmd, HZ*10))
-		return -ETIME;
-
-	rmsg = (struct se_sdf_msg *)se->se_ch->rmsg;
-	if (rmsg->cmd != SE_CMD_SDF) {
+	command_ret = (struct se_sdf_msg *)se->se_ch->command_ret;
+	if (command_ret->cmd != SE_CMD_SDF) {
 		pr_err("se get wrong response\n");
 		return -EIO;
 	}
 
 	ret = copy_to_user((char __user *)buf,
-			   se->se_ch->data_buffer + rmsg->data_off, rmsg->data_len);
+			   se->se_ch->data_buffer + command_ret->data_off, command_ret->data_len);
 
-	skc = (struct sdf_kernel_command *)(se->se_ch->data_buffer + rmsg->data_off);
+	skc = (struct sdf_kernel_command *)(se->se_ch->data_buffer + command_ret->data_off);
 	*se_ret = skc->header.u.ret;
 	if (skc->header.command == SDF_OPENSESSION && !*se_ret) {
 		ph = kmalloc(sizeof(*ph), GFP_KERNEL);
@@ -165,10 +135,11 @@ static int sdf_sendu(struct sdf_file_pvt_data *pvt,
 	if (skc->header.command == SDF_CLOSESESSION)
 		ph = find_sdf_handle(skc->handle, pvt);
 
-	se->processing_cmd = true;
-	ret = se_send_sdf_cmd(se, count, 5);
+	ret = se_send_sdf_cmd(se, count);
 	if (ret) {
-		pr_err("se_send_sdf_cmd failed\n");
+		pr_debug("se_send_sdf_cmd failed u %d\n", ret);
+		udelay(LOONGSON_ENGINE_CMD_TIMEOUT_US);
+		reinit_completion(&se->se_ch->completion);
 		goto out_unlock;
 	}
 
@@ -206,19 +177,14 @@ static ssize_t sdf_write(struct file *filp, const char __user *buf,
 static int sdf_recvk(struct sdf_file_pvt_data *pvt, char *buf)
 {
 	struct sdf_dev *se = pvt->se;
-	struct se_sdf_msg *rmsg;
-	int time;
+	struct se_sdf_msg *command_ret;
 
-	time = wait_event_timeout(se->wq, !se->processing_cmd, HZ*10);
-	if (!time)
-		return -ETIME;
-
-	rmsg = (struct se_sdf_msg *)se->se_ch->rmsg;
-	if (rmsg->cmd != SE_CMD_SDF) {
+	command_ret = (struct se_sdf_msg *)se->se_ch->command_ret;
+	if (command_ret->cmd != SE_CMD_SDF) {
 		pr_err("se get wrong response\n");
 		return -EIO;
 	}
-	memcpy(buf, se->se_ch->data_buffer + rmsg->data_off, rmsg->data_len);
+	memcpy(buf, se->se_ch->data_buffer + command_ret->data_off, command_ret->data_len);
 
 	return 0;
 }
@@ -231,10 +197,11 @@ static int sdf_sendk(struct sdf_file_pvt_data *pvt, char *buf, size_t count)
 	mutex_lock(&se->data_lock);
 
 	memcpy(se->se_ch->data_buffer, buf, count);
-	se->processing_cmd = true;
-	ret = se_send_sdf_cmd(se, count, 5);
+	ret = se_send_sdf_cmd(se, count);
 	if (ret) {
-		pr_err("se_send_sdf_cmd failed\n");
+		pr_debug("se_send_sdf_cmd failed k %d\n", ret);
+		udelay(LOONGSON_ENGINE_CMD_TIMEOUT_US);
+		reinit_completion(&se->se_ch->completion);
 		goto out_unlock;
 	}
 
@@ -259,8 +226,8 @@ static int close_one_handle(struct sdf_file_pvt_data *pvt, struct sdf_handle *ph
 	skc->header.param_len[0] = sizeof(skc->handle);
 	/* close one session */
 	ret = sdf_sendk(pvt, (char *)&pvt->skc, sizeof(*skc));
-	if (skc->header.u.ret) {
-		pr_err("Auto Close Session failed, session handle: %llx, ret: %d\n",
+	if (skc->header.u.ret || ret) {
+		pr_debug("Auto Close Session failed, session handle: %llx, ret: %d\n",
 		       (u64)ph->handle, skc->header.u.ret);
 		return skc->header.u.ret;
 	}
@@ -327,15 +294,12 @@ static int sdf_probe(struct platform_device *pdev)
 	if (!sdf)
 		return -ENOMEM;
 	mutex_init(&sdf->data_lock);
-	init_waitqueue_head(&sdf->wq);
-	sdf->processing_cmd = false;
 	platform_set_drvdata(pdev, sdf);
 
 	if (device_property_read_u32(&pdev->dev, "channel", &ch))
 		return -ENODEV;
 	msg_size = 2 * sizeof(struct se_sdf_msg);
-	sdf->se_ch = se_init_ch(pdev->dev.parent, ch, SE_SDF_BUFSIZE,
-				msg_size, sdf, sdf_complete);
+	sdf->se_ch = loongson_se_init_engine(pdev->dev.parent, ch);
 
 	sdf->miscdev.minor = MISC_DYNAMIC_MINOR;
 	sdf->miscdev.name = "lsse_sdf";
@@ -352,7 +316,6 @@ static int sdf_remove(struct platform_device *pdev)
 	struct sdf_dev *sdf = platform_get_drvdata(pdev);
 
 	misc_deregister(&sdf->miscdev);
-	se_deinit_ch(sdf->se_ch);
 
 	return 0;
 }
