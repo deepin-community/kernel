@@ -120,7 +120,7 @@ static int loongson_sm4_do_one_request(struct crypto_engine *engine, void *areq)
 	struct loongson_skcipher_cmd *cmd;
 	int err = 0, skip = 0, copyed = 0;
 
-	if (req->iv)
+	if (rctx->op & LOONGSON_SKCIPHER_CBC)
 		memcpy(ctx->sm4_ctx + SM4_KEY_SIZE, req->iv, SM4_BLOCK_SIZE);
 
 	if (rctx->op == (LOONGSON_SKCIPHER_CBC | LOONGSON_SKCIPHER_DECRYPT))
