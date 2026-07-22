@@ -17,9 +17,12 @@
 #include <linux/scatterlist.h>
 
 #define LOONGSON_SM4_CTX_SIZE		64
+#define LOONGSON_SM4_ALIGN_SIZE		64
 
 #define LOONGSON_SKCIPHER_ENCRYPT	0
 #define LOONGSON_SKCIPHER_DECRYPT	1
+
+#define LOONGSON_SKCIPHER_CBC		0x2
 
 struct loongson_skcipher_dev_list {
 	struct mutex lock;
@@ -31,12 +34,12 @@ struct loongson_skcipher_dev {
 	struct loongson_se_engine *loongson_engine;
 	struct crypto_engine *crypto_engine;
 	struct list_head list;
-	u8 sm4_ctx[LOONGSON_SM4_CTX_SIZE];
 	u32 used;
 };
 
 struct loongson_skcipher_ctx {
 	struct loongson_skcipher_dev *sdev;
+	u8 sm4_ctx[LOONGSON_SM4_CTX_SIZE];
 };
 
 struct loongson_skcipher_reqctx {
@@ -52,7 +55,8 @@ struct loongson_skcipher_cmd {
 	u32 in_off;
 	u32 out_off;
 	u32 key_off;
-	u32 pad[3];
+	u32 iv_off;
+	u32 pad[2];
 };
 
 static struct loongson_skcipher_dev_list skcipher_devices = {
@@ -68,12 +72,12 @@ static int loongson_sm4_setkey(struct crypto_skcipher *tfm, const u8 *key,
 	if (keylen != SM4_KEY_SIZE)
 		return -EINVAL;
 
-	memcpy(ctx->sdev->sm4_ctx, key, keylen);
+	memcpy(ctx->sm4_ctx, key, keylen);
 
 	return 0;
 }
 
-static int loongson_sm4_encrypt(struct skcipher_request *req)
+static int loongson_sm4_enqueue(struct skcipher_request *req, int op)
 {
 	struct loongson_skcipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
 	struct loongson_skcipher_reqctx *rctx = skcipher_request_ctx(req);
@@ -81,22 +85,29 @@ static int loongson_sm4_encrypt(struct skcipher_request *req)
 	if (req->cryptlen % SM4_BLOCK_SIZE)
 		return -EINVAL;
 
-	rctx->op = LOONGSON_SKCIPHER_ENCRYPT;
+	rctx->op = op;
 
 	return crypto_transfer_skcipher_request_to_engine(ctx->sdev->crypto_engine, req);
 }
 
+static int loongson_sm4_encrypt(struct skcipher_request *req)
+{
+	return loongson_sm4_enqueue(req, LOONGSON_SKCIPHER_ENCRYPT);
+}
+
 static int loongson_sm4_decrypt(struct skcipher_request *req)
 {
-	struct loongson_skcipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
-	struct loongson_skcipher_reqctx *rctx = skcipher_request_ctx(req);
+	return loongson_sm4_enqueue(req, LOONGSON_SKCIPHER_DECRYPT);
+}
 
-	if (req->cryptlen % SM4_BLOCK_SIZE)
-		return -EINVAL;
+static int loongson_sm4_encrypt_cbc(struct skcipher_request *req)
+{
+	return loongson_sm4_enqueue(req, LOONGSON_SKCIPHER_ENCRYPT | LOONGSON_SKCIPHER_CBC);
+}
 
-	rctx->op = LOONGSON_SKCIPHER_DECRYPT;
-
-	return crypto_transfer_skcipher_request_to_engine(ctx->sdev->crypto_engine, req);
+static int loongson_sm4_decrypt_cbc(struct skcipher_request *req)
+{
+	return loongson_sm4_enqueue(req, LOONGSON_SKCIPHER_DECRYPT | LOONGSON_SKCIPHER_CBC);
 }
 
 static int loongson_sm4_do_one_request(struct crypto_engine *engine, void *areq)
@@ -107,9 +118,16 @@ static int loongson_sm4_do_one_request(struct crypto_engine *engine, void *areq)
 	void *dma_buff = ctx->sdev->loongson_engine->data_buffer + LOONGSON_SM4_CTX_SIZE;
 	u32 dma_buff_size = ctx->sdev->loongson_engine->buffer_size - LOONGSON_SM4_CTX_SIZE;
 	struct loongson_skcipher_cmd *cmd;
-	int err = 0, skip = 0, copyed;
+	int err = 0, skip = 0, copyed = 0;
 
-	memcpy(ctx->sdev->loongson_engine->data_buffer, ctx->sdev->sm4_ctx, LOONGSON_SM4_CTX_SIZE);
+	if (req->iv)
+		memcpy(ctx->sm4_ctx + SM4_KEY_SIZE, req->iv, SM4_BLOCK_SIZE);
+
+	if (rctx->op == (LOONGSON_SKCIPHER_CBC | LOONGSON_SKCIPHER_DECRYPT))
+		sg_pcopy_to_buffer(req->src, sg_nents(req->src), req->iv,
+				   SM4_BLOCK_SIZE, req->cryptlen - SM4_BLOCK_SIZE);
+
+	memcpy(ctx->sdev->loongson_engine->data_buffer, ctx->sm4_ctx, LOONGSON_SM4_CTX_SIZE);
 
 	while (skip < req->cryptlen) {
 		copyed = sg_pcopy_to_buffer(req->src, sg_nents(req->src),
@@ -117,7 +135,7 @@ static int loongson_sm4_do_one_request(struct crypto_engine *engine, void *areq)
 
 		cmd = ctx->sdev->loongson_engine->command;
 		cmd->cmd_id = SE_CMD_SKCIPHER | rctx->op;
-		cmd->u.len = ALIGN(copyed, LOONGSON_SM4_CTX_SIZE);
+		cmd->u.len = ALIGN(copyed, LOONGSON_SM4_ALIGN_SIZE);
 		err = loongson_se_send_engine_cmd(ctx->sdev->loongson_engine);
 		if (err)
 			break;
@@ -128,11 +146,13 @@ static int loongson_sm4_do_one_request(struct crypto_engine *engine, void *areq)
 			break;
 		}
 
-		sg_pcopy_from_buffer(req->dst, sg_nents(req->dst),
-				     dma_buff, min(dma_buff_size, req->cryptlen), skip);
+		sg_pcopy_from_buffer(req->dst, sg_nents(req->dst), dma_buff, copyed, skip);
 
 		skip += copyed;
 	}
+
+	if (rctx->op == (LOONGSON_SKCIPHER_CBC | LOONGSON_SKCIPHER_ENCRYPT))
+		memcpy(req->iv, dma_buff + copyed - SM4_BLOCK_SIZE, SM4_BLOCK_SIZE);
 
 	crypto_finalize_skcipher_request(ctx->sdev->crypto_engine, req, err);
 
@@ -170,26 +190,50 @@ static void loongson_skcipher_exit(struct crypto_tfm *tfm)
 	mutex_unlock(&skcipher_devices.lock);
 }
 
-static struct skcipher_engine_alg loongson_sm4 = {
-	.base = {
-		.min_keysize	= SM4_KEY_SIZE,
-		.max_keysize	= SM4_KEY_SIZE,
-		.setkey		= loongson_sm4_setkey,
-		.encrypt	= loongson_sm4_encrypt,
-		.decrypt	= loongson_sm4_decrypt,
+static struct skcipher_engine_alg loongson_sm4[] = {
+	{
 		.base = {
-			.cra_name = "ecb(sm4)",
-			.cra_driver_name = "loongson-ecb(sm4)",
-			.cra_priority = 300,
-			.cra_flags = CRYPTO_ALG_ASYNC,
-			.cra_blocksize = SM4_BLOCK_SIZE,
-			.cra_ctxsize = sizeof(struct loongson_skcipher_ctx),
-			.cra_module = THIS_MODULE,
-			.cra_init = loongson_skcipher_init,
-			.cra_exit = loongson_skcipher_exit,
+			.min_keysize	= SM4_KEY_SIZE,
+			.max_keysize	= SM4_KEY_SIZE,
+			.setkey		= loongson_sm4_setkey,
+			.encrypt	= loongson_sm4_encrypt,
+			.decrypt	= loongson_sm4_decrypt,
+			.base = {
+				.cra_name = "ecb(sm4)",
+				.cra_driver_name = "loongson-ecb(sm4)",
+				.cra_priority = 300,
+				.cra_flags = CRYPTO_ALG_ASYNC,
+				.cra_blocksize = SM4_BLOCK_SIZE,
+				.cra_ctxsize = sizeof(struct loongson_skcipher_ctx),
+				.cra_module = THIS_MODULE,
+				.cra_init = loongson_skcipher_init,
+				.cra_exit = loongson_skcipher_exit,
+			},
 		},
+		.op.do_one_request = loongson_sm4_do_one_request,
 	},
-	.op.do_one_request = loongson_sm4_do_one_request,
+	{
+		.base = {
+			.min_keysize	= SM4_KEY_SIZE,
+			.max_keysize	= SM4_KEY_SIZE,
+			.ivsize		= SM4_BLOCK_SIZE,
+			.setkey		= loongson_sm4_setkey,
+			.encrypt	= loongson_sm4_encrypt_cbc,
+			.decrypt	= loongson_sm4_decrypt_cbc,
+			.base = {
+				.cra_name = "cbc(sm4)",
+				.cra_driver_name = "loongson-cbc(sm4)",
+				.cra_priority = 300,
+				.cra_flags = CRYPTO_ALG_ASYNC,
+				.cra_blocksize = SM4_BLOCK_SIZE,
+				.cra_ctxsize = sizeof(struct loongson_skcipher_ctx),
+				.cra_module = THIS_MODULE,
+				.cra_init = loongson_skcipher_init,
+				.cra_exit = loongson_skcipher_exit,
+			},
+		},
+		.op.do_one_request = loongson_sm4_do_one_request,
+	},
 };
 
 static int loongson_skcipher_probe(struct platform_device *pdev)
@@ -208,6 +252,7 @@ static int loongson_skcipher_probe(struct platform_device *pdev)
 
 	cmd = sdev->loongson_engine->command;
 	cmd->key_off = sdev->loongson_engine->buffer_off;
+	cmd->iv_off = sdev->loongson_engine->buffer_off + SM4_KEY_SIZE;
 	cmd->in_off = sdev->loongson_engine->buffer_off + LOONGSON_SM4_CTX_SIZE;
 	cmd->out_off = cmd->in_off;
 
@@ -220,7 +265,7 @@ static int loongson_skcipher_probe(struct platform_device *pdev)
 		list_add_tail(&sdev->list, &skcipher_devices.list);
 		mutex_unlock(&skcipher_devices.lock);
 
-		ret = crypto_engine_register_skcipher(&loongson_sm4);
+		ret = crypto_engine_register_skciphers(loongson_sm4, ARRAY_SIZE(loongson_sm4));
 		if (ret)
 			dev_err(&pdev->dev, "failed to register crypto(%d)\n", ret);
 
