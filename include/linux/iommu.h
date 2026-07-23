@@ -418,9 +418,8 @@ struct iommu_ops {
 	unsigned long pgsize_bitmap;
 	struct module *owner;
 	struct iommu_domain *identity_domain;
-	struct iommu_domain *default_domain;
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, struct iommu_domain *default_domain)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
