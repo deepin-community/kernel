@@ -364,7 +364,7 @@ struct bpf_jmp_history_entry {
 	/* additional registers that need precision tracking when this
 	 * jump is backtracked, vector of six 10-bit records
 	 */
-	u64 linked_regs;
+	DEEPIN_KABI_EXTEND(u64 linked_regs)
 };
 
 /* Maximum number of register states that can exist at once */
