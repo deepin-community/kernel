@@ -191,7 +191,7 @@ static int loongson_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
 static int loongson_gpio_init(struct device *dev, struct loongson_gpio_chip *lgpio,
 			      void __iomem *reg_base)
 {
-	u32 ngpios;
+	u32 ngpios = 0;
 	u32 gpio_base;
 	int rval;
 
@@ -202,7 +202,9 @@ static int loongson_gpio_init(struct device *dev, struct loongson_gpio_chip *lgp
 	lgpio->chip.direction_output = loongson_gpio_direction_output;
 	lgpio->chip.set = loongson_gpio_set;
 	lgpio->chip.parent = dev;
-	device_property_read_u32(dev, "gpio_base", &gpio_base);
+	rval = device_property_read_u32(dev, "gpio_base", &gpio_base);
+	if (rval)
+		gpio_base = -1;
 	if (!gpio_base)
 		gpio_base = -1;
 	lgpio->chip.base = gpio_base;
