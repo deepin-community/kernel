@@ -750,16 +750,15 @@ static int __init add_legacy_isa_io(struct fwnode_handle *fwnode, unsigned long 
 #define ISA_PHY_IOBASE  LOONGSON_LIO_BASE
 static int __init acpi_register_legacy_isa_io(void)
 {
-	struct fwnode_handle *fwnode = NULL;
+	struct fwnode_handle *fwnode;
 	u64 cpu_addr;
 	if (!acpi_disabled) {
-		cpu_addr = ISA_PHY_IOBASE;
-		fwnode = kzalloc(sizeof(*fwnode), GFP_ATOMIC);
+			cpu_addr = ISA_PHY_IOBASE;
+			fwnode = kzalloc(sizeof(*fwnode), GFP_ATOMIC);
 	}
 
 	if (fwnode)
-		add_legacy_isa_io(fwnode, cpu_addr);
-
+			add_legacy_isa_io(fwnode, cpu_addr);
 	return 0;
 }
 arch_initcall(acpi_register_legacy_isa_io);
