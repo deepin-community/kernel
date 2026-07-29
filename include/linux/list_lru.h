@@ -82,7 +82,7 @@ int memcg_list_lru_alloc(struct mem_cgroup *memcg, struct list_lru *lru,
 void memcg_reparent_list_lrus(struct mem_cgroup *memcg, struct mem_cgroup *parent);
 
 /**
- * list_lru_add: add an element to the lru list's tail
+ * __list_lru_add: add an element to the lru list's tail
  * @lru: the lru pointer
  * @item: the item to be added.
  * @nid: the node id of the sublist to add the item to.
@@ -99,8 +99,9 @@ void memcg_reparent_list_lrus(struct mem_cgroup *memcg, struct mem_cgroup *paren
  *
  * Return: true if the list was updated, false otherwise
  */
-bool list_lru_add(struct list_lru *lru, struct list_head *item, int nid,
+bool __list_lru_add(struct list_lru *lru, struct list_head *item, int nid,
 		    struct mem_cgroup *memcg);
+bool list_lru_add(struct list_lru *lru, struct list_head *item);
 
 /**
  * list_lru_add_obj: add an element to the lru list's tail
@@ -116,7 +117,7 @@ bool list_lru_add(struct list_lru *lru, struct list_head *item, int nid,
 bool list_lru_add_obj(struct list_lru *lru, struct list_head *item);
 
 /**
- * list_lru_del: delete an element from the lru list
+ * __list_lru_del: delete an element from the lru list
  * @lru: the lru pointer
  * @item: the item to be deleted.
  * @nid: the node id of the sublist to delete the item from.
@@ -128,8 +129,9 @@ bool list_lru_add_obj(struct list_lru *lru, struct list_head *item);
  *
  * Return: true if the list was updated, false otherwise
  */
-bool list_lru_del(struct list_lru *lru, struct list_head *item, int nid,
+bool __list_lru_del(struct list_lru *lru, struct list_head *item, int nid,
 		    struct mem_cgroup *memcg);
+bool list_lru_del(struct list_lru *lru, struct list_head *item);
 
 /**
  * list_lru_del_obj: delete an element from the lru list
