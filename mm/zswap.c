@@ -364,7 +364,7 @@ static void zswap_lru_add(struct list_lru *list_lru, struct zswap_entry *entry)
 	rcu_read_lock();
 	memcg = mem_cgroup_from_entry(entry);
 	/* will always succeed */
-	list_lru_add(list_lru, &entry->lru, nid, memcg);
+	__list_lru_add(list_lru, &entry->lru, nid, memcg);
 	rcu_read_unlock();
 }
 
@@ -376,7 +376,7 @@ static void zswap_lru_del(struct list_lru *list_lru, struct zswap_entry *entry)
 	rcu_read_lock();
 	memcg = mem_cgroup_from_entry(entry);
 	/* will always succeed */
-	list_lru_del(list_lru, &entry->lru, nid, memcg);
+	__list_lru_del(list_lru, &entry->lru, nid, memcg);
 	rcu_read_unlock();
 }
 
