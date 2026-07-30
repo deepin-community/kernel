@@ -176,7 +176,7 @@ void zx_apei_mce_report_zdi_error(struct cper_sec_proc_generic *zdi_err)
 	mce_setup(&m);
 	m.misc = 0;
 	m.misc |= (zdi_err->requestor_id & 0xff) << 19;
-	m.misc |= ((zdi_err->requestor_id & 0xff00) >> 8) >> 24;
+	m.misc |= ((zdi_err->requestor_id & 0xff00) >> 8) << 24;
 	m.bank = 5;
 	switch (zdi_err->responder_id) {
 	case 2:
