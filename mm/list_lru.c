@@ -213,8 +213,7 @@ EXPORT_SYMBOL_GPL(list_lru_isolate_move);
 void list_lru_putback(struct list_lru *lru, struct list_head *item, int nid,
 		      struct mem_cgroup *memcg)
 {
-	struct list_lru_one *list =
-		list_lru_from_memcg_idx(lru, nid, memcg_kmem_id(memcg));
+	struct list_lru_one *list = list_lru_from_memcg(lru, nid, memcg);
 
 	if (list_empty(item)) {
 		list_add_tail(item, &list->list);
