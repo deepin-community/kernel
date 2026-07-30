@@ -396,7 +396,7 @@ static __init void init_microcode_pages(void)
 
 	if (pgtable_l5_enabled()) {
 		microcode_p4d_page = (p4d_t *)__get_free_page(GFP_KERNEL_ACCOUNT);
-		if (!microcode_pud_page) {
+		if (!microcode_p4d_page) {
 			pr_err("Failed to allocate P4D page\n");
 			goto fail_pud;
 		}
