@@ -183,3 +183,51 @@ static void pci_fixup_dma_hang_final(struct pci_dev *pdev)
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_GPU2, pci_fixup_dma_hang_final);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_GPU3, pci_fixup_dma_hang_final);
+
+static void loongson_display_quirk(struct pci_dev *dev)
+{
+	u32 val;
+	u64 mask, size;
+	u64 max_size = 0;
+	int i, num = 0;
+	struct pci_bus *bus = dev->bus;
+
+	/* return if HT not exist */
+	if (cpu_pabits < 47)
+		return;
+
+	if (!dev->bus->number) {
+		if (!(dev->vendor == PCI_VENDOR_ID_LOONGSON &&
+		      (dev->device == 0x7a15 || dev->device == 0x7a25)))
+			return;
+	} else {
+		while (!pci_is_root_bus(bus->parent))
+			bus = bus->parent;
+
+		/* ensure slot is 7a2000 */
+		if (bus->self->vendor != PCI_VENDOR_ID_LOONGSON ||
+		    bus->self->device < 0x7a39)
+			return;
+	}
+
+	max_size = 0;
+	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
+		if (dev->resource[i].flags & IORESOURCE_MEM) {
+			size = dev->resource[i].end - dev->resource[i].start;
+			if (size > max_size) {
+				max_size = size;
+				num = i;
+			}
+		}
+	}
+
+	mask = ~(dev->resource[num].end - dev->resource[num].start);
+	val = (dev->resource[num].start >> (24 - 16)) |
+	      ((mask >> 24) & 0xffff);
+	writel(val, (void *)TO_UNCACHE(0xefdfb000174));
+	writel(0x80000000, (void *)TO_UNCACHE(0xefdfb000170));
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_GPU1, loongson_display_quirk);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_GPU2, loongson_display_quirk);
+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
+			      PCI_BASE_CLASS_DISPLAY, 16, loongson_display_quirk);
