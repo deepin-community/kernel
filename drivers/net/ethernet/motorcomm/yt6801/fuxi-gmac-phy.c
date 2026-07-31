@@ -314,8 +314,10 @@ static void fxgmac_phy_link_poll(struct timer_list *t)
 
 int fxgmac_phy_timer_init(struct fxgmac_pdata *pdata)
 {
-	init_timer_key(&pdata->expansion.phy_poll_tm, NULL, 0,
-		       "fuxi_phy_link_update_timer", NULL);
+	static struct lock_class_key __key;
+
+	init_timer_key(&pdata->expansion.phy_poll_tm, fxgmac_phy_link_poll, 0,
+		       "fuxi_phy_link_update_timer", &__key);
 
 	pdata->expansion.phy_poll_tm.expires = jiffies + HZ / 2;
 	pdata->expansion.phy_poll_tm.function = (void *)(fxgmac_phy_link_poll);
