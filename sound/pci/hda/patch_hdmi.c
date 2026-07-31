@@ -4514,11 +4514,38 @@ static int patch_gf_hdmi(struct hda_codec *codec)
 	return 0;
 }
 
+static int patch_lshdmi(struct hda_codec *codec)
+{
+	int ret;
+	struct hdmi_spec_per_cvt *per_cvt;
+	int cvt_idx;
+	struct hdmi_spec *spec;
+
+	ret = patch_generic_hdmi(codec);
+	if (ret < 0)
+		return ret;
+
+	spec = codec->spec;
+	for (cvt_idx = 0; cvt_idx < spec->num_cvts; cvt_idx++) {
+		per_cvt = get_cvt(spec, cvt_idx);
+		per_cvt->rates &= ~SNDRV_PCM_RATE_44100;
+	}
+
+	/*
+	 * Due to a hardware defect, for PCI devices with a reversion ID
+	 * of 2, the pin sense status must be determined via the ELD.
+	 */
+	if (codec->bus && codec->bus->pci->revision == 0x2)
+		codec->eld_jack_detect = 1;
+
+	return 0;
+}
+
 /*
  * patch entries
  */
 static const struct hda_device_id snd_hda_id_hdmi[] = {
-HDA_CODEC_ENTRY(0x00147a47, "Loongson HDMI",	patch_generic_hdmi),
+HDA_CODEC_ENTRY(0x00147a47, "Loongson HDMI",	patch_lshdmi),
 HDA_CODEC_ENTRY(0x1002793c, "RS600 HDMI",	patch_atihdmi),
 HDA_CODEC_ENTRY(0x10027919, "RS600 HDMI",	patch_atihdmi),
 HDA_CODEC_ENTRY(0x1002791a, "RS690/780 HDMI",	patch_atihdmi),
