@@ -3590,7 +3590,9 @@ complete_cmd_fusion(struct megasas_instance *instance, u32 MSIxIndex,
 
 	while (d_val.u.low != cpu_to_le32(UINT_MAX) &&
 	       d_val.u.high != cpu_to_le32(UINT_MAX)) {
-
+#ifdef CONFIG_LOONGARCH
+		__smp_rmb();
+#endif
 		smid = le16_to_cpu(reply_desc->SMID);
 #ifdef CONFIG_SUBARCH_C3B
 		if (smid == 0xffff) {
