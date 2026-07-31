@@ -110,6 +110,7 @@ static int txgbe_add_hwmon_attr(struct txgbe_adapter *adapter, int type)
 	txgbe_attr->dev_attr.attr.mode = 0444;
 	txgbe_attr->dev_attr.attr.name = txgbe_attr->name;
 
+	sysfs_attr_init(&txgbe_attr->dev_attr.attr);
 	rc = device_create_file(pci_dev_to_dev(adapter->pdev),
 				&txgbe_attr->dev_attr);
 
