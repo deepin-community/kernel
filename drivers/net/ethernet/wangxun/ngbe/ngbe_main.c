@@ -6904,6 +6904,7 @@ static int ngbe_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	}
 }
 
+#ifdef CONFIG_NET_POLL_CONTROLLER
 /* Polling 'interrupt' - used by things like netconsole to send skbs
  * without having to re-enable interrupts. It's not called while
  * the interrupt routine is executing.
@@ -6928,6 +6929,7 @@ static void ngbe_netpoll(struct net_device *netdev)
 		ngbe_intr(0, adapter);
 	}
 }
+#endif
 
 /**
  * ngbe_setup_tc - routine to configure net_device for multiple traffic
