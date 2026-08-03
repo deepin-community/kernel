@@ -319,6 +319,9 @@ static const struct ufs_dev_quirk ufs_fixups[] = {
 	  .model = "THGJFJT0E25BAIP",
 	  .quirk = UFS_DEVICE_QUIRK_NO_TIMESTAMP_SUPPORT },
 	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
+	  .model = "THGJFGT1E45BAILB",
+	  .quirk = UFS_DEVICE_QUIRK_PA_TACTIVATE },
+	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
 	  .model = "THGJFJT1E45BATP",
 	  .quirk = UFS_DEVICE_QUIRK_NO_TIMESTAMP_SUPPORT },
 	{}
