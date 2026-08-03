@@ -1419,8 +1419,9 @@ static inline int pci_rebar_bytes_to_size(u64 bytes)
 }
 
 u32 pci_rebar_get_possible_sizes(struct pci_dev *pdev, int bar);
-int __must_check pci_resize_resource(struct pci_dev *dev, int i, int size,
-				     int exclude_bars);
+int __must_check pci_resize_resource(struct pci_dev *dev, int i, int size);
+int __must_check __pci_resize_resource(struct pci_dev *dev, int i, int size,
+				       int exclude_bars);
 int pci_select_bars(struct pci_dev *dev, unsigned long flags);
 bool pci_device_is_present(struct pci_dev *pdev);
 void pci_ignore_hotplug(struct pci_dev *dev);
