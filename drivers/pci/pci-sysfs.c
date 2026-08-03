@@ -1487,7 +1487,7 @@ static ssize_t resource##n##_resize_store(struct device *dev,		\
 									\
 	pci_remove_resource_files(pdev);				\
 									\
-	ret = pci_resize_resource(pdev, n, size, 0);			\
+	ret = pci_resize_resource(pdev, n, size);			\
 									\
 	pci_assign_unassigned_bus_resources(pdev->bus);			\
 									\
