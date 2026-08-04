@@ -2657,7 +2657,7 @@ static int mpi_map_card(struct airo_info *ai, struct pci_dev *pci)
 }
 
 static const struct header_ops airo_header_ops = {
-	.parse = wll_header_parse,
+	.parse_v2 = wll_header_parse,
 };
 
 static const struct net_device_ops airo11_netdev_ops = {

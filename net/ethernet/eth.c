@@ -329,7 +329,7 @@ EXPORT_SYMBOL(eth_validate_addr);
 
 const struct header_ops eth_header_ops ____cacheline_aligned = {
 	.create		= eth_header,
-	.parse		= eth_header_parse,
+	.parse_v2		= eth_header_parse,
 	.cache		= eth_header_cache,
 	.cache_update	= eth_header_cache_update,
 	.parse_protocol	= eth_header_parse_protocol,

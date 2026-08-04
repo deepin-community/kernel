@@ -1502,8 +1502,10 @@ static int bond_header_parse(const struct sk_buff *skb,
 	slave = rcu_dereference(bond->curr_active_slave);
 	if (slave) {
 		slave_ops = READ_ONCE(slave->dev->header_ops);
-		if (slave_ops && slave_ops->parse)
-			ret = slave_ops->parse(skb, slave->dev, haddr);
+		if (slave_ops && slave_ops->parse_v2)
+			ret = slave_ops->parse_v2(skb, slave->dev, haddr);
+		else if (slave_ops && slave_ops->parse)
+ 			ret = slave_ops->parse(skb, haddr);
 	}
 	rcu_read_unlock();
 	return ret;
@@ -1511,7 +1513,7 @@ static int bond_header_parse(const struct sk_buff *skb,
 
 static const struct header_ops bond_header_ops = {
 	.create	= bond_header_create,
-	.parse	= bond_header_parse,
+	.parse_v2	= bond_header_parse,
 };
 
 static void bond_setup_by_slave(struct net_device *bond_dev,

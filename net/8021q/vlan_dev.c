@@ -512,7 +512,7 @@ static __be16 vlan_parse_protocol(const struct sk_buff *skb)
 
 static const struct header_ops vlan_header_ops = {
 	.create	 = vlan_dev_hard_header,
-	.parse	 = eth_header_parse,
+	.parse_v2	 = eth_header_parse,
 	.parse_protocol = vlan_parse_protocol,
 };
 
@@ -532,7 +532,7 @@ static int vlan_passthru_hard_header(struct sk_buff *skb, struct net_device *dev
 
 static const struct header_ops vlan_passthru_header_ops = {
 	.create	 = vlan_passthru_hard_header,
-	.parse	 = eth_header_parse,
+	.parse_v2	 = eth_header_parse,
 	.parse_protocol = vlan_parse_protocol,
 };
 
