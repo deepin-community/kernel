@@ -1961,12 +1961,25 @@ config DEEPIN_KABI_RESERVE
 	 kabi compatibility.
 
 config DEEPIN_KABI_SIZE_ALIGN_CHECKS
-	bool "Enables more stringent kabi checks in the macros"
+	bool "Enable compile-time size and alignment checks for kABI macros"
 	depends on DEEPIN_KABI_RESERVE
+	depends on !LOCKDEP && !PROVE_LOCKING && !DEBUG_SPINLOCK && !DEBUG_MUTEXES && !DEBUG_RWSEMS && !DEBUG_OBJECTS
+	default DEEPIN_KABI_RESERVE
 	help
-	  This option enables more stringent kabi checks. Those must
-	  be disabled in case of a debug build, because debug builds
-	  allow to change struct sizes.
+	  Enable the compile-time size and alignment assertions embedded
+	  in the DEEPIN_KABI_REPLACE, DEEPIN_KABI_EXTEND_WITH_SIZE and
+	  DEEPIN_KABI_EXCLUDE_WITH_SIZE macros.
+
+	  The assertions verify at build time that a field placed into
+	  reserved kABI space actually fits.  They assume the struct
+	  sizes of the production configuration; debugging options that
+	  grow structs (e.g. CONFIG_LOCKDEP, CONFIG_DEBUG_SPINLOCK)
+	  would make them fire spuriously, so this option is
+	  force-disabled whenever such a debugging option is selected.
+	  The debugging options themselves remain freely selectable.
+
+	  Say N if you want to build a kernel with debugging options that
+	  grow struct sizes.
 
 source "kernel/Kconfig.kexec"
 
