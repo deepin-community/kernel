@@ -1960,6 +1960,14 @@ config DEEPIN_KABI_RESERVE
 	 This option can be turned off for images that clearly do not require
 	 kabi compatibility.
 
+config DEEPIN_KABI_SIZE_ALIGN_CHECKS
+	bool "Enables more stringent kabi checks in the macros"
+	depends on DEEPIN_KABI_RESERVE
+	help
+	  This option enables more stringent kabi checks. Those must
+	  be disabled in case of a debug build, because debug builds
+	  allow to change struct sizes.
+
 source "kernel/Kconfig.kexec"
 
 endmenu		# General setup
