@@ -516,6 +516,7 @@ static void cgwb_free_rcu(struct rcu_head *rcu_head)
 			struct bdi_writeback, rcu);
 
 	percpu_ref_exit(&wb->refcnt);
+	kfree(wb->deepin);
 	kfree(wb);
 }
 
@@ -545,7 +546,7 @@ static void cgwb_release_workfn(struct work_struct *work)
 	wb_exit(wb);
 	bdi_put(bdi);
 	WARN_ON_ONCE(!list_empty(&wb->b_attached));
-	WARN_ON_ONCE(work_pending(&wb->switch_work));
+	WARN_ON_ONCE(work_pending(&wb->deepin->switch_work));
 	call_rcu(&wb->rcu, cgwb_free_rcu);
 }
 
@@ -611,6 +612,12 @@ static int cgwb_create(struct backing_dev_info *bdi,
 	if (ret)
 		goto err_free;
 
+	wb->deepin = kzalloc(sizeof(*wb->deepin), gfp);
+	if (!wb->deepin) {
+		ret = -ENOMEM;
+		goto err_wb_exit;
+	}
+
 	ret = percpu_ref_init(&wb->refcnt, cgwb_release, 0, gfp);
 	if (ret)
 		goto err_wb_exit;
@@ -622,8 +629,9 @@ static int cgwb_create(struct backing_dev_info *bdi,
 	wb->memcg_css = memcg_css;
 	wb->blkcg_css = blkcg_css;
 	INIT_LIST_HEAD(&wb->b_attached);
-	INIT_WORK(&wb->switch_work, inode_switch_wbs_work_fn);
-	init_llist_head(&wb->switch_wbs_ctxs);
+	wb->deepin->wb = wb;
+	INIT_WORK(&wb->deepin->switch_work, inode_switch_wbs_work_fn);
+	init_llist_head(&wb->deepin->switch_wbs_ctxs);
 	INIT_WORK(&wb->release_work, cgwb_release_workfn);
 	set_bit(WB_registered, &wb->state);
 	bdi_get(bdi);
@@ -664,6 +672,7 @@ err_ref_exit:
 	percpu_ref_exit(&wb->refcnt);
 err_wb_exit:
 	wb_exit(wb);
+	kfree(wb->deepin);
 err_free:
 	kfree(wb);
 out_put:
@@ -751,13 +760,20 @@ static int cgwb_bdi_init(struct backing_dev_info *bdi)
 	init_rwsem(&bdi->wb_switch_rwsem);
 
 	ret = wb_init(&bdi->wb, bdi, GFP_KERNEL);
-	if (!ret) {
-		bdi->wb.memcg_css = &root_mem_cgroup->css;
-		bdi->wb.blkcg_css = blkcg_root_css;
-		INIT_WORK(&bdi->wb.switch_work, inode_switch_wbs_work_fn);
-		init_llist_head(&bdi->wb.switch_wbs_ctxs);
+	if (ret)
+		return ret;
+
+	bdi->wb.deepin = kzalloc(sizeof(*bdi->wb.deepin), GFP_KERNEL);
+	if (!bdi->wb.deepin) {
+		wb_exit(&bdi->wb);
+		return -ENOMEM;
 	}
-	return ret;
+	bdi->wb.deepin->wb = &bdi->wb;
+	bdi->wb.memcg_css = &root_mem_cgroup->css;
+	bdi->wb.blkcg_css = blkcg_root_css;
+	INIT_WORK(&bdi->wb.deepin->switch_work, inode_switch_wbs_work_fn);
+	init_llist_head(&bdi->wb.deepin->switch_wbs_ctxs);
+	return 0;
 }
 
 static void cgwb_bdi_unregister(struct backing_dev_info *bdi)
@@ -1103,6 +1119,9 @@ static void release_bdi(struct kref *ref)
 	WARN_ON_ONCE(test_bit(WB_registered, &bdi->wb.state));
 	WARN_ON_ONCE(bdi->dev);
 	wb_exit(&bdi->wb);
+#ifdef CONFIG_CGROUP_WRITEBACK
+	kfree(bdi->wb.deepin);
+#endif
 	kfree(bdi);
 }
 
