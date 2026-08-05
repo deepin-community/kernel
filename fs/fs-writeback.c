@@ -530,12 +530,13 @@ relock:
 
 void inode_switch_wbs_work_fn(struct work_struct *work)
 {
-	struct bdi_writeback *new_wb = container_of(work, struct bdi_writeback,
-						    switch_work);
+	struct bdi_writeback_deepin *deepin =
+		container_of(work, struct bdi_writeback_deepin, switch_work);
+	struct bdi_writeback *new_wb = deepin->wb;
 	struct inode_switch_wbs_context *isw, *next_isw;
 	struct llist_node *list;
 
-	list = llist_del_all(&new_wb->switch_wbs_ctxs);
+	list = llist_del_all(&deepin->switch_wbs_ctxs);
 	/*
 	 * Nothing to do? That would be a problem as references held by isw
 	 * items protect wb from freeing...
@@ -594,8 +595,8 @@ static bool inode_prepare_wbs_switch(struct inode *inode,
 static void wb_queue_isw(struct bdi_writeback *wb,
 			 struct inode_switch_wbs_context *isw)
 {
-	if (llist_add(&isw->list, &wb->switch_wbs_ctxs))
-		queue_work(isw_wq, &wb->switch_work);
+	if (llist_add(&isw->list, &wb->deepin->switch_wbs_ctxs))
+		queue_work(isw_wq, &wb->deepin->switch_work);
 }
 
 /**

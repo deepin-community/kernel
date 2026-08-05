@@ -105,6 +105,39 @@ struct wb_completion {
  * Each bdi_writeback that is not embedded into the backing_dev_info must hold
  * a reference to the parent backing_dev_info.  See cgwb_create() for details.
  */
+
+/*
+ * deepin: the fields added by upstream commit ed5400f4b6ce ("writeback:
+ * Avoid contention on wb->list_lock when switching inodes") do not fit the
+ * space reserved in struct bdi_writeback when CONFIG_DEEPIN_KABI_RESERVE=y:
+ * struct work_struct carries kABI padding of its own there and is 48 bytes
+ * large, so the two fields need 56 bytes while only 48 were reserved.
+ * Move them into this separately allocated extension structure instead, so
+ * that the bdi_writeback layout stays unchanged.  Kernel-internal only;
+ * allocated in cgwb_create() and cgwb_bdi_init().
+ *
+ * On the choice of mechanism: this structure is vmlinux-internal only -
+ * it is allocated in cgwb_create() / cgwb_bdi_init() and accessed only
+ * from mm/backing-dev.c and fs/fs-writeback.c, all of which are always
+ * built into vmlinux (backing-dev.o and fs-writeback.o are obj-y, and
+ * CONFIG_CGROUP_WRITEBACK is a bool, never a module).  Since allocator
+ * and accessors are part of the same build, the size versioning of the
+ * DEEPIN_KABI_AUX_* mechanism buys nothing here, so a plain pointer
+ * consuming a single reserved slot is used instead of
+ * DEEPIN_KABI_AUX_PTR, which would consume two slots and require
+ * DEEPIN_KABI_AUX_SET_SIZE() wiring plus DEEPIN_KABI_AUX() guards at
+ * every access site.  The _deepin naming follows the AUX convention for
+ * recognizability only; this structure is not managed by the
+ * DEEPIN_KABI_AUX_* macros.
+ */
+struct bdi_writeback_deepin {
+	struct bdi_writeback *wb;	/* back-pointer to the base struct */
+	struct work_struct switch_work;	/* work used to perform inode switching
+					 * to this wb */
+	struct llist_head switch_wbs_ctxs; /* queued contexts for writeback
+					    * switching */
+};
+
 struct bdi_writeback {
 	struct backing_dev_info *bdi;	/* our parent bdi */
 
@@ -163,10 +196,14 @@ struct bdi_writeback {
 #endif
 
 #ifdef CONFIG_CGROUP_WRITEBACK
-	DEEPIN_KABI_USE(1, struct llist_head switch_wbs_ctxs)/* queued contexts for
-						 * writeback switching */
-	DEEPIN_KABI_USE(2, 3, 4, 5, 6, struct work_struct switch_work)	/* work used to perform inode switching
-					 * to this wb */
+	DEEPIN_KABI_USE(1, struct bdi_writeback_deepin *deepin)	/* writeback
+					 * switching extension, allocated in
+					 * cgwb_create() / cgwb_bdi_init() */
+	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_RESERVE(4)
+	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_RESERVE(6)
 #else
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
