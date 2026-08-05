@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
+# for deepin kABI work.  Local adaptations are marked with "deepin:".
+#
+
+usage_desc() {
+	sed 's/^\t//' <<EOF
+	Diffs the kernel ABI stablelist symtypes information and current symtypes
+	for architecture ARCH.
+EOF
+}
+
+# Called whenever a new symbol checksum is obtained
+# cb_checksum ARCH SYMBOL CHECKSUM FILE SYMVERSIONS_FILE SYMTYPES_FILE
+cb_checksum() {
+	local arch="$1"
+	local symbol="$2"
+	local file="$4"
+	local symtypes="$6"
+
+	if [ ! -e $REDHAT/kabi/kabi-module/kabi_$arch/.$symbol ]; then
+		echo "Reference file for $symbol on $arch not found."
+		return
+	fi
+
+        $REDHAT/kabi/symtypes diff -s $symbol \
+		$REDHAT/kabi/kabi-module/kabi_$arch/.$symbol $symtypes
+
+	symref=${file:0:-1}symref
+	rm -f $symref || :
+	ln -s $(realpath $REDHAT/kabi/kabi-module/kabi_$arch/.$symbol) $symref
+	make -s ${MAKE_ARGS[@]} $symtypes 2>&1 | grep "warning: $symbol:" || :
+	rm -f $symref || :
+}
+
+# Called whenever the generate command finished successfully
+cb_ready() {
+	:
+}
+
+cd "$(git rev-parse --show-toplevel)"
+# deepin: default to the scripts/deepin/ directory instead of redhat/
+REDHAT=${REDHAT:-$(pwd)/scripts/deepin/}
+
+# Generate new symbol checksums and symvers files
+. $REDHAT/kabi/symtype-generate

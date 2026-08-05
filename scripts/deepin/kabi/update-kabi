@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+#
+# Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
+# for deepin kABI work.  Local adaptations are marked with "deepin:".
+#
+
+usage_desc() {
+	sed 's/^\t//' <<EOF
+	Updates the kernel ABI stablelist checksum information and symtypes
+	for architecture ARCH.
+
+	The file updates stablelist definition in \$REDHAT/kabi/*. It does not
+	stage the newly updated stablelist.
+EOF
+}
+
+emit_line_from_Module_symvers() {
+	[ ! -e Module.symvers ] && return 1
+	grep -P "\t$2\t" Module.symvers
+}
+
+emit_line() {
+	local checksum="$1"
+	local symbol="$2"
+	local obj="${3:-unknown}"
+	local macro="${4:-UNKNOWN_MACRO}"
+	local namespace="${5:-}"
+
+	if [ -z "${namespace:-}" ]; then
+		printf "%s\t%s\t%s\t%s\n" $checksum $symbol $obj $macro
+		return
+	fi
+
+	printf "%s\t%s\t%s\t%s\t%s\n" $checksum $symbol $obj $macro $namespace
+}
+
+cb_checksum_new() {
+	local arch="$1"
+	local symbol="$2"
+	local checksum="$3"
+	local file="$4"
+	local symversions="$5"
+	local symtypes="$6"
+	local stable_entry=$REDHAT/kabi/kabi-module/kabi_$arch/$symbol
+	local prev_csum="NULL"
+
+	{
+		printf "#0-\n"
+		printf "#I:0\n"
+		printf "#P:$file\n"
+		if ! emit_line_from_Module_symvers $arch $symbol; then
+			[ ${TEST:-0} -eq 0 ] && return 1
+			emit_line $checksum $symbol null null
+		fi
+	} > $stable_entry
+
+	echo2 "Added symbol \`$sym' for architecture \`$arch' ($checksum)."
+	emit_line_from_Module_symvers $arch $symbol || :
+}
+
+cb_checksum_update() {
+	local arch="$1"
+	local symbol="$2"
+	local checksum="$3"
+	local file="$4"
+	local symversions="$5"
+	local symtypes="$6"
+
+	local prev_index="$7"
+	local prev_csum="$8"
+	#prev_symbol $9 unused
+	local prev_obj="${10}"
+	local prev_macro="${11}"
+	local prev_ns="${12:-}"
+
+	local stable_entry=$REDHAT/kabi/kabi-module/kabi_$arch/$symbol
+	local index=$(grep -v '^#' $stable_entry | wc -l)
+
+	if [ "$prev_csum" = "$checksum" ]; then
+		echo2 "Symbol checksum of \`$sym' for architecture \`$arch' unchanged."
+		return
+	fi
+
+	sed -i -e "s#\#P:.*#\#P:$file#" -e "s/#I:[0-9]\+/#I:$index/" \
+		$stable_entry
+	if ! emit_line_from_Module_symvers $arch $symbol; then
+		emit_line $checksum $symbol $prev_obj $prev_macro $prev_ns
+	fi >> $stable_entry
+
+	echo2 "Updated symbol \`$sym' for architecture \`$arch'" \
+	      "($prev_csum -> $checksum)."
+}
+
+# Called whenever a new symbol checksum is obtained
+# cb_checksum ARCH SYMBOL CHECKSUM FILE SYMVERSIONS_FILE SYMTYPES_FILE
+cb_checksum() {
+	local arch="$1"
+	local symbol="$2"
+	local checksum="$3"
+	local symversions="$5"
+	local symtypes="$6"
+	local stable_entry=$REDHAT/kabi/kabi-module/kabi_$arch/$symbol
+
+	cp $symtypes $REDHAT/kabi/kabi-module/kabi_$arch/.$symbol
+
+	if [ -e $stable_entry ]; then
+		prev_index=$(grep -Po "^#I:\K[0-9]+" $stable_entry)
+		cb_checksum_update "$@" $prev_index $(
+			IFS=' ' grep -v "^#" $stable_entry \
+			| head -n$((${prev_index}+1)) \
+			| tail -n1
+		)
+		return
+	fi
+
+	cb_checksum_new "$@"
+}
+
+# Called whenever the generate command finished successfully
+cb_ready() {
+	# no more symbols, nothing to do
+	:
+}
+
+cd "$(git rev-parse --show-toplevel)"
+# deepin: default to the scripts/deepin/ directory instead of redhat/
+REDHAT=${REDHAT:-$(pwd)/scripts/deepin/}
+
+# Generate new symbol checksums and symvers files
+. $REDHAT/kabi/symtype-generate

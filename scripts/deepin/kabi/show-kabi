@@ -1,0 +1,178 @@
+#!/usr/bin/python3
+#
+# Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
+# for deepin kABI work.  Local adaptations are marked with "deepin:".
+#
+# show-kabi - Red Hat kABI reference module extraction tool
+#
+# We use this script to dump info from kabi infrastructure.
+#
+# Author: Petr Oros <poros@redhat.com>
+# Copyright (C) 2014 Red Hat, Inc.
+#
+# This software may be freely redistributed under the terms of the GNU
+# General Public License (GPL).
+
+# Changelog:
+#
+# 2018/06/01 - Update for python3 by Petr Oros.
+
+__author__ = "Petr Oros <poros@redhat.com>"
+__version__ = "1.0"
+__date__ = "2014/09/05"
+__copyright__ = "Copyright (C) 2014 Red Hat, Inc"
+__license__ = "GPL"
+
+import getopt
+import os
+import sys
+import re
+
+def load_kabi(dirname, kabi, order, arch):
+    """Load a reference stablelist content."""
+
+    try:
+        archlist = []
+        if arch == "":
+            for arch in os.listdir(dirname):
+                if "kabi_" in arch:
+                    archlist.append(arch[5:])
+                    kabi[arch[5:]] = {}
+                    order[arch[5:]] = []
+                else:
+                    # no kabi arch dir
+                    continue
+        else:
+            archlist.append(arch)
+            kabi[arch] = {}
+            order[arch] = []
+
+        for arch in archlist:
+            for symbol in os.listdir(dirname + "/kabi_" + arch):
+                if '.' in symbol:
+                    # skip files
+                    continue
+                kabi_file = open(dirname + "/kabi_" + arch + "/" + symbol, "r")
+                line = []
+                offset = 0
+                lines = 0
+                for l in kabi_file:
+                    l = l.rstrip('\n')
+                    m = re.match(r"^#([^0-9]+):(.*)", l)
+                    if m:
+                        # store index metadata
+                        if m.group(1) == "I":
+                            offset = int(m.group(2))
+                        # skip any other metadata
+                        continue
+                    if l.startswith("#"):
+                        # store version metadata
+                        line.append(l)
+                        continue
+                    if lines == offset:
+                        line.append(l)
+                        break
+                    lines += 1
+                kabi[arch][symbol] = line
+                order[arch].append(symbol)
+                kabi_file.close()
+            order[arch].sort()
+    except OSError as err:
+        print("Invalid arch: {}".format(arch))
+        print(str(err))
+        sys.exit(1)
+
+
+def check_struct(dirname):
+    match_files = 0
+    try:
+        if os.path.isdir(dirname):
+            for arch_dir in os.listdir(dirname):
+                if os.path.isdir(dirname + "/" + arch_dir):
+                    match_files += len(os.listdir(dirname + "/" + arch_dir))
+                else:
+                    return -1
+        return match_files
+    except OSError:
+        print("Invalid kabi-module/ root directory")
+        print("Use -k param to specify right path")
+        sys.exit(1)
+
+
+def show_kabi(kabi, order, release, fmt, show_head):
+    rhel_minor = release.split('.', 1)[-1]
+    if rhel_minor == "":
+        rhel_minor = sys.maxsize
+    else:
+        rhel_minor = int(rhel_minor)
+    for current_arch in kabi:
+        if show_head and (fmt == "stablelist"):
+            print("[deepin66_{}_stablelist]".format(current_arch))
+        for sym in order[current_arch]:
+            if kabi[current_arch][sym][0][0] != "#":
+                print("Invalid metadata format: {}".format(kabi[current_arch][sym][0]))
+                sys.exit(1)
+            minor_range = kabi[current_arch][sym][0][1:].split("-", 2)
+            minor_range[0] = int(minor_range[0])
+            if minor_range[1] == "":
+                minor_range[1] = sys.maxsize
+            else:
+                minor_range[1] = int(minor_range[1])
+            if minor_range[0] > rhel_minor:
+                continue
+            if (minor_range[1] <= rhel_minor) and (minor_range[1] != sys.maxsize):
+                continue
+            # format Module.kabi_$arch styled file
+            if fmt == "module":
+                print(kabi[current_arch][sym][1])
+            # format kabi_stablelist_$arch styled file
+            else:
+                print("\t{}".format(sym))
+
+
+def usage():
+    print("""show-kabi:
+    -a arch        architecture, ( default all archs )
+    -k dir        kabi-module root directory ( default ./kabi-module )
+    -m        output Module.kabi_$(arch) styled file
+            default output kabi_stablelist_$(arch) styled file
+    -r release    release, for example 8.1 ( default latest )
+    -s        show header ( no headers like [deepin66_x86_64_stablelist] )
+    -h         this help""")
+
+
+if __name__ == "__main__":
+
+    kabi = {}
+    kabi_order = {}
+    arch = ""
+    kabi_dir = "kabi-module"
+    release = ""
+    kabi_head = False
+    kabi_out = "stablelist"
+
+    opts, args = getopt.getopt(sys.argv[1:], 'a:k:mr:sh')
+
+    for o, v in opts:
+        if o == "-a":
+            arch = v
+        if o == "-k":
+            kabi_dir = v
+        if o == "-m":
+            kabi_out = "module"
+        if o == "-r":
+            release = v
+        if o == "-s":
+            kabi_head = True
+        if o == "-h":
+            usage()
+            sys.exit(0)
+
+    if check_struct(kabi_dir) < 0:
+        print("Invalid directory structure!!!")
+        print("kabi-module/ specified as root must contain")
+        print("arch specific directories like kabi_ppc64...")
+        sys.exit(1)
+
+    load_kabi(kabi_dir, kabi, kabi_order, arch)
+    show_kabi(kabi, kabi_order, release, kabi_out, kabi_head)
