@@ -2148,7 +2148,7 @@ static int hinic3_get_pf_info(struct pci_dev *pdev, u16 service,
 		return -EFAULT;
 	}
 
-	*pf_infos = kzalloc(sizeof(*pf_infos), GFP_KERNEL);
+	*pf_infos = kzalloc(sizeof(**pf_infos), GFP_KERNEL);
 	if (*pf_infos == NULL) {
 		sdk_err(&pdev->dev, "pf_infos kzalloc failed\n");
 		return -EFAULT;
