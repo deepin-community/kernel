@@ -23,7 +23,12 @@ unsigned long efi_get_kimg_kaslr_address(void)
 	unsigned int random_offset = 0;
 
 #ifdef CONFIG_RANDOMIZE_BASE
-	if (!efi_nokaslr) {
+	/*
+	 * Hibernation requires a fixed kernel load address. Keep the EFI load
+	 * address unchanged; relocate.c handles the nohibernate/noresume
+	 * exceptions by applying relocation-time KASLR instead.
+	 */
+	if (!efi_nokaslr && !IS_ENABLED(CONFIG_HIBERNATION)) {
 		efi_get_random_bytes(sizeof(random_offset), (u8 *)&random_offset);
 		random_offset ^= (random_get_entropy() << 16);
 		random_offset &= (CONFIG_RANDOMIZE_BASE_MAX_OFFSET - 1);
