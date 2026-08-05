@@ -155,10 +155,6 @@ struct bdi_writeback {
 	struct list_head blkcg_node;	/* anchored at blkcg->cgwb_list */
 	struct list_head b_attached;	/* attached inodes, protected by list_lock */
 	struct list_head offline_node;	/* anchored at offline_cgwbs */
-	struct work_struct switch_work;	/* work used to perform inode switching
-					 * to this wb */
-	struct llist_head switch_wbs_ctxs;	/* queued contexts for
-						 * writeback switching */
 
 	union {
 		struct work_struct release_work;
@@ -166,12 +162,19 @@ struct bdi_writeback {
 	};
 #endif
 
+#ifdef CONFIG_CGROUP_WRITEBACK
+	DEEPIN_KABI_USE(1, struct llist_head switch_wbs_ctxs)/* queued contexts for
+						 * writeback switching */
+	DEEPIN_KABI_USE(2, 3, 4, 5, 6, struct work_struct switch_work)	/* work used to perform inode switching
+					 * to this wb */
+#else
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
 	DEEPIN_KABI_RESERVE(6)
+#endif
 };
 
 struct backing_dev_info {
