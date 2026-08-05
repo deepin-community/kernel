@@ -5810,6 +5810,10 @@ M:	"Wentao Guan" <guanwentao@uniontech.com>
 M:	"Winston Wen" <wentao@uniontech.com>
 S:	Maintained
 F:	include/linux/deepin_kabi.h
+F:	scripts/deepin/kabi/
+F:	Documentation/deepin/
+F:	Documentation/translations/zh_CN/deepin/
+K:	\bDEEPIN_KABI_
 
 DEEPIN OWNERS
 M:	"WangYuli" <wangyuli@uniontech.com>
