@@ -1,0 +1,186 @@
+#!/usr/bin/python3
+#
+# Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
+# for deepin kABI work.
+#
+# make-kabi - Red Hat kABI reference module generation tool
+#
+# We use this script to generate reference Module.kabi files.
+# or add reference info to separate kabi files.
+#
+# Author: Jon Masters <jcm@redhat.com>
+# Copyright (C) 2007 Red Hat, Inc.
+#
+# This software may be freely redistributed under the terms of the GNU
+# General Public License (GPL).
+
+# Changelog:
+#
+# 2018/06/01 - Update for python3 by Petr Oros.
+# 2014/10/05 - Update for new kabi structure by Petr Oros.
+# 2007/06/13 - Initial rewrite in python by Jon Masters.
+
+__author__ = "Jon Masters <jcm@redhat.com>"
+__version__ = "2.0"
+__date__ = "2014/10/05"
+__copyright__ = "Copyright (C) 2007 Red Hat, Inc"
+__license__ = "GPL"
+
+import getopt
+import os
+import re
+import string
+import sys
+
+true = 1
+false = 0
+
+
+def load_symvers(symvers, filename):
+    """Load a reference Module.symvers file."""
+
+    symvers_file = open(filename, "r")
+
+    while true:
+        in_line = symvers_file.readline()
+        if in_line == "":
+            break
+        if in_line == "\n":
+            continue
+        checksum, symbol, directory, ctype = in_line.split()
+
+        symvers[symbol] = in_line[0:-1]
+
+
+def load_stablelist(stablelist, order, filename):
+    if os.path.isfile(filename):
+        load_stablelist_file(stablelist, order, filename)
+    else:
+        load_stablelist_dir(stablelist, order, filename)
+
+
+def load_stablelist_file(stablelist, order, filename):
+    """Load a reference stablelist file."""
+
+    stablelist_file = open(filename, "r")
+
+    while true:
+        in_line = stablelist_file.readline()
+        if in_line == "":
+            break
+        if in_line == "\n":
+            continue
+        in_line.split()
+        if in_line[0] == "[":
+            continue
+        symbol = in_line[1:-1]
+
+        stablelist[symbol] = []
+        order.append(symbol)
+
+    order.sort()
+
+
+def load_stablelist_dir(stablelist, order, dirname):
+    """Load a reference stablelist directory."""
+
+    for symbol in os.listdir(dirname):
+        kabi_file = open(dirname + "/" + symbol, "r")
+        line = []
+        # store version metadata
+        line.append(kabi_file.readline())
+        # store content ( no empty line is bad state )
+        line.append(kabi_file.readline())
+        kabi_file.close()
+        if re.match("#[0-9]+-[0-9]+", line[0]):
+            print("Symbol {} is currently removed, ignoring".format(symbol))
+            continue
+        stablelist[symbol] = line
+        order.append(symbol)
+
+    order.sort()
+
+
+def make_kabi_file(filename, symvers, order):
+    """Munge together stablelist and Module.symvers file."""
+
+    if os.path.isfile(filename):
+        print("{} already exists".format(filename))
+        sys.exit(1)
+
+    kabi_file = open(filename, "w")
+
+    for symbol in order:
+        if symbol in symvers:
+            kabi_file.write(symvers[symbol] + "\n")
+
+    kabi_file.close()
+
+
+def make_kabi_dir(dirname, symvers, stablelist):
+    """Munge together stablelist and Module.symvers file."""
+
+    current_dir = os.getcwd()
+    os.chdir(dirname)
+
+    for symbol in stablelist:
+        if symbol in symvers:
+            kabi_file = open(symbol, "w")
+            kabi_file.write(stablelist[symbol][0])
+            kabi_file.write(symvers[symbol] + "\n")
+            kabi_file.close()
+
+    os.chdir(current_dir)
+
+
+def usage():
+    print("""make-kabi: process Module.symvers into reference Module.kabi output file/directory using
+           the kabi stablelist provided as a set of symbols to filer on.
+
+    make-kabi [ -k Module.kabi or -d (kabi-module dir) ] [ -s Module.symvers ] [ -w kabi_stablelist ]
+
+    examples:
+        add checksums to files into kabi-module/kabi_x86_64/
+            make-kabi -s Module.symvers -w kabi-module/kabi_x86_64/ -d
+
+        create Module.kabi ( old style ) witch checksums
+            make-kabi -s Module.symvers -w kabi-module/kabi_x86_64/ -k Module.kabi""")
+
+
+if __name__ == "__main__":
+
+    stablelist_source = ""
+    symvers_file = ""
+    kabi_output = ""
+    kabi_file = true
+
+    opts, args = getopt.getopt(sys.argv[1:], 'hk:s:w:d')
+
+    for o, v in opts:
+        if o == "-s":
+            symvers_file = v
+        if o == "-h":
+            usage()
+            sys.exit(0)
+        if o == "-k":
+            kabi_output = v
+            kabi_file = true
+        if o == "-d":
+            kabi_file = false
+        if o == "-w":
+            stablelist_source = v
+
+    if (stablelist_source == "") or (symvers_file == "") or (kabi_output == "" and kabi_file):
+        usage()
+        sys.exit(1)
+
+    symvers = {}
+    stablelist = {}
+    stablelist_order = []
+
+    load_symvers(symvers, symvers_file)
+    load_stablelist(stablelist, stablelist_order, stablelist_source)
+    if kabi_file:
+        make_kabi_file(kabi_output, symvers, stablelist_order)
+    else:
+        make_kabi_dir(stablelist_source, symvers, stablelist)

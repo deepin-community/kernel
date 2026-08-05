@@ -1,0 +1,697 @@
+#!/usr/bin/env bash
+#
+# Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
+# for deepin kABI work.  Local adaptations are marked with "deepin:".
+#
+
+unset MAKEFLAGS
+unset CPP
+unset ARCH
+unset SYMBOL
+
+set -euo pipefail
+
+usage() {
+	sed 's/^\t//' <<EOF
+	Usage: $0 [-h] [-v] [-1] [-2] [-3] [-4] [-5] -a ARCH [-s SYMBOL]... [FILE]...
+EOF
+
+	echo
+	[ "$(type -t usage_desc || :)" == "function" ] && usage_desc
+	echo
+
+	sed 's/^\t//' <<EOF
+	-a ARCH				Supported architectures:
+					x86_64, s390x, aarch64, ppc64le,
+						loongarch64, riscv64
+
+	-s SYMBOL [-s SYMBOL ...]	Symbol entry to update.
+					Updates the whole stablelist if omitted.
+
+	-h				Prints this message.
+
+	-v				Verbose output.
+
+	== DESCRIPTION
+
+	To calculate current symbol data, the file exporting the symbol on a given
+	arch must first be located. The following methods are attempted in order:
+
+	  1. user-supplied FILEs, if given, (disable using -1)
+	  2. stablelist-supplied FILEs, (disable using -2)
+	  3. cscope, if available, (disable using -3)
+	  4. naive regular expression search for exporting macro (disable
+	     using -4),
+	  5. compute all symvers and symtypes files (disable using -5)
+	  6. compute all symvers and symtypes files following a local kernel
+	     build (disable using -6).
+
+	If a method is successful in updating all of the required symbols,
+	the script early terminates. Methods are sorted by their time complexity
+	as well as generality.
+
+	If you're using the tool directly, please make sure to commit/stash your
+	changes.
+
+	You must also make sure that you have cross compilation toolchain
+	installed when computing non-native checksums. The tool uses
+	  CROSS_COMPILE=/usr/bin/ARCH-linux-gnu-, override
+	  KABI_CROSS_COMPILE_PREFIX=/usr/bin/
+	  KABI_CROSS_COMPILE_SUFFIX=-linux-gnu-
+	as needed.
+
+	== NOTES
+
+	Method 3 can only find symbols exported using one of the following
+	macros:
+
+		ACPI_EXPORT_SYMBOL
+		ACPI_EXPORT_SYMBOL_INIT
+		EXPORT_DATA_SYMBOL
+		EXPORT_DATA_SYMBOL_GPL
+		EXPORT_INDIRECT_CALLABLE
+		EXPORT_PER_CPU_SYMBOL
+		EXPORT_PER_CPU_SYMBOL_GPL
+		EXPORT_STATIC_CALL
+		EXPORT_STATIC_CALL_GPL
+		EXPORT_STATIC_CALL_TRAMP
+		EXPORT_STATIC_CALL_TRAMP_GPL
+		EXPORT_SYMBOL
+		EXPORT_SYMBOL_FOR_TESTS_ONLY
+		EXPORT_SYMBOL_GPL
+		EXPORT_SYMBOL_NS
+		EXPORT_SYMBOL_NS_GPL
+		EXPORT_TRACEPOINT_SYMBOL
+		EXPORT_TRACEPOINT_SYMBOL_GPL
+
+	and the symbol name must not be constructed using preprocessor
+	concatenation.
+EOF
+	exit
+}
+
+# --- decls
+
+# list of temporary files created during execution
+declare -ag TEMP_FILES
+
+# list of makefile targets to invoke
+declare -ag TARGETS
+
+# list of source files to process
+declare -ag SOURCES
+
+# list of symbols to try and generate symbol versions/symtypes for
+declare -ag SYMBOL
+
+# list of symbols that couldn't have been resolved using previous method
+declare -ag SYMFAIL
+
+# current arch
+declare -g CARCH
+
+# dict[arch]=ARCH variable for kernel makefile
+declare -Ag CC_ARCH
+
+# dict[symbol]=checksum
+# dict[symbol]=file_exporting_symbol
+declare -Ag SYMCRC
+declare -Ag SYMFILE
+declare -Ag SYMFILE_T
+declare -Ag SYMFILE_V
+
+# kernel makefile cc var
+declare -g CROSS_COMPILE
+
+# compiler
+declare -g CPP
+
+# verbose level
+declare -g V
+
+# --- default assignments
+
+V=${V:-0}
+CPP=gcc
+KABI_CROSS_COMPILE_PREFIX="${KABI_CROSS_COMPILE_PREFIX:-/usr/bin/}"
+KABI_CROSS_COMPILE_SUFFIX="${KABI_CROSS_COMPILE_SUFFIX:--linux-gnu-}"
+USE_ENTIRE_STABLELIST=1
+MAKE_ARGS=(-k -i -j$(nproc))
+CC_ARCH[s390x]="s390"
+CC_ARCH[x86_64]="x86"
+CC_ARCH[ppc64le]="powerpc"
+CC_ARCH[aarch64]="arm64"
+# deepin: additional architectures supported by the deepin kernel
+CC_ARCH[loongarch64]="loongarch"
+CC_ARCH[riscv64]="riscv"
+
+# --- helper fns
+
+echo0() { echo " :: $*"; }
+echo1() { echo "    $*"; }
+echo2() { echo "     - $*"; }
+echo3() { echo "       $*"; }
+err()   { echo -e "ERROR:" "$@" >&2; }
+warn()  { echo -e "WARNING:" "$@" >&2; }
+
+cleanup() {
+	[ -z "${TEMP_FILES[@]:-}" ] && return
+	echo0 "Cleaning up temporary files ..."
+	rm -f "${TEMP_FILES[@]}"
+}
+
+# find files containing symbol export statements of the form MACRO(NAME),
+# where symbol name NAME is the entire symbol name and MACRO is one of:
+# 	ACPI_EXPORT_SYMBOL
+# 	ACPI_EXPORT_SYMBOL_INIT
+# 	EXPORT_DATA_SYMBOL
+# 	EXPORT_DATA_SYMBOL_GPL
+# 	EXPORT_INDIRECT_CALLABLE
+# 	EXPORT_PER_CPU_SYMBOL
+# 	EXPORT_PER_CPU_SYMBOL_GPL
+# 	EXPORT_STATIC_CALL
+# 	EXPORT_STATIC_CALL_GPL
+# 	EXPORT_STATIC_CALL_TRAMP
+# 	EXPORT_STATIC_CALL_TRAMP_GPL
+# 	EXPORT_SYMBOL
+# 	EXPORT_SYMBOL_FOR_TESTS_ONLY
+# 	EXPORT_SYMBOL_GPL
+# 	EXPORT_SYMBOL_NS
+# 	EXPORT_SYMBOL_NS_GPL
+# 	EXPORT_TRACEPOINT_SYMBOL
+#	EXPORT_TRACEPOINT_SYMBOL_GPL
+# export_try_find SYMBOL|REGEX
+export_tryfind() {
+        grep -Prol --exclude-dir=redhat --exclude-dir=deepin "^(ACPI_)?EXPORT_(DATA_|INDIRECT_CALLABLE|STATIC_CALL|TRACEPOINT_)?(PER_CPU_)?(SYMBOL|_TRAMP)?(_NS)?(_GPL|_INIT)?\($1(,[^)]*)?\);" || :
+}
+
+symbol_tryfind_symversions() {
+	# __crc_SYMBOL = CHECKSUM
+	# SECTIONS { .rodata : ALIGN(4) { __crc_SYMBOL = .; LONG(CHECKSUM); } }
+	grep -R --include="*.symversions" --exclude-dir=redhat --exclude-dir=deepin -H -Po \
+		"^__crc_\K$1 = .*(?=;)" | tr -d ' ' && return || :
+	grep -R --include "*.symversions" --exclude-dir=redhat --exclude-dir=deepin -H -Po \
+		"__crc_\K$1[ =].*0x[[:xdigit:]]+" \
+	| sed -e 's/ = .*\(0x[[:xdigit:]]\+\).*/=\1/' 
+
+}
+
+# batch call to export_tryfind, limited to 10 symbols at the time to make sure
+# argv doesn't overflow
+# export_tryfind SYMBOL...
+batch() {
+	local fn=$1
+	shift 1
+	local o=1
+	local d=10
+	while [ $o -le $# ]; do
+		[ $o -gt $# ] && d=$((o-$#))
+		# pass an array of symbols S1...Sn as a regex (S1|...|Sn)
+		$fn $(
+			echo ${@:$o:$d} \
+			| sed -e 's/ /|/g' -e 's/^/(/' -e 's/$/)/'
+		)
+		o=$((o+d))
+	done | sort | uniq
+}
+
+src_to_symversions() {
+	sed 's/\.[cS]$/.symversions/'
+}
+
+src_to_symtypes() {
+	sed 's/\.[cS]$/.symtypes/'
+}
+
+dump_failed_symbols() {
+	echo1 "Couldn't find the following symbols using this method:" >&3
+	for sym in ${SYMFAIL[@]}; do
+		echo2 $sym >&3
+	done
+}
+
+prepare_stage() {
+	# SYMBOL lists symbols to be searched
+	# SYMFAIL lists symbols that failed in the previous run
+	SYMBOL=(${SYMFAIL[@]})
+	SYMFAIL=()
+	TARGETS=()
+	FILE=()
+}
+
+process_Module_symvers() {
+	[ ! -e Module.symvers ] && return 1
+
+	# read checksums into SYMCRC
+	local IFS=$'\n'
+	for sym in $(comm -12 <(cut -f2 Module.symvers | sort) \
+	                      <(echo ${SYMBOL[@]} | tr ' ' '\n' | sort)); do
+		symcrc=$(grep -Po "^0x[[:xdigit:]]+(?=\t$sym\t)" Module.symvers)
+		file=$(grep -El -m 1 -r --include="*.symtypes" \
+			--exclude-dir=redhat --exclude-dir=deepin "^[a-zA-Z#]{,2}$sym " | head -n1)
+		[ -z "$file" ] && continue
+		SYMCRC[$sym]=$symcrc
+		SYMFILE_T[$sym]=$file
+		SYMFILE_V[$sym]=Module.symvers
+		[ -e "${file/.symtypes/.c}" ] && file="${file/.symtypes/.c}"
+		[ -e "${file/.symtypes/.S}" ] && file="${file/.symtypes/.S}"
+		SYMFILE[$sym]=$file
+		echo3 "Found $sym in $file (crc: $symcrc)," \
+			"V: ${SYMFILE_V[$sym]}," \
+			"T: ${SYMFILE_T[$sym]}," \
+			"F: ${SYMFILE[$sym]}." >&3
+	done
+
+	return 0
+}
+
+process_symversions() {
+	# read checksums into SYMCRC and update stablelist, output format:
+	# filename.symversions:__crc_symbolname = 0x0000..
+	for match in $(batch symbol_tryfind_symversions "$@"); do
+		file=${match%:*}
+		symcrc=${match#*:}
+		sym=${symcrc%%=*}
+		SYMCRC[$sym]=${symcrc##*=}
+		SYMFILE_V[$sym]=$file
+		SYMFILE_T[$sym]=${file/.symversions/.symtypes}
+		[ -e ${file/.symversions/.c} ] && file=${file/.symversions/.c}
+		[ -e ${file/.symversions/.S} ] && file=${file/.symversions/.S}
+		SYMFILE[$sym]=$file
+		echo3 "Found $sym in $file (crc: $symcrc)," \
+			"V: ${SYMFILE_V[$sym]}," \
+			"T: ${SYMFILE_T[$sym]}," \
+			"F: ${SYMFILE[$sym]}." >&3
+	done
+}
+
+# generate MAKE_TARGET...
+generate() {
+	if [ $# -eq 0 ]; then
+		echo "No targets given to generate."
+		SYMFAIL=(${SYMBOL[@]})
+		return 1
+	fi
+
+	echo1 "Building symtype and symversion files ..."
+	for file in $@; do
+		echo2 "$file" >&3
+	done
+
+	# batch build at most 100 targets (symvers, symtypes files)
+	while [ $# -gt 0 ]; do
+		if [ $# -gt 100 ]; then
+			make ${MAKE_ARGS[@]} ${@:1:100} >&3 2>&3 || :
+			shift 100
+		else
+			make ${MAKE_ARGS[@]} ${@:1:$#} >&3 2>&3 || :
+			shift $#
+		fi
+	done
+
+	if ! process_Module_symvers; then
+		process_symversions "${SYMBOL[@]}"
+	fi
+
+	echo1 "Looking for eligible symbol checksum updates ..." >&3
+	for sym in ${SYMBOL[@]}; do
+		if [ -z "${SYMCRC[$sym]:-}" ]; then
+			echo3 "Couldn't find crc for $sym" >&3
+			[[ ! " ${SYMFAIL[*]} " =~ " $sym " ]] && SYMFAIL+=($sym)
+			continue
+		fi
+		if [ ! -e "${SYMFILE[$sym]:-}" ]; then
+			echo3 "Couldn't find source file for $sym" >&3
+			continue
+		fi
+		if [ ! -e "${SYMFILE_V[$sym]:-}" ]; then
+			echo3 "Couldn't find version file for $sym" >&3
+			continue
+		fi
+		if [ ! -e "${SYMFILE_T[$sym]:-}" ]; then
+			echo3 "Couldn't find symtypes file for $sym" >&3
+			continue
+		fi
+		cb_checksum $CARCH $sym ${SYMCRC[$sym]:-} ${SYMFILE[$sym]} \
+			${SYMFILE_V[$sym]} ${SYMFILE_T[$sym]}
+	done
+
+	if [ -z "${SYMFAIL:-}" ]; then
+		cb_ready
+		return 0
+	fi
+
+	return 1
+}
+
+# process argv
+
+OPTIND=1
+
+while getopts "TC12345hva:f:s:" opt; do
+	case "$opt" in
+	T)
+		CONFIG_NO_TEST=y
+		;;
+	C)
+		CONFIG_NO_CLEAN=y
+		;;
+	1)
+		CONFIG_NO_METH1=y
+		;;
+	2)
+		CONFIG_NO_METH2=y
+		;;
+	3)
+		CONFIG_NO_METH3=y
+		;;
+	4)
+		CONFIG_NO_METH4=y
+		;;
+	5)
+		CONFIG_NO_METH5=y
+		;;
+	6)
+		CONFIG_NO_METH6=y
+		;;
+	h)
+		usage
+		;;
+	v)
+		V=1
+		;;
+	s)
+		USE_ENTIRE_STABLELIST=0
+		[ -z "${CARCH:-}" ] && usage
+		if [ "$OPTARG" = "-" ]; then
+			SYMBOL+=($(cat))
+			continue
+		fi
+		SYMBOL+=($OPTARG)
+		;;
+	a)
+		CARCH=$OPTARG
+		;;
+	esac
+done
+shift $((OPTIND-1))
+
+CARCH=${CARCH:-$(uname -m)}
+SOURCES=("${@:-}")
+
+if [ "$CARCH" = "$(uname -m)" ]; then
+	if ! command -v "$CPP" &> /dev/null; then
+		echo "ERROR: native gcc not found."
+		exit 1
+	fi
+else
+	if [ -z "${CROSS_COMPILE:-}" ]; then
+		CROSS_COMPILE="${KABI_CROSS_COMPILE_PREFIX}"
+		CROSS_COMPILE+="$CARCH"
+		CROSS_COMPILE+="${KABI_CROSS_COMPILE_SUFFIX}"
+	fi
+
+	if ! [ -e "$CROSS_COMPILE$CPP" ]; then
+		echo "ERROR: $arch $CPP not found ($CROSS_COMPILE$CPP)"
+		exit 1
+	fi
+
+	MAKE_ARGS+=(ARCH=${CC_ARCH[$CARCH]} CROSS_COMPILE=$CROSS_COMPILE)
+fi
+
+# Set up is_verbose fd
+if [ ${V:-0} -gt 0 ]; then
+	exec 3>&1
+	export PS4='$LINENO: '
+	set -x
+else
+	exec 3> /dev/null
+fi
+
+export BASH_XTRACEFD="3"
+
+if [ -z "$CARCH" ]; then
+	err "No architecture specified."
+	usage
+fi
+
+if [ ! -d "$REDHAT/kabi/kabi-module/kabi_$CARCH" ]; then
+	err "Architecture $CARCH not supported."
+	exit 1
+fi
+
+trap cleanup EXIT
+
+# --- prep
+
+cd "$(git rev-parse --show-toplevel)"
+
+# deepin: default to the scripts/deepin/ directory instead of redhat/
+REDHAT=${REDHAT:-$(pwd)/scripts/deepin/}
+
+if [ $USE_ENTIRE_STABLELIST -eq 1 ]; then
+	SYMBOL=($(find $REDHAT/kabi/kabi-module/kabi_$CARCH -type f \
+		-not -name ".*" -exec basename {} \; | sort | uniq))
+	if [ -z "${SYMBOL[*]}" ]; then
+		err "No symbols found on stablelist. Nothing to do."
+		exit
+	fi
+elif [ -z "${SYMBOL[*]}" ]; then
+	err "No symbols given. Nothing to do."
+	exit
+fi
+
+echo0 "The following symbol entries will be updated:"
+
+for symbol in ${SYMBOL[@]}; do
+	if find $REDHAT/kabi/kabi-module/${CARCH/#/kabi_} -name $symbol \
+			-exec false {} + &> /dev/null; then
+		echo1 "$symbol (not found on ${CARCH} stablelist)"
+	else
+		echo1 "$symbol"
+	fi
+done
+
+if [ -z "${CONFIG_NO_CLEAN+x}" ]; then
+	make -j$(nproc) V=$V mrproper >&3 2>&3
+fi
+
+# deepin: there is no redhat/configs mechanism ("make dist-configs") in this
+# tree; map the arch onto the in-tree deepin defconfigs instead.
+deepin_defconfig() {
+	case "$1" in
+	x86_64)		echo arch/x86/configs/deepin_x86_desktop_defconfig ;;
+	aarch64)	echo arch/arm64/configs/deepin_arm64_desktop_defconfig ;;
+	loongarch64)	echo arch/loongarch/configs/deepin_loongarch_desktop_defconfig ;;
+	riscv64)	echo arch/riscv/configs/deepin_riscv64_desktop_defconfig ;;
+	s390x)		echo arch/s390/configs/deepin_s390x_z13_defconfig ;;
+	mips64*)	echo arch/mips/configs/deepin_loongson3_desktop_defconfig ;;
+	*)		err "No deepin defconfig known for arch $1."
+			exit 1 ;;
+	esac
+}
+
+cp $(deepin_defconfig $(uname -m)) .config
+
+echo0 "Building scripts (genksyms) ..."
+
+make -j$(nproc) V=$V scripts >&3 2>&3 # -> genksyms, requires native cc
+
+cp $(deepin_defconfig $CARCH) .config
+
+if [ -z "${CONFIG_NO_TEST+x}" ]; then
+	TEST_FILE=$({ grep -rl EXPORT_SYMBOL net/core net/ . || : ; } | head -n1)
+	TEST_SYMVERSIONS="$(printf "$TEST_FILE" | src_to_symversions)"
+	TEST_SYMTYPES="$(printf "$TEST_FILE" | src_to_symtypes)"
+	echo1 "Checking that genksyms works as expected on a test file" \
+	      "$TEST_FILE, expecting $TEST_SYMVERSIONS, $TEST_SYMTYPES ..." >&3
+	make V=$V ${MAKE_ARGS[@]} $TEST_SYMVERSIONS $TEST_SYMTYPES >&3 2>&3
+	if [ ! -e $TEST_SYMVERSIONS -o ! -e $TEST_SYMTYPES ]; then
+		warn "An attempt to test genksyms failed. Please re-run with" \
+			"-v and inspect the output and git diff to make sure" \
+			"that the script works correctly."
+	fi
+fi
+
+# ---
+
+queue_target() {
+	for f in "$@"; do
+		symv=($(printf "$f" | src_to_symversions))
+		symt=($(printf "$f" | src_to_symtypes))
+		
+		# ensure it's not queued already
+		if [[ ! " ${FILE[*]} " =~ " $symv " ]]; then
+			FILE+=($symv)
+			echo1 "$f: queued targets: $symv" >&3
+		fi
+
+		if [[ ! " ${FILE[*]} " =~ " $symt " ]]; then
+			FILE+=($symt)
+			echo1 "$f: queued targets: $symt" >&3
+		fi
+	done
+}
+
+targets_from_srclist() {
+	for src in "${@:-}"; do
+		if ! [ -e "$src" ]; then
+			err "File \`$src' not found!"
+			exit 1
+		fi
+		queue_target "$src"
+	done
+}
+
+targets_from_symlist() {
+	for sym in ${@:-}; do
+		if ! [ -e $REDHAT/kabi/kabi-module/kabi_$CARCH/$sym ]; then
+			echo1 "$sym not found in $CARCH stablelist, skipping" \
+			      "(missing: $REDHAT/kabi/kabi-module/kabi_$CARCH/$sym)" >&3
+			[[ ! " ${SYMFAIL[*]} " =~ " $sym " ]] && SYMFAIL+=($sym)
+			continue
+		fi
+		src="$(grep -Po '^#P:\K.*' $REDHAT/kabi/kabi-module/kabi_$CARCH/$sym || :)"
+		if [ -z "$src" ]; then
+			echo1 "$sym does not reference source file, skipping" \
+			      "(missing: $REDHAT/kabi/kabi-module/kabi_$CARCH/$sym)" >&3
+			[[ ! " ${SYMFAIL[*]} " =~ " $sym " ]] && SYMFAIL+=($sym)
+			continue
+		fi
+		if ! [ -e "$src" ]; then
+			echo1 "$sym: source $src got moved or removed, skipping" >&3
+			[[ ! " ${SYMFAIL[*]} " =~ " $sym " ]] && SYMFAIL+=($sym)
+			continue
+		fi
+		queue_target "$src"
+	done
+}
+
+targets_cscope() {
+	command -v cscope >&3 || return
+	for sym in "${@:-}"; do
+		queue_target $(cscope -k -d -L1$sym | cut -f1 -d' ' || :)
+	done
+}
+
+targets_from_symlist_any() {
+	for sym in ${@:-}; do
+		fil=($(find $REDHAT/kabi/kabi-module/ -type f -name "$sym"))
+		if [ ${#fil[@]} -eq 0 ]; then
+			echo1 "$sym not found in any stablelist, skipping" \
+			      "(missing: $REDHAT/kabi/kabi-module/*/$sym)" >&3
+			[[ ! " ${SYMFAIL[*]} " =~ " $sym " ]] && SYMFAIL+=($sym)
+			continue
+		fi
+		for f in ${fil[@]}; do
+			queue_target $(grep -Po '^#P:\K.*' $f | sort | uniq || :)
+		done
+	done
+}
+
+targets_naive() {
+	# symbol got moved, naive greedy search for export statement
+	# can produce any non-negative number of results:
+	#	#res > 1 : arch-specific code may yield multiple files in arch,
+	#                  leaving it to kbuild to fail instead of trying to
+	#                  mask them
+	#	#res = 1 : ok, provided this is not a false positive (we can
+	#                  tell that when we generate checksums)
+	#       #res = 0 : this may occur when the export symbol call/symbol
+	#                  name is composed using preprocessor concatenation;
+	#                  in this case we are forced to generate all checksums
+	for src in $(batch export_tryfind "$@"); do
+		queue_target "$src"
+	done
+}
+
+targets_dry_run() {
+	queue_target $({ make ${MAKE_ARGS[@]} --dry-run 2>&3 || : ; } \
+	| grep -E '(gcc|as)' \
+	| grep -Po " \K[a-zA-Z0-9][^ ,.]*[^/ ,.]\.[cS]" \
+	| sort \
+	| uniq \
+	| sed 's/^\(.*\)\.[cS]$/\1.symtypes\n\1.symversions/g')
+}
+
+targets_compile() {
+	declare -A wrappers
+	local template=$(mktemp -t -u "kabi-wrapper-XXXXXXXXX")
+	local list=$(mktemp -u "kabi-list-XXXXXXXXX")
+	TEMP_FILES=("${TEMP_FILES[@]}" "$list")
+	for wrapper in $(grep -Po '= \$\(CROSS_COMPILE\)\K.*' Makefile); do
+		wrappers[$wrapper]=$template-$wrapper
+		TEMP_FILES=("${TEMP_FILES[@]}" "${wrappers[$wrapper]}")
+		bin=${CROSS_COMPILE:-}$wrapper list=$list envsubst '$bin $list' \
+			> "${wrappers[$wrapper]}" <<-'EOF'
+		#!/usr/bin/env bash
+		echo "$*" | grep -Po " \K[a-zA-Z0-9_/-]+\.[cS]" | tr ' ' '\n' >> $list
+		$bin "$@"
+		EOF
+		chmod +x "${wrappers[$wrapper]}"
+	done
+	make ${MAKE_ARGS[@]} CROSS_COMPILE="$template-" >&3 2>&3 || :
+	# no need to build symvers, using Module.symvers instead
+	queue_target $(cat $list | src_to_symtypes | sort | uniq)
+}
+
+SYMFAIL=(${SYMBOL[@]})
+
+if [ -z "${CONFIG_NO_METH1+x}" -a $# -gt 0 ]; then
+	prepare_stage
+	echo0 "Updating stablelist using user-supplied files ..."
+	targets_from_srclist "${SOURCES[@]}"
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+fi
+
+if [ -z "${CONFIG_NO_METH2+x}" ]; then
+	prepare_stage
+	echo0 "Updating stablelist using stablelist-provided files (arch specific) ..."
+	targets_from_symlist "${SYMBOL[@]}"
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+
+	prepare_stage
+	echo0 "Updating stablelist using stablelist-provided files (any archs) ..."
+	targets_from_symlist_any "${SYMBOL[@]}"
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+fi
+
+if [ -z "${CONFIG_NO_METH3+x}" ]; then
+	prepare_stage
+	echo0 "Updating stablelist using cscope-provided files ..."
+	targets_cscope "${SYMBOL[@]}"
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+fi
+
+if [ -z "${CONFIG_NO_METH4+x}" ]; then
+	prepare_stage
+	echo0 "Updating stablelist using naive method ..."
+	targets_naive "${SYMBOL[@]}"
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+fi
+
+if [ -z "${CONFIG_NO_METH5+x}" ]; then
+	prepare_stage
+	echo0 "Updating stablelist greedy method (this might take some time) ..."
+	targets_dry_run
+	generate "${FILE[@]}" && exit 0 || :
+	dump_failed_symbols
+fi
+
+if [ -z "${CONFIG_NO_METH6+x}" ]; then
+	prepare_stage
+	echo0 "Updating stablelist by compiling the kernel (this might take some time) ..."
+	targets_compile
+	generate "${FILE[@]}" && exit 0
+fi
+
+err "could not update all of the symbol checksums required:"
+for sym in ${SYMFAIL[@]}; do
+	printf "\t%s\n" "$sym"
+done
+exit 1
