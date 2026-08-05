@@ -42,6 +42,7 @@ kernel.
    driver-api/index
    subsystem-apis
    Locking in the kernel <locking/index>
+   deepin/index
 
 Development tools and processes
 ===============================
