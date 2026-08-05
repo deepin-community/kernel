@@ -172,7 +172,7 @@ function gen-gnss() {
 	fh='include/linux/fs.h'
 
 	gen HAVE_CDEV_DEVICE if fun cdev_device_add in "$cdh"
-	gen HAVE_DEV_UEVENT_CONST if method dev_uevent of class matches '(const|RH_KABI_CONST) struct device' in "$clh" "$dh"
+	gen HAVE_DEV_UEVENT_CONST if method dev_uevent of class matches '(const|RH_KABI_CONST|DEEPIN_KABI_CONST) struct device' in "$clh" "$dh"
 	gen HAVE_STREAM_OPEN if fun stream_open in "$fh"
 	# There can be either macro class_create or a function
 	gen NEED_CLASS_CREATE_WITH_MODULE_PARAM if fun class_create matches 'owner' in "$clh" "$dh"
