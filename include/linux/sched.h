@@ -774,6 +774,22 @@ struct task_struct_deepin {
 };
 
 #ifdef CONFIG_DEEPIN_KABI_RESERVE
+/*
+ * DEPRECATED: do not add new users of struct task_struct_extend.
+ *
+ * This structure was reserved as an extension hang point for task_struct
+ * so that merging upstream changes adding task_struct fields would not
+ * disturb the task_struct layout.  It has never been put into use.
+ *
+ * New extensions to task_struct should use the kABI auxiliary structure
+ * mechanism instead: add fields to struct task_struct_deepin (above) and
+ * access them via DEEPIN_KABI_AUX(), after wiring up
+ * DEEPIN_KABI_AUX_SET_SIZE() at allocation sites.  The AUX mechanism is
+ * size-versioned and does not affect kABI.
+ *
+ * Both this structure and the task_struct_extend pointer in task_struct
+ * are kept to preserve the existing layout and must not be removed.
+ */
 struct task_struct_extend {
 };
 #endif
