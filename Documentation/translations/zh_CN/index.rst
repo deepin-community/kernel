@@ -53,6 +53,7 @@
    core-api/index
    driver-api/index
    内核中的锁 <locking/index>
+   deepin/index
 
 TODOList:
 
