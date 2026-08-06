@@ -664,7 +664,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct spi_controller *ctrl;
-	struct resource *res;
+	struct resource *res = NULL;
 	struct phytium_qspi *qspi;
 	int i, ret;
 	u32 flash_cap;
