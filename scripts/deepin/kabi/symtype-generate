@@ -412,7 +412,7 @@ else
 	fi
 
 	if ! [ -e "$CROSS_COMPILE$CPP" ]; then
-		echo "ERROR: $arch $CPP not found ($CROSS_COMPILE$CPP)"
+		echo "ERROR: $CARCH $CPP not found ($CROSS_COMPILE$CPP)"
 		exit 1
 	fi
 
