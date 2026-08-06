@@ -165,7 +165,7 @@ static struct clocksource clocksource_gpt = {
 	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
-static int __init sky1_clocksource_init(struct sky1_timer *sky1tm)
+static int sky1_clocksource_init(struct sky1_timer *sky1tm)
 {
 	unsigned int c = clk_get_rate(sky1tm->tclk);
 	void __iomem *reg = sky1tm->base + FREE_CNT;
@@ -275,7 +275,7 @@ static irqreturn_t sky1_timer_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __init sky1_clockevent_init(struct sky1_timer *sky1tm)
+static int sky1_clockevent_init(struct sky1_timer *sky1tm)
 {
 	struct clock_event_device *ced = &sky1tm->ced;
 
