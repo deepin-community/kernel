@@ -455,6 +455,9 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 			kfree(lbc);
 			return ret;
 		}
+	} else {
+		dev_err(dev, "no device tree node or ACPI companion found.\n");
+		return -ENODEV;
 	}
 
 	lbc->mm_size = resource_size(res);
