@@ -5794,7 +5794,8 @@ F:	arch/mips/include/asm/dec/
 F:	arch/mips/include/asm/mach-dec/
 
 DEEPIN CJKTTY-PATCHES
-M:	"WangYuli" <wangyuli@uniontech.com>
+M:	"WangYuli" <wangyuli@deepin.org>
+M:	"Wentao Guan" <guanwentao@uniontech.com>
 S:	Maintained
 F:	lib/fonts/font_cjk*
 
@@ -5804,10 +5805,8 @@ S:	Maintained
 F:	fs/deepin_err_notify.c
 
 DEEPIN KABI-HELPERS
-M:	"Lugang He" <helugang@uniontech.com>
-M:	"WangYuli" <wangyuli@uniontech.com>
+M:	"WangYuli" <wangyuli@deepin.org>
 M:	"Wentao Guan" <guanwentao@uniontech.com>
-M:	"Winston Wen" <wentao@uniontech.com>
 S:	Maintained
 F:	include/linux/deepin_kabi.h
 F:	scripts/deepin/kabi/
@@ -5816,7 +5815,8 @@ F:	Documentation/translations/zh_CN/deepin/
 K:	\bDEEPIN_KABI_
 
 DEEPIN OWNERS
-M:	"WangYuli" <wangyuli@uniontech.com>
+M:	"WangYuli" <wangyuli@deepin.org>
+M:	"Wentao Guan" <guanwentao@uniontech.com>
 S:	Maintained
 F:	OWNERS
 
