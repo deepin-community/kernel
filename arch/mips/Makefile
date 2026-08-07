@@ -299,7 +299,7 @@ ifdef need-compiler
 #
 ifdef CONFIG_64BIT
   ifndef KBUILD_SYM32
-    ifeq ($(shell expr $(load-y) \< 0xffffffff80000000), 0)
+    ifeq ($(shell expr x$(load-y) \< x0xffffffff80000000), 0)
       KBUILD_SYM32 = $(call cc-option-yn, -msym32)
     endif
   endif
