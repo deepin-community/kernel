@@ -32,6 +32,7 @@
 #include <linux/export.h>
 #include <asm/asm.h>
 #include <asm/asm-offsets.h>
+#include <asm/loongson3-ext.h>
 #include <asm/regdef.h>
 
 #define EXC(inst_reg,addr,handler)		\
@@ -40,11 +41,22 @@
 	PTR_WD	9b, handler;			\
 	.previous
 
-#define EXCQ(inst,reg1,reg2,addr,handler)	\
-9:	inst	reg1, reg2, addr;		\
-	.section __ex_table,"a";		\
-	PTR_WD	9b, handler;			\
+#define EX_GSLQ(r1, r2, off, base, handler)			\
+9:	.word	LQS_GSLQ_ENC(__LQS_REGNO_##r1, __LQS_REGNO_##r2, off,	\
+			     __LQS_REGNO_##base);			\
+	.section __ex_table,"a";				\
+	PTR_WD	9b, handler;					\
 	.previous
+
+#define EX_GSSQ(r1, r2, off, base, handler)			\
+9:	.word	LQS_GSSQ_ENC(__LQS_REGNO_##r1, __LQS_REGNO_##r2, off,	\
+			     __LQS_REGNO_##base);			\
+	.section __ex_table,"a";				\
+	PTR_WD	9b, handler;					\
+	.previous
+
+#define __LQS_REGNO_dst	4
+#define __LQS_REGNO_src	5
 
 #endif
 
@@ -113,7 +125,6 @@
 	.align	5
 	.set	noreorder
 	.set	noat
-	.set	arch=loongson3a
 
 LEAF(memcpy)				/* a0=dst a1=src a2=len */
 EXPORT_SYMBOL(memcpy)
@@ -163,14 +174,14 @@ EXC(	ld	t3, (8 + 16 * 1)(src),	.Ll_exc_copy)
 EXC(	ld	t0,	(16 * 2)(src),	.Ll_exc_copy)
 EXC(	ld	t1, (8 + 16 * 2)(src),	.Ll_exc_copy)
 	ADDI	len, -16 * 4
-EXCQ(	gssq, t7, t4, (16 * 0)(dst),	.Ls_exc_p64)
+EX_GSSQ(t7, t4, 16 * 0, dst,	.Ls_exc_p64)
 EXC(	ld	t4,	(16 * 3)(src),	.Ll_exc_copy)
 EXC(	ld	t7, (8 + 16 * 3)(src),	.Ll_exc_copy)
 	ADDU	src, 16 * 4
 	ADDU	dst, 16 * 4
-EXCQ(	gssq, t3, t2, (-16 * 3)(dst),	.Ls_exc_p48)
-EXCQ(	gssq, t1, t0, (-16 * 2)(dst),	.Ls_exc_p32)
-EXCQ(	gssq, t7, t4, (-16 * 1)(dst),	.Ls_exc_p16)
+EX_GSSQ(t3, t2, -16 * 3, dst,	.Ls_exc_p48)
+EX_GSSQ(t1, t0, -16 * 2, dst,	.Ls_exc_p32)
+EX_GSSQ(t7, t4, -16 * 1, dst,	.Ls_exc_p16)
 	bne	len, rem, 1b
 	 nop
 	beqz	len, .Ldone
@@ -183,8 +194,8 @@ EXC(	ld	t0,	(16 * 1)(src),	.Ll_exc_copy)
 EXC(	ld	t1, (8 + 16 * 1)(src),	.Ll_exc_copy)
 	ADDI	len, -16 * 2
 	ADDU	src, 16 * 2
-EXCQ(	gssq, t3, t2, (16 * 0)(dst),	.Ls_exc_p32)
-EXCQ(	gssq, t1, t0, (16 * 1)(dst),	.Ls_exc_p16)
+EX_GSSQ(t3, t2, 16 * 0, dst,	.Ls_exc_p32)
+EX_GSSQ(t1, t0, 16 * 1, dst,	.Ls_exc_p16)
 	beqz	len, .Ldone
 	 ADDU	dst, 32
 3:	/* copy less than 32B */
@@ -194,7 +205,7 @@ EXC(	ld	t2,	0(src),		.Ll_exc)
 EXC(	ld	t3,	8(src),		.Ll_exc_copy)
 	ADDI	len, -16
 	ADDU	src, 16
-EXCQ(	gssq, t3, t2, 0(dst),		.Ls_exc_p16)
+EX_GSSQ(t3, t2, 0, dst,		.Ls_exc_p16)
 	bnez	len, .L_memcpy_1_15B_8B_aligned
 	 ADDU	dst, 16
 
@@ -207,38 +218,38 @@ EXCQ(	gssq, t3, t2, 0(dst),		.Ls_exc_p16)
 	 and	rem, len, 0x3f
 	.align	4
 1:
-EXCQ(	gslq, t7, t4, (16 * 0)(src),	.Ll_exc)
-EXCQ(	gslq, t3, t2, (16 * 1)(src),	.Ll_exc_copy)
-EXCQ(	gslq, t1, t0, (16 * 2)(src),	.Ll_exc_copy)
+EX_GSLQ(t7, t4, 16 * 0, src,	.Ll_exc)
+EX_GSLQ(t3, t2, 16 * 1, src,	.Ll_exc_copy)
+EX_GSLQ(t1, t0, 16 * 2, src,	.Ll_exc_copy)
 	ADDI	len, -16 * 4
-EXCQ(	gssq, t7, t4, (16 * 0)(dst),	.Ls_exc_p64)
-EXCQ(	gslq, t7, t4, (16 * 3)(src),	.Ll_exc_copy)
+EX_GSSQ(t7, t4, 16 * 0, dst,	.Ls_exc_p64)
+EX_GSLQ(t7, t4, 16 * 3, src,	.Ll_exc_copy)
 	ADDU	src, 16 * 4
 	ADDU	dst, 16 * 4
-EXCQ(	gssq, t3, t2, (-16 * 3)(dst),	.Ls_exc_p48)
-EXCQ(	gssq, t1, t0, (-16 * 2)(dst),	.Ls_exc_p32)
-EXCQ(	gssq, t7, t4, (-16 * 1)(dst),	.Ls_exc_p16)
+EX_GSSQ(t3, t2, -16 * 3, dst,	.Ls_exc_p48)
+EX_GSSQ(t1, t0, -16 * 2, dst,	.Ls_exc_p32)
+EX_GSSQ(t7, t4, -16 * 1, dst,	.Ls_exc_p16)
 	bne	len, rem, 1b
 	 nop
 	beqz	len, .Ldone
 2:	 sltu	t0, len, 32
 	bnez	t0, 3f
 	 and	rem, len, 0xf
-EXCQ(	gslq, t3, t2, (16 * 0)(src),	.Ll_exc)
-EXCQ(	gslq, t1, t0, (16 * 1)(src),	.Ll_exc_copy)
+EX_GSLQ(t3, t2, 16 * 0, src,	.Ll_exc)
+EX_GSLQ(t1, t0, 16 * 1, src,	.Ll_exc_copy)
 	ADDI	len, -16 * 2
 	ADDU	src, 32
-EXCQ(	gssq, t3, t2, (16 * 0)(dst),	.Ls_exc_p32)
-EXCQ(	gssq, t1, t0, (16 * 1)(dst),	.Ls_exc_p16)
+EX_GSSQ(t3, t2, 16 * 0, dst,	.Ls_exc_p32)
+EX_GSSQ(t1, t0, 16 * 1, dst,	.Ls_exc_p16)
 	beqz	len, .Ldone
 	 ADDU	dst, 32
 3:	/* copy less than 32B */
 	beq	rem, len, .L_memcpy_1_15B_8B_aligned
 	 nop
-EXCQ(	gslq, t3, t2, 0(src),		.Ll_exc)
+EX_GSLQ(t3, t2, 0, src,		.Ll_exc)
 	ADDI	len, -16
 	ADDU	src, 16
-EXCQ(	gssq, t3, t2, 0(dst),		.Ls_exc_p16)
+EX_GSSQ(t3, t2, 0, dst,		.Ls_exc_p16)
 	beqz	len, .Ldone
 	 ADDU	dst, 16
 /*
@@ -273,8 +284,8 @@ EXC(	LDFIRST	t3, 24(src),		.Ll_exc_copy)
 EXC(	LDREST	t2, 23(src),		.Ll_exc_copy)
 EXC(	LDREST	t3, 31(src),		.Ll_exc_copy)
 	ADDU	src, 16 * 2
-EXCQ(	gssq, t7, t4, (16 * 0)(dst),	.Ls_exc_p32)
-EXCQ(	gssq, t3, t2, (16 * 1)(dst),	.Ls_exc_p16)
+EX_GSSQ(t7, t4, 16 * 0, dst,	.Ls_exc_p32)
+EX_GSSQ(t3, t2, 16 * 1, dst,	.Ls_exc_p16)
 	bne	len, rem, 1b
 	 ADDU	dst, 16 * 2
 	beqz	len, .Ldone
@@ -287,7 +298,7 @@ EXC(	LDFIRST	t1, 8(src),		.Ll_exc_copy)
 EXC(	LDREST	t0, 7(src),		.Ll_exc_copy)
 EXC(	LDREST	t1, 15(src),		.Ll_exc_copy)
 	ADDU	src, 16
-EXCQ(	gssq, t1, t0, 0(dst),		.Ls_exc_p16)
+EX_GSSQ(t1, t0, 0, dst,		.Ls_exc_p16)
 	beqz	len, .Ldone
 	 ADDU	dst, 16
 

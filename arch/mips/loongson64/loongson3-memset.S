@@ -11,6 +11,7 @@
 #include <linux/export.h>
 #include <asm/asm.h>
 #include <asm/asm-offsets.h>
+#include <asm/loongson3-ext.h>
 #include <asm/regdef.h>
 
 #define LONG_S_L sdl
@@ -25,25 +26,29 @@
 	PTR_WD	9b, handler;				\
 	.previous
 
-#define EX_GSSQ(reg, addr, handler)			\
-	.set push;					\
-	.set arch=loongson3a;				\
-9:	gssq	reg, reg, addr;				\
-	.set pop;					\
-	.section __ex_table,"a";			\
-	PTR_WD	9b, handler;				\
+#define EX_GSSQ(v, off, b, fixup)				\
+9:	.word	LQS_GSSQ_ENC(v, v, off, b);			\
+	.section __ex_table,"a";				\
+	PTR_WD	9b, fixup;					\
 	.previous
 
-	.macro	f_fill128 dst, offset, val, fixup
-	EX_GSSQ(\val, (\offset +  0 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  1 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  2 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  3 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  4 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  5 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  6 * STORSIZE)(\dst), \fixup)
-	EX_GSSQ(\val, (\offset +  7 * STORSIZE)(\dst), \fixup)
-	.endm
+#define f_fill128(dst, offset, val, fixup)			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  0 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  1 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  2 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  3 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  4 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  5 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  6 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup);			\
+	EX_GSSQ(__LQS_REGNO_##val, (offset) +  7 * STORSIZE,	\
+		__LQS_REGNO_##dst, fixup)
 
 /*
  * memset(void *s, int c, size_t n)
@@ -99,7 +104,7 @@ EXPORT_SYMBOL(__bzero)
 	PTR_ADDU	t1, a0			/* end address */
 	.set		reorder
 1:	PTR_ADDIU	a0, 128
-	f_fill128 a0, -128, a1, .Lfwd_fixup
+	f_fill128(a0, -128, a1, .Lfwd_fixup)
 	bne		t1, a0, 1b
 	.set		noreorder
 
@@ -115,7 +120,7 @@ EXPORT_SYMBOL(__bzero)
 	.set		push
 	.set		noreorder
 	.set		nomacro
-	f_fill128 a0, -128, a1, .Lpartial_fixup	/* ... but first do 16Bs ... */
+	f_fill128(a0, -128, a1, .Lpartial_fixup)	/* ... but first do 16Bs ... */
 2:	.set		pop
 	andi		a2, STORMASK		/* At most 15B to go */
 
