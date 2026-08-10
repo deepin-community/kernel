@@ -75,4 +75,8 @@ void _iee_set_cred_security(unsigned long __unused, struct cred *cred,void *secu
 void _iee_set_cred_rcu(unsigned long __unused, struct cred *cred, struct rcu_head *rcu);
 void _iee_set_cred_ucounts(unsigned long __unused, struct cred *cred, struct ucounts *ucounts);
 #endif
+
+/* Called from iee_rw_gate (asm) to dispatch IEE ops to the _iee_*() functions. */
+unsigned long iee_dispatch(int flag, unsigned long arg1,
+			   unsigned long arg2, unsigned long arg3);
 #endif

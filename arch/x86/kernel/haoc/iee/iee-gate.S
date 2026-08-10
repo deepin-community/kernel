@@ -55,9 +55,8 @@ SYM_FUNC_START(iee_rw_gate)
 	movq %rsp, %r12
 	movq PER_CPU_VAR(iee_stacks) + IEE_STACK, %rsp
 
-	/* call iee func */
-	leaq iee_funcs(%rip), %rax
-	call *(%rax, %rdi, 8)
+	/* direct dispatch: no indirect call, no writable func table */
+	call iee_dispatch
 
 	/* switch to kernel stack */
 	movq %r12, %rsp
