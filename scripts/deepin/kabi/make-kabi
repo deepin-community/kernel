@@ -47,7 +47,8 @@ def load_symvers(symvers, filename):
             break
         if in_line == "\n":
             continue
-        checksum, symbol, directory, ctype = in_line.split()
+        checksum, symbol, directory, ctype, *namespace = in_line.split()
+        namespace = namespace[0] if namespace else None
 
         symvers[symbol] = in_line[0:-1]
 
