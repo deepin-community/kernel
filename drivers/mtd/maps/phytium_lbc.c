@@ -404,7 +404,7 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 	int ret;
 	int i;
 	struct resource *res;
-	const char **reg_names_array;
+	const char *reg_names_array[4] = {0};
 
 	lbc = devm_kzalloc(dev, sizeof(struct phytium_lbc), GFP_KERNEL);
 	if (!lbc)
@@ -419,7 +419,6 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	dev_num = 0;
-	reg_names_array = kcalloc(4, sizeof(*reg_names_array), GFP_KERNEL);
 	if (dev->of_node) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "localbus");
 		lbc->io_base = devm_ioremap_resource(dev, res);
