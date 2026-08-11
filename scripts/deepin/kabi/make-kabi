@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: GPL-2.0
 #
 # Imported from CentOS Stream 10 (kernel-6.12.0-255.el10) redhat/kabi/
 # for deepin kABI work.
