@@ -14,8 +14,6 @@
 #include <asm/processor-flags.h>
 #include <asm/asm.h>
 
-#define X86_CR4_SMEP_SMAP (X86_CR4_SMEP | X86_CR4_SMAP)
-
 /*
  * scratch_reg would be changed,
  * caller should dertimine if scratch_reg should be saved and restored.
@@ -28,13 +26,14 @@
 .endm
 
 .macro ENABLE_WP scratch_reg:req
-	/* Enable write protection */
+	/*
+	 * Enable write protection. A CR0 write either takes effect or
+	 * faults, so there is nothing to retry; keep this a single write.
+	 * (Pinning enforcement stays in native_write_cr0()/_iee_si_handler.)
+	 */
 	movq %cr0, %\scratch_reg
-1:
 	orq $X86_CR0_WP, %\scratch_reg
 	movq %\scratch_reg, %cr0
-	testq $X86_CR0_WP, %\scratch_reg
-	je 1b
 .endm
 
 /*
@@ -130,13 +129,16 @@ SYM_CODE_START(iee_rwx_gate)
 
 	ENABLE_WP r12
  
-	/* set SMEP=1 to disable supervisor-mode exec user-mode insn */
-	movq %cr4, %rax  /* rax -> cr4 */
-1:  orq $X86_CR4_SMEP_SMAP, %rax
+	/*
+	 * Re-enable SMEP/SMAP after running the handler. Only the bits the
+	 * CPU actually supports may be set (setting an unsupported CR4 bit
+	 * #GPs); iee_cr4_set_mask is initialized in identify_cpu() before
+	 * setup_smep()/setup_smap(). No read-back retry: a CR4 write either
+	 * takes effect or faults, there is nothing to retry.
+	 */
+	movq %cr4, %rax		/* value written by the handler */
+	orq iee_cr4_set_mask(%rip), %rax
 	movq %rax, %cr4
-	andq $X86_CR4_SMEP_SMAP, %rax
-	cmpq $X86_CR4_SMEP_SMAP, %rax
-	jnz 1
  
 	/* restore irq*/
 	popfq

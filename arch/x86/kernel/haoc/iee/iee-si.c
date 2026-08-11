@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <linux/cache.h>
 #include <linux/init.h>
+
 #include <asm/haoc/iee-si.h>
 #include <asm/haoc/haoc-def.h>
 #include <asm/set_memory.h>
 #include <asm/haoc/iee.h>
+
+/*
+ * SMEP/SMAP bits the boot CPU actually enabled. The rwx gate exit
+ * re-enables these after running the handler; it must never set bits
+ * the CPU does not support (writing them to CR4 would #GP).
+ * Initialized in identify_cpu() before setup_smep()/setup_smap().
+ */
+unsigned long iee_cr4_set_mask __read_mostly;
 
 unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 {
