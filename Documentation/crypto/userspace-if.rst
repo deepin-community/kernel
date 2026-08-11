@@ -80,6 +80,15 @@ performed by the consumer:
    system calls to send data to the kernel or obtain data from the
    kernel, the file descriptor returned by accept must be used.
 
+.. caution::
+
+   Support for hardware cryptographic accelerators has been removed from
+   AF_ALG. Only algorithms implemented in software are now accessible
+   through this interface. Hardware accelerator drivers are frequently
+   buggy, and removing their exposure via AF_ALG reduces the kernel's
+   attack surface. This means AF_ALG no longer fulfills its original
+   purpose of providing access to off-CPU cryptography.
+
 In-place Cipher operation
 -------------------------
 
