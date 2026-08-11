@@ -88,6 +88,12 @@ SCHED_FEAT(TTWU_QUEUE, true)
 SCHED_FEAT(SIS_UTIL, true)
 
 /*
+ * Steal a CFS task from another CPU when going idle.
+ * Improves CPU utilization.
+ */
+SCHED_FEAT(STEAL, false)
+
+/*
  * Issue a WARN when we do multiple update_rq_clock() calls
  * in a single rq->lock section. Default disabled because the
  * annotations are not complete.

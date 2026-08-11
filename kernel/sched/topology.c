@@ -6,6 +6,7 @@
 #include <linux/sched/isolation.h>
 #include <linux/bsearch.h>
 #include "sched.h"
+#include "sparsemask.h"
 
 DEFINE_MUTEX(sched_domains_mutex);
 void sched_domains_mutex_lock(void)
@@ -20,6 +21,12 @@ void sched_domains_mutex_unlock(void)
 /* Protected by sched_domains_mutex: */
 static cpumask_var_t sched_domains_tmpmask;
 static cpumask_var_t sched_domains_tmpmask2;
+
+struct s_data;
+static int sd_llc_alloc(struct sched_domain *sd);
+static void sd_llc_free(struct sched_domain *sd);
+static int sd_llc_alloc_all(const struct cpumask *cpu_map, struct s_data *d);
+static void sd_llc_free_all(const struct cpumask *cpu_map);
 
 static int __init sched_debug_setup(char *str)
 {
@@ -625,8 +632,10 @@ static void destroy_sched_domain(struct sched_domain *sd)
 	 */
 	free_sched_groups(sd->groups, 1);
 
-	if (sd->shared && atomic_dec_and_test(&sd->shared->ref))
+	if (sd->shared && atomic_dec_and_test(&sd->shared->ref)) {
+		sd_llc_free(sd);
 		kfree(sd->shared);
+	}
 	kfree(sd);
 }
 
@@ -670,7 +679,9 @@ DEFINE_STATIC_KEY_FALSE(sched_cluster_active);
 
 static void update_top_cache_domain(int cpu)
 {
+	struct sparsemask *cfs_overload_cpus = NULL;
 	struct sched_domain_shared *sds = NULL;
+	struct rq *rq = cpu_rq(cpu);
 	struct sched_domain *sd;
 	int id = cpu;
 	int size = 1;
@@ -680,8 +691,10 @@ static void update_top_cache_domain(int cpu)
 		id = cpumask_first(sched_domain_span(sd));
 		size = cpumask_weight(sched_domain_span(sd));
 		sds = sd->shared;
+		cfs_overload_cpus = sds->cfs_overload_cpus;
 	}
 
+	rcu_assign_pointer(rq->cfs_overload_cpus, cfs_overload_cpus);
 	rcu_assign_pointer(per_cpu(sd_llc, cpu), sd);
 	per_cpu(sd_llc_size, cpu) = size;
 	per_cpu(sd_llc_id, cpu) = id;
@@ -1541,6 +1554,7 @@ static void __free_domain_allocs(struct s_data *d, enum s_alloc what,
 		free_percpu(d->sd);
 		fallthrough;
 	case sa_sd_storage:
+		sd_llc_free_all(cpu_map);
 		__sdt_free(cpu_map);
 		fallthrough;
 	case sa_none:
@@ -2392,6 +2406,78 @@ static void __sdt_free(const struct cpumask *cpu_map)
 	}
 }
 
+static int sd_llc_alloc(struct sched_domain *sd)
+{
+	struct sched_domain_shared *sds = sd->shared;
+	struct cpumask *span = sched_domain_span(sd);
+	int nid = cpu_to_node(cpumask_first(span));
+	int flags = __GFP_ZERO | GFP_KERNEL;
+	struct sparsemask *mask;
+
+	/*
+	 * Allocate the bitmap if not already allocated.  This is called for
+	 * every CPU in the LLC but only allocates once per sd_llc_shared.
+	 */
+	if (!sds->cfs_overload_cpus) {
+		mask = sparsemask_alloc_node(nr_cpu_ids, 3, flags, nid);
+		if (!mask)
+			return 1;
+		sds->cfs_overload_cpus = mask;
+	}
+
+	return 0;
+}
+
+static void sd_llc_free(struct sched_domain *sd)
+{
+	struct sched_domain_shared *sds = sd->shared;
+
+	if (!sds)
+		return;
+
+	sparsemask_free(sds->cfs_overload_cpus);
+	sds->cfs_overload_cpus = NULL;
+}
+
+static int sd_llc_alloc_all(const struct cpumask *cpu_map, struct s_data *d)
+{
+	struct sched_domain *sd, *hsd;
+	int i;
+
+	for_each_cpu(i, cpu_map) {
+		/* Find highest domain that shares resources */
+		hsd = NULL;
+		for (sd = *per_cpu_ptr(d->sd, i); sd; sd = sd->parent) {
+			if (!(sd->flags & SD_SHARE_LLC))
+				break;
+			hsd = sd;
+		}
+		if (hsd && sd_llc_alloc(hsd))
+			return 1;
+	}
+
+	return 0;
+}
+
+static void sd_llc_free_all(const struct cpumask *cpu_map)
+{
+	struct sched_domain_topology_level *tl;
+	struct sched_domain *sd;
+	struct sd_data *sdd;
+	int j;
+
+	for_each_sd_topology(tl) {
+		sdd = &tl->data;
+		if (!sdd || !sdd->sd)
+			continue;
+		for_each_cpu(j, cpu_map) {
+			sd = *per_cpu_ptr(sdd->sd, j);
+			if (sd)
+				sd_llc_free(sd);
+		}
+	}
+}
+
 static struct sched_domain *build_sched_domain(struct sched_domain_topology_level *tl,
 		const struct cpumask *cpu_map, struct sched_domain_attr *attr,
 		struct sched_domain *child, int cpu)
@@ -2613,6 +2699,14 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 			init_sched_groups_capacity(i, sd);
 		}
 	}
+
+	/*
+	 * Allocate shared sd data at last level cache.  Must be done after
+	 * domains are built above, but before the data is used in
+	 * cpu_attach_domain and descendants below.
+	 */
+	if (sd_llc_alloc_all(cpu_map, &d))
+		goto error;
 
 	/* Attach the domains */
 	rcu_read_lock();
