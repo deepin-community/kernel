@@ -1,7 +1,40 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <linux/init.h>
+#include <linux/gfp.h>
+#include <linux/mm.h>
 #include <asm/set_memory.h>
 #include <asm/haoc/iee-token.h>
 #include "slab.h"
+
+/*
+ * The token of a slab-allocated task_struct lives on a dedicated page
+ * (see iee_alloc_task_token_slab()).  init_task is a kernel image
+ * symbol, so its IEE alias still points at its own physical page and
+ * token writes (e.g. token->new_cred in CREDP) would land on
+ * init_task itself.  Give it a dedicated token page too.
+ */
+void __init iee_prepare_init_task_token(void)
+{
+	unsigned long token = (unsigned long)__kimg_to_iee(&init_task);
+	unsigned long token_page;
+	unsigned int order = 0;
+
+	/* Allocate one more page if the token crosses a page boundary. */
+	if (ALIGN(token + sizeof(struct task_token), PAGE_SIZE) !=
+	    ALIGN(token + 1, PAGE_SIZE))
+		order = 1;
+
+	token_page = __get_free_pages(GFP_KERNEL | __GFP_ZERO, order);
+	if (!token_page)
+		panic("IEE: failed to allocate token page for init_task\n");
+
+	/* The remap works on whole pages; align the token address down. */
+	iee_set_token_page_valid(ALIGN_DOWN(token, PAGE_SIZE), token_page,
+				 order);
+
+	/* init_task is already running, validate its token directly. */
+	iee_validate_token(&init_task);
+}
 
 void iee_set_token_page_valid(unsigned long token, unsigned long token_page,
 			      unsigned int order)

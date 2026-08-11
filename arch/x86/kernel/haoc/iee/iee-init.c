@@ -17,6 +17,9 @@
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
 unsigned long IEE_OFFSET = 0x200000000000;
@@ -162,6 +165,9 @@ void __init iee_init(void)
 	_iee_offset_init();
 	_iee_mapping_init();
 	_iee_stack_init();
+#ifdef CONFIG_IEE_PTRP
+	iee_prepare_init_task_token();
+#endif
 }
 
 bool __ro_after_init haoc_enabled;
