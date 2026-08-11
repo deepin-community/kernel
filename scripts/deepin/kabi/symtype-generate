@@ -14,7 +14,7 @@ set -euo pipefail
 
 usage() {
 	sed 's/^\t//' <<EOF
-	Usage: $0 [-h] [-v] [-1] [-2] [-3] [-4] [-5] -a ARCH [-s SYMBOL]... [FILE]...
+	Usage: $0 [-h] [-v] [-1] [-2] [-3] [-4] [-5] [-6] -a ARCH [-s SYMBOL]... [FILE]...
 EOF
 
 	echo
@@ -349,7 +349,9 @@ generate() {
 
 OPTIND=1
 
-while getopts "TC12345hva:f:s:" opt; do
+# deepin: optstring gains "6" (method 6 is documented and handled below but
+# was missing from the option string upstream, so -6 was rejected)
+while getopts "TC123456hva:f:s:" opt; do
 	case "$opt" in
 	T)
 		CONFIG_NO_TEST=y
