@@ -438,19 +438,21 @@ if [ -z "$CARCH" ]; then
 	usage
 fi
 
+# --- prep
+
+cd "$(git rev-parse --show-toplevel)"
+
+# deepin: default to the scripts/deepin/ directory instead of redhat/
+# deepin: initialize before the kabi dir check below; with set -u an
+# unbound REDHAT would abort when running this script directly
+REDHAT=${REDHAT:-$(pwd)/scripts/deepin/}
+
 if [ ! -d "$REDHAT/kabi/kabi-module/kabi_$CARCH" ]; then
 	err "Architecture $CARCH not supported."
 	exit 1
 fi
 
 trap cleanup EXIT
-
-# --- prep
-
-cd "$(git rev-parse --show-toplevel)"
-
-# deepin: default to the scripts/deepin/ directory instead of redhat/
-REDHAT=${REDHAT:-$(pwd)/scripts/deepin/}
 
 if [ $USE_ENTIRE_STABLELIST -eq 1 ]; then
 	SYMBOL=($(find $REDHAT/kabi/kabi-module/kabi_$CARCH -type f \
