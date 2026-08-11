@@ -434,6 +434,8 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		}
 	} else if (has_acpi_companion(dev)) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			return -ENODEV;
 		fwnode_property_read_string_array(dev->fwnode, "reg-names", reg_names_array, 2);
 		res->name = reg_names_array[0];
 		lbc->io_base = devm_ioremap_resource(dev, res);
@@ -443,6 +445,8 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		}
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!res)
+			return -ENODEV;
 		res->name = reg_names_array[1];
 		lbc->mm_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(lbc->mm_base)) {
