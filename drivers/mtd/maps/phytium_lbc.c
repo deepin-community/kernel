@@ -416,7 +416,6 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 
 	if (!lbc->dev_num || lbc->dev_num > PHYTIUM_MAX_SRAM_BLOCK) {
 		dev_err(dev, "no device deceted, or device number is too large\n");
-		kfree(lbc);
 		return -ENODEV;
 	}
 	dev_num = 0;
@@ -426,14 +425,12 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		lbc->io_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(lbc->io_base)) {
 			ret = PTR_ERR(lbc->io_base);
-			kfree(lbc);
 			return ret;
 		}
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "lbc_mm");
 		lbc->mm_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(lbc->mm_base)) {
 			ret = PTR_ERR(lbc->mm_base);
-			kfree(lbc);
 			return ret;
 		}
 	} else if (has_acpi_companion(dev)) {
@@ -443,7 +440,6 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		lbc->io_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(lbc->io_base)) {
 			ret = PTR_ERR(lbc->io_base);
-			kfree(lbc);
 			return ret;
 		}
 
@@ -452,7 +448,6 @@ static int phytium_lbc_probe(struct platform_device *pdev)
 		lbc->mm_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(lbc->mm_base)) {
 			ret = PTR_ERR(lbc->mm_base);
-			kfree(lbc);
 			return ret;
 		}
 	} else {
