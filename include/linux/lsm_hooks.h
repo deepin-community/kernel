@@ -62,13 +62,12 @@ struct lsm_blob_sizes {
 	int	lbs_file;
 	int lbs_backing_file;
 	int	lbs_inode;
-	int	lbs_sock;
 	int	lbs_superblock;
 	int	lbs_ipc;
 	int	lbs_msg_msg;
 	int	lbs_task;
 	int	lbs_xattr_count; /* number of xattr slots in new_xattrs array */
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, int lbs_sock)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
