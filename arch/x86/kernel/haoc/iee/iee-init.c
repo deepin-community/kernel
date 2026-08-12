@@ -174,20 +174,10 @@ void __init iee_init(void)
 
 bool __ro_after_init haoc_enabled;
 EXPORT_SYMBOL(haoc_enabled);
-#ifdef CONFIG_IEE_SIP
-extern unsigned long cr4_pinned_mask;
-#endif
 static int __init parse_haoc_enabled(char *str)
 {
 	int ret = kstrtobool(str, &haoc_enabled);
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-	{
-		cr4_pinned_mask =
-		X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
-		X86_CR4_FSGSBASE | X86_CR4_CET;
-	}
-	#endif
+
 	return ret;
 }
 early_param("haoc", parse_haoc_enabled);
