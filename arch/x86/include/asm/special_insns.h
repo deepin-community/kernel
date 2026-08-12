@@ -9,7 +9,7 @@
 #include <asm/processor-flags.h>
 #include <linux/irqflags.h>
 #include <linux/jump_label.h>
-#ifdef CONFIG_IEE_SIP
+#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 #include <asm/haoc/iee-si.h>
 extern bool haoc_enabled;
 #endif
@@ -53,7 +53,7 @@ static inline unsigned long __native_read_cr3(void)
 	return val;
 }
 
-#ifdef CONFIG_IEE_SIP
+#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 static inline void iee_write_cr3_early(unsigned long val)
 {
 	asm volatile("mov %0,%%cr3" : : "r" (val) : "memory");
@@ -62,7 +62,7 @@ static inline void iee_write_cr3_early(unsigned long val)
  
 static inline void native_write_cr3(unsigned long val)
 {
-	#ifdef CONFIG_IEE_SIP
+	#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 	if(haoc_enabled)
 		iee_write_cr3(val);
 	else
