@@ -138,11 +138,23 @@ static int sky1_gpu_attach_pd(struct kbase_device *kbdev)
 	else
 		kbdev->sky1_perf_dev = dev_pm_domain_attach_by_name(kbdev->dev, "perf");
 
-	link = device_link_add(kbdev->dev, kbdev->sky1_perf_dev,
-				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE);
-	if (!link) {
-		dev_err(kbdev->dev, "Failed to add device_link to gpu perf pd.\n");
-		return -EINVAL;
+	/* genpd_bus_type in drivers/soc/cix/scmi/domain.c is never bus_register()'d,
+	 * so fwnode_dev_pm_domain_attach_by_name() returns ERR_PTR on the 26Q2 BIOS
+	 * (the genpd:%u:%s virtual device cannot be added to an unregistered bus,
+	 * or the ACPI _DSD lacks the "perf" power-domain-name). Guard device_link_add
+	 * to avoid a NULL-deref oops in __pm_runtime_resume() called from it.
+	 */
+	if (IS_ERR_OR_NULL(kbdev->sky1_perf_dev)) {
+		dev_warn(kbdev->dev, "perf pd not attached (%ld), skip device_link\n",
+			 PTR_ERR(kbdev->sky1_perf_dev));
+		kbdev->sky1_perf_dev = NULL;
+	} else {
+		link = device_link_add(kbdev->dev, kbdev->sky1_perf_dev,
+					DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE);
+		if (!link) {
+			dev_err(kbdev->dev, "Failed to add device_link to gpu perf pd.\n");
+			return -EINVAL;
+		}
 	}
 #endif
 
@@ -162,11 +174,16 @@ static int sky1_gpu_attach_pd(struct kbase_device *kbdev)
 	}
 
 	kbdev->sky1_power_dev = power_dev;
-	link = device_link_add(kbdev->dev, kbdev->sky1_power_dev,
-				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE);
-	if (!link) {
-		dev_err(kbdev->dev, "Failed to add device_link to gpu power pd.\n");
-		return -EINVAL;
+	if (IS_ERR_OR_NULL(kbdev->sky1_power_dev)) {
+		dev_warn(kbdev->dev, "power pd not attached, skip device_link\n");
+		kbdev->sky1_power_dev = NULL;
+	} else {
+		link = device_link_add(kbdev->dev, kbdev->sky1_power_dev,
+					DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME | DL_FLAG_RPM_ACTIVE);
+		if (!link) {
+			dev_err(kbdev->dev, "Failed to add device_link to gpu power pd.\n");
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
@@ -175,9 +192,10 @@ static int sky1_gpu_detach_pd(struct kbase_device *kbdev)
 {
 
 #ifdef CONFIG_MALI_DEVFREQ
-	dev_pm_domain_detach(kbdev->sky1_perf_dev, "perf");
+	if (kbdev->sky1_perf_dev)
+		dev_pm_domain_detach(kbdev->sky1_perf_dev, "perf");
 #endif
-	if (!has_acpi_companion(kbdev->dev))
+	if (!has_acpi_companion(kbdev->dev) && kbdev->sky1_power_dev)
 		dev_pm_domain_detach(kbdev->sky1_power_dev, "pd_gpu");
 
 	return 0;
@@ -285,7 +303,15 @@ static int kbase_platform_sky1_late_init(struct kbase_device *kbdev)
 	hrtimer_init(&kbdev->sky1_power_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->sky1_power_timer.function = sky1_power_timer_callback;
 
-	if (enable_sky1_power_model) {
+	/* The IPA power model is initialized by kbase_ipa_init() inside
+	 * kbase_backend_devfreq_init(). When the perf pd is not attached,
+	 * sky1_gpu_init_perf_opp_table() returns -ENODEV and devfreq init
+	 * aborts before kbase_ipa_init(), leaving fallback_model NULL.
+	 * Starting the sampling hrtimer in that state makes the work handler
+	 * dereference a NULL model in kbase_get_real_power_locked(). Only
+	 * start it when the IPA model was initialized.
+	 */
+	if (enable_sky1_power_model && kbdev->ipa.fallback_model) {
 		hrtimer_start(&kbdev->sky1_power_timer,
 			HR_TIMER_DELAY_MSEC(PM_POWER_MODEL_SAMPLE_INTERVAL_MS), HRTIMER_MODE_REL);
 	}
@@ -426,6 +452,11 @@ int sky1_gpu_init_perf_opp_table(struct kbase_device *kbdev, struct devfreq_dev_
 	struct dev_pm_opp *opp;
 	unsigned long lowest_freq_khz = DEFAULT_REF_TIMEOUT_FREQ_KHZ;
 	unsigned long found_lowest_freq = 0;
+
+	if (IS_ERR_OR_NULL(kbdev->sky1_perf_dev)) {
+		dev_err(kbdev->dev, "perf pd not attached, skip opp table init\n");
+		return -ENODEV;
+	}
 
 	err = scmi_device_opp_table_parse(kbdev->sky1_perf_dev);
 	if (err) {
