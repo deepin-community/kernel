@@ -390,6 +390,40 @@ int cix_acpi_parse_clkt_handle(acpi_handle handle, const char *name,
 		if (!hw)
 			continue;
 
+		/*
+		 * Create device link between consumer and clock provider.
+		 * This ensures that when consumer resumes, the clock provider
+		 * (which may have runtime PM) is also resumed first, avoiding
+		 * deadlocks with prepare_lock.
+		 *
+		 * Use acpi_get_first_physical_node() to get the platform device
+		 * instead of the ACPI device, so we can update existing link
+		 * created by fw_devlink.
+		 */
+		if (adev && &adev->dev != dev) {
+			struct device_link *link;
+			struct device *consumer_dev;
+
+			/* Get the physical (platform) device from ACPI device */
+			consumer_dev = acpi_get_first_physical_node(adev);
+			if (!consumer_dev)
+				consumer_dev = &adev->dev;
+
+			/*
+			 * device_link_add() will update existing link if found,
+			 * or create a new one if not.
+			 */
+			link = device_link_add(consumer_dev, dev,
+					       DL_FLAG_PM_RUNTIME);
+			if (link) {
+				dev_dbg(dev, "Updated device link with PM_RUNTIME: consumer=%s\n",
+						dev_name(consumer_dev));
+			} else {
+				dev_warn(dev, "Failed to add device link to %s\n",
+					 dev_name(consumer_dev));
+			}
+		}
+
 		acpi_clks[i].hw = hw;
 		acpi_clks[i].cl.dev_id = dname;
 		acpi_clks[i].cl.con_id = devm_kstrdup(dev, con_id, GFP_KERNEL);
