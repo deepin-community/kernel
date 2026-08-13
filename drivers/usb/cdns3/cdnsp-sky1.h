@@ -80,6 +80,8 @@
 #define D_XEC_CFG_3XPORT_MODE_VALUE		0xa0031e03
 #define APB_TIMEOUT_VALUE_50MS_FREQ_200M	0x2710
 #define APB_TIMEOUT_MASK			(~((1 << 22) - 1))
+#define CFG_APB_TIMEOUT_PSLVERR_EN              BIT(22)
+#define CFG_APB_PSLVERR_EN                      BIT(23)
 
 #define CIX_USB_CLK_NUM				(4)
 #define CIX_USB_CLK_OFF_NUM			(2)
