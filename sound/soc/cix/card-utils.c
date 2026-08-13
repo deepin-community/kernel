@@ -136,7 +136,7 @@ int dai_set_sysclk(struct snd_pcm_substream *substream,
 			mclk_fs = 256;
 			mclk_div = 2;
 		} else if (sample_rate == 192000) {
-			mclk_fs = 128;
+			mclk_fs = 256;
 			mclk_div = 0;
 		}
 	} else if (sample_rate % 11025 == 0) {
@@ -153,8 +153,8 @@ int dai_set_sysclk(struct snd_pcm_substream *substream,
 			mclk_fs = 256;
 			mclk_div = 2;
 		} else if (sample_rate == 176400) {
-			mclk_fs = 128;
-			mclk_div = 2;
+			mclk_fs = 256;
+			mclk_div = 0;
 		}
 	} else {
 		dev_err(rtd->dev, "Invalid sample rate");
