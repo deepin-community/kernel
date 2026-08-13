@@ -1109,6 +1109,10 @@ static int cdns_i2c_calc_divs(unsigned long *f, unsigned long input_clk,
 	unsigned int div_a, div_b, calc_div_a = 0, calc_div_b = 0;
 	unsigned int last_error, current_error;
 
+	/* Prevent division by zero */
+	if (!fscl)
+		return -EINVAL;
+
 	/* calculate (divisor_a+1) x (divisor_b+1) */
 	temp = input_clk / (22 * fscl);
 
@@ -1476,6 +1480,7 @@ static int cdns_i2c_probe(struct platform_device *pdev)
 	struct cdns_i2c *id;
 	int ret, irq;
 	const struct of_device_id *match;
+	u32 acpi_speed;
 
 	id = devm_kzalloc(&pdev->dev, sizeof(*id), GFP_KERNEL);
 	if (!id)
@@ -1522,8 +1527,10 @@ static int cdns_i2c_probe(struct platform_device *pdev)
 				     "input clock not found.\n");
 
 	ret = clk_prepare_enable(id->clk);
-	if (ret)
+	if (ret) {
 		dev_err(&pdev->dev, "Unable to enable clock.\n");
+		return ret;
+	}
 
 	id->reset = devm_reset_control_array_get_optional_exclusive(&pdev->dev);
 	if (IS_ERR(id->reset)) {
@@ -1548,7 +1555,15 @@ static int cdns_i2c_probe(struct platform_device *pdev)
 
 	ret = device_property_read_u32(&pdev->dev, "clock-frequency",
 			&id->i2c_clk);
-	if (ret || (id->i2c_clk > I2C_MAX_FAST_MODE_FREQ))
+	if (ret)
+		id->i2c_clk = I2C_MAX_STANDARD_MODE_FREQ;  /* Default 100kHz */
+
+	acpi_speed = i2c_acpi_find_bus_speed(&pdev->dev);
+	if (acpi_speed && acpi_speed < id->i2c_clk)
+		id->i2c_clk = acpi_speed;
+
+	/* Prevent division by zero and invalid values */
+	if (!id->i2c_clk || id->i2c_clk > I2C_MAX_FAST_MODE_PLUS_FREQ)
 		id->i2c_clk = I2C_MAX_STANDARD_MODE_FREQ;
 
 #if IS_ENABLED(CONFIG_I2C_SLAVE)
