@@ -336,10 +336,6 @@ static int sky1_timer_probe(struct platform_device *pdev)
 		goto err_clk_dis;
 	}
 
-	/* reset timer */
-	if (!screen_info.lfb_linelength) /* already init in uefi */
-		reset_control_reset(sky1tm->func_reset);
-
 	sky1_gpt_setup_tctl(sky1tm);
 
 	platform_set_drvdata(pdev, sky1tm);
