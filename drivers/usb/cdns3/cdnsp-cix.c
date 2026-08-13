@@ -79,6 +79,7 @@ static int cdnsp_probe(struct platform_device *pdev)
 	struct cdns *cdns;
 	void __iomem *regs;
 	int ret;
+	struct resource irqres;
 
 	cdns = devm_kzalloc(dev, sizeof(*cdns), GFP_KERNEL);
 	if (!cdns)
@@ -99,6 +100,13 @@ static int cdnsp_probe(struct platform_device *pdev)
 	cdns->xhci_res[0].end = ret;
 	cdns->xhci_res[0].flags = IORESOURCE_IRQ | irq_get_trigger_type(ret);
 	cdns->xhci_res[0].name = "host";
+
+	if (has_acpi_companion(dev)) {
+		ret = acpi_irq_get(ACPI_HANDLE(dev), 0, &irqres);
+		if (ret == 0) {
+			cdns->xhci_res[0].flags = irqres.flags;
+		}
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "xhci");
 	if (!res) {
@@ -267,8 +275,8 @@ static int cdnsp_controller_resume(struct device *dev, pm_message_t msg)
 
 	cdnsp_set_platform_suspend(cdns->dev, false, false);
 
-	spin_lock_irqsave(&cdns->lock, flags);
 	cdns_resume(cdns);
+	spin_lock_irqsave(&cdns->lock, flags);
 	cdns->in_lpm = false;
 	spin_unlock_irqrestore(&cdns->lock, flags);
 
@@ -288,6 +296,9 @@ static int cdnsp_plat_runtime_suspend(struct device *dev)
 	if (cdns->role == USB_ROLE_HOST) {
 		xhci_dev = cdns->host_dev;
 		hcd = dev_get_drvdata(&xhci_dev->dev);
+		if (!hcd)
+			goto controller_suspend; /* hcd is not created */
+
 		xhci = hcd_to_xhci(hcd);
 
 		/* XHCI irq and Wakeup irq are the same interrupt,set Run/Stop bit,
@@ -302,6 +313,8 @@ static int cdnsp_plat_runtime_suspend(struct device *dev)
 		if (result == U32_MAX)
 			dev_err(dev, "set controller run timeout\n");
 	}
+
+controller_suspend:
 	ret = cdnsp_controller_suspend(dev, PMSG_AUTO_SUSPEND);
 
 	return ret;
@@ -320,10 +333,17 @@ static int cdnsp_plat_runtime_resume(struct device *dev)
 	if (cdns->role == USB_ROLE_HOST) {
 		xhci_dev = cdns->host_dev;
 		hcd = dev_get_drvdata(&xhci_dev->dev);
-		xhci = hcd_to_xhci(hcd);
-		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
-		if (xhci->shared_hcd)
-			set_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags);
+		if (hcd) {
+			xhci = hcd_to_xhci(hcd);
+			/*
+			 * Somethings the interrupt occurs once the we enable the interrupt,
+			 * So, we need hcd core to handle it at once.
+			 */
+			set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+			if (xhci->shared_hcd)
+				set_bit(HCD_FLAG_HW_ACCESSIBLE, &xhci->shared_hcd->flags);
+		}
+
 		if (cdns->wakeup_pending) {
 			enable_irq(cdns->wakeup_irq);
 			cdns->wakeup_pending = false;
