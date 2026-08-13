@@ -2,6 +2,7 @@
 //------------------------------------------------------------------------------
 //	Trilinear Technologies DisplayPort DRM Driver
 //	Copyright (C) 2023 Trilinear Technologies
+//	Copyright 2024 Cix Technology Group Co., Ltd.
 //
 //	This program is free software: you can redistribute it and/or modify
 //	it under the terms of the GNU General Public License as published by
@@ -101,8 +102,8 @@ trilin_dp_connector_detect(struct drm_connector *connector, bool force)
 	DP_DEBUG("enter\n");
 
 	mutex_lock(&dp->session_lock);
-	if (dp->state & DP_STATE_SUSPENDED) {
-		DP_DEBUG("DP_STATE_SUSPENDED return\n");
+	if (dp->state & DPTX_STATE_SUSPENDED) {
+		DP_DEBUG("DPTX_STATE_SUSPENDED return\n");
 		goto end;
 	}
 
@@ -139,6 +140,11 @@ end:
 	return dp->status;
 }
 
+bool trilin_dp_plugged_status(struct trilin_dp *dp)
+{
+	return (dp->status == connector_status_connected);
+}
+
 static int trilin_dp_connector_atomic_check(struct drm_connector *conn,
 					    struct drm_atomic_state *state)
 {
@@ -164,12 +170,14 @@ static int trilin_dp_connector_atomic_check(struct drm_connector *conn,
 	if (!crtc)
 		return 0;
 
+	if (dp->caps.psr_sink_support && dp->psr_config_on)
+		new_con_state->self_refresh_aware = true;
+	else
+		new_con_state->self_refresh_aware = false;
+
 	new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
 	if (IS_ERR(new_crtc_state))
 		return PTR_ERR(new_crtc_state);
-
-	if (dp->caps.psr_sink_support && dp->psr_default_on)
-		new_con_state->self_refresh_aware = true;
 
 	if (new_crtc_state->self_refresh_active && !dp->psr.enable) {
 		DP_WARN("self_refresh_active is true but no psr sink support");
@@ -277,9 +285,15 @@ static int trilin_dp_add_virtual_modes_noedid(struct drm_connector *connector)
 	struct drm_display_mode *mode;
 	struct drm_display_mode *preferred_mode;
 	struct drm_device *dev = connector->dev;
+	struct trilin_dp *dp = connector_to_dp(connector);
 
 	preferred_mode = list_first_entry(&connector->probed_modes,
 					  struct drm_display_mode, head);
+	dp->my_copied_modes = 0;
+	list_for_each_entry(mode, &connector->probed_modes, head) {
+		dp->my_copied_modes++;
+	}
+	DP_DEBUG("preferred_mode: %s %d\n", preferred_mode->name, preferred_mode->clock);
 
 	count = ARRAY_SIZE(trilin_drm_dmt_modes);
 	for (i = 0; i < count; i++) {
@@ -350,7 +364,6 @@ static int trilin_dp_connector_get_modes(struct drm_connector *connector)
 		ret = drm_add_modes_noedid(connector, 4096, 4096);
 		drm_set_preferred_mode(connector, 640, 480);
 	}
-
 	DP_DEBUG("mode count = %d bpc=%d\n", ret, info->bpc);
 	return ret;
 }
@@ -475,6 +488,9 @@ static int link_rate_show(struct seq_file *m, void *data)
 {
 	struct drm_connector *connector = m->private;
 	struct trilin_connector *conn = connector_to_trilin(connector);
+	struct trilin_dp *dp = connector_to_dp(connector);
+	u8 link_status[DP_LINK_STATUS_SIZE];
+	int ret;
 
 	if (connector->status != connector_status_connected) {
 		seq_puts(m, "not connected\n");
@@ -483,6 +499,20 @@ static int link_rate_show(struct seq_file *m, void *data)
 
 	seq_printf(m, "link rate: %d lanes: %d\n", conn->dp->mode.link_rate,
 		   conn->dp->mode.lane_cnt);
+
+	seq_printf(m, "clock_recovery_ok : %s\nchannel_eq_ok : %s\n",
+			dp->train_cr_done ? "yes" : "no",
+			dp->train_ce_done ? "yes" : "no");
+
+	seq_puts(m, "\n------------ dpcd status ------------\n");
+	ret = drm_dp_dpcd_read_link_status(&dp->aux, link_status);
+	if (ret < 0) {
+		seq_printf(m, "read link status failed\n");
+	} else {
+		seq_printf(m, "DP_LANE0_1_STATUS : %x\nDP_LANE2_3_STATUS: %x\n",
+			    link_status[0], link_status[1]);
+	}
+
 	return 0;
 }
 
@@ -500,6 +530,8 @@ void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 			    &link_rate_fops);
 	debugfs_create_bool("psr_default_on", 0644, root,
 			    &conn->dp->psr_default_on);
+	debugfs_create_bool("mst_default_on", 0644, root,
+			    &conn->dp->mst_default_on);
 }
 
 static const struct drm_connector_funcs trilin_dp_connector_funcs = {
@@ -629,12 +661,13 @@ static void trilin_dp_encoder_enable(struct drm_encoder *encoder,
 	DP_INFO("enter\n");
 
 	if (dp->enabled_by_gop) {
-		if (is_same_mode_compare(dp, dp_panel) && !conn->vrr.enable) {
+		if (is_same_mode_compare(dp, dp_panel) && !conn->vrr.enable &&
+		    trilin_dp_link_trained(dp)) {
 			trilin_dp_write(dp, TRILIN_DPTX_INTERRUPT_MASK,
 					TRILIN_DPTX_INTERRUPT_CFG);
 		} else {
 			mutex_lock(&dp->session_lock);
-			dp->state &= ~DP_STATE_INITIALIZED;
+			dp->state &= ~DPTX_STATE_INITIALIZED;
 			dp->enabled_by_gop = 0;
 			mutex_unlock(&dp->session_lock);
 			DP_INFO("reset dp->state for gop\n");
@@ -659,6 +692,9 @@ static void trilin_dp_encoder_enable(struct drm_encoder *encoder,
 	/*update hdr and hdcp ? */
 	trilin_dp_post_enable(dp, dp_panel);
 	dp->enabled_by_gop = 0;
+
+	/* Arm PSR entry hold-off; see trilin_dp_psr_enable(). */
+	dp->psr.allow_after = ktime_add_ms(ktime_get(), 1000);
 }
 
 static void trilin_dp_encoder_disable(struct drm_encoder *encoder,
@@ -670,7 +706,7 @@ static void trilin_dp_encoder_disable(struct drm_encoder *encoder,
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *new_crtc_state = NULL;
 
-	if (!(dp->state & DP_STATE_INITIALIZED)) {
+	if (!(dp->state & DPTX_STATE_INITIALIZED)) {
 		DP_DEBUG("[not init]");
 		return;
 	}
@@ -685,6 +721,14 @@ static void trilin_dp_encoder_disable(struct drm_encoder *encoder,
 		trilin_dp_psr_enable(dp, dp_panel);
 		return;
 	}
+
+	/*
+	 * Full disable while the sink is still parked in PSR (suspend,
+	 * unplug, shutdown): drop PSR via DPCD before stream_off tries to
+	 * wait for sink resync that will never happen.
+	 */
+	if (dp->psr.active)
+		trilin_dp_psr_force_off(dp);
 
 	DP_INFO("enter\n");
 	rc = trilin_dp_pre_disable(dp, dp_panel);
@@ -846,10 +890,23 @@ int trilin_dp_encoder_atomic_adjust_mode(struct trilin_dp *dp,
 		else
 			adjusted_mode->flags |= DRM_MODE_FLAG_PHSYNC;
 
-		DP_DEBUG("adjust_mode flags: 0x%0x", adjusted_mode->flags);
+		DP_DEBUG("adjust_mode flags: 0x%0x adjust_mode: %s-%d mode: %s"
+			, adjusted_mode->flags, adjusted_mode->name, adjusted_mode->clock, mode->name);
 	}
 
 	return 0;
+}
+
+/*
+ * For DP-to-HDMI protocol converters:
+ * calculate the max pixel clock (kHz) allowed by the converter's TMDS
+ * character rate limit, reported via EDID max_tmds_clock (kHz).
+ */
+static int trilin_dp_hdmi_max_pixel_clock_khz(int max_tmds_clock_khz, u8 bpp)
+{
+	if (WARN_ON(bpp == 0))
+		return 0;
+	return DIV_ROUND_CLOSEST(max_tmds_clock_khz * 24, bpp);
 }
 
 static bool compute_available_clock_rate(struct trilin_dp *dp,
@@ -858,15 +915,26 @@ static bool compute_available_clock_rate(struct trilin_dp *dp,
 {
 	int min_bpc = (color_format == DRM_COLOR_FORMAT_RGB444) ? 6 : 8;
 	int bpc = max(suggest_bpc, min_bpc);
-	int bpp;
+	int bpp, max_pixel_clock;
 	u8 max_lanes = dp->link_config.max_lanes;
 	int rate, max_rate = dp->link_config.max_rate;
+	struct drm_display_info *info = &connector_state->connector->display_info;
 
 	for (; bpc >= min_bpc; bpc = bpc - 2) {
 		bpc = trilin_dp_cal_bpc(dp, connector_state, bpc);
 		bpp = trilin_dp_cal_bpp(bpc, color_format);
+
+		/* rate = max pixel clock (kHz) from DP link bandwidth */
 		rate = trilin_dp_max_rate(max_rate, max_lanes, bpp);
-		if (clock <= rate) {
+
+		max_pixel_clock = rate;
+		if (info->max_tmds_clock > 0)
+			max_pixel_clock = min(max_pixel_clock,
+					      trilin_dp_hdmi_max_pixel_clock_khz(
+						      info->max_tmds_clock, bpp));
+
+		/* clock is adjusted_mode->clock, also in kHz */
+		if (clock <= max_pixel_clock) {
 			*rt_bpc = bpc;
 			*rt_bpp = bpp;
 			return true;
@@ -905,16 +973,25 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 	const int COMMON_COLORS_FORMATS[] = {
 		DRM_COLOR_FORMAT_RGB444, DRM_COLOR_FORMAT_YCBCR422, DRM_COLOR_FORMAT_YCBCR420};
 
-	for (i = 0; i < ARRAY_SIZE(COMMON_COLORS_FORMATS); i++) {
-		color_format = COMMON_COLORS_FORMATS[i];
-		if (info_formats & color_format ||
-			drm_mode_is_420_only(info, adjusted_mode)) {
-			success = compute_available_clock_rate(dp, connector_state, suggest_bpc,
-				adjusted_mode->clock, color_format, &bpc, &bpp);
-			if (success) {
-				if (color_format != DRM_COLOR_FORMAT_RGB444)
-					DP_INFO("Use YUV Format=0x%0x", color_format);
-				break;
+	if (drm_mode_is_420_only(info, adjusted_mode)) {
+		/* CEA YUV420-only timings must be driven as YCbCr 4:2:0 */
+		color_format = DRM_COLOR_FORMAT_YCBCR420;
+		success = compute_available_clock_rate(dp, connector_state, suggest_bpc,
+			adjusted_mode->clock, color_format, &bpc, &bpp);
+		if (success)
+			DP_INFO("YUV420-only mode: use YUV420 format");
+	} else {
+		for (i = 0; i < ARRAY_SIZE(COMMON_COLORS_FORMATS); i++) {
+			color_format = COMMON_COLORS_FORMATS[i];
+			if (info_formats & color_format) {
+				success = compute_available_clock_rate(dp, connector_state,
+					suggest_bpc, adjusted_mode->clock, color_format,
+					&bpc, &bpp);
+				if (success) {
+					if (color_format != DRM_COLOR_FORMAT_RGB444)
+						DP_INFO("Use YUV Format=0x%0x", color_format);
+					break;
+				}
 			}
 		}
 	}
@@ -985,23 +1062,47 @@ int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
 	struct drm_display_info *info =
 		&connector_state->connector->display_info;
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
-	struct drm_display_mode *mode = &crtc_state->mode;
+	struct drm_display_mode *crtc_mode = &crtc_state->mode;
+	struct drm_display_mode *mode;
+	struct drm_display_mode *preferred_mode = NULL;
+	int i = 0;
 
 	DP_DEBUG("enter\n");
 
 	if (crtc_state->self_refresh_active && !crtc_state->vrr_enabled)
 		return 0;
 
-	trilin_dp_encoder_atomic_adjust_mode(dp, mode, adjusted_mode);
-
 	if (connector->connector_type == DRM_MODE_CONNECTOR_eDP) {
-		struct drm_display_mode *preferred_mode;
+		list_for_each_entry(mode, &connector->modes, head) {
+			if (mode->hdisplay == adjusted_mode->hdisplay &&
+				mode->vdisplay == adjusted_mode->vdisplay &&
+				drm_mode_vrefresh(mode) == drm_mode_vrefresh(adjusted_mode)) {
+				preferred_mode = mode;
+				DP_DEBUG("same preferred_mode: %s %d", preferred_mode->name, preferred_mode->clock);
+				break;
+			} else if (mode->hdisplay >= adjusted_mode->hdisplay &&
+				mode->vdisplay >= adjusted_mode->vdisplay &&
+				drm_mode_vrefresh(mode) == drm_mode_vrefresh(adjusted_mode)) {
+				preferred_mode = mode;
+				DP_DEBUG("vfresh same preferred_mode: %s %d", preferred_mode->name, preferred_mode->clock);
+				break;
+			}
+			if (++i >= dp->my_copied_modes) {
+				break;
+			}
+		}
 
-		preferred_mode = list_first_entry(
-			&connector->modes, struct drm_display_mode, head);
+		if (preferred_mode == NULL) {
+			preferred_mode = list_first_entry(&connector->modes,
+						struct drm_display_mode, head);
+			DP_DEBUG("use first preferred_mode");
+		}
 
 		drm_mode_copy(adjusted_mode, preferred_mode);
 	}
+
+	trilin_dp_encoder_atomic_adjust_mode(dp, crtc_mode, adjusted_mode);
+
 	return trilin_dp_encoder_compute_config(encoder, crtc_state,
 						connector_state, info->bpc);
 }
@@ -1085,6 +1186,19 @@ void trilin_dp_encoder_atomic_mode_set(
 			dp->pixel_per_cycle = 1;
 	}
 	trilin_dp_rcsu_cfg_adapter(dp, connector_state);
+
+	if (dp->pixel_per_cycle == 2
+		&& dp->psr_config_on && dp->caps.psr_sink_support) {
+		dp->psr_config_on = false;
+		DP_INFO("psr disable in 2ppc mode");
+	} else {
+		dp->psr_config_on = dp->psr_default_on;
+		DP_DEBUG("psr_config_on: %d", dp->psr_config_on);
+	}
+	if (dp->caps.psr_sink_support && dp->psr_config_on)
+		connector_state->self_refresh_aware = true;
+	else
+		connector_state->self_refresh_aware = false;
 }
 
 static const struct drm_encoder_helper_funcs trilin_dp_encoder_helper_funcs = {

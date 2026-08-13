@@ -2,6 +2,7 @@
 //------------------------------------------------------------------------------
 //	Trilinear Technologies DisplayPort DRM Driver
 //	Copyright (C) 2023 Trilinear Technologies
+//	Copyright 2024 Cix Technology Group Co., Ltd.
 //
 //	This program is free software: you can redistribute it and/or modify
 //	it under the terms of the GNU General Public License as published by
@@ -1180,6 +1181,6 @@ trilin_phy_error_t trilin_edp_phy_register(struct trilin_dp *dp)
 	if (reg_val == TRILIN_EDP_PHY_ID)
 		phy->phy_ops = &edp_phy_ops;
 
-	DP_INFO("end\n");
+	DP_DEBUG("end\n");
 	return trilin_phy_error_none;
 }

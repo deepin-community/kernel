@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
+// Copyright 2024 Cix Technology Group Co., Ltd.
 /*
  * Copyright (c) 2023, The Linux Foundation. All rights reserved.
  */
