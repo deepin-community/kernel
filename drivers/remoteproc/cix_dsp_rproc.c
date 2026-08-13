@@ -21,11 +21,6 @@
 #include "remoteproc_internal.h"
 #include "remoteproc_elf_helpers.h"
 
-#ifdef CONFIG_PLAT_BBOX
-#include <linux/soc/cix/rdr_pub.h>
-#include <mntn_public_interface.h>
-#endif
-
 /* DSP register define */
 #define SKY1_INFO_HIFI0				0x00
 #define SKY1_INFO_HIFI1				0x04
@@ -757,9 +752,6 @@ static const struct rproc_ops cix_dsp_rproc_ops = {
 	.kick		= cix_dsp_rproc_kick,
 	.da_to_va	= cix_dsp_rproc_da_to_va,
 	.load		= cix_dsp_rproc_elf_load_segments,
-#ifdef CONFIG_PLAT_BBOX
-	.coredump       = cix_dsp_rproc_rdr_coredump,
-#endif
 	.parse_fw	= rproc_elf_load_rsc_table,
 	.sanity_check	= rproc_elf_sanity_check,
 	.get_boot_addr	= rproc_elf_get_boot_addr,
@@ -1033,19 +1025,6 @@ static int cix_dsp_rproc_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
-
-#ifdef CONFIG_PLAT_BBOX
-	init_completion(&g_rdr_dump_comp);
-
-	cix_dsp_rproc_rdr_register_exception();
-
-	ret = cix_dsp_rproc_rdr_register_core();
-	if (ret) {
-		dev_err(dev, "cix_dsp_rproc_rdr_register_core fail, ret = [%d]\n", ret);
-		goto err_rproc_add;
-	}
-#endif
-
 	return 0;
 
 err_rproc_add:
@@ -1062,11 +1041,6 @@ static int cix_dsp_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
 	struct cix_dsp_rproc *rproc_priv = rproc->priv;
-
-#ifdef CONFIG_PLAT_BBOX
-	cix_dsp_rproc_rdr_unregister_core();
-	cix_dsp_rproc_rdr_unregister_exception();
-#endif
 
 	pm_runtime_disable(&pdev->dev);
 	rproc_del(rproc);
