@@ -117,6 +117,7 @@ struct sky1_pcie {
 	u32 link_speed;
 	u32 num_lanes;
 	u32 max_payload;
+	u32 max_aspm_support;			/* bit0: enable L0s, bit1: enable L1 */
 	u32 mode;
 
 	struct clk *pcie_axi_clk;
@@ -149,6 +150,13 @@ struct sky1_pcie {
 	bool is_aer_uncor_panic;
 	bool str_pwron;
 	bool std_pwron;
+	u32 re_pwron_delay_ms;
+	/*
+	 * PCIE_ID_x8 + downstream PCI class display (full bus subtree).
+	 * resume_noirq pre-power delay; refreshed in suspend_noirq before link
+	 * teardown.
+	 */
+	bool x8_vga_resume_delay;
 	u32 aer_c_irq;
 	u32 aer_f_irq;
 	u32 aer_nf_irq;

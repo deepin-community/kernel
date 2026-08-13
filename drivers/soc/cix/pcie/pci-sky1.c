@@ -41,6 +41,8 @@
 #define I_CFG_9 (CDNS_PCIE_IP_REG_BANK_BASE + 0x724)
 #define IP_REG_I_DBG_STS_0 (CDNS_PCIE_IP_REG_BANK_BASE + 0x420)
 
+#define I_HAL_CTRL_DEC_TLP_FILTER (CDNS_PCIE_IP_REG_BANK_BASE + 0x100c)
+
 /* local interrupt */
 #define I_LOCAL_ERR_STS_REG0 (CDNS_PCIE_IP_REG_BANK_BASE + 0x1414)
 #define I_LOCAL_ERR_MASK_REG0 (CDNS_PCIE_IP_REG_BANK_BASE + 0x1418)
@@ -56,6 +58,7 @@
 #define LTSSM_TRANS_DEBUG_CTRL_REG3 (CDNS_PCIE_IP_REG_BANK_BASE + 0x6d8)
 #define LTSSM_TRANS_DEBUG_CTRL_STATUS (CDNS_PCIE_IP_REG_BANK_BASE + 0x6dc)
 #define AXI_SLAVE_CTRL (CDNS_PCIE_IP_AXI_SLAVE_BASE + 0x4)
+#define AXI_SLAVE_RESP_CTRL_MEM (CDNS_PCIE_IP_AXI_SLAVE_BASE + 0x10c)
 
 #define BF_MAX_LANE_NUM_MASK GENMASK(17, 15)
 #define MAX_EVAL_ITER_SHIFT 18
@@ -74,6 +77,10 @@
 #define SKY1_MAX_LANES 8
 
 #define PERST_DELAY_US 1000
+
+/* Power cycle timing */
+/* Delay after power off for capacitor discharge */
+#define POWER_CYCLE_OFF_DELAY_US 3000
 
 /* local interrupt (aer error) */
 #define LOCAL_ERR_PFOVFL BIT(8)
@@ -101,6 +108,9 @@
 #define SKY1_PHY_TIMEOUT_CNT (50)
 
 #define PCIE_RESET_CONFIG_WAIT_MS	100
+
+/* Pre-EP-power delay on x8 when a display-class GPU is downstream (resume). */
+#define SKY1_PCIE_X8_GPU_RESUME_MS	500
 
 static DEFINE_MUTEX(sky1_init_mutex);
 static DEFINE_MUTEX(sky1_x211_mutex);
@@ -281,6 +291,65 @@ void sky1_pcie_enable_indicatbit_int(struct sky1_pcie *pcie, bool en)
 		sky1_pcie_ctrl_writel_reg(pcie, LTSSM_TRANS_DEBUG_CTRL_STATUS,
 					  reg);
 	}
+}
+
+/* Display controller / GPU (VGA, 3D, etc.); not only PCI_CLASS_DISPLAY_VGA. */
+static bool sky1_pcie_pci_class_is_display(unsigned int class_rev)
+{
+	return ((class_rev >> 16) & 0xff) == PCI_BASE_CLASS_DISPLAY;
+}
+
+static bool sky1_pcie_bus_subtree_has_display(struct pci_bus *bus)
+{
+	struct pci_dev *pdev;
+	struct pci_bus *child;
+
+	if (!bus)
+		return false;
+
+	list_for_each_entry(pdev, &bus->devices, bus_list) {
+		if (sky1_pcie_pci_class_is_display(pdev->class))
+			return true;
+		if (pdev->subordinate &&
+		    sky1_pcie_bus_subtree_has_display(pdev->subordinate))
+			return true;
+	}
+
+	list_for_each_entry(child, &bus->children, node) {
+		if (sky1_pcie_bus_subtree_has_display(child))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * True if any display-class device exists under this host bridge root bus
+ * (full subtree: root port subordinate, switches, any slot).
+ */
+static bool sky1_pcie_downstream_has_display(struct sky1_pcie *pcie)
+{
+	struct pci_host_bridge *bridge;
+
+	bridge = pci_host_bridge_from_priv(pcie->cdns_pcie_rc);
+	if (!bridge || !bridge->bus)
+		return false;
+
+	return sky1_pcie_bus_subtree_has_display(bridge->bus);
+}
+
+/*
+ * Arm x8_vga_resume_delay for PCIE_ID_x8 when a display device exists under
+ * this RC. Call from suspend_noirq before link teardown.
+ */
+static void sky1_pcie_refresh_x8_gpu_resume_delay(struct sky1_pcie *pcie)
+{
+	pcie->x8_vga_resume_delay = false;
+
+	if (pcie->desc->id != PCIE_ID_x8)
+		return;
+
+	pcie->x8_vga_resume_delay = sky1_pcie_downstream_has_display(pcie);
 }
 
 static struct pci_dev *sky1_pcie_get_ep_pci_dev(struct sky1_pcie *pcie)
@@ -1253,18 +1322,14 @@ static int sky1_pcie_parse_clocks(struct sky1_pcie *pcie)
 	return 0;
 }
 
-static int sky1_pcie_parse_plat(struct sky1_pcie *pcie)
+static void sky1_pcie_parse_plat(struct sky1_pcie *pcie)
 {
-	int ret = 0;
-
 	if (device_property_read_bool(pcie->dev, "plat-emu"))
 		pcie->plat = PCIE_PLAT_EMU;
 	else if (device_property_read_bool(pcie->dev, "plat-fpga"))
 		pcie->plat = PCIE_PLAT_FPGA;
 	else
 		pcie->plat = PCIE_PLAT_EVK;
-
-	return ret;
 }
 
 static void sky1_pcie_parse_ep_pwr_supply(struct sky1_pcie *pcie)
@@ -1273,6 +1338,9 @@ static void sky1_pcie_parse_ep_pwr_supply(struct sky1_pcie *pcie)
 
 	pcie->str_pwron = device_property_read_bool(dev, "sky1,str-pwron");
 	pcie->std_pwron = device_property_read_bool(dev, "sky1,std-pwron");
+	if (device_property_read_u32(dev, "sky1,re-pwron-ms",
+				     &pcie->re_pwron_delay_ms))
+		pcie->re_pwron_delay_ms = 0;
 
 	/* optional power control for device */
 	pcie->vsupply = devm_regulator_get_optional(dev, "vcc-pcie");
@@ -1311,10 +1379,9 @@ static int sky1_pcie_parse_wake_gpio(struct sky1_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
 	struct gpio_desc *gpiodesc;
-	int ret = 0;
 
 	if (pcie->plat == PCIE_PLAT_EMU)
-		return ret;
+		return 0;
 
 	gpiodesc = devm_gpiod_get_optional(dev, "wake", GPIOD_IN);
 	if (IS_ERR(gpiodesc)) {
@@ -1323,7 +1390,13 @@ static int sky1_pcie_parse_wake_gpio(struct sky1_pcie *pcie)
 	}
 	pcie->wake = gpiodesc;
 
-	return ret;
+	if (pcie->wake) {
+		dev_dbg(dev, "wakeup-source\n");
+		device_init_wakeup(dev, true);
+		enable_irq_wake(gpiod_to_irq(pcie->wake));
+	}
+
+	return 0;
 }
 
 static int sky1_pcie_en_ep_power(struct sky1_pcie *pcie, bool en)
@@ -1343,6 +1416,50 @@ static int sky1_pcie_en_ep_power(struct sky1_pcie *pcie, bool en)
 			en ? "enable" : "disable");
 
 	return ret;
+}
+
+/**
+ * sky1_pcie_safe_power_cycle - Safely perform power cycle on PCIe endpoint device
+ * @pcie: PCIe controller private data structure
+ *
+ * This function implements a safe power cycle (on->off->on) for the PCIe
+ * endpoint device. Mainly used for device reset or re-initialization scenarios.
+ *
+ * Return: 0 on success, negative value on failure
+ */
+static int sky1_pcie_safe_power_cycle(struct sky1_pcie *pcie)
+{
+	int ret;
+
+	if ((pcie->plat == PCIE_PLAT_EMU) || (pcie->plat == PCIE_PLAT_FPGA))
+		return 0;
+
+	if (!pcie->vsupply)
+		return 0;
+
+	/* Power cycle: turn on -> off -> on */
+	ret = sky1_pcie_en_ep_power(pcie, true);
+	if (ret < 0)
+		return ret;
+
+	if (!pcie->re_pwron_delay_ms)
+		return 0;
+
+	ret = sky1_pcie_en_ep_power(pcie, false);
+	if (ret < 0)
+		return ret;
+
+	/* Wait for capacitor discharge after power off */
+	usleep_range(POWER_CYCLE_OFF_DELAY_US, POWER_CYCLE_OFF_DELAY_US + 100);
+
+	ret = sky1_pcie_en_ep_power(pcie, true);
+	if (ret < 0)
+		return ret;
+	/* Wait for endpoint initialization after power on. */
+	msleep(pcie->re_pwron_delay_ms);
+	dev_info(pcie->dev, "power cycle completed, delay %d ms\n",
+		 pcie->re_pwron_delay_ms);
+	return 0;
 }
 
 static int sky1_pcie_en_ep_on(struct sky1_pcie *pcie, bool en)
@@ -1432,6 +1549,24 @@ static int sky1_pcie_parse_aer_irq(struct sky1_pcie *pcie)
 	return 0;
 }
 
+static void sky1_pcie_parse_max_aspm_support(struct sky1_pcie *pcie)
+{
+	struct device *dev = pcie->dev;
+	u32 max_aspm_support;
+	int ret = 0;
+
+	ret = device_property_read_u32(dev, "max-aspm-support", &max_aspm_support);
+	if (ret) {
+		dev_dbg(dev, "Get property max-aspm-support fail:%d\n", ret);
+		max_aspm_support = 0x2;
+	}
+
+	if ((max_aspm_support >= 0) && (max_aspm_support <= 3))
+		pcie->max_aspm_support = max_aspm_support;
+	else
+		pcie->max_aspm_support = 2;
+}
+
 static void devm_phy_release(struct device *dev, void *res)
 {
 	struct phy *phy = *(struct phy **)res;
@@ -1475,9 +1610,7 @@ static int sky1_pcie_parse_property(struct platform_device *pdev,
 	int ret = 0;
 
 	sky1_pcie_parse_ep_pwr_supply(pcie);
-	ret = sky1_pcie_parse_plat(pcie);
-	if (ret < 0)
-		return ret;
+	sky1_pcie_parse_plat(pcie);
 
 	ret = sky1_pcie_parse_ctrl_id(pcie);
 	if (ret < 0)
@@ -1530,6 +1663,7 @@ static int sky1_pcie_parse_property(struct platform_device *pdev,
 		return ret;
 
 	sky1_pcie_parse_aer_irq(pcie);
+	sky1_pcie_parse_max_aspm_support(pcie);
 
 	sky1_pcie_init_bases(pcie);
 
@@ -1683,19 +1817,8 @@ static void sky1_pcie_set_refclk(struct sky1_pcie *pcie, bool en)
 
 static void sky1_pcie_set_l0s_disable(struct sky1_pcie *pcie)
 {
-	struct platform_device *pdev = to_platform_device(pcie->dev);
-	struct device_node *np = pdev->dev.of_node;
 	u8 offset;
 	u32 reg;
-
-	/*
-	 * TODO:
-	 * We found that some devices do not support L0s, and the system
-	 * startup will cause hang. The power consumption benefit is not
-	 * significant. It will be debugged in the future.
-	 */
-	if (!of_property_read_bool(np, "aspm-no-l0s"))
-		return;
 
 	offset = cdns_pcie_find_capability(pcie->reg_base, PCI_CAP_ID_EXP);
 	/* Clear L0s from RC's link cap */
@@ -1704,22 +1827,37 @@ static void sky1_pcie_set_l0s_disable(struct sky1_pcie *pcie)
 	sky1_pcie_ctrl_writel_reg(pcie, offset + PCI_EXP_LNKCAP, reg);
 }
 
+static void sky1_pcie_set_l1_disable(struct sky1_pcie *pcie)
+{
+	u8 offset;
+	u32 reg;
+
+	offset = cdns_pcie_find_capability(pcie->reg_base, PCI_CAP_ID_EXP);
+	reg = sky1_pcie_ctrl_readl_reg(pcie, offset + PCI_EXP_LNKCAP);
+	reg &= ~PCI_EXP_LNKCAP_ASPM_L1;
+	sky1_pcie_ctrl_writel_reg(pcie, offset + PCI_EXP_LNKCAP, reg);
+}
+
 static void sky1_pcie_filter_msg(struct sky1_pcie *pcie)
 {
 	u32 reg;
 
-	reg = cdns_pcie_readl(pcie->cdns_pcie, 0x200c);
-	reg |= BIT(3)|BIT(6);
-	cdns_pcie_writel(pcie->cdns_pcie, 0x200c, reg);
+	reg = cdns_pcie_readl(pcie->cdns_pcie, I_HAL_CTRL_DEC_TLP_FILTER);
+	/* bit3: LTR, bit6: PTM */
+	reg |= BIT(3) | BIT(6);
+	cdns_pcie_writel(pcie->cdns_pcie, I_HAL_CTRL_DEC_TLP_FILTER, reg);
 }
-
 static void sky1_pcie_init(struct sky1_pcie *pcie)
 {
+	u32 val = 0;
 	struct device *dev = pcie->dev;
 
 	dev_dbg(dev, "%s, %i\n", __func__, __LINE__);
 	sky1_pcie_set_devctrl(pcie);
-	sky1_pcie_set_l0s_disable(pcie);
+	if (!(pcie->max_aspm_support & BIT(0)))
+		sky1_pcie_set_l0s_disable(pcie);
+	if (!(pcie->max_aspm_support & BIT(1)))
+		sky1_pcie_set_l1_disable(pcie);
 	sky1_pcie_filter_msg(pcie);
 
 	// if set D3hot，it will hang, power state change set to 0
@@ -1736,6 +1874,13 @@ static void sky1_pcie_init(struct sky1_pcie *pcie)
 
 	// Enable PCLK Rate override
 	writel(0x80000688, (pcie->reg_base + I_CFG_9));
+
+	// Set AXI Slave Response Control for Completion Status errors:
+	// resp_cpl_status (bit0-1) = 0x0 (OKAY), instead of default 0x2 (SLVERR)
+	val = cdns_pcie_readl(pcie->cdns_pcie, AXI_SLAVE_RESP_CTRL_MEM);
+	val &= ~GENMASK(1, 0);
+	cdns_pcie_writel(pcie->cdns_pcie, AXI_SLAVE_RESP_CTRL_MEM, val);
+
 	dev_dbg(dev, "%s, %i\n", __func__, __LINE__);
 }
 
@@ -2286,11 +2431,11 @@ static int sky1_pcie_probe(struct platform_device *pdev)
 
 	ret = sky1_pcie_parse_property(pdev, pcie);
 	if (ret < 0)
-		return -EINVAL;
+		return ret;
 
-	ret = sky1_pcie_en_ep_power(pcie, true);
+	ret = sky1_pcie_safe_power_cycle(pcie);
 	if (ret < 0)
-		return -EINVAL;
+		return ret;
 
 	ret = sky1_pcie_en_ep_on(pcie, true);
 	if (ret < 0)
@@ -2457,6 +2602,9 @@ static int sky1_pcie_suspend_noirq(struct device *dev)
 
 	if (!pcie->is_probe)
 		return 0;
+
+	sky1_pcie_refresh_x8_gpu_resume_delay(pcie);
+
 	sky1_pcie_pme_turn_off(pcie);
 	sky1_pcie_stop_link(pcie->cdns_pcie);
 	sky1_pcie_set_link_disable(pcie);
@@ -2510,6 +2658,13 @@ static int sky1_pcie_resume_noirq(struct device *dev)
 
 	if (!pcie->is_probe)
 		return 0;
+
+	/*
+	 * Some discrete GPUs need extra time after SoC wake before slot power
+	 * and link training; only when an x8 display device was seen downstream.
+	 */
+	if (pcie->x8_vga_resume_delay)
+		msleep(SKY1_PCIE_X8_GPU_RESUME_MS);
 
 	if (!pcie->str_pwron)
 		sky1_pcie_en_ep_power(pcie, true);
