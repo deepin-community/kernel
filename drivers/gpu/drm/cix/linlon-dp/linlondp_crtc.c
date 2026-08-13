@@ -468,13 +468,25 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
 
 	/* wait the flip take affect. wait for a maximum time of 3 frames*/
 	timeout = 3 * vblank->framedur_ns / 1000000;
-	timeout = wait_for_completion_timeout(flip_done, timeout);
+	timeout = wait_for_completion_timeout(flip_done, msecs_to_jiffies(timeout));
 	if (timeout == 0) {
 		dev_err(mdev->dev, "wait pipe%d flip done timeout\n",
 			kcrtc->master->id);
+		mdev->funcs->dpu_reset(mdev);
 		if (!input_flip_done) {
 			spin_lock_irqsave(&drm->event_lock, flags);
 			kcrtc->disable_done = NULL;
+			spin_unlock_irqrestore(&drm->event_lock, flags);
+		} else {
+			struct drm_crtc *crtc = &kcrtc->base;
+			struct drm_pending_vblank_event *event;
+			event = crtc->state->event;
+			spin_lock_irqsave(&drm->event_lock, flags);
+			crtc->state->event = NULL;
+			if (event) {
+				drm_crtc_send_vblank_event(crtc, event);
+				dev_info(mdev->dev, "Send vblank event manually\n");
+			}
 			spin_unlock_irqrestore(&drm->event_lock, flags);
 		}
 	}
@@ -690,7 +702,7 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
 	if (kcrtc->master->force_pixel_per_cycle != 0)
 		pixel_per_cycle = kcrtc->master->force_pixel_per_cycle;
 
-	if ((m->clock > 600000) && (m->clock < 600000 * 2)) {
+	if ((adjusted_mode->clock > 600000) && (adjusted_mode->clock < 600000 * 2)) {
 		pixel_per_cycle = 2;
 		if (!mdev->side_by_side) {
 			mdev->side_by_side = 1;

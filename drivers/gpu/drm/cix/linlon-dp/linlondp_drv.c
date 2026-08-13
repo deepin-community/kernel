@@ -9,6 +9,7 @@
 #include <linux/platform_device.h>
 #include <linux/component.h>
 #include <linux/pm_runtime.h>
+#include <linux/aperture.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_module.h>
 #include <drm/drm_of.h>
@@ -56,6 +57,13 @@ static int linlondp_bind(struct device *dev)
 {
 	struct linlondp_drv *mdrv;
 	int err;
+
+	/* Remove existing drivers that may own the framebuffer memory. */
+	err = aperture_remove_all_conflicting_devices("linlondp");
+	if (err) {
+		DRM_DEV_ERROR(dev, "Failed to remove existing framebuffers - %d.\n", err);
+		return err;
+	}
 
 	mdrv = devm_kzalloc(dev, sizeof(*mdrv), GFP_KERNEL);
 	if (!mdrv)
@@ -176,6 +184,8 @@ static int linlondp_platform_probe(struct platform_device *pdev)
 						LINLONDP_OF_PORT_OUTPUT, 0);
 			linlondp_add_acpi_slave(dev, &match, acpi_child,
 						LINLONDP_OF_PORT_OUTPUT, 1);
+
+			dev_pm_set_driver_flags(&pdev->dev, DPM_FLAG_NO_DIRECT_COMPLETE);
 		}
 	} else {
 		pr_info("%s via dt.\n", __func__);
@@ -296,6 +306,7 @@ static int __maybe_unused linlondp_pm_resume(struct device *dev)
 	if (!pm_runtime_status_suspended(dev))
 		linlondp_dev_resume(mdrv->mdev);
 
+	linlondp_kms_fixup_inactive_suspend_state(&mdrv->kms->base);
 	return drm_mode_config_helper_resume(&mdrv->kms->base);
 }
 

@@ -256,11 +256,108 @@ static bool linlondp_vrr_match_mode(const struct drm_display_mode *mode1,
 		mode1->vscan == mode2->vscan;
 }
 
+static void linlondp_kms_put_pre_blank_locked(struct linlondp_kms_dev *kms)
+{
+	if (kms->pre_blank_state) {
+		drm_atomic_state_put(kms->pre_blank_state);
+		kms->pre_blank_state = NULL;
+	}
+}
+
+static void linlondp_kms_maybe_save_pre_blank_state(struct linlondp_kms_dev *kms,
+						    struct drm_atomic_state *state)
+{
+	struct drm_device *drm = &kms->base;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_st, *new_st;
+	struct drm_atomic_state *snap, *old_snap;
+	bool blanking = false;
+	int i;
+
+	for_each_oldnew_crtc_in_state(state, crtc, old_st, new_st, i) {
+		if (old_st->active && !new_st->active) {
+			blanking = true;
+			break;
+		}
+	}
+	if (!blanking || !state->acquire_ctx)
+		return;
+
+	snap = drm_atomic_helper_duplicate_state(drm, state->acquire_ctx);
+	if (IS_ERR_OR_NULL(snap))
+		return;
+
+	mutex_lock(&kms->pre_blank_lock);
+	old_snap = kms->pre_blank_state;
+	kms->pre_blank_state = snap;
+	mutex_unlock(&kms->pre_blank_lock);
+
+	if (old_snap)
+		drm_atomic_state_put(old_snap);
+
+	DRM_DEBUG_ATOMIC("linlondp: saved pre-blank state for STR\n");
+}
+
+void linlondp_kms_clear_pre_blank_state(struct drm_device *drm)
+{
+	struct linlondp_kms_dev *kms = to_kdev(drm);
+
+	if (!kms)
+		return;
+
+	mutex_lock(&kms->pre_blank_lock);
+	linlondp_kms_put_pre_blank_locked(kms);
+	mutex_unlock(&kms->pre_blank_lock);
+}
+
+bool linlondp_kms_fixup_inactive_suspend_state(struct drm_device *drm)
+{
+	struct linlondp_kms_dev *kms = to_kdev(drm);
+	struct drm_atomic_state *fallback, *inactive;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_st;
+	bool has_active = false;
+	int i;
+
+	if (!kms)
+		return false;
+
+	mutex_lock(&kms->pre_blank_lock);
+	fallback = kms->pre_blank_state;
+	kms->pre_blank_state = NULL;
+	mutex_unlock(&kms->pre_blank_lock);
+
+	if (!fallback)
+		return false;
+
+	for_each_new_crtc_in_state(fallback, crtc, crtc_st, i) {
+		if (crtc_st->active) {
+			has_active = true;
+			break;
+		}
+	}
+	if (!has_active) {
+		drm_atomic_state_put(fallback);
+		return false;
+	}
+
+	mutex_lock(&drm->mode_config.mutex);
+	inactive = drm->mode_config.suspend_state;
+	drm->mode_config.suspend_state = fallback;
+	mutex_unlock(&drm->mode_config.mutex);
+
+	if (inactive)
+		drm_atomic_state_put(inactive);
+
+	return true;
+}
+
 static int linlondp_kms_check(struct drm_device *dev,
 			      struct drm_atomic_state *state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_st, *new_crtc_st;
+	struct linlondp_kms_dev *kms = to_kdev(dev);
 	int i, err;
 	struct linlondp_dev *mdev = dev->dev_private;
 
@@ -297,6 +394,8 @@ static int linlondp_kms_check(struct drm_device *dev,
 		return err;
 
 	drm_self_refresh_helper_alter_state(state);
+
+	linlondp_kms_maybe_save_pre_blank_state(kms, state);
 
 	return 0;
 }
@@ -341,6 +440,8 @@ struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev)
 		return kms;
 
 	drm = &kms->base;
+
+	mutex_init(&kms->pre_blank_lock);
 
 	drm->dev_private = mdev;
 
@@ -403,6 +504,7 @@ void linlondp_kms_detach(struct linlondp_kms_dev *kms)
 	struct drm_device *drm = &kms->base;
 	struct linlondp_dev *mdev = drm->dev_private;
 
+	linlondp_kms_clear_pre_blank_state(drm);
 	drm_dev_unregister(drm);
 	drm_kms_helper_poll_fini(drm);
 	drm_atomic_helper_shutdown(drm);
