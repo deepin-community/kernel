@@ -1028,8 +1028,10 @@ static int arm_dma350_terminate_all(struct dma_chan *chan)
 		arm_dma350_terminate_chan(p);
 		dma350_ch_disable_linkaddr(p->base + DMA350_REG_LINKADDR);
 		arm_dma350_clear_chan(p);
-		if ((cfg->direction == DMA_DEV_TO_MEM) && !c->cyclic && p->ds_run)
+		if ((cfg->direction == DMA_DEV_TO_MEM) && !c->cyclic && p->ds_run) {
 			vchan_vdesc_fini(&p->ds_run->vd);
+			p->ds_run = NULL;
+		}
 		c->phy = NULL;
 		if (c->cyclic)
 			c->vc.cyclic = NULL;
