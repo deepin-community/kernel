@@ -121,8 +121,10 @@ static int sky1_npu_devfreq_init(struct device *dev, struct cix_aipu_priv *cix_a
 		cix_aipu_priv->opp_pmdomain = dev_pm_domain_attach_by_name(dev, "perf");
 
 	if (IS_ERR_OR_NULL(cix_aipu_priv->opp_pmdomain)) {
-		dev_err(dev, "Failed to get perf domain");
-		return -EFAULT;
+		dev_warn(dev, "perf pd not attached (%ld), skip devfreq\n",
+			 PTR_ERR(cix_aipu_priv->opp_pmdomain));
+		cix_aipu_priv->opp_pmdomain = NULL;
+		return 0;
 	}
 	cix_aipu_priv->opp_dl = device_link_add(dev, cix_aipu_priv->opp_pmdomain,
 							DL_FLAG_RPM_ACTIVE |
@@ -211,7 +213,10 @@ static int sky1_npu_devfreq_remove(struct device *dev, struct cix_aipu_priv *cix
 	struct devfreq_dev_profile *profile;
 
 	profile = &(cix_aipu_priv->devfreq_profile);
-	opp_count = dev_pm_opp_get_opp_count(cix_aipu_priv->opp_pmdomain);
+	if (cix_aipu_priv->opp_pmdomain)
+		opp_count = dev_pm_opp_get_opp_count(cix_aipu_priv->opp_pmdomain);
+	else
+		opp_count = 0;
 
 	if (cix_aipu_priv->devfreq) {
 		devm_devfreq_unregister_opp_notifier(dev, cix_aipu_priv->devfreq);
@@ -231,7 +236,8 @@ static int sky1_npu_devfreq_remove(struct device *dev, struct cix_aipu_priv *cix
 
 	if (cix_aipu_priv->opp_dl)
 		device_link_del(cix_aipu_priv->opp_dl);
-	dev_pm_domain_detach(cix_aipu_priv->opp_pmdomain, true);
+	if (cix_aipu_priv->opp_pmdomain)
+		dev_pm_domain_detach(cix_aipu_priv->opp_pmdomain, true);
 
 	remove_debugfs_dir("genpd:3:14260000.aipu");
 
@@ -353,6 +359,13 @@ static int sky1_npu_probe(struct platform_device *p_dev)
 					break;
 
 				cix_aipu_priv->pd_core[i] = bus_find_device_by_fwnode(&platform_bus_type, child);
+				if (!cix_aipu_priv->pd_core[i]) {
+					/* CRE* declared as _ADR-only (no _HID) are not on the
+					 * platform bus; fall back to the acpi_device device. */
+					dev_info(&p_dev->dev, "core %d not on platform bus, use acpi device\n", i);
+					acpi_bind_one(&to_acpi_device_node(child)->dev, to_acpi_device_node(child));
+					cix_aipu_priv->pd_core[i] = &to_acpi_device_node(child)->dev;
+				}
 				pm_runtime_enable(cix_aipu_priv->pd_core[i]);
 				dev_pm_domain_attach(cix_aipu_priv->pd_core[i], true);
 				dev_pm_set_driver_flags(cix_aipu_priv->pd_core[i], DPM_FLAG_NO_DIRECT_COMPLETE);
