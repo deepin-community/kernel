@@ -255,6 +255,9 @@ linlondp_component_get_avail_scaler(struct linlondp_component *c,
 	struct linlondp_pipeline_state *pipe_st;
 	u32 avail_scalers;
 
+	if (WARN_ON(!c) || WARN_ON(!c->pipeline))
+		return NULL;
+
 	pipe_st = linlondp_pipeline_get_state(c->pipeline, state);
 	if (!pipe_st)
 		return NULL;
@@ -286,7 +289,7 @@ static int linlondp_validate_plane_color(
 
 	/* Force updating the color state if user(plane) changed */
 	old_st = linlondp_component_get_old_state(c, plane_st->state);
-	if (plane_st->plane != old_st->plane)
+	if (old_st && plane_st->plane != old_st->plane)
 		kplane_st->color_mgmt_changed = true;
 
 	if (!kplane_st->color_mgmt_changed)
@@ -902,12 +905,15 @@ void linlondp_complete_data_flow_cfg(struct linlondp_layer *layer,
 				     struct drm_framebuffer *fb)
 {
 	struct linlondp_scaler *scaler = layer->base.pipeline->scalers[0];
+	struct linlondp_pipeline *pipe = layer->base.pipeline;
 	u32 w = dflow->in_w;
 	u32 h = dflow->in_h;
+	u32 out_w;
 
 	dflow->total_in_w = dflow->in_w;
 	dflow->total_in_h = dflow->in_h;
 	dflow->total_out_w = dflow->out_w;
+	out_w = pipe->pixel_per_cycle == 1 ? dflow->out_w : dflow->out_w / 2;
 
 	/* if format doesn't have alpha, fix blend mode to PIXEL_NONE */
 	if (!fb->format->has_alpha)
@@ -927,7 +933,7 @@ void linlondp_complete_data_flow_cfg(struct linlondp_layer *layer,
 	 */
 	if (dflow->en_scaling && scaler)
 		dflow->en_split = !linlon_in_range(&scaler->hsize, dflow->in_w) ||
-				  !linlon_in_range(&scaler->hsize, dflow->out_w);
+				  !linlon_in_range(&scaler->hsize, out_w);
 }
 
 static bool merger_is_available(struct linlondp_pipeline *pipe,

@@ -798,6 +798,11 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
 {
 	int err = 0;
 
+	if (!mdev || !mdev->dev) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
+	}
+
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
 	err = clk_prepare_enable(mdev->aclk);
 	if (err)
@@ -820,6 +825,10 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
 
 int linlondp_dev_suspend(struct linlondp_dev *mdev)
 {
+	if (!mdev || !mdev->dev) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
+	}
 
 	if (mdev->iommu && mdev->funcs->disconnect_iommu)
 		if (mdev->funcs->disconnect_iommu(mdev))
