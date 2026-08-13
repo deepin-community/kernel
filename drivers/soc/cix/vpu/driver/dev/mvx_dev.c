@@ -267,7 +267,7 @@ static int update_load(struct mvx_client_session *csession)
 	struct mvx_dev_ctx *ctx = csession->ctx;
 	int ret;
 
-	if (disable_dfs)
+	if (disable_dfs || !ctx->devfreq)
 		return 0;
 
 	ret = update_freq(ctx);
@@ -548,9 +548,11 @@ static int mvx_devfreq_init(struct mvx_dev_ctx *ctx)
 		    dev_pm_domain_attach_by_name(ctx->dev, "perf");
 
 	if (IS_ERR_OR_NULL(ctx->opp_pmdomain)) {
-		MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_ERROR,
-			      "Failed to get perf domain");
-		return -EFAULT;
+		MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+			      "perf pd not attached (%ld), skip devfreq",
+			      PTR_ERR(ctx->opp_pmdomain));
+		ctx->opp_pmdomain = NULL;
+		return 0;
 	}
 	ctx->opp_dl = device_link_add(ctx->dev, ctx->opp_pmdomain,
 				      DL_FLAG_RPM_ACTIVE |
@@ -667,7 +669,8 @@ static int mvx_devfreq_remove(struct mvx_dev_ctx *ctx)
 		device_link_del(ctx->opp_dl);
 		ctx->opp_dl = NULL;
 	}
-	dev_pm_domain_detach(ctx->opp_pmdomain, true);
+	if (ctx->opp_pmdomain)
+		dev_pm_domain_detach(ctx->opp_pmdomain, true);
 
 	return 0;
 }
