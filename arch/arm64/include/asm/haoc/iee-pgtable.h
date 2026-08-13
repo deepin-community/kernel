@@ -467,6 +467,14 @@ static inline void set_pte_nosync(pte_t *ptep, pte_t pte)
 	WRITE_ONCE(*ptep, pte);
 }
 
+static inline void __set_pte_nosync(pte_t *ptep, pte_t pte)
+{
+	if (iee_pgtable_ready())
+		iee_rw_gate(IEE_OP_SET_PTE, ptep, pte);
+	else
+		WRITE_ONCE(*ptep, pte);
+}
+
 static inline void __set_pte(pte_t *ptep, pte_t pte)
 {
 	if (iee_pgtable_ready())
