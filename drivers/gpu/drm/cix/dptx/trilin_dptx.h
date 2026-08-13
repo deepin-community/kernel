@@ -2,6 +2,7 @@
 //------------------------------------------------------------------------------
 //	Trilinear Technologies DisplayPort DRM Driver
 //	Copyright (C) 2023 Trilinear Technologies
+//	Copyright 2024 Cix Technology Group Co., Ltd.
 //
 //	This program is free software: you can redistribute it and/or modify
 //	it under the terms of the GNU General Public License as published by
@@ -333,15 +334,16 @@ struct trilin_dp_link_caps {
 };
 
 enum trilin_dptx_state {
-	DP_STATE_DISCONNECTED = 0,
-	DP_STATE_CONFIGURED = BIT(0),
-	DP_STATE_INITIALIZED = BIT(1),
-	DP_STATE_READY = BIT(2),
-	DP_STATE_CONNECTED = BIT(3),
-	DP_STATE_CONNECT_NOTIFIED = BIT(4),
-	DP_STATE_DISCONNECT_NOTIFIED = BIT(5),
-	DP_STATE_ENABLED = BIT(6),
-	DP_STATE_SUSPENDED = BIT(7),
+	DPTX_STATE_DISCONNECTED = 0,
+	DPTX_STATE_CONFIGURED = BIT(0),
+	DPTX_STATE_INITIALIZED = BIT(1),
+	DPTX_STATE_READY = BIT(2),
+	DPTX_STATE_CONNECTED = BIT(3),
+	DPTX_STATE_CONNECT_NOTIFIED = BIT(4),
+	DPTX_STATE_DISCONNECT_NOTIFIED = BIT(5),
+	DPTX_STATE_ENABLED = BIT(6),
+	DPTX_STATE_SUSPENDED = BIT(7),
+	DPTX_STATE_INIT_TRAIN = BIT(8),
 };
 
 struct trilin_dp_panel {
@@ -392,6 +394,8 @@ struct trilin_dp_psr {
 	bool singleframeupdate;
 	bool psr2_enabled;
 	bool main_link_keep_active;
+	bool link_retrain;
+	ktime_t allow_after;	/* PSR entry hold-off, see trilin_dp_psr_enable() */
 };
 
 /**
@@ -446,7 +450,9 @@ struct trilin_dp {
 	enum drm_connector_status status;
 	bool enabled;
 	bool psr_default_on;
+	bool psr_config_on;
 	bool fasttrain_default_on;
+	bool mst_default_on;
 	u32 cfg_adapter_port;
 
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
@@ -469,7 +475,6 @@ struct trilin_dp {
 	struct dptx_audio dp_audio;
 	struct cix_hdcp hdcp;
 	u8 pixel_per_cycle, force_pixel_per_cycle;
-	bool plugin;
 	bool hpd_multi_func;
 
 	u32 active_stream_cnt;
@@ -489,6 +494,7 @@ struct trilin_dp {
 	bool support_d3_cmd;
 	struct trilin_dp_psr psr;
 	bool edp_panel_ready;
+	int my_copied_modes;
 };
 
 //------------------------------------------------------------------------------
@@ -566,7 +572,9 @@ void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 				      struct dentry *root);
 
 int trilin_dp_pm_prepare(struct trilin_dp *dp);
+int trilin_dp_pm_resume_early(struct trilin_dp *dp);
 int trilin_dp_pm_complete(struct trilin_dp *dp);
+int trilin_dp_pm_shutdown(struct trilin_dp *dp);
 int trilin_dp_hpd_config_cb(struct trilin_dp *dp);
 int trilin_dp_deinit_config(struct trilin_dp *dp);
 
@@ -574,5 +582,8 @@ void trilin_dp_psr_enable(struct trilin_dp *dp,
 	struct trilin_dp_panel *dp_panel);
 void trilind_dp_psr_disable(struct trilin_dp *dp,
 	struct trilin_dp_panel *dp_panel);
+void trilin_dp_psr_force_off(struct trilin_dp *dp);
+bool trilin_dp_plugged_status(struct trilin_dp *dp);
+bool trilin_dp_link_trained(struct trilin_dp *dp);
 //---------------------------------------------------------
 #endif /* _TRILIN_DPTX_H_ */

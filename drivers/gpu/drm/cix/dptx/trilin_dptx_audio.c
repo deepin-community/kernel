@@ -11,7 +11,7 @@ void dptx_audio_handle_plugged_change(struct dptx_audio *dp_audio, bool plugged)
 		dp_audio->plugged_cb(dp_audio->codec_dev, plugged);
 }
 
-static void dptx_setup_audio(struct trilin_dp *dp, int source, int freq,
+static void dptx_audio_setup(struct trilin_dp *dp, int source, int freq,
 			     int sample_len, int channel_count)
 {
 	unsigned int offset;
@@ -84,7 +84,7 @@ static int dptx_audio_startup(struct device *dev, void *data)
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
 
-	if (!dp->plugin)
+	if (!trilin_dp_plugged_status(dp))
 		return 0;
 
 	trilin_dp_write(dp, TRILIN_DPTX_SEC0_AUDIO_ENABLE, 1);
@@ -99,7 +99,7 @@ static void dptx_audio_shutdown(struct device *dev, void *data)
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
 
-	if (!dp->plugin)
+	if (!trilin_dp_plugged_status(dp))
 		return;
 
 	dp_audio->running = false;
@@ -112,7 +112,7 @@ static int dptx_audio_hw_params(struct device *dev, void *data,
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
 
-	if (!dp->plugin)
+	if (!trilin_dp_plugged_status(dp))
 		return 0;
 
 	dp_audio->params.sample_width = params->sample_width;
@@ -126,7 +126,7 @@ static int dptx_audio_hw_params(struct device *dev, void *data,
 		daifmt->frame_clk_provider, params->sample_rate,
 		params->sample_width, params->channels);
 
-	dptx_setup_audio(dp, 0, params->sample_rate, params->sample_width,
+	dptx_audio_setup(dp, 0, params->sample_rate, params->sample_width,
 			 params->channels);
 
 	return 0;
@@ -144,13 +144,15 @@ static int dptx_audio_hook_plugged_cb(struct device *dev, void *data,
 {
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
+	bool connected;
 
 	dp_audio->plugged_cb = fn;
 	dp_audio->codec_dev = codec_dev;
+	connected = trilin_dp_plugged_status(dp);
 
 	/* dp plugin event report before this callback install when boot, have a check here */
-	dev_dbg(dp->dev, "dp audio plugin status = %d\n", dp->plugin);
-	dptx_audio_handle_plugged_change(dp_audio, dp->plugin);
+	dev_dbg(dp->dev, "dp audio plugin status = %d\n", connected);
+	dptx_audio_handle_plugged_change(dp_audio, connected);
 
 	return 0;
 }
@@ -160,15 +162,12 @@ void dptx_audio_reconfig_and_enable(void *data)
 	struct trilin_dp *dp = (struct trilin_dp *)data;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
 
-	if (!dp->plugin)
-		return;
-
-	dptx_setup_audio(dp, 0, dp_audio->params.sample_rate,
+	dptx_audio_setup(dp, 0, dp_audio->params.sample_rate,
 			 dp_audio->params.sample_width,
 			 dp_audio->params.channels);
 
 	/* enable dptx audio */
-	dptx_audio_startup(dp_audio->codec_dev, dp);
+	trilin_dp_write(dp, TRILIN_DPTX_SEC0_AUDIO_ENABLE, 1);
 }
 
 const struct hdmi_codec_ops dptx_audio_codec_ops = {
