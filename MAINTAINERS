@@ -17581,6 +17581,12 @@ F:	drivers/usb/phytium/phytium_usb_v2*
 F:	drivers/usb/typec/role-switch-phytium.c
 F:	arch/arm64/boot/dts/phytium/*
 F:	drivers/gpio/gpio-phytium*
+F:	drivers/platform/arm64/
+F:	drivers/platform/arm64/phytium/*
+F:	include/linux/classtypes.h
+F:	include/linux/cputypes.h
+F:	lib/classtypes.c
+F:	lib/cputypes.c
 
 QAT DRIVER
 M:	Giovanni Cabiddu <giovanni.cabiddu@intel.com>
