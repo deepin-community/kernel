@@ -219,13 +219,6 @@ static bool __init check_haoc_hardware_support(void)
 	       cpu_feature_enabled(X86_FEATURE_SMEP);
 }
 
-#ifdef CONFIG_IEE_SIP
-static void __init iee_setup_sip_cr4_pinning(void)
-{
-	cr4_pinned_mask &= ~(X86_CR4_SMEP | X86_CR4_SMAP);
-}
-#endif
-
 void __init iee_early_init(void)
 {
 	if (!cmd_haoc_enabled)
@@ -271,9 +264,6 @@ void __init iee_init(void)
 	haoc_enabled = true;
 #ifdef CONFIG_IEE_PTRP
 	iee_prepare_init_task_token();
-#endif
-#ifdef CONFIG_IEE_SIP
-	iee_setup_sip_cr4_pinning();
 #endif
 	pr_info("HAOC initialized");
 }
