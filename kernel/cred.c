@@ -619,11 +619,11 @@ void abort_creds(struct cred *new)
 	       atomic_long_read(&new->usage));
 
 	BUG_ON(atomic_long_read(&new->usage) < 1);
-	put_cred(new);
 #ifdef CONFIG_CREDP
 	if (haoc_enabled)
 		iee_abort_creds(new);
 #endif
+	put_cred(new);
 }
 EXPORT_SYMBOL(abort_creds);
 
