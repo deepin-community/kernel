@@ -38,20 +38,24 @@ unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 		}
 		case IEE_WRITE_CR4: {
 			unsigned long bits_changed = 0;
+			const unsigned long check_mask =
+				cr4_pinned_mask & ~X86_CR4_SMEP;
+			const unsigned long check_bits =
+				cr4_pinned_bits & ~X86_CR4_SMEP;
 
 			val = va_arg(pArgs, u64);
-			val &= ~(X86_CR4_SMEP);
-set_register_cr4:
-			asm volatile("mov %0,%%cr4" : "+r" (val) : : "memory");
+			val &= ~X86_CR4_SMEP;
 			if (static_branch_likely(&cr_pinning)) {
-				if (unlikely((val & cr4_pinned_mask) != cr4_pinned_bits)) {
-					bits_changed = (val & cr4_pinned_mask) ^ cr4_pinned_bits;
-					val = (val & ~cr4_pinned_mask) | cr4_pinned_bits;
-					goto set_register_cr4;
+				if (unlikely((val & check_mask) != check_bits)) {
+					bits_changed = (val & check_mask) ^ check_bits;
+					val = (val & ~check_mask) | check_bits;
 				}
-				WARN_ONCE(bits_changed, "pinned CR4 bits changed: 0x%lx!?\n",
-					bits_changed);
 			}
+			asm volatile("mov %0,%%cr4" : "+r" (val) : : "memory");
+			if (static_branch_likely(&cr_pinning))
+				WARN_ONCE(bits_changed,
+					  "pinned CR4 bits changed: 0x%lx!?\n",
+					  bits_changed);
 			break;
 		}
 		case IEE_LOAD_IDT: {
