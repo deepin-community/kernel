@@ -92,8 +92,7 @@ SYM_FUNC_START(ptp_rw_gate)
 	jnz     .L_haoc_enabled_rw
 
 .L_haoc_disabled_rw:
-	leaq iee_funcs(%rip), %rax
-	call *(%rax, %rdi, 8)
+	call iee_dispatch
 	popq %rbp
 	jmp __x86_return_thunk
 
@@ -109,8 +108,7 @@ SYM_FUNC_START(ptp_rw_gate)
 	testq %r12, %r12
 	jz ptprw_wp_enabled
 
-	leaq iee_funcs(%rip), %rax
-	call *(%rax, %rdi, 8)
+	call iee_dispatch
 
 	popq %r12
 	popfq
@@ -121,8 +119,7 @@ ptprw_wp_enabled:
 	DISABLE_WP r12
 
 	/* call iee func */
-	leaq iee_funcs(%rip), %rax
-	call *(%rax, %rdi, 8)
+	call iee_dispatch
 
 	ENABLE_WP r12
 
