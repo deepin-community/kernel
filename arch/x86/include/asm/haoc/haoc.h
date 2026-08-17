@@ -155,4 +155,8 @@ void _iee_set_key_restrict_link(unsigned long __unused, struct key *key,
 					struct key_restriction *restrict_link);
 unsigned long _iee_set_key_flag_bit(unsigned long __unused, struct key *key, long nr, int flag);
 #endif
+
+unsigned long iee_dispatch(unsigned long flag, unsigned long arg1,
+			   unsigned long arg2, unsigned long arg3,
+			   unsigned long arg4, unsigned long arg5);
 #endif
