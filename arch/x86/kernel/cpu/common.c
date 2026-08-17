@@ -406,7 +406,7 @@ out:
 
 /* These bits should not change their value after CPU init is finished. */
 #ifdef CONFIG_IEE_SIP
-unsigned long cr4_pinned_mask =
+const unsigned long cr4_pinned_mask =
 	X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
 	X86_CR4_FSGSBASE | X86_CR4_CET;
 DEFINE_STATIC_KEY_FALSE_RO(cr_pinning);
