@@ -21,6 +21,9 @@
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 #ifdef CONFIG_PTP
 #include <asm/haoc/ptp.h>
 #include <linux/ptp-cache.h>
@@ -266,6 +269,9 @@ void __init iee_init(void)
 	cet_disable();
 
 	haoc_enabled = true;
+#ifdef CONFIG_IEE_PTRP
+	iee_prepare_init_task_token();
+#endif
 #ifdef CONFIG_IEE_SIP
 	iee_setup_sip_cr4_pinning();
 #endif

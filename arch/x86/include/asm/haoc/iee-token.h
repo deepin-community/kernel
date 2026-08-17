@@ -3,6 +3,7 @@
 #define _LINUX_IEE_TOKEN_H
 #include <asm/haoc/iee.h>
 #include <asm/haoc/haoc-def.h>
+#include <linux/init.h>
 #include <linux/log2.h>
 #include <linux/sched/task.h>
 #include <linux/sched.h>
@@ -13,8 +14,9 @@ extern unsigned long long iee_rw_gate(int flag, ...);
 #ifdef CONFIG_IEE_PTRP
 extern struct kmem_cache *task_struct_cachep;
 
+extern void __init iee_prepare_init_task_token(void);
 extern void iee_set_token_page_valid(unsigned long token, unsigned long new,
-				     unsigned int order);
+					     unsigned int order);
 extern void iee_set_token_page_invalid(unsigned long token_addr,
 				       unsigned long __unused,
 				       unsigned int order);
