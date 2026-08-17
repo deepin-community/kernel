@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <linux/init.h>
 #include <asm/set_memory.h>
 #include <asm/haoc/iee-token.h>
 #include <linux/mm.h>
@@ -8,8 +9,32 @@
 #include <asm/haoc/iee-func.h>
 #include "slab.h"
 
+/*
+ * Slab-allocated task_struct objects use dedicated token pages, but init_task
+ * is a kernel image symbol whose IEE alias initially maps its own page. Give
+ * init_task a dedicated token page before its first credential operation.
+ */
+void __init iee_prepare_init_task_token(void)
+{
+	unsigned long token = (unsigned long)__kimg_to_iee(&init_task);
+	unsigned long token_page;
+	unsigned int order = 0;
+
+	if (ALIGN(token + sizeof(struct task_token), PAGE_SIZE) !=
+	    ALIGN(token + 1, PAGE_SIZE))
+		order = 1;
+
+	token_page = __get_free_pages(GFP_KERNEL | __GFP_ZERO, order);
+	if (!token_page)
+		panic("IEE: failed to allocate token page for init_task\n");
+
+	iee_set_token_page_valid(ALIGN_DOWN(token, PAGE_SIZE), token_page,
+				 order);
+	iee_validate_token(&init_task);
+}
+
 void iee_set_token_page_valid(unsigned long token, unsigned long token_page,
-			      unsigned int order)
+				      unsigned int order)
 {
 	set_memory_4k(token, 1 << order);
 	set_memory_4k(token_page, 1 << order);
