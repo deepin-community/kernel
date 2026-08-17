@@ -2,12 +2,16 @@
 #include "../gate.h"
 
 SYM_FUNC_START(iee_rw_gate)
+	pushq %rbp
+	movq %rsp, %rbp
+
 	cmpb    $0, haoc_enabled(%rip)
 	jnz     .L_haoc_enabled_rw
 
 .L_haoc_disabled_rw:
 	leaq iee_funcs(%rip), %rax
 	call *(%rax, %rdi, 8)
+	popq %rbp
 	jmp __x86_return_thunk
 
 .L_haoc_enabled_rw:
@@ -28,6 +32,7 @@ SYM_FUNC_START(iee_rw_gate)
 
 	popq %r12
 	popfq
+	popq %rbp
 	jmp __x86_return_thunk
 
 rw_wp_enabled:
@@ -45,6 +50,7 @@ rw_wp_enabled:
 	/* restore irq*/
 	popfq
 
+	popq %rbp
 	jmp __x86_return_thunk
 SYM_FUNC_END(iee_rw_gate)
 #if defined(CONFIG_CREDP) || defined(CONFIG_KEYP)
@@ -53,11 +59,15 @@ EXPORT_SYMBOL(iee_rw_gate)
 
 #ifdef CONFIG_IEE_SIP
 SYM_FUNC_START(iee_rwx_gate)
+	pushq %rbp
+	movq %rsp, %rbp
+
 	cmpb    $0, haoc_enabled(%rip)
 	jnz     .L_haoc_enabled_rwx
 
 .L_haoc_disabled_rwx:
 	call _iee_si_handler
+	popq %rbp
 	jmp __x86_return_thunk
 
 .L_haoc_enabled_rwx:
@@ -88,6 +98,7 @@ SYM_FUNC_START(iee_rwx_gate)
 
 	popfq
 	popq %r12
+	popq %rbp
 	jmp __x86_return_thunk  /* ret */
 
 rwx_wp_enabled:
@@ -115,6 +126,7 @@ rwx_wp_enabled:
 	popfq
 
 	popq %r12
+	popq %rbp
 	jmp __x86_return_thunk  /* ret */
 SYM_FUNC_END(iee_rwx_gate)
 #endif
