@@ -30,7 +30,7 @@
 #include <linux/string.h>
 #include <linux/msg.h>
 #include <net/flow.h>
-#include <net/sock.h>
+#include DEEPIN_KABI_HIDE_INCLUDE(<net/sock.h>)
 #ifdef CONFIG_CREDP
 #include <asm/haoc/iee-cred.h>
 #endif
