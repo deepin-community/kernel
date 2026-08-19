@@ -767,18 +767,31 @@ static void macb_mac_link_down(struct phylink_config *config, unsigned int mode,
 
 	/* Tx clean */
 	for (q = 0, queue = bp->queues; q < bp->num_queues; ++q, ++queue) {
+		unsigned int dropped = 0;
+
 		spin_lock(&queue->tx_ptr_lock);
 		for (i = 0; i < bp->tx_ring_size; i++) {
 			tx_skb = macb_tx_skb(queue, i);
 			/* free unsent skb buffers */
-			if (tx_skb)
+			if (tx_skb) {
+				if (tx_skb->skb)
+					dropped++;
 				macb_tx_unmap(bp, tx_skb, 0);
+			}
 
 			tx_desc = macb_tx_desc(queue, i);
 			macb_set_addr(bp, tx_desc, 0);
 			tx_desc->ctrl &= ~MACB_BIT(TX_USED);
 		}
 		spin_unlock(&queue->tx_ptr_lock);
+
+		/* Account for the in-flight packets dropped here:
+		 * macb_tx_unmap() clears each tx_skb->skb, so the
+		 * drop counting in macb_free_consistent() can no
+		 * longer observe them and will not count them twice.
+		 */
+		queue->stats.tx_dropped += dropped;
+		bp->dev->stats.tx_dropped += dropped;
 	}
 
 	netif_tx_stop_all_queues(ndev);
