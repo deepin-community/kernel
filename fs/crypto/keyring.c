@@ -590,8 +590,13 @@ static void fscrypt_provisioning_key_describe(const struct key *key,
 {
 	seq_puts(m, key->description);
 	if (key_is_positive(key)) {
+#ifdef CONFIG_KEYP
+		const struct fscrypt_provisioning_key_payload *payload =
+			((union key_payload *)(key->name_link.next))->data[0];
+#else
 		const struct fscrypt_provisioning_key_payload *payload =
 			key->payload.data[0];
+#endif
 
 		seq_printf(m, ": %u [%u]", key->datalen, payload->type);
 	}
@@ -599,7 +604,11 @@ static void fscrypt_provisioning_key_describe(const struct key *key,
 
 static void fscrypt_provisioning_key_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	kfree_sensitive(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 	kfree_sensitive(key->payload.data[0]);
+#endif
 }
 
 static struct key_type key_type_fscrypt_provisioning = {
@@ -641,7 +650,11 @@ static int get_keyring_key(u32 key_id, u32 type,
 
 	if (key->type != &key_type_fscrypt_provisioning)
 		goto bad_key;
+#ifdef CONFIG_KEYP
+	payload = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	payload = key->payload.data[0];
+#endif
 
 	/* Don't allow fscrypt v1 keys to be used as v2 keys and vice versa. */
 	if (payload->type != type)
@@ -1030,7 +1043,12 @@ static int do_remove_key(struct file *filp, void __user *_uarg, bool all_users)
 	down_write(&mk->mk_sem);
 
 	/* If relevant, remove current user's (or all users) claim to the key */
+#ifdef CONFIG_KEYP
+	if (mk->mk_users &&
+	   ((struct key_struct *)(mk->mk_users->name_link.prev))->keys.nr_leaves_on_tree != 0) {
+#else
 	if (mk->mk_users && mk->mk_users->keys.nr_leaves_on_tree != 0) {
+#endif
 		if (all_users)
 			err = keyring_clear(mk->mk_users);
 		else
@@ -1039,7 +1057,12 @@ static int do_remove_key(struct file *filp, void __user *_uarg, bool all_users)
 			up_write(&mk->mk_sem);
 			goto out_put_key;
 		}
+#ifdef CONFIG_KEYP
+		if (((struct key_struct *)(mk->mk_users->name_link.prev))->
+				keys.nr_leaves_on_tree != 0) {
+#else
 		if (mk->mk_users->keys.nr_leaves_on_tree != 0) {
+#endif
 			/*
 			 * Other users have still added the key too.  We removed
 			 * the current user's claim to the key, but we still
@@ -1162,7 +1185,12 @@ int fscrypt_ioctl_get_key_status(struct file *filp, void __user *uarg)
 	if (mk->mk_users) {
 		struct key *mk_user;
 
+#ifdef CONFIG_KEYP
+		arg.user_count =
+		  ((struct key_struct *)(mk->mk_users->name_link.prev))->keys.nr_leaves_on_tree;
+#else
 		arg.user_count = mk->mk_users->keys.nr_leaves_on_tree;
+#endif
 		mk_user = find_master_key_user(mk);
 		if (!IS_ERR(mk_user)) {
 			arg.status_flags |=

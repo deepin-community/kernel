@@ -81,7 +81,11 @@ static int digsig_verify_rsa(struct key *key,
 	const struct user_key_payload *ukp;
 	struct pubkey_hdr *pkh;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 	ukp = user_key_payload_locked(key);
 
 	if (!ukp) {
@@ -176,7 +180,11 @@ err:
 	while (--i >= 0)
 		mpi_free(pkey[i]);
 err1:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 
 	return err;
 }

@@ -11,7 +11,18 @@
 #include <asm/bug.h>
 #include <asm/assembler.h>
 #include <asm/haoc/iee-asm.h>
+
+.data
+.align 3
+.global iee_gate_inst
+iee_gate_inst:
+	.quad iee_gate_start
+
+.text
+
 SYM_FUNC_START(iee_rw_gate)
+iee_gate_start:
+	b 1f	/* Rewritten to NOP when HAOC is enabled. */
     /* save daif, close irq  */
     mrs x13, daif
 	msr daifset, #0x2
@@ -24,6 +35,15 @@ SYM_FUNC_START(iee_rw_gate)
     /* restore daif */
 	msr daif, x13
     ret
+1:
+	/* Call IEE functions directly when HAOC stays disabled. */
+	adrp x12, iee_funcs
+	add x12, x12, x0, lsl #3
+	ldr x12, [x12, #:lo12:iee_funcs]
+	stp x29, x30, [sp, #-16]!
+	blr x12
+	ldp x29, x30, [sp], #16
+	ret
 SYM_FUNC_END(iee_rw_gate)
 EXPORT_SYMBOL(iee_rw_gate)
 

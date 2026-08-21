@@ -422,14 +422,23 @@ int evm_init_key(void)
 	if (IS_ERR(evm_key))
 		return -ENOENT;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(evm_key));
+	ekp = ((union key_payload *)(evm_key->name_link.next))->data[0];
+#else
 	down_read(&evm_key->sem);
 	ekp = evm_key->payload.data[0];
+#endif
 
 	rc = evm_set_key(ekp->decrypted_data, ekp->decrypted_datalen);
 
 	/* burn the original key contents */
 	memset(ekp->decrypted_data, 0, ekp->decrypted_datalen);
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(evm_key));
+#else
 	up_read(&evm_key->sem);
+#endif
 	key_put(evm_key);
 	return rc;
 }

@@ -1992,6 +1992,25 @@ static void text_poke_memset(void *dst, const void *src, size_t len)
 
 typedef void text_poke_f(void *dst, const void *src, size_t len);
 
+#ifdef CONFIG_PTP
+static inline void set_ptes_text_poke(struct mm_struct *mm, unsigned long addr,
+		pte_t *ptep, pte_t pte, unsigned int nr)
+{
+	page_table_check_ptes_set(mm, ptep, pte, nr);
+
+	arch_enter_lazy_mmu_mode();
+	for (;;) {
+		compiletime_assert_rwonce_type(*ptep);
+		ptp_set_pte_text_poke(ptep, pte);
+		if (--nr == 0)
+			break;
+		ptep++;
+		pte = pte_next_pfn(pte);
+	}
+	arch_leave_lazy_mmu_mode();
+}
+#endif
+
 static void *__text_poke(text_poke_f func, void *addr, const void *src, size_t len)
 {
 	bool cross_page_boundary = offset_in_page(addr) + len > PAGE_SIZE;
@@ -2043,11 +2062,19 @@ static void *__text_poke(text_poke_f func, void *addr, const void *src, size_t l
 	local_irq_save(flags);
 
 	pte = mk_pte(pages[0], pgprot);
+#ifdef CONFIG_PTP
+	set_ptes_text_poke(poking_mm, poking_addr, ptep, pte, 1);
+#else
 	set_pte_at(poking_mm, poking_addr, ptep, pte);
+#endif
 
 	if (cross_page_boundary) {
 		pte = mk_pte(pages[1], pgprot);
+#ifdef CONFIG_PTP
+		set_ptes_text_poke(poking_mm, poking_addr + PAGE_SIZE, ptep + 1, pte, 1);
+#else
 		set_pte_at(poking_mm, poking_addr + PAGE_SIZE, ptep + 1, pte);
+#endif
 	}
 
 	/*

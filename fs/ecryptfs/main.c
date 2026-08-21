@@ -202,7 +202,11 @@ static int ecryptfs_init_global_auth_toks(
 			goto out;
 		} else {
 			global_auth_tok->flags &= ~ECRYPTFS_AUTH_TOK_INVALID;
+#ifdef CONFIG_KEYP
+			up_write(&KEY_SEM(global_auth_tok->global_auth_tok_key));
+#else
 			up_write(&(global_auth_tok->global_auth_tok_key)->sem);
+#endif
 		}
 	}
 out:

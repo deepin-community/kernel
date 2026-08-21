@@ -8,6 +8,8 @@
  */
 
 #include <asm/haoc/haoc-def.h>
+#include <asm/haoc/haoc-bitmap.h>
+#include <asm/haoc/iee-token.h>
 #include <asm/haoc/iee.h>
 #include <asm/tlbflush.h>
 #include <asm/pgalloc.h>
@@ -49,6 +51,7 @@ static void iee_may_split_pmd(pud_t *pudp, unsigned long addr, unsigned int orde
 		}
 	}
 
+	#ifdef CONFIG_IEE_ALLOW_SPLIT_LM
 	/* May split Block Descriptor. */
 	if (!iee_support_pmd_block(addr, order)) {
 		struct page *page = pmd_page(*pmdp);
@@ -86,6 +89,9 @@ static void iee_may_split_pmd(pud_t *pudp, unsigned long addr, unsigned int orde
 		if (pgtable)
 			pte_free_kernel(&init_mm, pgtable);
 	}
+	#endif
+	dsb(ishst);
+	isb();
 }
 
 /*
@@ -218,14 +224,21 @@ void set_iee_address_invalid(unsigned long lm_addr, unsigned int order)
  * synchronization problems.
  */
 static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
-				int use_block_pmd)
+				int use_block_pmd, bool writable)
 {
+#ifdef CONFIG_PTP
+	iee_rw_gate(IEE_OP_SET_SENSITIVE_PTE, lm_ptep, iee_ptep, order,
+		     use_block_pmd, writable);
+#else
 	int i;
 
 	if (use_block_pmd) {
 		pmd_t pmd = __pmd(pte_val(__ptep_get(lm_ptep)));
 
-		pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
+		if (writable)
+			pmd = __pmd((pmd_val(pmd) & ~PMD_SECT_RDONLY) | PTE_DBM);
+		else
+			pmd = __pmd((pmd_val(pmd) | PMD_SECT_RDONLY) & ~PTE_DBM);
 		WRITE_ONCE(*lm_ptep, __pte(pmd_val(pmd)));
 		for (i = 0; i < (1 << order); i++) {
 			pte_t pte = __ptep_get(iee_ptep);
@@ -238,7 +251,10 @@ static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
 		for (i = 0; i < (1 << order); i++) {
 			pte_t pte = __ptep_get(lm_ptep);
 
-			pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
+			if (writable)
+				pte = __pte((pte_val(pte) & ~PTE_RDONLY) | PTE_DBM);
+			else
+				pte = __pte((pte_val(pte) | PTE_RDONLY) & ~PTE_DBM);
 			WRITE_ONCE(*lm_ptep, pte);
 			pte = __ptep_get(iee_ptep);
 			pte = __pte(pte_val(pte) | PTE_VALID);
@@ -249,10 +265,15 @@ static void iee_set_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order,
 	}
 	dsb(ishst);
 	isb();
+#endif
 }
 
 static void iee_unset_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order, int use_block_pmd)
 {
+#ifdef CONFIG_PTP
+	iee_rw_gate(IEE_OP_UNSET_SENSITIVE_PTE, lm_ptep, iee_ptep, order,
+		     use_block_pmd);
+#else
 	int i;
 
 	if (use_block_pmd) {
@@ -282,6 +303,7 @@ static void iee_unset_sensitive_pte(pte_t *lm_ptep, pte_t *iee_ptep, int order, 
 	}
 	dsb(ishst);
 	isb();
+#endif
 }
 
 /* Only support address range smaller then one PMD block. */
@@ -333,7 +355,7 @@ void put_pages_into_iee_block(unsigned long addr, int order)
 	pmdp = pmd_offset(pudp, iee_addr);
 	iee_ptep = pte_offset_kernel(pmdp, iee_addr);
 	/* Valid the IEE mappings of these pages to enable IEE access. */
-	iee_set_sensitive_pte(lm_ptep, iee_ptep, order, use_block_pmd);
+	iee_set_sensitive_pte(lm_ptep, iee_ptep, order, use_block_pmd, false);
 	flush_tlb_kernel_range(addr, addr+PAGE_SIZE*(1 << order));
 	isb();
 }
@@ -366,10 +388,15 @@ void put_pages_into_iee(unsigned long addr, int order)
 	}
 }
 
+void put_pages_into_iee_rw(unsigned long addr, int order)
+{
+	set_iee_address_valid(addr, order);
+}
+
 /* The reverse operation of put_pages_into_iee().
  * Call this function when you are returning pages back to kernel.
  */
-static void remove_pages_from_iee(unsigned long addr, int order)
+void remove_pages_from_iee(unsigned long addr, int order)
 {
 	pgd_t *pgdir = swapper_pg_dir;
 	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
@@ -401,15 +428,26 @@ static void remove_pages_from_iee(unsigned long addr, int order)
 }
 
 /* See put_pages_into_iee(). */
-void set_iee_page(unsigned long addr, int order)
+void set_iee_page_type(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type)
 {
+	set_iee_page(addr, order, type);
+}
+
+/* See put_pages_into_iee(). */
+void set_iee_page(unsigned long addr, int order, enum HAOC_BITMAP_TYPE type)
+{
+	if (type == IEE_USER_PGTABLE)
+		put_pages_into_iee_rw(addr, order);
+	else
 	put_pages_into_iee(addr, order);
+	iee_set_bitmap_type(addr, 1UL << order, type);
 }
 
 /* See remove_pages_from_iee(). */
 void unset_iee_page(unsigned long addr, int order)
 {
 	remove_pages_from_iee(addr, order);
+	iee_set_bitmap_type(addr, 1UL << order, IEE_NORMAL);
 }
 
 unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
@@ -426,6 +464,16 @@ unsigned int iee_calculate_order(struct kmem_cache *s, unsigned int order)
 		return IEE_DATA_ORDER;
 #endif
 	return order;
+}
+
+bool iee_free_slab_data(struct kmem_cache *s, struct slab *slab,
+			unsigned int order)
+{
+#ifdef CONFIG_IEE_PTRP
+	if (s == task_struct_cachep)
+		iee_free_task_token_slab(s, slab, order);
+#endif
+	return false;
 }
 
 void iee_set_min_partial(struct kmem_cache *s)
@@ -470,3 +518,22 @@ asmlinkage void notrace iee_bad_mode(struct pt_regs *regs, int reason,
 
 	panic("bad mode");
 }
+
+#ifdef CONFIG_IEE_PTRP
+struct task_token *iee_get_task_token(struct task_struct *task)
+{
+	unsigned long slab_addr;
+	unsigned long task_addr;
+	unsigned int index;
+
+	if (!__is_lm_address((u64)task))
+		return (struct task_token *)__kimg_to_iee(task);
+
+	slab_addr = (unsigned long)page_to_virt(virt_to_head_page(task));
+	task_addr = (unsigned long)page_to_virt(virt_to_page(task));
+	index = (task_addr - slab_addr) / PAGE_SIZE;
+
+	return (struct task_token *)(__virt_to_iee(slab_addr) +
+				     index * IEE_TOKEN_BLOCK_SIZE);
+}
+#endif

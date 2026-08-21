@@ -283,6 +283,50 @@ struct key {
 	DEEPIN_KABI_RESERVE(2)
 };
 
+#ifdef CONFIG_KEYP
+struct key_union {
+	union {
+		struct list_head graveyard_link;
+		struct rb_node serial_node;
+	};
+	struct rw_semaphore	sem;
+	struct key *key;
+};
+
+struct key_struct {
+	struct {
+		/* Keyring bits */
+		struct list_head name_link;
+		struct assoc_array keys;
+	};
+	struct key *key;
+};
+#define KEY_SEM(KEY) (((struct key_union *)(KEY->graveyard_link.next))->sem)
+#include <asm/haoc/haoc-def.h>
+extern bool haoc_enabled;
+extern unsigned long long iee_rw_gate(int flag, ...);
+static bool iee_set_key_usage(struct key *key, int n, int flag)
+{
+	if (!haoc_enabled) {
+		switch (flag) {
+		case REFCOUNT_INC:
+			refcount_inc(&key->usage);
+			break;
+		case REFCOUNT_SET:
+			refcount_set(&key->usage, n);
+			break;
+		case REFCOUNT_DEC_AND_TEST:
+			return refcount_dec_and_test(&key->usage);
+		case REFCOUNT_INC_NOT_ZERO:
+			return refcount_inc_not_zero(&key->usage);
+		}
+		return false;
+	}
+
+	return iee_rw_gate(IEE_OP_SET_KEY_USAGE, key, n, flag);
+}
+#endif
+
 extern struct key *key_alloc(struct key_type *type,
 			     const char *desc,
 			     kuid_t uid, kgid_t gid,
@@ -308,7 +352,11 @@ extern void key_remove_domain(struct key_tag *domain_tag);
 
 static inline struct key *__key_get(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	iee_set_key_usage(key, 0, REFCOUNT_INC);
+#else
 	refcount_inc(&key->usage);
+#endif
 	return key;
 }
 
@@ -481,6 +529,47 @@ static inline bool key_is_negative(const struct key *key)
 	return key_read_state(key) < 0;
 }
 
+#ifdef CONFIG_KEYP
+static inline void iee_write_key_payload_rcu_data0(struct key *key, void *rcu_data0)
+{
+	union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+
+	WRITE_ONCE(key_payload->rcu_data0, rcu_data0);
+}
+
+#define dereference_key_rcu(KEY)					\
+	(rcu_dereference(((union key_payload *)(KEY->name_link.next))->rcu_data0))
+
+#define dereference_key_locked(KEY)					\
+	(rcu_dereference_protected(((union key_payload *)(KEY->name_link.next))->rcu_data0,	\
+				   rwsem_is_locked(&KEY_SEM(((struct key *)(KEY))))))
+
+#define iee_smp_store_release(p, v, KEY)						\
+do {									\
+	compiletime_assert_atomic_type(*p);				\
+	barrier();							\
+	iee_write_key_payload_rcu_data0(KEY, v);		\
+} while (0)
+
+#define iee_rcu_assign_pointer(p, v, KEY)						  \
+do {										  \
+	uintptr_t _r_a_p__v = (uintptr_t)(v);					  \
+	rcu_check_sparse(p, __rcu);						  \
+										  \
+	if (__builtin_constant_p(v) && (_r_a_p__v) == (uintptr_t)NULL)		  \
+		iee_write_key_payload_rcu_data0(KEY, (typeof(p))(_r_a_p__v));		\
+	else									  \
+		iee_smp_store_release(&p, RCU_INITIALIZER((typeof(p))_r_a_p__v), KEY); \
+} while (0)
+
+#define rcu_assign_keypointer(KEY, PAYLOAD)				\
+do {										  \
+	union key_payload *tmp = (union key_payload *)(KEY->name_link.next);	\
+										  \
+	iee_rcu_assign_pointer(tmp->rcu_data0, (PAYLOAD), KEY);	\
+} while (0)
+
+#else
 #define dereference_key_rcu(KEY)					\
 	(rcu_dereference((KEY)->payload.rcu_data0))
 
@@ -492,6 +581,7 @@ static inline bool key_is_negative(const struct key *key)
 do {									\
 	rcu_assign_pointer((KEY)->payload.rcu_data0, (PAYLOAD));	\
 } while (0)
+#endif
 
 /*
  * the userspace interface

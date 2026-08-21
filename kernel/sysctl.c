@@ -80,6 +80,9 @@
 #ifdef CONFIG_RT_MUTEXES
 #include <linux/rtmutex.h>
 #endif
+#ifdef CONFIG_VARP
+#include <asm/haoc/iee-varp.h>
+#endif
 
 /* shared constants to be used in various sysctls */
 const int sysctl_vals[] = { 0, 1, 2, 3, 4, 100, 200, 1000, 3000, INT_MAX, 65535, -1 };
@@ -205,6 +208,37 @@ static int _proc_do_string(char *data, int maxlen, int write,
 	return 0;
 }
 
+#ifdef CONFIG_VARP
+static int _iee_proc_do_string(char *data, int maxlen, int write,
+		char *buffer, size_t *lenp, loff_t *ppos)
+{
+	size_t len;
+
+	if (!data || !maxlen || !*lenp || !buffer) {
+		*lenp = 0;
+		return 0;
+	}
+
+	if (sysctl_writes_strict == SYSCTL_WRITES_STRICT) {
+		/* Only continue writes not past the end of buffer. */
+		len = strlen(data);
+		if (len > maxlen - 1)
+			len = maxlen - 1;
+
+		if (*ppos > len)
+			return 0;
+		len = *ppos;
+	} else {
+		/* Start writing from beginning of buffer. */
+		len = 0;
+	}
+
+	*ppos += *lenp;
+	iee_set_varp_modprobe_path(data, maxlen, len, buffer, lenp);
+	return 0;
+}
+#endif
+
 static void warn_sysctl_write(struct ctl_table *table)
 {
 	pr_warn_once("%s wrote to %s when file position was not 0!\n"
@@ -261,6 +295,12 @@ int proc_dostring(struct ctl_table *table, int write,
 {
 	if (write)
 		proc_first_pos_non_zero_ignore(ppos, table);
+
+#ifdef CONFIG_VARP
+	if (table && table->data == modprobe_path && write)
+		return _iee_proc_do_string(table->data, table->maxlen, write, buffer, lenp,
+					       ppos);
+#endif
 
 	return _proc_do_string(table->data, table->maxlen, write, buffer, lenp,
 			ppos);

@@ -100,6 +100,9 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpu);
 EXPORT_TRACEPOINT_SYMBOL_GPL(ipi_send_cpumask);
@@ -5164,6 +5167,15 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
 	calculate_sigpending();
 }
 
+#ifdef CONFIG_PTP
+void __weak ptp_context_enable_wp(int *wp_disabled_cnt, unsigned long *cr0) { }
+void __weak ptp_context_restore_wp(int wp_disabled_cnt, unsigned long cr0) { }
+#endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
+
 /*
  * context_switch - switch to the new MM and the new thread's register state.
  */
@@ -5171,6 +5183,19 @@ static __always_inline struct rq *
 context_switch(struct rq *rq, struct task_struct *prev,
 	       struct task_struct *next, struct rq_flags *rf)
 {
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_CS_CHECK
+	if (haoc_enabled) {
+		pr_info_once("HAOC: CONFIG_IEE_CS_CHECK enabled.");
+		iee_cycle_verify_cred(next);
+	}
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(next);
+# endif
+#endif
 	prepare_task_switch(rq, prev, next);
 
 	/*
@@ -5208,9 +5233,9 @@ context_switch(struct rq *rq, struct task_struct *prev,
 		 * case 'prev->active_mm == next->mm' through
 		 * finish_task_switch()'s mmdrop().
 		 */
-#ifdef CONFIG_IEE_PTRP
-		if(haoc_enabled)
-			iee_verify_token_pgd(next);
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+		if (haoc_enabled)
+			iee_verify_pgd(next);
 #endif
 		switch_mm_irqs_off(prev->active_mm, next->mm, next);
 		lru_gen_use_mm(next->mm);
@@ -5228,8 +5253,20 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	prepare_lock_switch(rq, next, rf);
 
 	/* Here we just switch the register state and the stack. */
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	int wp_disabled_cnt = 0;
+	unsigned long cr0 = 0;
+
+	ptp_context_enable_wp(&wp_disabled_cnt, &cr0);
+#endif
+
+	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 	barrier();
+
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_context_restore_wp(wp_disabled_cnt, cr0);
+#endif
 
 	return finish_task_switch(prev);
 }

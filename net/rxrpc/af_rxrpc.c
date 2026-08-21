@@ -307,7 +307,11 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
 
 	if (!key)
 		key = rx->key;
+#ifdef CONFIG_KEYP
+	if (key && !((union key_payload *)key->name_link.next)->data[0])
+#else
 	if (key && !key->payload.data[0])
+#endif
 		key = NULL; /* a no-security key */
 
 	memset(&p, 0, sizeof(p));

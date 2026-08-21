@@ -90,6 +90,10 @@
 #include <asm/tlb.h>
 #include <asm/tlbflush.h>
 
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
+
 #include "pgalloc-track.h"
 #include "internal.h"
 #include "swap.h"
@@ -5695,6 +5699,9 @@ vm_fault_t handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 	/* If the fault handler drops the mmap_lock, vma may be freed */
 	struct mm_struct *mm = vma->vm_mm;
 	vm_fault_t ret;
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	unsigned long cr0;
+#endif
 
 	__set_current_state(TASK_RUNNING);
 
@@ -5721,7 +5728,15 @@ vm_fault_t handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 	if (unlikely(is_vm_hugetlb_page(vma)))
 		ret = hugetlb_fault(vma->vm_mm, vma, address, flags);
 	else
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	{
+		ptp_disable_wp(&cr0);
 		ret = __handle_mm_fault(vma, address, flags);
+		ptp_restore_wp(cr0);
+	}
+#else
+		ret = __handle_mm_fault(vma, address, flags);
+#endif
 
 	lru_gen_exit_fault();
 

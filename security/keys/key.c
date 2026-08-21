@@ -15,9 +15,19 @@
 #include <linux/random.h>
 #include <linux/ima.h>
 #include <linux/err.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#include <asm/haoc/haoc-def.h>
+#include <asm/haoc/iee-access.h>
+#endif
 #include "internal.h"
 
 struct kmem_cache *key_jar;
+#ifdef CONFIG_KEYP
+struct kmem_cache *key_union_jar;
+struct kmem_cache *key_struct_jar;
+struct kmem_cache *key_payload_jar;
+#endif
 struct rb_root		key_serial_tree; /* tree of keys indexed by serial */
 DEFINE_SPINLOCK(key_serial_lock);
 
@@ -139,9 +149,17 @@ static inline void key_alloc_serial(struct key *key)
 	/* propose a random serial number and look for a hole for it in the
 	 * serial number tree */
 	do {
+#ifdef CONFIG_KEYP
+		key_serial_t tmp;
+
+		get_random_bytes(&tmp, sizeof(key->serial));
+
+		iee_set_key_serial(key, tmp >> 1);
+#else
 		get_random_bytes(&key->serial, sizeof(key->serial));
 
 		key->serial >>= 1; /* negative numbers are not permitted */
+#endif
 	} while (key->serial < 3);
 
 	spin_lock(&key_serial_lock);
@@ -152,7 +170,11 @@ attempt_insertion:
 
 	while (*p) {
 		parent = *p;
+#ifdef CONFIG_KEYP
+		xkey = rb_entry(parent, struct key_union, serial_node)->key;
+#else
 		xkey = rb_entry(parent, struct key, serial_node);
+#endif
 
 		if (key->serial < xkey->serial)
 			p = &(*p)->rb_left;
@@ -163,8 +185,14 @@ attempt_insertion:
 	}
 
 	/* we've found a suitable hole - arrange for this key to occupy it */
+#ifdef CONFIG_KEYP
+	rb_link_node(&(((struct key_union *)(key->graveyard_link.next))->serial_node), parent, p);
+	rb_insert_color(&(((struct key_union *)(key->graveyard_link.next))->serial_node),
+				&key_serial_tree);
+#else
 	rb_link_node(&key->serial_node, parent, p);
 	rb_insert_color(&key->serial_node, &key_serial_tree);
+#endif
 
 	spin_unlock(&key_serial_lock);
 	return;
@@ -173,9 +201,19 @@ attempt_insertion:
 	 * that point looking for the next unused serial number */
 serial_exists:
 	for (;;) {
+#ifdef CONFIG_KEYP
+		key_serial_t tmp = key->serial + 1;
+
+		iee_set_key_serial(key, tmp);
+#else
 		key->serial++;
+#endif
 		if (key->serial < 3) {
+#ifdef CONFIG_KEYP
+			iee_set_key_serial(key, 3);
+#else
 			key->serial = 3;
+#endif
 			goto attempt_insertion;
 		}
 
@@ -183,7 +221,11 @@ serial_exists:
 		if (!parent)
 			goto attempt_insertion;
 
+#ifdef CONFIG_KEYP
+		xkey = rb_entry(parent, struct key_union, serial_node)->key;
+#else
 		xkey = rb_entry(parent, struct key, serial_node);
+#endif
 		if (key->serial < xkey->serial)
 			goto attempt_insertion;
 	}
@@ -231,6 +273,9 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	struct key *key;
 	size_t desclen, quotalen;
 	int ret;
+#ifdef CONFIG_KEYP
+	unsigned long kflags;
+#endif
 
 	key = ERR_PTR(-EINVAL);
 	if (!desc || !*desc)
@@ -274,17 +319,80 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	}
 
 	/* allocate and initialise the key and its description */
+#ifdef CONFIG_KEYP
+	key = kmem_cache_alloc(key_jar, GFP_KERNEL);
+#else
 	key = kmem_cache_zalloc(key_jar, GFP_KERNEL);
+#endif
 	if (!key)
 		goto no_memory_2;
 
+#ifdef CONFIG_KEYP
+	struct key_union *key_union = kmem_cache_zalloc(key_union_jar, GFP_KERNEL);
+	struct key_struct *key_struct = kmem_cache_zalloc(key_struct_jar, GFP_KERNEL);
+	union key_payload *key_payload = kmem_cache_alloc(key_payload_jar, GFP_KERNEL);
+
+	if (!key_union || !key_struct || !key_payload)
+		goto no_memory_3;
+
+	key_union->key = key;
+	key_struct->key = key;
+	iee_set_key_union(key, key_union);
+	iee_set_key_struct(key, key_struct);
+	iee_set_key_payload(key, key_payload);
+#endif
+
+#ifdef CONFIG_KEYP
+	struct keyring_index_key tmp = key->index_key;
+
+	tmp.desc_len = desclen;
+	tmp.description = kmemdup(desc, desclen + 1, GFP_KERNEL);
+	iee_set_key_index_key(key, &tmp);
+#else
 	key->index_key.desc_len = desclen;
 	key->index_key.description = kmemdup(desc, desclen + 1, GFP_KERNEL);
+#endif
 	if (!key->index_key.description)
 		goto no_memory_3;
+#ifdef CONFIG_KEYP
+	tmp = key->index_key;
+	tmp.type = type;
+	iee_set_key_index_key(key, &tmp);
+	iee_key_set_index_key(&key->index_key);
+#else
 	key->index_key.type = type;
 	key_set_index_key(&key->index_key);
+#endif
 
+#ifdef CONFIG_KEYP
+	iee_set_key_usage(key, 1, REFCOUNT_SET);
+	init_rwsem(&KEY_SEM(key));
+	lockdep_set_class(&KEY_SEM(key), &type->lock_class);
+	iee_set_key_user(key, user);
+	iee_set_key_quotalen(key, quotalen);
+	iee_set_key_datalen(key, type->def_datalen);
+	iee_set_key_uid(key, uid);
+	iee_set_key_gid(key, gid);
+	iee_set_key_perm(key, perm);
+	iee_set_key_expiry(key, TIME64_MAX);
+	iee_set_key_restrict_link(key, restrict_link);
+	iee_set_key_last_used_at(key, ktime_get_real_seconds());
+
+	kflags = key->flags;
+	if (!(flags & KEY_ALLOC_NOT_IN_QUOTA))
+		kflags |= 1 << KEY_FLAG_IN_QUOTA;
+	if (flags & KEY_ALLOC_BUILT_IN)
+		kflags |= 1 << KEY_FLAG_BUILTIN;
+	if (flags & KEY_ALLOC_UID_KEYRING)
+		kflags |= 1 << KEY_FLAG_UID_KEYRING;
+	if (flags & KEY_ALLOC_SET_KEEP)
+		kflags |= 1 << KEY_FLAG_KEEP;
+	iee_set_key_flags(key, kflags);
+
+#ifdef KEY_DEBUGGING
+	iee_set_key_magic(key, KEY_DEBUG_MAGIC);
+#endif
+#else
 	refcount_set(&key->usage, 1);
 	init_rwsem(&key->sem);
 	lockdep_set_class(&key->sem, &type->lock_class);
@@ -310,6 +418,7 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 #ifdef KEY_DEBUGGING
 	key->magic = KEY_DEBUG_MAGIC;
 #endif
+#endif
 
 	/* let the security module know about the key */
 	ret = security_key_alloc(key, cred, flags);
@@ -326,6 +435,15 @@ error:
 
 security_error:
 	kfree(key->description);
+#ifdef CONFIG_KEYP
+	if (key_union)
+		kmem_cache_free(key_union_jar, key_union);
+	if (key_struct)
+		kmem_cache_free(key_struct_jar, key_struct);
+	if (key_payload)
+		kmem_cache_free(key_payload_jar, key_payload);
+	iee_memset(key, 0, sizeof(struct key));
+#endif
 	kmem_cache_free(key_jar, key);
 	if (!(flags & KEY_ALLOC_NOT_IN_QUOTA)) {
 		spin_lock(&user->lock);
@@ -338,6 +456,15 @@ security_error:
 	goto error;
 
 no_memory_3:
+#ifdef CONFIG_KEYP
+	if (key_union)
+		kmem_cache_free(key_union_jar, key_union);
+	if (key_struct)
+		kmem_cache_free(key_struct_jar, key_struct);
+	if (key_payload)
+		kmem_cache_free(key_payload_jar, key_payload);
+	iee_memset(key, 0, sizeof(struct key));
+#endif
 	kmem_cache_free(key_jar, key);
 no_memory_2:
 	if (!(flags & KEY_ALLOC_NOT_IN_QUOTA)) {
@@ -391,14 +518,22 @@ int key_payload_reserve(struct key *key, size_t datalen)
 		}
 		else {
 			key->user->qnbytes += delta;
+#ifdef CONFIG_KEYP
+			iee_set_key_quotalen(key, key->quotalen + delta);
+#else
 			key->quotalen += delta;
+#endif
 		}
 		spin_unlock(&key->user->lock);
 	}
 
 	/* change the recorded data length if that didn't generate an error */
 	if (ret == 0)
+#ifdef CONFIG_KEYP
+		iee_set_key_datalen(key, datalen);
+#else
 		key->datalen = datalen;
+#endif
 
 	return ret;
 }
@@ -412,8 +547,14 @@ static void mark_key_instantiated(struct key *key, int reject_error)
 	/* Commit the payload before setting the state; barrier versus
 	 * key_read_state().
 	 */
+#ifdef CONFIG_KEYP
+	compiletime_assert_atomic_type(key->state);
+	barrier();
+	iee_set_key_state(key, (reject_error < 0) ? reject_error : KEY_IS_POSITIVE);
+#else
 	smp_store_release(&key->state,
 			  (reject_error < 0) ? reject_error : KEY_IS_POSITIVE);
+#endif
 }
 
 /*
@@ -449,13 +590,22 @@ static int __key_instantiate_and_link(struct key *key,
 			mark_key_instantiated(key, 0);
 			notify_key(key, NOTIFY_KEY_INSTANTIATED, 0);
 
+#ifdef CONFIG_KEYP
+			if (iee_set_key_flag_bit(key, KEY_FLAG_USER_CONSTRUCT, TEST_AND_CLEAR_BIT))
+				awaken = 1;
+#else
 			if (test_and_clear_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags))
 				awaken = 1;
+#endif
 
 			/* and link it into the destination keyring */
 			if (keyring) {
 				if (test_bit(KEY_FLAG_KEEP, &keyring->flags))
+#ifdef CONFIG_KEYP
+					iee_set_key_flag_bit(key, KEY_FLAG_KEEP, SET_BIT_OP);
+#else
 					set_bit(KEY_FLAG_KEEP, &key->flags);
+#endif
 
 				__key_link(keyring, key, _edit);
 			}
@@ -465,7 +615,11 @@ static int __key_instantiate_and_link(struct key *key,
 				key_invalidate(authkey);
 
 			if (prep->expiry != TIME64_MAX)
+#ifdef CONFIG_KEYP
+				iee_set_key_expiry(key, prep->expiry);
+#else
 				key_set_expiry(key, prep->expiry);
+#endif
 		}
 	}
 
@@ -605,10 +759,19 @@ int key_reject_and_link(struct key *key,
 		atomic_inc(&key->user->nikeys);
 		mark_key_instantiated(key, -error);
 		notify_key(key, NOTIFY_KEY_INSTANTIATED, -error);
+#ifdef CONFIG_KEYP
+		iee_set_key_expiry(key, ktime_get_real_seconds() + timeout);
+#else
 		key_set_expiry(key, ktime_get_real_seconds() + timeout);
+#endif
 
+#ifdef CONFIG_KEYP
+		if (iee_set_key_flag_bit(key, KEY_FLAG_USER_CONSTRUCT, TEST_AND_CLEAR_BIT))
+			awaken = 1;
+#else
 		if (test_and_clear_bit(KEY_FLAG_USER_CONSTRUCT, &key->flags))
 			awaken = 1;
+#endif
 
 		ret = 0;
 
@@ -647,8 +810,13 @@ void key_put(struct key *key)
 	if (key) {
 		key_check(key);
 
+#ifdef CONFIG_KEYP
+		if (iee_set_key_usage(key, 0, REFCOUNT_DEC_AND_TEST))
+			schedule_work(&key_gc_work);
+#else
 		if (refcount_dec_and_test(&key->usage))
 			schedule_work(&key_gc_work);
+#endif
 	}
 }
 EXPORT_SYMBOL(key_put);
@@ -666,7 +834,11 @@ struct key *key_lookup(key_serial_t id)
 	/* search the tree for the specified key */
 	n = key_serial_tree.rb_node;
 	while (n) {
+#ifdef CONFIG_KEYP
+		key = rb_entry(n, struct key_union, serial_node)->key;
+#else
 		key = rb_entry(n, struct key, serial_node);
+#endif
 
 		if (id < key->serial)
 			n = n->rb_left;
@@ -684,8 +856,13 @@ found:
 	/* A key is allowed to be looked up only if someone still owns a
 	 * reference to it - otherwise it's awaiting the gc.
 	 */
+#ifdef CONFIG_KEYP
+	if (!iee_set_key_usage(key, 0, REFCOUNT_INC_NOT_ZERO))
+		goto not_found;
+#else
 	if (!refcount_inc_not_zero(&key->usage))
 		goto not_found;
+#endif
 
 error:
 	spin_unlock(&key_serial_lock);
@@ -723,13 +900,25 @@ void key_set_timeout(struct key *key, unsigned timeout)
 	time64_t expiry = TIME64_MAX;
 
 	/* make the changes with the locks held to prevent races */
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(key));
+#else
 	down_write(&key->sem);
+#endif
 
 	if (timeout > 0)
 		expiry = ktime_get_real_seconds() + timeout;
+#ifdef CONFIG_KEYP
+	iee_set_key_expiry(key, expiry);
+#else
 	key_set_expiry(key, expiry);
+#endif
 
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(key));
+#else
 	up_write(&key->sem);
+#endif
 }
 EXPORT_SYMBOL_GPL(key_set_timeout);
 
@@ -762,7 +951,11 @@ static inline key_ref_t __key_update(key_ref_t key_ref,
 	if (!key->type->update)
 		goto error;
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(key));
+#else
 	down_write(&key->sem);
+#endif
 
 	ret = key->type->update(key, prep);
 	if (ret == 0) {
@@ -771,7 +964,11 @@ static inline key_ref_t __key_update(key_ref_t key_ref,
 		notify_key(key, NOTIFY_KEY_UPDATED, 0);
 	}
 
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(key));
+#else
 	up_write(&key->sem);
+#endif
 
 	if (ret < 0)
 		goto error;
@@ -1087,7 +1284,11 @@ int key_update(key_ref_t key_ref, const void *payload, size_t plen)
 			goto error;
 	}
 
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(key));
+#else
 	down_write(&key->sem);
+#endif
 
 	ret = key->type->update(key, &prep);
 	if (ret == 0) {
@@ -1096,7 +1297,11 @@ int key_update(key_ref_t key_ref, const void *payload, size_t plen)
 		notify_key(key, NOTIFY_KEY_UPDATED, 0);
 	}
 
+#ifdef CONFIG_KEYP
+	up_write(&KEY_SEM(key));
+#else
 	up_write(&key->sem);
+#endif
 
 error:
 	if (key->type->preparse)
@@ -1125,6 +1330,23 @@ void key_revoke(struct key *key)
 	 *   authorisation key whilst holding the sem on a key we've just
 	 *   instantiated
 	 */
+#ifdef CONFIG_KEYP
+	down_write_nested(&KEY_SEM(key), 1);
+	if (!iee_set_key_flag_bit(key, KEY_FLAG_REVOKED, TEST_AND_SET_BIT)) {
+		notify_key(key, NOTIFY_KEY_REVOKED, 0);
+		if (key->type->revoke)
+			key->type->revoke(key);
+
+		/* set the death time to no more than the expiry time */
+		time = ktime_get_real_seconds();
+		if (key->revoked_at == 0 || key->revoked_at > time) {
+			iee_set_key_revoked_at(key, time);
+			key_schedule_gc(key->revoked_at + key_gc_delay);
+		}
+	}
+
+	up_write(&KEY_SEM(key));
+#else
 	down_write_nested(&key->sem, 1);
 	if (!test_and_set_bit(KEY_FLAG_REVOKED, &key->flags)) {
 		notify_key(key, NOTIFY_KEY_REVOKED, 0);
@@ -1140,6 +1362,7 @@ void key_revoke(struct key *key)
 	}
 
 	up_write(&key->sem);
+#endif
 }
 EXPORT_SYMBOL(key_revoke);
 
@@ -1157,12 +1380,21 @@ void key_invalidate(struct key *key)
 	key_check(key);
 
 	if (!test_bit(KEY_FLAG_INVALIDATED, &key->flags)) {
+#ifdef CONFIG_KEYP
+		down_write_nested(&KEY_SEM(key), 1);
+		if (!iee_set_key_flag_bit(key, KEY_FLAG_INVALIDATED, TEST_AND_SET_BIT)) {
+			notify_key(key, NOTIFY_KEY_INVALIDATED, 0);
+			key_schedule_gc_links();
+		}
+		up_write(&KEY_SEM(key));
+#else
 		down_write_nested(&key->sem, 1);
 		if (!test_and_set_bit(KEY_FLAG_INVALIDATED, &key->flags)) {
 			notify_key(key, NOTIFY_KEY_INVALIDATED, 0);
 			key_schedule_gc_links();
 		}
 		up_write(&key->sem);
+#endif
 	}
 }
 EXPORT_SYMBOL(key_invalidate);
@@ -1186,9 +1418,17 @@ int generic_key_instantiate(struct key *key, struct key_preparsed_payload *prep)
 	ret = key_payload_reserve(key, prep->quotalen);
 	if (ret == 0) {
 		rcu_assign_keypointer(key, prep->payload.data[0]);
+#ifdef CONFIG_KEYP
+		union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+
+		key_payload->data[1] = prep->payload.data[1];
+		key_payload->data[2] = prep->payload.data[2];
+		key_payload->data[3] = prep->payload.data[3];
+#else
 		key->payload.data[1] = prep->payload.data[1];
 		key->payload.data[2] = prep->payload.data[2];
 		key->payload.data[3] = prep->payload.data[3];
+#endif
 		prep->payload.data[0] = NULL;
 		prep->payload.data[1] = NULL;
 		prep->payload.data[2] = NULL;
@@ -1262,6 +1502,16 @@ void __init key_init(void)
 	/* allocate a slab in which we can store keys */
 	key_jar = kmem_cache_create("key_jar", sizeof(struct key),
 			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+#ifdef CONFIG_KEYP
+	key_union_jar = kmem_cache_create("key_union_jar", sizeof(struct key_union),
+							0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+	key_struct_jar = kmem_cache_create("key_struct_jar", sizeof(struct key_struct),
+							0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+	key_payload_jar = kmem_cache_create("key_payload_jar", sizeof(union key_payload)*4,
+							0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+	if (haoc_enabled)
+		pr_info("HAOC: CONFIG_KEYP enabled.");
+	#endif
 
 	/* add the special key types */
 	list_add_tail(&key_type_keyring.link, &key_types_list);

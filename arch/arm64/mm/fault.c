@@ -42,6 +42,9 @@
 #include <asm/system_misc.h>
 #include <asm/tlbflush.h>
 #include <asm/traps.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/haoc-bitmap.h>
+#endif
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
@@ -238,7 +241,11 @@ int __ptep_set_access_flags(struct vm_area_struct *vma,
 		pteval ^= PTE_RDONLY;
 		pteval |= pte_val(entry);
 		pteval ^= PTE_RDONLY;
+		#ifdef CONFIG_PTP
+		pteval = iee_set_cmpxchg_relaxed(ptep, old_pteval, pteval);
+		#else
 		pteval = cmpxchg_relaxed(&pte_val(*ptep), old_pteval, pteval);
+		#endif
 	} while (pteval != old_pteval);
 
 	/* Invalidate a stale read-only entry */
@@ -314,7 +321,10 @@ static void die_kernel_fault(const char *msg, unsigned long addr,
 
 	pr_alert("Unable to handle kernel %s at virtual address %016lx\n", msg,
 		 addr);
-
+#ifdef CONFIG_IEE
+	if (__is_lm_address((u64)addr))
+		pr_alert("iee_get_bitmap_type(addr) : %d\n", iee_get_bitmap_type(addr));
+#endif
 	kasan_non_canonical_hook(addr);
 
 	mem_abort_decode(esr);
