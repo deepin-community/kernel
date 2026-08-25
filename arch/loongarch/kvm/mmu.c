@@ -913,7 +913,7 @@ retry:
 		 * in the fast path kvm_map_page_fast for page table processing
 		 */
 		prot_bits = kvm_pte_mkwrite(prot_bits);
-		if (write)
+		if (write || !kvm_slot_dirty_track_enabled(memslot))
 			prot_bits = kvm_pte_mkdirty(prot_bits);
 	}
 
