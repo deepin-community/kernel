@@ -55,8 +55,9 @@ struct loongarch_pch_pic {
 	uint8_t  htmsi_vector[64]; /* irq route table for routing to eiointc */
 };
 
+int kvm_loongarch_register_pch_pic_device(void);
 void pch_pic_set_irq(struct loongarch_pch_pic *s, int irq, int level);
 void pch_msi_set_irq(struct kvm *kvm, int irq, int level);
-int kvm_loongarch_register_pch_pic_device(void);
 int kvm_loongarch_reset_pch(struct kvm *kvm);
-#endif /* LOONGARCH_PCH_PIC_H */
+
+#endif /* __ASM_KVM_PCH_PIC_H */
