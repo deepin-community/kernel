@@ -101,7 +101,6 @@ struct Qdisc {
 	struct hlist_node       hash;
 	u32			handle;
 	u32			parent;
-	int			depth;
 
 	struct netdev_queue	*dev_queue;
 
@@ -131,7 +130,7 @@ struct Qdisc {
 	netdevice_tracker	dev_tracker;
 	struct lock_class_key	root_lock_key;
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, int depth)
 	DEEPIN_KABI_RESERVE(2)
 
 	/* private data */
