@@ -6,7 +6,7 @@
 #include <linux/kvm_host.h>
 #include <asm/kvm_mmu.h>
 #include <asm/kvm_vcpu.h>
-#include <asm/kvm_extioi.h>
+#include <asm/kvm_eiointc.h>
 #include <asm/kvm_pch_pic.h>
 
 const struct _kvm_stats_desc kvm_vm_stats_desc[] = {
@@ -207,5 +207,5 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *data,
 
 bool kvm_arch_irqchip_in_kernel(struct kvm *kvm)
 {
-	return (bool)((!!kvm->arch.extioi) && (!!kvm->arch.pch_pic));
+	return (bool)((!!kvm->arch.eiointc) && (!!kvm->arch.pch_pic));
 }
