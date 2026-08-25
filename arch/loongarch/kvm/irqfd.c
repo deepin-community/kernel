@@ -60,9 +60,11 @@ int kvm_arch_set_irq_inatomic(struct kvm_kernel_irq_routing_entry *e,
 		struct kvm *kvm, int irq_source_id,
 		int level, bool line_status)
 {
+	if (!level)
+		return -EWOULDBLOCK;
+
 	if (e->type == KVM_IRQ_ROUTING_MSI) {
-		pch_msi_set_irq(kvm, e->msi.data, 1);
-		return 0;
+		return pch_msi_set_irq(kvm, e, level);
 	}
 
 	return -EWOULDBLOCK;
@@ -82,6 +84,5 @@ int kvm_set_msi(struct kvm_kernel_irq_routing_entry *e,
 	if (!level)
 		return -1;
 
-	pch_msi_set_irq(kvm, e->msi.data, level);
-	return 1;
+	return pch_msi_set_irq(kvm, e, level);
 }
