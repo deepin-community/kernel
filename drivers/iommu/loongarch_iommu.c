@@ -695,8 +695,8 @@ struct loongarch_iommu *find_iommu_by_dev(struct pci_dev  *pdev)
 struct iommu_device *iommu_init_device(struct device *dev)
 {
 	struct la_iommu_dev_data *dev_data;
-	struct pci_dev	*pdev = to_pci_dev(dev);
-	struct pci_bus	*bus = pdev->bus;
+	struct pci_dev	*pdev;
+	struct pci_bus	*bus;
 	unsigned short devid;
 	struct loongarch_iommu *iommu = NULL;
 	struct iommu_device *iommu_dev = ERR_PTR(-ENODEV);
@@ -704,6 +704,8 @@ struct iommu_device *iommu_init_device(struct device *dev)
 	if (!dev_is_pci(dev))
 		return iommu_dev;
 
+	pdev = to_pci_dev(dev);
+	bus = pdev->bus;
 	if (dev->archdata.iommu != NULL || bus == NULL) {
 		pr_info("LA-IOMMU: bdf:0x%x has added\n", pdev->devfn);
 		return iommu_dev;
