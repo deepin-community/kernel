@@ -14,6 +14,7 @@
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/kernel.h>
+#include <linux/kvm_para.h>
 #include <linux/syscore_ops.h>
 #include <asm/numa.h>
 
@@ -25,15 +26,15 @@
 #define EIOINTC_REG_ISR		0x1800
 #define EIOINTC_REG_ROUTE	0x1c00
 
-#define EXTIOI_VIRT_FEATURES		0x40000000
-#define  EXTIOI_HAS_VIRT_EXTENSION	0
-#define  EXTIOI_HAS_ENABLE_OPTION	1
-#define  EXTIOI_HAS_INT_ENCODE		2
-#define  EXTIOI_HAS_CPU_ENCODE		3
-#define EXTIOI_VIRT_CONFIG		0x40000004
-#define  EXTIOI_ENABLE			1
-#define  EXTIOI_ENABLE_INT_ENCODE	2
-#define  EXTIOI_ENABLE_CPU_ENCODE	3
+#define EXTIOI_VIRT_FEATURES           0x40000000
+#define  EXTIOI_HAS_VIRT_EXTENSION     BIT(0)
+#define  EXTIOI_HAS_ENABLE_OPTION      BIT(1)
+#define  EXTIOI_HAS_INT_ENCODE         BIT(2)
+#define  EXTIOI_HAS_CPU_ENCODE         BIT(3)
+#define EXTIOI_VIRT_CONFIG             0x40000004
+#define  EXTIOI_ENABLE                 BIT(1)
+#define  EXTIOI_ENABLE_INT_ENCODE      BIT(2)
+#define  EXTIOI_ENABLE_CPU_ENCODE      BIT(3)
 
 #define VEC_REG_COUNT		4
 #define VEC_COUNT_PER_REG	64
@@ -41,8 +42,20 @@
 #define VEC_REG_IDX(irq_id)	((irq_id) / VEC_COUNT_PER_REG)
 #define VEC_REG_BIT(irq_id)     ((irq_id) % VEC_COUNT_PER_REG)
 #define EIOINTC_ALL_ENABLE	0xffffffff
+#define EIOINTC_ALL_ENABLE_VEC_MASK(vector)	(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1f))
+#define EIOINTC_REG_ENABLE_VEC(vector)		(EIOINTC_REG_ENABLE + ((vector >> 5) << 2))
+#define EIOINTC_USE_CPU_ENCODE			BIT(0)
 
 #define MAX_EIO_NODES		(NR_CPUS / CORES_PER_EIO_NODE)
+
+/*
+ * Routing registers are 32bit, and there is 8-bit route setting for every
+ * interrupt vector. So one Route register contains four vectors routing
+ * information.
+ */
+#define EIOINTC_REG_ROUTE_VEC(vector)		(EIOINTC_REG_ROUTE + (vector & ~0x03))
+#define EIOINTC_REG_ROUTE_VEC_SHIFT(vector)	((vector & 0x03) << 3)
+#define EIOINTC_REG_ROUTE_VEC_MASK(vector)	(0xff << EIOINTC_REG_ROUTE_VEC_SHIFT(vector))
 
 typedef struct { DECLARE_BITMAP(bits, MAX_EIO_NODES); } extioi_node_map;
 
@@ -63,7 +76,7 @@ struct eiointc_priv {
 	cpumask_t		cpuspan_map;
 	struct fwnode_handle	*domain_handle;
 	struct irq_domain	*eiointc_domain;
-	bool			cpu_encoded;
+	int			flags;
 };
 
 static struct eiointc_priv *eiointc_priv[MAX_IO_PICS];
@@ -79,9 +92,10 @@ static void eiointc_enable(void)
 
 static int cpu_to_eio_node(int cpu)
 {
-	int cores = (cpu_has_hypervisor ? MAX_CORES_PER_EIO_NODE : CORES_PER_EIO_NODE);
-
-	return cpu_logical_map(cpu) / cores;
+	if (!cpu_has_hypervisor)
+		return cpu_logical_map(cpu) / CORES_PER_EIO_NODE;
+	else
+		return cpu_logical_map(cpu) / CORES_PER_VEIO_NODE;
 }
 
 static void eiointc_set_irq_route(int pos, unsigned int cpu, unsigned int mnode, nodemask_t *node_map)
@@ -112,21 +126,18 @@ static void eiointc_set_irq_route(int pos, unsigned int cpu, unsigned int mnode,
 	}
 }
 
-static DEFINE_RAW_SPINLOCK(affinity_lock);
-
-static void virt_extioi_set_irq_route(int irq, unsigned int cpu)
+static void veiointc_set_irq_route(unsigned int vector, unsigned int cpu)
 {
-	int data;
+	unsigned long reg = EIOINTC_REG_ROUTE_VEC(vector);
+	unsigned int data;
 
-	/*
-	 * get irq route info for continuous 4 vectors
-	 * and set affinity for specified vector
-	 */
-	data = iocsr_read32(EIOINTC_REG_ROUTE + (irq & ~3));
-	data &=  ~(0xff << ((irq & 3) * 8));
-	data |= cpu_logical_map(cpu) << ((irq & 3) * 8);
-	iocsr_write32(data, EIOINTC_REG_ROUTE + (irq & ~3));
+	data = iocsr_read32(reg);
+	data &= ~EIOINTC_REG_ROUTE_VEC_MASK(vector);
+	data |= cpu_logical_map(cpu) << EIOINTC_REG_ROUTE_VEC_SHIFT(vector);
+	iocsr_write32(data, reg);
 }
+
+static DEFINE_RAW_SPINLOCK(affinity_lock);
 
 static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity, bool force)
 {
@@ -150,9 +161,9 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 	vector = d->hwirq;
 	regaddr = EIOINTC_REG_ENABLE + ((vector >> 5) << 2);
 
-	if (priv->cpu_encoded) {
-		iocsr_write32(EIOINTC_ALL_ENABLE & ~BIT(vector & 0x1F), regaddr);
-		virt_extioi_set_irq_route(vector, cpu);
+	if (priv->flags & EIOINTC_USE_CPU_ENCODE) {
+		iocsr_write32(EIOINTC_ALL_ENABLE_VEC_MASK(vector), regaddr);
+		veiointc_set_irq_route(vector, cpu);
 		iocsr_write32(EIOINTC_ALL_ENABLE, regaddr);
 	} else {
 		for_each_online_cpu(i) {
@@ -161,7 +172,7 @@ static int eiointc_set_irq_affinity(struct irq_data *d, const struct cpumask *af
 		}
 
 		/* Mask target vector */
-		csr_any_send(regaddr, EIOINTC_ALL_ENABLE & (~BIT(vector & 0x1F)),
+		csr_any_send(regaddr, EIOINTC_ALL_ENABLE_VEC_MASK(vector),
 				0x0, cpu_logical_map(i));
 
 		/* Set route for target vector */
@@ -193,14 +204,15 @@ static int eiointc_index(int node)
 
 static int eiointc_router_init(unsigned int cpu)
 {
-	int i, bit;
-	uint32_t data;
-	uint32_t node = cpu_to_eio_node(cpu);
-	int index = eiointc_index(node);
+	int i, bit, index, node;
+	unsigned int data;
+
+	node = cpu_to_eio_node(cpu);
+	index = eiointc_index(node);
 
 	if (index < 0) {
 		pr_err("Error: invalid nodemap!\n");
-		return -1;
+		return -EINVAL;
 	}
 
 	if (!test_bit(node, (&extioi_node_maps)->bits)) {
@@ -219,7 +231,7 @@ static int eiointc_router_init(unsigned int cpu)
 
 		for (i = 0; i < eiointc_priv[0]->vec_count / 4; i++) {
 			/* Route to Node-0 Core-0 */
-			if (eiointc_priv[index]->cpu_encoded)
+			if (eiointc_priv[index]->flags & EIOINTC_USE_CPU_ENCODE)
 				bit = cpu_logical_map(0);
 			else if (index == 0)
 				bit = BIT(cpu_logical_map(0));
@@ -453,12 +465,15 @@ static int __init eiointc_init(struct eiointc_priv *priv, int parent_irq,
 
 	if (cpu_has_hypervisor) {
 		val = iocsr_read32(EXTIOI_VIRT_FEATURES);
-		if (val & BIT(EXTIOI_HAS_CPU_ENCODE)) {
+		/*
+		 * With EXTIOI_ENABLE_CPU_ENCODE set
+		 * interrupts can route to 256 vCPUs.
+		 */
+		if (val & EXTIOI_HAS_CPU_ENCODE) {
 			val = iocsr_read32(EXTIOI_VIRT_CONFIG);
-			val |= BIT(EXTIOI_ENABLE_CPU_ENCODE);
+			val |= EXTIOI_ENABLE_CPU_ENCODE;
 			iocsr_write32(val, EXTIOI_VIRT_CONFIG);
-			priv->cpu_encoded = true;
-			pr_info("loongson-extioi: enable cpu encodig\n");
+			priv->flags = EIOINTC_USE_CPU_ENCODE;
 		}
 	}
 
