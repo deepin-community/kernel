@@ -34,6 +34,7 @@ config KVM
 	select KVM_MMIO
 	select KVM_XFER_TO_GUEST_WORK
 	select SCHED_INFO
+	select GUEST_PERF_EVENTS if PERF_EVENTS
 	select PREEMPT_NOTIFIERS
 	select KVM_VFIO
 	help
