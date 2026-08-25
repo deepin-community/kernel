@@ -223,16 +223,16 @@ int kvm_emu_iocsr(larch_inst inst, struct kvm_run *run, struct kvm_vcpu *vcpu)
 			memcpy(run->iocsr_io.data, val, run->iocsr_io.len);
 		}
 	} else {
+		vcpu->arch.io_gpr = rd; /* Set register id for iocsr read completion */
 		idx = srcu_read_lock(&vcpu->kvm->srcu);
-		ret = kvm_io_bus_read(vcpu, KVM_IOCSR_BUS, addr, run->iocsr_io.len, val);
+		ret = kvm_io_bus_read(vcpu, KVM_IOCSR_BUS, addr,
+				      run->iocsr_io.len, run->iocsr_io.data);
 		srcu_read_unlock(&vcpu->kvm->srcu, idx);
-		if (ret == 0)
+		if (ret == 0) {
+			kvm_complete_iocsr_read(vcpu, run);
 			ret = EMULATE_DONE;
-		else {
+		} else
 			ret = EMULATE_DO_IOCSR;
-			/* Save register id for iocsr read completion */
-			vcpu->arch.io_gpr = rd;
-		}
 	}
 
 	return ret;
