@@ -131,7 +131,7 @@ void eiointc_set_irq(struct loongarch_eiointc *s, int irq, int level)
 static int loongarch_eiointc_read(struct kvm_vcpu *vcpu, struct loongarch_eiointc *s,
 				gpa_t addr, unsigned long *val)
 {
-	int index, ret = 0;
+	int index;
 	u64 data = 0;
 	gpa_t offset;
 
@@ -162,40 +162,36 @@ static int loongarch_eiointc_read(struct kvm_vcpu *vcpu, struct loongarch_eioint
 		data = s->coremap[index];
 		break;
 	default:
-		ret = -EINVAL;
 		break;
 	}
 	*val = data;
 
-	return ret;
+	return 0;
 }
 
 static int kvm_eiointc_read(struct kvm_vcpu *vcpu,
 			struct kvm_io_device *dev,
 			gpa_t addr, int len, void *val)
 {
-	int ret = -EINVAL;
 	unsigned long flags, data, offset;
 	struct loongarch_eiointc *eiointc = vcpu->kvm->arch.eiointc;
 
 	if (!eiointc) {
 		kvm_err("%s: eiointc irqchip not valid!\n", __func__);
-		return -EINVAL;
+		return 0;
 	}
 
 	if (addr & (len - 1)) {
 		kvm_err("%s: eiointc not aligned addr %llx len %d\n", __func__, addr, len);
-		return -EINVAL;
+		return 0;
 	}
 
 	offset = addr & 0x7;
 	addr -= offset;
 	vcpu->stat.eiointc_read_exits++;
 	spin_lock_irqsave(&eiointc->lock, flags);
-	ret = loongarch_eiointc_read(vcpu, eiointc, addr, &data);
+	loongarch_eiointc_read(vcpu, eiointc, addr, &data);
 	spin_unlock_irqrestore(&eiointc->lock, flags);
-	if (ret)
-		return ret;
 
 	data = data >> (offset * 8);
 	switch (len) {
@@ -220,7 +216,7 @@ static int loongarch_eiointc_write(struct kvm_vcpu *vcpu,
 				struct loongarch_eiointc *s,
 				gpa_t addr, u64 value, u64 field_mask)
 {
-	int index, irq, ret = 0;
+	int index, irq;
 	u8 cpu;
 	u64 data, old, mask;
 	gpa_t offset;
@@ -299,29 +295,27 @@ static int loongarch_eiointc_write(struct kvm_vcpu *vcpu,
 		eiointc_update_sw_coremap(s, index * 8, data, sizeof(data), true);
 		break;
 	default:
-		ret = -EINVAL;
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 static int kvm_eiointc_write(struct kvm_vcpu *vcpu,
 			struct kvm_io_device *dev,
 			gpa_t addr, int len, const void *val)
 {
-	int ret = -EINVAL;
 	unsigned long flags, value;
 	struct loongarch_eiointc *eiointc = vcpu->kvm->arch.eiointc;
 
 	if (!eiointc) {
 		kvm_err("%s: eiointc irqchip not valid!\n", __func__);
-		return -EINVAL;
+		return 0;
 	}
 
 	if (addr & (len - 1)) {
 		kvm_err("%s: eiointc not aligned addr %llx len %d\n", __func__, addr, len);
-		return -EINVAL;
+		return 0;
 	}
 
 	vcpu->stat.eiointc_write_exits++;
@@ -329,24 +323,24 @@ static int kvm_eiointc_write(struct kvm_vcpu *vcpu,
 	switch (len) {
 	case 1:
 		value = *(unsigned char *)val;
-		ret = loongarch_eiointc_write(vcpu, eiointc, addr, value, 0xFF);
+		loongarch_eiointc_write(vcpu, eiointc, addr, value, 0xFF);
 		break;
 	case 2:
 		value = *(unsigned short *)val;
-		ret = loongarch_eiointc_write(vcpu, eiointc, addr, value, USHRT_MAX);
+		loongarch_eiointc_write(vcpu, eiointc, addr, value, USHRT_MAX);
 		break;
 	case 4:
 		value = *(unsigned int *)val;
-		ret = loongarch_eiointc_write(vcpu, eiointc, addr, value, UINT_MAX);
+		loongarch_eiointc_write(vcpu, eiointc, addr, value, UINT_MAX);
 		break;
 	default:
 		value = *(unsigned long *)val;
-		ret = loongarch_eiointc_write(vcpu, eiointc, addr, value, ULONG_MAX);
+		loongarch_eiointc_write(vcpu, eiointc, addr, value, ULONG_MAX);
 		break;
 	}
 	spin_unlock_irqrestore(&eiointc->lock, flags);
 
-	return ret;
+	return 0;
 }
 
 static const struct kvm_io_device_ops kvm_eiointc_ops = {
@@ -364,7 +358,7 @@ static int kvm_eiointc_virt_read(struct kvm_vcpu *vcpu,
 
 	if (!eiointc) {
 		kvm_err("%s: eiointc irqchip not valid!\n", __func__);
-		return -EINVAL;
+		return 0;
 	}
 
 	addr -= EIOINTC_VIRT_BASE;
@@ -388,28 +382,25 @@ static int kvm_eiointc_virt_write(struct kvm_vcpu *vcpu,
 				struct kvm_io_device *dev,
 				gpa_t addr, int len, const void *val)
 {
-	int ret = 0;
 	unsigned long flags;
 	u32 value = *(u32 *)val;
 	struct loongarch_eiointc *eiointc = vcpu->kvm->arch.eiointc;
 
 	if (!eiointc) {
 		kvm_err("%s: eiointc irqchip not valid!\n", __func__);
-		return -EINVAL;
+		return 0;
 	}
 
 	addr -= EIOINTC_VIRT_BASE;
 	spin_lock_irqsave(&eiointc->lock, flags);
 	switch (addr) {
 	case EIOINTC_VIRT_FEATURES:
-		ret = -EPERM;
 		break;
 	case EIOINTC_VIRT_CONFIG:
 		/*
 		 * eiointc features can only be set at disabled status
 		 */
 		if ((eiointc->status & BIT(EIOINTC_ENABLE)) && value) {
-			ret = -EPERM;
 			break;
 		}
 		eiointc->status = value & eiointc->features;
@@ -419,7 +410,7 @@ static int kvm_eiointc_virt_write(struct kvm_vcpu *vcpu,
 	}
 	spin_unlock_irqrestore(&eiointc->lock, flags);
 
-	return ret;
+	return 0;
 }
 
 static const struct kvm_io_device_ops kvm_eiointc_virt_ops = {
