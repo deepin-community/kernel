@@ -440,8 +440,9 @@ struct tcf_proto {
 	 */
 	spinlock_t		lock;
 	bool			deleting;
-	bool			counted;
-	bool			usesw;
+	/* counted/usesw fill the alignment hole after 'deleting' */
+	DEEPIN_KABI_FILL_HOLE(bool counted)
+	DEEPIN_KABI_FILL_HOLE(bool usesw)
 	refcount_t		refcnt;
 	struct rcu_head		rcu;
 	struct hlist_node	destroy_ht_node;
@@ -490,7 +491,6 @@ struct tcf_block {
 	struct flow_block flow_block;
 	struct list_head owner_list;
 	bool keep_dst;
-	atomic_t useswcnt;
 	atomic_t offloadcnt; /* Number of oddloaded filters */
 	unsigned int nooffloaddevcnt; /* Number of devs unable to do offload */
 	unsigned int lockeddevcnt; /* Number of devs that require rtnl lock. */
@@ -501,6 +501,11 @@ struct tcf_block {
 	struct rcu_head rcu;
 	DECLARE_HASHTABLE(proto_destroy_ht, 7);
 	struct mutex proto_destroy_lock; /* Lock for proto_destroy hashtable. */
+
+	/* tcf_block is only allocated by the kernel (cls_api) and is never
+	 * embedded in other structs, so extending it at the end is safe.
+	 */
+	DEEPIN_KABI_EXTEND(atomic_t useswcnt)
 };
 
 static inline bool lockdep_tcf_chain_is_locked(struct tcf_chain *chain)
