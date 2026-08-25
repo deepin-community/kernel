@@ -287,7 +287,7 @@ static int kvm_pch_pic_regs_access(struct kvm_device *dev,
 				struct kvm_device_attr *attr,
 				bool is_write)
 {
-	char buf[2048];
+	char buf[8];
 	int addr, offset, len = 8, ret = 0;
 	void __user *data;
 	void *p = NULL;
@@ -314,20 +314,12 @@ static int kvm_pch_pic_regs_access(struct kvm_device *dev,
 	case PCH_PIC_AUTO_CTRL1_START:
 		p = &s->auto_ctrl1;
 		break;
-	case PCH_PIC_ROUTE_ENTRY_START:
-		p = s->route_entry;
-		len = 64;
-		break;
-	case (PCH_PIC_ROUTE_ENTRY_START + 1) ... PCH_PIC_ROUTE_ENTRY_END:
+	case PCH_PIC_ROUTE_ENTRY_START ... PCH_PIC_ROUTE_ENTRY_END:
 		offset = addr - PCH_PIC_ROUTE_ENTRY_START;
 		p = &s->route_entry[offset];
 		len = 1;
 		break;
-	case PCH_PIC_HTMSI_VEC_START:
-		p = s->htmsi_vector;
-		len = 64;
-		break;
-	case (PCH_PIC_HTMSI_VEC_START + 1) ... PCH_PIC_HTMSI_VEC_END:
+	case PCH_PIC_HTMSI_VEC_START ... PCH_PIC_HTMSI_VEC_END:
 		offset = addr - PCH_PIC_HTMSI_VEC_START;
 		p = &s->htmsi_vector[offset];
 		len = 1;

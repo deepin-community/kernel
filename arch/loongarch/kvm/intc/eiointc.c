@@ -479,108 +479,65 @@ static int kvm_eiointc_ctrl_access(struct kvm_device *dev,
 
 static int kvm_eiointc_regs_access(struct kvm_device *dev,
 					struct kvm_device_attr *attr,
-					bool is_write)
+					bool is_write, int *data)
 {
-	int addr, cpu, offset, len;
+	int addr, cpu, offset, ret = 0;
 	unsigned long flags;
 	void *p = NULL;
-	void __user *data;
 	struct loongarch_eiointc *s;
 
-	len = 4;
 	s = dev->kvm->arch.eiointc;
 	addr = attr->attr;
 	cpu = addr >> 16;
 	addr &= 0xffff;
-	data = (void __user *)attr->addr;
-	spin_lock_irqsave(&s->lock, flags);
 	switch (addr) {
-	case EIOINTC_NODETYPE_START:
-		p = s->nodetype;
-		len = sizeof(s->nodetype);
-		break;
-	case (EIOINTC_NODETYPE_START + 4) ... EIOINTC_NODETYPE_END:
+	case EIOINTC_NODETYPE_START ... EIOINTC_NODETYPE_END:
 		offset = (addr - EIOINTC_NODETYPE_START) / 4;
-		p = s->nodetype + offset * 4;
+		p = (void *)s->nodetype + offset * 4;
 		break;
-	case EIOINTC_IPMAP_START:
-		p = &s->ipmap;
-		len = sizeof(s->ipmap);
-		break;
-	case (EIOINTC_IPMAP_START + 4) ... EIOINTC_IPMAP_END:
+	case EIOINTC_IPMAP_START ... EIOINTC_IPMAP_END:
 		offset = (addr - EIOINTC_IPMAP_START) / 4;
-		p = &s->ipmap + offset * 4;
+		p = (void *)&s->ipmap + offset * 4;
 		break;
-	case EIOINTC_ENABLE_START:
-		p = (void *)s->enable;
-		len = sizeof(s->enable);
-		break;
-	case (EIOINTC_ENABLE_START + 4) ... EIOINTC_ENABLE_END:
+	case EIOINTC_ENABLE_START ... EIOINTC_ENABLE_END:
 		offset = (addr - EIOINTC_ENABLE_START) / 4;
-		p = s->enable + offset * 4;
+		p = (void *)s->enable + offset * 4;
 		break;
-	case EIOINTC_BOUNCE_START:
-		p = s->bounce;
-		len = sizeof(s->bounce);
-		break;
-	case (EIOINTC_BOUNCE_START + 4) ... EIOINTC_BOUNCE_END:
+	case EIOINTC_BOUNCE_START ... EIOINTC_BOUNCE_END:
 		offset = (addr - EIOINTC_BOUNCE_START) / 4;
-		p = s->bounce + offset * 4;
+		p = (void *)s->bounce + offset * 4;
 		break;
-	case EIOINTC_ISR_START:
-		p = s->isr;
-		len = sizeof(s->isr);
-		break;
-	case (EIOINTC_ISR_START + 4) ... EIOINTC_ISR_END:
+	case EIOINTC_ISR_START ... EIOINTC_ISR_END:
 		offset = (addr - EIOINTC_ISR_START) / 4;
-		p = s->isr + offset * 4;
+		p = (void *)s->isr + offset * 4;
 		break;
-	case EIOINTC_COREISR_START:
-		p = s->coreisr;
-		len = sizeof(s->coreisr);
-		break;
-	case (EIOINTC_COREISR_START + 4) ... EIOINTC_COREISR_END:
+	case EIOINTC_COREISR_START ... EIOINTC_COREISR_END:
 		if (cpu >= s->num_cpu)
 			return -EINVAL;
 
 		offset = (addr - EIOINTC_COREISR_START) / 4;
-		p = s->coreisr[cpu] + offset * 4;
+		p = (void *)s->coreisr[cpu] + offset * 4;
 		break;
-	case EIOINTC_COREMAP_START:
-		p = s->coremap;
-		len = sizeof(s->coremap);
-		break;
-	case (EIOINTC_COREMAP_START + 4) ... EIOINTC_COREMAP_END:
+	case EIOINTC_COREMAP_START ... EIOINTC_COREMAP_END:
 		offset = (addr - EIOINTC_COREMAP_START) / 4;
-		p = s->coremap + offset * 4;
+		p = (void *)s->coremap + offset * 4;
 		break;
 	case EIOINTC_SW_COREMAP_FLAG:
-		p = s->sw_coremap;
-		len = sizeof(s->sw_coremap);
+		p = (void *)s->sw_coremap;
 		break;
 	default:
-		spin_unlock_irqrestore(&s->lock, flags);
 		kvm_err("%s: unknown eiointc register, addr = %d\n", __func__, addr);
 		return -EINVAL;
 	}
 
+	spin_lock_irqsave(&s->lock, flags);
+	if (is_write)
+		memcpy(p, data, 4);
+	else
+		memcpy(data, p, 4);
 	spin_unlock_irqrestore(&s->lock, flags);
 
-	if (is_write) {
-		if (copy_from_user(p, data, len))
-			return -EFAULT;
-	} else {
-		if (copy_to_user(data, p, len))
-			return -EFAULT;
-	}
-
-	if ((addr == EIOINTC_COREISR_START) && is_write) {
-		spin_lock_irqsave(&s->lock, flags);
-		eiointc_set_sw_coreisr(s);
-		spin_unlock_irqrestore(&s->lock, flags);
-	}
-
-	return 0;
+	return ret;
 }
 
 static int kvm_eiointc_sw_status_access(struct kvm_device *dev,
@@ -633,7 +590,14 @@ static int kvm_eiointc_get_attr(struct kvm_device *dev,
 
 	switch (attr->group) {
 	case KVM_DEV_LOONGARCH_EXTIOI_GRP_REGS:
-		return kvm_eiointc_regs_access(dev, attr, false);
+		ret = kvm_eiointc_regs_access(dev, attr, false, &data);
+		if (ret)
+			return ret;
+
+		if (copy_to_user((void __user *)attr->addr, &data, 4))
+			ret = -EFAULT;
+
+		return ret;
 	case KVM_DEV_LOONGARCH_EXTIOI_GRP_SW_STATUS:
 		ret = kvm_eiointc_sw_status_access(dev, attr, false, &data);
 		if (ret)
@@ -657,7 +621,10 @@ static int kvm_eiointc_set_attr(struct kvm_device *dev,
 	case KVM_DEV_LOONGARCH_EXTIOI_GRP_CTRL:
 		return kvm_eiointc_ctrl_access(dev, attr);
 	case KVM_DEV_LOONGARCH_EXTIOI_GRP_REGS:
-		return kvm_eiointc_regs_access(dev, attr, true);
+		if (copy_from_user(&data, (void __user *)attr->addr, 4))
+			return -EFAULT;
+
+		return kvm_eiointc_regs_access(dev, attr, true, &data);
 	case KVM_DEV_LOONGARCH_EXTIOI_GRP_SW_STATUS:
 		if (copy_from_user(&data, (void __user *)attr->addr, 4))
 			return -EFAULT;
