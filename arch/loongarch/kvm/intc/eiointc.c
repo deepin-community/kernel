@@ -83,7 +83,7 @@ static void eiointc_update_irq(struct loongarch_eiointc *s, int irq, int level)
 static inline void eiointc_update_sw_coremap(struct loongarch_eiointc *s,
 					int irq, u64 val, u32 len, bool notify)
 {
-	int i, cpu, cpuid;
+	u8 i, cpu, cpuid;
 	struct kvm_vcpu *vcpu;
 
 	for (i = 0; i < len; i++) {
@@ -97,8 +97,8 @@ static inline void eiointc_update_sw_coremap(struct loongarch_eiointc *s,
 
 		vcpu = kvm_get_vcpu_by_id(s->kvm, cpuid);
 		if (!vcpu) {
-			kvm_info("Warning %s: The wrong eiointc coremap data was delivered!!\n",
-							__func__);
+			kvm_info("Warning %s: The wrong eiointc coremap data was delivered s->status %x cpuid %d !!\n",
+							__func__, s->status, cpuid);
 			continue;
 		}
 
@@ -228,6 +228,7 @@ static int loongarch_eiointc_write(struct kvm_vcpu *vcpu,
 	offset = addr & 7;
 	mask = field_mask << (offset * 8);
 	data = (value & field_mask) << (offset * 8);
+
 	addr -= offset;
 	offset = addr - EIOINTC_BASE;
 
@@ -511,7 +512,7 @@ static int kvm_eiointc_regs_access(struct kvm_device *dev,
 		p = &s->ipmap + offset * 4;
 		break;
 	case EIOINTC_ENABLE_START:
-		p = s->enable;
+		p = (void *)s->enable;
 		len = sizeof(s->enable);
 		break;
 	case (EIOINTC_ENABLE_START + 4) ... EIOINTC_ENABLE_END:
@@ -752,8 +753,8 @@ int kvm_loongarch_reset_eiointc(struct kvm *kvm)
 	if (!eiointc)
 		return -EINVAL;
 
-	pstart = (char *)&eiointc->nodetype;
-	offset = (char *)&eiointc->nodetype - (char *)eiointc;
+	pstart = (char *)&eiointc->status;
+	offset = (char *)&eiointc->status - (char *)eiointc;
 	size = sizeof(struct loongarch_eiointc) - offset;
 
 	spin_lock_irqsave(&eiointc->lock, flags);
