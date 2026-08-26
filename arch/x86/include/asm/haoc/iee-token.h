@@ -10,6 +10,7 @@ extern unsigned long long iee_rw_gate(int flag, ...);
 
 extern struct kmem_cache *task_struct_cachep;
 
+extern void iee_prepare_init_task_token(void);
 extern void iee_set_token_page_valid(unsigned long token, unsigned long new,
 				     unsigned int order);
 extern void iee_set_token_page_invalid(unsigned long token_addr,

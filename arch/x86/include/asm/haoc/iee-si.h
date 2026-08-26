@@ -7,9 +7,10 @@
 #define __iee_si_code   __section(".iee.si_text")
 #define __iee_si_data   __section(".iee.si_data")
 
-extern unsigned long cr4_pinned_mask;
+extern const unsigned long cr4_pinned_mask;
 extern struct static_key_false cr_pinning;
 extern unsigned long cr4_pinned_bits;
+extern unsigned long iee_cr4_set_mask;
 
 extern unsigned long __iee_si_text_start[];
 extern unsigned long __iee_si_text_end[];

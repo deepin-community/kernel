@@ -34,6 +34,7 @@ config IEE_SIP
 config CREDP
 	bool "Struct cred protection(CREDP)"
 	depends on IEE
+	select IEE_PTRP
 	help
 		Protects kernel struct cred. All modifications of cred must be made and
 		verified by IEE APIs, and critical dereferences of cred would be monitored

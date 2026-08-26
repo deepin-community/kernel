@@ -17,6 +17,9 @@
 #ifdef CONFIG_IEE_SIP
 #include <asm/haoc/iee-si.h>
 #endif
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 
 /* IEE_OFFSET = pgtable_l5_enabled() ? 0x40000000000000 : 0x200000000000; */
 unsigned long IEE_OFFSET = 0x200000000000;
@@ -138,16 +141,18 @@ static void __init _iee_stack_init(void)
 {
 	int cpu;
 	struct iee_stack *iee_stack;
-	void *stack_base;
 	struct page *page;
 
 	for_each_possible_cpu(cpu) {
-		stack_base = (void *)page_address(alloc_pages(GFP_KERNEL, IEE_STACK_ORDER));
 		iee_stack = per_cpu_ptr(&iee_stacks, cpu);
 		page = alloc_pages(GFP_KERNEL, IEE_STACK_ORDER);
-		iee_stack->stack = (void *)page_address(page) + PAGE_SIZE * (1 << IEE_STACK_ORDER);
-		pr_info("IEE: cpu %d, iee_stack 0x%lx", cpu, (unsigned long)iee_stack->stack);
-		set_memory_ro((unsigned long)stack_base, (1 << IEE_STACK_ORDER));
+		if (!page)
+			panic("IEE: failed to allocate iee stack for cpu %d\n",
+			      cpu);
+		iee_stack->stack = (void *)page_address(page) +
+				   PAGE_SIZE * (1 << IEE_STACK_ORDER);
+		pr_info("IEE: cpu %d, iee_stack 0x%lx", cpu,
+			(unsigned long)iee_stack->stack);
 	}
 }
 
@@ -162,24 +167,17 @@ void __init iee_init(void)
 	_iee_offset_init();
 	_iee_mapping_init();
 	_iee_stack_init();
+#ifdef CONFIG_IEE_PTRP
+	iee_prepare_init_task_token();
+#endif
 }
 
 bool __ro_after_init haoc_enabled;
 EXPORT_SYMBOL(haoc_enabled);
-#ifdef CONFIG_IEE_SIP
-extern unsigned long cr4_pinned_mask;
-#endif
 static int __init parse_haoc_enabled(char *str)
 {
 	int ret = kstrtobool(str, &haoc_enabled);
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-	{
-		cr4_pinned_mask =
-		X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
-		X86_CR4_FSGSBASE | X86_CR4_CET;
-	}
-	#endif
+
 	return ret;
 }
 early_param("haoc", parse_haoc_enabled);
