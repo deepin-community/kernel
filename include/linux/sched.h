@@ -930,7 +930,6 @@ struct task_struct {
 
 	struct mm_struct		*mm;
 	struct mm_struct		*active_mm;
-	struct address_space		*faults_disabled_mapping;
 
 	int				exit_state;
 	int				exit_code;
@@ -1617,7 +1616,7 @@ struct task_struct {
 	 */
 	randomized_struct_fields_end
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, struct address_space *faults_disabled_mapping)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
