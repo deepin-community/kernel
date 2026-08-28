@@ -9,7 +9,7 @@
 
 static void eiointc_set_sw_coreisr(struct loongarch_eiointc *s)
 {
-	int ipnum, cpu, irq_index, irq_mask, irq;
+	int ipnum, cpu, cpuid, irq_index, irq_mask, irq;
 	struct kvm_vcpu *vcpu;
 
 	for (irq = 0; irq < EIOINTC_IRQS; irq++) {
@@ -24,16 +24,17 @@ static void eiointc_set_sw_coreisr(struct loongarch_eiointc *s)
 		/* length of accessing core isr is 4 bytes */
 		irq_mask = BIT(irq & 0x1f);
 
-		cpu = s->coremap.reg_u8[irq];
+		cpuid = s->coremap.reg_u8[irq];
 		if (!(s->status & BIT(EIOINTC_ENABLE_CPU_ENCODE))) {
-			cpu = ffs(cpu) - 1;
-			cpu = (cpu >= 4) ? 0 : cpu;
+			cpuid = ffs(cpuid) - 1;
+			cpuid = (cpuid >= 4) ? 0 : cpuid;
 		}
 
-		vcpu = kvm_get_vcpu_by_id(s->kvm, cpu);
-		if ((!vcpu) || (vcpu->vcpu_id != cpu))
-			cpu = 0;
+		vcpu = kvm_get_vcpu_by_id(s->kvm, cpuid);
+		if (!vcpu)
+			continue;
 
+		cpu = vcpu->vcpu_id;
 		if (!!(s->coreisr.reg_u32[cpu][irq_index] & irq_mask))
 			set_bit(irq, s->sw_coreisr[cpu][ipnum]);
 		else
@@ -90,25 +91,26 @@ static void eiointc_update_irq(struct loongarch_eiointc *s, int irq, int level)
 static inline void eiointc_update_sw_coremap(struct loongarch_eiointc *s,
 					int irq, u64 val, u32 len, bool notify)
 {
-	int i, cpu;
+	int i, cpu, cpuid;
 	struct kvm_vcpu *vcpu;
 
 	for (i = 0; i < len; i++) {
-		cpu = val & 0xff;
+		cpuid = val & 0xff;
 		val = val >> 8;
 
 		if (!(s->status & BIT(EIOINTC_ENABLE_CPU_ENCODE))) {
-			cpu = ffs(cpu) - 1;
-			cpu = (cpu >= 4) ? 0 : cpu;
+			cpuid = ffs(cpuid) - 1;
+			cpuid = (cpuid >= 4) ? 0 : cpuid;
 		}
 
-		vcpu = kvm_get_vcpu_by_id(s->kvm, cpu);
-		if ((!vcpu) || (vcpu->vcpu_id != cpu)) {
-			cpu = 0;
+		vcpu = kvm_get_vcpu_by_id(s->kvm, cpuid);
+		if (!vcpu) {
 			kvm_info("Warning %s: The wrong eiointc coremap data was delivered!!\n",
 							__func__);
+			continue;
 		}
 
+		cpu = vcpu->vcpu_id;
 		if (s->sw_coremap[irq + i] == cpu)
 			continue;
 
