@@ -129,6 +129,8 @@ struct kvm_arch {
 	struct kvm_phyid_map  *phyid_map;
 	/* Enabled PV features */
 	unsigned long pv_features;
+	/* Supported KVM features */
+	unsigned long kvm_features;
 
 	s64 time_offset;
 	struct kvm_context __percpu *vmcs;
@@ -299,6 +301,12 @@ static inline int kvm_get_pmu_num(struct kvm_vcpu_arch *arch)
 }
 
 bool kvm_arch_pmi_in_guest(struct kvm_vcpu *vcpu);
+
+/* Check whether KVM support this feature (VMM may disable it) */
+static inline bool kvm_vm_support(struct kvm_arch *arch, int feature)
+{
+	return !!(arch->kvm_features & BIT_ULL(feature));
+}
 
 /* Debug: dump vcpu state */
 int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu);
