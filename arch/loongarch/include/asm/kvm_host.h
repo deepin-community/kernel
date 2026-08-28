@@ -21,6 +21,7 @@
 #include <asm/kvm_mmu.h>
 #include <asm/loongarch.h>
 #include <asm/kvm_ipi.h>
+#include <asm/kvm_dmsintc.h>
 #include <asm/kvm_eiointc.h>
 #include <asm/kvm_pch_pic.h>
 
@@ -136,6 +137,7 @@ struct kvm_arch {
 	s64 time_offset;
 	struct kvm_context __percpu *vmcs;
 	struct loongarch_ipi *ipi;
+	struct loongarch_dmsintc *dmsintc;
 	struct loongarch_eiointc *eiointc;
 	struct loongarch_pch_pic *pch_pic;
 };
@@ -249,6 +251,7 @@ struct kvm_vcpu_arch {
 	struct kvm_mp_state mp_state;
 	/* ipi state */
 	struct ipi_state ipi_state;
+	struct dmsintc_state dmsintc_state;
 	/* cpucfg */
 	u32 cpucfg[KVM_MAX_CPUCFG_REGS];
 	/* paravirt steal time */
