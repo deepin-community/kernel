@@ -29,7 +29,7 @@ static void extioi_update_irq(struct loongarch_extioi *s, int irq, int level)
 		ipnum = (ipnum >= 0 && ipnum < LS3A_INTC_IP) ? ipnum : 0;
 
 	cpu = s->sw_coremap[irq];
-	vcpu = kvm_get_vcpu(s->kvm, cpu);
+	vcpu = kvm_get_vcpu_by_id(s->kvm, cpu);
 	if (vcpu == NULL) {
 		kvm_info("%s irq %d vcpu %d don't exist\n", __func__, irq, cpu);
 		return;
@@ -83,7 +83,7 @@ static void extioi_set_sw_coreisr(struct loongarch_extioi *s)
 			cpu = (cpu >= 4) ? 0 : cpu;
 		}
 
-		vcpu = kvm_get_vcpu(s->kvm, cpu);
+		vcpu = kvm_get_vcpu_by_id(s->kvm, cpu);
 		if ((!vcpu) || (vcpu->vcpu_id != cpu))
 			cpu = 0;
 
@@ -142,7 +142,7 @@ static inline void extioi_update_sw_coremap(struct loongarch_extioi *s,
 			cpu = (cpu >= 4) ? 0 : cpu;
 		}
 
-		vcpu = kvm_get_vcpu(s->kvm, cpu);
+		vcpu = kvm_get_vcpu_by_id(s->kvm, cpu);
 		if ((!vcpu) || (vcpu->vcpu_id != cpu)) {
 			cpu = 0;
 			kvm_info("Warning %s: The wrong extioi coremap data was delivered!!\n",
