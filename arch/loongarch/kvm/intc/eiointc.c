@@ -833,7 +833,7 @@ static int kvm_eiointc_ctrl_access(struct kvm_device *dev,
 	int ret = 0;
 	unsigned long flags;
 	unsigned long type = (unsigned long)attr->attr;
-	u32 i, start_irq;
+	u32 i, start_irq, val;
 	void __user *data;
 	struct loongarch_eiointc *s = dev->kvm->arch.eiointc;
 
@@ -841,8 +841,14 @@ static int kvm_eiointc_ctrl_access(struct kvm_device *dev,
 	spin_lock_irqsave(&s->lock, flags);
 	switch (type) {
 	case KVM_DEV_LOONGARCH_EXTIOI_CTRL_INIT_NUM_CPU:
-		if (copy_from_user(&s->num_cpu, data, 4))
+		if (copy_from_user(&val, data, 4))
 			ret = -EFAULT;
+		else {
+			if (val >= EIOINTC_ROUTE_MAX_VCPUS)
+				ret = -EINVAL;
+			else
+				s->num_cpu = val;
+		}
 		break;
 	case KVM_DEV_LOONGARCH_EXTIOI_CTRL_INIT_FEATURE:
 		if (copy_from_user(&s->features, data, 4))
@@ -870,7 +876,7 @@ static int kvm_eiointc_regs_access(struct kvm_device *dev,
 					struct kvm_device_attr *attr,
 					bool is_write)
 {
-	int addr, cpuid, offset, len;
+	int addr, cpu, offset, len;
 	unsigned long flags;
 	void *p = NULL;
 	void __user *data;
@@ -879,7 +885,7 @@ static int kvm_eiointc_regs_access(struct kvm_device *dev,
 	len = 4;
 	s = dev->kvm->arch.eiointc;
 	addr = attr->attr;
-	cpuid = addr >> 16;
+	cpu = addr >> 16;
 	addr &= 0xffff;
 	data = (void __user *)attr->addr;
 	spin_lock_irqsave(&s->lock, flags);
@@ -929,11 +935,11 @@ static int kvm_eiointc_regs_access(struct kvm_device *dev,
 		len = sizeof(s->coreisr);
 		break;
 	case (EIOINTC_COREISR_START + 4) ... EIOINTC_COREISR_END:
-		if (cpuid >= s->num_cpu)
+		if (cpu >= s->num_cpu)
 			return -EINVAL;
 
 		offset = (addr - EIOINTC_COREISR_START) / 4;
-		p = &s->coreisr.reg_u32[cpuid][offset];
+		p = &s->coreisr.reg_u32[cpu][offset];
 		break;
 	case EIOINTC_COREMAP_START:
 		p = s->coremap.reg_u8;
