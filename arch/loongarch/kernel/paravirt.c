@@ -92,10 +92,17 @@ static u64 paravt_steal_clock(int cpu)
 }
 
 #ifdef CONFIG_SMP
+static struct smp_ops native_ops;
+
 static void pv_send_ipi_single(int cpu, unsigned int action)
 {
 	int min, old;
 	irq_cpustat_t *info = &per_cpu(irq_stat, cpu);
+
+	if (unlikely(action == ACTION_BOOT_CPU)) {
+		native_ops.send_ipi_single(cpu, action);
+		return;
+	}
 
 	old = atomic_fetch_or(BIT(action), &info->message);
 	if (old)
@@ -115,6 +122,11 @@ static void pv_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 
 	if (cpumask_empty(mask))
 		return;
+
+	if (unlikely(action == ACTION_BOOT_CPU)) {
+		native_ops.send_ipi_mask(mask, action);
+		return;
+	}
 
 	action = BIT(action);
 	for_each_cpu(i, mask) {
@@ -149,7 +161,7 @@ static void pv_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 
 	if (bitmap)
 		kvm_hypercall3(KVM_HCALL_FUNC_IPI, (unsigned long)bitmap,
-				(unsigned long)(bitmap >> BITS_PER_LONG), min);
+			      (unsigned long)(bitmap >> BITS_PER_LONG), min);
 }
 
 static irqreturn_t pv_ipi_interrupt(int irq, void *dev)
@@ -172,6 +184,11 @@ static irqreturn_t pv_ipi_interrupt(int irq, void *dev)
 		info->ipi_irqs[IPI_CALL_FUNCTION]++;
 	}
 
+	if (action & SMP_CLEAR_VECTOR) {
+		complete_irq_moving();
+		info->ipi_irqs[IPI_CLEAR_VECTOR]++;
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -179,6 +196,8 @@ static void pv_init_ipi(void)
 {
 	int r, swi;
 
+	/* Init native ipi irq for ACTION_BOOT_CPU */
+	native_ops.init_ipi();
 	swi = get_percpu_irq(INT_SWI0);
 	if (swi < 0)
 		panic("SWI0 IRQ mapping failed\n");
@@ -244,6 +263,7 @@ int __init pv_ipi_init(void)
 	if (!kvm_para_has_feature(KVM_FEATURE_IPI))
  		return 0;
 #ifdef CONFIG_SMP
+	native_ops			= smp_ops;
 	smp_ops.init_ipi		= pv_init_ipi;
 	smp_ops.send_ipi_single		= pv_send_ipi_single;
 	smp_ops.send_ipi_mask		= pv_send_ipi_mask;
