@@ -51,8 +51,8 @@ struct loongarch_pch_pic {
 	uint64_t irr; /* interrupt request register */
 	uint64_t isr; /* interrupt service register */
 	uint64_t polarity; /* 0: high level trigger, 1: low level trigger */
-	uint8_t  route_entry[64]; /* default value 0, route to int0: extioi */
-	uint8_t  htmsi_vector[64]; /* irq route table for routing to extioi */
+	uint8_t  route_entry[64]; /* default value 0, route to int0: eiointc */
+	uint8_t  htmsi_vector[64]; /* irq route table for routing to eiointc */
 };
 
 void pch_pic_set_irq(struct loongarch_pch_pic *s, int irq, int level);

@@ -3,31 +3,31 @@
  * Copyright (C) 2024 Loongson Technology Corporation Limited
  */
 
-#include <asm/kvm_extioi.h>
+#include <asm/kvm_eiointc.h>
 #include <asm/kvm_pch_pic.h>
 #include <asm/kvm_vcpu.h>
 #include <linux/count_zeros.h>
 
-/* update the isr according to irq level and route irq to extioi */
+/* update the isr according to irq level and route irq to eiointc */
 static void pch_pic_update_irq(struct loongarch_pch_pic *s, int irq, int level)
 {
 	u64 mask = (1 << irq);
 
 	/*
-	 * set isr and route irq to extioi and
+	 * set isr and route irq to eiointc and
 	 * the route table is in htmsi_vector[]
 	 */
 	if (level) {
 		if (mask & s->irr & ~s->mask) {
 			s->isr |= mask;
 			irq = s->htmsi_vector[irq];
-			extioi_set_irq(s->kvm->arch.extioi, irq, level);
+			eiointc_set_irq(s->kvm->arch.eiointc, irq, level);
 		}
 	} else {
 		if (mask & s->isr & ~s->irr) {
 			s->isr &= ~mask;
 			irq = s->htmsi_vector[irq];
-			extioi_set_irq(s->kvm->arch.extioi, irq, level);
+			eiointc_set_irq(s->kvm->arch.eiointc, irq, level);
 		}
 	}
 }
@@ -35,7 +35,7 @@ static void pch_pic_update_irq(struct loongarch_pch_pic *s, int irq, int level)
 /* msi irq handler */
 void pch_msi_set_irq(struct kvm *kvm, int irq, int level)
 {
-	extioi_set_irq(kvm->arch.extioi, irq, level);
+	eiointc_set_irq(kvm->arch.eiointc, irq, level);
 }
 
 /* called when a irq is triggered in pch pic */
@@ -183,11 +183,11 @@ static int loongarch_pch_pic_write(struct loongarch_pch_pic *s, gpa_t addr,
 		break;
 	case PCH_PIC_ROUTE_ENTRY_START ... PCH_PIC_ROUTE_ENTRY_END:
 		offset -= PCH_PIC_ROUTE_ENTRY_START;
-		/* only route to int0: extioi */
+		/* only route to int0: eiointc */
 		s->route_entry[offset] = 1;
 		break;
 	case PCH_PIC_HTMSI_VEC_START ... PCH_PIC_HTMSI_VEC_END:
-		/* route table to extioi */
+		/* route table to eiointc */
 		offset -= PCH_PIC_HTMSI_VEC_START;
 		s->htmsi_vector[offset] = (u8)data;
 		break;
@@ -277,7 +277,7 @@ static int loongarch_pch_pic_read(struct loongarch_pch_pic *s, gpa_t addr, int l
 		*(u32 *)val = 0;
 		break;
 	case PCH_PIC_ROUTE_ENTRY_START ... PCH_PIC_ROUTE_ENTRY_END:
-		/* only route to int0: extioi */
+		/* only route to int0: eiointc */
 		*(u8 *)val = 1;
 		break;
 	case PCH_PIC_HTMSI_VEC_START ... PCH_PIC_HTMSI_VEC_END:
