@@ -498,7 +498,7 @@ config LOONGARCH_IOMMU
 	tristate "LOONGARCH IOMMU support"
 	select IOMMU_API
 	select IOMMU_DEFAULT_PASSTHROUGH
-	depends on LOONGARCH
+	depends on LOONGARCH && CONTIG_ALLOC
 	help
 	  With this option you can enable support for LOONGARCH IOMMU hardware in
 	  your system. An IOMMU is a hardware component which provides
