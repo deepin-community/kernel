@@ -37,7 +37,7 @@ static int __init loongarch_iommu_mem_init(void)
 	struct acpi_table_header *ivrs_base;
 	acpi_status status;
 	phys_addr_t phys;
-	int bytes;
+	struct page *pages;
 
 	status = acpi_get_table("IVRS", 0, &ivrs_base);
 	if (ACPI_FAILURE(status)) {
@@ -47,28 +47,29 @@ static int __init loongarch_iommu_mem_init(void)
 	}
 	acpi_put_table(ivrs_base);
 
-	phys = memblock_phys_alloc_range(ALLOC_MEM, ALLOC_PAGE_SIZE, 0,
-					 MEMBLOCK_ALLOC_ACCESSIBLE);
-	if (!phys) {
+	pages = alloc_contig_pages(ALLOC_PAGES, GFP_KERNEL, numa_mem_id(), &node_online_map);
+	if (!pages) {
 		iommu_mem.init_failed = true;
 		pr_info("%s Unable to alloc memory for iommu page table\n",
 				__func__);
 		return 0;
 	}
 
+	phys = page_to_phys(pages);
 	iommu_mem.vaddr = TO_UNCACHE(phys);
-	bytes = ALLOC_PAGES / 8;
-	iommu_mem.bitmap_sz = (ALLOC_PAGES % 8) ? (bytes + 1) : bytes;
+	iommu_mem.bitmap_sz = ALLOC_PAGES;
 	iommu_mem.mem_bitmap = bitmap_zalloc(iommu_mem.bitmap_sz, GFP_KERNEL);
 
 	spin_lock_init(&iommu_mem.bitmap_lock);
-	pr_info("%s alloc iommu page table mem %lx bitmap %lx map_size %lu\n",
+	pr_info("%s alloc iommu page table mem %lx-%lx bitmap %lx map_size %lu\n",
 			__func__,
 			iommu_mem.vaddr,
+			iommu_mem.vaddr + ALLOC_MEM,
 			(ulong)iommu_mem.mem_bitmap,
 			iommu_mem.bitmap_sz);
 
 	if (!iommu_mem.mem_bitmap) {
+		free_contig_range(page_to_pfn(pages), ALLOC_PAGES);
 		iommu_mem.init_failed = true;
 		pr_info("%s Failed to allocate bitmap for iommu\n",
 			__func__);
