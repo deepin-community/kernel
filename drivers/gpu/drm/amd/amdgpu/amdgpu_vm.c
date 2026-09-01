@@ -2322,8 +2322,10 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 		goto error_free_root;
 
 	r = amdgpu_vm_create_task_info(vm);
-	if (r)
+	if (r) {
 		DRM_DEBUG("Failed to create task info for VM\n");
+		goto error_free_root;
+	}
 
 	amdgpu_bo_unreserve(vm->root.bo);
 	amdgpu_bo_unref(&root_bo);
@@ -2332,7 +2334,7 @@ int amdgpu_vm_init(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 error_free_root:
 	amdgpu_vm_pt_free_root(adev, vm);
-	amdgpu_bo_unreserve(vm->root.bo);
+	amdgpu_bo_unreserve(root_bo);
 	amdgpu_bo_unref(&root_bo);
 
 error_free_delayed:
