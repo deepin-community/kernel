@@ -10,6 +10,8 @@
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 
+#include "internal.h"
+
 enum acpi_irq_model_id acpi_irq_model;
 
 static struct fwnode_handle *(*acpi_get_gsi_domain_id)(u32 gsi);
@@ -43,6 +45,24 @@ int acpi_gsi_to_irq(u32 gsi, unsigned int *irq)
 }
 EXPORT_SYMBOL_GPL(acpi_gsi_to_irq);
 
+int acpi_register_irq(struct device *dev, u32 hwirq, int trigger,
+		      int polarity, struct fwnode_handle *fwnode)
+{
+	struct irq_fwspec fwspec;
+
+	if (!fwnode) {
+		dev_warn(dev, "No registered irqchip for hwirq %d\n", hwirq);
+		return -EINVAL;
+	}
+
+	fwspec.fwnode = fwnode;
+	fwspec.param[0] = hwirq;
+	fwspec.param[1] = acpi_dev_get_irq_type(trigger, polarity);
+	fwspec.param_count = 2;
+
+	return irq_create_fwspec_mapping(&fwspec);
+}
+
 /**
  * acpi_register_gsi() - Map a GSI to a linux IRQ number
  * @dev: device for which IRQ has to be mapped
@@ -56,24 +76,7 @@ EXPORT_SYMBOL_GPL(acpi_gsi_to_irq);
 int acpi_register_gsi(struct device *dev, u32 gsi, int trigger,
 		      int polarity)
 {
-	struct irq_fwspec fwspec;
-	unsigned int irq;
-
-	fwspec.fwnode = acpi_get_gsi_domain_id(gsi);
-	if (WARN_ON(!fwspec.fwnode)) {
-		pr_warn("GSI: No registered irqchip, giving up\n");
-		return -EINVAL;
-	}
-
-	fwspec.param[0] = gsi;
-	fwspec.param[1] = acpi_dev_get_irq_type(trigger, polarity);
-	fwspec.param_count = 2;
-
-	irq = irq_create_fwspec_mapping(&fwspec);
-	if (!irq)
-		return -EINVAL;
-
-	return irq;
+	return acpi_register_irq(dev, gsi, trigger, polarity, acpi_get_gsi_domain_id(gsi));
 }
 EXPORT_SYMBOL_GPL(acpi_register_gsi);
 
@@ -108,7 +111,7 @@ EXPORT_SYMBOL_GPL(acpi_unregister_gsi);
  * Return:
  * The referenced device fwhandle or NULL on failure
  */
-static struct fwnode_handle *
+struct fwnode_handle *
 acpi_get_irq_source_fwhandle(const struct acpi_resource_source *source,
 			     u32 gsi)
 {
