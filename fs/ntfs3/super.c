@@ -1869,10 +1869,11 @@ static int __init init_ntfs_fs(void)
 		goto out1;
 	}
 
-	register_as_ntfs_legacy();
 	err = register_filesystem(&ntfs_fs_type);
 	if (err)
 		goto out;
+
+	register_as_ntfs_legacy();
 
 	return 0;
 out:
