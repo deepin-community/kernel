@@ -249,9 +249,7 @@ struct tty_struct {
 
 #define N_TTY_BUF_SIZE 4096
 	struct work_struct SAK_work;
-	DEEPIN_KABI_RESERVE(0)
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(0, 1, 2, wait_queue_head_t break_wait)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
