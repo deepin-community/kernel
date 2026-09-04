@@ -1,36 +1,86 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-* Phytium xgmac Ethernet controller
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/phytmac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
 
-Required properties:
-- compatible: Should be "phytium,gmac-[version]"
-  Use "phytium,gmac-1.0" for gmac version 1.0 on Phytium SoCs
-  Use "phytium,gmac-2.0" for gmac version 2.0 on Phytium SoCs
+title: Phytium Ethernet MAC controller
 
-- reg: Address and length of the register set for the device
-- interrupts: Should contain phytmac interrupt
-- queue-number: The number of queues for the device
-- phy-mode: See ethernet.txt file in the same directory
-- fixed-link：See ethernet.txt file in the same directory
-- dma-coherent: Boolean property, must only be present if memory
-	accesses performed by the device are cache coherent.
+maintainers:
+  - Wenting Song <songwenting@phytium.com.cn>
 
-The MAC address will be determined using the optional properties
-defined in ethernet.txt.
+allOf:
+  - $ref: ethernet-controller.yaml#
 
-Examples:
+properties:
+  compatible:
+    enum:
+      - phytium,gmac-1.0
+      - phytium,gmac-2.0
 
-	eth0@36ce0000 {
-			compatible = "phytium,gmac-1.0";
-			reg = <0x00 0x36ce0000 0x00 0x2000>;
-			interrupts = <0x00 0x20 0x04 0x00 0x21 0x04 0x00 0x22 0x04 0x00 0x23 0x04>;
-			queue-number = <0x04>;
-			magic-packet;
-			dma-coherent;
-			phy-mode = "usxgmii";
-			status = "okay";
+  reg:
+    minItems: 1
+    maxItems: 3
 
-			fixed-link {
-					speed = <0x2710>;
-					full-duplex;
-			};
-	};
+  interrupts:
+    minItems: 1
+    maxItems: 8
+
+  queue-number:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1
+    maximum: 8
+    description: Number of hardware queues enabled for the controller.
+
+  phy-mode: true
+
+  fixed-link: true
+
+  dma-coherent: true
+
+  dma-burst-length:
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  jumbo-max-length:
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  lpi:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description: Enable low power idle support.
+
+  magic-packet:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description: Enable Wake-on-LAN using magic packets.
+
+  use-ncsi:
+    $ref: /schemas/types.yaml#/definitions/flag
+
+  use-mii:
+    $ref: /schemas/types.yaml#/definitions/flag
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - queue-number
+  - phy-mode
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    ethernet@36ce0000 {
+        compatible = "phytium,gmac-1.0";
+        reg = <0x36ce0000 0x2000>;
+        interrupts = <32 4>, <33 4>, <34 4>, <35 4>;
+        queue-number = <4>;
+        magic-packet;
+        dma-coherent;
+        phy-mode = "usxgmii";
+
+        fixed-link {
+            speed = <10000>;
+            full-duplex;
+        };
+    };
+...
