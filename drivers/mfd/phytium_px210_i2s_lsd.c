@@ -43,7 +43,7 @@ static struct mfd_cell phytium_px210_mfd_cells[] = {
 	},
 };
 
-static void phytium_px210_i2s_setup(struct pci_dev *pdev)
+static int phytium_px210_i2s_setup(struct pci_dev *pdev)
 {
 	struct mfd_cell *cell = &phytium_px210_mfd_cells[0];
 	struct resource *res = (struct resource *)cell->resources;
@@ -59,6 +59,8 @@ static void phytium_px210_i2s_setup(struct pci_dev *pdev)
 	res[2].end = pdev->irq;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
 
 	pdata->dev = &pdev->dev;
 	pdata->name = "phytium-i2s-lsd";
@@ -66,6 +68,8 @@ static void phytium_px210_i2s_setup(struct pci_dev *pdev)
 
 	cell->platform_data = pdata;
 	cell->pdata_size = sizeof(*pdata);
+
+	return 0;
 }
 
 static int phytium_px210_mfd_probe(struct pci_dev *pdev,
@@ -87,17 +91,18 @@ static int phytium_px210_mfd_probe(struct pci_dev *pdev,
 	phytium_mfd->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, phytium_mfd);
 
-	phytium_px210_i2s_setup(pdev);
+	ret = phytium_px210_i2s_setup(pdev);
+	if (ret)
+		return ret;
 
 	ret = mfd_add_devices(&pdev->dev, 0, phytium_px210_mfd_cells,
 			      ARRAY_SIZE(phytium_px210_mfd_cells), NULL, 0,
 			      NULL);
 	if (ret)
-		return 0;
+		return ret;
 
 	return 0;
 }
-
 
 static void phytium_px210_mfd_remove(struct pci_dev *pdev)
 {
