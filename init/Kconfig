@@ -1179,6 +1179,18 @@ config CGROUP_MISC
 	  For more information, please check misc cgroup section in
 	  /Documentation/admin-guide/cgroup-v2.rst.
 
+config CGROUP_DMEM
+	bool "Device memory controller"
+	depends on MEMCG
+	default n
+	help
+	  Select this option to enable tracking of device memory usage
+	  (e.g. GPU VRAM) in cgroups. Device memory can be limited
+	  using dmem.max, and protection can be set using dmem.low
+	  and dmem.min.
+
+	  If unsure, say N.
+
 config CGROUP_DEBUG
 	bool "Debug controller"
 	default n
