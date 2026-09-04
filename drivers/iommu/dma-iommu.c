@@ -553,9 +553,14 @@ resv_iova:
 int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_addr_t end)
 {
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
+	struct iova_domain *iovad;
 
 	unsigned long lo, hi;
+
+	if (!cookie)
+		return -EINVAL;
+
+	iovad = &cookie->iovad;
 
 	if (!iovad->granule) {
 		unsigned long order = __ffs(domain->pgsize_bitmap);
@@ -565,9 +570,6 @@ int iova_reserve_domain_addr(struct iommu_domain *domain, dma_addr_t start, dma_
 
 	lo = iova_pfn(iovad, start);
 	hi = iova_pfn(iovad, end);
-
-	if (!cookie)
-		return -EINVAL;
 
 	reserve_iova(iovad, lo, hi);
 
