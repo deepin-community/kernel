@@ -5092,6 +5092,9 @@ static void its_restore_enable(void *data)
 		void __iomem *rbase = gic_data_rdist_cpu(cpu)->rd_base;
 		u32 val;
 
+		if (!rbase)
+			continue;
+
 		/* Enable LPIs */
 		val = readl_relaxed(rbase + GICR_CTLR);
 		if (val & GICR_CTLR_ENABLE_LPIS)
