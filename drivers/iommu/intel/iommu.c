@@ -2557,6 +2557,8 @@ static inline int acpi_rmrr_andd_probe(struct device *dev)
 	ret = acpi_rmrr_device_create_direct_mappings(iommu_get_domain_for_dev(&pci_device->dev),
 			dev);
 
+	pci_dev_put(pci_device);
+
 	return ret;
 }
 
