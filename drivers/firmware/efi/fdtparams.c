@@ -113,6 +113,8 @@ u64 __init efi_get_fdt_params(struct efi_memory_map_data *mm, u32 *secure_boot)
 	if (!fdt)
 		return 0;
 
+	*secure_boot = efi_secureboot_mode_unknown;
+
 	for (i = 0; i < ARRAY_SIZE(dt_params); i++) {
 		node = fdt_path_offset(fdt, dt_params[i].path);
 		if (node < 0)
@@ -127,6 +129,8 @@ u64 __init efi_get_fdt_params(struct efi_memory_map_data *mm, u32 *secure_boot)
 
 			if (!efi_get_fdt_prop(fdt, node, pname, name[j],
 					      target[j].var, target[j].size))
+				continue;
+			if (j == SBMODE)
 				continue;
 			if (!j)
 				goto notfound;
