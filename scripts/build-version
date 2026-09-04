@@ -1,10 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-only
 
-prev_ver=$(cat .version 2>/dev/null) &&
-ver=$(expr ${prev_ver} + 1 2>/dev/null) ||
-
 # Respect $prev_ver as the final build version ID.
+prev_ver=$(cat .version 2>/dev/null)
 if [ X$prev_ver = "X" ]
 then
 	ver=1
