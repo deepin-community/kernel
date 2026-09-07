@@ -28,6 +28,35 @@ properties:
     maxItems: 1
     description: spi clock phandle
 
+  num-cs:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: number of chip selects used
+    default: 4
+
+  reg-io-width:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 4 ]
+    description: I/O register width in bytes
+    default: 4
+
+  global-cs:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 0, 1 ]
+    description: |
+      When set to 1, the controller drives all chip selects through a
+      single global chip-select line (GCSR mode).
+    default: 1
+
+  dmas:
+    minItems: 2
+    maxItems: 2
+    description: TX and RX DMA channel specifiers
+
+  dma-names:
+    items:
+      - const: rx
+      - const: tx
+
 required:
   - compatible
   - "#address-cells"
@@ -37,11 +66,16 @@ required:
   - clocks
   - num-cs
 
+unevaluatedProperties: false
+
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
 
     spi0: spi@2800c000 {
       compatible = "phytium,spi";
+      #address-cells = <1>;
+      #size-cells = <0>;
       interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
       reg = <0x0 0x2800c000 0x0 0x1000>;
       clocks = <&sysclk_48mhz>;
