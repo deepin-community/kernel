@@ -415,6 +415,18 @@ static int gf_init_pci(struct azx *chip)
 			diu_fb_base = pci_resource_start(diu_pci, 1);
 			fb_size = pci_resource_len(diu_pci, 1);
 
+			/*
+			 * The audio stream and BDL windows are carved out of
+			 * the last 20 MB of the display frame buffer; make
+			 * sure the BAR is at least that large.
+			 */
+			if (fb_size < (4 + 16) * 1024 * 1024) {
+				dev_err(chip->card->dev,
+					"gf_hda display frame buffer too small\n");
+				pci_dev_put(diu_pci);
+				return -ENOMEM;
+			}
+
 			diu_fb_stream[0] = diu_fb_base + fb_size - (4+16)*1024*1024;
 			gf_chip->diu_fb_stream_ofs[0] = diu_fb_stream[0] - diu_fb_base; // stream offset = fb_size -4M-16M
 			gf_chip->diu_fb_stream_vaddr[0] = ioremap_wc(diu_fb_stream[0], GF_HDA_FB_STREAM_SIZE); // size = 7M
@@ -430,6 +442,25 @@ static int gf_init_pci(struct azx *chip)
 			diu_fb_bdl[1] = diu_fb_bdl[0] + BDL_SIZE;
 			gf_chip->diu_fb_bdl_ofs[1] = diu_fb_bdl[1] - diu_fb_base; // stream offset = fb_size -4M-16M+7M*2+4K
 			gf_chip->diu_fb_bdl_vaddr[1] = ioremap_wc(diu_fb_bdl[1], BDL_SIZE); // size = 4K
+
+			if (!gf_chip->diu_fb_stream_vaddr[0] || !gf_chip->diu_fb_stream_vaddr[1] ||
+			    !gf_chip->diu_fb_bdl_vaddr[0] || !gf_chip->diu_fb_bdl_vaddr[1]) {
+				dev_err(chip->card->dev, "gf_hda can't map display frame buffer\n");
+				if (gf_chip->diu_fb_stream_vaddr[0])
+					iounmap(gf_chip->diu_fb_stream_vaddr[0]);
+				if (gf_chip->diu_fb_stream_vaddr[1])
+					iounmap(gf_chip->diu_fb_stream_vaddr[1]);
+				if (gf_chip->diu_fb_bdl_vaddr[0])
+					iounmap(gf_chip->diu_fb_bdl_vaddr[0]);
+				if (gf_chip->diu_fb_bdl_vaddr[1])
+					iounmap(gf_chip->diu_fb_bdl_vaddr[1]);
+				gf_chip->diu_fb_stream_vaddr[0] = NULL;
+				gf_chip->diu_fb_stream_vaddr[1] = NULL;
+				gf_chip->diu_fb_bdl_vaddr[0] = NULL;
+				gf_chip->diu_fb_bdl_vaddr[1] = NULL;
+				pci_dev_put(diu_pci);
+				return -ENOMEM;
+			}
 
 			dev_info(chip->card->dev, "gf_hda diu fb base=0x%llx, size=%dM.\n", diu_fb_base, (unsigned int)(fb_size >> 20));
 			pci_dev_put(diu_pci);
@@ -2005,7 +2036,11 @@ static int azx_first_init(struct azx *chip)
 	 */
 	if (chip->driver_type == AZX_DRIVER_GFHDMI) {
 		bus->polling_mode = 1;
-		gf_init_pci(chip);
+		if (gf_init_pci(chip))
+			/* the controller still works, only the DIU frame
+			 * buffer path stays disabled */
+			dev_err(chip->card->dev,
+				"gf_hda frame buffer setup failed\n");
 	}
 
 	if (chip->driver_type == AZX_DRIVER_LOONGSON) {
