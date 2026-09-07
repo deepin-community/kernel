@@ -238,6 +238,16 @@ static int phytium_spi_transfer_one(struct spi_controller *master,
 	u32 cr0;
 	int ret = 0;
 
+	/*
+	 * The SPI core substitutes a zero speed with spi->max_speed_hz,
+	 * which can still be zero when the controller clock was never
+	 * configured. Refuse instead of dividing by zero below.
+	 */
+	if (!transfer->speed_hz) {
+		dev_err(&master->dev, "transfer speed is zero\n");
+		return -EINVAL;
+	}
+
 	fts->dma_mapped = 0;
 	fts->tx = (void *)transfer->tx_buf;
 	fts->tx_end = fts->tx + transfer->len;
