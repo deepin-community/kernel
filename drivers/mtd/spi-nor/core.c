@@ -3778,7 +3778,6 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	struct device *dev = &spi->dev;
 	struct flash_platform_data *data = dev_get_platdata(dev);
 	struct spi_nor *nor;
-	struct acpi_device *adev;
 	/*
 	 * Enable all caps by default. The core will mask them after
 	 * checking what's really supported using spi_mem_supports_op().
@@ -3798,7 +3797,6 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	nor->spimem = spimem;
 	nor->dev = dev;
 	spi_nor_set_flash_node(nor, dev->of_node);
-	adev = ACPI_COMPANION(nor->dev);
 	nor->mtd.dev.fwnode = spi->dev.fwnode;
 
 	device_property_read_string(&spi->dev, "_HID", &nor->mtd.name);
