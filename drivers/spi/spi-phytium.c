@@ -210,11 +210,19 @@ static irqreturn_t phytium_spi_irq(int irq, void *dev_id)
 
 static int poll_transfer(struct phytium_spi *fts)
 {
+	/* generous cap so a hung controller cannot spin forever */
+	unsigned long deadline = jiffies + msecs_to_jiffies(100 + fts->len);
+
 	do {
 		phytium_writer(fts);
 		phytium_reader(fts);
 		cpu_relax();
-	} while (fts->rx_end > fts->rx);
+	} while (fts->rx_end > fts->rx && !time_after(jiffies, deadline));
+
+	if (fts->rx_end > fts->rx) {
+		dev_err(&fts->master->dev, "transfer timed out\n");
+		return -ETIMEDOUT;
+	}
 
 	return 0;
 }
