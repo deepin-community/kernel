@@ -440,6 +440,7 @@ static int azx_suspend(struct device *dev)
 	bus = azx_bus(chip);
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
 	azx_clear_irq_pending(chip);
+	cancel_work_sync(&hda->irq_pending_work);
 	azx_stop_chip(chip);
 	if (bus->irq >= 0) {
 		free_irq(bus->irq, (void *)chip);
@@ -619,6 +620,7 @@ static int azx_free(struct azx *chip)
 
 	if (bus->chip_init) {
 		azx_clear_irq_pending(chip);
+		cancel_work_sync(&hda->irq_pending_work);
 		azx_stop_all_streams(chip);
 		azx_stop_chip(chip);
 	}
