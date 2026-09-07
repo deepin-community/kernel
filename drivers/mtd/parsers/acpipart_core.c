@@ -23,19 +23,24 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 	const struct acpi_device_id *acpi_id;
 	const char *partname;
 	int nr_parts, i, ret = 0;
-	struct acpi_device *adev;
 	struct fwnode_handle *child_handle = NULL;
 	bool dedicated = true;
 	struct device *dev;
 
 	dev = &master->dev;
-	adev = ACPI_COMPANION(&master->dev);
 
 	if (!master->parent) {/*master*/
-		device_get_next_child_node(dev, child_handle);
-		if (!child_handle) {
-			pr_debug("%s: 'partitions' subnode not found on %pOF. Trying to parse direct subnodes as partitions.\n",
-				master->name, child_handle);
+		/*
+		 * Probe whether the device has any child node; the
+		 * returned reference is only needed for the check.
+		 */
+		child_handle = device_get_next_child_node(dev, NULL);
+		if (child_handle) {
+			fwnode_handle_put(child_handle);
+			child_handle = NULL;
+		} else {
+			pr_debug("%s: 'partitions' subnode not found on %pfw. Trying to parse direct subnodes as partitions.\n",
+				master->name, dev->fwnode);
 			dedicated = false;
 		}
 	}
@@ -57,14 +62,14 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 
 	i = 0;
 	device_for_each_child_node(dev, child_handle) {
-		u64 offset, length;
+		u64 offset = 0, length = 0;
 		bool bool_match;
 
-		fwnode_property_read_u64(child_handle, "offset", &offset);
-		fwnode_property_read_u64(child_handle, "length", &length);
-		if (!offset && !length) {
+		if (fwnode_property_read_u64(child_handle, "offset", &offset) ||
+		    fwnode_property_read_u64(child_handle, "length", &length) ||
+		    (!offset && !length)) {
 			if (dedicated) {
-				pr_debug("%s: acpipart partition %pOF (%pOF) missing reg property.\n",
+				pr_debug("%s: acpipart partition %pfw (%pfw) missing offset/length property.\n",
 					 master->name, child_handle,
 					 dev->fwnode);
 				goto acpipart_fail;
@@ -76,9 +81,12 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 
 		parts[i].offset = offset;
 		parts[i].size = length;
-		parts[i].fwnode = child_handle;
+		parts[i].fwnode = fwnode_handle_get(child_handle);
 		if (!fwnode_property_read_string(child_handle, "label", &partname))
 			parts[i].name = partname;
+		else
+			/* fall back to the node name, as ofpart does */
+			parts[i].name = fwnode_get_name(child_handle);
 		bool_match = fwnode_property_read_bool(child_handle, "read-only");
 		if (bool_match)
 			parts[i].mask_flags |= MTD_WRITEABLE;
@@ -99,7 +107,7 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 	return ret;
 
 acpipart_fail:
-	pr_err("%s: error parsing acpipart partition %pOF (%pOF)\n",
+	pr_err("%s: error parsing acpipart partition %pfw (%pfw)\n",
 	       master->name, child_handle, dev->fwnode);
 	ret = -EINVAL;
 acpipart_none:
@@ -108,6 +116,12 @@ acpipart_none:
 }
 
 static const struct acpi_device_id parse_acpipart_match_table[] = {
+	/*
+	 * Note: the historical ID "acpi-fixed-partitions" exceeds the
+	 * 16-byte ACPI_ID_LEN and was silently truncated by the compiler,
+	 * which is why the ID was renamed to "acpi-partitions" in the
+	 * -Werror fixes; firmware can never have matched the full old ID.
+	 */
 	/* Generic */
 	{ "acpi-partitions", 0 },
 	/* Customized */
