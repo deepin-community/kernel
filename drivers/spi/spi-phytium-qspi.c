@@ -607,14 +607,15 @@ static int phytium_qspi_setup(struct spi_device *spi)
 	if (ctrl->busy)
 		return -EBUSY;
 
+	if (spi_get_chipselect(spi, 0) >= PHYTIUM_QSPI_MAX_NORCHIP) {
+		dev_err(&spi->dev, "Flash CS is out of range.\n");
+		return -EINVAL;
+	}
+
 	flash = &qspi->flash[spi_get_chipselect(spi, 0)];
 
 	flash->cs = spi_get_chipselect(spi, 0);
 	flash->spi = spi;
-	if (flash->cs >= PHYTIUM_QSPI_MAX_NORCHIP) {
-		dev_err(qspi->dev, "Flash CS is out of range.\n");
-		return -EINVAL;
-	}
 	qspi->fnum++;
 
 
