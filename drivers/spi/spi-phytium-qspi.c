@@ -444,8 +444,8 @@ static int phytium_qspi_exec_op(struct spi_mem *mem,
 
 	if (op->dummy.nbytes) {
 		cmd |= QSPI_CMD_PORT_LATENCY_MASK;
-		cmd |= ((op->dummy.nbytes * 8 - 1) / op->dummy.buswidth) <<
-			QSPI_CMD_PORT_DUMMY_SHIFT;
+		cmd |= (((op->dummy.nbytes * 8 - 1) / op->dummy.buswidth) <<
+			QSPI_CMD_PORT_DUMMY_SHIFT) & QSPI_CMD_PORT_DUMMY_MASK;
 	}
 
 	if (op->data.nbytes) {
