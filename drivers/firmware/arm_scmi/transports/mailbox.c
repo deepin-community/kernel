@@ -259,6 +259,8 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	if (of_device_is_compatible(args.np, "phytium,mbox"))
 		cinfo->no_completion_irq = true;
 
+	of_node_put(args.np);
+
 	return 0;
 
 err_free_chan:
