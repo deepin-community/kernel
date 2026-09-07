@@ -71,8 +71,10 @@ static int phytium_spi_dma_init(struct device *dev,
 		fts->rxchan = acpi_dma_request_slave_chan_by_index(dev, 0);
 	else
 		fts->rxchan = dma_request_chan(dev, "rx");
-	if (IS_ERR_OR_NULL(fts->rxchan))
+	if (IS_ERR_OR_NULL(fts->rxchan)) {
+		fts->rxchan = NULL;
 		return -ENODEV;
+	}
 
 	if (has_acpi_companion(dev))
 		fts->txchan = acpi_dma_request_slave_chan_by_index(dev, 1);
@@ -82,6 +84,7 @@ static int phytium_spi_dma_init(struct device *dev,
 		dev_err(dev, "can't request chan\n");
 		dma_release_channel(fts->rxchan);
 		fts->rxchan = NULL;
+		fts->txchan = NULL;
 		return -ENODEV;
 	}
 
