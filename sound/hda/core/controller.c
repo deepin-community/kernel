@@ -209,24 +209,13 @@ static int snd_hdac_bus_get_response_pio(struct hdac_bus *bus,
 	return 0;
 }
 
-/**
- * snd_hdac_bus_send_cmd_corb - send a command verb via CORB
- * @bus: HD-audio core bus
- * @val: encoded verb value to send
- *
- * Returns zero for success or a negative error code.
- */
-static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
+/* number of retransmissions for a verb that produced no response */
+#define CORB_SEND_RETRIES	6
+
+/* caller holds bus->reg_lock */
+static int corb_write_cmd(struct hdac_bus *bus, unsigned int val)
 {
-	unsigned int addr = azx_command_addr(val);
 	unsigned int wp, rp;
-	unsigned long timeout;
-	unsigned int rirb_wp;
-	int i = 0;
-
-	guard(spinlock_irq)(&bus->reg_lock);
-
-	bus->last_cmd[azx_command_addr(val)] = val;
 
 	/* add command to corb */
 	wp = snd_hdac_chip_readw(bus, CORBWP);
@@ -243,42 +232,60 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 		return -EAGAIN;
 	}
 
-	bus->rirb.cmds[addr]++;
 	bus->corb.buf[wp] = cpu_to_le32(val);
 	snd_hdac_chip_writew(bus, CORBWP, wp);
 
-	if (bus->cmd_resend) {
-		timeout = jiffies + msecs_to_jiffies(1000);
+	return 0;
+}
+
+/**
+ * snd_hdac_bus_send_cmd_corb - send a command verb via CORB
+ * @bus: HD-audio core bus
+ * @val: encoded verb value to send
+ *
+ * Returns zero for success or a negative error code.
+ */
+static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
+{
+	unsigned int addr = azx_command_addr(val);
+	int cmds_before, cmds_after;
+	int err, i;
+
+	guard(spinlock_irq)(&bus->reg_lock);
+
+	bus->last_cmd[addr] = val;
+
+	err = corb_write_cmd(bus, val);
+	if (err)
+		return err;
+	/* Retries are copies of one logical verb, not new responses. */
+	bus->rirb.cmds[addr]++;
+
+	if (!bus->cmd_resend)
+		return 0;
+
+	/*
+	 * Controllers with cmd_resend occasionally lose a CORB write: the
+	 * verb never reaches the codec and no response ever arrives.
+	 * Retransmit the verb a few times, but keep one response reference
+	 * for the logical command. A lost copy cannot produce a response,
+	 * so counting every copy would make a successful retry time out.
+	 * The wait runs with interrupts enabled; the per-codec counter is
+	 * updated by snd_hdac_bus_update_rirb().
+	 */
+	cmds_before = bus->rirb.cmds[addr];
+	for (i = 0; i < CORB_SEND_RETRIES; i++) {
+		spin_unlock_irq(&bus->reg_lock);
 		udelay(80);
-		rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
-		while (rirb_wp == bus->rirb.wp) {
-			udelay(80);
-			rirb_wp = snd_hdac_chip_readw(bus, RIRBWP);
-			if (rirb_wp != bus->rirb.wp)
-				break;
-			if (i > 5)
-				break;
-			if (time_after(jiffies, timeout))
-				break;
+		spin_lock_irq(&bus->reg_lock);
 
-			/* add command to corb */
-			wp = snd_hdac_chip_readw(bus, CORBWP);
-			if (wp == 0xffff) {
-				/* something wrong, controller likely turned to D3 */
-				return -EIO;
-			}
-			wp++;
-			wp %= AZX_MAX_CORB_ENTRIES;
+		cmds_after = bus->rirb.cmds[addr];
+		if (cmds_after < cmds_before)
+			break;
 
-			rp = snd_hdac_chip_readw(bus, CORBRP);
-			if (wp == rp) {
-				/* oops, it's full */
-				return -EAGAIN;
-			}
-			bus->corb.buf[wp] = cpu_to_le32(val);
-			snd_hdac_chip_writew(bus, CORBWP, wp);
-			i++;
-		}
+		err = corb_write_cmd(bus, val);
+		if (err)
+			return err;
 	}
 
 	return 0;
@@ -395,6 +402,18 @@ static int snd_hdac_bus_get_response_rirb(struct hdac_bus *bus,
 
 	if (!bus->polling_mode)
 		finish_wait(&bus->rirb_wq, &wait);
+
+	/*
+	 * With command resend, the timed-out verb may still account for
+	 * several retransmitted copies in rirb.cmds. Copies whose CORB
+	 * write was lost never respond, so the wait would never complete
+	 * and every following verb on this codec would inherit the stale
+	 * references and time out in turn. Reset the counter for this
+	 * codec: a response of a merely slow copy that lands afterwards
+	 * is then dropped as spurious by snd_hdac_bus_update_rirb().
+	 */
+	if (bus->cmd_resend)
+		bus->rirb.cmds[addr] = 0;
 
 	return -EIO;
 }
