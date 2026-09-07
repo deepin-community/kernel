@@ -527,7 +527,7 @@ static int phytium_spi_dma_transfer(struct phytium_spi *fts,
 	 * large transfer length caused spi RX FIFO full event
 	 * transfer 4096 bytes each time
 	 */
-	if (xfer->len <= DMA_MAX_BUF_SIZE)
+	if (xfer->len <= DMA_MAX_BUF_SIZE || !xfer->rx_buf)
 		ret = phytium_spi_dma_transfer_all(fts, xfer);
 	else
 		ret = phytium_spi_dma_transfer_one(fts, xfer);
