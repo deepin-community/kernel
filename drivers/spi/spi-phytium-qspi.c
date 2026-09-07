@@ -692,13 +692,23 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 
 	reg_name_array = devm_kcalloc(dev, 4, sizeof(*reg_name_array),
 				      GFP_KERNEL);
-	if (dev->of_node)
+	if (!reg_name_array) {
+		ret = -ENOMEM;
+		goto probe_master_put;
+	}
+	if (dev->of_node) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
-	else if (has_acpi_companion(dev)) {
+	} else if (has_acpi_companion(dev)) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res) {
+			dev_err(dev, "missing QSPI register resource\n");
+			ret = -ENODEV;
+			goto probe_master_put;
+		}
 		fwnode_property_read_string_array(dev->fwnode,
 						"reg-names", reg_name_array, 2);
-		res->name = reg_name_array[0];
+		if (reg_name_array[0])
+			res->name = reg_name_array[0];
 	}
 	qspi->io_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qspi->io_base)) {
@@ -706,11 +716,17 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		goto probe_master_put;
 	}
 
-	if (dev->of_node)
+	if (dev->of_node) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi_mm");
-	else if (has_acpi_companion(dev)) {
+	} else if (has_acpi_companion(dev)) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		res->name = reg_name_array[1];
+		if (!res) {
+			dev_err(dev, "missing QSPI memory resource\n");
+			ret = -ENODEV;
+			goto probe_master_put;
+		}
+		if (reg_name_array[1])
+			res->name = reg_name_array[1];
 	}
 
 	qspi->mm_base = devm_ioremap_resource(dev, res);
