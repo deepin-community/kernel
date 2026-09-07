@@ -823,7 +823,11 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 			goto probe_setup_failed;
 		}
 
-		flash_cap |= qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT;
+		if (qspi->fnum > (QSPI_FLASH_CAP_NUM_MASK >> QSPI_FLASH_CAP_NUM_SHIFT))
+			dev_warn(dev, "%u flashes exceed the CAP NUM field width\n",
+				 qspi->fnum);
+		flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
+			     QSPI_FLASH_CAP_NUM_MASK;
 
 		writel_relaxed(flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
 	} else {
