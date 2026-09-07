@@ -465,11 +465,11 @@ EXPORT_SYMBOL_GPL(phytium_spi_add_host);
 
 void phytium_spi_remove_host(struct phytium_spi *fts)
 {
+	spi_unregister_controller(fts->master);
+
 	if (fts->dma_ops && fts->dma_ops->dma_exit)
 		fts->dma_ops->dma_exit(fts);
 	spi_shutdown_chip(fts);
-
-	spi_unregister_controller(fts->master);
 
 	free_irq(fts->irq, fts->master);
 }
