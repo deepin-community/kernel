@@ -17,7 +17,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 
-#include "../controllers/phytium.h"
 #include "../controllers/intel.h"
 #include <linux/pci.h>
 
@@ -265,9 +264,6 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 	struct hda_spdif_out *spdif =
 		snd_hda_spdif_out_of_nid(apcm->codec, hinfo->nid);
 	unsigned short ctls = spdif ? spdif->ctls : 0;
-	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
-
-	hda->substream = substream;
 
 	trace_azx_pcm_prepare(chip, azx_dev);
 	guard_dsp_lock(azx_dev);
