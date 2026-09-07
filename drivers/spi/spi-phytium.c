@@ -438,6 +438,9 @@ int phytium_spi_add_host(struct device *dev, struct phytium_spi *fts)
 			fts->name, master);
 	if (ret < 0) {
 		dev_err(dev, "can not get IRQ\n");
+		if (fts->dma_ops && fts->dma_ops->dma_exit)
+			fts->dma_ops->dma_exit(fts);
+		spi_enable_chip(fts, 0);
 		goto err_free_master;
 	}
 
