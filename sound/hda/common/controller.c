@@ -141,7 +141,9 @@ static int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
 		}
 		stream_idx = apcm->codec->addr - 1;
 		if ((cmd == SNDRV_PCM_TRIGGER_START) &&
-		    (stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) && (substream->runtime->dma_area)) {
+		    (stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) &&
+		    (substream->runtime->dma_area) &&
+		    (substream->runtime->dma_bytes <= GF_HDA_FB_STREAM_SIZE)) {
 			memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
 			gf_chip->diu_fb_stream_pos[stream_idx] = 0;
 		}
