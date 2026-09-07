@@ -40,7 +40,7 @@ required:
   - reg-names
   - clocks
 
-unevaluateProperties: false
+unevaluatedProperties: false
 
 examples:
   - |
