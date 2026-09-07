@@ -493,6 +493,12 @@ static int phytium_qspi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 	}
 
 	if (!flash->base) {
+		if (qspi->used_size + nor->mtd.size > qspi->mm_size) {
+			dev_err(qspi->dev,
+				"direct mapping window too small for the flashes\n");
+			ret = -EOPNOTSUPP;
+			goto out;
+		}
 		flash->base = qspi->mm_base + qspi->used_size;
 		qspi->used_size += nor->mtd.size;
 	}
