@@ -190,7 +190,7 @@ static int phytium_spi_dma_wait_tx_done(struct phytium_spi *fts,
 
 	nents = phytium_readl(fts, TXFLR);
 	ns = nents * fts->n_bytes * BITS_PER_BYTE;
-	ns *= DIV_ROUND_UP(1000000000, xfer->speed_hz / 2);
+	ns *= DIV_ROUND_UP(1000000000, max_t(u32, xfer->speed_hz / 2, 1));
 
 	while (phytium_spi_dma_tx_busy(fts) && retry--)
 		spi_transfer_delay_ns(ns);
@@ -506,6 +506,17 @@ static int phytium_spi_dma_transfer(struct phytium_spi *fts,
 {
 	unsigned int nents;
 	int ret;
+
+	/*
+	 * The SPI core substitutes a zero speed with spi->max_speed_hz,
+	 * which can still be zero on a controller with an unconfigured
+	 * clock. Refuse such transfers instead of dividing by zero in
+	 * the timeout estimation below.
+	 */
+	if (!xfer->speed_hz) {
+		dev_err(&fts->master->dev, "DMA transfer speed is zero\n");
+		return -EINVAL;
+	}
 
 	nents = max(xfer->tx_sg.nents, xfer->rx_sg.nents);
 
