@@ -839,8 +839,10 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 probe_setup_failed:
 	clk_disable_unprepare(qspi->clk);
 probe_clk_failed:
-	pm_runtime_put_sync(dev);
-	pm_runtime_disable(dev);
+	if (dev->of_node) {
+		pm_runtime_put_sync(dev);
+		pm_runtime_disable(dev);
+	}
 probe_master_put:
 
 	return ret;
@@ -859,11 +861,14 @@ probe_master_put:
 static void phytium_qspi_remove(struct platform_device *pdev)
 {
 	struct phytium_qspi *qspi = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
 
 	clk_disable_unprepare(qspi->clk);
 
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
+	if (dev->of_node) {
+		pm_runtime_put_sync(dev);
+		pm_runtime_disable(dev);
+	}
 }
 
 static int __maybe_unused phytium_qspi_suspend(struct device *dev)
