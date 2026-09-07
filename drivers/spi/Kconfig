@@ -882,7 +882,7 @@ config SPI_PHYTIUM_PCI
 config SPI_PHYTIUM_QSPI
 	tristate "Phytium Quad SPI controller"
 	depends on ARCH_PHYTIUM || COMPILE_TEST
-	depends on OF
+	depends on OF || ACPI
 	depends on SPI_MEM
 	help
 	  This enables support for Phytium Quad SPI flash controller.
