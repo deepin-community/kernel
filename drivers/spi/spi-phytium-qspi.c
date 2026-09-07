@@ -689,7 +689,8 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	qspi = spi_controller_get_devdata(ctrl);
 	qspi->ctrl = ctrl;
 
-	reg_name_array = kcalloc(4, sizeof(*reg_name_array), GFP_KERNEL);
+	reg_name_array = devm_kcalloc(dev, 4, sizeof(*reg_name_array),
+				      GFP_KERNEL);
 	if (dev->of_node)
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
 	else if (has_acpi_companion(dev)) {
