@@ -602,35 +602,32 @@ static int mtd_part_acpi_parse(struct mtd_info *master,
 						struct mtd_partitions *pparts)
 {
 	struct mtd_part_parser *parser;
-	struct fwnode_handle *child;
-	const char *compat;
+	const char *compat = NULL;
 	const char *fixed = "acpi-fixed-partitions";
 	int ret, err = 0;
-	int compare = 1;
 	struct device *dev = &master->dev;
 
-	if (!mtd_is_partition(master)) {
+	/*
+	 * Only the master carries the "fixed" marker property; on
+	 * subpartitions it is absent and no ACPI parsing is done.
+	 */
+	if (!mtd_is_partition(master))
 		fwnode_property_read_string(dev->fwnode, "fixed", &compat);
-		if (compat)
-			compare = strcmp(compat, fixed);
-	}
 
-	//all child node
-	device_for_each_child_node(dev, child) {
-		if (compat && !compare) {
+	if (compat && !strcmp(compat, fixed)) {
+		parser = mtd_part_parser_get(fixed);
+		if (!parser && !request_module("%s", fixed))
 			parser = mtd_part_parser_get(fixed);
-			if (!parser && !request_module("%s", fixed))
-				parser = mtd_part_parser_get(fixed);
-			if (parser) {
-				ret = mtd_part_do_parse(parser, master, pparts, NULL);
-				if (ret > 0)
-					return ret;
-				mtd_part_parser_put(parser);
-				if (ret < 0 && !err)
-					err = ret;
-			}
+		if (parser) {
+			ret = mtd_part_do_parse(parser, master, pparts, NULL);
+			if (ret > 0)
+				return ret;
+			mtd_part_parser_put(parser);
+			if (ret < 0 && !err)
+				err = ret;
 		}
 	}
+
 	return err;
 }
 
