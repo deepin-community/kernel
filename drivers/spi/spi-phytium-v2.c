@@ -535,7 +535,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 
 	WARN_ON(fts == NULL);
 
-	master = spi_alloc_host(dev, 0);
+	master = devm_spi_alloc_host(dev, 0);
 	if (!master)
 		return -ENOMEM;
 
@@ -546,7 +546,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	ret = devm_request_irq(dev, fts->irq, spi_phyt_irq, IRQF_SHARED, fts->name, master);
 	if (ret < 0) {
 		dev_err(dev, "can not get IRQ\n");
-		goto err_free_master;
+		return ret;
 	}
 
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
@@ -591,7 +591,15 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		goto err_exit;
 	}
 
-	ret = devm_spi_register_controller(dev, master);
+	/*
+	 * Register explicitly rather than devm: the devres unregister
+	 * action would only run after the platform .remove callback has
+	 * already shut the chip down, leaving child devices and the
+	 * transfer queue registered against disabled hardware. With an
+	 * explicit registration, spi_phyt_remove_host() unregisters the
+	 * controller first and only then stops the hardware.
+	 */
+	ret = spi_register_controller(master);
 	if (ret) {
 		dev_err(&master->dev, "problem registering spi master\n");
 		goto err_exit;
@@ -602,14 +610,16 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 err_exit:
 	timer_delete_sync(&fts->timer);
 	spi_phyt_enable_chip(fts, 0);
-err_free_master:
-	spi_controller_put(master);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(spi_phyt_add_host);
 
 void spi_phyt_remove_host(struct phytium_spi *fts)
 {
+	/* unregister children and the transfer queue before the
+	 * hardware is turned off */
+	spi_unregister_controller(fts->master);
+
 	timer_delete_sync(&fts->timer);
 	spi_phyt_shutdown_chip(fts);
 }
