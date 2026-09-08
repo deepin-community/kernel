@@ -332,7 +332,7 @@ int spi_phytium_write(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 	u64 tx_addr;
 
 	if (spi_write_flag == 1) {
-		spi_phytium_set(fts);
+		ret = spi_phytium_set(fts);
 		if (ret) {
 			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
 			return ret;
