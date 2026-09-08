@@ -454,9 +454,10 @@ static void spi_phyt_timer_handle(struct timer_list *t)
 			fts->watchdog(fts);
 
 		fts->runtimes++;
-	}
 
-	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(10));
+		/* rearm only while alive monitoring is enabled */
+		mod_timer(&fts->timer, jiffies + msecs_to_jiffies(10));
+	}
 }
 
 static void spi_handle_debug_err(struct phytium_spi *fts)
@@ -596,8 +597,6 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		goto err_exit;
 	}
 
-	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(50));
-
 	return 0;
 
 err_exit:
@@ -651,8 +650,10 @@ int spi_phyt_resume_host(struct phytium_spi *fts)
 		return ret;
 	}
 
-	/* restart the watchdog timer after a successful resume */
-	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(50));
+	/* restart the watchdog timer after a successful resume,
+	 * but only while alive monitoring is enabled */
+	if (fts->alive_enabled)
+		mod_timer(&fts->timer, jiffies + msecs_to_jiffies(10));
 	return 0;
 }
 EXPORT_SYMBOL_GPL(spi_phyt_resume_host);

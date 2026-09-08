@@ -96,6 +96,10 @@ static ssize_t debug_store(struct device *dev,
 		if (dis_en == 1) {
 			fts->alive_enabled = true;
 			reg |= BIT(loc);
+			/* start the watchdog timer when alive monitoring
+			 * transitions to enabled */
+			mod_timer(&fts->timer,
+				  jiffies + msecs_to_jiffies(10));
 		} else if (dis_en == 0) {
 			fts->alive_enabled = false;
 			reg &= ~BIT(loc);
