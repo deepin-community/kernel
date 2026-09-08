@@ -111,10 +111,11 @@ int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
 
 int spi_phytium_check_result(struct phytium_spi *fts)
 {
-	unsigned long long ms = 300000;
+	unsigned long ms;
 	struct msg *msg = (struct msg *)fts->tx_shmem_addr;
 
-	ms = wait_for_completion_timeout(&fts->cmd_completion, msecs_to_jiffies(ms));
+	ms = wait_for_completion_timeout(&fts->cmd_completion,
+					 msecs_to_jiffies(SPI_MASTER_TIMEOUT));
 
 	if (ms == 0) {
 		dev_err(&fts->master->dev, "SPI controller timed out\n");
