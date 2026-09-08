@@ -156,12 +156,23 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 {
 	struct phytium_spi *fts = spi_master_get_devdata(master);
 	struct chip_data *chip = spi_get_ctldata(spi);
-	struct spi_mem *mem = spi_get_drvdata(spi);
+	struct spi_mem *mem = NULL;
 	struct spi_nor *nor = NULL;
 	int ret;
 
-	if (mem)
-		nor = spi_mem_get_drvdata(mem);
+	/*
+	 * spi_get_drvdata() returns whatever the client driver stored:
+	 * spi_mem for spi-mem drivers, but e.g. mcp251x_priv for the
+	 * MCP251x CAN controller also supported here.  Only interpret it
+	 * as a struct spi_mem when the client is actually the spi-nor
+	 * driver, otherwise the dereference below crashes on ordinary
+	 * SPI clients.
+	 */
+	if (spi->dev.driver && !strcmp(spi->dev.driver->name, "spi-nor")) {
+		mem = spi_get_drvdata(spi);
+		if (mem)
+			nor = spi_mem_get_drvdata(mem);
+	}
 
 	if (!transfer->tx_buf && !transfer->rx_buf) {
 		/* clock-only transfers without buffers are not supported */
