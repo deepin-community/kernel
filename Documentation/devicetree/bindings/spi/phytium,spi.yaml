@@ -11,6 +11,26 @@ maintainers:
 
 allOf:
   - $ref: spi-controller.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: phytium,spi-2.0
+    then:
+      properties:
+        reg:
+          minItems: 2
+          maxItems: 2
+          description:
+            reg[0]: register file window;
+            reg[1]: AP-RV shared memory window
+      required:
+        - reg
+    else:
+      properties:
+        reg:
+          minItems: 1
+          maxItems: 1
 
 properties:
   compatible:
