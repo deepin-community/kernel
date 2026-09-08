@@ -20,7 +20,6 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 				  struct mtd_part_parser_data *data)
 {
 	struct mtd_partition *parts;
-	const struct acpi_device_id *acpi_id;
 	const char *partname;
 	int nr_parts, i, ret = 0;
 	struct fwnode_handle *child_handle = NULL;
@@ -45,9 +44,13 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 		}
 	}
 
-	acpi_id = acpi_match_device(parse_acpipart_match_table, dev);
-	if (dedicated && !acpi_id)
-		return 0;
+	/*
+	 * The caller already selected this parser by name through the
+	 * "fixed" property, so there is nothing to match here: matching
+	 * the MTD device against the parser's ACPI IDs would fail, as the
+	 * flash device itself carries a different _HID (e.g. PHYT8009 or
+	 * a JEDEC ID).
+	 */
 
 	nr_parts = 0;
 	device_for_each_child_node(dev, child_handle) {
@@ -95,7 +98,7 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 			parts[i].mask_flags |= MTD_POWERUP_LOCK;
 		bool_match = fwnode_property_read_bool(child_handle, "slc-mode");
 		if (bool_match)
-			parts[i].mask_flags |= MTD_SLC_ON_MLC_EMULATION;
+			parts[i].add_flags |= MTD_SLC_ON_MLC_EMULATION;
 		i++;
 	}
 
@@ -110,7 +113,12 @@ acpipart_fail:
 	pr_err("%s: error parsing acpipart partition %pfw (%pfw)\n",
 	       master->name, child_handle, dev->fwnode);
 	ret = -EINVAL;
+	/* the iterator still holds a reference to the current child */
+	fwnode_handle_put(child_handle);
 acpipart_none:
+	/* entries collected so far keep their own references */
+	for (i = 0; i < nr_parts; i++)
+		fwnode_handle_put(parts[i].fwnode);
 	kfree(parts);
 	return ret;
 }
