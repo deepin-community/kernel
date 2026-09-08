@@ -340,9 +340,9 @@ static inline void phytium_write_regfile(struct phytium_spi *fts, u32 reg_off, u
 }
 
 extern int spi_phytium_default(struct phytium_spi *fts);
-extern void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd, u8 data);
-extern void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd, u16 data);
-extern void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd, u32 data);
+extern int spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd, u8 data);
+extern int spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd, u16 data);
+extern int spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd, u32 data);
 extern void spi_phytium_data_cmd_write(struct phytium_spi *fts, u16 sub_cmd);
 extern void spi_phytium_data_cmd_read(struct phytium_spi *fts, u16 sub_cmd);
 extern void spi_phytium_write_pre(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode, u8 tmode,

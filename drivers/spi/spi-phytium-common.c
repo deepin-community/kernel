@@ -163,7 +163,7 @@ static void spi_phytium_set_subid(struct phytium_spi *fts, u16 sub_cmd)
 	fts->msg_buf.cmd_subid = sub_cmd;
 }
 
-void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd,
+int spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd,
 		u8 data)
 {
 	memset(&fts->msg_buf, 0, sizeof(struct msg));
@@ -173,11 +173,11 @@ void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd,
 	memcpy_toio(fts->msg, &fts->msg_buf, sizeof(struct msg));
 	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
-	spi_phytium_check_result(fts);
+	return spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd8);
 
-void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd,
+int spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd,
 		u16 data)
 {
 	u16 *cp_data = (u16 *)&fts->msg_buf.data[0];
@@ -189,11 +189,11 @@ void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd,
 	memcpy_toio(fts->msg, &fts->msg_buf, sizeof(struct msg));
 	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
-	spi_phytium_check_result(fts);
+	return spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd16);
 
-void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
+int spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
 		u32 data)
 {
 	u32 *cp_data = (u32 *)&fts->msg_buf.data[0];
@@ -205,7 +205,7 @@ void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
 	memcpy_toio(fts->msg, &fts->msg_buf, sizeof(struct msg));
 	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
-	spi_phytium_check_result(fts);
+	return spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd32);
 
