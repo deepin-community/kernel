@@ -92,6 +92,7 @@ static struct mtd_info *allocate_partition(struct mtd_info *parent,
 	child->dev.parent = IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER) || mtd_is_partition(parent) ?
 			    &parent->dev : parent->dev.parent;
 	child->dev.of_node = part->of_node;
+	child->dev.fwnode = part->fwnode;
 	child->parent = parent;
 	child->part.offset = part->offset;
 	INIT_LIST_HEAD(&child->partitions);

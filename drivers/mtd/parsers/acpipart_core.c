@@ -130,8 +130,18 @@ static const struct acpi_device_id parse_acpipart_match_table[] = {
 
 MODULE_DEVICE_TABLE(acpi, parse_acpipart_match_table);
 
+static void acpipart_cleanup(const struct mtd_partition *pparts, int nr_parts)
+{
+	int i;
+
+	for (i = 0; i < nr_parts; i++)
+		fwnode_handle_put(pparts[i].fwnode);
+	kfree(pparts);
+}
+
 static struct mtd_part_parser acpipart_parser = {
 	.parse_fn = parse_acpi_fixed_partitions,
+	.cleanup = acpipart_cleanup,
 	.name = "acpi-fixed-partitions",
 	.acpi_match_table = ACPI_PTR(parse_acpipart_match_table),
 };
