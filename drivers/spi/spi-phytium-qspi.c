@@ -814,8 +814,10 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 					 qspi->fnum);
 			flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
 				     QSPI_FLASH_CAP_NUM_MASK;
+			/* cache the programmed value for the resume path */
+			qspi->flash_cap = flash_cap;
 
-			writel_relaxed(flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+			writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
 		} else {
 			for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
 				if (!qspi->flash[i].spi)
