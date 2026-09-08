@@ -114,7 +114,6 @@ int spi_phytium_check_result(struct phytium_spi *fts)
 	unsigned long long ms = 300000;
 	struct msg *msg = (struct msg *)fts->tx_shmem_addr;
 
-	reinit_completion(&fts->cmd_completion);
 	ms = wait_for_completion_timeout(&fts->cmd_completion, msecs_to_jiffies(ms));
 
 	if (ms == 0) {
@@ -130,6 +129,7 @@ int spi_phytium_set(struct phytium_spi *fts)
 	int ret;
 
 	spi_phytium_show_msg(fts->msg);
+	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	ret = spi_phytium_check_result(fts);
 
@@ -143,6 +143,7 @@ void spi_phytium_default(struct phytium_spi *fts)
 	fts->msg->cmd_id = PHYTSPI_MSG_CMD_DEFAULT;
 
 	spi_phytium_show_msg(fts->msg);
+	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
@@ -161,6 +162,7 @@ void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	fts->msg->data[0] = data;
 	spi_phytium_show_msg(fts->msg);
+	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
@@ -175,6 +177,7 @@ void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	*cp_data = data;
 	spi_phytium_show_msg(fts->msg);
+	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
@@ -189,6 +192,7 @@ void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_set_subid(fts, sub_cmd);
 	*cp_data = data;
 	spi_phytium_show_msg(fts->msg);
+	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
 	spi_phytium_check_result(fts);
 }
@@ -533,6 +537,7 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		if (len <= 16 || !fts->dma_get_ddrdata)
 			memcpy_byte(fts->rx, (void *)smem_rx, len);
 
+		fts->tx += len;
 		fts->rx += len;
 		first = 0;
 	} while (fts->rx_end > fts->rx);
