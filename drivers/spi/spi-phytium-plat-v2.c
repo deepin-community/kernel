@@ -49,8 +49,9 @@ static ssize_t debug_store(struct device *dev,
 		size_t size)
 {
 	u8 loc, dis_en, status = 0;
-	char *p;
+	char *p, *orig;
 	char *token;
+	int ret = 0;
 	long value;
 	u32 reg;
 	struct phytium_spi *fts = dev_get_drvdata(dev);
@@ -62,23 +63,32 @@ static ssize_t debug_store(struct device *dev,
 	if (!p)
 		return -ENOMEM;
 	strscpy(p, buf, size);
+	orig = p;
 
 	token = strsep(&p, " ");
-	if (!token)
-		return -EINVAL;
+	if (!token) {
+		ret = -EINVAL;
+		goto out_free;
+	}
 
 	status = kstrtol(token, 0, &value);
-	if (status)
-		return status;
+	if (status) {
+		ret = status;
+		goto out_free;
+	}
 	loc = (u8)value;
 
 	token = strsep(&p, " ");
-	if (!token)
-		return -EINVAL;
+	if (!token) {
+		ret = -EINVAL;
+		goto out_free;
+	}
 
 	status = kstrtol(token, 0, &value);
-	if (status)
-		return status;
+	if (status) {
+		ret = status;
+		goto out_free;
+	}
 	dis_en = value;
 
 	reg = phytium_read_regfile(fts, SPI_REGFILE_DEBUG);
@@ -104,9 +114,10 @@ static ssize_t debug_store(struct device *dev,
 
 	phytium_write_regfile(fts, SPI_REGFILE_DEBUG, reg);
 
-	kfree(p);
+out_free:
+	kfree(orig);
 
-	return size;
+	return ret ? ret : size;
 }
 
 static DEVICE_ATTR_RW(debug);
@@ -224,8 +235,14 @@ static int spi_phyt_probe(struct platform_device *pdev)
 		struct gpio_desc *gpiod;
 
 		n =  gpiod_count(&pdev->dev, "cs");
+		if (n <= 0)
+			goto skip_cs_gpio;
 
 		cs = devm_kcalloc(&pdev->dev, n, sizeof(int), GFP_KERNEL);
+		if (!cs) {
+			ret = -ENOMEM;
+			goto out;
+		}
 		fts->cs = cs;
 
 		for (i = 0; i < n; i++) {
@@ -242,6 +259,7 @@ static int spi_phyt_probe(struct platform_device *pdev)
 		}
 	}
 
+skip_cs_gpio:
 	device_property_read_u32(&pdev->dev, "global-cs", &global_cs);
 	fts->global_cs = global_cs;
 
