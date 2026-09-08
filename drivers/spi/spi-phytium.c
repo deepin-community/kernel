@@ -490,6 +490,12 @@ void phytium_spi_remove_host(struct phytium_spi *fts)
 	spi_shutdown_chip(fts);
 
 	free_irq(fts->irq, fts->master);
+
+	/* spi_unregister_controller() does not drop the initial reference
+	 * taken by spi_alloc_host(); release it here to avoid leaking the
+	 * controller allocation on every unbind.
+	 */
+	spi_controller_put(fts->master);
 }
 EXPORT_SYMBOL_GPL(phytium_spi_remove_host);
 
