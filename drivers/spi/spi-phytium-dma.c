@@ -160,6 +160,15 @@ static int phytium_spi_dma_wait(struct phytium_spi *fts, unsigned int len,
 		return -ETIMEDOUT;
 	}
 
+	/* The same completion is signaled by both normal DMA callbacks
+	 * and the controller error IRQ. On an error IRQ,
+	 * phytium_spi_check_status() sets cur_msg->status to -EIO;
+	 * propagate it so the chunked path stops submitting and
+	 * handle_err terminates outstanding DMA.
+	 */
+	if (fts->master->cur_msg->status != -EINPROGRESS)
+		return fts->master->cur_msg->status;
+
 	return 0;
 }
 
