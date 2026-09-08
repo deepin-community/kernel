@@ -285,7 +285,14 @@ static void azx_irq_pending_work(struct work_struct *work)
 				snd_pcm_period_elapsed(s->substream);
 				spin_lock(&bus->reg_lock);
 			} else if (ok < 0) {
-				pending = 0;	/* too early */
+				/*
+				 * Too early: give up on this stream for this
+				 * round, as the Intel implementation does. A
+				 * persistently early stream must not keep the
+				 * worker busy-spinning; the flag stays set and
+				 * the next interrupt reschedules the work.
+				 */
+				continue;
 			} else {
 				pending++;
 			}
@@ -293,7 +300,7 @@ static void azx_irq_pending_work(struct work_struct *work)
 		spin_unlock_irq(&bus->reg_lock);
 		if (!pending)
 			return;
-		udelay(1000);
+		msleep(1);
 	}
 }
 
