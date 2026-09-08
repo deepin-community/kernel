@@ -795,7 +795,11 @@ static inline void acpi_arch_table_init_complete(void)
 	{ "PNP0B02", },		\
 	{ "", }
 
+#ifdef CONFIG_X86
 extern bool cmos_rtc_platform_device_present;
+#else
+#define cmos_rtc_platform_device_present	false
+#endif
 
 #else	/* !CONFIG_ACPI */
 
