@@ -456,10 +456,6 @@ static int azx_resume(struct device *dev)
 	struct azx *chip;
 	struct hda_ft *hda;
 	struct hdac_bus *bus;
-	int index;
-	struct snd_pcm_substream *substream;
-	struct azx_dev *azx_dev;
-	int err;
 
 	if (!card)
 		return 0;
@@ -473,29 +469,12 @@ static int azx_resume(struct device *dev)
 	if (azx_acquire_irq(chip, 1) < 0)
 		return -EIO;
 
-	index = chip->dev_index;
-
 	snd_hdac_bus_exit_link_reset(bus);
 	usleep_range(1000, 1200);
 
 	azx_init_chip(chip, 0);
 
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
-
-	if (hda->substream && hda->substream->runtime) {
-		substream = hda->substream;
-
-		if (substream->runtime->status->state == SNDRV_PCM_STATE_SUSPENDED) {
-			substream->runtime->status->state =
-				substream->runtime->status->suspended_state;
-			err = substream->ops->prepare(substream);
-			if (err < 0)
-				return err;
-		}
-
-		azx_dev = get_azx_dev(substream);
-		hda->substream = NULL;
-	}
 
 	return 0;
 }
@@ -630,7 +609,9 @@ static int azx_free(struct azx *chip)
 		bus->irq = -1;
 	}
 
-	devm_iounmap(hddev, bus->remap_addr);
+	/* remap_addr may be NULL when called from an early probe failure */
+	if (bus->remap_addr)
+		devm_iounmap(hddev, bus->remap_addr);
 
 	azx_free_stream_pages(chip);
 	azx_free_streams(chip);
@@ -1019,6 +1000,17 @@ out_free:
 		free_irq(bus->irq, (void *)chip);
 		bus->irq = -1;
 	}
+	chip->disabled = 1;
+	/* release the reserved slot so a later rebind can reclaim it */
+	clear_bit(chip->dev_index, probed_devs);
+	/*
+	 * Clear the driver data before freeing the card: the platform
+	 * device stays bound and its remove/shutdown/PM callbacks must
+	 * not dereference the freed card, mirroring snd-hda-intel.
+	 */
+	dev_set_drvdata(hddev, NULL);
+	if (chip->card)
+		snd_card_free(chip->card);
 	return err;
 }
 

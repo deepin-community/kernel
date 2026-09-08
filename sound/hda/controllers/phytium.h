@@ -11,7 +11,6 @@
 
 struct hda_ft {
 	struct azx chip;
-	struct snd_pcm_substream *substream;
 	struct device *dev;
 	void __iomem *regs;
 
