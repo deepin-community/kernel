@@ -555,21 +555,38 @@ static ssize_t phytium_qspi_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	void __iomem *addr;
 	int i;
 	size_t mask = 0x03;
-	u_char tmp[4] = {0};
+	size_t orig_len = len;
 
-	/* set wr_cfg for drimap write */
+	/* set wr_cfg for dirmap write */
 	writel_relaxed(qspi->wr_cfg_reg[spi_get_chipselect(spi, 0)], qspi->io_base + QSPI_WR_CFG_REG);
 
+	/* Handle an unaligned leading fragment so byte-granular MTD writes work.
+	 * Align the MMIO address down to a 4-byte boundary and place the
+	 * leading source bytes at the matching lane offset, so the write
+	 * targets the correct byte lanes and all subsequent writes stay
+	 * aligned.
+	 */
 	if (offs & 0x03) {
-		dev_err(qspi->dev, "Addr not four-byte aligned!\n");
-		return -EINVAL;
+		size_t lane = offs & 0x03;
+		size_t head = min(4 - lane, len);
+		u_char tmp[4] = { 0xff, 0xff, 0xff, 0xff };
+
+		memcpy(tmp + lane, buf, head);
+		writel_relaxed(*(u32 *)tmp, dst - lane);
+		buf += head;
+		dst += head;
+		len -= head;
 	}
 
 	for (i = 0; i < len / 4; i++)
 		writel_relaxed(*(u32 *)(buf + 4 * i), dst + 4 * i);
 
 	if (len & mask) {
-		addr =  dst + (len & ~mask);
+		/* unused byte lanes must stay 0xff so adjacent flash
+		 * content is not programmed to zero */
+		u_char tmp[4] = { 0xff, 0xff, 0xff, 0xff };
+
+		addr = dst + (len & ~mask);
 		memcpy(tmp, buf + (len & ~mask), len & mask);
 		writel_relaxed(*(u32 *)(tmp), addr);
 	}
@@ -577,7 +594,7 @@ static ssize_t phytium_qspi_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	//write cache data to flash
 	writel_relaxed(QSPI_FLUSH_EN, qspi->io_base + QSPI_FLUSH_REG);
 
-	return len;
+	return orig_len;
 }
 
 static int phytium_qspi_setup(struct spi_device *spi)
