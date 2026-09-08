@@ -789,6 +789,12 @@ static inline void acpi_arch_table_init_complete(void)
 }
 #endif
 
+#define ACPI_CMOS_RTC_IDS	\
+	{ "PNP0B00", },		\
+	{ "PNP0B01", },		\
+	{ "PNP0B02", },		\
+	{ "", }
+
 extern bool cmos_rtc_platform_device_present;
 
 #else	/* !CONFIG_ACPI */
