@@ -226,8 +226,16 @@ static int spi_phyt_transfer_one(struct spi_controller *master,
 			ret = spi_phytium_flash_erase(fts, spi_get_chipselect(spi, 0),
 					transfer->bits_per_word,
 					spi->mode, chip->tmode, 3, SPINOR_OP_CHIP_ERASE);
+			if (ret) {
+				dev_err(&spi->dev, "chip erase failed: %d\n", ret);
+				return ret;
+			}
 			fts->spi_write_flag = 0;
 			fts->flash_erase = 2;
+			/* the erase was issued to the firmware; do not fall
+			 * through to the generic TX path below, which would
+			 * send the opcode a second time */
+			return ret;
 		}
 
 		if ((*(u8 *)fts->tx == SPINOR_OP_READ || *(u8 *)fts->tx == SPINOR_OP_READ_FAST ||
