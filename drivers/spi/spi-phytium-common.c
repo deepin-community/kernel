@@ -141,8 +141,10 @@ int spi_phytium_set(struct phytium_spi *fts)
 	return ret;
 }
 
-void spi_phytium_default(struct phytium_spi *fts)
+int spi_phytium_default(struct phytium_spi *fts)
 {
+	int ret;
+
 	memset(&fts->msg_buf, 0, sizeof(struct msg));
 
 	fts->msg_buf.cmd_id = PHYTSPI_MSG_CMD_DEFAULT;
@@ -151,7 +153,9 @@ void spi_phytium_default(struct phytium_spi *fts)
 	memcpy_toio(fts->msg, &fts->msg_buf, sizeof(struct msg));
 	reinit_completion(&fts->cmd_completion);
 	phytium_write_regfile(fts, SPI_REGFILE_AP2RV_INTR_STATE, 0x10);
-	spi_phytium_check_result(fts);
+	ret = spi_phytium_check_result(fts);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(spi_phytium_default);
 

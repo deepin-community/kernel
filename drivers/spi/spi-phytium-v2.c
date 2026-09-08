@@ -476,11 +476,16 @@ void spi_handle_debug_err(struct phytium_spi *fts)
 	phytium_write_regfile(fts, SPI_REGFILE_DEBUG, reg);
 }
 
-static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
+static int spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 {
 	u32 reg, i, reg_ddr_high;
+	int ret;
 
-	spi_phytium_default(fts);
+	ret = spi_phytium_default(fts);
+	if (ret) {
+		dev_err(dev, "firmware is not responsive: %d\n", ret);
+		return ret;
+	}
 
 	reg = phytium_read_regfile(fts, SPI_REGFILE_DEBUG);
 
@@ -503,12 +508,14 @@ static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 		fts->log = devm_ioremap(dev, fts->ddr_paddr, fts->log_size);
 		if (!fts->log) {
 			dev_err(dev, "log_addr is err\n");
-			return;
+			return -ENOMEM;
 		}
 
 		for (i = 0; i < fts->log_size; i++)
 			fts->log[i] = 0;
 	}
+
+	return 0;
 }
 
 int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
@@ -567,7 +574,11 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 
 	timer_setup(&fts->timer, spi_phyt_timer_handle, 0);
 
-	spi_phyt_hw_init(dev, fts);
+	ret = spi_phyt_hw_init(dev, fts);
+	if (ret) {
+		dev_err(dev, "hardware init failed: %d\n", ret);
+		goto err_exit;
+	}
 
 	ret = devm_spi_register_master(dev, master);
 	if (ret) {
@@ -614,7 +625,11 @@ int spi_phyt_resume_host(struct phytium_spi *fts)
 {
 	int ret;
 
-	spi_phyt_hw_init(&fts->master->dev, fts);
+	ret = spi_phyt_hw_init(&fts->master->dev, fts);
+	if (ret) {
+		dev_err(&fts->master->dev, "hardware init failed on resume: %d\n", ret);
+		return ret;
+	}
 
 	spi_phyt_enable_chip(fts, 0);
 	spi_phyt_set_clk(fts, fts->clk_div);
