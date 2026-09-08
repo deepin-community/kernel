@@ -505,7 +505,6 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 			fts->msg->data[24] = 1;
 		else
 			fts->msg->data[24] = flags;
-		fts->msg->data[24] = first;
 		ret = spi_phytium_set(fts);
 		if (ret) {
 			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
