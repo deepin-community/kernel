@@ -7,6 +7,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
 #include <linux/highmem.h>
@@ -226,8 +227,9 @@ void spi_phytium_write_pre(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode, u8 t
 	}
 
 	if (len > 16 && fts->dma_get_ddrdata) {
-		tx_addr = (u64)__virt_to_phys((u64)fts->tx);
-		if (!tx_addr) {
+		tx_addr = dma_map_single(&fts->master->dev, fts->tx, len,
+					 DMA_TO_DEVICE);
+		if (dma_mapping_error(&fts->master->dev, tx_addr)) {
 			dev_err(&fts->master->dev, "tx address translation failed\n");
 			return;
 		}
@@ -358,8 +360,9 @@ int spi_phytium_write(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		}
 
 		if (len > 16 && fts->dma_get_ddrdata) {
-			tx_addr = __virt_to_phys((u64)fts->tx);
-			if (!tx_addr) {
+			tx_addr = dma_map_single(&fts->master->dev, fts->tx, len,
+						 DMA_TO_DEVICE);
+			if (dma_mapping_error(&fts->master->dev, tx_addr)) {
 				dev_err(&fts->master->dev, "tx address translation failed\n");
 				return -1;
 			}
@@ -379,6 +382,9 @@ int spi_phytium_write(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		fts->msg->data[16] = flags;
 		fts->msg->data[17] = first;
 		ret = spi_phytium_set(fts);
+		if (len > 16 && fts->dma_get_ddrdata)
+			dma_unmap_single(&fts->master->dev, tx_addr, len,
+					 DMA_TO_DEVICE);
 		if (ret) {
 			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
 			return ret;
@@ -413,8 +419,9 @@ int spi_phytium_read(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 
 		if (len > 16 && fts->dma_get_ddrdata) {
 			fts->msg->cmd_subid = PHYTSPI_MSG_CMD_DATA_DMA_RX;
-			rx_addr = __virt_to_phys((u64)fts->rx);
-			if (!rx_addr) {
+			rx_addr = dma_map_single(&fts->master->dev, fts->rx, len,
+						 DMA_FROM_DEVICE);
+			if (dma_mapping_error(&fts->master->dev, rx_addr)) {
 				dev_err(&fts->master->dev, "rx address translation failed\n");
 				return -1;
 			}
@@ -437,6 +444,9 @@ int spi_phytium_read(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 			fts->msg->data[16] = 0;
 		fts->msg->data[17] = first;
 		ret = spi_phytium_set(fts);
+		if (len > 16 && fts->dma_get_ddrdata)
+			dma_unmap_single(&fts->master->dev, rx_addr, len,
+					 DMA_FROM_DEVICE);
 		if (ret) {
 			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
 			return ret;
@@ -476,13 +486,17 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 
 		if (len > 16 && fts->dma_get_ddrdata) {
 			fts->msg->cmd_subid = PHYTSPI_MSG_CMD_DATA_DMA_XFER;
-			tx_addr = __virt_to_phys((u64)fts->tx);
-			if (!tx_addr) {
+			tx_addr = dma_map_single(&fts->master->dev, fts->tx, len,
+						 DMA_TO_DEVICE);
+			if (dma_mapping_error(&fts->master->dev, tx_addr)) {
 				dev_err(&fts->master->dev, "tx address translation failed\n");
 				return -1;
 			}
-			rx_addr = __virt_to_phys((u64)fts->rx);
-			if (!rx_addr) {
+			rx_addr = dma_map_single(&fts->master->dev, fts->rx, len,
+						 DMA_FROM_DEVICE);
+			if (dma_mapping_error(&fts->master->dev, rx_addr)) {
+				dma_unmap_single(&fts->master->dev, tx_addr, len,
+						 DMA_TO_DEVICE);
 				dev_err(&fts->master->dev, "rx address translation failed\n");
 				return -1;
 			}
@@ -506,6 +520,12 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		else
 			fts->msg->data[24] = flags;
 		ret = spi_phytium_set(fts);
+		if (len > 16 && fts->dma_get_ddrdata) {
+			dma_unmap_single(&fts->master->dev, tx_addr, len,
+					 DMA_TO_DEVICE);
+			dma_unmap_single(&fts->master->dev, rx_addr, len,
+					 DMA_FROM_DEVICE);
+		}
 		if (ret) {
 			dev_err(&fts->master->dev, "AP <-> RV interaction failed\n");
 			return ret;
