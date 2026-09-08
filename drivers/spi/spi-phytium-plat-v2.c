@@ -175,7 +175,7 @@ static int spi_phyt_probe(struct platform_device *pdev)
 		return PTR_ERR(fts->tx_shmem_addr);
 	}
 
-	fts->msg = (struct msg *)fts->tx_shmem_addr;
+	fts->msg = fts->tx_shmem_addr;
 
 	fts->mem_tx = (u64)fts->msg + sizeof(struct msg);
 	fts->mem_rx = (u64)fts->msg + sizeof(struct msg);
