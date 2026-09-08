@@ -152,6 +152,12 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 	if (mem)
 		nor = spi_mem_get_drvdata(mem);
 
+	if (!transfer->tx_buf && !transfer->rx_buf) {
+		/* clock-only transfers without buffers are not supported */
+		dev_err(&master->dev, "transfer with no tx/rx buffer\n");
+		return -EOPNOTSUPP;
+	}
+
 	fts->tx = (void *)transfer->tx_buf;
 	fts->tx_end = fts->tx + transfer->len;
 	fts->rx = transfer->rx_buf;
