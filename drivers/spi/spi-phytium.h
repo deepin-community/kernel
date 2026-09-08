@@ -173,7 +173,8 @@ struct phytium_spi {
 	void __iomem		*tx_shmem_addr;
 	void			*rx_shmem_addr;
 
-	struct msg		*msg;
+	struct msg		msg_buf;
+	void __iomem		*msg;
 	u32			mem_tx_physic;
 	u32			mem_rx_physic;
 	u64			mem_tx;
