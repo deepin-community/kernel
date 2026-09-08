@@ -403,7 +403,7 @@ int spi_phytium_read(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 	do {
 		if (fts->dma_get_ddrdata)
 			len = min_t(u32, (u32)(fts->rx_end - fts->rx),
-					(u32)(fts->rx_end - fts->rx));
+					(u32)SPI_TRANS_DATA_SIZE);
 		else
 			len = min_t(u32, (u32)(fts->rx_end - fts->rx), 128);
 
@@ -465,7 +465,7 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 	do {
 		if (fts->dma_get_ddrdata)
 			len = min_t(u32, (u32)(fts->rx_end - fts->rx),
-					(u32)(fts->rx_end - fts->rx));
+					(u32)SPI_TRANS_DATA_SIZE);
 		else
 			len = min_t(u32, (u32)(fts->rx_end - fts->rx), 128);
 
