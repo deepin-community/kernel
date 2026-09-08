@@ -328,6 +328,9 @@ static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 	int irq_id = platform_get_irq(pdev, 0);
 	int err;
 
+	if (irq_id < 0)
+		return irq_id;
+
 	err = request_irq(irq_id, azx_interrupt,
 			     IRQF_SHARED, KBUILD_MODNAME, chip);
 	if (err) {
