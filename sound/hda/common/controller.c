@@ -169,7 +169,7 @@ static int gf_update_stream(struct snd_pcm_substream *substream)
 {
 	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
 	struct azx *chip = apcm->chip;
-	unsigned int stream_idx, hw_pos, appl_pos;
+	unsigned int stream_idx, appl_pos;
 	struct gf_private *gf_chip = NULL;
 
 	if ((substream->runtime) && (chip->pci != NULL) && (chip->pci->vendor == 0x6766) && (chip->pci->device == 0x3d40)) {
@@ -180,13 +180,16 @@ static int gf_update_stream(struct snd_pcm_substream *substream)
 		stream_idx = apcm->codec->addr - 1;
 		if ((stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) && (substream->runtime->dma_area) &&
 		    (substream->runtime->dma_bytes <= GF_HDA_FB_STREAM_SIZE) && snd_pcm_running(substream)) {
-			hw_pos = frames_to_bytes(substream->runtime, substream->runtime->status->hw_ptr % substream->runtime->buffer_size);
 			appl_pos = frames_to_bytes(substream->runtime, substream->runtime->control->appl_ptr % substream->runtime->buffer_size);
 
-			if (hw_pos == appl_pos) {
-				memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
-			}
-			else if (appl_pos > gf_chip->diu_fb_stream_pos[stream_idx]) {
+			/*
+			 * Sync only the newly committed range.  This runs
+			 * from the PCM pointer callback, which can be
+			 * called in interrupt context, so never copy the
+			 * whole buffer here; a full refresh is done by
+			 * gf_pre_trigger() when the stream starts.
+			 */
+			if (appl_pos > gf_chip->diu_fb_stream_pos[stream_idx]) {
 				memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (appl_pos - gf_chip->diu_fb_stream_pos[stream_idx]));
 			}
 			else if (appl_pos < gf_chip->diu_fb_stream_pos[stream_idx]) {
