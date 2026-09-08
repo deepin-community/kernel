@@ -327,6 +327,11 @@ static int spi_phyt_setup(struct spi_device *spi)
 
 	spi_phyt_enable_chip(fts, 0);
 
+	if (!spi->max_speed_hz) {
+		dev_err(&spi->dev, "max_speed_hz is zero\n");
+		return -EINVAL;
+	}
+
 	clk_div = (fts->max_freq / spi->max_speed_hz + 1) & 0xfffe;
 	spi_phyt_set_clk(fts, clk_div);
 	fts->clk_div = clk_div;
@@ -471,15 +476,22 @@ static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 	}
 
 	fts->log_size = ((reg & SPI_REGFILE_SIZE_MASK) >> 4) * SPI_DEBUG_LOG_SIZE;
-	fts->log = devm_ioremap(dev, fts->ddr_paddr, fts->log_size);
 
+	/*
+	 * Map the firmware log buffer only once: hw_init also runs from
+	 * the resume path and a devm_ioremap() there would leak a mapping
+	 * and a devres entry on every suspend/resume cycle.
+	 */
 	if (!fts->log) {
-		dev_err(dev, "log_addr is err\n");
-		return;
-	}
+		fts->log = devm_ioremap(dev, fts->ddr_paddr, fts->log_size);
+		if (!fts->log) {
+			dev_err(dev, "log_addr is err\n");
+			return;
+		}
 
-	for (i = 0; i < fts->log_size; i++)
-		fts->log[i] = 0;
+		for (i = 0; i < fts->log_size; i++)
+			fts->log[i] = 0;
+	}
 }
 
 int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
