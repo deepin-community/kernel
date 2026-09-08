@@ -102,8 +102,8 @@ static void spi_phyt_set_cs(struct spi_device *spi, bool enable)
 	if (fts->tx || fts->rx)
 		return;
 
-	if (fts->msg->cmd_id == PHYTSPI_MSG_CMD_DATA &&
-			fts->msg->cmd_subid == PHYTSPI_MSG_CMD_DATA_TX)
+	if (fts->msg_buf.cmd_id == PHYTSPI_MSG_CMD_DATA &&
+			fts->msg_buf.cmd_subid == PHYTSPI_MSG_CMD_DATA_TX)
 		return;
 
 	if (chip && chip->cs_control)
@@ -132,10 +132,21 @@ static irqreturn_t spi_phyt_irq(int irq, void *dev_id)
 {
 	struct spi_master *master = dev_id;
 	struct phytium_spi *fts = spi_master_get_devdata(master);
+	u32 state;
 
-	complete(&fts->cmd_completion);
+	/* Check whether this controller actually raised the interrupt;
+	 * the handler is registered with IRQF_SHARED.
+	 */
+	state = readl_relaxed(fts->regfile + SPI_REGFILE_RV2AP_INTR_STATE);
+	if (!state)
+		return IRQ_NONE;
+
+	/* Acknowledge before completing so a waiter on another CPU cannot
+	 * submit a new command before the old status is cleared.
+	 */
 	writel_relaxed(0, fts->regfile + SPI_REGFILE_RV2AP_INTR_STATE);
 	writel_relaxed(0x10, fts->regfile + SPI_REGFILE_RV2AP_INT_CLEAN);
+	complete(&fts->cmd_completion);
 
 	return IRQ_HANDLED;
 }
