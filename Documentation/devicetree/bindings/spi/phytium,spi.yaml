@@ -14,7 +14,10 @@ allOf:
 
 properties:
   compatible:
-    const: phytium,spi
+    oneOf:
+      - const: phytium,spi
+      - const: phytium,spi-2.0
+        description: Phytium SPI controller v2.0 interface
 
   reg:
     minItems: 1
