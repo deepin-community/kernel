@@ -19,19 +19,17 @@
 #include <linux/scatterlist.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/property.h>
 #include <linux/acpi.h>
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/mtd/spi-nor.h>
-#include <asm/memory.h>
 #include "spi-phytium.h"
 
 #define SPI_SHOW_MSG_DEBUG 0
 
-void spi_phytium_show_msg(struct msg *info)
+static void spi_phytium_show_msg(struct msg *info)
 {
 	if (SPI_SHOW_MSG_DEBUG) {
 		pr_err("module:0x%4x, cmd:0x%04x, sub:0x%04x\n",
@@ -51,7 +49,7 @@ void spi_phytium_show_msg(struct msg *info)
 	}
 }
 
-void *memcpy_byte(void *_dest, const void *_src, size_t sz)
+static void *memcpy_byte(void *_dest, const void *_src, size_t sz)
 {
 	while (sz >= 8) {
 		*(u64 *)_dest = *(u64 *)_src;
@@ -70,7 +68,7 @@ void *memcpy_byte(void *_dest, const void *_src, size_t sz)
 	return _dest;
 }
 
-int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
+static int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
 		u8 status1)
 {
 	if (status1 == 0)
@@ -109,7 +107,7 @@ int spi_phytium_print_status(struct phytium_spi *fts, u8 status0,
 	return -1;
 }
 
-int spi_phytium_check_result(struct phytium_spi *fts)
+static int spi_phytium_check_result(struct phytium_spi *fts)
 {
 	unsigned long ms;
 	struct msg *msg = &fts->msg_buf;
@@ -128,7 +126,7 @@ int spi_phytium_check_result(struct phytium_spi *fts)
 	return spi_phytium_print_status(fts, msg->status0, msg->status1);
 }
 
-int spi_phytium_set(struct phytium_spi *fts)
+static int spi_phytium_set(struct phytium_spi *fts)
 {
 	int ret;
 
@@ -159,7 +157,7 @@ int spi_phytium_default(struct phytium_spi *fts)
 }
 EXPORT_SYMBOL_GPL(spi_phytium_default);
 
-void spi_phytium_set_subid(struct phytium_spi *fts, u16 sub_cmd)
+static void spi_phytium_set_subid(struct phytium_spi *fts, u16 sub_cmd)
 {
 	fts->msg_buf.cmd_id = PHYTSPI_MSG_CMD_SET;
 	fts->msg_buf.cmd_subid = sub_cmd;
@@ -210,12 +208,6 @@ void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd,
 	spi_phytium_check_result(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phytium_set_cmd32);
-
-void spi_phytium_data_subid(struct phytium_spi *fts, u16 sub_cmd)
-{
-	fts->msg_buf.cmd_id = PHYTSPI_MSG_CMD_DATA;
-	fts->msg_buf.cmd_subid = sub_cmd;
-}
 
 void spi_phytium_write_pre(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode, u8 tmode,
 		u8 flags, u8 spi_write_flag)
@@ -489,7 +481,6 @@ int spi_phytium_xfer(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 	void __iomem *smem_tx, *smem_rx;
 	u8 first = 1;
 	u64 tx_addr, rx_addr;
-	u64 *data = (u64 *)fts->tx;
 
 	do {
 		if (fts->dma_get_ddrdata)

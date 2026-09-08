@@ -18,7 +18,6 @@
 #include <linux/scatterlist.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/property.h>
 #include <linux/acpi.h>
@@ -138,9 +137,7 @@ static int spi_phyt_probe(struct platform_device *pdev)
 	struct resource *regfile_mem, *share_mem;
 	int ret;
 	int num_cs;
-	int cs_gpio;
 	int global_cs = 0;
-	int i;
 	u32 clk_rate = SPI_DEFAULT_CLK;
 
 	fts = devm_kzalloc(&pdev->dev, sizeof(struct phytium_spi),
@@ -210,56 +207,11 @@ static int spi_phyt_probe(struct platform_device *pdev)
 
 	fts->num_cs = num_cs;
 
-	if (pdev->dev.of_node) {
-		int i;
+	/* The SPI core acquires and manages the cs-gpios when
+	 * use_gpio_descriptors is set in spi_phyt_add_host; nothing
+	 * to do here.
+	 */
 
-		for (i = 0; i < fts->num_cs; i++) {
-			cs_gpio = of_get_named_gpio(pdev->dev.of_node,
-					"cs-gpios", i);
-
-			if (cs_gpio == -EPROBE_DEFER) {
-				ret = cs_gpio;
-				goto out;
-			}
-
-			if (gpio_is_valid(cs_gpio)) {
-				ret = devm_gpio_request(&pdev->dev, cs_gpio,
-						dev_name(&pdev->dev));
-				if (ret)
-					goto out;
-			}
-		}
-	} else if (has_acpi_companion(&pdev->dev)) {
-		int n;
-		int *cs;
-		struct gpio_desc *gpiod;
-
-		n =  gpiod_count(&pdev->dev, "cs");
-		if (n <= 0)
-			goto skip_cs_gpio;
-
-		cs = devm_kcalloc(&pdev->dev, n, sizeof(int), GFP_KERNEL);
-		if (!cs) {
-			ret = -ENOMEM;
-			goto out;
-		}
-		fts->cs = cs;
-
-		for (i = 0; i < n; i++) {
-			gpiod = devm_gpiod_get_index_optional(&pdev->dev, "cs", i,
-							      GPIOD_OUT_LOW);
-
-			if (IS_ERR(gpiod)) {
-				ret = PTR_ERR(gpiod);
-				goto out;
-			}
-
-			cs_gpio = desc_to_gpio(gpiod);
-			cs[i] = cs_gpio;
-		}
-	}
-
-skip_cs_gpio:
 	device_property_read_u32(&pdev->dev, "global-cs", &global_cs);
 	fts->global_cs = global_cs;
 
