@@ -339,7 +339,7 @@ static inline void phytium_write_regfile(struct phytium_spi *fts, u32 reg_off, u
 	writel_relaxed(val, fts->regfile + reg_off);
 }
 
-extern void spi_phytium_default(struct phytium_spi *fts);
+extern int spi_phytium_default(struct phytium_spi *fts);
 extern void spi_phytium_set_cmd8(struct phytium_spi *fts, u16 sub_cmd, u8 data);
 extern void spi_phytium_set_cmd16(struct phytium_spi *fts, u16 sub_cmd, u16 data);
 extern void spi_phytium_set_cmd32(struct phytium_spi *fts, u16 sub_cmd, u32 data);
