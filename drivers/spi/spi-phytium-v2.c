@@ -473,7 +473,7 @@ static void spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 	fts->log_size = ((reg & SPI_REGFILE_SIZE_MASK) >> 4) * SPI_DEBUG_LOG_SIZE;
 	fts->log = devm_ioremap(dev, fts->ddr_paddr, fts->log_size);
 
-	if (IS_ERR(fts->log)) {
+	if (!fts->log) {
 		dev_err(dev, "log_addr is err\n");
 		return;
 	}
@@ -536,9 +536,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	fts->watchdog = spi_watchdog;
 	fts->handle_debug_err = spi_handle_debug_err;
 
-	fts->timer.expires = jiffies + msecs_to_jiffies(50);
 	timer_setup(&fts->timer, spi_phyt_timer_handle, 0);
-	add_timer(&fts->timer);
 
 	spi_phyt_hw_init(dev, fts);
 
@@ -548,9 +546,12 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		goto err_exit;
 	}
 
+	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(50));
+
 	return 0;
 
 err_exit:
+	del_timer_sync(&fts->timer);
 	spi_phyt_enable_chip(fts, 0);
 err_free_master:
 	spi_master_put(master);
@@ -560,7 +561,7 @@ EXPORT_SYMBOL_GPL(spi_phyt_add_host);
 
 void spi_phyt_remove_host(struct phytium_spi *fts)
 {
-	del_timer(&fts->timer);
+	del_timer_sync(&fts->timer);
 	spi_phyt_shutdown_chip(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phyt_remove_host);
@@ -573,6 +574,8 @@ int spi_phyt_suspend_host(struct phytium_spi *fts)
 	if (ret)
 		return ret;
 
+	/* stop the watchdog timer before shutting down the chip */
+	del_timer_sync(&fts->timer);
 	spi_phyt_shutdown_chip(fts);
 	return 0;
 }
@@ -589,9 +592,14 @@ int spi_phyt_resume_host(struct phytium_spi *fts)
 	spi_phyt_enable_chip(fts, 1);
 
 	ret = spi_controller_resume(fts->master);
-	if (ret)
+	if (ret) {
 		dev_err(&fts->master->dev, "fail to start queue (%d)\n", ret);
-	return ret;
+		return ret;
+	}
+
+	/* restart the watchdog timer after a successful resume */
+	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(50));
+	return 0;
 }
 EXPORT_SYMBOL_GPL(spi_phyt_resume_host);
 
