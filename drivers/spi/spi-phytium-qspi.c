@@ -677,7 +677,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 				      GFP_KERNEL);
 	if (!reg_name_array) {
 		ret = -ENOMEM;
-		goto probe_master_put;
+		return ret;
 	}
 	if (dev->of_node) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qspi");
@@ -686,7 +686,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		if (!res) {
 			dev_err(dev, "missing QSPI register resource\n");
 			ret = -ENODEV;
-			goto probe_master_put;
+			return ret;
 		}
 		fwnode_property_read_string_array(dev->fwnode,
 						"reg-names", reg_name_array, 2);
@@ -696,7 +696,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	qspi->io_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qspi->io_base)) {
 		ret = PTR_ERR(qspi->io_base);
-		goto probe_master_put;
+		return ret;
 	}
 
 	if (dev->of_node) {
@@ -706,7 +706,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		if (!res) {
 			dev_err(dev, "missing QSPI memory resource\n");
 			ret = -ENODEV;
-			goto probe_master_put;
+			return ret;
 		}
 		if (reg_name_array[1])
 			res->name = reg_name_array[1];
@@ -715,13 +715,13 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	qspi->mm_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qspi->mm_base)) {
 		ret = PTR_ERR(qspi->mm_base);
-		goto probe_master_put;
+		return ret;
 	}
 
 	qspi->mm_size = resource_size(res);
 	if (qspi->mm_size > PHYTIUM_QSPI_MAX_MMAP_SZ) {
 		ret = -EINVAL;
-		goto probe_master_put;
+		return ret;
 	}
 	qspi->used_size = 0;
 
@@ -729,20 +729,20 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		qspi->clk = devm_clk_get(dev, NULL);
 		if (IS_ERR(qspi->clk)) {
 			ret = PTR_ERR(qspi->clk);
-			goto probe_master_put;
+			return ret;
 		}
 
 		qspi->clk_rate = clk_get_rate(qspi->clk);
 		if (!qspi->clk_rate) {
 			ret = -EINVAL;
-			goto probe_master_put;
+			return ret;
 		}
 
 		pm_runtime_enable(dev);
 		ret = pm_runtime_get_sync(dev);
 		if (ret < 0) {
 			pm_runtime_put_noidle(dev);
-			goto probe_master_put;
+			return ret;
 		}
 
 		ret = clk_prepare_enable(qspi->clk);
