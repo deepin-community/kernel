@@ -104,21 +104,35 @@ static int gf_setup_bdle(struct snd_pcm_substream *substream)
 		}
 		stream_idx = apcm->codec->addr - 1;
 		if ((stream_idx <= 1) && (gf_chip->diu_fb_bdl_vaddr[stream_idx])) {
-			if (azx_dev->core.bdl.bytes <= BDL_SIZE) {
-				memcpy(gf_chip->diu_fb_bdl_vaddr[stream_idx], azx_dev->core.bdl.area, azx_dev->core.bdl.bytes);
-			} else {
-				memcpy(gf_chip->diu_fb_bdl_vaddr[stream_idx], azx_dev->core.bdl.area, BDL_SIZE);
-			}
-			bdl = (__le32 *)gf_chip->diu_fb_bdl_vaddr[stream_idx];
-			for (i = 0; i < azx_dev->core.frags; i++) {
-				if (i > 0) {
-					bdl[i*4] = cpu_to_le32((u32)(bdl[(i-1)*4] + bdl[(i-1)*4+2]));
-					bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
+			/*
+			 * Rewrite the BDL address entries in a normal-memory copy
+			 * first, then flush it to the WC mapping with a single
+			 * memcpy_toio(). Reading back from a WC ioremap mapping is
+			 * not a portable MMIO pattern and can return stale data on
+			 * some architectures. Allocate the copy before writing to
+			 * the mapping, so an allocation failure leaves the mapping
+			 * untouched instead of a stale uncorrected BDL.
+			 */
+			{
+				__le32 *tmp;
+				u32 copy_bytes = min_t(u32, azx_dev->core.bdl.bytes, BDL_SIZE);
+
+				tmp = kmemdup(azx_dev->core.bdl.area, copy_bytes, GFP_KERNEL);
+				if (!tmp)
+					return -ENOMEM;
+				bdl = tmp;
+				for (i = 0; i < azx_dev->core.frags; i++) {
+					if (i > 0) {
+						bdl[i*4] = cpu_to_le32((u32)(le32_to_cpu(bdl[(i-1)*4]) + le32_to_cpu(bdl[(i-1)*4+2])));
+						bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
+					}
+					else {
+						bdl[i*4] = cpu_to_le32((u32)gf_chip->diu_fb_stream_ofs[stream_idx]);
+						bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
+					}
 				}
-				else {
-					bdl[i*4] = cpu_to_le32((u32)gf_chip->diu_fb_stream_ofs[stream_idx]);
-					bdl[i*4+1] = cpu_to_le32(upper_32_bits(gf_chip->diu_fb_stream_ofs[stream_idx]));
-				}
+				memcpy_toio(gf_chip->diu_fb_bdl_vaddr[stream_idx], tmp, copy_bytes);
+				kfree(tmp);
 			}
 			snd_hdac_stream_writel((azx_stream(azx_dev)), SD_BDLPL, (u32)gf_chip->diu_fb_bdl_ofs[stream_idx]);
 			snd_hdac_stream_writel((azx_stream(azx_dev)), SD_BDLPU, upper_32_bits(gf_chip->diu_fb_bdl_ofs[stream_idx]));
@@ -144,7 +158,7 @@ static int gf_pre_trigger(struct snd_pcm_substream *substream, int cmd)
 		    (stream_idx <= 1) && (gf_chip->diu_fb_stream_vaddr[stream_idx]) &&
 		    (substream->runtime->dma_area) &&
 		    (substream->runtime->dma_bytes <= GF_HDA_FB_STREAM_SIZE)) {
-			memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
+			memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
 			gf_chip->diu_fb_stream_pos[stream_idx] = 0;
 		}
 	}
@@ -170,16 +184,16 @@ static int gf_update_stream(struct snd_pcm_substream *substream)
 			appl_pos = frames_to_bytes(substream->runtime, substream->runtime->control->appl_ptr % substream->runtime->buffer_size);
 
 			if (hw_pos == appl_pos) {
-				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
+				memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, substream->runtime->dma_bytes);
 			}
 			else if (appl_pos > gf_chip->diu_fb_stream_pos[stream_idx]) {
-				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (appl_pos - gf_chip->diu_fb_stream_pos[stream_idx]));
+				memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (appl_pos - gf_chip->diu_fb_stream_pos[stream_idx]));
 			}
 			else if (appl_pos < gf_chip->diu_fb_stream_pos[stream_idx]) {
 				if(substream->runtime->dma_bytes > gf_chip->diu_fb_stream_pos[stream_idx]) {
-					memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (substream->runtime->dma_bytes - gf_chip->diu_fb_stream_pos[stream_idx]));
+					memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx] + gf_chip->diu_fb_stream_pos[stream_idx], substream->runtime->dma_area + gf_chip->diu_fb_stream_pos[stream_idx], (substream->runtime->dma_bytes - gf_chip->diu_fb_stream_pos[stream_idx]));
 				}
-				memcpy(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, appl_pos);
+				memcpy_toio(gf_chip->diu_fb_stream_vaddr[stream_idx], substream->runtime->dma_area, appl_pos);
 			}
 			gf_chip->diu_fb_stream_pos[stream_idx] = appl_pos;
 		}
@@ -289,7 +303,9 @@ static int azx_pcm_prepare(struct snd_pcm_substream *substream)
 
 	snd_hdac_stream_setup(azx_stream(azx_dev), false);
 
-	gf_setup_bdle(substream);
+	err = gf_setup_bdle(substream);
+	if (err < 0)
+		return err;
 
 	stream_tag = azx_dev->core.stream_tag;
 	/* CA-IBG chips need the playback stream starting from 1 */
