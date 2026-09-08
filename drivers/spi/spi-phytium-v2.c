@@ -29,26 +29,26 @@
 #define MCP251x_READ_RXB0	0x90
 #define MCP251x_READ_RXB1	0x94
 
-static inline void spi_phyt_enable_chip(struct phytium_spi *fts, u8 enable)
+static inline int spi_phyt_enable_chip(struct phytium_spi *fts, u8 enable)
 {
 	u8 val = enable ? 1 : 2;
 
-	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_MODULE_EN, val);
+	return spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_MODULE_EN, val);
 }
 
-static inline void spi_phyt_set_clk(struct phytium_spi *fts, u16 div)
+static inline int spi_phyt_set_clk(struct phytium_spi *fts, u16 div)
 {
 	u32 new_div = div;
 
-	spi_phytium_set_cmd32(fts, PHYTSPI_MSG_CMD_SET_BAUDR, new_div);
+	return spi_phytium_set_cmd32(fts, PHYTSPI_MSG_CMD_SET_BAUDR, new_div);
 }
 
-static inline void spi_phyt_dma_reset(struct phytium_spi *fts, u8 enable)
+static inline int spi_phyt_dma_reset(struct phytium_spi *fts, u8 enable)
 {
-	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_DMA_RESET, enable);
+	return spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_DMA_RESET, enable);
 }
 
-static inline void spi_phyt_global_cs(struct phytium_spi *fts)
+static inline int spi_phyt_global_cs(struct phytium_spi *fts)
 {
 	u32 global_cs_en;
 	u16 cs;
@@ -56,7 +56,7 @@ static inline void spi_phyt_global_cs(struct phytium_spi *fts)
 	global_cs_en = GENMASK(fts->num_cs-1, 0) << fts->num_cs;
 
 	cs = (u16)((0x1 << 8) | global_cs_en);
-	spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_CS, cs);
+	return spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_CS, cs);
 }
 
 static inline void spi_phyt_reset_chip(struct phytium_spi *fts)
@@ -68,10 +68,15 @@ static inline void spi_phyt_reset_chip(struct phytium_spi *fts)
 	spi_phyt_enable_chip(fts, 1);
 }
 
-static inline void spi_phyt_shutdown_chip(struct phytium_spi *fts)
+static inline int spi_phyt_shutdown_chip(struct phytium_spi *fts)
 {
-	spi_phyt_enable_chip(fts, 0);
-	spi_phyt_set_clk(fts, 0);
+	int ret;
+
+	ret = spi_phyt_enable_chip(fts, 0);
+	if (ret)
+		return ret;
+
+	return spi_phyt_set_clk(fts, 0);
 }
 
 struct phytium_spi_chip {
@@ -360,8 +365,11 @@ static int spi_phyt_setup(struct spi_device *spi)
 	u8 data_width, scph, scpol, tmode;
 	u16 mode;
 	u16 clk_div;
+	int ret;
 
-	spi_phyt_enable_chip(fts, 0);
+	ret = spi_phyt_enable_chip(fts, 0);
+	if (ret)
+		return ret;
 
 	if (!spi->max_speed_hz) {
 		dev_err(&spi->dev, "max_speed_hz is zero\n");
@@ -369,7 +377,9 @@ static int spi_phyt_setup(struct spi_device *spi)
 	}
 
 	clk_div = (fts->max_freq / spi->max_speed_hz + 1) & 0xfffe;
-	spi_phyt_set_clk(fts, clk_div);
+	ret = spi_phyt_set_clk(fts, clk_div);
+	if (ret)
+		return ret;
 	fts->clk_div = clk_div;
 
 	chip = spi_get_ctldata(spi);
@@ -393,17 +403,25 @@ static int spi_phyt_setup(struct spi_device *spi)
 	chip->tmode = 0;
 
 	data_width = spi->bits_per_word;
-	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_DATA_WIDTH, data_width);
+	ret = spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_DATA_WIDTH, data_width);
+	if (ret)
+		return ret;
 
 	scph = spi->mode & (0x1);
 	scpol = spi->mode >> 1;
 	mode = (scph << 8) | scpol;
-	spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_MODE, mode);
+	ret = spi_phytium_set_cmd16(fts, PHYTSPI_MSG_CMD_SET_MODE, mode);
+	if (ret)
+		return ret;
 
 	tmode = chip->tmode;
-	spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_TMOD, tmode);
+	ret = spi_phytium_set_cmd8(fts, PHYTSPI_MSG_CMD_SET_TMOD, tmode);
+	if (ret)
+		return ret;
 
-	spi_phyt_enable_chip(fts, 1);
+	ret = spi_phyt_enable_chip(fts, 1);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -635,7 +653,18 @@ int spi_phyt_suspend_host(struct phytium_spi *fts)
 
 	/* stop the watchdog timer before shutting down the chip */
 	timer_delete_sync(&fts->timer);
-	spi_phyt_shutdown_chip(fts);
+	ret = spi_phyt_shutdown_chip(fts);
+	if (ret) {
+		dev_err(&fts->master->dev, "firmware shutdown failed: %d\n", ret);
+		/*
+		 * Let system suspend abort: the controller may still be
+		 * enabled or keep its active clock divider. The PM core
+		 * resumes the device during rollback, which restarts the
+		 * transfer queue via spi_phyt_resume_host().
+		 */
+		return ret;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(spi_phyt_suspend_host);
@@ -650,9 +679,15 @@ int spi_phyt_resume_host(struct phytium_spi *fts)
 		return ret;
 	}
 
-	spi_phyt_enable_chip(fts, 0);
-	spi_phyt_set_clk(fts, fts->clk_div);
-	spi_phyt_enable_chip(fts, 1);
+	ret = spi_phyt_enable_chip(fts, 0);
+	if (ret)
+		return ret;
+	ret = spi_phyt_set_clk(fts, fts->clk_div);
+	if (ret)
+		return ret;
+	ret = spi_phyt_enable_chip(fts, 1);
+	if (ret)
+		return ret;
 
 	ret = spi_controller_resume(fts->master);
 	if (ret) {
