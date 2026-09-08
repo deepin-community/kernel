@@ -191,7 +191,7 @@ struct phytium_spi {
 	u32			max_freq;
 
 	u32			reg_io_width;
-	u16			bus_num;
+	int			bus_num;
 	u16			num_cs;
 	int			*cs;
 
