@@ -183,18 +183,6 @@ struct phytium_qspi {
 	u32 flash_cap;
 };
 
-static bool phytium_qspi_check_buswidth(u8 width)
-{
-	switch (width) {
-	case 1:
-	case 2:
-	case 4:
-		return 0;
-	}
-
-	return -EOPNOTSUPP;
-}
-
 static uint phytium_spi_nor_clac_clk_div(int div)
 {
 	uint clk_div = 0;
@@ -221,40 +209,34 @@ static uint phytium_spi_nor_clac_clk_div(int div)
 
 static int phytium_spi_nor_protocol_encode(const struct spi_mem_op *op, u32 *code)
 {
-	int ret = 0;
+	/*
+	 * Phases absent from the operation (e.g. the address and data
+	 * phases of SPI_NOR_WREN_OP) carry a buswidth of zero; treat them
+	 * as the active single-bit width so such operations encode as
+	 * 1-1-1 instead of being rejected.
+	 */
+	u8 cmd_width = op->cmd.buswidth ?: 1;
+	u8 addr_width = op->addr.buswidth ?: 1;
+	u8 data_width = op->data.buswidth ?: 1;
 
-	if (op->cmd.buswidth == 1 &&
-	    op->addr.buswidth == 1 &&
-	    op->data.buswidth == 1)
+	if (cmd_width == 1 && addr_width == 1 && data_width == 1)
 		*code = XFER_PROTO_1_1_1;
-	else if (op->cmd.buswidth == 1 &&
-		 op->addr.buswidth == 1 &&
-		 op->data.buswidth == 2)
+	else if (cmd_width == 1 && addr_width == 1 && data_width == 2)
 		*code = XFER_PROTO_1_1_2;
-	else if (op->cmd.buswidth == 1 &&
-		 op->addr.buswidth == 1 &&
-		 op->data.buswidth == 4)
+	else if (cmd_width == 1 && addr_width == 1 && data_width == 4)
 		*code = XFER_PROTO_1_1_4;
-	else if (op->cmd.buswidth == 1 &&
-		 op->addr.buswidth == 2 &&
-		 op->data.buswidth == 2)
+	else if (cmd_width == 1 && addr_width == 2 && data_width == 2)
 		*code = XFER_PROTO_1_2_2;
-	else if (op->cmd.buswidth == 1 &&
-		 op->addr.buswidth == 4 &&
-		 op->data.buswidth == 4)
+	else if (cmd_width == 1 && addr_width == 4 && data_width == 4)
 		*code = XFER_PROTO_1_4_4;
-	else if (op->cmd.buswidth == 2 &&
-		 op->addr.buswidth == 2 &&
-		 op->data.buswidth == 2)
+	else if (cmd_width == 2 && addr_width == 2 && data_width == 2)
 		*code = XFER_PROTO_2_2_2;
-	else if (op->cmd.buswidth == 4 &&
-		 op->addr.buswidth == 4 &&
-		 op->data.buswidth == 4)
+	else if (cmd_width == 4 && addr_width == 4 && data_width == 4)
 		*code = XFER_PROTO_4_4_4;
 	else
-		*code = XFER_PROTO_1_1_1;
+		return -EOPNOTSUPP;
 
-	return ret;
+	return 0;
 }
 
 static int phytium_qspi_flash_capacity_encode_new(u32 size,
@@ -386,20 +368,15 @@ static int phytium_qspi_adjust_op_size(struct spi_mem *mem,
 static bool phytium_qspi_supports_op(struct spi_mem *mem,
 				     const struct spi_mem_op *op)
 {
-	int ret;
+	u32 code;
 
-	ret = phytium_qspi_check_buswidth(op->cmd.buswidth);
-
-	if (op->addr.nbytes)
-		ret |= phytium_qspi_check_buswidth(op->addr.buswidth);
-
-	if (op->dummy.nbytes)
-		ret |= phytium_qspi_check_buswidth(op->dummy.buswidth);
-
-	if (op->data.nbytes)
-		ret |= phytium_qspi_check_buswidth(op->data.buswidth);
-
-	if (ret)
+	/*
+	 * Apply the same protocol encoding check exec_op() uses, so an
+	 * operation accepted here can never fail later with
+	 * -EOPNOTSUPP.  Phase-less operations (e.g. WREN) are normalized
+	 * to 1-bit by the encoder and accepted as 1-1-1.
+	 */
+	if (phytium_spi_nor_protocol_encode(op, &code))
 		return false;
 
 	/* Max 32 dummy clock cycles supported */
@@ -416,7 +393,7 @@ static int phytium_qspi_exec_op(struct spi_mem *mem,
 	struct phytium_qspi *qspi = spi_controller_get_devdata(mem->spi->controller);
 	struct phytium_qspi_flash *flash = &qspi->flash[spi_get_chipselect(mem->spi, 0)];
 	u32 cmd, transfer;
-	int ret;
+	int ret = 0;
 
 	dev_dbg(qspi->dev, "cmd:%#x mode: %d.%d.%d.%d addr:%#llx len:%#x\n",
 		op->cmd.opcode, op->cmd.buswidth, op->addr.buswidth,
@@ -679,7 +656,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	struct spi_nor *nor;
 	const char **reg_name_array;
 
-	ctrl = spi_alloc_host(dev, sizeof(*qspi));
+	ctrl = devm_spi_alloc_host(dev, sizeof(*qspi));
 	if (!ctrl)
 		return -ENOMEM;
 
@@ -790,58 +767,70 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 		goto probe_setup_failed;
 	}
 
-	if (!qspi->nodirmap && qspi->fnum != 0) {
-		/*
-		 * The controller supports direct mapping access only if all
-		 * flashes are of same size.
-		 */
+	if (qspi->fnum != 0) {
+		int first_flash = -1;
 
-		i = 0;
-		for (i = 0; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-			if (qspi->flash[i].spi) {
-				mem = spi_get_drvdata(qspi->flash[i].spi);
-				if (mem) {
-					nor = spi_mem_get_drvdata(mem);
-					if (nor)
-						qspi->flash[i].size = nor->mtd.size;
+		/*
+		 * Discover the size of every bound flash first; the capacity
+		 * encoding below needs it in both dirmap and nodirmap modes.
+		 */
+		for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+			if (!qspi->flash[i].spi)
+				continue;
+			if (first_flash < 0)
+				first_flash = i;
+			mem = spi_get_drvdata(qspi->flash[i].spi);
+			if (mem) {
+				nor = spi_mem_get_drvdata(mem);
+				if (nor)
+					qspi->flash[i].size = nor->mtd.size;
+			}
+		}
+
+		if (!qspi->nodirmap) {
+			/*
+			 * The controller supports direct mapping access only if
+			 * all flashes are of same size.
+			 */
+			for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+				if (!qspi->flash[i].spi || i == first_flash)
+					continue;
+				if (qspi->flash[i].size != qspi->flash[first_flash].size) {
+					dev_err(dev, "Flashes are of different sizes.\n");
+					ret = -EINVAL;
+					goto probe_setup_failed;
 				}
 			}
-		}
 
-		for (i = 1; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-			if (qspi->flash[i].size != qspi->flash[0].size) {
-				dev_err(dev, "Flashes are of different sizes.\n");
-				ret = -EINVAL;
-				goto probe_setup_failed;
-			}
-		}
-
-		ret = phytium_qspi_flash_capacity_encode(qspi->flash[0].size,
-							 &flash_cap);
-		if (ret) {
-			dev_err(dev, "Flash size is invalid.\n");
-			goto probe_setup_failed;
-		}
-
-		if (qspi->fnum > (QSPI_FLASH_CAP_NUM_MASK >> QSPI_FLASH_CAP_NUM_SHIFT))
-			dev_warn(dev, "%u flashes exceed the CAP NUM field width\n",
-				 qspi->fnum);
-		flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
-			     QSPI_FLASH_CAP_NUM_MASK;
-
-		writel_relaxed(flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
-	} else {
-		for (i = 0; qspi->fnum > i && i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-			ret = phytium_qspi_flash_capacity_encode_new(qspi->flash[i].size,
-				&qspi->flash_cap, i);
+			ret = phytium_qspi_flash_capacity_encode(qspi->flash[first_flash].size,
+								 &flash_cap);
 			if (ret) {
 				dev_err(dev, "Flash size is invalid.\n");
 				goto probe_setup_failed;
 			}
-		}
-		qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT_NEW;
 
-		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+			if (qspi->fnum > (QSPI_FLASH_CAP_NUM_MASK >> QSPI_FLASH_CAP_NUM_SHIFT))
+				dev_warn(dev, "%u flashes exceed the CAP NUM field width\n",
+					 qspi->fnum);
+			flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
+				     QSPI_FLASH_CAP_NUM_MASK;
+
+			writel_relaxed(flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+		} else {
+			for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+				if (!qspi->flash[i].spi)
+					continue;
+				ret = phytium_qspi_flash_capacity_encode_new(qspi->flash[i].size,
+					&qspi->flash_cap, i);
+				if (ret) {
+					dev_err(dev, "Flash size is invalid.\n");
+					goto probe_setup_failed;
+				}
+			}
+			qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT_NEW;
+
+			writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+		}
 	}
 
 	return 0;
@@ -853,8 +842,6 @@ probe_clk_failed:
 		pm_runtime_put_sync(dev);
 		pm_runtime_disable(dev);
 	}
-probe_master_put:
-
 	return ret;
 }
 
