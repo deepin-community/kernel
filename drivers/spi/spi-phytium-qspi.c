@@ -597,20 +597,25 @@ static int phytium_qspi_setup(struct spi_device *spi)
 
 	flash = &qspi->flash[spi_get_chipselect(spi, 0)];
 
-	flash->cs = spi_get_chipselect(spi, 0);
-	flash->spi = spi;
-	qspi->fnum++;
-
-
+	/* validate the clock divider before committing any state */
 	if (spi->max_speed_hz) {
 		clk_div = DIV_ROUND_UP(qspi->clk_rate, spi->max_speed_hz);
-		flash->clk_div = phytium_spi_nor_clac_clk_div(clk_div);
-		if (flash->clk_div == 65535) {
+		clk_div = phytium_spi_nor_clac_clk_div(clk_div);
+		if (clk_div == 65535) {
 			dev_err(qspi->dev, "qspi maximum frequency setting is error.\n");
 			return -EINVAL;
 		}
-	} else
+		flash->clk_div = clk_div;
+	} else {
 		flash->clk_div = PHYTIUM_QSPI_DEFAULT_SCK_SEL;
+	}
+
+	/* install the slot only once; setup may be called repeatedly */
+	if (!flash->spi) {
+		flash->cs = spi_get_chipselect(spi, 0);
+		flash->spi = spi;
+		qspi->fnum++;
+	}
 
 	return 0;
 }
