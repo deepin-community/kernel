@@ -285,15 +285,13 @@ out:
 	return ret;
 }
 
-static int spi_phyt_remove(struct platform_device *pdev)
+static void spi_phyt_remove(struct platform_device *pdev)
 {
 	struct phytium_spi *fts = platform_get_drvdata(pdev);
 
 	spi_phyt_remove_host(fts);
 	sysfs_remove_group(&pdev->dev.kobj, &spi_phyt_device_group);
 	clk_disable_unprepare(fts->clk);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
