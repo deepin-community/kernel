@@ -14,11 +14,11 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/timer.h>
 #include <linux/spi/spi.h>
 #include <linux/scatterlist.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/of_platform.h>
 #include <linux/property.h>
 #include <linux/acpi.h>
@@ -94,7 +94,7 @@ struct chip_data {
 
 static void spi_phyt_set_cs(struct spi_device *spi, bool enable)
 {
-	struct phytium_spi *fts = spi_master_get_devdata(spi->master);
+	struct phytium_spi *fts = spi_controller_get_devdata(spi->controller);
 	struct chip_data *chip = spi_get_ctldata(spi);
 	u32 origin;
 	u16 cs;
@@ -130,8 +130,8 @@ static void spi_phyt_set_cs(struct spi_device *spi, bool enable)
 
 static irqreturn_t spi_phyt_irq(int irq, void *dev_id)
 {
-	struct spi_master *master = dev_id;
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct spi_controller *master = dev_id;
+	struct phytium_spi *fts = spi_controller_get_devdata(master);
 	u32 state;
 
 	/* Check whether this controller actually raised the interrupt;
@@ -151,10 +151,10 @@ static irqreturn_t spi_phyt_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int spi_phyt_transfer_one(struct spi_master *master,
+static int spi_phyt_transfer_one(struct spi_controller *master,
 		struct spi_device *spi, struct spi_transfer *transfer)
 {
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct phytium_spi *fts = spi_controller_get_devdata(master);
 	struct chip_data *chip = spi_get_ctldata(spi);
 	struct spi_mem *mem = NULL;
 	struct spi_nor *nor = NULL;
@@ -335,10 +335,10 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 	return ret;
 }
 
-static void spi_phyt_handle_err(struct spi_master *master,
+static void spi_phyt_handle_err(struct spi_controller *master,
 		struct spi_message *msg)
 {
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct phytium_spi *fts = spi_controller_get_devdata(master);
 
 	spi_phyt_reset_chip(fts);
 }
@@ -347,8 +347,8 @@ static int spi_phyt_setup(struct spi_device *spi)
 {
 	struct phytium_spi_chip *chip_info = NULL;
 	struct chip_data *chip;
-	struct spi_master *master = spi->master;
-	struct phytium_spi *fts = spi_master_get_devdata(master);
+	struct spi_controller *master = spi->controller;
+	struct phytium_spi *fts = spi_controller_get_devdata(master);
 	u8 data_width, scph, scpol, tmode;
 	u16 mode;
 	u16 clk_div;
@@ -408,17 +408,7 @@ static void spi_phyt_cleanup(struct spi_device *spi)
 	spi_set_ctldata(spi, NULL);
 }
 
-void spi_phyt_enable_debug(struct phytium_spi *fts)
-{
-	u32 reg;
-
-	reg = phytium_read_regfile(fts, SPI_REGFILE_DEBUG);
-
-	phytium_write_regfile(fts, SPI_REGFILE_DEBUG,
-			reg | SPI_REGFILE_DEBUG_VAL);
-}
-
-void spi_phyt_disable_debug(struct phytium_spi *fts)
+static void spi_phyt_disable_debug(struct phytium_spi *fts)
 {
 	u32 reg;
 
@@ -428,7 +418,7 @@ void spi_phyt_disable_debug(struct phytium_spi *fts)
 	phytium_write_regfile(fts, SPI_REGFILE_DEBUG, reg);
 }
 
-void spi_phyt_disable_alive(struct phytium_spi *fts)
+static void spi_phyt_disable_alive(struct phytium_spi *fts)
 {
 	u32 reg;
 
@@ -438,7 +428,7 @@ void spi_phyt_disable_alive(struct phytium_spi *fts)
 	phytium_write_regfile(fts, SPI_REGFILE_DEBUG, reg);
 }
 
-void spi_watchdog(struct phytium_spi *fts)
+static void spi_watchdog(struct phytium_spi *fts)
 {
 	u32 reg;
 
@@ -449,7 +439,7 @@ void spi_watchdog(struct phytium_spi *fts)
 
 static void spi_phyt_timer_handle(struct timer_list *t)
 {
-	struct phytium_spi *fts = from_timer(fts, t, timer);
+	struct phytium_spi *fts = timer_container_of(fts, t, timer);
 
 	if (fts->alive_enabled && fts->watchdog) {
 		if (fts->runtimes < 20)
@@ -461,7 +451,7 @@ static void spi_phyt_timer_handle(struct timer_list *t)
 	mod_timer(&fts->timer, jiffies + msecs_to_jiffies(10));
 }
 
-void spi_handle_debug_err(struct phytium_spi *fts)
+static void spi_handle_debug_err(struct phytium_spi *fts)
 {
 	struct device *dev = &fts->master->dev;
 	u32 reg, len, i;
@@ -531,12 +521,12 @@ static int spi_phyt_hw_init(struct device *dev, struct phytium_spi *fts)
 
 int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 {
-	struct spi_master *master;
+	struct spi_controller *master;
 	int ret;
 
 	WARN_ON(fts == NULL);
 
-	master = spi_alloc_master(dev, 0);
+	master = spi_alloc_host(dev, 0);
 	if (!master)
 		return -ENOMEM;
 
@@ -554,6 +544,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	master->bits_per_word_mask = SPI_BPW_MASK(8) | SPI_BPW_MASK(16);
 	master->bus_num = fts->bus_num;
 	master->num_chipselect = fts->num_cs;
+	master->use_gpio_descriptors = true;
 	master->setup = spi_phyt_setup;
 	master->cleanup = spi_phyt_cleanup;
 	master->set_cs = spi_phyt_set_cs;
@@ -572,7 +563,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		master->flags |= SPI_CONTROLLER_HALF_DUPLEX;
 	}
 
-	spi_master_set_devdata(master, fts);
+	spi_controller_set_devdata(master, fts);
 
 	spi_phyt_disable_debug(fts);
 	spi_phyt_disable_alive(fts);
@@ -591,7 +582,7 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 		goto err_exit;
 	}
 
-	ret = devm_spi_register_master(dev, master);
+	ret = devm_spi_register_controller(dev, master);
 	if (ret) {
 		dev_err(&master->dev, "problem registering spi master\n");
 		goto err_exit;
@@ -602,17 +593,17 @@ int spi_phyt_add_host(struct device *dev, struct phytium_spi *fts)
 	return 0;
 
 err_exit:
-	del_timer_sync(&fts->timer);
+	timer_delete_sync(&fts->timer);
 	spi_phyt_enable_chip(fts, 0);
 err_free_master:
-	spi_master_put(master);
+	spi_controller_put(master);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(spi_phyt_add_host);
 
 void spi_phyt_remove_host(struct phytium_spi *fts)
 {
-	del_timer_sync(&fts->timer);
+	timer_delete_sync(&fts->timer);
 	spi_phyt_shutdown_chip(fts);
 }
 EXPORT_SYMBOL_GPL(spi_phyt_remove_host);
@@ -626,7 +617,7 @@ int spi_phyt_suspend_host(struct phytium_spi *fts)
 		return ret;
 
 	/* stop the watchdog timer before shutting down the chip */
-	del_timer_sync(&fts->timer);
+	timer_delete_sync(&fts->timer);
 	spi_phyt_shutdown_chip(fts);
 	return 0;
 }
