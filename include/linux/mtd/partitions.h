@@ -63,7 +63,7 @@ struct mtd_partition {
 struct mtd_info;
 struct device_node;
 struct acpi_device;
-struct hwnode_handle;
+struct fwnode_handle;
 
 /**
  * struct mtd_part_parser_data - used to pass data to MTD partition parsers.
