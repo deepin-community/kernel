@@ -25,6 +25,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/mtd/spi-nor.h>
+#include <linux/unaligned.h>
 #include "spi-phytium.h"
 
 #define SPI_SHOW_MSG_DEBUG 0
@@ -52,7 +53,8 @@ static void spi_phytium_show_msg(struct msg *info)
 static void *memcpy_byte(void *_dest, const void *_src, size_t sz)
 {
 	while (sz >= 8) {
-		*(u64 *)_dest = *(u64 *)_src;
+		/* _dest/_src are not guaranteed to be 8-byte aligned */
+		put_unaligned(get_unaligned((const u64 *)_src), (u64 *)_dest);
 		_dest += 8;
 		_src += 8;
 		sz -= 8;
@@ -267,12 +269,17 @@ int spi_phytium_flash_erase(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 		u8 tmode, u8 flags, u8 cmd)
 {
 	u32 len;
+	u32 copy_len;
 	void __iomem *smem_tx;
 	u8 first = 1;
 	u8 cmd_addr[8];
 	int ret;
 
 	len = (u32)(fts->tx_end - fts->tx);
+	/* cmd_addr packs the opcode plus at most a 7-byte address phase;
+	 * longer transfers would overflow the stack buffer.
+	 */
+	copy_len = min_t(u32, len, sizeof(cmd_addr) - 1);
 
 	memset(&fts->msg_buf, 0, sizeof(struct msg));
 
@@ -290,9 +297,9 @@ int spi_phytium_flash_erase(struct phytium_spi *fts, u8 cs, u8 dfs, u8 mode,
 	if (cmd == SPINOR_OP_BE_4K || cmd == SPINOR_OP_READ ||
 			cmd == SPINOR_OP_READ_FAST || cmd == SPINOR_OP_READ_4B ||
 			cmd == SPINOR_OP_READ_FAST_4B) {
-		memcpy_byte((void *)&cmd_addr[1], fts->tx, len);
-		memcpy_toio(smem_tx, (void *)&cmd_addr[0], len + 1);
-		*(u32 *)&fts->msg_buf.data[8] = len + 1;
+		memcpy_byte((void *)&cmd_addr[1], fts->tx, copy_len);
+		memcpy_toio(smem_tx, (void *)&cmd_addr[0], copy_len + 1);
+		*(u32 *)&fts->msg_buf.data[8] = copy_len + 1;
 	} else if (cmd == SPINOR_OP_CHIP_ERASE) {
 		memcpy_toio(smem_tx, (void *)&cmd_addr[0], 1);
 		*(u32 *)&fts->msg_buf.data[8] = len;
@@ -319,10 +326,15 @@ EXPORT_SYMBOL_GPL(spi_phytium_flash_erase);
 int spi_phytium_flash_write(struct phytium_spi *fts, u8 cmd)
 {
 	u8 cmd_addr[8] = {0};
+	size_t copy_len = min_t(size_t, fts->len, sizeof(cmd_addr) - 2);
 
-	cmd_addr[0] = fts->len + 1;
+	/* cmd_addr packs the length byte and opcode, leaving 6 bytes for
+	 * the payload; fts->len is a size_t and must not be truncated
+	 * implicitly either.
+	 */
+	cmd_addr[0] = (u8)(copy_len + 1);
 	cmd_addr[1] = cmd;
-	memcpy_byte((void *)&cmd_addr[2], fts->tx, fts->len);
+	memcpy_byte((void *)&cmd_addr[2], fts->tx, copy_len);
 
 	fts->msg_buf.data[18] = cmd_addr[0];
 	fts->msg_buf.data[19] = cmd_addr[1];
