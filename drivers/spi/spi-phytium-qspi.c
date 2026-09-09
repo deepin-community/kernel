@@ -20,6 +20,8 @@
 
 #include <linux/spi/spi-mem.h>
 #include <linux/mtd/spi-nor.h>
+#include <linux/notifier.h>
+#include <linux/device/bus.h>
 
 #define DRIVER_VERSION	"1.0.3"
 
@@ -181,6 +183,7 @@ struct phytium_qspi {
 	u32 wr_cfg_reg[PHYTIUM_QSPI_MAX_NORCHIP];
 	u32 rd_cfg_reg[PHYTIUM_QSPI_MAX_NORCHIP];
 	u32 flash_cap;
+	struct notifier_block nb;
 };
 
 static uint phytium_spi_nor_clac_clk_div(int div)
@@ -597,9 +600,105 @@ static ssize_t phytium_qspi_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	return orig_len;
 }
 
-static int phytium_qspi_setup(struct spi_device *spi)
+static int phytium_qspi_program_capacity(struct phytium_qspi *qspi)
 {
-	struct spi_controller *ctrl = spi->controller;
+	struct device *dev = qspi->dev;
+	struct spi_mem *mem;
+	struct spi_nor *nor;
+	u32 flash_cap = 0;
+	int first_flash = -1;
+	int i, ret;
+
+	if (qspi->fnum == 0)
+		return 0;
+
+	/* Discover the size of every bound flash */
+	for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+		if (!qspi->flash[i].spi)
+			continue;
+		if (!qspi->flash[i].spi->dev.driver ||
+		    strcmp(qspi->flash[i].spi->dev.driver->name, "spi-nor"))
+			return -EPROBE_DEFER;
+		if (first_flash < 0)
+			first_flash = i;
+		mem = spi_get_drvdata(qspi->flash[i].spi);
+		if (mem) {
+			nor = spi_mem_get_drvdata(mem);
+			if (nor)
+				qspi->flash[i].size = nor->mtd.size;
+		}
+		if (!qspi->flash[i].size)
+			return -EPROBE_DEFER;
+	}
+
+	if (!qspi->nodirmap) {
+		for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+			if (!qspi->flash[i].spi || i == first_flash)
+				continue;
+			if (qspi->flash[i].size != qspi->flash[first_flash].size) {
+				dev_err(dev, "Flashes are of different sizes.\n");
+				return -EINVAL;
+			}
+		}
+
+		ret = phytium_qspi_flash_capacity_encode(qspi->flash[first_flash].size,
+							 &flash_cap);
+		if (ret) {
+			dev_err(dev, "Flash size is invalid.\n");
+			return ret;
+		}
+
+		if (qspi->fnum > (QSPI_FLASH_CAP_NUM_MASK >> QSPI_FLASH_CAP_NUM_SHIFT))
+			dev_warn(dev, "%u flashes exceed the CAP NUM field width\n",
+				 qspi->fnum);
+		flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
+			     QSPI_FLASH_CAP_NUM_MASK;
+		qspi->flash_cap = flash_cap;
+		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+	} else {
+		for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
+			if (!qspi->flash[i].spi)
+				continue;
+			ret = phytium_qspi_flash_capacity_encode_new(qspi->flash[i].size,
+				&qspi->flash_cap, i);
+			if (ret) {
+				dev_err(dev, "Flash size is invalid.\n");
+				return ret;
+			}
+		}
+		qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT_NEW;
+		writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+	}
+
+	return 0;
+}
+
+static int phytium_qspi_notifier(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	struct phytium_qspi *qspi =
+		container_of(nb, struct phytium_qspi, nb);
+	struct device *dev = data;
+	int ret;
+
+	if (action != BUS_NOTIFY_BOUND_DRIVER)
+		return NOTIFY_DONE;
+	if (!dev->driver || strcmp(dev->driver->name, "spi-nor"))
+		return NOTIFY_DONE;
+	/* SPI children are parented by the controller device, not the
+	 * platform device that owns the controller. */
+	if (dev->parent != &qspi->ctrl->dev)
+		return NOTIFY_DONE;
+
+	ret = phytium_qspi_program_capacity(qspi);
+	if (ret && ret != -EPROBE_DEFER)
+		dev_err(qspi->dev, "capacity programming failed: %d\n", ret);
+
+	return NOTIFY_OK;
+}
+
+static int phytium_qspi_setup(struct spi_device *spi)
+{	struct spi_controller *ctrl = spi->controller;
 	struct phytium_qspi *qspi = spi_controller_get_devdata(ctrl);
 	struct phytium_qspi_flash *flash;
 	uint clk_div;
@@ -672,10 +771,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	struct spi_controller *ctrl;
 	struct resource *res = NULL;
 	struct phytium_qspi *qspi;
-	int i, ret;
-	u32 flash_cap;
-	struct spi_mem *mem;
-	struct spi_nor *nor;
+	int ret;
 	const char **reg_name_array;
 
 	ctrl = devm_spi_alloc_host(dev, sizeof(*qspi));
@@ -786,75 +882,34 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	ret = devm_spi_register_controller(dev, ctrl);
 	if (ret) {
 		dev_err(dev, "failed to register SPI controller: %d\n", ret);
-		goto probe_setup_failed;
+		goto probe_clk_failed;
 	}
 
-	if (qspi->fnum != 0) {
-		int first_flash = -1;
-
-		/*
-		 * Discover the size of every bound flash first; the capacity
-		 * encoding below needs it in both dirmap and nodirmap modes.
-		 */
-		for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-			if (!qspi->flash[i].spi)
-				continue;
-			if (first_flash < 0)
-				first_flash = i;
-			mem = spi_get_drvdata(qspi->flash[i].spi);
-			if (mem) {
-				nor = spi_mem_get_drvdata(mem);
-				if (nor)
-					qspi->flash[i].size = nor->mtd.size;
-			}
+	/*
+	 * Program flash capacity registers. The flash sizes come from the
+	 * spi-nor driver bound to each child. When MTD_SPI_NOR is a module
+	 * that has not been loaded yet, the children exist but have no
+	 * driver — return success now and register a bus notifier so the
+	 * capacity registers are programmed when spi-nor binds.
+	 */
+	ret = phytium_qspi_program_capacity(qspi);
+	if (ret == -EPROBE_DEFER) {
+		qspi->nb.notifier_call = phytium_qspi_notifier;
+		ret = bus_register_notifier(&spi_bus_type, &qspi->nb);
+		if (ret) {
+			dev_err(dev, "failed to register bus notifier: %d\n", ret);
+			goto probe_setup_failed;
 		}
-
-		if (!qspi->nodirmap) {
-			/*
-			 * The controller supports direct mapping access only if
-			 * all flashes are of same size.
-			 */
-			for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-				if (!qspi->flash[i].spi || i == first_flash)
-					continue;
-				if (qspi->flash[i].size != qspi->flash[first_flash].size) {
-					dev_err(dev, "Flashes are of different sizes.\n");
-					ret = -EINVAL;
-					goto probe_setup_failed;
-				}
-			}
-
-			ret = phytium_qspi_flash_capacity_encode(qspi->flash[first_flash].size,
-								 &flash_cap);
-			if (ret) {
-				dev_err(dev, "Flash size is invalid.\n");
-				goto probe_setup_failed;
-			}
-
-			if (qspi->fnum > (QSPI_FLASH_CAP_NUM_MASK >> QSPI_FLASH_CAP_NUM_SHIFT))
-				dev_warn(dev, "%u flashes exceed the CAP NUM field width\n",
-					 qspi->fnum);
-			flash_cap |= (qspi->fnum << QSPI_FLASH_CAP_NUM_SHIFT) &
-				     QSPI_FLASH_CAP_NUM_MASK;
-			/* cache the programmed value for the resume path */
-			qspi->flash_cap = flash_cap;
-
-			writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
-		} else {
-			for (i = 0; i < PHYTIUM_QSPI_MAX_NORCHIP; i++) {
-				if (!qspi->flash[i].spi)
-					continue;
-				ret = phytium_qspi_flash_capacity_encode_new(qspi->flash[i].size,
-					&qspi->flash_cap, i);
-				if (ret) {
-					dev_err(dev, "Flash size is invalid.\n");
-					goto probe_setup_failed;
-				}
-			}
-			qspi->flash_cap |= (qspi->fnum - 1) << QSPI_FLASH_CAP_NUM_SHIFT_NEW;
-
-			writel_relaxed(qspi->flash_cap, qspi->io_base + QSPI_FLASH_CAP_REG);
+		/* retry now in case spi-nor bound between the first attempt
+		 * and the notifier registration */
+		ret = phytium_qspi_program_capacity(qspi);
+		if (ret && ret != -EPROBE_DEFER) {
+			bus_unregister_notifier(&spi_bus_type, &qspi->nb);
+			dev_err(dev, "capacity programming failed: %d\n", ret);
+			goto probe_setup_failed;
 		}
+	} else if (ret) {
+		goto probe_setup_failed;
 	}
 
 	return 0;
@@ -883,6 +938,8 @@ static void phytium_qspi_remove(struct platform_device *pdev)
 {
 	struct phytium_qspi *qspi = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
+
+	bus_unregister_notifier(&spi_bus_type, &qspi->nb);
 
 	clk_disable_unprepare(qspi->clk);
 
