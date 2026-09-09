@@ -97,7 +97,14 @@ module_param_array(beep_mode, bool, NULL, 0444);
 MODULE_PARM_DESC(beep_mode, "Select HDA Beep registration mode (0=off, 1=on) (default=1).");
 #endif
 
+#ifdef CONFIG_PM
+static int power_save = CONFIG_SND_HDA_POWER_SAVE_DEFAULT;
+module_param(power_save, bint, 0644);
+MODULE_PARM_DESC(power_save,
+		 "Automatic power-saving timeout (in seconds, 0 = disable).");
+#else
 #define power_save 0
+#endif
 
 static int align_buffer_size = -1;
 module_param(align_buffer_size, bint, 0644);
@@ -430,87 +437,38 @@ static void azx_del_card_list(struct azx *chip)
 #define azx_del_card_list(chip) /* NOP */
 #endif /* CONFIG_PM */
 
-#if defined(CONFIG_PM_SLEEP)
-/* power management */
-static int azx_suspend(struct device *dev)
-{
-	struct snd_card *card = dev_get_drvdata(dev);
-	struct azx *chip;
-	struct hda_ft *hda;
-	struct hdac_bus *bus;
-
-	if (!card)
-		return 0;
-
-	chip = card->private_data;
-	hda = container_of(chip, struct hda_ft, chip);
-	if (chip->disabled || !chip->running)
-		return 0;
-
-	bus = azx_bus(chip);
-	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
-	azx_clear_irq_pending(chip);
-	cancel_work_sync(&hda->irq_pending_work);
-	azx_stop_chip(chip);
-	if (bus->irq >= 0) {
-		free_irq(bus->irq, (void *)chip);
-		bus->irq = -1;
-	}
-
-	return 0;
-}
-
-static int azx_resume(struct device *dev)
-{
-	struct snd_card *card = dev_get_drvdata(dev);
-	struct azx *chip;
-	struct hda_ft *hda;
-	struct hdac_bus *bus;
-
-	if (!card)
-		return 0;
-
-	chip = card->private_data;
-	hda = container_of(chip, struct hda_ft, chip);
-	bus = azx_bus(chip);
-	if (chip->disabled || !chip->running)
-		return 0;
-
-	if (azx_acquire_irq(chip, 1) < 0)
-		return -EIO;
-
-	snd_hdac_bus_exit_link_reset(bus);
-	usleep_range(1000, 1200);
-
-	azx_init_chip(chip, 0);
-
-	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
-
-	return 0;
-}
-#endif /* CONFIG_PM_SLEEP */
-
 #ifdef CONFIG_PM
+static bool azx_is_pm_ready(struct snd_card *card)
+{
+	struct azx *chip;
+
+	if (!card)
+		return false;
+
+	chip = card->private_data;
+	return !chip->disabled && chip->running;
+}
+
 static int azx_runtime_suspend(struct device *dev)
 {
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip;
 	struct hda_ft *hda;
 
-	if (!card)
+	if (!azx_is_pm_ready(card))
 		return 0;
 
 	chip = card->private_data;
 	hda = container_of(chip, struct hda_ft, chip);
-	if (chip->disabled)
-		return 0;
 
-	if (!azx_has_pm_runtime(chip))
-		return 0;
-
+	azx_writew(chip, WAKEEN, azx_readw(chip, WAKEEN) |
+		   STATESTS_INT_MASK);
 	azx_stop_chip(chip);
-	azx_enter_link_reset(chip);
+	if (azx_bus(chip)->irq >= 0)
+		synchronize_irq(azx_bus(chip)->irq);
 	azx_clear_irq_pending(chip);
+	cancel_work_sync(&hda->irq_pending_work);
+	azx_enter_link_reset(chip);
 
 	return 0;
 }
@@ -519,39 +477,26 @@ static int azx_runtime_resume(struct device *dev)
 {
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip;
-	struct hda_ft *hda;
-	struct hdac_bus *bus;
 	struct hda_codec *codec;
 	int status;
-	int index;
 
-	if (!card)
+	if (!azx_is_pm_ready(card))
 		return 0;
 
 	chip = card->private_data;
-	hda = container_of(chip, struct hda_ft, chip);
-	bus = azx_bus(chip);
-	if (chip->disabled)
-		return 0;
 
-	if (!azx_has_pm_runtime(chip))
-		return 0;
-
-	/* Read STATESTS before controller reset */
+	/* STATESTS is cleared by the controller reset below. */
 	status = azx_readw(chip, STATESTS);
-
-	index = chip->dev_index;
-
-	snd_hdac_bus_exit_link_reset(bus);
+	snd_hdac_bus_exit_link_reset(azx_bus(chip));
 	usleep_range(1000, 1200);
-
 	azx_init_chip(chip, 0);
+	azx_writew(chip, WAKEEN, azx_readw(chip, WAKEEN) &
+		   ~STATESTS_INT_MASK);
 
-	if (status) {
+	if (status && !chip->bus.shutdown) {
 		list_for_each_codec(codec, &chip->bus)
-			if (status & (1 << codec->addr))
-				schedule_delayed_work(&codec->jackpoll_work,
-						      codec->jackpoll_interval);
+			if (status & BIT(codec->addr))
+				pm_request_resume(hda_codec_dev(codec));
 	}
 
 	return 0;
@@ -561,26 +506,56 @@ static int azx_runtime_idle(struct device *dev)
 {
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip;
-	struct hda_ft *hda;
 
 	if (!card)
 		return 0;
 
 	chip = card->private_data;
-	hda = container_of(chip, struct hda_ft, chip);
 	if (chip->disabled)
 		return 0;
 
-	if (!azx_has_pm_runtime(chip) ||
-	    azx_bus(chip)->codec_powered || !chip->running)
+	if (azx_bus(chip)->codec_powered || !chip->running)
 		return -EBUSY;
 
 	return 0;
 }
 
+static int azx_suspend(struct device *dev)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	int err;
+
+	if (!azx_is_pm_ready(card))
+		return 0;
+
+	err = pm_runtime_force_suspend(dev);
+	if (err < 0)
+		return err;
+
+	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
+	return 0;
+}
+
+static int azx_resume(struct device *dev)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	int err;
+
+	if (!azx_is_pm_ready(card))
+		return 0;
+
+	err = pm_runtime_force_resume(dev);
+	if (err < 0)
+		return err;
+
+	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
+	return 0;
+}
+
 static const struct dev_pm_ops azx_pm = {
-	SET_SYSTEM_SLEEP_PM_OPS(azx_suspend, azx_resume)
-	SET_RUNTIME_PM_OPS(azx_runtime_suspend, azx_runtime_resume, azx_runtime_idle)
+	SYSTEM_SLEEP_PM_OPS(azx_suspend, azx_resume)
+	RUNTIME_PM_OPS(azx_runtime_suspend, azx_runtime_resume,
+		       azx_runtime_idle)
 };
 
 #define hda_ft_pm	(&azx_pm)
@@ -589,6 +564,7 @@ static const struct dev_pm_ops azx_pm = {
 #endif /* CONFIG_PM */
 
 static int azx_probe_continue(struct azx *chip);
+static void azx_probe_failed(struct azx *chip);
 
 /*
  * destructor
@@ -597,11 +573,7 @@ static int azx_free(struct azx *chip)
 {
 	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
 	struct hdac_bus *bus = azx_bus(chip);
-	struct platform_device *pdev = to_platform_device(hda->dev);
 	struct device *hddev = hda->dev;
-
-	if (azx_has_pm_runtime(chip) && chip->running)
-		pm_runtime_get_noresume(&pdev->dev);
 
 	azx_del_card_list(chip);
 
@@ -703,8 +675,19 @@ static void check_probe_mask(struct azx *chip, int dev)
 static void azx_probe_work(struct work_struct *work)
 {
 	struct hda_ft *hda = container_of(work, struct hda_ft, probe_work);
+	int err;
 
-	azx_probe_continue(&hda->chip);
+	err = pm_runtime_resume_and_get(hda->dev);
+	if (err < 0) {
+		azx_probe_failed(&hda->chip);
+		pm_runtime_disable(hda->dev);
+		return;
+	}
+
+	err = azx_probe_continue(&hda->chip);
+	pm_runtime_put(hda->dev);
+	if (err < 0)
+		pm_runtime_disable(hda->dev);
 }
 
 /*
@@ -912,7 +895,8 @@ static DECLARE_BITMAP(probed_devs, SNDRV_CARDS);
 
 static int hda_ft_probe(struct platform_device *pdev)
 {
-	const unsigned int driver_flags = AZX_DRIVER_FT;
+	const unsigned int driver_flags = AZX_DRIVER_FT |
+					  AZX_DCAPS_PM_RUNTIME;
 	struct snd_card *card;
 	struct hda_ft *hda;
 	struct azx *chip;
@@ -943,13 +927,14 @@ static int hda_ft_probe(struct platform_device *pdev)
 	hda = container_of(chip, struct hda_ft, chip);
 
 	dev_set_drvdata(&pdev->dev, card);
+	pm_runtime_enable(&pdev->dev);
 
 	schedule_probe = !chip->disabled;
+	set_bit(dev, probed_devs);
 
 	if (schedule_probe)
 		schedule_work(&hda->probe_work);
 
-	set_bit(dev, probed_devs);
 	if (chip->disabled)
 		complete_all(&hda->probe_wait);
 	return 0;
@@ -967,10 +952,8 @@ static unsigned int azx_max_codecs[AZX_NUM_DRIVERS] = {
 static int azx_probe_continue(struct azx *chip)
 {
 	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
-	struct device *hddev = hda->dev;
 	int dev = chip->dev_index;
 	int err;
-	struct hdac_bus *bus = azx_bus(chip);
 
 	hda->probe_continued = 1;
 
@@ -1001,11 +984,18 @@ static int azx_probe_continue(struct azx *chip)
 	azx_add_card_list(chip);
 	snd_hda_set_power_save(&chip->bus, power_save * 1000);
 
-	if (azx_has_pm_runtime(chip))
-		pm_runtime_put_noidle(hddev);
 	return err;
 
 out_free:
+	azx_probe_failed(chip);
+	return err;
+}
+
+static void azx_probe_failed(struct azx *chip)
+{
+	struct hda_ft *hda = container_of(chip, struct hda_ft, chip);
+	struct hdac_bus *bus = azx_bus(chip);
+
 	if (bus->irq >= 0) {
 		free_irq(bus->irq, (void *)chip);
 		bus->irq = -1;
@@ -1018,10 +1008,9 @@ out_free:
 	 * device stays bound and its remove/shutdown/PM callbacks must
 	 * not dereference the freed card, mirroring snd-hda-intel.
 	 */
-	dev_set_drvdata(hddev, NULL);
+	dev_set_drvdata(hda->dev, NULL);
 	if (chip->card)
 		snd_card_free(chip->card);
-	return err;
 }
 
 static void hda_ft_remove(struct platform_device *pdev)
@@ -1029,15 +1018,21 @@ static void hda_ft_remove(struct platform_device *pdev)
 	struct snd_card *card = dev_get_drvdata(&pdev->dev);
 	struct azx *chip;
 	struct hda_ft *hda;
+	int err;
 
 	if (card) {
 		/* cancel the pending probing work */
 		chip = card->private_data;
 		hda = container_of(chip, struct hda_ft, chip);
 		cancel_work_sync(&hda->probe_work);
+		chip->bus.shutdown = 1;
+		err = pm_runtime_resume_and_get(&pdev->dev);
+		pm_runtime_disable(&pdev->dev);
 		clear_bit(chip->dev_index, probed_devs);
 
 		snd_card_free(card);
+		if (err >= 0)
+			pm_runtime_put_noidle(&pdev->dev);
 	}
 }
 
@@ -1049,8 +1044,13 @@ static void hda_ft_shutdown(struct platform_device *pdev)
 	if (!card)
 		return;
 	chip = card->private_data;
-	if (chip && chip->running)
+	if (chip && chip->running) {
+		chip->bus.shutdown = 1;
+		if (pm_runtime_resume_and_get(&pdev->dev) < 0)
+			return;
 		azx_stop_chip(chip);
+		pm_runtime_put_noidle(&pdev->dev);
+	}
 }
 
 static const struct of_device_id hda_ft_of_match[] = {
