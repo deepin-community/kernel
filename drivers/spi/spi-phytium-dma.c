@@ -295,7 +295,10 @@ static int phytium_spi_dma_wait_rx_done(struct phytium_spi *fts)
 	 * controller).
 	 */
 	nents = phytium_readl(fts, RXFLR);
-	ns = 4U * NSEC_PER_SEC / fts->max_freq * nents;
+	/* fts->max_freq can be 0 when the clock is unconfigured or the
+	 * ACPI property is absent; guard the division like the TX path.
+	 */
+	ns = 4U * NSEC_PER_SEC / max_t(u32, fts->max_freq, 1) * nents;
 
 	while (phytium_spi_dma_rx_busy(fts) && retry--)
 		spi_transfer_delay_ns(ns);
