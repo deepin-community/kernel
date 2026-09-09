@@ -879,7 +879,7 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	qspi->dev = dev;
 	platform_set_drvdata(pdev, qspi);
 
-	ret = devm_spi_register_controller(dev, ctrl);
+	ret = spi_register_controller(ctrl);
 	if (ret) {
 		dev_err(dev, "failed to register SPI controller: %d\n", ret);
 		goto probe_clk_failed;
@@ -915,8 +915,11 @@ static int phytium_qspi_probe(struct platform_device *pdev)
 	return 0;
 
 probe_setup_failed:
-	clk_disable_unprepare(qspi->clk);
+	/* the controller was registered: tear it down before killing
+	 * the clock it depends on */
+	spi_unregister_controller(ctrl);
 probe_clk_failed:
+	clk_disable_unprepare(qspi->clk);
 	if (dev->of_node) {
 		pm_runtime_put_sync(dev);
 		pm_runtime_disable(dev);
@@ -940,6 +943,9 @@ static void phytium_qspi_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	bus_unregister_notifier(&spi_bus_type, &qspi->nb);
+	/* unregister children and the transfer queue before the hardware
+	 * (clock, runtime PM) is turned off */
+	spi_unregister_controller(qspi->ctrl);
 
 	clk_disable_unprepare(qspi->clk);
 
