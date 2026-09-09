@@ -23,6 +23,8 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 	const char *partname;
 	int nr_parts, i, ret = 0;
 	struct fwnode_handle *child_handle = NULL;
+	struct fwnode_handle *partitions_node = NULL;
+	const struct fwnode_handle *parse_root;
 	bool dedicated = true;
 	struct device *dev;
 
@@ -30,14 +32,16 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 
 	if (!master->parent) {/*master*/
 		/*
-		 * Probe whether the device has any child node; the
-		 * returned reference is only needed for the check.
+		 * A conventional "partitions" subnode groups the actual
+		 * partition children; descend into it when present,
+		 * mirroring the OF parser. Only such a container enables
+		 * strict dedicated mode — an unrelated child node must
+		 * not, and without the container the direct subnodes are
+		 * parsed leniently as partitions.
 		 */
-		child_handle = device_get_next_child_node(dev, NULL);
-		if (child_handle) {
-			fwnode_handle_put(child_handle);
-			child_handle = NULL;
-		} else {
+		partitions_node = fwnode_get_named_child_node(dev->fwnode,
+							      "partitions");
+		if (!partitions_node) {
 			pr_debug("%s: 'partitions' subnode not found on %pfw. Trying to parse direct subnodes as partitions.\n",
 				master->name, dev->fwnode);
 			dedicated = false;
@@ -52,19 +56,24 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 	 * a JEDEC ID).
 	 */
 
+	parse_root = partitions_node ? partitions_node : dev->fwnode;
+
 	nr_parts = 0;
-	device_for_each_child_node(dev, child_handle) {
+	fwnode_for_each_child_node(parse_root, child_handle)
 		nr_parts++;
+
+	if (nr_parts == 0) {
+		ret = 0;
+		goto out_put;
+	}
+	parts = kcalloc(nr_parts, sizeof(*parts), GFP_KERNEL);
+	if (!parts) {
+		ret = -ENOMEM;
+		goto out_put;
 	}
 
-	if (nr_parts == 0)
-		return 0;
-	parts = kcalloc(nr_parts, sizeof(*parts), GFP_KERNEL);
-	if (!parts)
-		return -ENOMEM;
-
 	i = 0;
-	device_for_each_child_node(dev, child_handle) {
+	fwnode_for_each_child_node(parse_root, child_handle) {
 		u64 offset = 0, length = 0;
 		bool bool_match;
 
@@ -107,7 +116,7 @@ static int parse_acpi_fixed_partitions(struct mtd_info *master,
 
 	*pparts = parts;
 	ret = nr_parts;
-	return ret;
+	goto out_put;
 
 acpipart_fail:
 	pr_err("%s: error parsing acpipart partition %pfw (%pfw)\n",
@@ -120,6 +129,9 @@ acpipart_none:
 	for (i = 0; i < nr_parts; i++)
 		fwnode_handle_put(parts[i].fwnode);
 	kfree(parts);
+out_put:
+	/* NULL-safe when no container node was found */
+	fwnode_handle_put(partitions_node);
 	return ret;
 }
 
