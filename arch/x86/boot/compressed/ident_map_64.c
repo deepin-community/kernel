@@ -180,14 +180,7 @@ void initialize_identity_maps(void *rmode)
 	sev_prep_identity_maps(top_level_pgt);
 
 	/* Load the new page-table. */
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-		iee_write_cr3_early(top_level_pgt);
-	else
-		write_cr3(top_level_pgt);
-	#else
 	write_cr3(top_level_pgt);
-	#endif
 
 	/*
 	 * Now that the required page table mappings are established and a
@@ -231,14 +224,7 @@ static pte_t *split_large_pmd(struct x86_mapping_info *info,
 	pmd = __pmd((unsigned long)pte | info->kernpg_flag);
 	set_pmd(pmdp, pmd);
 	/* Flush TLB to establish the new PMD */
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-		iee_write_cr3_early(top_level_pgt);
-	else
-		write_cr3(top_level_pgt);
-	#else
 	write_cr3(top_level_pgt);
-	#endif
 
 	return pte + pte_index(__address);
 }
@@ -339,14 +325,7 @@ static int set_clr_page_flags(struct x86_mapping_info *info,
 		snp_set_page_private(__pa(address & PAGE_MASK));
 
 	/* Flush TLB after changing encryption attribute */
-	#ifdef CONFIG_IEE_SIP
-	if(haoc_enabled)
-		iee_write_cr3_early(top_level_pgt);
-	else
-		write_cr3(top_level_pgt);
-	#else
 	write_cr3(top_level_pgt);
-	#endif
 
 	return 0;
 }

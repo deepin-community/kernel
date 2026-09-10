@@ -406,7 +406,7 @@ out:
 
 /* These bits should not change their value after CPU init is finished. */
 #ifdef CONFIG_IEE_SIP
-unsigned long cr4_pinned_mask =
+const unsigned long cr4_pinned_mask =
 	X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_UMIP |
 	X86_CR4_FSGSBASE | X86_CR4_CET;
 DEFINE_STATIC_KEY_FALSE_RO(cr_pinning);
@@ -2087,6 +2087,15 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 
 	/* Disable the PN if appropriate */
 	squash_the_stupid_serial_number(c);
+
+#ifdef CONFIG_IEE_SIP
+	/*
+	 * The IEE rwx gate re-enables SMEP/SMAP from this mask; keep it in
+	 * sync with what setup_smep()/setup_smap() are about to enable.
+	 */
+	iee_cr4_set_mask = (cpu_has(c, X86_FEATURE_SMEP) ? X86_CR4_SMEP : 0) |
+			   (cpu_has(c, X86_FEATURE_SMAP) ? X86_CR4_SMAP : 0);
+#endif /* CONFIG_IEE_SIP */
 
 	/* Set up SMEP/SMAP/UMIP */
 	setup_smep(c);
