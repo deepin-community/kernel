@@ -1653,7 +1653,12 @@ static int acpi_ec_setup(struct acpi_ec *ec, struct acpi_device *device, bool ca
 
 	ret = ec_install_handlers(ec, device, call_reg);
 	if (ret) {
+#ifdef CONFIG_ARCH_PHYTIUM
+		if (read_cpuid_implementor() != ARM_CPU_IMP_PHYTIUM)
+			ec_remove_handlers(ec);
+#else
 		ec_remove_handlers(ec);
+#endif
 
 		if (ec == first_ec)
 			first_ec = NULL;

@@ -3,6 +3,7 @@
 #include <linux/string.h>
 #include <linux/classtypes.h>
 #include <linux/slab.h>
+#include <linux/kstrtox.h>
 
 static char cpu_name[256];
 static bool get_cpu_flag;
@@ -60,3 +61,54 @@ char *get_cpu_name(void)
 	return cpu_name;
 }
 EXPORT_SYMBOL(get_cpu_name);
+
+static unsigned long chassis_type;
+
+unsigned long get_chassis_types(void)
+{
+	const char *chassis_type_str = NULL;
+
+	if (chassis_type)
+		return chassis_type;
+
+	chassis_type_str = dmi_get_system_info(DMI_CHASSIS_TYPE);
+	if (!chassis_type_str)
+		return 0;
+
+	if (kstrtoul(chassis_type_str, 10, &chassis_type) != 0)
+		return 0;
+
+	return chassis_type;
+}
+EXPORT_SYMBOL(get_chassis_types);
+
+bool chassis_types_is_laptop(void)
+{
+	unsigned long type;
+
+	type = get_chassis_types();
+
+	switch (type) {
+	case 0x09: /* Laptop */
+	case 0x0A: /* Notebook */
+		return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL(chassis_types_is_laptop);
+
+bool chassis_types_is_allinone(void)
+{
+	unsigned long type;
+
+	type = get_chassis_types();
+
+	switch (type) {
+	case 0x0D: /* All in One */
+		return true;
+	}
+
+	return false;
+}
+EXPORT_SYMBOL(chassis_types_is_allinone);
