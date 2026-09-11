@@ -2524,6 +2524,22 @@ Miscellaneous controller provides 3 interface files. If two misc resources (res_
 		The number of times the cgroup's resource usage was
 		about to go over the max boundary.
 
+DMEM
+----
+
+The "dmem" controller regulates device memory (such as GPU VRAM)
+consumption. The controller is similar to the memory controller
+but tracks device-specific memory rather than system RAM.
+
+dmem.min, dmem.low, and dmem.max
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+dmem.min and dmem.low define minimum and best-effort protection
+for device memory, similar to memory.min and memory.low for RAM.
+dmem.max sets a hard limit on device memory usage.
+
+The interface is available at /sys/fs/cgroup/<cgroup>/dmem.{min,low,max}.
+
 Migration and Ownership
 ~~~~~~~~~~~~~~~~~~~~~~~
 

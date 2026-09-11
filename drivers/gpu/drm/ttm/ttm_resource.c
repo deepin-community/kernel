@@ -25,6 +25,7 @@
 #include <linux/iosys-map.h>
 #include <linux/io-mapping.h>
 #include <linux/scatterlist.h>
+#include <linux/cgroup_dmem.h>
 
 #include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_placement.h>
@@ -223,9 +224,43 @@ void ttm_resource_fini(struct ttm_resource_manager *man,
 }
 EXPORT_SYMBOL(ttm_resource_fini);
 
+/**
+ * ttm_resource_try_charge - charge a resource manager's cgroup pool
+ * @bo: buffer for which an allocation should be charged
+ * @place: where the allocation is attempted to be placed
+ * @ret_pool: on charge success, the pool that was charged
+ * @ret_limit_pool: on charge failure, the pool responsible for the failure
+ *
+ * Should be used to charge cgroups before attempting resource allocation.
+ * When charging succeeds, the value of ret_pool should be passed to
+ * ttm_resource_alloc.
+ *
+ * Returns: 0 on charge success, negative errno on failure.
+ */
+int ttm_resource_try_charge(struct ttm_buffer_object *bo,
+			    const struct ttm_place *place,
+			    struct dmem_cgroup_pool_state **ret_pool,
+			    struct dmem_cgroup_pool_state **ret_limit_pool)
+{
+	struct ttm_resource_manager *man =
+		ttm_manager_type(bo->bdev, place->mem_type);
+
+	if (!man->cg) {
+		*ret_pool = NULL;
+		if (ret_limit_pool)
+			*ret_limit_pool = NULL;
+		return 0;
+	}
+
+	return dmem_cgroup_try_charge(man->cg, bo->base.size, ret_pool,
+				      ret_limit_pool);
+}
+EXPORT_SYMBOL(ttm_resource_try_charge);
+
 int ttm_resource_alloc(struct ttm_buffer_object *bo,
 		       const struct ttm_place *place,
-		       struct ttm_resource **res_ptr)
+		       struct ttm_resource **res_ptr,
+		       struct dmem_cgroup_pool_state *charge_pool)
 {
 	struct ttm_resource_manager *man =
 		ttm_manager_type(bo->bdev, place->mem_type);
@@ -234,6 +269,8 @@ int ttm_resource_alloc(struct ttm_buffer_object *bo,
 	ret = man->func->alloc(man, bo, place, res_ptr);
 	if (ret)
 		return ret;
+
+	(*res_ptr)->css = charge_pool;
 
 	spin_lock(&bo->bdev->lru_lock);
 	ttm_resource_add_bulk_move(*res_ptr, bo);
@@ -244,6 +281,7 @@ int ttm_resource_alloc(struct ttm_buffer_object *bo,
 void ttm_resource_free(struct ttm_buffer_object *bo, struct ttm_resource **res)
 {
 	struct ttm_resource_manager *man;
+	struct dmem_cgroup_pool_state *pool;
 
 	if (!*res)
 		return;
@@ -251,9 +289,13 @@ void ttm_resource_free(struct ttm_buffer_object *bo, struct ttm_resource **res)
 	spin_lock(&bo->bdev->lru_lock);
 	ttm_resource_del_bulk_move(*res, bo);
 	spin_unlock(&bo->bdev->lru_lock);
+
+	pool = (*res)->css;
 	man = ttm_manager_type(bo->bdev, (*res)->mem_type);
 	man->func->free(man, *res);
 	*res = NULL;
+	if (man->cg)
+		dmem_cgroup_uncharge(pool, bo->base.size);
 }
 EXPORT_SYMBOL(ttm_resource_free);
 
