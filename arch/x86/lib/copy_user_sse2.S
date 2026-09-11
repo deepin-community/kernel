@@ -65,7 +65,7 @@
 
 203:
     addl %ecx,%edx/* ecx is zerorest also */
-    jmp Lsse2_copy_user_handle_tail
+    jmp .Lsse2_copy_user_handle_tail
 
     _ASM_EXTABLE_UA(200b, 203b)
     _ASM_EXTABLE_UA(201b, 203b)
@@ -157,7 +157,7 @@ SYM_FUNC_START(copy_user_sse2_opt_string)
     movl %ecx,%edx      /* ecx is zerorest also */
 100:
     sfence
-    jmp Lsse2_copy_user_handle_tail
+    jmp .Lsse2_copy_user_handle_tail
 
   _ASM_EXTABLE_UA(10b, 100b)
   _ASM_EXTABLE_UA(11b, 100b)
@@ -182,6 +182,45 @@ SYM_FUNC_START(copy_user_sse2_opt_string)
   _ASM_EXTABLE_UA(29b, 100b)
 
   _ASM_EXTABLE_UA(80b, 99b)
+
+/*
+ * Try to copy last bytes and clear the rest if needed.
+ * Since protection fault in copy_from/to_user is not a normal situation,
+ * it is not necessary to optimize tail handling.
+ * Don't try to copy the tail if machine check happened
+ *
+ * Input:
+ * rdi destination
+ * rsi source
+ * rdx count
+ *
+ * Output:
+ * eax uncopied bytes or 0 if successful.
+ */
+.Lsse2_copy_user_handle_tail:
+    movq %rdx,%rcx
+    /*
+     * The trap number and error code are both 32 bits.
+     */
+    cmp $X86_TRAP_MC,%eax       /* check if X86_TRAP_MC */
+    je 3f
+1:  rep movsb
+2:  mov %rcx,%rax
+    ASM_CLAC
+    RET
+
+    /*
+     * Return zero to pretend that this copy succeeded. This
+     * is counter-intuitive, but needed to prevent the code
+     * in lib/iov_iter.c from retrying and running back into
+     * the poison cache line again. The machine check handler
+     * will ensure that a SIGBUS is sent to the task.
+     */
+3:  xorl %eax,%eax
+    ASM_CLAC
+    RET
+
+    _ASM_EXTABLE_UA(1b, 2b)
 SYM_FUNC_END(copy_user_sse2_opt_string)
 EXPORT_SYMBOL(copy_user_sse2_opt_string)
 
@@ -211,45 +250,5 @@ SYM_FUNC_START(fpu_save_xmm0_3)
     RET//ret
 SYM_FUNC_END(fpu_save_xmm0_3)
 EXPORT_SYMBOL(fpu_save_xmm0_3)
-
-/*
- * Try to copy last bytes and clear the rest if needed.
- * Since protection fault in copy_from/to_user is not a normal situation,
- * it is not necessary to optimize tail handling.
- * Don't try to copy the tail if machine check happened
- *
- * Input:
- * rdi destination
- * rsi source
- * rdx count
- *
- * Output:
- * eax uncopied bytes or 0 if successful.
- */
-SYM_CODE_START_LOCAL(Lsse2_copy_user_handle_tail)
-    movq %rdx,%rcx
-    /*
-     * The trap number and error code are both 32 bits.
-     */
-    cmp $X86_TRAP_MC,%eax       /* check if X86_TRAP_MC */
-    je 3f
-1:  rep movsb
-2:  mov %rcx,%rax
-    ASM_CLAC
-    RET
-
-    /*
-     * Return zero to pretend that this copy succeeded. This
-     * is counter-intuitive, but needed to prevent the code
-     * in lib/iov_iter.c from retrying and running back into
-     * the poison cache line again. The machine check handler
-     * will ensure that a SIGBUS is sent to the task.
-     */
-3:  xorl %eax,%eax
-    ASM_CLAC
-    RET
-
-    _ASM_EXTABLE_UA(1b, 2b)
-SYM_CODE_END(Lsse2_copy_user_handle_tail)
 
 /*****************************************************************************/
