@@ -41,7 +41,6 @@
 
 /* The number of debug register. */
 #define LEAPRAID_DEBUGLOG_SZ_MAX    16
-#define LEAPRAID_DEBUGLOG_DWORDS_PER_LINE 4
 
 /* Reply post host register definitions. */
 #define REP_POST_HOST_IDX_REG_CNT 16
@@ -178,7 +177,6 @@
 #define LEAPRAID_CFG_PAGE_NUM_DEV0      0x0
 
 /* SAS device page 0 flags. */
-#define LEAPRAID_SAS_DEV_P0_FLG_SATA_SMART      0x0040
 #define LEAPRAID_SAS_DEV_P0_FLG_ENC_LEVEL_VALID 0x0002
 #define LEAPRAID_SAS_DEV_P0_FLG_DEV_PRESENT     0x0001
 #define LEAPRAID_SAS_DEV_P0_CON_NAME_LEN        4
@@ -522,7 +520,7 @@ struct leapraid_sge_simple_union {
 	union {
 		__le32 addr32;
 		__le64 addr64;
-	} u;
+	} __packed __aligned(4) u;
 } __packed __aligned(4);
 
 /**
@@ -541,7 +539,7 @@ struct leapraid_sge_chain_union {
 	union {
 		__le32 addr32;
 		__le64 addr64;
-	} u;
+	} __packed __aligned(4) u;
 } __packed __aligned(4);
 
 /**
@@ -1651,7 +1649,7 @@ struct leapraid_adapter_features_req {
  * @r9: Reserved.
  */
 struct leapraid_adapter_features_rep {
-	u16 msg_ver;
+	__le16 msg_ver;
 	u8 msg_len;
 	u8 func;
 	u16 header_ver;
@@ -1665,7 +1663,7 @@ struct leapraid_adapter_features_rep {
 	u8 r4;
 	u8 max_msix_vectors;
 	__le16 req_slot;
-	u8 r5[2];
+	__le16 product_id;
 	__le32 adapter_caps;
 	__le32 fw_version;
 	__le16 sas_wide_max_qdepth;
@@ -1850,7 +1848,7 @@ struct leapraid_evt_sas_topo_phy_entry {
  * @exp_dev_hdl: Expander device handle.
  * @num_phys: Number of PHYs in this entry.
  * @r1: Reserved.
- * @entry_num: Entry index.
+ * @entry_num: Number of PHY elements.
  * @start_phy_num: Start PHY number.
  * @exp_status: Expander status.
  * @physical_port: Physical port number.
@@ -1888,7 +1886,7 @@ struct leapraid_evt_data_sas_enc_dev_status_change {
 	__le16 num_slots;
 	__le16 start_slot;
 	__le32 phy_bits;
-};
+} __packed __aligned(4);
 
 /**
  * struct leapraid_io_unit_ctrl_req - I/O unit control request
@@ -1912,7 +1910,7 @@ struct leapraid_io_unit_ctrl_req {
 	u8 r1;
 	u8 chain_offset;
 	u8 func;
-	u16 dev_hdl;
+	__le16 dev_hdl;
 	u8 adapter_para;
 	u8 msg_flag;
 	u8 r2[6];
