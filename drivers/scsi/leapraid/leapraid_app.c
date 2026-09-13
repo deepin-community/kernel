@@ -134,13 +134,59 @@ struct leapraid_ioctl_command {
 	u8 mf[];
 };
 
-static struct leapraid_adapter *leapraid_ctl_lookup_adapter(int adapter_id)
+static int leapraid_ctl_validate_sge_offset(struct leapraid_adapter *adapter,
+					    const struct leapraid_req *req,
+					    u32 offset_bytes,
+					    size_t h2c_size,
+					    size_t c2h_size)
+{
+	size_t sge_bytes;
+
+	switch (req->func) {
+	case LEAPRAID_FUNC_SCSIIO:
+	case LEAPRAID_FUNC_SCSIIO_RAID_PASSTHROUGH:
+	case LEAPRAID_FUNC_SMP_PASSTHROUGH:
+	case LEAPRAID_FUNC_SCSIIO_SATA_PASSTHROUGH:
+	case LEAPRAID_FUNC_FW_DOWNLOAD:
+	case LEAPRAID_FUNC_FW_UPLOAD:
+		sge_bytes = LEAPRAID_IEEE_SGE64_ENTRY_SIZE;
+		break;
+	default:
+		sge_bytes = adapter->adapter_attr.use_32_dma_mask ?
+			sizeof(struct leapraid_sge_simple32) :
+			sizeof(struct leapraid_sge_simple64);
+		break;
+	}
+
+	if (h2c_size && c2h_size)
+		sge_bytes *= 2;
+
+	if (offset_bytes > LEAPRAID_REQUEST_SIZE - sge_bytes) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Invalid offset_bytes=%u for func=0x%x\n",
+			__func__, offset_bytes, req->func);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static struct leapraid_adapter *leapraid_ctl_lookup_adapter(int adapter_id,
+							    bool track_mmap)
 {
 	struct leapraid_adapter *adapter;
+	struct Scsi_Host *shost;
 
 	spin_lock(&leapraid_adapter_lock);
 	list_for_each_entry(adapter, &leapraid_adapter_list, list) {
 		if (adapter->adapter_attr.id == adapter_id) {
+			if (READ_ONCE(adapter->access_ctrl.host_removing))
+				break;
+			shost = adapter->shost;
+			if (!shost || !scsi_host_get(shost))
+				break;
+			if (track_mmap)
+				atomic_inc(&adapter->fw_log_desc.mmap_refcnt);
 			spin_unlock(&leapraid_adapter_lock);
 			return adapter;
 		}
@@ -148,6 +194,12 @@ static struct leapraid_adapter *leapraid_ctl_lookup_adapter(int adapter_id)
 	spin_unlock(&leapraid_adapter_lock);
 
 	return NULL;
+}
+
+static void leapraid_ctl_put_adapter(struct leapraid_adapter *adapter)
+{
+	if (adapter && adapter->shost)
+		scsi_host_put(adapter->shost);
 }
 
 static void leapraid_ctl_scsiio_cmd(struct leapraid_adapter *adapter,
@@ -245,6 +297,7 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 	unsigned long timeout;
 	u16 dev_hdl = LEAPRAID_INVALID_DEV_HANDLE;
 	bool issue_reset = false;
+	u32 data_sge_offset_bytes;
 	u32 sz;
 	int rc;
 
@@ -257,9 +310,7 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 	if (!leap_mpi_req)
 		return -ENOMEM;
 
-	if (karg->data_sge_offset > (UINT_MAX / LEAPRAID_SGE_OFFSET_SIZE) ||
-	    karg->data_sge_offset * LEAPRAID_SGE_OFFSET_SIZE >
-	    LEAPRAID_REQUEST_SIZE) {
+	if (karg->data_sge_offset > (UINT_MAX / LEAPRAID_SGE_OFFSET_SIZE)) {
 		dev_err(&adapter->pdev->dev,
 			"%s: Invalid data_sge_offset=%u\n",
 			__func__, karg->data_sge_offset);
@@ -267,8 +318,17 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		goto out_cleanup;
 	}
 
-	if (copy_from_user(leap_mpi_req, mf,
-			   karg->data_sge_offset * LEAPRAID_SGE_OFFSET_SIZE)) {
+	data_sge_offset_bytes = karg->data_sge_offset *
+				LEAPRAID_SGE_OFFSET_SIZE;
+	if (data_sge_offset_bytes > LEAPRAID_REQUEST_SIZE) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Invalid data_sge_offset=%u\n",
+			__func__, karg->data_sge_offset);
+		rc = -EINVAL;
+		goto out_cleanup;
+	}
+
+	if (copy_from_user(leap_mpi_req, mf, data_sge_offset_bytes)) {
 		dev_err(&adapter->pdev->dev,
 			"%s: Failed to copy request message from user\n",
 			__func__);
@@ -276,16 +336,21 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		goto out_cleanup;
 	}
 
+	h2c_size = karg->h2c_size;
+	c2h_size = karg->c2h_size;
+	rc = leapraid_ctl_validate_sge_offset(adapter, leap_mpi_req,
+					      data_sge_offset_bytes,
+					      h2c_size, c2h_size);
+	if (rc)
+		goto out_cleanup;
+
 	taskid = adapter->driver_cmds.ctl_cmd.taskid;
 
 	adapter->driver_cmds.ctl_cmd.status = LEAPRAID_CMD_PENDING;
-	memset(&adapter->driver_cmds.ctl_cmd.reply, 0,
-	       LEAPRAID_REPLY_SIZE);
+	memset(&adapter->driver_cmds.ctl_cmd.reply, 0, LEAPRAID_REPLY_SIZE);
 	ctl_sp_mpi_req = leapraid_get_task_desc(adapter, taskid);
 	memset(ctl_sp_mpi_req, 0, LEAPRAID_REQUEST_SIZE);
-	memcpy(ctl_sp_mpi_req,
-	       leap_mpi_req,
-	       karg->data_sge_offset * LEAPRAID_SGE_OFFSET_SIZE);
+	memcpy(ctl_sp_mpi_req, leap_mpi_req, data_sge_offset_bytes);
 
 	if (ctl_sp_mpi_req->func == LEAPRAID_FUNC_SCSIIO ||
 	    ctl_sp_mpi_req->func == LEAPRAID_FUNC_SCSIIO_RAID_PASSTHROUGH ||
@@ -305,8 +370,6 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		goto out_cleanup;
 	}
 
-	h2c_size = karg->h2c_size;
-	c2h_size = karg->c2h_size;
 	if (h2c_size) {
 		h2c = dma_alloc_coherent(&adapter->pdev->dev, h2c_size,
 					 &h2c_dma_addr, GFP_KERNEL);
@@ -331,8 +394,7 @@ static int leapraid_ctl_do_command(struct leapraid_adapter *adapter,
 		}
 	}
 
-	psge = (void *)ctl_sp_mpi_req + (karg->data_sge_offset *
-					 LEAPRAID_SGE_OFFSET_SIZE);
+	psge = (void *)ctl_sp_mpi_req + data_sge_offset_bytes;
 	init_completion(&adapter->driver_cmds.ctl_cmd.done);
 
 	switch (ctl_sp_mpi_req->func) {
@@ -518,7 +580,7 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 				   void __user *arg)
 {
 	struct leapraid_ioctl_header ioctl_header;
-	struct leapraid_adapter *adapter;
+	struct leapraid_adapter *adapter = NULL;
 	struct leapraid_ioctl_command __user *uarg;
 	struct leapraid_ioctl_command karg;
 	int rc = -ENOIOCTLCMD;
@@ -530,7 +592,7 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 		return -EFAULT;
 	}
 
-	adapter = leapraid_ctl_lookup_adapter(ioctl_header.adapter_id);
+	adapter = leapraid_ctl_lookup_adapter(ioctl_header.adapter_id, false);
 	if (!adapter)
 		return -EFAULT;
 
@@ -539,7 +601,8 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 			 "%s: Failed, thermal_alert=%d\n",
 			 __func__,
 			 atomic_read(&adapter->overheat_desc.thermal_alert));
-		return -EFAULT;
+		rc = -EFAULT;
+		goto out_put;
 	}
 
 	mutex_lock(&adapter->access_ctrl.pci_access_lock);
@@ -619,6 +682,8 @@ static int leapraid_ctl_ioctl_main(struct file *file, unsigned int cmd,
 
 unlock:
 	mutex_unlock(&adapter->access_ctrl.pci_access_lock);
+out_put:
+	leapraid_ctl_put_adapter(adapter);
 	return rc;
 }
 
@@ -628,32 +693,67 @@ static long leapraid_ctl_ioctl(struct file *file, unsigned int cmd,
 	return leapraid_ctl_ioctl_main(file, cmd, (void __user *)arg);
 }
 
+static void leapraid_fw_mmap_open(struct vm_area_struct *vma)
+{
+	struct leapraid_adapter *adapter = vma->vm_private_data;
+
+	if (!adapter)
+		return;
+
+	get_device(&adapter->shost->shost_gendev);
+	atomic_inc(&adapter->fw_log_desc.mmap_refcnt);
+}
+
+static void leapraid_fw_mmap_close(struct vm_area_struct *vma)
+{
+	struct leapraid_adapter *adapter = vma->vm_private_data;
+
+	if (!adapter)
+		return;
+
+	if (atomic_dec_and_test(&adapter->fw_log_desc.mmap_refcnt))
+		wake_up(&adapter->fw_log_desc.mmap_waitq);
+	leapraid_ctl_put_adapter(adapter);
+}
+
+static const struct vm_operations_struct leapraid_fw_mmap_vm_ops = {
+	.open = leapraid_fw_mmap_open,
+	.close = leapraid_fw_mmap_close,
+};
+
 static int leapraid_fw_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-	struct leapraid_adapter *adapter;
+	struct leapraid_adapter *adapter = NULL;
 	/* Userspace passes the adapter ID via vma->vm_pgoff. */
 	u32 adapter_id = vma->vm_pgoff;
 	unsigned long length;
-	int rc;
+	int rc = -EINVAL;
 
 	length = vma->vm_end - vma->vm_start;
 
-	adapter = leapraid_ctl_lookup_adapter(adapter_id);
+	adapter = leapraid_ctl_lookup_adapter(adapter_id, true);
 	if (!adapter) {
 		pr_err("%s: No adapter found!\n", __func__);
 		return -EINVAL;
+	}
+
+	if (READ_ONCE(adapter->access_ctrl.host_removing)) {
+		rc = -EAGAIN;
+		goto out_put;
 	}
 
 	if (length > (LEAPRAID_SYS_LOG_BUF_SIZE +
 		      LEAPRAID_SYS_LOG_BUF_RESERVE)) {
 		dev_err(&adapter->pdev->dev,
 			"Requested mapping size is too large!\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto out_put;
 	}
 
 	if (!adapter->fw_log_desc.fw_log_buffer) {
 		dev_err(&adapter->pdev->dev, "No log buffer!\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto out_put;
 	}
 
 	vma->vm_pgoff = 0;
@@ -665,10 +765,20 @@ static int leapraid_fw_mmap(struct file *filp, struct vm_area_struct *vma)
 	if (rc) {
 		dev_err(&adapter->pdev->dev,
 			"Failed to map memory to user space!\n");
-		return rc;
+		goto out_put;
 	}
 
-	return 0;
+	vma->vm_private_data = adapter;
+	vma->vm_ops = &leapraid_fw_mmap_vm_ops;
+	leapraid_fw_mmap_open(vma);
+
+	rc = 0;
+out_put:
+	if (adapter &&
+	    atomic_dec_and_test(&adapter->fw_log_desc.mmap_refcnt))
+		wake_up(&adapter->fw_log_desc.mmap_waitq);
+	leapraid_ctl_put_adapter(adapter);
+	return rc;
 }
 
 static const struct file_operations leapraid_ctl_fops = {
