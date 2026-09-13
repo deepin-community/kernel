@@ -1343,6 +1343,14 @@ static void leapraid_transport_smp_handler(struct bsg_job *job,
 	if (rc)
 		goto release_lock;
 
+	if (h2c_size < LEAPRAID_SMP_FRAME_HEADER_SIZE) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Invalid SMP request payload size=%zu\n",
+			__func__, h2c_size);
+		rc = -EINVAL;
+		goto free_req_buf;
+	}
+
 	if (addr_out)
 		sg_copy_to_buffer(job->request_payload.sg_list,
 				  job->request_payload.sg_cnt, addr_out,
@@ -1352,6 +1360,14 @@ static void leapraid_transport_smp_handler(struct bsg_job *job,
 				     &c2h_dma_addr, &c2h_size, &addr_in);
 	if (rc)
 		goto free_req_buf;
+
+	if (c2h_size < LEAPRAID_SMP_FRAME_HEADER_SIZE) {
+		dev_err(&adapter->pdev->dev,
+			"%s: Invalid SMP reply payload size=%zu\n",
+			__func__, c2h_size);
+		rc = -EINVAL;
+		goto free_rep_buf;
+	}
 
 	rc = leapraid_check_adapter_is_op(adapter, LEAPRAID_DB_WAIT_OP_SHORT,
 					  __func__);
