@@ -301,6 +301,9 @@ enum {
 	/* don't let cmds which take a very long time pin lagging for too long */
 	MAX_LAGGING_PERIODS	= 10,
 
+	/* max boost duration in microseconds */
+	MAX_BOOST_US		= 60 * USEC_PER_SEC,
+
 	/*
 	 * Count IO size in 4k pages.  The 12bit shift helps keeping
 	 * size-proportional components of cost calculation in closer
@@ -554,6 +557,7 @@ struct ioc_gq {
 struct ioc_cgrp {
 	struct blkcg_policy_data	cpd;
 	unsigned int			dfl_weight;
+	u64				boost_deadline;
 };
 
 struct ioc_now {
@@ -2312,6 +2316,22 @@ static void ioc_timer_fn(struct timer_list *timer)
 		usage_us = iocg->usage_delta_us;
 		usage_us_sum += usage_us;
 
+		/* skip surplus evaluation if this cgroup is boosted */
+		{
+			struct blkcg_gq *blkg = iocg_to_blkg(iocg);
+			struct ioc_cgrp *iocc = blkcg_to_iocc(blkg->blkcg);
+
+			if (READ_ONCE(iocc->boost_deadline) > now.now_ns) {
+				if (iocg->inuse != iocg->active &&
+				    !iocg->abs_vdebt) {
+					__propagate_weights(iocg, iocg->active,
+							    iocg->active, true,
+							    &now);
+				}
+				continue;
+			}
+		}
+
 		/* see whether there's surplus vtime */
 		WARN_ON_ONCE(!list_empty(&iocg->surplus_list));
 		if (hw_inuse < hw_active ||
@@ -3510,6 +3530,46 @@ err:
 	return ret;
 }
 
+static int ioc_boost_show(struct seq_file *sf, void *v)
+{
+	struct blkcg *blkcg = css_to_blkcg(seq_css(sf));
+	struct ioc_cgrp *iocc = blkcg_to_iocc(blkcg);
+	s64 remaining_us = 0;
+
+	if (READ_ONCE(iocc->boost_deadline) > ktime_get_ns())
+		remaining_us = div64_s64(iocc->boost_deadline - ktime_get_ns(),
+					 NSEC_PER_USEC);
+
+	seq_printf(sf, "%lld\n", max_t(s64, remaining_us, 0));
+	return 0;
+}
+
+static ssize_t ioc_boost_write(struct kernfs_open_file *of, char *buf,
+				   size_t nbytes, loff_t off)
+{
+	struct blkcg *blkcg = css_to_blkcg(of_css(of));
+	struct ioc_cgrp *iocc = blkcg_to_iocc(blkcg);
+	u64 duration_us;
+	int ret;
+
+	ret = kstrtou64(strim(buf), 10, &duration_us);
+	if (ret)
+		return ret;
+
+	if (duration_us > MAX_BOOST_US)
+		return -EINVAL;
+
+	if (duration_us == 0) {
+		WRITE_ONCE(iocc->boost_deadline, 0);
+	} else {
+		u64 deadline = ktime_get_ns() + duration_us * NSEC_PER_USEC;
+
+		WRITE_ONCE(iocc->boost_deadline, deadline);
+	}
+
+	return nbytes;
+}
+
 static struct cftype ioc_files[] = {
 	{
 		.name = "weight",
@@ -3528,6 +3588,12 @@ static struct cftype ioc_files[] = {
 		.flags = CFTYPE_ONLY_ON_ROOT,
 		.seq_show = ioc_cost_model_show,
 		.write = ioc_cost_model_write,
+	},
+	{
+		.name = "cost.boost",
+		.flags = CFTYPE_NOT_ON_ROOT,
+		.seq_show = ioc_boost_show,
+		.write = ioc_boost_write,
 	},
 	{}
 };
