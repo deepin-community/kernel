@@ -34,10 +34,11 @@ struct iee_free_slab_work {
 void iee_free_slab(struct kmem_cache *s, struct slab *slab,
 		   void (*do_free_slab)(struct work_struct *work))
 {
-	if(haoc_enabled)
-	return;
 	struct iee_free_slab_work *iee_free_slab_work =
 		kmalloc(sizeof(struct iee_free_slab_work), GFP_ATOMIC);
+
+	if (!iee_free_slab_work)
+		return;
 
 	iee_free_slab_work->s = s;
 	iee_free_slab_work->slab = slab;

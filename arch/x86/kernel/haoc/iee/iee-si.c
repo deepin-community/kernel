@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <linux/cache.h>
 #include <linux/init.h>
+
 #include <asm/haoc/iee-si.h>
 #include <asm/haoc/haoc-def.h>
 #include <asm/set_memory.h>
 #include <asm/haoc/iee.h>
+
+/*
+ * SMEP/SMAP bits the boot CPU actually enabled. The rwx gate exit
+ * re-enables these after running the handler; it must never set bits
+ * the CPU does not support (writing them to CR4 would #GP).
+ * Initialized in identify_cpu() before setup_smep()/setup_smap().
+ */
+unsigned long iee_cr4_set_mask __read_mostly;
 
 unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 {
@@ -36,9 +46,30 @@ unsigned long __iee_si_code notrace _iee_si_handler(int flag, ...)
 			break;
 		}
 		case IEE_WRITE_CR4: {
+			unsigned long bits_changed = 0;
+			/*
+			 * The handler runs from user-mapped .iee.si_text with SMEP
+			 * already cleared by the gate: writing CR4 with SMEP=1
+			 * here would fault on the next instruction fetch. SMEP is
+			 * restored by the gate exit per iee_cr4_set_mask, so it
+			 * takes no part in the pinning enforcement below.
+			 */
+			const unsigned long check_mask = cr4_pinned_mask & ~X86_CR4_SMEP;
+			const unsigned long check_bits = cr4_pinned_bits & ~X86_CR4_SMEP;
+
 			val = va_arg(pArgs, u64);
-			val &= ~(X86_CR4_SMEP);
+			val &= ~X86_CR4_SMEP;
+			if (static_branch_likely(&cr_pinning)) {
+				if (unlikely((val & check_mask) != check_bits)) {
+					bits_changed = (val & check_mask) ^ check_bits;
+					val = (val & ~check_mask) | check_bits;
+				}
+			}
 			asm volatile("mov %0,%%cr4" : "+r" (val) : : "memory");
+			/* Warn after we've corrected the changed bits. */
+			if (static_branch_likely(&cr_pinning))
+				WARN_ONCE(bits_changed, "pinned CR4 bits changed: 0x%lx!?\n",
+					  bits_changed);
 			break;
 		}
 		case IEE_LOAD_IDT: {

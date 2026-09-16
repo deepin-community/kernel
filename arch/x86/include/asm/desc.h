@@ -13,7 +13,7 @@
 #include <linux/smp.h>
 #include <linux/percpu.h>
 
-#ifdef CONFIG_IEE_SIP
+#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 #include <asm/haoc/iee-si.h>
 extern bool haoc_enabled;
 #endif
@@ -215,7 +215,7 @@ static inline void native_load_gdt(const struct desc_ptr *dtr)
 	asm volatile("lgdt %0"::"m" (*dtr));
 }
 
-#ifdef CONFIG_IEE_SIP
+#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 static __always_inline void iee_load_idt_early(const struct desc_ptr *dtr)
 {
 	asm volatile("lidt %0"::"m" (*dtr));
@@ -224,7 +224,7 @@ static __always_inline void iee_load_idt_early(const struct desc_ptr *dtr)
 
 static __always_inline void native_load_idt(const struct desc_ptr *dtr)
 {
-	#ifdef CONFIG_IEE_SIP
+	#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 	if(haoc_enabled)
 		iee_load_idt((void *)dtr);
 	else
@@ -261,7 +261,7 @@ static inline void native_idt_invalidate(void)
 		.size = 0
 	};
 
-#ifdef CONFIG_IEE_SIP
+#if defined(CONFIG_IEE_SIP) && !defined(__DISABLE_EXPORTS)
 	// The native_idt_invalidate() is only called by machine_kexec(). 
 	// In the kdump path, IEE_SIP should not be used, so we directly
 	// call iee_load_idt_early(), which is the original version of
