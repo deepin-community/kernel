@@ -20,6 +20,10 @@
 #ifdef CONFIG_CREDP
 #include <asm/haoc/iee-cred.h>
 #endif
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#include <asm/haoc/iee-access.h>
+#endif
 #include "cifspdu.h"
 #include "cifsglob.h"
 #include "cifsacl.h"
@@ -81,16 +85,33 @@ cifs_idmap_key_instantiate(struct key *key, struct key_preparsed_payload *prep)
 	 * dereference payload.data!
 	 */
 	if (prep->datalen <= sizeof(key->payload)) {
+#ifdef CONFIG_KEYP
+		union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+
+		key_payload->data[0] = NULL;
+		memcpy(key_payload, prep->data, prep->datalen);
+#else
 		key->payload.data[0] = NULL;
 		memcpy(&key->payload, prep->data, prep->datalen);
+#endif
 	} else {
 		payload = kmemdup(prep->data, prep->datalen, GFP_KERNEL);
 		if (!payload)
 			return -ENOMEM;
+#ifdef CONFIG_KEYP
+		union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+
+		key_payload->data[0] = payload;
+#else
 		key->payload.data[0] = payload;
+#endif
 	}
 
+#ifdef CONFIG_KEYP
+	iee_set_key_datalen(key, prep->datalen);
+#else
 	key->datalen = prep->datalen;
+#endif
 	return 0;
 }
 
@@ -98,7 +119,11 @@ static inline void
 cifs_idmap_key_destroy(struct key *key)
 {
 	if (key->datalen > sizeof(key->payload))
+#ifdef CONFIG_KEYP
+		kfree(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 		kfree(key->payload.data[0]);
+#endif
 }
 
 static struct key_type cifs_idmap_key_type = {
@@ -314,9 +339,15 @@ id_to_sid(unsigned int cid, uint sidtype, struct smb_sid *ssid)
 	 * there are no subauthorities and the host has 8-byte pointers, then
 	 * it could be.
 	 */
+#ifdef CONFIG_KEYP
+	ksid = sidkey->datalen <= sizeof(sidkey->payload) ?
+		(struct smb_sid *)(sidkey->name_link.next) :
+		(struct smb_sid *)((union key_payload *)(sidkey->name_link.next))->data[0];
+#else
 	ksid = sidkey->datalen <= sizeof(sidkey->payload) ?
 		(struct smb_sid *)&sidkey->payload :
 		(struct smb_sid *)sidkey->payload.data[0];
+#endif
 
 	ksid_size = CIFS_SID_BASE_SIZE + (ksid->num_subauth * sizeof(__le32));
 	if (ksid_size > sidkey->datalen) {
@@ -425,14 +456,24 @@ try_upcall_to_get_id:
 	if (sidtype == SIDOWNER) {
 		kuid_t uid;
 		uid_t id;
+#ifdef CONFIG_KEYP
+		memcpy(&id,
+			&((union key_payload *)(sidkey->name_link.next))->data[0], sizeof(uid_t));
+#else
 		memcpy(&id, &sidkey->payload.data[0], sizeof(uid_t));
+#endif
 		uid = make_kuid(&init_user_ns, id);
 		if (uid_valid(uid))
 			fuid = uid;
 	} else {
 		kgid_t gid;
 		gid_t id;
+#ifdef CONFIG_KEYP
+		memcpy(&id, &((union key_payload *)(sidkey->name_link.next))->data[0],
+					sizeof(gid_t));
+#else
 		memcpy(&id, &sidkey->payload.data[0], sizeof(gid_t));
+#endif
 		gid = make_kgid(&init_user_ns, id);
 		if (gid_valid(gid))
 			fgid = gid;
@@ -493,14 +534,18 @@ init_cifs_idmap(void)
 
 	/* instruct request_key() to use this special keyring as a cache for
 	 * the results it looks up */
+#ifdef CONFIG_KEYP
+	iee_set_key_flag_bit(keyring, KEY_FLAG_ROOT_CAN_CLEAR, SET_BIT_OP);
+#else
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
-	#ifdef CONFIG_CREDP
+#endif
+#ifdef CONFIG_CREDP
 	iee_set_cred_thread_keyring(cred, keyring);
 	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
-	#else
+#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
-	#endif
+#endif
 	root_cred = cred;
 
 	cifs_dbg(FYI, "cifs idmap keyring: %d\n", key_serial(keyring));

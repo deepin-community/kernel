@@ -145,8 +145,19 @@ int slab_unmergeable(struct kmem_cache *s)
 	if (s->ctor)
 		return 1;
 
+#ifdef CONFIG_IEE_SELINUX_P
+	if (strcmp(s->name, "policy_jar") == 0)
+		return 1;
+#endif
+
 #ifdef CONFIG_HARDENED_USERCOPY
 	if (s->usersize)
+		return 1;
+#endif
+
+#ifdef CONFIG_KEYP
+	if (strcmp(s->name, "key_jar") == 0 || strcmp(s->name, "key_union_jar") == 0 ||
+	    strcmp(s->name, "key_struct_jar") == 0 || strcmp(s->name, "key_payload_jar") == 0)
 		return 1;
 #endif
 
@@ -169,6 +180,15 @@ struct kmem_cache *find_mergeable(unsigned int size, unsigned int align,
 
 	if (ctor)
 		return NULL;
+#ifdef CONFIG_KEYP
+	if (strcmp(name, "key_jar") == 0 || strcmp(name, "key_union_jar") == 0 ||
+	    strcmp(name, "key_struct_jar") == 0 || strcmp(name, "key_payload_jar") == 0)
+		return NULL;
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	if (strcmp(name, "policy_jar") == 0)
+		return NULL;
+#endif
 
 	size = ALIGN(size, sizeof(void *));
 	align = calculate_alignment(flags, align, size);

@@ -117,6 +117,16 @@
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
 #endif
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
 
 /*
  * Minimum number of threads to boot the kernel
@@ -2389,8 +2399,19 @@ __latent_entropy struct task_struct *copy_process(
 	if (!p)
 		goto fork_out;
 #ifdef CONFIG_IEE_PTRP
-	if(haoc_enabled)
+	if (haoc_enabled)
 		iee_validate_token(p);
+#endif
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
 #endif
 	p->flags &= ~PF_KTHREAD;
 	if (args->kthread)
@@ -2917,6 +2938,11 @@ struct task_struct *create_io_thread(int (*fn)(void *), void *arg, int node)
 	return copy_process(NULL, 0, node, &args);
 }
 
+#ifdef CONFIG_PTP
+void __weak ptp_disable_wp(unsigned long *cr0) { }
+void __weak ptp_restore_wp(unsigned long cr0) { }
+#endif
+
 /*
  *  Ok, this is the main fork-routine.
  *
@@ -2933,6 +2959,9 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 	struct task_struct *p;
 	int trace = 0;
 	pid_t nr;
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	unsigned long cr0;
+#endif
 
 	/*
 	 * For legacy clone() calls, CLONE_PIDFD uses the parent_tid argument
@@ -2966,7 +2995,13 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 			trace = 0;
 	}
 
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_disable_wp(&cr0);
+#endif
 	p = copy_process(NULL, trace, NUMA_NO_NODE, args);
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_restore_wp(cr0);
+#endif
 	add_latent_entropy();
 
 	if (IS_ERR(p))

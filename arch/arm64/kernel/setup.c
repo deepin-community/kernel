@@ -371,6 +371,17 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 		unflatten_device_tree();
 
 	bootmem_init();
+#ifdef CONFIG_PTP
+	/* Prepare page pool for page tables. */
+	if (haoc_enabled) {
+		iee_cache_init(&pg_cache, 0, CONFIG_PGTABLE_LEVELS, IEE_PGTABLE,
+			       CONFIG_PTP_RESERVE_ORDER);
+#ifdef CONFIG_PTP_S
+	iee_cache_init(&pg_user_cache, 0, CONFIG_PGTABLE_LEVELS, IEE_USER_PGTABLE,
+		       CONFIG_PTP_RESERVE_ORDER);
+#endif
+	}
+#endif
 
 	kasan_init();
 

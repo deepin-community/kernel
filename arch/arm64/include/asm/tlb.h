@@ -10,10 +10,18 @@
 
 #include <linux/pagemap.h>
 #include <linux/swap.h>
+#ifdef CONFIG_PTP
+#include <linux/ptp-cache.h>
+#endif
 
 static inline void __tlb_remove_table(void *_table)
 {
+	#ifdef CONFIG_PTP
+	// set_iee_address_invalid((u64)page_to_virt((struct page *)_table));
+	iee_cache_free(&pg_cache, page_to_virt((struct page *)_table));
+	#else
 	free_page_and_swap_cache((struct page *)_table);
+	#endif
 }
 
 #define tlb_flush tlb_flush

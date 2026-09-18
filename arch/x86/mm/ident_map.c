@@ -14,7 +14,11 @@ static void ident_pmd_init(struct x86_mapping_info *info, pmd_t *pmd_page,
 		if (pmd_present(*pmd))
 			continue;
 
+#ifdef CONFIG_PTP
+		ptp_set_pmd_ident(pmd, __pmd((addr - info->offset) | info->page_flag));
+#else
 		set_pmd(pmd, __pmd((addr - info->offset) | info->page_flag));
+#endif
 	}
 }
 
@@ -52,7 +56,11 @@ static int ident_pud_init(struct x86_mapping_info *info, pud_t *pud_page,
 			pud_t pudval;
 
 			pudval = __pud((addr - info->offset) | info->page_flag);
+#ifdef CONFIG_PTP
+			ptp_set_pud_ident(pud, pudval);
+#else
 			set_pud(pud, pudval);
+#endif
 			continue;
 		}
 
@@ -65,7 +73,11 @@ static int ident_pud_init(struct x86_mapping_info *info, pud_t *pud_page,
 		if (!pmd)
 			return -ENOMEM;
 		ident_pmd_init(info, pmd, addr, next);
+#ifdef CONFIG_PTP
+		ptp_set_pud_ident(pud, __pud(__pa(pmd) | info->kernpg_flag));
+#else
 		set_pud(pud, __pud(__pa(pmd) | info->kernpg_flag));
+#endif
 	}
 
 	return 0;

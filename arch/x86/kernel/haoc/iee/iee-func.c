@@ -15,14 +15,31 @@
 #endif
 extern bool haoc_enabled;
 
-void set_iee_page(unsigned long addr, unsigned int order)
+void set_iee_page(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
 {
-	set_memory_ro(addr, 1 << order);
+#ifdef CONFIG_PTP_S
+	if (type == IEE_USER_PGTABLE)
+		set_memory_rw(addr, num_pages);
+	else
+#endif
+	set_memory_ro(addr, num_pages);
+	iee_set_bitmap_type(__pa(addr), num_pages, type);
 }
 
-void unset_iee_page(unsigned long addr, unsigned int order)
+void unset_iee_page(unsigned long addr, int num_pages)
 {
-	set_memory_rw(addr, 1 << order);
+	iee_set_bitmap_type(__pa(addr), num_pages, IEE_NORMAL);
+	set_memory_rw(addr, num_pages);
+}
+
+void set_iee_pages(unsigned long addr, int num_pages, enum HAOC_BITMAP_TYPE type)
+{
+	set_iee_page(addr, num_pages, type);
+}
+
+void unset_iee_pages(unsigned long addr, int num_pages)
+{
+	unset_iee_page(addr, num_pages);
 }
 
 struct iee_free_slab_work {
@@ -34,10 +51,13 @@ struct iee_free_slab_work {
 void iee_free_slab(struct kmem_cache *s, struct slab *slab,
 		   void (*do_free_slab)(struct work_struct *work))
 {
-	if(haoc_enabled)
-	return;
 	struct iee_free_slab_work *iee_free_slab_work =
 		kmalloc(sizeof(struct iee_free_slab_work), GFP_ATOMIC);
+
+	if (!iee_free_slab_work) {
+		pr_warn("HAOC: failed to allocate deferred slab free work\n");
+		return;
+	}
 
 	iee_free_slab_work->s = s;
 	iee_free_slab_work->slab = slab;
@@ -52,11 +72,12 @@ static void iee_free_task_struct_slab(struct work_struct *work)
 		container_of(work, struct iee_free_slab_work, work);
 	struct slab *slab = iee_free_slab_work->slab;
 	struct folio *folio = slab_folio(slab);
-	unsigned int order = folio_order(folio);
+	unsigned int task_order = folio_order(folio);
+	unsigned int token_order = IEE_TOKEN_ORDER(task_order);
 	unsigned long token = __slab_to_iee(slab);
-	// Free token.
-	iee_set_token_page_invalid(token, 0, order);
-	__free_pages(&folio->page, order);
+
+	iee_set_token_page_invalid(token, 0, token_order);
+	__free_pages(&folio->page, task_order);
 	kfree(iee_free_slab_work);
 }
 #endif
