@@ -112,6 +112,24 @@ config USB_SERIAL_CH341
 	  To compile this driver as a module, choose M here: the
 	  module will be called ch341.
 
+config USB_SERIAL_CH343
+	tristate "USB Winchiphead CH343 Single / multi Port Serial Driver"
+	help
+	  Say Y here if you want to use a Winchiphead CH343 single / multi port
+	  USB to serial adapter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ch343.
+
+config USB_SERIAL_CH9344
+	tristate "USB Winchiphead serial driver for Quad UARTs chip ch9344 and Octal UARTs chip ch348."
+	help
+	  Say Y here if you want to use a Winchiphead CH9344 Multi port
+	  USB to serial adapter.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ch9344.
+
 config USB_SERIAL_WHITEHEAT
 	tristate "USB ConnectTech WhiteHEAT Serial Driver"
 	select USB_EZUSB_FX2
