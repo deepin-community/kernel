@@ -30,7 +30,8 @@ SYM_CODE_START(handle_syscall)
 	addi.d		sp, sp, -PT_SIZE
 	cfi_st		t2, PT_R3
 	cfi_rel_offset	sp, PT_R3
-	st.d		zero, sp, PT_R0
+	# Note it will be set in do_syscall regs->regs[0] = 0;
+	# st.d		zero, sp, PT_R0
 	csrrd		t2, LOONGARCH_CSR_PRMD
 	st.d		t2, sp, PT_PRMD
 	csrrd		t2, LOONGARCH_CSR_CRMD
