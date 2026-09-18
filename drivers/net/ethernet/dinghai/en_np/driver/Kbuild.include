@@ -1,0 +1,4 @@
+cur_dir := en_np/driver/
+subdirs := source/
+src_files +=
+include $(foreach subdir, $(subdirs), $(dinghai_root)/$(cur_dir)$(subdir)/Kbuild.include)
