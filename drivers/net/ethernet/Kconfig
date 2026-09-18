@@ -200,5 +200,6 @@ source "drivers/net/ethernet/phytium/Kconfig"
 source "drivers/net/ethernet/guangruntong/Kconfig"
 source "drivers/net/ethernet/bzwx/Kconfig"
 source "drivers/net/ethernet/linkdata/Kconfig"
+source "drivers/net/ethernet/dinghai/Kconfig"
 
 endif # ETHERNET
