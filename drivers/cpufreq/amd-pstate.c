@@ -469,6 +469,9 @@ static int shmem_init_perf(struct amd_cpudata *cpudata)
 		return 0;
 	}
 
+	if ((cppc_state != AMD_PSTATE_PASSIVE) == auto_sel)
+		return 0;
+
 	ret = cppc_set_auto_sel(cpudata->cpu,
 			(cppc_state == AMD_PSTATE_PASSIVE) ? 0 : 1);
 
