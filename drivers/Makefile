@@ -24,6 +24,8 @@ obj-y				+= pwm/
 
 obj-y				+= pci/
 
+obj-y				+= pcie/zxdh_pcie/
+
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
 obj-y				+= video/
