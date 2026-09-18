@@ -385,36 +385,40 @@ EXPORT_SYMBOL_GPL(tick_broadcast_oneshot_control);
 
 #ifdef CONFIG_HOTPLUG_CPU
 /*
- * Transfer the do_timer job away from a dying cpu.
- *
- * Called with interrupts disabled. No locking required. If
- * tick_do_timer_cpu is owned by this cpu, nothing can change it.
+ * Stop the tick and transfer the timekeeping job away from a dying cpu.
  */
-void tick_handover_do_timer(void)
+int tick_cpu_dying(unsigned int dying_cpu)
 {
-	if (tick_do_timer_cpu == smp_processor_id())
+	/*
+	 * If the current CPU is the timekeeper, it's the only one that
+	 * can safely hand over its duty. Also all online CPUs are in
+	 * stop machine, guaranteed not to be idle, therefore it's safe
+	 * to pick any online successor.
+	 */
+	if (tick_do_timer_cpu == dying_cpu)
 		tick_do_timer_cpu = cpumask_first(cpu_online_mask);
+
+	tick_cancel_sched_timer(dying_cpu);
+
+	/* Remove CPU from timer broadcasting */
+	tick_offline_cpu(dying_cpu);
+
+	return 0;
 }
 
 /*
- * Shutdown an event device on a given cpu:
+ * Shutdown an event device on the outgoing CPU:
  *
- * This is called on a life CPU, when a CPU is dead. So we cannot
- * access the hardware device itself.
- * We just set the mode and remove it from the lists.
+ * Called by the dying CPU during teardown, with clockevents_lock held
+ * and interrupts disabled.
  */
-void tick_shutdown(unsigned int cpu)
+void tick_shutdown(void)
 {
-	struct tick_device *td = &per_cpu(tick_cpu_device, cpu);
+	struct tick_device *td = this_cpu_ptr(&tick_cpu_device);
 	struct clock_event_device *dev = td->evtdev;
 
 	td->mode = TICKDEV_MODE_PERIODIC;
 	if (dev) {
-		/*
-		 * Prevent that the clock events layer tries to call
-		 * the set mode function!
-		 */
-		clockevent_set_state(dev, CLOCK_EVT_STATE_DETACHED);
 		clockevents_exchange_device(dev, NULL);
 		dev->event_handler = clockevents_handle_noop;
 		td->evtdev = NULL;

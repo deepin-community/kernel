@@ -557,6 +557,24 @@ void clockevents_handle_noop(struct clock_event_device *dev)
 {
 }
 
+void __clockevents_exchange_device(struct clock_event_device *old,
+				   struct clock_event_device *new)
+{
+	/*
+	 * Caller releases a clock event device. We queue it into the
+	 * released list and do a notify add later.
+	 */
+	if (old) {
+		clockevents_switch_state(old, CLOCK_EVT_STATE_DETACHED);
+		list_move(&old->list, &clockevents_released);
+	}
+
+	if (new) {
+		WARN_ON(!clockevent_state_detached(new));
+		clockevents_shutdown(new);
+	}
+}
+
 /**
  * clockevents_exchange_device - release and request clock devices
  * @old:	device to release (can be NULL)
@@ -568,20 +586,9 @@ void clockevents_handle_noop(struct clock_event_device *dev)
 void clockevents_exchange_device(struct clock_event_device *old,
 				 struct clock_event_device *new)
 {
-	/*
-	 * Caller releases a clock event device. We queue it into the
-	 * released list and do a notify add later.
-	 */
-	if (old) {
+	__clockevents_exchange_device(old, new);
+	if (old)
 		module_put(old->owner);
-		clockevents_switch_state(old, CLOCK_EVT_STATE_DETACHED);
-		list_move(&old->list, &clockevents_released);
-	}
-
-	if (new) {
-		BUG_ON(!clockevent_state_detached(new));
-		clockevents_shutdown(new);
-	}
 }
 
 /**
@@ -610,39 +617,30 @@ void clockevents_resume(void)
 
 #ifdef CONFIG_HOTPLUG_CPU
 
-# ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 /**
- * tick_offline_cpu - Take CPU out of the broadcast mechanism
+ * tick_offline_cpu - Shutdown all clock events related
+ *                    to this CPU and take it out of the
+ *                    broadcast mechanism.
  * @cpu:	The outgoing CPU
  *
- * Called on the outgoing CPU after it took itself offline.
+ * Called by the dying CPU during teardown.
  */
 void tick_offline_cpu(unsigned int cpu)
 {
-	raw_spin_lock(&clockevents_lock);
-	tick_broadcast_offline(cpu);
-	raw_spin_unlock(&clockevents_lock);
-}
-# endif
-
-/**
- * tick_cleanup_dead_cpu - Cleanup the tick and clockevents of a dead cpu
- * @cpu:	The dead CPU
- */
-void tick_cleanup_dead_cpu(int cpu)
-{
 	struct clock_event_device *dev, *tmp;
-	unsigned long flags;
 
-	raw_spin_lock_irqsave(&clockevents_lock, flags);
+	raw_spin_lock(&clockevents_lock);
 
-	tick_shutdown(cpu);
+	tick_broadcast_offline(cpu);
+	tick_shutdown();
+
 	/*
 	 * Unregister the clock event devices which were
-	 * released from the users in the notify chain.
+	 * released above.
 	 */
 	list_for_each_entry_safe(dev, tmp, &clockevents_released, list)
 		list_del(&dev->list);
+
 	/*
 	 * Now check whether the CPU has left unused per cpu devices
 	 */
@@ -650,11 +648,12 @@ void tick_cleanup_dead_cpu(int cpu)
 		if (cpumask_test_cpu(cpu, dev->cpumask) &&
 		    cpumask_weight(dev->cpumask) == 1 &&
 		    !tick_is_broadcast_device(dev)) {
-			BUG_ON(!clockevent_state_detached(dev));
+			WARN_ON(!clockevent_state_detached(dev));
 			list_del(&dev->list);
 		}
 	}
-	raw_spin_unlock_irqrestore(&clockevents_lock, flags);
+
+	raw_spin_unlock(&clockevents_lock);
 }
 #endif
 

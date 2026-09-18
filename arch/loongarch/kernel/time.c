@@ -5,7 +5,6 @@
  * Copyright (C) 2020-2022 Loongson Technology Corporation Limited
  */
 #include <linux/clockchips.h>
-#include <linux/cpuhotplug.h>
 #include <linux/delay.h>
 #include <linux/export.h>
 #include <linux/init.h>
@@ -87,6 +86,9 @@ static int constant_set_state_shutdown(struct clock_event_device *evt)
 	timer_config &= ~CSR_TCFG_EN;
 	csr_write64(timer_config, LOONGARCH_CSR_TCFG);
 
+	/* Clear Timer Interrupt */
+	write_csr_tintclear(CSR_TINTCLR_TI);
+
 	raw_spin_unlock(&state_lock);
 
 	return 0;
@@ -99,23 +101,6 @@ static int constant_timer_next_event(unsigned long delta, struct clock_event_dev
 	delta &= CSR_TCFG_VAL;
 	timer_config = delta | CSR_TCFG_EN;
 	csr_write64(timer_config, LOONGARCH_CSR_TCFG);
-
-	return 0;
-}
-
-static int arch_timer_starting(unsigned int cpu)
-{
-	set_csr_ecfg(ECFGF_TIMER);
-
-	return 0;
-}
-
-static int arch_timer_dying(unsigned int cpu)
-{
-	constant_set_state_shutdown(this_cpu_ptr(&constant_clockevent_device));
-
-	/* Clear Timer Interrupt */
-	write_csr_tintclear(CSR_TINTCLR_TI);
 
 	return 0;
 }
@@ -185,10 +170,6 @@ int constant_clockevent_init(void)
 
 	lpj_fine = get_loops_per_jiffy();
 	pr_info("Constant clock event device register\n");
-
-	cpuhp_setup_state(CPUHP_AP_LOONGARCH_ARCH_TIMER_STARTING,
-			  "clockevents/loongarch/timer:starting",
-			  arch_timer_starting, arch_timer_dying);
 
 	return 0;
 }
