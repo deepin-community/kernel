@@ -1,0 +1,2 @@
+cur_dir := en_np/driver/source/
+src_files += $(addprefix $(cur_dir),$(notdir $(wildcard $(dinghai_root)/$(cur_dir)*.c)))

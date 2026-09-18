@@ -29,6 +29,10 @@ obj-$(CONFIG_ACPI) += physical_location.o
 
 obj-y			+= test/
 
+obj-$(CONFIG_DINGHAI_AUXILIARY) += dinghai10e_auxiliary.o
+dinghai10e_auxiliary-y += en_auxiliary.o
+subdir-ccflags-y += -I$(CWD)/include
+
 ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
 
 # define_trace.h needs to know how to find our header
