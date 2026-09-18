@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flowinfo>
+    <!-- ERAM INFO -->
+    <sdt no="0" type="ERAM" name="test_vxlan_port" width="64">
+        <field name="hit_flag" attr="rst" array_num="1"  element_bits="32" msb="63" lsb="63" bit_num="1"/>
+        <field name="rsv1"     attr="rst" array_num="1"  element_bits="32" msb="62" lsb="48" bit_num="15"/>
+        <field name="rsv2"     attr="rst" array_num="1"  element_bits="32" msb="47" lsb="16" bit_num="32"/>
+        <field name="port"     attr="rst" array_num="1"  element_bits="32" msb="15" lsb="0"  bit_num="16"/>
+    </sdt>
+
+    <!-- HASH INFO -->
+    <!-- 使用模板来避免冗余 -->
+    <sdt-template id="hash_sdt_template0" type="HASH" name="test_mac" width="128" key="80" rst="32">
+        <field name="mac"          attr="key"  array_num="6"  element_bits="8"  msb="79"   lsb="32"   bit_num="48" />
+        <field name="vlan_tpid"    attr="key"  array_num="1"  element_bits="16" msb="31"   lsb="16"   bit_num="16"/>
+        <field name="vlan_id"      attr="key"  array_num="1"  element_bits="16" msb="15"   lsb="0"    bit_num="16" />
+
+        <field name="hit_flag"     attr="rst"  array_num="1"  element_bits="32" msb="31"   lsb="31"   bit_num="1" />
+        <field name="rsv"          attr="rst"  array_num="1"  element_bits="32" msb="30"   lsb="10"   bit_num="20"/>
+        <field name="vqm_vfid"     attr="rst"  array_num="1"  element_bits="32" msb="10"   lsb="0"    bit_num="11"/>
+    </sdt-template>
+
+    <!-- 具体的SDT实例 -->
+    <sdt no="64" use-template="hash_sdt_template0"/>
+    <sdt no="65" use-template="hash_sdt_template0"/>
+    <sdt no="66" use-template="hash_sdt_template0"/>
+    <sdt no="67" use-template="hash_sdt_template0"/>
+
+
+
+    <!-- 使用模板来避免冗余 -->
+    <sdt-template id="hash_sdt_template" type="HASH" name="test_mc" width="256" key="64" rst="128">
+        <field name="rsv"          attr="key"  array_num="1"  element_bits="32" msb="63"   lsb="50"   bit_num="14"/>
+        <field name="group_id"     attr="key"  array_num="1"  element_bits="32" msb="49"   lsb="48"   bit_num="2" />
+        <field name="mac"          attr="key"  array_num="6"  element_bits="8"  msb="47"   lsb="0"    bit_num="48" />
+
+        <field name="hit_flag"     attr="rst"  array_num="1"  element_bits="32" msb="127"  lsb="127"  bit_num="1" />
+        <field name="mc_pf_enable" attr="rst"  array_num="1"  element_bits="32" msb="126"  lsb="126"  bit_num="1" />
+        <field name="rsv1"         attr="rst"  array_num="1"  element_bits="32" msb="125"  lsb="94"   bit_num="30"/>
+        <field name="rsv2"         attr="rst"  array_num="1"  element_bits="32" msb="95"   lsb="64"   bit_num="32"/>
+        <field name="mc_bitmap"    attr="rst"  array_num="2"  element_bits="32" msb="63"   lsb="0"    bit_num="64"/>
+    </sdt-template>
+
+    <!-- 具体的SDT实例 -->
+    <sdt no="76" use-template="hash_sdt_template"/>
+    <sdt no="77" use-template="hash_sdt_template"/>
+    <sdt no="78" use-template="hash_sdt_template"/>
+    <sdt no="79" use-template="hash_sdt_template"/>
+
+    <!-- ACL INFO -->
+    <sdt no="130" type="ACL" name="test_fd_cfg" width="640" rst="128">
+        <field name="dmac"      attr="key"  array_num="6"  element_bits="8"  msb="639" lsb="592" bit_num="48"/>
+        <field name="smac"      attr="key"  array_num="6"  element_bits="8"  msb="591" lsb="544" bit_num="48"/>
+        <field name="ethertype" attr="key"  array_num="1"  element_bits="32" msb="543" lsb="528" bit_num="16"/>
+        <field name="cvlan_pri" attr="key"  array_num="1"  element_bits="16" msb="527" lsb="524" bit_num="4"/>
+        <field name="cvlanid"   attr="key"  array_num="1"  element_bits="16" msb="523" lsb="512" bit_num="12"/>
+        <field name="sip"       attr="key"  array_num="16" element_bits="8"  msb="511" lsb="384" bit_num="128"/>
+        <field name="dip"       attr="key"  array_num="16" element_bits="8"  msb="383" lsb="256" bit_num="128"/>
+        <field name="rsv1"      attr="key"  array_num="1"  element_bits="8"  msb="255" lsb="248" bit_num="8"/>
+        <field name="tos"       attr="key"  array_num="1"  element_bits="8"  msb="247" lsb="240" bit_num="8"/>
+        <field name="proto"     attr="key"  array_num="1"  element_bits="8"  msb="239" lsb="232" bit_num="8"/>
+        <field name="fragment"  attr="key"  array_num="1"  element_bits="8"  msb="231" lsb="224" bit_num="8"/>
+        <field name="sport"     attr="key"  array_num="1"  element_bits="16" msb="223" lsb="208" bit_num="16"/>
+        <field name="dport"     attr="key"  array_num="1"  element_bits="16" msb="207" lsb="192" bit_num="16"/>
+        <field name="rsv2"      attr="key"  array_num="1"  element_bits="32" msb="191" lsb="184" bit_num="8"/>
+        <field name="vxlan_vni" attr="key"  array_num="1"  element_bits="32" msb="183" lsb="160" bit_num="24"/>
+        <field name="vqm_vfid"  attr="key"  array_num="1"  element_bits="16" msb="159" lsb="144" bit_num="16"/>
+        <field name="rsv3"      attr="key"  array_num="1"  element_bits="16" msb="143" lsb="128" bit_num="16"/>
+
+        <field name="hit_flag"         attr="rst"  array_num="1"  element_bits="32" msb="127" lsb="127" bit_num="1"/>
+        <field name="action_index"     attr="rst"  array_num="1"  element_bits="32" msb="126" lsb="120" bit_num="7"/>
+        <field name="rsv1"             attr="rst"  array_num="1"  element_bits="32" msb="119" lsb="112" bit_num="8"/>
+        <field name="v_qid"            attr="rst"  array_num="1"  element_bits="32" msb="111" lsb="96"  bit_num="16"/>
+        <field name="uplink_fd_id"     attr="rst"  array_num="1"  element_bits="32" msb="95"  lsb="64"  bit_num="32"/>
+        <field name="rsv2"             attr="rst"  array_num="1"  element_bits="32" msb="63"  lsb="56"  bit_num="8"/>
+        <field name="count_id"         attr="rst"  array_num="1"  element_bits="32" msb="55"  lsb="32"  bit_num="24"/>
+        <field name="hash_alg"         attr="rst"  array_num="1"  element_bits="8"  msb="31"  lsb="24"  bit_num="8"/>
+        <field name="rss_hash_factor"  attr="rst"  array_num="1"  element_bits="8"  msb="23"  lsb="16"  bit_num="8"/>
+        <field name="rsv3"             attr="rst"  array_num="1"  element_bits="16" msb="15"  lsb="0"   bit_num="16"/>
+    </sdt>
+
+    <!-- DDR INFO -->
+    <!-- LPM INFO -->
+</flowinfo>
+
+
