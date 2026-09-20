@@ -1322,6 +1322,7 @@ enum srso_mitigation {
 	SRSO_MITIGATION_IBPB_ON_VMEXIT,
 	SRSO_MITIGATION_BP_SPEC_REDUCE,
 	SRSO_MITIGATION_EIBRS,
+	SRSO_MITIGATION_EIBRS_UCODE_NEEDED,
 };
 
 static enum srso_mitigation srso_mitigation __ro_after_init = SRSO_MITIGATION_AUTO;
@@ -3116,7 +3117,8 @@ static const char * const srso_strings[] = {
 	[SRSO_MITIGATION_IBPB]			= "Mitigation: IBPB",
 	[SRSO_MITIGATION_IBPB_ON_VMEXIT]	= "Mitigation: IBPB on VMEXIT only",
 	[SRSO_MITIGATION_BP_SPEC_REDUCE]	= "Mitigation: Reduced Speculation",
-	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS"
+	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS",
+	[SRSO_MITIGATION_EIBRS_UCODE_NEEDED]	= "Vulnerable: Enhanced IBRS, no microcode"
 };
 
 static int __init srso_parse_cmdline(char *str)
@@ -3204,11 +3206,15 @@ static void __init srso_select_mitigation(void)
 	/*
 	 * Enhanced IBRS (eIBRS) is preferred on HYGON processors. It mitigates
 	 * SRSO based on the predicted branch type, so the software based
-	 * mitigations below are not needed.
+	 * mitigations below are not needed. Without the IBPB-extending microcode
+	 * only report the state as vulnerable.
 	 */
 	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON &&
 	    spectre_v2_in_eibrs_mode(spectre_v2_enabled)) {
-		srso_mitigation = SRSO_MITIGATION_EIBRS;
+		if (has_microcode)
+			srso_mitigation = SRSO_MITIGATION_EIBRS;
+		else
+			srso_mitigation = SRSO_MITIGATION_EIBRS_UCODE_NEEDED;
 		return;
 	}
 
