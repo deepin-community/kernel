@@ -2808,6 +2808,7 @@ enum srso_mitigation {
 	SRSO_MITIGATION_IBPB,
 	SRSO_MITIGATION_IBPB_ON_VMEXIT,
 	SRSO_MITIGATION_EIBRS,
+	SRSO_MITIGATION_EIBRS_UCODE_NEEDED,
 };
 
 enum srso_mitigation_cmd {
@@ -2826,7 +2827,8 @@ static const char * const srso_strings[] = {
 	[SRSO_MITIGATION_SAFE_RET]		= "Mitigation: Safe RET",
 	[SRSO_MITIGATION_IBPB]			= "Mitigation: IBPB",
 	[SRSO_MITIGATION_IBPB_ON_VMEXIT]	= "Mitigation: IBPB on VMEXIT only",
-	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS"
+	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS",
+	[SRSO_MITIGATION_EIBRS_UCODE_NEEDED]	= "Vulnerable: Enhanced IBRS, no microcode"
 };
 
 static enum srso_mitigation srso_mitigation __ro_after_init = SRSO_MITIGATION_NONE;
@@ -2931,10 +2933,11 @@ static void __init srso_select_mitigation(void)
 		case SPECTRE_V2_EIBRS:
 		case SPECTRE_V2_EIBRS_RETPOLINE:
 		case SPECTRE_V2_EIBRS_LFENCE:
-			srso_mitigation = SRSO_MITIGATION_EIBRS;
-			pr_info("%s%s\n", srso_strings[srso_mitigation],
-				(has_microcode ? "" : ", no microcode"));
-			goto pred_cmd;
+			if (has_microcode)
+				srso_mitigation = SRSO_MITIGATION_EIBRS;
+			else
+				srso_mitigation = SRSO_MITIGATION_EIBRS_UCODE_NEEDED;
+			goto out;
 		default:
 			break;
 		}
