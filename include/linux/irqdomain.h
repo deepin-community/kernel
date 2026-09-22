@@ -171,13 +171,12 @@ struct irq_domain {
 #ifdef CONFIG_GENERIC_MSI_IRQ
 	const struct msi_parent_ops	*msi_parent_ops;
 #endif
-	void				(*exit)(struct irq_domain *d);
 
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t			hwirq_max;
 	unsigned int			revmap_size;
 	struct radix_tree_root		revmap_tree;
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, void (*exit)(struct irq_domain *d))
 	DEEPIN_KABI_RESERVE(2)
 	struct irq_data __rcu		*revmap[];
 };
