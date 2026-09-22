@@ -16,6 +16,9 @@
 #include <linux/fcntl.h>
 #include <linux/filelock.h>
 #include <linux/security.h>
+#include <linux/deepin_kabi.h>
+#include DEEPIN_KABI_FAKE_INCLUDE(<linux/evm.h>)
+#include DEEPIN_KABI_FAKE_INCLUDE(<linux/ima.h>)
 
 #include "internal.h"
 
