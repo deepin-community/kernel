@@ -56,11 +56,7 @@
 #include <linux/dinghai/en_sf.h>
 #endif
 
-#ifdef DRIVER_VERSION_VAL
-    #define DRV_VERSION DRIVER_VERSION_VAL
-#else
-    #define DRV_VERSION "1.0-1"
-#endif
+#define DRV_VERSION "26.10.01.07"
 
 #define DRV_SUMMARY "ZTE(R) zxdh-net driver"
 
