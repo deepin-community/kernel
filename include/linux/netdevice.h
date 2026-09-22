@@ -1614,16 +1614,9 @@ struct net_device_ops {
 	int			(*ndo_mdb_del)(struct net_device *dev,
 					       struct nlattr *tb[],
 					       struct netlink_ext_ack *extack);
-	int			(*ndo_mdb_del_bulk)(struct net_device *dev,
-						    struct nlattr *tb[],
-						    struct netlink_ext_ack *extack);
 	int			(*ndo_mdb_dump)(struct net_device *dev,
 						struct sk_buff *skb,
 						struct netlink_callback *cb);
-	int			(*ndo_mdb_get)(struct net_device *dev,
-					       struct nlattr *tb[], u32 portid,
-					       u32 seq,
-					       struct netlink_ext_ack *extack);
 	int			(*ndo_bridge_setlink)(struct net_device *dev,
 						      struct nlmsghdr *nlh,
 						      u16 flags,
@@ -1681,8 +1674,13 @@ struct net_device_ops {
 						    struct netlink_ext_ack *extack);
 
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, int (*ndo_mdb_get)(struct net_device *dev,
+					       struct nlattr *tb[], u32 portid,
+					       u32 seq,
+					       struct netlink_ext_ack *extack))
+	DEEPIN_KABI_USE(2, int (*ndo_mdb_del_bulk)(struct net_device *dev,
+						    struct nlattr *tb[],
+						    struct netlink_ext_ack *extack))
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
