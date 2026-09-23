@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build-kernel:
-    runs-on: [self-hosted, linux, ARM64]
+    runs-on: [self-hosted, linux, X64]
     steps:
       - uses: actions/checkout@v6
       - name: "Install Deps"
@@ -29,17 +29,17 @@ jobs:
       - name: "Compile kernel"
         run: |
           # .config
-          make deepin_arm64_desktop_defconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deepin_arm64_desktop_defconfig
           scripts/config --enable CONFIG_DEBUG_INFO_NONE
           scripts/config --disable CONFIG_DEBUG_INFO_DWARF5
-          make olddefconfig
-          make -j$(nproc)
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
 
       - name: 'Clang build kernel'
         run: |
           # .config
-          make LLVM=-18 deepin_arm64_desktop_defconfig
+          make LLVM=-18 ARCH=arm64 deepin_arm64_desktop_defconfig
           scripts/config --enable CONFIG_DEBUG_INFO_NONE
           scripts/config --disable CONFIG_DEBUG_INFO_DWARF5
-          make LLVM=-18 olddefconfig
-          make LLVM=-18 -j$(nproc)
+          make LLVM=-18 ARCH=arm64 olddefconfig
+          make LLVM=-18 ARCH=arm64 -j$(nproc)
