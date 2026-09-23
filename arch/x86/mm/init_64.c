@@ -1393,7 +1393,7 @@ void __init mem_init(void)
 	 * Note that the IEE mapping region is mapped with read-only permissions.
 	 */
 	if (haoc_enabled) {
-		pr_info("HAOC is enabled by kernel command line.");
+		pr_info("HAOC is enabled, disable with haoc=0 on the kernel command line\n");
 		iee_init();
 	}
 	#endif
