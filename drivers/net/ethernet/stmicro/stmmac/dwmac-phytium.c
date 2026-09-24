@@ -65,6 +65,11 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	plat->phy_interface = phytium_get_mac_mode(fwnode);
+	if (plat->phy_interface < 0)
+		plat->phy_interface = device_get_phy_mode(&pdev->dev);
+	if (plat->phy_interface < 0)
+		return dev_err_probe(&pdev->dev, plat->phy_interface,
+				     "missing \"mac-mode\" and \"phy-mode\" properties\n");
 #ifdef CONFIG_ACPI
 	static const struct acpi_device_id phytium_old_acpi_id[] = {
 		{ .id = "FTGM0001" }, // compat FT2000/4 id
