@@ -1,0 +1,43 @@
+config NET_VENDOR_DINGHAI
+    tristate "Dinghai Devices"
+    default m
+    help
+      If you have a Ethernet DINGHAI device belonging to this
+          class, say m.
+
+config DINGHAI_PF
+    tristate "Dinghai PF Support"
+    default m
+    help
+        Enable Dinghai PF Support
+
+config DINGHAI_DH_CMD
+    tristate "Dinghai DH_CMD Support"
+    default m
+    help
+        Dinghai DH_CMD Support
+
+config DINGHAI_NP
+    tristate "Dinghai NP Support"
+    default m
+    help
+      Enable Dinghai NP Support
+
+config DINGHAI_PTP
+    tristate "Dinghai PTP Support"
+    default m
+    depends on PTP_1588_CLOCK
+    help
+        Dinghai PTP Support
+
+config DINGHAI_TSN
+    tristate "Dinghai Support TSN"
+    default m
+    help
+        Dinghai Support TSN Macro
+
+config DINGHAI_AUXILIARY
+       tristate "Dinghai AUXILIARY Support"
+       default m
+       help
+         Enable Dinghai AUXILIARY Support
