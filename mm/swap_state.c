@@ -698,6 +698,7 @@ skip:
 					&page_allocated, false);
 	if (unlikely(page_allocated))
 		swap_readpage(page, false, NULL);
+	zswap_page_swapin(page);
 	return page;
 }
 
@@ -873,6 +874,7 @@ skip:
 					&page_allocated, false);
 	if (unlikely(page_allocated))
 		swap_readpage(page, false, NULL);
+	zswap_page_swapin(page);
 	return page;
 }
 
