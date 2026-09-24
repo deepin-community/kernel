@@ -31,6 +31,10 @@
 
 #include <asm/dma.h>
 
+#ifdef CONFIG_PTP
+extern void *__ptp_vmemmap_alloc_block(unsigned long size, int node);
+#endif
+
 /*
  * Allocate a block of memory to be used to back the virtual memory map
  * or to back the page tables that are used to create the mapping.
@@ -167,6 +171,7 @@ pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node,
 			get_page(reuse);
 			p = page_to_virt(reuse);
 		}
+
 		entry = pfn_pte(__pa(p) >> PAGE_SHIFT, PAGE_KERNEL);
 		set_pte_at(&init_mm, addr, pte, entry);
 	}
@@ -175,11 +180,18 @@ pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node,
 
 static void * __meminit vmemmap_alloc_block_zero(unsigned long size, int node)
 {
+	#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+	void *p = __ptp_vmemmap_alloc_block(size, node);
+
+	if (!p)
+		return NULL;
+	#else
 	void *p = vmemmap_alloc_block(size, node);
 
 	if (!p)
 		return NULL;
 	memset(p, 0, size);
+	#endif
 
 	return p;
 }

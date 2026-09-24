@@ -9,7 +9,10 @@
 
 #include <asm/haoc/iee.h>
 #include <linux/memblock.h>
+#include <asm/cacheflush.h>
 #include <asm/cpufeature.h>
+#include <asm/tlbflush.h>
+#include <asm/haoc/haoc-bitmap.h>
 #include <asm/haoc/iee-mmu.h>
 #include <asm/haoc/iee-init.h>
 #ifdef CONFIG_IEE_PTRP
@@ -46,6 +49,22 @@ void iee_setup_asid(void)
 	/* Load IEE ASID into ttbr0 to use it in IEE. */
 	write_sysreg(ttbr0, ttbr0_el1);
 	isb();
+	local_flush_tlb_all();
+}
+
+extern unsigned int *iee_gate_inst;
+
+static void iee_setup_rw_gate(void)
+{
+	unsigned int old_gate_inst = *iee_gate_inst;
+	unsigned long iee_gate_page = ALIGN_DOWN((unsigned long)&iee_rw_gate, PAGE_SIZE);
+	unsigned int *iee_gate_inst_lm = (unsigned int *)__va(__pa_symbol(iee_gate_inst));
+
+	*iee_gate_inst_lm = 0xd503201f; /* NOP */
+	icache_inval_pou(iee_gate_page, iee_gate_page + PAGE_SIZE);
+
+	pr_info("HAOC: rewrite iee gate inst 0x%p:0x%x to 0x%x",
+		(void *)iee_gate_inst, old_gate_inst, *iee_gate_inst);
 }
 
 void __init iee_init_post(void)
@@ -53,21 +72,25 @@ void __init iee_init_post(void)
 	if (!haoc_enabled)
 		return;
 
+	iee_setup_rw_gate();
 	iee_setup_asid();
 	/* Flush tlb to enable IEE. */
 	flush_tlb_all();
 
+	iee_init_done = true;
+
+	haoc_bitmap_sparse_init();
+	haoc_bitmap_setup();
+
 #ifdef CONFIG_IEE_PTRP
 	iee_prepare_init_task_token();
 #endif
-	iee_init_done = true;
 
 #ifdef CONFIG_IEE_SIP
 	extern void iee_si_init(void);
 	iee_si_init();
 #endif
 }
-
 void __init iee_stack_init(void)
 {
 	if (!haoc_enabled)

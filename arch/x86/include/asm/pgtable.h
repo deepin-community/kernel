@@ -23,6 +23,13 @@
 #include <asm/coco.h>
 #include <asm-generic/pgtable_uffd.h>
 #include <linux/page_table_check.h>
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-access.h>
+#include <asm/haoc/ptp.h>
+#ifdef CONFIG_PTP_S
+#include <asm/haoc/haoc-bitmap.h>
+#endif
+#endif
 
 extern pgd_t early_top_pgt[PTRS_PER_PGD];
 bool __init __early_make_pgtable(unsigned long address, pmdval_t pmd);
@@ -1301,9 +1308,29 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm,
 	pte_t old_pte, new_pte;
 
 	old_pte = READ_ONCE(*ptep);
+#ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	do {
+		new_pte = pte_wrprotect(old_pte);
+		if (ptp_is_user_pgtable(ptep)) {
+			if (try_cmpxchg((long *)&ptep->pte, (long *)&old_pte,
+					*(long *)&new_pte))
+				break;
+		} else if (ptp_try_cmpxchg((long *)ptep, pte_val(old_pte),
+					pte_val(new_pte))) {
+			break;
+		}
+	} while (1);
+#else  /* CONFIG_PTP && !CONFIG_PTP_S */
+	do {
+		new_pte = pte_wrprotect(old_pte);
+	} while (!ptp_try_cmpxchg((long *)ptep, pte_val(old_pte), pte_val(new_pte)));
+#endif  /* CONFIG_PTP_S */
+#else  /* !CONFIG_PTP */
 	do {
 		new_pte = pte_wrprotect(old_pte);
 	} while (!try_cmpxchg((long *)&ptep->pte, (long *)&old_pte, *(long *)&new_pte));
+#endif
 }
 
 #define flush_tlb_fix_spurious_fault(vma, address, ptep) do { } while (0)
@@ -1363,9 +1390,29 @@ static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 	pmd_t old_pmd, new_pmd;
 
 	old_pmd = READ_ONCE(*pmdp);
+#ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+	do {
+		new_pmd = pmd_wrprotect(old_pmd);
+		if (ptp_is_user_pgtable(pmdp)) {
+			if (try_cmpxchg((long *)pmdp, (long *)&old_pmd,
+					*(long *)&new_pmd))
+				break;
+		} else if ((ptp_try_cmpxchg((long *)pmdp, pmd_val(old_pmd),
+					pmd_val(new_pmd)))) {
+			break;
+		}
+	} while (1);
+#else  /* CONFIG_PTP && !CONFIG_PTP_S */
+	do {
+		new_pmd = pmd_wrprotect(old_pmd);
+	} while (!ptp_try_cmpxchg((long *)pmdp, pmd_val(old_pmd), pmd_val(new_pmd)));
+#endif  /* CONFIG_PTP_S */
+#else
 	do {
 		new_pmd = pmd_wrprotect(old_pmd);
 	} while (!try_cmpxchg((long *)pmdp, (long *)&old_pmd, *(long *)&new_pmd));
+#endif
 }
 
 #ifndef pmdp_establish
@@ -1375,10 +1422,24 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 {
 	page_table_check_pmd_set(vma->vm_mm, pmdp, pmd);
 	if (IS_ENABLED(CONFIG_SMP)) {
+#ifdef CONFIG_PTP
+#ifdef CONFIG_PTP_S
+		if (ptp_is_user_pgtable(pmdp)) {
+			ptp_user_check_pmd_update(pmdp, pmd);
+			return xchg(pmdp, pmd);
+		}
+#endif
+		return native_make_pmd(ptp_xchg((pgprotval_t *)pmdp, pmd_val(pmd)));
+#else
 		return xchg(pmdp, pmd);
+#endif
 	} else {
 		pmd_t old = *pmdp;
+#ifdef CONFIG_PTP
+		set_pmd(pmdp, pmd);
+#else
 		WRITE_ONCE(*pmdp, pmd);
+#endif
 		return old;
 	}
 }
@@ -1466,13 +1527,22 @@ static inline p4d_t *user_to_kernel_p4dp(p4d_t *p4dp)
  */
 static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 {
+#ifdef CONFIG_PTP
+	iee_memcpy(dst, src, count * sizeof(pgd_t));
+#else
 	memcpy(dst, src, count * sizeof(pgd_t));
+#endif
 #ifdef CONFIG_PAGE_TABLE_ISOLATION
 	if (!static_cpu_has(X86_FEATURE_PTI))
 		return;
 	/* Clone the user space pgd as well */
+#ifdef CONFIG_PTP
+	iee_memcpy(kernel_to_user_pgdp(dst), kernel_to_user_pgdp(src),
+	       count * sizeof(pgd_t));
+#else
 	memcpy(kernel_to_user_pgdp(dst), kernel_to_user_pgdp(src),
 	       count * sizeof(pgd_t));
+#endif
 #endif
 }
 

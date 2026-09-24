@@ -118,19 +118,27 @@ static void free_request_key_auth(struct request_key_auth *rka)
 
 /*
  * Take a reference to the request-key authorisation payload so callers can
- * drop authkey->sem before doing operations that may sleep.
+ * drop the auth key semaphore before doing operations that may sleep.
  */
 struct request_key_auth *request_key_auth_get(struct key *authkey)
 {
 	struct request_key_auth *rka;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(authkey));
+#else
 	down_read(&authkey->sem);
+#endif
 	rka = dereference_key_locked(authkey);
 	if (rka && !test_bit(KEY_FLAG_REVOKED, &authkey->flags))
 		refcount_inc(&rka->usage);
 	else
 		rka = NULL;
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(authkey));
+#else
 	up_read(&authkey->sem);
+#endif
 
 	return rka;
 }
@@ -173,7 +181,12 @@ static void request_key_auth_revoke(struct key *key)
  */
 static void request_key_auth_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	union key_payload *tmp = (union key_payload *)(key->name_link.next);
+	struct request_key_auth *rka = rcu_access_pointer(tmp->rcu_data0);
+#else
 	struct request_key_auth *rka = rcu_access_pointer(key->payload.rcu_data0);
+#endif
 
 	kenter("{%d}", key->serial);
 	if (rka) {
@@ -213,22 +226,43 @@ struct key *request_key_auth_new(struct key *target, const char *op,
 	 * another process */
 	if (cred->request_key_auth) {
 		/* it is - use that instantiation context here too */
+#ifdef CONFIG_KEYP
+		down_read(&KEY_SEM(cred->request_key_auth));
+#else
 		down_read(&cred->request_key_auth->sem);
+#endif
 
 		/* if the auth key has been revoked, then the key we're
 		 * servicing is already instantiated */
 		if (test_bit(KEY_FLAG_REVOKED,
 			     &cred->request_key_auth->flags)) {
+#ifdef CONFIG_KEYP
+			up_read(&KEY_SEM(cred->request_key_auth));
+#else
 			up_read(&cred->request_key_auth->sem);
+#endif
 			ret = -EKEYREVOKED;
 			goto error_free_rka;
 		}
 
-		irka = cred->request_key_auth->payload.data[0];
+		irka = dereference_key_locked(cred->request_key_auth);
+		if (!irka) {
+#ifdef CONFIG_KEYP
+			up_read(&KEY_SEM(cred->request_key_auth));
+#else
+			up_read(&cred->request_key_auth->sem);
+#endif
+			ret = -EKEYREVOKED;
+			goto error_free_rka;
+		}
 		rka->cred = get_cred(irka->cred);
 		rka->pid = irka->pid;
 
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(cred->request_key_auth));
+#else
 		up_read(&cred->request_key_auth->sem);
+#endif
 	}
 	else {
 		/* it isn't - use this process as the context */

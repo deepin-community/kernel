@@ -10,6 +10,9 @@
 #include <linux/gfp.h>
 #include <linux/mm.h>
 #include <linux/mutex.h>
+#ifdef CONFIG_IEE_SELINUX_P
+#include <asm/haoc/iee-selinux.h>
+#endif
 #include "avc.h"
 #include "security.h"
 
@@ -44,9 +47,17 @@ struct page *selinux_kernel_status_page(void)
 	struct selinux_kernel_status   *status;
 	struct page		       *result = NULL;
 
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_lock(iee_get_selinux_status_lock());
+#else
 	mutex_lock(&selinux_state.status_lock);
+#endif
 	if (!selinux_state.status_page) {
+#ifdef CONFIG_IEE_SELINUX_P
+		iee_set_selinux_status_pg(alloc_page(GFP_KERNEL|__GFP_ZERO));
+#else
 		selinux_state.status_page = alloc_page(GFP_KERNEL|__GFP_ZERO);
+#endif
 
 		if (selinux_state.status_page) {
 			status = page_address(selinux_state.status_page);
@@ -66,7 +77,11 @@ struct page *selinux_kernel_status_page(void)
 		}
 	}
 	result = selinux_state.status_page;
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_unlock(iee_get_selinux_status_lock());
+#else
 	mutex_unlock(&selinux_state.status_lock);
+#endif
 
 	return result;
 }
@@ -80,7 +95,11 @@ void selinux_status_update_setenforce(bool enforcing)
 {
 	struct selinux_kernel_status   *status;
 
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_lock(iee_get_selinux_status_lock());
+#else
 	mutex_lock(&selinux_state.status_lock);
+#endif
 	if (selinux_state.status_page) {
 		status = page_address(selinux_state.status_page);
 
@@ -92,7 +111,11 @@ void selinux_status_update_setenforce(bool enforcing)
 		smp_wmb();
 		status->sequence++;
 	}
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_unlock(iee_get_selinux_status_lock());
+#else
 	mutex_unlock(&selinux_state.status_lock);
+#endif
 }
 
 /*
@@ -105,7 +128,11 @@ void selinux_status_update_policyload(u32 seqno)
 {
 	struct selinux_kernel_status   *status;
 
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_lock(iee_get_selinux_status_lock());
+#else
 	mutex_lock(&selinux_state.status_lock);
+#endif
 	if (selinux_state.status_page) {
 		status = page_address(selinux_state.status_page);
 
@@ -118,5 +145,9 @@ void selinux_status_update_policyload(u32 seqno)
 		smp_wmb();
 		status->sequence++;
 	}
+#ifdef CONFIG_IEE_SELINUX_P
+	mutex_unlock(iee_get_selinux_status_lock());
+#else
 	mutex_unlock(&selinux_state.status_lock);
+#endif
 }

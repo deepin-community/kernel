@@ -164,7 +164,12 @@ void big_key_free_preparse(struct key_preparsed_payload *prep)
  */
 void big_key_revoke(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	struct big_key_payload *payload =
+		to_big_key_payload(*((union key_payload *)(key->name_link.next)));
+#else
 	struct big_key_payload *payload = to_big_key_payload(key->payload);
+#endif
 
 	/* clear the quota */
 	key_payload_reserve(key, 0);
@@ -177,7 +182,12 @@ void big_key_revoke(struct key *key)
  */
 void big_key_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	struct big_key_payload *payload =
+		to_big_key_payload(*((union key_payload *)(key->name_link.next)));
+#else
 	struct big_key_payload *payload = to_big_key_payload(key->payload);
+#endif
 
 	if (payload->length > BIG_KEY_FILE_THRESHOLD) {
 		path_put(&payload->path);
@@ -210,7 +220,12 @@ int big_key_update(struct key *key, struct key_preparsed_payload *prep)
  */
 void big_key_describe(const struct key *key, struct seq_file *m)
 {
+#ifdef CONFIG_KEYP
+	struct big_key_payload *payload =
+		to_big_key_payload(*((union key_payload *)(key->name_link.next)));
+#else
 	struct big_key_payload *payload = to_big_key_payload(key->payload);
+#endif
 
 	seq_puts(m, key->description);
 
@@ -226,7 +241,12 @@ void big_key_describe(const struct key *key, struct seq_file *m)
  */
 long big_key_read(const struct key *key, char *buffer, size_t buflen)
 {
+#ifdef CONFIG_KEYP
+	struct big_key_payload *payload =
+		to_big_key_payload(*((union key_payload *)(key->name_link.next)));
+#else
 	struct big_key_payload *payload = to_big_key_payload(key->payload);
+#endif
 	size_t datalen = payload->length;
 	long ret;
 
