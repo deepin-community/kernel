@@ -5971,6 +5971,8 @@ static bool prog_arg_maybe_null(const struct bpf_prog *prog, const struct btf *b
 				const struct btf_param *arg)
 {
 	return btf_param_match_suffix(btf, arg, "__nullable");
+}
+
 int btf_ctx_arg_offset(const struct btf *btf, const struct btf_type *func_proto,
 		       u32 arg_no)
 {
@@ -8701,6 +8703,8 @@ bool btf_param_match_suffix(const struct btf *btf,
 		return false;
 	param_name += len - suffix_len;
 	return !strncmp(param_name, suffix, suffix_len);
+}
+
 #ifdef CONFIG_BPF_JIT
 static int
 btf_add_struct_ops(struct btf *btf, struct bpf_struct_ops *st_ops,
