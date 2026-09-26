@@ -6,6 +6,8 @@
  * Copyright (c) 2022 Tejun Heo <tj@kernel.org>
  * Copyright (c) 2022 David Vernet <dvernet@meta.com>
  */
+#include <linux/bpf.h>
+
 #define SCX_OP_IDX(op)		(offsetof(struct sched_ext_ops, op) / sizeof(void (*)(void)))
 
 enum scx_consts {
@@ -3613,7 +3615,8 @@ void sched_ext_free(struct task_struct *p)
 	}
 }
 
-static void reweight_task_scx(struct rq *rq, struct task_struct *p, int newprio)
+static void reweight_task_scx(struct rq *rq, struct task_struct *p,
+			      const struct load_weight *lw)
 {
 	lockdep_assert_rq_held(task_rq(p));
 
@@ -5322,7 +5325,7 @@ bpf_scx_get_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 	case BPF_FUNC_task_storage_delete:
 		return &bpf_task_storage_delete_proto;
 	default:
-		return bpf_base_func_proto(func_id, prog);
+		return bpf_base_func_proto(func_id);
 	}
 }
 
