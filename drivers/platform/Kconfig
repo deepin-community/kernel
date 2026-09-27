@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
+source "drivers/platform/arm64/Kconfig"
+
 source "drivers/platform/mips/Kconfig"
 
 source "drivers/platform/loongarch/Kconfig"

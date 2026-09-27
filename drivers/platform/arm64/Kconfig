@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig ARM64_PLATFORM_DEVICES
+	bool "ARM64 platform devices"
+	depends on ARM64
+	help
+	  Say Y here to enable platform-specific drivers for ARM64 systems.
+	  These drivers provide support for vendor-specific hardware that is
+	  not covered by standard subsystem drivers, such as embedded
+	  controllers, laptop hotkeys, backlight and power supply controls.
+
+if ARM64_PLATFORM_DEVICES
+
+config PHYTIUM_EC
+	bool "Phytium IT8528 Embedded Controller support"
+	depends on PHYTIUM_PIO
+	help
+	  Enable support for the IT8528 Embedded Controller found on some
+	  Phytium laptop platforms. This driver communicates with the EC
+	  over the Phytium PIO (Programmed I/O) path and is required by the
+	  Phytium laptop driver for battery, lid and hotkey support.
+
+config PHYTIUM_LAPTOP
+	bool "Phytium laptop platform support"
+	depends on PHYTIUM_EC
+	select POWER_SUPPLY
+	select BACKLIGHT_CLASS_DEVICE
+	select INPUT_SPARSEKMAP
+	select HWMON
+	help
+	  Enable laptop-specific support for Phytium platforms. This
+	  provides power-supply reporting (AC and battery), backlight
+	  control, lid status and Fn hotkey handling through the IT8528
+	  embedded controller.
+
+endif
