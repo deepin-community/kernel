@@ -1493,8 +1493,6 @@ struct bpf_prog_aux {
 	bool tail_call_reachable;
 	bool xdp_has_frags;
 	bool changes_pkt_data;
-	bool might_sleep;
-	struct bpf_arena *arena;
 	/* BTF_KIND_FUNC_PROTO for valid attach_btf_id */
 	const struct btf_type *attach_func_proto;
 	/* function name for valid attach_btf_id */
@@ -1554,8 +1552,8 @@ struct bpf_prog_aux {
 		struct rcu_head	rcu;
 	};
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, struct bpf_arena *arena)
+	DEEPIN_KABI_USE(2, bool might_sleep)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
