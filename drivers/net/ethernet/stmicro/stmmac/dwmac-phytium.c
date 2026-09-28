@@ -50,6 +50,7 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	u64 clk_freq;
 	char clk_name[20];
+	int phy_mode;
 	int ret;
 
 	plat = devm_kzalloc(&pdev->dev, sizeof(*plat), GFP_KERNEL);
@@ -64,12 +65,13 @@ static int phytium_dwmac_probe(struct platform_device *pdev)
 	if (!plat->axi)
 		return -ENOMEM;
 
-	plat->phy_interface = phytium_get_mac_mode(fwnode);
-	if (plat->phy_interface < 0)
-		plat->phy_interface = device_get_phy_mode(&pdev->dev);
-	if (plat->phy_interface < 0)
-		return dev_err_probe(&pdev->dev, plat->phy_interface,
+	phy_mode = phytium_get_mac_mode(fwnode);
+	if (phy_mode < 0)
+		phy_mode = device_get_phy_mode(&pdev->dev);
+	if (phy_mode < 0)
+		return dev_err_probe(&pdev->dev, phy_mode,
 				     "missing \"mac-mode\" and \"phy-mode\" properties\n");
+	plat->phy_interface = phy_mode;
 #ifdef CONFIG_ACPI
 	static const struct acpi_device_id phytium_old_acpi_id[] = {
 		{ .id = "FTGM0001" }, // compat FT2000/4 id
