@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flowinfo>
+    <!-- ERAM INFO -->
+
+    <!-- HASH INFO -->
+    <sdt no ="85" type="HASH" name="pmtu_info" width="128" key="64" rst="32">
+        <field name="rsv0"      attr="key"  array_num="1"  element_bits="32" msb="63" lsb="56" bit_num="8" />
+        <field name="rsv1"      attr="key"  array_num="1"  element_bits="32" msb="55" lsb="24" bit_num="32"/>
+        <field name="qp"        attr="key"  array_num="1"  element_bits="32" msb="23" lsb="0"  bit_num="24"/>
+
+        <field name="hit_flag"  attr="rst"  array_num="1"  element_bits="32" msb="31" lsb="31" bit_num="1" />
+        <field name="rsv0"      attr="rst"  array_num="1"  element_bits="32" msb="30" lsb="16" bit_num="15"/>
+        <field name="pmtu"      attr="rst"  array_num="1"  element_bits="32" msb="15" lsb="0"  bit_num="16"/>
+    </sdt>
+    <sdt no ="86" type="HASH" name="qp_info" width="256" key="64" rst="128">
+        <field name="rsv0"      attr="key"  array_num="1"  element_bits="32" msb="63"  lsb="56"  bit_num="8" />
+        <field name="rsv1"      attr="key"  array_num="1"  element_bits="32" msb="55"  lsb="24"  bit_num="32"/>
+        <field name="qp"        attr="key"  array_num="1"  element_bits="32" msb="23"  lsb="0"   bit_num="24"/>
+
+        <field name="hit_flag"  attr="rst"  array_num="1"  element_bits="32" msb="127" lsb="127" bit_num="1" />
+        <field name="rsv0"      attr="rst"  array_num="1"  element_bits="32" msb="126" lsb="120" bit_num="7" />
+        <field name="psn"       attr="rst"  array_num="1"  element_bits="32" msb="119" lsb="96"  bit_num="24"/>
+        <field name="length"    attr="rst"  array_num="1"  element_bits="32" msb="95"  lsb="64"  bit_num="32"/>
+        <field name="rsv1"      attr="rst"  array_num="1"  element_bits="32" msb="63"  lsb="48"  bit_num="16"/>
+        <field name="va_h"      attr="rst"  array_num="1"  element_bits="32" msb="47"  lsb="32"  bit_num="16"/>
+        <field name="va_l"      attr="rst"  array_num="1"  element_bits="32" msb="31"  lsb="0"   bit_num="32"/>
+    </sdt>
+    <sdt no ="84" type="HASH" name="roce_match" width="512" key="288" rst="32">
+        <field name="sip"      attr="key"  array_num="16"  element_bits="8" msb="287" lsb="160" bit_num="128" />
+        <field name="dip"      attr="key"  array_num="16"  element_bits="8" msb="159" lsb="32"  bit_num="128"/>
+        <field name="rsv"      attr="key"  array_num="1"  element_bits="32" msb="31"  lsb="0"   bit_num="32"/>
+        <field name="hit_flag"  attr="rst"  array_num="1"  element_bits="32" msb="31" lsb="31" bit_num="1" />
+        <field name="rsv0"      attr="rst"  array_num="1"  element_bits="32" msb="30" lsb="16" bit_num="15"/>
+        <field name="vqm_vfid"  attr="rst"  array_num="1"  element_bits="32" msb="15" lsb="0"  bit_num="16"/>
+    </sdt>
+
+    <!-- ACL INFO -->
+    <sdt no="130" type="ACL" name="fd_cfg" width="640" rst="128">
+        <field name="dmac"      attr="key"  array_num="6"  element_bits="8"  msb="639" lsb="592" bit_num="48"/>
+        <field name="smac"      attr="key"  array_num="6"  element_bits="8"  msb="591" lsb="544" bit_num="48"/>
+        <field name="ethtype"   attr="key"  array_num="1"  element_bits="32" msb="543" lsb="528" bit_num="16"/>
+        <field name="cvlan_pri" attr="key"  array_num="1"  element_bits="16" msb="527" lsb="524" bit_num="4"/>
+        <field name="cvlanid"   attr="key"  array_num="1"  element_bits="16" msb="523" lsb="512" bit_num="12"/>
+        <field name="sip"       attr="key"  array_num="16" element_bits="8"  msb="511" lsb="384" bit_num="128"/>
+        <field name="dip"       attr="key"  array_num="16" element_bits="8"  msb="383" lsb="256" bit_num="128"/>
+        <field name="rsv1"      attr="key"  array_num="1"  element_bits="8"  msb="255" lsb="248" bit_num="8"/>
+        <field name="tos"       attr="key"  array_num="1"  element_bits="8"  msb="247" lsb="240" bit_num="8"/>
+        <field name="proto"     attr="key"  array_num="1"  element_bits="8"  msb="239" lsb="232" bit_num="8"/>
+        <field name="fragment"  attr="key"  array_num="1"  element_bits="8"  msb="231" lsb="224" bit_num="8"/>
+        <field name="sport"     attr="key"  array_num="1"  element_bits="16" msb="223" lsb="208" bit_num="16"/>
+        <field name="dport"     attr="key"  array_num="1"  element_bits="16" msb="207" lsb="192" bit_num="16"/>
+        <field name="rsv2"      attr="key"  array_num="1"  element_bits="32" msb="191" lsb="184" bit_num="8"/>
+        <field name="vxlan_vni" attr="key"  array_num="1"  element_bits="32" msb="183" lsb="160" bit_num="24"/>
+        <field name="vqm_vfid"  attr="key"  array_num="1"  element_bits="16" msb="159" lsb="144" bit_num="16"/>
+        <field name="rsv3"      attr="key"  array_num="1"  element_bits="16" msb="143" lsb="128" bit_num="16"/>
+
+        <field name="hit_flag"         attr="rst"  array_num="1"  element_bits="8"  msb="127" lsb="127" bit_num="1"/>
+        <field name="action_index"     attr="rst"  array_num="1"  element_bits="8"  msb="126" lsb="120" bit_num="7"/>
+        <field name="action_index2"    attr="rst"  array_num="1"  element_bits="16" msb="119" lsb="112" bit_num="8"/>
+        <field name="v_qid"            attr="rst"  array_num="1"  element_bits="32" msb="111" lsb="96"  bit_num="16"/>
+        <field name="uplink_fd_id"     attr="rst"  array_num="1"  element_bits="32" msb="95"  lsb="64"  bit_num="32"/>
+        <field name="spec_port_vfid"   attr="rst"  array_num="1"  element_bits="32" msb="63"  lsb="52"  bit_num="12"/>
+        <field name="count_id"         attr="rst"  array_num="1"  element_bits="32" msb="51"  lsb="32"  bit_num="20"/>
+        <field name="hash_alg"         attr="rst"  array_num="1"  element_bits="16" msb="31"  lsb="24"  bit_num="8"/>
+        <field name="rss_hash_factor"  attr="rst"  array_num="1"  element_bits="16" msb="23"  lsb="16"  bit_num="8"/>
+        <field name="rsv3"             attr="rst"  array_num="1"  element_bits="16" msb="15"  lsb="12"  bit_num="4"/>
+        <field name="encap0_index"     attr="rst"  array_num="1"  element_bits="16" msb="11"  lsb="0"   bit_num="12"/>
+    </sdt>
+    <!-- DDR INFO -->
+    
+    <!-- LPM INFO -->
+</flowinfo>
+
+
