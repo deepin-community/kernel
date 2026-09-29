@@ -1025,7 +1025,6 @@ static void ch9344_port_dtr_rts(struct tty_port *port, bool raise)
 		container_of(port, struct ch9344_ttyport, port);
 	struct ch9344 *ch9344 = tty_get_portdata(ttyport);
 	int portnum = ttyport->portnum;
-	int val;
 
 	if ((ch9344->chiptype == CHIP_CH348Q) && (portnum > 3))
 		return;
@@ -1039,11 +1038,6 @@ static void ch9344_port_dtr_rts(struct tty_port *port, bool raise)
 		ch9344_set_control(ch9344, portnum, 0x00);
 		ch9344_set_control(ch9344, portnum, 0x10);
 	}
-
-	ch9344->ttyport[portnum].ctrlout = val;
-
-	ch9344_set_control(ch9344, portnum, 0x01);
-	ch9344_set_control(ch9344, portnum, 0x11);
 }
 
 static int ch9344_port_activate(struct tty_port *port, struct tty_struct *tty)
@@ -1636,7 +1630,7 @@ static int ch9344_set_gpiodir(struct ch9344 *ch9344, int portnum, u8 gpionumber,
 	if (!buffer)
 		return -ENOMEM;
 
-	for (i = 0; i < MAXGPIO; i++) {
+	for (i = 0; i < MAXGPIO_CH9344; i++) {
 		if (i != gpionumber)
 			gpiodirs |= (ch9344->gpiodir[i]) << i;
 	}
@@ -1907,14 +1901,20 @@ static int ch9344_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			rv = 0;
 		break;
 	case IOCTL_CMD_CMDIN:
-		get_user(arg1, (u16 __user *)arg);
+		rv = get_user(arg1, (u16 __user *)arg);
+		if (rv)
+			goto out;
+
 		arg2 = (unsigned long)((u8 __user *)arg + 2);
 		arg3 = (unsigned long)((u8 __user *)arg + 2 + 256);
 		rv = ch9344_cmd_in(ch9344, (u8 __user *)arg3, (int)arg1,
 				   (u8 __user *)arg2);
 		break;
 	case IOCTL_CMD_CMDOUT:
-		get_user(arg1, (u16 __user *)arg);
+		rv = get_user(arg1, (u16 __user *)arg);
+		if (rv)
+			goto out;
+
 		if (arg1 > 512) {
 			rv = -EINVAL;
 			goto out;
@@ -1926,11 +1926,22 @@ static int ch9344_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		rv = ch9344_cmd_out(ch9344, buffer, (int)arg1);
 		break;
 	case IOCTL_CMD_CTRLIN:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv)
+			goto out;
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv)
+			goto out;
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv)
+			goto out;
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv)
+			goto out;
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv)
+			goto out;
+
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = copy_from_user(buffer, (u8 __user *)arg6, arg5);
 		if (rv)
@@ -1947,11 +1958,21 @@ static int ch9344_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			goto out;
 		break;
 	case IOCTL_CMD_CTRLOUT:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv)
+			goto out;
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv)
+			goto out;
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv)
+			goto out;
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv)
+			goto out;
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv)
+			goto out;
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = ch9344_control_out(ch9344, (u8)arg1, (u8)arg2, (u16)arg3,
 					(u16)arg4, (u8 __user *)arg6,
@@ -2580,12 +2601,12 @@ static long ch9344_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			mutex_unlock(&ch9344->gpiomutex);
 		} else if (ch9344->chiptype == CHIP_CH348L ||
 			   ch9344->chiptype == CHIP_CH348Q) {
-			mutex_lock(&ch9344->gpiomutex);
 			gpionumber = inargH;
 			if (gpionumber >= MAXGPIO) {
 				rv = -EINVAL;
 				goto out;
 			}
+			mutex_lock(&ch9344->gpiomutex);
 			gpiodir = inargL;
 			rv = ch348_set_gpiodir(ch9344, gpionumber, gpiodir);
 			mutex_unlock(&ch9344->gpiomutex);
@@ -2936,11 +2957,6 @@ static int ch9344_probe(struct usb_interface *intf,
 	ch9344->cmdreadurb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
 	ch9344->cmdreadurb->transfer_dma = ch9344->cmdread_dma;
 
-	rv = usb_driver_claim_interface(&ch9344_driver, data_interface, ch9344);
-	if (rv) {
-		dev_err(&intf->dev, "failed to claim data interface: %d\n", rv);
-		goto post_claim_fail;
-	}
 	usb_set_intfdata(data_interface, ch9344);
 	usb_get_intf(data_interface);
 
@@ -3013,7 +3029,6 @@ post_claim_fail:
 	for (i = 0; i < registered; i++)
 		tty_unregister_device(ch9344_tty_driver, NUMSTEP * minor + i);
 	usb_set_intfdata(data_interface, NULL);
-	usb_driver_release_interface(&ch9344_driver, data_interface);
 	usb_put_intf(data_interface);
 
 alloc_fail7:
