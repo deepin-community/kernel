@@ -234,6 +234,22 @@ pmd_t pmdp_collapse_flush(struct vm_area_struct *vma, unsigned long address,
 }
 #endif
 
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+struct ptp_pte_free_now_work {
+	struct work_struct work;
+	struct page *page;
+};
+
+static void ptp_pte_free_now(struct work_struct *work)
+{
+	struct ptp_pte_free_now_work *ptp_work =
+			container_of(work, struct ptp_pte_free_now_work, work);
+
+	pte_free(NULL, ptp_work->page);
+	kfree(ptp_work);
+}
+#endif
+
 /* arch define pte_free_defer in asm/pgalloc.h for its own implementation */
 #ifndef pte_free_defer
 static void pte_free_now(struct rcu_head *head)
@@ -241,7 +257,16 @@ static void pte_free_now(struct rcu_head *head)
 	struct page *page;
 
 	page = container_of(head, struct page, rcu_head);
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	struct ptp_pte_free_now_work *ptp_work =
+			kmalloc(sizeof(struct ptp_pte_free_now_work), GFP_ATOMIC);
+
+	ptp_work->page = page;
+	INIT_WORK(&ptp_work->work, ptp_pte_free_now);
+	schedule_work(&ptp_work->work);
+#else
 	pte_free(NULL /* mm not passed and not used */, (pgtable_t)page);
+#endif
 }
 
 void pte_free_defer(struct mm_struct *mm, pgtable_t pgtable)

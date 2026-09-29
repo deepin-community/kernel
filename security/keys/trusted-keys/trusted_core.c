@@ -233,7 +233,11 @@ static int trusted_update(struct key *key, struct key_preparsed_payload *prep)
 
 	if (key_is_negative(key))
 		return -ENOKEY;
+#ifdef CONFIG_KEYP
+	p = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	p = key->payload.data[0];
+#endif
 	if (!p->migratable)
 		return -EPERM;
 	if (datalen <= 0 || datalen > 32767 || !prep->data)
@@ -307,7 +311,11 @@ static long trusted_read(const struct key *key, char *buffer,
  */
 static void trusted_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	kfree_sensitive(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 	kfree_sensitive(key->payload.data[0]);
+#endif
 }
 
 struct key_type key_type_trusted = {

@@ -314,11 +314,19 @@ static struct key *request_user_key(const char *master_desc, const u8 **master_k
 	if (IS_ERR(ukey))
 		goto error;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(ukey));
+#else
 	down_read(&ukey->sem);
+#endif
 	upayload = user_key_payload_locked(ukey);
 	if (!upayload) {
 		/* key was revoked before we acquired its semaphore */
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(ukey));
+#else
 		up_read(&ukey->sem);
+#endif
 		key_put(ukey);
 		ukey = ERR_PTR(-EKEYREVOKED);
 		goto error;
@@ -729,7 +737,11 @@ static int encrypted_key_decrypt(struct encrypted_key_payload *epayload,
 	if (ret < 0)
 		pr_err("encrypted_key: failed to decrypt key (%d)\n", ret);
 out:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(mkey));
+#else
 	up_read(&mkey->sem);
+#endif
 	key_put(mkey);
 	memzero_explicit(derived_key, sizeof(derived_key));
 	return ret;
@@ -874,7 +886,12 @@ static void encrypted_rcu_free(struct rcu_head *rcu)
  */
 static int encrypted_update(struct key *key, struct key_preparsed_payload *prep)
 {
+#ifdef CONFIG_KEYP
+	struct encrypted_key_payload *epayload =
+			((union key_payload *)(key->name_link.next))->data[0];
+#else
 	struct encrypted_key_payload *epayload = key->payload.data[0];
+#endif
 	struct encrypted_key_payload *new_epayload;
 	char *buf;
 	char *new_master_desc = NULL;
@@ -974,7 +991,11 @@ static long encrypted_read(const struct key *key, char *buffer,
 		goto out;
 	}
 
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(mkey));
+#else
 	up_read(&mkey->sem);
+#endif
 	key_put(mkey);
 	memzero_explicit(derived_key, sizeof(derived_key));
 
@@ -983,7 +1004,11 @@ static long encrypted_read(const struct key *key, char *buffer,
 
 	return asciiblob_len;
 out:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(mkey));
+#else
 	up_read(&mkey->sem);
+#endif
 	key_put(mkey);
 	memzero_explicit(derived_key, sizeof(derived_key));
 	return ret;
@@ -994,7 +1019,11 @@ out:
  */
 static void encrypted_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	kfree_sensitive(((union key_payload *)(key->name_link.next))->data[0]);
+#else
 	kfree_sensitive(key->payload.data[0]);
+#endif
 }
 
 struct key_type key_type_encrypted = {

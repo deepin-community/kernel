@@ -14,14 +14,72 @@ config IEE
 		verified in IEE APIs.
 		Needs hardware support FEAT_HPDS.
 
+config IEE_ALLOW_SPLIT_LM
+	bool "Allow IEE split linear mapping"
+	depends on IEE
+	def_bool n
+	help
+		Allow the IEE initialization path to split arm64 linear-map block
+		mappings when a protected range cannot be described safely at the
+		current table level. This is mainly useful for bring-up on layouts
+		where protected code or data crosses an existing block boundary.
+
+config IEE_DEBUG
+	bool "Skip IEE stack switch for debug"
+	depends on IEE
+	def_bool n
+	help
+		Build the arm64 IEE gate with a debug path that skips the IEE stack
+		switch and clears HPD before reporting bad gate state. This keeps
+		early gate failures easier to inspect while debugging IEE bring-up
+		code, and should remain disabled for normal kernels.
+
 config IEE_PTRP
 	bool "Pointer Protection for IEE(IEE_PTRP)"
 	depends on IEE
 	help
-		Provide IEE matadata for each process called task_token to allow
-		verifing pointers inside task_struct, like struct cred* that determines
-		the capabilities of a process.
-		Could be a enhancement of other sub-module of HAOC.
+		Enable task_token pointer protection for IEE. When the write-only
+		sub-option IEE_PTRP_W is disabled, both read and write checks are
+		active. When IEE_PTRP_W is enabled, only write protection is active.
+
+config IEE_PTRP_W
+	bool "Pointer Write-Only Protection for IEE to improve performance.(IEE_PTRP_W)"
+	depends on IEE_PTRP
+	help
+		Compared to IEE_PTRP, this option only performs write protection on pointers.
+		Enabling this option improves performance and reduces the protection surface.
+		Disable this option when read-side pointer verification is also required.
+		Use the full IEE_PTRP mode when both read and write checks are needed.
+
+config IEE_CYCLE_CHECK
+	bool "Cycle check all process cred struct.(IEE_CYCLE_CHECK)"
+	depends on IEE_PTRP && !IEE_PTRP_W && CREDP
+	def_bool y
+	help
+		Perform periodic read protection checks on all processes. This mode
+		scans task credentials while pointer write-only protection is disabled.
+		It is enabled by default when credential protection can use read checks.
+		Disable pointer write-only protection to keep this periodic scan active.
+
+config IEE_CS_CHECK
+	bool "Context-Switch check cred struct.(CONFIG_IEE_CS_CHECK)"
+	depends on IEE_PTRP && !IEE_PTRP_W && CREDP
+	def_bool y
+	help
+		Perform read protection checks on processes during context switching.
+		This mode validates task credentials at context-switch boundaries.
+		It is enabled by default when credential protection can use read checks.
+		Disable pointer write-only protection to keep context-switch checks active.
+
+config IEE_IO_CHECK
+	bool "IO check cred struct.(CONFIG_IEE_IO_CHECK)"
+	depends on IEE_PTRP && !IEE_PTRP_W && CREDP
+	def_bool n
+	help
+		Perform read protection checks on the process during I/O operations.
+		This mode validates task credentials when selected I/O paths run.
+		It is disabled by default and can be enabled for additional coverage.
+		Disable pointer write-only protection before enabling this read check.
 
 config IEE_SIP
 	bool "Sensitive Instruction Protection for IEE(IEE_SIP)"
@@ -31,6 +89,37 @@ config IEE_SIP
 		such as writing system control registers. These instructions would
 		be executated inside IEE.
 
+config IEE_SIP
+	bool "Sensitive Instruction Protection for IEE(IEE_SIP)"
+	help
+		Protects critical instructions that may break the isolation of IEE,
+		such as writing system control registers. These instructions would
+		be executated inside IEE.
+	depends on IEE
+
+config PTP
+	bool "Page Table Protection(PTP)"
+	depends on IEE
+	help
+		Protect page tables by routing page-table modification paths
+		through the IEE gate. This keeps page table updates mediated by
+		the isolated execution environment instead of allowing direct
+		writes from normal kernel code.
+
+config PTP_RESERVE_ORDER
+	depends on PTP
+	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
+	range 9 15
+	default 12
+
+config PTP_S
+	bool "Page Table Protection - Separation (PTP_S)"
+	help
+		PTP_S (kernel/user page separation). Split PTP write paths so user page
+		tables can use direct writes while kernel tables stay on ptp gate paths,
+		with user-side safety checks for alias/integrity.
+	depends on PTP
+
 config CREDP
 	bool "Struct cred protection(CREDP)"
 	depends on IEE
@@ -39,5 +128,49 @@ config CREDP
 		verified by IEE APIs, and critical dereferences of cred would be monitored
 		by IEE either.
 		If unsure, say N.
+
+config PTP
+	bool "Page Table Protection(PTP)"
+	depends on IEE
+	help
+		Protect page tables by routing page-table modification paths
+		through the IEE gate. This keeps page table updates mediated by
+		the isolated execution environment instead of allowing direct
+		writes from normal kernel code.
+
+config PTP_RESERVE_ORDER
+	int "maximum allowable 2^PTP_RESERVE_ORDER pages for one level page table"
+	depends on PTP
+	range 9 15
+	default 12
+
+config KEYP
+	bool "Struct Key protection(KEYP)"
+	depends on IEE
+	help
+		This option enables protection for the kernel's struct key. All modifications
+		of keys must be made and verified by IEE APIs to defend memory corruptions.
+
+		If unsure, say N.
+
+config IEE_SELINUX_P
+	bool "SELinux Protection(IEE_SELINUX_P)"
+	help
+		Simple enhancement of the famous linux security module SELinux by putting
+		several critical data, like selinux policy, into the IEE region.
+
+		If unsure, say N.
+	depends on SECURITY_SELINUX
+	depends on IEE
+
+config VARP
+	bool "Variable Protection(VARP)"
+	depends on IEE
+	help
+		Protect variables with IEE. At present, only modprobe_path is
+		covered. Writes to protected variables are routed through IEE
+		interfaces instead of direct kernel stores.
+		Enable this option when modprobe_path must be protected by the
+		isolated execution environment.
 
 endmenu # HAOC

@@ -2208,7 +2208,11 @@ cifs_set_cifscreds(struct smb3_fs_context *ctx, struct cifs_ses *ses)
 		is_domain = 1;
 	}
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 	upayload = user_key_payload_locked(key);
 	if (IS_ERR_OR_NULL(upayload)) {
 		rc = upayload ? PTR_ERR(upayload) : -EINVAL;
@@ -2285,7 +2289,11 @@ cifs_set_cifscreds(struct smb3_fs_context *ctx, struct cifs_ses *ses)
 	strscpy(ctx->workstation_name, ses->workstation_name, sizeof(ctx->workstation_name));
 
 out_key_put:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 out_err:
 	kfree(desc);

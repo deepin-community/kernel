@@ -19,6 +19,9 @@
 #include <net/sock.h>
 #include <net/af_rxrpc.h>
 #include <keys/rxrpc-type.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "ar-internal.h"
 
 #define RXKAD_VERSION			2
@@ -88,10 +91,19 @@ static void rxkad_free_preparse_server_key(struct key_preparsed_payload *prep)
 
 static void rxkad_destroy_server_key(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	union key_payload *key_payload = (union key_payload *)(key->name_link.next);
+
+	if (key_payload->data[0]) {
+		crypto_free_skcipher(key_payload->data[0]);
+		key_payload->data[0] = NULL;
+	}
+#else
 	if (key->payload.data[0]) {
 		crypto_free_skcipher(key->payload.data[0]);
 		key->payload.data[0] = NULL;
 	}
+#endif
 }
 
 /*
@@ -206,7 +218,11 @@ static int rxkad_prime_packet_security(struct rxrpc_connection *conn,
 		return -ENOMEM;
 	}
 
+#ifdef CONFIG_KEYP
+	token = ((union key_payload *)(conn->key->name_link.next))->data[0];
+#else
 	token = conn->key->payload.data[0];
+#endif
 	memcpy(&iv, token->kad->session_key, sizeof(iv));
 
 	tmpbuf[0] = htonl(conn->proto.epoch);
@@ -319,7 +335,11 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
 	}
 
 	/* encrypt from the session key */
+#ifdef CONFIG_KEYP
+	token = ((union key_payload *)(call->conn->key->name_link.next))->data[0];
+#else
 	token = call->conn->key->payload.data[0];
+#endif
 	memcpy(&iv, token->kad->session_key, sizeof(iv));
 
 	sg_init_one(&sg, txb->data, txb->len);
@@ -498,7 +518,11 @@ static int rxkad_verify_packet_2(struct rxrpc_call *call, struct sk_buff *skb,
 	sg_init_one(sg, data, len);
 
 	/* decrypt from the session key */
+#ifdef CONFIG_KEYP
+	token = ((union key_payload *)(call->conn->key->name_link.next))->data[0];
+#else
 	token = call->conn->key->payload.data[0];
+#endif
 	memcpy(&iv, token->kad->session_key, sizeof(iv));
 
 	skcipher_request_set_sync_tfm(req, call->conn->rxkad.cipher);
@@ -820,7 +844,11 @@ static int rxkad_respond_to_challenge(struct rxrpc_connection *conn,
 		return rxrpc_abort_conn(conn, skb, RXKADLEVELFAIL, -EACCES,
 					rxkad_abort_chall_level);
 
+#ifdef CONFIG_KEYP
+	token = ((union key_payload *)(conn->key->name_link.next))->data[0];
+#else
 	token = conn->key->payload.data[0];
+#endif
 
 	/* build the response packet */
 	resp = kzalloc(sizeof(struct rxkad_response), GFP_NOFS);
@@ -873,11 +901,25 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
 
 	*_expiry = 0;
 
+#ifdef CONFIG_KEYP
+	ASSERT(((union key_payload *)(server_key->name_link.next))->data[0]);
+#else
 	ASSERT(server_key->payload.data[0] != NULL);
+#endif
+	ASSERTCMP((unsigned long) ticket & 7UL, ==, 0);
 
+#ifdef CONFIG_KEYP
+	memcpy(&iv, &((union key_payload *)(server_key->name_link.next))->data[2], sizeof(iv));
+#else
 	memcpy(&iv, &server_key->payload.data[2], sizeof(iv));
+#endif
 
+#ifdef CONFIG_KEYP
+	req = skcipher_request_alloc(((union key_payload *)(server_key->name_link.next))->
+				data[0], GFP_NOFS);
+#else
 	req = skcipher_request_alloc(server_key->payload.data[0], GFP_NOFS);
+#endif
 	if (!req)
 		return -ENOMEM;
 

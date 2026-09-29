@@ -106,6 +106,9 @@
 #include <asm/setup.h>
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
+#ifdef CONFIG_IEE
+#include <asm/haoc/iee.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/initcall.h>
@@ -1043,6 +1046,10 @@ void start_kernel(void)
 	acpi_subsystem_init();
 	arch_post_acpi_subsys_init();
 	kcsan_init();
+
+#if defined(CONFIG_IEE) && defined(CONFIG_X86_64)
+	iee_post_init();
+#endif
 
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();

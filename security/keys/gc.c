@@ -8,6 +8,10 @@
 #include <linux/slab.h>
 #include <linux/security.h>
 #include <keys/keyring-type.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#include <asm/haoc/iee-access.h>
+#endif
 #include "internal.h"
 
 /*
@@ -135,18 +139,31 @@ void key_gc_keytype(struct key_type *ktype)
 static noinline void key_gc_unused_keys(struct list_head *keys)
 {
 	while (!list_empty(keys)) {
+#ifdef CONFIG_KEYP
+		struct key *key =
+			list_entry(keys->next, struct key_union, graveyard_link)->key;
+#else
 		struct key *key =
 			list_entry(keys->next, struct key, graveyard_link);
+#endif
 		short state = key->state;
 
+#ifdef CONFIG_KEYP
+		list_del(&(((struct key_union *)(key->graveyard_link.next))->graveyard_link));
+#else
 		list_del(&key->graveyard_link);
+#endif
 
 		kdebug("- %u", key->serial);
 		key_check(key);
 
 #ifdef CONFIG_KEY_NOTIFICATIONS
 		remove_watch_list(key->watchers, key->serial);
+#ifdef CONFIG_KEYP
+		iee_set_key_watchers(key, NULL);
+#else
 		key->watchers = NULL;
+#endif
 #endif
 
 		/* Throw away the key data if the key is instantiated */
@@ -171,7 +188,15 @@ static noinline void key_gc_unused_keys(struct list_head *keys)
 		key_put_tag(key->domain_tag);
 		kfree(key->description);
 
+#ifdef CONFIG_KEYP
+		kmem_cache_free(key_union_jar, (struct key_union *)(key->graveyard_link.next));
+		kmem_cache_free(key_struct_jar, (struct key_struct *)(key->name_link.prev));
+		kmem_cache_free(key_payload_jar, (union key_payload *)(key->name_link.next));
+		iee_memset(key, 0, sizeof(*key));
+		barrier_data(key);
+#else
 		memzero_explicit(key, sizeof(*key));
+#endif
 		kmem_cache_free(key_jar, key);
 	}
 }
@@ -223,7 +248,11 @@ static void key_garbage_collector(struct work_struct *work)
 
 continue_scanning:
 	while (cursor) {
+#ifdef CONFIG_KEYP
+		key = rb_entry(cursor, struct key_union, serial_node)->key;
+#else
 		key = rb_entry(cursor, struct key, serial_node);
+#endif
 		cursor = rb_next(cursor);
 
 		if (refcount_read(&key->usage) == 0)
@@ -232,8 +261,13 @@ continue_scanning:
 		if (unlikely(gc_state & KEY_GC_REAPING_DEAD_1)) {
 			if (key->type == key_gc_dead_keytype) {
 				gc_state |= KEY_GC_FOUND_DEAD_KEY;
+#ifdef CONFIG_KEYP
+				iee_set_key_flag_bit(key, KEY_FLAG_DEAD, SET_BIT_OP);
+				iee_set_key_perm(key, 0);
+#else
 				set_bit(KEY_FLAG_DEAD, &key->flags);
 				key->perm = 0;
+#endif
 				goto skip_dead_key;
 			} else if (key->type == &key_type_keyring &&
 				   key->restrict_link) {
@@ -339,10 +373,20 @@ maybe_resched:
 	 */
 found_unreferenced_key:
 	kdebug("unrefd key %d", key->serial);
+#ifdef CONFIG_KEYP
+	rb_erase(&(((struct key_union *)(key->graveyard_link.next))->serial_node),
+				&key_serial_tree);
+#else
 	rb_erase(&key->serial_node, &key_serial_tree);
+#endif
 	spin_unlock(&key_serial_lock);
 
+#ifdef CONFIG_KEYP
+	list_add_tail(&(((struct key_union *)(key->graveyard_link.next))->graveyard_link),
+				&graveyard);
+#else
 	list_add_tail(&key->graveyard_link, &graveyard);
+#endif
 	gc_state |= KEY_GC_REAP_AGAIN;
 	goto maybe_resched;
 
@@ -370,11 +414,21 @@ found_keyring:
 destroy_dead_key:
 	spin_unlock(&key_serial_lock);
 	kdebug("destroy key %d", key->serial);
+#ifdef CONFIG_KEYP
+	down_write(&KEY_SEM(key));
+	iee_set_key_type(key, &key_type_dead);
+#else
 	down_write(&key->sem);
 	key->type = &key_type_dead;
+#endif
 	if (key_gc_dead_keytype->destroy)
 		key_gc_dead_keytype->destroy(key);
+#ifdef CONFIG_KEYP
+	iee_memset((key->name_link.next), KEY_DESTROY, sizeof(key->payload));
+	up_write(&KEY_SEM(key));
+#else
 	memset(&key->payload, KEY_DESTROY, sizeof(key->payload));
 	up_write(&key->sem);
+#endif
 	goto maybe_resched;
 }

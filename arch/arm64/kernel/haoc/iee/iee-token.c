@@ -36,10 +36,11 @@ void __init iee_prepare_init_task_token(void)
 					| __phys_to_pte_val(init_token_page));
 		/* Manaully go through IEE gates to bypass PTP checks. */
 		#ifdef CONFIG_PTP
-		write_sysreg(read_sysreg(TCR_EL1) | TCR_HPD1 | TCR_A1, tcr_el1);
+		write_sysreg((read_sysreg(TCR_EL1) | TCR_HPD1) & ~TCR_A1, tcr_el1);
 		isb();
 		WRITE_ONCE(*__ptr_to_iee(ptep), pte);
-		write_sysreg(read_sysreg(TCR_EL1) & ~(TCR_HPD1 | TCR_A1), tcr_el1);
+		dsb(ishst);
+		write_sysreg((read_sysreg(TCR_EL1) & ~TCR_HPD1) | TCR_A1, tcr_el1);
 		isb();
 		#else
 		__set_pte(ptep, pte);
@@ -108,6 +109,18 @@ static inline void iee_set_token(unsigned long token_addr, unsigned long token_p
 	flush_tlb_kernel_range(token_pages, (token_pages + (PAGE_SIZE << order)));
 }
 
+static unsigned long iee_token_page(unsigned long token_addr)
+{
+	pgd_t *pgdir = swapper_pg_dir;
+	pgd_t *pgdp = pgd_offset_pgd(pgdir, token_addr);
+	p4d_t *p4dp = p4d_offset(pgdp, token_addr);
+	pud_t *pudp = pud_offset(p4dp, token_addr);
+	pmd_t *pmdp = pmd_offset(pudp, token_addr);
+	pte_t *ptep = pte_offset_kernel(pmdp, token_addr);
+
+	return (unsigned long)page_address(pte_page(READ_ONCE(*ptep)));
+}
+
 /*
  * iee_set_token_page_valid() - After allocated task token pages, map them to the
  * corresponding IEE addresses, and enforce RO protection on their linear mappings.
@@ -143,8 +156,11 @@ struct slab *iee_alloc_task_token_slab(struct kmem_cache *s,
 		return slab;
 
 	struct folio *folio = slab_folio(slab);
+	unsigned int task_order = order;
+	unsigned int token_order = IEE_TOKEN_ORDER(task_order);
 	unsigned long token_addr = __slab_to_iee(slab);
-	unsigned long alloc_token = __get_free_pages(GFP_KERNEL | __GFP_ZERO, order);
+	unsigned long alloc_token =
+		__get_free_pages(GFP_KERNEL | __GFP_ZERO, token_order);
 
 	/* Allocation of task_struct and token pages must be done at the same time. */
 	if (!alloc_token) {
@@ -156,13 +172,31 @@ struct slab *iee_alloc_task_token_slab(struct kmem_cache *s,
 		/* Make the mapping reset visible before clearing the flag */
 		smp_wmb();
 		__folio_clear_slab(folio);
-		__free_pages((struct page *)folio, order);
+		__free_pages((struct page *)folio, task_order);
 		return NULL;
 	}
 
 	/* Map allocated token pages to token addresses. */
-	iee_set_token_page_valid(token_addr, alloc_token, order);
+	iee_set_token_page_valid(token_addr, alloc_token, token_order);
 	return slab;
+}
+
+void iee_free_task_token_slab(struct kmem_cache *s, struct slab *slab,
+			      unsigned int order)
+{
+	unsigned int token_order;
+	unsigned long token_addr;
+	unsigned long token_page;
+
+	if (!slab || s != task_struct_cachep)
+		return;
+
+	token_order = IEE_TOKEN_ORDER(order);
+	token_addr = __slab_to_iee(slab);
+	token_page = iee_token_page(token_addr);
+
+	iee_set_token_page_invalid(token_addr, token_page, token_order);
+	free_pages(token_page, token_order);
 }
 
 void __iee_code _iee_init_token(unsigned long __unused, struct task_struct *tsk)
@@ -173,24 +207,34 @@ void __iee_code _iee_init_token(unsigned long __unused, struct task_struct *tsk)
 void __iee_code _iee_set_token_pgd(unsigned long __unused, struct task_struct *tsk,
 					pgd_t *pgd)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)iee_get_task_token(tsk);
 
 	token->pgd = pgd;
 }
 
 void __iee_code _iee_validate_token(unsigned long __unused, struct task_struct *tsk)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)iee_get_task_token(tsk);
 
 	if (token->valid)
 		pr_err("IEE: validate token for multiple times.");
-	token->valid = true;
+#ifdef CONFIG_CREDP
+	token->new_cred = NULL;
+	token->curr_cred = tsk->cred;
+#endif
+	seqcount_init(&token->seq);
+	smp_store_release(&token->valid, true);
 }
 
 void __iee_code _iee_invalidate_token(unsigned long __unused, struct task_struct *tsk)
 {
-	struct task_token *token = (struct task_token *)__addr_to_iee(tsk);
+	struct task_token *token = (struct task_token *)iee_get_task_token(tsk);
 
 	token->pgd = NULL;
+#ifdef CONFIG_CREDP
+	token->new_cred = NULL;
+	token->curr_cred = NULL;
+#endif
+	seqcount_init(&token->seq);
 	token->valid = false;
 }

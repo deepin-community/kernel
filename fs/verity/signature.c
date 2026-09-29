@@ -62,7 +62,12 @@ int fsverity_verify_signature(const struct fsverity_info *vi,
 		return 0;
 	}
 
+#ifdef CONFIG_KEYP
+	if (((struct key_struct *)(fsverity_keyring->name_link.prev))->
+		keys.nr_leaves_on_tree == 0) {
+#else
 	if (fsverity_keyring->keys.nr_leaves_on_tree == 0) {
+#endif
 		/*
 		 * The ".fs-verity" keyring is empty, due to builtin signatures
 		 * being supported by the kernel but not actually being used.

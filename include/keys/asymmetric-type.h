@@ -69,13 +69,21 @@ extern struct asymmetric_key_id *asymmetric_key_generate_id(const void *val_1,
 static inline
 const struct asymmetric_key_ids *asymmetric_key_ids(const struct key *key)
 {
+#ifdef CONFIG_KEYP
+	return ((union key_payload *)(key->name_link.next))->data[asym_key_ids];
+#else
 	return key->payload.data[asym_key_ids];
+#endif
 }
 
 static inline
 const struct public_key *asymmetric_key_public_key(const struct key *key)
 {
+#ifdef CONFIG_KEYP
+	return ((union key_payload *)(key->name_link.next))->data[asym_crypto];
+#else
 	return key->payload.data[asym_crypto];
+#endif
 }
 
 extern struct key *find_asymmetric_key(struct key *keyring,

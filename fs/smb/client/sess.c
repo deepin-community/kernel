@@ -1625,7 +1625,11 @@ sess_auth_kerberos(struct sess_data *sess_data)
 		goto out;
 	}
 
+#ifdef CONFIG_KEYP
+	msg = ((union key_payload *)(spnego_key->name_link.next))->data[0];
+#else
 	msg = spnego_key->payload.data[0];
+#endif
 	/*
 	 * check version field to make sure that cifs.upcall is
 	 * sending us a response in an expected form

@@ -35,6 +35,13 @@
 #include <asm/nospec-branch.h>
 #include <asm/microcode.h>
 #include <asm/sev.h>
+#ifdef CONFIG_IEE
+#include <asm/processor-flags.h>
+#include <asm/special_insns.h>
+#endif
+#ifdef CONFIG_PTP
+#include <asm/haoc/ptp.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/nmi.h>
@@ -364,6 +371,24 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 	int handled;
 	bool b2b = false;
 
+#ifdef CONFIG_IEE
+	u64 cr0 = read_cr0();
+	bool cr0_wp = cr0 & X86_CR0_WP;
+#ifdef CONFIG_PTP
+	u64 iee_wp_flag = 0;
+#endif
+
+	if (!cr0_wp) {
+#ifdef CONFIG_PTP
+		iee_wp_flag = this_cpu_read(iee_cr0s.wp_disabled_cnt);
+		this_cpu_write(iee_cr0s.wp_disabled_cnt, 0);
+#endif
+		cr0 |= X86_CR0_WP;
+		// we assume that only IEE gate can disable cr0.wp.
+		// If cr0.wp = false, set cr0.wp = true in case of nmi happens in IEE gate.
+		asm volatile("mov %0,%%cr0" : "+r" (cr0) : : "memory");
+	}
+#endif
 	/*
 	 * CPU-specific NMI must be processed before non-CPU-specific
 	 * NMI, otherwise we may lose it, because the CPU-specific
@@ -475,6 +500,17 @@ static noinstr void default_do_nmi(struct pt_regs *regs)
 
 out:
 	instrumentation_end();
+#ifdef CONFIG_IEE
+	if (!cr0_wp) {
+		cr0 = read_cr0() & ~X86_CR0_WP;
+
+		asm volatile("mov %0,%%cr0" : "+r" (cr0) : : "memory");
+
+#ifdef CONFIG_PTP
+		this_cpu_write(iee_cr0s.wp_disabled_cnt, iee_wp_flag);
+#endif
+	}
+#endif
 }
 
 /*

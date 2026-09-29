@@ -316,7 +316,11 @@ static int read_sed_opal_key(const char *key_name, u_char *buffer, int buflen)
 		return PTR_ERR(kref);
 
 	key = key_ref_to_ptr(kref);
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 	ret = key_validate(key);
 	if (ret == 0) {
 		if (buflen > key->datalen)
@@ -324,7 +328,11 @@ static int read_sed_opal_key(const char *key_name, u_char *buffer, int buflen)
 
 		ret = key->type->read(key, (char *)buffer, buflen);
 	}
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 
 	key_ref_put(kref);
 

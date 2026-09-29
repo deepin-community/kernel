@@ -9,6 +9,9 @@
 #define __HAVE_ARCH_PTE_ALLOC_ONE
 #define __HAVE_ARCH_PGD_FREE
 #include <asm-generic/pgalloc.h>
+#ifdef CONFIG_PTP
+#include <linux/ptp-cache.h>
+#endif
 
 static inline int  __paravirt_pgd_alloc(struct mm_struct *mm) { return 0; }
 
@@ -153,7 +156,11 @@ static inline p4d_t *p4d_alloc_one(struct mm_struct *mm, unsigned long addr)
 
 	if (mm == &init_mm)
 		gfp &= ~__GFP_ACCOUNT;
+#ifdef CONFIG_PTP
+	return (p4d_t *)iee_cache_alloc(&pg_cache, gfp | __GFP_ZERO);
+#else
 	return (p4d_t *)get_zeroed_page(gfp);
+#endif
 }
 
 static inline void p4d_free(struct mm_struct *mm, p4d_t *p4d)
@@ -162,7 +169,11 @@ static inline void p4d_free(struct mm_struct *mm, p4d_t *p4d)
 		return;
 
 	BUG_ON((unsigned long)p4d & (PAGE_SIZE-1));
+#ifdef CONFIG_PTP
+	iee_cache_free(&pg_cache, p4d);
+#else
 	free_page((unsigned long)p4d);
+#endif
 }
 
 extern void ___p4d_free_tlb(struct mmu_gather *tlb, p4d_t *p4d);

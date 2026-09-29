@@ -17,6 +17,9 @@
 #include <linux/uidgid.h>
 #include <keys/asymmetric-type.h>
 #include <keys/system_keyring.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "blacklist.h"
 
 /*
@@ -91,7 +94,11 @@ static int blacklist_key_instantiate(struct key *key,
 #endif
 
 	/* Sets safe default permissions for keys loaded by user space. */
+#ifdef CONFIG_KEYP
+	iee_set_key_perm(key, BLACKLIST_KEY_PERM);
+#else
 	key->perm = BLACKLIST_KEY_PERM;
+#endif
 
 	/*
 	 * Skips the authentication step for builtin hashes, they are not

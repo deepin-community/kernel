@@ -80,6 +80,9 @@
 #include <asm/cpufeature.h>
 #include <asm/cpu_ops.h>
 #include <asm/fpsimd.h>
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-mmu.h>
+#endif
 #include <asm/hwcap.h>
 #include <asm/insn.h>
 #include <asm/kvm_host.h>
@@ -1835,7 +1838,12 @@ static int __init __kpti_install_ng_mappings(void *__unused)
 	remap_fn = (void *)__pa_symbol(idmap_kpti_install_ng_mappings);
 
 	if (!cpu) {
+		#ifdef CONFIG_PTP
+		/* CPU 0 is never hotpluged so we could call init function here. */
+		alloc = (u64)__va(early_iee_pgtable_alloc(0));
+		#else
 		alloc = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, order);
+		#endif
 		kpti_ng_temp_pgd = (pgd_t *)(alloc + (levels - 1) * PAGE_SIZE);
 		kpti_ng_temp_alloc = kpti_ng_temp_pgd_pa = __pa(kpti_ng_temp_pgd);
 

@@ -304,7 +304,11 @@ static int alg_setkey_by_key_serial(struct alg_sock *ask, sockptr_t optval,
 	if (IS_ERR(key))
 		return PTR_ERR(key);
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 
 	ret = ERR_PTR(-ENOPROTOOPT);
 	if (!strcmp(key->type->name, "user") ||
@@ -319,21 +323,33 @@ static int alg_setkey_by_key_serial(struct alg_sock *ask, sockptr_t optval,
 	}
 
 	if (IS_ERR(ret)) {
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(key));
+#else
 		up_read(&key->sem);
+#endif
 		key_put(key);
 		return PTR_ERR(ret);
 	}
 
 	key_data = sock_kmalloc(&ask->sk, key_datalen, GFP_KERNEL);
 	if (!key_data) {
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(key));
+#else
 		up_read(&key->sem);
+#endif
 		key_put(key);
 		return -ENOMEM;
 	}
 
 	memcpy(key_data, ret, key_datalen);
 
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 
 	err = type->setkey(ask->private, key_data, key_datalen);

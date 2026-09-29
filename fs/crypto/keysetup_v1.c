@@ -110,7 +110,11 @@ find_and_lock_process_key(const char *prefix,
 	if (IS_ERR(key))
 		return key;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 	ukp = user_key_payload_locked(key);
 
 	if (!ukp) /* was the key revoked before we acquired its semaphore? */
@@ -137,7 +141,11 @@ find_and_lock_process_key(const char *prefix,
 	return key;
 
 invalid:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 	return ERR_PTR(-ENOKEY);
 }
@@ -322,7 +330,11 @@ int fscrypt_setup_v1_file_key_via_subscribed_keyrings(struct fscrypt_info *ci)
 		return PTR_ERR(key);
 
 	err = fscrypt_setup_v1_file_key(ci, payload->raw);
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 	return err;
 }

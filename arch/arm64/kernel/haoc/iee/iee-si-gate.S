@@ -40,6 +40,9 @@ SYM_FUNC_END(iee_rwx_gate)
 SYM_FUNC_START(iee_rwx_gate_tramp)
 	/* entry gate */
 	mrs x12, tcr_el1
+#ifdef CONFIG_IEE_DEBUG
+	tbnz x12, #42, 114f
+#endif
 	orr x12, x12, #TCR_HPD1
 	bic x12, x12, #TCR_A1
 	msr tcr_el1, x12
@@ -52,10 +55,12 @@ SYM_FUNC_START(iee_rwx_gate_tramp)
 	cmp x9, x12
 	b.ne 3f
 
+#ifndef CONFIG_IEE_DEBUG
 	/* Switch to iee stack by per cpu ptr. */
 	ldr_this_cpu x9, iee_cpu_stack_ptr, x10
 	mov x14, sp
 	mov sp, x9
+#endif
 1:
 	stp x13, x14, [sp, #-32]!
 	stp x29, x30, [sp, #16]
@@ -78,10 +83,19 @@ SYM_FUNC_START(iee_rwx_gate_tramp)
 	cmp x9, x12
 	b.ne 3f
 
+#ifndef CONFIG_IEE_DEBUG
 	/* Switch to kernel stack */
 	mov sp, x14
+#endif
 2:
 	ret
+#ifdef CONFIG_IEE_DEBUG
+	/* Close HPDS before panic. */
+114:
+	bic x12, x12, #TCR_HPD1
+	msr tcr_el1, x12
+	isb
+#endif
 3:
 	mov	x0, sp
 	mov	x1, #BAD_TCR_EL1

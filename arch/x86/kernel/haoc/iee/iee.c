@@ -8,6 +8,10 @@
  */
 
 #include <asm/haoc/iee.h>
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
+#include <linux/mm.h>
 
 void _iee_memcpy(unsigned long __unused, void *dst, void *src, size_t n)
 {
@@ -30,3 +34,19 @@ unsigned long _iee_test_and_clear_bit(unsigned long __unused, long nr, unsigned 
 	instrument_atomic_read_write(addr + BIT_WORD(nr), sizeof(long));
 	return arch_test_and_clear_bit(nr, addr);
 }
+
+#ifdef CONFIG_IEE_PTRP
+struct task_token *iee_get_task_token(struct task_struct *task)
+{
+	unsigned long slab_addr;
+	unsigned long task_addr;
+	unsigned int index;
+
+	slab_addr = (unsigned long)page_to_virt(virt_to_head_page(task));
+	task_addr = (unsigned long)page_to_virt(virt_to_page(task));
+	index = (task_addr - slab_addr) / PAGE_SIZE;
+
+	return (struct task_token *)((unsigned long)__phys_to_iee(__pa(slab_addr)) +
+				     index * IEE_TOKEN_BLOCK_SIZE);
+}
+#endif

@@ -82,7 +82,11 @@ ecryptfs_get_encrypted_key_payload_data(struct key *key)
 	if (key->type != &key_type_encrypted)
 		return NULL;
 
+#ifdef CONFIG_KEYP
+	payload = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	payload = key->payload.data[0];
+#endif
 	if (!payload)
 		return ERR_PTR(-EKEYREVOKED);
 

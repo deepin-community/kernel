@@ -338,7 +338,11 @@ static void ceph_key_free_preparse(struct key_preparsed_payload *prep)
 
 static void ceph_key_destroy(struct key *key)
 {
+#ifdef CONFIG_KEYP
+	struct ceph_crypto_key *ckey = ((union key_payload *)(key->name_link.next))->data[0];
+#else
 	struct ceph_crypto_key *ckey = key->payload.data[0];
+#endif
 
 	ceph_crypto_key_destroy(ckey);
 	kfree(ckey);

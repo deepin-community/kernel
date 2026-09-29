@@ -34,8 +34,13 @@ struct key *request_trusted_key(const char *trusted_desc,
 	if (IS_ERR(tkey))
 		goto error;
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(tkey));
+	tpayload = ((union key_payload *)(tkey->name_link.next))->data[0];
+#else
 	down_read(&tkey->sem);
 	tpayload = tkey->payload.data[0];
+#endif
 	*master_key = tpayload->key;
 	*master_keylen = tpayload->key_len;
 error:

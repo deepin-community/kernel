@@ -47,6 +47,9 @@
 #include <keys/request_key_auth-type.h>
 #include <linux/module.h>
 #include <linux/user_namespace.h>
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 
 
 #ifdef CONFIG_CREDP
@@ -230,14 +233,18 @@ int nfs_idmap_init(void)
 	if (ret < 0)
 		goto failed_reg_legacy;
 
+#ifdef CONFIG_KEYP
+	iee_set_key_flag_bit(keyring, KEY_FLAG_ROOT_CAN_CLEAR, SET_BIT_OP);
+#else
 	set_bit(KEY_FLAG_ROOT_CAN_CLEAR, &keyring->flags);
-	#ifdef CONFIG_CREDP
+#endif
+#ifdef CONFIG_CREDP
 	iee_set_cred_thread_keyring(cred, keyring);
 	iee_set_cred_jit_keyring(cred, KEY_REQKEY_DEFL_THREAD_KEYRING);
-	#else
+#else
 	cred->thread_keyring = keyring;
 	cred->jit_keyring = KEY_REQKEY_DEFL_THREAD_KEYRING;
-	#endif
+#endif
 	id_resolver_cache = cred;
 	return 0;
 
@@ -306,7 +313,11 @@ static struct key *nfs_idmap_request_key(const char *name, size_t namelen,
 		mutex_unlock(&idmap->idmap_mutex);
 	}
 	if (!IS_ERR(rkey))
+#ifdef CONFIG_KEYP
+		iee_set_key_flag_bit(rkey, KEY_FLAG_ROOT_CAN_INVAL, SET_BIT_OP);
+#else
 		set_bit(KEY_FLAG_ROOT_CAN_INVAL, &rkey->flags);
+#endif
 
 	kfree(desc);
 	return rkey;
@@ -331,7 +342,11 @@ static ssize_t nfs_idmap_get_key(const char *name, size_t namelen,
 	}
 
 	rcu_read_lock();
+#ifdef CONFIG_KEYP
+	iee_set_key_perm(rkey, rkey->perm | KEY_USR_VIEW);
+#else
 	rkey->perm |= KEY_USR_VIEW;
+#endif
 
 	ret = key_validate(rkey);
 	if (ret < 0)

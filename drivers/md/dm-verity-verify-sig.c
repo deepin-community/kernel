@@ -40,7 +40,11 @@ static int verity_verify_get_sig_from_key(const char *key_desc,
 	if (IS_ERR(key))
 		return PTR_ERR(key);
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 
 	ukp = user_key_payload_locked(key);
 	if (!ukp) {
@@ -58,7 +62,11 @@ static int verity_verify_get_sig_from_key(const char *key_desc,
 	memcpy(sig_opts->sig, ukp->data, sig_opts->sig_size);
 
 end:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 
 	return ret;

@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/stdarg.h>
+#include <linux/memblock.h>
+#include <asm/pgalloc.h>
 #include <asm/sysreg.h>
 #include <asm/haoc/iee.h>
 #include <asm/haoc/iee-asm.h>
 #include <asm/haoc/iee-si.h>
+#include <asm/haoc/iee-access.h>
 #ifdef CONFIG_IEE_PTRP
 #include <asm/haoc/iee-token.h>
+#endif
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-mmu.h>
 #endif
 
 u64 __ro_after_init iee_si_reserved_pg_dir;
@@ -21,7 +27,7 @@ static inline void iee_si_check_ttbr0(void)
 {
 	u64 old_ttbr0 = read_sysreg(ttbr0_el1);
 	u64 old_phys = (old_ttbr0 & PAGE_MASK) & ~TTBR_ASID_MASK;
-	struct task_token *token = (struct task_token *)__addr_to_iee(current);
+	struct task_token *token = (struct task_token *)iee_get_task_token(current);
 	/* Phys in TTBR0 shall be the same with current->mm->pgd. */
 	if (!(current == &init_task) && token->pgd
 		&& old_phys != iee_si_reserved_pg_dir) {
@@ -57,7 +63,8 @@ unsigned long __iee_si_code iee_si_handler(int flag, ...)
 		if (iee_init_done)
 			iee_si_check_ttbr0();
 		/* Load the reserved IEE ASID into TTBR0.*/
-		ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
+		if (haoc_enabled)
+			ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
 		write_sysreg(ttbr0, ttbr0_el1);
 		break;
 	case IEE_SI_CONTEXT_SWITCH:
@@ -82,6 +89,8 @@ unsigned long __iee_si_code iee_si_handler(int flag, ...)
 
 		if (iee_init_done)
 			panic("IEE: Using legacy context switch after IEE init.");
+		if (haoc_enabled)
+			ttbr0 |= FIELD_PREP(TTBR_ASID_MASK, IEE_ASID);
 		write_sysreg(ttbr1, ttbr1_el1);
 		write_sysreg(ttbr0, ttbr0_el1);
 		break;
@@ -102,6 +111,73 @@ unsigned long __iee_si_code iee_si_handler(int flag, ...)
 	return 0;
 }
 
+static phys_addr_t __init iee_si_early_pgtable_alloc(void)
+{
+	phys_addr_t phys;
+
+#ifdef CONFIG_PTP
+	phys = early_iee_pgtable_alloc(0);
+#else
+	phys = memblock_phys_alloc_range(PAGE_SIZE, PAGE_SIZE, 0,
+					 MEMBLOCK_ALLOC_NOLEAKTRACE);
+#endif
+	if (!phys)
+		panic("Failed to allocate page table page\n");
+
+	return phys;
+}
+
+static inline pgprot_t iee_pmd_pgprot(pmd_t pmd)
+{
+	unsigned long pfn = pmd_pfn(pmd);
+
+	return __pgprot(pmd_val(pfn_pmd(pfn, __pgprot(0))) ^ pmd_val(pmd));
+}
+
+/* Split PMD block mappings so SI text can carry table/page permissions. */
+static void __init iee_si_split_pmd_early(pud_t *pudp, unsigned long addr)
+{
+	pmd_t *pmdp = pmd_offset(pudp, addr);
+	struct page *origin_page;
+	phys_addr_t pte_phys;
+
+	if (!pmd_leaf(*pmdp))
+		return;
+
+	if (pmd_val(*pmdp) & PTE_CONT) {
+		pmd_t *cont_pmdp = pmd_offset(pudp, addr & CONT_PMD_MASK);
+		int i;
+
+		for (i = 0; i < CONT_PMDS; i++, cont_pmdp++)
+			set_pmd(cont_pmdp, __pmd(pmd_val(*cont_pmdp) & ~PTE_CONT));
+	}
+
+	origin_page = pmd_page(*pmdp);
+	pte_phys = iee_si_early_pgtable_alloc();
+	if (!pte_phys)
+		panic("Alloc pgtable error.\n");
+	else {
+		pte_t *ptep = __va(pte_phys);
+		pgprot_t pgprot = iee_pmd_pgprot(*pmdp);
+		int i;
+
+#ifdef CONFIG_PTP
+		iee_memset(ptep, 0, PAGE_SIZE);
+#else
+		memset(ptep, 0, PAGE_SIZE);
+#endif
+		for (i = 0; i < PTRS_PER_PMD; i++, ptep++) {
+			pte_t entry;
+
+			pgprot = __pgprot(pgprot_val(pgprot) | PTE_NG | PTE_TYPE_PAGE);
+			entry = mk_pte(origin_page + i, pgprot);
+			set_pte(ptep, entry);
+		}
+	}
+
+	__pmd_populate(pmdp, pte_phys, PMD_TYPE_TABLE | PMD_TABLE_UXN);
+}
+
 static inline void iee_si_setup_data(void)
 {
 	iee_si_reserved_pg_dir = phys_to_ttbr(__pa_symbol(reserved_pg_dir));
@@ -111,20 +187,47 @@ static inline void iee_si_setup_data(void)
 static int __init iee_si_init_code(void)
 {
 	u64 addr = (u64)__iee_si_text_start;
+	u64 end = (u64)__iee_si_text_end;
 	pgd_t *pgdir = swapper_pg_dir;
-	pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
-	p4d_t *p4dp = p4d_offset(pgdp, addr);
-	pud_t *pudp = pud_offset(p4dp, addr);
-	pmd_t *pmdp = pmd_offset(pudp, addr);
-	pmd_t pmd = READ_ONCE(*pmdp);
 
-	if ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
-		pr_err("IEE SI: addr 0x%llx is pmd block. SI init failed.", addr);
-		return 0;
+	while (addr < end) {
+		pgd_t *pgdp = pgd_offset_pgd(pgdir, addr);
+		p4d_t *p4dp = p4d_offset(pgdp, addr);
+		pud_t *pudp = pud_offset(p4dp, addr);
+		pmd_t *pmdp = pmd_offset(pudp, addr);
+		pmd_t pmd = READ_ONCE(*pmdp);
+		pte_t *ptep;
+		pte_t pte;
+
+		if ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+			pr_info("IEE SI: code is on a pmd block. Splitting...");
+			iee_si_split_pmd_early(pudp, addr);
+			pmd = READ_ONCE(*pmdp);
+		}
+
+		pmd = __pmd(pmd_val(pmd) | PGD_PXNTABLE);
+		set_pmd(pmdp, pmd);
+
+		if ((pmd_val(pmd) & PMD_TYPE_MASK) == PMD_TYPE_TABLE) {
+			ptep = pte_offset_kernel(pmdp, addr);
+			pte = READ_ONCE(*ptep);
+
+			if (pte_val(pte) & PTE_CONT) {
+				pte_t *cont_ptep = pte_offset_kernel(pmdp,
+								     addr & CONT_PTE_MASK);
+				int i;
+
+				for (i = 0; i < CONT_PTES; i++, cont_ptep++)
+					set_pte(cont_ptep,
+						__pte(pte_val(*cont_ptep) & ~PTE_CONT));
+				pte = READ_ONCE(*ptep);
+			}
+			pte = __pte(pte_val(pte) | PTE_NG);
+			set_pte(ptep, pte);
+		}
+		addr += PAGE_SIZE;
 	}
 
-	pmd = __pmd(pmd_val(pmd) | PGD_PXNTABLE);
-	set_pmd(pmdp, pmd);
 	flush_tlb_all();
 	return 1;
 }

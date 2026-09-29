@@ -7,7 +7,7 @@
 #define __iee_si_code   __section(".iee.si_text")
 #define __iee_si_data   __section(".iee.si_data")
 
-extern unsigned long cr4_pinned_mask;
+extern const unsigned long cr4_pinned_mask;
 extern struct static_key_false cr_pinning;
 extern unsigned long cr4_pinned_bits;
 
@@ -39,5 +39,11 @@ static inline void iee_load_idt(void *ptr)
 {
 	iee_rwx_gate(IEE_LOAD_IDT, ptr);
 }
+extern bool iee_init_done;
+
+#ifdef CONFIG_IEE_SELINUX_P
+extern unsigned long __iee_selinux_data_start[];
+extern unsigned long __iee_selinux_data_end[];
+#endif
 
 #endif

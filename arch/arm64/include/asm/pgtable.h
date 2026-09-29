@@ -5,6 +5,10 @@
 #ifndef __ASM_PGTABLE_H
 #define __ASM_PGTABLE_H
 
+#ifdef CONFIG_PTP
+#include <asm/haoc/iee-pgtable.h>
+#else
+
 #include <asm/bug.h>
 #include <asm/proc-fns.h>
 
@@ -1470,5 +1474,7 @@ static inline int ptep_set_access_flags(struct vm_area_struct *vma,
 #endif /* CONFIG_ARM64_CONTPTE */
 
 #endif /* !__ASSEMBLY__ */
+
+#endif /* !CONFIG_PTP */
 
 #endif /* __ASM_PGTABLE_H */

@@ -85,6 +85,13 @@
 #include <asm/haoc/iee-cred.h>
 #endif
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
+#ifdef CONFIG_PTP
+#include <linux/haoc-ptp.h>
+#endif
+
 static int bprm_creds_from_file(struct linux_binprm *bprm);
 
 int suid_dumpable = 0;
@@ -752,7 +759,11 @@ static int shift_arg_pages(struct vm_area_struct *vma, unsigned long shift)
 		free_pgd_range(&tlb, old_start, old_end, new_end,
 			next ? next->vm_start : USER_PGTABLES_CEILING);
 	}
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_tlb_finish_mmu(&tlb);
+#else
 	tlb_finish_mmu(&tlb);
+#endif
 
 	vma_prev(&vmi);
 	/* Shrink the vma to just the new range */
@@ -1957,10 +1968,30 @@ static int do_execveat_common(int fd, struct filename *filename,
 {
 	struct linux_binprm *bprm;
 	int retval;
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	unsigned long cr0;
+#endif
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
 
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_disable_wp(&cr0);
+#endif
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled) {
+		pr_info_once("HAOC: CONFIG_IEE_IO_CHECK enabled.");
+		iee_cycle_verify_cred(current);
+	}
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from
 	 * set*uid() to execve() because too many poorly written programs
@@ -2032,6 +2063,9 @@ out_free:
 
 out_ret:
 	putname(filename);
+#if defined(CONFIG_PTP) && defined(CONFIG_X86_64)
+	ptp_restore_wp(cr0);
+#endif
 	return retval;
 }
 

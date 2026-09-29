@@ -67,7 +67,11 @@ static struct rb_node *key_serial_next(struct seq_file *p, struct rb_node *n)
 
 	n = rb_next(n);
 	while (n) {
+#ifdef CONFIG_KEYP
+		struct key *key = rb_entry(n, struct key_union, serial_node)->key;
+#else
 		struct key *key = rb_entry(n, struct key, serial_node);
+#endif
 		if (kuid_has_mapping(user_ns, key->user->uid))
 			break;
 		n = rb_next(n);
@@ -82,7 +86,11 @@ static struct key *find_ge_key(struct seq_file *p, key_serial_t id)
 	struct key *minkey = NULL;
 
 	while (n) {
+#ifdef CONFIG_KEYP
+		struct key *key = rb_entry(n, struct key_union, serial_node)->key;
+#else
 		struct key *key = rb_entry(n, struct key, serial_node);
+#endif
 		if (id < key->serial) {
 			if (!minkey || minkey->serial > key->serial)
 				minkey = key;
@@ -102,10 +110,18 @@ static struct key *find_ge_key(struct seq_file *p, key_serial_t id)
 	for (;;) {
 		if (kuid_has_mapping(user_ns, minkey->user->uid))
 			return minkey;
+#ifdef CONFIG_KEYP
+		n = rb_next(&(((struct key_union *)(minkey->graveyard_link.next))->serial_node));
+#else
 		n = rb_next(&minkey->serial_node);
+#endif
 		if (!n)
 			return NULL;
+#ifdef CONFIG_KEYP
+		minkey = rb_entry(n, struct key_union, serial_node)->key;
+#else
 		minkey = rb_entry(n, struct key, serial_node);
+#endif
 	}
 }
 
@@ -123,12 +139,20 @@ static void *proc_keys_start(struct seq_file *p, loff_t *_pos)
 	if (!key)
 		return NULL;
 	*_pos = key->serial;
+#ifdef CONFIG_KEYP
+	return &(((struct key_union *)(key->graveyard_link.next))->serial_node);
+#else
 	return &key->serial_node;
+#endif
 }
 
 static inline key_serial_t key_node_serial(struct rb_node *n)
 {
+#ifdef CONFIG_KEYP
+	struct key *key = rb_entry(n, struct key_union, serial_node)->key;
+#else
 	struct key *key = rb_entry(n, struct key, serial_node);
+#endif
 	return key->serial;
 }
 
@@ -153,7 +177,11 @@ static void proc_keys_stop(struct seq_file *p, void *v)
 static int proc_keys_show(struct seq_file *m, void *v)
 {
 	struct rb_node *_p = v;
+#ifdef CONFIG_KEYP
+	struct key *key = rb_entry(_p, struct key_union, serial_node)->key;
+#else
 	struct key *key = rb_entry(_p, struct key, serial_node);
+#endif
 	unsigned long flags;
 	key_ref_t key_ref, skey_ref;
 	time64_t now, expiry;

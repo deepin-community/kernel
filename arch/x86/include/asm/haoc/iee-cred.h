@@ -2,10 +2,72 @@
 #ifndef _LINUX_IEE_CRED_H
 #define _LINUX_IEE_CRED_H
 
-#include <asm/haoc/haoc-def.h>
 #include <linux/cred.h>
+#include <linux/sched/task.h>
+#include <asm/haoc/haoc-def.h>
+#include <asm/haoc/iee.h>
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#endif
 
 extern unsigned long long iee_rw_gate(int flag, ...);
+
+static inline void iee_detect_cred_uaf(struct cred *cred, const char *caller)
+{
+	if (unlikely(!haoc_init_done))
+		return;
+
+	if (atomic_long_read(&cred->usage) != 0)
+		panic("IEE: (%s) Cred usage %ld.", caller,
+		      atomic_long_read(&cred->usage));
+}
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+static inline void __iee_verify_cred(void)
+{
+	struct task_struct *curr_task;
+	struct task_token *token;
+	const struct cred *curr_cred;
+
+	if (unlikely(!haoc_init_done))
+		return;
+
+	curr_task = current;
+	if (curr_task == &init_task)
+		return;
+
+	token = (struct task_token *)__addr_to_token(curr_task);
+	curr_cred = current_cred();
+	if (!token->valid)
+		panic("IEE: (%s) Invalid Token.", __func__);
+	if (token->curr_cred != curr_cred)
+		panic("IEE: (%s) Task cred corrupted.", __func__);
+}
+
+static inline void iee_verify_cred(void)
+{
+	__iee_verify_cred();
+}
+
+static inline void iee_verify_update_cred(struct cred *new)
+{
+	struct task_token *token;
+
+	if (unlikely(!haoc_init_done))
+		return;
+
+	__iee_verify_cred();
+	if (current == &init_task)
+		return;
+
+	token = (struct task_token *)__addr_to_token(current);
+	if (token->new_cred != new)
+		panic("IEE: (%s) Invalid cred 0x%llx.", __func__, (u64)new);
+}
+#else /* !CONFIG_IEE_PTRP || CONFIG_IEE_PTRP_W */
+static inline void iee_verify_cred(void) { }
+static inline void iee_verify_update_cred(struct cred *new) { }
+#endif /* CONFIG_IEE_PTRP && !CONFIG_IEE_PTRP_W */
 
 static void __maybe_unused iee_copy_cred(struct cred *new)
 {
@@ -29,9 +91,25 @@ static void __maybe_unused iee_abort_creds(struct cred *cred)
 	iee_rw_gate(IEE_OP_ABORT_CRED, cred);
 }
 
+static void __maybe_unused iee_fill_cred_for_session_keyring(struct cred *new,
+							     const struct cred *old)
+{
+	iee_rw_gate(IEE_OP_FILL_SESSION_KEYRING_CRED, new, old);
+}
+
 static void __maybe_unused iee_commit_creds(const struct cred *new)
 {
 	iee_rw_gate(IEE_OP_COMMIT_CRED, new);
+}
+
+static void __maybe_unused iee_override_creds(const struct cred *new)
+{
+	iee_rw_gate(IEE_OP_OVERRIDE_CRED, new);
+}
+
+static void __maybe_unused iee_revert_creds(const struct cred *old)
+{
+	iee_rw_gate(IEE_OP_REVERT_CRED, old);
 }
 
 static void __maybe_unused iee_set_cred_uid(struct cred *cred, kuid_t uid)
@@ -298,5 +376,10 @@ static void __maybe_unused iee_set_cred_security(struct cred *cred, void *securi
 	iee_rw_gate(IEE_OP_SET_CRED_SECURITY, cred, security);
 }
 #endif
+
+extern void iee_free_cred_slab(struct work_struct *work);
+
+extern unsigned long __iee_cred_data_start[];
+extern unsigned long __iee_cred_data_end[];
 
 #endif
