@@ -265,7 +265,7 @@ static int ch343_configure(struct ch343 *ch343)
 		return -ENOMEM;
 
 	r = ch343_control_in(ch343, CMD_C6, 0, 0, buffer, size);
-	if (r != size) {
+	if (r <= 0) {
 		r = -EPROTO;
 		goto out;
 	}
@@ -312,6 +312,10 @@ static int ch343_configure(struct ch343 *ch343)
 				ch343->chiptype = CHIP_CH344L_V2;
 		} else
 			ch343->chiptype = CHIP_CH344Q;
+		break;
+	case 0x55D6:
+		ch343->num_ports = 1;
+		ch343->chiptype = CHIP_CH9143;
 		break;
 	case 0x55D7:
 		ch343->num_ports = 2;
@@ -1224,7 +1228,7 @@ static int ch343_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 	struct ch343 *ch343 = tty->driver_data;
 	int rv = 0;
 	unsigned long arg1, arg2, arg3, arg4, arg5, arg6;
-	u32 __user *argval = (u32 __user *)arg;
+	u16 __user *argval = (u16 __user *)arg;
 	u8 *buffer;
 
 	buffer = kmalloc(512, GFP_KERNEL);
@@ -1266,22 +1270,42 @@ static int ch343_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		}
 		break;
 	case IOCTL_CMD_CTRLIN:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv != 0)
+			goto out;
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = ch343_control_msg_in(ch343, (u8)arg1, (u8)arg2, (u16)arg3,
 					  (u16)arg4, (u8 __user *)arg6,
 					  (u16)arg5);
 		break;
 	case IOCTL_CMD_CTRLOUT:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv != 0)
+			goto out;
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv != 0)
+			goto out;
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = ch343_control_msg_out(ch343, (u8)arg1, (u8)arg2, (u16)arg3,
 					   (u16)arg4, (u8 __user *)arg6,
@@ -1676,6 +1700,7 @@ static int ch343_release(struct inode *inode, struct file *file)
 
 	if (ch343->disconnected) {
 		mutex_unlock(&ch343->mutex);
+		tty_port_put(&ch343->port);
 		return -ENODEV;
 	}
 
@@ -1692,7 +1717,7 @@ static long ch343_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int rv = 0;
 	u8 *buffer;
 	unsigned long arg1, arg2, arg3, arg4, arg5, arg6;
-	u32 __user *argval = (u32 __user *)arg;
+	u16 __user *argval = (u16 __user *)arg;
 
 	if (ch343 == NULL || ch343->io_id != IOID)
 		return -ENODEV;
@@ -1718,22 +1743,52 @@ static long ch343_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IOCTL_CMD_CTRLIN:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv != 0)
+			goto out;
+
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv != 0)
+			goto out;
+
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv != 0)
+			goto out;
+
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv != 0)
+			goto out;
+
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv != 0)
+			goto out;
+
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = ch343_control_msg_in(ch343, (u8)arg1, (u8)arg2, (u16)arg3,
 					  (u16)arg4, (u8 __user *)arg6,
 					  (u16)arg5);
 		break;
 	case IOCTL_CMD_CTRLOUT:
-		get_user(arg1, (u8 __user *)arg);
-		get_user(arg2, ((u8 __user *)arg + 1));
-		get_user(arg3, (u16 __user *)((u8 *)arg + 2));
-		get_user(arg4, (u16 __user *)((u8 *)arg + 4));
-		get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		rv = get_user(arg1, (u8 __user *)arg);
+		if (rv != 0) {
+			goto out;
+		}
+		rv = get_user(arg2, ((u8 __user *)arg + 1));
+		if (rv != 0) {
+			goto out;
+		}
+		rv = get_user(arg3, (u16 __user *)((u8 *)arg + 2));
+		if (rv != 0) {
+			goto out;
+		}
+		rv = get_user(arg4, (u16 __user *)((u8 *)arg + 4));
+		if (rv != 0) {
+			goto out;
+		}
+		rv = get_user(arg5, (u16 __user *)((u8 *)arg + 6));
+		if (rv != 0) {
+			goto out;
+		}
 		arg6 = (unsigned long)((u8 __user *)arg + 8);
 		rv = ch343_control_msg_out(ch343, (u8)arg1, (u8)arg2, (u16)arg3,
 					   (u16)arg4, (u8 __user *)arg6,
@@ -2025,8 +2080,10 @@ found_dev:
 	dev_info(&intf->dev, "ttyCH343USB%d: usb to uart device\n", minor);
 
 	rv = ch343_configure(ch343);
-	if (rv)
+	if (rv) {
+		usb_set_intfdata(intf, NULL);
 		goto err_free_write_urbs;
+	}
 
 	if (ch343->iosupport && (ch343->iface == 0) &&
 	    (ch343->io_intf == NULL)) {
