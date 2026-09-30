@@ -8643,6 +8643,7 @@ __init int vmx_hardware_setup(void)
 		if (r)
 			return r;
 	}
+	vmx_nested_ops.enabled = nested;
 
 	r = alloc_kvm_area();
 	if (r && nested)
