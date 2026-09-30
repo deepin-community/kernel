@@ -161,6 +161,7 @@ static int bpf_map_update_value(struct bpf_map *map, struct file *map_file,
 	if (bpf_map_is_offloaded(map)) {
 		return bpf_map_offload_update_elem(map, key, value, flags);
 	} else if (map->map_type == BPF_MAP_TYPE_CPUMAP ||
+		   map->map_type == BPF_MAP_TYPE_ARENA ||
 		   map->map_type == BPF_MAP_TYPE_STRUCT_OPS) {
 		return map->ops->map_update_elem(map, key, value, flags);
 	} else if (map->map_type == BPF_MAP_TYPE_SOCKHASH ||
@@ -480,6 +481,39 @@ static void bpf_map_release_memcg(struct bpf_map *map)
 {
 }
 #endif
+
+int bpf_map_alloc_pages(const struct bpf_map *map, gfp_t gfp, int nid,
+			unsigned long nr_pages, struct page **pages)
+{
+	unsigned long i, j;
+	struct page *pg;
+	int ret = 0;
+#ifdef CONFIG_MEMCG_KMEM
+	struct mem_cgroup *memcg, *old_memcg;
+
+	memcg = bpf_map_get_memcg(map);
+	old_memcg = set_active_memcg(memcg);
+#endif
+	for (i = 0; i < nr_pages; i++) {
+		pg = alloc_pages_node(nid, gfp | __GFP_ACCOUNT, 0);
+
+		if (pg) {
+			pages[i] = pg;
+			continue;
+		}
+		for (j = 0; j < i; j++)
+			__free_page(pages[j]);
+		ret = -ENOMEM;
+		break;
+	}
+
+#ifdef CONFIG_MEMCG_KMEM
+	set_active_memcg(old_memcg);
+	mem_cgroup_put(memcg);
+#endif
+	return ret;
+}
+
 
 static int btf_field_cmp(const void *a, const void *b)
 {
@@ -950,6 +984,21 @@ static __poll_t bpf_map_poll(struct file *filp, struct poll_table_struct *pts)
 	return EPOLLERR;
 }
 
+static unsigned long bpf_get_unmapped_area(struct file *filp, unsigned long addr,
+					   unsigned long len, unsigned long pgoff,
+					   unsigned long flags)
+{
+	struct bpf_map *map = filp->private_data;
+
+	if (map->ops->map_get_unmapped_area)
+		return map->ops->map_get_unmapped_area(filp, addr, len, pgoff, flags);
+#ifdef CONFIG_MMU
+	return current->mm->get_unmapped_area(filp, addr, len, pgoff, flags);
+#else
+	return addr;
+#endif
+}
+
 const struct file_operations bpf_map_fops = {
 #ifdef CONFIG_PROC_FS
 	.show_fdinfo	= bpf_map_show_fdinfo,
@@ -959,6 +1008,7 @@ const struct file_operations bpf_map_fops = {
 	.write		= bpf_dummy_write,
 	.mmap		= bpf_map_mmap,
 	.poll		= bpf_map_poll,
+	.get_unmapped_area = bpf_get_unmapped_area,
 };
 
 int bpf_map_new_fd(struct bpf_map *map, int flags)
@@ -1136,7 +1186,7 @@ free_map_tab:
 	return ret;
 }
 
-#define BPF_MAP_CREATE_LAST_FIELD map_extra
+#define BPF_MAP_CREATE_LAST_FIELD value_type_btf_obj_fd
 /* called via syscall */
 static int map_create(union bpf_attr *attr)
 {
@@ -1160,6 +1210,7 @@ static int map_create(union bpf_attr *attr)
 	}
 
 	if (attr->map_type != BPF_MAP_TYPE_BLOOM_FILTER &&
+	    attr->map_type != BPF_MAP_TYPE_ARENA &&
 	    attr->map_extra != 0)
 		return -EINVAL;
 
@@ -1231,6 +1282,7 @@ static int map_create(union bpf_attr *attr)
 	case BPF_MAP_TYPE_LRU_PERCPU_HASH:
 	case BPF_MAP_TYPE_STRUCT_OPS:
 	case BPF_MAP_TYPE_CPUMAP:
+	case BPF_MAP_TYPE_ARENA:
 		if (!bpf_capable())
 			return -EPERM;
 		break;
@@ -2166,7 +2218,7 @@ static void __bpf_prog_put_noref(struct bpf_prog *prog, bool deferred)
 		btf_put(prog->aux->attach_btf);
 
 	if (deferred) {
-		if (prog->aux->sleepable)
+		if (prog->sleepable)
 			call_rcu_tasks_trace(&prog->aux->rcu, __bpf_prog_put_rcu);
 		else
 			call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
@@ -2613,7 +2665,8 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 				 BPF_F_SLEEPABLE |
 				 BPF_F_TEST_RND_HI32 |
 				 BPF_F_XDP_HAS_FRAGS |
-				 BPF_F_XDP_DEV_BOUND_ONLY))
+				 BPF_F_XDP_DEV_BOUND_ONLY |
+				 BPF_F_TEST_SANITY_STRICT))
 		return -EINVAL;
 
 	if (!IS_ENABLED(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) &&
@@ -2694,11 +2747,11 @@ static int bpf_prog_load(union bpf_attr *attr, bpfptr_t uattr, u32 uattr_size)
 	}
 
 	prog->expected_attach_type = attr->expected_attach_type;
+	prog->sleepable = !!(attr->prog_flags & BPF_F_SLEEPABLE);
 	prog->aux->attach_btf = attach_btf;
 	prog->aux->attach_btf_id = attr->attach_btf_id;
 	prog->aux->dst_prog = dst_prog;
 	prog->aux->dev_bound = !!attr->prog_ifindex;
-	prog->aux->sleepable = attr->prog_flags & BPF_F_SLEEPABLE;
 	prog->aux->xdp_has_frags = attr->prog_flags & BPF_F_XDP_HAS_FRAGS;
 
 	err = security_bpf_prog_alloc(prog->aux);
@@ -2919,7 +2972,7 @@ static void bpf_link_free(struct bpf_link *link)
 
 	bpf_link_free_id(link->id);
 	if (link->prog) {
-		sleepable = link->prog->aux->sleepable;
+		sleepable = link->prog->sleepable;
 		/* detach BPF program, clean up used resources */
 		ops->release(link);
 	}
@@ -3020,6 +3073,13 @@ static void bpf_link_show_fdinfo(struct seq_file *m, struct file *filp)
 }
 #endif
 
+static __poll_t bpf_link_poll(struct file *file, struct poll_table_struct *pts)
+{
+	struct bpf_link *link = file->private_data;
+
+	return link->ops->poll(file, pts);
+}
+
 static const struct file_operations bpf_link_fops = {
 #ifdef CONFIG_PROC_FS
 	.show_fdinfo	= bpf_link_show_fdinfo,
@@ -3027,6 +3087,16 @@ static const struct file_operations bpf_link_fops = {
 	.release	= bpf_link_release,
 	.read		= bpf_dummy_read,
 	.write		= bpf_dummy_write,
+};
+
+static const struct file_operations bpf_link_fops_poll = {
+#ifdef CONFIG_PROC_FS
+	.show_fdinfo	= bpf_link_show_fdinfo,
+#endif
+	.release	= bpf_link_release,
+	.read		= bpf_dummy_read,
+	.write		= bpf_dummy_write,
+	.poll		= bpf_link_poll,
 };
 
 static int bpf_link_alloc_id(struct bpf_link *link)
@@ -3071,7 +3141,9 @@ int bpf_link_prime(struct bpf_link *link, struct bpf_link_primer *primer)
 		return id;
 	}
 
-	file = anon_inode_getfile("bpf_link", &bpf_link_fops, link, O_CLOEXEC);
+	file = anon_inode_getfile("bpf_link",
+				  link->ops->poll ? &bpf_link_fops_poll : &bpf_link_fops,
+				  link, O_CLOEXEC);
 	if (IS_ERR(file)) {
 		bpf_link_free_id(id);
 		put_unused_fd(fd);
@@ -3099,7 +3171,9 @@ int bpf_link_settle(struct bpf_link_primer *primer)
 
 int bpf_link_new_fd(struct bpf_link *link)
 {
-	return anon_inode_getfd("bpf-link", &bpf_link_fops, link, O_CLOEXEC);
+	return anon_inode_getfd("bpf-link",
+				link->ops->poll ? &bpf_link_fops_poll : &bpf_link_fops,
+				link, O_CLOEXEC);
 }
 
 struct bpf_link *bpf_link_get_from_fd(u32 ufd)
@@ -3109,7 +3183,7 @@ struct bpf_link *bpf_link_get_from_fd(u32 ufd)
 
 	if (!f.file)
 		return ERR_PTR(-EBADF);
-	if (f.file->f_op != &bpf_link_fops) {
+	if (f.file->f_op != &bpf_link_fops && f.file->f_op != &bpf_link_fops_poll) {
 		fdput(f);
 		return ERR_PTR(-EINVAL);
 	}
@@ -4356,6 +4430,12 @@ static struct bpf_insn *bpf_insn_prepare_dump(const struct bpf_prog *prog,
 			continue;
 		}
 
+		if ((BPF_CLASS(code) == BPF_LDX || BPF_CLASS(code) == BPF_STX ||
+		     BPF_CLASS(code) == BPF_ST) && BPF_MODE(code) == BPF_PROBE_MEM32) {
+			insns[i].code = BPF_CLASS(code) | BPF_SIZE(code) | BPF_MEM;
+			continue;
+		}
+
 		if (code != (BPF_LD | BPF_IMM | BPF_DW))
 			continue;
 
@@ -4724,6 +4804,8 @@ static int bpf_map_get_info_by_fd(struct file *file,
 		info.btf_value_type_id = map->btf_value_type_id;
 	}
 	info.btf_vmlinux_value_type_id = map->btf_vmlinux_value_type_id;
+	if (map->map_type == BPF_MAP_TYPE_STRUCT_OPS)
+		bpf_map_struct_ops_info_fill(&info, map);
 
 	if (bpf_map_is_offloaded(map)) {
 		err = bpf_map_offload_info_fill(&info, map);
@@ -4821,7 +4903,7 @@ static int bpf_obj_get_info_by_fd(const union bpf_attr *attr,
 					     uattr);
 	else if (f.file->f_op == &btf_fops)
 		err = bpf_btf_get_info_by_fd(f.file, f.file->private_data, attr, uattr);
-	else if (f.file->f_op == &bpf_link_fops)
+	else if (f.file->f_op == &bpf_link_fops || f.file->f_op == &bpf_link_fops_poll)
 		err = bpf_link_get_info_by_fd(f.file, f.file->private_data,
 					      attr, uattr);
 	else
@@ -4937,7 +5019,7 @@ static int bpf_task_fd_query(const union bpf_attr *attr,
 	if (!file)
 		return -EBADF;
 
-	if (file->f_op == &bpf_link_fops) {
+	if (file->f_op == &bpf_link_fops || file->f_op == &bpf_link_fops_poll) {
 		struct bpf_link *link = file->private_data;
 
 		if (link->ops == &bpf_raw_tp_link_lops) {
@@ -5431,7 +5513,7 @@ static int bpf_prog_bind_map(union bpf_attr *attr)
 	/* The bpf program will not access the bpf map, but for the sake of
 	 * simplicity, increase sleepable_refcnt for sleepable program as well.
 	 */
-	if (prog->aux->sleepable)
+	if (prog->sleepable)
 		atomic64_inc(&map->sleepable_refcnt);
 	memcpy(used_maps_new, used_maps_old,
 	       sizeof(used_maps_old[0]) * prog->aux->used_map_cnt);
