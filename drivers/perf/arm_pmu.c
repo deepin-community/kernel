@@ -547,12 +547,13 @@ static int armpmu_event_init(struct perf_event *event)
 	return __hw_perf_event_init(event);
 }
 
-static void armpmu_sched_task(struct perf_event_pmu_context *pmu_ctx, bool sched_in)
+static void armpmu_sched_task(struct perf_event_pmu_context *pmu_ctx,
+			      struct task_struct *task, bool sched_in)
 {
 	struct arm_pmu *armpmu = to_arm_pmu(pmu_ctx->pmu);
 
 	if (armpmu->sched_task)
-		armpmu->sched_task(pmu_ctx, sched_in);
+		armpmu->sched_task(pmu_ctx, task, sched_in);
 }
 
 static void armpmu_enable(struct pmu *pmu)
