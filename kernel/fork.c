@@ -2855,6 +2855,13 @@ fork_out:
 	spin_lock_irq(&current->sighand->siglock);
 	hlist_del_init(&delayed.node);
 	spin_unlock_irq(&current->sighand->siglock);
+	/*
+	 * The error path returns ERR_PTR(retval), which requires retval to be a
+	 * negative errno in the range [-MAX_ERRNO, -1]. Normalize unexpected
+	 * values to avoid returning non-error pointers to callers.
+	 */
+	if (unlikely(retval >= 0 || retval < -MAX_ERRNO))
+		retval = -EINVAL;
 	return ERR_PTR(retval);
 }
 
