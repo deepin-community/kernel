@@ -164,7 +164,7 @@ void __init iee_init(void)
 	_iee_stack_init();
 }
 
-bool __ro_after_init haoc_enabled;
+bool __ro_after_init haoc_enabled = true;
 EXPORT_SYMBOL(haoc_enabled);
 #ifdef CONFIG_IEE_SIP
 extern unsigned long cr4_pinned_mask;
