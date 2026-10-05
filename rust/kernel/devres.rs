@@ -13,9 +13,17 @@ use crate::{
     ffi::c_void,
     prelude::*,
     revocable::{Revocable, RevocableGuard},
-    sync::{aref::ARef, rcu, Arc},
+    sync::{aref::ARef, rcu, Arc, Completion},
     types::ForeignOwnable,
 };
+
+#[pin_data]
+struct Inner<T> {
+    #[pin]
+    data: Revocable<T>,
+    #[pin]
+    revocation: Completion,
+}
 
 /// This abstraction is meant to be used by subsystems to containerize [`Device`] bound resources to
 /// manage their lifetime.
@@ -30,6 +38,10 @@ use crate::{
 ///
 /// After the [`Devres`] has been unbound it is not possible to access the encapsulated resource
 /// anymore.
+///
+/// When a [`Devres`] is dropped, it is guaranteed that `T` has been fully dropped by the time
+/// [`Devres::drop`] returns, even if a concurrent revocation through the release callback is in
+/// progress.
 ///
 /// [`Devres`] users should make sure to simply free the corresponding backing resource in `T`'s
 /// [`Drop`] implementation.
@@ -104,7 +116,7 @@ pub struct Devres<T: Send + 'static> {
     /// Has to be stored, since Rust does not guarantee to always return the same address for a
     /// function. However, the C API uses the address as a key.
     callback: unsafe extern "C" fn(*mut c_void),
-    data: Arc<Revocable<T>>,
+    inner: Arc<Inner<T>>,
 }
 
 impl<T: Send + 'static> Devres<T> {
@@ -117,43 +129,51 @@ impl<T: Send + 'static> Devres<T> {
         Error: From<E>,
     {
         let callback = Self::devres_callback;
-        let data = Arc::pin_init(Revocable::new(data), GFP_KERNEL)?;
-        let devres_data = data.clone();
+        let inner = Arc::pin_init::<Error>(
+            try_pin_init!(Inner {
+                data <- Revocable::new(data),
+                revocation <- Completion::new(),
+            }),
+            GFP_KERNEL,
+        )?;
+        let devres_inner = inner.clone();
 
         // SAFETY:
         // - `dev.as_raw()` is a pointer to a valid bound device.
-        // - `data` is guaranteed to be a valid for the duration of the lifetime of `Self`.
+        // - `inner` is guaranteed to be a valid for the duration of the lifetime of `Self`.
         // - `devm_add_action()` is guaranteed not to call `callback` for the entire lifetime of
         //   `dev`.
         to_result(unsafe {
             bindings::devm_add_action(
                 dev.as_raw(),
                 Some(callback),
-                Arc::as_ptr(&data).cast_mut().cast(),
+                Arc::as_ptr(&inner).cast_mut().cast(),
             )
         })?;
 
         // `devm_add_action()` was successful and has consumed the reference count.
-        core::mem::forget(devres_data);
+        core::mem::forget(devres_inner);
 
         Ok(Self {
             dev: dev.into(),
             callback,
-            data,
+            inner,
         })
     }
 
     fn data(&self) -> &Revocable<T> {
-        &self.data
+        &self.inner.data
     }
 
     #[allow(clippy::missing_safety_doc)]
     unsafe extern "C" fn devres_callback(ptr: *mut kernel::ffi::c_void) {
-        // SAFETY: In `Self::new` we've passed a valid pointer of `Revocable<T>` to
-        // `devm_add_action()`, hence `ptr` must be a valid pointer to `Revocable<T>`.
-        let data = unsafe { Arc::from_raw(ptr.cast::<Revocable<T>>()) };
+        // SAFETY: In `Self::new` we've passed a valid pointer of `Inner<T>` to
+        // `devm_add_action()`, hence `ptr` must be a valid pointer to `Inner<T>`.
+        let inner = unsafe { Arc::from_raw(ptr.cast::<Inner<T>>()) };
 
-        data.revoke();
+        if inner.data.revoke() {
+            inner.revocation.complete_all();
+        }
     }
 
     fn remove_action(&self) -> bool {
@@ -165,7 +185,7 @@ impl<T: Send + 'static> Devres<T> {
             bindings::devm_remove_action_nowarn(
                 self.dev.as_raw(),
                 Some(self.callback),
-                core::ptr::from_ref(self.data()).cast_mut().cast(),
+                Arc::as_ptr(&self.inner).cast_mut().cast(),
             )
         } == 0)
     }
@@ -243,11 +263,15 @@ impl<T: Send + 'static> Drop for Devres<T> {
         if unsafe { self.data().revoke_nosync() } {
             // We revoked `self.data` before the devres action did, hence try to remove it.
             if self.remove_action() {
-                // SAFETY: In `Self::new` we have taken an additional reference count of `self.data`
+                // SAFETY: In `Self::new` we have taken an additional reference count of `self.inner`
                 // for `devm_add_action()`. Since `remove_action()` was successful, we have to drop
                 // this additional reference count.
-                drop(unsafe { Arc::from_raw(Arc::as_ptr(&self.data)) });
+                drop(unsafe { Arc::from_raw(Arc::as_ptr(&self.inner)) });
             }
+        } else {
+            // The release callback is concurrently revoking; wait for it to finish
+            // `drop_in_place()` of the wrapped object before returning.
+            self.inner.revocation.wait_for_completion();
         }
     }
 }
