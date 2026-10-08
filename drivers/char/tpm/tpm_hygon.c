@@ -92,13 +92,18 @@ static const struct tpm_class_ops tpm_c_ops = {
 	.send = tpm_c_send,
 };
 
-static int hygon_tpm2_acpi_add(struct acpi_device *device)
+static int hygon_tpm2_acpi_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct acpi_device *device;
 	int ret;
 	struct tpm_chip *chip;
 	struct tpm_hygon_priv *priv;
-	struct device *dev = &device->dev;
 
+	device = ACPI_COMPANION(dev);
+	if (!device)
+		return -ENODEV;
+	
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		ret = -ENOMEM;
@@ -131,12 +136,9 @@ err:
 	return ret;
 }
 
-static void hygon_tpm2_acpi_remove(struct acpi_device *device)
+static void hygon_tpm2_acpi_remove(struct platform_device *pdev)
 {
-	struct device *dev = &device->dev;
-	struct tpm_chip *chip = dev_get_drvdata(dev);
-
-	tpm_chip_unregister(chip);
+	tpm_chip_unregister(platform_get_drvdata(pdev));
 
 	pr_info("Hygon TPM2 removed\n");
 }
@@ -150,26 +152,24 @@ static const struct acpi_device_id hygon_tpm2_device_ids[] = {
 
 MODULE_DEVICE_TABLE(acpi, hygon_tpm2_device_ids);
 
-static struct acpi_driver hygon_tpm2_acpi_driver = {
-	.name = "tpm_hygon",
-	.ids = hygon_tpm2_device_ids,
-	.ops = {
-		.add = hygon_tpm2_acpi_add,
-		.remove = hygon_tpm2_acpi_remove,
-	},
-	.drv = {
+static struct platform_driver hygon_tpm2_acpi_driver = {
+	.probe = hygon_tpm2_acpi_probe,
+	.remove = hygon_tpm2_acpi_remove,
+	.driver = {
+		.name = "tpm_hygon",
+		.acpi_match_table = hygon_tpm2_device_ids,
 		.pm = &tpm_hygon_pm,
 	},
 };
 
 static int __init hygon_tpm2_init(void)
 {
-	return acpi_bus_register_driver(&hygon_tpm2_acpi_driver);
+	return platform_driver_register(&hygon_tpm2_acpi_driver);
 }
 
 static void __exit hygon_tpm2_exit(void)
 {
-	acpi_bus_unregister_driver(&hygon_tpm2_acpi_driver);
+	platform_driver_unregister(&hygon_tpm2_acpi_driver);
 }
 
 /*
