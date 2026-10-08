@@ -2012,7 +2012,7 @@ static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr, c
 	} else {
 		active_mask = &uncore_cpu_mask;
 	}
-	return cpumap_print_to_pagebuf(true, buf, active_mask);
+	return sysfs_emit(buf, "%*pbl\n", cpumask_pr_args(active_mask));
 }
 static DEVICE_ATTR_RO(cpumask);
 
