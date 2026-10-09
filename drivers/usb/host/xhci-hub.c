@@ -734,7 +734,7 @@ static int xhci_enter_test_mode(struct xhci_hcd *xhci,
 	/* Disable all Device Slots */
 	xhci_dbg(xhci, "Disable all slots\n");
 	spin_unlock_irqrestore(&xhci->lock, *flags);
-	for (i = 1; i <= xhci->max_slots; i++) {
+	for (i = 1; i <= HCS_MAX_SLOTS(xhci->hcs_params1); i++) {
 		if (!xhci->devs[i])
 			continue;
 
