@@ -1322,7 +1322,7 @@ struct key *find_keyring_by_name(const char *name, bool uid_keyring)
 #else
 	list_for_each_entry(keyring, &ns->keyring_name_list, name_link) {
 #endif
-		if (!kuid_has_mapping(ns, keyring->user->uid))
+		if (!kuid_has_mapping(ns, keyring->uid))
 			continue;
 
 		if (test_bit(KEY_FLAG_REVOKED, &keyring->flags))
