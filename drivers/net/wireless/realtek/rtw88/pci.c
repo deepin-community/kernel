@@ -298,11 +298,13 @@ static int rtw_pci_init_rx_ring(struct rtw_dev *rtwdev,
 
 err_out:
 	for (i = 0; i < allocated; i++) {
+		dma_addr_t buf_dma;
+
 		skb = rx_ring->buf[i];
 		if (!skb)
 			continue;
-		dma = *((dma_addr_t *)skb->cb);
-		dma_unmap_single(&pdev->dev, dma, buf_sz, DMA_FROM_DEVICE);
+		buf_dma = *((dma_addr_t *)skb->cb);
+		dma_unmap_single(&pdev->dev, buf_dma, buf_sz, DMA_FROM_DEVICE);
 		dev_kfree_skb_any(skb);
 		rx_ring->buf[i] = NULL;
 	}
