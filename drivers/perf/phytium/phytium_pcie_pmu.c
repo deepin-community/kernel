@@ -139,7 +139,7 @@ static ssize_t cpumask_show(struct device *dev, struct device_attribute *attr,
 	struct phytium_pcie_pmu *pcie_pmu =
 		to_phytium_pcie_pmu(dev_get_drvdata(dev));
 
-	return cpumap_print_to_pagebuf(true, buf, cpumask_of(pcie_pmu->on_cpu));
+	return sysfs_emit(buf, "%*pbl\n", cpumask_pr_args(cpumask_of(pcie_pmu->on_cpu)));
 }
 
 #define PHYTIUM_PMU_ATTR(_name, _func, _config)                             \
