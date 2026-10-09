@@ -1891,7 +1891,7 @@ struct rtl8xxxu_priv {
 		__le32 val32;
 		__le16 val16;
 		u8 val8;
-	} usb_buf;
+	} *usb_buf;
 	union {
 		u8 raw[EFUSE_MAP_LEN];
 		struct rtl8723au_efuse efuse8723;
