@@ -28,7 +28,12 @@ unsigned long efi_get_kimg_kaslr_address(void)
 	unsigned int random_offset = 0;
 
 #ifdef CONFIG_RANDOMIZE_BASE
-	if (!efi_nokaslr) {
+	/*
+	 * Hibernation requires a fixed kernel load address. Keep the EFI load
+	 * address unchanged; relocate.c handles the nohibernate/noresume
+	 * exceptions by applying relocation-time KASLR instead.
+	 */
+	if (!efi_nokaslr && !IS_ENABLED(CONFIG_HIBERNATION)) {
 		efi_get_random_bytes(sizeof(random_offset), (u8 *)&random_offset);
 		random_offset ^= (random_get_entropy() << 16);
 		random_offset &= (CONFIG_RANDOMIZE_BASE_MAX_OFFSET - 1);
@@ -44,6 +49,8 @@ struct exit_boot_struct {
 	int			runtime_entry_count;
 };
 
+static int is_oldworld = 0;
+
 static efi_status_t exit_boot_func(struct efi_boot_memmap *map, void *priv)
 {
 	struct exit_boot_struct *p = priv;
@@ -57,6 +64,15 @@ static efi_status_t exit_boot_func(struct efi_boot_memmap *map, void *priv)
 			p->runtime_map, &p->runtime_entry_count);
 
 	return EFI_SUCCESS;
+}
+
+static void detect_oldworld(void)
+{
+	is_oldworld = !!(csr_read64(LOONGARCH_CSR_DMWIN1) & CSR_DMW1_PLV0);
+	efi_debug("is_oldworld: %d\n", is_oldworld);
+	if(is_oldworld) {
+		efi_info("Booting on OldWorld firmware\n");
+	}
 }
 
 unsigned long __weak kernel_entry_address(unsigned long kernel_addr,
@@ -74,6 +90,8 @@ efi_status_t efi_boot_kernel(void *handle, efi_loaded_image_t *image,
 	efi_status_t status;
 	u32 desc_ver;
 
+	detect_oldworld();
+
 	status = efi_alloc_virtmap(&priv.runtime_map, &desc_size, &desc_ver);
 	if (status != EFI_SUCCESS) {
 		efi_err("Unable to retrieve UEFI memory map.\n");
@@ -87,11 +105,16 @@ efi_status_t efi_boot_kernel(void *handle, efi_loaded_image_t *image,
 	if (status != EFI_SUCCESS)
 		return status;
 
+	if (is_oldworld) {
+		goto skip_set_virtual_address_map;
+	}
+
 	/* Install the new virtual address map */
 	efi_rt_call(set_virtual_address_map,
 		    priv.runtime_entry_count * desc_size, desc_size,
 		    desc_ver, priv.runtime_map);
 
+skip_set_virtual_address_map:
 	/* Config Direct Mapping */
 	csr_write(CSR_DMW0_INIT, LOONGARCH_CSR_DMWIN0);
 	csr_write(CSR_DMW1_INIT, LOONGARCH_CSR_DMWIN1);

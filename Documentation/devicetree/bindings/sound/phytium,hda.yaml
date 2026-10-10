@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/phytium,hda.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium HD Audio controller
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+properties:
+  compatible:
+    const: phytium,hda
+
+  reg:
+    minItems: 1
+    description: address and length of the HDA controller registers
+
+  interrupts:
+    maxItems: 1
+    description: HDA controller interrupt
+
+  clocks:
+    maxItems: 1
+    description: clock phandle for the HDA controller
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    hda: hda@2800d000 {
+      compatible = "phytium,hda";
+      reg = <0x0 0x2800d000 0x0 0x1000>;
+      interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+      clocks = <&sysclk_48mhz>;
+    };

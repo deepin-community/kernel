@@ -226,6 +226,17 @@ static const struct ftr_set_desc sw_features __prel64_initconst = {
 	},
 };
 
+static struct arm64_ftr_override __read_mostly aosc_feature_override;
+
+static const struct ftr_set_desc aosc_features __prel64_initconst = {
+	.name		= "aosc",
+	.override	= &aosc_feature_override,
+	.fields		= {
+		FIELD("try_mpam", 0, NULL),
+		{}
+	},
+};
+
 static const
 PREL64(const struct ftr_set_desc, reg) regs[] __prel64_initconst = {
 	{ &mmfr0	},
@@ -238,6 +249,7 @@ PREL64(const struct ftr_set_desc, reg) regs[] __prel64_initconst = {
 	{ &isar2	},
 	{ &smfr0	},
 	{ &sw_features	},
+	{ &aosc_features	},
 };
 
 static const struct {
@@ -404,6 +416,27 @@ static __init void parse_cmdline(const void *fdt, int chosen)
 
 	if (!IS_ENABLED(CONFIG_CMDLINE_FORCE) && prop)
 		__parse_cmdline(prop, true);
+
+	/*
+	 * Sorry but we have to work OotB on some platforms with broken
+	 * firmware, notably W510.  Use "aosc.try_mpam=1" if you really need
+	 * MPAM on AOSC.
+	 */
+	static const struct midr_range mpam_disable_list[] __initconst = {
+		MIDR_ALL_VERSIONS(MIDR_HISI_TSV110),
+		{ /* sentinel */ }
+	};
+
+	for (const struct midr_range *r = mpam_disable_list; r->model; r++) {
+		if (midr_is_cpu_model_range(read_cpuid_id(), r->model,
+					    r->rv_min, r->rv_max)) {
+			if (!arm64_apply_feature_override(0, 0, 4, &aosc_feature_override)) {
+				__parse_cmdline("arm64.nompam", true);
+				break;
+			}
+		}
+	}
+
 }
 
 void __init init_feature_override(u64 boot_status, const void *fdt,

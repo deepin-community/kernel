@@ -17,8 +17,31 @@ int loongson_vblank = 1;
 MODULE_PARM_DESC(vblank, "Disable/Enable hw vblank support");
 module_param_named(vblank, loongson_vblank, int, 0400);
 
+int loongson_ls7a1000_support = 0;
+MODULE_PARM_DESC(ls7a1000_support, "7A1000 support (1 = enabled, 0 = disabled (default))");
+module_param_named(ls7a1000_support, loongson_ls7a1000_support, int, 0400);
+
+int loongson_ls7a2000_support = 0;
+MODULE_PARM_DESC(ls7a2000_support, "7A2000 support (1 = enabled, 0 = disabled (default))");
+module_param_named(ls7a2000_support, loongson_ls7a2000_support, int, 0400);
+
 static int __init loongson_module_init(void)
 {
+	struct pci_dev *pdev = NULL;
+
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		/*
+		 * Multiple video card workaround
+		 *
+		 * This integrated video card will always be selected as
+		 * default boot device by vgaarb subsystem.
+		 */
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON || pdev->device == 0x1a05) {
+			pr_info("Discrete graphic card detected, abort\n");
+			return 0;
+		}
+	}
+
 	if (!loongson_modeset || video_firmware_drivers_only())
 		return -ENODEV;
 

@@ -26,6 +26,8 @@
 #include "psp-dev.h"
 #include "hsti.h"
 
+#include "hygon/sp-dev.h"
+
 /* used for version string AA.BB.CC.DD */
 #define AA				GENMASK(31, 24)
 #define BB				GENMASK(23, 16)
@@ -565,6 +567,11 @@ static const struct pci_device_id sp_pci_table[] = {
 	{ PCI_VDEVICE(AMD, 0x156E), .driver_data = (kernel_ulong_t)&dev_vdata[8] },
 	{ PCI_VDEVICE(AMD, 0x17D8), .driver_data = (kernel_ulong_t)&dev_vdata[8] },
 	{ PCI_VDEVICE(AMD, 0x115A), .driver_data = (kernel_ulong_t)&dev_vdata[9] },
+	{ PCI_VDEVICE(HYGON, 0x1456), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[0] },
+	{ PCI_VDEVICE(HYGON, 0x1468), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[1] },
+	{ PCI_VDEVICE(HYGON, 0x1486), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[2] },
+	{ PCI_VDEVICE(HYGON, 0x14b8), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[1] },
+	{ PCI_VDEVICE(HYGON, 0x14a6), .driver_data = (kernel_ulong_t)&hygon_dev_vdata[2] },
 	/* Last entry must be zero */
 	{ }
 };
@@ -591,6 +598,11 @@ static struct pci_driver sp_pci_driver = {
 
 int sp_pci_init(void)
 {
+#ifdef CONFIG_PM_SLEEP
+	/* Set pm driver callbacks for Hygon secure processor */
+	if (is_vendor_hygon())
+		hygon_set_pm_cb(&sp_pci_driver);
+#endif
 	return pci_register_driver(&sp_pci_driver);
 }
 

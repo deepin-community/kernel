@@ -21,6 +21,7 @@
 #include <linux/hashtable.h>
 #include <linux/objtool.h>
 #include <linux/psp-sev.h>
+#include <linux/psp-hygon.h>
 #include <linux/file.h>
 #include <linux/pagemap.h>
 #include <linux/swap.h>
@@ -45,6 +46,7 @@
 #include <asm/reboot.h>
 #include <asm/fpu/api.h>
 #include <asm/virt.h>
+#include <asm/processor-hygon.h>
 
 #include <trace/events/ipi.h>
 
@@ -57,6 +59,8 @@
 #include "hyperv.h"
 #include "kvm_onhyperv.h"
 #include "svm_onhyperv.h"
+
+#include "csv.h"
 
 MODULE_AUTHOR("Qumranet");
 MODULE_DESCRIPTION("KVM support for SVM (AMD-V) extensions");
@@ -502,7 +506,8 @@ static bool __kvm_is_svm_supported(void)
 	}
 
 	if (cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT)) {
-		pr_info("KVM is unsupported when running as an SEV guest\n");
+		pr_info("KVM is unsupported when running as an %s guest\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV");
 		return false;
 	}
 
@@ -973,6 +978,9 @@ static void svm_hardware_unsetup(void)
 
 	__free_pages(__sme_pa_to_page(iopm_base), get_order(IOPM_SIZE));
 	iopm_base = 0;
+
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		kvm_arch_hypercall_exit();
 }
 
 static void init_seg(struct vmcb_seg *seg)
@@ -2936,6 +2944,12 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			break;
 		}
 		return kvm_get_msr_common(vcpu, msr_info);
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support export this MSR to userspace */
+		if (is_x86_vendor_hygon())
+			return csv_get_msr(vcpu, msr_info);
+		else
+			return 1;
 	default:
 		return kvm_get_msr_common(vcpu, msr_info);
 	}
@@ -3215,6 +3229,12 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->msr_decfg = data;
 		break;
 	}
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support update this MSR from userspace */
+		if (is_x86_vendor_hygon())
+			return csv_set_msr(vcpu, msr);
+		else
+			return 1;
 	default:
 		return kvm_set_msr_common(vcpu, msr);
 	}
@@ -4482,6 +4502,19 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 
 	trace_kvm_entry(vcpu, force_immediate_exit);
 
+	/*
+	 * For receipient side of CSV2 guest, fake the exit code as SVM_EXIT_ERR
+	 * and return directly if failed to mapping the necessary GHCB page.
+	 * When handling the exit code afterwards, it can exit to userspace and
+	 * stop the guest.
+	 */
+	if (is_x86_vendor_hygon() && ____sev_es_guest(vcpu->kvm)) {
+		if (csv2_state_unstable(svm)) {
+			svm->vmcb->control.exit_code = SVM_EXIT_ERR;
+			return EXIT_FASTPATH_NONE;
+		}
+	}
+
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
 	svm->vmcb->save.rip = vcpu->arch.rip;
@@ -4719,6 +4752,12 @@ static bool svm_has_emulated_msr(struct kvm *kvm, u32 index)
 			return false;
 #endif
 		break;
+	case MSR_AMD64_SEV_ES_GHCB:
+		/* HYGON CSV2 support emulate this MSR */
+		if (is_x86_vendor_hygon())
+			return csv_has_emulated_ghcb_msr(kvm);
+		else
+			return false;
 	default:
 		break;
 	}
@@ -5599,6 +5638,26 @@ static __init void svm_set_cpu_caps(void)
 	kvm_finalize_cpu_caps();
 }
 
+static int kvm_hygon_arch_hypercall(struct kvm *kvm, u64 nr, u64 a0, u64 a1, u64 a2, u64 a3)
+{
+	int ret = 0;
+	struct kvm_vpsp vpsp = {
+		.kvm = kvm,
+		.write_guest = kvm_write_guest,
+		.read_guest = kvm_read_guest
+	};
+	switch (nr) {
+	case KVM_HC_PSP_OP:
+		ret = kvm_pv_psp_op(&vpsp, a0, a1, a2, a3);
+		break;
+
+	default:
+		ret = -KVM_ENOSYS;
+		break;
+	}
+	return ret;
+}
+
 static __init int svm_hardware_setup(void)
 {
 	void *iopm_va;
@@ -5759,6 +5818,9 @@ static __init int svm_hardware_setup(void)
 			goto err;
 	}
 
+	if (boot_cpu_data.x86_vendor == X86_VENDOR_HYGON)
+		kvm_arch_hypercall_init(kvm_hygon_arch_hypercall);
+
 	return 0;
 
 err:
@@ -5777,6 +5839,10 @@ static struct kvm_x86_init_ops svm_init_ops __initdata = {
 
 static void __svm_exit(void)
 {
+	/* Unregister CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_exit();
+
 	kvm_x86_vendor_exit();
 }
 
@@ -5791,9 +5857,21 @@ static int __init svm_init(void)
 	if (!kvm_is_svm_supported())
 		return -EOPNOTSUPP;
 
+	/* Register CSV specific interface for Hygon CPUs */
+	if (is_x86_vendor_hygon())
+		csv_init(&svm_x86_ops);
+
 	r = kvm_x86_vendor_init(&svm_init_ops);
-	if (r)
+	if (r) {
+		/*
+		 * Unregister CSV specific interface for Hygon CPUs
+		 * if error occurs.
+		 */
+		if (is_x86_vendor_hygon())
+			csv_exit();
+
 		return r;
+	}
 
 	/*
 	 * Common KVM initialization _must_ come last, after this, /dev/kvm is

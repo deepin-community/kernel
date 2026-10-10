@@ -36,6 +36,8 @@
 #include <asm/daifflags.h>
 #include <asm/smp_plat.h>
 
+#include <acpi/apei.h>
+
 int acpi_noirq = 1;		/* skip ACPI IRQ initialization */
 int acpi_disabled = 1;
 EXPORT_SYMBOL(acpi_disabled);
@@ -178,6 +180,33 @@ out:
 }
 
 /*
+ * acpi_fixup_m400_quirks - Work-around for HPE ProLiant m400 APEI firmware
+ * problems.
+ */
+static void __init acpi_fixup_m400_quirks(void)
+{
+	acpi_status status;
+	struct acpi_table_header *header;
+#if !defined(CONFIG_ACPI_APEI)
+	int hest_disable = HEST_DISABLED;
+#endif
+
+	if (!IS_ENABLED(CONFIG_ACPI_APEI) || hest_disable != HEST_ENABLED)
+		return;
+
+	status = acpi_get_table(ACPI_SIG_HEST, 0, &header);
+
+	if (ACPI_SUCCESS(status) && !strncmp(header->oem_id, "HPE   ", 6) &&
+		!strncmp(header->oem_table_id, "ProLiant", 8) &&
+		MIDR_IMPLEMENTOR(read_cpuid_id()) == ARM_CPU_IMP_APM) {
+		hest_disable = HEST_DISABLED;
+		pr_info("Disabled APEI for m400.\n");
+	}
+
+	acpi_put_table(header);
+}
+
+/*
  * acpi_boot_table_init() called from setup_arch(), always.
  *	1. find RSDP and get its address, and then find XSDT
  *	2. extract all tables and checksums them all
@@ -255,6 +284,8 @@ done:
 
 		if (IS_ENABLED(CONFIG_ACPI_BGRT))
 			acpi_table_parse(ACPI_SIG_BGRT, acpi_parse_bgrt);
+
+		acpi_fixup_m400_quirks();
 	}
 }
 
@@ -294,6 +325,21 @@ pgprot_t __acpi_get_mem_attribute(phys_addr_t addr)
 
 void __iomem *acpi_os_ioremap(acpi_physical_address phys, acpi_size size)
 {
+#ifdef CONFIG_ARM64
+	if ((read_cpuid_implementor() == ARM_CPU_IMP_HISI) &&
+		(read_cpuid_part_number() == HISI_CPU_PART_TSV110)) {
+		/* For normal memory we already have a cacheable mapping. */
+		if (memblock_is_map_memory(phys))
+			return (void __iomem *)__phys_to_virt(phys);
+
+		/*
+		 * We should still honor the memory's attribute here because
+		 * crash dump kernel possibly excludes some ACPI (reclaim)
+		 * regions from memblock list.
+		 */
+		return __ioremap_prot(phys, size, __acpi_get_mem_attribute(phys));
+	}
+#endif
 	efi_memory_desc_t *md, *region = NULL;
 	pgprot_t prot;
 

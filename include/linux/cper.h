@@ -612,4 +612,5 @@ struct cxl_cper_sec_prot_err;
 void cxl_cper_print_prot_err(const char *pfx,
 			     const struct cxl_cper_sec_prot_err *prot_err);
 
+const char *cper_zdi_zpi_err_type_str(unsigned int etype);
 #endif

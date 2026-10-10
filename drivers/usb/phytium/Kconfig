@@ -1,0 +1,22 @@
+config USB_PHYTIUM
+	tristate "Phytium USB Support"
+	depends on USB
+	depends on USB_GADGET
+	help
+	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
+	  like Pe220x.
+
+	  If you choose to build this driver is a dynamically linked modules, the module will
+	  be called phytium-usb.ko
+
+config USB_PHYTIUM_PCI
+	tristate "Phytium PCI USB Support"
+	default n
+	depends on USB
+	depends on USB_GADGET
+	help
+	  Say Y or M here if your system has a OTG USB Controller based on PHYTIUM SOC.
+	  like Pe220x.
+
+	  If you choose to build this driver is a dynamically linked modules, the module will
+	  be called phytium-usb.ko

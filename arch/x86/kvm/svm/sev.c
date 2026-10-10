@@ -29,6 +29,7 @@
 #include <asm/debugreg.h>
 #include <asm/msr.h>
 #include <asm/sev.h>
+#include <asm/processor-hygon.h>
 
 #include "mmu.h"
 #include "x86.h"
@@ -36,6 +37,8 @@
 #include "svm_ops.h"
 #include "cpuid.h"
 #include "trace.h"
+
+#include "csv.h"
 
 #define GHCB_VERSION_MAX	2ULL
 #define GHCB_VERSION_MIN	1ULL
@@ -281,6 +284,12 @@ static int sev_asid_new(struct kvm_sev_info *sev, unsigned long vm_type)
 		min_asid = min_sev_asid;
 		max_asid = max_sev_asid;
 	}
+	/*
+	 * No matter what the min_sev_asid is, all asids in range
+	 * [1, max_sev_asid] can be used for CSV2 guest on Hygon CPUs.
+	 */
+	if (is_x86_vendor_hygon())
+		max_asid = max_sev_asid;
 
 	/*
 	 * The min ASID can end up larger than the max if basic SEV support is
@@ -1118,6 +1127,17 @@ static int __sev_launch_update_vmsa(struct kvm *kvm, struct kvm_vcpu *vcpu,
 	 */
 	fpstate_set_confidential(&vcpu->arch.guest_fpu);
 	vcpu->arch.guest_state_protected = true;
+
+	/*
+	 * Backup encrypted vmsa to support rebooting CSV2 guest. The
+	 * clflush_cache_range() is necessary to invalidate prefetched
+	 * memory area pointed by svm->sev_es.vmsa so that we can read
+	 * fresh memory updated by PSP.
+	 */
+	if (is_x86_vendor_hygon()) {
+		clflush_cache_range(svm->sev_es.vmsa, PAGE_SIZE);
+		csv2_sync_reset_vmsa(svm);
+	}
 
 	/*
 	 * SEV-ES guest mandates LBR Virtualization to be _always_ ON. Enable it
@@ -3099,6 +3119,22 @@ static const char * __init sev_str_feature_state(bool is_supported, bool is_usab
 	return is_supported ? is_usable ? "enabled" : "unusable" : "disabled";
 }
 
+#ifdef CONFIG_HYGON_CSV
+/* Code to set all of the function and vaiable pointers */
+static void sev_install_hooks(void)
+{
+	hygon_kvm_hooks.sev_enabled = &sev_enabled;
+	hygon_kvm_hooks.sev_me_mask = &sev_me_mask;
+	hygon_kvm_hooks.sev_issue_cmd = sev_issue_cmd;
+	hygon_kvm_hooks.get_num_contig_pages = get_num_contig_pages;
+	hygon_kvm_hooks.sev_pin_memory = sev_pin_memory;
+	hygon_kvm_hooks.sev_unpin_memory = sev_unpin_memory;
+	hygon_kvm_hooks.sev_clflush_pages = sev_clflush_pages;
+
+	hygon_kvm_hooks.sev_hooks_installed = true;
+}
+#endif
+
 void __init sev_hardware_setup(void)
 {
 	unsigned int eax, ebx, ecx, edx, sev_asid_count, sev_es_asid_count;
@@ -3194,14 +3230,23 @@ void __init sev_hardware_setup(void)
 		goto out;
 	}
 
-	/* Has the system been allocated ASIDs for SEV-ES? */
-	if (min_sev_asid == 1)
-		goto out;
-
 	min_sev_es_asid = min_snp_asid = 1;
 	max_sev_es_asid = max_snp_asid = min_sev_asid - 1;
 
-	sev_es_asid_count = min_sev_asid - 1;
+
+	if (is_x86_vendor_hygon()) {
+		/*
+		 * Ths ASIDs from 1 to max_sev_asid are available for hygon
+		 * CSV2 guest.
+		 */
+		sev_es_asid_count = max_sev_asid;
+	} else {
+		/* Has the system been allocated ASIDs for SEV-ES? */
+		if (min_sev_asid == 1)
+			goto out;
+
+		sev_es_asid_count = min_sev_asid - 1;
+	}
 	WARN_ON_ONCE(misc_cg_set_capacity(MISC_CG_RES_SEV_ES, sev_es_asid_count));
 	sev_es_supported = true;
 	sev_snp_supported = sev_snp_enabled && cc_platform_has(CC_ATTR_HOST_SEV_SNP);
@@ -3251,13 +3296,16 @@ out:
 	kvm_caps.supported_vm_types |= vm_types;
 
 	if (boot_cpu_has(X86_FEATURE_SEV))
-		pr_info("SEV %s (ASIDs %u - %u)\n",
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV" : "SEV",
 			sev_str_feature_state(sev_supported, vm_types & BIT(KVM_X86_SEV_VM)),
 			min_sev_asid, max_sev_asid);
 	if (boot_cpu_has(X86_FEATURE_SEV_ES))
-		pr_info("SEV-ES %s (ASIDs %u - %u)\n",
+		pr_info("%s %s (ASIDs %u - %u)\n",
+			is_x86_vendor_hygon() ? "CSV2" : "SEV-ES",
 			sev_str_feature_state(sev_es_supported, vm_types & BIT(KVM_X86_SEV_ES_VM)),
-			min_sev_es_asid, max_sev_es_asid);
+			is_x86_vendor_hygon() ? 1 : min_sev_es_asid,
+			is_x86_vendor_hygon() ? max_sev_asid : max_sev_es_asid);
 	if (boot_cpu_has(X86_FEATURE_SEV_SNP))
 		pr_info("SEV-SNP %s (ASIDs %u - %u)\n",
 			sev_str_feature_state(sev_snp_supported, vm_types & BIT(KVM_X86_SNP_VM)),
@@ -3275,12 +3323,35 @@ out:
 
 	if (sev_snp_enabled && tsc_khz && cpu_feature_enabled(X86_FEATURE_SNP_SECURE_TSC))
 		sev_supported_vmsa_features |= SVM_SEV_FEAT_SECURE_TSC;
+
+#ifdef CONFIG_HYGON_CSV
+	/* Setup resources which are necessary for HYGON CSV */
+	if (is_x86_vendor_hygon()) {
+		/*
+		 * Install sev related function and variable pointers hooks
+		 * no matter @sev_enabled is false.
+		 */
+		sev_install_hooks();
+
+		/*
+		 * Allocate a memory pool to speed up live migration of
+		 * the CSV/CSV2 guests. If the allocation fails, no
+		 * acceleration is performed at live migration.
+		 */
+		if (sev_enabled)
+			csv_alloc_trans_mempool();
+	}
+#endif
 }
 
 void sev_hardware_unsetup(void)
 {
 	if (!sev_enabled)
 		return;
+
+	/* Free the memory pool that allocated in sev_hardware_setup(). */
+	if (is_x86_vendor_hygon())
+		csv_free_trans_mempool();
 
 	/* No need to take sev_bitmap_lock, all VMs have been destroyed. */
 	sev_flush_asids(1, max_sev_asid);
@@ -3586,6 +3657,9 @@ void sev_free_vcpu(struct kvm_vcpu *vcpu)
 
 skip_vmsa_free:
 	__sev_es_unmap_ghcb(svm);
+
+	if (is_x86_vendor_hygon())
+		csv2_free_reset_vmsa(svm);
 }
 
 bool sev_vcpu_needs_initialization(struct kvm_vcpu *vcpu)
@@ -4891,6 +4965,11 @@ int sev_vcpu_create(struct kvm_vcpu *vcpu)
 	vmsa_page = snp_safe_alloc_page();
 	if (!vmsa_page)
 		return -ENOMEM;
+
+	if (is_x86_vendor_hygon()) {
+		if (csv2_setup_reset_vmsa(svm))
+			return -ENOMEM;
+	}
 
 	svm->sev_es.vmsa = page_address(vmsa_page);
 	svm->sev_es.snp_pending_vmsa_gpa = INVALID_PAGE;

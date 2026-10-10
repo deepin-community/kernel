@@ -49,6 +49,8 @@
 #include <asm/time.h>
 #include <asm/unwind.h>
 
+#include "legacy_boot.h"
+
 #define SMBIOS_BIOSSIZE_OFFSET		0x09
 #define SMBIOS_BIOSEXTERN_OFFSET	0x13
 #define SMBIOS_FREQLOW_OFFSET		0x16
@@ -600,6 +602,7 @@ void __init setup_arch(char **cmdline_p)
 	init_environ();
 	efi_init();
 	fdt_setup();
+	bpi_init();
 	memblock_init();
 	pagetable_init();
 	bootcmdline_init(cmdline_p);

@@ -2473,6 +2473,520 @@ ccp_run_ecc_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 	}
 }
 
+static int ccp_run_sm2_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm2_engine *sm2 = &cmd->u.sm2;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	int ret;
+
+	if (!sm2->src || !sm2->dst)
+		return -EINVAL;
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.init = 1;
+	op.eom = 1;
+	op.u.sm2.rand = sm2->rand & 0x1;
+	op.u.sm2.mode = sm2->mode;
+
+	memset(&src, 0, sizeof(src));
+	ret = ccp_init_sg_workarea(&src.sg_wa, cmd_q->ccp->dev,
+		sm2->src, sm2->src_len, DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	/* if src isn't contiguous, should copy to a contiguous buffer */
+	if (src.sg_wa.dma_count == 1) {
+		op.src.u.dma.address = sg_dma_address(src.sg_wa.sg);
+	} else {
+		ccp_sg_free(&src.sg_wa);
+		ret = ccp_init_dm_workarea(&src.dm_wa, cmd_q, sm2->src_len,
+			DMA_TO_DEVICE);
+		if (ret)
+			goto e_src;
+
+		ccp_set_dm_area(&src.dm_wa, 0, sm2->src, 0, sm2->src_len);
+		op.src.u.dma.address = src.dm_wa.dma.address;
+	}
+
+	op.src.type = CCP_MEMTYPE_SYSTEM;
+	op.src.u.dma.offset = 0;
+	op.src.u.dma.length = sm2->src_len;
+	op.src.u.dma.dir = DMA_TO_DEVICE;
+
+	memset(&dst, 0, sizeof(dst));
+	ret = ccp_init_sg_workarea(&dst.sg_wa, cmd_q->ccp->dev,
+		sm2->dst, sm2->dst_len, DMA_FROM_DEVICE);
+	if (ret)
+		goto e_src;
+
+	/* if dst isn't contiguous, should copy to a contiguous buffer */
+	if (dst.sg_wa.dma_count == 1) {
+		op.dst.u.dma.address = sg_dma_address(dst.sg_wa.sg);
+	} else {
+		ccp_sg_free(&dst.sg_wa);
+		ret = ccp_init_dm_workarea(&dst.dm_wa, cmd_q, sm2->dst_len,
+			DMA_FROM_DEVICE);
+		if (ret)
+			goto e_dst;
+
+		op.dst.u.dma.address = dst.dm_wa.dma.address;
+	}
+
+	op.dst.type = CCP_MEMTYPE_SYSTEM;
+	op.dst.u.dma.offset = 0;
+	op.dst.u.dma.length = sm2->dst_len;
+	op.dst.u.dma.dir = DMA_FROM_DEVICE;
+
+	ret = cmd_q->ccp->vdata->perform->sm2(&op);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_dst;
+	}
+
+	if (dst.dm_wa.address) {
+		ccp_get_dm_area(&dst.dm_wa, 0, sm2->dst, 0, sm2->dst_len);
+		memset(dst.dm_wa.address, 0, sm2->dst_len);
+	}
+
+e_dst:
+	ccp_free_data(&dst, cmd_q);
+
+e_src:
+	if (src.dm_wa.address)
+		memset(src.dm_wa.address, 0, sm2->src_len);
+
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
+static int ccp_run_sm3_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm3_engine *sm3 = &cmd->u.sm3;
+	struct ccp_dm_workarea ctx;
+	struct ccp_data src;
+	struct ccp_op op;
+	int ret;
+
+	u8 sm3_zero_message_hash[SM3_DIGEST_SIZE] = {
+		0x1A, 0xB2, 0x1D, 0x83, 0x55, 0xCF, 0xA1, 0x7F,
+		0x8e, 0x61, 0x19, 0x48, 0x31, 0xE8, 0x1A, 0x8F,
+		0x22, 0xBE, 0xC8, 0xC7, 0x28, 0xFE, 0xFB, 0x74,
+		0x7E, 0xD0, 0x35, 0xEB, 0x50, 0x82, 0xAA, 0x2B,
+	};
+
+	if ((sm3->ctx == NULL) || (sm3->ctx_len != SM3_DIGEST_SIZE))
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm3->ctx, SM3_DIGEST_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm3->final && sm3->first) {
+		if (!sm3->src_len) {
+			scatterwalk_map_and_copy(
+					(void *)sm3_zero_message_hash,
+					sm3->ctx, 0, SM3_DIGEST_SIZE, 1);
+			return 0;
+		}
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.init = sm3->first & 0x1;
+	op.u.sm3.type = sm3->type;
+	op.u.sm3.msg_bits = sm3->msg_bits;
+
+	memset(&ctx, 0, sizeof(ctx));
+	ret = ccp_init_dm_workarea(&ctx, cmd_q, SM3_DIGEST_SIZE,
+			DMA_BIDIRECTIONAL);
+	if (ret)
+		return ret;
+
+	if (!sm3->first) {
+		/* load iv */
+		ccp_set_dm_area(&ctx, 0, sm3->ctx, 0, SM3_DIGEST_SIZE);
+
+		ret = ccp_copy_to_sb(cmd_q, &ctx, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_ctx;
+		}
+	}
+
+	ret = ccp_init_data(&src, cmd_q, sm3->src, sm3->src_len,
+			SM3_BLOCK_SIZE, DMA_TO_DEVICE);
+	if (ret)
+		goto e_ctx;
+
+	/* send data to the CCP SM3 engine */
+	if (sm3->src_len) {
+		while (src.sg_wa.bytes_left) {
+			ccp_prepare_data(&src, NULL, &op, SM3_BLOCK_SIZE,
+					false);
+			if (!src.sg_wa.bytes_left && sm3->final)
+				op.eom = 1;
+
+			if (!src.sg_wa.bytes_left || op.soc)
+				op.ioc = 1;
+			else
+				op.ioc = 0;
+
+			ret = cmd_q->ccp->vdata->perform->sm3(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_data;
+			}
+
+			if (!src.sg_wa.bytes_left || op.soc) {
+				ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+				if (ret) {
+					cmd->engine_error = cmd_q->cmd_error;
+					goto e_data;
+				}
+			}
+
+			ccp_process_data(&src, NULL, &op);
+		}
+	} else {
+		/* do sm3 padding */
+		src.dm_wa.address[0] = 0x80;
+		*(__be64 *)&src.dm_wa.address[56] = cpu_to_be64(sm3->msg_bits);
+
+		op.soc = 0;
+		op.ioc = 1;
+		op.eom = 0;
+		op.src.u.dma.address = src.dm_wa.dma.address;
+		op.src.u.dma.offset = 0;
+		op.src.u.dma.length = SM3_BLOCK_SIZE;
+
+		ret = cmd_q->ccp->vdata->perform->sm3(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_data;
+		}
+
+		ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_data;
+		}
+	}
+
+	ret = ccp_copy_from_sb(cmd_q, &ctx, 0, op.sb_ctx,
+		CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_data;
+	}
+
+	if (sm3->final && sm3->opad) {
+		/* HMAC operation, recursively perform final SM3 */
+		struct ccp_cmd hmac_cmd;
+		struct scatterlist sg;
+		u8 *hmac_buf = NULL;
+
+		hmac_buf = kmalloc(
+			SM3_BLOCK_SIZE + SM3_DIGEST_SIZE, GFP_KERNEL);
+		if (!hmac_buf) {
+			ret = -ENOMEM;
+			goto e_data;
+		}
+		scatterwalk_map_and_copy(hmac_buf, sm3->opad,
+			0, SM3_BLOCK_SIZE, 0);
+		memcpy(hmac_buf + SM3_BLOCK_SIZE, ctx.address,
+			SM3_DIGEST_SIZE);
+		sg_init_one(&sg, hmac_buf, SM3_BLOCK_SIZE + SM3_DIGEST_SIZE);
+
+		memset(&hmac_cmd, 0, sizeof(hmac_cmd));
+		hmac_cmd.engine = CCP_ENGINE_SM3;
+		hmac_cmd.u.sm3.type = sm3->type;
+		hmac_cmd.u.sm3.ctx = sm3->ctx;
+		hmac_cmd.u.sm3.ctx_len = sm3->ctx_len;
+		hmac_cmd.u.sm3.src = &sg;
+		hmac_cmd.u.sm3.src_len = SM3_BLOCK_SIZE + SM3_DIGEST_SIZE;
+		hmac_cmd.u.sm3.opad = NULL;
+		hmac_cmd.u.sm3.opad_len = 0;
+		hmac_cmd.u.sm3.first = 1;
+		hmac_cmd.u.sm3.final = 1;
+		hmac_cmd.u.sm3.msg_bits =
+			(SM3_BLOCK_SIZE + SM3_DIGEST_SIZE) << 3;
+
+		ret = ccp_run_sm3_cmd(cmd_q, &hmac_cmd);
+		if (ret)
+			cmd->engine_error = hmac_cmd.engine_error;
+
+		kfree(hmac_buf);
+	} else {
+		ccp_get_dm_area(&ctx, 0, sm3->ctx, 0, SM3_DIGEST_SIZE);
+	}
+
+e_data:
+	ccp_free_data(&src, cmd_q);
+
+e_ctx:
+	ccp_dm_free(&ctx);
+
+	return ret;
+}
+
+static int ccp_run_sm4_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm4_engine *sm4 = &cmd->u.sm4;
+	struct ccp_dm_workarea iv_key;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	bool in_place = false;
+	int ret;
+
+	if (sm4->src == NULL || sm4->dst == NULL)
+		return -EINVAL;
+
+	if (sm4->key == NULL || sm4->key_len != SM4_KEY_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4->key, SM4_KEY_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm4->mode != CCP_SM4_MODE_ECB) {
+		if (sm4->iv == NULL || sm4->iv_len != SM4_BLOCK_SIZE)
+			return -EINVAL;
+
+		if (sg_nents_for_len(sm4->iv, SM4_BLOCK_SIZE) < 0)
+			return -EINVAL;
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.u.sm4.action = sm4->action;
+	op.u.sm4.mode = sm4->mode;
+	op.u.sm4.select = sm4->select;
+
+	/* Prepare the input and output data workareas. For in-place
+	 * operations we need to set the dma direction to BIDIRECTIONAL
+	 * and copy the src workarea to the dst workarea.
+	 */
+	if (sg_virt(sm4->src) == sg_virt(sm4->dst))
+		in_place = true;
+
+	ret = ccp_init_data(&src, cmd_q, sm4->src, sm4->src_len,
+		SM4_BLOCK_SIZE, in_place ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	if (in_place) {
+		dst = src;
+	} else {
+		ret = ccp_init_data(&dst, cmd_q, sm4->dst, sm4->src_len,
+				SM4_BLOCK_SIZE, DMA_FROM_DEVICE);
+		if (ret)
+			goto e_src;
+	}
+
+	/* load iv and key */
+	ret = ccp_init_dm_workarea(&iv_key, cmd_q,
+		SM4_BLOCK_SIZE + SM4_KEY_SIZE, DMA_BIDIRECTIONAL);
+	if (ret)
+		goto e_dst;
+
+	if (sm4->mode != CCP_SM4_MODE_ECB)
+		ccp_set_dm_area(&iv_key, 0, sm4->iv, 0, SM4_BLOCK_SIZE);
+
+	ccp_set_dm_area(&iv_key, SM4_BLOCK_SIZE, sm4->key, 0, SM4_KEY_SIZE);
+
+	ret = ccp_copy_to_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	/* send data to the CCP SM4 engine */
+	while (src.sg_wa.bytes_left) {
+		ccp_prepare_data(&src, &dst, &op, SM4_BLOCK_SIZE, true);
+		if (!src.sg_wa.bytes_left)
+			op.eom = 1;
+
+		if (!src.sg_wa.bytes_left || op.soc)
+			op.ioc = 1;
+		else
+			op.ioc = 0;
+
+		ret = cmd_q->ccp->vdata->perform->sm4(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		if (!src.sg_wa.bytes_left || op.soc) {
+			ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_iv_key;
+			}
+		}
+
+		ccp_process_data(&src, &dst, &op);
+	}
+
+	if (sm4->mode != CCP_SM4_MODE_ECB) {
+		/* retrieve the SM4 iv */
+		ret = ccp_copy_from_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+				CCP_PASSTHRU_BYTESWAP_NOOP);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		ccp_get_dm_area(&iv_key, 0, sm4->iv, 0, SM4_BLOCK_SIZE);
+	}
+
+e_iv_key:
+	memset(iv_key.address, 0, SM4_BLOCK_SIZE + SM4_KEY_SIZE);
+	ccp_dm_free(&iv_key);
+
+e_dst:
+	if (!in_place)
+		ccp_free_data(&dst, cmd_q);
+
+e_src:
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
+static int ccp_run_sm4_ctr_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
+{
+	struct ccp_sm4_ctr_engine *sm4_ctr = &cmd->u.sm4_ctr;
+	struct ccp_dm_workarea iv_key;
+	struct ccp_data src, dst;
+	struct ccp_op op;
+	bool in_place = false;
+	int ret;
+
+	if (sm4_ctr->src == NULL || sm4_ctr->dst == NULL)
+		return -EINVAL;
+
+	if (sm4_ctr->key == NULL || sm4_ctr->key_len != SM4_KEY_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4_ctr->key, SM4_KEY_SIZE) < 0)
+		return -EINVAL;
+
+	if (sm4_ctr->iv == NULL || sm4_ctr->iv_len != SM4_BLOCK_SIZE)
+		return -EINVAL;
+
+	if (sg_nents_for_len(sm4_ctr->iv, SM4_BLOCK_SIZE) < 0)
+		return -EINVAL;
+
+	memset(&op, 0, sizeof(op));
+	op.cmd_q = cmd_q;
+	op.jobid = CCP_NEW_JOBID(cmd_q->ccp);
+	op.ioc = 1;
+	op.sb_ctx = cmd_q->sb_ctx;
+	op.u.sm4_ctr.size = sm4_ctr->size;
+	op.u.sm4_ctr.action = sm4_ctr->action;
+	op.u.sm4_ctr.step = sm4_ctr->step;
+
+	/* Prepare the input and output data workareas. For in-place
+	 * operations we need to set the dma direction to BIDIRECTIONAL
+	 * and copy the src workarea to the dst workarea.
+	 */
+	if (sg_virt(sm4_ctr->src) == sg_virt(sm4_ctr->dst))
+		in_place = true;
+
+	ret = ccp_init_data(&src, cmd_q, sm4_ctr->src, sm4_ctr->src_len,
+		SM4_BLOCK_SIZE, in_place ? DMA_BIDIRECTIONAL : DMA_TO_DEVICE);
+	if (ret)
+		return ret;
+
+	if (in_place) {
+		dst = src;
+	} else {
+		ret = ccp_init_data(&dst, cmd_q, sm4_ctr->dst,
+			sm4_ctr->src_len, SM4_BLOCK_SIZE, DMA_FROM_DEVICE);
+		if (ret)
+			goto e_src;
+	}
+
+	/* load iv and key */
+	ret = ccp_init_dm_workarea(&iv_key, cmd_q,
+		SM4_BLOCK_SIZE + SM4_KEY_SIZE, DMA_BIDIRECTIONAL);
+	if (ret)
+		goto e_dst;
+
+	ccp_set_dm_area(&iv_key, 0, sm4_ctr->iv, 0, SM4_BLOCK_SIZE);
+	ccp_set_dm_area(&iv_key, SM4_BLOCK_SIZE, sm4_ctr->key, 0, SM4_KEY_SIZE);
+
+	ret = ccp_copy_to_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	/* send data to the CCP SM4_CTR engine */
+	while (src.sg_wa.bytes_left) {
+		ccp_prepare_data(&src, &dst, &op, SM4_BLOCK_SIZE, false);
+		if (!src.sg_wa.bytes_left)
+			op.eom = 1;
+
+		if (!src.sg_wa.bytes_left || op.soc)
+			op.ioc = 1;
+		else
+			op.ioc = 0;
+
+		ret = cmd_q->ccp->vdata->perform->sm4_ctr(&op);
+		if (ret) {
+			cmd->engine_error = cmd_q->cmd_error;
+			goto e_iv_key;
+		}
+
+		if (!src.sg_wa.bytes_left || op.soc) {
+			ret = cmd_q->ccp->vdata->perform->run_cmd(&op);
+			if (ret) {
+				cmd->engine_error = cmd_q->cmd_error;
+				goto e_iv_key;
+			}
+		}
+
+		ccp_process_data(&src, &dst, &op);
+	}
+
+	/* retrieve the SM4_CTR iv */
+	ret = ccp_copy_from_sb(cmd_q, &iv_key, 0, op.sb_ctx,
+			CCP_PASSTHRU_BYTESWAP_NOOP);
+	if (ret) {
+		cmd->engine_error = cmd_q->cmd_error;
+		goto e_iv_key;
+	}
+
+	ccp_get_dm_area(&iv_key, 0, sm4_ctr->iv, 0, SM4_BLOCK_SIZE);
+
+e_iv_key:
+	memset(iv_key.address, 0, SM4_BLOCK_SIZE + SM4_KEY_SIZE);
+	ccp_dm_free(&iv_key);
+
+e_dst:
+	if (!in_place)
+		ccp_free_data(&dst, cmd_q);
+
+e_src:
+	ccp_free_data(&src, cmd_q);
+
+	return ret;
+}
+
 int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 {
 	int ret;
@@ -2516,6 +3030,18 @@ int ccp_run_cmd(struct ccp_cmd_queue *cmd_q, struct ccp_cmd *cmd)
 		break;
 	case CCP_ENGINE_ECC:
 		ret = ccp_run_ecc_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM2:
+		ret = ccp_run_sm2_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM3:
+		ret = ccp_run_sm3_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM4:
+		ret = ccp_run_sm4_cmd(cmd_q, cmd);
+		break;
+	case CCP_ENGINE_SM4_CTR:
+		ret = ccp_run_sm4_ctr_cmd(cmd_q, cmd);
 		break;
 	default:
 		ret = -EINVAL;

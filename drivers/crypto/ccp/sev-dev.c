@@ -39,6 +39,9 @@
 #include "psp-dev.h"
 #include "sev-dev.h"
 
+#include "hygon/psp-dev.h"
+#include "hygon/csv-dev.h"
+
 #define DEVICE_NAME		"sev"
 #define SEV_FW_FILE		"amd/sev.fw"
 #define SEV_FW_NAME_SIZE	64
@@ -160,7 +163,8 @@ static void sev_irq_handler(int irq, void *data, unsigned int status)
 
 	/* Check if it is SEV command completion: */
 	reg = ioread32(sev->io_regs + sev->vdata->cmdresp_reg);
-	if (FIELD_GET(PSP_CMDRESP_RESP, reg)) {
+	if (FIELD_GET(PSP_CMDRESP_RESP, reg) ||
+	    (is_vendor_hygon() && csv_in_ring_buffer_mode())) {
 		sev->int_rcvd = 1;
 		wake_up(&sev->int_queue);
 	}
@@ -202,6 +206,18 @@ static int sev_wait_cmd_ioc(struct sev_device *sev,
 
 static int sev_cmd_buffer_len(int cmd)
 {
+	/*
+	 * The Hygon CSV command may conflict with AMD SEV command, so it's
+	 * preferred to check whether it's a CSV-specific command for Hygon
+	 * psp.
+	 */
+	if (is_vendor_hygon()) {
+		int r = csv_cmd_buffer_len(cmd);
+
+		if (r)
+			return r;
+	}
+
 	switch (cmd) {
 	case SEV_CMD_INIT:			return sizeof(struct sev_data_init);
 	case SEV_CMD_INIT_EX:                   return sizeof(struct sev_data_init_ex);
@@ -1014,10 +1030,21 @@ int __sev_do_cmd_locked(int cmd, void *data, int *psp_ret)
 int sev_do_cmd(int cmd, void *data, int *psp_ret)
 {
 	int rc;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
+
 	rc = __sev_do_cmd_locked(cmd, data, psp_ret);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled)
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return rc;
 }
@@ -1792,8 +1819,12 @@ static int __sev_platform_init_locked(int *error)
 
 	dev_dbg(sev->dev, "SEV firmware initialized\n");
 
-	dev_info(sev->dev, "SEV API:%d.%d build:%d\n", sev->api_major,
-		 sev->api_minor, sev->build);
+	if (is_vendor_hygon())
+		dev_info(sev->dev, "CSV API:%d.%d build:%d\n", sev->api_major,
+			 sev->api_minor, hygon_csv_build);
+	else
+		dev_info(sev->dev, "SEV API:%d.%d build:%d\n", sev->api_major,
+			 sev->api_minor, sev->build);
 
 	return 0;
 }
@@ -1834,10 +1865,20 @@ static int _sev_platform_init_locked(struct sev_platform_init_args *args)
 int sev_platform_init(struct sev_platform_init_args *args)
 {
 	int rc;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+				PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 	rc = _sev_platform_init_locked(args);
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled)
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	/*
 	 * Register the sysfs interface outside the sev_cmd_mutex. The
@@ -1874,6 +1915,10 @@ static int __sev_platform_shutdown_locked(int *error)
 			*error, ret);
 		return ret;
 	}
+
+	/* RING BUFFER mode exits if a SHUTDOWN command is executed */
+	if (is_vendor_hygon() && csv_in_ring_buffer_mode())
+		csv_restore_mailbox_mode_postprocess();
 
 	sev->sev_plat_status.state = SEV_STATE_UNINIT;
 	dev_dbg(sev->dev, "SEV firmware shutdown\n");
@@ -2092,6 +2137,13 @@ static int sev_get_api_version(void)
 	sev->api_minor = status.api_minor;
 	sev->build = status.build;
 
+	/*
+	 * The api version fields of HYGON CSV firmware are not consistent
+	 * with AMD SEV firmware.
+	 */
+	if (is_vendor_hygon())
+		csv_update_api_version(&status);
+
 	return 0;
 }
 
@@ -2100,6 +2152,14 @@ static int sev_get_firmware(struct device *dev,
 {
 	char fw_name_specific[SEV_FW_NAME_SIZE];
 	char fw_name_subset[SEV_FW_NAME_SIZE];
+
+	if (is_vendor_hygon()) {
+		/* Check for CSV FW to using generic name: csv.fw */
+		if (firmware_request_nowarn(firmware, CSV_FW_FILE, dev) >= 0)
+			return 0;
+		else
+			return -ENOENT;
+	}
 
 	snprintf(fw_name_specific, sizeof(fw_name_specific),
 		 "amd/amd_sev_fam%.2xh_model%.2xh.sbin",
@@ -2139,13 +2199,15 @@ static int sev_update_firmware(struct device *dev)
 	struct page *p;
 	void *fw_blob;
 
-	if (!sev_version_greater_or_equal(0, 15)) {
+	if (!sev_version_greater_or_equal(0, 15) &&
+	    !(is_vendor_hygon() && csv_version_greater_or_equal(1667))) {
 		dev_dbg(dev, "DOWNLOAD_FIRMWARE not supported\n");
 		return -1;
 	}
 
 	if (sev_get_firmware(dev, &firmware) == -ENOENT) {
-		dev_dbg(dev, "No SEV firmware file present\n");
+		dev_dbg(dev, "No %s firmware file present\n",
+			is_vendor_hygon() ? "CSV" : "SEV");
 		return -1;
 	}
 
@@ -2176,7 +2238,11 @@ static int sev_update_firmware(struct device *dev)
 		ret = sev_do_cmd(SEV_CMD_DOWNLOAD_FIRMWARE, &data, &error);
 
 	if (ret)
-		dev_dbg(dev, "Failed to update SEV firmware: %#x\n", error);
+		dev_dbg(dev, "Failed to update %s firmware: %#x\n",
+			is_vendor_hygon() ? "CSV" : "SEV", error);
+	else
+		dev_info(dev, "%s firmware update successful\n",
+			 is_vendor_hygon() ? "CSV" : "SEV");
 
 	__free_pages(p, order);
 
@@ -2689,6 +2755,7 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	struct sev_issue_cmd input;
 	int ret = -EFAULT;
 	bool writable = file->f_mode & FMODE_WRITE;
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
 	if (!psp_master || !psp_master->sev_data)
 		return -ENODEV;
@@ -2702,7 +2769,13 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (input.cmd > SEV_MAX)
 		return -EINVAL;
 
-	mutex_lock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					PSP_MUTEX_TIMEOUT) != 1)
+		return -EBUSY;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 
 	switch (input.cmd) {
 
@@ -2754,7 +2827,10 @@ static long sev_ioctl(struct file *file, unsigned int ioctl, unsigned long arg)
 	if (copy_to_user(argp, &input, sizeof(struct sev_issue_cmd)))
 		ret = -EFAULT;
 out:
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled)
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 
 	return ret;
 }
@@ -2823,7 +2899,11 @@ static int sev_misc_init(struct sev_device *sev)
 		misc = &misc_dev->misc;
 		misc->minor = MISC_DYNAMIC_MINOR;
 		misc->name = DEVICE_NAME;
-		misc->fops = &sev_fops;
+
+		if (is_vendor_hygon())
+			misc->fops = &csv_fops;
+		else
+			misc->fops = &sev_fops;
 
 		ret = misc_register(misc);
 		if (ret)
@@ -2841,11 +2921,37 @@ static int sev_misc_init(struct sev_device *sev)
 	return 0;
 }
 
+/* Code to set all of the function and variable pointers */
+static void sev_dev_install_hooks(void)
+{
+	hygon_psp_hooks.sev_cmd_mutex = &sev_cmd_mutex;
+	hygon_psp_hooks.psp_dead = &psp_dead;
+	hygon_psp_hooks.psp_timeout = &psp_timeout;
+	hygon_psp_hooks.psp_cmd_timeout = &psp_cmd_timeout;
+	hygon_psp_hooks.sev_cmd_buffer_len = sev_cmd_buffer_len;
+	hygon_psp_hooks.__sev_do_cmd_locked = __sev_do_cmd_locked;
+	hygon_psp_hooks.__sev_platform_init_locked = __sev_platform_init_locked;
+	hygon_psp_hooks.__sev_platform_shutdown_locked = __sev_platform_shutdown_locked;
+	hygon_psp_hooks.sev_do_cmd = sev_do_cmd;
+	hygon_psp_hooks.sev_wait_cmd_ioc = sev_wait_cmd_ioc;
+	hygon_psp_hooks.sev_ioctl = sev_ioctl;
+
+	hygon_psp_hooks.sev_dev_hooks_installed = true;
+}
+
 int sev_dev_init(struct psp_device *psp)
 {
 	struct device *dev = psp->dev;
 	struct sev_device *sev;
 	int ret = -ENOMEM;
+
+	/*
+	 * Install sev-dev related function and variable pointers hooks only
+	 * for Hygon vendor, install these hooks here, even though the
+	 * following initialization fails.
+	 */
+	if (is_vendor_hygon())
+		sev_dev_install_hooks();
 
 	if (!boot_cpu_has(X86_FEATURE_SEV)) {
 		dev_info_once(dev, "SEV: memory encryption not enabled by BIOS\n");
@@ -2937,12 +3043,7 @@ static void __sev_firmware_shutdown(struct sev_device *sev, bool panic)
 
 static void sev_firmware_shutdown(struct sev_device *sev)
 {
-	/*
-	 * Calling without sev_cmd_mutex held as TSM will likely try disconnecting
-	 * IDE and this ends up calling sev_do_cmd() which locks sev_cmd_mutex.
-	 */
-	if (sev->tio_status)
-		sev_tsm_uninit(sev);
+	int mutex_enabled = READ_ONCE(hygon_psp_hooks.psp_mutex_enabled);
 
 	/*
 	 * Remove the sysfs interface before taking the sev_cmd_mutex.
@@ -2953,14 +3054,30 @@ static void sev_firmware_shutdown(struct sev_device *sev)
 	 */
 	sev_snp_unregister_verify_mitigation(sev);
 
-	mutex_lock(&sev_cmd_mutex);
+	/*
+	 * Calling without sev_cmd_mutex held as TSM will likely try disconnecting
+	 * IDE and this ends up calling sev_do_cmd() which locks sev_cmd_mutex.
+	 */
+	if (sev->tio_status)
+		sev_tsm_uninit(sev);
+
+	if (is_vendor_hygon() && mutex_enabled) {
+		if (psp_mutex_lock_timeout(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex,
+					   PSP_MUTEX_TIMEOUT) != 1)
+			return;
+	} else {
+		mutex_lock(&sev_cmd_mutex);
+	}
 
 	__sev_firmware_shutdown(sev, false);
 
 	kfree(sev->tio_status);
 	sev->tio_status = NULL;
 
-	mutex_unlock(&sev_cmd_mutex);
+	if (is_vendor_hygon() && mutex_enabled)
+		psp_mutex_unlock(&hygon_psp_hooks.psp_misc->data_pg_aligned->mb_mutex);
+	else
+		mutex_unlock(&sev_cmd_mutex);
 }
 
 void sev_platform_shutdown(void)
@@ -3046,7 +3163,8 @@ static int snp_shutdown_on_panic(struct notifier_block *nb,
 int sev_issue_cmd_external_user(struct file *filep, unsigned int cmd,
 				void *data, int *error)
 {
-	if (!filep || filep->f_op != &sev_fops)
+	if (!filep || filep->f_op != (is_vendor_hygon()
+				      ? &csv_fops : &sev_fops))
 		return -EBADF;
 
 	return sev_do_cmd(cmd, data, error);
@@ -3057,6 +3175,7 @@ void sev_pci_init(void)
 {
 	struct sev_device *sev = psp_master->sev_data;
 	u8 api_major, api_minor, build;
+	int error;
 
 	if (!sev)
 		return;
@@ -3078,6 +3197,10 @@ void sev_pci_init(void)
 		dev_info(sev->dev, "SEV firmware updated from %d.%d.%d to %d.%d.%d\n",
 			 api_major, api_minor, build,
 			 sev->api_major, sev->api_minor, sev->build);
+
+	/* Set SMR for HYGON CSV3 */
+	if (is_vendor_hygon() && boot_cpu_has(X86_FEATURE_CSV3))
+		csv_platform_cmd_set_secure_memory_region(sev, &error);
 
 	return;
 

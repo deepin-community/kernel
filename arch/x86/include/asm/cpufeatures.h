@@ -5,7 +5,7 @@
 /*
  * Defines x86 CPU feature bits
  */
-#define NCAPINTS			22	   /* N 32-bit words worth of info */
+#define NCAPINTS			24	   /* N 32-bit words worth of info */
 #define NBUGINTS			2	   /* N 32-bit bug flags */
 
 /*
@@ -156,6 +156,17 @@
 #define X86_FEATURE_PHE2_EN		( 5*32+26) /* "phe2_en" PHE2 enabled */
 #define X86_FEATURE_RSA			( 5*32+27) /* "rsa" Big-number arithmetic */
 #define X86_FEATURE_RSA_EN		( 5*32+28) /* "rsa_en" RSA enabled */
+#define X86_FEATURE_ZX_FMA		( 5*32+15) /* FMA supported */
+#define X86_FEATURE_PARALLAX		( 5*32+16) /* Adaptive P-state control present */
+#define X86_FEATURE_PARALLAX_EN		( 5*32+17) /* Adaptive P-state control enabled */
+#define X86_FEATURE_OVERSTRESS		( 5*32+18) /* Overstress for auto overclock present */
+#define X86_FEATURE_OVERSTRESS_EN	( 5*32+19) /* Overstress for auto overclock enabled */
+#define X86_FEATURE_TM3			( 5*32+20) /* Thermal Monitor 3 present */
+#define X86_FEATURE_TM3_EN		( 5*32+21) /* Thermal Monitor 3 enabled */
+#define X86_FEATURE_SEM			( 5*32+24) /* SME feature present */
+#define X86_FEATURE_VEX			( 5*32+29) /* VEX instructions are present */
+#define X86_FEATURE_VEX_EN		( 5*32+30) /* VEX instructions are enabled */
+#define X86_FEATURE_STK			( 5*32+31) /* STK are present */
 
 /* More extended AMD flags: CPUID level 0x80000001, ECX, word 6 */
 #define X86_FEATURE_LAHF_LM		( 6*32+ 0) /* "lahf_lm" LAHF/SAHF in long mode */
@@ -472,6 +483,8 @@
 #define X86_FEATURE_ALLOWED_SEV_FEATURES (19*32+27) /* Allowed SEV Features */
 #define X86_FEATURE_SVSM		(19*32+28) /* "svsm" SVSM present */
 #define X86_FEATURE_HV_INUSE_WR_ALLOWED	(19*32+30) /* Allow Write to in-use hypervisor-owned pages */
+/* HYGON 3rd CSV */
+#define X86_FEATURE_CSV3		(19*32 + 30) /* HYGON 3rd CSV */
 
 /* AMD-defined Extended Feature 2 EAX, CPUID level 0x80000021 (EAX), word 20 */
 #define X86_FEATURE_NO_NESTED_DATA_BP	(20*32+ 0) /* No Nested Data Breakpoints */
@@ -529,6 +542,10 @@
 						      * and purposes if CLEAR_CPU_BUF_VM is set).
 						      */
 #define X86_FEATURE_X2AVIC_EXT		(21*32+20) /* AMD SVM x2AVIC support for 4k vCPUs */
+
+/* HYGON-defined CPU features, CPUID level 0x8c860000:0 (EDX), word 23 */
+#define X86_FEATURE_HYGON_SM3		(23*32 + 1) /* "sm3" SM3 instructions */
+#define X86_FEATURE_HYGON_SM4		(23*32 + 2) /* "sm4" SM4 instructions */
 
 /*
  * BUG word(s)

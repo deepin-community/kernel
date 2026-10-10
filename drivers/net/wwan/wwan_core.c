@@ -351,6 +351,10 @@ static const struct {
 		.devsuf = "mipc",
 	},
 	/* WWAN_PORT_NMEA is exported via the GNSS subsystem */
+	[WWAN_PORT_SAHARA] = {
+		.name = "SAHARA",
+		.devsuf = "sahara",
+	},
 };
 
 static ssize_t type_show(struct device *dev, struct device_attribute *attr,
@@ -738,6 +742,12 @@ void *wwan_port_get_drvdata(struct wwan_port *port)
 	return dev_get_drvdata(&port->dev);
 }
 EXPORT_SYMBOL_GPL(wwan_port_get_drvdata);
+
+enum wwan_port_type wwan_port_get_type(struct wwan_port *port)
+{
+	return port->type;
+}
+EXPORT_SYMBOL_GPL(wwan_port_get_type);
 
 static int wwan_port_op_start(struct wwan_port *port)
 {

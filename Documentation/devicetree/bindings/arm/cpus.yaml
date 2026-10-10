@@ -202,6 +202,12 @@ properties:
           - nvidia,tegra132-denver
           - nvidia,tegra186-denver
           - nvidia,tegra194-carmel
+          - phytium,ftc310
+          - phytium,ftc660
+          - phytium,ftc661
+          - phytium,ftc662
+          - phytium,ftc663
+          - phytium,ftc664
           - qcom,krait
           - qcom,kryo240
           - qcom,kryo250

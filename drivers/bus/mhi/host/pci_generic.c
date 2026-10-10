@@ -21,7 +21,7 @@
 
 #define MHI_POST_RESET_DELAY_MS 2000
 
-#define HEALTH_CHECK_PERIOD (HZ * 2)
+#define HEALTH_CHECK_PERIOD (HZ / 2)
 
 /* PCI VID definitions */
 #define PCI_VENDOR_ID_THALES	0x1269
@@ -63,6 +63,36 @@ struct mhi_pci_dev_info {
 	bool no_m3;
 	bool reset_on_remove;
 };
+
+#define MHI_CHANNEL_CONFIG_AMSS_SBL_UL(ch_num, ch_name, el_count, ev_ring) \
+	{						\
+		.num = ch_num,				\
+		.name = ch_name,			\
+		.num_elements = el_count,		\
+		.event_ring = ev_ring,			\
+		.dir = DMA_TO_DEVICE,			\
+		.ee_mask = BIT(MHI_EE_SBL) | BIT(MHI_EE_AMSS),		\
+		.pollcfg = 0,				\
+		.doorbell = MHI_DB_BRST_DISABLE,	\
+		.lpm_notify = false,			\
+		.offload_channel = false,		\
+		.doorbell_mode_switch = false,		\
+	}						\
+
+#define MHI_CHANNEL_CONFIG_AMSS_SBL_DL(ch_num, ch_name, el_count, ev_ring) \
+	{						\
+		.num = ch_num,				\
+		.name = ch_name,			\
+		.num_elements = el_count,		\
+		.event_ring = ev_ring,			\
+		.dir = DMA_FROM_DEVICE,			\
+		.ee_mask = BIT(MHI_EE_SBL) | BIT(MHI_EE_AMSS),		\
+		.pollcfg = 0,				\
+		.doorbell = MHI_DB_BRST_DISABLE,	\
+		.lpm_notify = false,			\
+		.offload_channel = false,		\
+		.doorbell_mode_switch = false,		\
+	}
 
 #define MHI_CHANNEL_CONFIG_UL(ch_num, ch_name, el_count, ev_ring) \
 	{						\
@@ -799,13 +829,63 @@ static const struct mhi_pci_dev_info mhi_telit_fn980_hw_v1_info = {
 	.sideband_wake = false,
 };
 
+static const struct mhi_channel_config mhi_telit_fn980_hw_v2_channels[] = {
+	MHI_CHANNEL_CONFIG_UL_SBL(2, "SAHARA", 32, 0),
+	MHI_CHANNEL_CONFIG_DL_SBL(3, "SAHARA", 32, 0),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_UL(4, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_DL(5, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_UL(14, "QMI", 32, 0),
+	MHI_CHANNEL_CONFIG_DL(15, "QMI", 32, 0),
+	MHI_CHANNEL_CONFIG_UL(18, "IP_CTRL", 8, 1),
+	MHI_CHANNEL_CONFIG_DL(19, "IP_CTRL", 8, 1),
+	MHI_CHANNEL_CONFIG_UL(20, "IPCR", 16, 0),
+	MHI_CHANNEL_CONFIG_DL(21, "IPCR", 16, 0),
+	MHI_CHANNEL_CONFIG_UL(32, "DUN", 8, 1),
+	MHI_CHANNEL_CONFIG_DL(33, "DUN", 8, 1),
+	MHI_CHANNEL_CONFIG_UL(92, "DUN2", 8, 1),
+	MHI_CHANNEL_CONFIG_DL(93, "DUN2", 8, 1),
+	MHI_CHANNEL_CONFIG_UL(94, "NMEA", 8, 1),
+	MHI_CHANNEL_CONFIG_DL(95, "NMEA", 8, 1),
+	MHI_CHANNEL_CONFIG_HW_UL(100, "IP_HW0", 128, 2),
+	MHI_CHANNEL_CONFIG_HW_DL(101, "IP_HW0", 128, 3),
+};
+
+static struct mhi_event_config mhi_telit_fn980_hw_v2_events[] = {
+	MHI_EVENT_CONFIG_CTRL(0, 128),
+	MHI_EVENT_CONFIG_DATA(1, 128),
+	MHI_EVENT_CONFIG_HW_DATA(2, 1024, 100),
+	MHI_EVENT_CONFIG_HW_DATA(3, 2048, 101),
+};
+
+static struct mhi_controller_config modem_telit_fn980_hw_v2_config = {
+	.max_channels = 128,
+	.timeout_ms = 20000,
+	.num_channels = ARRAY_SIZE(mhi_telit_fn980_hw_v2_channels),
+	.ch_cfg = mhi_telit_fn980_hw_v2_channels,
+	.num_events = ARRAY_SIZE(mhi_telit_fn980_hw_v2_events),
+	.event_cfg = mhi_telit_fn980_hw_v2_events,
+};
+
+static const struct mhi_pci_dev_info mhi_telit_fn980_hw_v2_info = {
+	.name = "telit-fn980",
+	.fw = "qcom/sdx55m/sbl1.mbn",
+	.edl = "qcom/sdx55m/edl.mbn",
+	.config = &modem_telit_fn980_hw_v2_config,
+	.bar_num = MHI_PCI_DEFAULT_BAR_NUM,
+	.dma_data_width = 32,
+	.mru_default = 32768,
+	.sideband_wake = false,
+};
+
 static const struct mhi_channel_config mhi_telit_fn990_channels[] = {
 	MHI_CHANNEL_CONFIG_UL_SBL(2, "SAHARA", 32, 0),
 	MHI_CHANNEL_CONFIG_DL_SBL(3, "SAHARA", 32, 0),
-	MHI_CHANNEL_CONFIG_UL(4, "DIAG", 64, 1),
-	MHI_CHANNEL_CONFIG_DL(5, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_UL(4, "DIAG", 64, 1),
+	MHI_CHANNEL_CONFIG_AMSS_SBL_DL(5, "DIAG", 64, 1),
 	MHI_CHANNEL_CONFIG_UL(12, "MBIM", 32, 0),
 	MHI_CHANNEL_CONFIG_DL(13, "MBIM", 32, 0),
+	MHI_CHANNEL_CONFIG_UL(18, "IP_CTRL", 8, 1),
+	MHI_CHANNEL_CONFIG_DL(19, "IP_CTRL", 8, 1),
 	MHI_CHANNEL_CONFIG_UL(32, "DUN", 32, 0),
 	MHI_CHANNEL_CONFIG_DL(33, "DUN", 32, 0),
 	MHI_CHANNEL_CONFIG_UL(92, "DUN2", 32, 1),
@@ -976,8 +1056,9 @@ static const struct pci_device_id mhi_pci_id_table[] = {
 	/* Telit FN980 hardware revision v1 */
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_QCOM, 0x0306, 0x1C5D, 0x2000),
 		.driver_data = (kernel_ulong_t) &mhi_telit_fn980_hw_v1_info },
+	/* Modified Qualcomm default entry for FN980 firmware release without Telit SSIDs */
 	{ PCI_DEVICE(PCI_VENDOR_ID_QCOM, 0x0306),
-		.driver_data = (kernel_ulong_t) &mhi_qcom_sdx55_info },
+		.driver_data = (kernel_ulong_t) &mhi_telit_fn980_hw_v2_info },
 	/* Telit FN990 */
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_QCOM, 0x0308, 0x1c5d, 0x2010),
 		.driver_data = (kernel_ulong_t) &mhi_telit_fn990_info },
@@ -1276,6 +1357,10 @@ static void mhi_pci_recovery_work(struct work_struct *work)
 		mhi_unprepare_after_power_down(mhi_cntrl);
 	}
 
+	dev_dbg(&pdev->dev, "Waiting 40 seconds for allowing the modem to restore PCIe\n");
+	msleep(40000);
+	dev_dbg(&pdev->dev, "Restoring PCI saved state\n");
+
 	pci_set_power_state(pdev, PCI_D0);
 	pci_load_saved_state(pdev, mhi_pdev->pci_state);
 	pci_restore_state(pdev);
@@ -1317,6 +1402,18 @@ static void health_check(struct timer_list *t)
 	if (!test_bit(MHI_PCI_DEV_STARTED, &mhi_pdev->status) ||
 			test_bit(MHI_PCI_DEV_SUSPENDED, &mhi_pdev->status))
 		return;
+
+	if (mhi_cntrl->xfp == XFP_STATE_FLASHING) {
+		mod_timer(&mhi_pdev->health_check_timer, jiffies + HEALTH_CHECK_PERIOD);
+		return;
+	}
+
+	if (mhi_cntrl->xfp == XFP_STATE_NEED_RESET) {
+		mhi_cntrl->xfp = XFP_STATE_IDLE;
+		dev_dbg(mhi_cntrl->cntrl_dev, "Device needs to be resetted EE = %d\n", mhi_cntrl->ee);
+		queue_work(system_long_wq, &mhi_pdev->recovery_work);
+		return;
+	}
 
 	if (!mhi_pci_is_alive(mhi_cntrl)) {
 		dev_err(mhi_cntrl->cntrl_dev, "Device died\n");

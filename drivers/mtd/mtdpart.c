@@ -20,6 +20,8 @@
 #include <linux/of_platform.h>
 #include <linux/mtd/concat.h>
 
+#include <linux/acpi.h>
+#include <linux/property.h>
 #include "mtdcore.h"
 
 /*
@@ -90,6 +92,7 @@ static struct mtd_info *allocate_partition(struct mtd_info *parent,
 	child->dev.parent = IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER) || mtd_is_partition(parent) ?
 			    &parent->dev : parent->dev.parent;
 	child->dev.of_node = part->of_node;
+	child->dev.fwnode = part->fwnode;
 	child->parent = parent;
 	child->part.offset = part->offset;
 	INIT_LIST_HEAD(&child->partitions);
@@ -526,12 +529,14 @@ EXPORT_SYMBOL_GPL(deregister_mtd_parser);
 static const char * const default_mtd_part_types[] = {
 	"cmdlinepart",
 	"ofpart",
+	"acpipart",
 	NULL
 };
 
 /* Check DT only when looking for subpartitions. */
 static const char * const default_subpartition_types[] = {
 	"ofpart",
+	"acpipart",
 	NULL
 };
 
@@ -593,6 +598,39 @@ static struct mtd_part_parser *mtd_part_get_compatible_parser(const char *compat
 	spin_unlock(&part_parser_lock);
 
 	return ret;
+}
+
+static int mtd_part_acpi_parse(struct mtd_info *master,
+						struct mtd_partitions *pparts)
+{
+	struct mtd_part_parser *parser;
+	const char *compat = NULL;
+	const char *fixed = "acpi-fixed-partitions";
+	int ret, err = 0;
+	struct device *dev = &master->dev;
+
+	/*
+	 * Only the master carries the "fixed" marker property; on
+	 * subpartitions it is absent and no ACPI parsing is done.
+	 */
+	if (!mtd_is_partition(master))
+		fwnode_property_read_string(dev->fwnode, "fixed", &compat);
+
+	if (compat && !strcmp(compat, fixed)) {
+		parser = mtd_part_parser_get(fixed);
+		if (!parser && !request_module("%s", fixed))
+			parser = mtd_part_parser_get(fixed);
+		if (parser) {
+			ret = mtd_part_do_parse(parser, master, pparts, NULL);
+			if (ret > 0)
+				return ret;
+			mtd_part_parser_put(parser);
+			if (ret < 0 && !err)
+				err = ret;
+		}
+	}
+
+	return err;
 }
 
 static int mtd_part_of_parse(struct mtd_info *master,
@@ -700,7 +738,9 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
 		 * should be used. It requires a bit different logic so it is
 		 * handled in a separated function.
 		 */
-		if (!strcmp(*types, "ofpart")) {
+		if (!strcmp(*types, "acpipart")) {
+			ret = mtd_part_acpi_parse(master, &pparts);
+		} else if (!strcmp(*types, "ofpart")) {
 			ret = mtd_part_of_parse(master, &pparts);
 		} else {
 			pr_debug("%s: parsing partitions %s\n", master->name,

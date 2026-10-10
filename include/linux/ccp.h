@@ -17,6 +17,7 @@
 #include <crypto/aes.h>
 #include <crypto/sha1.h>
 #include <crypto/sha2.h>
+#include <crypto/sm3.h>
 
 struct ccp_device;
 struct ccp_cmd;
@@ -587,6 +588,202 @@ struct ccp_ecc_engine {
 	u16 ecc_result;
 };
 
+/***** SM2 engine *****/
+#define CCP_SM2_VERIFY_SRC_SIZE     160
+#define CCP_SM2_LP_SRC_SIZE         96
+#define CCP_SM2_KG_SRC_SIZE         32
+#define CCP_SM2_SIGN_SRC_SIZE       96
+#define CCP_SM2_MMUL_SRC_SIZE       64
+#define CCP_SM2_DST_SIZE            128
+
+/**
+ * ccp_sm2_mode - SM2 operation mode
+ *
+ * @CCP_SM2_MODE_VERIFY: Verify mode
+ * @CCP_SM2_MODE_LP:     LP     mode
+ * @CCP_SM2_MODE_KG:     KG     mode
+ * @CCP_SM2_MODE_SIGN:   SIGN   mode
+ * @CCP_SM2_MODE_MMUL:   MMUL   mode
+ */
+enum ccp_sm2_mode {
+	CCP_SM2_MODE_VERIFY,
+	CCP_SM2_MODE_LP,
+	CCP_SM2_MODE_KG,
+	CCP_SM2_MODE_SIGN,
+	CCP_SM2_MODE_MMUL,
+	CCP_SM2_MODE__LAST,
+};
+
+/**
+ * struct ccp_sm2_engine - CCP SM2 operation
+ * @mode: SM2 operation mode
+ * @rand: indicateing that operand_k is from TRNG or not
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ * @dst_len: length in bytes of data produced by this operation
+ */
+struct ccp_sm2_engine {
+	enum ccp_sm2_mode mode;
+	u32 rand;
+
+	struct scatterlist  *src;
+	u32 src_len;
+
+	struct scatterlist  *dst;
+	u32 dst_len;
+};
+
+/***** SM3 engine *****/
+/**
+ * ccp_sm3_type - type of SM3 operation
+ *
+ * @CCP_SM3_TYPE_256: SM3 operation
+ */
+enum ccp_sm3_type {
+	CCP_SM3_TYPE_256 = 2,
+	CCP_SM3_TYPE__LAST,
+};
+
+/**
+ * struct ccp_sm3_engine - CCP SM3 operation
+ * @type: Type of SM3 operation
+ * @ctx: current hash value
+ * @ctx_len: length in bytes of hash value
+ * @src: data to be used for this operation
+ * @src_len: length in bytes of data used for this operation
+ * @opad: data to be used for final HMAC operation
+ * @opad_len: length in bytes of data used for final HMAC operation
+ * @first: indicates first SM3 operation
+ * @final: indicates final SM3 operation
+ * @msg_bits: total length of the message in bits used in final SM3 operation
+ */
+struct ccp_sm3_engine {
+	enum ccp_sm3_type type;
+
+	struct scatterlist *ctx;
+	u32 ctx_len;
+
+	struct scatterlist *src;
+	u64 src_len;
+
+	struct scatterlist *opad;
+	u32 opad_len;
+
+	u32 first;
+	u32 final;
+	u64 msg_bits;
+};
+
+/***** SM4 engine *****/
+#define SM4_BLOCK_SIZE          16
+#define SM4_KEY_SIZE            16
+#define CCP_SM4_MODE_MASK       0x0F
+#define CCP_SM4_MODE_HS_SEL     0x10
+
+/**
+ * ccp_sm4_mode - SM4 operation mode
+ *
+ * @CCP_SM4_MODE_ECB: ECB mode
+ * @CCP_SM4_MODE_CBC: CBC mode
+ * @CCP_SM4_MODE_OFB: OFB mode
+ * @CCP_SM4_MODE_CFB: CFB mode
+ * @CCP_SM4_MODE_CTR: CTR mode
+ */
+enum ccp_sm4_mode {
+	CCP_SM4_MODE_ECB = 0,
+	CCP_SM4_MODE_CBC,
+	CCP_SM4_MODE_OFB,
+	CCP_SM4_MODE_CFB,
+	CCP_SM4_MODE_CTR,
+	CCP_SM4_MODE__LAST,
+};
+
+/**
+ * ccp_sm4_action - SM4 operation
+ *
+ * @CCP_SM4_ACTION_DECRYPT: SM4 decrypt operation
+ * @CCP_SM4_ACTION_ENCRYPT: SM4 encrypt operation
+ */
+enum ccp_sm4_action {
+	CCP_SM4_ACTION_DECRYPT = 0,
+	CCP_SM4_ACTION_ENCRYPT,
+	CCP_SM4_ACTION__LAST,
+};
+
+/**
+ * struct ccp_sm4_engine - CCP SM4 operation
+ * @mode: SM4 operation mode
+ * @action: SM4 operation (decrypt/encrypt)
+ * @select: Indicating that high-secure engine is selected
+ * @key: key to be used for this SM4 operation
+ * @key_len: length in bytes of key
+ * @iv: IV to be used for this SM4 operation
+ * @iv_len: length in bytes of iv
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ *
+ * Variables required to be set when calling ccp_enqueue_cmd():
+ *   - mode, action, select, key, key_len, src, dst, src_len
+ *   - iv, iv_len for any mode other than ECB
+ *   - key_len and iv_len must be 16B
+ *   - src_len must be multiple of 16B
+ *   - high-secure engine only for ECB and CBC mode
+ *
+ * The iv variable is used as both input and output. On completion of the
+ * SM4 operation the new IV overwrites the old IV.
+ */
+struct ccp_sm4_engine {
+	enum ccp_sm4_mode mode;
+	enum ccp_sm4_action action;
+	u32 select;	/* Indicating that high-secure engine is selected */
+
+	struct scatterlist *key;
+	u32 key_len;	/* In bytes */
+
+	struct scatterlist *iv;
+	u32 iv_len;	/* In bytes */
+
+	struct scatterlist *src, *dst;
+	u64 src_len;	/* In bytes */
+};
+
+/***** SM4_CTR engine *****/
+/**
+ * struct ccp_sm4_ctr_engine - CCP SM4_CTR operation
+ * @action: SM4_CTR operation (decrypt/encrypt)
+ * @size: counter bit size
+ * @step: counter increase step
+ * @key: key to be used for this SM4 operation
+ * @key_len: length in bytes of key
+ * @iv: IV to be used for this SM4 operation
+ * @iv_len: length in bytes of iv
+ * @src: data to be used for this operation
+ * @dst: data produced by this operation
+ * @src_len: length in bytes of data used for this operation
+ *
+ * Variables required to be set when calling ccp_enqueue_cmd():
+ *   - action, size, step, key, key_len, iv, iv_len, src, dst, src_len
+ *   - key_len and iv_len must be 16B
+ *
+ * The iv variable is used as both input and output. On completion of the
+ * SM4_CTR operation the new IV overwrites the old IV.
+ */
+struct ccp_sm4_ctr_engine {
+	enum ccp_sm4_action action;
+	u32 size;
+	u32 step;
+
+	struct scatterlist *key;
+	u32 key_len;		/* In bytes */
+
+	struct scatterlist *iv;
+	u32 iv_len;		/* In bytes */
+
+	struct scatterlist *src, *dst;
+	u64 src_len;		/* In bytes */
+};
 
 /**
  * ccp_engine - CCP operation identifiers
@@ -599,6 +796,8 @@ struct ccp_ecc_engine {
  * @CCP_ENGINE_PASSTHRU: pass-through operation
  * @CCP_ENGINE_ZLIB_DECOMPRESS: unused
  * @CCP_ENGINE_ECC: ECC operation
+ * @CCP_ENGINE_SM2: SM2 operation
+ * @CCP_ENGINE_SM3: SM3 operation
  */
 enum ccp_engine {
 	CCP_ENGINE_AES = 0,
@@ -609,6 +808,10 @@ enum ccp_engine {
 	CCP_ENGINE_PASSTHRU,
 	CCP_ENGINE_ZLIB_DECOMPRESS,
 	CCP_ENGINE_ECC,
+	CCP_ENGINE_SM2 = 8, /* fixed value */
+	CCP_ENGINE_SM3,
+	CCP_ENGINE_SM4,
+	CCP_ENGINE_SM4_CTR,
 	CCP_ENGINE__LAST,
 };
 
@@ -657,6 +860,10 @@ struct ccp_cmd {
 		struct ccp_passthru_engine passthru;
 		struct ccp_passthru_nomap_engine passthru_nomap;
 		struct ccp_ecc_engine ecc;
+		struct ccp_sm2_engine sm2;
+		struct ccp_sm3_engine sm3;
+		struct ccp_sm4_engine sm4;
+		struct ccp_sm4_ctr_engine sm4_ctr;
 	} u;
 
 	/* Completion callback support */

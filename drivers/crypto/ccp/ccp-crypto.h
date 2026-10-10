@@ -258,6 +258,105 @@ struct ccp_rsa_req_ctx {
 #define	CCP_RSA_MAXMOD	(4 * 1024 / 8)
 #define	CCP5_RSA_MAXMOD	(16 * 1024 / 8)
 
+/***** SM2 related defines *****/
+#define CCP_SM2_OPERAND_LEN     32
+#define CCP_SM2_PRIVATE_KEY_LEN CCP_SM2_OPERAND_LEN
+#define CCP_SM2_PUBLIC_KEY_LEN  (CCP_SM2_OPERAND_LEN * 2)
+#define CCP_SM2_ENCRYPT_EXT_LEN (CCP_SM2_PUBLIC_KEY_LEN + SM3_DIGEST_SIZE)
+#define CCP_SM2_MMUL_LEN        (CCP_SM2_OPERAND_LEN * 2)
+
+struct ccp_sm2_ctx {
+	u32 pri_key_len;
+	u32 pub_key_len;
+	u8 pri_key[CCP_SM2_PRIVATE_KEY_LEN];
+	u8 pub_key[CCP_SM2_PUBLIC_KEY_LEN];
+};
+
+enum ccp_sm2_op_phase {
+	CCP_SM2_SIGN_PH_SIGN,
+	CCP_SM2_VERIFY_PH_VERIFY,
+	CCP_SM2_ENC_PH_KG,
+	CCP_SM2_ENC_PH_LP,
+	CCP_SM2_DEC_PH_LP
+};
+
+struct ccp_sm2_req_ctx {
+	enum ccp_sm2_op_phase phase;
+	struct akcipher_request *req;
+
+	u8 src[CCP_SM2_VERIFY_SRC_SIZE];
+	u8 dst[CCP_SM2_DST_SIZE];
+
+	struct scatterlist src_sg;
+	struct scatterlist dst_sg;
+
+	struct work_struct work;
+
+	struct ccp_cmd cmd;
+};
+
+/***** SM3 related defines *****/
+struct ccp_sm3_ctx {
+	u32 key_len;
+	u8 key[SM3_BLOCK_SIZE];
+
+	u8 ipad[SM3_BLOCK_SIZE];
+
+	u8 opad[SM3_BLOCK_SIZE];
+	struct scatterlist opad_sg;
+
+	struct crypto_shash *hmac_tfm;
+};
+
+struct ccp_sm3_req_ctx {
+	u64 msg_bits;
+
+	unsigned int first;
+	unsigned int final;
+
+	struct scatterlist *src;
+	u32 nbytes;
+
+	u64 hash_cnt;
+	u32 hash_rem;
+
+	struct sg_table data_sg;
+	struct scatterlist *src_sg;
+
+	struct scatterlist ctx_sg;
+	u8 ctx[SM3_DIGEST_SIZE];
+
+	struct scatterlist buf_sg;
+	u32 buf_count;
+	u8 buf[SM3_BLOCK_SIZE];
+
+	struct ccp_cmd cmd;
+};
+
+struct ccp_sm3_exp_ctx {
+	u64 msg_bits;
+
+	u8 ctx[SM3_DIGEST_SIZE];
+
+	u32 buf_count;
+	u8 buf[SM3_BLOCK_SIZE];
+};
+
+/***** SM4 related defines *****/
+struct ccp_sm4_ctx {
+	struct scatterlist key_sg;
+	u8 key[SM4_KEY_SIZE];
+	u32 key_len;
+	u32 mode;
+};
+
+struct ccp_sm4_req_ctx {
+	struct scatterlist iv_sg;
+	u8 iv[SM4_BLOCK_SIZE];
+
+	struct ccp_cmd cmd;
+};
+
 /***** Common Context Structure *****/
 struct ccp_ctx {
 	int (*complete)(struct crypto_async_request *req, int ret);
@@ -267,6 +366,9 @@ struct ccp_ctx {
 		struct ccp_rsa_ctx rsa;
 		struct ccp_sha_ctx sha;
 		struct ccp_des3_ctx des3;
+		struct ccp_sm2_ctx sm2;
+		struct ccp_sm3_ctx sm3;
+		struct ccp_sm4_ctx sm4;
 	} u;
 };
 
@@ -282,5 +384,8 @@ int ccp_register_aes_aeads(struct list_head *head);
 int ccp_register_sha_algs(struct list_head *head);
 int ccp_register_des3_algs(struct list_head *head);
 int ccp_register_rsa_algs(struct list_head *head);
+int ccp_register_sm2_hygon_algs(struct list_head *head);
+int ccp_register_sm3_hygon_algs(struct list_head *head);
+int ccp_register_sm4_hygon_algs(struct list_head *head);
 
 #endif

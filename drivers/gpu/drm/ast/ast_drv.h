@@ -29,6 +29,7 @@
 #define __AST_DRV_H__
 
 #include <linux/io.h>
+#include <linux/iosys-map.h>
 #include <linux/types.h>
 
 #include <drm/drm_connector.h>
@@ -54,6 +55,8 @@ struct ast_vbios_enhtable;
 #define PCI_CHIP_AST2100 0x2010
 
 #define __AST_CHIP(__gen, __index)	((__gen) << 16 | (__index))
+
+extern int ast_shmem;
 
 enum ast_chip {
 	/* 1st gen */
@@ -124,6 +127,8 @@ enum ast_dram_layout {
 struct ast_plane {
 	struct drm_plane base;
 
+	struct drm_gem_vram_object *gbo;
+	struct iosys_map map;
 	u64 offset;
 	unsigned long size;
 };
@@ -555,12 +560,10 @@ int ast_astdp_output_init(struct ast_device *ast);
 /* ast_mode.c */
 int ast_mode_config_init(struct ast_device *ast);
 int ast_plane_init(struct drm_device *dev, struct ast_plane *ast_plane,
-		   u64 offset, unsigned long size,
-		   uint32_t possible_crtcs,
+		   u64 offset, unsigned long size, uint32_t possible_crtcs,
 		   const struct drm_plane_funcs *funcs,
 		   const uint32_t *formats, unsigned int format_count,
 		   const uint64_t *format_modifiers,
 		   enum drm_plane_type type);
-void __iomem *ast_plane_vaddr(struct ast_plane *ast);
 
 #endif

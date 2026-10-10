@@ -11,6 +11,7 @@
 #include <linux/pci_ids.h>
 #include <linux/pci-acpi.h>
 #include <linux/pci-ecam.h>
+#include <linux/vgaarb.h>
 
 #include "../pci.h"
 
@@ -91,6 +92,20 @@ static const struct pci_device_id loongson_internal_bridge_devids[] = {
 	{ PCI_VDEVICE(LOONGSON, DEV_LS7A_PCIE_PORT6) },
 	{ 0, },
 };
+
+static void loongson_d3_quirk(struct pci_dev *pdev)
+{
+	pdev->dev_flags |= PCI_DEV_FLAGS_NO_D3;
+	pdev->no_d1d2 = 1;
+}
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT3, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT4, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT5, loongson_d3_quirk);
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_LOONGSON,
+			DEV_LS7A_PCIE_PORT6, loongson_d3_quirk);
 
 /*
  * Some Loongson PCIe ports have hardware limitations on their Maximum Read
@@ -213,6 +228,91 @@ static void loongson_pci_bridge_speed_quirk(struct pci_dev *pdev)
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LOONGSON, 0x3c19, loongson_pci_bridge_speed_quirk);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_LOONGSON, 0x3c29, loongson_pci_bridge_speed_quirk);
 
+static void loongson_display_quirk(struct pci_dev *dev)
+{
+	u32 val;
+	u64 mask, size;
+	u64 max_size = 0;
+	int i, num;
+	struct pci_bus *bus = dev->bus;
+
+	if (!dev->bus->number) {
+		if (!(dev->vendor == PCI_VENDOR_ID_LOONGSON && dev->device == 0x7a25))
+			return;
+	} else {
+		while (!pci_is_root_bus(bus->parent))
+			bus = bus->parent;
+
+		/* ensure slot is 7a2000 */
+		if (bus->self->vendor != PCI_VENDOR_ID_LOONGSON || bus->self->device < 0x7a39)
+			return;
+	}
+	max_size = 0;
+	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
+		if (dev->resource[i].flags & IORESOURCE_MEM) {
+			size = dev->resource[i].end - dev->resource[i].start;
+			if (size > max_size) {
+				max_size = size;
+				num = i;
+			}
+		}
+	}
+	mask = ~(dev->resource[num].end - dev->resource[num].start);
+	val = (dev->resource[num].start >> (24 - 16)) | ((mask >> 24) & 0xffff);
+	writel(val, (volatile void *)0x80000efdfb000174UL);
+	writel(0x80000000, (volatile void *)0x80000efdfb000170UL);
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_LOONGSON, 0x7a25, loongson_display_quirk);
+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
+				PCI_BASE_CLASS_DISPLAY, 16, loongson_display_quirk);
+
+static void pci_fixup_aspeed(struct pci_dev *pdev)
+{
+	struct pci_dev *bridge;
+	struct pci_bus *bus;
+	struct pci_dev *vdevp = NULL;
+	u16 config;
+
+	bus = pdev->bus;
+	bridge = bus->self;
+
+	/* Is VGA routed to us? */
+	if (bridge && (pci_is_bridge(bridge))) {
+		pci_read_config_word(bridge, PCI_BRIDGE_CONTROL, &config);
+
+		/* Yes, this bridge is PCI bridge-to-bridge spec compliant,
+		 *  just return!
+		 */
+		if (config & PCI_BRIDGE_CTL_VGA)
+			return;
+
+		dev_warn(&pdev->dev, "VGA bridge control is not enabled\n");
+	}
+
+	/* Just return if the system already have a default device */
+	if (vga_default_device())
+		return;
+
+	/* No default vga device */
+	while ((vdevp = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, vdevp))) {
+		if (vdevp->vendor != 0x1a03) {
+			/* Have other vga devcie in the system, do nothing */
+			dev_info(&pdev->dev,
+				"Another boot vga device: 0x%x:0x%x\n",
+				vdevp->vendor, vdevp->device);
+			return;
+		}
+	}
+
+	vga_set_default_device(pdev);
+
+	dev_info(&pdev->dev,
+			"Boot vga device set as 0x%x:0x%x\n",
+			pdev->vendor, pdev->device);
+}
+DECLARE_PCI_FIXUP_CLASS_FINAL(0x1a03, 0x2000,
+				PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_aspeed);
+
 static struct loongson_pci *pci_bus_to_loongson_pci(struct pci_bus *bus)
 {
 	struct pci_config_window *cfg;
@@ -292,6 +392,36 @@ static void __iomem *pci_loongson_map_bus(struct pci_bus *bus,
 	return NULL;
 }
 
+static int pci_loongson_config_read(struct pci_bus *bus, unsigned int devfn,
+			    int where, int size, u32 *val)
+{
+	void __iomem *addr;
+
+	addr = bus->ops->map_bus(bus, devfn, where);
+	if (!addr) {
+		*val = ~0;
+		return PCIBIOS_DEVICE_NOT_FOUND;
+	}
+
+	if (size == 1)
+		*val = readb(addr);
+	else if (size == 2)
+		*val = readw(addr);
+	else
+		*val = readl(addr);
+	/*
+	 * fix some pcie card not scanning properly when bus number is
+	 * inconsistent during firmware and kernel scan phases.
+	 */
+	if (*val == 0x0 && where == PCI_VENDOR_ID) {
+		writel(*val, addr);
+		*val = readl(addr);
+	}
+
+
+	return PCIBIOS_SUCCESSFUL;
+}
+
 #ifdef CONFIG_OF
 
 static int loongson_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
@@ -315,7 +445,7 @@ static int loongson_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 /* LS2K/LS7A accept 8/16/32-bit PCI config operations */
 static struct pci_ops loongson_pci_ops = {
 	.map_bus = pci_loongson_map_bus,
-	.read	= pci_generic_config_read,
+	.read	= pci_loongson_config_read,
 	.write	= pci_generic_config_write,
 };
 
@@ -358,6 +488,7 @@ static int loongson_pci_probe(struct platform_device *pdev)
 	struct device_node *node = dev->of_node;
 	struct pci_host_bridge *bridge;
 	struct resource *regs;
+	unsigned int num = 0;
 
 	if (!node)
 		return -ENODEV;
@@ -382,7 +513,9 @@ static int loongson_pci_probe(struct platform_device *pdev)
 	}
 
 	if (priv->data->flags & FLAG_CFG1) {
-		regs = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (priv->cfg0_base)
+			num = 1;
+		regs = platform_get_resource(pdev, IORESOURCE_MEM, num);
 		if (!regs)
 			dev_info(dev, "missing mem resource for cfg1\n");
 		else {
@@ -439,7 +572,7 @@ const struct pci_ecam_ops loongson_pci_ecam_ops = {
 	.init	   = loongson_pci_ecam_init,
 	.pci_ops   = {
 		.map_bus = pci_loongson_map_bus,
-		.read	 = pci_generic_config_read,
+		.read	 = pci_loongson_config_read,
 		.write	 = pci_generic_config_write,
 	}
 };

@@ -36,6 +36,7 @@ enum wwan_port_type {
 	WWAN_PORT_ADB,
 	WWAN_PORT_MIPC,
 	WWAN_PORT_NMEA,
+	WWAN_PORT_SAHARA,
 
 	/* Add new port types above this line */
 
@@ -150,6 +151,12 @@ void wwan_port_txon(struct wwan_port *port);
 void *wwan_port_get_drvdata(struct wwan_port *port);
 
 /**
+ * wwan_port_get_type - Retrieve the WWAN port type
+ * @port: Related WWAN port
+ */
+enum wwan_port_type wwan_port_get_type(struct wwan_port *port);
+
+/**
  * struct wwan_netdev_priv - WWAN core network device private data
  * @link_id: WWAN device data link id
  * @drv_priv: driver private data area, size is determined in &wwan_ops
@@ -203,5 +210,15 @@ static inline struct dentry *wwan_get_debugfs_dir(struct device *parent)
 }
 static inline void wwan_put_debugfs_dir(struct dentry *dir) {}
 #endif
+
+/**
+ * mhi_wwan_dtr_set - Setting DTR and RTS for port, used for mhi_wwan_ctrl.c
+ * @port: WWAN port
+ * @dtr: Set 1 when start, 0 when stop
+ * @rts: Set 1 when start, 0 when stop
+ *
+ * Return: 0
+ */
+int mhi_wwan_dtr_set(struct wwan_port *port, int dtr, int rts);
 
 #endif /* __WWAN_H */

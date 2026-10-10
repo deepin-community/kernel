@@ -47,6 +47,14 @@ config CRYPTO_DEV_SP_PSP
 	 along with software-based Trusted Execution Environment (TEE) to
 	 enable third-party trusted applications.
 
+config HYGON_GM
+	bool "Hygon GM (sm2/sm3/sm4) Interface"
+	default y
+	depends on CRYPTO_DEV_CCP_CRYPTO && X86_64
+	select CRYPTO_SM3_GENERIC
+	help
+	  Hygon GM ccp driver
+
 config CRYPTO_DEV_CCP_DEBUGFS
 	bool "Enable CCP Internals in DebugFS"
 	default n
@@ -54,3 +62,29 @@ config CRYPTO_DEV_CCP_DEBUGFS
 	help
 	  Expose CCP device information such as operation statistics, feature
 	  information, and descriptor queue contents.
+
+config HYGON_PSP2CPU_CMD
+	bool "Hygon PSP2CPU Command Interface"
+	default y
+	depends on CRYPTO_DEV_SP_PSP
+	help
+	  Hygon PSP2CPU Command Support
+
+config TDM_DEV_HYGON
+	bool "Hygon TDM Interface"
+	default y
+	depends on CRYPTO_DEV_CCP_DD
+	depends on HYGON_PSP2CPU_CMD
+	help
+	  Hygon TDM driver
+
+config TDM_KERNEL_GUARD
+	tristate "Hygon TDM kernel guard"
+	default y
+	depends on TDM_DEV_HYGON
+	depends on CRYPTO_DEV_CCP_DD
+	depends on CRYPTO_SM3
+	help
+	  The key part of kernel is protected by TDM technology, SCT and IDT
+	  are protected by default, and others are added later according to the
+	  requirements.

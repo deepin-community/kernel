@@ -295,6 +295,7 @@ obj-$(CONFIG_MFD_LS2K_BMC_CORE)		+= ls2k-bmc-core.o
 
 obj-$(CONFIG_MFD_ATC260X)	+= atc260x-core.o
 obj-$(CONFIG_MFD_ATC260X_I2C)	+= atc260x-i2c.o
+obj-$(CONFIG_MFD_AAEON)		+= mfd-aaeon.o
 
 obj-$(CONFIG_MFD_QNAP_MCU)	+= qnap-mcu.o
 
@@ -304,3 +305,6 @@ obj-$(CONFIG_MFD_RSMU_SPI)	+= rsmu_spi.o rsmu_core.o
 obj-$(CONFIG_MFD_UPBOARD_FPGA)	+= upboard-fpga.o
 
 obj-$(CONFIG_MFD_LOONGSON_SE)	+= loongson-se.o
+
+obj-$(CONFIG_MFD_PHYTIUM_I2S_LSD)	+= phytium_px210_i2s_lsd.o
+obj-$(CONFIG_MFD_PHYTIUM_I2S_MMD)	+= phytium_px210_i2s_mmd.o

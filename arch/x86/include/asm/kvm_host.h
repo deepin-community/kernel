@@ -1739,6 +1739,12 @@ struct kvm_x86_ops {
 	void (*gmem_invalidate_range)(struct kvm *kvm, struct kvm_gfn_range *range);
 #endif
 	int (*gmem_max_mapping_level)(struct kvm *kvm, kvm_pfn_t pfn, bool is_private);
+	/*
+	 * Interfaces for HYGON CSV guest
+	 */
+	int (*vm_attestation)(struct kvm *kvm, unsigned long gpa, unsigned long len);
+	int (*control_pre_system_reset)(struct kvm *kvm);
+	int (*control_post_system_reset)(struct kvm *kvm);
 };
 
 struct kvm_x86_nested_ops {
@@ -1881,6 +1887,9 @@ static inline unsigned long read_msr(unsigned long msr)
 #else
 # define kvm_memslots_for_spte_role(kvm, role) __kvm_memslots(kvm, 0)
 #endif
+
+void kvm_arch_hypercall_init(void *func);
+void kvm_arch_hypercall_exit(void);
 
 bool kvm_arch_async_page_not_present(struct kvm_vcpu *vcpu,
 				     struct kvm_async_pf *work);

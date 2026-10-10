@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/phytium,tacho.yaml
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium Fan Tacho and capture counter controller device driver
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+description: |
+  The controller can support one input signal. The function of controller is to
+  measure the speed of fan and the edge number of input signal. The function
+  can be selected by devicetree setting. The edging mode and anti-jitter level
+  can also setted in devicetree.
+
+properties:
+  compatible:
+    const: phytium,tacho
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+  tacho:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      set the controller work as fan tachometer, which is a default option.
+
+  capture:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      set the controller work as capture counter.
+
+  up:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      set the input edging mode as ascending, which is a default option.
+
+  down:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      set the input edging mode as descending.
+
+  double:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      set the input edging mode as doule-edging.
+
+  debounce-level:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - '#address-cells'
+  - '#size-cells'
+
+examples:
+  - |
+    tacho: tacho@28054000 {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      reg = <0x0 0x28054000 0x0 0x1000>;
+      compatible = "phytium,tacho";
+      clocks = <&sysclk>;
+      tacho;
+      up;
+      debounce-level = <2>;
+    };

@@ -325,4 +325,6 @@ config NVIDIA_TEGRA410_C2C_PMU
 	  Enable perf support for counters in NVIDIA C2C interface of NVIDIA
 	  Tegra410 SoC.
 
+source "drivers/perf/phytium/Kconfig"
+
 endmenu

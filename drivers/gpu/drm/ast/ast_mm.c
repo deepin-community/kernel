@@ -28,6 +28,7 @@
 
 #include <linux/pci.h>
 
+#include <drm/drm_gem_vram_helper.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_print.h>
 
@@ -86,9 +87,13 @@ int ast_mm_init(struct ast_device *ast)
 
 	vram_size = ast_get_vram_size(ast);
 
-	ast->vram = devm_ioremap_wc(dev->dev, base, vram_size);
-	if (!ast->vram)
-		return -ENOMEM;
+	if (!ast_shmem)
+		drmm_vram_helper_init(dev, base, vram_size);
+	else {
+		ast->vram = devm_ioremap_wc(dev->dev, base, vram_size);
+		if (!ast->vram)
+			return -ENOMEM;
+	}
 
 	ast->vram_base = base;
 	ast->vram_size = vram_size;

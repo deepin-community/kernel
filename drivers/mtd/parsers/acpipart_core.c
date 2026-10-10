@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Flash partitions described by the acpi table
+ *
+ * Author: Wang Hanmo <wanghanmo2242@phytium.com.cn>
+ */
+
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/mtd/mtd.h>
+#include <linux/slab.h>
+#include <linux/mtd/partitions.h>
+#include <linux/property.h>
+#include <linux/acpi.h>
+
+static const struct acpi_device_id parse_acpipart_match_table[];
+
+static int parse_acpi_fixed_partitions(struct mtd_info *master,
+				  const struct mtd_partition **pparts,
+				  struct mtd_part_parser_data *data)
+{
+	struct mtd_partition *parts;
+	const char *partname;
+	int nr_parts, i, ret = 0;
+	struct fwnode_handle *child_handle = NULL;
+	struct fwnode_handle *partitions_node = NULL;
+	const struct fwnode_handle *parse_root;
+	bool dedicated = true;
+	struct device *dev;
+
+	dev = &master->dev;
+
+	if (!master->parent) {/*master*/
+		/*
+		 * A conventional "partitions" subnode groups the actual
+		 * partition children; descend into it when present,
+		 * mirroring the OF parser. Only such a container enables
+		 * strict dedicated mode — an unrelated child node must
+		 * not, and without the container the direct subnodes are
+		 * parsed leniently as partitions.
+		 */
+		partitions_node = fwnode_get_named_child_node(dev->fwnode,
+							      "partitions");
+		if (!partitions_node) {
+			pr_debug("%s: 'partitions' subnode not found on %pfw. Trying to parse direct subnodes as partitions.\n",
+				master->name, dev->fwnode);
+			dedicated = false;
+		}
+	}
+
+	/*
+	 * The caller already selected this parser by name through the
+	 * "fixed" property, so there is nothing to match here: matching
+	 * the MTD device against the parser's ACPI IDs would fail, as the
+	 * flash device itself carries a different _HID (e.g. PHYT8009 or
+	 * a JEDEC ID).
+	 */
+
+	parse_root = partitions_node ? partitions_node : dev->fwnode;
+
+	nr_parts = 0;
+	fwnode_for_each_child_node(parse_root, child_handle)
+		nr_parts++;
+
+	if (nr_parts == 0) {
+		ret = 0;
+		goto out_put;
+	}
+	parts = kcalloc(nr_parts, sizeof(*parts), GFP_KERNEL);
+	if (!parts) {
+		ret = -ENOMEM;
+		goto out_put;
+	}
+
+	i = 0;
+	fwnode_for_each_child_node(parse_root, child_handle) {
+		u64 offset = 0, length = 0;
+		bool bool_match;
+
+		if (fwnode_property_read_u64(child_handle, "offset", &offset) ||
+		    fwnode_property_read_u64(child_handle, "length", &length) ||
+		    (!offset && !length)) {
+			if (dedicated) {
+				pr_debug("%s: acpipart partition %pfw (%pfw) missing offset/length property.\n",
+					 master->name, child_handle,
+					 dev->fwnode);
+				goto acpipart_fail;
+			} else {
+				nr_parts--;
+				continue;
+			}
+		}
+
+		parts[i].offset = offset;
+		parts[i].size = length;
+		parts[i].fwnode = fwnode_handle_get(child_handle);
+		if (!fwnode_property_read_string(child_handle, "label", &partname))
+			parts[i].name = partname;
+		else
+			/* fall back to the node name, as ofpart does */
+			parts[i].name = fwnode_get_name(child_handle);
+		bool_match = fwnode_property_read_bool(child_handle, "read-only");
+		if (bool_match)
+			parts[i].mask_flags |= MTD_WRITEABLE;
+		bool_match = fwnode_property_read_bool(child_handle, "lock");
+		if (bool_match)
+			parts[i].mask_flags |= MTD_POWERUP_LOCK;
+		bool_match = fwnode_property_read_bool(child_handle, "slc-mode");
+		if (bool_match)
+			parts[i].add_flags |= MTD_SLC_ON_MLC_EMULATION;
+		i++;
+	}
+
+	if (!nr_parts)
+		goto acpipart_none;
+
+	*pparts = parts;
+	ret = nr_parts;
+	goto out_put;
+
+acpipart_fail:
+	pr_err("%s: error parsing acpipart partition %pfw (%pfw)\n",
+	       master->name, child_handle, dev->fwnode);
+	ret = -EINVAL;
+	/* the iterator still holds a reference to the current child */
+	fwnode_handle_put(child_handle);
+acpipart_none:
+	/* entries collected so far keep their own references */
+	for (i = 0; i < nr_parts; i++)
+		fwnode_handle_put(parts[i].fwnode);
+	kfree(parts);
+out_put:
+	/* NULL-safe when no container node was found */
+	fwnode_handle_put(partitions_node);
+	return ret;
+}
+
+static const struct acpi_device_id parse_acpipart_match_table[] = {
+	/*
+	 * Note: the historical ID "acpi-fixed-partitions" exceeds the
+	 * 16-byte ACPI_ID_LEN and was silently truncated by the compiler,
+	 * which is why the ID was renamed to "acpi-partitions" in the
+	 * -Werror fixes; firmware can never have matched the full old ID.
+	 */
+	/* Generic */
+	{ "acpi-partitions", 0 },
+	/* Customized */
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, parse_acpipart_match_table);
+
+static void acpipart_cleanup(const struct mtd_partition *pparts, int nr_parts)
+{
+	int i;
+
+	for (i = 0; i < nr_parts; i++)
+		fwnode_handle_put(pparts[i].fwnode);
+	kfree(pparts);
+}
+
+static struct mtd_part_parser acpipart_parser = {
+	.parse_fn = parse_acpi_fixed_partitions,
+	.cleanup = acpipart_cleanup,
+	.name = "acpi-fixed-partitions",
+	.acpi_match_table = ACPI_PTR(parse_acpipart_match_table),
+};
+
+static int __init acpipart_parser_init(void)
+{
+	register_mtd_parser(&acpipart_parser);
+	return 0;
+}
+
+static void __exit acpipart_parser_exit(void)
+{
+	deregister_mtd_parser(&acpipart_parser);
+}
+
+module_init(acpipart_parser_init);
+module_exit(acpipart_parser_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Parser for MTD partitioning information in acpi table");
+MODULE_AUTHOR("wanghanmo <wanghanmo2242@cpu.ac>");
+MODULE_ALIAS("acpi-fixed-partitions");

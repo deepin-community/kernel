@@ -25,6 +25,8 @@
 #include <asm/efi.h>
 #include <asm/loongson.h>
 
+#include "legacy_boot.h"
+
 static unsigned long efi_nr_tables;
 static unsigned long efi_config_table;
 
@@ -35,6 +37,7 @@ static efi_system_table_t *efi_systab;
 static efi_config_table_type_t arch_tables[] __initdata = {
 	{LINUX_EFI_BOOT_MEMMAP_GUID,	&boot_memmap,	"MEMMAP" },
 	{DEVICE_TREE_GUID,		&fdt_pointer,	"FDTPTR" },
+	{LOONGARCH_BPI_GUID,		&loongarch_bpi_info.bpi,	"BPI" },
 	{},
 };
 
@@ -99,6 +102,23 @@ static void __init init_primary_display(void)
 			 sysfb_primary_display.screen.lfb_size);
 }
 
+static void __init fix_initrd_table(const efi_config_table_t *config_tables,
+				    int count)
+{
+	for(int i = 0; i < count; i++) {
+		if (efi_guidcmp(config_tables[i].guid,
+				LINUX_EFI_INITRD_MEDIA_GUID) == 0) {
+			struct linux_efi_initrd *tbl =
+				early_memremap((u64)config_tables[i].table, sizeof(*tbl));
+			if (tbl) {
+				tbl->base = TO_PHYS(tbl->base);
+				early_memunmap(tbl, sizeof(*tbl));
+			}
+			break;
+		}
+	}
+}
+
 void __init efi_init(void)
 {
 	int size;
@@ -124,6 +144,7 @@ void __init efi_init(void)
 
 	size = sizeof(efi_config_table_t);
 	config_tables = early_memremap(efi_config_table, efi_nr_tables * size);
+	fix_initrd_table(config_tables, efi_systab->nr_tables);
 	efi_config_parse_tables(config_tables, efi_systab->nr_tables, arch_tables);
 	early_memunmap(config_tables, efi_nr_tables * size);
 

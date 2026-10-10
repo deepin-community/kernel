@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/phytium,spi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Phytium SPI controller
+
+maintainers:
+  - Chen Baozi <chenbaozi@phytium.com.cn>
+
+allOf:
+  - $ref: spi-controller.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: phytium,spi-2.0
+    then:
+      properties:
+        reg:
+          minItems: 2
+          maxItems: 2
+          description:
+            reg[0]: register file window;
+            reg[1]: AP-RV shared memory window
+      required:
+        - reg
+    else:
+      properties:
+        reg:
+          minItems: 1
+          maxItems: 1
+
+properties:
+  compatible:
+    oneOf:
+      - const: phytium,spi
+      - const: phytium,spi-2.0
+        description: Phytium SPI controller v2.0 interface
+
+  reg:
+    minItems: 1
+    description: address and length of the spi master registers
+
+  interrupts:
+    maxItems: 1
+    description: should contain one interrupt
+
+  clocks:
+    maxItems: 1
+    description: spi clock phandle
+
+  num-cs:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: number of chip selects used
+    default: 4
+
+  reg-io-width:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 4 ]
+    description: I/O register width in bytes
+    default: 4
+
+  global-cs:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 0, 1 ]
+    description: |
+      When set to 1, the controller drives all chip selects through a
+      single global chip-select line (GCSR mode).
+    default: 1
+
+  dmas:
+    minItems: 2
+    maxItems: 2
+    description: TX and RX DMA channel specifiers
+
+  dma-names:
+    items:
+      - const: rx
+      - const: tx
+
+required:
+  - compatible
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - interrupts
+  - clocks
+  - num-cs
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    spi0: spi@2800c000 {
+      compatible = "phytium,spi";
+      #address-cells = <1>;
+      #size-cells = <0>;
+      interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+      reg = <0x0 0x2800c000 0x0 0x1000>;
+      clocks = <&sysclk_48mhz>;
+      num-cs = <4>;
+    };

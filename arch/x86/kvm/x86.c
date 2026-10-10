@@ -86,6 +86,8 @@
 
 #include <clocksource/hyperv_timer.h>
 
+#include <asm/processor-hygon.h>
+
 #define CREATE_TRACE_POINTS
 #include "trace.h"
 
@@ -309,6 +311,8 @@ const struct kvm_stats_header kvm_vcpu_stats_header = {
 };
 
 static struct kmem_cache *x86_emulator_cache;
+
+static int (*kvm_arch_hypercall)(struct kvm *kvm, u64 nr, u64 a0, u64 a1, u64 a2, u64 a3);
 
 static struct kmem_cache *kvm_alloc_emulator_cache(void)
 {
@@ -2406,6 +2410,17 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 		break;
 	case KVM_CAP_READONLY_MEM:
 		r = kvm ? kvm_arch_has_readonly_mem(kvm) : 1;
+		break;
+	case KVM_CAP_SEV_ES_GHCB:
+		r = 0;
+
+		/* Both CSV2 and SEV-ES guests support MSR_AMD64_SEV_ES_GHCB,
+		 * but only CSV2 guest support export to emulate
+		 * MSR_AMD64_SEV_ES_GHCB.
+		 */
+		if (is_x86_vendor_hygon())
+			r = static_call(kvm_x86_has_emulated_msr)(kvm,
+							MSR_AMD64_SEV_ES_GHCB);
 		break;
 	default:
 		break;
@@ -4730,6 +4745,18 @@ set_pit2_out:
 		r = kvm_vm_ioctl_set_msr_filter(kvm, &filter);
 		break;
 	}
+	case KVM_CONTROL_PRE_SYSTEM_RESET:
+		if (kvm_x86_ops.control_pre_system_reset)
+			r = static_call(kvm_x86_control_pre_system_reset)(kvm);
+		else
+			r = -ENOTTY;
+		break;
+	case KVM_CONTROL_POST_SYSTEM_RESET:
+		if (kvm_x86_ops.control_post_system_reset)
+			r = static_call(kvm_x86_control_post_system_reset)(kvm);
+		else
+			r = -ENOTTY;
+		break;
 	default:
 		r = -ENOTTY;
 	}
@@ -7359,7 +7386,8 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 
 	trace_kvm_hypercall(nr, a0, a1, a2, a3);
 
-	if (cpl) {
+	if (cpl &&
+	    !(is_x86_vendor_hygon() && (nr == KVM_HC_VM_ATTESTATION || nr == KVM_HC_PSP_OP))) {
 		ret = -KVM_EPERM;
 		goto out;
 	}
@@ -7396,6 +7424,11 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 		kvm_sched_yield(vcpu, a0);
 		ret = 0;
 		break;
+	case KVM_HC_PSP_OP:
+		ret = -KVM_ENOSYS;
+		if (kvm_arch_hypercall)
+			ret = kvm_arch_hypercall(vcpu->kvm, nr, a0, a1, a2, a3);
+		break;
 	case KVM_HC_MAP_GPA_RANGE: {
 		u64 gpa = a0, npages = a1, attrs = a2;
 
@@ -7429,6 +7462,11 @@ int ____kvm_emulate_hypercall(struct kvm_vcpu *vcpu, int cpl,
 		vcpu->arch.complete_userspace_io = complete_hypercall;
 		return 0;
 	}
+	case KVM_HC_VM_ATTESTATION:
+		ret = -KVM_ENOSYS;
+		if (is_x86_vendor_hygon() && kvm_x86_ops.vm_attestation)
+			ret = static_call(kvm_x86_vm_attestation)(vcpu->kvm, a0, a1);
+		break;
 	default:
 		ret = -KVM_ENOSYS;
 		break;
@@ -10976,6 +11014,18 @@ int kvm_sev_es_string_io(struct kvm_vcpu *vcpu, unsigned int size,
 		  : kvm_sev_es_outs(vcpu, size, port);
 }
 EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_sev_es_string_io);
+
+void kvm_arch_hypercall_init(void *func)
+{
+	kvm_arch_hypercall = func;
+}
+EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_arch_hypercall_init);
+
+void kvm_arch_hypercall_exit(void)
+{
+	kvm_arch_hypercall = NULL;
+}
+EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_arch_hypercall_exit);
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_exit);

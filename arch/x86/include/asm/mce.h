@@ -83,6 +83,7 @@
 #define MCACOD_L3WB	0x017A	/* L3 Explicit Writeback */
 #define MCACOD_DATA	0x0134	/* Data Load */
 #define MCACOD_INSTR	0x0150	/* Instruction Fetch */
+#define MCACOD_IOERR	0x0e0b	/* Generic I/O error */
 
 /* MCi_MISC register defines */
 #define MCI_MISC_ADDR_LSB(m)	((m) & 0x3f)
@@ -95,6 +96,11 @@
 
 /* MCi_ADDR register defines */
 #define MCI_ADDR_PHYSADDR	GENMASK_ULL(boot_cpu_data.x86_phys_bits - 1, 0)
+
+#define MCI_MISC_PCISEG_MASK	GENMASK_ULL(39, 32)
+#define MCI_MISC_PCISEG(m)	(((m) & MCI_MISC_PCISEG_MASK) >> 32)
+#define MCI_MISC_PCIRID_MASK	GENMASK_ULL(31, 16)
+#define MCI_MISC_PCIRID(m)	(((m) & MCI_MISC_PCIRID_MASK) >> 16)
 
 /* CTL2 register defines */
 #define MCI_CTL2_CMCI_EN		BIT_ULL(30)
@@ -333,6 +339,12 @@ extern void (*deferred_error_int_vector)(void);
 struct cper_sec_mem_err;
 extern void apei_mce_report_mem_error(int corrected,
 				      struct cper_sec_mem_err *mem_err);
+
+extern void zx_apei_mce_report_mem_error(struct cper_sec_mem_err *mem_err);
+struct cper_sec_pcie;
+extern void zx_apei_mce_report_pcie_error(int corrected, struct cper_sec_pcie *pcie_err);
+struct cper_sec_proc_generic;
+extern void zx_apei_mce_report_zdi_error(struct cper_sec_proc_generic *zdi_err);
 
 /*
  * Enumerate new IP types and HWID values in AMD processors which support

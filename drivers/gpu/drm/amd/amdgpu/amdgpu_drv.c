@@ -629,9 +629,9 @@ module_param_named(timeout_period, amdgpu_watchdog_timer.period, uint, 0644);
  * See also radeon.si_support which should be disabled when amdgpu.si_support is
  * enabled, and vice versa.
  */
-int amdgpu_si_support = -1;
+int amdgpu_si_support = 1;
 #ifdef CONFIG_DRM_AMDGPU_SI
-MODULE_PARM_DESC(si_support, "SI support (1 = enabled, 0 = disabled, -1 = default)");
+MODULE_PARM_DESC(si_support, "SI support (1 = enabled (default), 0 = disabled)");
 module_param_named(si_support, amdgpu_si_support, int, 0444);
 #endif
 
@@ -647,9 +647,9 @@ module_param_named(si_support, amdgpu_si_support, int, 0444);
  * See also radeon.cik_support which should be disabled when amdgpu.cik_support is
  * enabled, and vice versa.
  */
-int amdgpu_cik_support = -1;
+int amdgpu_cik_support = 1;
 #ifdef CONFIG_DRM_AMDGPU_CIK
-MODULE_PARM_DESC(cik_support, "CIK support  (1 = enabled, 0 = disabled, -1 = default)");
+MODULE_PARM_DESC(cik_support, "CIK support (1 = enabled (default), 0 = disabled)");
 module_param_named(cik_support, amdgpu_cik_support, int, 0444);
 #endif
 
@@ -882,9 +882,9 @@ module_param_named(visualconfirm, amdgpu_dc_visual_confirm, uint, 0444);
  * Defaults to -1, or auto. Userspace can only override this level after
  * boot if it's set to auto.
  */
-int amdgpu_dm_abm_level = -1;
+int amdgpu_dm_abm_level = 0;
 MODULE_PARM_DESC(abmlevel,
-		 "ABM level (0 = off, 1-4 = backlight reduction level, -1 auto (default))");
+		 "ABM level (0 = off (default), 1-4 = backlight reduction level, -1 auto)");
 module_param_named(abmlevel, amdgpu_dm_abm_level, int, 0444);
 
 int amdgpu_backlight = -1;

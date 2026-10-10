@@ -363,6 +363,17 @@ config I2C_SCMI
 	  To compile this driver as a module, choose M here:
 	  the module will be called i2c-scmi.
 
+config I2C_ZHAOXIN_SMBUS
+	tristate "Zhaoxin SMBus Interface"
+	depends on (PCI && (CPU_SUP_CENTAUR || CPU_SUP_ZHAOXIN)) || COMPILE_TEST
+	default m
+	help
+	  If you say yes to this option, support will be included for the
+	  ZHAOXIN SMBus interface
+
+	  This driver can also be built as a module. If so, the module
+	  will be called i2c-zhaoxin-smbus.
+
 endif # ACPI
 
 comment "Mac SMBus host controller drivers"
@@ -1016,6 +1027,34 @@ config I2C_PCA_PLATFORM
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-pca-platform.
+
+config I2C_PHYTIUM_CORE
+	tristate
+
+config I2C_PHYTIUM_PCI
+	tristate "Phytium I2C PCI"
+	depends on PCI && ARCH_PHYTIUM
+	select I2C_PHYTIUM_CORE
+	select I2C_SMBUS
+	help
+	  If you say yes to this option, support will be included for the
+	  Phytium I2C adapter. Only master mode is supported.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-phytium-pci.
+
+config I2C_PHYTIUM_PLATFORM
+	tristate "Phytium I2C Platform"
+	depends on (ACPI && COMMON_CLK) || !ACPI
+	select I2C_SLAVE
+	select I2C_PHYTIUM_CORE
+	select I2C_SMBUS
+	help
+	  If you say yes to this option, support will be included for the
+	  Phytium I2C adapter. Only master mode is supported.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-phytium-platform.
 
 config I2C_PNX
 	tristate "I2C bus support for Philips PNX and NXP LPC targets"

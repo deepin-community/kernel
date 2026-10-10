@@ -1000,6 +1000,8 @@ struct kvm_enable_cap {
 #define KVM_CAP_PPC_COMPAT_CAPS 250
 #define KVM_CAP_ARM_PMU_V3_STRICT 251
 
+#define KVM_CAP_SEV_ES_GHCB 500
+
 struct kvm_irq_routing_irqchip {
 	__u32 irqchip;
 	__u32 pin;
@@ -1673,5 +1675,43 @@ struct kvm_pre_fault_memory {
 	__u64 flags;
 	__u64 padding[5];
 };
+
+enum csv_cmd_id {
+	/* HYGON CSV batch command */
+	KVM_CSV_COMMAND_BATCH = 0x18,
+
+	KVM_CSV_NR_MAX,
+};
+
+struct kvm_csv_batch_list_node {
+	__u64 cmd_data_addr;
+	__u64 addr;
+	__u64 next_cmd_addr;
+};
+
+struct kvm_csv_command_batch {
+	__u32 command_id;
+	__u64 csv_batch_list_uaddr;
+};
+
+struct kvm_csv_send_update_vmsa {
+	__u32 vcpu_id;
+	__u64 hdr_uaddr;
+	__u32 hdr_len;
+	__u64 trans_uaddr;
+	__u32 trans_len;
+};
+
+struct kvm_csv_receive_update_vmsa {
+	__u32 vcpu_id;
+	__u64 hdr_uaddr;
+	__u32 hdr_len;
+	__u64 trans_uaddr;
+	__u32 trans_len;
+};
+
+/* ioctls for control vm during system reset, currently only for CSV */
+#define KVM_CONTROL_PRE_SYSTEM_RESET	 _IO(KVMIO, 0xe8)
+#define KVM_CONTROL_POST_SYSTEM_RESET	 _IO(KVMIO, 0xe9)
 
 #endif /* __LINUX_KVM_H */

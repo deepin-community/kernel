@@ -17,6 +17,9 @@
 #define AZX_MAX_CODECS		HDA_MAX_CODECS
 #define AZX_DEFAULT_CODECS	4
 
+#define GF_HDA_PATCH_VERSION 1
+#define GF_HDA_FB_STREAM_SIZE  7*1024*1024
+
 /* driver quirks (capabilities) */
 /* bits 0-7 are used for indicating driver type */
 #define AZX_DCAPS_NO_TCSEL	(1 << 8)	/* No Intel TCSEL bit */
@@ -63,6 +66,13 @@ struct azx_dev {
 	 *  when link position is not greater than FIFO size
 	 */
 	bool insufficient;
+
+	/*
+	 * Delayed IRQ handling flag.
+	 * Upstream moved this into the snd-hda-intel private stream
+	 * (e36a88b33cbe3); keep it here for the Phytium HDA controller.
+	 */
+	bool irq_pending;
 };
 
 #define azx_stream(dev)		(&(dev)->core)

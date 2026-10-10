@@ -889,6 +889,10 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		if (ret == -ENOENT && nondirect)
 			ret = firmware_fallback_platform(fw->priv);
 
+		if (ret)
+			dev_info(device, "firmware: failed to load %s (%d)\n",
+				 name, ret);
+
 		if (ret) {
 			if (!(opt_flags & FW_OPT_NO_WARN))
 				dev_warn(device,

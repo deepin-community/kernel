@@ -429,7 +429,7 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
 		cpu = cpumask_any_and(cpumask_of_node(node),
 				      housekeeping_cpumask(HK_TYPE_DOMAIN));
 
-		if (cpu < nr_cpu_ids) {
+		if ((cpu < nr_cpu_ids) && cpu_online(cpu)) {
 			struct workqueue_struct *wq = pci_probe_wq;
 
 			if (WARN_ON_ONCE(!wq))
@@ -559,6 +559,9 @@ static void pci_device_shutdown(struct device *dev)
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct pci_driver *drv = pci_dev->driver;
 
+	if (pci_dev->no_shutdown)
+		return;
+
 	pm_runtime_resume(dev);
 
 	if (drv && drv->shutdown)
@@ -571,7 +574,7 @@ static void pci_device_shutdown(struct device *dev)
 	 * If it is not a kexec reboot, firmware will hit the PCI
 	 * devices with big hammer and stop their DMA any way.
 	 */
-	if (kexec_in_progress && (pci_dev->current_state <= PCI_D3hot))
+	if (kexec_in_progress && !pci_is_bridge(pci_dev) && (pci_dev->current_state <= PCI_D3hot))
 		pci_clear_master(pci_dev);
 }
 

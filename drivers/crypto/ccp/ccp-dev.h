@@ -99,7 +99,9 @@
 #define CMD5_Q_MEM_LOCATION		0x4
 #define CMD5_Q_SIZE			0x1F
 #define CMD5_Q_SHIFT			3
+
 #define COMMANDS_PER_QUEUE		16
+
 #define QUEUE_SIZE_VAL			((ffs(COMMANDS_PER_QUEUE) - 2) & \
 					  CMD5_Q_SIZE)
 #define Q_PTR_MASK			(2 << (QUEUE_SIZE_VAL + 5) - 1)
@@ -334,6 +336,10 @@ struct ccp_cmd_queue {
 	unsigned long total_rsa_ops;
 	unsigned long total_pt_ops;
 	unsigned long total_ecc_ops;
+	unsigned long total_sm2_ops;
+	unsigned long total_sm3_ops;
+	unsigned long total_sm4_ops;
+	unsigned long total_sm4_ctr_ops;
 } ____cacheline_aligned;
 
 struct ccp_device {
@@ -354,6 +360,9 @@ struct ccp_device {
 	unsigned int irq;
 	bool use_tasklet;
 	struct tasklet_struct irq_tasklet;
+
+	/* This flag mark if the ccp support both sm2 and ecc function */
+	uint32_t support_sm2_ecc;
 
 	/* I/O area used for device communication. The register mapping
 	 * starts at an offset into the mapped bar.
@@ -528,6 +537,28 @@ struct ccp_ecc_op {
 	enum ccp_ecc_function function;
 };
 
+struct ccp_sm2_op {
+	u32 rand;
+	enum ccp_sm2_mode mode;
+};
+
+struct ccp_sm3_op {
+	enum ccp_sm3_type type;
+	u64 msg_bits;
+};
+
+struct ccp_sm4_op {
+	enum ccp_sm4_action action;
+	enum ccp_sm4_mode mode;
+	u32 select;
+};
+
+struct ccp_sm4_ctr_op {
+	u32 size;
+	enum ccp_sm4_action action;
+	u32 step;
+};
+
 struct ccp_op {
 	struct ccp_cmd_queue *cmd_q;
 
@@ -551,6 +582,10 @@ struct ccp_op {
 		struct ccp_rsa_op rsa;
 		struct ccp_passthru_op passthru;
 		struct ccp_ecc_op ecc;
+		struct ccp_sm2_op sm2;
+		struct ccp_sm3_op sm3;
+		struct ccp_sm4_op sm4;
+		struct ccp_sm4_ctr_op sm4_ctr;
 	} u;
 };
 
@@ -599,6 +634,7 @@ struct dword3 {
 union dword4 {
 	u32 dst_lo;		/* NON-SHA	*/
 	u32 sha_len_lo;		/* SHA		*/
+	__le32 sm3_len_lo;	/* SM3		*/
 };
 
 union dword5 {
@@ -609,6 +645,7 @@ union dword5 {
 		unsigned int  fixed:1;
 	} fields;
 	u32 sha_len_hi;
+	__le32 sm3_len_hi;
 };
 
 struct dword7 {
@@ -657,6 +694,11 @@ struct ccp_actions {
 	int (*rsa)(struct ccp_op *);
 	int (*passthru)(struct ccp_op *);
 	int (*ecc)(struct ccp_op *);
+	int (*sm2)(struct ccp_op *op);
+	int (*sm3)(struct ccp_op *op);
+	int (*sm4)(struct ccp_op *op);
+	int (*sm4_ctr)(struct ccp_op *op);
+	int (*run_cmd)(struct ccp_op *op);
 	u32 (*sballoc)(struct ccp_cmd_queue *, unsigned int);
 	void (*sbfree)(struct ccp_cmd_queue *, unsigned int, unsigned int);
 	unsigned int (*get_free_slots)(struct ccp_cmd_queue *);
@@ -669,5 +711,7 @@ extern const struct ccp_vdata ccpv3_platform;
 extern const struct ccp_vdata ccpv3;
 extern const struct ccp_vdata ccpv5a;
 extern const struct ccp_vdata ccpv5b;
+extern const struct ccp_vdata ccpv5a_hygon;
+extern const struct ccp_vdata ccpv5b_hygon;
 
 #endif

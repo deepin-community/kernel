@@ -13,6 +13,7 @@
 #define __PSP_SEV_H__
 
 #include <uapi/linux/psp-sev.h>
+#include <linux/kvm_types.h>
 
 /* As defined by SEV API, under "Guest Policy". */
 #define SEV_POLICY_MASK_NODBG			BIT(0)
@@ -459,6 +460,7 @@ struct sev_data_send_update_data {
  */
 struct sev_data_send_update_vmsa {
 	u32 handle;				/* In */
+	u32 reserved1;
 	u64 hdr_address;			/* In */
 	u32 hdr_len;				/* In/Out */
 	u32 reserved2;

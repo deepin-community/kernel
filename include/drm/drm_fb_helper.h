@@ -281,4 +281,21 @@ static inline bool drm_fb_helper_gem_is_fb(const struct drm_fb_helper *fb_helper
 }
 #endif
 
+/*
+ * Compatibility helpers for the pre-v6.19 DRM fbdev helper API, so that
+ * out-of-tree modules written against the old interface keep building
+ * after fb_info allocation was moved into the fbdev helpers.
+ *
+ * The fb_info instance is now allocated by drm_fb_helper_initial_config()
+ * before the driver's fbdev_probe callback runs, hence
+ * drm_fb_helper_alloc_fbi() only has to return the already allocated
+ * instance.
+ */
+static inline struct fb_info *drm_fb_helper_alloc_fbi(struct drm_fb_helper *fb_helper)
+{
+	return fb_helper->info;
+}
+
+#define drm_fb_helper_unregister_fbi drm_fb_helper_unregister_info
+
 #endif

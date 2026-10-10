@@ -38,6 +38,17 @@ config HWMON_DEBUG_CHIP
 
 comment "Native drivers"
 
+config SENSORS_AAEON
+	tristate "AAEON hwmon driver"
+	depends on X86
+	select MFD_AAEON
+	help
+	  This hwmon driver adds support for reporting temperature or fan
+	  speed and voltage on Single Board Computers produced by AAEON.
+
+	  This driver leverages the ASUS WMI interface to access device
+	  resources.
+
 config SENSORS_ABITUGURU
 	tristate "Abit uGuru (rev 1 & 2)"
 	depends on (X86 && DMI) || COMPILE_TEST && HAS_IOPORT
@@ -463,6 +474,15 @@ config SENSORS_ASPEED_G6
 
 	  This driver can also be built as a module. If so, the module
 	  will be called aspeed_g6_pwm_tach.
+
+config SENSORS_PHYTIUM
+        tristate "Phytium Fan tach and capture counter driver"
+        help
+          This driver provides support for Phytium Fan Tacho and capture
+          counter controllers.
+
+          This driver can also be built as a module. If so, the module
+          will be called tacho-phytium.
 
 config SENSORS_ATXP1
 	tristate "Attansic ATXP1 VID controller"
@@ -2553,6 +2573,15 @@ config SENSORS_VIA_CPUTEMP
 	  If you say yes here you get support for the temperature
 	  sensor inside your CPU. Supported are all known variants of
 	  the VIA C7 and Nano.
+
+config SENSORS_ZHAOXIN_CPUTEMP
+	tristate "Zhaoxin CPU temperature sensor"
+	depends on X86
+	select HWMON_VID
+	help
+	  If you say yes here you get support for the temperature
+	  sensor inside your CPU. Supported are all known variants of
+	  the Zhaoxin processors.
 
 config SENSORS_VIA686A
 	tristate "VIA686A"

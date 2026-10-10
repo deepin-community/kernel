@@ -248,6 +248,30 @@ static int mailbox_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 		}
 	}
 
+	/*
+	 * The Phytium mailbox controller never raises the transfer-complete
+	 * interrupt, so synchronous commands must be polled. Inspect the
+	 * controller behind the a2p reply mailbox; a phandle that cannot be
+	 * resolved is not fatal - just skip the quirk then.
+	 */
+	if (tx) {
+		struct of_phandle_args args;
+
+		/*
+		 * mboxes is a phandle-with-args list; of_parse_phandle()
+		 * does not account for #mbox-cells, so it can land on an
+		 * argument cell instead of the controller node when the
+		 * specifier has arguments. Use the full parser.
+		 */
+		if (!of_parse_phandle_with_args(cdev->of_node, "mboxes",
+						"#mbox-cells", a2p_rx_chan,
+						&args)) {
+			if (of_device_is_compatible(args.np, "phytium,mbox"))
+				cinfo->no_completion_irq = true;
+			of_node_put(args.np);
+		}
+	}
+
 	return 0;
 
 err_free_chan:
