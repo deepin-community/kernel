@@ -1,0 +1,60 @@
+abs_include := -I$(dinghai_root)/en_np/agent/include
+abs_include += -I$(dinghai_root)/en_np/cmd/include
+abs_include += -I$(dinghai_root)/en_np/comm/include
+abs_include += -I$(dinghai_root)/en_np/driver/include
+abs_include += -I$(dinghai_root)/en_np/init/include
+abs_include += -I$(dinghai_root)/en_np/netlink/include
+abs_include += -I$(dinghai_root)/en_np/sdk/include/api
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/chip
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/init
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/cfg
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/dbg
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/ddos
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/dma
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/nppu
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/oam
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/ppu
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/se
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/table/sdt
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/table/se
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/module/tm
+abs_include += -I$(dinghai_root)/en_np/sdk/include/dev/reg
+abs_include += -I$(dinghai_root)/en_np/sdk/include/diag
+abs_include += -I$(dinghai_root)/en_np/table/include
+abs_include += -I$(dinghai_root)/en_np/qos/include
+abs_include += -I$(dinghai_root)/en_np/fc/include
+abs_include += -I$(dinghai_root)/en_np/flow/api/include
+abs_include += -I$(dinghai_root)/en_np/flow/common/include
+
+abs_include += -I$(dinghai_root)/../../../../include/linux/dinghai
+# ZF_MPF delete -msse -msse2
+# ccflags-y += $(abs_include) -DMACRO_CPU64 -DDPP_FOR_PCIE -DDPP_FLOW_HW_INIT
+ccflags-y += $(abs_include) -DMACRO_CPU64 -DDPP_FOR_PCIE
+
+# ifeq (${ARCH},arm64)
+# ccflags-y += -DDPP_FOR_AARCH64
+# endif
+
+dpp-rm-files := *.ko
+dpp-rm-files += *.mod.c
+dpp-rm-files += *.symvers
+dpp-rm-files += *.order
+dpp-rm-files += *.o
+dpp-rm-files += .*.cmd
+dpp-rm-files += .tmp_versions
+dpp-rm-files += *.mod
+export dpp-rm-files
+
+clean := -f $(DPP_KO_MAKEFILE_DIR)/Makefile.clean obj
+
+# echo command.
+# Short version is used, if $(quiet) equals `quiet_', otherwise full one.
+echo-cmd = $(if $($(quiet)cmd_$(1)), echo '  $($(quiet)cmd_$(1))';)
+
+# sink stdout for 'make -s'
+       redirect :=
+ quiet_redirect :=
+silent_redirect := exec >/dev/null;
+
+# printing commands
+cmd = @set -e; $(echo-cmd) $($(quiet)redirect) $(cmd_$(1))
