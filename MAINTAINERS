@@ -5353,12 +5353,6 @@ M:	Bence Csókás <bence98@sch.bme.hu>
 S:	Maintained
 F:	drivers/i2c/busses/i2c-cp2615.c
 
-CPMAC ETHERNET DRIVER
-M:	Florian Fainelli <f.fainelli@gmail.com>
-L:	netdev@vger.kernel.org
-S:	Maintained
-F:	drivers/net/ethernet/ti/cpmac.c
-
 CPU FREQUENCY DRIVERS - VEXPRESS SPC ARM BIG LITTLE
 M:	Viresh Kumar <viresh.kumar@linaro.org>
 M:	Sudeep Holla <sudeep.holla@arm.com>
@@ -23143,13 +23137,6 @@ S:	Maintained
 W:	https://linuxtv.org
 T:	git git://linuxtv.org/media_tree.git
 F:	drivers/media/test-drivers/vivid/*
-
-VLYNQ BUS
-M:	Florian Fainelli <f.fainelli@gmail.com>
-L:	openwrt-devel@lists.openwrt.org (subscribers-only)
-S:	Maintained
-F:	drivers/vlynq/vlynq.c
-F:	include/linux/vlynq.h
 
 VM SOCKETS (AF_VSOCK)
 M:	Stefano Garzarella <sgarzare@redhat.com>
