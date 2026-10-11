@@ -454,25 +454,24 @@ struct bpf_verifier_state {
 	u32 dfs_depth;
 	u32 callback_unroll_depth;
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, u32 may_goto_depth)
+	DEEPIN_KABI_USE(2, u32 active_preempt_lock)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 };
 
-#define bpf_get_spilled_reg(slot, frame)				\
+#define bpf_get_spilled_reg(slot, frame, mask)				\
 	(((slot < frame->allocated_stack / BPF_REG_SIZE) &&		\
-	  (frame->stack[slot].slot_type[0] == STACK_SPILL))		\
+	  ((1 << frame->stack[slot].slot_type[0]) & (mask))) \
 	 ? &frame->stack[slot].spilled_ptr : NULL)
 
 /* Iterate over 'frame', setting 'reg' to either NULL or a spilled register. */
-#define bpf_for_each_spilled_reg(iter, frame, reg)			\
-	for (iter = 0, reg = bpf_get_spilled_reg(iter, frame);		\
+#define bpf_for_each_spilled_reg(iter, frame, reg, mask)			\
+	for (iter = 0, reg = bpf_get_spilled_reg(iter, frame, mask);		\
 	     iter < frame->allocated_stack / BPF_REG_SIZE;		\
-	     iter++, reg = bpf_get_spilled_reg(iter, frame))
+	     iter++, reg = bpf_get_spilled_reg(iter, frame, mask))
 
-/* Invoke __expr over regsiters in __vst, setting __state and __reg */
-#define bpf_for_each_reg_in_vstate(__vst, __state, __reg, __expr)   \
+#define bpf_for_each_reg_in_vstate_mask(__vst, __state, __reg, __mask, __expr)   \
 	({                                                               \
 		struct bpf_verifier_state *___vstate = __vst;            \
 		int ___i, ___j;                                          \
@@ -484,13 +483,17 @@ struct bpf_verifier_state {
 				__reg = &___regs[___j];                  \
 				(void)(__expr);                          \
 			}                                                \
-			bpf_for_each_spilled_reg(___j, __state, __reg) { \
+			bpf_for_each_spilled_reg(___j, __state, __reg, __mask) { \
 				if (!__reg)                              \
 					continue;                        \
 				(void)(__expr);                          \
 			}                                                \
 		}                                                        \
 	})
+
+/* Invoke __expr over regsiters in __vst, setting __state and __reg */
+#define bpf_for_each_reg_in_vstate(__vst, __state, __reg, __expr) \
+	bpf_for_each_reg_in_vstate_mask(__vst, __state, __reg, 1 << STACK_SPILL, __expr)
 
 /* linked list of verifier states used to prune search */
 struct bpf_verifier_state_list {
@@ -553,6 +556,7 @@ struct bpf_insn_aux_data {
 	u32 seen; /* this insn was processed by the verifier at env->pass_cnt */
 	bool sanitize_stack_spill; /* subject to Spectre v4 sanitation */
 	bool zext_dst; /* this insn zero extends dst reg */
+	bool needs_zext; /* alu op needs to clear upper bits */
 	bool storage_get_func_atomic; /* bpf_*_storage_get() with atomic memory alloc */
 	bool is_iter_next; /* bpf_iter_<type>_next() kfunc call */
 	bool call_with_percpu_alloc_ptr; /* {this,per}_cpu_ptr() with prog percpu alloc */
@@ -617,19 +621,33 @@ static inline bool bpf_verifier_log_needed(const struct bpf_verifier_log *log)
 
 #define BPF_MAX_SUBPROGS 256
 
+struct bpf_subprog_arg_info {
+	enum bpf_arg_type arg_type;
+	union {
+		u32 mem_size;
+		u32 btf_id;
+	};
+};
+
 struct bpf_subprog_info {
 	/* 'start' has to be the first field otherwise find_subprog() won't work */
 	u32 start; /* insn idx of function entry point */
 	u32 linfo_idx; /* The idx to the main_prog->aux->linfo */
 	u16 stack_depth; /* max. stack depth used by this function */
-	bool has_tail_call;
-	bool tail_call_reachable;
-	bool has_ld_abs;
-	bool is_async_cb;
-	bool changes_pkt_data;
+	bool has_tail_call: 1;
+	bool tail_call_reachable: 1;
+	bool has_ld_abs: 1;
+	bool is_cb: 1;
+	bool is_async_cb: 1;
+	bool is_exception_cb: 1;
+	bool args_cached: 1;
+	bool changes_pkt_data: 1;
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	u8 arg_cnt;
+	struct bpf_subprog_arg_info args[MAX_BPF_FUNC_REG_ARGS];
+
+	DEEPIN_KABI_USE(1, u16 stack_extra)
+	DEEPIN_KABI_USE(2, bool might_sleep: 1)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 };
@@ -666,10 +684,12 @@ struct bpf_verifier_env {
 	u32 prev_insn_idx;
 	struct bpf_prog *prog;		/* eBPF program being verified */
 	const struct bpf_verifier_ops *ops;
+	struct module *attach_btf_mod;	/* The owner module of prog->aux->attach_btf */
 	struct bpf_verifier_stack_elem *head; /* stack of verifier states to be processed */
 	int stack_size;			/* number of states to be processed */
 	bool strict_alignment;		/* perform strict pointer alignment checks */
 	bool test_state_freq;		/* test verifier with different pruning frequency */
+	bool test_sanity_strict;	/* fail verification on sanity violations */
 	struct bpf_verifier_state *cur_state; /* current verifier state */
 	struct bpf_verifier_state_list **explored_states; /* search pruning optimization */
 	struct bpf_verifier_state_list *free_list;
@@ -728,6 +748,8 @@ struct bpf_verifier_env {
 	/* Same as scratched_regs but for stack slots */
 	u64 scratched_stack_slots;
 	u64 prev_log_pos, prev_insn_print_pos;
+	/* buffer used to temporary hold constants as scalar registers */
+	struct bpf_reg_state fake_reg[2];
 	/* buffer used to generate temporary string representations,
 	 * e.g., in reg_type_str() to generate reg_type string
 	 */
@@ -742,6 +764,16 @@ struct bpf_verifier_env {
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
 };
+
+static inline struct bpf_func_info_aux *subprog_aux(struct bpf_verifier_env *env, int subprog)
+{
+	return &env->prog->aux->func_info_aux[subprog];
+}
+
+static inline struct bpf_subprog_info *subprog_info(struct bpf_verifier_env *env, int subprog)
+{
+	return &env->subprog_info[subprog];
+}
 
 __printf(2, 0) void bpf_verifier_vlog(struct bpf_verifier_log *log,
 				      const char *fmt, va_list args);
@@ -775,14 +807,6 @@ bpf_prog_offload_replace_insn(struct bpf_verifier_env *env, u32 off,
 			      struct bpf_insn *insn);
 void
 bpf_prog_offload_remove_insns(struct bpf_verifier_env *env, u32 off, u32 cnt);
-
-int check_ptr_off_reg(struct bpf_verifier_env *env,
-		      const struct bpf_reg_state *reg, int regno);
-int check_func_arg_reg_off(struct bpf_verifier_env *env,
-			   const struct bpf_reg_state *reg, int regno,
-			   enum bpf_arg_type arg_type);
-int check_mem_reg(struct bpf_verifier_env *env, struct bpf_reg_state *reg,
-		   u32 regno, u32 mem_size);
 
 /* this lives here instead of in bpf.h because it needs to dereference tgt_prog */
 static inline u64 bpf_trampoline_compute_key(const struct bpf_prog *tgt_prog,
