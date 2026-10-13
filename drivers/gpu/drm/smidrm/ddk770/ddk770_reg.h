@@ -106,6 +106,11 @@
 #define DP_PHY100_TPS_SEL_TPS3          3
 #define DP_PHY100_TPS_SEL_TPS4          4
 
+#define DP_DOWNSPREAD_CTRL		    0x107
+#define DP_SPREAD_AMP_0_5		    (1 << 4)
+#define DP_FIXED_VTOTAL_AS_SDP_EN_IN_PR_ACTIVE  (1 << 6)
+#define DP_MSA_TIMING_PAR_IGNORE_EN	    (1 << 7) /* eDP */
+
 #define DP_PHY108               	        0x108  //DP_MAIN_LINK_CHANNEL_CODING_SET
 #define DP_DP_PHY108_SET_ANSI_8B10B		    (1 << 0)
 #define DP_DP_PHY108_SET_ANSI_128B132B      (1 << 1)

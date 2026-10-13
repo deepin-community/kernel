@@ -13,6 +13,7 @@ struct smi_770_register{
 	
 	uint32_t primary_display_ctrl[10], lvds_ctrl, primary_hwcurs_ctrl[4];
 	uint32_t secondary_display_ctrl[10], secondary_hwcurs_ctrl[4];
+    uint32_t third_display_ctrl[10], third_hwcurs_ctrl[4];
 };
 
 struct smi_770_fb_info{
@@ -85,9 +86,9 @@ void ddk770_setCursorPosition(
     unsigned long dy,               /* Y Coordinate of the cursor */
     unsigned char topOutside,       /* Top Boundary Select: either partially outside (= 1) 
                                        or within the screen top boundary (= 0) */
-    unsigned char leftOutside,       /* Left Boundary Select: either partially outside (= 1) 
+    unsigned char leftOutside       /* Left Boundary Select: either partially outside (= 1) 
                                        or within the screen left boundary (= 0) */
-    unsigned int enable
+
 );
  
 void hw770_set_base(disp_control_t dispControl,int pitch,int base_addr);

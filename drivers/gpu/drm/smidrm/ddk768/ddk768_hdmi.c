@@ -28,7 +28,7 @@ static hdmi_PHY_param_t gHdmiPHYParamTable[] =
  { 0x22, 0x0A, 0x00, 0x40, 0x40, 0x1E, 0x94, 0x2E, 0x70, 0x00},
 
 /* TMDS clock range 100-150 MHz [8bpc] */  
- { 0x22, 0x0E, 0x00, 0x40, 0x40, 0x1E, 0x91, 0x2E, 0x70, 0x00}, //1080P  5B:0x92->0x91
+ { 0x22, 0x0E, 0x00, 0x40, 0x40, 0x1E, 0x95, 0x2E, 0x72, 0x00}, //1080P  5B:0x92->0x91
 
 /* TMDS clock range 150-200 MHz [8bpc] */
  { 0x22, 0x0E, 0x00, 0x40, 0x40, 0x1E, 0x94, 0x2E, 0x71, 0x00},
@@ -418,7 +418,7 @@ __attribute__((unused)) static void HDMI_Clear_AVMute(void)
 }
 
 /* Before set HDMI IP mode, send AVMute to HDMI Sink in General Control Packet. */
-static void HDMI_Set_AVMute(void)
+__attribute__((unused)) static void HDMI_Set_AVMute(void)
 {
     unsigned char temp = 0;
     temp = readHDMIRegister(X45_VIDEO2);
@@ -534,7 +534,7 @@ void HDMI_Init(void)
     writeHDMIControlRegister (temp | 0x01);
     
     // Set AVMute to Sink
-    HDMI_Set_AVMute();
+    // HDMI_Set_AVMute();
     
     // Set to power mode B, in order to read/write to registers
     HDMI_System_PD (PowerMode_B);
@@ -777,7 +777,7 @@ static void HDMI_Audio_Setting_44100Hz(mode_parameter_t *pModeParam)
     writeHDMIRegister(X09_CTS_EXT, regValue);
 
     // set audio setting registers
-    writeHDMIRegister(X0A_AUDIO_SOURCE, 0x80);      // external CTS
+    writeHDMIRegister(X0A_AUDIO_SOURCE, 0x00);      // internal CTS
     writeHDMIRegister(X0B_AUDIO_SET2, 0x40);
     writeHDMIRegister(X0C_I2S_MODE, 0x04);      // I2S 2ch (0x3C for 8ch) + I2S
     //writeHDMIRegister(X0D_DSD_MODE, 0x00);      // DSD audio disabled
@@ -785,7 +785,7 @@ static void HDMI_Audio_Setting_44100Hz(mode_parameter_t *pModeParam)
     writeHDMIRegister(X11_ASTATUS1, 0x0F);      // Original Fs = 44.1kHz
     writeHDMIRegister(X12_ASTATUS2, 0x22);
     writeHDMIRegister(X13_CAT_CODE, 0x00);
-    writeHDMIRegister(X14_A_SOURCE, 0x51);      // 24 bits word length 
+    writeHDMIRegister(X14_A_SOURCE, 0x02);      // 16 bits word length 
     
     regValue = (readHDMIRegister(X15_AVSET1) & 0x0F);       // set freq 44.1kHz
     writeHDMIRegister(X15_AVSET1, regValue);
@@ -832,7 +832,7 @@ static void HDMI_Audio_Setting_48000Hz(mode_parameter_t *pModeParam)
     writeHDMIRegister(X09_CTS_EXT, regValue);
 
     // set audio setting registers
-    writeHDMIRegister(X0A_AUDIO_SOURCE, 0x80);      // external CTS
+    writeHDMIRegister(X0A_AUDIO_SOURCE, 0x00);      // external CTS
     writeHDMIRegister(X0B_AUDIO_SET2, 0x40);
     writeHDMIRegister(X0C_I2S_MODE, 0x04);      // I2S 2ch (0x3C for 8ch) + I2S
     //writeHDMIRegister(X0D_DSD_MODE, 0x00);      // DSD audio disabled
@@ -840,7 +840,7 @@ static void HDMI_Audio_Setting_48000Hz(mode_parameter_t *pModeParam)
     writeHDMIRegister(X11_ASTATUS1, 0x0D);      // Original Fs = 48kHz
     writeHDMIRegister(X12_ASTATUS2, 0x22);
     writeHDMIRegister(X13_CAT_CODE, 0x00);
-    writeHDMIRegister(X14_A_SOURCE, 0x51);      // 24 bits word length 
+    writeHDMIRegister(X14_A_SOURCE, 0x02);      // 16 bits word length 
     
     regValue = ((readHDMIRegister(X15_AVSET1) & 0x0F) | 0x20);       // set freq 48kHz
     writeHDMIRegister(X15_AVSET1, regValue);

@@ -258,12 +258,14 @@ static void ddk768_swI2CSCL(unsigned char value)
         pokeRegisterDWord(g_i2cClkGPIODataDirReg, ulGPIODirection);
     }
 }
+
 #ifdef __clang__
 #pragma clang optimize off
 #else
 #pragma GCC push_options
 #pragma GCC optimize("O0")
 #endif
+
 /*
  *  This function sends ACK signal
  */
@@ -506,7 +508,7 @@ static int smi_ddc_create(struct smi_connector *connector)
     i2c_set_adapdata(&connector->adapter, connector);
     connector->adapter.algo_data = &connector->bit_data;
 
-    connector->bit_data.udelay = 2; /* 0x3ff ticks, 168MHZ */
+    connector->bit_data.udelay = 5; /* 100 kHz, same as kernel i2c-gpio default (drivers/i2c/busses/i2c-gpio.c) */
     connector->bit_data.timeout = usecs_to_jiffies(2200);
     connector->bit_data.data = connector;
     connector->bit_data.setsda = smi_ddc_setsda;

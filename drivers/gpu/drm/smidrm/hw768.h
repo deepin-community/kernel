@@ -175,5 +175,9 @@ void hw768_load_lut(disp_control_t dispCtrl, int size, u8 lut_r[], u8 lut_g[], u
 long hw768_AdaptI2CCleanBus(struct drm_connector *connector);
 
 long hw768_AdaptI2CInit(struct smi_connector *smi_connector);
-
+#ifdef USE_LT8618
+void hw768_init_lt8618(void);
+int hw768_lt8618TaskWork(unsigned long width, unsigned long height);
+int lt8618_SupportModeValid(unsigned short width, unsigned short height, unsigned int vrefresh);
+#endif
 #endif

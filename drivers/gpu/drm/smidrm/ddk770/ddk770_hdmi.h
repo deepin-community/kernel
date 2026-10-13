@@ -10,6 +10,16 @@
 
 #define PHY_TIMEOUT         100
 
+/* Identification Registers */
+#define HDMI_DESIGN_ID                          0x0000
+#define HDMI_REVISION_ID                        0x0001
+#define HDMI_PRODUCT_ID0                        0x0002
+#define HDMI_PRODUCT_ID1                        0x0003
+#define HDMI_CONFIG0_ID                         0x0004
+#define HDMI_CONFIG1_ID                         0x0005
+#define HDMI_CONFIG2_ID                         0x0006
+#define HDMI_CONFIG3_ID                         0x0007
+
 #define I2CM_OPERATION_READ		0x01
 #define I2CM_OPERATION_READ_EXT		0x02
 #define I2CM_OPERATION_READ_SEQ		0x04

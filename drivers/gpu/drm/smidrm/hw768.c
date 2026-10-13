@@ -17,12 +17,18 @@
 #include "ddk768/ddk768_swi2c.h"
 #include "ddk768/ddk768_hwi2c.h"
 
+#ifdef USE_LT8618
+#include "ddk768/lt8618.h" 
+#endif
 
 #include "smi_ver.h"
 #include "hw768.h"
 
 extern int lcd_scale;
-extern int pwm_ctrl;
+
+#ifdef USE_LT8618
+extern LT8618_SUPPORTMODE lt8618_SupportMode[SUPPORTMODE];
+#endif
 
 
 struct smi_768_register{
@@ -72,22 +78,7 @@ void hw768_enable_lvds(int channels)
 	}else{
 		set48bitLVDS(0);
 	}
-	
-	
-	if(pwm_ctrl)
-	{
-		unsigned long pwm, divider, highCounter, lowCounter;
-
-	     	pwm = pwm_ctrl & 0xf;
-		divider = (pwm_ctrl & 0xf0) >> 4;
-	    	highCounter = (pwm_ctrl & 0xfff00) >> 8;
-		lowCounter = (pwm_ctrl & 0xfff00000) >> 20;
-
-		ddk768_pwmOpen(pwm);
-		ddk768_pwmStart(pwm, divider, highCounter, lowCounter, 0);
-	}
-
-	
+		
 }	
 
 
@@ -195,6 +186,25 @@ void hw768_set_base(int display,int pitch,int base_addr)
 	}
 }
 
+#ifdef USE_LT8618
+void hw768_init_lt8618(void)
+{
+	smi_lt8618Init();
+}
+int hw768_lt8618TaskWork(unsigned long width, unsigned long height)
+{
+	return smi_lt8618SX_Task(width, height);
+}
+int lt8618_SupportModeValid(unsigned short width, unsigned short height, unsigned int vrefresh)
+{
+	int i;
+	for(i = 0; i < SUPPORTMODE; i++){
+		if(width == lt8618_SupportMode[i].width && height == lt8618_SupportMode[i].hight && vrefresh == lt8618_SupportMode[i].vrefresh)
+			return 0;
+	}
+	return -1;
+}
+#endif
 int hw768_set_hdmi_mode(logicalMode_t *pLogicalMode, struct drm_display_mode mode, bool isHDMI)
 {
 	int ret = 1;
@@ -212,35 +222,42 @@ int hw768_set_hdmi_mode(logicalMode_t *pLogicalMode, struct drm_display_mode mod
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
 int hw768_en_dis_interrupt(int status, int pipe)
 {
+	unsigned long mask;
+
+	if (pipe != CHANNEL0_CTRL && pipe != CHANNEL1_CTRL)
+		return -EINVAL;
+
+	mask = peekRegisterDWord(INT_MASK);
 	if(status == 0)
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL0_CTRL) ? 
-		FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, DISABLE):
-		FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, DISABLE));
+		mask = (pipe == CHANNEL1_CTRL) ?
+			FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, DISABLE) :
+			FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, DISABLE);
 	}
 	else
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
-		FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, ENABLE):
-		FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, ENABLE));
+		mask = (pipe == CHANNEL1_CTRL) ?
+			FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, ENABLE) :
+			FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, ENABLE);
 	}
+	pokeRegisterDWord(INT_MASK, mask);
 	return 0;
 }
 #else
 int hw768_en_dis_interrupt(int status)
-	{
-		if(status == 0)
-		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, DISABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, DISABLE)); 
-		}
-		else
-		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL1_VSYNC, ENABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, CHANNEL0_VSYNC, ENABLE));  
-		}
-		return 0;
+{
+	unsigned long mask = peekRegisterDWord(INT_MASK);
+
+	if (status) {
+		mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, ENABLE);
+		mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, ENABLE);
+	} else {
+		mask = FIELD_SET(mask, INT_MASK, CHANNEL0_VSYNC, DISABLE);
+		mask = FIELD_SET(mask, INT_MASK, CHANNEL1_VSYNC, DISABLE);
 	}
+	pokeRegisterDWord(INT_MASK, mask);
+	return 0;
+}
 
 #endif
 
@@ -298,18 +315,13 @@ int hw768_check_vsync_interrupt(int path)
 
 void hw768_clear_vsync_interrupt(int path)
 {
-	
-	unsigned long value;
-	
-	value = peekRegisterDWord(RAW_INT);
-
 	if (path == CHANNEL0_CTRL)
 	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL0_VSYNC, CLEAR));
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, CHANNEL0_VSYNC, CLEAR));
 	}
-	else
+	else if (path == CHANNEL1_CTRL)
 	{
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, CHANNEL1_VSYNC, CLEAR));
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, CHANNEL1_VSYNC, CLEAR));
 	}
 }
 
@@ -485,6 +497,5 @@ long hw768_AdaptI2CCleanBus(struct drm_connector *connector)
         return ddk768_AdaptSWI2CCleanBus(smi_connector);
     }
 }
-
 
 

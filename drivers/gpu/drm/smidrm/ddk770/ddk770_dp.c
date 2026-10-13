@@ -702,7 +702,7 @@ static void DP_CDR_Training(dp_index index)
 
     link_cfg[0] = 0;
 	link_cfg[1] = DP_DP_PHY108_SET_ANSI_8B10B;
-	DP_DPCD_Write(index, DP_PHY108, link_cfg, 2);
+	DP_DPCD_Write(index, DP_DOWNSPREAD_CTRL, link_cfg, 2);
 
     link_cfg[0] = DP_TRAINING_PATTERN_1; /* DP_TRAINING_PATTERN_SET */
 	DP_DPCD_Write(index, DP_TRAINING_PATTERN_SET, link_cfg, 1);
@@ -939,9 +939,9 @@ static int DP_Sink_Power_Ctrl(dp_index index, bool power_on)
     value |= (power_on ? DP_SET_POWER_D0 : DP_SET_POWER_D3);
     
     err = DP_DPCD_Write(index, DP_SET_POWER, &value, 1);
-    if (err < 0) {
+    if (err < 0){
         goto END;
-    }
+	}
 
     /* According to the DP 1.1 specification, a "Sink Device must exit the
 	 * power saving state within 1 ms" (Section 2.5.3.1, Table 5-52, "Sink
@@ -1185,7 +1185,9 @@ void DP_Set_Channel(dp_index index, disp_control_t dc)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
+    }else{
+		return;
+	}
     
     setDCMUX(disp_index, dc);
 }
@@ -1199,7 +1201,9 @@ void DP_Clear_Channel(dp_index index)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
+    }else{
+		return;
+	}
     
     ClearDCMUX(disp_index);
 }
@@ -1213,7 +1217,9 @@ unsigned char DP_Get_Channel(dp_index index)
         disp_index = DP0;
     }else if (index == INDEX_DP1){
         disp_index = DP1;
-    }
+    }else{
+		return 0;
+	}
     
     return GetDCMUX(disp_index);
 }

@@ -22,7 +22,7 @@ static int ddk768_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 {
     struct smi_connector *connector = i2c_get_adapdata(adap);
     unsigned char i2cNumber = connector->i2cNumber;
-    unsigned long ret;
+    unsigned long ret = 0;
     int i = 0;
 
     if(i2cNumber > 1)
