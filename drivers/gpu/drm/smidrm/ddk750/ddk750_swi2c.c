@@ -346,7 +346,6 @@ static unsigned char swI2CReadByte(unsigned char ack)
 #else
 #pragma GCC pop_options
 #endif
-
 /*
  * This function initializes the i2c attributes and bus
  *
@@ -746,7 +745,7 @@ static int smi_ddc_create(struct smi_connector *connector)
     i2c_set_adapdata(&connector->adapter, connector);
     connector->adapter.algo_data = &connector->bit_data;
 
-    connector->bit_data.udelay = 2; /* 0x3ff ticks, 168MHZ */
+    connector->bit_data.udelay = 5; /* 100 kHz, same as kernel i2c-gpio default (drivers/i2c/busses/i2c-gpio.c) */
     connector->bit_data.timeout = usecs_to_jiffies(2200);
     connector->bit_data.data = connector;
     connector->bit_data.setsda = smi_ddc_setsda;

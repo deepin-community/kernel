@@ -311,7 +311,8 @@ long ddk770_HDMI_HPD_Detect(hdmi_index index)
 		rxsense = phy_rx_sense_state(index);
 		value = rxsense << 1 | hpd;
 	}
-	return hpd;
+	
+	return value;
 }
 
 int ddk770_HDMI_Read_EDID_Basic(hdmi_index index, u8 *pEDIDBuffer, u32 bufferSize, u16* pReadSize)

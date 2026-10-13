@@ -30,13 +30,20 @@
 
 #define DRIVER_NAME		"smifb"
 #define DRIVER_DESC		"SiliconMotion GPU DRM Driver"
-#define DRIVER_DATE		"20250723"
+#define DRIVER_DATE		"20260825"
 
 #define DRIVER_MAJOR		4
-#define DRIVER_MINOR		4
-#define DRIVER_PATCHLEVEL	1
+#define DRIVER_MINOR		6
+#define DRIVER_PATCHLEVEL	0
 
 #define SMIFB_CONN_LIMIT 3
+
+enum smi_audio_mode {
+	SMI_AUDIO_DISABLED = 0,
+	SMI_AUDIO_HDMI = 1,
+	SMI_AUDIO_WM8978 = 2,
+	SMI_AUDIO_UDA1345 = 3,
+};
 
 
 
@@ -44,7 +51,7 @@
 #define SUPPORT_CHIP " SM750, SM768, SM770"
 
 
-#define _version_	"4.4.1.0"
+#define _version_	"4.6.0.0"
 
 #undef  NO_WC
 
@@ -101,7 +108,6 @@ extern int hwi2c_en;
 extern int swcur_en;
 extern int edid_mode;
 extern int lcd_scale;
-extern int pwm_ctrl;
 extern int use_vblank;
 extern int use_doublebuffer;
 
@@ -254,6 +260,12 @@ void smi_audio_remove(struct drm_device *dev);
 
 void smi_audio_suspend(struct smi_device *sdev);
 void smi_audio_resume(struct smi_device *sdev);
+
+int smi_pwm_init(struct drm_device *ddev);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+void smi_pwm_remove(struct drm_device *ddev);
+#endif
 
 #ifndef DRM_IRQ_ARGS
 #define DRM_IRQ_ARGS int irq, void *arg

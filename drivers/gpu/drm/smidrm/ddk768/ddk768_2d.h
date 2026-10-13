@@ -57,6 +57,11 @@ long ddk768_deWaitForNotBusy(void);
  */
 long deWaitIdle(unsigned long i);
 
+
+
+
+
+
 /*
  * This function enable/disable clipping area for the 2d engine.
  * Note that the clipping area is always rectangular.

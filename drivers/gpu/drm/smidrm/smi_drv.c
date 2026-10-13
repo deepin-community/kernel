@@ -4,6 +4,7 @@
 #include "smi_drv.h"
 #include <linux/console.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 #include <drm/drm_fbdev_ttm.h>
@@ -69,7 +70,7 @@ int swcur_en = 0;
 int edid_mode = 1;
 int smi_debug = 0;
 int lcd_scale = 0;
-int pwm_ctrl = 0;
+
 int clk_phase = -1;
 int use_vblank = 0;
 int use_doublebuffer = 0;
@@ -89,7 +90,7 @@ MODULE_PARM_DESC(width, "Fixed mode width for LVDS or nopnp (default:0)");
 module_param_named(width, fixed_width, int, 0400);
 MODULE_PARM_DESC(height, "Fixed mode height for LVDS or nopnp (default:0)");
 module_param_named(height, fixed_height, int, 0400);
-MODULE_PARM_DESC(audio, "SM768/SM770 Audio, 0=diable 1=use UDA1345 Codec, 2=use WM8978 Codec(default:0), SM770 only support HDMI/DP Audio");
+MODULE_PARM_DESC(audio, "SM768/SM770 Audio, 0=disable, 1=HDMI/DP audio, 2=WM8978 codec, 3=UDA1345 codec (default:0); SM770 only supports HDMI/DP audio");
 module_param_named(audio, audio_en, int, 0400);
 MODULE_PARM_DESC(hwi2c, "HW I2C for EDID reading for SM750/SM768, 0=SW I2C 1=HW I2C(default:0)");
 module_param_named(hwi2c, hwi2c_en, int, 0400);
@@ -101,14 +102,11 @@ MODULE_PARM_DESC(debug, "Driver debug log enable, 0 = disable 1 = enable (defaul
 module_param_named(debug, smi_debug, int, 0400);
 MODULE_PARM_DESC(lcdscale, "LCD(LVDS) scale  enable, 0 = disable 1 = enable (default:0)");
 module_param_named(lcdscale, lcd_scale, int, 0400);
-MODULE_PARM_DESC(pwm, "PWM Value, 0 = disable (default:0) bit 0-3: PWM 0/1/2 bit4-7: PWM Divider bit8-19: PWM Low Counter bit20-31: PWM High Counter");
-module_param_named(pwm, pwm_ctrl, int, 0400);
+
 MODULE_PARM_DESC(clkphase, "Panel Mode Clock phase, -1 = Use Mode table (Default)  0 = Negative 1 = Postive");
 module_param_named(clkphase, clk_phase, int, 0400);
 MODULE_PARM_DESC(vblank, "Disable/Enable hw vblank support");
 module_param_named(vblank, use_vblank, int, 0400);
-MODULE_PARM_DESC(doublebuffer, "Disable/Enable double buffer");
-module_param_named(doublebuffer, use_doublebuffer, int, 0400);
 
 /*
  * This is the generic driver code. This binds the driver to the drm core,
@@ -145,7 +143,7 @@ static void claim(void)
 static int smi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	struct drm_device *dev;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
 	struct smi_device *sdev;
 #endif
 	int ret __attribute__((unused)) = 0;
@@ -182,6 +180,9 @@ static int smi_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	ret = pci_enable_device(pdev);
 	if (ret)
 		return ret;
+
+	pci_set_master(pdev);
+	pcie_set_readrq(pdev, 4096);
 
 	dev = drm_dev_alloc(&driver, &pdev->dev);
 	if (IS_ERR(dev)) {
@@ -424,15 +425,24 @@ static int smi_pm_poweroff(struct device *dev)
 static int smi_enable_vblank(struct drm_device *dev, unsigned int pipe)
 {
 	struct smi_device *sdev = dev->dev_private;
+	int ret;
 	
 	if (sdev->specId == SPC_SM750) {
-		hw750_en_dis_interrupt(1, pipe);
+		hw750_en_dis_interrupt(0, pipe);
+		hw750_clear_vsync_interrupt(pipe);
+		ret = hw750_en_dis_interrupt(1, pipe);
 	} else if (sdev->specId == SPC_SM768) {
-		hw768_en_dis_interrupt(1, pipe);
+		hw768_en_dis_interrupt(0, pipe);
+		hw768_clear_vsync_interrupt(pipe);
+		ret = hw768_en_dis_interrupt(1, pipe);
 	}else if (sdev->specId == SPC_SM770) {
-		hw770_en_dis_interrupt(1, pipe);
+		hw770_en_dis_interrupt(0, pipe);
+		hw770_clear_vsync_interrupt(pipe);
+		ret = hw770_en_dis_interrupt(1, pipe);
+	} else {
+		return -ENODEV;
 	}
-	return 0;
+	return ret;
 }
 
 static void smi_disable_vblank(struct drm_device *dev, unsigned int pipe)
@@ -452,10 +462,38 @@ static void smi_disable_vblank(struct drm_device *dev, unsigned int pipe)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 static void smi_irq_preinstall(struct drm_device *dev)
 {
-	// To Do....
-	/* Disable *all* interrupts */
+	struct smi_device *sdev = dev->dev_private;
 
-	/* Clear bits if they're already high */
+	if (sdev->specId == SPC_SM750) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+		hw750_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw750_en_dis_interrupt(0, CHANNEL1_CTRL);
+#else
+		hw750_en_dis_interrupt(0);
+#endif
+		hw750_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw750_clear_vsync_interrupt(CHANNEL1_CTRL);
+	} else if (sdev->specId == SPC_SM768) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+		hw768_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw768_en_dis_interrupt(0, CHANNEL1_CTRL);
+#else
+		hw768_en_dis_interrupt(0);
+#endif
+		hw768_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw768_clear_vsync_interrupt(CHANNEL1_CTRL);
+	} else if (sdev->specId == SPC_SM770) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
+		hw770_en_dis_interrupt(0, CHANNEL0_CTRL);
+		hw770_en_dis_interrupt(0, CHANNEL1_CTRL);
+		hw770_en_dis_interrupt(0, CHANNEL2_CTRL);
+#else
+		hw770_en_dis_interrupt(0);
+#endif
+		hw770_clear_vsync_interrupt(CHANNEL0_CTRL);
+		hw770_clear_vsync_interrupt(CHANNEL1_CTRL);
+		hw770_clear_vsync_interrupt(CHANNEL2_CTRL);
+	}
 }
 
 static int smi_irq_postinstall(struct drm_device *dev)
@@ -487,38 +525,43 @@ irqreturn_t smi_drm_interrupt(DRM_IRQ_ARGS)
 	if (sdev->specId == SPC_SM750) {
 		if (hw750_check_vsync_interrupt(0)) {
 			/* Clear the panel VSync Interrupt */
+			hw750_clear_vsync_interrupt(0);
 			drm_handle_vblank(dev, 0);
 			handled = 1;
-			hw750_clear_vsync_interrupt(0);
 		}
 		if (hw750_check_vsync_interrupt(1)) {
+			hw750_clear_vsync_interrupt(1);
 			drm_handle_vblank(dev, 1);
 			handled = 1;
-			hw750_clear_vsync_interrupt(1);
 		}
 	} else if (sdev->specId == SPC_SM768) {
 		if (hw768_check_vsync_interrupt(0)) {
 			/* Clear the panel VSync Interrupt */
+			hw768_clear_vsync_interrupt(0);
 			drm_handle_vblank(dev, 0);
 			handled = 1;
-			hw768_clear_vsync_interrupt(0);
 		}
 		if (hw768_check_vsync_interrupt(1)) {
+			hw768_clear_vsync_interrupt(1);
 			drm_handle_vblank(dev, 1);
 			handled = 1;
-			hw768_clear_vsync_interrupt(1);
 		}
 	} else if(sdev->specId == SPC_SM770){
 		if (hw770_check_vsync_interrupt(0)) {
 			/* Clear the panel VSync Interrupt */
+			hw770_clear_vsync_interrupt(0);
 			drm_handle_vblank(dev, 0);
 			handled = 1;
-			hw770_clear_vsync_interrupt(0);
 		}
 		if (hw770_check_vsync_interrupt(1)) {
+			hw770_clear_vsync_interrupt(1);
 			drm_handle_vblank(dev, 1);
 			handled = 1;
-			hw770_clear_vsync_interrupt(1);
+		}
+		if (hw770_check_vsync_interrupt(2)) {
+			hw770_clear_vsync_interrupt(2);
+			drm_handle_vblank(dev, 2);
+			handled = 1;
 		}
 	}
 
@@ -588,12 +631,15 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 
 	dev = dev_id;
 	sdev = dev->dev_private;
+	
+	msleep(1500);
 	monitor_status = hw770_hdmi_detect(0);
 	if(!monitor_status)
 	{
 		drm_kms_helper_hotplug_event(dev);
 		return IRQ_HANDLED;
 	}
+	
 	crtc0 = sdev->smi_enc_tab[2]->crtc;
 	if (crtc0) {
 		dbg_msg("CRTC0 found: %p\n", crtc0);
@@ -621,18 +667,16 @@ irqreturn_t smi_hdmi0_pnp_handler(int irq, void *dev_id)
 	logicalMode.pitch = 0;
 	logicalMode.dispCtrl = 0;
 
-	if (monitor_status)
+	dbg_msg("HDMI0 reset mode: Monitor status is 0x%x\n", monitor_status);
+	hw770_setMode(&logicalMode, *mode);
+	ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[0], INDEX_HDMI0);
+	if (ret != 0)
 	{
-		dbg_msg("HDMI0: Monitor status is $%d\n", monitor_status);
-		hw770_setMode(&logicalMode, *mode);
-		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[0], INDEX_HDMI0);
-		if (ret != 0)
-		{
-			dbg_msg("HDMI Mode not supported!\n");
-			goto error;
-		}
-		hw770_set_current_pitch((disp_control_t)INDEX_HDMI0,&fb_info);
+		dbg_msg("HDMI Mode not supported!\n");
+		goto error;
 	}
+	hw770_set_current_pitch((disp_control_t)INDEX_HDMI0,&fb_info);
+	
 	return IRQ_HANDLED;
 error:
 	return IRQ_HANDLED;
@@ -654,6 +698,7 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 
 	dev = dev_id;
 	sdev = dev->dev_private;
+	msleep(1500);
 	monitor_status = hw770_hdmi_detect(1);
 	if(!monitor_status)
 	{
@@ -687,18 +732,17 @@ irqreturn_t smi_hdmi1_pnp_handler(int irq, void *dev_id)
 	logicalMode.pitch = 0;
 	logicalMode.dispCtrl = 1;
 
-	if (monitor_status)
+	
+	dbg_msg("HDMI1 reset mode: Monitor status is 0x%x\n", monitor_status);
+	hw770_setMode(&logicalMode, *mode);
+	ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[1], INDEX_HDMI1);
+	if (ret != 0)
 	{
-		dbg_msg("HDMI1: Monitor status is $%d\n", monitor_status);
-		hw770_setMode(&logicalMode, *mode);
-		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[1], INDEX_HDMI1);
-		if (ret != 0)
-		{
-			dbg_msg("HDMI Mode not supported!\n");
-			goto error;
-		}
-		hw770_set_current_pitch((disp_control_t)INDEX_HDMI1,&fb_info);
+		dbg_msg("HDMI Mode not supported!\n");
+		goto error;
 	}
+	hw770_set_current_pitch((disp_control_t)INDEX_HDMI1,&fb_info);
+	
 	return IRQ_HANDLED;
 error:
 	return IRQ_HANDLED;
@@ -719,6 +763,7 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 
 	dev = dev_id;
 	sdev = dev->dev_private;
+	msleep(1500);
 	monitor_status = hw770_hdmi_detect(2);
 	if(!monitor_status)
 	{
@@ -751,20 +796,17 @@ irqreturn_t smi_hdmi2_pnp_handler(int irq, void *dev_id)
 	logicalMode.hz = refresh_rate;
 	logicalMode.pitch = 0;
 	logicalMode.dispCtrl = 2;
-
-
-	if (monitor_status)
+	
+	dbg_msg("HDMI2 reset mode: Monitor status is 0x%x\n", monitor_status);
+	hw770_setMode(&logicalMode, *mode);
+	ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[2], INDEX_HDMI2);
+	if (ret != 0)
 	{
-		dbg_msg("HDMI2: Monitor status is $%d\n", monitor_status);
-		hw770_setMode(&logicalMode, *mode);
-		ret = hw770_set_hdmi_mode(&logicalMode, *mode, sdev->is_hdmi[2], INDEX_HDMI2);
-		if (ret != 0)
-		{
-			dbg_msg("HDMI Mode not supported!\n");
-			goto error;
-		}
-		hw770_set_current_pitch((disp_control_t)INDEX_HDMI2,&fb_info);
+		dbg_msg("HDMI Mode not supported!\n");
+		goto error;
 	}
+	hw770_set_current_pitch((disp_control_t)INDEX_HDMI2,&fb_info);
+	
 	return IRQ_HANDLED;
 error:
 	return IRQ_HANDLED;
@@ -823,7 +865,9 @@ static struct drm_driver driver = {
 	.fops = &smi_driver_fops,
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
 	.date = DRIVER_DATE,
+#endif
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,

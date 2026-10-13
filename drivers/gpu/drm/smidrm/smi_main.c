@@ -115,7 +115,11 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 		EP_HDMI_Init(1);
 		EP_HDMI_Set_Video_Timing(1,1);
 #endif
+		smi_pwm_init(dev);	
 
+#ifdef USE_LT8618
+		hw768_init_lt8618();
+#endif
 	}
 	else if(cdev->specId == SPC_SM770){
 		ddk770_initChip();
@@ -130,6 +134,13 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 	if((cdev->specId == SPC_SM768 || cdev->specId == SPC_SM770) && audio_en)
 			smi_audio_init(dev);
 
+	dev->mode_config.funcs = (void *)&smi_mode_config_funcs;
+	r = smi_modeset_init(cdev);
+	if (r) {
+		DRM_ERROR("Fatal error during modeset init: %d\n", r);
+		goto out;
+	}
+
 	if (use_vblank) {
 		drm_vblank_init(dev, dev->mode_config.num_crtc);
 
@@ -143,12 +154,6 @@ int smi_driver_load(struct drm_device *dev, unsigned long flags)
 			DRM_ERROR("install irq failed , ret = %d\n", r);
 	}
 
-	dev->mode_config.funcs = (void *)&smi_mode_config_funcs;
-	r = smi_modeset_init(cdev);
-	if (r) {
-		DRM_ERROR("Fatal error during modeset init: %d\n", r);
-		goto out;
-	}
 #ifdef ENABLE_HDMI_IRQ
 	if (cdev->specId == SPC_SM770)
 	{
@@ -226,6 +231,11 @@ void smi_driver_unload(struct drm_device *dev)
 			smi_audio_remove(dev);
     }
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 14, 0)
+	if(cdev->specId == SPC_SM768){
+		smi_pwm_remove(dev);
+	}
+#endif
 
 	kvfree(cdev->regsave);
 	kfree(cdev);
@@ -262,7 +272,7 @@ static int smi_vram_init(struct smi_device *cdev)
 	if (cdev->specId == SPC_SM750)
 		cdev->vram_size = ddk750_getFrameBufSize();
 	else if(cdev->specId == SPC_SM768)
-		cdev->vram_size = ddk768_getFrameBufSize();
+		cdev->vram_size = pci_resource_len(pdev, 0);
 	else if (cdev->specId == SPC_SM770)
 	{
 		cdev->vram_size = ddk770_getFrameBufSize();

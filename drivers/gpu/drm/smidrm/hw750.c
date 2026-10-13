@@ -221,37 +221,42 @@ void hw750_set_dpms(int display,int state)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0)
 int hw750_en_dis_interrupt(int status, int pipe)
 {
+	unsigned long mask;
+
+	if (pipe != CHANNEL0_CTRL && pipe != CHANNEL1_CTRL)
+		return -EINVAL;
+
+	mask = peekRegisterDWord(INT_MASK);
 	if(status == 0)
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
-		FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, DISABLE):
-		FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, DISABLE));
+		mask = (pipe == CHANNEL1_CTRL) ?
+			FIELD_SET(mask, INT_MASK, SECONDARY_VSYNC, DISABLE) :
+			FIELD_SET(mask, INT_MASK, PRIMARY_VSYNC, DISABLE);
 	}
 	else
 	{
-		pokeRegisterDWord(INT_MASK, 	(pipe == CHANNEL1_CTRL) ? 
-		FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, ENABLE):
-		FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, ENABLE));
+		mask = (pipe == CHANNEL1_CTRL) ?
+			FIELD_SET(mask, INT_MASK, SECONDARY_VSYNC, ENABLE) :
+			FIELD_SET(mask, INT_MASK, PRIMARY_VSYNC, ENABLE);
 	}
+	pokeRegisterDWord(INT_MASK, mask);
 	return 0;
-
 }
 #else
 int hw750_en_dis_interrupt(int status)
-	{
-		if(status == 0)
-		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, DISABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, DISABLE)); 
-		}
-		else
-		{
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, SECONDARY_VSYNC, ENABLE));
-			pokeRegisterDWord(INT_MASK, FIELD_SET(0, INT_MASK, PRIMARY_VSYNC, ENABLE));  
-		}
-		return 0;
-	}
+{
+	unsigned long mask = peekRegisterDWord(INT_MASK);
 
+	if (status) {
+		mask = FIELD_SET(mask, INT_MASK, PRIMARY_VSYNC, ENABLE);
+		mask = FIELD_SET(mask, INT_MASK, SECONDARY_VSYNC, ENABLE);
+	} else {
+		mask = FIELD_SET(mask, INT_MASK, PRIMARY_VSYNC, DISABLE);
+		mask = FIELD_SET(mask, INT_MASK, SECONDARY_VSYNC, DISABLE);
+	}
+	pokeRegisterDWord(INT_MASK, mask);
+	return 0;
+}
 #endif
 
 
@@ -284,22 +289,12 @@ int hw750_check_vsync_interrupt(int path)
 
 void hw750_clear_vsync_interrupt(int path)
 {
-
-	unsigned long value;
-		
-	value = peekRegisterDWord(RAW_INT);
-	
 	if(path == CHANNEL0_CTRL)
 	{
-	    
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, PRIMARY_VSYNC, CLEAR));
-
-	}else{
-		
-		pokeRegisterDWord(RAW_INT, FIELD_SET(value, RAW_INT, SECONDARY_VSYNC, CLEAR));	
-		
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, PRIMARY_VSYNC, CLEAR));
+	}else if(path == CHANNEL1_CTRL){
+		pokeRegisterDWord(RAW_INT, FIELD_SET(0, RAW_INT, SECONDARY_VSYNC, CLEAR));
 	}
-
 }
 
 void ddk750_disable_IntMask(void)
@@ -388,7 +383,6 @@ long hw750_AdaptI2CCleanBus(struct drm_connector *connector)
 
     return 0;
 }
-
 
 
 
