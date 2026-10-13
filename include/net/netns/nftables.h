@@ -5,9 +5,8 @@
 #include <linux/deepin_kabi.h>
 
 struct netns_nftables {
-	unsigned int		base_seq;
 	u8			gencursor;
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, unsigned int base_seq)
 	DEEPIN_KABI_RESERVE(2)
 };
 
