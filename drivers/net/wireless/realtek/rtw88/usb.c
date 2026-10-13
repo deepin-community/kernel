@@ -391,6 +391,51 @@ static int rtw_usb_write_port(struct rtw_dev *rtwdev, u8 qsel, struct sk_buff *s
 	return ret;
 }
 
+static void rtw_usb_write_port_sync_complete(struct urb *urb)
+{
+	complete(urb->context);
+}
+
+static int rtw_usb_write_port_sync(struct rtw_dev *rtwdev, u8 qsel,
+				   struct sk_buff *skb)
+{
+	struct rtw_usb *rtwusb = rtw_get_usb_priv(rtwdev);
+	struct usb_device *usbd = rtwusb->udev;
+	int ep = qsel_to_ep(rtwusb, qsel);
+	DECLARE_COMPLETION_ONSTACK(done);
+	unsigned int pipe;
+	struct urb *urb;
+	int ret;
+
+	if (ep < 0)
+		return ep;
+
+	pipe = usb_sndbulkpipe(usbd, rtwusb->out_ep[ep]);
+	urb = usb_alloc_urb(0, GFP_KERNEL);
+	if (!urb)
+		return -ENOMEM;
+
+	usb_fill_bulk_urb(urb, usbd, pipe, skb->data, skb->len,
+			  rtw_usb_write_port_sync_complete, &done);
+	urb->transfer_flags |= URB_ZERO_PACKET;
+	ret = usb_submit_urb(urb, GFP_KERNEL);
+	if (ret)
+		goto out;
+
+	if (wait_for_completion_timeout(&done, secs_to_jiffies(5))) {
+		ret = urb->status;
+	} else {
+		/* timed out; usb_kill_urb() waits for the completion handler */
+		usb_kill_urb(urb);
+		ret = urb->status == -ENOENT ? -ETIMEDOUT : urb->status;
+	}
+
+out:
+	usb_free_urb(urb);
+
+	return ret;
+}
+
 static bool rtw_usb_tx_agg_skb(struct rtw_usb *rtwusb, struct sk_buff_head *list)
 {
 	struct rtw_dev *rtwdev = rtwusb->rtwdev;
@@ -503,13 +548,13 @@ static void rtw_usb_write_port_complete(struct urb *urb)
 
 static int rtw_usb_write_data(struct rtw_dev *rtwdev,
 			      struct rtw_tx_pkt_info *pkt_info,
-			      u8 *buf)
+			      u8 *buf, bool sync)
 {
 	const struct rtw_chip_info *chip = rtwdev->chip;
 	struct sk_buff *skb;
 	unsigned int size;
 	u8 qsel;
-	int ret = 0;
+	int ret;
 
 	size = pkt_info->tx_pkt_size;
 	qsel = pkt_info->qsel;
@@ -525,12 +570,16 @@ static int rtw_usb_write_data(struct rtw_dev *rtwdev,
 	rtw_tx_fill_tx_desc(rtwdev, pkt_info, skb);
 	rtw_tx_fill_txdesc_checksum(rtwdev, pkt_info, skb->data);
 
-	ret = rtw_usb_write_port(rtwdev, qsel, skb,
-				 rtw_usb_write_port_complete, skb);
-	if (unlikely(ret)) {
+	if (sync)
+		ret = rtw_usb_write_port_sync(rtwdev, qsel, skb);
+	else
+		ret = rtw_usb_write_port(rtwdev, qsel, skb,
+					 rtw_usb_write_port_complete, skb);
+	if (unlikely(ret))
 		rtw_err(rtwdev, "failed to do USB write, ret=%d\n", ret);
+
+	if (ret || sync)
 		dev_kfree_skb_any(skb);
-	}
 
 	return ret;
 }
@@ -546,7 +595,8 @@ static int rtw_usb_write_data_rsvd_page(struct rtw_dev *rtwdev, u8 *buf,
 	pkt_info.offset = chip->tx_pkt_desc_sz;
 	pkt_info.ls = true;
 
-	return rtw_usb_write_data(rtwdev, &pkt_info, buf);
+	/* the caller checks BCN_VALID right after this, so wait for the URB */
+	return rtw_usb_write_data(rtwdev, &pkt_info, buf, true);
 }
 
 static int rtw_usb_write_data_h2c(struct rtw_dev *rtwdev, u8 *buf, u32 size)
@@ -556,7 +606,7 @@ static int rtw_usb_write_data_h2c(struct rtw_dev *rtwdev, u8 *buf, u32 size)
 	pkt_info.tx_pkt_size = size;
 	pkt_info.qsel = TX_DESC_QSEL_H2C;
 
-	return rtw_usb_write_data(rtwdev, &pkt_info, buf);
+	return rtw_usb_write_data(rtwdev, &pkt_info, buf, false);
 }
 
 static bool rtw_usb_bmc_needs_dtim(struct sk_buff *skb)
