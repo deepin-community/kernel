@@ -208,6 +208,22 @@ struct inet6_cork {
 };
 
 /* struct ipv6_pinfo - ipv6 private area */
+#if defined(__BIG_ENDIAN_BITFIELD)
+#define IPV6_KABI_HOP_LIMIT_BLOCK					\
+	__s16 hop_limit:9;						\
+	__u16 __unused_1:7;
+#define IPV6_KABI_MCAST_HOPS_BLOCK					\
+	__s16 mcast_hops:9;						\
+	__u16 __unused_2:6, mc_loop:1;
+#else
+#define IPV6_KABI_HOP_LIMIT_BLOCK					\
+	__u16 __unused_1:7;						\
+	__s16 hop_limit:9;
+#define IPV6_KABI_MCAST_HOPS_BLOCK					\
+	__u16 mc_loop:1, __unused_2:6;				\
+	__s16 mcast_hops:9;
+#endif
+
 struct ipv6_pinfo {
 	struct in6_addr 	saddr;
 	struct in6_pktinfo	sticky_pktinfo;
@@ -219,8 +235,11 @@ struct ipv6_pinfo {
 	__be32			flow_label;
 	__u32			frag_size;
 
-	s16			hop_limit;
-	u8			mcast_hops;
+	DEEPIN_KABI_BROKEN_REMOVE_BLOCK(IPV6_KABI_HOP_LIMIT_BLOCK)
+	DEEPIN_KABI_BROKEN_INSERT_BLOCK(s16 hop_limit;)
+
+	DEEPIN_KABI_BROKEN_REMOVE_BLOCK(IPV6_KABI_MCAST_HOPS_BLOCK)
+	DEEPIN_KABI_BROKEN_INSERT_BLOCK(u8 mcast_hops;)
 
 	int			ucast_oif;
 	int			mcast_oif;
@@ -279,6 +298,9 @@ struct ipv6_pinfo {
 	struct sk_buff		*rxpmtu;
 	struct inet6_cork	cork;
 };
+
+#undef IPV6_KABI_HOP_LIMIT_BLOCK
+#undef IPV6_KABI_MCAST_HOPS_BLOCK
 
 /* We currently use available bits from inet_sk(sk)->inet_flags,
  * this could change in the future.
