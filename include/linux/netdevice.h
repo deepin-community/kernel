@@ -1823,14 +1823,27 @@ enum netdev_stat_type {
 	NETDEV_PCPU_STAT_DSTATS, /* struct pcpu_dstats */
 };
 
-enum netdev_reg_state {
-	NETREG_UNINITIALIZED = 0,
-	NETREG_REGISTERED,	/* completed register_netdevice */
-	NETREG_UNREGISTERING,	/* called unregister_netdevice */
-	NETREG_UNREGISTERED,	/* completed unregister todo */
-	NETREG_RELEASED,	/* called free_netdev */
-	NETREG_DUMMY,		/* dummy device for NAPI poll */
-};
+#define NETDEV_KABI_REG_STATE_ENUM_DEF					\
+	enum netdev_reg_state {						\
+		NETREG_UNINITIALIZED = 0,				\
+		NETREG_REGISTERED,	/* completed register_netdevice */	\
+		NETREG_UNREGISTERING,	/* called unregister_netdevice */	\
+		NETREG_UNREGISTERED,	/* completed unregister todo */	\
+		NETREG_RELEASED,	/* called free_netdev */		\
+		NETREG_DUMMY,		/* dummy device for NAPI poll */	\
+	};
+
+DEEPIN_KABI_BROKEN_INSERT_BLOCK(NETDEV_KABI_REG_STATE_ENUM_DEF)
+
+#define NETDEV_KABI_REG_STATE_ENUM_FIELD				\
+	enum {								\
+		NETREG_UNINITIALIZED = 0,				\
+		NETREG_REGISTERED,					\
+		NETREG_UNREGISTERING,					\
+		NETREG_UNREGISTERED,					\
+		NETREG_RELEASED,					\
+		NETREG_DUMMY,						\
+	} reg_state:8
 
 /**
  *	struct net_device - The DEVICE structure.
@@ -2390,7 +2403,8 @@ struct net_device {
 
 	struct list_head	link_watch_list;
 
-	u8 reg_state;
+	DEEPIN_KABI_BROKEN_REPLACE(NETDEV_KABI_REG_STATE_ENUM_FIELD,
+				   u8 reg_state)
 
 	bool dismantle;
 
@@ -2483,6 +2497,10 @@ struct net_device {
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
 };
+
+#undef NETDEV_KABI_REG_STATE_ENUM_DEF
+#undef NETDEV_KABI_REG_STATE_ENUM_FIELD
+
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 
 /*
