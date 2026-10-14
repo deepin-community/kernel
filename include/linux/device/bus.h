@@ -69,8 +69,6 @@ struct fwnode_handle;
  * @driver_override:	Set to true if this bus supports the driver_override
  *			mechanism, which allows userspace to force a specific
  *			driver to bind to a device via a sysfs attribute.
- * @need_parent_lock:	When probing or removing a device on this bus, the
- *			device core should lock the device's parent.
  *
  * A bus is a channel between the processor and one or more devices. For the
  * purposes of the device model, all devices are connected via a bus, even if
@@ -114,7 +112,6 @@ struct bus_type {
 	const struct iommu_ops *iommu_ops;
 
 	bool driver_override;
-	bool need_parent_lock;
 
 	DEEPIN_KABI_USE(1, BUS_TYPE_KABI_IRQ_GET_AFFINITY)
 	DEEPIN_KABI_RESERVE(2)
