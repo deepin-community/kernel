@@ -487,7 +487,7 @@ static void __init __create_pgd_mapping_for_iee_locked(pgd_t *pgdir, phys_addr_t
 	} while (pgdp++, addr = next, addr != end);
 }
 
-static void __create_pgd_mapping_for_iee(pgd_t *pgdir, phys_addr_t phys,
+static void __init __create_pgd_mapping_for_iee(pgd_t *pgdir, phys_addr_t phys,
 				 unsigned long virt, phys_addr_t size,
 				 pgprot_t prot,
 				 phys_addr_t (*pgtable_alloc)(int),

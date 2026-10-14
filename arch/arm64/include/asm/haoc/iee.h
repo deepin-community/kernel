@@ -66,7 +66,7 @@ extern bool haoc_enabled;
 
 #define TCR_HPD1		(UL(1) << 42)
 
-void iee_init_mappings(pgd_t *pgdp);
+void __init iee_init_mappings(pgd_t *pgdp);
 void iee_init_post(void);
 void iee_stack_init(void);
 void iee_init_tcr(void);
