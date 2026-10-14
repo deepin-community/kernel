@@ -1,0 +1,78 @@
+name: build dkms loonggpu
+
+# 用 loonggpu DKMS 软件包对本内核树做编译检查, 及时暴露 DRM/KAPI 变动
+# 导致的树外模块构建失败 (如 drm_buddy_* / drm_fb_helper_*_fbi 改名)。
+#
+# DKMS 源码取自 deepin 仓库的 loonggpu-kernel-dkms 包目录, 每次自动拉取
+# 目录下最新版本的 deb, DKMS 包更新后无需修改本文件。
+#
+# 内核侧 API 兼容层见 include/drm/drm_buddy.h 与 include/drm/drm_fb_helper.h;
+# 若本工作流报错, 优先在内核头文件中补充兼容别名, 而不是改 DKMS 源码。
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  KBUILD_BUILD_USER: deepin-kernel-sig
+  KBUILD_BUILD_HOST: deepin-kernel-builder
+  LOONGGPU_DKMS_POOL: https://ci.deepin.com/repo/deepin/deepin-community/stable/pool/commercial/l/loonggpu-kernel-dkms
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  build-dkms-loonggpu:
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: kernel
+
+      - name: "Download and unpack latest loonggpu DKMS package"
+        run: |
+          # self-hosted runner 的 /tmp 跨任务共享, 每次使用独立的临时目录,
+          # 避免与上一次运行的残留 (如旧版本源码目录) 冲突
+          workdir=$(mktemp -d /tmp/loonggpu-dkms.XXXXXX)
+          echo "dkms_workdir=$workdir" >> $GITHUB_ENV
+
+          # 从包目录索引中选出最新版本的 deb
+          deb=$(curl -fsSL "$LOONGGPU_DKMS_POOL/" \
+                | grep -oE 'loonggpu-kernel-dkms_[^"]*_loong64\.deb' \
+                | sort -uV | tail -1)
+          [ -n "$deb" ] || { echo "no loonggpu-kernel-dkms deb found in $LOONGGPU_DKMS_POOL"; exit 1; }
+          echo "latest DKMS package: $deb"
+
+          curl -fsSL "$LOONGGPU_DKMS_POOL/$deb" -o "$workdir/loonggpu-dkms.deb"
+          dpkg-deb -x "$workdir/loonggpu-dkms.deb" "$workdir/extract"
+          # deb 内源码位于 /usr/src/loonggpu-<version>/, 随包附带的
+          # *.patch 在打包时已经打上, 解包后直接可编译
+          dkms_src=$(echo "$workdir"/extract/usr/src/loonggpu-*)
+          [ -f "$dkms_src/Makefile" ] || { echo "DKMS source not found in package"; exit 1; }
+          echo "dkms_src=$dkms_src" >> $GITHUB_ENV
+
+      - name: "Compile kernel"
+        working-directory: kernel
+        run: |
+          # 与 build-kernel-loong64.yml 相同的构建方式, 产出 Module.symvers
+          # 和头文件, 供外部模块编译使用
+          time make ARCH=loongarch CROSS_COMPILE=loongarch64-linux-gnu- deepin_loongarch_desktop_defconfig
+          time make ARCH=loongarch CROSS_COMPILE=loongarch64-linux-gnu- -j$(nproc)
+
+      - name: "Build loonggpu DKMS module"
+        working-directory: ${{ env.dkms_src }}
+        run: |
+          # DKMS 包的 Makefile 支持 SYSSRC 指定内核树, 交叉编译参数与
+          # 内核构建保持一致; 驱动自带的 conftest 会探测内核 API 并生成
+          # 对应的兼容宏, 此处即等价于 dkms build 的编译过程
+          make modules SYSSRC=$GITHUB_WORKSPACE/kernel \
+              ARCH=loongarch CROSS_COMPILE=loongarch64-linux-gnu- -j$(nproc)
+
+      - name: "Cleanup DKMS workdir"
+        if: always()
+        run: rm -rf "$dkms_workdir"
