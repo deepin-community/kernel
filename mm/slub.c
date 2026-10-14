@@ -484,13 +484,27 @@ static inline void set_freepointer(struct kmem_cache *s, void *object, void *fp)
 #endif
 
 	freeptr_addr = (unsigned long)kasan_reset_tag((void *)freeptr_addr);
-	#ifdef CONFIG_CREDP
+#ifdef CONFIG_CREDP
 	if (haoc_enabled && s == cred_jar) {
 		iee_set_freeptr((void **)freeptr_addr,
 					(void *)(freelist_ptr_encode(s, fp, freeptr_addr).v));
 		return;
 	}
-	#endif
+#endif
+#ifdef CONFIG_KEYP
+	if (haoc_enabled && s == key_jar) {
+		iee_set_freeptr((void **)freeptr_addr,
+					(void *)freelist_ptr_encode(s, fp, freeptr_addr).v);
+		return;
+	}
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	if (haoc_enabled && s == policy_jar) {
+		iee_set_freeptr((void **)freeptr_addr,
+					(void *)freelist_ptr_encode(s, fp, freeptr_addr).v);
+		return;
+	}
+#endif
 	*(freeptr_t *)freeptr_addr = freelist_ptr_encode(s, fp, freeptr_addr);
 }
 
@@ -2130,6 +2144,14 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	alloc_gfp = (flags | __GFP_NOWARN | __GFP_NORETRY) & ~__GFP_NOFAIL;
 	if ((alloc_gfp & __GFP_DIRECT_RECLAIM) && oo_order(oo) > oo_order(s->min))
 		alloc_gfp = (alloc_gfp | __GFP_NOMEMALLOC) & ~__GFP_RECLAIM;
+#ifdef CONFIG_KEYP
+	if (s == key_jar)
+		alloc_gfp |= __GFP_ZERO;
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	if (s == policy_jar)
+		alloc_gfp |= __GFP_ZERO;
+#endif
 
 	slab = alloc_slab_page(alloc_gfp, node, oo);
 #ifdef CONFIG_IEE_PTRP
@@ -2137,12 +2159,25 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 		slab = iee_alloc_task_token_slab(s, slab, oo_order(oo));
 #endif
 	if (unlikely(!slab)) {
+#ifdef CONFIG_KEYP
+		if (haoc_enabled && s == key_jar &&
+		    !IS_ENABLED(CONFIG_IEE_ALLOW_SPLIT_LM))
+			return NULL;
+#endif
 		oo = s->min;
 		alloc_gfp = flags;
+#ifdef CONFIG_IEE_SELINUX_P
+		if (s == policy_jar)
+			alloc_gfp |= __GFP_ZERO;
+#endif
 		/*
 		 * Allocation may have failed due to fragmentation.
 		 * Try a lower order alloc if possible
 		 */
+#ifdef CONFIG_KEYP
+		if (s == key_jar)
+			alloc_gfp |= __GFP_ZERO;
+#endif
 		slab = alloc_slab_page(alloc_gfp, node, oo);
 #ifdef CONFIG_IEE_PTRP
 		if(haoc_enabled)
@@ -2156,7 +2191,6 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	slab->objects = oo_objects(oo);
 	slab->inuse = 0;
 	slab->frozen = 0;
-
 #ifdef CONFIG_IEE
 	if(haoc_enabled)
 		iee_allocate_slab_data(s, slab, oo_order(oo));
@@ -2168,10 +2202,38 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	 * pages read-only here would trigger faults on those writes.
 	 * Skip enforcing RO for cred slabs when KASAN is enabled.
 	 */
-	if (haoc_enabled && s == cred_jar && !IS_ENABLED(CONFIG_KASAN))
-		set_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
-							oo_order(oo));
+	if (haoc_enabled && s == cred_jar && !IS_ENABLED(CONFIG_KASAN)) {
+	#ifdef CONFIG_X86_64
+		set_iee_pages((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+			      1 << oo_order(oo), IEE_CRED);
+	#else
+		set_iee_page_type((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+				  oo_order(oo), IEE_CRED);
+	#endif
+	}
 #endif
+#ifdef CONFIG_KEYP
+	if (haoc_enabled && s == key_jar) {
+#ifdef CONFIG_X86_64
+		set_iee_pages((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+				      1 << oo_order(oo), IEE_KEY);
+#else
+		set_iee_page_type((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+					  oo_order(oo), IEE_KEY);
+#endif
+	}
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	if (haoc_enabled && s == policy_jar)
+#ifdef CONFIG_X86_64
+		set_iee_pages((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+							1 << oo_order(oo), IEE_POLICY);
+#else
+		set_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+							oo_order(oo), IEE_SELINUX);
+#endif
+#endif
+
 	account_slab(slab, oo_order(oo), s, flags);
 
 	slab->slab_cache = s;
@@ -2237,11 +2299,36 @@ static void __free_slab(struct kmem_cache *s, struct slab *slab)
 		iee_free_slab(s, slab, iee_free_cred_slab);
 		return;
 		#else
-		if (!IS_ENABLED(CONFIG_KASAN))
+		if (!IS_ENABLED(CONFIG_KASAN)) {
+			iee_set_bitmap_type((unsigned long)page_address(folio_page(folio, 0)),
+					    pages, IEE_NORMAL);
 			unset_iee_page((unsigned long)page_address(folio_page(folio, 0)), order);
-		#endif
+		}
+#endif
 	}
 #endif
+#ifdef CONFIG_KEYP
+	if (haoc_enabled && s == key_jar) {
+#ifdef CONFIG_X86_64
+		unset_iee_page((unsigned long)page_address(folio_page(folio, 0)),
+				       1 << order);
+#else
+		unset_iee_page((unsigned long)page_address(folio_page(folio, 0)), order);
+#endif
+	}
+#endif
+
+#ifdef CONFIG_IEE_SELINUX_P
+	if (haoc_enabled && s == policy_jar) {
+#ifdef CONFIG_X86_64
+		unset_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)),
+						1 << order);
+#else
+		unset_iee_page((unsigned long)page_address(folio_page(slab_folio(slab), 0)), order);
+#endif
+	}
+#endif
+
 	__free_pages(&folio->page, order);
 }
 
@@ -4623,9 +4710,17 @@ static int calculate_sizes(struct kmem_cache *s)
 	s->size = size;
 	s->reciprocal_size = reciprocal_value(size);
 	order = calculate_order(size);
-	#ifdef CONFIG_IEE
+#ifdef CONFIG_IEE
 	order = iee_calculate_order(s, order);
-	#endif
+#endif
+#ifdef CONFIG_KEYP
+	if (strcmp(s->name, "key_jar") == 0)
+		order = IEE_DATA_ORDER;
+#endif
+#ifdef CONFIG_IEE_SELINUX_P
+	if (haoc_enabled && strcmp(s->name, "policy_jar") == 0)
+		order = IEE_DATA_ORDER;
+#endif
 	if ((int)order < 0)
 		return 0;
 

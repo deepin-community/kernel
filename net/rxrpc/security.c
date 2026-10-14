@@ -79,7 +79,12 @@ int rxrpc_init_client_call_security(struct rxrpc_call *call)
 	if (ret < 0)
 		return ret;
 
+#ifdef CONFIG_KEYP
+	for (token = ((union key_payload *)(key->name_link.next))->data[0];
+			token; token = token->next) {
+#else
 	for (token = key->payload.data[0]; token; token = token->next) {
+#endif
 		sec = rxrpc_security_lookup(token->security_index);
 		if (sec)
 			goto found;
@@ -103,7 +108,12 @@ int rxrpc_init_client_conn_security(struct rxrpc_connection *conn)
 
 	_enter("{%d},{%x}", conn->debug_id, key_serial(key));
 
+#ifdef CONFIG_KEYP
+	for (token = ((union key_payload *)(key->name_link.next))->data[0];
+			token; token = token->next) {
+#else
 	for (token = key->payload.data[0]; token; token = token->next) {
+#endif
 		if (token->security_index == conn->security->security_index)
 			goto found;
 	}

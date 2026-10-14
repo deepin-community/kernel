@@ -20,7 +20,11 @@
 #include "internal.h"
 
 #ifdef CONFIG_MMU
+#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+int early_ioremap_debug __initdata;
+#else
 static int early_ioremap_debug __initdata;
+#endif
 
 static int __init early_ioremap_debug_setup(char *str)
 {
@@ -30,7 +34,11 @@ static int __init early_ioremap_debug_setup(char *str)
 }
 early_param("early_ioremap_debug", early_ioremap_debug_setup);
 
+#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+int after_paging_init __initdata;
+#else
 static int after_paging_init __initdata;
+#endif
 
 pgprot_t __init __weak early_memremap_pgprot_adjust(resource_size_t phys_addr,
 						    unsigned long size,
@@ -64,9 +72,15 @@ static inline void __init __late_clear_fixmap(enum fixed_addresses idx)
 }
 #endif
 
+#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+void __iomem *prev_map[FIX_BTMAPS_SLOTS] __initdata;
+unsigned long prev_size[FIX_BTMAPS_SLOTS] __initdata;
+unsigned long slot_virt[FIX_BTMAPS_SLOTS] __initdata;
+#else
 static void __iomem *prev_map[FIX_BTMAPS_SLOTS] __initdata;
 static unsigned long prev_size[FIX_BTMAPS_SLOTS] __initdata;
 static unsigned long slot_virt[FIX_BTMAPS_SLOTS] __initdata;
+#endif
 
 void __init early_ioremap_setup(void)
 {
@@ -147,7 +161,11 @@ __early_ioremap(resource_size_t phys_addr, unsigned long size, pgprot_t prot)
 		if (after_paging_init)
 			__late_set_fixmap(idx, phys_addr, prot);
 		else
+			#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+			__iee_set_fixmap_pre_init(idx, phys_addr, prot);
+			#else
 			__early_set_fixmap(idx, phys_addr, prot);
+			#endif
 		phys_addr += PAGE_SIZE;
 		--idx;
 		--nrpages;
@@ -199,7 +217,11 @@ void __init early_iounmap(void __iomem *addr, unsigned long size)
 		if (after_paging_init)
 			__late_clear_fixmap(idx);
 		else
+			#if defined(CONFIG_PTP) && defined(CONFIG_ARM64)
+			__iee_set_fixmap_pre_init(idx, 0, FIXMAP_PAGE_CLEAR);
+			#else
 			__early_set_fixmap(idx, 0, FIXMAP_PAGE_CLEAR);
+			#endif
 		--idx;
 		--nrpages;
 	}

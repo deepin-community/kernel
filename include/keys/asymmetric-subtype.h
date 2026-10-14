@@ -54,7 +54,11 @@ struct asymmetric_key_subtype {
 static inline
 struct asymmetric_key_subtype *asymmetric_key_subtype(const struct key *key)
 {
+#ifdef CONFIG_KEYP
+	return ((union key_payload *)(key->name_link.next))->data[asym_subtype];
+#else
 	return key->payload.data[asym_subtype];
+#endif
 }
 
 #endif /* _KEYS_ASYMMETRIC_SUBTYPE_H */

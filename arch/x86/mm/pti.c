@@ -139,7 +139,11 @@ pgd_t __pti_set_user_pgtbl(pgd_t *pgdp, pgd_t pgd)
 	 * The user page tables get the full PGD, accessible from
 	 * userspace:
 	 */
+#ifdef CONFIG_PTP
+	ptp_set_pgd(kernel_to_user_pgdp(pgdp), pgd);
+#else
 	kernel_to_user_pgdp(pgdp)->pgd = pgd.pgd;
+#endif
 
 	/*
 	 * If this is normal user memory, make it NX in the kernel
@@ -292,7 +296,11 @@ static void __init pti_setup_vsyscall(void)
 	if (WARN_ON(!target_pte))
 		return;
 
+#ifdef CONFIG_PTP
+	set_pte(target_pte, *pte);
+#else
 	*target_pte = *pte;
+#endif
 	set_vsyscall_pgtable_user_bits(kernel_to_user_pgdp(swapper_pg_dir));
 }
 #else
@@ -370,14 +378,22 @@ pti_clone_pgtable(unsigned long start, unsigned long end,
 			 * code that only set this bit when supported.
 			 */
 			if (boot_cpu_has(X86_FEATURE_PGE))
+#ifdef CONFIG_PTP
+				set_pmd(pmd, pmd_set_flags(*pmd, _PAGE_GLOBAL));
+#else
 				*pmd = pmd_set_flags(*pmd, _PAGE_GLOBAL);
+#endif
 
 			/*
 			 * Copy the PMD.  That is, the kernelmode and usermode
 			 * tables will share the last-level page tables of this
 			 * address range
 			 */
+#ifdef CONFIG_PTP
+			set_pmd(target_pmd, *pmd);
+#else
 			*target_pmd = *pmd;
+#endif
 
 			addr = round_up(addr + 1, PMD_SIZE);
 
@@ -401,10 +417,18 @@ pti_clone_pgtable(unsigned long start, unsigned long end,
 
 			/* Set GLOBAL bit in both PTEs */
 			if (boot_cpu_has(X86_FEATURE_PGE))
+#ifdef CONFIG_PTP
+				set_pte(pte, pte_set_flags(*pte, _PAGE_GLOBAL));
+#else
 				*pte = pte_set_flags(*pte, _PAGE_GLOBAL);
+#endif
 
 			/* Clone the PTE */
+#ifdef CONFIG_PTP
+			set_pte(target_pte, *pte);
+#else
 			*target_pte = *pte;
+#endif
 
 			addr = round_up(addr + 1, PAGE_SIZE);
 
@@ -430,7 +454,11 @@ static void __init pti_clone_p4d(unsigned long addr)
 
 	kernel_pgd = pgd_offset_k(addr);
 	kernel_p4d = p4d_offset(kernel_pgd, addr);
+#ifdef CONFIG_PTP
+	set_p4d(user_p4d, *kernel_p4d);
+#else
 	*user_p4d = *kernel_p4d;
+#endif
 }
 
 /*
@@ -461,7 +489,11 @@ static void __init pti_clone_user_shared(void)
 		if (WARN_ON(!target_pte))
 			return;
 
+#ifdef CONFIG_PTP
+		set_pte(target_pte, pfn_pte(pa >> PAGE_SHIFT, PAGE_KERNEL));
+#else
 		*target_pte = pfn_pte(pa >> PAGE_SHIFT, PAGE_KERNEL);
+#endif
 	}
 }
 

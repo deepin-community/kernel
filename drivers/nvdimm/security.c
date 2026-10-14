@@ -28,7 +28,11 @@ static void *key_data(struct key *key)
 {
 	struct encrypted_key_payload *epayload = dereference_key_locked(key);
 
+#ifdef CONFIG_KEYP
+	lockdep_assert_held_read(&KEY_SEM(key));
+#else
 	lockdep_assert_held_read(&key->sem);
+#endif
 
 	return epayload->decrypted_data;
 }
@@ -38,7 +42,11 @@ static void nvdimm_put_key(struct key *key)
 	if (!key)
 		return;
 
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	key_put(key);
 }
 
@@ -65,10 +73,18 @@ static struct key *nvdimm_request_key(struct nvdimm *nvdimm)
 	} else {
 		struct encrypted_key_payload *epayload;
 
+#ifdef CONFIG_KEYP
+		down_read(&KEY_SEM(key));
+#else
 		down_read(&key->sem);
+#endif
 		epayload = dereference_key_locked(key);
 		if (epayload->decrypted_datalen != NVDIMM_PASSPHRASE_LEN) {
+#ifdef CONFIG_KEYP
+			up_read(&KEY_SEM(key));
+#else
 			up_read(&key->sem);
+#endif
 			key_put(key);
 			key = NULL;
 		}
@@ -107,10 +123,18 @@ static struct key *nvdimm_lookup_user_key(struct nvdimm *nvdimm,
 
 	dev_dbg(dev, "%s: key found: %#x\n", __func__, key_serial(key));
 
+#ifdef CONFIG_KEYP
+	down_read_nested(&KEY_SEM(key), subclass);
+#else
 	down_read_nested(&key->sem, subclass);
+#endif
 	epayload = dereference_key_locked(key);
 	if (epayload->decrypted_datalen != NVDIMM_PASSPHRASE_LEN) {
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(key));
+#else
 		up_read(&key->sem);
+#endif
 		key_put(key);
 		key = NULL;
 	}

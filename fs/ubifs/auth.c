@@ -284,7 +284,11 @@ int ubifs_init_authentication(struct ubifs_info *c)
 		return PTR_ERR(keyring_key);
 	}
 
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(keyring_key));
+#else
 	down_read(&keyring_key->sem);
+#endif
 
 	if (keyring_key->type != &key_type_logon) {
 		ubifs_err(c, "key type must be logon");
@@ -351,7 +355,11 @@ out_free_hash:
 	if (err)
 		crypto_free_shash(c->hash_tfm);
 out:
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(keyring_key));
+#else
 	up_read(&keyring_key->sem);
+#endif
 	key_put(keyring_key);
 
 	return err;

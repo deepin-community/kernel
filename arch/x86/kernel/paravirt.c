@@ -81,7 +81,11 @@ void __init native_pv_lock_init(void)
 
 static void native_tlb_remove_table(struct mmu_gather *tlb, void *table)
 {
+#ifdef CONFIG_PTP
+	ptp_tlb_remove_page(tlb, table);
+#else
 	tlb_remove_page(tlb, table);
+#endif
 }
 
 unsigned int paravirt_patch(u8 type, void *insn_buff, unsigned long addr,

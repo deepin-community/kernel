@@ -30,7 +30,12 @@ MODULE_LICENSE("GPL");
 static void public_key_describe(const struct key *asymmetric_key,
 				struct seq_file *m)
 {
+#ifdef CONFIG_KEYP
+	struct public_key *key =
+		((union key_payload *)(asymmetric_key->name_link.next))->data[asym_crypto];
+#else
 	struct public_key *key = asymmetric_key->payload.data[asym_crypto];
+#endif
 
 	if (key)
 		seq_printf(m, "%s.%s", key->id_type, key->pkey_algo);
@@ -158,7 +163,12 @@ static int software_key_query(const struct kernel_pkey_params *params,
 			      struct kernel_pkey_query *info)
 {
 	struct crypto_akcipher *tfm;
+#ifdef CONFIG_KEYP
+	struct public_key *pkey =
+		((union key_payload *)(params->key->name_link.next))->data[asym_crypto];
+#else
 	struct public_key *pkey = params->key->payload.data[asym_crypto];
+#endif
 	char alg_name[CRYPTO_MAX_ALG_NAME];
 	struct crypto_sig *sig;
 	u8 *key, *ptr;
@@ -273,7 +283,12 @@ error_free_key:
 static int software_key_eds_op(struct kernel_pkey_params *params,
 			       const void *in, void *out)
 {
+#ifdef CONFIG_KEYP
+	const struct public_key *pkey =
+		((union key_payload *)(params->key->name_link.next))->data[asym_crypto];
+#else
 	const struct public_key *pkey = params->key->payload.data[asym_crypto];
+#endif
 	char alg_name[CRYPTO_MAX_ALG_NAME];
 	struct crypto_akcipher *tfm;
 	struct crypto_sig *sig;
@@ -453,7 +468,12 @@ EXPORT_SYMBOL_GPL(public_key_verify_signature);
 static int public_key_verify_signature_2(const struct key *key,
 					 const struct public_key_signature *sig)
 {
+#ifdef CONFIG_KEYP
+	const struct public_key *pk =
+		((union key_payload *)(key->name_link.next))->data[asym_crypto];
+#else
 	const struct public_key *pk = key->payload.data[asym_crypto];
+#endif
 	return public_key_verify_signature(pk, sig);
 }
 

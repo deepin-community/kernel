@@ -22,8 +22,17 @@
 #include <linux/fs.h>
 #include "internal.h"
 
+#ifdef CONFIG_IEE_PTRP
+#include <asm/haoc/iee-token.h>
+#include <asm/haoc/iee.h>
+#endif
+
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
+
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W) && defined(CONFIG_ARM64)
+extern void iee_cycle_verify_cred(struct task_struct *current_task);
+#endif
 
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
@@ -451,6 +460,17 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	if (!(file->f_mode & FMODE_READ))
 		return -EBADF;
 	if (!(file->f_mode & FMODE_CAN_READ))
@@ -565,6 +585,17 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 {
 	ssize_t ret;
 
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
 	if (!(file->f_mode & FMODE_CAN_WRITE))
@@ -905,6 +936,17 @@ EXPORT_SYMBOL(vfs_iter_write);
 static ssize_t vfs_readv(struct file *file, const struct iovec __user *vec,
 		  unsigned long vlen, loff_t *pos, rwf_t flags)
 {
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	struct iovec iovstack[UIO_FASTIOV];
 	struct iovec *iov = iovstack;
 	struct iov_iter iter;
@@ -922,6 +964,17 @@ static ssize_t vfs_readv(struct file *file, const struct iovec __user *vec,
 static ssize_t vfs_writev(struct file *file, const struct iovec __user *vec,
 		   unsigned long vlen, loff_t *pos, rwf_t flags)
 {
+#if defined(CONFIG_IEE_PTRP) && !defined(CONFIG_IEE_PTRP_W)
+# if defined(CONFIG_ARM64)
+#  ifdef CONFIG_IEE_IO_CHECK
+	if (haoc_enabled)
+		iee_cycle_verify_cred(current);
+#  endif
+# elif defined(CONFIG_X86_64)
+	if (haoc_enabled)
+		iee_verify_token(current);
+# endif
+#endif
 	struct iovec iovstack[UIO_FASTIOV];
 	struct iovec *iov = iovstack;
 	struct iov_iter iter;

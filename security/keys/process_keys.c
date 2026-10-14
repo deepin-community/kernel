@@ -20,6 +20,9 @@
 #ifdef CONFIG_CREDP
 #include <asm/haoc/iee-cred.h>
 #endif
+#ifdef CONFIG_KEYP
+#include <asm/haoc/iee-key.h>
+#endif
 #include "internal.h"
 
 /* Session keyring create vs join semaphore */
@@ -393,9 +396,15 @@ void key_fsuid_changed(struct cred *new_cred)
 {
 	/* update the ownership of the thread keyring */
 	if (new_cred->thread_keyring) {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(new_cred->thread_keyring));
+		iee_set_key_uid(new_cred->thread_keyring, new_cred->fsuid);
+		up_write(&KEY_SEM(new_cred->thread_keyring));
+#else
 		down_write(&new_cred->thread_keyring->sem);
 		new_cred->thread_keyring->uid = new_cred->fsuid;
 		up_write(&new_cred->thread_keyring->sem);
+#endif
 	}
 }
 
@@ -406,9 +415,15 @@ void key_fsgid_changed(struct cred *new_cred)
 {
 	/* update the ownership of the thread keyring */
 	if (new_cred->thread_keyring) {
+#ifdef CONFIG_KEYP
+		down_write(&KEY_SEM(new_cred->thread_keyring));
+		iee_set_key_gid(new_cred->thread_keyring, new_cred->fsgid);
+		up_write(&KEY_SEM(new_cred->thread_keyring));
+#else
 		down_write(&new_cred->thread_keyring->sem);
 		new_cred->thread_keyring->gid = new_cred->fsgid;
 		up_write(&new_cred->thread_keyring->sem);
+#endif
 	}
 }
 
@@ -572,7 +587,14 @@ key_ref_t search_process_keyrings_rcu(struct keyring_search_context *ctx)
 		const struct cred *cred = ctx->cred;
 
 		if (key_validate(cred->request_key_auth) == 0) {
+#ifdef CONFIG_KEYP
+			union key_payload *tmp =
+			   (union key_payload *)(ctx->cred->request_key_auth->name_link.next);
+
+			rka = tmp->data[0];
+#else
 			rka = ctx->cred->request_key_auth->payload.data[0];
+#endif
 
 			//// was search_process_keyrings() [ie. recursive]
 			ctx->cred = rka->cred;
@@ -740,17 +762,30 @@ try_again:
 		if (!ctx.cred->request_key_auth)
 			goto error;
 
+#ifdef CONFIG_KEYP
+		down_read(&KEY_SEM(ctx.cred->request_key_auth));
+#else
 		down_read(&ctx.cred->request_key_auth->sem);
+#endif
 		if (test_bit(KEY_FLAG_REVOKED,
 			     &ctx.cred->request_key_auth->flags)) {
 			key_ref = ERR_PTR(-EKEYREVOKED);
 			key = NULL;
 		} else {
+#ifdef CONFIG_KEYP
+			rka = ((union key_payload *)(ctx.cred->request_key_auth->name_link.next))
+						->data[0];
+#else
 			rka = ctx.cred->request_key_auth->payload.data[0];
+#endif
 			key = rka->dest_keyring;
 			__key_get(key);
 		}
+#ifdef CONFIG_KEYP
+		up_read(&KEY_SEM(ctx.cred->request_key_auth));
+#else
 		up_read(&ctx.cred->request_key_auth->sem);
+#endif
 		if (!key)
 			goto error;
 		key_ref = make_key_ref(key, 1);
@@ -819,7 +854,11 @@ try_again:
 	if (ret < 0)
 		goto invalid_key;
 
+#ifdef CONFIG_KEYP
+	iee_set_key_last_used_at(key, ktime_get_real_seconds());
+#else
 	key->last_used_at = ktime_get_real_seconds();
+#endif
 
 error:
 	put_cred(ctx.cred);
@@ -949,30 +988,11 @@ void key_change_session_keyring(struct callback_head *twork)
 	}
 
 	#ifdef CONFIG_CREDP
-	iee_set_cred_uid(new, old->uid);
-	iee_set_cred_euid(new, old->euid);
-	iee_set_cred_suid(new, old->suid);
-	iee_set_cred_fsuid(new, old->fsuid);
-	iee_set_cred_gid(new, old->gid);
-	iee_set_cred_egid(new, old->egid);
-	iee_set_cred_sgid(new, old->sgid);
-	iee_set_cred_fsgid(new, old->fsgid);
-	iee_set_cred_user(new, get_uid(old->user));
-	iee_set_cred_ucounts(new, old->ucounts);
-	iee_set_cred_user_ns(new, get_user_ns(old->user_ns));
-	iee_set_cred_group_info(new, get_group_info(old->group_info));
-
-	iee_set_cred_securebits(new, old->securebits);
-	iee_set_cred_cap_inheritable(new, old->cap_inheritable);
-	iee_set_cred_cap_permitted(new, old->cap_permitted);
-	iee_set_cred_cap_effective(new, old->cap_effective);
-	iee_set_cred_cap_ambient(new, old->cap_ambient);
-	iee_set_cred_cap_bset(new, old->cap_bset);
-
-	iee_set_cred_jit_keyring(new, old->jit_keyring);
-	iee_set_cred_thread_keyring(new, key_get(old->thread_keyring));
-	iee_set_cred_process_keyring(new, key_get(old->process_keyring));
-	#else
+	if (haoc_enabled)
+		iee_fill_cred_for_session_keyring(new, old);
+	else
+	#endif
+	{
 	new->  uid	= old->  uid;
 	new-> euid	= old-> euid;
 	new-> suid	= old-> suid;
@@ -996,7 +1016,7 @@ void key_change_session_keyring(struct callback_head *twork)
 	new->jit_keyring	= old->jit_keyring;
 	new->thread_keyring	= key_get(old->thread_keyring);
 	new->process_keyring	= key_get(old->process_keyring);
-	#endif
+	}
 
 	security_transfer_creds(new, old);
 
