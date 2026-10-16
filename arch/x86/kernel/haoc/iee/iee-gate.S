@@ -91,7 +91,7 @@ SYM_FUNC_START(iee_rwx_gate)
 	movq %rax, %cr4
 	andq $X86_CR4_SMEP_SMAP, %rax
 	cmpq $X86_CR4_SMEP_SMAP, %rax
-	jnz 3
+	jnz 3b
 
 	popfq
 	popq %r12
@@ -117,7 +117,7 @@ rwx_wp_enabled:
 	movq %rax, %cr4
 	andq $X86_CR4_SMEP_SMAP, %rax
 	cmpq $X86_CR4_SMEP_SMAP, %rax
-	jnz 1
+	jnz 1b
 
 	/* restore irq*/
 	popfq

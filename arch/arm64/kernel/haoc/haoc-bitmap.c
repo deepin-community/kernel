@@ -220,8 +220,12 @@ void __init haoc_bitmap_setup(void)
 	setup_iee_early_data_bitmap();
 }
 
+#ifdef __clang__
+#pragma clang optimize off
+#else
 #pragma GCC push_options
 #pragma GCC optimize("O0")
+#endif
 static void __iee_code _iee_bitmap_memset(void *ptr, int data, size_t n)
 {
 	char *_ptr;
@@ -231,7 +235,11 @@ static void __iee_code _iee_bitmap_memset(void *ptr, int data, size_t n)
 	while (n--)
 		*_ptr++ = data;
 }
+#ifdef __clang__
+#pragma clang optimize on
+#else
 #pragma GCC pop_options
+#endif
 
 void __iee_code _iee_set_bitmap_type(unsigned long __unused,
 				u64 va, enum HAOC_BITMAP_TYPE type, int num_pages)
