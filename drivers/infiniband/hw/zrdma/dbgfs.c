@@ -941,7 +941,7 @@ static ssize_t flow_label_read_param(struct file *filp, char __user *buf, size_t
 	int ret;
 	char lbuf[ZRDMA_DEBUGFS_MAX_BUF_LEN] = { 0 };
 
-	ret = zte_snprintf_s(lbuf, sizeof(lbuf), "%d\n", rf->iwdev->flowlabel_enable);
+	ret = zrdma_snprintf_s(lbuf, sizeof(lbuf), "%d\n", rf->iwdev->flowlabel_enable);
 	if (ret < 0)
 		return ret;
 
@@ -1649,7 +1649,7 @@ static ssize_t aeq_poll_interval_read(struct file *filp, char __user *buf,
 	char tmp[32];
 	int len;
 
-	len = zte_snprintf_s(tmp, sizeof(tmp), "%u\n", rf->aeq_poll_interval_ms);
+	len = zrdma_snprintf_s(tmp, sizeof(tmp), "%u\n", rf->aeq_poll_interval_ms);
 	if (len < 0)
 		return len;
 	return simple_read_from_buffer(buf, count, ppos, tmp, len);
@@ -1709,7 +1709,7 @@ static ssize_t aeq_mode_read(struct file *filp, char __user *buf,
 		break;
 	}
 
-	len = zte_snprintf_s(tmp, sizeof(tmp), "%s\n", mode_str);
+	len = zrdma_snprintf_s(tmp, sizeof(tmp), "%s\n", mode_str);
 	if (len < 0)
 		return len;
 	return simple_read_from_buffer(buf, count, ppos, tmp, len);
@@ -1728,7 +1728,7 @@ static ssize_t aeq_event_count_read(struct file *filp, char __user *buf,
 	char tmp[32];
 	int len;
 
-	len = zte_snprintf_s(tmp, sizeof(tmp), "%u\n",
+	len = zrdma_snprintf_s(tmp, sizeof(tmp), "%u\n",
 		     atomic_read(&rf->aeq.aeq_event_count));
 	if (len < 0)
 		return len;
@@ -1749,7 +1749,7 @@ static ssize_t ext_aeq_event_count_read(struct file *filp, char __user *buf,
 	char tmp[32];
 	int len;
 
-	len = zte_snprintf_s(tmp, sizeof(tmp), "%u\n",
+	len = zrdma_snprintf_s(tmp, sizeof(tmp), "%u\n",
 		     atomic_read(&rf->ext_aeq.aeq_event_count));
 	if (len < 0)
 		return len;

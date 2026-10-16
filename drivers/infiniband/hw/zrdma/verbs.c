@@ -4929,7 +4929,7 @@ int zxdh_ib_register_device(struct zxdh_device *iwdev)
 
 	ret = zxdh_get_del_rdma_name(pci_name(iwdev->rf->pcidev), name);
 	if (ret) {
-		zte_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", "zrdma%d");
+		zrdma_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", "zrdma%d");
 	}
 
 	kc_set_driver_id(iwdev->ibdev);
@@ -4953,7 +4953,7 @@ int zxdh_ib_register_device(struct zxdh_device *iwdev)
 	ret = kc_ib_register_device(&iwdev->ibdev, name,
 				    iwdev->rf->hw.device);
 	if (ret) {
-		zte_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", "zrdma%d");
+		zrdma_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", "zrdma%d");
 #if KERNEL_VERSION(4, 20, 0) > LINUX_VERSION_CODE
 #ifdef CONFIG_SUSE_KERNEL
 #if SLE_VERSION(15, 0, 0) >= SLE_VERSION_CODE
