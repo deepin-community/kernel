@@ -29,17 +29,17 @@ static void kvm_vm_init_features(struct kvm *kvm)
 {
 	unsigned long val;
 
-	/* Enable all PV features by default */
-	kvm->arch.pv_features = BIT(KVM_FEATURE_IPI);
-	kvm->arch.support_features = BIT(KVM_LOONGARCH_VM_FEAT_PV_IPI);
-	if (kvm_pvtime_supported()) {
-		kvm->arch.pv_features |= BIT(KVM_FEATURE_STEAL_TIME);
-		kvm->arch.support_features |= BIT(KVM_LOONGARCH_VM_FEAT_PV_STEALTIME);
-	}
-
 	val = read_csr_gcfg();
 	if (val & CSR_GCFG_GPMP)
-		kvm->arch.support_features |= BIT(KVM_LOONGARCH_VM_FEAT_PMU);
+		kvm->arch.kvm_features |= BIT(KVM_LOONGARCH_VM_FEAT_PMU);
+
+	/* Enable all PV features by default */
+	kvm->arch.pv_features |= BIT(KVM_FEATURE_IPI);
+	kvm->arch.kvm_features |= BIT(KVM_LOONGARCH_VM_FEAT_PV_IPI);
+	if (kvm_pvtime_supported()) {
+		kvm->arch.pv_features |= BIT(KVM_FEATURE_STEAL_TIME);
+		kvm->arch.kvm_features |= BIT(KVM_LOONGARCH_VM_FEAT_PV_STEALTIME);
+	}
 }
 
 int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
@@ -151,14 +151,14 @@ static int kvm_vm_feature_has_attr(struct kvm *kvm, struct kvm_device_attr *attr
 		if (cpu_has_lbt_mips)
 			return 0;
 		return -ENXIO;
+	case KVM_LOONGARCH_VM_FEAT_PTW:
+		if (cpu_has_ptw)
+			return 0;
+		return -ENXIO;
 	case KVM_LOONGARCH_VM_FEAT_PMU:
 	case KVM_LOONGARCH_VM_FEAT_PV_IPI:
 	case KVM_LOONGARCH_VM_FEAT_PV_STEALTIME:
 		if (kvm_vm_support(&kvm->arch, attr->attr))
-			return 0;
-		return -ENXIO;
-	case KVM_LOONGARCH_VM_FEAT_PTW:
-		if (cpu_has_ptw)
 			return 0;
 		return -ENXIO;
 	default:
