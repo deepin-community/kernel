@@ -1098,7 +1098,7 @@ ssize_t zxdh_aeq_get_status(struct zxdh_pci_f *rf, char *buf, size_t size)
 		break;
 	}
 
-	len = zte_snprintf_s(buf, size,
+	len = zrdma_snprintf_s(buf, size,
 		"AEQ Status:\n"
 		"  Mode: %s\n"
 		"  Poll Interval: %u ms\n"

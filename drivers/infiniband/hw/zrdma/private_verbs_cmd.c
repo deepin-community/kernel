@@ -5939,8 +5939,8 @@ UVERBS_HANDLER(ZXDH_IB_METHOD_GET_PEER_DEV_SBDF)(struct ib_uverbs_file *file, st
 	bus    = (sbdf >> 16) & 0xFFFF;
 	device = (sbdf >> 8) & 0xFF;   
 	func   =  sbdf & 0x7;   
-	zte_snprintf_s(sbdf_str, sizeof(sbdf_str), "%04x%02x%02x%x", domain, bus, device, func);
-	zte_sscanf_s(sbdf_str, "%llx", &sbdf);
+	zrdma_snprintf_s(sbdf_str, sizeof(sbdf_str), "%04x%02x%02x%x", domain, bus, device, func);
+	zrdma_sscanf_s(sbdf_str, "%llx", &sbdf);
 
 	pr_info("%s %d sbdf=0x%llx\n",__func__,__LINE__,sbdf);
 	ret = uverbs_copy_to(attrs, ZXDH_IB_ATTR_GET_PEER_DEV_SBDF_RESP, &sbdf, sizeof(sbdf));

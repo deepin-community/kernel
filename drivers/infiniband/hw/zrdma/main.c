@@ -192,19 +192,19 @@ static int zxdh_add_rdma_name(const char *sbdf, const char *name)
     
     if ((sbdf == NULL) || (name == NULL))
         return -EINVAL;
-    if (zte_strlen_s(sbdf) > PCI_SBDF_SAFE_LEN) {
+    if (zrdma_strlen_s(sbdf) > PCI_SBDF_SAFE_LEN) {
         pr_err("[zxdh_rdma] %s[%d]sbdf len out of range\n",__func__,__LINE__);
         return -EINVAL;
     }
-	if (zte_strlen_s(name) > IB_DEVICE_NAME_MAX) {
+	if (zrdma_strlen_s(name) > IB_DEVICE_NAME_MAX) {
         pr_err("[zxdh_rdma] %s[%d]name len out of range\n",__func__,__LINE__);
         return -EINVAL;
     }
 
     mutex_lock(&rdma_name_lock);
     list_for_each_entry(pos, &zxdh_rdma_list, list) {
-        len = zte_strlen_s(pos->sbdf);
-        if ((zte_strlen_s(sbdf) == len)) {
+        len = zrdma_strlen_s(pos->sbdf);
+        if ((zrdma_strlen_s(sbdf) == len)) {
             if (strncasecmp(sbdf, pos->sbdf, len) == 0) {
                 mutex_unlock(&rdma_name_lock);
                 return -EEXIST;
@@ -218,8 +218,8 @@ static int zxdh_add_rdma_name(const char *sbdf, const char *name)
         mutex_unlock(&rdma_name_lock);
         return -ENOMEM;
     }
-    zte_snprintf_s(new_node->sbdf, PCI_SBDF_SAFE_LEN, "%s", sbdf);
-    zte_snprintf_s(new_node->name, IB_DEVICE_NAME_MAX, "%s", name);
+    zrdma_snprintf_s(new_node->sbdf, PCI_SBDF_SAFE_LEN, "%s", sbdf);
+    zrdma_snprintf_s(new_node->name, IB_DEVICE_NAME_MAX, "%s", name);
     list_add_tail(&new_node->list, &zxdh_rdma_list);
     mutex_unlock(&rdma_name_lock);
 
@@ -245,17 +245,17 @@ int zxdh_get_del_rdma_name(const char *sbdf, char *name)
         return -EINVAL;
     }
 
-    if (zte_strlen_s(name) > IB_DEVICE_NAME_MAX) {
+    if (zrdma_strlen_s(name) > IB_DEVICE_NAME_MAX) {
         pr_err("[zxdh_rdma] %s[%d]name len out of range\n",__func__,__LINE__);
         return -EINVAL;
     }
     
     mutex_lock(&rdma_name_lock);
     list_for_each_entry_safe(pos, tmp, &zxdh_rdma_list, list) {
-        len = zte_strlen_s(pos->sbdf);
-        if ((zte_strlen_s(sbdf) == len)) {
+        len = zrdma_strlen_s(pos->sbdf);
+        if ((zrdma_strlen_s(sbdf) == len)) {
             if (strncasecmp(sbdf, pos->sbdf, len) == 0) {
-                zte_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", pos->name);
+                zrdma_snprintf_s(name, IB_DEVICE_NAME_MAX, "%s", pos->name);
                 list_del(&pos->list);
                 kfree(pos);
                 mutex_unlock(&rdma_name_lock);
@@ -306,7 +306,7 @@ int zxdh_dpp_tbl_pmtu_info_add(struct zxdh_pci_f *rf, dpp_pf_info_t* pf_info, u3
 {
 	zxdh_dpp_pmtu_info_t pmtu_info;
 	int ret = -EINVAL;
-	zte_memset_s(&pmtu_info, 0, sizeof(pmtu_info));
+	zrdma_memset_s(&pmtu_info, 0, sizeof(pmtu_info));
 	
 	if (rf == NULL)
 		return -ENOMEM;
@@ -336,7 +336,7 @@ int zxdh_dpp_tbl_pmtu_info_del(struct zxdh_pci_f *rf, dpp_pf_info_t* pf_info, u3
 	zxdh_dpp_pmtu_info_t pmtu_info;
 	int ret = -EINVAL;
 
-	zte_memset_s(&pmtu_info, 0, sizeof(pmtu_info));
+	zrdma_memset_s(&pmtu_info, 0, sizeof(pmtu_info));
 	
 	if (rf == NULL)
 		return -ENOMEM;
@@ -365,7 +365,7 @@ int zxdh_dpp_tbl_qp_info_del_ex(struct zxdh_pci_f *rf, dpp_pf_info_t* pf_info, u
 	zxdh_dpp_qp_info_t qp_info;
 	int ret = -EINVAL;
 
-	zte_memset_s(&qp_info, 0, sizeof(qp_info));
+	zrdma_memset_s(&qp_info, 0, sizeof(qp_info));
 	
 	if (rf == NULL)
 		return -ENOMEM;
@@ -1826,7 +1826,7 @@ static int zxdh_ets_recalculate_tokens(struct zxdh_pci_f *rf)
 	int i, active_count = 0;
 	int status_result;
 
-	zte_memset_s(&cmd_info, 0, sizeof(cmd_info));
+	zrdma_memset_s(&cmd_info, 0, sizeof(cmd_info));
 	cmd_info.fw_opcode = RDMA_ETS_CFG;
 	cmd_info.ep_id = rf->ep_id;
 	cmd_info.pf_id = rf->pf_id;
@@ -4047,7 +4047,7 @@ static int zxdh_clear_chip_srq_mem(struct zxdh_sc_dev *dev, u64 chip_srq_base_pa
 		pr_info("[zxdh_rdma] %s[%d]: dma alloc failed\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
-	zte_memset_s(dev->nof_clear_dpu_mem.va, 0, dev->nof_clear_dpu_mem.size);
+	zrdma_memset_s(dev->nof_clear_dpu_mem.va, 0, dev->nof_clear_dpu_mem.size);
 
 	cqp_info = &cqp_request->info;
 	cqp_info->post_sq = 1;
@@ -4176,7 +4176,7 @@ static int zxdh_get_srq_mem_info(struct zxdh_pci_f *rf, struct dh_get_srq_mem_in
         goto finish;
 	}
 
-    zte_memcpy_s(srq_mem_info_resp, get_resp, sizeof(struct dh_get_srq_mem_info_resp));
+    zrdma_memcpy_s(srq_mem_info_resp, get_resp, sizeof(struct dh_get_srq_mem_info_resp));
 	pr_info("[zxdh_rdma] %s[%d]: resp srq_mem_paddr=0x%llx srq_mem_size=0x%x rdma_ext_bar_offset=0x%x\n", __func__, __LINE__, get_resp->srq_mem_paddr, get_resp->srq_mem_size, get_resp->rdma_ext_bar_offset);
 
 finish:
