@@ -159,6 +159,7 @@ static int bpf_size_to_x86_bytes(int bpf_size)
 /* Pick a register outside of BPF range for JIT internal work */
 #define AUX_REG (MAX_BPF_JIT_REG + 1)
 #define X86_REG_R9 (MAX_BPF_JIT_REG + 2)
+#define X86_REG_R12 (MAX_BPF_JIT_REG + 3)
 
 /*
  * The following table maps BPF registers to x86-64 registers.
@@ -185,6 +186,7 @@ static const int reg2hex[] = {
 	[BPF_REG_AX] = 2, /* R10 temp register */
 	[AUX_REG] = 3,    /* R11 temp register */
 	[X86_REG_R9] = 1, /* R9 register, 6th function argument */
+	[X86_REG_R12] = 4, /* R12 callee saved */
 };
 
 static const int reg2pt_regs[] = {
@@ -213,6 +215,7 @@ static bool is_ereg(u32 reg)
 			     BIT(BPF_REG_8) |
 			     BIT(BPF_REG_9) |
 			     BIT(X86_REG_R9) |
+			     BIT(X86_REG_R12) |
 			     BIT(BPF_REG_AX));
 }
 
@@ -246,6 +249,17 @@ static u8 add_2mod(u8 byte, u32 r1, u32 r2)
 {
 	if (is_ereg(r1))
 		byte |= 1;
+	if (is_ereg(r2))
+		byte |= 4;
+	return byte;
+}
+
+static u8 add_3mod(u8 byte, u32 r1, u32 r2, u32 index)
+{
+	if (is_ereg(r1))
+		byte |= 1;
+	if (is_ereg(index))
+		byte |= 2;
 	if (is_ereg(r2))
 		byte |= 4;
 	return byte;
@@ -307,6 +321,14 @@ struct jit_context {
 /* Number of bytes that will be skipped on tailcall */
 #define X86_TAIL_CALL_OFFSET	(11 + ENDBR_INSN_SIZE)
 
+static void push_r12(u8 **pprog)
+{
+	u8 *prog = *pprog;
+
+	EMIT2(0x41, 0x54);   /* push r12 */
+	*pprog = prog;
+}
+
 static void push_callee_regs(u8 **pprog, bool *callee_regs_used)
 {
 	u8 *prog = *pprog;
@@ -319,6 +341,14 @@ static void push_callee_regs(u8 **pprog, bool *callee_regs_used)
 		EMIT2(0x41, 0x56);   /* push r14 */
 	if (callee_regs_used[3])
 		EMIT2(0x41, 0x57);   /* push r15 */
+	*pprog = prog;
+}
+
+static void pop_r12(u8 **pprog)
+{
+	u8 *prog = *pprog;
+
+	EMIT2(0x41, 0x5C);   /* pop r12 */
 	*pprog = prog;
 }
 
@@ -523,7 +553,8 @@ static void emit_return(u8 **pprog, u8 *ip)
  *   goto *(prog->bpf_func + prologue_size);
  * out:
  */
-static void emit_bpf_tail_call_indirect(u8 **pprog, bool *callee_regs_used,
+static void emit_bpf_tail_call_indirect(struct bpf_prog *bpf_prog,
+					u8 **pprog, bool *callee_regs_used,
 					u32 stack_depth, u8 *ip,
 					struct jit_context *ctx)
 {
@@ -574,6 +605,8 @@ static void emit_bpf_tail_call_indirect(u8 **pprog, bool *callee_regs_used,
 	EMIT2(X86_JE, offset);                    /* je out */
 
 	pop_callee_regs(&prog, callee_regs_used);
+	if (bpf_arena_get_kern_vm_start(bpf_prog->aux->arena))
+		pop_r12(&prog);
 
 	EMIT1(0x58);                              /* pop rax */
 	if (stack_depth)
@@ -597,7 +630,8 @@ static void emit_bpf_tail_call_indirect(u8 **pprog, bool *callee_regs_used,
 	*pprog = prog;
 }
 
-static void emit_bpf_tail_call_direct(struct bpf_jit_poke_descriptor *poke,
+static void emit_bpf_tail_call_direct(struct bpf_prog *bpf_prog,
+				      struct bpf_jit_poke_descriptor *poke,
 				      u8 **pprog, u8 *ip,
 				      bool *callee_regs_used, u32 stack_depth,
 				      struct jit_context *ctx)
@@ -627,6 +661,8 @@ static void emit_bpf_tail_call_direct(struct bpf_jit_poke_descriptor *poke,
 		  poke->tailcall_bypass);
 
 	pop_callee_regs(&prog, callee_regs_used);
+	if (bpf_arena_get_kern_vm_start(bpf_prog->aux->arena))
+		pop_r12(&prog);
 	EMIT1(0x58);                                  /* pop rax */
 	if (stack_depth)
 		EMIT3_off32(0x48, 0x81, 0xC4, round_up(stack_depth, 8));
@@ -809,6 +845,18 @@ static void emit_insn_suffix(u8 **pprog, u32 ptr_reg, u32 val_reg, int off)
 	*pprog = prog;
 }
 
+static void emit_insn_suffix_SIB(u8 **pprog, u32 ptr_reg, u32 val_reg, u32 index_reg, int off)
+{
+	u8 *prog = *pprog;
+
+	if (is_imm8(off)) {
+		EMIT3(add_2reg(0x44, BPF_REG_0, val_reg), add_2reg(0, ptr_reg, index_reg) /* SIB */, off);
+	} else {
+		EMIT2_off32(add_2reg(0x84, BPF_REG_0, val_reg), add_2reg(0, ptr_reg, index_reg) /* SIB */, off);
+	}
+	*pprog = prog;
+}
+
 /*
  * Emit a REX byte if it will be necessary to address these registers
  */
@@ -890,6 +938,37 @@ static void emit_ldsx(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
 	*pprog = prog;
 }
 
+static void emit_ldx_index(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, u32 index_reg, int off)
+{
+	u8 *prog = *pprog;
+
+	switch (size) {
+	case BPF_B:
+		/* movzx rax, byte ptr [rax + r12 + off] */
+		EMIT3(add_3mod(0x40, src_reg, dst_reg, index_reg), 0x0F, 0xB6);
+		break;
+	case BPF_H:
+		/* movzx rax, word ptr [rax + r12 + off] */
+		EMIT3(add_3mod(0x40, src_reg, dst_reg, index_reg), 0x0F, 0xB7);
+		break;
+	case BPF_W:
+		/* mov eax, dword ptr [rax + r12 + off] */
+		EMIT2(add_3mod(0x40, src_reg, dst_reg, index_reg), 0x8B);
+		break;
+	case BPF_DW:
+		/* mov rax, qword ptr [rax + r12 + off] */
+		EMIT2(add_3mod(0x48, src_reg, dst_reg, index_reg), 0x8B);
+		break;
+	}
+	emit_insn_suffix_SIB(&prog, src_reg, dst_reg, index_reg, off);
+	*pprog = prog;
+}
+
+static void emit_ldx_r12(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
+{
+	emit_ldx_index(pprog, size, dst_reg, src_reg, X86_REG_R12, off);
+}
+
 /* STX: *(u8*)(dst_reg + off) = src_reg */
 static void emit_stx(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
 {
@@ -922,6 +1001,71 @@ static void emit_stx(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
 	}
 	emit_insn_suffix(&prog, dst_reg, src_reg, off);
 	*pprog = prog;
+}
+
+/* STX: *(u8*)(dst_reg + index_reg + off) = src_reg */
+static void emit_stx_index(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, u32 index_reg, int off)
+{
+	u8 *prog = *pprog;
+
+	switch (size) {
+	case BPF_B:
+		/* mov byte ptr [rax + r12 + off], al */
+		EMIT2(add_3mod(0x40, dst_reg, src_reg, index_reg), 0x88);
+		break;
+	case BPF_H:
+		/* mov word ptr [rax + r12 + off], ax */
+		EMIT3(0x66, add_3mod(0x40, dst_reg, src_reg, index_reg), 0x89);
+		break;
+	case BPF_W:
+		/* mov dword ptr [rax + r12 + 1], eax */
+		EMIT2(add_3mod(0x40, dst_reg, src_reg, index_reg), 0x89);
+		break;
+	case BPF_DW:
+		/* mov qword ptr [rax + r12 + 1], rax */
+		EMIT2(add_3mod(0x48, dst_reg, src_reg, index_reg), 0x89);
+		break;
+	}
+	emit_insn_suffix_SIB(&prog, dst_reg, src_reg, index_reg, off);
+	*pprog = prog;
+}
+
+static void emit_stx_r12(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
+{
+	emit_stx_index(pprog, size, dst_reg, src_reg, X86_REG_R12, off);
+}
+
+/* ST: *(u8*)(dst_reg + index_reg + off) = imm32 */
+static void emit_st_index(u8 **pprog, u32 size, u32 dst_reg, u32 index_reg, int off, int imm)
+{
+	u8 *prog = *pprog;
+
+	switch (size) {
+	case BPF_B:
+		/* mov byte ptr [rax + r12 + off], imm8 */
+		EMIT2(add_3mod(0x40, dst_reg, 0, index_reg), 0xC6);
+		break;
+	case BPF_H:
+		/* mov word ptr [rax + r12 + off], imm16 */
+		EMIT3(0x66, add_3mod(0x40, dst_reg, 0, index_reg), 0xC7);
+		break;
+	case BPF_W:
+		/* mov dword ptr [rax + r12 + 1], imm32 */
+		EMIT2(add_3mod(0x40, dst_reg, 0, index_reg), 0xC7);
+		break;
+	case BPF_DW:
+		/* mov qword ptr [rax + r12 + 1], imm32 */
+		EMIT2(add_3mod(0x48, dst_reg, 0, index_reg), 0xC7);
+		break;
+	}
+	emit_insn_suffix_SIB(&prog, dst_reg, 0, index_reg, off);
+	EMIT(imm, bpf_size_to_x86_bytes(size));
+	*pprog = prog;
+}
+
+static void emit_st_r12(u8 **pprog, u32 size, u32 dst_reg, int off, int imm)
+{
+	emit_st_index(pprog, size, dst_reg, X86_REG_R12, off, imm);
 }
 
 static int emit_atomic(u8 **pprog, u8 atomic_op,
@@ -965,12 +1109,63 @@ static int emit_atomic(u8 **pprog, u8 atomic_op,
 	return 0;
 }
 
+static int emit_atomic_index(u8 **pprog, u8 atomic_op, u32 size,
+			     u32 dst_reg, u32 src_reg, u32 index_reg, int off)
+{
+	u8 *prog = *pprog;
+
+	EMIT1(0xF0); /* lock prefix */
+	switch (size) {
+	case BPF_W:
+		EMIT1(add_3mod(0x40, dst_reg, src_reg, index_reg));
+		break;
+	case BPF_DW:
+		EMIT1(add_3mod(0x48, dst_reg, src_reg, index_reg));
+		break;
+	default:
+		pr_err("bpf_jit: 1 and 2 byte atomics are not supported\n");
+		return -EFAULT;
+	}
+
+	/* emit opcode */
+	switch (atomic_op) {
+	case BPF_ADD:
+	case BPF_AND:
+	case BPF_OR:
+	case BPF_XOR:
+		/* lock *(u32/u64*)(dst_reg + idx_reg + off) <op>= src_reg */
+		EMIT1(simple_alu_opcodes[atomic_op]);
+		break;
+	case BPF_ADD | BPF_FETCH:
+		/* src_reg = atomic_fetch_add(dst_reg + idx_reg + off, src_reg); */
+		EMIT2(0x0F, 0xC1);
+		break;
+	case BPF_XCHG:
+		/* src_reg = atomic_xchg(dst_reg + idx_reg + off, src_reg); */
+		EMIT1(0x87);
+		break;
+	case BPF_CMPXCHG:
+		/* r0 = atomic_cmpxchg(dst_reg + idx_reg + off, r0, src_reg); */
+		EMIT2(0x0F, 0xB1);
+		break;
+	default:
+		pr_err("bpf_jit: unknown atomic opcode %02x\n", atomic_op);
+		return -EFAULT;
+	}
+	emit_insn_suffix_SIB(&prog, dst_reg, src_reg, index_reg, off);
+	*pprog = prog;
+	return 0;
+}
+
+#define DONT_CLEAR 1
+
 bool ex_handler_bpf(const struct exception_table_entry *x, struct pt_regs *regs)
 {
 	u32 reg = x->fixup >> 8;
 
 	/* jump over faulting load and clear dest register */
-	*(unsigned long *)((void *)regs + reg) = 0;
+	if (reg != DONT_CLEAR)
+		*(unsigned long *)((void *)regs + reg) = 0;
 	regs->ip += x->fixup & 0xff;
 	return true;
 }
@@ -1130,10 +1325,14 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image, u8 *rw_image
 	bool tail_call_seen = false;
 	bool seen_exit = false;
 	u8 temp[BPF_MAX_INSN_SIZE + BPF_INSN_SAFETY];
+	u64 arena_vm_start, user_vm_start;
 	int i, excnt = 0;
 	int ilen, proglen = 0;
 	u8 *prog = temp;
 	int err;
+
+	arena_vm_start = bpf_arena_get_kern_vm_start(bpf_prog->aux->arena);
+	user_vm_start = bpf_arena_get_user_vm_start(bpf_prog->aux->arena);
 
 	detect_reg_usage(insn, insn_cnt, callee_regs_used,
 			 &tail_call_seen);
@@ -1144,7 +1343,12 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image, u8 *rw_image
 	emit_prologue(&prog, bpf_prog->aux->stack_depth,
 		      bpf_prog_was_classic(bpf_prog), tail_call_reachable,
 		      bpf_prog->aux->func_idx != 0);
+	if (arena_vm_start)
+		push_r12(&prog);
 	push_callee_regs(&prog, callee_regs_used);
+	if (arena_vm_start)
+		emit_mov_imm64(&prog, X86_REG_R12,
+			       arena_vm_start >> 32, (u32) arena_vm_start);
 
 	ilen = prog - temp;
 	if (rw_image)
@@ -1184,6 +1388,40 @@ static int do_jit(struct bpf_prog *bpf_prog, int *addrs, u8 *image, u8 *rw_image
 			break;
 
 		case BPF_ALU64 | BPF_MOV | BPF_X:
+			if (insn->off == BPF_ADDR_SPACE_CAST &&
+			    insn->imm == 1U << 16) {
+				if (dst_reg != src_reg)
+					/* 32-bit mov */
+					emit_mov_reg(&prog, false, dst_reg, src_reg);
+				/* shl dst_reg, 32 */
+				maybe_emit_1mod(&prog, dst_reg, true);
+				EMIT3(0xC1, add_1reg(0xE0, dst_reg), 32);
+
+				/* or dst_reg, user_vm_start */
+				maybe_emit_1mod(&prog, dst_reg, true);
+				if (is_axreg(dst_reg))
+					EMIT1_off32(0x0D,  user_vm_start >> 32);
+				else
+					EMIT2_off32(0x81, add_1reg(0xC8, dst_reg),  user_vm_start >> 32);
+
+				/* rol dst_reg, 32 */
+				maybe_emit_1mod(&prog, dst_reg, true);
+				EMIT3(0xC1, add_1reg(0xC0, dst_reg), 32);
+
+				/* xor r11, r11 */
+				EMIT3(0x4D, 0x31, 0xDB);
+
+				/* test dst_reg32, dst_reg32; check if lower 32-bit are zero */
+				maybe_emit_mod(&prog, dst_reg, dst_reg, false);
+				EMIT2(0x85, add_2reg(0xC0, dst_reg, dst_reg));
+
+				/* cmove r11, dst_reg; if so, set dst_reg to zero */
+				/* WARNING: Intel swapped src/dst register encoding in CMOVcc !!! */
+				maybe_emit_mod(&prog, AUX_REG, dst_reg, true);
+				EMIT3(0x0F, 0x44, add_2reg(0xC0, AUX_REG, dst_reg));
+				break;
+			}
+			fallthrough;
 		case BPF_ALU | BPF_MOV | BPF_X:
 			if (insn->off == 0)
 				emit_mov_reg(&prog,
@@ -1535,6 +1773,56 @@ st:			if (is_imm8(insn->off))
 			emit_stx(&prog, BPF_SIZE(insn->code), dst_reg, src_reg, insn->off);
 			break;
 
+		case BPF_ST | BPF_PROBE_MEM32 | BPF_B:
+		case BPF_ST | BPF_PROBE_MEM32 | BPF_H:
+		case BPF_ST | BPF_PROBE_MEM32 | BPF_W:
+		case BPF_ST | BPF_PROBE_MEM32 | BPF_DW:
+			start_of_ldx = prog;
+			emit_st_r12(&prog, BPF_SIZE(insn->code), dst_reg, insn->off, insn->imm);
+			goto populate_extable;
+
+			/* LDX: dst_reg = *(u8*)(src_reg + r12 + off) */
+		case BPF_LDX | BPF_PROBE_MEM32 | BPF_B:
+		case BPF_LDX | BPF_PROBE_MEM32 | BPF_H:
+		case BPF_LDX | BPF_PROBE_MEM32 | BPF_W:
+		case BPF_LDX | BPF_PROBE_MEM32 | BPF_DW:
+		case BPF_STX | BPF_PROBE_MEM32 | BPF_B:
+		case BPF_STX | BPF_PROBE_MEM32 | BPF_H:
+		case BPF_STX | BPF_PROBE_MEM32 | BPF_W:
+		case BPF_STX | BPF_PROBE_MEM32 | BPF_DW:
+			start_of_ldx = prog;
+			if (BPF_CLASS(insn->code) == BPF_LDX)
+				emit_ldx_r12(&prog, BPF_SIZE(insn->code), dst_reg, src_reg, insn->off);
+			else
+				emit_stx_r12(&prog, BPF_SIZE(insn->code), dst_reg, src_reg, insn->off);
+populate_extable:
+			{
+				struct exception_table_entry *ex;
+				u8 *_insn = image + proglen + (start_of_ldx - temp);
+				s64 delta;
+
+				if (!bpf_prog->aux->extable)
+					break;
+
+				if (excnt >= bpf_prog->aux->num_exentries) {
+					pr_err("mem32 extable bug\n");
+					return -EFAULT;
+				}
+				ex = &bpf_prog->aux->extable[excnt++];
+
+				delta = _insn - (u8 *)&ex->insn;
+				/* switch ex to rw buffer for writes */
+				ex = (void *)rw_image + ((void *)ex - (void *)image);
+
+				ex->insn = delta;
+
+				ex->data = EX_TYPE_BPF;
+
+				ex->fixup = (prog - start_of_ldx) |
+					((BPF_CLASS(insn->code) == BPF_LDX ? reg2pt_regs[dst_reg] : DONT_CLEAR) << 8);
+			}
+			break;
+
 			/* LDX: dst_reg = *(u8*)(src_reg + off) */
 		case BPF_LDX | BPF_MEM | BPF_B:
 		case BPF_LDX | BPF_PROBE_MEM | BPF_B:
@@ -1712,6 +2000,15 @@ st:			if (is_imm8(insn->off))
 				return err;
 			break;
 
+		case BPF_STX | BPF_PROBE_ATOMIC | BPF_W:
+		case BPF_STX | BPF_PROBE_ATOMIC | BPF_DW:
+			start_of_ldx = prog;
+			err = emit_atomic_index(&prog, insn->imm, BPF_SIZE(insn->code),
+						dst_reg, src_reg, X86_REG_R12, insn->off);
+			if (err)
+				return err;
+			goto populate_extable;
+
 			/* call */
 		case BPF_JMP | BPF_CALL: {
 			int offs;
@@ -1734,13 +2031,15 @@ st:			if (is_imm8(insn->off))
 
 		case BPF_JMP | BPF_TAIL_CALL:
 			if (imm32)
-				emit_bpf_tail_call_direct(&bpf_prog->aux->poke_tab[imm32 - 1],
+				emit_bpf_tail_call_direct(bpf_prog,
+							  &bpf_prog->aux->poke_tab[imm32 - 1],
 							  &prog, image + addrs[i - 1],
 							  callee_regs_used,
 							  bpf_prog->aux->stack_depth,
 							  ctx);
 			else
-				emit_bpf_tail_call_indirect(&prog,
+				emit_bpf_tail_call_indirect(bpf_prog,
+							    &prog,
 							    callee_regs_used,
 							    bpf_prog->aux->stack_depth,
 							    image + addrs[i - 1],
@@ -1993,7 +2292,6 @@ emit_jmp:
 			seen_exit = true;
 			/* Update cleanup_addr */
 			ctx->cleanup_addr = proglen;
-
 			if (bpf_prog_was_classic(bpf_prog) &&
 			    !ns_capable_noaudit(&init_user_ns, CAP_SYS_ADMIN)) {
 				u8 *ip = image + addrs[i - 1];
@@ -2003,6 +2301,8 @@ emit_jmp:
 			}
 
 			pop_callee_regs(&prog, callee_regs_used);
+			if (arena_vm_start)
+				pop_r12(&prog);
 			EMIT1(0xC9);         /* leave */
 			emit_return(&prog, image + addrs[i - 1] + (prog - temp));
 			break;
@@ -3075,4 +3375,23 @@ void bpf_arch_poke_desc_update(struct bpf_jit_poke_descriptor *poke,
 					   old_addr, NULL);
 		BUG_ON(ret < 0);
 	}
+}
+
+bool bpf_jit_supports_arena(void)
+{
+	return true;
+}
+bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena)
+{
+	if (!in_arena)
+		return true;
+	switch (insn->code) {
+	case BPF_STX | BPF_ATOMIC | BPF_W:
+	case BPF_STX | BPF_ATOMIC | BPF_DW:
+		if (insn->imm == (BPF_AND | BPF_FETCH) ||
+		    insn->imm == (BPF_OR | BPF_FETCH) ||
+		    insn->imm == (BPF_XOR | BPF_FETCH))
+			return false;
+	}
+	return true;
 }
