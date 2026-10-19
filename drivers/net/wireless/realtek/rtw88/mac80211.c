@@ -598,20 +598,20 @@ static int rtw_ops_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 	rtw_leave_lps_deep(rtwdev);
 
-	if (key->flags & IEEE80211_KEY_FLAG_PAIRWISE) {
-		hw_key_idx = rtw_sec_get_free_cam(sec);
-	} else {
-		/* multiple interfaces? */
-		hw_key_idx = key->keyidx;
-	}
-
-	if (hw_key_idx >= sec->total_cam_num) {
-		ret = -ENOSPC;
-		goto out;
-	}
-
 	switch (cmd) {
 	case SET_KEY:
+		if (key->flags & IEEE80211_KEY_FLAG_PAIRWISE) {
+			hw_key_idx = rtw_sec_get_free_cam(sec);
+		} else {
+			/* multiple interfaces? */
+			hw_key_idx = key->keyidx;
+		}
+
+		if (hw_key_idx >= sec->total_cam_num) {
+			ret = -ENOSPC;
+			goto out;
+		}
+
 		/* need sw generated IV */
 		key->flags |= IEEE80211_KEY_FLAG_GENERATE_IV;
 		key->hw_key_idx = hw_key_idx;
