@@ -1,4 +1,10 @@
-subdir-ccflags-y += -I$(src)
+# $(src) is relative to the object tree for both in-tree and out-of-tree
+# (make O=...) builds, and absolute for external module builds.  Resolve it
+# against $(srctree) so that the source paths below remain valid no matter
+# which way the kernel is built.
+dinghai_root := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+
+subdir-ccflags-y += -I$(dinghai_root)
 subdir-ccflags-y += -I$(srctree)/include/linux/dinghai/
 ccflags-y += -Werror
 
@@ -53,5 +59,5 @@ dinghai10e_ptp-y :=en_ptp/tod_driver.o en_ptp/tod_driver_stub.o en_ptp/zxdh_ptp.
 obj-$(CONFIG_DINGHAI_TSN)  += dinghai10e_tsn.o
 dinghai10e_tsn-y :=en_tsn/zxdh_tsn.o en_tsn/zxdh_tsn_reg.o en_tsn/zxdh_tsn_ioctl.o log.o
 
-include $(src)/en_np/Makefile
+include $(dinghai_root)/en_np/Makefile
 

@@ -10,7 +10,9 @@ subdirs += en_np/qos/
 subdirs += en_np/fc/
 subdirs += en_np/flow/
 
-dinghai_root := $(src)
+# Absolute path of the driver source directory; $(src) is relative to the
+# object tree when the kernel is built with a separate output directory.
+dinghai_root := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
 include $(dinghai_root)/en_np/Makefile.include
 
 src_files :=
