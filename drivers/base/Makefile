@@ -31,7 +31,9 @@ obj-y			+= test/
 
 obj-$(CONFIG_DINGHAI_AUXILIARY) += dinghai10e_auxiliary.o
 dinghai10e_auxiliary-y += en_auxiliary.o
-subdir-ccflags-y += -I$(CWD)/include
+# $(CWD) is not defined by kbuild and would point at the object tree in
+# out-of-tree (make O=...) builds; use $(srctree) instead.
+subdir-ccflags-y += -I$(srctree)/include
 
 ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
 
