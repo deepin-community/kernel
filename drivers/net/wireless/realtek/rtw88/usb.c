@@ -771,6 +771,11 @@ static void rtw_usb_rx_handler(struct work_struct *work)
 			if (pkt_stat.is_c2h) {
 				rtw_fw_c2h_cmd_rx_irqsafe(rtwdev, pkt_offset, skb);
 			} else {
+				if (!test_bit(RTW_FLAG_RUNNING, rtwdev->flags)) {
+					dev_kfree_skb_any(skb);
+					goto skip_packet;
+				}
+
 				skb_pull(skb, pkt_offset);
 				rtw_update_rx_freq_for_invalid(rtwdev, skb,
 							       &rx_status,
