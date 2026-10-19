@@ -67,7 +67,7 @@ struct jit_ctx {
 	int exentry_idx;
 	u32 *image;		// JITed instruction
 	u32 *ro_image;
-	bool far_call;		// emit the long form of call instructions only
+	bool sizing;		// measuring pass: emit the worst-case encodings
 	u32 stack_size;
 };
 
@@ -228,6 +228,32 @@ static void emit_sw64_ldu64(const int dst, const u64 imm, struct jit_ctx *ctx)
 
 	emit_sw64_ld32_hi(dst, hi, ctx);
 	emit_sw64_ldu32(reg_tmp, lo, ctx);
+	emit(SW64_BPF_BIS_REG(dst, reg_tmp, dst), ctx);
+
+	put_tmp_reg(ctx);
+}
+
+/* Load an address that is only final in the real pass. The instruction count
+ * of emit_sw64_ldu64() depends on the value, so the measuring pass reserves
+ * the longest form (8 instructions: ld32_hi + ldu32 + bis) instead of the one
+ * the stack-local address would need.
+ */
+static void emit_sw64_ldu64_addr(const int dst, const u64 addr, struct jit_ctx *ctx)
+{
+	u8 reg_tmp;
+
+	if (!ctx->sizing)
+		return emit_sw64_ldu64(dst, addr, ctx);
+
+	reg_tmp = get_tmp_reg(ctx);
+
+	emit(SW64_BPF_LDIH(dst, SW64_BPF_REG_ZR, S16_MIN), ctx);
+	emit(SW64_BPF_LDI(dst, dst, S16_MIN), ctx);
+	emit(SW64_BPF_SLL_IMM(dst, 32, dst), ctx);
+	emit(SW64_BPF_LDIH(reg_tmp, SW64_BPF_REG_ZR, S16_MAX), ctx);
+	emit(SW64_BPF_ADDL_REG(reg_tmp, reg_tmp, reg_tmp), ctx);
+	emit(SW64_BPF_LDI(reg_tmp, reg_tmp, S16_MIN), ctx);
+	emit(SW64_BPF_ZAP_IMM(reg_tmp, 0xf0, reg_tmp), ctx);
 	emit(SW64_BPF_BIS_REG(dst, reg_tmp, dst), ctx);
 
 	put_tmp_reg(ctx);
@@ -1520,7 +1546,7 @@ static void emit_sw64_call(u64 target, struct jit_ctx *ctx)
 	unsigned long ip = (unsigned long)(ctx->ro_image + ctx->idx);
 	s64 offset = (s64)((unsigned long)target - (unsigned long)ip);
 
-	if (!ctx->far_call && offset >= -0x100000 && offset <= 0xfffff) {
+	if (!ctx->sizing && offset >= -0x100000 && offset <= 0xfffff) {
 		s32 jmp_offset = (s32)offset;
 		/* we must remember br in sw is 4 * disp， and -1 is for pc will add 1 when exec */
 		jmp_offset = jmp_offset/4 - 1;
@@ -1832,7 +1858,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 		orig_call += MCOUNT_INSN_SIZE;
 
 	if (flags & BPF_TRAMP_F_CALL_ORIG) {
-		emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)im, ctx);
+		emit_sw64_ldu64_addr(SW64_BPF_REG_A0, (const u64)im, ctx);
 		emit_sw64_call((const u64)__bpf_tramp_enter, ctx);
 	}
 
@@ -1876,7 +1902,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	if (flags & BPF_TRAMP_F_CALL_ORIG) {
 		im->ip_epilogue = ctx->image + ctx->idx;
 		/* for the first pass, assume the worst case */
-		emit_sw64_ldu64(SW64_BPF_REG_A0, (const u64)im, ctx);
+		emit_sw64_ldu64_addr(SW64_BPF_REG_A0, (const u64)im, ctx);
 		emit_sw64_call((const u64)__bpf_tramp_exit, ctx);
 	}
 
@@ -1928,15 +1954,16 @@ int arch_bpf_trampoline_size(const struct btf_func_model *m, u32 flags,
 	struct jit_ctx ctx = {
 		.image = NULL,
 		.ro_image = NULL,
-		.far_call = true,
+		.sizing = true,
 		.idx = 0,
 	};
 	int ret;
 
-	/* The length of a call is only known once its address is, so measure
-	 * with the long form of every call (far_call). That makes the result
-	 * independent of the address the real pass will run at, and it is an
-	 * upper bound since that pass picks the short form whenever it can.
+	/* The length of a call and of a descriptor load is only known once the
+	 * address is, so measure with the long form of both. That makes the
+	 * result independent of the addresses the real pass will run with, and
+	 * it is an upper bound since the real pass picks the short forms
+	 * whenever it can.
 	 */
 	ret = __arch_prepare_bpf_trampoline(&ctx, &im, tlinks, func_addr,
 					    btf_func_model_nregs(m), flags);
