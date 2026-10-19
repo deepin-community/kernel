@@ -59,8 +59,10 @@ static inline void p4d_populate(struct mm_struct *mm, p4d_t *p4dp, pud_t *pudp)
 
 static inline void pud_free(struct mm_struct *mm, pud_t *pud)
 {
+#ifdef CONFIG_PTP
 	if (!pgtable_l4_enabled())
 		return;
+#endif
 	BUG_ON((unsigned long)pud & (PAGE_SIZE-1));
 #ifdef CONFIG_PTP
 	pagetable_free(virt_to_ptdesc(pud));
