@@ -1724,6 +1724,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	struct bpf_tramp_links *fentry = &tlinks[BPF_TRAMP_FENTRY];
 	struct bpf_tramp_links *fexit = &tlinks[BPF_TRAMP_FEXIT];
 	struct bpf_tramp_links *fmod_ret = &tlinks[BPF_TRAMP_MODIFY_RETURN];
+	bool is_struct_ops = flags & BPF_TRAMP_F_INDIRECT;
 	bool save_ret;
 	void *orig_call = func_addr;
 
@@ -1811,7 +1812,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	/* room for args on stack must be at the top of stack */
 	stk_arg_off = stack_size;
 
-	if (func_addr) {
+	if (!is_struct_ops) {
 		/* For the trampoline called from function entry,
 		 * the frame of traced function and the frame of
 		 * trampoline need to be considered.
@@ -1915,7 +1916,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	/* callee saved register S0 to transmit start time, so use this reg, now we restore it  */
 	emit(SW64_BPF_LDL(SW64_BPF_REG_S0, SW64_BPF_REG_FP, -sreg_off), ctx);
 
-	if (func_addr) {
+	if (!is_struct_ops) {
 		/* trampoline called from function entry */
 		emit(SW64_BPF_LDL(SW64_BPF_REG_AT, SW64_BPF_REG_SP, stack_size - 8), ctx);
 		emit(SW64_BPF_LDL(SW64_BPF_REG_FP, SW64_BPF_REG_SP, stack_size - 16), ctx);
