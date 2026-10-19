@@ -185,6 +185,9 @@ static ssize_t rtw89_debugfs_file_read(struct file *file, char __user *userbuf,
 	debugfs_priv->rused = n;
 
 out:
+	if (n < 0)
+		return n;
+
 	return simple_read_from_buffer(userbuf, count, ppos, buf, n);
 }
 
