@@ -23,6 +23,11 @@ config PHYTIUM_EC
 config PHYTIUM_LAPTOP
 	bool "Phytium laptop platform support"
 	depends on PHYTIUM_EC
+	# The driver serialises its EC accesses against the i8042 keyboard
+	# controller through i8042_lock and links against the input core, so
+	# neither provider may be disabled or modular.
+	depends on INPUT=y
+	depends on SERIO_I8042=y
 	select POWER_SUPPLY
 	select BACKLIGHT_CLASS_DEVICE
 	select INPUT_SPARSEKMAP
