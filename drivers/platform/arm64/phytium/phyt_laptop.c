@@ -1236,14 +1236,16 @@ static void ft_ec_irq_exit(void)
 	it8528_ec_event_int_disable();
 
 	/*
-	 * Stop new interrupts before touching the work item. free_irq() only
-	 * waits for the handler, so a worker still in flight could otherwise
-	 * rearm an IRQ that no longer has a handler registered.
+	 * disable_irq() rather than disable_irq_nosync(): it also waits for a
+	 * handler that is already running. Otherwise that handler could call
+	 * schedule_work() after cancel_work_sync() below has returned, and the
+	 * newly queued pass would run after free_irq() released the interrupt
+	 * and after the objects it touches are gone.
 	 */
 	if (ft_gpio_device)
-		disable_irq_nosync(ft_gpio_device->irq);
+		disable_irq(ft_gpio_device->irq);
 
-	/* Let a queued pass finish while the IRQ is still registered. */
+	/* No handler can queue again now, so this is final. */
 	cancel_work_sync(&ec_int_routine_wq);
 
 	if (ft_gpio_device)
