@@ -16,23 +16,6 @@
 #include <linux/classtypes.h>
 #include <linux/gpio.h>
 
-static int ec_read16(u8 high_index, u8 low_index, u16 *value)
-{
-	u8 high, low;
-	int ret;
-
-	ret = it8528_read_byte(high_index, &high);
-	if (ret)
-		return ret;
-
-	ret = it8528_read_byte(low_index, &low);
-	if (ret)
-		return ret;
-
-	*value = (high << 8) | low;
-	return 0;
-}
-
 
 static int ec_gsensor_init(struct platform_device *pdev);
 
@@ -45,15 +28,6 @@ enum {
 	APM_AC_ONLINE,
 	APM_AC_BACKUP,
 	APM_AC_UNKNOWN =	0xff
-};
-
-enum {
-	APM_BAT_STATUS_HIGH = 0,
-	APM_BAT_STATUS_LOW,
-	APM_BAT_STATUS_CRITICAL,
-	APM_BAT_STATUS_CHARGING,
-	APM_BAT_STATUS_NOT_PRESENT,
-	APM_BAT_STATUS_UNKNOWN =	0xff
 };
 
 enum /* bat_reg_flag */
@@ -95,8 +69,6 @@ struct ft_power_info {
 	unsigned int design_voltage;
 	/* Battery capacity after full charged */
 	unsigned int full_charged_capacity;
-	/* Battery Manufacture Date */
-	unsigned char manufacture_date[11];
 	/* Battery Serial number */
 	unsigned char serial_number[8];
 	/* Battery Manufacturer Name, max 11 + 1(length) bytes */
@@ -105,14 +77,11 @@ struct ft_power_info {
 	unsigned char device_name[8];
 	/* Battery Technology */
 	unsigned int technology;
-	/* Battery cell count */
-	unsigned char cell_count;
 
 	/* Battery dynamic charge/discharge voltage */
 	unsigned int voltage_now;
 	/* Battery dynamic charge/discharge average current */
 	int current_now;
-	int current_sign;
 	int current_average;
 	/* Battery current remaining capacity */
 	unsigned int remain_capacity;
@@ -163,26 +132,19 @@ static int ft_bat_get_property(struct power_supply *pws,
 /* Power supply AC get property handler */
 static int ft_ac_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val);
-/* LPC device AC event handler */
-static void ft_ac_handler(int status);
-/* LPC device Battery event handler */
-static void ft_bat_handler(int status);
+/* EC device AC event handler */
+static void ft_ac_handler(void);
+/* EC device Battery event handler */
+static void ft_bat_handler(void);
+/* Report the current lid switch state */
+static void ft_lid_report(void);
 
 /* <<<End power management operation */
-
-/* LPC device LID event handler */
-static void ft_lid_handler(int status);
 
 /* Platform device suspend handler */
 static int ft_laptop_suspend(struct device *dev);
 /* Platform device resume handler */
 static int ft_laptop_resume(struct device *dev);
-
-/* ec device event structure */
-struct ec_event {
-	int index;
-	ec_handler handler;
-};
 
 static struct input_dev *ft_hotkey_dev;
 static struct input_dev *ec_gsensor_dev;
@@ -297,16 +259,6 @@ static struct power_supply_desc ft_ac = {
 };
 static struct power_supply *ec_ac;
 
-static void ft_ec_powerbtn_event(void)
-{
-	const struct key_entry *key = &ft_keymap[8];
-
-	if (!ft_hotkey_dev)
-		return;
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-
 static void ft_ec_screen_rotation_event(void)
 {
 	u16 x_val, y_val, z_val;
@@ -314,9 +266,9 @@ static void ft_ec_screen_rotation_event(void)
 	if (!ec_gsensor_dev)
 		return;
 
-	if (ec_read16(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val) ||
-	    ec_read16(EC_GSENSOR_Y_HIGH, EC_GSENSOR_Y_LOW, &y_val) ||
-	    ec_read16(EC_GSENSOR_Z_HIGH, EC_GSENSOR_Z_LOW, &z_val))
+	if (it8528_read_word(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val) ||
+	    it8528_read_word(EC_GSENSOR_Y_HIGH, EC_GSENSOR_Y_LOW, &y_val) ||
+	    it8528_read_word(EC_GSENSOR_Z_HIGH, EC_GSENSOR_Z_LOW, &z_val))
 		return;
 
 	input_event(ec_gsensor_dev, EV_ABS, ABS_X, x_val);
@@ -325,61 +277,37 @@ static void ft_ec_screen_rotation_event(void)
 	input_sync(ec_gsensor_dev);
 }
 
-static void ft_ec_powerbtn_event_handler(int event)
-{
-	ft_ec_powerbtn_event();
-}
-
-static void ft_ec_screen_rotation_event_handler(int event)
-{
-	ft_ec_screen_rotation_event();
-}
-
-/* LPC device event handler */
+/*
+ * Events that need more than a plain key report. Everything else only has a
+ * keymap entry and is reported through the sparse keymap below.
+ */
 static const struct {
-	int event;
-	void (*handler)(int event);
+	unsigned int event;
+	void (*handler)(void);
 } ec_event_table[] = {
-	{ EC_EVENT_NUM_LID, ft_lid_handler },
+	{ EC_EVENT_NUM_LID, ft_lid_report },
 	{ EC_EVENT_NUM_AC, ft_ac_handler },
 	{ EC_EVENT_NUM_BAT, ft_bat_handler },
-	{ EC_EVENT_NUM_POWERBTN, ft_ec_powerbtn_event_handler },
-	{ EC_EVENT_NUM_GSENSOR, ft_ec_screen_rotation_event_handler },
+	{ EC_EVENT_NUM_GSENSOR, ft_ec_screen_rotation_event },
 };
 
-/* Whether the EC event number has a consumer, special or keymap. */
-static bool ec_event_is_known(unsigned int event)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ec_event_table); i++) {
-		if (ec_event_table[i].event == event)
-			return true;
-	}
-
-	if (!ft_hotkey_dev)
-		return false;
-
-	return sparse_keymap_entry_from_scancode(ft_hotkey_dev, event) != NULL;
-}
-
-static void ft_ec_event_handler(int event)
+/* Dispatch one EC event; returns false when nothing consumes it. */
+static bool ft_ec_event_handler(unsigned int event)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(ec_event_table); i++) {
 		if (ec_event_table[i].event == event) {
-			ec_event_table[i].handler(event);
-			return;
+			ec_event_table[i].handler();
+			return true;
 		}
 	}
 
-	/* Everything else in the keymap is a plain key press. */
-	sparse_keymap_report_event(ft_hotkey_dev, event, 1, true);
-}
+	if (!ft_hotkey_dev)
+		return false;
 
-/* Upper bound on how many queued EC events one interrupt drains. */
-#define EC_EVENT_DRAIN_MAX	16
+	return sparse_keymap_report_event(ft_hotkey_dev, event, 1, true);
+}
 
 /*
  * Consume every event the EC has queued. Querying an event also removes it
@@ -390,19 +318,20 @@ static void ec_drain_events(void)
 	int i;
 
 	for (i = 0; i < EC_EVENT_DRAIN_MAX; i++) {
-		int event;
+		u8 event;
+		int ret;
 
 		if (!it8528_get_ec_evt_flags())
 			break;
 
-		event = it8528_query_get_event_num();
-		if (event < 0) {
-			pr_err("phytium ec: failed to read event: %d\n", event);
+		ret = it8528_query_get_event_num(&event);
+		if (ret) {
+			pr_err("phytium ec: failed to read event: %d\n", ret);
 			break;
 		}
 
-		if (event > 0 && ec_event_is_known(event))
-			ft_ec_event_handler(event);
+		if (!ft_ec_event_handler(event))
+			pr_debug("phytium ec: unhandled event 0x%x\n", event);
 	}
 }
 
@@ -615,7 +544,7 @@ static int ft_bat_update_temp(void)
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW, &value);
+	ret = it8528_read_word(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW, &value);
 	if (ret)
 		return ret;
 
@@ -628,7 +557,7 @@ static int ft_bat_update_voltage(void)
 	u16 value;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW, &value);
+	ret = it8528_read_word(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW, &value);
 	if (ret)
 		return ret;
 
@@ -641,7 +570,7 @@ static int ft_bat_update_current(void)
 	u16 value;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW,
+	ret = it8528_read_word(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW,
 			&value);
 	if (ret)
 		return ret;
@@ -660,7 +589,7 @@ static int ft_bat_update_ac(void)
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &value);
+	ret = it8528_read_word(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &value);
 	if (ret)
 		return ret;
 
@@ -673,7 +602,7 @@ static int ft_bat_update_rc(void)
 	u16 value;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &value);
+	ret = it8528_read_word(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &value);
 	if (ret)
 		return ret;
 
@@ -686,7 +615,7 @@ static int ft_bat_update_fcc(void)
 	u16 value;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW, &value);
+	ret = it8528_read_word(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW, &value);
 	if (ret)
 		return ret;
 
@@ -700,11 +629,11 @@ static int ft_bat_update_atte(void)
 	int current_ma;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
+	ret = it8528_read_word(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
+	ret = it8528_read_word(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
 	if (ret)
 		return ret;
 
@@ -722,15 +651,15 @@ static int ft_bat_update_attf(void)
 	int current_ma, remaining;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW, &cap);
+	ret = it8528_read_word(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW, &cap);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
+	ret = it8528_read_word(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
+	ret = it8528_read_word(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
 	if (ret)
 		return ret;
 
@@ -767,7 +696,7 @@ static int ft_bat_update_cyclcnt(void)
 	u16 value;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_CYCLECNT_HIGH,
+	ret = it8528_read_word(INDEX_BATTERY_CYCLECNT_HIGH,
 			INDEX_BATTERY_CYCLECNT_LOW, &value);
 	if (ret)
 		return ret;
@@ -822,8 +751,6 @@ static void ft_power_info_battery_static_clear(void)
 	strscpy(power_info->device_name, "Unknown", sizeof(power_info->device_name));
 	power_info->technology = POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 	strscpy(power_info->serial_number, "Unknown", sizeof(power_info->serial_number));
-	strscpy(power_info->manufacture_date, "Unknown", sizeof(power_info->manufacture_date));
-	power_info->cell_count = 0;
 	power_info->design_capacity = 0;
 	power_info->design_voltage = 0;
 }
@@ -835,23 +762,23 @@ static int ft_power_info_battery_static_update(void)
 	u16 design_voltage, full_charged_capacity;
 	int ret;
 
-	ret = ec_read16(INDEX_BATTERY_SN_HIGH, INDEX_BATTERY_SN_LOW, &serial_number);
+	ret = it8528_read_word(INDEX_BATTERY_SN_HIGH, INDEX_BATTERY_SN_LOW, &serial_number);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_CV_HIGH, INDEX_BATTERY_CV_LOW, &cell_voltage);
+	ret = it8528_read_word(INDEX_BATTERY_CV_HIGH, INDEX_BATTERY_CV_LOW, &cell_voltage);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW, &design_capacity);
+	ret = it8528_read_word(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW, &design_capacity);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_DV_HIGH, INDEX_BATTERY_DV_LOW, &design_voltage);
+	ret = it8528_read_word(INDEX_BATTERY_DV_HIGH, INDEX_BATTERY_DV_LOW, &design_voltage);
 	if (ret)
 		return ret;
 
-	ret = ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW,
+	ret = it8528_read_word(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW,
 			&full_charged_capacity);
 	if (ret)
 		return ret;
@@ -859,7 +786,6 @@ static int ft_power_info_battery_static_update(void)
 	power_info->technology = POWER_SUPPLY_TECHNOLOGY_LION;
 	snprintf(power_info->serial_number, sizeof(power_info->serial_number),
 		 "%x", serial_number);
-	power_info->cell_count = cell_voltage / 4200;
 	power_info->design_capacity = design_capacity;
 	power_info->design_voltage = design_voltage;
 	power_info->full_charged_capacity = full_charged_capacity;
@@ -887,7 +813,7 @@ static int ft_power_info_power_status_update(void)
 
 	power_info->bat_in = !!(status & MASK(BIT_POWER_BATPRES));
 	if (power_info->bat_in) {
-		ret = ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW,
+		ret = it8528_read_word(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW,
 				&design_capacity);
 		if (ret)
 			return ret;
@@ -1046,7 +972,7 @@ static int ft_ac_get_property(struct power_supply *pws,
 }
 
 /* EC device AC event handler */
-static void ft_ac_handler(int status)
+static void ft_ac_handler(void)
 {
 	if (ec_ac)
 		power_supply_changed(ec_ac);
@@ -1075,30 +1001,29 @@ static void ft_lid_report(void)
 	input_sync(ft_hotkey_dev);
 }
 
-/* LPC device Battery event handler */
-static void ft_bat_handler(int status)
+/* EC device Battery event handler */
+static void ft_bat_handler(void)
 {
-	/* status carries the event number, not the power status register. */
+	int ret;
+
 	if (ft_power_info_power_status_update())
 		return;
 
 	/* Battery insert/pull-out to handle battery static information. */
 	if (power_info->bat_in) {
 		/* If battery is insert, get battery static information. */
-		ft_power_info_battery_static_update();
+		ret = ft_power_info_battery_static_update();
+		if (ret)
+			pr_err("phytium ec: failed to read static information: %d\n",
+			       ret);
 	} else {
 		/* Else if battery is pull-out, clear battery static information. */
 		ft_power_info_battery_static_clear();
 	}
 
+	/* Notify regardless, the property callbacks re-read from the EC. */
 	if (ec_bat)
 		power_supply_changed(ec_bat);
-}
-
-/* LPC device LID event handler */
-static void ft_lid_handler(int status)
-{
-	ft_lid_report();
 }
 
 /* Hotkey device init */
@@ -1117,12 +1042,6 @@ static int ft_hotkey_init(void)
 	ft_hotkey_dev->phys = "button/input0";
 	ft_hotkey_dev->id.bustype = BUS_HOST;
 	ft_hotkey_dev->dev.parent = NULL;
-	set_bit(EV_KEY, ft_hotkey_dev->evbit);
-	set_bit(EV_SW, ft_hotkey_dev->evbit);
-	set_bit(KEY_POWER, ft_hotkey_dev->keybit);
-	set_bit(SW_LID, ft_hotkey_dev->swbit);
-
-
 	ret = sparse_keymap_setup(ft_hotkey_dev, ft_keymap, NULL);
 	if (ret) {
 		pr_err("phytium Laptop Platform Driver: Fail to setup input device keymap\n");
@@ -1157,7 +1076,7 @@ static ssize_t gsensor_show(struct kobject *kobj,
 	u16 x_val;
 	int ret;
 
-	ret = ec_read16(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val);
+	ret = it8528_read_word(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val);
 	if (ret)
 		return ret;
 
