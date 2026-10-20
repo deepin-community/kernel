@@ -15,12 +15,10 @@
 #include "ec_it8528.h"
 
 /* This spinlock is dedicated for 62&66 ports and super io port access. */
-DEFINE_SPINLOCK(index_access_lock);
+static DEFINE_SPINLOCK(index_access_lock);
 
-static int ec_wait_ibf_clear(void)
+static int ec_wait_ibf_clear(unsigned int timeout)
 {
-	unsigned int timeout = EC_SEND_TIMEOUT;
-
 	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
 		udelay(1);
 	if (!timeout) {
@@ -48,7 +46,7 @@ static int ec_wait_obf_set(u8 *data)
 
 static int ec_send_byte(u8 byte, u16 port)
 {
-	int ret = ec_wait_ibf_clear();
+	int ret = ec_wait_ibf_clear(EC_SEND_TIMEOUT);
 
 	if (ret)
 		return ret;
@@ -101,6 +99,29 @@ int it8528_read_byte(unsigned char index, u8 *value)
 }
 EXPORT_SYMBOL(it8528_read_byte);
 
+/*
+ * Read the high and low byte of a 16 bit EC register and combine them. The
+ * high byte index comes first, matching the INDEX_*_HIGH/INDEX_*_LOW pairs.
+ */
+int it8528_read_word(unsigned char high_index, unsigned char low_index,
+		     u16 *value)
+{
+	u8 high, low;
+	int ret;
+
+	ret = it8528_read_byte(high_index, &high);
+	if (ret)
+		return ret;
+
+	ret = it8528_read_byte(low_index, &low);
+	if (ret)
+		return ret;
+
+	*value = (high << 8) | low;
+	return 0;
+}
+EXPORT_SYMBOL(it8528_read_word);
+
 int it8528_write(unsigned char index, unsigned char data)
 {
 	u8 wdata[2] = { index, data };
@@ -115,11 +136,9 @@ bool it8528_get_ec_evt_flags(void)
 }
 EXPORT_SYMBOL(it8528_get_ec_evt_flags);
 
-int it8528_query_get_event_num(void)
+int it8528_query_get_event_num(u8 *event)
 {
 	unsigned long flags;
-	unsigned int timeout;
-	u8 value = 0;
 	int ret;
 
 	spin_lock_irqsave(&index_access_lock, flags);
@@ -129,81 +148,56 @@ int it8528_query_get_event_num(void)
 		goto out;
 
 	/* Give the EC a moment to consume the command. */
-	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
-		udelay(1);
-	if (!timeout) {
-		pr_err("EC QUERY SEQ: timeout\n");
-		ret = -ETIMEDOUT;
+	ret = ec_wait_ibf_clear(EC_CMD_TIMEOUT);
+	if (ret)
 		goto out;
-	}
 
-	ret = ec_wait_obf_set(&value);
+	ret = ec_wait_obf_set(event);
 out:
 	spin_unlock_irqrestore(&index_access_lock, flags);
-	return ret ? ret : value;
+	return ret;
 }
 EXPORT_SYMBOL(it8528_query_get_event_num);
 
 int it8528_query_clean_event(void)
 {
-	int ret;
+	u8 event;
+	int i, ret;
 
-	while (inb(EC_STS_PORT) & EC_SCI_EVT) {
-		ret = it8528_query_get_event_num();
-		if (ret <= 0) {
-			pr_info("Clean sci event done!\n");
+	for (i = 0; i < EC_EVENT_DRAIN_MAX; i++) {
+		if (!(inb(EC_STS_PORT) & EC_SCI_EVT))
+			break;
+
+		ret = it8528_query_get_event_num(&event);
+		if (ret)
 			return ret;
-		}
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL(it8528_query_clean_event);
 
-void it8528_ec_event_int_enable(void)
+static void it8528_ec_event_int_cmd(u8 command)
 {
 	unsigned long flags;
-	unsigned int timeout;
-	int ret;
 
 	spin_lock_irqsave(&index_access_lock, flags);
 
-	ret = ec_send_byte(CMD_ENABLE_EVENT_EC, EC_CMD_PORT);
-	if (ret)
-		goto out;
+	if (!ec_send_byte(command, EC_CMD_PORT))
+		ec_wait_ibf_clear(EC_CMD_TIMEOUT);
 
-	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
-		udelay(1);
-	if (!timeout)
-		pr_err("EC ENABLE EVENT INTERRUPT: timeout\n");
-
-out:
 	spin_unlock_irqrestore(&index_access_lock, flags);
+}
+
+void it8528_ec_event_int_enable(void)
+{
+	it8528_ec_event_int_cmd(CMD_ENABLE_EVENT_EC);
 }
 EXPORT_SYMBOL(it8528_ec_event_int_enable);
 
 void it8528_ec_event_int_disable(void)
 {
-	unsigned long flags;
-	unsigned int timeout;
-	int ret;
-
-	spin_lock_irqsave(&index_access_lock, flags);
-
-	ret = ec_send_byte(CMD_DISABLE_EVENT_EC, EC_CMD_PORT);
-	if (ret)
-		goto out;
-
-	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
-		udelay(1);
-	if (!timeout)
-		pr_err("EC DISABLE EVENT INTERRUPT: timeout\n");
-
-out:
-	spin_unlock_irqrestore(&index_access_lock, flags);
+	it8528_ec_event_int_cmd(CMD_DISABLE_EVENT_EC);
 }
 EXPORT_SYMBOL(it8528_ec_event_int_disable);
 
