@@ -507,7 +507,7 @@ exit_event_action:
 /* LPC driver init */
 static int lpc_int_init(void)
 {
-	int ret = -EIO;
+	int ret;
 
 	pr_debug("phytium: lpc init.\n");
 
@@ -515,17 +515,18 @@ static int lpc_int_init(void)
 	if (!ft_lpc_device)
 		return -ENOMEM;
 
-	ft_lpc_device->irq = 0x25;
 	ft_lpc_device->irq_data = 0x00;
 	ft_lpc_device->number = 0x00;
 	ft_lpc_device->parameter = 0x00;
 	strscpy(ft_lpc_device->name, EC_LPC_DEV, sizeof(ft_lpc_device->name));
 
 	/* get lpc irq */
-	ft_lpc_device->irq  = phytium_pio_get_irq();
-	if (ft_lpc_device->irq < 0)
-		goto out_pdev;
-
+	ret = phytium_pio_get_irq();
+	if (ret < 0) {
+		pr_err("phytium ec: Failed to get lpc irq: %d\n", ret);
+		goto err_free;
+	}
+	ft_lpc_device->irq = ret;
 
 	/* clear all interrupt status */
 	lpc_interrupt_clear_all();
@@ -534,19 +535,17 @@ static int lpc_int_init(void)
 	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine,
 				IRQF_SHARED, ft_lpc_device->name, ft_lpc_device);
 	if (ret) {
-		pr_err("phytium ec: Request irq fail.\n");
-		ret = -EFAULT;
-		goto out_irq;
+		pr_err("phytium ec: Request irq fail: %d\n", ret);
+		goto err_free;
 	}
 
-	ret = 0;
 	pr_debug("phytium: LPC init successful.\n");
 
-	return ret;
+	return 0;
 
-out_irq:
-out_pdev:
+err_free:
 	kfree(ft_lpc_device);
+	ft_lpc_device = NULL;
 	return ret;
 }
 
@@ -640,11 +639,10 @@ static int gpio_driver_init(int irq)
 	strscpy(ft_gpio_device->name, "ec_gpio", sizeof(ft_gpio_device->name));
 
 	/* Configure GPIO pin function */
-
 	ret = set_func_to_gpio();
 	if (ret) {
-		pr_err("set gpio func failed.\n");
-		return -ENOMEM;
+		pr_err("set gpio func failed: %d\n", ret);
+		goto err_free;
 	}
 
 	/* Set GPIO related configuration */
@@ -652,9 +650,14 @@ static int gpio_driver_init(int irq)
 	ret = request_irq(ft_gpio_device->irq, ft_ec_int_gpio_routine,
 		  IRQF_TRIGGER_RISING, ft_gpio_device->name, ft_gpio_device);
 	if (ret) {
-		pr_err("phytium: Request irq fail.\n");
-		return -EFAULT;
+		pr_err("phytium: Request irq fail: %d\n", ret);
+		goto err_free;
 	}
+	return 0;
+
+err_free:
+	kfree(ft_gpio_device);
+	ft_gpio_device = NULL;
 	return ret;
 }
 
