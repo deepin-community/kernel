@@ -16,9 +16,21 @@
 #include <linux/classtypes.h>
 #include <linux/gpio.h>
 
-static inline u16 ec_read16(u8 high, u8 low)
+static int ec_read16(u8 high_index, u8 low_index, u16 *value)
 {
-	return (it8528_read(high) << 8) | it8528_read(low);
+	u8 high, low;
+	int ret;
+
+	ret = it8528_read_byte(high_index, &high);
+	if (ret)
+		return ret;
+
+	ret = it8528_read_byte(low_index, &low);
+	if (ret)
+		return ret;
+
+	*value = (high << 8) | low;
+	return 0;
 }
 
 
@@ -138,13 +150,13 @@ static int ft_set_brightness(struct backlight_device *);
 
 /* >>>Power management operation */
 /* Update battery information handle function. */
-static void ft_power_battery_info_update(unsigned char bat_reg_flag);
+static int ft_power_battery_info_update(unsigned char bat_reg_flag);
 /* Clear battery static information. */
 static void ft_power_info_battery_static_clear(void);
 /* Get battery static information. */
-static void ft_power_info_battery_static_update(void);
+static int ft_power_info_battery_static_update(void);
 /* Update power_status value */
-static void ft_power_info_power_status_update(void);
+static int ft_power_info_power_status_update(void);
 /* Power supply Battery get property handler */
 static int ft_bat_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val);
@@ -289,16 +301,23 @@ static void ft_ec_powerbtn_event(void)
 {
 	const struct key_entry *key = &ft_keymap[8];
 
+	if (!ft_hotkey_dev)
+		return;
+
 	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
 }
 
 static void ft_ec_screen_rotation_event(void)
 {
-	int x_val = 0, y_val = 0, z_val = 0;
+	u16 x_val, y_val, z_val;
 
-	x_val = (it8528_read(EC_GSENSOR_X_HIGH) << 8) | it8528_read(EC_GSENSOR_X_LOW);
-	y_val = (it8528_read(EC_GSENSOR_Y_HIGH) << 8) | it8528_read(EC_GSENSOR_Y_LOW);
-	z_val = (it8528_read(EC_GSENSOR_Z_HIGH) << 8) | it8528_read(EC_GSENSOR_Z_LOW);
+	if (!ec_gsensor_dev)
+		return;
+
+	if (ec_read16(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val) ||
+	    ec_read16(EC_GSENSOR_Y_HIGH, EC_GSENSOR_Y_LOW, &y_val) ||
+	    ec_read16(EC_GSENSOR_Z_HIGH, EC_GSENSOR_Z_LOW, &z_val))
+		return;
 
 	input_event(ec_gsensor_dev, EV_ABS, ABS_X, x_val);
 	input_event(ec_gsensor_dev, EV_ABS, ABS_Y, y_val);
@@ -328,6 +347,22 @@ static const struct {
 	{ EC_EVENT_NUM_GSENSOR, ft_ec_screen_rotation_event_handler },
 };
 
+/* Whether the EC event number has a consumer, special or keymap. */
+static bool ec_event_is_known(unsigned int event)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ec_event_table); i++) {
+		if (ec_event_table[i].event == event)
+			return true;
+	}
+
+	if (!ft_hotkey_dev)
+		return false;
+
+	return sparse_keymap_entry_from_scancode(ft_hotkey_dev, event) != NULL;
+}
+
 static void ft_ec_event_handler(int event)
 {
 	int i;
@@ -338,37 +373,57 @@ static void ft_ec_event_handler(int event)
 			return;
 		}
 	}
+
+	/* Everything else in the keymap is a plain key press. */
+	sparse_keymap_report_event(ft_hotkey_dev, event, 1, true);
 }
 
+/* Upper bound on how many queued EC events one interrupt drains. */
+#define EC_EVENT_DRAIN_MAX	16
 
+/*
+ * Consume every event the EC has queued. Querying an event also removes it
+ * from the EC, so a single notification can stand for several events.
+ */
+static void ec_drain_events(void)
+{
+	int i;
+
+	for (i = 0; i < EC_EVENT_DRAIN_MAX; i++) {
+		int event;
+
+		if (!it8528_get_ec_evt_flags())
+			break;
+
+		event = it8528_query_get_event_num();
+		if (event < 0) {
+			pr_err("phytium ec: failed to read event: %d\n", event);
+			break;
+		}
+
+		if (event > 0 && ec_event_is_known(event))
+			ft_ec_event_handler(event);
+	}
+}
+
+/* EC event interrupt, shared with i8042 over the PIO controller. */
 static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 {
-	int event;
 	unsigned long flags;
 
-	spin_lock_irqsave(&i8042_lock, flags);
-
-	/* if not ec irq */
-	if (!lpc_ec_interrupt_occurs()) {
-		spin_unlock_irqrestore(&i8042_lock, flags);
+	/*
+	 * Test the EC status port rather than the PIO latch: i8042 may have
+	 * acknowledged the shared interrupt before us and cleared the latch
+	 * while the EC still has an event queued.
+	 */
+	if (!it8528_get_ec_evt_flags())
 		return IRQ_NONE;
-	}
 
-	/* Clean lpc irq */
-	lpc_interrupt_clear_all();
-
-	event = it8528_query_get_event_num();
-
-
-	if ((event < EC_EVENT_NUM_MIN) || (event > EC_EVENT_NUM_MAX))
-		goto exit_event_action;
-
-	ft_ec_event_handler(event);
+	spin_lock_irqsave(&i8042_lock, flags);
+	lpc_ec_interrupt_clear();
+	ec_drain_events();
 	spin_unlock_irqrestore(&i8042_lock, flags);
-	return IRQ_HANDLED;
 
-exit_event_action:
-	spin_unlock_irqrestore(&i8042_lock, flags);
 	return IRQ_HANDLED;
 }
 
@@ -393,8 +448,8 @@ static int lpc_int_init(void)
 	}
 	ft_lpc_device->irq = ret;
 
-	/* clear all interrupt status */
-	lpc_interrupt_clear_all();
+	/* Clear the stale EC source without disturbing i8042's sources. */
+	lpc_ec_interrupt_clear();
 
 	/* Regist pci irq */
 	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine,
@@ -428,40 +483,29 @@ static int lpc_driver_init(void)
 	return ret;
 }
 
-int ec_event_int_error;
-
+/* GPIO interrupt bottom half: drain the queue, then rearm the edge. */
 static void ec_int_routine_func(struct work_struct *work)
 {
-	int event;
 	unsigned long flags;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-		event = it8528_query_get_event_num();
-		if ((event < EC_EVENT_NUM_MIN) || (event > EC_EVENT_NUM_MAX)) {
-			pr_err("ec_int_gpio_routine handle event = 0x%x.\r\n", event);
-			ec_event_int_error = true;
-			spin_unlock_irqrestore(&i8042_lock, flags);
-			return;
-		}
-		ft_ec_event_handler(event);
+	ec_drain_events();
 	spin_unlock_irqrestore(&i8042_lock, flags);
+
+	/*
+	 * The GPIO interrupt is edge triggered and will not fire again for
+	 * events drained above, so only rearm once the queue is empty.
+	 */
+	if (ft_gpio_device)
+		enable_irq(ft_gpio_device->irq);
 }
 DECLARE_WORK(ec_int_routine_wq, ec_int_routine_func);
 
 static irqreturn_t ft_ec_int_gpio_routine(int irq, void *dev_id)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&i8042_lock, flags);
 	disable_irq_nosync(irq);
-	if (ec_event_int_error && !it8528_get_ec_evt_flags()) { /*sci_evt flags*/
-		goto event_error;
-	}
-
 	schedule_work(&ec_int_routine_wq);
-event_error:
-	enable_irq(irq);
-	spin_unlock_irqrestore(&i8042_lock, flags);
+
 	return IRQ_HANDLED;
 }
 
@@ -540,12 +584,9 @@ static int ft_set_brightness(struct backlight_device *pdev)
 
 	if (level > MAX_BRIGHTNESS)
 		level = MAX_BRIGHTNESS;
-	else if (level <= 0)
-		level = 1;
 
-	it8528_write(INDEX_DISPLAY_BRIGHTNESS_SET, level);
-
-	return 0;
+	/* Zero is the EC's backlight-off level, so it must be kept as is. */
+	return it8528_write(INDEX_DISPLAY_BRIGHTNESS_SET, level);
 }
 
 /* Backlight device get brightness handler */
@@ -554,89 +595,188 @@ static int ft_get_brightness(struct backlight_device *pdev)
 	if (!chassis_types_is_laptop() && !chassis_types_is_allinone())
 		return 0;
 
+	u8 level;
+	int ret;
+
 	/* Read level from ec */
-	return it8528_read(INDEX_DISPLAY_BRIGHTNESS_GET);
+	ret = it8528_read_byte(INDEX_DISPLAY_BRIGHTNESS_GET, &level);
+	if (ret)
+		return ret;
+
+	return level;
 }
 
-static void ft_bat_update_temp(void)
+static int ft_bat_update_temp(void)
 {
-	int bat_info_value;
+	u16 value;
+	int ret;
 
-	ft_power_info_power_status_update();
-	bat_info_value = ec_read16(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW);
-	power_info->temperature = power_info->bat_in ? (bat_info_value - 2730) : 0;
+	ret = ft_power_info_power_status_update();
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_TEMP_HIGH, INDEX_BATTERY_TEMP_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->temperature = power_info->bat_in ? ((int)value - 2730) : 0;
+	return 0;
 }
 
-static void ft_bat_update_voltage(void)
+static int ft_bat_update_voltage(void)
 {
-	int bat_info_value = ec_read16(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW);
+	u16 value;
+	int ret;
 
-	power_info->voltage_now = power_info->bat_in ? bat_info_value : 0;
+	ret = ec_read16(INDEX_BATTERY_VOL_HIGH, INDEX_BATTERY_VOL_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->voltage_now = power_info->bat_in ? value : 0;
+	return 0;
 }
 
-static void ft_bat_update_current(void)
+static int ft_bat_update_current(void)
 {
-	int bat_info_value =
-		ec_read16(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW);
+	u16 value;
+	int ret;
 
-	power_info->current_now = power_info->bat_in ? bat_info_value : 0;
+	ret = ec_read16(INDEX_BATTERY_CURRENT_HIGH, INDEX_BATTERY_CURRENT_LOW,
+			&value);
+	if (ret)
+		return ret;
+
+	/* Battery current is signed: negative while discharging. */
+	power_info->current_now = power_info->bat_in ? (s16)value : 0;
+	return 0;
 }
 
-static void ft_bat_update_ac(void)
+static int ft_bat_update_ac(void)
 {
-	int bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+	u16 value;
+	int ret;
 
-	ft_power_info_power_status_update();
-	power_info->current_average = power_info->bat_in ? bat_info_value : 0;
+	ret = ft_power_info_power_status_update();
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->current_average = power_info->bat_in ? (s16)value : 0;
+	return 0;
 }
 
-static void ft_bat_update_rc(void)
+static int ft_bat_update_rc(void)
 {
-	power_info->remain_capacity =
-		ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
+	u16 value;
+	int ret;
+
+	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->remain_capacity = value;
+	return 0;
 }
 
-static void ft_bat_update_fcc(void)
+static int ft_bat_update_fcc(void)
 {
-	power_info->full_charged_capacity =
-		ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW);
+	u16 value;
+	int ret;
+
+	ret = ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->full_charged_capacity = value;
+	return 0;
 }
 
-static void ft_bat_update_atte(void)
+static int ft_bat_update_atte(void)
 {
-	int bat_info_value = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+	u16 rc, ac_raw;
+	int current_ma;
+	int ret;
 
-	bat_info_value = bat_info_value > 0 ? bat_info_value : -bat_info_value;
-	if (bat_info_value)
-		power_info->remain_time = 60 *
-			ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW) /
-			bat_info_value;
+	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
+	if (ret)
+		return ret;
+
+	current_ma = (s16)ac_raw;
+	if (current_ma < 0)
+		current_ma = -current_ma;
+
+	power_info->remain_time = current_ma ? 60 * rc / current_ma : 0;
+	return 0;
 }
 
-static void ft_bat_update_attf(void)
+static int ft_bat_update_attf(void)
 {
-	int bat_info_value =
-		ec_read16(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW) -
-		ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW);
-	int bat_info_value_ac =
-		ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW);
+	u16 cap, rc, ac_raw;
+	int current_ma, remaining;
+	int ret;
 
-	if (bat_info_value_ac > 0)
-		power_info->fullchg_time = 60 * bat_info_value / bat_info_value_ac;
+	ret = ec_read16(INDEX_BATTERY_CAP_HIGH, INDEX_BATTERY_CAP_LOW, &cap);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_RC_HIGH, INDEX_BATTERY_RC_LOW, &rc);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_AC_HIGH, INDEX_BATTERY_AC_LOW, &ac_raw);
+	if (ret)
+		return ret;
+
+	current_ma = (s16)ac_raw;
+	if (current_ma <= 0) {
+		/* Not charging, so there is no meaningful time to full. */
+		power_info->fullchg_time = 0;
+		return 0;
+	}
+
+	remaining = (int)cap - (int)rc;
+	if (remaining < 0)
+		remaining = 0;
+
+	power_info->fullchg_time = 60 * remaining / current_ma;
+	return 0;
 }
 
-static void ft_bat_update_rsoc(void)
+static int ft_bat_update_rsoc(void)
 {
-	power_info->remain_capacity_percent = it8528_read(INDEX_BATTERY_CAPACITY);
+	u8 value;
+	int ret;
+
+	ret = it8528_read_byte(INDEX_BATTERY_CAPACITY, &value);
+	if (ret)
+		return ret;
+
+	power_info->remain_capacity_percent = value;
+	return 0;
 }
 
-static void ft_bat_update_cyclcnt(void)
+static int ft_bat_update_cyclcnt(void)
 {
-	power_info->cycle_count =
-		ec_read16(INDEX_BATTERY_CYCLECNT_HIGH, INDEX_BATTERY_CYCLECNT_LOW);
+	u16 value;
+	int ret;
+
+	ret = ec_read16(INDEX_BATTERY_CYCLECNT_HIGH,
+			INDEX_BATTERY_CYCLECNT_LOW, &value);
+	if (ret)
+		return ret;
+
+	power_info->cycle_count = value;
+	return 0;
 }
 
-static void (* const bat_update_table[])(void) = {
+static int (* const bat_update_table[])(void) = {
 	ft_bat_update_temp,
 	ft_bat_update_voltage,
 	ft_bat_update_current,
@@ -650,25 +790,29 @@ static void (* const bat_update_table[])(void) = {
 };
 
 /* Update battery information handle function. */
-static void ft_power_battery_info_update(unsigned char bat_reg_flag)
+static int ft_power_battery_info_update(unsigned char bat_reg_flag)
 {
 	if (bat_reg_flag < BAT_REG_TEMP_FLAG || bat_reg_flag > BAT_REG_CYCLCNT_FLAG)
-		return;
-	bat_update_table[bat_reg_flag - 1]();
+		return -EINVAL;
+
+	return bat_update_table[bat_reg_flag - 1]();
 }
 
-/* Update battery information handle function. */
-static void ft_power_battery_info_init(void)
+/* Read every cached battery property, stopping at the first EC failure. */
+static int ft_power_battery_info_init(void)
 {
-	int flag;
+	int flag, ret;
 
 	pr_debug("%s: start ...\r\n", __func__);
 
-
-	for (flag = BAT_REG_TEMP_FLAG; flag <= BAT_REG_CYCLCNT_FLAG; flag++)
-		ft_power_battery_info_update(flag);
+	for (flag = BAT_REG_TEMP_FLAG; flag <= BAT_REG_CYCLCNT_FLAG; flag++) {
+		ret = ft_power_battery_info_update(flag);
+		if (ret)
+			return ret;
+	}
 
 	pr_debug("%s: end ...\r\n", __func__);
+	return 0;
 }
 
 /* Clear battery static information. */
@@ -685,58 +829,95 @@ static void ft_power_info_battery_static_clear(void)
 }
 
 /* Get battery static information. */
-static void ft_power_info_battery_static_update(void)
+static int ft_power_info_battery_static_update(void)
 {
-	unsigned int bat_serial_number;
+	u16 serial_number, cell_voltage, design_capacity;
+	u16 design_voltage, full_charged_capacity;
+	int ret;
+
+	ret = ec_read16(INDEX_BATTERY_SN_HIGH, INDEX_BATTERY_SN_LOW, &serial_number);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_CV_HIGH, INDEX_BATTERY_CV_LOW, &cell_voltage);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW, &design_capacity);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_DV_HIGH, INDEX_BATTERY_DV_LOW, &design_voltage);
+	if (ret)
+		return ret;
+
+	ret = ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW,
+			&full_charged_capacity);
+	if (ret)
+		return ret;
 
 	power_info->technology = POWER_SUPPLY_TECHNOLOGY_LION;
+	snprintf(power_info->serial_number, sizeof(power_info->serial_number),
+		 "%x", serial_number);
+	power_info->cell_count = cell_voltage / 4200;
+	power_info->design_capacity = design_capacity;
+	power_info->design_voltage = design_voltage;
+	power_info->full_charged_capacity = full_charged_capacity;
 
-	bat_serial_number = ec_read16(INDEX_BATTERY_SN_HIGH, INDEX_BATTERY_SN_LOW);
-	snprintf(power_info->serial_number, 8, "%x", bat_serial_number);
-
-	power_info->cell_count = ec_read16(INDEX_BATTERY_CV_HIGH, INDEX_BATTERY_CV_LOW) / 4200;
-
-	power_info->design_capacity = ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW);
-	power_info->design_voltage = ec_read16(INDEX_BATTERY_DV_HIGH, INDEX_BATTERY_DV_LOW);
-	power_info->full_charged_capacity =
-		ec_read16(INDEX_BATTERY_FCC_HIGH, INDEX_BATTERY_FCC_LOW);
 	pr_debug("DesignCapacity: %dmAh, DesignVoltage: %dmV, FullChargeCapacity: %dmAh\n",
 		power_info->design_capacity,
 		power_info->design_voltage,
 		power_info->full_charged_capacity);
+	return 0;
 }
 
-/* Update power_status value */
-static void ft_power_info_power_status_update(void)
+/* Refresh AC/battery presence and charge status from the EC. */
+static int ft_power_info_power_status_update(void)
 {
-	unsigned int power_status = 0;
+	u16 design_capacity;
+	u8 status;
+	int ret;
 
-	power_status = it8528_read(INDEX_POWER_STATUS);
+	ret = it8528_read_byte(INDEX_POWER_STATUS, &status);
+	if (ret)
+		return ret;
 
-	power_info->ac_in = (power_status & MASK(BIT_POWER_ACPRES)) ?
+	power_info->ac_in = (status & MASK(BIT_POWER_ACPRES)) ?
 					APM_AC_ONLINE : APM_AC_OFFLINE;
 
-	power_info->bat_in = (power_status & MASK(BIT_POWER_BATPRES)) ? 1 : 0;
-	if (power_info->bat_in &&
-	    ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW) == 0)
-		power_info->bat_in = 0;
+	power_info->bat_in = !!(status & MASK(BIT_POWER_BATPRES));
+	if (power_info->bat_in) {
+		ret = ec_read16(INDEX_BATTERY_DC_HIGH, INDEX_BATTERY_DC_LOW,
+				&design_capacity);
+		if (ret)
+			return ret;
+
+		/* A pack that reports no design capacity is not usable. */
+		if (!design_capacity)
+			power_info->bat_in = 0;
+	}
 
 	power_info->health = power_info->bat_in ?
 				POWER_SUPPLY_HEALTH_GOOD :
 				POWER_SUPPLY_HEALTH_UNKNOWN;
 	if (!power_info->bat_in) {
 		power_info->charge_status = POWER_SUPPLY_STATUS_UNKNOWN;
-	} else {
-		power_status = it8528_read(INDEX_BATTERY_STATUS);
-
-		if (!(power_status & MASK(BIT_POWER_BATCHG)))
-			power_info->charge_status = POWER_SUPPLY_STATUS_CHARGING;
-		else if ((power_status & MASK(BIT_POWER_BATFCHG)) &&
-	     power_info->ac_in == APM_AC_ONLINE)
-			power_info->charge_status = POWER_SUPPLY_STATUS_FULL;
-		else
-			power_info->charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
+		return 0;
 	}
+
+	ret = it8528_read_byte(INDEX_BATTERY_STATUS, &status);
+	if (ret)
+		return ret;
+
+	if (!(status & MASK(BIT_POWER_BATCHG)))
+		power_info->charge_status = POWER_SUPPLY_STATUS_CHARGING;
+	else if ((status & MASK(BIT_POWER_BATFCHG)) &&
+		 power_info->ac_in == APM_AC_ONLINE)
+		power_info->charge_status = POWER_SUPPLY_STATUS_FULL;
+	else
+		power_info->charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
+
+	return 0;
 }
 
 /* Power supply Battery get property handler */
@@ -744,10 +925,11 @@ static int ft_bat_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val)
 {
 	unsigned long flags;
+	int ret = 0;
 
 	spin_lock_irqsave(&i8042_lock, flags);
 	switch (psp) {
-		/* Get battery static information. */
+		/* Cached battery static information. */
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 			val->intval = power_info->design_voltage * 1000; /* mV -> uV */
 			break;
@@ -766,69 +948,85 @@ static int ft_bat_get_property(struct power_supply *pws,
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 			val->intval = power_info->technology;
 			break;
-		/* Get battery dynamic information. */
+		/* Battery dynamic information, read back from the EC. */
 	case POWER_SUPPLY_PROP_STATUS:
-			ft_power_info_power_status_update();
-			val->intval = power_info->charge_status;
+			ret = ft_power_info_power_status_update();
+			if (!ret)
+				val->intval = power_info->charge_status;
 			break;
 	case POWER_SUPPLY_PROP_PRESENT:
-			ft_power_info_power_status_update();
-			val->intval = power_info->bat_in;
+			ret = ft_power_info_power_status_update();
+			if (!ret)
+				val->intval = power_info->bat_in;
 			break;
 	case POWER_SUPPLY_PROP_HEALTH:
-			ft_power_info_power_status_update();
-			val->intval = power_info->health;
+			ret = ft_power_info_power_status_update();
+			if (!ret)
+				val->intval = power_info->health;
 			break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-			ft_power_battery_info_update(BAT_REG_CURRENT_FLAG);
-			val->intval = power_info->current_now * 1000; /* mA -> uA */
+			ret = ft_power_battery_info_update(BAT_REG_CURRENT_FLAG);
+			if (!ret)
+				val->intval = power_info->current_now * 1000; /* mA -> uA */
 			break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
-			ft_power_battery_info_update(BAT_REG_AC_FLAG);
-			val->intval = power_info->current_average * 1000; /* mA -> uA */
+			ret = ft_power_battery_info_update(BAT_REG_AC_FLAG);
+			if (!ret)
+				val->intval = power_info->current_average * 1000;
 			break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-			ft_power_battery_info_update(BAT_REG_VOLTAGE_FLAG);
-			val->intval =  power_info->voltage_now * 1000; /* mV -> uV */
+			ret = ft_power_battery_info_update(BAT_REG_VOLTAGE_FLAG);
+			if (!ret)
+				val->intval = power_info->voltage_now * 1000; /* mV -> uV */
 			break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
-			ft_power_battery_info_update(BAT_REG_RC_FLAG);
-			val->intval = power_info->remain_capacity * 1000; /* mAh -> uAh */
+			ret = ft_power_battery_info_update(BAT_REG_RC_FLAG);
+			if (!ret)
+				val->intval = power_info->remain_capacity * 1000;
 			break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-			ft_power_battery_info_update(BAT_REG_RSOC_FLAG);
-			val->intval = power_info->remain_capacity_percent;	/* Percentage */
+			ret = ft_power_battery_info_update(BAT_REG_RSOC_FLAG);
+			if (!ret)
+				val->intval = power_info->remain_capacity_percent;
 			break;
 	case POWER_SUPPLY_PROP_TEMP:
-			ft_power_battery_info_update(BAT_REG_TEMP_FLAG);
-			val->intval = power_info->temperature;	 /* Celcius */
+			ret = ft_power_battery_info_update(BAT_REG_TEMP_FLAG);
+			if (!ret)
+				val->intval = power_info->temperature; /* Celsius */
 			break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
-			ft_power_battery_info_update(BAT_REG_ATTE_FLAG);
-			if (power_info->remain_time == 0xFFFF)
-				power_info->remain_time = 0;
-			val->intval = power_info->remain_time * 60;  /* seconds */
+			ret = ft_power_battery_info_update(BAT_REG_ATTE_FLAG);
+			if (!ret) {
+				if (power_info->remain_time == 0xFFFF)
+					power_info->remain_time = 0;
+				val->intval = power_info->remain_time * 60; /* seconds */
+			}
 			break;
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
-			ft_power_battery_info_update(BAT_REG_ATTF_FLAG);
-			if (power_info->fullchg_time == 0xFFFF)
-				power_info->fullchg_time = 0;
-			val->intval = power_info->fullchg_time * 60;  /* seconds */
+			ret = ft_power_battery_info_update(BAT_REG_ATTF_FLAG);
+			if (!ret) {
+				if (power_info->fullchg_time == 0xFFFF)
+					power_info->fullchg_time = 0;
+				val->intval = power_info->fullchg_time * 60; /* seconds */
+			}
 			break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-			ft_power_battery_info_update(BAT_REG_FCC_FLAG);
-			val->intval = power_info->full_charged_capacity * 1000;/* mAh -> uAh */
+			ret = ft_power_battery_info_update(BAT_REG_FCC_FLAG);
+			if (!ret)
+				val->intval = power_info->full_charged_capacity * 1000;
 			break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-			ft_power_battery_info_update(BAT_REG_CYCLCNT_FLAG);
-			val->intval = power_info->cycle_count;
+			ret = ft_power_battery_info_update(BAT_REG_CYCLCNT_FLAG);
+			if (!ret)
+				val->intval = power_info->cycle_count;
 			break;
 	default:
-			spin_unlock_irqrestore(&i8042_lock, flags);
-			return -EINVAL;
+			ret = -EINVAL;
+			break;
 	}
 	spin_unlock_irqrestore(&i8042_lock, flags);
-	return 0;
+
+	return ret;
 }
 
 /* Power supply AC get property handler */
@@ -836,50 +1034,71 @@ static int ft_ac_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val)
 {
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_ONLINE:
-			ft_power_info_power_status_update();
-			val->intval = power_info->ac_in;
-			break;
-	default:
-			spin_unlock_irqrestore(&i8042_lock, flags);
-			return -EINVAL;
-	}
+	ret = ft_power_info_power_status_update();
+	if (!ret)
+		val->intval = power_info->ac_in;
 	spin_unlock_irqrestore(&i8042_lock, flags);
-	return 0;
+
+	return ret;
 }
 
 /* EC device AC event handler */
 static void ft_ac_handler(int status)
 {
-	/* Report status changed */
-	power_supply_changed(ec_ac);
+	if (ec_ac)
+		power_supply_changed(ec_ac);
+}
+
+/*
+ * Report the switch state the EC currently holds. The input core keeps its
+ * own view of the switch, so its bitmap must not be edited behind its back.
+ */
+static void ft_lid_report(void)
+{
+	u8 status;
+	int ret;
+
+	if (!ft_hotkey_dev)
+		return;
+
+	ret = it8528_read_byte(INDEX_LID_STATUS, &status);
+	if (ret) {
+		pr_err("phytium ec: failed to read lid status: %d\n", ret);
+		return;
+	}
+
+	/* LID_STATUS_BIT is set while the lid is closed. */
+	input_report_switch(ft_hotkey_dev, SW_LID, !(status & LID_STATUS_BIT));
+	input_sync(ft_hotkey_dev);
 }
 
 /* LPC device Battery event handler */
 static void ft_bat_handler(int status)
 {
+	/* status carries the event number, not the power status register. */
+	if (ft_power_info_power_status_update())
+		return;
+
 	/* Battery insert/pull-out to handle battery static information. */
-	if (status & MASK(BIT_POWER_BATPRES)) {
+	if (power_info->bat_in) {
 		/* If battery is insert, get battery static information. */
 		ft_power_info_battery_static_update();
 	} else {
 		/* Else if battery is pull-out, clear battery static information. */
 		ft_power_info_battery_static_clear();
 	}
-	/* Report status changed */
-	power_supply_changed(ec_bat);
+
+	if (ec_bat)
+		power_supply_changed(ec_bat);
 }
 
 /* LPC device LID event handler */
 static void ft_lid_handler(int status)
 {
-	__clear_bit(SW_LID, ft_hotkey_dev->sw);
-	input_report_switch(ft_hotkey_dev, SW_LID, 1);
-	input_sync(ft_hotkey_dev);
+	ft_lid_report();
 }
 
 /* Hotkey device init */
@@ -908,6 +1127,7 @@ static int ft_hotkey_init(void)
 	if (ret) {
 		pr_err("phytium Laptop Platform Driver: Fail to setup input device keymap\n");
 		input_free_device(ft_hotkey_dev);
+		ft_hotkey_dev = NULL;
 
 		return ret;
 	}
@@ -915,6 +1135,7 @@ static int ft_hotkey_init(void)
 	ret = input_register_device(ft_hotkey_dev);
 	if (ret) {
 		input_free_device(ft_hotkey_dev);
+		ft_hotkey_dev = NULL;
 
 		return ret;
 	}
@@ -933,9 +1154,13 @@ static void ft_hotkey_exit(void)
 static ssize_t gsensor_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int x_val = 0;
+	u16 x_val;
+	int ret;
 
-	x_val = (it8528_read(EC_GSENSOR_X_HIGH) << 8) | it8528_read(EC_GSENSOR_X_LOW);
+	ret = ec_read16(EC_GSENSOR_X_HIGH, EC_GSENSOR_X_LOW, &x_val);
+	if (ret)
+		return ret;
+
 	return sysfs_emit(buf, "%d\n", x_val);
 }
 
@@ -1044,19 +1269,19 @@ static void ft_ec_irq_exit(void)
 {
 	it8528_ec_event_int_disable();
 
-	if (ft_gpio_device) {
+	if (ft_gpio_device)
 		free_irq(ft_gpio_device->irq, ft_gpio_device);
-		kfree(ft_gpio_device);
-		ft_gpio_device = NULL;
-	}
 
-	if (ft_lpc_device) {
+	if (ft_lpc_device)
 		free_irq(ft_lpc_device->irq, ft_lpc_device);
-		kfree(ft_lpc_device);
-		ft_lpc_device = NULL;
-	}
 
+	/* The worker rearms ft_gpio_device, so drain it before freeing. */
 	cancel_work_sync(&ec_int_routine_wq);
+
+	kfree(ft_gpio_device);
+	ft_gpio_device = NULL;
+	kfree(ft_lpc_device);
+	ft_lpc_device = NULL;
 }
 
 #ifdef CONFIG_PM
@@ -1077,17 +1302,16 @@ static int ft_laptop_resume(struct device *dev)
 		/* Configure GPIO pin function */
 		ret = set_func_to_gpio();
 		if (ret) {
-			pr_err("set gpio func failed.\n");
-			return -ENOMEM;
+			pr_err("set gpio func failed: %d\n", ret);
+			return ret;
 		}
 		/*Set GPIO related configuration*/
 		irq_set_irq_type(ft_gpio_device->irq, IRQ_TYPE_EDGE_RISING);
-		it8528_ec_event_int_enable();
 		/* clean ec evnet queue*/
 		ret = it8528_query_clean_event();
 		if (ret) {
-			pr_err("EC clean event fail.\n");
-			return -EINVAL;
+			pr_err("EC clean event fail: %d\n", ret);
+			return ret;
 		}
 	}
 
@@ -1103,11 +1327,12 @@ static int ft_laptop_resume(struct device *dev)
 			ft_power_info_battery_static_update();
 
 			/* Report status changed */
-			power_supply_changed(ec_ac);
+			if (ec_ac)
+				power_supply_changed(ec_ac);
 		}
 
-		input_report_switch(ft_hotkey_dev, SW_LID, 0);
-		input_sync(ft_hotkey_dev);
+		/* A laptop can resume with the lid still closed. */
+		ft_lid_report();
 	}
 
 	return 0;
@@ -1124,7 +1349,7 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	pr_debug("phytium ec: in probe!\n");
 
 	if (read_cpuid_implementor() != ARM_CPU_IMP_PHYTIUM)
-		return ret;
+		return -ENODEV;
 
 	ret = it8528_init();
 	if (ret) {
@@ -1142,14 +1367,18 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 		}
 		ft_backlight_dev->props.max_brightness = 100;
 
-		brightness_default = it8528_read(INDEX_DISPLAY_BRIGHTNESS_GET);
-		if (brightness_default == 0) {
-			ft_backlight_dev->props.brightness = ft_backlight_dev->props.max_brightness;
-			it8528_write(INDEX_DISPLAY_BRIGHTNESS_SET,
-	     ft_backlight_dev->props.max_brightness);
-		} else {
-			ft_backlight_dev->props.brightness = brightness_default;
+		brightness_default = ft_get_brightness(ft_backlight_dev);
+		if (brightness_default < 0) {
+			pr_err("phytium ec: failed to read brightness: %d\n",
+			       brightness_default);
+			return brightness_default;
 		}
+
+		if (brightness_default == 0)
+			ft_backlight_dev->props.brightness =
+				ft_backlight_dev->props.max_brightness;
+		else
+			ft_backlight_dev->props.brightness = brightness_default;
 
 		backlight_update_status(ft_backlight_dev);
 	}
@@ -1174,26 +1403,47 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 		goto fail_after_gsensor;
 	}
 
-	ft_power_battery_info_init();
+	ret = ft_power_battery_info_init();
+	if (ret) {
+		pr_err("phytium ec: failed to read battery information: %d\n", ret);
+		goto fail_after_gsensor;
+	}
 
-	ft_power_info_power_status_update();
+	ret = ft_power_info_power_status_update();
+	if (ret) {
+		pr_err("phytium ec: failed to read power status: %d\n", ret);
+		goto fail_after_gsensor;
+	}
+
 	if (power_info->bat_in) {
 		/* Get battery static information. */
-		ft_power_info_battery_static_update();
+		ret = ft_power_info_battery_static_update();
+		if (ret) {
+			pr_err("phytium ec: failed to read static information: %d\n",
+			       ret);
+			goto fail_after_gsensor;
+		}
 	} else {
 		pr_info("phytium Platform Driver: The battery does not exist!!\n");
 	}
 
-	if (chassis_types_is_laptop() && power_info->bat_in) {
+	/*
+	 * Register both supplies whenever the chassis has them, whether or
+	 * not a battery is fitted right now: PRESENT reports the absence and
+	 * the handlers must never be left with a NULL supply.
+	 */
+	if (chassis_types_is_laptop()) {
 		ec_bat = devm_power_supply_register(&dev->dev, &ft_bat, NULL);
 		if (IS_ERR(ec_bat)) {
-			ret = -ENOMEM;
+			ret = PTR_ERR(ec_bat);
+			ec_bat = NULL;
 			goto fail_after_gsensor;
 		}
 
 		ec_ac = devm_power_supply_register(&dev->dev, &ft_ac, NULL);
 		if (IS_ERR(ec_ac)) {
-			ret = -ENOMEM;
+			ret = PTR_ERR(ec_ac);
+			ec_ac = NULL;
 			goto fail_after_gsensor;
 		}
 	}
@@ -1203,6 +1453,12 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	ec_sensors_register(dev);
 
 	gpio_irq = acpi_dev_gpio_irq_get(ACPI_COMPANION(&(dev->dev)), 0);
+	if (gpio_irq == -EPROBE_DEFER) {
+		/* The GPIO controller is not ready; do not fall back to LPC. */
+		ret = -EPROBE_DEFER;
+		goto fail_after_gsensor;
+	}
+
 	if (gpio_irq > 0) {
 		/* GPIO Driver Init Start */
 		ret = gpio_driver_init(gpio_irq);
@@ -1246,12 +1502,11 @@ static int ft_lpc_event_remove(struct platform_device *dev)
 	ec_gsensor_exit();
 	ft_hotkey_exit();
 
-	/* devres releases these once remove() has returned. */
-	ft_backlight_dev = NULL;
-	power_info = NULL;
-	ec_bat = NULL;
-	ec_ac = NULL;
-
+	/*
+	 * power_info, the power supplies and the backlight stay valid until
+	 * devres releases them, because their callbacks may still run while
+	 * the device is being torn down.
+	 */
 	return 0;
 }
 

@@ -324,8 +324,6 @@ enum {
 	EC_EVENT_NUM_RFKILL			/* 0xbd, airplane mode switch */
 };
 
-#define EC_EVENT_NUM_MIN EC_EVENT_NUM_BAT
-#define EC_EVENT_NUM_MAX EC_EVENT_NUM_RES2
 #define EC_EVENT_NUM_GSENSOR EC_EVENT_NUM_RES2
 
 #define	INDEX_LID_STATUS		0x46	    /* Lid status register */
@@ -336,7 +334,7 @@ typedef int (*ec_handler)(int status);
 extern bool it8528_get_ec_evt_flags(void);
 
 /* The general ec index-io port read action */
-extern unsigned char it8528_read(unsigned char index);
+extern int it8528_read_byte(unsigned char index, u8 *value);
 
 /* The general ec index-io port write action */
 extern int it8528_write(unsigned char index, unsigned char data);
@@ -349,8 +347,7 @@ extern int it8528_query_clean_event(void);
 
 /* The ec interrupt functions */
 extern int it8528_init(void);
-extern int lpc_ec_interrupt_occurs(void);
-extern void lpc_interrupt_clear_all(void);
+extern void lpc_ec_interrupt_clear(void);
 
 /* EC sensor/hwmon registration */
 extern void ec_sensors_register(struct platform_device *pdev);
