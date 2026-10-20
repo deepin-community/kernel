@@ -100,24 +100,6 @@ unsigned char it8528_read(unsigned char index)
 }
 EXPORT_SYMBOL(it8528_read);
 
-unsigned char it8528_read_all(unsigned char command, unsigned char index)
-{
-	u8 value = 0;
-
-	it8528_transaction(command, &index, 1, &value, 1);
-	return value;
-}
-EXPORT_SYMBOL(it8528_read_all);
-
-unsigned char it8528_read_noindex(unsigned char command)
-{
-	u8 value = 0;
-
-	it8528_transaction(command, NULL, 0, &value, 1);
-	return value;
-}
-EXPORT_SYMBOL(it8528_read_noindex);
-
 int it8528_write(unsigned char index, unsigned char data)
 {
 	u8 wdata[2] = { index, data };
@@ -125,33 +107,6 @@ int it8528_write(unsigned char index, unsigned char data)
 	return it8528_transaction(CMD_WRITE_EC, wdata, 2, NULL, 0);
 }
 EXPORT_SYMBOL(it8528_write);
-
-int it8528_write_all(unsigned char command, unsigned char index,
-		     unsigned char data)
-{
-	u8 wdata[2] = { index, data };
-
-	return it8528_transaction(command, wdata, 2, NULL, 0);
-}
-EXPORT_SYMBOL(it8528_write_all);
-
-int it8528_write_noindex(unsigned char command, unsigned char data)
-{
-	return it8528_transaction(command, &data, 1, NULL, 0);
-}
-EXPORT_SYMBOL(it8528_write_noindex);
-
-bool it8528_get_ec_ibf_flags(void)
-{
-	return !!(inb(EC_STS_PORT) & EC_IBF);
-}
-EXPORT_SYMBOL(it8528_get_ec_ibf_flags);
-
-bool it8528_get_ec_obf_flags(void)
-{
-	return !!(inb(EC_STS_PORT) & EC_OBF);
-}
-EXPORT_SYMBOL(it8528_get_ec_obf_flags);
 
 bool it8528_get_ec_evt_flags(void)
 {

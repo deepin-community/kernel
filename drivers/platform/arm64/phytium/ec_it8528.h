@@ -333,24 +333,15 @@ enum {
 
 typedef int (*ec_handler)(int status);
 
-extern bool it8528_get_ec_ibf_flags(void);
-extern bool it8528_get_ec_obf_flags(void);
 extern bool it8528_get_ec_evt_flags(void);
 
 /* The general ec index-io port read action */
-extern void clean_it8528_event_status(void);
 extern unsigned char it8528_read(unsigned char index);
-extern unsigned char it8528_read_all(unsigned char command, unsigned char index);
-extern unsigned char it8528_read_noindex(unsigned char command);
 
 /* The general ec index-io port write action */
 extern int it8528_write(unsigned char index, unsigned char data);
-extern int it8528_write_all(unsigned char command, unsigned char index, unsigned char data);
-extern int it8528_write_noindex(unsigned char command, unsigned char data);
 
 /* Query sequence of 62/66 port access routine. */
-extern int it8528_query_seq(unsigned char command);
-extern int it8528_get_event_num(void);
 extern int it8528_query_get_event_num(void);
 extern void it8528_ec_event_int_enable(void);
 extern void it8528_ec_event_int_disable(void);
