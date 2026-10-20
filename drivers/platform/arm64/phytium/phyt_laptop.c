@@ -138,6 +138,8 @@ static void ft_ac_handler(void);
 static void ft_bat_handler(void);
 /* Report the current lid switch state */
 static void ft_lid_report(void);
+/* Refresh cached power data and notify both supplies */
+static void ft_power_supplies_notify(bool refresh_static);
 
 /* <<<End power management operation */
 
@@ -310,10 +312,13 @@ static bool ft_ec_event_handler(unsigned int event)
 }
 
 /*
- * Consume every event the EC has queued. Querying an event also removes it
- * from the EC, so a single notification can stand for several events.
+ * Consume queued EC events. Querying an event also removes it from the EC, so
+ * a single notification can stand for several events.
+ *
+ * Returns true when the EC still reports a pending event, either because the
+ * per-pass budget ran out or a query failed.
  */
-static void ec_drain_events(void)
+static bool ec_drain_events(void)
 {
 	int i;
 
@@ -322,7 +327,7 @@ static void ec_drain_events(void)
 		int ret;
 
 		if (!it8528_get_ec_evt_flags())
-			break;
+			return false;
 
 		ret = it8528_query_get_event_num(&event);
 		if (ret) {
@@ -333,6 +338,8 @@ static void ec_drain_events(void)
 		if (!ft_ec_event_handler(event))
 			pr_debug("phytium ec: unhandled event 0x%x\n", event);
 	}
+
+	return it8528_get_ec_evt_flags();
 }
 
 /* EC event interrupt, shared with i8042 over the PIO controller. */
@@ -412,23 +419,43 @@ static int lpc_driver_init(void)
 	return ret;
 }
 
+/*
+ * Extra passes over a queue that a single drain could not empty. Bounded so a
+ * stuck EC cannot keep a worker spinning.
+ */
+#define EC_EVENT_RETRY_MAX	8
+
+/* Consecutive passes that ended with events still queued. */
+static int ec_drain_retries;
+
+static void ec_int_routine_func(struct work_struct *work);
+DECLARE_WORK(ec_int_routine_wq, ec_int_routine_func);
+
 /* GPIO interrupt bottom half: drain the queue, then rearm the edge. */
 static void ec_int_routine_func(struct work_struct *work)
 {
 	unsigned long flags;
+	bool pending;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-	ec_drain_events();
+	pending = ec_drain_events();
 	spin_unlock_irqrestore(&i8042_lock, flags);
 
 	/*
-	 * The GPIO interrupt is edge triggered and will not fire again for
-	 * events drained above, so only rearm once the queue is empty.
+	 * The GPIO interrupt is edge triggered, so rearming it while the EC
+	 * still holds events would strand them: the asserted line produces no
+	 * further edge. Run another pass instead.
 	 */
+	if (pending && ++ec_drain_retries < EC_EVENT_RETRY_MAX) {
+		schedule_work(&ec_int_routine_wq);
+		return;
+	}
+
+	ec_drain_retries = 0;
+
 	if (ft_gpio_device)
 		enable_irq(ft_gpio_device->irq);
 }
-DECLARE_WORK(ec_int_routine_wq, ec_int_routine_func);
 
 static irqreturn_t ft_ec_int_gpio_routine(int irq, void *dev_id)
 {
@@ -638,10 +665,14 @@ static int ft_bat_update_atte(void)
 		return ret;
 
 	current_ma = (s16)ac_raw;
-	if (current_ma < 0)
-		current_ma = -current_ma;
 
-	power_info->remain_time = current_ma ? 60 * rc / current_ma : 0;
+	/* Time to empty only means something while discharging. */
+	if (current_ma >= 0) {
+		power_info->remain_time = 0;
+		return 0;
+	}
+
+	power_info->remain_time = 60 * rc / -current_ma;
 	return 0;
 }
 
@@ -971,11 +1002,47 @@ static int ft_ac_get_property(struct power_supply *pws,
 	return ret;
 }
 
+/*
+ * Refresh the power state, then tell both supplies. An AC transition changes
+ * the battery charge status, current and time estimates as well, and the
+ * battery descriptor cannot learn about that on its own.
+ *
+ * @refresh_static: re-read the pack identification. Only needed on a battery
+ * event or resume; an AC event keeps the cached data and just drops it when
+ * the pack turns out to be gone.
+ */
+static void ft_power_supplies_notify(bool refresh_static)
+{
+	int ret;
+
+	if (!power_info)
+		return;
+
+	ret = ft_power_info_power_status_update();
+	if (ret) {
+		pr_err("phytium ec: failed to read power status: %d\n", ret);
+		return;
+	}
+
+	if (!power_info->bat_in)
+		ft_power_info_battery_static_clear();
+	else if (refresh_static) {
+		ret = ft_power_info_battery_static_update();
+		if (ret)
+			pr_err("phytium ec: failed to read static information: %d\n",
+			       ret);
+	}
+
+	if (ec_ac)
+		power_supply_changed(ec_ac);
+	if (ec_bat)
+		power_supply_changed(ec_bat);
+}
+
 /* EC device AC event handler */
 static void ft_ac_handler(void)
 {
-	if (ec_ac)
-		power_supply_changed(ec_ac);
+	ft_power_supplies_notify(false);
 }
 
 /*
@@ -996,34 +1063,15 @@ static void ft_lid_report(void)
 		return;
 	}
 
-	/* LID_STATUS_BIT is set while the lid is closed. */
-	input_report_switch(ft_hotkey_dev, SW_LID, !(status & LID_STATUS_BIT));
+	/* LID_STATUS_BIT and SW_LID both use 1 for a closed lid. */
+	input_report_switch(ft_hotkey_dev, SW_LID, !!(status & LID_STATUS_BIT));
 	input_sync(ft_hotkey_dev);
 }
 
 /* EC device Battery event handler */
 static void ft_bat_handler(void)
 {
-	int ret;
-
-	if (ft_power_info_power_status_update())
-		return;
-
-	/* Battery insert/pull-out to handle battery static information. */
-	if (power_info->bat_in) {
-		/* If battery is insert, get battery static information. */
-		ret = ft_power_info_battery_static_update();
-		if (ret)
-			pr_err("phytium ec: failed to read static information: %d\n",
-			       ret);
-	} else {
-		/* Else if battery is pull-out, clear battery static information. */
-		ft_power_info_battery_static_clear();
-	}
-
-	/* Notify regardless, the property callbacks re-read from the EC. */
-	if (ec_bat)
-		power_supply_changed(ec_bat);
+	ft_power_supplies_notify(true);
 }
 
 /* Hotkey device init */
@@ -1181,21 +1229,28 @@ static void ec_gsensor_exit(void)
 
 /*
  * Tear down the EC event interrupt. Must run before the structures the
- * handlers reach through, since the work item may still be queued when
- * free_irq() returns.
+ * handlers reach through.
  */
 static void ft_ec_irq_exit(void)
 {
 	it8528_ec_event_int_disable();
+
+	/*
+	 * Stop new interrupts before touching the work item. free_irq() only
+	 * waits for the handler, so a worker still in flight could otherwise
+	 * rearm an IRQ that no longer has a handler registered.
+	 */
+	if (ft_gpio_device)
+		disable_irq_nosync(ft_gpio_device->irq);
+
+	/* Let a queued pass finish while the IRQ is still registered. */
+	cancel_work_sync(&ec_int_routine_wq);
 
 	if (ft_gpio_device)
 		free_irq(ft_gpio_device->irq, ft_gpio_device);
 
 	if (ft_lpc_device)
 		free_irq(ft_lpc_device->irq, ft_lpc_device);
-
-	/* The worker rearms ft_gpio_device, so drain it before freeing. */
-	cancel_work_sync(&ec_int_routine_wq);
 
 	kfree(ft_gpio_device);
 	ft_gpio_device = NULL;
@@ -1240,15 +1295,12 @@ static int ft_laptop_resume(struct device *dev)
 	it8528_ec_event_int_enable();
 
 	if (chassis_types_is_laptop()) { /* chassis is laptop */
-		ft_power_info_power_status_update();
-		if (power_info->bat_in) {
-			/* Get battery static information. */
-			ft_power_info_battery_static_update();
-
-			/* Report status changed */
-			if (ec_ac)
-				power_supply_changed(ec_ac);
-		}
+		/*
+		 * Clearing the event queue above dropped any AC and battery
+		 * notifications that arrived while suspended, so refresh and
+		 * notify both supplies here instead.
+		 */
+		ft_power_supplies_notify(true);
 
 		/* A laptop can resume with the lid still closed. */
 		ft_lid_report();
@@ -1261,9 +1313,13 @@ static int ft_laptop_resume(struct device *dev)
 
 static int ft_lpc_event_probe(struct platform_device *dev)
 {
-	int ret = 0;
+	struct backlight_properties props = {
+		.type = BACKLIGHT_PLATFORM,
+		.max_brightness = MAX_BRIGHTNESS,
+	};
+	u8 ec_level;
 	int gpio_irq;
-	int brightness_default;
+	int ret = 0;
 
 	pr_debug("phytium ec: in probe!\n");
 
@@ -1278,26 +1334,27 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 
 	/* Regist backlight */
 	if (chassis_types_is_laptop() || chassis_types_is_allinone()) {
+		ret = it8528_read_byte(INDEX_DISPLAY_BRIGHTNESS_GET, &ec_level);
+		if (ret) {
+			pr_err("phytium ec: failed to read brightness: %d\n", ret);
+			return ret;
+		}
+
+		if (ec_level == 0 || ec_level > MAX_BRIGHTNESS)
+			props.brightness = MAX_BRIGHTNESS;
+		else
+			props.brightness = ec_level;
+
+		/*
+		 * max_brightness must be set in the properties handed to the
+		 * registration; the core does not allow changing it later.
+		 */
 		ft_backlight_dev = devm_backlight_device_register(&dev->dev, "phytium",
-				&dev->dev, NULL, &ft_backlight_ops, NULL);
+				&dev->dev, NULL, &ft_backlight_ops, &props);
 		if (IS_ERR(ft_backlight_dev)) {
 			ret = PTR_ERR(ft_backlight_dev);
 			return ret;
 		}
-		ft_backlight_dev->props.max_brightness = 100;
-
-		brightness_default = ft_get_brightness(ft_backlight_dev);
-		if (brightness_default < 0) {
-			pr_err("phytium ec: failed to read brightness: %d\n",
-			       brightness_default);
-			return brightness_default;
-		}
-
-		if (brightness_default == 0)
-			ft_backlight_dev->props.brightness =
-				ft_backlight_dev->props.max_brightness;
-		else
-			ft_backlight_dev->props.brightness = brightness_default;
 
 		backlight_update_status(ft_backlight_dev);
 	}
@@ -1397,9 +1454,17 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	/* clean ec evnet queue*/
 	ret = it8528_query_clean_event();
 	if (ret) {
-		pr_err("EC clean event fail.\n");
+		pr_err("EC clean event fail: %d\n", ret);
 		goto fail_after_gsensor;
 	}
+
+	/*
+	 * Report the switch state once at bind time, as EV_SW requires.
+	 * Without it a machine that boots with the lid closed stays "open"
+	 * for userspace until the next lid event or resume.
+	 */
+	if (chassis_types_is_laptop())
+		ft_lid_report();
 
 	/* enable ec event interrupt */
 	it8528_ec_event_int_enable();
