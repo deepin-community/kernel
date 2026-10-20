@@ -131,6 +131,7 @@ struct lpc_device {
 static struct lpc_device *ft_lpc_device;
 static struct lpc_device *ft_gpio_device;
 static int ft_lpc_event_probe(struct platform_device *);
+static int ft_lpc_event_remove(struct platform_device *);
 
 static int ft_get_brightness(struct backlight_device *);
 static int ft_set_brightness(struct backlight_device *);
@@ -212,6 +213,7 @@ static SIMPLE_DEV_PM_OPS(gpio_pm_ops, ft_laptop_suspend, ft_laptop_resume);
 
 static struct platform_driver ft_ec_pdriver = {
 	.probe = ft_lpc_event_probe,
+	.remove = ft_lpc_event_remove,
 	.driver = {
 		.name = "ec_device",
 		.pm     = &gpio_pm_ops,
@@ -1033,6 +1035,30 @@ static void ec_gsensor_exit(void)
 	}
 }
 
+/*
+ * Tear down the EC event interrupt. Must run before the structures the
+ * handlers reach through, since the work item may still be queued when
+ * free_irq() returns.
+ */
+static void ft_ec_irq_exit(void)
+{
+	it8528_ec_event_int_disable();
+
+	if (ft_gpio_device) {
+		free_irq(ft_gpio_device->irq, ft_gpio_device);
+		kfree(ft_gpio_device);
+		ft_gpio_device = NULL;
+	}
+
+	if (ft_lpc_device) {
+		free_irq(ft_lpc_device->irq, ft_lpc_device);
+		kfree(ft_lpc_device);
+		ft_lpc_device = NULL;
+	}
+
+	cancel_work_sync(&ec_int_routine_wq);
+}
+
 #ifdef CONFIG_PM
 
 static int ft_laptop_suspend(struct device *dev)
@@ -1208,9 +1234,25 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 	return 0;
 
 fail_after_gsensor:
+	ft_ec_irq_exit();
 	ec_gsensor_exit();
 	ft_hotkey_exit();
 	return ret;
+}
+
+static int ft_lpc_event_remove(struct platform_device *dev)
+{
+	ft_ec_irq_exit();
+	ec_gsensor_exit();
+	ft_hotkey_exit();
+
+	/* devres releases these once remove() has returned. */
+	ft_backlight_dev = NULL;
+	power_info = NULL;
+	ec_bat = NULL;
+	ec_ac = NULL;
+
+	return 0;
 }
 
 module_platform_driver(ft_ec_pdriver);
