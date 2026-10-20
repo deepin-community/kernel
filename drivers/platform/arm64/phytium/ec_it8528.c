@@ -91,14 +91,15 @@ out:
 	return ret;
 }
 
-unsigned char it8528_read(unsigned char index)
+/*
+ * Read one EC register. Returns 0 on success or a negative error code so
+ * callers can tell a communication failure from a genuine zero reading.
+ */
+int it8528_read_byte(unsigned char index, u8 *value)
 {
-	u8 value = 0;
-
-	it8528_transaction(CMD_READ_EC, &index, 1, &value, 1);
-	return value;
+	return it8528_transaction(CMD_READ_EC, &index, 1, value, 1);
 }
-EXPORT_SYMBOL(it8528_read);
+EXPORT_SYMBOL(it8528_read_byte);
 
 int it8528_write(unsigned char index, unsigned char data)
 {
@@ -129,7 +130,7 @@ int it8528_query_get_event_num(void)
 
 	/* Give the EC a moment to consume the command. */
 	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
+	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
 		udelay(1);
 	if (!timeout) {
 		pr_err("EC QUERY SEQ: timeout\n");
@@ -173,7 +174,7 @@ void it8528_ec_event_int_enable(void)
 		goto out;
 
 	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
+	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
 		udelay(1);
 	if (!timeout)
 		pr_err("EC ENABLE EVENT INTERRUPT: timeout\n");
@@ -196,7 +197,7 @@ void it8528_ec_event_int_disable(void)
 		goto out;
 
 	timeout = EC_CMD_TIMEOUT;
-	while ((inb(EC_STS_PORT) & EC_IBF) && timeout--)
+	while ((inb(EC_STS_PORT) & EC_IBF) && --timeout)
 		udelay(1);
 	if (!timeout)
 		pr_err("EC DISABLE EVENT INTERRUPT: timeout\n");
@@ -216,20 +217,13 @@ int it8528_init(void)
 }
 EXPORT_SYMBOL(it8528_init);
 
-int lpc_ec_interrupt_occurs(void)
+/*
+ * Acknowledge the EC interrupt source only. The PIO clear register treats a
+ * zero bit as "clear this source", so the complemented mask leaves the
+ * keyboard and touchpad sources pending for i8042 instead of dropping them.
+ */
+void lpc_ec_interrupt_clear(void)
 {
-	int data;
-
-	data = phytium_pio_get_int_status();
-
-	if (data & EC_EVENT_BIT)
-		return 1;
-	return 0;
+	phytium_pio_clear_interrupt(~EC_EVENT_BIT);
 }
-EXPORT_SYMBOL(lpc_ec_interrupt_occurs);
-
-void lpc_interrupt_clear_all(void)
-{
-	phytium_pio_clear_interrupt(0);
-}
-EXPORT_SYMBOL(lpc_interrupt_clear_all);
+EXPORT_SYMBOL(lpc_ec_interrupt_clear);
