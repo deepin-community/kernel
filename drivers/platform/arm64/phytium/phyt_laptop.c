@@ -33,7 +33,7 @@ static inline u16 ec_read16(u8 high, u8 low)
 static bool ft_display_state = true;
 static unsigned int ft_display_level;
 static int ft_set_display_on(bool on);
-static int ec_gsonsor_init(struct platform_device *pdev);
+static int ec_gsensor_init(struct platform_device *pdev);
 
 #define EC_LPC_DEV	"ec"
 
@@ -1107,11 +1107,11 @@ static ssize_t gsensor_show(struct kobject *kobj,
 	int x_val = 0;
 
 	x_val = (it8528_read(EC_GSENSOR_X_HIGH) << 8) | it8528_read(EC_GSENSOR_X_LOW);
-	return sprintf(buf, "%d\n", x_val);
+	return sysfs_emit(buf, "%d\n", x_val);
 }
 
 static struct kobj_attribute gsensor_attr =
-	__ATTR(value_x, 0644, gsensor_show, NULL);
+	__ATTR(value_x, 0444, gsensor_show, NULL);
 
 static struct attribute *gsensor_attrs[] = {
 	&gsensor_attr.attr,
@@ -1125,16 +1125,34 @@ static struct attribute_group gsensor_attr_group = {
 static struct kobject *gsensor_kobj;
 
 /* Gsensor device init */
-static int ec_gsonsor_init(struct platform_device *pdev)
+static int ec_gsensor_init(struct platform_device *pdev)
 {
+	struct kobject *kobj;
 	int ret;
 
 	if (ec_gsensor_dev)
 		return 0;
 
+	if (!gsensor_kobj) {
+		kobj = kobject_create_and_add("gsensor", &pdev->dev.kobj);
+		if (!kobj)
+			return -ENOMEM;
+
+		ret = sysfs_create_group(kobj, &gsensor_attr_group);
+		if (ret) {
+			kobject_put(kobj);
+			return ret;
+		}
+
+		/* Only publish the kobject once it is fully set up. */
+		gsensor_kobj = kobj;
+	}
+
 	ec_gsensor_dev = input_allocate_device();
-	if (!ec_gsensor_dev)
-		return -ENOMEM;
+	if (!ec_gsensor_dev) {
+		ret = -ENOMEM;
+		goto err_sysfs;
+	}
 
 	ec_gsensor_dev->name = "EC_Gsensor";
 	ec_gsensor_dev->uniq = "EC_Gsensor";
@@ -1155,26 +1173,33 @@ static int ec_gsonsor_init(struct platform_device *pdev)
 	input_set_abs_params(ec_gsensor_dev, ABS_Z, 0, 0xFFFF, 0, 0);
 
 	ret = input_register_device(ec_gsensor_dev);
-	if (ret) {
-		input_free_device(ec_gsensor_dev);
-		return ret;
-	}
-
-	gsensor_kobj = kobject_create_and_add("gsensor", &pdev->dev.kobj);
-	if (!gsensor_kobj)
-		return -ENOMEM;
-	ret = sysfs_create_group(gsensor_kobj, &gsensor_attr_group);
-	if (ret) {
-		kobject_put(gsensor_kobj);
-		return ret;
-	}
+	if (ret)
+		goto err_free_input;
 
 	return 0;
+
+err_free_input:
+	/* input_allocate_device() memory is freed here, so drop the pointer. */
+	input_free_device(ec_gsensor_dev);
+	ec_gsensor_dev = NULL;
+err_sysfs:
+	if (gsensor_kobj) {
+		sysfs_remove_group(gsensor_kobj, &gsensor_attr_group);
+		kobject_put(gsensor_kobj);
+		gsensor_kobj = NULL;
+	}
+	return ret;
 }
 
 /* Gsensor device exit */
 static void ec_gsensor_exit(void)
 {
+	if (gsensor_kobj) {
+		sysfs_remove_group(gsensor_kobj, &gsensor_attr_group);
+		kobject_put(gsensor_kobj);
+		gsensor_kobj = NULL;
+	}
+
 	if (ec_gsensor_dev) {
 		input_unregister_device(ec_gsensor_dev);
 		ec_gsensor_dev = NULL;
@@ -1282,7 +1307,7 @@ static int ft_lpc_event_probe(struct platform_device *dev)
 		return ret;
 	}
 
-	ret = ec_gsonsor_init(dev);
+	ret = ec_gsensor_init(dev);
 	if (ret) {
 		pr_err("phytium Platform Driver: Gsensor init fail.\n");
 		ft_hotkey_exit();
