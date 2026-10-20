@@ -17,20 +17,27 @@
 static ssize_t ec_bat_temp_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
+	bool negative;
 	int temp;
 
 	temp = (it8528_read(INDEX_BATTERY_TEMP_HIGH) << 8) |
 	       it8528_read(INDEX_BATTERY_TEMP_LOW);
 
+	/* The EC reports tenths of a kelvin offset by 273.0 degrees. */
 	temp -= 2730;
 
-	return sysfs_emit(buf, "%d.%d\n", temp / 10, temp % 10);
+	negative = temp < 0;
+	if (negative)
+		temp = -temp;
+
+	return sysfs_emit(buf, "%s%d.%d\n", negative ? "-" : "",
+			  temp / 10, temp % 10);
 }
 
 static ssize_t ec_gpu_temp_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char temp;
+	int temp;
 
 	temp = it8528_read(INDEX_GPU_TEMP_VALUE);
 
