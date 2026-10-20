@@ -10,47 +10,53 @@
 
 /*
  * Temperature and Fan support form ec devices.
+ *
+ * The attributes below read the EC directly through it8528_read(), so no
+ * per-device driver data is needed and hwmon is registered without drvdata.
  */
 static ssize_t ec_bat_temp_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+				struct device_attribute *attr, char *buf)
 {
-	int temp = 0;
+	int temp;
 
-	temp = (it8528_read(INDEX_BATTERY_TEMP_HIGH) << 8) | it8528_read(INDEX_BATTERY_TEMP_LOW);
+	temp = (it8528_read(INDEX_BATTERY_TEMP_HIGH) << 8) |
+	       it8528_read(INDEX_BATTERY_TEMP_LOW);
 
-	temp = temp - 2730;
+	temp -= 2730;
 
-	return sprintf(buf, "%d.%d\n", temp/10, temp%10);
+	return sysfs_emit(buf, "%d.%d\n", temp / 10, temp % 10);
 }
 
 static ssize_t ec_gpu_temp_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+				struct device_attribute *attr, char *buf)
 {
-	char temp = 0;
+	char temp;
 
 	temp = it8528_read(INDEX_GPU_TEMP_VALUE);
 
-	return sprintf(buf, "%d\n", temp);
+	return sysfs_emit(buf, "%d\n", temp);
 }
 
 static ssize_t ec_cpu_fan_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+			       struct device_attribute *attr, char *buf)
 {
-	int speed = 0;
+	int speed;
 
-	speed = (it8528_read(INDEX_CPU_FAN_SPEED_HIGH) << 8) | it8528_read(INDEX_CPU_FAN_SPEED_LOW);
+	speed = (it8528_read(INDEX_CPU_FAN_SPEED_HIGH) << 8) |
+		it8528_read(INDEX_CPU_FAN_SPEED_LOW);
 
-	return sprintf(buf, "%d\n", speed);
+	return sysfs_emit(buf, "%d\n", speed);
 }
 
 static ssize_t ec_gpu_fan_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+			       struct device_attribute *attr, char *buf)
 {
-	int speed = 0;
+	int speed;
 
-	speed = (it8528_read(INDEX_GPU_FAN_SPEED_HIGH) << 8) | it8528_read(INDEX_GPU_FAN_SPEED_LOW);
+	speed = (it8528_read(INDEX_GPU_FAN_SPEED_HIGH) << 8) |
+		it8528_read(INDEX_GPU_FAN_SPEED_LOW);
 
-	return sprintf(buf, "%d\n", speed);
+	return sysfs_emit(buf, "%d\n", speed);
 }
 
 static SENSOR_DEVICE_ATTR(ec_bat_temp, 0444, ec_bat_temp_show,
@@ -84,56 +90,24 @@ ATTRIBUTE_GROUPS(ec_gpu_temp_hwmon);
 ATTRIBUTE_GROUPS(ec_cpu_fan_hwmon);
 ATTRIBUTE_GROUPS(ec_gpu_fan_hwmon);
 
-void ec_sensors_register(struct platform_device *pdev)
+static void ec_hwmon_register(struct platform_device *pdev, const char *name,
+			      const struct attribute_group **groups)
 {
 	struct device *hwmon_dev;
 
-	char *bat_temp_data, *gpu_temp_data, *cpu_fan_data, *gpu_fan_data;
+	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev, name,
+							   NULL, groups);
+	if (IS_ERR(hwmon_dev))
+		dev_err(&pdev->dev, "unable to register hwmon device %s: %ld\n",
+			name, PTR_ERR(hwmon_dev));
+}
 
-    /* register bat temp hwmon device */
-	bat_temp_data = kzalloc(0x10, GFP_KERNEL);
-
-	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev, "EC_BAT_TEMP",
-						     bat_temp_data,
-						     ec_bat_temp_hwmon_groups);
-	if (IS_ERR(hwmon_dev)) {
-		dev_err(&pdev->dev, "unable to register hwmon device %ld\n",
-			 PTR_ERR(hwmon_dev));
-	}
-
-    /* register gpu temp hwmon device */
-	gpu_temp_data = kzalloc(0x10, GFP_KERNEL);
-
-	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev, "EC_GPU_TEMP",
-						     gpu_temp_data,
-						     ec_gpu_temp_hwmon_groups);
-	if (IS_ERR(hwmon_dev)) {
-		dev_err(&pdev->dev, "unable to register hwmon device %ld\n",
-			 PTR_ERR(hwmon_dev));
-	}
-
-    /* register cpu fan hwmon device */
-	cpu_fan_data = kzalloc(0x10, GFP_KERNEL);
-
-	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev, "EC_CPU_FAN",
-						     cpu_fan_data,
-						     ec_cpu_fan_hwmon_groups);
-	if (IS_ERR(hwmon_dev)) {
-		dev_err(&pdev->dev, "unable to register hwmon device %ld\n",
-			 PTR_ERR(hwmon_dev));
-	}
-
-    /* register cpu fan hwmon device */
-	gpu_fan_data = kzalloc(0x10, GFP_KERNEL);
-
-	hwmon_dev = devm_hwmon_device_register_with_groups(&pdev->dev, "EC_GPU_FAN",
-						     gpu_fan_data,
-						     ec_gpu_fan_hwmon_groups);
-	if (IS_ERR(hwmon_dev)) {
-		dev_err(&pdev->dev, "unable to register hwmon device %ld\n",
-			 PTR_ERR(hwmon_dev));
-	}
-
+void ec_sensors_register(struct platform_device *pdev)
+{
+	ec_hwmon_register(pdev, "ec_bat_temp", ec_bat_temp_hwmon_groups);
+	ec_hwmon_register(pdev, "ec_gpu_temp", ec_gpu_temp_hwmon_groups);
+	ec_hwmon_register(pdev, "ec_cpu_fan", ec_cpu_fan_hwmon_groups);
+	ec_hwmon_register(pdev, "ec_gpu_fan", ec_gpu_fan_hwmon_groups);
 }
 
 #else
