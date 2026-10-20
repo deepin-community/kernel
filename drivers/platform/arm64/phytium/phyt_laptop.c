@@ -1,28 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/io.h>
-#include <linux/pci.h>
-#include <linux/delay.h>
-#include <linux/uaccess.h>
 #include <linux/backlight.h>
-#include <linux/platform_device.h>
 #include <linux/fb.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/pm.h>
 #include <linux/power_supply.h>
 #include <linux/input.h>
 #include <linux/input/sparse-keymap.h>
-#include <linux/jiffies.h>
-#include <linux/miscdevice.h>
 #include <linux/module.h>
 #include <linux/string.h>
 #include "ec_it8528.h"
-#include <linux/dmi.h>
 #include <linux/acpi.h>
 #include <linux/cputypes.h>
 #include <linux/classtypes.h>
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio/consumer.h>
 
 static inline u16 ec_read16(u8 high, u8 low)
 {
@@ -30,9 +22,6 @@ static inline u16 ec_read16(u8 high, u8 low)
 }
 
 
-static bool ft_display_state = true;
-static unsigned int ft_display_level;
-static int ft_set_display_on(bool on);
 static int ec_gsensor_init(struct platform_device *pdev);
 
 #define EC_LPC_DEV	"ec"
@@ -68,9 +57,6 @@ enum /* bat_reg_flag */
 	BAT_REG_RSOC_FLAG,
 	BAT_REG_CYCLCNT_FLAG
 };
-
-/* Power info cached timeout */
-#define POWER_INFO_CACHED_TIMEOUT	100	/* jiffies */
 
 /* Backlight */
 #define MAX_BRIGHTNESS	100
@@ -134,13 +120,8 @@ struct ft_power_info {
 
 /* LPC device structure */
 struct lpc_device {
-	/* The lpc number get from ec */
-	unsigned char number;
-	/* count */
-	unsigned char parameter;
 	/* Irq relative */
-	unsigned char irq;
-	unsigned char irq_data;
+	unsigned int irq;
 	/* Device name */
 	unsigned char name[10];
 };
@@ -163,7 +144,6 @@ static void ft_power_info_battery_static_clear(void);
 static void ft_power_info_battery_static_update(void);
 /* Update power_status value */
 static void ft_power_info_power_status_update(void);
-static void ft_bat_get_string(unsigned char index, unsigned char *bat_string);
 /* Power supply Battery get property handler */
 static int ft_bat_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val);
@@ -303,128 +283,14 @@ static struct power_supply_desc ft_ac = {
 };
 static struct power_supply *ec_ac;
 
-
-
-void ft_ec_event_report_entry(struct input_dev *dev, const struct key_entry *ke,
-				unsigned int value, bool autorelease)
-{
-	input_event(dev, EV_MSC, MSC_SCAN, ke->code);
-	input_report_key(dev, ke->keycode, value);
-	input_sync(dev);
-	if (value && autorelease) {
-		input_report_key(dev, ke->keycode, 0);
-		input_sync(dev);
-	}
-}
-
-void ft_ec_bl_dn_event(void)
-{
-	const struct key_entry *key = &ft_keymap[4];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_bl_dn_event);
-
-void ft_ec_bl_up_event(void)
-{
-	const struct key_entry *key = &ft_keymap[5];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_bl_up_event);
-
-void ft_ec_lid_event(void)
-{
-	const struct key_entry *key = &ft_keymap[0];
-
-	__clear_bit(SW_LID, ft_hotkey_dev->sw);
-	input_report_switch(ft_hotkey_dev, key->sw.code, 1);
-	input_sync(ft_hotkey_dev);
-
-}
-EXPORT_SYMBOL(ft_ec_lid_event);
-
-void ft_ec_display_off(void)
-{
-	const struct key_entry *key = &ft_keymap[3];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-	ft_set_display_on(!ft_display_state);
-}
-EXPORT_SYMBOL(ft_ec_display_off);
-
-void ft_ec_display_event(void)
-{
-	const struct key_entry *key = &ft_keymap[6];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_display_event);
-
-void ft_ec_wifi_event(void)
-{
-	const struct key_entry *key = &ft_keymap[7];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_wifi_event);
-
-void ft_ec_micmute_event(void)
-{
-	const struct key_entry *key = &ft_keymap[10];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_micmute_event);
-
-void ft_ec_airplane_event(void)
-{
-	const struct key_entry *key = &ft_keymap[11];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-
-void ft_ec_screen_lock_event(void)
-{
-	const struct key_entry *key = &ft_keymap[9];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_screen_lock_event);
-
-void ft_ec_tp_event(void)
-{
-	const struct key_entry *key = &ft_keymap[2];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_tp_event);
-
-void ft_ec_screenlock_event(void)
-{
-	const struct key_entry *key = &ft_keymap[9];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_ec_screenlock_event);
-
-void ft_sleep_event(void)
-{
-	const struct key_entry *key = &ft_keymap[1];
-
-	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
-}
-EXPORT_SYMBOL(ft_sleep_event);
-
-void ft_ec_powerbtn_event(void)
+static void ft_ec_powerbtn_event(void)
 {
 	const struct key_entry *key = &ft_keymap[8];
 
 	sparse_keymap_report_entry(ft_hotkey_dev, key, 1, true);
 }
-EXPORT_SYMBOL(ft_ec_powerbtn_event);
 
-void ft_ec_screen_rotation_event(void)
+static void ft_ec_screen_rotation_event(void)
 {
 	int x_val = 0, y_val = 0, z_val = 0;
 
@@ -460,7 +326,7 @@ static const struct {
 	{ EC_EVENT_NUM_GSENSOR, ft_ec_screen_rotation_event_handler },
 };
 
-void ft_ec_event_handler(int event)
+static void ft_ec_event_handler(int event)
 {
 	int i;
 
@@ -515,9 +381,6 @@ static int lpc_int_init(void)
 	if (!ft_lpc_device)
 		return -ENOMEM;
 
-	ft_lpc_device->irq_data = 0x00;
-	ft_lpc_device->number = 0x00;
-	ft_lpc_device->parameter = 0x00;
 	strscpy(ft_lpc_device->name, EC_LPC_DEV, sizeof(ft_lpc_device->name));
 
 	/* get lpc irq */
@@ -661,31 +524,12 @@ err_free:
 	return ret;
 }
 
-static int ft_set_display_on(bool on)
-{
-	if (!chassis_types_is_laptop())
-		return 0;
-
-	if (on) {
-		ft_display_state = true;
-		it8528_write(INDEX_DISPLAY_BRIGHTNESS_SET, ft_display_level);
-	} else {
-		ft_display_state = false;
-		ft_display_level = it8528_read(INDEX_DISPLAY_BRIGHTNESS_GET);
-		it8528_write(INDEX_DISPLAY_BRIGHTNESS_SET, 0);
-	}
-	return 0;
-}
-
 /* Backlight device set brightness handler */
 static int ft_set_brightness(struct backlight_device *pdev)
 {
 	unsigned int level = 0;
 
 	if (!chassis_types_is_laptop() && !chassis_types_is_allinone())
-		return 0;
-
-	if (!ft_display_state)
 		return 0;
 
 	level = ((pdev->props.fb_blank == FB_BLANK_UNBLANK) &&
@@ -893,17 +737,6 @@ static void ft_power_info_power_status_update(void)
 	}
 }
 
-/* Get battery static information string */
-static void __maybe_unused ft_bat_get_string(unsigned char index, unsigned char *bat_string)
-{
-	unsigned char length, i;
-
-	length = it8528_read(index);
-	for (i = 0; i < length; i++)
-		*bat_string++ = it8528_read(++index);
-	*bat_string = '\0';
-}
-
 /* Power supply Battery get property handler */
 static int ft_bat_get_property(struct power_supply *pws,
 			enum power_supply_property psp, union power_supply_propval *val)
@@ -1024,16 +857,6 @@ static void ft_ac_handler(int status)
 	power_supply_changed(ec_ac);
 }
 
-/* EC device AC event handler */
-int ft_ac_handler_test(void)
-{
-	/* Report status changed */
-	power_supply_changed(ec_ac);
-
-	return 0;
-}
-EXPORT_SYMBOL(ft_ac_handler_test);
-
 /* LPC device Battery event handler */
 static void ft_bat_handler(int status)
 {
@@ -1052,11 +875,13 @@ static void ft_bat_handler(int status)
 /* LPC device LID event handler */
 static void ft_lid_handler(int status)
 {
-	ft_ec_lid_event();
+	__clear_bit(SW_LID, ft_hotkey_dev->sw);
+	input_report_switch(ft_hotkey_dev, SW_LID, 1);
+	input_sync(ft_hotkey_dev);
 }
 
 /* Hotkey device init */
-int ft_hotkey_init(void)
+static int ft_hotkey_init(void)
 {
 	int ret;
 
@@ -1093,7 +918,6 @@ int ft_hotkey_init(void)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(ft_hotkey_init);
 
 /* Hotkey device exit */
 static void ft_hotkey_exit(void)
