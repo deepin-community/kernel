@@ -18,17 +18,33 @@
 #define FT2000_PIO_CLR_INT	0x7FFFFF0
 #define LEGACY_ISA_SIZE		0x400
 
+/* Long LPC window holding the interrupt latch registers. */
+#define PHYTIUM_LPC_IOMEM_SIZE		0x08000000
+
+/* LPC interrupt latch bits shared by the legacy children. */
+#define PHYTIUM_PIO_I8042_KBD_INT	1
+#define PHYTIUM_PIO_UART_INT		4
+#define PHYTIUM_PIO_EC_INT		11
+#define PHYTIUM_PIO_I8042_AUX_INT	12
+
 struct phytium_pio {
 	void __iomem *membase;
+	/* Long LPC window used for interrupt status/clear accesses. */
+	void __iomem *regbase;
 	int irq;
 	spinlock_t lock;
 	u32 int_status_reg;
 	u32 int_clear_reg;
+	/* LPC latch bits owned by a registered child handler. */
+	u32 handled_bits;
 	struct logic_pio_hwaddr *range;
 };
 
 bool check_cpu_type(void);
 int phytium_pio_get_irq(void);
+void phytium_pio_handle_interrupt_bit(unsigned int bit);
+void phytium_pio_unhandle_interrupt_bit(unsigned int bit);
+bool phytium_pio_clear_interrupt_bit(unsigned int bit);
 void phytium_pio_clear_interrupt(u32 val);
 u32 phytium_pio_get_int_status(void);
 

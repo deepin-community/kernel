@@ -18,6 +18,9 @@
 #include <linux/bitops.h>
 
 #include <asm/byteorder.h>
+#if defined(CONFIG_PHYTIUM_PIO)
+#include "../../../bus/phytium_pio.h"
+#endif
 
 #include "8250.h"
 
@@ -430,6 +433,27 @@ static int serial_pnp_guess_board(struct pnp_dev *dev)
 	return -ENODEV;
 }
 
+#if defined(CONFIG_PHYTIUM_PIO)
+static int phytium_pnp_serial_handle_irq(struct uart_port *port)
+{
+	unsigned int iir = serial_port_in(port, UART_IIR);
+	int handled;
+
+	if (iir & UART_IIR_NO_INT)
+		return phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
+
+	handled = serial8250_handle_irq(port, iir);
+	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
+
+	return handled;
+}
+
+static bool phytium_pnp_is_int_uart(const struct pnp_device_id *dev_id)
+{
+	return check_cpu_type() && !strcmp(dev_id->id, "PNP0501");
+}
+#endif
+
 static int
 serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 {
@@ -443,8 +467,21 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 	}
 
 	memset(&uart, 0, sizeof(uart));
+#if defined(CONFIG_PHYTIUM_PIO)
+	if (phytium_pnp_is_int_uart(dev_id)) {
+		uart.port.irq = phytium_pio_get_irq();
+		if (uart.port.irq < 0)
+			return -EPROBE_DEFER;
+
+		uart.port.flags |= UPF_SHARE_IRQ;
+		uart.port.handle_irq = phytium_pnp_serial_handle_irq;
+	} else if (pnp_irq_valid(dev, 0)) {
+		uart.port.irq = pnp_irq(dev, 0);
+	}
+#else
 	if (pnp_irq_valid(dev, 0))
 		uart.port.irq = pnp_irq(dev, 0);
+#endif
 	if ((flags & CIR_PORT) && pnp_port_valid(dev, 2)) {
 		uart.port.iobase = pnp_port_start(dev, 2);
 		uart.port.iotype = UPIO_PORT;
@@ -454,7 +491,7 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 	} else if (pnp_mem_valid(dev, 0)) {
 		uart.port.mapbase = pnp_mem_start(dev, 0);
 		uart.port.iotype = UPIO_MEM;
-		uart.port.flags = UPF_IOREMAP;
+		uart.port.flags |= UPF_IOREMAP;
 	} else
 		return -ENODEV;
 
@@ -537,4 +574,3 @@ void serial8250_pnp_exit(void)
 {
 	pnp_unregister_driver(&serial_pnp_driver);
 }
-

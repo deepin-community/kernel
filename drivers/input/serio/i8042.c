@@ -533,26 +533,26 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 	unsigned char str, data;
 	unsigned int dfl;
 	unsigned int port_no;
+#ifdef CONFIG_PHYTIUM_PIO
+	unsigned int pio_bit = 0;
+#endif
 	bool filtered;
 	int ret = 1;
 
 	spin_lock_irqsave(&i8042_lock, flags);
 
-#ifdef CONFIG_PHYTIUM_PIO
-	if (check_cpu_type()) {
-		/* No (KBD | TP) interrupt, return */
-		if (i8042_write_lpc_interrupt_clear()) {
-			spin_unlock_irqrestore(&i8042_lock, flags);
-			dbg(" No (KBD | TP) in int_status, return\n");
-			ret = 0;
-			goto out;
-		}
-	}
-#endif
-
 	str = i8042_read_status();
 	if (unlikely(~str & I8042_STR_OBF)) {
 		spin_unlock_irqrestore(&i8042_lock, flags);
+
+#ifdef CONFIG_PHYTIUM_PIO
+		if (check_cpu_type()) {
+			ret = phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
+			ret |= phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
+			if (ret)
+				return IRQ_HANDLED;
+		}
+#endif
 		if (irq)
 			dbg("Interrupt %d, without any data\n", irq);
 		ret = 0;
@@ -608,6 +608,11 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 				I8042_AUX_PORT_NO : I8042_KBD_PORT_NO;
 	}
 
+#ifdef CONFIG_PHYTIUM_PIO
+	pio_bit = (str & I8042_STR_AUXDATA) ?
+			PHYTIUM_PIO_I8042_AUX_INT : PHYTIUM_PIO_I8042_KBD_INT;
+#endif
+
 	port = &i8042_ports[port_no];
 	serio = port->exists ? port->serio : NULL;
 
@@ -622,6 +627,11 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 
 	if (likely(serio && !filtered))
 		serio_interrupt(serio, data, dfl);
+
+#ifdef CONFIG_PHYTIUM_PIO
+	if (ret && pio_bit && check_cpu_type())
+		phytium_pio_clear_interrupt_bit(pio_bit);
+#endif
 
  out:
 	return IRQ_RETVAL(ret);
@@ -1457,10 +1467,20 @@ static void i8042_unregister_ports(void)
 
 static void i8042_free_irqs(void)
 {
-	if (i8042_aux_irq_registered)
+	if (i8042_aux_irq_registered) {
+#ifdef CONFIG_PHYTIUM_PIO
+		if (check_cpu_type())
+			phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
+#endif
 		free_irq(I8042_AUX_IRQ, i8042_platform_device);
-	if (i8042_kbd_irq_registered)
+	}
+	if (i8042_kbd_irq_registered) {
+#ifdef CONFIG_PHYTIUM_PIO
+		if (check_cpu_type())
+			phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
+#endif
 		free_irq(I8042_KBD_IRQ, i8042_platform_device);
+	}
 
 	i8042_aux_irq_registered = i8042_kbd_irq_registered = false;
 }
@@ -1492,6 +1512,10 @@ static int i8042_setup_aux(void)
 			    "i8042", i8042_platform_device);
 	if (error)
 		goto err_free_ports;
+#ifdef CONFIG_PHYTIUM_PIO
+	if (check_cpu_type())
+		phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
+#endif
 
 	error = aux_enable();
 	if (error)
@@ -1501,6 +1525,10 @@ static int i8042_setup_aux(void)
 	return 0;
 
  err_free_irq:
+#ifdef CONFIG_PHYTIUM_PIO
+	if (check_cpu_type())
+		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
+#endif
 	free_irq(I8042_AUX_IRQ, i8042_platform_device);
  err_free_ports:
 	i8042_free_aux_ports();
@@ -1519,6 +1547,10 @@ static int i8042_setup_kbd(void)
 			    "i8042", i8042_platform_device);
 	if (error)
 		goto err_free_port;
+#ifdef CONFIG_PHYTIUM_PIO
+	if (check_cpu_type())
+		phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
+#endif
 
 	error = i8042_enable_kbd_port();
 	if (error)
@@ -1528,6 +1560,10 @@ static int i8042_setup_kbd(void)
 	return 0;
 
  err_free_irq:
+#ifdef CONFIG_PHYTIUM_PIO
+	if (check_cpu_type())
+		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
+#endif
 	free_irq(I8042_KBD_IRQ, i8042_platform_device);
  err_free_port:
 	i8042_free_kbd_port();

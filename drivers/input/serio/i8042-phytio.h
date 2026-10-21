@@ -76,6 +76,8 @@ static inline int i8042_platform_init(void)
 	}
 
 	i8042_kbd_irq = i8042_aux_irq = phytium_pio_get_irq();
+	if (i8042_kbd_irq < 0)
+		return -EPROBE_DEFER;
 
 	/* Set reset behavior */
 	i8042_reset = I8042_RESET_ALWAYS;
@@ -86,31 +88,7 @@ static inline int i8042_platform_init(void)
 
 static inline void i8042_platform_exit(void)
 {
-	phytium_pio_clear_interrupt(0);
 	pr_info("i8042-phytio: Exited\n");
-}
-
-static inline int i8042_write_lpc_interrupt_clear(void)
-{
-	u32 int_status;
-
-	int_status = phytium_pio_get_int_status();
-
-	if (int_status & I8042_KEY_BIT) {
-		phytium_pio_clear_interrupt(~I8042_KEY_BIT);
-		return 0;
-	}
-	if (int_status & I8042_TOUCH_BIT) {
-		phytium_pio_clear_interrupt(~I8042_TOUCH_BIT);
-		return 0;
-	}
-	if (int_status & EC_EVENT_BIT) {
-		phytium_pio_clear_interrupt(~EC_EVENT_BIT);
-		return 0;
-	}
-
-	pr_debug("no cared bits\n");
-	return 1;
 }
 
 #endif /* _I8042_PHYTIO_H */
