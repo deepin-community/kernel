@@ -450,7 +450,8 @@ static int phytium_pnp_serial_handle_irq(struct uart_port *port)
 
 static bool phytium_pnp_is_int_uart(const struct pnp_device_id *dev_id)
 {
-	return check_cpu_type() && !strcmp(dev_id->id, "PNP0501");
+	return check_cpu_type() && phytium_pio_get_irq() >= 0 &&
+	       !strcmp(dev_id->id, "PNP0501");
 }
 #endif
 
@@ -470,9 +471,6 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 #if defined(CONFIG_PHYTIUM_PIO)
 	if (phytium_pnp_is_int_uart(dev_id)) {
 		uart.port.irq = phytium_pio_get_irq();
-		if (uart.port.irq < 0)
-			return -EPROBE_DEFER;
-
 		uart.port.flags |= UPF_SHARE_IRQ;
 		uart.port.handle_irq = phytium_pnp_serial_handle_irq;
 	} else if (pnp_irq_valid(dev, 0)) {
