@@ -6,7 +6,9 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/bitops.h>
 #include <linux/cputypes.h>
+#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/logic_pio.h>
 #include <linux/module.h>
@@ -25,6 +27,8 @@
 static struct phytium_pio *ppio;
 int phytium_pio_int_state;
 int phytium_pio_clr_int;
+
+static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id);
 
 bool check_cpu_type(void)
 {
@@ -46,10 +50,57 @@ void phytium_pio_clear_interrupt(u32 val)
 	if (!ppio)
 		return;
 	spin_lock_irqsave(&ppio->lock, flags);
-	writel(val, ppio->membase + phytium_pio_clr_int);
+	writel(val, ppio->regbase + ppio->int_clear_reg);
+	readl(ppio->regbase + ppio->int_status_reg);
 	spin_unlock_irqrestore(&ppio->lock, flags);
 }
 EXPORT_SYMBOL(phytium_pio_clear_interrupt);
+
+void phytium_pio_handle_interrupt_bit(unsigned int bit)
+{
+	unsigned long flags;
+
+	if (!ppio || bit >= 32)
+		return;
+
+	spin_lock_irqsave(&ppio->lock, flags);
+	ppio->handled_bits |= BIT(bit);
+	spin_unlock_irqrestore(&ppio->lock, flags);
+}
+EXPORT_SYMBOL(phytium_pio_handle_interrupt_bit);
+
+void phytium_pio_unhandle_interrupt_bit(unsigned int bit)
+{
+	unsigned long flags;
+
+	if (!ppio || bit >= 32)
+		return;
+
+	spin_lock_irqsave(&ppio->lock, flags);
+	ppio->handled_bits &= ~BIT(bit);
+	spin_unlock_irqrestore(&ppio->lock, flags);
+}
+EXPORT_SYMBOL(phytium_pio_unhandle_interrupt_bit);
+
+bool phytium_pio_clear_interrupt_bit(unsigned int bit)
+{
+	unsigned long flags;
+	u32 pending;
+
+	if (!ppio || bit >= 32)
+		return false;
+
+	spin_lock_irqsave(&ppio->lock, flags);
+	pending = readl(ppio->regbase + ppio->int_status_reg);
+	if (pending & BIT(bit)) {
+		writel(pending & ~BIT(bit), ppio->regbase + ppio->int_clear_reg);
+		readl(ppio->regbase + ppio->int_status_reg);
+	}
+	spin_unlock_irqrestore(&ppio->lock, flags);
+
+	return pending & BIT(bit);
+}
+EXPORT_SYMBOL(phytium_pio_clear_interrupt_bit);
 
 u32 phytium_pio_get_int_status(void)
 {
@@ -59,7 +110,7 @@ u32 phytium_pio_get_int_status(void)
 	if (!ppio)
 		return ret;
 	spin_lock_irqsave(&ppio->lock, flags);
-	ret = readl(ppio->membase + phytium_pio_int_state);
+	ret = readl(ppio->regbase + ppio->int_status_reg);
 	spin_unlock_irqrestore(&ppio->lock, flags);
 
 	return ret;
@@ -73,6 +124,25 @@ int phytium_pio_get_irq(void)
 	return ppio->irq;
 }
 EXPORT_SYMBOL(phytium_pio_get_irq);
+
+static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id)
+{
+	struct phytium_pio *pio = dev_id;
+	unsigned long flags;
+	u32 clear_bits, pending;
+
+	spin_lock_irqsave(&pio->lock, flags);
+	pending = readl(pio->regbase + pio->int_status_reg);
+	clear_bits = pending & ~pio->handled_bits;
+
+	if (clear_bits) {
+		writel(pending & ~clear_bits, pio->regbase + pio->int_clear_reg);
+		readl(pio->regbase + pio->int_status_reg);
+	}
+	spin_unlock_irqrestore(&pio->lock, flags);
+
+	return IRQ_RETVAL(pending);
+}
 
 /*
  * phytium_pio_in - input the data from the target I/O port
@@ -203,11 +273,16 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct logic_pio_hwaddr *range;
 	struct phytium_pio *pio;
+	resource_size_t reg_size = PHYTIUM_LPC_IOMEM_SIZE;
+	phys_addr_t reg_start;
+	struct resource *res;
 	int ret;
 
 	pio = devm_kzalloc(dev, sizeof(*pio), GFP_KERNEL);
 	if (!pio)
 		return -ENOMEM;
+	spin_lock_init(&pio->lock);
+
 	pio->membase = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR_OR_NULL(pio->membase))
 		return PTR_ERR(pio->membase);
@@ -218,34 +293,27 @@ static int phytium_pio_probe(struct platform_device *pdev)
 		return pio->irq;
 	}
 
-	{
-		struct resource *res;
-		resource_size_t size;
-		u64 offset_from_end;
+	/*
+	 * The ACPI _CRS window only covers the short PIO aperture, while the
+	 * interrupt latch registers live near the end of the long LPC window
+	 * (base + 0x7ffffc0/0x7ffffc4).  Map the long window starting at the
+	 * firmware supplied LPC base (0x10000000 on D3000M, 0x20000000 on
+	 * D2000/D3000): reading the latch through the short window can return
+	 * unrelated device state such as UART_IIR.
+	 */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+	reg_start = res->start;
 
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (res) {
-			size = resource_size(res);
+	pio->regbase = devm_ioremap(dev, reg_start, reg_size);
+	if (!pio->regbase)
+		return -ENOMEM;
 
-			offset_from_end = PHYTIUM_PIO_LENGTH_LONG - phytium_pio_int_state;
-			if (offset_from_end <= size && offset_from_end > 0)
-				phytium_pio_int_state = size - offset_from_end;
-
-			offset_from_end = PHYTIUM_PIO_LENGTH_LONG - phytium_pio_clr_int;
-			if (offset_from_end <= size && offset_from_end > 0)
-				phytium_pio_clr_int = size - offset_from_end;
-		}
-	}
-
-	ret = device_property_read_u32(&pdev->dev, "int_state",
-			&pio->int_status_reg);
-	if (ret)
-		pio->int_status_reg = phytium_pio_int_state;
-
-	ret = device_property_read_u32(&pdev->dev, "clr_int",
-			&pio->int_clear_reg);
-	if (ret)
-		pio->int_clear_reg = phytium_pio_clr_int;
+	pio->int_status_reg = phytium_pio_int_state;
+	pio->int_clear_reg = phytium_pio_clr_int;
+	writel(0, pio->regbase + pio->int_clear_reg);
+	readl(pio->regbase + pio->int_status_reg);
 
 	dev_dbg(dev, "phytium_pio: int_status_reg=0x%x, int_clear_reg=0x%x\n",
 		pio->int_status_reg, pio->int_clear_reg);
@@ -258,26 +326,37 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	range->hostdata = pio;
 	range->ops = &phytium_pio_ops;
 	pio->range = range;
+	ppio = pio;
+	ret = devm_request_irq(dev, pio->irq, phytium_pio_irq_handler,
+			       IRQF_SHARED, dev_name(dev), pio);
+	if (ret) {
+		dev_err(dev, "Failed to request irq (%d)!\n", ret);
+		goto out;
+	}
+
 	ret = logic_pio_register_range(range);
 	if (ret) {
 		dev_err(dev, "Failed to register logic pio range (%d)!\n", ret);
 		goto out;
 	}
-	ppio = pio;
-	spin_lock_init(&pio->lock);
 	dev_set_drvdata(dev, pio);
 out:
+	if (ret)
+		ppio = NULL;
 	return ret;
 }
 
 static int phytium_pio_remove(struct platform_device *pdev)
 {
 	struct logic_pio_hwaddr *range;
+	struct phytium_pio *pio = dev_get_drvdata(&pdev->dev);
 
 	range = find_io_range_by_fwnode(pdev->dev.fwnode);
 	if (!range)
 		return -EINVAL;
 
+	if (ppio == pio)
+		ppio = NULL;
 	logic_pio_unregister_range(range);
 
 	return 0;

@@ -356,8 +356,9 @@ static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 		return IRQ_NONE;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-	lpc_ec_interrupt_clear();
 	ec_drain_events();
+	/* Consume the EC latch bit only after the event has been handled. */
+	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT);
 	spin_unlock_irqrestore(&i8042_lock, flags);
 
 	return IRQ_HANDLED;
@@ -384,16 +385,14 @@ static int lpc_int_init(void)
 	}
 	ft_lpc_device->irq = ret;
 
-	/* Clear the stale EC source without disturbing i8042's sources. */
-	lpc_ec_interrupt_clear();
-
-	/* Regist pci irq */
+	/* Register EC on the shared LPC parent IRQ. */
 	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine,
 				IRQF_SHARED, ft_lpc_device->name, ft_lpc_device);
 	if (ret) {
 		pr_err("phytium ec: Request irq fail: %d\n", ret);
 		goto err_free;
 	}
+	phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_EC_INT);
 
 	pr_debug("phytium: LPC init successful.\n");
 
@@ -1251,8 +1250,10 @@ static void ft_ec_irq_exit(void)
 	if (ft_gpio_device)
 		free_irq(ft_gpio_device->irq, ft_gpio_device);
 
-	if (ft_lpc_device)
+	if (ft_lpc_device) {
+		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_EC_INT);
 		free_irq(ft_lpc_device->irq, ft_lpc_device);
+	}
 
 	kfree(ft_gpio_device);
 	ft_gpio_device = NULL;
