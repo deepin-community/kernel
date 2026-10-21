@@ -93,7 +93,7 @@ bool phytium_pio_clear_interrupt_bit(unsigned int bit)
 	spin_lock_irqsave(&ppio->lock, flags);
 	pending = readl(ppio->regbase + ppio->int_status_reg);
 	if (pending & BIT(bit)) {
-		writel(pending & ~BIT(bit), ppio->regbase + ppio->int_clear_reg);
+		writel((u32)~BIT(bit), ppio->regbase + ppio->int_clear_reg);
 		readl(ppio->regbase + ppio->int_status_reg);
 	}
 	spin_unlock_irqrestore(&ppio->lock, flags);
@@ -136,7 +136,7 @@ static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id)
 	clear_bits = pending & ~pio->handled_bits;
 
 	if (clear_bits) {
-		writel(pending & ~clear_bits, pio->regbase + pio->int_clear_reg);
+		writel(~clear_bits, pio->regbase + pio->int_clear_reg);
 		readl(pio->regbase + pio->int_status_reg);
 	}
 	spin_unlock_irqrestore(&pio->lock, flags);
