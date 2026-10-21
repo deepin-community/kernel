@@ -150,11 +150,26 @@ static int phytium_can_plat_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cdev->net);
 
 	pm_runtime_enable(cdev->dev);
+
+	/*
+	 * Take a runtime PM reference before touching the controller: the
+	 * runtime resume callback enables the clock, which register-time
+	 * setup needs on DT platforms.  The trailing put in
+	 * phytium_can_register() balances this reference and lets the
+	 * device autosuspend again once probing has finished.
+	 */
+	ret = pm_runtime_resume_and_get(cdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to resume CAN controller: %d\n",
+			ret);
+		goto out_runtime_disable;
+	}
+
 	ret = phytium_can_register(cdev);
 	if (ret)
 		goto out_runtime_disable;
 
-	return ret;
+	return 0;
 
 out_runtime_disable:
 	pm_runtime_disable(cdev->dev);
@@ -177,6 +192,8 @@ static int phytium_can_plat_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct phytium_can_dev *cdev = netdev_priv(dev);
+
+	pm_runtime_disable(cdev->dev);
 
 	phytium_can_unregister(cdev);
 
