@@ -434,10 +434,20 @@ static int serial_pnp_guess_board(struct pnp_dev *dev)
 }
 
 #if defined(CONFIG_PHYTIUM_PIO)
-static bool phytium_pnp_is_int_uart(const struct pnp_device_id *dev_id)
+static bool phytium_pnp_is_int_uart(struct pnp_dev *dev,
+				    const struct pnp_device_id *dev_id)
 {
-	return check_cpu_type() && phytium_pio_get_irq() >= 0 &&
-	       !strcmp(dev_id->id, "PNP0501");
+	if (!check_cpu_type() || phytium_pio_get_irq() < 0)
+		return false;
+
+	if (strcmp(dev_id->id, "PNP0501"))
+		return false;
+
+	if (pnp_port_valid(dev, 0) || pnp_port_valid(dev, 2))
+		return true;
+
+	return pnp_mem_valid(dev, 0) &&
+	       phytium_pio_is_lpc_mem(pnp_mem_start(dev, 0));
 }
 #endif
 
@@ -455,7 +465,7 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 
 	memset(&uart, 0, sizeof(uart));
 #if defined(CONFIG_PHYTIUM_PIO)
-	if (phytium_pnp_is_int_uart(dev_id)) {
+	if (phytium_pnp_is_int_uart(dev, dev_id)) {
 		uart.port.irq = phytium_pio_get_irq();
 		uart.port.flags |= UPF_SHARE_IRQ;
 	} else if (pnp_irq_valid(dev, 0)) {
