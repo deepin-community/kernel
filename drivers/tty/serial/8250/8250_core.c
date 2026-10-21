@@ -118,6 +118,11 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 	pr_debug("%s(%d): start\n", __func__, irq);
 
+#if defined(CONFIG_PHYTIUM_PIO)
+	if (check_cpu_type() && irq == phytium_pio_get_irq())
+		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
+#endif
+
 	spin_lock(&i->lock);
 
 	l = i->head;
@@ -141,11 +146,6 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	} while (l != end);
 
 	spin_unlock(&i->lock);
-
-#if defined(CONFIG_PHYTIUM_PIO)
-	if (check_cpu_type() && irq == phytium_pio_get_irq())
-		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
-#endif
 
 	pr_debug("%s(%d): end\n", __func__, irq);
 
