@@ -352,8 +352,11 @@ static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 	 * acknowledged the shared interrupt before us and cleared the latch
 	 * while the EC still has an event queued.
 	 */
-	if (!it8528_get_ec_evt_flags())
+	if (!it8528_get_ec_evt_flags()) {
+		if (phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT))
+			return IRQ_HANDLED;
 		return IRQ_NONE;
+	}
 
 	spin_lock_irqsave(&i8042_lock, flags);
 	ec_drain_events();
