@@ -193,9 +193,9 @@ static int phytium_can_plat_remove(struct platform_device *pdev)
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 
-	pm_runtime_disable(cdev->dev);
-
 	phytium_can_unregister(cdev);
+
+	pm_runtime_disable(cdev->dev);
 
 	phytium_can_free_dev(cdev->net);
 
