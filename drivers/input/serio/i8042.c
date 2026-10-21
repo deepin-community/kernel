@@ -541,26 +541,22 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 	unsigned char str, data;
 	unsigned int dfl;
 	unsigned int port_no;
-#ifdef CONFIG_PHYTIUM_PIO
-	unsigned int pio_bit = 0;
-#endif
 	bool filtered;
 	int ret = 1;
 
 	spin_lock_irqsave(&i8042_lock, flags);
 
+#ifdef CONFIG_PHYTIUM_PIO
+	if (i8042_phytium_shared_parent()) {
+		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
+		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
+	}
+#endif
+
 	str = i8042_read_status();
 	if (unlikely(~str & I8042_STR_OBF)) {
 		spin_unlock_irqrestore(&i8042_lock, flags);
 
-#ifdef CONFIG_PHYTIUM_PIO
-		if (i8042_phytium_shared_parent()) {
-			ret = phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
-			ret |= phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
-			if (ret)
-				return IRQ_HANDLED;
-		}
-#endif
 		if (irq)
 			dbg("Interrupt %d, without any data\n", irq);
 		ret = 0;
@@ -616,11 +612,6 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 				I8042_AUX_PORT_NO : I8042_KBD_PORT_NO;
 	}
 
-#ifdef CONFIG_PHYTIUM_PIO
-	pio_bit = (str & I8042_STR_AUXDATA) ?
-			PHYTIUM_PIO_I8042_AUX_INT : PHYTIUM_PIO_I8042_KBD_INT;
-#endif
-
 	port = &i8042_ports[port_no];
 	serio = port->exists ? port->serio : NULL;
 
@@ -635,11 +626,6 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 
 	if (likely(serio && !filtered))
 		serio_interrupt(serio, data, dfl);
-
-#ifdef CONFIG_PHYTIUM_PIO
-	if (ret && pio_bit && i8042_phytium_shared_parent())
-		phytium_pio_clear_interrupt_bit(pio_bit);
-#endif
 
  out:
 	return IRQ_RETVAL(ret);
