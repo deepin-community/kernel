@@ -69,15 +69,19 @@ static inline void i8042_write_command(int val)
  */
 static inline int i8042_platform_init(void)
 {
+	int irq;
+
 	/* Check if we're running on Phytium CPU */
 	if (!check_cpu_type()) {
 		pr_info("i8042-phytio: Not running on Phytium CPU\n");
 		return -ENODEV;
 	}
 
-	i8042_kbd_irq = i8042_aux_irq = phytium_pio_get_irq();
-	if (i8042_kbd_irq < 0)
-		return -EPROBE_DEFER;
+	irq = phytium_pio_get_irq();
+	if (irq >= 0) {
+		i8042_kbd_irq = irq;
+		i8042_aux_irq = irq;
+	}
 
 	/* Set reset behavior */
 	i8042_reset = I8042_RESET_ALWAYS;
