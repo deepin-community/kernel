@@ -125,6 +125,13 @@ int phytium_pio_get_irq(void)
 }
 EXPORT_SYMBOL(phytium_pio_get_irq);
 
+bool phytium_pio_is_lpc_mem(phys_addr_t addr)
+{
+	return ppio && addr >= ppio->lpc_base &&
+	       addr - ppio->lpc_base < PHYTIUM_LPC_IOMEM_SIZE;
+}
+EXPORT_SYMBOL(phytium_pio_is_lpc_mem);
+
 static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id)
 {
 	struct phytium_pio *pio = dev_id;
@@ -305,6 +312,7 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	if (!res)
 		return -ENODEV;
 	reg_start = res->start;
+	pio->lpc_base = reg_start;
 
 	pio->regbase = devm_ioremap(dev, reg_start, reg_size);
 	if (!pio->regbase)

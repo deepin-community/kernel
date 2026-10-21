@@ -37,6 +37,7 @@ struct phytium_pio {
 	u32 int_clear_reg;
 	/* LPC latch bits owned by a registered child handler. */
 	u32 handled_bits;
+	phys_addr_t lpc_base;
 	struct logic_pio_hwaddr *range;
 };
 
@@ -45,6 +46,7 @@ int phytium_pio_get_irq(void);
 void phytium_pio_handle_interrupt_bit(unsigned int bit);
 void phytium_pio_unhandle_interrupt_bit(unsigned int bit);
 bool phytium_pio_clear_interrupt_bit(unsigned int bit);
+bool phytium_pio_is_lpc_mem(phys_addr_t addr);
 void phytium_pio_clear_interrupt(u32 val);
 u32 phytium_pio_get_int_status(void);
 
