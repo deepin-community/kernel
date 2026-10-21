@@ -434,20 +434,6 @@ static int serial_pnp_guess_board(struct pnp_dev *dev)
 }
 
 #if defined(CONFIG_PHYTIUM_PIO)
-static int phytium_pnp_serial_handle_irq(struct uart_port *port)
-{
-	unsigned int iir = serial_port_in(port, UART_IIR);
-	int handled;
-
-	if (iir & UART_IIR_NO_INT)
-		return phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
-
-	handled = serial8250_handle_irq(port, iir);
-	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
-
-	return handled;
-}
-
 static bool phytium_pnp_is_int_uart(const struct pnp_device_id *dev_id)
 {
 	return check_cpu_type() && phytium_pio_get_irq() >= 0 &&
@@ -472,7 +458,6 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 	if (phytium_pnp_is_int_uart(dev_id)) {
 		uart.port.irq = phytium_pio_get_irq();
 		uart.port.flags |= UPF_SHARE_IRQ;
-		uart.port.handle_irq = phytium_pnp_serial_handle_irq;
 	} else if (pnp_irq_valid(dev, 0)) {
 		uart.port.irq = pnp_irq(dev, 0);
 	}
