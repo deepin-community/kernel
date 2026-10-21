@@ -358,10 +358,10 @@ static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT);
+
 	spin_lock_irqsave(&i8042_lock, flags);
 	ec_drain_events();
-	/* Consume the EC latch bit only after the event has been handled. */
-	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT);
 	spin_unlock_irqrestore(&i8042_lock, flags);
 
 	return IRQ_HANDLED;
