@@ -987,7 +987,7 @@ static int phytium_can_open(struct net_device *dev)
 	struct phytium_can_dev *cdev = netdev_priv(dev);
 	int ret;
 
-	ret = pm_runtime_get_sync(cdev->dev);
+	ret = pm_runtime_resume_and_get(cdev->dev);
 	if (ret < 0) {
 		netdev_err(dev, "%s: pm_runtime_get failed(%d)\n",
 			   __func__, ret);
@@ -1021,8 +1021,10 @@ static int phytium_can_open(struct net_device *dev)
 	return 0;
 
 fail:
-	pm_runtime_put(cdev->dev);
 	close_candev(dev);
+	pm_runtime_put_sync(cdev->dev);
+	return ret;
+
 disable_clk:
 	pm_runtime_put_sync(cdev->dev);
 	return ret;
@@ -1202,7 +1204,12 @@ int phytium_can_resume(struct device *dev)
 	cdev->can.state = CAN_STATE_ERROR_ACTIVE;
 
 	if (netif_running(ndev)) {
-		ret = pm_runtime_resume(cdev->dev);
+		/*
+		 * phytium_can_suspend() dropped the reference taken by
+		 * phytium_can_open(); take it back so the later close keeps
+		 * open/close balanced.
+		 */
+		ret = pm_runtime_resume_and_get(cdev->dev);
 		if (ret)
 			return ret;
 
