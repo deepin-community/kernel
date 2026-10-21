@@ -381,6 +381,7 @@ static struct platform_driver phytium_pio_driver = {
 	.driver = {
 			.name = PHYT_PIO_DRIVER_NAME,
 			.acpi_match_table = ACPI_PTR(phytium_pio_acpi_match),
+			.suppress_bind_attrs = true,
 		},
 	.probe = phytium_pio_probe,
 	.remove = phytium_pio_remove,
