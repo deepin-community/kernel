@@ -699,7 +699,7 @@ static void ntfs_put_super(struct super_block *sb)
 
 	if (sbi->options) {
 		unload_nls(sbi->options->nls);
-		kfree(sbi->options->nls);
+		kfree(sbi->options->nls_name);
 		kfree(sbi->options);
 		sbi->options = NULL;
 	}
@@ -1257,6 +1257,7 @@ static int ntfs_fill_super(struct super_block *sb, struct fs_context *fc)
 		}
 	}
 	sbi->options = options;
+	fc->fs_private = NULL;
 	sb->s_flags |= SB_NODIRATIME;
 	sb->s_magic = 0x7366746e; // "ntfs"
 	sb->s_op = &ntfs_sops;
@@ -1685,7 +1686,7 @@ put_inode_out:
 out:
 	if (sbi && sbi->options) {
 		unload_nls(sbi->options->nls);
-		kfree(sbi->options->nls);
+		kfree(sbi->options->nls_name);
 		kfree(sbi->options);
 		sbi->options = NULL;
 	}
