@@ -570,6 +570,23 @@ static void rtw_pci_napi_stop(struct rtw_dev *rtwdev)
 	napi_disable(&rtwpci->napi);
 }
 
+static void rtw_pci_reset_tx_queue_state(struct rtw_dev *rtwdev)
+{
+	struct rtw_pci *rtwpci = (struct rtw_pci *)rtwdev->priv;
+	enum rtw_tx_queue_type queue;
+	bool wake = false;
+
+	lockdep_assert_held(&rtwpci->irq_lock);
+
+	for (queue = 0; queue < RTK_MAX_TX_QUEUE_NUM; queue++) {
+		wake |= rtwpci->tx_rings[queue].queue_stopped;
+		rtwpci->tx_rings[queue].queue_stopped = false;
+	}
+
+	if (wake)
+		ieee80211_wake_queues(rtwdev->hw);
+}
+
 static int rtw_pci_start(struct rtw_dev *rtwdev)
 {
 	struct rtw_pci *rtwpci = (struct rtw_pci *)rtwdev->priv;
@@ -577,6 +594,8 @@ static int rtw_pci_start(struct rtw_dev *rtwdev)
 	rtw_pci_napi_start(rtwdev);
 
 	spin_lock_bh(&rtwpci->irq_lock);
+	rtw_pci_reset_tx_queue_state(rtwdev);
+
 	rtwpci->running = true;
 	rtw_pci_enable_interrupt(rtwdev, rtwpci, false);
 	spin_unlock_bh(&rtwpci->irq_lock);
