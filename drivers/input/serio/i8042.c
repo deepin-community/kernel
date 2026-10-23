@@ -519,14 +519,6 @@ static bool i8042_filter(unsigned char data, unsigned char str,
 	return false;
 }
 
-#ifdef CONFIG_PHYTIUM_PIO
-static bool i8042_phytium_shared_parent(void)
-{
-	return check_cpu_type() && I8042_KBD_IRQ == I8042_AUX_IRQ &&
-	       phytium_pio_get_irq() == I8042_KBD_IRQ;
-}
-#endif
-
 /*
  * i8042_interrupt() is the most important function in this driver -
  * it handles the interrupts from the i8042, and sends incoming bytes
@@ -545,13 +537,6 @@ static irqreturn_t i8042_interrupt(int irq, void *dev_id)
 	int ret = 1;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-
-#ifdef CONFIG_PHYTIUM_PIO
-	if (i8042_phytium_shared_parent()) {
-		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
-		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
-	}
-#endif
 
 	str = i8042_read_status();
 	if (unlikely(~str & I8042_STR_OBF)) {
@@ -1459,57 +1444,12 @@ static void i8042_unregister_ports(void)
 	}
 }
 
-#ifdef CONFIG_PHYTIUM_PIO
-static unsigned int i8042_phytium_irq_users;
-
-static int i8042_phytium_request_irq(void)
-{
-	int error;
-
-	if (i8042_phytium_irq_users++)
-		return 0;
-
-	error = request_irq(I8042_KBD_IRQ, i8042_interrupt, IRQF_SHARED,
-			    "i8042", i8042_platform_device);
-	if (error)
-		i8042_phytium_irq_users = 0;
-
-	return error;
-}
-
-static void i8042_phytium_free_irq(void)
-{
-	if (i8042_phytium_irq_users && !--i8042_phytium_irq_users)
-		free_irq(I8042_KBD_IRQ, i8042_platform_device);
-}
-#endif
-
 static void i8042_free_irqs(void)
 {
-#ifdef CONFIG_PHYTIUM_PIO
-	bool shared_parent = i8042_phytium_shared_parent();
-#endif
-
-	if (i8042_aux_irq_registered) {
-#ifdef CONFIG_PHYTIUM_PIO
-		if (shared_parent)
-			phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
-		if (shared_parent)
-			i8042_phytium_free_irq();
-		else
-#endif
-			free_irq(I8042_AUX_IRQ, i8042_platform_device);
-	}
-	if (i8042_kbd_irq_registered) {
-#ifdef CONFIG_PHYTIUM_PIO
-		if (shared_parent)
-			phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
-		if (shared_parent)
-			i8042_phytium_free_irq();
-		else
-#endif
-			free_irq(I8042_KBD_IRQ, i8042_platform_device);
-	}
+	if (i8042_aux_irq_registered)
+		free_irq(I8042_AUX_IRQ, i8042_platform_device);
+	if (i8042_kbd_irq_registered)
+		free_irq(I8042_KBD_IRQ, i8042_platform_device);
 
 	i8042_aux_irq_registered = i8042_kbd_irq_registered = false;
 }
@@ -1519,9 +1459,6 @@ static int i8042_setup_aux(void)
 	int (*aux_enable)(void);
 	int error;
 	int i;
-#ifdef CONFIG_PHYTIUM_PIO
-	bool shared_parent = i8042_phytium_shared_parent();
-#endif
 
 	if (i8042_check_aux())
 		return -ENODEV;
@@ -1540,19 +1477,10 @@ static int i8042_setup_aux(void)
 		aux_enable = i8042_enable_mux_ports;
 	}
 
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		error = i8042_phytium_request_irq();
-	else
-#endif
-		error = request_irq(I8042_AUX_IRQ, i8042_interrupt, IRQF_SHARED,
-				    "i8042", i8042_platform_device);
+	error = request_irq(I8042_AUX_IRQ, i8042_interrupt, IRQF_SHARED,
+			    "i8042", i8042_platform_device);
 	if (error)
 		goto err_free_ports;
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
-#endif
 
 	error = aux_enable();
 	if (error)
@@ -1562,14 +1490,7 @@ static int i8042_setup_aux(void)
 	return 0;
 
  err_free_irq:
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_AUX_INT);
-	if (shared_parent)
-		i8042_phytium_free_irq();
-	else
-#endif
-		free_irq(I8042_AUX_IRQ, i8042_platform_device);
+	free_irq(I8042_AUX_IRQ, i8042_platform_device);
  err_free_ports:
 	i8042_free_aux_ports();
 	return error;
@@ -1578,27 +1499,15 @@ static int i8042_setup_aux(void)
 static int i8042_setup_kbd(void)
 {
 	int error;
-#ifdef CONFIG_PHYTIUM_PIO
-	bool shared_parent = i8042_phytium_shared_parent();
-#endif
 
 	error = i8042_create_kbd_port();
 	if (error)
 		return error;
 
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		error = i8042_phytium_request_irq();
-	else
-#endif
-		error = request_irq(I8042_KBD_IRQ, i8042_interrupt, IRQF_SHARED,
-				    "i8042", i8042_platform_device);
+	error = request_irq(I8042_KBD_IRQ, i8042_interrupt, IRQF_SHARED,
+			    "i8042", i8042_platform_device);
 	if (error)
 		goto err_free_port;
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
-#endif
 
 	error = i8042_enable_kbd_port();
 	if (error)
@@ -1608,14 +1517,7 @@ static int i8042_setup_kbd(void)
 	return 0;
 
  err_free_irq:
-#ifdef CONFIG_PHYTIUM_PIO
-	if (shared_parent)
-		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_I8042_KBD_INT);
-	if (shared_parent)
-		i8042_phytium_free_irq();
-	else
-#endif
-		free_irq(I8042_KBD_IRQ, i8042_platform_device);
+	free_irq(I8042_KBD_IRQ, i8042_platform_device);
  err_free_port:
 	i8042_free_kbd_port();
 	return error;

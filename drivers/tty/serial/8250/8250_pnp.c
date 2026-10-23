@@ -434,20 +434,22 @@ static int serial_pnp_guess_board(struct pnp_dev *dev)
 }
 
 #if defined(CONFIG_PHYTIUM_PIO)
-static bool phytium_pnp_is_int_uart(struct pnp_dev *dev,
-				    const struct pnp_device_id *dev_id)
+/* UARTs behind the PIO controller get their irq from it, not from firmware. */
+static int phytium_pnp_uart_irq(struct pnp_dev *dev,
+			       const struct pnp_device_id *dev_id)
 {
-	if (!check_cpu_type() || phytium_pio_get_irq() < 0)
-		return false;
+	if (!check_cpu_type())
+		return -ENODEV;
 
 	if (strcmp(dev_id->id, "PNP0501"))
-		return false;
+		return -ENODEV;
 
-	if (pnp_port_valid(dev, 0) || pnp_port_valid(dev, 2))
-		return true;
+	if (!pnp_port_valid(dev, 0) && !pnp_port_valid(dev, 2) &&
+	    !(pnp_mem_valid(dev, 0) &&
+	      phytium_pio_is_lpc_mem(pnp_mem_start(dev, 0))))
+		return -ENODEV;
 
-	return pnp_mem_valid(dev, 0) &&
-	       phytium_pio_is_lpc_mem(pnp_mem_start(dev, 0));
+	return phytium_pio_irq_get(PHYTIUM_PIO_UART_INT);
 }
 #endif
 
@@ -465,11 +467,15 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 
 	memset(&uart, 0, sizeof(uart));
 #if defined(CONFIG_PHYTIUM_PIO)
-	if (phytium_pnp_is_int_uart(dev, dev_id)) {
-		uart.port.irq = phytium_pio_get_irq();
-		uart.port.flags |= UPF_SHARE_IRQ;
-	} else if (pnp_irq_valid(dev, 0)) {
-		uart.port.irq = pnp_irq(dev, 0);
+	{
+		int irq = phytium_pnp_uart_irq(dev, dev_id);
+
+		if (irq >= 0) {
+			uart.port.irq = irq;
+			uart.port.flags |= UPF_SHARE_IRQ;
+		} else if (pnp_irq_valid(dev, 0)) {
+			uart.port.irq = pnp_irq(dev, 0);
+		}
 	}
 #else
 	if (pnp_irq_valid(dev, 0))

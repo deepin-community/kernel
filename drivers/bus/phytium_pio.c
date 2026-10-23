@@ -10,6 +10,9 @@
 #include <linux/cputypes.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/irq.h>
+#include <linux/irqdomain.h>
+#include <linux/irqchip/chained_irq.h>
 #include <linux/logic_pio.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
@@ -25,10 +28,8 @@
 #define PHYT_PIO_DRV_VER	"1.1.0"
 
 static struct phytium_pio *ppio;
-int phytium_pio_int_state;
-int phytium_pio_clr_int;
-
-static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id);
+static int phytium_pio_int_state;
+static int phytium_pio_clr_int;
 
 bool check_cpu_type(void)
 {
@@ -43,113 +44,96 @@ bool check_cpu_type(void)
 }
 EXPORT_SYMBOL(check_cpu_type);
 
-void phytium_pio_clear_interrupt(u32 val)
+static void phytium_pio_irq_noop(struct irq_data *d)
 {
-	unsigned long flags;
-
-	if (!ppio)
-		return;
-	spin_lock_irqsave(&ppio->lock, flags);
-	writel(val, ppio->regbase + ppio->int_clear_reg);
-	readl(ppio->regbase + ppio->int_status_reg);
-	spin_unlock_irqrestore(&ppio->lock, flags);
 }
-EXPORT_SYMBOL(phytium_pio_clear_interrupt);
 
-void phytium_pio_handle_interrupt_bit(unsigned int bit)
+static struct irq_chip phytium_pio_irq_chip = {
+	.name		= PHYT_PIO_DRIVER_NAME,
+	.irq_mask	= phytium_pio_irq_noop,
+	.irq_unmask	= phytium_pio_irq_noop,
+	.irq_ack	= phytium_pio_irq_noop,
+};
+
+/* One Linux irq per latch bit, acknowledged once before the dispatch. */
+static void phytium_pio_irq_dispatch(struct irq_desc *desc)
 {
-	unsigned long flags;
+	struct phytium_pio *pio = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	unsigned long bits;
+	u32 pending, again;
+	unsigned int bit;
 
-	if (!ppio || bit >= 32)
-		return;
+	chained_irq_enter(chip, desc);
 
-	spin_lock_irqsave(&ppio->lock, flags);
-	ppio->handled_bits |= BIT(bit);
-	spin_unlock_irqrestore(&ppio->lock, flags);
-}
-EXPORT_SYMBOL(phytium_pio_handle_interrupt_bit);
+	pending = readl(pio->regbase + pio->int_status_reg);
+	if (!pending)
+		goto out;
 
-void phytium_pio_unhandle_interrupt_bit(unsigned int bit)
-{
-	unsigned long flags;
+	/* The latch is write-zero-to-clear. */
+	writel(~pending, pio->regbase + pio->int_clear_reg);
+	again = readl(pio->regbase + pio->int_status_reg);
 
-	if (!ppio || bit >= 32)
-		return;
+	bits = pending;
+	for_each_set_bit(bit, &bits, PHYTIUM_PIO_IRQ_NR)
+		generic_handle_domain_irq(pio->domain, bit);
 
-	spin_lock_irqsave(&ppio->lock, flags);
-	ppio->handled_bits &= ~BIT(bit);
-	spin_unlock_irqrestore(&ppio->lock, flags);
-}
-EXPORT_SYMBOL(phytium_pio_unhandle_interrupt_bit);
-
-bool phytium_pio_clear_interrupt_bit(unsigned int bit)
-{
-	unsigned long flags;
-	u32 pending;
-
-	if (!ppio || bit >= 32)
-		return false;
-
-	spin_lock_irqsave(&ppio->lock, flags);
-	pending = readl(ppio->regbase + ppio->int_status_reg);
-	if (pending & BIT(bit)) {
-		writel((u32)~BIT(bit), ppio->regbase + ppio->int_clear_reg);
-		readl(ppio->regbase + ppio->int_status_reg);
+	/*
+	 * A source that is still asserted after its latch was cleared cannot
+	 * be acknowledged; shut the line down instead of looping forever.
+	 */
+	if (again & pending && ++pio->stuck_acks > PHYTIUM_PIO_STUCK_LIMIT) {
+		pr_err("phytium-pio: latch bit 0x%x stuck, disabling irq %d\n",
+		       again & pending, pio->irq);
+		disable_irq_nosync(pio->irq);
+	} else if (!(again & pending)) {
+		pio->stuck_acks = 0;
 	}
-	spin_unlock_irqrestore(&ppio->lock, flags);
-
-	return pending & BIT(bit);
+out:
+	chained_irq_exit(chip, desc);
 }
-EXPORT_SYMBOL(phytium_pio_clear_interrupt_bit);
 
-u32 phytium_pio_get_int_status(void)
+static int phytium_pio_domain_map(struct irq_domain *d, unsigned int virq,
+				  irq_hw_number_t hwirq)
 {
-	unsigned long flags;
-	u32 ret = 0;
+	irq_set_chip_and_handler(virq, &phytium_pio_irq_chip, handle_simple_irq);
+	irq_set_noprobe(virq);
 
-	if (!ppio)
-		return ret;
-	spin_lock_irqsave(&ppio->lock, flags);
-	ret = readl(ppio->regbase + ppio->int_status_reg);
-	spin_unlock_irqrestore(&ppio->lock, flags);
-
-	return ret;
+	return 0;
 }
-EXPORT_SYMBOL(phytium_pio_get_int_status);
 
-int phytium_pio_get_irq(void)
+static const struct irq_domain_ops phytium_pio_domain_ops = {
+	.map = phytium_pio_domain_map,
+};
+
+/**
+ * phytium_pio_irq_get - Linux irq of a latch bit
+ * @bit: latch bit, see PHYTIUM_PIO_*_INT
+ *
+ * The mapping is created on the first call.
+ *
+ * Return: the Linux irq, or a negative errno.
+ */
+int phytium_pio_irq_get(unsigned int bit)
 {
-	if (!ppio)
-		return -EINVAL;
-	return ppio->irq;
-}
-EXPORT_SYMBOL(phytium_pio_get_irq);
+	unsigned int virq;
 
+	if (!ppio || !ppio->domain || bit >= PHYTIUM_PIO_IRQ_NR)
+		return -ENODEV;
+
+	virq = irq_create_mapping(ppio->domain, bit);
+
+	return virq ? virq : -ENOMEM;
+}
+EXPORT_SYMBOL_GPL(phytium_pio_irq_get);
+
+/* Children live in the firmware window, not in the latch window. */
 bool phytium_pio_is_lpc_mem(phys_addr_t addr)
 {
 	return ppio && addr >= ppio->win_base &&
 	       addr - ppio->win_base < PHYTIUM_PIO_LENGTH_LONG;
 }
 EXPORT_SYMBOL(phytium_pio_is_lpc_mem);
-
-static irqreturn_t phytium_pio_irq_handler(int irq, void *dev_id)
-{
-	struct phytium_pio *pio = dev_id;
-	unsigned long flags;
-	u32 clear_bits, pending;
-
-	spin_lock_irqsave(&pio->lock, flags);
-	pending = readl(pio->regbase + pio->int_status_reg);
-	clear_bits = pending & ~pio->handled_bits;
-
-	if (clear_bits) {
-		writel(~clear_bits, pio->regbase + pio->int_clear_reg);
-		readl(pio->regbase + pio->int_status_reg);
-	}
-	spin_unlock_irqrestore(&pio->lock, flags);
-
-	return IRQ_RETVAL(pending);
-}
 
 /*
  * phytium_pio_in - input the data from the target I/O port
@@ -335,24 +319,30 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	range->hostdata = pio;
 	range->ops = &phytium_pio_ops;
 	pio->range = range;
-	ppio = pio;
-	ret = devm_request_irq(dev, pio->irq, phytium_pio_irq_handler,
-			       IRQF_SHARED, dev_name(dev), pio);
-	if (ret) {
-		dev_err(dev, "Failed to request irq (%d)!\n", ret);
-		goto out;
+
+	pio->domain = irq_domain_create_linear(dev_fwnode(dev),
+					       PHYTIUM_PIO_IRQ_NR,
+					       &phytium_pio_domain_ops, pio);
+	if (!pio->domain) {
+		dev_err(dev, "Failed to create the latch irq domain\n");
+		return -ENOMEM;
 	}
 
 	ret = logic_pio_register_range(range);
 	if (ret) {
 		dev_err(dev, "Failed to register logic pio range (%d)!\n", ret);
-		goto out;
+		irq_domain_remove(pio->domain);
+		pio->domain = NULL;
+		return ret;
 	}
+
+	irq_set_chained_handler_and_data(pio->irq, phytium_pio_irq_dispatch, pio);
+
+	/* Children look the controller up through ppio. */
+	ppio = pio;
 	dev_set_drvdata(dev, pio);
-out:
-	if (ret)
-		ppio = NULL;
-	return ret;
+
+	return 0;
 }
 
 static int phytium_pio_remove(struct platform_device *pdev)
@@ -363,6 +353,20 @@ static int phytium_pio_remove(struct platform_device *pdev)
 	range = find_io_range_by_fwnode(pdev->dev.fwnode);
 	if (!range)
 		return -EINVAL;
+
+	if (pio && pio->domain) {
+		int bit;
+
+		irq_set_chained_handler_and_data(pio->irq, NULL, NULL);
+		for (bit = 0; bit < PHYTIUM_PIO_IRQ_NR; bit++) {
+			unsigned int virq = irq_find_mapping(pio->domain, bit);
+
+			if (virq)
+				irq_dispose_mapping(virq);
+		}
+		irq_domain_remove(pio->domain);
+		pio->domain = NULL;
+	}
 
 	if (ppio == pio)
 		ppio = NULL;

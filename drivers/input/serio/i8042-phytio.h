@@ -6,9 +6,9 @@
 #ifndef _I8042_PHYTIO_H
 #define _I8042_PHYTIO_H
 
+#include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/logic_pio.h>
-#include <linux/errno.h>
 #include <linux/printk.h>
 
 #include "../../bus/phytium_pio.h"
@@ -34,10 +34,6 @@ static int i8042_aux_irq = 0x4c;
 #define I8042_COMMAND_REG	0x64
 #define I8042_STATUS_REG	0x64
 #define I8042_DATA_REG		0x60
-
-#define EC_EVENT_BIT		(1 << 11)
-#define I8042_KEY_BIT		(1 << 1)
-#define I8042_TOUCH_BIT		(1 << 12)
 
 /*
  * i8042 IO operations using Logic PIO framework
@@ -69,24 +65,28 @@ static inline void i8042_write_command(int val)
  */
 static inline int i8042_platform_init(void)
 {
-	int irq;
+	int kbd_irq, aux_irq;
 
 	/* Check if we're running on Phytium CPU */
 	if (!check_cpu_type()) {
-		pr_info("i8042-phytio: Not running on Phytium CPU\n");
+		pr_info("Not running on Phytium CPU\n");
 		return -ENODEV;
 	}
 
-	irq = phytium_pio_get_irq();
-	if (irq >= 0) {
-		i8042_kbd_irq = irq;
-		i8042_aux_irq = irq;
+	kbd_irq = phytium_pio_irq_get(PHYTIUM_PIO_I8042_KBD_INT);
+	aux_irq = phytium_pio_irq_get(PHYTIUM_PIO_I8042_AUX_INT);
+	if (kbd_irq < 0 || aux_irq < 0) {
+		pr_err("no irq for the KBC\n");
+		return -ENODEV;
 	}
+
+	i8042_kbd_irq = kbd_irq;
+	i8042_aux_irq = aux_irq;
 
 	/* Set reset behavior */
 	i8042_reset = I8042_RESET_ALWAYS;
 
-	pr_info("i8042-phytio: Initialized on Phytium platform\n");
+	pr_info("irqs %d/%d\n", kbd_irq, aux_irq);
 	return 0;
 }
 

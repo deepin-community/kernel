@@ -211,13 +211,3 @@ int it8528_init(void)
 }
 EXPORT_SYMBOL(it8528_init);
 
-/*
- * Acknowledge the EC interrupt source only. The PIO clear register treats a
- * zero bit as "clear this source", so the complemented mask leaves the
- * keyboard and touchpad sources pending for i8042 instead of dropping them.
- */
-void lpc_ec_interrupt_clear(void)
-{
-	phytium_pio_clear_interrupt(~EC_EVENT_BIT);
-}
-EXPORT_SYMBOL(lpc_ec_interrupt_clear);
