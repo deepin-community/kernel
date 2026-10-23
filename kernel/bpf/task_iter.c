@@ -7,7 +7,11 @@
 #include <linux/fs.h>
 #include <linux/fdtable.h>
 #include <linux/filter.h>
+#include <linux/bpf_mem_alloc.h>
 #include <linux/btf_ids.h>
+#include <linux/mm_types.h>
+#include <linux/mmap_lock.h>
+#include <linux/sched/mm.h>
 #include "mmap_unlock_work.h"
 
 static const char * const iter_task_type_names[] = {
@@ -852,6 +856,214 @@ const struct bpf_func_proto bpf_find_vma_proto = {
 	.arg4_type	= ARG_PTR_TO_STACK_OR_NULL,
 	.arg5_type	= ARG_ANYTHING,
 };
+
+static inline void bpf_iter_mmput_async(struct mm_struct *mm)
+{
+#ifdef CONFIG_MMU
+	mmput_async(mm);
+#else
+	mmput(mm);
+#endif
+}
+
+struct bpf_iter_task_vma_kern_data {
+	struct task_struct *task;
+	struct mm_struct *mm;
+	struct vm_area_struct snapshot;
+	u64 next_addr;
+};
+
+struct bpf_iter_task_vma {
+	/* opaque iterator state; having __u64 here allows to preserve correct
+	 * alignment requirements in vmlinux.h, generated from BTF
+	 */
+	__u64 __opaque[1];
+} __attribute__((aligned(8)));
+
+/* Non-opaque version of bpf_iter_task_vma */
+struct bpf_iter_task_vma_kern {
+	struct bpf_iter_task_vma_kern_data *data;
+} __attribute__((aligned(8)));
+
+__diag_push();
+__diag_ignore_all("-Wmissing-prototypes",
+		  "Global functions as their definitions will be in vmlinux BTF");
+
+__bpf_kfunc int bpf_iter_task_vma_new(struct bpf_iter_task_vma *it,
+				      struct task_struct *task, u64 addr)
+{
+	struct bpf_iter_task_vma_kern *kit = (void *)it;
+	int err;
+
+	BUILD_BUG_ON(sizeof(struct bpf_iter_task_vma_kern) != sizeof(struct bpf_iter_task_vma));
+	BUILD_BUG_ON(__alignof__(struct bpf_iter_task_vma_kern) != __alignof__(struct bpf_iter_task_vma));
+
+	if (!IS_ENABLED(CONFIG_PER_VMA_LOCK)) {
+		kit->data = NULL;
+		return -EOPNOTSUPP;
+	}
+
+	/*
+	 * Reject irqs-disabled contexts including NMI. Operations used
+	 * by _next() and _destroy() (vma_end_read, fput, bpf_iter_mmput_async)
+	 * can take spinlocks with IRQs disabled (pi_lock, pool->lock).
+	 * Running from NMI or from a tracepoint that fires with those
+	 * locks held could deadlock.
+	 */
+	if (irqs_disabled()) {
+		kit->data = NULL;
+		return -EBUSY;
+	}
+
+	/* is_iter_reg_valid_uninit guarantees that kit hasn't been initialized
+	 * before, so non-NULL kit->data doesn't point to previously
+	 * bpf_mem_alloc'd bpf_iter_task_vma_kern_data
+	 */
+	kit->data = bpf_mem_alloc(&bpf_global_ma, sizeof(struct bpf_iter_task_vma_kern_data));
+	if (!kit->data)
+		return -ENOMEM;
+
+	kit->data->task = get_task_struct(task);
+	/*
+	 * Safely read task->mm and acquire an mm reference.
+	 *
+	 * Cannot use get_task_mm() because its task_lock() is a
+	 * blocking spin_lock that would deadlock if the target task
+	 * already holds alloc_lock on this CPU (e.g. a softirq BPF
+	 * program iterating a task interrupted while holding its
+	 * alloc_lock).
+	 */
+	if (!spin_trylock(&task->alloc_lock)) {
+		err = -EBUSY;
+		goto err_cleanup_iter;
+	}
+	kit->data->mm = task->mm;
+	if (kit->data->mm && !(task->flags & PF_KTHREAD))
+		mmget(kit->data->mm);
+	else
+		kit->data->mm = NULL;
+	spin_unlock(&task->alloc_lock);
+	if (!kit->data->mm) {
+		err = -ENOENT;
+		goto err_cleanup_iter;
+	}
+
+	kit->data->snapshot.vm_file = NULL;
+	kit->data->next_addr = addr;
+	return 0;
+
+err_cleanup_iter:
+	put_task_struct(kit->data->task);
+	bpf_mem_free(&bpf_global_ma, kit->data);
+	/* NULL kit->data signals failed bpf_iter_task_vma initialization */
+	kit->data = NULL;
+	return err;
+}
+
+/*
+ * Find and lock the next VMA at or after data->next_addr.
+ *
+ * lock_vma_under_rcu() is a point lookup (mas_walk): it finds the VMA
+ * containing a given address but cannot iterate. An RCU-protected
+ * maple tree walk with vma_next() (mas_find) is needed first to locate
+ * the next VMA's vm_start across any gap.
+ *
+ * Between the RCU walk and the lock, the VMA may be removed, shrunk,
+ * or write-locked. On failure, advance past it using vm_end from the
+ * RCU walk. SLAB_TYPESAFE_BY_RCU can make vm_end stale, so fall back
+ * to PAGE_SIZE advancement to guarantee forward progress.
+ */
+static struct vm_area_struct *
+bpf_iter_task_vma_find_next(struct bpf_iter_task_vma_kern_data *data)
+{
+	struct vm_area_struct *vma;
+	struct vma_iterator vmi;
+	unsigned long start, end;
+
+retry:
+	rcu_read_lock();
+	vma_iter_init(&vmi, data->mm, data->next_addr);
+	vma = vma_next(&vmi);
+	if (!vma) {
+		rcu_read_unlock();
+		return NULL;
+	}
+	start = vma->vm_start;
+	end = vma->vm_end;
+	rcu_read_unlock();
+
+	vma = lock_vma_under_rcu(data->mm, start);
+	if (!vma) {
+		if (end <= data->next_addr)
+			data->next_addr += PAGE_SIZE;
+		else
+			data->next_addr = end;
+		goto retry;
+	}
+
+	if (unlikely(vma->vm_end <= data->next_addr)) {
+		data->next_addr += PAGE_SIZE;
+		vma_end_read(vma);
+		goto retry;
+	}
+
+	return vma;
+}
+
+static void bpf_iter_task_vma_snapshot_reset(struct vm_area_struct *snap)
+{
+	if (snap->vm_file) {
+		fput(snap->vm_file);
+		snap->vm_file = NULL;
+	}
+}
+
+__bpf_kfunc struct vm_area_struct *bpf_iter_task_vma_next(struct bpf_iter_task_vma *it)
+{
+	struct bpf_iter_task_vma_kern *kit = (void *)it;
+	struct vm_area_struct *snap, *vma;
+
+	if (!kit->data) /* bpf_iter_task_vma_new failed */
+		return NULL;
+
+	snap = &kit->data->snapshot;
+
+	bpf_iter_task_vma_snapshot_reset(snap);
+
+	vma = bpf_iter_task_vma_find_next(kit->data);
+	if (!vma)
+		return NULL;
+
+	memcpy(snap, vma, sizeof(*snap));
+
+	/*
+	 * The verifier only trusts vm_mm and vm_file (see
+	 * BTF_TYPE_SAFE_TRUSTED_OR_NULL in verifier.c). Take a reference
+	 * on vm_file; vm_mm is already correct because lock_vma_under_rcu()
+	 * verifies vma->vm_mm == mm. All other pointers are untrusted by
+	 * the verifier and left as-is.
+	 */
+	if (snap->vm_file)
+		get_file(snap->vm_file);
+
+	kit->data->next_addr = vma->vm_end;
+	vma_end_read(vma);
+	return snap;
+}
+
+__bpf_kfunc void bpf_iter_task_vma_destroy(struct bpf_iter_task_vma *it)
+{
+	struct bpf_iter_task_vma_kern *kit = (void *)it;
+
+	if (kit->data) {
+		bpf_iter_task_vma_snapshot_reset(&kit->data->snapshot);
+		put_task_struct(kit->data->task);
+		bpf_iter_mmput_async(kit->data->mm);
+		bpf_mem_free(&bpf_global_ma, kit->data);
+	}
+}
+
+__diag_pop();
 
 DEFINE_PER_CPU(struct mmap_unlock_irq_work, mmap_unlock_work);
 
