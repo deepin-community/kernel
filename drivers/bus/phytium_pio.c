@@ -127,8 +127,8 @@ EXPORT_SYMBOL(phytium_pio_get_irq);
 
 bool phytium_pio_is_lpc_mem(phys_addr_t addr)
 {
-	return ppio && addr >= ppio->lpc_base &&
-	       addr - ppio->lpc_base < PHYTIUM_LPC_IOMEM_SIZE;
+	return ppio && addr >= ppio->win_base &&
+	       addr - ppio->win_base < PHYTIUM_PIO_LENGTH_LONG;
 }
 EXPORT_SYMBOL(phytium_pio_is_lpc_mem);
 
@@ -280,7 +280,6 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct logic_pio_hwaddr *range;
 	struct phytium_pio *pio;
-	resource_size_t reg_size = PHYTIUM_LPC_IOMEM_SIZE;
 	phys_addr_t reg_start;
 	struct resource *res;
 	int ret;
@@ -291,7 +290,7 @@ static int phytium_pio_probe(struct platform_device *pdev)
 	spin_lock_init(&pio->lock);
 
 	pio->membase = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR_OR_NULL(pio->membase))
+	if (IS_ERR(pio->membase))
 		return PTR_ERR(pio->membase);
 
 	pio->irq = platform_get_irq(pdev, 0);
@@ -300,21 +299,23 @@ static int phytium_pio_probe(struct platform_device *pdev)
 		return pio->irq;
 	}
 
-	/*
-	 * The ACPI _CRS window only covers the short PIO aperture, while the
-	 * interrupt latch registers live near the end of the long LPC window
-	 * (base + 0x7ffffc0/0x7ffffc4).  Map the long window starting at the
-	 * firmware supplied LPC base (0x10000000 on D3000M, 0x20000000 on
-	 * D2000/D3000): reading the latch through the short window can return
-	 * unrelated device state such as UART_IIR.
-	 */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
-	reg_start = res->start;
-	pio->lpc_base = reg_start;
+	pio->win_base = res->start;
 
-	pio->regbase = devm_ioremap(dev, reg_start, reg_size);
+	/* The latch window is a SoC property, not what resource 0 describes. */
+	if (cpu_is_ft_d2000()) {
+		reg_start = PHYTIUM_PIO_D2000_BASE;
+	} else if (is_pd2408()) {
+		reg_start = PHYTIUM_PIO_D3000M_BASE;
+	} else {
+		reg_start = res->start;
+		if (resource_size(res) < PHYTIUM_PIO_LENGTH_LONG)
+			dev_warn(dev, "short window on an unknown SoC, the latch address may be wrong\n");
+	}
+
+	pio->regbase = devm_ioremap(dev, reg_start, PHYTIUM_PIO_LENGTH_LONG);
 	if (!pio->regbase)
 		return -ENOMEM;
 
