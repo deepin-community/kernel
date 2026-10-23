@@ -342,23 +342,13 @@ static bool ec_drain_events(void)
 	return it8528_get_ec_evt_flags();
 }
 
-/* EC event interrupt, shared with i8042 over the PIO controller. */
+/* EC event interrupt, one of the PIO controller's latch sources. */
 static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 {
 	unsigned long flags;
 
-	/*
-	 * Test the EC status port rather than the PIO latch: i8042 may have
-	 * acknowledged the shared interrupt before us and cleared the latch
-	 * while the EC still has an event queued.
-	 */
-	if (!it8528_get_ec_evt_flags()) {
-		if (phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT))
-			return IRQ_HANDLED;
+	if (!it8528_get_ec_evt_flags())
 		return IRQ_NONE;
-	}
-
-	phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_EC_INT);
 
 	spin_lock_irqsave(&i8042_lock, flags);
 	ec_drain_events();
@@ -380,22 +370,20 @@ static int lpc_int_init(void)
 
 	strscpy(ft_lpc_device->name, EC_LPC_DEV, sizeof(ft_lpc_device->name));
 
-	/* get lpc irq */
-	ret = phytium_pio_get_irq();
+	/* the PIO controller owns the EC latch and gives us a per-bit irq */
+	ret = phytium_pio_irq_get(PHYTIUM_PIO_EC_INT);
 	if (ret < 0) {
 		pr_err("phytium ec: Failed to get lpc irq: %d\n", ret);
 		goto err_free;
 	}
 	ft_lpc_device->irq = ret;
 
-	/* Register EC on the shared LPC parent IRQ. */
-	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine,
-				IRQF_SHARED, ft_lpc_device->name, ft_lpc_device);
+	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine, 0,
+			  ft_lpc_device->name, ft_lpc_device);
 	if (ret) {
 		pr_err("phytium ec: Request irq fail: %d\n", ret);
 		goto err_free;
 	}
-	phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_EC_INT);
 
 	pr_debug("phytium: LPC init successful.\n");
 
@@ -1253,10 +1241,8 @@ static void ft_ec_irq_exit(void)
 	if (ft_gpio_device)
 		free_irq(ft_gpio_device->irq, ft_gpio_device);
 
-	if (ft_lpc_device) {
-		phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_EC_INT);
+	if (ft_lpc_device)
 		free_irq(ft_lpc_device->irq, ft_lpc_device);
-	}
 
 	kfree(ft_gpio_device);
 	ft_gpio_device = NULL;

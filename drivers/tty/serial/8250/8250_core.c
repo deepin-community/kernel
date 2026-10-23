@@ -39,10 +39,6 @@
 #include <linux/sunserialcore.h>
 #endif
 
-#if defined(CONFIG_PHYTIUM_PIO)
-#include "../../../bus/phytium_pio.h"
-#endif
-
 #include <asm/irq.h>
 
 #include "8250.h"
@@ -118,11 +114,6 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 	pr_debug("%s(%d): start\n", __func__, irq);
 
-#if defined(CONFIG_PHYTIUM_PIO)
-	if (check_cpu_type() && irq == phytium_pio_get_irq())
-		phytium_pio_clear_interrupt_bit(PHYTIUM_PIO_UART_INT);
-#endif
-
 	spin_lock(&i->lock);
 
 	l = i->head;
@@ -151,13 +142,6 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 	return IRQ_RETVAL(handled);
 }
-
-#if defined(CONFIG_PHYTIUM_PIO)
-static bool serial8250_is_phytium_pio_irq(unsigned int irq)
-{
-	return check_cpu_type() && irq == phytium_pio_get_irq();
-}
-#endif
 
 /*
  * To support ISA shared interrupts, we need to have one interrupt
@@ -227,10 +211,6 @@ static int serial_link_irq_chain(struct uart_8250_port *up)
 				  up->port.irqflags, up->port.name, i);
 		if (ret < 0)
 			serial_do_unlink(i, up);
-#if defined(CONFIG_PHYTIUM_PIO)
-		else if (serial8250_is_phytium_pio_irq(up->port.irq))
-			phytium_pio_handle_interrupt_bit(PHYTIUM_PIO_UART_INT);
-#endif
 	}
 
 	return ret;
@@ -252,13 +232,8 @@ static void serial_unlink_irq_chain(struct uart_8250_port *up)
 	BUG_ON(i == NULL);
 	BUG_ON(i->head == NULL);
 
-	if (list_empty(i->head)) {
-#if defined(CONFIG_PHYTIUM_PIO)
-		if (serial8250_is_phytium_pio_irq(up->port.irq))
-			phytium_pio_unhandle_interrupt_bit(PHYTIUM_PIO_UART_INT);
-#endif
+	if (list_empty(i->head))
 		free_irq(up->port.irq, i);
-	}
 
 	serial_do_unlink(i, up);
 	mutex_unlock(&hash_mutex);
