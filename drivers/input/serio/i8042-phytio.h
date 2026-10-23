@@ -73,6 +73,37 @@ static const struct dmi_system_id phytium_i8042_skip[] = {
 			DMI_MATCH(DMI_BOARD_NAME, "FD2000ZX200MB1"),
 		},
 	},
+	/* 706 laptops, as listed by the Kylin LPC driver. */
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4251"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4252"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4260"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4261"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4263"),
+		},
+	},
 	{ }
 };
 
