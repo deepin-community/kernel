@@ -18,8 +18,9 @@
 #define FT2000_PIO_CLR_INT	0x7FFFFF0
 #define LEGACY_ISA_SIZE		0x400
 
-/* Long LPC window holding the interrupt latch registers. */
-#define PHYTIUM_LPC_IOMEM_SIZE		0x08000000
+/* Base of the SoC window holding the interrupt latch registers. */
+#define PHYTIUM_PIO_D2000_BASE		0x20000000
+#define PHYTIUM_PIO_D3000M_BASE		0x10000000
 
 /* LPC interrupt latch bits shared by the legacy children. */
 #define PHYTIUM_PIO_I8042_KBD_INT	1
@@ -37,7 +38,7 @@ struct phytium_pio {
 	u32 int_clear_reg;
 	/* LPC latch bits owned by a registered child handler. */
 	u32 handled_bits;
-	phys_addr_t lpc_base;
+	phys_addr_t win_base;
 	struct logic_pio_hwaddr *range;
 };
 
