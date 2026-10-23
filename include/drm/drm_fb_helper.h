@@ -282,6 +282,9 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper);
 int drm_fb_helper_initial_config(struct drm_fb_helper *fb_helper);
 int drm_fb_helper_debug_enter(struct fb_info *info);
 int drm_fb_helper_debug_leave(struct fb_info *info);
+
+/* Compatibility helper for out-of-tree modules; see drm_fb_helper.c */
+void drm_fb_helper_lastclose(struct drm_device *dev);
 #else
 static inline void drm_fb_helper_prepare(struct drm_device *dev,
 					 struct drm_fb_helper *helper,
@@ -396,6 +399,10 @@ static inline int drm_fb_helper_debug_enter(struct fb_info *info)
 static inline int drm_fb_helper_debug_leave(struct fb_info *info)
 {
 	return 0;
+}
+
+static inline void drm_fb_helper_lastclose(struct drm_device *dev)
+{
 }
 #endif
 

@@ -1947,3 +1947,23 @@ int drm_fb_helper_hotplug_event(struct drm_fb_helper *fb_helper)
 	return 0;
 }
 EXPORT_SYMBOL(drm_fb_helper_hotplug_event);
+
+/**
+ * drm_fb_helper_lastclose - DRM driver lastclose helper for fbdev emulation
+ * @dev: DRM device
+ *
+ * This function is obsolete. Call drm_fb_helper_restore_fbdev_mode_unlocked()
+ * instead.
+ *
+ * Compatibility helper for out-of-tree modules. Upstream commit
+ * 943240d342f1 ("drm/client: Pass force parameter to client restore")
+ * inlined the helper into the client restore path and dropped the exported
+ * symbol, so modules written against the old interface fail to build with
+ * an implicit declaration. Restore the device's fbdev configuration as the
+ * original helper did.
+ */
+void drm_fb_helper_lastclose(struct drm_device *dev)
+{
+	drm_fb_helper_restore_fbdev_mode_unlocked(dev->fb_helper, false);
+}
+EXPORT_SYMBOL(drm_fb_helper_lastclose);
