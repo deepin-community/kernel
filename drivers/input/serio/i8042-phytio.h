@@ -6,8 +6,6 @@
 #ifndef _I8042_PHYTIO_H
 #define _I8042_PHYTIO_H
 
-#include <linux/acpi.h>
-#include <linux/classtypes.h>
 #include <linux/dmi.h>
 #include <linux/errno.h>
 #include <linux/io.h>
@@ -64,15 +62,10 @@ static inline void i8042_write_command(int val)
 }
 
 /*
- * Boards that publish a KBCI8042 node but leave nothing behind the legacy
- * ports: a read of 0x60/0x64 never completes, so i8042_probe() hangs.
+ * Boards whose keyboard controller cannot be used: touching 0x60/0x64 there
+ * hangs the machine before anything can be reported.
  */
 static const struct dmi_system_id phytium_i8042_skip[] = {
-	{
-		.matches = {
-			DMI_MATCH(DMI_BOARD_NAME, "FD2000ZX200MB1"),
-		},
-	},
 	/* 706 laptops, as listed by the Kylin LPC driver. */
 	{
 		.matches = {
@@ -107,55 +100,11 @@ static const struct dmi_system_id phytium_i8042_skip[] = {
 	{ }
 };
 
-static inline bool phytium_i8042_acpi_described(void)
-{
-	return IS_ENABLED(CONFIG_ACPI) &&
-	       acpi_dev_present("KBCI8042", NULL, -1);
-}
-
-#ifdef CONFIG_ACPI
-static int phytium_i8042_io_cb(struct acpi_resource *ares, void *data)
-{
-	bool *found = data;
-
-	if (ares->type == ACPI_RESOURCE_TYPE_IO &&
-	    ares->data.io.minimum <= 0x60 && ares->data.io.maximum >= 0x64)
-		*found = true;
-
-	return 1;
-}
-
-/* Does _CRS describe the controller's own ports? */
-static inline bool phytium_i8042_acpi_has_ports(void)
-{
-	struct acpi_device *adev;
-	LIST_HEAD(res);
-	bool found = false;
-
-	adev = acpi_dev_get_first_match_dev("KBCI8042", NULL, -1);
-	if (!adev)
-		return false;
-
-	acpi_dev_get_resources(adev, &res, phytium_i8042_io_cb, &found);
-	acpi_dev_free_resource_list(&res);
-	acpi_dev_put(adev);
-
-	return found;
-}
-#else
-static inline bool phytium_i8042_acpi_has_ports(void)
-{
-	return true;
-}
-#endif
-
 /*
  * Platform initialization
  */
 static inline int i8042_platform_init(void)
 {
-	bool described = phytium_i8042_acpi_described();
-	bool laptop;
 	int kbd_irq, aux_irq;
 
 	/* Check if we're running on Phytium CPU */
@@ -166,17 +115,6 @@ static inline int i8042_platform_init(void)
 
 	if (dmi_check_system(phytium_i8042_skip)) {
 		pr_info("KBC does not answer on this board, skipping\n");
-		return -ENODEV;
-	}
-
-	/*
-	 * Probe like before unless the firmware documents the controller
-	 * without its ports.  Laptops keep probing: an internal keyboard may
-	 * be the only input.
-	 */
-	laptop = !IS_ENABLED(CONFIG_DMI) || chassis_types_is_laptop();
-	if (described && !laptop && !phytium_i8042_acpi_has_ports()) {
-		pr_info("KBC has no ports described, skipping\n");
 		return -ENODEV;
 	}
 
