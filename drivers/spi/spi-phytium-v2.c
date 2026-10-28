@@ -140,7 +140,7 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 	struct spi_nor *nor = NULL;
 	int ret;
 
-	if (mem)
+	if (mem && (mem->spi == spi))
 		nor = spi_mem_get_drvdata(mem);
 
 	fts->tx = (void *)transfer->tx_buf;
