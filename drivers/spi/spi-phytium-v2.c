@@ -136,12 +136,15 @@ static int spi_phyt_transfer_one(struct spi_master *master,
 {
 	struct phytium_spi *fts = spi_master_get_devdata(master);
 	struct chip_data *chip = spi_get_ctldata(spi);
-	struct spi_mem *mem = spi_get_drvdata(spi);
+	struct spi_mem *mem = NULL;
 	struct spi_nor *nor = NULL;
 	int ret;
 
-	if (mem && (mem->spi == spi))
-		nor = spi_mem_get_drvdata(mem);
+	if (spi->dev.driver && !strcmp(spi->dev.driver->name, "spi-nor")) {
+		mem = spi_get_drvdata(spi);
+		if (mem)
+			nor = spi_mem_get_drvdata(mem);
+	}
 
 	fts->tx = (void *)transfer->tx_buf;
 	fts->tx_end = fts->tx + transfer->len;
