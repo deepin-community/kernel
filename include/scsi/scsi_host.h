@@ -632,6 +632,10 @@ struct Scsi_Host {
 	 */
 	unsigned nr_hw_queues;
 	unsigned nr_maps;
+
+	/* Don't resume host in EH */
+	bool eh_noresume;
+
 	unsigned active_mode:2;
 
 	/*
@@ -652,9 +656,6 @@ struct Scsi_Host {
 
 	/* Asynchronous scan in progress */
 	unsigned async_scan:1;
-
-	/* Don't resume host in EH */
-	unsigned eh_noresume:1;
 
 	/* The controller does not support WRITE SAME */
 	unsigned no_write_same:1;
@@ -716,6 +717,9 @@ struct Scsi_Host {
 	 */
 	struct device *dma_dev;
 
+	/* Used for an rcu-synchronizing eh wakeup */
+	struct work_struct eh_work;
+
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
@@ -725,6 +729,7 @@ struct Scsi_Host {
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
 	DEEPIN_KABI_RESERVE(9)
+
 	/*
 	 * We should ensure that this is aligned, both for better performance
 	 * and also because some compilers (m68k) don't automatically force

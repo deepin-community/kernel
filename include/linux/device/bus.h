@@ -48,6 +48,7 @@ struct fwnode_handle;
  *		will never get called until they do.
  * @remove:	Called when a device removed from this bus.
  * @shutdown:	Called at shut-down time to quiesce the device.
+ * @irq_get_affinity:	Get IRQ affinity mask for the device on this bus.
  *
  * @online:	Called to put the device back online (after offlining it).
  * @offline:	Called to put the device offline for hot-removal. May fail.
@@ -80,6 +81,9 @@ struct fwnode_handle;
  * default attributes, the bus' methods, PM operations, and the driver core's
  * private data.
  */
+#define BUS_TYPE_KABI_IRQ_GET_AFFINITY \
+	const struct cpumask *(*irq_get_affinity)(struct device *dev, unsigned int irq_vec)
+
 struct bus_type {
 	const char		*name;
 	const char		*dev_name;
@@ -112,11 +116,13 @@ struct bus_type {
 	bool driver_override;
 	bool need_parent_lock;
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, BUS_TYPE_KABI_IRQ_GET_AFFINITY)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 };
+
+#undef BUS_TYPE_KABI_IRQ_GET_AFFINITY
 
 int __must_check bus_register(const struct bus_type *bus);
 

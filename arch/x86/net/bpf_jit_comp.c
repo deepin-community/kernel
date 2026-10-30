@@ -2541,11 +2541,8 @@ static int __arch_prepare_bpf_trampoline(struct bpf_tramp_image *im, void *image
 	WARN_ON_ONCE((flags & BPF_TRAMP_F_INDIRECT) &&
 		     (flags & ~(BPF_TRAMP_F_INDIRECT | BPF_TRAMP_F_RET_FENTRY_RET)));
 
-	/* extra registers for struct arguments */
-	for (i = 0; i < m->nr_args; i++) {
-		if (m->arg_flags[i] & BTF_FMODEL_STRUCT_ARG)
-			nr_regs += (m->arg_size[i] + 7) / 8 - 1;
-	}
+	for (i = 0; i < m->nr_args; i++)
+		nr_regs += (m->arg_size[i] + 7) / 8 - 1;
 
 	/* x86-64 supports up to MAX_BPF_FUNC_ARGS arguments. 1-6
 	 * are passed through regs, the remains are through stack.
@@ -3071,7 +3068,7 @@ out_image:
 			 *
 			 * Both cases are serious bugs and justify WARN_ON.
 			 */
-			if (WARN_ON(bpf_jit_binary_pack_finalize(prog, header, rw_header))) {
+			if (WARN_ON(bpf_jit_binary_pack_finalize(header, rw_header))) {
 				/* header has been freed */
 				header = NULL;
 				goto out_image;
@@ -3145,7 +3142,7 @@ void bpf_jit_free(struct bpf_prog *prog)
 		 * before freeing it.
 		 */
 		if (jit_data) {
-			bpf_jit_binary_pack_finalize(prog, jit_data->header,
+			bpf_jit_binary_pack_finalize(jit_data->header,
 						     jit_data->rw_header);
 			kvfree(jit_data->addrs);
 			kfree(jit_data);

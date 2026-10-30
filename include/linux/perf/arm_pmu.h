@@ -125,7 +125,8 @@ struct arm_pmu {
 	void		(*stop)(struct arm_pmu *);
 	void		(*reset)(void *);
 	int		(*map_event)(struct perf_event *event);
-	void		(*sched_task)(struct perf_event_pmu_context *pmu_ctx, bool sched_in);
+	void		(*sched_task)(struct perf_event_pmu_context *pmu_ctx,
+				      struct task_struct *task, bool sched_in);
 	bool		(*branch_stack_init)(struct perf_event *event);
 	void		(*branch_stack_add)(struct perf_event *event, struct pmu_hw_events *cpuc);
 	void		(*branch_stack_del)(struct perf_event *event, struct pmu_hw_events *cpuc);
