@@ -91,6 +91,7 @@ int bpf_struct_ops_test_run(struct bpf_prog *prog, const union bpf_attr *kattr,
 	struct bpf_tramp_link *link = NULL;
 	void *image = NULL;
 	unsigned int op_idx;
+	u32 image_off = 0;
 	int prog_ret;
 	s32 type_id;
 	int err;
@@ -114,13 +115,6 @@ int bpf_struct_ops_test_run(struct bpf_prog *prog, const union bpf_attr *kattr,
 		goto out;
 	}
 
-	image = bpf_jit_alloc_exec(PAGE_SIZE);
-	if (!image) {
-		err = -ENOMEM;
-		goto out;
-	}
-	set_vm_flush_reset_perms(image);
-
 	link = kzalloc(sizeof(*link), GFP_USER);
 	if (!link) {
 		err = -ENOMEM;
@@ -134,7 +128,8 @@ int bpf_struct_ops_test_run(struct bpf_prog *prog, const union bpf_attr *kattr,
 	err = bpf_struct_ops_prepare_trampoline(tlinks, link,
 						&st_ops->func_models[op_idx],
 						&dummy_ops_test_ret_function,
-						image, image + PAGE_SIZE);
+						&image, &image_off,
+						true);
 	if (err < 0)
 		goto out;
 
@@ -148,7 +143,7 @@ int bpf_struct_ops_test_run(struct bpf_prog *prog, const union bpf_attr *kattr,
 		err = -EFAULT;
 out:
 	kfree(args);
-	bpf_jit_free_exec(image);
+	bpf_struct_ops_image_free(image);
 	if (link)
 		bpf_link_put(&link->link);
 	kfree(tlinks);
@@ -179,7 +174,7 @@ static int bpf_dummy_ops_check_member(const struct btf_type *t,
 	case offsetof(struct bpf_dummy_ops, test_sleepable):
 		break;
 	default:
-		if (prog->aux->sleepable)
+		if (prog->sleepable)
 			return -EINVAL;
 	}
 
@@ -226,12 +221,12 @@ static int bpf_dummy_init_member(const struct btf_type *t,
 	return -EOPNOTSUPP;
 }
 
-static int bpf_dummy_reg(void *kdata)
+static int bpf_dummy_reg(void *kdata, struct bpf_link *link)
 {
 	return -EOPNOTSUPP;
 }
 
-static void bpf_dummy_unreg(void *kdata)
+static void bpf_dummy_unreg(void *kdata, struct bpf_link *link)
 {
 }
 
