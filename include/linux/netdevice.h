@@ -2391,8 +2391,6 @@ struct net_device {
 	/* These may be needed for future network-power-down code. */
 	struct timer_list	watchdog_timer;
 	int			watchdog_timeo;
-	spinlock_t		watchdog_lock;
-	bool			watchdog_ref_held;
 
 	u32                     proto_down_reason;
 
@@ -2492,8 +2490,8 @@ struct net_device {
 	struct rtnl_hw_stats64	*offload_xstats_l3;
 
 	struct devlink_port	*devlink_port;
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, spinlock_t watchdog_lock)
+	DEEPIN_KABI_USE(2, bool watchdog_ref_held)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
