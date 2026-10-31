@@ -1111,14 +1111,12 @@ static int omapfb_mmap(struct fb_info *fbi, struct vm_area_struct *vma)
 	vma->vm_ops = &mmap_user_ops;
 	vma->vm_private_data = rg;
 
+	/* vm_ops.open won't be called for mmap itself. */
 	atomic_inc(&rg->map_count);
 
 	r = vm_iomap_memory(vma, start, len);
 	if (r)
 		goto error;
-
-	/* vm_ops.open won't be called for mmap itself. */
-	atomic_inc(&rg->map_count);
 
 	omapfb_put_mem_region(rg);
 
