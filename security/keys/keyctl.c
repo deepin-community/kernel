@@ -683,14 +683,22 @@ okay:
 
 	/* calculate how much information we're going to return */
 	ret = -ENOMEM;
+#ifdef CONFIG_KEYP
+	down_read(&KEY_SEM(key));
+#else
 	down_read(&key->sem);
+#endif
 	infobuf = kasprintf(GFP_KERNEL,
 			    "%s;%d;%d;%08x;",
 			    key->type->name,
 			    from_kuid_munged(current_user_ns(), key->uid),
 			    from_kgid_munged(current_user_ns(), key->gid),
 			    key->perm);
+#ifdef CONFIG_KEYP
+	up_read(&KEY_SEM(key));
+#else
 	up_read(&key->sem);
+#endif
 	if (!infobuf)
 		goto error2;
 	infolen = strlen(infobuf);
