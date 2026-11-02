@@ -221,78 +221,17 @@ static void hash_key_type_and_desc(struct keyring_index_key *index_key)
 }
 
 #ifdef CONFIG_KEYP
-static void iee_hash_key_type_and_desc(struct keyring_index_key *index_key)
-{
-	const unsigned int level_shift = ASSOC_ARRAY_LEVEL_STEP;
-	const unsigned long fan_mask = ASSOC_ARRAY_FAN_MASK;
-	const char *description = index_key->description;
-	unsigned long hash, type;
-	u32 piece;
-	u64 acc;
-	int n, desc_len = index_key->desc_len;
-
-	type = (unsigned long)index_key->type;
-	acc = mult_64x32_and_fold(type, desc_len + 13);
-	acc = mult_64x32_and_fold(acc, 9207);
-	piece = (unsigned long)index_key->domain_tag;
-	acc = mult_64x32_and_fold(acc, piece);
-	acc = mult_64x32_and_fold(acc, 9207);
-
-	for (;;) {
-		n = desc_len;
-		if (n <= 0)
-			break;
-		if (n > 4)
-			n = 4;
-		piece = 0;
-		memcpy(&piece, description, n);
-		description += n;
-		desc_len -= n;
-		acc = mult_64x32_and_fold(acc, piece);
-		acc = mult_64x32_and_fold(acc, 9207);
-	}
-
-	/* Fold the hash down to 32 bits if need be. */
-	hash = acc;
-	if (ASSOC_ARRAY_KEY_CHUNK_SIZE == 32)
-		hash ^= acc >> 32;
-
-	/* Squidge all the keyrings into a separate part of the tree to
-	 * ordinary keys by making sure the lowest level segment in the hash is
-	 * zero for keyrings and non-zero otherwise.
-	 */
-	if (index_key->type != &key_type_keyring && (hash & fan_mask) == 0)
-		hash |= (hash >> (ASSOC_ARRAY_KEY_CHUNK_SIZE - level_shift)) | 1;
-	else if (index_key->type == &key_type_keyring && (hash & fan_mask) != 0)
-		hash = (hash + (hash << level_shift)) & ~fan_mask;
-	struct keyring_index_key tmp = *index_key;
-
-	tmp.hash = hash;
-	iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
-}
-
 static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
 
 void iee_key_set_index_key(struct keyring_index_key *index_key)
 {
-	size_t n = min_t(size_t, index_key->desc_len, sizeof(index_key->desc));
-	struct keyring_index_key tmp;
+	struct keyring_index_key tmp = *index_key;
 
-	iee_memcpy(index_key->desc, index_key->description, n);
-
-	if (!index_key->domain_tag) {
-		if (index_key->type->flags & KEY_TYPE_NET_DOMAIN) {
-			tmp = *index_key;
-			tmp.domain_tag = current->nsproxy->net_ns->key_domain;
-			iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
-		} else {
-			tmp = *index_key;
-			tmp.domain_tag = &default_domain_tag;
-			iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
-		}
-	}
-
-	iee_hash_key_type_and_desc(index_key);
+	/* Finalise a private copy: the key's own index_key lives in
+	 * IEE-protected memory and has to be written through the IEE gate.
+	 */
+	key_set_index_key(&tmp);
+	iee_set_key_index_key(container_of(index_key, struct key, index_key), &tmp);
 }
 #endif
 
