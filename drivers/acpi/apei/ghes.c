@@ -711,6 +711,7 @@ static bool ghes_do_proc(struct ghes *ghes,
 			mem.severity = gdata->error_severity;
 			mem.mem_err = mem_err;
 
+			atomic_notifier_call_chain(&ghes_mem_err_chain, 0, &mem);
 			atomic_notifier_call_chain(&ghes_report_chain, sev, mem_err);
 
 			arch_apei_report_mem_error(sev, mem_err);
