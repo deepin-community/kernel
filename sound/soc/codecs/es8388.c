@@ -23,7 +23,7 @@
 #include <linux/i2c.h>
 #include <linux/regmap.h>
 
-#define ES8388_V1_VERSION "1.0.0"
+#define ES8388_V1_VERSION "1.0.1"
 
 static const unsigned int rates_12288[] = {
 	8000, 12000, 16000, 24000, 32000, 48000, 96000,
@@ -721,7 +721,7 @@ static int es8388_resume(struct snd_soc_component *component)
 static int es8388_component_probe(struct snd_soc_component *component)
 {
 	snd_soc_component_write(component, ES8388_ADCPOWER, 0xf0);
-	snd_soc_component_write(component, ES8388_CONTROL1, 0x30);
+	snd_soc_component_write(component, ES8388_CONTROL1, 0x20);
 	snd_soc_component_write(component, ES8388_DACCONTROL21, 0x80);
 	snd_soc_component_write(component, ES8388_ADCCONTROL10, 0xda);
 
