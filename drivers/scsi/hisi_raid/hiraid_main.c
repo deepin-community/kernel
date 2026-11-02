@@ -3890,7 +3890,8 @@ static int hiraid_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	snprintf(bsg_name, sizeof(bsg_name), "hiraid%d", shost->host_no);
 	hdev->bsg_queue = bsg_setup_queue(&shost->shost_gendev, bsg_name, hiraid_bsg_dispatch,
-					  NULL, hiraid_get_max_cmd_size(hdev));
+					  NULL, hiraid_get_max_cmd_size(hdev),
+					  SCSI_SENSE_BUFFERSIZE);
 	if (IS_ERR(hdev->bsg_queue)) {
 		dev_err(hdev->dev, "err, setup bsg failed\n");
 		hdev->bsg_queue = NULL;

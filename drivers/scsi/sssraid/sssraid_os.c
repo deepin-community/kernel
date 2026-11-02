@@ -2146,7 +2146,8 @@ sssraid_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	snprintf(bsg_name, sizeof(bsg_name), "%s%d", SSSRAID_DRIVER_NAME, shost->host_no);
 	sdioc->bsg_queue = bsg_setup_queue(&shost->shost_gendev, bsg_name,
-				sssraid_bsg_host_dispatch,  NULL, sssraid_cmd_size(sdioc));
+				sssraid_bsg_host_dispatch,  NULL, sssraid_cmd_size(sdioc),
+				SCSI_SENSE_BUFFERSIZE);
 	if (IS_ERR(sdioc->bsg_queue)) {
 		ioc_err(sdioc, "err: setup bsg failed!\n");
 		sdioc->bsg_queue = NULL;
