@@ -956,35 +956,41 @@ static const struct hda_controller_ops axi_hda_ops = {
 static ssize_t runtime_status_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct snd_card *card = dev_get_drvdata(dev);
+	struct snd_card *card = container_of(dev, struct snd_card, card_dev);
 	struct azx *chip = card->private_data;
 	struct hdac_bus *bus = azx_bus(chip);
 	unsigned int cmd = 0x001f0500;
 	unsigned int res = -1;
+	ssize_t len = 0;
+	struct hda_codec *codec;
 	char *status;
 
 	dev_info(dev, "Inquire codec status!\n");
-	mutex_lock(&bus->cmd_mutex);
-	snd_hdac_bus_send_cmd(bus, cmd);
-	snd_hdac_bus_get_response(bus, 0, &res);
-	mutex_unlock(&bus->cmd_mutex);
+	list_for_each_codec(codec, &chip->bus) {
+		cmd |= codec->addr << 28;
+		mutex_lock(&bus->cmd_mutex);
+		snd_hdac_bus_send_cmd(bus, cmd);
+		snd_hdac_bus_get_response(bus, 0, &res);
+		mutex_unlock(&bus->cmd_mutex);
 
-	switch (res & 0x3) {
-	case 0x0:
-		status = "D0";
-		break;
-	case 0x1:
-		status = "D1";
-		break;
-	case 0x2:
-		status = "D2";
-		break;
-	case 0x3:
-		status = "D3";
-		break;
+		switch (res & 0x3) {
+		case 0x0:
+			status = "D0";
+			break;
+		case 0x1:
+			status = "D1";
+			break;
+		case 0x2:
+			status = "D2";
+			break;
+		case 0x3:
+			status = "D3";
+			break;
+		}
+		len += sprintf(buf + len, "codec%d is %s\n", codec->addr, status);
 	}
 
-	return sprintf(buf, "%s\n", status);
+	return len;
 }
 
 static DEVICE_ATTR_RO(runtime_status);
@@ -1094,7 +1100,7 @@ static int azx_probe_continue(struct azx *chip)
 	if (azx_has_pm_runtime(chip))
 		pm_runtime_put_noidle(hddev);
 
-	if (sysfs_create_group(&hda->dev->kobj, &hda_ft_runtime_status_group)) {
+	if (sysfs_create_group(&chip->card->card_dev.kobj, &hda_ft_runtime_status_group)) {
 		dev_warn(hda->dev, "failed create sysfs\n");
 		goto err_sysfs;
 	}
