@@ -248,6 +248,22 @@ int suspend_valid_only_mem(suspend_state_t state)
 }
 EXPORT_SYMBOL_GPL(suspend_valid_only_mem);
 
+#ifdef CONFIG_ARCH_PHYTIUM
+int phytium_suspend_valid_mem(suspend_state_t state)
+{
+	switch (state) {
+	case PM_SUSPEND_MEM:
+		return state == PM_SUSPEND_MEM;
+	case PM_SUSPEND_STANDBY:
+		return state == PM_SUSPEND_STANDBY;
+	default:
+		pr_err("no valid state support\n");
+		return 0;
+	}
+}
+EXPORT_SYMBOL_GPL(phytium_suspend_valid_mem);
+#endif
+
 static bool sleep_state_supported(suspend_state_t state)
 {
 	return state == PM_SUSPEND_TO_IDLE ||

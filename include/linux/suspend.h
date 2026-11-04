@@ -212,6 +212,9 @@ extern suspend_state_t mem_sleep_default;
  */
 extern void suspend_set_ops(const struct platform_suspend_ops *ops);
 extern int suspend_valid_only_mem(suspend_state_t state);
+#ifdef CONFIG_ARCH_PHYTIUM
+extern int phytium_suspend_valid_mem(suspend_state_t state);
+#endif
 
 extern unsigned int pm_suspend_global_flags;
 
