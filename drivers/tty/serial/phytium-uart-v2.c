@@ -27,10 +27,10 @@
 #include <linux/acpi.h>
 
 #include "phytium-uart-v2.h"
-#define cmd_id_type     uint8_t
-#define cmd_subid_type  uint8_t
-#define DEFAULT_CLK	10000000
-#define	PHYT_UART_DRV_VER	"1.1.1"
+#define CMD_ID_TYPE     uint8_t
+#define CMD_SUBID_TYPE  uint8_t
+#define DEFAULT_CLK	100000000
+#define	PHYT_UART_DRV_VER	"1.1.2"
 /*
  * We wrap our port structure around the generic uart_port.
  */
@@ -38,13 +38,16 @@ struct phytium_uart_port {
 	struct uart_port	port;
 	unsigned int		old_cr;		/* state during shutdown */
 	unsigned int		old_status;
-	char			type[12];
+	char			type[TYPE_MAX_LEN];
+	u8			*rx_addr;
+	u8			*tx_addr;
 	struct device		*dev;
 	struct clk		*clk;
 	void __iomem		*shmem_base;
 	bool			m_buf_empty;
 	bool			heartbeat_enable;
 	bool			debug_enable;
+	bool			use_ddr;
 	struct			timer_list alive_timer;
 };
 
@@ -55,7 +58,7 @@ struct msg {
 	u8 cmd_subid;
 	u16 length;
 	u16 complete;
-	u8 data[120];
+	u8 data[DATA_MAX_LEN];
 };
 
 static unsigned int phytium_uart_read(const struct phytium_uart_port *pup,
@@ -112,7 +115,7 @@ static int tx_ring_buffer_is_empty(struct phytium_uart_port *pup)
 	return 0;
 }
 
-static void PHYT_MSG_INSERT(struct phytium_uart_port *pup, struct msg *msg)
+static void phyt_msg_insert(struct phytium_uart_port *pup, struct msg *msg)
 {
 	u16 tx_tail, tx_head;
 
@@ -123,8 +126,11 @@ static void PHYT_MSG_INSERT(struct phytium_uart_port *pup, struct msg *msg)
 
 	while (tx_ring_buffer_is_full(pup))
 		cpu_relax();
-
-	memcpy(pup->shmem_base + TX_MSG_SIZE * tx_tail,
+	if (pup->use_ddr == true)
+		memcpy(pup->shmem_base + DDR_TX_MSG_SIZE * tx_tail,
+			msg, DDR_TX_MSG_SIZE);
+	else
+		memcpy(pup->shmem_base + TX_MSG_SIZE * tx_tail,
 			msg, sizeof(struct msg));
 
 	/* updata tx tail pointer */
@@ -151,6 +157,7 @@ static void phytium_fifo_to_tty(struct phytium_uart_port *pup)
 {
 	struct msg *handler_msg;
 	int sysrq;
+	int index;
 	unsigned int ch, flag, fifotaken;
 	u16 count = 0;
 	u16 rx_head, rx_tail;
@@ -162,7 +169,11 @@ static void phytium_fifo_to_tty(struct phytium_uart_port *pup)
 				& BUFFER_POINTER_MASK);
 
 		/* get operator pointer of rv data msg */
-		handler_msg = (struct msg *)(pup->shmem_base + TX_MSG_SIZE
+		if (pup->use_ddr == true)
+			handler_msg = (struct msg *)(pup->shmem_base + DDR_TX_MSG_SIZE
+				* TX_BUFFER_SIZE + DDR_RX_MSG_SIZE * rx_head);
+		else
+			handler_msg = (struct msg *)(pup->shmem_base + TX_MSG_SIZE
 				* TX_BUFFER_SIZE + RX_MSG_SIZE * rx_head);
 		pr_debug("handler_msg = %p, rx_head=%d, rx_tail=%d\n",
 				handler_msg, rx_head, rx_tail);
@@ -170,18 +181,28 @@ static void phytium_fifo_to_tty(struct phytium_uart_port *pup)
 			pr_err("%s cannot get msg!\n", __func__);
 			return;
 		}
-		count = handler_msg->length / 2;
+
+		if (pup->use_ddr == true) {
+			pup->rx_addr = phys_to_virt(*(u64 *)&handler_msg->data[0]);
+			count = (*(u32 *)&handler_msg->data[8]) / 2;
+			index = count;
+		} else
+			count = handler_msg->length / 2;
 
 		rx_head = (rx_head + 1) % RX_BUFFER_SIZE;
 		phytium_uart_write(rx_head, pup, REG_RX_HEAD);
-
 		for (fifotaken = 0; fifotaken != RX_DATA_MAXINUM; fifotaken++) {
 			if (count == 0)
 				break;
 			count--;
 			/* Take chars maxinum 60 * 2 bytes from the MSG */
-			ch = (handler_msg->data[2 * fifotaken]);
-			ch |= (handler_msg->data[2 * fifotaken + 1] << 8);
+			if (pup->use_ddr == true) {
+				ch = pup->rx_addr[2 * fifotaken];
+				ch |= (pup->rx_addr[2 * fifotaken + 1] << 8);
+			} else {
+				ch = (handler_msg->data[2 * fifotaken]);
+				ch |= (handler_msg->data[2 * fifotaken + 1] << 8);
+			}
 			ch |= DATA_DUMMY_RX;
 			flag = TTY_NORMAL;
 			pup->port.icount.rx++;
@@ -243,7 +264,7 @@ static void phytium_stop_tx(struct uart_port *port)
 
 	if (!tx_ring_buffer_is_empty(pup))
 		return;
-	/* mask tx msg tail pointer int*/
+	/* mask tx msg tail pointer int */
 	int_mask = phytium_uart_read(pup, REG_RP_INT_MASK);
 	phytium_uart_write(int_mask | PHYT_MSG_DATA_COMPLETED,
 			pup, REG_RP_INT_MASK);
@@ -266,10 +287,7 @@ static bool phytium_tx_xchar(struct phytium_uart_port *pup, unsigned char c,
 	msg.data[0] = c;
 	msg.length = count;
 
-	/* set 1 to wait rv clear out */
-	phytium_uart_write(1, pup, REG_CHECK_TX);
-
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	pup->port.icount.tx++;
 
@@ -282,11 +300,12 @@ static bool phytium_tx_chars(struct phytium_uart_port *pup, bool from_irq)
 	struct circ_buf *xmit = &pup->port.state->xmit;
 	struct msg msg;
 	int i = 0;
+	int index = 0;
+	int shift_bit = 0;
 	int count = TX_DATA_MAXINUM;
 	u16 datasize = 0;
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_DATA, MSG_TX_DATA, 0);
-
 	if (pup->port.x_char) {
 		if (!phytium_tx_xchar(pup, pup->port.x_char, from_irq))
 			return true;
@@ -301,20 +320,40 @@ static bool phytium_tx_chars(struct phytium_uart_port *pup, bool from_irq)
 
 	if (tx_ring_buffer_is_full(pup))
 		return false;
+	if (pup->use_ddr == true) {
+		u64 tmp_addr = (u64)&pup->tx_addr[xmit->tail];
+		/*
+		 * check current addr is aligned by 4bytes? if not, align
+		 * addr manually and set the aligned addr to msg.data
+		 */
+		if (tmp_addr % 4) {
+			u64 shift_addr = (tmp_addr + 0x3) & ~0x3;
+
+			shift_bit = shift_addr - tmp_addr;
+			*(u64 *)&msg.data[0] = (u64)__virt_to_phys(shift_addr);
+		} else
+			*(u64 *)&msg.data[0] = (u64)__virt_to_phys((u64)&xmit->buf[xmit->tail]);
+	}
+	if (shift_bit)
+		index = xmit->tail + shift_bit;
 	do {
 		if (count-- == 0)
 			break;
 		datasize++;
-
-		msg.length = datasize;
-		msg.data[datasize - 1] = xmit->buf[xmit->tail];
+		if (!pup->use_ddr) {
+			msg.length = datasize;
+			msg.data[datasize - 1] = xmit->buf[xmit->tail];
+		} else
+			pup->tx_addr[index++] = xmit->buf[xmit->tail];
 
 		pup->port.icount.tx++;
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 	} while (!uart_circ_empty(xmit));
 
-	PHYT_MSG_INSERT(pup, &msg);
-
+	if (pup->use_ddr == true)
+		/* fill current data size to last 4 bytes of data array */
+		*(u32 *)&msg.data[8] = datasize;
+	phyt_msg_insert(pup, &msg);
 	/* if xmit is empty, break */
 	if (uart_circ_empty(xmit))
 		pr_debug("xmit is empty at i=%d\n", i);
@@ -342,11 +381,10 @@ static void phytium_modem_status(struct phytium_uart_port *pup)
 
 	old_tx_tail = phytium_uart_read(pup, REG_TX_TAIL) & BUFFER_POINTER_MASK;
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	handler_msg =
 		(struct msg *)(pup->shmem_base + TX_MSG_SIZE * old_tx_tail);
-
 	while (!tx_ring_buffer_is_empty(pup))
 		cpu_relax();
 
@@ -424,7 +462,7 @@ static void phytium_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 	struct msg msg;
 	unsigned int status;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_MCTRL;
 
 	cmd_subid = getHexValue(cmd);
@@ -444,7 +482,7 @@ static void phytium_set_mctrl(struct uart_port *port, unsigned int mctrl)
 		msg.data[4] = (status) & MSG_DATA_MASK;
 	}
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 }
 
@@ -462,7 +500,7 @@ static unsigned int phytium_get_mctrl(struct uart_port *port)
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_GET, MSG_GET_MODEM, 0);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 	handler_msg =
 		(struct msg *)(pup->shmem_base + TX_MSG_SIZE * old_tx_tail);
 	while (!tx_ring_buffer_is_empty(pup))
@@ -509,7 +547,7 @@ static void phytium_stop_rx(struct uart_port *port)
 	struct phytium_uart_port *pup =
 		container_of(port, struct phytium_uart_port, port);
 	struct msg msg;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 	unsigned int int_mask;
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_ERROR_IM;
 
@@ -521,7 +559,7 @@ static void phytium_stop_rx(struct uart_port *port)
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_SET, cmd_subid, 0);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 }
 
@@ -542,7 +580,7 @@ static void phytium_enable_ms(struct uart_port *port)
 	struct phytium_uart_port *pup =
 		container_of(port, struct phytium_uart_port, port);
 	struct msg msg;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_MODEM_IM;
 
@@ -552,7 +590,7 @@ static void phytium_enable_ms(struct uart_port *port)
 
 	msg.data[0] = 0xf;
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 }
 
@@ -563,7 +601,7 @@ static void phytium_break_ctl(struct uart_port *port, int break_state)
 	struct msg msg;
 	unsigned long flags;
 	unsigned int ctrl = 1;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_BREAK_EN;
 
 	cmd_subid = getHexValue(cmd);
@@ -577,7 +615,7 @@ static void phytium_break_ctl(struct uart_port *port, int break_state)
 		msg.data[0] = (ctrl) & MSG_DATA_MASK;
 	}
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	spin_unlock_irqrestore(&pup->port.lock, flags);
 
@@ -592,7 +630,7 @@ static int phytium_hwinit(struct uart_port *port)
 	u64 uart_clk;
 	unsigned int int_mask;
 	unsigned int status;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_HWINIT;
 
 	cmd_subid = getHexValue(cmd);
@@ -620,7 +658,7 @@ static int phytium_hwinit(struct uart_port *port)
 	} else
 		pup->port.uartclk = clk_get_rate(pup->clk);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	status = phytium_uart_read(pup, REG_RP_INT_STATE);
 	phytium_uart_write(status & ~RX_TAIL_INT, pup, REG_RP_INT_STATE);
@@ -691,7 +729,7 @@ static int phytium_startup(struct uart_port *port)
 		container_of(port, struct phytium_uart_port, port);
 	struct msg msg;
 	struct msg *handler_msg;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 	int ret = 0;
 	u16 old_tx_tail;
 
@@ -711,7 +749,7 @@ static int phytium_startup(struct uart_port *port)
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_SET, cmd_subid, 0);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	spin_unlock_irq(&pup->port.lock);
 
@@ -719,7 +757,7 @@ static int phytium_startup(struct uart_port *port)
 
 	old_tx_tail = phytium_uart_read(pup, REG_TX_TAIL) & BUFFER_POINTER_MASK;
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	handler_msg = (struct msg *)
 		(pup->shmem_base + TX_MSG_SIZE * old_tx_tail);
@@ -740,7 +778,7 @@ static void phytium_disable_uart(struct phytium_uart_port *pup)
 {
 
 	struct msg msg;
-	cmd_subid_type cmd_subid;
+	CMD_SUBID_TYPE cmd_subid;
 
 	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_DISABLE_UART;
 
@@ -752,7 +790,7 @@ static void phytium_disable_uart(struct phytium_uart_port *pup)
 	pup->port.status &= ~(UPSTAT_AUTOCTS | UPSTAT_AUTORTS);
 	spin_lock_irq(&pup->port.lock);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	spin_unlock_irq(&pup->port.lock);
 
@@ -767,7 +805,7 @@ static void phytium_disable_interrupts(struct phytium_uart_port *pup)
 
 	spin_lock_irq(&pup->port.lock);
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	/* clear all RP INT STATUS */
 	phytium_uart_write(0, pup, REG_RP_INT_STATE);
@@ -846,7 +884,7 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 	u8 parodd = 1;
 	u8 cmspar = 0;
 	u8 crtscts = 0;
-	cmd_subid_type cmd_subid1, cmd_subid2;
+	CMD_SUBID_TYPE cmd_subid1, cmd_subid2;
 
 	enum phytuart_set_subid cmd1 = PHYTUART_MSG_CMD_SET_BAUD;
 	enum phytuart_set_subid cmd2 = PHYTUART_MSG_CMD_SET_TERMIOS;
@@ -855,7 +893,6 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 	cmd_subid2 = getHexValue(cmd2);
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_SET, cmd_subid1, 0);
-
 	spin_lock_irqsave(&port->lock, flags);
 	/* Ask the core to calculate the divisor for us. */
 	if (has_acpi_companion(pup->port.dev)) {
@@ -890,7 +927,7 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 	msg.data[1] = (baud >> 8) & MSG_DATA_MASK;
 	msg.data[0] = (baud) & MSG_DATA_MASK;
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
@@ -937,8 +974,6 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 		crtscts = 0;
 		port->status &= ~(UPSTAT_AUTOCTS | UPSTAT_AUTORTS);
 	}
-
-
 	msg_fill(&msg, UART_MODULE_ID, MSG_SET, cmd_subid2, 0);
 
 	msg.data[0] = databits & MSG_DATA_MASK;
@@ -947,8 +982,11 @@ phytium_set_termios(struct uart_port *port, struct ktermios *termios,
 	msg.data[3] = parodd & MSG_DATA_MASK;
 	msg.data[4] = cmspar & MSG_DATA_MASK;
 	msg.data[5] = crtscts & MSG_DATA_MASK;
+	/* Add uart data bit */
+	if (pup->port.fifosize <= 1)
+		msg.data[6] = 1;
 
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
@@ -1049,7 +1087,7 @@ static int phytium_register_port(struct phytium_uart_port *pup)
 	phytium_uart_write(TX_HEAD_INT, pup, REG_RP_INT_MASK);
 
 	msg_fill(&msg, UART_MODULE_ID, MSG_DEFAULT, MSG_DEFAULT, 0);
-	PHYT_MSG_INSERT(pup, &msg);
+	phyt_msg_insert(pup, &msg);
 
 	/* clear all redundant RP INT STATUS at the beginning */
 	phytium_uart_write(0, pup, REG_RP_INT_STATE);
@@ -1184,6 +1222,36 @@ static ssize_t heartbeat_enable_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(debug_enable);
 static DEVICE_ATTR_RW(heartbeat_enable);
+static void set_rx_addr(struct phytium_uart_port *pup)
+{
+	u64 mem_addr;
+	struct msg msg;
+	CMD_SUBID_TYPE cmd_subid;
+	enum phytuart_set_subid cmd = PHYTUART_MSG_CMD_SET_DDR_BASE;
+
+	cmd_subid = getHexValue(cmd);
+	msg_fill(&msg, UART_MODULE_ID, MSG_SET, cmd_subid, 0);
+	mem_addr = (u64)__virt_to_phys((u64)pup->rx_addr);
+	/*
+	 * we use first 8 bytes of data array store rx buffer
+	 * address, last 4 bytes represent size of rx buffer size.
+	 */
+	*(u64 *)&msg.data[0] = mem_addr;
+	*(u32 *)&msg.data[8] = DDR_BUF_SIZE;
+	phyt_msg_insert(pup, &msg);
+}
+
+static bool check_feature(struct phytium_uart_port *pup)
+{
+	u32 check_value = phytium_uart_read(pup, REG_CHECK_FEATURE);
+
+	if (check_value & BIT_SUPPORT_DDR) {
+		pup->use_ddr = true;
+		return true;
+	}
+	pup->use_ddr = false;
+	return false;
+}
 static int phytium_uart_probe(struct platform_device *pdev)
 {
 	struct phytium_uart_port *pup;
@@ -1260,6 +1328,18 @@ static int phytium_uart_probe(struct platform_device *pdev)
 	pup->old_cr = 0;
 	pup->m_buf_empty = true;
 	snprintf(pup->type, sizeof(pup->type), "phytium,uart-v2");
+
+	if (check_feature(pup)) {
+		pup->rx_addr = devm_kzalloc(&pdev->dev, DDR_BUF_SIZE,
+				GFP_KERNEL);
+		if (!pup->rx_addr)
+			goto free;
+		set_rx_addr(pup);
+		pup->tx_addr = devm_kzalloc(&pdev->dev, DDR_BUF_SIZE,
+				GFP_KERNEL);
+		if (!pup->tx_addr)
+			goto free;
+	}
 	pup->debug_enable = false;
 	pup->heartbeat_enable = false;
 
