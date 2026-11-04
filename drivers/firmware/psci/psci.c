@@ -28,7 +28,9 @@
 #include <asm/system_misc.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
-
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
 /*
  * While a 64-bit OS can make calls with SMC32 calling conventions, for some
  * calls it is necessary to use SMC64 to pass or return 64-bit values.
@@ -495,6 +497,31 @@ int psci_cpu_suspend_enter(u32 state)
 }
 #endif
 
+#ifdef CONFIG_ARCH_PHYTIUM
+static int phytium_psci_system_suspend(unsigned long state)
+{
+	phys_addr_t pa_cpu_resume = __pa_symbol(cpu_resume);
+
+	if (state == PM_SUSPEND_STANDBY)
+		return invoke_psci_fn(PSCI_FN_NATIVE(1_0, SYSTEM_SUSPEND),
+				pa_cpu_resume, 0x544600c2, 0);
+	else
+		return invoke_psci_fn(PSCI_FN_NATIVE(1_0, SYSTEM_SUSPEND),
+				pa_cpu_resume, 0, 0);
+}
+
+static int phytium_psci_system_suspend_enter(suspend_state_t state)
+{
+	return cpu_suspend(state, phytium_psci_system_suspend);
+}
+
+
+static const struct platform_suspend_ops phytium_psci_suspend_ops = {
+	.valid		= phytium_suspend_valid_mem,
+	.enter		= phytium_psci_system_suspend_enter,
+};
+#endif
+
 static int psci_system_suspend(unsigned long unused)
 {
 	int err;
@@ -535,7 +562,16 @@ static void __init psci_init_system_suspend(void)
 	ret = psci_features(PSCI_FN_NATIVE(1_0, SYSTEM_SUSPEND));
 
 	if (ret != PSCI_RET_NOT_SUPPORTED)
+	{
+#ifdef CONFIG_ARCH_PHYTIUM
+		if (is_pd2408())
+			suspend_set_ops(&phytium_psci_suspend_ops);
+		else
+			suspend_set_ops(&psci_suspend_ops);
+#else
 		suspend_set_ops(&psci_suspend_ops);
+#endif
+	}
 }
 
 static void __init psci_init_cpu_suspend(void)
