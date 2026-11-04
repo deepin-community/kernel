@@ -1169,8 +1169,10 @@ static int amdgpu_ttm_tt_populate(struct ttm_device *bdev,
 	if (ret)
 		return ret;
 
-	for (i = 0; i < ttm->num_pages; ++i)
+	for (i = 0; i < ttm->num_pages; ++i) {
 		ttm->pages[i]->mapping = bdev->dev_mapping;
+		page_ref_inc(ttm->pages[i]);
+	}
 
 	return 0;
 }
@@ -1201,8 +1203,10 @@ static void amdgpu_ttm_tt_unpopulate(struct ttm_device *bdev,
 	if (ttm->page_flags & TTM_TT_FLAG_EXTERNAL)
 		return;
 
-	for (i = 0; i < ttm->num_pages; ++i)
+	for (i = 0; i < ttm->num_pages; ++i) {
 		ttm->pages[i]->mapping = NULL;
+		page_ref_dec(ttm->pages[i]);
+	}
 
 	adev = amdgpu_ttm_adev(bdev);
 
