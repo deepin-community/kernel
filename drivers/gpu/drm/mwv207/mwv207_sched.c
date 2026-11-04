@@ -227,11 +227,19 @@ static struct drm_gpu_scheduler *mwv207_sched_create(struct mwv207_device *jdev,
 		unsigned int hw_submission, unsigned int hang_limit, long timeout,
 		struct mwv207_pipe *pipe)
 {
+	struct drm_sched_init_args args = { };
 	struct mwv207_sched *sched;
 	int ret;
 
 	if (pipe == NULL)
 		return NULL;
+
+	args.ops = &mwv207_sched_ops;
+	args.hw_submission = hw_submission;
+	args.hang_limit = hang_limit;
+	args.timeout = msecs_to_jiffies(timeout);
+	args.name = pipe->fname;
+	args.dev = jdev->dev;
 
 	sched = devm_kzalloc(jdev->dev, sizeof(struct mwv207_sched), GFP_KERNEL);
 	if (!sched)
@@ -239,10 +247,7 @@ static struct drm_gpu_scheduler *mwv207_sched_create(struct mwv207_device *jdev,
 
 	sched->pipe = pipe;
 
-	ret = drm_sched_init(&sched->base, &mwv207_sched_ops, hw_submission, hang_limit,
-			msecs_to_jiffies(timeout),
-			NULL, NULL,
-			pipe->fname, jdev->dev);
+	ret = drm_sched_init(&sched->base, &args);
 	if (ret)
 		goto err;
 

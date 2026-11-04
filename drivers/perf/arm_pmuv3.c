@@ -1073,7 +1073,8 @@ static bool armv8pmu_branch_stack_init(struct perf_event *event)
 	return false;
 }
 
-static void armv8pmu_sched_task(struct perf_event_pmu_context *pmu_ctx, bool sched_in)
+static void armv8pmu_sched_task(struct perf_event_pmu_context *pmu_ctx,
+				struct task_struct *task, bool sched_in)
 {
 	struct arm_pmu *armpmu = to_arm_pmu(pmu_ctx->pmu);
 	void *task_ctx = pmu_ctx->task_ctx_data;

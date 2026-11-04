@@ -1270,7 +1270,7 @@ intel_sdvo_get_preferred_input_mode(struct intel_sdvo *intel_sdvo,
 	return true;
 }
 
-static void i9xx_adjust_sdvo_tv_clock(struct intel_crtc_state *pipe_config)
+static int i9xx_adjust_sdvo_tv_clock(struct intel_crtc_state *pipe_config)
 {
 	struct drm_i915_private *dev_priv = to_i915(pipe_config->uapi.crtc->dev);
 	unsigned dotclock = pipe_config->port_clock;
@@ -1293,11 +1293,14 @@ static void i9xx_adjust_sdvo_tv_clock(struct intel_crtc_state *pipe_config)
 		clock->m1 = 12;
 		clock->m2 = 8;
 	} else {
-		drm_WARN(&dev_priv->drm, 1,
-			 "SDVO TV clock out of range: %i\n", dotclock);
+		drm_dbg_kms(&dev_priv->drm,
+			    "SDVO TV clock out of range: %i\n", dotclock);
+		return -EINVAL;
 	}
 
 	pipe_config->clock_set = true;
+
+	return 0;
 }
 
 static bool intel_has_hdmi_sink(struct intel_sdvo_connector *intel_sdvo_connector,
@@ -1415,8 +1418,13 @@ static int intel_sdvo_compute_config(struct intel_encoder *encoder,
 					       conn_state);
 
 	/* Clock computation needs to happen after pixel multiplier. */
-	if (IS_TV(intel_sdvo_connector))
-		i9xx_adjust_sdvo_tv_clock(pipe_config);
+	if (IS_TV(intel_sdvo_connector)) {
+		int ret;
+
+		ret = i9xx_adjust_sdvo_tv_clock(pipe_config);
+		if (ret)
+			return ret;
+	}
 
 	if (conn_state->picture_aspect_ratio)
 		adjusted_mode->picture_aspect_ratio =
@@ -2137,6 +2145,10 @@ intel_sdvo_detect(struct drm_connector *connector, bool force)
 
 	if (!INTEL_DISPLAY_ENABLED(i915))
 		return connector_status_disconnected;
+
+	if (!intel_sdvo_set_target_output(intel_sdvo,
+					  intel_sdvo_connector->output_flag))
+		return connector_status_unknown;
 
 	if (!intel_sdvo_get_value(intel_sdvo,
 				  SDVO_CMD_GET_ATTACHED_DISPLAYS,

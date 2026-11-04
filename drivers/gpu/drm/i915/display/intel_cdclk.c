@@ -38,6 +38,8 @@
 #include "intel_pcode.h"
 #include "intel_psr.h"
 #include "intel_vdsc.h"
+#include "skl_watermark.h"
+#include "skl_watermark_regs.h"
 #include "vlv_sideband.h"
 
 /**
@@ -1580,6 +1582,8 @@ static void bxt_get_cdclk(struct drm_i915_private *dev_priv,
 	}
 
  out:
+	if (DISPLAY_VER(dev_priv) >= 20)
+		cdclk_config->joined_mbus = intel_de_read(dev_priv, MBUS_CTL) & MBUS_JOIN;
 	/*
 	 * Can't read this out :( Let's assume it's
 	 * at least what the CDCLK frequency requires.
@@ -1779,6 +1783,29 @@ static int cdclk_squash_divider(u16 waveform)
 	return hweight16(waveform ?: 0xffff);
 }
 
+static bool mdclk_source_is_cdclk_pll(struct drm_i915_private *i915)
+{
+	return DISPLAY_VER(i915) >= 20;
+}
+
+int intel_mdclk_cdclk_ratio(struct drm_i915_private *i915,
+			    const struct intel_cdclk_config *cdclk_config)
+{
+	if (mdclk_source_is_cdclk_pll(i915))
+		return DIV_ROUND_UP(cdclk_config->vco, cdclk_config->cdclk);
+
+	/* Otherwise, source for MDCLK is CD2XCLK. */
+	return 2;
+}
+
+static void xe2lpd_mdclk_cdclk_ratio_program(struct drm_i915_private *i915,
+					     const struct intel_cdclk_config *cdclk_config)
+{
+	intel_dbuf_mdclk_cdclk_ratio_update(i915,
+					    intel_mdclk_cdclk_ratio(i915, cdclk_config),
+					    cdclk_config->joined_mbus);
+}
+
 static bool cdclk_compute_crawl_and_squash_midpoint(struct drm_i915_private *i915,
 						    const struct intel_cdclk_config *old_cdclk_config,
 						    const struct intel_cdclk_config *new_cdclk_config,
@@ -1932,6 +1959,9 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 		return;
 	}
 
+	if (DISPLAY_VER(dev_priv) >= 20 && cdclk < dev_priv->display.cdclk.hw.cdclk)
+		xe2lpd_mdclk_cdclk_ratio_program(dev_priv, cdclk_config);
+
 	if (cdclk_compute_crawl_and_squash_midpoint(dev_priv, &dev_priv->display.cdclk.hw,
 						    cdclk_config, &mid_cdclk_config)) {
 		_bxt_set_cdclk(dev_priv, &mid_cdclk_config, pipe);
@@ -1939,6 +1969,9 @@ static void bxt_set_cdclk(struct drm_i915_private *dev_priv,
 	} else {
 		_bxt_set_cdclk(dev_priv, cdclk_config, pipe);
 	}
+
+	if (DISPLAY_VER(dev_priv) >= 20 && cdclk > dev_priv->display.cdclk.hw.cdclk)
+		xe2lpd_mdclk_cdclk_ratio_program(dev_priv, cdclk_config);
 
 	if (DISPLAY_VER(dev_priv) >= 14)
 		/*
@@ -2438,6 +2471,17 @@ static void intel_cdclk_pcode_post_notify(struct intel_atomic_state *state)
 			   update_cdclk, update_pipe_count);
 }
 
+bool intel_cdclk_is_decreasing_later(struct intel_atomic_state *state)
+{
+	const struct intel_cdclk_state *old_cdclk_state =
+		intel_atomic_get_old_cdclk_state(state);
+	const struct intel_cdclk_state *new_cdclk_state =
+		intel_atomic_get_new_cdclk_state(state);
+
+	return new_cdclk_state && !new_cdclk_state->disable_pipes &&
+		new_cdclk_state->actual.cdclk < old_cdclk_state->actual.cdclk;
+}
+
 /**
  * intel_set_cdclk_pre_plane_update - Push the CDCLK state to the hardware
  * @state: intel atomic state
@@ -2478,6 +2522,12 @@ intel_set_cdclk_pre_plane_update(struct intel_atomic_state *state)
 		cdclk_config.voltage_level = max(new_cdclk_state->actual.voltage_level,
 						 old_cdclk_state->actual.voltage_level);
 	}
+
+	/*
+	 * mbus joining will be changed later by
+	 * intel_dbuf_mbus_{pre,post}_ddb_update()
+	 */
+	cdclk_config.joined_mbus = old_cdclk_state->actual.joined_mbus;
 
 	drm_WARN_ON(&i915->drm, !new_cdclk_state->base.changed);
 
@@ -3027,6 +3077,20 @@ int intel_cdclk_atomic_check(struct intel_atomic_state *state,
 	return 0;
 }
 
+int intel_cdclk_state_set_joined_mbus(struct intel_atomic_state *state, bool joined_mbus)
+{
+	struct intel_cdclk_state *cdclk_state;
+
+	cdclk_state = intel_atomic_get_cdclk_state(state);
+	if (IS_ERR(cdclk_state))
+		return PTR_ERR(cdclk_state);
+
+	cdclk_state->actual.joined_mbus = joined_mbus;
+	cdclk_state->logical.joined_mbus = joined_mbus;
+
+	return intel_atomic_lock_global_state(&cdclk_state->base);
+}
+
 int intel_cdclk_init(struct drm_i915_private *dev_priv)
 {
 	struct intel_cdclk_state *cdclk_state;
@@ -3146,6 +3210,15 @@ int intel_modeset_calc_cdclk(struct intel_atomic_state *state)
 
 		drm_dbg_kms(&dev_priv->drm,
 			    "Modeset required for cdclk change\n");
+	}
+
+	if (intel_mdclk_cdclk_ratio(dev_priv, &old_cdclk_state->actual) !=
+	    intel_mdclk_cdclk_ratio(dev_priv, &new_cdclk_state->actual)) {
+		int ratio = intel_mdclk_cdclk_ratio(dev_priv, &new_cdclk_state->actual);
+
+		ret = intel_dbuf_state_set_mdclk_cdclk_ratio(state, ratio);
+		if (ret)
+			return ret;
 	}
 
 	drm_dbg_kms(&dev_priv->drm,

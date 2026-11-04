@@ -1979,6 +1979,9 @@ static int azx_first_init(struct azx *chip)
 	 */
 	if (chip->driver_type == AZX_DRIVER_GFHDMI) {
 		bus->polling_mode = 1;
+		bus->not_use_interrupts = 1;
+		if (!chip->jackpoll_interval)
+			chip->jackpoll_interval = msecs_to_jiffies(1500);
 		gf_init_pci(chip);
 	}
 

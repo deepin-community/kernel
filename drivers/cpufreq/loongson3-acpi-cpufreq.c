@@ -1272,7 +1272,7 @@ err_unreg:
 	return result;
 }
 
-static int loongson3_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+static void loongson3_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 {
 	struct core_data *core = get_core_data(policy->cpu);
 
@@ -1287,7 +1287,6 @@ static int loongson3_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 	kfree(core->boost_freq);
 	kfree(core->clock_scale);
 	kfree(core->shift);
-	return 0;
 }
 
 static struct freq_attr *loongson3_cpufreq_attr[] = {

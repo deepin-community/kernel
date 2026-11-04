@@ -10,6 +10,7 @@
 #ifndef _ARM_SMMU_H
 #define _ARM_SMMU_H
 
+#include <asm/cputype.h>
 #include <linux/atomic.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -22,6 +23,10 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+
+#ifdef CONFIG_ARCH_PHYTIUM
+#define FWID_READ(id) (((u16)(id) >> 3) | (((id) >> 16 | 0x7000) << 16))
+#endif
 
 /* Configuration registers */
 #define ARM_SMMU_GR0_sCR0		0x0

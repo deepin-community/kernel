@@ -332,14 +332,14 @@ void iwl_send_dbg_dump_complete_cmd(struct iwl_fw_runtime *fwrt,
 void iwl_fw_disable_dbg_asserts(struct iwl_fw_runtime *fwrt);
 
 #define IWL_FW_CHECK_FAILED(_obj, _fmt, ...)				\
-	IWL_ERR_LIMIT(_obj, _fmt, __VA_ARGS__)
+	IWL_ERR_LIMIT(_obj, _fmt, ##__VA_ARGS__)
 
 #define IWL_FW_CHECK(_obj, _cond, _fmt, ...)				\
 	({								\
 		bool __cond = (_cond);					\
 									\
 		if (unlikely(__cond))					\
-			IWL_FW_CHECK_FAILED(_obj, _fmt, __VA_ARGS__);	\
+			IWL_FW_CHECK_FAILED(_obj, _fmt, ##__VA_ARGS__);	\
 									\
 		unlikely(__cond);					\
 	})

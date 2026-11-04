@@ -6,9 +6,10 @@
 #ifndef _I8042_PHYTIO_H
 #define _I8042_PHYTIO_H
 
+#include <linux/dmi.h>
+#include <linux/errno.h>
 #include <linux/io.h>
 #include <linux/logic_pio.h>
-#include <linux/errno.h>
 #include <linux/printk.h>
 
 #include "../../bus/phytium_pio.h"
@@ -34,10 +35,6 @@ static int i8042_aux_irq = 0x4c;
 #define I8042_COMMAND_REG	0x64
 #define I8042_STATUS_REG	0x64
 #define I8042_DATA_REG		0x60
-
-#define EC_EVENT_BIT		(1 << 11)
-#define I8042_KEY_BIT		(1 << 1)
-#define I8042_TOUCH_BIT		(1 << 12)
 
 /*
  * i8042 IO operations using Logic PIO framework
@@ -65,52 +62,87 @@ static inline void i8042_write_command(int val)
 }
 
 /*
+ * Boards whose keyboard controller cannot be used: touching 0x60/0x64 there
+ * hangs the machine before anything can be reported.
+ */
+static const struct dmi_system_id phytium_i8042_skip[] = {
+	/* 706 laptops, as listed by the Kylin LPC driver. */
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4251"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4252"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4260"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4261"),
+		},
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HT706"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "TR4263"),
+		},
+	},
+	{ }
+};
+
+/*
  * Platform initialization
  */
 static inline int i8042_platform_init(void)
 {
+	int kbd_irq, aux_irq;
+
 	/* Check if we're running on Phytium CPU */
 	if (!check_cpu_type()) {
-		pr_info("i8042-phytio: Not running on Phytium CPU\n");
+		pr_info("Not running on Phytium CPU\n");
 		return -ENODEV;
 	}
 
-	i8042_kbd_irq = i8042_aux_irq = phytium_pio_get_irq();
+	if (dmi_check_system(phytium_i8042_skip)) {
+		pr_info("KBC does not answer on this board, skipping\n");
+		return -ENODEV;
+	}
+
+	/*
+	 * The PIO controller hands out one Linux irq per latch bit and clears
+	 * the latch itself, so the irq is not shared with the other legacy
+	 * devices.
+	 */
+	kbd_irq = phytium_pio_irq_get(PHYTIUM_PIO_I8042_KBD_INT);
+	aux_irq = phytium_pio_irq_get(PHYTIUM_PIO_I8042_AUX_INT);
+	if (kbd_irq < 0 || aux_irq < 0) {
+		pr_err("no irq for the KBC\n");
+		return -ENODEV;
+	}
+
+	i8042_kbd_irq = kbd_irq;
+	i8042_aux_irq = aux_irq;
 
 	/* Set reset behavior */
 	i8042_reset = I8042_RESET_ALWAYS;
 
-	pr_info("i8042-phytio: Initialized on Phytium platform\n");
+	pr_info("irqs %d/%d\n", kbd_irq, aux_irq);
 	return 0;
 }
 
 static inline void i8042_platform_exit(void)
 {
-	phytium_pio_clear_interrupt(0);
 	pr_info("i8042-phytio: Exited\n");
-}
-
-static inline int i8042_write_lpc_interrupt_clear(void)
-{
-	u32 int_status;
-
-	int_status = phytium_pio_get_int_status();
-
-	if (int_status & I8042_KEY_BIT) {
-		phytium_pio_clear_interrupt(~I8042_KEY_BIT);
-		return 0;
-	}
-	if (int_status & I8042_TOUCH_BIT) {
-		phytium_pio_clear_interrupt(~I8042_TOUCH_BIT);
-		return 0;
-	}
-	if (int_status & EC_EVENT_BIT) {
-		phytium_pio_clear_interrupt(~EC_EVENT_BIT);
-		return 0;
-	}
-
-	pr_debug("no cared bits\n");
-	return 1;
 }
 
 #endif /* _I8042_PHYTIO_H */

@@ -1374,6 +1374,19 @@ static struct iommu_device *arm_smmu_probe_device(struct device *dev)
 		return ERR_PTR(-ENODEV);
 	}
 
+#ifdef CONFIG_ARCH_PHYTIUM
+	/* Phytium Ps17064 workaround patch */
+	if ((read_cpuid_id() & MIDR_CPU_MODEL_MASK) == MIDR_PHYTIUM_PS17064) {
+		int num = fwspec->num_ids;
+
+		for (i = 0; i < num; i++) {
+			u32 fwid = FWID_READ(fwspec->ids[i]);
+
+			iommu_fwspec_add_ids(dev, &fwid, 1);
+		}
+	}
+#endif
+
 	ret = -EINVAL;
 	for (i = 0; i < fwspec->num_ids; i++) {
 		u16 sid = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[i]);

@@ -342,21 +342,15 @@ static bool ec_drain_events(void)
 	return it8528_get_ec_evt_flags();
 }
 
-/* EC event interrupt, shared with i8042 over the PIO controller. */
+/* EC event interrupt, one of the PIO controller's latch sources. */
 static irqreturn_t ft_ec_int_routine(int irq, void *dev_id)
 {
 	unsigned long flags;
 
-	/*
-	 * Test the EC status port rather than the PIO latch: i8042 may have
-	 * acknowledged the shared interrupt before us and cleared the latch
-	 * while the EC still has an event queued.
-	 */
 	if (!it8528_get_ec_evt_flags())
 		return IRQ_NONE;
 
 	spin_lock_irqsave(&i8042_lock, flags);
-	lpc_ec_interrupt_clear();
 	ec_drain_events();
 	spin_unlock_irqrestore(&i8042_lock, flags);
 
@@ -376,20 +370,16 @@ static int lpc_int_init(void)
 
 	strscpy(ft_lpc_device->name, EC_LPC_DEV, sizeof(ft_lpc_device->name));
 
-	/* get lpc irq */
-	ret = phytium_pio_get_irq();
+	/* the PIO controller owns the EC latch and gives us a per-bit irq */
+	ret = phytium_pio_irq_get(PHYTIUM_PIO_EC_INT);
 	if (ret < 0) {
 		pr_err("phytium ec: Failed to get lpc irq: %d\n", ret);
 		goto err_free;
 	}
 	ft_lpc_device->irq = ret;
 
-	/* Clear the stale EC source without disturbing i8042's sources. */
-	lpc_ec_interrupt_clear();
-
-	/* Regist pci irq */
-	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine,
-				IRQF_SHARED, ft_lpc_device->name, ft_lpc_device);
+	ret = request_irq(ft_lpc_device->irq, ft_ec_int_routine, 0,
+			  ft_lpc_device->name, ft_lpc_device);
 	if (ret) {
 		pr_err("phytium ec: Request irq fail: %d\n", ret);
 		goto err_free;

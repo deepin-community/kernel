@@ -5,8 +5,6 @@
 #include <linux/platform_device.h>
 #include "../../../bus/phytium_pio.h"
 
-#define EC_EVENT_BIT        (1 << 11)
-
 extern spinlock_t i8042_lock;
 
 /*
@@ -155,7 +153,6 @@ extern int it8528_query_clean_event(void);
 
 /* The ec interrupt functions */
 extern int it8528_init(void);
-extern void lpc_ec_interrupt_clear(void);
 
 /* EC sensor/hwmon registration */
 extern void ec_sensors_register(struct platform_device *pdev);

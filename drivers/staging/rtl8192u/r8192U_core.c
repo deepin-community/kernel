@@ -1990,6 +1990,10 @@ static int rtl8192_init_priv_variable(struct net_device *dev)
 	if (!priv->pFirmware)
 		return -ENOMEM;
 
+	priv->network = kzalloc(sizeof(*priv->network), GFP_KERNEL);
+	if (!priv->network)
+		return -ENOMEM;
+
 	/* rx related queue */
 	skb_queue_head_init(&priv->rx_queue);
 	skb_queue_head_init(&priv->skb_queue);
@@ -2023,6 +2027,12 @@ static void rtl8192_irq_rx_tasklet(struct tasklet_struct *t);
 static void rtl8192_init_priv_task(struct net_device *dev)
 {
 	struct r8192_priv *priv = ieee80211_priv(dev);
+
+	priv->priv_wq = alloc_workqueue("priv_wq", 0, 0);
+	if (!priv->priv_wq) {
+		pr_err("alloc_workqueue for priv->priv_wq failed\n");
+		return;
+	}
 
 	INIT_WORK(&priv->reset_wq, rtl8192_restart);
 
@@ -4566,6 +4576,8 @@ fail2:
 fail:
 	kfree(priv->pFirmware);
 	priv->pFirmware = NULL;
+	kfree(priv->network);
+	priv->network = NULL;
 	rtl8192_usb_deleteendpoints(dev);
 	msleep(10);
 	free_ieee80211(dev);

@@ -77,7 +77,6 @@ struct selinux_fs_info {
 	int *bool_pending_values;
 	struct dentry *class_dir;
 	unsigned long last_class_ino;
-	bool policy_opened;
 	struct dentry *policycap_dir;
 	unsigned long last_ino;
 	struct super_block *sb;
@@ -346,51 +345,38 @@ struct policy_load_memory {
 
 static int sel_open_policy(struct inode *inode, struct file *filp)
 {
-	struct selinux_fs_info *fsi = inode->i_sb->s_fs_info;
 	struct policy_load_memory *plm = NULL;
 	int rc;
 
-	BUG_ON(filp->private_data);
+	rc = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+			  SECCLASS_SECURITY, SECURITY__READ_POLICY, NULL);
+	if (rc)
+		return rc;
+
+	plm = kzalloc(sizeof(*plm), GFP_KERNEL);
+	if (!plm)
+		return -ENOMEM;
 
 #ifdef CONFIG_IEE_SELINUX_P
 	mutex_lock(iee_get_selinux_policy_lock());
 #else
 	mutex_lock(&selinux_state.policy_mutex);
 #endif
-
-	rc = avc_has_perm(current_sid(), SECINITSID_SECURITY,
-			  SECCLASS_SECURITY, SECURITY__READ_POLICY, NULL);
-	if (rc)
-		goto err;
-
-	rc = -EBUSY;
-	if (fsi->policy_opened)
-		goto err;
-
-	rc = -ENOMEM;
-	plm = kzalloc(sizeof(*plm), GFP_KERNEL);
-	if (!plm)
-		goto err;
-
 	rc = security_read_policy(&plm->data, &plm->len);
 	if (rc)
 		goto err;
-
 	if ((size_t)i_size_read(inode) != plm->len) {
 		inode_lock(inode);
 		i_size_write(inode, plm->len);
 		inode_unlock(inode);
 	}
-
-	fsi->policy_opened = 1;
-
-	filp->private_data = plm;
-
 #ifdef CONFIG_IEE_SELINUX_P
 	mutex_unlock(iee_get_selinux_policy_lock());
 #else
 	mutex_unlock(&selinux_state.policy_mutex);
 #endif
+
+	filp->private_data = plm;
 
 	return 0;
 err:
@@ -408,12 +394,7 @@ err:
 
 static int sel_release_policy(struct inode *inode, struct file *filp)
 {
-	struct selinux_fs_info *fsi = inode->i_sb->s_fs_info;
 	struct policy_load_memory *plm = filp->private_data;
-
-	BUG_ON(!plm);
-
-	fsi->policy_opened = 0;
 
 	vfree(plm->data);
 	kfree(plm);

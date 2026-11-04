@@ -361,9 +361,8 @@ static int nforce2_cpu_init(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int nforce2_cpu_exit(struct cpufreq_policy *policy)
+static void nforce2_cpu_exit(struct cpufreq_policy *policy)
 {
-	return 0;
 }
 
 static struct cpufreq_driver nforce2_driver = {

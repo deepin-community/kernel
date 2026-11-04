@@ -594,6 +594,9 @@ static bool disable_dynamic_sst_features(void)
 #define SST_CP_PRIORITY_TYPE_START	1
 #define SST_CP_PRIORITY_TYPE_WIDTH	1
 
+#define SST_CP_MAX_ENABLE		1
+#define SST_CP_MAX_PRIORITY_TYPE	1
+
 static long isst_if_core_power_state(void __user *argp)
 {
 	struct tpmi_per_power_domain_info *power_domain_info;
@@ -612,6 +615,10 @@ static long isst_if_core_power_state(void __user *argp)
 	if (core_power.get_set) {
 		if (power_domain_info->write_blocked)
 			return -EPERM;
+
+		if (core_power.enable > SST_CP_MAX_ENABLE ||
+		    core_power.priority_type > SST_CP_MAX_PRIORITY_TYPE)
+			return -EINVAL;
 
 		_write_cp_info("cp_enable", core_power.enable, SST_CP_CONTROL_OFFSET,
 			       SST_CP_ENABLE_START, SST_CP_ENABLE_WIDTH, SST_MUL_FACTOR_NONE)
@@ -944,6 +951,9 @@ static int isst_if_set_perf_level(void __user *argp)
 
 	if (power_domain_info->write_blocked)
 		return -EPERM;
+
+	if (perf_level.level > power_domain_info->max_level)
+		return -EINVAL;
 
 	if (!(power_domain_info->pp_header.allowed_level_mask & BIT(perf_level.level)))
 		return -EINVAL;
@@ -1329,6 +1339,8 @@ static int isst_if_get_tpmi_instance_count(void __user *argp)
 		return -EINVAL;
 
 	sst_inst = isst_common.sst_inst[tpmi_inst.socket_id];
+	if (!sst_inst)
+		return -EINVAL;
 
 	tpmi_inst.count = isst_instance_count(sst_inst);
 

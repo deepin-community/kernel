@@ -142,10 +142,15 @@ int intel_hdcp_read_valid_bksv(struct intel_digital_port *dig_port,
 /* Is HDCP1.4 capable on Platform and Sink */
 bool intel_hdcp_capable(struct intel_connector *connector)
 {
-	struct intel_digital_port *dig_port = intel_attached_dig_port(connector);
+	struct intel_digital_port *dig_port;
 	const struct intel_hdcp_shim *shim = connector->hdcp.shim;
 	bool capable = false;
 	u8 bksv[5];
+
+	if (!intel_attached_encoder(connector))
+		return capable;
+
+	dig_port = intel_attached_dig_port(connector);
 
 	if (!shim)
 		return capable;
@@ -166,6 +171,9 @@ bool intel_hdcp2_capable(struct intel_connector *connector)
 	struct drm_i915_private *i915 = to_i915(connector->base.dev);
 	struct intel_hdcp *hdcp = &connector->hdcp;
 	bool capable = false;
+
+	if (!intel_attached_encoder(connector))
+		return capable;
 
 	/* I915 support for HDCP2.2 */
 	if (!hdcp->hdcp2_supported)
@@ -353,7 +361,7 @@ u32 intel_hdcp_get_repeater_ctl(struct drm_i915_private *i915,
 		default:
 			drm_err(&i915->drm, "Unknown transcoder %d\n",
 				cpu_transcoder);
-			return -EINVAL;
+			return 0;
 		}
 	}
 
@@ -370,7 +378,7 @@ u32 intel_hdcp_get_repeater_ctl(struct drm_i915_private *i915,
 		return HDCP_DDIE_REP_PRESENT | HDCP_DDIE_SHA1_M0;
 	default:
 		drm_err(&i915->drm, "Unknown port %d\n", port);
-		return -EINVAL;
+		return 0;
 	}
 }
 

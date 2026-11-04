@@ -18,6 +18,9 @@
 #include <linux/bitops.h>
 
 #include <asm/byteorder.h>
+#if defined(CONFIG_PHYTIUM_PIO)
+#include "../../../bus/phytium_pio.h"
+#endif
 
 #include "8250.h"
 
@@ -430,6 +433,26 @@ static int serial_pnp_guess_board(struct pnp_dev *dev)
 	return -ENODEV;
 }
 
+#if defined(CONFIG_PHYTIUM_PIO)
+/* UARTs behind the PIO controller get their irq from it, not from firmware. */
+static int phytium_pnp_uart_irq(struct pnp_dev *dev,
+			       const struct pnp_device_id *dev_id)
+{
+	if (!check_cpu_type())
+		return -ENODEV;
+
+	if (strcmp(dev_id->id, "PNP0501"))
+		return -ENODEV;
+
+	if (!pnp_port_valid(dev, 0) && !pnp_port_valid(dev, 2) &&
+	    !(pnp_mem_valid(dev, 0) &&
+	      phytium_pio_is_lpc_mem(pnp_mem_start(dev, 0))))
+		return -ENODEV;
+
+	return phytium_pio_irq_get(PHYTIUM_PIO_UART_INT);
+}
+#endif
+
 static int
 serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 {
@@ -443,8 +466,21 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 	}
 
 	memset(&uart, 0, sizeof(uart));
+#if defined(CONFIG_PHYTIUM_PIO)
+	{
+		int irq = phytium_pnp_uart_irq(dev, dev_id);
+
+		if (irq >= 0) {
+			uart.port.irq = irq;
+			uart.port.flags |= UPF_SHARE_IRQ;
+		} else if (pnp_irq_valid(dev, 0)) {
+			uart.port.irq = pnp_irq(dev, 0);
+		}
+	}
+#else
 	if (pnp_irq_valid(dev, 0))
 		uart.port.irq = pnp_irq(dev, 0);
+#endif
 	if ((flags & CIR_PORT) && pnp_port_valid(dev, 2)) {
 		uart.port.iobase = pnp_port_start(dev, 2);
 		uart.port.iotype = UPIO_PORT;
@@ -454,7 +490,7 @@ serial_pnp_probe(struct pnp_dev *dev, const struct pnp_device_id *dev_id)
 	} else if (pnp_mem_valid(dev, 0)) {
 		uart.port.mapbase = pnp_mem_start(dev, 0);
 		uart.port.iotype = UPIO_MEM;
-		uart.port.flags = UPF_IOREMAP;
+		uart.port.flags |= UPF_IOREMAP;
 	} else
 		return -ENODEV;
 
@@ -537,4 +573,3 @@ void serial8250_pnp_exit(void)
 {
 	pnp_unregister_driver(&serial_pnp_driver);
 }
-

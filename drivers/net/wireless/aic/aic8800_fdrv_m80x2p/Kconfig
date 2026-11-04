@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config AIC8800M80X2P_WLAN_SUPPORT
+	tristate "AIC8800M80X2P WiFi support"
+	depends on PCI && CFG80211
+	help
+	  This is support for AIC8800M80X2P WiFi driver.
+	  It supports AICSemi AIC8800M80X2P based PCIe wireless
+	  network adapters.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called aic8800_fdrv_m80x2p.
+
