@@ -152,8 +152,7 @@ static int phytium_pcie_ep_map_addr(struct pci_epc *epc, u8 fn, u8 vfn,
 	u32 r;
 	struct pci_epc_mem *mem = epc->mem;
 
-	r = find_first_zero_bit(&priv->ob_region_map,
-				sizeof(priv->ob_region_map) * BITS_PER_LONG);
+	r = find_first_zero_bit(&priv->ob_region_map, BITS_PER_LONG);
 	if (r >= priv->max_regions) {
 		dev_err(&epc->dev, "no free outbound region\n");
 		return -EINVAL;
