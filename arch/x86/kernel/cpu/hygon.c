@@ -451,6 +451,9 @@ static void init_hygon(struct cpuinfo_x86 *c)
 	clear_cpu_cap(c, X86_FEATURE_APIC_MSRS_FENCE);
 
 	init_hygon_cap(c);
+
+	pr_notice_once("Hygon FPDSS bug detected, enabling mitigation.\n");
+	msr_set_bit(MSR_AMD64_FP_CFG, MSR_AMD64_FP_CFG_ZEN1_DENORM_FIX_BIT);
 }
 
 static void cpu_detect_tlb_hygon(struct cpuinfo_x86 *c)
