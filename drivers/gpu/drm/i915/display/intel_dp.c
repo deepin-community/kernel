@@ -802,10 +802,6 @@ u16 intel_dp_dsc_get_max_compressed_bpp(struct drm_i915_private *i915,
 	bits_per_pixel = ((link_clock * lane_count) * timeslots) /
 			 (intel_dp_mode_to_fec_clock(mode_clock) * 8);
 
-	/* Bandwidth required for 420 is half, that of 444 format */
-	if (output_format == INTEL_OUTPUT_FORMAT_YCBCR420)
-		bits_per_pixel *= 2;
-
 	/*
 	 * According to DSC 1.2a Section 4.1.1 Table 4.1 the maximum
 	 * supported PPS value can be 63.9375 and with the further
