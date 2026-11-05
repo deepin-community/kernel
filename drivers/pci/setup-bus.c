@@ -618,11 +618,6 @@ static void pci_setup_bridge_io(struct pci_dev *bridge)
 			"io-upper", &io_base_limit))
 			pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, io_base_limit);
 	}
-	if (bridge->dev.parent->parent) {
-		if (!fwnode_property_read_u32(dev_fwnode(bridge->dev.parent->parent),
-			"io-upper", &io_base_limit))
-			pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, io_base_limit);
-	}
 #endif
 }
 
