@@ -896,6 +896,9 @@ int px210_dp_hw_reset(struct phytium_dp_device *phytium_dp)
 
 uint8_t px210_dp_hw_get_source_lane_count(struct phytium_dp_device *phytium_dp)
 {
+	if (source_max_lane_count != 4)
+		return source_max_lane_count;
+
 	return px210_dp_source_lane_count[phytium_dp->port];
 }
 
