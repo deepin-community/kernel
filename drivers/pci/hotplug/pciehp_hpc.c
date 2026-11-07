@@ -26,6 +26,9 @@
 
 #include "../pci.h"
 #include "pciehp.h"
+#ifdef CONFIG_ARCH_PHYTIUM
+#include <asm/phytium_cputype.h>
+#endif
 
 static const struct dmi_system_id inband_presence_disabled_dmi_table[] = {
 	/*
@@ -240,6 +243,18 @@ int pciehp_check_link_active(struct controller *ctrl)
 	ret = pcie_capability_read_word(pdev, PCI_EXP_LNKSTA, &lnk_status);
 	if (ret == PCIBIOS_DEVICE_NOT_FOUND || PCI_POSSIBLE_ERROR(lnk_status))
 		return -ENODEV;
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	if (is_ps24080()) {
+		/* PS24080 sometimes reports link up even when it's down */
+		static u16 lnksta;
+
+		lnksta = phytium_pcie_ctrl_smc_op(pdev, PHYTIUM_PCIE_GET_LNKSTA);
+		if (lnksta >= 0)
+			lnk_status = (lnk_status & ~PCI_EXP_LNKSTA_DLLLA) |
+						(lnksta & PCI_EXP_LNKSTA_DLLLA);
+	}
+#endif
 
 	ret = !!(lnk_status & PCI_EXP_LNKSTA_DLLLA);
 	ctrl_dbg(ctrl, "%s: lnk_status = %x\n", __func__, lnk_status);

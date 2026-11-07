@@ -31,6 +31,10 @@ struct pci_epc_group {
 	struct config_group group;
 	struct pci_epc *epc;
 	bool start;
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	unsigned long function_num_map;
+#endif
 };
 
 static inline struct pci_epf_group *to_pci_epf_group(struct config_item *item)
@@ -204,8 +208,41 @@ static ssize_t pci_epc_start_show(struct config_item *item, char *page)
 
 CONFIGFS_ATTR(pci_epc_, start);
 
+#ifdef CONFIG_ARCH_PHYTIUM
+static ssize_t pci_epc_function_num_map_store(struct config_item *item, const char *page,
+					      size_t len)
+{
+	int ret;
+	unsigned long function_num_map;
+	struct pci_epc *epc;
+	struct pci_epc_group *epc_group = to_pci_epc_group(item);
+
+	epc = epc_group->epc;
+
+	ret = kstrtoul(page, 10, &function_num_map);
+	if (ret)
+		return ret;
+
+	epc_group->function_num_map = function_num_map;
+	epc->function_num_map = function_num_map;
+
+	return len;
+}
+
+static ssize_t pci_epc_function_num_map_show(struct config_item *item, char *page)
+{
+	return sprintf(page, "%ld\n",
+		       to_pci_epc_group(item)->function_num_map);
+}
+
+CONFIGFS_ATTR(pci_epc_, function_num_map);
+#endif
+
 static struct configfs_attribute *pci_epc_attrs[] = {
 	&pci_epc_attr_start,
+#ifdef CONFIG_ARCH_PHYTIUM
+	&pci_epc_attr_function_num_map,
+#endif
 	NULL,
 };
 
