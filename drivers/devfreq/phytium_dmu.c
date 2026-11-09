@@ -461,14 +461,6 @@ static int phytium_dmufreq_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if (info->type == PHYTIUM_DMU_V1) {
-		gov = DEVFREQ_GOV_PERFORMANCE;
-		gov_data = &priv->ondemand_data;
-	} else {
-		gov = DEVFREQ_GOV_SIMPLE_ONDEMAND;
-		gov_data = NULL;
-	}
-
 	max_state = get_freq_count(dev);
 	if (max_state <= 0)
 		return -EINVAL;
@@ -483,6 +475,14 @@ static int phytium_dmufreq_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 	priv->info = info;
+
+	if (info->type == PHYTIUM_DMU_V1) {
+		gov = DEVFREQ_GOV_PERFORMANCE;
+		gov_data = NULL;
+	} else {
+		gov = DEVFREQ_GOV_SIMPLE_ONDEMAND;
+		gov_data = &priv->ondemand_data;
+	}
 
 	result = phytium_current_enabled_channels(dev);
 	if (result.status) {
