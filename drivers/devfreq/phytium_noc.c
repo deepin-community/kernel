@@ -14,6 +14,7 @@
 #include <linux/clk-provider.h>
 #include <linux/arm-smccc.h>
 #include <linux/acpi.h>
+#include <linux/suspend.h>
 
 #define MINI_SIZE 0x400
 #define CNT_ENABLE 0x000
@@ -26,7 +27,7 @@
 #define DEBUG
 #define DEVICE_TYPE 7
 
-#define NOCFREQ_DRIVER_VERSION "1.0.1"
+#define NOCFREQ_DRIVER_VERSION "1.0.2"
 
 struct phytium_nocfreq {
 	struct device *dev;
@@ -38,7 +39,7 @@ struct phytium_nocfreq {
 	void __iomem *reg_noc;
 	struct mutex lock;
 
-	unsigned long rate, target_rate;
+	unsigned long rate, target_rate, suspend_freq;
 	unsigned int freq_count;
 	unsigned long freq_table[];
 };
@@ -297,6 +298,74 @@ static int phytium_noc_get_dev_status(struct device *dev,
 	return 0;
 }
 
+static __maybe_unused int phytium_nocfreq_suspend(struct device *dev)
+{
+	struct phytium_nocfreq *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	dev_dbg(dev, "NOCfreq is being suspended\n");
+
+	ret = phytium_noc_get_cur_freq(dev, &priv->suspend_freq);
+	if (ret)
+		dev_warn(dev, "failed to get suspend freq\n");
+	else
+		dev_info(dev, "saved suspend freq = %lu\n", priv->suspend_freq);
+
+	ret = devfreq_suspend_device(priv->devfreq);
+	if (ret < 0) {
+		dev_err(dev, "failed to suspend the devfreq devices\n");
+		return ret;
+	}
+	priv->devfreq->stop_polling = true;
+
+	writel_relaxed(0x0, priv->reg_noc + CNT_ENABLE);
+	writel_relaxed(0x0, priv->reg_noc + MINI_SIZE*1+CNT_ENABLE);
+	writel_relaxed(0x0, priv->reg_noc + MINI_SIZE*2+CNT_ENABLE);
+	writel_relaxed(0x0, priv->reg_noc + MINI_SIZE*3+CNT_ENABLE);
+
+	return ret;
+}
+
+static __maybe_unused int phytium_nocfreq_resume(struct device *dev)
+{
+	struct phytium_nocfreq *priv = dev_get_drvdata(dev);
+	int ret = 0;
+
+	dev_dbg(dev, "NOCfreq is being resumed\n");
+
+	ret = devfreq_resume_device(priv->devfreq);
+	if (ret < 0) {
+		dev_err(dev, "failed to resume the devfreq devices\n");
+		return ret;
+	}
+	if (!delayed_work_pending(&priv->devfreq->work) && priv->devfreq->profile->polling_ms) {
+		dev_info(dev, "Polling work not pending, manually restarting polling\n");
+		priv->devfreq->stop_polling = true;
+	}
+	writel_relaxed(0x02, priv->reg_noc + WORK_STATE);
+	writel_relaxed(0x02, priv->reg_noc + MINI_SIZE*1 + WORK_STATE);
+	writel_relaxed(0x02, priv->reg_noc + MINI_SIZE*2 + WORK_STATE);
+	writel_relaxed(0x02, priv->reg_noc + MINI_SIZE*3 + WORK_STATE);
+
+	writel_relaxed(0x3f, priv->reg_noc + CNT_ENABLE);
+	writel_relaxed(0x3f, priv->reg_noc + MINI_SIZE*1+CNT_ENABLE);
+	writel_relaxed(0x3f, priv->reg_noc + MINI_SIZE*2+CNT_ENABLE);
+	writel_relaxed(0x3f, priv->reg_noc + MINI_SIZE*3+CNT_ENABLE);
+
+	if (priv->suspend_freq) {
+		ret = phytium_noc_set_freq(dev, priv->suspend_freq);
+		if (ret < 0)
+			dev_warn(dev, "failed to restore suspend freq %lu\n", priv->suspend_freq);
+		else {
+			dev_info(dev, "restored suspend freq = %lu\n", priv->suspend_freq);
+			priv->rate = priv->suspend_freq;
+		}
+	}
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(phytium_nocfreq_pm, phytium_nocfreq_suspend,
+				phytium_nocfreq_resume);
 
 static int phytium_nocfreq_probe(struct platform_device *pdev)
 {
@@ -425,6 +494,7 @@ static struct platform_driver phytium_nocfreq_driver = {
 	.remove		= phytium_nocfreq_remove,
 	.driver = {
 		.name			= "phytium_nocfreq",
+		.pm			= &phytium_nocfreq_pm,
 		.acpi_match_table	= ACPI_PTR(phytium_noc_acpi_ids),
 		.suppress_bind_attrs	= true,
 	},
