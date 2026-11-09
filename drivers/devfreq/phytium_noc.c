@@ -26,7 +26,7 @@
 #define DEBUG
 #define DEVICE_TYPE 7
 
-#define NOCFREQ_DRIVER_VERSION "1.0.0"
+#define NOCFREQ_DRIVER_VERSION "1.0.1"
 
 struct phytium_nocfreq {
 	struct device *dev;
@@ -380,7 +380,6 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 
 err:
 	dev_pm_opp_of_remove_table(dev);
-	kfree(priv);
 	return ret;
 }
 
@@ -405,14 +404,12 @@ static int phytium_nocfreq_remove(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dev, "failed to restore NOC frequency: %d\n", ret);
 
-	iounmap(priv->reg_noc);
 
 	if (!priv->devfreq)
 		return 0;
 
 	dev_pm_opp_remove_all_dynamic(dev);
 
-	kfree(priv);
 	return 0;
 }
 
