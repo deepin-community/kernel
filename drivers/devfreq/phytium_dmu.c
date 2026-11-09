@@ -481,7 +481,7 @@ static int phytium_dmufreq_probe(struct platform_device *pdev)
 {
 	struct phytium_dmufreq *priv;
 	struct device *dev = &pdev->dev;
-	const char *gov = DEVFREQ_GOV_SIMPLE_ONDEMAND;
+	const char *gov = DEVFREQ_GOV_PERFORMANCE;
 	int i, ret;
 	unsigned int max_state = get_freq_count(dev);
 	struct acpi_result result;
@@ -566,7 +566,7 @@ static int phytium_dmufreq_probe(struct platform_device *pdev)
 	}
 
 	priv->devfreq = devm_devfreq_add_device(dev, &priv->profile,
-						gov, &priv->ondemand_data);
+						gov, NULL);
 	if (IS_ERR(priv->devfreq)) {
 		ret = PTR_ERR(priv->devfreq);
 		dev_err(dev, "failed to add devfreq device: %d\n", ret);
