@@ -231,6 +231,7 @@ static int phytium_noc_get_freq_info(struct device *dev, u32 flags)
 		dev_dbg(dev, "freq_table[%d] = %llu\n", i, element->integer.value);
 	}
 
+	kfree(buffer.pointer);
 	return 0;
 
 }
@@ -270,6 +271,7 @@ static int get_freq_count(struct device *dev)
 	freq_count = element->integer.value;
 	dev_dbg(dev, "freq_count = %d\n", freq_count);
 
+	kfree(buffer.pointer);
 	return freq_count;
 }
 
