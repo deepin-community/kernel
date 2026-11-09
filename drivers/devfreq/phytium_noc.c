@@ -15,7 +15,6 @@
 #include <linux/arm-smccc.h>
 #include <linux/acpi.h>
 
-#define MIX_AMINI6 0x26eab800
 #define MINI_SIZE 0x400
 #define CNT_ENABLE 0x000
 #define WORK_STATE 0X004
@@ -306,6 +305,7 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 	const char *gov = DEVFREQ_GOV_SIMPLE_ONDEMAND;
 	int i, ret;
 	unsigned int max_state;
+	struct resource *mem;
 
 	max_state = get_freq_count(dev);
 
@@ -318,10 +318,16 @@ static int phytium_nocfreq_probe(struct platform_device *pdev)
 	mutex_init(&priv->lock);
 	platform_set_drvdata(pdev, priv);
 
-	priv->reg_noc = ioremap(MIX_AMINI6, 1028*4);
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!mem) {
+		dev_err(&pdev->dev, "no mem resource");
+		return -EINVAL;
+	}
+
+	priv->reg_noc = devm_ioremap_resource(&pdev->dev, mem);
 	if (!priv->reg_noc) {
-		dev_err(dev, "failed to ioremap reg_noc\n");
-		return -EIO;
+		dev_err(dev, "NOC region map failed\n");
+		return PTR_ERR(priv->reg_noc);
 	}
 
 	ret = phytium_noc_get_freq_info(dev, DEVICE_TYPE);
