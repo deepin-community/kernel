@@ -33,7 +33,14 @@ install_linux_image () {
 		${MAKE} -f ${srctree}/Makefile INSTALL_DTBS_PATH="${pdir}/usr/lib/linux-image-${KERNELRELEASE}" dtbs_install
 	fi
 
-	${MAKE} -f ${srctree}/Makefile INSTALL_MOD_PATH="${pdir}" INSTALL_MOD_STRIP=1 modules_install
+	mod_strip="1"
+	if [ "${SRCARCH}" = loongarch ] &&
+		"${STRIP:-strip}" --version 2>/dev/null | grep -qs "^GNU strip"; then
+		mod_strip="--strip-debug --discard-locals"
+	fi
+
+	${MAKE} -f ${srctree}/Makefile INSTALL_MOD_PATH="${pdir}" \
+		INSTALL_MOD_STRIP="${mod_strip}" modules_install
 	rm -f "${pdir}/lib/modules/${KERNELRELEASE}/build"
 
 	# Install the kernel
