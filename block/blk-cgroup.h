@@ -156,10 +156,8 @@ struct blkg_policy_data {
 	struct blkcg_gq			*blkg;
 	int				plid;
 	bool				online;
-	struct rcu_head			rcu_head;
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, 2, struct rcu_head rcu_head)
 };
 
 /*
