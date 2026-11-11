@@ -1193,7 +1193,6 @@ enum bpf_tramp_prog_type {
 
 struct bpf_tramp_image {
 	void *image;
-	int size;
 	struct bpf_ksym ksym;
 	struct percpu_ref pcref;
 	void *ip_after_call;
@@ -1203,7 +1202,7 @@ struct bpf_tramp_image {
 		struct work_struct work;
 	};
 
-	DEEPIN_KABI_RESERVE(1)
+	DEEPIN_KABI_USE(1, int size)
 	DEEPIN_KABI_RESERVE(2)
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
