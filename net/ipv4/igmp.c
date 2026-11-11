@@ -201,13 +201,40 @@ static void ip_ma_put(struct ip_mc_list *im)
 	     psf;						\
 	     psf = pmc_dereference(psf->sf_next, pmc))
 
+/*
+ * kabi: struct ip_sf_list keeps its original size and layout, so the
+ * rcu_head used for deferred reclamation lives in a private wrapper
+ * allocated together with the public part.  The two-argument kfree_rcu()
+ * on the wrapper is non-sleeping, which the free sites need: source
+ * filters are unlinked under pmc->lock and in_dev->mc_tomb_lock and
+ * inside rcu_read_lock() sections, where kfree_rcu_mightsleep() would
+ * either sleep in atomic context or, on its synchronize_rcu() slow
+ * path, wait on the caller's own RCU read-side section.
+ */
+struct ip_sf_list_priv {
+	struct rcu_head rcu;
+	struct ip_sf_list sf;
+};
+
+static struct ip_sf_list *ip_sf_list_alloc(gfp_t gfp)
+{
+	struct ip_sf_list_priv *priv = kzalloc(sizeof(*priv), gfp);
+
+	return priv ? &priv->sf : NULL;
+}
+
+static void ip_sf_list_free(struct ip_sf_list *psf)
+{
+	kfree_rcu(container_of(psf, struct ip_sf_list_priv, sf), rcu);
+}
+
 static void ip_sf_list_clear_all(struct ip_sf_list *psf)
 {
 	struct ip_sf_list *next;
 
 	while (psf) {
 		next = rcu_dereference_protected(psf->sf_next, 1);
-		kfree_rcu(psf, rcu);
+		ip_sf_list_free(psf);
 		psf = next;
 	}
 }
@@ -594,7 +621,7 @@ decrease_sf_crcount:
 				else
 					rcu_assign_pointer(*psf_list,
 							   psf_next);
-				kfree_rcu(psf, rcu);
+				ip_sf_list_free(psf);
 				continue;
 			}
 		}
@@ -675,7 +702,7 @@ static void igmpv3_clear_zeros(struct ip_sf_list __rcu **ppsf)
 				rcu_assign_pointer(psf_prev->sf_next, psf_next);
 			else
 				rcu_assign_pointer(*ppsf, psf_next);
-			kfree_rcu(psf, rcu);
+			ip_sf_list_free(psf);
 		} else {
 			psf_prev = psf;
 		}
@@ -1946,7 +1973,7 @@ static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
 #ifdef CONFIG_IP_MULTICAST
 		if (psf->sf_oldin &&
 		    !IGMP_V1_SEEN(in_dev) && !IGMP_V2_SEEN(in_dev)) {
-			struct ip_sf_list *dpsf = kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+			struct ip_sf_list *dpsf = ip_sf_list_alloc(GFP_ATOMIC);
 
 			if (dpsf) {
 				*dpsf = *psf;
@@ -1959,7 +1986,7 @@ static int ip_mc_del1_src(struct ip_mc_list *pmc, int sfmode,
 			}
 		}
 #endif
-		kfree_rcu(psf, rcu);
+		ip_sf_list_free(psf);
 	}
 	return rv;
 }
@@ -2046,7 +2073,7 @@ static int ip_mc_add1_src(struct ip_mc_list *pmc, int sfmode,
 		psf_prev = psf;
 	}
 	if (!psf) {
-		psf = kzalloc(sizeof(*psf), GFP_ATOMIC);
+		psf = ip_sf_list_alloc(GFP_ATOMIC);
 		if (!psf)
 			return -ENOBUFS;
 		psf->sf_inaddr = *psfsrc;
@@ -2111,7 +2138,7 @@ static int sf_setstate(struct ip_mc_list *pmc)
 						rcu_assign_pointer(prev->sf_next, dpsf_next);
 					else
 						rcu_assign_pointer(pmc->tomb, dpsf_next);
-					kfree_rcu(dpsf, rcu);
+					ip_sf_list_free(dpsf);
 				}
 				psf->sf_crcount = qrv;
 				rv++;
@@ -2128,7 +2155,7 @@ static int sf_setstate(struct ip_mc_list *pmc)
 					break;
 			}
 			if (!dpsf) {
-				dpsf = kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+				dpsf = ip_sf_list_alloc(GFP_ATOMIC);
 				if (!dpsf)
 					continue;
 				*dpsf = *psf;
