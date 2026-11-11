@@ -9,6 +9,7 @@
 #define __NET_STRPARSER_H_
 
 #include <linux/skbuff.h>
+#include <linux/deepin_kabi.h>
 #include <net/sock.h>
 
 #define STRP_STATS_ADD(stat, count) ((stat) += (count))
@@ -91,11 +92,22 @@ static inline struct strp_msg *strp_msg(struct sk_buff *skb)
 struct strparser {
 	struct sock *sk;
 
-	u8 stopped;
-	u8 paused;
-	u8 aborted;
-	u8 interrupted;
-	u8 unrecov_intr;
+	DEEPIN_KABI_REPLACE(
+		u32 stopped : 1;
+		u32 paused : 1;
+		u32 aborted : 1;
+		u32 interrupted : 1;
+		u32 unrecov_intr : 1,
+		union {
+			struct {
+				u32 stopped : 1;
+				u32 paused : 1;
+				u32 aborted : 1;
+				u32 interrupted : 1;
+				u32 unrecov_intr : 1;
+			};
+			atomic_t flags;
+		})
 
 	struct sk_buff **skb_nextp;
 	struct sk_buff *skb_head;
@@ -106,10 +118,43 @@ struct strparser {
 	struct strp_callbacks cb;
 };
 
+enum strp_flag {
+#ifdef __BIG_ENDIAN_BITFIELD
+	STRP_F_STOPPED = 31,
+	STRP_F_PAUSED = 30,
+	STRP_F_ABORTED = 29,
+	STRP_F_INTERRUPTED = 28,
+	STRP_F_UNRECOV_INTR = 27,
+#else
+	STRP_F_STOPPED = 0,
+	STRP_F_PAUSED = 1,
+	STRP_F_ABORTED = 2,
+	STRP_F_INTERRUPTED = 3,
+	STRP_F_UNRECOV_INTR = 4,
+#endif
+};
+
+static inline bool strp_test_flag(const struct strparser *strp,
+				  enum strp_flag flag)
+{
+	return atomic_read(&strp->flags) & BIT(flag);
+}
+
+static inline void strp_set_flag(struct strparser *strp, enum strp_flag flag)
+{
+	atomic_or(BIT(flag), &strp->flags);
+}
+
+static inline void strp_clear_flag(struct strparser *strp,
+				   enum strp_flag flag)
+{
+	atomic_andnot(BIT(flag), &strp->flags);
+}
+
 /* Must be called with lock held for attached socket */
 static inline void strp_pause(struct strparser *strp)
 {
-	strp->paused = 1;
+	strp_set_flag(strp, STRP_F_PAUSED);
 }
 
 /* May be called without holding lock for attached socket */
@@ -133,11 +178,11 @@ static inline void save_strp_stats(struct strparser *strp,
 	SAVE_PSOCK_STATS(bad_hdr_len);
 #undef SAVE_PSOCK_STATS
 
-	if (strp->aborted)
+	if (strp_test_flag(strp, STRP_F_ABORTED))
 		agg_stats->aborts++;
-	if (strp->interrupted)
+	if (strp_test_flag(strp, STRP_F_INTERRUPTED))
 		agg_stats->interrupted++;
-	if (strp->unrecov_intr)
+	if (strp_test_flag(strp, STRP_F_UNRECOV_INTR))
 		agg_stats->unrecov_intr++;
 }
 

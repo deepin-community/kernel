@@ -40,10 +40,10 @@ static void strp_abort_strp(struct strparser *strp, int err)
 
 	cancel_delayed_work(&strp->msg_timer_work);
 
-	if (strp->stopped)
+	if (strp_test_flag(strp, STRP_F_STOPPED))
 		return;
 
-	strp->stopped = 1;
+	strp_set_flag(strp, STRP_F_STOPPED);
 
 	if (strp->skb_head) {
 		kfree_skb(strp->skb_head);
@@ -106,7 +106,7 @@ static int __strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 	int err;
 	bool cloned_orig = false;
 
-	if (strp->paused)
+	if (strp_test_flag(strp, STRP_F_PAUSED))
 		return 0;
 
 	head = strp->skb_head;
@@ -234,9 +234,9 @@ static int __strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 			} else if (len < 0) {
 				if (len == -ESTRPIPE && stm->accum_len) {
 					len = -ENODATA;
-					strp->unrecov_intr = 1;
+					strp_set_flag(strp, STRP_F_UNRECOV_INTR);
 				} else {
-					strp->interrupted = 1;
+					strp_set_flag(strp, STRP_F_INTERRUPTED);
 				}
 				strp_parser_err(strp, len, desc);
 				break;
@@ -308,7 +308,7 @@ static int __strp_recv(read_descriptor_t *desc, struct sk_buff *orig_skb,
 		/* Give skb to upper layer */
 		strp->cb.rcv_msg(strp, head);
 
-		if (unlikely(strp->paused)) {
+		if (unlikely(strp_test_flag(strp, STRP_F_PAUSED))) {
 			/* Upper layer paused strp */
 			break;
 		}
@@ -379,7 +379,8 @@ static int strp_read_sock(struct strparser *strp)
 /* Lower sock lock held */
 void strp_data_ready(struct strparser *strp)
 {
-	if (unlikely(strp->stopped) || strp->paused)
+	if (unlikely(strp_test_flag(strp, STRP_F_STOPPED)) ||
+	    strp_test_flag(strp, STRP_F_PAUSED))
 		return;
 
 	/* This check is needed to synchronize with do_strp_work.
@@ -411,10 +412,10 @@ static void do_strp_work(struct strparser *strp)
 	 */
 	strp->cb.lock(strp);
 
-	if (unlikely(strp->stopped))
+	if (unlikely(strp_test_flag(strp, STRP_F_STOPPED)))
 		goto out;
 
-	if (strp->paused)
+	if (strp_test_flag(strp, STRP_F_PAUSED))
 		goto out;
 
 	if (strp_read_sock(strp) == -ENOMEM)
@@ -496,7 +497,7 @@ EXPORT_SYMBOL_GPL(strp_init);
 /* Sock process lock held (lock_sock) */
 void __strp_unpause(struct strparser *strp)
 {
-	strp->paused = 0;
+	strp_clear_flag(strp, STRP_F_PAUSED);
 
 	if (strp->need_bytes) {
 		if (strp_peek_len(strp) < strp->need_bytes)
@@ -508,7 +509,7 @@ EXPORT_SYMBOL_GPL(__strp_unpause);
 
 void strp_unpause(struct strparser *strp)
 {
-	strp->paused = 0;
+	strp_clear_flag(strp, STRP_F_PAUSED);
 
 	/* Sync setting paused with RX work */
 	smp_mb();
@@ -522,7 +523,7 @@ EXPORT_SYMBOL_GPL(strp_unpause);
  */
 void strp_done(struct strparser *strp)
 {
-	WARN_ON(!strp->stopped);
+	WARN_ON(!strp_test_flag(strp, STRP_F_STOPPED));
 
 	lock_sock(strp->sk);
 	/* sync with pending strp_recv */
@@ -540,7 +541,7 @@ EXPORT_SYMBOL_GPL(strp_done);
 
 void strp_stop(struct strparser *strp)
 {
-	strp->stopped = 1;
+	strp_set_flag(strp, STRP_F_STOPPED);
 }
 EXPORT_SYMBOL_GPL(strp_stop);
 
