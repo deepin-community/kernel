@@ -460,8 +460,8 @@ struct pmu {
 	/*
 	 * context-switches callback
 	 */
-	void (*sched_task)		(struct perf_event_pmu_context *pmu_ctx,
-					 struct task_struct *task, bool sched_in);
+	void (*DEEPIN_KABI_RENAME(sched_task, sched_task_legacy))
+		(struct perf_event_pmu_context *pmu_ctx, bool sched_in);
 
 	/*
 	 * Kmem cache of PMU specific data
@@ -549,7 +549,9 @@ struct pmu {
 	 */
 	int (*check_period)		(struct perf_event *event, u64 value); /* optional */
 
-	DEEPIN_KABI_RESERVE(5)
+	DEEPIN_KABI_USE(5, void (*sched_task)
+		(struct perf_event_pmu_context *pmu_ctx,
+		 struct task_struct *task, bool sched_in))
 	DEEPIN_KABI_RESERVE(6)
 	DEEPIN_KABI_RESERVE(7)
 	DEEPIN_KABI_RESERVE(8)
