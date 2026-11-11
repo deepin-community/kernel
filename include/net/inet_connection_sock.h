@@ -68,8 +68,6 @@ struct inet_connection_sock_af_ops {
  * @icsk_timeout:	   Timeout
  * @icsk_retransmit_timer: Resend (no ack)
  * @icsk_delack_timer:     Delayed ACK timer
- * @icsk_keepalive_timer:  Keepalive timer
- * @mptcp_tout_timer:      MPTCP timeout timer
  * @icsk_rto:		   Retransmit timeout
  * @icsk_pmtu_cookie	   Last pmtu seen by socket
  * @icsk_ca_ops		   Pluggable congestion control hook
@@ -98,10 +96,6 @@ struct inet_connection_sock {
 	unsigned long		  icsk_timeout;
 	struct timer_list	  icsk_retransmit_timer;
 	struct timer_list	  icsk_delack_timer;
-	union {
-		struct timer_list icsk_keepalive_timer;
-		struct timer_list mptcp_tout_timer;
-	};
 	__u32			  icsk_rto;
 	__u32                     icsk_rto_min;
 	__u32                     icsk_delack_max;
