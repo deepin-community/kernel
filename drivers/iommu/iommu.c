@@ -3511,6 +3511,16 @@ bool iommu_group_dma_owner_claimed(struct iommu_group *group)
 }
 EXPORT_SYMBOL_GPL(iommu_group_dma_owner_claimed);
 
+static void iommu_remove_dev_pasid(const struct iommu_ops *ops,
+				   struct device *dev, ioasid_t pasid,
+				   struct iommu_domain *domain)
+{
+	if (ops->remove_dev_pasid)
+		ops->remove_dev_pasid(dev, pasid, domain);
+	else if (ops->remove_dev_pasid_legacy)
+		ops->remove_dev_pasid_legacy(dev, pasid);
+}
+
 static int __iommu_set_group_pasid(struct iommu_domain *domain,
 				   struct iommu_group *group, ioasid_t pasid)
 {
@@ -3532,7 +3542,7 @@ err_revert:
 
 		if (device == last_gdev)
 			break;
-		ops->remove_dev_pasid(device->dev, pasid, domain);
+		iommu_remove_dev_pasid(ops, device->dev, pasid, domain);
 	}
 	return ret;
 }
@@ -3546,7 +3556,7 @@ static void __iommu_remove_group_pasid(struct iommu_group *group,
 
 	for_each_group_device(group, device) {
 		ops = dev_iommu_ops(device->dev);
-		ops->remove_dev_pasid(device->dev, pasid, domain);
+		iommu_remove_dev_pasid(ops, device->dev, pasid, domain);
 	}
 }
 

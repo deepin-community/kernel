@@ -412,8 +412,8 @@ struct iommu_ops {
 			     struct iommu_page_response *msg);
 
 	int (*def_domain_type)(struct device *dev);
-	void (*remove_dev_pasid)(struct device *dev, ioasid_t pasid,
-				 struct iommu_domain *domain);
+	void (*DEEPIN_KABI_RENAME(remove_dev_pasid, remove_dev_pasid_legacy))
+		(struct device *dev, ioasid_t pasid);
 
 	const struct iommu_domain_ops *default_domain_ops;
 	unsigned long pgsize_bitmap;
@@ -421,7 +421,9 @@ struct iommu_ops {
 
 	DEEPIN_KABI_USE(1, struct iommu_domain *identity_domain)
 	DEEPIN_KABI_USE(2, struct iommu_domain *default_domain)
-	DEEPIN_KABI_RESERVE(3)
+	DEEPIN_KABI_USE(3, void (*remove_dev_pasid)
+		(struct device *dev, ioasid_t pasid,
+		 struct iommu_domain *domain))
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
 	DEEPIN_KABI_RESERVE(6)
