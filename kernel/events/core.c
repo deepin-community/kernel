@@ -3525,6 +3525,17 @@ static void perf_event_swap_task_ctx_data(struct perf_event_context *prev_ctx,
 	}
 }
 
+static void perf_pmu_sched_task_cb(struct perf_event_pmu_context *pmu_ctx,
+				   struct task_struct *task, bool sched_in)
+{
+	struct pmu *pmu = pmu_ctx->pmu;
+
+	if (pmu->sched_task)
+		pmu->sched_task(pmu_ctx, task, sched_in);
+	else if (pmu->sched_task_legacy)
+		pmu->sched_task_legacy(pmu_ctx, sched_in);
+}
+
 static void perf_ctx_sched_task_cb(struct perf_event_context *ctx,
 				   struct task_struct *task, bool sched_in)
 {
@@ -3537,8 +3548,9 @@ static void perf_ctx_sched_task_cb(struct perf_event_context *ctx,
 		if (cpc->task_epc != pmu_ctx)
 			continue;
 
-		if (cpc->sched_cb_usage && pmu_ctx->pmu->sched_task)
-			pmu_ctx->pmu->sched_task(pmu_ctx, task, sched_in);
+		if (cpc->sched_cb_usage &&
+		    (pmu_ctx->pmu->sched_task || pmu_ctx->pmu->sched_task_legacy))
+			perf_pmu_sched_task_cb(pmu_ctx, task, sched_in);
 	}
 }
 
@@ -3677,13 +3689,13 @@ static void __perf_pmu_sched_task(struct perf_cpu_pmu_context *cpc,
 	pmu = cpc->epc.pmu;
 
 	/* software PMUs will not have sched_task */
-	if (WARN_ON_ONCE(!pmu->sched_task))
+	if (WARN_ON_ONCE(!pmu->sched_task && !pmu->sched_task_legacy))
 		return;
 
 	perf_ctx_lock(cpuctx, cpuctx->task_ctx);
 	perf_pmu_disable(pmu);
 
-	pmu->sched_task(&cpc->epc, task, sched_in);
+	perf_pmu_sched_task_cb(&cpc->epc, task, sched_in);
 
 	perf_pmu_enable(pmu);
 	perf_ctx_unlock(cpuctx, cpuctx->task_ctx);
