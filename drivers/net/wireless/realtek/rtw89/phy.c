@@ -2388,6 +2388,7 @@ EXPORT_SYMBOL(rtw89_phy_ant_gain_pwr_offset);
 int rtw89_print_ant_gain(struct rtw89_dev *rtwdev, char *buf, size_t bufsz,
 			 const struct rtw89_chan *chan)
 {
+	u8 factor = rtwdev->chip->txpwr_factor_rf;
 	char *p = buf, *end = buf + bufsz;
 	s8 offset_patha, offset_pathb;
 
@@ -2399,8 +2400,8 @@ int rtw89_print_ant_gain(struct rtw89_dev *rtwdev, char *buf, size_t bufsz,
 	offset_patha = rtw89_phy_ant_gain_query(rtwdev, RF_PATH_A, chan->freq);
 	offset_pathb = rtw89_phy_ant_gain_query(rtwdev, RF_PATH_B, chan->freq);
 
-	p += scnprintf(p, end - p, "ChainA offset: %d dBm\n", offset_patha);
-	p += scnprintf(p, end - p, "ChainB offset: %d dBm\n", offset_pathb);
+	p += scnprintf(p, end - p, "ChainA offset: %d dBm\n", offset_patha >> factor);
+	p += scnprintf(p, end - p, "ChainB offset: %d dBm\n", offset_pathb >> factor);
 
 out:
 	return p - buf;
