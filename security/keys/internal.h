@@ -93,9 +93,11 @@ extern spinlock_t key_serial_lock;
 extern struct mutex key_construction_mutex;
 extern wait_queue_head_t request_key_conswq;
 
-extern void key_set_index_key(struct keyring_index_key *index_key);
+void key_set_index_key(struct keyring_index_key *index_key);
+int key_alloc_index_key(struct key *key);
+void key_free_index_key(struct key *key);
 #ifdef CONFIG_KEYP
-extern void iee_key_set_index_key(struct keyring_index_key *index_key);
+void iee_key_set_index_key(struct keyring_index_key *index_key);
 #endif
 extern struct key_type *key_type_lookup(const char *type);
 extern void key_type_put(struct key_type *ktype);
@@ -104,7 +106,7 @@ extern int __key_link_lock(struct key *keyring,
 			   const struct keyring_index_key *index_key);
 extern int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
 			   const struct keyring_index_key *index_key);
-extern int __key_link_begin(struct key *keyring,
+extern int __key_link_begin(struct key *keyring, struct key *key,
 			    const struct keyring_index_key *index_key,
 			    struct assoc_array_edit **_edit);
 extern int __key_link_check_live_key(struct key *keyring, struct key *key);
@@ -119,6 +121,7 @@ extern key_ref_t find_key_to_update(key_ref_t keyring_ref,
 
 struct keyring_search_context {
 	struct keyring_index_key index_key;
+	const void		*private_index_key;
 	const struct cred	*cred;
 	struct key_match_data	match_data;
 	unsigned		flags;
