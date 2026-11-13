@@ -187,6 +187,7 @@ static noinline void key_gc_unused_keys(struct list_head *keys)
 		key_user_put(key->user);
 		key_put_tag(key->domain_tag);
 		kfree(key->description);
+		key_free_index_key(key);
 
 #ifdef CONFIG_KEYP
 		kmem_cache_free(key_union_jar, (struct key_union *)(key->graveyard_link.next));

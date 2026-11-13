@@ -17,6 +17,7 @@
 #include <linux/once.h>
 #include <linux/random.h>
 #include <linux/siphash.h>
+#include <linux/xarray.h>
 #include <keys/keyring-type.h>
 #include <keys/user-type.h>
 #include <linux/assoc_array_priv.h>
@@ -40,20 +41,163 @@
  */
 #define KEYRING_PTR_SUBTYPE	0x2UL
 
+/* IDs live while a published key or an in-flight edit references them. */
+struct key_index_identity {
+	struct rcu_head		rcu;
+	refcount_t		usage;
+	u64			id;
+};
+
+struct keyring_index {
+	struct rcu_head		rcu;
+	struct keyring_index_key key;
+	struct key_index_identity *type;
+	struct key_index_identity *domain;
+	struct key		*object;
+	u64			type_id;
+	u64			domain_id;
+};
+
+static DEFINE_XARRAY(key_index_identities);
+static DEFINE_XARRAY(key_indexes);
+static DEFINE_MUTEX(key_index_identity_lock);
+static atomic64_t key_index_next_id;
+static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
+
+static struct key_index_identity *key_index_identity_get(const void *owner)
+{
+	struct key_index_identity *identity, *candidate;
+
+	mutex_lock(&key_index_identity_lock);
+	identity = xa_load(&key_index_identities, (unsigned long)owner);
+	if (identity) {
+		refcount_inc(&identity->usage);
+		mutex_unlock(&key_index_identity_lock);
+		return identity;
+	}
+	mutex_unlock(&key_index_identity_lock);
+
+	candidate = kmalloc(sizeof(*candidate), GFP_KERNEL);
+	if (!candidate)
+		return ERR_PTR(-ENOMEM);
+
+	refcount_set(&candidate->usage, 1);
+	do {
+		candidate->id = atomic64_inc_return(&key_index_next_id);
+	} while (WARN_ON_ONCE(!candidate->id));
+
+	mutex_lock(&key_index_identity_lock);
+	identity = xa_load(&key_index_identities, (unsigned long)owner);
+	if (identity) {
+		refcount_inc(&identity->usage);
+		mutex_unlock(&key_index_identity_lock);
+		kfree(candidate);
+		return identity;
+	}
+
+	identity = xa_store(&key_index_identities, (unsigned long)owner,
+			    candidate, GFP_KERNEL);
+	mutex_unlock(&key_index_identity_lock);
+	if (xa_is_err(identity)) {
+		kfree(candidate);
+		return ERR_CAST(identity);
+	}
+	return candidate;
+}
+
+static void key_index_identity_put(struct key_index_identity *identity,
+				   const void *owner)
+{
+	bool free;
+
+	mutex_lock(&key_index_identity_lock);
+	free = refcount_dec_and_test(&identity->usage);
+	if (free)
+		xa_erase(&key_index_identities, (unsigned long)owner);
+	mutex_unlock(&key_index_identity_lock);
+	if (free)
+		kfree_rcu(identity, rcu);
+}
+
+static int keyring_index_init(struct keyring_index *index,
+			      const struct keyring_index_key *key)
+{
+	memset(index, 0, sizeof(*index));
+	index->key = *key;
+	key_set_index_key(&index->key);
+
+	index->type = key_index_identity_get(index->key.type);
+	if (IS_ERR(index->type))
+		return PTR_ERR(index->type);
+	index->domain = key_index_identity_get(index->key.domain_tag);
+	if (IS_ERR(index->domain)) {
+		key_index_identity_put(index->type, index->key.type);
+		return PTR_ERR(index->domain);
+	}
+	index->type_id = index->type->id;
+	index->domain_id = index->domain->id;
+	return 0;
+}
+
+static bool keyring_index_lookup(struct keyring_index *index,
+				 const struct keyring_index_key *key)
+{
+	memset(index, 0, sizeof(*index));
+	index->key = *key;
+	key_set_index_key(&index->key);
+
+	index->type = xa_load(&key_index_identities,
+			      (unsigned long)index->key.type);
+	index->domain = xa_load(&key_index_identities,
+				(unsigned long)index->key.domain_tag);
+	if (!index->type || !index->domain)
+		return false;
+	index->type_id = index->type->id;
+	index->domain_id = index->domain->id;
+	return true;
+}
+
+static void keyring_index_destroy(struct keyring_index *index)
+{
+	key_index_identity_put(index->domain, index->key.domain_tag);
+	key_index_identity_put(index->type, index->key.type);
+}
+
+static const struct keyring_index *keyring_ptr_to_index(const void *x)
+{
+	void *object = assoc_array_ptr_to_leaf(x);
+
+	return (void *)((unsigned long)object & ~KEYRING_PTR_SUBTYPE);
+}
+
 static inline bool keyring_ptr_is_keyring(const struct assoc_array_ptr *x)
 {
 	return (unsigned long)x & KEYRING_PTR_SUBTYPE;
 }
 static inline struct key *keyring_ptr_to_key(const struct assoc_array_ptr *x)
 {
-	void *object = assoc_array_ptr_to_leaf(x);
-	return (struct key *)((unsigned long)object & ~KEYRING_PTR_SUBTYPE);
+	return keyring_ptr_to_index(x)->object;
 }
+static struct keyring_index *keyring_key_to_index(const struct key *key)
+{
+	struct keyring_index *index;
+
+	rcu_read_lock();
+	index = xa_load(&key_indexes, (unsigned long)key);
+	rcu_read_unlock();
+	return index;
+}
+
 static inline void *keyring_key_to_ptr(struct key *key)
 {
+	struct keyring_index *index;
+
+	index = keyring_key_to_index(key);
+	if (WARN_ON_ONCE(!index))
+		return NULL;
 	if (key->type == &key_type_keyring)
-		return (void *)((unsigned long)key | KEYRING_PTR_SUBTYPE);
-	return key;
+		return (void *)((unsigned long)index | KEYRING_PTR_SUBTYPE);
+	return index;
 }
 
 static DEFINE_RWLOCK(keyring_name_lock);
@@ -163,45 +307,21 @@ static int keyring_instantiate(struct key *keyring,
 }
 
 /*
- * Give key types and domains address-independent identities.  Zero means that
- * an ID has not yet been allocated.  As with inode sequence numbers used by
- * futexes, this relies on the 64-bit counter not wrapping in a machine's
- * lifetime.
- */
-static u64 key_index_id(atomic64_t *id)
-{
-	static atomic64_t next_id;
-	u64 old, new;
-
-	old = atomic64_read(id);
-	if (likely(old))
-		return old;
-
-	do {
-		new = atomic64_inc_return(&next_id);
-	} while (WARN_ON_ONCE(!new));
-
-	old = 0;
-	if (!atomic64_try_cmpxchg_relaxed(id, &old, new))
-		return old;
-	return new;
-}
-
-/*
  * Hash a key type, domain and description.  KEYCTL_READ exposes the tree's
  * traversal order, so no part of the index may contain kernel addresses.
  */
-static void hash_key_type_and_desc(struct keyring_index_key *index_key)
+static void hash_key_type_and_desc(struct keyring_index *index)
 {
 	const unsigned level_shift = ASSOC_ARRAY_LEVEL_STEP;
 	const unsigned long fan_mask = ASSOC_ARRAY_FAN_MASK;
+	struct keyring_index_key *index_key = &index->key;
 	static siphash_key_t hash_key __read_mostly;
 	unsigned long hash;
 	u64 acc;
 
 	get_random_once(&hash_key, sizeof(hash_key));
 	acc = siphash(index_key->description, index_key->desc_len, &hash_key);
-	acc = siphash_3u64(index_key->type_id, index_key->domain_id, acc,
+	acc = siphash_3u64(index->type_id, index->domain_id, acc,
 			   &hash_key);
 
 	/* Fold the hash down to 32 bits if need be. */
@@ -221,8 +341,6 @@ static void hash_key_type_and_desc(struct keyring_index_key *index_key)
 }
 
 #ifdef CONFIG_KEYP
-static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
-
 void iee_key_set_index_key(struct keyring_index_key *index_key)
 {
 	struct keyring_index_key tmp = *index_key;
@@ -236,14 +354,11 @@ void iee_key_set_index_key(struct keyring_index_key *index_key)
 #endif
 
 /*
- * Finalise an index key to include a part of the description actually in the
- * index key, to set the domain tag and index IDs, and to calculate the hash.
+ * Finalise the public index key.  The private index and its hash are created
+ * when a key or associative-array edit is published.
  */
 void key_set_index_key(struct keyring_index_key *index_key)
 {
-#ifndef CONFIG_KEYP
-	static struct key_tag default_domain_tag = { .usage = REFCOUNT_INIT(1), };
-#endif
 	size_t n = min_t(size_t, index_key->desc_len, sizeof(index_key->desc));
 
 	memcpy(index_key->desc, index_key->description, n);
@@ -254,16 +369,54 @@ void key_set_index_key(struct keyring_index_key *index_key)
 		else
 			index_key->domain_tag = &default_domain_tag;
 	}
+}
 
-	/* Preserve the IDs when copying an existing key's index.  In
-	 * particular, its type may already have been unregistered.
-	 */
-	if (!index_key->type_id)
-		index_key->type_id = key_index_id(&index_key->type->index_id);
-	if (!index_key->domain_id)
-		index_key->domain_id = key_index_id(&index_key->domain_tag->index_id);
+int key_alloc_index_key(struct key *key)
+{
+	struct keyring_index *index;
+#ifdef CONFIG_KEYP
+	struct keyring_index_key public;
+#endif
+	int ret;
 
-	hash_key_type_and_desc(index_key);
+	index = kmalloc(sizeof(*index), GFP_KERNEL);
+	if (!index)
+		return -ENOMEM;
+	ret = keyring_index_init(index, &key->index_key);
+	if (ret < 0)
+		goto error_free;
+	hash_key_type_and_desc(index);
+	index->object = key;
+
+#ifdef CONFIG_KEYP
+	public = key->index_key;
+	public.hash = index->key.hash;
+	iee_set_key_index_key(key, &public);
+#else
+	key->index_key.hash = index->key.hash;
+#endif
+	ret = xa_err(xa_store(&key_indexes, (unsigned long)key, index,
+			      GFP_KERNEL));
+	if (ret < 0)
+		goto error_destroy;
+	return 0;
+
+error_destroy:
+	keyring_index_destroy(index);
+error_free:
+	kfree(index);
+	return ret;
+}
+
+void key_free_index_key(struct key *key)
+{
+	struct keyring_index *index;
+
+	index = xa_erase(&key_indexes, (unsigned long)key);
+	if (!index)
+		return;
+	keyring_index_destroy(index);
+	kfree_rcu(index, rcu);
 }
 
 /**
@@ -308,7 +461,8 @@ void key_remove_domain(struct key_tag *domain_tag)
 static unsigned long keyring_get_key_chunk(const void *data, int level)
 {
 	const unsigned int id_chunks = sizeof(u64) / sizeof(unsigned long);
-	const struct keyring_index_key *index_key = data;
+	const struct keyring_index *index = data;
+	const struct keyring_index_key *index_key = &index->key;
 	int desc_len = index_key->desc_len;
 	unsigned long chunk = 0;
 	int n = sizeof(chunk);
@@ -325,10 +479,10 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
 
 	level -= 2;
 	if (level < id_chunks)
-		return index_key->type_id >> (level * ASSOC_ARRAY_KEY_CHUNK_SIZE);
+		return index->type_id >> (level * ASSOC_ARRAY_KEY_CHUNK_SIZE);
 	level -= id_chunks;
 	if (level < id_chunks)
-		return index_key->domain_id >> (level * ASSOC_ARRAY_KEY_CHUNK_SIZE);
+		return index->domain_id >> (level * ASSOC_ARRAY_KEY_CHUNK_SIZE);
 	level -= id_chunks;
 
 	offset = sizeof(index_key->desc) + level * sizeof(long);
@@ -349,20 +503,20 @@ static unsigned long keyring_get_key_chunk(const void *data, int level)
 
 static unsigned long keyring_get_object_key_chunk(const void *object, int level)
 {
-	const struct key *key = keyring_ptr_to_key(object);
-	return keyring_get_key_chunk(&key->index_key, level);
+	return keyring_get_key_chunk(keyring_ptr_to_index(object), level);
 }
 
 static bool keyring_compare_object(const void *object, const void *data)
 {
-	const struct keyring_index_key *index_key = data;
-	const struct key *key = keyring_ptr_to_key(object);
+	const struct keyring_index *index_a = keyring_ptr_to_index(object);
+	const struct keyring_index *index_b = data;
+	const struct keyring_index_key *a = &index_a->key;
+	const struct keyring_index_key *b = &index_b->key;
 
-	return key->index_key.type == index_key->type &&
-		key->index_key.domain_tag == index_key->domain_tag &&
-		key->index_key.desc_len == index_key->desc_len &&
-		memcmp(key->index_key.description, index_key->description,
-		       index_key->desc_len) == 0;
+	return a->type == b->type &&
+		a->domain_tag == b->domain_tag &&
+		a->desc_len == b->desc_len &&
+		memcmp(a->description, b->description, b->desc_len) == 0;
 }
 
 /*
@@ -371,9 +525,10 @@ static bool keyring_compare_object(const void *object, const void *data)
  */
 static int keyring_diff_objects(const void *object, const void *data)
 {
-	const struct key *key_a = keyring_ptr_to_key(object);
-	const struct keyring_index_key *a = &key_a->index_key;
-	const struct keyring_index_key *b = data;
+	const struct keyring_index *index_a = keyring_ptr_to_index(object);
+	const struct keyring_index *index_b = data;
+	const struct keyring_index_key *a = &index_a->key;
+	const struct keyring_index_key *b = &index_b->key;
 	unsigned long seg_a, seg_b;
 	int level, i;
 	u64 diff;
@@ -392,12 +547,12 @@ static int keyring_diff_objects(const void *object, const void *data)
 		goto differ;
 	level += sizeof(unsigned long);
 
-	diff = a->type_id ^ b->type_id;
+	diff = index_a->type_id ^ index_b->type_id;
 	if (diff)
 		return level * 8 + __ffs64(diff);
 	level += sizeof(u64);
 
-	diff = a->domain_id ^ b->domain_id;
+	diff = index_a->domain_id ^ index_b->domain_id;
 	if (diff)
 		return level * 8 + __ffs64(diff);
 	level += sizeof(u64);
@@ -720,11 +875,11 @@ static int search_keyring(struct key *keyring, struct keyring_search_context *ct
 #ifdef CONFIG_KEYP
 		object = assoc_array_find(&((struct key_struct *)(keyring->name_link.prev))->keys,
 					  &keyring_assoc_array_ops,
-					  &ctx->index_key);
+					  ctx->private_index_key);
 #else
 		object = assoc_array_find(&keyring->keys,
 					  &keyring_assoc_array_ops,
-					  &ctx->index_key);
+					  ctx->private_index_key);
 #endif
 		return object ? ctx->iterator(object, ctx) : 0;
 	}
@@ -764,14 +919,12 @@ static bool search_nested_keyrings(struct key *keyring,
 	BUG_ON((ctx->flags & STATE_CHECKS) == 0 ||
 	       (ctx->flags & STATE_CHECKS) == STATE_CHECKS);
 
-	if (ctx->index_key.description)
-		key_set_index_key(&ctx->index_key);
-
 	/* Check to see if this top-level keyring is what we are looking for
 	 * and whether it is valid or not.
 	 */
 	if (ctx->match_data.lookup_type == KEYRING_SEARCH_LOOKUP_ITERATE ||
-	    keyring_compare_object(keyring, &ctx->index_key)) {
+	    keyring_compare_object(keyring_key_to_ptr(keyring),
+				   ctx->private_index_key)) {
 		ctx->skipped_ret = 2;
 		switch (ctx->iterator(keyring_key_to_ptr(keyring), ctx)) {
 		case 1:
@@ -993,6 +1146,7 @@ found:
 key_ref_t keyring_search_rcu(key_ref_t keyring_ref,
 			     struct keyring_search_context *ctx)
 {
+	struct keyring_index private_index;
 	struct key *keyring;
 	long err;
 
@@ -1012,9 +1166,19 @@ key_ref_t keyring_search_rcu(key_ref_t keyring_ref,
 			return ERR_PTR(err);
 	}
 
+	if (ctx->match_data.lookup_type == KEYRING_SEARCH_LOOKUP_DIRECT) {
+		if (!keyring_index_lookup(&private_index, &ctx->index_key))
+			return ctx->result;
+		hash_key_type_and_desc(&private_index);
+		ctx->private_index_key = &private_index;
+	} else {
+		ctx->private_index_key = NULL;
+	}
+
 	ctx->now = ktime_get_real_seconds();
 	if (search_nested_keyrings(keyring, ctx))
 		__key_get(key_ref_to_ptr(ctx->result));
+	ctx->private_index_key = NULL;
 	return ctx->result;
 }
 
@@ -1204,6 +1368,7 @@ EXPORT_SYMBOL(keyring_restrict);
 key_ref_t find_key_to_update(key_ref_t keyring_ref,
 			     const struct keyring_index_key *index_key)
 {
+	struct keyring_index private_index;
 	struct key *keyring, *key;
 	const void *object;
 
@@ -1213,14 +1378,16 @@ key_ref_t find_key_to_update(key_ref_t keyring_ref,
 	       keyring->serial, index_key->type->name, index_key->description);
 
 	guard(rcu)();
+	if (!keyring_index_lookup(&private_index, index_key))
+		return NULL;
+	hash_key_type_and_desc(&private_index);
 #ifdef CONFIG_KEYP
 	object = assoc_array_find(&((struct key_struct *)(keyring->name_link.prev))->keys,
-				&keyring_assoc_array_ops, index_key);
+				&keyring_assoc_array_ops, &private_index);
 #else
 	object = assoc_array_find(&keyring->keys, &keyring_assoc_array_ops,
-				  index_key);
+				  &private_index);
 #endif
-
 	if (object)
 		goto found;
 
@@ -1348,8 +1515,15 @@ static int keyring_detect_cycle(struct key *A, struct key *B)
 					   KEYRING_SEARCH_DETECT_TOO_DEEP |
 					   KEYRING_SEARCH_RECURSE),
 	};
+	const struct keyring_index *index;
 
 	rcu_read_lock();
+	index = xa_load(&key_indexes, (unsigned long)A);
+	if (WARN_ON_ONCE(!index)) {
+		rcu_read_unlock();
+		return -ENOMEM;
+	}
+	ctx.private_index_key = index;
 	search_nested_keyrings(B, &ctx);
 	rcu_read_unlock();
 	return PTR_ERR(ctx.result) == -EAGAIN ? 0 : PTR_ERR(ctx.result);
@@ -1437,10 +1611,22 @@ int __key_move_lock(struct key *l_keyring, struct key *u_keyring,
 /*
  * Preallocate memory so that a key can be linked into to a keyring.
  */
-int __key_link_begin(struct key *keyring,
-		     const struct keyring_index_key *index_key,
-		     struct assoc_array_edit **_edit)
+static void keyring_free_edit_index(struct assoc_array_edit *edit)
 {
+	struct keyring_index *index;
+
+	index = assoc_array_ptr_to_leaf(edit->leaf);
+	if (WARN_ON_ONCE(!index) || index->object)
+		return;
+	keyring_index_destroy(index);
+	kfree(index);
+}
+
+int __key_link_begin(struct key *keyring, struct key *key,
+			     const struct keyring_index_key *index_key,
+			     struct assoc_array_edit **_edit)
+{
+	struct keyring_index *private_index;
 	struct assoc_array_edit *edit;
 	int ret;
 
@@ -1456,23 +1642,38 @@ int __key_link_begin(struct key *keyring,
 	if (test_bit(KEY_FLAG_REVOKED, &keyring->flags))
 		goto error;
 
+	if (key) {
+		private_index = keyring_key_to_index(key);
+		if (WARN_ON_ONCE(!private_index)) {
+			ret = -ENOMEM;
+			goto error;
+		}
+	} else {
+		private_index = kmalloc(sizeof(*private_index), GFP_KERNEL);
+		if (!private_index) {
+			ret = -ENOMEM;
+			goto error;
+		}
+		ret = keyring_index_init(private_index, index_key);
+		if (ret < 0)
+			goto error_free_index;
+		hash_key_type_and_desc(private_index);
+	}
+
 	/* Create an edit script that will insert/replace the key in the
 	 * keyring tree.
 	 */
 #ifdef CONFIG_KEYP
 	edit = assoc_array_insert(&((struct key_struct *)(keyring->name_link.prev))->keys,
 				  &keyring_assoc_array_ops,
-				  index_key,
-				  NULL);
+				  private_index, private_index);
 #else
-	edit = assoc_array_insert(&keyring->keys,
-				  &keyring_assoc_array_ops,
-				  index_key,
-				  NULL);
+	edit = assoc_array_insert(&keyring->keys, &keyring_assoc_array_ops,
+				  private_index, private_index);
 #endif
 	if (IS_ERR(edit)) {
 		ret = PTR_ERR(edit);
-		goto error;
+		goto error_destroy_index;
 	}
 
 	/* If we're not replacing a link in-place then we're going to need some
@@ -1490,7 +1691,15 @@ int __key_link_begin(struct key *keyring,
 	return 0;
 
 error_cancel:
+	keyring_free_edit_index(edit);
 	assoc_array_cancel_edit(edit);
+	goto error;
+error_destroy_index:
+	if (!key)
+		keyring_index_destroy(private_index);
+error_free_index:
+	if (!key)
+		kfree(private_index);
 error:
 	kleave(" = %d", ret);
 	return ret;
@@ -1522,9 +1731,12 @@ int __key_link_check_live_key(struct key *keyring, struct key *key)
 void __key_link(struct key *keyring, struct key *key,
 		struct assoc_array_edit **_edit)
 {
+	struct assoc_array_edit *edit = *_edit;
+
 	__key_get(key);
-	assoc_array_insert_set_object(*_edit, keyring_key_to_ptr(key));
-	assoc_array_apply_edit(*_edit);
+	keyring_free_edit_index(edit);
+	assoc_array_insert_set_object(edit, keyring_key_to_ptr(key));
+	assoc_array_apply_edit(edit);
 	*_edit = NULL;
 	notify_key(keyring, NOTIFY_KEY_LINKED, key_serial(key));
 }
@@ -1552,6 +1764,7 @@ void __key_link_end(struct key *keyring,
 			key_payload_reserve(keyring,
 				keyring->datalen - KEYQUOTA_LINK_BYTES);
 		}
+		keyring_free_edit_index(edit);
 		assoc_array_cancel_edit(edit);
 	}
 #ifdef CONFIG_KEYP
@@ -1614,7 +1827,7 @@ int key_link(struct key *keyring, struct key *key)
 	if (ret < 0)
 		goto error;
 
-	ret = __key_link_begin(keyring, &key->index_key, &edit);
+	ret = __key_link_begin(keyring, key, &key->index_key, &edit);
 	if (ret < 0)
 		goto error_end;
 
@@ -1660,16 +1873,20 @@ static int __key_unlink_lock(struct key *keyring)
 static int __key_unlink_begin(struct key *keyring, struct key *key,
 			      struct assoc_array_edit **_edit)
 {
+	const struct keyring_index *index;
 	struct assoc_array_edit *edit;
 
 	BUG_ON(*_edit != NULL);
+	index = keyring_key_to_index(key);
+	if (WARN_ON_ONCE(!index))
+		return -ENOMEM;
 
 #ifdef CONFIG_KEYP
 	edit = assoc_array_delete(&((struct key_struct *)(keyring->name_link.prev))->keys,
-				  &keyring_assoc_array_ops, &key->index_key);
+				  &keyring_assoc_array_ops, index);
 #else
 	edit = assoc_array_delete(&keyring->keys, &keyring_assoc_array_ops,
-				  &key->index_key);
+				  index);
 #endif
 	if (IS_ERR(edit))
 		return PTR_ERR(edit);
@@ -1799,7 +2016,7 @@ int key_move(struct key *key,
 	ret = __key_unlink_begin(from_keyring, key, &from_edit);
 	if (ret < 0)
 		goto error;
-	ret = __key_link_begin(to_keyring, &key->index_key, &to_edit);
+	ret = __key_link_begin(to_keyring, key, &key->index_key, &to_edit);
 	if (ret < 0)
 		goto error;
 

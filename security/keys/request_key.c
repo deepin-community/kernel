@@ -440,7 +440,7 @@ static int construct_alloc_key(struct keyring_search_context *ctx,
 		goto key_already_present;
 
 	if (dest_keyring) {
-		ret = __key_link_begin(dest_keyring, &key->index_key, &edit);
+		ret = __key_link_begin(dest_keyring, key, &key->index_key, &edit);
 		if (ret < 0)
 			goto link_alloc_failed;
 		__key_link(dest_keyring, key, &edit);
@@ -461,7 +461,7 @@ key_already_present:
 	mutex_unlock(&key_construction_mutex);
 	key = key_ref_to_ptr(key_ref);
 	if (dest_keyring) {
-		ret = __key_link_begin(dest_keyring, &key->index_key, &edit);
+		ret = __key_link_begin(dest_keyring, key, &key->index_key, &edit);
 		if (ret < 0)
 			goto link_alloc_failed_unlocked;
 		ret = __key_link_check_live_key(dest_keyring, key);

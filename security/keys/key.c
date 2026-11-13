@@ -362,6 +362,9 @@ struct key *key_alloc(struct key_type *type, const char *desc,
 	key->index_key.type = type;
 	key_set_index_key(&key->index_key);
 #endif
+	ret = key_alloc_index_key(key);
+	if (ret < 0)
+		goto security_error;
 
 #ifdef CONFIG_KEYP
 	iee_set_key_usage(key, 1, REFCOUNT_SET);
@@ -433,6 +436,7 @@ error:
 	return key;
 
 security_error:
+	key_free_index_key(key);
 	kfree(key->description);
 #ifdef CONFIG_KEYP
 	if (key_union)
@@ -455,6 +459,7 @@ security_error:
 	goto error;
 
 no_memory_3:
+	key_free_index_key(key);
 #ifdef CONFIG_KEYP
 	if (key_union)
 		kmem_cache_free(key_union_jar, key_union);
@@ -674,7 +679,7 @@ int key_instantiate_and_link(struct key *key,
 		if (ret < 0)
 			goto error;
 
-		ret = __key_link_begin(keyring, &key->index_key, &edit);
+		ret = __key_link_begin(keyring, key, &key->index_key, &edit);
 		if (ret < 0)
 			goto error_link_end;
 
@@ -751,7 +756,7 @@ int key_reject_and_link(struct key *key,
 				__key_link_end(keyring, &key->index_key, edit);
 				return -EPERM;
 			}
-			link_ret = __key_link_begin(keyring, &key->index_key, &edit);
+			link_ret = __key_link_begin(keyring, key, &key->index_key, &edit);
 			if (link_ret < 0)
 				__key_link_end(keyring, &key->index_key, edit);
 		}
@@ -1059,7 +1064,7 @@ static key_ref_t __key_create_or_update(key_ref_t keyring_ref,
 		goto error_free_prep;
 	}
 
-	ret = __key_link_begin(keyring, &index_key, &edit);
+	ret = __key_link_begin(keyring, key, &index_key, &edit);
 	if (ret < 0) {
 		key_ref = ERR_PTR(ret);
 		goto error_link_end;
