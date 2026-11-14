@@ -56,7 +56,17 @@
 #define REG_RP_INT_MASK      0x28
 #define REG_FAKE_DR             0x30
 #define REG_FAKE_FR             0x34
-#define REG_CHECK_TX		0x4c
+
+/*
+ * Add for ddr transaction
+ */
+#define REG_CHECK_FEATURE	0x700
+#define BIT_SUPPORT_DDR		BIT(16)
+#define TYPE_MAX_LEN		12
+#define DATA_MAX_LEN		160
+#define DDR_BUF_SIZE		2048
+#define DDR_RX_MSG_SIZE		0x20
+#define DDR_TX_MSG_SIZE		0x20
 
 #define MODEM_CTS               0x1
 #define MODEM_DSR               0x2
@@ -150,6 +160,7 @@ enum phytuart_set_subid {
 	PHYTUART_MSG_CMD_SET_MCTRL,
 	PHYTUART_MSG_CMD_SET_TERMIOS,
 	PHYTUART_MSG_CMD_SET_DISABLE_UART,
+	PHYTUART_MSG_CMD_SET_DDR_BASE = 29,
 };
 
 /* for trans subid to hex */
