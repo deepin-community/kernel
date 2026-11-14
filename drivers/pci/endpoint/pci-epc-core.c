@@ -15,6 +15,9 @@
 #include <linux/pci-ep-cfs.h>
 
 static struct class *pci_epc_class;
+#ifdef CONFIG_ARCH_PHYTIUM
+static DEFINE_SPINLOCK(epc_dma_lock);
+#endif
 
 static void devm_pci_epc_release(struct device *dev, void *res)
 {
@@ -205,6 +208,54 @@ int pci_epc_start(struct pci_epc *epc)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pci_epc_start);
+
+/**
+ * pci_epc_start_dma() - start dma with phytium-d2000 ep
+ * @cpu_addr: ep local mem addr
+ * @pci_addr: pci doamin addr,which means rc mem addr
+ * @size: transfer total data size bytes
+ * @mode: which direct the dma work,EP_TO_RC/RC_TO_EP
+ */
+#ifdef CONFIG_ARCH_PHYTIUM
+int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, u64 cpu_addr, u64 pci_addr,
+		size_t size, u8 mode)
+{
+	int ret;
+	unsigned long flags;
+
+	if (IS_ERR(epc))
+		return -EINVAL;
+
+	if (!epc->ops->start_dma)
+		return 0;
+
+	spin_lock_irqsave(&epc_dma_lock, flags);
+	ret = epc->ops->start_dma(epc, func_no, cpu_addr, pci_addr, size, mode);
+	spin_unlock_irqrestore(&epc_dma_lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epc_start_dma);
+
+int pci_epc_dma_status(struct pci_epc *epc, u8 func_no, u8 mode)
+{
+	int ret;
+	unsigned long flags;
+
+	if (IS_ERR(epc))
+		return -EINVAL;
+
+	if (!epc->ops->dma_status)
+		return 0;
+
+	spin_lock_irqsave(&epc_dma_lock, flags);
+	ret = epc->ops->dma_status(epc, func_no, mode);
+	spin_unlock_irqrestore(&epc_dma_lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epc_dma_status);
+#endif
 
 /**
  * pci_epc_raise_irq() - interrupt the host system

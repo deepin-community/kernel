@@ -86,6 +86,13 @@ struct pci_epc_ops {
 			       u32 *msi_addr_offset);
 	int	(*start)(struct pci_epc *epc);
 	void	(*stop)(struct pci_epc *epc);
+
+#ifdef CONFIG_ARCH_PHYTIUM
+	int	(*start_dma)(struct pci_epc *epc, u8 func_no, u64 cpu_addr, u64 pci_addr,
+			size_t size, u8 mode);
+	int	(*dma_status)(struct pci_epc *epc, u8 func_no, u8 mode);
+#endif
+
 	const struct pci_epc_features* (*get_features)(struct pci_epc *epc,
 						       u8 func_no, u8 vfunc_no);
 	struct module *owner;
@@ -251,4 +258,11 @@ void __iomem *pci_epc_mem_alloc_addr(struct pci_epc *epc,
 				     phys_addr_t *phys_addr, size_t size);
 void pci_epc_mem_free_addr(struct pci_epc *epc, phys_addr_t phys_addr,
 			   void __iomem *virt_addr, size_t size);
+
+#ifdef CONFIG_ARCH_PHYTIUM
+int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, u64 cpu_addr,
+		      u64 pci_addr, size_t size, u8 mode);
+int pci_epc_dma_status(struct pci_epc *epc, u8 func_no, u8 mode);
+#endif
+
 #endif /* __LINUX_PCI_EPC_H */
