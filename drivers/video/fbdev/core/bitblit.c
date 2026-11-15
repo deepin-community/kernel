@@ -194,9 +194,9 @@ static void bit_putcs(struct vc_data *vc, struct fb_info *info,
 		      const unsigned short *s, int count, int yy, int xx,
 		      int fg, int bg)
 {
-	struct fbcon_par *par = info->fbcon_par;
+	struct fbcon_ops *ops = info->fbcon_par;
 	struct fb_image image;
-	u32 vyres = GETVYRES(par->p, info);
+	u32 vyres = GETVYRES(ops->p, info);
 	u32 width = DIV_ROUND_UP(vc->vc_font.width, 8);
 	u32 cellsize = width * vc->vc_font.height;
 	u32 maxcnt = info->pixmap.size/cellsize;
