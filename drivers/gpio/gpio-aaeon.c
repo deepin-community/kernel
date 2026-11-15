@@ -162,7 +162,7 @@ static int aaeon_gpio_get_number(void)
 
 static int __init aaeon_gpio_probe(struct platform_device *pdev)
 {
-	int err, i;
+	int err;
 	int dio_number = 0;
 	struct aaeon_gpio_data *data;
 	struct aaeon_gpio_bank *bank;
@@ -190,7 +190,7 @@ static int __init aaeon_gpio_probe(struct platform_device *pdev)
 	bank->data = data;
 	err = devm_gpiochip_add_data(&pdev->dev, &bank->chip, bank);
 	if (err)
-		pr_debug("Failed to register gpiochip %d: %d\n", i, err);
+		pr_debug("Failed to register gpiochip: %d\n", err);
 
 	return err;
 }
