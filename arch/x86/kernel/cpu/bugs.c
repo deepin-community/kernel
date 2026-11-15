@@ -3119,7 +3119,7 @@ static const char * const srso_strings[] = {
 	[SRSO_MITIGATION_IBPB_ON_VMEXIT]	= "Mitigation: IBPB on VMEXIT only",
 	[SRSO_MITIGATION_BP_SPEC_REDUCE]	= "Mitigation: Reduced Speculation",
 	[SRSO_MITIGATION_EIBRS]			= "Mitigation: Enhanced IBRS",
-	[SRSO_MITIGATION_EIBRS_UCODE_NEEDED]	= "Vulnerable: Enhanced IBRS, no microcode"
+	[SRSO_MITIGATION_EIBRS_UCODE_NEEDED]	= "Vulnerable: Enhanced IBRS, no microcode",
 	[SRSO_MITIGATION_USER_IBPB]		= "Mitigation: IBPB on context switch",
 };
 
