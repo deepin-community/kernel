@@ -348,7 +348,8 @@ again:
 		}
 
 		key->both.offset |= FUT_OFF_MMSHARED;
-		key->private.mm_seq = get_object_id(&mm->futex_unique_id);
+		key->private.mm_seq =
+			get_object_id((atomic64_t *)&mm->futex_unique_id);
 		key->private.address = address;
 
 	} else {

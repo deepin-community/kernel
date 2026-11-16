@@ -1347,7 +1347,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	mm_init_uprobes_state(mm);
 	hugetlb_count_init(mm);
 #ifdef CONFIG_FUTEX
-	atomic64_set(&mm->futex_unique_id, 0);
+	atomic64_set((atomic64_t *)&mm->futex_unique_id, 0);
 #endif
 
 	if (current->mm) {
