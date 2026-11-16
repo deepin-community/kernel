@@ -363,9 +363,6 @@ struct io_ring_ctx {
 	bool				iowq_limits_set;
 
 	struct callback_head		poll_wq_task_work;
-	/* deferred ->poll_wq wake up for local task_work */
-	struct rcu_head			poll_wq_rcu;
-	atomic_t			poll_wq_rcu_pending;
 	struct list_head		defer_list;
 	unsigned			sq_thread_idle;
 	/* protected by ->completion_lock */
@@ -379,6 +376,9 @@ struct io_ring_ctx {
 	unsigned short			n_sqe_pages;
 	struct page			**ring_pages;
 	struct page			**sqe_pages;
+	/* deferred ->poll_wq wake up for local task_work */
+	DEEPIN_KABI_EXTEND(struct rcu_head poll_wq_rcu)
+	DEEPIN_KABI_EXTEND(atomic_t poll_wq_rcu_pending)
 };
 
 struct io_tw_state {
