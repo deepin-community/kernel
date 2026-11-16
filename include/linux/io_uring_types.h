@@ -4,6 +4,7 @@
 #include <linux/blkdev.h>
 #include <linux/task_work.h>
 #include <linux/bitmap.h>
+#include <linux/deepin_kabi.h>
 #include <linux/llist.h>
 #include <uapi/linux/io_uring.h>
 
@@ -579,7 +580,8 @@ struct io_kiocb {
 		__poll_t apoll_events;
 	};
 	atomic_t			refs;
-	bool				cancel_seq_set;
+	DEEPIN_KABI_REPLACE(atomic_t poll_refs,
+			    bool cancel_seq_set)
 	struct io_task_work		io_task_work;
 	unsigned			nr_tw;
 	/* for polled requests, i.e. IORING_OP_POLL_ADD and async armed poll */
@@ -589,7 +591,6 @@ struct io_kiocb {
 	/* opcode allocated if it needs to store data for async defer */
 	void				*async_data;
 	/* linked requests, IFF REQ_F_HARDLINK or REQ_F_LINK are set */
-	atomic_t			poll_refs;
 	struct io_kiocb			*link;
 	/* custom credentials, valid IFF REQ_F_CREDS is set */
 	const struct cred		*creds;
@@ -599,6 +600,7 @@ struct io_kiocb {
 		u64			extra1;
 		u64			extra2;
 	} big_cqe;
+	DEEPIN_KABI_EXTEND(atomic_t poll_refs)
 };
 
 struct io_overflow_cqe {
