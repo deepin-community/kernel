@@ -923,10 +923,6 @@ struct mm_struct {
 		 */
 		int mm_lock_seq;
 #endif
-#ifdef CONFIG_FUTEX
-		atomic64_t futex_unique_id;
-#endif
-
 
 		unsigned long hiwater_rss; /* High-watermark of RSS usage */
 		unsigned long hiwater_vm;  /* High-water virtual memory usage */
@@ -1061,8 +1057,26 @@ struct mm_struct {
 #endif /* CONFIG_LRU_GEN */
 	} __randomize_layout;
 
+#ifdef CONFIG_FUTEX
+#ifdef CONFIG_64BIT
+	DEEPIN_KABI_USE(1, atomic64_t futex_unique_id)
+	DEEPIN_KABI_RESERVE(2)
+#else
+	/*
+	 * 32-bit reserve words are four bytes each and only four-byte
+	 * aligned, which cannot host the alignment atomic64_t needs (eight
+	 * bytes on ARM EABI), so keep two u32 words and cast at the use
+	 * sites.  The anonymous struct above holds atomic64_t pinned_vm,
+	 * so its size is a multiple of eight and this storage in fact sits
+	 * at an eight-byte-aligned offset, keeping the casts safe and
+	 * cpu_bitmap at its baseline offset on every layout.
+	 */
+	DEEPIN_KABI_USE(1, 2, u32 futex_unique_id[2])
+#endif
+#else
 	DEEPIN_KABI_RESERVE(1)
 	DEEPIN_KABI_RESERVE(2)
+#endif
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
