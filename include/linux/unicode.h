@@ -4,6 +4,7 @@
 
 #include <linux/init.h>
 #include <linux/dcache.h>
+#include <linux/deepin_kabi.h>
 
 struct utf8data;
 struct utf8data_table;
@@ -51,7 +52,7 @@ struct unicode_map {
 	unsigned int version;
 	const struct utf8data *ntab[UTF8_NMAX];
 	const struct utf8data_table *tables;
-	struct rcu_head rcu;
+	DEEPIN_KABI_EXTEND(struct rcu_head rcu)
 };
 
 int utf8_validate(const struct unicode_map *um, const struct qstr *str);
