@@ -12,6 +12,7 @@
 #include <linux/bio.h>
 #include <linux/blkdev.h>
 #include <linux/dm-ioctl.h>
+#include <linux/deepin_kabi.h>
 #include <linux/math64.h>
 #include <linux/ratelimit.h>
 
@@ -357,11 +358,6 @@ struct dm_target {
 	bool discards_supported:1;
 
 	/*
-	 * Set if this target requires stable data during writeback.
-	 */
-	bool needs_stable_writes:1;
-
-	/*
 	 * Set if this target requires that discards be split on
 	 * 'max_discard_sectors' boundaries.
 	 */
@@ -401,6 +397,9 @@ struct dm_target {
 	 * bio_set_dev(). NOTE: ideally a target should _not_ need this.
 	 */
 	bool needs_bio_set_dev:1;
+
+	/* Set if this target requires stable data during writeback. */
+	DEEPIN_KABI_EXTEND(bool needs_stable_writes:1)
 };
 
 void *dm_per_bio_data(struct bio *bio, size_t data_size);
