@@ -293,7 +293,8 @@ restart:
 			if (unlikely(!refcount_inc_not_zero_acquire(&sk->sk_refcnt)))
 				continue;
 
-			if (refcount_read(&sock_net(sk)->ns.count)) {
+			if (unlikely(hlist_nulls_unhashed_lockless(&sk->sk_nulls_node) ||
+			    refcount_read(&sock_net(sk)->ns.count))) {
 				sock_gen_put(sk);
 				goto restart;
 			}
