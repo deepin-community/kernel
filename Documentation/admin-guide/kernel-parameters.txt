@@ -7428,3 +7428,89 @@
 				xmon commands.
 			off	xmon is disabled.
 
+	ps3stor.cli_ver=
+			[HW] Version used for the communication between
+			the driver and the CLI.
+			Format: <uint>
+
+	ps3stor.g_aer_handle_support=
+			[HW] Enable/disable PCIe AER handling by the driver.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_device_busy_threshold=
+			[HW] Device busy threshold value.
+			Format: <uint>
+			Default: 8
+
+	ps3stor.g_direct_check_stream_enable=
+			[HW] Enable/disable stream detection on the direct path.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_direct_to_normal_enable=
+			[HW] Enable/disable switching from the direct
+			path to the normal path.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_enable_heartbeat=
+			[HW] Enable/disable the heartbeat query feature.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_latency_perf_mode_enable=
+			[HW] Enable/disable latency performance mode.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 0
+
+	ps3stor.g_log_path=
+			[HW] Directory the host driver log file is saved
+			in. The path must be shorter than 80 chars.
+			Format: <string>
+			Default: /var/log
+
+	ps3stor.g_ps3_r1x_lock_enable=
+			[HW] R1x write conflict check feature enable/disable.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 0
+
+	ps3stor.g_ps3_tagset_enable=
+			[HW] Enable/disable the shared host tagset.
+			Format: <int> {0 = disable, 1 = enable}
+			Default: 0
+
+	ps3stor.g_scsi_cmd_timeout=
+			[HW] SCSI command timeout, in seconds.
+			Format: <uint> {10-255}
+			Default: 0 (the driver default of 90s is used)
+
+	ps3stor.g_smp_affinity_enable=
+			[HW] Enable/disable the SMP affinity feature.
+			Format: <int> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_throttle_que_depth=
+			[HW] IOC queue depth used when throttled due to
+			SCSI command timeouts.
+			Format: <uint>
+			Default: 16
+
+	ps3stor.g_use_clustering=
+			[HW] Enable/disable the SCSI mid-layer bio merge
+			feature.
+			Format: <uint> {0 = disable, 1 = enable}
+			Default: 1
+
+	ps3stor.g_version_verbose=
+			[HW] Display detailed version information about
+			the ps3stor driver.
+			Format: <string>
+
+	ps3stor.max_sgl_entries=
+			[HW] Preferred maximum number of SGEs used for a
+			single I/O. The actual value is determined by the
+			driver.
+			Format: <int> {128, 256, 262, 512}
+			Default: 262
+
