@@ -7478,7 +7478,7 @@
 	ps3stor.g_ps3_tagset_enable=
 			[HW] Enable/disable the shared host tagset.
 			Format: <int> {0 = disable, 1 = enable}
-			Default: 0
+			Default: 1
 
 	ps3stor.g_scsi_cmd_timeout=
 			[HW] SCSI command timeout, in seconds.
