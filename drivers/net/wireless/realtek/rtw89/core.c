@@ -7708,6 +7708,7 @@ struct rtw89_dev *rtw89_alloc_ieee80211_hw(struct device *device,
 	rtwdev->board = info->board;
 	rtwdev->fw.req.firmware = firmware;
 	rtwdev->fw.fw_format = fw_format;
+	rtwdev->support_chanctx = !no_chanctx;
 	rtwdev->support_mlo = support_mlo;
 
 	bitmap_or(rtwdev->quirks, rtwdev->quirks, dev_id_quirks,
