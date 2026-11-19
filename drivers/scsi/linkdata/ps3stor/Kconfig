@@ -1,0 +1,8 @@
+config SCSI_PS3STOR
+        tristate "Linkdata ps3stor Storage Controller Device Driver"
+        depends on PCI && SCSI
+        select SCSI_SAS_ATTRS
+        select RAID_ATTRS
+        select IRQ_POLL
+        help
+        This driver supports Linkdata HBA & RAID controllers.
