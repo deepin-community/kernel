@@ -158,9 +158,7 @@ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
 	if (tcptw->tw_ts_recent_stamp &&
 	    (!twp || (reuse && time_after32(ktime_get_seconds(),
 					    tcptw->tw_ts_recent_stamp)))) {
-		/* inet_twsk_hashdance_schedule() sets sk_refcnt after putting twsk
-		 * and releasing the bucket lock.
-		 */
+		/* inet_twsk_hashdance_schedule() sets sk_refcnt before publishing twsk. */
 		if (unlikely(!refcount_inc_not_zero(&sktw->sk_refcnt)))
 			return 0;
 
