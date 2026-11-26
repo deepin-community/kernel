@@ -150,6 +150,24 @@ config ARM_SUN8I_A33_MBUS_DEVFREQ
 	  This adds the DEVFREQ driver for the MBUS controller in some
 	  Allwinner sun8i (A33 through H3) and sun50i (A64 and H5) SoCs.
 
+config ARM_PHYTIUM_NOC_DEVFREQ
+	tristate "ARM PHYTIUM NOC DEVFREQ Driver"
+	depends on ARCH_PHYTIUM
+	depends on ACPI
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	help
+	  This adds the DEVFREQ driver for Phytium Net On Chip.
+	  It adjusts frequency for noc based on load bandwidth obtained from register.
+
+config ARM_PHYTIUM_DMU_DEVFREQ
+	tristate "ARM PHYTIUM DMU DEVFREQ Driver"
+	depends on ARCH_PHYTIUM
+	depends on ACPI
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	help
+	  This adds the DEVFREQ driver for Phytium DDR Memory Unit.
+	  It adjusts frequency for dmu based on load bandwidth obtained from register.
+
 source "drivers/devfreq/event/Kconfig"
 
 endif # PM_DEVFREQ
