@@ -23,6 +23,8 @@ struct phytium_pcie_ep {
 	unsigned long		irq_pci_addr;
 	u8			irq_pci_fn;
 	struct pci_epc		*epc;
+
+	struct platform_device *pdev;
 };
 
 static inline void
