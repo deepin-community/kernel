@@ -431,41 +431,49 @@ static const struct drm_sched_backend_ops v3d_cache_clean_sched_ops = {
 int
 v3d_sched_init(struct v3d_dev *v3d)
 {
-	struct drm_sched_init_args args = {
-		.hw_submission = 1,
-		.timeout = msecs_to_jiffies(500),
-		.dev = v3d->drm.dev,
-	};
+	int hw_jobs_limit = 1;
+	int job_hang_limit = 0;
+	int hang_limit_ms = 500;
 	int ret;
 
-	args.ops = &v3d_bin_sched_ops;
-	args.name = "v3d_bin";
-	ret = drm_sched_init(&v3d->queue[V3D_BIN].sched, &args);
+	ret = drm_sched_init(&v3d->queue[V3D_BIN].sched,
+			     &v3d_bin_sched_ops,
+			     hw_jobs_limit, job_hang_limit,
+			     msecs_to_jiffies(hang_limit_ms), NULL,
+			     NULL, "v3d_bin", v3d->drm.dev);
 	if (ret)
 		return ret;
 
-	args.ops = &v3d_render_sched_ops;
-	args.name = "v3d_render";
-	ret = drm_sched_init(&v3d->queue[V3D_RENDER].sched, &args);
+	ret = drm_sched_init(&v3d->queue[V3D_RENDER].sched,
+			     &v3d_render_sched_ops,
+			     hw_jobs_limit, job_hang_limit,
+			     msecs_to_jiffies(hang_limit_ms), NULL,
+			     NULL, "v3d_render", v3d->drm.dev);
 	if (ret)
 		goto fail;
 
-	args.ops = &v3d_tfu_sched_ops;
-	args.name = "v3d_tfu";
-	ret = drm_sched_init(&v3d->queue[V3D_TFU].sched, &args);
+	ret = drm_sched_init(&v3d->queue[V3D_TFU].sched,
+			     &v3d_tfu_sched_ops,
+			     hw_jobs_limit, job_hang_limit,
+			     msecs_to_jiffies(hang_limit_ms), NULL,
+			     NULL, "v3d_tfu", v3d->drm.dev);
 	if (ret)
 		goto fail;
 
 	if (v3d_has_csd(v3d)) {
-		args.ops = &v3d_csd_sched_ops;
-		args.name = "v3d_csd";
-		ret = drm_sched_init(&v3d->queue[V3D_CSD].sched, &args);
+		ret = drm_sched_init(&v3d->queue[V3D_CSD].sched,
+				     &v3d_csd_sched_ops,
+				     hw_jobs_limit, job_hang_limit,
+				     msecs_to_jiffies(hang_limit_ms), NULL,
+				     NULL, "v3d_csd", v3d->drm.dev);
 		if (ret)
 			goto fail;
 
-		args.ops = &v3d_cache_clean_sched_ops;
-		args.name = "v3d_cache_clean";
-		ret = drm_sched_init(&v3d->queue[V3D_CACHE_CLEAN].sched, &args);
+		ret = drm_sched_init(&v3d->queue[V3D_CACHE_CLEAN].sched,
+				     &v3d_cache_clean_sched_ops,
+				     hw_jobs_limit, job_hang_limit,
+				     msecs_to_jiffies(hang_limit_ms), NULL,
+				     NULL, "v3d_cache_clean", v3d->drm.dev);
 		if (ret)
 			goto fail;
 	}
